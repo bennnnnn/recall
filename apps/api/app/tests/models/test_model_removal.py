@@ -16,8 +16,8 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from app.exceptions import UnknownModelOverrideError
-from app.models import model_catalog
-from app.models.model_removal import current_choices, requested_choice
+from app.models import model_catalog, model_removal
+from app.models.model_removal import REMOVED_ALIASES, current_choices, requested_choice
 from app.models.schemas.auth import UserOut, UserUpdate
 from app.models.schemas.chats import ChatCreate, ChatMessageRequest
 from app.modules.billing import plan
@@ -31,10 +31,12 @@ REMOVED = "glm-5.3-flash"
 
 @pytest.fixture
 def removed(monkeypatch: pytest.MonkeyPatch) -> str:
-    """The catalog as it would be with ``REMOVED`` deleted from it."""
+    """The catalog as it would be with ``REMOVED`` deleted from it and its alias listed as
+    removed, as a removal does both."""
     kept = tuple(model for model in model_catalog.CATALOG if model.id != REMOVED)
     monkeypatch.setattr(model_catalog, "CATALOG", kept)
     monkeypatch.setattr(model_catalog, "_BY_ID", {model.id: model for model in kept})
+    monkeypatch.setattr(model_removal, "REMOVED_ALIASES", REMOVED_ALIASES | {REMOVED})
     return REMOVED
 
 
@@ -71,16 +73,38 @@ def test_a_request_naming_a_removed_model_is_auto(removed: str, value: str, choi
     assert ChatCreate.model_validate({"model": value}).model == choice
 
 
-@pytest.mark.parametrize("value", ["Not A Model!", "", "x" * 80, "free chat"])
+@pytest.mark.parametrize(
+    "value",
+    # Shaped like an alias or not, a name the catalog never had is refused: a typo of a
+    # real alias, another app's model, a made-up lane (review of PR #2420).
+    [
+        "smart-chta",
+        "fake-model",
+        "gpt-4o",
+        "image-search-model",
+        "not-a-model",
+        "Not A Model!",
+        "",
+        "x" * 80,
+        "free chat",
+    ],
+)
 def test_a_name_no_alias_ever_had_is_still_refused(value: str) -> None:
     with pytest.raises(ValidationError, match="Unknown model alias"):
         ChatMessageRequest.model_validate({"model": value})
+    with pytest.raises(ValidationError, match="Unknown model alias"):
+        UserUpdate(default_model=value)
+    with pytest.raises(ValidationError, match="Unknown model alias"):
+        UserUpdate(enabled_models=["auto", value])
 
 
-def test_every_catalog_alias_has_the_alias_shape() -> None:
-    """``requested_choice`` reads a dropped alias as Auto only when it looks like one."""
+def test_a_removed_alias_is_one_the_catalog_no_longer_has() -> None:
+    """An alias brought back is the catalog's again, and every catalog alias is itself."""
+    assert not REMOVED_ALIASES & model_catalog.known_ids()
     for alias in model_catalog.known_ids():
         assert requested_choice(alias) == alias
+    for alias in REMOVED_ALIASES:
+        assert requested_choice(alias) == "auto"
 
 
 def _user_out(enabled: list[str] | None) -> UserOut:
@@ -141,6 +165,15 @@ def test_an_older_app_choosing_a_removed_model_turns_auto_on(removed: str) -> No
     status, captured = _patch_me(api_user(enabled_models=["free-chat"]), {"default_model": removed})
     assert status == 200
     assert captured["enabled_models"][0] == "auto"
+
+
+def test_a_mistyped_model_is_refused_and_leaves_auto_off() -> None:
+    """A typo of a real alias was read as a removed model and switched Auto on."""
+    status, captured = _patch_me(
+        api_user(enabled_models=["free-chat"]), {"default_model": "smart-chta"}
+    )
+    assert status == 422
+    assert captured == {}
 
 
 def test_a_message_naming_the_removed_model_gets_an_answer(removed: str) -> None:

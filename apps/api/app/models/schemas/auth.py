@@ -18,7 +18,7 @@ from app.core.validation import (
     normalize_display_name,
     normalize_locale_code,
 )
-from app.models.model_removal import current_choices
+from app.models.model_removal import current_choices, requested_choice
 from app.models.schemas.common import EmojiUse, ModelChoice, ResponseTone, UserVoice
 from app.models.schemas.text import UserText
 
@@ -228,9 +228,12 @@ class UserUpdate(BaseModel):
     @classmethod
     def validate_enabled_models(cls, value: list[str] | None) -> list[str] | None:
         """The phone sends back the switches it was given: one the catalog has dropped since
-        is left out (``current_choices``), so the rest still save."""
+        is left out (``current_choices``), so the rest still save. A name that was never
+        an alias is refused (``requested_choice``)."""
         if value is None:
             return None
+        for entry in value:
+            requested_choice(entry)
         kept = current_choices(value)
         if not kept:
             raise ValueError("Turn on Auto or at least one model.")

@@ -712,7 +712,7 @@ def test_ws_invalid_message_payload():
         client = TestClient(app)
         with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
             ws.send_json({"token": tok})
-            ws.send_json({"type": "message", "content": "hi", "model": "Not A Model!"})
+            ws.send_json({"type": "message", "content": "hi", "model": "not-a-model"})
             err = ws.receive_json()
             assert err["type"] == "error"
 

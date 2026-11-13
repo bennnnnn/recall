@@ -1,7 +1,8 @@
 """Catalog of chat models — the single source of truth for routing, pricing,
 provider, and availability. Adding a provider/model is one entry here. Removing one
-needs no data migration: a saved switch of a dropped alias is off, a request naming it is
-Auto, and startup refuses lanes that still name it (``model_removal``).
+needs no data migration, only its alias in ``model_removal.REMOVED_ALIASES``: a saved
+switch of it is off, a request naming it is Auto, and startup refuses lanes that still
+name it.
 
 Chat and image models route through **OpenRouter** using ``OPENROUTER_API_KEY``.
 Voice uses OpenAI directly with ``OPENAI_API_KEY``.
@@ -387,8 +388,8 @@ _BY_ID: dict[str, ChatModel] = {m.id: m for m in CATALOG}
 def get(model_id: str) -> ChatModel:
     """Resolve a known product alias. Unknown ids raise — never silent fallback.
 
-    Callers check ``known_ids()`` first; request schemas read a removed alias as
-    Auto (``model_removal``).
+    Callers check ``known_ids()`` first; request schemas read an alias the catalog
+    removed as Auto and refuse any other unknown name (``model_removal``).
     """
     try:
         return _BY_ID[model_id]

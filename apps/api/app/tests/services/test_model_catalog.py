@@ -197,9 +197,9 @@ def test_price_sort_key_unpriced_max_tier_still_sorts_last():
     assert [m.id for m in ranked] == ["priced-fast", "unpriced-max"]
 
 
-def test_user_update_rejects_a_default_model_no_alias_has():
+def test_user_update_rejects_unknown_default_model():
     with pytest.raises(ValidationError, match="Unknown model alias"):
-        UserUpdate(default_model="Fake Model")
+        UserUpdate(default_model="fake-model")
 
 
 def test_user_update_accepts_model_mode():
