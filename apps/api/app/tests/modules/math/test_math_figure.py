@@ -440,12 +440,15 @@ def test_a_miscopied_inequality_draws_nothing() -> None:
 @pytest.mark.parametrize(
     "question, reading, explicit, ys",
     [
-        ("1 inch = 2.54 cm. Draw a conversion graph from inches to centimetres for 0 to 12 inches.",
+        ("0 inches is 0 cm and 10 inches is 25.4 cm. Draw a conversion graph from inches to "
+         "centimetres for 0 to 12 inches.",
          {"kind": "function", "expr": "2.54x", "x_min": 0, "x_max": 12,
-          "x_label": "inches", "y_label": "centimetres"},
+          "x_label": "inches", "y_label": "centimetres",
+          "pairs": [{"x": 0, "y": 0}, {"x": 10, "y": 25.4}]},
          True, (0.0, 30.48)),
-        ("The depth of water is 144 m at week 0 and falls by 4 m each week. Draw a line graph for weeks 0 to 12.",
-         {"kind": "function", "expr": "144 - 4x", "x_min": 0, "x_max": 12},
+        ("The depth of water is 144 m at week 0 and 104 m at week 10. Draw a line graph for weeks 0 to 12.",
+         {"kind": "function", "expr": "144 - 4x", "x_min": 0, "x_max": 12,
+          "pairs": [{"x": 0, "y": 144}, {"x": 10, "y": 104}]},
          True, (144.0, 96.0)),
         ("Draw the graph of y = -x + 4 and find where it crosses the axes.",
          {"kind": "function", "expr": "-x + 4"},

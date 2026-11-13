@@ -247,6 +247,9 @@ def grounded(request: FigureRequest, texts: Sequence[str]) -> bool:
     bounds = [v for v in (request.x_min, request.x_max) if v is not None]
     if not all((origin and v == 0) or _signed(found, v) for v in bounds):
         return False
+    # A worded line's pairs ("144 m at week 0") are each written, sign and all.
+    if not all(_signed(found, p.x) and _signed(found, p.y) for p in request.pairs):
+        return False
     pairs = [pair for text in own for pair in _pairs(text)]
     for point in request.points:
         if pairs and not any(_same(x, point.x) and _same(y, point.y) for x, y in pairs):
@@ -285,12 +288,4 @@ def with_unit(request: FigureRequest, texts: Sequence[str]) -> FigureRequest:
         request.model_copy(update={"unit": common.pop()})
         if common and len(common) == 1
         else request
-    )
-
-
-def stated_in(value: float, texts: Sequence[str]) -> bool:
-    """``value`` is a number the question writes, whatever its role: a word problem's
-    amounts ("144 m deep, falling 4 m a week") for a formula it describes in words."""
-    return any(
-        _same(abs(w.value), abs(value)) for text in own_texts(texts) for w in written_numbers(text)
     )

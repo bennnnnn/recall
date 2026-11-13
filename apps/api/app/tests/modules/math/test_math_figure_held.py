@@ -375,3 +375,45 @@ def test_a_reading_without_the_unit_takes_the_one_every_length_is_written_in() -
     spec = _figure(question, _tri("right_triangle", measures, "PQR"))
     assert {s.label for s in spec.segments if s.label} == {"6 cm", "10 cm"}
     assert _right_at(spec) == ["Q"]
+
+
+_FALLS = (
+    "The depth of water in a reservoir is 144 m at week 0 and falls by 4 m each week. "
+    "Draw a line graph for weeks 0 to 12."
+)
+_TWO_POINTS = (
+    "The depth of water in a reservoir is 144 m at week 0 and 104 m at week 10. "
+    "Draw a line graph for weeks 0 to 12."
+)
+
+
+@pytest.mark.parametrize(
+    "question, expr, pairs, drawn",
+    [
+        # A rate and one value fix no line the server can check: "falls" read as a rise
+        # drew 144 + 4x. The sign is never read from the words.
+        (_FALLS, "144 - 4x", [(0, 144)], False),
+        (_FALLS, "144 + 4x", [(0, 144)], False),
+        # Two stated pairs fix it: the read's line must pass through both.
+        (_TWO_POINTS, "144 - 4x", [(0, 144), (10, 104)], True),
+        (_TWO_POINTS, "144 + 4x", [(0, 144), (10, 104)], False),
+        (_TWO_POINTS, "144 - 5x", [(0, 144), (10, 104)], False),
+        # A pair the question does not state is no pair of its own.
+        (_TWO_POINTS, "144 - 4.8x", [(0, 144), (10, 96)], False),
+    ],
+)
+def test_a_line_in_words_is_drawn_only_through_the_stated_pairs(
+    question: str, expr: str, pairs: list[tuple[float, float]], drawn: bool
+) -> None:
+    reading = {
+        "kind": "function",
+        "expr": expr,
+        "x_min": 0,
+        "x_max": 12,
+        "pairs": [{"x": x, "y": y} for x, y in pairs],
+    }
+    graph = _draw(question, reading)
+    assert (graph is not None) is drawn
+    if graph is not None:
+        ends = (graph[1]["points"][0][1], graph[1]["points"][-1][1])
+        assert ends == pytest.approx((144.0, 96.0))

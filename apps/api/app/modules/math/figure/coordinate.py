@@ -4,22 +4,23 @@ These parse with SymPy, so they run in the SymPy pool with the rest of a figure'
 A function is drawn only as the question writes it: when the question holds a formula, the
 read's must be that whole formula in the question's own letter (SymPy compares them; "x = 3"
 is a vertical line, no function, and a question writing two functions has no one to draw);
-a quantity described in words ("144 m at week 0, falling 4 m each week") is drawn from the
-stated numbers alone. An inequality is drawn only when it is the question's, the whole of it
-("x > -3" is no part of "2x > -3"), its whole numbers marked when only those are asked for.
+a quantity described in words is drawn only as a line through every pair of values the
+question states, two of them fixing it ("144 m at week 0 and 104 m after 10 weeks"); a rate
+and one value ("falling 4 m each week") fix nothing the server can check. An inequality is
+drawn only when it is the question's, the whole of it ("x > -3" is no part of "2x > -3"),
+its whole numbers marked when only those are asked for.
 """
 
 from __future__ import annotations
 
 import math
-import re
 from fractions import Fraction
 from typing import Any
 
 from app.core.config import get_settings
 from app.modules.math import solve as math_solve
 from app.modules.math.figure.drawing import number_text
-from app.modules.math.figure.grounding import number_value, stated_in
+from app.modules.math.figure.grounding import number_value
 from app.modules.math.figure.request import FigureRequest
 from app.modules.math.schemas import GraphBlockSpec, GraphSampleInput, NumberLineInterval
 from app.modules.math.schemas.figure import NumberLineMark, PlotPoint, PointsGraphSpec
@@ -31,6 +32,8 @@ _DEFAULT_RANGE = 10.0
 # A points plot shows at least -5..5 on each axis, and a unit past its farthest point.
 _PLANE_REACH = 5.0
 _COMPARATORS = {"≤": "<=", "≥": ">=", "=<": "<=", "=>": ">="}
+# How near a stated value a line must pass, as a share of the value.
+_ON_LINE = 1e-6
 # Whole numbers marked one by one: more would crowd the line.
 _MAX_MARKS = 25
 
@@ -137,11 +140,14 @@ def _written_formulas(text: str, variable: str) -> list[tuple[Any, Any]] | None:
     return formulas if formulas or relations else None
 
 
-def _drawn_formula(expr: str, variable: str, texts: list[str]) -> tuple[str, str] | None:
+def _drawn_formula(
+    expr: str, variable: str, texts: list[str], pairs: list[tuple[float, float]]
+) -> tuple[str, str] | None:
     """The function to draw and its variable: the formula the question writes, when the
     read's is that one whole formula (SymPy compares them, the read's letter put for the
-    question's), or the read's own when the question describes it in words and states
-    every number in it. A question writing two functions has no single one to draw."""
+    question's); or, when the question describes it in words, the read's own line only
+    when the pairs of values the question states pin it (``_pinned``). A question writing
+    two functions has no single one to draw."""
     import sympy
 
     from app.modules.math.tool_check import parse_formula, same_value
@@ -162,13 +168,33 @@ def _drawn_formula(expr: str, variable: str, texts: list[str]) -> tuple[str, str
         formula, own = distinct[0]
         mine = parsed.subs(sympy.Symbol(variable), own)
         return (str(formula), str(own)) if same_value(mine, formula) else None
-    numbers = [float(found) for found in re.findall(r"\d+(?:\.\d+)?", expr)]
-    return (expr, variable) if all(stated_in(value, texts) for value in numbers) else None
+    return (expr, variable) if _pinned(parsed, sympy.Symbol(variable), pairs) else None
+
+
+def _pinned(parsed: Any, symbol: Any, pairs: list[tuple[float, float]]) -> bool:
+    """A line described in words, fixed by what the question states: it passes through
+    every pair of values the question says together ("144 m at week 0", "104 m after 10
+    weeks"), and two of them, at different places, fix it. A rate and one value ("144 m
+    at week 0, falling 4 m a week") fix no line the server can check: "falls" read as a
+    rise drew 144 + 4x (review, 2026-11-13), so nothing is drawn."""
+    import sympy
+
+    if not parsed.is_polynomial(symbol) or sympy.degree(parsed, symbol) > 1:
+        return False
+    if len({x for x, _ in pairs}) < 2:
+        return False
+    for x, y in pairs:
+        value = parsed.subs(symbol, x)
+        if not value.is_number or abs(float(value) - y) > _ON_LINE * max(1.0, abs(y)):
+            return False
+    return True
 
 
 def function_graph(request: FigureRequest, texts: list[str]) -> dict[str, object] | None:
     expr = request.expr.strip().removeprefix("y=").removeprefix("y =").strip()
-    drawn = _drawn_formula(expr, request.variable.strip() or "x", texts) if expr else None
+    pairs = [(pair.x, pair.y) for pair in request.pairs]
+    variable = request.variable.strip() or "x"
+    drawn = _drawn_formula(expr, variable, texts, pairs) if expr else None
     if drawn is None:
         return None
     expr, variable = drawn

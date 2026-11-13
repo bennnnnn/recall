@@ -85,7 +85,9 @@ _PROMPT = (
     '- expr: the right side of y = ... ("2x + 1", "2.54x", "144 - 4t") in the '
     'question\'s own letter; variable: that letter ("x", "t"); x_min and x_max: the range '
     'the question states; x_label and y_label: what each axis measures ("inches", '
-    '"centimetres").\n'
+    '"centimetres"); pairs: for a quantity the question describes in words, each pair of '
+    'values it states together, as {"x": ..., "y": ...} ("144 m at week 0" is x 0, y 144), '
+    "or [].\n"
     '- points: [{"name": "A", "x": 2, "y": 3}]; quadrants: true when the question asks '
     "which quadrant.\n"
     "\n"
