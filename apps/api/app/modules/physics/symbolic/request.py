@@ -16,7 +16,8 @@ _COMMAND = re.compile(r"([a-z]+)\s+(.+)\Z", re.IGNORECASE | re.DOTALL)
 
 # "x from 0 to 2": each part ends on a mark and each run of space is read once (a lazy part
 # beside \s+ took cubic time on "from" and a run of spaces).
-_LIMITS = re.compile(r"(.*?\S)\s++from\s++(.*?\S)\s++to\s++(.+)", re.IGNORECASE)
+# Anchored, so a search reads it as the full match the parser asks for.
+_LIMITS = re.compile(r"\A(.*?\S)\s++from\s++(.*?\S)\s++to\s++(.+)", re.IGNORECASE)
 
 
 def is_symbolic_physics_request(text: str) -> bool:

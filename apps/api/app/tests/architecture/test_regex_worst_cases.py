@@ -26,6 +26,9 @@ from app.modules.physics.extractors import friction
 from app.modules.physics.symbolic import request
 from app.modules.turn_reading import answer_subject, visuals
 
+# They assert on the wall clock, so CI runs them alone (``test_wall_clock_marks``).
+pytestmark = pytest.mark.wall_clock
+
 _N = 20_000
 _SECONDS = 0.25
 _SPACES = " " * _N
