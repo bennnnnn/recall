@@ -449,3 +449,34 @@ def test_no_laid_out_block_shows_latex_source(block: str) -> None:
     worked.feed(block)
     worked.close()
     assert latex_problems(worked.text) == []
+
+
+@pytest.mark.parametrize(
+    ("line", "record"),
+    [
+        # Grade 12 run (2026-11-13): \ln|x| was split at its bars, the card ended at \ln.
+        (
+            r"answer: \int f(x)\,dx | \frac{3}{4}x^{4/3} - \frac{1}{2}\ln|x| + C | | indefinite integral",
+            Answer(
+                symbol=r"\int f(x)\,dx",
+                value=r"\frac{3}{4}x^{4/3} - \frac{1}{2}\ln|x| + C",
+                note="indefinite integral",
+            ),
+        ),
+        # The given's value held |x - 5|: Given read "f(x) = {x = | function".
+        (
+            r"given: f(x) | \frac{x|x-5|}{x^2-25} | | function",
+            Given(symbol="f(x)", value=r"\frac{x|x-5|}{x^2-25}", meaning="function"),
+        ),
+        (r"given: d = |x_2 - x_1| | m | distance", Given(symbol="d", value="|x_2 - x_1|", unit="m", meaning="distance")),
+        ("answer: P(A|B) | 0.4", Answer(symbol="P(A|B)", value="0.4")),
+        (r"answer: \lvert v \rvert | 5 | m/s", Answer(symbol=r"\lvert v \rvert", value="5", unit="m/s")),
+        # A field of nothing but bars is empty: "(|)" stood after the card's value.
+        (r"answer: L | \frac{1}{5} | | |", Answer(symbol="L", value=r"\frac{1}{5}")),
+        # A record that spaces none of its bars still splits at each.
+        ("answer: v|3.33|m/s", Answer(symbol="v", value="3.33", unit="m/s")),
+        ("given: v|20|m/s|speed", Given(symbol="v", value="20", unit="m/s", meaning="speed")),
+    ],
+)  # fmt: skip
+def test_a_bar_inside_the_maths_is_no_field_separator(line: str, record: object) -> None:
+    assert read_record(line) == record
