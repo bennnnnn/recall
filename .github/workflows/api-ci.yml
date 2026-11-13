@@ -125,7 +125,10 @@ jobs:
 
       # A regex that backtracks in cubic time or worse froze a reader for over 20 s on a cue
       # and a run of 2,000 spaces (2026-11-13). regexploit is a scan tool, not a dependency.
+      # The script imports the app: litellm reads its bundled price list, never GitHub's.
       - name: Slow regexes
+        env:
+          LITELLM_LOCAL_MODEL_COST_MAP: "True"
         run: uv run --with regexploit==1.0.0 python ../../scripts/check_regex_redos.py app
 
       # The reply packages' strict errors only fall (docs/STRUCTURE_TICKETS.md ST-02).
