@@ -175,9 +175,18 @@ def test_a_given_carries_a_parts_letter_only_beside_another_value_of_its_symbol(
     assert parts[0].lstrip().startswith("**(a) ")
 
 
-def test_givens_written_as_the_contract_asks_stream_with_no_letter_and_no_rewrite() -> None:
-    # The pie chart as the contract asks it now: every angle a plain `given:`.
-    block = _PIE.replace("given (a):", "given:").replace("given (b):", "given:")
+@pytest.mark.parametrize(
+    "block",
+    [
+        # The pie chart as the contract asks it now: every angle a plain `given:`.
+        _PIE.replace("given (a):", "given:").replace("given (b):", "given:"),
+        # As the contract asked before, each angle lettered by its part: a letter the
+        # whole block drops is never drawn, so the stream is never redrawn (review,
+        # 2026-11-13: done replaced the whole reply).
+        _PIE,
+    ],
+)
+def test_lettered_or_not_givens_stream_with_no_letter_and_no_rewrite(block: str) -> None:
     accum = StreamAccum()
     reply_filter = ReplyFilter(accum, PHYSICS)
     for start in range(0, len(block) + 12, 5):
@@ -188,6 +197,28 @@ def test_givens_written_as_the_contract_asks_stream_with_no_letter_and_no_rewrit
     assert not accum.rewritten
     rows = _given_rows_of("".join(accum.shown))
     assert len(rows) == 4 and not any(row.startswith("(") for row, _symbol in rows)
+
+
+def test_a_part_given_lettered_by_the_old_contract_streams_unlettered() -> None:
+    block = (
+        "given: h | 20 | m | height\ngiven (a): t | 1 | s | time\n"
+        "required: v | speed after 1 s\nrequired: t | time to fall\n"
+        "part: a | speed after 1 s\nformula: Free fall | v = g t\nanswer: v | 9.8 | m/s\n"
+        "part: b | time to fall\nformula: Free fall | t = \\sqrt{2h/g}\nanswer: t | 2.02 | s"
+    )
+    accum = StreamAccum()
+    reply_filter = ReplyFilter(accum, PHYSICS)
+    seen: list[str] = []
+    reply = f"```worked\n{block}\n```"
+    for start in range(0, len(reply), 3):
+        if sent := reply_filter.feed(reply[start : start + 3]):
+            accum.shown.append(sent)
+        seen.append("".join(accum.shown))
+    if tail := reply_filter.flush():
+        accum.shown.append(tail)
+    assert not accum.rewritten
+    assert all(later.startswith(earlier) for earlier, later in itertools.pairwise(seen))
+    assert "  \n$t = 1\\,\\mathrm{s}$" in "".join(accum.shown)
 
 
 def test_parts_with_nothing_asked_still_list_what_each_part_finds() -> None:

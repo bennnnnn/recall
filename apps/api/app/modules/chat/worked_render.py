@@ -135,15 +135,9 @@ def _given_rows(
     naming: bool = True,
     letters: Sequence[Sequence[str]] | None = None,
 ) -> tuple[str, ...]:
-    """Each given on its line (with ``letters``, each one's parts; without, the letter its
-    record gave it), then (with ``naming``) the ``where`` line naming the ones with a value
-    (a letter is named on its own line)."""
-    rows = [
-        _given_row(given, (given.part,) if given.part else ())
-        if letters is None
-        else _given_row(given, letters[at])
-        for at, given in enumerate(givens)
-    ]
+    """Each given on its line (with ``letters``, each one's parts), then (with ``naming``)
+    the ``where`` line naming the ones with a value (a letter is named on its own line)."""
+    rows = [_given_row(given, letters[at] if letters else ()) for at, given in enumerate(givens)]
     named = where_line(
         [
             (tidy_symbol(given.symbol), _meaning(given))
@@ -160,7 +154,23 @@ def _given_section(solution: WorkedSolution, *, streaming: bool) -> tuple[str, .
     # While the block streams, the line naming the givens waits until they are all in:
     # one more given would change it, and the phone has drawn what went out.
     complete = not streaming or bool(solution.required or solution.parts)
-    return _given_rows(solution.given, naming=complete)
+    givens = solution.given if complete else _decided(solution.given)
+    return _given_rows(givens, naming=complete, letters=_record_letters(givens))
+
+
+def _decided(givens: Sequence[Given]) -> Sequence[Given]:
+    """The givens drawn while the block streams: those before the first one the model
+    lettered, whose letter shows only if another value of its symbol comes. It and the rows
+    after it wait for every given (the contract writes them first), never redrawn."""
+    lettered = next((at for at, given in enumerate(givens) if given.part), len(givens))
+    return givens[:lettered]
+
+
+def _record_letters(givens: Sequence[Given]) -> list[tuple[str, ...]]:
+    """Each given's letter as its record wrote it, kept only where its symbol has another
+    value too (``_one_given``'s rule, before the parts are known)."""
+    values = Counter(_symbol(given) for given in givens)
+    return [(given.part,) if given.part and values[_symbol(given)] > 1 else () for given in givens]
 
 
 def _started(part: Part) -> bool:
@@ -268,16 +278,10 @@ def _one_given(
     def order(mark: str) -> int:
         return letters.index(mark) if mark in letters else len(letters)
 
-    every = set(letters)
     values = Counter(_symbol(given) for given in kept)
-
-    def shown(given: Given, marks: list[str]) -> tuple[str, ...]:
-        if set(marks) >= every or values[_symbol(given)] < 2:
-            return ()
-        return tuple(sorted(marks, key=order))
-
     return kept, [
-        shown(given, marks) for given, (_given, marks) in zip(kept, rows.values(), strict=True)
+        tuple(sorted(marks, key=order)) if values[_symbol(given)] > 1 else ()
+        for given, (_given, marks) in zip(kept, rows.values(), strict=True)
     ]
 
 
@@ -453,10 +457,13 @@ def _render_in_parts(
         # end, would land above what was drawn after it.
         unanswered = next((at for at, part in enumerate(shown) if not part.answers), None)
         shown = shown if unanswered is None else shown[: unanswered + 1]
-        # Each given stays where it was written, with the letter its record gave it (one
-        # symbol's values apart): the whole question's in the one Given, one written after a
-        # part's label at that part for now.
-        given = _given_rows(solution.given, naming=complete)
+        # Each given stays where it was written: the whole question's in the one Given, one
+        # written after a part's label at that part for now. A lettered one keeps its letter
+        # by the whole block's rule (one symbol's values apart), so the finished block
+        # draws the rows the stream drew.
+        given = _given_rows(
+            solution.given, naming=complete, letters=_record_letters(solution.given)
+        )
         own = [list(part.given) for part in shown]
     else:
         # The whole block: every given in the one Given, none under a part.
