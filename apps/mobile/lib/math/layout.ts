@@ -302,7 +302,7 @@ function measureSegments(
     }
   };
   for (const atom of attachScripts(segments)) {
-    pushChild(measureSegment(atom.segment, em, inFrac, leadingAtom));
+    pushChild(measureSegment(atom.segment, em, inFrac, leadingAtom, atom.supLean * em));
     if (atom.sup && atom.sub) {
       pushChild(measureScriptColumn(atom.sup, atom.sub, em));
     }
@@ -455,14 +455,14 @@ function measureCancel(seg: Seg<"cancel">, em: number, inFrac: boolean): MathLay
   };
 }
 
-function measureRun(seg: Seg<"text" | "upright">, em: number, inFrac: boolean, leadingAtom: boolean): MathLayout {
-  const width = measureRunWidth(seg.value, em, leadingAtom);
+function measureRun(seg: Seg<"text" | "upright">, em: number, inFrac: boolean, leadingAtom: boolean, supLean: number): MathLayout {
+  const width = measureRunWidth(seg.value, em, leadingAtom) + supLean;
   const height = lineHeight(em, inFrac ? "frac" : "body");
   return { kind: "run", width, height, outer: 0, inkWidth: width, children: [] };
 }
 
 /** One measurer per segment kind. */
-function measureSegment(seg: MathSegment, em: number, inFrac: boolean, leadingAtom: boolean): MathLayout {
+function measureSegment(seg: MathSegment, em: number, inFrac: boolean, leadingAtom: boolean, supLean = 0): MathLayout {
   switch (seg.type) {
     case "frac":
       return measureFrac(seg, em, inFrac);
@@ -477,7 +477,7 @@ function measureSegment(seg: MathSegment, em: number, inFrac: boolean, leadingAt
       return measureSupSub(seg, em);
     case "text":
     case "upright":
-      return measureRun(seg, em, inFrac, leadingAtom);
+      return measureRun(seg, em, inFrac, leadingAtom, supLean);
   }
 }
 

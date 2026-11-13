@@ -1,11 +1,12 @@
 import { type ReactNode, useMemo } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, useWindowDimensions, View, type StyleProp, type TextStyle } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { ProseAnswer, ScrollingLine } from "@/components/rich/answerLines";
 import { AccessibleElementChildren } from "@/components/rich/accessibleElement";
 import { MathSvgView } from "@/components/rich/MathSvgView";
 import { MathText } from "@/components/rich/MathText";
+import { italicEdge } from "@/components/rich/mathText/runs";
 import { splitAnswerNotation } from "@/lib/answerNotation";
 import {
   answerReadsAsProse,
@@ -15,6 +16,7 @@ import {
 } from "@/lib/math/answerLayout";
 import { isHeavyInlineMath } from "@/lib/math/fenceRetag";
 import { splitInlineMath } from "@/lib/markdown/preprocess";
+import { latexLeanEm } from "@/lib/math/glyphs";
 import { latexHasNestedMathView } from "@/lib/math/text";
 import { stripTrailingFenceCloser } from "@/lib/fence/openTail";
 import { Theme, useTheme } from "@/lib/theme";
@@ -95,6 +97,21 @@ function AnswerFrame({
  * fills the box — never `compact` + centered zero-width wrap, which used to
  * collapse into a thin vertical sliver / tall pill inside this box.
  */
+/**
+ * The answer as one selectable Text. A Text that ends on a formula nested in it is the box
+ * the formula's last letter leans out of (`P = IV` drew its V cut off), so it keeps that
+ * ink itself and moves nothing (`endsOn`: the formula it ends on, or "").
+ */
+function FormulaLine({ style, endsOn, children }: { style: StyleProp<TextStyle>; endsOn: string; children: ReactNode }) {
+  const { fontScale } = useWindowDimensions();
+  const edge = italicEdge(latexLeanEm(endsOn), ANSWER_FONT_SIZE, fontScale, true);
+  return (
+    <Text style={[style, edge]} selectable>
+      {children}
+    </Text>
+  );
+}
+
 export function AnswerBlock({ content, settled = true }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
@@ -216,7 +233,7 @@ export function AnswerBlock({ content, settled = true }: Props) {
     spokenAnswerValue(parsed.body),
     <>
       {hasInlineMath ? (
-        <Text style={s.answer} selectable>
+        <FormulaLine style={s.answer} endsOn={parts.at(-1)?.type === "math" ? parts.at(-1)!.value : ""}>
           {parts.map((part, i) =>
             part.type === "math" ? (
               <MathText
@@ -231,11 +248,11 @@ export function AnswerBlock({ content, settled = true }: Props) {
               </Text>
             ),
           )}
-        </Text>
+        </FormulaLine>
       ) : (
-        <Text style={s.answer} selectable>
+        <FormulaLine style={s.answer} endsOn={text}>
           <MathText latex={text} textColor={theme.text} fontSize={ANSWER_FONT_SIZE} />
-        </Text>
+        </FormulaLine>
       )}
       {check}
     </>,

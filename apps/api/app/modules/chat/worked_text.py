@@ -10,21 +10,35 @@ draws ``$…$`` as maths in a heading, a note and a line alike (``rules/workout.
 
 A maths field is written one way (``tidy_tex``): a Greek letter as its command, as the
 model's own formulas write it, so the unknown under Required (``ρ``) and in the working
-(``\rho``) is one symbol, never two spellings drawn in two fonts (2026-11-11).
+(``\rho``) is one symbol, never two spellings drawn in two fonts (2026-11-11). So is a word
+symbol: ``\text{white\_pigment}`` in the working is the ``white_{pigment}`` its Required
+line writes, never the escaped underscore shown as source (2026-11-12). A unit the given
+and answer records before a line name is set upright after a number in it, as their own
+lines set it (``units_in_working``).
 """
 
 from __future__ import annotations
 
 import re
 import unicodedata
+from collections.abc import Sequence
 
 from app.modules.chat.worked_prose import prose_maths
-from app.modules.chat.worked_units import currency_first
+from app.modules.chat.worked_solution import Answer, Formula, Given, RecordModel, Step
+from app.modules.chat.worked_units import (
+    WORD_GROUP,
+    currency_first,
+    declared_units,
+    units_upright,
+)
+from app.services.latex_groups import map_groups
 from app.services.times_sign import with_times
 from app.services.workout import formula_heading
 
 _BOLD = re.compile(r"\*\*(.+?)\*\*")
-_LONG_SUBSCRIPT = re.compile(r"_(?![{\\])([A-Za-z0-9]{2,})")
+# An escaped underscore (``\_``) is a character, never a script: ``\_pigment`` stays whole.
+# A subscript of letters or of digits alone; ``H_2O`` is H, subscript 2, then O, as TeX reads it.
+_LONG_SUBSCRIPT = re.compile(r"(?<!\\)_(?![{\\])([A-Za-z][A-Za-z0-9]+|\d{2,}(?![A-Za-z]))")
 _NUMBERED = re.compile(r"^([A-Za-z])(\d+)$")
 # LaTeX syntax or a relation: a field holding any of them is maths.
 _MATH_SYNTAX = re.compile(r"[\\{}^_=<>≤≥≈≠]")
@@ -96,13 +110,85 @@ def greek_as_commands(tex: str) -> str:
     return "".join(out)
 
 
+# An underscore a model escaped for text mode, between a name and its subscript: in a word
+# group (``\text{white\_pigment}``) or bare (``white\_pigment``).
+_ESCAPED_SCRIPT = re.compile(r"(?<=[A-Za-z0-9])\\_(?=[{A-Za-z0-9])")
+_BARE_ESCAPED_SCRIPT = re.compile(r"(?<=[A-Za-z0-9}])\\_(?=[{A-Za-z0-9])")
+# What an escaped underscore's subscript is: a brace group, a count (``H\_2O``: the 2
+# alone, as TeX reads it), or words joined by more escaped underscores (``of\_salt``).
+_SCRIPT_TEXT = re.compile(
+    r"\{(?P<braced>[^{}]*)\}|(?P<count>\d+)"
+    r"|(?P<words>[A-Za-z][A-Za-z0-9]*(?:\\_[A-Za-z][A-Za-z0-9]*)*)"
+)
+# A word symbol alone in a ``\text`` group: a name and a subscript of words.
+_NAMED = re.compile(
+    r"(?P<base>[A-Za-z][A-Za-z0-9]*)\\_"
+    r"(?:\{(?P<braced>[A-Za-z][A-Za-z0-9]*)\}|(?P<bare>[A-Za-z][A-Za-z0-9]*))"
+)
+
+
+def _script_after(after: str) -> tuple[str, str]:
+    """The subscript at the start of ``after`` (past an escaped underscore) and what follows
+    it. A second escaped subscript straight after it is more of it (``rate\\_{in}\\_{out}``,
+    subscript "in out"): one base takes one subscript."""
+    words: list[str] = []
+    rest = after
+    while (found := _SCRIPT_TEXT.match(rest)) is not None:
+        words.append(
+            (found["braced"] or found["count"] or found["words"] or "").replace("\\_", " ")
+        )
+        rest = rest[found.end() :]
+        if not (rest.startswith("\\_") and _SCRIPT_TEXT.match(rest, 2)):
+            break
+        rest = rest[2:]
+    return " ".join(word.strip() for word in words if word.strip()), rest
+
+
+def _scripted_group(command: str, content: str) -> str:
+    """A word group's content with each escaped underscore as the subscript it stands for.
+    A word symbol alone in a ``\\text`` group (``white\\_pigment``, ``white\\_{pigment}``) is
+    the symbol the symbol fields write, ``white_{pigment}``: one symbol, one spelling in
+    every line. Anything else keeps the group's upright letters on both sides: words
+    (``cost\\_per item`` → ``\\text{cost}`` with the subscript ``\\text{per}``, then
+    ``\\text{ item}``), several joined words as the subscript's words (``mass\\_of\\_salt``),
+    and a formula's count (``\\mathrm{H\\_2O}`` → ``\\mathrm{H}_{2}\\mathrm{O}``)."""
+    named = _NAMED.fullmatch(content.strip()) if command == "text" else None
+    if named is not None:
+        return f"{named['base']}_{{{named['braced'] or named['bare']}}}"
+    found = _ESCAPED_SCRIPT.search(content)
+    if found is None:
+        return rf"\{command}{{{content}}}"
+    script, rest = _script_after(content[found.end() :])
+    if not script:
+        return rf"\{command}{{{content}}}"  # an empty subscript: as written
+    sub = script if script.isdigit() else rf"\{command}{{{script}}}"
+    tail = _scripted_group(command, rest) if rest else ""
+    return rf"\{command}{{{content[: found.start()]}}}_{{{sub}}}{tail}"
+
+
+def word_scripts(tex: str) -> str:
+    r"""A word symbol's subscript as a subscript. A model escapes the underscore that joins
+    a name and its subscript, as text mode needs (``\text{white\_pigment}``), and read as
+    written the phone drew the underscore and the brace the layout put after it
+    ("white_{pigment}", 2026-11-12). The name is the symbol its Given, Required and Answer
+    lines write from the symbol fields (``white_{pigment}``), in a word group or bare in
+    maths (``_scripted_group``). An escaped underscore before anything but a word or a
+    brace (a blank, ``\_\_``) is the character it is."""
+    return map_groups(
+        tex,
+        WORD_GROUP,
+        lambda maths: _BARE_ESCAPED_SCRIPT.sub("_", maths),
+        lambda opened, text: _scripted_group(opened["command"], text),
+    )
+
+
 def tidy_tex(tex: str) -> str:
-    """A subscript of several characters in braces: ``x_final`` → ``x_{final}``; a product
-    written with a dot, with \\times as every reply writes it (``services/times_sign``).
-    Markdown bold a model put in a maths field (``**1.2**``) is dropped: TeX has none. A
-    currency sign after a number goes before it (``worked_units``), and a Greek letter is
-    its command."""
-    tex = _BOLD.sub(r"\1", tex.strip())
+    """A subscript of several characters in braces: ``x_final`` → ``x_{final}``; a word
+    symbol's escaped subscript as a subscript (``word_scripts``); a product written with
+    a dot, with \\times as every reply writes it (``services/times_sign``). Markdown bold
+    a model put in a maths field (``**1.2**``) is dropped: TeX has none. A currency sign
+    after a number goes before it (``worked_units``), and a Greek letter is its command."""
+    tex = word_scripts(_BOLD.sub(r"\1", tex.strip()))
     return greek_as_commands(currency_first(with_times(_LONG_SUBSCRIPT.sub(r"_{\1}", tex))))
 
 
@@ -147,3 +233,23 @@ def _before_remark(title: str) -> str:
         elif not in_maths and _REMARK.match(title, at) and at > 0:
             return title[:at]
     return title
+
+
+def units_in_working(records: Sequence[RecordModel]) -> list[RecordModel]:
+    """The records with each unit a given or answer record names set upright after a number
+    in the working and formula lines (``worked_units.units_upright``), as those records'
+    own lines set it: ``W = 12 gal`` reads as the card's ``12\\,\\mathrm{gal}``. A line takes
+    only the units of the records written before it, so a record that arrives later (an
+    answer in a unit no given has) never changes a line the phone has drawn: the streamed
+    text stays a prefix of the reply. A line of words is left as words."""
+    named: list[str] = []
+    out: list[RecordModel] = []
+    for record in records:
+        if isinstance(record, Step | Formula) and named and not is_prose(record.tex):
+            record = record.model_copy(
+                update={"tex": units_upright(record.tex, declared_units(named))}
+            )
+        elif isinstance(record, Given | Answer) and record.unit:
+            named.append(record.unit)
+        out.append(record)
+    return out

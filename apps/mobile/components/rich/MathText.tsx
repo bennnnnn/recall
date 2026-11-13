@@ -1,7 +1,8 @@
-import { memo, useMemo, type ReactNode } from "react";
+import { createContext, memo, useContext, useMemo, type Context, type ReactNode } from "react";
 import {
   ScrollView,
   Text,
+  unstable_TextAncestorContext,
   useWindowDimensions,
   View,
   type StyleProp,
@@ -21,7 +22,14 @@ import {
   hasTallMath,
   renderSegments,
 } from "@/components/rich/mathText/render";
-import { endsOnItalicLetter, ITALIC_LEAN_EM } from "@/components/rich/mathText/runs";
+import { italicEdge } from "@/components/rich/mathText/runs";
+import { italicLeanEm } from "@/lib/math/glyphs";
+
+/** React Native's own answer to whether a Text is nested in another Text. The export is
+ * unstable: should a release drop it, every formula reads as a box of its own (keeping its
+ * ink, a little wider in a sentence) rather than failing to draw. */
+const TextAncestorContext: Context<boolean> =
+  (unstable_TextAncestorContext as Context<boolean> | undefined) ?? createContext(false);
 
 type Props = {
   latex: string;
@@ -34,8 +42,9 @@ type Props = {
   /** Markdown's View host can constrain tall runs and scroll their full width.
    * Leave this off in editable math slots and hosts with their own viewport. */
   scrollOverflow?: boolean;
-  /** Room after a last italic letter, which the composer draft's own box cut off (`P`
-   * drew as `F`). Only that draft asks for it; a reply's maths is drawn without it. */
+  /** Real room after a last italic letter, for a host whose caret follows it (the
+   * composer's draft). Without it a formula that is its own box still keeps that letter's
+   * ink (`italicEdge`), and takes only its advance in the line. */
   lean?: boolean;
 };
 
@@ -154,6 +163,7 @@ export const MathText = memo(function MathText({
   // Under an accessible parent (an answer card, a grouped paragraph) the parent
   // reads the formula; a focusable box here would be a second TalkBack stop.
   const own = !useInsideAccessibleElement();
+  const inText = useContext(TextAncestorContext);
 
   if (!latex.trim()) return null;
 
@@ -164,11 +174,15 @@ export const MathText = memo(function MathText({
   // horizontal scroller that stacked fractions use even when they fit.
   const scroll =
     scrollOverflow && (stacked || inlineMathNeedsScroll(contentWidth, windowWidth - inset));
-  // A row of Views leans its last run; one Text leans its own box, below.
-  const runs = renderSegments(segments, layout.children, "m", tall && lean ? { ...ctx, leanLast: true } : ctx);
+  // A row of Views leans its last run; one Text leans its own box, below. A scroll's
+  // viewport ends where the formula does, so there the lean is real room.
+  const room = lean || scroll;
+  const runs = renderSegments(segments, layout.children, "m", tall ? { ...ctx, leanLast: room } : { ...ctx, inText: true });
+  // A Text of its own is the box its last letter leans out of (`P` in "where $P$ = …" drew
+  // as `F`); nested in a sentence's Text, the words after it are the room.
   const last = segments.at(-1);
-  const leanPad = lean && last?.type === "text" && endsOnItalicLetter(last.value)
-    ? { paddingRight: ITALIC_LEAN_EM * fontSize * fontScale }
+  const leanPad = !tall && !inText && last?.type === "text"
+    ? italicEdge(italicLeanEm(last.value), fontSize, fontScale, !room)
     : null;
 
   // Stacked structures are a View root. Text > Text > View is what iOS lays

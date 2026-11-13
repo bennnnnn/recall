@@ -31,6 +31,8 @@ export function renderScriptRun(
       fontScale: ctx.fontScale,
       leadingAtom: false,
       space: false,
+      // A script is a box of its own: its last italic letter keeps its ink (`v_f`).
+      edge: true,
     },
   );
 }
@@ -52,7 +54,7 @@ export function renderFractionalScript(
     lineHeight: scriptSize * 1.1,
     color: ctx.color,
   };
-  const tight: RunPad = { em: scriptSize, fontScale: ctx.fontScale, leadingAtom: false, space: false };
+  const tight: RunPad = { em: scriptSize, fontScale: ctx.fontScale, leadingAtom: false, space: false, edge: true };
   return (
     <View
       key={key}
