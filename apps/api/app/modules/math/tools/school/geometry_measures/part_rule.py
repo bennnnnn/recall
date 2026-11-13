@@ -72,6 +72,8 @@ _ROUNDING = re.compile(
     re.I,
 )
 _NEAREST = {"whole number": 0, "integer": 0, "tenth": 1, "hundredth": 2, "thousandth": 3}
+# The most significant figures or decimal places a card is worked to; more declines.
+_MOST_DIGITS = 15
 # A count or a number the rule has not read: a second shape, a second part, a total.
 _UNREAD = re.compile(rf"\d|\b(?:{count_word_pattern(low=0, high=90)})\b|\bcircles\b", re.I)
 # A measure the rule did not read to its end: "radius 10π", "radius 3/2", "radius 3 1/2".
@@ -171,6 +173,8 @@ def circle_part_intent(body: str) -> MathIntent | None:
         return None  # a semicircle's "circumference": its curved edge, or all of it?
     size = sizes[0]
     figures, places, asks_rounding = _rounding(text)
+    if figures > _MOST_DIGITS or places > _MOST_DIGITS:
+        return None  # "to 1000000000 decimal places" built a billion-digit context
     read = [(size.start(), size.end()), *((part.start, part.end) for part in parts)]
     read += [span for span in (asks_rounding, sector[2] if sector else None) if span]
     rest = "".join(

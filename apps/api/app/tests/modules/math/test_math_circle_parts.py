@@ -347,3 +347,20 @@ def test_a_part_is_worked_with_the_radius_as_written(question: str, card: str) -
     assert intent is not None
     block = _build_verified_block(intent, _SETTINGS)
     assert block is not None and block.canonical_answer == card
+
+
+@pytest.mark.parametrize("count", ["16", "1000000000"])
+@pytest.mark.parametrize("unit", ["decimal places", "significant figures"])
+def test_rounding_past_what_a_card_shows_is_declined(count: str, unit: str) -> None:
+    """Claude review (#2424): the count went unbounded into a decimal context."""
+    intent = extract_math_intent(
+        f"Find the area of a semicircle of radius 7 cm correct to {count} {unit} (use 22/7)"
+    )
+    assert intent is None or intent.school_op != "geometry_measure:circle_part"
+
+
+def test_rounding_a_card_shows_is_still_worked() -> None:
+    intent = extract_math_intent(
+        "Find the area of a semicircle of radius 7 cm correct to 2 decimal places (use 22/7)"
+    )
+    assert intent is not None and intent.school_op == "geometry_measure:circle_part"
