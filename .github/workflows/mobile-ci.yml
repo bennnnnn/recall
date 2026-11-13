@@ -49,7 +49,7 @@ jobs:
         run: |
           run=true
           if [ -n "$PR" ] && files=$(gh pr diff "$PR" --repo "$GITHUB_REPOSITORY" --name-only); then
-            echo "$files" | grep -qE '^(apps/mobile/|docs/fixtures/|apps/api/app/tests/behavior/sweep_corpus/|scripts/(check_file_sizes\.py|file_size_baseline\.json)$|\.github/workflows/mobile-ci\.yml$)' || run=false
+            echo "$files" | grep -qE '^(apps/mobile/|docs/fixtures/|apps/api/app/tests/behavior/sweep_corpus/|scripts/(check_file_sizes\.py|file_size_baseline\.json|bench_mobile\.mjs)$|\.github/workflows/mobile-ci\.yml$)' || run=false
           fi
           echo "run=$run" >> "$GITHUB_OUTPUT"
 
@@ -87,3 +87,57 @@ jobs:
 
       - name: Unit tests
         run: pnpm test
+
+  # Each benchmarked screen (a worked maths reply settled and streaming, inline maths, tables
+  # and code, the drawer's chat list) rendered on main's tree at the merge base and on the
+  # pull request, same runner, ten renders each (Reassure, `pnpm perf`): a pull request that
+  # makes one clearly slower fails (scripts/bench_mobile.mjs). No account or stored history.
+  speed:
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/mobile/pnpm-lock.yaml
+
+      - name: Main's tree at the merge base
+        working-directory: .
+        run: git worktree add ../base "$(git merge-base HEAD "origin/${{ github.base_ref }}")"
+
+      # Main's own benchmarks on main's code. A main from before they existed has none: the
+      # comparison then says so and passes.
+      - name: Time main
+        working-directory: .
+        run: |
+          cd ../base/apps/mobile
+          grep -q '"perf":' package.json || exit 0
+          pnpm install --frozen-lockfile
+          pnpm perf --baseline
+          mkdir -p "$GITHUB_WORKSPACE/apps/mobile/.reassure"
+          cp .reassure/baseline.perf "$GITHUB_WORKSPACE/apps/mobile/.reassure/"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Time this pull request
+        run: pnpm perf
+
+      - name: Compare
+        run: |
+          set +e
+          node ../../scripts/bench_mobile.mjs .reassure > "$RUNNER_TEMP/speed.md"
+          status=$?
+          cat "$RUNNER_TEMP/speed.md" | tee -a "$GITHUB_STEP_SUMMARY"
+          exit $status

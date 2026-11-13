@@ -30,6 +30,9 @@ expo-env.d.ts
 # Metro
 .metro-health-check*
 
+# Reassure render benchmarks (pnpm perf)
+.reassure/
+
 # debug
 npm-debug.*
 yarn-debug.*
