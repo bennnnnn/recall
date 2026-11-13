@@ -51,3 +51,12 @@ def test_a_read_naming_no_lane_is_an_error() -> None:
     errors = routing_lane_errors(lanes)
     assert len(errors) == 2
     assert all("ROUTING.decided['maths']" in error for error in errors)
+
+
+@pytest.mark.parametrize("value", [3, None, ["free-chat"], {"free-chat"}])
+def test_a_lane_field_of_another_kind_fails_with_its_name(value: object) -> None:
+    """A field lane_aliases cannot read stops the boot naming it, never a bare AttributeError
+    from deep in the check."""
+    lanes = replace(ROUTING, everyday=value)  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match=r"RoutingLanes\.everyday is a"):
+        lane_aliases(lanes)

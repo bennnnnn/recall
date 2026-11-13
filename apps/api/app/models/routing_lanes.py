@@ -138,7 +138,14 @@ def lane_aliases(lanes: RoutingLanes) -> tuple[tuple[str, str], ...]:
             named.append((field.name, value))
         elif isinstance(value, tuple):
             named.extend((f"{field.name}[{index}]", alias) for index, alias in enumerate(value))
-        else:
+        elif isinstance(value, Mapping):
             for lane, backup in value.items():
                 named.extend(((f"{field.name} key", lane), (f"{field.name}[{lane!r}]", backup)))
+        else:
+            # A new kind of lane field must say how it names models, or the startup check
+            # would read it wrongly: fail at boot with the field named.
+            raise TypeError(
+                f"RoutingLanes.{field.name} is a {type(value).__name__}; lane_aliases reads a "
+                "model alias, a tuple of them or a mapping of them"
+            )
     return tuple(named)
