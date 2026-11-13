@@ -216,3 +216,51 @@ def test_a_chained_base_is_not_written_again() -> None:
     )
     assert all("same law" not in row for row in rows)
     assert len(rows) == 1
+
+
+def test_a_rearrangement_for_a_decorated_symbol_is_solved_for() -> None:
+    # \mathcal{E} read as no symbol made the rearrangement a "balance" (review of PR #2420).
+    reply = _reply(
+        "A current of 0.5 A flows through a 10 Ω resistor connected to a cell of internal "
+        "resistance 2 Ω. What is the emf of the cell?"
+    )
+    assert "Solve for $\\mathcal{E}$  \n$\\mathcal{E} = I (R + r)$" in reply
+
+
+_INTERNAL = _intent("circuit", "current_with_internal_resistance", {"R": 10.0, "r_int": 2.0})
+
+
+@pytest.mark.parametrize(
+    "lhs",
+    # One symbol however it is written: a command with its argument, a subscript holding a
+    # command, a Δ before it, bars round it.
+    [
+        r"\mathcal{E}",
+        r"|\mathcal{E}|",
+        r"\dot{m}",
+        r"\bar{v}",
+        r"t_{\text{top}}",
+        r"v_{\mathrm{rms}}",
+        r"B_\lambda",
+        r"\Delta T",
+        r"\theta_2",
+    ],
+)
+def test_one_symbol_however_written_is_solved_for(lhs: str) -> None:
+    rows = formula_rows(_INTERNAL, [f"{lhs} = I (R + r)"], r"\mathcal{E}")
+    assert f"Solve for ${lhs}$" in rows
+
+
+@pytest.mark.parametrize(
+    "lhs",
+    # A sum, a product or a number states the law: nothing is solved for.
+    ["0", "m_1 v_1", r"A_1v_1", r"P_1 V_1", r"\frac{1}{f}", "F t"],
+)
+def test_a_balance_is_stated_whatever_its_left_side(lhs: str) -> None:
+    rows = formula_rows(_INTERNAL, [f"{lhs} = I (R + r)"], r"\mathcal{E}")
+    assert not any(row.startswith("Solve for") for row in rows)
+
+
+def test_the_asked_quantity_is_solved_for_whatever_its_shape() -> None:
+    rows = formula_rows(_INTERNAL, ["MA = I (R + r)"], "MA")
+    assert "Solve for $MA$" in rows

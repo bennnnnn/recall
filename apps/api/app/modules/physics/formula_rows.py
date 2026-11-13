@@ -40,8 +40,13 @@ _SAME_PRINT = (
     (r"\,", ""),
     (" ", ""),
 )
-# One symbol: a letter or a Greek command, a Δ before it, a subscript after it.
-_SYMBOL = re.compile(r"(?:\\Delta\s*)?(?:\\[A-Za-z]+|[A-Za-z])(?:_\{[^{}]+\}|_[A-Za-z0-9])?'?")
+# One symbol: a letter, a Greek command or a command with its braced argument (\mathcal{E},
+# \bar{v}, \dot{m}); a Δ before it; a subscript after it, which may hold a command of its
+# own (t_{\text{top}}, v_{\mathrm{rms}}, B_\lambda).
+_SYMBOL = re.compile(
+    r"(?:\\Delta\s*)?(?:\\[A-Za-z]+(?:\{[^{}]+\})?|[A-Za-z])"
+    r"(?:_\{(?:[^{}]|\{[^{}]*\})+\}|_\\[A-Za-z]+|_[A-Za-z0-9])?'?"
+)
 # The angle a law multiplies by its sine, and the one it multiplies by its cosine.
 _SINE = re.compile(r"\\sin\s*\(?\s*\\theta\s*\)?")
 _COSINE = re.compile(r"\\cos\s*\(?\s*\\theta\s*\)?")
@@ -163,8 +168,9 @@ def formula_rows(
         if defined is not None:
             definitions.append(defined)
             pending.append(_where(f"with ${defined[0]} = {defined[1]}$"))
-        elif not _is_symbol(formula_lhs):
+        elif formula_lhs != asked and not _is_symbol(formula_lhs):
             # A balance (``0 = m_1 v_1 - m_2 v_2``) states the law; nothing is solved for.
+            # The asked quantity is solved for whatever its shape (MA, N/N₀).
             rows.append(math_line(formula))
         else:
             rows.extend((solve_for_line(formula_lhs), math_line(formula)))
