@@ -6,10 +6,12 @@ to another value, the two read the question differently, and the server's readin
 the one in doubt: "a jacket costs 2400 shillings, 15% off, then 16% VAT" was read as a
 proportion and carried a checked 0.1 under working that ended at 2366.40 (2026-11-06). The
 reply then stands as the model wrote it, its own final value in a card with no check, and the
-pictures of the server's reading go with it. A question in parts already worked this way in
-physics (``physics.part_answers.parts_conflict``). An equation or expression the user typed is
-read without doubt, so a reply that solves it to another value still gets the verified card
-and its correction line.
+pictures of the server's reading go with it. Physics and chemistry hold their cards the same
+way. A rounded card is read as its rounded value: the quarter circle's working ended at 50.24
+under a checked ≈ 201.06 that no reading saw as a number (2026-11-13). An expression in
+letters under a number contradicts it too. An equation or expression the user typed is read
+without doubt, so a reply that solves it to another value still gets the verified card and
+its correction line.
 
 One verified value checks one card. A reply in parts with a card per part ("c = 15 cm",
 "A = 54 cm²", "P = 36 cm") had every card rewritten to the one verified value, 36 three times:
@@ -18,6 +20,7 @@ only the card that states that value gets it, and each other part keeps its own,
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 from app.services.answer_check import stated_verdict
@@ -25,6 +28,7 @@ from app.services.answer_fence import (
     ANSWER_FENCE_LANGS,
     UNCHECKED_ANSWER_MARKER,
     answer_fence_value,
+    answer_heading,
     demote_answer_body,
     demote_answer_fences,
     land_answer_card,
@@ -53,7 +57,10 @@ def contradicted_reading(
     None otherwise."""
     if verified is None or not verified.read_from_words or not answer_body:
         return None
-    if stated_verdict(demote_answer_fences(reply), answer_body) != "conflict":
+    worked = demote_answer_fences(reply)
+    if stated_verdict(worked, answer_body) != "conflict" and not _letters_for_a_number(
+        worked, answer_body
+    ):
         return None
     text = normalize_owned_fences(reply, ANSWER_FENCE_LANGS)
     for lang in ANSWER_FENCE_LANGS:
@@ -61,6 +68,34 @@ def contradicted_reading(
     for lang in _PICTURE_LANGS:
         text = strip_closed_fences(text, lang)
     return land_answer_card(text.strip(), None)
+
+
+# A one-letter variable outside a unit or a TeX command: the m and n of "m - 7n".
+_VARIABLE = re.compile(r"(?<![A-Za-z\\])[A-Za-z](?![A-Za-z])")
+_UNIT_OR_WORDS = re.compile(r"\\(?:text|mathrm|operatorname)\s*\{[^{}]*\}")
+_LAST_MATH = re.compile(r"\$([^$]+)\$(?![^$]*\$)")
+_RELATION = re.compile(r"=|\\approx|\\simeq|\u2248")
+
+
+def _letters(tex: str) -> bool:
+    return _VARIABLE.search(_UNIT_OR_WORDS.sub(" ", tex)) is not None
+
+
+def _letters_for_a_number(worked: str, answer_body: str) -> bool:
+    """The reply's Answer ends on an expression in letters ("m - 7n") and the card on a
+    number ("2:3"): no number answers it. A ratio reader took "Simplify by combining like
+    terms: -(m + n) + 2(m - 3n)" for 2:3 under working that ended at m - 7n (2026-11-13)."""
+    if _letters(answer_fence_value(answer_body)):
+        return False
+    lines = worked.split("\n")
+    heads = [at for at, line in enumerate(lines) if answer_heading(line) is not None]
+    if not heads:
+        return False
+    section = [answer_heading(lines[heads[-1]]) or "", *lines[heads[-1] + 1 :]]
+    said = "\n".join(section).strip().split("\n\n")[0]
+    last = _LAST_MATH.search(said)
+    final = _RELATION.split(last.group(1) if last else said)[-1]
+    return bool(final.strip()) and _letters(final)
 
 
 def _states(body: str, answer_body: str) -> bool:

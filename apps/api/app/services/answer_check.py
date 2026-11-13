@@ -59,17 +59,9 @@ _TEX_WRAPPERS = re.compile(r"\\(?:mathrm|text|textrm|mathbf|operatorname|mathit|
 _TEX_FRAC = re.compile(r"\\[dt]?frac\s*\{\s*(-?\d+(?:\.\d+)?)\s*\}\s*\{\s*(-?\d+(?:\.\d+)?)\s*\}")
 _TEX_SPACING = re.compile(r"\\(?:qquad|quad|[,;:! ])")
 _TEX_WORDS = {
-    r"\times": "\u00d7",  # multiplication sign
-    r"\cdot": "·",
-    r"\approx": "≈",
-    r"\simeq": "≈",
-    r"\pm": "±",
-    r"\%": "%",
-    r"\left": "",
-    r"\right": "",
-    r"\circ": "°",
-    r"\degree": "°",
-}
+    r"\times": "\u00d7", r"\cdot": "·", r"\approx": "≈", r"\simeq": "≈", r"\pm": "±",
+    r"\%": "%", r"\left": "", r"\right": "", r"\circ": "°", r"\degree": "°",
+}  # fmt: skip
 
 
 def _clean(text: str) -> str:
@@ -195,11 +187,17 @@ def read_verified_value(answer_body: str) -> VerifiedValue | None:
     _headers, value = answer_header_and_value(answer_body)
     if not value or "\n" in value:
         return None
-    text = _clean(value).replace("\u2248", "=")  # x ≈ 1.41421 is Newton's x = 1.41421
+    text = _clean(value)
     parts = [part for part in re.split(r"\s+or\s+|\s+and\s+|;|,\s*(?=[A-Za-z]\s*=)", text) if part]
     label: str | None = None
     numbers: list[_Number] = []
     for part in parts:
+        # x ≈ 1.41421 is Newton's x = 1.41421, and "16π ≈ 50.27" or "≈ 201.06 cm²" is the
+        # rounding of an exact value: it is the value read, or no rounded card is checked.
+        exact, approx, rounded = part.rpartition("\u2248")
+        if approx:
+            name = exact.partition("=")[0].strip()
+            part = f"{name} = {rounded}" if _LABEL.fullmatch(name.replace(" ", "")) else rounded
         if "=" in part:
             left, _sep, right = part.partition("=")
             right = right.rsplit("=", 1)[-1]

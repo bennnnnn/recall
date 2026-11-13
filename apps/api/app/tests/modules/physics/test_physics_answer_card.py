@@ -14,7 +14,7 @@ from app.core.config import Settings
 from app.modules.physics import build_verified_physics_block, extract_physics_intent
 from app.modules.physics.fence import validate_physics_fences
 from app.modules.physics.reply_policy import PHYSICS_SHORT_HINT
-from app.services.answer_fence import VERIFIED_ANSWER_MARKER
+from app.services.answer_fence import UNCHECKED_ANSWER_MARKER, VERIFIED_ANSWER_MARKER
 from app.services.solving import VerifiedPhysicsBlock
 
 _RANGE = "A ball is thrown at 20 m/s at 30 degrees. Find the range. Ignore air resistance."
@@ -48,29 +48,34 @@ def test_a_follow_up_offer_keeps_the_card_and_the_scene(
     assert "The verified answer is" not in out
 
 
-def test_a_wrong_value_before_a_question_is_corrected(projectile: VerifiedPhysicsBlock) -> None:
+def test_a_reply_worked_to_another_value_keeps_it_with_no_check(
+    projectile: VerifiedPhysicsBlock,
+) -> None:
+    """The model, shown the verified result, worked to another value: the two read the
+    question differently, so neither value is checked and the scene of the server's
+    reading goes with it (the card used to stand, under "The verified answer is")."""
     prose = (
         "$R = \\frac{20^2 \\sin 30^\\circ}{9.81} = 20.4\\ \\text{m}$\n\n"
         "Want me to find the maximum height too?"
     )
     out = validate_physics_fences(prose, verified=projectile)
-    correction = "The verified answer is $35.3\\,\\mathrm{m}$."
-    assert correction in out
-    assert out.index(correction) < out.index(_card(projectile))
-    assert "```simulation" in out
+    assert VERIFIED_ANSWER_MARKER not in out
+    assert "The verified answer is" not in out
+    assert "```simulation" not in out
+    assert "20.4" in out
 
 
-def test_a_wrong_answer_line_is_corrected_above_the_card(projectile: VerifiedPhysicsBlock) -> None:
+def test_a_different_answer_line_stands_in_an_unchecked_card(
+    projectile: VerifiedPhysicsBlock,
+) -> None:
     prose = (
         "**Given**  \n$v_0 = 20\\ \\text{m/s}$\n\n**Formula**  \n"
         "$R = \\frac{v_0^2 \\sin 2\\theta}{g}$\n\n**Answer**  \n$R = 20.4\\ \\text{m}$"
     )
     out = validate_physics_fences(prose, verified=projectile)
-    # The verified card takes the wrong line's place under the heading.
-    assert "$R = 20.4\\ \\text{m}$" not in out
-    assert (
-        "The verified answer is $35.3\\,\\mathrm{m}$.\n\n**Answer**\n\n" + _card(projectile)
-    ) in out
+    assert f"**Answer**\n\n```answer\n{UNCHECKED_ANSWER_MARKER}\nR = 20.4" in out
+    assert VERIFIED_ANSWER_MARKER not in out
+    assert "```simulation" not in out
 
 
 def test_a_restated_answer_line_gives_way_to_the_card(projectile: VerifiedPhysicsBlock) -> None:

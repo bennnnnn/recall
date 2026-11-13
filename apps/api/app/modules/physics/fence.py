@@ -16,7 +16,7 @@ import re
 
 from app.modules.physics.part_answers import land_one_part_card, land_part_cards, parts_conflict
 from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
-from app.services.answer_check import asks_without_answering, correction_line, stated_verdict
+from app.services.answer_check import asks_without_answering, stated_verdict
 from app.services.answer_fence import ANSWER_FENCE_LANGS, land_answer_card
 from app.services.md_fence_scan import (
     block_end,
@@ -108,8 +108,8 @@ def validate_physics_fences(
 ) -> str:
     """Drop model-authored result fences and append only solver-owned data.
 
-    ``correct`` adds a correction line above the card when the prose states a
-    different final value; the server never corrects its own (instant) text.
+    ``correct`` holds model prose to the card: a reply whose final value is another keeps
+    it, with no check; the server's own (instant) text is never held.
     ``user_text`` is the request: a flowchart it asked for survives the picture.
     """
     had_visual_fence = _has_picture_fence(content)
@@ -141,11 +141,14 @@ def validate_physics_fences(
     read = as_formula_heading(cleaned)
     if answer and _asks_instead_of_answering(read, answer):
         return cleaned
+    if answer and correct and stated_verdict(read, answer) == "conflict":
+        # The model, shown the verified result, still worked the question to another value:
+        # the two read it differently, and the server's reading of words is the one in
+        # doubt. Its own value stands in a card with no check, and the scenes of the
+        # server's reading go with it (``math/fence_conflict.py``).
+        return land_answer_card(cleaned, None)
     if answer:
-        conflict = correct and stated_verdict(read, answer) == "conflict"
-        cleaned = land_answer_card(
-            cleaned, answer, above=correction_line(answer) if conflict else None
-        )
+        cleaned = land_answer_card(cleaned, answer)
     extras = _scene_fences(verified)
     if not extras:
         return cleaned

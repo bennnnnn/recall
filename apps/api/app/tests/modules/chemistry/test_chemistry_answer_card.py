@@ -34,13 +34,15 @@ def test_the_solver_card_carries_the_marker_before_its_value() -> None:
     )
 
 
-def test_wrong_prose_beside_the_card_gets_one_correction_line() -> None:
+def test_prose_worked_to_another_value_keeps_it_with_no_check() -> None:
+    """The reply's own pH stands and no card claims either value (it used to get the
+    verified card under "The verified answer is")."""
     prose = "HCl fully dissociates, so [H⁺] = 0.1 M, which gives pH = 1.00 because −log(0.1) = 1."
     out = validate_chemistry_fences(prose, verified=_verified(_HCL))
     assert "pH = 1.00" in out
-    correction = "The verified answer is $\\mathrm{pH} = 2.00$."
-    assert out.count(correction) == 1
-    assert out.index(correction) < out.index("```answer")
+    assert VERIFIED_ANSWER_MARKER not in out
+    assert "The verified answer is" not in out
+    assert "2.00" not in out
 
 
 def test_steps_under_the_answer_heading_move_above_the_card() -> None:
