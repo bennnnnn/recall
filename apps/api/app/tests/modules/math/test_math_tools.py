@@ -736,12 +736,9 @@ def test_extract_rectangle_intent() -> None:
     assert intent.height == 5
 
 
-def test_extract_draw_rectangle_defaults() -> None:
-    intent = math_tools.extract_math_intent("Draw a rectangle")
-    assert intent is not None
-    assert intent.kind == "rectangle"
-    assert intent.width == 6
-    assert intent.height == 4
+def test_extract_draw_rectangle_reads_no_invented_size() -> None:
+    # No invented size (textbook run, 2026-11-13): its picture is drawn by math.figure.
+    assert math_tools.extract_math_intent("Draw a rectangle") is None
 
 
 @pytest.mark.parametrize(
@@ -781,11 +778,9 @@ def test_extract_circle_diameter_intent() -> None:
     assert intent.given_diameter is True
 
 
-def test_extract_circle_intent_defaults_without_dims() -> None:
-    intent = math_tools.extract_math_intent("Draw a circle")
-    assert intent is not None
-    assert intent.kind == "circle"
-    assert intent.radius == 5
+def test_extract_circle_intent_reads_no_invented_radius() -> None:
+    # No invented size (textbook run, 2026-11-13): its picture is drawn by math.figure.
+    assert math_tools.extract_math_intent("Draw a circle") is None
 
 
 @pytest.mark.parametrize(
@@ -951,11 +946,9 @@ def test_square_root_does_not_become_geometry_square(text: str) -> None:
     assert intent is None or intent.kind != "square"
 
 
-def test_draw_square_without_side_still_defaults() -> None:
-    intent = math_tools.extract_math_intent("Draw a square")
-    assert intent is not None
-    assert intent.kind == "square"
-    assert intent.side == 5
+def test_draw_square_without_side_reads_no_invented_side() -> None:
+    # No invented size (textbook run, 2026-11-13): its picture is drawn by math.figure.
+    assert math_tools.extract_math_intent("Draw a square") is None
 
 
 @pytest.mark.parametrize(

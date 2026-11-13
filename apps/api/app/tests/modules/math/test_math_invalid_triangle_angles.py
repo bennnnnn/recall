@@ -58,10 +58,10 @@ async def test_valid_angle_drawings_and_questions_remain_verified(prefix: str, a
     assert verified.canonical_fence["relative_lengths"] is True
 
 
-def test_generic_draw_and_base_height_examples_keep_existing_behavior():
+def test_generic_draw_reads_no_invented_triangle_and_base_height_keeps_its_own():
     for query in ["Draw a triangle", "Draw a triangle and label its angles"]:
-        intent = extract_math_intent(query)
-        assert intent is not None and intent.kind == "triangle"
+        # No invented 8 by 5 triangle (textbook run, 2026-11-13): math.figure draws it.
+        assert extract_math_intent(query) is None
     intent = extract_math_intent("Find the area of a triangle base 3 height 4")
     assert intent is not None and intent.kind == "triangle"
 

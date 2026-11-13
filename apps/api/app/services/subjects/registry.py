@@ -28,6 +28,8 @@ An adapter has what the dispatcher and chat ask of every subject:
 - ``photo``: how it reads its problem off a turn's photo (``SubjectPhoto``), or None;
 - ``tool``: how the tool loop checks calls to the model tool it owns (``SubjectTool``), or
   None;
+- ``figure``: the picture it draws for a question that asks to see one, from the question's
+  own values (``SubjectFigure``), or None;
 - ``followups``: how it reads a line that goes back to its last problem
   (``SubjectFollowups``);
 - ``fence``: which verified blocks it finishes, how it holds a finished reply's fences to
@@ -244,6 +246,33 @@ class SubjectTool(Protocol):
         ...
 
 
+class SubjectFigure(Protocol):
+    """The picture a subject draws for a question that asks to see one (a figure, a graph,
+    a number line), from the question's own values; started beside the reply and added
+    after it when the reply holds no picture of the server's."""
+
+    async def draw(self, question: str, earlier: Sequence[str], settings: Settings) -> str | None:
+        """The picture's fence, or None when nothing is drawn. ``earlier``: the user's
+        earlier messages, newest first, for a request to draw "it"."""
+        ...
+
+    def shown(self, verified: VerifiedSolveBlock | None) -> bool:
+        """The turn's verified block already draws the whole picture."""
+        ...
+
+    def whole(self, text: str) -> bool:
+        """The reply already holds a picture no figure adds to (a graph, a scene)."""
+        ...
+
+    def adds_to(self, text: str, fence: str) -> bool:
+        """``fence`` shows what the reply's own pictures do not."""
+        ...
+
+    def without_substitutes(self, text: str) -> str:
+        """``text`` without the model's own picture of the figure drawn in characters."""
+        ...
+
+
 class SubjectAdapter(Protocol):
     """One subject, as the dispatcher and chat ask it."""
 
@@ -295,6 +324,9 @@ class SubjectAdapter(Protocol):
 
     @property
     def tool(self) -> SubjectTool | None: ...
+
+    @property
+    def figure(self) -> SubjectFigure | None: ...
 
     async def solve(self, request: SubjectRequest, settings: Settings) -> SubjectAugmentation: ...
 

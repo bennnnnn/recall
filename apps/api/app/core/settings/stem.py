@@ -63,6 +63,14 @@ class StemSettings(BaseModel):
     # finds exactly one solution in the stated domain.
     math_word_problems_enabled: bool = True
     math_word_problem_timeout_seconds: float = 3.0
+    # A maths turn the read says asks to see a picture (a figure, a graph, a number line)
+    # gets one structured call that reads what to draw and the values the question states;
+    # the server draws it from those values (``math/figure``), only when every number is
+    # one the question writes. It runs beside the reply, which waits at most
+    # ``figure_wait_seconds`` for it once its text is done. Off: no picture is read.
+    figure_read_enabled: bool = True
+    figure_read_timeout_seconds: float = 4.0
+    figure_wait_seconds: float = 2.0
     # The word-problem translation and the extraction above run side by side;
     # this bounds them together. It sits a little above the longer of the two
     # (two 3 s translation attempts), so it only stops a call that outlives its

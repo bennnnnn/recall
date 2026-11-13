@@ -1,4 +1,5 @@
 export * from "@/lib/math/geometryAngles";
+export * from "@/lib/math/geometryFigure";
 export * from "@/lib/math/geometryLabels";
 export * from "@/lib/math/geometryLayout";
 export * from "@/lib/math/geometryParser";

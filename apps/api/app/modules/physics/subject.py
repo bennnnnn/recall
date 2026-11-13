@@ -188,6 +188,8 @@ class PhysicsSubject:
     photo: PhysicsPhoto = PhysicsPhoto()
     # No model tool of its own.
     tool: None = None
+    # Its pictures come with its solve (a scene, a molecule), never from a separate read.
+    figure: None = None
 
     def enabled(self, settings: Settings) -> bool:
         return settings.physics_enabled
