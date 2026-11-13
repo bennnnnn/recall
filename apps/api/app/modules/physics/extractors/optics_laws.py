@@ -159,18 +159,37 @@ def _named_as(before: str) -> str | None:
     return "incidence" if incidence > refraction else "refraction"
 
 
+# What an angle is measured from, said right after it: "30° to the normal", "40° with the
+# surface". Snell's law takes angles from the normal, so one from the surface is 90° less.
+_MEASURED_FROM = re.compile(
+    r"\s*(?:to|with|from)\s+(?:the\s+)?(?:[a-z-]+\s+)?(?P<line>normal|surface|boundary|interface)\b",
+    re.IGNORECASE,
+)
+
+
 def _incidence_first(cleaned: str, found: list[re.Match[str]]) -> list[float] | None:
-    """The two angles, the angle of incidence first, as their words name them.
+    """The two angles from the normal, the angle of incidence first, as their words name
+    them.
 
     "The angle of refraction is 30° when the angle of incidence is 45°" states refraction
-    first: read in order, the index was sin 30°/sin 45° = 0.707 for 1.41. One angle named
-    names the other; neither named keeps the order stated; both named alike is no reading.
+    first: read in order, the index was sin 30°/sin 45° = 0.707 for 1.41. An angle "to the
+    surface" is 90° less from the normal: read as its own, 40° to the surface gave 1.26 for
+    1.50. One angle named names the other; neither named keeps the order stated; both named
+    alike is no reading, and so is an angle neither named nor said what it is measured from
+    ("strikes a block at 30°" may be to the surface).
     """
-    names = [
-        _named_as(cleaned[(found[index - 1].end() if index else 0) : angle.start()])
-        for index, angle in enumerate(found)
-    ]
-    angles = [float(angle.group(1)) for angle in found]
+    names: list[str | None] = []
+    angles: list[float] = []
+    for index, angle in enumerate(found):
+        name = _named_as(cleaned[(found[index - 1].end() if index else 0) : angle.start()])
+        measured = _MEASURED_FROM.match(cleaned, angle.end())
+        line = None if measured is None else measured.group("line").lower()
+        if name is None and line is None:
+            return None
+        names.append(name)
+        angles.append(
+            float(angle.group(1)) if line in (None, "normal") else 90 - float(angle.group(1))
+        )
     if names[0] == names[1] and names[0] is not None:
         return None
     if names[0] == "refraction" or names[1] == "incidence":

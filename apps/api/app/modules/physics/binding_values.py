@@ -62,14 +62,25 @@ _LEAVES = (
     r"|into\s+(?:the\s+)?(?:air|vacuum)"
 )
 _LEAVES_RE = re.compile(rf"\b(?:{_LEAVES})\b")
-# Light that starts inside a medium, or comes from a named one, is not from air. Light
-# "travelling in air" starts in air.
-_STARTS_INSIDE_RE = re.compile(
-    rf"\b(?:inside|within|internal(?:ly)?|{_LEAVES}"
+# Light inside a medium: "inside the glass", "travelling in water". Light "travelling in
+# air" starts in air.
+_INSIDE = (
+    rf"inside|within|internal(?:ly)?|{_LEAVES}"
     r"|(?:travel\w*|mov(?:es|ing))\s+in(?!\s+(?:(?:the|a)\s+)?(?:air|vacuum)\b)"
     r"|underwater|under\s+water|submerged|beneath|below\s+the\s+surface"
-    r"|from\s+(?!(?:(?:a|an|the)\s+)?(?:air|surface|boundary|interface|normal|vacuum"
-    r"|horizontal|vertical)\b)(?:a\s+|an\s+|the\s+)?[a-z]+)\b"
+)
+_NOT_A_MEDIUM = (
+    r"(?:(?:a|an|the)\s+)?(?:air|surface|boundary|interface|normal|vacuum|horizontal|vertical)\b"
+)
+# Light that starts inside a medium, or comes from a named one, is not from air.
+_STARTS_INSIDE_RE = re.compile(
+    rf"\b(?:{_INSIDE}|from\s+(?!{_NOT_A_MEDIUM})(?:a\s+|an\s+|the\s+)?[a-z]+)\b"
+)
+# Said to start inside, as a decline reads it: "from" only as a passage from one medium to
+# the next ("from glass into air"). "Light from a lamp in air" starts in air.
+_PASSES_FROM_INSIDE_RE = re.compile(
+    rf"\b(?:{_INSIDE}|from\s+(?!{_NOT_A_MEDIUM})(?:a\s+|an\s+|the\s+)?[a-z]+"
+    r"\s+(?:in)?to\b)\b"
 )
 
 
@@ -89,7 +100,7 @@ def light_starts_inside(text: str) -> bool:
     asked_at = -1 if clause is None else lower.rfind(clause.lower())
     asked_at = len(lower) if asked_at < 0 else asked_at
     return (
-        _STARTS_INSIDE_RE.search(lower, 0, asked_at) is not None
+        _PASSES_FROM_INSIDE_RE.search(lower, 0, asked_at) is not None
         or _LEAVES_RE.search(lower, asked_at) is not None
     )
 

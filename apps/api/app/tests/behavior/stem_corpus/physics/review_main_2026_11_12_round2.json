@@ -1,0 +1,1434 @@
+[
+ {
+  "id": "rm12b-001",
+  "area": "review2",
+  "prompt": "A skydiver of mass 70 kg falls with an acceleration of 6 m/s². What is her weight?",
+  "expect": "decline",
+  "note": "686.7 N by hand; the first branch verified 420 N"
+ },
+ {
+  "id": "rm12b-002",
+  "area": "review2",
+  "prompt": "A 0.5 kg ball falls with an acceleration of 8 m/s² because of air resistance. What is its weight?",
+  "expect": "decline",
+  "note": "4.905 N by hand; the first branch verified 4 N"
+ },
+ {
+  "id": "rm12b-003",
+  "area": "review2",
+  "prompt": "A 2 kg charged mass in an electric field accelerates at 3 m/s². What is its weight?",
+  "expect": "decline",
+  "note": "19.62 N by hand; the first branch verified 6 N"
+ },
+ {
+  "id": "rm12b-004",
+  "area": "review2",
+  "prompt": "A 20 kg box is accelerated across a field at 2 m/s². What is its weight?",
+  "expect": "decline",
+  "note": "196.2 N by hand; the first branch verified 40 N"
+ },
+ {
+  "id": "rm12b-005",
+  "area": "review2",
+  "prompt": "A rock weighs 19.62 N. What is its mass?",
+  "expect": "answer",
+  "answer": [
+   2.0,
+   "kg"
+  ]
+ },
+ {
+  "id": "rm12b-006",
+  "area": "review2",
+  "prompt": "A rock has a weight of 7.4 N on Mars where g = 3.7 m/s². What is its mass?",
+  "expect": "answer",
+  "answer": [
+   2.0,
+   "kg"
+  ]
+ },
+ {
+  "id": "rm12b-007",
+  "area": "review2",
+  "prompt": "The weight of an astronaut on the Moon is 81 N. What is her mass?",
+  "expect": "answer",
+  "answer": [
+   50.0,
+   "kg"
+  ]
+ },
+ {
+  "id": "rm12b-008",
+  "area": "review2",
+  "prompt": "A 70 kg man stands on a scale in a lift accelerating upward at 1.5 m/s². What does the scale read?",
+  "expect": "answer",
+  "answer": [
+   791.7,
+   "N"
+  ]
+ },
+ {
+  "id": "rm12b-009",
+  "area": "review2",
+  "prompt": "A 70 kg man stands on a scale in a lift accelerating downward at 1.5 m/s². What does the scale read?",
+  "expect": "answer",
+  "answer": [
+   581.7,
+   "N"
+  ]
+ },
+ {
+  "id": "rm12b-010",
+  "area": "review2",
+  "prompt": "A lift starts moving upward with an acceleration of 2 m/s². A 60 kg person stands on a scale. What does the scale read?",
+  "expect": "answer",
+  "answer": [
+   708.6,
+   "N"
+  ]
+ },
+ {
+  "id": "rm12b-011",
+  "area": "review2",
+  "prompt": "An elevator accelerates downward at 9.81 m/s². What is the apparent weight of a 60 kg person in it?",
+  "expect": "answer",
+  "answer": [
+   0.0,
+   "N"
+  ]
+ },
+ {
+  "id": "rm12b-012",
+  "area": "review2",
+  "prompt": "A 1000 kg lift accelerates upward at 2 m/s². What is the tension in the cable?",
+  "expect": "answer",
+  "answer": [
+   11810.0,
+   "N"
+  ]
+ },
+ {
+  "id": "rm12b-013",
+  "area": "review2",
+  "prompt": "A 1000 kg lift accelerates downward at 2 m/s². What is the tension in the cable?",
+  "expect": "answer",
+  "answer": [
+   7810.0,
+   "N"
+  ]
+ },
+ {
+  "id": "rm12b-014",
+  "area": "review2",
+  "prompt": "An 80 kg man stands on a scale in an elevator. The elevator accelerates downwards at 1.81 m/s². What is the scale reading?",
+  "expect": "answer",
+  "answer": [
+   640.0,
+   "N"
+  ]
+ },
+ {
+  "id": "rm12b-015",
+  "area": "review2",
+  "prompt": "An 80 kg man stands on a scale in an elevator. The elevator has an upward acceleration of 1.19 m/s². Find the scale reading.",
+  "expect": "answer",
+  "answer": [
+   880.0,
+   "N"
+  ]
+ },
+ {
+  "id": "rm12b-016",
+  "area": "review2",
+  "prompt": "A 60 kg person stands in a stationary lift. What is the normal force?",
+  "expect": "answer",
+  "answer": [
+   588.6,
+   "N"
+  ]
+ },
+ {
+  "id": "rm12b-017",
+  "area": "review2",
+  "prompt": "A man in a lift that is accelerating up at 2 m/s² finds his apparent weight is 944.8 N. What is his mass?",
+  "expect": "answer",
+  "answer": [
+   80.0,
+   "kg"
+  ]
+ },
+ {
+  "id": "rm12b-018",
+  "area": "review2",
+  "prompt": "A lift is accelerating downward at 2 m/s². A man's apparent weight is 624.8 N. Find his mass.",
+  "expect": "answer",
+  "answer": [
+   80.0,
+   "kg"
+  ]
+ },
+ {
+  "id": "rm12b-019",
+  "area": "review2",
+  "prompt": "A rocket engine produces a net force of 2000 N and accelerates the rocket at 40 m/s². What is its mass?",
+  "expect": "answer",
+  "answer": [
+   50.0,
+   "kg"
+  ]
+ },
+ {
+  "id": "rm12b-020",
+  "area": "review2",
+  "prompt": "A net force of 10 N acts vertically upward on a box, giving it an acceleration of 5 m/s². What is its mass?",
+  "expect": "answer",
+  "answer": [
+   2.0,
+   "kg"
+  ]
+ },
+ {
+  "id": "rm12b-021",
+  "area": "review2",
+  "prompt": "A net force of 400 N acts on a cart on a ramp, giving it an acceleration of 2 m/s². What is its mass?",
+  "expect": "answer",
+  "answer": [
+   200.0,
+   "kg"
+  ]
+ },
+ {
+  "id": "rm12b-022",
+  "area": "review2",
+  "prompt": "A 20 N net force acts on a block attached to a spring and it accelerates at 4 m/s². What is its mass?",
+  "expect": "answer",
+  "answer": [
+   5.0,
+   "kg"
+  ]
+ },
+ {
+  "id": "rm12b-023",
+  "area": "review2",
+  "prompt": "An electron moves at 0.1c. What is its kinetic energy?",
+  "expect": "answer",
+  "answer": [
+   4.125e-16,
+   "J"
+  ]
+ },
+ {
+  "id": "rm12b-024",
+  "area": "review2",
+  "prompt": "An electron moves at 0.9c. What is its kinetic energy?",
+  "expect": "answer",
+  "answer": [
+   1.059e-13,
+   "J"
+  ]
+ },
+ {
+  "id": "rm12b-025",
+  "area": "review2",
+  "prompt": "An electron moves at 0.05c. What is its kinetic energy?",
+  "expect": "answer",
+  "answer": [
+   1.025e-16,
+   "J"
+  ]
+ },
+ {
+  "id": "rm12b-026",
+  "area": "review2",
+  "prompt": "A wave has a frequency of 50 Hz. How many waves pass a point in 1 minute?",
+  "expect": "answer",
+  "answer": [
+   3000.0,
+   ""
+  ]
+ },
+ {
+  "id": "rm12b-027",
+  "area": "review2",
+  "prompt": "A 60 kg person stands on a scale in an elevator. The elevator is accelerating upward at 2 m/s² but its speed is downward. What does the scale read?",
+  "expect": "answer",
+  "answer": [
+   708.6,
+   "N"
+  ]
+ },
+ {
+  "id": "rm12b-028",
+  "area": "review2",
+  "prompt": "A lift travelling upward accelerates downward at 2 m/s². What is the apparent weight of a 60 kg passenger?",
+  "expect": "answer",
+  "answer": [
+   468.6,
+   "N"
+  ]
+ },
+ {
+  "id": "rm12b-029",
+  "area": "review2",
+  "prompt": "A 60 kg passenger is in an elevator accelerating upward at 2 m/s² while descending. What is her apparent weight?",
+  "expect": "answer",
+  "answer": [
+   708.6,
+   "N"
+  ]
+ },
+ {
+  "id": "rm12b-030",
+  "area": "review2",
+  "prompt": "A 60 kg woman stands on bathroom scales in a lift. The lift has an upward acceleration of 2 m/s². What is the reading on the scale?",
+  "expect": "answer",
+  "answer": [
+   708.6,
+   "N"
+  ]
+ },
+ {
+  "id": "rm12b-031",
+  "area": "review2",
+  "prompt": "A 100 N horizontal force acts on a 20 kg crate. The coefficient of kinetic friction is 0.25. Find the acceleration.",
+  "expect": "answer",
+  "answer": [
+   2.548,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "rm12b-032",
+  "area": "review2",
+  "prompt": "A force of 30 N acts on a 5 kg block. The coefficient of friction between block and floor is 0.4. Find the acceleration.",
+  "expect": "answer",
+  "answer": [
+   2.076,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "rm12b-033",
+  "area": "review2",
+  "prompt": "A 2 kg book slides across a table at 3 m/s. The coefficient of kinetic friction is 0.3. How far does it slide before stopping?",
+  "expect": "answer",
+  "answer": [
+   1.529,
+   "m"
+  ]
+ },
+ {
+  "id": "rm12b-034",
+  "area": "review2",
+  "prompt": "A 5 kg box rests on a floor with μ = 0.3. What is the maximum static friction force?",
+  "expect": "answer",
+  "answer": [
+   14.7,
+   "N"
+  ]
+ },
+ {
+  "id": "rm12b-035",
+  "area": "review2",
+  "prompt": "A 2 kg box on a floor with μ = 0.3 moves at 3 m/s. What is its kinetic energy?",
+  "expect": "answer",
+  "answer": [
+   9.0,
+   "J"
+  ]
+ },
+ {
+  "id": "rm12b-036",
+  "area": "review2",
+  "prompt": "A 20 kg sled is pulled with 80 N on ice with a coefficient of friction of 0.1. What is its acceleration?",
+  "expect": "answer",
+  "answer": [
+   3.019,
+   "m/s^2"
+  ],
+  "note": "(80 - 0.1 x 20 x 9.81)/20 by hand; the review's 2.5 left friction's 19.6 N as 30 N"
+ },
+ {
+  "id": "rm12b-037",
+  "area": "review2",
+  "prompt": "A 10 kg box is pushed at constant velocity across a floor with a coefficient of kinetic friction of 0.3. What is the pushing force?",
+  "expect": "answer",
+  "answer": [
+   29.43,
+   "N"
+  ]
+ },
+ {
+  "id": "rm12b-038",
+  "area": "review2",
+  "prompt": "A 40 N force accelerates a mass at 10 m/s² on a frictionless floor, μ = 0. What is its mass?",
+  "expect": "answer",
+  "answer": [
+   4.0,
+   "kg"
+  ]
+ },
+ {
+  "id": "rm12b-039",
+  "area": "review2",
+  "prompt": "On Mars, a ball is dropped from 10 m. How long does it take to fall?",
+  "expect": "answer",
+  "answer": [
+   2.32,
+   "s"
+  ]
+ },
+ {
+  "id": "rm12b-040",
+  "area": "review2",
+  "prompt": "On a planet where g = 5 m/s², a ball is dropped from 10 m. How long does it take to fall?",
+  "expect": "answer",
+  "answer": [
+   2.0,
+   "s"
+  ]
+ },
+ {
+  "id": "rm12b-041",
+  "area": "review2",
+  "prompt": "On the Moon, a hammer is dropped from 1.6 m. How long does it take to fall?",
+  "expect": "answer",
+  "answer": [
+   1.405,
+   "s"
+  ]
+ },
+ {
+  "id": "rm12b-042",
+  "area": "review2",
+  "prompt": "What is the period of a 1 m pendulum on Mars?",
+  "expect": "answer",
+  "answer": [
+   3.262,
+   "s"
+  ]
+ },
+ {
+  "id": "rm12b-043",
+  "area": "review2",
+  "prompt": "A planet's surface acceleration due to gravity is 3.7 m/s². What is the weight of a 2 kg rock there?",
+  "expect": "answer",
+  "answer": [
+   7.4,
+   "N"
+  ]
+ },
+ {
+  "id": "rm12b-044",
+  "area": "review2",
+  "prompt": "What is the weight of a 2 kg rock on the Moon?",
+  "expect": "answer",
+  "answer": [
+   3.24,
+   "N"
+  ]
+ },
+ {
+  "id": "rm12b-045",
+  "area": "review2",
+  "prompt": "A 70 kg astronaut stands on a moon of Saturn. What is his weight?",
+  "expect": "decline",
+  "note": "no reading; the first branch verified 113.4 N"
+ },
+ {
+  "id": "rm12b-046",
+  "area": "review2",
+  "prompt": "A 70 kg astronaut stands on Earth. What is his weight?",
+  "expect": "answer",
+  "answer": [
+   686.7,
+   "N"
+  ]
+ },
+ {
+  "id": "rm12b-047",
+  "area": "review2",
+  "prompt": "An astronaut on Titan, Saturn's largest moon, drops a hammer from 2 m. How long does it take to fall?",
+  "expect": "decline",
+  "note": "no reading; the first branch verified 1.57 s"
+ },
+ {
+  "id": "rm12b-048",
+  "area": "review2",
+  "prompt": "On Europa, a moon of Jupiter, what is the weight of a 50 kg probe?",
+  "expect": "decline",
+  "note": "no reading; the first branch verified 81 N"
+ },
+ {
+  "id": "rm12b-049",
+  "area": "review2",
+  "prompt": "A 70 kg astronaut lands on a moon of Mars. What is his weight?",
+  "expect": "decline",
+  "note": "no reading; the first branch verified 113.4 N"
+ },
+ {
+  "id": "rm12b-050",
+  "area": "review2",
+  "prompt": "A rock is dropped from 5 m on a small moon. How long does it take to fall?",
+  "expect": "decline",
+  "note": "no reading; the first branch verified 2.48 s"
+ },
+ {
+  "id": "rm12b-051",
+  "area": "review2",
+  "prompt": "A rock is dropped from 5 m on an icy moon. How long does it take to fall?",
+  "expect": "decline",
+  "note": "no reading; the first branch verified 2.48 s"
+ },
+ {
+  "id": "rm12b-052",
+  "area": "review2",
+  "prompt": "On the Moon, a rock is dropped from 1.6 m. How long does it take to fall?",
+  "expect": "answer",
+  "answer": [
+   1.405,
+   "s"
+  ]
+ },
+ {
+  "id": "rm12b-053",
+  "area": "review2",
+  "prompt": "On Saturn's moon Enceladus, a rock is dropped from 5 m. How long does it take to fall?",
+  "expect": "decline",
+  "note": "no reading; the first branch verified 2.48 s"
+ },
+ {
+  "id": "rm12b-054",
+  "area": "review2",
+  "prompt": "A 10 kg lander rests on the surface of Ganymede, the largest moon. What is its weight?",
+  "expect": "decline",
+  "note": "no reading; the first branch verified 16.2 N"
+ },
+ {
+  "id": "rm12b-055",
+  "area": "review2",
+  "prompt": "On a moon with no atmosphere, a ball is dropped from 3 m. How long does it take to land?",
+  "expect": "decline",
+  "note": "no reading; the first branch verified 1.92 s"
+ },
+ {
+  "id": "rm12b-056",
+  "area": "review2",
+  "prompt": "Mars has two moons. On Phobos a rock is dropped from 2 m. How long does it fall?",
+  "expect": "decline",
+  "note": "no reading; the first branch verified 1.04 s"
+ },
+ {
+  "id": "rm12b-057",
+  "area": "review2",
+  "prompt": "A 60 kg astronaut walks on Mars's moon Deimos. What is her weight?",
+  "expect": "decline",
+  "note": "no reading; the first branch verified 97.2 N"
+ },
+ {
+  "id": "rm12b-058",
+  "area": "review2",
+  "prompt": "A 60 kg astronaut walks on Mars. What is her weight?",
+  "expect": "answer",
+  "answer": [
+   222.6,
+   "N"
+  ]
+ },
+ {
+  "id": "rm12b-059",
+  "area": "review2",
+  "prompt": "An astronaut on Io, a moon of Jupiter, throws a ball straight up at 5 m/s. How high does it go?",
+  "expect": "decline",
+  "note": "no reading; the first branch verified 7.72 m"
+ },
+ {
+  "id": "rm12b-060",
+  "area": "review2",
+  "prompt": "A pendulum 1 m long swings on Callisto, a moon of Jupiter. What is its period?",
+  "expect": "decline",
+  "note": "no reading; the first branch verified 4.94 s"
+ },
+ {
+  "id": "rm12b-061",
+  "area": "review2",
+  "prompt": "A lens of power +4 D is placed in contact with a lens of power -2.5 D. What is the power of the combination?",
+  "expect": "answer",
+  "answer": [
+   1.5,
+   "D"
+  ]
+ },
+ {
+  "id": "rm12b-062",
+  "area": "review2",
+  "prompt": "Two lenses in contact: the combination has a power of 2 D. One lens has a power of 5 D. What is the power of the other?",
+  "expect": "decline",
+  "note": "-3 D by hand; the first branch verified 7 D"
+ },
+ {
+  "id": "rm12b-063",
+  "area": "review2",
+  "prompt": "Capacitors of 2 μF and 3 μF are connected in series. What is the equivalent capacitance?",
+  "expect": "answer",
+  "answer": [
+   1.2e-06,
+   "F"
+  ]
+ },
+ {
+  "id": "rm12b-064",
+  "area": "review2",
+  "prompt": "Capacitors of 2 μF and 3 μF are connected in parallel. What is the total capacitance?",
+  "expect": "answer",
+  "answer": [
+   4.9999999999999996e-06,
+   "F"
+  ]
+ },
+ {
+  "id": "rm12b-065",
+  "area": "review2",
+  "prompt": "Two capacitors in parallel have an overall capacitance of 10 μF; one of them is 4 μF. Find the capacitance of the other one.",
+  "expect": "answer",
+  "answer": [
+   6e-06,
+   "F"
+  ]
+ },
+ {
+  "id": "rm12b-066",
+  "area": "review2",
+  "prompt": "Two springs of 200 N/m and 300 N/m are connected in series. What is the effective spring constant?",
+  "expect": "answer",
+  "answer": [
+   120.0,
+   "N/m"
+  ]
+ },
+ {
+  "id": "rm12b-067",
+  "area": "review2",
+  "prompt": "Two springs in series have an effective spring constant of 120 N/m. One is 200 N/m. What is the spring constant of the other?",
+  "expect": "answer",
+  "answer": [
+   300.0,
+   "N/m"
+  ]
+ },
+ {
+  "id": "rm12b-068",
+  "area": "review2",
+  "prompt": "Two springs of 200 N/m and 300 N/m are connected in parallel. What is the combined spring constant?",
+  "expect": "answer",
+  "answer": [
+   500.0,
+   "N/m"
+  ]
+ },
+ {
+  "id": "rm12b-069",
+  "area": "review2",
+  "prompt": "A boat heads straight across a river at 4 m/s; the current flows at 3 m/s. What is the boat's resultant speed?",
+  "expect": "answer",
+  "answer": [
+   5.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "rm12b-070",
+  "area": "review2",
+  "prompt": "A plane flies north at 200 m/s in a wind blowing east at 50 m/s. What is its resultant speed?",
+  "expect": "answer",
+  "answer": [
+   206.2,
+   "m/s"
+  ]
+ },
+ {
+  "id": "rm12b-071",
+  "area": "review2",
+  "prompt": "A swimmer's resultant speed is 2.5 m/s straight across a river whose current flows at 1.5 m/s at right angles. What is the swimmer's speed in still water?",
+  "expect": "answer",
+  "answer": [
+   2.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "rm12b-072",
+  "area": "review2",
+  "prompt": "Two resistors in series have a total resistance of 10 Ω. One is 4 Ω. What is the other?",
+  "expect": "decline",
+  "note": "6 ohm by hand; the first branch verified 14 Ω"
+ },
+ {
+  "id": "rm12b-073",
+  "area": "review2",
+  "prompt": "Two resistors in parallel have a combined resistance of 2 Ω. One is 3 Ω. What is the other?",
+  "expect": "decline",
+  "note": "6 ohm by hand; the first branch verified 1.2 Ω"
+ },
+ {
+  "id": "rm12b-074",
+  "area": "review2",
+  "prompt": "A 3 Ω and a 6 Ω resistor are connected in parallel. What is the total resistance?",
+  "expect": "answer",
+  "answer": [
+   2.0,
+   "ohm"
+  ]
+ },
+ {
+  "id": "rm12b-075",
+  "area": "review2",
+  "prompt": "A 3 Ω and a 6 Ω resistor are connected in series. What is the total resistance?",
+  "expect": "answer",
+  "answer": [
+   9.0,
+   "ohm"
+  ]
+ },
+ {
+  "id": "rm12b-076",
+  "area": "review2",
+  "prompt": "A 4 μF and a 6 μF capacitor are in series. What is their total capacitance?",
+  "expect": "answer",
+  "answer": [
+   2.4e-06,
+   "F"
+  ]
+ },
+ {
+  "id": "rm12b-077",
+  "area": "review2",
+  "prompt": "Two capacitors, 4 μF and 6 μF, are in parallel. Total capacitance?",
+  "expect": "answer",
+  "answer": [
+   9.999999999999999e-06,
+   "F"
+  ]
+ },
+ {
+  "id": "rm12b-078",
+  "area": "review2",
+  "prompt": "Two lenses in contact: the combination has a power of 5 D. One lens has a power of 3 D. What is the power of the other?",
+  "expect": "answer",
+  "answer": [
+   2.0,
+   "D"
+  ]
+ },
+ {
+  "id": "rm12b-079",
+  "area": "review2",
+  "prompt": "Two lenses in contact together have a power of 5 D. One lens has a power of 3 D. What is the power of the other?",
+  "expect": "answer",
+  "answer": [
+   2.0,
+   "D"
+  ]
+ },
+ {
+  "id": "rm12b-080",
+  "area": "review2",
+  "prompt": "When placed in contact, two thin lenses give a power of 5 D. One has a power of 3 D. What is the power of the other?",
+  "expect": "answer",
+  "answer": [
+   2.0,
+   "D"
+  ]
+ },
+ {
+  "id": "rm12b-081",
+  "area": "review2",
+  "prompt": "Two lenses in contact act as a single lens of power 5 D. One has a power of 3 D. Find the power of the other lens.",
+  "expect": "answer",
+  "answer": [
+   2.0,
+   "D"
+  ]
+ },
+ {
+  "id": "rm12b-082",
+  "area": "review2",
+  "prompt": "The power of the combination of two lenses in contact is 5 D. One has a power of 3 D. What is the power of the other?",
+  "expect": "answer",
+  "answer": [
+   2.0,
+   "D"
+  ]
+ },
+ {
+  "id": "rm12b-083",
+  "area": "review2",
+  "prompt": "Two lenses are placed in contact and the combination's power is 5 D. One lens is 3 D. What is the power of the other lens?",
+  "expect": "answer",
+  "answer": [
+   2.0,
+   "D"
+  ]
+ },
+ {
+  "id": "rm12b-084",
+  "area": "review2",
+  "prompt": "A 3 D lens is placed in contact with a second lens. The pair has a power of 5 D. What is the power of the second lens?",
+  "expect": "decline",
+  "note": "2 D by hand; the first branch verified 8 D"
+ },
+ {
+  "id": "rm12b-085",
+  "area": "review2",
+  "prompt": "A 4 μF capacitor is connected in parallel with another and together they have a capacitance of 10 μF. What is the other capacitance?",
+  "expect": "decline",
+  "note": "6 uF by hand; the first branch verified 14 μF"
+ },
+ {
+  "id": "rm12b-086",
+  "area": "review2",
+  "prompt": "Two springs in series behave like one spring of 120 N/m. One is 200 N/m. What is the spring constant of the other?",
+  "expect": "decline",
+  "note": "300 N/m by hand; the first branch verified 75 N/m"
+ },
+ {
+  "id": "rm12b-087",
+  "area": "review2",
+  "prompt": "Two springs in parallel together have a spring constant of 500 N/m. One has k = 300 N/m. What is the spring constant of the other?",
+  "expect": "answer",
+  "answer": [
+   200.0,
+   "N/m"
+  ]
+ },
+ {
+  "id": "rm12b-088",
+  "area": "review2",
+  "prompt": "A 4 Ω resistor in series with another gives 10 Ω altogether. What is the other resistance?",
+  "expect": "decline",
+  "note": "6 ohm by hand; the first branch verified 14 Ω"
+ },
+ {
+  "id": "rm12b-089",
+  "area": "review2",
+  "prompt": "Two resistors in parallel have an equivalent resistance of 2 Ω. One is 3 Ω. Find the other.",
+  "expect": "decline",
+  "note": "6 ohm by hand; the first branch verified 1.2 Ω"
+ },
+ {
+  "id": "rm12b-090",
+  "area": "review2",
+  "prompt": "A ray of light in air hits water at 40° to the normal and refracts at 28.9°. What is the refractive index of water?",
+  "expect": "answer",
+  "answer": [
+   1.33,
+   ""
+  ]
+ },
+ {
+  "id": "rm12b-091",
+  "area": "review2",
+  "prompt": "Light enters glass from air. The angle of refraction is 25° and the angle of incidence is 40°. What is the refractive index?",
+  "expect": "answer",
+  "answer": [
+   1.521,
+   ""
+  ]
+ },
+ {
+  "id": "rm12b-092",
+  "area": "review2",
+  "prompt": "A ray inside glass of refractive index 1.5 hits the surface at 30° to the normal. What is the angle of refraction in air?",
+  "expect": "decline",
+  "note": "48.6 deg by hand; the first branch verified 19.5°"
+ },
+ {
+  "id": "rm12b-093",
+  "area": "review2",
+  "prompt": "Light travels from air into glass at an angle of incidence of 60°. The refractive index of the glass is 1.5. What is the angle of refraction?",
+  "expect": "answer",
+  "answer": [
+   35.26,
+   "deg"
+  ]
+ },
+ {
+  "id": "rm12b-094",
+  "area": "review2",
+  "prompt": "Light passes from glass (n = 1.5) into water (n = 1.33) at an angle of incidence of 30°. What is the angle of refraction?",
+  "expect": "answer",
+  "answer": [
+   34.33,
+   "deg"
+  ]
+ },
+ {
+  "id": "rm12b-095",
+  "area": "review2",
+  "prompt": "A light ray is incident at 45° on a glass slab and is refracted at 28°. What is the refractive index of the glass?",
+  "expect": "answer",
+  "answer": [
+   1.506,
+   ""
+  ]
+ },
+ {
+  "id": "rm12b-096",
+  "area": "review2",
+  "prompt": "The angle of refraction is 20° and the angle of incidence is 30°. What is the refractive index of the glass?",
+  "expect": "answer",
+  "answer": [
+   1.462,
+   ""
+  ]
+ },
+ {
+  "id": "rm12b-097",
+  "area": "review2",
+  "prompt": "A ray strikes a diamond at 50° to the normal and refracts at 18.4°. What is the refractive index of diamond?",
+  "expect": "answer",
+  "answer": [
+   2.427,
+   ""
+  ]
+ },
+ {
+  "id": "rm12b-098",
+  "area": "review2",
+  "prompt": "A ray of light strikes a glass surface at 30° to the surface. The refracted ray makes 20° with the normal. What is the refractive index of the glass?",
+  "expect": "answer",
+  "answer": [
+   2.53,
+   ""
+  ]
+ },
+ {
+  "id": "rm12b-099",
+  "area": "review2",
+  "prompt": "Light in air hits a glass block. The ray makes an angle of 30° with the surface and the angle of refraction is 35°. Find the refractive index.",
+  "expect": "answer",
+  "answer": [
+   1.51,
+   ""
+  ]
+ },
+ {
+  "id": "rm12b-100",
+  "area": "review2",
+  "prompt": "A ray of light strikes a glass block at 30° and is refracted at 20°. What is the refractive index of the glass?",
+  "expect": "decline",
+  "note": "no reading; the first branch verified 1.46"
+ },
+ {
+  "id": "rm12b-101",
+  "area": "review2",
+  "prompt": "A beam of light enters a liquid from air at 45°; it is refracted to 30°. What is the refractive index of the liquid?",
+  "expect": "decline",
+  "note": "1.414, which the first branch verified; declined now: 45° is said from neither the normal nor the surface"
+ },
+ {
+  "id": "rm12b-102",
+  "area": "review2",
+  "prompt": "A beam of light is refracted to 30° when it enters a liquid from air at 45°. What is the refractive index of the liquid?",
+  "expect": "decline",
+  "note": "1.414, which the first branch verified; declined now: 45° is said from neither the normal nor the surface"
+ },
+ {
+  "id": "rm12b-103",
+  "area": "review2",
+  "prompt": "Light is refracted at 30° on entering a liquid at an angle of incidence of 45°. Refractive index of the liquid?",
+  "expect": "answer",
+  "answer": [
+   1.414,
+   ""
+  ]
+ },
+ {
+  "id": "rm12b-104",
+  "area": "review2",
+  "prompt": "Light enters water (n = 1.33) from air at 30°. What is the angle of refraction?",
+  "expect": "answer",
+  "answer": [
+   22.1,
+   "deg"
+  ]
+ },
+ {
+  "id": "rm12b-105",
+  "area": "review2",
+  "prompt": "The speed of light in a glass is 2 × 10⁸ m/s. What is its refractive index?",
+  "expect": "answer",
+  "answer": [
+   1.5,
+   ""
+  ]
+ },
+ {
+  "id": "rm12b-106",
+  "area": "review2",
+  "prompt": "What is the critical angle for glass of refractive index 1.5?",
+  "expect": "answer",
+  "answer": [
+   41.8,
+   "deg"
+  ]
+ },
+ {
+  "id": "rm12b-107",
+  "area": "review2",
+  "prompt": "A ray of light in air strikes a glass block at 40° to the surface. The refracted ray makes 30.7° with the normal. What is the refractive index of the glass?",
+  "expect": "answer",
+  "answer": [
+   1.5,
+   ""
+  ]
+ },
+ {
+  "id": "rm12b-108",
+  "area": "review2",
+  "prompt": "Light in air meets the surface of a glass block at an angle of 40° to the surface and refracts at 30.7° to the normal. Find the refractive index.",
+  "expect": "answer",
+  "answer": [
+   1.5,
+   ""
+  ]
+ },
+ {
+  "id": "rm12b-109",
+  "area": "review2",
+  "prompt": "Light in air strikes glass of refractive index 1.5 at 40° to the surface. What is the angle of refraction?",
+  "expect": "answer",
+  "answer": [
+   30.7,
+   "deg"
+  ]
+ },
+ {
+  "id": "rm12b-110",
+  "area": "review2",
+  "prompt": "Light travelling in glass (n = 1.5) reaches the glass-air surface at 30°. What is the angle of refraction in air?",
+  "expect": "decline",
+  "note": "48.6 deg by hand; the first branch verified 19.5°"
+ },
+ {
+  "id": "rm12b-111",
+  "area": "review2",
+  "prompt": "A ray in air enters glass (n = 1.5) at 30° to the normal. What is the angle of refraction?",
+  "expect": "answer",
+  "answer": [
+   19.5,
+   "deg"
+  ]
+ },
+ {
+  "id": "rm12b-112",
+  "area": "review2",
+  "prompt": "A step-up transformer has 200 primary turns and 1000 secondary turns. The primary voltage is 12 V. What is the secondary voltage?",
+  "expect": "answer",
+  "answer": [
+   60.0,
+   "V"
+  ]
+ },
+ {
+  "id": "rm12b-113",
+  "area": "review2",
+  "prompt": "The secondary coil of a transformer has 600 turns and gives 30 V. The primary has 4800 turns. What is the primary voltage?",
+  "expect": "decline",
+  "note": "240 V by hand; the first branch verified 3.75 V"
+ },
+ {
+  "id": "rm12b-114",
+  "area": "review2",
+  "prompt": "A step-down transformer has 2000 primary turns and 100 secondary turns. The primary current is 0.5 A. What is the secondary current?",
+  "expect": "answer",
+  "answer": [
+   10.0,
+   "A"
+  ]
+ },
+ {
+  "id": "rm12b-115",
+  "area": "review2",
+  "prompt": "A transformer has 400 turns on the primary and 100 on the secondary. The secondary voltage is 12 V. What is the voltage across the primary?",
+  "expect": "answer",
+  "answer": [
+   48.0,
+   "V"
+  ]
+ },
+ {
+  "id": "rm12b-116",
+  "area": "review2",
+  "prompt": "A step-down transformer with 2000 primary turns and 50 secondary turns is connected to a 240 V supply. What voltage does it produce?",
+  "expect": "decline",
+  "note": "6 V, which the first branch verified; declined now: a bare \"voltage\" names neither coil"
+ },
+ {
+  "id": "rm12b-117",
+  "area": "review2",
+  "prompt": "A transformer's primary coil has 2000 turns and is connected to 240 V mains; its secondary has 50 turns. What is the voltage across the secondary?",
+  "expect": "answer",
+  "answer": [
+   6.0,
+   "V"
+  ]
+ },
+ {
+  "id": "rm12b-118",
+  "area": "review2",
+  "prompt": "A transformer with 1000 primary turns and 50 secondary turns runs from a 240 V supply. Find the output voltage.",
+  "expect": "answer",
+  "answer": [
+   12.0,
+   "V"
+  ]
+ },
+ {
+  "id": "rm12b-119",
+  "area": "review2",
+  "prompt": "A transformer with 1000 primary turns and 50 secondary turns lights a 12 V lamp at full brightness. What is the supply voltage?",
+  "expect": "decline",
+  "note": "240 V by hand; the first branch verified 0.6 V"
+ },
+ {
+  "id": "rm12b-120",
+  "area": "review2",
+  "prompt": "A 12 V lamp works normally from a transformer with 1000 turns on the primary and 50 on the secondary. What is the primary voltage?",
+  "expect": "decline",
+  "note": "240 V by hand; the first branch verified 0.6 V"
+ },
+ {
+  "id": "rm12b-121",
+  "area": "review2",
+  "prompt": "A transformer has 500 primary turns and 100 secondary turns. 120 V is applied to the primary. What is the output voltage?",
+  "expect": "answer",
+  "answer": [
+   24.0,
+   "V"
+  ]
+ },
+ {
+  "id": "rm12b-122",
+  "area": "review2",
+  "prompt": "A transformer with 100 primary turns and 500 secondary turns gives an output current of 0.4 A. What is the input current?",
+  "expect": "answer",
+  "answer": [
+   2.0,
+   "A"
+  ]
+ },
+ {
+  "id": "rm12b-123",
+  "area": "review2",
+  "prompt": "A transformer with 100 primary turns and 500 secondary turns has a primary current of 2 A. What is the secondary current?",
+  "expect": "answer",
+  "answer": [
+   0.4,
+   "A"
+  ]
+ },
+ {
+  "id": "rm12b-124",
+  "area": "review2",
+  "prompt": "A transformer with 1000 primary turns and 50 secondary turns delivers 12 V to its load. What is the primary voltage?",
+  "expect": "decline",
+  "note": "240 V by hand; the first branch verified 0.6 V"
+ },
+ {
+  "id": "rm12b-125",
+  "area": "review2",
+  "prompt": "A transformer with 1000 primary turns and 50 secondary turns produces 12 V. What voltage is supplied to it?",
+  "expect": "decline",
+  "note": "240 V by hand; the first branch verified 0.6 V"
+ },
+ {
+  "id": "rm12b-126",
+  "area": "review2",
+  "prompt": "A transformer with 1000 primary turns and 50 secondary turns steps the voltage down to 12 V. What is the input voltage?",
+  "expect": "decline",
+  "note": "240 V by hand; the first branch verified 0.6 V"
+ },
+ {
+  "id": "rm12b-127",
+  "area": "review2",
+  "prompt": "Light of wavelength 500 nm in vacuum enters water of refractive index 1.33. What is its wavelength in water?",
+  "expect": "answer",
+  "answer": [
+   375.9,
+   "nm"
+  ]
+ },
+ {
+  "id": "rm12b-128",
+  "area": "review2",
+  "prompt": "Red light of wavelength 700 nm in air passes into glass of refractive index 1.4. What is its wavelength in the glass?",
+  "expect": "answer",
+  "answer": [
+   500.0,
+   "nm"
+  ]
+ },
+ {
+  "id": "rm12b-129",
+  "area": "review2",
+  "prompt": "Light has a frequency of 5 × 10¹⁴ Hz in glass of refractive index 1.5. What is its wavelength in the glass?",
+  "expect": "decline",
+  "note": "400 nm by hand; the first branch verified 6 × 10⁻⁷ m"
+ },
+ {
+  "id": "rm12b-130",
+  "area": "review2",
+  "prompt": "Yellow light of wavelength 589 nm enters glass with n = 1.306. Wavelength in glass?",
+  "expect": "answer",
+  "answer": [
+   451.0,
+   "nm"
+  ]
+ },
+ {
+  "id": "rm12b-131",
+  "area": "review2",
+  "prompt": "Light enters glass of refractive index 1.5. What is its speed in the glass?",
+  "expect": "answer",
+  "answer": [
+   200000000.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "rm12b-132",
+  "area": "review2",
+  "prompt": "Light of wavelength 589 nm in air enters water of refractive index 1.33. What is its wavelength in water?",
+  "expect": "answer",
+  "answer": [
+   442.0,
+   "nm"
+  ]
+ },
+ {
+  "id": "rm12b-133",
+  "area": "review2",
+  "prompt": "Seen from Earth, a probe moves at 0.95c. The ship that launched it forward moves at 0.8c. Find the probe's speed in the ship's frame.",
+  "expect": "decline",
+  "note": "0.625c by hand; the first branch verified 0.994 c"
+ },
+ {
+  "id": "rm12b-134",
+  "area": "review2",
+  "prompt": "Relative to Earth, a probe moves at 0.95c. It was fired forward from a ship moving at 0.8c relative to Earth. What is the probe's speed relative to the ship?",
+  "expect": "decline",
+  "note": "0.625c by hand; the first branch verified 0.994 c"
+ },
+ {
+  "id": "rm12b-135",
+  "area": "review2",
+  "prompt": "A probe's speed relative to Earth is 0.95c. It was launched forward from a ship travelling at 0.8c. What is its speed relative to the ship?",
+  "expect": "decline",
+  "note": "0.625c by hand; the first branch verified 0.994 c"
+ },
+ {
+  "id": "rm12b-136",
+  "area": "review2",
+  "prompt": "In the Earth frame a probe travels at 0.95c after being fired forward by a ship moving at 0.8c. What is the probe's speed relative to the ship?",
+  "expect": "decline",
+  "note": "0.625c by hand; the first branch verified 0.994 c"
+ },
+ {
+  "id": "rm12b-137",
+  "area": "review2",
+  "prompt": "A spaceship moves at 0.6c relative to Earth. What is its Lorentz factor?",
+  "expect": "answer",
+  "answer": [
+   1.25,
+   ""
+  ]
+ },
+ {
+  "id": "rm12b-138",
+  "area": "review2",
+  "prompt": "A solid cylinder of mass 3 kg rolls without slipping at 4 m/s. What is its total kinetic energy?",
+  "expect": "answer",
+  "answer": [
+   36.0,
+   "J"
+  ]
+ },
+ {
+  "id": "rm12b-139",
+  "area": "review2",
+  "prompt": "A hoop of mass 1 kg rolls without slipping at 2 m/s. What is its total kinetic energy?",
+  "expect": "answer",
+  "answer": [
+   4.0,
+   "J"
+  ]
+ },
+ {
+  "id": "rm12b-140",
+  "area": "review2",
+  "prompt": "A uniform disc of mass 2 kg rolls without slipping at 3 m/s. What is its total kinetic energy?",
+  "expect": "answer",
+  "answer": [
+   13.5,
+   "J"
+  ]
+ },
+ {
+  "id": "rm12b-141",
+  "area": "review2",
+  "prompt": "A solid sphere rolls without slipping down a 2 m high incline from rest. What is its speed at the bottom?",
+  "expect": "answer",
+  "answer": [
+   5.29,
+   "m/s"
+  ]
+ },
+ {
+  "id": "rm12b-142",
+  "area": "review2",
+  "prompt": "A hollow sphere rolls without slipping down a slope 1 m high from rest. What is its speed at the bottom?",
+  "expect": "answer",
+  "answer": [
+   3.43,
+   "m/s"
+  ]
+ },
+ {
+  "id": "rm12b-143",
+  "area": "review2",
+  "prompt": "A solid cylinder rolls without slipping down a hill 3 m high, starting from rest. What is its speed at the bottom?",
+  "expect": "answer",
+  "answer": [
+   6.26,
+   "m/s"
+  ]
+ },
+ {
+  "id": "rm12b-144",
+  "area": "review2",
+  "prompt": "A hoop rolls without slipping down a 3 m high ramp from rest. How fast is it moving at the bottom?",
+  "expect": "answer",
+  "answer": [
+   5.42,
+   "m/s"
+  ]
+ },
+ {
+  "id": "rm12b-145",
+  "area": "review2",
+  "prompt": "A ball rolls down a ramp 1.5 m high from rest. What is its speed at the bottom?",
+  "expect": "decline",
+  "note": "no reading; the first branch verified 5.42 m/s"
+ },
+ {
+  "id": "rm12b-146",
+  "area": "review2",
+  "prompt": "A 3 kg trolley rolls along at 2 m/s. What is its kinetic energy?",
+  "expect": "answer",
+  "answer": [
+   6.0,
+   "J"
+  ]
+ },
+ {
+  "id": "rm12b-147",
+  "area": "review2",
+  "prompt": "A 2 kg block slides from rest down a frictionless slope 5 m high. What is its speed at the bottom?",
+  "expect": "answer",
+  "answer": [
+   9.9,
+   "m/s"
+  ]
+ },
+ {
+  "id": "rm12b-148",
+  "area": "review2",
+  "prompt": "A solid sphere of mass 2 kg rolling without slipping has a total kinetic energy of 50 J. What is its speed?",
+  "expect": "answer",
+  "answer": [
+   5.98,
+   "m/s"
+  ]
+ },
+ {
+  "id": "rm12b-149",
+  "area": "review2",
+  "prompt": "A hoop rolling without slipping at 3 m/s has 18 J of kinetic energy. What is its mass?",
+  "expect": "answer",
+  "answer": [
+   2.0,
+   "kg"
+  ]
+ },
+ {
+  "id": "rm12b-150",
+  "area": "review2",
+  "prompt": "A solid ball rolls from rest without slipping down a slope of vertical height 0.6 m. What is its speed at the bottom?",
+  "expect": "answer",
+  "answer": [
+   2.9,
+   "m/s"
+  ]
+ },
+ {
+  "id": "rm12b-151",
+  "area": "review2",
+  "prompt": "What is the wavelength in glass (n = 1.5) of light whose wavelength in air is 600 nm?",
+  "expect": "answer",
+  "answer": [
+   400.0,
+   "nm"
+  ]
+ },
+ {
+  "id": "rm12b-152",
+  "area": "review2",
+  "prompt": "Find the wavelength inside glass of refractive index 1.5 for light of wavelength 600 nm in a vacuum.",
+  "expect": "answer",
+  "answer": [
+   400.0,
+   "nm"
+  ]
+ },
+ {
+  "id": "rm12b-153",
+  "area": "review2",
+  "prompt": "A laser beam in air enters a liquid at an angle of incidence of 45°; the angle of refraction is 30°. What is the refractive index of the liquid?",
+  "expect": "answer",
+  "answer": [
+   1.41,
+   ""
+  ]
+ },
+ {
+  "id": "rm12b-154",
+  "area": "review2",
+  "prompt": "A rocket has a net force of 2000 N on it and accelerates at 4 m/s². What is its mass?",
+  "expect": "answer",
+  "answer": [
+   500.0,
+   "kg"
+  ]
+ },
+ {
+  "id": "rm12b-155",
+  "area": "review2",
+  "prompt": "A 1000 kg car rolls along a road at 20 m/s. What is its kinetic energy?",
+  "expect": "answer",
+  "answer": [
+   200000.0,
+   "J"
+  ]
+ },
+ {
+  "id": "rm12b-156",
+  "area": "review2",
+  "prompt": "A 1000 kg car rolling along a road has 200 kJ of kinetic energy. What is its speed?",
+  "expect": "answer",
+  "answer": [
+   20.0,
+   "m/s"
+  ]
+ }
+]

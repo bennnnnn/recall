@@ -310,7 +310,15 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("v_primary", "V_p", "volt"),
         ),
         binding=Binding(
-            asks=("secondary voltage", "output voltage", "voltage"),
+            # The secondary's voltage, named as it: a bare "voltage" also asks the primary's
+            # ("what voltage is supplied?"), and handed back 12 V x 50/1000 = 0.6 V for 240 V.
+            asks=(
+                "secondary voltage",
+                "output voltage",
+                "voltage across the secondary",
+                "voltage induced in the secondary",
+                "voltage in the secondary",
+            ),
             result=("volt",),
             inputs=(frozenset({"turns_primary", "turns_secondary", "v_primary"}),),
             cues=("transformer",),

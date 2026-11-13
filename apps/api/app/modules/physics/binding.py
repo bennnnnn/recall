@@ -31,9 +31,16 @@ from app.modules.physics.binding_values import fallback_value, light_starts_insi
 from app.modules.physics.bodies import names_only_water
 from app.modules.physics.catalog import CATALOG, WATER_ONLY
 from app.modules.physics.catalog.projectile import AT_AN_ANGLE
+from app.modules.physics.frames import FRAMES_UNREAD_MARKER, adds_speeds_across_frames
 from app.modules.physics.givens import FRACTION_OF_C, PHYSICS_UNITS, unit_expression
 from app.modules.physics.law_range import holds_its_range
-from app.modules.physics.motion import SPEED_CHANGE_MARKER, constant_speed_laws_hold
+from app.modules.physics.motion import (
+    ROLLING_BODY_MARKER,
+    SPEED_CHANGE_MARKER,
+    constant_speed_laws_hold,
+    rolling_body,
+)
+from app.modules.physics.net_force import NOT_NET_FORCE_MARKER, others_share_the_force
 from app.modules.physics.optic_elements import (
     LIGHT_INSIDE_MARKER,
     asked_in_vacuum,
@@ -58,6 +65,7 @@ from app.services.law_binding.inverse import (
     solved_for,
     stated_result,
     stated_strength,
+    twins,
 )
 from app.services.law_binding.model_read import excluded
 from app.services.law_binding.roles import contradicts, counterparts, variable_role
@@ -265,7 +273,7 @@ def _solved_for_the_ask(
     in contact) are one unknown, solved for once: solved for each, "the power of the other
     lens" was two equal readings, and declined.
     """
-    twins = _same_part(spec)
+    alike = twins(spec)
     found = []
     twin_solved = False
     for variable in spec.variables:
@@ -275,25 +283,15 @@ def _solved_for_the_ask(
             or implied_value(variable, lower) is not None
             or (end is not None and variable_role(variable) not in (None, end.role))
             or answered_by_its_own_law(spec, variable, others)
-            or (twin_solved and variable.name in twins)
+            or (twin_solved and variable.name in alike)
         ):
             continue
         solved = solved_for(spec, variable.name)
         solves = can_solve_for(spec, variable.name) and solves_backwards_in_si(spec)
         if solved is not None and solves:
             found.append(solved)
-            twin_solved = twin_solved or variable.name in twins
+            twin_solved = twin_solved or variable.name in alike
     return found
-
-
-def _same_part(spec: FormulaSpec) -> frozenset[str]:
-    """The law's interchangeable inputs when all are of one kind, so the law is the same
-    whichever of them is asked (P = P₁ + P₂); none when they pair up (two masses, each
-    with its own temperature)."""
-    binding = spec.binding
-    names = frozenset(binding.interchangeable) if binding is not None else frozenset()
-    kinds = {variable_kind(v) for v in spec.variables if v.name in names}
-    return names if len(kinds) == 1 else frozenset()
 
 
 def named_laws(text: str, clause: str) -> list[tuple[FormulaSpec, int]]:
@@ -379,9 +377,10 @@ def bindable_of_kind(kind: str) -> tuple[FormulaSpec, ...]:
 def _with_markers(lower: str) -> str:
     """The question as the excludes read it: a convex mirror or a concave lens, however it
     is worded, is marked "diverging", a distance given its sign is marked "signed", a
-    speed that changes, however it is said, is marked for the constant-speed laws, and
-    light that starts inside a medium or is asked about in air is marked for the laws that
-    start from air."""
+    speed that changes, however it is said, is marked for the constant-speed laws, light
+    that starts inside a medium or is asked about in air for the laws that start from air,
+    a force that is not the net one for m = F/a, and a body that spins as it rolls for the
+    laws of a body that only moves along."""
     if signed_distances(lower):
         lower = f"{lower} signed"
     if not constant_speed_laws_hold(lower):
@@ -389,6 +388,13 @@ def _with_markers(lower: str) -> str:
     clause = ask_clause(lower)
     if light_starts_inside(lower) or (clause is not None and asked_in_vacuum(clause)):
         lower = f"{lower} {LIGHT_INSIDE_MARKER}"
+    if others_share_the_force(lower):
+        lower = f"{lower} {NOT_NET_FORCE_MARKER}"
+    if (FRACTION_OF_C.search(lower) or "relativ" in lower) and not adds_speeds_across_frames(lower):
+        lower = f"{lower} {FRAMES_UNREAD_MARKER}"
+    # A rolling ball's spin is no part of the translational energy a question asks for.
+    if rolling_body(lower) and "translational" not in (clause or ""):
+        lower = f"{lower} {ROLLING_BODY_MARKER}"
     return f"{lower} diverging" if diverging_element(lower) else lower
 
 

@@ -31,6 +31,7 @@ __all__ = [
     "asked_phrases",
     "asked_unit",
     "asks",
+    "asks_for_a_part",
     "has_ask",
     "result_dimension",
     "result_reading",
@@ -197,6 +198,21 @@ def _names_its_quantity(text: str) -> bool:
                 break
             at += word.end()
     return False
+
+
+# One of several like things a question asks about: "the other lens", "the second", "each".
+_A_PART = re.compile(
+    r"\b(?:other|another|first|second|third|fourth|remaining|missing|unknown|each)\b",
+    re.IGNORECASE,
+)
+
+
+def asks_for_a_part(text: str) -> bool:
+    """The question asks for one part of a whole ("what is the power of the other lens?"),
+    never what the parts make together: lenses that "together have 5 D" with one of 3 D
+    were added up to 8 D for the other's 2 D."""
+    clause = ask_clause(text)
+    return clause is not None and _A_PART.search(clause) is not None
 
 
 def has_ask(text: str) -> bool:

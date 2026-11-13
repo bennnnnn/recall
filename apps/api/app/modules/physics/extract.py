@@ -285,9 +285,11 @@ def _extract_physics_intent(text: str) -> PhysicsIntent | None:
     from app.modules.physics.binding import bind_physics_intent, bind_solved_for
 
     bound = bind_physics_intent(request.text)
-    if bound is not None:
-        return complete_physics_intent(bound, request)
+    completed = None if bound is None else complete_physics_intent(bound, request)
+    if completed is not None:
+        return completed
     # A law whose result the question states, solved for the quantity it asks: "400 J of
-    # work with a force of 80 N. How far?" is W = Fs solved for s.
+    # work with a force of 80 N. How far?" is W = Fs solved for s. So is one whose forward
+    # reading was refused: "the pair has 5 D; one lens is 3 D: the other?" asks P₂ = P - P₁.
     solved = bind_solved_for(request.text)
     return None if solved is None else complete_physics_intent(solved, request)

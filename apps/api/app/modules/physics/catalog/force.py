@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.modules.physics.catalog.lift import LIFT
+from app.modules.physics.net_force import LIFT, NOT_NET_FORCE_MARKER
 from app.services.law_binding.spec import Binding, FormulaSpec, formula, var
 
 _FORWARD = ("to the right", "right", "east", "eastward", "forward", "forwards", "ahead")
@@ -23,50 +23,19 @@ _RESTING_SIDE = (
 )
 _ON_THE_TABLE = ("block", "box", "cart", "trolley", "on a", "on the", "table", "surface")
 _HANGING = ("hanging", "hangs", "hung", "suspended", "dangling", "over the edge")
-# Where a stated force is not the whole net force on the body: its weight, a lift's floor,
-# friction, gravity under a pull upward, a slope or a spring share it, so m = F/a reads one
-# force as all of them. "60 N with μ = 0.2 gives 1 m/s²" was a 60 kg box for 20.3 kg. As
-# the F = ma extractor sets them aside (``extractors/forces``).
-_NOT_THE_NET_FORCE = (
-    "weigh",
-    *LIFT,
-    # Friction that acts; "frictionless" says none does, and F = ma holds there.
-    "coefficient",
-    "μ",
-    "frictional",
-    "friction force",
-    "force of friction",
-    "with friction",
-    "against friction",
-    "rough",
-    # A force up against gravity: m(g + a), not ma (as the extractor's ``_AGAINST_GRAVITY``).
-    "upward",
-    "vertical",
-    "raise",
-    "raising",
-    "hoist",
-    "rocket",
-    "launch",
-    "normal force",
-    "incline",
-    "ramp",
-    "slope",
-    "pulley",
-    "spring",
-    "centripetal",
-    "buoyan",
-)
 # g said as gravity: "g = 1.6 m/s²", "(g moon = 1.62 m/s^2)", "gravity is 3.7 m/s²", "a
-# field strength of 1.6 N/kg", "falls at 3.7 m/s²". An acceleration the body itself has is
-# no g: "a car accelerates at 2 m/s²; its weight is 9810 N" was 9810/2 = 4905 kg for 1000 kg.
+# gravitational field strength of 1.6 N/kg". An acceleration the body itself has is no g, even
+# beside "falls" or "field": "a skydiver falls with an acceleration of 6 m/s²: her weight?"
+# was 420 N for 686.7 N, and "a car accelerates at 2 m/s²; its weight is 9810 N" 4905 kg.
 _NAMED_G = var(
     "g",
     "g",
     "meter / second ** 2",
     fallback="gravity",
-    words=("g", "gravit", "fall", "field"),
+    words=("g", "gravit"),
     needs_words=True,
 )
+
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
         "net_force",
@@ -204,9 +173,9 @@ SPECS: tuple[FormulaSpec, ...] = (
             asks=("mass",),
             result=("kilogram",),
             inputs=(frozenset({"F", "accel"}),),
-            # A weight is W = mg, the law the weight names; a lift's floor, friction, a rope
-            # or a slope shares the net force with the force stated.
-            excludes=_NOT_THE_NET_FORCE,
+            # A weight, a lift's floor, friction or a slope shares the net force with the
+            # force stated, unless the question calls that the net force (``net_force``).
+            excludes=(NOT_NET_FORCE_MARKER,),
             nonnegative=True,
         ),
     ),

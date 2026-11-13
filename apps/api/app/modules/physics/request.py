@@ -418,11 +418,11 @@ def complete_physics_intent(
     """
     from app.modules.physics.accounting import competing_given, time_from_another_event
     from app.modules.physics.ask import asked_dimensions, asked_phrases, asked_unit
-    from app.modules.physics.asked_end_check import answers_the_other_end
+    from app.modules.physics.asked_end_check import answers_the_other_end, asks_a_part_of
     from app.modules.physics.bodies import (
         SCHOOL_GRAVITY,
         orbiting_mass_fills,
-        takes_earths_g_elsewhere,
+        takes_school_g_elsewhere,
     )
     from app.modules.physics.catalog import formula_spec
     from app.modules.physics.counted import accounts_for_counted_items, unclear_part_or_count
@@ -457,7 +457,7 @@ def complete_physics_intent(
         uses_g
         and spec is not None
         and stated_gravity(request.text) is None
-        and takes_earths_g_elsewhere(spec, params, request.text.lower())
+        and takes_school_g_elsewhere(spec, params, request.text.lower())
     ):
         return None
     # Moon and Mars have a school g. A solver that would otherwise fill Earth's
@@ -477,8 +477,8 @@ def complete_physics_intent(
         intent, request.text
     ):
         return None
-    if answers_the_other_end(intent, request.text):
-        # "Going 30 m/s after accelerating … its starting speed?": 30 m/s is the final speed.
+    if answers_the_other_end(intent, request.text) or asks_a_part_of(intent, request.text):
+        # "Going 30 m/s after accelerating … its starting speed?"; "one lens is 3 D: the other?"
         return None
     if not accounts_for_counted_items(intent, request.text):
         # "Two 5 kg blocks", "two resistors, each 10 Ω": one value for several items.

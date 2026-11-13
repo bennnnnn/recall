@@ -7,7 +7,7 @@ time the work.
 
 from __future__ import annotations
 
-from app.modules.physics.catalog.rotation import ROLLING
+from app.modules.physics.motion import ROLLING_BODY_MARKER
 from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
 
 SPECS: tuple[FormulaSpec, ...] = (
@@ -27,7 +27,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("joule",),
             inputs=(frozenset({"m", "v"}),),
             # A rolling body's spin carries energy too (``rolling_body_kinetic_energy``).
-            excludes=ROLLING,
+            excludes=(ROLLING_BODY_MARKER,),
             # Classical only: past 8% of c, ½mv² falls short of the relativistic energy by
             # half a percent.
             requires=("0.08*c_light - v",),
@@ -139,7 +139,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             cues=("kinetic energy",),
             # A rolling body keeps part of its energy as spin: 70 J on a rolling sphere is
             # 7.07 m/s, and ½mv² said 8.37 m/s (``rolling_body_kinetic_energy``).
-            excludes=ROLLING,
+            excludes=(ROLLING_BODY_MARKER,),
             # Classical only: past half a percent of the rest energy ½mv² overstates the
             # speed by more than a third of a percent. An electron with 8.2e-14 J went
             # 4.24e8 m/s, faster than light, for 2.60e8 m/s.

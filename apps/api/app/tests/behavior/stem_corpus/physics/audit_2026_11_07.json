@@ -173,8 +173,7 @@
    5.1147,
    "m/s"
   ],
-  "note": "mgh = (1/2)mv²(1 + 1/2): v = √(4gh/3)",
-  "gap": "rolling is solved as sliding, v = √(2gh) (catalog/energy.py drop_speed; no rolling-from-height law) (audit 2026-11-07)"
+  "note": "mgh = (1/2)mv²(1 + 1/2): v = √(4gh/3)"
  },
  {
   "id": "au-roll-sphere",
@@ -185,8 +184,7 @@
    5.2942,
    "m/s"
   ],
-  "note": "v = √(10gh/7)",
-  "gap": "rolling is solved as sliding, v = √(2gh) (catalog/energy.py drop_speed; no rolling-from-height law) (audit 2026-11-07)"
+  "note": "v = √(10gh/7)"
  },
  {
   "id": "au-roll-hoop",
@@ -197,8 +195,7 @@
    5.4249,
    "m/s"
   ],
-  "note": "v = √(gh)",
-  "gap": "rolling is solved as sliding, v = √(2gh) (catalog/energy.py drop_speed; no rolling-from-height law) (audit 2026-11-07)"
+  "note": "v = √(gh)"
  },
  {
   "id": "au-moon-mass",

@@ -43,9 +43,16 @@ LIGHT_INSIDE_MARKER = "lightinside"
 _IN_VACUUM = re.compile(r"\bin\s+(?:the\s+|a\s+)?(?:air|vacuum|free\s+space)\b")
 
 
+# Where the asked quantity's own words end: a value or a clause about another one ("the
+# wavelength in glass of light whose wavelength in air is 600 nm").
+_ASKED_WORDS_END = re.compile(r"\b(?:whose|which|that|if|when|where|for)\b|\d")
+
+
 def asked_in_vacuum(clause: str) -> bool:
     """The asked clause places what it asks in air or a vacuum."""
-    return _IN_VACUUM.search(clause.lower()) is not None
+    lower = clause.lower()
+    end = _ASKED_WORDS_END.search(lower)
+    return _IN_VACUUM.search(lower, 0, end.start() if end else len(lower)) is not None
 
 
 # Only a diverging element forms an upright image smaller than the object.

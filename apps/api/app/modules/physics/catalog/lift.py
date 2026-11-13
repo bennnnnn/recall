@@ -5,13 +5,9 @@ The laws a lift's reading is not, the weight and m = F/a, set it aside by ``LIFT
 
 from __future__ import annotations
 
+from app.modules.physics.net_force import LIFT
 from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
 
-# A lift or an elevator: its floor or scale pushes with m(g ± a), so a reading there is
-# neither the weight mg nor the net force ma (``lift_normal_force``). "Reads 708.6 N
-# accelerating up at 2 m/s²" was m = F/a = 354 kg, and an apparent weight over that
-# 2 m/s² as g the same, for 60 kg.
-LIFT = ("elevator", "lift")
 # The direction a lift accelerates in, said outright. Unsaid ("accelerates at 2 m/s²",
 # "moving up, it slows at 2 m/s²"), the law has no form: up was its default, and
 # "accelerating at 2 m/s² downward" read 708.6 N for 468.6 N.

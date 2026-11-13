@@ -38,12 +38,17 @@ NOT_READ_BACK = frozenset(
         "range:angle+g+h0+v0",
         # Written back "horizontally" (its first cue), which states 0° beside the 30° given.
         "range:angle+g+v0",
+        # A read writes no frame for either speed ("relative to the ship", ``frames``).
+        "relativistic_velocity_addition:v1+v2",
         "resonance_frequency:L+harmonic+mode_factor+pipe+v_wave",
         "resonance_frequency:L+harmonic+mode_factor+v_wave",
         "rod_center_inertia:m+rod_length",
         "rod_end_inertia:m+rod_length",
         "rolling_body_kinetic_energy:m+r+shape_k+v",
         "rolling_body_kinetic_energy:m+shape_k+v",
+        # A shape is a phrase ("a solid sphere"), which no read writes back.
+        "rolling_drop_speed:g+h+m+shape_k",
+        "rolling_drop_speed:g+h+shape_k",
         "sound_level:i_ref+intensity",
         "time_of_flight:angle+g+h0+v0",
         "time_of_flight:angle+g+v0",

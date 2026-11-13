@@ -148,7 +148,9 @@ SPECS: tuple[FormulaSpec, ...] = (
                 "n_1",
                 dimensionless=True,
                 words=("from", "leaves", "travelling in", "traveling in"),
-                implied=(("from air", 1.0), ("in air", 1.0), ("from a vacuum", 1.0)),
+                # Not "in air": "the angle of refraction in air" puts the asked angle there, and
+                # read as n₁ = 1 light from glass went 19.5° for 48.6°.
+                implied=(("from air", 1.0), ("from a vacuum", 1.0)),
                 fallback="incident_from_air",
             ),
             var(
@@ -499,12 +501,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             # "400 nm inside glass: its wavelength in air?" is λ = nλ_n, 600 nm; read as
             # λ_n = λ/n it was 267 nm.
             excludes=(
-                "frequency",
-                "speed",
-                "thickness",
-                "film",
-                "slit",
-                "grating",
+                *("frequency", "speed", "thickness", "film", "slit", "grating"),
                 LIGHT_INSIDE_MARKER,
             ),
             nonnegative=True,
