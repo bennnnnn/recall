@@ -63,11 +63,12 @@ _OTHER_FORCES = (
 _NET_FORCE = re.compile(r"\b(?:net|resultant|unbalanced)\s+force\b")
 # A coefficient of friction said as one: "μ = 0.2", "μk = 0.3", "a coefficient of kinetic
 # friction of 0.3", "friction coefficient 0.25". A bare "coefficient of 0.47" may be a drag
-# coefficient, and "5 μC" is a charge.
+# coefficient, and "5 μC" is a charge. Each run of space is read once (possessive): split
+# between the \s* either side of an optional mark, "mu" and a run of spaces took quadratic time.
 _STATED_MU_RE = re.compile(
     r"(?:coefficient\s+of\s+(?:kinetic\s+|static\s+)?friction|friction\s+coefficient"
-    r"|(?:\bmu|\u03bc)(?:\s*_?\s*[ks\u2096\u209b])?)"
-    r"\s*(?:of|=|is)?\s*(\d+(?:\.\d+)?)",
+    r"|(?:\bmu|\u03bc)(?:\s*+_?\s*+[ks\u2096\u209b])?)"
+    r"\s*+(?:of|=|is)?\s*+(\d+(?:\.\d+)?)",
     re.IGNORECASE,
 )
 

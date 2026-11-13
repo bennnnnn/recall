@@ -15,7 +15,13 @@ from typing import Any
 from app.modules.math.function_names import variable_letters
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
-from app.services.number_text import FRACTION_OR_DECIMAL as _NUMBER
+from app.modules.math.tools.school.curve_point_patterns import (
+    GRADIENT_AT,
+    INFLECTION,
+    MONOTONIC,
+    STATIONARY,
+    TANGENT,
+)
 from app.services.workout import Workout, math_line, render_workout
 
 CURVE_POINT_OPS = frozenset(
@@ -30,40 +36,6 @@ CURVE_POINT_OPS = frozenset(
     }
 )
 
-_CURVE = r"(?:the\s+(?:curve|graph|function)\s+)?(?:(?:y|[a-z]\s*\(\s*x\s*\))\s*=\s*)?"
-_TANGENT = re.compile(
-    rf"\b(?P<kind>tangent|normal)(?:\s+line)?\s+(?:to|of|for)\s+{_CURVE}(?P<expr>.+?)\s+"
-    rf"(?:at|where|when)\s+(?:the\s+point\s+)?"
-    rf"(?:x\s*=\s*(?P<x>{_NUMBER})|\(\s*(?P<px>{_NUMBER})\s*,\s*(?P<py>{_NUMBER})\s*\))\s*$",
-    re.IGNORECASE,
-)
-# "the gradient of the curve y = x^3 at x = 2": the derivative there, not a system to solve.
-_GRADIENT_AT = re.compile(
-    rf"\b(?:gradient|slope)\s+of\s+(?:the\s+)?(?:curve|graph|function|tangent\s+to)?\s*"
-    rf"(?:of\s+)?{_CURVE}(?P<expr>.+?)\s+(?:at|where|when)\s+(?:the\s+point\s+)?"
-    rf"(?:x\s*=\s*(?P<x>{_NUMBER})|\(\s*(?P<px>{_NUMBER})\s*,\s*(?P<py>{_NUMBER})\s*\))\s*$",
-    re.IGNORECASE,
-)
-_STATIONARY = re.compile(
-    # Not "critical points": those include where dy/dx is undefined, which
-    # the critical-point solver looks for and this block does not.
-    rf"\b(?:stationary|turning)\s+points?\s+(?:of|for|on)\s+{_CURVE}(?P<expr>.+?)\s*$"
-    rf"|\b(?:local\s+)?(?:maximum|max)\s+and\s+(?:local\s+)?(?:minimum|min)(?:\s+points?)?"
-    rf"\s+(?:of|for)\s+{_CURVE}(?P<expr2>.+?)\s*$",
-    re.IGNORECASE,
-)
-_INFLECTION = re.compile(
-    rf"\bpoints?\s+of\s+inflection\s+(?:of|for|on)\s+{_CURVE}(?P<expr>.+?)\s*$"
-    rf"|\binflection\s+points?\s+(?:of|for|on)\s+{_CURVE}(?P<expr2>.+?)\s*$",
-    re.IGNORECASE,
-)
-_MONOTONIC = re.compile(
-    rf"^(?:where|when|for\s+what\s+values\s+of\s+x|on\s+what\s+intervals?)\s+is\s+{_CURVE}"
-    r"(?P<expr>.+?)\s+(?P<way>increasing|decreasing)$"
-    rf"|^(?:find\s+)?(?:the\s+)?intervals?\s+(?:where|on\s+which)\s+{_CURVE}(?P<expr2>.+?)\s+is\s+"
-    r"(?P<way2>increasing|decreasing)$",
-    re.IGNORECASE,
-)
 # "find the maximum value of f(x) = -x^2 + 4x", "h = 20t - 5t^2 ... the maximum height".
 _EXTREME = re.compile(
     r"\b(?P<way>maximum|minimum|max|min|greatest|least|highest|lowest)\s+"
@@ -99,7 +71,7 @@ def extract_curve_point_intent(cleaned: str) -> MathIntent | None:
     body = " ".join(cleaned.split()).rstrip(".?!")
     lead = _LEAD.match(body)
     request = body[lead.end() :] if lead else body
-    tangent = _TANGENT.fullmatch(request)
+    tangent = TANGENT.fullmatch(request)
     if tangent is not None:
         expr = _expression(tangent["expr"])
         point = tangent["x"] or tangent["px"]
@@ -113,7 +85,7 @@ def extract_curve_point_intent(cleaned: str) -> MathIntent | None:
             variable="x",
             evaluation_point=point.replace(" ", ""),
         )
-    gradient = _GRADIENT_AT.fullmatch(request)
+    gradient = GRADIENT_AT.fullmatch(request)
     if gradient is not None:
         expr = _expression(gradient["expr"])
         point = gradient["x"] or gradient["px"]
@@ -129,7 +101,7 @@ def extract_curve_point_intent(cleaned: str) -> MathIntent | None:
     others = _other_curve_intents(body, request)
     if others is not None:
         return others
-    stationary = _STATIONARY.fullmatch(request)
+    stationary = STATIONARY.fullmatch(request)
     if stationary is not None:
         expr = _expression(stationary["expr"] or stationary["expr2"] or "")
         if expr is None:
@@ -146,7 +118,7 @@ def extract_curve_point_intent(cleaned: str) -> MathIntent | None:
 
 def _other_curve_intents(body: str, request: str) -> MathIntent | None:
     """Inflection points, where a curve rises or falls, and the largest or smallest value."""
-    inflection = _INFLECTION.fullmatch(request)
+    inflection = INFLECTION.fullmatch(request)
     if inflection is not None:
         expr = _expression(inflection["expr"] or inflection["expr2"] or "")
         if expr is None:
@@ -158,7 +130,7 @@ def _other_curve_intents(body: str, request: str) -> MathIntent | None:
             expr=expr,
             variable="x",
         )
-    monotonic = _MONOTONIC.fullmatch(body)
+    monotonic = MONOTONIC.fullmatch(body)
     if monotonic is not None:
         expr = _expression(monotonic["expr"] or monotonic["expr2"] or "")
         way = (monotonic["way"] or monotonic["way2"] or "").lower()

@@ -24,10 +24,11 @@ _NOUN_BEFORE = re.compile(
 )
 
 # At rest at the end: it comes to rest, reaches a standstill, becomes stationary, or its
-# speed falls to zero (the bare verb is ``_STOP_VERB``).
+# speed falls to zero (the bare verb is ``_STOP_VERB``). The space after "until" is read once
+# (possessive): split between \s+ and \s*, "until" and a run of spaces took quadratic time.
 _ENDS_AT_REST = re.compile(
     r"\b(?:to|into)\s+(?:a\s+)?(?:complete\s+|full\s+|dead\s+)?(?:stop|halt|rest|standstill)\b"
-    r"|\b(?:becomes?|became|is\s+(?:then|now)|until\s+(?:it\s+is\s+)?)\s*"
+    r"|\b(?:becomes?|became|is\s+(?:then|now)|until\s++(?:it\s+is\s++)?)\s*+"
     r"(?:stationary|motionless|at\s+rest)\b"
     r"|\b(?:speed|velocity)\s+(?:becomes|reaches|falls\s+to|drops\s+to|decreases\s+to"
     r"|is\s+reduced\s+to)\s+zero\b"
