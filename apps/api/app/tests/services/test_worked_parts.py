@@ -201,14 +201,16 @@ def _sections_of(text: str) -> tuple[str, list[str]]:
     return opening, parts.split("\n\n---\n\n")
 
 
-async def test_a_given_only_one_part_uses_is_lettered_in_the_one_given() -> None:
+async def test_a_given_only_one_part_uses_is_in_the_one_given_with_no_letter() -> None:
     found = await build_subject_augmentation(_WHOLE, _SETTINGS, parts=_PARTS, parts_answer_all=True)
 
     text = found.direct_text or ""
     opening, (first, second) = _sections_of(text)
-    # t = 1 s is (a)'s alone: in the one Given with its letter, never under the part.
+    # t = 1 s is (a)'s alone: in the one Given, never under the part, and with no letter:
+    # a given is data, and t has no other value to tell it from (2026-11-13).
     assert text.count("**Given**") == 1
-    assert "(a) $t = 1\\,\\mathrm{s}$" in opening and "$h_0 = 20" in opening
+    assert "  \n$t = 1\\,\\mathrm{s}$" in opening and "$h_0 = 20" in opening
+    assert "(a) $t" not in opening
     assert opening.count("where ") == 1 and "$t$ = time" in opening
     assert "**Given**" not in first + second
     assert first.strip().startswith("**(a) What's its speed after 1 s?**\n\n**Constant")
@@ -257,7 +259,7 @@ async def test_three_parts_share_their_setup() -> None:
     assert len(re.findall(r"^```answer\n", text, re.M)) == 3
 
 
-def test_a_value_several_parts_give_alike_is_one_lettered_line() -> None:
+def test_a_value_several_parts_give_alike_is_one_line() -> None:
     def part(*given: str) -> WorkedPart:
         return WorkedPart("Part", "$x = 1$", "1", required=("$x$",), given=given)
 
@@ -269,4 +271,5 @@ def test_a_value_several_parts_give_alike_is_one_lettered_line() -> None:
         ]
     )
     assert text.count("**Given**") == 1
-    assert "**Given**  \n$g = 9.81$  \n(a, c) $t = 1$  \nwhere $t$ = time, $g$ = gravity\n" in text
+    # t has one value: no letter (a given is data); only values of one symbol apart get one.
+    assert "**Given**  \n$g = 9.81$  \n$t = 1$  \nwhere $t$ = time, $g$ = gravity\n" in text

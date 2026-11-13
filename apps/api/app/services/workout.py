@@ -367,12 +367,13 @@ _WORKOUT_REARRANGED = (
     "Rearranging a formula for the unknown is a line of its own, never a note: "
     "`Solve for $t$`, then `$t = \\frac{d}{v}$`."
 )
-# One Given for every question in parts: a value one part uses is lettered there, never a
-# Given under a part (2026-11-02).
+# One Given for every question in parts, never a Given under a part (2026-11-02). A given
+# is data, so it carries no part's letter: a pie chart's angles lettered by the parts that
+# used them read as parts (2026-11-13). Only two values of one symbol are told apart so.
 _GIVEN_ONCE = (
-    "one **Given** for the whole question holding every given, a value only one part uses "
-    "lettered by its part as Required's lines are (`(a) $t = 1\\ \\text{s}$`), never a "
-    "**Given** under a part"
+    "one **Given** for the whole question holding every given once, with no part's letter "
+    "on a given (a given is data, not a part) except to tell apart two values of one symbol "
+    "(`(a) $d = 100\\ \\text{m}$`, `(b) $d = 300\\ \\text{m}$`), never a **Given** under a part"
 )
 _WORKOUT_PARTS = (
     f"A question in parts: {_GIVEN_ONCE}, then **Solution**, then for "
