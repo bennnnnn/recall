@@ -183,6 +183,7 @@ SAMPLES: dict[str, float] = {
     "concave": 1.0,
     "from_surface": 1.0,
     "accel": 2.0,
+    "upward": 1.0,
     "downward": 1.0,
     "ang_alpha": 2.0,
     "omega0": 4.0,

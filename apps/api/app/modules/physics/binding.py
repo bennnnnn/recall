@@ -27,14 +27,31 @@ from app.modules.physics.ask import (
     asked_end,
     asked_unit,
 )
-from app.modules.physics.binding_values import fallback_value, si_unit
+from app.modules.physics.binding_values import fallback_value, light_starts_inside, si_unit
 from app.modules.physics.bodies import names_only_water
 from app.modules.physics.catalog import CATALOG, WATER_ONLY
 from app.modules.physics.catalog.projectile import AT_AN_ANGLE
+from app.modules.physics.frames import FRAMES_UNREAD_MARKER, adds_speeds_across_frames
 from app.modules.physics.givens import FRACTION_OF_C, PHYSICS_UNITS, unit_expression
 from app.modules.physics.law_range import holds_its_range
-from app.modules.physics.motion import SPEED_CHANGE_MARKER, constant_speed_laws_hold
-from app.modules.physics.optic_elements import diverging_element, signed_distances
+from app.modules.physics.motion import (
+    ROLLING_BODY_MARKER,
+    SPEED_CHANGE_MARKER,
+    constant_speed_laws_hold,
+    rolling_body,
+)
+from app.modules.physics.net_force import (
+    IN_A_LIFT_MARKER,
+    NOT_NET_FORCE_MARKER,
+    in_a_lift,
+    others_share_the_force,
+)
+from app.modules.physics.optic_elements import (
+    LIGHT_INSIDE_MARKER,
+    asked_in_vacuum,
+    diverging_element,
+    signed_distances,
+)
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.si import solves_backwards_in_si
 from app.services.law_binding.fit import (
@@ -53,6 +70,7 @@ from app.services.law_binding.inverse import (
     solved_for,
     stated_result,
     stated_strength,
+    twins,
 )
 from app.services.law_binding.model_read import excluded
 from app.services.law_binding.roles import contradicts, counterparts, variable_role
@@ -192,10 +210,12 @@ def bind_solved_for(text: str) -> PhysicsIntent | None:
     if question is None:
         return None
     end = asked_end(text, clause)
+    stating = _laws_stating_their_result(text, question)
+    others = _admitted(text) if stating else ()
     named = [
         (spec, solved, strength)
-        for spec, strength in _laws_stating_their_result(text, question)
-        for solved in _solved_for_the_ask(spec, next(iter(asked)), end, question.lower)
+        for spec, strength in stating
+        for solved in _solved_for_the_ask(spec, next(iter(asked)), end, question.lower, others)
     ]
     strongest = only_strongest_fit(named, question, PHYSICS_SUBJECT) if named else None
     if strongest is None:
@@ -228,29 +248,54 @@ def _laws_stating_their_result(text: str, question: Question) -> list[tuple[Form
     return found
 
 
+def _admitted(text: str) -> tuple[FormulaSpec, ...]:
+    """The catalog laws this question's words leave in play: its cues said, nothing it
+    excludes. A law with no binding is never ruled out by words."""
+    lower = text.lower()
+    cue_text = _cue_text(text, lower)
+    excluded = _with_markers(lower)
+    return tuple(
+        law
+        for law in CATALOG.values()
+        if law.binding is None or admits(law.binding, excluded, cue_text=cue_text)
+    )
+
+
 def _solved_for_the_ask(
-    spec: FormulaSpec, asked: str, end: AskedEnd | None, lower: str
+    spec: FormulaSpec,
+    asked: str,
+    end: AskedEnd | None,
+    lower: str,
+    others: tuple[FormulaSpec, ...],
 ) -> list[FormulaSpec]:
     """The law solved for each of its inputs of the asked kind that SymPy can solve it for.
 
     An input the words already state ("from rest") is not the one asked, nor is one at the
-    other end of the change from the end the question asks about, nor one another law of
-    the catalog gives from the same quantities (``answered_by_its_own_law``).
+    other end of the change from the end the question asks about, nor one another law the
+    question leaves in play (``others``) gives from the same quantities
+    (``answered_by_its_own_law``): capacitors in series answer nothing about two in
+    parallel, which the question says they are. Inputs that play the same part (two lenses
+    in contact) are one unknown, solved for once: solved for each, "the power of the other
+    lens" was two equal readings, and declined.
     """
+    alike = twins(spec)
     found = []
+    twin_solved = False
     for variable in spec.variables:
         if (
             not variable.visible
             or variable_kind(variable) != asked
             or implied_value(variable, lower) is not None
             or (end is not None and variable_role(variable) not in (None, end.role))
-            or answered_by_its_own_law(spec, variable, CATALOG.values())
+            or answered_by_its_own_law(spec, variable, others)
+            or (twin_solved and variable.name in alike)
         ):
             continue
         solved = solved_for(spec, variable.name)
         solves = can_solve_for(spec, variable.name) and solves_backwards_in_si(spec)
         if solved is not None and solves:
             found.append(solved)
+            twin_solved = twin_solved or variable.name in alike
     return found
 
 
@@ -336,12 +381,27 @@ def bindable_of_kind(kind: str) -> tuple[FormulaSpec, ...]:
 
 def _with_markers(lower: str) -> str:
     """The question as the excludes read it: a convex mirror or a concave lens, however it
-    is worded, is marked "diverging", a distance given its sign is marked "signed", and a
-    speed that changes, however it is said, is marked for the constant-speed laws."""
+    is worded, is marked "diverging", a distance given its sign is marked "signed", a
+    speed that changes, however it is said, is marked for the constant-speed laws, light
+    that starts inside a medium or is asked about in air for the laws that start from air,
+    a force that is not the net one for m = F/a, a body in a lift for its weight, and a
+    body that spins as it rolls for the laws of a body that only moves along."""
     if signed_distances(lower):
         lower = f"{lower} signed"
     if not constant_speed_laws_hold(lower):
         lower = f"{lower} {SPEED_CHANGE_MARKER}"
+    clause = ask_clause(lower)
+    if light_starts_inside(lower) or (clause is not None and asked_in_vacuum(clause)):
+        lower = f"{lower} {LIGHT_INSIDE_MARKER}"
+    if others_share_the_force(lower):
+        lower = f"{lower} {NOT_NET_FORCE_MARKER}"
+    if in_a_lift(lower):
+        lower = f"{lower} {IN_A_LIFT_MARKER}"
+    if (FRACTION_OF_C.search(lower) or "relativ" in lower) and not adds_speeds_across_frames(lower):
+        lower = f"{lower} {FRAMES_UNREAD_MARKER}"
+    # A rolling ball's spin is no part of the translational energy a question asks for.
+    if rolling_body(lower) and "translational" not in (clause or ""):
+        lower = f"{lower} {ROLLING_BODY_MARKER}"
     return f"{lower} diverging" if diverging_element(lower) else lower
 
 

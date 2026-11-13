@@ -5,6 +5,7 @@ from __future__ import annotations
 from app.modules.physics.catalog.suvat import TWO_BODIES
 from app.modules.physics.motion import SPEED_CHANGE_MARKER
 from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
+from app.services.law_binding.words import COMBINED_RESULT
 
 # A drop from a height and a sound's trip to a wall and back are not one
 # distance covered at one speed: d = vt read "rolls off a 1.2 m high table at
@@ -477,6 +478,8 @@ SPECS: tuple[FormulaSpec, ...] = (
                 "accelerat",
             ),
             interchangeable=("v1", "v2"),
+            # "a resultant speed of 5 m/s" is the sum of the two, not one of them.
+            result_labels=COMBINED_RESULT,
             nonnegative=True,
         ),
     ),

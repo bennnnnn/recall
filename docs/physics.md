@@ -102,7 +102,14 @@ flowchart LR
      law declines instead of answering;
    - light that strikes, hits or enters a medium, read alone, came from air (n₁ = 1), and
      an angle "to the surface" is 90° less than the angle of incidence. Light that starts
-     inside the glass or water does not take air's index;
+     inside the glass or water does not take air's index; light "travelling in air" does.
+     Snell's two angles give n = sin i / sin r with the angle of incidence read by its
+     words, whichever is stated first, each said from the normal or the surface (an angle
+     said from neither, "strikes a block at 30°", declines), and only for light from air:
+     light that leaves the glass, or an index below 1, declines (0.667 for glass, read as
+     entering it). "In air" in the ask is where the asked angle is, never the light's
+     start. A wavelength stated inside the medium, or asked in air, is not λ/n's, and
+     λ = c/f is the vacuum's: beside a refractive index, both decline;
    - the mass of what orbits a body or stands on it is never the body's mass. A central
      mass `M` is named by its body ("a planet of mass 6e24 kg") or is the named body's own;
      "a 500 kg satellite", "a 70 kg astronaut" fill the orbiting body's `m_body`, which
@@ -112,7 +119,14 @@ flowchart LR
      "around", "orbit of" or "the surface of" when more than one is named
      (`bodies.central_body`); one that orbits ("The Earth orbits the Sun") never is, and a
      body the table has no numbers for (Venus) declines. mgh declines for an orbit or a
-     height past 1% of Earth's radius;
+     height past 1% of Earth's radius. A planet left unnamed ("on a planet", "another
+     planet"), a planet with no agreed g (Venus, Saturn) and any moon but ours ("a moon of
+     Jupiter", "Saturn's moon", "Ganymede, the largest moon", `bodies.names_another_moon`)
+     have no school g: a solve that takes one it was never told (Earth's, the Moon's,
+     Mars's: Europa had the Moon's 1.62, Phobos Mars's 3.71) declines, one that states g
+     or is solved for it stands. Only "the Moon" (or "Earth's moon") has the Moon's g. A
+     fall's a = -g declines beside a stated height and time ("dropped from 20 m, takes
+     4 s": g is 2h/t², not -9.81 m/s²);
    - **A question never asks for a value it already states** (`services/law_binding/roles.py`,
      `asked_end_check.py`). An ask that names an end of the change ("its starting speed",
      "the original volume", "how fast was it going at first") is answered only by a law
@@ -150,7 +164,44 @@ flowchart LR
      law and must give the stated result. Only a question no law answers as its own
      result is read so. A law solved by hand is not: resonance (n·v/2L) keeps its
      whole-number and odd-harmonic checks in its solver, so "third harmonic at 150 Hz:
-     the wave speed?" is still the model's.
+     the wave speed?" is still the model's. A law the question's own words rule out (its
+     cues unsaid, a word it excludes said) owns no direction: capacitors in series say
+     nothing about two in parallel. Inputs that play the same part (two lenses in contact)
+     are one unknown, solved for once.
+   - **A result stated is never a part** (`Binding.result_labels`). A value labelled as a
+     combination's result ("a total power of 3 D", "an equivalent capacitance of 3 µF", "a
+     resultant speed of 5 m/s", `law_binding.words.COMBINED_RESULT`) or as a
+     transformer's output voltage is the law's result, so the part asked is the law
+     solved for it: "a total power of 3 D, one lens is 2 D: the other?" is 1 D, where the
+     sum read as a lens was 5 D. The ask's own words label nothing ("find the total
+     capacitance of a 4 µF and a 6 µF capacitor"). However the whole is worded ("together
+     they have 10 µF", "the pair has 5 D"), a question that asks for a part ("the other",
+     "the second", "each", `ask.asks_for_a_part`) is never answered by a law that adds its
+     like parts (`asked_end_check.asks_a_part_of`), resistors included: that law solved
+     for a part answers, or nothing does.
+   - **Relativistic addition reads frames** (`frames.py`): it answers only when one
+     stated speed is relative to a mover ("0.8c relative to the ship") and the question
+     does not ask in the mover's frame. "Seen from Earth a probe moves at 0.95c; the ship
+     at 0.8c: its speed in the ship's frame?" was 0.994c for 0.625c.
+   - **A lift's floor or scale pushes m(g ± a)** (`catalog/lift.py`), with the direction
+     said outright ("accelerating upward", "a downward acceleration"); a lift that
+     decelerates or a direction after the value declines, where up was the default. In a
+     lift the weight and m = F/a are not the law, and m = F/a also sets aside a weight,
+     friction that acts, a slope, a spring and a pull up against gravity: "60 N with
+     μ = 0.2 gives 1 m/s²" was a 60 kg box for 20.3 kg (`net_force.py`), unless the
+     question calls the force the net one. The weight's g is a value its words name as
+     gravity ("g moon = 1.62 m/s²", "a gravitational field of"), never the body's own
+     acceleration, however it falls ("a skydiver falls with an acceleration of 6 m/s²").
+   - **A transformer's law is asked by its secondary** ("secondary voltage", "output
+     voltage"): a bare "voltage" also asks the primary ("what voltage is supplied?"), and
+     handed back 0.6 V for 240 V.
+   - **½mv² is classical and translational**: it, and √(2gh), set aside a body that
+     spins as it rolls (`motion.rolling_body`: a sphere, a hoop or a ball, never a car
+     rolling along). `rolling_body_kinetic_energy` and `rolling_drop_speed`
+     (v = √(2gh/(1 + k))) answer for a named shape: 5.29 m/s for a solid sphere down 2 m,
+     where √(2gh) said 6.26. A translational energy asked is ½mv² still. ½mv² holds below
+     8% of c, its speed below half a percent of the rest energy (an electron's 8.2e-14 J
+     went 4.24e8 m/s, faster than light).
 
    Anything short of one operation with one way to fill it declines. That includes a value
    no input takes, two values for one input with no word to tell them apart, a value the
@@ -184,12 +235,19 @@ flowchart LR
      tall man") is the exception. A value of any other kind is a distractor and stays
      allowed (a ball's mass in free fall). So are values the extractor derived by adding or
      subtracting givens (ΔT = 80 − 20), a count of identical resistors ("three 9 Ω
-     resistors" are the 3 Ω a parallel bank binds), a direction sign, and a stated g.
+     resistors" are the 3 Ω a parallel bank binds), a direction sign, and a stated g. A
+     stated coefficient of friction above zero is never a distractor for a law of forces or
+     accelerations: friction acts, so such a solve that takes no μ declines, unless the
+     question sets friction aside or calls a force the net one. ½mv² of a sliding box
+     takes none.
    - **Asked quantity** (`ask.py`). The question's ask is read independently of the
      extractor, as dimensions, and kept on `PhysicsIntent.asked`. A quantity asked alone
      ("… amplitude 5 cm. max speed?") is an ask: unread, it was answered with the period.
      So is the unit the answer is wanted in ("in kWh", "the gauge pressure in psi at a
-     depth of 10 m"), kept on `asked_unit`.
+     depth of 10 m"), kept on `asked_unit`. A count of things ("how many turns") and an
+     atom's level ("to which level does it fall?") ask a pure number (`ask_numbers.py`),
+     never the force on a wire or the photon's energy they were answered with; a count in
+     a unit ("how many kWh") or each second ("photons per second") is not one.
 5. **Solve** (`solver.py`, `solvers/`, one module per topic). Pure arithmetic in SI, through
    Pint (`_params_in_si`). Quadratics use the cancellation-free closed form. The one SymPy
    step is a law's rearrangement for an asked input (step 3), run in the SymPy pool.
