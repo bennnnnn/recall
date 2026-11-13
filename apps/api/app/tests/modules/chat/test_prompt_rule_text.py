@@ -55,10 +55,13 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # beside a message the turn's read calls an answer or a change), and no claim that the app
 # cannot look public facts up unless search is off, by the user or the server
 # (FACT_GROUNDING_HINT, WEB_SEARCH_OFF_HINT, SEARCH_UNAVAILABLE_HINT), and a reply's second
-# call told it can, after the first said it couldn't (DENIAL_RETRY_NOTE).
+# call told it can, after the first said it couldn't (DENIAL_RETRY_NOTE), then maths' pack
+# saying the app draws the graph, number line or figure a maths question asks to see, so the
+# model never says it cannot draw, never gives sketching steps and never draws a number line
+# in characters (GRAPH_NO_SUBSTITUTE_CLAUSE, the textbook run 2026-11-13).
 _RULES = 181
-_RULE_GRAMS = 16508
-_RULE_GRAMS_SHA = "b6c2f76248252340"
+_RULE_GRAMS = 16528
+_RULE_GRAMS_SHA = "61bf257a6f592e1c"
 
 
 def _rules() -> list[str]:
