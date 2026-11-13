@@ -407,15 +407,6 @@ def holds_no_formula(text: str) -> bool:
     return _UserMath(text).empty
 
 
-def writes_formula_in(text: str, variable: str) -> bool:
-    """``text`` writes a formula in ``variable`` ("y = 2x + 1"), not only a relation between
-    stated amounts ("1 inch = 2.54 cm"): a graph of it is held to that formula."""
-    import sympy
-
-    symbol = sympy.Symbol(variable)
-    return any(symbol in expr.free_symbols for expr in _UserMath(text).expressions)
-
-
 def written_relations(text: str) -> list[tuple[Any, str, Any]]:
     """The relations ``text`` writes, each side parsed whole: "y = 2x + 1" is (y, "=",
     2x + 1), and "-3 < n <= 2" is two. A side is never a piece of a longer formula."""
