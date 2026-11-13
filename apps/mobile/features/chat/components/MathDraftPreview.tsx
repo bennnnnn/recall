@@ -176,7 +176,7 @@ function DraftAtom({
   // An operator's limits sit on the operator alone: the text before it stays text.
   const split = (integral || limits) && piece.node.kind === "text" ? splitBeforeOperator(input, piece.node) : null;
   const lead = split?.lead ? <DraftPiece node={split.lead} {...kit} top={top} /> : null;
-  const base = <DraftPiece node={split?.operator ?? piece.node} {...kit} top={top} beforeScript={piece.scripts.length > 0} />;
+  const base = <DraftPiece node={split?.operator ?? piece.node} {...kit} top={top} script={sup.length ? "sup" : sub.length ? "sub" : undefined} />;
   if (integral) {
     return (
       <>
@@ -267,8 +267,8 @@ type PieceProps = {
   onMoveCaret?: (pos: number) => void;
   /** In the draft's own row, where a last italic letter needs room to lean (`P` drew as `F`). */
   top?: boolean;
-  /** A script follows the piece: its last letter sits against the script, with no lean. */
-  beforeScript?: boolean;
+  /** The script after the piece: as in TeX its last letter sits against a subscript, and leans before a superscript. */
+  script?: "sub" | "sup";
 };
 
 /** What a piece draws with: the draft and caret, the styles, and its slots' shared props. */
@@ -286,7 +286,7 @@ type PieceRenderer<K extends DraftNode["kind"]> = (
 ) => ReactElement | null;
 
 /** A run of plain draft text; a tap near its front puts the caret there, else at its end. */
-const textPiece: PieceRenderer<"text"> = (node, { input, caret, before, after, onMoveCaret, top, beforeScript, s, theme, size }) => {
+const textPiece: PieceRenderer<"text"> = (node, { input, caret, before, after, onMoveCaret, top, script, s, theme, size }) => {
   const runs = textRuns(input, node.start, node.end);
   if (runs.length === 0) return null;
   let start = node.start;
@@ -309,7 +309,7 @@ const textPiece: PieceRenderer<"text"> = (node, { input, caret, before, after, o
         ) : null}
         {runs.map((run, i) =>
           run.math ? (
-            <MathText key={i} latex={spacedDraftMath(run.text, { termBefore: i === 0 && draftTermBefore(input, node.start), tight: size < DRAFT_TEXT_SIZE })} textColor={theme.text} fontSize={size} lean={top && (!beforeScript || i < runs.length - 1)} />
+            <MathText key={i} latex={spacedDraftMath(run.text, { termBefore: i === 0 && draftTermBefore(input, node.start), tight: size < DRAFT_TEXT_SIZE })} textColor={theme.text} fontSize={size} lean={i < runs.length - 1 ? top : script === "sup" || (top && !script)} />
           ) : (
             <Text key={i} style={[s.prose, { fontSize: size }]}>
               {run.text}
@@ -409,13 +409,13 @@ const DRAFT_PIECES: { [K in DraftNode["kind"]]: PieceRenderer<K> } = {
   group: groupPiece,
 };
 
-function DraftPiece({ node, input, caret, before, after, onMoveCaret, top, beforeScript }: PieceProps & { node: DraftNode }) {
+function DraftPiece({ node, input, caret, before, after, onMoveCaret, top, script }: PieceProps & { node: DraftNode }) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const size = useContext(DraftTextSize);
   const slot = { text: input, caret, before, after, onMoveCaret };
   const render = DRAFT_PIECES[node.kind] as PieceRenderer<DraftNode["kind"]>;
-  return render(node, { input, caret, before, after, onMoveCaret, top, beforeScript, s, theme, slot, size });
+  return render(node, { input, caret, before, after, onMoveCaret, top, script, s, theme, slot, size });
 }
 
 function EditSlot({

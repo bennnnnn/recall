@@ -164,6 +164,14 @@ const VARIANTS: Record<string, string> = {
     "$E = mgh$ — energy goes to $KE = \\frac{1}{2}mv^2$, the price is \\$5",
   "worked formula with no name":
     "**Given**  \n$k = 400\\,\\mathrm{N/m}$\n\n**Solution**\n\n$m g h = \\frac{1}{2} k x^{2}$  \nSolve for $x$  \n$x = \\sqrt{\\frac{2 m g h}{k}}$",
+  // A word symbol's subscript a model escaped for text mode, braced by the layout before
+  // 2026-11-12 (drawn "white_{pigment}"), and as the layout writes it now.
+  "worked word symbol escaped":
+    "**Substitution**  \n$\\text{gallons per part} = \\frac{\\text{total\\_{paint}}}{\\text{ratio\\_{total}}}$  \n" +
+    "$\\text{white\\_{pigment}} = 3 \\times 4$",
+  "worked word symbol":
+    "**Required**  \n(a) $white_{pigment}$ (gallons of white pigment)\n\n**Substitution**  \n" +
+    "$white_{pigment} = 3 \\times 4$  \n$\\text{cost}_{\\text{per}}\\text{ item} = 12\\,\\mathrm{gal}$",
   // Known gaps (see KNOWN_GAPS): each is a leak this suite still finds.
   "table abs": "| Expression | Value |\n|---|---|\n| $|x-3|$ | 5 |",
   "bare script": "The area is 25 m^{2}.",

@@ -7,6 +7,7 @@ import {
   useInsideAccessibleElement,
 } from "@/components/rich/accessibleElement";
 import { MathText } from "@/components/rich/MathText";
+import { italicEdge } from "@/components/rich/mathText/runs";
 import {
   latexToSvgMath,
   peekSvgMath,
@@ -18,6 +19,7 @@ import {
   MATH_TALL_LINE_HEIGHT,
   spokenFormula,
 } from "@/lib/math/text";
+import { latexLeanEm } from "@/lib/math/glyphs";
 import { fittedIndent } from "@/lib/math/layout";
 import { Space } from "@/lib/space";
 import { Type } from "@/lib/type";
@@ -56,6 +58,7 @@ type FallbackProps = Required<Omit<Props, "minHeight" | "indentFitted">> & { lab
 
 /** What MathJax could not convert: the same formula in readable native maths. */
 function FallbackMath({ latex, textColor, em, align, label, indent }: FallbackProps) {
+  const { fontScale } = useWindowDimensions();
   const justify = align === "start" ? styles.alignStart : null;
   const own = label !== undefined;
   return (
@@ -79,7 +82,8 @@ function FallbackMath({ latex, textColor, em, align, label, indent }: FallbackPr
               <MathText latex={latex} textColor={textColor} fontSize={em} />
             </View>
           ) : (
-            <Text style={[styles.line, align === "start" && styles.lineStart]} selectable>
+            // The Text ends where the scroll does: its last italic letter needs real room.
+            <Text style={[styles.line, align === "start" && styles.lineStart, italicEdge(latexLeanEm(latex), em, fontScale, false)]} selectable>
               <MathText latex={latex} textColor={textColor} fontSize={em} />
             </Text>
           )}

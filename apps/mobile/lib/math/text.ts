@@ -1,5 +1,6 @@
 /** Parse simple LaTeX into native Text segments (no WebView). */
 
+import { italicLeanEm } from "@/lib/math/glyphs";
 import { parseSimpleLatex } from "@/lib/math/latexParse";
 import { restoreMathEscapes } from "@/lib/math/textMarkers";
 import type { MathSegment } from "@/lib/math/textTypes";
@@ -63,7 +64,18 @@ type ScriptAttachment = {
   index: number;
   sup: Extract<MathSegment, { type: "sup" }> | null;
   sub: Extract<MathSegment, { type: "sub" }> | null;
+  /**
+   * The em a superscript after this base sits right of its advance, alone or over a
+   * subscript: the base's italic correction, as TeX sets it (`V^2`'s exponent clears the V's
+   * lean), while a subscript sits at the advance (`v_f`). The layout and the drawing both
+   * take it.
+   */
+  supLean: number;
 };
+
+function leanOf(segment: MathSegment): number {
+  return segment.type === "text" ? italicLeanEm(segment.value) : 0;
+}
 
 /** A base with both a superscript and a subscript is one script column.
  * A lone script stays attached to the text run so it can live inside Text. */
@@ -73,7 +85,7 @@ export function attachScripts(segments: MathSegment[]): ScriptAttachment[] {
     const segment = segments[i];
     if (!segment) continue;
     if (segment.type === "sup" || segment.type === "sub") {
-      out.push({ segment, index: i, sup: null, sub: null });
+      out.push({ segment, index: i, sup: null, sub: null, supLean: 0 });
       continue;
     }
     let sup: ScriptAttachment["sup"] = null;
@@ -86,11 +98,12 @@ export function attachScripts(segments: MathSegment[]): ScriptAttachment[] {
       else break;
       j += 1;
     }
+    const supLean = sup ? leanOf(segment) : 0;
     if (sup && sub) {
-      out.push({ segment, index: i, sup, sub });
+      out.push({ segment, index: i, sup, sub, supLean });
       i = j - 1;
     } else {
-      out.push({ segment, index: i, sup: null, sub: null });
+      out.push({ segment, index: i, sup: null, sub: null, supLean });
     }
   }
   return out;
