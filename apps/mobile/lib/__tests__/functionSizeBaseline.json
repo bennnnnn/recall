@@ -16,7 +16,7 @@
   "components/rich/diagrams/WaveDiagram.tsx::WaveDiagram": 140,
   "components/rich/geometry/RectangleDiagram.tsx::RectangleDiagram": 211,
   "components/rich/geometry/RightTriangleDiagram.tsx::RightTriangleDiagram": 101,
-  "components/rich/geometry/SectorDiagram.tsx::SectorDiagram": 119,
+  "components/rich/geometry/SectorDiagram.tsx::SectorDiagram": 116,
   "components/rich/geometry/TriangleSidesDiagram.tsx::TriangleSidesDiagram": 147,
   "components/rich/mathText/styles.ts::makeStyles": 102,
   "components/rich/simulation/labels.tsx::SceneLabels": 129,
