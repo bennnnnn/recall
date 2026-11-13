@@ -95,10 +95,13 @@ describe("lawHeading", () => {
 
 describe("isAnswerValue", () => {
   // The textbook run (2026-11-13): a graph's answer in words was drawn in the answer box.
+  // A sentence its maths only illustrates: no relation, words after the maths.
   it.each([
     "A line from $(-3, -5)$ to $(3, 7)$ — slope $2$, $y$-intercept $1$.",
-    "The ball lands $x = 12\\,\\mathrm{m}$ from the wall.",
+    "Slope $2$, $y$-intercept $1$, a line from $(-3, -5)$ to $(3, 7)$.",
+    "$(0, 1)$ is where the line crosses the $y$-axis",
     "The line has slope $2$ and passes through $(0, 1)$.",
+    "Die Gerade hat die Steigung $2$ und schneidet die $y$-Achse bei $(0, 1)$.",
     "Only the positive root counts.",
   ])("reads %s as a sentence", (line) => {
     expect(isAnswerValue(line)).toBe(false);
@@ -112,6 +115,22 @@ describe("isAnswerValue", () => {
     "Speed = 4 m/s",
     "Average speed = total distance / total time = 4 m/s",
     "Paris",
+    // A line that states a value, its words around it or not (review of 2026-11-13).
+    "The area is $A = 24$ cm²",
+    "**The area is $A = 24$ cm²**",
+    "Die Fläche ist $A = 24$ cm²",
+    "Sum of the angles $= 180°$",
+    "The hypotenuse $c = 15\\ \\text{cm}$",
+    "Maximum height $h = 20$ m",
+    "Roots are $x = 3$ and $x = -2$",
+    "The ball lands $x = 12\\,\\mathrm{m}$ from the wall.",
+    "The speed of the car is about $4.2$ m/s",
+    "$9$ apples and $12$ pears",
+    "The solution is $x < 9$",
+    "Carbon dioxide",
+    "Sodium chloride",
+    "New York",
+    "Not possible",
   ])("reads %s as a value", (line) => {
     expect(isAnswerValue(line)).toBe(true);
   });

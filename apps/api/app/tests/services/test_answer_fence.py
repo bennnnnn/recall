@@ -388,11 +388,13 @@ def test_a_sentence_round_its_maths_is_no_card() -> None:
 @pytest.mark.parametrize(
     "answer",
     [
-        # The textbook run (2026-11-13): a graph's answer in words filled the card.
+        # The textbook run (2026-11-13): a graph's answer in words filled the card. A
+        # sentence its maths only illustrates: no relation, words after the maths.
         "A line from $(-3, -5)$ to $(3, 7)$ — slope $2$, $y$-intercept $1$.",
-        "The ball lands $x = 12\\,\\mathrm{m}$ from the wall.",
+        "Slope $2$, $y$-intercept $1$, a line from $(-3, -5)$ to $(3, 7)$.",
+        "$(0, 1)$ is where the line crosses the $y$-axis",
         "The line has slope $2$ and passes through $(0, 1)$.",
-        "Each angle measures $60^\\circ$ in an equilateral triangle.",
+        "Die Gerade hat die Steigung $2$ und schneidet die $y$-Achse bei $(0, 1)$.",
     ],
 )
 def test_an_answer_written_as_a_sentence_is_no_card(answer: str) -> None:
@@ -413,6 +415,31 @@ def test_an_answer_written_as_a_sentence_is_no_card(answer: str) -> None:
 def test_a_value_keeps_its_card(answer: str, card: str) -> None:
     landed = land_answer_card(f"**Answer**\n{answer}", None)
     assert f"```answer\n{UNCHECKED_ANSWER_MARKER}\n{card}\n```" in landed
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        # A line that states a value keeps its card, its words around it or not (review of
+        # 2026-11-13): an equation or a relation inside the maths or around it, a value
+        # with its unit after a lead, in any language.
+        "The area is $A = 24$ cm²",
+        "**The area is $A = 24$ cm²**",
+        "Die Fläche ist $A = 24$ cm²",
+        "Sum of the angles $= 180°$",
+        "The hypotenuse $c = 15\\ \\text{cm}$",
+        "Maximum height $h = 20$ m",
+        "Roots are $x = 3$ and $x = -2$",
+        "The ball lands $x = 12\\,\\mathrm{m}$ from the wall.",
+        "The speed of the car is about $4.2$ m/s",
+        "Probability of rolling a six is $\\frac{1}{6}$",
+        "$9$ apples and $12$ pears",
+        "Sodium chloride, $\\mathrm{NaCl}$",
+        "The solution is $x < 9$",
+    ],
+)
+def test_a_line_that_states_a_value_keeps_its_card(answer: str) -> None:
+    assert "```answer" in land_answer_card(f"**Answer**\n{answer}", None)
 
 
 def test_an_equation_in_words_keeps_its_card() -> None:

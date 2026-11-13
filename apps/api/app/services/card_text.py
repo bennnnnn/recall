@@ -17,7 +17,8 @@ with its asterisks showing. Before a model's line becomes a card:
   (``\\mathrm{cm}^{2}``): a triangle's parts came as ``$A = 54\\,\\mathrm{cm²}$`` beside
   ``\\mathrm{cm^2}`` (2026-11-06).
 
-A line in words is no card at all (``wordy``): a paragraph, or a sentence round its maths.
+A line in words is no card at all (``wordy``): a paragraph, or a sentence its maths only
+illustrates (``sentence_answer``).
 """
 
 from __future__ import annotations
@@ -102,8 +103,11 @@ def _unit(unit: str) -> str:
 
 
 _WORD = re.compile(r"[A-Za-z]{3,}")
-# The first maths of an answer line, and the words of a phrase before it.
-_FIRST_MATHS = re.compile(r"\$|\\\(")
+# A line that states a relation, inside its maths or around it, states a value.
+_RELATION = re.compile(
+    r"[=\u2248<>\u2264\u2265\u2260]|\\(?:approx|leq?|geq?|neq?|lt|gt|equiv|sim|propto)(?![A-Za-z])"
+)
+# A word of a sentence, in any script (three letters or more).
 _LETTERS = re.compile(r"[^\W\d_]{3,}")
 
 
@@ -114,16 +118,26 @@ def _relations(text: str) -> str:
 
 def wordy(value: str) -> bool:
     """Words, not a value a card holds: a paragraph (over twenty words outside its maths and
-    no equation), or a sentence round its maths. "A line from $(-3, -5)$ to $(3, 7)$ — slope
-    $2$" filled a card (2026-11-13): words of a phrase (two of three letters or more) before
-    the first maths, with no ``=`` among them, make a sentence. A value (``$x = 3$``, ``Speed =
-    4 m/s``, ``$5°$ from the normal``) or a label's (``Area: $24$``) is none (twin: the phone's
-    ``isAnswerValue``, ``lib/markdown/workoutSection.ts``)."""
+    no equation), or a sentence its maths only illustrates (``sentence_answer``)."""
     if len(value) > 2000:
         return True
     prose = _relations(_MATH.sub(" ", value))  # 2000 characters at most: read once
     if "=" not in prose and len(_WORD.findall(prose)) > 20:
         return True
-    found = _FIRST_MATHS.search(value)
-    lead = _relations((value if found is None else value[: found.start()]).strip())
-    return not lead.endswith(":") and "=" not in lead and len(_LETTERS.findall(lead)) >= 2
+    return sentence_answer(value)
+
+
+def sentence_answer(value: str) -> bool:
+    """A sentence its maths only illustrates, which no card holds: "A line from $(-3, -5)$ to
+    $(3, 7)$ — slope $2$, $y$-intercept $1$." filled one (2026-11-13). Read by its shape: no
+    relation anywhere (``=``, ``≈``, ``<``, inside the maths or around it), four words or more
+    (of three letters) outside the maths, two of them after the first maths. A line that
+    states a value keeps its card: an equation ("The area is $A = 24$ cm²", "Sum of the angles
+    $= 180°$"), a value with its unit after a lead ("The speed is about $4.2$ m/s"), a short
+    answer in words ("Sodium chloride"). Twin: the phone's ``isAnswerValue``."""
+    if _RELATION.search(value):
+        return False
+    first = _MATH.search(value)
+    after = value if first is None else value[first.end() :]
+    words = len(_LETTERS.findall(_MATH.sub(" ", value)))
+    return words >= 4 and len(_LETTERS.findall(_MATH.sub(" ", after))) >= 2
