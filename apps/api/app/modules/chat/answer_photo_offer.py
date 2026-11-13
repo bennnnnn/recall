@@ -7,7 +7,7 @@ lesson or code never does.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, get_args
 
 from app.modules.chat.continuation_subject import works_on_last_reply
 from app.modules.chat.prompt_constants import is_bare_writing_line
@@ -19,12 +19,13 @@ from app.modules.turn_reading.conversation import is_social_opener
 from app.modules.turn_reading.routing import is_lightweight_chat_turn
 from app.modules.turn_reading.school_question import is_school_exercise
 from app.modules.turn_reading.visuals import where_is_place
+from app.services.solving import SubjectName
 
 if TYPE_CHECKING:
     from app.modules.chat.prompt_format import StyleTurn
 
 # Subjects whose answers are worked problems, never one thing to look at.
-NO_PHOTO_SUBJECTS = frozenset({"math", "physics", "chemistry", "statistics"})
+NO_PHOTO_SUBJECTS: frozenset[str] = frozenset({*get_args(SubjectName), "statistics"})
 
 
 def offers_answer_photo(turn: StyleTurn) -> bool:

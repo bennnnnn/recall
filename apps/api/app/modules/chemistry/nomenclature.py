@@ -190,12 +190,24 @@ def salt_from_formula(formula: str) -> Salt | None:
     return None
 
 
+# Each anion written bracketed with a count, "(NO3)2", and bare, "Cl2": compiled once here, not
+# twice an anion on every formula read.
+_ANION_SPELLINGS = tuple(
+    (
+        anion,
+        re.compile(rf"\({re.escape(anion.formula)}\)(\d+)"),
+        re.compile(rf"{re.escape(anion.formula)}(\d*)"),
+    )
+    for anion in _ANIONS
+)
+
+
 def _anion_part(text: str) -> tuple[Ion, int] | None:
-    for anion in _ANIONS:
-        bracketed = re.fullmatch(rf"\({re.escape(anion.formula)}\)(\d+)", text)
+    for anion, bracketed_spelling, bare_spelling in _ANION_SPELLINGS:
+        bracketed = bracketed_spelling.fullmatch(text)
         if bracketed is not None and anion.polyatomic and int(bracketed.group(1)) > 1:
             return anion, int(bracketed.group(1))
-        bare = re.fullmatch(rf"{re.escape(anion.formula)}(\d*)", text)
+        bare = bare_spelling.fullmatch(text)
         if bare is not None and (not anion.polyatomic or not bare.group(1)):
             return anion, int(bare.group(1) or 1)
     return None

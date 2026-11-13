@@ -16,10 +16,9 @@ import pytest
 from app.core.config import Settings
 from app.modules.chat.finalize_passes import FinalizeState
 from app.modules.chat.finalize_subjects import (
-    check_chemistry_fences,
     check_math_fences,
-    check_physics_fences,
     mark_server_cards,
+    subject_fences,
 )
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
@@ -163,8 +162,8 @@ async def test_each_part_keeps_its_card_in_the_saved_reply() -> None:
     )
 
     # The subject passes the saved reply goes through, in order (``finalize_passes``).
-    state.text = check_chemistry_fences(state)
-    state.text = check_physics_fences(state)
+    state.text = subject_fences("chemistry")(state)
+    state.text = subject_fences("physics")(state)
     state.text = await check_math_fences(state)
     saved = mark_server_cards(state)
 

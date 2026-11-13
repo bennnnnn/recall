@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from app.services.law_binding.spec import Binding, FormulaSpec, formula, var
+from app.services.law_binding.words import COMBINED_RESULT
 
 _G = var("g", "g", "meter / second ** 2", fallback="gravity")
 
@@ -184,6 +185,8 @@ SPECS: tuple[FormulaSpec, ...] = (
             cues=("in parallel",),
             excludes=("series",),
             interchangeable=("k1", "k2"),
+            # "a combined spring constant of 500 N/m" is the result, not a spring.
+            result_labels=COMBINED_RESULT,
             nonnegative=True,
         ),
     ),
@@ -205,6 +208,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             cues=("in series",),
             excludes=("parallel",),
             interchangeable=("k1", "k2"),
+            result_labels=COMBINED_RESULT,
             nonnegative=True,
         ),
     ),

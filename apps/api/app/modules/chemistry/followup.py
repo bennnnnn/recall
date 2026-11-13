@@ -25,6 +25,7 @@ from app.modules.chemistry.request import is_chemistry_question
 from app.modules.chemistry.shape_followup import shape_followup_problem
 from app.modules.chemistry.species_words import substance_mentions, with_formulas
 from app.services.law_binding.units import dimension_of
+from app.services.number_text import DECIMAL
 from app.services.problem_followup import (
     EXPLAIN_RE,
     GivenRewriter,
@@ -82,7 +83,7 @@ _CHANGED = re.compile(
     r"^(?:but )?(?:what )?if "
     r"(?:it (?:was|were|is) |"
     r"(?:the )?(?P<name>[A-Za-z][A-Za-z ]{0,30}?) (?:was|were|is) )"
-    r"(?P<value>[-+]?(?:\d+(?:\.\d+)?|\.\d+)(?:e[-+]?\d+)?) ?"
+    rf"(?P<value>[-+]?{DECIMAL}(?:e[-+]?\d+)?) ?"
     r"(?P<unit>[A-Za-zμµ°/^0-9][A-Za-zμµ°/^0-9. ]{0,16})?\??$",
     re.IGNORECASE,
 )

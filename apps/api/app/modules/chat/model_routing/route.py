@@ -12,7 +12,7 @@ Routing always respects the caller's allowed model pool (plan + enabled toggles)
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from app.core.config import Settings
 from app.models import model_catalog
@@ -25,6 +25,9 @@ from app.modules.billing.plan import (
 )
 from app.modules.chat.model_routing.signals import SMART_TRIGGERS, needs_strong_model
 from app.modules.chat.turn_trace import note_route
+
+if TYPE_CHECKING:
+    from app.services.solving import SubjectName
 
 _FOLLOWUP_MAX_CHARS = 120
 # Linear phrase scan — same style as prompt_constants.routing `_OFFER_PHRASES`.
@@ -277,14 +280,11 @@ def _routed_line(content: str, settings: Settings | None = None) -> tuple[str, s
     from app.services.subjects.registry import subject_adapter
 
     tools_on = settings is None or settings.math_tools_enabled
-    if subject == "chemistry":
-        chemistry_fast = subject_adapter("chemistry").fast_lane(content, tools_on=tools_on)
-        return (fast if chemistry_fast else smart), "chemistry"
     if subject != "math":
-        physics_on = settings is None or settings.physics_enabled
-        physics_fast = subject_adapter("physics").fast_lane(content, tools_on=physics_on)
-        if physics_fast is not None:
-            return (fast if physics_fast else smart), "physics"
+        lane = _subject_lane(content, subject, settings)
+        if lane is not None:
+            named, fast_enough = lane
+            return (fast if fast_enough else smart), named
     # Math turns (equations, graphs, geometry, calculus, stats, …) go to the math-tuned
     # strong model: a fast model's steps disagreed with the verified answer.
     from app.modules.chat.model_routing.rate_problems import is_multi_step_rate_problem
@@ -294,6 +294,24 @@ def _routed_line(content: str, settings: Settings | None = None) -> tuple[str, s
     if subject == "math" and not subject_adapter("math").fast_lane(content, tools_on=tools_on):
         return model_catalog.auto_math_alias(), "math"
     return fast, "math_verified" if subject == "math" else "everyday"
+
+
+def _subject_lane(
+    content: str, subject: SubjectName | None, settings: Settings | None
+) -> tuple[SubjectName, bool] | None:
+    """The lane a subject's own read suggests for a line maths does not answer: the subject
+    the order gave it first, then any whose cues claim a line no subject did ("a
+    pendulum's period" is physics' strong model). Each says whether its answer needs no
+    reasoning (True: the fast model), or has no say (None)."""
+    from app.services.subjects.registry import SUBJECTS
+
+    asked = sorted(SUBJECTS, key=lambda adapter: adapter.name != subject)
+    for adapter in asked:
+        tools_on = settings is None or adapter.enabled(settings)
+        verdict = adapter.fast_lane(content, tools_on=tools_on, claimed=adapter.name == subject)
+        if verdict is not None:
+            return adapter.name, verdict
+    return None
 
 
 def route_chat_model(

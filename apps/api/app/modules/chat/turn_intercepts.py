@@ -35,10 +35,10 @@ from app.modules.images.lookup_intent import (
     names_a_drawing,
 )
 from app.modules.images.reply_picture import ReplyPicture
+from app.modules.images.schemas import PHOTO_LOOKUP_MODEL as _IMAGE_SEARCH_MODEL
 from app.modules.images.search import ImageSearchError
 from app.services.subjects.dispatch import asks_a_subject_to_show, subject_shows_it
 
-_IMAGE_SEARCH_MODEL = "image-search-model"
 _IMAGE_GEN_MODEL = "image-gen-model"
 
 

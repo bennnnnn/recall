@@ -40,7 +40,12 @@ _FORCE_CUES = (
     "accelerated at",
 )
 
+# A stated force that is not the whole net force, as the binder's m = F/a sets them aside
+# (``catalog/force.py``): a weight beside an acceleration is mg, and "a car accelerates at
+# 2 m/s²; its weight is 9810 N" was a 4905 kg car for 1000 kg.
 _UNSUPPORTED_FORCE_CONTEXT = (
+    "weigh",
+    "μ",
     "tension",
     "friction",
     "coefficient",

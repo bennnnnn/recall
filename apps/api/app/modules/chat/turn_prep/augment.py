@@ -6,6 +6,7 @@ its LLM classifier never ran in production and are gone.
 
 from __future__ import annotations
 
+from contextlib import ExitStack
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
@@ -45,7 +46,7 @@ from app.modules.web_search.subject import (
 )
 from app.services.solving import VerifiedSolveBlock
 from app.services.subjects.dispatch import SubjectName, read_direct_reply, read_subject
-from app.services.subjects.registry import subject_adapter
+from app.services.subjects.registry import SUBJECTS
 
 if TYPE_CHECKING:
     from app.services.subjects.registry import MoneyTurn
@@ -118,7 +119,7 @@ async def gather_and_inject(
     ) or await _parts_subject(request, settings, plan)
     if instant_reply is None:
         start_model_read_shadow(request.content, settings, redis, subject=detected_subject)
-    needs_math, needs_chem = _turn_needs(request, settings, followup, detected_subject)
+    needs_subject = _turn_needs_subject(request, settings, followup, detected_subject)
     if not _should_augment_web_and_tools(
         instant_reply=instant_reply,
         lightweight=mode.lightweight,
@@ -126,13 +127,13 @@ async def gather_and_inject(
         day_planning=mode.day_planning,
         ambiguous_nearby=identity.geo.ambiguous_nearby,
         rich_context=mode.rich_context,
-        needs_math=needs_math,
-        needs_chem=needs_chem,
+        needs_subject=needs_subject,
     ):
         return Augmentation(prompt_messages, subject=detected_subject)
 
     # Phase B: the subject solve. Phase C: inject it before the last user message.
-    with subject_adapter("math").solve_timeouts() as timed_out:
+    with ExitStack() as stack:
+        timed_out = [stack.enter_context(adapter.solve_timeouts()) for adapter in SUBJECTS]
         fetched = await _fetch_subject_with_priors(
             request, identity, settings, redis, prompt_messages, followup, plan, referent
         )
@@ -144,7 +145,7 @@ async def gather_and_inject(
         unverified_subject=fetched.unverified_subject,
         direct_text=fetched.direct_text,
         asks_more=plan.multi and any(part.kind != "solve" for part in plan.parts),
-        solve_timed_out=bool(timed_out),
+        solve_timed_out=any(timed_out),
         subject=detected_subject,
     )
 
@@ -164,7 +165,7 @@ def _readable_fetch(
     writer's locale reads otherwise, and the result goes."""
     content = request.content
     borrowed: list[str] = []
-    if subject_adapter("math").followups.borrows_earlier(content):
+    if any(adapter.followups.borrows_earlier(content) for adapter in SUBJECTS):
         borrowed = _prior_user_lines(request, prompt_messages, referent)
     return whole_question_fetch(
         content,
@@ -208,29 +209,24 @@ def _solve_parts(plan: TurnPlan) -> tuple[str, ...]:
     return tuple(part.text for part in solves) if len(solves) >= 2 else ()
 
 
-def _turn_needs(
+def _turn_needs_subject(
     request: TurnRequest,
     settings: Settings,
     followup: SubjectFollowup,
     detected_subject: SubjectName | None,
-) -> tuple[bool, bool]:
-    """Whether the turn needs maths and chemistry, in that order. A search is the
-    reply's own call (``tool_loop.reply_calls``), never read here."""
-    content = request.content
-    needs_math = (
-        settings.math_tools_enabled
+) -> bool:
+    """Whether a subject whose switch is on solves the turn: the line is its, a follow-up
+    solves its earlier problem again, or the line alone continues its last one ("graph
+    it"). A search is the reply's own call (``tool_loop.reply_calls``), never read here."""
+    return any(
+        adapter.enabled(settings)
         and (
-            detected_subject == "math"
-            or followup.math is not None
-            or subject_adapter("math").followups.continues_alone(content)
+            detected_subject == adapter.name
+            or followup.problem_of(adapter.name) is not None
+            or adapter.followups.continues_alone(request.content)
         )
-    ) or (
-        settings.physics_enabled and (detected_subject == "physics" or followup.physics is not None)
+        for adapter in SUBJECTS
     )
-    needs_chem = settings.chemistry_enabled and (
-        detected_subject == "chemistry" or followup.chemistry is not None
-    )
-    return needs_math, needs_chem
 
 
 async def _fetch_subject_with_priors(
@@ -328,7 +324,7 @@ async def augment_after_prompt(
         timing.mark_prompt_ready()
     if instant_reply is None:
         instant_reply = await augmented.direct_reply(request, followup, settings)
-    subject = augmented.subject or _followup_subject(followup)
+    subject = augmented.subject or followup.subject
     answered = bool(instant_reply is not None or augmented.verified_subject or money)
     lightweight = identity.mode.lightweight
     augmented.worked = worked_layout(
@@ -403,12 +399,3 @@ def reads_window(request: TurnRequest) -> list[Any]:
     redone, which is no part of the chat the line answers."""
     redone = request.omit_message_ids or set()
     return [row for row in request.recent_messages or [] if getattr(row, "id", None) not in redone]
-
-
-def _followup_subject(followup: SubjectFollowup) -> SubjectName | None:
-    """The subject of the earlier problem a follow-up solves again."""
-    if followup.physics is not None:
-        return "physics"
-    if followup.chemistry is not None:
-        return "chemistry"
-    return "math" if followup.math is not None else None

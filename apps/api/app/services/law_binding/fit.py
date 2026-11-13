@@ -31,6 +31,7 @@ from app.services.law_binding.words import (
     ask_strength,
     choose,
     implied_value,
+    labels_as,
     last_said,
     word_pattern,
     words_after,
@@ -278,6 +279,9 @@ def fit(
         following = givens[index + 1].start if index + 1 < len(givens) else len(lower)
         after = words_after(lower, given.end, following)
         described = given.end + len(after)
+        if _labels_the_result(binding, given, produced, before, lower, following):
+            # "A total power of 3 D; one lens is 2 D": the sum stated is no lens.
+            return None
         choice = choose(
             options, before, after, binding, _given_dimension(given) in produced, listed=listed
         )
@@ -303,6 +307,21 @@ def fit(
     ):
         return None
     return Fit(spec, params, units, strength, stated)
+
+
+def _labels_the_result(
+    binding: Binding,
+    given: Given,
+    produced: set[str | None],
+    before: str,
+    lower: str,
+    following: int,
+) -> bool:
+    """The value is labelled as the law's result (``Binding.result_labels``)."""
+    if not binding.result_labels or _given_dimension(given) not in produced:
+        return False
+    after = words_after(lower, value_end(lower, given), following)
+    return labels_as(binding.result_labels, before, after)
 
 
 def _names_a_filled_input(choice: VariableSpec, filled: list[VariableSpec], before: str) -> bool:

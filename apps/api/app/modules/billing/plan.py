@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, TypeGuard
 
 from app.core.config import Settings
 from app.models import model_catalog
+from app.models.model_removal import current_choices
 from app.models.routing_lanes import ROUTING
 from app.modules.billing.entitlements import can_use, has_strong_everyday_model, is_paid
 from app.services import model_health
@@ -76,9 +77,9 @@ def allowed_model_ids(user: User, settings: Settings) -> set[str]:
 
 
 def is_auto_enabled(user: User) -> bool:
-    if user.enabled_models is None:
-        return True
-    return AUTO_ALIAS in user.enabled_models
+    """Auto is on, or no switch the user saved names a model the catalog still has."""
+    saved = current_choices(user.enabled_models)
+    return saved is None or AUTO_ALIAS in saved
 
 
 def models_choosing(user: User, settings: Settings, model_id: str) -> list[str]:

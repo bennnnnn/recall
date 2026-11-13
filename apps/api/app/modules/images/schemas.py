@@ -13,6 +13,11 @@ from app.services.solving import SubjectName
 if TYPE_CHECKING:
     from app.models.schemas.chats import MessageOut
 
+# Not a catalog alias, and no model runs under it: the name a reference-photo lookup's
+# reply stores in ``messages.model`` (a web image search found the photo, nothing wrote
+# it). It tells a found photo from a generated picture in history, so it never changes.
+PHOTO_LOOKUP_MODEL = "image-search-model"
+
 
 class ImageGenerateIn(BaseModel):
     chat_id: UUID

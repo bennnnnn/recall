@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Literal
 
 from app.modules.chemistry.extractors.parsing import asked_quantity
@@ -124,12 +125,7 @@ class Question:
         return ask
 
     def _one_ask(self) -> ReactionAsk | None:
-        pattern = (
-            rf"{_HEAD}\s+(?:the\s+|some\s+)?(?P<asked>{self.substance})"
-            r"(?:\s+(?:vapou?r|gas|steam))?(?:\s+(?:in\s+)?(?:molecules|grams|moles))?"
-            rf"(?:\s+(?:(?P<made>{MADE_VERB})|(?P<used>{USED_VERB})))?{_CARRY_ON}"
-        )
-        asks = list(re.finditer(pattern, self.text, re.IGNORECASE))
+        asks = list(_ask_pattern(self.substance).finditer(self.text))
         if len(asks) != 1 or len(_AMOUNT_HEAD.findall(self.text)) != 1:
             return None
         found = asks[0]
@@ -138,7 +134,7 @@ class Question:
 
     def _amounts_are_named(self) -> bool:
         """Every amount stated is of a substance named, and there is one."""
-        named = re.compile(rf"\s*(?:of\s+)?(?:the\s+|some\s+|pure\s+)?{self.substance}", re.I)
+        named = _amount_of_pattern(self.substance)
         found = list(_STATED_AMOUNT.finditer(self.text))
         return bool(found) and all(named.match(self.text, amount.end()) for amount in found)
 
@@ -152,6 +148,23 @@ class Question:
                 if item and item not in self.formulas:
                     return False
         return True
+
+
+# These name the question's own substances, so each alternative is compiled once (cached)
+# rather than on every question, which flushed ``re``'s shared cache.
+@lru_cache(maxsize=128)
+def _ask_pattern(substance: str) -> re.Pattern[str]:
+    return re.compile(
+        rf"{_HEAD}\s+(?:the\s+|some\s+)?(?P<asked>{substance})"
+        r"(?:\s+(?:vapou?r|gas|steam))?(?:\s+(?:in\s+)?(?:molecules|grams|moles))?"
+        rf"(?:\s+(?:(?P<made>{MADE_VERB})|(?P<used>{USED_VERB})))?{_CARRY_ON}",
+        re.IGNORECASE,
+    )
+
+
+@lru_cache(maxsize=128)
+def _amount_of_pattern(substance: str) -> re.Pattern[str]:
+    return re.compile(rf"\s*(?:of\s+)?(?:the\s+|some\s+|pure\s+)?{substance}", re.I)
 
 
 def in_formulas(text: str) -> Question | None:

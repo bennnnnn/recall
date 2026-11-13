@@ -1,12 +1,14 @@
 """The thin-lens and mirror equation and the magnification it gives, as one pair.
 
 The image's distance one law works out is the distance magnification reads, so "where is
-the image and how big is it" is answered in two steps (``law_binding.chain``).
+the image and how big is it" is answered in two steps (``law_binding.chain``). Thin lenses
+in contact add their powers.
 """
 
 from __future__ import annotations
 
 from app.services.law_binding.spec import Binding, FormulaSpec, formula, var
+from app.services.law_binding.words import COMBINED_RESULT
 
 # One object distance, image distance and focal length for the lens laws: the image's
 # distance a law works out is the one magnification reads (``law_binding.chain``). The
@@ -77,6 +79,30 @@ SPECS: tuple[FormulaSpec, ...] = (
                 *("right of", "diverging", "signed", "telescope", "eyepiece", "objective"),
                 *("height", "tall", "high"),
             ),
+        ),
+    ),
+    formula(
+        "lens_power_sum",
+        "optics",
+        "Thin lenses in contact",
+        "P",
+        base_latex=r"P = P_1 + P_2",
+        assumptions=("the lenses are thin and in contact",),
+        expression="p1+p2",
+        variables=(
+            var("p1", "P_1", "1 / meter"),
+            var("p2", "P_2", "1 / meter"),
+        ),
+        binding=Binding(
+            asks=("power", "lens power", "total power"),
+            result=("1 / meter",),
+            inputs=(frozenset({"p1", "p2"}),),
+            cues=("in contact",),
+            interchangeable=("p1", "p2"),
+            excludes=("telescope", "diverging"),  # a concave lens's power is negative
+            # "a total power of 3 D" is the sum, not a lens: the other lens is P - P₁.
+            result_labels=COMBINED_RESULT,
+            nonnegative=True,
         ),
     ),
 )

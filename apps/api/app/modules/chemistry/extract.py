@@ -55,7 +55,9 @@ def _extract_chemistry_intent(text: str) -> ChemistryIntent | None:
             intent = extractor(text)
         except Exception:
             # A solver call during extract, such as balancing, must not escape into the turn.
-            # CancelledError is a BaseException and still propagates.
+            # The message declines, logged: the extractor that raised is the one the line was
+            # meant for, and a later, less specific reader or the law binder must not verify
+            # a reading of it instead. CancelledError is a BaseException and still propagates.
             logger.exception(
                 "chemistry extractor %s failed",
                 getattr(extractor, "__name__", extractor),

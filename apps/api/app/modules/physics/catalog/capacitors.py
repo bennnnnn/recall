@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from app.services.law_binding.spec import Binding, FormulaSpec, bind, formula, var
+from app.services.law_binding.words import COMBINED_RESULT
 
 _CHARGE = var("Q", "Q", "coulomb")
 _CAPACITANCE = var("capacitance", "C", "farad")
@@ -99,6 +100,8 @@ SPECS: tuple[FormulaSpec, ...] = (
             inputs=(frozenset({"c1", "c2"}),),
             cues=("series",),
             interchangeable=("c1", "c2"),
+            # "an equivalent capacitance of 3 µF" is the result, not a capacitor.
+            result_labels=COMBINED_RESULT,
             nonnegative=True,
         ),
     ),
@@ -121,6 +124,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             inputs=(frozenset({"c1", "c2"}),),
             cues=("parallel",),
             interchangeable=("c1", "c2"),
+            result_labels=COMBINED_RESULT,
             nonnegative=True,
         ),
     ),

@@ -45,14 +45,27 @@ from app.modules.physics.working_steps import answer_parts, carried_to_answer
                 r"F = -5000\,\mathrm{N}",
             ],
         ),
-        # Shown in eV: the SI value, then the answer, on one row.
+        # A card whose whole number ends in rounding's zeros (4670, three figures): the
+        # working still ends unrounded.
+        (
+            [r"F = \frac{1000 \times (0 - 14)}{3}"],
+            r"4670\,\mathrm{N}\ (\text{opposing the motion})",
+            [
+                r"F = \frac{1000 \times (0 - 14)}{3}",
+                r"F = \frac{1000 \times (-14)}{3}",
+                r"F = \frac{-14000}{3}",
+                r"F = -4666.67\,\mathrm{N}",
+            ],
+        ),
+        # Shown in eV: the SI value, then the answer, on one row, both unrounded. A value
+        # on the way that does not end within six figures is worked to four.
         (
             [r"E = \frac{6.6261 \times 10^{-34} \times 299792458}{1.2 \times 10^{-6}}"],
             r"1.03\,\mathrm{eV}",
             [
                 r"E = \frac{6.6261 \times 10^{-34} \times 299792458}{1.2 \times 10^{-6}}",
-                r"E = \frac{1.98645 \times 10^{-25}}{1.2 \times 10^{-6}}",
-                r"E = 1.65538 \times 10^{-19}\,\mathrm{J} = 1.03\,\mathrm{eV}",
+                r"E = \frac{1.986 \times 10^{-25}}{1.2 \times 10^{-6}}",
+                r"E = 1.65538 \times 10^{-19}\,\mathrm{J} = 1.03321\,\mathrm{eV}",
             ],
         ),
         # A law in 1/R: the sum, then its reciprocal.
@@ -61,10 +74,22 @@ from app.modules.physics.working_steps import answer_parts, carried_to_answer
             r"2\,\Omega",
             [
                 r"\frac{1}{R_p} = \frac{1}{6} + \frac{1}{3}",
-                r"\frac{1}{R_p} = 0.166667 + 0.333333",
+                r"\frac{1}{R_p} = 0.1667 + 0.3333",
                 r"\frac{1}{R_p} = 0.5",
                 r"R_p = \frac{1}{0.5}",
                 r"R_p = 2\,\Omega",
+            ],
+        ),
+        # A reciprocal that rounds: the sum to four figures, then 1/R_p and R_p unrounded.
+        (
+            [r"\frac{1}{R_p} = \frac{1}{4} + \frac{1}{6} + \frac{1}{7}"],
+            r"1.79\,\Omega",
+            [
+                r"\frac{1}{R_p} = \frac{1}{4} + \frac{1}{6} + \frac{1}{7}",
+                r"\frac{1}{R_p} = 0.25 + 0.1667 + 0.1429",
+                r"\frac{1}{R_p} = 0.559524",
+                r"R_p = \frac{1}{0.559524}",
+                r"R_p = 1.78723\,\Omega",
             ],
         ),
         # 1/R_p equals R_p (two 2 Ω in parallel): the working still ends on R_p.
@@ -89,7 +114,7 @@ from app.modules.physics.working_steps import answer_parts, carried_to_answer
                 r"a = 2.80286\,\mathrm{m/s²}",
                 r"T = 5 \times \frac{2 \times 9.81}{5 + 2}",
                 r"T = 5 \times \frac{19.62}{7}",
-                r"T = 5 \times 2.80286",
+                r"T = 5 \times 2.803",
                 r"T = 14.0143\,\mathrm{N}",
             ],
         ),
