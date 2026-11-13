@@ -282,8 +282,9 @@ class SectorGeometryBlockSpec(BaseModel):
     show_labels: bool = True
     arc_length: float | None = None
     area: float | None = None
-    # The curved edge and both radii: a quarter circle's perimeter is not its arc.
-    perimeter: float | None = None
+    # The curved edge and both radii: a quarter circle's perimeter is not its arc. Left out of
+    # the fence when not worked, so a sector asked for its area or arc is drawn as before.
+    perimeter: float | None = Field(default=None, exclude_if=lambda value: value is None)
     labels: dict[str, str] = Field(default_factory=dict)
 
 
