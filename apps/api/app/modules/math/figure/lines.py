@@ -98,7 +98,9 @@ def _around(shape: str, angles: list[float], whole: float) -> FigureSpec:
     for value in angles:
         turn += value
         ray = drawing.point(polar(_RAY, turn))
-        if abs(turn - whole) > 1e-9 and abs(turn - 180) > 1e-9:
+        # The ray that closes the turn is the first one again (east), or the straight line's
+        # other half: drawn already. At a point, the ray at 180° is a ray of its own.
+        if abs(turn - whole) > 1e-9:
             drawing.line(middle, ray)
         drawing.angle(middle, last, ray, angle_label(value))
         last = ray

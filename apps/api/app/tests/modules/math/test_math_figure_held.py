@@ -484,3 +484,24 @@ def test_more_integers_than_a_line_marks_are_never_listed() -> None:
     started = time.perf_counter()
     line = _draw("Show the integers n with -1000000000 < n < 1000000000 on a number line.", reading)
     assert line is None and time.perf_counter() - started < 1.0
+
+
+@pytest.mark.parametrize(
+    ("shape", "angles", "whole", "rays"),
+    [
+        # Claude review (#2427): at a point the ray at 180° was skipped, 3 rays for 4 angles.
+        ("angles_at_point", [90.0, 90.0, 90.0, 90.0], 360.0, 4),
+        ("angles_at_point", [120.0, 60.0, 180.0], 360.0, 3),
+        # On a line the 180° ray is the line's other half, drawn already.
+        ("angles_on_line", [50.0, 60.0, 70.0], 180.0, 3),
+    ],
+)
+def test_every_angle_about_a_point_hangs_off_a_drawn_ray(
+    shape: str, angles: list[float], whole: float, rays: int
+) -> None:
+    from app.modules.math.figure.lines import _around
+
+    spec = _around(shape, angles, whole)
+    drawn = spec if isinstance(spec, dict) else spec.model_dump()
+    assert len(drawn["segments"]) == rays
+    assert len(drawn["angles"]) == len(angles)
