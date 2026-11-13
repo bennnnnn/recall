@@ -27,6 +27,7 @@ import { DYNAMIC_TYPE_MAX, Type, Weight } from "@/lib/type";
 import {
   askedLine,
   isAnswerHeading,
+  isAnswerValue,
   isRequiredHeading,
   isSolutionHeading,
   isWorkingHeading,
@@ -131,12 +132,19 @@ function namingPieces(line: string): string[] {
   return pieces;
 }
 
-/** The last line holding maths; the last line when none does. */
-function lastMathLine(lines: string[]): number {
-  for (let index = lines.length - 1; index >= 0; index -= 1) {
-    if (/[$=≈]/.test(lines[index] ?? "")) return index;
+/**
+ * The last line of maths that is the answer's value; with no maths, the last line when it is
+ * one (a word); -1 when the answer is a sentence.
+ */
+function lastValueLine(lines: string[]): number {
+  const texts = lines.map((line) => splitStreamCaret(line).text);
+  for (let index = texts.length - 1; index >= 0; index -= 1) {
+    if (/[$=≈]/.test(texts[index]!) && isAnswerValue(texts[index]!)) return index;
   }
-  return lines.length - 1;
+  const last = texts.length - 1;
+  return texts.some((text) => /[$=≈]/.test(text)) || !isAnswerValue(texts[last] ?? "")
+    ? -1
+    : last;
 }
 
 /**
@@ -194,7 +202,7 @@ const SOLVE_FOR = /^Solve for\s/;
 function renderWorkoutLine(
   lineKey: string,
   line: string,
-  { given, asked }: { given: boolean; asked: boolean },
+  { given, asked, sentence = false }: { given: boolean; asked: boolean; sentence?: boolean },
   {
     body,
     noteStyle,
@@ -204,10 +212,11 @@ function renderWorkoutLine(
   // While streaming, the caret's mark rides on the last line: draw the caret, never the mark.
   const marked = splitStreamCaret(line);
   // A given or what is asked is one line, its meaning beside it ("$t$ (time)"); only a
-  // move's note is a line of its own.
-  const { state, note } = splitWorkoutNote(
-    asked || given ? askedLine(marked.text) : marked.text,
-  );
+  // move's note is a line of its own. An answer in a sentence is read whole: its dash is
+  // the sentence's, never a move's.
+  const { state, note } = sentence
+    ? { state: marked.text, note: null }
+    : splitWorkoutNote(asked || given ? askedLine(marked.text) : marked.text);
   const naming = given && /^where\s/i.test(state);
   const move = !note && SOLVE_FOR.test(state);
   const part = asked ? partLabel(state) : null;
@@ -345,8 +354,9 @@ function renderWorkingSteps(
  * the reply and whether or not it has a **Solution** heading; its lines start at the
  * left edge every other line of the solution starts at. Each given is
  * its own line, and a closing "where v₀ = initial speed, …" line names them in secondary
- * ink. The last line of maths in a written-out answer sits in a white, bordered box,
- * outside the rule (the lines before it are working, a sentence after it stays below). A
+ * ink. The last line holding a written-out answer's value sits in a white, bordered box,
+ * outside the rule (the lines before it are working, a sentence after it stays below); an
+ * answer written as a sentence round its maths gets no box (`isAnswerValue`). A
  * card the server landed is its own ```answer fence and never reaches here; this draws
  * older replies the same way.
  */
@@ -365,12 +375,12 @@ export function renderWorkoutSection(
   const asked = isRequiredHeading(section.heading);
   const answer = isAnswerHeading(section.heading);
   const working = isWorkingHeading(section.heading);
-  const boxed = answer ? lastMathLine(section.lines) : -1;
+  const boxed = answer ? lastValueLine(section.lines) : -1;
   const lines = section.lines.map((line, index) =>
     renderWorkoutLine(
       `${key}-line-${index}`,
       line,
-      { given, asked },
+      { given, asked, sentence: answer && !isAnswerValue(splitStreamCaret(line).text) },
       { body, noteStyle },
       t,
     ),
@@ -413,7 +423,7 @@ export function renderWorkoutSection(
         // Given and Required sit behind a rule; the Answer's box needs none.
         style={answer ? { gap: Space.xs } : { ...workoutRule(t), gap: Space.xs }}
       >
-        {answer ? (
+        {answer && boxed >= 0 ? (
           <>
             {lines.slice(0, boxed)}
             <View

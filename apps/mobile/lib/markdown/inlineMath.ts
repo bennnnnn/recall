@@ -31,6 +31,19 @@ const PRICE_LEAD =
   /^\d[\d,.]*(?:[kKmMbB]|\/[A-Za-z]+)?(?:[;:?](?:\s|$)|!\s+(?![\s=+\-−×÷*/·^<>≤≥≠)])|\s+([A-Za-z]+)(.*))/;
 
 /**
+ * A ratio, read whole: numbers joined by colons and nothing else, its closing dollar after
+ * the last number ("$9: 12: 15$", "$ 3 : 4 $"). Read from its first colon, "$9: 12: 15 $ is
+ * the $ 3: 4: 5$" was a price, "$9:" (2026-11-13); a price before a colon and words stays
+ * one ("$60: 3 of us, so $x = 20$").
+ */
+const RATIO = /^\d[\d,.]*(?:\s*:\s*\d[\d,.]*)+$/;
+
+/** A ratio, read whole (`RATIO`); twin: the API's `inline_code.is_ratio`. */
+export function isRatio(body: string): boolean {
+  return RATIO.test(body.trim());
+}
+
+/**
  * A body that opens with an amount and goes on in words is a price that the
  * next dollar on the line would wrongly close: "$10; $x=2$", "$5 and $x$",
  * "$80/night for $n$ nights", "$100 a week for $w$ weeks". A TeX command
@@ -38,7 +51,7 @@ const PRICE_LEAD =
  */
 function priceBody(value: string): boolean {
   // The live tail has swapped every backslash for a marker by now.
-  if (/\\[A-Za-z]/.test(restoreMathEscapes(value))) return false;
+  if (/\\[A-Za-z]/.test(restoreMathEscapes(value)) || isRatio(value)) return false;
   // A span padded on its left ("$ 4! $") is read without its padding: the space before
   // its closer is padding, not the space after a price's "!" ("$5! $x$").
   const body = /^\s/.test(value) ? value.trim() : value.trimStart();
