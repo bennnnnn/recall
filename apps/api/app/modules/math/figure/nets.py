@@ -149,6 +149,12 @@ def _cone_net(request: FigureRequest) -> FigureSpec | None:
     height = request.first("height")
     slant = request.first("slant_height")
     r = radius or _RADIUS
+    if (
+        height is not None
+        and slant is not None
+        and abs(math.hypot(r, height) - slant) > 1e-4 * slant
+    ):
+        return None  # radius 3, height 4 and slant 6 are no one cone
     slant_size = slant or math.hypot(height or _HEIGHT, r)
     if slant_size <= r:
         return None

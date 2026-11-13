@@ -31,6 +31,7 @@ _UNLABELLED = frozenset({"perimeter"})
 # A solid's height has no edge in its net: the net's faces are sized by it, unlabelled.
 _FOLDED = {"square_pyramid_net": frozenset({"height"}), "cone_net": frozenset({"height"})}
 _LENGTH_TOLERANCE = 1e-3
+_ANGLE_WHATS = frozenset({"angle", "apex_angle", "base_angle"})
 _ANGLE_TOLERANCE = 0.05
 _LEADING_NUMBER = re.compile(r"\d+(?:\.\d+)?")
 
@@ -138,6 +139,27 @@ def _angle_named(spec: FigureSpec, name: str, value: float, at: dict[str, Point]
     return False
 
 
+def _ticks_hold(spec: FigureSpec, request: FigureRequest) -> bool:
+    """Equal marks agree with the sides the question states: two named sides it gives the
+    same length carry the same mark when both are marked, and two it gives different
+    lengths never share one."""
+    shown = {point.name for point in spec.points if point.show}
+    marks: list[tuple[int, float]] = []
+    for measure in request.measures:
+        name = measure.name.strip()
+        if measure.what in _ANGLE_WHATS or len(name) != 2 or not set(name) <= shown:
+            continue
+        side = next((s for s in spec.segments if {s.a, s.b} == set(name)), None)
+        if side is not None and side.ticks:
+            marks.append((side.ticks, measure.value))
+    for i, (ticks, value) in enumerate(marks):
+        for other_ticks, other_value in marks[i + 1 :]:
+            same_value = _close(value, other_value, _LENGTH_TOLERANCE)
+            if same_value != (ticks == other_ticks):
+                return False
+    return True
+
+
 def _perimeter_holds(spec: FigureSpec, request: FigureRequest, at: dict[str, Point]) -> bool:
     perimeter = request.first("perimeter")
     if perimeter is None:
@@ -161,5 +183,6 @@ def honours(spec: FigureSpec, request: FigureRequest) -> bool:
     return (
         _to_scale(spec, at)
         and _named_holds(spec, request, at)
+        and _ticks_hold(spec, request)
         and _perimeter_holds(spec, request, at)
     )

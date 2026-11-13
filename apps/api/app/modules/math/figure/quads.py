@@ -393,7 +393,16 @@ def build_trapezium(request: FigureRequest) -> FigureSpec | None:
 
 
 def build_kite(request: FigureRequest) -> FigureSpec | None:
+    """A kite's axis joins the corners where its two pairs of equal sides meet, which only
+    named equal sides fix: a lettered kite without them, or with its diagonals named ("AC =
+    10, BD = 16" with AB = AD, the shorter one its axis), draws nothing rather than put
+    the equal marks on sides the question did not call equal."""
     names, lettered = _letters(request, 4)
+    named = [m for m in request.measures if len(m.name.strip()) == 2]
+    if any(m.what == "diagonal" for m in named):
+        return None
+    if lettered and not any(m.what in {"side", "length", "equal_side"} for m in named):
+        return None
     diagonals = sorted((m.value for m in request.given("diagonal")), reverse=True)
     lengths = sorted(
         m.value for m in request.measures if m.what in {"side", "length", "equal_side"}
