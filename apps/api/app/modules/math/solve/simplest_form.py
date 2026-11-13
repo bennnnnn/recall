@@ -11,10 +11,11 @@ factored. Three rules, each one for every expression of its kind:
   otherwise SymPy's own form stands.
 - A rational expression is in lowest terms: no factor is left common to the numerator
   and the denominator.
-- A sum of polynomial terms with like terms or brackets is its collected terms, as long as
-  collecting them is no longer than what was written: ``(x+1)² - 1`` is ``x² + 2x``, while
-  ``(x+1)¹⁰ - 1``, a sum already collected and a product the student wrote keep SymPy's
-  form.
+- A sum of polynomial terms with like terms or brackets, as written, is its collected
+  terms, highest power first, as long as collecting them is no longer than what was
+  written: ``(x+1)² - 1`` is ``x² + 2x`` and ``2x² + 5x - 4x² + x - x²`` is
+  ``-3x² + 6x``, while ``(x+1)¹⁰ - 1``, a sum already collected and a product the
+  student wrote keep SymPy's form.
 
 Length alone does not decide: ``1/x + 1/(x+1)`` as one fraction is longer, and it is the
 book's answer.
@@ -25,6 +26,7 @@ from __future__ import annotations
 from typing import Any
 
 from sympy import (
+    Add,
     Dummy,
     Expr,
     cancel,
@@ -43,9 +45,11 @@ from app.modules.math.solve.radical_form import book_radicals_latex, has_radical
 from app.modules.math.solve.real_reading import agrees_on_reals, real_odd_roots
 
 
-def simplest_form(parsed: Any) -> tuple[Any, str | None]:
+def simplest_form(parsed: Any, written: Any = None) -> tuple[Any, str | None]:
     """SymPy's simplification in the book's form, and its LaTeX when a rule here changed it.
 
+    ``written`` is the expression parsed unevaluated: SymPy collects like terms as it
+    reads, so only the written form tells whether there were terms to collect.
     The usual display pass simplifies again, which would undo the book's form, so a
     changed result carries its own LaTeX."""
     result = simplify(parsed)
@@ -53,7 +57,7 @@ def simplest_form(parsed: Any) -> tuple[Any, str | None]:
         return result, None
     chosen = _real_root_form(parsed, result)
     chosen = _lowest_terms(chosen)
-    chosen = _collected_polynomial(parsed, chosen)
+    chosen = _collected_polynomial(parsed, chosen, parsed if written is None else written)
     radicals = book_radicals_latex(chosen) if has_radical(parsed) else None
     if radicals is not None:
         return chosen, radicals
@@ -90,11 +94,14 @@ def _lowest_terms(expr: Expr) -> Expr:
     return min((factor(lowest), lowest), key=count_ops)
 
 
-def _collected_polynomial(parsed: Expr, chosen: Expr) -> Expr:
+def _collected_polynomial(parsed: Expr, chosen: Expr, written: Any) -> Expr:
     symbols = sorted(parsed.free_symbols, key=str)
-    if not symbols or not parsed.is_Add or not parsed.is_polynomial(*symbols):
+    if not symbols or not written.is_Add or not parsed.is_polynomial(*symbols):
         return chosen
     collected = expand(parsed)
-    if collected == parsed:
+    terms = Add.make_args(written)
+    if len(terms) == len(Add.make_args(collected)) and not any(t.has(Add) for t in terms):
         return chosen  # nothing to collect: x³ + x² or i²R + i²r keep SymPy's form
+    # "2x² + 5x - 4x² + x - x²" was read as -3x² + 6x already, and came back factored,
+    # 3x(2 - x), for a question that asked to combine its like terms (2026-11-13).
     return collected if count_ops(collected) <= count_ops(parsed) else chosen
