@@ -388,12 +388,14 @@ The binder reads these laws, beside the extractors' own:
 
 - **Answers** have three significant figures, trailing zeros trimmed. Scientific notation is
   used outside [10⁻³, 10⁵), and rounding comes first: 99999.7 is 1 × 10⁵. That is the card's
-  precision: the Substitution's last row states the card's value (`a = 4.9 m/s²` over a
-  card of `4.9 m/s²`), as a textbook closes its working before the boxed answer. A value
-  the working reaches on the way is whole when it ends within six figures (8372, 0.0025)
-  and four figures otherwise (sin 70° = 0.9397, 2π = 6.283; `display.latex_working`).
-  Until November 2026 the last row printed six figures (`31.0357 m` over a card of `31 m`),
-  which read as two answers. One formatter does
+  precision: the Substitution ends on the value it reaches, unrounded (`a = 4.905 m/s²`
+  over a card of `4.9 m/s²`, `R = 31.0357 m` over `31 m`, `R_p = 1.78723 Ω` over `1.79 Ω`;
+  `working_steps._unrounded`), or the card's own value when nothing rounds (`v = 15 km/h`
+  over `15 km/h`), as a textbook closes its working before the boxed answer: only the card
+  rounds (the owner's rule, 2026-11-11, as in maths and chemistry). A value the working
+  reaches on the way is whole when it ends within six figures (8372, 0.0025) and four
+  figures otherwise (sin 70° = 0.9397, 2π = 6.283; `display.latex_working`); until
+  November 2026 those printed six figures (`0.939693`). One formatter does
   this, `display.py`; a solver never picks its own format. A 5 rounds up, as a class rounds:
   490.5 N is 491 N (`services/school_rounding.py`, the rule every subject shares).
 - **Givens** are echoed with the figures the user typed, up to six. A given is never rounded

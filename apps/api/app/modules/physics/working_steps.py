@@ -1,18 +1,19 @@
 """Substitution carried to its value: the arithmetic a student still has to do, done.
 
 A solver stores the substituted law (``a = \\frac{27.7778 - 0}{8}``) and stops. The
-reply works it one layer at a time (``reduce_substitution``), each value it reaches whole
-when it ends within six figures and to four otherwise (``latex_working``), and closes on
-the verified answer as its card states it:
+reply works it one layer at a time (``reduce_substitution``), each value on the way whole
+when it ends within six figures and to four otherwise (``latex_working``), and ends on
+the value it reaches, unrounded, when that value only rounds to the verified answer:
 
     a = \\frac{27.7778 - 0}{8}
     a = \\frac{27.7778}{8}
-    a = 3.47\\,\\mathrm{m/s²}
+    a = 3.47223\\,\\mathrm{m/s²}
 
-A last row of six figures above a card of three (31.0357 m over 31 m) read as two
-answers (review 2026-11-12, D5). A value within the answer's rounding, or one the
-working's typed constants put off by no more than 0.1% (7672.4 for a verified 7673),
-closes on the verified answer the same way.
+and the card states the answer once, rounded (3.47 m/s²): the working never rounds what
+the card rounds (the owner's rule, 2026-11-11). A value already the answer's own (15 cm),
+or one the working's typed constants put off by more than rounding (7672.4 for a verified
+7673), closes on the verified answer instead: the working ends on its value above the
+card, as a textbook's does.
 
 A row is matched to the answer by value, not by name: "a and T", "50 N at 53.1°" and
 "H_max and R" each have a row per value, and ``|v|`` or ``f_s`` may name it. The middle
@@ -34,6 +35,7 @@ from app.modules.physics.display import (
     ANSWER_FIGURES,
     is_conversion_row,
     is_value_row,
+    latex_given,
     latex_unit,
     latex_working,
     quantity_number,
@@ -115,6 +117,25 @@ def _named_si(ureg: Any, reading: str) -> tuple[str, float] | None:
         return None
 
 
+def _unrounded(worked: float, shown: str) -> str:
+    """``shown`` (``4.9\\,\\mathrm{m/s²}``) with the worked value in place of its number when
+    the two differ only by the answer's rounding (4.905): the working ends on the value it
+    reached, and only the card rounds it. Otherwise ``shown``."""
+    number = _NUMBER.match(shown)
+    if number is None:
+        return shown
+    written_number = number.group("number").lstrip("-")
+    figures = written_number.replace(".", "").lstrip("0")
+    # A whole number's trailing zeros are rounding's, not figures: 4670 N is three.
+    figures = figures if "." in written_number else figures.rstrip("0")
+    digits = len(figures) or 1
+    stated = float(number.group("number")) * 10.0 ** int(number.group("power") or 0)
+    written = latex_given(worked)
+    if written == number.group(0) or round_figures(worked, digits) != round_figures(stated, digits):
+        return shown
+    return f"{written}{shown[number.end() :]}"
+
+
 def _unit_tex(units: RowUnits | None, reduction: Reduction | None) -> str:
     """The unit a reduction's value is shown with, "" when its numbers carry none."""
     if units is None or reduction is None or reduction.unit is None:
@@ -137,17 +158,19 @@ def _closing(
     middle = list(reduction.rows)
     # A row for 1/R_p ends on R_p, even when the two are equal (two 2 Ω in parallel).
     reciprocal = _RECIPROCAL.fullmatch(lhs)
+    # Every way of closing ends on the value worked out, unrounded: only the card rounds.
     if reciprocal is None and _same(reduction.value, verified):
-        return [*middle, f"{lhs} = {shown}"]
+        return [*middle, f"{lhs} = {_unrounded(reduction.value, shown)}"]
     if reciprocal is None and reduction.value < 0 < verified and _same(-reduction.value, verified):
-        return [*middle, f"{lhs} = -{shown}"]
+        return [*middle, f"{lhs} = -{_unrounded(-reduction.value, shown)}"]
     if reciprocal is not None and reduction.value and _same(1 / reduction.value, verified):
-        value, of = f"{latex_working(reduction.value)}{unit}", reciprocal.group("of")
-        return [*middle, f"{lhs} = {value}", rf"{of} = \frac{{1}}{{{value}}}", f"{of} = {shown}"]
+        value, of = f"{latex_given(reduction.value)}{unit}", reciprocal.group("of")
+        last = _unrounded(1 / reduction.value, shown)
+        return [*middle, f"{lhs} = {value}", rf"{of} = \frac{{1}}{{{value}}}", f"{of} = {last}"]
     si = _in_si(shown)
     if si is not None and si[1] != 1 and _same(reduction.value / si[1], verified):
-        worked = f"{latex_working(reduction.value)}{latex_unit(si[0])}"
-        return [*middle, f"{lhs} = {worked} = {shown}"]
+        worked = f"{latex_given(reduction.value)}{latex_unit(si[0])}"
+        return [*middle, f"{lhs} = {worked} = {_unrounded(reduction.value / si[1], shown)}"]
     return None
 
 

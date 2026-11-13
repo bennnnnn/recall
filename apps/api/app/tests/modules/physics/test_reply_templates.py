@@ -3,8 +3,9 @@
 
 Review 2026-11-12 (docs/reviews/2026-11-12-physics/REPORT.md §1.2): a given's factor after
 its unit (D1), conversions the working never used (D2), a symbol never defined (D3), stock
-phrases (D4), six-figure working over a three-figure card (D5) and a bare letter under
-Required (D6).
+phrases (D4), six-figure values on the way to the answer (D5) and a bare letter under
+Required (D6). The last row stays the value reached, unrounded: only the card rounds (the
+owner's rule, kept when D5 was fixed).
 """
 
 from __future__ import annotations
@@ -137,13 +138,44 @@ def test_a_right_angle_is_named_where_the_sine_drops() -> None:
     assert "**Required**  \n$\\tau$ (torque)" in reply
 
 
-def test_working_rounds_to_four_figures_and_closes_on_the_card() -> None:
+def test_working_rounds_on_the_way_and_ends_on_the_value_unrounded() -> None:
     reply = _reply(
         "A football is kicked at 18 m/s at 35° above the horizontal on level ground. Find its range."
     )
     substitution = _section(reply, "Substitution")
     assert "0.9397" in substitution and "0.939693" not in substitution
-    assert substitution.endswith(r"$R = 31\,\mathrm{m}$")
+    assert substitution.endswith(r"$R = 31.0357\,\mathrm{m}$")
+    assert "```answer\n31\\,\\mathrm{m}\n```" in reply
+
+
+@pytest.mark.parametrize(
+    ("question", "last_row", "card"),
+    [
+        # The look-alikes of the range: a speed, a time and an energy whose cards round.
+        (
+            "A ball is dropped from a height of 20 m. How fast is it moving when it hits the "
+            "ground?",
+            r"$v_{impact} = 19.8091\,\mathrm{m/s}$",
+            r"19.8\,\mathrm{m/s}",
+        ),
+        (
+            "What is the period of a simple pendulum 1 m long?",
+            r"$T = 2.00607\,\mathrm{s}$",
+            r"2.01\,\mathrm{s}",
+        ),
+        (
+            "Find the total resistance of 4 ohm, 6 ohm and 7 ohm resistors in parallel.",
+            r"$R_p = 1.78723\,\Omega$",
+            r"1.79\,\Omega",
+        ),
+    ],
+)
+def test_the_last_row_is_unrounded_and_only_the_card_rounds(
+    question: str, last_row: str, card: str
+) -> None:
+    reply = _reply(question)
+    assert _section(reply, "Substitution").endswith(last_row)
+    assert f"```answer\n{card}\n```" in reply
 
 
 @pytest.mark.parametrize(

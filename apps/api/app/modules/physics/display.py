@@ -97,8 +97,8 @@ def latex_given(value: float) -> str:
 
 def latex_working(value: float) -> str:
     """A value the working reaches before the answer: whole when it ends within six
-    figures (8372, 0.0025, 1.5 × 10⁻¹¹), else four (0.9397, 304.5, 6.283). The last row
-    states the answer as its card does (``working_steps``)."""
+    figures (8372, 0.0025, 1.5 × 10⁻¹¹), else four (0.9397, 304.5, 6.283). The last row is
+    the value reached, unrounded (``working_steps``): only the card rounds."""
     if not math.isfinite(value):
         return str(value)
     mantissa, exponent = round_figures(value, GIVEN_FIGURES)
