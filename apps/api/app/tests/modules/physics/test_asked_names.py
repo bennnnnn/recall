@@ -128,6 +128,13 @@ def test_a_result_of_several_symbols_names_each(
     assert asked_meaning(operation, symbol, answer_unit) == "acceleration, tension"
 
 
+def test_a_comma_inside_a_subscript_lists_nothing() -> None:
+    assert (
+        asked_meaning("photoelectric_kinetic_energy_wavelength", r"E_{k,\max}", "J")
+        == "maximum kinetic energy"
+    )
+
+
 def test_a_result_of_several_symbols_one_has_no_name_for_is_unnamed() -> None:
     # F_x and F_y have no name in newtons: no name is better than half of one.
     assert asked_meaning("resolve_force", r"F_x,\ F_y", "N") is None

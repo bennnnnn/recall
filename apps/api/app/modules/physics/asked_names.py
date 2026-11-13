@@ -23,7 +23,6 @@ wrong one.
 
 from __future__ import annotations
 
-import re
 from functools import cache
 
 from app.modules.physics.catalog import formula_spec
@@ -38,8 +37,9 @@ from app.services.law_binding.units import unit_dimension
 def asked_meaning(operation: str, symbol: str, answer_unit: str | None = None) -> str | None:
     """What ``symbol``, the quantity a reply finds by law ``operation``, stands for."""
     spec = formula_spec(operation)
-    if _SEVERAL.search(symbol):
-        return _each_named(operation, symbol)
+    listed = _listed(symbol)
+    if len(listed) > 1:
+        return _each_named(operation, listed)
     kind = spec.kind if spec is not None else ""
     if spec is None:
         return given_meaning(operation, kind, symbol)
@@ -57,16 +57,25 @@ def asked_meaning(operation: str, symbol: str, answer_unit: str | None = None) -
     return meaning or _result_words().get((symbol, result or "dimensionless"))
 
 
-# Symbols listed in one result: "a,\ T", "F_x, F_y".
-_SEVERAL = re.compile(r",(?:\\ |\s)*")
+def _listed(symbol: str) -> list[str]:
+    """The symbols a result lists ("a,\\ T" is a and T), split at its own commas only: the
+    comma in E_{k,\\max} is its subscript's."""
+    parts: list[str] = []
+    depth = start = 0
+    for at, character in enumerate(symbol):
+        depth += {"{": 1, "}": -1}.get(character, 0)
+        if character == "," and depth == 0:
+            parts.append(symbol[start:at])
+            start = at + 1
+    parts.append(symbol[start:])
+    return [part.replace("\\ ", " ").strip() for part in parts if part.strip()]
 
 
-def _each_named(operation: str, symbols: str) -> str | None:
+def _each_named(operation: str, parts: list[str]) -> str | None:
     """Each of a result's symbols named in the unit the law gives it ("acceleration,
     tension"), or None when one of them has no name."""
     spec = formula_spec(operation)
     units = spec.binding.result if spec is not None and spec.binding is not None else ()
-    parts = [part.strip() for part in _SEVERAL.split(symbols) if part.strip()]
     if len(parts) != len(units):
         return None
     names = [asked_meaning(operation, part, unit) for part, unit in zip(parts, units, strict=True)]
