@@ -57,5 +57,9 @@
   {"id": "cp56", "area": "geometry", "prompt": "Find the circumference of a circle of radius 10 cm, π being taken as 3.14", "expect": "answer", "answer": [62.8, "cm"], "note": "2 * 3.14 * 10; π linked to its value by a few words"},
   {"id": "cp57", "area": "geometry", "prompt": "Find the circumference of a circle of radius 10 cm if π is approximated as 3.14", "expect": "answer", "answer": [62.8, "cm"], "note": "2 * 3.14 * 10"},
   {"id": "cp58", "area": "geometry", "prompt": "Find the perimeter of the curved edge of a quadrant of radius 14 cm, use 22/7", "expect": "answer", "answer": [22, "cm"], "note": "the curved edge is the arc: 1/4 * 2 * 22/7 * 14"},
-  {"id": "cp59", "area": "geometry", "prompt": "Find the perimeter of the major sector, radius 7 cm, central angle 90°, π = 22/7", "expect": "answer", "answer": [47, "cm"], "note": "270/360 * 2 * 22/7 * 7 = 33, plus two radii 14"}
+  {"id": "cp59", "area": "geometry", "prompt": "Find the perimeter of the major sector, radius 7 cm, central angle 90°, π = 22/7", "expect": "answer", "answer": [47, "cm"], "note": "270/360 * 2 * 22/7 * 7 = 33, plus two radii 14"},
+  {"id": "cp60", "area": "geometry", "prompt": "Find the area of a circle's quarter if the radius is 8 cm (use 3.14)", "expect": "decline", "note": "50.24; the whole circle's 200.96 was a checked card (third review, 2026-11-13)"},
+  {"id": "cp61", "area": "geometry", "prompt": "A circle of radius 14 cm with a quarter missing. Find its area. (use 22/7)", "expect": "decline", "note": "462; the whole circle's 616 was a checked card"},
+  {"id": "cp62", "area": "geometry", "prompt": "A circle of radius 14 cm, from which a quarter has been eaten. Find the area that's there now (use 22/7)", "expect": "decline", "note": "462"},
+  {"id": "cp63", "area": "geometry", "prompt": "What is the area of the circle's half when its radius is 6 cm? Use 3.14.", "expect": "decline", "note": "56.52; a fraction said of the circle the part rule does not attach"}
 ]

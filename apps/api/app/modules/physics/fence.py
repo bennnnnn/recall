@@ -16,7 +16,7 @@ import re
 
 from app.modules.physics.part_answers import land_one_part_card, land_part_cards, parts_conflict
 from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
-from app.services.answer_check import asks_without_answering, stated_verdict
+from app.services.answer_check import asks_without_answering, correction_line, stated_verdict
 from app.services.answer_fence import ANSWER_FENCE_LANGS, land_answer_card
 from app.services.asked_value import asked_verdict
 from app.services.md_fence_scan import (
@@ -100,12 +100,13 @@ def solver_cards(verified: VerifiedPhysicsBlock) -> tuple[str, ...]:
     return (*cards, *_scene_fences(verified))
 
 
-# The unknown a law is solved for heads its formula: "h_{max} = ...", "λ = v/f".
-_UNKNOWN = re.compile(r"^\s*(\\[A-Za-z]+|[A-Za-z])")
+# The unknown a law is solved for heads its formula, its subscript part of it: "h_{max}",
+# "v_{impact}", "λ", "I". A v with no subscript is not v_i.
+_UNKNOWN = re.compile(r"^\s*(\\?[A-Za-z]+(?:_\{(?:[^{}]|\{[^{}]*\})*\}|_[A-Za-z0-9])?)")
 
 
 def _asked(verified: VerifiedPhysicsBlock) -> tuple[str, ...]:
-    """The symbol the card answers, not a given beside it ("from y = 0 m, h ≈ 20.4 m")."""
+    """The symbol the card answers."""
     head = _UNKNOWN.match(verified.physics_formulas[0]) if verified.physics_formulas else None
     return (head.group(1),) if head else ()
 
@@ -119,8 +120,8 @@ def validate_physics_fences(
 ) -> str:
     """Drop model-authored result fences and append only solver-owned data.
 
-    ``correct`` holds model prose to the card: a reply whose final value is another keeps
-    it, with no check; the server's own (instant) text is never held.
+    ``correct`` adds a correction line above the card when the prose states a
+    different final value; the server never corrects its own (instant) text.
     ``user_text`` is the request: a flowchart it asked for survives the picture.
     """
     had_visual_fence = _has_picture_fence(content)
@@ -152,15 +153,17 @@ def validate_physics_fences(
     read = as_formula_heading(cleaned)
     if answer and _asks_instead_of_answering(read, answer):
         return cleaned
-    verdict = asked_verdict(read, answer, _asked(verified)) or stated_verdict(read, answer)
-    if answer and correct and verdict == "conflict":
-        # The model, shown the verified result, still worked the question to another value:
-        # the two read it differently, and the server's reading of words is the one in
-        # doubt. Its own value stands in a card with no check, and the scenes of the
-        # server's reading go with it (``math/fence_conflict.py``).
+    held = asked_verdict(read, answer, _asked(verified)) if answer and correct else None
+    if held == "conflict":
+        # The Answer gives the asked quantity one value, another than the card's: the two read
+        # the question differently and the server's reading of words is the one in doubt, so
+        # the reply keeps its own value with no check, and no scene of the server's reading.
         return land_answer_card(cleaned, None)
     if answer:
-        cleaned = land_answer_card(cleaned, answer)
+        conflict = correct and held is None and stated_verdict(read, answer) == "conflict"
+        cleaned = land_answer_card(
+            cleaned, answer, above=correction_line(answer) if conflict else None
+        )
     extras = _scene_fences(verified)
     if not extras:
         return cleaned

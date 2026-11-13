@@ -22,7 +22,7 @@ from app.modules.chemistry.smiles import (
     validate_smiles,
 )
 from app.modules.chemistry.tex import chemistry_tex
-from app.services.answer_check import stated_verdict
+from app.services.answer_check import correction_line, stated_verdict
 from app.services.answer_fence import (
     ANSWER_FENCE_LANGS,
     answer_fence_value,
@@ -283,10 +283,15 @@ def _without_one_line_answer(prose: str) -> str:
 
 
 def assemble_chemistry_reply(
-    prose: str, verified: VerifiedChemistry, *, marked: bool = False
+    prose: str,
+    verified: VerifiedChemistry,
+    *,
+    marked: bool = False,
+    correction: str | None = None,
 ) -> str:
     """Prose plus the solver's answer, scene, and structure. One blank line between.
 
+    ``correction`` (a line saying the verified value) goes directly above the card.
     A marked card lands under the reply's **Answer** heading in place of the
     model's own final line.
     """
@@ -294,26 +299,36 @@ def assemble_chemistry_reply(
     answer = verified.result.answer.strip()
     if marked and answer:
         body = _answer_body(answer, verbatim=verified.result.verbatim)
-        prose = land_answer_card(prose.strip(), body)
-        fences = fences[1:]  # the card is the first solver fence
-    parts = [prose.strip(), *fences]
+        prose = land_answer_card(prose.strip(), body, above=correction)
+        fences, correction = fences[1:], None  # the card is the first solver fence
+    parts = [prose.strip(), correction or "", *fences]
     body = "\n\n".join(part for part in parts if part).strip()
     return f"{body}\n" if body else ""
 
 
+# A card's symbol: M of "M(CO₂) = 44.01 g/mol", pH, n.
 _CARD_SYMBOL = re.compile(r"^\s*(?:\\mathrm\{)?([A-Za-z]{1,2})(?![A-Za-z])")
 
 
-def _contradicts(prose: str, verified: VerifiedChemistry) -> bool:
-    """The prose's own final value is another than the verified answer."""
+def _contradicted(prose: str, verified: VerifiedChemistry) -> bool:
+    """The Answer writes one value against the card's own symbol (its species or none:
+    "M = 28.01 g/mol" for M(CO₂)), and it is another than the card's."""
+    body = _answer_body(verified.result.answer.strip(), verbatim=verified.result.verbatim)
+    label = answer_fence_value(body).partition("=")[0]
+    head = _CARD_SYMBOL.match(label)
+    asked = (label.strip(), head.group(1)) if head and label.strip() else ()
+    return asked_verdict(prose, body, asked) == "conflict"
+
+
+def _correction(prose: str, verified: VerifiedChemistry) -> str | None:
+    """One line when the prose's own final value differs from the verified answer."""
     answer = verified.result.answer.strip()
     if not answer:
-        return False
+        return None
     body = _answer_body(answer, verbatim=verified.result.verbatim)
-    # The card's own symbol (M of "M(CO2) = 44.01 g/mol", pH): never the C = 12.01 beside it.
-    head = _CARD_SYMBOL.match(answer_fence_value(body))
-    verdict = asked_verdict(prose, body, (head.group(1),) if head else ())
-    return (verdict or stated_verdict(prose, body)) == "conflict"
+    if stated_verdict(prose, body) != "conflict":
+        return None
+    return correction_line(body)
 
 
 def validate_chemistry_fences(
@@ -321,17 +336,20 @@ def validate_chemistry_fences(
 ) -> str:
     """Drop model answer/scene/structure fences and append the solver's copies.
 
-    ``correct`` holds model prose to the card: a reply whose final value is another keeps
-    it in a card with no check and no solver picture, as maths and physics do
-    (``math/fence_conflict.py``); the server's own (instant) text is never held.
+    ``correct`` adds a correction line above the card when the prose states a
+    different final value; the server never corrects its own (instant) text.
     """
     if not isinstance(verified, VerifiedChemistry):
         return content
     # An unclosed model fence would swallow the solver fences appended below it.
     prose = _without_one_line_answer(_strip_owned_fences(close_unclosed_fences(content)))
-    if correct and _contradicts(prose, verified):
+    answer = verified.result.answer.strip()
+    if correct and answer and _contradicted(prose, verified):
+        # The Answer gives the card's own quantity one other value: the reply keeps it, with
+        # no check and no solver picture (``math/fence_conflict.py``).
         return land_answer_card(prose.strip(), None)
-    return assemble_chemistry_reply(prose, verified, marked=True)
+    correction = _correction(prose, verified) if correct else None
+    return assemble_chemistry_reply(prose, verified, marked=True, correction=correction)
 
 
 def replace_unclosed_chemistry_fences_safe(content: str, verified: object | None) -> str:

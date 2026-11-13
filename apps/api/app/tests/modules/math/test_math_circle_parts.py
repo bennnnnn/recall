@@ -285,6 +285,15 @@ def test_part_of_a_circle_is_worked_and_drawn_as_that_part(
         "What is the area of the part of the circle (radius 14 cm) not in the quadrant? Take π = 22/7",
         "A circle of radius 7 cm is folded in half to make a semicircle. Find the area of the semicircle (use 22/7)",
         "A quarter circle of radius 10 cm is shaded inside a square of side 10 cm. Find the unshaded area.",
+        # Third review: a whole circle with a fraction said of it, or something left of it,
+        # is no whole circle (a checked 200.96 for "a circle's quarter", 616 for 462).
+        "Find the area of a circle's quarter if the radius is 8 cm (use 3.14)",
+        "A circle of radius 14 cm with a quarter missing. Find its area. (use 22/7)",
+        "A circle of radius 14 cm, from which a quarter has been eaten. Find the area that's there now (use 22/7)",
+        "What is the area of the circle's half when its radius is 6 cm? Use 3.14.",
+        "Find the area of a circle of radius 14 cm after a quarter of it is gone (use 22/7)",
+        "A circle of radius 14 cm had a quarter of it removed and then put back. Find the area of the circle (use 22/7)",
+        "Find the area of a circle with radius 10 cm, 25% of it shaded (use 3.14)",
         # A circle named beside the part, even the part's own: only a part alone is read.
         "The radius of a circle is 14 cm. Find the area of a quarter of the circle. (use 22/7)",
         # Both sides of a sector named: no one sector.

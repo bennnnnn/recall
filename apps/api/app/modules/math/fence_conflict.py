@@ -6,12 +6,13 @@ to another value, the two read the question differently, and the server's readin
 the one in doubt: "a jacket costs 2400 shillings, 15% off, then 16% VAT" was read as a
 proportion and carried a checked 0.1 under working that ended at 2366.40 (2026-11-06). The
 reply then stands as the model wrote it, its own final value in a card with no check, and the
-pictures of the server's reading go with it. Physics and chemistry hold their cards the same
-way. A rounded card is read as its rounded value: the quarter circle's working ended at 50.24
-under a checked ≈ 201.06 that no reading saw as a number (2026-11-13). An expression in
-letters under a number contradicts it too. An equation or expression the user typed is read
-without doubt, so a reply that solves it to another value still gets the verified card and
-its correction line.
+pictures of the server's reading go with it. A card that names its quantity (an area, a
+perimeter) is held to the one value the Answer writes against that quantity
+(``services/asked_value.py``), as physics and chemistry hold theirs: the quarter circle's
+Answer, A = 50.24 cm², stood under a checked ≈ 201.06 that no reading saw as a number
+(2026-11-13). An expression in letters under a number contradicts it too. An equation or
+expression the user typed is read without doubt, so a reply that solves it to another value
+still gets the verified card and its correction line.
 
 One verified value checks one card. A reply in parts with a card per part ("c = 15 cm",
 "A = 54 cm²", "P = 36 cm") had every card rewritten to the one verified value, 36 three times:
@@ -59,7 +60,8 @@ def contradicted_reading(
     if verified is None or not verified.read_from_words or not answer_body:
         return None
     worked = demote_answer_fences(reply)
-    # The value the reply writes for the asked quantity; its Answer's when it names none.
+    # The one value the Answer writes for the asked quantity; main's reading when there is no
+    # such one value (several, another subscript, no Answer heading).
     verdict = asked_verdict(worked, answer_body, verified.asked) or stated_verdict(
         worked, answer_body
     )

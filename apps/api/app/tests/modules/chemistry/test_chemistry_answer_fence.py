@@ -62,7 +62,7 @@ def test_a_longer_explanation_stays_beside_the_verified_fence() -> None:
     verified = _verified("Find pH when [H+] = 0.001")
     explained = (
         "A strong acid is fully dissociated, so the pH is the log of its concentration.\n\n"
-        "The pH is 3."
+        "The pH is 4."
     )
     finalized = validate_chemistry_fences(explained, verified=verified)
     assert "fully dissociated" in finalized

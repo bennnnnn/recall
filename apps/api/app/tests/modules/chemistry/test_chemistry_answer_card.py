@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from app.modules.chemistry.block import VerifiedChemistry, build_verified_chemistry
 from app.modules.chemistry.direct import format_direct_chemistry_reply
 from app.modules.chemistry.extract import extract_chemistry_intent
@@ -9,7 +11,11 @@ from app.modules.chemistry.fence import (
     replace_unclosed_chemistry_fences_safe,
     validate_chemistry_fences,
 )
-from app.services.answer_fence import VERIFIED_ANSWER_MARKER, mark_server_answer_fences
+from app.services.answer_fence import (
+    UNCHECKED_ANSWER_MARKER,
+    VERIFIED_ANSWER_MARKER,
+    mark_server_answer_fences,
+)
 
 
 def _verified(question: str) -> VerifiedChemistry:
@@ -34,15 +40,13 @@ def test_the_solver_card_carries_the_marker_before_its_value() -> None:
     )
 
 
-def test_prose_worked_to_another_value_keeps_it_with_no_check() -> None:
-    """The reply's own pH stands and no card claims either value (it used to get the
-    verified card under "The verified answer is")."""
+def test_wrong_prose_beside_the_card_gets_one_correction_line() -> None:
     prose = "HCl fully dissociates, so [H⁺] = 0.1 M, which gives pH = 1.00 because −log(0.1) = 1."
     out = validate_chemistry_fences(prose, verified=_verified(_HCL))
     assert "pH = 1.00" in out
-    assert VERIFIED_ANSWER_MARKER not in out
-    assert "The verified answer is" not in out
-    assert "2.00" not in out
+    correction = "The verified answer is $\\mathrm{pH} = 2.00$."
+    assert out.count(correction) == 1
+    assert out.index(correction) < out.index("```answer")
 
 
 def test_steps_under_the_answer_heading_move_above_the_card() -> None:
@@ -64,6 +68,28 @@ def test_matching_prose_is_not_corrected() -> None:
     prose = "HCl is a strong acid, so [H⁺] = 0.01 M and pH = 2.00."
     out = validate_chemistry_fences(prose, verified=_verified(_HCL))
     assert "The verified answer is" not in out
+
+
+@pytest.mark.parametrize(
+    ("question", "prose", "checked"),
+    [
+        # Third review (2026-11-13): each element's mass beside the compound's, and a second
+        # case beside the asked one, are no contradiction of the card.
+        ("What is the molar mass of CO2?",
+         "**Answer**\n$M_{\\text{C}} = 12.01$, $M_{\\text{O}} = 16.00$, so $M_{\\text{CO}_2} = 44.01$ g/mol.\n",
+         True),
+        ("What mass of NaCl is in 0.5 mol?",
+         "**Answer**\nFor 1 mol, $m = 58.44$ g; for 0.5 mol, $m = 29.22$ g.\n", True),
+        # One other value for the card's own symbol is.
+        ("What mass of NaCl is in 0.5 mol?", "**Answer**\n$m = 58.44$ g\n", False),
+    ],
+)  # fmt: skip
+def test_only_one_other_value_for_the_card_symbol_unchecks_it(
+    question: str, prose: str, checked: bool
+) -> None:
+    out = validate_chemistry_fences(prose, verified=_verified(question))
+    assert (VERIFIED_ANSWER_MARKER in out) is checked
+    assert (UNCHECKED_ANSWER_MARKER in out) is not checked
 
 
 def test_a_direct_reply_finalizes_to_its_marked_self_and_stays_there() -> None:

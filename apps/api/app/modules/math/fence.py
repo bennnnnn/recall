@@ -42,8 +42,10 @@ from app.modules.math.unverified_note import (
     append_unverified_math_note as append_unverified_math_note,
 )
 from app.services.answer_check import correction_line, stated_verdict
-from app.services.answer_fence import ANSWER_FENCE_LANGS, land_answer_card
-from app.services.asked_value import asked_verdict
+from app.services.answer_fence import (
+    ANSWER_FENCE_LANGS,
+    land_answer_card,
+)
 from app.services.md_fence_scan import (
     has_closed_fence,
     iter_fences,
@@ -339,8 +341,7 @@ def _append_missing_canonical_fences(
         return content
     extras: list[str] = []
     correction: str | None = None
-    asked = asked_verdict(content, answer_body, verified.asked) if answer_body else None
-    if answer_body and correct and (asked or stated_verdict(content, answer_body)) == "conflict":
+    if answer_body and correct and stated_verdict(content, answer_body) == "conflict":
         correction = correction_line(answer_body)
 
     specs = collect_canonical_specs(verified)

@@ -131,6 +131,16 @@ def other_piece_of_circle(text: str) -> bool:
     return False
 
 
+# Any fraction a question says, attached to the circle or not: "a circle's quarter", "with a
+# quarter missing", "50% of", "a semicircle".
+_ANY_FRACTION = re.compile(rf"{_FRACTION}|\bsemi|\bquadrants?\b|%|\bper\s*cent\b", re.I)
+
+
+def fraction_named(text: str) -> bool:
+    """The question says a fraction somewhere."""
+    return _ANY_FRACTION.search(text) is not None
+
+
 def fraction_taken_of(text: str) -> bool:
     """A fraction taken of something ("a quarter of the area", "1/2 of its base")."""
     return _FRACTION_OF.search(text) is not None

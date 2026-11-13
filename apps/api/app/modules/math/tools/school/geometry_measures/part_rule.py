@@ -20,6 +20,7 @@ from app.modules.math.match.circle_parts import (
     VULGAR_FRACTIONS,
     CirclePart,
     circle_parts,
+    fraction_named,
     named_sector_angle,
     other_piece_of_circle,
 )
@@ -177,6 +178,12 @@ def circle_part_intent(body: str) -> MathIntent | None:
         for at, char in enumerate(text)
     )
     if _UNREAD.search(rest) or _MORE_AFTER.match(text[size.end() :]):
+        return None
+    if whole and (
+        fraction_named(rest) or _REMAINDER.search(rest) or len(_CIRCLES.findall(rest)) > 1
+    ):
+        # A whole circle only when the question says no fraction of it, nothing left of it
+        # and no second circle: "a circle's quarter" was a checked 200.96 for 50.24.
         return None
     if _asked_in_another_unit(rest, size.group("unit")):
         return None

@@ -48,26 +48,24 @@ def test_a_follow_up_offer_keeps_the_card_and_the_scene(
     assert "The verified answer is" not in out
 
 
-def test_a_reply_worked_to_another_value_keeps_it_with_no_check(
-    projectile: VerifiedPhysicsBlock,
-) -> None:
-    """The model, shown the verified result, worked to another value: the two read the
-    question differently, so neither value is checked and the scene of the server's
-    reading goes with it (the card used to stand, under "The verified answer is")."""
+def test_a_wrong_value_before_a_question_is_corrected(projectile: VerifiedPhysicsBlock) -> None:
     prose = (
         "$R = \\frac{20^2 \\sin 30^\\circ}{9.81} = 20.4\\ \\text{m}$\n\n"
         "Want me to find the maximum height too?"
     )
     out = validate_physics_fences(prose, verified=projectile)
-    assert VERIFIED_ANSWER_MARKER not in out
-    assert "The verified answer is" not in out
-    assert "```simulation" not in out
-    assert "20.4" in out
+    correction = "The verified answer is $35.3\\,\\mathrm{m}$."
+    assert correction in out
+    assert out.index(correction) < out.index(_card(projectile))
+    assert "```simulation" in out
 
 
-def test_a_different_answer_line_stands_in_an_unchecked_card(
+def test_an_answer_giving_the_asked_quantity_another_value_keeps_it_unchecked(
     projectile: VerifiedPhysicsBlock,
 ) -> None:
+    """The Answer writes the range, R, one value, another than the card's: the two read the
+    question differently, so neither is checked and the scene of the server's reading goes
+    (it was the verified card under "The verified answer is" until 2026-11-13)."""
     prose = (
         "**Given**  \n$v_0 = 20\\ \\text{m/s}$\n\n**Formula**  \n"
         "$R = \\frac{v_0^2 \\sin 2\\theta}{g}$\n\n**Answer**  \n$R = 20.4\\ \\text{m}$"
@@ -76,6 +74,29 @@ def test_a_different_answer_line_stands_in_an_unchecked_card(
     assert f"**Answer**\n\n```answer\n{UNCHECKED_ANSWER_MARKER}\nR = 20.4" in out
     assert VERIFIED_ANSWER_MARKER not in out
     assert "```simulation" not in out
+
+
+@pytest.mark.parametrize(
+    ("prose", "checked"),
+    [
+        # Third review (2026-11-13): the given final speed beside the asked initial one is no
+        # contradiction; the card's symbol is v_i, its subscript part of it.
+        ("**Answer**\nWith $v = 20$ m/s, $u = 10$ m/s.\n", True),
+        ("**Answer**\n$v_i = 17.3$ m/s\n", False),
+    ],
+)  # fmt: skip
+def test_only_one_other_value_for_the_card_symbol_unchecks_it(prose: str, checked: bool) -> None:
+    question = (
+        "A car reaches 20 m/s after accelerating uniformly at 2 m/s² over a distance of 75 m. "
+        "What was its initial speed?"
+    )
+    intent = extract_physics_intent(question)
+    assert intent is not None
+    verified = build_verified_physics_block(intent, Settings(math_tools_enabled=True))
+    assert verified is not None
+    out = validate_physics_fences(prose, verified=verified)
+    assert (VERIFIED_ANSWER_MARKER in out) is checked
+    assert (UNCHECKED_ANSWER_MARKER in out) is not checked
 
 
 def test_a_restated_answer_line_gives_way_to_the_card(projectile: VerifiedPhysicsBlock) -> None:
