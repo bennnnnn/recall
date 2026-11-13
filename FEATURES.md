@@ -628,8 +628,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   keeps photo turns too. No OpenRouter-auto “Max” chip.
 - ✅ **The decider** — Perplexity's Decider (`modules/chat/decider_read.py`, through
   `gateways/decider_gateway.py`) answers, as probabilities, each message's subject, effort
-  (none, low, high), the picture it asks to see, how it follows the turn before and whether it
-  needs live facts; the text read beside it (`modules/chat/turn_decision.py`, Qwen3.7 Flash
+  (none, low, high), the picture it asks to see, how it follows the turn before, whether it
+  needs live facts and whether it asks for a result worked out (the worked layout); the text read beside it (`modules/chat/turn_decision.py`, Qwen3.7 Flash
   with Haiku when it is refused) writes the search query and decides when the Decider fails.
   Maths, physics and chemistry think only when the read calls them hard
   (measured 2026-11-10). Auto's lane and the thinking level come from it through catalog data

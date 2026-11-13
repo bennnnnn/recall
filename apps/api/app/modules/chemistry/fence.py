@@ -25,10 +25,12 @@ from app.modules.chemistry.tex import chemistry_tex
 from app.services.answer_check import correction_line, stated_verdict
 from app.services.answer_fence import (
     ANSWER_FENCE_LANGS,
+    answer_fence_value,
     land_answer_card,
     normalize_owned_fences,
     verified_answer_fence,
 )
+from app.services.asked_value import asked_verdict
 from app.services.md_fence_scan import close_unclosed_fences, map_closed_fences, strip_closed_fences
 
 logger = logging.getLogger(__name__)
@@ -304,6 +306,20 @@ def assemble_chemistry_reply(
     return f"{body}\n" if body else ""
 
 
+# A card's symbol: M of "M(CO₂) = 44.01 g/mol", pH, n.
+_CARD_SYMBOL = re.compile(r"^\s*(?:\\mathrm\{)?([A-Za-z]{1,2})(?![A-Za-z])")
+
+
+def _contradicted(prose: str, verified: VerifiedChemistry) -> bool:
+    """The Answer writes one value against the card's own symbol (its species or none:
+    "M = 28.01 g/mol" for M(CO₂)), and it is another than the card's."""
+    body = _answer_body(verified.result.answer.strip(), verbatim=verified.result.verbatim)
+    label = answer_fence_value(body).partition("=")[0]
+    head = _CARD_SYMBOL.match(label)
+    asked = (label.strip(), head.group(1)) if head and label.strip() else ()
+    return asked_verdict(prose, body, asked) == "conflict"
+
+
 def _correction(prose: str, verified: VerifiedChemistry) -> str | None:
     """One line when the prose's own final value differs from the verified answer."""
     answer = verified.result.answer.strip()
@@ -327,6 +343,11 @@ def validate_chemistry_fences(
         return content
     # An unclosed model fence would swallow the solver fences appended below it.
     prose = _without_one_line_answer(_strip_owned_fences(close_unclosed_fences(content)))
+    answer = verified.result.answer.strip()
+    if correct and answer and _contradicted(prose, verified):
+        # The Answer gives the card's own quantity one other value: the reply keeps it, with
+        # no check and no solver picture (``math/fence_conflict.py``).
+        return land_answer_card(prose.strip(), None)
     correction = _correction(prose, verified) if correct else None
     return assemble_chemistry_reply(prose, verified, marked=True, correction=correction)
 

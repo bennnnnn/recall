@@ -18,6 +18,7 @@ from app.modules.physics.part_answers import land_one_part_card, land_part_cards
 from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
 from app.services.answer_check import asks_without_answering, correction_line, stated_verdict
 from app.services.answer_fence import ANSWER_FENCE_LANGS, land_answer_card
+from app.services.asked_value import asked_verdict
 from app.services.md_fence_scan import (
     block_end,
     close_unclosed_fences,
@@ -99,6 +100,17 @@ def solver_cards(verified: VerifiedPhysicsBlock) -> tuple[str, ...]:
     return (*cards, *_scene_fences(verified))
 
 
+# The unknown a law is solved for heads its formula, its subscript part of it: "h_{max}",
+# "v_{impact}", "λ", "I". A v with no subscript is not v_i.
+_UNKNOWN = re.compile(r"^\s*(\\?[A-Za-z]+(?:_\{(?:[^{}]|\{[^{}]*\})*\}|_[A-Za-z0-9])?)")
+
+
+def _asked(verified: VerifiedPhysicsBlock) -> tuple[str, ...]:
+    """The symbol the card answers."""
+    head = _UNKNOWN.match(verified.physics_formulas[0]) if verified.physics_formulas else None
+    return (head.group(1),) if head else ()
+
+
 def validate_physics_fences(
     content: str,
     *,
@@ -141,8 +153,14 @@ def validate_physics_fences(
     read = as_formula_heading(cleaned)
     if answer and _asks_instead_of_answering(read, answer):
         return cleaned
+    held = asked_verdict(read, answer, _asked(verified)) if answer and correct else None
+    if held == "conflict":
+        # The Answer gives the asked quantity one value, another than the card's: the two read
+        # the question differently and the server's reading of words is the one in doubt, so
+        # the reply keeps its own value with no check, and no scene of the server's reading.
+        return land_answer_card(cleaned, None)
     if answer:
-        conflict = correct and stated_verdict(read, answer) == "conflict"
+        conflict = correct and held is None and stated_verdict(read, answer) == "conflict"
         cleaned = land_answer_card(
             cleaned, answer, above=correction_line(answer) if conflict else None
         )

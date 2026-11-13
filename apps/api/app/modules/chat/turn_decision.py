@@ -175,6 +175,9 @@ class TurnDecision(BaseModel):
     effort: Effort | None = None
     picture: Picture | None = None
     follow: Follow | None = None
+    # Whether the reply works a result out, laid out as working (``chat.decided_turn``). The
+    # Decider's alone: None from the text read, and the rules decide.
+    work: bool | None = None
 
     @field_validator("subject", mode="before")
     @classmethod
@@ -268,8 +271,11 @@ async def read_decision(
         )
 
     text_read = asyncio.create_task(_text_read(settings, messages))
+    # Only a message with a number in it can be given the worked layout (``worked_turn``),
+    # so only its read asks whether it works a result out.
+    ask_work = any(char.isdigit() for char in question)
     try:
-        return await _join(settings, text_read, messages[-1]["content"], earlier)
+        return await _join(settings, text_read, messages[-1]["content"], earlier, ask_work=ask_work)
     finally:
         # Whatever ends the read (an answer that needs no query, the reply's wait running
         # out and cancelling it, an error), the text read and its backup stop being billed.
@@ -281,6 +287,8 @@ async def _join(
     text_read: asyncio.Task[TurnDecision | None],
     state: str,
     earlier: list[tuple[str, str]],
+    *,
+    ask_work: bool = False,
 ) -> TurnDecision | None:
     """The Decider's read, with the text read's query when it calls the turn live or asked;
     the text read's own when the Decider gives none."""
@@ -288,7 +296,11 @@ async def _join(
 
     started = time.monotonic()
     decided = await decide_turn(
-        settings, state, has_earlier=bool(earlier), seconds=settings.live_read_timeout_seconds
+        settings,
+        state,
+        has_earlier=bool(earlier),
+        seconds=settings.live_read_timeout_seconds,
+        ask_work=ask_work,
     )
     if decided is None:
         # The Decider gave no answer (refused at once, at busy hours): the text read decides.
