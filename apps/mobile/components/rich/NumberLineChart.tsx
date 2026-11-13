@@ -1,4 +1,5 @@
 import React, { lazy, Suspense } from "react";
+import { StyleSheet, View } from "react-native";
 import Svg, { Circle, Line, Polygon, Text as SvgText } from "react-native-svg";
 
 import { GRAPH_CHART_PAD } from "@/components/rich/graphPaint";
@@ -9,6 +10,7 @@ import {
   numberLineTicks,
 } from "@/lib/math/graphBlock";
 import { GraphSpec, NumberLineInterval } from "@/lib/math/graphSpec";
+import { markLabelRise, numberLineMarkLabels } from "@/lib/math/numberLineMarks";
 import { isSkiaAvailable } from "@/lib/skiaAvailability";
 import { Weight } from "@/lib/type";
 
@@ -163,11 +165,42 @@ function endpointMarker(
 }
 
 export function NumberLineChart(props: Props) {
-  if (!isSkiaAvailable()) return <SvgNumberLineChart {...props} />;
-  return (
+  const chart = isSkiaAvailable() ? (
     <Suspense fallback={<SvgNumberLineChart {...props} />}>
       <SkiaNumberLineChartLazy {...props} />
     </Suspense>
+  ) : (
+    <SvgNumberLineChart {...props} />
+  );
+  if (!props.spec.marks?.length) return chart;
+  return (
+    <View style={{ width: props.width, height: props.height }}>
+      {chart}
+      <NumberLineMarkLabels {...props} />
+    </View>
+  );
+}
+
+/** The numbers the line shows, labelled as the question writes them ("−5/2"), over their dots. */
+function NumberLineMarkLabels({ spec, width, height, color }: Props) {
+  const bounds = numberLineBounds(spec.intervals ?? []);
+  const y = height / 2;
+  return (
+    <Svg width={width} height={height} style={StyleSheet.absoluteFill} pointerEvents="none">
+      {numberLineMarkLabels(spec.marks, (v) => valueToPx(v, bounds, width)).map((mark) => (
+        <SvgText
+          key={`mark-${mark.text}-${mark.px}`}
+          x={mark.px}
+          y={y - markLabelRise(mark.row)}
+          fill={color}
+          fontSize={11}
+          {...Weight.semibold}
+          textAnchor="middle"
+        >
+          {mark.text}
+        </SvgText>
+      ))}
+    </Svg>
   );
 }
 

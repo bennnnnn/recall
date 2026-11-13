@@ -50,6 +50,22 @@ describe("GeometryBlock", () => {
     expect(JSON.stringify(toJSON())).toContain("5 cm");
   });
 
+  it("draws a figure the server worked out, with only its stated labels", async () => {
+    const content = JSON.stringify({
+      type: "figure",
+      shape: "right_triangle",
+      points: [{ name: "A", x: 0, y: 0 }, { name: "B", x: 12, y: 0 }, { name: "C", x: 0, y: 9 }],
+      segments: [{ a: "A", b: "B", label: "12 cm" }, { a: "B", b: "C" }, { a: "C", b: "A", label: "9 cm" }],
+      angles: [{ at: "A", a: "B", b: "C", right: true }],
+    });
+    const { toJSON, getByTestId } = await render(<GeometryBlock content={content} />);
+    const tree = JSON.stringify(toJSON());
+    expect(getByTestId("geometry-figure")).toBeOnTheScreen();
+    expect(tree).toContain("12 cm");
+    expect(tree).toContain("9 cm");
+    expect(tree).not.toContain("15 cm");
+  });
+
   it("renders the fallback message for unparseable content", async () => {
     const { getByText } = await render(<GeometryBlock content="not json" />);
     expect(getByText("Could not render geometry diagram.")).toBeOnTheScreen();

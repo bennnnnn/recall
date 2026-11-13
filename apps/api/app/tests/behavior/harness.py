@@ -63,7 +63,7 @@ from app.modules.chat.referent_read import ContinuationPick, ReferentPick, read_
 from app.modules.chat.stream_paths import run_tool_loop_path
 from app.modules.chat.tool_loop.reply_calls import offers_search
 from app.modules.chat.turn_deps import default_deps
-from app.modules.chat.turn_intercepts import reply_picture_prompt
+from app.modules.chat.turn_intercepts import may_be_a_maths_picture, reply_picture_prompt
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep.context import (
     build_stream_prompt_context,
@@ -76,6 +76,7 @@ from app.modules.chat.turn_trace import TurnTrace, begin_turn_trace
 from app.modules.images.gen_intent import stem_subject_claims
 from app.modules.images.intent import image_gen_request
 from app.modules.images.lookup_intent import dated_lookup_query, extract_image_lookup_query
+from app.modules.math.figure.request import FigureRequest
 from app.modules.math.reply_policy import GRAPH_NO_SUBSTITUTE_CLAUSE
 from app.modules.math.subject import PIECED_PROBLEM_NOTE
 from app.modules.money.block import (
@@ -230,6 +231,8 @@ class Route:
     history_rag: bool = False
     # The scenes a verified block appends under a model-written reply, as fences.
     server_pictures: str = ""
+    # The picture maths drew for a question asking to see one (``Case.figure``), as a fence.
+    figure: str = ""
     # The picture the turn shows: the instant reply's, or the verified block's under a
     # model-written reply (``Expect.drawn``).
     drawn: str = ""
@@ -408,10 +411,19 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         settings, text, rows, referent.problem if referent is not None else None
     )
     found = extract_image_lookup_query(text) if settings.image_search_enabled else None
-    photo = dated_lookup_query(found, datetime.now(UTC).year) if found and not drawn else ""
+    # A case with a figure reading is one the turn's read calls a maths picture: no photo of
+    # its maths, no painting of it.
+    figure_read = case.figure is not None
+    held = figure_read and found is not None and may_be_a_maths_picture(found)
+    photo = (
+        dated_lookup_query(found, datetime.now(UTC).year)
+        if found and not drawn and not held
+        else ""
+    )
     image_gen = bool(
         not photo
         and not drawn
+        and not figure_read
         and settings.image_generation_enabled
         and can_use(user, "image_generation", settings)
         # Read with the thread, as the turn's intercept reads it ("Image" after "Dog").
@@ -550,6 +562,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         memory_scope=str(loaded.get("memory_scope") or "") if loaded.get("load_memory") else "",
         history_rag=bool(loaded.get("history_rag")),
         server_pictures=_server_pictures(verified),
+        figure=await _figure(case, settings, verified),
         drawn=_drawn(bundle.instant_reply, verified),
         trace=trace,
         context=ctx,
@@ -601,6 +614,21 @@ def _posed_pick(case: Case, rows: list[Any]) -> AbstractContextManager[Any]:
             new=case.posed_change[1] if case.posed_change else None,
         )
     return patch.object(posed_read, "pick_posed", AsyncMock(return_value=pick))
+
+
+async def _figure(case: Case, settings: Settings, verified: Any) -> str:
+    """The picture maths draws for the turn as production does once the turn's read says a
+    maths question asks to see one, from the read's reading the case names; "" with none."""
+    figure = subject_adapter("math").figure
+    if case.figure is None or figure is None or figure.shown(verified):
+        return ""
+    reading = FigureRequest.model_validate_json(case.figure)
+    earlier = [said for role, said in reversed(case.history) if role == "user"][:3]
+    with patch("app.modules.math.figure.read.read_figure", AsyncMock(return_value=reading)):
+        fence = await figure.draw(case.prompt, earlier, settings) or ""
+    # Finalize adds it only beside what the solve's own pictures do not show.
+    cards = subject_adapter("math").fence.cards(verified) if verified is not None else ()
+    return fence if fence and figure.adds_to("\n".join(cards), fence) else ""
 
 
 def _server_pictures(verified: Any) -> str:

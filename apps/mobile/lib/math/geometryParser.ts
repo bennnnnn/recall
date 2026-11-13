@@ -1,3 +1,4 @@
+import { parseFigure } from "@/lib/math/geometryFigure";
 import {
   MAX_GEOMETRY_DIMENSION,
   type CircleSpec,
@@ -215,6 +216,7 @@ export function parseGeometrySpec(raw: string): GeometrySpec | null {
     if (!data || typeof data !== "object") return null;
     const row = data as Record<string, unknown>;
     return (
+      parseFigure(row) ??
       parseRectangle(row) ??
       parseTriangle(row) ??
       parseRightTriangle(row) ??

@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
+import { CoordinatePlaneChart } from "@/components/rich/CoordinatePlaneChart";
 import { NumberLineChart } from "@/components/rich/NumberLineChart";
 import { InequalityGraphChart } from "@/components/rich/InequalityGraphChart";
 import { InteractiveFunctionPlot } from "@/components/rich/InteractiveFunctionPlot";
@@ -11,6 +12,7 @@ import { NUMBER_LINE_HEIGHT } from "@/components/rich/graphPlaceholder";
 import { useFenceRefused } from "@/components/rich/useFenceRefused";
 import { formatGraphExpr, formatInequalityExpr } from "@/lib/math/graphBlock";
 import { GRAPH_KINDS, parseGraphSpec } from "@/lib/math/graphSpec";
+import { parsePointsGraph } from "@/lib/math/pointsGraph";
 import { Theme, useTheme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -25,9 +27,14 @@ export function FunctionGraphBlock({ content }: Props) {
   const { t } = useTranslation();
   const { width: screenWidth } = useWindowDimensions();
   const spec = useMemo(() => parseGraphSpec(content), [content]);
+  const plane = useMemo(() => (spec ? null : parsePointsGraph(content)), [content, spec]);
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const chartWidth = figureWidth(screenWidth);
-  useFenceRefused("graph", content, spec === null, GRAPH_BODY);
+  useFenceRefused("graph", content, spec === null && plane === null, GRAPH_BODY);
+
+  if (plane) {
+    return <CoordinatePlaneChart graph={plane} width={chartWidth} theme={theme} styles={styles} />;
+  }
 
   if (!spec) {
     return (

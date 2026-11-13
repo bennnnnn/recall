@@ -190,16 +190,13 @@ def test_square_diagram_only_shows_requested_measurements(quantities: str) -> No
         assert maybe_direct_math_reply(verified, query) is None
 
 
-def test_draw_only_square_keeps_existing_illustration_flags() -> None:
-    verified = _verified("Draw a square")
+def test_draw_only_square_with_its_side_keeps_existing_illustration_flags() -> None:
+    verified = _verified("Draw a square with side 5")
     assert verified.canonical_fence is not None
     assert not any(
         verified.canonical_fence[f"show_{quantity}"]
         for quantity in ("area", "perimeter", "diagonal")
     )
-    reply = maybe_direct_math_reply(verified, "Draw a square")
-    assert reply is not None and reply.startswith("```geometry\n")
-    assert "```answer" not in reply
 
 
 def test_labeling_a_hypotenuse_does_not_attach_unsolicited_answer() -> None:

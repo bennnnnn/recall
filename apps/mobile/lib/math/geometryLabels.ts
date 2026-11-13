@@ -1,3 +1,4 @@
+import { figureSpokenParts } from "@/lib/math/geometryFigure";
 import {
   type GeometrySpec,
   type CircleSpec,
@@ -139,6 +140,8 @@ export function computeSectorLabels(spec: SectorSpec): Record<string, string> {
 
 function labelsFor(spec: GeometrySpec): Record<string, string> {
   switch (spec.type) {
+    case "figure":
+      return Object.fromEntries(figureSpokenParts(spec).map((text, i) => [String(i), text]));
     case "rectangle":
     case "square":
       return computeRectangleLabels(spec);

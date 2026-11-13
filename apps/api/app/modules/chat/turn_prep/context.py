@@ -78,8 +78,7 @@ class StreamContext:
     # The request's zone (the client's over the profile's): finalize uses the one the prompt
     # used for relative dates and reminder clocks.
     user_timezone: str | None = None
-    # The device location when this turn needs one ("coffee near me"); a
-    # search for it names the place.
+    # The device location when this turn needs one ("coffee near me"); a search names it.
     search_location: str | None = None
     # The user's message as its row keeps it, photo markers too: what the chat title reads.
     stored_user_message: str | None = None
@@ -143,11 +142,12 @@ class StreamContext:
     # The tools the reply's own model call carries, when the tool loop leaves the
     # turn to it: ``web_search`` (``tool_loop.reply_calls``).
     reply_tools: list[dict[str, Any]] = field(default_factory=list)
-    # A model's read, started beside the prep, of how to handle the message: live facts,
-    # subject, effort, picture and follow-up (``chat.turn_decision``); and the tool the
-    # reply's first call must make when it said live but wrote no query (``web_search``).
+    # How to handle the message, read by a model beside the prep (``chat.turn_decision``); the
+    # tool the reply's first call must make when it said live but wrote no query; the picture
+    # a maths question asks to see, drawn beside the reply (``chat.figure_turn``).
     live_read: asyncio.Task[TurnDecision | None] | None = None
     reply_requires: str | None = None
+    figure: asyncio.Task[str | None] | None = None
     # Offered on a second call when the first, with no tool, says it can't see live data
     # (``tool_loop.live_denial``): only after a settled read, never past the spend cap.
     denial_retry_tools: list[dict[str, Any]] = field(default_factory=list)
