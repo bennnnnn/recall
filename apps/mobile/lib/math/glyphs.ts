@@ -48,6 +48,12 @@ export function primeRun(ch: string): string | null {
   return null;
 }
 
+/** A superscript of primes alone (`f'`, which TeX sets as `f^{\prime}`): copied and read as
+ * the primes (f′), never as a power. */
+export function isPrimeScript(value: string): boolean {
+  return /^[′″‴]+$/.test(value);
+}
+
 /**
  * Arrow advances in KaTeX_Main (katex fontMetricsData). A sideways arrow is a
  * full em and a long one over 1.6; measured as an unknown glyph (0.7 em), a
