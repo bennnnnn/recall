@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import re
 
+from app.modules.math.match.circle_parts import fraction_taken_of
+
 _COMPARATIVE = (
     r"(?:more|less|longer|shorter|greater|smaller|larger|bigger|taller|wider|narrower"
     r"|higher|lower|thicker|thinner|fewer)"
@@ -54,9 +56,39 @@ _OPEN_SOLID = re.compile(
 )
 
 
+# The plane shapes a question may name, by the figure each is; a square or a quadrant
+# named as a unit or a quarter of the plane is no shape ("square centimetres").
+_UNIT_AFTER = (
+    r"(?:cm|mm|m|km|in|ft|yd|units?|inch(?:es)?|f(?:oo|ee)t|yards?|root"
+    r"|(?:centi|milli|kilo)?met(?:er|re)s?)\b"
+)
+_PLANE_SHAPE = re.compile(
+    r"\b(semi-?circle|rectangle|oblong|square|triangle|circle|sector|quadrant|trapezoid"
+    rf"|trapezium|parallelogram|rhombus|kite|pentagon|hexagon|octagon)s?\b(?!\s*{_UNIT_AFTER})",
+    re.IGNORECASE,
+)
+_FIGURE = {"semicircle": "circle", "semi-circle": "circle", "sector": "circle",
+           "quadrant": "circle", "oblong": "rectangle", "trapezium": "trapezoid"}  # fmt: skip
+# The figure each plane reading measures.
+_KIND_FIGURE = {"right_triangle": "triangle", "triangle_sides": "triangle", "sector": "circle"}
+
+
+def another_shape_named(text: str, kind: str) -> bool:
+    """A plane figure the question names besides the one read: "a semicircle of radius 7 cm
+    sits on a rectangle 14 cm by 10 cm" is one shape, and its rectangle's 140 cm² was a
+    checked card for the whole (2026-11-13)."""
+    own = _KIND_FIGURE.get(kind, kind)
+    for found in _PLANE_SHAPE.finditer(text):
+        word = found.group(1).lower()
+        if _FIGURE.get(word, word) != own:
+            return True
+    return False
+
+
 def measures_not_as_printed(text: str) -> bool:
-    """A measure stated through another, changed, or combined with another shape's."""
-    return _RELATION.search(text) is not None
+    """A measure stated through another ("a quarter of its area" too), changed, or
+    combined with another shape's."""
+    return _RELATION.search(text) is not None or fraction_taken_of(text)
 
 
 def surface_not_closed_total(text: str, *, asks_surface: bool) -> bool:

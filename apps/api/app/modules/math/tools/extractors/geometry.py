@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import re
-
+from app.modules.math.match.circle_parts import circle_parts, other_piece_of_circle
 from app.modules.math.schemas import MathIntent
 from app.services.number_text import DECIMAL_LITERAL
 from app.services.text_match import word_index
@@ -226,9 +225,8 @@ def _extract_circle_intent(cleaned: str) -> MathIntent | None:
     # do not steal them from equation/graph extractors that run later.
     if mtm.geometry_deferred_for_algebra(lower):
         return None
-    if re.search(r"\bsemi-?circle|\bhalf\s+(?:a\s+)?circle", lower):
-        # A semicircle is half of this circle's area, not all of it.
-        return None
+    if circle_parts(cleaned) or other_piece_of_circle(cleaned):
+        return None  # a quarter circle is a part, a segment another region: not this circle
     if mtm.pi_form_or_value_set(cleaned):
         return None  # "in terms of π", "use π = 22/7": not what a card to two places shows
     wants_area = "area" in lower
