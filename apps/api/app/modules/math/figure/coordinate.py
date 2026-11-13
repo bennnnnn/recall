@@ -98,6 +98,8 @@ def _inequality_line(request: FigureRequest, texts: list[str]) -> dict[str, obje
         if interval.start is None or interval.end is None:
             return None  # endless: no picture marks every one
         low, high = math.ceil(interval.start), math.floor(interval.end)
+        if high - low + 1 > _MAX_MARKS - len(whole):
+            return None  # more than a picture marks one by one, counted before listing them
         for n in range(low, high + 1):
             inside_low = n > interval.start or interval.start_inclusive
             inside_high = n < interval.end or interval.end_inclusive

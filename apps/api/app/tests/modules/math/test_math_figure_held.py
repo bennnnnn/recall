@@ -468,3 +468,19 @@ def test_a_parallelogram_height_to_one_of_two_stated_sides_draws_nothing() -> No
         "measures": measures,
     }
     assert _draw(question, _cm(reading)) is None
+
+
+@pytest.mark.wall_clock
+def test_more_integers_than_a_line_marks_are_never_listed() -> None:
+    """Claude review (#2427): the marks were capped only after listing every integer in the
+    range, about 2e9 of them for ±1e9, in the SymPy pool."""
+    import time
+
+    reading = {
+        "kind": "number_line",
+        "inequality": "-1000000000 < n < 1000000000",
+        "integers": True,
+    }
+    started = time.perf_counter()
+    line = _draw("Show the integers n with -1000000000 < n < 1000000000 on a number line.", reading)
+    assert line is None and time.perf_counter() - started < 1.0
