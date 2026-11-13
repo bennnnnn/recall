@@ -273,23 +273,23 @@ async def _work_answers(work_read: asyncio.Task[Any]) -> dict[str, Any]:
     rules lay the turn out) when it is late or failed."""
     try:
         reply = await asyncio.wait_for(work_read, _WORK_GRACE_SECONDS)
-    except Exception:
+    except TimeoutError:  # Late: the rules lay the turn out.
+        return {}
+    except Exception as exc:  # Failed: the rules lay the turn out.
+        logger.info("decider work read failed (%s)", type(exc).__name__)
         return {}
     return dict(reply.answers)
 
 
 def _metered_work(alias: str) -> Callable[[asyncio.Task[Any]], None]:
-    """Each finished work call metered against the day's spend, and a failed one read (an
-    unread failure is logged as an error by asyncio)."""
+    """Each finished work call metered against the day's spend, and a failed one's error read
+    (asyncio logs an unread one as an error); a failure the turn awaited is logged there."""
     from app.gateways.llm_spend import meter_reported_cost
 
     def settle(task: asyncio.Task[Any]) -> None:
         if task.cancelled():
             return
-        error = task.exception()
-        if error is not None:
-            logger.info("decider work read failed (%s)", type(error).__name__)
-            return
-        meter_reported_cost(alias, task.result().usage.cost)
+        if task.exception() is None:
+            meter_reported_cost(alias, task.result().usage.cost)
 
     return settle
