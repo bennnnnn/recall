@@ -12,6 +12,7 @@ from app.modules.math.match.dimensions import (
     measure_after,
     two_numbers_after,
 )
+from app.modules.math.match.stated_pi import stated_pi
 from app.modules.math.schemas.operations import SolidShape
 from app.services.number_text import DECIMAL_LITERAL
 from app.services.text_match import word_index
@@ -65,13 +66,10 @@ def _solid_word_index(lower: str, stem: str) -> int:
         start = idx + 1
 
 
-# The question sets π's value ("use π = 22/7", "take π as 3.14") or asks for the answer
-# in π ("in terms of π", "leave your answer in π", "the exact area"). A card worked with
-# π itself to two places answers neither.
+# The question sets π's value ("use π = 22/7", "take π as 3.14", "use 3.14";
+# ``stated_pi``) or asks for the answer in π ("in terms of π", "leave your answer in π",
+# "the exact area"). A card worked with π itself to two places answers neither.
 _PI = r"(?:\u03c0|\\pi\b|\bpi\b)"
-_PI_VALUE = re.compile(
-    rf"{_PI}\s*(?:=|\u2248|as\b|to\s+be\b)|\b(?:use|using|take|taking)\s+{_PI}", re.IGNORECASE
-)
 _PI_FORM = re.compile(
     rf"\bin\s+terms\s+of\s+{_PI}|\bleave\s+(?:your\s+|the\s+)?answers?\s+in\s+"
     rf"(?:terms\s+of\s+)?{_PI}|\bexact\s+(?:answer|value|form|area|volume|length)\b",
@@ -80,11 +78,11 @@ _PI_FORM = re.compile(
 
 
 def pi_value_set(text: str) -> bool:
-    return _PI_VALUE.search(text) is not None
+    return stated_pi(text) is not None
 
 
 def pi_form_or_value_set(text: str) -> bool:
-    return _PI_VALUE.search(text) is not None or _PI_FORM.search(text) is not None
+    return stated_pi(text) is not None or _PI_FORM.search(text) is not None
 
 
 def classify_solid_shape(lower: str) -> SolidShape | None:

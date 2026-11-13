@@ -475,7 +475,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   separate problems, each its own setup and question ("A car goes 100 m in 5 s; find its
   speed. A train goes 300 m in 10 s; find its speed."), is planned as one request per
   problem (`turn_prep/problems.py`): each is solved on its own and the reply is one question
-  in parts, its one Given lettered. A comparison ("which is faster?") stays one question.
+  in parts, its one Given holding each value once, a part's letter only on the values of
+  one symbol the problems give apart (a given is data, not a part). A comparison ("which is
+  faster?") stays one question.
   - Trajectory ` ```graph ` fences are for SUVAT (position or velocity against time), a speed
     asked of a fall (`v(t)` beside the fall), and SHM.
   - A projectile or a drop is one labelled ` ```simulation ` scene instead of a path graph. It
@@ -626,8 +628,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   keeps photo turns too. No OpenRouter-auto “Max” chip.
 - ✅ **The decider** — Perplexity's Decider (`modules/chat/decider_read.py`, through
   `gateways/decider_gateway.py`) answers, as probabilities, each message's subject, effort
-  (none, low, high), the picture it asks to see, how it follows the turn before and whether it
-  needs live facts; the text read beside it (`modules/chat/turn_decision.py`, Qwen3.7 Flash
+  (none, low, high), the picture it asks to see, how it follows the turn before, whether it
+  needs live facts and whether it asks for a result worked out (the worked layout); the text read beside it (`modules/chat/turn_decision.py`, Qwen3.7 Flash
   with Haiku when it is refused) writes the search query and decides when the Decider fails.
   Maths, physics and chemistry think only when the read calls them hard
   (measured 2026-11-10). Auto's lane and the thinking level come from it through catalog data

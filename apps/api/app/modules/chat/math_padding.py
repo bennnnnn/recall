@@ -12,7 +12,12 @@ from __future__ import annotations
 
 import re
 
-from app.modules.chat.inline_code import code_span_opens_within, escaped_at, read_inline_code_span
+from app.modules.chat.inline_code import (
+    code_span_opens_within,
+    escaped_at,
+    is_ratio,
+    read_inline_code_span,
+)
 from app.modules.chat.markdown_regions import leave_prose_line, map_prose_outside_fences
 
 # The phone's rules (inlineMath.ts): a digit or a spaced amount after the closer is a price,
@@ -59,11 +64,40 @@ def _trim_line(line: str) -> str:
         span = line[index:end]
         out.append(span if code_end is not None else f"${span[1:-1].strip()}$")
         index = end
-    return "".join(out)
+    trimmed = "".join(out)
+    # Trimming only takes the padding out of the formulas the phone reads: a line it would
+    # pair differently ("so$x = 20$" glued a dollar to the next formula's) is kept as written.
+    return trimmed if _pairs(trimmed) == [body.strip() for body in _pairs(line)] else line
+
+
+def _pairs(line: str) -> list[str]:
+    """The body of each ``$…$`` pair the phone reads in ``line``, in order."""
+    bodies: list[str] = []
+    index = 0
+    while index < len(line):
+        code_end = read_inline_code_span(line, index) if line[index] == "`" else None
+        end = code_end if code_end is not None else maths_pair_end(line, index)
+        if end is None:
+            index += 1
+            continue
+        if code_end is None:
+            bodies.append(line[index + 1 : end - 1])
+        index = end
+    return bodies
 
 
 def _maths_end(line: str, start: int) -> int | None:
-    """The end of the ``$…$`` maths span opening at ``start``, as the phone pairs it."""
+    """The end of the ``$…$`` maths span opening at ``start``, as the phone pairs it; None
+    for prose between two dollars, which the phone shows as text."""
+    end = maths_pair_end(line, start)
+    if end is None or _prose(line[start + 1 : end - 1]):
+        return None
+    return end
+
+
+def maths_pair_end(line: str, start: int) -> int | None:
+    """The end of the ``$…$`` pair opening at ``start``, as the phone's renderer pairs it
+    (``readInlineMathSpan``): none for a price, an escaped dollar, or a pair across code."""
     if line[start] != "$" or line[start - 1 : start] == "$" or line[start + 1 : start + 2] == "$":
         return None
     if escaped_at(line, start):
@@ -76,7 +110,7 @@ def _maths_end(line: str, start: int) -> int | None:
     body = line[start + 1 : end]
     if not body.strip() or code_span_opens_within(line, start + 1, end):
         return None
-    if _opens_price(line, end, body) or _price_body(body) or _prose(body):
+    if _opens_price(line, end, body) or _price_body(body):
         return None
     return end + 1
 
@@ -92,7 +126,7 @@ def _opens_price(line: str, dollar: int, body: str) -> bool:
 
 
 def _price_body(body: str) -> bool:
-    if _TEX_COMMAND.search(body):
+    if _TEX_COMMAND.search(body) or is_ratio(body):
         return False
     # A span padded on its left ("$ 4! $") is read without its padding: the space before
     # its closer is padding, not the space after a price's "!" ("$5! $x$").

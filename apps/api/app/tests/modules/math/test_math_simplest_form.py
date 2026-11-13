@@ -42,6 +42,12 @@ _SETTINGS = Settings(math_tools_enabled=True)
         ("(x^3 - 8)/(x - 2)", "x^{2} + 2 x + 4"),
         # A sum with like terms or brackets is its collected terms, when that is no longer.
         ("3x + 2x^2 - x + 4", "2 x^{2} + 2 x + 4"),
+        # SymPy collects like terms as it reads, then factored them: 3x(2 - x) answered
+        # "combine like terms" (2026-11-13). What was written decides, highest power first.
+        ("2x^2 + 5x - 4x^2 + x - x^2", "- 3 x^{2} + 6 x"),
+        ("5x^3 - 2x + x^3 + 4", "6 x^{3} - 2 x + 4"),
+        ("x^2 + 3x - x^2", "3 x"),
+        ("-(m + n) + 2(m - 3n)", "m - 7 n"),
         ("(x+1)^2 - 1", "x^{2} + 2 x"),
         ("2*x*(x+1) + 3*(x+1)", "2 x^{2} + 5 x + 3"),
         # A product as written keeps SymPy's form.

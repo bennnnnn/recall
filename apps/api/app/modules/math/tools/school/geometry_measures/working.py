@@ -13,6 +13,10 @@ class _Solved:
     formula: tuple[str, ...]
     substitution: tuple[str, ...]
     answer: str
+    # The ```geometry figure of what was measured, when it has one.
+    figure: dict[str, object] | None = None
+    # The measure's symbol and names, for holding a reply's own value to the card.
+    asked: tuple[str, ...] = ()
 
 
 def _n(value: float) -> str:

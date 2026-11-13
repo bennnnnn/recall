@@ -127,6 +127,9 @@ class VerifiedMathBlock(VerifiedSolveBlock):
     # The result answers a question in words, not an equation or expression the user
     # typed: a reply working it to another value leaves it unchecked (``math.fence_conflict``).
     read_from_words: bool = False
+    # The asked quantity's symbol and names ("A", "area"): the value a reply writes against
+    # them is the one held to the card (``services.asked_value``).
+    asked: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

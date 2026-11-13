@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import re
 
+from app.modules.math.match.circle_parts import circle_parts
 from app.modules.math.match.geometry import pi_value_set
 from app.modules.math.response_intent import strip_ask_frame
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.school._parse import _SIDE_ASKED
+from app.modules.math.tools.school.geometry_measures.part_rule import circle_part_intent
 
 _N = r"(-?\d+(?:\.\d+)?)"
 _DEG = r"\s*(?:°|degrees?|deg)?"
@@ -44,13 +46,6 @@ _REFLECTION_LINE = (
 )
 
 _RULES: tuple[tuple[str, re.Pattern[str]], ...] = (
-    (
-        "semicircle",
-        re.compile(
-            rf"\b(area|perimeter|arc\s+length)\b.*?\bsemi-?circle\b.*?\b(radius|diameter){_IS}{_N}{_UNIT}",
-            re.I,
-        ),
-    ),
     (
         "hemisphere",
         re.compile(
@@ -230,8 +225,15 @@ _PI_OPS = {"circle_from_circumference", "circle_from_area"}
 
 def extract_geometry_measure_intent(cleaned: str) -> MathIntent | None:
     body = " ".join(cleaned.split()).strip().rstrip("?.!")
-    if not body or len(body) > 300 or pi_value_set(body):
-        return None  # "use π = 22/7": the solvers work with π itself
+    if not body or len(body) > 300:
+        return None
+    part = circle_part_intent(body)
+    if part is not None:
+        return part
+    if pi_value_set(body) or circle_parts(body):
+        # "use π = 22/7": the other solvers work with π itself; and no reading here
+        # measures a part of a circle as the whole.
+        return None
     for op, pattern in _RULES:
         found = pattern.search(body)
         if found is None:

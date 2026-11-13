@@ -17,6 +17,10 @@ const PATTERNS: [LatexLeakKind, RegExp][] = [
   // letter that an operator follows (`$v = 5`). A price ("$5"), a placeholder
   // ("$X and") and a price tier ("($$)") are not.
   ["delimiter", /\$(?=\\[A-Za-z]|[{^_]|[A-Za-z]\s*[-=^_+*/<>])/g],
+  // A `$` that closes maths, right after a digit, a small letter or a bracket and before a
+  // space or a mark: "3: 4: 5$ ratio" (2026-11-13). A price's ("$5", "US$5") is not, nor an
+  // opener the stream has not closed yet ("so $▏").
+  ["delimiter", /(?<=[0-9a-z)}\]])\$(?=[\s.,;:!?)\]])/g],
   // The preprocessors' own markers. U+E020 up are font glyphs (the negation slash).
   ["marker", /[\uE000-\uE01F]/g],
   [

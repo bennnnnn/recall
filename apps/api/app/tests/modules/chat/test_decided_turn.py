@@ -31,6 +31,7 @@ from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.turn_prep.context import StreamContext
 from app.modules.chat.turn_trace import begin_turn_trace
 from app.modules.chat.worked_render import WorkedLayout
+from app.modules.chat.worked_turn import with_worked_contract
 from app.services.solving import VerifiedSolveBlock
 from app.tests.fakes import isolated_settings
 
@@ -60,9 +61,11 @@ _FREE_MATHS = (ROUTING.math_free, "glm-5.3-flash")
 _PAID_MATHS = (ROUTING.math, "qwen-3.8-flash")
 
 
-def _read(subject: str | None, think: bool | None, hard: bool = False) -> TurnDecision:
+def _read(
+    subject: str | None, think: bool | None, hard: bool = False, work: bool | None = None
+) -> TurnDecision:
     return TurnDecision.model_validate(
-        {"live": False, "subject": subject, "think": think, "hard": hard}
+        {"live": False, "subject": subject, "think": think, "hard": hard, "work": work}
     )
 
 
@@ -486,3 +489,64 @@ async def test_a_turn_that_reads_its_reply_its_own_way_gets_no_follow_note(
     ctx = _follow_turn("variables", _follow_read("answer"), **fields)
     await decide_from_the_read(ctx, _SETTINGS)
     assert not any(m["content"] in FOLLOW_NOTES.values() for m in ctx.prompt_messages)
+
+
+_SEVEN_X = "Translate the algebraic expression 7x in different word phrases."
+
+
+@pytest.mark.asyncio
+async def test_a_message_that_works_nothing_out_loses_the_readers_layout() -> None:
+    """Phone, 2026-11-13: its 7 gave it the ```worked contract, and the reply came under a
+    Given and a Required, "phrases" set as a symbol. The read says it works nothing out."""
+    trace = begin_turn_trace("new")
+    ctx = _turn(_SEVEN_X, _read("maths", False, work=False), worked=WorkedLayout())
+    ctx.prompt_messages = with_worked_contract(ctx.prompt_messages)
+    await decide_from_the_read(ctx, _SETTINGS)
+    assert ctx.worked is None
+    assert not any("```worked" in str(m.get("content")) for m in ctx.prompt_messages)
+    assert "read.not_worked" in trace.prompt_rules
+    assert trace.decision is not None and trace.decision["work"] == "no"
+
+
+@pytest.mark.asyncio
+async def test_a_calculation_the_read_calls_work_keeps_the_readers_layout() -> None:
+    layout = WorkedLayout()
+    ctx = _turn("Solve 3x + 7 = 22.", _read("maths", False, work=True), worked=layout)
+    ctx.prompt_messages = with_worked_contract(ctx.prompt_messages)
+    await decide_from_the_read(ctx, _SETTINGS)
+    assert ctx.worked is layout
+    assert any("```worked" in str(m.get("content")) for m in ctx.prompt_messages)
+
+
+@pytest.mark.parametrize(("work", "laid_out"), [(True, True), (False, False), (None, True)])
+@pytest.mark.asyncio
+async def test_stem_the_readers_missed_is_laid_out_as_the_read_says(
+    work: bool | None, laid_out: bool
+) -> None:
+    """With no word on the work (the text read's), the rules' value test decides."""
+    ctx = _turn(RESISTORS, _read("physics", False, work=work))
+    await decide_from_the_read(ctx, _SETTINGS)
+    assert (ctx.worked is not None) is laid_out
+
+
+@pytest.mark.asyncio
+async def test_a_regenerate_waits_for_the_read_when_its_layout_is_at_stake() -> None:
+    """Its lane and escalation stay, but the 7x question regenerated must not come back under
+    a Given and a Required because the read was still on its way."""
+    loop = asyncio.get_event_loop()
+    pending: asyncio.Future[Any] = loop.create_future()
+    ctx = _turn(_SEVEN_X, None, thinking="escalate", worked=WorkedLayout())
+    ctx.prompt_messages = with_worked_contract(ctx.prompt_messages)
+    ctx.live_read = pending  # type: ignore[assignment]
+    loop.call_later(0.01, pending.set_result, _read("maths", False, work=False))
+    await decide_from_the_read(ctx, isolated_settings(live_read_wait_seconds=1))
+    assert (ctx.worked, ctx.thinking, ctx.model) == (None, "escalate", "free-chat")
+
+
+@pytest.mark.parametrize("content", ["2", "42"])
+@pytest.mark.asyncio
+async def test_the_reads_work_never_adds_a_layout_the_rules_would_not(content: str) -> None:
+    """A lesson's pick or a quiz answer stays plain, whatever the read says of it."""
+    ctx = _turn(content, _read("maths", False, work=True))
+    await decide_from_the_read(ctx, _SETTINGS)
+    assert ctx.worked is None

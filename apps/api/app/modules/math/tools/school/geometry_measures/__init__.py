@@ -3,7 +3,8 @@
 Each rule reads one stated question shape and nothing else, and its solver
 returns the worked layout (Given, Required, Formula, Substitution) and the answer:
 
-- circles from their circumference or area; semicircles; hemispheres
+- circles from their circumference or area; a part of a circle (a semicircle, a quarter
+  circle, a quadrant), drawn as that part, and a circle worked with a stated π; hemispheres
 - a square from its diagonal; a rhombus from its diagonals; equilateral triangles
 - cube and cuboid diagonals
 - angle facts: the third angle, isosceles triangles, supplements and complements,
@@ -31,7 +32,7 @@ from app.modules.math.tools.school.geometry_measures.circles import (
     _circle_from_circumference,
     _circle_from_circumference_pi,
     _hemisphere,
-    _semicircle,
+    circle_part,
 )
 from app.modules.math.tools.school.geometry_measures.coordinates import (
     _circle_centre_radius,
@@ -71,7 +72,7 @@ __all__ = [
 ]
 
 _SOLVERS: dict[str, Callable[[list[float], list[str]], _Solved | None]] = {
-    "semicircle": _semicircle,
+    "circle_part": circle_part,
     "hemisphere": _hemisphere,
     "circle_from_circumference": _circle_from_circumference,
     "circle_from_area": _circle_from_area,
@@ -130,4 +131,5 @@ def geometry_measure_block(intent: MathIntent, lines: list[str]) -> VerifiedMath
         ),
         solved.answer,
     )
-    return replace(block, worked_reply=working)
+    figures = [solved.figure] if solved.figure is not None else []
+    return replace(block, worked_reply=working, canonical_fences=figures, asked=solved.asked)
