@@ -22,14 +22,17 @@ _VALUE = (
     r"(?:\\[dt]?frac\s*\{\s*(?P<tex_top>\d+)\s*\}\s*\{\s*(?P<tex_bottom>\d+)\s*\}"
     r"|(?P<top>\d+)\s*/\s*(?P<bottom>\d+)|(?P<decimal>\d*\.\d+|\d+))"
 )
-_SETS = r"(?:=|\u2248|~|\\approx|\bas\b|\bto\s+be\b|\bis\b|\bequals?\b)"
-_ROUGHLY = r"(?:(?:approximately|about|roughly)\s+)?"
-_VERB = r"(?:use|using|take|taking|with|where|let)"
-# "take π = 22/7", "π ≈ 3.142", "(use π as 3.14)": π named, then its value.
+_SIGN = r"(?:=|\u2248|~|\\approx)"
+# A few words link π to its value: "π being taken as", "π is approximated as", "π by".
+_LINK = r"(?:\s+[a-z]+){0,3}?"
+_VERB = r"(?:use|using|take|taking|with|where|let|if)"
+# "take π = 22/7", "π ≈ 3.142", "(use π as 3.14)", "π being taken as 3.14": π, its value.
 _NAMED = re.compile(
-    rf"\(?\s*(?:\b{_VERB}\s+)?(?:the\s+value\s+of\s+)?{_PI}\s*{_SETS}\s*{_ROUGHLY}{_VALUE}\s*\)?",
+    rf"\(?\s*(?:\b{_VERB}\s+)?(?:the\s+value\s+of\s+)?{_PI}{_LINK}\s*{_SIGN}?\s*{_VALUE}\s*\)?",
     re.IGNORECASE,
 )
+# "let 3.14 be π", "3.142 for π": the value first.
+_VALUE_FIRST = re.compile(rf"\(?\s*(?:\blet\s+)?{_VALUE}(?:\s+[a-z]+){{1,2}}\s+{_PI}\s*\)?", re.I)
 # "use 3.14", "(use 22/7)", "taking 3.142 for π": an instruction with the value alone.
 _TOLD = re.compile(
     rf"\(?\s*\b(?:use|using|take|taking)\s+(?:the\s+value\s+)?{_VALUE}"
@@ -77,7 +80,7 @@ def stated_pi(text: str) -> StatedPi | None:
     for match in _NAMED.finditer(text):
         value = _value(match)
         found.append(StatedPi(value if _near_pi(value) else None, match.start(), match.end()))
-    for match in _TOLD.finditer(text):
+    for match in (*_TOLD.finditer(text), *_VALUE_FIRST.finditer(text)):
         value = _value(match)
         overlaps = any(s.start < match.end() and match.start() < s.end for s in found)
         # "use 5 cm of string" tells no π; a value near π told to be used is π's.

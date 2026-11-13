@@ -18,6 +18,7 @@ from fractions import Fraction
 
 from app.modules.math.match.circle_parts import (
     VULGAR_FRACTIONS,
+    CirclePart,
     circle_parts,
     named_sector_angle,
     other_piece_of_circle,
@@ -50,6 +51,15 @@ _NARROWED = re.compile(
     re.I,
 )
 _CIRCLE = re.compile(r"\bcircle\b", re.I)
+_CIRCLES = re.compile(r"\bcircles?\b", re.I)
+# "a sector of a circle", "a quadrant of the circle": the circle the part is cut from.
+_OWN_CIRCLE = re.compile(r"\b(?:sectors?|quadrants?)\s+of\s+(?:(?:a|an|the|this|that)\s+)?$", re.I)
+# What is left of a figure when the part is gone: another region than the part.
+_REMAINDER = re.compile(
+    r"\b(?:left|remain\w*|rest|still|missing|loses?|lost|eaten|outside"
+    r"|not\s+(?:covered|in|inside|shaded|painted)|un[a-z]+ed)\b",
+    re.I,
+)
 _SECTOR = re.compile(r"\bsectors?\b", re.I)
 _DEGREES = re.compile(rf"{_N}\s*(?:\u00b0|\^\s*\\circ|degrees?\b)", re.I)
 _COUNT = count_word_pattern(low=1, high=12)
@@ -57,7 +67,7 @@ _COUNT = count_word_pattern(low=1, high=12)
 _ROUNDING = re.compile(
     rf"\b(?:to|in|correct\s+to)\s+(?:(?P<count>\d+|{_COUNT})\s+(?:(?P<figures>significant"
     r"\s+(?:figures?|digits?)|s\.?\s?f\.?)|(?P<places>decimal\s+places?|d\.?\s?p\.?))"
-    r"|the\s+nearest\s+(?P<nearest>whole\s+number|integer|tenth|hundredth|thousandth))\b",
+    r"|the\s+nearest\s+(?P<nearest>whole\s+number|integer|tenth|hundredth|thousandth))(?![a-z])",
     re.I,
 )
 _NEAREST = {"whole number": 0, "integer": 0, "tenth": 1, "hundredth": 2, "thousandth": 3}
@@ -96,6 +106,19 @@ def _sector_part(text: str, has_pi: bool) -> tuple[Fraction, float, tuple[int, i
     return angle / 360, float(angle), (angles[0].start(), angles[0].end())
 
 
+def _second_figure(text: str, parts: list[CirclePart]) -> bool:
+    """A circle named as a figure of its own beside the part: "a quadrant is cut from a
+    circle of radius 14 cm" is two figures (a checked 154 for the 462 left, 2026-11-13).
+    The part's own circle is the one its words govern: "quarter circle", "a quarter of a
+    circle", "a sector of a circle"."""
+    for found in _CIRCLES.finditer(text):
+        if any(part.start <= found.start() <= part.end for part in parts):
+            continue
+        if _OWN_CIRCLE.search(text[: found.start()]) is None:
+            return True
+    return False
+
+
 def _size(found: re.Match[str]) -> float:
     """``3½`` is 3.5."""
     glyph = found.group("part")
@@ -127,6 +150,8 @@ def circle_part_intent(body: str) -> MathIntent | None:
     sector = None if parts else _sector_part(text, pi is not None)
     if sector is None and _SECTOR.search(text):
         return None  # a sector this rule cannot size is the sector solver's, or no one's
+    if (parts or sector) and (_second_figure(text, parts) or _REMAINDER.search(text)):
+        return None  # the part is not the only figure, or what is asked is what is left
     if not parts and sector is None and (pi is None or _CIRCLE.search(text) is None):
         return None
     # One measure asked once: "the area of the semicircle and the area of the full circle"

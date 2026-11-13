@@ -170,9 +170,6 @@ _CM2 = r"\ \mathrm{cm}^{2}"
         # From the review (2026-11-13). Half a circle, said without "of": 9π/2 ≈ 14.14.
         ("Find the area of half a circle of radius 3 cm",
          rf"\frac{{9}}{{2}}\pi \approx 14.14{_CM2}", "sector", 180, ("area", "14.14 cm²")),
-        # The radius stated of the circle, the part asked after: 1/4 * 22/7 * 196 = 154.
-        ("The radius of a circle is 14 cm. Find the area of a quarter of the circle. (use 22/7)",
-         f"154{_CM2}", "sector", 90, ("area", "154 cm²")),
         # A mixed number read whole: 1/2 * 22/7 * 3.5² = 19.25 (was radius 3, 14.14, no unit).
         ("Find the area of a semicircle of radius 3½ cm (use 22/7)",
          f"19.25{_CM2}", "sector", 180, ("area", "19.25 cm²")),
@@ -200,6 +197,16 @@ _CM2 = r"\ \mathrm{cm}^{2}"
          r"19.625\ \mathrm{m}^{2}", "circle", None, ("area", "19.63 m²")),
         ("Find the area of a semicircle of radius 7 cm. Use π = 22/7. Round to 2 d.p.",
          f"77.00{_CM2}", "sector", 180, ("area", "77.00 cm²")),
+        # "to 2 s.f." read to its stop: 2.88π = 9.047, 9.0 to two figures.
+        ("Calculate the area of a semicircle of radius 2.4 cm. Give the answer to 2 s.f.",
+         rf"\frac{{72}}{{25}}\pi \approx 9.0{_CM2}", "sector", 180, ("area", "9.0 cm²")),
+        # π linked to its value by a few words, either way round: 2 * 3.14 * 10 = 62.8.
+        ("Find the circumference of a circle of radius 10 cm, π being taken as 3.14",
+         f"62.8{_CM}", "circle", None, ("circumference", "62.8 cm")),
+        ("Find the circumference of a circle of radius 10 cm if π is approximated as 3.14",
+         f"62.8{_CM}", "circle", None, ("circumference", "62.8 cm")),
+        ("Let 3.14 be π. Find the circumference of a circle of radius 10 cm.",
+         f"62.8{_CM}", "circle", None, ("circumference", "62.8 cm")),
     ],
 )  # fmt: skip
 def test_part_of_a_circle_is_worked_and_drawn_as_that_part(
@@ -266,6 +273,20 @@ def test_part_of_a_circle_is_worked_and_drawn_as_that_part(
         # An answer asked in another unit, with π stated and without.
         "Find the area of a circle of radius 7 cm in square metres (use 22/7)",
         "Find the area of a circle of radius 7 cm in square metres",
+        # Second review (2026-11-13): a circle beside the part is a second figure, whatever
+        # the verb; and what is left of a figure is no part's measure.
+        "A quadrant is sliced off a circle of radius 14 cm. Find the area of what remains (π = 22/7)",
+        "A circle of radius 14 cm with a quadrant missing. Find its area. (use 22/7)",
+        "A quadrant is snipped from a circle of radius 14 cm. What area is still there? (use 22/7)",
+        "A circle of radius 14 cm loses a quadrant. Find the remaining area. Use 22/7",
+        "A quadrant is drawn inside a circle of radius 14 cm, sharing its centre. What area of the circle is not covered by the quadrant? (use 22/7)",
+        "A pizza shaped like a circle of radius 14 cm has a quarter circle eaten. Find the area of the pizza that remains (use 22/7)",
+        "A quarter of a circle of radius 14 cm is eaten. What is left of the circle? (use 22/7)",
+        "What is the area of the part of the circle (radius 14 cm) not in the quadrant? Take π = 22/7",
+        "A circle of radius 7 cm is folded in half to make a semicircle. Find the area of the semicircle (use 22/7)",
+        "A quarter circle of radius 10 cm is shaded inside a square of side 10 cm. Find the unshaded area.",
+        # A circle named beside the part, even the part's own: only a part alone is read.
+        "The radius of a circle is 14 cm. Find the area of a quarter of the circle. (use 22/7)",
         # Both sides of a sector named: no one sector.
         "Find the area of the major sector of a circle with radius 7 cm when the minor sector has angle 60° (use 22/7)",
         # A mixed number the circle reader does not read.

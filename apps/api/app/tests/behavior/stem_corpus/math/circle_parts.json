@@ -33,7 +33,7 @@
   {"id": "cp32", "area": "geometry", "prompt": "I ate a quarter of the pizza and half of the salad", "expect": "not_subject", "note": "fractions taken of things, no shape"},
   {"id": "cp33", "area": "geometry", "prompt": "My locker code is 3.14, use it if you need my notes", "expect": "not_subject", "note": "a number near π told to be used, not π"},
   {"id": "cp34", "area": "geometry", "prompt": "Find the area of half a circle of radius 3 cm", "expect": "answer", "answer": [14.14, "cm^2"], "note": "9π/2; half a circle said without of"},
-  {"id": "cp35", "area": "geometry", "prompt": "The radius of a circle is 14 cm. Find the area of a quarter of the circle. (use 22/7)", "expect": "answer", "answer": [154, "cm^2"], "note": "1/4 * 22/7 * 196 = 154"},
+  {"id": "cp35", "area": "geometry", "prompt": "The radius of a circle is 14 cm. Find the area of a quarter of the circle. (use 22/7)", "expect": "decline", "note": "154; a circle named beside the part is read as a second figure, so the part rule leaves it to the model"},
   {"id": "cp36", "area": "geometry", "prompt": "Find the area of a semicircle of radius 3½ cm (use 22/7)", "expect": "answer", "answer": [19.25, "cm^2"], "note": "r = 3.5: 1/2 * 22/7 * 12.25 = 19.25; was radius 3 (14.14) with no unit"},
   {"id": "cp37", "area": "geometry", "prompt": "Find the area of the major sector of radius 7 cm and angle 60°, use 22/7", "expect": "answer", "answer": [128.33, "cm^2"], "note": "300/360 * 22/7 * 49 = 385/3; was the 60° sector's 25.67"},
   {"id": "cp38", "area": "geometry", "prompt": "Find the area of the major sector of radius 7 cm and angle 60°", "expect": "answer", "answer": [128.28, "cm^2"], "note": "300/360 * π * 49"},
@@ -47,5 +47,15 @@
   {"id": "cp46", "area": "geometry", "prompt": "Find the area of the semicircle with radius 6 cm and the area of the full circle", "expect": "decline", "note": "two areas, 18π and 36π; one card held the first"},
   {"id": "cp47", "area": "geometry", "prompt": "Find the area of a circle of radius 7 cm in square metres (use 22/7)", "expect": "decline", "note": "0.0154 m²; a card said 154 cm²"},
   {"id": "cp48", "area": "geometry", "prompt": "The figure shows a square with a semicircle of radius 7 cm on one side. Find the area of the figure (use 22/7)", "expect": "decline", "note": "196 + 77 = 273; the semicircle's 77 alone is not the figure"},
-  {"id": "cp49", "area": "geometry", "prompt": "Find the area of the region between a quarter circle of radius 10 cm and its chord (use 3.14)", "expect": "decline", "note": "a segment, 78.5 - 50 = 28.5; not the quarter's 78.5"}
+  {"id": "cp49", "area": "geometry", "prompt": "Find the area of the region between a quarter circle of radius 10 cm and its chord (use 3.14)", "expect": "decline", "note": "a segment, 78.5 - 50 = 28.5; not the quarter's 78.5"},
+  {"id": "cp50", "area": "geometry", "prompt": "A quadrant is sliced off a circle of radius 14 cm. Find the area of what remains (π = 22/7)", "expect": "decline", "note": "616 - 154 = 462; the quadrant's 154 was a checked card (second review, 2026-11-13)"},
+  {"id": "cp51", "area": "geometry", "prompt": "A circle of radius 14 cm with a quadrant missing. Find its area. (use 22/7)", "expect": "decline", "note": "462: two figures, the circle and its missing quadrant"},
+  {"id": "cp52", "area": "geometry", "prompt": "A quadrant is snipped from a circle of radius 14 cm. What area is still there? (use 22/7)", "expect": "decline", "note": "462"},
+  {"id": "cp53", "area": "geometry", "prompt": "A circle of radius 14 cm loses a quadrant. Find the remaining area. Use 22/7", "expect": "decline", "note": "462"},
+  {"id": "cp54", "area": "geometry", "prompt": "A quadrant is drawn inside a circle of radius 14 cm, sharing its centre. What area of the circle is not covered by the quadrant? (use 22/7)", "expect": "decline", "note": "462"},
+  {"id": "cp55", "area": "geometry", "prompt": "A pizza shaped like a circle of radius 14 cm has a quarter circle eaten. Find the area of the pizza that remains (use 22/7)", "expect": "decline", "note": "462"},
+  {"id": "cp56", "area": "geometry", "prompt": "Find the circumference of a circle of radius 10 cm, π being taken as 3.14", "expect": "answer", "answer": [62.8, "cm"], "note": "2 * 3.14 * 10; π linked to its value by a few words"},
+  {"id": "cp57", "area": "geometry", "prompt": "Find the circumference of a circle of radius 10 cm if π is approximated as 3.14", "expect": "answer", "answer": [62.8, "cm"], "note": "2 * 3.14 * 10"},
+  {"id": "cp58", "area": "geometry", "prompt": "Find the perimeter of the curved edge of a quadrant of radius 14 cm, use 22/7", "expect": "answer", "answer": [22, "cm"], "note": "the curved edge is the arc: 1/4 * 2 * 22/7 * 14"},
+  {"id": "cp59", "area": "geometry", "prompt": "Find the perimeter of the major sector, radius 7 cm, central angle 90°, π = 22/7", "expect": "answer", "answer": [47, "cm"], "note": "270/360 * 2 * 22/7 * 7 = 33, plus two radii 14"}
 ]

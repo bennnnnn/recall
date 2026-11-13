@@ -3,11 +3,9 @@
 The shape readers take the number after each measure's name. A question that states a
 measure through another ("height 4 cm more than its radius", "twice the radius", "3 times
 its base"), changes one ("if the radius is doubled", "the length is increased by 2 cm"),
-combines shapes ("subtract the area of a square", "inner radius 3 cm, outer radius
-5 cm", "the sum of their areas") or takes one from another ("a quarter circle is cut from a
-circle of radius 14 cm; find the part that is left" was a checked 154 for 462, 2026-11-13)
-is not one shape at its printed numbers: its card would answer another question, so the
-reading is declined wherever the relation stands.
+or combines shapes ("subtract the area of a square", "inner radius 3 cm, outer radius
+5 cm", "the sum of their areas") is not one shape at its printed numbers: its card would
+answer another question, so the reading is declined wherever the relation stands.
 
 A solid's surface area is worked closed and whole. A lateral, curved or open one is
 another surface, so that card is declined too.
@@ -41,8 +39,6 @@ _RELATION = re.compile(
     r"|\b(?:subtract(?:s|ed|ing)?|minus|plus|remove[ds]?|cut\s+(?:out|off|away)|hollow"
     r"|shaded|inner|outer|outside|inscribed|circumscribed|combined|together|similar"
     r"|difference)\b"
-    # One shape taken from another; "the remaining angle" of a triangle is no such thing.
-    r"|\b(?:cut\s+(?:from|in|into)|taken\s+(?:away|out|off|from)|unshaded)\b"
     r"|\bin\s+the\s+ratio\b|\b(?:areas|volumes|perimeters|circumferences)\b"
     # The same, said as an operator: "3 * its base", "7 cm - the area of a circle".
     r"|[*\u00d7\u00b7]\s*(?:the|its|their|that|this)\b|\s[-+]\s+(?:the|its|their|that|this|an?)\s",
