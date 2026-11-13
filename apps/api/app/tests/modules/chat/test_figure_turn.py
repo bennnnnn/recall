@@ -67,13 +67,11 @@ def _state(ctx: StreamContext, text: str, settings: Settings | None = None) -> F
     )
 
 
-def _read(**fields: Any) -> asyncio.Task[TurnDecision | None]:
-    decision = TurnDecision(live=False, think=False, **fields)
-
-    async def answer() -> TurnDecision | None:
-        return decision
-
-    return asyncio.ensure_future(answer())
+def _read(**fields: Any) -> asyncio.Future[TurnDecision | None]:
+    """The turn's read, already answered (a streamed reply waits for it before finalize)."""
+    read: asyncio.Future[TurnDecision | None] = asyncio.get_event_loop().create_future()
+    read.set_result(TurnDecision(live=False, think=False, **fields))
+    return read
 
 
 class _Figure:
@@ -102,10 +100,10 @@ class _Figure:
 
         return adds_to(text, fence)
 
-    def without_substitutes(self, text: str, question: str) -> str:
+    def without_substitutes(self, text: str) -> str:
         from app.modules.math.figure.substitutes import without_substitutes
 
-        return without_substitutes(text, question)
+        return without_substitutes(text)
 
 
 @pytest.fixture
@@ -169,8 +167,9 @@ async def test_a_reply_made_without_a_solve_waits_for_no_picture(figure: _Figure
     assert figure_turn.start_figure(_settings(), ctx) is None
 
 
-async def test_a_flowchart_the_question_asks_for_stays(figure: _Figure) -> None:
-    line = "Graph y = 2x + 1 and draw a flowchart of the steps."
+async def test_a_flowchart_always_stays(figure: _Figure) -> None:
+    # "Show the steps as a flow diagram" lost its Mermaid when every one was stripped.
+    line = "Graph y = 2x + 1 and show the steps as a flow diagram."
     ctx = _ctx(line, live_read=_read(subject="maths", picture="graph"))
     ctx.figure = figure_turn.start_figure(_settings(), ctx)
     reply = "The steps:\n\n```mermaid\nflowchart TD\n  A[Start] --> B[Plot]\n```"
@@ -195,12 +194,9 @@ async def test_a_reply_holding_the_server_s_picture_gets_no_second(figure: _Figu
 async def test_the_model_s_own_sketch_goes_when_the_picture_comes(figure: _Figure) -> None:
     ctx = _ctx(live_read=_read(subject="maths", picture="graph"))
     ctx.figure = figure_turn.start_figure(_settings(), ctx)
-    reply = (
-        "Order: $-1.2 < 0.5$\n\n```text\n←────●────────●────→\n    -1.2     0.5\n```\n\n"
-        '```mermaid\nflowchart LR\n  A["-1.2"] --> B["0.5"]\n```'
-    )
+    reply = "Order: $-1.2 < 0.5$\n\n```text\n←────●────────●────→\n    -1.2     0.5\n```"
     text = await figure_turn.attach_figure(_state(ctx, reply))
-    assert "```text" not in text and "```mermaid" not in text
+    assert "```text" not in text
     assert text.startswith("Order:") and text.endswith(_FENCE + "\n")
 
 
@@ -269,3 +265,16 @@ def test_the_picture_joins_after_the_passes_that_strip_unverified_pictures() -> 
     names = [finalize_pass.name for finalize_pass in FINALIZE_PASSES]
     assert names.index("figure") > names.index("math_fences")
     assert names.index("figure") > names.index("formula_charts")
+
+
+async def test_a_read_still_running_at_finalize_waits_for_no_picture(figure: _Figure) -> None:
+    async def slow() -> TurnDecision | None:
+        await asyncio.sleep(5)
+        return TurnDecision(live=False, think=False, subject="maths", picture="graph")
+
+    ctx = _ctx(live_read=asyncio.ensure_future(slow()))
+    ctx.figure = figure_turn.start_figure(_settings(), ctx)
+    started = asyncio.get_running_loop().time()
+    assert await figure_turn.attach_figure(_state(ctx, "Done.")) == "Done."
+    assert asyncio.get_running_loop().time() - started < 0.5
+    ctx.live_read.cancel()

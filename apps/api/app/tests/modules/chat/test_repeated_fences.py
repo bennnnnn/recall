@@ -17,14 +17,14 @@ _PIE = (
     '```chart\n{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","data":{"values":'
     '[{"method":"Walk","students":12},{"method":"Bus","students":42}]},"mark":{"type":"arc"}}\n```'
 )
-_QUESTION = "Draw a pie chart for how 120 students travel to school: walk 12, bus 42."
 
 
-def test_the_copy_and_the_stray_tokens_between_go() -> None:
-    reply = f"{_PIE} \n%timeout \n ذریع娱乐代理\n\n{_PIE}\n"
-    out = drop_repeated_fences(reply, _QUESTION)
+@pytest.mark.parametrize("token", ["%timeout", "<|im_end|>", "</s>"])
+def test_the_copy_and_a_control_token_between_go(token: str) -> None:
+    reply = f"{_PIE} \n{token} \n\n{_PIE}\n"
+    out = drop_repeated_fences(reply)
     assert out.count("```chart") == 1
-    assert "timeout" not in out and "代理" not in out
+    assert token not in out
 
 
 @pytest.mark.parametrize(
@@ -32,14 +32,14 @@ def test_the_copy_and_the_stray_tokens_between_go() -> None:
     ["Here is the same chart again, larger:", "The bus is the most common way to travel."],
 )
 def test_a_sentence_between_the_copies_stays(between: str) -> None:
-    out = drop_repeated_fences(f"{_PIE}\n\n{between}\n\n{_PIE}", _QUESTION)
+    out = drop_repeated_fences(f"{_PIE}\n\n{between}\n\n{_PIE}")
     assert out.count("```chart") == 1
     assert between in out
 
 
 def test_a_copy_further_down_goes_and_the_text_around_it_stays() -> None:
     reply = f"Intro.\n\n{_PIE}\n\nThe walk share is 10%.\n\n{_PIE}\n\nThat is all."
-    out = drop_repeated_fences(reply, _QUESTION)
+    out = drop_repeated_fences(reply)
     assert out.count("```chart") == 1
     assert "The walk share is 10%." in out and out.rstrip().endswith("That is all.")
 
@@ -56,15 +56,17 @@ def test_a_copy_further_down_goes_and_the_text_around_it_stays() -> None:
     ],
 )
 def test_other_replies_are_left_alone(reply: str) -> None:
-    assert drop_repeated_fences(reply, _QUESTION) == reply
+    assert drop_repeated_fences(reply) == reply
 
 
-def test_stray_lines_in_another_reply_language_are_judged_by_its_script() -> None:
-    question = "Нарисуй круговую диаграмму: пешком 12, автобус 42."
-    reply = f"Вот диаграмма.\n\n{_PIE}\n娱乐代理\n{_PIE}"
-    out = drop_repeated_fences(reply, question)
+@pytest.mark.parametrize(
+    "line", ["ذریع娱乐代理", "直角三角形", "Это тот же треугольник."]
+)  # fmt: skip
+def test_a_line_in_any_script_between_the_copies_stays(line: str) -> None:
+    # Only control tokens go: a line is never judged by the script it is written in.
+    out = drop_repeated_fences(f"Here.\n\n{_PIE}\n{line}\n{_PIE}")
     assert out.count("```chart") == 1
-    assert "娱乐" not in out and "Вот диаграмма." in out
+    assert line in out
 
 
 @pytest.mark.parametrize("server_text", [False, True])
@@ -94,6 +96,6 @@ _G = '```geometry\n{"type":"triangle","a":3,"b":4,"c":5}\n```'
     ],
 )  # fmt: skip
 def test_the_reply_s_own_lines_between_copies_stay(reply: str, kept: list[str]) -> None:
-    out = drop_repeated_fences(reply, "Draw the triangle.")
+    out = drop_repeated_fences(reply)
     assert out.count("```geometry") == 1
     assert all(line in out for line in kept)

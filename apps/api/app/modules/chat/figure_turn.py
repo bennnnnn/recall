@@ -79,15 +79,14 @@ def _asks_for_a_picture(read: asyncio.Task[TurnDecision | None]) -> bool:
     return decision is not None and decision.subject == "maths" and decision.picture in _DRAWN
 
 
-async def read_asks_for_a_figure(
-    read: asyncio.Task[TurnDecision | None] | None, seconds: float
-) -> bool:
+async def read_asks_for_a_figure(read: asyncio.Task[TurnDecision | None] | None) -> bool:
     """The turn's read calls the message a maths question asking to see a graph or a
-    diagram: a figure the app draws, never a photo or a painted picture. Waited for at most
-    ``seconds``, and never cancelled: the reply and the figure wait for the same read."""
+    diagram: a figure the app draws, never a photo or a painted picture. Waited for until it
+    ends (its own timeout bounds it: a read later than a fixed wait let "draw the box" be
+    painted), and never cancelled: the reply and the figure wait for the same read."""
     if read is None:
         return False
-    await asyncio.wait([read], timeout=seconds)
+    await asyncio.wait([read])
     return _asks_for_a_picture(read)
 
 
@@ -117,7 +116,12 @@ async def attach_figure(state: FinalizeState) -> str:
     figure = _figure()
     if task is None or figure is None:
         return state.text
-    if state.was_cancelled or figure.whole(state.text):
+    if state.was_cancelled or figure.whole(state.text) or ctx.live_read is None:
+        stop_figure(ctx)
+        return state.text
+    if not _asks_for_a_picture(ctx.live_read):
+        # The read has not said the message asks to see a picture (or said it does not):
+        # a worked, instant or everyday reply waits for nothing (it waited 1.75 s).
         stop_figure(ctx)
         return state.text
     # Waited on, never awaited: a picture that failed or was stopped is no picture.
@@ -131,7 +135,7 @@ async def attach_figure(state: FinalizeState) -> str:
     fence = task.result()
     if not fence or not figure.adds_to(state.text, fence):
         return state.text
-    text = figure.without_substitutes(state.text, ctx.user_message_content or "").rstrip()
+    text = figure.without_substitutes(state.text).rstrip()
     text = f"{text}\n\n{fence}\n" if text else f"{fence}\n"
     # Committed, so a later pass that falls back keeps the picture.
     state.committed = fallback_text(text, server_text=state.server_text)

@@ -1,5 +1,5 @@
 """Where a drawn picture meets the reply: whether the server's pictures already show it, and
-the model's own picture of it (rows of characters, a flowchart) taken out once it comes.
+the model's own picture of it in rows of characters taken out once it comes.
 
 A solve's own picture is the whole picture when it is a graph, a scene or a teaching
 picture. A plane shape it drew may be only a part of what the question asks to see: the
@@ -15,7 +15,7 @@ import json
 from typing import Any
 
 from app.modules.math.text_plot import strip_text_plots
-from app.services.md_fence_scan import has_closed_fence, iter_closed_fences, strip_closed_fences
+from app.services.md_fence_scan import has_closed_fence, iter_closed_fences
 from app.services.solving import VerifiedMathBlock
 
 # The fences a picture the server drew comes in: maths' figures and graphs, physics' scenes.
@@ -80,12 +80,8 @@ def adds_to(text: str, fence: str) -> bool:
     )
 
 
-def without_substitutes(text: str, question: str = "") -> str:
-    """The prompt asks for no picture in characters and no flowchart in a picture's place
-    (``GRAPH_NO_SUBSTITUTE_CLAUSE``); a reply that still drew one loses it beside the real
-    picture. A flowchart the question asks for ("graph y = 2x + 1 and draw a flowchart of the
-    steps") is the reply's own, and stays."""
-    from app.modules.turn_reading.diagrams import is_mermaid_question
-
-    kept = text if is_mermaid_question(question) else strip_closed_fences(text, "mermaid")
-    return strip_text_plots(kept)
+def without_substitutes(text: str) -> str:
+    """The prompt asks for no picture in characters (``GRAPH_NO_SUBSTITUTE_CLAUSE``); a reply
+    that still drew its number line or graph in characters loses it beside the real one. A
+    Mermaid diagram is never taken out: "show the steps as a flow diagram" asked for one."""
+    return strip_text_plots(text)

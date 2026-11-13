@@ -151,7 +151,7 @@ async def try_image_gen_for_turn(
     )
     if not image_prompt:
         return False
-    if await read_asks_for_a_figure(read, settings.live_read_wait_seconds):
+    if await read_asks_for_a_figure(read):
         # "Draw a regular pentagon with sides of 3 cm": a maths figure the app draws from
         # the question's values, never a painting of one.
         return False
@@ -267,9 +267,7 @@ async def try_image_lookup_for_turn(
             return False
         if not query:
             return False
-    if may_be_a_maths_picture(query) and await read_asks_for_a_figure(
-        read, settings.live_read_wait_seconds
-    ):
+    if may_be_a_maths_picture(query) and await read_asks_for_a_figure(read):
         # "Show x ≥ 4 on a number line" is the app's number line, not a photo of one.
         if misses is not None:
             misses.add("photo")
@@ -333,11 +331,7 @@ def start_reply_picture(
     prompt = reply_picture_prompt(content, settings)
     if not prompt:
         return None
-    figure = (
-        asyncio.ensure_future(read_asks_for_a_figure(read, settings.live_read_wait_seconds))
-        if read is not None
-        else None
-    )
+    figure = asyncio.ensure_future(read_asks_for_a_figure(read)) if read is not None else None
     # The line saying why not is in the reply's language, which follows the message. The
     # picture part is only recognised in English ("draw …"), so a message no language
     # plainly claims gets an English reply, and an English line under it.
