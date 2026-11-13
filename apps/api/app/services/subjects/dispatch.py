@@ -23,7 +23,7 @@ from app.services.problem_followup import message_role_content
 from app.services.solving import SubjectAugmentation, VerifiedSolveBlock
 from app.services.subjects.order import read_subject_reason
 from app.services.subjects.registry import SubjectName as SubjectName
-from app.services.subjects.registry import SubjectRequest, subject_adapter
+from app.services.subjects.registry import SUBJECTS, SubjectRequest, subject_adapter
 from app.services.worked_parts import parts_in_one_layout
 
 logger = logging.getLogger(__name__)
@@ -283,19 +283,9 @@ def maybe_direct_subject_reply(
     )
 
 
-# The subjects that show what a line asks to see, in the order they are asked.
-_SHOWING: tuple[SubjectName, ...] = ("chemistry", "math", "physics")
-
-
-def _shows(name: SubjectName, settings: Settings) -> bool:
-    if name == "chemistry":
-        return settings.chemistry_enabled
-    return settings.math_tools_enabled if name == "math" else settings.physics_enabled
-
-
 def asks_a_subject_to_show(line: str) -> bool:
     """A cheap look, with no chat read: some subject could show what the line asks to see."""
-    return any(subject_adapter(name).followups.asks_to_see(line) for name in _SHOWING)
+    return any(adapter.followups.asks_to_see(line) for adapter in SUBJECTS)
 
 
 async def subject_shows_it(
@@ -316,9 +306,10 @@ async def subject_shows_it(
         for role, content in map(message_role_content, recent)
         if role is not None and content is not None
     ]
-    for name in _SHOWING:
-        followups = subject_adapter(name).followups
-        if not _shows(name, settings) or not followups.asks_to_see(line, recent):
+    # Any subject that shows it settles it, so the order they are asked in decides nothing.
+    for adapter in SUBJECTS:
+        followups = adapter.followups
+        if not adapter.enabled(settings) or not followups.asks_to_see(line, recent):
             continue
         try:
             problem = await run_sympy(

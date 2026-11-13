@@ -21,7 +21,7 @@ from app.modules.chat.continuation_subject import (
 )
 from app.modules.chat.prompt_inject import conversation_turns
 from app.services.problem_followup import changes_relatively, message_role_content
-from app.services.subjects.registry import SubjectName, subject_adapter
+from app.services.subjects.registry import SUBJECTS, SubjectName, subject_adapter
 
 
 @dataclass(frozen=True)
@@ -34,6 +34,23 @@ class SubjectFollowup:
     chemistry: str | None = None
     physics: str | None = None
     asked: str | None = None
+
+    def problem_of(self, subject: SubjectName) -> str | None:
+        """The earlier problem a follow-up solves again with ``subject``, if any."""
+        problems: dict[str, str | None] = {
+            "math": self.math,
+            "chemistry": self.chemistry,
+            "physics": self.physics,
+        }
+        return problems.get(subject)
+
+    @property
+    def subject(self) -> SubjectName | None:
+        """The subject of the earlier problem the follow-up solves again."""
+        return next(
+            (adapter.name for adapter in SUBJECTS if self.problem_of(adapter.name) is not None),
+            None,
+        )
 
     @property
     def found(self) -> bool:

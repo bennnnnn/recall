@@ -10,6 +10,9 @@ of ``SUBJECTS`` decides nothing.
 An adapter has what the dispatcher and chat ask of every subject:
 
 - ``name``: the subject, one of ``SubjectName``;
+- ``enabled``: whether its settings switch is on, so chat solves its lines;
+- ``status_phase``: the status line its solve shows (one of chat's ``StreamStatusPhase``,
+  each of which the phone has a label for);
 - ``solve``: the turn's verified block for a line, the prompt note when nothing verified it,
   and whether the subject tried and declined (``SubjectAugmentation``);
 - ``direct_reply``: the reply a verified block may show without a model, or None. It runs in
@@ -17,7 +20,8 @@ An adapter has what the dispatcher and chat ask of every subject:
 - ``hints``: its prompt copy, and where chat states it (``SubjectHints``);
 - ``asks``: whether a line asks something of the subject (its cue), solved or not;
 - ``reads``: whether the subject reads a request out of the line (its intent);
-- ``fast_lane``: the model lane its own read of a line suggests to Auto routing;
+- ``fast_lane``: the model lane its own read of a line suggests to Auto routing, for a line
+  the subject order gave it and for one no subject claimed;
 - ``instant_reply``: a reply the subject writes for a line with no model and no solve;
 - ``warm``: what a fresh SymPy pool worker runs first, so a turn pays no imports;
 - ``solve_timeouts``: the solves of the subject that ran out of time inside a block;
@@ -26,8 +30,8 @@ An adapter has what the dispatcher and chat ask of every subject:
   None;
 - ``followups``: how it reads a line that goes back to its last problem
   (``SubjectFollowups``);
-- ``fence``: how it holds a finished reply's fences to its verified block, and the notes,
-  drawings and clean-up it adds (``SubjectFence``).
+- ``fence``: which verified blocks it finishes, how it holds a finished reply's fences to
+  its block, and the notes, drawings and clean-up it adds (``SubjectFence``).
 
 A subject with nothing to offer for a member answers None or False, or returns the text as it is.
 
@@ -36,8 +40,10 @@ savings question is worked before the prompt and gets its calculator card after 
 and a money turn has no subject solve (chat's ``turn_prep``).
 
 A new subject is a module with its own ``subject`` adapter, its name in ``SubjectName`` (in
-``services/solving``, beside the verified block every subject's solve names itself in) and its
-entry in ``SUBJECTS``; ``tests/services/test_subject_registry.py`` holds the two to each other.
+``services/solving``, beside the verified block every subject's solve names itself in), its
+entry in ``SUBJECTS`` and its step in the subject order; chat asks it through the adapter
+from there. ``tests/services/test_subject_registry.py`` holds the names to each other and
+``test_subject_completeness.py`` each adapter to what chat asks of it.
 """
 
 from __future__ import annotations
@@ -152,6 +158,11 @@ class SubjectFence(Protocol):
     ``check`` and ``draw`` take positional arguments: the SymPy pool runs them.
     """
 
+    def owns(self, verified: VerifiedSolveBlock | None) -> bool:
+        """Whether this subject finishes a reply whose turn ``verified`` stands for: a block
+        of its own. Maths also finishes every reply no subject verified (None)."""
+        ...
+
     def needs_check(self, text: str, verified: VerifiedSolveBlock | None) -> bool:
         """Whether ``check`` has anything to do, before the pool is asked."""
         ...
@@ -243,6 +254,13 @@ class SubjectAdapter(Protocol):
     def hints(self) -> SubjectHints: ...
 
     @property
+    def status_phase(self) -> str: ...
+
+    def enabled(self, settings: Settings) -> bool:
+        """The subject's switch: chat solves its lines only while it is on."""
+        ...
+
+    @property
     def followups(self) -> SubjectFollowups: ...
 
     @property
@@ -258,9 +276,12 @@ class SubjectAdapter(Protocol):
         won the Arsenal game last night?"."""
         ...
 
-    def fast_lane(self, text: str, *, tools_on: bool) -> bool | None:
+    def fast_lane(self, text: str, *, tools_on: bool, claimed: bool = True) -> bool | None:
         """True keeps the line on the fast model (the verified answer needs no reasoning),
-        False sends it to the strong one, None when the subject has no say."""
+        False sends it to the strong one, None when the subject has no say. ``claimed``:
+        the subject order gave the line to this subject; False asks whether the subject's
+        own cues claim a line no subject did ("a pendulum's period" goes to the strong
+        model)."""
         ...
 
     def instant_reply(self, text: str, *, prior_reply: str | None) -> str | None: ...
