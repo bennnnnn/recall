@@ -22,6 +22,12 @@ _Y_AXIS = re.compile(r"^\s*[-+]?\d*(?:\.\d+)?\s*[|+](?:\s|$|[-_*•●o/\\])")
 _X_AXIS = re.compile(r"[-_]{5,}")
 _MARK = re.compile(r"(?<![\w*])[*•●](?![\w*])|(?<![\w])o(?![\w])|[/\\]")
 _TABLE_RULE = re.compile(r"^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$")
+# A number line in characters: one row of line (``─``, ``═``, ``-``) carrying a dot or an
+# arrowhead, and rows of numbers under or over it ("-1.2  -3/4  0.5", "9").
+_LINE_CHARS = re.compile(r"[─━═=\-_]")
+_LINE_MARK = re.compile(r"[●○•◦*oO|<>←→↔]")
+_NUMBER_ROW = re.compile("^[\\s\\d.,/+\\-\u2212x]*\\d[\\s\\d.,/+\\-\u2212x]*$")
+_LINE_ROW_CHARS = 8
 _GRAPH_FENCE_TYPES = frozenset({"function", "vertical", "number_line", "trajectory", "inequality"})
 
 
@@ -30,8 +36,26 @@ def _could_be_plot_row(line: str) -> bool:
     return bool(line.strip()) and "$" not in line and len(_WORD.findall(line)) <= 2
 
 
+def _is_number_line_sketch(rows: list[str]) -> bool:
+    if len(rows) < 2 or len(rows) > 4:
+        return False
+    lines = [
+        row
+        for row in rows
+        if len(_LINE_CHARS.findall(row)) >= _LINE_ROW_CHARS
+        and _LINE_MARK.search(row)
+        and not _WORD.search(row)
+    ]
+    others = [row for row in rows if row not in lines]
+    return len(lines) == 1 and bool(others) and all(_NUMBER_ROW.match(row) for row in others)
+
+
 def _is_text_plot(rows: list[str]) -> bool:
-    if len(rows) < 3 or any(_TABLE_RULE.match(row) for row in rows):
+    if any(_TABLE_RULE.match(row) for row in rows):
+        return False
+    if _is_number_line_sketch(rows):
+        return True
+    if len(rows) < 3:
         return False
     axis = sum(bool(_Y_AXIS.match(row)) for row in rows) >= 3 or any(
         _X_AXIS.search(row) for row in rows

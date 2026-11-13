@@ -164,6 +164,48 @@ class TestDrawShapeGate:
         assert not mtm.has_draw_shape(text.lower(), shape)
 
 
+class TestDrawRequestSizes:
+    """A shape word with a draw verb and no size is no verified geometry: it once drew a
+    parallelogram 8 by 5 units for "angle A = 70°, draw the parallelogram" (textbook run,
+    2026-11-13). The picture a draw request asks for is drawn from the question's own
+    values (``math.figure``); with no value, unlabelled."""
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "draw a rectangle",
+            "show a square",
+            "sketch a circle",
+            "visualize a triangle",
+            "draw a trapezoid",
+            "Draw a parallelogram.",
+            "Draw a right triangle",
+            "draw a sector",
+            "In parallelogram ABCD, angle A = 70°. Find angles B, C and D, and draw the parallelogram.",
+            "A right-angled triangle has legs of 9 cm and 12 cm. Find its hypotenuse and draw the triangle.",
+        ],
+    )
+    def test_a_draw_request_reads_no_invented_size(self, text):
+        from app.modules.math.tools import extract_math_intent
+
+        intent = extract_math_intent(text)
+        assert intent is None or intent.school_op != "geometry_draw" or intent.kind == "solid"
+
+    @pytest.mark.parametrize(
+        "text, kind",
+        [
+            ("draw a rectangle 6 cm by 4 cm", "rectangle"),
+            ("draw a circle of radius 3 cm", "circle"),
+            ("draw a triangle with base 8 and height 5", "triangle"),
+        ],
+    )
+    def test_a_draw_request_with_its_sizes_is_still_read(self, text, kind):
+        from app.modules.math.tools import extract_math_intent
+
+        intent = extract_math_intent(text)
+        assert intent is not None and intent.kind == kind
+
+
 class TestGeometryDeferredForAlgebra:
     """`solve x^2+y^2=25 for the circle of radius 5` must defer geometry to
     the algebra path — unless the user also asked to draw it."""

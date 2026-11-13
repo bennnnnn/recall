@@ -5,6 +5,8 @@ generation (Pro): see ``images.lookup_intent`` for why the two never compete for
 the same words. Either one stores the reply itself and fills the turn's outcome.
 """
 
+import asyncio
+import re
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
@@ -13,9 +15,11 @@ from app.core.config import Settings
 from app.exceptions import ChatServiceError, SpendCapReachedError, TurnRefusedError
 from app.models.orm import Message, User
 from app.modules.attachments.markers import strip_attachment_from_content
+from app.modules.chat.figure_turn import read_asks_for_a_figure
 from app.modules.chat.referent_read import Referent, referent_for_turn
 from app.modules.chat.reply_language import line_language
 from app.modules.chat.stream_status import StreamStatusFn, StreamStatusPhase, clip_status_detail
+from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import RegenerateBackup
@@ -40,6 +44,9 @@ from app.modules.images.search import ImageSearchError
 from app.services.subjects.dispatch import asks_a_subject_to_show, subject_shows_it
 
 _IMAGE_GEN_MODEL = "image-gen-model"
+# A photo query with a digit or a relation sign ("x ≥ 4 on a number line") may be a maths
+# picture: only such a query waits for the turn's read before a photo is searched.
+_MATHS_MARK = re.compile("[0-9<>=\u2264\u2265\u2212+/^]")
 
 
 async def _replace_old_assistant(
@@ -128,6 +135,7 @@ async def try_image_gen_for_turn(
     skip_revision_lookup: bool = False,
     recent_messages: list[Any] | None = None,
     on_status: StreamStatusFn | None = None,
+    read: asyncio.Task[TurnDecision | None] | None = None,
 ) -> bool:
     if not deps.plan.can_use(user, "image_generation", settings):
         return False
@@ -142,6 +150,10 @@ async def try_image_gen_for_turn(
         recent_messages=recent_messages,
     )
     if not image_prompt:
+        return False
+    if await read_asks_for_a_figure(read):
+        # "Draw a regular pentagon with sides of 3 cm": a maths figure the app draws from
+        # the question's values, never a painting of one.
         return False
     await _starting(outcome, on_status, "image_gen", image_prompt)
     try:
@@ -224,6 +236,7 @@ async def try_image_lookup_for_turn(
     recent_messages: list[Any] | None = None,
     misses: set[str] | None = None,
     on_status: StreamStatusFn | None = None,
+    read: asyncio.Task[TurnDecision | None] | None = None,
 ) -> bool:
     """Deterministic reference-photo lookup intercept ("show me an ear").
 
@@ -254,6 +267,11 @@ async def try_image_lookup_for_turn(
             return False
         if not query:
             return False
+    if may_be_a_maths_picture(query) and await read_asks_for_a_figure(read):
+        # "Show x ≥ 4 on a number line" is the app's number line, not a photo of one.
+        if misses is not None:
+            misses.add("photo")
+        return False
     query = dated_lookup_query(query, datetime.now(UTC).year)
     await _starting(outcome, on_status, "finding_photo", query)
     try:
@@ -280,6 +298,11 @@ async def try_image_lookup_for_turn(
     return True
 
 
+def may_be_a_maths_picture(query: str) -> bool:
+    """A photo query that waits for the turn's read: one with a digit or a relation sign."""
+    return _MATHS_MARK.search(query) is not None
+
+
 def reply_picture_prompt(content: str, settings: Settings) -> str | None:
     """What to draw for the picture part of a multi-part message, if it has one."""
     from app.modules.chat.turn_prep.reading import plan_of
@@ -290,26 +313,35 @@ def reply_picture_prompt(content: str, settings: Settings) -> str | None:
 
 
 def start_reply_picture(
-    deps: ChatTurnDeps, settings: Settings, *, user: User, chat_id: UUID, content: str
+    deps: ChatTurnDeps,
+    settings: Settings,
+    *,
+    user: User,
+    chat_id: UUID,
+    content: str,
+    read: asyncio.Task[TurnDecision | None] | None = None,
 ) -> ReplyPicture | None:
     """The picture one part of a multi-part message asks for, drawn beside the answer.
 
     "Draw a cat wearing a hat and also explain what a black hole is": the intercept
-    above declines the whole line, so the model answers the rest while this draws.
+    above declines the whole line, so the model answers the rest while this draws. "Draw
+    the cylinder and find its volume" is a maths figure when the turn's read says so: maths
+    draws it, and no painting (nor a line saying none came) goes with the reply.
     """
     prompt = reply_picture_prompt(content, settings)
     if not prompt:
         return None
+    figure = asyncio.ensure_future(read_asks_for_a_figure(read)) if read is not None else None
     # The line saying why not is in the reply's language, which follows the message. The
     # picture part is only recognised in English ("draw …"), so a message no language
     # plainly claims gets an English reply, and an English line under it.
     language = line_language(content, "en")
     if not settings.image_generation_enabled:
-        return ReplyPicture.refused(prompt, "not_available", language)
+        return ReplyPicture.refused(prompt, "not_available", language, figure)
     if not deps.plan.can_use(user, "image_generation", settings):
-        return ReplyPicture.refused(prompt, "not_in_plan", language)
+        return ReplyPicture.refused(prompt, "not_in_plan", language, figure)
     return ReplyPicture.start(
-        settings, user=user, chat_id=chat_id, prompt=prompt, language=language
+        settings, user=user, chat_id=chat_id, prompt=prompt, language=language, figure=figure
     )
 
 
@@ -325,6 +357,7 @@ async def intercept_new_turn(
     prior_count: int,
     misses: set[str] | None = None,
     on_status: StreamStatusFn | None = None,
+    read: asyncio.Task[TurnDecision | None] | None = None,
 ) -> bool:
     """A new message answered by a photo or a picture; True when one stored the reply.
 
@@ -349,6 +382,7 @@ async def intercept_new_turn(
         recent_messages=recent_messages,
         misses=misses,
         on_status=on_status,
+        read=read,
     ):
         return True
     # A photo was asked for and none came back: the model answers in words. A
@@ -367,6 +401,7 @@ async def intercept_new_turn(
         skip_revision_lookup=prior_count == 0,
         recent_messages=recent_messages,
         on_status=on_status,
+        read=read,
     )
 
 
@@ -400,6 +435,7 @@ async def intercept_regenerate(
     outcome: TurnOutcome | None,
     misses: set[str] | None = None,
     on_status: StreamStatusFn | None = None,
+    read: asyncio.Task[TurnDecision | None] | None = None,
 ) -> bool:
     """Regenerating a photo or a picture makes another; True when one replaced the reply.
 
@@ -427,6 +463,7 @@ async def intercept_regenerate(
             replace_assistant_id=replace_id,
             misses=misses,
             on_status=on_status,
+            read=read,
         ):
             return True
     return await try_image_gen_for_turn(
@@ -439,4 +476,5 @@ async def intercept_regenerate(
         create_user_message=False,
         replace_assistant_id=replace_id,
         on_status=on_status,
+        read=read,
     )

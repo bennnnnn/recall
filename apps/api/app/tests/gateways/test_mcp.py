@@ -558,6 +558,27 @@ async def test_sympy_adapter_graph_includes_canonical_fence():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "args, x_range, explicit",
+    [
+        # "Weeks 0 to 12": a 0 is a bound, not a missing one (it was read as -10).
+        ({"x_min": 0, "x_max": 12}, (0.0, 12.0), True),
+        ({"x_min": -3, "x_max": 3}, (-3.0, 3.0), True),
+        ({}, (-10.0, 10.0), False),
+    ],
+)
+async def test_sympy_graph_keeps_the_range_the_call_names(args, x_range, explicit):
+    """The textbook's y = 2x + 1 for x from -3 to 3 (2026-11-13): the tool's graph opened on
+    the school window, cutting the line off, as its range was not marked the learner's."""
+    adapter = SympyAdapter(Settings())
+    result = await adapter.invoke({"action": "graph", "expr": "144 - 4*x", **args}, tool_context())
+    assert result.data is not None
+    fence = result.data["canonical_fence"]
+    assert (fence["x_min"], fence["x_max"]) == x_range
+    assert fence["domain_explicit"] is explicit
+
+
+@pytest.mark.asyncio
 async def test_sympy_graph_without_an_expression_does_not_sample_a_parabola():
     adapter = SympyAdapter(Settings())
     result = await adapter.invoke({"action": "graph"}, tool_context())

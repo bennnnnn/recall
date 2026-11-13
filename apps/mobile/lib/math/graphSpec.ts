@@ -80,8 +80,14 @@ const GRAPH_KIND_SET: Record<GraphSpec["type"], true> = {
   inequality: true,
 };
 
-/** Every graph this build draws; a fence naming another is refused as an unknown kind. */
-export const GRAPH_KINDS = Object.keys(GRAPH_KIND_SET);
+/** Every graph this build draws; a fence naming another is refused as an unknown kind.
+ * `points` (lettered points on a plane) is read on its own (`lib/math/pointsGraph`). */
+export const GRAPH_KINDS = [...Object.keys(GRAPH_KIND_SET), "points"];
+
+/** What each axis measures: the server's names ("inches", "centimetres"), else x and y. */
+export function graphAxisNames(spec: GraphSpec): { x: string; y: string } {
+  return { x: spec.x_label || spec.variable || "x", y: spec.y_label || "y" };
+}
 
 /** Match backend `GraphBlockSpec.points` max; chat samples default lower. */
 const MAX_GRAPH_POINTS = 500;
@@ -189,6 +195,7 @@ function parseNumberLineGraph(row: Record<string, unknown>): GraphSpec | null {
     title: row.title != null ? String(row.title) : expr,
     points: [],
     intervals,
+    marks: parseMarks(row.marks, 1),
   };
 }
 
@@ -281,6 +288,11 @@ function parseHoles(raw: unknown): [number, number][] | null {
   return holes;
 }
 
+/** An axis name the server sent ("inches"), kept short enough to sit at the axis end. */
+function axisName(raw: unknown): string | undefined {
+  return typeof raw === "string" && raw.trim() ? raw.trim().slice(0, 32) : undefined;
+}
+
 const MAX_GRAPH_MARKS = 12;
 const MAX_MARK_LABEL = 48;
 
@@ -357,6 +369,8 @@ export function parseGraphSpec(raw: string): GraphSpec | null {
       holes2: hasCurve2 && holes2.length ? holes2 : undefined,
       label: row.label != null ? String(row.label) : undefined,
       label2: hasCurve2 && row.label2 != null ? String(row.label2) : undefined,
+      x_label: axisName(row.x_label),
+      y_label: axisName(row.y_label),
     };
   } catch {
     return null;

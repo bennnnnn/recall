@@ -32,14 +32,14 @@ def _verified(canonical_fence):
 def test_unverified_geometry_fence_is_stripped(content: str) -> None:
     """Schema-valid invented diagrams must not ship without a canonical fence."""
     out = validate_math_fences(content)
-    assert "Could not render that diagram" in out
+    assert "Could not render" not in out
     assert "```geometry" not in out
 
 
 def test_replaces_invalid_geometry_fence() -> None:
     content = "```geometry\n{bad json\n```"
     out = validate_math_fences(content)
-    assert "Could not render that diagram" in out
+    assert "Could not render" not in out
     assert "Invalid geometry block" not in out
 
 
@@ -47,21 +47,21 @@ def test_empty_points_graph_fence_without_canonical_is_stripped() -> None:
     """Do not resample an unmatched model expr into a verified-looking curve."""
     content = '```graph\n{"type":"function","expr":"3*x+4","points":[]}\n```'
     out = validate_math_fences(content)
-    assert "Could not render that diagram" in out
+    assert "Could not render" not in out
     assert "```graph" not in out
 
 
 def test_invalid_graph_json_still_strips() -> None:
     content = "```graph\n{bad json\n```"
     out = validate_math_fences(content)
-    assert "Could not render that diagram" in out
+    assert "Could not render" not in out
     assert "Invalid graph block" not in out
 
 
 def test_unverified_vertical_line_graph_fence_is_stripped() -> None:
     content = '```graph\n{"type":"vertical","x":4,"y_min":-5,"y_max":5,"title":"x = 4"}\n```'
     out = validate_math_fences(content)
-    assert "Could not render that diagram" in out
+    assert "Could not render" not in out
     assert "```graph" not in out
 
 
@@ -102,11 +102,11 @@ def test_replaces_truncated_unclosed_graph_fence_with_canonical() -> None:
 
 def test_truncated_unclosed_graph_fence_without_canonical_strips_json() -> None:
     """With no verified canonical fence, a truncated unclosed ```graph fence is
-    stripped to 'Could not render that diagram.' rather than leaking the raw
-    half-pasted points array."""
+    dropped, without a note saying the app could not draw, rather than leaking the
+    raw half-pasted points array."""
     content = "```graph\n" + '{"type":"function","expr":"x**2","points":[[-10,100],[-9,81'
     out = validate_math_fences(content)
-    assert "Could not render that diagram" in out
+    assert "Could not render" not in out
     assert "[-10,100" not in out
 
 
@@ -141,12 +141,12 @@ def test_replace_unclosed_graph_fence_safe_substitutes_canonical_without_sympy()
 
 
 def test_replace_unclosed_graph_fence_safe_strips_when_no_canonical() -> None:
-    """No verified canonical fence → strip the truncated tail to the error note."""
+    """No verified canonical fence → the truncated tail goes, with no note."""
     from app.modules.math.fence import replace_unclosed_graph_fence_safe
 
     content = "```graph\n" + '{"type":"function","expr":"x**2","points":[[-10,100],[-9,81'
     out = replace_unclosed_graph_fence_safe(content, None)
-    assert "Could not render that diagram" in out
+    assert "Could not render" not in out
     assert "[-10,100" not in out
 
 
@@ -164,13 +164,13 @@ def test_replace_unclosed_graph_fence_safe_degrades_closed_unmatched() -> None:
 
     geo = '```geometry\n{"type":"rectangle","width":99,"height":1}\n```'
     geo_out = replace_unclosed_graph_fence_safe(geo, None)
-    assert "Could not render that diagram" in geo_out
+    assert "Could not render" not in geo_out
     assert "```geometry" not in geo_out
     assert "99" not in geo_out
 
     graph = '```graph\n{"type":"function","expr":"x**2","points":[[0.0,0.0],[1.0,1.0]]}\n```'
     graph_out = replace_unclosed_graph_fence_safe(graph, None)
-    assert "Could not render that diagram" in graph_out
+    assert "Could not render" not in graph_out
     assert "```graph" not in graph_out
     assert "x**2" not in graph_out
 
@@ -181,7 +181,7 @@ def test_rewrites_unverified_inequality_step_to_number_line() -> None:
         '"points":[[-10,0],[3,0],[3,1],[10,1]]}\n```'
     )
     out = validate_math_fences(content)
-    assert "Could not render that diagram" in out
+    assert "Could not render" not in out
     assert "```graph" not in out
 
 
@@ -190,7 +190,7 @@ def test_unverified_single_point_graph_fence_is_stripped() -> None:
         '```graph\n{"type":"function","expr":"(2, 3)","title":"Point (2, 3)","points":[[2,3]]}\n```'
     )
     out = validate_math_fences(content)
-    assert "Could not render that diagram" in out
+    assert "Could not render" not in out
     assert "```graph" not in out
 
 
@@ -351,14 +351,13 @@ def test_corrects_points_less_function_fence_to_canonical() -> None:
 
 
 def test_wrong_kind_model_fence_is_stripped_and_canonical_appended() -> None:
-    """A canonical rectangle must not overwrite an unmatched square JSON —
-    strip the invented square and append the verified rectangle."""
+    """The invented square goes, and the verified rectangle stands in its place."""
     canonical = {"type": "rectangle", "width": 8, "height": 5}
     content = '```geometry\n{"type":"square","side":5}\n```'
 
     out = validate_math_fences(content, verified=_verified(canonical))
 
-    assert "Could not render that diagram" in out
+    assert "Could not render" not in out
     assert '"type":"square"' not in out.replace(" ", "")
     assert "```geometry" in out
     assert '"type":"rectangle"' in out.replace(" ", "")
@@ -369,7 +368,7 @@ def test_no_canonical_fence_strips_schema_valid_geometry() -> None:
 
     out = validate_math_fences(content, verified=_verified(None))
 
-    assert "Could not render that diagram" in out
+    assert "Could not render" not in out
     assert "```geometry" not in out
 
 
@@ -404,7 +403,7 @@ def test_unverified_answer_fence_demotes_to_prose_not_a_pill() -> None:
     out = validate_math_fences(content, verified=None)
     assert "```answer" not in out
     assert "12" in out
-    assert "Could not render that diagram" in out
+    assert "Could not render" not in out
     assert "```geometry" not in out
 
 
@@ -416,7 +415,7 @@ def test_unclosed_graph_does_not_swallow_following_python_fence() -> None:
     out = validate_math_fences(content)
     assert "print(1)" in out
     assert "```python" in out
-    assert "Could not render that diagram" in out
+    assert "Could not render" not in out
 
 
 def test_leaves_answer_fence_when_canonical_is_geometry() -> None:
@@ -465,7 +464,7 @@ def test_densifies_unverified_sparse_function_graph_fence() -> None:
     )
 
     out = validate_math_fences(content)
-    assert "Could not render that diagram" in out
+    assert "Could not render" not in out
     assert "```graph" not in out
 
 
@@ -551,13 +550,13 @@ def test_validate_math_fences_caps_per_kind() -> None:
     bad_geo = "```geometry\n{bad json\n```"
     geo = "\n".join([bad_geo] * (_MAX_GEOMETRY_FENCES + 1))
     out_geo = validate_math_fences(geo)
-    assert out_geo.count("Could not render that diagram") == _MAX_GEOMETRY_FENCES + 1
+    assert "Could not render" not in out_geo
     assert "```geometry" not in out_geo
 
     bad_graph = "```graph\n{bad json\n```"
     graphs = "\n".join([bad_graph] * (_MAX_GRAPH_FENCES + 1))
     out_graph = validate_math_fences(graphs)
-    assert out_graph.count("Could not render that diagram") == _MAX_GRAPH_FENCES + 1
+    assert "Could not render" not in out_graph
     assert "```graph" not in out_graph
 
 
@@ -566,13 +565,13 @@ def test_beyond_cap_schema_valid_geometry_and_graph_are_stripped() -> None:
 
     geo = '```geometry\n{"type":"rectangle","width":8,"height":5,"area":99}\n```'
     out_geo = validate_math_fences("\n".join([geo] * (_MAX_GEOMETRY_FENCES + 1)))
-    assert out_geo.count("Could not render that diagram") == _MAX_GEOMETRY_FENCES + 1
+    assert "Could not render" not in out_geo
     assert "```geometry" not in out_geo
     assert '"area":99' not in out_geo
 
     graph = '```graph\n{"type":"function","expr":"x**2","points":[[0,0],[1,1]]}\n```'
     out_graph = validate_math_fences("\n".join([graph] * (_MAX_GRAPH_FENCES + 1)))
-    assert out_graph.count("Could not render that diagram") == _MAX_GRAPH_FENCES + 1
+    assert "Could not render" not in out_graph
     assert "```graph" not in out_graph
     assert '"expr":"x**2"' not in out_graph.replace(" ", "")
 
@@ -1027,3 +1026,79 @@ def test_question_marks_inside_emphasis_still_count() -> None:
 
     assert "```answer" not in out
     assert "```graph" not in out
+
+
+_LINE = {
+    "type": "function",
+    "expr": "2*x + 1",
+    "variable": "x",
+    "x_min": -3.0,
+    "x_max": 3.0,
+    "domain_explicit": True,
+    "points": [[-3.0, -5.0], [0.0, 1.0], [3.0, 7.0]],
+}
+
+
+@pytest.mark.parametrize(
+    "model_fence",
+    [
+        '{"type":"line","slope":2,"intercept":1}',
+        '{"expr":"2x+1"}',
+        "y = 2x + 1 for x from -3 to 3",
+        '{"type":"function","expr":"2x+1"',
+    ],
+)
+def test_a_model_graph_of_another_type_shows_the_turn_s_graph_in_its_place(
+    model_fence: str,
+) -> None:
+    """The textbook run's y = 2x + 1 (2026-11-13): the model's own ```graph, not of the
+    verified graph's type, became "Could not render that diagram." above the verified
+    graph drawn under the reply. A model's diagram fence is the turn's verified picture
+    of the same kind, in its place, whatever the model called it."""
+    content = f"The line rises 2 for each 1 across.\n\n```graph\n{model_fence}\n```\n\n**Answer**"
+    out = validate_math_fences(content, verified=_verified(_LINE))
+    assert "Could not render" not in out
+    assert out.count("```graph") == 1
+    fence = json.loads(out.split("```graph\n")[1].split("\n```")[0])
+    assert fence["expr"].replace("*", "") == "2x + 1"
+    assert out.index("```graph") < out.index("**Answer**")
+
+
+def test_a_model_geometry_fence_shows_the_turn_s_figure_in_its_place() -> None:
+    canonical = {"type": "triangle_sides", "a": 3, "b": 4, "c": 5}
+    content = 'Here it is:\n\n```geometry\n{"type":"triangle","base":8,"height":5}\n```'
+    out = validate_math_fences(content, verified=_verified(canonical))
+    assert out.count("```geometry") == 1
+    assert '"type":"triangle_sides"' in out.replace(" ", "")
+    assert '"base":8' not in out.replace(" ", "")
+
+
+def test_a_model_diagram_with_no_verified_picture_goes_without_a_note() -> None:
+    content = (
+        'Look:\n\n```geometry\n{"type":"parallelogram","base":8,"height":4,"side":5}\n```\nDone.'
+    )
+    out = validate_math_fences(content)
+    assert "```geometry" not in out
+    assert "Could not render" not in out
+    assert "Look:" in out and "Done." in out
+
+
+@pytest.mark.parametrize(
+    "model_fence, shown",
+    [
+        # A circle the turn did not draw: no rectangle under its caption (it showed twice).
+        ('{"type":"circle","radius":3}', 1),
+        ('{"type":"rect","width":8,"height":5}', 2),
+    ],
+)
+def test_a_model_shape_takes_only_the_turn_s_picture_of_that_shape(
+    model_fence: str, shown: int
+) -> None:
+    canonical = {"type": "rectangle", "width": 8, "height": 5, "unit": "cm"}
+    content = (
+        '**(a)** The rectangle:\n\n```geometry\n{"type":"rectangle","width":8,"height":5}\n```'
+        f"\n\n**(b)** The other shape:\n\n```geometry\n{model_fence}\n```\n\nDone."
+    )
+    out = validate_math_fences(content, verified=_verified(canonical))
+    assert out.replace(" ", "").count('"type":"rectangle"') == shown
+    assert '"type":"circle"' not in out
