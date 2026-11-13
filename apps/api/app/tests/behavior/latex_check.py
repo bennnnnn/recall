@@ -44,8 +44,10 @@ _WORD_GROUP = re.compile(r"\\(?:text|textrm|mathrm|mbox|operatorname)\s*\{")
 _OPENS_A_GROUP = re.compile(r"(?:(?<!\\)[_^]|\\[A-Za-z]+)\s*$")
 # Display maths and bracketed inline maths, which the phone pairs before any lone dollar.
 _DISPLAY = re.compile(r"\$\$.+?\$\$|\\\(.+?\\\)|\\\[.+?\\\]", re.DOTALL)
-# A price's dollar: an amount after it ("$5", "$ 19.20").
-_PRICE = re.compile(r"\$[ \t]*\d")
+# A dollar shaped as a formula's closer, after its last digit, letter or bracket and before
+# a space or a mark ("3: 4: 5$ ratio"). A price's ("$5", "US$5"), a sign named in words
+# ("the $ sign"), a variable ("$HOME", "$Z") and "($M)" are none.
+_CLOSER = re.compile(r"(?<=[0-9a-z)}\]])\$(?=[\s.,;:!?)\]]|$)")
 
 
 def _group_text(body: str, opening: int) -> str:
@@ -110,7 +112,7 @@ def _maths_and_prose(reply: str) -> tuple[list[str], list[str]]:
 
 
 def _shown_dollars(prose: str) -> list[str]:
-    """Each ``$`` of ``prose`` the phone pairs with no other and that opens no price."""
+    """Each ``$`` of ``prose`` the phone pairs with no other that closes a formula."""
     found: list[str] = []
     # Code, a restaurant's price tier ("($$)") and display maths hold no lone dollar.
     plain = PRICE_TIER.sub(" ", _INLINE_CODE.sub(" ", prose))
@@ -127,7 +129,7 @@ def _shown_dollars(prose: str) -> list[str]:
             if end is not None:
                 index = end
                 continue
-            if not escaped_at(line, index) and _PRICE.match(line, index) is None:
+            if not escaped_at(line, index) and _CLOSER.match(line, index) is not None:
                 found.append(f"a dollar shown as source: {line[max(0, index - 20) : index + 20]}")
             index += 1
     return found

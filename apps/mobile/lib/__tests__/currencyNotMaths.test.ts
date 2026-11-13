@@ -171,9 +171,24 @@ describe("inline maths still renders", () => {
     ["It was $5! — and $x$ more.", ["x"], "It was $5! — and x more."],
     ["Today $5! 3 left, then $x$ more.", ["x"], "Today $5! 3 left, then x more."],
     ["Only $5! 10 left, $x$ is mine.", ["x"], "Only $5! 10 left, x is mine."],
-    // A colon before words still ends a price's clause.
+    // A colon before words still ends a price's clause, and so does a colon before a number
+    // and words: a ratio is read whole, never from its first colon (review, 2026-11-13).
     ["It cost $9: cheap, and $x$ more.", ["x"], "It cost $9: cheap, and x more."],
     ["Fees: $10; $y$ each.", ["y"], "Fees: $10; y each."],
+    ["Total $60: 3 of us, so $x = 20$.", ["x = 20"], "Total $60: 3 of us, so x = 20."],
+    ["Budget $50: 2 shirts at $s$ each.", ["s"], "Budget $50: 2 shirts at s each."],
+    ["It cost $9: 12 people came, and $x$ more.", ["x"], "It cost $9: 12 people came, and x more."],
+    [
+      String.raw`The bill is $90: 3 of us split it as $\frac{90}{3}$.`,
+      [String.raw`\frac{90}{3}`],
+      String.raw`The bill is $90: 3 of us split it as \frac{90}{3}.`,
+    ],
+    [
+      String.raw`Rent is $1,200: 3 roommates each pay $\frac{1200}{3} = 400$.`,
+      [String.raw`\frac{1200}{3} = 400`],
+      String.raw`Rent is $1,200: 3 roommates each pay \frac{1200}{3} = 400.`,
+    ],
+    ["The ratio $2:3$ costs $8.", ["2:3"], "The ratio 2:3 costs $8."],
   ])("keeps the price and the maths apart in %s", (source, math, text) => {
     const view = seen(source);
     expect(view.math).toEqual(math);

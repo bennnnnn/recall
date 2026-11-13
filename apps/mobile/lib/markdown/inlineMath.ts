@@ -26,11 +26,22 @@ const MATH_WORD = /^[a-z]$|^(?:sin|cos|tan|sec|csc|cot|log|ln|exp|lim|max|min)$/
  * maths goes on, an operator or "=": `$4!$`, `$4! + 3!$` (the owner's phone, 2026-11-11,
  * drew "$4!$" as source). Followed by anything else, a number, a word, a dollar or a
  * bracket, it ends a price's clause: "$5! 10 left, $x$", "$5! I paid, so $x$". A space is
- * in the set so a run of spaces is read whole. A colon before a number is a ratio's, and
- * the maths goes on: "$9: 12: 15$" was read as the price "$9:" (2026-11-13), and the
- * dollars after it paired around the words between two ratios. */
+ * in the set so a run of spaces is read whole. */
 const PRICE_LEAD =
-  /^\d[\d,.]*(?:[kKmMbB]|\/[A-Za-z]+)?(?:(?:[;?]|:(?!\s*\d))(?:\s|$)|!\s+(?![\s=+\-−×÷*/·^<>≤≥≠)])|\s+([A-Za-z]+)(.*))/;
+  /^\d[\d,.]*(?:[kKmMbB]|\/[A-Za-z]+)?(?:[;:?](?:\s|$)|!\s+(?![\s=+\-−×÷*/·^<>≤≥≠)])|\s+([A-Za-z]+)(.*))/;
+
+/**
+ * A ratio, read whole: numbers joined by colons and nothing else, its closing dollar after
+ * the last number ("$9: 12: 15$", "$ 3 : 4 $"). Read from its first colon, "$9: 12: 15 $ is
+ * the $ 3: 4: 5$" was a price, "$9:" (2026-11-13); a price before a colon and words stays
+ * one ("$60: 3 of us, so $x = 20$").
+ */
+const RATIO = /^\d[\d,.]*(?:\s*:\s*\d[\d,.]*)+$/;
+
+/** A ratio, read whole (`RATIO`); twin: the API's `inline_code.is_ratio`. */
+export function isRatio(body: string): boolean {
+  return RATIO.test(body.trim());
+}
 
 /**
  * A body that opens with an amount and goes on in words is a price that the
@@ -40,7 +51,7 @@ const PRICE_LEAD =
  */
 function priceBody(value: string): boolean {
   // The live tail has swapped every backslash for a marker by now.
-  if (/\\[A-Za-z]/.test(restoreMathEscapes(value))) return false;
+  if (/\\[A-Za-z]/.test(restoreMathEscapes(value)) || isRatio(value)) return false;
   // A span padded on its left ("$ 4! $") is read without its padding: the space before
   // its closer is padding, not the space after a price's "!" ("$5! $x$").
   const body = /^\s/.test(value) ? value.trim() : value.trimStart();

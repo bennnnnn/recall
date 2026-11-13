@@ -43,6 +43,9 @@ from app.tests.behavior.latex_check import drawn_commands, latex_problems
         ("It is $x$ and 5$ more.", ["a dollar shown as source: It is $x$ and 5$ more."]),
         ("It costs $5 and $10, a ($$) place, \\$3 back, $$x = 2$$ and `$y`.", []),
         ("The price $38.40 = $ 19.20 each.", []),
+        # Dollars a reader is meant to see (the review of 2026-11-13).
+        ("The $ sign, $HOME, $.50, a refund of $-5, salary to $Z. Revenue ($M).", []),
+        ('{"$schema":"https://vega.github.io/schema/vega-lite/v5.json"}', []),
     ],
 )
 def test_latex_problems_flags_what_a_reader_would_see_as_source(

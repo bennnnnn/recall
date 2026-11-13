@@ -1170,6 +1170,36 @@
       "area": "lead_lines",
       "input": "Here is the plan:\n**Step 1**\nBoil the water.",
       "expected": "Here is the plan:\n**Step 1**\nBoil the water."
+    },
+    {
+      "id": "ratio-beside-a-price",
+      "area": "boundaries",
+      "input": "The ratio $2:3$ costs $8, and $9: 12: 15$ is $3: 4: 5$.",
+      "expected": "The ratio $2:3$ costs $8, and $9: 12: 15$ is $3: 4: 5$."
+    },
+    {
+      "id": "price-colon-then-maths",
+      "area": "boundaries",
+      "input": "Total $60: 3 of us, so $x = 20$, and rent is $1,200: 3 roommates.",
+      "expected": "Total $60: 3 of us, so $x = 20$, and rent is $1,200: 3 roommates."
+    },
+    {
+      "id": "worked-bold-word-in-a-sentence-stays",
+      "area": "lead_lines",
+      "input": "**Given**  \n$a = 2$\n\n**Solution**\nThe force is\n**larger**\nthan before.",
+      "expected": "**Given**  \n$a = 2$\n\n**Solution**\nThe force is\n**larger**\nthan before."
+    },
+    {
+      "id": "worked-display-maths-left-alone",
+      "area": "lead_lines",
+      "input": "**Required**\n$x$\n$$\n**not bold**\n$$\n**Answer**\n$x = 1$",
+      "expected": "**Required**\n$x$\n$$\n**not bold**\n$$\n\n**Answer**\n$x = 1$"
+    },
+    {
+      "id": "worked-heading-after-a-list-or-a-table",
+      "area": "lead_lines",
+      "input": "**Given**\n- $m = 2$ kg\n- $v = 3$ m/s\n**Required**\n$p$\n\n| a | b |\n|---|---|\n| 1 | 2 |\n**Answer**\n$p = 6$",
+      "expected": "**Given**\n- $m = 2$ kg\n- $v = 3$ m/s\n\n**Required**\n$p$\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n**Answer**\n$p = 6$"
     }
   ]
 }

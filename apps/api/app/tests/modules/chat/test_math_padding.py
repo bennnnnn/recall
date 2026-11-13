@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.modules.chat.math_padding import without_math_padding
+from app.modules.chat.math_padding import _pairs, without_math_padding
 
 
 @pytest.mark.parametrize(
@@ -61,7 +61,30 @@ def test_padded_maths_is_trimmed(text: str, trimmed: str) -> None:
         "Only $5! $x$ is the count.",
         "It was $5! — and $x$ more.",
         "Only $5! 10 left, $x$ is mine.",
+        # A price before a colon and a number stays a price: a ratio is read whole (review,
+        # 2026-11-13: "Total $60: 3 of us, so$x = 20$." was saved).
+        "Total $60: 3 of us, so $x = 20$.",
+        "Rent is $1,200: 3 roommates each pay $\\frac{1200}{3} = 400$.",
+        "The bill is $90: 3 of us split it as $\\frac{90}{3}$.",
+        "Budget $50: 2 shirts at $s$ each.",
+        "It cost $9: 12 people came, and $x$ more.",
     ],
 )
 def test_prices_prose_code_and_display_stay(text: str) -> None:
     assert without_math_padding(text) == text
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Total $60: 3 of us, so $ x = 20 $.",
+        "Mix $3: 1 $ by volume; it costs $8: 2 bags make $ n $ loads.",
+        "Scale $ 1: 50 $, so $ x$ cm and $5 $ y$ more",
+        "a $ b $c$ d $ e$",
+        "$ 4! $ ways, $5! $x$ and $ 2x $3",
+        "Rent $1,200: 3 each pay $ \\frac{1200}{3} $ and $ 9: 12 $",
+    ],
+)
+def test_trimming_never_changes_which_dollars_the_phone_pairs(line: str) -> None:
+    trimmed = without_math_padding(line)
+    assert _pairs(trimmed) == [body.strip() for body in _pairs(line)] or trimmed == line

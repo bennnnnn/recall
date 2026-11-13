@@ -12,7 +12,12 @@ from __future__ import annotations
 
 import re
 
-from app.modules.chat.inline_code import code_span_opens_within, escaped_at, read_inline_code_span
+from app.modules.chat.inline_code import (
+    code_span_opens_within,
+    escaped_at,
+    is_ratio,
+    read_inline_code_span,
+)
 from app.modules.chat.markdown_regions import leave_prose_line, map_prose_outside_fences
 
 # The phone's rules (inlineMath.ts): a digit or a spaced amount after the closer is a price,
@@ -20,10 +25,9 @@ from app.modules.chat.markdown_regions import leave_prose_line, map_prose_outsid
 # letters or more (outside a sub- or superscript) are prose. A TeX command makes it maths.
 # An exclamation mark is a factorial only where the span ends or maths goes on (`$4!$`,
 # `$4! + 3!$`); followed by a number, a word, a dollar or a bracket it ends a price's clause.
-# A colon before a number is a ratio's ("$9: 12: 15$"), and the maths goes on.
 _PRICE_LEAD = re.compile(
     r"\d[\d,.]*+(?:[kKmMbB]|/[A-Za-z]++)?"
-    r"(?:(?:[;?]|:(?!\s*+\d))(?:\s|$)|!\s++(?![\s=+\-\u2212\u00d7\u00f7*/\u00b7^<>\u2264\u2265\u2260)])"
+    r"(?:[;:?](?:\s|$)|!\s++(?![\s=+\-\u2212\u00d7\u00f7*/\u00b7^<>\u2264\u2265\u2260)])"
     r"|\s++([A-Za-z]++)(.*))",
     re.DOTALL,
 )
@@ -60,7 +64,26 @@ def _trim_line(line: str) -> str:
         span = line[index:end]
         out.append(span if code_end is not None else f"${span[1:-1].strip()}$")
         index = end
-    return "".join(out)
+    trimmed = "".join(out)
+    # Trimming only takes the padding out of the formulas the phone reads: a line it would
+    # pair differently ("so$x = 20$" glued a dollar to the next formula's) is kept as written.
+    return trimmed if _pairs(trimmed) == [body.strip() for body in _pairs(line)] else line
+
+
+def _pairs(line: str) -> list[str]:
+    """The body of each ``$…$`` pair the phone reads in ``line``, in order."""
+    bodies: list[str] = []
+    index = 0
+    while index < len(line):
+        code_end = read_inline_code_span(line, index) if line[index] == "`" else None
+        end = code_end if code_end is not None else maths_pair_end(line, index)
+        if end is None:
+            index += 1
+            continue
+        if code_end is None:
+            bodies.append(line[index + 1 : end - 1])
+        index = end
+    return bodies
 
 
 def _maths_end(line: str, start: int) -> int | None:
@@ -103,7 +126,7 @@ def _opens_price(line: str, dollar: int, body: str) -> bool:
 
 
 def _price_body(body: str) -> bool:
-    if _TEX_COMMAND.search(body):
+    if _TEX_COMMAND.search(body) or is_ratio(body):
         return False
     # A span padded on its left ("$ 4! $") is read without its padding: the space before
     # its closer is padding, not the space after a price's "!" ("$5! $x$").
