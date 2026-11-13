@@ -79,10 +79,6 @@ async def draw_unlinked(settings: Settings, *, user: User, chat_id: UUID, prompt
     return stored.image.attachment_id
 
 
-class _AFigure(Exception):
-    """The turn's read made the picture a maths figure, which maths draws itself."""
-
-
 class ReplyPicture:
     """One picture for one reply: started with the turn, attached when the reply ends.
 
@@ -94,7 +90,7 @@ class ReplyPicture:
         self,
         subject: str,
         *,
-        task: asyncio.Task[UUID] | None,
+        task: asyncio.Task[UUID | None] | None,
         refusal: Reason | None = None,
         locale: str | None = None,
         paid: bool = False,
@@ -121,9 +117,9 @@ class ReplyPicture:
         """Start drawing once the read says it is no maths figure; a line saying why not is
         in ``language`` (else the app's)."""
 
-        async def drawn() -> UUID:
+        async def drawn() -> UUID | None:
             if figure is not None and await asyncio.shield(figure):
-                raise _AFigure
+                return None  # a maths figure: maths draws it
             return await draw_unlinked(settings, user=user, chat_id=chat_id, prompt=prompt)
 
         task = asyncio.create_task(drawn(), name="reply_picture")
@@ -159,14 +155,14 @@ class ReplyPicture:
             # A picture finished after the reply saved stays unlinked; the reaper removes it.
             logger.info("Reply picture took too long; the reply goes without it")
             return self._with_note(text, "too_slow"), []
-        except _AFigure:
-            return text, []
         except generation.ImageGenerationError as exc:
             # By its code: the refusal's English (or a provider's words) never goes in.
             return self._with_note(text, reason_for_code(exc.code)), []
         except Exception:
             logger.exception("Reply picture failed")
             return self._with_note(text, "failed"), []
+        if picture is None:
+            return text, []
         return f"{image_marker(picture)}\n\n{text.lstrip()}", [picture]
 
     def _with_note(self, text: str, reason: Reason) -> str:
