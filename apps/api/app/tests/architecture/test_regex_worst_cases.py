@@ -6,7 +6,9 @@ quartic time on a run of spaces after a cue: "average value of" and 2,000 spaces
 more did ("slope of" and 250 spaces took 2.3 s), and CodeQL found three quadratic ones ("mu"
 and 16,000 spaces took 2 s). A message may hold 32,000 characters, and a model's reply as
 many. Each is held here to its worst case at 20,000 characters, read as the code reads it; CI
-rates every compiled regex with the same tool (``scripts/check_regex_redos.py``).
+rates every compiled regex with the same tool, and times those too large for it to rate
+(``scripts/check_regex_redos.py``): that found 16 more, among them a percent-solution question
+and 3,900 spaces that took 11 s under the chemistry reader's 4,000-character cap.
 """
 
 from __future__ import annotations
@@ -14,28 +16,40 @@ from __future__ import annotations
 import re
 import time
 from collections.abc import Callable
+from datetime import date
 
 import pytest
 
 from app.gateways import text_tool_calls
-from app.modules.chat import follow_up_repeats, reply_labels
-from app.modules.chemistry.extractors import electrochemistry, isotope_average, isotope_question
+from app.modules.chat import follow_up_repeats, reply_labels, reply_meta
+from app.modules.chemistry import request as chemistry_request
+from app.modules.chemistry.extractors import (
+    amounts,
+    electrochemistry,
+    isotope_average,
+    isotope_question,
+    solutions,
+    thermochemistry,
+)
 from app.modules.math import followup, function_calls, reading
-from app.modules.math.tools import direct_calculus
+from app.modules.math.tools import direct_calculus, word_templates
 from app.modules.math.tools.extractors import calculus_methods
 from app.modules.math.tools.school import (
     algebra_facts,
+    bag_draws,
+    charges,
     curve_point_patterns,
     function_value,
+    probability,
     shopping,
     trig,
 )
 from app.modules.math.tools.school.equation_features import count_conditions, extract
 from app.modules.math.tools.school.geometry_measures import rules
 from app.modules.physics import motion, net_force
-from app.modules.physics.extractors import friction
+from app.modules.physics.extractors import friction, thermal_readings
 from app.modules.physics.symbolic import request
-from app.modules.turn_reading import answer_subject, visuals
+from app.modules.turn_reading import answer_subject, teaching, visuals
 from app.modules.web_search import source_quality
 from app.services import latex_markup
 
@@ -46,6 +60,9 @@ _N = 20_000
 _SECONDS = 0.25
 _SPACES = " " * _N
 _EXTREME_ANGLE = dict(rules._RULES)["extreme_angle"]
+_TRIANGLE_VERTICES = dict(rules._RULES)["triangle_vertices"]
+_CLOCK = "It's currently **Sunday, October 25, 2026, 6:15"
+_SOLUTE = "How many grams of KCl are needed to prepare 2.00 kg of a 3.00% by mass"
 
 _CASES: list[tuple[str, Callable[[], object]]] = [
     ("tool call key", lambda: text_tool_calls._ARGUMENT.findall("<arg_key>" + _SPACES)),
@@ -90,6 +107,53 @@ _CASES: list[tuple[str, Callable[[], object]]] = [
     ("ends at rest", lambda: motion.read_motion("until" + _SPACES + "x")),
     ("space before a mark", lambda: latex_markup._SPACE_BEFORE_MARK.sub("", "x" + _SPACES + "y")),
     ("congruences", lambda: function_calls.written_functions("a " * (_N // 2))),
+    ("claim tail, dots", lambda: followup._claimed_values("x = 6" + "." * _N + "=")),
+    ("claim tail, marks", lambda: followup._claimed_values("x = 6" + "?!" * (_N // 2) + "=")),
+    ("percent solute", lambda: solutions._PERCENT_SOLUTE.search(_SOLUTE + _SPACES)),
+    (
+        "moles to particles, a leading run",
+        lambda: amounts._MOLES_TO_PARTICLES.search(_SPACES + "How many H atoms in 3 mol of NH3?"),
+    ),
+    ("moles to particles, letters", lambda: amounts._MOLES_TO_PARTICLES.search("a" * _N + "\0")),
+    ("count to mass", lambda: amounts._COUNT_TO_MASS.search("grams" + _SPACES + "\0")),
+    ("clock sentence", lambda: reply_meta._CLOCK_SENTENCE.search(_CLOCK + _SPACES + "\0")),
+    ("charge", lambda: charges._FORMS[0].fullmatch("15% tip on" + _SPACES + "\0")),
+    ("bag first", lambda: bag_draws._BAG_FIRST.fullmatch("a bag has 3 red" + _SPACES + "\0")),
+    (
+        "draw first",
+        lambda: bag_draws._DRAW_FIRST.fullmatch(
+            "2 balls are drawn from a bag of 3 red and 5 blue. chance both of them are"
+            + _SPACES
+            + "\0"
+        ),
+    ),
+    (
+        "tickets",
+        lambda: word_templates._TICKETS.fullmatch(
+            "tickets cost $8 for adults and $5 for kids. 40 tickets were sold for $261"
+            + _SPACES
+            + "\0"
+        ),
+    ),
+    ("equation", lambda: chemistry_request.EQUATION_RE.search("H2 + O2 -> H2O(g)" + "1" * _N)),
+    ("reaction", lambda: thermochemistry._REACTION.search("H2 + O2 -> H2O(g)" + "1" * _N)),
+    (
+        "temperature span",
+        lambda: thermal_readings._TEMPERATURE_SPAN.search("from 10" + _SPACES + "\0"),
+    ),
+    (
+        "triangle vertices",
+        lambda: _TRIANGLE_VERTICES.search("area of a triangle with vertices (0, 0)" + _SPACES),
+    ),
+    (
+        "from now on",
+        lambda: teaching._PREF_SENTENCE[2].search("from now on" + _SPACES + "\0"),
+    ),
+    (
+        "dice",
+        lambda: probability._DICE_CONDITIONAL_SUM.search("2 fair dice are rolled" + _SPACES),
+    ),
+    ("trials", lambda: probability._TRIALS_SETUP.search("a coin is flipped 6 times" + _SPACES)),
 ]
 
 
@@ -220,6 +284,42 @@ _READINGS: list[tuple[Callable[[], object], object]] = [
     (lambda: latex_markup._SPACE_BEFORE_MARK.sub("", "a , b ( c ) d  ."), "a, b (c) d."),
     (lambda: function_calls.written_functions("x ≡ 2 mod 5, y ≡ 3 mod 7")["congruence"], 2),
     (lambda: function_calls.written_functions("17 ≡ 2 mod 5")["congruence"], 0),
+    (lambda: function_calls.written_functions("x \\EQUIV 2 \\pmod 5")["congruence"], 1),
+    (lambda: followup._claimed_values("x = 6..."), ("x", ["6"])),
+    (lambda: followup._CLAIM_TAIL.sub("", "x = 6... am I right?", count=1), "x = 6..."),
+    (
+        lambda: (solutions._PERCENT_SOLUTE.search(_SOLUTE + " solution?") or {"basis": None})[
+            "basis"
+        ],
+        "by mass ",
+    ),
+    (
+        lambda: [
+            m["element"]
+            for m in amounts._MOLES_TO_PARTICLES.finditer(
+                "how many oxygen atoms are in 2 mol of CO2"
+            )
+        ],
+        ["oxygen"],
+    ),
+    (
+        lambda: reply_meta.without_turn_meta(
+            "It's Sunday, October 25, 2026, 6:15 EDT. Next.", "hi", date(2026, 10, 25)
+        ),
+        "Next.",
+    ),
+    (
+        lambda: [m[1] for m in chemistry_request.EQUATION_RE.finditer("Fe3+ + e- -> Fe2+")],
+        ["Fe3+ + e- -> Fe2+"],
+    ),
+    # A bound left blank ("between $ and …" once its dollar signs are spaces) is no condition:
+    # the reading declines it, where the old pattern read the blank as the bound.
+    (
+        lambda: count_conditions.read_count_conditions(
+            "x^2 - 4 = 0 has how many solutions between $ and the other $ here"
+        ),
+        None,
+    ),
 ]
 
 

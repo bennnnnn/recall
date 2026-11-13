@@ -61,7 +61,7 @@ _SAID_CANONICAL = {
 # A congruence in an unknown: a lone letter on the left of ``≡`` (``17 ≡ 2 mod 5`` is a check),
 # in the same clause. Each ``≡`` and each mark that ends a clause, and a lone letter: a
 # ``x``, not the ``x`` of ``max``.
-_CONGRUENCE_STOP = re.compile(r"≡|\\equiv\b|[\n.,;]")
+_CONGRUENCE_STOP = re.compile(r"≡|\\equiv\b|[\n.,;]", re.IGNORECASE)
 _LONE_LETTER = re.compile(r"(?<![^\W\d_])[a-z](?![^\W\d_])", re.IGNORECASE)
 _CLAUSE_ENDS = frozenset("\n.,;")
 # LaTeX and the brackets of a step function, as the call each one writes.

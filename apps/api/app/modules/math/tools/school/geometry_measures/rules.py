@@ -179,8 +179,10 @@ _RULES: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
         "triangle_vertices",
         re.compile(
+            # The space between two points is read once (possessive): split between the \s*
+            # either side of an optional comma, a point and a run of spaces took quadratic time.
             rf"\barea\s+of\s+(?:a|the)\s+triangle\s+(?:with\s+)?(?:vertices|corners|points)\s+(?:at\s+)?"
-            rf"{_POINT}\s*,?\s*{_POINT}\s*,?\s*(?:and\s+)?{_POINT}",
+            rf"{_POINT}\s*+,?\s*+{_POINT}\s*+,?\s*+(?:and\s++)?{_POINT}",
             re.I,
         ),
     ),
