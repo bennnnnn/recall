@@ -56,7 +56,7 @@ jobs:
             # fixtures and the battery scripts: a pull request that only changes other tests,
             # migrations or scripts leaves what they check as it was.
             hit=$(echo "$files" | grep -E '^apps/api/(app/|pyproject\.toml$|uv\.lock$)' | grep -vE '^apps/api/app/tests/.+/' || true)
-            hit="$hit$(echo "$files" | grep -E '^(apps/api/app/tests/behavior/|docs/fixtures/|scripts/battery(_compare)?\.py$|\.github/workflows/api-ci\.yml$)' || true)"
+            hit="$hit$(echo "$files" | grep -E '^(apps/api/app/tests/behavior/|docs/fixtures/|scripts/battery(_compare)?\.py$|scripts/bench_api\.py$|\.github/workflows/api-ci\.yml$)' || true)"
             [ -n "$hit" ] && [ "$run" = true ] || sweeps=false
           fi
           echo "run=$run" >> "$GITHUB_OUTPUT"
@@ -194,7 +194,9 @@ jobs:
 
       - name: Main's tree at the merge base
         working-directory: .
-        run: git worktree add ../base "$(git merge-base HEAD "origin/${{ github.base_ref }}")"
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: git worktree add ../base "$(git merge-base HEAD "origin/$BASE_REF")"
 
       - name: Time main and this pull request
         env:

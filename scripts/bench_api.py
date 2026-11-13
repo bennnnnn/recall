@@ -23,7 +23,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-_SAMPLE = 80
+_SAMPLE = 300
 _RUNS = 3
 _MOST_RATIO = 1.30
 _LEAST_SECONDS = 0.05
@@ -57,27 +57,56 @@ def _inputs() -> dict[str, list[str]]:
         "physics": physics,
         "chemistry": chemistry,
         "plan": maths[::2] + physics[::2] + chemistry[::2],
-        "replies": sorted(replies, key=len)[-_SAMPLE:],
+        "replies": sorted(replies, key=len)[-_SAMPLE * 2 :],
     }
 
 
 def _benchmarks() -> dict[str, tuple[str, Callable[[str], Any]]]:
-    """Each benchmark's input set and the code it times, as the tree being timed has it."""
-    from app.core.config import Settings
-    from app.modules.chat.presentation import present_assistant_markdown
-    from app.modules.chat.turn_prep.reading import plan_of
-    from app.modules.chemistry.extract import extract_chemistry_intent
-    from app.modules.math.tools.extract import extract_math_intent
-    from app.modules.physics.extract import extract_physics_intent
+    """Each benchmark's input set and the code it times, as the tree being timed has it. A
+    function one tree lacks (renamed, moved) is left out of that tree's run and reported
+    as missing, never a crash: both trees run the pull request's script."""
+    import importlib
 
-    settings = Settings()
-    return {
-        "maths reader": ("maths", extract_math_intent),
-        "physics reader": ("physics", extract_physics_intent),
-        "chemistry reader": ("chemistry", extract_chemistry_intent),
-        "turn plan": ("plan", lambda text: plan_of(text, settings)),
-        "reply presentation": ("replies", present_assistant_markdown),
-    }
+    found: dict[str, tuple[str, Callable[[str], Any]]] = {}
+    for name, sample, module, attribute in _ENTRIES:
+        try:
+            run = getattr(importlib.import_module(module), attribute)
+        except (ImportError, AttributeError) as exc:
+            print(f"{name}: {type(exc).__name__}: {exc}", file=sys.stderr)
+            continue
+        found[name] = (sample, run)
+    if "turn plan" in found:
+        from app.core.config import Settings
+
+        settings = Settings()
+        plan = found["turn plan"][1]
+        found["turn plan"] = ("plan", lambda text: plan(text, settings))
+    return found
+
+
+# (benchmark, its input set, module, function).
+_ENTRIES = (
+    ("maths reader", "maths", "app.modules.math.tools.extract", "extract_math_intent"),
+    (
+        "physics reader",
+        "physics",
+        "app.modules.physics.extract",
+        "extract_physics_intent",
+    ),
+    (
+        "chemistry reader",
+        "chemistry",
+        "app.modules.chemistry.extract",
+        "extract_chemistry_intent",
+    ),
+    ("turn plan", "plan", "app.modules.chat.turn_prep.reading", "plan_of"),
+    (
+        "reply presentation",
+        "replies",
+        "app.modules.chat.presentation",
+        "present_assistant_markdown",
+    ),
+)
 
 
 def _time_once(inputs: dict[str, list[str]]) -> dict[str, float]:
@@ -98,7 +127,7 @@ def _time(api_dir: str, inputs_path: str) -> dict[str, float]:
             [sys.executable, __file__, "_once", inputs_path],
             cwd=api_dir,
             env={**_env(), "PYTHONPATH": api_dir},
-            capture_output=True,
+            stdout=subprocess.PIPE,
             text=True,
             check=True,
         ).stdout
@@ -121,10 +150,12 @@ def _env() -> dict[str, str]:
 def _compare(base: dict[str, float], head: dict[str, float]) -> tuple[list[str], bool]:
     lines = ["| Benchmark | main | this PR | change |", "|---|---|---|---|"]
     slower = False
-    for name, after in head.items():
-        before = base.get(name)
-        if before is None:
-            lines.append(f"| {name} | – | {after * 1000:.0f} ms | new |")
+    for name in [*head, *(name for name in base if name not in head)]:
+        before, after = base.get(name), head.get(name)
+        if before is None or after is None:
+            lines.append(
+                f"| {name} | {_ms(before)} | {_ms(after)} | missing on one side |"
+            )
             continue
         ratio = after / before if before else 1.0
         regressed = ratio > _MOST_RATIO and after - before >= _LEAST_SECONDS
@@ -134,6 +165,10 @@ def _compare(base: dict[str, float], head: dict[str, float]) -> tuple[list[str],
             f"| {name} | {before * 1000:.0f} ms | {after * 1000:.0f} ms | {ratio - 1:+.0%}{mark} |"
         )
     return lines, slower
+
+
+def _ms(seconds: float | None) -> str:
+    return "–" if seconds is None else f"{seconds * 1000:.0f} ms"
 
 
 def main(argv: list[str]) -> int:

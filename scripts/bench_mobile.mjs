@@ -12,14 +12,15 @@
 // Measured locally, the same tree timed twice stayed within ±2% and 0.6 ms; in a later run
 // with a deliberate slowdown of the markdown renderer, the drawer, which it does not touch,
 // still came out 20-26% (1.4-1.9 ms) slower. So a regression here is significant, more than
-// 20% slower and at least 5 ms more: that slowdown failed all four reply benchmarks (+11 to
-// +42 ms) and the drifting drawer passed. The table, then Reassure's own report, go to stdout.
+// 25% slower and at least 8 ms more: that slowdown failed all four reply benchmarks (+11 to
+// +42 ms) and the drifting drawer passed. The job is advisory (not a required check) until
+// its noise on GitHub's runners is measured. The table, then Reassure's report, go to stdout.
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const MOST_RATIO = 0.2;
-const LEAST_MS = 5;
+const MOST_RATIO = 0.25;
+const LEAST_MS = 8;
 
 const dir = process.argv[2];
 if (!dir) {

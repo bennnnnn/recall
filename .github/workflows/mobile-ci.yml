@@ -102,7 +102,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           version: 9
 
@@ -114,7 +114,9 @@ jobs:
 
       - name: Main's tree at the merge base
         working-directory: .
-        run: git worktree add ../base "$(git merge-base HEAD "origin/${{ github.base_ref }}")"
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: git worktree add ../base "$(git merge-base HEAD "origin/$BASE_REF")"
 
       # Main's own benchmarks on main's code. A main from before they existed has none: the
       # comparison then says so and passes.
