@@ -91,8 +91,12 @@ def _corners_hold(spec: CalculatorSpec, expressions: list[str]) -> bool:
             try:
                 output_value(expression, values)
             except Exception:
+                # The formula's size and the sliders' names, never the user's amounts.
                 logger.warning(
-                    "calculator formula %r failed at %r", expression, values, exc_info=True
+                    "calculator formula failed: formula_chars=%d controls=%s",
+                    len(expression),
+                    sorted(values),
+                    exc_info=True,
                 )
                 return False
     return True

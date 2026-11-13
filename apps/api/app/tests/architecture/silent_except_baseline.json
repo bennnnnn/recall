@@ -49,7 +49,6 @@
   "modules/memory/locks.py": 1,
   "modules/memory/retrieval.py": 5,
   "modules/memory/schemas.py": 1,
-  "modules/money/fence.py": 1,
   "modules/money/rates.py": 2,
   "modules/notifications/push.py": 1,
   "modules/physics/working_steps.py": 1,
