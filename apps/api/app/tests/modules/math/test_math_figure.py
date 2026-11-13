@@ -289,7 +289,8 @@ def test_a_square_inside_a_circle_has_its_corners_on_it() -> None:
         "measures": [{"what": "radius", "value": 6}],
     }  # fmt: skip
     spec = _figure(question, reading)
-    corners = [p for p in spec.points if p.name != spec.points[0].name][:4]
+    corners = [p for p in spec.points if p.name in spec.faces[0]]
+    assert len(corners) == 4
     assert all(math.hypot(p.x, p.y) == pytest.approx(6) for p in corners)
     assert _labels(spec) == {"6 cm"}
 

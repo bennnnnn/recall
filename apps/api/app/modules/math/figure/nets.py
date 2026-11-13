@@ -11,7 +11,7 @@ import math
 
 from app.modules.math.figure.drawing import Drawing, Point, length_label, polar
 from app.modules.math.figure.request import FigureRequest
-from app.modules.math.figure.solids import prism_triangle
+from app.modules.math.figure.solids import box_sizes, prism_end, pyramid_height, round_size
 from app.modules.math.schemas.figure import FigureSpec
 
 _EDGE, _LENGTH, _WIDTH, _HEIGHT, _RADIUS = 4.0, 6.0, 3.0, 4.0, 2.0
@@ -29,20 +29,16 @@ def _label(drawing: Drawing, a: Point, b: Point, value: float | None, unit: str)
         drawing.edge(a, b, length_label(value, unit))
 
 
-def _radius(request: FigureRequest) -> float | None:
-    diameter = request.first("diameter")
-    return request.first("radius") or (diameter / 2 if diameter is not None else None)
-
-
 def _box_net(request: FigureRequest) -> FigureSpec | None:
     cube = request.shape == "cube"
-    edge = request.first("edge", "side", "length") if cube else None
-    length = edge if cube else request.first("length", "base")
-    width = edge if cube else request.first("width")
-    height = edge if cube else request.first("height")
-    long, w, h = length or _LENGTH, width or _WIDTH, height or _HEIGHT
-    if cube:
-        long = w = h = edge or _EDGE
+    sizes = box_sizes(request)
+    if sizes is None:
+        return None
+    length, width, height = sizes
+    edge = length or _EDGE
+    long, w, h = (
+        (edge, edge, edge) if cube else (length or _LENGTH, width or _WIDTH, height or _HEIGHT)
+    )
     drawing = Drawing("cube_net" if cube else "cuboid_net")
     # The middle row: left side, front, right side, back; the top and bottom on the front.
     x = 0.0
@@ -60,35 +56,45 @@ def _box_net(request: FigureRequest) -> FigureSpec | None:
 
 
 def _prism_net(request: FigureRequest) -> FigureSpec | None:
-    end = prism_triangle(request)
+    end = prism_end(request)
     if end is None:
         return None
-    (a, b, c), _, stated = end
-    length = request.first("length") or (request.first("height") if stated else None)
+    (s0, s1, s2), corners, labels, length = end
     depth = length or _LENGTH
     drawing = Drawing("triangular_prism_net")
+    # The three side faces in a row, each as wide as the end's side it joins: side 1 (from
+    # the first corner to the apex), the base (side 2), then side 0.
     x = 0.0
-    for size in (a, c, b):
+    for size in (s1, s2, s0):
         _rect(drawing, x, 0.0, size, depth)
         x += size
     # The two end triangles on the middle rectangle's long sides.
-    apex_x = (c * c + a * a - b * b) / (2 * c)
-    rise = math.sqrt(max(0.0, a * a - apex_x * apex_x))
+    apex_x, rise = corners[2]
     for y, sign in ((depth, 1.0), (0.0, -1.0)):
-        apex = (a + apex_x, y + sign * rise)
-        drawing.edge((a, y), apex)
-        drawing.edge((a + c, y), apex)
+        apex = (s1 + apex_x, y + sign * rise)
+        drawing.edge((s1, y), apex)
+        drawing.edge((s1 + s2, y), apex)
     unit = request.unit
-    if stated:
-        _label(drawing, (a, depth), (a + c, depth), c, unit)
-        _label(drawing, (0.0, 0.0), (a, 0.0), a, unit)
-        _label(drawing, (a + c, 0.0), (a + c + b, 0.0), b, unit)
+    for index, (a, b) in {
+        1: ((0.0, 0.0), (s1, 0.0)),
+        2: ((s1, depth), (s1 + s2, depth)),
+        0: ((s1 + s2, 0.0), (s1 + s2 + s0, 0.0)),
+    }.items():
+        if index in labels:
+            drawing.edge(a, b, labels[index])
     _label(drawing, (0.0, 0.0), (0.0, depth), length, unit)
     return drawing.spec()
 
 
+def _across(drawing: Drawing, centre: tuple[float, float], r: float, label: str) -> None:
+    """A circle's stated size: a diameter drawn across it, or a radius to its edge."""
+    drawing.line(
+        drawing.point((centre[0] - r, centre[1])), drawing.point((centre[0] + r, centre[1])), label
+    )
+
+
 def _cylinder_net(request: FigureRequest) -> FigureSpec | None:
-    radius = _radius(request)
+    radius, label, across = round_size(request)
     height = request.first("height", "length")
     r, h = radius or _RADIUS, height or _HEIGHT
     around = 2 * math.pi * r
@@ -97,24 +103,23 @@ def _cylinder_net(request: FigureRequest) -> FigureSpec | None:
     for y in (h + r, -r):
         centre = drawing.point((around / 2, y), dot=True)
         drawing.arc(centre, r)
-        if radius is not None and y > 0:
-            edge = drawing.point((around / 2 + r, y))
-            drawing.line(centre, edge, length_label(radius, request.unit))
+        if label is not None and y > 0:
+            if across:
+                _across(drawing, (around / 2, y), r, label)
+            else:
+                drawing.line(centre, drawing.point((around / 2 + r, y)), label)
     _label(drawing, (around, 0.0), (around, h), height, request.unit)
     return drawing.spec()
 
 
 def _pyramid_net(request: FigureRequest) -> FigureSpec | None:
-    base = request.first("base", "side", "edge", "length")
-    height = request.first("height")
+    found = pyramid_height(request)
+    if found is None:
+        return None
+    base, height = found
     slant = request.first("slant_height")
     a = base or _EDGE
-    if slant is None:
-        slant_size = math.hypot(height or _HEIGHT, a / 2)
-    else:
-        slant_size = slant
-    if slant_size <= a / 2:
-        return None
+    slant_size = math.hypot(height, a / 2)
     drawing = Drawing("square_pyramid_net")
     _rect(drawing, 0.0, 0.0, a, a)
     tips = [
@@ -128,6 +133,9 @@ def _pyramid_net(request: FigureRequest) -> FigureSpec | None:
         drawing.edge(p, tip)
         drawing.edge(q, tip)
     _label(drawing, (0.0, 0.0), (a, 0.0), base, request.unit)
+    lateral = request.first("edge") if request.first("base", "side") is not None else None
+    if lateral is not None:
+        drawing.edge((a, 0.0), tips[1], length_label(lateral, request.unit))
     if slant is not None:
         middle = drawing.corner((a / 2, a))
         drawing.line(
@@ -137,7 +145,7 @@ def _pyramid_net(request: FigureRequest) -> FigureSpec | None:
 
 
 def _cone_net(request: FigureRequest) -> FigureSpec | None:
-    radius = _radius(request)
+    radius, label, across = round_size(request)
     height = request.first("height")
     slant = request.first("slant_height")
     r = radius or _RADIUS
@@ -155,9 +163,11 @@ def _cone_net(request: FigureRequest) -> FigureSpec | None:
     drawing.line(apex, last)
     centre = drawing.point((0.0, -slant_size - r), dot=True)
     drawing.arc(centre, r)
-    if radius is not None:
-        edge = drawing.point((r, -slant_size - r))
-        drawing.line(centre, edge, length_label(radius, request.unit))
+    if label is not None:
+        if across:
+            _across(drawing, (0.0, -slant_size - r), r, label)
+        else:
+            drawing.line(centre, drawing.point((r, -slant_size - r)), label)
     return drawing.spec()
 
 

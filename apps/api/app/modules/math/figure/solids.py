@@ -14,6 +14,7 @@ from collections.abc import Sequence
 
 from app.modules.math.figure.drawing import Drawing, length_label
 from app.modules.math.figure.request import FigureRequest
+from app.modules.math.figure.triangles import determined
 from app.modules.math.schemas.figure import FigureSpec
 
 Point3 = tuple[float, float, float]
@@ -78,16 +79,30 @@ def draw_polyhedron(
     return drawing
 
 
+def box_sizes(request: FigureRequest) -> tuple[float | None, ...] | None:
+    """A box's stated length, width and height: a cube's one edge for all three; a cuboid's
+    by name, or three sizes given in a row ("8 cm by 3 cm by 7 cm"). Sizes some named and
+    some not ("length 8 and a side 3") leave which is which open, and give None."""
+    if request.shape == "cube":
+        edge = request.first("edge", "side", "length")
+        return (edge, edge, edge)
+    unnamed = [m.value for m in request.measures if m.what in {"side", "edge"}]
+    named = [request.first("length", "base"), request.first("width"), request.first("height")]
+    if unnamed:
+        return tuple(unnamed) if len(unnamed) == 3 and named == [None, None, None] else None
+    return tuple(named)
+
+
 def _box(request: FigureRequest) -> FigureSpec | None:
     cube = request.shape == "cube"
-    edge = request.first("edge", "side", "length") if cube else None
-    unnamed = [m.value for m in request.measures if m.what in {"side", "edge"}]
-    length = edge if cube else request.first("length", "base") or _pop(unnamed)
-    width = edge if cube else request.first("width") or _pop(unnamed)
-    height = edge if cube else request.first("height") or _pop(unnamed)
-    long, w, h = length or _LENGTH, width or (_EDGE if cube else _WIDTH), height or _HEIGHT
-    if cube:
-        long = w = h = edge or _EDGE
+    sizes = box_sizes(request)
+    if sizes is None:
+        return None
+    length, width, height = sizes
+    edge = length or _EDGE
+    long, w, h = (
+        (edge, edge, edge) if cube else (length or _LENGTH, width or _WIDTH, height or _HEIGHT)
+    )
     vertices = [
         (0, 0, 0), (long, 0, 0), (long, h, 0), (0, h, 0),
         (0, 0, w), (long, 0, w), (long, h, w), (0, h, w),
@@ -106,76 +121,113 @@ def _box(request: FigureRequest) -> FigureSpec | None:
     ).spec()
 
 
-def _pop(values: list[float]) -> float | None:
-    return values.pop(0) if values else None
-
-
 def _f(point: tuple[float, ...]) -> Point3:
     return (float(point[0]), float(point[1]), float(point[2]))
 
 
-def prism_triangle(
+_END_ROLES = frozenset({"side", "leg", "hypotenuse", "base", "equal_side", "angle"})
+# A prism's end edges by the end triangle's side: side i is opposite corner i.
+_END_EDGES = {2: (0, 1), 1: (0, 2), 0: (1, 2)}
+
+
+def prism_end(
     request: FigureRequest,
-) -> tuple[list[float], list[tuple[float, float]], bool] | None:
-    """The prism's end triangle: its sides (stated or 3-4-5 in proportion), its corners, and
-    whether the sides were stated."""
-    sides = sorted(
-        m.value for m in request.measures if m.what in {"side", "leg", "hypotenuse", "base"}
+) -> tuple[list[float], list[tuple[float, float]], dict[int, str], float | None] | None:
+    """A prism's end triangle as the question states it: its sides, corners, the labels of
+    the sides it states (by the side), and the prism's own length. The end is drawn only
+    when its stated values decide it ("sides 5 and 6" of an isosceles end leave it open);
+    "height" is the end's when the prism's length is given too, else the prism's."""
+    length = request.first("length")
+    height_is_end = length is not None
+    if length is None:
+        length = request.first("height")
+    measures = [
+        m
+        for m in request.measures
+        if m.what in _END_ROLES or (m.what == "height" and height_is_end)
+    ]
+    if not measures:
+        a, b, c = 3.0, 4.0, 5.0
+        x = (c * c + a * a - b * b) / (2 * c)
+        return [b, a, c], [(0.0, 0.0), (c, 0.0), (x, math.sqrt(a * a - x * x))], {}, length
+    whats = {m.what for m in measures}
+    shape = (
+        "right_triangle"
+        if whats & {"leg", "hypotenuse"}
+        else "isosceles_triangle"
+        if "equal_side" in whats
+        else "triangle"
     )
-    if len(sides) == 2:
-        sides.append(math.hypot(*sides))
-    stated = len(sides) == 3
-    a, b, c = sides if stated else [3.0, 4.0, 5.0]
-    if a + b <= c:
+    end = request.model_copy(update={"kind": "polygon", "shape": shape, "measures": measures})
+    found = determined(end)
+    if found is None:
         return None
-    # The longest side along the bottom, the other two meeting above it.
-    x = (c * c + a * a - b * b) / (2 * c)
-    corners = [(0.0, 0.0), (c, 0.0), (x, math.sqrt(max(0.0, a * a - x * x)))]
-    return [a, b, c], corners, stated
+    placed, sides = found
+    t = placed.triangle
+    x = (sides[2] ** 2 + sides[1] ** 2 - sides[0] ** 2) / (2 * sides[2])
+    corners = [(0.0, 0.0), (sides[2], 0.0), (x, math.sqrt(max(0.0, sides[1] ** 2 - x * x)))]
+    labels = {i: length_label(t.stated_sides[i], request.unit) for i in t.side_labels}
+    return sides, corners, labels, length
 
 
 def _prism(request: FigureRequest) -> FigureSpec | None:
-    end = prism_triangle(request)
+    end = prism_end(request)
     if end is None:
         return None
-    (a, b, c), corners, stated = end
-    length = request.first("length") or (request.first("height") if stated else None)
+    _, corners, end_labels, length = end
     depth = length or _LENGTH
     vertices = [(x, y, 0.0) for x, y in corners] + [(x, y, depth) for x, y in corners]
     faces = [[0, 1, 2], [3, 4, 5], [0, 1, 4, 3], [1, 2, 5, 4], [2, 0, 3, 5]]
-    unit = request.unit
-    labels: dict[tuple[int, int], str] = {}
-    if stated:
-        labels |= {(0, 1): length_label(c, unit), (0, 2): length_label(a, unit)}
-        labels[(1, 2)] = length_label(b, unit)
+    labels = {_END_EDGES[i]: label for i, label in end_labels.items()}
     if length is not None:
-        labels[(1, 4)] = length_label(length, unit)
+        labels[(1, 4)] = length_label(length, request.unit)
     return draw_polyhedron("triangular_prism", vertices, faces, labels).spec()
 
 
-def _pyramid(request: FigureRequest) -> FigureSpec | None:
-    base = request.first("base", "side", "edge", "length")
-    height = request.first("height")
-    slant = request.first("slant_height")
+def pyramid_height(request: FigureRequest) -> tuple[float | None, float] | None:
+    """A square pyramid's stated base edge and its height, from a height, a slant height or
+    a lateral edge ("edge" beside a base); any two of those must agree."""
+    base = request.first("base", "side")
+    edge = request.first("edge")
+    if base is None:
+        base, edge = edge, None
     a = base or _EDGE
-    if height is None and slant is not None:
+    heights: list[float] = []
+    if (height := request.first("height")) is not None:
+        heights.append(height)
+    if (slant := request.first("slant_height")) is not None:
         if slant <= a / 2:
             return None
-        h = math.sqrt(slant * slant - a * a / 4)
-    else:
-        h = height or _HEIGHT
+        heights.append(math.sqrt(slant * slant - a * a / 4))
+    if edge is not None:
+        if edge <= a / math.sqrt(2):
+            return None
+        heights.append(math.sqrt(edge * edge - a * a / 2))
+    if any(abs(h - heights[0]) > 1e-4 * heights[0] for h in heights):
+        return None
+    return base, heights[0] if heights else _HEIGHT
+
+
+def _pyramid(request: FigureRequest) -> FigureSpec | None:
+    found = pyramid_height(request)
+    if found is None:
+        return None
+    base, h = found
+    a = base or _EDGE
     vertices = [(0.0, 0.0, 0.0), (a, 0.0, 0.0), (a, 0.0, a), (0.0, 0.0, a), (a / 2, h, a / 2)]
     faces = [[0, 1, 2, 3], [0, 1, 4], [1, 2, 4], [2, 3, 4], [3, 0, 4]]
-    labels = {(0, 1): length_label(base, request.unit)} if base is not None else {}
+    unit = request.unit
+    labels = {(0, 1): length_label(base, unit)} if base is not None else {}
+    lateral = request.first("edge") if request.first("base", "side") is not None else None
+    if lateral is not None:
+        labels[(1, 4)] = length_label(lateral, unit)
     drawing = draw_polyhedron("square_pyramid", vertices, faces, labels)
-    if height is not None:
+    if (height := request.first("height")) is not None:
         centre = drawing.point(project((a / 2, 0.0, a / 2)), dot=True)
-        drawing.line(
-            drawing.points[4].name, centre, length_label(height, request.unit), dashed=True
-        )
-    if slant is not None:
+        drawing.line(drawing.points[4].name, centre, length_label(height, unit), dashed=True)
+    if (slant := request.first("slant_height")) is not None:
         middle = drawing.point(project((a / 2, 0.0, 0.0)))
-        drawing.line(drawing.points[4].name, middle, length_label(slant, request.unit), dashed=True)
+        drawing.line(drawing.points[4].name, middle, length_label(slant, unit), dashed=True)
     return drawing.spec()
 
 
@@ -185,23 +237,20 @@ def _round_base(drawing: Drawing, centre: str, r: float) -> None:
     drawing.arc(centre, r, r * _ELLIPSE, start=0, end=180, dashed=True)
 
 
-def _radius(request: FigureRequest) -> tuple[float | None, str | None]:
+def round_size(request: FigureRequest) -> tuple[float | None, str | None, bool]:
+    """A round solid's radius, the label its stated size is drawn with, and whether that
+    size is a diameter (drawn across the circle, never on a radius)."""
     radius = request.first("radius")
     diameter = request.first("diameter")
-    if radius is None and diameter is not None:
-        radius = diameter / 2
-    if radius is None:
-        return None, None
-    label = (
-        length_label(diameter, request.unit)
-        if request.first("radius") is None and diameter
-        else None
-    )
-    return radius, label or length_label(radius, request.unit)
+    if radius is not None:
+        return radius, length_label(radius, request.unit), False
+    if diameter is not None:
+        return diameter / 2, length_label(diameter, request.unit), True
+    return None, None, False
 
 
 def _cylinder(request: FigureRequest) -> FigureSpec | None:
-    radius, label = _radius(request)
+    radius, label, diameter_shown = round_size(request)
     height = request.first("height", "length")
     r, h = radius or _RADIUS, height or _HEIGHT * 1.2
     drawing = Drawing("cylinder")
@@ -215,14 +264,13 @@ def _cylinder(request: FigureRequest) -> FigureSpec | None:
     unit = request.unit
     drawing.line(right_low, right_high, length_label(height, unit) if height is not None else None)
     if radius is not None:
-        diameter_shown = request.first("radius") is None
         start = left_high if diameter_shown else top
         drawing.line(start, right_high, label)
     return drawing.spec()
 
 
 def _cone(request: FigureRequest) -> FigureSpec | None:
-    radius, label = _radius(request)
+    radius, label, across = round_size(request)
     height = request.first("height")
     slant = request.first("slant_height")
     r = radius or _RADIUS
@@ -245,13 +293,16 @@ def _cone(request: FigureRequest) -> FigureSpec | None:
     drawing.line(
         apex, centre, length_label(height, unit) if height is not None else None, dashed=True
     )
-    drawing.line(centre, right, label, dashed=True)
+    if across:
+        drawing.line(left, right, label, dashed=True, label_at=0.75)
+    else:
+        drawing.line(centre, right, label, dashed=True)
     drawing.angle(centre, right, apex, right=True)
     return drawing.spec()
 
 
 def _sphere(request: FigureRequest, *, half: bool = False) -> FigureSpec | None:
-    radius, label = _radius(request)
+    radius, label, across = round_size(request)
     r = radius or _RADIUS
     drawing = Drawing("hemisphere" if half else "sphere")
     centre = drawing.point((0.0, 0.0), dot=True)
@@ -262,7 +313,10 @@ def _sphere(request: FigureRequest, *, half: bool = False) -> FigureSpec | None:
         drawing.arc(centre, r)
         _round_base(drawing, centre, r)
     edge = drawing.point((r, 0.0))
-    drawing.line(centre, edge, label)
+    if across:
+        drawing.line(drawing.point((-r, 0.0)), edge, label, dashed=True, label_at=0.75)
+    else:
+        drawing.line(centre, edge, label)
     return drawing.spec()
 
 

@@ -41,7 +41,7 @@ _PROMPT = (
     '- "polygon": a triangle, a four-sided shape or a regular polygon\n'
     '- "circle": a circle and its parts, or a shape drawn inside or around a circle\n'
     '- "lines": parallel lines cut by a transversal, two crossing lines, one angle, '
-    "angles on a straight line, complementary angles\n"
+    "angles on a straight line or about a point, complementary angles\n"
     '- "solid": a cube, a cuboid or box, a prism, a cylinder, a cone, a pyramid or a '
     "sphere, or its net\n"
     '- "number_line": numbers or an inequality shown on a number line\n'
@@ -54,19 +54,25 @@ _PROMPT = (
     "Fields, only those the picture needs:\n"
     "- shape: for a polygon one of triangle, right_triangle, isosceles_triangle, "
     "equilateral_triangle, square, rectangle, parallelogram, rhombus, trapezium, kite, "
-    "regular_polygon; for lines one of parallel_lines, intersecting_lines, angle, "
-    "angles_on_line, complementary_angles, perpendicular_lines; for a solid one of cube, "
+    "regular_polygon (regular_hexagon and the like only when the question says regular); "
+    "for lines one of parallel_lines, intersecting_lines, angle, angles_on_line, "
+    "angles_at_point, complementary_angles, perpendicular_lines; for a solid one of cube, "
     "cuboid, triangular_prism, cylinder, cone, square_pyramid, sphere, hemisphere; for a "
     'circle "circle".\n'
     '- vertices: the letters naming the corners in order ("ABCD"), or "".\n'
     "- center: the letter naming a circle's centre or the point where diagonals meet "
     '("O"), or "".\n'
+    "- apex: for an isosceles triangle, the letter where its equal sides meet (AB = AC: "
+    '"A"), or "".\n'
     '- measures: each stated value, as {"what": ..., "name": ..., "value": ...}. what is '
     "one of side, base, height, leg, hypotenuse, equal_side, parallel_side, diagonal, "
-    "angle (in degrees), perimeter, radius, diameter, chord, length, width, edge, "
-    'slant_height. name is the letters it is named with ("AB" for a side, "A" for the '
-    'angle at A), or "". For a prism, length is the prism\'s own length (its height or '
-    "altitude), and the sides of its end triangle are side, leg or hypotenuse.\n"
+    "angle (in degrees), apex_angle and base_angle (an isosceles triangle's), perimeter, "
+    "radius, diameter, chord, length, width, edge, slant_height. name is the letters it "
+    'is named with ("AB" for a side, "A" or "BAC" for an angle), or "". A right angle '
+    'the question places ("right-angled at Q") is {"what": "angle", "name": "Q", '
+    '"value": 90}. For a prism, length is the prism\'s own length (its height or '
+    "altitude), and the sides of its end triangle are side, leg or hypotenuse. For a "
+    "pyramid, edge is a slanting edge beside the base.\n"
     "- sides: a regular polygon's number of sides.\n"
     '- parts: extra parts to draw: "diagonals", "radius", "diameter", "net" (the solid\'s '
     "net).\n"
@@ -74,10 +80,12 @@ _PROMPT = (
     "circumscribed: a shape drawn around the circle.\n"
     '- unit: the unit of length ("cm"), or "".\n'
     '- numbers: the numbers to mark on a number line, as written ("-5/2", "1.5"); '
-    'inequality: the inequality to show, copied exactly ("-2 < x <= 3").\n'
-    '- expr: the right side of y = ... ("2x + 1", "2.54x", "144 - 4x"); variable: its '
-    'letter ("x"); x_min and x_max: the range of x the question states; x_label and '
-    'y_label: what each axis measures ("inches", "centimetres").\n'
+    'inequality: the inequality to show, copied exactly ("-2 < x <= 3"); integers: true '
+    "when only the whole numbers that meet it are asked for.\n"
+    '- expr: the right side of y = ... ("2x + 1", "2.54x", "144 - 4t") in the '
+    'question\'s own letter; variable: that letter ("x", "t"); x_min and x_max: the range '
+    'the question states; x_label and y_label: what each axis measures ("inches", '
+    '"centimetres").\n'
     '- points: [{"name": "A", "x": 2, "y": 3}]; quadrants: true when the question asks '
     "which quadrant.\n"
     "\n"

@@ -1,7 +1,7 @@
-"""Lines and angles from the angle a question states: two parallel lines and a transversal,
-two lines crossing, one angle, angles on a straight line, complementary angles. The stated
-angle is marked and labelled where it is; the angles the question asks for are left for the
-student."""
+"""Lines and angles from the angles a question states: two parallel lines and a transversal,
+two lines crossing, one angle, angles on a straight line or about a point, complementary
+angles. Each stated angle is marked and labelled where it is; the angles the question asks
+for are left for the student."""
 
 from __future__ import annotations
 
@@ -21,25 +21,30 @@ _PARALLEL = frozenset({"parallel_lines", "parallel_transversal", "transversal"})
 _CROSSING = frozenset({"intersecting_lines", "vertical_angles", "vertically_opposite_angles"})
 
 
-def _angle(request: FigureRequest) -> tuple[float, bool]:
-    value = request.first("angle")
-    return (value, True) if value is not None else (_DEFAULT_ANGLE, False)
-
-
 def build_lines(request: FigureRequest) -> FigureSpec | None:
-    angle, stated = _angle(request)
-    if not 0 < angle < 180:
+    """Every angle the question states drawn and labelled where it is; nothing when they
+    are more than the picture holds (a second angle beside parallel lines) or do not fit it
+    (40° between perpendicular lines)."""
+    if any(m.what != "angle" for m in request.measures):
         return None
-    label = angle_label(angle) if stated else None
+    angles = [m.value for m in request.measures]
+    if any(not 0 < value < 180 for value in angles):
+        return None
     shape = request.shape
+    if shape in {"angles_on_line", "angles_at_point"}:
+        whole = 180.0 if shape == "angles_on_line" else 360.0
+        return _around(shape, angles, whole) if angles and sum(angles) <= whole else None
+    if shape == "complementary_angles":
+        return _complementary(angles)
+    if len(angles) > 1:
+        return None
+    angle, label = (angles[0], angle_label(angles[0])) if angles else (_DEFAULT_ANGLE, None)
     if shape in _PARALLEL:
         return _parallel(angle, label)
-    if shape in _CROSSING or shape == "perpendicular_lines":
-        return _crossing(90.0 if shape == "perpendicular_lines" else angle, label)
-    if shape == "angles_on_line":
-        return _on_line(angle, label)
-    if shape == "complementary_angles":
-        return _complementary(angle, label) if angle < 90 else None
+    if shape == "perpendicular_lines":
+        return _crossing(90.0, None) if angle == 90 or not angles else None
+    if shape in _CROSSING:
+        return _crossing(angle, label)
     if shape == "angle":
         return _one_angle(angle, label, request.vertices.strip())
     return None
@@ -80,28 +85,44 @@ def _crossing(angle: float, label: str | None) -> FigureSpec:
     return drawing.spec()
 
 
-def _on_line(angle: float, label: str | None) -> FigureSpec:
-    drawing = Drawing("angles_on_line")
+def _around(shape: str, angles: list[float], whole: float) -> FigureSpec:
+    """Angles side by side about one point: each stated one labelled, what is left of the
+    straight line or the full turn drawn and left for the student."""
+    drawing = Drawing(shape)
     middle = drawing.point((0.0, 0.0), dot=True)
-    east, west = drawing.point((_RAY, 0.0)), drawing.point((-_RAY, 0.0))
-    ray = drawing.point(polar(_RAY, angle))
-    drawing.line(west, east)
-    drawing.line(middle, ray)
-    drawing.angle(middle, east, ray, label)
-    drawing.angle(middle, ray, west)
+    east = drawing.point((_RAY, 0.0))
+    on_line = shape == "angles_on_line"
+    start = drawing.point((-_RAY, 0.0)) if on_line else middle
+    drawing.line(start, east)
+    turn, last = 0.0, east
+    for value in angles:
+        turn += value
+        ray = drawing.point(polar(_RAY, turn))
+        if abs(turn - whole) > 1e-9 and abs(turn - 180) > 1e-9:
+            drawing.line(middle, ray)
+        drawing.angle(middle, last, ray, angle_label(value))
+        last = ray
+    left = whole - turn
+    if 1e-9 < left < 180:
+        drawing.angle(middle, last, start if on_line else east)
     return drawing.spec()
 
 
-def _complementary(angle: float, label: str | None) -> FigureSpec:
+def _complementary(angles: list[float]) -> FigureSpec | None:
+    """Two angles making a right angle: the stated one (or both) labelled."""
+    if not angles or len(angles) > 2 or angles[0] >= 90:
+        return None
+    if len(angles) == 2 and abs(sum(angles) - 90) > 1e-9:
+        return None
     drawing = Drawing("complementary_angles")
     middle = drawing.point((0.0, 0.0))
     east, north = drawing.point((_RAY, 0.0)), drawing.point((0.0, _RAY))
-    ray = drawing.point(polar(_RAY, angle))
+    ray = drawing.point(polar(_RAY, angles[0]))
     drawing.line(middle, east)
     drawing.line(middle, north)
     drawing.line(middle, ray)
-    drawing.angle(middle, east, ray, label)
-    drawing.angle(middle, ray, north)
+    drawing.angle(middle, east, ray, angle_label(angles[0]))
+    drawing.angle(middle, ray, north, angle_label(angles[1]) if len(angles) == 2 else None)
     return drawing.spec()
 
 

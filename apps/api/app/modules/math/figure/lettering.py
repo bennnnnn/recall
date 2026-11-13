@@ -17,6 +17,7 @@ from app.modules.math.schemas.figure import FigureSpec
 
 _LENGTH_TOLERANCE = 1e-3
 _ANGLE_TOLERANCE = 0.05
+_ANGLES = frozenset({"angle", "apex_angle", "base_angle"})
 
 
 def _orders(letters: list[str]) -> list[list[str]]:
@@ -40,12 +41,15 @@ def _holds(
     count = len(order)
     for measure in request.measures:
         name = measure.name.strip()
-        if measure.what == "angle" and _vertex(name) in at:
+        if measure.what in _ANGLES and _vertex(name) in at:
             index = order.index(_vertex(name))
             before, after = at[order[index - 1]], at[order[(index + 1) % count]]
+            if len(name) == 3 and set(name) <= set(at):
+                # "ACB" is the angle at C between CA and CB, which may be a diagonal.
+                before, after = at[name[0]], at[name[2]]
             if abs(angle_at(at[order[index]], before, after) - measure.value) > _ANGLE_TOLERANCE:
                 return False
-        elif len(name) == 2 and set(name) <= set(at) and measure.what != "angle":
+        elif len(name) == 2 and set(name) <= set(at) and measure.what not in _ANGLES:
             length = distance(at[name[0]], at[name[1]])
             if abs(length - measure.value) > _LENGTH_TOLERANCE * max(1.0, measure.value):
                 return False

@@ -22,6 +22,9 @@ MeasureWhat = Literal[
     "parallel_side",
     "diagonal",
     "angle",
+    # An isosceles triangle's angle where its equal sides meet, and one of the two others.
+    "apex_angle",
+    "base_angle",
     "perimeter",
     "radius",
     "diameter",
@@ -59,6 +62,8 @@ class FigureRequest(BaseModel):
     vertices: str = Field(default="", max_length=8)
     # The letter of a circle's centre, or of where a shape's diagonals meet ("O").
     center: str = Field(default="", max_length=4)
+    # The letter where an isosceles triangle's equal sides meet ("AB = AC": "A").
+    apex: str = Field(default="", max_length=1)
     measures: list[Measure] = Field(default_factory=list, max_length=12)
     # A regular polygon's number of sides.
     sides: int | None = Field(default=None, ge=3, le=12)
@@ -71,6 +76,9 @@ class FigureRequest(BaseModel):
     # A number line: the numbers as written ("-5/2", "1.5"), or an inequality copied.
     numbers: list[str] = Field(default_factory=list, max_length=10)
     inequality: str = Field(default="", max_length=80)
+    # Only the whole numbers that meet the inequality are asked for ("the integers n with
+    # -3 < n <= 2"): each is marked, the line between them is not shaded.
+    integers: bool = False
     # A function graph: y = expr in ``variable``, over the stated range, axis names.
     expr: str = Field(default="", max_length=120)
     variable: str = Field(default="x", max_length=4)
@@ -94,6 +102,12 @@ class FigureRequest(BaseModel):
         return " ".join(str(value or "").strip().lower().replace("-", " ").split()).replace(
             " ", "_"
         )
+
+    @field_validator("apex", mode="before")
+    @classmethod
+    def _letter(cls, value: Any) -> str:
+        letter = str(value or "").strip()[:1]
+        return letter if letter.isalpha() else ""
 
     @field_validator("parts", mode="before")
     @classmethod

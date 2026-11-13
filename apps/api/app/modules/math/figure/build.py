@@ -1,54 +1,32 @@
 """A reading of what to draw, made into the fence the phone draws, or nothing.
 
 Runs in the SymPy pool (``build_figure_fence`` is its picklable entry): the numbers are
-checked against the question first (``grounding``), then the kind's builder draws it. A
-builder that cannot meet what the question states returns None, and so does this.
+checked against the question first (``grounding``), then the kind's builder draws it, and
+the drawing is checked against the question last (``honest``). A builder that cannot meet
+what the question states returns None, and so does this.
 """
 
 from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Callable
 
 from pydantic import ValidationError
 
-from app.modules.math.figure import circles, coordinate, lines, nets, quads, solids, triangles
-from app.modules.math.figure.grounding import grounded
-from app.modules.math.figure.lettering import lettered
+from app.modules.math.figure import circles, coordinate, lines, nets, solids
+from app.modules.math.figure.grounding import grounded, with_unit
+from app.modules.math.figure.honest import honours
+from app.modules.math.figure.polygon import build_polygon
 from app.modules.math.figure.request import FigureRequest
 from app.modules.math.schemas.figure import FigureSpec
 from app.services.solving import SolveServiceError
 
 logger = logging.getLogger(__name__)
 
-_POLYGONS: dict[str, Callable[[FigureRequest], FigureSpec | None]] = {
-    "square": quads.build_square,
-    "rectangle": quads.build_rectangle,
-    "parallelogram": quads.build_parallelogram,
-    "rhombus": quads.build_rhombus,
-    "trapezium": quads.build_trapezium,
-    "trapezoid": quads.build_trapezium,
-    "kite": quads.build_kite,
-}
-
-
-def _polygon(request: FigureRequest) -> FigureSpec | None:
-    shape = request.shape
-    if shape in triangles.TRIANGLES:
-        spec = triangles.build_triangle(request)
-    elif shape in _POLYGONS:
-        spec = _POLYGONS[shape](request)
-    elif shape.startswith("regular") or shape.removeprefix("regular_") in quads.POLYGON_SIDES:
-        spec = quads.build_regular_polygon(request)
-    else:
-        return None
-    return None if spec is None else lettered(spec, request)
-
 
 def _figure(request: FigureRequest) -> FigureSpec | None:
     if request.kind == "polygon":
-        return _polygon(request)
+        return build_polygon(request)
     if request.kind == "circle":
         return circles.build_circle(request)
     if request.kind == "lines":
@@ -64,6 +42,7 @@ def _fence(lang: str, body: dict[str, object]) -> str:
 
 def figure_fence(request: FigureRequest, texts: list[str]) -> str | None:
     """The picture's fence (```geometry or ```graph), or None when nothing is drawn."""
+    request = with_unit(request, texts)
     if request.kind == "none" or not grounded(request, texts):
         return None
     try:
@@ -80,7 +59,7 @@ def figure_fence(request: FigureRequest, texts: list[str]) -> str | None:
     except (SolveServiceError, ValidationError, ValueError, ZeroDivisionError):
         logger.info("figure build failed for %s %s", request.kind, request.shape, exc_info=True)
         return None
-    if spec is None:
+    if spec is None or not honours(spec, request):
         return None
     # Defaults left out keep the fence small; its type stays, as the phone reads it first.
     return _fence("geometry", {"type": spec.type, **spec.model_dump(exclude_defaults=True)})

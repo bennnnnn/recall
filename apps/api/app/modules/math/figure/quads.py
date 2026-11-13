@@ -75,6 +75,9 @@ class _Values:
         self.angles: dict[int, float] = {}
         self.unnamed: list[tuple[str, float]] = []
         self.unnamed_angles: list[float] = []
+        # A trapezium's parallel sides and height, once its builder reads them.
+        self.bottom, self.top = 0.0, 0.0
+        self.height: float | None = None
         for measure in request.measures:
             if measure.what == "angle":
                 vertex = _vertex(measure.name)
@@ -140,6 +143,15 @@ def _diagonals(drawing: Drawing, request: FigureRequest, names: list[str], *, ri
         drawing.angle(middle, c, d, right=True)
 
 
+def _diagonal_ends(request: FigureRequest, names: list[str]) -> tuple[str, str]:
+    """The diagonal the question names ("BD"), or AC."""
+    for measure in request.given("diagonal"):
+        letters = measure.name.strip()
+        if len(letters) == 2 and set(letters) <= set(names) and _side_index(letters, names) is None:
+            return letters[0], letters[1]
+    return names[0], names[2]
+
+
 def _parallel_marks(drawing: Drawing, names: list[str], pairs: int) -> None:
     """Arrowheads on parallel sides: one on the first pair, two on the second."""
     a, b, c, d = names
@@ -159,8 +171,11 @@ def build_square(request: FigureRequest) -> FigureSpec | None:
     values = _Values(request, names)
     side = values.side(0, 1, 2, 3) or values.take("side", "edge", "length", "base")
     diagonal = values.take("diagonal")
+    perimeter = values.take("perimeter")
     if side is None and diagonal is not None:
         side_size = diagonal / math.sqrt(2)
+    elif side is None and perimeter is not None:
+        side_size = perimeter / 4
     else:
         side_size = side or _SIDE
     corners = [(0.0, 0.0), (side_size, 0.0), (side_size, side_size), (0.0, side_size)]
@@ -170,7 +185,7 @@ def build_square(request: FigureRequest) -> FigureSpec | None:
         drawing.label_side(names[index], names[(index + 1) % 4], label, ticks=1)
     _mark_angles(drawing, names, dict.fromkeys(range(4), 90.0))
     if diagonal is not None:
-        drawing.line(names[0], names[2], values.label(diagonal))
+        drawing.line(*_diagonal_ends(request, names), values.label(diagonal))
     elif request.has_part("diagonal"):
         _diagonals(drawing, request, names, right=True)
     return drawing.spec()
@@ -182,7 +197,13 @@ def build_rectangle(request: FigureRequest) -> FigureSpec | None:
     length = values.side(0, 2) or values.take("length", "base", "side")
     width = values.side(1, 3) or values.take("width", "height", "side")
     diagonal = values.take("diagonal")
+    perimeter = values.take("perimeter")
     stated_length, stated_width = length, width
+    if perimeter is not None and (length is None) != (width is None):
+        other = perimeter / 2 - float(length if length is not None else width or 0)
+        if other <= 0:
+            return None
+        length, width = (length, other) if length is not None else (other, width)
     if diagonal is not None and (length is None) != (width is None):
         known = float(length if length is not None else width or 0)
         if diagonal <= known:
@@ -195,7 +216,7 @@ def build_rectangle(request: FigureRequest) -> FigureSpec | None:
     drawing.label_side(names[1], names[2], values.label(stated_width))
     _mark_angles(drawing, names, dict.fromkeys(range(4), 90.0))
     if diagonal is not None:
-        drawing.line(names[0], names[2], values.label(diagonal))
+        drawing.line(*_diagonal_ends(request, names), values.label(diagonal))
     elif request.has_part("diagonal"):
         _diagonals(drawing, request, names, right=False)
     return drawing.spec()
@@ -240,8 +261,11 @@ def build_parallelogram(request: FigureRequest, *, rhombus: bool = False) -> Fig
     corners = [(0.0, 0.0), (b, 0.0), (b + top[0], top[1]), top]
     drawing = _drawing(request, corners, names, lettered)
     drawing.shape = "rhombus" if rhombus else "parallelogram"
-    drawing.label_side(names[0], names[1], values.label(base))
-    drawing.label_side(names[0], names[3], values.label(stated_side))
+    # Each value on the side the question names, or the bottom and the left.
+    along = (names[2], names[3]) if 2 in values.sides and 0 not in values.sides else names[:2]
+    up = (names[1], names[2]) if 1 in values.sides and 3 not in values.sides else names[::3]
+    drawing.label_side(along[0], along[1], values.label(base))
+    drawing.label_side(up[0], up[1], values.label(stated_side))
     if rhombus:
         for index in range(4):
             drawing.label_side(names[index], names[(index + 1) % 4], None, ticks=1)
@@ -283,45 +307,87 @@ def build_rhombus(request: FigureRequest) -> FigureSpec | None:
     return drawing.spec()
 
 
+def _trapezium_frame(values: _Values, isosceles: bool) -> tuple[float, float] | None:
+    """Where the top's left end stands over the bottom's: (its run along, its height), from
+    what the question states: a height, a leg or two, a base angle. What it leaves open is
+    chosen, never an equal pair of legs it did not state."""
+    bottom, top = values.bottom, values.top
+    gap = bottom - top
+    a, b = values.angles.get(0), values.angles.get(1)
+    a = a if a is not None else (180 - values.angles[3] if 3 in values.angles else None)
+    b = b if b is not None else (180 - values.angles[2] if 2 in values.angles else None)
+    left, right, height = values.side(3), values.side(1), values.height
+    if isosceles:
+        left = right = left or right
+    if height is None and left is not None and a is not None:
+        height = left * math.sin(math.radians(a))
+    if height is None and right is not None and b is not None:
+        height = right * math.sin(math.radians(b))
+    if height is None and left is not None and right is not None and abs(gap) > 1e-9:
+        run = (left * left - right * right + gap * gap) / (2 * gap)
+        return (run, math.sqrt(left * left - run * run)) if left > abs(run) else None
+    if height is None:
+        lean = left or right
+        height = lean * math.sin(math.radians(70)) if lean else bottom * _TRAPEZIUM_HEIGHT
+    if a is not None:
+        return height / math.tan(math.radians(a)), height
+    if b is not None:
+        return gap - height / math.tan(math.radians(b)), height
+    if isosceles:
+        return gap / 2, height
+    if left is not None:
+        return (math.sqrt(left * left - height * height), height) if left > height else None
+    if right is not None:
+        return (
+            (gap - math.sqrt(right * right - height * height), height) if right > height else None
+        )
+    return gap * _TRAPEZIUM_LEFT, height
+
+
 def build_trapezium(request: FigureRequest) -> FigureSpec | None:
     names, lettered = _letters(request, 4)
     values = _Values(request, names)
-    parallel = sorted((v for role, v in values.unnamed if role == "parallel_side"), reverse=True)
-    bottom = values.side(0) or (parallel[0] if parallel else None)
-    top = values.side(2) or (parallel[1] if len(parallel) > 1 else None)
-    if bottom is not None and top is not None and top > bottom:
-        bottom, top = top, bottom
-    height = values.take("height")
-    leg = values.side(1, 3) or values.take("leg", "side")
-    b = bottom or _BASE
-    t = top or b * _TRAPEZIUM_TOP
+    parallel = sorted(
+        (v for role, v in values.unnamed if role in {"parallel_side", "base"}), reverse=True
+    )
+    values.unnamed = [(r, v) for r, v in values.unnamed if r not in {"parallel_side", "base"}]
+    bottom, top = values.side(0), values.side(2)
+    if bottom is None and parallel:
+        bottom = parallel.pop(0)
+    if top is None and parallel:
+        top = parallel.pop(0)
+    if parallel or values.unnamed_angles[1:]:
+        return None
+    if values.unnamed_angles:
+        values.angles.setdefault(0, values.unnamed_angles[0])
     if top is not None and bottom is not None and abs(top - bottom) < 1e-9:
         return None  # equal parallel sides make a parallelogram, not a trapezium
-    left = (b - t) * _TRAPEZIUM_LEFT
-    if leg is not None:
-        left = (b - t) / 2
-        if height is None:
-            if leg <= left:
-                return None
-            height_size = math.sqrt(leg * leg - left * left)
-        else:
-            height_size = height
-            if abs(math.hypot(left, height) - leg) > 1e-4 * leg:
-                return None
-    else:
-        height_size = height or b * _TRAPEZIUM_HEIGHT
-    corners = [(0.0, 0.0), (b, 0.0), (left + t, height_size), (left, height_size)]
+    isosceles = request.shape.startswith("isosceles")
+    legs = [v for role, v in values.unnamed if role in {"leg", "side"}]
+    if len(legs) > (1 if isosceles else 2) or (len(legs) == 2 and 1 in values.sides):
+        return None
+    for index, leg in zip((3, 1), legs, strict=False):
+        values.sides.setdefault(index, leg)
+    values.height = values.take("height")
+    values.bottom = bottom or _BASE
+    values.top = top or values.bottom * _TRAPEZIUM_TOP
+    frame = _trapezium_frame(values, isosceles)
+    if frame is None:
+        return None
+    run, height = frame
+    b, t = values.bottom, values.top
+    corners = [(0.0, 0.0), (b, 0.0), (run + t, height), (run, height)]
     drawing = _drawing(request, corners, names, lettered)
     drawing.label_side(names[0], names[1], values.label(bottom))
     drawing.label_side(names[3], names[2], values.label(top))
-    if leg is not None:
-        drawing.label_side(names[0], names[3], values.label(leg), ticks=1)
-        drawing.label_side(names[1], names[2], None, ticks=1)
+    ticks = 1 if isosceles else 0
+    drawing.label_side(names[0], names[3], values.label(values.sides.get(3)), ticks=ticks)
+    drawing.label_side(names[1], names[2], values.label(values.sides.get(1)), ticks=ticks)
     _parallel_marks(drawing, names, 1)
     _mark_angles(drawing, names, values.angles)
-    if height is not None:
-        foot = drawing.point((left, 0.0))
-        drawing.line(names[3], foot, values.label(height), dashed=True)
+    if values.height is not None:
+        foot = drawing.point((run, 0.0))
+        drawing.line(names[3], foot, values.label(values.height), dashed=True)
         drawing.angle(foot, names[1], names[3], right=True)
     return drawing.spec()
 
@@ -364,7 +430,14 @@ def build_kite(request: FigureRequest) -> FigureSpec | None:
 
 
 def build_regular_polygon(request: FigureRequest) -> FigureSpec | None:
-    count = request.sides or POLYGON_SIDES.get(request.shape.removeprefix("regular_"))
+    """A regular polygon: its name and its number of sides agree, and a polygon the question
+    does not call regular is not drawn as one."""
+    named = POLYGON_SIDES.get(request.shape.removeprefix("regular_"))
+    if not request.shape.startswith("regular"):
+        return None
+    if named is not None and request.sides is not None and named != request.sides:
+        return None
+    count = request.sides or named
     if count is None or not 3 <= count <= 12:
         return None
     names, lettered = _letters(request, count)
@@ -378,5 +451,6 @@ def build_regular_polygon(request: FigureRequest) -> FigureSpec | None:
         label = length_label(side, request.unit) if side is not None and index == 0 else None
         drawing.label_side(names[index], names[(index + 1) % count], label, ticks=1)
     values = _Values(request, names)
-    _mark_angles(drawing, names, values.angles)
+    unnamed = values.unnamed_angles[:1]
+    _mark_angles(drawing, names, values.angles or dict(zip([1], unnamed, strict=False)))
     return drawing.spec()
