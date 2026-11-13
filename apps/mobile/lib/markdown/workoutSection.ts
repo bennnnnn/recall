@@ -89,6 +89,26 @@ export function splitWorkoutNote(line: string): { state: string; note: string | 
   return { state: line, note: null };
 }
 
+// The words before an answer's first maths, and a label's colon right before it.
+const FIRST_MATHS = /\$|\\\(/;
+const LONG_WORD = /\p{L}{3,}/gu;
+
+/**
+ * A line an answer's box holds: its value (`$x = 3$`, `Speed = 4 m/s`, `$5°$ from the
+ * normal`, a label's `Area: $24\,\mathrm{cm^2}$`, a word), never a sentence round its maths.
+ * "A line from $(-3, -5)$ to $(3, 7)$ — slope $2$" was drawn in the box (2026-11-13): words
+ * of a phrase (two of three letters or more) before the first maths, with no `=` among them,
+ * make the line a sentence, which stays a line of its own (twin: the API's
+ * `services/card_text.wordy`, which keeps such a line out of a card).
+ */
+export function isAnswerValue(line: string): boolean {
+  const text = line.trim();
+  const at = text.search(FIRST_MATHS);
+  const lead = (at < 0 ? text : text.slice(0, at)).trim();
+  if (lead.endsWith(":") || /[=≈]/.test(lead)) return true;
+  return (lead.match(LONG_WORD) ?? []).length < 2;
+}
+
 /**
  * A heading inside Solution, a level under the sections: a formula under its name,
  * Substitution, Steps. Given, Required, Solution and Answer are the sections. Read from

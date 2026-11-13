@@ -1,6 +1,7 @@
 import {
   askedLine,
   isAnswerHeading,
+  isAnswerValue,
   isSolutionHeading,
   isWorkedReply,
   lawHeading,
@@ -89,5 +90,29 @@ describe("lawHeading", () => {
     ["A heading that runs far too long to be the name of one law", "$x$", null],
   ])("%s over %s", (text, firstLine, expected) => {
     expect(lawHeading(text, firstLine)).toBe(expected);
+  });
+});
+
+describe("isAnswerValue", () => {
+  // The textbook run (2026-11-13): a graph's answer in words was drawn in the answer box.
+  it.each([
+    "A line from $(-3, -5)$ to $(3, 7)$ — slope $2$, $y$-intercept $1$.",
+    "The ball lands $x = 12\\,\\mathrm{m}$ from the wall.",
+    "The line has slope $2$ and passes through $(0, 1)$.",
+    "Only the positive root counts.",
+  ])("reads %s as a sentence", (line) => {
+    expect(isAnswerValue(line)).toBe(false);
+  });
+
+  it.each([
+    "$c = 15\\ \\text{cm}$",
+    "Total area: $A = 24$",
+    "$5°$ from the normal",
+    "Approximately $4.2$ s",
+    "Speed = 4 m/s",
+    "Average speed = total distance / total time = 4 m/s",
+    "Paris",
+  ])("reads %s as a value", (line) => {
+    expect(isAnswerValue(line)).toBe(true);
   });
 });

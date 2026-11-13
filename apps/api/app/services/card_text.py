@@ -16,6 +16,8 @@ with its asterisks showing. Before a model's line becomes a card:
   TeX alone, and a unit's power is written after the unit, as the server writes it
   (``\\mathrm{cm}^{2}``): a triangle's parts came as ``$A = 54\\,\\mathrm{cm²}$`` beside
   ``\\mathrm{cm^2}`` (2026-11-06).
+
+A line in words is no card at all (``wordy``): a paragraph, or a sentence round its maths.
 """
 
 from __future__ import annotations
@@ -97,3 +99,31 @@ def _unit(unit: str) -> str:
     if unit == "°":
         return r"^\circ"
     return rf"\,\text{{{unit}}}" if " " in unit else rf"\,\mathrm{{{unit}}}"
+
+
+_WORD = re.compile(r"[A-Za-z]{3,}")
+# The first maths of an answer line, and the words of a phrase before it.
+_FIRST_MATHS = re.compile(r"\$|\\\(")
+_LETTERS = re.compile(r"[^\W\d_]{3,}")
+
+
+def _relations(text: str) -> str:
+    """``≈`` and ``\\approx`` read as ``=``: an approximate value is still a value."""
+    return text.replace("\\approx", "=").replace("\u2248", "=")
+
+
+def wordy(value: str) -> bool:
+    """Words, not a value a card holds: a paragraph (over twenty words outside its maths and
+    no equation), or a sentence round its maths. "A line from $(-3, -5)$ to $(3, 7)$ — slope
+    $2$" filled a card (2026-11-13): words of a phrase (two of three letters or more) before
+    the first maths, with no ``=`` among them, make a sentence. A value (``$x = 3$``, ``Speed =
+    4 m/s``, ``$5°$ from the normal``) or a label's (``Area: $24$``) is none (twin: the phone's
+    ``isAnswerValue``, ``lib/markdown/workoutSection.ts``)."""
+    if len(value) > 2000:
+        return True
+    prose = _relations(_MATH.sub(" ", value))  # 2000 characters at most: read once
+    if "=" not in prose and len(_WORD.findall(prose)) > 20:
+        return True
+    found = _FIRST_MATHS.search(value)
+    lead = _relations((value if found is None else value[: found.start()]).strip())
+    return not lead.endswith(":") and "=" not in lead and len(_LETTERS.findall(lead)) >= 2

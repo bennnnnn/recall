@@ -385,6 +385,36 @@ def test_a_sentence_round_its_maths_is_no_card() -> None:
     assert "```answer" in land_answer_card("**Answer**\n\n$5°$ from the normal", None)
 
 
+@pytest.mark.parametrize(
+    "answer",
+    [
+        # The textbook run (2026-11-13): a graph's answer in words filled the card.
+        "A line from $(-3, -5)$ to $(3, 7)$ — slope $2$, $y$-intercept $1$.",
+        "The ball lands $x = 12\\,\\mathrm{m}$ from the wall.",
+        "The line has slope $2$ and passes through $(0, 1)$.",
+        "Each angle measures $60^\\circ$ in an equilateral triangle.",
+    ],
+)
+def test_an_answer_written_as_a_sentence_is_no_card(answer: str) -> None:
+    reply = f"**Answer**\n{answer}"
+    assert land_answer_card(reply, None) == reply
+
+
+@pytest.mark.parametrize(
+    ("answer", "card"),
+    [
+        ("$c = 15\\ \\text{cm}$", "c = 15\\ \\text{cm}"),
+        ("Total area: $A = 24$", "Total area: $A = 24$"),
+        ("$5°$ from the normal", "$5°$ from the normal"),
+        ("Approximately $4.2$ s", "Approximately $4.2$ s"),
+        ("Speed = 4 m/s", "Speed = $4\\,\\mathrm{m/s}$"),
+    ],
+)
+def test_a_value_keeps_its_card(answer: str, card: str) -> None:
+    landed = land_answer_card(f"**Answer**\n{answer}", None)
+    assert f"```answer\n{UNCHECKED_ANSWER_MARKER}\n{card}\n```" in landed
+
+
 def test_an_equation_in_words_keeps_its_card() -> None:
     reply = (
         "**Answer:** Average speed = total distance travelled / total time taken = 1200 metres "
