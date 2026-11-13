@@ -89,8 +89,10 @@ def test_a_card_the_working_contradicts_stands_with_no_check(
         ("**Answer**\n\n$A = 16\\pi \\approx 50.27\\ \\text{cm}^2$\n", r"16\pi \approx 50.27"),
         # A ratio the working states is the ratio's.
         ("**Answer**\n\n$2:3$\n", "2:3"),
-        # A unit's letters and a where-line are no expression.
+        # A unit's letters, a where-line and words are no expression.
         ("where $r$ = radius\n\n**Answer**\n\n$P = 25.71\\ \\text{cm}$\n", r"\approx 25.71"),
+        ("**Answer**\n\n$d = 5\\ m$\n", r"5\ \mathrm{m}"),
+        ("**Answer**\n\nThe ratio is a simple 2 to 3.\n", "2:3"),
     ],
 )
 def test_a_card_the_working_agrees_with_keeps_its_check(reply: str, card: str) -> None:

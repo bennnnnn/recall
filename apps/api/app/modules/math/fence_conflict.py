@@ -58,9 +58,10 @@ def contradicted_reading(
     if verified is None or not verified.read_from_words or not answer_body:
         return None
     worked = demote_answer_fences(reply)
-    if stated_verdict(worked, answer_body) != "conflict" and not _letters_for_a_number(
-        worked, answer_body
-    ):
+    verdict = stated_verdict(worked, answer_body)
+    # A reply that states no number may still end on an expression the card is no answer to.
+    letters = verdict in {"absent", "unknown"} and _letters_for_a_number(worked, answer_body)
+    if verdict != "conflict" and not letters:
         return None
     text = normalize_owned_fences(reply, ANSWER_FENCE_LANGS)
     for lang in ANSWER_FENCE_LANGS:
@@ -94,7 +95,9 @@ def _letters_for_a_number(worked: str, answer_body: str) -> bool:
     section = [answer_heading(lines[heads[-1]]) or "", *lines[heads[-1] + 1 :]]
     said = "\n".join(section).strip().split("\n\n")[0]
     last = _LAST_MATH.search(said)
-    final = _RELATION.split(last.group(1) if last else said)[-1]
+    if last is None:
+        return False  # words, not maths: "a" and "I" are no variables
+    final = _RELATION.split(last.group(1))[-1]
     return bool(final.strip()) and _letters(final)
 
 
