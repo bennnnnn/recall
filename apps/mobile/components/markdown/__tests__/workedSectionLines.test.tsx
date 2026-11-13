@@ -55,6 +55,17 @@ const PRISM = [
   "**Answer**  ",
   "$\\boxed{408\\ \\text{cm}^2}$",
 ].join("\n");
+// A heading that starts lowercase is a heading too (review, 2026-11-13: "pH = 3 pOH from pH").
+const LOWERCASE = [
+  "**Given**  ",
+  "$pH = 3$",
+  "**pOH from pH**",
+  "$pOH = 14 - pH$",
+  "**de Broglie relation**",
+  String.raw`$\lambda = \frac{h}{p}$`,
+  "**x-intercept**",
+  "$x = 3$",
+].join("\n");
 const TITLES = [
   "**Given**  ",
   "$m = 2\\,\\mathrm{kg}$, $a = 3\\,\\mathrm{m/s^2}$",
@@ -90,6 +101,13 @@ describe("a worked reply written with single line breaks", () => {
     );
   });
 
+  // Streaming, every frame keeps them off the row above (below).
+  it("heads a section with a lowercase title", async () => {
+    expect(await headings(LOWERCASE, false)).toEqual(
+      expect.arrayContaining(["pOH from pH", "de Broglie relation", "x-intercept"]),
+    );
+  });
+
   it("keeps each line of working its own row", async () => {
     const screen = await render(<MarkdownContent content={PRISM} />);
     const substitution = screen.getAllByTestId("workout-section").find((node) =>
@@ -122,11 +140,12 @@ describe("a worked reply written with single line breaks", () => {
 });
 
 describe("a worked reply's heading while it streams", () => {
-  const HEADING = /^\*\*(?:Given|Required|Solution|Substitution|Answer|\d+\. [^*]+|[A-Z][a-z]+ [a-z ]+formula)\*\*/;
+  const HEADING =
+    /^\*\*(?:Given|Required|Solution|Substitution|Answer|\d+\. [^*]+|[A-Z][a-z]+ [a-z ]+formula|pOH from pH|de Broglie relation|x-intercept)\*\*/;
 
   // The tail's first line had no line above it inside the tail: "**Required**", typed out,
   // sat on the row above until its line ended (14 of 89 frames for b12, review 2026-11-13).
-  it.each([INEQUALITY, PRISM, TITLES])("never sits on the row above, at any frame: %#", (reply) => {
+  it.each([INEQUALITY, PRISM, TITLES, LOWERCASE])("never sits on the row above, at any frame: %#", (reply) => {
     let cache: StreamingPreprocessCache | null = null;
     const glued: string[] = [];
     for (let end = 1; end <= reply.length; end += 3) {

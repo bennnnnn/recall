@@ -11,9 +11,9 @@ model wrote its sections with single breaks ("$3x - 5 < 2x + 4$" then "**Require
 the phone showed "3x - 5 < 2x + 4 **Required** Solve for x. **Solution**" on one row
 (2026-11-13). In a reply that heads a line **Given** or **Required**, a heading is a
 section's, a part's or a numbered move's bold title ("**1. Subtract 2x** — subtraction
-property") or a bold line alone that reads as a title (a formula's name, a bold value). A
-bold label in a sentence ("**Speed:** 3 m/s"), a bold word inside one and a display
-formula's lines stay as they are.
+property") or a bold run that is the whole line, whatever its first letter (a formula's
+name, "**pOH from pH**", a bold value). A bold label with words after it on its line
+("**Speed:** 3 m/s") and a display formula's lines stay as they are.
 """
 
 from __future__ import annotations
@@ -63,17 +63,17 @@ def _opens_with_bold_lead(line: str) -> bool:
 
 
 def _heading(line: str) -> bool:
-    """A worked reply's heading: a section's, a part's or a numbered move's bold title (with
-    words after it or none), or another bold line alone that reads as a title: not a word
-    in a sentence ("The force is" / "**larger**" / "than before.") or a sentence itself."""
+    """A worked reply's heading: a bold run that is the whole line, whatever its first
+    letter ("**pOH from pH**", "**de Broglie relation**"), or a section's, a part's or a
+    numbered move's bold title with words after it. A bold word with other text on its line
+    is that line's."""
     bold = _BOLD_HEAD.match(line)
     if bold is None:
         return False
-    title = bold.group("title").strip().removesuffix(":").strip()
-    if title in _SECTIONS or _TITLE.fullmatch(title) is not None:
+    if bold.group("rest").strip() in ("", ":"):
         return True
-    alone = bold.group("rest").strip() in ("", ":")
-    return alone and not title[:1].islower() and not title.endswith((".", "?", "!"))
+    title = bold.group("title").strip().removesuffix(":").strip()
+    return title in _SECTIONS or _TITLE.fullmatch(title) is not None
 
 
 def _separate(prose: str, worked: bool) -> str:

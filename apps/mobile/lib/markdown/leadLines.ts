@@ -13,9 +13,9 @@
  * and the phone showed "3x − 5 < 2x + 4 **Required** Solve for x. **Solution**" on one row
  * (2026-11-13). In a reply that heads a line **Given** or **Required**, a heading is a
  * section's, a part's or a numbered move's bold title ("**1. Subtract 2x** — subtraction
- * property") or a bold line alone that reads as a title (a formula's name, a bold value).
- * A bold label in a sentence ("**Speed:** 3 m/s"), a bold word inside one and a display
- * formula's lines stay as they are.
+ * property") or a bold run that is the whole line, whatever its first letter (a formula's
+ * name, "**pOH from pH**", a bold value). A bold label with words after it on its line
+ * ("**Speed:** 3 m/s") and a display formula's lines stay as they are.
  */
 
 import { displayMathLines, rewriteFenced } from "@/lib/markdown/markdownRegions";
@@ -41,17 +41,17 @@ function opensWithBoldLead(line: string): boolean {
   return line.indexOf("**", start + 2) > start + 2;
 }
 
-/** A worked reply's heading: a section's, a part's or a numbered move's bold title (with
- * words after it or none), or another bold line alone that reads as a title: not a word in
- * a sentence ("The force is" / "**larger**" / "than before.") or a sentence itself. */
+/** A worked reply's heading: a bold run that is the whole line, whatever its first letter
+ * ("**pOH from pH**", "**de Broglie relation**"), or a section's, a part's or a numbered
+ * move's bold title with words after it. A bold word with other text on its line is that
+ * line's. */
 function isHeading(line: string): boolean {
   const bold = BOLD_HEAD.exec(line);
   if (!bold) return false;
-  const title = bold[1]!.trim().replace(/:$/, "").trim();
-  if (SECTIONS.has(title) || TITLE.test(title)) return true;
   const rest = bold[2]!.trim();
-  const alone = rest === "" || rest === ":";
-  return alone && !/^\p{Ll}/u.test(title) && !/[.?!]$/.test(title);
+  if (rest === "" || rest === ":") return true;
+  const title = bold[1]!.trim().replace(/:$/, "").trim();
+  return SECTIONS.has(title) || TITLE.test(title);
 }
 
 /** Whether `line` starts a paragraph of its own under `above` (blank above: it does already). */

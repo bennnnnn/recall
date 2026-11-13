@@ -1184,12 +1184,6 @@
       "expected": "Total $60: 3 of us, so $x = 20$, and rent is $1,200: 3 roommates."
     },
     {
-      "id": "worked-bold-word-in-a-sentence-stays",
-      "area": "lead_lines",
-      "input": "**Given**  \n$a = 2$\n\n**Solution**\nThe force is\n**larger**\nthan before.",
-      "expected": "**Given**  \n$a = 2$\n\n**Solution**\nThe force is\n**larger**\nthan before."
-    },
-    {
       "id": "worked-display-maths-left-alone",
       "area": "lead_lines",
       "input": "**Required**\n$x$\n$$\n**not bold**\n$$\n**Answer**\n$x = 1$",
@@ -1200,6 +1194,12 @@
       "area": "lead_lines",
       "input": "**Given**\n- $m = 2$ kg\n- $v = 3$ m/s\n**Required**\n$p$\n\n| a | b |\n|---|---|\n| 1 | 2 |\n**Answer**\n$p = 6$",
       "expected": "**Given**\n- $m = 2$ kg\n- $v = 3$ m/s\n\n**Required**\n$p$\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n**Answer**\n$p = 6$"
+    },
+    {
+      "id": "worked-lowercase-headings",
+      "area": "lead_lines",
+      "input": "**Given**  \n$pH = 3$\n**pOH from pH**\n$pOH = 14 - pH$\n**de Broglie relation**\n$\\lambda = \\frac{h}{p}$\n**x-intercept**\n$x = 3$",
+      "expected": "**Given**  \n$pH = 3$\n\n**pOH from pH**\n$pOH = 14 - pH$\n\n**de Broglie relation**\n$\\lambda = \\frac{h}{p}$\n\n**x-intercept**\n$x = 3$"
     }
   ]
 }
