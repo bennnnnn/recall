@@ -56,7 +56,7 @@ jobs:
             # fixtures and the battery scripts: a pull request that only changes other tests,
             # migrations or scripts leaves what they check as it was.
             hit=$(echo "$files" | grep -E '^apps/api/(app/|pyproject\.toml$|uv\.lock$)' | grep -vE '^apps/api/app/tests/.+/' || true)
-            hit="$hit$(echo "$files" | grep -E '^(apps/api/app/tests/behavior/|docs/fixtures/|scripts/battery(_compare)?\.py$|\.github/workflows/api-ci\.yml$)' || true)"
+            hit="$hit$(echo "$files" | grep -E '^(apps/api/app/tests/behavior/|docs/fixtures/|scripts/battery(_compare)?\.py$|scripts/bench_api\.py$|\.github/workflows/api-ci\.yml$)' || true)"
             [ -n "$hit" ] && [ "$run" = true ] || sweeps=false
           fi
           echo "run=$run" >> "$GITHUB_OUTPUT"
@@ -170,6 +170,49 @@ jobs:
       # not count here: about 170 statements only the sweeps reach are no longer covered.
       - name: Coverage
         run: uv run coverage report --show-missing --precision=2 --fail-under=80
+
+  # Each message's server work (the subject readers, its plan, the reply's presentation)
+  # timed on main and on the pull request, same inputs, same runner: a pull request that
+  # makes it clearly slower fails (scripts/bench_api.py). Only pull requests that change the
+  # code the sweeps read.
+  speed:
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.sweeps == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --all-groups --frozen
+
+      - name: Main's tree at the merge base
+        working-directory: .
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: git worktree add ../base "$(git merge-base HEAD "origin/$BASE_REF")"
+
+      - name: Time main and this pull request
+        env:
+          DATABASE_URL: postgresql+asyncpg://bench@127.0.0.1:1/none
+        run: |
+          uv run python ../../scripts/bench_api.py inputs > "$RUNNER_TEMP/inputs.json"
+          uv run python ../../scripts/bench_api.py time ../../../base/apps/api "$RUNNER_TEMP/inputs.json" > "$RUNNER_TEMP/base.json"
+          uv run python ../../scripts/bench_api.py time . "$RUNNER_TEMP/inputs.json" > "$RUNNER_TEMP/head.json"
+
+      - name: Compare
+        run: |
+          set +e
+          uv run python ../../scripts/bench_api.py compare "$RUNNER_TEMP/base.json" "$RUNNER_TEMP/head.json" > "$RUNNER_TEMP/speed.md"
+          status=$?
+          cat "$RUNNER_TEMP/speed.md" | tee -a "$GITHUB_STEP_SUMMARY"
+          exit $status
 
   # The behaviour and STEM sweeps (app/tests/behavior), on their own runner and only when
   # what they read changed. They fake the database and Redis, so no services start.
