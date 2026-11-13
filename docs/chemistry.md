@@ -137,7 +137,7 @@ chemistry. The mobile app renders the result; it does not solve chemistry on-dev
    ends on its value, as a textbook's does, then the card (2026-11-11).
 5. **Finalize** (`fence.py`) — a verified result drops model answer, scene, and
    structure fences and appends the solver's copies (the card marked `verified: true`).
-   Prose whose own final value differs (`pH = 1.00` against `2.00`) keeps it, in a card
+   Prose whose own final value differs at its own precision (`pH = 1.00` against `2.00`; `44 g/mol` agrees with 44.01) keeps it, in a card
    with no check and no solver picture: the model was shown the verified result, so the
    two read the question differently (as in maths and physics, `math/fence_conflict.py`;
    it was "The verified answer is …" above the card until 2026-11-13). An unclosed model fence is closed

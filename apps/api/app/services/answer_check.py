@@ -1,23 +1,14 @@
 """Does the model's prose state the verified answer, a different one, or none?
 
-The post-stream fence passes used to ask "is the verified text somewhere in the
-reply?" with a substring test, so ``12.75`` was found inside ``112.75`` and
-``12.755``, and a reply stating ``x = 7`` beside a verified ``x = 6`` hid the
-verified card. This reads the values as numbers instead:
-
-- ``same``: the reply's final value is the verified one (to the precision the
-  verified answer was written at; ``x = 6.0`` and ``R = 35.31 m`` against
-  ``35.3 m`` count).
-- ``rounded``: the reply gives a coarser rounding of it (``12.8`` for ``12.75``).
-  The card is still shown; nothing is corrected.
-- ``conflict``: the reply's final value is a different number, a different set
-  of roots, or only some of them. The card is shown with a correction line.
-- ``absent``: the reply states no final value at all.
-- ``unknown``: the verified answer is not a plain number (an expression, an
-  interval, a system); the callers keep their string checks for those.
-
-Question sentences ("Want the maximum height too?") never count as a statement.
-Pure text work: no SymPy, so it is safe after a solver timeout.
+Values are read as numbers, never found as substrings (``12.75`` is not in ``112.75``):
+``same`` is the verified value at its own precision (``R = 35.31 m`` for ``35.3 m``);
+``rounded`` a coarser rounding of it at the precision the reply wrote (``12.8`` for
+``12.75``, ``20 m/s`` for ``19.8 m/s``, ``2.01e2 cm²`` for ``≈ 201.06``; a bare whole
+number for 7/2 is another answer); ``conflict`` another number or set of roots in the final
+statement (an Answer's main clause) with no value the reply states agreeing: "the full
+circle would be 201.06 cm²" after the quarter's 50.27 is another quantity, not its answer;
+``absent`` no final value; ``unknown`` a verified answer that is no plain number. Question
+sentences never count. Pure text work: safe after a solver timeout.
 """
 
 from __future__ import annotations
@@ -52,8 +43,6 @@ class VerifiedValue:
 
 # --- Cleaning ------------------------------------------------------------------------------
 
-_SUPERSCRIPTS = SUPERSCRIPT_SIGNED
-_SUBSCRIPTS = SUBSCRIPT_DIGITS
 _SUPERSCRIPT_RUN = re.compile(r"[⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺]+")
 _TEX_WRAPPERS = re.compile(r"\\(?:mathrm|text|textrm|mathbf|operatorname|mathit|rm)\s*\{([^{}]*)\}")
 _TEX_FRAC = re.compile(r"\\[dt]?frac\s*\{\s*(-?\d+(?:\.\d+)?)\s*\}\s*\{\s*(-?\d+(?:\.\d+)?)\s*\}")
@@ -68,8 +57,8 @@ def _clean(text: str) -> str:
     """Prose or a TeX answer as plain text a number scanner can read."""
     out = text.replace("\r\n", "\n").replace("\u2212", "-").replace("\u2009", " ")
     out = out.replace("\u00a0", " ").replace("\u202f", " ")
-    out = _SUPERSCRIPT_RUN.sub(lambda match: "^" + match.group(0).translate(_SUPERSCRIPTS), out)
-    out = out.translate(_SUBSCRIPTS)
+    out = _SUPERSCRIPT_RUN.sub(lambda run: "^" + run.group(0).translate(SUPERSCRIPT_SIGNED), out)
+    out = out.translate(SUBSCRIPT_DIGITS)
     out = _TEX_SPACING.sub(" ", out)
     for word, plain in _TEX_WORDS.items():
         out = re.sub(re.escape(word) + r"(?![A-Za-z])", plain, out)
@@ -357,6 +346,14 @@ def _connective_values(text: str) -> list[_Number]:
     return values
 
 
+def _main_clause_values(text: str) -> list[_Number]:
+    """The values of the first clause that states one ("P ≈ 28.57 cm, of which the curved
+    edge is 12.57 cm" is 28.57; "A = 25π/2 cm² (with r = 5)" states none it can read)."""
+    clauses = re.split(r",(?!\d{3}(?!\d))|;|\(|\n", text)
+    main = next((clause for clause in clauses if _CONNECTIVE.search(clause)), "")
+    return _connective_values(main)
+
+
 def _first_bare_value(region: str) -> list[_Number]:
     for line in region.split("\n"):
         stripped = line.strip(" \t*_-•")
@@ -408,8 +405,8 @@ def _sections(prose: str) -> tuple[str, str | None]:
         title, rest = heading
         in_answer = title in _ANSWER_TITLES
         skipping = title in _INPUT_TITLES or names_a_formula(title)
-        if in_answer:
-            region = [rest] if rest else []
+        if in_answer:  # every Answer section, a form feed between them
+            region = [*(region or []), "\f", *([rest] if rest else [])]
         elif rest:
             body.append(rest)
     return "\n".join(body), None if region is None else "\n".join(region)
@@ -434,9 +431,10 @@ def _stated_values(prose: str, verified: VerifiedValue) -> tuple[list[_Number], 
             final, every = _labelled(region, verified.label)
             if final:
                 return final, every
-        connective = _connective_values(region.split("\n\n")[0])
-        if connective:
-            return connective[-1:], connective
+        # The last Answer's main clause; a value of any Answer may agree (a bonus part after).
+        stated = [_main_clause_values(part.strip().split("\n\n")[0]) for part in region.split("\f")]
+        if stated := [values for values in stated if values]:
+            return stated[-1][-1:], [number for values in stated for number in values]
         bare = _first_bare_value(region)
         if bare:
             return bare, bare
@@ -452,7 +450,7 @@ def _stated_values(prose: str, verified: VerifiedValue) -> tuple[list[_Number], 
     for sentence in reversed(_sentences(body)):
         values = _connective_values(sentence)
         if values:
-            return values[-1:], values
+            return values[-1:], _connective_values(body)
     result = _result_statement(body, verified)
     return (result, result) if result else ([], [])
 
@@ -522,8 +520,9 @@ def _closeness(stated: _Number, verified: _Number) -> Closeness:
     if verified.places is not None and stated.places >= verified.places:
         # As precise as the verified answer (35.31 for 35.3): the same if it rounds to it.
         return "same" if _agree(stated.value, verified.value, verified.places) else "different"
-    # Coarser is rounded (12.8 for 12.75, 0.33 for 1/3); a whole number for 7/2 is another answer.
-    whole = stated.value.denominator == 1 and stated.places <= 0
+    # Coarser is rounded (12.8 for 12.75, 0.33 for 1/3, 20 m/s for 19.8 m/s): a bare whole
+    # number for 7/2 is another answer, a measure to the metre is that measure rounded.
+    whole = stated.value.denominator == 1 and stated.places <= 0 and not stated.unit
     if whole and verified.value.denominator != 1:
         return "different"
     return "rounded" if _agree(stated.value, verified.value, stated.places) else "different"
@@ -561,9 +560,12 @@ def stated_verdict(prose: str, answer_body: str) -> Verdict:
         return "absent"  # 300 K against 26.85 °C: not something to correct
     if grade != "different":
         return grade
-    # Only some roots in the last sentence, the rest stated just before it.
-    if all(_best(number, verified.numbers) != "different" for number in final):
-        overall = _matches(every, verified.numbers)
+    # Only some roots in the last sentence, the rest stated just before it; or the one value
+    # stated, then another quantity after it ("the full circle would be 201.06 cm²").
+    one = len(verified.numbers) == 1
+    if one or all(_best(number, verified.numbers) != "different" for number in final):
+        overall = min((_best(n, verified.numbers) for n in every), key=_GRADES.index)
+        overall = overall if one else _matches(every, verified.numbers)
         if overall in {"same", "rounded"}:
             return overall
     return "conflict"

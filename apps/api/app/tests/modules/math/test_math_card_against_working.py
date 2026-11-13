@@ -103,3 +103,53 @@ def test_a_card_the_working_agrees_with_keeps_its_check(reply: str, card: str) -
 def test_the_owner_working_conflicts_with_the_whole_circle_card() -> None:
     assert stated_verdict(_OWNER, r"\approx 201.06\ \mathrm{cm}^{2}") == "conflict"
     assert stated_verdict(_OWNER, r"50.24\ \mathrm{cm}^{2}") == "same"
+
+
+@pytest.mark.parametrize(
+    ("reply", "card", "verdict"),
+    [
+        # A measure agrees at the precision the reply wrote, a whole number included.
+        ("**Answer**\n$A \\approx 201\\ \\text{cm}^2$\n", r"\approx 201.06\ \mathrm{cm}^{2}", "rounded"),
+        ("**Answer**\n$A \\approx 2.01 \\times 10^{2}\\ \\text{cm}^2$\n", r"\approx 201.06\ \mathrm{cm}^{2}", "rounded"),
+        ("**Answer**\n$A \\approx 3.14 \\times 10^{6}\\ \\text{m}^2$\n", r"\approx 3141592.65\ \mathrm{m}^{2}", "rounded"),
+        ("**Answer**\n$v \\approx 20\\ \\text{m/s}$\n", r"19.8\,\mathrm{m/s}", "rounded"),
+        ("**Answer**\n$t \\approx 2\\ \\text{s}$\n", r"2.02\,\mathrm{s}", "rounded"),
+        ("**Answer**\n$M = 44\\ \\text{g/mol}$\n", r"M(\mathrm{CO_2}) = 44.01\,\mathrm{g/mol}", "rounded"),
+        # A bare whole number for a value that is not one is another answer, as before.
+        ("**Answer**\n$x = 4$\n", "x = 3.5", "conflict"),
+        ("**Answer**\n$v \\approx 14\\ \\text{m/s}$\n", r"19.8\,\mathrm{m/s}", "conflict"),
+        # The Answer's main clause is its value; a later clause names another quantity.
+        ("**Answer**\n$P \\approx 28.57$ cm, of which the curved edge is $4\\pi \\approx 12.57$ cm.\n",
+         r"4\pi + 16 \approx 28.57\ \mathrm{cm}", "same"),
+        ("**Answer**\n$P \\approx 28.57\\ \\text{cm}$\nThe curved edge alone is $12.57$ cm.\n",
+         r"4\pi + 16 \approx 28.57\ \mathrm{cm}", "same"),
+        ("**Answer**\n$A = \\frac{25\\pi}{2}\\ \\text{cm}^2$ (with $r = 5$ in $\\frac{1}{2}\\pi r^2$).\n",
+         r"\frac{25}{2}\pi \approx 39.27\ \mathrm{cm}^{2}", "absent"),
+        # No Answer heading: a value the reply states that agrees is its answer.
+        ("A quarter circle has area $16\\pi \\approx 50.27$ cm².\n\nThe full circle would be "
+         "$64\\pi \\approx 201.06$ cm².\n", r"16\pi \approx 50.27\ \mathrm{cm}^{2}", "same"),
+        # A bonus part's own Answer after the asked one.
+        ("**Answer**\n$L \\approx 12.57\\ \\text{cm}$\n\n**Perimeter (bonus)**\n\n**Answer**\n"
+         "$P = 4\\pi + 16 \\approx 28.57\\ \\text{cm}$\n", r"4\pi \approx 12.57\ \mathrm{cm}", "same"),
+    ],
+)  # fmt: skip
+def test_a_value_is_held_at_the_precision_and_place_the_reply_states_it(
+    reply: str, card: str, verdict: str
+) -> None:
+    assert stated_verdict(reply, card) == verdict
+
+
+@pytest.mark.parametrize(
+    ("reply", "card"),
+    [
+        # A unit after a number, a formula's own symbols and a ratio's names are no algebra.
+        ("**Answer**\n$d = 4\\sqrt{2}\\ m$\n", r"\approx 5.6569\ \mathrm{m}"),
+        ("**Answer**\n$C = 6\\pi\\ m$\n", r"\approx 18.85\ \mathrm{m}"),
+        ("**Answer**\n$A = 16\\pi\\ \\text{cm}^2$, a quarter of $\\pi r^2$.\n", r"16\pi \approx 50.27"),
+        ("**Answer**\n$2:3$, so for every $2$ of $a$ there are $3$ of $b$, i.e. $a:b$.\n", "2:3"),
+        ("**Answer**\nThe ratio in simplest form is $2 : 3$ (divide by the HCF, $h$).\n", "2:3"),
+    ],
+)  # fmt: skip
+def test_units_symbols_and_names_are_no_expression_in_letters(reply: str, card: str) -> None:
+    out = validate_math_fences(reply, verified=_words(card))
+    assert f"```answer\n{VERIFIED_ANSWER_MARKER}\n{card}\n```" in out
