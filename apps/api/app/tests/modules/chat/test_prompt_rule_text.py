@@ -58,10 +58,12 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # call told it can, after the first said it couldn't (DENIAL_RETRY_NOTE), then maths' pack
 # saying the app draws the graph, number line or figure a maths question asks to see, so the
 # model never says it cannot draw, never gives sketching steps and never draws a number line
-# in characters (GRAPH_NO_SUBSTITUTE_CLAUSE, the textbook run 2026-11-13).
+# in characters (GRAPH_NO_SUBSTITUTE_CLAUSE, the textbook run 2026-11-13), then a given that
+# carries no part's letter but where one symbol has a value per part, in the layout a model
+# writes (services/workout._GIVEN_ONCE) and in a ```worked block's records.
 _RULES = 181
-_RULE_GRAMS = 16528
-_RULE_GRAMS_SHA = "61bf257a6f592e1c"
+_RULE_GRAMS = 16556
+_RULE_GRAMS_SHA = "5710d1712a796c31"
 
 
 def _rules() -> list[str]:

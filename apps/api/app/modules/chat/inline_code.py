@@ -9,6 +9,8 @@ Mirrors apps/mobile/lib/markdown/inlineCode.ts.
 
 from __future__ import annotations
 
+import re
+
 
 def escaped_at(text: str, at: int) -> bool:
     """True when an odd run of backslashes escapes ``text[at]``."""
@@ -63,6 +65,16 @@ def code_span_opens_within(text: str, start: int, stop: int) -> bool:
             return True
         tick = text.find("`", tick + 1)
     return False
+
+
+# A ratio, read whole: numbers joined by colons and nothing else ("9: 12: 15", "3 : 4").
+_RATIO = re.compile(r"\d[\d,.]*+(?:\s*+:\s*+\d[\d,.]*+)++")
+
+
+def is_ratio(body: str) -> bool:
+    """``$9: 12: 15$`` is a ratio, maths read whole; "$60: 3 of us" is a price and words
+    (2026-11-13: a ratio read as the price "$9:" left its dollars on screen)."""
+    return _RATIO.fullmatch(body.strip()) is not None
 
 
 def is_bare_number(body: str, following: str) -> bool:

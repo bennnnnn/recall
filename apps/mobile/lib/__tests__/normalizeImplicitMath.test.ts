@@ -92,6 +92,27 @@ describe("normalizeImplicitMath", () => {
     expect(out).not.toMatch(/^- /);
   });
 
+  // An order of numbers drew as a bullet and "2.5 < -0.33 < …" (the textbook run,
+  // 2026-11-13): a minus glued to what it negates is a sign, and a body with no word is maths.
+  it.each([
+    "$-2.5 < -0.33 < 0.75 < 1.5$",
+    "$-x < 3$",
+    String.raw`$-\frac{5}{2} < -\frac{1}{3}$`,
+    "$-3$",
+    String.raw`$-0.5 \le x$`,
+  ])("keeps the sign of %s inside its maths", (line) => {
+    expect(normalizeImplicitMathInProse(line)).toBe(line);
+  });
+
+  it.each([
+    ["$- 2.5 < 3$", "$- 2.5 < 3$"],
+    ["$- x > -4$", "$- x > -4$"],
+    ["$- Height of the box$", "- Height of the box"],
+    ["$* Base = 8 cm$", "* Base = 8 cm"],
+  ])("reads %s as a bullet only over words", (line, expected) => {
+    expect(normalizeImplicitMathInProse(line)).toBe(expected);
+  });
+
   it("keeps non-minus bullet markers outside a wrapped equation", () => {
     expect(normalizeImplicitMathInProse("$* x = 2$")).toBe("* $x = 2$");
     expect(normalizeImplicitMathInProse("$• x = 2$")).toBe("• $x = 2$");

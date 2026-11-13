@@ -89,6 +89,24 @@ export function splitWorkoutNote(line: string): { state: string; note: string | 
   return { state: line, note: null };
 }
 
+// An answer line's maths, and a sentence's end before the next sentence's first letter.
+const MATHS = /\$\$[\s\S]*?\$\$|\$[^$\n]*\$|\\\([\s\S]*?\\\)|\\\[[\s\S]*?\\\]/g;
+const NEXT_SENTENCE = /[.!?]["'”’)\]]*\s+\p{Lu}/u;
+
+/**
+ * A line an answer's box holds: one sentence, whatever its words ("The speed is $20$
+ * meters per second"), never more. "A line from $(-3, -5)$ to $(3, 7)$ — slope $2$,
+ * $y$-intercept $1$." was boxed as drawn, its note above it: "slope 2, y-intercept 1. A line
+ * from (−3, −5) to (3, 7)", two sentences (2026-11-13). Maths is never a sentence's end.
+ * Twin: the API's `services/card_text.sentence_answer`, which keeps more than one sentence
+ * out of a card.
+ */
+export function isAnswerValue(line: string): boolean {
+  const { state, note } = splitWorkoutNote(line);
+  const drawn = note ? `${note} ${state}` : line;
+  return !NEXT_SENTENCE.test(drawn.replace(MATHS, "M"));
+}
+
 /**
  * A heading inside Solution, a level under the sections: a formula under its name,
  * Substitution, Steps. Given, Required, Solution and Answer are the sections. Read from

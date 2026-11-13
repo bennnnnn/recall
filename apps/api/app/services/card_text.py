@@ -16,6 +16,9 @@ with its asterisks showing. Before a model's line becomes a card:
   TeX alone, and a unit's power is written after the unit, as the server writes it
   (``\\mathrm{cm}^{2}``): a triangle's parts came as ``$A = 54\\,\\mathrm{cm²}$`` beside
   ``\\mathrm{cm^2}`` (2026-11-06).
+
+A line in words is no card at all (``wordy``): a paragraph, or more than one sentence
+(``sentence_answer``).
 """
 
 from __future__ import annotations
@@ -97,3 +100,35 @@ def _unit(unit: str) -> str:
     if unit == "°":
         return r"^\circ"
     return rf"\,\text{{{unit}}}" if " " in unit else rf"\,\mathrm{{{unit}}}"
+
+
+_WORD = re.compile(r"[A-Za-z]{3,}")
+# A sentence's end, then the next sentence's first letter (closing quotes or brackets
+# between): ". A", "! The".
+_NEXT_SENTENCE = re.compile(r"[.!?][\"'\u201d\u2019)\]]*\s+(\S)")
+
+
+def _relations(text: str) -> str:
+    """``≈`` and ``\\approx`` read as ``=``: an approximate value is still a value."""
+    return text.replace("\\approx", "=").replace("\u2248", "=")
+
+
+def wordy(value: str) -> bool:
+    """Words, not a value a card holds: a paragraph (over twenty words outside its maths and
+    no equation), or a sentence its maths only illustrates (``sentence_answer``)."""
+    if len(value) > 2000:
+        return True
+    prose = _relations(_MATH.sub(" ", value))  # 2000 characters at most: read once
+    if "=" not in prose and len(_WORD.findall(prose)) > 20:
+        return True
+    return sentence_answer(value)
+
+
+def sentence_answer(value: str) -> bool:
+    """More than one sentence, which no card holds: "slope $2$, $y$-intercept $1$. A line from
+    $(-3, -5)$ to $(3, 7)$" filled one (2026-11-13). One sentence keeps its card whatever its
+    words ("The speed is $20$ meters per second", "Both $3$ and $-2$ satisfy the equation."),
+    and maths is never a sentence's end ("$4.5$", "$x = 3.$"). Twin: the phone's
+    ``isAnswerValue``."""
+    prose = _MATH.sub("M", value)
+    return any(found.group(1).isupper() for found in _NEXT_SENTENCE.finditer(prose))
