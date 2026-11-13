@@ -25,10 +25,12 @@ from app.modules.chemistry.tex import chemistry_tex
 from app.services.answer_check import stated_verdict
 from app.services.answer_fence import (
     ANSWER_FENCE_LANGS,
+    answer_fence_value,
     land_answer_card,
     normalize_owned_fences,
     verified_answer_fence,
 )
+from app.services.asked_value import asked_verdict
 from app.services.md_fence_scan import close_unclosed_fences, map_closed_fences, strip_closed_fences
 
 logger = logging.getLogger(__name__)
@@ -299,13 +301,19 @@ def assemble_chemistry_reply(
     return f"{body}\n" if body else ""
 
 
+_CARD_SYMBOL = re.compile(r"^\s*(?:\\mathrm\{)?([A-Za-z]{1,2})(?![A-Za-z])")
+
+
 def _contradicts(prose: str, verified: VerifiedChemistry) -> bool:
     """The prose's own final value is another than the verified answer."""
     answer = verified.result.answer.strip()
     if not answer:
         return False
     body = _answer_body(answer, verbatim=verified.result.verbatim)
-    return stated_verdict(prose, body) == "conflict"
+    # The card's own symbol (M of "M(CO2) = 44.01 g/mol", pH): never the C = 12.01 beside it.
+    head = _CARD_SYMBOL.match(answer_fence_value(body))
+    verdict = asked_verdict(prose, body, (head.group(1),) if head else ())
+    return (verdict or stated_verdict(prose, body)) == "conflict"
 
 
 def validate_chemistry_fences(

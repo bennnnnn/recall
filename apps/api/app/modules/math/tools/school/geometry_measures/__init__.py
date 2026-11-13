@@ -132,4 +132,4 @@ def geometry_measure_block(intent: MathIntent, lines: list[str]) -> VerifiedMath
         solved.answer,
     )
     figures = [solved.figure] if solved.figure is not None else []
-    return replace(block, worked_reply=working, canonical_fences=figures)
+    return replace(block, worked_reply=working, canonical_fences=figures, asked=solved.asked)

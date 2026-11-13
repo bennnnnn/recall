@@ -29,7 +29,7 @@ Verdict = Literal["same", "rounded", "conflict", "absent", "unknown"]
 
 
 @dataclass(frozen=True)
-class _Number:
+class Number:
     value: Fraction
     places: int | None  # decimal places as written; None for an exact fraction
     unit: str = ""  # as written after the number, spacing removed ("kJ/mol", "m/s^2")
@@ -38,7 +38,7 @@ class _Number:
 @dataclass(frozen=True)
 class VerifiedValue:
     label: str | None
-    numbers: tuple[_Number, ...]
+    numbers: tuple[Number, ...]
 
 
 # --- Cleaning ------------------------------------------------------------------------------
@@ -91,23 +91,23 @@ _UNIT_TAIL = re.compile(r"(?:[A-Za-zµμΩ°%](?:\^-?\d+)?|[/·*]|\s|[()])*")
 # A note in brackets after an Answer line's value ("(in the direction of the push)"), no number.
 _TRAILING_NOTE = re.compile(r"[ \t]*\([^()\d\n]*\)[ \t]*$", re.MULTILINE)
 # A value ends at punctuation or a joining word ("pH = 2 for a strong acid"); 1,500 is one.
-_SEPARATORS = re.compile(
+VALUE_SEPARATORS = re.compile(
     r"\s*(?:,(?!\d{3}(?!\d))|;|\b(?:or|and|but|which|because|since|so|for|in|at|with|when|"
     r"if|as|from|after|before|on)\b)\s*"
 )
 
 
-def _to_number(mant: str, exp: str | None) -> _Number:
+def _to_number(mant: str, exp: str | None) -> Number:
     digits = mant.replace(",", "")
     decimal = Decimal(digits)
     if exp:
         decimal = decimal.scaleb(int(exp))
     exponent = decimal.as_tuple().exponent
     places = -exponent if isinstance(exponent, int) else 0
-    return _Number(Fraction(decimal), places)
+    return Number(Fraction(decimal), places)
 
 
-def _read_value(segment: str) -> list[_Number] | None:
+def read_value(segment: str) -> list[Number] | None:
     """A segment that is one final value (``-2``, ``±3``, ``35.3 m``, ``12/2``), else None.
 
     An expression (``2x + 3``, ``0.15 * 85``, ``20^2``) is working, not a value.
@@ -132,7 +132,7 @@ def _read_value(segment: str) -> list[_Number] | None:
         denominator = int(fraction.group(1))
         if denominator == 0:
             return None
-        number = _Number(number.value / denominator, None)
+        number = Number(number.value / denominator, None)
         rest = rest[fraction.end() :]
     if rest[:1].isalpha() and not re.match(r"[A-Za-zµμΩ°%]{1,6}\b|[A-Za-z]+/", rest):
         return None  # 2x, 3pi: a coefficient, not a value
@@ -148,9 +148,9 @@ def _read_value(segment: str) -> list[_Number] | None:
         return None  # "6 x", "55555 K a": a product with a variable, not a unit
     value = number.value * sign
     unit = _unit(rest)
-    numbers = [_Number(value, number.places, unit)]
+    numbers = [Number(value, number.places, unit)]
     if both:
-        numbers.append(_Number(-value, number.places, unit))
+        numbers.append(Number(-value, number.places, unit))
     return numbers
 
 
@@ -179,7 +179,7 @@ def read_verified_value(answer_body: str) -> VerifiedValue | None:
     text = _clean(value)
     parts = [part for part in re.split(r"\s+or\s+|\s+and\s+|;|,\s*(?=[A-Za-z]\s*=)", text) if part]
     label: str | None = None
-    numbers: list[_Number] = []
+    numbers: list[Number] = []
     for part in parts:
         # x ≈ 1.41421 is Newton's x = 1.41421, and "16π ≈ 50.27" or "≈ 201.06 cm²" is the
         # rounding of an exact value: it is the value read, or no rounded card is checked.
@@ -199,7 +199,7 @@ def read_verified_value(answer_body: str) -> VerifiedValue | None:
             label = this_label
         else:
             right = part
-        read = _read_value(right)
+        read = read_value(right)
         if read is None:
             return None
         numbers.extend(read)
@@ -266,7 +266,7 @@ def _pieces(text: str) -> list[str]:
     return out
 
 
-def _sentences(text: str) -> list[str]:
+def sentences(text: str) -> list[str]:
     """Sentences in order; a decimal point never ends one."""
     return [sentence for sentence in _pieces(text) if sentence.strip()]
 
@@ -284,7 +284,7 @@ def statement_text(prose: str) -> str:
 
 
 def has_question(prose: str) -> bool:
-    return any(_asks(s) for s in _sentences(_clean(_without_fences(prose))))
+    return any(_asks(s) for s in sentences(_clean(_without_fences(prose))))
 
 
 def _segments_after(sentence: str, pattern: re.Pattern[str]) -> list[str]:
@@ -295,15 +295,15 @@ def _segments_after(sentence: str, pattern: re.Pattern[str]) -> list[str]:
         stop = _CONNECTIVE.search(rest)
         if stop is not None:
             rest = rest[: stop.start()]
-        rest = _SEPARATORS.split(rest, maxsplit=1)[0]
+        rest = VALUE_SEPARATORS.split(rest, maxsplit=1)[0]
         rest = re.split(r"[.!?](?=\s|$)", rest, maxsplit=1)[0]
         out.append(rest)
     return out
 
 
-def _label_values(sentence: str, label: str) -> list[_Number]:
+def _label_values(sentence: str, label: str) -> list[Number]:
     """Values stated for ``label`` in one sentence: ``x = 2 or x = 3``, ``pH is 1.00``."""
-    found: list[_Number] = []
+    found: list[Number] = []
     pattern = re.compile(
         r"(?<![A-Za-z0-9_.^])" + r"\s*".join(map(re.escape, label)) + r"(?![A-Za-z0-9_])\s*"
         r"(?:=|≈|(?i:\bis\b|\bequals\b|\bof\b))"
@@ -315,9 +315,9 @@ def _label_values(sentence: str, label: str) -> list[_Number]:
         rest = sentence[match.end() :]
         chain = re.split(r"\s+(?:or|and)\s+[A-Za-z]\s*=|,\s*[A-Za-z]\s*=|[;]", rest, maxsplit=1)[0]
         last = chain.rsplit("=", 1)[-1] if "=" in chain else chain
-        value_text = _SEPARATORS.split(last, maxsplit=1)[0]
+        value_text = VALUE_SEPARATORS.split(last, maxsplit=1)[0]
         value_text = re.split(r"[.!?](?=\s|$)", value_text, maxsplit=1)[0]
-        read = _read_value(value_text)
+        read = read_value(value_text)
         if read is None:
             continue
         found.extend(read)
@@ -326,7 +326,7 @@ def _label_values(sentence: str, label: str) -> list[_Number]:
         for extra in re.finditer(
             r"^\s*(?:,|\bor\b|\band\b)\s*([-+±]?\s*\d+(?:\.\d+)?)(?![\d.]*\s*=)", tail
         ):
-            more = _read_value(extra.group(1))
+            more = read_value(extra.group(1))
             if more:
                 found.extend(more)
     return found
@@ -337,16 +337,16 @@ def _label_comparable(sentence: str) -> str:
     return re.sub(r"[{}_\\]", " ", sentence)
 
 
-def _connective_values(text: str) -> list[_Number]:
-    values: list[_Number] = []
+def _connective_values(text: str) -> list[Number]:
+    values: list[Number] = []
     for segment in _segments_after(text, _CONNECTIVE):
-        read = _read_value(segment)
+        read = read_value(segment)
         if read:
             values.extend(read)
     return values
 
 
-def _main_clause_values(text: str) -> list[_Number]:
+def _main_clause_values(text: str) -> list[Number]:
     """The values of the first clause that states one ("P ≈ 28.57 cm, of which the curved
     edge is 12.57 cm" is 28.57; "A = 25π/2 cm² (with r = 5)" states none it can read)."""
     clauses = re.split(r",(?!\d{3}(?!\d))|;|\(|\n", text)
@@ -354,17 +354,17 @@ def _main_clause_values(text: str) -> list[_Number]:
     return _connective_values(main)
 
 
-def _first_bare_value(region: str) -> list[_Number]:
+def _first_bare_value(region: str) -> list[Number]:
     for line in region.split("\n"):
         stripped = line.strip(" \t*_-•")
         if not stripped:
             continue
-        read = _read_value(stripped)
+        read = read_value(stripped)
         if read:
             return read
         # "R = 20.4 m" on the Answer line: the value after its last equals sign.
         if "=" in stripped:
-            read = _read_value(stripped.rsplit("=", 1)[-1])
+            read = read_value(stripped.rsplit("=", 1)[-1])
             if read:
                 return read
         return []
@@ -382,7 +382,7 @@ def _heading(line: str) -> tuple[str, str] | None:
     return title.lower(), (match.groupdict().get("rest") or "").strip()
 
 
-def _sections(prose: str) -> tuple[str, str | None]:
+def answer_sections(prose: str) -> tuple[str, str | None]:
     """The reply without its input sections, and its last Answer section (None if none).
 
     Given / Required / Formula lines (or a formula's own heading) restate the problem
@@ -412,17 +412,17 @@ def _sections(prose: str) -> tuple[str, str | None]:
     return "\n".join(body), None if region is None else "\n".join(region)
 
 
-def _labelled(text: str, label: str) -> tuple[list[_Number], list[_Number]]:
-    per_sentence = [_label_values(sentence, label) for sentence in _sentences(text)]
+def _labelled(text: str, label: str) -> tuple[list[Number], list[Number]]:
+    per_sentence = [_label_values(sentence, label) for sentence in sentences(text)]
     stated = [values for values in per_sentence if values]
     if not stated:
         return [], []
     return stated[-1], [number for values in stated for number in values]
 
 
-def _stated_values(prose: str, verified: VerifiedValue) -> tuple[list[_Number], list[_Number]]:
+def _stated_values(prose: str, verified: VerifiedValue) -> tuple[list[Number], list[Number]]:
     """(final statement's values, every stated value) — empty when nothing is stated."""
-    raw_body, raw_region = _sections(prose)
+    raw_body, raw_region = answer_sections(prose)
     body = statement_text(raw_body)
     region = statement_text(raw_region).strip() if raw_region is not None else None
     if region:
@@ -447,7 +447,7 @@ def _stated_values(prose: str, verified: VerifiedValue) -> tuple[list[_Number], 
         return result, result
     if region is not None:
         return [], []  # an Answer heading that states nothing: nothing to compare
-    for sentence in reversed(_sentences(body)):
+    for sentence in reversed(sentences(body)):
         values = _connective_values(sentence)
         if values:
             return values[-1:], _connective_values(body)
@@ -455,16 +455,16 @@ def _stated_values(prose: str, verified: VerifiedValue) -> tuple[list[_Number], 
     return (result, result) if result else ([], [])
 
 
-def _result_statement(body: str, verified: VerifiedValue) -> list[_Number]:
+def _result_statement(body: str, verified: VerifiedValue) -> list[Number]:
     """The last "lands about 70.6 m" in the reply, in a unit the verified answer uses."""
     units = {number.unit for number in verified.numbers if number.unit}
     if not units:
         return []  # a bare number in prose is too easy to misread as the result
-    for sentence in reversed(_sentences(body)):
+    for sentence in reversed(sentences(body)):
         for match in reversed(list(_RESULT_STATEMENT.finditer(sentence))):
             if re.search(r"\bfrom\b", match.group("between"), re.IGNORECASE):
                 continue
-            read = _read_value(f"{match.group('value')} {match.group('unit')}")
+            read = read_value(f"{match.group('value')} {match.group('unit')}")
             if read and any(_in_one_unit(read[0], target) for target in verified.numbers):
                 return read
     return []
@@ -478,12 +478,12 @@ _GRADES: tuple[Closeness, ...] = ("same", "rounded", "different", "incomparable"
 _PREFIXES = {"k": 3, "M": 6, "G": 9, "c": -2, "m": -3, "u": -6, "n": -9, "p": -12}
 
 
-def _scaled(number: _Number, power: int) -> _Number:
+def _scaled(number: Number, power: int) -> Number:
     places = None if number.places is None else number.places - power
-    return _Number(number.value * Fraction(10) ** power, places, number.unit)
+    return Number(number.value * Fraction(10) ** power, places, number.unit)
 
 
-def _in_one_unit(stated: _Number, verified: _Number) -> tuple[_Number, _Number] | None:
+def _in_one_unit(stated: Number, verified: Number) -> tuple[Number, Number] | None:
     """Both values in one unit (55 kJ/mol against 5.5e4 J/mol), or None.
 
     A missing unit compares as written; units that differ by more than one SI
@@ -505,7 +505,7 @@ def _agree(a: Fraction, b: Fraction, places: int) -> bool:
     return round_places(a, places) == round_places(b, places)
 
 
-def _closeness(stated: _Number, verified: _Number) -> Closeness:
+def _closeness(stated: Number, verified: Number) -> Closeness:
     converted = _in_one_unit(stated, verified)
     if converted is None:
         return "incomparable"
@@ -528,11 +528,11 @@ def _closeness(stated: _Number, verified: _Number) -> Closeness:
     return "rounded" if _agree(stated.value, verified.value, stated.places) else "different"
 
 
-def _best(number: _Number, verified: tuple[_Number, ...]) -> Closeness:
+def _best(number: Number, verified: tuple[Number, ...]) -> Closeness:
     return min((_closeness(number, target) for target in verified), key=_GRADES.index)
 
 
-def _matches(stated: list[_Number], verified: tuple[_Number, ...]) -> Closeness:
+def match_values(stated: list[Number], verified: tuple[Number, ...]) -> Closeness:
     """Set equality of values, each matched within its written precision and unit."""
     if not stated:
         return "different"
@@ -555,7 +555,7 @@ def stated_verdict(prose: str, answer_body: str) -> Verdict:
     final, every = _stated_values(prose, verified)
     if not final:
         return "absent"
-    grade = _matches(final, verified.numbers)
+    grade = match_values(final, verified.numbers)
     if grade == "incomparable":
         return "absent"  # 300 K against 26.85 °C: not something to correct
     if grade != "different":
@@ -565,7 +565,7 @@ def stated_verdict(prose: str, answer_body: str) -> Verdict:
     one = len(verified.numbers) == 1
     if one or all(_best(number, verified.numbers) != "different" for number in final):
         overall = min((_best(n, verified.numbers) for n in every), key=_GRADES.index)
-        overall = overall if one else _matches(every, verified.numbers)
+        overall = overall if one else match_values(every, verified.numbers)
         if overall in {"same", "rounded"}:
             return overall
     return "conflict"

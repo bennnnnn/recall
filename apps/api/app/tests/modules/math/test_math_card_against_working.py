@@ -14,6 +14,7 @@ import pytest
 from app.modules.math.fence import validate_math_fences
 from app.services.answer_check import read_verified_value, stated_verdict
 from app.services.answer_fence import UNCHECKED_ANSWER_MARKER, VERIFIED_ANSWER_MARKER
+from app.services.asked_value import asked_verdict
 from app.services.solving import VerifiedMathBlock
 
 _OWNER = (
@@ -153,3 +154,36 @@ def test_a_value_is_held_at_the_precision_and_place_the_reply_states_it(
 def test_units_symbols_and_names_are_no_expression_in_letters(reply: str, card: str) -> None:
     out = validate_math_fences(reply, verified=_words(card))
     assert f"```answer\n{VERIFIED_ANSWER_MARKER}\n{card}\n```" in out
+
+
+@pytest.mark.parametrize(
+    ("reply", "card", "asked", "verdict"),
+    [
+        # The value written against the asked quantity, never a given beside it.
+        ("**Answer**\nWith $r = 6$ cm, the perimeter is $P = 3\\pi + 12 \\approx 21.42$ cm.\n",
+         r"3\pi + 12 \approx 21.42\ \mathrm{cm}", ("P", "perimeter"), "same"),
+        ("**Answer**\nSince the full circle is 314.16 cm², the semicircle's area is 157.08 cm².\n",
+         r"50\pi \approx 157.08\ \mathrm{cm}^{2}", ("A", "area"), "same"),
+        ("**Answer**\nFrom the launch point at $y = 0$ m, the ball rises to $h \\approx 20.4$ m.\n",
+         r"20.4\,\mathrm{m}", ("h",), "same"),
+        ("**Answer**\nUsing C = 12.01 and O = 16.00 g/mol, M = 44.01 g/mol.\n",
+         r"M(\mathrm{CO_2}) = 44.01\,\mathrm{g/mol}", ("M",), "same"),
+        ("**Answer**\n$P \\approx 28.57$ cm, of which the curved edge is $4\\pi \\approx 12.57$ cm.\n",
+         r"4\pi + 16 \approx 28.57\ \mathrm{cm}", ("P", "perimeter"), "same"),
+        ("**Answer**\n$\\lambda = 68$ cm\n", r"0.68\,\mathrm{m}", ("\\lambda",), "same"),
+        # The asked quantity's own value contradicts the card: the shape's area is 462.
+        ("The whole circle has area $\\frac{22}{7} \\times 14^2 = 616$ cm². The missing quadrant is "
+         "$154$ cm². So the area left is $616 - 154 = 462$ cm².\n",
+         r"154\ \mathrm{cm}^{2}", ("A", "area"), "conflict"),
+        ("**Answer**\nThe quadrant is 154 cm², so the shape's area is $462$ cm².\n",
+         r"154\ \mathrm{cm}^{2}", ("A", "area"), "conflict"),
+        ("**Answer**\n$M = 28.01$ g/mol\n", r"M(\mathrm{CO_2}) = 44.01\,\mathrm{g/mol}", ("M",),
+         "conflict"),
+        # Nothing names the asked quantity: the Answer is read as before.
+        ("**Answer**\n$50.24$ cm²\n", r"50.24\ \mathrm{cm}^{2}", ("A", "area"), None),
+    ],
+)  # fmt: skip
+def test_the_value_held_to_the_card_is_the_asked_quantitys(
+    reply: str, card: str, asked: tuple[str, ...], verdict: str | None
+) -> None:
+    assert asked_verdict(reply, card, asked) == verdict

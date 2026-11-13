@@ -18,6 +18,7 @@ from app.modules.physics.part_answers import land_one_part_card, land_part_cards
 from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
 from app.services.answer_check import asks_without_answering, stated_verdict
 from app.services.answer_fence import ANSWER_FENCE_LANGS, land_answer_card
+from app.services.asked_value import asked_verdict
 from app.services.md_fence_scan import (
     block_end,
     close_unclosed_fences,
@@ -99,6 +100,16 @@ def solver_cards(verified: VerifiedPhysicsBlock) -> tuple[str, ...]:
     return (*cards, *_scene_fences(verified))
 
 
+# The unknown a law is solved for heads its formula: "h_{max} = ...", "λ = v/f".
+_UNKNOWN = re.compile(r"^\s*(\\[A-Za-z]+|[A-Za-z])")
+
+
+def _asked(verified: VerifiedPhysicsBlock) -> tuple[str, ...]:
+    """The symbol the card answers, not a given beside it ("from y = 0 m, h ≈ 20.4 m")."""
+    head = _UNKNOWN.match(verified.physics_formulas[0]) if verified.physics_formulas else None
+    return (head.group(1),) if head else ()
+
+
 def validate_physics_fences(
     content: str,
     *,
@@ -141,7 +152,8 @@ def validate_physics_fences(
     read = as_formula_heading(cleaned)
     if answer and _asks_instead_of_answering(read, answer):
         return cleaned
-    if answer and correct and stated_verdict(read, answer) == "conflict":
+    verdict = asked_verdict(read, answer, _asked(verified)) or stated_verdict(read, answer)
+    if answer and correct and verdict == "conflict":
         # The model, shown the verified result, still worked the question to another value:
         # the two read it differently, and the server's reading of words is the one in
         # doubt. Its own value stands in a card with no check, and the scenes of the

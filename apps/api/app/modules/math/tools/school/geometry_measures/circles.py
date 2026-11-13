@@ -22,6 +22,7 @@ from fractions import Fraction
 from app.modules.math.schemas import CircleGeometryBlockSpec, SectorGeometryBlockSpec
 from app.modules.math.tex_numbers import fraction_tex
 from app.modules.math.tools.school.geometry_measures.working import _approx, _n, _Solved, _unit
+from app.services.asked_value import QUANTITY_NAMES
 from app.services.number_text import NUMBER_WORDS
 from app.services.school_rounding import format_places, round_figures, trim_zeros
 from app.services.workout import math_line
@@ -433,4 +434,5 @@ def circle_part(numbers: list[float], words: list[str]) -> _Solved | None:
         (*radius_row, math_line(_substitution(measure, reading, r))),
         measure.answer(reading, unit),
         figure=_figure(r, reading, unit, _FIGURE_FIELDS[measure.symbol], shown),
+        asked=QUANTITY_NAMES[_FIGURE_FIELDS[measure.symbol]],
     )

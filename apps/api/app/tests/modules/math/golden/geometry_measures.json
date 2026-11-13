@@ -24,7 +24,11 @@
      }
     }
    ],
-   "worked_reply": "**Given**  \n$d = 10$  \nwhere $d$ = diameter\n\n**Required**  \n$P$ (perimeter of the semicircle)\n\n**Solution**\n\n**Curved edge plus the diameter formula**  \n$P = \\pi r + 2r$\n\n**Substitution**  \n$r = \\frac{10}{2} = 5$  \n$P = \\pi(5) + 2(5)$\n\n**Answer**\n\n```answer\n5\\pi + 10 \\approx 25.71\\ \\mathrm{cm}\n```\n"
+   "worked_reply": "**Given**  \n$d = 10$  \nwhere $d$ = diameter\n\n**Required**  \n$P$ (perimeter of the semicircle)\n\n**Solution**\n\n**Curved edge plus the diameter formula**  \n$P = \\pi r + 2r$\n\n**Substitution**  \n$r = \\frac{10}{2} = 5$  \n$P = \\pi(5) + 2(5)$\n\n**Answer**\n\n```answer\n5\\pi + 10 \\approx 25.71\\ \\mathrm{cm}\n```\n",
+   "asked": [
+    "P",
+    "perimeter"
+   ]
   }
  },
  {

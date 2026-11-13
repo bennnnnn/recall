@@ -35,6 +35,7 @@ from app.services.answer_fence import (
     normalize_owned_fences,
     verified_answer_fence,
 )
+from app.services.asked_value import asked_verdict
 from app.services.card_text import card_maths
 from app.services.md_fence_scan import iter_fences, map_closed_fences, strip_closed_fences
 
@@ -58,7 +59,10 @@ def contradicted_reading(
     if verified is None or not verified.read_from_words or not answer_body:
         return None
     worked = demote_answer_fences(reply)
-    verdict = stated_verdict(worked, answer_body)
+    # The value the reply writes for the asked quantity; its Answer's when it names none.
+    verdict = asked_verdict(worked, answer_body, verified.asked) or stated_verdict(
+        worked, answer_body
+    )
     # A card no plain value (a ratio) may still face an Answer that is an expression in letters.
     letters = verdict == "unknown" and _letters_for_a_number(worked, answer_body)
     if verdict != "conflict" and not letters:
