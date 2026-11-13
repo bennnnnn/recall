@@ -268,8 +268,9 @@ class SubjectFigure(Protocol):
         """``fence`` shows what the reply's own pictures do not."""
         ...
 
-    def without_substitutes(self, text: str) -> str:
-        """``text`` without the model's own picture in characters or a flowchart."""
+    def without_substitutes(self, text: str, question: str) -> str:
+        """``text`` without the model's own picture in characters, or a flowchart in its
+        place that ``question`` did not ask for."""
         ...
 
 

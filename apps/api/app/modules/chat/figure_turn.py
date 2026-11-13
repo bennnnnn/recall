@@ -53,13 +53,18 @@ def _earlier(recent: Sequence[Any] | None, line: str) -> list[str]:
 
 
 def start_figure(settings: Settings, ctx: StreamContext) -> asyncio.Task[str | None] | None:
-    """The picture's task, when the turn has a read to wait for and no picture of its own."""
+    """The picture's task, when the turn has a read to wait for and no picture of its own.
+
+    A reply the server made without a solve (the time in Tokyo, a settings line, a plan's
+    limit) answers no maths question, so it never waits at finalize for a read that could
+    only say "no picture" (it waited 1.7 s for one, 2026-11-13)."""
     figure = _figure()
     if (
         figure is None
         or ctx.live_read is None
         or not settings.figure_read_enabled
         or figure.shown(ctx.verified_subject)
+        or (ctx.instant_reply and ctx.verified_subject is None)
     ):
         return None
     line = ctx.user_message_content or ""
@@ -126,7 +131,7 @@ async def attach_figure(state: FinalizeState) -> str:
     fence = task.result()
     if not fence or not figure.adds_to(state.text, fence):
         return state.text
-    text = figure.without_substitutes(state.text).rstrip()
+    text = figure.without_substitutes(state.text, ctx.user_message_content or "").rstrip()
     text = f"{text}\n\n{fence}\n" if text else f"{fence}\n"
     # Committed, so a later pass that falls back keeps the picture.
     state.committed = fallback_text(text, server_text=state.server_text)

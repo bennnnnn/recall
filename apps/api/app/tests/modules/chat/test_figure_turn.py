@@ -102,10 +102,10 @@ class _Figure:
 
         return adds_to(text, fence)
 
-    def without_substitutes(self, text: str) -> str:
+    def without_substitutes(self, text: str, question: str) -> str:
         from app.modules.math.figure.substitutes import without_substitutes
 
-        return without_substitutes(text)
+        return without_substitutes(text, question)
 
 
 @pytest.fixture
@@ -161,6 +161,21 @@ async def test_a_turn_whose_solve_drew_the_graph_reads_none(figure: _Figure) -> 
     verified = VerifiedMathBlock(text="", canonical_fence=graph)
     ctx = _ctx(live_read=_read(subject="maths", picture="diagram"), verified_subject=verified)
     assert figure_turn.start_figure(_settings(), ctx) is None
+
+
+async def test_a_reply_made_without_a_solve_waits_for_no_picture(figure: _Figure) -> None:
+    # "What time is it in Tokyo?" waited 1.7 s at finalize for a read that said no picture.
+    ctx = _ctx("What time is it in Tokyo?", live_read=_read(), instant_reply="It is 3:04 pm.")
+    assert figure_turn.start_figure(_settings(), ctx) is None
+
+
+async def test_a_flowchart_the_question_asks_for_stays(figure: _Figure) -> None:
+    line = "Graph y = 2x + 1 and draw a flowchart of the steps."
+    ctx = _ctx(line, live_read=_read(subject="maths", picture="graph"))
+    ctx.figure = figure_turn.start_figure(_settings(), ctx)
+    reply = "The steps:\n\n```mermaid\nflowchart TD\n  A[Start] --> B[Plot]\n```"
+    text = await figure_turn.attach_figure(_state(ctx, reply))
+    assert "```mermaid" in text and text.endswith(_FENCE + "\n")
 
 
 async def test_the_switch_turns_it_off(figure: _Figure) -> None:

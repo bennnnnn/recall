@@ -277,10 +277,10 @@ class MathFigure:
 
         return adds_to(text, fence)
 
-    def without_substitutes(self, text: str) -> str:
+    def without_substitutes(self, text: str, question: str) -> str:
         from app.modules.math.figure.substitutes import without_substitutes
 
-        return without_substitutes(text)
+        return without_substitutes(text, question)
 
 
 @dataclass(frozen=True)

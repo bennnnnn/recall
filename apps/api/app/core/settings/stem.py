@@ -70,7 +70,7 @@ class StemSettings(BaseModel):
     # ``figure_wait_seconds`` for it once its text is done. Off: no picture is read.
     figure_read_enabled: bool = True
     figure_read_timeout_seconds: float = 4.0
-    figure_wait_seconds: float = 3.0
+    figure_wait_seconds: float = 2.0
     # The word-problem translation and the extraction above run side by side;
     # this bounds them together. It sits a little above the longer of the two
     # (two 3 s translation attempts), so it only stops a call that outlives its

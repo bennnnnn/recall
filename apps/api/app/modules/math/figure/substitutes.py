@@ -80,8 +80,12 @@ def adds_to(text: str, fence: str) -> bool:
     )
 
 
-def without_substitutes(text: str) -> str:
+def without_substitutes(text: str, question: str = "") -> str:
     """The prompt asks for no picture in characters and no flowchart in a picture's place
     (``GRAPH_NO_SUBSTITUTE_CLAUSE``); a reply that still drew one loses it beside the real
-    picture."""
-    return strip_text_plots(strip_closed_fences(text, "mermaid"))
+    picture. A flowchart the question asks for ("graph y = 2x + 1 and draw a flowchart of the
+    steps") is the reply's own, and stays."""
+    from app.modules.turn_reading.diagrams import is_mermaid_question
+
+    kept = text if is_mermaid_question(question) else strip_closed_fences(text, "mermaid")
+    return strip_text_plots(kept)
