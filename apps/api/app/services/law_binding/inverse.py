@@ -12,8 +12,9 @@ So every law written as arithmetic is solved for whichever of its inputs is aske
   of its inputs (``spec.result_variable``) and the asked input is its result. It keeps the
   law's id, so the reply names the law, its symbols and its picture as before;
 - ``rearranged`` is the arithmetic for that input, which SymPy works out from the law's own
-  expression: one solution, in the grammar ``expression`` evaluates, or none. It runs in the
-  SymPy pool with the turn's other readers (Golden Rule 7), once per law and input;
+  expression: one solution, in the grammar ``expression`` evaluates, or none. Every one a
+  catalog law can ask is worked out ahead and kept as data (``rearrangements``); SymPy
+  works out any other in the pool with the turn's readers (Golden Rule 7);
 - ``solved_input`` reads, from an intent's values, which input a solve is for.
 
 The law is named by its result stated in its own words (``stated_strength``), and a
@@ -34,6 +35,7 @@ from typing import Any
 
 from app.services.law_binding.expression import ExpressionError, parse
 from app.services.law_binding.fit import Question, given_kind, value_end, variable_kind
+from app.services.law_binding.rearrangements import kept_rearrangements, kept_sizes
 from app.services.law_binding.roles import result_role, role_words
 from app.services.law_binding.spec import (
     Binding,
@@ -314,7 +316,17 @@ def rearranged(expression: str, result: str, unknown: str) -> str | None:
     (``parse``). Every name is taken as positive, as a measured size is: v = sqrt(2E/m),
     never its negative twin. A value that is not positive is the solver's to refuse, when
     the answer put back into the law does not give the stated result.
+
+    A catalog law's is read from the kept table, which holds SymPy's own answer: solving
+    took 0.3 s for most laws and 1.4 s for an angle on an incline, inside a turn's read.
     """
+    kept = kept_rearrangements()
+    key = (expression, result, unknown)
+    return kept[key] if key in kept else sympy_rearranged(expression, result, unknown)
+
+
+def sympy_rearranged(expression: str, result: str, unknown: str) -> str | None:
+    """``rearranged`` as SymPy works it out, for an expression the kept table lacks."""
     import sympy
 
     if not all(_PLACEHOLDER.match(name) for name in (result, unknown)):
@@ -350,7 +362,17 @@ def rearranged(expression: str, result: str, unknown: str) -> str | None:
 
 @lru_cache(maxsize=1024)
 def keeps_its_size(inverse: str, result: str) -> bool:
-    """The answer ``inverse`` gives has the same size whichever sign ``result`` has."""
+    """The answer ``inverse`` gives has the same size whichever sign ``result`` has.
+
+    A catalog law's answer is read from the kept table, as ``rearranged``'s is.
+    """
+    kept = kept_sizes()
+    key = (inverse, result)
+    return kept[key] if key in kept else sympy_keeps_its_size(inverse, result)
+
+
+def sympy_keeps_its_size(inverse: str, result: str) -> bool:
+    """``keeps_its_size`` as SymPy works it out."""
     import sympy
 
     names: dict[str, Any] = {}

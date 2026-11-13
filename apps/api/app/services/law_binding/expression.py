@@ -147,6 +147,11 @@ def evaluate(expression: str, values: Mapping[str, float], notation: Notation) -
     return _value(parse(expression), values, notation)
 
 
+def tree_value(tree: ast.expr, values: Mapping[str, float], notation: Notation) -> float:
+    """The number a tree read elsewhere gives (``reduction.law_tree``: a law's side)."""
+    return _value(tree, values, notation)
+
+
 def _value(node: ast.expr, values: Mapping[str, float], notation: Notation) -> float:
     if isinstance(node, ast.Constant):
         return _number(node)

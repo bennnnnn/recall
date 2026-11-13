@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING
 from app.core.config import Settings
 from app.modules.billing import plan as plan_service
 from app.modules.billing.entitlements import has_strong_everyday_model
+from app.modules.chat.decider_read import READ_SUBJECTS
 from app.modules.chat.json_output import is_json_request
 from app.modules.chat.model_routing.decided import decided_lane, decided_level, math_backups
 from app.modules.chat.prompt_constants.conversation import FOLLOW_NOTES
@@ -44,8 +45,6 @@ from app.modules.turn_reading.school_question import is_school_exercise
 if TYPE_CHECKING:
     from app.modules.chat.turn_prep.context import StreamContext
 
-# The read's subjects the worked layout reads, by the subject readers' names.
-_WORKED_SUBJECTS = {"maths": "math", "physics": "physics", "chemistry": "chemistry"}
 # The subjects whose follow-ups get the read's note. Maths, physics, chemistry and money
 # read their own ("what if it was 30 m/s?" changes the posed problem, ``chat.posed_read``).
 _NOTED_SUBJECTS = frozenset({"everyday", "code"})
@@ -153,7 +152,8 @@ def _worked_layout(ctx: StreamContext, settings: Settings, read: TurnDecision) -
     """The ```worked contract for a calculation the subject readers missed and the read
     calls maths, physics or chemistry (P16, a resistor problem, 2026-11-10: no reader
     claimed it, so the everyday prompt answered it)."""
-    subject = _WORKED_SUBJECTS.get(read.subject or "")
+    # The read's subject, by the registry's name.
+    subject = READ_SUBJECTS.get(read.subject or "")
     if subject is None or ctx.worked is not None or _worked(ctx) or ctx.instant_reply:
         return
     content = ctx.user_message_content

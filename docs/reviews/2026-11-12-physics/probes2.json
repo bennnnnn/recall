@@ -1,0 +1,13 @@
+{"q01 accel (2 m/s2)": ["cyclist speeds up steadily from 4 to 16 m/s in 60 meters, whats the acceleration?", "Over 60 m, a bike's speed goes from 4 m/s up to 16 m/s at a constant rate. Acceleration?"],
+ "q02 stop dist (300 m)": ["how far does a train going 30 m/s need to stop if it decelerates at 1.5 m/s^2", "Braking at 1.5 m/s², a 30 m/s train comes to rest. Stopping distance?"],
+ "q03 well (30.7 m)": ["I dropped a rock into a well and heard the splash 2.5 seconds later, how deep is it (ignore sound travel)", "how deep is a well if a stone takes 2.5 s to hit the water"],
+ "q04 range (31.0 m)": ["kick a football at 18 m/s, 35 degrees up. how far does it go?", "What horizontal distance does a ball cover if launched with speed 18 m/s at an elevation of 35°?"],
+ "q09 crate (2.74 m/s2)": ["i push a 15kg crate with 100N, friction coefficient is 0.4, what's the acceleration", "A 100 N horizontal push acts on a 15 kg crate; μk = 0.4. Find a."],
+ "q13 coaster (29.7 m/s)": ["roller coaster drops 45 m from rest, speed at the bottom? no friction", "From a height of 45 m a cart rolls down from rest. Neglecting friction, find its speed at ground level."],
+ "q16 collision (3 m/s)": ["3kg cart at 4 m/s hits a 1kg cart sitting still, they stick. final speed?", "Perfectly inelastic collision: 3 kg at 4 m/s into 1 kg at rest. Common velocity afterwards?"],
+ "q23 pendulum (2.84 s)": ["how long does one swing of a 2 meter pendulum take", "Period of a 2.0 m simple pendulum?"],
+ "q28 lens (15 cm)": ["object 30cm from a convex lens with f=10cm, where's the image", "Converging lens, f = 10 cm, object distance 30 cm. Find the image distance."],
+ "q30 series (2 A)": ["2, 4 and 6 ohm resistors in series on a 24V battery. current?", "Find the current when 2 Ω, 4 Ω and 6 Ω are wired in series to 24 V."],
+ "q35 heat (502 kJ)": ["how much energy to heat 2kg of water from 20 to 80 degrees", "Heat required to warm 2 kg of water by 60 °C? c = 4186 J/kg°C"],
+ "q41 half-life (5 g)": ["80g of an isotope, half life 5 days, how much left after 20 days", "After 20 days, how much of an 80 g sample remains if its half-life is 5 days?"],
+ "non-English": ["Un ciclista acelera uniformemente de 4 m/s a 16 m/s en 60 m. ¿Cuál es su aceleración?", "Une balle est lancée à 18 m/s avec un angle de 35° au-dessus de l'horizontale. Quelle est sa portée ?", "Ein Zug fährt mit 30 m/s und bremst mit 1,5 m/s². Wie lang ist der Bremsweg?", "Una resistencia de 450 Ω se conecta a una batería de 9 V. ¿Qué corriente circula?", "Quelle est la période d'un pendule simple de 2 m de long ?", "Ein Körper mit 0,145 kg bewegt sich mit 40 m/s. Wie groß ist seine kinetische Energie?"]}

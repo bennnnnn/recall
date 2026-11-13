@@ -30,6 +30,7 @@ from app.modules.chemistry.elements import BY_SYMBOL
 from app.modules.chemistry.formula import parse_formula
 from app.services.glyphs import SUBSCRIPT_DIGITS, SUPERSCRIPT_SIGNED
 from app.services.latex_markup import without_markup
+from app.services.number_text import DECIMAL
 
 _SUBSCRIPTS = SUBSCRIPT_DIGITS
 _SUPERSCRIPTS = SUPERSCRIPT_SIGNED
@@ -66,7 +67,7 @@ _COEFFICIENT = re.compile(r"(\d*)\s*(.*)", re.DOTALL)
 # a pH value, or before a molar concentration. "PH" and "Ph" count only before a
 # concentration: "PH = 7 cm" is a segment in geometry.
 _CONCENTRATION = (
-    r"(?:an?\s+|the\s+)?(?:solution\s+(?:of|with)\s+)?(?:\d+(?:\.\d+)?|\.\d+)"
+    rf"(?:an?\s+|the\s+)?(?:solution\s+(?:of|with)\s+)?{DECIMAL}"
     r"(?:\s*(?:[x×*·]\s*10\s*\^?\s*[-+−]?\d{1,3}|[eE][-+]?\d{1,3}))?"
     r"\s*(?:M|mM|mol/L|molar)(?![A-Za-z])"
 )

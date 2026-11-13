@@ -9,6 +9,7 @@ so routing never runs the physics solver on the event loop.
 from __future__ import annotations
 
 import logging
+import re
 from functools import lru_cache
 
 from app.core.readings import reading
@@ -56,6 +57,17 @@ _PHYSICS_FORMULA_CUES = (
 )
 
 
+def _cue_pattern(cues: tuple[str, ...]) -> re.Pattern[str]:
+    """Any cue as a word of its own, or with a plural or past ending ("inclined",
+    "pendulums"): never inside another word, as "incline" is in "disinclined"."""
+    words = "|".join(re.escape(cue) for cue in cues)
+    return re.compile(rf"\b(?:{words})(?:s|d)?\b")
+
+
+_HOMEWORK_CUE = _cue_pattern(_PHYSICS_HOMEWORK_CUES)
+_FORMULA_CUE = _cue_pattern(_PHYSICS_FORMULA_CUES)
+
+
 def _looks_like_physics_homework(content: str) -> bool:
     """Hard physics asks the solver templates don't cover.
 
@@ -64,11 +76,11 @@ def _looks_like_physics_homework(content: str) -> bool:
     (escape velocity, pendulum, …) escalate even without a number.
     """
     lower = content.lower()
-    if not any(cue in lower for cue in _PHYSICS_HOMEWORK_CUES):
+    if _HOMEWORK_CUE.search(lower) is None:
         return False
     if any(ch.isdigit() for ch in content):
         return True
-    return any(cue in lower for cue in _PHYSICS_FORMULA_CUES)
+    return _FORMULA_CUE.search(lower) is not None
 
 
 @reading(declined=False)

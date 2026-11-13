@@ -138,6 +138,21 @@ def test_to_si_reads_the_prefix_as_written(value: float, unit: str, key: str, si
     assert to_si(value, unit, expected_key=key) == pytest.approx(si)
 
 
+def test_to_si_converts_each_value_by_its_unit_kept_once() -> None:
+    """The conversion is kept per unit, never per value: a scale multiplies each value,
+    and a reading on an offset scale is converted value by value, a difference by scale."""
+    assert [to_si(value, "km/h", expected_key="v") for value in (36, 72)] == pytest.approx(
+        [10.0, 20.0]
+    )
+    assert [to_si(value, "°C", expected_key="temp_initial") for value in (0, 100)] == (
+        pytest.approx([273.15, 373.15])
+    )
+    assert to_si(50, "°C", expected_key="delta_temp") == pytest.approx(50.0)
+    assert [to_si(value, "°F", expected_key="temp_initial") for value in (32, 212)] == (
+        pytest.approx([273.15, 373.15])
+    )
+
+
 @pytest.mark.parametrize(
     ("unit", "key"),
     [

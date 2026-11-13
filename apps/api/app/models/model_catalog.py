@@ -1,5 +1,7 @@
 """Catalog of chat models — the single source of truth for routing, pricing,
-provider, and availability. Adding a provider/model is one entry here.
+provider, and availability. Adding a provider/model is one entry here. Removing one adds
+its alias to ``model_removal.REMOVED_ALIASES``, no migration: a saved switch of it is
+off, a request naming it is Auto, and startup refuses lanes that still name it.
 
 Chat and image models route through **OpenRouter** using ``OPENROUTER_API_KEY``.
 Voice uses OpenAI directly with ``OPENAI_API_KEY``.
@@ -385,7 +387,8 @@ _BY_ID: dict[str, ChatModel] = {m.id: m for m in CATALOG}
 def get(model_id: str) -> ChatModel:
     """Resolve a known product alias. Unknown ids raise — never silent fallback.
 
-    Callers validate via ``known_ids()`` / ``validate_user_alias`` first.
+    Callers check ``known_ids()`` first; request schemas read an alias the catalog
+    removed as Auto and refuse any other unknown name (``model_removal``).
     """
     try:
         return _BY_ID[model_id]
@@ -473,19 +476,6 @@ def estimate_cost_usd(
     input_price = model.input_price_per_m or 0.0
     output_price = model.output_price_per_m or 0.0
     return (input_tokens / 1_000_000.0) * input_price + (output_tokens / 1_000_000.0) * output_price
-
-
-def validate_user_alias(alias: str, *, allow_auto: bool = False) -> None:
-    """Raise ``ValueError`` unless ``alias`` is a catalog id (or ``auto`` when allowed).
-
-    The catalog is the one list of aliases: adding a model here makes it valid
-    in request schemas too.
-    """
-    if allow_auto and alias == "auto":
-        return
-    if alias in _BY_ID:
-        return
-    raise ValueError(f"Unknown model alias: {alias}")
 
 
 # An entry with no list price (an open model whose price is not backfilled yet, likely

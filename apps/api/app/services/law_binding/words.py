@@ -71,7 +71,8 @@ def labels_as(phrases: tuple[str, ...], before: str, after: str) -> bool:
     )
 
 
-@lru_cache(maxsize=1024)
+# Every subject's catalog words share it: the physics corpora alone ask 1,222 phrases.
+@lru_cache(maxsize=4096)
 def word_pattern(phrase: str) -> re.Pattern[str]:
     # A leading word boundary only: "climb" names "climbs", "accelerat" both forms.
     return re.compile(rf"(?<![\w]){re.escape(phrase)}")

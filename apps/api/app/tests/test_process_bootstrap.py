@@ -48,6 +48,27 @@ async def test_initialize_process_warms_sympy_only_for_api_roles(
 
 
 @pytest.mark.asyncio
+async def test_a_lane_naming_a_model_the_catalog_dropped_stops_the_process_starting(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """API and worker both start here: a bad removal fails the deploy, not a turn."""
+    from app.models import model_catalog
+
+    kept = {alias: model for alias, model in model_catalog._BY_ID.items() if alias != "gpt-6-luna"}
+    monkeypatch.setattr(model_catalog, "_BY_ID", kept)
+    warmup = AsyncMock()
+    with (
+        patch("app.process_bootstrap.setup_logging"),
+        patch("app.process_bootstrap.init_sentry"),
+        patch("app.process_bootstrap.validate_production_settings"),
+        patch("app.process_bootstrap.warmup_db_pool", warmup),
+        pytest.raises(RuntimeError, match=r"ROUTING\.tool_selectors\[0\] names 'gpt-6-luna'"),
+    ):
+        await process_bootstrap.initialize_process(Settings(mock_llm_enabled=True))
+    warmup.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_start_worker_runtime_registers_before_consumer_and_schedulers():
     order: list[str] = []
 

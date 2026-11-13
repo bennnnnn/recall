@@ -17,7 +17,7 @@ import pytest
 from app.core import readings, sympy_executor
 from app.core.log_context import bound_log_ids
 from app.core.sympy_executor import ProcessPoolSympyExecutor
-from app.core.sympy_slots import SlotPool
+from app.core.sympy_slots import OwnerTurns, SlotPool, WorkerBusyError
 from app.tests.sympy_support import ThreadSympyExecutor
 
 
@@ -149,6 +149,17 @@ async def test_a_waiter_that_gives_up_takes_no_slot():
         await asyncio.wait_for(pool.get("reading"), timeout=0.01)
     pool.put_nowait(slot)
     assert pool.qsize() == 1
+
+
+async def test_owner_turns_claim_times_out_as_worker_busy():
+    """A user's second job that waits out their first is "busy", not "ran too long"."""
+    turns = OwnerTurns()
+    await turns.claim("u", wait_s=1.0)
+    with pytest.raises(WorkerBusyError):
+        await turns.claim("u", wait_s=0.01)
+    turns.release("u")
+    await turns.claim("u", wait_s=0.01)
+    turns.release("u")
 
 
 async def test_a_slot_handed_to_a_cancelled_waiter_comes_back():

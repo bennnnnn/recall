@@ -92,6 +92,9 @@ class ChemistryFollowups:
 class ChemistryFence:
     """Chemistry checks the replies it verified, and draws its molecules (chat's finalize)."""
 
+    def owns(self, verified: VerifiedSolveBlock | None) -> bool:
+        return verified is not None and verified.subject == "chemistry"
+
     def needs_check(self, text: str, verified: VerifiedSolveBlock | None) -> bool:
         return True
 
@@ -169,11 +172,15 @@ class ChemistryPhoto:
 class ChemistrySubject:
     name: Literal["chemistry"] = "chemistry"
     hints: SubjectHints = _HINTS
+    status_phase: str = "chemistry"
     followups: ChemistryFollowups = ChemistryFollowups()
     fence: ChemistryFence = ChemistryFence()
     photo: ChemistryPhoto = ChemistryPhoto()
     # No model tool of its own.
     tool: None = None
+
+    def enabled(self, settings: Settings) -> bool:
+        return settings.chemistry_enabled
 
     def asks(self, text: str, *, has_image_attachment: bool = False) -> bool:
         return is_chemistry_question(text)
@@ -190,9 +197,10 @@ class ChemistrySubject:
 
         return not names_beyond(setup, question)
 
-    def fast_lane(self, text: str, *, tools_on: bool) -> bool | None:
-        # A chemistry answer's card is the server's: the fast model only presents it.
-        return True
+    def fast_lane(self, text: str, *, tools_on: bool, claimed: bool = True) -> bool | None:
+        # A chemistry answer's card is the server's: the fast model only presents it. A
+        # line chemistry was not given has no say here.
+        return True if claimed else None
 
     def instant_reply(self, text: str, *, prior_reply: str | None) -> str | None:
         return None

@@ -40,8 +40,7 @@ def _should_augment_web_and_tools(
     day_planning: bool,
     ambiguous_nearby: bool,
     rich_context: bool = True,
-    needs_math: bool = False,
-    needs_chem: bool = False,
+    needs_subject: bool = False,
 ) -> bool:
     """Shared gate for routing-context prefetch and web/tools augmentation.
 
@@ -49,7 +48,7 @@ def _should_augment_web_and_tools(
     updates still suppress augmentation the same way as before.
 
     Slim/casual chat (not ``rich_context``) still augments when the turn
-    actually needs math or chemistry — otherwise skip prior messages, SymPy
+    actually needs a subject's solve — otherwise skip prior messages, SymPy
     and PubChem.
     """
     if not (
@@ -60,7 +59,7 @@ def _should_augment_web_and_tools(
         and not ambiguous_nearby
     ):
         return False
-    return rich_context or needs_math or needs_chem
+    return rich_context or needs_subject
 
 
 # "I work 9am to 5:30pm with a 45 min lunch. How many hours do I work in a

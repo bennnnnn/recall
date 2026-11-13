@@ -24,6 +24,7 @@ bad", "co2 levels are rising"), and the model answers.
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 
 from app.modules.chemistry.lewis import lewis_structure
 from app.modules.chemistry.schemas import ChemistryIntent
@@ -91,9 +92,26 @@ def _phrases(substance: str, written: str) -> tuple[str, ...]:
     )
 
 
-def _alternative(formulas: set[str]) -> str:
+def _alternative(formulas: frozenset[str]) -> str:
     ordered = sorted(formulas, key=len, reverse=True)
     return "(?-i:" + "|".join(re.escape(formula) for formula in ordered) + ")(?![A-Za-z0-9])"
+
+
+@lru_cache(maxsize=128)
+def _compiled_phrases(
+    named: frozenset[str], written: frozenset[str]
+) -> tuple[re.Pattern[str], ...]:
+    """Every phrase compiled for these molecules, in order. Built from the message's names,
+    the patterns were new each line: 12 compiles a line flushed ``re``'s shared 512-entry
+    cache (1,055 compiles in one warm pass of the chemistry corpus). Lines name the same few
+    molecules, so each set is compiled once. A set's 12 patterns hold about 63 KB, so 128
+    sets (the corpus names 78) stay under 8 MB."""
+    substance = _alternative(named)
+    formula = _alternative(written) if written else r"(?!)"
+    return tuple(
+        re.compile(rf"(?P<lead>{_LEAD}){phrase}{_TAIL}", re.IGNORECASE)
+        for phrase in _phrases(substance, formula)
+    )
 
 
 def _written_as_formula(text: str, mention: Mention) -> bool:
@@ -118,13 +136,13 @@ def shape_question(text: str) -> tuple[str, ...] | None:
     mentions = substance_mentions(text)
     if not mentions:
         return None
-    named = {mention.formula for mention in mentions}
-    written = {mention.formula for mention in mentions if _written_as_formula(text, mention)}
+    named = frozenset(mention.formula for mention in mentions)
+    written = frozenset(
+        mention.formula for mention in mentions if _written_as_formula(text, mention)
+    )
     line = with_formulas(text, mentions).strip()
-    substance = _alternative(named)
-    formula = _alternative(written) if written else r"(?!)"
-    for phrase in _phrases(substance, formula):
-        found = re.fullmatch(rf"(?P<lead>{_LEAD}){phrase}{_TAIL}", line, re.IGNORECASE)
+    for pattern in _compiled_phrases(named, written):
+        found = pattern.fullmatch(line)
         if found is None:
             continue
         if _title_cased(found, found.end("lead")):

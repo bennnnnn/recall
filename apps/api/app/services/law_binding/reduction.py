@@ -459,7 +459,7 @@ def reduce_substitution(
     return labelled or plain
 
 
-def _law(formula: str) -> ast.expr | None:
+def law_tree(formula: str) -> ast.expr | None:
     try:
         return _Parser(formula, _Reading(), names=True).read()
     except (_Unreadable, ValueError, KeyError):
@@ -475,7 +475,7 @@ def _reduced(
 ) -> Reduction | None:
     reading = _Reading()
     tree = _Parser(substituted, reading).read()
-    laws = [law for law in map(_law, units.formulas) if law] if units is not None else []
+    laws = [law for law in map(law_tree, units.formulas) if law] if units is not None else []
     if units is not None and (value is None or not label(tree, laws, units, value)):
         return None
     notation = reading.notation(number, units.shown if units is not None else None)

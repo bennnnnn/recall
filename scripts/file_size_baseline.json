@@ -2,7 +2,7 @@
   "_doc": "Files over 500 lines (docs/ENGINEERING_STANDARDS.md). 'lines' is a ceiling: the file may shrink, never grow. Tickets are in docs/ENGINEERING_STANDARDS_TICKETS.md. After a split, run scripts/check_file_sizes.py --update.",
   "files": {
     "apps/api/app/models/model_catalog.py": {
-      "lines": 513,
+      "lines": 503,
       "why": "Exception: The one model catalog (CLAUDE.md names it so); every alias as data"
     },
     "apps/api/app/modules/chat/calculation_layout.py": {
@@ -98,7 +98,7 @@
       "why": "Exception: Law catalog; all data"
     },
     "apps/api/app/modules/physics/catalog/magnetism.py": {
-      "lines": 607,
+      "lines": 595,
       "why": "Exception: Law catalog; all data"
     },
     "apps/api/app/modules/physics/catalog/optics.py": {

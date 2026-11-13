@@ -99,6 +99,9 @@ class PhysicsFollowups:
 class PhysicsFence:
     """Physics checks the replies it verified (chat's finalize passes)."""
 
+    def owns(self, verified: VerifiedSolveBlock | None) -> bool:
+        return isinstance(verified, VerifiedPhysicsBlock)
+
     def needs_check(self, text: str, verified: VerifiedSolveBlock | None) -> bool:
         return True
 
@@ -179,11 +182,15 @@ class PhysicsPhoto:
 class PhysicsSubject:
     name: Literal["physics"] = "physics"
     hints: SubjectHints = _HINTS
+    status_phase: str = "physics"
     followups: PhysicsFollowups = PhysicsFollowups()
     fence: PhysicsFence = PhysicsFence()
     photo: PhysicsPhoto = PhysicsPhoto()
     # No model tool of its own.
     tool: None = None
+
+    def enabled(self, settings: Settings) -> bool:
+        return settings.physics_enabled
 
     def asks(self, text: str, *, has_image_attachment: bool = False) -> bool:
         return needs_physics(text)
@@ -199,7 +206,9 @@ class PhysicsSubject:
         intent = extract_physics_intent(f"{setup} {question}")
         return intent is not None and bool(intent.asked)
 
-    def fast_lane(self, text: str, *, tools_on: bool) -> bool | None:
+    def fast_lane(self, text: str, *, tools_on: bool, claimed: bool = True) -> bool | None:
+        # Its cues read a line whether or not the order gave it physics: "a pendulum's
+        # period" with no numbers still wants the strong model.
         from app.modules.physics.lane import physics_fast_lane
 
         return physics_fast_lane(text, tools_on=tools_on)
