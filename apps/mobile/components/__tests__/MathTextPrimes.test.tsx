@@ -1,4 +1,4 @@
-import { StyleSheet } from "react-native";
+import { StyleSheet, type StyleProp, type TextStyle } from "react-native";
 import { render } from "@testing-library/react-native";
 
 import { MathText } from "@/components/rich/MathText";
@@ -7,7 +7,7 @@ import { formulaText, spokenFormula } from "@/lib/math/text";
 import type { Element } from "./support/mathInk";
 
 /** Every drawn Text whose own strings hold a prime glyph. */
-function primeTexts(node: Element | Element[] | string | null): Element[] {
+function primeTexts(node: Element | (Element | string)[] | string | null): Element[] {
   if (node == null || typeof node === "string") return [];
   if (Array.isArray(node)) return node.flatMap(primeTexts);
   const own = (node.children ?? []).filter((child): child is string => typeof child === "string").join("");
@@ -41,7 +41,7 @@ describe("MathText primes", () => {
     expect(drawn.map(ownText)).toEqual(primes);
     for (const node of drawn) {
       expect(node.props.testID).toBe("math-script");
-      expect(StyleSheet.flatten(node.props.style as object).fontSize).toBeLessThanOrEqual(16 * SCRIPT_RATIO);
+      expect((StyleSheet.flatten(node.props.style as StyleProp<TextStyle>) ?? {}).fontSize).toBeLessThanOrEqual(16 * SCRIPT_RATIO);
     }
   });
 

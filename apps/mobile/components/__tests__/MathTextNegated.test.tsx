@@ -1,4 +1,4 @@
-import { Dimensions, Platform, StyleSheet } from "react-native";
+import { Dimensions, Platform, StyleSheet, type StyleProp, type TextStyle } from "react-native";
 import { render } from "@testing-library/react-native";
 
 import { MathText } from "@/components/rich/MathText";
@@ -6,6 +6,10 @@ import { MATH_NOT_GLYPH, NEGATED_RELATION, NOT_ADVANCE_EM, notSlashSpacing } fro
 import type { Element } from "./support/mathInk";
 
 const SPACE_EM = 0.25;
+
+function letterSpacing(node: Element): number | undefined {
+  return (StyleSheet.flatten(node.props.style as StyleProp<TextStyle>) ?? {}).letterSpacing;
+}
 
 /**
  * Where each glyph of [lead?][slash][base] is drawn and how far the pen goes, in em, as each
@@ -55,10 +59,10 @@ describe("negated relations", () => {
     const spacing = notSlashSpacing(os === "android");
     const pieces = negated.children.filter((child) => typeof child !== "string") as unknown as Element[];
     const slash = pieces.find((child) => (child.children ?? []).join("") === MATH_NOT_GLYPH)!;
-    expect(StyleSheet.flatten(slash.props.style as object).letterSpacing).toBeCloseTo(spacing.slash * 16, 6);
+    expect(letterSpacing(slash)).toBeCloseTo(spacing.slash * 16, 6);
     const lead = pieces.find((child) => (child.children ?? []).join("") === " ");
     if (spacing.lead == null) expect(lead).toBeUndefined();
-    else expect(StyleSheet.flatten(lead!.props.style as object).letterSpacing).toBeCloseTo(spacing.lead * 16, 6);
+    else expect(letterSpacing(lead!)).toBeCloseTo(spacing.lead * 16, 6);
     expect(negated).toHaveTextContent(new RegExp(`${MATH_NOT_GLYPH}=$`));
   });
 
@@ -73,6 +77,6 @@ describe("negated relations", () => {
     const screen = await render(<MathText latex={String.raw`x \neq 9`} fontSize={16} />);
     const pieces = screen.getByTestId("math-negated").children.filter((child) => typeof child !== "string") as unknown as Element[];
     const slash = pieces.find((child) => (child.children ?? []).join("") === MATH_NOT_GLYPH)!;
-    expect(StyleSheet.flatten(slash.props.style as object).letterSpacing).toBeCloseTo(pull, 6);
+    expect(letterSpacing(slash)).toBeCloseTo(pull, 6);
   });
 });
