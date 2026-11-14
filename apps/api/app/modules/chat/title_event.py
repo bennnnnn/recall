@@ -22,6 +22,8 @@ from uuid import UUID
 
 from redis.asyncio import Redis
 
+from app.core.log_text import log_safe
+
 logger = logging.getLogger(__name__)
 
 _KEY = "chat_title_ready:{chat_id}"
@@ -52,7 +54,7 @@ async def _announced(redis: Redis, chat_id: UUID) -> str | None:
     try:
         title = await redis.get(_key(chat_id))
     except Exception:
-        logger.warning("Chat title read failed chat_id=%s", chat_id, exc_info=True)
+        logger.warning("Chat title read failed chat_id=%s", log_safe(chat_id), exc_info=True)
         return None
     return title if isinstance(title, str) and title.strip() else None
 

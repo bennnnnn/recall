@@ -27,6 +27,8 @@ _TEXT_NAMES = re.compile(
     re.IGNORECASE,
 )
 _WRAPPERS_THAT_HIDE = frozenset({"len", "type", "bool", "id", "isinstance"})
+# Escapes its argument onto one line (``core/log_text``): the argument is still logged, whole.
+_WRAPPERS_THAT_KEEP = frozenset({"log_safe"})
 _PROVIDER_RESPONSES = frozenset({"response", "resp"})
 # (file, name): why the name holds no user text there.
 _ALLOWED = {
@@ -51,6 +53,8 @@ def _names(node: ast.AST) -> set[str]:
     if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
         if node.func.id in _WRAPPERS_THAT_HIDE:
             return set()
+        if node.func.id in _WRAPPERS_THAT_KEEP:
+            return set().union(*(_names(arg) for arg in node.args))
     if isinstance(node, ast.Attribute):
         if node.attr == "__name__":
             return set()
@@ -142,3 +146,6 @@ def test_the_check_sees_a_leak_and_passes_a_length() -> None:
     assert leaked('logger.info("saved title_chars=%d", len(title))') == set()
     assert leaked('logger.info("skipped: %s", type(exc).__name__)') == set()
     assert leaked('logger.warning("failed body=%s", response.text[:500])') == set()
+    assert leaked('logger.info("saved title=%s", log_safe(title))') == {"title"}
+    # The ``%r`` check reads what ``log_safe`` prints, not the function's own name.
+    assert _names(ast.parse("log_safe(key)", mode="eval").body) == {"key"}

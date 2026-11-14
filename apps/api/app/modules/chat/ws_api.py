@@ -25,6 +25,7 @@ from app.core import access_tokens, chat_rate_limit, shutdown, user_cache
 from app.core.client_ip import client_ip
 from app.core.config import Settings, get_settings
 from app.core.log_context import bound_log_ids
+from app.core.log_text import log_safe
 from app.core.rate_limit import allow_request_unless_down
 from app.core.redis import get_redis_client
 from app.exceptions import AuthenticationError, RedisUnavailableError
@@ -308,7 +309,7 @@ async def _authenticate(
         if client_timezone is not None and not isinstance(client_timezone, str):
             client_timezone = None
     except WebSocketDisconnect:
-        logger.info("WebSocket disconnected before authentication chat_id=%s", chat_id)
+        logger.info("WebSocket disconnected before authentication chat_id=%s", log_safe(chat_id))
         return None
     except TimeoutError:
         await safe_send_json(websocket, socket_error_payload("auth_timeout"))
@@ -364,7 +365,7 @@ async def chat_websocket(
     with bound_log_ids(user_id=user_id):
         async with slot as admitted:
             if not admitted:
-                logger.warning("Chat socket cap reached user_id=%s chat_id=%s", user_id, chat_id)
+                logger.warning("Chat socket cap reached chat_id=%s", log_safe(chat_id))
                 await close_quietly(websocket, WS_TOO_MANY_SOCKETS_CLOSE_CODE)
                 return
             await _serve_frames(
