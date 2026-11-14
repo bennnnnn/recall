@@ -1,0 +1,7 @@
+[
+  {"id": "au-mx-spaced", "area": "matrix", "prompt": "find the determinant of [[2, 1], [5, 3]]", "expect": "answer", "check": ["num", "1"], "note": "spaces inside the brackets were not maths at all; [[2,1],[5,3]] got a checked 1 (2026-11-13 audit, MATH-07)"},
+  {"id": "au-mx-padded", "area": "matrix", "prompt": "find the inverse of [ [4, 7] , [2, 6] ]", "expect": "answer", "check": ["matrix", [["3/5", "-7/10"], ["-1/5", "2/5"]]]},
+  {"id": "au-mx-space-cells", "area": "matrix", "prompt": "det [[2 3], [1 4]]", "expect": "answer", "check": ["num", "5"], "note": "cells apart by spaces alone"},
+  {"id": "au-mx-spaced-product", "area": "matrix", "prompt": "multiply [[1, 2], [3, 4]] by [[0, 1], [1, 0]]", "expect": "answer", "check": ["matrix", [["2", "1"], ["4", "3"]]]},
+  {"id": "au-mx-spaced-minus", "area": "matrix", "prompt": "find the determinant of [[2 - 1], [5 3]]", "expect": "decline", "note": "2 - 1 could be one cell or two: no matrix is read"}
+]

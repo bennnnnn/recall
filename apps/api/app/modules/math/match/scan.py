@@ -111,7 +111,40 @@ def prepare(text: str) -> str | None:
     )
     if cleaned is None:
         return None
-    return fold_digit_groups(fix_leading_solve_typo(cleaned))
+    return fold_matrix_spacing(fold_digit_groups(fix_leading_solve_typo(cleaned)))
+
+
+# A matrix typed in brackets, row by row: ``[[2, 1], [5, 3]]``, ``[ [2 1] [5 3] ]``. Each
+# gap is one unambiguous ``\s*`` (a comma between rows optional), so a near miss fails in
+# one pass.
+_BRACKET_MATRIX = re.compile(r"\[\s*\[[^\[\]]*\](?:\s*(?:,\s*)?\[[^\[\]]*\])+\s*\]")
+_MATRIX_GAP = re.compile(r"\s*([\[\],])\s*")
+_ROW = re.compile(r"\[([^\[\]]*)\]")
+_CELL = re.compile(r"[-+\u2212]?(?:\d+(?:\.\d*)?|\.\d+)")
+
+
+def _row_cells(match: re.Match[str]) -> str:
+    """``[2 1]``: cells apart by spaces alone are the cells ``[2,1]``; ``[2 - 1]`` is not."""
+    cells = match.group(1).split()
+    if "," in match.group(1) or len(cells) < 2:
+        return f"[{' '.join(cells)}]"
+    if not all(_CELL.fullmatch(cell) for cell in cells):
+        return match.group(0)
+    return f"[{','.join(cells)}]"
+
+
+def _folded_matrix(match: re.Match[str]) -> str:
+    rows = _ROW.sub(_row_cells, match.group(0))
+    return _MATRIX_GAP.sub(r"\1", rows).replace("][", "],[")
+
+
+def fold_matrix_spacing(text: str) -> str:
+    """``[[2, 1], [5, 3]]`` is the matrix ``[[2,1],[5,3]]``: every reader of a bracketed
+    matrix splits its rows at ``],[``, so "find the determinant of [[2, 1], [5, 3]]" was not
+    maths at all while the same matrix typed without spaces got a checked 1 (2026-11-13)."""
+    if "[" not in text:
+        return text
+    return _BRACKET_MATRIX.sub(_folded_matrix, text)
 
 
 # The verbs a closed request may open with: "find the area of …", "what's the mean of …".
