@@ -72,11 +72,20 @@ _MAKERS = {
 }
 
 
+def _makers_bullet() -> str:
+    """The policy's line that lists the model makers: a maker named in another bullet (OpenAI
+    for voice) does not count for the models."""
+    from app.content.privacy_policy import privacy_policy_markdown
+
+    lines = privacy_policy_markdown(_SUPPORT).splitlines()
+    return next(line for line in lines if line.startswith("- **AI model providers"))
+
+
 @pytest.mark.parametrize("model", CATALOG, ids=lambda model: model.id)
 def test_privacy_policy_names_the_maker_of_every_model_the_app_calls(model: ChatModel) -> None:
     maker = openrouter_slug(model.id).split("/", 1)[0]
     assert maker in _MAKERS, f"{model.id}: name its maker {maker!r} here and in the policy"
-    assert _MAKERS[maker] in _client().get("/legal/privacy").text
+    assert _MAKERS[maker] in _makers_bullet()
 
 
 def test_privacy_policy_says_what_the_decider_reads() -> None:
