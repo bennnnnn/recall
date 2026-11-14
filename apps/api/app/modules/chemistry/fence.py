@@ -41,6 +41,7 @@ from app.services.md_fence_scan import (
     map_closed_fences,
     strip_closed_fences,
 )
+from app.services.structure_captions import uncaptioned_fence
 
 logger = logging.getLogger(__name__)
 
@@ -178,17 +179,20 @@ def enrich_chemistry_fences(content: str, named: Mapping[str, str] | None = None
     cannot skip stripping later invalid fences.
     """
     canonicalize = partial(_canonicalize_smiles_fence, named=named)
+    # A fence past the cap is not checked, so its caption goes (``structure_captions``).
     content = map_closed_fences(
         content,
         "smiles",
         canonicalize,
         max_count=_MAX_SMILES_FENCES,
+        leftover=partial(uncaptioned_fence, "smiles"),
     )
     content = map_closed_fences(
         content,
         "chemistry",
         canonicalize,
         max_count=_MAX_SMILES_FENCES,
+        leftover=partial(uncaptioned_fence, "chemistry"),
     )
     mol3d_left = _MAX_3D_FENCES
 

@@ -16,7 +16,7 @@ import pytest
 from app.core.config import Settings
 from app.gateways.pubchem_gateway import PubChemCompound, PubChemResult
 from app.modules.chemistry.caption_lookup import checked_names
-from app.modules.chemistry.caption_names import caption_name
+from app.modules.chemistry.caption_names import caption_name, checked_name
 
 _CAFFEINE = PubChemCompound(
     cid=2519,
@@ -80,3 +80,21 @@ async def test_caption_names_chemistry_off_looks_nothing_up() -> None:
 )
 def test_caption_name_reads_the_name_a_caption_starts_with(written: str, name: str | None) -> None:
     assert caption_name(written) == name
+
+
+@pytest.mark.parametrize(
+    ("written", "drawn", "named", "kept"),
+    [
+        # Stereo marks are the structure: cis over trans, (R) over (S) (review, 2026-11-13).
+        ("cis-2-butene", "C/C=C/C", {"cis-2-butene": "C/C=C\\C"}, None),
+        ("(R)-alanine", "C[C@H](N)C(=O)O", {"(r)-alanine": "C[C@@H](N)C(=O)O"}, None),
+        ("trans-2-butene", "C/C=C/C", {"trans-2-butene": "C/C=C/C"}, "trans-2-butene"),
+        # A drawing with marks is held to a source with them; one with none, to its connections.
+        ("2-butene", "C/C=C/C", {"2-butene": "CC=CC"}, None),
+        ("Ethanol", "OCC", {"ethanol": "CCO"}, "Ethanol"),
+    ],
+)
+def test_caption_names_a_name_keeps_only_its_own_stereo(
+    written: str, drawn: str, named: dict[str, str], kept: str | None
+) -> None:
+    assert checked_name(written, drawn, named) == kept

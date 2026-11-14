@@ -57,6 +57,7 @@ from app.modules.chat.finalize_parts import (
 )
 from app.modules.chat.finalize_reminders import apply_reminder_pass, drop_cut_reminder_fence
 from app.modules.chat.finalize_subjects import (
+    CHEMISTRY_ENRICH,
     append_unverified_notes,
     check_math_fences,
     check_working,
@@ -64,6 +65,7 @@ from app.modules.chat.finalize_subjects import (
     drop_check_lines,
     enrich_chemistry_fences,
     fallback_text,
+    fallen_back,
     mark_server_cards,
     prepare_model_reply,
     recover_math_fences,
@@ -71,7 +73,7 @@ from app.modules.chat.finalize_subjects import (
     strip_solve_markers,
     strip_text_plots,
     subject_fences,
-    uncheck_cards,
+    uncaptioned,
 )
 from app.modules.chat.finalize_text import (
     add_search_sources,
@@ -317,9 +319,9 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass("text_plots", strip_text_plots, kind=TEXT),
     FinalizePass("solve_markers", strip_solve_markers, kind=TEXT),
     FinalizePass(
-        "chemistry_enrich",
+        CHEMISTRY_ENRICH,
         enrich_chemistry_fences,
-        OnError(log_as="enrich_chemistry_fences"),
+        OnError(log_as="enrich_chemistry_fences", rewrite=uncaptioned),
         kind=TEXT,
     ),
     FinalizePass("settings_card", add_settings_card, kind=EFFECT),
@@ -416,9 +418,7 @@ async def run_finalize_passes(state: FinalizeState) -> bool:
             if index >= passed or finalize_pass.name in state.failed_safety
         )
         state.committed = await _made_safe(state, state.committed, unclean)
-        if state.ctx.photo_uncertain is True:
-            # A text committed before the cards were unchecked keeps no check either.
-            state.committed = uncheck_cards(state.committed)
+        state.committed = fallen_back(state, state.committed, {item.name for item in unclean})
         state.text = state.committed
         return False
     return True

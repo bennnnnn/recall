@@ -15,11 +15,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from app.core import sympy_executor
-from app.modules.chat.simulation_fences import (
-    CAPTIONED_LANGS,
-    drop_open_fences,
-    strip_model_drawn_fences,
-)
+from app.modules.chat.simulation_fences import drop_open_fences, strip_model_drawn_fences
 from app.modules.chat.verification_claims import strip_verification_claims
 from app.modules.chat.worked_lead import drop_restated_tail
 from app.modules.chat.working_check import is_worked_solution, working_note
@@ -40,6 +36,7 @@ from app.services.md_fence_scan import map_closed_fences
 from app.services.part_answer_cards import land_part_answer_cards
 from app.services.part_fences import keep_part_fences
 from app.services.solving import VerifiedPhysicsBlock, strip_verified_solve_markers
+from app.services.structure_captions import STRUCTURE_LANGS, without_structure_captions
 from app.services.subjects.registry import (
     FENCE_FALLBACK,
     SubjectName,
@@ -100,10 +97,13 @@ def prepare_model_reply(state: FinalizeState) -> str:
     if _may_show_a_card(state):
         text = strip_verification_claims(text)
     # Left open, the model's own scene or structure is never the server's, on any turn.
-    text = drop_open_fences(text, (*SERVER_DRAWN_LANGS, *CAPTIONED_LANGS))
+    text = drop_open_fences(text, (*SERVER_DRAWN_LANGS, *STRUCTURE_LANGS))
     drawn: tuple[str, ...] = SERVER_DRAWN_LANGS
     if isinstance(state.ctx.verified_subject, VerifiedPhysicsBlock):
         drawn = tuple(lang for lang in drawn if lang != "simulation")
+    if state.user_stopped:
+        # A stopped reply never reaches the chemistry pass that checks a structure's name.
+        text = without_structure_captions(text)
     return strip_model_drawn_fences(text, drawn)
 
 
@@ -322,7 +322,8 @@ def strip_solve_markers(state: FinalizeState) -> str:
 async def enrich_chemistry_fences(state: FinalizeState) -> str:
     chemistry = subject_adapter("chemistry").fence
     if not chemistry.draws(state.text, state.settings):
-        return state.text
+        # Chemistry off: nothing checks a structure's name, so none the model wrote ships.
+        return without_structure_captions(state.text)
     # A molecule keeps the name it is labelled with only when the app's data gives that name
     # this structure; the look-up may wait on PubChem, so it runs before the pool's drawing.
     named = await chemistry.named(state.text, state.settings)
@@ -333,3 +334,22 @@ async def enrich_chemistry_fences(state: FinalizeState) -> str:
         named,
         timeout=state.settings.stem_solve_timeout_seconds,
     )
+
+
+# The chemistry pass's name: a text it never ran on keeps no structure name (``fallen_back``).
+CHEMISTRY_ENRICH = "chemistry_enrich"
+
+
+def uncaptioned(state: FinalizeState) -> str:
+    """What the chemistry pass hands on when it fails: no name it could not check."""
+    return without_structure_captions(state.text)
+
+
+def fallen_back(state: FinalizeState, text: str, missed: set[str]) -> str:
+    """A fallback text, past the safety passes: an unsure photo's cards unchecked, and no
+    structure name the chemistry pass (in ``missed``, the passes it has not been through)
+    did not check."""
+    if state.ctx.photo_uncertain is True:
+        # A text committed before the cards were unchecked keeps no check either.
+        text = uncheck_cards(text)
+    return without_structure_captions(text) if CHEMISTRY_ENRICH in missed else text

@@ -136,7 +136,8 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "clarify_card",
     }
     # A pass that goes on logs under its own name, but the subject fence passes (which
-    # recover their fences) and the chemistry enrichment, under their old steps' names.
+    # recover their fences) and the chemistry enrichment (which drops the structure names it
+    # could not check), under their old steps' names.
     renamed = {
         name: (log_as, rewrite is not None)
         for name, log_as, rewrite in order
@@ -146,7 +147,7 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "chemistry_fences": ("validate_math_fences", True),
         "physics_fences": ("validate_math_fences", True),
         "math_fences": ("validate_math_fences", True),
-        "chemistry_enrich": ("enrich_chemistry_fences", False),
+        "chemistry_enrich": ("enrich_chemistry_fences", True),
     }
 
 
@@ -733,3 +734,31 @@ async def test_a_fall_back_after_the_cards_keeps_an_uncertain_photo_unchecked(
     assert await run_finalize_passes(state) is False
     assert "verified: true" not in state.text
     assert "```answer\nverified: false\nx = -1\n```" in state.text
+
+
+@pytest.mark.asyncio
+async def test_a_fall_back_before_the_chemistry_pass_keeps_no_structure_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A text committed before the chemistry pass held a structure's name to it, saved when a
+    later effect falls back: the model's "Caffeine" over ethanol shipped (review, 2026-11-13)."""
+    labelled = "Here:\n\n```smiles\nCaffeine\nCCO\n```\n"
+
+    def commit(state: FinalizeState) -> str:
+        state.committed = labelled
+        return labelled
+
+    monkeypatch.setattr(
+        finalize_passes,
+        "FINALIZE_PASSES",
+        (
+            FinalizePass("photo", commit, FALL_BACK),
+            FinalizePass("broken", _raise(RuntimeError("boom")), FALL_BACK),
+            _REAL_PASSES["chemistry_enrich"],
+        ),
+    )
+    state = _state(labelled)
+
+    assert await run_finalize_passes(state) is False
+    assert "Caffeine" not in state.text
+    assert "```smiles\nCCO\n```" in state.text

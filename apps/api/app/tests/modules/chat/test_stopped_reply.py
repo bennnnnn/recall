@@ -291,3 +291,15 @@ async def test_a_stopped_reply_drops_a_server_fence_it_left_open(
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
     saved, *_ = await _finalize(f"So far:\n\n{opened}", user_stopped=True)
     assert saved == "So far:"
+
+
+@pytest.mark.asyncio
+async def test_a_stopped_reply_keeps_no_structure_name_it_never_checked(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A stopped reply skips the chemistry pass that holds a structure's name to it, so the
+    model's "Caffeine" over ethanol shipped as written (review, 2026-11-13)."""
+    monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
+    saved, *_ = await _finalize("So far:\n\n```smiles\nCaffeine\nCCO\n```\n", user_stopped=True)
+    assert "Caffeine" not in saved
+    assert "```smiles\nCCO\n```" in saved

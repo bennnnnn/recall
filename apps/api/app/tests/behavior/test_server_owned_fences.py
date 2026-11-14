@@ -12,12 +12,17 @@ from __future__ import annotations
 
 import dataclasses
 import re
+from contextlib import ExitStack
 from pathlib import Path
+from typing import Any
+from unittest.mock import patch
 
 import pytest
 
+from app.core.config import Settings
+from app.modules.chat.simulation_fences import drop_open_fences
 from app.tests.behavior.cases import Case, Expect
-from app.tests.behavior.harness import Route, route_case, saved_reply
+from app.tests.behavior.harness import Route, battery_settings, route_case, saved_reply
 
 _REGISTRY = Path(__file__).resolve().parents[4] / "mobile" / "lib" / "fence" / "registry.ts"
 _LANGS = re.compile(r'langs:\s*\[(?P<langs>[^\]]*)\][^{}]*?owner:\s*"(?P<owner>\w+)"', re.DOTALL)
@@ -38,10 +43,12 @@ def _server_langs() -> list[str]:
     return sorted(set(found))
 
 
-async def _finished(prompt: str, reply: str) -> str:
-    route: Route = await route_case(Case("owned", "fence", prompt, Expect(), ""))
+async def _finished(prompt: str, reply: str, settings: Settings | None = None) -> str:
+    settings = settings or battery_settings()
+    route: Route = await route_case(Case("owned", "fence", prompt, Expect(), ""), settings)
     context = dataclasses.replace(route.context, instant_reply=None)
-    return await saved_reply(dataclasses.replace(route, instant_text=reply, context=context))
+    finished = dataclasses.replace(route, instant_text=reply, context=context)
+    return await saved_reply(finished, settings)
 
 
 @pytest.mark.asyncio
@@ -81,6 +88,33 @@ async def test_a_smiles_caption_keeps_a_name_checked_against_its_structure() -> 
     assert "```smiles\nCaffeine · C₈H₁₀N₄O₂ · 194.19 g/mol\n" in out
 
 
+def _times_out(*_args: Any, **_kwargs: Any) -> str:
+    raise TimeoutError("the pool is busy")
+
+
+# Nothing held the name to the structure, so it goes, the structure staying (review, 2026-11-13).
+@pytest.mark.asyncio
+@pytest.mark.parametrize("unchecked", ["drawing_fails", "chemistry_off", "past_the_cap"])
+async def test_a_smiles_caption_nothing_checked_keeps_no_name(unchecked: str) -> None:
+    settings = battery_settings()
+    with ExitStack() as stack:
+        if unchecked == "drawing_fails":
+            target = "app.modules.chemistry.fence.enrich_chemistry_fences_worker"
+            stack.enter_context(patch(target, _times_out))
+        elif unchecked == "chemistry_off":
+            settings = settings.model_copy(update={"chemistry_enabled": False})
+        # Past the cap: twenty other structures drawn first.
+        drawn = range(1, 21) if unchecked == "past_the_cap" else range(0)
+        before = "".join(f"```smiles\n{'C' * carbons}\n```\n\n" for carbons in drawn)
+        out = await _finished(
+            "Tell me about caffeine",
+            f"It looks like this:\n\n{before}```smiles\nCaffeine\nCCO\n```\n",
+            settings,
+        )
+    assert "Caffeine" not in out
+    assert "```smiles\nCCO\n```" in out
+
+
 # Left open, the close-fences pass after every check would close them whole (review, 2026-11-13).
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
@@ -96,3 +130,20 @@ async def test_a_smiles_caption_keeps_a_name_checked_against_its_structure() -> 
 async def test_a_server_fence_left_open_never_ships(opened: str) -> None:
     out = await _finished("Tell me about caffeine", f"Here you go.\n\n{opened}")
     assert "FORGED" not in out and out.startswith("Here you go.")
+
+
+# Read as the phone's markdown reads a fence: in a quote or a list item too, never in an
+# indented code block, and closed only by a bare run (review, 2026-11-13).
+@pytest.mark.parametrize(
+    ("text", "kept"),
+    [
+        ("To draw one, write:\n\n    ```smiles\n    CCO\n\nThat is all.", None),
+        ("Here:\n\n```smiles\nCCO\n````\n\nAfter.", None),
+        ("```python\nprint('```smiles')\n```\n\nAfter.", None),
+        ("Here:\n\n```smiles\nCCO\n``` done\n\nAfter.", "Here:"),
+        ("- Steps:\n\n    ```molecule3d\n    FORGED", "- Steps:"),
+        ("Here:\n\n> ```molecule3d\n> FORGED", "Here:"),
+    ],
+)
+def test_an_open_fence_is_the_phones_open_fence(text: str, kept: str | None) -> None:
+    assert drop_open_fences(text, ("smiles", "molecule3d")) == (text if kept is None else kept)
