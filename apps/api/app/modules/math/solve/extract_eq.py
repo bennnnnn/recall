@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import unicodedata
 from itertools import pairwise
 
@@ -204,11 +205,71 @@ def try_extract_equations_from_text(text: str) -> list[tuple[str, str]]:
     return pairs
 
 
+def _space_run_start(text: str, index: int) -> int:
+    """The first space of the run of spaces ending at ``index`` (inclusive)."""
+    while index > 0 and text[index - 1] == " ":
+        index -= 1
+    return index
+
+
+def _side_start(text: str, eq: int) -> int:
+    """Where the left side of the ``=`` at ``eq`` begins.
+
+    A run of spaces is read once: the word before it decides for every space in it.
+    Walking it a space at a time and looking back over the whole run from each one took
+    a second for "x" and 8,000 spaces before "=", and a 32 KB message stopped the reading.
+    """
+    left = eq
+    while left > 0 and text[left - 1] in _EQUATION_SIDE_CHARS:
+        if _sentence_period(text, left - 1):
+            break
+        if text[left - 1] == " ":
+            run = _space_run_start(text, left - 1)
+            if _english_before(text, run):
+                break
+            left = run
+            continue
+        left -= 1
+    return left
+
+
+def _side_end(text: str, eq: int) -> int:
+    """Where the right side of the ``=`` at ``eq`` ends; a run of spaces is read once."""
+    right = eq + 1
+    while right < len(text) and text[right] in _EQUATION_SIDE_CHARS:
+        if _sentence_period(text, right):
+            break
+        if text[right] != " ":
+            if _english_after(text, right):
+                break
+            right += 1
+            continue
+        after = right
+        while after < len(text) and text[after] == " ":
+            after += 1
+        if _english_run_len(text, after) > 0:
+            break
+        # `=0 (2x-1)(x-3)=0` — next parenthetical is another equation,
+        # not part of this RHS (collapse_ws glued the two displays).
+        if text[after : after + 1] == "(" and text[eq + 1 : right].strip() in {"0", "0.0"}:
+            break
+        right = after
+    return right
+
+
+_SPACE_RUN = re.compile(r" {2,}")
+
+
+def _walked_text(text: str) -> str:
+    """The text the side walker reads: filler dropped, LaTeX expanded so
+    ``\\frac{1}{2}x = 3`` survives the ASCII-only walker (which rejects ``\\`` / ``{}``),
+    and each run of spaces one space, so a padded message costs what its words do."""
+    return normalize_latex_to_sympy(_SPACE_RUN.sub(" ", _strip_leading_filler(text)))
+
+
 def _equation_spans(text: str) -> list[tuple[int, int, str, str]]:
     """``(lhs_index, rhs_end, lhs, rhs)`` for every equation the walker accepts."""
-    # Expand LaTeX first so ``\frac{1}{2}x = 3`` survives the ASCII-only
-    # side walker (which rejects ``\`` / ``{}``).
-    cleaned = normalize_latex_to_sympy(_strip_leading_filler(text))
+    cleaned = _walked_text(text)
     spans: list[tuple[int, int, str, str]] = []
     start = 0
     while start < len(cleaned):
@@ -218,31 +279,8 @@ def _equation_spans(text: str) -> list[tuple[int, int, str, str]]:
         if eq + 1 < len(cleaned) and cleaned[eq + 1] == "=":
             start = eq + 2
             continue
-        left = eq
-        while left > 0 and cleaned[left - 1] in _EQUATION_SIDE_CHARS:
-            if _sentence_period(cleaned, left - 1):
-                break
-            if cleaned[left - 1] == " " and _english_before(cleaned, left - 1):
-                break
-            left -= 1
-        right = eq + 1
-        while right < len(cleaned) and cleaned[right] in _EQUATION_SIDE_CHARS:
-            if _sentence_period(cleaned, right):
-                break
-            if _english_after(cleaned, right):
-                break
-            # `=0 (2x-1)(x-3)=0` — next parenthetical is another equation,
-            # not part of this RHS (collapse_ws glued the two displays).
-            if cleaned[right] == " " and cleaned[eq + 1 : right].strip() in {
-                "0",
-                "0.0",
-            }:
-                nxt = right + 1
-                while nxt < len(cleaned) and cleaned[nxt] == " ":
-                    nxt += 1
-                if nxt < len(cleaned) and cleaned[nxt] == "(":
-                    break
-            right += 1
+        left = _side_start(cleaned, eq)
+        right = _side_end(cleaned, eq)
         lhs = _strip_side_punct(peel_edge_english(cleaned[left:eq].strip()))
         rhs = _strip_side_punct(peel_edge_english(cleaned[eq + 1 : right].strip()))
         if _stopped_at_math_symbol(cleaned, left - 1) or _stopped_at_math_symbol(cleaned, right):
@@ -329,7 +367,7 @@ def free_standing_equation(text: str) -> tuple[str, str, str] | None:
     spans = _equation_spans(text)
     if _is_equal_chain([(lhs, rhs) for _left, _right, lhs, rhs in spans]):
         return None
-    cleaned = normalize_latex_to_sympy(_strip_leading_filler(text))
+    cleaned = _walked_text(text)
     for left, right, lhs, rhs in spans:
         if left > len(cleaned) or right > len(cleaned) or not _clause_start(cleaned, left):
             continue

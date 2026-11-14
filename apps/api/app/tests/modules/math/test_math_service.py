@@ -58,6 +58,41 @@ def test_mixed_number_patterns_stay_linear_on_long_digit_runs(tail: str) -> None
     assert math_solve.normalize_latex_to_sympy(r"2\frac{1}{2}") == "(2+(1)/(2))"
 
 
+@pytest.mark.wall_clock
+@pytest.mark.parametrize(
+    "padded",
+    [
+        "x" + " " * 30_000 + "= 1",
+        "x =" + " " * 30_000 + "1",
+        "solve x" + " " * 30_000 + "=" + " " * 30_000 + "0 (x + 1)",
+    ],
+)
+def test_equation_spans_stay_linear_on_a_run_of_spaces(padded: str) -> None:
+    """Each space looked back (or ahead) over the whole run: "x", 8,000 spaces and "=" took
+    a second, and a 32 KB message outlived the reading's 3 s budget in the pool."""
+    started = time.perf_counter()
+    pairs = math_solve.try_extract_equations_from_text(padded)
+    assert time.perf_counter() - started < 0.05
+    assert pairs and pairs[0][0] == "x"
+
+
+@pytest.mark.parametrize(
+    ("text", "pairs"),
+    [
+        ("x   =   5", [("x", "5")]),
+        ("solve   2x + 3  =  7", [("2x + 3", "7")]),
+        # The word before a run of spaces still ends the side.
+        ("the answer is    x = 4", [("x", "4")]),
+        # `=0 (2x-1)(x-3)=0`: the bracket after a bare 0 is not part of its side.
+        ("x^2 = 0    (x - 1) = 0", [("x^2", "0")]),
+    ],
+)
+def test_equation_spans_read_a_run_of_spaces_as_one(
+    text: str, pairs: list[tuple[str, str]]
+) -> None:
+    assert math_solve.try_extract_equations_from_text(text) == pairs
+
+
 def test_normalize_latex_inline_math_and_braced_power() -> None:
     """Composer ``$x^{6}=1$`` used to fail the ASCII equation walker (``$``/``{}``)."""
     assert math_solve.normalize_latex_to_sympy("$x^{6}=1$") == "x^6=1"
