@@ -225,7 +225,7 @@ const SPACE_COMMANDS = new Set(["quad", "qquad", "thinspace", "enspace"]);
 
 /**
  * Whether another term follows a word ending at `index`, past spaces and TeX spacing: a letter,
- * a digit or a command that is no operator ("so A", "so 2a", "so \\frac12"; not the unit of
+ * a digit, a bracket or a command that is no operator ("so A", "so 2a", "so \\frac12"; not the unit of
  * "2 kg \\cdot 9.8").
  */
 function startsTerm(segment: string, from: number): boolean {
@@ -249,7 +249,10 @@ function startsTerm(segment: string, from: number): boolean {
     }
     return index > from && !OPERATOR_COMMANDS.has(name);
   }
-  return index > from && index < segment.length && ALNUM.test(charAt(segment, index));
+  // A bracket, a bar or a root opens a term too ("so (x + 1)", "so |x|"); a minus sign does not,
+  // or a unit before one ("5 kg - 2 kg") would read as prose.
+  const next = charAt(segment, index);
+  return index > from && index < segment.length && (ALNUM.test(next) || "([|√∛".includes(next));
 }
 
 /**

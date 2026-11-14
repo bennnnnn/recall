@@ -1392,6 +1392,30 @@
       "area": "calculation",
       "input": "$x + y = 10, 2x - y = 5; z = 3 + 4 = 7$",
       "expected": "$x + y = 10$  \n$2x - y = 5$  \n$z = 3 + 4$  \n$z = 7$"
+    },
+    {
+      "id": "word-before-bracket-joins",
+      "area": "calculation",
+      "input": "x = 2, so (x + 1) = 2 + 1 = 3",
+      "expected": "x = 2, so (x + 1) = 2 + 1 = 3"
+    },
+    {
+      "id": "word-before-bar-joins",
+      "area": "calculation",
+      "input": "$x = -2 so |x| = 2 = 2$",
+      "expected": "$x = -2 so |x| = 2 = 2$"
+    },
+    {
+      "id": "unit-before-minus-splits",
+      "area": "calculation",
+      "input": "$m = 5 kg - 2 kg = 3 kg$",
+      "expected": "$m = 5 kg - 2 kg$  \n$m = 3 kg$"
+    },
+    {
+      "id": "unit-before-bracket-in-chain",
+      "area": "calculation",
+      "input": "$F = ma = 2 (3) = 6$",
+      "expected": "$F = ma$  \n$F = 2 (3)$  \n$F = 6$"
     }
   ]
 }

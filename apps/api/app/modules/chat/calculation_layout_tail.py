@@ -172,7 +172,7 @@ _SPACE_COMMANDS = {"quad", "qquad", "thinspace", "enspace"}
 
 def _starts_term(segment: str, index: int) -> bool:
     """Whether another term follows a word ending at ``index``, past spaces and TeX spacing:
-    a letter, a digit or a command that is no operator ("so A", "so 2a", "so \\frac12"; not
+    a letter, a digit, a bracket or a command that is no operator ("so A", "so 2a", "so \\frac12"; not
     the unit of "2 kg \\cdot 9.8")."""
     length = len(segment)
     start = index
@@ -193,7 +193,9 @@ def _starts_term(segment: str, index: int) -> bool:
             index = end
             continue
         return index > start and name not in _OPERATOR_COMMANDS
-    return start < index < length and segment[index].isalnum()
+    # A bracket, a bar or a root opens a term too ("so (x + 1)", "so |x|"); a minus sign does
+    # not, or a unit before one ("5 kg - 2 kg") would read as prose.
+    return start < index < length and (segment[index].isalnum() or segment[index] in "([|√∛")
 
 
 def _is_word(word: str) -> bool:
