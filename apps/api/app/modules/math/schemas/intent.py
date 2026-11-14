@@ -11,6 +11,7 @@ from app.modules.math.schemas.operations import (
     CombinatoricsOp,
     MatrixOp,
     NumberTheoryOp,
+    NumberTheorySolveOp,
     SolidShape,
     StatisticsOp,
     SummaryStatsOp,
@@ -189,6 +190,9 @@ class MathIntent(BaseModel):
     numtheory_exponent: int | None = None
     # gcd/lcm of three or more numbers ("lcm of 12, 18 and 30"), in order.
     numtheory_values: list[int] | None = None
+    # "the gcd and lcm of 252 and 198": both, in the order asked; None asks for
+    # ``numtheory_op`` alone.
+    numtheory_ops: list[NumberTheorySolveOp] | None = None
     # Matrix — small-matrix operations. Multiplication/addition use matrix_rows_b;
     # determinant/inverse/eigens/diagonalization require a square matrix.
     matrix_op: MatrixOp | None = None

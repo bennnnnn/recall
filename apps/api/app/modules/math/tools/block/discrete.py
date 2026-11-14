@@ -29,6 +29,30 @@ def _format_number_theory_answer(result: NumberTheoryResult) -> str:
     return result.steps[-1] if result.steps else ""
 
 
+def _several_number_theory(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
+    """ "the gcd and lcm of 252 and 198": each result named on the one card, in the order
+    asked. The card held the gcd alone, and a complete reply lost its check (2026-11-13)."""
+    if intent.numtheory_a is None:
+        return None
+    parts: list[str] = []
+    for op in intent.numtheory_ops or ():
+        result = math_solve.compute_number_theory(
+            NumberTheoryInput(
+                operation=op,
+                a=intent.numtheory_a,
+                b=intent.numtheory_b,
+                values=intent.numtheory_values,
+            )
+        )
+        if result.result_int is None:
+            return None
+        lines.extend(result.steps)
+        taken = intent.numtheory_values or [intent.numtheory_a, intent.numtheory_b]
+        name = r"\gcd" if op == "gcd" else r"\operatorname{lcm}"
+        parts.append(f"{name}({', '.join(str(value) for value in taken)}) = {result.result_int}")
+    return finish_with_answer(lines, r",\quad ".join(parts))
+
+
 def _verified_block_combinatorics(
     intent: MathIntent, settings: Settings, lines: list[str]
 ) -> VerifiedMathBlock | None:
@@ -92,6 +116,8 @@ def _verified_block_number_theory(
         return finish_with_answer(lines, answer)
     if intent.numtheory_op is None or intent.numtheory_a is None:
         return None
+    if intent.numtheory_ops:
+        return _several_number_theory(intent, lines)
     result = math_solve.compute_number_theory(
         NumberTheoryInput(
             operation=intent.numtheory_op,

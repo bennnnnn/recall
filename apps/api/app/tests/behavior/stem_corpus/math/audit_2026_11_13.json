@@ -36,5 +36,17 @@
   {"id": "au-num-improved-euler", "area": "numerical method", "prompt": "use the improved Euler method with h = 0.1 for y' = y, y(0) = 1 to find y(0.2)", "expect": "decline"},
   {"id": "au-num-newton-no-start", "area": "numerical method", "prompt": "do two Newton steps on x^3 - 2 = 0", "expect": "decline"},
   {"id": "au-num-control-integral", "area": "numerical method", "prompt": "integrate x^2 from 0 to 2", "expect": "answer", "check": ["num", "8/3"]},
-  {"id": "au-num-control-newton-root", "area": "numerical method", "prompt": "use Newton's method to solve x^2 - 5 = 0 starting at 3", "expect": "answer", "check": ["num", "2.23607"]}
+  {"id": "au-num-control-newton-root", "area": "numerical method", "prompt": "use Newton's method to solve x^2 - 5 = 0 starting at 3", "expect": "answer", "check": ["num", "2.23607"]},
+  {"id": "au-parts-gcd-lcm", "area": "several asked", "prompt": "find the gcd and lcm of 252 and 198", "expect": "answer", "check": ["parts", [["num", "18"], ["num", "2772"]]], "note": "carried 18 alone, and a complete correct reply lost its check (2026-11-13 audit, MATH-04)"},
+  {"id": "au-parts-lcm-hcf", "area": "several asked", "prompt": "the lowest common multiple and highest common factor of 8 and 12", "expect": "answer", "check": ["parts", [["num", "24"], ["num", "4"]]]},
+  {"id": "au-parts-hcf-lcm-list", "area": "several asked", "prompt": "find the hcf and lcm of 12, 18 and 30", "expect": "answer", "check": ["parts", [["num", "6"], ["num", "180"]]]},
+  {"id": "au-parts-circle", "area": "several asked", "prompt": "find the circumference and area of a circle of radius 3", "expect": "answer", "check": ["parts", [["num", "18.85"], ["num", "28.27"]]], "note": "carried ≈ 18.85 alone, the area left in the working"},
+  {"id": "au-parts-circle-diameter", "area": "several asked", "prompt": "find the diameter and area of a circle of radius 3", "expect": "answer", "check": ["parts", [["num", "6"], ["num", "28.27"]]], "note": "the area carried a length's unit"},
+  {"id": "au-parts-rectangle-diagonal", "area": "several asked", "prompt": "find the diagonal and area of a rectangle 3 cm by 4 cm", "expect": "answer", "check": ["parts", [["num", "5"], ["num", "12"]]]},
+  {"id": "au-parts-triangle", "area": "several asked", "prompt": "find the area and perimeter of a triangle with sides 3, 4 and 5", "expect": "answer", "check": ["parts", [["num", "6"], ["num", "12"]]]},
+  {"id": "au-parts-sector", "area": "several asked", "prompt": "find the area and arc length of a sector of radius 5 and angle 60 degrees", "expect": "answer", "check": ["parts", [["num", "13.09"], ["num", "5.24"]]]},
+  {"id": "au-parts-sphere", "area": "several asked", "prompt": "find the volume and surface area of a sphere of radius 2", "expect": "answer", "check": ["parts", [["num", "33.51"], ["num", "50.27"]]]},
+  {"id": "au-parts-cuboid-diagonal", "area": "several asked", "prompt": "find the volume, surface area and diagonal of a cuboid 2 by 3 by 4", "expect": "decline", "note": "the diagonal is not on the solid's card: no card"},
+  {"id": "au-parts-control-gcd", "area": "several asked", "prompt": "find the gcd of 252 and 198", "expect": "answer", "check": ["num", "18"]},
+  {"id": "au-parts-control-circle", "area": "several asked", "prompt": "find the area of a circle with radius 3 and diameter 6", "expect": "answer", "check": ["num", "28.27"], "note": "the diameter is a given, not an ask"}
 ]

@@ -57,6 +57,7 @@ from app.modules.math.tools.block.graph import (
 )
 from app.modules.math.tools.block.limits import _verified_block_limit
 from app.modules.math.tools.block.matrix import _verified_block_matrix
+from app.modules.math.tools.block.measures import with_every_measure
 from app.modules.math.tools.block.series import _verified_block_series
 from app.modules.math.tools.block.solid import _verified_block_solid
 from app.modules.math.tools.block.statistics import _verified_block_statistics
@@ -155,6 +156,9 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
         if builder is None:
             return None
         block = builder(intent, settings, lines)
+        if block is not None:
+            # Several measures asked of one shape: all on the card, or no card.
+            block = with_every_measure(intent, block)
         if block is None or _shows_non_finite(block):
             return None
         if _restates(intent, block):
