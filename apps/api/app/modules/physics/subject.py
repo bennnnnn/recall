@@ -232,7 +232,7 @@ class PhysicsSubject:
         return nullcontext([])
 
     async def solve(self, request: SubjectRequest, settings: Settings) -> SubjectAugmentation:
-        block, physics_verified, solve_failed = await build_physics_augmentation(
+        block, physics_verified, solve_failed, unanswerable = await build_physics_augmentation(
             _physics_request_text(request.text),
             settings,
             needs_subject=True,
@@ -245,6 +245,7 @@ class PhysicsSubject:
             # tells the model not to claim a check. The reply does not say it
             # could not be verified.
             unverified=solve_failed,
+            unanswerable=unanswerable,
         )
 
     def direct_reply(

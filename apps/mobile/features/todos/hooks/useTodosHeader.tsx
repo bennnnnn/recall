@@ -4,7 +4,6 @@ import { useNavigation } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { TodosHeaderTitle } from "@/features/todos/components/TodosHeaderTitle";
-import type { TodoView } from "@/features/todos/model/todoListFilter";
 import { useLatestRef } from "@/lib/latestRef";
 import { useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -13,8 +12,6 @@ import { plainHeaderItems, StackBackButton } from "@/ui/controls/StackBackButton
 import { SheetCover } from "@/ui/overlay/Sheet";
 
 type Params = {
-  /** The list's view, named under the title; none on a to-do's own page. */
-  view: TodoView;
   /** A to-do's own page is open (`editingId` once its to-do is known). */
   detailOpen: boolean;
   editingId: string | null;
@@ -30,12 +27,11 @@ type Params = {
 };
 
 /**
- * The To-do header: back (to the list, on a to-do's page), the title with the list's view
- * under it, and ⋯ (Done while selecting). The native header keeps the first button it
- * mounted, so a press goes through the latest handlers.
+ * The To-do header: back (to the list, on a to-do's page), the title, and ⋯ (Done while
+ * selecting). The native header keeps the first button it mounted, so a press goes
+ * through the latest handlers.
  */
 export function useTodosHeader({
-  view,
   detailOpen,
   editingId,
   selecting,
@@ -87,7 +83,7 @@ export function useTodosHeader({
       );
     }
     navigation.setOptions({
-      headerTitle: () => cover(<TodosHeaderTitle view={detailOpen ? null : view} />),
+      headerTitle: () => cover(<TodosHeaderTitle />),
       headerStyle: { backgroundColor: detailOpen ? C.surface : C.bg },
       headerShadowVisible: false,
       headerLeft: () => headerLeftElement,
@@ -95,5 +91,5 @@ export function useTodosHeader({
       headerRight: () => headerRightElement,
       unstable_headerRightItems: () => plainHeaderItems(headerRightElement),
     });
-  }, [navigation, t, selecting, detailOpen, editingId, view, covered, menuAnchorRef, handlers, C.primary, C.surface, C.bg]);
+  }, [navigation, t, selecting, detailOpen, editingId, covered, menuAnchorRef, handlers, C.primary, C.surface, C.bg]);
 }

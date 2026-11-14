@@ -104,8 +104,8 @@ describe.each(CASES)("in %s, the app in %s, a %s phone", (zone, language, hourCy
     const noop = jest.fn();
     const rows = buildTodoListRows([todo], NOW);
     const list = await render(
-      <TodosScrollList rows={rows} now={NOW} showEmpty={false} view="all" error={false} listHeader={<></>}
-        busyTodoIds={new Set()} onToggle={noop} onOpen={noop} onDeleteItem={noop} />,
+      <TodosScrollList rows={rows} now={NOW} error={false} listHeader={<></>} completedOpen={false}
+        onToggleCompleted={noop} busyTodoIds={new Set()} onToggle={noop} onOpen={noop} onDeleteItem={noop} />,
     );
     // Grouped by the user's day, headed by the same day.
     expect(rows[0]).toMatchObject({ kind: "heading", section: "date" });

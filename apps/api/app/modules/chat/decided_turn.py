@@ -166,7 +166,9 @@ def _worked_layout(ctx: StreamContext, settings: Settings, read: TurnDecision) -
     """The ```worked contract for a calculation the subject readers missed and the read
     calls maths, physics or chemistry (P16, a resistor problem, 2026-11-10: no reader
     claimed it, so the everyday prompt answered it); a message the read says works nothing
-    out gets none, and loses the one the readers gave it for a number in it."""
+    out gets none, and loses the one the readers gave it for a number in it. A message a
+    subject's solver read and declined was not missed: its readers laid it out, and one with
+    no answer as written ("a -5 Ω resistor") gets no block (``turn_prep.augment``)."""
     if _worked(ctx) or ctx.instant_reply:
         return
     if read.work is False:
@@ -174,7 +176,7 @@ def _worked_layout(ctx: StreamContext, settings: Settings, read: TurnDecision) -
         return
     # The read's subject, by the registry's name.
     subject = READ_SUBJECTS.get(read.subject or "")
-    if subject is None or ctx.worked is not None:
+    if subject is None or ctx.worked is not None or ctx.solver_unverified:
         return
     content = ctx.user_message_content
     # A value to work with, not only a digit: "Name this compound: CH3CH2CH2OH" got a Given

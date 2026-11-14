@@ -38,7 +38,6 @@ const KEPT_APART: Record<string, string> = {
   "rich.diagram_title_wave rich.scene_title_wave": "a diagram and a scene, each named by its kind",
   "settings.appearance settings.field_appearance": "a Settings row, and a field a settings card names by its id",
   "settings.chat share.default_title": "a Settings section, and a shared chat's default title",
-  "todos.group_today todos.menu_today": "a to-do group named by its id, and the view menu's item",
   "todos.proposal_done_move todos.proposal_done_set_due": "a to-do card per change, named by its kind",
   "todos.proposal_move todos.proposal_set_due": "a to-do card per change, named by its kind",
 };

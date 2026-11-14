@@ -6,7 +6,8 @@ from collections.abc import Callable
 from dataclasses import replace
 
 from app.modules.chemistry.catalog import formula_spec
-from app.modules.chemistry.charge_balance import impossible_compound
+from app.modules.chemistry.charge_balance import why_no_compound
+from app.modules.chemistry.equations import why_unbalanced
 from app.modules.chemistry.formula_laws import FORMULA_LAWS
 from app.modules.chemistry.scene import attach_scene
 from app.modules.chemistry.schemas import ChemistryIntent
@@ -159,7 +160,7 @@ from app.modules.chemistry.solvers.thermochemistry import (
 from app.modules.chemistry.solvers.titration import solve_titration_strong, solve_titration_weak
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.species import parse_reaction
-from app.services.solving import SolveServiceError
+from app.services.solving import ImpossibleProblemError, SolveServiceError
 
 CHEMISTRY_SOLVERS: dict[str, Callable[[ChemistryIntent], ChemistryResult]] = {
     "empirical_formula": solve_empirical,
@@ -311,15 +312,35 @@ def solve_chemistry(intent: ChemistryIntent) -> ChemistryResult:
     )
 
 
+# Operations that complete the equation they are given with species of their own (H2O, H+
+# and e- for a half-reaction, the missing nuclide of a decay): one that does not balance as
+# written is their question, not a fault in it.
+_COMPLETES_ITS_EQUATION = frozenset({"half_reaction", "nuclear_equation"})
+
+
 def _solve(intent: ChemistryIntent) -> ChemistryResult:
+    """The solver's answer. A question that names something no chemistry has declines with
+    why (``ImpossibleProblemError``), which the turn tells the model (``context``)."""
     solver = CHEMISTRY_SOLVERS.get(intent.chemistry_op)
     if solver is None:
         raise SolveServiceError(f"unsupported chemistry operation: {intent.chemistry_op}")
     # A molar mass, a balance or a yield of NaCl3 is a sum over a compound that cannot exist.
-    impossible = next(filter(impossible_compound, _named_formulas(intent)), None)
-    if impossible is not None:
-        raise SolveServiceError(f"{impossible} is no compound: its ions' charges cannot cancel")
-    return solver(intent)
+    for formula in _named_formulas(intent):
+        reason = why_no_compound(formula)
+        if reason is not None:
+            raise ImpossibleProblemError(reason)
+    try:
+        return solver(intent)
+    except ImpossibleProblemError:
+        raise
+    except SolveServiceError as declined:
+        # Every law of a written equation needs it balanced: "H2 + O2 -> NaCl" has no
+        # balance, and "H2O + O2 -> H2" one only with O2 made, not used.
+        equation = intent.equation if intent.chemistry_op not in _COMPLETES_ITS_EQUATION else None
+        reason = why_unbalanced(equation) if equation else None
+        if reason is None:
+            raise
+        raise ImpossibleProblemError(reason) from declined
 
 
 def _named_formulas(intent: ChemistryIntent) -> list[str]:

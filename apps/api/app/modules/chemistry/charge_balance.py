@@ -53,13 +53,15 @@ def _fixed_charge(symbol: str) -> int | None:
     return _FIXED_CHARGES.get(symbol)
 
 
-def impossible_compound(formula: str) -> bool:
-    """Whether ``formula`` is a metal of one charge and an anion whose charges cannot cancel."""
+def why_no_compound(formula: str) -> str | None:
+    """Why ``formula`` is no compound, when it is a metal of one charge and an anion whose
+    charges cannot cancel: "NaCl3 is not a compound: sodium's +1 and chlorine's -1 cannot
+    balance in a 1:3 ratio." None for any formula this cannot rule out."""
     if _CHARGE_SIGNS.intersection(formula):
-        return False
+        return None
     atoms = parse_formula(formula)
     if not atoms or len(atoms) != 2:
-        return False
+        return None
     (first, first_count), (second, second_count) = atoms.items()
     for metal, metals, anion, anions in (
         (first, first_count, second, second_count),
@@ -69,5 +71,16 @@ def impossible_compound(formula: str) -> bool:
         per_atom = _ANION_CHARGE.get(anion)
         if charge is not None and per_atom is not None:
             low, high = per_atom
-            return not low * anions <= charge * metals <= high * anions
-    return False
+            if low * anions <= charge * metals <= high * anions:
+                return None
+            # The single-atom ion's charge, the most an atom of it takes: it cannot cancel
+            # here either, since no chain of the anion can.
+            return (
+                f"{formula} is not a compound: {_name(metal)}'s +{charge} and "
+                f"{_name(anion)}'s -{high} cannot balance in a {metals}:{anions} ratio."
+            )
+    return None
+
+
+def _name(symbol: str) -> str:
+    return BY_SYMBOL[symbol].name.lower()

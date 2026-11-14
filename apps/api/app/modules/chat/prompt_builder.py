@@ -70,6 +70,8 @@ class SubjectFetch(NamedTuple):
     unverified_subject: str | None
     # A reply both halves of a two-part question already rendered.
     direct_text: str | None
+    # The question as written has no answer (a -5 Ω resistor): no ```worked block.
+    unanswerable: bool = False
 
 
 async def fetch_subject(
@@ -142,6 +144,7 @@ async def fetch_subject(
         solver_unverified=subject_result.unverified,
         unverified_subject=subject_result.subject if subject_result.unverified else None,
         direct_text=subject_result.direct_text,
+        unanswerable=subject_result.unanswerable,
     )
 
 

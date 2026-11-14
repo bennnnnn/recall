@@ -61,10 +61,10 @@ def test_a_result_that_answers_every_ask_is_whole(question: str) -> None:
 
 
 async def test_the_model_is_told_to_answer_the_rest() -> None:
-    prompt, block, _ = await build_physics_augmentation(_KICK, _SETTINGS)
+    prompt, block, _, _ = await build_physics_augmentation(_KICK, _SETTINGS)
     assert block is not None and block.partial
     assert prompt is not None and PHYSICS_PARTIAL_POLICY in prompt
-    whole, _, _ = await build_physics_augmentation(
+    whole, _, _, _ = await build_physics_augmentation(
         "Whats the current through a 12 ohm resistor on a 9V battery", _SETTINGS
     )
     assert whole is not None and PHYSICS_PARTIAL_POLICY not in whole

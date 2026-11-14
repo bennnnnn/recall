@@ -522,7 +522,7 @@ async def test_augment_prompt_injects_system_solve_block() -> None:
 @pytest.mark.asyncio
 async def test_physics_augmentation_verifies_kinematics_trajectory() -> None:
     settings = Settings(math_tools_enabled=True)
-    note, verified, solve_failed = await build_physics_augmentation(
+    note, verified, solve_failed, _ = await build_physics_augmentation(
         "A ball is dropped from 20m. How long until it hits the ground?",
         settings,
     )

@@ -107,7 +107,14 @@ flowchart LR
      stated value outside declines: "a −5 Ω resistor across 10 V" was −2 A, verified. So
      does a result outside its kind's range (`solver.solve_physics`): "a force of −10 N gives
      2 m/s²: the mass?" was −5 kg. A velocity, a displacement, an acceleration, a charge, a
-     spring's extension, an angular rate and any Δ keep their sign;
+     spring's extension, an angular rate and any Δ keep their sign. The decline says why
+     (`out_of_range.py`): a stated value outside its range puts "A resistance cannot be zero
+     or negative, and the question gives -5 Ω" in the prompt, and the reply says so, works
+     nothing out and gets no ```worked block (told only that nothing verified, the model
+     answered −2 A, live round 2026-11-14); a result outside it depends on the signs as
+     read (a braking force given as a size beside a deceleration written negative), so its
+     note asks the reply to check them. An oscillation's amplitude is its own input (A,
+     "amplitude"), never a spring's extension;
    - **a share of a decaying sample** is what is left ("25% remains", "decayed to 25%") or
      what went ("75% … to decay", "loses 75%", "has decomposed"), which leaves 1 − p
      (`decay_share.py`), however it is written (75%, 3/4, 0.75; a share in words declines
