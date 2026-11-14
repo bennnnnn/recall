@@ -12,6 +12,8 @@ from app.modules.math.tools.school._parse import _SIDE_ASKED
 from app.modules.math.tools.school.geometry_measures.part_rule import circle_part_intent
 
 _N = r"(-?\d+(?:\.\d+)?)"
+# A number read whole: no part of its digits is left for a number beside it.
+_WHOLE_N = r"(-?\d++(?:\.\d++)?)"
 _DEG = r"\s*(?:°|degrees?|deg)?"
 # An angle in degrees. Not "\b": "°" is no word character, so "35°" at the end never met
 # one, while "28°F" did. The next word is the angle's noun or the request's own ("and
@@ -102,7 +104,11 @@ _RULES: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
         "extreme_angle",
         re.compile(
-            rf"\btriangle\b.*?\bsides?\s+(?:of\s+|are\s+|measuring\s+)?{_N}\s*,\s*{_N}\s*,?\s*(?:and\s+)?{_N}"
+            # Each side's digits and each run of space are read once (possessive): with an
+            # optional mark between the second and third sides, a run of digits split
+            # between them every way and took cubic time; "3, 45" was read as 3, 4 and 5.
+            rf"\btriangle\b.*?\bsides?\s++(?:of\s++|are\s++|measuring\s++)?{_WHOLE_N}\s*+,"
+            rf"\s*+{_WHOLE_N}\s*+,?\s*+(?:and\s++)?{_WHOLE_N}"
             r".*?\b(largest|biggest|greatest|smallest)\s+angle\b",
             re.I,
         ),
@@ -173,8 +179,10 @@ _RULES: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
         "triangle_vertices",
         re.compile(
+            # The space between two points is read once (possessive): split between the \s*
+            # either side of an optional comma, a point and a run of spaces took quadratic time.
             rf"\barea\s+of\s+(?:a|the)\s+triangle\s+(?:with\s+)?(?:vertices|corners|points)\s+(?:at\s+)?"
-            rf"{_POINT}\s*,?\s*{_POINT}\s*,?\s*(?:and\s+)?{_POINT}",
+            rf"{_POINT}\s*+,?\s*+{_POINT}\s*+,?\s*+(?:and\s++)?{_POINT}",
             re.I,
         ),
     ),

@@ -17,10 +17,12 @@ from app.modules.physics.schemas import PhysicsIntent
 from app.services.law_binding.ask import ASK_VERBS
 from app.services.question_parts import labelled_parts
 
-# A second quantity joined to the first: "the deceleration and the braking force".
+# A second quantity joined to the first: "the deceleration and the braking force". Every
+# space run is possessive: what follows each starts with a letter, so giving spaces back never
+# matches, and trying to on "and also the" + 20,000 spaces took 0.25 s on CI.
 _JOINED = re.compile(
-    r"\b(?:and|as\s+well\s+as|plus)\s+(?:also\s+)?(?:the\s+|its\s+|their\s+)?"
-    r"(?:[\w-]+\s+){0,2}?(" + QUANTITY.pattern.removeprefix(r"\b") + ")",
+    r"\b(?:and|as\s++well\s++as|plus)\s++(?:also\s++)?(?:the\s++|its\s++|their\s++)?"
+    r"(?:[\w-]+\s++){0,2}?(" + QUANTITY.pattern.removeprefix(r"\b") + ")",
     re.IGNORECASE,
 )
 # "and acceleration 4 m/s^2", "and a mass of 2 kg": a given's label, not an ask.

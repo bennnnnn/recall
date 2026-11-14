@@ -84,13 +84,13 @@ def _extract_atom_economy(text: str) -> ChemistryIntent | None:
     )
 
 
-# "how many oxygen atoms", "how many atoms of oxygen", "how many moles of O atoms": the
-# element word counts that element's atoms; "moles of … atoms" asks for an amount.
+# "how many oxygen atoms", "how many atoms of oxygen", "how many moles of O atoms": the element
+# word counts its atoms, "moles of" an amount. Runs start where they start, read once (quadratic).
 _MOLES_TO_PARTICLES = re.compile(
-    r"(?:how many|calculate|find)?\s*(?:the\s+number\s+of\s+)?"
-    r"(?:(?P<amount>moles?)\s+of\s+)?(?:(?P<element>[A-Za-z]+)\s+)?"
+    r"(?:how many|calculate|find|(?<!\s))\s*+(?:the\s+number\s+of\s+)?"
+    r"(?:(?P<amount>moles?)\s+of\s+)?(?:(?<![a-z](?<!many|late|find))(?P<element>[A-Za-z]++)\s+)?"
     r"(?P<noun>molecules|particles|atoms|formula units)(?:\s+of\s+(?P<element_after>[A-Za-z]+))?"
-    rf"\s+(?:are\s+)?(?:there\s+)?(?:in|from)?\s*(?P<moles>{_N})\s*mol(?:e|es)?\s+(?:of\s+)?"
+    rf"\s++(?:are\s++)?(?:there\s++)?(?:in|from)?\s*+(?P<moles>{_N})\s*+mol(?:e|es)?\s++(?:of\s++)?"
     rf"(?P<formula>{SAMPLE_FORMULA}){FORMULA_END}",
     re.IGNORECASE,
 )
@@ -285,13 +285,13 @@ _PARTICLE_SUBSTANCE = (
     rf"(?:the\s+)?(?:element\s+)?(?P<what>{_NAMED}|{SAMPLE_FORMULA}{FORMULA_END}|"
     r"[A-Za-z]+(?![A-Za-z0-9]))"
 )
-# Only these words may stand between a mass ask and the count it is of: "the mass of",
-# "how many grams is", "the mass, in grams, of". "Grams of water form from 3.01e23
-# molecules of H2" asks about another substance, so it is not read.
-_ASK_TO_COUNT = r"(?:\s*,?\s*(?:in\s+grams|of|in|is|are|do|does|would|will|be)\b)*\s*,?\s*"
+# Only these words may stand between a mass ask and the count it is of: "the mass of", "how many
+# grams is", "the mass, in grams, of"; "Grams of water form from 3.01e23 molecules of H2" asks
+# about another substance. Each run of space is read once (possessive; it took quartic time).
+_ASK_TO_COUNT = r"(?:\s*+,?\s*+(?:in\s+grams|of|in|is|are|do|does|would|will|be)\b)*\s*+,?\s*+"
 _COUNT_TO_MASS = re.compile(
     rf"\b(?:mass|how\s+many\s+(?:grams|g)|grams)\b{_ASK_TO_COUNT}"
-    rf"(?P<count>{_N})\s*{_PARTICLE_NOUN}\s+of\s+{_PARTICLE_SUBSTANCE}",
+    rf"(?P<count>{_N})\s*+{_PARTICLE_NOUN}\s+of\s+{_PARTICLE_SUBSTANCE}",
     re.IGNORECASE,
 )
 _MASS_TO_COUNT = re.compile(

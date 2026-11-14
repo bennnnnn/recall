@@ -53,7 +53,7 @@ def _duplicate_pairs(facts: list[Memory]) -> list[_Pair]:
         by_key.setdefault(key, []).append(fact)
     pairs: list[_Pair] = []
     used: set[UUID] = set()
-    for (_type, _text), group in by_key.items():
+    for group in by_key.values():
         if len(group) < 2:
             continue
         group.sort(key=lambda fact: fact.last_confirmed_at or fact.updated_at, reverse=True)

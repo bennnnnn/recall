@@ -242,9 +242,11 @@ _PERCENT_SOLUTE = re.compile(
     rf"(?P<solute>{_SOLUTE})\s+(?:(?:is|are|would\s+be|will\s+be)\s+)?"
     r"(?:(?:needed|required|used|dissolved|present|contained)\s+)?"
     r"(?:to\s+(?:make|prepare)|in|for)\s+"
-    rf"(?P<mass>{_N})\s*(?P<unit>g|grams?|kg)\s+of\s+(?:an?\s+)?(?P<percent>{_N})\s*%\s*"
-    r"(?P<basis>\(?\s*(?:by\s+(?:mass|weight|volume)|w/w|m/m|v/v|w/v|m/v)\s*\)?\s*)?"
-    rf"(?:(?P<named>{_NAMED}|{CHEMICAL_FORMULA}{FORMULA_END})\s+)?(?:aqueous\s+)?solution\b",
+    rf"(?P<mass>{_N})\s*(?P<unit>g|grams?|kg)\s+of\s+(?:an?\s+)?(?P<percent>{_N})\s*%\s*+"
+    # Each run of space after the percent is read once (possessive): split between the
+    # \s* either side of the basis, "3.00% by mass" and a run of spaces took cubic time.
+    r"(?P<basis>\(?\s*+(?:by\s+(?:mass|weight|volume)|w/w|m/m|v/v|w/v|m/v)\s*+\)?\s*+)?"
+    rf"(?:(?P<named>{_NAMED}|{CHEMICAL_FORMULA}{FORMULA_END})\s++)?(?:aqueous\s++)?solution\b",
     re.IGNORECASE,
 )
 
