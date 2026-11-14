@@ -72,7 +72,7 @@ def _substituted_solutions(expr: Any, roots: set[Any], sym: Any) -> list[Any]:
     """One radicand B under every root: t, B's real root of the roots' common odd index Q,
     stands for each root (B^(p/q) is t^(pQ/q)) and B = t^Q gives the unknown back.
     ``x^(1/3) = x`` is t = t^3, so t is -1, 0 or 1, and x = t^3."""
-    bases = []
+    bases: list[Any] = []
     for root in roots:
         if not any(simplify(root.base - base) == 0 for base in bases):
             bases.append(root.base)
