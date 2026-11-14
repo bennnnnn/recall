@@ -80,8 +80,9 @@ def _written(script: str, mark: str, *, group_numbers: bool, glued: bool) -> str
     Plain readers keep a number bare (``^23``, ``^-2``), as they always read it; the parser
     groups it (``**(23)``) so ``**`` binds the whole number.
     """
-    numeric = _signed_digits(script)
-    if (len(script) == 1 and not (glued and not numeric)) or (numeric and not group_numbers):
+    if _signed_digits(script) and (len(script) == 1 or not group_numbers):
+        return f"{mark}{script}"
+    if len(script) == 1 and not glued:
         return f"{mark}{script}"
     inner = script[1:-1] if _wrapped(script) else script
     return f"{mark}({inner})"
