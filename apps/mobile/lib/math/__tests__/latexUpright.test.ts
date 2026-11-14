@@ -41,6 +41,30 @@ describe("uprightNotation", () => {
     expect(uprightNotation(source)).toBe(source);
   });
 
+  // A grade 12 run (2026-11-13): words a reply wrote into its maths read as products of
+  // italic letters, "extrema" as e·x·t·r·e·m·a.
+  it.each([
+    ["extrema", String.raw`\mathrm{extrema}`],
+    [String.raw`increasing = (-\infty,-3) \cup (1,\infty)`, String.raw`\mathrm{increasing} = (-\infty,-3) \cup (1,\infty)`],
+    ["Area = 24", String.raw`\mathrm{Area} = 24`],
+    ["total cost = 5", String.raw`\mathrm{total}\ \mathrm{cost} = 5`],
+    ["white_{pigment} = 3", String.raw`\mathrm{white}_{pigment} = 3`],
+    [String.raw`\frac{1}{2} speed`, String.raw`\frac{1}{2} \mathrm{speed}`],
+  ])("sets the word in %s upright", (source, upright) => {
+    expect(uprightNotation(source)).toBe(upright);
+  });
+
+  it.each([
+    // Products of variables, vertices, a variable's run with no vowel, and a command's own word.
+    "mgh = 10", "abc + xyz", "F = ma", "ABCD", "PQRS", "dxdy", "nRT",
+    String.raw`\begin{aligned} x &= 1 \end{aligned}`,
+    String.raw`\mathbf{vector}`,
+    String.raw`\color{green} x`,
+    String.raw`\sin x + \lim_{x \to 0} f`,
+  ])("keeps %s as maths", (source) => {
+    expect(uprightNotation(source)).toBe(source);
+  });
+
   it.each([
     ["α = 1.2×10⁻⁵ K⁻¹", "K⁻¹"],
     ["β = 3×10⁻⁴ °C⁻¹", "C⁻¹"],

@@ -7,6 +7,7 @@
  * One walker per job over the parser's tree: this one draws symbols, a screen reader
  * hears `spokenFormula`'s words, and Copy writes `markdownToCopyText`'s form.
  */
+import { isPrimeScript } from "@/lib/math/glyphs";
 import { DEGREE_RING, parseSimpleLatex } from "@/lib/math/latexParse";
 import type { MathAccentKind, MathSegment } from "@/lib/math/textTypes";
 
@@ -83,6 +84,7 @@ export function isMixedNumber(prev: MathSegment | undefined, seg: Extract<MathSe
 
 function scriptToPlain(seg: Extract<MathSegment, { type: "sup" | "sub" }>): string {
   if (seg.type === "sup" && !seg.body && seg.value === DEGREE_RING) return "°";
+  if (seg.type === "sup" && !seg.body && isPrimeScript(seg.value)) return seg.value;
   const inner = (seg.body ? segmentsToPlain(seg.body) : seg.value).trim();
   return `${seg.type === "sup" ? "^" : "_"}${scriptIsAtom(seg) ? inner : `(${inner})`}`;
 }
