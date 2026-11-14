@@ -10,6 +10,7 @@ in order, none left out and none added. Anything else draws nothing.
 
 from __future__ import annotations
 
+import bisect
 import re
 from dataclasses import dataclass
 
@@ -89,7 +90,8 @@ def _whole_and_in_order(used: list[int], numbers: list[_Number]) -> bool:
     value; any other number left over means the list was not read whole."""
     if used != sorted(used):
         return False
-    left = [n for n in numbers if n.start not in set(used)]
+    claimed = set(used)
+    left = [n for n in numbers if n.start not in claimed]
     return all(n.value.is_integer() and 1900 <= n.value <= 2099 for n in left)
 
 
@@ -124,16 +126,21 @@ def _neighbour(
     numbers: list[_Number], edges: list[int], start: int, end: int, *, after: bool
 ) -> _Number | None:
     """The first number after the label (or the last before it), with no other label
-    between them."""
+    between them. ``numbers`` and ``edges`` are in text order: each is found by bisection,
+    so a long list is not scanned once per label."""
     if after:
-        found = next((n for n in numbers if n.start >= end), None)
-        if found is None or any(end < edge <= found.start for edge in edges):
+        index = bisect.bisect_left(numbers, end, key=lambda n: n.start)
+        if index == len(numbers):
             return None
-        return found
-    found = next((n for n in reversed(numbers) if n.end <= start), None)
-    if found is None or any(found.end <= edge < start for edge in edges):
+        found = numbers[index]
+        blocked = bisect.bisect_right(edges, end)
+        return None if blocked < len(edges) and edges[blocked] <= found.start else found
+    index = bisect.bisect_right(numbers, start, key=lambda n: n.end) - 1
+    if index < 0:
         return None
-    return found
+    found = numbers[index]
+    blocked = bisect.bisect_left(edges, found.end)
+    return None if blocked < len(edges) and edges[blocked] < start else found
 
 
 def grounded_values(request: ChartRequest, text: str) -> list[float] | None:
