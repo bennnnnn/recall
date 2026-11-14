@@ -6,6 +6,7 @@ only to decide whether a draft should load profile context.
 
 import re
 
+from app.core.readings import kept_per_turn
 from app.modules.turn_reading.writing_locales import locale_draft_kind
 from app.services.text_normalize import collapse_ws
 
@@ -340,8 +341,13 @@ def _find_direct_writing_followup(text: str) -> str | None:
     return None
 
 
+@kept_per_turn
 def writing_request_kind(text: str) -> str | None:
-    """Return the writing shape the response contract should preserve."""
+    """Return the writing shape the response contract should preserve.
+
+    Kept for the turn by its text: a dozen callers ask it of the turn's message, 12 reads of
+    a 32 KB paste a turn (PERF-02, 2026-11-13). The text itself is the key, line breaks and
+    all: a pasted message is read from where its lines start (``_is_rewrite``)."""
     cleaned = collapse_ws(text)
     if not cleaned:
         return None
