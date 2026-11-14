@@ -276,3 +276,30 @@ def test_client_shown_chars_reads_only_a_plausible_count(
     frame: dict[str, object], shown: int | None
 ) -> None:
     assert client_shown_chars(frame) == shown
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "opened",
+    ["```molecule3d\nFORGED", '```chem_scene\n{"title":"FORGED"}', "```smiles\nFORGED\nCCO"],
+)
+async def test_a_stopped_reply_drops_a_server_fence_it_left_open(
+    monkeypatch: pytest.MonkeyPatch, opened: str
+) -> None:
+    """A stop inside the model's own scene or structure: the close-fences pass a stop runs
+    would close it whole, and the phone would draw it as the server's (review, 2026-11-13)."""
+    monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
+    saved, *_ = await _finalize(f"So far:\n\n{opened}", user_stopped=True)
+    assert saved == "So far:"
+
+
+@pytest.mark.asyncio
+async def test_a_stopped_reply_keeps_no_structure_name_it_never_checked(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A stopped reply skips the chemistry pass that holds a structure's name to it, so the
+    model's "Caffeine" over ethanol shipped as written (review, 2026-11-13)."""
+    monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
+    saved, *_ = await _finalize("So far:\n\n```smiles\nCaffeine\nCCO\n```\n", user_stopped=True)
+    assert "Caffeine" not in saved
+    assert "```smiles\nCCO\n```" in saved

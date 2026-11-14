@@ -66,6 +66,34 @@ def test_disabled_chemistry_does_not_claim_a_lookup() -> None:
     assert detect_subject("IUPAC name of SMILES CCO", chemistry_enabled=False) is None
 
 
+# A scanner photo's subject is what its words are, as a typed line's is; its tab decides only
+# when the words name none, and no subject reads biology (audit ARCH-02/SCAN-04, 2026-11-13).
+@pytest.mark.parametrize(
+    ("tab", "words", "subject"),
+    [
+        ("biology", None, None),
+        ("biology", "Name the parts of a plant cell.", None),
+        ("biology", "Solve 2x + 3 = 7", "math"),
+        ("math", None, "math"),
+        ("math", "A car accelerates from 0 to 30 m/s in 6 s. Find its acceleration.", "physics"),
+        ("math", "Find the molar mass of H2SO4", "chemistry"),
+        ("physics", None, "physics"),
+        ("physics", "Solve 2x + 3 = 7", "math"),
+        ("physics", "Explain why the sky is blue.", "physics"),
+        ("chemistry", None, "chemistry"),
+        ("chemistry", "Find the molar mass of H2SO4", "chemistry"),
+    ],
+)
+def test_a_scanned_photo_is_the_subject_of_its_words(
+    tab: str, words: str | None, subject: str | None
+) -> None:
+    from app.services.subject_scan import SCANNER_CAMERA_PROMPTS, with_confirmed_reading
+
+    caption = SCANNER_CAMERA_PROMPTS[tab]  # type: ignore[index]
+    text = with_confirmed_reading(caption, words) if words else caption
+    assert detect_subject(text, has_image_attachment=True) == subject
+
+
 @pytest.mark.asyncio
 async def test_closed_chemistry_does_not_also_solve_as_math() -> None:
     text = "Find Gibbs free energy when delta H=-40 kJ, delta S=-100 J and T=300 K"

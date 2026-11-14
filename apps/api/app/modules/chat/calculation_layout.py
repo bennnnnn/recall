@@ -11,10 +11,15 @@ from __future__ import annotations
 import re
 
 from app.modules.chat.calculation_layout_tail import (
+    CHAIN_STOP_COMMANDS,
+    CHAIN_STOP_WORDS,
     continues_sentence,
     converts_units,
     finish_inline,
+    join_rows,
+    joined_by_words,
     keep_hard_break,
+    list_prefix,
     reads_as_prose,
 )
 from app.modules.chat.inline_code import code_span_opens_within, escaped_at, is_bare_number
@@ -28,21 +33,6 @@ from app.services.md_fence_scan import read_fence_marker
 _MATH_FENCE_LANGS = {"math", "latex", "tex", "equation"}
 _TEXT_COMMANDS = {"text", "mathrm", "mathbf", "textrm", "operatorname", "textbf", "mbox"}
 _NUMERIC_COMMANDS = {"times", "cdot", "div", "left", "right", "pm", "mp", "cdotp", "quad", "qquad"}
-# A gap that names a new relationship is one step, not another value of the first side.
-_CHAIN_STOP_COMMANDS = {
-    "rightarrow",
-    "leftarrow",
-    "Rightarrow",
-    "Leftarrow",
-    "to",
-    "implies",
-    "iff",
-    "Leftrightarrow",
-    "mapsto",
-    "quad",
-    "qquad",
-}
-_CHAIN_STOP_WORDS = {"or", "and"}
 _TRAILING_PUNCT = set(".,;:!?")
 
 
@@ -51,8 +41,20 @@ def split_math_expression(expr: str) -> list[str] | None:
     body = expr.strip()
     if not body or r"\begin{" in body or "&" in body:
         return None
-    pieces = _independent_pieces(body)
+    # A top-level ";" ends a statement: never one chain across it, and beside decimal commas
+    # ("h = 0,5; T = 0,25(7) = 1,75") a comma is no break.
+    pieces = _independent_pieces(body, ";")
+    if pieces is None and any(body[tok[1]] == ";" for tok in _tokenize(body) if tok[0] == "break"):
+        return None
+    if pieces is None:
+        pieces = _independent_pieces(body)
+    else:  # a statement may hold equations a comma separates: "x = 1, y = 2; z = 3"
+        pieces = [part for piece in pieces for part in _independent_pieces(piece) or [piece]]
     if pieces is not None:
+        # "w = 6, so A = 9 * 6 = 54": a piece that a word joins on stays the writer's sentence;
+        # set as maths it made "so" an italic product and the row "so A = 54".
+        if any(joined_by_words(_equals_segments(piece)[1]) for piece in pieces):
+            return None
         rows: list[str] = []
         for piece in pieces:
             nested = _equals_chain(piece)
@@ -114,6 +116,9 @@ def _tokenize(expr: str) -> list[tuple[str, int, int, bool]]:
             bracket = max(0, bracket - 1)
         elif char == "=" and top:
             out.append(("equals", index, index + 1, True))
+        elif char == ";" and top:
+            # "h = 0.5; T = 0.25(7) = 1.75" is two statements: one chain made it "h = 1.75".
+            out.append(("break", index, index + 1, True))
         elif char == "," and top and not _thousands_separator(expr, index):
             end = _break_end(expr, index)
             out.append(("break", index, end, True))
@@ -145,8 +150,12 @@ def _has_top_equals(expr: str) -> bool:
     return any(kind == "equals" and top for kind, _start, _end, top in _tokenize(expr))
 
 
-def _independent_pieces(expr: str) -> list[str] | None:
-    breaks = [tok for tok in _tokenize(expr) if tok[0] == "break" and tok[3]]
+def _independent_pieces(expr: str, only: str = "") -> list[str] | None:
+    breaks = [
+        tok
+        for tok in _tokenize(expr)
+        if tok[0] == "break" and tok[3] and (not only or expr[tok[1]] == only)
+    ]
     if not breaks:
         return None
     pieces: list[str] = []
@@ -164,19 +173,29 @@ def _independent_pieces(expr: str) -> list[str] | None:
     return pieces
 
 
-def _equals_chain(expr: str) -> list[str] | None:
+def _equals_segments(
+    expr: str,
+) -> tuple[list[tuple[str, int, int, bool]], list[str]]:
+    """The top-level = and ≈ of ``expr`` and the sides between them."""
     ops = [tok for tok in _tokenize(expr) if tok[3] and tok[0] in {"equals", "approx"}]
-    if len(ops) < 2:
-        return None
     segments: list[str] = []
     start = 0
     for _kind, op_start, op_end, _top in ops:
         segments.append(expr[start:op_start])
         start = op_end
     segments.append(expr[start:])
+    return ops, segments
+
+
+def _equals_chain(expr: str) -> list[str] | None:
+    ops, segments = _equals_segments(expr)
+    if len(ops) < 2:
+        return None
     if any(not part.strip() for part in segments):
         return None
     if any(_segment_blocks_chain(part) for part in segments[1:-1]):
+        return None
+    if joined_by_words(segments):
         return None
     if all(_is_simple_numeric(part) for part in segments) or converts_units(segments):
         return None
@@ -195,7 +214,7 @@ def _segment_blocks_chain(segment: str) -> bool:
     while index < length:
         if segment[index] == "\\":
             name, end = _command_end(segment, index)
-            if name in _CHAIN_STOP_COMMANDS:
+            if name in CHAIN_STOP_COMMANDS:
                 return True
             index = end
             continue
@@ -204,7 +223,7 @@ def _segment_blocks_chain(segment: str) -> bool:
             index += 1
             while index < length and segment[index].isalpha():
                 index += 1
-            if segment[start:index].lower() in _CHAIN_STOP_WORDS:
+            if segment[start:index].lower() in CHAIN_STOP_WORDS:
                 return True
             continue
         index += 1
@@ -228,17 +247,6 @@ def _is_simple_numeric(segment: str) -> bool:
             return False
         index += 1
     return True
-
-
-def _join_rows(rows: list[str], delim: str, punct: str = "") -> str:
-    lines = [f"{delim}{row}{delim}" for row in rows]
-    if punct:
-        lines[-1] = f"{lines[-1]}{punct}"
-    if len(lines) == 1:
-        return lines[0]
-    return "\n".join(
-        f"{line}  " if index < len(lines) - 1 else line for index, line in enumerate(lines)
-    )
 
 
 def _peel_punct(text: str) -> tuple[str, str]:
@@ -274,7 +282,7 @@ def _plain_chain(body: str) -> str | None:
     rows = split_math_expression(core)
     if not rows:
         return None
-    return _join_rows(rows, "$", punct)
+    return join_rows(rows, "$", punct)
 
 
 def _read_code_end(text: str, index: int) -> int | None:
@@ -360,7 +368,7 @@ def _layout_inline(body: str) -> str:
         cursor = end
         while cursor < length and body[cursor] in _TRAILING_PUNCT:
             cursor += 1
-        parts.append(_join_rows(rows, delim, body[end:cursor]))
+        parts.append(join_rows(rows, delim, body[end:cursor]))
         index = cursor
     if not changed:
         return body
@@ -375,7 +383,7 @@ def _layout_body(body: str) -> str:
         rows = split_math_expression(inner)
         if not rows:
             return body
-        joined = keep_hard_break(body, _join_rows(rows, delim, punct))
+        joined = keep_hard_break(body, join_rows(rows, delim, punct))
         indent = body[: len(body) - len(body.lstrip(" "))]
         if not indent:
             return joined
@@ -391,29 +399,13 @@ def _layout_body(body: str) -> str:
     return _layout_inline(body)
 
 
-def _list_prefix(line: str) -> tuple[str, str]:
-    index = 0
-    while index < len(line) and line[index] == " ":
-        index += 1
-    rest = line[index:]
-    for marker in ("- ", "* ", "+ "):
-        if rest.startswith(marker):
-            return line[: index + 2], rest[2:]
-    digits = 0
-    while digits < len(rest) and rest[digits].isdigit():
-        digits += 1
-    if 0 < digits <= 3 and rest[digits : digits + 2] == ". ":
-        return line[: index + digits + 2], rest[digits + 2 :]
-    return "", line
-
-
 def _layout_line(line: str) -> str:
     if leave_prose_line(line):
         return line
     stripped = line.lstrip(" ")
     if stripped.startswith("|") or stripped.startswith("#"):
         return line
-    prefix, body = _list_prefix(line)
+    prefix, body = list_prefix(line)
     laid = _layout_body(body)
     if laid == body:
         return line
@@ -536,4 +528,4 @@ def _rewrite_math_fence(opener: str, body: str, _closer: str) -> str | None:
             rows.append(inner)
     if not changed:
         return None
-    return _join_rows(rows, "$")
+    return join_rows(rows, "$")

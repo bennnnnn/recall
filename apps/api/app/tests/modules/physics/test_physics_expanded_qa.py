@@ -243,9 +243,8 @@ def test_numbered_givens_and_degree_units_use_mathematical_notation() -> None:
 
 def test_negative_wavelength_is_never_verified() -> None:
     query = "A wave has wavelength -2 m and frequency 5 Hz. Find speed."
-    intent = extract_physics_intent(query)
-    assert isinstance(intent, PhysicsIntent)
-    assert build_verified_physics_block(intent, _SETTINGS) is None
+    # A wavelength is above zero (``law_binding.domains``): no law is filled with -2 m.
+    assert extract_physics_intent(query) is None
 
 
 @pytest.mark.parametrize(

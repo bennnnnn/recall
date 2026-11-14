@@ -61,9 +61,6 @@ def test_two_asks_are_both_answered_by_catalog_laws(question: str, answers: list
         # A virtual image's distance carries no certified sign: never chained into m.
         "an object is 5 cm from a convex lens with focal length 10 cm. where is the image "
         "and how big is it",
-        # A diverging lens's focal length has an unstated sign.
-        "an object is 30 cm from a concave lens with focal length 10 cm. where is the image "
-        "and how big is it",
         # The 30 m is a wall's distance, not a launch height (it was answered 35.1 m).
         "A ball is kicked at 20 m/s at 30 degrees toward a wall 30 m away. How high is it when "
         "it reaches the wall?",

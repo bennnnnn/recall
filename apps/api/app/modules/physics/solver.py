@@ -105,6 +105,23 @@ def _claim_solvers() -> dict[str, Callable[[PhysicsIntent], PhysicsResult]]:
 PHYSICS_SOLVERS = _claim_solvers()
 
 
+def _outside_its_kind(value: float, unit: str) -> bool:
+    """A result no quantity of its kind takes (``law_binding.domains``): a mass of -5 kg, a
+    resistance of -3 Ω. An angular rate keeps its sign."""
+    from app.modules.physics.givens import unit_dimension, unit_expression
+    from app.modules.physics.solvers.si import to_si
+    from app.services.law_binding.domains import outside_kind
+
+    expression = unit_expression(unit) or ""
+    reading = unit_dimension(expression) if unit else None
+    if reading is None or expression.startswith(("radian", "revolution")):
+        return False
+    try:
+        return outside_kind(reading[0], to_si(value, unit))
+    except SolveServiceError:
+        return False
+
+
 def solve_physics(intent: PhysicsIntent) -> PhysicsResult:
     """Dispatch on the operation. The catalog id is the only key."""
     from app.modules.physics.solvers.catalog_scenes import catalog_scene
@@ -115,6 +132,8 @@ def solve_physics(intent: PhysicsIntent) -> PhysicsResult:
     if solver is None:
         raise SolveServiceError(f"unsupported physics op: {operation}")
     result = attach_recorded_working(solver(intent), intent)
+    if any(_outside_its_kind(quantity.value, quantity.unit) for quantity in result.quantities):
+        raise SolveServiceError(f"{operation} gives a value no such quantity takes")
     # A law solved as arithmetic has no solver of its own to draw it.
     if result.quantities and not result.simulation_specs and not result.graph_specs:
         quantity = result.quantities[0]

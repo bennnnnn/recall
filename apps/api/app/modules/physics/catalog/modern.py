@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.modules.physics.decay_share import ASKED_GONE_MARKER
 from app.services.law_binding.spec import Binding, FormulaSpec, bind, formula, var
 
 # A half-life and the time that has passed are both times: the words say which.
@@ -28,6 +29,8 @@ SPECS: tuple[FormulaSpec, ...] = (
             "half_life",
             "m",
             cues=HALF_LIFE_CUES,
+            # What is left, never what went (``catalog/decayed.py``).
+            excludes=(ASKED_GONE_MARKER,),
         ),
     ),
     formula(

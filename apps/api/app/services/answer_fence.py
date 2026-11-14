@@ -14,7 +14,7 @@ card. Model text never keeps it:
    ``Answer``, ``result`` / ``final``) to the plain column-0 form, so each
    subject's fence pass sees and demotes all of them, not only ``\\n```answer``.
 3. ``modules/chat/verification_claims`` drops the model's own "✅ Verified with SymPy",
-   and ``chat.simulation_fences`` its own ```simulation scene.
+   and ``chat.simulation_fences`` its own scenes and structures (``SERVER_DRAWN_LANGS``).
 
 The server writes the line with ``verified_answer_fence`` (post-stream cards) and
 ``mark_server_answer_fences`` (an instant reply, once, when it is sent). ``land_answer_card``
@@ -45,8 +45,11 @@ CHEMISTRY_NOTATION_LINE = "notation: chemistry"
 # also wrote ``label: answer`` when they moved an **Answer** heading inside.
 ANSWER_HEADER_LINES = _CHECK_LINES | {CHEMISTRY_NOTATION_LINE, "label: answer"}
 ANSWER_FENCE_LANGS = ("answer", "result", "final")
+# Fences only the server draws (a solver's scene; RDKit's or PubChem's structure), which the
+# phone draws as the server's: a model's own never ships (audit SEC-01, 2026-11-13).
+SERVER_DRAWN_LANGS = ("simulation", "chem_scene", "molecule", "molecule3d", "mol3d", "3dmol")
 # Server-owned fences a model must not ship in any spelling.
-OWNED_FENCE_LANGS = (*ANSWER_FENCE_LANGS, "simulation")
+OWNED_FENCE_LANGS = (*ANSWER_FENCE_LANGS, *SERVER_DRAWN_LANGS)
 # Fences whose body a client may read as an answer card. A marker line inside
 # any other fence (```yaml, ```python) is code the user asked for, so it stays.
 _MARKER_SCRUB_LANGS = frozenset(

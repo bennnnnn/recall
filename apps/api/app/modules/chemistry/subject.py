@@ -8,7 +8,7 @@ reply through ``direct``, each imported when it runs; and its prompt copy from
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
@@ -26,7 +26,7 @@ from app.modules.chemistry.shape_followup import (
     last_question_line,
     shape_followup_problem,
 )
-from app.services.solving import SubjectAugmentation
+from app.services.solving import PhotoReading, SubjectAugmentation
 from app.services.subject_hints import SubjectHints
 
 if TYPE_CHECKING:
@@ -124,10 +124,15 @@ class ChemistryFence:
         lowered = text.lower()
         return settings.chemistry_enabled and ("```smiles" in lowered or "```chemistry" in lowered)
 
-    def draw(self, text: str, settings: Settings) -> str:
+    async def named(self, text: str, settings: Settings) -> dict[str, str]:
+        from app.modules.chemistry.caption_lookup import checked_names
+
+        return await checked_names(text, settings)
+
+    def draw(self, text: str, settings: Settings, named: Mapping[str, str] | None = None) -> str:
         from app.modules.chemistry.fence import enrich_chemistry_fences_worker
 
-        return enrich_chemistry_fences_worker(text)
+        return enrich_chemistry_fences_worker(text, named)
 
     def tidy(self, text: str, user_text: str, verified: VerifiedSolveBlock | None) -> str:
         return text
@@ -146,25 +151,29 @@ class ChemistryPhoto:
         content: str,
         *,
         image_attachments: list[tuple[str, str]],
-        load_image: Callable[[str], Awaitable[bytes | None]],
+        load_image: Callable[[str], Awaitable[tuple[str, bytes] | None]],
         settings: Settings,
         on_status: Callable[[str], Awaitable[None]] | None,
-    ) -> tuple[None, str]:
+    ) -> PhotoReading:
+        # Its reader has no certainty signal: a plain-text vision read, stated as the line.
         if not settings.chemistry_enabled:
-            return None, content
+            return PhotoReading(None, content)
         from app.modules.chemistry.read import read_chemistry_problem
         from app.services.subject_scan import read_scanned_problem
 
         async def read(content_type: str, data: bytes) -> str:
             return await read_chemistry_problem(settings, content_type=content_type, data=data)
 
-        return None, await read_scanned_problem(
-            content,
-            subject="chemistry",
-            image_attachments=image_attachments,
-            load_image=load_image,
-            read=read,
-            on_status=on_status,
+        return PhotoReading(
+            None,
+            await read_scanned_problem(
+                content,
+                subject="chemistry",
+                image_attachments=image_attachments,
+                load_image=load_image,
+                read=read,
+                on_status=on_status,
+            ),
         )
 
 
