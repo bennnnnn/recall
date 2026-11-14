@@ -2,7 +2,8 @@
 
 With chemistry's ``continues_alone`` raising, every turn crashed, "hi there" included; with
 its ``fast_lane`` raising, chemistry and plain chat did; with a reader the subject order asks
-raising, no line had a subject (audit REL-01, 2026-11-13).
+raising, no line had a subject (audit REL-01, 2026-11-13). Ending the order at the raising step
+then left "Solve 2x + 5 = 17" with none too (review, 2026-11-13).
 """
 
 from __future__ import annotations
@@ -51,35 +52,56 @@ async def test_a_raising_chemistry_member_fails_no_other_turn(
     assert route.solved is bool(subject)
 
 
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "prompt",
-    [
-        *(prompt for prompt, _subject in _LINES),
-        # Answered "no" by its failed chemistry steps, it fell to maths, which certified a
-        # negative concentration (review, 2026-11-13).
-        "The Ka of HA is 1.8 x 10^-5 and [HA] = 0.10 M. Solve x^2/(0.10 - x) = 1.8 x 10^-5 for x.",
-    ],
-)
-@pytest.mark.parametrize(
-    "targets",
-    [
-        ("app.modules.chemistry.request.is_chemistry_question",),
-        (
-            "app.services.subjects.order._closed_chemistry",
-            "app.services.subjects.order._chemistry_shaped",
-        ),
-    ],
-)
-async def test_a_raising_subject_reader_gives_the_line_no_subject(
-    targets: tuple[str, ...], prompt: str
-) -> None:
-    """A step of the subject order whose reader raises ends the order: the turn goes on with
-    no subject, and no later step verifies a reading of the line."""
+_CHEMISTRY_READERS = [
+    ("app.modules.chemistry.request.is_chemistry_question",),
+    (
+        "app.services.subjects.order._closed_chemistry",
+        "app.services.subjects.order._chemistry_shaped",
+    ),
+]
+
+
+async def _route_with(targets: tuple[str, ...], prompt: str) -> Any:
     with ExitStack() as stack:
         for target in targets:
             stack.enter_context(patch(target, _boom))
-        route = await route_case(Case("isolation", "subject", prompt, Expect(), ""))
+        return await route_case(Case("isolation", "subject", prompt, Expect(), ""))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("targets", "failed"),
+    [
+        *((targets, "chemistry") for targets in _CHEMISTRY_READERS),
+        (("app.services.subjects.order.needs_physics",), "physics"),
+    ],
+)
+@pytest.mark.parametrize(("prompt", "subject"), _LINES)
+async def test_a_raising_subject_reader_drops_only_its_own_subject(
+    targets: tuple[str, ...], failed: str, prompt: str, subject: str
+) -> None:
+    """A step of the subject order whose reader raises switches its subject off for the line,
+    which is read again: every other subject still reads and solves it (review, 2026-11-13),
+    and the broken subject never has it."""
+    route = await _route_with(targets, prompt)
+    if subject == failed:
+        assert route.subject != failed
+    else:
+        assert route.subject == subject
+        assert route.solved is bool(subject)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("targets", _CHEMISTRY_READERS)
+async def test_a_chemistry_line_goes_to_no_subject_when_its_readers_raise(
+    targets: tuple[str, ...],
+) -> None:
+    """Answered "no" by its failed chemistry steps, a Ka problem fell to maths, which certified
+    a negative concentration (review, 2026-11-13): its symbols keep it from maths."""
+    prompt = (
+        "The Ka of HA is 1.8 x 10^-5 and [HA] = 0.10 M. Solve x^2/(0.10 - x) = 1.8 x 10^-5 for x."
+    )
+    route = await _route_with(targets, prompt)
     assert route.subject == ""
     assert route.solved is False
 

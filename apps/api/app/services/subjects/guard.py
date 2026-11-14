@@ -7,8 +7,9 @@ the turn, so one broken subject failed every turn, "hi there" included: chemistr
 2026-11-13). The registry hands chat each adapter inside ``GuardedSubject``: a member that
 raises is logged (its traceback the first time) and answers as a subject with
 nothing to say would: False, None, the text as it was, no solve. The subject order asks
-the subjects' readers directly (``order``): a step whose reader raises ends it with no
-subject, since a later step must not claim the line its own reader failed on.
+the subjects' readers directly (``order``): a step whose reader raises switches its subject
+off for the line, which is read again without it, so that subject never has the line and
+every other still reads it.
 
 The fence is not guarded. Its members run inside the finalize passes, which fail closed
 on their own (a safety pass that raises gives way to its strip): a guard that kept the text
