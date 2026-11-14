@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import cast
 
 from app.modules.math.schemas.operations import NumericRule, WorkedNumericRule
 from app.services.number_text import SIGNED_DECIMAL
@@ -132,7 +131,7 @@ def named_numerical_method(text: str) -> NamedMethod | None:
 
 def worked_rule(named: NamedMethod) -> WorkedNumericRule | None:
     """The rule a solver here works, or None for one it does not."""
-    return None if named.rule == "unworked" else cast(WorkedNumericRule, named.rule)
+    return None if named.rule == "unworked" else named.rule
 
 
 _METHOD_LEAD = r"(?:\b(?:use|using|apply|applying|with|by|via)\s+)?(?:\b(?:the|a|an)\s+)?"

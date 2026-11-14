@@ -102,11 +102,12 @@ def with_every_measure(intent: MathIntent, block: VerifiedMathBlock) -> Verified
     if picture is None:
         return None
     values = [picture.get(quantity) for quantity in asked]
-    if any(not isinstance(value, int | float) for value in values):
+    numbers = [float(value) for value in values if isinstance(value, int | float)]
+    if len(numbers) != len(values):
         return None
     unit = str(picture.get("unit") or intent.unit)
     card = measures_card(
-        [(q, float(v), unit) for q, v in zip(asked, values, strict=True)],
+        [(quantity, number, unit) for quantity, number in zip(asked, numbers, strict=True)],
         of_pi=_OF_PI.get(intent.kind, frozenset()),
     )
     said = [line for line in block.text.split("\n") if not line.startswith("Verified result:")]

@@ -13,7 +13,8 @@ from typing import Any
 
 from sympy import Integer, Rational, Symbol, diff, latex, nsimplify, simplify
 
-from app.modules.math.solve.parse import SolveServiceError, parse_expression
+from app.modules.math.solve.parse import parse_expression
+from app.services.solving import SolveServiceError
 
 # Past these a worked list stops being a page a student reads.
 MAX_SUBINTERVALS = 50

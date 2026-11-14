@@ -22,7 +22,11 @@ from sympy import (
 
 from app.modules.math.solve.declines import declines, sympy_decline
 from app.modules.math.solve.display import without_unit_factors
-from app.modules.math.solve.key_step import KeyStep, canonical_root_formula, equation_tex
+
+# Re-exported: the traces and blocks import KeyStep and equation_tex from here.
+from app.modules.math.solve.key_step import KeyStep as KeyStep
+from app.modules.math.solve.key_step import canonical_root_formula
+from app.modules.math.solve.key_step import equation_tex as equation_tex
 from app.modules.math.solve.root_latex import expr_equal
 
 _PLAIN_LABEL_TEX = re.compile(r"^[\w .,-]*$")

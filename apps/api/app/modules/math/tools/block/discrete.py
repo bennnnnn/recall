@@ -47,7 +47,7 @@ def _several_number_theory(intent: MathIntent, lines: list[str]) -> VerifiedMath
         if result.result_int is None:
             return None
         lines.extend(result.steps)
-        taken = intent.numtheory_values or [intent.numtheory_a, intent.numtheory_b]
+        taken = intent.numtheory_values or [intent.numtheory_a, intent.numtheory_b or 0]
         name = r"\gcd" if op == "gcd" else r"\operatorname{lcm}"
         parts.append(f"{name}({', '.join(str(value) for value in taken)}) = {result.result_int}")
     return finish_with_answer(lines, r",\quad ".join(parts))
