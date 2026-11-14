@@ -220,6 +220,50 @@
     "note": "a raised power glued to the word after it ends where it was raised"
   },
   {
+    "id": "rl-glued-dx",
+    "area": "calculus",
+    "prompt": "Find ∫ x²dx",
+    "expect": "answer",
+    "check": [
+      "anti",
+      "x**3/3"
+    ],
+    "note": "a differential glued to a power was a factor d of the integrand: d·x⁴/4 + C was checked (2026-11-14)"
+  },
+  {
+    "id": "rl-glued-dx-definite",
+    "area": "calculus",
+    "prompt": "∫ x²dx from 0 to 2",
+    "expect": "answer",
+    "check": [
+      "num",
+      "8/3"
+    ],
+    "note": "a differential glued to a power was a factor d of the integrand: d·x⁴/4 + C was checked (2026-11-14)"
+  },
+  {
+    "id": "rl-glued-dx-bracket",
+    "area": "calculus",
+    "prompt": "∫ sin(x)dx",
+    "expect": "answer",
+    "check": [
+      "anti",
+      "-cos(x)"
+    ],
+    "note": "a differential glued to a power was a factor d of the integrand: d·x⁴/4 + C was checked (2026-11-14)"
+  },
+  {
+    "id": "rl-glued-dx-raised-letter",
+    "area": "calculus",
+    "prompt": "∫ eˣdx",
+    "expect": "answer",
+    "check": [
+      "anti",
+      "exp(x)"
+    ],
+    "note": "a differential glued to a power was a factor d of the integrand: d·x⁴/4 + C was checked (2026-11-14)"
+  },
+  {
     "id": "rl-ipa",
     "area": "lookalike",
     "prompt": "In IPA, aspirated stops are written pʰ, tʰ and kʰ. Why does English aspirate them?",

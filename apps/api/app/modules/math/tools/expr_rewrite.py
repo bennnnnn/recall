@@ -17,6 +17,12 @@ def _normalize_latex_expr(expr: str) -> str:
     return normalize_latex_to_sympy(expr)
 
 
+# ``x^2dx``, ``(x+1)dx``, ``e^(x)dx``: a differential glued to a power or a bracket. Left in,
+# its d was a factor: "∫ x²dx" was a checked d·x⁴/4 + C (2026-11-14). After a letter
+# (``2xdx``) the letters run together and the reading declines.
+_GLUED_DIFFERENTIAL = re.compile(r"(?<=[\d)\]])d[a-zA-Z](?=\s+from\b|\s*$)")
+
+
 def _strip_trailing_differential(expr: str) -> str:
     """Peel ``dx`` / ``d x`` so implicit multiplication does not eat the integrand."""
     s = collapse_ws(expr)
@@ -30,6 +36,9 @@ def _strip_trailing_differential(expr: str) -> str:
         idx = lower.find(marker)
         if idx != -1:
             return (s[:idx] + s[idx + len(token) :]).rstrip()
+    glued = _GLUED_DIFFERENTIAL.search(s)
+    if glued is not None:
+        return (s[: glued.start()] + s[glued.end() :]).rstrip()
     return s
 
 

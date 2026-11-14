@@ -109,3 +109,24 @@ async def test_a_raised_letter_no_power_holds_verifies_nothing(typed: str) -> No
 def test_prose_with_raised_letters_is_not_maths(prose: str) -> None:
     assert not needs_symbolic_math(prose)
 
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("glued", "spaced"),
+    [
+        ("Find ∫ x²dx", "Find ∫ x^2 dx"),
+        ("∫x^2dx", "∫ x^2 dx"),
+        ("∫ 3x²dx", "∫ 3x^2 dx"),
+        ("∫ (x+1)dx", "∫ (x+1) dx"),
+        ("∫ sin(x)dx", "∫ sin(x) dx"),
+        ("Find ∫ x eˣdx", "Find ∫ x e^x dx"),
+        ("∫_0^1 x^2dx", "∫_0^1 x^2 dx"),
+        ("∫ x²dx from 0 to 2", "∫ x^2 dx from 0 to 2"),
+        ("integrate x^2dt", "integrate x^2 dt"),
+    ],
+)
+async def test_a_glued_differential_is_the_differential(glued: str, spaced: str) -> None:
+    """``∫ x²dx`` was a checked d·x⁴/4 + C: the glued d was a factor of the integrand."""
+    expected = await _verified(spaced)
+    assert expected is not None, spaced
+    assert await _verified(glued) == expected

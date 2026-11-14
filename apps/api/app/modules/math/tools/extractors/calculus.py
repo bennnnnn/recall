@@ -33,7 +33,8 @@ from app.services.number_text import SIGNED_DECIMAL
 
 _WRT_VARIABLE = re.compile(r"\b(?:with\s+respect\s+to|wrt)\s+([a-zA-Z])\b", re.IGNORECASE)
 _LEIBNIZ_VARIABLE = re.compile(r"/\s*d\s*([a-zA-Z])\b")
-_INTEGRAL_VARIABLE = re.compile(r"\bd\s*([a-zA-Z])(?=\s+from\b|\s*$)")
+# ``dx`` alone, or glued to a power or a bracket (``x^2dx``), as ``expr_rewrite`` peels it.
+_INTEGRAL_VARIABLE = re.compile(r"(?:\b|(?<=[\d)\]]))d\s*([a-zA-Z])(?=\s+from\b|\s*$)")
 _HIGHER_LEIBNIZ = re.compile(
     r"\bd\s*(?:\^\s*([2-4])|([²³⁴]))\s*[a-zA-Z]\s*/\s*"
     r"d\s*([a-zA-Z])\s*(?:\^\s*[2-4]|[²³⁴])",
