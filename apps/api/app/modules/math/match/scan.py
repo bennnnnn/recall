@@ -15,6 +15,7 @@ from app.modules.math.match.letter_runs import (
     has_unknown_english_run,
     looks_like_math_expr,
 )
+from app.modules.turn_reading.readable import equation_beside_instruction, other_language
 from app.services.number_text import fold_scientific
 from app.services.symbolic_text import (
     normalize_symbolic_request,
@@ -103,6 +104,10 @@ def strip_inline_math_delims(text: str) -> str:
 
 
 def prepare(text: str) -> str | None:
+    # "Resuelve 2x + 5 = 17": another language's instruction beside an equation in symbols
+    # is the equation, read as an English line of bare maths is; its words stay unread.
+    if other_language(text) and (equation := equation_beside_instruction(text)) is not None:
+        text = equation
     # ``1.8 x 10^-5`` is the product it means, never an unknown x, and folding
     # it before superscripts become carets reads ``1.8·10⁻⁵`` too. A capital X typed
     # as the unknown is read as x while the ``$`` around it still marks it as maths.

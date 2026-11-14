@@ -48,5 +48,14 @@
   {"id": "au-parts-sphere", "area": "several asked", "prompt": "find the volume and surface area of a sphere of radius 2", "expect": "answer", "check": ["parts", [["num", "33.51"], ["num", "50.27"]]]},
   {"id": "au-parts-cuboid-diagonal", "area": "several asked", "prompt": "find the volume, surface area and diagonal of a cuboid 2 by 3 by 4", "expect": "decline", "note": "the diagonal is not on the solid's card: no card"},
   {"id": "au-parts-control-gcd", "area": "several asked", "prompt": "find the gcd of 252 and 198", "expect": "answer", "check": ["num", "18"]},
-  {"id": "au-parts-control-circle", "area": "several asked", "prompt": "find the area of a circle with radius 3 and diameter 6", "expect": "answer", "check": ["num", "28.27"], "note": "the diameter is a given, not an ask"}
+  {"id": "au-parts-control-circle", "area": "several asked", "prompt": "find the area of a circle with radius 3 and diameter 6", "expect": "answer", "check": ["num", "28.27"], "note": "the diameter is a given, not an ask"},
+  {"id": "au-lang-es-linear", "area": "language", "prompt": "Resuelve 2x + 5 = 17", "locale": "es", "expect": "answer", "check": ["num", "6"], "note": "an equation in symbols means the same in any language (2026-11-13 audit, COV-01)"},
+  {"id": "au-lang-fr-quadratic", "area": "language", "prompt": "Résous x^2 - 5x + 6 = 0", "locale": "fr", "expect": "answer", "check": ["nums", ["2", "3"]]},
+  {"id": "au-lang-es-the-equation", "area": "language", "prompt": "Resuelve la ecuación x^2 - 5x + 6 = 0", "locale": "es", "expect": "answer", "check": ["nums", ["2", "3"]]},
+  {"id": "au-lang-de-linear", "area": "language", "prompt": "Löse 3x - 7 = 11", "locale": "de", "expect": "answer", "check": ["num", "6"]},
+  {"id": "au-lang-ru-linear", "area": "language", "prompt": "Решите уравнение 3x - 7 = 11", "locale": "ru", "expect": "answer", "check": ["num", "6"]},
+  {"id": "au-lang-es-word-problem", "area": "language", "prompt": "Calcula la velocidad de un coche que recorre 100 m en 5 s.", "locale": "es", "expect": "decline", "note": "a word problem in another language stays declined"},
+  {"id": "au-lang-es-number-word", "area": "language", "prompt": "Resuelve dos veces 2x = 4", "locale": "es", "expect": "decline", "note": "a number in words beside the equation"},
+  {"id": "au-lang-es-dot-groups", "area": "language", "prompt": "Resuelve 1.200x = 2.400", "locale": "es", "expect": "decline", "note": "1.200 is 1200 to a Spanish reader"},
+  {"id": "au-lang-fr-two-unknowns", "area": "language", "prompt": "Résous 2x + 3y = 7", "locale": "fr", "expect": "decline"}
 ]

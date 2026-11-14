@@ -23,6 +23,7 @@ from app.modules.chat.turn_prep import augment
 from app.modules.chat.turn_prep.followups import SubjectFollowup
 from app.modules.chat.whole_question import answers_with, whole_question_fetch
 from app.modules.turn_reading.readable import (
+    equation_beside_instruction,
     has_english_word,
     has_other_language_word,
     in_other_script,
@@ -49,15 +50,51 @@ _DROPPED = SubjectFetch(None, None, False, None, None)
         "2 A ን በ15 Ω ተከላካይ ውስጥ ለማስገደድ ምን ያህል ቮልቴጅ ያስፈልጋል?",
         "Какое напряжение нужно, чтобы через резистор 15 Ω шёл ток 2 A?",
         "pOH 3.2 है, pH ज्ञात कीजिए।",
-        # One word of another language and none of English.
-        "résous 3x + 7 = 22",
-        "resuelve 2x + 3 = 7",
+        # One word of another language and none of English, and more than an equation.
         "si x = 2, halla 3x + 1",
     ],
 )
 def test_a_question_in_another_language_is_read_as_one(question: str) -> None:
     assert other_language(question)
     assert unreadable(question, "en") == "other_language"
+
+
+@pytest.mark.parametrize(
+    ("question", "equation"),
+    [
+        ("résous 3x + 7 = 22", "3x + 7 = 22"),
+        ("resuelve 2x + 3 = 7", "2x + 3 = 7"),
+        ("Resuelve la ecuación x^2 - 5x + 6 = 0", "x^2 - 5x + 6 = 0"),
+        ("Löse 3x - 7 = 11", "3x - 7 = 11"),
+        ("Решите уравнение 3x - 7 = 11", "3x - 7 = 11"),
+    ],
+)
+def test_another_languages_instruction_beside_an_equation_reads_as_the_equation(
+    question: str, equation: str
+) -> None:
+    """An equation in symbols means the same in any language (2026-11-13 audit, COV-01)."""
+    assert other_language(question)
+    assert equation_beside_instruction(question) == equation
+    assert unreadable(question, "en") is None
+
+
+@pytest.mark.parametrize(
+    ("question", "locale"),
+    [
+        # A number its writer reads otherwise: "1.200" is 1200 in Spanish.
+        ("Resuelve 1.200x = 2.400", "es"),
+        # More than an instruction: a number in words, two unknowns, no relation, a story.
+        ("Resuelve dos veces 2x = 4", "es"),
+        ("Resuelve 2x + 3y = 7", "es"),
+        ("Simplifie 2x + 4x", "fr"),
+        ("Calcula la velocidad de un coche que recorre 100 m en 5 s.", "es"),
+        ("si x = 2, halla 3x + 1", "es"),
+    ],
+)
+def test_an_equation_beside_more_than_an_instruction_stays_unread(
+    question: str, locale: str
+) -> None:
+    assert unreadable(question, locale) is not None
 
 
 @pytest.mark.parametrize(
