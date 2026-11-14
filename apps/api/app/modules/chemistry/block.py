@@ -9,7 +9,7 @@ from typing import Literal
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers import ChemistryResult, solve_chemistry
 from app.modules.chemistry.solvers.display import verified
-from app.services.solving import SolveServiceError, VerifiedSolveBlock
+from app.services.solving import ImpossibleProblemError, SolveServiceError, VerifiedSolveBlock
 from app.services.workout import WORKOUT_PROMPT_RULE, formula_heading, method_heading
 
 logger = logging.getLogger(__name__)
@@ -67,6 +67,16 @@ def _prompt_text(result: ChemistryResult) -> str:
 
 def build_verified_chemistry(intent: ChemistryIntent) -> VerifiedChemistry | None:
     try:
+        return checked_chemistry(intent)
+    except ImpossibleProblemError:
+        return None
+
+
+def checked_chemistry(intent: ChemistryIntent) -> VerifiedChemistry | None:
+    """``build_verified_chemistry``, but a question that names something no chemistry has
+    (NaCl3, an equation no coefficients balance) raises ``ImpossibleProblemError``: the turn
+    tells the model why (``context``)."""
+    try:
         result = solve_chemistry(intent)
     except SolveServiceError as exc:
         logger.info(
@@ -75,6 +85,8 @@ def build_verified_chemistry(intent: ChemistryIntent) -> VerifiedChemistry | Non
             intent.chemistry_op,
             exc,
         )
+        if isinstance(exc, ImpossibleProblemError):
+            raise
         return None
     except Exception:
         logger.warning(

@@ -72,7 +72,7 @@ def test_textbook_drag_block_has_the_three_results() -> None:
 
 @pytest.mark.asyncio
 async def test_textbook_drag_prompt_is_a_verified_block() -> None:
-    note, verified, failed = await build_physics_augmentation(
+    note, verified, failed, _ = await build_physics_augmentation(
         _DRAG_PROBLEM, Settings(math_tools_enabled=True)
     )
     assert failed is False

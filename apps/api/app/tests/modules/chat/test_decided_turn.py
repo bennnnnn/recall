@@ -522,6 +522,22 @@ async def test_stem_the_readers_missed_is_laid_out_as_the_read_says(
 
 
 @pytest.mark.asyncio
+async def test_a_question_a_subject_declined_keeps_the_layout_its_readers_gave() -> None:
+    """Its readers read it: one with no answer as written ("a -5 Ω resistor") was given no
+    ```worked block, whose contract would have the model work the value out (live round,
+    2026-11-14), and the read does not add one."""
+    ctx = _turn(
+        "A 10 V battery is connected across a -5 Ω resistor. What current flows?",
+        _read("physics", False, work=True),
+        solver_unverified=True,
+        unverified_subject="physics",
+    )
+    await decide_from_the_read(ctx, _SETTINGS)
+    assert ctx.worked is None
+    assert not any("```worked" in str(m.get("content")) for m in ctx.prompt_messages)
+
+
+@pytest.mark.asyncio
 async def test_a_regenerate_waits_for_the_read_when_its_layout_is_at_stake() -> None:
     """Its lane and escalation stay, but the 7x question regenerated must not come back under
     a Given and a Required because the read was still on its way."""

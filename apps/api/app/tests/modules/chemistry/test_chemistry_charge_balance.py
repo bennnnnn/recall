@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 
 from app.modules.chemistry.block import build_verified_chemistry
-from app.modules.chemistry.charge_balance import impossible_compound
+from app.modules.chemistry.charge_balance import why_no_compound
 from app.modules.chemistry.extract import extract_chemistry_intent
 
 
@@ -19,7 +19,7 @@ from app.modules.chemistry.extract import extract_chemistry_intent
     ["NaCl3", "NaCl2", "MgCl3", "CaCl", "AlCl2", "AlCl4", "Na2Cl", "KF2", "ZnCl", "Na3S", "Na4N"],
 )
 def test_a_fixed_charge_metal_and_an_anion_that_cannot_cancel(formula: str) -> None:
-    assert impossible_compound(formula)
+    assert why_no_compound(formula) is not None
 
 
 @pytest.mark.parametrize(
@@ -60,7 +60,35 @@ def test_a_fixed_charge_metal_and_an_anion_that_cannot_cancel(formula: str) -> N
     ],
 )
 def test_a_compound_that_can_exist_is_never_refused(formula: str) -> None:
-    assert not impossible_compound(formula)
+    assert why_no_compound(formula) is None
+
+
+@pytest.mark.parametrize(
+    ("formula", "reason"),
+    [
+        (
+            "NaCl3",
+            "NaCl3 is not a compound: sodium's +1 and chlorine's -1 cannot balance in a 1:3 ratio.",
+        ),
+        (
+            "MgCl3",
+            "MgCl3 is not a compound: magnesium's +2 and chlorine's -1 cannot balance in a 1:3 ratio.",
+        ),
+        (
+            "Al2O",
+            "Al2O is not a compound: aluminum's +3 and oxygen's -2 cannot balance in a 2:1 ratio.",
+        ),
+        # The metal may come second; the reason names it first.
+        (
+            "Cl3Na",
+            "Cl3Na is not a compound: sodium's +1 and chlorine's -1 cannot balance in a 1:3 ratio.",
+        ),
+    ],
+)
+def test_the_reason_names_both_charges_and_the_ratio(formula: str, reason: str) -> None:
+    """The reason the turn's note carries: told only that nothing verified, the model called
+    NaCl3 "sodium trichloride" at 112 g/mol (live round, 2026-11-14)."""
+    assert why_no_compound(formula) == reason
 
 
 def _answer(text: str) -> str | None:

@@ -211,7 +211,7 @@ async def test_fetch_returns_the_adapter_decline_flag() -> None:
             return_value=SubjectAugmentation("physics", "Physics note: declined", None, True)
         ),
     ):
-        block, verified, declined, unverified_subject, _direct = await fetch_subject(
+        block, verified, declined, unverified_subject, _direct, _ = await fetch_subject(
             "binding energy of He-4, mass = 4.002603 u", settings
         )
     assert block == "Physics note: declined"
@@ -226,7 +226,7 @@ async def test_chemistry_followup_solves_the_prior_problem() -> None:
 
     settings = Settings(chemistry_enabled=True, web_search_enabled=False, math_tools_enabled=True)
     prior = "Find the molar mass of H2O"
-    _block, verified, declined, _subject, _direct = await fetch_subject(
+    _block, verified, declined, _subject, _direct, _ = await fetch_subject(
         "how?", settings, chemistry_followup_problem=prior
     )
     assert declined is False

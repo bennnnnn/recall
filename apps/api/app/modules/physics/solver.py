@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import replace
 
+from app.modules.physics.display import GIVEN_FIGURES, plain_quantity
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.circuits import solve_circuit
 from app.modules.physics.solvers.circular import solve_circular
@@ -30,7 +31,7 @@ from app.modules.physics.solvers.suvat import solve_suvat
 from app.modules.physics.solvers.thermal import solve_thermal
 from app.modules.physics.solvers.torque import solve_torque
 from app.modules.physics.solvers.waves import solve_waves
-from app.services.solving import SolveServiceError
+from app.services.solving import ImpossibleProblemError, SolveServiceError
 
 # What callers import; the subject solvers stay reachable as module attributes for tests.
 __all__ = ["PHYSICS_SOLVERS", "PhysicsResult", "solve_physics"]
@@ -105,21 +106,21 @@ def _claim_solvers() -> dict[str, Callable[[PhysicsIntent], PhysicsResult]]:
 PHYSICS_SOLVERS = _claim_solvers()
 
 
-def _outside_its_kind(value: float, unit: str) -> bool:
-    """A result no quantity of its kind takes (``law_binding.domains``): a mass of -5 kg, a
-    resistance of -3 Ω. An angular rate keeps its sign."""
+def _rule_its_kind_breaks(value: float, unit: str) -> str | None:
+    """The rule a result breaks when no quantity of its kind takes it (``law_binding.domains``):
+    a mass of -5 kg, a resistance of -3 Ω. An angular rate keeps its sign."""
     from app.modules.physics.givens import unit_dimension, unit_expression
     from app.modules.physics.solvers.si import to_si
-    from app.services.law_binding.domains import outside_kind
+    from app.services.law_binding.domains import kind_rule
 
     expression = unit_expression(unit) or ""
     reading = unit_dimension(expression) if unit else None
     if reading is None or expression.startswith(("radian", "revolution")):
-        return False
+        return None
     try:
-        return outside_kind(reading[0], to_si(value, unit))
+        return kind_rule(reading[0], to_si(value, unit))
     except SolveServiceError:
-        return False
+        return None
 
 
 def solve_physics(intent: PhysicsIntent) -> PhysicsResult:
@@ -132,8 +133,15 @@ def solve_physics(intent: PhysicsIntent) -> PhysicsResult:
     if solver is None:
         raise SolveServiceError(f"unsupported physics op: {operation}")
     result = attach_recorded_working(solver(intent), intent)
-    if any(_outside_its_kind(quantity.value, quantity.unit) for quantity in result.quantities):
-        raise SolveServiceError(f"{operation} gives a value no such quantity takes")
+    for quantity in result.quantities:
+        rule = _rule_its_kind_breaks(quantity.value, quantity.unit)
+        if rule is not None:
+            # Read with the signs as the question states them: "a force of -10 N gives
+            # 2 m/s²" is a mass of -5 kg (``prompt``).
+            shown = plain_quantity(quantity.value, quantity.unit, GIVEN_FIGURES)
+            raise ImpossibleProblemError(
+                f"Read with the signs as written, the stated values give {shown}, and {rule}."
+            )
     # A law solved as arithmetic has no solver of its own to draw it.
     if result.quantities and not result.simulation_specs and not result.graph_specs:
         quantity = result.quantities[0]

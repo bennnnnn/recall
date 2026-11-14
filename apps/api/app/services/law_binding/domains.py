@@ -21,19 +21,23 @@ from app.services.law_binding.labels import LABELS
 from app.services.law_binding.spec import FormulaSpec, VariableSpec, variable_for
 from app.services.law_binding.units import dimension_of
 
-_ABOVE_ZERO = frozenset(
-    dimension_of(unit)
-    for unit in (
-        "kilogram",
-        "ohm",
-        "farad",
-        "henry",
-        "hertz",
-        "kilogram / meter ** 3",
-        "newton / meter",
-        "kelvin",
+# Each kind of quantity that is above zero, by the name a decline's reason gives it ("a
+# resistance cannot be zero or negative"). A rate per second is a frequency, an activity or a
+# decay constant alike.
+_ABOVE_ZERO: dict[str | None, str] = {
+    dimension_of(unit): noun
+    for unit, noun in (
+        ("kilogram", "mass"),
+        ("ohm", "resistance"),
+        ("farad", "capacitance"),
+        ("henry", "inductance"),
+        ("hertz", "frequency or rate"),
+        ("kilogram / meter ** 3", "density"),
+        ("newton / meter", "stiffness"),
+        ("kelvin", "absolute temperature"),
     )
-)
+}
+_KELVIN = dimension_of("kelvin")
 _SPEED = dimension_of("meter / second")
 
 
@@ -42,23 +46,42 @@ def outside_domain(spec: FormulaSpec, si_params: Mapping[str, float]) -> str | N
     None when every one is a value it can take."""
     for name, value in si_params.items():
         variable = variable_for(spec, name)
-        if variable is None or not variable.visible or _a_change(variable):
-            continue
-        kind = variable_kind(variable)
-        if (kind in _ABOVE_ZERO or _named_quantity(variable)) and value <= 0:
-            return name
-        if kind == _SPEED and abs(value) > _fastest():
+        if variable is not None and input_rule(variable, value) is not None:
             return name
     return None
 
 
-def outside_kind(kind: str | None, si_value: float) -> bool:
-    """A value of this kind (a dimension, as ``units.dimension_of`` writes it) that no such
-    quantity takes: a law solved for a mass is held to a mass's range too. "A force of -10 N
-    gives an acceleration of 2 m/s². The mass?" was -5 kg, verified (review 2026-11-13)."""
+def input_rule(variable: VariableSpec, si_value: float, noun: str | None = None) -> str | None:
+    """The rule this input's value (in SI) breaks, said of ``noun`` (its kind's name when
+    None): "a resistance cannot be zero or negative". None for a value it can take, and for
+    a change, which keeps its sign."""
+    if not variable.visible or _a_change(variable):
+        return None
+    if _named_quantity(variable) and si_value <= 0:
+        return _above_zero(noun or variable.name)
+    return kind_rule(variable_kind(variable), si_value, noun)
+
+
+def kind_rule(kind: str | None, si_value: float, noun: str | None = None) -> str | None:
+    """The rule a value of this kind (a dimension, as ``units.dimension_of`` writes it, in SI)
+    breaks, as a clause the reason for a decline says: "a mass cannot be zero or negative",
+    "nothing moves faster than light". None for a value such a quantity takes. A law solved
+    for a mass is held to a mass's range too: "A force of -10 N gives an acceleration of
+    2 m/s². The mass?" was -5 kg, verified (review 2026-11-13)."""
+    if kind == _KELVIN and si_value <= 0:
+        from app.services.units import CELSIUS_OFFSET_K
+
+        return f"no temperature is at or below absolute zero (-{CELSIUS_OFFSET_K:g} °C)"
     if kind in _ABOVE_ZERO and si_value <= 0:
-        return True
-    return kind == _SPEED and abs(si_value) > _fastest()
+        return _above_zero(noun or _ABOVE_ZERO[kind])
+    if kind == _SPEED and abs(si_value) > _fastest():
+        return "nothing moves faster than light"
+    return None
+
+
+def _above_zero(noun: str) -> str:
+    article = "an" if noun[:1] in "aeiou" else "a"
+    return f"{article} {noun} cannot be zero or negative"
 
 
 @lru_cache(maxsize=1)

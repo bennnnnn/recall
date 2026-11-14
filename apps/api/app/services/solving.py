@@ -59,6 +59,14 @@ class SolveServiceError(ValueError):
     """A deterministic subject solve declined invalid or unsupported input."""
 
 
+class ImpossibleProblemError(SolveServiceError):
+    """A solve declined because the question, as the solver read it, describes something no
+    real case has: a compound whose ions cannot balance, an equation no coefficients balance,
+    values that give a negative mass. Its message is that reason, a sentence for the reply's
+    model. Told only that nothing verified, the model gave NaCl3 a molar mass of 129 g/mol
+    (live round, 2026-11-14)."""
+
+
 @dataclass(frozen=True)
 class VerifiedSolveBlock:
     """Subject-neutral transport for one deterministic, verified solve.
@@ -182,6 +190,9 @@ class SubjectAugmentation:
     # Both halves of "…, and also …", or each question of a problem in parts, already
     # rendered. Chat shows this and does not ask the model to redo any of them.
     direct_text: str | None = None
+    # The question as written has no answer (a -5 Ω resistor, NaCl3): the prompt block says
+    # why, and the reply works nothing out, so the turn gets no ```worked block either.
+    unanswerable: bool = False
 
 
 @dataclass(frozen=True)

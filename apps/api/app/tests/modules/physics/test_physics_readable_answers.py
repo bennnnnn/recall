@@ -53,7 +53,7 @@ def test_lens_distances_are_d_o_and_d_i_never_speeds() -> None:
 async def test_physics_has_its_own_switch() -> None:
     text = "A 2 kg ball moves at 3 m/s. What is its kinetic energy?"
     off = Settings(math_tools_enabled=True, physics_enabled=False)
-    assert await build_physics_augmentation(text, off) == (None, None, False)
+    assert await build_physics_augmentation(text, off) == (None, None, False, False)
     on = Settings(math_tools_enabled=False, physics_enabled=True)
-    _prompt, verified, _failed = await build_physics_augmentation(text, on)
+    _prompt, verified, _failed, _ = await build_physics_augmentation(text, on)
     assert verified is not None

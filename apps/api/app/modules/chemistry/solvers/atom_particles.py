@@ -14,7 +14,7 @@ from app.modules.chemistry.elements import BY_NUMBER, BY_SYMBOL, Element
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers.display import verified
 from app.modules.chemistry.solvers.types import ChemistryResult
-from app.services.solving import SolveServiceError
+from app.services.solving import ImpossibleProblemError, SolveServiceError
 
 _SHELLS = (2, 8, 8, 2)
 _SCHOOL_SHELL_LIMIT = 20
@@ -143,7 +143,11 @@ def _answer(item: str, atom: _Atom, rows: list[str]) -> str:
     if item == "mass_number" and atom.mass is None:
         raise SolveServiceError("the mass number needs the neutrons")
     if item == "name" and atom.element is None:
-        raise SolveServiceError("no element has that atomic number")
+        last = BY_NUMBER[max(BY_NUMBER)]
+        raise ImpossibleProblemError(
+            f"No element has atomic number {atom.z}: the table ends at {last.number}, "
+            f"{last.name.lower()}."
+        )
     charge = atom.charge
     kind = "neutral atom" if charge == 0 else "cation" if charge > 0 else "anion"
     lines = {
