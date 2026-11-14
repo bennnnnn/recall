@@ -208,7 +208,8 @@ function splitMathExpression(expr: string): string[] | null {
   // ("h = 0,5; T = 0,25(7) = 1,75") a comma is no break.
   let pieces = independentPieces(body, ";");
   if (!pieces && tokenize(body).some((tok) => tok.kind === "break" && body[tok.start] === ";")) return null;
-  pieces ??= independentPieces(body);
+  // A statement may hold equations a comma separates: "x = 1, y = 2; z = 3".
+  pieces = pieces ? pieces.flatMap((piece) => independentPieces(piece) ?? [piece]) : independentPieces(body);
   if (pieces) {
     // "w = 6, so A = 9 * 6 = 54": a piece that a word joins on stays the writer's sentence; set
     // as maths it made "so" an italic product and the row "so A = 54".

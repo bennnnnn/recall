@@ -1380,6 +1380,18 @@
       "area": "calculation",
       "input": "$x = 2 so \\frac{1}{2} = 0.5 = 1/2$",
       "expected": "$x = 2 so \\frac{1}{2} = 0.5 = 1/2$"
+    },
+    {
+      "id": "semicolon-then-comma-pieces",
+      "area": "calculation",
+      "input": "x = 1, y = 2; z = 3",
+      "expected": "$x = 1$  \n$y = 2$  \n$z = 3$"
+    },
+    {
+      "id": "semicolon-then-comma-pieces-chain",
+      "area": "calculation",
+      "input": "$x + y = 10, 2x - y = 5; z = 3 + 4 = 7$",
+      "expected": "$x + y = 10$  \n$2x - y = 5$  \n$z = 3 + 4$  \n$z = 7$"
     }
   ]
 }

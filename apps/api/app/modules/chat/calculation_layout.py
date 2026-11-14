@@ -48,6 +48,8 @@ def split_math_expression(expr: str) -> list[str] | None:
         return None
     if pieces is None:
         pieces = _independent_pieces(body)
+    else:  # a statement may hold equations a comma separates: "x = 1, y = 2; z = 3"
+        pieces = [part for piece in pieces for part in _independent_pieces(piece) or [piece]]
     if pieces is not None:
         # "w = 6, so A = 9 * 6 = 54": a piece that a word joins on stays the writer's sentence;
         # set as maths it made "so" an italic product and the row "so A = 54".
