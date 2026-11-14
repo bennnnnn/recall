@@ -6,15 +6,18 @@ import re
 import unicodedata
 from itertools import pairwise
 
-from app.modules.math.match.letter_runs import MATH_MULTI_LETTER, peel_edge_english
+from app.modules.math.match.letter_runs import peel_edge_english
 from app.modules.math.schemas import EquationInput
 from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.solve.discrete import guess_variables
-from app.modules.math.solve.latex_normalize import normalize_latex_to_sympy
-
-_EQUATION_SIDE_CHARS = frozenset(
-    "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+-*/().^ "
+from app.modules.math.solve.equation_sides import (
+    EQUATION_SIDE_CHARS,
+    english_run_len,
+    sentence_period,
+    side_end,
+    side_start,
 )
+from app.modules.math.solve.latex_normalize import normalize_latex_to_sympy
 
 _FILLER_VERBS = (
     "solve",
@@ -34,81 +37,16 @@ _SYSTEM_PREFIXES = (
 )
 
 
-# Two-letter words that sit between homework steps after collapse_ws
-# ("…=0 or x-3=0"). 1-letter tokens stay variables; ln/pi stay math.
-_TWO_LETTER_ENGLISH = frozenset(
-    {"or", "if", "so", "to", "of", "it", "is", "be", "as", "at", "by", "an", "we", "my"}
-)
-
-
-def _english_run_len(s: str, i: int) -> int:
-    """Length of an English word starting at ``i``, else 0. Linear scan."""
-    n = len(s)
-    if i >= n or not s[i].isalpha():
-        return 0
-    j = i + 1
-    while j < n and s[j].isalpha():
-        j += 1
-    run = s[i:j]
-    low = run.lower()
-    if low in MATH_MULTI_LETTER:
-        return 0
-    if len(run) >= 3:
-        return j - i
-    if len(run) == 2 and low in _TWO_LETTER_ENGLISH:
-        return j - i
-    return 0
-
-
-def _english_after(s: str, i: int) -> bool:
-    """True when the next token (skipping spaces) is English.
-
-    Inside a word there is no next token: the ``qrt`` of ``sqrt`` is not English.
-    """
-    n = len(s)
-    if 0 < i < n and s[i - 1].isalpha() and s[i].isalpha():
-        return False
-    pos = i
-    while pos < n and s[pos] == " ":
-        pos += 1
-    return _english_run_len(s, pos) > 0
-
-
-def _english_before(s: str, i: int) -> bool:
-    """True when the token ending at ``i`` (exclusive, skipping spaces) is English."""
-    k = i
-    while k > 0 and s[k - 1] == " ":
-        k -= 1
-    if k == 0 or not s[k - 1].isalpha():
-        return False
-    start = k - 1
-    while start > 0 and s[start - 1].isalpha():
-        start -= 1
-    return _english_run_len(s, start) > 0
-
-
-def _sentence_period(text: str, index: int) -> bool:
-    """A `.` that ends a word or a sentence, not a decimal point (`3.14`, `.5`, `3.`).
-
-    A decimal point is never followed by a space: ``x = 7. A tool`` ends at 7.
-    """
-    if index < 0 or index >= len(text) or text[index] != ".":
-        return False
-    prev = text[index - 1] if index else ""
-    nxt = text[index + 1] if index + 1 < len(text) else ""
-    return (not prev.isdigit() or nxt.isspace()) and not nxt.isdigit()
-
-
 def _is_equation_side(s: str) -> bool:
     stripped = s.strip()
     if not stripped or len(stripped) > 120:
         return False
-    if not all(c in _EQUATION_SIDE_CHARS for c in stripped):
+    if not all(c in EQUATION_SIDE_CHARS for c in stripped):
         return False
     k = 0
     n = len(stripped)
     while k < n:
-        run = _english_run_len(stripped, k)
+        run = english_run_len(stripped, k)
         if run:
             # A side that is only a name (`velocity`) is a valid lhs; mixed
             # math + English (`0 Factor it`) is a collapsed homework label.
@@ -205,58 +143,6 @@ def try_extract_equations_from_text(text: str) -> list[tuple[str, str]]:
     return pairs
 
 
-def _space_run_start(text: str, index: int) -> int:
-    """The first space of the run of spaces ending at ``index`` (inclusive)."""
-    while index > 0 and text[index - 1] == " ":
-        index -= 1
-    return index
-
-
-def _side_start(text: str, eq: int) -> int:
-    """Where the left side of the ``=`` at ``eq`` begins.
-
-    A run of spaces is read once: the word before it decides for every space in it.
-    Walking it a space at a time and looking back over the whole run from each one took
-    a second for "x" and 8,000 spaces before "=", and a 32 KB message stopped the reading.
-    """
-    left = eq
-    while left > 0 and text[left - 1] in _EQUATION_SIDE_CHARS:
-        if _sentence_period(text, left - 1):
-            break
-        if text[left - 1] == " ":
-            run = _space_run_start(text, left - 1)
-            if _english_before(text, run):
-                break
-            left = run
-            continue
-        left -= 1
-    return left
-
-
-def _side_end(text: str, eq: int) -> int:
-    """Where the right side of the ``=`` at ``eq`` ends; a run of spaces is read once."""
-    right = eq + 1
-    while right < len(text) and text[right] in _EQUATION_SIDE_CHARS:
-        if _sentence_period(text, right):
-            break
-        if text[right] != " ":
-            if _english_after(text, right):
-                break
-            right += 1
-            continue
-        after = right
-        while after < len(text) and text[after] == " ":
-            after += 1
-        if _english_run_len(text, after) > 0:
-            break
-        # `=0 (2x-1)(x-3)=0` — next parenthetical is another equation,
-        # not part of this RHS (collapse_ws glued the two displays).
-        if text[after : after + 1] == "(" and text[eq + 1 : right].strip() in {"0", "0.0"}:
-            break
-        right = after
-    return right
-
-
 _SPACE_RUN = re.compile(r" {2,}")
 
 
@@ -279,8 +165,8 @@ def _equation_spans(text: str) -> list[tuple[int, int, str, str]]:
         if eq + 1 < len(cleaned) and cleaned[eq + 1] == "=":
             start = eq + 2
             continue
-        left = _side_start(cleaned, eq)
-        right = _side_end(cleaned, eq)
+        left = side_start(cleaned, eq)
+        right = side_end(cleaned, eq)
         lhs = _strip_side_punct(peel_edge_english(cleaned[left:eq].strip()))
         rhs = _strip_side_punct(peel_edge_english(cleaned[eq + 1 : right].strip()))
         if _stopped_at_math_symbol(cleaned, left - 1) or _stopped_at_math_symbol(cleaned, right):
@@ -455,15 +341,15 @@ def try_extract_compound_inequality_from_text(
         return None
     for a, b in pairwise(hits):
         left = a[0]
-        while left > 0 and cleaned[left - 1] in _EQUATION_SIDE_CHARS:
-            if _sentence_period(cleaned, left - 1):
+        while left > 0 and cleaned[left - 1] in EQUATION_SIDE_CHARS:
+            if sentence_period(cleaned, left - 1):
                 break
             left -= 1
         low = cleaned[left : a[0]].strip()
         mid = cleaned[a[1] : b[0]].strip()
         right = b[1]
-        while right < len(cleaned) and cleaned[right] in _EQUATION_SIDE_CHARS:
-            if _sentence_period(cleaned, right):
+        while right < len(cleaned) and cleaned[right] in EQUATION_SIDE_CHARS:
+            if sentence_period(cleaned, right):
                 break
             right += 1
         high = cleaned[b[1] : right].strip()
@@ -488,13 +374,13 @@ def try_extract_inequality_from_text(text: str) -> tuple[str, str, str] | None:
     best: tuple[int, str, str, str] | None = None  # (index, lhs, rhs, canon)
     for start, after, canon in _find_inequality_ops(cleaned):
         left = start
-        while left > 0 and cleaned[left - 1] in _EQUATION_SIDE_CHARS:
-            if _sentence_period(cleaned, left - 1):
+        while left > 0 and cleaned[left - 1] in EQUATION_SIDE_CHARS:
+            if sentence_period(cleaned, left - 1):
                 break
             left -= 1
         right = after
-        while right < len(cleaned) and cleaned[right] in _EQUATION_SIDE_CHARS:
-            if _sentence_period(cleaned, right):
+        while right < len(cleaned) and cleaned[right] in EQUATION_SIDE_CHARS:
+            if sentence_period(cleaned, right):
                 break
             right += 1
         lhs = cleaned[left:start].strip()
