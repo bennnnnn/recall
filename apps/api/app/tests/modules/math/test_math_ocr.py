@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -6,6 +6,7 @@ from app.core.config import Settings
 from app.gateways.mathpix_gateway import MathpixOcrResult
 from app.modules.math import ocr as math_ocr
 from app.modules.math.schemas import MathImageExtract
+from app.services.solving import PhotoReading
 
 
 def test_extract_from_confirmed_reading_equation():
@@ -272,3 +273,67 @@ def test_student_reading_never_shows_a_latex_command(printed: str) -> None:
     from app.modules.math.reading import student_reading
 
     assert "\\" not in student_reading(printed)
+
+
+def _keyed() -> Settings:
+    return Settings(
+        mock_llm_enabled=False,
+        openrouter_api_key="test-key",
+        mathpix_app_id="id",
+        mathpix_app_key="key",
+        mathpix_enabled=True,
+        mathpix_confidence_min=0.72,
+    )
+
+
+async def _camera(settings: Settings, confidence: float) -> tuple[PhotoReading, MagicMock]:
+    from app.modules.math.camera import read_camera_maths
+
+    mathpix = AsyncMock(
+        return_value=MathpixOcrResult(text="2x + 3 = 1", latex="2x + 3 = 1", confidence=confidence)
+    )
+    vision = AsyncMock(
+        return_value=MathImageExtract(
+            kind="equation", lhs="2*x+3", rhs="1", variables=["x"], source_text="2x + 3 = 1"
+        )
+    )
+    metered = patch("app.gateways.llm_spend.meter_reported_cost")
+    with (
+        patch("app.gateways.mathpix_gateway.ocr_image", mathpix),
+        patch.object(math_ocr.mie, "vision_extract_equation", vision),
+        metered as meter,
+    ):
+        reading = await read_camera_maths(
+            "Solve the math problem in this image step by step.",
+            image_attachments=[("image/jpeg", "user/scan")],
+            load_image=AsyncMock(return_value=("image/jpeg", b"photo")),
+            settings=settings,
+            on_status=None,
+        )
+    return reading, meter
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("confidence, uncertain", [(0.31, True), (0.95, False)])
+async def test_camera_maths_carries_the_reads_certainty_to_the_turn(
+    confidence: float, uncertain: bool
+) -> None:
+    """At Mathpix confidence 0.31 the turn kept only the extract, and the card was checked
+    (audit SCAN-02): the read is still solved, and says it was unsure."""
+    reading, _ = await _camera(_keyed(), confidence)
+    assert reading.extract is not None and reading.extract.rhs == "1"
+    assert reading.uncertain is uncertain
+    assert reading.transcription == "2x + 3 = 1"
+    assert reading.content.endswith(" = 1") and "\n\nSolve: " in reading.content
+
+
+@pytest.mark.asyncio
+async def test_camera_maths_counts_its_mathpix_call_toward_the_days_spend() -> None:
+    """Only the scanner's old read-back counted a Mathpix call; the turn's own were never
+    metered (audit SCAN-07)."""
+    from app.services.quota import MATH_SCAN_READ_SPEND_USD
+
+    _, meter = await _camera(_keyed(), 0.95)
+    meter.assert_called_once_with("mathpix", MATH_SCAN_READ_SPEND_USD)
+    _, unkeyed = await _camera(Settings(mock_llm_enabled=False, openrouter_api_key="k"), 0.95)
+    unkeyed.assert_not_called()

@@ -5,6 +5,7 @@ from app.content.legal import contact_markdown, markdown_to_html
 from app.core.config import Settings
 from app.core.deps import get_settings_dep
 from app.main import create_app
+from app.models.model_catalog import CATALOG, ChatModel, openrouter_slug
 
 _SUPPORT = "help@recall.example"
 
@@ -57,14 +58,52 @@ def test_privacy_policy_names_each_processor_and_fact(named: str) -> None:
     assert named in _client().get("/legal/privacy").text
 
 
+# Each catalog model's maker (its OpenRouter slug's first part), as the policy names it.
+# The turn's read sends every message to Perplexity's Decider, and the policy did not say so
+# (2026-11-13): a model from a maker missing here fails until the policy names it too.
+_MAKERS = {
+    "anthropic": "Anthropic",
+    "openai": "OpenAI",
+    "deepseek": "DeepSeek",
+    "qwen": "Qwen",
+    "z-ai": "Z.ai",
+    "perplexity": "Perplexity",
+    "black-forest-labs": "Black Forest Labs",
+}
+
+
+def _makers_bullet() -> str:
+    """The policy's line that lists the model makers: a maker named in another bullet (OpenAI
+    for voice) does not count for the models."""
+    from app.content.privacy_policy import privacy_policy_markdown
+
+    lines = privacy_policy_markdown(_SUPPORT).splitlines()
+    return next(line for line in lines if line.startswith("- **AI model providers"))
+
+
+@pytest.mark.parametrize("model", CATALOG, ids=lambda model: model.id)
+def test_privacy_policy_names_the_maker_of_every_model_the_app_calls(model: ChatModel) -> None:
+    maker = openrouter_slug(model.id).split("/", 1)[0]
+    assert maker in _MAKERS, f"{model.id}: name its maker {maker!r} here and in the policy"
+    assert _MAKERS[maker] in _makers_bullet()
+
+
+def test_privacy_policy_says_what_the_decider_reads() -> None:
+    page = _client().get("/legal/privacy").text
+    assert "Decider model" in page and "Perplexity, to decide how a message is handled" in page
+    assert "up to four earlier messages" in page  # safety phrase: what the Decider receives
+
+
 def test_privacy_policy_says_where_a_scanned_photo_goes() -> None:
-    """The scanner sends its photo to the server the moment it is cut (``/{subject}/scan/read``):
-    math to Mathpix and a vision model, physics and chemistry to a vision model through
-    OpenRouter; the read keeps nothing. The policy said so only for math photos."""
+    """A scan is a photo the chat keeps (#2263 removed the read-back): the server reads the
+    problem off it, and that reading is saved with the message. The policy still said the
+    reading came back to check and the photo was not kept (2026-11-13)."""
     page = _client().get("/legal/privacy").text
     assert "Scanned problems" in page
-    assert "is sent to Recall" in page and "to read the problem" in page
-    assert "Recall does not keep that photo" in page
+    assert "attached to the chat and kept like any other photo" in page  # safety phrase: kept
+    assert "is saved with your message" in page  # safety phrase: the reading is kept too
+    assert "comes back to you to check" not in page
+    assert "Recall does not keep that photo" not in page
     assert "photos you scan in the scanner (math, physics and chemistry)" in page
 
 

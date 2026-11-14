@@ -6,7 +6,7 @@ direct reply through ``direct``, and its prompt copy from ``reply_policy`` and `
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
@@ -21,7 +21,7 @@ from app.modules.physics.followup import (
 from app.modules.physics.prompt import build_physics_augmentation
 from app.modules.physics.reply_policy import PHYSICS_REPLY_POLICY, physics_prompt_hints
 from app.modules.turn_reading.see_request import asks_to_see
-from app.services.solving import SubjectAugmentation, VerifiedPhysicsBlock
+from app.services.solving import PhotoReading, SubjectAugmentation, VerifiedPhysicsBlock
 from app.services.subject_hints import SubjectHints
 
 if TYPE_CHECKING:
@@ -33,13 +33,13 @@ if TYPE_CHECKING:
 def _physics_request_text(user_content: str) -> str:
     """The problem a physics turn verifies.
 
-    A scanned photo's caption is a protocol line. When the student confirmed
-    what the scanner read, that reading is the problem; without one, the
-    caption alone gets the unverified physics note.
+    A scanned photo's caption is a protocol line. When the turn read the photo, that
+    reading is the problem, whichever tab took it (a physics word problem on the maths
+    tab); without one, the caption alone gets the unverified physics note.
     """
     from app.services.subject_scan import confirmed_scan_reading, scanner_camera_subject
 
-    if scanner_camera_subject(user_content) != "physics":
+    if scanner_camera_subject(user_content) is None:
         return user_content
     return confirmed_scan_reading(user_content) or user_content
 
@@ -132,7 +132,10 @@ class PhysicsFence:
     def draws(self, text: str, settings: Settings) -> bool:
         return False
 
-    def draw(self, text: str, settings: Settings) -> str:
+    async def named(self, text: str, settings: Settings) -> dict[str, str]:
+        return {}
+
+    def draw(self, text: str, settings: Settings, named: Mapping[str, str] | None = None) -> str:
         return text
 
     def tidy(self, text: str, user_text: str, verified: VerifiedSolveBlock | None) -> str:
@@ -156,25 +159,29 @@ class PhysicsPhoto:
         content: str,
         *,
         image_attachments: list[tuple[str, str]],
-        load_image: Callable[[str], Awaitable[bytes | None]],
+        load_image: Callable[[str], Awaitable[tuple[str, bytes] | None]],
         settings: Settings,
         on_status: Callable[[str], Awaitable[None]] | None,
-    ) -> tuple[None, str]:
+    ) -> PhotoReading:
+        # Its reader has no certainty signal: a plain-text vision read, stated as the line.
         if not settings.physics_enabled:
-            return None, content
+            return PhotoReading(None, content)
         from app.modules.physics.read import read_physics_problem
         from app.services.subject_scan import read_scanned_problem
 
         async def read(content_type: str, data: bytes) -> str:
             return await read_physics_problem(settings, content_type=content_type, data=data)
 
-        return None, await read_scanned_problem(
-            content,
-            subject="physics",
-            image_attachments=image_attachments,
-            load_image=load_image,
-            read=read,
-            on_status=on_status,
+        return PhotoReading(
+            None,
+            await read_scanned_problem(
+                content,
+                subject="physics",
+                image_attachments=image_attachments,
+                load_image=load_image,
+                read=read,
+                on_status=on_status,
+            ),
         )
 
 
