@@ -1356,6 +1356,30 @@
       "area": "calculation",
       "input": "$f(x; θ) = 2θ = 4$",
       "expected": "$f(x; θ) = 2θ$  \n$f(x; θ) = 4$"
+    },
+    {
+      "id": "unit-before-cdot-splits",
+      "area": "calculation",
+      "input": "$F = 2 kg \\cdot 9.8 = 19.6$",
+      "expected": "$F = 2 kg \\cdot 9.8$  \n$F = 19.6$"
+    },
+    {
+      "id": "text-unit-before-cdot-splits",
+      "area": "calculation",
+      "input": "$F = 2\\,\\text{kg} \\cdot 9.8\\,\\text{m/s}^2 = 19.6$",
+      "expected": "$F = 2\\,\\text{kg} \\cdot 9.8\\,\\text{m/s}^2$  \n$F = 19.6$"
+    },
+    {
+      "id": "unit-before-times-splits",
+      "area": "calculation",
+      "input": "$W = 5 N \\times 3 m = 15$",
+      "expected": "$W = 5 N \\times 3 m$  \n$W = 15$"
+    },
+    {
+      "id": "word-before-frac-joins",
+      "area": "calculation",
+      "input": "$x = 2 so \\frac{1}{2} = 0.5 = 1/2$",
+      "expected": "$x = 2 so \\frac{1}{2} = 0.5 = 1/2$"
     }
   ]
 }

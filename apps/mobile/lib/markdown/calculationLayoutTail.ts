@@ -192,12 +192,64 @@ function wordThenTerm(raw: string): boolean {
     if (depth > 0 || (start > 0 && !/\s/.test(segment[start - 1]))) continue;
     if (CHAIN_STOP_WORDS.has(word.toLowerCase())) return true;
     if (!isWord(word) || FUNCTION_WORDS.has(word.toLowerCase())) continue;
-    let after = index;
-    while (segment[after] === " ") after += 1;
-    const next = charAt(segment, after);
-    if (after > index && (ALNUM.test(next) || next === "\\")) return true;
+    if (startsTerm(segment, index)) return true;
   }
   return false;
+}
+
+// What may follow a word and keep it maths: an operator ("2 kg \\cdot 9.8") or TeX spacing.
+const OPERATOR_COMMANDS = new Set([
+  "cdot",
+  "cdotp",
+  "times",
+  "div",
+  "pm",
+  "mp",
+  "ast",
+  "star",
+  "circ",
+  "bullet",
+  "approx",
+  "neq",
+  "ne",
+  "leq",
+  "le",
+  "geq",
+  "ge",
+  "equiv",
+  "sim",
+  "simeq",
+  "propto",
+]);
+const SPACE_COMMANDS = new Set(["quad", "qquad", "thinspace", "enspace"]);
+
+/**
+ * Whether another term follows a word ending at `index`, past spaces and TeX spacing: a letter,
+ * a digit or a command that is no operator ("so A", "so 2a", "so \\frac12"; not the unit of
+ * "2 kg \\cdot 9.8").
+ */
+function startsTerm(segment: string, from: number): boolean {
+  let index = from;
+  while (index < segment.length) {
+    if (segment[index] === " ") {
+      index += 1;
+      continue;
+    }
+    if (segment[index] !== "\\") break;
+    if (index + 1 < segment.length && ",;:! ".includes(segment[index + 1])) {
+      index += 2;
+      continue;
+    }
+    let end = index + 1;
+    while (end < segment.length && LETTER.test(segment[end])) end += 1;
+    const name = segment.slice(index + 1, end);
+    if (SPACE_COMMANDS.has(name)) {
+      index = end;
+      continue;
+    }
+    return index > from && !OPERATOR_COMMANDS.has(name);
+  }
+  return index > from && index < segment.length && ALNUM.test(charAt(segment, index));
 }
 
 /**

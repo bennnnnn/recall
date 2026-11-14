@@ -157,16 +157,43 @@ def _word_then_term(segment: str) -> bool:
             return True
         if not _is_word(word) or word.lower() in _FUNCTION_WORDS:
             continue
-        after = index
-        while after < length and segment[after] == " ":
-            after += 1
-        if (
-            after > index
-            and after < length
-            and (segment[after].isalnum() or segment[after] == "\\")
-        ):
+        if _starts_term(segment, index):
             return True
     return False
+
+
+# What may follow a word and keep it maths: an operator ("2 kg \\cdot 9.8") or TeX spacing.
+_OPERATOR_COMMANDS = {
+    "cdot", "cdotp", "times", "div", "pm", "mp", "ast", "star", "circ", "bullet",
+    "approx", "neq", "ne", "leq", "le", "geq", "ge", "equiv", "sim", "simeq", "propto",
+}  # fmt: skip
+_SPACE_COMMANDS = {"quad", "qquad", "thinspace", "enspace"}
+
+
+def _starts_term(segment: str, index: int) -> bool:
+    """Whether another term follows a word ending at ``index``, past spaces and TeX spacing:
+    a letter, a digit or a command that is no operator ("so A", "so 2a", "so \\frac12"; not
+    the unit of "2 kg \\cdot 9.8")."""
+    length = len(segment)
+    start = index
+    while index < length:
+        if segment[index] == " ":
+            index += 1
+            continue
+        if segment[index] != "\\":
+            break
+        if index + 1 < length and segment[index + 1] in ",;:! ":
+            index += 2
+            continue
+        end = index + 1
+        while end < length and segment[end].isalpha():
+            end += 1
+        name = segment[index + 1 : end]
+        if name in _SPACE_COMMANDS:
+            index = end
+            continue
+        return index > start and name not in _OPERATOR_COMMANDS
+    return start < index < length and segment[index].isalnum()
 
 
 def _is_word(word: str) -> bool:
