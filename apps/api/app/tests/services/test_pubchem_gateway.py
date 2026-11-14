@@ -265,9 +265,7 @@ async def test_a_compound_keeps_its_stereo_marks_in_either_spelling(
 ) -> None:
     client = AsyncMock()
     client.get = AsyncMock(return_value=_mock_response(200, _properties(**spelling)))
-    redis = AsyncMock()
-    redis.get = AsyncMock(return_value=None)
-    redis.set = AsyncMock()
+    redis = redis_mock(get=None)
     with patch.object(pubchem_gateway, "get_pooled_client", return_value=client):
         result = await pubchem_gateway.lookup_by_name("L-alanine", redis=redis)
     assert result.compound is not None
@@ -289,9 +287,9 @@ async def test_a_cache_entry_from_before_the_stereo_marks_reads_with_none() -> N
         "molecular_formula": "C3H7NO2",
         "molecular_weight": 89.09,
     }
-    redis = AsyncMock()
-    redis.get = AsyncMock(return_value=json.dumps(entry))
-    result = await pubchem_gateway.lookup_by_name("alanine", redis=redis)
+    result = await pubchem_gateway.lookup_by_name(
+        "alanine", redis=redis_mock(get=json.dumps(entry))
+    )
     assert result.compound is not None and result.compound.isomeric_smiles == ""
 
 
