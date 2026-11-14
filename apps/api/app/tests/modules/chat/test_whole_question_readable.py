@@ -52,6 +52,9 @@ _DROPPED = SubjectFetch(None, None, False, None, None)
         "pOH 3.2 है, pH ज्ञात कीजिए।",
         # One word of another language and none of English, and more than an equation.
         "si x = 2, halla 3x + 1",
+        # Words that restrict the answer, read as English they were ignored (±2 checked).
+        "Raíz positiva: x^2 = 4",
+        "x^2 = 4 positivo",
     ],
 )
 def test_a_question_in_another_language_is_read_as_one(question: str) -> None:

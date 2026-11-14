@@ -59,8 +59,9 @@ _NOTATION_SCRIPTS = (
 )  # fmt: skip
 
 # Words Spanish, French, German, Italian, Portuguese and Turkish write in a question and
-# English never does: articles, pronouns, prepositions, question words, numbers and the
-# verbs that set an exercise. Words English writes too stay out: "a", "e", "o", "y", "i",
+# English never does: articles, pronouns, prepositions, question words, numbers, the verbs
+# that set an exercise, and the words that restrict its answers ("positiva", "entero",
+# "raíz": "Raíz positiva: x^2 = 4" was a checked ±2, read as English). Words English writes too stay out: "a", "e", "o", "y", "i",
 # "in", "en", "no", "do", "die", "son", "per", "pour", "sin", "tan", "del" (∇), "du" (du/dx),
 # "si" (SI units), "al" ("et al."), "six", "sept", "ve" ("I've"), "mil", "hay", "media",
 # "comment", "tension", "determine", and unit symbols ("um", "au"). Letters English does not
@@ -87,6 +88,10 @@ _FOREIGN = frozenset(
     pela com
     bir ile nedir kaç kaçtır hesaplayın hesaplayınız bulun bulunuz olan olarak kütle kütlesi çöz
     zaman akım
+    positivo positiva positivos positivas negativo negativa negativos negativas entero entera
+    enteros enteras raíz raíces solo solamente positif négatif entier entiers racine racines
+    positiv negativ ganze ganzzahlig wurzel intero interi radice inteiro inteiros pozitif
+    negatif tamsayı kök
     """.split()
 )
 # Words of those languages that English names carry too ("de Broglie", "le Chatelier",

@@ -84,5 +84,6 @@
   {"id": "au-parts-circle-asked-apart", "area": "several asked", "prompt": "Find the circumference of a circle of radius 3 and its area", "expect": "answer", "check": ["parts", [["num", "18.85"], ["num", "28.27"]]]},
   {"id": "au-parts-two-circles", "area": "several asked", "prompt": "Find the area of a circle with radius 3 and the circumference of a circle with radius 5", "expect": "decline", "note": "was a checked ≈18.85, wrong for both asks (28.27 and 31.42)"},
   {"id": "au-parts-gcd-lcm-own-operands", "area": "several asked", "prompt": "What is the gcd of 12 and 18, and the lcm of 4 and 6?", "expect": "decline", "note": "was one card, 12"},
-  {"id": "au-parts-radius-area-from-circumference", "area": "several asked", "prompt": "Find the radius and area of a circle with circumference 10", "expect": "decline", "note": "carded the radius alone"}
+  {"id": "au-parts-radius-area-from-circumference", "area": "several asked", "prompt": "Find the radius and area of a circle with circumference 10", "expect": "decline", "note": "carded the radius alone"},
+  {"id": "au-lang-es-positive-root", "area": "language", "prompt": "Raíz positiva: x^2 = 4", "locale": "es", "expect": "decline", "note": "was a checked ±2 on main: the words were read as English and skipped (2026-11-14 review)"}
 ]
