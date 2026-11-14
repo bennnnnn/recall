@@ -57,6 +57,7 @@ from app.modules.physics.optic_elements import (
     LIGHT_INSIDE_MARKER,
     asked_in_vacuum,
     diverging_element,
+    diverging_lens,
     signed_distances,
 )
 from app.modules.physics.schemas import PhysicsIntent
@@ -349,8 +350,9 @@ def _cue_text(text: str, lower: str) -> str:
         cue_text = f"{cue_text} {AT_AN_ANGLE}"
     if share_reading(lower) == "gone":
         cue_text = f"{cue_text} {SHARE_GONE_MARKER}"
-    # "A concave lens", "a minus lens": a diverging lens's laws are cued by any wording of it.
-    if diverging_element(lower):
+    # "A concave lens", "a minus lens": a diverging lens's laws are cued by any wording of the
+    # lens itself, never by a virtual image or diverging light (``optic_elements``).
+    if diverging_lens(lower):
         cue_text = f"{cue_text} diverging"
     if asked_share(lower) == "gone":
         cue_text = f"{cue_text} {ASKED_GONE_MARKER}"

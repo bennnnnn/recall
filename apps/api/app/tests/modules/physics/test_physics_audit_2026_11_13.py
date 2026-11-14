@@ -254,3 +254,64 @@ def test_the_reviewed_class_answers_right(text: str, answer: str) -> None:
 )
 def test_the_reviewed_class_declines(text: str) -> None:
     assert _answer(text) is None
+
+
+_VIRTUAL = "\\text{virtual, on the object's side of the lens}"
+
+
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        # Second review: a diverging lens only when the lens itself is called one.
+        ("A lens of focal length -10 cm has an object 20 cm away. Where is the image?",
+         f"6.67\\,\\mathrm{{cm}}\\ ({_VIRTUAL})"),
+        ("A Galilean telescope eyepiece is a concave lens of focal length 5 cm. An object is 20 "
+         "cm from it. Where is the image?", f"4\\,\\mathrm{{cm}}\\ ({_VIRTUAL})"),
+        # A negated decay is the share left; "undecayed" too.
+        ("What fraction of the sample has not decayed after 3 half-lives?", "0.125"),
+        ("What fraction of the sample has not yet decayed after 3 half-lives?", "0.125"),
+        ("What percentage of the nuclei are yet to decay after 2 half-lives?", "25\\,\\%"),
+        ("What fraction of the original nuclei remain undecayed after 3 half-lives?", "0.125"),
+        # Air resistance set aside however it is said.
+        ("A ball is dropped from 45 m with air resistance taken as zero. How long does it take "
+         "to fall?", "3.03\\,\\mathrm{s}"),
+        ("A ball is dropped from 45 m. Air resistance can be ignored. How long does it take to "
+         "fall?", "3.03\\,\\mathrm{s}"),
+        ("A ball is dropped from 45 m without air resistance. How long does it take to fall?",
+         "3.03\\,\\mathrm{s}"),
+    ],
+)  # fmt: skip
+def test_the_second_review_answers_right(text: str, answer: str) -> None:
+    assert _answer(text) == answer
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # A converging lens's virtual image, or diverging light, is no diverging lens.
+        "A convex lens of focal length 10 cm forms a virtual image of an object placed 5 cm from "
+        "it. Where is the image?",
+        "A magnifying glass is a converging lens of focal length 10 cm. It forms a virtual image "
+        "of an object 6 cm away. Find the image distance.",
+        "Light diverging from a point source 30 cm in front of a converging lens of focal length "
+        "10 cm is focused. Where is the image?",
+        "Rays diverging from an object 40 cm from a convex lens of focal length 10 cm are brought "
+        "to a focus. Find the image distance.",
+        # An ask that is not the diverging lens's image distance or magnification.
+        "A concave lens has a focal length of 25 cm. An object is 50 cm away. What is the power "
+        "of the lens?",
+        "A concave lens of focal length 20 cm has an object 30 cm away. What is the focal length "
+        "in metres?",
+        "A diverging lens of focal length 10 cm has an object 20 cm away. What is the image "
+        "distance from the object?",
+        "A concave lens of focal length 10 cm has an object 20 cm away. Where is the image if the "
+        "lens is replaced by a convex lens of the same focal length?",
+        # Air resistance said to act, and a change that reads two ways.
+        "A ball is dropped from 45 m with air resistance not neglected. How long does it take to "
+        "fall?",
+        "A steel rod 2 m long is heated from 20 °C through 50 °C. α = 1.2e-5 /K. How much does it "
+        "expand?",
+    ],
+)
+def test_the_second_review_declines(text: str) -> None:
+    assert _answer(text) is None

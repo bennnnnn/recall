@@ -105,6 +105,17 @@ def said_as_a_change(before: str) -> bool:
     return _BY_OR_THROUGH.search(before) is not None
 
 
+# "Heated from 20 °C through 50 °C": "through" straight after a value of its kind reads as a
+# range's end ("from 20 to 50") or as the rise ("through 50 degrees"), and either reading gave
+# a verified length the other contradicts, so the value is no quantity any input holds.
+_THROUGH_ALONE = re.compile(r"^\s*through\s+$")
+
+
+def through_a_range(before: str) -> bool:
+    """Only "through" stands between this value and the one before it."""
+    return _THROUGH_ALONE.match(before) is not None
+
+
 def _qualified(label: str, before_label: str) -> str:
     """``label``, or ``QUALIFIED`` when a word that is no article stands before it."""
     if label in _QUALIFIABLE and not _PLAIN_BEFORE.search(before_label):

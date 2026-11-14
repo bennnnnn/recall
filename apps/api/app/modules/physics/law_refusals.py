@@ -18,6 +18,8 @@ Each is a question the law does not describe, whichever reader filled it:
   20 m/s for 5 s and covers 200 m" was 60 m/s, verified;
 - a wave's speed for an ask about a particle of the medium, whose speed needs the
   amplitude;
+- a diverging lens's law for a lens not called diverging, or an ask that is not its own
+  ("the power of the lens" was 16.7 cm, review 2026-11-13);
 - a clause that scales a stated value: "amplitude 0.1 m and period 2 s. If the amplitude is
   doubled, what is its maximum speed?" answered for 0.1 m, 0.314 m/s for 0.628.
 """
@@ -27,6 +29,7 @@ from __future__ import annotations
 import re
 
 from app.modules.physics.ask import ask_clause
+from app.modules.physics.catalog.lens import DIVERGING_LENS_LAWS
 from app.modules.physics.decay_share import ASKED_GONE_MARKER, asked_share
 from app.modules.physics.givens import PHYSICS_UNITS
 from app.modules.physics.motion import read_motion
@@ -62,12 +65,13 @@ _AIR_RESISTANCE_ACTS = re.compile(
     rf"|\b(?:with|including|considering|taking\s+into\s+account|accounting\s+for|due\s+to)"
     rf"\s+(?:the\s+)?{_AIR}\b"
 )
-# What sets it aside again right after: "with air resistance neglected", "considering air
-# resistance to be negligible".
-_THEN_SET_ASIDE = re.compile(
-    r"\s*(?:(?:is|are|was|as|to\s+be|being)\s+)?(?:neglected|negligible|ignored|disregarded"
-    r"|zero|absent|not\s+included)\b"
+# What sets it aside again within the words right after it, unless a "not" comes first: "with
+# air resistance neglected", "taken as zero", "assumed negligible", "considering air resistance
+# to be negligible"; "with air resistance not neglected" still acts.
+_SET_ASIDE_WORD = re.compile(
+    r"\b(?:neglected|negligible|ignored|disregarded|zero|absent|omitted|excluded)\b"
 )
+_WORDS_AFTER = 5
 # Laws of a motion under gravity alone.
 _MOTION_KINDS = frozenset({"kinematics", "projectile", "suvat", "energy"})
 _HOLDS_ITS_SPEED = re.compile(
@@ -80,13 +84,14 @@ def refuses(spec: FormulaSpec, intent: PhysicsIntent, text: str, *, chained: boo
     lower = text.lower()
     return (
         _outside_its_domain(spec, intent)
-        or (not chained and _names_another_quantity(spec, text))
+        or (not chained and _names_another_quantity(spec, intent, text))
         or _starts_where_it_gets_to(spec, intent, text)
         or (spec.kind in _MOTION_KINDS and _uses_gravity(spec) and air_resistance_acts(lower))
         or (spec.kind == "suvat" and holds_its_speed(lower))
         or (_gives_what_is_left(spec) and asked_share(text) == "gone")
         or _scales_a_given(lower)
         or (_a_wave_speed(spec) and _asks_of_the_medium(text))
+        or (spec.id in DIVERGING_LENS_LAWS and spec.id not in diverging_lens_asks_of(text))
     )
 
 
@@ -122,6 +127,15 @@ def _scales_a_given(lower: str) -> bool:
     )
 
 
+def diverging_lens_asks_of(text: str) -> frozenset[str]:
+    """The diverging-lens laws the question asks: its lens diverges and its ask is one of
+    the laws' (``extractors/optics_laws``)."""
+    from app.modules.physics.extractors.optics_laws import diverging_lens_asks
+    from app.modules.physics.optic_elements import diverging_lens
+
+    return diverging_lens_asks(text) if diverging_lens(text) else frozenset()
+
+
 def _gives_what_is_left(spec: FormulaSpec) -> bool:
     """A law of what a decaying sample has left, which an ask of what went rules out."""
     return spec.binding is not None and ASKED_GONE_MARKER in spec.binding.excludes
@@ -136,16 +150,23 @@ def _outside_its_domain(spec: FormulaSpec, intent: PhysicsIntent) -> bool:
     return outside_domain(spec, values) is not None
 
 
-def _names_another_quantity(spec: FormulaSpec, text: str) -> bool:
+def _names_another_quantity(spec: FormulaSpec, intent: PhysicsIntent, text: str) -> bool:
+    """A named value is read as another quantity: no input of its kind can take it, or the
+    input that took it cannot. "A rod heated from 20 °C through 50 °C" took the change as the
+    final temperature, ΔT = 30 K for 50 (review 2026-11-13)."""
     givens = read_givens(text, PHYSICS_UNITS)
     stated = result_variable(spec)
     inputs = [v for v in (*spec.variables, *((stated,) if stated else ())) if v.visible]
+    filled = intent.physics_params or {}
     for given, label in zip(givens, given_labels(text.lower(), givens), strict=True):
         if label is None:
             continue
         kind = given_kind(given, PHYSICS_UNITS)
         alike = [variable for variable in inputs if variable_kind(variable) == kind]
-        if alike and not any(holds(variable, label) for variable in alike):
+        took = [variable for variable in alike if filled.get(variable.name) == given.value]
+        if (alike and not any(holds(variable, label) for variable in alike)) or (
+            took and not any(holds(variable, label) for variable in took)
+        ):
             return True
     return False
 
@@ -174,9 +195,15 @@ def _uses_gravity(spec: FormulaSpec) -> bool:
 def air_resistance_acts(lower: str) -> bool:
     """The question says air resistance acts on the motion, and does not set it aside."""
     return any(
-        _THEN_SET_ASIDE.match(lower, found.end()) is None
-        for found in _AIR_RESISTANCE_ACTS.finditer(lower)
+        not _then_set_aside(lower, found.end()) for found in _AIR_RESISTANCE_ACTS.finditer(lower)
     )
+
+
+def _then_set_aside(lower: str, end: int) -> bool:
+    clause = re.split(r"[.,;:?!]", lower[end : end + 60], maxsplit=1)[0]
+    words = " ".join(clause.split()[:_WORDS_AFTER])
+    found = _SET_ASIDE_WORD.search(words)
+    return found is not None and "not" not in words[: found.start()].split()
 
 
 def holds_its_speed(lower: str) -> bool:

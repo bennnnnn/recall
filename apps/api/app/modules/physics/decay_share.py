@@ -45,6 +45,12 @@ _GONE_AFTER = re.compile(
 )
 
 
+# A negation whose scope is the verb right after it: "not", "never", "n't", "yet to", "still to",
+# with "yet", "been" or "have" between ("has not yet decayed", "are yet to decay").
+_NEGATED = re.compile(
+    r"\b(?:not|never|n't|yet\s+to|still\s+to)(?:\s+(?:yet|been|have|has|had|to))*\s+$"
+)
+
 Reading = Literal["left", "gone", "unsaid"]
 
 
@@ -89,8 +95,11 @@ def _a_share(given: Given) -> bool:
 
 
 def _read(before: str, after: str) -> Reading:
-    left = bool(_LEFT_BEFORE.search(before) or _LEFT_AFTER.search(after))
-    gone = bool(_GONE_BEFORE.search(before) or _GONE_AFTER.search(after))
+    gone_verbs = list(_GONE_AFTER.finditer(after))
+    # "has not decayed", "is yet to decay": a share gone, negated, is the share left.
+    negated = [verb for verb in gone_verbs if _NEGATED.search(after, 0, verb.start())]
+    left = bool(_LEFT_BEFORE.search(before) or _LEFT_AFTER.search(after) or negated)
+    gone = bool(_GONE_BEFORE.search(before) or len(negated) < len(gone_verbs))
     return "left" if left and not gone else "gone" if gone and not left else "unsaid"
 
 

@@ -28,8 +28,10 @@ from app.services.law_binding.givens import Given, scan_givens
 from app.services.law_binding.labels import (
     CHANGE,
     LABEL_UNITS,
+    QUALIFIED,
     holds,
     said_as_a_change,
+    through_a_range,
     value_label,
 )
 from app.services.law_binding.roles import role_words
@@ -343,8 +345,11 @@ def given_labels(lower: str, givens: tuple[Given, ...]) -> tuple[str | None, ...
         if unit and given.dimension != dimension_of(unit):
             label = None
         # "At 20 m/s it reduces its speed by 5 m/s": a change of a value stated before it.
-        if label is None and said_as_a_change(before) and _changes_one_before(givens, found, index):
-            label = CHANGE
+        if label is None and _changes_one_before(givens, found, index):
+            if through_a_range(before):
+                label = QUALIFIED
+            elif said_as_a_change(before):
+                label = CHANGE
         found.append(label)
         previous = end
     return tuple(found)
