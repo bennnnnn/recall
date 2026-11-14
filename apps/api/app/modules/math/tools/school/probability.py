@@ -26,16 +26,18 @@ _BINOMIAL_PARAM = re.compile(
     re.IGNORECASE,
 )
 _PROBABILITY_LIST = re.compile(r"\[([^\[\]]+)\]")
+# Each run of space is read once (possessive): split between the \s* either side of an
+# optional mark, a sentence and a run of spaces took quadratic time.
 _DICE_CONDITIONAL_SUM = re.compile(
-    r"^\s*(?:two|2)\s+fair\s+dice\s+are\s+(?:rolled|thrown)\s*[.,;]?\s*"
+    r"^\s*+(?:two|2)\s+fair\s+dice\s+are\s+(?:rolled|thrown)\s*+[.,;]?\s*+"
     r"(?:given|knowing)(?:\s+that)?\s+(?:the\s+)?sum\s+is\s+"
     r"(at\s+least|at\s+most|greater\s+than|less\s+than|exactly|equal\s+to)\s+"
-    r"(\d{1,2})\s*[.,;?]?\s*"
+    r"(\d{1,2})\s*+[.,;?]?\s*+"
     r"(?:what\s+is|find|calculate|compute)\s+(?:the\s+)?probability"
     r"(?:\s+(?:that|of))?\s+(?:the\s+)?sum\s+is\s+(?:exactly|equal\s+to)\s+"
     r"(\d{1,2})"
-    r"(?:\s*[?.]\s*(?:show|list)(?:\s+me)?(?:\s+the)?\s+conditional\s+"
-    r"sample\s+space)?\s*[?.]?\s*$",
+    r"(?:\s*+[?.]\s*+(?:show|list)(?:\s+me)?(?:\s+the)?\s+conditional\s+"
+    r"sample\s+space)?\s*+[?.]?\s*+$",
     re.IGNORECASE,
 )
 
@@ -71,8 +73,9 @@ _NOT_FAIR_DEVICE = re.compile(
 
 
 # The whole request, for the direct reply: nothing else may ride along.
+# A whole message (fullmatch): \A keeps a search from trying every position of a long one.
 _TRIALS_QUESTION = re.compile(
-    rf"(?:what(?:'s|\s+is)\s+)?(?:the\s+)?(?:probability|chance|likelihood)\s+"
+    rf"\A(?:what(?:'s|\s+is)\s+)?(?:the\s+)?(?:probability|chance|likelihood)\s+"
     r"(?:of\s+)?(?:getting\s+|rolling\s+|flipping\s+|tossing\s+)?(?:exactly\s+)?"
     rf"{_COUNT}\s+(?:heads|tails|sixes)\s+(?:in|from|out\s+of|with)\s+{_COUNT}\s+"
     r"(?:fair\s+)?(?:coin\s+|die\s+|dice\s+)?(?:flips|tosses|throws|rolls)"
@@ -81,9 +84,9 @@ _TRIALS_QUESTION = re.compile(
 )
 _TRIALS_SETUP = re.compile(
     rf"an?\s+(?:fair\s+)?(?:coin|die)\s+is\s+(?:flipped|tossed|rolled|thrown)\s+{_COUNT}\s+"
-    r"times\s*[.,]?\s*(?:what\s+is\s+|find\s+)?(?:the\s+)?(?:probability|chance)\s+"
+    r"times\s*+[.,]?\s*+(?:what\s+is\s+|find\s+)?(?:the\s+)?(?:probability|chance)\s+"
     rf"(?:of\s+)?(?:getting\s+|rolling\s+)?(?:exactly\s+)?{_COUNT}\s+(?:heads|tails|sixes)"
-    r"\s*[?.]?",
+    r"\s*+[?.]?",
     re.IGNORECASE,
 )
 

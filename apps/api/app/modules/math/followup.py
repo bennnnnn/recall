@@ -271,7 +271,12 @@ _CLAIM_LEAD = re.compile(
     r"|answer\s*:\s*|is\s+it\s+|is\s+|so\s+)",
     re.IGNORECASE,
 )
-_CLAIM_TAIL = re.compile(rf"[,\s]*(?:{CHECK})?\s*[?.!]*\s*$", re.IGNORECASE)
+# The tail starts where its run of commas and spaces, or of marks, starts, and reads each run
+# once: from every space of a run, three readings of it took cubic time, and from every mark
+# of a run that something follows, quadratic.
+_CLAIM_TAIL = re.compile(
+    rf"(?<![,\s])(?:(?<![?.!])|(?![?.!]))[,\s]*+(?:{CHECK})?\s*+[?.!]*+\s*+$", re.IGNORECASE
+)
 _CLAIM = re.compile(
     rf"(?P<var>[A-Za-z])\s*=\s*(?P<first>{FRACTION_OR_DECIMAL})"
     rf"(?P<more>(?:\s*(?:,|\bor\b|\band\b)\s*(?:(?P=var)\s*=\s*)?{FRACTION_OR_DECIMAL})*)",

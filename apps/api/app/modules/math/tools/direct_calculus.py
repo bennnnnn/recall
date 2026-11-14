@@ -16,7 +16,7 @@ from app.services.text_match import parens_balanced
 
 _NUMBER = bounded_decimal(12)
 # ``pi``, ``2pi``, ``pi/2`` and ``e`` are exact bounds, as common as numbers.
-_CONSTANT_POINT = r"-?(?:[0-9]{1,3}\s*\*?\s*)?(?:pi|π)(?:\s*/\s*[0-9]{1,3})?|-?e"
+_CONSTANT_POINT = r"-?(?:[0-9]{1,3}\s*+\*?\s*+)?(?:pi|π)(?:\s*+/\s*+[0-9]{1,3})?|-?e"
 _POINT = rf"(?:{_NUMBER}|-?(?:infinity|inf|oo)|{_CONSTANT_POINT})"
 _INTEGER = r"[+-]?[0-9]{1,12}"
 _WRT = re.compile(r"(.+) (?:with respect to|wrt) ([a-zA-Z])", re.IGNORECASE)
@@ -25,8 +25,10 @@ _INTEGRAL = re.compile(rf"(.+) from ({_POINT}) to ({_POINT})", re.IGNORECASE)
 _INTEGRAL_BOUNDS_FIRST = re.compile(
     rf"(?:improper )?integral from ({_POINT}) to ({_POINT}) of (.+)", re.IGNORECASE
 )
+# Each run of space is read once (possessive) and the integrand ends on a mark: a lazy
+# integrand beside \s* and \s+ took cubic time on "∫[0,1]" and a run of spaces.
 _UNICODE_INTEGRAL = re.compile(
-    rf"∫\s*\[\s*({_POINT})\s*,\s*({_POINT})\s*\]\s*(.+?)(?:\s+d\s*([A-Za-z]))?",
+    rf"∫\s*+\[\s*+({_POINT})\s*+,\s*+({_POINT})\s*+\]\s*+(.*?\S)(?:\s++d\s*+([A-Za-z]))?",
     re.IGNORECASE,
 )
 _LEIBNIZ_DERIVATIVE = re.compile(
