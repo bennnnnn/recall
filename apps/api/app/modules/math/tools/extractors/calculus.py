@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from typing import Literal
 
+from app.modules.math.match.asked_operations import RATE_OF_CHANGE
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.expr_rewrite import (
     _normalize_latex_expr,
@@ -16,6 +17,7 @@ from app.modules.math.tools.extractors.calculus_methods import (
     extract_implicit_intent,
     extract_linear_approx_intent,
 )
+from app.modules.math.tools.extractors.derivative_givens import defined_function
 from app.modules.math.tools.extractors.multivariable import (
     extract_directional_intent,
     extract_div_curl_intent,
@@ -56,12 +58,16 @@ _UNICODE_SIGMA_EXPR = re.compile(
 )
 
 
+def _stated_variable(cleaned: str) -> str | None:
+    explicit = _WRT_VARIABLE.search(cleaned) or _LEIBNIZ_VARIABLE.search(cleaned)
+    return explicit.group(1) if explicit is not None else None
+
+
 def _calculus_variable(cleaned: str, raw: str, expr: str, *, integrate: bool) -> str:
     from app.modules.math.solve import guess_variables
 
-    explicit = _WRT_VARIABLE.search(cleaned) or _LEIBNIZ_VARIABLE.search(cleaned)
-    if explicit is not None:
-        return explicit.group(1)
+    if (stated := _stated_variable(cleaned)) is not None:
+        return stated
     if integrate:
         differential = _INTEGRAL_VARIABLE.search(raw)
         if differential is not None:
@@ -263,12 +269,22 @@ def _leading_integral_bounds(cleaned: str) -> tuple[str, str, str] | None:
     return expr, low, high
 
 
+def _derivative_point(raw: str, cleaned: str) -> tuple[str, str | None]:
+    """The words after a derivative's cue without the point it is asked at, and that point:
+    "x^2 at x = 3", or f'(3)."""
+    point_match = _DERIVATIVE_AT_POINT.search(raw.rstrip(".?!"))
+    if point_match is not None:
+        return raw[: point_match.start()].rstrip(" ,;."), point_match.group(2)
+    prime_at = _PRIME_AT_NUMBER.search(cleaned)
+    return raw, prime_at.group(1) if prime_at is not None else None
+
+
 def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
     from app.modules.math import match as mtm
 
     higher_leibniz = _HIGHER_LEIBNIZ.search(cleaned)
     op_word = mtm.calc_op(cleaned)
-    if op_word is None and higher_leibniz is not None:
+    if op_word is None and (higher_leibniz is not None or RATE_OF_CHANGE.search(cleaned)):
         op_word = "differentiate"
     if op_word is None or op_word in {"taylor", "partial", "dsolve"}:
         return None
@@ -308,14 +324,7 @@ def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
     )
     evaluation_point: str | None = None
     if calc_op == "differentiate":
-        point_match = _DERIVATIVE_AT_POINT.search(raw.rstrip(".?!"))
-        if point_match is not None:
-            raw = raw[: point_match.start()].rstrip(" ,;.")
-            evaluation_point = point_match.group(2)
-        else:
-            prime_at = _PRIME_AT_NUMBER.search(cleaned)
-            if prime_at is not None:
-                evaluation_point = prime_at.group(1)
+        raw, evaluation_point = _derivative_point(raw, cleaned)
     if calc_op == "simplify":
         lower_raw = raw.lower()
         for suffix in (
@@ -363,6 +372,11 @@ def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
         if bounds is not None:
             raw, integral_lower, integral_upper = bounds
     expr = math_expr_or_none(raw)
+    if calc_op == "differentiate":
+        given = defined_function(cleaned, raw, expr, _stated_variable(cleaned) or "x")
+        if isinstance(given, MathIntent):
+            return given
+        expr, evaluation_point = given[0], evaluation_point or given[1]
     if expr is None:
         return None
     if calc_op == "factor" and expr.strip().isdigit():

@@ -23,7 +23,7 @@
   "modules/math/tools/direct.py::can_direct_verified_math_reply": 154,
   "modules/math/tools/direct_calculus.py::calculus_direct_request": 209,
   "modules/math/tools/direct_graph.py::can_direct_graph": 102,
-  "modules/math/tools/extractors/calculus.py::_extract_calculus_intent": 117,
+  "modules/math/tools/extractors/calculus.py::_extract_calculus_intent": 115,
   "modules/math/tools/extractors/fractions.py::extract_fraction_intent": 108,
   "modules/math/tools/school/calculus.py::_extract_taylor_or_ode": 113,
   "modules/math/tools/school/calculus.py::apply_calculus_extension": 177,

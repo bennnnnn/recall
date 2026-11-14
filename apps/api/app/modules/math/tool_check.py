@@ -81,6 +81,9 @@ _SIGNED_INFINITY = re.compile(
     r"(?<![\w).])((?:-|minus\s+|negative\s+)?)\s*(?:∞|\\infty|infinity|oo|inf)(?![a-z])"
 )
 _ORDER_WORDS = {2: ("second", "2nd", "d^2", "d²", "''"), 3: ("third", "3rd", "d^3", "'''")}
+# A function the message defines: "f(x) = x^2 - x + 3".
+_DEFINED_FUNCTION = re.compile(r"(?<![A-Za-z])([a-zA-Z])\s*\(\s*[a-zA-Z]\s*\)\s*=")
+_FORMULA_ARGS = ("expr", "expr2", "lhs", "rhs")
 
 
 def _normalize(text: str) -> str:
@@ -211,6 +214,7 @@ class _UserMath:
                 self.equations.append(lhs - rhs)
                 self.expressions.extend([lhs, rhs])
         normalized = _normalize(text)
+        self.functions = set(_DEFINED_FUNCTION.findall(normalized))
         self.numbers = {float(match) for match in re.findall(r"\d+(?:\.\d+)?", normalized)}
         # A number with its sign as written: "-1" or "minus 1" is no 1, and "1" no -1.
         signed = [(bool(m.group(1)), float(m.group(2))) for m in _SIGNED.finditer(normalized)]
@@ -320,8 +324,19 @@ def _graph_arg(args: dict[str, Any], key: str, user: _UserMath) -> bool:
     return bool(parsed.free_symbols) or _same_expression(parsed, user.levels)
 
 
+def _applies_a_function(args: dict[str, Any], user: _UserMath) -> bool:
+    """A formula of the call applies a function the user defines, which SymPy reads as a
+    product: lim (f(3 + h) - f(3))/h was a checked "f" for f(x) = x^2 - x + 3 (2026-11-14)."""
+    sides = [args.get(key) for key in _FORMULA_ARGS]
+    sides += [side for pair in args.get("equations") or [] for side in pair]
+    parsed = [_parse(str(side)) for side in sides if side]
+    return any({str(s) for s in p.free_symbols} & user.functions for p in parsed if p is not None)
+
+
 def _matches(args: dict[str, Any], user: _UserMath) -> bool:
     action = str(args.get("action") or "solve").strip().lower()
+    if user.functions and _applies_a_function(args, user):
+        return False
     if action == "solve":
         lhs, rhs = _parse(str(args.get("lhs") or "")), _parse(str(args.get("rhs") or "0"))
         return lhs is not None and rhs is not None and _same_equation(lhs - rhs, user)

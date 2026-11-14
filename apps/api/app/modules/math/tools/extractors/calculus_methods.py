@@ -11,28 +11,33 @@ import re
 
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.expr_rewrite import math_expr_or_none
+from app.modules.math.tools.extractors.derivative_givens import derivative_givens
 from app.modules.math.tools.function_def import peel_function_definition
 from app.modules.math.tools.request_text import strip_trailing_filler
 from app.services.number_text import DECIMAL_LITERAL
 
-# "find dy/dx if x^2 + y^2 = 25": an equation in x and y, so implicit, without the word.
-_DY_DX_GIVEN = re.compile(
-    r"\b(?:find|what\s+is|calculate|work\s+out)\s+dy\s*/\s*dx\s+(?:if|for|given|when)\s+"
-    r"(?P<lhs>[^=]+)=(?P<rhs>[^=]+)$",
-    re.IGNORECASE,
-)
+# dy/dx or y': the derivative of y in x, which a relation in both asks implicitly.
+_DY_DX = re.compile(r"(?<![A-Za-z])dy\s*/\s*dx(?![A-Za-z])", re.IGNORECASE)
 
 
 def _dy_dx_given_intent(cleaned: str) -> MathIntent | None:
-    found = _DY_DX_GIVEN.search(cleaned.strip().rstrip("?.!"))
-    if found is None:
+    """The one relation in x and y, whatever words join it to the ask, without the word
+    "implicit": "find dy/dx if x^2 + y^2 = 25", "x^2 + y^2 = 25, find dy/dx"."""
+    from app.modules.math.match.calculus import y_prime_math_cue
+
+    if _DY_DX.search(cleaned) is None and not y_prime_math_cue(cleaned):
         return None
-    lhs = math_expr_or_none(found["lhs"].strip())
-    rhs = math_expr_or_none(strip_trailing_filler(found["rhs"].strip()))
-    if not lhs or not rhs or lhs.replace(" ", "") == "y":
+    given = derivative_givens(cleaned, "x")
+    if given is None or given.implicit is None:
         # "find dy/dx if y = x^2" is ordinary differentiation.
         return None
-    if "y" not in (lhs + rhs).replace(" ", "").lower():
+    written = " = ".join(given.implicit)
+    if "'" in written or _DY_DX.search(written):
+        # dy/dx = 2xy and y' = y give the derivative: a differential equation, not a curve.
+        return None
+    lhs = math_expr_or_none(given.implicit[0].strip())
+    rhs = math_expr_or_none(strip_trailing_filler(given.implicit[1].strip()))
+    if not lhs or not rhs or "y" not in (lhs + rhs).replace(" ", "").lower():
         return None
     return MathIntent(
         kind="calculus",

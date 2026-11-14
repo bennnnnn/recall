@@ -19,6 +19,7 @@ from __future__ import annotations
 import re
 
 from app.modules.chat.prompt_builder import SubjectFetch
+from app.modules.turn_reading.at_a_point import asks_at_a_point
 from app.modules.turn_reading.readable import unreadable
 from app.services.question_parts import labelled_parts
 from app.services.solving import VerifiedSolveBlock
@@ -93,10 +94,6 @@ def _signed_size(answer: str) -> bool:
 _ASKS_A_PROOF = re.compile(
     r"\b(?:prove|show\s+that|verify\s+that|demonstrate\s+that|by\s+induction)\b", re.IGNORECASE
 )
-# A value at a point: "the gradient at x = 3" is a number, not f'(x).
-_AT_A_POINT = re.compile(
-    r"\b(?:at|when|where)\s+(?:the\s+point\s+)?(?:[a-z]\s*=\s*-?\d|\(\s*-?\d)", re.IGNORECASE
-)
 # A variable left in a value; e and i are constants.
 _FREE_VARIABLE = re.compile(r"(?<![a-zA-Z\\])[a-df-hj-z](?![a-zA-Z])")
 _ASKS_AN_EQUATION = re.compile(r"\bequation\s+of\b", re.IGNORECASE)
@@ -132,7 +129,8 @@ def answers_the_question(question: str, answer: str) -> bool:
         and not (_MAGNITUDE_ASK.search(_asked(question)) and _signed_size(answer))
         and not _ASKS_A_PROOF.search(question)
         and not (
-            _AT_A_POINT.search(question)
+            # A value at a point: "the gradient at x = 3" is a number, not f'(x).
+            asks_at_a_point(question)
             and not _ASKS_AN_EQUATION.search(question)
             and _FREE_VARIABLE.search(_right_side(answer))
         )

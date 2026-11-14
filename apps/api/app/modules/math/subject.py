@@ -209,6 +209,16 @@ class MathPhoto:
         )
 
 
+def _call_computes(text: str, raw_args: Any) -> bool:
+    from app.modules.math.match.asked_operations import call_computes_the_ask
+
+    try:
+        args = json.loads(raw_args) if isinstance(raw_args, str) else dict(raw_args)
+    except (TypeError, ValueError):
+        return False
+    return isinstance(args, dict) and call_computes_the_ask(text, args)
+
+
 @dataclass(frozen=True)
 class MathTool:
     """The ``sympy`` model tool (``tool.py``), as the tool loop checks its calls."""
@@ -233,16 +243,25 @@ class MathTool:
         )
 
     def call_matches(self, raw_args: Any, user_texts: list[str]) -> str | None:
+        from app.modules.math.match.asked_operations import asked_operations
         from app.modules.math.schemas import is_declined
         from app.modules.math.tool_check import matched_user_text
         from app.modules.math.tools.extract import extract_math_intent
 
         matched = matched_user_text(raw_args, user_texts)
-        if matched is not None and is_declined(extract_math_intent(matched)):
+        if matched is None:
+            return None
+        if is_declined(extract_math_intent(matched)):
             # A reader recognised that message's question and declined it: a call on
             # a formula in it (a count's condition) answers another question.
             return None
-        return matched
+        # The call must compute what is asked: f'(x) of the user's f is a step toward "the
+        # absolute maximum of f". The newest message asks, unless it names no operation
+        # ("why?", "show the steps"): then the question the call works on does.
+        asked = user_texts[0] if user_texts else matched
+        if not asked_operations(asked).named:
+            asked = matched
+        return matched if _call_computes(asked, raw_args) else None
 
     def draws_curve(self, fence: dict[str, Any] | None) -> bool:
         from app.modules.math.text_plot import is_curve_fence

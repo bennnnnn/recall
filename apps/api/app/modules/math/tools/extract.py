@@ -241,11 +241,14 @@ def _heard_math_intent(text: str) -> MathIntent | None:
     return heard
 
 
+_PRIMES = {0x2019: "'", 0x2032: "'", 0x2035: "'", 0x2033: "''", 0x2034: "'''"}
+
+
 def _extract_math_intent_any(text: str) -> MathIntent | None:
-    # iOS smart punctuation turns derivative primes into curly apostrophes.
-    # Normalize them before every extractor while retaining the original
-    # request text for whole-request direct-reply checks.
-    normalized = text.translate({ord("\u2019"): "'", ord("\u2032"): "'", ord("\u2035"): "'"})
+    # iOS smart punctuation turns derivative primes into curly apostrophes, and a book's
+    # double prime is two. Normalize them before every extractor while retaining the
+    # original request text for whole-request direct-reply checks.
+    normalized = text.translate(_PRIMES)
     # Read on the raw text: prepare() collapses the newlines that separate
     # a student's lines of work.
     work = work_check_intent(normalized)

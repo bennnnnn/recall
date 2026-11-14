@@ -13,6 +13,7 @@ from __future__ import annotations
 
 _MODULE_EXPORTS = (
     "answer_subject",
+    "at_a_point",
     "capabilities",
     "chart",
     "checklist",

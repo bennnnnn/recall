@@ -9,7 +9,7 @@ from app.modules.math.tools.request_text import _MAX_MATH_INPUT, _strip_expr_lea
 from app.services.text_normalize import collapse_ws
 
 
-def _is_named_function_lhs(left: str) -> bool:
+def is_named_function_lhs(left: str) -> bool:
     """``y`` or ``f(x)`` — a definition lhs, not ``2x+3``."""
     compact = left.replace(" ", "")
     if len(compact) == 1 and compact.isalpha():
@@ -135,6 +135,6 @@ def peel_function_definition(expr: str) -> str:
         return s
     left = s[:eq].strip()
     right = s[eq + 1 :].strip()
-    if _is_named_function_lhs(left) and looks_like_math_expr(right):
+    if is_named_function_lhs(left) and looks_like_math_expr(right):
         return right
     return s
