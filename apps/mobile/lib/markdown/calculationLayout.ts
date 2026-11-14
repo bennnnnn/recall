@@ -5,10 +5,14 @@
  */
 
 import {
+  CHAIN_STOP_WORDS,
   continuesSentence,
   convertsUnits,
   finishInline,
+  joinedByWords,
+  joinRows,
   keepHardBreak,
+  listPrefix,
   readsAsProse,
 } from "@/lib/markdown/calculationLayoutTail";
 import { isMathFenceLang } from "@/lib/fence/registry";
@@ -51,7 +55,6 @@ const CHAIN_STOP_COMMANDS = new Set([
   "quad",
   "qquad",
 ]);
-const CHAIN_STOP_WORDS = new Set(["or", "and"]);
 const TRAILING_PUNCT = new Set([...".,;:!?"]);
 
 type Tok = { kind: string; start: number; end: number; top: boolean };
@@ -109,6 +112,8 @@ function tokenize(expr: string): Tok[] {
     else if (char === "[") bracket += 1;
     else if (char === "]") bracket = Math.max(0, bracket - 1);
     else if (char === "=" && top) out.push({ kind: "equals", start: index, end: index + 1, top: true });
+    // "h = 0.5; T = 0.25(7) = 1.75" is two statements: one chain made it "h = 1.75".
+    else if (char === ";" && top) out.push({ kind: "break", start: index, end: index + 1, top: true });
     else if (char === "," && top && !thousandsSeparator(expr, index)) {
       const end = breakEnd(expr, index);
       out.push({ kind: "break", start: index, end, top: true });
@@ -180,9 +185,8 @@ function isSimpleNumeric(segment: string): boolean {
   return true;
 }
 
-function equalsChain(expr: string): string[] | null {
+function equalsSegments(expr: string): { ops: Tok[]; segments: string[] } {
   const ops = tokenize(expr).filter((tok) => tok.top && (tok.kind === "equals" || tok.kind === "approx"));
-  if (ops.length < 2) return null;
   const segments: string[] = [];
   let start = 0;
   for (const op of ops) {
@@ -190,8 +194,15 @@ function equalsChain(expr: string): string[] | null {
     start = op.end;
   }
   segments.push(expr.slice(start));
+  return { ops, segments };
+}
+
+function equalsChain(expr: string): string[] | null {
+  const { ops, segments } = equalsSegments(expr);
+  if (ops.length < 2) return null;
   if (segments.some((part) => !part.trim())) return null;
   if (segments.slice(1, -1).some(segmentBlocksChain)) return null;
+  if (joinedByWords(segments)) return null;
   if (segments.every(isSimpleNumeric) || convertsUnits(segments)) return null;
   const lhs = segments[0].trim();
   return segments.slice(1).map((rhs, index) => {
@@ -205,17 +216,13 @@ function splitMathExpression(expr: string): string[] | null {
   if (!body || body.includes("\\begin{") || body.includes("&")) return null;
   const pieces = independentPieces(body);
   if (pieces) {
+    // "w = 6, so A = 9 * 6 = 54": a piece that a word joins on stays the writer's sentence; set
+    // as maths it made "so" an italic product and the row "so A = 54".
+    if (pieces.some((piece) => joinedByWords(equalsSegments(piece).segments))) return null;
     const rows = pieces.flatMap((piece) => equalsChain(piece) ?? [piece.trim()]);
     return rows.length >= 2 ? rows : null;
   }
   return equalsChain(body);
-}
-
-function joinRows(rows: string[], delim: string, punct = ""): string {
-  const lines = rows.map((row) => `${delim}${row}${delim}`);
-  if (punct) lines[lines.length - 1] += punct;
-  if (lines.length === 1) return lines[0];
-  return lines.map((line, index) => (index < lines.length - 1 ? `${line}  ` : line)).join("\n");
 }
 
 function peelPunct(text: string): { core: string; punct: string } {
@@ -364,23 +371,6 @@ function layoutBody(body: string): string {
     if (plain != null) return withIndent(body, plain);
   }
   return layoutInline(body);
-}
-
-function listPrefix(line: string): { prefix: string; body: string } {
-  let index = 0;
-  while (index < line.length && line[index] === " ") index += 1;
-  const rest = line.slice(index);
-  for (const marker of ["- ", "* ", "+ "]) {
-    if (rest.startsWith(marker)) {
-      return { prefix: line.slice(0, index + 2), body: rest.slice(2) };
-    }
-  }
-  let digits = 0;
-  while (digits < rest.length && /\d/.test(rest[digits])) digits += 1;
-  if (digits > 0 && digits <= 3 && rest.slice(digits, digits + 2) === ". ") {
-    return { prefix: line.slice(0, index + digits + 2), body: rest.slice(digits + 2) };
-  }
-  return { prefix: "", body: line };
 }
 
 function layoutLine(line: string): string {

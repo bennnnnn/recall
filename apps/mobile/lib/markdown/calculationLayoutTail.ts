@@ -2,7 +2,7 @@
  * Whether a plain line is a chain to lay out, and how a laid-out line ends: its note and
  * its hard break (twin: calculation_layout_tail.py).
  */
-import { LETTER } from "@/lib/markdown/unicodeChars";
+import { charAt, LETTER } from "@/lib/markdown/unicodeChars";
 
 // A unit after a value ("km/h", "m/s²", "N.", "kg·m/s"): letter runs of three or fewer, so
 // "here" or "only" read as words.
@@ -81,4 +81,110 @@ export function convertsUnits(segments: string[]): boolean {
   return (
     segments.length > 2 && !/^\d/.test((segments[0] ?? "").trim()) && segments.slice(1).every(hasUnit)
   );
+}
+
+export const CHAIN_STOP_WORDS = new Set(["or", "and"]);
+// Names a formula writes as a word before its argument ("ln x", "lim x"): no prose between two
+// statements.
+const FUNCTION_WORDS = new Set([
+  "sin",
+  "cos",
+  "tan",
+  "sec",
+  "csc",
+  "cot",
+  "sinh",
+  "cosh",
+  "tanh",
+  "arcsin",
+  "arccos",
+  "arctan",
+  "ln",
+  "log",
+  "exp",
+  "lim",
+  "max",
+  "min",
+  "det",
+  "gcd",
+  "lcm",
+  "mod",
+  "arg",
+]);
+
+/**
+ * True when a word joins two statements before the last side: "so A = 54", "0.5 donc T",
+ * "πr² where r = 3", in any language. Copied into each row, the word and the symbol after it
+ * became the row's left side ("so A = 54"). A unit after the last value ("6 kg m/s") is no join.
+ */
+export function joinedByWords(segments: string[]): boolean {
+  return segments.slice(0, -1).some(wordThenTerm);
+}
+
+/** A word: two letters or more, a capital only first ("So"), and letters that have case. */
+function isWord(word: string): boolean {
+  const rest = word.slice(charAt(word, 0).length);
+  return Array.from(word).length >= 2 && rest === rest.toLowerCase() && rest !== rest.toUpperCase();
+}
+
+/**
+ * A word outside brackets, standing alone and followed by a space and another term. A product
+ * of symbols ("ma", "mgh") is followed by an operator or nothing; a function's name ("ln x") is
+ * no word.
+ */
+function wordThenTerm(segment: string): boolean {
+  let depth = 0;
+  let index = 0;
+  while (index < segment.length) {
+    const char = charAt(segment, index);
+    if (char === "\\") {
+      // A command's name ("\\Delta x") is no word; skip it whole, or the one mark after.
+      index += 1;
+      if (/[A-Za-z]/.test(segment[index] ?? "")) {
+        while (/[A-Za-z]/.test(segment[index] ?? "")) index += 1;
+      } else index += 1;
+      continue;
+    }
+    if ("([{".includes(char)) depth += 1;
+    else if (")]}".includes(char)) depth = Math.max(0, depth - 1);
+    if (!LETTER.test(char)) {
+      index += char.length;
+      continue;
+    }
+    const start = index;
+    while (LETTER.test(charAt(segment, index))) index += charAt(segment, index).length;
+    const word = segment.slice(start, index);
+    if (depth > 0 || (start > 0 && !/\s/.test(segment[start - 1]))) continue;
+    if (CHAIN_STOP_WORDS.has(word.toLowerCase())) return true;
+    if (!isWord(word) || FUNCTION_WORDS.has(word.toLowerCase())) continue;
+    let after = index;
+    while (segment[after] === " ") after += 1;
+    const next = charAt(segment, after);
+    if (after > index && (LETTER.test(next) || next === "\\")) return true;
+  }
+  return false;
+}
+
+export function joinRows(rows: string[], delim: string, punct = ""): string {
+  const lines = rows.map((row) => `${delim}${row}${delim}`);
+  if (punct) lines[lines.length - 1] += punct;
+  if (lines.length === 1) return lines[0];
+  return lines.map((line, index) => (index < lines.length - 1 ? `${line}  ` : line)).join("\n");
+}
+
+export function listPrefix(line: string): { prefix: string; body: string } {
+  let index = 0;
+  while (index < line.length && line[index] === " ") index += 1;
+  const rest = line.slice(index);
+  for (const marker of ["- ", "* ", "+ "]) {
+    if (rest.startsWith(marker)) {
+      return { prefix: line.slice(0, index + 2), body: rest.slice(2) };
+    }
+  }
+  let digits = 0;
+  while (digits < rest.length && /\d/.test(rest[digits])) digits += 1;
+  if (digits > 0 && digits <= 3 && rest.slice(digits, digits + 2) === ". ") {
+    return { prefix: line.slice(0, index + digits + 2), body: rest.slice(digits + 2) };
+  }
+  return { prefix: "", body: line };
 }

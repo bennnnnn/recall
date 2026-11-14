@@ -1200,6 +1200,60 @@
       "area": "lead_lines",
       "input": "**Given**  \n$pH = 3$\n**pOH from pH**\n$pOH = 14 - pH$\n**de Broglie relation**\n$\\lambda = \\frac{h}{p}$\n**x-intercept**\n$x = 3$",
       "expected": "**Given**  \n$pH = 3$\n\n**pOH from pH**\n$pOH = 14 - pH$\n\n**de Broglie relation**\n$\\lambda = \\frac{h}{p}$\n\n**x-intercept**\n$x = 3$"
+    },
+    {
+      "id": "semicolon-two-statements",
+      "area": "calculation",
+      "input": "h = 0.5; T = 0.25(0 + 7) = 1.75",
+      "expected": "$h = 0.5$  \n$T = 0.25(0 + 7)$  \n$T = 1.75$"
+    },
+    {
+      "id": "word-joins-pieces-so",
+      "area": "calculation",
+      "input": "w = 6, so A = 9 × 6 = 54",
+      "expected": "w = 6, so A = 9 × 6 = 54"
+    },
+    {
+      "id": "word-joins-pieces-and",
+      "area": "calculation",
+      "input": "2(9 + w) = 30, w = 6 and A = 9 × 6 = 54 cm²",
+      "expected": "2(9 + w) = 30, w = 6 and A = 9 × 6 = 54 cm²"
+    },
+    {
+      "id": "word-joins-other-language",
+      "area": "calculation",
+      "input": "x = 2 donc T = 3 + 4 = 7",
+      "expected": "x = 2 donc T = 3 + 4 = 7"
+    },
+    {
+      "id": "word-joins-capital-so",
+      "area": "calculation",
+      "input": "So A = 9 × 6 = 54",
+      "expected": "So A = 9 × 6 = 54"
+    },
+    {
+      "id": "word-joins-where-in-math",
+      "area": "calculation",
+      "input": "$A = πr^2 where r = 3 = 9π$",
+      "expected": "$A = πr^2 where r = 3 = 9π$"
+    },
+    {
+      "id": "unit-after-last-value-splits",
+      "area": "calculation",
+      "input": "p = mv = 2 × 3 = 6 kg m/s",
+      "expected": "$p = mv$  \n$p = 2 × 3$  \n$p = 6 kg m/s$"
+    },
+    {
+      "id": "function-name-is-no-word",
+      "area": "calculation",
+      "input": "y = ln x = ln 5",
+      "expected": "$y = ln x$  \n$y = ln 5$"
+    },
+    {
+      "id": "product-at-is-no-word",
+      "area": "calculation",
+      "input": "v = u + at = 0 + 2(3) = 6",
+      "expected": "$v = u + at$  \n$v = 0 + 2(3)$  \n$v = 6$"
     }
   ]
 }

@@ -88,3 +88,93 @@ _UNIT_MARKS = (r"\mathrm{", r"\text{", r"\Omega", r"^\circ", "°")
 
 def _has_unit(segment: str) -> bool:
     return any(mark in segment for mark in _UNIT_MARKS)
+
+
+CHAIN_STOP_WORDS = {"or", "and"}
+# Names a formula writes as a word before its argument ("ln x", "lim x"): no prose between two
+# statements.
+_FUNCTION_WORDS = {
+    "sin", "cos", "tan", "sec", "csc", "cot", "sinh", "cosh", "tanh", "arcsin", "arccos",
+    "arctan", "ln", "log", "exp", "lim", "max", "min", "det", "gcd", "lcm", "mod", "arg",
+}  # fmt: skip
+
+
+def joined_by_words(segments: list[str]) -> bool:
+    """True when a word joins two statements before the last side: "so A = 54", "0.5 donc T",
+    "πr² where r = 3", in any language. Copied into each row, the word and the symbol after it
+    became the row's left side ("so A = 54"). A unit after the last value ("6 kg m/s") is no join."""
+    return any(_word_then_term(part) for part in segments[:-1])
+
+
+def _word_then_term(segment: str) -> bool:
+    """A word of two letters or more (a capital only first: "So"), outside brackets, standing
+    alone and followed by a space and another term. A product of symbols ("ma", "mgh") is
+    followed by an operator or nothing; a function's name ("ln x") is no word."""
+    depth = 0
+    index = 0
+    length = len(segment)
+    while index < length:
+        char = segment[index]
+        if char == "\\":
+            # A command's name ("\\Delta x") is no word; skip it whole, or the one mark after.
+            index += 1
+            if index < length and segment[index].isalpha():
+                while index < length and segment[index].isalpha():
+                    index += 1
+            else:
+                index += 1
+            continue
+        if char in "([{":
+            depth += 1
+        elif char in ")]}":
+            depth = max(0, depth - 1)
+        if not char.isalpha():
+            index += 1
+            continue
+        start = index
+        while index < length and segment[index].isalpha():
+            index += 1
+        word = segment[start:index]
+        if depth or (start and not segment[start - 1].isspace()):
+            continue
+        if word.lower() in CHAIN_STOP_WORDS:
+            return True
+        if len(word) < 2 or not word[1:].islower() or word.lower() in _FUNCTION_WORDS:
+            continue
+        after = index
+        while after < length and segment[after] == " ":
+            after += 1
+        if (
+            after > index
+            and after < length
+            and (segment[after].isalpha() or segment[after] == "\\")
+        ):
+            return True
+    return False
+
+
+def join_rows(rows: list[str], delim: str, punct: str = "") -> str:
+    lines = [f"{delim}{row}{delim}" for row in rows]
+    if punct:
+        lines[-1] = f"{lines[-1]}{punct}"
+    if len(lines) == 1:
+        return lines[0]
+    return "\n".join(
+        f"{line}  " if index < len(lines) - 1 else line for index, line in enumerate(lines)
+    )
+
+
+def list_prefix(line: str) -> tuple[str, str]:
+    index = 0
+    while index < len(line) and line[index] == " ":
+        index += 1
+    rest = line[index:]
+    for marker in ("- ", "* ", "+ "):
+        if rest.startswith(marker):
+            return line[: index + 2], rest[2:]
+    digits = 0
+    while digits < len(rest) and rest[digits].isdigit():
+        digits += 1
+    if 0 < digits <= 3 and rest[digits : digits + 2] == ". ":
+        return line[: index + digits + 2], rest[digits + 2 :]
+    return "", line
