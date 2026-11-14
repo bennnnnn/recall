@@ -109,6 +109,11 @@ async def test_every_quantity_asked_is_on_the_card(text: str, card: str) -> None
         # ≈18.85 was checked for the area of radius 3 and the circumference of radius 5).
         "Find the area of a circle with radius 3 and the circumference of a circle with radius 5",
         "What is the gcd of 12 and 18, and the lcm of 4 and 6?",
+        # A later shape's dimension equal to a measure worked out from the first: 4 is the
+        # first circle's diameter, and C ≈ 12.57 was checked for 25.13 (2026-11-14).
+        "Find the area of a circle of radius 2 and the circumference of a circle of radius 4",
+        "Find the area of a square with side 2 and the perimeter of a square with side 8",
+        "Find the area of a rectangle 2 by 3 and the perimeter of a square with side 6",
     ],
 )
 async def test_a_question_the_card_cannot_answer_whole_gets_no_card(text: str) -> None:
@@ -121,6 +126,11 @@ async def test_a_question_the_card_cannot_answer_whole_gets_no_card(text: str) -
         (
             "A circle has radius 3. Find its area and circumference.",
             r"A \approx 28.27\ \mathrm{units}^{2},\quad C \approx 18.85\ \mathrm{units}",
+        ),
+        # A diameter given is a given, though the circle is read by its radius.
+        (
+            "Find the radius and area of a circle with diameter 6",
+            r"r = 3\ \mathrm{units},\quad A \approx 28.27\ \mathrm{units}^{2}",
         ),
         (
             "Find the circumference of a circle of radius 3 and its area",

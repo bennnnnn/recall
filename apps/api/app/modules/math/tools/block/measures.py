@@ -108,7 +108,7 @@ def with_every_measure(intent: MathIntent, block: VerifiedMathBlock) -> Verified
         # in parts, whose every part gets its own card.
         return block
     picture = _picture(block)
-    if not _operands_read(request, intent, picture):
+    if not _operands_read(request, intent):
         # Each ask has its own operands ("the area of a circle with radius 3 and the
         # circumference of one with radius 5"): one reading answers neither.
         return None
@@ -145,10 +145,15 @@ def with_every_measure(intent: MathIntent, block: VerifiedMathBlock) -> Verified
 _NUMBER = re.compile(r"(?<![\w.])\d+(?:\.\d+)?|(?<![\w\d])\.\d+")
 
 
-def _operands_read(text: str, intent: MathIntent, picture: dict[str, Any] | None) -> bool:
-    """Every number the question writes is one its reading holds: a dimension of the shape
-    it drew, or an operand of its intent."""
-    held = [*_numbers_in(intent.model_dump()), *_numbers_in(picture or {})]
+def _operands_read(text: str, intent: MathIntent) -> bool:
+    """Every number the question writes is one its reading was given: a dimension or an
+    operand the intent read from it, never a measure worked out from them. "The area of a
+    circle of radius 2 and the circumference of a circle of radius 4" passed when 4 was
+    held as the first circle's diameter, and carded C ≈ 12.57 for 25.13 (2026-11-14)."""
+    given = intent.model_dump(exclude_defaults=True)
+    held = _numbers_in(given)
+    if intent.given_diameter and intent.radius:
+        held.append(2 * intent.radius)  # a diameter given is read as its radius
     return all(
         any(math.isclose(float(written), value, rel_tol=1e-6, abs_tol=1e-9) for value in held)
         for written in _NUMBER.findall(text)
