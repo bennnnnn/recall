@@ -19,7 +19,7 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from app.core.config import Settings
-from app.modules.charts.model_chart import model_chart_request
+from app.modules.charts.model_chart import model_chart_kind, model_chart_request
 from app.modules.charts.read import MAX_DATA_CHARS, chart_from_request, draw_chart
 from app.modules.chat.chart_bodies import parse_chart_body
 from app.modules.chat.continuation_subject import exchange_pairs
@@ -86,23 +86,27 @@ async def _drawn(task: asyncio.Task[str | None], settings: Settings) -> str | No
 
 
 def placed_charts(text: str, drawn: str | None, data: str) -> str:
-    """The reply with each chart of the four shapes in it replaced: the server's chart in
+    """The reply with each chart of the four kinds in it replaced: the server's chart in
     the first one's place, a model chart whose numbers hold rebuilt from them, any other
-    taken out. A chart of another shape stays as the model wrote it."""
+    taken out, one it cannot read too (a temporal axis or a Chart.js body is read; several
+    series are not). A chart of another kind (a scatter, a box plot) stays as written."""
     pieces: list[str] = []
     cursor = 0
     placed = False
     for fence in iter_fences(text):
         if not fence.closed or fence.lang not in _CHART_LANGS:
             continue
-        request = model_chart_request(parse_chart_body(text[fence.body_start : fence.body_end]))
-        if request is None:
+        spec = parse_chart_body(text[fence.body_start : fence.body_end])
+        if model_chart_kind(spec) is None:
             continue
         if drawn is not None:
             replacement = "" if placed else drawn
             placed = True
         else:
-            replacement = chart_from_request(request, data) or ""
+            # One of the four kinds it cannot read (several series, a shape it does not
+            # know) cannot be checked either: it goes.
+            request = model_chart_request(spec)
+            replacement = (chart_from_request(request, data) if request else None) or ""
         pieces.append(text[cursor : fence.start])
         pieces.append(replacement)
         cursor = fence.end
