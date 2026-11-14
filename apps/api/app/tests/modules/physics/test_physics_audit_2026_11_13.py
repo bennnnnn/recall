@@ -315,3 +315,39 @@ def test_the_second_review_answers_right(text: str, answer: str) -> None:
 )
 def test_the_second_review_declines(text: str) -> None:
     assert _answer(text) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        # Third review: a contraction or "failed to" negates the decay; a mention the ask sets
+        # aside is no ask; air resistance set aside, look-alike.
+        ("What fraction of the nuclei haven't decayed after 3 half-lives?", "0.125"),
+        ("What fraction of the sample hasn\u2019t decayed after 2 half-lives?", "0.25"),
+        ("A sample has a half-life of 10 years. How long until 25% hasn't decayed?",
+         "20\\,\\mathrm{years}"),
+        ("What fraction of the sample has failed to decay after 2 half-lives?", "0.25"),
+        ("What fraction is left to decay after 2 half-lives?", "0.25"),
+        ("What fraction has decayed after 2 half-lives? (not the fraction remaining)", "0.75"),
+        ("A ball is dropped from 45 m. Air resistance is not included. How long does it take to "
+         "fall?", "3.03\\,\\mathrm{s}"),
+    ],
+)  # fmt: skip
+def test_the_third_review_answers_right(text: str, answer: str) -> None:
+    assert _answer(text) == answer
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "How much of a 100 g sample has decayed, not how much is left, after 2 half-lives?",
+        "A ball is dropped from 45 m. Air resistance cannot be ignored. How long does it take to "
+        "fall?",
+        "A ball is dropped from 45 m. Air resistance should not be neglected. How long does it "
+        "take to fall?",
+        "A ball is dropped from 45 m. Air resistance must be taken into account. How long does it "
+        "take to fall?",
+    ],
+)
+def test_the_third_review_declines(text: str) -> None:
+    assert _answer(text) is None

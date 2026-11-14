@@ -597,5 +597,110 @@
    "m"
   ],
   "note": "look-alike"
+ },
+ {
+  "id": "r13c-havent-decayed",
+  "area": "modern",
+  "prompt": "What fraction of the nuclei haven't decayed after 3 half-lives?",
+  "expect": "answer",
+  "answer": [
+   0.125,
+   ""
+  ],
+  "note": "a contraction negates (was 0.875)"
+ },
+ {
+  "id": "r13c-hasnt-curly",
+  "area": "modern",
+  "prompt": "What fraction of the sample hasn’t decayed after 2 half-lives?",
+  "expect": "answer",
+  "answer": [
+   0.25,
+   ""
+  ],
+  "note": "curly apostrophe"
+ },
+ {
+  "id": "r13c-hasnt-stated",
+  "area": "modern",
+  "prompt": "A sample has a half-life of 10 years. How long until 25% hasn't decayed?",
+  "expect": "answer",
+  "answer": [
+   20,
+   "year"
+  ],
+  "note": "25% left (was 4.15)"
+ },
+ {
+  "id": "r13c-failed-to",
+  "area": "modern",
+  "prompt": "What fraction of the sample has failed to decay after 2 half-lives?",
+  "expect": "answer",
+  "answer": [
+   0.25,
+   ""
+  ],
+  "note": "failed to decay is left"
+ },
+ {
+  "id": "r13c-left-to-decay",
+  "area": "modern",
+  "prompt": "What fraction is left to decay after 2 half-lives?",
+  "expect": "answer",
+  "answer": [
+   0.25,
+   ""
+  ],
+  "note": "left to decay is left"
+ },
+ {
+  "id": "r13c-not-the-remaining",
+  "area": "modern",
+  "prompt": "What fraction has decayed after 2 half-lives? (not the fraction remaining)",
+  "expect": "answer",
+  "answer": [
+   0.75,
+   ""
+  ],
+  "note": "the mention set aside is no ask"
+ },
+ {
+  "id": "r13c-both-shares",
+  "area": "modern",
+  "prompt": "How much of a 100 g sample has decayed, not how much is left, after 2 half-lives?",
+  "expect": "decline",
+  "note": "the ask's clause is the one set aside: declines (was 25 g)"
+ },
+ {
+  "id": "r13c-air-cannot-ignore",
+  "area": "free_fall",
+  "prompt": "A ball is dropped from 45 m. Air resistance cannot be ignored. How long does it take to fall?",
+  "expect": "decline",
+  "note": "acts (was 3.03 s)"
+ },
+ {
+  "id": "r13c-air-should-not-neglect",
+  "area": "free_fall",
+  "prompt": "A ball is dropped from 45 m. Air resistance should not be neglected. How long does it take to fall?",
+  "expect": "decline",
+  "note": "acts"
+ },
+ {
+  "id": "r13c-air-taken-into-account",
+  "area": "free_fall",
+  "prompt": "A ball is dropped from 45 m. Air resistance must be taken into account. How long does it take to fall?",
+  "expect": "decline",
+  "note": "acts"
+ },
+ {
+  "id": "r13c-air-not-included",
+  "area": "free_fall",
+  "prompt": "A ball is dropped from 45 m. Air resistance is not included. How long does it take to fall?",
+  "expect": "answer",
+  "answer": [
+   3.028913,
+   "s"
+  ],
+  "note": "set aside, look-alike"
  }
 ]

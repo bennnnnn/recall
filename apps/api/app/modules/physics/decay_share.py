@@ -45,11 +45,15 @@ _GONE_AFTER = re.compile(
 )
 
 
-# A negation whose scope is the verb right after it: "not", "never", "n't", "yet to", "still to",
-# with "yet", "been" or "have" between ("has not yet decayed", "are yet to decay").
+# A negation whose scope is the verb right after it: "not", "never", "n't" ("hasn't"), "yet to",
+# "still to", "left to", "failed to", with "yet", "been" or "have" between ("has not yet
+# decayed", "are yet to decay"). The contraction has no word boundary before its "n".
 _NEGATED = re.compile(
-    r"\b(?:not|never|n't|yet\s+to|still\s+to)(?:\s+(?:yet|been|have|has|had|to))*\s+$"
+    r"(?:\b(?:not|never|(?:yet|still|left)\s+to|fail(?:s|ed)?\s+to)|n['\u2019]t)"
+    r"(?:\s+(?:yet|been|have|has|had|to))*\s+$"
 )
+# A mention the ask itself sets aside: "how much has decayed, not how much is left".
+_NOT_BEFORE = re.compile(r"\bnot(?:\s+\w+){0,3}\s+$")
 
 Reading = Literal["left", "gone", "unsaid"]
 
@@ -78,13 +82,41 @@ def share_reading(lower: str) -> Reading | None:
 
 def asked_share(text: str) -> Reading | None:
     """What an asked share is: "what percentage has decayed" asks the share gone, "what
-    fraction remains" the share left; None when the ask says neither. Answered as the share
-    left, "What percentage of a sample has decayed after 2 half-lives?" was 25% for 75%."""
+    fraction remains" the share left, and an ask naming both is "unsaid"; None when the ask
+    names neither. Answered as the share left, "What percentage of a sample has decayed after 2
+    half-lives?" was 25% for 75%. A mention the ask sets aside ("has decayed, not how much is
+    left") is not what it asks (review 2026-11-14)."""
+    sentence = _asked_sentence(text)
+    if sentence is None:
+        return None
+    gone_verbs = list(_GONE_AFTER.finditer(sentence))
+    # "Has not decayed" is the share left; "not how much has decayed" sets that ask aside.
+    negated = [verb for verb in gone_verbs if _NEGATED.search(sentence, 0, verb.start())]
+    gone = any(
+        verb not in negated and not _NOT_BEFORE.search(sentence, 0, verb.start())
+        for verb in gone_verbs
+    )
+    left = bool(negated) or any(
+        not _NOT_BEFORE.search(sentence, 0, word.start()) for word in _LEFT_AFTER.finditer(sentence)
+    )
+    if left and gone:
+        return "unsaid"
+    return "left" if left else "gone" if gone else None
+
+
+def _asked_sentence(text: str) -> str | None:
+    """The sentence the ask is in, whole: "How much has decayed, not how much is left, after
+    2 half-lives?" asks its first clause, where the ask's own clause starts at its last."""
     clause = ask_clause(text)
     if clause is None:
         return None
-    reading = _read("", clause.lower())
-    return None if reading == "unsaid" else reading
+    lower = text.lower()
+    at = lower.rfind(clause.lower())
+    if at < 0:
+        return clause.lower()
+    start = max((end.end() for end in _CLAUSE_END.finditer(lower, 0, at)), default=0)
+    stop = _CLAUSE_END.search(lower, at + len(clause))
+    return lower[start : stop.start() if stop is not None else len(lower)]
 
 
 def _a_share(given: Given) -> bool:

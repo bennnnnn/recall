@@ -55,23 +55,25 @@ _REACHED = re.compile(
     r"\b(?:reach(?:es|ed|ing)?|(?:rises?|rose|climbs?|climbed|gets?|goes|went)\s+(?:up\s+)?to)"
     r"\s+(?:(?:a|an|the)\s+)?(?:(?:height|altitude|level|point)\s+(?:of\s+)?)?$"
 )
-# Air resistance said to act: "air resistance is significant", "with air resistance",
-# "taking air resistance into account". Named in a question about it ("why does air
-# resistance matter?") or set aside ("ignore air resistance"), it is said to do nothing.
-_AIR = r"(?:air\s+(?:resistance|friction|drag)|drag)"
-_AIR_RESISTANCE_ACTS = re.compile(
-    rf"\b{_AIR}\s+(?:is|are|was)\s+(?:not\s+(?:negligible|ignored|neglected)|significant"
-    r"|important|present|included|large|considerable|appreciable)\b"
-    rf"|\b(?:with|including|considering|taking\s+into\s+account|accounting\s+for|due\s+to)"
-    rf"\s+(?:the\s+)?{_AIR}\b"
+# Air resistance and what the words say of it. It acts when the words right after it say so
+# ("is significant", "must be taken into account", "cannot be ignored", "is not negligible")
+# or it is brought in ("with air resistance", "due to air resistance") and nothing after sets
+# it aside. Named in a question about it ("why does air resistance matter?") or set aside
+# ("ignore air resistance", "taken as zero") it is said to do nothing.
+_AIR = re.compile(r"\b(?:air\s+(?:resistance|friction|drag)|drag)\b")
+_BROUGHT_IN = re.compile(
+    r"\b(?:with|including|considering|taking\s+into\s+account|accounting\s+for|due\s+to)"
+    r"\s+(?:the\s+)?$"
 )
-# What sets it aside again within the words right after it, unless a "not" comes first: "with
-# air resistance neglected", "taken as zero", "assumed negligible", "considering air resistance
-# to be negligible"; "with air resistance not neglected" still acts.
 _SET_ASIDE_WORD = re.compile(
     r"\b(?:neglected|negligible|ignored|disregarded|zero|absent|omitted|excluded)\b"
 )
-_WORDS_AFTER = 5
+_ACTS_WORD = re.compile(
+    r"\b(?:significant|important|present|included|considered|large|considerable|appreciable"
+    r"|taken\s+into\s+account|accounted\s+for)\b"
+)
+_NEGATION = re.compile(r"\b(?:not|never|cannot)\b|n['\u2019]t\b")
+_WORDS_AFTER = 6
 # Laws of a motion under gravity alone.
 _MOTION_KINDS = frozenset({"kinematics", "projectile", "suvat", "energy"})
 _HOLDS_ITS_SPEED = re.compile(
@@ -88,7 +90,7 @@ def refuses(spec: FormulaSpec, intent: PhysicsIntent, text: str, *, chained: boo
         or _starts_where_it_gets_to(spec, intent, text)
         or (spec.kind in _MOTION_KINDS and _uses_gravity(spec) and air_resistance_acts(lower))
         or (spec.kind == "suvat" and holds_its_speed(lower))
-        or (_gives_what_is_left(spec) and asked_share(text) == "gone")
+        or (_gives_what_is_left(spec) and asked_share(text) in ("gone", "unsaid"))
         or _scales_a_given(lower)
         or (_a_wave_speed(spec) and _asks_of_the_medium(text))
         or (spec.id in DIVERGING_LENS_LAWS and spec.id not in diverging_lens_asks_of(text))
@@ -194,16 +196,27 @@ def _uses_gravity(spec: FormulaSpec) -> bool:
 
 def air_resistance_acts(lower: str) -> bool:
     """The question says air resistance acts on the motion, and does not set it aside."""
-    return any(
-        not _then_set_aside(lower, found.end()) for found in _AIR_RESISTANCE_ACTS.finditer(lower)
-    )
+    for found in _AIR.finditer(lower):
+        said = _said_after(lower, found.end())
+        if said == "acts" or (
+            said is None and _BROUGHT_IN.search(lower, max(0, found.start() - 40), found.start())
+        ):
+            return True
+    return False
 
 
-def _then_set_aside(lower: str, end: int) -> bool:
+def _said_after(lower: str, end: int) -> str | None:
+    """What the words right after a mention say of it: "acts", "aside", or nothing. A
+    negation before the word turns it: "cannot be ignored" acts, "not included" is aside."""
     clause = re.split(r"[.,;:?!]", lower[end : end + 60], maxsplit=1)[0]
     words = " ".join(clause.split()[:_WORDS_AFTER])
-    found = _SET_ASIDE_WORD.search(words)
-    return found is not None and "not" not in words[: found.start()].split()
+    found = [m for m in (_SET_ASIDE_WORD.search(words), _ACTS_WORD.search(words)) if m]
+    if not found:
+        return None
+    first = min(found, key=lambda match: match.start())
+    negated = _NEGATION.search(words, 0, first.start()) is not None
+    aside = _SET_ASIDE_WORD.fullmatch(first.group()) is not None
+    return "aside" if aside != negated else "acts"
 
 
 def holds_its_speed(lower: str) -> bool:
