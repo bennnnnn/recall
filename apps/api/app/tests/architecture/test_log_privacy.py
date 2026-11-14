@@ -32,6 +32,8 @@ _PROVIDER_RESPONSES = frozenset({"response", "resp"})
 _ALLOWED = {
     ("services/scan_read.py", "subject"): "the STEM subject's name: maths, physics, chemistry",
     ("services/subjects/guard.py", "subject"): "the subject's name: maths, physics, chemistry",
+    ("services/subjects/order.py", "subject"): "the subject's name: maths, physics, chemistry",
+    ("services/subjects/order.py", "name"): "the step of the order that failed",
     ("background/handlers.py", "raw"): "a job payload's malformed user id",
     ("gateways/revenuecat_gateway.py", "raw"): "a RevenueCat webhook field (a timestamp)",
     ("background/periodic.py", "name"): "a scheduler's name",
@@ -87,6 +89,45 @@ def test_no_log_line_carries_user_text() -> None:
                 if _TEXT_NAMES.search(name) and (relative, name) not in _ALLOWED:
                     leaks.append(f"{relative}:{node.lineno} logs {name}")
     assert not leaks, "log its length or an id instead:\n" + "\n".join(leaks)
+
+
+# ``%r`` prints a string whole, quotes and all: what each argument a ``%r`` may print is, by
+# name. "RDKit validate failed for %r" printed a SMILES the user typed as ``cleaned``, a name
+# the text check cannot know (review, 2026-11-13).
+_REPR_NAMES = {
+    "exc": "an exception (its class and message)",
+    "exception": "a task's exception",
+    "cancelled": "a task's state",
+    "task": "an asyncio task",
+    "key": "a Redis key",
+    "marker_key": "a Redis key",
+    "user_id": "an id",
+    "terminal_image_message_id": "an id",
+    "ctx": "the stream context holding that id",
+    "raw": "a job payload's malformed user id",
+    "payload": "a job payload's malformed user id",
+    "get": "a payload read (``payload.get``)",
+    "name": "a shutdown step's name",
+}
+
+
+def test_a_repr_in_a_log_line_prints_no_user_text() -> None:
+    unnamed = []
+    for path in sorted(APP_ROOT.rglob("*.py")):
+        relative = path.relative_to(APP_ROOT).as_posix()
+        if relative.startswith("tests/"):
+            continue
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if not _is_log_call(node):
+                continue
+            assert isinstance(node, ast.Call)
+            template = node.args[0]
+            if not (isinstance(template, ast.Constant) and "%r" in str(template.value)):
+                continue
+            for name in sorted({name for arg in node.args[1:] for name in _names(arg)}):
+                if name not in _REPR_NAMES:
+                    unnamed.append(f"{relative}:{node.lineno} prints {name} with %r")
+    assert not unnamed, "log its length or kind, or name it in _REPR_NAMES:\n" + "\n".join(unnamed)
 
 
 def test_the_check_sees_a_leak_and_passes_a_length() -> None:
