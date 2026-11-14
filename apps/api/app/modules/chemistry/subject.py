@@ -222,11 +222,17 @@ class ChemistrySubject:
         if not settings.chemistry_enabled:
             return SubjectAugmentation(None, None, None)
         from app.modules.chemistry.context import build_chemistry_augmentation
+        from app.modules.chemistry.parts import solve_chemistry_parts
         from app.modules.chemistry.reading import chemistry_text_for_solve
         from app.modules.chemistry.reply_policy import attach_chemistry_fence_hint
 
+        text = chemistry_text_for_solve(request.text)
+        # A message of several questions, each verified on its own, is answered in parts.
+        parted = await solve_chemistry_parts(text, settings)
+        if parted is not None:
+            return parted
         block, verified, declined = await build_chemistry_augmentation(
-            chemistry_text_for_solve(request.text), settings, redis=request.redis
+            text, settings, redis=request.redis
         )
         if block:
             block = attach_chemistry_fence_hint(block)

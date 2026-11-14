@@ -13,7 +13,11 @@ chemistry. The mobile app renders the result; it does not solve chemistry on-dev
    `Ka`, `pH`, and `Rf` match only with that capitalization (not “KB” or “Ph.D.”), and
    a scientist's name needs “law” (Charles's law, not Charles Darwin). “Chemistry” is
    the subject except in the idiom for getting along (“great chemistry”, “the chemistry
-   between them”), and a half-life needs a number, a nuclide or a decay word (not a phone
+   between them”), and alone it is one weak cue: “My chemistry teacher is mean” and “Remind
+   me to study chemistry” ask nothing of it, while a task beside it (“Solve the chemistry
+   problem in this image”) does (audit 2026-11-13). A run of capitals counts as a formula
+   beside a weak cue only when the tables name that substance (`HF`, `KOH`): “SI base
+   units” is no formula. A half-life needs a number, a nuclide or a decay word (not a phone
    battery's). The gate reads
    the first and last 2,000 characters and its formula pattern is linear-time, so a
    long paste cannot stall the event loop. PubChem lookups on the turn path give up
@@ -39,7 +43,11 @@ chemistry. The mobile app renders the result; it does not solve chemistry on-dev
    lowercase `ph`
    beside its value or before a molar concentration is `pH`, and `=` between two sides of
    formulas is the arrow of an equation the question asks to balance
-   (`Al + HCl = AlCl3 + H2`). A question chemistry cannot close is still chemistry's,
+   (`Al + HCl = AlCl3 + H2`). A formula typed in lowercase where an amount names its
+   substance is that formula when it has one reading in element symbols and the tables name
+   it (“0.01 M hcl”, “36 g of h2o”; “co” is Co or CO and stays a word), a decimal point after a
+   whole number's trailing zeros only marks them significant (“500. mL” is 500 mL, three
+   figures), and a formula may open with a bracketed group (`(NH4)3PO4`). A question chemistry cannot close is still chemistry's,
    not maths', when it has a pH or K symbol, an amount in M or mol, a compound's formula or
    a written reaction (`services/subjects/dispatch.detect_subject`): maths read the `x` of
    `1.8 x 10^-5` as its unknown.
@@ -67,7 +75,11 @@ chemistry. The mobile app renders the result; it does not solve chemistry on-dev
    - settings fill the rest:
      - the van 't Hoff factor of a named solute (glucose 1, NaCl 2);
      - the molar mass of the metal deposited, and the charge of its ion (`Cu2+`);
-     - 25 °C for a Nernst cell with no temperature;
+     - 25 °C for a Nernst cell whose question states no temperature. Every law with a
+       temperature reads the one stated, labelled or not (`temperature.py`: “T = 310 K”,
+       “at 350 K”, “at 25 °C”, “98.6 °F”); one named but not read (“at body temperature”,
+       two different values, “T = 310”) declines, never 25 °C. The acid–base solvers hold
+       water at 25 °C (Kw = 1.0 × 10^-14), so a pH at another stated temperature declines;
    - each input is converted to the unit its solver reads, so the solver is the same one
      a template reaches.
 
@@ -259,7 +271,9 @@ written as a bare `C` (a coulomb to physics), declines rather than guess.
 
 Element lookup (including atomic number and configuration), molecular descriptors, and PubChem compound lookup are also verified context sources. A result is labelled verified only after extraction and solver success.
 
-The galvanic table is the common school set Li, K, Ba, Ca, Na, Mg, Al, Mn, Zn, Cr, Fe, Cd, Co, Ni, Sn, Pb, H, Cu, Ag, Hg, and Au. Polyprotic pH uses the first dissociation only. An amphiprotic intermediate uses both pKa values when any stated concentration is high enough for that average, and `[A2-]` is `Ka2` only when that concentration is asked and it stays well below the acid. Rate-law fitting needs the two experiments to change one concentration. VSEPR refuses a chain or a second central atom (`H2O2`, acetic acid), a formula whose center is not determined (`HOCl`), transition metals, and a Lewis structure whose formal charges do not sum to the charge. A bent or pyramidal angle is 104.5° or 107° only for a second-period center with hydrogen terminals (water, ammonia); any other lone-pair shape is reported as less than the ideal angle, not as one invented measurement (H2S is about 92°, not 104.5°). Sulfuric acid is refused as a strong monoprotic acid. Oxidation states that the school rules do not decide, such as `FeS`, are refused.
+The galvanic table is the common school set Li, K, Ba, Ca, Na, Mg, Al, Mn, Zn, Cr, Fe, Cd, Co, Ni, Sn, Pb, H, Cu, Ag, Hg, and Au. Polyprotic pH uses the first dissociation only. An amphiprotic intermediate uses both pKa values when any stated concentration is high enough for that average, and `[A2-]` is `Ka2` only when that concentration is asked and it stays well below the acid. Rate-law fitting needs the two experiments to change one concentration. VSEPR refuses a chain or a second central atom (`H2O2`, acetic acid), a formula whose center is not determined (`HOCl`), transition metals, and a Lewis structure whose formal charges do not sum to the charge. A bent or pyramidal angle is 104.5° or 107° only for a second-period center with hydrogen terminals (water, ammonia); any other lone-pair shape is reported as less than the ideal angle, not as one invented measurement (H2S is about 92°, not 104.5°). Sulfuric acid is refused as a strong monoprotic acid. Oxidation states that the school rules do not decide, such as `FeS`, are refused. A compound that cannot exist is refused by every law that names it (`charge_balance.py`): two elements, one a metal of a single charge (groups 1 and 2, Al, Zn) and the other an anion whose charge per atom cannot cancel it (NaCl3, MgCl3, AlCl2). Chains of an anion's atoms count, so peroxides, superoxides, polyiodides and azides (Na2O2, KO2, KI3, NaN3) keep their answers, and covalent or variable-valence formulas (PCl5, SF6, Fe3O4, AgF2) are never refused here.
+
+A message that asks several things gets a verified part for each (`parts.py`): its labelled parts ("a) molar mass of NH3 b) moles in 34 g of NH3"), or its question sentences that ask chemistry, each read with the statements before it, and one that names no substance takes the one named before it ("(b) How many moles are in 34 g of it?"). When every part verifies to its own answer, the reply is the question in parts, a card under each (`services/worked_parts.answers_in_parts`, the layout physics' parts use); otherwise the message is read whole, and the direct reply never answers fewer questions than the message asks.
 
 ## Notation and numbers
 
@@ -384,10 +398,13 @@ is drawn as tetrahedral, not square planar.
 | Layer | Path |
 |---|---|
 | Intent schema | `apps/api/app/modules/chemistry/schemas/intent.py` |
-| Gate / compound parsing | `apps/api/app/modules/chemistry/request.py` |
-| Input reading (Unicode scripts, hydrate dots, `ph`, `=` arrows) | `apps/api/app/modules/chemistry/input_text.py` |
+| Gate / compound parsing | `apps/api/app/modules/chemistry/request.py`, `compound_words.py` (the lookup's name lists) |
+| Input reading (Unicode scripts, hydrate dots, `ph`, `=` arrows, lowercase formulas, trailing points) | `apps/api/app/modules/chemistry/input_text.py`, `lowercase_formulas.py` |
+| A stated temperature | `apps/api/app/modules/chemistry/temperature.py` |
+| A compound that cannot exist | `apps/api/app/modules/chemistry/charge_balance.py` |
+| A message of several questions | `apps/api/app/modules/chemistry/questions.py` (what it asks), `parts.py` (each answered) |
 | Text extraction | `apps/api/app/modules/chemistry/extract.py` (driver), `registry.py` (order), `extractors/<topic>.py` |
-| Reactions in words | `extractors/described.py` (the equation a question tells), `extractors/reaction_ask.py` (what it asks, a closed grammar), `species_words.py` (names and lowercase formulas), `reaction_followup.py` ("what if i only had 16g of o2") |
+| Reactions in words | `extractors/described.py` (the equation a question tells), `extractors/reaction_ask.py` (what it asks, a closed grammar), `species_words.py` (names and formulas a reaction names), `reaction_followup.py` ("what if i only had 16g of o2") |
 | Shapes in words | `extractors/shapes.py` (one molecule's VSEPR or two compared), `shape_followup.py` ("can u show me both" after a shape answer; the photo intercept lets it claim the line) |
 | Binder (questions in their own words) | `binding.py`, `laws.py`, `law_record.py`, `formula_bindings.py`, `species_facts.py`, `given_units.py`; engine in `apps/api/app/services/law_binding/` |
 | Typed solver dispatcher | `apps/api/app/modules/chemistry/solvers/solver.py` |

@@ -11,6 +11,7 @@ from app.modules.chemistry.extractors.atom_particles import asks_more_particles
 from app.modules.chemistry.fence import assemble_chemistry_reply
 from app.modules.chemistry.glossary import given_meaning
 from app.modules.chemistry.notation import typeset
+from app.modules.chemistry.questions import asks_more_questions
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.tex import chemistry_tex, law_symbols, symbol_tex
 from app.services.question_parts import asks_more_parts
@@ -183,13 +184,16 @@ def maybe_direct_chemistry_reply(
     """Use exact output for typed text, and for a photo whose reading was confirmed.
 
     Not when the student stated a result to check: the model answers whether it is
-    right, with the verified answer beside it. Not for a question in more labelled parts
-    than the result answers either: the model answers them all.
+    right, with the verified answer beside it. Not for a question that asks more than the
+    result answers either (more labelled parts, more questions): the model answers them all.
     """
     if verified is None or has_stated_result(user_text):
         return None
-    if asks_more_parts(user_text, verified.result.answer) or asks_more_particles(
-        user_text, verified.result.answer
+    answers = verified.result.answer
+    if (
+        asks_more_parts(user_text, answers)
+        or asks_more_particles(user_text, answers)
+        or asks_more_questions(user_text, answers)
     ):
         return None
     if has_image_attachment:

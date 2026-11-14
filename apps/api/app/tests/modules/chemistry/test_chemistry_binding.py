@@ -248,6 +248,11 @@ _SAMPLES: dict[str, tuple[dict[str, float], str | None, dict[str, str]]] = {
         "NaCl",
         {},
     ),
+    "molarity_from_mass_concentration": (
+        {"mass_concentration": 5.85, "molar_mass": 58.44},
+        "NaCl",
+        {},
+    ),
     "molality_from_mass": (
         {"solute_mass": 18.0, "molar_mass": 180.16, "solvent_kg": 0.5},
         "C6H12O6",
