@@ -34,11 +34,19 @@ def test_enrich_writes_the_kekule_smiles_the_phone_draws(written: str, drawn: st
     assert f"\n{drawn}\n```" in result
 
 
-def test_enrich_valid_smiles_with_caption() -> None:
-    content = "```smiles\nEthanol\nCCO\n```"
-    result = chemistry_fence.enrich_chemistry_fences(content)
-    assert "```smiles" in result
-    assert "Ethanol" in result  # caption preserved
+@pytest.mark.parametrize("written", ["Ethanol", "Caffeine", "H2O · 999.00 g/mol"])
+def test_enrich_captions_a_structure_with_its_own_formula(written: str) -> None:
+    # A model's "Caffeine" over ethanol's SMILES was drawn, captioned, as caffeine (CHEM-04).
+    result = chemistry_fence.enrich_chemistry_fences(f"```smiles\n{written}\nCCO\n```")
+    assert result.startswith("```smiles\nC₂H₆O · 46.07 g/mol\nCCO\n```")
+    assert written not in result
+
+
+def test_enrich_refuses_a_structure_past_the_phones_limit() -> None:
+    # The phone refuses a SMILES longer than 500 characters; left as written it reached it.
+    result = chemistry_fence.enrich_chemistry_fences("```smiles\n" + "C" * 600 + "\n```")
+    assert "```smiles" not in result
+    assert "Could not render that structure." in result
 
 
 def test_enrich_invalid_smiles_stripped() -> None:
@@ -152,7 +160,7 @@ def test_enrich_smiles_then_caption_still_validates() -> None:
     result = chemistry_fence.enrich_chemistry_fences(content)
     assert "```smiles" in result
     assert "Could not render" not in result
-    assert "ethanol" in result
+    assert "C₂H₆O · 46.07 g/mol" in result and "ethanol" not in result
 
 
 def test_enrich_third_molecule_skips_3d() -> None:

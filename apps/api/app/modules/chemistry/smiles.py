@@ -157,8 +157,9 @@ def drawing_smiles(smiles: str) -> str:
     try:
         Chem.Kekulize(mol, clearAromaticFlags=True)
         return str(Chem.MolToSmiles(mol, kekuleSmiles=True))
-    except Exception:
-        logger.info("RDKit kekulize failed for %r", smiles, exc_info=True)
+    except Exception as exc:
+        # Its size and the error's class: a traceback quotes the SMILES.
+        logger.info("RDKit kekulize failed: %s chars=%d", type(exc).__name__, len(smiles))
         return smiles
 
 

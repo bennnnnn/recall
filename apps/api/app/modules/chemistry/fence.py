@@ -16,6 +16,7 @@ from app.modules.chemistry.block import VerifiedChemistry
 from app.modules.chemistry.notation import typeset, typeset_json
 from app.modules.chemistry.schemas.scene import dump_scene
 from app.modules.chemistry.smiles import (
+    MAX_SMILES_LENGTH,
     MoleculeProperties,
     drawing_smiles,
     generate_3d_coordinates,
@@ -62,7 +63,7 @@ def _extract_smiles_from_fence(body: str) -> tuple[str | None, str]:
         return None, ""
     for idx in range(len(lines) - 1, -1, -1):
         raw = _SMILES_PREFIX.sub("", lines[idx], count=1).strip()
-        if not raw or len(raw) > 500:
+        if not raw or len(raw) > MAX_SMILES_LENGTH:
             continue
         try:
             props = validate_smiles(raw)
@@ -76,8 +77,10 @@ def _extract_smiles_from_fence(body: str) -> tuple[str | None, str]:
             caption = "\n".join(lines[:idx] + lines[idx + 1 :]).strip()
             return raw, caption
     last = _SMILES_PREFIX.sub("", lines[-1], count=1).strip()
-    if not last or len(last) > 500:
+    if not last:
         return None, ""
+    # One past the phone's limit is returned too, so it fails closed: left as written, a
+    # 600-character fence reached the phone, which refuses it.
     caption = "\n".join(lines[:-1]).strip()
     return last, caption
 
@@ -99,11 +102,15 @@ def _read_fence(body: str) -> tuple[MoleculeProperties | None, str]:
         return None, caption
     try:
         props = validate_smiles(smiles)
-    except Exception:
-        logger.info("chemistry fence validation failed for %r", smiles, exc_info=True)
+    except Exception as exc:
+        # Its size and the error's class: the SMILES is what the user or model wrote, and a
+        # traceback quotes it.
+        logger.info(
+            "chemistry fence validation failed: %s chars=%d", type(exc).__name__, len(smiles)
+        )
         return None, caption
     if not props.valid:
-        logger.info("replacing invalid SMILES fence: %r", smiles)
+        logger.info("replacing invalid SMILES fence chars=%d", len(smiles))
         return None, caption
     return props, caption
 
@@ -112,10 +119,14 @@ def _canonicalize_smiles_fence(body: str) -> str:
     """Validate and rewrite a fence body. Never generate 3D."""
     if _extract_smiles_from_fence(body)[0] is None:
         return f"```smiles\n{body}```\n"  # nothing to validate: leave the fence as written
-    props, caption = _read_fence(body)
+    props, _written = _read_fence(body)
     if props is None:
         return _UNRENDERABLE
-    if not caption and props.formula and props.molecular_weight > 0:
+    # The caption is the structure's own formula and mass, never the words above it: a
+    # model's "Caffeine" over ethanol's SMILES was drawn, captioned, as caffeine, with a 3D
+    # ethanol under it (audit CHEM-04, 2026-11-13).
+    caption = ""
+    if props.formula and props.molecular_weight > 0:
         caption = f"{typeset(props.formula)} · {props.molecular_weight:.2f} g/mol"
     return _smiles_fence(props.smiles, caption) + "\n"
 
@@ -132,8 +143,8 @@ def _attach_molecule3d(body: str) -> tuple[str, bool]:
             title = props.formula or caption or "Molecule"
             mol3d_fence = f"\n```molecule3d\n{coords.sdf.rstrip()}\n{title}\n```\n"
             return smiles_fence + mol3d_fence, True
-    except Exception:
-        logger.info("3D SDF generation failed for %r", props.smiles, exc_info=True)
+    except Exception as exc:
+        logger.info("3D SDF generation failed: %s chars=%d", type(exc).__name__, len(props.smiles))
     return smiles_fence + "\n", False
 
 

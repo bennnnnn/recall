@@ -15,11 +15,12 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from app.core import sympy_executor
-from app.modules.chat.simulation_fences import strip_model_simulation_fences
+from app.modules.chat.simulation_fences import strip_model_drawn_fences
 from app.modules.chat.verification_claims import strip_verification_claims
 from app.modules.chat.worked_lead import drop_restated_tail
 from app.modules.chat.working_check import is_worked_solution, working_note
 from app.services.answer_fence import (
+    SERVER_DRAWN_LANGS,
     demote_answer_fences,
     land_answer_card,
     mark_server_answer_fences,
@@ -66,7 +67,7 @@ def drop_check_lines(text: str) -> str:
     a check marker, none of its own check claims and none of its own scenes."""
     text = _without_marker_lines(text)
     try:
-        return strip_model_simulation_fences(strip_verification_claims(text))
+        return strip_model_drawn_fences(strip_verification_claims(text))
     except Exception:
         logger.exception("check-claim strip failed; dropping lines that name a check")
         return "\n".join(line for line in text.split("\n") if not _CHECK_WORDS.search(line))
@@ -79,16 +80,18 @@ def prepare_model_reply(state: FinalizeState) -> str:
     of its answer fences is put in the one form the subject passes demote, and
     its own "✅ Verified with SymPy" claims go: on an unverified turn they fake
     the check, and on a verified one the card says it (a claim beside a wrong
-    value would contradict it). A ```simulation scene is solver-sampled, so the
-    model's own never ships; a verified physics turn replaces it in its pass.
+    value would contradict it). A scene or a structure is the server's to draw, so the
+    model's own never ships: the chemistry pass and the SMILES drawing add the server's
+    after this, and a verified physics turn replaces a ```simulation in its pass.
     """
     if state.server_text:
         return state.text
     text = normalize_owned_fences(strip_forged_verified_markers(state.text))
     text = strip_verification_claims(text)
-    if not isinstance(state.ctx.verified_subject, VerifiedPhysicsBlock):
-        text = strip_model_simulation_fences(text)
-    return text
+    drawn: tuple[str, ...] = SERVER_DRAWN_LANGS
+    if isinstance(state.ctx.verified_subject, VerifiedPhysicsBlock):
+        drawn = tuple(lang for lang in drawn if lang != "simulation")
+    return strip_model_drawn_fences(text, drawn)
 
 
 def _check_part_fences(state: FinalizeState) -> str | None:

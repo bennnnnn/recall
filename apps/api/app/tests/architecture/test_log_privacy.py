@@ -20,7 +20,9 @@ from .boundary_support import APP_ROOT
 _LEVELS = frozenset({"info", "warning", "warn", "error", "exception", "critical"})
 _TEXT_NAMES = re.compile(
     r"^(?:content|title|subject|text|prompt|query|transcript|question|summary|snippet|caption"
-    r"|reply|answer|message|instruction|expr|expression|fact|note|description|raw|html)$"
+    r"|reply|answer|message|instruction|expr|expression|fact|note|description|raw|html"
+    # A name (the user's, a compound's, a place's) and a structure or formula they typed.
+    r"|name|smiles|formula|reading)$"
     r"|_(?:content|title|subject|text|prompt|query|transcript|question|summary|reply|answer)$",
     re.IGNORECASE,
 )
@@ -31,6 +33,13 @@ _ALLOWED = {
     ("services/scan_read.py", "subject"): "the STEM subject's name: maths, physics, chemistry",
     ("background/handlers.py", "raw"): "a job payload's malformed user id",
     ("gateways/revenuecat_gateway.py", "raw"): "a RevenueCat webhook field (a timestamp)",
+    ("background/periodic.py", "name"): "a scheduler's name",
+    ("core/readings.py", "name"): "a reading function's name",
+    ("modules/chat/finalize_passes.py", "name"): "a finalize pass's name",
+    ("modules/chat/post_turn.py", "name"): "a post-turn job's name",
+    ("modules/chat/tool_loop/calls.py", "name"): "the called tool's name",
+    ("modules/speech/live_talk_tools.py", "name"): "the called tool's name",
+    ("process_bootstrap.py", "name"): "a shutdown step's name",
 }
 
 

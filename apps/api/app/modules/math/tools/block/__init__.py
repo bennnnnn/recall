@@ -8,6 +8,8 @@ from collections.abc import Callable
 from dataclasses import replace
 from typing import Any
 
+from pydantic import ValidationError
+
 from app.core.config import Settings
 from app.modules.math import solve as math_solve
 from app.modules.math.schemas import MathIntent, is_declined
@@ -181,8 +183,10 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
                 block.canonical_answer if block.direct_reply is not None else None
             ),
         )
-    except math_solve.SolveServiceError as exc:
-        # The class only: a SolveServiceError's message quotes the user's expression.
+    except (math_solve.SolveServiceError, ValidationError) as exc:
+        # A decline, by its class only (its message quotes the user's expression): a solver
+        # input refuses a number past its bounds ("100000!", factorising a 13-digit number).
+        # Logged as a failure it raised a traceback into Sentry on every such message.
         logger.info("math_tools skipped: %s", type(exc).__name__)
         return None
     except Exception:
