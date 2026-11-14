@@ -99,5 +99,6 @@
   {"id": "au-dom-en-x-natural", "area": "real domain", "prompt": "Solve x^2 = 9 with x natural", "expect": "decline", "note": "was a checked ±3 on main (2026-11-14 review)"},
   {"id": "au-dom-en-foreign-positiv", "area": "real domain", "prompt": "Solve x^2 = 9 positiv", "expect": "decline"},
   {"id": "au-dom-en-whole-x", "area": "real domain", "prompt": "Solve x^2 = 9 for whole x", "expect": "decline"},
-  {"id": "au-dom-en-whole-equation", "area": "real domain", "prompt": "Solve the whole equation 2x + 3 = 7", "expect": "answer", "check": ["num", "2"], "note": "'whole' away from the unknown is no domain"}
+  {"id": "au-dom-en-whole-equation", "area": "real domain", "prompt": "Solve the whole equation 2x + 3 = 7", "expect": "answer", "check": ["num", "2"], "note": "'whole' away from the unknown is no domain"},
+  {"id": "au-lang-tr-solve", "area": "language", "prompt": "Çöz 3x = 12", "locale": "tr", "expect": "answer", "check": ["num", "4"], "note": "one short word is too little for the language gate; the solve verb itself is the evidence (2026-11-14 review)"}
 ]

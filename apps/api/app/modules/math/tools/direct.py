@@ -363,9 +363,9 @@ def maybe_direct_math_reply(
 ) -> str | None:
     if verified is None:
         return None
-    from app.modules.turn_reading.readable import other_language
+    from app.modules.turn_reading.readable import equation_beside_instruction, other_language
 
-    if other_language(user_text):
+    if other_language(user_text) or equation_beside_instruction(user_text) is not None:
         # "Resuelve 2x + 5 = 17" is read as its equation, but the server's working is
         # English: the model writes it in the asker's language around the checked card.
         return None
