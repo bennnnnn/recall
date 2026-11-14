@@ -178,10 +178,10 @@ async def test_symbolic_boundary_uses_worker_timeout_and_declines(monkeypatch) -
 
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", worker)
     text = "Physics: solve a=F/m for a"
-    _prompt, verified, failed = await build_physics_augmentation(text, settings)
+    _prompt, verified, failed, _ = await build_physics_augmentation(text, settings)
     assert verified is not None and not failed
     assert calls == [settings.stem_solve_timeout_seconds]
-    _prompt, verified, failed = await build_physics_augmentation(
+    _prompt, verified, failed, _ = await build_physics_augmentation(
         "Physics: solve sin(x)=0 for x",
         settings,
     )
@@ -191,10 +191,11 @@ async def test_symbolic_boundary_uses_worker_timeout_and_declines(monkeypatch) -
         raise TimeoutError
 
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", timeout_worker)
-    _prompt, verified, failed = await build_physics_augmentation(text, settings)
+    _prompt, verified, failed, _ = await build_physics_augmentation(text, settings)
     assert verified is None and failed
     assert await build_physics_augmentation(text, Settings(physics_enabled=False)) == (
         None,
         None,
+        False,
         False,
     )
