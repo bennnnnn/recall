@@ -14,7 +14,7 @@ from typing import Any, Literal
 from sympy import Eq, Rational, S, Symbol, latex, oo, simplify, solve, solveset
 
 from app.core.config import get_settings
-from app.modules.math.schemas import EquationInput, MathSolveResult
+from app.modules.math.schemas import EquationInput, MathSolveResult, RejectedRootLatex
 from app.modules.math.solve.declines import declines
 from app.modules.math.solve.equation_conditions import (
     _parameter_solution_conditions,
@@ -24,6 +24,12 @@ from app.modules.math.solve.parse import (
     SolveServiceError,
     _expr_needs_real_domain,
     parse_equation,
+)
+from app.modules.math.solve.real_domain import (
+    RejectedRoot,
+    not_real,
+    rejection,
+    written_domain_rules,
 )
 from app.modules.math.solve.root_latex import (
     _solution_value_latex,
@@ -155,7 +161,9 @@ def solve_equation(data: EquationInput) -> MathSolveResult:
                 for sym in syms
             )
         ]
+    rejected: list[RejectedRoot] = []
     if len(syms) == 1 and not data.complex_roots:
+        raw_solutions, rejected = _in_real_domain(data, syms[0], raw_solutions)
         raw_solutions = _real_roots_when_any(raw_solutions, syms[0])
 
     parameter_conditions: list[str] = []
@@ -191,8 +199,15 @@ def solve_equation(data: EquationInput) -> MathSolveResult:
         steps.extend(_worked_isolation_steps(lhs, rhs, data.variables[0]))
 
     solution_kind: Literal["finite", "none", "infinite"] = "finite"
+    steps.extend(
+        f"Check {item.root} in the original equation: {item.why}, so it is rejected."
+        for item in rejected
+    )
     if solutions_latex:
         steps.append(f"Solutions: {', '.join(solutions_latex)}")
+    elif rejected:
+        solution_kind = "none"
+        steps.append("No real solution: every root SymPy found is rejected above.")
     else:
         solution_kind = _classify_no_solution(lhs, rhs)
         if solution_kind == "infinite":
@@ -211,7 +226,36 @@ def solve_equation(data: EquationInput) -> MathSolveResult:
         solution_kind=solution_kind,
         domain_conditions_latex=[*domain_conditions, *parameter_conditions],
         alternate_cases_latex=alternate_cases,
+        rejected_roots=[RejectedRootLatex(root=item.root, why=item.why) for item in rejected],
     )
+
+
+def _in_real_domain(
+    data: EquationInput, sym: Any, solutions: list[dict[Any, Any]]
+) -> tuple[list[dict[Any, Any]], list[RejectedRoot]]:
+    """The roots the equation as written allows over the reals, and each one it rejects.
+
+    A logarithm needs a positive argument and an even root a radicand >= 0 (``real_domain``).
+    A question that asked for real solutions keeps no non-real root: when no real one is
+    left, each is rejected as not real (``x^2 + 1 = 0`` over the reals has none); beside a
+    real one they go unsaid, as ``_real_roots_when_any`` drops them.
+    """
+    rules = written_domain_rules(data.lhs, data.rhs, data.variables)
+    kept: list[dict[Any, Any]] = []
+    rejected: list[RejectedRoot] = []
+    for solution in solutions:
+        value = solution.get(sym)
+        why = None if value is None else rejection(rules, str(sym), value)
+        if why is None:
+            kept.append(solution)
+        else:
+            rejected.append(RejectedRoot(root=f"{latex(sym)} = {latex(value)}", why=why))
+    if not data.real_only:
+        return kept, rejected
+    unreal = [item for item in kept if _known_realness(item.get(sym)) is False]
+    if len(unreal) < len(kept):
+        return [item for item in kept if item not in unreal], rejected
+    return [], [*rejected, *(not_real(str(sym), item[sym]) for item in unreal)]
 
 
 def _real_roots_when_any(solutions: list[dict[Any, Any]], sym: Any) -> list[dict[Any, Any]]:

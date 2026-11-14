@@ -52,6 +52,10 @@ _RULES: tuple[tuple[re.Pattern[str], str], ...] = tuple(
         (r"^Discriminant", r"Discriminant: $b^2 - 4ac$"),
         (r"^Use the zero-exponent law", r"Zero exponent: $a^0 = 1$ for $a \ne 0$"),
         (r"^Equal bases", r"Equal bases: $a^m = a^n \Rightarrow m = n$"),
+        (
+            r"^Equal logarithms",
+            r"One-to-one property: $\log_b M = \log_b N \Rightarrow M = N$",
+        ),
         (r"^Write\b.*\bas a power of", "Rewrite with the same base"),
         (r"^Combine logarithms", r"Product rule for logs: $\log a + \log b = \log(ab)$"),
         (

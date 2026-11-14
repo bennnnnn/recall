@@ -25,6 +25,7 @@ from app.modules.math.solve.key_steps import (
     written_side,
 )
 from app.modules.math.solve.parse import parse_equation as parse_eq
+from app.modules.math.solve.real_domain import with_rejected_roots
 from app.modules.math.solve.step_rules import (
     evaluate_powers,
     substitution_check,
@@ -95,6 +96,29 @@ def wants_complex_roots(text: str) -> bool:
     return _COMPLEX_ROOT_CUE.search(text) is not None
 
 
+# A real domain stated: "over the reals", "in \\mathbb{R}" (or its symbol), "for real x",
+# "real roots", "where x is a real number". "non-real" and "unreal" are not.
+_REAL_SET = r"(?:\u211D|\\mathbb\s*\{\s*R\s*\})"
+_REAL_DOMAIN_CUE = re.compile(
+    r"\b(?:over|in|on)\s+(?:the\s+)?(?:set\s+of\s+)?(?:reals|real\s+(?:numbers|line))\b"
+    rf"|\b(?:over|in|on)\s+{_REAL_SET}"
+    rf"|\b[a-z]\s*(?:\u2208|\\in\b)\s*{_REAL_SET}"
+    r"|\b(?:for\s+(?:all\s+|every\s+|any\s+)?|all\s+|every\s+|any\s+)"
+    r"real\s+(?:numbers?\s+|values?\s+(?:of\s+)?)?[a-z]\b"
+    r"|(?<![\w-])real(?:[-\s]+number)?\s+(?:roots?|solutions?|zeros?|zeroes?|values?)\b"
+    r"|\b[a-z]\s+(?:is|be|must\s+be)\s+(?:an?\s+)?real(?:\s+numbers?)?\b",
+    re.IGNORECASE,
+)
+
+
+def wants_real_roots(text: str) -> bool:
+    """``x^2 + 1 = 0 over the reals`` has no solution; ``solve x^2 + 1 = 0`` is ±i.
+
+    A question that also asks for complex roots keeps them.
+    """
+    return _REAL_DOMAIN_CUE.search(text) is not None and not wants_complex_roots(text)
+
+
 def _written_given(
     intent: MathIntent,
     lhs: Any,
@@ -157,11 +181,13 @@ def _verified_block_equation(
 ) -> VerifiedMathBlock | None:
     if not (intent.lhs and intent.rhs):
         return None
+    request = intent._request_text or ""
     eq = EquationInput(
         lhs=intent.lhs[: settings.math_max_expr_length],
         rhs=intent.rhs[: settings.math_max_expr_length],
         variables=[intent.variable],
-        complex_roots=wants_complex_roots(intent._request_text or ""),
+        complex_roots=wants_complex_roots(request),
+        real_only=wants_real_roots(request),
     )
     result = math_solve.solve_equation(eq)
     lines.extend(result.steps)
@@ -169,6 +195,8 @@ def _verified_block_equation(
         result.canonical_solutions_latex or result.solutions_latex,
         result.solution_kind,
     )
+    if result.rejected_roots and not result.solutions_latex:
+        answer = r"\text{no real solution}"
     if result.domain_conditions_latex:
         conditions_to_display = result.domain_conditions_latex
         if result.solution_kind == "finite":
@@ -214,6 +242,7 @@ def _verified_block_equation(
             0,
             rf"Zero-exponent law: {symbol}^0 = 1 for {symbol} \ne 0.",
         )
+    key_steps = with_rejected_roots(key_steps, result)
     given_latex, key_steps = _written_given(intent, lhs, rhs, key_steps, result)
     alt = None
     if used_factor_trace(key_steps):
@@ -223,7 +252,7 @@ def _verified_block_equation(
         answer,
         key_steps=key_steps,
         given_latex=given_latex,
-        check_latex=_typed_check(intent, lhs, rhs),
+        check_latex=_typed_check(intent, lhs, rhs) if not result.rejected_roots else None,
         alternate_method_note=alt,
     )
     block = replace(

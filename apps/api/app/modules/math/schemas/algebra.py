@@ -14,6 +14,9 @@ class EquationInput(BaseModel):
     # School answers are real. Non-real roots are kept only when asked for, or
     # when the equation has no real root at all (``x^2 + 1 = 0``).
     complex_roots: bool = False
+    # The question stated a real domain ("over the reals", "for real x"): no non-real
+    # root is kept, so ``x^2 + 1 = 0`` has no solution.
+    real_only: bool = False
 
 
 class SystemOfEquationsInput(BaseModel):
@@ -182,6 +185,13 @@ class MathImageExtract(BaseModel):
         return self
 
 
+class RejectedRootLatex(BaseModel):
+    """A root SymPy found that the equation as written rules out, and why."""
+
+    root: str
+    why: str
+
+
 class MathSolveResult(BaseModel):
     solutions_latex: list[str]
     # Compact ± / conjugate grouping for the ```answer pill. Empty → use solutions_latex.
@@ -198,6 +208,9 @@ class MathSolveResult(BaseModel):
     domain_conditions_latex: list[str] = Field(default_factory=list)
     # Parameter cases that qualify a symbolic solution (for example ax=5).
     alternate_cases_latex: list[str] = Field(default_factory=list)
+    # Roots outside the real domain: a logarithm of a number <= 0, an even root of a
+    # negative, or a non-real root when only real ones were asked for.
+    rejected_roots: list[RejectedRootLatex] = Field(default_factory=list)
 
 
 class MathSystemSolveResult(BaseModel):

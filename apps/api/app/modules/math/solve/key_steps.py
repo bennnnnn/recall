@@ -108,12 +108,12 @@ def equation_key_steps(
         absolute_value_key_steps,
         exponential_key_steps,
         fractional_power_key_steps,
-        logarithm_key_steps,
         radical_equation_key_steps,
         rational_equation_key_steps,
     )
+    from app.modules.math.solve.log_key_steps import logarithm_trace
 
-    logarithm_steps = logarithm_key_steps(lhs, rhs, var)
+    logarithm_steps = logarithm_trace(lhs, rhs, var)
     if logarithm_steps is not None:
         return logarithm_steps
     exponential_steps = exponential_key_steps(lhs, rhs, var)
