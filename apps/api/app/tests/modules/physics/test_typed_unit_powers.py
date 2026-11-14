@@ -14,7 +14,7 @@ from app.core.config import Settings
 from app.modules.physics.display import plain_unit
 from app.modules.physics.givens import scan_givens, unit_dimension
 from app.modules.physics.numbers import normalize_physics_units
-from app.services.symbolic_text import fold_numeric_superscripts
+from app.services.symbolic_text import fold_superscripts
 from app.tests.modules.physics.support import (
     build_verified_physics_block,
     extract_physics_intent,
@@ -80,7 +80,7 @@ def test_a_product_of_powers_is_written_with_a_slash(written: str, read: str) ->
     [("s⁻²", "s^-2"), ("10⁻⁹", "10^-9"), ("x²", "x^2"), ("an e⁻ beam", "an e⁻ beam")],
 )
 def test_a_superscript_sign_belongs_to_its_power(written: str, folded: str) -> None:
-    assert fold_numeric_superscripts(written) == folded
+    assert fold_superscripts(written) == folded
 
 
 @pytest.mark.parametrize(

@@ -1,0 +1,257 @@
+[
+  {
+    "id": "rl-ibp-cos",
+    "area": "calculus",
+    "prompt": "Integrate eˣ cos(2x) with respect to x using integration by parts.",
+    "expect": "answer",
+    "check": [
+      "anti",
+      "exp(x)*(cos(2*x)+2*sin(2*x))/5"
+    ],
+    "note": "was ˣ·e·sin(2x)/2 + C; a raised letter was a symbol of its own and the turn was certified (grade 12 textbook round, 2026-11-13)"
+  },
+  {
+    "id": "rl-sin-2x",
+    "area": "calculus",
+    "prompt": "Evaluate ∫ eˣ sin 2x dx",
+    "expect": "answer",
+    "check": [
+      "anti",
+      "exp(x)*(sin(2*x)-2*cos(2*x))/5"
+    ],
+    "note": "a raised letter was a symbol of its own and the turn was certified (grade 12 textbook round, 2026-11-13)"
+  },
+  {
+    "id": "rl-x-ex",
+    "area": "calculus",
+    "prompt": "Find ∫ x eˣ dx",
+    "expect": "answer",
+    "check": [
+      "anti",
+      "x*exp(x)-exp(x)"
+    ],
+    "note": "was e·x²·ˣ/2 + C; a raised letter was a symbol of its own and the turn was certified (grade 12 textbook round, 2026-11-13)"
+  },
+  {
+    "id": "rl-x2-ex",
+    "area": "calculus",
+    "prompt": "Evaluate ∫ x² eˣ dx",
+    "expect": "answer",
+    "check": [
+      "anti",
+      "(x**2-2*x+2)*exp(x)"
+    ],
+    "note": "a raised letter was a symbol of its own and the turn was certified (grade 12 textbook round, 2026-11-13)"
+  },
+  {
+    "id": "rl-product",
+    "area": "calculus",
+    "prompt": "Differentiate y = eˣ sin x",
+    "expect": "answer",
+    "check": [
+      "expr",
+      "exp(x)*(sin(x)+cos(x))"
+    ],
+    "note": "the product rule was lost; a raised letter was a symbol of its own and the turn was certified (grade 12 textbook round, 2026-11-13)"
+  },
+  {
+    "id": "rl-2-to-x",
+    "area": "calculus",
+    "prompt": "Find the derivative of 2ˣ",
+    "expect": "answer",
+    "check": [
+      "expr",
+      "2**x*log(2)"
+    ],
+    "note": "was 0; a raised letter was a symbol of its own and the turn was certified (grade 12 textbook round, 2026-11-13)"
+  },
+  {
+    "id": "rl-e-minus-x",
+    "area": "calculus",
+    "prompt": "Differentiate e⁻ˣ",
+    "expect": "answer",
+    "check": [
+      "expr",
+      "-exp(-x)"
+    ],
+    "note": "a raised letter was a symbol of its own and the turn was certified (grade 12 textbook round, 2026-11-13)"
+  },
+  {
+    "id": "rl-e-minus-2x",
+    "area": "calculus",
+    "prompt": "Find the derivative of e⁻²ˣ",
+    "expect": "answer",
+    "check": [
+      "expr",
+      "-2*exp(-2*x)"
+    ],
+    "note": "a raised letter was a symbol of its own and the turn was certified (grade 12 textbook round, 2026-11-13)"
+  },
+  {
+    "id": "rl-e-2x-integral",
+    "area": "calculus",
+    "prompt": "Integrate e²ˣ dx",
+    "expect": "answer",
+    "check": [
+      "anti",
+      "exp(2*x)/2"
+    ],
+    "note": "a raised letter was a symbol of its own and the turn was certified (grade 12 textbook round, 2026-11-13)"
+  },
+  {
+    "id": "rl-2-to-x-plus-1",
+    "area": "calculus",
+    "prompt": "Differentiate 2ˣ⁺¹ with respect to x",
+    "expect": "answer",
+    "check": [
+      "expr",
+      "2**(x+1)*log(2)"
+    ],
+    "note": "a raised letter was a symbol of its own and the turn was certified (grade 12 textbook round, 2026-11-13)"
+  },
+  {
+    "id": "rl-x-to-n",
+    "area": "calculus",
+    "prompt": "Find d/dx(xⁿ)",
+    "expect": "answer",
+    "check": [
+      "expr",
+      "n*x**(n-1)"
+    ],
+    "note": "was the symbol ⁿ; a raised letter was a symbol of its own and the turn was certified (grade 12 textbook round, 2026-11-13)"
+  },
+  {
+    "id": "rl-exp-laws",
+    "area": "algebra",
+    "prompt": "Simplify aᵇ · aᶜ",
+    "expect": "answer",
+    "check": [
+      "expr",
+      "a**(b+c)"
+    ],
+    "note": "a raised letter was a symbol of its own and the turn was certified (grade 12 textbook round, 2026-11-13)"
+  },
+  {
+    "id": "rl-e-to-x-5",
+    "area": "equation",
+    "prompt": "Solve eˣ = 5",
+    "expect": "answer",
+    "check": [
+      "num",
+      "log(5)"
+    ],
+    "note": "a raised letter was a symbol of its own and the turn was certified (grade 12 textbook round, 2026-11-13)"
+  },
+  {
+    "id": "rl-2-to-x-32",
+    "area": "equation",
+    "prompt": "Solve 2ˣ = 32",
+    "expect": "answer",
+    "check": [
+      "num",
+      "5"
+    ],
+    "note": "a raised letter was a symbol of its own and the turn was certified (grade 12 textbook round, 2026-11-13)"
+  },
+  {
+    "id": "rl-definite-0-1",
+    "area": "calculus",
+    "prompt": "Evaluate ∫₀¹ eˣ dx",
+    "expect": "answer",
+    "check": [
+      "num",
+      "exp(1)-1"
+    ],
+    "note": "a lowered and a raised limit on the integral sign; a raised letter was a symbol of its own and the turn was certified (grade 12 textbook round, 2026-11-13)"
+  },
+  {
+    "id": "rl-definite-minus-1",
+    "area": "calculus",
+    "prompt": "Evaluate ∫₋₁¹ x² dx",
+    "expect": "answer",
+    "check": [
+      "num",
+      "2/3"
+    ],
+    "note": "a signed lowered limit"
+  },
+  {
+    "id": "rl-definite-1-e",
+    "area": "calculus",
+    "prompt": "Evaluate ∫₁ᵉ ln x dx",
+    "expect": "answer",
+    "check": [
+      "num",
+      "1"
+    ],
+    "note": "the raised e is the upper limit"
+  },
+  {
+    "id": "rl-limit-e",
+    "area": "limit",
+    "prompt": "Find the limit of (1 + 1/n)ⁿ as n → ∞",
+    "expect": "answer",
+    "check": [
+      "num",
+      "exp(1)"
+    ],
+    "note": "was the symbol ⁿ; a raised letter was a symbol of its own and the turn was certified (grade 12 textbook round, 2026-11-13)"
+  },
+  {
+    "id": "rl-36-to-x",
+    "area": "calculus",
+    "prompt": "Differentiate h(x) = 3ˣ × 3ˣ × 2²ˣ with respect to x.",
+    "expect": "answer",
+    "check": [
+      "expr",
+      "36**x*log(36)"
+    ],
+    "note": "was 0 (b033); a raised letter was a symbol of its own and the turn was certified (grade 12 textbook round, 2026-11-13)"
+  },
+  {
+    "id": "rl-glued-sin",
+    "area": "calculus",
+    "prompt": "Differentiate eˣsin x",
+    "expect": "answer",
+    "check": [
+      "expr",
+      "exp(x)*(sin(x)+cos(x))"
+    ],
+    "note": "a raised power glued to the word after it ends where it was raised"
+  },
+  {
+    "id": "rl-ipa",
+    "area": "lookalike",
+    "prompt": "In IPA, aspirated stops are written pʰ, tʰ and kʰ. Why does English aspirate them?",
+    "expect": "not_math",
+    "note": "prose with raised letters is no maths"
+  },
+  {
+    "id": "rl-ordinal",
+    "area": "lookalike",
+    "prompt": "What happened in the 21ˢᵗ century so far?",
+    "expect": "not_math",
+    "note": "prose with raised letters is no maths"
+  },
+  {
+    "id": "rl-ordinals-race",
+    "area": "lookalike",
+    "prompt": "The 2ⁿᵈ and 3ʳᵈ place runners finished together.",
+    "expect": "not_math",
+    "note": "prose with raised letters is no maths"
+  },
+  {
+    "id": "rl-name",
+    "area": "lookalike",
+    "prompt": "Tell me about the Kʷak̓ʷala language and where it is spoken.",
+    "expect": "not_math",
+    "note": "prose with raised letters is no maths"
+  },
+  {
+    "id": "rl-key",
+    "area": "lookalike",
+    "prompt": "Why is the ˣ key on my phone keyboard so small?",
+    "expect": "not_math",
+    "note": "prose with raised letters is no maths"
+  }
+]

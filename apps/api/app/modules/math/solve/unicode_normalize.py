@@ -1,15 +1,10 @@
 """Unicode maths glyphs from OCR and homework as ASCII: operators, vulgar fractions,
-superscript and subscript digits, and root signs."""
+superscripts and subscripts, and root signs."""
 
 from __future__ import annotations
 
-from app.services.glyphs import (
-    OPERATOR_GLYPHS,
-    SUBSCRIPT_DIGIT_GLYPHS,
-    SUBSCRIPT_DIGITS,
-    SUPERSCRIPT_DIGIT_GLYPHS,
-    SUPERSCRIPT_DIGITS,
-)
+from app.services.glyphs import OPERATOR_GLYPHS
+from app.services.script_runs import fold_subscript_runs, fold_superscript_runs
 
 # OCR / homework unicode operators → ASCII before the allowlist runs.
 # Do NOT widen `_SAFE_EXPR_CHARS`; map glyphs here instead.
@@ -40,37 +35,11 @@ _UNICODE_VULGAR: tuple[tuple[str, str], ...] = (
     ("\u215e", "(7)/(8)"),
 )
 
-_SUP_GLYPHS = SUPERSCRIPT_DIGIT_GLYPHS
-_SUB_GLYPHS = SUBSCRIPT_DIGIT_GLYPHS
-_SUP_TABLE = SUPERSCRIPT_DIGITS
-_SUB_TABLE = SUBSCRIPT_DIGITS
-
 
 def _rewrite_unicode_script_runs(s: str) -> str:
-    out: list[str] = []
-    i = 0
-    n = len(s)
-    while i < n:
-        ch = s[i]
-        if ch in _SUP_GLYPHS:
-            j = i + 1
-            while j < n and s[j] in _SUP_GLYPHS:
-                j += 1
-            digits = s[i:j].translate(_SUP_TABLE)
-            out.append(f"**{digits}" if len(digits) == 1 else f"**({digits})")
-            i = j
-            continue
-        if ch in _SUB_GLYPHS:
-            j = i + 1
-            while j < n and s[j] in _SUB_GLYPHS:
-                j += 1
-            digits = s[i:j].translate(_SUB_TABLE)
-            out.append(f"_{digits}")
-            i = j
-            continue
-        out.append(ch)
-        i += 1
-    return "".join(out)
+    """``x²`` → ``x**2``, ``eˣ`` → ``e**x``, ``e⁻ˣ`` → ``e**(-x)``, ``x₁`` → ``x_1``: the
+    one reading every reader shares (``services/script_runs.py``)."""
+    return fold_subscript_runs(fold_superscript_runs(s, mark="**", group_numbers=True))
 
 
 _UNICODE_HIGHER_ROOTS = {"\u221b": "3", "\u221c": "4"}  # cube and fourth root signs

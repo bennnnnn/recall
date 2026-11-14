@@ -22,6 +22,7 @@ must be a function or constant SymPy knows, a Greek letter, a letter with a subs
 from __future__ import annotations
 
 import re
+import unicodedata
 from typing import Any
 
 import sympy
@@ -32,6 +33,7 @@ from app.modules.math.function_names import (
     names_longest_first,
 )
 from app.modules.math.match.letter_runs import MATH_MULTI_LETTER
+from app.services.script_runs import fold_subscript_runs, fold_superscript_runs
 from app.services.solving import SolveServiceError
 
 # Longest first, so ``sinh`` is not read as ``sin`` + ``h``.
@@ -79,8 +81,10 @@ def _subscripted(text: str) -> bool:
 def reject_unwritten_symbols(expr: str, parsed: Any) -> None:
     """Every one-letter symbol must be a letter the writer wrote as a name.
 
-    A subscripted name fails even when nothing is left of it: ``2v0/g`` parses as 0.
+    A subscripted name fails even when nothing is left of it: ``2v0/g`` parses as 0. A raised
+    or lowered letter is read as the parser read it: the n of ``xⁿ⁻¹`` is a letter written.
     """
+    expr = fold_subscript_runs(fold_superscript_runs(expr))
     names = {symbol.name for symbol in getattr(parsed, "free_symbols", ()) if len(symbol.name) == 1}
     if _subscripted(expr) or (names and not names <= _written_letters(expr)):
         raise SolveServiceError(f"Could not parse expression: {expr}")
@@ -100,7 +104,11 @@ def reject_unknown_names(normalized: str, declared: set[str]) -> None:
     """Every name in the parser's text is one it knows, or one-letter variables written
     together. A word is a name nobody defined: one joined by ``_`` (``cube_root``), a letter
     twice (``root``, ``speed``), four letters or more out of order (``cube``, ``velocity``),
-    or three out of order applied to a bracket (``fog(x)``)."""
+    or three out of order applied to a bracket (``fog(x)``). A modifier letter is no name
+    either: one the script reading left in place (``eˣsin x``, "the ˣ key") was a symbol of
+    its own, and ∫ x eˣ dx was certified as e·x²·ˣ/2 (2026-11-13)."""
+    if any(unicodedata.category(char) == "Lm" for char in normalized):
+        raise SolveServiceError(f"Could not parse expression: {normalized}")
     for match in _NAME.finditer(normalized):
         name = match.group()
         if len(name) == 1 or name in declared or name in _KNOWN_NAMES:

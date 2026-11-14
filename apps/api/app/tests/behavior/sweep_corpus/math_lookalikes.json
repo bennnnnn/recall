@@ -702,5 +702,47 @@
   "prompt": "my garden bed is a trapezoid with parallel sides 3 m and 5 m and it's 2 m deep, how much soil covers it?",
   "reply": "The bed's area is $\\frac{(3 + 5)}{2} \\times 2 = 8$ m². Multiply by the soil depth you want: at 0.2 m deep you need $8 \\times 0.2 = 1.6$ m³ of soil.",
   "expect": "answer"
+ },
+ {
+  "id": "ml-095",
+  "area": "math lookalike",
+  "prompt": "In IPA, aspirated stops are written pʰ, tʰ and kʰ. Why does English aspirate them?",
+  "reply": "English aspirates a voiceless stop at the start of a stressed syllable: the vocal folds stay apart for a moment after the release, so a puff of air follows **p**, **t** or **k** in *pin*, *tin* and *kin*. After an *s* (*spin*) there is no puff.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-096",
+  "area": "math lookalike",
+  "prompt": "What happened in the 21ˢᵗ century so far?",
+  "reply": "A few of the biggest shifts: smartphones and social media, the 2008 financial crisis, the COVID-19 pandemic, and fast progress in renewable energy and AI.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-097",
+  "area": "math lookalike",
+  "prompt": "The 2ⁿᵈ and 3ʳᵈ place runners finished together. Who gets the silver medal?",
+  "reply": "If they truly finished together, officials use the photo finish. If it still shows a tie, both runners can share second place and each gets a silver medal; no bronze is awarded.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-098",
+  "area": "math lookalike",
+  "prompt": "Tell me about the Kʷak̓ʷala language and where it is spoken.",
+  "reply": "Kʷak̓ʷala is the language of the Kwakwaka'wakw people, spoken on northern Vancouver Island and the nearby mainland coast of British Columbia. It belongs to the Wakashan family, and revitalization programs teach it in local schools.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-099",
+  "area": "math lookalike",
+  "prompt": "Why is the ˣ key on my phone keyboard so small?",
+  "reply": "Raised letters like that are drawn at superscript size on purpose: they sit above the line, so the keyboard shows them smaller than ordinary letters. Long-press the letter to see the full-size choices.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-100",
+  "area": "math lookalike",
+  "prompt": "Le 1ᵉʳ mai est un jour férié en France ?",
+  "reply": "Oui, le 1ᵉʳ mai, fête du Travail, est un jour férié et chômé en France.",
+  "expect": "answer"
  }
 ]

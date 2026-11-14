@@ -26,17 +26,16 @@ from collections.abc import Iterable
 from typing import Any
 
 from app.services.glyphs import OPERATOR_GLYPHS
+from app.services.script_runs import fold_superscript_runs
 
 logger = logging.getLogger(__name__)
 
 _MAX_CANDIDATES = 24
 _MAX_TEXT = 2000
 
-# The operators are the shared table (services/glyphs.py); the rest are this check's.
+# The operators are the shared table (services/glyphs.py) and raised powers the shared
+# reading (services/script_runs.py); the rest are this check's.
 _UNICODE = {
-    "²": "^2",
-    "³": "^3",
-    "⁴": "^4",
     **OPERATOR_GLYPHS,
     "π": "pi",
     "√": "sqrt",
@@ -84,7 +83,7 @@ _ORDER_WORDS = {2: ("second", "2nd", "d^2", "d²", "''"), 3: ("third", "3rd", "d
 
 
 def _normalize(text: str) -> str:
-    out = text[:_MAX_TEXT]
+    out = fold_superscript_runs(text[:_MAX_TEXT])
     for raw, plain in _UNICODE.items():
         out = out.replace(raw, plain)
     return out.replace("$", " ").replace("\\cdot", "*").replace("\\times", "*")

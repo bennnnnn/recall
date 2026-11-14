@@ -31,7 +31,7 @@ from app.modules.turn_reading.readable import (
 )
 from app.services.glyphs import SUPERSCRIPT_DIGIT_GLYPHS
 from app.services.subject_scan import words_after_scanner_caption
-from app.services.symbolic_text import fold_latex_marks, fold_numeric_superscripts
+from app.services.symbolic_text import fold_latex_marks, fold_superscripts
 from app.services.text_normalize import collapse_ws
 
 GREETING_CHAT_TITLE = "Greeting"
@@ -134,7 +134,7 @@ def _own_words(user_message: str) -> str:
         words_after_scanner_caption(user_message)[:TITLE_SOURCE_CHARS],
     )
     readable = collapse_ws(without_attachment_refs(unwrapped))
-    return fold_numeric_superscripts(fold_latex_marks(readable))
+    return fold_superscripts(fold_latex_marks(readable))
 
 
 def _title_source(user_message: str) -> str:

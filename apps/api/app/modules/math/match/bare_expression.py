@@ -22,6 +22,7 @@ from fractions import Fraction
 
 from app.modules.math.tex_numbers import fraction_tex
 from app.services.md_fence_scan import has_closed_fence, without_fences
+from app.services.script_runs import fold_superscript_runs
 from app.services.text_normalize import collapse_ws
 from app.services.times_sign import with_times
 
@@ -31,10 +32,9 @@ _LEAD_IN = re.compile(
     re.IGNORECASE,
 )
 _TAIL = re.compile(r"\s+(?:mean|means|meaning)$", re.IGNORECASE)
-# Superscript powers, the minus sign, the times sign and the middle dot, typed as they read.
-_SUPERSCRIPTS = str.maketrans(
-    {"\u00b2": "^2", "\u00b3": "^3", "\u2212": "-", "\u00d7": "*", "\u00b7": "*"}
-)
+# The minus sign, the times sign and the middle dot, typed as they read. Raised powers are
+# the shared reading (``x⁴``, ``xⁿ``: the ² and ³ this table once held were the only ones).
+_OPERATORS = str.maketrans({"\u2212": "-", "\u00d7": "*", "\u00b7": "*"})
 _TOKEN = re.compile(r"\s*(?:(\d+(?:\.\d+)?)|([a-zA-Z]+)|([-+*/^()]))")
 _XYZ = frozenset("xyz")
 _CONSTANTS = frozenset("ie")
@@ -189,7 +189,7 @@ class BareExpression:
 
 def read_bare_expression(message: str) -> BareExpression | None:
     """The expression a message is, with nothing asked of it; None for anything else."""
-    text = collapse_ws(message.translate(_SUPERSCRIPTS)).strip(" ?.!")
+    text = collapse_ws(fold_superscript_runs(message).translate(_OPERATORS)).strip(" ?.!")
     text = _TAIL.sub("", _LEAD_IN.sub("", text)).strip(" ?.!")
     if not text or "=" in text:
         return None
