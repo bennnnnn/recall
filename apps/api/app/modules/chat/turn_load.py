@@ -345,7 +345,7 @@ async def load_regenerate_turn(
     # A regenerate routes the line on its own (``resolve_regenerate_model``): no prior line.
     await read_turn_message(last_user.content, [], settings)
     model = deps.model_choice.resolve_regenerate_model(
-        user, model_alias, last_user.content, last.model, settings
+        user, model_alias, last_user.content, last.model, settings, unhealthy=health.cooling
     )
     backup: RegenerateBackup | None = None
     omit_message_ids: set[UUID] | None = None

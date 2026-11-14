@@ -189,6 +189,8 @@ class ModelChoice(Protocol):
         content: str,
         prior_assistant_model: str | None,
         settings: Settings,
+        *,
+        unhealthy: frozenset[str] = ...,
     ) -> str: ...
 
 

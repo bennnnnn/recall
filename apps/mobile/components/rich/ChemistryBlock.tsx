@@ -10,6 +10,7 @@ import { CopyButton } from "@/components/CopyButton";
 import { MoleculeCaption, MoleculeNote } from "@/components/rich/MoleculeChrome";
 import { useFenceRefused } from "@/components/rich/useFenceRefused";
 import { usePreviewPage } from "@/components/rich/usePreviewPage";
+import { imageLabelProps } from "@/components/rich/imageLabel";
 import { VisualCard } from "@/components/rich/VisualCard";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { parseChemistryFence } from "@/lib/chemistry/fence";
@@ -40,7 +41,16 @@ const ERROR_KEY: Record<SmilesDrawerError, string> = {
  * 2D SMILES preview without card chrome — used by ChemistryBlock and MoleculeCard, each
  * naming its fence for a structure the drawer refuses.
  */
-export function Chemistry2DView({ smiles, fence }: { smiles: string; fence: "chemistry" | "molecule" }) {
+export function Chemistry2DView({
+  smiles,
+  fence,
+  name,
+}: {
+  smiles: string;
+  fence: "chemistry" | "molecule";
+  /** What a screen reader calls the drawing: the molecule's name, else its SMILES. */
+  name?: string | null;
+}) {
   const theme = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
@@ -91,7 +101,7 @@ export function Chemistry2DView({ smiles, fence }: { smiles: string; fence: "che
       );
     }
     return (
-      <View style={s.webWrap}>
+      <View style={s.webWrap} {...imageLabelProps(t("rich.chemistry_2d_a11y", { name: name?.trim() || smiles }))}>
         <WebView
           key={preview.webViewKey}
           {...preview.webViewProps}
@@ -137,7 +147,7 @@ export function ChemistryBlock({ content }: Props) {
     >
       {caption ? <MoleculeCaption text={caption} /> : null}
 
-      <Chemistry2DView smiles={smiles} fence="chemistry" />
+      <Chemistry2DView smiles={smiles} fence="chemistry" name={caption} />
     </VisualCard>
   );
 }

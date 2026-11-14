@@ -35,6 +35,8 @@ type Props = {
 
 // Match standalone KaTeX and the answer text role, including nested native math.
 const ANSWER_FONT_SIZE = 20;
+// A display answer wider than its card shrinks this far to stay whole (14pt of 20) before it scrolls.
+const ANSWER_MIN_FIT = 0.7;
 
 function answerNeedsDisplayMath(text: string): boolean {
   if (isHeavyInlineMath(text)) return true;
@@ -182,7 +184,7 @@ export function AnswerBlock({ content, settled = true }: Props) {
       spokenAnswerValue(parsed.body),
       <>
         <View style={s.fill}>
-          <MathSvgView latex={text} textColor={theme.text} minHeight={48} em={ANSWER_FONT_SIZE} />
+          <MathSvgView latex={text} textColor={theme.text} minHeight={48} em={ANSWER_FONT_SIZE} minFit={ANSWER_MIN_FIT} />
         </View>
         {check}
       </>,
