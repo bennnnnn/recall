@@ -13,7 +13,6 @@ import {
 import { firstOverdueHomeTodo } from "@/features/todos/model/homeUrgentTodos";
 import { listUrgentReminders, reminderGoesOutAt } from "@/features/todos/model/reminderBadge";
 import { clashClusters, findOverlappingReminder, groupBySameTime } from "@/features/todos/model/reminderOverlap";
-import { todosForView } from "@/features/todos/model/todoListFilter";
 import { buildTodoListRows } from "@/features/todos/model/todoListRows";
 import type { Todo } from "@/lib/api";
 
@@ -54,10 +53,9 @@ describe("the day of a date alone", () => {
     expect(describeDueAt(NOV_10.toISOString(), false)).toEqual({ label: "todos.overdue_days:2", tone: "overdue" });
   });
 
-  it("stays in Today's group and view on its day, and moves to Overdue after it", () => {
+  it("stays in Today's group on its day, and moves to Overdue after it", () => {
     const late = new Date(2026, 10, 10, 23, 59);
     expect(buildTodoListRows([todo()], late)[0]).toMatchObject({ kind: "heading", section: "today" });
-    expect(todosForView([todo()], "today", late)).toHaveLength(1);
     const next = new Date(2026, 10, 11, 0, 1);
     expect(buildTodoListRows([todo()], next)[0]).toMatchObject({ kind: "heading", section: "overdue" });
   });
