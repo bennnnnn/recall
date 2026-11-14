@@ -347,11 +347,19 @@ flowchart LR
    thing the phone draws a green check for. A reply that answers and then offers more
    ("Want the max height too?") keeps the card and scene; only a reply that asks instead
    of stating any result goes without. A final value in the prose that differs from the
-   verified one at the precision the reply wrote it (`R = 20.4 m` against `35.3 m`; `20 m/s` agrees with 19.8) stands in a card with no check, and the
-   scene goes: the model was shown the verified result, so the two read the question
-   differently (it was "The verified answer is …" above the card until 2026-11-13). A
-   model-written `simulation` is never shown on a turn without
-   a verified physics block.
+   verified one at the precision the reply wrote it (`R = 20.4 m` against `35.3 m`; `20 m/s`
+   agrees with 19.8) means the two read the question differently, and which reading stands
+   depends on where the card's came from (`fence.read_from_their_words`):
+   - a typed reader (an extractor, the binder, a chain of catalog laws) read the student's
+     own words: the card and its scene stand, under one line, "The verified answer is …".
+     A model writing F = 3800 N for a 1200 kg car brought from rest to 20 m/s in 8 s no
+     longer drops the server's 3000 N (owner, 2026-11-13, with the audit's wrong typed
+     readings fixed: a typed reading that is wrong must not exist);
+   - a follow-up's rewritten problem or a scanner photo's reading: that reading is the one
+     in doubt, so the reply's value stands in a card with no check, and the scene goes
+     (#2420).
+
+   A model-written `simulation` is never shown on a turn without a verified physics block.
 
 ## Adding a law
 

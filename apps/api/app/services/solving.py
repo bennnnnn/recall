@@ -160,6 +160,10 @@ class VerifiedPhysicsBlock(VerifiedSolveBlock):
     symbolic_request: SymbolicPhysicsRequest | None = None
     # The question asks for more than this result answers: the model answers the rest.
     partial: bool = False
+    # The words physics read this result from. A typed reading of the student's own words
+    # keeps its card over a model's other value; a follow-up's rewrite or a photo's reading
+    # does not (``physics.fence``).
+    read_text: str | None = None
 
 
 @dataclass(frozen=True)
