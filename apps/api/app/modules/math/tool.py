@@ -8,7 +8,7 @@ from typing import Any, TypeVar
 
 from app.core.config import Settings
 from app.gateways.mcp.base import ToolContext, ToolResult
-from app.models.schemas.tools import SympyToolInput
+from app.models.schemas.tools import SympyToolInput, graph_range
 from app.modules.math import solve as math_solve
 from app.modules.math import tools as math_tools
 from app.modules.math.schemas import (
@@ -477,8 +477,7 @@ class SympyAdapter:
 
     async def _action_graph(self, args: dict[str, Any]) -> ToolResult:
         variable = str(args.get("variable") or "x")
-        x_min = float(args.get("x_min") or -10)
-        x_max = float(args.get("x_max") or 10)
+        x_min, x_max, named = graph_range(args)
         n = self.settings.math_graph_max_points
         raw_expr = args.get("expr")
         if not isinstance(raw_expr, str) or not raw_expr.strip():
@@ -563,6 +562,7 @@ class SympyAdapter:
             variable=graph_result.variable,
             x_min=graph_result.x_min,
             x_max=graph_result.x_max,
+            domain_explicit=named,
             points=graph_result.points,
             segments=graph_result.segments if has_discontinuity else [],
             expr2=expr2,

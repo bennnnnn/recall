@@ -33,6 +33,8 @@ from typing import TYPE_CHECKING
 from pydantic import ValidationError
 
 from app.modules.math.fence_answer import reply_asks_instead_of_answering
+from app.modules.math.fence_canonical import canonical_replacement
+from app.modules.math.fence_canonical import spec_fence_kind as spec_fence_kind
 from app.modules.math.fence_conflict import contradicted_reading, rewrite_answer_fences
 from app.modules.math.fence_graph import densify_sparse_graph
 from app.modules.math.schemas import GraphBlockSpec
@@ -67,77 +69,11 @@ _MAX_GRAPH_FENCES = 2
 _MAX_ARITHMETIC_FENCES = 1
 _ANSWER_FENCE_LANGS = ANSWER_FENCE_LANGS
 _CHART_ALIAS_LANGS = ("chart", "vega", "vega-lite", "plot")
-_DIAGRAM_FAIL_NOTE = "\n*Could not render that diagram.*\n"
+# A model's own diagram that no solver drew goes without a word: a note saying the app
+# "could not render" it read as the app unable to draw, and stood above the verified
+# picture the same reply carried (the textbook run's y = 2x + 1, 2026-11-13).
+_DIAGRAM_DROPPED = "\n"
 _WORKING_FAIL_NOTE = "\n*Could not render that written working.*\n"
-
-_GEOMETRY_TYPES = frozenset(
-    {
-        "rectangle",
-        "rect",
-        "square",
-        "triangle",
-        "right_triangle",
-        "triangle_sides",
-        "circle",
-        "trapezoid",
-        "parallelogram",
-        "sector",
-    }
-)
-_GRAPH_TYPES = frozenset({"function", "vertical", "number_line", "trajectory", "inequality"})
-
-
-def _canonical_replacement(
-    raw: str,
-    canonical_fence: dict[str, object] | None,
-    canonical_fences: list[dict[str, object]] | None = None,
-) -> str | None:
-    """If a canonical fence exists for this turn and the model's fence is the
-    same kind, return the canonical JSON to substitute in — the model's own
-    numbers are never trusted once we have the real computed values.
-
-    ``canonical_fences`` (from multiple tool-loop rounds) is matched by type
-    so a geometry fence from round 1 isn't lost when round 2 produced a graph
-    fence. The primary is searched **alongside** it, not only when it is empty:
-    the other two readers of this pair (`collect_canonical_specs` and
-    `_solver_fences`) already prepend the primary, and this one treating the
-    list as a replacement meant a caller storing only the extras would have its
-    primary silently stop matching — which is exactly what happened when a
-    physics scene was added beside a trajectory graph, striking out the graph
-    the reply already carried. The tool loop stores the primary in both, and a
-    duplicate here is harmless: the first type match wins either way.
-    """
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError:
-        return None
-    if not isinstance(data, dict):
-        return None
-    fences = [fence for fence in (canonical_fence, *(canonical_fences or [])) if fence is not None]
-    if not fences:
-        return None
-    data_type = data.get("type")
-    for fence in fences:
-        if data_type == fence.get("type"):
-            return json.dumps(fence, separators=(",", ":"))
-    # Model often emits a y=f(x) step for "graph x > 3"; replace any graph
-    # fence with the verified number line.
-    for fence in fences:
-        if fence.get("type") == "inequality" and data_type in _GRAPH_TYPES:
-            return json.dumps(fence, separators=(",", ":"))
-        if fence.get("type") == "number_line" and data_type in {
-            "function",
-            "vertical",
-            "number_line",
-        }:
-            return json.dumps(fence, separators=(",", ":"))
-        if fence.get("type") == "trajectory" and data_type in {
-            "function",
-            "vertical",
-            "trajectory",
-        }:
-            return json.dumps(fence, separators=(",", ":"))
-    return None
 
 
 def _graph_fence_body(spec: GraphBlockSpec) -> str:
@@ -169,12 +105,12 @@ def _replace_unclosed_graph_fence(
         "trajectory",
         "inequality",
     }:
-        note = _DIAGRAM_FAIL_NOTE
+        note = _DIAGRAM_DROPPED
         return head + note + rest
     try:
         parsed = GraphBlockSpec.model_validate(canonical_fence)
     except (ValidationError, TypeError):
-        note = _DIAGRAM_FAIL_NOTE
+        note = _DIAGRAM_DROPPED
         return head + note + rest
     spec = densify_sparse_graph(parsed) if densify else parsed
     suffix = rest if rest.startswith("\n") else ("\n" + rest if rest else "\n")
@@ -200,9 +136,8 @@ def replace_unclosed_graph_fence_safe(
     still needs to be cleaned up so the client doesn't render a half-pasted
     points array. Closed unmatched `` ```geometry `` / `` ```graph `` fences
     are degraded the same way as ``validate_math_fences`` (P0-G), without
-    densify. Substitute the verified canonical fence as-is or strip to the
-    "Could not render that diagram." note. No SymPy, no sampling — safe to
-    run after a solve timeout.
+    densify. Substitute the verified canonical fence as-is or drop the model's.
+    No SymPy, no sampling — safe to run after a solve timeout.
     """
     content = _replace_unclosed_graph_fence(content, canonical_fence, densify=False)
     return _degrade_closed_diagram_fences(content, canonical_fence)
@@ -236,9 +171,10 @@ def _replace_fence(
     path for unmatched fences.
     """
     raw = raw.strip()
-    corrected = _canonical_replacement(raw, canonical_fence, canonical_fences)
+    family = label if label in {"geometry", "graph"} else None
+    corrected = canonical_replacement(raw, canonical_fence, canonical_fences, family)
     if corrected is None:
-        return _WORKING_FAIL_NOTE if label == "arithmetic" else _DIAGRAM_FAIL_NOTE
+        return _WORKING_FAIL_NOTE if label == "arithmetic" else _DIAGRAM_DROPPED
     if label != "graph":
         return f"```{label}\n{corrected}\n```"
     # Densify only the verified canonical curve — never an unverified
@@ -280,29 +216,6 @@ def canonical_answer_body(verified: VerifiedMathBlock | None) -> str | None:
         content = fence.get("content")
         if isinstance(content, str) and content.strip():
             return content.strip()
-    return None
-
-
-def spec_fence_kind(spec: dict[str, object]) -> str | None:
-    from app.modules.math.schemas.teaching import TEACHING_TYPES
-
-    spec_type = spec.get("type")
-    if spec_type == "answer":
-        return "answer"
-    if spec_type in TEACHING_TYPES:
-        return "teach"
-    if spec_type == "arithmetic":
-        return "arithmetic"
-    if spec_type == "fraction":
-        return "arithmetic"
-    if spec_type in _GEOMETRY_TYPES:
-        return "geometry"
-    if spec_type in _GRAPH_TYPES:
-        return "graph"
-    if any(key in spec for key in ("width", "height", "side", "radius", "base", "top")):
-        return "geometry"
-    if any(key in spec for key in ("expr", "points", "x_min", "intervals")):
-        return "graph"
     return None
 
 
@@ -522,7 +435,7 @@ def validate_math_fences(
             canonical_fences,
         ),
         max_count=_MAX_GEOMETRY_FENCES,
-        leftover=lambda _body: _DIAGRAM_FAIL_NOTE,
+        leftover=lambda _body: _DIAGRAM_DROPPED,
     )
     content = map_closed_fences(
         content,
@@ -534,7 +447,7 @@ def validate_math_fences(
             canonical_fences,
         ),
         max_count=_MAX_GRAPH_FENCES,
-        leftover=lambda _body: _DIAGRAM_FAIL_NOTE,
+        leftover=lambda _body: _DIAGRAM_DROPPED,
     )
     # A ```graph fence the model truncated mid-JSON (stopped copying the
     # verified points at EOS) is left unclosed. Swap it for the verified

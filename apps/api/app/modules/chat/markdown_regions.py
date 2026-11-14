@@ -126,31 +126,43 @@ def display_math_lines(lines: list[str]) -> list[bool]:
     return marks
 
 
+# What the display scan stops at: a $$, a \\[ or \\], or a backtick that may open code.
+_DISPLAY_TOKEN = re.compile(r"\$\$|\\[\[\]]|`")
+
+
 def _display_closer(line: str, closer: str | None) -> str | None:
-    """The display closer (``$$`` or ``\\]``) still awaited after ``line``."""
+    """The display closer (``$$`` or ``\\]``) still awaited after ``line``.
+
+    It jumps from one mark to the next: read a character at a time in Python, a reply of
+    200,000 dots spent 0.14 s here per pass (2026-11-13), and two passes read each line.
+    """
     if "$" not in line and "\\" not in line:
         # Nothing here opens or closes one (a code span only moves the scan along).
         return closer
     index = 0
-    # The backslashes just before ``index``, counted as the scan passes them: an odd run
-    # escapes the character there (``escaped_at``, which counted back from every index and
-    # was quadratic in a run of backslashes).
-    slashes = 0
-    while index < len(line):
-        code_end = read_inline_code_span(line, index) if closer is None else None
-        if code_end is not None:
-            index, slashes = code_end, 0
-        elif slashes % 2 == 0 and line.startswith("$$", index):
+    while (found := _DISPLAY_TOKEN.search(line, index)) is not None:
+        at, mark = found.start(), found.group()
+        if mark == "`":
+            code_end = read_inline_code_span(line, at) if closer is None else None
+            index = code_end if code_end is not None else at + 1
+        elif _backslashes_before(line, at) % 2:
+            index = at + 1  # escaped: the scan moves on a character
+        elif mark == "$$":
             if closer in (None, "$$"):
                 closer = "$$" if closer is None else None
-            index, slashes = index + 2, 0
-        elif slashes % 2 == 0 and line.startswith("\\[", index) and closer is None:
-            closer = "\\]"
-            index, slashes = index + 2, 0
-        elif slashes % 2 == 0 and line.startswith("\\]", index) and closer == "\\]":
-            closer = None
-            index, slashes = index + 2, 0
+            index = at + 2
+        elif mark == "\\[" and closer is None:
+            closer, index = "\\]", at + 2
+        elif mark == "\\]" and closer == "\\]":
+            closer, index = None, at + 2
         else:
-            slashes = slashes + 1 if line[index] == "\\" else 0
-            index += 1
+            index = at + 1
     return closer
+
+
+def _backslashes_before(line: str, at: int) -> int:
+    """The run of backslashes just before ``at``: an odd run escapes what stands there."""
+    start = at
+    while start > 0 and line[start - 1] == "\\":
+        start -= 1
+    return at - start

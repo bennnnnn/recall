@@ -130,10 +130,14 @@ line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "RUF", "B", "ASYNC", "S"]
+# PERF and C4 flag slow loop and collection patterns. PERF401 (an appending loop a
+# comprehension could write) is left off until its 49 existing loops are rewritten; C408
+# (dict(a=1) for {"a": 1}) is style, not speed.
+select = ["E", "F", "I", "UP", "RUF", "B", "ASYNC", "S", "PERF", "C4"]
+ignore = ["PERF401", "C408"]
 
 [tool.ruff.lint.per-file-ignores]
-"alembic/**" = ["UP", "I", "S", "E501"]
+"alembic/**" = ["UP", "I", "S", "E501", "PERF"]
 "app/tests/**" = ["S101", "S105", "S106", "RUF001", "RUF012", "E402", "E501"]
 "app/routers/**" = ["B008", "E501"]
 "app/modules/*/api.py" = ["B008", "E501"]

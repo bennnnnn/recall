@@ -85,6 +85,7 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "praise_opener",
         "meta_notes",
         "prompt_leaks",
+        "repeated_fences",
         "self_attribution",
         "turn_meta",
         "lesson_again",
@@ -95,6 +96,7 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "physics_fences",
         "math_fences",
         "formula_charts",
+        "figure",
         "server_answer_cards",
         "unverified_notes",
         "working_check",
@@ -120,7 +122,8 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "clock",
     ]
     # Every text pass goes on after a failure (ST-06), and so do the maths pass, the claim
-    # check and the lesson shape; every other effect falls back to the last committed text.
+    # check, the lesson shape and the figure; every other effect falls back to the last
+    # committed text.
     falls_back = {name for name, log_as, _ in order if log_as is None}
     assert falls_back == {
         "untrusted_media",
@@ -239,6 +242,7 @@ def test_the_effect_passes_are_the_ones_that_change_the_turn() -> None:
         "math_fences",
         "claim_check",
         "lesson_shape",
+        "figure",
     }
 
 

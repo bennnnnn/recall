@@ -13,7 +13,7 @@ import { CODE_FACE } from "@/lib/fonts";
 import { formatGraphExpr } from "@/lib/math/graphBlock";
 import { xAxisInPi } from "@/lib/math/graphFit";
 import { graphRelationLatex } from "@/lib/math/graphLatex";
-import { type GraphSpec } from "@/lib/math/graphSpec";
+import { type GraphSpec, graphAxisNames } from "@/lib/math/graphSpec";
 import { IconSize } from "@/ui/icons/sizes";
 import { Space } from "@/lib/space";
 import { Type } from "@/lib/type";
@@ -87,8 +87,8 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
               drawn={card.drawn}
               points={points}
               verticalX={verticalX}
-              xName={spec.variable ?? "x"}
-              yName="y"
+              xName={graphAxisNames(spec).x}
+              yName={graphAxisNames(spec).y}
               xInPi={xAxisInPi(spec)}
               width={card.width}
               height={CHART_HEIGHT}

@@ -37,10 +37,12 @@ _SPAN_SCALE = (
 # "from 20 °C to 80 °C", "from 20 C to 80 C", "from 20 to 80 degrees", "20-80 °C",
 # "between 20 and 80 °C": two readings, the scale on both or on the second. Read with "°C"
 # only, "from 20 C to 80 C" fell to the change reader, which took the 20 for the rise.
+# Each run of space is read once (possessive): split between the \s* either side of a
+# missing scale, "heat" and a reading and a run of spaces took quadratic time.
 _TEMPERATURE_SPAN = re.compile(
-    rf"(?:\bfrom\s+|\bbetween\s+)?({NUMBER})\s*({_SPAN_SCALE})?\s*"
+    rf"(?:\bfrom\s+|\bbetween\s+)?({NUMBER})\s*+({_SPAN_SCALE})?\s*+"
     rf"(?:(?:up\s+|down\s+)?(?:to|until)\s+|[-\u2013\u2014]\s*|(?<=\s)and\s+)"
-    rf"({NUMBER})\s*({_SPAN_SCALE})",
+    rf"({NUMBER})\s*+({_SPAN_SCALE})",
     re.IGNORECASE,
 )
 

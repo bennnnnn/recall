@@ -178,7 +178,9 @@ _SYMBOL_AFTER = re.compile(r"(?![aAI]\b)([A-Za-z](?:_\{?[A-Za-z0-9]{1,3}\}?|\d{1
 # A value set inside an equation: a number, then nothing, a LaTeX unit or a spaced unit with no
 # operator. "$v_0 = 30\\text{ m/s}$" sets v_0; "$y = 3x + 1$" and "$y = 3x$" set no value.
 _SETS_A_VALUE = re.compile(
-    r"^\s*([^=<>]+?)\s*=\s*-?\d[\d.,]*(?:\s*\\.*|\s+[^+\-=<>]*|\s*[%°].*)?\s*$"
+    # The name ends on a mark, and each run of space is read once: a lazy name beside \s*
+    # took cubic time on a run of spaces.
+    r"^\s*+([^=<>]*?[^=<>\s])\s*+=\s*+-?\d[\d.,]*+(?:\s*+\\.*|\s++[^+\-=<>]*+|\s*+[%°].*)?\s*$"
 )
 # A question that sets a value as its condition: "How high with $v_0 = 30$?", "… if $g = 1.6$".
 # "Why is $g = 9.8$ here?" explains the value it names, and "the speed at $t = 2$ s" and "the

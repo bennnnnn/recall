@@ -11,7 +11,7 @@ import {
   SHIFTED_VERTEX_MIN,
 } from "@/lib/math/graphBlock";
 import { xAxisInPi } from "@/lib/math/graphFit";
-import { type GraphSpec } from "@/lib/math/graphSpec";
+import { type GraphSpec, graphAxisNames } from "@/lib/math/graphSpec";
 import { inequalityFillPoints, type GraphCmp } from "@/lib/math/graphExpr";
 import { type GraphView } from "@/lib/math/graphViewport";
 import { Theme } from "@/lib/theme";
@@ -77,8 +77,8 @@ export function GraphCanvas({
         axisColor={theme.textSecondary}
         labelColor={theme.textSecondary}
         gridColor={theme.border}
-        xName={spec.variable ?? "x"}
-        yName="y"
+        xName={graphAxisNames(spec).x}
+        yName={graphAxisNames(spec).y}
         fractionalTicks
         piTicks={xAxisInPi(spec)}
       />
