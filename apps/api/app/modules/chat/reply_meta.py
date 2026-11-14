@@ -33,16 +33,21 @@ _MONTHS = (
     "december",
 )
 _MONTH = rf"(?:{'|'.join(_MONTHS)})"
-_CLOCK_TIME = r",?\s+(?:at\s+)?\d{1,2}:\d{2}(?::\d{2})?\s*(?:[ap]\.?\s?m\.?)?(?:\s+[A-Z]{2,5})?"
+# The space after a time is read once (possessive): a zone or "and" after it starts where that
+# space ends (``(?<=\s)``). Split between \s*, \s+ and the \s*$ that ends the sentence, a time
+# and a run of spaces took quadratic time.
+_CLOCK_TIME = (
+    r",?\s+(?:at\s+)?\d{1,2}:\d{2}(?::\d{2})?\s*+(?:[ap]\.?\s?m\.?)?(?:\s*+(?<=\s)[A-Z]{2,5})?"
+)
 # The clock as a whole sentence: "It's currently **Sunday, October 25, 2026, 6:15 PM EDT**.",
 # "Yes, today is Monday, October 26, 2026, and it's 2:14 PM EDT."
 _LEAD_IN = r"(?:(?:yes|yeah|yep|sure|right|well|okay|ok)[,!.]?\s+)?"
-_TIME_OF_DAY = r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:[ap]\.?\s?m\.?)?(?:\s+(?-i:[A-Z]{2,5}))?"
+_TIME_OF_DAY = r"\d{1,2}:\d{2}(?::\d{2})?\s*+(?:[ap]\.?\s?m\.?)?(?:\s*+(?<=\s)(?-i:[A-Z]{2,5}))?"
 _CLOCK_SENTENCE = re.compile(
     rf"(^|[.!?]\s+){_LEAD_IN}(?:it(?:['\u2019]s|\s+is)|today\s+is)\s+(?:currently\s+|now\s+)?"
     rf"[*_]*{_WEEKDAY},\s+"
     rf"(?P<month>{_MONTH})\s+(?P<day>\d{{1,2}}),\s+(?P<year>\d{{4}})(?:{_CLOCK_TIME})?"
-    rf"(?:,?\s+and\s+(?:it(?:['\u2019]s|\s+is)\s+)?(?:at\s+)?{_TIME_OF_DAY})?"
+    rf"(?:(?:,\s++|\s++|(?<=\s))and\s+(?:it(?:['\u2019]s|\s+is)\s+)?(?:at\s+)?{_TIME_OF_DAY})?"
     r"(?:[*_]*[.!](?=\s|$)|[*_]*\s*$)",
     re.IGNORECASE,
 )

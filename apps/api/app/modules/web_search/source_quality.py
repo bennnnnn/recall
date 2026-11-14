@@ -118,9 +118,11 @@ _STATUS = (
 )
 # "404 Not Found", "Error 403 - Forbidden", "Just a moment...", "Attention Required! |
 # Cloudflare": the title or the snippet is the status and nothing else ("Forbidden |
-# Netflix" is a film).
+# Netflix" is a film). Each run of space is read once (possessive): three readings of a run
+# between "404" and a word took cubic time on a page that sends a run of spaces.
 _STATUS_PAGE = re.compile(
-    rf"(?:error\s*)?(?:(?:http\s*)?[45]\d\d\s*[-:|]?\s*)?{_STATUS}?[\s.!…]*(?:\|\s*cloudflare)?",
+    rf"(?:error\s*+)?(?:(?:http\s*+)?[45]\d\d\s*+[-:|]?\s*+)?{_STATUS}?[\s.!…]*+"
+    r"(?:\|\s*+cloudflare)?",
     re.IGNORECASE,
 )
 # A bot wall's opening words: "Checking your browser before accessing example.com".

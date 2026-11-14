@@ -64,7 +64,7 @@ _ITEM = re.compile(rf"({NUMBER})(?:\s*(%|{_UNIT}))?{_NOT_A_MASS}")
 _LIST = re.compile(
     rf"(?<![\w.^-]){_ITEM.pattern}(?:(?:\s*,\s*(?:and\s+)?|\s+and\s+){_ITEM.pattern})+"
 )
-_RESPECTIVELY = re.compile(r"\s*\)?\s*,?\s*(?i:respectively)\b")
+_RESPECTIVELY = re.compile(r"\s*+\)?\s*+,?\s*+(?i:respectively)\b")
 _LIST_LEAD = re.compile(r"(?i:\b(?:masses|abundances))\s*(?:(?i:of|are|:|=)\s*)?$")
 _MASS_NOUN_RE = re.compile(_MASS_NOUN)
 # Between a mass noun and its list only words naming the isotopes may stand: "The atomic

@@ -81,10 +81,12 @@ _METALS = tuple(symbol for symbol in STANDARD_REDUCTION if symbol != "K")
 _KELVIN_UNIT = re.compile(r"\d\s*K\b")
 
 
-# "Ag+/Ag (0.80 V)", "E°(Cu2+/Cu) = 0.34 V": a couple and its reduction potential.
+# "Ag+/Ag (0.80 V)", "E°(Cu2+/Cu) = 0.34 V": a couple and its reduction potential. Each run
+# of space is read once (possessive): three readings of a run around the optional ")" and
+# "=" took cubic time.
 _COUPLE = re.compile(
-    r"(?<![A-Za-z0-9])(?P<ion>[A-Z][a-z]?)(?P<charge>\d?)\+\s*/\s*(?P<metal>[A-Z][a-z]?)"
-    rf"(?![A-Za-z0-9])\s*\)?\s*(?:\(|=|:|,|is)?\s*(?P<volts>{_N})\s*V\b"
+    r"(?<![A-Za-z0-9])(?P<ion>[A-Z][a-z]?)(?P<charge>\d?)\+\s*+/\s*+(?P<metal>[A-Z][a-z]?)"
+    rf"(?![A-Za-z0-9])\s*+\)?\s*+(?:\(|=|:|,|is)?\s*+(?P<volts>{_N})\s*+V\b"
 )
 _VOLTS = re.compile(rf"(?<![A-Za-z0-9.]){_N}\s*V\b")
 _CELL_ASK = re.compile(

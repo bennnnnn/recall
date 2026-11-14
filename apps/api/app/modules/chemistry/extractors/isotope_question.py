@@ -58,10 +58,19 @@ _AVERAGE = (
 # Data after the ask, which asks nothing more: "from the following data", "which has three
 # isotopes", "and compare it with the value in the periodic table".
 _NO_ASK = rf"(?:(?!\b(?:{_ASK_WORDS})\b|\?).)*"
+# The same data where it ends the clause: read whole (possessive), since only marks may
+# follow it. Given back a character at a time beside the marks and spaces after it, a clause
+# whose numbers were blanked to a run of spaces took cubic time.
+_NO_ASK_TO_END = rf"(?:(?!\b(?:{_ASK_WORDS})\b|\?).)*+"
+# Each starts where its run of space starts and reads the run once.
+_DATA = r"(?<!\s)\s*+,?\s*+(?:from|using|with|given|if|for|in|which|that|whose|where)\b"
+_COMPARE = (
+    r"(?<!\s)\s*+,?\s*+and\s++compare\s++(?:it|this|the\s++(?:result|answer|value))\s++"
+    r"(?:with|to)\b"
+)
 _TAIL = (
-    rf"(?:\s*,?\s*(?:from|using|with|given|if|for|in|which|that|whose|where)\b{_NO_ASK})?"
-    rf"(?:\s*,?\s*and\s+compare\s+(?:it|this|the\s+(?:result|answer|value))\s+(?:with|to)\b"
-    rf"{_NO_ASK})?"
+    rf"(?:{_DATA}{_NO_ASK}{_COMPARE}{_NO_ASK_TO_END}"
+    rf"|{_DATA}{_NO_ASK_TO_END}|{_COMPARE}{_NO_ASK_TO_END})?"
 )
 _ASKS_THE_AVERAGE = re.compile(
     r"(?is)(?:(?:hence|now|then|so|thus|therefore|please)\W+)?"
@@ -71,7 +80,7 @@ _ASKS_THE_AVERAGE = re.compile(
     rf"|(?:show|verify|prove|check|confirm)\s+that\s+(?:the\s+|its\s+)?{_AVERAGE}"
     r"\s+(?:is|=|equals)(?:\s+(?:about|approximately))?(?:\s+(?:u|amu))?"
     rf"|(?:the\s+)?{_AVERAGE}(?=\s*\?))"
-    rf"{_TAIL}\W*"
+    rf"{_TAIL}\W*+"
 )
 
 

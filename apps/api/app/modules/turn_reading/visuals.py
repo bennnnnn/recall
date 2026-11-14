@@ -80,17 +80,19 @@ def is_image_generation_mention(text: str) -> bool:
 
 
 # "where is kenya" / "what country is Timbuktu in" / "show me where Nepal is".
+# Each place ends on a mark and each run of space is read once (possessive): a lazy place
+# beside \s+ and \s* took cubic time on "where" and a run of spaces.
 _WHERE_IS = re.compile(
-    r"^\s*(?:(?:hey|so|ok(?:ay)?|um+|and)[,\s]+)?(?:please\s+)?"
+    r"^\s*+(?:(?:hey|so|ok(?:ay)?|um+|and)[,\s]++)?(?:please\s++)?"
     r"(?:(?:can|could)\s+you\s+(?:please\s+)?(?:tell|show)\s+me\s+|(?:tell|show)\s+me\s+"
     r"|do\s+you\s+know\s+|i\s+(?:wonder|want\s+to\s+know)\s+)?"
-    r"(?:where(?:\s+exactly)?(?:['\u2019]?s|\s+is|\s+are)(?:\s+exactly)?\s+(?P<a>.+?)"
-    r"(?:\s+(?:located|situated|exactly|on\s+(?:the|a)\s+map|in\s+the\s+world))?"
-    r"|where\s+(?P<b>.+?)\s+(?:is|are)(?:\s+(?:located|on\s+(?:the|a)\s+map))?"
-    r"|where\s+in\s+the\s+world\s+(?:is|are)\s+(?P<c>.+?)"
+    r"(?:where(?:\s+exactly)?(?:['\u2019]?s|\s+is|\s+are)(?:\s+exactly)?\s++(?P<a>.*?\S)"
+    r"(?:\s++(?:located|situated|exactly|on\s+(?:the|a)\s+map|in\s+the\s+world))?"
+    r"|where\s++(?P<b>.*?\S)\s++(?:is|are)(?:\s++(?:located|on\s+(?:the|a)\s+map))?"
+    r"|where\s+in\s+the\s+world\s+(?:is|are)\s++(?P<c>.*?\S)"
     r"|what\s+(?:country|continent|state|province|region|part\s+of\s+the\s+world)"
-    r"\s+(?:is|are)\s+(?P<d>.+?)\s+in)"
-    r"\s*[?.!]*\s*$",
+    r"\s+(?:is|are)\s++(?P<d>.*?\S)\s++in)"
+    r"\s*+[?.!]*+\s*+$",
     re.IGNORECASE,
 )
 
