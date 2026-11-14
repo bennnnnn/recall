@@ -24,7 +24,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from app.services.answer_check import stated_verdict
+from app.services.answer_check import Verdict, stated_verdict
 from app.services.answer_fence import (
     ANSWER_FENCE_LANGS,
     UNCHECKED_ANSWER_MARKER,
@@ -36,7 +36,7 @@ from app.services.answer_fence import (
     normalize_owned_fences,
     verified_answer_fence,
 )
-from app.services.asked_value import asked_verdict
+from app.services.asked_value import QUANTITY_NAMES, asked_verdict
 from app.services.card_text import card_maths
 from app.services.md_fence_scan import iter_fences, map_closed_fences, strip_closed_fences
 
@@ -60,10 +60,13 @@ def contradicted_reading(
     if verified is None or not verified.read_from_words or not answer_body:
         return None
     worked = demote_answer_fences(reply)
-    # The one value the Answer writes for the asked quantity; main's reading when there is no
-    # such one value (several, another subscript, no Answer heading).
-    verdict = asked_verdict(worked, answer_body, verified.asked) or stated_verdict(
-        worked, answer_body
+    # Each value of a card of several held to its own name; else the one value the Answer
+    # writes for the asked quantity; main's reading when there is no such one value
+    # (several, another subscript, no Answer heading).
+    verdict = (
+        _per_part_verdict(worked, answer_body)
+        or asked_verdict(worked, answer_body, verified.asked)
+        or stated_verdict(worked, answer_body)
     )
     # A card no plain value (a ratio) may still face an Answer that is an expression in letters.
     letters = verdict == "unknown" and _letters_for_a_number(worked, answer_body)
@@ -75,6 +78,42 @@ def contradicted_reading(
     for lang in _PICTURE_LANGS:
         text = strip_closed_fences(text, lang)
     return land_answer_card(text.strip(), None)
+
+
+_CARD_PARTS = re.compile(r",\s*\\quad\s*")
+_PART_VALUE = re.compile(r"\s*(?:=|\\approx)\s*")
+_ARGUMENTS = re.compile(r"\([^()]*\)$")
+_PART_NUMBER = re.compile(r"-?\d+(?:\.\d+)?")
+# A measure's symbol and the words a reply names it by ("C": "circumference").
+_PART_WORDS: dict[str, tuple[str, ...]] = {}
+for _names in QUANTITY_NAMES.values():
+    _PART_WORDS[_names[0]] = (*_PART_WORDS.get(_names[0], ()), *_names[1:])
+
+
+def _per_part_verdict(worked: str, answer_body: str) -> Verdict | None:
+    """A card of several named values ("C ≈ 18.85, A ≈ 28.27", "gcd(252, 198) = 18, lcm
+    = 2772"): each value held to the one the Answer writes against its own name.
+    "conflict" when one differs, "same" when each agrees, None when the card is one value
+    or a part is not named in the Answer. A whole card held to the reply's last value
+    demoted a complete correct gcd-and-lcm reply (2026-11-13 audit, MATH-04)."""
+    parts = _CARD_PARTS.split(answer_fence_value(answer_body))
+    if len(parts) < 2:
+        return None
+    verdicts: list[Verdict | None] = []
+    for part in parts:
+        pieces = _PART_VALUE.split(part.strip(), maxsplit=1)
+        if len(pieces) != 2:
+            return None
+        name, value = pieces
+        bare = _ARGUMENTS.sub("", name).strip().lstrip("\\")
+        bare = re.sub(r"^operatorname\{(\w+)\}$", r"\1", bare)
+        names = tuple(dict.fromkeys((bare, name.strip(), *_PART_WORDS.get(bare, ()))))
+        # The number alone: "28.27 units²" and "28.27 square units" are one area.
+        number = _PART_NUMBER.match(value)
+        verdicts.append(asked_verdict(worked, number.group(0), names) if number else None)
+    if "conflict" in verdicts:
+        return "conflict"
+    return "same" if all(verdict in {"same", "rounded"} for verdict in verdicts) else None
 
 
 # Terms in letters added or taken away: the "m - 7n" and "-3x^2 + 6x" of an algebra answer.

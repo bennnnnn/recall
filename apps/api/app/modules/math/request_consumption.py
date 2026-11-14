@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from app.modules.math.function_calls import functions_dropped
 from app.modules.math.schemas import MathIntent, is_declined
+from app.modules.turn_reading.readable import RESTRICTING_WORDS
 from app.services.number_text import SIGNED_DECIMAL
 
 _ADDITIONAL_OPERATION = re.compile(
@@ -111,6 +112,24 @@ _NONDEFAULT_DOMAIN = re.compile(
     r"\s+[a-z]\b",
     re.IGNORECASE,
 )
+# A domain word with no cue before it still restricts the solutions: "Solve x^2 = 9
+# positive" and "Solve in N: x^2 = 4" were checked as ±3 and ±2 (2026-11-14 review).
+# "negative 3" is a number said aloud, and "an odd number of solutions" a count: no domain.
+_BARE_DOMAIN = re.compile(
+    rf"\b{_DOMAIN_ADJECTIVE}\b(?!\s*[\d.]|\s+numbers?\s+of\b)|\b(?:integers?|integral|whole\s+numbers?|"
+    r"natural\s+numbers?|(?:ir)?rationals?|counting\s+numbers?)\b|[\u2124\u2115\u211A]"
+    r"|\\mathbb\s*\{\s*[ZNQ]\s*\}"
+    # "natural" and "whole" beside the unknown, not "the natural log": "with x natural".
+    r"|\b[a-z]\s+(?:(?:is|are|be|must\s+be)\s+)?(?:an?\s+)?(?:natural|whole)\b"
+    r"|\b(?:natural|whole)\s+(?:numbers?\s+|values?\s+(?:of\s+)?)?[a-z]\b(?!\s*\()"
+    r"|\b(?:natural|whole)\s+(?:solutions?|roots?)\b"
+    # The other languages' words for them, in an English line: "Solve x^2 = 9 positiv".
+    rf"|\b(?:{'|'.join(sorted(RESTRICTING_WORDS))})\b",
+    re.IGNORECASE,
+)
+# The number sets by letter, in capitals only: "in n" is a variable.
+_BARE_SET_LETTER = re.compile(r"\b(?:in|over)\s+[ZNQ]\b")
+_SOLUTION_SET_KINDS = frozenset({"equation", "system", "inequality"})
 _LINKED_EQUALITY_DOMAIN = re.compile(
     rf"{_EQUALITY_DOMAIN_CUE}\s+(?P<variable>[a-z])\s*={{1,2}}(?!=)",
     re.IGNORECASE,
@@ -243,6 +262,8 @@ def audit_math_request(text: str, intent: MathIntent) -> ConsumptionAudit:
         leftovers.append("unconsumed logarithm")
     if functions_dropped(text, intent):
         leftovers.append("unconsumed function")
+    if numerical_method_dropped(text, intent):
+        leftovers.append("a numerical method or count the reading does not carry")
     root_request_text = _NAMED_RADICAL.sub("", text)
     if _GRAPH_REQUEST.search(text) and _ROOT_OUTPUT_REQUEST.search(root_request_text):
         # A graph intent has no typed roots result and a roots intent has no
@@ -263,12 +284,35 @@ def audit_math_request(text: str, intent: MathIntent) -> ConsumptionAudit:
         has_unrepresented_domain = True
     if _SIGNED_OUTPUT_RESTRICTION.search(text):
         has_unrepresented_domain = True
+    if intent.kind in _SOLUTION_SET_KINDS and (
+        _BARE_DOMAIN.search(text) or _BARE_SET_LETTER.search(text)
+    ):
+        has_unrepresented_domain = True
     if intent.kind in _DOMAIN_BLIND_KINDS and has_unrepresented_domain:
         # These symbolic intents currently use their default real domain and
         # cannot encode an extra sign or number-set assumption. Never certify
         # a partial interpretation that silently discards that restriction.
         leftovers.append("unconsumed symbolic domain")
     return ConsumptionAudit(complete=not leftovers, leftovers=tuple(leftovers))
+
+
+def numerical_method_dropped(text: str, intent: MathIntent) -> bool:
+    """The question names a numerical method, or its count, that the reading does not carry.
+
+    "The trapezoidal rule with n = 4 … the integral of x^2 from 0 to 2" read as the integral
+    certified 8/3 for T_4 = 2.75, and "1 Newton iteration … from x = 3" certified the root
+    √10 for x_1 = 19/6 (2026-11-13 audit, MATH-01).
+    """
+    from app.modules.math.match.numerical_methods import named_numerical_method
+
+    named = named_numerical_method(text)
+    if named is None:
+        return False
+    if named.rule == "newton":
+        return intent.operation != "newton" or intent.numeric_steps != named.count
+    if named.rule == "euler":
+        return intent.numeric_rule != "euler" or intent.numeric_step_size != named.step_size
+    return intent.numeric_rule != named.rule or intent.numeric_steps != named.count
 
 
 def _summary_statistics_represented(text: str, intent: MathIntent) -> bool:

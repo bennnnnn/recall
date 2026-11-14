@@ -17,6 +17,7 @@ from app.modules.math.tools.extractors.algebra import (
     PRE_DISCRETE_ALGEBRA_EXTRACTORS,
     oversized_system,
 )
+from app.modules.math.tools.extractors.approximation import extract_approximation_intent
 from app.modules.math.tools.extractors.calculus import CALCULUS_EXTRACTORS
 from app.modules.math.tools.extractors.calculus_applications import CALCULUS_APPLICATION_EXTRACTORS
 from app.modules.math.tools.extractors.discrete_statistics import DISCRETE_STATISTICS_EXTRACTORS
@@ -48,6 +49,10 @@ from app.modules.math.tools.request_text import _split_response_instruction_sent
 from app.modules.math.tools.school import SCHOOL_EXTRACTORS
 
 _INTENT_EXTRACTORS: Sequence[Callable[[str], MathIntent | None]] = (
+    # First: a named numerical method decides the whole reading. "The trapezoidal rule with
+    # n = 4 … the integral of x^2 from 0 to 2" read as the integral was a checked 8/3 for
+    # T_4 = 2.75; the method is read whole here, or declined.
+    extract_approximation_intent,
     SOLID_EXTRACTOR,
     # Ahead of the school and algebra extractors. "area between y=x and y=x^2
     # from 0 to 1" reads as two simultaneous equations to the algebra side,
@@ -228,6 +233,10 @@ def _heard_math_intent(text: str) -> MathIntent | None:
     heard = _extract_math_intent_any(spoken)
     if heard is None or (heard.kind == "graph" and not heard.expr):
         return None
+    if not request_consumption_complete(text, heard):
+        # The words say more than the maths heard in them: "for negative x" is a domain,
+        # not the minus sign "-x" it reads as aloud.
+        return None
     heard._request_text = text.strip()
     return heard
 
@@ -310,7 +319,9 @@ def _extract_math_intent_any(text: str) -> MathIntent | None:
     if oversized_system(normalized):
         return None
     recovered = _intent_from_free_standing_equation(normalized)
-    if recovered is not None:
+    # The whole message still holds what the equation alone does not carry: "solve x^2 -
+    # 4 = 0 for negative x" was declined above and recovered here as the bare ±2.
+    if recovered is not None and request_consumption_complete(normalized, recovered):
         recovered._request_text = text.strip()
         return recovered
     return None
@@ -412,6 +423,7 @@ def _extract_math_intent(text: str) -> MathIntent | None:
             if (
                 region_question
                 and intent.school_op not in _SOLVED_REGION_OPS
+                and intent.kind != "numerical_method"  # an area estimated by a rule
                 and not is_declined(intent)
             ):
                 # A region question the application extractors declined must

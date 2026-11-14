@@ -15,6 +15,7 @@ from app.modules.math.match.letter_runs import (
     has_unknown_english_run,
     looks_like_math_expr,
 )
+from app.modules.turn_reading.readable import equation_beside_instruction
 from app.services.number_text import fold_scientific
 from app.services.symbolic_text import (
     normalize_symbolic_request,
@@ -103,6 +104,12 @@ def strip_inline_math_delims(text: str) -> str:
 
 
 def prepare(text: str) -> str | None:
+    # "Resuelve 2x + 5 = 17": another language's instruction beside an equation in symbols
+    # is the equation, read as an English line of bare maths is; its words stay unread.
+    # The verb is the evidence: "Çöz 3x = 12" holds one short word, too little for the
+    # language gate to call the line Turkish.
+    if (equation := equation_beside_instruction(text)) is not None:
+        text = equation
     # ``1.8 x 10^-5`` is the product it means, never an unknown x, and folding
     # it before superscripts become carets reads ``1.8·10⁻⁵`` too. A capital X typed
     # as the unknown is read as x while the ``$`` around it still marks it as maths.
@@ -111,7 +118,40 @@ def prepare(text: str) -> str | None:
     )
     if cleaned is None:
         return None
-    return fold_digit_groups(fix_leading_solve_typo(cleaned))
+    return fold_matrix_spacing(fold_digit_groups(fix_leading_solve_typo(cleaned)))
+
+
+# A matrix typed in brackets, row by row: ``[[2, 1], [5, 3]]``, ``[ [2 1] [5 3] ]``. Each
+# gap is one unambiguous ``\s*`` (a comma between rows optional), so a near miss fails in
+# one pass.
+_BRACKET_MATRIX = re.compile(r"\[\s*\[[^\[\]]*\](?:\s*(?:,\s*)?\[[^\[\]]*\])+\s*\]")
+_MATRIX_GAP = re.compile(r"\s*([\[\],])\s*")
+_ROW = re.compile(r"\[([^\[\]]*)\]")
+_CELL = re.compile(r"[-+\u2212]?(?:\d+(?:\.\d*)?|\.\d+)")
+
+
+def _row_cells(match: re.Match[str]) -> str:
+    """``[2 1]``: cells apart by spaces alone are the cells ``[2,1]``; ``[2 - 1]`` is not."""
+    cells = match.group(1).split()
+    if "," in match.group(1) or len(cells) < 2:
+        return f"[{' '.join(cells)}]"
+    if not all(_CELL.fullmatch(cell) for cell in cells):
+        return match.group(0)
+    return f"[{','.join(cells)}]"
+
+
+def _folded_matrix(match: re.Match[str]) -> str:
+    rows = _ROW.sub(_row_cells, match.group(0))
+    return _MATRIX_GAP.sub(r"\1", rows).replace("][", "],[")
+
+
+def fold_matrix_spacing(text: str) -> str:
+    """``[[2, 1], [5, 3]]`` is the matrix ``[[2,1],[5,3]]``: every reader of a bracketed
+    matrix splits its rows at ``],[``, so "find the determinant of [[2, 1], [5, 3]]" was not
+    maths at all while the same matrix typed without spaces got a checked 1 (2026-11-13)."""
+    if "[" not in text:
+        return text
+    return _BRACKET_MATRIX.sub(_folded_matrix, text)
 
 
 # The verbs a closed request may open with: "find the area of …", "what's the mean of …".

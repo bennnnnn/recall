@@ -5,7 +5,11 @@ from __future__ import annotations
 from typing import cast
 
 from app.modules.math.schemas import MathIntent
-from app.modules.math.schemas.operations import SUMMARY_STATS, SummaryStatsOp
+from app.modules.math.schemas.operations import (
+    SUMMARY_STATS,
+    NumberTheorySolveOp,
+    SummaryStatsOp,
+)
 
 
 def _extract_statistics_intent(cleaned: str) -> MathIntent | None:
@@ -116,12 +120,26 @@ def _extract_number_theory_intent(cleaned: str) -> MathIntent | None:
             numtheory_a=values[0],
             numtheory_b=values[1],
             numtheory_values=values,
+            numtheory_ops=_gcd_and_lcm(cleaned),
             operation="solve",
         )
     op, a, b = signal
     return MathIntent(
-        kind="number_theory", numtheory_op=op, numtheory_a=a, numtheory_b=b, operation="solve"
+        kind="number_theory",
+        numtheory_op=op,
+        numtheory_a=a,
+        numtheory_b=b,
+        numtheory_ops=_gcd_and_lcm(cleaned) if op in {"gcd", "lcm"} else None,
+        operation="solve",
     )
+
+
+def _gcd_and_lcm(cleaned: str) -> list[NumberTheorySolveOp] | None:
+    """ "the gcd and lcm of 252 and 198" asks for both, in that order; one asks for one."""
+    from app.modules.math.match.asked_quantities import asked_quantities
+
+    asked = [name for name in asked_quantities(cleaned) if name in {"gcd", "lcm"}]
+    return cast(list[NumberTheorySolveOp], asked) if set(asked) == {"gcd", "lcm"} else None
 
 
 DISCRETE_STATISTICS_EXTRACTORS = (
