@@ -3,17 +3,16 @@
 Only the server's card says a result was checked; prose that says so on a turn the
 server did not verify would fake the check mark.
 
-A claim is one thing, however it is worded and dressed: a clause that says a result was
-verified by a checker, in either order ("verified with SymPy", "I double-checked this with
-the solver", "The server verified this result", "SymPy-verified"), a result said to be
-verified with no checker ("The result has been verified."), a check mark or brackets on the
-verb ("✅ Verified.", "(verified)"), or a "Verified" label ("✓ Verified: x = 42",
-"- **Verified answer:** …"), under any list marker, quote or emphasis. Each line is cut into
-clauses at sentence and clause punctuation; a clause that is a claim goes with its
-punctuation, a colon's value stays, and a label keeps its noun ("**Answer:**"). A question
-stays ("Is this verified?"), and so does every other use of the words: "verify that x = 2
-satisfies it", "Once your email is verified", "✅ Checked in online", "✅ Confirmed: the
-museum is open on Mondays".
+A claim is the words that say a checker verified a result, in either order ("verified
+with SymPy", "SymPy confirmed", "which the solver verified", "I ran it through SymPy and
+got"), a check mark or brackets on the verb ("✅ Verified.", "(verified)"), or a "Verified"
+label ("**Verified answer:**"). On a reply that holds maths, so do the words that say its
+result was verified with no checker named ("The solution is verified:", "Both roots are
+verified.", "x = 4. Verified.") and a check mark beside a value ("x = 42 ✓"). Only the claim
+goes: a value in the same clause stays ("Recall's solver confirmed x = 42." keeps "x = 42.").
+Everyday uses of the words stay, a checker that is no solver included: "The results were
+confirmed.", "This has been verified.", "Your order was confirmed by the app.", "Validated:
+the form accepts emails.", "Is this verified?", "verify that x = 2 satisfies it".
 """
 
 from __future__ import annotations
@@ -23,27 +22,47 @@ import re
 from app.services.answer_fence import map_outside_fences
 
 _CHECK_MARKS = "✅✔☑✓"  # ✅ ✔ ☑ ✓
+_EMPHASIS = r"(?:\*\*|__|\*|_)"
 _CLAIM_VERB = r"(?:verified|checked|confirmed|validated|(?:double|cross)[- ]?checked)"
-# The verbs a bare label or a pronoun claim uses: "✅ Confirmed:" and "That's confirmed"
-# are everyday status lines.
-_STRONG_VERB = r"(?:verified|validated|(?:double|cross)[- ]?checked)"
-# What checks a result, however a model names the server's solvers.
+# What checks a result: the server's solvers, however a model names them. Never "the app":
+# "Your order was confirmed by the app" is the user's errand.
 _SOLVER = (
-    r"(?:sym\s*py|rdkit|pubchem|"
-    r"(?:the|a|our|my|recall['\u2019]s)\s+(?:(?:symbolic|math|maths|algebra)\s+)*"
-    r"(?:solver|engine|checker)|"
+    r"(?:sym\s*py|rdkit|pubchem|recall['\u2019]s\s+(?:\w+\s+)?(?:solver|engine|checker)|"
+    r"(?:the|a|our|my)\s+(?:(?:symbolic|math|maths|algebra)\s+)*(?:solver|engine|checker)|"
     r"symbolic\s+(?:math|maths|algebra)|(?:a|the)\s+computer\s+algebra\s+system|(?:a|the)\s+cas|"
     r"the\s+server)"
 )
-# Right after the verb only: "checked the weather with the app" is the user's errand.
-_CHECKER = rf"(?:{_SOLVER}|the\s+app|recall)"
+# A checker after the verb's "by": Recall itself too ("Checked by Recall").
+_AGENT = rf"(?:{_SOLVER}|recall)"
 _BY = r"(?:with|by|using|via|in|through)"
-_EMPHASIS = r"(?:\*\*|__|\*|_)"
+_BE = r"(?:was|is|were|are|has[ \t]+been|have[ \t]+been|had[ \t]+been|['\u2019]s[ \t]+been)"
 
+# Claim words inside a clause, each removed where it stands.
+_CLAIM_SPANS = tuple(
+    re.compile(pattern, re.IGNORECASE)
+    for pattern in (
+        # ", which SymPy verified," / ", as the solver confirmed,"
+        rf"[ \t]*,[ \t]*(?:which|as)[ \t]+{_SOLVER}[ \t]+(?:has[ \t]+|have[ \t]+)?{_CLAIM_VERB}"
+        r"[ \t]*,",
+        # "was verified by the server (and)" in "The answer x = 42 was verified by … is final."
+        rf"[ \t]+{_BE}[ \t]+(?:also[ \t]+)?{_CLAIM_VERB}[ \t]+{_BY}[ \t]+{_AGENT}\b"
+        r"(?:[ \t]+and(?=[ \t]))?",
+        # "(,) verified with SymPy", "as confirmed by the solver", "checked this with SymPy"
+        rf"(?:[ \t]*[,\u2014\u2013][ \t]*|[ \t]+-[ \t]+|[ \t]*)(?:as[ \t]+|and[ \t]+)?{_CLAIM_VERB}"
+        rf"[ \t]+(?:(?:[\w'\u2019]+[ \t]+){{1,2}}(?={_BY}[ \t]+{_SOLVER}))?{_BY}[ \t]+{_AGENT}\b",
+        # "Recall's solver confirmed (that)", "SymPy-verified", "\u2014 SymPy agrees"
+        rf"(?:[ \t]*[\u2014\u2013-][ \t]*)?\b{_SOLVER}[ \t-]+(?:(?:has|have|also|just)[ \t]+){{0,2}}"
+        r"(?:verified|confirmed|checked|validated|verifies|confirms|checks|validates|agrees|agreed)"
+        r"(?:[ \t]+that)?\b",
+        # "I ran it through SymPy (and got)"
+        rf"\b(?:i|we)[ \t]+(?:ran|put|plugged|checked)[ \t]+(?:it|this|that|them)[ \t]+"
+        rf"(?:through|into|in|with)[ \t]+{_SOLVER}(?:[ \t]+and[ \t]+(?:got|found|get|find))?",
+    )
+)
 # ✅ Verified with SymPy. / ✓ Checked, ending its sentence or line: "✅ Checked in online" stays.
 _MARK_CLAIM = re.compile(
     rf"[ \t]*[{_CHECK_MARKS}]️?[ \t]*{_EMPHASIS}?[ \t]*{_CLAIM_VERB}\b(?:[ \t]+(?:"
-    rf"{_BY}[ \t]+{_CHECKER}|(?:with|using|via)[ \t]+[A-Za-z][\w.-]*))?"
+    rf"{_BY}[ \t]+{_AGENT}|(?:with|using|via)[ \t]+[A-Za-z][\w.-]*))?"
     rf"[ \t]*{_EMPHASIS}?[ \t]*(?:[.!]{_EMPHASIS}?(?=\s|$)|(?=[ \t]*(?:\n|$)))",
     re.IGNORECASE,
 )
@@ -53,10 +72,34 @@ _PAREN_CLAIM = re.compile(
     r"(?:[ \t]+(?:with|by|using|via|in)[ \t]+[^)\]\n]{1,40})?[ \t]*[)\]]",
     re.IGNORECASE,
 )
-# "x = 42, verified with SymPy" / "x = 42 as confirmed by the solver": the clause keeps its value.
-_TAIL_CLAIM = re.compile(
-    rf"(?:[ \t]*[,\u2014\u2013][ \t]*|[ \t]+-[ \t]+|[ \t]+(?=as[ \t]))(?:as[ \t]+|and[ \t]+)?"
-    rf"{_CLAIM_VERB}[ \t]+{_BY}[ \t]+{_CHECKER}\b[ \t]*{_EMPHASIS}?$",
+# "Verified answer:" / "The verified result:": the label keeps its noun.
+_NOUN_LABEL = re.compile(
+    r"(?P<lead>^[ \t>]*(?:(?:[-*+]|\d{1,3}[.)])[ \t]+)?(?:\*\*|__)?[ \t]*(?:the[ \t]+)?)"
+    rf"[{_CHECK_MARKS}]?️?[ \t]*verified[ \t]+(?P<noun>answer|result|solution|value)(?P<s>s?)"
+    r"(?=[ \t]*(?:\*\*|__)?[ \t]*:)",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+# A reply that holds maths: an equation's value, or maths in $…$.
+_MATHS = re.compile(r"\$[^$\n]+\$|\\[(\[]|[\w)\]}][ \t]*=[ \t]*[-\w(\\$.]")
+_RESULT_NOUN = r"(?:results?|answers?|solutions?|values?|roots?)"
+# On a maths reply: the whole clause says its result was verified ("The solution is verified").
+_RESULT_CLAIM = re.compile(
+    rf"(?:(?:the|this|that|these|those|each|both|all|my|our|every)[ \t]+)?(?:final[ \t]+)?"
+    rf"{_RESULT_NOUN}(?:[ \t]+{_BE}|[ \t]+(?:is|are))?[ \t]+(?:(?:all|both|now|also)[ \t]+)?"
+    r"(?:verified|validated|(?:double|cross)[- ]?checked)"
+    r"(?:[ \t]+(?:independently|again|too|numerically|symbolically|algebraically))?"
+    rf"(?:[ \t]*[{_CHECK_MARKS}]️?)?",
+    re.IGNORECASE,
+)
+# On a maths reply: "Verified" alone as a clause or label ("x = 4. Verified.", "✓ Verified:").
+_BARE_VERIFIED = re.compile(rf"[{_CHECK_MARKS}]?️?[ \t]*verified", re.IGNORECASE)
+# On a maths reply: a check mark beside a value ("x = 42 ✓", "✅ x = 42").
+_VALUE_MARK = re.compile(rf"[ \t]*[{_CHECK_MARKS}]️?(?=[ \t]*$)|^[ \t]*[{_CHECK_MARKS}]️?[ \t]*")
+# A clause the claim left with no words of its own: "This", "I", "the result".
+_LEFTOVER = re.compile(
+    rf"(?:(?:this|that|it|i|we|which)|(?:the|this|that|my|our)[ \t]+(?:\w+[ \t]+)?{_RESULT_NOUN}"
+    r"|(?:the|this|that)[ \t]+(?:work|working|calculation|step))?",
     re.IGNORECASE,
 )
 
@@ -65,72 +108,52 @@ _TAIL_CLAIM = re.compile(
 _CLAUSE_END = re.compile(rf"(?<=\S)([.!?;:]{_EMPHASIS}?)(?=[ \t]|$)")
 # A clause's lead: list marker, quote, emphasis and check mark, before its words.
 _LEAD = re.compile(
-    rf"^(?P<keep>[ \t>]*(?:(?:[-*+]|\d{{1,3}}[.)])[ \t]+)?)(?P<dress>[*_ \t{_CHECK_MARKS}\ufe0f]*)"
-)
-# The clause says a checker checked it, in either order.
-_CHECKER_CLAIMS = (
-    re.compile(
-        rf"\b{_CLAIM_VERB}[ \t]+(?:{_BY}[ \t]+{_CHECKER}\b|"
-        rf"(?:[\w'\u2019]+[ \t]+){{1,2}}{_BY}[ \t]+{_SOLVER}\b)",
-        re.IGNORECASE,
-    ),
-    re.compile(
-        rf"\b{_SOLVER}[ \t-]+(?:(?:has|have|also|just|then|now|again)[ \t]+){{0,3}}"
-        r"(?:verified|confirmed|checked|validated|double[- ]checked|verifies|confirms|checks|"
-        r"validates)\b",
-        re.IGNORECASE,
-    ),
-)
-_RESULT_NOUN = (
-    r"(?:(?:the|this|that|these|those|my|our|each|both|all|every)[ \t]+(?:(?:final|whole)[ \t]+)?"
-    r"(?:results?|answers?|solutions?|values?|roots?|calculations?|computations?|working|work|"
-    r"steps?))"
-)
-_BEEN = (
-    r"(?:['\u2019]s|[ \t]+(?:has|have|had|was|were|is|are))(?:[ \t]+been)?[ \t]+"
-    r"(?:(?:all|both|now|also)[ \t]+)?"
-)
-_HOW = r"(?:[ \t]+(?:independently|again|too|as[ \t]+well|numerically|symbolically|algebraically))?"
-# The whole clause says a result was verified, with no checker named.
-_BARE_CLAIM = re.compile(
-    rf"(?:{_RESULT_NOUN}{_BEEN}{_CLAIM_VERB}|(?:this|that|it|everything){_BEEN}{_STRONG_VERB}){_HOW}",
-    re.IGNORECASE,
-)
-# The whole clause is the label: "Verified", "✓ Verified" (its value follows a colon).
-_BARE_LABEL = re.compile(_STRONG_VERB, re.IGNORECASE)
-# "Verified answer" as a label keeps its noun.
-_NOUN_LABEL = re.compile(
-    r"verified[ \t]+(?P<noun>answer|result|solution|value)(?P<plural>s?)", re.IGNORECASE
+    rf"^(?P<keep>[ \t>]*(?:(?:[-*+]|\d{{1,3}}[.)])[ \t]+)?)(?P<dress>[*_ \t{_CHECK_MARKS}️]*)"
 )
 _SENTENCE_ENDS = (".", "!")
 
 
-def _is_claim(words: str) -> bool:
-    return (
-        any(pattern.search(words) for pattern in _CHECKER_CLAIMS)
-        or _BARE_CLAIM.fullmatch(words) is not None
-        or _BARE_LABEL.fullmatch(words) is not None
-    )
-
-
-def _clause(text: str, end: str) -> str | None:
-    """The clause without its claim; None when the whole clause is one."""
-    text = _TAIL_CLAIM.sub("", text)
+def _clause(text: str, end: str, *, maths: bool) -> str | None:
+    """The clause without its claim words; None when nothing of its own is left."""
+    if end.startswith("?"):
+        return text
     lead = _LEAD.match(text)
     keep, dress = (lead.group("keep"), lead.group("dress")) if lead else ("", "")
     words = text[len(keep) + len(dress) :].rstrip(" \t*_")
-    label = _NOUN_LABEL.fullmatch(words)
-    if label is not None:
-        noun = label.group("noun").capitalize() + label.group("plural")
-        opened = "".join(char for char in dress if char in "*_")
-        return f"{keep}{opened}{noun}{text[len(keep) + len(dress) + len(words) :]}"
-    if end.startswith("?") or not _is_claim(words):
-        return text
-    return None
+    tail = text[len(keep) + len(dress) + len(words) :]
+    if maths and (
+        _RESULT_CLAIM.fullmatch(words) is not None
+        or (_BARE_VERIFIED.fullmatch(words) is not None and end[:1] in {".", "!", ":", ""})
+    ):
+        return None
+    stripped = words
+    for span in _CLAIM_SPANS:
+        stripped = span.sub("", stripped)
+    if maths and _MATHS.search(words):
+        # A check mark beside a value is the server's to draw.
+        stripped = _VALUE_MARK.sub("", stripped)
+        dress = "".join(char for char in dress if char not in _CHECK_MARKS + "\ufe0f")
+    if stripped == words:
+        return f"{keep}{dress}{words}{tail}"
+    rest = stripped.strip(" \t,\u2014\u2013-")
+    if _LEFTOVER.fullmatch(rest) is not None:
+        return None
+    first = rest.split(" ", 1)[0]
+    if words[:1].isupper() and rest[:1].islower() and len(first) > 1:
+        rest = rest[0].upper() + rest[1:]
+    return f"{keep}{dress}{rest}{tail}"
 
 
-def _line_without_claims(line: str) -> str:
+def _label(match: re.Match[str]) -> str:
+    """ "**Verified answer:**" keeps "**Answer:**", "The verified result:" "The result:"."""
+    lead, noun = match.group("lead"), match.group("noun")
+    after_the = lead.rstrip().lower().endswith("the")
+    return f"{lead}{noun.lower() if after_the else noun.capitalize()}{match.group('s')}"
+
+
+def _line_without_claims(line: str, *, maths: bool) -> str:
     line = _PAREN_CLAIM.sub("", _MARK_CLAIM.sub("", line))
+    line = _NOUN_LABEL.sub(_label, line)
     pieces = _CLAUSE_END.split(line)
     kept: list[list[str]] = []
     # After a claim that ended in a colon, its value takes the claim's place.
@@ -141,7 +164,7 @@ def _line_without_claims(line: str) -> str:
         if space is not None:
             text = space + text.lstrip(" \t")
             space = None
-        clause = _clause(text, end)
+        clause = _clause(text, end, maths=maths)
         if clause is not None:
             kept.append([clause, end])
             continue
@@ -157,12 +180,6 @@ def _line_without_claims(line: str) -> str:
     return "".join(clause + end for clause, end in kept)
 
 
-def _claimless(prose: str) -> str:
-    out = "\n".join(_line_without_claims(line) for line in prose.split("\n"))
-    out = re.sub(r"[ \t]+\n", "\n", out)
-    return re.sub(r"\n{3,}", "\n\n", out)
-
-
 def strip_verification_claims(text: str) -> str:
     """Remove the model's own "verified" claims from prose (fences untouched).
 
@@ -171,6 +188,17 @@ def strip_verification_claims(text: str) -> str:
     would contradict it).
     """
     lower = text.lower()
-    if not any(word in lower for word in ("verif", "checked", "confirm", "validat")):
+    if not any(mark in text for mark in _CHECK_MARKS) and not any(
+        word in lower for word in ("verif", "checked", "confirm", "validat", "sympy", "agree")
+    ):
         return text
-    return map_outside_fences(text, _claimless).strip()
+    maths = _MATHS.search(text) is not None
+
+    def claimless(prose: str) -> str:
+        out = "\n".join(_line_without_claims(line, maths=maths) for line in prose.split("\n"))
+        out = re.sub(r"[ \t]+([.,;:!?])", r"\1", out)
+        out = re.sub(r"[ \t]{2,}", " ", out)
+        out = re.sub(r"[ \t]+\n", "\n", out)
+        return re.sub(r"\n{3,}", "\n\n", out)
+
+    return map_outside_fences(text, claimless).strip()
