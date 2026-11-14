@@ -26,6 +26,7 @@ from typing import Any
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
+from app.core import readings
 from app.core.config import Settings
 from app.gateways.mcp import registry as tool_registry
 from app.gateways.pubchem_gateway import PubChemCompound, PubChemResult
@@ -70,7 +71,7 @@ from app.modules.chat.turn_prep.context import (
     stream_context_from_bundle,
 )
 from app.modules.chat.turn_prep.mode import classify_turn_mode
-from app.modules.chat.turn_prep.reading import subject_of
+from app.modules.chat.turn_prep.reading import read_turn_message, subject_of
 from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.chat.turn_trace import TurnTrace, begin_turn_trace
 from app.modules.images.gen_intent import stem_subject_claims
@@ -375,6 +376,10 @@ def _hints_in(system: str, case: Case) -> set[str]:
 async def route_case(case: Case, settings: Settings | None = None) -> Route:
     settings = settings or battery_settings()
     trace = begin_turn_trace("new")
+    # As ``stream_entry`` starts a turn: the message stripped, its readings its own (a sweep
+    # run from the command line routes every entry in one context, and each read the memo the
+    # entry before it left).
+    readings.begin_turn()
     user = User(
         id=uuid4(),
         name=USER_NAME,
@@ -392,7 +397,10 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
     )
     chat = Chat(id=uuid4(), user_id=user.id, title=None)
     rows = _rows(case)
-    text = case.prompt
+    text = case.prompt.strip()
+    # The turn's load reads the message with the window, then picks the model from that
+    # reading (``turn_load``): a model picked first read the message on the loop instead.
+    await read_turn_message(text, rows, settings)
     prior_user, prior_model = last_user_turn(rows)
     model = model_choice.resolve_user_model(
         user,
