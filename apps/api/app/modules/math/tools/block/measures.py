@@ -21,6 +21,7 @@ from app.modules.math.match.asked_quantities import asked_quantities
 from app.modules.math.schemas import MathIntent
 from app.modules.math.solve.geometry import format_geometry_decimal
 from app.modules.math.tools.block.answer_text import format_quantity
+from app.services.question_parts import labelled_parts
 from app.services.solving import VerifiedMathBlock
 
 SHAPE_KINDS = frozenset(
@@ -50,10 +51,25 @@ _SYMBOLS = {
     "surface_area": ("S", 2),
 }
 _POWERS = {1: "", 2: "²", 3: "³"}
-# The kinds whose own block cards every value asked of it (both of a solid's measures, the
-# gcd and the lcm), and how each value is named on that card.
-_CARDED_BY_BLOCK = frozenset({"solid", "number_theory"})
-_CARD_NAME = {"volume": "V", "surface_area": "S", "gcd": r"\gcd", "lcm": r"\operatorname{lcm}"}
+# How a card names each value it holds: a measure's symbol, the gcd's and lcm's commands.
+_CARD_NAME = {
+    **{quantity: symbol for quantity, (symbol, _power) in _SYMBOLS.items()},
+    "gcd": r"\gcd",
+    "lcm": r"\operatorname{lcm}",
+}
+_CARD_PARTS = re.compile(r",\s*\\quad\s*")
+_PART_HEAD = re.compile(r"^\s*(?P<head>.+?)\s*(?:=|\\approx|\u2248)")
+_ARGUMENTS = re.compile(r"\([^()]*\)$")
+
+
+def _names_every(card: str, asked: Sequence[str]) -> bool:
+    """``card`` holds one named value for each quantity asked: "A = 15 m², P = 16 m"."""
+    heads = set()
+    for part in _CARD_PARTS.split(card):
+        head = _PART_HEAD.match(part)
+        if head is not None:
+            heads.add(_ARGUMENTS.sub("", head.group("head")).strip())
+    return len(heads) >= len(asked) and all(_CARD_NAME.get(name) in heads for name in asked)
 
 
 # A circle's or sector's area, circumference and arc are multiples of π: never exact as a
@@ -87,22 +103,17 @@ def with_every_measure(intent: MathIntent, block: VerifiedMathBlock) -> Verified
     is when it asks for one; None when the block's picture lacks one asked."""
     request = intent._request_text or ""
     asked = asked_quantities(request)
-    if len(asked) < 2 or block.canonical_answer is None:
-        # No card to complete: a drawing, or measures angles alone cannot fix.
+    if len(asked) < 2 or block.canonical_answer is None or labelled_parts(request) >= 2:
+        # No card to complete: a drawing, measures angles alone cannot fix, or a question
+        # in parts, whose every part gets its own card.
         return block
     picture = _picture(block)
     if not _operands_read(request, intent, picture):
         # Each ask has its own operands ("the area of a circle with radius 3 and the
         # circumference of one with radius 5"): one reading answers neither.
         return None
-    if intent.kind in _CARDED_BY_BLOCK:
-        # These blocks card every value they read: one asked beyond them is not on it.
-        named = {_CARD_NAME[quantity] for quantity in asked if quantity in _CARD_NAME}
-        card = block.canonical_answer or ""
-        whole = len(named) == len(asked) and all(
-            f"{name} " in card or f"{name}(" in card for name in named
-        )
-        return block if whole else None
+    if _names_every(block.canonical_answer, asked):
+        return block  # its own card already holds each, with its own working
     if intent.kind not in SHAPE_KINDS or picture is None:
         # A reading that cards one measure stands for a question asking several of none.
         return None
