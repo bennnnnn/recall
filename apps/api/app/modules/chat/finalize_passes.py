@@ -71,6 +71,7 @@ from app.modules.chat.finalize_subjects import (
     strip_solve_markers,
     strip_text_plots,
     subject_fences,
+    uncheck_cards,
 )
 from app.modules.chat.finalize_text import (
     add_search_sources,
@@ -415,6 +416,9 @@ async def run_finalize_passes(state: FinalizeState) -> bool:
             if index >= passed or finalize_pass.name in state.failed_safety
         )
         state.committed = await _made_safe(state, state.committed, unclean)
+        if state.ctx.photo_uncertain is True:
+            # A text committed before the cards were unchecked keeps no check either.
+            state.committed = uncheck_cards(state.committed)
         state.text = state.committed
         return False
     return True

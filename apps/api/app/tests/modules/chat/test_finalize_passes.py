@@ -705,3 +705,31 @@ async def test_a_formula_chart_is_drawn_by_sympy_and_a_data_chart_is_left_alone(
 
     data = '```chart\n{"mark":"bar","data":{"values":[{"a":1}]}}\n```'
     assert await draw_formula_charts(_state(data)) == data
+
+
+@pytest.mark.asyncio
+async def test_a_fall_back_after_the_cards_keeps_an_uncertain_photo_unchecked(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An uncertain photo's cards lose their check in the server-card pass; a text an effect
+    committed before it, saved when a later effect falls back, kept the check (review)."""
+    card = "Subtract 3.\n\n```answer\nverified: true\nx = -1\n```"
+
+    def commit(state: FinalizeState) -> str:
+        state.committed = card
+        return card
+
+    monkeypatch.setattr(
+        finalize_passes,
+        "FINALIZE_PASSES",
+        (
+            FinalizePass("cards", commit, FALL_BACK),
+            FinalizePass("broken", _raise(RuntimeError("boom")), FALL_BACK),
+        ),
+    )
+    state = _state("Subtract 3.")
+    state.ctx.photo_uncertain = True
+
+    assert await run_finalize_passes(state) is False
+    assert "verified: true" not in state.text
+    assert "```answer\nverified: false\nx = -1\n```" in state.text
