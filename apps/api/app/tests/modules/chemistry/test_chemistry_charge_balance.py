@@ -118,4 +118,6 @@ def test_a_compound_that_exists_keeps_its_answer(text: str, answer: str) -> None
 def test_a_complex_ion_in_an_equation_keeps_its_answer(text: str, answer: str) -> None:
     intent = extract_chemistry_intent(text)
     assert intent is not None
-    assert build_verified_chemistry(intent).result.answer == answer
+    verified = build_verified_chemistry(intent)
+    assert verified is not None
+    assert verified.result.answer == answer
