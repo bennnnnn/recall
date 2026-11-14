@@ -301,6 +301,10 @@ SAMPLES: dict[str, float] = {
     # A 5 kg object that weighs 30 N under water.
     "weight_app": 30.0,
     "fraction_left": 0.25,
+    # Three quarters of a sample decayed: a quarter is left.
+    "fraction_gone": 0.75,
+    # A body said to be on a spring is drawn on one.
+    "on_spring": 1.0,
     "n_halves": 3.0,
     "activity_initial": 800.0,
     "activity_final": 200.0,

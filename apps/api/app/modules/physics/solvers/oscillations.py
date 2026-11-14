@@ -146,6 +146,42 @@ def _motion(
     return graph, [_spring_scene(graph.points, shown, stated=stated, period=t_period)]
 
 
+def _shm_max_speed(p: dict[str, float]) -> PhysicsResult:
+    """v_max = Aω, from ω itself, the period (2πA/T) or the frequency (2πAf)."""
+    amplitude = p["x"]
+    if "period" in p:
+        omega = 2 * math.pi / p["period"] if p["period"] > 0 else 0.0
+        formula = r"v_{max} = \frac{2\pi A}{T}"
+        substitution = rf"v_{{max}} = \frac{{2\pi \cdot {amplitude:g}}}{{{p['period']:g}}}"
+    elif "freq" in p:
+        omega = 2 * math.pi * p["freq"]
+        formula = r"v_{max} = 2\pi A f"
+        substitution = rf"v_{{max}} = 2\pi \cdot {amplitude:g} \cdot {p['freq']:g}"
+    else:
+        omega = p["omega"]
+        formula = r"v_{max} = A\omega"
+        substitution = rf"v_{{max}} = {amplitude:g} \cdot {omega:g}"
+    if amplitude <= 0 or omega <= 0:
+        raise SolveServiceError("amplitude and angular frequency must be positive")
+    v_max = amplitude * omega
+    period = 2 * math.pi / omega
+    graph = _oscillation_curve(period, amplitude)
+    # The curve is any simple harmonic motion's; the spring only one said to be on a spring.
+    scene = (
+        [_spring_scene(graph.points, amplitude, stated=True, period=period)]
+        if p.get("on_spring")
+        else []
+    )
+    return PhysicsResult(
+        answer=f"{substitution} \\approx {v_max:.2f} \\text{{ m/s}}",
+        formulas=(formula,),
+        substitutions=(substitution,),
+        quantities=(QuantityResult("", v_max, "m/s"),),
+        graph_specs=[graph],
+        simulation_specs=scene,
+    )
+
+
 def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
     p = params_in_si(intent)
     op = intent.physics_op or "spring_force"
@@ -213,23 +249,7 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
         )
 
     if op == "shm_max_speed":
-        amplitude = p["x"]
-        omega = p["omega"]
-        if amplitude <= 0 or omega <= 0:
-            raise SolveServiceError("amplitude and angular frequency must be positive")
-        v_max = amplitude * omega
-        graph, scene = _motion(2 * math.pi / omega, amplitude)
-        return PhysicsResult(
-            answer=(
-                rf"v_{{max}} = A\omega = {amplitude:g} \cdot {omega:g} "
-                rf"\approx {v_max:.2f} \text{{ m/s}}"
-            ),
-            formulas=(r"v_{max} = A\omega",),
-            substitutions=(rf"v_{{max}} = {amplitude:g} \cdot {omega:g}",),
-            quantities=(QuantityResult("", v_max, "m/s"),),
-            graph_specs=[graph],
-            simulation_specs=scene,
-        )
+        return _shm_max_speed(p)
 
     k = p["k"]
     if k <= 0:

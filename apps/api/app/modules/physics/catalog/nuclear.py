@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from app.modules.physics.catalog.modern import ELAPSED, HALF_LIFE, HALF_LIFE_CUES
+from app.modules.physics.decay_share import SHARE_GONE_MARKER, SHARE_UNSAID_MARKER
 from app.services.law_binding.spec import Binding, FormulaSpec, formula, var
 
 _LAW = "Radioactive-decay law"
+_DECAY_TIME_ASKS = ("how long", "time", "how many years", "how much time")
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
@@ -44,13 +46,40 @@ SPECS: tuple[FormulaSpec, ...] = (
             ),
         ),
         binding=Binding(
-            asks=("how long", "time", "how many years", "how much time"),
+            asks=_DECAY_TIME_ASKS,
             result=("second",),
             inputs=(frozenset({"fraction_left", "half_life"}),),
             cues=HALF_LIFE_CUES,
+            # A share that went is the other law's, and one the words call neither is
+            # no law's (``decay_share``).
+            excludes=(SHARE_GONE_MARKER, SHARE_UNSAID_MARKER),
             nonnegative=True,
             # A fraction left is between nothing and all of it.
             requires=("fraction_left", "1 - fraction_left"),
+        ),
+    ),
+    # A share that decayed leaves the rest: 75% gone is 25% left, two half-lives. Read as
+    # the share left, 75% gone with a half-life of 10 years was 4.15 years (audit 2026-11-13).
+    formula(
+        "decay_time_from_fraction_gone",
+        "modern",
+        _LAW,
+        "t",
+        base_latex=r"\frac{N}{N_0} = 1 - f_{\text{decayed}} = \left(\frac{1}{2}\right)^{t/T_{1/2}}",
+        expression="half_life*log(1/(1 - fraction_gone))/log(2)",
+        variables=(
+            HALF_LIFE,
+            # The share's own words are read before the law is (its cue).
+            var("fraction_gone", r"f_{\text{decayed}}", dimensionless=True),
+        ),
+        binding=Binding(
+            asks=_DECAY_TIME_ASKS,
+            result=("second",),
+            inputs=(frozenset({"fraction_gone", "half_life"}),),
+            cues=(SHARE_GONE_MARKER,),
+            excludes=(SHARE_UNSAID_MARKER,),
+            nonnegative=True,
+            requires=("fraction_gone", "1 - fraction_gone"),
         ),
     ),
     # What is left after a whole number of half-lives: (1/2)ⁿ. Three is 12.5%.

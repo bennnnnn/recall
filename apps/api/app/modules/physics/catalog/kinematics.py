@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from app.modules.physics.catalog.suvat import TWO_BODIES
 from app.modules.physics.motion import SPEED_CHANGE_MARKER
+from app.services.law_binding.labels import LABELS
 from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
 from app.services.law_binding.words import COMBINED_RESULT
 
@@ -63,6 +64,10 @@ CLOSED_PATH = (
     "where she started",
     "where he started",
 )
+
+# d = vt holds for a speed that never changes and for an average one: 12 m/s on average over
+# 30 s is 360 m, however the speed went (``law_binding.labels``).
+_STEADY_OR_AVERAGE_SPEED = var("v", "v", "meter / second", words=LABELS["average speed"])
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
@@ -191,7 +196,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         base_latex="v = \\frac{d}{t}",
         variables=(
             var("t", "t", "second"),
-            var("v", "v", "meter / second"),
+            _STEADY_OR_AVERAGE_SPEED,
         ),
         binding=Binding(
             asks=("how far", "distance", "how many metres", "how many meters", "how much distance"),
@@ -209,7 +214,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         base_latex="v = \\frac{d}{t}",
         variables=(
             var("d", "d", "meter"),
-            var("v", "v", "meter / second"),
+            _STEADY_OR_AVERAGE_SPEED,
         ),
         binding=Binding(
             asks=("how long", "time taken", "time"),

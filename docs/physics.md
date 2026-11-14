@@ -87,6 +87,26 @@ flowchart LR
    - an input that `needs_words` takes a value only when its words name it: an object's
      density is not the fluid's, a tube's diameter is not its radius, and "at 20 °C" is
      not a temperature change;
+   - **a value named as a quantity is that quantity** (`services/law_binding/labels.py`):
+     "an amplitude of 0.1 m", "a period of 2 s", "4 s per cycle", "a wavelength of 200 km",
+     "an average speed of 12 m/s" and "increases its speed by 10 m/s" fill only an input
+     that is that quantity, one the catalog names for it or whose words name it, and for a
+     change a Δ input. Read by dimension alone, a spring's amplitude and period filled
+     v = d/t, 0.05 m/s for v_max = 2πA/T = 0.314 m/s, and so did a wave's and a pendulum's
+     (audit 2026-11-13). A duration said "over a period of 5 s" names nothing. An
+     extractor's law is held to it too (`law_refusals.py`), except for a change, which the
+     extractors work into the ends they bind;
+   - **a quantity takes only values it can have** (`services/law_binding/domains.py`): a
+     mass, a resistance, a capacitance, an inductance, a density, a stiffness, a frequency,
+     an absolute temperature and a named period, wavelength or amplitude are above zero,
+     and no body moves faster than light (light's school 3 × 10⁸ m/s is not faster). A
+     stated value outside declines: "a −5 Ω resistor across 10 V" was −2 A, verified. A
+     velocity, a displacement, an acceleration, a charge, a spring's extension and any Δ
+     keep their sign;
+   - **a share of a decaying sample** is what is left ("25% remains", "decayed to 25%") or
+     what went ("75% … to decay", "loses 75%", "has decomposed"), which leaves 1 − p
+     (`decay_share.py`). "75% of a sample to decay, half-life 10 years" was 4.15 years for
+     20; a share the words call neither ("75% of the sample") declines;
    - values listed after "and" share the words before the list ("at 100 kPa and 300 K"),
      and the words after a value stop at the first connector ("300 K is heated to 450 K"
      names 450 K, not 300 K). A rate in rad/s or rpm fills only an angular input, never a
@@ -714,6 +734,15 @@ pipeline refuses:
 - a law outside its `requires`: a pull that lifts the block, a motor more than 100%
   efficient, an electron accelerated past 2% of its rest energy;
 - a count of photons over a stated time;
+- what `law_refusals.py` rules out from the question's own words: air resistance said to act
+  on a motion under gravity, a speed said to be constant answered by a law of a changing
+  speed ("a constant 20 m/s for 5 s covers 200 m"), and a height the body reaches read as
+  where it starts ("how long to first reach 15 m" was a launch from 15 m);
+- a school g when the question names two bodies whose g differ ("weighs 50 N on Earth: its
+  mass on the Moon?" took the Moon's g for the weight), a sideways launch read by the
+  one-line SUVAT laws, and a dropped body given a launch speed;
+- a follow-up that changes the motion, not a number ("what if it takes 10 s to stop
+  instead?" after a steady 20 m/s);
 - a result whose kind is not the asked one, and a price ("find the cost"), which no law
   answers;
 - a Doppler speed with no direction, or one speed when both parties move;

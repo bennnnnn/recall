@@ -19,8 +19,9 @@ question a student would type, worked independently from the textbook formula
 ``history`` gives earlier turns for a follow-up, and ``locale`` the asker's app language
 (English when absent). ``shared`` names the peer
 subject that owns a law both use (gases, Q = mcΔT, half-lives are physics'), so
-its claiming the turn is no misread. ``gap`` marks a known miss: a strict
-expected failure until the fix deletes the line. Every verified physics and
+its claiming the turn is no misread. ``gap`` marks a known miss, an ``answer``
+entry the server declines; a gap never excuses a wrong number, and the fix deletes
+the line. Every verified physics and
 chemistry reply is also checked for its shape (Given, Required, [Solution,] Formula,
 Substitution, Answer; no calculator notation; no invented zero given), and
 every picture it carries is validated: a ``simulation`` scene against the

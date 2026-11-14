@@ -38,6 +38,7 @@ from app.modules.physics.catalog.momentum import SPECS as MOMENTUM
 from app.modules.physics.catalog.nuclear import SPECS as NUCLEAR
 from app.modules.physics.catalog.optics import SPECS as OPTICS
 from app.modules.physics.catalog.particles import SPECS as PARTICLES
+from app.modules.physics.catalog.periodic import SPECS as PERIODIC
 from app.modules.physics.catalog.plasma import SPECS as PLASMA
 from app.modules.physics.catalog.projectile import SPECS as PROJECTILE
 from app.modules.physics.catalog.quantum import SPECS as QUANTUM
@@ -102,6 +103,7 @@ CATALOG: dict[str, FormulaSpec] = _register(
     FRICTION,
     CIRCULAR,
     SPRING,
+    PERIODIC,
     TORQUE,
     ROTATION,
     CIRCUIT,
