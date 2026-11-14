@@ -52,7 +52,7 @@ async def release_lock(redis: Redis, key: str, token: str) -> None:
             if await redis.get(key) == token:
                 await redis.delete(key)
     except (RedisError, OSError) as exc:
-        logger.warning("Lock release failed; %s expires on its TTL: %r", one_line(key), exc)
+        logger.warning("Lock release failed; %s expires on its TTL: %s", one_line(key), repr(exc))
 
 
 async def refresh_lock(redis: Redis, key: str, token: str, ttl_seconds: int) -> bool:
