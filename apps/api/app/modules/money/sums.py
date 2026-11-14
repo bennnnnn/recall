@@ -17,6 +17,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from app.modules.money.periods import OTHER_DURATION, PAYMENT_COUNT, sum_period
 from app.modules.money.phrases import (
     AMOUNT,
     CURRENCY_WORD,
@@ -161,7 +162,13 @@ def amounts(text: str) -> list[Sum] | None:
     found: list[Sum] = []
     for match in AMOUNT.finditer(text):
         start = match.start("num")
-        if RATE.match(text, start) or TERM.match(text, start) or _PLAN.match(text, start):
+        if (
+            RATE.match(text, start)
+            or TERM.match(text, start)
+            or PAYMENT_COUNT.match(text, start)
+            or OTHER_DURATION.match(text, start)
+            or _PLAN.match(text, start)
+        ):
             continue
         word = CURRENCY_WORD.match(text, match.end())
         end = word.end() if word else match.end()
@@ -169,7 +176,8 @@ def amounts(text: str) -> list[Sum] | None:
         at = match.start("sym") if match.group("sym") else match.start("num")
         lead = text[max(0, at - 40) : at]
         named = None if match.group("sym") else _CURRENCY_BEFORE.search(lead)
-        before = (lead[: named.start()] if named else lead)[-24:]
+        ahead = lead[: named.start()] if named else lead
+        before = ahead[-24:]
         marked = bool(
             match.group("sym")
             or match.group("mult")
@@ -193,7 +201,7 @@ def amounts(text: str) -> list[Sum] | None:
         number = amount_value(match["num"])
         if match.group("mult"):
             number *= MULTIPLIERS[match["mult"].lower()]
-        found.append(_sum(number, before, rest, clause, lead))
+        found.append(_sum(number, before, rest, clause, lead, sum_period(ahead)))
     return found
 
 
@@ -206,11 +214,13 @@ def _no_sum(before: str, rest: str) -> bool:
     )
 
 
-def _sum(value: float, before: str, rest: str, clause: str, lead: str) -> Sum:
+def _sum(value: float, before: str, rest: str, clause: str, lead: str, period: int | None) -> Sum:
+    """The sum with its roles; ``period`` is how often it is paid by the words before it
+    ("monthly deposits of 200", "quarterly payments of 500")."""
     deposit = _DOWN_CLAUSE.match(clause)
     return Sum(
         value=value,
-        monthly=_MONTHLY.match(clause) is not None,
+        monthly=_MONTHLY.match(clause) is not None or period == 12,
         down=_DOWN.search(before) is not None
         or _DOWN_AFTER.match(rest) is not None
         or (deposit is not None and not _NOT_PURCHASE.search(lead + deposit.group(0))),
@@ -220,7 +230,7 @@ def _sum(value: float, before: str, rest: str, clause: str, lead: str) -> Sum:
         price=_PRICE_BEFORE.search(before) is not None or _GOODS_AFTER.match(rest) is not None,
         paid=_PAID_BEFORE.search(before) is not None,
         income=_INCOME_BEFORE.search(before) is not None or _INCOME_AFTER.match(rest) is not None,
-        other_period=_OTHER_PERIOD.match(clause) is not None,
+        other_period=_OTHER_PERIOD.match(clause) is not None or period not in (None, 12),
     )
 
 

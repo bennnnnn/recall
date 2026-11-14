@@ -35,6 +35,8 @@ def calculator_fence(worked: Worked, average: MarketRate | None, currency: str) 
     """The card's fence text, or None when the card fails its own checks."""
     product = worked.product
     expressions = worked.expressions()
+    # The outputs as the request's settings name them: a quarterly loan's "Quarterly payment".
+    outputs = product.outputs_at(worked.settings)
     try:
         spec = CalculatorSpec(
             product=product.family,
@@ -50,7 +52,7 @@ def calculator_fence(worked: Worked, average: MarketRate | None, currency: str) 
                     primary=item.primary,
                     never_key=item.never_key,
                 )
-                for item in product.outputs
+                for item in outputs
             ],
         )
     except (ValidationError, ValueError):

@@ -24,10 +24,10 @@ _SPELLED = (
 # or a digit's comma, so "3,5%" is never read as "5%" (2026-11-01: a 5% mortgage worked from
 # "3,5%"), and "3%,4%" is two rates.
 PERCENT = r"(?<![\d.])(?<!\d,)(?P<pct>\d{1,3}(?:[.,]\d{1,4})?)\s?(?:%|percent\b|per\s?cent\b|pct\b)"
+# A count in digits or words ("48", "two and a half"); its value is ``count_value``'s.
+COUNT = rf"(?:\d{{1,3}}(?:\.\d{{1,2}})?|{_SPELLED})"
 # A length of time; its count is ``count_value``'s.
-DURATION = (
-    rf"(?P<n>\d{{1,3}}(?:\.\d{{1,2}})?|{_SPELLED})\s?-?\s?(?P<unit>years?|yrs?|months?|mos?)\b"
-)
+DURATION = rf"(?P<n>{COUNT})\s?-?\s?(?P<unit>years?|yrs?|months?|mos?)\b"
 RATE = re.compile(PERCENT, re.I)
 TERM = re.compile(rf"\b{DURATION}", re.I)
 _SCALE = r"(?:k|m|thousand|million|mil|grand)\b"

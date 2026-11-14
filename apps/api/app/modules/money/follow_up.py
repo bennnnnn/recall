@@ -33,8 +33,9 @@ from app.modules.money.change_line import read_change
 from app.modules.money.correction import corrected, is_correction
 from app.modules.money.fence import slider_range
 from app.modules.money.purchase import purchase_request
-from app.modules.money.read import MoneyRequest, named_product, read_money_request, term_in
+from app.modules.money.read import MoneyRequest, named_product, read_money_request
 from app.modules.money.solve import rate_name
+from app.modules.money.terms import term_in
 
 # The user lines a follow-up may reach back over: the request and the changes after it.
 _WINDOW = 3
@@ -116,6 +117,9 @@ def changed(request: MoneyRequest, line: str) -> MoneyRequest | None:
         values["amount"] = price - down
         names.append("amount")
     if change.rate is not None:
+        # After "2% a month", a bare "what about 1.5%?" may be a month's or a year's.
+        if request.rate_per != 1:
+            return None
         values[rate_name(product)] = change.rate
         names.append(rate_name(product))
     if change.term is not None:

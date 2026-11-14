@@ -65,6 +65,9 @@ _CASES: list[tuple[str, str, dict[str, float]]] = [
     ("savings-interest", _output("savings", "interest"), {"start": 10000, "deposit": 500, "rate": 4, "years": 20}),
     # "Compounded quarterly" (2026-10-31): 3000 at 6% for 7 years is 3000·1.015^28.
     ("savings-quarterly", product("savings").outputs_at({"per_year": 4})[0].expression, {"start": 3000, "deposit": 100, "rate": 6, "years": 7}),
+    # "3% per quarter … 8 equal quarterly payments" (2026-11-14): 20,000·0.03/(1 - 1.03^-8).
+    ("loan-quarterly", product("loan").outputs_at({"payments": 4})[0].expression, {"amount": 20000, "rate": 12, "years": 2}),
+    ("car-weekly", product("car").outputs_at({"payments": 52})[0].expression, {"amount": 20000, "rate": 6, "months": 60}),
 ]  # fmt: skip
 
 

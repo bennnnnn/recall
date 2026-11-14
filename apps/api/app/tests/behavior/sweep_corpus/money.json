@@ -2421,5 +2421,197 @@
   "history": [],
   "reply": "The net force is 3600 N.",
   "expect": "answer"
+ },
+ {
+  "id": "mo-139",
+  "area": "money lesson",
+  "prompt": "Suppose you borrow Birr 95,000 from a bank and agree to repay the loan in 48 equal monthly payments. If the bank charges 2% per month on the unpaid balance, compounded monthly, how much is each payment?",
+  "history": [],
+  "reply": "**Given**\nLoan: Birr 95,000; rate: 2% a month (24% a year); 48 monthly payments\n\n**Loan payment formula**\n$M = P\\frac{i}{1-(1+i)^{-n}}$\n\n**Answer**\nEach monthly payment is **Birr 3,097.17**.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-140",
+  "area": "money lesson",
+  "prompt": "Birr 20,000 is borrowed at 3% per quarter and repaid in 8 equal quarterly payments. Find the payment.",
+  "history": [],
+  "reply": "**Given**\nLoan: Birr 20,000; rate: 3% a quarter; 8 quarterly payments\n\n**Loan payment formula**\n$M = P\\frac{i}{1-(1+i)^{-n}}$\n\n**Answer**\nEach quarterly payment is **Birr 2,849.13**.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-141",
+  "area": "money lesson",
+  "prompt": "A loan of 50,000 at 12% annual interest is repaid in 36 monthly payments. What is the payment?",
+  "history": [],
+  "reply": "**Given**\nLoan: 50,000; rate: 12% a year; 36 monthly payments\n\n**Answer**\nThe monthly payment is **1,660.72**.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-142",
+  "area": "money lesson",
+  "prompt": "A loan of 12,000 at a monthly interest rate of 1.5% is repaid in 24 monthly payments. Find the payment.",
+  "history": [],
+  "reply": "**Given**\nLoan: 12,000; rate: 1.5% a month; 24 monthly payments\n\n**Answer**\nThe monthly payment is **599.09**.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-143",
+  "area": "money",
+  "prompt": "I borrow $10,000 at 1% per month for 24 months. What is the monthly payment?",
+  "history": [],
+  "reply": "At 1% a month (12% a year) over 24 months, the payment is about $470.73 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-144",
+  "area": "money",
+  "prompt": "Find the monthly payment on a 200,000 loan at 0.5% per month over 10 years",
+  "history": [],
+  "reply": "At 0.5% a month (6% a year) over 10 years, the payment is $2,220.41 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-145",
+  "area": "money",
+  "prompt": "I have a credit card balance of $3,000 at 2% per month and pay $150 a month. How long to pay it off?",
+  "history": [],
+  "reply": "At 2% a month (24% APR), $150 a month clears it in about 26 months, with about $869 in interest.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-146",
+  "area": "money",
+  "prompt": "I deposit $5,000 in a savings account at 5% per quarter compounded quarterly for 3 years. How much will I have?",
+  "history": [],
+  "reply": "After 3 years you would have about $8,979.28, of which $3,979.28 is interest.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-147",
+  "area": "money",
+  "prompt": "I make 36 monthly deposits of $200 into a savings account at 6%. How much will I have?",
+  "history": [],
+  "reply": "After 36 deposits you would have about $7,867.22: $7,200 deposited and $667.22 interest.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-148",
+  "area": "money",
+  "prompt": "car loan of 20k at 6% for 5 years with weekly payments",
+  "history": [],
+  "reply": "Paid weekly over 5 years, the payment is about $89.08 a week.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-149",
+  "area": "money declined",
+  "prompt": "car loan of 20k at 1.5% monthly for 3 years, what's the payment?",
+  "history": [],
+  "reply": "Is that 1.5% a month, or 1.5% a year paid monthly? The payment differs a lot between the two.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-150",
+  "area": "money declined",
+  "prompt": "Birr 20,000 is borrowed at 3% per quarter. Find the monthly payment over 2 years.",
+  "history": [],
+  "reply": "A rate of 3% a quarter is about 0.99% a month, so the monthly payment is about Birr 935.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-151",
+  "area": "money declined",
+  "prompt": "car loan 20k at 6%, bi-weekly payments, 5 years",
+  "history": [],
+  "reply": "Paid every two weeks over 5 years, each payment is about $178.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-152",
+  "area": "money declined",
+  "prompt": "a savings account that pays interest each month at 4%, I save 200 a month for 5 years",
+  "history": [],
+  "reply": "At 4% a year paid monthly, 200 a month grows to about 13,260 in 5 years.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-153",
+  "area": "money declined",
+  "prompt": "car loan 20k at 6% with 60 payments",
+  "history": [],
+  "reply": "If those are 60 monthly payments, each is about $386.66.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-154",
+  "area": "money lookalike",
+  "prompt": "My salary is 5,000 per month. How much is that per year?",
+  "history": [],
+  "reply": "5,000 a month is 60,000 a year.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-155",
+  "area": "money lookalike",
+  "prompt": "My phone plan is $40 per month. Is that a good deal for 10GB?",
+  "history": [],
+  "reply": "For 10GB, $40 a month is on the high side; many prepaid plans charge $20 to $30.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-156",
+  "area": "money lookalike",
+  "prompt": "A car travels at 60 km per hour for 3 hours. How far does it go?",
+  "history": [],
+  "reply": "It goes 60 × 3 = 180 km.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-157",
+  "area": "money lookalike",
+  "prompt": "I pay $1,200 rent per month. How much is that a year?",
+  "history": [],
+  "reply": "$1,200 a month is $14,400 a year.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-158",
+  "area": "money lookalike",
+  "prompt": "My gym membership is 30 a month and goes up 5% per year. What will it cost in 3 years?",
+  "history": [],
+  "reply": "After three 5% rises it is about 34.73 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-159",
+  "area": "money lookalike",
+  "prompt": "I get paid weekly, $800 a week. How much is that a month?",
+  "history": [],
+  "reply": "About $3,467 a month ($800 × 52 ÷ 12).",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-160",
+  "area": "money lookalike",
+  "prompt": "Our monthly payments for electricity went up 3% this year, any tips to save energy?",
+  "history": [],
+  "reply": "Seal drafts, switch to LED bulbs and run the washer on cold.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-161",
+  "area": "money lookalike",
+  "prompt": "Interest rates per month on payday loans are crazy, why are they legal?",
+  "history": [],
+  "reply": "Payday lenders are regulated by state law; many states cap them, others allow high fees.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-162",
+  "area": "money everyday",
+  "prompt": "My salary is 5,000 per month and I want a car loan of 20,000 at 6%. What is the monthly payment?",
+  "history": [],
+  "reply": "Over 60 months (assumed), a $20,000 car loan at 6% is about $386.66 a month.",
+  "expect": "answer"
  }
 ]

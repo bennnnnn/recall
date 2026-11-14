@@ -23,6 +23,7 @@ import re
 from dataclasses import dataclass
 
 from app.modules.money.numbers import money_text, percent_text
+from app.modules.money.periods import rate_words
 from app.modules.money.phrases import percent_value
 from app.modules.money.read import MoneyRequest
 from app.modules.money.solve import Worked, rate_name
@@ -96,7 +97,8 @@ def card_figures(text: str, request: MoneyRequest, worked: Worked) -> CardFigure
     the line, after the reply."""
     product = worked.product
     payment = worked.outputs.get("payment")
-    if product.family != "loan" or payment is None:
+    # Only a monthly payment's words are read ("$X a month"): a quarterly loan's are not.
+    if product.family != "loan" or payment is None or worked.settings.get("payments", 12) != 12:
         return None
     sentences = _SENTENCE.split(text or "")
     if not _states_card(text, worked.values["amount"], payment):
@@ -162,9 +164,11 @@ def _other_scenario(
     if _OTHER_SCENARIO.search(sentence):
         return True
     rate = worked.values[rate_name(worked.product)]
+    # "2% a month" is the card's 24% a year said as the user said it.
+    rates = {rate, rate / worked.rate_per}
     for found in _PERCENT.findall(sentence):
         said = percent_value(found)
-        if said is None or abs(said - rate) > 1e-6:
+        if said is None or all(abs(said - value) > 1e-6 for value in rates):
             return True
     term_name = "years" if "years" in worked.values else "months"
     for count, unit in _TERM.findall(sentence):
@@ -188,6 +192,8 @@ def _line(request: MoneyRequest, worked: Worked, payment: float, *, on_top: bool
     values = worked.values
     term_name = "years" if "years" in values else "months"
     rate = percent_text(values[rate_name(worked.product)])
+    if worked.rate_per != 1:
+        rate += f" a year ({rate_words(values[rate_name(worked.product)], worked.rate_per)})"
     rest = (
         f"a month on a {symbol}{money_text(values['amount'])} loan at {rate} over "
         f"{values[term_name]:g} {term_name}."

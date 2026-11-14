@@ -15,6 +15,8 @@ def _sent_keys() -> set[str]:
         keys.add(product.title_key)
         keys.update(item.label_key for item in product.inputs)
         keys.update(item.label_key for item in product.outputs)
+        # A label a setting gives: a loan paid quarterly is "Quarterly payment".
+        keys.update(key for item in product.outputs for key in item.labels.values())
         keys.update(item.never_key for item in product.outputs if item.never_key)
     return keys
 

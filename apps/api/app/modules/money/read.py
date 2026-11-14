@@ -14,6 +14,8 @@ The kind of the product is read by ``kinds`` ("buying a used car" is looked up a
 used-car average), each sum's role by ``sums`` and the loan among them by ``loan_sums``.
 The percent and the length of time (``phrases``) are shared with ``change_line``, which
 reads a follow-up ("what if i only do 3 years instead") by its own stricter grammar.
+``periods`` reads how often the rate, the payments and the deposits run ("2% per month" is
+24% a year) and ``terms`` the term ("48 monthly payments" is 4 years).
 """
 
 from __future__ import annotations
@@ -25,19 +27,24 @@ from app.modules.money.catalog import PRODUCTS, Product
 from app.modules.money.compounding import UNKNOWN, compounding_per_year
 from app.modules.money.kinds import named_variant
 from app.modules.money.loan_sums import LoanSums, loan_sums, rest_is_borrowed
+from app.modules.money.periods import (
+    flow_frequency,
+    paid_by,
+    rate_period,
+    rate_periods_said,
+)
 from app.modules.money.phrases import (
     AMOUNT,
     CURRENCY_WORD,
     CURRENCY_WORDS,
     MULTIPLIERS,
     RATE,
-    TERM,
     amount_value,
-    count_value,
     grouped,
     percent_value,
 )
 from app.modules.money.sums import MEASUREMENT, SAYS_MONEY, Sum, amounts
+from app.modules.money.terms import read_term
 
 _YEAR = re.compile(r"(?:19|20)\d{2}")
 # A percent that is a share of the price put down: "20% down", "a down payment of 20%",
@@ -124,55 +131,6 @@ _CURRENCIES = {
     "cad": "CAD",
     "aud": "AUD",
 }
-_TERM_UNITS = {"year": "years", "years": "years", "yr": "years", "yrs": "years"}
-# A length of time that is no term: an age, time gone by, a gap, payments already made
-# ("ten years ago", "thirty years old", "five years apart", "been paying for three years",
-# "twelve months of payments", "for the past 3 years", "every 3 months").
-_SPAN_AFTER = re.compile(
-    r"\s?(?:-\s?)?(?:ago|old|apart|of\sage|"
-    r"of\s(?:payments?|paying|saving|savings|work|experience|service|marriage))\b",
-    re.I,
-)
-# Another length offered beside a term: "15 or 30 years", "36 or 60 months", "15 vs 30 year".
-_TERM_CHOICE = re.compile(
-    r"(?<![\w.])\d{1,3}(?:\.\d+)?(?:[\s-]?(?:years?|yrs?|months?))?\s*(?:or|to|-|\u2013|/|vs\.?|versus)\s*$",
-    re.I,
-)
-_SPAN_BEFORE = re.compile(
-    r"\b(?:been\s(?:\w+\s){0,2}(?:for\s)?|(?:the|my|our)\s(?:past|last|previous)\s|made\s|"
-    r"every\s|each\s|per\s|aged?\s)$",
-    re.I,
-)
-# "for five years" in a clause about time already spent on a loan held ("I've been paying my
-# mortgage at 4% for five years", "we have had our loan for 5 years") is time gone by, not
-# the loan's term (2026-11-01: a 5-year mortgage worked from it). Only paying, owning or
-# holding a loan counts, with the loan as the verb's object: "I've been looking at a car
-# loan at 6% for 3 years", "I've had my eye on one", "I've paid $5k toward a down payment
-# on a $300k mortgage at 6% for 15 years" and "we have had a mortgage offer of $300k … for
-# 15 years" ask about a new loan's term.
-_HELD = r"(?:mortgage|loan|card|balance|debt)s?"
-# The held loan ends its noun phrase: a preposition, a conjunction, punctuation or a sum
-# follows it. "a car loan quote at 7% for 6 years" and "a mortgage offer of $300k" are a new
-# loan's quote and offer, never one held.
-_HELD_ENDS = (
-    r"\b(?=\s*(?:(?:at|for|of|with|on|since|from|in|and|but|so|or)\b|[,.;:!?)]|[$€£¥₹₦\d]|$))"
-)
-_SPENT_CLAUSE = re.compile(
-    r"\b(?:been\s(?:paying|repaying|making\s(?:payments|repayments)|servicing|carrying)"
-    r"|(?:have|has|'ve|\u2019ve|'s|\u2019s)\s(?:paid|repaid|owned|held|carried|had))"
-    r"\s(?:(?:on|off|down)\s)?(?:it|(?:my|our|his|her|their|the|this|that|a|an)\s"
-    rf"(?:\S+\s){{0,3}}?{_HELD}{_HELD_ENDS})\b.*\bfor\s$",
-    re.I | re.S,
-)
-# Where a clause starts: a sentence's end (never a decimal point, "4.5%"), a comma before a
-# space (never "250,000"), or a conjunction.
-_CLAUSE_BREAK = re.compile(
-    r"[.?!;](?=\s|$)|\n|,\s|\b(?:and|but|so|or|yet|then|because|while|although|though)\b",
-    re.I,
-)
-# A count word right before a term the reader did not take in whole ("two thousand and
-# twenty months"): the term is not read.
-_SCALE_BEFORE = re.compile(r"\b(?:hundred|thousand)\s(?:and\s)?$", re.I)
 
 
 @dataclass(frozen=True)
@@ -199,8 +157,12 @@ class MoneyRequest:
     # read wrong ("20% down … 6%") never carries into a worked follow-up.
     rates_given: int = 0
     # Settings the request fixed (``Product.settings``): "compounded quarterly" is
-    # ``per_year`` 4. One it left out takes the product's usual value.
+    # ``per_year`` 4, "8 quarterly payments" ``payments`` 4. One it left out takes the
+    # product's usual value.
     settings: dict[str, float] = field(default_factory=dict)
+    # Times a year the rate is charged as the user said it: "2% a month" is 12, and
+    # ``values`` holds the yearly 24%.
+    rate_per: int = 1
 
 
 def bare_year(text: str) -> bool:
@@ -221,7 +183,7 @@ def read_money_request(text: str) -> MoneyRequest | None:
     found = named_product(text)
     if found is None or _HOMEWORK_INTEREST.search(text) or measures_without_money(text):
         return None
-    rates, shares = _percents(text)
+    rates, shares, periods = _percents(text)
     sums = amounts(text)
     if sums is None or len(rates) > 1 or len(shares) > 1:
         return None
@@ -236,12 +198,17 @@ def read_money_request(text: str) -> MoneyRequest | None:
         return None
     if rate is None and not _FINANCE.search(_RATE_OF_A_QUANTITY.sub(" ", text)):
         return None
-    settings = _settings(found, text)
+    rate_per = _rate_per(text, periods) if rate is not None else 1
+    flow = flow_frequency(text)
+    settings = _settings(found, text, rate_per, flow)
     if settings is None:
         return None
     loan = loan_sums(sums, share, rest_is_borrowed(text)) if found.family == "loan" else None
-    values = _values(found, rate, sums, loan)
-    term = _term(found, text)
+    values = _values(found, rate, sums, loan, rate_per)
+    # A count of payments with no frequency of its own ("12 equal payments") is paid as
+    # the message says, else as often as its rate is charged ("1% per month").
+    paid = flow if flow is not None else (rate_per if rate_per > 1 else None)
+    term = read_term(found, text, paid)
     if values is None or term is None:
         return None
     values.update(term)
@@ -259,19 +226,49 @@ def read_money_request(text: str) -> MoneyRequest | None:
         down=loan.down if loan else None,
         rates_given=len(rates),
         settings=settings,
+        rate_per=rate_per,
     )
 
 
-def _settings(product: Product, text: str) -> dict[str, float] | None:
-    """The settings ``text`` fixes; None when it says one the product cannot work: savings
-    "compounded continuously", or a loan compounded other than monthly. A card's APR is
-    charged a month at a time however it compounds, as its statement works it."""
-    per_year = compounding_per_year(text)
-    if per_year is None or product.family == "card_payoff":
-        return {}
+def _rate_per(text: str, beside: set[int]) -> int:
+    """Times a year the one rate is charged, as its percent's words say; 1 when they say
+    none. A period the message says of the interest or the rate away from the percent
+    must agree, or the rate is ``UNKNOWN``: "interest per month at the rate of 2%" is no
+    yearly 2%, and "pays interest each month at 4%" may be a yearly 4% paid monthly."""
+    said = beside | rate_periods_said(text)
+    if len(said) > 1 or UNKNOWN in said:
+        return UNKNOWN
+    if beside:
+        return beside.pop()
+    return UNKNOWN if said - {1} else 1
+
+
+def _settings(
+    product: Product, text: str, rate_per: int, flow: int | None
+) -> dict[str, float] | None:
+    """The settings ``text`` fixes; None when it says one the product cannot work, or two
+    that disagree: savings "compounded continuously" or paid into each quarter, a loan
+    compounded or charged by another period than it is paid ("1% per month" repaid
+    quarterly), or a rate or a payment the reader cannot place ("1.5% monthly", "bi-weekly
+    payments"). A card's APR is charged a month at a time however it compounds, as its
+    statement works it, and it is paid monthly."""
+    compounds = compounding_per_year(text)
+    if UNKNOWN in (rate_per, flow, compounds):
+        return None
+    if product.family == "card_payoff":
+        return {} if flow in (None, 12) else None
     if "per_year" in product.settings:
-        return None if per_year == UNKNOWN else {"per_year": per_year}
-    return {} if per_year == 12 else None
+        # Deposits are paid monthly; a rate charged by a period compounds by it.
+        if flow not in (None, 12) or (rate_per > 1 and compounds not in (None, rate_per)):
+            return None
+        compounds = compounds or (rate_per if rate_per > 1 else None)
+        return {} if compounds is None else {"per_year": compounds}
+    payments = flow or 12
+    if not paid_by(payments) or rate_per not in (1, payments):
+        return None
+    if compounds not in (None, payments):
+        return None
+    return {} if payments == 12 else {"payments": payments}
 
 
 def named_product(text: str) -> Product | None:
@@ -289,12 +286,15 @@ def named_product(text: str) -> Product | None:
     return best[1] if best is not None else None
 
 
-def _percents(text: str) -> tuple[set[float], set[float]]:
-    """The rates and the shares of the price put down ("20% down") the message gives:
-    "a 400k house with 20% down at 6%" is the rate 6 and the share 20. A share that is no
-    part of a price (0%, 100%) is one the reader cannot use, given as two."""
+def _percents(text: str) -> tuple[set[float], set[float], set[int]]:
+    """The rates and the shares of the price put down ("20% down") the message gives, and
+    the periods its rates' own words say they are charged by: "a 400k house with 20% down
+    at 6%" is the rate 6 and the share 20; "2% per month" the rate 2 charged 12 times a
+    year. A share that is no part of a price (0%, 100%) is one the reader cannot use,
+    given as two."""
     rates: set[float] = set()
     shares: set[float] = set()
+    periods: set[int] = set()
     for match in RATE.finditer(text):
         value = percent_value(match["pct"])
         if value is None:
@@ -303,9 +303,12 @@ def _percents(text: str) -> tuple[set[float], set[float]]:
             rates |= {-1.0, -2.0}
         elif not _is_share_down(text, match):
             rates.add(value)
+            period = rate_period(text, match.start(), match.end())
+            if period is not None:
+                periods.add(period)
         else:
             shares |= {value} if 0 < value < 100 else {-1.0, -2.0}
-    return rates, shares
+    return rates, shares, periods
 
 
 def stated_sums(text: str) -> list[float]:
@@ -369,12 +372,17 @@ def _principal_names(product: Product) -> tuple[str, ...]:
 
 
 def _values(
-    product: Product, rate: float | None, amounts: list[Sum], loan: LoanSums | None
+    product: Product,
+    rate: float | None,
+    amounts: list[Sum],
+    loan: LoanSums | None,
+    rate_per: int = 1,
 ) -> dict[str, float] | None:
-    """The inputs the sums give, each read from one sum; None when a slot has two."""
+    """The inputs the sums give, each read from one sum; None when a slot has two. The rate
+    is yearly: one charged ``rate_per`` times a year is that many times it, as an APR is."""
     values: dict[str, float] = {}
     if rate is not None:
-        values["apr" if product.family == "card_payoff" else "rate"] = rate
+        values["apr" if product.family == "card_payoff" else "rate"] = round(rate * rate_per, 10)
     once = [item for item in amounts if not item.monthly and not item.income]
     monthly = {item.value for item in amounts if item.monthly}
     if loan is not None:
@@ -390,39 +398,3 @@ def _values(
         if said and (value := said.pop()) > 0:
             values[name] = value
     return values
-
-
-def _term(product: Product, text: str) -> dict[str, float] | None:
-    """The term the message gives, in the product's own unit (a car loan counts months);
-    {} for none, None for two ("15 or 30 years", "a 3 year or 5 year car loan").
-
-    A length of time that is no term (an age, time gone by) is left out."""
-    terms: set[tuple[tuple[str, float], ...]] = set()
-    for match in TERM.finditer(text):
-        before = text[max(0, match.start() - 30) : match.start()]
-        if _SCALE_BEFORE.search(before):
-            return None
-        breaks = [end.end() for end in _CLAUSE_BREAK.finditer(text, 0, match.start())]
-        clause = text[breaks[-1] if breaks else 0 : match.start()]
-        if (
-            _SPAN_AFTER.match(text, match.end())
-            or _SPAN_BEFORE.search(before)
-            or _SPENT_CLAUSE.search(clause[-200:])
-        ):
-            continue
-        if _TERM_CHOICE.search(before):
-            return None
-        terms.add(tuple(term_in(product, count_value(match["n"]), match["unit"]).items()))
-    if len(terms) > 1:
-        return None
-    return dict(terms.pop()) if terms else {}
-
-
-def term_in(product: Product, number: float, unit: str) -> dict[str, float]:
-    """``number`` ``unit`` ("3 years") in the product's own term unit (a car loan counts months)."""
-    in_years = _TERM_UNITS.get(unit.lower()) == "years"
-    if product.input("years") is not None:
-        return {"years": number if in_years else number / 12}
-    if product.input("months") is not None:
-        return {"months": number * 12 if in_years else number}
-    return {}

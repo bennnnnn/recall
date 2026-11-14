@@ -14,7 +14,8 @@ as a slider moves by **evaluating** the formula the server sent; it never solves
 | Part | Path |
 |------|------|
 | Products, formulas, defaults, slider ranges (data, not code paths) | `apps/api/app/modules/money/catalog.py` |
-| Reading a request (product, amount, rate, term, payment, currency, country) | `apps/api/app/modules/money/read.py`; the kind (a used car), `kinds.py` |
+| Reading a request (product, amount, rate, term, payment, currency, country) | `apps/api/app/modules/money/read.py`; the kind (a used car), `kinds.py`; the term, `terms.py` |
+| How often the rate, the payments and the deposits run ("2% per month", "48 monthly payments") | `apps/api/app/modules/money/periods.py` |
 | A what-if that changes the chat's last request ("what if i only do 3 years instead") | `apps/api/app/modules/money/follow_up.py`, its grammar `change_line.py` |
 | A loan told over two lines ("I am planning to buy a car", then "20k with 6 percent") | `apps/api/app/modules/money/purchase.py`; what each loan buys, `Product.goods` |
 | The card's currency and the country a rate search names | `apps/api/app/modules/money/currencies.py` |
@@ -55,7 +56,14 @@ no used-car average and got no numbers at all, where the new-car average had wor
 1 rows:
 
 - **Loan** (mortgage, car, personal, student, any other amortised loan): amount, annual rate,
-  term → monthly payment, total interest, total paid. A rate of 0% pays amount ÷ months.
+  term → payment, total interest, total paid. A rate of 0% pays amount ÷ payments. It is
+  paid monthly unless the request says otherwise ("8 equal quarterly payments", "5 annual
+  payments", "weekly payments", "payments made each quarter", "12 payments a year"): a
+  setting of the row (`payments`), written into the card's trees as a number like savings'
+  compounding, and the card's payment readout says per what ("Quarterly payment",
+  `Output.labels`). It compounds by the period it is paid; one compounded or charged by
+  another ("12% compounded monthly, quarterly payments", "1% per month repaid quarterly")
+  is left to the model. Every two weeks, twice a month and daily are no frequency it pays.
 - **Card payoff**: balance, APR, monthly payment → months to pay off, total interest. A payment
   at or below the first month's interest never pays it off, and the card says so.
 - **Savings**: starting amount, monthly deposit, annual rate, years → final balance, total
@@ -84,8 +92,35 @@ give no worked numbers and no card: the model answers. "N% down" is always the s
 price put down, never the rate; a plan's name ("401k", "529 plan") is no sum; interest said
 to be simple ("if interest is simple", "no compounding", "I = PRT") is left to maths.
 
+**A rate's period and a count of payments** (`periods.py`, `terms.py`; live 2026-11-14, a
+grade 12 book: "repay the loan in 48 equal monthly payments … 2% per month on the unpaid
+balance" was worked as a yearly 2% over a 5-year term it assumed, 1,665.14 a month where the
+loan costs 3,097.17). A rate's period is read from the words beside its percent, after it
+("2% per month", "1% a month", "3% per quarter", "12% per annum", "1% p.m.", "2% interest
+per month", "2% monthly interest", "12% annual interest") or before it ("a monthly interest
+rate of 1.5%", "the interest rate per quarter is 3%"). The slider and the sums keep a yearly
+rate: one charged by a period is the percent times its periods a year, as an APR is (2% a
+month is 24%, a card's 0.05% a day 18.25%), and the block and the market note say both ("2%
+a month (24% a year)"). Savings compound by their rate's period unless the request says
+otherwise. A describing word alone after a percent ("1.5% monthly", "4% quarterly") may be
+the rate's period or how often it is paid or compounded, so it is not worked unless it is a
+year's ("6% annually"); one before a payment or a compounding ("6% monthly payments", "5%
+quarterly compounded") is not the rate's. A period said of the interest or the rate away from
+its percent ("interest per month at the rate of 2%", "pays interest each month at 4%") must
+be the one the percent has, or nothing is worked. A follow-up rate after a rate by the month
+("what about 1.5%?") goes to the model. A count of payments is a term at its frequency ("48
+monthly payments" is 4 years, "8 equal quarterly payments" 2, "24 EMIs" 2), and so is a
+length in quarters or weeks ("over 8 quarters") when no year, month or count is given;
+payments gone by ("after 12 payments", "made 12 monthly payments") are not. A sum said after
+its frequency is paid by it ("36 monthly deposits of $200" deposits 200 a month for 3 years,
+never a start of 200; "quarterly deposits of $500" pays in each quarter, which no product
+works). Another payee's payments ("property tax payments each year") and a wage ("I get paid
+weekly") say nothing of the loan's.
+
 A term the user didn't give comes from the row's default (a 30-year mortgage, a 5-year car loan),
-and the reply says it assumed one. A term in words is read as in digits ("seven years",
+and the reply says it assumed one. A count no word says how often it is paid ("60 payments")
+or a length no term counts ("in 90 days"), when the request gives no other term, works no
+numbers: a term is never assumed beside one the user stated. A term in words is read as in digits ("seven years",
 "twenty-five years", "two and a half years", "one hundred twenty months"), by the first ask, the follow-up grammar and the
 two-line loan alike (`phrases.py`). A length of time that is no term is left out: an age, time
 gone by or a gap ("thirty years old", "ten years ago", "five years apart", "been paying for
@@ -261,7 +296,7 @@ the raw key. Keys the phone has (a server test, `test_money_label_keys.py`, hold
 |-----|------|
 | `title_key` | `money.title.mortgage`, `money.title.car`, `money.title.personal`, `money.title.student`, `money.title.loan`, `money.title.card`, `money.title.savings`, `money.title.investing` |
 | control `label_key` | `money.amount`, `money.rate`, `money.term_years`, `money.term_months`, `money.balance`, `money.apr`, `money.payment`, `money.start`, `money.deposit` |
-| readout `label_key` | `money.monthly_payment`, `money.total_interest`, `money.total_paid`, `money.months_to_payoff`, `money.final_balance`, `money.total_deposited`, `money.interest_earned` |
+| readout `label_key` | `money.monthly_payment` (a loan paid otherwise: `money.quarterly_payment`, `money.semiannual_payment`, `money.yearly_payment`, `money.weekly_payment`), `money.total_interest`, `money.total_paid`, `money.months_to_payoff`, `money.final_balance`, `money.total_deposited`, `money.interest_earned` |
 | readout `never_key` | `money.never` ("Never at this payment") |
 | marker `label_key` | `money.average` ("Avg {{value}} · {{date}}"); with no `as_of` the phone uses `money.average_undated` |
 
