@@ -119,6 +119,9 @@ def named_numerical_method(text: str) -> NamedMethod | None:
     if rule is None:
         return _method_by_parts(text)
     if rule in INTEGRATION_RULES:
+        # "the trapezoidal rule and Simpson's rule", "left and right sums": every estimate
+        # asked on the card, or none.
+        rule = rule if len(_rules_asked(text)) <= 1 else "unworked"
         return NamedMethod(rule=rule, count=_interval_count(text))
     if rule == "euler":
         step = _STEP_SIZE.search(text)
@@ -140,17 +143,37 @@ _RIGHT_PARTS = re.compile(
     r"\bright(?:[-\s]+hand)?[-\s]+(?:end[-\s]?points?|sides?|corners?)\b", re.I
 )
 _MIDPOINT_PARTS = re.compile(r"\bmid[-\s]?points?\b", re.I)
-_APPROXIMATION = re.compile(
-    r"\b(?:estimat\w*|approximat\w*)\b|\barea\s+under\b|\bintegral\b|\u222b", re.I
+# What a sum of pieces estimates: an integral or an area under a curve. "Estimate the
+# probability of 2 heads in 4 tosses … with n = 4" is no sum: it was 3/8, and the n read as a
+# method's count took its card (2026-11-14 review).
+_ESTIMATED_INTEGRAL = re.compile(
+    r"\barea\s+(?:under|beneath|between)\b|\bunder\s+the\s+(?:curve|graph)\b|\bintegral\b"
+    r"|\u222b",
+    re.I,
 )
+# Each estimate a method question may name; two of them asked ("left endpoints and then right
+# endpoints") carded one (2026-11-14 review).
+_ESTIMATES: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("trapezoid", re.compile(r"\btrapez(?:oid|ium|ia)", re.I)),
+    ("simpson", re.compile(r"\bsimpson", re.I)),
+    ("midpoint", re.compile(r"\bmid[-\s]?points?\b", re.I)),
+    ("left", re.compile(r"\bleft\b", re.I)),
+    ("right", re.compile(r"\bright\b", re.I)),
+)
+
+
+def _rules_asked(text: str) -> set[str]:
+    return {rule for rule, pattern in _ESTIMATES if pattern.search(text)}
 
 
 def _method_by_parts(text: str) -> NamedMethod | None:
     count = _interval_count(text)
-    if count is None or _APPROXIMATION.search(text) is None:
+    if count is None or _ESTIMATED_INTEGRAL.search(text) is None:
         return None
     rule: NumericRule = "unworked"
-    if _TRAPEZOID_PIECES.search(text):
+    if len(_rules_asked(text)) > 1:
+        rule = "unworked"
+    elif _TRAPEZOID_PIECES.search(text):
         rule = "trapezoid"
     elif _LEFT_PARTS.search(text):
         rule = "left"

@@ -217,11 +217,23 @@ def test_the_method_reader_stays_linear_on_a_long_run(text: str) -> None:
         # A sum asked for by its parts (2026-11-14 review: each was a checked exact 8/3).
         ("Use 4 trapezoids to estimate the area under y = x^2 from 0 to 2", "trapezoid", 4),
         ("Using 4 rectangles and left endpoints, estimate the area under f(x) = x^2", "left", 4),
-        ("estimate it using 6 rectangles of equal width and right endpoints", "right", 6),
+        ("estimate the area under it using 6 rectangles and right endpoints", "right", 6),
         ("approximate the area under the curve with 4 rectangles and midpoints", "midpoint", 4),
         # The side is not said, or no sum is named: no solver here works it.
         ("Estimate the area under y = x^2 from 0 to 2 using 4 rectangles", "unworked", 4),
         ("approximate the integral of x^2 from 0 to 2 using n = 4", "unworked", 4),
+        # Two estimates asked: both on the card or none (2026-11-14 review).
+        (
+            "estimate the area under it with 4 rectangles using left and then right endpoints",
+            "unworked",
+            4,
+        ),
+        (
+            "Use the left and right Riemann sums with n = 4 to approximate the integral",
+            "unworked",
+            4,
+        ),
+        ("the trapezoidal rule and Simpson's rule with n = 4 on the integral", "unworked", 4),
     ],
 )
 def test_a_sum_named_by_its_parts_is_the_method(text: str, rule: str, count: int) -> None:
@@ -235,6 +247,9 @@ def test_a_sum_named_by_its_parts_is_the_method(text: str, rule: str, count: int
         "find the total area of 4 rectangles each 3 by 2",
         "the midpoint of the 4 segments AB, BC, CD and DA",
         "find the area under y = x^2 from 0 to 2",
+        # A count with no integral or area estimated: a probability's n is no method count.
+        "Estimate the probability of 2 heads in 4 tosses using the binomial distribution with n = 4",
+        "approximate the mean of 4 samples",
     ],
 )
 def test_parts_without_an_estimate_are_no_method(text: str) -> None:
@@ -255,6 +270,16 @@ def test_parts_without_an_estimate_are_no_method(text: str) -> None:
             "R_{4} = 3.75",
         ),
         ("Estimate the area under y = x^2 from 0 to 2 using 4 rectangles", None),
+        (
+            "Estimate the area under y = x^2 from 0 to 2 with 4 rectangles using left endpoints "
+            "and then right endpoints",
+            None,
+        ),
+        (
+            "Estimate the probability of 2 heads in 4 tosses using the binomial distribution "
+            "with n = 4",
+            r"\frac{3}{8} = 0.375",
+        ),
         # Look-alike: the exact area, asked for exactly.
         ("find the area under y = x^2 from 0 to 2", r"\frac{8}{3}"),
     ],

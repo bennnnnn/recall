@@ -88,5 +88,7 @@
   {"id": "au-lang-es-positive-root", "area": "language", "prompt": "Raíz positiva: x^2 = 4", "locale": "es", "expect": "decline", "note": "was a checked ±2 on main: the words were read as English and skipped (2026-11-14 review)"},
   {"id": "au-parts-two-circles-derived", "area": "several asked", "prompt": "Find the area of a circle of radius 2 and the circumference of a circle of radius 4", "expect": "decline", "note": "4 is the first circle's diameter: C ≈ 12.57 was checked for 25.13 (2026-11-14 review)"},
   {"id": "au-parts-two-squares-derived", "area": "several asked", "prompt": "Find the area of a square with side 2 and the perimeter of a square with side 8", "expect": "decline", "note": "8 is the first square's perimeter"},
-  {"id": "au-parts-radius-from-diameter", "area": "several asked", "prompt": "Find the radius and area of a circle with diameter 6", "expect": "answer", "check": ["parts", [["num", "3"], ["num", "28.27"]]]}
+  {"id": "au-parts-radius-from-diameter", "area": "several asked", "prompt": "Find the radius and area of a circle with diameter 6", "expect": "answer", "check": ["parts", [["num", "3"], ["num", "28.27"]]]},
+  {"id": "au-num-parts-two-estimates", "area": "numerical method", "prompt": "Estimate the area under y = x^2 from 0 to 2 with 4 rectangles using left endpoints and then right endpoints", "expect": "decline", "note": "carded L_4 = 1.75 alone for two estimates (2026-11-14 review)"},
+  {"id": "au-num-parts-binomial-n", "area": "numerical method", "prompt": "Estimate the probability of 2 heads in 4 tosses using the binomial distribution with n = 4", "expect": "answer", "check": ["num", "3/8"], "note": "a probability's n is no method count: it declined after round 2"}
 ]
