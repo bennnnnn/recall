@@ -209,3 +209,56 @@ def test_the_method_reader_stays_linear_on_a_long_run(text: str) -> None:
     without_named_method(text)
     without_start(text)
     assert time.perf_counter() - started < 0.2
+
+
+@pytest.mark.parametrize(
+    ("text", "rule", "count"),
+    [
+        # A sum asked for by its parts (2026-11-14 review: each was a checked exact 8/3).
+        ("Use 4 trapezoids to estimate the area under y = x^2 from 0 to 2", "trapezoid", 4),
+        ("Using 4 rectangles and left endpoints, estimate the area under f(x) = x^2", "left", 4),
+        ("estimate it using 6 rectangles of equal width and right endpoints", "right", 6),
+        ("approximate the area under the curve with 4 rectangles and midpoints", "midpoint", 4),
+        # The side is not said, or no sum is named: no solver here works it.
+        ("Estimate the area under y = x^2 from 0 to 2 using 4 rectangles", "unworked", 4),
+        ("approximate the integral of x^2 from 0 to 2 using n = 4", "unworked", 4),
+    ],
+)
+def test_a_sum_named_by_its_parts_is_the_method(text: str, rule: str, count: int) -> None:
+    named = named_numerical_method(text)
+    assert named is not None and (named.rule, named.count) == (rule, count)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "find the total area of 4 rectangles each 3 by 2",
+        "the midpoint of the 4 segments AB, BC, CD and DA",
+        "find the area under y = x^2 from 0 to 2",
+    ],
+)
+def test_parts_without_an_estimate_are_no_method(text: str) -> None:
+    assert named_numerical_method(text) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "card"),
+    [
+        ("Use 4 trapezoids to estimate the area under y = x^2 from 0 to 2", "T_{4} = 2.75"),
+        (
+            "Using 4 rectangles and left endpoints, estimate the area under f(x) = x^2 on [0, 2]",
+            "L_{4} = 1.75",
+        ),
+        (
+            "Approximate the area under y = x^2 from x = 0 to x = 2 using 4 rectangles of equal "
+            "width and right endpoints",
+            "R_{4} = 3.75",
+        ),
+        ("Estimate the area under y = x^2 from 0 to 2 using 4 rectangles", None),
+        # Look-alike: the exact area, asked for exactly.
+        ("find the area under y = x^2 from 0 to 2", r"\frac{8}{3}"),
+    ],
+)
+async def test_the_turn_works_a_sum_named_by_its_parts(text: str, card: str | None) -> None:
+    answer, _direct = await _reply(text)
+    assert answer == card

@@ -82,17 +82,28 @@ def _integration_rule(cleaned: str, named: NamedMethod) -> MathIntent | None:
 
 
 def _integral(text: str) -> MathIntent | None:
-    """The integral a rule is applied to, read by the calculus readers."""
+    """The integral a rule is applied to, read by the calculus readers: "the integral of
+    x^2 from 0 to 2", or "the area under y = x^2 from 0 to 2" as the integral of x^2."""
     from app.modules.math.match.scan import prepare
     from app.modules.math.tools.extractors.calculus import CALCULUS_EXTRACTORS
+    from app.modules.math.tools.extractors.calculus_applications import (
+        CALCULUS_APPLICATION_EXTRACTORS,
+    )
 
     prepared = prepare(text)
     if not prepared:
         return None
-    return next(
-        (intent for read in CALCULUS_EXTRACTORS if (intent := read(prepared)) is not None),
-        None,
-    )
+    for read in (*CALCULUS_EXTRACTORS, *CALCULUS_APPLICATION_EXTRACTORS):
+        intent = read(prepared)
+        if intent is None:
+            continue
+        if intent.school_op == "area_between_curves":
+            # The area under one curve, down to the x-axis, is its integral.
+            if intent.expr2 not in (None, "0"):
+                return None
+            return intent.model_copy(update={"operation": "integrate", "school_op": None})
+        return intent
+    return None
 
 
 def _euler(cleaned: str, named: NamedMethod) -> MathIntent | None:

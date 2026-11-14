@@ -117,7 +117,7 @@ def named_numerical_method(text: str) -> NamedMethod | None:
         return None
     rule = next((rule for rule, pattern in _RULES if pattern.search(text)), None)
     if rule is None:
-        return None
+        return _method_by_parts(text)
     if rule in INTEGRATION_RULES:
         return NamedMethod(rule=rule, count=_interval_count(text))
     if rule == "euler":
@@ -127,6 +127,38 @@ def named_numerical_method(text: str) -> NamedMethod | None:
     if rule == "newton":
         return _newton(text)
     return NamedMethod(rule=rule)
+
+
+# A sum asked for by its parts, with no rule's name: "Use 4 trapezoids to estimate …",
+# "Using 4 rectangles and left endpoints, estimate …". Its count and an estimate (or an area
+# under a curve, or an integral) make it a numerical method; the parts say which, and a sum
+# whose side is not said is one no solver here works. Each was a checked exact 8/3 for the
+# estimate 2.75, 1.75 or 3.75 (2026-11-14 review).
+_TRAPEZOID_PIECES = re.compile(rf"{_COUNT}\s+(?:equal\s+)?trapez(?:oids|ia|iums)\b", re.I)
+_LEFT_PARTS = re.compile(r"\bleft(?:[-\s]+hand)?[-\s]+(?:end[-\s]?points?|sides?|corners?)\b", re.I)
+_RIGHT_PARTS = re.compile(
+    r"\bright(?:[-\s]+hand)?[-\s]+(?:end[-\s]?points?|sides?|corners?)\b", re.I
+)
+_MIDPOINT_PARTS = re.compile(r"\bmid[-\s]?points?\b", re.I)
+_APPROXIMATION = re.compile(
+    r"\b(?:estimat\w*|approximat\w*)\b|\barea\s+under\b|\bintegral\b|\u222b", re.I
+)
+
+
+def _method_by_parts(text: str) -> NamedMethod | None:
+    count = _interval_count(text)
+    if count is None or _APPROXIMATION.search(text) is None:
+        return None
+    rule: NumericRule = "unworked"
+    if _TRAPEZOID_PIECES.search(text):
+        rule = "trapezoid"
+    elif _LEFT_PARTS.search(text):
+        rule = "left"
+    elif _RIGHT_PARTS.search(text):
+        rule = "right"
+    elif _MIDPOINT_PARTS.search(text):
+        rule = "midpoint"
+    return NamedMethod(rule=rule, count=count)
 
 
 def worked_rule(named: NamedMethod) -> WorkedNumericRule | None:
@@ -143,6 +175,13 @@ _METHOD_CLAUSES = tuple(
     re.compile(rf"{_METHOD_LEAD}(?:{pattern.pattern})", re.IGNORECASE) for _rule, pattern in _RULES
 )
 _COUNT_CLAUSE = re.compile(rf"{_COUNT_LEAD}(?:{_INTERVAL_COUNT.pattern})", re.IGNORECASE)
+# The parts that name a sum ("and left endpoints", "of equal width"), and a leading "use".
+_PARTS_CLAUSES = re.compile(
+    r"(?:\b(?:and|with|using|by|at)\s+)?(?:the\s+)?(?:(?:left|right)(?:[-\s]+hand)?[-\s]+"
+    r"(?:end[-\s]?points?|sides?|corners?)|mid[-\s]?points?)\b|\bof\s+equal\s+width\b"
+    r"|^\s*(?:use|using|apply)\b",
+    re.IGNORECASE,
+)
 
 
 def without_named_method(text: str) -> str:
@@ -151,6 +190,7 @@ def without_named_method(text: str) -> str:
     for clause in _METHOD_CLAUSES:
         text = clause.sub(" ", text)
     text = _ESTIMATE.sub(" ", _COUNT_CLAUSE.sub(" ", text))
+    text = _PARTS_CLAUSES.sub(" ", " ".join(text.split()).strip(" ,.;:"))
     return " ".join(text.split()).strip(" ,.;:")
 
 

@@ -423,6 +423,7 @@ def _extract_math_intent(text: str) -> MathIntent | None:
             if (
                 region_question
                 and intent.school_op not in _SOLVED_REGION_OPS
+                and intent.kind != "numerical_method"  # an area estimated by a rule
                 and not is_declined(intent)
             ):
                 # A region question the application extractors declined must

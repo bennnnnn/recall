@@ -73,5 +73,11 @@
   {"id": "au-dom-odd-root-negative", "area": "real domain", "prompt": "Solve (x - 1)^(1/3) = -2", "expect": "answer", "check": ["num", "-7"], "note": "was a checked 'no solution' on main: a real odd root of a negative number is real (2026-11-14 review)"},
   {"id": "au-dom-odd-root-isolate", "area": "real domain", "prompt": "solve (x - 1)^(1/3) + 2 = 0", "expect": "answer", "check": ["num", "-7"]},
   {"id": "au-dom-fifth-root", "area": "real domain", "prompt": "solve (x + 2)^(3/5) = -8", "expect": "answer", "check": ["num", "-34"]},
-  {"id": "au-dom-even-power-of-odd-root", "area": "real domain", "prompt": "solve x^(2/3) = -4", "expect": "answer", "check": ["regex", "no (?:real )?solution"], "note": "an even power of a real root is never negative"}
+  {"id": "au-dom-even-power-of-odd-root", "area": "real domain", "prompt": "solve x^(2/3) = -4", "expect": "answer", "check": ["regex", "no (?:real )?solution"], "note": "an even power of a real root is never negative"},
+  {"id": "au-num-parts-trapezoids", "area": "numerical method", "prompt": "Use 4 trapezoids to estimate the area under y = x^2 from 0 to 2", "expect": "answer", "check": ["num", "2.75"], "note": "a sum asked for by its parts was a checked exact 8/3 (2026-11-14 review)"},
+  {"id": "au-num-parts-left", "area": "numerical method", "prompt": "Using 4 rectangles and left endpoints, estimate the area under f(x) = x^2 on [0, 2]", "expect": "answer", "check": ["num", "1.75"]},
+  {"id": "au-num-parts-right", "area": "numerical method", "prompt": "Approximate the area under y = x^2 from x = 0 to x = 2 using 4 rectangles of equal width and right endpoints", "expect": "answer", "check": ["num", "3.75"]},
+  {"id": "au-num-parts-midpoints", "area": "numerical method", "prompt": "Estimate the area under y = x^2 from 0 to 2 using 4 rectangles and midpoints", "expect": "answer", "check": ["num", "2.625"]},
+  {"id": "au-num-parts-no-side", "area": "numerical method", "prompt": "Estimate the area under y = x^2 from 0 to 2 using 4 rectangles", "expect": "decline", "note": "which endpoints is not said: no card, never the exact 8/3"},
+  {"id": "au-num-parts-control-exact", "area": "numerical method", "prompt": "find the area under y = x^2 from 0 to 2", "expect": "answer", "check": ["num", "8/3"]}
 ]
