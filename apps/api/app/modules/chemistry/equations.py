@@ -146,3 +146,36 @@ def balance_equation(equation: str) -> BalancedEquation:
             labels[n_reactants + i]: product_terms[i].coefficient for i in range(n_products)
         },
     )
+
+
+# What an equation of ions or a redox skeleton is completed with in water: H2O, H+, OH- and
+# e- bring hydrogen, oxygen and charge, so an equation short of those is a question to
+# complete ("Zn + HNO3 -> Zn(NO3)2 + NH4NO3" balances with 3 H2O), never one with no answer.
+_WATER_SUPPLIES = frozenset({"H", "O"})
+
+
+def why_unbalanced(equation: str) -> str | None:
+    """Why no coefficients balance ``equation`` as written, for a decline's reason: an
+    element on one side of the arrow only, which nothing added to it can bring. None when
+    it balances, cannot be read, or only lacks what water, H+, OH- or electrons supply."""
+    if balance_equation(equation).error not in ("no solution", "non-positive coefficient"):
+        return None
+    reaction = parse_reaction(equation)
+    if reaction is None:  # pragma: no cover - the balance above read it
+        return None
+    left = {element for term in reaction.reactants for element in term.species.composition}
+    right = {element for term in reaction.products for element in term.species.composition}
+    one_side = [
+        f"{_listed(sorted(only - _WATER_SUPPLIES))} only among the {side}"
+        for only, side in ((left - right, "reactants"), (right - left, "products"))
+        if only - _WATER_SUPPLIES
+    ]
+    if not one_side:
+        return None
+    return f"{equation.strip()} cannot be balanced: {' and '.join(one_side)}."
+
+
+def _listed(elements: list[str]) -> str:
+    """ "Na is", "Cl and Na are", "Cl, N and Na are"."""
+    named = elements[0] if len(elements) == 1 else f"{', '.join(elements[:-1])} and {elements[-1]}"
+    return f"{named} {'is' if len(elements) == 1 else 'are'}"

@@ -26,6 +26,10 @@ _AMPLITUDE = var(
 )
 # A spring's stretch; its amplitude is the stretch at the turning point (``labels``).
 _EXTENSION = var("x", "x", "meter", words=("amplitude",))
+# The amplitude of any body in simple harmonic motion, named only as one ("an amplitude of
+# 0.1 m"). Its own input, never the spring's stretch: read as ``x``, the Given line called
+# a piston's amplitude its "extension" (live round, 2026-11-14).
+OSCILLATION_AMPLITUDE = var("amplitude", "A", "meter", words=("amplitude",), needs_words=True)
 _SPRING_SHM = ("spring", "oscillat", "simple harmonic", "shm")
 # Any body that swings back and forth: on a spring, a pendulum's bob, a tuning fork's prong.
 SHM_CUES = (*_SPRING_SHM, "harmonic", "pendulum", "vibrat", "swing")
@@ -112,7 +116,8 @@ SPECS: tuple[FormulaSpec, ...] = (
         variables=(
             var("k", "k", "newton / meter"),
             var("m", "m", "kilogram"),
-            _EXTENSION,
+            # The size of the swing its graph draws, never a stretch.
+            _AMPLITUDE,
         ),
     ),
     formula(
@@ -152,7 +157,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         ),
         assumptions=("simple harmonic motion",),
         variables=(
-            var("x", "A", "meter", words=("amplitude",), needs_words=True),
+            OSCILLATION_AMPLITUDE,
             var("omega", r"\omega", "radian / second"),
             # "For 10 s" is how long it swung, not its period.
             var("period", "T", "second", words=LABELS["period"], needs_words=True),
@@ -171,7 +176,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             asks=_MAX_SPEED_ASKS,
             result=("meter / second",),
             inputs=tuple(
-                frozenset({"x", rate, *spring})
+                frozenset({"amplitude", rate, *spring})
                 for rate in ("omega", "period", "freq")
                 for spring in ((), ("on_spring",))
             ),

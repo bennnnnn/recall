@@ -37,7 +37,7 @@ async def test_a_structure_ask_is_verified_with_pubchems_smiles(message: str) ->
         patch("app.modules.chemistry.context.pubchem_gateway.lookup_by_name", lookup),
         patch("app.modules.chemistry.context.extract_compound_name", return_value="caffeine"),
     ):
-        _text, verified, declined = await build_chemistry_augmentation(message, Settings())
+        _text, verified, declined, _ = await build_chemistry_augmentation(message, Settings())
     assert verified is not None and not declined
     assert verified.result.structure_smiles == _CAFFEINE.smiles
 
@@ -49,7 +49,7 @@ async def test_a_question_about_a_compound_stays_context() -> None:
         patch("app.modules.chemistry.context.pubchem_gateway.lookup_by_name", lookup),
         patch("app.modules.chemistry.context.extract_compound_name", return_value="caffeine"),
     ):
-        text, verified, _ = await build_chemistry_augmentation("what is caffeine", Settings())
+        text, verified, _, _ = await build_chemistry_augmentation("what is caffeine", Settings())
     assert verified is None
     assert text is not None and "Canonical SMILES" in text
 

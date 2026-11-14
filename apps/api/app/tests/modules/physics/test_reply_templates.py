@@ -318,3 +318,44 @@ def _law_rows(reply: str) -> list[str]:
 )
 def test_two_forms_of_one_law_read_as_one(question: str, rows: list[str]) -> None:
     assert _law_rows(_reply(question)) == rows
+
+
+@pytest.mark.parametrize(
+    ("question", "named"),
+    [
+        # The live round's two (2026-11-14): "where A = extension" under a spring's and a
+        # piston's amplitude.
+        (
+            "A mass on a spring oscillates with an amplitude of 0.1 m and a period of 2 s. "
+            "What is its maximum speed?",
+            "where $A$ = amplitude, $T$ = period",
+        ),
+        (
+            "A piston moves in SHM with an amplitude of 5 cm and a period of 0.02 s. "
+            "What is its top speed?",
+            "where $A$ = amplitude, $T$ = period",
+        ),
+        (
+            "An oscillator has amplitude 0.1 m and angular frequency 4 rad/s. "
+            "What is its maximum speed?",
+            "where $A$ = amplitude, $\\omega$ = angular speed",
+        ),
+        (
+            "A body in simple harmonic motion has an amplitude of 0.2 m and a frequency of "
+            "2 Hz. What is its maximum acceleration?",
+            "where $A$ = amplitude, $f$ = frequency",
+        ),
+        (
+            "A 0.5 kg mass on a spring with k = 200 N/m oscillates with an amplitude of 5 cm. "
+            "What is its period?",
+            "where $k$ = spring constant, $A$ = amplitude, $m$ = mass",
+        ),
+        # A spring's stretch is still its extension.
+        (
+            "A spring with k = 200 N/m is stretched by 5 cm. What force does it exert?",
+            "where $k$ = spring constant, $x$ = extension",
+        ),
+    ],
+)
+def test_an_oscillations_amplitude_is_named_amplitude(question: str, named: str) -> None:
+    assert named in _section(_reply(question), "Given")

@@ -216,7 +216,7 @@ async def test_iupac_name_is_verified_only_from_pubchem() -> None:
         "app.modules.chemistry.context.pubchem_gateway.lookup_iupac_name",
         new=AsyncMock(return_value="ethanol"),
     ):
-        text, verified, declined = await build_chemistry_augmentation(
+        text, verified, declined, _ = await build_chemistry_augmentation(
             "IUPAC name of SMILES CCO", settings
         )
     assert declined is False
@@ -231,7 +231,7 @@ async def test_iupac_name_is_verified_only_from_pubchem() -> None:
         "app.modules.chemistry.context.pubchem_gateway.lookup_iupac_name",
         new=AsyncMock(return_value=None),
     ):
-        note, missing, declined = await build_chemistry_augmentation(
+        note, missing, declined, _ = await build_chemistry_augmentation(
             "IUPAC name of SMILES CCO", settings
         )
     assert declined is True
