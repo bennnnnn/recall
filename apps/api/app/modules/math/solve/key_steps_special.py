@@ -92,7 +92,7 @@ def radical_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | 
     steps = [
         KeyStep(label="Domain restrictions", formula=domain),
         KeyStep(label="Square both sides", formula=equation_tex(radicand, expand(other**2))),
-        *_worked(
+        *worked_steps(
             radicand,
             expand(other**2),
             var,
@@ -307,7 +307,7 @@ def rational_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] |
     ]
     if candidates:
         steps.extend(
-            _worked(
+            worked_steps(
                 cleared_lhs,
                 cleared_rhs,
                 var,
@@ -358,9 +358,9 @@ def absolute_value_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | No
     lines = compact_root_answer_lines(str(var), solutions)
     final = lines[0] if len(lines) == 1 else r" \text{ or } ".join(lines)
     # Each branch ends at its own root; the combined roots only close the whole trace.
-    first = _worked(inside, rhs, var, "Solve both linear equations", final, which="first")
+    first = worked_steps(inside, rhs, var, "Solve both linear equations", final, which="first")
     second = (
-        _worked(inside, -rhs, var, "Solve both linear equations", final, which="second")
+        worked_steps(inside, -rhs, var, "Solve both linear equations", final, which="second")
         if rhs != 0
         else []
     )
@@ -385,7 +385,7 @@ def absolute_value_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | No
     ]
 
 
-def _worked(
+def worked_steps(
     lhs: Any,
     rhs: Any,
     var: Any,

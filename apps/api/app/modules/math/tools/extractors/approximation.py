@@ -61,10 +61,7 @@ def _integration_rule(cleaned: str, named: NamedMethod) -> MathIntent | None:
     rule = worked_rule(named)
     if named.count is None or rule is None:
         return None
-    # Deferred: the full extractor imports this module.
-    from app.modules.math.tools.extract import extract_math_intent
-
-    integral = extract_math_intent(f"evaluate {without_named_method(cleaned)}")
+    integral = _integral(f"evaluate {without_named_method(cleaned)}")
     if (
         integral is None
         or integral.kind != "calculus"
@@ -81,6 +78,20 @@ def _integration_rule(cleaned: str, named: NamedMethod) -> MathIntent | None:
         integral_upper=integral.integral_upper,
         numeric_rule=rule,
         numeric_steps=named.count,
+    )
+
+
+def _integral(text: str) -> MathIntent | None:
+    """The integral a rule is applied to, read by the calculus readers."""
+    from app.modules.math.match.scan import prepare
+    from app.modules.math.tools.extractors.calculus import CALCULUS_EXTRACTORS
+
+    prepared = prepare(text)
+    if not prepared:
+        return None
+    return next(
+        (intent for read in CALCULUS_EXTRACTORS if (intent := read(prepared)) is not None),
+        None,
     )
 
 

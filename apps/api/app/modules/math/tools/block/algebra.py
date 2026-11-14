@@ -176,6 +176,38 @@ def _typed_check(intent: MathIntent, lhs: Any, rhs: Any) -> str | None:
     return equation_check_latex(lhs, rhs, variable)
 
 
+def _equation_answer(result: Any, variable: str) -> str:
+    """The card: the roots, or "no real solution" when every root was rejected, with the
+    conditions and parameter cases that qualify them."""
+    answer = _format_equation_answer(
+        result.canonical_solutions_latex or result.solutions_latex,
+        result.solution_kind,
+    )
+    if result.rejected_roots and not result.solutions_latex:
+        answer = r"\text{no real solution}"
+    if result.domain_conditions_latex:
+        conditions_to_display = result.domain_conditions_latex
+        if result.solution_kind == "finite":
+            variable_exclusion = rf"{variable} \ne "
+            # Finite roots already satisfy any original x-domain exclusions;
+            # keep those restrictions in the working, not in the result chip.
+            # Parameter conditions (for example a != 0 in ax=5) still belong
+            # in the final because they change whether the formula is valid.
+            conditions_to_display = [
+                condition
+                for condition in conditions_to_display
+                if not condition.startswith(variable_exclusion)
+            ]
+        conditions = r",\; ".join(conditions_to_display)
+        if result.solution_kind == "infinite":
+            answer = rf"{variable} \in \mathbb{{R}},\; {conditions}"
+        elif conditions:
+            answer = rf"{answer},\quad {conditions}"
+    if result.alternate_cases_latex:
+        answer = answer + "\n" + r";\quad ".join(result.alternate_cases_latex)
+    return answer
+
+
 def _verified_block_equation(
     intent: MathIntent, settings: Settings, lines: list[str]
 ) -> VerifiedMathBlock | None:
@@ -191,32 +223,7 @@ def _verified_block_equation(
     )
     result = math_solve.solve_equation(eq)
     lines.extend(result.steps)
-    answer = _format_equation_answer(
-        result.canonical_solutions_latex or result.solutions_latex,
-        result.solution_kind,
-    )
-    if result.rejected_roots and not result.solutions_latex:
-        answer = r"\text{no real solution}"
-    if result.domain_conditions_latex:
-        conditions_to_display = result.domain_conditions_latex
-        if result.solution_kind == "finite":
-            variable_exclusion = rf"{intent.variable} \ne "
-            # Finite roots already satisfy any original x-domain exclusions;
-            # keep those restrictions in the working, not in the result chip.
-            # Parameter conditions (for example a != 0 in ax=5) still belong
-            # in the final because they change whether the formula is valid.
-            conditions_to_display = [
-                condition
-                for condition in conditions_to_display
-                if not condition.startswith(variable_exclusion)
-            ]
-        conditions = r",\; ".join(conditions_to_display)
-        if result.solution_kind == "infinite":
-            answer = rf"{intent.variable} \in \mathbb{{R}},\; {conditions}"
-        elif conditions:
-            answer = rf"{answer},\quad {conditions}"
-    if result.alternate_cases_latex:
-        answer = answer + "\n" + r";\quad ".join(result.alternate_cases_latex)
+    answer = _equation_answer(result, intent.variable)
     _, lhs, rhs = parse_eq(eq)
     key_steps = equation_key_steps(
         lhs,

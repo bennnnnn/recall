@@ -9,13 +9,13 @@ solution", where it was once a checked x = -5 (2026-11-13 audit, MATH-02).
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from sympy import E, Eq, latex, log, prod, simplify, solve
 
 from app.modules.math.solve.declines import sympy_decline
-from app.modules.math.solve.key_steps import KeyStep, _canonical_root_formula, equation_tex
-from app.modules.math.solve.key_steps_special import _worked
+from app.modules.math.solve.key_step import KeyStep, canonical_root_formula, equation_tex
 from app.modules.math.solve.real_domain import (
     domain_rules,
     rejected_root_steps,
@@ -61,13 +61,18 @@ def _checked(
         closing.append(
             KeyStep(
                 label="Reject values outside the domain",
-                formula=_canonical_root_formula(var, kept),
+                formula=canonical_root_formula(var, kept),
             )
         )
     return closing
 
 
-def logarithm_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | None:
+# The dispatcher's own working of the equation a log trace reaches (``worked_steps``),
+# passed in so this module stays below it.
+Worked = Callable[..., list[KeyStep]]
+
+
+def logarithm_key_steps(lhs: Any, rhs: Any, var: Any, worked: Worked) -> list[KeyStep] | None:
     """Verified trace for a sum of same-base logarithms equal to a number."""
     if var in getattr(rhs, "free_symbols", set()):
         return None
@@ -103,18 +108,20 @@ def logarithm_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | None:
             label="Convert to exponential form",
             formula=rf"{latex(combined)} = {latex(target)}",
         ),
-        *_worked(
+        *worked(
             combined,
             target,
             var,
             "Solve the resulting equation",
-            _canonical_root_formula(var, candidates),
+            canonical_root_formula(var, candidates),
         ),
     ]
     return _checked(steps, lhs, rhs, var, candidates)
 
 
-def equal_logarithms_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | None:
+def equal_logarithms_key_steps(
+    lhs: Any, rhs: Any, var: Any, worked: Worked
+) -> list[KeyStep] | None:
     """``log_b(A) = log_b(B)``: the arguments are equal, and both must be positive."""
     left, right = _logarithm(lhs), _logarithm(rhs)
     if left is None or right is None or not expr_equal(left[0], right[0]):
@@ -129,18 +136,18 @@ def equal_logarithms_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | 
     steps = [
         KeyStep(label="Domain restriction", formula=_domain_line([first, second])),
         KeyStep(label="Equal logarithms, so equal arguments", formula=equation_tex(first, second)),
-        *_worked(
+        *worked(
             first,
             second,
             var,
             "Solve the resulting equation",
-            _canonical_root_formula(var, candidates),
+            canonical_root_formula(var, candidates),
         ),
     ]
     return _checked(steps, lhs, rhs, var, candidates)
 
 
-def logarithm_trace(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | None:
+def logarithm_trace(lhs: Any, rhs: Any, var: Any, worked: Worked) -> list[KeyStep] | None:
     """Either logarithm trace, or None when the equation is neither shape."""
-    steps = logarithm_key_steps(lhs, rhs, var)
-    return steps if steps is not None else equal_logarithms_key_steps(lhs, rhs, var)
+    steps = logarithm_key_steps(lhs, rhs, var, worked)
+    return steps if steps is not None else equal_logarithms_key_steps(lhs, rhs, var, worked)

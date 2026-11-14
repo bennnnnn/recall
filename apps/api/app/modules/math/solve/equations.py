@@ -198,25 +198,7 @@ def solve_equation(data: EquationInput) -> MathSolveResult:
     if len(data.variables) == 1:
         steps.extend(_worked_isolation_steps(lhs, rhs, data.variables[0]))
 
-    solution_kind: Literal["finite", "none", "infinite"] = "finite"
-    steps.extend(
-        f"Check {item.root} in the original equation: {item.why}, so it is rejected."
-        for item in rejected
-    )
-    if solutions_latex:
-        steps.append(f"Solutions: {', '.join(solutions_latex)}")
-    elif rejected:
-        solution_kind = "none"
-        steps.append("No real solution: every root SymPy found is rejected above.")
-    else:
-        solution_kind = _classify_no_solution(lhs, rhs)
-        if solution_kind == "infinite":
-            steps.append(
-                "Infinitely many solutions (equation is an identity, true for all values)."
-            )
-        else:
-            steps.append("No solutions found (equation is a contradiction).")
-
+    solution_kind = _concluded(steps, solutions_latex, rejected, lhs, rhs)
     return MathSolveResult(
         solutions_latex=solutions_latex,
         canonical_solutions_latex=canonical_solutions_latex,
@@ -228,6 +210,28 @@ def solve_equation(data: EquationInput) -> MathSolveResult:
         alternate_cases_latex=alternate_cases,
         rejected_roots=[RejectedRootLatex(root=item.root, why=item.why) for item in rejected],
     )
+
+
+def _concluded(
+    steps: list[str], solutions_latex: list[str], rejected: list[RejectedRoot], lhs: Any, rhs: Any
+) -> Literal["finite", "none", "infinite"]:
+    """The roots rejected, then what the solve concludes, written into ``steps``."""
+    steps.extend(
+        f"Check {item.root} in the original equation: {item.why}, so it is rejected."
+        for item in rejected
+    )
+    if solutions_latex:
+        steps.append(f"Solutions: {', '.join(solutions_latex)}")
+        return "finite"
+    if rejected:
+        steps.append("No real solution: every root SymPy found is rejected above.")
+        return "none"
+    kind = _classify_no_solution(lhs, rhs)
+    if kind == "infinite":
+        steps.append("Infinitely many solutions (equation is an identity, true for all values).")
+    else:
+        steps.append("No solutions found (equation is a contradiction).")
+    return kind
 
 
 def _in_real_domain(

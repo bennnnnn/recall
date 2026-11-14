@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
 from typing import Any
 
 from sympy import (
@@ -23,19 +22,8 @@ from sympy import (
 
 from app.modules.math.solve.declines import declines, sympy_decline
 from app.modules.math.solve.display import without_unit_factors
+from app.modules.math.solve.key_step import KeyStep, canonical_root_formula, equation_tex
 from app.modules.math.solve.root_latex import expr_equal
-
-
-@dataclass(frozen=True)
-class KeyStep:
-    """One justified transformation. Formula is LaTeX without ``$`` wrappers."""
-
-    label: str
-    formula: str
-    reason: str | None = None
-    conditions: str | None = None
-    branch: str | None = None
-
 
 _PLAIN_LABEL_TEX = re.compile(r"^[\w .,-]*$")
 _ROOT_LABEL = "Take the square root of both sides"
@@ -110,10 +98,11 @@ def equation_key_steps(
         fractional_power_key_steps,
         radical_equation_key_steps,
         rational_equation_key_steps,
+        worked_steps,
     )
     from app.modules.math.solve.log_key_steps import logarithm_trace
 
-    logarithm_steps = logarithm_trace(lhs, rhs, var)
+    logarithm_steps = logarithm_trace(lhs, rhs, var, worked_steps)
     if logarithm_steps is not None:
         return logarithm_steps
     exponential_steps = exponential_key_steps(lhs, rhs, var)
@@ -182,15 +171,8 @@ def equation_check_latex(lhs: Any, rhs: Any, variable: str) -> str | None:
     return r" \text{ and } ".join(parts)
 
 
-def _canonical_root_formula(var: Any, solutions: list[Any]) -> str:
-    from app.modules.math.solve.root_latex import compact_root_answer_lines
-
-    lines = compact_root_answer_lines(str(var), solutions)
-    return lines[0] if len(lines) == 1 else r" \text{ or } ".join(lines)
-
-
-def equation_tex(left: Any, right: Any) -> str:
-    return f"{latex(left)} = {latex(right)}"
+# The traces' shared pieces live one module down; these names stay for their importers.
+_canonical_root_formula = canonical_root_formula
 
 
 @declines(False)

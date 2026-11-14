@@ -18,7 +18,7 @@ from sympy import N, Pow, latex, log, preorder_traversal, simplify
 
 from app.modules.math.schemas import MathSolveResult
 from app.modules.math.solve.declines import sympy_decline
-from app.modules.math.solve.key_steps import KeyStep
+from app.modules.math.solve.key_step import KeyStep
 from app.modules.math.solve.parse import SolveServiceError, parse_expression
 
 # A numeric value's imaginary part this small is a rounding of zero.
