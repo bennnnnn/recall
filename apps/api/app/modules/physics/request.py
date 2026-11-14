@@ -409,9 +409,8 @@ def complete_physics_intent(
 ) -> PhysicsIntent | None:
     """Attach every requested projectile quantity, or refuse a different solve.
 
-    A solve that skipped a stated quantity of a kind it uses is refused too.
-    The asked dimensions ride along so the block can refuse an answer to a
-    different question.
+    A solve that skipped a stated quantity of a kind it uses is refused too. The asked
+    dimensions ride along so the block can refuse an answer to a different question.
 
     ``step_of`` makes this one law of a chain (``chain_solve``): it carries its own ask,
     and whether every stated value was used is checked over the whole chain.
@@ -427,6 +426,7 @@ def complete_physics_intent(
     from app.modules.physics.catalog import formula_spec
     from app.modules.physics.counted import accounts_for_counted_items, unclear_part_or_count
     from app.modules.physics.extractors.surface_gravity import gravity_unit_unread
+    from app.modules.physics.law_refusals import refuses
     from app.modules.physics.set_aside import uses_set_aside_part
 
     params = intent.physics_params or {}
@@ -442,9 +442,9 @@ def complete_physics_intent(
         params = {**params, **{name: float(on) for name, on in flags.items()}}
         units = {**(intent.physics_units or {}), **dict.fromkeys(flags, "")}
         intent = intent.model_copy(update={"physics_params": params, "physics_units": units})
-    if any(value < 0 for key, value in params.items() if key in {"m", "m1", "m2"}):
-        return None
     spec = formula_spec(intent.physics_op or "")
+    if spec is not None and refuses(spec, intent, request.text, chained=step_of is not None):
+        return None  # "a -5 Ω resistor", "an amplitude of 0.1 m" as a length, air resistance
     uses_g = spec is not None and _selection_uses_gravity(spec, params)
     if uses_g and gravity_unit_unread(request.text):  # "g = 10 ms^-2" is no m/s²
         return None

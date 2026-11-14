@@ -50,8 +50,8 @@
   "modules/physics/extractors/waves.py::_extract_waves_intent": 173,
   "modules/physics/solvers/circular.py::solve_circular": 134,
   "modules/physics/solvers/friction.py::incline_scene": 121,
-  "modules/physics/solvers/momentum.py::solve_momentum": 118,
-  "modules/physics/solvers/oscillations.py::solve_spring": 133,
+  "modules/physics/solvers/momentum.py::solve_momentum": 109,
+  "modules/physics/solvers/oscillations.py::solve_spring": 117,
   "modules/physics/solvers/projectile.py::solve_projectile": 158,
   "modules/todos/spoken_apply.py::apply_spoken_change": 105
 }

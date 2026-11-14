@@ -444,7 +444,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   `ε = ΔL/L`, `E = σ/ε`, shear modulus, bulk modulus, and Poisson's ratio) and **modern** (`E = hf` or `hc/λ`, de Broglie, half-life,
   `E = mc²`).
   **What it refuses is the design.** An unstated collision type, a 2D collision,
-  a diverging lens (the sign conventions disagree), an absolute temperature
+  a convex mirror's image (the sign conventions disagree), an absolute temperature
   written as bare "degrees" (27 °C and 27 K differ elevenfold), efficiency from
   two temperatures (that is Carnot), a Doppler question with no stated
   direction, a price ("find the cost"), a magnification from a virtual image's

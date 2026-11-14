@@ -83,6 +83,36 @@ def diverging_element(text: str) -> bool:
     )
 
 
+# The lens itself named as diverging: "a diverging lens", "a concave lens", "biconcave", "a minus
+# lens", "the lens is concave", or a lens given a negative focal length.
+_LENS_DIVERGES = re.compile(
+    r"\b(?:diverging|concave|biconcave|double[\s-]?concave|plano[\s-]?concave|minus|negative)"
+    r"\s+(?:thin\s+|spherical\s+|glass\s+)?lens\b"
+    r"|\blens\s+(?:is|was)\s+(?:a\s+)?(?:concave|diverging|negative|minus)\b"
+    r"|\blens\b[^.?!]{0,40}?\bfocal\s+length\s+(?:of\s+|is\s+|=\s*)?[-\u2212]\s?\d"
+)
+# A converging lens named anywhere: a second lens, or the lens the question is about.
+_LENS_CONVERGES = re.compile(
+    r"\b(?:convex|biconvex|converging|positive|plus)\s+(?:thin\s+|glass\s+)?lens(?:es)?\b"
+    r"|\blens\s+(?:is|was)\s+(?:a\s+)?(?:convex|converging)\b|\bmagnifying\s+glass\b"
+)
+
+
+def diverging_lens(text: str) -> bool:
+    """The question's one lens is a diverging lens: the lens itself is called diverging or
+    concave, given a negative focal length, or forms an upright, diminished image, and no
+    converging lens or mirror is named. A virtual image or diverging light is no evidence: a
+    converging lens forms one inside its focal length, and light diverges from every object.
+    Read so, "a convex lens of focal length 10 cm forms a virtual image of an object 5 cm away"
+    was 3.33 cm on the object's side, for 10 cm (review 2026-11-13)."""
+    lower = text.lower()
+    if _MIRROR.search(lower) or _LENS_CONVERGES.search(lower):
+        return False
+    return _LENS_DIVERGES.search(lower) is not None or (
+        _LENS.search(lower) is not None and _upright_diminished(_stated_natures(lower))
+    )
+
+
 def converging_element(text: str) -> bool:
     """A converging lens or mirror, a convex lens or a concave mirror, named in any order."""
     lower = text.lower()
