@@ -104,6 +104,14 @@ def photo_reading_span(text: str) -> tuple[int, int] | None:
     return start, blank.start() if blank is not None else len(text.rstrip())
 
 
+def photo_reading(text: str) -> str | None:
+    """The words read off ``text``'s scanner photo, where the turn stored them; else None."""
+    span = photo_reading_span(text)
+    if span is None:
+        return None
+    return text[span[0] + len(SCAN_CONFIRMED_PREFIX) : span[1]].strip() or None
+
+
 def without_photo_reading(text: str) -> str:
     """``text`` without the words read off its photo: what the student said themselves.
 

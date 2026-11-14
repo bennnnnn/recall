@@ -250,15 +250,12 @@ def frame_photo_reading(content: str) -> str:
     The row keeps the reading as the scanner protocol writes it (the bubble shows it so);
     only the prompt frames it, here, where a stored row's attachment excerpts are framed.
     """
-    from app.services.subject_scan import SCAN_CONFIRMED_PREFIX, photo_reading_span
+    from app.services.subject_scan import photo_reading, photo_reading_span
 
-    span = photo_reading_span(content)
-    if span is None:
+    span, reading = photo_reading_span(content), photo_reading(content)
+    if span is None or reading is None:
         return content
     start, end = span
-    reading = content[start + len(SCAN_CONFIRMED_PREFIX) : end].strip()
-    if not reading:
-        return content
     framed = wrap_untrusted(_PHOTO_READING, reading, preamble=_PHOTO_READING_PREAMBLE)
     return f"{content[:start]}{framed}{content[end:]}"
 

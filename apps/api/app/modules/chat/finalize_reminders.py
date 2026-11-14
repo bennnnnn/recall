@@ -142,9 +142,12 @@ async def _materialize(
 
 
 def _prior_text(ctx: StreamContext, role: str) -> str:
-    """The latest earlier message from ``role`` ("" when none)."""
+    """The latest earlier message from ``role`` ("" when none). A user's is their own words:
+    the prompt frames a photo's text as an untrusted block, and that block asks nothing."""
     for message in reversed(ctx.prompt_messages[:-1]):
         if message.get("role") == role:
             content = message.get("content")
-            return content if isinstance(content, str) else ""
+            if not isinstance(content, str):
+                return ""
+            return said_by_user(content) if role == "user" else content
     return ""
