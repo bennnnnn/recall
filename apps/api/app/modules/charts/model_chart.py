@@ -5,8 +5,8 @@ line, a pie (Vega-Lite marks, or a Chart.js or series ``type``) or a histogram. 
 (a scatter, a box plot, a curve y = f(x)) is None: not this module's to judge, and left as
 it is. ``model_chart_request`` reads one of the four as data, with one series: one number per
 category, or a histogram's raw values. A chart of the four kinds it cannot read (several
-series, a shape it does not know) is None too, and the caller takes it out: its numbers
-cannot be checked (review, 2026-11-14).
+series, a shape it does not know) is None too: not judged, unless the server drew the chart
+itself, which then takes its place (``chat.chart_turn.placed_charts``).
 """
 
 from __future__ import annotations

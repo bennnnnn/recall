@@ -64,11 +64,16 @@ def test_chart_corpus(entry: dict[str, Any]) -> None:
     if entry["id"].startswith("lookalike-"):
         assert chart_turn(entry["prompt"], [tuple(p) for p in entry["earlier"]]) is None
         return
+    if entry["expect"] == {"kept": True}:
+        turn = chart_turn(entry["prompt"], [tuple(p) for p in entry["earlier"]])
+        assert turn is not None
+        assert placed_charts(entry["reply"], None, turn[0]) == entry["reply"], entry["note"]
+        return
     assert _outcome(entry) == entry["expect"], entry["note"] or entry["prompt"]
 
 
 def test_the_corpus_holds_charts_refusals_and_look_alikes() -> None:
-    drawn = [e for e in _ENTRIES if e["expect"] is not None]
+    drawn = [e for e in _ENTRIES if e["expect"] is not None and "kind" in e["expect"]]
     refused = [e for e in _ENTRIES if e["expect"] is None and not e["id"].startswith("lookalike-")]
     lookalikes = [e for e in _ENTRIES if e["id"].startswith("lookalike-")]
     assert {e["expect"]["kind"] for e in drawn} == {"bar", "pie", "line", "histogram"}

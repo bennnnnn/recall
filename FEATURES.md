@@ -566,10 +566,11 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   number next to its own label, all on the same side; a histogram's whole list, in order), and
   the server writes the chart in one of the contract's shapes, in the place of the model's own.
   Finalize waits for it at most 2 s (`chart_wait_seconds`). A reading that adds, drops, changes
-  or mis-pairs a number draws nothing; with no reading in time, the model's own chart of those
-  shapes is held to the same check and drawn from its checked numbers, or taken out. A kind the
-  user names that is not one of the four (a scatter, a box plot, a line plot) is left to the
-  model. `app/tests/behavior/chart_corpus.json` holds charts, refused readings and look-alikes.
+  or mis-pairs a number draws nothing. With the server's chart in, the model's charts of those
+  kinds give way to it, so there are never two; with none, a model chart read as one series
+  (a temporal axis, a Chart.js body) is held to the same check and drawn from its checked
+  numbers, or taken out. One of several series is not judged and stays, as a kind the user
+  names that is not one of the four (a scatter, a box plot, a line plot) is left to the model. `app/tests/behavior/chart_corpus.json` holds charts, refused readings and look-alikes.
 - ✅ **HTML/CSS/JS preview** — `html` fences get a sandboxed WebView preview ("run" → modal) plus
   "open in browser" (needs a dev build; see the code-execution policy below). Run may load
   scripts/styles only from `cdn.jsdelivr.net`, `unpkg.com`, `cdnjs.cloudflare.com`, and Google

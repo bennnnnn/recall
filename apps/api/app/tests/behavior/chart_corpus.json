@@ -846,13 +846,52 @@
    "note": "a Chart.js body is read and checked"
   },
   {
-   "id": "model-two-series-taken-out-when-no-read",
+   "id": "model-two-series-left-when-no-read",
    "prompt": "Line chart of my sales: Jan 10, Feb 12, Mar 9",
    "earlier": [],
    "reading": null,
    "reply": "```chart\n{\"type\":\"bar\",\"labels\":[\"Jan\",\"Feb\",\"Mar\"],\"series\":[{\"name\":\"a\",\"values\":[10,12,9]},{\"name\":\"b\",\"values\":[1,2,3]}]}\n```",
-   "expect": null,
-   "note": "several series cannot be checked: no picture"
+   "expect": {
+    "kept": true
+   },
+   "note": "several series: not read here, so not judged and left as written"
+  },
+  {
+   "id": "model-two-series-gives-way-to-the-servers",
+   "prompt": "Line chart of my sales: Jan 10, Feb 12, Mar 9",
+   "earlier": [],
+   "reading": {
+    "kind": "line",
+    "points": [
+     {
+      "label": "Jan",
+      "value": "10"
+     },
+     {
+      "label": "Feb",
+      "value": "12"
+     },
+     {
+      "label": "Mar",
+      "value": "9"
+     }
+    ]
+   },
+   "reply": "```chart\n{\"type\":\"bar\",\"labels\":[\"Jan\",\"Feb\",\"Mar\"],\"series\":[{\"name\":\"a\",\"values\":[10,12,9]},{\"name\":\"b\",\"values\":[1,2,3]}]}\n```",
+   "expect": {
+    "kind": "line",
+    "labels": [
+     "Jan",
+     "Feb",
+     "Mar"
+    ],
+    "values": [
+     10,
+     12,
+     9
+    ]
+   },
+   "note": "with the server's chart in, there are never two"
   },
   {
    "id": "model-numeric-year-line-checked",

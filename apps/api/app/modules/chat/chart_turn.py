@@ -86,10 +86,11 @@ async def _drawn(task: asyncio.Task[str | None], settings: Settings) -> str | No
 
 
 def placed_charts(text: str, drawn: str | None, data: str) -> str:
-    """The reply with each chart of the four kinds in it replaced: the server's chart in
-    the first one's place, a model chart whose numbers hold rebuilt from them, any other
-    taken out, one it cannot read too (a temporal axis or a Chart.js body is read; several
-    series are not). A chart of another kind (a scatter, a box plot) stays as written."""
+    """The reply with its charts of the four kinds settled. With the server's chart, it takes
+    the first one's place and the others go. Without it, a model chart read here (a temporal
+    axis and a Chart.js body are read) is rebuilt from its numbers when they hold and taken
+    out when they do not; one of several series is not read, so not judged, and stays, as
+    a chart of another kind (a scatter, a box plot) does."""
     pieces: list[str] = []
     cursor = 0
     placed = False
@@ -99,14 +100,16 @@ def placed_charts(text: str, drawn: str | None, data: str) -> str:
         spec = parse_chart_body(text[fence.body_start : fence.body_end])
         if model_chart_kind(spec) is None:
             continue
+        request = model_chart_request(spec)
         if drawn is not None:
+            # The user's numbers are one series the server drew: the model's chart of these
+            # kinds gives way to it, read or not, so there are never two.
             replacement = "" if placed else drawn
             placed = True
+        elif request is None:
+            continue  # several series: not read here, so not judged (as a scatter is not)
         else:
-            # One of the four kinds it cannot read (several series, a shape it does not
-            # know) cannot be checked either: it goes.
-            request = model_chart_request(spec)
-            replacement = (chart_from_request(request, data) if request else None) or ""
+            replacement = chart_from_request(request, data) or ""
         pieces.append(text[cursor : fence.start])
         pieces.append(replacement)
         cursor = fence.end
