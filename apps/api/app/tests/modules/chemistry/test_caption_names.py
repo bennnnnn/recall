@@ -15,7 +15,8 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways.pubchem_gateway import PubChemCompound, PubChemResult
-from app.modules.chemistry.caption_names import caption_name, checked_names
+from app.modules.chemistry.caption_lookup import checked_names
+from app.modules.chemistry.caption_names import caption_name
 
 _CAFFEINE = PubChemCompound(
     cid=2519,

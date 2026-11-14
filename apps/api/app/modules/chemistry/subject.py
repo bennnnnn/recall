@@ -125,7 +125,7 @@ class ChemistryFence:
         return settings.chemistry_enabled and ("```smiles" in lowered or "```chemistry" in lowered)
 
     async def named(self, text: str, settings: Settings) -> dict[str, str]:
-        from app.modules.chemistry.caption_names import checked_names
+        from app.modules.chemistry.caption_lookup import checked_names
 
         return await checked_names(text, settings)
 

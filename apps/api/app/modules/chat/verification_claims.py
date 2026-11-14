@@ -74,9 +74,9 @@ _PAREN_CLAIM = re.compile(
 )
 # "Verified answer:" / "The verified result:": the label keeps its noun.
 _NOUN_LABEL = re.compile(
-    r"(?P<lead>^[ \t>]*(?:(?:[-*+]|\d{1,3}[.)])[ \t]+)?(?:\*\*|__)?[ \t]*(?:the[ \t]+)?)"
-    rf"[{_CHECK_MARKS}]?️?[ \t]*verified[ \t]+(?P<noun>answer|result|solution|value)(?P<s>s?)"
-    r"(?=[ \t]*(?:\*\*|__)?[ \t]*:)",
+    r"(?P<lead>^[ \t>]*+(?:(?:[-*+]|\d{1,3}[.)])[ \t]++)?(?:\*\*|__)?[ \t]*+(?:the[ \t]++)?)"
+    rf"(?:[{_CHECK_MARKS}]\ufe0f?[ \t]*+)?verified[ \t]++(?P<noun>answer|result|solution|value)"
+    r"(?P<s>s?)(?=[ \t]*+(?:\*\*|__)?[ \t]*+:)",
     re.IGNORECASE | re.MULTILINE,
 )
 
@@ -95,7 +95,9 @@ _RESULT_CLAIM = re.compile(
 # On a maths reply: "Verified" alone as a clause or label ("x = 4. Verified.", "✓ Verified:").
 _BARE_VERIFIED = re.compile(rf"[{_CHECK_MARKS}]?️?[ \t]*verified", re.IGNORECASE)
 # On a maths reply: a check mark beside a value ("x = 42 ✓", "✅ x = 42").
-_VALUE_MARK = re.compile(rf"[ \t]*[{_CHECK_MARKS}]️?(?=[ \t]*$)|^[ \t]*[{_CHECK_MARKS}]️?[ \t]*")
+_VALUE_MARK = re.compile(
+    rf"[ \t]*[{_CHECK_MARKS}]\ufe0f?(?=[ \t]*(?:[,;.)]|$))|^[ \t]*[{_CHECK_MARKS}]\ufe0f?[ \t]*"
+)
 # A clause the claim left with no words of its own: "This", "I", "the result".
 _LEFTOVER = re.compile(
     rf"(?:(?:this|that|it|i|we|which)|(?:the|this|that|my|our)[ \t]+(?:\w+[ \t]+)?{_RESULT_NOUN}"
@@ -180,6 +182,15 @@ def _line_without_claims(line: str, *, maths: bool) -> str:
     return "".join(clause + end for clause, end in kept)
 
 
+def _tidied(line: str, *, maths: bool) -> str:
+    """The line without its claims (each takes its own space with it); a line with none is
+    left exactly as written (a French " :", an indent, a Markdown line break)."""
+    out = _line_without_claims(line, maths=maths)
+    if out == line:
+        return line
+    return out.rstrip()
+
+
 def strip_verification_claims(text: str) -> str:
     """Remove the model's own "verified" claims from prose (fences untouched).
 
@@ -195,10 +206,7 @@ def strip_verification_claims(text: str) -> str:
     maths = _MATHS.search(text) is not None
 
     def claimless(prose: str) -> str:
-        out = "\n".join(_line_without_claims(line, maths=maths) for line in prose.split("\n"))
-        out = re.sub(r"[ \t]+([.,;:!?])", r"\1", out)
-        out = re.sub(r"[ \t]{2,}", " ", out)
-        out = re.sub(r"[ \t]+\n", "\n", out)
+        out = "\n".join(_tidied(line, maths=maths) for line in prose.split("\n"))
         return re.sub(r"\n{3,}", "\n\n", out)
 
     return map_outside_fences(text, claimless).strip()

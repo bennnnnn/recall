@@ -6,21 +6,14 @@ model wrote stays in front of them only when it names the same structure: by the
 tables (``species_facts.NAMED_COMPOUNDS`` and the formulas ``smiles`` maps), or else by the
 PubChem lookup the chemistry context already uses, with its cache and its 2 s cap. A timeout,
 a miss or another structure, and the caption is the formula and mass alone. Structures are
-compared as RDKit's canonical SMILES without stereo marks.
+compared as RDKit's canonical SMILES without stereo marks. The PubChem look-up, before the
+pool draws the molecules, is ``caption_lookup``.
 """
 
 from __future__ import annotations
 
-import asyncio
-import logging
 from collections.abc import Mapping
 
-from app.core.config import Settings
-
-logger = logging.getLogger(__name__)
-
-# The names one reply's drawings are looked up by, at most.
-_MAX_LOOKUPS = 3
 # A caption's name: no longer than a compound's name reasonably is.
 _MAX_NAME_CHARS = 60
 
@@ -72,41 +65,3 @@ def checked_name(written: str, smiles: str, named: Mapping[str, str] | None) -> 
         return None
     looked_up = table_smiles(name) or (named or {}).get(name_key(name))
     return name if looked_up and same_structure(looked_up, smiles) else None
-
-
-async def checked_names(text: str, settings: Settings) -> dict[str, str]:
-    """The names a reply's structures are labelled with that the tables do not give, by key,
-    with the structure PubChem gives each, looked up within the chemistry context's budget.
-    ``checked_name`` reads the tables' names itself."""
-    from app.core.sympy_executor import run_sympy
-    from app.modules.chemistry.fence import written_names
-
-    if not settings.chemistry_enabled:
-        return {}
-    try:
-        written = await run_sympy(written_names, text, timeout=settings.stem_solve_timeout_seconds)
-    except Exception as exc:
-        logger.info("structure captions not read: %s", type(exc).__name__)
-        return {}
-    names = {name_key(name): name for name in written if table_smiles(name) is None}
-    keys = list(names)[:_MAX_LOOKUPS]
-    found = await asyncio.gather(*(_pubchem_smiles(names[key]) for key in keys))
-    return {key: smiles for key, smiles in zip(keys, found, strict=True) if smiles}
-
-
-async def _pubchem_smiles(name: str) -> str | None:
-    from app.core.redis import get_redis_client
-    from app.gateways import pubchem_gateway
-    from app.modules.chemistry.context import PUBCHEM_BUDGET_SECONDS
-
-    try:
-        lookup = await asyncio.wait_for(
-            pubchem_gateway.lookup_by_name(name, redis=get_redis_client()),
-            PUBCHEM_BUDGET_SECONDS,
-        )
-    except Exception as exc:
-        # A timeout or an outage leaves the caption its formula and mass.
-        logger.info("caption name not looked up: %s", type(exc).__name__)
-        return None
-    compound = lookup.compound
-    return compound.smiles if compound is not None and lookup.error is None else None
