@@ -183,6 +183,7 @@ SAMPLES: dict[str, float] = {
     "concave": 1.0,
     "from_surface": 1.0,
     "accel": 2.0,
+    "upward": 1.0,
     "downward": 1.0,
     "ang_alpha": 2.0,
     "omega0": 4.0,
@@ -300,6 +301,10 @@ SAMPLES: dict[str, float] = {
     # A 5 kg object that weighs 30 N under water.
     "weight_app": 30.0,
     "fraction_left": 0.25,
+    # Three quarters of a sample decayed: a quarter is left.
+    "fraction_gone": 0.75,
+    # A body said to be on a spring is drawn on one.
+    "on_spring": 1.0,
     "n_halves": 3.0,
     "activity_initial": 800.0,
     "activity_final": 200.0,
@@ -318,4 +323,11 @@ SAMPLES: dict[str, float] = {
     "E_emf": 12.0,
     "r_int": 0.5,
     "v_final": 3.0,
+}
+
+# A law whose result the shared sample would put out of its range: a body in simple harmonic
+# motion at the photon sample's 1e15 Hz moves faster than light, which no result may.
+BY_LAW: dict[tuple[str, str], float] = {
+    ("shm_max_speed", "freq"): 2.0,
+    ("shm_max_acceleration", "freq"): 2.0,
 }

@@ -1,8 +1,5 @@
-import {
-  collectClosedFenceBodies,
-  mapClosedLangFence,
-  stripClosedLangFence,
-} from "@/lib/fence/scan";
+import { parseFenceLang } from "@/lib/codeHighlight";
+import { mapClosedFences } from "@/lib/fence/scan";
 
 export type PlaceItem = {
   name: string;
@@ -12,35 +9,22 @@ export type PlaceItem = {
   price?: string;
 };
 
-function parseAllPlacesFences(content: string): PlaceItem[] {
-  return collectClosedFenceBodies(content, "places").flatMap((body) =>
-    parsePlacesJson(body.trim()),
-  );
-}
-
-/** Unified venue list — ```places fences, or ```json arrays the model mis-tagged. */
-export function resolvePlaces(content: string): PlaceItem[] {
-  const fromPlaces = parseAllPlacesFences(content);
-  if (fromPlaces.length > 0) return fromPlaces;
-  return parsePlacesJsonFences(content);
-}
-
-/** Remove places/json venue fences from prose (leave markdown body intact). */
-export function stripPlacesContent(content: string, places: PlaceItem[]): string {
-  if (places.length === 0) return content;
-  let stripped = stripClosedLangFence(content, "places");
-  if (stripped.toLowerCase().includes("```json")) {
-    stripped = mapClosedLangFence(stripped, "json", (body) => {
-      try {
-        return looksLikePlacesArray(JSON.parse(body.trim()))
-          ? ""
-          : `\`\`\`json\n${body}\`\`\``;
-      } catch {
-        return `\`\`\`json\n${body}\`\`\``;
-      }
-    });
-  }
-  return stripped.replace(/\n{3,}/g, "\n\n").trimEnd();
+/**
+ * A venue array the model fenced as ```json, made a ```places fence where it stands, so
+ * the reply draws it as a list in its place, as it does a ```places fence. A list pulled
+ * out to the end of the bubble jumped there from mid-reply when the reply settled
+ * (2026-11-08).
+ */
+export function tagPlacesJsonFences(content: string): string {
+  if (!content.toLowerCase().includes("```json")) return content;
+  return mapClosedFences(content, (info, body, original) => {
+    if (parseFenceLang(info) !== "json") return original;
+    try {
+      return looksLikePlacesArray(JSON.parse(body.trim())) ? `\`\`\`places\n${body}\n\`\`\`` : original;
+    } catch {
+      return original;
+    }
+  });
 }
 
 /** Google Maps search/deep link — opens Maps on iOS and Android. */
@@ -101,21 +85,6 @@ function looksLikePlacesArray(parsed: unknown): boolean {
     const row = item as Record<string, unknown>;
     return typeof row.name === "string" && row.name.trim().length > 0;
   });
-}
-
-function parsePlacesJsonFences(content: string): PlaceItem[] {
-  const places: PlaceItem[] = [];
-  for (const raw of collectClosedFenceBodies(content, "json")) {
-    try {
-      const parsed: unknown = JSON.parse(raw.trim());
-      if (looksLikePlacesArray(parsed)) {
-        places.push(...normalizePlaceRows(parsed));
-      }
-    } catch {
-      // ignore non-JSON fences
-    }
-  }
-  return places;
 }
 
 function normalizePlaceRows(parsed: unknown): PlaceItem[] {

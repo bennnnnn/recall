@@ -188,6 +188,8 @@ const mockAuth = { token: "token", user: null, updateUser: mockAsyncNoop };
 const mockRouter = { push: mockNoop, replace: mockNoop, setParams: mockNoop };
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 1 }));
+// The location switch's module keeps when the account's place was saved, in a file.
+jest.mock("@/lib/syncRecords", () => ({ recentSyncAt: async () => null, recordSync: async () => {} }));
 jest.mock("expo-router", () => ({
   Redirect: () => null,
   useLocalSearchParams: () => ({}),
@@ -219,7 +221,6 @@ jest.mock("@/features/chat/hooks/useChat", () => ({
 jest.mock("@/features/chat/hooks/useChatActions", () => ({ useChatActions: () => mockChatActions }));
 jest.mock("@/features/chat/hooks/useChatComposerState", () => ({ useChatComposerState: () => mockComposerState }));
 jest.mock("@/features/chat/hooks/useComposerDictation", () => ({ useComposerDictation: () => mockDictation }));
-jest.mock("@/features/chat/hooks/useChatDraftWarmup", () => ({ useChatDraftWarmup: () => {} }));
 jest.mock("@/features/chat/hooks/useChatMessageList", () => ({ useChatMessageList: () => mockMessageList }));
 jest.mock("@/features/chat/hooks/useChatRegenerate", () => ({ useChatRegenerate: () => mockRegenerate }));
 const mockRouteLoaderOptions: { showActionBanner?: unknown; imageGenerating?: boolean; stopGeneration?: () => void }[] = [];

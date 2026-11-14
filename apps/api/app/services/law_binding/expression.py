@@ -58,6 +58,8 @@ class Notation:
     constants: Mapping[str, tuple[float, str]]
     # A given or working value as the substitution prints it.
     number: Callable[[float], str]
+    # The unit a substituted number is printed with (``\,\mathrm{m/s}``), "" for none.
+    unit: Callable[[ast.Constant], str] = lambda _node: ""
 
     def constant(self, name: str) -> tuple[float, str] | None:
         if name == _PI:
@@ -143,6 +145,11 @@ def _number(node: ast.Constant) -> float:
 def evaluate(expression: str, values: Mapping[str, float], notation: Notation) -> float:
     """The number the expression gives. A domain error is a ValueError."""
     return _value(parse(expression), values, notation)
+
+
+def tree_value(tree: ast.expr, values: Mapping[str, float], notation: Notation) -> float:
+    """The number a tree read elsewhere gives (``reduction.law_tree``: a law's side)."""
+    return _value(tree, values, notation)
 
 
 def _value(node: ast.expr, values: Mapping[str, float], notation: Notation) -> float:
@@ -319,7 +326,7 @@ def _latex(
     degrees: frozenset[str] = frozenset(),
 ) -> str:
     if isinstance(node, ast.Constant):
-        return notation.number(_number(node))
+        return notation.number(_number(node)) + notation.unit(node)
     if isinstance(node, ast.Name):
         constant = notation.constant(node.id)
         if constant is not None:
@@ -354,28 +361,30 @@ def _latex(
         bottom = _latex(node.right, symbols, values, notation, degrees)
         return rf"\frac{{{top}}}{{{bottom}}}"
     if isinstance(node.op, ast.Pow):
+        power = _latex(node.right, symbols, values, notation, degrees)
+        # sin²θ as a book writes it: \sin^{2}(30^\circ), never \sin(30^\circ)^{2}.
+        if (
+            isinstance(node.left, ast.Call)
+            and isinstance(node.left.func, ast.Name)
+            and node.left.func.id in {"sin", "cos", "tan"}
+        ):
+            inner = _latex(node.left.args[0], symbols, values, notation, degrees)
+            return f"{_FUNCTION_LATEX[node.left.func.id]}^{{{power}}}({inner})"
         base = _wrapped(node.left, symbols, values, 5, notation, degrees)
         # A plugged value in scientific form carries its own power: 6.371e6
-        # squared is (6.371 \times 10^{6})^{2}, never 6.371 \times 10^{6}^{2}.
+        # squared is (6.371 \times 10^{6})^{2}, never 6.371 \times 10^{6}^{2}. So does
+        # one with its unit: (8\,\mathrm{m/s})^{2} squares the unit too.
         if (
             _plugged(node.left, values)
             and not base.startswith("(")
-            and ("^" in base or "\\times" in base)
+            and ("^" in base or "\\times" in base or "\\mathrm" in base)
         ):
             base = f"({base})"
         return f"{base}^{{{_latex(node.right, symbols, values, notation, degrees)}}}"
     if isinstance(node.op, ast.Mult):
         left = _wrapped(node.left, symbols, values, 2, notation, degrees)
         right = _wrapped(node.right, symbols, values, 2, notation, degrees)
-        # Numbers side by side need \\times (``times_sign``), and so does a number before a
-        # function ("1 \\times \\sin(30^\\circ)") or a fraction ("5 \\times \\frac{19.62}{7}",
-        # never read as the mixed number 5 19.62/7); symbols are written together.
-        follows = _leftmost(node.right)
-        joined = _plugged(_rightmost(node.left), values) and (
-            _plugged(follows, values)
-            or (values is not None and isinstance(follows, ast.Call))
-            or (values is not None and isinstance(follows, ast.BinOp))
-        )
+        joined = _joined(node, values)
         return times(left, right) if joined else f"{left} {right}"
     operator = "+" if isinstance(node.op, ast.Add) else "-"
     left = _latex(node.left, symbols, values, notation, degrees)
@@ -384,6 +393,39 @@ def _latex(
     if _negative_leaf(node.right, values):
         right = f"({right})"
     return f"{left} {operator} {right}"
+
+
+def _joined(node: ast.BinOp, values: Mapping[str, float] | None) -> bool:
+    """Whether a product's two sides need a \\times between them."""
+    # Numbers side by side need \\times (``times_sign``), and so does a number before a
+    # function ("1 \\times \\sin(30^\\circ)") or a fraction ("5 \\times \\frac{19.62}{7}",
+    # never read as the mixed number 5 19.62/7); symbols are written together.
+    follows = _leftmost(node.right)
+    before = _rightmost(node.left)
+    # A number after a fraction or a power of numbers too: \frac{1}{2} \times 2 and
+    # 3^{2} \times 4, never "½ 2" or "3² 4".
+    number_fraction = isinstance(before, ast.BinOp) and (
+        (
+            isinstance(before.op, ast.Div)
+            and _plugged(before.left, values)
+            and _plugged(before.right, values)
+        )
+        or (isinstance(before.op, ast.Pow) and _plugged(before.left, values))
+    )
+    # And after a negated number or a function of numbers: -0.04 \times 0.1 and
+    # \cos(0^\circ) \times 0.64, never "-0.04 0.1" or "\cos(0^\circ) 0.64".
+    negated = isinstance(before, ast.UnaryOp) and _plugged(before.operand, values)
+    called = isinstance(before, ast.Call) and values is not None
+    joined = (_plugged(before, values) or number_fraction or negated or called) and (
+        _plugged(follows, values)
+        or (values is not None and isinstance(follows, ast.Call))
+        or (values is not None and isinstance(follows, ast.BinOp))
+    )
+    # A number after a symbol or a constant left standing (π, e): 2\pi \times 0.05,
+    # never "2\pi 0.05", which reads as one number.
+    named = values is not None and isinstance(before, ast.Name)
+    joined = joined or (named and _plugged(follows, values))
+    return joined
 
 
 def _leftmost(node: ast.expr) -> ast.expr:

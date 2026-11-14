@@ -1027,6 +1027,27 @@ describe("markdown render rules", () => {
   });
 
   it.each([
+    ["a formula alone", "$120\\text{ m} \\div 20\\text{ s} = 6\\text{ m/s}$\n\n**Answer: 6 meters per second.**"],
+    ["formulas one per line", "$x + 1 = 3$  \n$x = 2$."],
+    ["a raised power alone", "$v^2 = 2as$"],
+  ])("indents %s with a full-width View, never padding on the Text", async (_name, content) => {
+    // On the S23 a paragraph Text with its own left padding measured 1 px wide: the formula
+    // alone above its answer was invisible (2026-11-10). The View takes the indent.
+    const view = await render(<MarkdownContent content={content} />);
+    const host = view.getByTestId("md-working-paragraph");
+    expect(StyleSheet.flatten(host.props.style)).toEqual({ alignSelf: "stretch", paddingLeft: WORK_INDENT });
+    type Node = { type: string; props: { style?: StyleProp<TextStyle> }; children: unknown[] | null };
+    const padded = (node: unknown): boolean => {
+      if (Array.isArray(node)) return node.some(padded);
+      if (!node || typeof node !== "object") return false;
+      const { type, props, children } = node as Node;
+      const pad = (StyleSheet.flatten(props.style)?.paddingLeft ?? 0) as number;
+      return (type === "Text" && pad > 0) || padded(children);
+    };
+    expect(padded(view.toJSON())).toBe(false);
+  });
+
+  it.each([
     ["a sentence with maths in it", "Divide every term by $a$ to get $x$."],
     ["a formula in a list", "- $x = 2$\n- $y = 3$"],
   ])("leaves %s at the margin", async (_name, content) => {
@@ -1076,6 +1097,37 @@ describe("markdown render rules", () => {
     expect(step.props.accessibilityRole).toBe("header");
     expect(within(getByTestId("step-badge")).getByText(n)).toBeOnTheScreen();
     expect(getByText(title)).toBeOnTheScreen();
+  });
+
+  it("keeps the badge on a numbered heading that holds code, the code a chip", async () => {
+    // "### 3. Filtering with `if`" drew as the library's plain "3. Filtering with if".
+    const { getByTestId, getByText } = await render(
+      <MarkdownContent content={"### 3. Filtering with `if`"} />,
+    );
+    expect(within(getByTestId("step-badge")).getByText("3")).toBeOnTheScreen();
+    expect(getByText("Filtering with")).toBeOnTheScreen();
+    expect(within(getByTestId("step-heading")).getByText("if")).toBeOnTheScreen();
+  });
+
+  it("draws a lesson's balance-sheet table, empty header cells and all", async () => {
+    // Its divider got a cell for each non-empty header cell only, so the table showed as a
+    // paragraph of pipes in "Teach me how to read a balance sheet".
+    const table = [
+      "| Assets | | Liabilities & Equity | |",
+      "|---|---|---|---|",
+      "| Cash | 40 | Accounts payable | 25 |",
+    ].join("\n");
+    const { queryByText, getByText } = await render(<MarkdownContent content={table} />);
+    expect(queryByText(/\|/)).toBeNull();
+    expect(getByText("Accounts payable")).toBeOnTheScreen();
+  });
+
+  it("draws a formula of words alone on its line without its dollars", async () => {
+    const { queryByText, getByText } = await render(
+      <MarkdownContent content={"They satisfy one rule:\n\n$Assets = Liabilities + Equity$\n\nAlways."} />,
+    );
+    expect(queryByText(/\$/)).toBeNull();
+    expect(getByText("Assets = Liabilities + Equity")).toBeOnTheScreen();
   });
 
   it.each([

@@ -265,9 +265,6 @@ def test_heat_scales_with_mass() -> None:
 # ---------------------------------------------------------------------------
 
 REFUSED = [
-    # Optics: the sign conventions disagree here, so nothing is claimed.
-    "what is the image distance for a diverging lens of focal length 10 cm and object at 30 cm",
-    "what is the image distance for a concave lens of focal length 10 cm and object at 30 cm",
     # An index below 1 has no critical angle.
     "what is the critical angle for a medium of refractive index 0.8",
     # Thermal: an absolute temperature with no scale could be either.

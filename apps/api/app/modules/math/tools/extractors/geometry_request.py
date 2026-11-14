@@ -4,31 +4,30 @@ from __future__ import annotations
 
 from pydantic import ValidationError
 
+from app.modules.math.match.circle_parts import circle_parts, without_circle_part
 from app.modules.math.match.literal_geometry import (
     NamedRectangleRequest,
     measurement_request,
     parse_named_rectangle_request,
 )
 from app.modules.math.match.measure_relations import (
+    another_shape_named,
     measures_not_as_printed,
     surface_not_closed_total,
 )
 from app.modules.math.match.units import solid_length_unit
 from app.modules.math.schemas import GeometryRequest, MathIntent, SolidGeometryInput
-from app.modules.math.schemas.geometry_request import GeometryQuantity, GeometryShape
+from app.modules.math.schemas.geometry_request import (
+    PLANE_SHAPES,
+    GeometryQuantity,
+    GeometryShape,
+)
 from app.modules.math.tools.school.geometry_measures import is_geometry_measure
 
-_PLANE_SHAPES: dict[str, GeometryShape] = {
-    "rectangle": "rectangle",
-    "square": "square",
-    "triangle": "triangle",
-    "right_triangle": "right_triangle",
-    "triangle_sides": "triangle_sides",
-    "circle": "circle",
-    "trapezoid": "trapezoid",
-    "parallelogram": "parallelogram",
-    "sector": "sector",
-}
+_PLANE_SHAPES: dict[str, GeometryShape] = {shape: shape for shape in PLANE_SHAPES}
+# The shapes whose verified block carries a drawn figure (a solid's has none): "draw it"
+# after one is that figure.
+FIGURE_KINDS = frozenset(_PLANE_SHAPES)
 # What the literal measurement grammars call each quantity a working lays out.
 _QUANTITIES: dict[str, GeometryQuantity] = {
     "area": "area",
@@ -59,7 +58,7 @@ def finish_geometry_intent(intent: MathIntent, cleaned: str) -> MathIntent | Non
         or intent.kind in _PLANE_SHAPES
         or is_geometry_measure(intent.school_op)
     )
-    if shape_reading and measures_not_as_printed(cleaned):
+    if shape_reading and measures_not_as_printed(_unread_words(intent, cleaned)):
         return None
     if intent.kind == "solid" and surface_not_closed_total(
         cleaned, asks_surface=bool(intent.wants_surface_area)
@@ -70,6 +69,8 @@ def finish_geometry_intent(intent: MathIntent, cleaned: str) -> MathIntent | Non
     shape = _PLANE_SHAPES.get(intent.kind)
     if shape is None:
         return intent
+    if another_shape_named(cleaned, intent.kind):
+        return None
     named = parse_named_rectangle_request(cleaned) if shape == "rectangle" else None
     update: dict[str, object] = {"geometry_request": _plane_request(shape, named, cleaned)}
     if shape != "triangle_sides" or intent.unit != "units":
@@ -78,6 +79,16 @@ def finish_geometry_intent(intent: MathIntent, cleaned: str) -> MathIntent | Non
             return None
         update["unit"] = unit
     return intent.model_copy(update=update)
+
+
+def _unread_words(intent: MathIntent, cleaned: str) -> str:
+    """The question less what its reading accounts for: a part of a circle's own "half"
+    is its measure, not a measure stated through another."""
+    if intent.school_op != "geometry_measure:circle_part":
+        return cleaned
+    for part in reversed(circle_parts(cleaned)):
+        cleaned = without_circle_part(cleaned, part)
+    return cleaned
 
 
 def _asked_quantity(cleaned: str) -> GeometryQuantity | None:

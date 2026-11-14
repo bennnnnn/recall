@@ -227,6 +227,33 @@ describe("mergeLocalAttachmentUris keeps what did not change", () => {
   });
 });
 
+// Review 2026-11-09: a read that landed before a reply's late photo replaced the row with the
+// server's copy, which has neither the photo nor the wait for it: the placeholder vanished.
+describe("a reply waiting for its late photo", () => {
+  const NOW = Date.parse("2026-11-09T14:58:00Z");
+  const reply = (extra: Partial<Message> = {}): Message => ({
+    id: "m1", role: "assistant", content: "Ethiopia lies in the Horn of Africa.", model: null,
+    created_at: "2026-11-09T14:58:00Z", ...extra,
+  });
+  const waiting = reply({ photo_pending_until: NOW + 20_000 });
+  const withPhoto = reply({ content: "[Image: /attachments/p1/file]\n\nEthiopia lies in the Horn of Africa." });
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it("keeps waiting through a read made before the photo landed", () => {
+    jest.spyOn(Date, "now").mockReturnValue(NOW + 5_000);
+    expect(mergeLocalAttachmentUris([waiting], [reply()])).toEqual([waiting]);
+    expect(mergeOpenedPage([waiting], [reply()], new Set(["m1"]))).toEqual([waiting]);
+  });
+
+  it("stops waiting once the read brings the photo, or the wait is over", () => {
+    jest.spyOn(Date, "now").mockReturnValue(NOW + 5_000);
+    expect(mergeLocalAttachmentUris([waiting], [withPhoto])).toEqual([withPhoto]);
+    jest.spyOn(Date, "now").mockReturnValue(NOW + 20_000);
+    expect(mergeLocalAttachmentUris([waiting], [reply()])).toEqual([reply()]);
+  });
+});
+
 describe("mergeOpenedPage", () => {
   const cached = [row(uuid(1), "user", "Hi"), row(uuid(2), "assistant", "Hello")];
   const painted = new Set(cached.map((message) => message.id));

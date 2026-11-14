@@ -64,6 +64,14 @@ class RegenerateTurn:
     recent: list[Any]
     unhealthy: frozenset[str] = frozenset()
 
+    @property
+    def before_line(self) -> list[Any]:
+        """The window before the line answered again: no reply being redone, no line."""
+        rows = self.recent
+        if rows and getattr(rows[-1], "role", None) == "assistant":
+            rows = rows[:-1]
+        return rows[:-1] if rows and getattr(rows[-1], "role", None) == "user" else rows
+
 
 async def _prior_count_for_window(
     recent: list[Any],
@@ -337,7 +345,7 @@ async def load_regenerate_turn(
     # A regenerate routes the line on its own (``resolve_regenerate_model``): no prior line.
     await read_turn_message(last_user.content, [], settings)
     model = deps.model_choice.resolve_regenerate_model(
-        user, model_alias, last_user.content, last.model, settings
+        user, model_alias, last_user.content, last.model, settings, unhealthy=health.cooling
     )
     backup: RegenerateBackup | None = None
     omit_message_ids: set[UUID] | None = None

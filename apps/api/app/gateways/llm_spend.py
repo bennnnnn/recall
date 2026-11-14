@@ -88,6 +88,11 @@ def meter_discarded_attempt(
     _meter(alias, discarded_attempt_cost_usd(alias, usage, prompt_chars, cause))
 
 
+def meter_reported_cost(alias: str, cost: float) -> None:
+    """Add a cost the provider reported itself (the Decider's ``usage.cost``)."""
+    _meter(alias, max(0.0, cost))
+
+
 def _meter(alias: str, cost: float) -> None:
     if cost > 0:
         create_background_task(_record(alias, cost), name="model_spend")

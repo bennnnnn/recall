@@ -9,6 +9,9 @@
  * height before the renderer's chunk, or the font, has loaded.
  */
 
+import { SCRIPT_SCALE } from "@/components/rich/skia/fontRuns";
+import { scriptGlyphBase } from "@/lib/unicodeSupSub";
+
 /** The size every diagram label is drawn at. */
 export const DIAGRAM_FONT_SIZE = 12;
 
@@ -41,6 +44,9 @@ function advance(char: string): number {
   const code = char.codePointAt(0) ?? 0;
   if (code >= 0x20 && code <= 0x7e) return ASCII_ADVANCES[code - 0x20];
   if (SCRIPT_DIGITS.includes(char)) return SCRIPT_DIGIT;
+  // A script letter the face lacks (ₒ) is drawn as its letter at the script's size.
+  const script = scriptGlyphBase(char);
+  if (script) return advance(script.base) * SCRIPT_SCALE;
   return OTHER_ADVANCES[char] ?? UNKNOWN_ADVANCE;
 }
 

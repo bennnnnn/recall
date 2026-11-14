@@ -5,7 +5,6 @@ import {
   shouldDiscardOnNewChat,
   shouldProbeEmptyChat,
   shouldProbePreviousChat,
-  shouldWarmDraftSocket,
   markChatHasAssistant,
   clearKnownAssistantChats,
 } from "@/features/chat/model/draftLogic";
@@ -59,32 +58,5 @@ describe("chatDraftLogic", () => {
       shouldProbePreviousChat({ chatId: "chat-2", messagesHadAssistant: false }),
     ).toBe(true);
     clearKnownAssistantChats();
-  });
-
-  it("shouldWarmDraftSocket when draft exists and chat not committed", () => {
-    expect(
-      shouldWarmDraftSocket({
-        account: "user-1:0",
-        draftChatId: "draft-1",
-        chatId: null,
-        streaming: false,
-      }),
-    ).toBe(true);
-    expect(
-      shouldWarmDraftSocket({
-        account: "user-1:0",
-        draftChatId: "draft-1",
-        chatId: "chat-1",
-        streaming: false,
-      }),
-    ).toBe(false);
-    expect(
-      shouldWarmDraftSocket({
-        account: null,
-        draftChatId: "draft-1",
-        chatId: null,
-        streaming: false,
-      }),
-    ).toBe(false);
   });
 });

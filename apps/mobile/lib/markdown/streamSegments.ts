@@ -80,8 +80,9 @@ export type SegmentScanState = {
 const ANSWER_LOOKAHEAD_LINES = 12;
 const POISON_RE = /<details|"\$schema"|molecule3d/i;
 const CLEAN_FENCE_RE = /^(`{3,}|~{3,})([^`~]*)$/;
-/** A line that opens with "Answer", or a heading a pass may break out of it. */
-const ANSWER_HEADING_RE = /^[\s#*]*answer|#{1,6}[ \t]*(?:\*\*)?answer/i;
+/** A line that opens with "Answer", or holds an Answer heading a pass may break out of it. */
+const ANSWER_OPENING_RE = /^[\s#*]*answer/i;
+const ANSWER_HEADING_IN_LINE_RE = /#{1,6}[ \t]*(?:\*\*)?answer/i;
 const WORKED_RE = new RegExp(String.raw`^\s*\*\*\s*(?:${OPENING_HEADINGS.join("|")})\b`);
 const BOLD_LABEL_RE = /^\s*\*\*[^*\n]+\*\*\s*(?:`[^`\n]*`\s*)?$/;
 /** A top-level list item: the passes read it apart from the item above it. */
@@ -226,7 +227,7 @@ function foldLine(state: SegmentScanState, line: string, next: number, hooks: Se
   if (compact.startsWith("you can check")) state.inCheck = true;
   else if (line.trim().startsWith("#")) state.inCheck = false;
   if (fenceLine) state.answerLookahead = 0;
-  else if (!state.fence && ANSWER_HEADING_RE.test(line)) state.answerLookahead = ANSWER_LOOKAHEAD_LINES;
+  else if (!state.fence && (ANSWER_OPENING_RE.test(line) || ANSWER_HEADING_IN_LINE_RE.test(line))) state.answerLookahead = ANSWER_LOOKAHEAD_LINES;
   else if (!blank) state.answerLookahead = Math.max(0, state.answerLookahead - 1);
   state.prevListLine =
     !blank && !fenceLine && !state.fence && (LIST_ITEM_RE.test(line) || INDENTED_RE.test(line));

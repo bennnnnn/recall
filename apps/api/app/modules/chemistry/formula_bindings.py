@@ -21,7 +21,7 @@ from app.services.units import CELSIUS_OFFSET_K
 
 
 def _concentration() -> VariableSpec:
-    return var("concentration", "C", _MOLAR)
+    return var("concentration", "c", _MOLAR)
 
 
 # STP is 0 °C and 1 atm; a question that also states a pressure or temperature declines.

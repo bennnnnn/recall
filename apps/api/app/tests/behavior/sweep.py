@@ -53,14 +53,19 @@ from app.modules.chat.turn_deps import default_deps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.conversation import messages_repository
-from app.modules.memory import is_explicit_memory_command
+from app.modules.memory import is_explicit_memory_command, memory_extract_user_text
 from app.modules.todos import write_log
 from app.modules.todos.reply_check import KEEP_AS_REMINDER, NEED_A_TIME
 from app.modules.turn_reading.lesson_flow import has_lesson_title
 from app.modules.turn_reading.routing import EMOJI
 from app.services.md_fence_scan import iter_closed_fences, without_fences
 from app.tests.behavior.cases import Case, Expect
-from app.tests.behavior.harness import USER_TIMEZONE, battery_settings, route_case
+from app.tests.behavior.harness import (
+    USER_TIMEZONE,
+    battery_settings,
+    offline_pubchem,
+    route_case,
+)
 from app.tests.fakes import fake_session
 
 CORPUS = Path(__file__).with_name("sweep_corpus")
@@ -99,6 +104,13 @@ NO_SEARCH_AREAS = {
 # Turns that answer the clarify card before them: they never ask again.
 AFTER_CARD_AREAS = {"clarify answer"}
 STEM_AREAS = {"math", "physics", "chemistry"}
+# A places ask the user's own location answers, whatever other capital it holds ("coffee
+# shops nearby, answer in Spanish"): the near-you list's hint is in the prompt.
+NEAR_USER_AREAS = {"places near user"}
+# The subject's name with nothing asked of it ("My chemistry teacher is mean", "Remind me to
+# study chemistry"), or an acronym beside a weak cue ("the SI base units of the newton"): no
+# chemistry status or prompt (audit 2026-11-13).
+NOT_CHEMISTRY_AREAS = {"chemistry word lookalike"}
 # Messages with separate requests, and look-alikes that are one request.
 MULTI_AREAS = {"multi"}
 SINGLE_PART_AREAS = {"multi lookalike"}
@@ -106,8 +118,12 @@ SINGLE_PART_AREAS = {"multi lookalike"}
 # climate", "simplify it" about an essay), or that sound like a follow-up to the
 # physics or chemistry problem before them ("in french please", "what about the
 # party?"), or that burn or react without a reaction to work ("i burned my hand on
-# the stove", "what happens when sodium reacts with water"). None of them is solved.
-NOT_MATH_AREAS = {"math lookalike", "followup lookalike", "chemistry lookalike"}
+# the stove", "what happens when sodium reacts with water"), or that name a physics law's
+# result in everyday words ("the work done on the house took 80 hours", "a 60 W lightbulb was
+# on all night"). None of them is solved.
+NOT_MATH_AREAS = {
+    "math lookalike", "followup lookalike", "chemistry lookalike", "physics lookalike",
+}  # fmt: skip
 # Look-alikes of a rule that reads the user's words: "good morning, what's the capital of
 # Peru?" is a question, not an opener. The hint that rule adds must not be in the prompt.
 LOOKALIKE_HINTS = {
@@ -151,6 +167,8 @@ LOOKALIKE_HINTS = {
     "forget lookalike": "memory_forget",
     # "How do I stop mentioning my ex in every conversation?" asks for advice.
     "mute lookalike": "memory_mute",
+    # "The best restaurants in Addis Ababa" names its place: no near-you places card.
+    "places lookalike": "local_places",
 }
 # "Fix my code", "is my answer right?", "oh my god": a "my" that names nothing of the
 # user's life (an idiom, or the text the message hands over) reads no personal memory.
@@ -390,8 +408,10 @@ async def _run_entry(entry: Entry) -> Outcome:
         settings,
     )
     prior = entry.history[-1][1] if entry.history and entry.history[-1][0] == "assistant" else None
-    outcome.settings_changes = extract_settings_changes(entry.prompt, prior_assistant=prior)
-    outcome.memory_command = bool(is_explicit_memory_command(entry.prompt))
+    # The user's words as production's readers take them: a photo's text is its content.
+    said = memory_extract_user_text(entry.prompt)
+    outcome.settings_changes = extract_settings_changes(said, prior_assistant=prior)
+    outcome.memory_command = bool(is_explicit_memory_command(said))
 
     user = _user(pro=entry.pro)
     deps = replace(
@@ -420,6 +440,7 @@ async def _run_entry(entry: Entry) -> Outcome:
     )
     with (
         _stores(outcome, user),
+        offline_pubchem(),
         patch("app.core.sympy_executor.run_sympy", _inline),
         patch.object(
             messages_repository,
@@ -441,7 +462,6 @@ async def _run_entry(entry: Entry) -> Outcome:
             usage={},
             outcome=TurnOutcome(),
             was_cancelled=False,
-            assistant_parts=[entry.reply],
             should_cancel=None,
         )
     outcome.problems = (
@@ -483,6 +503,10 @@ def judge(outcome: Outcome) -> list[str]:
         problems.append("not read as more than one request")
     if entry.area in SINGLE_PART_AREAS and "multi_intent" in route.hints:
         problems.append("split into separate requests")
+    if entry.area in NEAR_USER_AREAS and "local_places" not in route.hints:
+        problems.append("not read as places near the user")
+    if entry.area in NOT_CHEMISTRY_AREAS and route.subject == "chemistry":
+        problems.append("read as a chemistry question")
     return problems
 
 

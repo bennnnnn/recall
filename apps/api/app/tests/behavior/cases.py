@@ -73,6 +73,9 @@ class Expect:
     # "self"; see modules/chat/prompt_memory.py).
     memory: bool | None = None
     memory_scope: str | None = None
+    # The picture the turn shows, as its fence: "geometry", "graph", "simulation", or ""
+    # for none. "Draw it" after a triangle is the triangle, never an older curve.
+    drawn: str | None = None
 
 
 @dataclass(frozen=True)
@@ -92,10 +95,34 @@ class Case:
     memory_enabled: bool = True
     # The user's app language: how they write numbers ("1.200" is 1200 in Spanish).
     locale: str = "en"
+    # "Draw it" / "show it": the earlier user message the model's read picks as "it"
+    # (``chat.referent_read``); "" when it picks none. None: no read, as with no model.
+    referent: str | None = None
+    # "3" / "the area": the earlier user message the model's read picks as the problem the
+    # line continues; "" when it picks none. None: no read.
+    continues: str | None = None
+    # "Do it" / "what if it took 10 s?": the problem the model's read names, as a message
+    # (the assistant's too) states it (``chat.posed_read``); "" when it names none ("do it"
+    # to an offer). None: no read. With ``posed_change``, the line changes it: the given as
+    # the problem writes it and the line's new value, as the read names them.
+    posed: str | None = None
+    posed_change: tuple[str, str] | None = None
+    # A maths question asking to see a picture: the read's reading of what to draw (its kind
+    # and the values it copied, ``math.figure.read``), as JSON. None: no read.
+    figure: str | None = None
 
 
 NO_PHOTO = ""
 NONE = ""
+
+# A practice question the assistant posed (the owner's chat, 2026-11-10).
+_POSED_CAR_QUESTION = "A car travels 120 meters in 20 seconds. What is its speed?"
+_POSED_CAR = (
+    ("user", "Give me physics question for grade 7th"),
+    ("assistant", "A car travels **120 meters in 20 seconds**. What is its speed? \U0001f697"),
+)
+_CARNOT = "max (Carnot) efficiency of a heat engine working between 500 K and 300 K?"
+_WATER_YIELD = "how much water if 3.0 g of hydrogen and 16.0 g of oxygen react"
 
 # Four mole problems the chat set, before the student's answers to them (2026-11-02).
 _MOLE_PRACTICE = (
@@ -146,8 +173,67 @@ _BEST_COUNTRY = (
     ),
 )
 
+# The owner's chat (2026-11-09): a derivative and its what-ifs, then a triangle typed in
+# pieces. "Draw it" at the end drew sin(x²)cos(x²) from the first message.
+_TRIANGLE_PIECES = (
+    ("user", "Differentiate sin(x^2)cos(x^2)"),
+    ("assistant", "```answer\nverified: true\n2 x \\cos{\\left(2 x^{2} \\right)}\n```"),
+    ("user", "What if $x^2 = x^3$?"),
+    ("assistant", "Then $x^2 = x^3$ holds for $x = 0$ or $x = 1$."),
+    ("user", "What if $x^2 = 2x$?"),
+    ("assistant", "Then $x = 0$ or $x = 2$."),
+    ("user", "How does this relate to sin(2x)?"),
+    (
+        "assistant",
+        "By $\\sin 2u = 2\\sin u\\cos u$, $\\sin(x^2)\\cos(x^2) = \\tfrac12\\sin(2x^2)$.",
+    ),
+    ("user", "Triangle are with sides 5, 4,"),
+    ("assistant", "What's the third side length? 🔺"),
+)
+_TRIANGLE_THIRD_SIDE = (
+    *_TRIANGLE_PIECES,
+    ("user", "3"),
+    ("assistant", "Sides 3, 4 and 5 make a right triangle."),
+)
+_TRIANGLE_AREA = (
+    *_TRIANGLE_THIRD_SIDE,
+    ("user", "The area"),
+    ("assistant", "```answer\nverified: true\n6\\ \\mathrm{units}^{2}\n```"),
+)
+
+# A function, then an ordinary follow-up about it: "graph it" is still that function
+# (a local review, 2026-11-10: a word list read each of these as a new subject).
+_RATIONAL = (("user", "f(x)=1/(x-2)"), ("assistant", "A rational function, undefined at x = 2."))
+_ABOUT_THE_FUNCTION = (
+    "what is the domain?",
+    "Where does it cross the x-axis?",
+    "Is it increasing or decreasing?",
+    "what's the slope and intercept",
+    "I don't understand",
+    "wow",
+    "that's wrong",
+)
+_SALES = (
+    ("user", "Sales: Jan 120, Feb 150, Mar 90, Apr 160"),
+    ("assistant", "March dipped, then April recovered."),
+    ("user", "why did March drop?"),
+    ("assistant", "Often a short month or a seasonal lull."),
+)
+
 CASES: tuple[Case, ...] = (
     # ── Math ────────────────────────────────────────────────────────────────
+    Case(
+        "math-posed-whats-the-answer",
+        "math",
+        "what's the answer",
+        Expect(solved=True, instant="solver", search="no"),
+        "x = 5, worked as the equation typed gets it.",
+        history=(
+            ("user", "Give me a maths practice problem"),
+            ("assistant", "Solve for x: 3x + 5 = 20. Give it a try!"),
+        ),
+        posed="Solve for x: 3x + 5 = 20.",
+    ),
     Case(
         "math-linear",
         "math",
@@ -295,6 +381,201 @@ CASES: tuple[Case, ...] = (
         ),
     ),
     Case(
+        "math-fragment-completes-the-problem",
+        "math",
+        "3",
+        # "Triangle are with sides 5, 4," then "3": one triangle, solved and drawn.
+        Expect(solved=True, drawn="geometry", search="no", hints=("pieced_problem",)),
+        "The 3-4-5 triangle drawn, and which of its area, perimeter or angles to work out.",
+        history=_TRIANGLE_PIECES,
+        continues="Triangle are with sides 5, 4,",
+    ),
+    Case(
+        "math-fragment-completes-a-rectangle",
+        "math",
+        "5",
+        # The whole line, "A rectangle 3 by 5", gets the same instant reply.
+        Expect(solved=True, instant="solver", drawn="geometry", search="no"),
+        "The 3 by 5 rectangle drawn, asking whether its area, perimeter or diagonal is wanted.",
+        history=(("user", "A rectangle 3 by"), ("assistant", "What is the other side's length?")),
+        continues="A rectangle 3 by",
+    ),
+    Case(
+        "math-quantity-asked-of-the-problem",
+        "math",
+        "The area",
+        Expect(solved=True, drawn="geometry", search="no", hints=("pieced_problem",)),
+        "Area 6 square units, laid out Given / Formula / Answer, with the triangle drawn.",
+        history=_TRIANGLE_THIRD_SIDE,
+        continues="Triangle are with sides 5, 4,",
+    ),
+    Case(
+        "math-do-it-properly",
+        "math",
+        "Do it properly",
+        Expect(solved=True, drawn="geometry", search="no"),
+        "The triangle's area worked in full (Heron's formula or ½ × 3 × 4), with the figure.",
+        history=_TRIANGLE_AREA,
+        gap="no read names the problem a referential line's pieced-together prior continues",
+    ),
+    Case(
+        "math-draw-it-latest-subject",
+        "math",
+        "Draw it",
+        Expect(solved=True, instant="solver", drawn="geometry", search="no"),
+        "The 3-4-5 triangle. Never the curve sin(x²)cos(x²) from the start of the chat.",
+        history=(*_TRIANGLE_AREA, ("user", "Do it properly"), ("assistant", "Area = 6.")),
+        # The model's read names the line the triangle started on; its pieces complete it.
+        referent="Triangle are with sides 5, 4,",
+    ),
+    Case(
+        "math-draw-it-function",
+        "math",
+        "Draw it",
+        Expect(solved=True, instant="solver", drawn="graph", search="no"),
+        "The parabola y = x² − 4.",
+        history=(("user", "f(x) = x^2 - 4"), ("assistant", "A parabola with roots at ±2.")),
+    ),
+    Case(
+        "math-draw-it-newer-function",
+        "math",
+        "draw it",
+        # The triangle came first; the curve is the chat's latest subject.
+        Expect(solved=True, instant="solver", drawn="graph", search="no"),
+        "The curve y = x² − 4, not the earlier triangle.",
+        history=(
+            *_TRIANGLE_THIRD_SIDE,
+            ("user", "y = x^2 - 4"),
+            ("assistant", "A parabola with roots at ±2."),
+        ),
+    ),
+    Case(
+        "math-draw-it-new-subject-wins",
+        "math",
+        "draw it",
+        Expect(solved=False, instant="", drawn=""),
+        "Not the line from before the question about Paris: no graph of it.",
+        history=(
+            ("user", "y = 2x + 3"),
+            ("assistant", "A line with slope 2."),
+            ("user", "What's the capital of France?"),
+            ("assistant", "Paris."),
+        ),
+        referent="What's the capital of France?",
+    ),
+    *(
+        Case(
+            f"math-graph-it-after-{index}",
+            "math",
+            "graph it",
+            Expect(solved=True, instant="solver", drawn="graph", search="no"),
+            "The graph of 1/(x - 2), whatever was asked about it in between.",
+            history=(*_RATIONAL, ("user", follow_up), ("assistant", "Here is what I can say.")),
+            referent="f(x)=1/(x-2)",
+        )
+        for index, follow_up in enumerate(_ABOUT_THE_FUNCTION)
+    ),
+    # A read that names none is no read: the curve is found as main finds it (a re-review,
+    # 2026-11-10: "graph it" to the reply's own offer drew nothing).
+    Case(
+        "math-graph-it-accepts-the-offer",
+        "math",
+        "graph it",
+        Expect(solved=True, instant="solver", drawn="graph", search="no"),
+        "The parabola the reply offered to graph.",
+        history=(("user", "y = x^2 - 4"), ("assistant", "A parabola. Want me to graph it?")),
+        referent="",
+    ),
+    Case(
+        "math-graph-it-curve-far-back",
+        "math",
+        "graph it",
+        Expect(solved=True, instant="solver", drawn="graph", search="no"),
+        "The curve from seven exchanges back.",
+        history=(
+            ("user", "y = x^2 - 4"),
+            ("assistant", "A parabola."),
+            *(
+                turn
+                for index in range(6)
+                for turn in (("user", f"and what about point {index}?"), ("assistant", "Ok."))
+            ),
+        ),
+        referent="",
+    ),
+    # "the area" offered as a choice continues the problem; a quiz answer after a tutoring
+    # question and an encouraging paragraph does not (a re-review, 2026-11-10).
+    Case(
+        "math-quantity-picked-from-the-reply",
+        "math",
+        "the area",
+        Expect(solved=True, drawn="geometry", search="no"),
+        "The 3 by 5 rectangle's area, 15, with the figure.",
+        history=(
+            ("user", "a rectangle 3 by 5"),
+            ("assistant", "What would you like to find: the area or the perimeter?"),
+        ),
+        continues="a rectangle 3 by 5",
+    ),
+    Case(
+        "math-quiz-answer-after-encouragement",
+        "math",
+        "the hypotenuse",
+        Expect(solved=False),
+        "Right: the hypotenuse is opposite the right angle. Never the old problem re-solved.",
+        history=(
+            ("user", "a right triangle with legs 3 and 4"),
+            (
+                "assistant",
+                "Which side is opposite the right angle?\n\nTake your time, you're doing great!",
+            ),
+        ),
+        continues="",
+    ),
+    Case(
+        "math-graph-it-with-no-read",
+        "math",
+        "graph it",
+        # The read off or failed: the earlier lines are read back to the first curve.
+        Expect(solved=True, instant="solver", drawn="graph", search="no"),
+        "The graph of 1/(x - 2).",
+        history=(*_RATIONAL, ("user", "what is the domain?"), ("assistant", "x ≠ 2.")),
+    ),
+    Case(
+        "chart-graph-it-after-a-question-about-the-data",
+        "format",
+        "graph it",
+        Expect(hints=("chart",), subject=NONE, drawn=NONE),
+        "A chart of the four months of sales.",
+        history=_SALES,
+        referent="Sales: Jan 120, Feb 150, Mar 90, Apr 160",
+    ),
+    # The model never draws a shape itself on a maths turn; an SVG, CSS or code drawing the
+    # user asks for is theirs (a local review, 2026-11-10).
+    Case(
+        "math-shape-turn-says-no-text-figure",
+        "math",
+        "area of a triangle with sides 5, 4 and 3",
+        Expect(subject="math", solved=True, hints=("no_text_figure",)),
+        "6 square units, the triangle drawn by the app.",
+    ),
+    *(
+        Case(
+            f"code-drawing-asked-{index}",
+            "code",
+            prompt,
+            Expect(no_hints=("no_text_figure",)),
+            "The drawing in the language asked for.",
+        )
+        for index, prompt in enumerate(
+            (
+                "make an SVG logo with a hexagon",
+                "write HTML and CSS that draws a red circle",
+                "write a python program that prints a star triangle",
+            )
+        )
+    ),
+    Case(
         "math-percent-thousands",
         "math",
         "what is 20% of 1,000",
@@ -322,6 +603,71 @@ CASES: tuple[Case, ...] = (
         "a ball is dropped from 20 m. how long until it hits the ground?",
         Expect(subject="physics", solved=True, search="no"),
         "About 2.02 s from t = √(2h/g).",
+    ),
+    Case(
+        "physics-draw-it",
+        "physics",
+        "draw it",
+        Expect(solved=True, instant="solver", drawn="simulation", search="no"),
+        "The projectile's path drawn: the scene alone, not the working again.",
+        history=(
+            ("user", "A ball is thrown at 20 m/s at 30 degrees. How far does it go?"),
+            ("assistant", "About 35.3 m."),
+        ),
+        referent="A ball is thrown at 20 m/s at 30 degrees. How far does it go?",
+    ),
+    *(
+        Case(
+            f"physics-posed-{slug}",
+            "physics",
+            line,
+            # The owner's chat (2026-11-10): the question the assistant posed, solved as the
+            # same question typed is, with its worked layout and verified card.
+            Expect(solved=True, instant="solver", search="no"),
+            "Given d = 120 m, t = 20 s; v = d/t; v = 6 m/s, in a verified card.",
+            history=_POSED_CAR,
+            posed=_POSED_CAR_QUESTION,
+        )
+        for slug, line in (
+            ("do-it", "Do it"),
+            ("solve-it", "solve it"),
+            ("how", "How"),
+            ("step-by-step", "Step by step"),
+        )
+    ),
+    Case(
+        "physics-posed-what-if",
+        "physics",
+        "What if it took 10 s?",
+        Expect(solved=True, instant="solver", search="no"),
+        "12 m/s: the posed car question with 10 s, worked as typed.",
+        history=_POSED_CAR,
+        posed=_POSED_CAR_QUESTION,
+        posed_change=("20 seconds", "10 s"),
+    ),
+    Case(
+        "physics-posed-answer-is-no-solve",
+        "physics",
+        "Is it 6 meters per second?",
+        # The student answers the question posed: the model checks it, no solve for them.
+        Expect(solved=False, instant=""),
+        "Checks 6 m/s against 120 m / 20 s and says it is right.",
+        history=_POSED_CAR,
+        posed="",
+    ),
+    Case(
+        "physics-chip-what-if",
+        "physics",
+        "What if $T_C = 200\\,\\mathrm{K}$?",
+        # A tapped follow-up question: the problem solved again with the new value.
+        Expect(solved=True, instant="solver", search="no"),
+        "0.6 (60%): 1 - 200 K / 500 K, worked in full.",
+        history=(
+            ("user", _CARNOT),
+            ("assistant", "**Answer**\n\n```answer\nverified: true\n0.4\\ (\\text{40\\%})\n```"),
+        ),
+        posed=_CARNOT,
+        posed_change=("300 K", "200 K"),
     ),
     Case(
         "physics-force",
@@ -443,6 +789,44 @@ CASES: tuple[Case, ...] = (
         "A short explanation in prose: direction. No worked layout.",
     ),
     # ── Chemistry ───────────────────────────────────────────────────────────
+    Case(
+        "chemistry-posed-solve-it",
+        "chemistry",
+        "solve it",
+        Expect(solved=True, instant="solver", search="no"),
+        "2.0 mol from n = m/M, as the question typed gets it.",
+        history=(
+            ("user", "Give me a chemistry practice question"),
+            ("assistant", "How many moles are in 36 g of water (H2O)? Give it a go!"),
+        ),
+        posed="How many moles are in 36 g of water (H2O)?",
+    ),
+    Case(
+        "chemistry-chip-what-if",
+        "chemistry",
+        "What if O₂ mass was 32.0 g?",
+        Expect(solved=True, instant="solver", search="no"),
+        "H2 is now limiting: 27 g of water, worked in full.",
+        history=(
+            ("user", _WATER_YIELD),
+            ("assistant", "**Answer**\n\n```answer\nLimiting reagent = O2; 18 g H2O\n```"),
+        ),
+        posed=_WATER_YIELD,
+        posed_change=("16.0 g of oxygen", "32.0 g"),
+    ),
+    Case(
+        "chemistry-do-it-accepts-an-offer",
+        "chemistry",
+        "do it",
+        # "Do it" to an offer is no problem to solve.
+        Expect(solved=False, instant=""),
+        "Writes the study plan it offered.",
+        history=(
+            ("user", "help me study for my chemistry test"),
+            ("assistant", "Want me to make a study plan for the 2 weeks before it?"),
+        ),
+        posed="",
+    ),
     Case(
         "chem-balance",
         "chemistry",
@@ -630,6 +1014,50 @@ CASES: tuple[Case, ...] = (
         "A short, warm reply about a rough day; no lookup and no chemistry.",
     ),
     # ── Photos and maps ─────────────────────────────────────────────────────
+    # A photo of "it" is the chat's latest subject: a curve or a shape is drawn, never
+    # searched (2026-11-09: "show it" after sin(x) searched photos for "it").
+    Case(
+        "photo-show-it-after-a-curve",
+        "photos and maps",
+        "show it",
+        Expect(photo=NO_PHOTO, solved=True, instant="solver", drawn="graph"),
+        "The graph of sin(x), never a stock photo.",
+        history=(("user", "sin(x)"), ("assistant", "The sine function.")),
+        referent="sin(x)",
+    ),
+    Case(
+        "photo-picture-of-it-after-a-shape",
+        "photos and maps",
+        "a picture of it",
+        Expect(photo=NO_PHOTO, image_gen=False, solved=True, instant="solver", drawn="geometry"),
+        "The 3-4-5 triangle, never a generated picture.",
+        history=(
+            ("user", "area of a triangle with sides 5, 4 and 3"),
+            ("assistant", "6 square units."),
+        ),
+        pro=True,
+        referent="area of a triangle with sides 5, 4 and 3",
+    ),
+    Case(
+        "photo-can-i-see-it-after-a-projectile",
+        "photos and maps",
+        "can I see it?",
+        Expect(photo=NO_PHOTO, solved=True, instant="solver", drawn="simulation"),
+        "The projectile's path drawn.",
+        history=(
+            ("user", "A ball is thrown at 20 m/s at 30 degrees. How far does it go?"),
+            ("assistant", "About 35.3 m."),
+        ),
+        referent="A ball is thrown at 20 m/s at 30 degrees. How far does it go?",
+    ),
+    Case(
+        "photo-named-after-maths",
+        "photos and maps",
+        "show me a picture of the Eiffel Tower",
+        Expect(photo="Eiffel Tower"),
+        "A real photo of the Eiffel Tower: the maths before names no other thing.",
+        history=(("user", "sin(x)"), ("assistant", "The sine function.")),
+    ),
     Case(
         "photo-landmark",
         "photos and maps",
@@ -1473,7 +1901,7 @@ CASES: tuple[Case, ...] = (
         "chart-graph-it-after-marks",
         "format",
         "graph it",
-        Expect(hints=("chart",), subject=NONE, search="ask"),
+        Expect(hints=("chart",), subject=NONE, search="ask", drawn=NONE),
         "A bar chart of the four marks, not a question about which function to graph.",
         history=(
             ("user", "Here are my exam marks: math 85, physics 78, chemistry 92, biology 88"),

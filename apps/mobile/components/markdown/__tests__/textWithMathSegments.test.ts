@@ -18,9 +18,10 @@ const CASES: [string, string, Partial<TextWithMathSegments>][] = [
   ["drops lone colon lines", "a\n:\n  :  \nb", { content: "a\nb", layout: "prose" }],
   ["html breaks become newlines", "one<br>two<BR/>three", { content: "one\ntwo\nthree" }],
   [
-    "an English span stays prose with its dollars",
+    // A formula line of words showed its dollars ("$Assets = Liabilities + Equity$").
+    "an English span stays prose, without its dollars",
     "$value of money$",
-    { content: "$value of money$", layout: "prose", parts: [text("value of money")] },
+    { content: "value of money", layout: "prose", parts: [text("value of money")] },
   ],
   [
     "simple math shares one Text",

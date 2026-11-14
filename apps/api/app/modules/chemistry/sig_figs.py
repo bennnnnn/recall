@@ -229,6 +229,29 @@ class WrittenNumbers:
     converted: dict[str, str] = field(default_factory=dict)
     # Every number of the answer is a sum of givens, so it keeps ``decimals`` places.
     additive: bool = False
+    # Each value rounded to the data's figures, by its text, and the value unrounded as the
+    # working writes it ("29" for 29.22 g); None when two values round to one text.
+    rounded: dict[str, str | None] = field(default_factory=dict)
+
+
+def note_rounding(text: str, worked: str) -> None:
+    """``text`` is a computed value rounded to the data's figures, ``worked`` the same value
+    as the working carries it. The answer card keeps ``text``; the working ends on ``worked``,
+    so a student sees 0.5 x 58.44 = 29.22 g before the card's 29 g."""
+    written = _CURRENT.get()
+    if written is None or worked == text or _value_of(worked) == _value_of(text):
+        return
+    if written.rounded.setdefault(text, worked) != worked:
+        written.rounded[text] = None
+
+
+def _value_of(text: str) -> float | None:
+    """``"29.22"`` or ``"5.6 × 10^-10"`` as a number; None for anything else."""
+    mantissa, _, power = text.partition(" × 10^")
+    try:
+        return float(mantissa) * 10.0 ** int(power or 0)
+    except ValueError:
+        return None
 
 
 _CURRENT: ContextVar[WrittenNumbers | None] = ContextVar("chemistry_written_numbers", default=None)

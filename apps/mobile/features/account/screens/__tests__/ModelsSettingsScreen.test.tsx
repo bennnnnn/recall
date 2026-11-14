@@ -183,12 +183,32 @@ describe("models settings", () => {
     const { getByRole } = await render(<ModelsSettingsScreen />);
 
     await fireEvent.press(getByRole("switch", { name: "Balanced" }));
-    expect(getByRole("progressbar")).toBeTruthy();
+    // On at once, and still a switch while it saves: no spinner in its place.
+    expect(getByRole("switch", { name: "Balanced" }).props.accessibilityState.checked).toBe(true);
+    expect(() => getByRole("progressbar")).toThrow();
 
     await act(async () => {
       reject(new Error("offline"));
     });
     expect(getByRole("switch", { name: "Balanced" }).props.accessibilityState.checked).toBe(false);
+  });
+
+  it("saves a tap made while another saves, in order, never dropping it", async () => {
+    // The owner's report (2026-11-11): switches tapped quickly did not all move.
+    mockAutoEnabled = true;
+    mockEnabledModelIds = ["free-chat"];
+    mockModels = [
+      mockModels[0],
+      { ...mockModels[0], id: "balanced-chat", label: "Balanced" },
+    ];
+    mockUpdateUser.mockReturnValue(new Promise(() => {}));
+    const { getByRole } = await render(<ModelsSettingsScreen />);
+
+    await fireEvent.press(getByRole("switch", { name: "Balanced" }));
+    await fireEvent.press(getByRole("switch", { name: "settings.model_auto" }));
+    expect(mockUpdateUser).toHaveBeenCalledTimes(2);
+    expect(getByRole("switch", { name: "Balanced" }).props.accessibilityState.checked).toBe(true);
+    expect(getByRole("switch", { name: "settings.model_auto" }).props.accessibilityState.checked).toBe(false);
   });
 
   it("says which model messages use with Auto off, and lets the user choose it", async () => {

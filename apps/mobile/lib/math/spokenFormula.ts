@@ -6,6 +6,7 @@
  * a pause, so what follows is not heard as part of it.
  */
 import { followsDirectly, isMixedNumber, joinsDirectly } from "@/lib/math/formulaText";
+import { isPrimeScript } from "@/lib/math/glyphs";
 import { DEGREE_RING, parseSimpleLatex } from "@/lib/math/latexParse";
 import type { MathAccentKind, MathSegment } from "@/lib/math/textTypes";
 
@@ -101,6 +102,8 @@ function speakScript(segment: Extract<MathSegment, { type: "sup" | "sub" }>, dep
   if (kind === "sub") return ` subscript ${spoken}`;
   // `30^\circ` is thirty degrees, never a power.
   if (spoken === DEGREE_RING) return " degrees";
+  // f′ is "f prime" as a screen reader says the glyph, never a power.
+  if (isPrimeScript(spoken)) return spoken;
   if (spoken === "2") return " squared";
   if (spoken === "3") return " cubed";
   return ` to the power of ${spoken}`;

@@ -9,13 +9,13 @@ import {
   SettingsLinkRow,
   SettingsPage,
   SettingsSwitchRow,
+  useSettingSave,
   useSettingsAction,
 } from "@/features/account/components/settingsUi";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useAuth } from "@/contexts/AuthContext";
-import { getDeviceLocationLabel } from "@/lib/deviceLocation";
-import { canUseDeviceLocation } from "@/lib/expoRuntime";
 import { useDataControls } from "@/features/account/hooks/useDataControls";
+import { useLocationSwitch } from "@/features/account/hooks/useLocationSwitch";
 import { accountDeleteFailureKey } from "@/lib/accountDelete";
 import { api, withdrawAiDataSharing } from "@/lib/api";
 import { ApiRequestError } from "@/lib/api/errorBody";
@@ -25,16 +25,17 @@ import { formatDate } from "@/lib/datetime/format";
 import { notifyDestructive } from "@/lib/haptics";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { shareFailureKey } from "@/lib/share/unavailable";
-import { alertDialog, confirmDialog } from "@/ui/overlay/dialogs";
+import { confirmDialog } from "@/ui/overlay/dialogs";
 
 export default function DataControlsScreen() {
-  const { token, user, updateUser, mergeUser } = useAuth();
+  const { token, user, mergeUser } = useAuth();
   const { progress, exportData, cancelExport, deleteAccount } = useDataControls();
   const { t } = useTranslation();
   const feedback = useActionFeedbackOptional();
   const router = useRouter();
   const navigation = useNavigation();
   const action = useSettingsAction();
+  const save = useSettingSave();
   const busy = progress !== "idle";
 
   useEffect(() => {
@@ -88,24 +89,7 @@ export default function DataControlsScreen() {
   };
 
   // What leaves the phone besides the chat: web searches and the device location.
-  const toggleLocation = (enabled: boolean) =>
-    void action.run("location", async () => {
-      if (!enabled) {
-        await updateUser({ location_enabled: false, location: null });
-        return;
-      }
-      if (!canUseDeviceLocation()) {
-        void alertDialog({ title: t("common.error"), message: t("settings.location_expo_go") });
-        return;
-      }
-      const label = await getDeviceLocationLabel();
-      if (!label) {
-        void alertDialog({ title: t("settings.location_denied") });
-        return;
-      }
-      await updateUser({ location_enabled: true, location: label });
-    });
-  const locationOn = user?.location_enabled === true;
+  const location = useLocationSwitch();
 
   // Withdrawing stops chat, voice and photo reads on the server at once; the
   // root layout's consent gate then shows what is shared, to agree or sign out.
@@ -199,19 +183,13 @@ export default function DataControlsScreen() {
           icon="search"
           title={t("settings.web_search")}
           value={user?.web_search_enabled !== false}
-          disabled={action.busy !== null}
-          busy={action.busy === "web_search"}
-          onValueChange={(next) =>
-            void action.run("web_search", () => updateUser({ web_search_enabled: next }))
-          }
+          onValueChange={(next) => save({ web_search_enabled: next })}
         />
         <SettingsSwitchRow
           icon="map-pin"
           title={t("settings.use_current_location")}
-          value={locationOn}
-          disabled={action.busy !== null}
-          busy={action.busy === "location"}
-          onValueChange={toggleLocation}
+          value={location.on}
+          onValueChange={location.toggle}
         />
       </SettingsGroup>
       <SettingsGroup label={t("settings.chats_group")}>

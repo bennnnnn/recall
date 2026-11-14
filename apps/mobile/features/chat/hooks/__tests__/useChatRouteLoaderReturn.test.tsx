@@ -23,8 +23,8 @@ jest.mock("@/features/chat/model/chatListCache", () => {
 });
 // The kept pages are real; the file behind them is not.
 jest.mock("expo-file-system/legacy", () => ({ cacheDirectory: null }));
-jest.mock("@/features/chat/hooks/useChatTitlePolling", () => ({
-  useChatTitlePolling: () => ({ titleGenerating: false, pollForTitle: jest.fn(), handleFirstReply: jest.fn() }),
+jest.mock("@/features/chat/hooks/useChatTitle", () => ({
+  useChatTitle: () => ({ titleGenerating: false, awaitTitle: jest.fn(), handleFirstReply: jest.fn() }),
 }));
 jest.mock("@/features/chat/hooks/useChatHighlightScroll", () => ({
   useChatHighlightScroll: () => ({ highlightedMessageId: null }),

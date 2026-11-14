@@ -54,9 +54,6 @@ jest.mock("@/contexts/AppearanceContext", () => ({
   useAppearance: () => ({ preference: "system", setPreference: mockSetPreference }),
   useAccent: () => ({ accent: "indigo", setAccent: mockSetAccent }),
 }));
-jest.mock("@/features/account/hooks/useLiveTalkMinutes", () => ({
-  useLiveTalkMinutes: () => null,
-}));
 jest.mock("@/features/account/hooks/useUsage", () => ({
   useUsage: () => ({
     usage: { date: "2026-10-14", daily_limit: 100, remaining: 80 },
@@ -102,7 +99,8 @@ describe("settings home", () => {
     // Capitalised as Home greets it; the account stores "bini".
     expect(getByText("Bini")).toBeTruthy();
     expect(getByText("dev@recall.local")).toBeTruthy();
-    expect(getByText("settings.signed_in_with")).toBeTruthy();
+    // The email says who is signed in; how they signed in is not repeated under it.
+    expect(queryByText("settings.signed_in_with")).toBeNull();
     expect(getByText("settings.manage_subscription")).toBeTruthy();
     expect(getByText("settings.usage_group")).toBeTruthy();
     expect(queryByText("settings.restore_purchases")).toBeNull();

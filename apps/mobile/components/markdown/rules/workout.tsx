@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Text, View, type StyleProp, type TextStyle } from "react-native";
 
-import { MathText } from "@/components/rich/MathText";
+import { fitWorkingLine, MathColumn } from "@/components/rich/mathColumn";
 import {
   splitStreamCaret,
   StreamingCursor,
@@ -19,14 +19,20 @@ import {
   WORK_INDENT,
   WORK_RULE,
 } from "@/components/markdown/markdownContentStyles";
-import { mathSizeOf, withGreenTicks } from "@/components/markdown/rules/textWithMath";
+import { mathSizeOf } from "@/components/markdown/rules/textWithMath";
+import {
+  partLabel,
+  partLabelText,
+  workingHeading,
+  workoutInline,
+} from "@/components/markdown/rules/workoutInline";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { DYNAMIC_TYPE_MAX, Type, Weight } from "@/lib/type";
-import { splitInlineMath } from "@/lib/markdown/preprocess";
 import {
   askedLine,
   isAnswerHeading,
+  isAnswerValue,
   isRequiredHeading,
   isSolutionHeading,
   isWorkingHeading,
@@ -53,6 +59,7 @@ function plainInline(node: AstNode): boolean {
  */
 export function workoutSectionParts(
   node: AstNode,
+  underSolution = false,
 ): { heading: string; lines: string[] } | null {
   const kids = unwrapSingle(node).children ?? [];
   const strong = openingStrong(kids[0]);
@@ -75,11 +82,25 @@ export function workoutSectionParts(
     .filter(Boolean);
   if (!lines.length) return null;
   // A law's own name over its formulas reaches here as one paragraph only in a
-  // worked reply: elsewhere a bold line gets a paragraph of its own.
+  // worked reply: elsewhere a bold line gets a paragraph of its own. **Solution** over
+  // lines heads a formula its writer gave no name, and a name right under **Solution**
+  // heads its rule even in words: a procedure's ("Conservation of atoms and charge").
+  const title = astText(strong);
   const heading =
-    workoutHeading(astText(strong)) ??
-    lawHeading(astText(strong), lines[0] ?? "");
+    workoutHeading(title) ??
+    (isSolutionHeading(title)
+      ? SOLUTION_HEADING
+      : lawHeading(title, lines[0] ?? "", underSolution));
   return heading ? { heading, lines } : null;
+}
+
+/** Whether `node` is the block right after a **Solution** heading alone on its line. */
+export function followsSolution(node: AstNode, parent: unknown): boolean {
+  if (!Array.isArray(parent) || parent.length === 0) return false;
+  const blocks = (parent[0] as AstNode | undefined)?.children ?? [];
+  const at = blocks.indexOf(node);
+  const above = at > 0 ? blocks[at - 1] : undefined;
+  return above?.type === "paragraph" && isSolutionHeading(astText(above));
 }
 
 /** A part label alone on its line in bold: ``**(a) Acceleration**``. */
@@ -91,34 +112,6 @@ export function workoutPartParts(
   if (!strong) return null;
   if (kids.slice(1).some((kid) => astTextWithBreaks(kid).trim())) return null;
   return workoutPart(splitStreamCaret(astText(strong)).text);
-}
-
-/** Prose and ``$...$`` math in one wrapping run, every piece in one colour. */
-function workoutInline(
-  text: string,
-  keyPrefix: string,
-  textStyle: StyleProp<TextStyle>,
-  color: string,
-  tickColor?: string,
-): ReactNode[] {
-  const size = mathSizeOf(textStyle);
-  return splitInlineMath(text).map((part, i) =>
-    part.type === "math" ? (
-      <MathText
-        scrollOverflow
-        key={`${keyPrefix}-m-${i}`}
-        latex={part.value}
-        textColor={color}
-        fontSize={size}
-      />
-    ) : (
-      <Text key={`${keyPrefix}-t-${i}`} style={textStyle} selectable>
-        {tickColor
-          ? withGreenTicks(part.value, tickColor, `${keyPrefix}-${i}`)
-          : part.value}
-      </Text>
-    ),
-  );
 }
 
 /**
@@ -144,12 +137,19 @@ function namingPieces(line: string): string[] {
   return pieces;
 }
 
-/** The last line holding maths; the last line when none does. */
-function lastMathLine(lines: string[]): number {
-  for (let index = lines.length - 1; index >= 0; index -= 1) {
-    if (/[$=≈]/.test(lines[index] ?? "")) return index;
+/**
+ * The last line of maths that is the answer's value; with no maths, the last line when it is
+ * one (a word); -1 when the answer is a sentence.
+ */
+function lastValueLine(lines: string[]): number {
+  const texts = lines.map((line) => splitStreamCaret(line).text);
+  for (let index = texts.length - 1; index >= 0; index -= 1) {
+    if (/[$=≈]/.test(texts[index]!) && isAnswerValue(texts[index]!)) return index;
   }
-  return lines.length - 1;
+  const last = texts.length - 1;
+  return texts.some((text) => /[$=≈]/.test(text)) || !isAnswerValue(texts[last] ?? "")
+    ? -1
+    : last;
 }
 
 /**
@@ -187,7 +187,7 @@ const SOLVE_FOR = /^Solve for\s/;
 function renderWorkoutLine(
   lineKey: string,
   line: string,
-  { given, asked }: { given: boolean; asked: boolean },
+  { given, asked, sentence = false }: { given: boolean; asked: boolean; sentence?: boolean },
   {
     body,
     noteStyle,
@@ -197,12 +197,14 @@ function renderWorkoutLine(
   // While streaming, the caret's mark rides on the last line: draw the caret, never the mark.
   const marked = splitStreamCaret(line);
   // A given or what is asked is one line, its meaning beside it ("$t$ (time)"); only a
-  // move's note is a line of its own.
-  const { state, note } = splitWorkoutNote(
-    asked || given ? askedLine(marked.text) : marked.text,
-  );
+  // move's note is a line of its own. An answer in a sentence is read whole: its dash is
+  // the sentence's, never a move's.
+  const { state, note } = sentence
+    ? { state: marked.text, note: null }
+    : splitWorkoutNote(asked || given ? askedLine(marked.text) : marked.text);
   const naming = given && /^where\s/i.test(state);
   const move = !note && SOLVE_FOR.test(state);
+  const part = asked ? partLabel(state) : null;
   // Every line of a worked solution starts at the same left edge: a formula, its
   // substitution, a move and a given read down one column (a centred formula over
   // left-aligned substitution lines read as two layouts, November 2026). Words and
@@ -252,8 +254,9 @@ function renderWorkoutLine(
             maxWidth: "100%",
           }}
         >
+          {part ? partLabelText(part.label, body) : null}
           {workoutInline(
-            state,
+            part ? part.rest : state,
             `${lineKey}-state`,
             move ? [noteStyle, { flexShrink: 1 }] : [body, { flexShrink: 1 }],
             move ? t.textSecondary : t.assistantText,
@@ -282,6 +285,7 @@ function renderWorkoutLine(
  * Working inside Solution, step by step: the section's own heading over its first lines, and
  * each "Solve for $d$" a heading of its own, bold at the margin, over the lines it reaches. A
  * grey "Solve for" between two equations read as part of the calculation (November 2026).
+ * **Solution** itself heads the lines of a formula with no name, drawn as working too.
  */
 function renderWorkingSteps(
   key: string,
@@ -289,34 +293,22 @@ function renderWorkingSteps(
   lines: React.ReactElement[],
   styles: StyleMap,
   t: Theme,
+  headingID = "workout-subheading",
 ): React.ReactElement {
   const label = subheadingStyle(styles, t);
+  const size = mathSizeOf(styles.body);
   const steps: { heading: ReactNode; lines: React.ReactElement[] }[] = [
-    {
-      heading: (
-        <Text testID="workout-subheading" style={label}>
-          {section.heading}
-        </Text>
-      ),
-      lines: [],
-    },
+    { heading: workingHeading(section.heading, `${key}-heading`, label, t, headingID), lines: [] },
   ];
   section.lines.forEach((line, index) => {
     const marked = splitStreamCaret(line);
     if (!SOLVE_FOR.test(marked.text.trim())) {
-      steps[steps.length - 1]!.lines.push(lines[index]!);
+      // A long line moves left into the indent before it scrolls; the others keep the column.
+      steps[steps.length - 1]!.lines.push(fitWorkingLine(lines[index]!, marked.text, WORK_INDENT, size));
       return;
     }
     steps.push({
-      heading: (
-        <View
-          testID="workout-subheading"
-          style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "baseline" }}
-        >
-          {workoutInline(marked.text.trim(), `${key}-solve-${index}`, label, t.assistantText)}
-          {marked.caret ? <StreamingCursor /> : null}
-        </View>
-      ),
+      heading: workingHeading(line.trim(), `${key}-solve-${index}`, label, t, "workout-subheading"),
       lines: [],
     });
   });
@@ -330,7 +322,7 @@ function renderWorkingSteps(
               testID="workout-body"
               style={{ gap: Space.xs, marginTop: WORK_GAP, paddingLeft: WORK_INDENT }}
             >
-              {step.lines}
+              <MathColumn inset={WORK_INDENT}>{step.lines}</MathColumn>
             </View>
           ) : null}
         </View>
@@ -347,8 +339,9 @@ function renderWorkingSteps(
  * the reply and whether or not it has a **Solution** heading; its lines start at the
  * left edge every other line of the solution starts at. Each given is
  * its own line, and a closing "where v₀ = initial speed, …" line names them in secondary
- * ink. The last line of maths in a written-out answer sits in a white, bordered box,
- * outside the rule (the lines before it are working, a sentence after it stays below). A
+ * ink. The last line holding a written-out answer's value sits in a white, bordered box,
+ * outside the rule (the lines before it are working, a sentence after it stays below); an
+ * answer written as a sentence round its maths gets no box (`isAnswerValue`). A
  * card the server landed is its own ```answer fence and never reaches here; this draws
  * older replies the same way.
  */
@@ -367,18 +360,21 @@ export function renderWorkoutSection(
   const asked = isRequiredHeading(section.heading);
   const answer = isAnswerHeading(section.heading);
   const working = isWorkingHeading(section.heading);
-  const boxed = answer ? lastMathLine(section.lines) : -1;
+  const boxed = answer ? lastValueLine(section.lines) : -1;
   const lines = section.lines.map((line, index) =>
     renderWorkoutLine(
       `${key}-line-${index}`,
       line,
-      { given, asked },
+      { given, asked, sentence: answer && !isAnswerValue(splitStreamCaret(line).text) },
       { body, noteStyle },
       t,
     ),
   );
   if (working) {
     return renderWorkingSteps(key, section, lines, styles, t);
+  }
+  if (isSolutionHeading(section.heading) && lines.length) {
+    return renderWorkingSteps(key, section, lines, styles, t, "workout-heading");
   }
   const heading = (
     <Text
@@ -412,7 +408,7 @@ export function renderWorkoutSection(
         // Given and Required sit behind a rule; the Answer's box needs none.
         style={answer ? { gap: Space.xs } : { ...workoutRule(t), gap: Space.xs }}
       >
-        {answer ? (
+        {answer && boxed >= 0 ? (
           <>
             {lines.slice(0, boxed)}
             <View

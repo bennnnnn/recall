@@ -1,5 +1,6 @@
-"""Fluid solvers: pressure, upthrust, density, continuity, flow rate, Bernoulli, hydraulics,
+"""Fluid solvers: pressure, upthrust, continuity, flow rate, Bernoulli, hydraulics,
 Torricelli, Stokes drag, the Reynolds number, surface tension and Laplace pressure.
+Density, mass over volume, is the catalog's arithmetic.
 """
 
 from __future__ import annotations
@@ -270,22 +271,6 @@ def _upthrust(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
     )
 
 
-def _density(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
-    volume = p["volume"]
-    if volume <= 0:
-        raise SolveServiceError("volume must be positive")
-    rho = p["m"] / volume
-    return PhysicsResult(
-        answer=(
-            rf"\rho = \frac{{m}}{{V}} = \frac{{{p['m']:g}}}{{{volume:g}}} "
-            rf"\approx {rho:.2f} \text{{ kg/m}}^3"
-        ),
-        formulas=(r"\rho = \frac{m}{V}",),
-        substitutions=(rf"\rho = \frac{{{p['m']:g}}}{{{volume:g}}}",),
-        quantities=(QuantityResult("", rho, "kg/m^3"),),
-    )
-
-
 def _continuity_by_diameter(p: dict[str, float]) -> PhysicsResult:
     """v₂ = v₁(d₁/d₂)²: the flow is the same through both sections."""
     if p["d1"] <= 0 or p["d2"] <= 0 or p["v"] < 0:
@@ -346,7 +331,6 @@ _OPERATIONS: dict[str, Callable[[PhysicsIntent, dict[str, float]], PhysicsResult
     "pressure_from_force": _pressure_from_force,
     "pressure_at_depth": _pressure_at_depth,
     "upthrust": _upthrust,
-    "density": _density,
     "continuity_velocity": _continuity_velocity,
     "flow_rate": _flow_rate,
 }

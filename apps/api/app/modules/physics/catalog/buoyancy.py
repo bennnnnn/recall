@@ -107,7 +107,9 @@ SPECS: tuple[FormulaSpec, ...] = (
         "fluids",
         "Archimedes' principle",
         r"\frac{V_{sub}}{V}",
-        base_latex=r"\frac{V_{sub}}{V} = \frac{\rho_{obj}}{\rho_{fluid}}",
+        # The fluid's density is written as its given is (\rho, "density of the fluid"): a
+        # law in \rho_{fluid} over a given in \rho printed the law twice.
+        base_latex=r"\frac{V_{sub}}{V} = \frac{\rho_{obj}}{\rho}",
         assumptions=("the object floats at rest",),
         expression="rho_object/rho",
         variables=(

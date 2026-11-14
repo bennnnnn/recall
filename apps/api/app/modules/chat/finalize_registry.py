@@ -33,6 +33,7 @@ from uuid import UUID
 
 from redis.asyncio import Redis
 
+from app.core.log_text import log_safe
 from app.exceptions import ChatBusyError, RedisUnavailableError
 
 logger = logging.getLogger(__name__)
@@ -133,7 +134,7 @@ async def wait_for_inflight_stream(chat_id: UUID) -> None:
         return
     await _await_bounded(
         task,
-        timeout_log=f"In-flight stream still running after wait chat_id={chat_id}",
+        timeout_log=f"In-flight stream still running after wait chat_id={log_safe(chat_id)}",
     )
 
 
@@ -154,7 +155,9 @@ async def wait_for_pending_finalize(
     if task is not None and not task.done():
         await _await_bounded(
             task,
-            timeout_log=f"Pending turn finalize still running after wait chat_id={chat_id}",
+            timeout_log=(
+                f"Pending turn finalize still running after wait chat_id={log_safe(chat_id)}"
+            ),
         )
         if require_complete and not task.done():
             raise ChatBusyError("Still saving the previous response. Please retry shortly.")
@@ -171,10 +174,14 @@ async def wait_for_pending_finalize(
                 return
             await asyncio.sleep(_FINALIZE_POLL_INTERVAL_SECONDS)
     except Exception as exc:
-        logger.debug("Pending finalize Redis wait failed chat_id=%s", chat_id, exc_info=True)
+        logger.debug(
+            "Pending finalize Redis wait failed chat_id=%s", log_safe(chat_id), exc_info=True
+        )
         if require_complete:
             raise RedisUnavailableError() from exc
         return
-    logger.warning("Pending turn finalize marker still set after wait chat_id=%s", chat_id)
+    logger.warning(
+        "Pending turn finalize marker still set after wait chat_id=%s", log_safe(chat_id)
+    )
     if require_complete:
         raise ChatBusyError("Still saving the previous response. Please retry shortly.")

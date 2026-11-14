@@ -62,17 +62,3 @@ export function shouldProbePreviousChat(opts: {
     opts.messagesHadAssistant || chatHasKnownAssistant(opts.chatId),
   );
 }
-
-export function shouldWarmDraftSocket(options: {
-  account: string | null;
-  draftChatId: string | null;
-  chatId: string | null;
-  streaming: boolean;
-}): boolean {
-  return Boolean(
-    options.account &&
-      options.draftChatId &&
-      !options.chatId &&
-      !options.streaming,
-  );
-}

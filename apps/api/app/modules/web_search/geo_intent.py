@@ -16,14 +16,15 @@ from app.modules.web_search.distance_patterns import (
 )
 from app.modules.web_search.patterns import (
     _AMBIGUOUS_NEARBY_SUBJECT,
-    _IMPLICIT_LOCAL,
-    _NEARBY_INTENT,
     _PROXIMITY_PHRASES,
     _QUALIFIED_NEARBY,
+    IMPLICIT_LOCAL,
+    NEARBY_INTENT,
     best_near_phrase,
     is_weather_request,
     non_geographic_nearest,
 )
+from app.modules.web_search.venue_place import venue_place
 from app.modules.web_search.weather import around_the_user, is_worked_problem
 
 _LOCATIONLESS_WEATHER = re.compile(
@@ -89,9 +90,9 @@ def is_proximity_query(text: str) -> bool:
     # near me within 2 km, max 5 km" lost its location (2026-11-01).
     if is_worked_problem(cleaned) and not around_the_user(cleaned):
         return False
-    if _NEARBY_INTENT.search(cleaned):
+    if NEARBY_INTENT.search(cleaned):
         return True
-    if _IMPLICIT_LOCAL.search(cleaned):
+    if IMPLICIT_LOCAL.search(cleaned):
         return True
     return bool(best_near_phrase(cleaned) and "?" in cleaned)
 
@@ -118,19 +119,33 @@ def is_distance_query(text: str) -> bool:
     return True
 
 
+def finds_places_near_the_user(text: str) -> bool:
+    """A places ask the user's own location answers.
+
+    One that says "in" a named place is searched there, never near the phone: "What are the
+    best restaurants in Addis Ababa?" from San Francisco found a San Francisco to Addis Ababa
+    time converter and Los Angeles restaurants (2026-11-08). "Coffee near me in Bole" says
+    where "me" is. A venue or neighbourhood ("at the Hilton", "in the Mission") leaves the
+    user's city in the search (``venue_place``).
+    """
+    return is_proximity_query(text) and venue_place(text) is None
+
+
 def is_geo_query(text: str) -> bool:
     """Any query that needs the user's location — places OR distance. Venue-agnostic.
 
     Each reader leaves a worked problem to its subject (``weather.is_worked_problem``).
     """
-    return is_proximity_query(text) or is_distance_query(text) or is_local_weather_query(text)
+    return (
+        finds_places_near_the_user(text) or is_distance_query(text) or is_local_weather_query(text)
+    )
 
 
 def is_places_list_query(text: str) -> bool:
-    """Render the native ```places card (find venues, not mileage-only answers)."""
+    """Render the native ```places card (find venues near the user, not mileage-only answers)."""
     if is_ambiguous_local_places_query(text):
         return False
-    return is_proximity_query(text)
+    return finds_places_near_the_user(text)
 
 
 def is_ambiguous_local_places_query(text: str) -> bool:

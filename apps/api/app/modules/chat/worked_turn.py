@@ -20,7 +20,7 @@ its block, for the question.
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, get_args
 
 from app.core.config import Settings
 from app.modules.chat.prompt_constants.worked import RESULT_CHECK_CONTRACT, WORKED_BLOCK_CONTRACT
@@ -30,9 +30,11 @@ from app.modules.chat.worked_render import WorkedLayout
 from app.modules.turn_reading.question_kinds import is_science_question
 from app.modules.turn_reading.school_question import is_school_exercise
 from app.modules.turn_reading.turn import current_turn_reading, teaching_of
+from app.services.solving import SubjectName
 from app.services.student_claim import only_checks_stated_results
 
-_STEM_SUBJECTS = frozenset({"math", "physics", "chemistry"})
+# Every registered subject's line is a calculation's when it states one.
+_STEM_SUBJECTS: frozenset[str] = frozenset(get_args(SubjectName))
 # Subject-order steps that read a subject from a word, not from a problem's shape.
 _WORD_CUE_REASONS = frozenset({"chemistry_question"})
 # A number with a unit after it ("100 meters", "4 g"); a digit inside a formula (CO2) or a
@@ -94,6 +96,12 @@ def _word_cue_only(content: str) -> bool:
         and reading.text == content
         and reading.subject_reason in (_WORD_CUE_REASONS)
     )
+
+
+def states_a_quantity(content: str) -> bool:
+    """A number with a unit after it ("36 cm", "10 ohm", "4X"): a value to work with, where a
+    digit inside a formula (CH3CH2CH2OH) or a grade ("grade 11") is none."""
+    return _QUANTITY.search(content) is not None
 
 
 def with_worked_contract(messages: list[dict[str, str]]) -> list[dict[str, str]]:

@@ -45,10 +45,25 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # about, and memory never quoted (NO_SELF_TALK_RULE), then a plan in weeks or months laid out
 # by week or month, not by day (LEARNING_PLAN_HINT), then a **Choose A if** line only when the
 # user asks to pick between named options, and no word about how the search went (READER_NOTE),
-# then the chat's summary named as part of the conversation (SUMMARY_LEAD).
-_RULES = 175
-_RULE_GRAMS = 15966
-_RULE_GRAMS_SHA = "c9fc1ba120307a35"
+# then the chat's summary named as part of the conversation (SUMMARY_LEAD), then maths' pack
+# saying a shape is never drawn by the model, and so when the app draws none, while code,
+# SVG, HTML or ASCII art the user asks for is theirs (GRAPH_NO_SUBSTITUTE_CLAUSE), then physics'
+# letters as a school textbook writes them (PHYSICS_SYMBOLS: v_i and v_f, s and d, E_k), then
+# a formula with no name under **Solution**, never a bare **Formula** (2026-11-11), then
+# a short message read with the conversation that fills it in and a reply to the assistant's
+# own question taken as its answer (UNCLEAR_MESSAGE_HINT, CONFIRMED_HINT, and FOLLOW_NOTES
+# beside a message the turn's read calls an answer or a change), and no claim that the app
+# cannot look public facts up unless search is off, by the user or the server
+# (FACT_GROUNDING_HINT, WEB_SEARCH_OFF_HINT, SEARCH_UNAVAILABLE_HINT), and a reply's second
+# call told it can, after the first said it couldn't (DENIAL_RETRY_NOTE), then maths' pack
+# saying the app draws the graph, number line or figure a maths question asks to see, so the
+# model never says it cannot draw, never gives sketching steps and never draws a number line
+# in characters (GRAPH_NO_SUBSTITUTE_CLAUSE, the textbook run 2026-11-13), then a given that
+# carries no part's letter but where one symbol has a value per part, in the layout a model
+# writes (services/workout._GIVEN_ONCE) and in a ```worked block's records.
+_RULES = 181
+_RULE_GRAMS = 16556
+_RULE_GRAMS_SHA = "5710d1712a796c31"
 
 
 def _rules() -> list[str]:

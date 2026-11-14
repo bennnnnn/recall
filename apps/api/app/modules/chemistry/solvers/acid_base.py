@@ -173,7 +173,7 @@ def solve_strong_base(intent: ChemistryIntent) -> ChemistryResult:
         return _dilute_strong(intent, formula, concentration, acid=False, factor=factor)
     poh = ph_text(hydroxide)
     ph = p_value(PKW + math.log10(hydroxide))
-    hydroxide_law = "[OH-] = C" if factor == 1 else f"[OH-] = {factor}C"
+    hydroxide_law = "[OH-] = c" if factor == 1 else f"[OH-] = {factor}c"
     if intent.chemistry_op == "strong_base_poh":
         return verified(
             "Verified strong-base pOH",
@@ -228,7 +228,7 @@ def _dilute_strong(
     # Three figures, so the logarithm of the shown value is the shown pH.
     amount_text = format_number(amount, significant=3)
     working = [
-        f"[{ion}] = C/2 + √(C²/4 + Kw), C = {shown_c} mol/L, Kw = {num(KW)}",
+        f"[{ion}] = c/2 + √(c²/4 + Kw), c = {shown_c} mol/L, Kw = {num(KW)}",
         f"[{ion}] = {amount_text} mol/L",
         f"p{ion[:-1]} = −log10({amount_text}) = {own}",
     ]

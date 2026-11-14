@@ -3,20 +3,27 @@
 from __future__ import annotations
 
 import math
+from functools import lru_cache
+from tokenize import TokenError
 from typing import Any
+
+from pint.errors import PintError
 
 from app.modules.physics.bodies import SCHOOL_GRAVITY
 from app.modules.physics.schemas import PhysicsIntent
+from app.services.law_binding.spec import FormulaSpec
 from app.services.solving import SolveServiceError
 
 
 def _dimensions_from_catalog() -> dict[str, str]:
     """SI dimension of every declared variable. The catalog is the only list."""
-    from app.modules.physics.catalog import CATALOG
+    from app.modules.physics.catalog import CATALOG, result_variable
 
     dims: dict[str, str] = {}
     for spec in CATALOG.values():
-        for variable in spec.variables:
+        # A law's result is an input when the law is solved for another of its quantities.
+        stated = result_variable(spec)
+        for variable in (*spec.variables, *((stated,) if stated else ())):
             dimension = "dimensionless" if variable.dimensionless else variable.dimension
             if not dimension:
                 raise RuntimeError(f"{spec.id}.{variable.name} has no dimension")
@@ -85,27 +92,46 @@ def to_si(value: float, unit: str, *, expected_key: str | None = None) -> float:
     """
     if not unit:
         return value
+    scale, offset_reading = _si_conversion(unit, expected_key)
+    if offset_reading is None:
+        return value * scale
+    from app.services.units import get_unit_registry
+
+    # Celsius is an offset unit, not a scale factor: `value * ureg("degC")` raises
+    # OffsetUnitCalculusError rather than converting.
+    quantity = get_unit_registry().Quantity(value, offset_reading)
+    return float(quantity.to_base_units().magnitude)
+
+
+@lru_cache(maxsize=2048)
+def _si_conversion(unit: str, expected_key: str | None) -> tuple[float, str | None]:
+    """How ``to_si`` converts ``unit``: ``(scale, None)`` for a unit that scales, the SI
+    value being ``value * scale``, or ``(1.0, reading)`` for a reading on an offset scale
+    (a temperature), which Pint converts value by value.
+
+    Kept per unit: Pint parsed each unit string again for every value, three times for
+    each given, 12 of 33 s over the sweep corpora (review, 2026-11-12).
+    """
     dim_spec = PARAM_SI_DIMENSIONS.get(expected_key) if expected_key else None
     # A count is a number with a name. Pint reads "turns" as the angle unit
     # (2π rad each), which made 500 solenoid turns 3142.
     if dim_spec == "dimensionless" and unit.strip().lower() in _COUNT_UNITS:
-        return value
+        return 1.0, None
     from app.modules.physics.givens import unit_readings
     from app.services.units import get_unit_registry
 
     ureg = get_unit_registry()
     readings = unit_readings(unit)
+    difference = (expected_key or "").startswith("delta_")
     for index, reading in enumerate(readings):
+        offset_reading = reading if reading in _OFFSET_UNITS and not difference else None
         try:
             if reading in _OFFSET_UNITS:
-                # Celsius is an offset unit, not a scale factor: `value * ureg(
-                # "degC")` raises OffsetUnitCalculusError rather than converting.
-                difference = (expected_key or "").startswith("delta_")
                 quantity = ureg.Quantity(
-                    value, _OFFSET_DIFFERENCES[reading] if difference else reading
+                    1.0, _OFFSET_DIFFERENCES[reading] if difference else reading
                 )
             else:
-                quantity = value * ureg(reading)
+                quantity = 1.0 * ureg(reading)
         except Exception as exc:
             if index + 1 < len(readings):
                 continue
@@ -117,7 +143,9 @@ def to_si(value: float, unit: str, *, expected_key: str | None = None) -> float:
             raise SolveServiceError(
                 f"unit {unit} does not match expected dimension for {expected_key}"
             )
-        return float(quantity.to_base_units().magnitude)
+        if offset_reading is not None:
+            return 1.0, offset_reading
+        return float(quantity.to_base_units().magnitude), None
     raise SolveServiceError(f"unsupported unit: {unit}")
 
 
@@ -148,6 +176,11 @@ def si_factor(unit: str, *, expected_key: str | None = None) -> tuple[float, flo
     return None
 
 
+# What Pint raises for a spelling it cannot split: an unknown unit ("1/m2"), bad syntax
+# ("/k", "g/100 mL", an open bracket), an offset unit ("celsius"), a zero below the line.
+_UNREADABLE = (PintError, ValueError, TypeError, AttributeError, ArithmeticError, TokenError)
+
+
 def _split_scale(ureg: Any, reading: str) -> tuple[float, float] | None:
     """Each unit's own scale, above the line and below it; None if Pint cannot read it."""
     numerator = denominator = 1.0
@@ -158,7 +191,7 @@ def _split_scale(ureg: Any, reading: str) -> tuple[float, float] | None:
                 numerator *= scale**exponent
             else:
                 denominator *= scale ** (-exponent)
-    except Exception:
+    except _UNREADABLE:
         return None
     return numerator, denominator
 
@@ -180,3 +213,38 @@ def params_in_si(intent: PhysicsIntent) -> dict[str, float]:
         else:
             out[key] = to_si(val, unit, expected_key=key)
     return out
+
+
+def solves_backwards_in_si(spec: FormulaSpec) -> bool:
+    """Whether the law can be solved for an input from its stated result, which reaches it in
+    SI: only when its arithmetic gives the result in an SI-sized unit. A law whose result is
+    in degrees, a percent or electronvolts computes it in that unit, so a stated 42° (0.733
+    rad in SI) put into its rearranged arithmetic as 0.733 degrees made a critical angle's
+    refractive index 78.2, not 1.49 (review, 2026-11-11). Main declined these; so does this.
+    """
+    return spec.binding is not None and _si_sized(spec.binding.result[0])
+
+
+@lru_cache(maxsize=256)
+def _si_sized(unit: str) -> bool:
+    """One of ``unit`` is one SI base unit, with no offset (radians, hertz, joules)."""
+    if unit in ("", "dimensionless"):
+        return True
+    from app.services.units import get_unit_registry
+
+    try:
+        base: Any = (1.0 * get_unit_registry()(unit)).to_base_units()
+    except (PintError, ValueError, TypeError, AttributeError):
+        # An offset unit (degC) multiplies by nothing, and a unit Pint cannot read is no SI.
+        return False
+    return math.isclose(float(base.magnitude), 1.0, rel_tol=1e-9)
+
+
+def stated_on_an_offset_scale(intent: PhysicsIntent, name: str) -> bool:
+    """The stated result is a reading in °C or °F, not a difference: in SI it gains 273.15 K,
+    so a change of 10 °C solved backwards was 283.15 K (review, 2026-11-11)."""
+    from app.modules.physics.givens import unit_readings
+
+    unit = (intent.physics_units or {}).get(name, "")
+    readings = unit_readings(unit) if unit else ()
+    return not name.startswith("delta_") and any(reading in _OFFSET_UNITS for reading in readings)

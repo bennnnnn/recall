@@ -7,6 +7,7 @@ import { popLastAssistantMessage } from "@/features/chat/model/regenerateLogic";
 import type { PendingSend } from "@/features/chat/model/sendLogic";
 import type { ChatSsePayload } from "@/features/chat/model/sse";
 import { DUPLICATE_TURN_POLLS, duplicateTurnPollMs } from "@/features/chat/model/turnReconcile";
+import { ANSWER_PHOTO_WAIT_MS } from "@/features/chat/model/wsConnect";
 import type { ChatWsTransport } from "@/features/chat/model/wsTransport";
 
 /**
@@ -161,6 +162,36 @@ describe("frames", () => {
     const none = play(idle(), [frame({ type: "related_prompts", prompts: ["Lost?"] }), frame({ type: "related_prompts", message_id: "m-1", prompts: [] })]);
     expect(none.commands).toEqual([]);
   });
+
+  // 2026-11-09: "where is Ethiopia" showed "finding a photo", then a reply with no photo.
+  it("a photo still on its way at done keeps its placeholder until the photo comes", () => {
+    const text = "Ethiopia lies in the Horn of Africa.";
+    const run = play(streaming({ buffer: text, draft: { content: text } }), [
+      frame({ type: "done", message_id: "m-1", final_content: text, photo_pending: true }),
+    ], [bubble]);
+    expect(run.messages).toEqual([
+      expect.objectContaining({ id: "m-1", content: text, photo_pending_until: NOW + ANSWER_PHOTO_WAIT_MS }),
+    ]);
+    const photo = `[Image: /attachments/p-1/file]\n\n${text}`;
+    const landed = play(run.state, [frame({ type: "answer_photo", message_id: "m-1", content: photo })], run.messages);
+    expect(landed.messages).toEqual([expect.objectContaining({ id: "m-1", content: photo })]);
+    expect(landed.messages[0].photo_pending_until).toBeUndefined();
+  });
+
+  it("no photo came: the placeholder goes and the reply stays as it was", () => {
+    const reply: Message = { ...answer("m-1", "Ethiopia lies in the Horn of Africa."), photo_pending_until: NOW + 5_000 };
+    const run = play(idle(), [frame({ type: "answer_photo", message_id: "m-1", content: null })], [reply]);
+    expect(run.messages).toEqual([expect.objectContaining({ id: "m-1", content: reply.content })]);
+    expect(run.messages[0].photo_pending_until).toBeUndefined();
+    // A photo for a reply no longer on screen changes nothing.
+    const gone = play(idle(), [frame({ type: "answer_photo", message_id: "m-9", content: "[Image: x]" })], [reply]);
+    expect(gone.messages).toEqual([reply]);
+  });
+
+  it("a done with no photo on its way leaves no placeholder", () => {
+    const run = play(streaming(), [frame({ type: "done", message_id: "m-1", final_content: "Hi" })], [bubble]);
+    expect(run.messages[0]).not.toHaveProperty("photo_pending_until");
+  });
 });
 
 describe("errors", () => {
@@ -251,6 +282,72 @@ describe("a turn from send to the end", () => {
   it("shows reading files at once for a send with attachments", () => {
     const run = play(idle(), [send("look", { options: { attachmentIds: ["a1"] } })]);
     expect(run.state.draft).toEqual({ content: "", status: "reading_files" });
+  });
+
+  it("a retract status empties the bubble, and a Stop still counts what was drawn", () => {
+    // The server took back "I can't check live rankings" to search and answer again.
+    const denial = "I can't check live rankings.";
+    const run = play(idle(), [
+      send("Top 5 universities in Ethiopia"),
+      frame({ type: "start" }),
+      frame({ type: "token", content: denial }),
+      frame({ type: "status", phase: "retract" }),
+    ]);
+    expect(run.state.draft).toEqual({ content: "" });
+    expect(run.state.buffer).toBe("");
+    const stopped = play(run.state, [frame({ type: "token", content: "1. Addis" }), { type: "stop" }]);
+    expect(stopped.of("cancel_socket")).toEqual([
+      { type: "cancel_socket", streamedChars: denial.length + "1. Addis".length },
+    ]);
+  });
+
+  describe("a reply the server took back, with nothing in its place", () => {
+    // The server keeps the reply it took back when a Stop or a failure leaves nothing in
+    // its place (`StreamAccum.restore_retracted`): the bubble shows what it saves.
+    const denial = "I can't check live rankings.";
+    const retracted: ChatTurnEvent[] = [
+      frame({ type: "start" }),
+      frame({ type: "token", content: denial }),
+      frame({ type: "status", phase: "retract" }),
+      // The retry's search was still running when the user tapped Stop.
+      frame({ type: "status", phase: "searching", detail: "Ethiopia university rankings" }),
+    ];
+
+    it("a Stop puts it back, over the socket or SSE, and the late done names it", () => {
+      const run = play(idle(), [send("Top 5 universities in Ethiopia"), ...retracted, { type: "stop" }]);
+      expect(run.of("cancel_socket")).toEqual([{ type: "cancel_socket", streamedChars: denial.length }]);
+      expect(run.of("abort_sse")).toHaveLength(1);
+      expect(run.messages.at(-1)).toMatchObject({ id: `streamed-${NOW}`, content: denial, generationStopped: true });
+      const done = play(run.state, [
+        frame({ type: "done", message_id: "m-1", final_content: denial, completion: "user_stop" }),
+      ], run.messages);
+      expect(done.messages.at(-1)).toMatchObject({ id: "m-1", content: denial, generationStopped: true });
+    });
+
+    it("a Stop during Regenerate keeps it, not the old answer the server replaced", () => {
+      const old = answer("old", "old answer");
+      const run = play(idle(), [
+        { type: "regenerate_ui", messages: [old] }, { type: "regenerate", messages: [old] }, ...retracted, { type: "stop" },
+      ], [old]);
+      expect(run.messages).toEqual([expect.objectContaining({ content: denial, generationStopped: true })]);
+    });
+
+    it("a failed retry's done brings it back", () => {
+      const run = play(idle(), [
+        send("Top 5 universities in Ethiopia"), ...retracted,
+        frame({ type: "done", message_id: "m-1", final_content: denial, completion: "interrupted" }),
+      ]);
+      expect(run.messages.at(-1)).toMatchObject({ id: "m-1", content: denial, generationStopped: true });
+    });
+
+    it("the next turn's Stop never puts it back", () => {
+      const run = play(idle(), [
+        send("Top 5 universities in Ethiopia"), ...retracted,
+        frame({ type: "done", message_id: "m-1", final_content: "1. Addis Ababa University" }),
+        send("and in Kenya?"), { type: "send_dispatched" }, { type: "stop" },
+      ]);
+      expect(run.messages.map((m) => m.content)).toEqual(["Top 5 universities in Ethiopia", "1. Addis Ababa University", "and in Kenya?"]);
+    });
   });
 
   it("Stop keeps what streamed, ignores late deltas, and a late done names the kept bubble", () => {

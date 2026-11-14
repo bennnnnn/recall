@@ -26,6 +26,7 @@ from app.core.sentry import init_sentry
 from app.core.sympy_executor import shutdown_sympy_executor, warm_sympy_pool
 from app.gateways import email_gateway
 from app.gateways.http_client import aclose_pooled_clients
+from app.models.model_removal import check_routing_lanes
 from app.modules.attachments import reaper as attachment_orphan_reaper
 from app.modules.chat.finalize_registry import stop_inflight_streams
 from app.modules.chat.turn_prep.reading import warm_pool_worker
@@ -54,6 +55,8 @@ async def initialize_process(settings: Settings) -> None:
     setup_logging(json_output=settings.environment == "production", level=settings.log_level)
     init_sentry(settings)
     validate_production_settings(settings)
+    # A lane naming a model the catalog dropped would fail turns, not the deploy.
+    check_routing_lanes()
     warn_if_no_support_email(settings)
     email_gateway.warn_if_unavailable(settings)
     role = validate_process_role(settings)

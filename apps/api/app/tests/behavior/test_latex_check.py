@@ -21,7 +21,31 @@ from app.tests.behavior.latex_check import drawn_commands, latex_problems
         ("The area is 25 m^{2}.", ["TeX outside maths: ^{"]),
         ("$C = \\$0.15\\mathrm{/kWh}$ and $\\$2$", []),
         ("$\\nosuchcommand{x}$", ["the phone draws no \\nosuchcommand"]),
+        # A word group's text is drawn as written: a brace after an escaped underscore,
+        # or one that opens nothing, is source (2026-11-12); a script or a command is not.
+        (
+            "$\\text{white\\_{pigment}} = 3 \\times 4$",
+            ["a brace in a word group: \\text{white\\_{pigment}}"],
+        ),
+        ("$\\mathrm{a{b}c} = 1$", ["a brace in a word group: \\mathrm{a{b}c}"]),
+        (
+            "```answer\n\\text{ratio\\_{total}} = 7\n```",
+            ["a brace in a word group: \\text{ratio\\_{total}}"],
+        ),
+        ("$\\text{white}_{\\text{pigment}} = 12\\,\\mathrm{gallons}$", []),
+        ("$\\text{white_{pigment}}$ and $\\mathrm{SO_4^{2-}}$ and $\\mathrm{m/s^{2}}$", []),
+        ("$\\text{white\\_pigment}$ and $\\text{\\textdegree}$ and $\\mathrm{\\{x\\}}$", []),
         ("```answer\n\\nosuchcommand{1}\n```", ["the phone draws no \\nosuchcommand"]),
+        # A dollar the phone pairs with none is shown (2026-11-13): a ratio read as a price
+        # left "5$ ratio" on screen. Prices, tiers, escaped and display dollars are no such.
+        ("Check: $9: 12: 15$ is the $3: 4: 5$ ratio.", []),
+        ("Check: $9: 12: 15 $ is the $ 3: 4: 5$ ratio.", []),
+        ("It is $x$ and 5$ more.", ["a dollar shown as source: It is $x$ and 5$ more."]),
+        ("It costs $5 and $10, a ($$) place, \\$3 back, $$x = 2$$ and `$y`.", []),
+        ("The price $38.40 = $ 19.20 each.", []),
+        # Dollars a reader is meant to see (the review of 2026-11-13).
+        ("The $ sign, $HOME, $.50, a refund of $-5, salary to $Z. Revenue ($M).", []),
+        ('{"$schema":"https://vega.github.io/schema/vega-lite/v5.json"}', []),
     ],
 )
 def test_latex_problems_flags_what_a_reader_would_see_as_source(

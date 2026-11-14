@@ -1,4 +1,4 @@
-"""Verified uniform-field operations: plates, a charge in a field, and qV."""
+"""Verified field operations: plates, a charge in a field, qV, and Coulomb's law."""
 
 from __future__ import annotations
 
@@ -97,6 +97,20 @@ SPECS: tuple[FormulaSpec, ...] = (
             cues=("point charge", "charge"),
             excludes=("plate", "dipole"),
             nonnegative=True,
+        ),
+    ),
+    formula(
+        "electric_force",
+        "magnetism",
+        "Coulomb's law",
+        "F_e",
+        base_latex="F_e = k_e \\frac{\\lvert q_1q_2\\rvert}{r^2}",
+        variables=(
+            var("q1", "q_1", "coulomb"),
+            var("q2", "q_2", "coulomb"),
+            var("r", "r", "meter"),
+            # The constant a question states ("k = 9.0e9 N·m²/C²"), which its answer uses.
+            var("k_coulomb", "k_e", "newton * meter ** 2 / coulomb ** 2"),
         ),
     ),
 )

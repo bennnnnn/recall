@@ -112,7 +112,8 @@ def test_glued_please_is_equation_not_graph() -> None:
     intent = math_tools.extract_math_intent("2X=6please")
     assert intent is not None
     assert intent.kind == "equation"
-    assert intent.lhs == "2X"
+    # A capital unknown written as algebra reads as x (match/letter_case.py).
+    assert intent.lhs == "2x"
     assert intent.rhs == "6"
 
 
@@ -735,12 +736,9 @@ def test_extract_rectangle_intent() -> None:
     assert intent.height == 5
 
 
-def test_extract_draw_rectangle_defaults() -> None:
-    intent = math_tools.extract_math_intent("Draw a rectangle")
-    assert intent is not None
-    assert intent.kind == "rectangle"
-    assert intent.width == 6
-    assert intent.height == 4
+def test_extract_draw_rectangle_reads_no_invented_size() -> None:
+    # No invented size (textbook run, 2026-11-13): its picture is drawn by math.figure.
+    assert math_tools.extract_math_intent("Draw a rectangle") is None
 
 
 @pytest.mark.parametrize(
@@ -780,11 +778,9 @@ def test_extract_circle_diameter_intent() -> None:
     assert intent.given_diameter is True
 
 
-def test_extract_circle_intent_defaults_without_dims() -> None:
-    intent = math_tools.extract_math_intent("Draw a circle")
-    assert intent is not None
-    assert intent.kind == "circle"
-    assert intent.radius == 5
+def test_extract_circle_intent_reads_no_invented_radius() -> None:
+    # No invented size (textbook run, 2026-11-13): its picture is drawn by math.figure.
+    assert math_tools.extract_math_intent("Draw a circle") is None
 
 
 @pytest.mark.parametrize(
@@ -950,11 +946,9 @@ def test_square_root_does_not_become_geometry_square(text: str) -> None:
     assert intent is None or intent.kind != "square"
 
 
-def test_draw_square_without_side_still_defaults() -> None:
-    intent = math_tools.extract_math_intent("Draw a square")
-    assert intent is not None
-    assert intent.kind == "square"
-    assert intent.side == 5
+def test_draw_square_without_side_reads_no_invented_side() -> None:
+    # No invented size (textbook run, 2026-11-13): its picture is drawn by math.figure.
+    assert math_tools.extract_math_intent("Draw a square") is None
 
 
 @pytest.mark.parametrize(
@@ -1869,13 +1863,12 @@ def test_maclaurin_aliases_taylor_at_zero() -> None:
 
 @pytest.mark.asyncio
 async def test_augment_prompt_unsolved_integral_has_no_answer_fence() -> None:
+    # SymPy handing the integral back unevaluated is a decline (audit SEC-02): no block.
     settings = Settings(math_tools_enabled=True)
     _out, verified = await augment_prompt_messages(
         [{"role": "user", "content": "integrate x**x"}], "integrate x**x", settings
     )
-    assert verified is not None
-    assert verified.canonical_fence is None
-    assert "```answer" not in verified.text
+    assert verified is None
 
 
 @pytest.mark.asyncio
@@ -2205,19 +2198,18 @@ async def test_augment_prompt_flags_unsolved_integral_instead_of_asserting_it() 
     """BUG FIX: integrate_expression can hand back a result that still
     contains a literal unevaluated Integral(...) instead of raising, and this
     used to be injected as "Result: ... Do NOT recompute" — the exact same
-    verified-confidence phrasing used for a real closed-form answer. The
-    model must be told SymPy found no closed form instead."""
+    verified-confidence phrasing used for a real closed-form answer. Then it was a
+    verified block saying "No closed-form result", which kept the reply's own
+    "verified" claim (audit SEC-02): the turn is now unverified, and its note says so."""
+    from app.modules.math.tools.prompt import _unverified_math_note
+
     settings = Settings(math_tools_enabled=True)
     messages = [{"role": "user", "content": "integrate x**x"}]
     out, verified = await augment_prompt_messages(messages, "integrate x**x", settings)
-    assert verified is not None
-    assert "Do NOT recompute" not in verified.text
-    assert "closed-form" in verified.text.lower() or "no closed form" in verified.text.lower()
-    assert any(
-        "closed-form" in m["content"].lower() or "no closed form" in m["content"].lower()
-        for m in out
-        if m["role"] == "system"
-    )
+    assert verified is None
+    system = "\n".join(m["content"] for m in out if m["role"] == "system")
+    assert "Do NOT recompute" not in system
+    assert _unverified_math_note("calculus") in system
 
 
 @pytest.mark.asyncio

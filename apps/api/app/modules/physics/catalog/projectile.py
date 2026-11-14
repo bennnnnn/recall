@@ -205,7 +205,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "projectile",
         "Projectile-motion equation",
         "v_0",
-        base_latex=r"v_0 = d\sqrt{\frac{g}{2h}}",
+        base_latex=r"v_0 = R\sqrt{\frac{g}{2h}}",
         assumptions=("launched horizontally; no air resistance",),
         expression="d*sqrt(g/(2*h0))",
         variables=(
@@ -217,9 +217,10 @@ SPECS: tuple[FormulaSpec, ...] = (
                 words=("high", "height", "tall", "cliff", "table", "bench", "roof", "off a"),
                 needs_words=True,
             ),
+            # Where it lands is its range, R, as the launch-angle law writes it.
             var(
                 "d",
-                "d",
+                "R",
                 "meter",
                 words=("lands", "away", "from the", "horizontal", "out"),
                 needs_words=True,
@@ -255,7 +256,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Projectile-motion equation",
         "\\theta",
         variables=(
-            var("d", "d", "meter"),
+            var("d", "R", "meter"),
             var("g", "g", "meter / second ** 2"),
             var("v0", "v_0", "meter / second"),
         ),

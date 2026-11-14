@@ -11,6 +11,7 @@ from app.exceptions import RateLimitedError
 from app.models.orm import User
 from app.models.schemas.chats import MessageOut
 from app.modules.account import profile as profile_service
+from app.modules.billing import can_use
 from app.modules.images import generation as image_generation_service
 from app.modules.images import intent as image_intent_service
 from app.modules.images.schemas import (
@@ -96,6 +97,7 @@ async def image_intent(
             text=body.text,
             chat_id=body.chat_id,
             image_attached=body.image_attached,
+            can_generate=can_use(user, "image_generation", settings),
         )
     if verdict is None:
         raise HTTPException(status_code=404, detail="Chat not found")

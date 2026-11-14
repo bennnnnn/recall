@@ -4,13 +4,16 @@ import { withStreamingPlaceholder } from "@/features/chat/model/partialStream";
 import type { RejectedSend } from "@/features/chat/model/sendLogic";
 import type { ChatSsePayload } from "@/features/chat/model/sse";
 import {
+  applyAnswerPhoto,
   applyRelatedPrompts,
   applyStreamEndModel,
   buildDoneMergeInput,
+  markPhotoPending,
   mergeDoneIntoMessages,
   relatedPromptsFromEvent,
   shouldIgnoreStoppedStreamEvent,
 } from "@/features/chat/model/socketReduce";
+import { ANSWER_PHOTO_WAIT_MS } from "@/features/chat/model/wsConnect";
 import { refusalCode } from "@/features/chat/model/errorMessage";
 import { completionFromDone } from "@/features/chat/model/turnOutcome";
 import { DUPLICATE_TURN_POLLS, duplicateTurnPollMs } from "@/features/chat/model/turnReconcile";
@@ -57,11 +60,15 @@ function onDone(s: ChatTurnState, out: Out, payload: ChatSsePayload, now: number
   s.buffer = "";
   const draft = s.draft;
   s.draft = null;
-  messages(out, (previous) => mergeDoneIntoMessages(previous, buildDoneMergeInput(payload, draft, now, stoppedId)));
+  const done = buildDoneMergeInput(payload, draft, now, stoppedId);
+  // The reply's photo still on its way: a placeholder holds its place (`answer_photo`).
+  const photoUntil = payload.photo_pending ? now + ANSWER_PHOTO_WAIT_MS : undefined;
+  messages(out, (previous) => markPhotoPending(mergeDoneIntoMessages(previous, done), done.messageId, photoUntil));
   if (!s.firstReply) {
     s.firstReply = true;
-    out.push({ type: "first_reply" });
+    out.push({ type: "first_reply", reply: { titleOnStream: payload.title_pending === true } });
   }
+  out.push({ type: "reply_saved" });
   // Rows the turn wrote: one reload (code-health audit NET-14).
   if (payload.todos_changed) out.push({ type: "todos_changed" });
   if (payload.usage) out.push({ type: "usage", usage: payload.usage });
@@ -147,6 +154,7 @@ export function applyFrame(
       s.sendingMessageId = null;
       s.phase = "streaming";
       s.buffer = "";
+      s.retracted = "";
       // Keep the instant local status instead of blanking it until the first status frame.
       s.draft = {
         content: "",
@@ -159,6 +167,14 @@ export function applyFrame(
     case "status":
       cue(out, "activity");
       if (typeof payload.phase !== "string") return;
+      if (payload.phase === "retract") {
+        // The server took back what streamed (a reply that said it couldn't check live
+        // facts): the bubble empties for the answer that replaces it.
+        s.retracted += s.buffer;
+        s.buffer = "";
+        s.draft = { content: "", search_sources: s.draft?.search_sources };
+        return;
+      }
       out.push({ type: "outcome", outcome: "activity", phase: payload.phase });
       s.draft = {
         content: s.buffer,
@@ -196,6 +212,16 @@ export function applyFrame(
       if (prompts) messages(out, (previous) => applyRelatedPrompts(previous, messageId, prompts));
       return;
     }
+    case "answer_photo": {
+      if (typeof payload.message_id !== "string") return;
+      const messageId = payload.message_id;
+      const content = typeof payload.content === "string" && payload.content.trim() ? payload.content : null;
+      messages(out, (previous) => applyAnswerPhoto(previous, messageId, content));
+      return;
+    }
+    case "title":
+      out.push({ type: "title", chatId: s.chatId, title: typeof payload.title === "string" && payload.title.trim() ? payload.title : null });
+      return;
     case "error":
       onError(s, out, payload, ttftTurnId, now);
       return;

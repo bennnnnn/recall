@@ -32,10 +32,23 @@ MATH_REPLY_POLICY = (
 )
 
 # Chart hint already bans table/Mermaid substitutes. Graph/geometry must too:
-# when SymPy sampling fails, the model otherwise dumps a point table or flowchart.
+# when SymPy sampling fails, the model otherwise dumps a point table or flowchart, and with
+# no figure from the app "I asked for the triangle" got a triangle of slashes in a ```text
+# block (2026-11-09). Only maths' pack says it: an SVG logo, a CSS circle or a star triangle
+# printed by code is the user's own ask. It once told the model to say it can't draw when no
+# verified block was present; the textbook run (2026-11-13) then read "I can't draw the
+# figure here, but here's how to sketch it" right above the app's own drawing, and "The app
+# can't draw a coordinate plane". The app draws the picture a maths question asks to see
+# from the question's own values (``math.figure``), so the model never denies it, never
+# explains how to sketch it, and never draws it.
 GRAPH_NO_SUBSTITUTE_CLAUSE = (
-    "NEVER substitute a markdown table of sampled points, an ASCII or text-art sketch, "
-    "or a Mermaid/flowchart diagram for a function plot."
+    "Never draw a function's graph, a number line or a geometric shape yourself: no table "
+    "of sampled points, no sketch in characters or a ```text block, no Mermaid or "
+    "flowchart, and no ```chart, SVG or HTML for one. The app draws the graph, number line "
+    "or figure a maths question asks to see, from the question's own values, under your "
+    "reply. Never say that you or the app cannot draw or show it, never give steps for "
+    "sketching it, and do not mention a picture: answer the question. Code, SVG, HTML, CSS "
+    "or ASCII art the user asks for is theirs to have."
 )
 
 MATH_INTENT_HINT = (

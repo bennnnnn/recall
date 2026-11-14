@@ -132,6 +132,25 @@ describe("inline maths still renders", () => {
     ["$12 + 8 = 20$ dollars", ["12 + 8 = 20"]],
     ["$3 + 4 = 7$, so it costs $7.", ["3 + 4 = 7"]],
     [String.raw`It costs $5, and $4! = 4 \times 3 \times 2 \times 1 = 24$.`, [String.raw`4! = 4 \times 3 \times 2 \times 1 = 24`]],
+    // A factorial is no price ending in "!": the owner's "How" reply showed its Given,
+    // `$4!$`, as source with a dollar each side (2026-11-11).
+    ["**Given**\n\n$4!$", ["4!"]],
+    ["$4!$", ["4!"]],
+    ["$10!$ ways", ["10!"]],
+    ["$4! + 3! = 30$", ["4! + 3! = 30"]],
+    ["$5! = 120$ and $0! = 1$", ["5! = 120", "0! = 1"]],
+    ["So $n!$ grows fast, and $3!$ is $6$.", ["n!", "3!", "6"]],
+    ["$4!  + 3!$ ways", ["4!  + 3!"]],
+    ["$4! = 24$", ["4! = 24"]],
+    ["Padded: $ 4! $ ways", ["4!"]],
+    // A ratio's colon before a number is maths going on, never the price "$9:" (the
+    // textbook run, 2026-11-13: "$9: 12: 15 $ is the $ 3: 4: 5$" showed two dollars and
+    // set "is the" as maths).
+    ["$9: 12: 15 $ is the $ 3: 4: 5$ ratio", ["9: 12: 15", "3: 4: 5"]],
+    ["$9: 12: 15$ is the $3: 4: 5$ ratio", ["9: 12: 15", "3: 4: 5"]],
+    ["The ratio $2: 3$ of boys", ["2: 3"]],
+    ["by mass $1 : 2 : 3$ here", ["1 : 2 : 3"]],
+    ["sides $ 6:  8: 10 $ match", ["6:  8: 10"]],
   ])("draws %s as maths", (source, math) => {
     expect(seen(source).math).toEqual(math);
   });
@@ -142,6 +161,34 @@ describe("inline maths still renders", () => {
     ["Budget $100 a week for $w$ weeks: $100w$.", ["w", "100w"], "Budget $100 a week for w weeks: 100w."],
     ["Rent is $1.5M and $x$ is the share.", ["x"], "Rent is $1.5M and x is the share."],
     ["Pay $30/day for food, then $x$ is left.", ["x"], "Pay $30/day for food, then x is left."],
+    // An exclamation after a price, then words: still a price. A one-letter word, a
+    // dollar, a bracket or a dash after it too (review of the factorial fix).
+    ["It costs only $5! Then $x$ doubles.", ["x"], "It costs only $5! Then x doubles."],
+    ["Lunch was $5! I paid, so $x$ is mine.", ["x"], "Lunch was $5! I paid, so x is mine."],
+    ["Only $5! $x$ is the count.", ["x"], "Only $5! x is the count."],
+    ["Just $5! ($x$ of them)", ["x"], "Just $5! (x of them)"],
+    ["Only $5! **Then** $x$ grows.", ["x"], "Only $5! **Then** x grows."],
+    ["It was $5! — and $x$ more.", ["x"], "It was $5! — and x more."],
+    ["Today $5! 3 left, then $x$ more.", ["x"], "Today $5! 3 left, then x more."],
+    ["Only $5! 10 left, $x$ is mine.", ["x"], "Only $5! 10 left, x is mine."],
+    // A colon before words still ends a price's clause, and so does a colon before a number
+    // and words: a ratio is read whole, never from its first colon (review, 2026-11-13).
+    ["It cost $9: cheap, and $x$ more.", ["x"], "It cost $9: cheap, and x more."],
+    ["Fees: $10; $y$ each.", ["y"], "Fees: $10; y each."],
+    ["Total $60: 3 of us, so $x = 20$.", ["x = 20"], "Total $60: 3 of us, so x = 20."],
+    ["Budget $50: 2 shirts at $s$ each.", ["s"], "Budget $50: 2 shirts at s each."],
+    ["It cost $9: 12 people came, and $x$ more.", ["x"], "It cost $9: 12 people came, and x more."],
+    [
+      String.raw`The bill is $90: 3 of us split it as $\frac{90}{3}$.`,
+      [String.raw`\frac{90}{3}`],
+      String.raw`The bill is $90: 3 of us split it as \frac{90}{3}.`,
+    ],
+    [
+      String.raw`Rent is $1,200: 3 roommates each pay $\frac{1200}{3} = 400$.`,
+      [String.raw`\frac{1200}{3} = 400`],
+      String.raw`Rent is $1,200: 3 roommates each pay \frac{1200}{3} = 400.`,
+    ],
+    ["The ratio $2:3$ costs $8.", ["2:3"], "The ratio 2:3 costs $8."],
   ])("keeps the price and the maths apart in %s", (source, math, text) => {
     const view = seen(source);
     expect(view.math).toEqual(math);

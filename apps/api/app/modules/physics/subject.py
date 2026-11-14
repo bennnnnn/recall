@@ -6,7 +6,7 @@ direct reply through ``direct``, and its prompt copy from ``reply_policy`` and `
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
@@ -16,10 +16,12 @@ from app.modules.physics.followup import (
     PHYSICS_FOLLOWUP_HINT,
     physics_followup_problem,
     physics_followup_whole,
+    shown_physics_problem,
 )
 from app.modules.physics.prompt import build_physics_augmentation
 from app.modules.physics.reply_policy import PHYSICS_REPLY_POLICY, physics_prompt_hints
-from app.services.solving import SubjectAugmentation, VerifiedPhysicsBlock
+from app.modules.turn_reading.see_request import asks_to_see
+from app.services.solving import PhotoReading, SubjectAugmentation, VerifiedPhysicsBlock
 from app.services.subject_hints import SubjectHints
 
 if TYPE_CHECKING:
@@ -31,13 +33,13 @@ if TYPE_CHECKING:
 def _physics_request_text(user_content: str) -> str:
     """The problem a physics turn verifies.
 
-    A scanned photo's caption is a protocol line. When the student confirmed
-    what the scanner read, that reading is the problem; without one, the
-    caption alone gets the unverified physics note.
+    A scanned photo's caption is a protocol line. When the turn read the photo, that
+    reading is the problem, whichever tab took it (a physics word problem on the maths
+    tab); without one, the caption alone gets the unverified physics note.
     """
     from app.services.subject_scan import confirmed_scan_reading, scanner_camera_subject
 
-    if scanner_camera_subject(user_content) != "physics":
+    if scanner_camera_subject(user_content) is None:
         return user_content
     return confirmed_scan_reading(user_content) or user_content
 
@@ -52,6 +54,11 @@ _HINTS = SubjectHints(
 
 @dataclass(frozen=True)
 class PhysicsFollowups:
+    def changed_problem(self, problem: str, given: str | None, new: str) -> str | None:
+        from app.modules.physics.followup import changed_physics_problem
+
+        return changed_physics_problem(problem, given, new)
+
     def problem(
         self,
         query: str | None,
@@ -80,15 +87,20 @@ class PhysicsFollowups:
         return False
 
     def asks_to_see(self, line: str, recent: Sequence[Any] | None = None) -> bool:
-        return False
+        return asks_to_see(line) and (recent is None or any(recent))
 
-    def shown_problem(self, line: str, recent: Sequence[Any]) -> str | None:
-        return None
+    def shown_problem(
+        self, line: str, recent: Sequence[Any], referent: str | None = None
+    ) -> str | None:
+        return shown_physics_problem(line, referent)
 
 
 @dataclass(frozen=True)
 class PhysicsFence:
     """Physics checks the replies it verified (chat's finalize passes)."""
+
+    def owns(self, verified: VerifiedSolveBlock | None) -> bool:
+        return isinstance(verified, VerifiedPhysicsBlock)
 
     def needs_check(self, text: str, verified: VerifiedSolveBlock | None) -> bool:
         return True
@@ -120,7 +132,10 @@ class PhysicsFence:
     def draws(self, text: str, settings: Settings) -> bool:
         return False
 
-    def draw(self, text: str, settings: Settings) -> str:
+    async def named(self, text: str, settings: Settings) -> dict[str, str]:
+        return {}
+
+    def draw(self, text: str, settings: Settings, named: Mapping[str, str] | None = None) -> str:
         return text
 
     def tidy(self, text: str, user_text: str, verified: VerifiedSolveBlock | None) -> str:
@@ -144,25 +159,29 @@ class PhysicsPhoto:
         content: str,
         *,
         image_attachments: list[tuple[str, str]],
-        load_image: Callable[[str], Awaitable[bytes | None]],
+        load_image: Callable[[str], Awaitable[tuple[str, bytes] | None]],
         settings: Settings,
         on_status: Callable[[str], Awaitable[None]] | None,
-    ) -> tuple[None, str]:
+    ) -> PhotoReading:
+        # Its reader has no certainty signal: a plain-text vision read, stated as the line.
         if not settings.physics_enabled:
-            return None, content
+            return PhotoReading(None, content)
         from app.modules.physics.read import read_physics_problem
         from app.services.subject_scan import read_scanned_problem
 
         async def read(content_type: str, data: bytes) -> str:
             return await read_physics_problem(settings, content_type=content_type, data=data)
 
-        return None, await read_scanned_problem(
-            content,
-            subject="physics",
-            image_attachments=image_attachments,
-            load_image=load_image,
-            read=read,
-            on_status=on_status,
+        return PhotoReading(
+            None,
+            await read_scanned_problem(
+                content,
+                subject="physics",
+                image_attachments=image_attachments,
+                load_image=load_image,
+                read=read,
+                on_status=on_status,
+            ),
         )
 
 
@@ -170,11 +189,17 @@ class PhysicsPhoto:
 class PhysicsSubject:
     name: Literal["physics"] = "physics"
     hints: SubjectHints = _HINTS
+    status_phase: str = "physics"
     followups: PhysicsFollowups = PhysicsFollowups()
     fence: PhysicsFence = PhysicsFence()
     photo: PhysicsPhoto = PhysicsPhoto()
     # No model tool of its own.
     tool: None = None
+    # Its pictures come with its solve (a scene, a molecule), never from a separate read.
+    figure: None = None
+
+    def enabled(self, settings: Settings) -> bool:
+        return settings.physics_enabled
 
     def asks(self, text: str, *, has_image_attachment: bool = False) -> bool:
         return needs_physics(text)
@@ -190,7 +215,9 @@ class PhysicsSubject:
         intent = extract_physics_intent(f"{setup} {question}")
         return intent is not None and bool(intent.asked)
 
-    def fast_lane(self, text: str, *, tools_on: bool) -> bool | None:
+    def fast_lane(self, text: str, *, tools_on: bool, claimed: bool = True) -> bool | None:
+        # Its cues read a line whether or not the order gave it physics: "a pendulum's
+        # period" with no numbers still wants the strong model.
         from app.modules.physics.lane import physics_fast_lane
 
         return physics_fast_lane(text, tools_on=tools_on)
@@ -230,6 +257,10 @@ class PhysicsSubject:
     ) -> str | None:
         if not isinstance(verified, VerifiedPhysicsBlock):
             return None
+        if asks_to_see(user_text):
+            from app.modules.physics.fence import scene_reply
+
+            return scene_reply(verified)
         from app.modules.physics.direct import maybe_direct_physics_reply
 
         return maybe_direct_physics_reply(

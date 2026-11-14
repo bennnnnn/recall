@@ -7,7 +7,15 @@ from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers.constants import GAS_R
-from app.modules.chemistry.solvers.display import const, given_row, inp, num, used, verified
+from app.modules.chemistry.solvers.display import (
+    carried,
+    const,
+    given_row,
+    inp,
+    num,
+    used,
+    verified,
+)
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.species import counts_in_mass_action, parse_species
 from app.services.solving import SolveServiceError
@@ -172,7 +180,8 @@ def solve_kc_kp(intent: ChemistryIntent) -> ChemistryResult:
         shown.split(" = ", 1)[0],
         *stated("kc_kp"),
         (
-            f"RT = ({const(GAS_R)})({used(temperature)}) = {num(GAS_R * temperature)} L·atm/mol",
+            f"RT = ({const(GAS_R)})({used(temperature)})"
+            f" = {carried(GAS_R * temperature)} L·atm/mol",
             working,
         ),
         shown,

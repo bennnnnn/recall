@@ -10,6 +10,9 @@ of ``SUBJECTS`` decides nothing.
 An adapter has what the dispatcher and chat ask of every subject:
 
 - ``name``: the subject, one of ``SubjectName``;
+- ``enabled``: whether its settings switch is on, so chat solves its lines;
+- ``status_phase``: the status line its solve shows (one of chat's ``StreamStatusPhase``,
+  each of which the phone has a label for);
 - ``solve``: the turn's verified block for a line, the prompt note when nothing verified it,
   and whether the subject tried and declined (``SubjectAugmentation``);
 - ``direct_reply``: the reply a verified block may show without a model, or None. It runs in
@@ -17,32 +20,38 @@ An adapter has what the dispatcher and chat ask of every subject:
 - ``hints``: its prompt copy, and where chat states it (``SubjectHints``);
 - ``asks``: whether a line asks something of the subject (its cue), solved or not;
 - ``reads``: whether the subject reads a request out of the line (its intent);
-- ``fast_lane``: the model lane its own read of a line suggests to Auto routing;
+- ``fast_lane``: the model lane its own read of a line suggests to Auto routing, for a line
+  the subject order gave it and for one no subject claimed;
 - ``instant_reply``: a reply the subject writes for a line with no model and no solve;
 - ``warm``: what a fresh SymPy pool worker runs first, so a turn pays no imports;
 - ``solve_timeouts``: the solves of the subject that ran out of time inside a block;
 - ``photo``: how it reads its problem off a turn's photo (``SubjectPhoto``), or None;
 - ``tool``: how the tool loop checks calls to the model tool it owns (``SubjectTool``), or
   None;
+- ``figure``: the picture it draws for a question that asks to see one, from the question's
+  own values (``SubjectFigure``), or None;
 - ``followups``: how it reads a line that goes back to its last problem
   (``SubjectFollowups``);
-- ``fence``: how it holds a finished reply's fences to its verified block, and the notes,
-  drawings and clean-up it adds (``SubjectFence``).
+- ``fence``: which verified blocks it finishes, how it holds a finished reply's fences to
+  its block, and the notes, drawings and clean-up it adds (``SubjectFence``).
 
-A subject with nothing to offer for a member answers None or False, or returns the text as it is.
+A subject with nothing to offer for a member answers None or False, or returns the text as it is;
+a member that raises answers the same way, logged once (``services/subjects/guard``).
 
 Money is registered beside them as a peer (``MONEY``, a ``MoneyPeer``): a loan, card or
 savings question is worked before the prompt and gets its calculator card after the reply,
 and a money turn has no subject solve (chat's ``turn_prep``).
 
 A new subject is a module with its own ``subject`` adapter, its name in ``SubjectName`` (in
-``services/solving``, beside the verified block every subject's solve names itself in) and its
-entry in ``SUBJECTS``; ``tests/services/test_subject_registry.py`` holds the two to each other.
+``services/solving``, beside the verified block every subject's solve names itself in), its
+entry in ``SUBJECTS`` and its step in the subject order; chat asks it through the adapter
+from there. ``tests/services/test_subject_registry.py`` holds the names to each other and
+``test_subject_completeness.py`` each adapter to what chat asks of it.
 """
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol, TypeGuard
@@ -54,7 +63,11 @@ from app.modules.math.schemas import MathImageExtract as MathImageExtract
 from app.modules.math.subject import MATH_SUBJECT
 from app.modules.money.subject import MONEY_PEER
 from app.modules.physics.subject import PHYSICS_SUBJECT
+
+# What a subject read off a photo (``photo``).
+from app.services.solving import PhotoReading as PhotoReading
 from app.services.solving import SubjectName as SubjectName
+from app.services.subjects.guard import GuardedSubject
 
 if TYPE_CHECKING:
     from redis.asyncio import Redis
@@ -130,8 +143,19 @@ class SubjectFollowups(Protocol):
         and, given the chat's recent lines, one of them could be the problem it draws."""
         ...
 
-    def shown_problem(self, line: str, recent: Sequence[Any]) -> str | None:
-        """The problem whose card draws what the line asks to see, read in the pool."""
+    def shown_problem(
+        self, line: str, recent: Sequence[Any], referent: str | None = None
+    ) -> str | None:
+        """The problem whose card draws what the line asks to see, read in the pool.
+        ``referent``: the earlier message a model read as the "it" the line asks to see
+        (``chat.referent_read``), when the turn read one."""
+        ...
+
+    def changed_problem(self, problem: str, given: str | None, new: str) -> str | None:
+        """``problem`` with one given put to ``new``, the value a line changes it to ("what
+        if it took 10 s?" is ``new`` "10 s"); ``given`` names which, as a model read it
+        (``chat.posed_read``). None when the subject cannot put it in place exactly. Read
+        in the pool."""
         ...
 
 
@@ -140,6 +164,11 @@ class SubjectFence(Protocol):
 
     ``check`` and ``draw`` take positional arguments: the SymPy pool runs them.
     """
+
+    def owns(self, verified: VerifiedSolveBlock | None) -> bool:
+        """Whether this subject finishes a reply whose turn ``verified`` stands for: a block
+        of its own. Maths also finishes every reply no subject verified (None)."""
+        ...
 
     def needs_check(self, text: str, verified: VerifiedSolveBlock | None) -> bool:
         """Whether ``check`` has anything to do, before the pool is asked."""
@@ -169,7 +198,13 @@ class SubjectFence(Protocol):
         """The reply holds fences the subject draws from its own data (``draw``)."""
         ...
 
-    def draw(self, text: str, settings: Settings) -> str:
+    async def named(self, text: str, settings: Settings) -> dict[str, str]:
+        """What those fences are labelled, each checked against the app's own data: a
+        molecule's name and the structure it names (``draw`` keeps a name on its own
+        structure only). Before ``draw``, off the pool: it may look a name up."""
+        ...
+
+    def draw(self, text: str, settings: Settings, named: Mapping[str, str] | None = None) -> str:
         """Those fences drawn, in the pool: a chart's formula sampled, a molecule's data."""
         ...
 
@@ -186,13 +221,14 @@ class SubjectPhoto(Protocol):
         content: str,
         *,
         image_attachments: list[tuple[str, str]],
-        load_image: Callable[[str], Awaitable[bytes | None]],
+        load_image: Callable[[str], Awaitable[tuple[str, bytes] | None]],
         settings: Settings,
         on_status: Callable[[str], Awaitable[None]] | None,
-    ) -> tuple[MathImageExtract | None, str]:
+    ) -> PhotoReading:
         """What it read, and ``content`` with the line the prompt states it in.
 
-        ``load_image`` gives a photo's bytes by its storage key.
+        ``load_image`` gives a photo by its storage key as a reader should see it: upright,
+        with its content type.
         """
         ...
 
@@ -222,6 +258,33 @@ class SubjectTool(Protocol):
         ...
 
 
+class SubjectFigure(Protocol):
+    """The picture a subject draws for a question that asks to see one (a figure, a graph,
+    a number line), from the question's own values; started beside the reply and added
+    after it when the reply holds no picture of the server's."""
+
+    async def draw(self, question: str, earlier: Sequence[str], settings: Settings) -> str | None:
+        """The picture's fence, or None when nothing is drawn. ``earlier``: the user's
+        earlier messages, newest first, for a request to draw "it"."""
+        ...
+
+    def shown(self, verified: VerifiedSolveBlock | None) -> bool:
+        """The turn's verified block already draws the whole picture."""
+        ...
+
+    def whole(self, text: str) -> bool:
+        """The reply already holds a picture no figure adds to (a graph, a scene)."""
+        ...
+
+    def adds_to(self, text: str, fence: str) -> bool:
+        """``fence`` shows what the reply's own pictures do not."""
+        ...
+
+    def without_substitutes(self, text: str) -> str:
+        """``text`` without the model's own picture of the figure drawn in characters."""
+        ...
+
+
 class SubjectAdapter(Protocol):
     """One subject, as the dispatcher and chat ask it."""
 
@@ -230,6 +293,13 @@ class SubjectAdapter(Protocol):
 
     @property
     def hints(self) -> SubjectHints: ...
+
+    @property
+    def status_phase(self) -> str: ...
+
+    def enabled(self, settings: Settings) -> bool:
+        """The subject's switch: chat solves its lines only while it is on."""
+        ...
 
     @property
     def followups(self) -> SubjectFollowups: ...
@@ -247,9 +317,12 @@ class SubjectAdapter(Protocol):
         won the Arsenal game last night?"."""
         ...
 
-    def fast_lane(self, text: str, *, tools_on: bool) -> bool | None:
+    def fast_lane(self, text: str, *, tools_on: bool, claimed: bool = True) -> bool | None:
         """True keeps the line on the fast model (the verified answer needs no reasoning),
-        False sends it to the strong one, None when the subject has no say."""
+        False sends it to the strong one, None when the subject has no say. ``claimed``:
+        the subject order gave the line to this subject; False asks whether the subject's
+        own cues claim a line no subject did ("a pendulum's period" goes to the strong
+        model)."""
         ...
 
     def instant_reply(self, text: str, *, prior_reply: str | None) -> str | None: ...
@@ -263,6 +336,9 @@ class SubjectAdapter(Protocol):
 
     @property
     def tool(self) -> SubjectTool | None: ...
+
+    @property
+    def figure(self) -> SubjectFigure | None: ...
 
     async def solve(self, request: SubjectRequest, settings: Settings) -> SubjectAugmentation: ...
 
@@ -319,16 +395,36 @@ class MoneyPeer(Protocol):
 # Money, the subjects' peer.
 MONEY: MoneyPeer = MONEY_PEER
 
-# The registration: one entry per subject.
-SUBJECTS: tuple[SubjectAdapter, ...] = (
-    MATH_SUBJECT,
-    PHYSICS_SUBJECT,
-    CHEMISTRY_SUBJECT,
+# The registration: one entry per subject. Which subject a line is never follows this order
+# (the subject order does); chat states the subjects' fixed prompt copy in it, which the
+# leak pass joins as listed (``chat.prompt_subjects``). Chat gets each one guarded: a member
+# that raises answers as a subject with nothing to say (``guard``), so one subject's bug
+# never fails another's turn.
+SUBJECTS: tuple[SubjectAdapter, ...] = tuple(
+    GuardedSubject(adapter) for adapter in (PHYSICS_SUBJECT, MATH_SUBJECT, CHEMISTRY_SUBJECT)
 )
 
-_BY_NAME: dict[SubjectName, SubjectAdapter] = {adapter.name: adapter for adapter in SUBJECTS}
+_BY_NAME: dict[str, SubjectAdapter] = {adapter.name: adapter for adapter in SUBJECTS}
+
+# The subject that finishes a reply no subject's fence owns: maths holds every unverified
+# reply's answer fences, LaTeX and charts to what it can check (chat's finalize passes).
+FENCE_FALLBACK: SubjectName = "math"
 
 
 def subject_adapter(name: SubjectName) -> SubjectAdapter:
     """The registered adapter of a subject."""
     return _BY_NAME[name]
+
+
+def adapter_named(name: str | None) -> SubjectAdapter | None:
+    """The adapter of a subject named by a string a turn carries, or None for no subject."""
+    return _BY_NAME.get(name) if name is not None else None
+
+
+def fence_owner(verified: VerifiedSolveBlock | None) -> SubjectAdapter:
+    """The subject that finishes a reply whose turn ``verified`` stands for: the one whose
+    fence owns the block (one at most), else maths."""
+    for adapter in SUBJECTS:
+        if adapter.fence.owns(verified):
+            return adapter
+    return _BY_NAME[FENCE_FALLBACK]

@@ -1,3 +1,5 @@
+import { preprocessMarkdown } from "@/lib/markdown/preprocess";
+import { formatAssistantMathExpr } from "@/lib/math/formatInput";
 import {
   applyImplicitPowerNotation,
   fixImplicitExponents,
@@ -88,6 +90,27 @@ describe("normalizeImplicitMath", () => {
     const out = normalizeImplicitMathInProse(input);
     expect(out).toBe(input);
     expect(out).not.toMatch(/^- /);
+  });
+
+  // An order of numbers drew as a bullet and "2.5 < -0.33 < …" (the textbook run,
+  // 2026-11-13): a minus glued to what it negates is a sign, and a body with no word is maths.
+  it.each([
+    "$-2.5 < -0.33 < 0.75 < 1.5$",
+    "$-x < 3$",
+    String.raw`$-\frac{5}{2} < -\frac{1}{3}$`,
+    "$-3$",
+    String.raw`$-0.5 \le x$`,
+  ])("keeps the sign of %s inside its maths", (line) => {
+    expect(normalizeImplicitMathInProse(line)).toBe(line);
+  });
+
+  it.each([
+    ["$- 2.5 < 3$", "$- 2.5 < 3$"],
+    ["$- x > -4$", "$- x > -4$"],
+    ["$- Height of the box$", "- Height of the box"],
+    ["$* Base = 8 cm$", "* Base = 8 cm"],
+  ])("reads %s as a bullet only over words", (line, expected) => {
+    expect(normalizeImplicitMathInProse(line)).toBe(expected);
   });
 
   it("keeps non-minus bullet markers outside a wrapped equation", () => {
@@ -294,6 +317,38 @@ describe("normalizeImplicitMath", () => {
     );
     expect(out).not.toContain("$\\left$");
     expect(out).not.toContain("$\\right$");
+  });
+});
+
+// Two glued groups wrapped apart met as `$$`: a display block and a stray dollar.
+describe("a glued run of brackets", () => {
+  it.each([
+    ["Differentiate sin(x^2)cos(x^2)", String.raw`Differentiate $\sin(x^2)\cos(x^2)$`],
+    ["Differentiate e^(x^2)sin(x^2)", String.raw`Differentiate $e^{x^2}\sin(x^2)$`],
+    ["Simplify x^2(x^2+1)", "Simplify $x^2(x^2+1)$"],
+    ["Evaluate log_2(x^2)", String.raw`Evaluate $\log_2(x^2)$`],
+    ["Evaluate log_10(x^3)", String.raw`Evaluate $\log_{10}(x^3)$`],
+    ["Compute x_1(x^2)", "Compute $x_1(x^2)$"],
+    ["Solve (x^2+1)(x-3) = 0", "Solve $(x^2+1)(x-3)$ = 0"],
+    ["(x^2+1)^2", "$(x^2+1)^2$"],
+    ["Expand -3(x^2+1)", "Expand $-3(x^2+1)$"],
+    ["Evaluate f(g(x^2))", "Evaluate $f(g(x^2))$"],
+    ["Compute x2(x^2)", "Compute x2$(x^2)$"],
+  ])("is one formula: %s", (input, drawn) => {
+    expect(normalizeImplicitMath(input)).toBe(drawn);
+  });
+
+  it.each(["costs $5(x^2) here", "Price is $5 (x^2 terms)"])(
+    "leaves a price's bracket as written: %s",
+    (input) => {
+      expect(normalizeImplicitMath(input)).toBe(input);
+    },
+  );
+
+  it("is one formula in a reply too, never a display block", () => {
+    const out = preprocessMarkdown("So sin(x^2)cos(x^2) is even.", formatAssistantMathExpr);
+    expect(out).not.toContain("```math");
+    expect(out.match(/\$/g)).toHaveLength(2);
   });
 });
 

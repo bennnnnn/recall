@@ -7,7 +7,8 @@ context all read ASCII formulas, and a subscript digit used to end a formula: "t
 of H₂SO₄" was answered as the molar mass of H. ``read_chemistry_text`` spells the text once,
 at the input:
 
-- a subscript digit is a digit: ``H₂SO₄`` is ``H2SO4``;
+- a subscript digit is a digit: ``H₂SO₄`` is ``H2SO4``, and so is a count written as a
+  subscript, ``H_2SO_4`` or ``CO_{2}``;
 - a superscript is a charge or an exponent: ``Fe³⁺`` is ``Fe^3+``, ``SO₄²⁻`` is ``SO4^2-``,
   ``OH⁻`` is ``OH-`` and ``10⁻³`` is ``10^-3``;
 - a hydrate's dot is one character: ``CuSO4.5H2O``, ``CuSO4 • 5H2O`` and ``CuSO4*5H2O`` are
@@ -15,10 +16,15 @@ at the input:
   point and a product of two numbers are not hydrate dots;
 - a lowercase ``ph`` beside its value is pH: "whats the ph of 0.10 M HCl", "ph = 3.2";
 - an ``=`` between two sides of formulas is the arrow of an equation to balance:
-  "Al + HCl = AlCl3 + H2, balance it".
+  "Al + HCl = AlCl3 + H2, balance it";
+- a formula typed in lowercase where an amount names its substance is that formula: "0.01 M
+  hcl" is 0.01 M HCl and "36 g of h2o" 36 g of H2O (``lowercase_formulas``:
+  "co", Co or CO, stays a word);
+- a decimal point after a whole number's trailing zeros only marks them significant: "500. mL"
+  is 500 mL, which the readers already count as three figures (``sig_figs``).
 
-It changes how a formula or a symbol is written, never a number or a word, and reading text
-it already read changes nothing.
+It changes how a formula, a symbol or a number is written, never a value or a word, and
+reading text it already read changes nothing.
 """
 
 from __future__ import annotations
@@ -27,7 +33,10 @@ import re
 
 from app.modules.chemistry.elements import BY_SYMBOL
 from app.modules.chemistry.formula import parse_formula
+from app.modules.chemistry.lowercase_formulas import lowercase_substance
 from app.services.glyphs import SUBSCRIPT_DIGITS, SUPERSCRIPT_SIGNED
+from app.services.latex_markup import without_markup
+from app.services.number_text import DECIMAL
 
 _SUBSCRIPTS = SUBSCRIPT_DIGITS
 _SUPERSCRIPTS = SUPERSCRIPT_SIGNED
@@ -35,6 +44,18 @@ _SUPERSCRIPTS = SUPERSCRIPT_SIGNED
 # followed by a digit is the next term's ("x²-1"), not a charge.
 _SCRIPT_RUN = re.compile(r"([⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻]+)([+\-−](?![\d.]))?")
 _TRUE_MINUS = "−"
+
+# A count written as a subscript, braced or not: "H_2SO_4", "CO_{2}", "Ca(NO_3)_2" (a
+# LaTeX paste's ``\text{H}_2\text{SO}_4``). Read as written, "CO_2" was the formula CO.
+_SUBSCRIPT_COUNT = re.compile(r"(?<=[A-Za-z)\]])_\{?(\d+)\}?")
+# A count in a maths span of its own or HTML, glued to its formula: "H$_2$SO$_4$",
+# "CO\(_2\)", "CO<sub>2</sub>". Read before the markup, which pads a span with spaces and
+# so took the count off its formula: H$_2$SO$_4$ was H, 48.6 mol for 0.500 (review 2026-11-11).
+_SUBSCRIPT_SPAN = re.compile(
+    r"(?<=[A-Za-z)\]])(?:\$|\\\()\s*_\{?(\d+)\}?\s*(?:\$|\\\))"
+    r"|(?<=[A-Za-z)\]])<sub>\s*(\d+)\s*</sub>",
+    re.IGNORECASE,
+)
 
 # The canonical hydrate dot. ``formula.parse_formula`` reads it, and a number reader never
 # takes "4.5" out of "CuSO4·5H2O".
@@ -52,13 +73,27 @@ _COEFFICIENT = re.compile(r"(\d*)\s*(.*)", re.DOTALL)
 # a pH value, or before a molar concentration. "PH" and "Ph" count only before a
 # concentration: "PH = 7 cm" is a segment in geometry.
 _CONCENTRATION = (
-    r"(?:an?\s+|the\s+)?(?:solution\s+(?:of|with)\s+)?(?:\d+(?:\.\d+)?|\.\d+)"
+    rf"(?:an?\s+|the\s+)?(?:solution\s+(?:of|with)\s+)?{DECIMAL}"
     r"(?:\s*(?:[x×*·]\s*10\s*\^?\s*[-+−]?\d{1,3}|[eE][-+]?\d{1,3}))?"
     r"\s*(?:M|mM|mol/L|molar)(?![A-Za-z])"
 )
 _PH_WORD = re.compile(
     r"(?<![A-Za-z0-9])(?:ph(?=\s*(?:=|is)\s*(?:1[0-4]|\d)(?:\.\d+)?(?![\d.]))"
     rf"|(?:ph|PH|Ph)(?=\s+of\s+{_CONCENTRATION}))(?![A-Za-z0-9])"
+)
+
+# Where an amount or a quantity of a substance names it: "0.01 M hcl", "36 g of h2o", "the
+# molar mass of nacl". A lowercase token there may be a formula; anywhere else it is a word.
+_FORMULA_SLOT = re.compile(
+    rf"(?:(?<![\d.]){DECIMAL}\s*(?:M|mM|mol/L|(?i:molar|mol|moles?|mmol|g|grams?|mg|kg))\s+(?i:of\s+)?"
+    r"|(?i:\b(?:molar\s+mass|formula\s+mass|molecular\s+(?:mass|weight)|moles|grams|mass)"
+    r"\s+of\s+(?:the\s+)?)|(?<![A-Za-z])p(?:H|OH)\s+of\s+)"
+    r"(?P<token>[a-z][a-z0-9()]{1,11})(?![A-Za-z0-9(])"
+)
+# "500. mL": a whole number's trailing zeros made significant by a decimal point, before a unit.
+_TRAILING_POINT = re.compile(
+    r"(?<![\w.])(\d*0)\.(?=\s+(?:mL|L|g|mg|kg|mol|mmol|M|mM|K|°\s*C|atm|kPa|Pa|torr|mmHg|bar|"
+    r"J|kJ|cal|kcal|cm|nm|V|mV|min)(?![A-Za-z]))"
 )
 
 # "Al + HCl = AlCl3 + H2": an "=" is the arrow only when the question asks to balance and
@@ -158,11 +193,30 @@ def _equals_arrow(text: str) -> str:
     return "".join(pieces)
 
 
+def _lowercase_formulas(text: str) -> str:
+    if not _FORMULA_SLOT.search(text):
+        return text
+
+    def write(match: re.Match[str]) -> str:
+        formula = lowercase_substance(match.group("token"))
+        if formula is None:
+            return match.group(0)
+        return match.group(0)[: match.start("token") - match.start()] + formula
+
+    return _FORMULA_SLOT.sub(write, text)
+
+
 def read_chemistry_text(text: str) -> str:
-    """The student's text with formulas, charges, hydrate dots and pH written in ASCII."""
+    """The student's text with formulas, charges, hydrate dots and pH written in ASCII.
+
+    A question pasted in LaTeX is read as its plain text first (``latex_markup``):
+    "\\(25.0 \\text{ mL}\\)" is 25.0 mL and "\\ce{H2SO4}" is H2SO4.
+    """
     if not text:
         return text
-    text = spell_scripts(text)
+    text = _SUBSCRIPT_SPAN.sub(lambda count: count.group(1) or count.group(2), text)
+    text = _SUBSCRIPT_COUNT.sub(r"\1", spell_scripts(without_markup(text)))
     text = _hydrate_dots(text)
     text = _PH_WORD.sub("pH", text)
+    text = _TRAILING_POINT.sub(r"\1", _lowercase_formulas(text))
     return _equals_arrow(text)

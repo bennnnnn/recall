@@ -28,9 +28,11 @@ _ITEM = (
     r"tokens?|discs?|disks?|tiles?)"
 )
 _HOLDER = r"(?:bag|box|jar|urn|bowl|drawer|basket|tin|hat|pot|container)"
-_GROUP = rf"{_COUNT}\s+{_COLOUR}(?:\s+{_ITEM})?"
+_GROUP = rf"{_COUNT}\s++{_COLOUR}(?:\s++{_ITEM})?"
 _GROUP_PARTS = re.compile(rf"({_COUNT})\s+({_COLOUR})", re.IGNORECASE)
-_CONTENTS = rf"{_GROUP}(?:\s*,\s*{_GROUP})*\s*,?\s+and\s+{_GROUP}"
+# Each run of space is read once (possessive): "a bag has 3 red" and a run of spaces, split
+# between the \s* and \s+ around the commas and "and", took cubic time.
+_CONTENTS = rf"{_GROUP}(?:\s*+,\s*+{_GROUP})*(?:\s*+,\s++|\s++)and\s++{_GROUP}"
 _MANNER = (
     r"(?P<manner>without\s+replacement|with\s+replacement|without\s+replacing(?:\s+(?:it|them))?"
     r"|at\s+the\s+same\s+time|at\s+once|simultaneously|together)"
@@ -41,35 +43,35 @@ _DRAW_VERB = (
 )
 _QUESTION = (
     r"(?:what\s+is\s+|what's\s+|whats\s+|find\s+|calculate\s+|work\s+out\s+)?"
-    r"(?:the\s+)?(?:probability|chance)\s+(?:that\s+|of\s+)?"
+    r"(?:the\s+)?(?:probability|chance)\s++(?:that\s++|of\s++)?"
 )
 _EVENT = (
-    rf"(?:(?:they|the\s+{_ITEM}|both\s+of\s+them|all\s+of\s+them)\s+(?:are|is)\s+)?"
-    r"(?:getting\s+|drawing\s+|picking\s+|choosing\s+|selecting\s+)?"
-    rf"(?:(?P<both>both)|all(?:\s+(?P<all_count>{_COUNT}))?|(?P<event_count>{_COUNT}))?"
-    rf"\s*(?:are\s+|is\s+|being\s+|of\s+them\s+(?:are\s+)?)?"
-    rf"(?P<colour>{_COLOUR})s?(?:\s+{_ITEM}|\s+ones?)?"
+    rf"(?:(?:they|the\s+{_ITEM}|both\s+of\s+them|all\s+of\s+them)\s++(?:are|is)\s++)?"
+    r"(?:getting\s++|drawing\s++|picking\s++|choosing\s++|selecting\s++)?"
+    rf"(?:(?P<both>both)|all(?:\s++(?P<all_count>{_COUNT}))?|(?P<event_count>{_COUNT}))?"
+    rf"\s*+(?:are\s++|is\s++|being\s++|of\s+them\s++(?:are\s++)?)?"
+    rf"(?P<colour>{_COLOUR})s?(?:\s++{_ITEM}|\s++ones?)?"
 )
-_END = r"\s*[?.!]?\s*"
+_END = r"\s*+[?.!]?\s*+"
 # "a bag has 3 red and 5 blue marbles. pick 2 without replacement. probability both red"
 _BAG_FIRST = re.compile(
     rf"(?:an?|one|the)\s+{_HOLDER}\s+(?:has|contains|holds|with|containing|that\s+has)\s+"
-    rf"(?P<contents>{_CONTENTS})\s*[.,;]?\s*"
+    rf"(?P<contents>{_CONTENTS})\s*+[.,;]?\s*+"
     rf"(?:(?:(?:if\s+)?(?:you|i|we|someone|a\s+student|he|she)\s+)?(?:randomly\s+)?{_DRAW_VERB}\s+"
     rf"(?P<draws>{_COUNT})(?:\s+{_ITEM})?"
     rf"|(?:if\s+)?(?P<draws_passive>{_COUNT})\s+(?:{_ITEM}|of\s+them)\s+(?:are|is)\s+{_DRAW_VERB})"
-    rf"(?:\s+(?:at\s+random|randomly))?\s*,?\s*"
-    rf"{_MANNER}\s*[.,;]?\s*{_QUESTION}{_EVENT}{_END}",
+    rf"(?:\s++(?:at\s+random|randomly))?\s*+,?\s*+"
+    rf"{_MANNER}\s*+[.,;]?\s*+{_QUESTION}{_EVENT}{_END}",
     re.IGNORECASE,
 )
 # "2 marbles are drawn without replacement from a bag of 3 red and 5 blue. probability ..."
 _DRAW_FIRST = re.compile(
     rf"(?:if\s+)?(?P<draws>{_COUNT})\s+{_ITEM}\s+(?:are|is)\s+{_DRAW_VERB}"
-    rf"(?:\s+(?:at\s+random|randomly))?\s*,?\s*(?:{_MANNER}\s+)?"
+    rf"(?:\s++(?:at\s+random|randomly))?\s*+,?\s*+(?:{_MANNER}\s++)?"
     rf"(?:from|out\s+of)\s+(?:an?|the)\s+{_HOLDER}\s+"
     rf"(?:of|with|containing|that\s+(?:has|contains)|holding)\s+"
-    rf"(?P<contents>{_CONTENTS})\s*,?\s*(?:(?P<manner_after>without\s+replacement"
-    rf"|with\s+replacement)\s*)?[.,;]?\s*{_QUESTION}{_EVENT}{_END}",
+    rf"(?P<contents>{_CONTENTS})\s*+,?\s*+(?:(?P<manner_after>without\s+replacement"
+    rf"|with\s+replacement)\s*+)?[.,;]?\s*+{_QUESTION}{_EVENT}{_END}",
     re.IGNORECASE,
 )
 _MAX_DRAWS = 6

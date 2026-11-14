@@ -18,9 +18,11 @@ from app.modules.physics.ask_words import _DIMENSIONLESS, _MONEY, _QUANTITIES
 from app.modules.physics.extract import extract_physics_intent, needs_physics
 from app.modules.physics.givens import ANGLE, PHYSICS_UNITS
 from app.modules.physics.kept_property import kept_property_problem
+from app.modules.physics.motion import read_motion
 from app.modules.physics.verified_answers import results as _results
 from app.modules.physics.verified_answers import verified_display as _verified_display
 from app.modules.physics.verified_answers import verifies as _verifies
+from app.modules.turn_reading.see_request import asks_to_see
 from app.services.law_binding.fit import read_givens
 from app.services.law_binding.givens import Given
 from app.services.law_binding.units import unit_dimension
@@ -40,6 +42,7 @@ from app.services.problem_followup import (
     replace_given,
     same_quantities,
     with_sentences,
+    written_value,
 )
 from app.services.scaled_followup import scaled_given
 
@@ -105,6 +108,10 @@ def physics_followup_problem(query: str | None, recent: Sequence[Any]) -> str | 
         return None
     if EXPLAIN_RE.fullmatch(line):
         return prior
+    if read_motion(line).changes_speed and not read_motion(prior).changes_speed:
+        # "What if it takes 10 s to stop instead?" after a steady 20 m/s for 5 s changes the
+        # motion, not a number: swapped in, it covered 200 m for 100 m (audit 2026-11-07).
+        return None
     # Before the other shapes: "what if it was 3 times higher" is no new value.
     scaled = scaled_given(line)
     if scaled is not None:
@@ -134,6 +141,14 @@ def physics_followup_problem(query: str | None, recent: Sequence[Any]) -> str | 
             return _kept_or_declined(prior, rewritten)
         return None if rewritten is None or _ambiguous(prior, rewritten) else rewritten
     return None if _held_fixed(prior) else _restated(prior, written)
+
+
+def shown_physics_problem(line: str, referent: str | None) -> str | None:
+    """ "Draw it" after a physics problem: the problem a model read as "it"
+    (``chat.referent_read``), solved again for its scene; None when it is no physics."""
+    if not referent or not asks_to_see(line) or not needs_physics(referent):
+        return None
+    return referent
 
 
 # A result that is a property of the object or its medium, not of what is done to it:
@@ -393,3 +408,18 @@ _GIVENS = GivenRewriter(
     asked=_asked_dimensions,
     fits=_fits,
 )
+
+
+def changed_physics_problem(problem: str, given: str | None, new: str) -> str | None:
+    """``problem`` with the given of ``new``'s kind put to ``new`` ("10 s" replaces the time;
+    of two masses, the one whose number ``given`` quotes). The unit decides which kind
+    changes: "10 s" never replaces a distance. The rewrite verifies."""
+    value = written_value(new)
+    if value is None:
+        return None
+    rewritten = _GIVENS.replaced(problem, given, *value)
+    if rewritten is None:
+        return None
+    if _held_fixed(problem):
+        return _kept_or_declined(problem, rewritten)
+    return None if _ambiguous(problem, rewritten) else rewritten

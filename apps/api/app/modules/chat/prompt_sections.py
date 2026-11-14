@@ -23,7 +23,6 @@ from typing import Any
 
 from app.core.config import Settings
 from app.models.orm import User
-from app.modules.account import profile as profile_service
 from app.modules.chat import response_tone as response_tone_service
 from app.modules.chat.clarify_turn import clarify_reply_hint
 from app.modules.chat.continuation_subject import exchange_pairs, is_resume_request
@@ -52,7 +51,6 @@ from app.modules.chat.prompt_constants import (
     STYLE_HINTS,
     TONE_FORMAT_GUARD,
     UNCLEAR_MESSAGE_HINT,
-    WEB_SEARCH_OFF_HINT,
     is_bare_writing_line,
     learning_plan_contract,
     programming_lesson_contract,
@@ -62,7 +60,12 @@ from app.modules.chat.prompt_constants import (
 from app.modules.chat.prompt_constants.conversation import SUMMARY_LEAD
 from app.modules.chat.prompt_constants.multi_part import multi_part_contract
 from app.modules.chat.prompt_constants.reactions import clock_is_relevant
-from app.modules.chat.prompt_context_hints import integration_hints, lookup_hints, slim_geo_hints
+from app.modules.chat.prompt_context_hints import (
+    integration_hints,
+    lookup_hints,
+    search_off_hints,
+    slim_geo_hints,
+)
 from app.modules.chat.prompt_format import (
     _layout_format_hint,
     _style_format_hints,
@@ -77,6 +80,7 @@ from app.modules.chat.prompt_profile import (
 )
 from app.modules.chat.prompt_rules import PromptRule
 from app.modules.chat.prompt_subjects import SUBJECT_HINTS
+from app.modules.chat.turn_prep.saved_place import profile_place
 from app.modules.turn_reading.capabilities import is_capabilities_question, names_a_setting
 from app.modules.turn_reading.conversation import greeting_run, is_correction, is_social_opener
 from app.modules.turn_reading.length import is_brevity_request, reply_length
@@ -104,7 +108,7 @@ from app.services import locale as locale_service
 from app.services import time_context as time_context_service
 from app.services.day_planning import is_day_planning_question
 from app.services.prompt_safety import wrap_saved_memory, wrap_untrusted
-from app.services.subjects.registry import SubjectName
+from app.services.subjects.registry import SUBJECTS, SubjectName
 
 
 @dataclass(frozen=True)
@@ -220,7 +224,7 @@ def _integrations(turn: PromptTurn) -> list[str]:
         query_text=turn.query_text,
         local_tz=turn.local_tz,
         user_locale=turn.user.locale,
-        location_for_context=turn.prompt_location or profile_service.user_location_label(turn.user),
+        location_for_context=turn.prompt_location or profile_place(turn.user, turn.local_tz),
         prompt_location=turn.prompt_location,
         memory_block=turn.memory_block,
         attachment_rag_block=turn.attachment_rag_block,
@@ -322,6 +326,16 @@ def _social_hint(turn: PromptTurn) -> str:
     return repeated_greeting_hint(run, last_reply)
 
 
+def _followup_section(subject: SubjectName) -> PromptSection:
+    """A turn that only continues ``subject``'s last problem gets its follow-up hints."""
+    hints = SUBJECT_HINTS[subject]
+    return PromptSection(
+        lambda t: t.followup == subject,
+        lambda _t: list(hints.followup),
+        name=f"{subject}_followup",
+    )
+
+
 # What the kind of turn needs, steadiest first so consecutive turns share a long
 # prefix: the length and style the message asks for, the profile (name only on a slim
 # turn, the email on a draft, the device location on a nearby ask), then the chat's
@@ -343,9 +357,9 @@ TURN_SECTIONS: tuple[PromptSection, ...] = (
         lambda t: not t.lightweight, lambda _t: [FACT_GROUNDING_HINT], name="fact_grounding"
     ),
     PromptSection(
-        # The user's own choice, not a server without search: only then point to Settings.
-        lambda t: not t.lightweight and t.user.web_search_enabled is False,
-        lambda _t: [WEB_SEARCH_OFF_HINT],
+        # Nothing to look up with this turn: say so, never offer (``search_off_hints``).
+        lambda t: not t.lightweight,
+        lambda t: search_off_hints(t.user, t.settings),
         name="web_search_off",
     ),
     PromptSection(lambda t: not t.slim, lambda t: lookup_hints(t.settings), name="lookup_hints"),
@@ -378,12 +392,8 @@ CONTEXT_SECTIONS: tuple[PromptSection, ...] = (
         name="clock",
     ),
     PromptSection(lambda t: not t.slim, _integrations, name="integrations"),
-    # "Coffee near me" is a slim turn, yet it needs the place and the places layout.
-    PromptSection(
-        lambda t: t.slim,
-        lambda t: slim_geo_hints(t.settings, t.query_text, t.prompt_location),
-        name="slim_geo",
-    ),
+    # A slim turn: "Coffee near me" needs the place and its layout, "Can I walk?" the place.
+    PromptSection(lambda t: t.slim, slim_geo_hints, name="slim_geo"),
     PromptSection(lambda t: t.slim and t.recall_memory, _slim_memory, name="slim_memory"),
     PromptSection(_gives_advice, _advice, name="advice"),
     PromptSection(_always, memory_notes, name="memory_notes"),
@@ -392,21 +402,8 @@ CONTEXT_SECTIONS: tuple[PromptSection, ...] = (
         lambda t: message_notes(t.query, t.exchange, t.user, t.memory_block),
         name="message_notes",
     ),
-    PromptSection(
-        lambda t: t.followup == "math",
-        lambda _t: list(SUBJECT_HINTS["math"].followup),
-        name="math_followup",
-    ),
-    PromptSection(
-        lambda t: t.followup == "chemistry",
-        lambda _t: list(SUBJECT_HINTS["chemistry"].followup),
-        name="chemistry_followup",
-    ),
-    PromptSection(
-        lambda t: t.followup == "physics",
-        lambda _t: list(SUBJECT_HINTS["physics"].followup),
-        name="physics_followup",
-    ),
+    # A turn that only continues a subject's last problem: that subject's follow-up hints.
+    *(_followup_section(adapter.name) for adapter in SUBJECTS),
     # Keep the acknowledgement contract closest to the user turn. Memory and
     # integration context is appended after the style pack and can otherwise
     # tempt the model into an unsolicited plan even though no task was asked.

@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from typing import Literal
 
+from app.modules.physics.ask import ask_clause, asks_for_a_part
 from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.circuit_patterns import (
     _CHARGE_FLOW_RE,
@@ -130,7 +131,10 @@ def _network_intent(
             },
             operation="solve",
         )
-    if not _WHOLE_RESISTANCE_ASK.search(lower):
+    # The whole asked, in the ask itself: "a total resistance of 10 Ω; one is 4 Ω: the
+    # other?" states the whole and asks a part, and was 10 + 4 = 14 Ω for 6 Ω.
+    clause = ask_clause(lower)
+    if clause is None or not _WHOLE_RESISTANCE_ASK.search(clause) or asks_for_a_part(lower):
         return None
     return PhysicsIntent(
         kind="circuit",

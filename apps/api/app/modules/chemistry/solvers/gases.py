@@ -28,7 +28,7 @@ def solve_dalton(intent: ChemistryIntent) -> ChemistryResult:
     total = sum(intent.species.values())
     unit = intent.units.get("pressure", "atm")
     shown = f"Ptotal = {num(total)} {unit}"
-    terms = " + ".join(inp(value) for value in intent.species.values())
+    terms = " + ".join(f"{inp(value)} {unit}" for value in intent.species.values())
     return verified(
         "Verified Dalton's law",
         tuple(f"{_partial(name)} = {inp(value)} {unit}" for name, value in intent.species.items()),
@@ -57,7 +57,7 @@ def _partial_from_moles(intent: ChemistryIntent) -> ChemistryResult:
     unit = intent.units.get("pressure", "atm")
     fraction = amounts[target] / sum(amounts.values())
     shown = f"P({target}) = {num(fraction * total)} {unit}"
-    every = " + ".join(inp(value) for value in amounts.values())
+    every = " + ".join(f"{inp(value)} mol" for value in amounts.values())
     return verified(
         "Verified partial pressure",
         (
@@ -67,7 +67,7 @@ def _partial_from_moles(intent: ChemistryIntent) -> ChemistryResult:
         f"Partial pressure of {target}",
         *stated("partial_pressure"),
         (
-            f"X({target}) = {inp(amounts[target])} / ({every}) = {carried(fraction)}",
+            f"χ({target}) = {inp(amounts[target])} mol / ({every}) = {carried(fraction)}",
             f"P({target}) = ({carried(fraction)})({inp(total)} {unit})",
         ),
         shown,
@@ -86,7 +86,7 @@ def solve_partial_pressure(intent: ChemistryIntent) -> ChemistryResult:
     shown = f"Pi = {num(fraction * total)} {unit}"
     return verified(
         "Verified partial pressure",
-        (f"Xi = {inp(fraction)}", f"Ptotal = {inp(total)} {unit}"),
+        (f"χᵢ = {inp(fraction)}", f"Ptotal = {inp(total)} {unit}"),
         "Partial pressure",
         *stated("partial_pressure"),
         (f"Pi = ({inp(fraction)})({inp(total)})",),
@@ -119,7 +119,7 @@ def solve_gas_over_water(intent: ChemistryIntent) -> ChemistryResult:
         *stated("gas_over_water"),
         (
             f"Pwater = {carried(vapor_same)} {unit} at {inp(temperature)} °C",
-            f"Pdry = {inp(total)} − {carried(vapor_same)}",
+            f"Pdry = {inp(total)} {unit} − {carried(vapor_same)} {unit}",
         ),
         shown,
         shown,
@@ -227,7 +227,7 @@ def solve_henry(intent: ChemistryIntent) -> ChemistryResult:
     return verified(
         "Verified Henry's law",
         (
-            f"C = {inp(concentration)}",
+            f"c = {inp(concentration)}",
             f"kH = {inp(constant)}",
             f"P = {inp(pressure)}",
         ),
@@ -243,14 +243,14 @@ def _henry_unknown(missing: str, values: dict[str, float]) -> tuple[float, float
     if missing == "concentration":
         concentration = values["henry_constant"] * values["pressure"]
         working = (
-            f"C = {inp(values['henry_constant'])} × {inp(values['pressure'])}"
+            f"c = {inp(values['henry_constant'])} × {inp(values['pressure'])}"
             f" = {num(concentration)}"
         )
         return (
             concentration,
             values["henry_constant"],
             values["pressure"],
-            f"C = {num(concentration)}",
+            f"c = {num(concentration)}",
             working,
         )
     if missing == "pressure":

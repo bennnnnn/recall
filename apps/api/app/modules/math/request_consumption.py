@@ -6,7 +6,8 @@ import re
 from dataclasses import dataclass
 
 from app.modules.math.function_calls import functions_dropped
-from app.modules.math.schemas import MathIntent
+from app.modules.math.schemas import MathIntent, is_declined
+from app.services.number_text import SIGNED_DECIMAL
 
 _ADDITIONAL_OPERATION = re.compile(
     r"\b(?:and|then|also|plus)\s+(?:then\s+)?"
@@ -42,7 +43,7 @@ _MULTIPLE_REQUESTED_STATISTICS = re.compile(
 )
 _LABELED_Z_SCORE_OPERAND = re.compile(
     r"\b(?:mean(?:\s+score)?|standard\s+deviation|std(?:\s+dev)?|stdev)"
-    r"(?:\s+is|\s*=)?\s+[+-]?(?:\d+(?:\.\d+)?|\.\d+)\b",
+    rf"(?:\s+is|\s*=)?\s+{SIGNED_DECIMAL}\b",
     re.IGNORECASE,
 )
 _GRAPH_REQUEST = re.compile(r"\b(?:graph|plot|sketch)\b", re.IGNORECASE)
@@ -204,6 +205,9 @@ def audit_math_request(text: str, intent: MathIntent) -> ConsumptionAudit:
     catches cross-extractor partial matches: a valid first expression must not
     hide another requested operation, statistic, trig term, or measurement.
     """
+    if is_declined(intent):
+        # A reader recognised the question and declined it: the whole request is its.
+        return ConsumptionAudit(complete=True, leftovers=())
     leftovers: list[str] = []
     statistics_text = (
         _LABELED_Z_SCORE_OPERAND.sub("", text) if intent.school_op == "z_score" else text

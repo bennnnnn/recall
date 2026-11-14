@@ -12,6 +12,7 @@ from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers.constants import AVOGADRO
 from app.modules.chemistry.solvers.display import (
     atomic_mass,
+    carried,
     const,
     inp,
     mean,
@@ -170,8 +171,8 @@ def solve_amount(intent: ChemistryIntent) -> ChemistryResult:
             law_name,
             base_formula if per_formula == 1 else "N = (m / M)Nₐ × (atoms per formula unit)",
             (
-                f"n = {qty(mass, 'g')} / {molar_mass_working(molar)} g/mol = {num(moles)} mol",
-                f"N = ({num(moles)} mol)({const(AVOGADRO)} mol⁻¹)"
+                f"n = {qty(mass, 'g')} / {molar_mass_working(molar)} g/mol = {carried(moles)} mol",
+                f"N = ({carried(moles)} mol)({const(AVOGADRO)} mol⁻¹)"
                 + ("" if per_formula == 1 else f" × ({per_formula} atoms per {formula})"),
             ),
             f"N({formula}) = {value}",

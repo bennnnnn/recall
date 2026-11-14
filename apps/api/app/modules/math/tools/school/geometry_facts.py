@@ -57,6 +57,17 @@ _EACH_EXTERIOR = re.compile(
 )
 
 
+# One interior angle, the exterior angles, the interior angles' sum: the measures a polygon
+# question may ask, each read where it is named.
+_ONE_INTERIOR = re.compile(r"\binterior\s+angle\b(?!s)", re.I)
+_EXTERIOR = re.compile(r"\bexterior\s+angles?\b", re.I)
+
+
+def _angles_asked(cleaned: str) -> set[str]:
+    named = (("interior", _ONE_INTERIOR), ("exterior", _EXTERIOR), ("sum", _ANGLE_SUM))
+    return {name for name, pattern in named if pattern.search(cleaned)}
+
+
 def _sides(match: re.Match[str]) -> int | None:
     name, *counts = match.groups()[-4:]
     if name:
@@ -84,6 +95,10 @@ def extract_geometry_fact_intent(cleaned: str) -> MathIntent | None:
             tri_a=known,
             operation="solve",
         )
+    if len(_angles_asked(cleaned)) > 1:
+        # "each interior angle and each exterior angle": one card holds one of them, and a
+        # checked 60° alone answered the hexagon's two (2026-11-13). The model answers both.
+        return None
     for pattern, op in (
         (_EACH_EXTERIOR, "polygon_exterior"),
         (_EACH_INTERIOR, "polygon_interior"),

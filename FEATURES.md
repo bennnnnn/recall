@@ -97,7 +97,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Chat management reliability** — manual titles survive delayed
   generation; pin/archive updates are atomic; drawer and header changes stay in sync.
   Bulk partial failures preserve successful actions, and stale reads cannot restore
-  deleted chats. Saved history and title polling respect navigation and account changes.
+  deleted chats. Saved history and the wait for a new chat's title respect navigation and
+  account changes. A drawer open shows the list it holds and reads it again (ETag) only after
+  this phone changed a chat: a reply saved, a title, a pin, an archive, a delete.
 - 🔜 Chat-list pagination beyond the current 200-row limit; pins take priority within it.
 - 🔜 Folders.
 
@@ -213,13 +215,16 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   load); tapping the active rating clears it.
 - ✅ **Per-message model** — the model used is recorded on each message.
 - ✅ **Web search** — models decide when to search; no word rule does. Two read the message:
-  a fast model reads it as the turn loads (`modules/web_search/live_read.py`, `live_read_enabled`,
+  a fast model reads it as the turn loads (`modules/chat/turn_decision.py`, `live_read_enabled`,
   on) and says whether its answer depends on facts that change (news, scores, prices, rates,
   weather, who holds an office now, the latest or next of anything, whether something is out
   yet) and, if so, the query a person would type, written with the conversation in view. Its
-  query is searched before the reply, which answers from the results in one call. Otherwise
-  the reply's own model call carries `web_search` (`tool_loop/reply_calls.py`,
-  `reply_search_tool_enabled`, on) and may call it; the tool's description says when. The
+  query is searched before the reply, which answers from the results in one call. When it
+  answers that nothing changes, the reply is offered no `web_search`: the read is the one
+  decider. Only when it gives no answer in time does the reply's own model call carry
+  `web_search` (`tool_loop/reply_calls.py`, `reply_search_tool_enabled`, on) and may call
+  it; the tool's description says when. The read sees the last
+  two exchanges, quoted, and is measured on `app/tests/behavior/search_need_corpus.json`. The
   keyword rules that used to decide (about 110 regexes) are gone: "What is going on" opening a
   chat was searched and answered with a song, and "who won the last world cup" was answered
   from memory. Measured on 70 live prompts before shipping: greetings, small talk, maths and
@@ -439,7 +444,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   `ε = ΔL/L`, `E = σ/ε`, shear modulus, bulk modulus, and Poisson's ratio) and **modern** (`E = hf` or `hc/λ`, de Broglie, half-life,
   `E = mc²`).
   **What it refuses is the design.** An unstated collision type, a 2D collision,
-  a diverging lens (the sign conventions disagree), an absolute temperature
+  a convex mirror's image (the sign conventions disagree), an absolute temperature
   written as bare "degrees" (27 °C and 27 K differ elevenfold), efficiency from
   two temperatures (that is Carnot), a Doppler question with no stated
   direction, a price ("find the cost"), a magnification from a virtual image's
@@ -470,7 +475,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   separate problems, each its own setup and question ("A car goes 100 m in 5 s; find its
   speed. A train goes 300 m in 10 s; find its speed."), is planned as one request per
   problem (`turn_prep/problems.py`): each is solved on its own and the reply is one question
-  in parts, its one Given lettered. A comparison ("which is faster?") stays one question.
+  in parts, its one Given holding each value once, a part's letter only on the values of
+  one symbol the problems give apart (a given is data, not a part). A comparison ("which is
+  faster?") stays one question.
   - Trajectory ` ```graph ` fences are for SUVAT (position or velocity against time), a speed
     asked of a fall (`v(t)` beside the fall), and SHM.
   - A projectile or a drop is one labelled ` ```simulation ` scene instead of a path graph. It
@@ -565,7 +572,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   fence `model` / `server` / `legacy`. New turns: Markdown plus a small model-facing
   set (`copy` / drafts, `mermaid`, `chart`, `math`, lesson `quiz` / `array` / `steps`,
   chemistry source). Server attaches
-  verified `answer` / `graph` / `geometry`, `sources`, and `places`. Layout fences
+  verified `answer` / `graph` / `geometry` and `sources`; a `places` list is the model's,
+  drawn where it wrote it, and keeps only the addresses the search's pages give each
+  place (the pages never become a list themselves). Layout fences
   (`steps`, `comparison`, `keyvalue`, `quote`, `clock`, `callout`)
   still render for history; the prompt must not choose them. A `>` quote card is
   only a citation whose last line is `— Name`. `details` / `collapse` / `summary`
@@ -579,7 +588,13 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   Ethiopia” → `Ethiopia location map`), the search starts while the text streams, and the
   finished reply carries the photo (`modules/images/answer_photo.py`). Abstract topics,
   code, math, advice and lessons get none. Each photo uses one search from the daily photo
-  limit; a spent limit, a miss or a slow search just leaves the answer without one.
+  limit; a spent limit or a miss just leaves the answer without one. The reply waits 2 s
+  for its photo; one still on its way then follows it: the reply shows a placeholder of
+  the photo's size, and the photo is put on the saved reply and sent after `done` when it
+  lands, up to 20 s from the reply's end (`modules/chat/late_photo.py`); none by then, and
+  the placeholder goes. The same lookup words reuse a photo already found, from a shared stored copy, for
+  30 days (`modules/images/photo_cache.py`): no search, no fetch and no charge. Each lookup
+  logs one line with every step's milliseconds (`answer_photo_lookup`).
 - ✅ **Mermaid diagrams** — inline SVG render via sandboxed WebView (dev build); source toggle +
   copy + Mermaid Live link; Expo Go shows source + external editor hint.
 - ✅ **PDF attachments** — uploaded PDFs show a file card + inline first-page preview (pdf.js in
@@ -600,12 +615,30 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 
 ## 5. Models & routing
 - ✅ **Multiple tiers** — six chat models, none of them coding models. Free: Qwen3.7 Flash
-  (everyday, Auto's fast lane), Claude Haiku 5.5 (`free-chat`, backup) and GLM 5.3 Flash (hard and
-  maths turns). Paid adds DeepSeek V4.1 Flash (`smart-chat`), GLM 5.2 (Auto's maths lane) and
-  GPT-6 Luna. On Pro, Auto's everyday turns go to Claude Haiku 5.5 (`ROUTING.everyday_strong`,
+  (everyday, Auto's fast lane, and since 2026-11-11 Free's maths lane, `ROUTING.math_free`),
+  Claude Haiku 5.5 (`free-chat`, backup) and GLM 5.3 Flash (hard everyday turns, and the maths
+  lane's first backup). Paid adds DeepSeek V4.1 Flash (`smart-chat`, its October 17 version `deepseek-v4.1-flash-1017`
+  since 2026-11-11, the owner's call; the hard lane and, since
+  2026-11-10, Auto's maths lane, with Qwen3.8 Flash its first backup: `ROUTING.math_backups`),
+  Qwen3.8 Flash (`qwen-3.8-flash`, thinking none, minimal, high; it replaced GLM 5.2 on
+  2026-11-11, and stored choices of GLM 5.2 moved to it, migration 0129) and GPT-6 Luna. Maths, physics and chemistry no solver verified go to the maths lane, hard
+  ones too. On Pro, Auto's
+  everyday turns go to Claude Haiku 5.5 (`ROUTING.everyday_strong`,
   `entitlements.has_strong_everyday_model`, one switch per plan in `core/settings/plans.py`); it
-  keeps photo turns too. Hard and maths turns keep their lanes on every plan. No OpenRouter-auto
-  “Max” chip.
+  keeps photo turns too. No OpenRouter-auto “Max” chip.
+- ✅ **The decider** — Perplexity's Decider (`modules/chat/decider_read.py`, through
+  `gateways/decider_gateway.py`) answers, as probabilities, each message's subject, effort
+  (none, low, high), the picture it asks to see, how it follows the turn before, whether it
+  needs live facts and whether it asks for a result worked out (the worked layout); the text read beside it (`modules/chat/turn_decision.py`, Qwen3.7 Flash
+  with Haiku when it is refused) writes the search query and decides when the Decider fails.
+  Maths, physics and chemistry think only when the read calls them hard
+  (measured 2026-11-10). Auto's lane and the thinking level come from it through catalog data
+  (`ROUTING.decided`, `model_routing/decided.py`, applied in `chat/decided_turn.py`): a hard
+  everyday question goes to the strong lane, STEM no solver verified to the maths lane with the
+  worked layout, and each model thinks at the level its catalog entry names for the effort. A
+  verified solve or a money card keeps its lane; the word rules (`model_routing/route.py`)
+  decide only when the read gives no answer in time, and each turn's trace says which
+  (`decision.decided_by`). Measured on the 100-chat check-up of 2026-11-10.
 - ✅ **Manual switching** — model selection lives in Settings → Models (settings-only by
   design; the composer picker was removed to keep the composer single-purpose). Respected
   per chat turn. With Auto off, every message goes to one model: the screen names it
@@ -615,11 +648,15 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   tone (funny / professional / casual / soft), app language, and appearance
   (light / dark / system — applied on-device). Respects `enabled_models` + plan.
   No open settings tool.
-- ✅ **Auto routing** — an **Auto** option (Settings → Models) picks Flash vs Pro per message via a
-  fast heuristic (length, code fences, reasoning keywords). Explicit chat tutoring and substantive
-  learning roadmaps use the low-latency fast lane (Qwen3.7 Flash) with strict step/day and tagged-example
-  contracts; hard reasoning remains on Pro. Short follow-ups of a hard turn inherit that turn’s tier;
-  a new topic drops back to Flash. No extra LLM call.
+- ✅ **Auto routing** — an **Auto** option (Settings → Models) picks a lane per message. The
+  turn's read decides it: Perplexity's Decider (`modules/chat/decider_read.py`), with the
+  Qwen text read beside it (`modules/chat/turn_decision.py`), reads the subject and the effort as
+  the turn loads, and catalog data maps them to the everyday, hard or maths lane
+  (`ROUTING.decided`, `modules/chat/model_routing/decided.py`). That read is two or three fast
+  model calls beside the turn's prep, not none; the word rules (length, code fences, reasoning
+  keywords, the subject readers) decide only when it gives no answer in time. Explicit chat
+  tutoring and learning roadmaps stay on the fast lane with strict step/day and tagged-example
+  contracts. Short follow-ups of a hard turn inherit that turn's tier when the rules decide.
 - ✅ **Multi-provider** — a **model catalog** (`models/model_catalog.py`) defines provider, model,
   key, base URL, and pricing per entry. All chat aliases route through **OpenRouter** via LiteLLM
   (`gateways/litellm_gateway.py`). Adding a model is a catalog entry + OpenRouter slug.
@@ -733,7 +770,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   chat-history recall cannot bring a deleted fact back.
 - ✅ **Memory toggle** — off means no personal recall: no new learning, no saved facts in
   replies, no chat-history retrieval or indexing, no instant profile answers (saved facts
-  remain until deleted). Opt-in **include sensitive topics**. **Delete and turn off** is one
+  remain until deleted). **Include sensitive topics**, on for a new account since 2026-11-11. **Delete and turn off** is one
   API.
 - 🔜 **Temporary Chat** — a thread that does not extract or inject long-term memory. Deferred;
   do not implement until this line is promoted.
@@ -827,14 +864,23 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   the device; Haptics off silences every `lib/haptics` call.
 - ✅ **Personalization** — tone labels, emoji and custom instructions. Stored tone ids stay
   `soft` / `casual` / `professional` / `funny`. Emoji (`users.emoji_use`: `off` /
-  `some` / `more`, every account starts at `some`) is the one emoji rule in the prompt
+  `some` / `more`, a new account starts at `more`, "Lots", and the tone at `professional`,
+  the owner's defaults of 2026-11-11, migration 0130) is the one emoji rule in the prompt
   (`modules/chat/response_tone.emoji_hint`): a few lead headings and list labels, never in
   numbers, maths, code, cards, a worked solution, a draft or a painful reply; no tone
   speaks about emoji. The finalize pass `emoji_use` (`modules/chat/emoji_placement.py`)
   keeps it whatever the model wrote: at A few an emoji moves to the front of its label
   and any in a sentence goes; at None they all go unless the user wrote one. There is no response-length setting:
   each message sets its own ("briefly", "in detail"), and how hard a turn thinks is
-  automatic (`modules/chat/model_routing/thinking.py`). The old `users.response_style` column is
+  automatic (`modules/chat/model_routing/thinking.py`): the turn's live read says whether the
+  answer must be reasoned out first (`think`), the word rules decide when it gives no answer
+  in time, and a regenerate or a disputed answer thinks one level more. Thinking needs a
+  model that can: Free's and Plus's everyday model (Qwen3.7 Flash, also Free's maths lane)
+  sends no reasoning at any level, so their first replies never think, by the owner's call.
+  On Auto a regenerate moves off a model like that to the plan's maths lane or its backup,
+  whichever thinks (DeepSeek on Plus, GLM 5.3 Flash on Free), at its escalate level
+  (`model_routing/thinking.escalation_model`); Pro's everyday model thinks there itself. A
+  model the user picked with Auto off keeps the regenerate. The old `users.response_style` column is
   neither read nor returned, and goes in a later release (docs/ROLLBACK.md).
 - ✅ **Voice** — the voice (`users.tts_voice`, one of the voices both read-aloud and live
   talk speak; Default keeps the server's), read-aloud speed (0.75×–1.5×, on the device,
@@ -879,8 +925,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   The clock is the phone's: it reports its zone the moment it changes (the OS's clock event, each
   return to the foreground). The badge, Home and the editor's Remind at show `notify_at`; for a
   due time the editor has not saved, it asks `GET /todos/reminder-preview`. The phone works out none.
-- ✅ **Email reminders** — opt-in todo-due emails (Resend); Settings
-  toggle; worker scheduler only (welcome + Pro receipt unchanged). Each send of one reminder
+- ✅ **Email reminders** — todo-due emails (Resend), on for a new account since 2026-11-11,
+  as quiet hours (22:00-07:00) and sensitive memory are; Settings toggle; worker scheduler only (welcome + Pro receipt unchanged). Each send of one reminder
   carries the same `Idempotency-Key`, so a resend after a timeout is not mailed twice; an
   address Resend refuses (a 4xx but 429) is not tried again, and a timeout, 429 or 5xx waits
   out a doubling hold (`notifications/send_backoff.py`, Redis) instead of retrying every minute.
@@ -972,7 +1018,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   every paid row. `GET /billing/plans` gives the paywall each plan's features and numbers.
 - ✅ **Plans sheet** — free sees Plus and Pro side by side; Plus sees the step up to Pro; a
   purchase whose server refresh fails says the plan will update (never "purchase failed").
-  Settings → Account shows the plan, live talk minutes left (Pro) and "Upgrade to Pro" (Plus).
+  Settings → Account shows the email, the plan, its own Manage subscription row (paid) and
+  "Upgrade to Pro" (Plus); Usage shows only the messages left today (2026-11-11).
 - ✅ **Dev plan toggle** — the plans sheet shows **Enable Plus / Enable Pro (dev only)**
   (development builds only; `POST /auth/me/pro-dev?plan=`).
 - 🔜 App Store / Play billing polish, promotional offers, family plans.
@@ -1139,7 +1186,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   (`chat_id`); top-k into later turns. **Not** a per-user file library across chats.
   Text-layer extract on prepare; vision OCR on the index job only. File chip shows
   indexing until chunks exist; wrapped inject includes filename.
-- ✅ **Camera math solver** — attach sheet “Solve math with camera” → VisionCamera live frame + adjustable crop (four corners in the accent; any edge or corner drags it, down to one line, 48 points either way) + torch / pinch-zoom / photos; the subject tabs keep their names on one line and scroll sideways, and the shutter shows the tab's mark. On-device ML Kit text recognition runs only inside the live crop and marks the frame ready after three reads of the same text in a row (its corners grow heavier) (close reads count: OCR differs a little frame to frame); what counts as a problem's text follows the subject tab (a question in words counts for physics, chemistry and biology); live frames never hit a paid OCR endpoint. A tap on the viewfinder focuses the camera there. A camera shot is cut to the live frame with room around it and shown as a still with its own adjustable crop, **Retake** and **Solve**, as an imported photo is; the crop opens on the live frame (a shot that cannot be cut opens whole, framed where it was aimed). The phone then reads the still's text with ML Kit (`features/scanner/model/readTextLines.ts`) and moves the frame onto it (`features/scanner/model/contentFit.ts`): a camera shot's frame only grows, over a line it cut; a photo's frame drops the margins around its text; a frame the student already moved stays. Nothing is sent before **Solve**. **Solve** closes the scanner and sends the crop to the chat with the tab's caption, which names the subject; the photo always goes, so the model sees any diagram. The turn reads the problem off the photo and solves it as one step: maths through its camera OCR (`modules/math/camera.py`), physics and chemistry through their own readers (`modules/physics/read.py`, `modules/chemistry/read.py`, `vision-chat` plain text) as the turn's subject photo reader (`services/subject_scan.read_scanned_problem`), which states the reading under the caption as `I read this as: …` (in the prompt and the stored message, so a follow-up, a regenerate and a reopened chat see it) so it is verified like a typed question. A read that finds nothing or fails leaves an ordinary photo turn (physics then gets its unverified note). Biology has no reader. The scanner's old read-back (`POST /{math,physics,chemistry}/scan/read`, guarded by `services/scan_read.py`) stays for app builds that still call it. Capture is never a silent tap: while the camera starts the shutter is dimmed with a spinner; a camera that cannot run (no native camera in the build, an error with no start 1.5 s later, or no ready signal within 4 s, as on the Simulator; the zoom and torch report errors through the same callback while the camera opens) says why in the viewfinder with a **Choose an image** button, and the shutter stays dimmed (`features/scanner/model/cameraStatus.ts`). Mathpix runs only on the captured math crop when `MATHPIX_APP_ID`/`MATHPIX_APP_KEY` are set (`improve_mathpix=false`); SymPy verifies. Camera capture needs a **dev build**. Unverified fall-through is labeled (`Couldn't verify this with SymPy.`) only when the reply contains math.
+- ✅ **Camera math solver** — attach sheet “Solve math with camera” → VisionCamera live frame + adjustable crop (four corners in the accent; any edge or corner drags it, down to one line, 48 points either way) + torch / pinch-zoom / photos; the subject tabs keep their names on one line and scroll sideways, and the shutter shows the tab's mark. On-device ML Kit text recognition runs only inside the live crop and marks the frame ready after three reads of the same text in a row (its corners grow heavier) (close reads count: OCR differs a little frame to frame); what counts as a problem's text follows the subject tab (a question in words counts for physics, chemistry and biology); live frames never hit a paid OCR endpoint. A tap on the viewfinder focuses the camera there. A camera shot is cut to the live frame with room around it and shown as a still with its own adjustable crop, **Retake** and **Solve**, as an imported photo is; the crop opens on the live frame (a shot that cannot be cut opens whole, framed where it was aimed). The phone then reads the still's text with ML Kit (`features/scanner/model/readTextLines.ts`) and moves the frame onto it (`features/scanner/model/contentFit.ts`): a camera shot's frame only grows, over a line it cut; a photo's frame drops the margins around its text; a frame the student already moved stays. Nothing is sent before **Solve**. **Solve** closes the scanner and sends the crop to the chat with the tab's caption, which names the subject; the photo always goes, so the model sees any diagram. The turn reads the problem off the photo and solves it as one step: maths through its camera OCR (`modules/math/camera.py`), physics and chemistry through their own readers (`modules/physics/read.py`, `modules/chemistry/read.py`, `vision-chat` plain text) as the turn's subject photo reader (`services/subject_scan.read_scanned_problem`), which states the reading under the caption as `I read this as: …` (in the prompt and the stored message, so a follow-up, a regenerate and a reopened chat see it) so it is verified like a typed question. A read that finds nothing or fails leaves an ordinary photo turn (physics then gets its unverified note in the prompt). Biology has no reader. There is no read-back screen: the "Reading the problem…" sheet and the "I read this as" review before sending were removed (bennnnnn/recall#2263); the phone never calls `POST /{math,physics,chemistry}/scan/read`, which the API keeps (guarded by `services/scan_read.py`) only for app builds from before that change. Capture is never a silent tap: while the camera starts the shutter is dimmed with a spinner; a camera that cannot run (no native camera in the build, an error with no start 1.5 s later, or no ready signal within 4 s, as on the Simulator; the zoom and torch report errors through the same callback while the camera opens) says why in the viewfinder with a **Choose an image** button, and the shutter stays dimmed (`features/scanner/model/cameraStatus.ts`). Mathpix runs only on the captured math crop when `MATHPIX_APP_ID`/`MATHPIX_APP_KEY` are set (`improve_mathpix=false`); SymPy verifies. Camera capture needs a **dev build**. An answer nothing verified gets no "couldn't verify" line: the finalize pass removes one the model wrote and never adds one (`.cursor/rules/chat-ux-bans.mdc` §16, `math.fence.append_unverified_math_note`).
 - ✅ **Web search** — Tavily primary + DuckDuckGo fallback; sources on assistant messages
   (hidden on short A–D replies).
 - ✅ **Structured profile fields** — name / age / country / job (Settings + prompt injection).
@@ -1302,9 +1349,16 @@ Infra + store steps live in Lists → **Launch** (local Dev User) and
   in-flight so `GET /messages` can wait out a leave. After a socket failure the next sends
   use SSE for 10 s (doubling to 5 min, reset by a reply over the socket, a network change
   or another chat), then the socket again; it used to stay SSE for the rest of the chat.
-- ✅ **Chat socket recovery** — the socket reopens when the user starts to write after the
-  server's idle close, is rebuilt after an access-token refresh, and is replaced on a network
-  change (a reply in flight is probed instead). A send with no `start` within 3 s is probed
+- ✅ **Chat socket per conversation** — a draft's first character (or a send) opens its chat's
+  socket, so the send finds the handshake done, and the conversation's next messages reuse it;
+  once a turn and what follows its `done` (follow-up questions, a new chat's `title`) are in, it
+  closes a minute after that turn while the chat stays on screen, and at once when the user
+  leaves (another chat, To-do, Settings, Library) or the app goes to the background. Reading,
+  opening or switching chats opens none. A send after a token refresh
+  opens one with the new token; a network change closes an idle one and probes a reply in
+  flight. A new chat's title comes on its first reply's socket; with no socket for the turn
+  (SSE, a picture, live talk), or none in the server's wait, from one
+  `GET /chats/{id}?wait_for_title=true`; never by polling. A send with no `start` within 3 s is probed
   (ping/pong); a dead socket's send is replayed over SSE under the message's
   `client_message_id`, which the server runs at most once (`modules/chat/client_message.py`);
   a resend it already took gets `duplicate` and the phone follows the first turn.

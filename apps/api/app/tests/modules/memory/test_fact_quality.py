@@ -91,8 +91,10 @@ def test_where_do_i_live_reads_the_saved_home(facts, location, reply):
 @pytest.mark.parametrize("memory_on", [True, False])
 async def test_instant_profile_reply_follows_the_memory_switch(memory_on):
     """M14: with memory off, "where am I from?" is not answered from saved facts."""
-    user = SimpleNamespace(id=uuid4(), memory_enabled=memory_on, location_enabled=False)
-    identity = SimpleNamespace(user=user)
+    user = SimpleNamespace(
+        id=uuid4(), memory_enabled=memory_on, location_enabled=False, location_saved_at=None
+    )
+    identity = SimpleNamespace(user=user, local_tz="UTC")
     rows = AsyncMock(return_value=[SimpleNamespace(text="User is from Ethiopia")])
     with (
         patch("app.modules.chat.turn_prep.instant.SessionLocal", _Session),

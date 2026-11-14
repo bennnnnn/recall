@@ -10,7 +10,12 @@ from __future__ import annotations
 
 import re
 
-from app.modules.chat.inline_code import code_span_opens_within, escaped_at, is_bare_number
+from app.modules.chat.inline_code import (
+    code_span_opens_within,
+    escaped_at,
+    is_bare_number,
+    is_ratio,
+)
 from app.modules.chat.markdown_regions import (
     PRICE_TIER,
     leave_prose_line,
@@ -145,13 +150,14 @@ def _read_math(text: str, index: int) -> int | None:
         # Maths glued to a digit (`$a_n$2`) is still padded.
         if _ascii_digit(text[close + 1 : close + 2]) and _ascii_digit(body.lstrip()[:1]):
             return None
-        # "$5 and $10" is currency, not a math span. "$2$" is one number: when
-        # it was skipped as a price, its closer opened a span with the next
-        # dollar on the line and padded "$2 $".
+        # "$5 and $10" is currency, not a math span. "$2$" is one number and "$2:3$"
+        # a ratio: when one was skipped as a price, its closer opened a span with the
+        # next dollar on the line and padded "$2 $", "$2:3 $ costs $ 8".
         if (
             body[0].isdigit()
             and not any(char in body for char in "\\=^_")
             and not is_bare_number(body, text[close + 1 : close + 2])
+            and not is_ratio(body)
         ):
             return None
         return close + 1

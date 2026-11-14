@@ -20,26 +20,55 @@ from app.modules.chat.continuation_subject import (
     exchange_pairs,
 )
 from app.modules.chat.prompt_inject import conversation_turns
-from app.services.problem_followup import message_role_content
-from app.services.subjects.registry import SubjectName, subject_adapter
+from app.services.problem_followup import changes_relatively, message_role_content
+from app.services.subjects.registry import SUBJECTS, SubjectName, subject_adapter
 
 
 @dataclass(frozen=True)
 class SubjectFollowup:
-    """The problem to solve again; at most one subject is set."""
+    """The problem to solve again; at most one subject is set. ``asked``: a problem the
+    line asks solved whole, as if the user had typed it ("Do it" after the assistant posed
+    "A car travels 120 m in 20 s. What is its speed?"); the turn solves and answers it so."""
 
     math: str | None = None
     chemistry: str | None = None
     physics: str | None = None
+    asked: str | None = None
+
+    def problem_of(self, subject: SubjectName) -> str | None:
+        """The earlier problem a follow-up solves again with ``subject``, if any."""
+        problems: dict[str, str | None] = {
+            "math": self.math,
+            "chemistry": self.chemistry,
+            "physics": self.physics,
+        }
+        return problems.get(subject)
+
+    @property
+    def subject(self) -> SubjectName | None:
+        """The subject of the earlier problem the follow-up solves again."""
+        return next(
+            (adapter.name for adapter in SUBJECTS if self.problem_of(adapter.name) is not None),
+            None,
+        )
 
     @property
     def found(self) -> bool:
-        return self.math is not None or self.chemistry is not None or self.physics is not None
+        return any(
+            problem is not None for problem in (self.math, self.chemistry, self.physics, self.asked)
+        )
 
 
 def resolve_subject_followup(
-    content: str, prompt_messages: list[dict[str, str]]
+    content: str,
+    prompt_messages: list[dict[str, str]],
+    referent: str | None = None,
+    continued: str | None = None,
 ) -> SubjectFollowup:
+    """``referent``: the earlier problem a model read as the "it" of "draw it" or "show it"
+    (``chat.referent_read``). A curve or a shape is drawn by maths, a scene by physics; a
+    maths follow-up of the line's own (the working of the solve before it) comes first.
+    ``continued``: the problem a model read "3" or "the area" as continuing, whole."""
     # build_prompt_messages has already loaded and adjacency-checked the recent
     # exchange; drop the current user row before reading that pair. The turn's own
     # context sits between them, so only the conversation is read.
@@ -48,13 +77,59 @@ def resolve_subject_followup(
         history = history[:-1]
     math = subject_adapter("math").followups.problem(content, history, blocked=blocks_math_followup)
     if math is not None:
+        # "Show me that" after a solve is its working, as before: before any drawing.
         return SubjectFollowup(math=math)
+    if referent is not None:
+        shown = _shown(content, history, referent)
+        if shown.found:
+            return shown
+    if continued is not None and not blocks_math_followup(continued):
+        if subject_adapter("math").asks(continued):
+            return SubjectFollowup(math=continued)
     chemistry = chemistry_working_followup_problem(content, history)
     if chemistry is None:
         chemistry = subject_adapter("chemistry").followups.problem(content, history)
     if chemistry is not None:
         return SubjectFollowup(chemistry=chemistry)
     return SubjectFollowup(physics=subject_adapter("physics").followups.problem(content, history))
+
+
+def resolve_posed_followup(
+    content: str, problem: str, reply: str, change: tuple[str | None, str | None] | None
+) -> SubjectFollowup:
+    """The follow-up to a problem a model read the line as referring to (``chat.posed_read``):
+    solved whole, as typed. A ``change`` (the given as the problem writes it, and the line's
+    new value: "20 seconds", "10 s") is first read by the subject's follow-up readers, as if
+    the user had stated the problem; else the problem's subject puts the new value in place
+    of the one given of its kind, every other given kept, and the rewrite is solved as
+    typed. A change no subject can put in place exactly is no solve."""
+    if change is None:
+        return SubjectFollowup(asked=problem)
+    stated = [{"role": "user", "content": problem}, {"role": "assistant", "content": reply}]
+    rewritten = resolve_subject_followup(content, [*stated, {"role": "user", "content": content}])
+    given, new = change
+    # "What if it took 5 s longer?" adds to the time: 25 s, never 5 s. The typed path
+    # declines it the same way, and the model answers.
+    if rewritten.found or not new or changes_relatively(content):
+        return rewritten
+    from app.modules.chat.turn_prep.reading import subject_of
+
+    subject = subject_of(problem)
+    if subject is None:
+        return rewritten
+    changed = subject_adapter(subject).followups.changed_problem(problem, given, new)
+    return rewritten if changed is None else SubjectFollowup(asked=changed)
+
+
+def _shown(content: str, history: Sequence[Any], referent: str) -> SubjectFollowup:
+    """What the subject of the earlier problem a line asks to see draws it as."""
+    if not blocks_math_followup(referent):
+        drawn = subject_adapter("math").followups.shown_problem(content, history, referent)
+        if drawn is not None:
+            return SubjectFollowup(math=drawn)
+    return SubjectFollowup(
+        physics=subject_adapter("physics").followups.shown_problem(content, history, referent)
+    )
 
 
 def followup_subject(query_text: str | None, exchange: Sequence[Any]) -> SubjectName | None:

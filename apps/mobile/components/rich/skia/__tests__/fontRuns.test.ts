@@ -9,6 +9,7 @@ import {
   measureRuns,
   needsFallback,
   needsTabular,
+  SCRIPT_SCALE,
   tabularGlyphs,
 } from "@/components/rich/skia/fontRuns";
 
@@ -76,3 +77,24 @@ describe("tabular digits", () => {
   });
 });
 
+
+// The diagrams' face has the digit scripts (R₁) but no letter ones: the lens diagram's
+// "dₒ = 30 cm" drew a missing-glyph box where its o belonged.
+describe("a script letter no face has", () => {
+  const sans = fakeFont("Rdo =30cm₁", 6);
+
+  it("is its letter, set small and lowered, and measured so", () => {
+    const runs = fontRuns("dₒ = 30 cm", [sans]);
+    expect(runs.map((run) => [run.text, run.script ?? null, run.dx])).toEqual([
+      ["d", null, 0],
+      ["o", "sub", 6],
+      [" = 30 cm", null, 6 + 6 * SCRIPT_SCALE],
+    ]);
+    expect(needsFallback("dₒ = 30 cm", [sans])).toBe(true);
+    expect(measureRuns("dₒ", [sans])).toBeCloseTo(6 + 6 * SCRIPT_SCALE);
+  });
+
+  it("leaves a script glyph the face has as text", () => {
+    expect(needsFallback("R₁ = 30", [sans])).toBe(false);
+  });
+});

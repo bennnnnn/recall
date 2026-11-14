@@ -24,6 +24,8 @@ from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models.orm import User
 from app.modules.chat import tool_loop
 from app.modules.chat.control_tokens import until_control_run
+from app.modules.chat.prompt_constants.grounding import DENIAL_RETRY_NOTE
+from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.stream_accum import StreamAccum
 from app.modules.chat.stream_events import clear_task_cancellation
 from app.modules.chat.stream_health import ReplyHealth, probe_gate
@@ -31,6 +33,7 @@ from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn, th
 from app.modules.chat.tool_loop import live_denial, reply_calls
 from app.modules.chat.tool_loop.rounds import ToolRoundsOutcome
 from app.modules.chat.tool_verified import with_tool_verified
+from app.modules.chat.turn_decision import drop_read
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext, await_user_message_persist
@@ -64,6 +67,9 @@ async def run_instant_reply_path(
     if not (should_cancel and should_cancel()):
         if ctx.instant_reply is None:
             return
+        if ctx.figure is None and ctx.reply_picture is None:
+            # No model call writes this reply and no picture waits for the read.
+            drop_read(ctx.live_read)
         await await_user_message_persist(ctx)
         if ctx.timing is not None:
             ctx.timing.mark_first_token()
@@ -180,18 +186,19 @@ async def run_tool_loop_path(
     gate = _LoopGate.of(ctx)
     if await _tool_spend_blocked(deps, redis, settings, ctx):
         return
-    # Whether to search is the model's call: the reply's own call carries
-    # ``web_search``, and so does the selection round of a turn that loops.
+    # Whether to search is the turn's read's call, or the reply's own call's, which carries
+    # ``web_search``; the selection round of a turn that loops never offers it.
     if not gate.needs_loop(settings, ctx.user):
         prompt = ctx.prompt_messages if isinstance(ctx.prompt_messages, list) else []
         ctx.reply_tools = gate.reply_tools(settings, prompt, ctx.user)
-        searches = reply_calls.offers_search(ctx.reply_tools)
-        if searches:
-            await reply_calls.search_the_live_read(
+        read = None
+        if reply_calls.offers_search(ctx.reply_tools):
+            read = await reply_calls.search_the_live_read(
                 settings, redis, ctx, on_status=on_status, should_cancel=should_cancel
             )
-            searches = reply_calls.offers_search(ctx.reply_tools) or bool(ctx.search_sources)
-        if not (searches or gate.has_search_sources or gate.has_instant_reply):
+        # A reply that denies live facts is asked again only where the read called the
+        # answer settled: with no read in time the reply held the search itself.
+        if read is not None and not read.searches:
             ctx.denial_retry_tools = reply_calls.web_search_tool(settings)
         return
     rounds = await tool_loop.run_tool_rounds(
@@ -216,12 +223,31 @@ class _ReplyRound:
     """One model call of the reply: the tools it carries, and what it leaves behind."""
 
     tools: list[dict[str, Any]]
-    # Goes out before the call's first token: a break after a retracted denial.
+    # Goes out before the call's first token: a break after a retracted denial. A retry
+    # that went straight to its search wrote none, and its answer's call takes it on.
     lead: str = ""
     # The tool this call must make: the turn's read said its answer is live.
     require: str | None = None
     meta: dict[str, str] = field(default_factory=dict)
     calls: list[dict[str, Any]] = field(default_factory=list)
+
+
+async def _denial_retry(
+    ctx: StreamContext, tools: list[dict[str, Any]], on_status: StreamStatusFn | None
+) -> _ReplyRound:
+    """The call after a retracted denial. The phone takes the denial down (``retract``); a
+    client that keeps it shows a break before the new answer. The call is told it can look
+    public facts up. A read close to live makes it search, so its answer has results to
+    give; further off it is offered the search and its model decides: a search sends words
+    from the conversation to the web, so a settled read is not overruled on the reply's word
+    alone. The forced call gets the note too: a provider that ignores the tool choice would
+    otherwise be asked the same prompt and deny again."""
+    if on_status is not None:
+        await on_status("retract")
+    ctx.prompt_messages = inject_before_last_user(ctx.prompt_messages, DENIAL_RETRY_NOTE)
+    read = reply_calls.answered_read(ctx)
+    forced = read is not None and read.nearly_live
+    return _ReplyRound(tools=tools, lead="\n\n", require=reply_calls.REPLY_TOOL if forced else None)
 
 
 async def run_llm_token_stream(
@@ -271,38 +297,35 @@ async def run_llm_token_stream(
                     yield visible
             if resolved := reply_round.meta.get("model_alias"):
                 ctx.model = resolved
-            # "I can't check live scores" with no tool offered: ask again, offering search.
-            if retry_tools and live_denial.asks_again(ctx, reply_round.calls, accum, written):
+            # "I can't check live scores" with no tool offered: ask again (``_denial_retry``).
+            if retry_tools and await live_denial.asks_again(
+                settings, ctx, reply_round.calls, accum, written, should_cancel
+            ):
                 accum.retract(written, shown_from)
                 # A held "!" or "[" was the denial's, never drawn: the new round starts clean.
                 scaffold = ReplyFilter(accum, ctx.worked)
-                reply_round, retry_tools = _ReplyRound(tools=retry_tools, lead="\n\n"), []
+                reply_round, retry_tools = await _denial_retry(ctx, retry_tools, on_status), []
                 continue
             # Only a call that carried tools leads to another: one search a turn.
             if not (reply_round.tools and reply_round.calls) or accum.was_cancelled:
                 break
-            text_before = "".join(accum.parts[written:])
-            await reply_calls.answer_into_turn(
+            # The answer after a tool round has what it asked for (results, or earlier chats a
+            # search query could draw from): it is never retracted and searched again.
+            retry_tools = []
+            if not await _run_tool_calls(
                 settings,
                 redis,
                 ctx,
-                reply_round.calls,
-                text_before,
-                offered=reply_calls.tool_names(reply_round.tools),
+                reply_round,
+                accum,
+                (written, shown_from),
                 on_status=on_status,
                 should_cancel=should_cancel,
-            )
-            if should_cancel and should_cancel():
-                accum.mark_user_stop()
+            ):
                 break
-            # What the call wrote before its search had no results to go on ("this is a
-            # current-events question, so I'll check the latest reporting"): it held the
-            # place while the search ran, and the answer after it is the reply. Done
-            # carries the answer, so the phone draws it in its place.
-            if text_before:
-                accum.retract(written, shown_from)
-                scaffold = ReplyFilter(accum, ctx.worked)
-            reply_round = _ReplyRound(tools=[])
+            # A clean filter for the answer: the old one held nothing, or text taken back.
+            scaffold = ReplyFilter(accum, ctx.worked)
+            reply_round = _ReplyRound(tools=[], lead=reply_round.lead)
         if not accum.was_cancelled and (tail := scaffold.flush()):
             accum.shown.append(tail)
             yield tail
@@ -322,6 +345,42 @@ async def run_llm_token_stream(
         await health.record(redis, model, stopped=accum.was_cancelled)
     if outcome is not None and ctx.model != requested_model:
         outcome.fallback_used = True
+
+
+async def _run_tool_calls(
+    settings: Settings,
+    redis: Redis,
+    ctx: StreamContext,
+    reply_round: _ReplyRound,
+    accum: StreamAccum,
+    round_from: tuple[int, int],
+    *,
+    on_status: StreamStatusFn | None,
+    should_cancel: Callable[[], bool] | None,
+) -> bool:
+    """Run the call's tool calls; the next call answers from their results. False when a
+    Stop came while they ran. What the call wrote before its search had no results to go on
+    ("this is a current-events question, so I'll check the latest reporting"): it held the
+    place while the search ran, and the answer after it is the reply. Done carries the
+    answer, so the phone draws it in its place."""
+    written, shown_from = round_from
+    text_before = "".join(accum.parts[written:])
+    await reply_calls.answer_into_turn(
+        settings,
+        redis,
+        ctx,
+        reply_round.calls,
+        text_before,
+        offered=reply_calls.tool_names(reply_round.tools),
+        on_status=on_status,
+        should_cancel=should_cancel,
+    )
+    if should_cancel and should_cancel():
+        accum.mark_user_stop()
+        return False
+    if text_before:
+        accum.retract(written, shown_from)
+    return True
 
 
 @dataclass(frozen=True)

@@ -22,13 +22,13 @@ def _User(plan: str = "pro", enabled: list[str] | None = None) -> Any:
 
 
 def test_unhealthy_first_choice_is_skipped_for_a_healthy_strong_model() -> None:
-    """R4.10: smart-chat's provider is failing; Auto's hard lane takes GLM 5.2."""
+    """R4.10: smart-chat's provider is failing; Auto's hard lane takes Qwen3.8 Flash."""
     user = _User()
     assert model_choice.resolve_user_model(user, _HARD, _SETTINGS) == "smart-chat"
     resolved = model_choice.resolve_user_model(
         user, _HARD, _SETTINGS, unhealthy=frozenset({"smart-chat"})
     )
-    assert resolved == "glm-5.2"
+    assert resolved == "qwen-3.8-flash"
     everyday = model_choice.resolve_user_model(
         user, "hi there", _SETTINGS, unhealthy=frozenset({"qwen-3.7-flash"})
     )
@@ -61,13 +61,13 @@ def test_photo_turn_backups_all_read_images() -> None:
 
 
 def test_photo_turn_with_no_image_reader_enabled_uses_the_photo_backup() -> None:
-    """The audit's probe: a Pro user with only Auto, smart-chat and GLM 5.2 enabled."""
-    user = _User(enabled=["auto", "smart-chat", "glm-5.2"])
+    """The audit's probe: a Pro user with only Auto, smart-chat and Qwen3.8 Flash enabled."""
+    user = _User(enabled=["auto", "smart-chat", "qwen-3.8-flash"])
     assert plan_service.chat_fallback_models(user, _SETTINGS, "vision-chat") == [
         "fallback-vision-model"
     ]
     # A text turn keeps its usual backups.
-    assert plan_service.chat_fallback_models(user, _SETTINGS, "smart-chat") == ["glm-5.2"]
+    assert plan_service.chat_fallback_models(user, _SETTINGS, "smart-chat") == ["qwen-3.8-flash"]
 
 
 def test_an_image_turn_on_an_explicit_reader_backs_up_to_readers() -> None:
@@ -100,7 +100,7 @@ def test_photo_backup_never_repeats_the_primary_model() -> None:
         ("qwen-3.7-flash", False, "vision-chat"),
         # Auto's hard lanes: the strongest image reader above the everyday tier.
         ("smart-chat", False, "glm-5.3-flash"),
-        ("glm-5.2", False, "glm-5.3-flash"),
+        ("qwen-3.8-flash", False, "glm-5.3-flash"),
         # Already on the photo lane: stays.
         ("vision-chat", False, "vision-chat"),
     ],
@@ -144,11 +144,21 @@ def test_is_explicit_pick() -> None:
 
 
 def test_a_json_ask_avoids_a_model_without_json_mode(monkeypatch: pytest.MonkeyPatch) -> None:
-    """R4.9: the output format is a routing input; GLM 5.2's JSON mode is unconfirmed."""
+    """R4.9: the output format is a routing input. A maths lane on a model whose JSON mode
+    is unconfirmed (GLM 5.2's, until 2026-11-10) hands a JSON ask to one that has it."""
+    lanes = replace(model_catalog.ROUTING, math="qwen-3.8-flash")
+    monkeypatch.setattr("app.models.model_catalog.ROUTING", lanes)
+    real_get = model_catalog.get
+    unconfirmed = replace(real_get("qwen-3.8-flash"), json_mode=False)
+    monkeypatch.setattr(
+        model_catalog,
+        "get",
+        lambda model_id: unconfirmed if model_id == "qwen-3.8-flash" else real_get(model_id),
+    )
     ask = "solve x^2 - 4 = 0 and give me the roots as valid JSON"
     pool = [model.id for model in model_catalog.selectable_models()]
-    assert routing.resolve_alias_in_pool("auto", "solve x^2 - 4 = 0", pool) == "glm-5.2"
-    assert model_catalog.get("glm-5.2").json_mode is False
+    assert routing.resolve_alias_in_pool("auto", "solve x^2 - 4 = 0", pool) == "qwen-3.8-flash"
+    assert model_catalog.get("qwen-3.8-flash").json_mode is False
     resolved = routing.resolve_alias_in_pool("auto", ask, pool)
     assert model_catalog.get(resolved).json_mode is True
     assert model_catalog.get(resolved).tier == "smart"

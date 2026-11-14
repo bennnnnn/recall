@@ -173,6 +173,50 @@ it("does not roll back a new account when the previous account's profile update 
   expect(current.user?.id).toBe(userB.id);
 });
 
+it("rejects a failed profile save even when a newer save owns the user by then", async () => {
+  // It resolved, so a place it carried counted as saved though the server never got it
+  // (review, 2026-11-09).
+  await mount();
+  const first = deferred<User>();
+  (api.updateMe as jest.Mock).mockReturnValueOnce(first.promise).mockResolvedValueOnce(userA);
+  let older!: Promise<void>;
+  let newer!: Promise<void>;
+  await act(async () => { older = current.updateUser({ location: "Oakland, CA" }); });
+  await act(async () => { newer = current.updateUser({ name: "Edited" }); });
+  const outcome = older.then(() => "saved", () => "failed");
+  await act(async () => { first.reject(new Error("offline")); await newer; });
+  await expect(outcome).resolves.toBe("failed");
+});
+
+it("shows each save at once and sends them one at a time, in the order they were made", async () => {
+  // The owner's report (2026-11-11): quick taps on two switches did not all land.
+  await mount();
+  const first = deferred<User>();
+  (api.updateMe as jest.Mock)
+    .mockReturnValueOnce(first.promise)
+    .mockResolvedValueOnce({ ...userA, memory_enabled: false, web_search_enabled: false });
+  let saves!: Promise<void[]>;
+  await act(async () => {
+    saves = Promise.all([
+      current.updateUser({ memory_enabled: false }),
+      current.updateUser({ web_search_enabled: false }),
+    ]);
+  });
+  // Both shown already; the second waits for the first's answer before it is sent.
+  expect(current.user?.memory_enabled).toBe(false);
+  expect(current.user?.web_search_enabled).toBe(false);
+  expect((api.updateMe as jest.Mock).mock.calls.map(([, patch]) => patch)).toEqual([{ memory_enabled: false }]);
+  await act(async () => {
+    first.resolve({ ...userA, memory_enabled: false });
+    await saves;
+  });
+  expect((api.updateMe as jest.Mock).mock.calls.map(([, patch]) => patch)).toEqual([
+    { memory_enabled: false },
+    { web_search_enabled: false },
+  ]);
+  expect(current.user?.web_search_enabled).toBe(false);
+});
+
 it("keeps the latest sign-in when an older sign-in completes last", async () => {
   await mount();
   const older = deferred<{ access_token: string; refresh_token: string; user: User }>();
@@ -495,6 +539,42 @@ it("shows the account a sync returns without asking /auth/me again (NET-19)", as
   expect(read).toHaveBeenCalledWith(current.token);
   expect(api.me).not.toHaveBeenCalled();
   expect(current.user?.plan).toBe("pro");
+});
+
+it("announces a save a later save overtook, so quiet hours still move the reminders", async () => {
+  // Review, 2026-11-11: quiet hours on, then email off before the first answer; only the
+  // last save's fields were announced, and the to-dos kept their old alert times.
+  (api.me as jest.Mock).mockResolvedValueOnce({ ...userA, quiet_hours_enabled: false, email_reminders_enabled: true });
+  (api.updateMe as jest.Mock)
+    .mockResolvedValueOnce({ ...userA, quiet_hours_enabled: true, email_reminders_enabled: true })
+    .mockResolvedValueOnce({ ...userA, quiet_hours_enabled: true, email_reminders_enabled: false });
+  await mount();
+  const announced = jest.fn();
+  const stop = onAppEvent("userUpdated", announced);
+  await act(async () => {
+    await Promise.all([
+      current.updateUser({ quiet_hours_enabled: true }),
+      current.updateUser({ email_reminders_enabled: false }),
+    ]);
+  });
+  expect(announced).toHaveBeenCalledWith({ fields: ["quiet_hours_enabled"] });
+  expect(announced).toHaveBeenCalledWith({ fields: ["email_reminders_enabled"] });
+  stop();
+});
+
+it("puts back what the server has when two waiting saves both fail", async () => {
+  (api.me as jest.Mock).mockResolvedValueOnce({ ...userA, memory_enabled: true, web_search_enabled: true });
+  (api.updateMe as jest.Mock).mockRejectedValueOnce(new Error("offline")).mockRejectedValueOnce(new Error("offline"));
+  await mount();
+  await act(async () => {
+    await Promise.allSettled([
+      current.updateUser({ memory_enabled: false }),
+      current.updateUser({ web_search_enabled: false }),
+    ]);
+  });
+  // Neither saved: both switches show what the server has, not the first failed change.
+  expect(current.user?.memory_enabled).toBe(true);
+  expect(current.user?.web_search_enabled).toBe(true);
 });
 
 it("announces the profile fields the server saved, after it saved them", async () => {

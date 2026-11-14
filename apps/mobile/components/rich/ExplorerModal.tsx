@@ -4,14 +4,7 @@
  * otherwise), with the series editor under it.
  */
 import { Suspense, useMemo, type ReactNode } from "react";
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  View,
-  type LayoutChangeEvent,
-} from "react-native";
+import { ActivityIndicator, StyleSheet, View, type LayoutChangeEvent } from "react-native";
 import { GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
@@ -22,13 +15,14 @@ import { SkiaGraphCanvasLazy } from "@/components/rich/skia/SkiaGraphCanvasLazy"
 import { type DrawnSeries, useGraphViewport } from "@/hooks/useInteractiveGraph";
 import { useSkiaGraphViewport } from "@/hooks/useSkiaGraphViewport";
 import { xAxisInPi } from "@/lib/math/graphFit";
-import { type GraphSpec } from "@/lib/math/graphSpec";
+import { type GraphSpec, graphAxisNames } from "@/lib/math/graphSpec";
 import { defaultInteractiveBounds } from "@/lib/math/graphViewport";
 import { Radius } from "@/lib/radius";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { Space } from "@/lib/space";
 import { Theme } from "@/lib/theme";
 import { HeaderButton } from "@/ui/controls/HeaderButton";
+import { useKeyboardHeight } from "@/ui/hooks/useKeyboardHeight";
 import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
 import { useSheetPanDismiss } from "@/ui/overlay/useSheetPanDismiss";
 
@@ -75,13 +69,12 @@ export function ExplorerModal({
   const styles = useMemo(() => makeExplorerModalStyles(theme), [theme]);
   const reduceMotion = useReduceMotion();
   const { pan, panStyle } = useSheetPanDismiss(open, reduceMotion, onClose);
-  const skiaViewport = useSkiaGraphViewport({
-    width: plot.width,
-    height: plot.height,
-    pad: GRAPH_AXIS_PAD,
-    initialView,
-    onCommit: onCommitBounds,
-  });
+  // No window resizes for the keyboard on Android, a Modal included: it covered the fields
+  // (S23, 2026-11-09). The sheet lifts its bottom above it; the plot gives up the height.
+  const keyboardHeight = useKeyboardHeight(open);
+  // Opened again, the explorer starts on its fitted window, not where the last pinch left it.
+  const viewArgs = { initialView, resetKey: open, onCommit: onCommitBounds };
+  const skiaViewport = useSkiaGraphViewport({ width: plot.width, height: plot.height, pad: GRAPH_AXIS_PAD, ...viewArgs });
 
   return (
     <FullScreenModal
@@ -95,11 +88,7 @@ export function ExplorerModal({
           style={[styles.modalRoot, styles.modalBackdrop]}
           testID="graph-modal-backdrop"
         >
-          <KeyboardAvoidingView
-            style={styles.modalRoot}
-            testID="graph-modal-keyboard-host"
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
-          >
+          <View style={styles.modalRoot} testID="graph-modal-keyboard-host">
             <Animated.View
               testID="graph-modal-sheet"
               style={[
@@ -107,7 +96,7 @@ export function ExplorerModal({
                 {
                   backgroundColor: theme.elevated,
                   marginTop: Math.max(insets.top, Space.sm),
-                  paddingBottom: insets.bottom,
+                  paddingBottom: Math.max(insets.bottom, keyboardHeight),
                 },
                 panStyle,
               ]}
@@ -149,8 +138,8 @@ export function ExplorerModal({
                         drawn={drawn}
                         points={points}
                         verticalX={verticalX}
-                        xName={spec.variable ?? "x"}
-                        yName="y"
+                        xName={graphAxisNames(spec).x}
+                        yName={graphAxisNames(spec).y}
                         xInPi={xAxisInPi(spec)}
                         width={plot.width}
                         height={plot.height}
@@ -187,7 +176,7 @@ export function ExplorerModal({
               )}
               {editor}
             </Animated.View>
-          </KeyboardAvoidingView>
+          </View>
         </GestureHandlerRootView>
       ) : null}
     </FullScreenModal>

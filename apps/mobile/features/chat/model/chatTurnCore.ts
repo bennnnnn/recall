@@ -44,6 +44,12 @@ export type ChatTurnState = {
   /** The reply streamed so far, and the streaming bubble's draft. */
   buffer: string;
   draft: StreamingDraft | null;
+  /**
+   * What this turn drew and the server then took back (a `retract` status). A Stop reports
+   * it with what is on screen, as the server counts everything it sent; with nothing on
+   * screen in its place, Stop puts it back, as the server then saves it.
+   */
+  retracted: string;
   /** The bubble Stop or an error committed; a late `done` reconciles it in place. */
   stoppedStreamedId: string | null;
   /** Regenerate shows; `regenerateBackup` is the answer it replaces until a new one lands. */
@@ -114,7 +120,11 @@ export type ChatTurnCommand =
   | { type: "consent_required" }
   /** The server's words when it sent some, else `key` translated. */
   | { type: "report_error"; message?: string; key: string; code?: string }
-  | { type: "first_reply" }
+  | { type: "first_reply"; reply: FirstReply }
+  /** A new chat's title, which followed the first reply's `done` on its stream (null: none came). */
+  | { type: "title"; chatId: string | null; title: string | null }
+  /** A reply was saved: its chat moved up the drawer's list, which reads it again on its next open. */
+  | { type: "reply_saved" }
   | { type: "todos_changed" }
   | { type: "usage"; usage: TurnUsage }
   | { type: "drop_socket" }
@@ -130,6 +140,9 @@ export type ChatTurnCommand =
 
 export type ChatTurnStep = { state: ChatTurnState; commands: ChatTurnCommand[] };
 
+/** A view's first saved reply; `titleOnStream`: the chat's title follows on the turn's stream. */
+export type FirstReply = { titleOnStream: boolean };
+
 /** The handlers update a copy of the state and append the commands it implies, in order. */
 export type Out = ChatTurnCommand[];
 
@@ -137,7 +150,7 @@ export function initialChatTurnState(chatId: string | null, session: number): Ch
   return {
     chatId, session, heldEdits: new Map(), phase: "idle", sendingMessageId: null, attempt: 0, pending: null,
     rejected: new Map(),
-    buffer: "", draft: null, stoppedStreamedId: null, regenerating: false, regenerateBackup: null,
+    buffer: "", draft: null, retracted: "", stoppedStreamedId: null, regenerating: false, regenerateBackup: null,
     ttftTurnId: null, firstReply: false, authFallback: null, earlyDots: null,
   };
 }
@@ -245,6 +258,7 @@ export function openStream(s: ChatTurnState, out: Out, status?: string): void {
   s.phase = "streaming";
   s.sendingMessageId = null;
   s.buffer = "";
+  s.retracted = "";
   s.draft = { content: "", status };
   messages(out, (previous) => withStreamingPlaceholder(previous));
 }

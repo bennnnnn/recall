@@ -10,6 +10,21 @@
 /** KaTeX `\@not` in KaTeX_Main. Advance matches `=`; ink is the negating slash. */
 export const MATH_NOT_GLYPH = "\uE020";
 export const NOT_ADVANCE_EM = 0.778;
+/** A space or no-break space in KaTeX_Main. */
+const SPACE_ADVANCE_EM = 0.25;
+
+/**
+ * The letterSpacing, in em, that lays the not-slash over the relation after it, and on
+ * Android a no-break space before it. iOS adds a Text's letterSpacing after its glyph, so
+ * minus the slash's advance draws the relation under it. Android puts half before the glyph
+ * and half after: that pull drew the slash half an advance left, on the end of the `=`
+ * ("/="). There the slash takes twice the pull and the space before it gives the advance
+ * back, so both land where iOS draws them and the pair still takes the relation's width.
+ */
+export function notSlashSpacing(android: boolean): { slash: number; lead: number | null } {
+  if (!android) return { slash: -NOT_ADVANCE_EM, lead: null };
+  return { slash: -2 * NOT_ADVANCE_EM, lead: NOT_ADVANCE_EM - SPACE_ADVANCE_EM };
+}
 
 /** Relations KaTeX builds by overlaying MATH_NOT_GLYPH, plus the base advance. */
 export const NEGATED_RELATION: Record<string, { base: string; widthEm: number }> = {
@@ -48,6 +63,12 @@ export function primeRun(ch: string): string | null {
   return null;
 }
 
+/** A superscript of primes alone (`f'`, which TeX sets as `f^{\prime}`): copied and read as
+ * the primes (f′), never as a power. */
+export function isPrimeScript(value: string): boolean {
+  return /^[′″‴]+$/.test(value);
+}
+
 /**
  * Arrow advances in KaTeX_Main (katex fontMetricsData). A sideways arrow is a
  * full em and a long one over 1.6; measured as an unknown glyph (0.7 em), a
@@ -65,6 +86,59 @@ function arrowAdvanceEm(ch: string): number | null {
   if (listed != null) return listed;
   const code = ch.codePointAt(0) ?? 0;
   return code >= 0x2190 && code <= 0x21ff ? 1 : null;
+}
+
+/**
+ * TeX's italic correction in KaTeX_MathItalic (katex fontMetricsData), in em: how far a
+ * letter's ink leans past its advance. A box that ends on the letter cuts that much of it
+ * off: `P` drew as `F`, and V and Y lean furthest. A letter not listed leans none.
+ */
+const ITALIC_CORRECTION_EM: Record<string, number> = {
+  B: 0.05, C: 0.072, D: 0.028, E: 0.058, F: 0.139, H: 0.081, I: 0.078, J: 0.096, K: 0.072,
+  M: 0.109, N: 0.109, O: 0.028, P: 0.139, R: 0.008, S: 0.058, T: 0.139, U: 0.109, V: 0.222,
+  W: 0.139, X: 0.078, Y: 0.222, Z: 0.072, f: 0.108, g: 0.036, j: 0.057, k: 0.031, l: 0.02,
+  q: 0.036, r: 0.028, v: 0.036, w: 0.027, y: 0.036, z: 0.044,
+  "Γ": 0.139, "Θ": 0.028, "Ξ": 0.076, "Π": 0.081, "Σ": 0.058, "Υ": 0.139, "Ψ": 0.11, "Ω": 0.05,
+  "α": 0.004, "β": 0.053, "γ": 0.056, "δ": 0.038, "ζ": 0.074, "η": 0.036, "θ": 0.028,
+  "ν": 0.064, "ξ": 0.046, "π": 0.036, "ς": 0.08, "σ": 0.036, "τ": 0.113, "υ": 0.036,
+  "ψ": 0.036, "ω": 0.036, "ϖ": 0.028,
+};
+
+/** How far an italic letter's ink leans past its advance, in em (0 for any other glyph). */
+export function italicCorrectionEm(ch: string): number {
+  return ITALIC_CORRECTION_EM[ch] ?? 0;
+}
+
+/** Named operators are words, not products of variables, so they stay
+ * upright in the same way KaTeX renders `sin`, `log`, and `mod`. */
+const UPRIGHT_MATH_WORDS = new Set([
+  "arccos", "arcsin", "arctan", "cos", "cosh", "cot", "csc", "det",
+  "exp", "gcd", "if", "lim", "ln", "log", "max", "min", "mod",
+  "otherwise", "rank", "sec", "sin", "sinh", "tan", "tanh", "where",
+]);
+
+export function isUprightMathWord(value: string): boolean {
+  return UPRIGHT_MATH_WORDS.has(value.toLowerCase());
+}
+
+/** The run ends on an italic letter: a variable, not a digit, a symbol or `sin`. */
+export function endsOnItalicLetter(value: string): boolean {
+  const word = value.match(/(?:[A-Za-z]+|[Ͱ-Ͽ]+)$/)?.[0];
+  return word !== undefined && !isUprightMathWord(word);
+}
+
+/** How far a run's last glyph leans past its advance, in em: its italic correction when
+ * it is an italic letter, else 0. */
+export function italicLeanEm(value: string): number {
+  return endsOnItalicLetter(value) ? italicCorrectionEm(Array.from(value).at(-1) ?? "") : 0;
+}
+
+/** How far a formula's last letter leans, read from its TeX: the letters it ends on,
+ * unless they name a command (`\alpha`). For a host Text that ends on a formula nested
+ * in it, which cannot give its own box room. */
+export function latexLeanEm(latex: string): number {
+  const tail = /(\\?)([A-Za-z]+)\s*$/.exec(latex);
+  return tail && !tail[1] ? italicLeanEm(tail[2]!) : 0;
 }
 
 const WIDE = new Set(["m", "w", "M", "W"]);

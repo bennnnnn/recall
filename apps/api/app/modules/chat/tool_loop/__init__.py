@@ -13,7 +13,7 @@ chunk, and we do not throw it away and call the model a third time.
 - ``text_calls`` — a call the provider wrote into the reply text
 - ``reply_calls`` — the reply's own model call may search (``web_search``), or the live
   read's search runs before it
-- ``live_denial`` — a reply that says it cannot check live gets the tool once more
+- ``live_denial`` — a reply that says it cannot check live is asked again, and searches
 """
 
 from app.modules.chat.tool_loop.rounds import run_tool_rounds

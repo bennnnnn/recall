@@ -8,7 +8,7 @@ direct reply through ``tools.direct``, and its prompt copy from ``reply_policy``
 from __future__ import annotations
 
 import json
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
@@ -29,15 +29,22 @@ from app.modules.math.tools.prompt import (
     build_math_augmentation,
     needs_symbolic_math,
 )
-from app.services.solving import SubjectAugmentation, VerifiedMathBlock
+from app.modules.turn_reading.continued_problem import adds_to_problem
+from app.modules.turn_reading.see_request import asks_to_see
+from app.services.solving import PhotoReading, SubjectAugmentation, VerifiedMathBlock
 from app.services.subject_hints import SubjectHints
 
 if TYPE_CHECKING:
     from app.core.config import Settings
-    from app.modules.math.schemas import MathImageExtract
     from app.services.solving import VerifiedSolveBlock
     from app.services.subjects.registry import SubjectRequest
 
+
+# A line that added to the open problem ("3", "the area"): the problem it completes.
+PIECED_PROBLEM_NOTE = (
+    "The user's last message adds to their earlier ones; read together, the problem this "
+    "turn answers is: "
+)
 
 _HINTS = SubjectHints(
     math_prompt_hints,
@@ -49,6 +56,14 @@ _HINTS = SubjectHints(
 
 @dataclass(frozen=True)
 class MathFollowups:
+    def changed_problem(self, problem: str, given: str | None, new: str) -> str | None:
+        # An equation or expression has no units to say which part changes: the part the
+        # read names, written once in the problem, gives way to one of its own kind.
+        if not given or problem.count(given) != 1 or ("=" in given) != ("=" in new):
+            return None
+        rewritten = problem.replace(given, new)
+        return rewritten if rewritten != problem and MATH_SUBJECT.reads(rewritten) else None
+
     def problem(
         self,
         query: str | None,
@@ -96,15 +111,24 @@ class MathFollowups:
         return borrows_earlier_lines(line)
 
     def asks_to_see(self, line: str, recent: Sequence[Any] | None = None) -> bool:
-        return False
+        return asks_to_see(line) and (recent is None or any(recent))
 
-    def shown_problem(self, line: str, recent: Sequence[Any]) -> str | None:
-        return None
+    def shown_problem(
+        self, line: str, recent: Sequence[Any], referent: str | None = None
+    ) -> str | None:
+        # The curve or the shape of the message read as "it": never a photo of "it".
+        from app.modules.math.tools.graph_followup import drawing_of
+
+        return drawing_of(referent) if referent and asks_to_see(line) else None
 
 
 @dataclass(frozen=True)
 class MathFence:
-    """Maths owns every reply chemistry or physics did not verify (chat's finalize passes)."""
+    """Maths finishes its own verified replies and every reply no subject verified (chat's
+    finalize passes)."""
+
+    def owns(self, verified: VerifiedSolveBlock | None) -> bool:
+        return verified is None or verified.subject == "math"
 
     def needs_check(self, text: str, verified: VerifiedSolveBlock | None) -> bool:
         from app.modules.math.fence import needs_math_fence_validate
@@ -141,7 +165,10 @@ class MathFence:
 
         return has_formula_chart(text)
 
-    def draw(self, text: str, settings: Settings) -> str:
+    async def named(self, text: str, settings: Settings) -> dict[str, str]:
+        return {}
+
+    def draw(self, text: str, settings: Settings, named: Mapping[str, str] | None = None) -> str:
         from app.modules.math.chart_formula import formula_charts_to_graphs
 
         return formula_charts_to_graphs(text, settings)
@@ -167,10 +194,10 @@ class MathPhoto:
         content: str,
         *,
         image_attachments: list[tuple[str, str]],
-        load_image: Callable[[str], Awaitable[bytes | None]],
+        load_image: Callable[[str], Awaitable[tuple[str, bytes] | None]],
         settings: Settings,
         on_status: Callable[[str], Awaitable[None]] | None,
-    ) -> tuple[MathImageExtract | None, str]:
+    ) -> PhotoReading:
         from app.modules.math.camera import read_camera_maths
 
         return await read_camera_maths(
@@ -206,9 +233,16 @@ class MathTool:
         )
 
     def call_matches(self, raw_args: Any, user_texts: list[str]) -> str | None:
+        from app.modules.math.schemas import is_declined
         from app.modules.math.tool_check import matched_user_text
+        from app.modules.math.tools.extract import extract_math_intent
 
-        return matched_user_text(raw_args, user_texts)
+        matched = matched_user_text(raw_args, user_texts)
+        if matched is not None and is_declined(extract_math_intent(matched)):
+            # A reader recognised that message's question and declined it: a call on
+            # a formula in it (a count's condition) answers another question.
+            return None
+        return matched
 
     def draws_curve(self, fence: dict[str, Any] | None) -> bool:
         from app.modules.math.text_plot import is_curve_fence
@@ -222,13 +256,49 @@ class MathTool:
 
 
 @dataclass(frozen=True)
+class MathFigure:
+    """The picture a maths question asks to see, drawn from its own values (``figure``)."""
+
+    async def draw(self, question: str, earlier: Sequence[str], settings: Settings) -> str | None:
+        from app.modules.math.figure.read import draw_figure
+
+        return await draw_figure(question, earlier, settings)
+
+    def shown(self, verified: VerifiedSolveBlock | None) -> bool:
+        from app.modules.math.figure.substitutes import verified_picture
+
+        return verified_picture(verified)
+
+    def whole(self, text: str) -> bool:
+        from app.modules.math.figure.substitutes import holds_whole_picture
+
+        return holds_whole_picture(text)
+
+    def adds_to(self, text: str, fence: str) -> bool:
+        from app.modules.math.figure.substitutes import adds_to
+
+        return adds_to(text, fence)
+
+    def without_substitutes(self, text: str) -> str:
+        from app.modules.math.figure.substitutes import without_substitutes
+
+        return without_substitutes(text)
+
+
+@dataclass(frozen=True)
 class MathSubject:
     name: Literal["math"] = "math"
     hints: SubjectHints = _HINTS
+    # The phone's "Calculating" label.
+    status_phase: str = "calculating"
     followups: MathFollowups = MathFollowups()
     fence: MathFence = MathFence()
     photo: MathPhoto = MathPhoto()
     tool: MathTool = MathTool()
+    figure: MathFigure = MathFigure()
+
+    def enabled(self, settings: Settings) -> bool:
+        return settings.math_tools_enabled
 
     def asks(self, text: str, *, has_image_attachment: bool = False) -> bool:
         return needs_symbolic_math(text, has_image_attachment=has_image_attachment)
@@ -245,12 +315,15 @@ class MathSubject:
 
         return not names_beyond(setup, question)
 
-    def fast_lane(self, text: str, *, tools_on: bool) -> bool | None:
+    def fast_lane(self, text: str, *, tools_on: bool, claimed: bool = True) -> bool | None:
         """SymPy already covers these; a reasoning model only writes a CoT essay.
 
         Keep equations / calculus / graphs on the maths lane (False). Bare factorial
-        ("4!") and "what is 1+1" style arithmetic stay on the fast model.
+        ("4!") and "what is 1+1" style arithmetic stay on the fast model. A line maths was
+        not given has no say here.
         """
+        if not claimed:
+            return None
         from app.modules.math.match import (
             bare_arithmetic_expr,
             combinatorics_signal,
@@ -289,15 +362,7 @@ class MathSubject:
         return recording()
 
     async def solve(self, request: SubjectRequest, settings: Settings) -> SubjectAugmentation:
-        block, math_verified = await build_math_augmentation(
-            request.math_text,
-            settings,
-            has_image_attachment=request.has_image_attachment,
-            image_math_extract=request.image_math_extract,
-            needs_math=True,
-            prior_user_messages=request.prior_user_messages,
-            response_intent_text=request.response_intent_text,
-        )
+        block, math_verified = await self._augmentation(request, settings)
         return SubjectAugmentation(
             subject="math",
             prompt_block=block,
@@ -307,6 +372,24 @@ class MathSubject:
                 block is not None and math_verified is None and block is not NOTHING_TO_GRAPH
             ),
         )
+
+    async def _augmentation(
+        self, request: SubjectRequest, settings: Settings
+    ) -> tuple[str | None, VerifiedMathBlock | None]:
+        block, math_verified = await build_math_augmentation(
+            request.math_text,
+            settings,
+            has_image_attachment=request.has_image_attachment,
+            image_math_extract=request.image_math_extract,
+            needs_math=True,
+            prior_user_messages=request.prior_user_messages,
+            response_intent_text=request.response_intent_text,
+        )
+        line = request.response_intent_text
+        if block is None or line is None or not adds_to_problem(line):
+            return block, math_verified
+        # "3" alone was read as anything but the triangle's third side (2026-11-09).
+        return f"{PIECED_PROBLEM_NOTE}{request.math_text}\n\n{block}", math_verified
 
     def direct_reply(
         self,
@@ -320,6 +403,10 @@ class MathSubject:
             return None
         from app.modules.math.tools.direct import maybe_direct_math_reply
 
+        # "5" after "A rectangle 3 by" asks what the whole problem asks, so the problem is
+        # what the reply's guards read, as physics' ``solved_text`` does.
+        if verified_request_text is not None and adds_to_problem(user_text):
+            user_text = verified_request_text
         return maybe_direct_math_reply(
             verified,
             user_text,

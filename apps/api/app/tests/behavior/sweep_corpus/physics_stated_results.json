@@ -1,0 +1,82 @@
+[
+ {
+  "id": "ps-001",
+  "area": "physics lookalike",
+  "prompt": "The work done on the house took 80 hours. How far behind schedule are we?",
+  "history": [],
+  "reply": "That depends on the plan: if the schedule allowed 60 hours, you are 20 hours (about two and a half working days) behind. Check what the builder quoted and when the remaining jobs can start.",
+  "expect": "answer"
+ },
+ {
+  "id": "ps-002",
+  "area": "physics lookalike",
+  "prompt": "Our venue has a crowd density of 2.5 fans per square metre. What is a good stage size?",
+  "history": [],
+  "reply": "For a crowd that packed, give the stage at least 8 m by 6 m so the band has room and the front rows can see. Leave a 1.5 m barrier gap in front of it for staff and first aid.",
+  "expect": "answer"
+ },
+ {
+  "id": "ps-003",
+  "area": "physics lookalike",
+  "prompt": "This 30 Newtons gin is great, how strong is it?",
+  "history": [],
+  "reply": "I don't know that brand's exact strength, but most gins are bottled between 37.5% and 47% ABV. The bottle's label lists it next to the volume.",
+  "expect": "answer"
+ },
+ {
+  "id": "ps-004",
+  "area": "physics lookalike",
+  "prompt": "How many joules of work does it take to write a novel? asking for 80000 words",
+  "history": [],
+  "reply": "In physics terms almost none: typing 80,000 words takes a few thousand joules of finger work. The real cost is time, usually months of drafting and revising.",
+  "expect": "answer"
+ },
+ {
+  "id": "ps-005",
+  "area": "physics lookalike",
+  "prompt": "My workout burned 400 Joules of energy in 80 minutes, how far did I run?",
+  "history": [],
+  "reply": "Fitness trackers count food energy in kilocalories, so 400 J is far too small for 80 minutes of exercise; you probably mean 400 kcal. At a steady jog that is roughly 5 to 6 km, depending on your weight and pace.",
+  "expect": "answer"
+ },
+ {
+  "id": "ps-006",
+  "area": "physics lookalike",
+  "prompt": "The gold ring has a density of 19.3 g/cm³ per the jeweller, is it real gold?",
+  "history": [],
+  "reply": "19.3 g/cm³ is the density of pure gold, so the reading fits real 24-carat gold. Most rings are alloys (18 carat is about 15.6 g/cm³), so ask the jeweller how the density was measured and for the hallmark.",
+  "expect": "answer"
+ },
+ {
+  "id": "ps-007",
+  "area": "physics lookalike",
+  "prompt": "A 60 W lightbulb was on all night, how much will that cost me?",
+  "history": [],
+  "reply": "Ten hours at 60 W is 0.6 kWh. At a typical 25 cents per kWh that is about 15 cents.",
+  "expect": "answer"
+ },
+ {
+  "id": "ps-008",
+  "area": "physics lookalike",
+  "prompt": "Our team did 400 hours of work with 8 people. How far along are we?",
+  "history": [],
+  "reply": "That is 50 hours each. Compare it with the estimate: if the project was planned at 1,000 hours, you are about 40% of the way through.",
+  "expect": "answer"
+ },
+ {
+  "id": "ps-009",
+  "area": "physics lookalike",
+  "prompt": "The power was out for 3 hours and we lost 600 W of solar. How long until it recharges?",
+  "history": [],
+  "reply": "That depends on your battery size and the sun: a 600 W array in good light puts back roughly 0.5 kWh an hour, so a typical home battery takes a few hours of sunshine to top up.",
+  "expect": "answer"
+ },
+ {
+  "id": "ps-010",
+  "area": "physics lookalike",
+  "prompt": "A 2.5 g/mL density joke for my chem teacher please",
+  "history": [],
+  "reply": "Why did the 2.5 g/mL liquid refuse to float? It had too much on its mind and sank straight to the bottom of the class.",
+  "expect": "answer"
+ }
+]

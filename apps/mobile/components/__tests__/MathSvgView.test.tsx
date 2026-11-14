@@ -1,8 +1,8 @@
-import { render, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import { Dimensions, StyleSheet } from "react-native";
 
 import { AccessibleElementChildren } from "@/components/rich/accessibleElement";
-import { MathSvgView } from "@/components/rich/MathSvgView";
+import { fitScale, MathSvgView } from "@/components/rich/MathSvgView";
 import { MathBlock } from "@/components/rich/MathView";
 import { Type } from "@/lib/type";
 import { clearSvgMathCache, setSvgMathRendererForTest } from "@/lib/math/svgMath";
@@ -283,6 +283,31 @@ describe("display maths reads with the text around it", () => {
       justifyContent: "flex-start",
       paddingLeft: 0,
     });
+  });
+
+  // The S23 cut a wide answer at the card's edge, "… x^{5/2} −" (2026-11-13).
+  it.each([
+    [300, 240, 0.7, 0.8],
+    [300, 100, 0.7, 0.7],
+    [150, 200, 0.7, 1],
+    [300, 200, undefined, 1],
+    [300, 0, 0.7, 1],
+  ])("fits %d wide into %d (floor %s) at %f", (natural, room, floor, scale) => {
+    expect(fitScale(natural, room, floor)).toBeCloseTo(scale, 6);
+  });
+
+  it("shrinks a wide answer to its card, and scrolls only past the floor", async () => {
+    const latex = String.raw`\int f(x)\,dx = \frac{3}{4}x^{4/3} + \frac{2}{5}x^{5/2} - \frac{1}{2}\ln|x| + \frac{1}{2}x^{2} + C`;
+    const view = await render(<MathSvgView latex={latex} textColor="#111111" em={20} minFit={0.7} />);
+    await waitFor(() => expect(mockSvgXml).toHaveBeenCalled());
+    const natural = mockSvgXml.mock.calls.at(-1)![0].width;
+    const box = natural * 0.8 + 2 * 8;
+    await act(async () => {
+      fireEvent(view.getByTestId("math-svg-view"), "layout", { nativeEvent: { layout: { width: box, height: 40 } } });
+    });
+    const fitted = mockSvgXml.mock.calls.at(-1)![0];
+    expect(fitted.width).toBeCloseTo(natural * 0.8, 3);
+    expect(view.getByTestId("math-svg-scroll").props.persistentScrollbar).toBe(true);
   });
 
   it("keeps the answer card's formula centred in its box, at the card's size", async () => {

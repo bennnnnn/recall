@@ -130,6 +130,23 @@ describe("useSkiaGraphViewport gestures", () => {
     expect(onCommit).toHaveBeenLastCalledWith(INITIAL);
   });
 
+  it("goes back to the initial axes on a new reset key: the explorer opened again", async () => {
+    const { result, rerender } = await renderHook(
+      ({ open }: { open: boolean }) =>
+        useSkiaGraphViewport({ width: 360, height: 220, pad: 28, initialView: INITIAL, resetKey: open, onCommit: jest.fn() }),
+      { initialProps: { open: true } },
+    );
+    await act(() => {
+      mockHandlers.pinch.onBegin?.();
+      mockHandlers.pinch.onUpdate?.({ scale: 0.1, focalX: 180, focalY: 110 });
+      mockHandlers.pinch.onEnd?.();
+    });
+    expect(result.current.bounds.value).not.toEqual(INITIAL);
+    await rerender({ open: false });
+    await rerender({ open: true });
+    expect(result.current.bounds.value).toEqual(INITIAL);
+  });
+
   it("turns a brief touch into a movable trace without panning the graph", async () => {
     const onCommit = jest.fn();
     const { result } = await renderHook(() =>

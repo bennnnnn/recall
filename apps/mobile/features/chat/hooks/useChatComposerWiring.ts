@@ -5,6 +5,7 @@ import type { User } from "@/lib/api";
 import type { useChatScroll } from "@/features/chat/hooks/useChatScroll";
 import type { useChatSend } from "@/features/chat/hooks/useChatSend";
 import { useComposerDictation } from "@/features/chat/hooks/useComposerDictation";
+import type { FirstReply } from "@/features/chat/model/chatTurnCore";
 import type { EditThread } from "@/features/chat/model/threadEdit";
 import { useLiveTalk } from "@/features/speech/hooks/useLiveTalk";
 
@@ -21,8 +22,8 @@ type Options = {
   isOffline: boolean;
   /** Opens the plans: a plan without dictation or live talk. */
   openUpgrade: (source: UpgradeSource) => void;
-  /** Bound once the render commits (ChatScreen): useChat calls it before the title poll exists. */
-  onFirstReplyRef: MutableRefObject<(id?: string | null) => Promise<void>>;
+  /** Bound once the render commits (ChatScreen): useChat calls it before the title hook exists. */
+  onFirstReplyRef: MutableRefObject<(id?: string | null, reply?: FirstReply) => Promise<void>>;
   t: (key: string) => string;
 };
 

@@ -37,6 +37,7 @@ from app.core.config import Settings
 from app.modules.chat.claim_check import cut_unsupported_claims
 from app.modules.chat.control_tokens import drop_control_tokens, strip_control_tokens
 from app.modules.chat.emoji_placement import place_reply_emoji
+from app.modules.chat.figure_turn import attach_figure
 from app.modules.chat.finalize_contracts import (
     CARD_PASSES,
     EFFECT,
@@ -46,6 +47,7 @@ from app.modules.chat.finalize_contracts import (
     STOPPED_REPLY_PASSES,
     TEXT,
     PassKind,
+    fences_pass,
 )
 from app.modules.chat.finalize_money import attach_money_card
 from app.modules.chat.finalize_parts import (
@@ -55,22 +57,23 @@ from app.modules.chat.finalize_parts import (
 )
 from app.modules.chat.finalize_reminders import apply_reminder_pass, drop_cut_reminder_fence
 from app.modules.chat.finalize_subjects import (
+    CHEMISTRY_ENRICH,
     append_unverified_notes,
-    check_chemistry_fences,
     check_math_fences,
-    check_physics_fences,
     check_working,
     draw_formula_charts,
     drop_check_lines,
     enrich_chemistry_fences,
     fallback_text,
+    fallen_back,
     mark_server_cards,
     prepare_model_reply,
-    recover_chemistry_fences,
     recover_math_fences,
-    recover_physics_fences,
+    recover_subject_fences,
     strip_solve_markers,
     strip_text_plots,
+    subject_fences,
+    uncaptioned,
 )
 from app.modules.chat.finalize_text import (
     add_search_sources,
@@ -92,6 +95,7 @@ from app.modules.chat.lesson_shape import hold_lesson_shape
 from app.modules.chat.meta_notes import unwrap_meta_notes
 from app.modules.chat.praise_opener import strip_praise_opener
 from app.modules.chat.prompt_leaks import drop_prompt_leaks_pass, drop_prompt_lines
+from app.modules.chat.repeated_fences import drop_repeated_pictures
 from app.modules.chat.reply_labels import one_answer_label
 from app.modules.chat.reply_meta import local_today, without_turn_meta
 from app.modules.chat.search_links import unlink_unretrieved_links
@@ -103,6 +107,7 @@ from app.modules.chat.turn_prep import StreamContext
 from app.modules.chat.turn_trace import note_pass, note_pass_failed
 from app.modules.chat.untrusted_media import drop_media_lines, neutralize_untrusted_media
 from app.modules.chat.worked_lead import drop_guessed_lead
+from app.services.subjects.registry import FENCE_FALLBACK, SUBJECTS
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +124,6 @@ class FinalizeState:
     usage: dict[str, int]
     outcome: TurnOutcome | None
     was_cancelled: bool
-    assistant_parts: list[str]
     should_cancel: Callable[[], bool] | None
     # The text as of the last side effect (a linked photo, source chips). A failed
     # pass falls back to it, never to the raw reply (ES-03).
@@ -130,6 +134,9 @@ class FinalizeState:
     on_status: StreamStatusFn | None = None
     # Safety passes that raised: whatever commits after them, a fallback runs them again.
     failed_safety: set[str] = field(default_factory=set)
+    # Indexes into ``ctx.search_sources`` of the pages the reply relied on, as the claim
+    # check read them: only those are chips. None: not read, and every page is one.
+    sources_used: list[int] | None = None
 
     @property
     def server_text(self) -> bool:
@@ -234,6 +241,8 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass("praise_opener", strip_praise_opener, kind=TEXT),
     FinalizePass("meta_notes", lambda s: unwrap_meta_notes(s.text), kind=TEXT),
     FinalizePass("prompt_leaks", drop_prompt_leaks_pass, closed=drop_prompt_lines, kind=TEXT),
+    # The model's picture written twice (a pie chart, stray tokens between the copies).
+    FinalizePass("repeated_fences", drop_repeated_pictures, kind=TEXT),
     FinalizePass("self_attribution", lambda s: drop_self_attribution(s.text), kind=TEXT),
     FinalizePass(
         "turn_meta",
@@ -253,20 +262,20 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         kind=EFFECT,
         after=frozenset({"answer_photo"}),
     ),
-    FinalizePass(
-        "chemistry_fences",
-        check_chemistry_fences,
-        OnError(log_as=_SUBJECT_FENCES_STEP, rewrite=recover_chemistry_fences),
-        kind=TEXT,
+    # One per subject whose fence check runs in the turn, by name; at most one owns a reply,
+    # so their order changes no reply.
+    *(
+        FinalizePass(
+            fences_pass(adapter.name),
+            subject_fences(adapter.name),
+            OnError(log_as=_SUBJECT_FENCES_STEP, rewrite=recover_subject_fences(adapter.name)),
+            kind=TEXT,
+        )
+        for adapter in sorted(SUBJECTS, key=lambda adapter: adapter.name)
+        if adapter.name != FENCE_FALLBACK
     ),
     FinalizePass(
-        "physics_fences",
-        check_physics_fences,
-        OnError(log_as=_SUBJECT_FENCES_STEP, rewrite=recover_physics_fences),
-        kind=TEXT,
-    ),
-    FinalizePass(
-        "math_fences",
+        fences_pass(FENCE_FALLBACK),
         check_math_fences,
         OnError(log_as=_SUBJECT_FENCES_STEP, rewrite=recover_math_fences),
         kind=EFFECT,  # the status callback: "checking", then "finishing"
@@ -276,13 +285,23 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         "formula_charts",
         draw_formula_charts,
         kind=TEXT,
-        after=frozenset({"math_fences"}),
+        after=frozenset({fences_pass(FENCE_FALLBACK)}),
+    ),
+    # The picture a maths question asks to see, drawn from its values beside the reply:
+    # after the passes that strip a picture no solver wrote, and a failure keeps the text.
+    FinalizePass(
+        "figure",
+        attach_figure,
+        OnError(log_as="figure"),
+        kind=EFFECT,  # waits on the picture's model read, and commits the text
+        after=frozenset({"math_fences", "formula_charts"}),
     ),
     FinalizePass("server_answer_cards", mark_server_cards, kind=TEXT),
     FinalizePass("unverified_notes", append_unverified_notes, kind=TEXT),
     FinalizePass("working_check", check_working, kind=TEXT),
     # Once the working's own Answer has become its card: a lead above the working that
-    # guesses or repeats that card goes (a model's "**x = 3**" over its steps).
+    # guesses or repeats that card goes (a model's "**x = 3**" over its steps). The
+    # working's last line, worked to its value, stays above the card, as a textbook's does.
     FinalizePass(
         "worked_lead",
         lambda s: drop_guessed_lead(s.text),
@@ -300,9 +319,9 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass("text_plots", strip_text_plots, kind=TEXT),
     FinalizePass("solve_markers", strip_solve_markers, kind=TEXT),
     FinalizePass(
-        "chemistry_enrich",
+        CHEMISTRY_ENRICH,
         enrich_chemistry_fences,
-        OnError(log_as="enrich_chemistry_fences"),
+        OnError(log_as="enrich_chemistry_fences", rewrite=uncaptioned),
         kind=TEXT,
     ),
     FinalizePass("settings_card", add_settings_card, kind=EFFECT),
@@ -399,6 +418,7 @@ async def run_finalize_passes(state: FinalizeState) -> bool:
             if index >= passed or finalize_pass.name in state.failed_safety
         )
         state.committed = await _made_safe(state, state.committed, unclean)
+        state.committed = fallen_back(state, state.committed, {item.name for item in unclean})
         state.text = state.committed
         return False
     return True
@@ -434,7 +454,6 @@ async def enrich_final_content(
     usage: dict[str, int],
     outcome: TurnOutcome | None,
     was_cancelled: bool,
-    assistant_parts: list[str],
     should_cancel: Callable[[], bool] | None,
     user_stopped: bool = False,
     on_status: StreamStatusFn | None = None,
@@ -454,7 +473,6 @@ async def enrich_final_content(
         usage=usage,
         outcome=outcome,
         was_cancelled=was_cancelled,
-        assistant_parts=assistant_parts,
         should_cancel=should_cancel,
         user_stopped=user_stopped,
         on_status=on_status,

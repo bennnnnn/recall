@@ -19,10 +19,7 @@ from app.models.orm import User
 from app.modules.billing import plan as plan_service
 from app.modules.chat.prompt_builder import PromptStats, build_prompt_messages
 from app.modules.chat.turn_prep.augment import Augmentation, augment_after_prompt
-from app.modules.chat.turn_prep.instant import (
-    recurring_pay_reply,
-    resolve_instant_reply,
-)
+from app.modules.chat.turn_prep.instant import recurring_pay_reply, resolve_instant_reply
 from app.modules.chat.turn_prep.mode import classify_turn_mode
 from app.modules.chat.turn_prep.money import server_parts, with_money_block
 from app.modules.chat.turn_prep.reading import read_turn, read_turn_message
@@ -46,9 +43,9 @@ logger = logging.getLogger(__name__)
 
 
 if TYPE_CHECKING:
+    from app.modules.chat.turn_decision import TurnDecision
     from app.modules.images.answer_photo import AnswerPhoto
     from app.modules.images.reply_picture import ReplyPicture
-    from app.modules.web_search import LiveRead
     from app.services.subjects.registry import MoneyTurn
 
 
@@ -75,18 +72,17 @@ class StreamContext:
     # The UTC day whose chat message this turn took (``TurnResources.message_day``): kept
     # when a reply is saved, given back with ``reserved_tokens`` when none is.
     message_day: date | None = None
-    # Effective timezone for this request (profile preference overridden by
-    # the current client timezone). Finalization must use the same zone that
-    # prompt construction used for relative dates and reminder clocks.
+    # The request's zone (the client's over the profile's): finalize uses the one the prompt
+    # used for relative dates and reminder clocks.
     user_timezone: str | None = None
-    # The device location when this turn needs one ("coffee near me"); a
-    # search for it names the place.
+    # The device location when this turn needs one ("coffee near me"); a search names it.
     search_location: str | None = None
     # The user's message as its row keeps it, photo markers too: what the chat title reads.
     stored_user_message: str | None = None
     user: User | None = None
-    # Pre-assigned id for the assistant row so `done` can be sent to the client
-    # before the background DB insert commits.
+    # Auto chose ``model`` (no pick named one): its lane may follow the read's ``think``.
+    auto_routed: bool = False
+    # Pre-assigned id for the assistant row so `done` can go before the insert commits.
     assistant_message_id: UUID | None = None
     recalled_count: int = 0
     memory_hints: list[str] = field(default_factory=list)
@@ -102,9 +98,10 @@ class StreamContext:
     recent_messages: list[Any] | None = None
     regenerate_backup: RegenerateBackup | None = None
     fallback_models: list[str] = field(default_factory=list)
-    # Recovering models (breaker half-open) among the model and its backups: the
-    # turn tries one only once it claims its probe (``model_health.claim_probe``).
+    # Half-open models among it and its backups: tried once the turn claims a probe.
     probe_models: frozenset[str] = frozenset()
+    # Models whose breaker is open or half-open at the load: no lane moves onto one.
+    unsteady_models: frozenset[str] = frozenset()
     # Work the turn already did without an answer, which its tool loop does not
     # repeat: SymPy ran out of time on its problem; its photo lookup found none.
     solve_timed_out: bool = False
@@ -124,8 +121,7 @@ class StreamContext:
     # finalize and stream teardown await it so the assistant insert cannot
     # commit first and so a failed prompt still keeps what the user sent.
     user_message_persist: asyncio.Task[None] | None = None
-    # Set when the tool loop's generate_image persisted the assistant row —
-    # stream_and_finalize skips the LLM + second insert.
+    # Set when the tool loop's generate_image saved the assistant row: no LLM, no 2nd insert.
     terminal_image_message_id: str | None = None
     terminal_image_content: str | None = None
     terminal_image_model: str | None = None
@@ -143,13 +139,14 @@ class StreamContext:
     # The tools the reply's own model call carries, when the tool loop leaves the
     # turn to it: ``web_search`` (``tool_loop.reply_calls``).
     reply_tools: list[dict[str, Any]] = field(default_factory=list)
-    # A model's read, started beside the prep, of whether the answer depends on facts that
-    # change (``web_search.live_read``); and the tool the reply's first call must make
-    # when it said so but wrote no query (``web_search``).
-    live_read: asyncio.Task[LiveRead | None] | None = None
+    # How to handle the message, read by a model beside the prep (``chat.turn_decision``); the
+    # tool the reply's first call must make when it said live but wrote no query; the picture
+    # a maths question asks to see, drawn beside the reply (``chat.figure_turn``).
+    live_read: asyncio.Task[TurnDecision | None] | None = None
     reply_requires: str | None = None
-    # Offered on a second call when the first, with no tool, says it can't see live
-    # data (``tool_loop.live_denial``). Empty past the spend cap or after a search.
+    figure: asyncio.Task[str | None] | None = None
+    # Offered on a second call when the first, with no tool, says it can't see live data
+    # (``tool_loop.live_denial``): only after a settled read, never past the spend cap.
     denial_retry_tools: list[dict[str, Any]] = field(default_factory=list)
     # The last reply asked with a clarify card: this reply may not ask again.
     after_card: bool = False
@@ -157,6 +154,8 @@ class StreamContext:
     money: MoneyTurn | None = None
     # A calculation nothing verified: its ```worked block is laid out as it streams.
     worked: WorkedLayout | None = None
+    # The photo's reader was unsure of its read: nothing is certified (``uncheck_cards``).
+    photo_uncertain: bool = False
 
 
 @dataclass
@@ -449,7 +448,7 @@ async def build_stream_prompt_context(
             advice_memory=mode.advice_memory,
             accepted_offer=mode.accepted_offer,
             client_timezone=request.client_timezone,
-            prompt_location=geo.user_location if geo.geo_query and geo.has_geo_fix else None,
+            prompt_location=geo.prompt_place(identity.local_tz),
             omit_message_ids=request.omit_message_ids,
             probe_attachment_rag=request.probe_attachment_rag,
             recent_messages=request.recent_messages,

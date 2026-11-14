@@ -45,11 +45,11 @@ def _read(samples: list[Any]) -> list[tuple[str, bool, float]]:
 def test_a_failed_model_is_blamed_and_the_model_that_answered_is_not() -> None:
     attempts = [
         StreamAttempt("smart-chat", failed=True, elapsed_ms=8000),
-        StreamAttempt("glm-5.2", first_delta_ms=650),
+        StreamAttempt("qwen-3.8-flash", first_delta_ms=650),
     ]
-    samples = health_samples(attempts, _end(model="glm-5.2"))
+    samples = health_samples(attempts, _end(model="qwen-3.8-flash"))
     # Latency is how fast the provider started, not how long the reply ran.
-    assert _read(samples) == [("smart-chat", False, 8000), ("glm-5.2", True, 650)]
+    assert _read(samples) == [("smart-chat", False, 8000), ("qwen-3.8-flash", True, 650)]
 
 
 def test_a_model_that_fails_partway_is_a_failure() -> None:
@@ -60,11 +60,11 @@ def test_a_model_that_fails_partway_is_a_failure() -> None:
 def test_a_request_the_provider_refused_leaves_no_sample() -> None:
     attempts = [
         StreamAttempt("smart-chat", failed=True, cause="request", elapsed_ms=300),
-        StreamAttempt("glm-5.2", failed=True, cause="cap", elapsed_ms=8000),
+        StreamAttempt("qwen-3.8-flash", failed=True, cause="cap", elapsed_ms=8000),
         StreamAttempt("free-chat", first_delta_ms=500),
     ]
     samples = health_samples(attempts, _end())
-    assert _read(samples) == [("glm-5.2", False, 8000), ("free-chat", True, 500)]
+    assert _read(samples) == [("qwen-3.8-flash", False, 8000), ("free-chat", True, 500)]
 
 
 def test_a_failed_tries_cause_goes_into_its_sample() -> None:
@@ -152,17 +152,20 @@ async def test_the_turn_records_every_model_it_tried(stream_offline_io: None) ->
         kwargs["attempts"].extend(
             [
                 StreamAttempt("smart-chat", failed=True, elapsed_ms=8000),
-                StreamAttempt("glm-5.2", first_delta_ms=700),
+                StreamAttempt("qwen-3.8-flash", first_delta_ms=700),
             ]
         )
-        kwargs["stream_meta"]["model_alias"] = "glm-5.2"
+        kwargs["stream_meta"]["model_alias"] = "qwen-3.8-flash"
         yield "answer"
 
     record = await _run(fake_stream)
     record.assert_awaited_once()
     assert record.await_args is not None
     samples = record.await_args.args[1]
-    assert [(s.alias, s.success) for s in samples] == [("smart-chat", False), ("glm-5.2", True)]
+    assert [(s.alias, s.success) for s in samples] == [
+        ("smart-chat", False),
+        ("qwen-3.8-flash", True),
+    ]
 
 
 @pytest.mark.asyncio
@@ -282,7 +285,7 @@ def _model(alias: str) -> str:
 async def test_a_turn_routed_elsewhere_leaves_the_probe(stream_offline_io: None) -> None:
     redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     await _open_since_cool_down(redis, "smart-chat")
-    asked = await _live_turn(redis, "free-chat", ["glm-5.2"], {"smart-chat"})
+    asked = await _live_turn(redis, "free-chat", ["qwen-3.8-flash"], {"smart-chat"})
     assert asked == [_model("free-chat")]
     # The recovering model's one try is still there for a turn that tries it.
     assert await model_health.claim_probe(redis, _LIVE, "smart-chat") is True
@@ -296,7 +299,7 @@ async def test_the_turn_that_tries_a_recovering_model_claims_its_probe(
     await _open_since_cool_down(redis, "smart-chat")
     claim = AsyncMock(wraps=model_health.claim_probe)
     with patch.object(model_health, "claim_probe", claim):
-        asked = await _live_turn(redis, "smart-chat", ["glm-5.2"], {"smart-chat"})
+        asked = await _live_turn(redis, "smart-chat", ["qwen-3.8-flash"], {"smart-chat"})
     assert asked == [_model("smart-chat")]
     claim.assert_awaited_once()
     # It answered: closed for every turn, and its probe let go.
@@ -308,10 +311,10 @@ async def test_a_turn_passes_by_a_model_another_turn_is_trying(stream_offline_io
     redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     await _open_since_cool_down(redis, "smart-chat")
     assert await model_health.claim_probe(redis, _LIVE, "smart-chat")
-    asked = await _live_turn(redis, "smart-chat", ["glm-5.2"], {"smart-chat"})
-    assert asked == [_model("glm-5.2")]
+    asked = await _live_turn(redis, "smart-chat", ["qwen-3.8-flash"], {"smart-chat"})
+    assert asked == [_model("qwen-3.8-flash")]
     # Untried, so no sample: it stays half-open for the probe in flight.
-    found = await model_health.read_breakers(redis, _LIVE, ["smart-chat", "glm-5.2"])
+    found = await model_health.read_breakers(redis, _LIVE, ["smart-chat", "qwen-3.8-flash"])
     assert found == Breakers(half_open=frozenset({"smart-chat"}))
 
 
@@ -319,7 +322,7 @@ def test_a_model_the_user_named_runs_without_a_probe() -> None:
     from app.modules.chat.turn_prep import stream_context_from_bundle
     from app.tests.modules.chat.chat_test_support import prompt_bundle
 
-    bundle = prompt_bundle(half_open_models=frozenset({"smart-chat", "glm-5.2"}))
+    bundle = prompt_bundle(half_open_models=frozenset({"smart-chat", "qwen-3.8-flash"}))
     common: dict[str, Any] = {
         "user_id": uuid4(),
         "chat_id": uuid4(),
@@ -331,6 +334,6 @@ def test_a_model_the_user_named_runs_without_a_probe() -> None:
     }
     routed = stream_context_from_bundle(bundle, **common)
     named = stream_context_from_bundle(bundle, **common, model_named=True)
-    assert routed.probe_models == {"smart-chat", "glm-5.2"}
+    assert routed.probe_models == {"smart-chat", "qwen-3.8-flash"}
     # A backup is still the turn's choice: it claims its probe when reached.
-    assert named.probe_models == {"glm-5.2"}
+    assert named.probe_models == {"qwen-3.8-flash"}

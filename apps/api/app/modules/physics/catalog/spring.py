@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from app.services.law_binding.spec import Binding, FormulaSpec, formula, var
+from app.services.law_binding.labels import LABELS
+from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
+from app.services.law_binding.words import COMBINED_RESULT
 
 _G = var("g", "g", "meter / second ** 2", fallback="gravity")
 
@@ -22,7 +24,11 @@ _AMPLITUDE = var(
     ),
     needs_words=True,
 )
+# A spring's stretch; its amplitude is the stretch at the turning point (``labels``).
+_EXTENSION = var("x", "x", "meter", words=("amplitude",))
 _SPRING_SHM = ("spring", "oscillat", "simple harmonic", "shm")
+# Any body that swings back and forth: on a spring, a pendulum's bob, a tuning fork's prong.
+SHM_CUES = (*_SPRING_SHM, "harmonic", "pendulum", "vibrat", "swing")
 _MAX_SPEED_ASKS = (
     "maximum speed",
     "max speed",
@@ -32,7 +38,7 @@ _MAX_SPEED_ASKS = (
     "greatest speed",
     "top speed",
 )
-_MAX_ACCELERATION_ASKS = (
+MAX_ACCELERATION_ASKS = (
     "maximum acceleration",
     "max acceleration",
     "peak acceleration",
@@ -71,7 +77,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         expression="k*amplitude/m",
         variables=(_AMPLITUDE, var("k", "k", "newton / meter"), var("m", "m", "kilogram")),
         binding=Binding(
-            asks=_MAX_ACCELERATION_ASKS,
+            asks=MAX_ACCELERATION_ASKS,
             result=("meter / second ** 2",),
             inputs=(frozenset({"amplitude", "k", "m"}),),
             cues=_SPRING_SHM,
@@ -85,17 +91,17 @@ SPECS: tuple[FormulaSpec, ...] = (
         "F",
         variables=(
             var("k", "k", "newton / meter"),
-            var("x", "x", "meter"),
+            _EXTENSION,
         ),
     ),
     formula(
         "spring_energy",
         "spring",
         "Elastic potential-energy formula",
-        "E_s",
+        "E_p",
         variables=(
             var("k", "k", "newton / meter"),
-            var("x", "x", "meter"),
+            _EXTENSION,
         ),
     ),
     formula(
@@ -106,7 +112,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         variables=(
             var("k", "k", "newton / meter"),
             var("m", "m", "kilogram"),
-            var("x", "x", "meter"),
+            _EXTENSION,
         ),
     ),
     formula(
@@ -131,14 +137,46 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("m", "m", "kilogram"),
         ),
     ),
+    # Any body in simple harmonic motion passes its centre at Aω, with ω = 2π/T = 2πf.
+    # Without the period and frequency forms, "amplitude 0.1 m and period 2 s: maximum
+    # speed?" was read as v = d/t, 0.05 m/s for 0.314 (audit 2026-11-13).
     formula(
         "shm_max_speed",
         "spring",
         "Simple-harmonic-motion equation",
         "v_{max}",
+        base_latex=r"v_{max} = A\omega",
+        variants=(
+            FormulaVariant(latex=r"v_{max} = \frac{2\pi A}{T}", present=frozenset({"period"})),
+            FormulaVariant(latex=r"v_{max} = 2\pi A f", present=frozenset({"freq"})),
+        ),
+        assumptions=("simple harmonic motion",),
         variables=(
+            var("x", "A", "meter", words=("amplitude",), needs_words=True),
             var("omega", r"\omega", "radian / second"),
-            var("x", "x", "meter"),
+            # "For 10 s" is how long it swung, not its period.
+            var("period", "T", "second", words=LABELS["period"], needs_words=True),
+            var("freq", "f", "hertz"),
+            # Only a mass said to be on a spring is drawn on one: a pendulum bob, a piston
+            # and a tuning fork's prong swing the same curve.
+            var(
+                "on_spring",
+                "spring",
+                dimensionless=True,
+                visible=False,
+                implied=(("spring", 1.0),),
+            ),
+        ),
+        binding=Binding(
+            asks=_MAX_SPEED_ASKS,
+            result=("meter / second",),
+            inputs=tuple(
+                frozenset({"x", rate, *spring})
+                for rate in ("omega", "period", "freq")
+                for spring in ((), ("on_spring",))
+            ),
+            cues=SHM_CUES,
+            nonnegative=True,
         ),
     ),
     formula(
@@ -184,6 +222,8 @@ SPECS: tuple[FormulaSpec, ...] = (
             cues=("in parallel",),
             excludes=("series",),
             interchangeable=("k1", "k2"),
+            # "a combined spring constant of 500 N/m" is the result, not a spring.
+            result_labels=COMBINED_RESULT,
             nonnegative=True,
         ),
     ),
@@ -205,6 +245,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             cues=("in series",),
             excludes=("parallel",),
             interchangeable=("k1", "k2"),
+            result_labels=COMBINED_RESULT,
             nonnegative=True,
         ),
     ),

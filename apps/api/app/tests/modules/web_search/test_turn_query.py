@@ -71,3 +71,58 @@ async def test_model_written_search_names_the_place(
     with patch("app.modules.web_search.tool.run_cached_search", run_search):
         await WebSearchAdapter(Settings()).invoke({"query": "coffee shops near me"}, ctx)
     assert _awaited(run_search).args[1] == [sent]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "user_query, query, sent",
+    [
+        (
+            "where can I park at the Apple Store",
+            "parking near the Apple Store",
+            "parking near the Apple Store San Francisco, CA, United States",
+        ),
+        (
+            "We're at the Hilton, any restaurants nearby?",
+            "restaurants near the Hilton",
+            "restaurants near the Hilton San Francisco, CA, United States",
+        ),
+    ],
+)
+async def test_a_venue_keeps_the_users_city_in_the_search(
+    user_query: str, query: str, sent: str
+) -> None:
+    """A Hilton or an Apple Store is the one in the user's city (review, 2026-11-09)."""
+    from app.modules.web_search.tool import WebSearchAdapter
+
+    ctx = tool_context(user_query=user_query, user_location="San Francisco, CA, United States")
+    run_search = AsyncMock(return_value=([], [sent]))
+    with patch("app.modules.web_search.tool.run_cached_search", run_search):
+        await WebSearchAdapter(Settings()).invoke({"query": query}, ctx)
+    assert _awaited(run_search).args[1] == [sent]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "user_query, query",
+    [
+        ("What are the best restaurants in Addis Ababa?", "best restaurants Addis Ababa"),
+        ("Where should we eat in Rome tonight?", "best restaurants Rome"),
+        # "Near me in Bole" says where "me" is: the phone's city is no part of it (review,
+        # 2026-11-09; it searched "coffee shops near San Francisco, CA, United States in Bole").
+        ("coffee shops near me in Bole", "coffee shops near me in Bole"),
+        ("Is there a pharmacy around here? I'm staying in Kazanchis", "pharmacy near me"),
+    ],
+)
+async def test_a_question_that_names_its_place_is_searched_there(
+    user_query: str, query: str
+) -> None:
+    """From San Francisco, "the best restaurants in Addis Ababa" was searched with San
+    Francisco added: a time converter and Los Angeles restaurants came back (2026-11-08)."""
+    from app.modules.web_search.tool import WebSearchAdapter
+
+    ctx = tool_context(user_query=user_query, user_location="San Francisco, CA, United States")
+    run_search = AsyncMock(return_value=([], [query]))
+    with patch("app.modules.web_search.tool.run_cached_search", run_search):
+        await WebSearchAdapter(Settings()).invoke({"query": query}, ctx)
+    assert _awaited(run_search).args[1] == [query]

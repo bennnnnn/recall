@@ -162,3 +162,31 @@ async def test_nothing_is_injected_when_no_photo_decodes() -> None:
 )
 def test_vision_prompt_text(existing: Any, caption: str, text: str) -> None:
     assert vision_input.vision_prompt_text(existing, caption) == text
+
+
+def test_an_ocr_reader_gets_a_sideways_photo_upright() -> None:
+    """The readers got the stored bytes, sideways for a client that leaves the turn to EXIF
+    (audit SCAN-06): Mathpix and the vision extract read the upright copy."""
+    mime, data = vision_input.upright_for_reading(
+        _image("JPEG", (400, 200), exif_rotate=True), "image/jpeg", max_edge=2048, max_pixels=0
+    )
+    assert mime == "image/jpeg"
+    assert Image.open(io.BytesIO(data)).size == (200, 400)
+
+
+@pytest.mark.parametrize(
+    "content_type, data",
+    [("image/png", _image("PNG", (300, 100))), ("image/jpeg", _image("JPEG", (300, 100)))],
+)
+def test_an_upright_photo_reaches_its_reader_as_stored(content_type: str, data: bytes) -> None:
+    # Full resolution and no second JPEG pass for a photo that needs no turning.
+    assert vision_input.upright_for_reading(data, content_type, max_edge=64, max_pixels=0) == (
+        content_type,
+        data,
+    )
+
+
+def test_bytes_that_do_not_decode_reach_the_reader_as_they_are() -> None:
+    assert vision_input.upright_for_reading(
+        b"not an image", "image/png", max_edge=2048, max_pixels=0
+    ) == ("image/png", b"not an image")

@@ -7,6 +7,7 @@ The text comes from ``stream_paths`` (instant reply, tool loop, model stream);
 import asyncio
 import logging
 from collections.abc import AsyncIterator, Callable
+from functools import partial
 from typing import Any
 from uuid import UUID
 
@@ -18,8 +19,10 @@ from app.core.config import Settings
 from app.core.ids import uuid7
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models import model_catalog
+from app.modules.chat.decided_turn import decide_from_the_read
 from app.modules.chat.finalize_passes import enrich_final_content
 from app.modules.chat.finalize_registry import mark_pending_finalize, register_pending_finalize
+from app.modules.chat.late_photo import follow_late_photo
 from app.modules.chat.post_turn import enqueue_post_turn_jobs
 from app.modules.chat.prompt_inject import conversation_turns
 from app.modules.chat.quality import detect_quality_issues
@@ -32,6 +35,7 @@ from app.modules.chat.stream_paths import (
     run_tool_loop_path,
 )
 from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn
+from app.modules.chat.title_event import title_event
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext, await_user_message_persist
@@ -86,6 +90,10 @@ async def register_and_enqueue_finalize(
         outcome.recalled = ctx.recalled_count
         outcome.memory_hints = list(ctx.memory_hints)
         outcome.context_summarized = ctx.context_summarized
+        # The chat's first reply: the topic job (post_turn._topic_job) titles the chat, and
+        # a socket sends the title after ``done``.
+        if ctx.run_title and ((ctx.user_message_content or "").strip() or assistant_text.strip()):
+            outcome.title_wait = partial(title_event, redis, ctx.chat_id)
         # Settings → Personalization can turn the suggestions, and their model call, off.
         wants_follow_ups = ctx.user is None or ctx.user.follow_up_suggestions_enabled is not False
         outcome.related_task = (
@@ -114,6 +122,8 @@ async def register_and_enqueue_finalize(
     finalize_db_task.add_done_callback(
         lambda task: log_background_task_failure(task, "Background DB finalization failed")
     )
+    # A photo still on its way follows the saved reply; ``done`` says so (``photo_pending``).
+    follow_late_photo(deps, ctx, finalize_db_task, outcome)
 
     async def run_jobs_after_db() -> None:
         try:
@@ -244,6 +254,8 @@ async def _produce_reply(
         async for token in run_instant_reply_path(ctx, should_cancel=should_cancel, accum=accum):
             yield token
         return
+    # Only a reply still to write takes the read's lane and level.
+    await decide_from_the_read(ctx, settings)
     if settings.image_search_enabled and ctx.user is not None:
         ctx.answer_photo = AnswerPhoto(settings, ctx.user)
     async for token in run_llm_token_stream(
@@ -312,10 +324,7 @@ async def _settle_reply(
         await _refund_turn(deps, redis, ctx, resources)
         return
     if not assistant_text:
-        raise ModelUnavailableError(
-            "That model isn't responding right now. Try again — or pick a different model.",
-            failed_alias=ctx.model,
-        )
+        raise ModelUnavailableError.for_alias(ctx.model)
     if outcome is not None and accum.completion != "complete":
         outcome.completion = accum.completion
 
@@ -329,17 +338,26 @@ async def _settle_reply(
             usage=usage,
             outcome=outcome,
             was_cancelled=accum.was_cancelled,
-            assistant_parts=accum.parts,
             should_cancel=should_cancel,
             user_stopped=user_stopped,
             on_status=on_status,
         )
-        # The phone drew a first answer this one replaced, or text the reply no longer
-        # starts with: done must carry the text.
-        replaced = accum.retracted or accum.rewritten
+        # The phone drew a first answer this one replaced, text the reply no longer starts
+        # with, or one taken down and then kept: done must carry the text.
+        replaced = accum.retracted or accum.restored or accum.rewritten
         if replaced and outcome is not None and outcome.final_content is None:
             outcome.final_content = final_text
-        await await_user_message_persist(ctx)
+        drop_photo = should_cancel is not None and should_cancel()
+        try:
+            await await_user_message_persist(ctx)
+        except BaseException:
+            drop_photo = True
+            raise
+        finally:
+            # A Stop after the text, or no reply to save, drops a photo still on its way, as
+            # a Stop drops one the reply waits for (``attach_answer_photo``).
+            if drop_photo and ctx.answer_photo is not None:
+                ctx.answer_photo.cancel()
         await register_and_enqueue_finalize(
             deps,
             redis,

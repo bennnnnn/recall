@@ -150,6 +150,10 @@ export function useGraphSeries(
   };
 }
 
+function sameView(a: GraphView, b: GraphView): boolean {
+  return a.xMin === b.xMin && a.xMax === b.xMax && a.yMin === b.yMin && a.yMax === b.yMax;
+}
+
 type ViewportArgs = {
   width: number;
   height: number;
@@ -164,6 +168,14 @@ export function useGraphViewport({ width, height, pad, initialView: requestedIni
     [plotAspect, requestedInitialView],
   );
   const [bounds, setBounds] = useState<GraphView>(initialView);
+  // A new window (the explorer's plot laid out, the finished fence) is the view, as on the
+  // Skia viewport: kept from the first render, the SVG explorer opened on a stale shape.
+  // Compared by value: the plot's size re-makes the object while the keyboard comes and goes.
+  const [seeded, setSeeded] = useState(initialView);
+  if (!sameView(seeded, initialView)) {
+    setSeeded(initialView);
+    setBounds(initialView);
+  }
   const boundsRef = useLatestRef(bounds);
   const startRef = useRef(bounds);
 

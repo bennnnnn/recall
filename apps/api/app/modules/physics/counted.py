@@ -39,6 +39,32 @@ _LIST_JOIN = re.compile(r"\s*(?:,\s*(?:and|or)?|and|or)\s*")
 _UNVALUED = frozenset({"others"})
 
 
+# An ask about one part of a body the question divides: "the mass of each half", "the weight
+# of each piece", "half of it". The stated values are the whole's, so a law fed them answers
+# the whole: a 6 kg block cut in half weighed 58.9 N a half (review 2026-11-11).
+_PART_ASKED = re.compile(
+    r"\b(?:each|either|every|one)\s+(?:of\s+(?:the|its|these|those)\s+)?"
+    r"(?:half|halves|thirds?|quarters?|pieces?|parts?|portions?|fragments?|sections?|chunks?)\b"
+    r"|\bhalf\s+(?:of\s+)?(?:it|the|its|this|that)\b",
+    re.IGNORECASE,
+)
+
+
+# Thousands grouped by a space ("a car of 1 200 kg") are one number or a count and another:
+# 1200 kg, or 1 and a 200 kg. Read as the second, the car weighed 200 kg (review 2026-11-11).
+_SPACE_GROUPED = re.compile(r"(?<![\w.])\d{1,3}(?:[ \u00a0\u2009\u202f]\d{3})+(?![\w.])")
+
+
+def unclear_part_or_count(text: str) -> bool:
+    """The values stated may not be the asked body's: the question asks one part of a body it
+    divides, or writes a number whose space may part a count from a value."""
+    from app.modules.physics.ask import ask_clause
+
+    clause = ask_clause(text)
+    asks_a_part = clause is not None and _PART_ASKED.search(clause) is not None
+    return asks_a_part or _SPACE_GROUPED.search(text) is not None
+
+
 def accounts_for_counted_items(intent: PhysicsIntent, text: str) -> bool:
     """Whether the solve reads every counted item's value once per item."""
     params = param_readings(intent)

@@ -13,6 +13,7 @@ import {
   type StreamingPreprocessCache,
 } from "@/lib/markdown/preprocessStream";
 import { presentStreamTail } from "@/lib/markdown/presentation";
+import { isWorkedReply } from "@/lib/markdown/workoutSection";
 import { formatAssistantMathExpr } from "@/lib/math/formatInput";
 import { STREAMING_REPLIES } from "@/lib/__tests__/fixtures/streamingReplies";
 
@@ -55,13 +56,16 @@ function lineEnds(text: string): number[] {
   return ends;
 }
 
-/** What the stream preprocess gave before it was cut: the whole stable prefix, then the tail. */
+/** What the stream preprocess gave before it was cut: the whole stable prefix, then the
+ * tail, presented under the prefix's last line. */
 function wholePrefix(content: string, presented: boolean): string {
   const stable = findStableMarkdownPrefixLen(content);
+  const closed = content.slice(0, stable);
   const head = stable > 0
-    ? preprocessMarkdown(content.slice(0, stable), formatAssistantMathExpr, { presented })
+    ? preprocessMarkdown(closed, formatAssistantMathExpr, { presented })
     : "";
-  return head + presentStreamTail(content.slice(stable), presented);
+  const above = stable > 0 ? (content.slice(0, stable - 1).split("\n").pop() ?? "") : "";
+  return head + presentStreamTail(content.slice(stable), presented, isWorkedReply(closed), above);
 }
 
 /** Stream `text` a line at a time; the first line where the two differ, or null. */

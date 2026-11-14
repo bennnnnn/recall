@@ -25,6 +25,7 @@ from app.modules.chemistry.request import is_chemistry_question
 from app.modules.chemistry.shape_followup import shape_followup_problem
 from app.modules.chemistry.species_words import substance_mentions, with_formulas
 from app.services.law_binding.units import dimension_of
+from app.services.number_text import DECIMAL
 from app.services.problem_followup import (
     EXPLAIN_RE,
     GivenRewriter,
@@ -32,6 +33,7 @@ from app.services.problem_followup import (
     ask_replaced,
     followup_line,
     new_value,
+    written_value,
 )
 from app.services.scaled_followup import scaled_given
 
@@ -81,7 +83,7 @@ _CHANGED = re.compile(
     r"^(?:but )?(?:what )?if "
     r"(?:it (?:was|were|is) |"
     r"(?:the )?(?P<name>[A-Za-z][A-Za-z ]{0,30}?) (?:was|were|is) )"
-    r"(?P<value>[-+]?(?:\d+(?:\.\d+)?|\.\d+)(?:e[-+]?\d+)?) ?"
+    rf"(?P<value>[-+]?{DECIMAL}(?:e[-+]?\d+)?) ?"
     r"(?P<unit>[A-Za-zμµ°/^0-9][A-Za-zμµ°/^0-9. ]{0,16})?\??$",
     re.IGNORECASE,
 )
@@ -96,13 +98,19 @@ def chemistry_followup_problem(query: str | None, recent: Sequence[Any]) -> str 
     shown = shape_followup_problem(text, recent)
     if shown is not None and _verifies(shown):
         return shown
-    prior = adjacent_problem(recent, is_chemistry_question)
+    # A line the solver reads nothing in ("Give me a chemistry practice question") is no
+    # problem to go back to: the reply after it may have posed one (``chat.posed_read``).
+    prior = adjacent_problem(recent, _solvable)
     adjacent = None if prior is None else _adjacent_problem(prior, text)
     if adjacent is not None:
         return adjacent
     # "what if i only had 16g of o2" changes the reaction it names, past lines with no amount.
     reaction = reaction_followup_problem(text, recent)
     return reaction if reaction is not None and _verifies(reaction) else None
+
+
+def _solvable(line: str) -> bool:
+    return is_chemistry_question(line) and extract_chemistry_intent(line) is not None
 
 
 def _adjacent_problem(prior: str, text: str) -> str | None:
@@ -181,3 +189,13 @@ def _dimension_of_phrase(phrase: str) -> str | None:
 
 
 _GIVENS = GivenRewriter(CHEMISTRY_UNITS, _dimension_of_unit, _dimension_of_phrase, _verifies)
+
+
+def changed_chemistry_problem(problem: str, given: str | None, new: str) -> str | None:
+    """``problem`` with the given of ``new``'s kind put to ``new`` ("10 s" replaces the time;
+    of two masses, the one whose number ``given`` quotes). The unit decides which kind
+    changes: "10 s" never replaces a distance. The rewrite verifies."""
+    value = written_value(new)
+    if value is None:
+        return None
+    return _GIVENS.replaced(problem, given, *value)

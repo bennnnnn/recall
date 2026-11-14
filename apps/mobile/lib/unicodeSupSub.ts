@@ -142,6 +142,14 @@ const FROM_SUBSCRIPT: Record<string, string> = Object.fromEntries(
   Object.entries(SUBSCRIPT).map(([ascii, uni]) => [uni, ascii]),
 );
 
+/** A script glyph's own character and whether it is lowered or raised (`ₒ` is a lowered "o"),
+ * or null for any other character. */
+export function scriptGlyphBase(ch: string): { base: string; kind: "sub" | "sup" } | null {
+  if (ch in FROM_SUBSCRIPT) return { base: FROM_SUBSCRIPT[ch]!, kind: "sub" };
+  if (ch in FROM_SUPERSCRIPT) return { base: FROM_SUPERSCRIPT[ch]!, kind: "sup" };
+  return null;
+}
+
 function isSuperscriptChar(ch: string): boolean {
   return ch in FROM_SUPERSCRIPT;
 }
@@ -166,13 +174,26 @@ function scriptRunToCaret(run: string, kind: "sup" | "sub"): string {
  * sup/sub segments. OCR and models often emit these glyphs instead of `^`.
  */
 export function normalizeUnicodeScripts(input: string): string {
+  return scriptRunsToCarets(input, true);
+}
+
+/**
+ * Subscript runs only (`C₆H₁₂O₆` → `C_6H_{12}O_6`). An upright run keeps a unit's `²` as
+ * its glyph (`m/s²`), but a subscript glyph comes from a fallback face and sat below the
+ * line of the formula's own face, so a formula's subscripts are drawn as scripts there too.
+ */
+export function normalizeUnicodeSubscripts(input: string): string {
+  return scriptRunsToCarets(input, false);
+}
+
+function scriptRunsToCarets(input: string, superscripts: boolean): string {
   if (!input) return input;
   let out = "";
   let i = 0;
   while (i < input.length) {
     const ch = input[i]!;
-    if (isSuperscriptChar(ch) || isSubscriptChar(ch)) {
-      const kind: "sup" | "sub" = isSuperscriptChar(ch) ? "sup" : "sub";
+    if ((superscripts && isSuperscriptChar(ch)) || isSubscriptChar(ch)) {
+      const kind: "sup" | "sub" = superscripts && isSuperscriptChar(ch) ? "sup" : "sub";
       const isRun = kind === "sup" ? isSuperscriptChar : isSubscriptChar;
       let j = i + 1;
       while (j < input.length && isRun(input[j]!)) j += 1;

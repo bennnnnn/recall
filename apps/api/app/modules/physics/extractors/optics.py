@@ -14,7 +14,11 @@ from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.cues import (
     has_cue,
 )
-from app.modules.physics.extractors.optics_laws import NAMED_OPTICS_LAWS, image_distance
+from app.modules.physics.extractors.optics_laws import (
+    NAMED_OPTICS_LAWS,
+    diverging_lens_image,
+    image_distance,
+)
 from app.modules.physics.extractors.unit_patterns import NUMBER
 from app.modules.physics.optic_elements import diverging_element
 from app.modules.physics.schemas import PhysicsIntent
@@ -138,7 +142,8 @@ def _extract_optics_intent(cleaned: str) -> PhysicsIntent | None:
     if has_equation(strip_param_assignments(without_index_assignments)):
         return None
     if diverging_element(cleaned):
-        return None
+        # Only a lens's: a convex mirror's sign is a convention it does not state.
+        return diverging_lens_image(cleaned)
     # The catalog owns a microscope and the lens-maker equation. This reader
     # would treat "objective" as an object distance.
     if "microscope" in lower or "lens maker" in lower or "lensmaker" in lower:

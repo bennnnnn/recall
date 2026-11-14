@@ -520,7 +520,7 @@ REMAINING_CASES = (
     (
         "Use Henry's law when kH=0.034 and P=2. Find the concentration.",
         "henry",
-        "C = 0.068",
+        "c = 0.068",
     ),
 )
 
@@ -595,7 +595,7 @@ def test_dilution_can_find_stock_concentration() -> None:
     )
     assert intent is not None
     result = solve_chemistry(intent)
-    assert result.answer == "M1 = 1.25 mol/L"
+    assert result.answer == "c1 = 1.25 mol/L"
 
 
 def test_dilution_labeled_form_can_find_stock_volume() -> None:
@@ -614,8 +614,8 @@ def test_dilution_can_find_final_concentration() -> None:
             units={"v1": "mL"},
         )
     )
-    assert result.answer == "M2 = 0.5 mol/L"
-    assert result.formula == "M1V1 = M2V2"
+    assert result.answer == "c2 = 0.5 mol/L"
+    assert result.formula == "c1V1 = c2V2"
 
 
 def test_dilution_normalizes_each_supplied_volume_unit() -> None:
@@ -625,17 +625,17 @@ def test_dilution_normalizes_each_supplied_volume_unit() -> None:
     assert intent.units == {"v1": "mL", "v2": "L"}
 
     result = solve_chemistry(intent)
-    assert result.given == ("M1 = 1 mol/L", "V1 = 500 mL", "V2 = 2 L")
+    assert result.given == ("c1 = 1 mol/L", "V1 = 500 mL", "V2 = 2 L")
     # Two volume units meet in litres, and the step to them is a row of its own.
-    assert result.substitution == ("V1 = 500 mL = 0.500 L", "M2 = (1 mol/L)(0.500 L) / 2 L")
-    assert result.answer == "M2 = 0.25 mol/L"
+    assert result.substitution == ("V1 = 500 mL = 0.500 L", "c2 = (1 mol/L)(0.500 L) / 2 L")
+    assert result.answer == "c2 = 0.25 mol/L"
 
     implicit_unit = extract_chemistry_intent(
         "Dilution using M1V1: M1=1, V1=500 mL, V2=2000, find M2"
     )
     assert implicit_unit is not None
     assert implicit_unit.units == {"v1": "mL", "v2": "mL"}
-    assert solve_chemistry(implicit_unit).answer == "M2 = 0.25 mol/L"
+    assert solve_chemistry(implicit_unit).answer == "c2 = 0.25 mol/L"
 
 
 def test_explicit_zero_nernst_temperature_is_not_defaulted() -> None:

@@ -8,6 +8,7 @@ clock already resolved; the instant replies, follow-ups and augmentation read it
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -16,8 +17,10 @@ from app.modules import web_search as web_search_service
 from app.modules.account import profile as profile_service
 from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.turn_prep.mode import _TurnMode
+from app.modules.chat.turn_prep.saved_place import last_reported_place, saved_place
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.services import time_context as time_context_service
+from app.services.subject_scan import without_photo_reading
 from app.services.subjects.registry import MathImageExtract
 
 
@@ -57,6 +60,15 @@ class TurnRequest:
     unhealthy_models: frozenset[str] | None = None
     # Open models past their cool-down, read with ``unhealthy_models``.
     half_open_models: frozenset[str] = frozenset()
+    # What the user typed or said, when ``content`` also holds text the turn read off their
+    # photo (its reading, maths' ``Solve:`` line); None: ``content`` is all theirs.
+    said: str | None = None
+
+    @property
+    def own_words(self) -> str:
+        """The user's own words, as the instant replies read them: text on a photo is the
+        photo's content, never a command (audit SCAN-03, 2026-11-13)."""
+        return without_photo_reading(self.content) if self.said is None else self.said
 
 
 @dataclass
@@ -68,6 +80,18 @@ class ClientGeoContext:
     geo_query: bool
     ambiguous_nearby: bool
     local_places: bool
+    # When the phone saved ``user_location``, for a place the turn read from the profile
+    # that is no longer current (``saved_place``); None when it is.
+    place_as_of: datetime | None = None
+
+    def prompt_place(self, local_tz: str | None) -> str | None:
+        """The place the prompt gives a turn that needs one: an older one as the phone's
+        last report."""
+        if not (self.geo_query and self.has_geo_fix) or not self.user_location:
+            return None
+        if self.place_as_of is None:
+            return self.user_location
+        return last_reported_place(self.user_location, self.place_as_of, local_tz)
 
 
 @dataclass(frozen=True)
@@ -87,6 +111,7 @@ def resolve_client_geo(
     client_location: str | None,
     client_latitude: float | None,
     client_longitude: float | None,
+    now: datetime | None = None,
 ) -> ClientGeoContext:
     # Settings Location toggle is the opt-in. Ignore one-shot client geo when off
     # so a stale/malicious client cannot bypass the user's choice.
@@ -101,10 +126,14 @@ def resolve_client_geo(
     user_location = profile_service.effective_location_label(user, normalized_client_location)
     geo_query = web_search_service.is_geo_query(content)
     location_question = time_context_service.is_location_question(content)
-    # "Where am I?" and nearby asks must use the fresh device fix, not a stale
-    # profile city (or prior-chat place names).
-    if geo_query or location_question:
-        user_location = normalized_client_location
+    place_as_of = None
+    if (geo_query or location_question) and not normalized_client_location:
+        # The phone's fix when the turn carries one, else the place the phone last saved
+        # (only the phone writes it): the phone sends a fix only when that place is old,
+        # and "What's the weather tomorrow?" with Location on got "I don't have your
+        # location yet" while a fix was required (2026-11-08). How old it may be is
+        # ``saved_place``'s.
+        user_location, place_as_of = saved_place(user, now or datetime.now(UTC))
     client_lat = client_coordinates[0] if client_coordinates else None
     client_lng = client_coordinates[1] if client_coordinates else None
     has_geo_fix = bool(user_location) or client_coordinates is not None
@@ -120,4 +149,5 @@ def resolve_client_geo(
         geo_query=geo_query or location_question,
         ambiguous_nearby=ambiguous_nearby,
         local_places=local_places,
+        place_as_of=place_as_of,
     )

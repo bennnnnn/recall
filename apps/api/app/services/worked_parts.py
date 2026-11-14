@@ -2,10 +2,11 @@ r"""One layout for a worked answer in parts, whoever worked it.
 
 A question in parts reads as a single worked answer does, once:
 
-- **Given**: one section for the whole question, never one under a part. A given every
-  part shares is a line of its own; a given only some parts use carries their letters as
-  Required's lines do (``(a) $t = 1\,\mathrm{s}$``). One ``where`` line names every symbol
-  once.
+- **Given**: one section for the whole question, never one under a part, each value once.
+  A given is data, not a part: it carries no part's letter, except where one symbol has a
+  value in each of several parts, a car's and a train's ``$d$``, which their letters tell
+  apart as Required's lines are lettered (``(a) $d = 100\,\mathrm{m}$``). One ``where`` line
+  names every symbol once.
 - **Required**: one line per part, ``(a) $v$ (speed after 1 s)``
 - **Solution**, then each part: its label (``**(a) Speed after 1 s**``), its formula
   under its name's heading, its substitution or steps, and **Answer (a)** with that part's
@@ -17,12 +18,14 @@ block in parts (``modules/chat/worked_render.py``) all render here. Before Novem
 the separate questions came back as whole replies one after another: the givens repeated
 under each part, the part above its givens, and no card under any answer (the finalize
 pass for one verified part dropped the others'). Until 2026-11-02 a given one part used
-was listed under a second **Given** inside that part.
+was listed under a second **Given** inside that part, and until 2026-11-13 every value only
+some parts used carried their letters: a pie chart's angles read as parts.
 """
 
 from __future__ import annotations
 
 import re
+from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -116,14 +119,24 @@ def _values_and_names(lines: Sequence[str]) -> tuple[list[str], list[str]]:
 
 
 def lettered_line(letters: Sequence[str], line: str) -> str:
-    r"""``(a) $t = 1\,\mathrm{s}$``: a given only some parts use, with their letters."""
+    r"""``(a) $d = 100\,\mathrm{m}$``: one value of a symbol several parts give apart."""
     return f"({', '.join(letters)}) {line}"
+
+
+_VALUE_SYMBOL = re.compile(r"^\$([^$=]+?)\s*=")
+
+
+def _symbol(value: str) -> str:
+    """The symbol a value line sets (``$d = 100$`` → ``d``); the line itself when none."""
+    found = _VALUE_SYMBOL.match(value)
+    return found.group(1).strip() if found else value
 
 
 def one_given(given: Sequence[str], parts: Sequence[WorkedPart]) -> list[str]:
     """The question's one Given: ``given`` (the whole question's), then what every part
-    gives alike, then each value only some parts give, lettered by those parts in their
-    order; one ``where`` line names every symbol once."""
+    gives alike, then each value only some parts give, in their order, lettered by those
+    parts only where its symbol has another value too; one ``where`` line names every symbol
+    once."""
     read = [_values_and_names(part.given) for part in parts]
     by_part = [values for values, _names in read]
     first = by_part[0] if by_part else []
@@ -137,11 +150,15 @@ def one_given(given: Sequence[str], parts: Sequence[WorkedPart]) -> list[str]:
     names = [*top_names, *(piece for _values, part_names in read for piece in part_names)]
     if len(parts) < 2:
         shared = [value for values in by_part for value in values]
+    symbols = Counter(_symbol(value) for value in dict.fromkeys([*top, *shared, *letters]))
     return merged_given(
         [
             *top,
             *shared,
-            *(lettered_line(at, value) for value, at in letters.items()),
+            *(
+                lettered_line(at, value) if symbols[_symbol(value)] > 1 else value
+                for value, at in letters.items()
+            ),
             *(f"where {piece}" for piece in names),
         ]
     )
@@ -276,3 +293,35 @@ def _sentence_case(title: str) -> str:
     opens with a symbol ("pH of …", "x-component") is left as written."""
     text = title.strip()
     return text[:1].upper() + text[1:] if re.match(r"[a-z]{2,}\b", text) else text
+
+
+# A reply's answer heading, lettered when the question is in parts: "**Answer (a)**".
+_ANSWER_LABEL = re.compile(r"^\*\*Answer:?\*\*", re.MULTILINE)
+
+
+def answers_in_parts(parts: Sequence[str], replies: Sequence[str]) -> str:
+    """Separate questions answered one by one, as the question in parts: in the one layout
+    (``parts_in_one_layout``) the givens and what is asked once, then each part's working
+    closed by its own answer card. A reply in another shape keeps the old one: each part's
+    own question, then its reply."""
+    shared = _shared_setup(parts)
+    laid_out = parts_in_one_layout([part[len(shared) :] for part in parts], replies)
+    if laid_out is not None:
+        return laid_out
+    sections = []
+    for index, (part, reply) in enumerate(zip(parts, replies, strict=True)):
+        label = chr(ord("a") + index) if index < 26 else str(index + 1)
+        # A question in parts letters each answer: "**Answer (a)**".
+        answer = _ANSWER_LABEL.sub(f"**Answer ({label})**", reply.strip(), count=1)
+        sections.append(f"**({label}) {part[len(shared) :].strip()}**\n\n{answer}")
+    return "\n\n---\n\n".join(sections)
+
+
+def _shared_setup(parts: Sequence[str]) -> str:
+    """The setup every part opens with, up to the end of its last sentence."""
+    first = parts[0]
+    size = min(len(part) for part in parts)
+    same = next((i for i in range(size) if any(part[i] != first[i] for part in parts)), size)
+    prefix = first[:same]
+    end = max(prefix.rfind(". "), prefix.rfind("? "), prefix.rfind("! "))
+    return prefix[: end + 2] if end >= 0 else ""

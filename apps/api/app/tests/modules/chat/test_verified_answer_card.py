@@ -67,8 +67,10 @@ def _ctx(
     verified: Any = None,
     instant: str | None = None,
     unverified_subject: str | None = None,
+    photo_uncertain: bool = False,
 ) -> StreamContext:
     return StreamContext(
+        photo_uncertain=photo_uncertain,
         solver_unverified=unverified_subject is not None,
         unverified_subject=unverified_subject,
         user_id=uuid4(),
@@ -96,18 +98,24 @@ async def _finalize(
     sympy: Any = _inline,
     deps: Any = None,
     unverified_subject: str | None = None,
+    photo_uncertain: bool = False,
 ) -> str:
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", sympy)
     return await enrich_final_content(
         deps or _deps(),
         AsyncMock(),
         Settings(),
-        _ctx(prompt, verified=verified, instant=instant, unverified_subject=unverified_subject),
+        _ctx(
+            prompt,
+            verified=verified,
+            instant=instant,
+            unverified_subject=unverified_subject,
+            photo_uncertain=photo_uncertain,
+        ),
         assistant_text=reply,
         usage={},
         outcome=TurnOutcome(),
         was_cancelled=False,
-        assistant_parts=[reply],
         should_cancel=None,
     )
 
@@ -406,3 +414,47 @@ async def test_a_server_scene_still_ships_on_a_verified_physics_turn(
     out = await _finalize(monkeypatch, reply, verified=verified, prompt="find the range")
     assert out.count("```simulation") == 1
     assert '"title":"server"' in out
+
+
+# --- 8. A photo the reader was not sure it read certifies nothing ---------------------------
+
+
+@pytest.mark.parametrize("uncertain", [True, False])
+async def test_an_uncertain_photo_read_keeps_its_answer_without_the_check(
+    monkeypatch: pytest.MonkeyPatch, uncertain: bool
+) -> None:
+    """At Mathpix confidence 0.31 a misread "2x + 3 = 1" was solved and its card checked
+    (SCAN-02). The solve and the answer stay; the check goes, and nothing says what was read."""
+    reply = "Subtract 3, then divide by 2."
+    out = await _finalize(
+        monkeypatch,
+        reply,
+        prompt="Solve the math problem in this image step by step.",
+        verified=_math(),
+        photo_uncertain=uncertain,
+    )
+    marker = UNCHECKED_ANSWER_MARKER if uncertain else VERIFIED_ANSWER_MARKER
+    assert _cards(out) == [f"{marker}\nx = 6"]
+    assert "read this as" not in out.lower()
+
+
+async def test_an_uncertain_photos_server_reply_is_not_checked_either(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    instant = "Subtract 3, then divide by 2.\n\n```answer\nx = 6\n```"
+    out = await _finalize(
+        monkeypatch, instant, verified=_math(), instant=instant, photo_uncertain=True
+    )
+    assert _cards(out) == [f"{UNCHECKED_ANSWER_MARKER}\nx = 6"]
+
+
+async def test_an_uncertain_photos_solver_scene_goes(monkeypatch: pytest.MonkeyPatch) -> None:
+    scene = '```simulation\n{"type":"projectile"}\n```'
+    out = await _finalize(
+        monkeypatch,
+        f"Here.\n\n{scene}",
+        verified=_math(),
+        instant=f"Here.\n\n{scene}",
+        photo_uncertain=True,
+    )
+    assert "```simulation" not in out

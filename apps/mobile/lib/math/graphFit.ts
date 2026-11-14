@@ -271,5 +271,32 @@ export function interactiveFunctionBounds(spec: GraphSpec, plotAspect: number): 
     return fitView(spec, plotAspect);
   }
   const fitted = functionPlotBounds(spec.points, spec.points2, plotAspect);
-  return { ...fitted, xMin, xMax };
+  return { ...fitted, ...statedRangeHeight(spec, fitted), xMin, xMax };
+}
+
+/** Room above and below a curve over the learner's range, as a share of its height. */
+const STATED_RANGE_PAD = 0.08;
+
+/** A step between two samples this large a share of the curve's height is a pole. */
+const POLE_JUMP = 0.25;
+
+/** The curve jumps somewhere: split at a pole (tan x), or a pole the samples run across. */
+function jumps(points: [number, number][], height: number): boolean {
+  return points.some(([, y], i) => i > 0 && Math.abs(y - points[i - 1][1]) > height * POLE_JUMP);
+}
+
+/**
+ * Over a range the learner named, the curve is what they asked to see: a crop that misses it
+ * (a reservoir's depth from 144 m down to 96 m over weeks 0 to 12 drew an empty −1…5 card,
+ * 2026-11-13) gives way to the curve's own heights. A curve with a pole keeps the crop.
+ */
+function statedRangeHeight(spec: GraphSpec, fitted: GraphView): Pick<GraphView, "yMin" | "yMax"> {
+  const curves = [spec.points, spec.points2 ?? []];
+  const ys = curves.flat().map(([, y]) => y).filter(Number.isFinite);
+  if (!ys.length || (spec.segments?.length ?? 0) > 1 || (spec.segments2?.length ?? 0) > 1) return fitted;
+  const [low, high] = [Math.min(...ys), Math.max(...ys)];
+  if (fitted.yMin <= low && fitted.yMax >= high) return fitted;
+  if (curves.some((points) => jumps(points, high - low))) return fitted;
+  const pad = Math.max(high - low, 1) * STATED_RANGE_PAD;
+  return { yMin: low - pad, yMax: high + pad };
 }

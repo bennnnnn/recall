@@ -15,7 +15,7 @@ from app.modules.math.tools.expr_rewrite import math_expr_or_none
 from app.modules.math.tools.school.coordinate import extract_sas_area, sas_area_block
 from app.modules.math.tools.school.teaching import _attach_picture
 from app.modules.math.tools.school.trig_equations import bounded_equation_block
-from app.services.number_text import DECIMAL_LITERAL, SIGNED_DECIMAL
+from app.services.number_text import DECIMAL, DECIMAL_LITERAL, SIGNED_DECIMAL
 from app.services.workout import Workout, math_line, render_workout
 
 # The keypad's trig row: sin, cos, tan and their reciprocals sec, csc, cot.
@@ -59,13 +59,15 @@ _BOUNDED_DEGREE_DOMAIN = re.compile(
     rf"(?=\s|[.?!]|$)",
     re.IGNORECASE,
 )
+# Each run of space is read once (possessive): "on", a run of spaces and the space either
+# side of an optional "*" took cubic time.
 _RADIAN_BOUND = (
-    r"[+-]?(?:\d+(?:\.\d+)?|\.\d+)?\s*\*?\s*(?:pi|π)"
-    r"|[+-]?(?:\d+(?:\.\d+)?|\.\d+)"
+    rf"[+-]?{DECIMAL}?\s*+\*?\s*+(?:pi|π)"
+    rf"|{SIGNED_DECIMAL}"
 )
 _BOUNDED_RADIAN_DOMAIN = re.compile(
-    rf"\b(?:for|on)\s+({_RADIAN_BOUND})\s*(<=|<|≤)\s*"
-    rf"([a-zA-Z])\s*(<=|<|≤)\s*({_RADIAN_BOUND})(?=\s|[.?!]|$)",
+    rf"\b(?:for|on)\s++({_RADIAN_BOUND})\s*+(<=|<|≤)\s*+"
+    rf"([a-zA-Z])\s*+(<=|<|≤)\s*+({_RADIAN_BOUND})(?=\s|[.?!]|$)",
     re.IGNORECASE,
 )
 

@@ -6,10 +6,11 @@ from collections.abc import Callable
 from dataclasses import replace
 
 from app.modules.chemistry.catalog import formula_spec
+from app.modules.chemistry.charge_balance import impossible_compound
 from app.modules.chemistry.formula_laws import FORMULA_LAWS
 from app.modules.chemistry.scene import attach_scene
 from app.modules.chemistry.schemas import ChemistryIntent
-from app.modules.chemistry.sig_figs import numbers_as_written
+from app.modules.chemistry.sig_figs import current, numbers_as_written
 from app.modules.chemistry.solvers.acid_base import (
     solve_acid_base,
     solve_ka_kb,
@@ -157,6 +158,7 @@ from app.modules.chemistry.solvers.thermochemistry import (
 )
 from app.modules.chemistry.solvers.titration import solve_titration_strong, solve_titration_weak
 from app.modules.chemistry.solvers.types import ChemistryResult
+from app.modules.chemistry.species import parse_reaction
 from app.services.solving import SolveServiceError
 
 CHEMISTRY_SOLVERS: dict[str, Callable[[ChemistryIntent], ChemistryResult]] = {
@@ -299,12 +301,37 @@ def solve_chemistry(intent: ChemistryIntent) -> ChemistryResult:
     """Dispatch a validated intent to its subject-grouped pure solver."""
     with numbers_as_written(intent):
         result = attach_scene(intent, _solve(intent))
+        written = current()
+        rounded = {} if written is None else written.rounded
     spec = formula_spec(intent.chemistry_op)
-    return replace(result, method=spec is not None and spec.method)
+    return replace(
+        result,
+        method=spec is not None and spec.method,
+        unrounded=tuple((text, worked) for text, worked in rounded.items() if worked is not None),
+    )
 
 
 def _solve(intent: ChemistryIntent) -> ChemistryResult:
     solver = CHEMISTRY_SOLVERS.get(intent.chemistry_op)
     if solver is None:
         raise SolveServiceError(f"unsupported chemistry operation: {intent.chemistry_op}")
+    # A molar mass, a balance or a yield of NaCl3 is a sum over a compound that cannot exist.
+    impossible = next(filter(impossible_compound, _named_formulas(intent)), None)
+    if impossible is not None:
+        raise SolveServiceError(f"{impossible} is no compound: its ions' charges cannot cancel")
     return solver(intent)
+
+
+def _named_formulas(intent: ChemistryIntent) -> list[str]:
+    """Every formula the intent names: its own, its target, its species and its equation's."""
+    named = [name for name in (intent.formula, intent.target) if name]
+    named.extend(intent.species)
+    reaction = parse_reaction(intent.equation) if intent.equation else None
+    if reaction is not None:
+        # An ion's formula comes without its charge ("ZnCl4" of ZnCl4^2-): no neutral compound.
+        named.extend(
+            term.species.formula
+            for term in (*reaction.reactants, *reaction.products)
+            if term.species.charge == 0
+        )
+    return named

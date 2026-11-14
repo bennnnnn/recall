@@ -324,6 +324,8 @@ async def word_problem_intent(text: str, settings: Settings) -> MathIntent | Non
                 max_tokens=500,
                 timeout_seconds=settings.math_word_problem_timeout_seconds,
                 allow_fallback=False,
+                # This loop asks the fallback itself, with its own time, and grounds it.
+                refusal_fallback=False,
             )
         except Exception:
             logger.warning("word problem extract failed on %s", alias, exc_info=True)

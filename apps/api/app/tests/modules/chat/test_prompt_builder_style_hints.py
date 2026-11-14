@@ -84,6 +84,23 @@ def test_rich_turn_injects_universal_format_baseline():
     assert "do not add sections just to look structured" in joined
 
 
+def test_only_maths_pack_says_a_shape_is_never_drawn_in_text():
+    """ "I asked for the triangle" got a triangle of slashes (2026-11-09); every turn's rule
+    then fought an SVG logo, a CSS circle and a star-triangle exercise (a local review,
+    2026-11-10). The line is maths' pack's, where a figure is at stake."""
+    from app.modules.chat.prompt_constants import MATH_FENCE_SAFETY_HINT
+    from app.modules.math.reply_policy import (
+        GRAPH_NO_SUBSTITUTE_CLAUSE,
+        MATH_INTENT_HINT,
+        MATH_SOLVER_HINT,
+        SHORT_MATH_SAFETY_HINT,
+    )
+
+    assert GRAPH_NO_SUBSTITUTE_CLAUSE not in MATH_FENCE_SAFETY_HINT
+    for hint in (MATH_INTENT_HINT, MATH_SOLVER_HINT, SHORT_MATH_SAFETY_HINT):
+        assert GRAPH_NO_SUBSTITUTE_CLAUSE in hint
+
+
 def test_closed_form_math_prompt_is_instance_first_not_a_lecture():
     """4! used to get 'start with n! definition + numbered steps + You can check'
     plus a fun-fact callout. Prompt now matches a one-line identity."""

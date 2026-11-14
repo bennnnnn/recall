@@ -1,6 +1,7 @@
 import {
   askedLine,
   isAnswerHeading,
+  isAnswerValue,
   isSolutionHeading,
   isWorkedReply,
   lawHeading,
@@ -89,5 +90,44 @@ describe("lawHeading", () => {
     ["A heading that runs far too long to be the name of one law", "$x$", null],
   ])("%s over %s", (text, firstLine, expected) => {
     expect(lawHeading(text, firstLine)).toBe(expected);
+  });
+});
+
+describe("isAnswerValue", () => {
+  // The textbook run (2026-11-13): "slope 2, y-intercept 1. A line from (−3, −5) to (3, 7)"
+  // in the answer's box, the line's note drawn above it. More than one sentence is no value.
+  it.each([
+    "A line from $(-3, -5)$ to $(3, 7)$ — slope $2$, $y$-intercept $1$.",
+    String.raw`Slope $2$, $y$-intercept $1$. A line from $(-3, -5)$ to $(3, 7)$.`,
+    String.raw`The line has slope $2$. It passes through $(0, 1)$.`,
+    String.raw`La recta tiene pendiente $2$. Pasa por $(0, 1)$.`,
+  ])("reads %s as more than one sentence", (line) => {
+    expect(isAnswerValue(line)).toBe(false);
+  });
+
+  // One sentence is a value whatever its words, as before (review, 2026-11-13).
+  it.each([
+    String.raw`The speed is $20$ meters per second`,
+    String.raw`You need $2.5$ kilograms of flour`,
+    String.raw`It takes $3$ hours and $20$ minutes`,
+    String.raw`The tank holds $450$ litres of water`,
+    String.raw`The angle is $36.9^\circ$ above the horizontal`,
+    String.raw`She needs $7$ more cupcakes for the party`,
+    String.raw`La velocidad es $20$ metros por segundo`,
+    String.raw`The answer is $\frac{3}{4}$ of the whole pizza`,
+    String.raw`Both $3$ and $-2$ satisfy the equation.`,
+    String.raw`$\triangle ABC \cong \triangle DEF$ by the SAS rule here`,
+    String.raw`The area is $A = 24$ cm²`,
+    String.raw`Sum of the angles $= 180°$`,
+    String.raw`The hypotenuse $c = 15\ \text{cm}$`,
+    String.raw`Roots are $x = 3$ and $x = -2$`,
+    String.raw`The line has slope $2$ and passes through $(0, 1)$.`,
+    String.raw`The monthly payment is $386.66.`,
+    "$x = 3$ — the positive root",
+    "Only the positive root counts.",
+    "Carbon dioxide",
+    "Paris",
+  ])("reads %s as a value", (line) => {
+    expect(isAnswerValue(line)).toBe(true);
   });
 });

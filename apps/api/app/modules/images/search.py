@@ -11,11 +11,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from contextlib import AbstractContextManager, nullcontext
 from uuid import UUID
 
 import httpx
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.redis import get_redis_client
@@ -39,12 +42,14 @@ from app.modules.attachments.service import (
 from app.modules.chat import finish_turn
 from app.modules.conversation import history as chat_history
 from app.modules.conversation import turn_record
+from app.modules.images import photo_cache
+from app.modules.images.lookup_clock import LookupClock
+from app.modules.images.schemas import PHOTO_LOOKUP_MODEL
 from app.services import quota as quota_service
 from app.services.quota import counters
 
 logger = logging.getLogger(__name__)
 
-_IMAGE_SEARCH_MODEL_ALIAS = "image-search-model"
 _USER_MESSAGE_PREFIX = "Show me: "
 _FETCH_MAX_REDIRECTS = 5
 # Wikimedia answers a bare client 403, and Britannica sent "compressed" bytes
@@ -128,25 +133,31 @@ async def _fetch_candidates(
     hits: list[image_search_gateway.ImageSearchHit],
     *,
     max_images: int,
+    clock: LookupClock | None = None,
 ) -> list[tuple[bytes, str]]:
     """The first ``max_images`` usable photos, fetched side by side under one deadline.
 
     One after another, a slow host used its whole 8 s before the next candidate was
-    tried, so an answer photo (which waits 6 s) went out empty even when the next
-    candidate would have arrived at once.
+    tried, so an answer photo (the reply then waited 6 s for it) went out empty even when
+    the next candidate would have arrived at once.
     """
     deadline = settings.image_search_fetch_timeout_seconds
     fetched: list[tuple[bytes, str]] = []
     async with safe_fetch.fetch_client(deadline) as client:
-        pending = {
-            asyncio.create_task(_fetch_one_image(client, hit, deadline_seconds=deadline))
+        hit_of = {
+            asyncio.create_task(_fetch_one_image(client, hit, deadline_seconds=deadline)): hit
             for hit in hits
         }
+        pending = set(hit_of)
         try:
             async with asyncio.timeout(deadline):
                 while pending and len(fetched) < max_images:
                     done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
-                    fetched.extend(found for task in done if (found := task.result()) is not None)
+                    for task in done:
+                        if (found := task.result()) is not None:
+                            fetched.append(found)
+                            if clock is not None:
+                                clock.won(hit_of[task].image_url)
         except TimeoutError:
             logger.info("Reference-photo candidates ran past %ss", deadline)
         finally:
@@ -156,16 +167,22 @@ async def _fetch_candidates(
     return fetched[:max_images]
 
 
+def _timed(clock: LookupClock | None, step: str) -> AbstractContextManager[None]:
+    return nullcontext() if clock is None else clock.step(step)
+
+
 async def _find_photos(
-    settings: Settings, query: str, *, max_images: int
+    settings: Settings, query: str, *, max_images: int, clock: LookupClock | None = None
 ) -> list[tuple[bytes, str]]:
     """Search and fetch up to ``max_images`` usable photos. No DB session is held."""
-    hits = await image_search_gateway.search_images(
-        settings, query, max_results=settings.image_search_max_results
-    )
+    with _timed(clock, "search"):
+        hits = await image_search_gateway.search_images(
+            settings, query, max_results=settings.image_search_max_results
+        )
     if not hits:
         raise ImageSearchError("Could not find a reference photo", status_code=502)
-    fetched = await _fetch_candidates(settings, hits, max_images=max_images)
+    with _timed(clock, "fetch"):
+        fetched = await _fetch_candidates(settings, hits, max_images=max_images, clock=clock)
     if not fetched:
         raise ImageSearchError("Could not find a usable reference photo", status_code=502)
     return fetched
@@ -299,7 +316,7 @@ async def search_and_attach_for_chat(
                 user_id=user.id,
                 role="assistant",
                 content=markers,
-                model=_IMAGE_SEARCH_MODEL_ALIAS,
+                model=PHOTO_LOOKUP_MODEL,
             )
             await _add_photo_rows(
                 session, user, stored, label=cleaned, message_id=assistant_message.id
@@ -338,6 +355,9 @@ async def photos_for_answer(settings: Settings, *, user: User, query: str) -> li
     The reply's finalize links it to the assistant message. Best-effort: when
     lookup is off, storage is missing, the daily limit is spent or nothing
     usable is found, this returns [] and the answer goes out without a photo.
+    A photo already found for the same lookup is copied for this user instead
+    (``photo_cache``): no search, no fetch, nothing charged. Each lookup logs one
+    line with its steps' times (``LookupClock``).
     """
     cleaned = " ".join(query.split())[:120]
     if not (settings.image_search_enabled and settings.attachments_enabled and cleaned):
@@ -346,25 +366,89 @@ async def photos_for_answer(settings: Settings, *, user: User, query: str) -> li
     if isinstance(gateway, UnconfiguredStorageGateway):
         return []
     redis = get_redis_client()
-    if await quota_service.global_spend_exceeded(redis, settings):
+    clock = LookupClock()
+    try:
+        stored = await _kept_answer_photo(settings, gateway, redis, user, cleaned, clock)
+        if not stored:
+            stored = await _new_answer_photo(settings, gateway, redis, user, cleaned, clock)
+    except BaseException:
+        clock.outcome = "stopped"
+        raise
+    finally:
+        clock.log()
+    return [photo.attachment_id for photo in stored]
+
+
+async def _kept_answer_photo(
+    settings: Settings,
+    gateway: StorageGateway,
+    redis: Redis,
+    user: User,
+    query: str,
+    clock: LookupClock,
+) -> list[StoredImage]:
+    """The user's own copy of the photo kept for this lookup, its row added; [] when none
+    is kept (or reusing it failed: the lookup then runs as usual)."""
+    with clock.step("cache"):
+        cached = await photo_cache.cached_photo(settings, redis, query)
+    if cached is None:
         return []
-    day = await counters.reserve("image_search", redis, user, settings)
+    written_keys: list[str] = []
+    try:
+        with clock.step("store"):
+            photo = await photo_cache.copy_for_user(gateway, redis, user.id, query, cached)
+        if photo is None:
+            return []
+        written_keys.append(photo.storage_key)
+        with clock.step("row"):
+            async with SessionLocal() as session:
+                await _add_photo_rows(session, user, [photo], label=query, message_id=None)
+                await session.commit()
+    except Exception:
+        logger.warning("Reusing a kept answer photo failed; looking it up", exc_info=True)
+        await _rollback_written_bytes(gateway, written_keys)
+        return []
+    except BaseException:
+        await _rollback_written_bytes(gateway, written_keys)
+        raise
+    clock.outcome = "cached"
+    return [photo]
+
+
+async def _new_answer_photo(
+    settings: Settings,
+    gateway: StorageGateway,
+    redis: Redis,
+    user: User,
+    query: str,
+    clock: LookupClock,
+) -> list[StoredImage]:
+    """Search, fetch and store one photo, charged to the day's lookups; then keep a shared
+    copy for the next lookup of the same words."""
+    with clock.step("checks"):
+        day = None
+        if not await quota_service.global_spend_exceeded(redis, settings):
+            day = await counters.reserve("image_search", redis, user, settings)
     if not day:
+        clock.outcome = "limit"
         return []
 
     written_keys: list[str] = []
     try:
-        fetched = await _find_photos(settings, cleaned, max_images=1)
-        stored = await _upload_photos(gateway, user, fetched, written_keys=written_keys)
-        async with SessionLocal() as session:
-            await _add_photo_rows(session, user, stored, label=cleaned, message_id=None)
-            await session.commit()
+        fetched = await _find_photos(settings, query, max_images=1, clock=clock)
+        with clock.step("store"):
+            stored = await _upload_photos(gateway, user, fetched, written_keys=written_keys)
+        with clock.step("row"):
+            async with SessionLocal() as session:
+                await _add_photo_rows(session, user, stored, label=query, message_id=None)
+                await session.commit()
     except ImageSearchError:
         await _rollback_written_bytes(gateway, written_keys)
         await counters.refund("image_search", redis, user.id, day=day)
         return []
     except Exception:
         logger.exception("Answer photo lookup failed")
+        clock.outcome = "failed"
         await _rollback_written_bytes(gateway, written_keys)
         await counters.refund("image_search", redis, user.id, day=day)
         return []
@@ -373,8 +457,13 @@ async def photos_for_answer(settings: Settings, *, user: User, query: str) -> li
         await counters.refund("image_search", redis, user.id, day=day)
         raise
 
+    clock.outcome = "found"
     try:
         await quota_service.record_global_spend(redis, quota_service.IMAGE_SEARCH_SPEND_USD)
     except Exception:
         logger.exception("record_global_spend failed after answer photo")
-    return [photo.attachment_id for photo in stored]
+    # Off the photo's path: the user's photo is ready, the shared copy is for next time.
+    create_background_task(
+        photo_cache.remember(settings, gateway, redis, query, stored[0]), name="answer_photo_keep"
+    )
+    return stored

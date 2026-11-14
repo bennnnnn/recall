@@ -88,15 +88,18 @@ _NEXT_FOLDS = ("memory", "compress", "message_index")
 # A turn with follow-up questions reads what its chat already showed (one GET,
 # ``related_prompts.shown_in_chat``) and writes both records in one pipeline.
 # The post-turn jobs are queued in one pipeline too (``jobs.enqueue_many``).
+# A first reply's topic job leaves the title it applied where the turn's socket and the
+# phone's one read wait for it (one SET, ``chat/title_event.py``): the phone read the chat
+# every 2 s for it before.
 CEILINGS: dict[str, Ceiling] = {
     "greeting": Ceiling(
         Counts(sql=5, checkouts=3, transactions=3, redis=21, models=1),
-        Counts(sql=10, checkouts=4, transactions=4, redis=18, embeds=1),
+        Counts(sql=10, checkouts=4, transactions=4, redis=19, embeds=1),
         _FIRST,
     ),
     "question": Ceiling(
         Counts(sql=5, checkouts=3, transactions=3, redis=25, models=2),
-        Counts(sql=12, checkouts=4, transactions=4, redis=21, models=2, embeds=1),
+        Counts(sql=12, checkouts=4, transactions=4, redis=22, models=2, embeds=1),
         _FIRST,
     ),
     "follow-up, short chat": Ceiling(
@@ -111,7 +114,7 @@ CEILINGS: dict[str, Ceiling] = {
     ),
     "maths": Ceiling(
         Counts(sql=5, checkouts=3, transactions=3, redis=22, models=2),
-        Counts(sql=12, checkouts=4, transactions=4, redis=21, models=2, embeds=1),
+        Counts(sql=12, checkouts=4, transactions=4, redis=22, models=2, embeds=1),
         _FIRST,
     ),
     # "Who won …?" is about now: a dated news search runs beside the general one, with
@@ -120,27 +123,27 @@ CEILINGS: dict[str, Ceiling] = {
     # model call and its spend write) before it saves, so a claim no source made is cut.
     "web search": Ceiling(
         Counts(sql=5, checkouts=3, transactions=3, redis=35, models=4, searches=2),
-        Counts(sql=12, checkouts=4, transactions=4, redis=21, models=2, embeds=1),
+        Counts(sql=12, checkouts=4, transactions=4, redis=22, models=2, embeds=1),
         _FIRST,
     ),
     "reminder": Ceiling(
         Counts(sql=10, checkouts=8, transactions=8, redis=31, models=1, embeds=1),
-        Counts(sql=12, checkouts=4, transactions=4, redis=21, models=2, embeds=1),
+        Counts(sql=12, checkouts=4, transactions=4, redis=22, models=2, embeds=1),
         _FIRST,
     ),
     "photo lookup": Ceiling(
         Counts(sql=6, checkouts=4, transactions=4, redis=28, models=2, searches=1),
-        Counts(sql=12, checkouts=4, transactions=4, redis=21, models=2, embeds=1),
+        Counts(sql=12, checkouts=4, transactions=4, redis=22, models=2, embeds=1),
         _FIRST,
     ),
     "picture": Ceiling(
         Counts(sql=8, checkouts=3, transactions=3, redis=13, models=1),
-        Counts(sql=15, checkouts=5, transactions=5, redis=27, models=2, embeds=1),
+        Counts(sql=15, checkouts=5, transactions=5, redis=28, models=2, embeds=1),
         _FIRST_UNTOLD,
     ),
     "attachment question": Ceiling(
         Counts(sql=13, checkouts=8, transactions=8, redis=36, models=2, embeds=1),
-        Counts(sql=13, checkouts=5, transactions=5, redis=25, models=2, embeds=1),
+        Counts(sql=13, checkouts=5, transactions=5, redis=26, models=2, embeds=1),
         ("attachment_index", *_FIRST),
     ),
     "regenerate": Ceiling(

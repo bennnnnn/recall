@@ -89,3 +89,39 @@ def test_an_ascii_drawing_the_learner_asked_for_is_left_alone() -> None:
 def test_a_graph_request_is_a_graph_turn(text: str) -> None:
     assert is_graph_turn(text, None)
     assert "|" not in strip_text_plots_on_graph_turn(_LINES, text, None)
+
+
+# The textbook run (2026-11-13): number lines drawn in characters, one above the server's
+# real number line (b12), one in place of it (b05). Two rows: the line and its numbers.
+_NUMBER_LINES = [
+    "Increasing order: $-1.2 < 0.5$\n\n```text\n←────●────────●────────────●────●────→\n"
+    "    -1.2     -3/4          0.5  2/3\n```",
+    "The open circle marks 9.\n\n```text\n←════════════════════○────────→\n"
+    "                     9\n```",
+    "On the line:\n\n<-----o=========>-----\n     2         5",
+    "x = 0:\n\n```\n  -3  -2  -1   0   1   2   3\n---|---|---|---●---|---|---|--->\n```",
+]
+
+
+@pytest.mark.parametrize("reply", _NUMBER_LINES)
+def test_a_number_line_in_characters_is_removed(reply: str) -> None:
+    cleaned = strip_text_plots(reply)
+    assert "──" not in cleaned and "══" not in cleaned and "---" not in cleaned
+    assert cleaned.split("\n")[0] == reply.split("\n")[0]
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # Written column addition: a rule with no dot or arrow on it.
+        "```\n  123\n+ 456\n--------\n  579\n```",
+        # A markdown table.
+        "| x | y |\n|---|---|\n| 1 | 2 |",
+        # A divider and a sentence.
+        "First part.\n\n----------------\n\nSecond part with 3 numbers.",
+        # Code the user asked for, tagged as code.
+        "```python\nprint('<-------o------->')\nprint(' 1 2 3')\n```",
+    ],
+)
+def test_rows_that_only_look_like_a_number_line_stay(reply: str) -> None:
+    assert strip_text_plots(reply) == reply

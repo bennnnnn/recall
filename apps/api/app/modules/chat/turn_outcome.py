@@ -8,7 +8,7 @@ transports read it once the token stream ends, wait on its tasks, and send the
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -60,6 +60,13 @@ class TurnOutcome:
     finalize_task: asyncio.Task[None] | None = None
     # The follow-up questions, sent after ``done``.
     related_task: asyncio.Task[dict[str, Any] | None] | None = None
+    # A chat's first reply: the wait for the title the topic job writes, which a socket
+    # starts after ``done`` and sends as it lands (``title_event``); nothing runs until then.
+    # It ends early once its argument says the socket is gone.
+    title_wait: Callable[[Callable[[], bool]], Coroutine[Any, Any, dict[str, Any]]] | None = None
+    # The reply went out with its photo still on its way (``late_photo``): this puts the
+    # photo on the saved reply and ends with the ``answer_photo`` event sent after ``done``.
+    photo_task: asyncio.Task[dict[str, Any]] | None = None
     # While a new message's row is unsaved, a Stop's hard cancel waits here
     # (``hold_stops``); None when it runs at once.
     _held_stops: list[Callable[[], object]] | None = None

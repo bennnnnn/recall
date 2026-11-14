@@ -4,16 +4,18 @@
  * (negated relations, blackboard letters, primes, norms) get their own Text.
  */
 import { type ReactNode } from "react";
-import { Text } from "react-native";
+import { Platform, Text, type TextStyle } from "react-native";
 
 import { splitOperatorPads } from "@/lib/math/layout";
 import {
   AMS_ONLY_CHARS,
   BLACKBOARD_LATIN,
+  isUprightMathWord,
+  italicLeanEm,
   MATH_NOT_GLYPH,
   NEGATED_RELATION,
-  NOT_ADVANCE_EM,
   NORM_ADVANCE_EM,
+  notSlashSpacing,
   primeRun,
 } from "@/lib/math/glyphs";
 
@@ -21,40 +23,29 @@ import {
 type RunMetrics = { em: number; fontScale: number };
 
 /**
- * Operator spacing for a run; `space: false` keeps a script's operators tight. `lean`:
- * the run is the last box of its row, so an italic last letter needs room to lean into.
+ * Operator spacing for a run; `space: false` keeps a script's operators tight. `edge`: the
+ * run's Texts are boxes of their own (children of a View, not nested in a Text), and a box
+ * cuts off the ink an italic letter leans past its advance (`P` drew as `F`), so each that
+ * ends on one keeps its italic correction as padding and gives it back as a negative
+ * margin: the ink is whole and nothing beside it moves. `lean`: the run ends its row, and
+ * its last letter gets that room for real (the composer's draft, whose caret follows).
  */
-export type RunPad = RunMetrics & { leadingAtom: boolean; space?: boolean; lean?: boolean };
-
-/**
- * TeX's italic correction. An italic letter leans past its advance, and a box that ends
- * on one cuts the lean off: `P` drew as `F`.
- */
-export const ITALIC_LEAN_EM = 0.15;
+export type RunPad = RunMetrics & { leadingAtom: boolean; space?: boolean; lean?: boolean; edge?: boolean };
 
 /** A run drawn without padding measures its glyphs at the stylesheet's 16px. */
 const UNPADDED_METRICS: RunMetrics = { em: 16, fontScale: 1 };
-
-/** Named operators are words, not products of variables, so they stay
- * upright in the same way KaTeX renders `sin`, `log`, and `mod`. */
-const UPRIGHT_MATH_WORDS = new Set([
-  "arccos", "arcsin", "arctan", "cos", "cosh", "cot", "csc", "det",
-  "exp", "gcd", "if", "lim", "ln", "log", "max", "min", "mod",
-  "otherwise", "rank", "sec", "sin", "sinh", "tan", "tanh", "where",
-]);
 
 // Latin and Greek letters make separate runs: `\sin\theta` reads "sinθ", and as one run
 // the function name was drawn italic with its angle, a product of four variables.
 const MATH_LETTER_RUN = /[A-Za-z]+|[Ͱ-Ͽ]+/g;
 
-function isUprightWord(value: string): boolean {
-  return UPRIGHT_MATH_WORDS.has(value.toLowerCase());
-}
-
-/** The run ends on an italic letter: a variable, not a digit, a symbol or `sin`. */
-export function endsOnItalicLetter(value: string): boolean {
-  const word = value.match(/(?:[A-Za-z]+|[Ͱ-Ͽ]+)$/)?.[0];
-  return word !== undefined && !isUprightWord(word);
+/** The style that keeps a box's last italic letter whole: room for its lean (`leanEm`,
+ * `italicLeanEm`), and with `give` that room handed back as a negative margin, so the box
+ * takes its advance alone. */
+export function italicEdge(leanEm: number, em: number, fontScale: number, give: boolean): TextStyle | null {
+  const lean = leanEm * em * fontScale;
+  if (lean <= 0) return null;
+  return give ? { paddingRight: lean, marginRight: -lean } : { paddingRight: lean };
 }
 
 export function renderNonVariableRun(
@@ -66,6 +57,16 @@ export function renderNonVariableRun(
   return Array.from(value).map((ch, i) => renderMathGlyph(ch, `${key}-g${i}`, glyphStyle, metrics));
 }
 
+/**
+ * The letterSpacing, in layout pixels, of one em of the run. iOS sets a Text's letterSpacing
+ * as written, while the text itself grows with the reader's text size; Android grows the
+ * letterSpacing with the text. Scaled again there, a pull meant to lay one glyph on another
+ * missed it at any text size but the default.
+ */
+function letterSpacingPx(metrics: RunMetrics): number {
+  return Platform.OS === "android" ? metrics.em : metrics.em * metrics.fontScale;
+}
+
 function renderMathGlyph(
   ch: string,
   key: string,
@@ -74,10 +75,12 @@ function renderMathGlyph(
 ): ReactNode {
   const negated = NEGATED_RELATION[ch];
   if (negated) {
-    const shift = NOT_ADVANCE_EM * metrics.em * metrics.fontScale;
+    const px = letterSpacingPx(metrics);
+    const spacing = notSlashSpacing(Platform.OS === "android");
     return (
       <Text key={key} testID="math-negated" accessibilityLabel={ch}>
-        <Text style={{ letterSpacing: -shift }}>{MATH_NOT_GLYPH}</Text>
+        {spacing.lead == null ? null : <Text style={{ letterSpacing: spacing.lead * px }}>{"\u00a0"}</Text>}
+        <Text style={{ letterSpacing: spacing.slash * px }}>{MATH_NOT_GLYPH}</Text>
         {negated.base}
       </Text>
     );
@@ -105,7 +108,7 @@ function renderMathGlyph(
   if (ch === "-") return "−";
   if (ch === "·") return "⋅";
   if (ch === "‖") {
-    const pull = (0.8 - NORM_ADVANCE_EM) * metrics.em * metrics.fontScale;
+    const pull = (0.8 - NORM_ADVANCE_EM) * letterSpacingPx(metrics);
     return (
       <Text key={key} testID="math-norm" style={{ letterSpacing: -pull / 2 }}>
         ||
@@ -147,7 +150,7 @@ export function renderMathRun(
       }
       const word = match[0];
       children.push(
-        isUprightWord(word) ? word : (
+        isUprightMathWord(word) ? word : (
           <Text
             key={`${pieceKey}-v${variableIndex}`}
             testID="math-variable"
@@ -171,13 +174,16 @@ export function renderMathRun(
       );
     }
     // Padding, not margin: nested Text on iOS ignores margin, so the
-    // measured operator space would never appear.
-    const leanEm =
-      pad?.lean && pieceIndex === pieces.length - 1 && endsOnItalicLetter(piece.text) ? ITALIC_LEAN_EM : 0;
+    // measured operator space would never appear. A box's italic edge is the one margin:
+    // only a box takes it. An operator's space after the letter is room enough.
+    const lean = pad?.lean === true && pieceIndex === pieces.length - 1;
+    const edge = !lean && pad?.edge === true && piece.rightEm === 0;
+    const leanPx = pad && (lean || edge) ? italicLeanEm(piece.text) * pad.em * pad.fontScale : 0;
     const margin = pad
       ? {
           paddingLeft: piece.leftEm * pad.em * pad.fontScale,
-          paddingRight: (piece.rightEm + leanEm) * pad.em * pad.fontScale,
+          paddingRight: piece.rightEm * pad.em * pad.fontScale + leanPx,
+          ...(edge && leanPx > 0 ? { marginRight: -leanPx } : null),
         }
       : null;
     return (

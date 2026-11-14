@@ -129,5 +129,22 @@
   {"id": "uf26", "area": "trap", "prompt": "solve erf(x) = 0.5", "expect": "decline", "note": "was x = 0.5"},
   {"id": "uf27", "area": "trap", "prompt": "solve cbrt(x) = 2", "expect": "answer", "check": ["num", "8"], "note": "was x = 2: cbrt was peeled off as a word"},
   {"id": "uf28", "area": "trap", "prompt": "solve cbrt(x - 1) = 3", "expect": "answer", "check": ["num", "28"], "note": "was x = 4: cbrt was peeled off as a word"},
-  {"id": "uf29", "area": "trap", "prompt": "what is 15% of 80", "expect": "answer", "check": ["num", "12"], "note": "a percentage is not a remainder"}
+  {"id": "uf29", "area": "trap", "prompt": "what is 15% of 80", "expect": "answer", "check": ["num", "12"], "note": "a percentage is not a remainder"},
+  {"id": "sc1", "area": "trap", "prompt": "how many solutions are there in [0, 5] to x^2 = 4", "expect": "answer", "check": ["num", "1"], "note": "the interval counts: x = -2 is outside it (it was answered 2)"},
+  {"id": "sc2", "area": "trap", "prompt": "how many solutions does x^2 = 4 have for x > 0", "expect": "answer", "check": ["num", "1"], "note": "a condition on the unknown"},
+  {"id": "sc3", "area": "trap", "prompt": "number of zeros of x^2 - 4 = 0 in [0, 3]", "expect": "answer", "check": ["num", "1"]},
+  {"id": "sc4", "area": "trap", "prompt": "how many positive solutions does x^2 - x - 6 = 0 have", "expect": "answer", "check": ["num", "1"]},
+  {"id": "sc5", "area": "trap", "prompt": "how many solutions does $x^{2} = 4$ have for $0 \\le x \\le 5$", "expect": "answer", "check": ["num", "1"], "note": "the keyboard's \\le"},
+  {"id": "sc6", "area": "trap", "prompt": "the number of solutions of x^2/x = 0", "expect": "answer", "check": ["regex", "no solution|none|\\b0\\b|zero"], "note": "x = 0 makes the denominator zero (it was answered 1)"},
+  {"id": "sc7", "area": "trap", "prompt": "how many solutions does $\\frac{x^{3}}{x} = 0$ have?", "expect": "answer", "check": ["regex", "no solution|none|\\b0\\b|zero"]},
+  {"id": "sc8", "area": "trap", "prompt": "how many solutions does $\\frac{x^{2} - 4}{x - 2} = 0$ have?", "expect": "answer", "check": ["num", "1"], "note": "x = 2 is excluded, x = -2 stays"},
+  {"id": "sc9", "area": "trap", "prompt": "how many roots does x^3 - 3x + 2 = 0 have counting multiplicity", "expect": "answer", "check": ["num", "3"]},
+  {"id": "sc10", "area": "trap", "prompt": "how many solutions does x^2 = 2 have in integers", "expect": "decline", "note": "a set no rule reads: never a count over all the reals"},
+  {"id": "sc11", "area": "trap", "prompt": "how many solutions does x^3 - 7x + 6 = 0 have for x > -2 + 3", "expect": "answer", "check": ["num", "1"], "note": "a bound read whole: x > 1, not x > -2 (it was answered 2)"},
+  {"id": "sc12", "area": "trap", "prompt": "how many solutions does x^3 - 7x + 6 = 0 have for -x > 0", "expect": "answer", "check": ["num", "1"], "note": "the sign before the letter: x < 0"},
+  {"id": "sc13", "area": "trap", "prompt": "how many solutions does x^3 - 7x + 6 = 0 have for x < -1, x > 1", "expect": "decline", "note": "two conditions joined by a comma: and or or is not said"},
+  {"id": "sc14", "area": "trap", "prompt": "how many solutions does x^2 = 4 have for x ≠ 2", "expect": "answer", "check": ["num", "1"], "note": "≠ removes a point (it was dropped: 2)"},
+  {"id": "sc15", "area": "trap", "prompt": "how many solutions does x^2 = 49 have for sin(x) > 0", "expect": "decline", "note": "a trig condition is no single interval; it was read as (0, pi)"},
+  {"id": "sc16", "area": "trap", "prompt": "how many solutions does x^2 = 9 have for x^4 - 5x^2 + 4 <= 0", "expect": "decline", "note": "the count declines its condition; the model's reading certified the condition's set instead"},
+  {"id": "sc17", "area": "trap", "prompt": "how many solutions does x^2 = 4 have for x^4 - 5x^2 + 4 < 0", "expect": "decline"}
 ]

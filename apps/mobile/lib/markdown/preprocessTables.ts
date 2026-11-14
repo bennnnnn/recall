@@ -116,9 +116,13 @@ function toStrictPipeRow(line: string): string {
   return `| ${parts.join(" | ")} |`;
 }
 
+/**
+ * A divider with one cell for every header cell, the empty ones too: a balance sheet's
+ * "| Assets | | Liabilities & Equity | |" got two, and a header and divider that disagree
+ * are no table at all, so it showed as a paragraph of pipes.
+ */
 function separatorForHeader(headerLine: string): string {
-  const strict = toStrictPipeRow(headerLine);
-  const cols = splitPipesOutsideMath(strict).filter((c) => c.trim().length > 0);
+  const cols = splitPipesOutsideMath(toStrictPipeRow(headerLine)).slice(1, -1);
   return `|${cols.map(() => " --- ").join("|")}|`;
 }
 

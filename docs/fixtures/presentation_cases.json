@@ -1134,6 +1134,288 @@
       "area": "lead_lines",
       "input": "> **One** a\n> **Two** b",
       "expected": "> **One** a\n> **Two** b"
+    },
+    {
+      "id": "worked-heading-after-maths",
+      "area": "lead_lines",
+      "input": "**Given**  \n$3x - 5 < 2x + 4$\n**Required**  \nSolve for $x$.\n**Solution**\n\n**1. Subtract $2x$ from both sides** — Subtraction property of inequality\n$x - 5 < 4$\n**2. Add $5$ to both sides** — Addition property of inequality\n$x < 9$\n\n**Answer**",
+      "expected": "**Given**  \n$3x - 5 < 2x + 4$\n\n**Required**  \nSolve for $x$.\n\n**Solution**\n\n**1. Subtract $2x$ from both sides** — Subtraction property of inequality\n$x - 5 < 4$\n\n**2. Add $5$ to both sides** — Addition property of inequality\n$x < 9$\n\n**Answer**"
+    },
+    {
+      "id": "worked-heading-after-prose",
+      "area": "lead_lines",
+      "input": "**Given**  \nPrism altitude: $15\\ \\text{cm}$  \nBase area: $24\\ \\text{cm}^2$  \n**Required**  \nTotal surface area\n**Solution**  \n\n**Total surface area formula**  \n$A = 2B + Ph$\n**Substitution**  \n$A = 2(24) + 24(15)$\n$A = 48 + 360$\n**Answer**  \n$\\boxed{408\\ \\text{cm}^2}$",
+      "expected": "**Given**  \nPrism altitude: $15\\ \\text{cm}$  \nBase area: $24\\ \\text{cm}^2$  \n\n**Required**  \nTotal surface area\n\n**Solution**  \n\n**Total surface area formula**  \n$A = 2B + Ph$\n\n**Substitution**  \n$A = 2(24) + 24(15)$\n$A = 48 + 360$\n\n**Answer**  \n$\\boxed{408\\ \\text{cm}^2}$"
+    },
+    {
+      "id": "worked-part-headings",
+      "area": "lead_lines",
+      "input": "**Find**  \n(a) $v$ (speed)\n(b) $t$ (time)\n**(a) Speed after 2 s**\n**Constant acceleration formula**  \n$v = u + at$\n**Answer (a)**  \n$v = 20\\,\\mathrm{m/s}$\n**Part (b): Time to stop**\n$t = 4\\,\\mathrm{s}$",
+      "expected": "**Find**  \n(a) $v$ (speed)\n(b) $t$ (time)\n\n**(a) Speed after 2 s**\n\n**Constant acceleration formula**  \n$v = u + at$\n\n**Answer (a)**  \n$v = 20\\,\\mathrm{m/s}$\n\n**Part (b): Time to stop**\n$t = 4\\,\\mathrm{s}$"
+    },
+    {
+      "id": "worked-section-title-with-words",
+      "area": "lead_lines",
+      "input": "**Given**  \n$m = 2\\,\\mathrm{kg}$, $a = 3\\,\\mathrm{m/s^2}$\n**Required:** the force $F$\n**Answer:** $F = 6\\,\\mathrm{N}$\n**2) Divide both sides by 2** — division\n$x = 4$",
+      "expected": "**Given**  \n$m = 2\\,\\mathrm{kg}$, $a = 3\\,\\mathrm{m/s^2}$\n\n**Required:** the force $F$\n\n**Answer:** $F = 6\\,\\mathrm{N}$\n\n**2) Divide both sides by 2** — division\n$x = 4$"
+    },
+    {
+      "id": "worked-bold-label-stays",
+      "area": "lead_lines",
+      "input": "**Given**  \n$m = 5\\,\\mathrm{kg}$  \n**Speed:** $3\\,\\mathrm{m/s}$\n\nThe value stays\n**positive** for every $x$.",
+      "expected": "**Given**  \n$m = 5\\,\\mathrm{kg}$  \n**Speed:** $3\\,\\mathrm{m/s}$\n\nThe value stays\n**positive** for every $x$."
+    },
+    {
+      "id": "unworked-bold-line-stays",
+      "area": "lead_lines",
+      "input": "Here is the plan:\n**Step 1**\nBoil the water.",
+      "expected": "Here is the plan:\n**Step 1**\nBoil the water."
+    },
+    {
+      "id": "ratio-beside-a-price",
+      "area": "boundaries",
+      "input": "The ratio $2:3$ costs $8, and $9: 12: 15$ is $3: 4: 5$.",
+      "expected": "The ratio $2:3$ costs $8, and $9: 12: 15$ is $3: 4: 5$."
+    },
+    {
+      "id": "price-colon-then-maths",
+      "area": "boundaries",
+      "input": "Total $60: 3 of us, so $x = 20$, and rent is $1,200: 3 roommates.",
+      "expected": "Total $60: 3 of us, so $x = 20$, and rent is $1,200: 3 roommates."
+    },
+    {
+      "id": "worked-display-maths-left-alone",
+      "area": "lead_lines",
+      "input": "**Required**\n$x$\n$$\n**not bold**\n$$\n**Answer**\n$x = 1$",
+      "expected": "**Required**\n$x$\n$$\n**not bold**\n$$\n\n**Answer**\n$x = 1$"
+    },
+    {
+      "id": "worked-heading-after-a-list-or-a-table",
+      "area": "lead_lines",
+      "input": "**Given**\n- $m = 2$ kg\n- $v = 3$ m/s\n**Required**\n$p$\n\n| a | b |\n|---|---|\n| 1 | 2 |\n**Answer**\n$p = 6$",
+      "expected": "**Given**\n- $m = 2$ kg\n- $v = 3$ m/s\n\n**Required**\n$p$\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n**Answer**\n$p = 6$"
+    },
+    {
+      "id": "worked-lowercase-headings",
+      "area": "lead_lines",
+      "input": "**Given**  \n$pH = 3$\n**pOH from pH**\n$pOH = 14 - pH$\n**de Broglie relation**\n$\\lambda = \\frac{h}{p}$\n**x-intercept**\n$x = 3$",
+      "expected": "**Given**  \n$pH = 3$\n\n**pOH from pH**\n$pOH = 14 - pH$\n\n**de Broglie relation**\n$\\lambda = \\frac{h}{p}$\n\n**x-intercept**\n$x = 3$"
+    },
+    {
+      "id": "semicolon-two-statements",
+      "area": "calculation",
+      "input": "h = 0.5; T = 0.25(0 + 7) = 1.75",
+      "expected": "$h = 0.5$  \n$T = 0.25(0 + 7)$  \n$T = 1.75$"
+    },
+    {
+      "id": "word-joins-pieces-so",
+      "area": "calculation",
+      "input": "w = 6, so A = 9 × 6 = 54",
+      "expected": "w = 6, so A = 9 × 6 = 54"
+    },
+    {
+      "id": "word-joins-pieces-and",
+      "area": "calculation",
+      "input": "2(9 + w) = 30, w = 6 and A = 9 × 6 = 54 cm²",
+      "expected": "2(9 + w) = 30, w = 6 and A = 9 × 6 = 54 cm²"
+    },
+    {
+      "id": "word-joins-other-language",
+      "area": "calculation",
+      "input": "x = 2 donc T = 3 + 4 = 7",
+      "expected": "x = 2 donc T = 3 + 4 = 7"
+    },
+    {
+      "id": "word-joins-capital-so",
+      "area": "calculation",
+      "input": "So A = 9 × 6 = 54",
+      "expected": "So A = 9 × 6 = 54"
+    },
+    {
+      "id": "word-joins-where-in-math",
+      "area": "calculation",
+      "input": "$A = πr^2 where r = 3 = 9π$",
+      "expected": "$A = πr^2 where r = 3 = 9π$"
+    },
+    {
+      "id": "unit-after-last-value-splits",
+      "area": "calculation",
+      "input": "p = mv = 2 × 3 = 6 kg m/s",
+      "expected": "$p = mv$  \n$p = 2 × 3$  \n$p = 6 kg m/s$"
+    },
+    {
+      "id": "function-name-is-no-word",
+      "area": "calculation",
+      "input": "y = ln x = ln 5",
+      "expected": "$y = ln x$  \n$y = ln 5$"
+    },
+    {
+      "id": "product-at-is-no-word",
+      "area": "calculation",
+      "input": "v = u + at = 0 + 2(3) = 6",
+      "expected": "$v = u + at$  \n$v = 0 + 2(3)$  \n$v = 6$"
+    },
+    {
+      "id": "semicolon-decimal-commas",
+      "area": "calculation",
+      "input": "$h = 0,5; T = 0,25(0 + 7) = 1,75$",
+      "expected": "$h = 0,5$  \n$T = 0,25(0 + 7)$  \n$T = 1,75$"
+    },
+    {
+      "id": "semicolon-decimal-commas-cdot",
+      "area": "calculation",
+      "input": "$m = 0,5; F = m \\cdot g = 0,5 \\cdot 9,8 = 4,9$",
+      "expected": "$m = 0,5$  \n$F = m \\cdot g$  \n$F = 0,5 \\cdot 9,8$  \n$F = 4,9$"
+    },
+    {
+      "id": "semicolon-decimal-commas-plain",
+      "area": "calculation",
+      "input": "a = 2,5; b = 2a = 5",
+      "expected": "$a = 2,5$  \n$b = 2a$  \n$b = 5$"
+    },
+    {
+      "id": "word-joins-before-digit",
+      "area": "calculation",
+      "input": "a = 3 so 2a = 2 × 3 = 6",
+      "expected": "a = 3 so 2a = 2 × 3 = 6"
+    },
+    {
+      "id": "word-joins-piece-before-digit",
+      "area": "calculation",
+      "input": "a = 3, so 2a = 2 × 3 = 6",
+      "expected": "a = 3, so 2a = 2 × 3 = 6"
+    },
+    {
+      "id": "word-joins-other-language-digit",
+      "area": "calculation",
+      "input": "x = 2 donc 2x = 4 + 0 = 4",
+      "expected": "x = 2 donc 2x = 4 + 0 = 4"
+    },
+    {
+      "id": "word-joins-amharic",
+      "area": "calculation",
+      "input": "$x = 2 ስለዚህ y = 3 + 1 = 4$",
+      "expected": "$x = 2 ስለዚህ y = 3 + 1 = 4$"
+    },
+    {
+      "id": "word-joins-chinese",
+      "area": "calculation",
+      "input": "$x = 2 所以 y = 3 + 1 = 4$",
+      "expected": "$x = 2 所以 y = 3 + 1 = 4$"
+    },
+    {
+      "id": "arrow-mark-ends-statement",
+      "area": "calculation",
+      "input": "$x = 2 ⇒ y = 3 + 1 = 4$",
+      "expected": "$x = 2 ⇒ y = 3 + 1 = 4$"
+    },
+    {
+      "id": "therefore-mark-ends-statement",
+      "area": "calculation",
+      "input": "$x = 2 ∴ y = 3 + 1 = 4$",
+      "expected": "$x = 2 ∴ y = 3 + 1 = 4$"
+    },
+    {
+      "id": "therefore-command-ends-statement",
+      "area": "calculation",
+      "input": "$x = 2 \\therefore y = 3 + 1 = 4$",
+      "expected": "$x = 2 \\therefore y = 3 + 1 = 4$"
+    },
+    {
+      "id": "text-semicolon-ends-statement",
+      "area": "calculation",
+      "input": "$h = 0.5 \\text{; } T = 0.25(7) = 1.75$",
+      "expected": "$h = 0.5 \\text{; } T = 0.25(7) = 1.75$"
+    },
+    {
+      "id": "text-word-joins",
+      "area": "calculation",
+      "input": "$x = 2 \\text{ so } y = 3 + 1 = 4$",
+      "expected": "$x = 2 \\text{ so } y = 3 + 1 = 4$"
+    },
+    {
+      "id": "line-break-ends-statement",
+      "area": "calculation",
+      "input": "$a = 1 \\\\ b = 2 + 3 = 5$",
+      "expected": "$a = 1 \\\\ b = 2 + 3 = 5$"
+    },
+    {
+      "id": "modifier-letters-are-symbols",
+      "area": "calculation",
+      "input": "$Σ xᵢ yᵢ = 2·3 + 4·5 = 26$",
+      "expected": "$Σ xᵢ yᵢ = 2·3 + 4·5$  \n$Σ xᵢ yᵢ = 26$"
+    },
+    {
+      "id": "sqrt-is-no-word",
+      "area": "calculation",
+      "input": "$y = sqrt x = 3$",
+      "expected": "$y = sqrt x$  \n$y = 3$"
+    },
+    {
+      "id": "semicolon-in-brackets-is-maths",
+      "area": "calculation",
+      "input": "$f(x; θ) = 2θ = 4$",
+      "expected": "$f(x; θ) = 2θ$  \n$f(x; θ) = 4$"
+    },
+    {
+      "id": "unit-before-cdot-splits",
+      "area": "calculation",
+      "input": "$F = 2 kg \\cdot 9.8 = 19.6$",
+      "expected": "$F = 2 kg \\cdot 9.8$  \n$F = 19.6$"
+    },
+    {
+      "id": "text-unit-before-cdot-splits",
+      "area": "calculation",
+      "input": "$F = 2\\,\\text{kg} \\cdot 9.8\\,\\text{m/s}^2 = 19.6$",
+      "expected": "$F = 2\\,\\text{kg} \\cdot 9.8\\,\\text{m/s}^2$  \n$F = 19.6$"
+    },
+    {
+      "id": "unit-before-times-splits",
+      "area": "calculation",
+      "input": "$W = 5 N \\times 3 m = 15$",
+      "expected": "$W = 5 N \\times 3 m$  \n$W = 15$"
+    },
+    {
+      "id": "word-before-frac-joins",
+      "area": "calculation",
+      "input": "$x = 2 so \\frac{1}{2} = 0.5 = 1/2$",
+      "expected": "$x = 2 so \\frac{1}{2} = 0.5 = 1/2$"
+    },
+    {
+      "id": "semicolon-then-comma-pieces",
+      "area": "calculation",
+      "input": "x = 1, y = 2; z = 3",
+      "expected": "$x = 1$  \n$y = 2$  \n$z = 3$"
+    },
+    {
+      "id": "semicolon-then-comma-pieces-chain",
+      "area": "calculation",
+      "input": "$x + y = 10, 2x - y = 5; z = 3 + 4 = 7$",
+      "expected": "$x + y = 10$  \n$2x - y = 5$  \n$z = 3 + 4$  \n$z = 7$"
+    },
+    {
+      "id": "word-before-bracket-joins",
+      "area": "calculation",
+      "input": "x = 2, so (x + 1) = 2 + 1 = 3",
+      "expected": "x = 2, so (x + 1) = 2 + 1 = 3"
+    },
+    {
+      "id": "word-before-bar-joins",
+      "area": "calculation",
+      "input": "$x = -2 so |x| = 2 = 2$",
+      "expected": "$x = -2 so |x| = 2 = 2$"
+    },
+    {
+      "id": "unit-before-minus-splits",
+      "area": "calculation",
+      "input": "$m = 5 kg - 2 kg = 3 kg$",
+      "expected": "$m = 5 kg - 2 kg$  \n$m = 3 kg$"
+    },
+    {
+      "id": "unit-before-bracket-in-chain",
+      "area": "calculation",
+      "input": "$F = ma = 2 (3) = 6$",
+      "expected": "$F = ma$  \n$F = 2 (3)$  \n$F = 6$"
     }
   ]
 }

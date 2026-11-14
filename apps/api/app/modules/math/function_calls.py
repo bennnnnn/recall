@@ -21,7 +21,7 @@ import re
 import unicodedata
 from collections import Counter
 from collections.abc import Iterable, Iterator
-from functools import cache
+from functools import lru_cache
 from typing import TYPE_CHECKING, Any
 
 from app.modules.math.function_names import MATH_FUNCTION_NAMES, names_longest_first
@@ -58,8 +58,12 @@ _SAID_CANONICAL = {
     "greatest integer": "floor",
     "fractional part": "frac",
 }
-# A congruence in an unknown: a lone letter on the left of ``≡`` (``17 ≡ 2 mod 5`` is a check).
-_CONGRUENCE = re.compile(r"(?<![^\W\d_])[a-z](?![^\W\d_])[^≡\n.,;]*?(?:≡|\\equiv\b)", re.IGNORECASE)
+# A congruence in an unknown: a lone letter on the left of ``≡`` (``17 ≡ 2 mod 5`` is a check),
+# in the same clause. Each ``≡`` and each mark that ends a clause, and a lone letter: a
+# ``x``, not the ``x`` of ``max``.
+_CONGRUENCE_STOP = re.compile(r"≡|\\equiv\b|[\n.,;]", re.IGNORECASE)
+_LONE_LETTER = re.compile(r"(?<![^\W\d_])[a-z](?![^\W\d_])", re.IGNORECASE)
+_CLAUSE_ENDS = frozenset("\n.,;")
 # LaTeX and the brackets of a step function, as the call each one writes.
 _LATEX_NAME = re.compile(r"\\operatorname\s*\{\s*([A-Za-z]+)\s*\}|\\([A-Za-z]+)(?=\s*\()")
 _FLOOR_MARK = re.compile(r"⌊|\\lfloor\b")
@@ -159,9 +163,22 @@ def written_functions(text: str) -> Counter[str]:
         else:
             said = re.sub(r"\s+", " ", match.group("said").lower())
             found[_SAID_CANONICAL[said]] += 1
-    if congruences := len(_CONGRUENCE.findall(text)):
+    if congruences := _congruences(text):
         found["congruence"] += congruences
     return found
+
+
+def _congruences(text: str) -> int:
+    """How many congruences in an unknown the text writes: each ``≡`` with a lone letter before
+    it, in its clause and after the last one. Read once, stop by stop: a pattern that started
+    at each lone letter read the rest of the clause again from every one (quadratic)."""
+    count = 0
+    start = 0
+    for stop in _CONGRUENCE_STOP.finditer(text):
+        if stop.group() not in _CLAUSE_ENDS and _LONE_LETTER.search(text, start, stop.start()):
+            count += 1
+        start = stop.end()
+    return count
 
 
 def _whole_word(spelling: str) -> str:
@@ -171,7 +188,8 @@ def _whole_word(spelling: str) -> str:
     return f"{before}(?:{spelling}){after}"
 
 
-@cache
+# Bounded: any word written before "(" reaches here, so the names are the user's own words.
+@lru_cache(maxsize=256)
 def _spelling(name: str) -> re.Pattern[str]:
     """Each way a reading may write ``name``, as whole words: ``sin`` is not in ``arcsin``."""
     function = BY_NAME.get(name)

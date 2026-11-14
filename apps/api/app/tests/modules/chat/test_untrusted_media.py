@@ -184,7 +184,6 @@ async def _finalize(reply: str, ctx: MagicMock, outcome: TurnOutcome) -> str:
         usage={"input": 4, "output": 8},
         outcome=outcome,
         was_cancelled=False,
-        assistant_parts=[reply],
         should_cancel=None,
     )
 

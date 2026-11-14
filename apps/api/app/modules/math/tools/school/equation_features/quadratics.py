@@ -1,6 +1,5 @@
 """Features of a quadratic: the vertex and axis of symmetry, the discriminant, the sum
-and product of the roots, the parameter that gives one, two or no real roots, and how
-many solutions a polynomial equation has."""
+and product of the roots, and the parameter that gives one, two or no real roots."""
 
 from __future__ import annotations
 
@@ -11,11 +10,11 @@ from app.modules.math.tools.school.equation_features.forms import (
     _num,
     _point,
     _quadratic,
-    _sides,
     _Solved,
     _symbols,
     _tex,
 )
+from app.modules.math.tools.school.equation_features.parsing import equation_sides
 from app.services.workout import Workout, math_line
 
 
@@ -113,7 +112,7 @@ def _parameter(intent: MathIntent) -> _Solved | None:
     if name in {"x", "e", "i"}:
         return None
     x, k = _symbols("x", name)
-    lhs, rhs = _sides(intent, ["x", name])
+    lhs, rhs = equation_sides(intent, ["x", name])
     expression = expand(lhs - rhs)
     if not expression.free_symbols <= {x, k} or k not in expression.free_symbols:
         return None
@@ -153,59 +152,3 @@ def _parameter(intent: MathIntent) -> _Solved | None:
         ),
     )
     return workout, answer, [f"Discriminant {_tex(discriminant)} {symbol} 0: {answer}"]
-
-
-_MAX_COUNT_DEGREE = 4
-
-
-def _solution_count(intent: MathIntent) -> _Solved | None:
-    """How many solutions one polynomial equation in x has.
-
-    Without "real", the count must be the same over the reals and the complex
-    numbers (``x^2 + 1 = 0`` has none or two, so it is declined).
-    """
-    from sympy import Poly, S, solveset
-
-    (x,) = _symbols("x")
-    lhs, rhs = _sides(intent, ["x"])
-    expression = lhs - rhs
-    if not expression.free_symbols <= {x}:
-        return None
-    poly = Poly(expression, x)
-    if poly.degree() > _MAX_COUNT_DEGREE:
-        return None
-    real = intent.trial_outcome == "real"
-    reals = solveset(expression, x, domain=S.Reals)
-    complexes = solveset(expression, x, domain=S.Complexes)
-    if reals == S.Reals:
-        if not real and complexes != S.Complexes:
-            return None
-        answer = r"\text{infinitely many}"
-        working = r"\text{true for every } x"
-    else:
-        if not hasattr(reals, "__len__") or not hasattr(complexes, "__len__"):
-            return None
-        if not real and len(reals) != len(complexes):
-            return None
-        answer = str(len(reals))
-        listed = r"\varnothing" if not len(reals) else _tex(reals)
-        working = rf"\text{{{'real ' if real else ''}solutions: }} {listed}"
-    rows: list[str] = []
-    if rhs != 0 or lhs != poly.as_expr():
-        constant = poly.degree() == 0 and poly.as_expr() != 0
-        note = "never true, whatever x is" if constant else "everything on one side"
-        rows.append(math_line(f"{_tex(poly.as_expr())} = 0", note))
-    if poly.degree() == 2:
-        a, b, c = poly.all_coeffs()
-        discriminant = b**2 - 4 * a * c
-        sign = ">" if discriminant > 0 else ("=" if discriminant == 0 else "<")
-        rows.append(
-            math_line(rf"\Delta = b^2 - 4ac = {_num(discriminant)} {sign} 0", "discriminant")
-        )
-    rows.append(math_line(working))
-    workout = Workout(
-        given=(math_line(f"{_tex(lhs)} = {_tex(rhs)}"),),
-        find=(math_line(r"\text{number of " + ("real " if real else "") + "solutions}"),),
-        steps=tuple(rows),
-    )
-    return workout, answer, [f"Number of solutions: {answer}"]

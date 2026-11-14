@@ -9,7 +9,8 @@ from __future__ import annotations
 import re
 
 from app.models.orm import User
-from app.modules.account import profile as profile_service
+from app.modules import web_search
+from app.modules.chat.turn_prep.saved_place import profile_place
 from app.modules.turn_reading.writing_kind import is_email_or_message_request
 from app.services import prompt_safety
 
@@ -43,6 +44,19 @@ _NO_NAME_TO_SIGN = (
     "With no name on file, end emails and messages on the closing word (Love, Best,) "
     "with no name line. Never write [Your Name] or another placeholder."
 )
+# Where the user's phone is, sent with Location on: the profile's Location line, or a slim
+# turn's location line (``prompt_context_hints.slim_geo_hints``). "Can I walk?" after the
+# nearest Apple Store asked for a starting point, and "Current location" said it could not
+# see one, a minute after a turn used it (2026-11-09): the profile said not to quote it, and
+# a slim turn stated it only when a word rule read a location question. The model reads any
+# wording; this says when the place is the answer's starting point.
+USE_THE_LOCATION = (
+    "That location is where the user's phone is (or last reported, as it says). Use it, "
+    "without asking, whenever an answer depends on where they are: getting somewhere, walking "
+    "or travel time, distance, what is near them, their local weather. Asked where they are, "
+    "say it. Never say you can't see their location while it is given here. "
+    f"{web_search.DIRECTIONS_LINK_RULE}"
+)
 
 
 def format_user_profile_block(
@@ -52,10 +66,7 @@ def format_user_profile_block(
     include_email: bool = False,
 ) -> str:
     """Basic identity — injected into every chat prompt."""
-    lines = [
-        "User profile (internal — from their account; do not quote email or location "
-        "unless they explicitly ask for those details):"
-    ]
+    lines = ["User profile (internal — from their account):"]
     if user.name and user.name.strip():
         lines.append(f"- Name: {user.name.strip()}")
     if include_email and user.email and user.email.strip():
@@ -70,7 +81,7 @@ def format_user_profile_block(
         lines.append(f"- Country: {user.country.strip()}")
     if user.job and user.job.strip():
         lines.append(f"- Job: {user.job.strip()}")
-    location = location_override or profile_service.user_location_label(user)
+    location = location_override or profile_place(user, user.timezone)
     if location:
         lines.append(f"- Location: {location}")
     lines.append(
@@ -78,6 +89,8 @@ def format_user_profile_block(
         "email or location in a general 'who am I' answer. Do not say their name is missing "
         "from memory if it is listed here."
     )
+    if location:
+        lines.append(USE_THE_LOCATION)
     if user.name and user.name.strip():
         lines.append(_SIGN_DRAFTS_WITH.format(first=user.name.strip().split()[0]))
     else:

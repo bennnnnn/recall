@@ -4,6 +4,8 @@
   the first keystroke, and a killed app left a row the user could neither see nor delete.
 - Daily usage rows older than ``usage_daily_retention_days``: quota reads today's row, and
   one row per user per active day was kept for ever.
+- Shared answer-photo copies older than ``answer_photo_cache_days`` (``images.photo_cache``):
+  their record has expired, and no account owns them to delete them.
 """
 
 from __future__ import annotations
@@ -23,7 +25,10 @@ from app.background.periodic import (
 )
 from app.core.config import Settings
 from app.core.db import SessionLocal
+from app.core.redis import get_redis_client
+from app.gateways.storage_gateway import UnconfiguredStorageGateway, get_storage_gateway
 from app.modules.conversation import service as conversation_service
+from app.modules.images import photo_cache
 from app.repositories import usage as usage_repo
 
 logger = logging.getLogger(__name__)
@@ -75,6 +80,20 @@ async def run_retention(settings: Settings, keep_going: Callable[[], Awaitable[b
 
 async def _retention_cycle(settings: Settings, lock: CycleLock) -> None:
     await run_retention(settings, lock.refresh)
+    await sweep_shared_photos(settings)
+
+
+async def sweep_shared_photos(settings: Settings) -> int:
+    """Delete the shared answer-photo copies that aged out; a failure waits for the next
+    cycle."""
+    gateway = get_storage_gateway(settings)
+    if isinstance(gateway, UnconfiguredStorageGateway):
+        return 0
+    try:
+        return await photo_cache.sweep_expired(settings, gateway, get_redis_client())
+    except Exception:
+        logger.warning("Answer photo cache sweep failed", exc_info=True)
+        return 0
 
 
 async def run_data_retention_cycle(settings: Settings) -> None:

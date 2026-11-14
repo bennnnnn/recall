@@ -21,6 +21,9 @@ deaths" under a World Vision page that said "At least 76 people confirmed died",
 reply began "Some people were still missing, so the total could rise"; it cut "Ciryl Gane
 is the UFC heavyweight champion" for the nationality beside it, and the reply began "He won
 the title". A doubtful attribution or detail now stays, and only the note goes.
+
+The same call names the pages the reply used, and only those become its source chips
+(``claim_sources.py``). A short reply has nothing to cut, but it is still read for those.
 """
 
 from __future__ import annotations
@@ -37,6 +40,7 @@ from app.gateways.structured_completion import complete_structured
 from app.gateways.web_search_gateway import SNIPPET_CHARS
 from app.models.routing_lanes import ROUTING
 from app.modules.chat.claim_evidence import costs_its_sentence
+from app.modules.chat.claim_sources import SOURCES_USED_RULE, PagesUsed, pages_used
 from app.modules.chat.markdown_regions import map_prose_outside_fences
 from app.modules.chat.stream_status import announced_if_slow
 from app.services.text_normalize import collapse_ws
@@ -46,7 +50,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# A reply shorter than this holds no table of figures or status claims worth a model call.
+# A reply shorter than this holds no table of figures or status claims worth cutting; the
+# call still reads which pages it used.
 _MIN_REPLY_CHARS = 120
 _MAX_HITS = 8
 _EARLIER_USER_MESSAGES = 4
@@ -77,14 +82,15 @@ _SYSTEM = (
     "Not a claim to list: advice, opinions, definitions, general explanations of how "
     "something works, steps for doing something, hedged estimates the reply calls "
     "estimates, and what the reply says it could not find.\n\n"
-    'Return JSON: {"unsupported": [{"quote": ..., "topic": ..., "kind": ...}], "note": ...}. '
+    'Return JSON: {"unsupported": [{"quote": ..., "topic": ..., "kind": ...}], '
+    '"used": [...], "note": ...}. '
     "quote is the shortest span copied exactly from the reply that holds the claim. "
     "topic is 2 to 8 words naming what was claimed. kind is figure, legal (licensed, "
     "banned, approved, reinstated or safe to use under a law or regulator), attribution, "
     "or other. note is one short sentence to the "
     "user, in the language of the reply, saying you could not confirm those details from "
     "the sources found and left them out; never number a source or name the reply. Use an "
-    "empty list and an empty note when every claim is supported."
+    "empty list and an empty note when every claim is supported.\n\n" + SOURCES_USED_RULE
 )
 
 
@@ -97,6 +103,7 @@ class _Claim(BaseModel):
 
 class _Verdict(BaseModel):
     unsupported: list[_Claim] = Field(default_factory=list, max_length=_MAX_CLAIMS)
+    used: PagesUsed = None
     note: str = Field(default="", max_length=240)
 
 
@@ -348,7 +355,7 @@ def cut_claims(text: str, quotes: list[str]) -> tuple[str, int]:
     return map_prose_outside_fences(text, rewrite), len(handled)
 
 
-async def _verdict(state: FinalizeState) -> _Verdict | None:
+async def _verdict(state: FinalizeState, timeout_seconds: float) -> _Verdict | None:
     settings = state.settings
     messages = [
         {"role": "system", "content": _SYSTEM},
@@ -364,9 +371,12 @@ async def _verdict(state: FinalizeState) -> _Verdict | None:
             messages=messages,
             schema=_Verdict,
             max_tokens=600,
-            timeout_seconds=settings.claim_check_timeout_seconds,
+            timeout_seconds=timeout_seconds,
             usage=state.usage,
             allow_fallback=False,
+            # It cuts sentences out of a reply: the fallback model was never measured at it,
+            # so a refused check keeps the whole reply, as before.
+            refusal_fallback=False,
         ),
         state.on_status,
         "checking",
@@ -387,7 +397,8 @@ def _prose_chars(text: str) -> int:
 
 
 async def cut_unsupported_claims(state: FinalizeState) -> str:
-    """Pass entry: a searched reply keeps only what its sources or the user said."""
+    """Pass entry: a searched reply keeps only what its sources or the user said, and
+    names the pages it relied on."""
     ctx = state.ctx
     text = state.text
     if (
@@ -397,13 +408,26 @@ async def cut_unsupported_claims(state: FinalizeState) -> str:
         or state.was_cancelled
         or ctx.verified_subject is not None
         or ctx.money is not None
-        or len(text) < _MIN_REPLY_CHARS
+        or not text.strip()
     ):
         return text
-    verdict = await _verdict(state)
+    short = len(text) < _MIN_REPLY_CHARS
+    settings = state.settings
+    verdict = await _verdict(
+        state,
+        settings.claim_check_short_timeout_seconds
+        if short
+        else settings.claim_check_timeout_seconds,
+    )
     if verdict is None:
         return text
     pages = ctx.search_sources[:_MAX_HITS]
+    # A reply longer than the checker read keeps every chip: a page used past that point
+    # is one it never saw (Claude review, 2026-11-10).
+    if len(text) <= _REPLY_CHARS:
+        state.sources_used = pages_used(verdict.used, len(pages), len(ctx.search_sources))
+    if short:
+        return text
     claims = [c for c in verdict.unsupported if costs_its_sentence(c.quote, c.kind, pages)]
     if not claims:
         return text
@@ -414,6 +438,9 @@ async def cut_unsupported_claims(state: FinalizeState) -> str:
     before = _prose_chars(text)
     if before and (before - _prose_chars(cut)) / before > _MAX_CUT_SHARE:
         logger.warning("claim_check flagged most of a reply; left it as written")
+        # A check too wrong to cut by is too wrong to pick chips by: "$199" from the pages
+        # lost every chip under a verdict that flagged most of its reply (2026-11-10).
+        state.sources_used = None
         return text
     topics = "; ".join(dict.fromkeys(c.topic.strip() for c in claims if c.topic))
     logger.info("claim_check cut %d unsupported claim(s): %s", found, topics)

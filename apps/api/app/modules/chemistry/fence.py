@@ -11,11 +11,15 @@ from __future__ import annotations
 import json
 import logging
 import re
+from collections.abc import Mapping
+from functools import partial
 
 from app.modules.chemistry.block import VerifiedChemistry
+from app.modules.chemistry.caption_names import caption_name, checked_name
 from app.modules.chemistry.notation import typeset, typeset_json
 from app.modules.chemistry.schemas.scene import dump_scene
 from app.modules.chemistry.smiles import (
+    MAX_SMILES_LENGTH,
     MoleculeProperties,
     drawing_smiles,
     generate_3d_coordinates,
@@ -25,11 +29,19 @@ from app.modules.chemistry.tex import chemistry_tex
 from app.services.answer_check import correction_line, stated_verdict
 from app.services.answer_fence import (
     ANSWER_FENCE_LANGS,
+    answer_fence_value,
     land_answer_card,
     normalize_owned_fences,
     verified_answer_fence,
 )
-from app.services.md_fence_scan import close_unclosed_fences, map_closed_fences, strip_closed_fences
+from app.services.asked_value import asked_verdict
+from app.services.md_fence_scan import (
+    close_unclosed_fences,
+    iter_closed_fences,
+    map_closed_fences,
+    strip_closed_fences,
+)
+from app.services.structure_captions import uncaptioned_fence
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +72,7 @@ def _extract_smiles_from_fence(body: str) -> tuple[str | None, str]:
         return None, ""
     for idx in range(len(lines) - 1, -1, -1):
         raw = _SMILES_PREFIX.sub("", lines[idx], count=1).strip()
-        if not raw or len(raw) > 500:
+        if not raw or len(raw) > MAX_SMILES_LENGTH:
             continue
         try:
             props = validate_smiles(raw)
@@ -74,8 +86,10 @@ def _extract_smiles_from_fence(body: str) -> tuple[str | None, str]:
             caption = "\n".join(lines[:idx] + lines[idx + 1 :]).strip()
             return raw, caption
     last = _SMILES_PREFIX.sub("", lines[-1], count=1).strip()
-    if not last or len(last) > 500:
+    if not last:
         return None, ""
+    # One past the phone's limit is returned too, so it fails closed: left as written, a
+    # 600-character fence reached the phone, which refuses it.
     caption = "\n".join(lines[:-1]).strip()
     return last, caption
 
@@ -97,25 +111,46 @@ def _read_fence(body: str) -> tuple[MoleculeProperties | None, str]:
         return None, caption
     try:
         props = validate_smiles(smiles)
-    except Exception:
-        logger.info("chemistry fence validation failed for %r", smiles, exc_info=True)
+    except Exception as exc:
+        # Its size and the error's class: the SMILES is what the user or model wrote, and a
+        # traceback quotes it.
+        logger.info(
+            "chemistry fence validation failed: %s chars=%d", type(exc).__name__, len(smiles)
+        )
         return None, caption
     if not props.valid:
-        logger.info("replacing invalid SMILES fence: %r", smiles)
+        logger.info("replacing invalid SMILES fence chars=%d", len(smiles))
         return None, caption
     return props, caption
 
 
-def _canonicalize_smiles_fence(body: str) -> str:
+def _canonicalize_smiles_fence(body: str, named: Mapping[str, str] | None = None) -> str:
     """Validate and rewrite a fence body. Never generate 3D."""
     if _extract_smiles_from_fence(body)[0] is None:
         return f"```smiles\n{body}```\n"  # nothing to validate: leave the fence as written
-    props, caption = _read_fence(body)
+    props, written = _read_fence(body)
     if props is None:
         return _UNRENDERABLE
-    if not caption and props.formula and props.molecular_weight > 0:
-        caption = f"{typeset(props.formula)} · {props.molecular_weight:.2f} g/mol"
+    # The caption is the structure's own formula and mass, and the written name only when the
+    # app's data gives that name this structure: a model's "Caffeine" over ethanol's SMILES
+    # was drawn, captioned, as caffeine, with a 3D ethanol under it (audit CHEM-04, 2026-11-13).
+    parts = [checked_name(written, props.smiles, named)]
+    if props.formula and props.molecular_weight > 0:
+        parts += [typeset(props.formula), f"{props.molecular_weight:.2f} g/mol"]
+    caption = " · ".join(part for part in parts if part) if parts[1:] else ""
     return _smiles_fence(props.smiles, caption) + "\n"
+
+
+def written_names(text: str) -> list[str]:
+    """The names a reply's valid structures are captioned with, as written. In the pool."""
+    names: list[str] = []
+    for lang in ("smiles", "chemistry"):
+        for _start, _end, body in iter_closed_fences(text, lang):
+            props, written = _read_fence(body)
+            name = caption_name(written) if props is not None else None
+            if name is not None:
+                names.append(name)
+    return names[:_MAX_SMILES_FENCES]
 
 
 def _attach_molecule3d(body: str) -> tuple[str, bool]:
@@ -130,12 +165,12 @@ def _attach_molecule3d(body: str) -> tuple[str, bool]:
             title = props.formula or caption or "Molecule"
             mol3d_fence = f"\n```molecule3d\n{coords.sdf.rstrip()}\n{title}\n```\n"
             return smiles_fence + mol3d_fence, True
-    except Exception:
-        logger.info("3D SDF generation failed for %r", props.smiles, exc_info=True)
+    except Exception as exc:
+        logger.info("3D SDF generation failed: %s chars=%d", type(exc).__name__, len(props.smiles))
     return smiles_fence + "\n", False
 
 
-def enrich_chemistry_fences(content: str) -> str:
+def enrich_chemistry_fences(content: str, named: Mapping[str, str] | None = None) -> str:
     """Validate and enrich all ```smiles / ```chemistry fences.
 
     Closed fences only (bare-backtick closer). Invalid SMILES become an
@@ -143,17 +178,21 @@ def enrich_chemistry_fences(content: str) -> str:
     only for the first ``_MAX_3D_FENCES`` valid molecules so one slow embed
     cannot skip stripping later invalid fences.
     """
+    canonicalize = partial(_canonicalize_smiles_fence, named=named)
+    # A fence past the cap is not checked, so its caption goes (``structure_captions``).
     content = map_closed_fences(
         content,
         "smiles",
-        _canonicalize_smiles_fence,
+        canonicalize,
         max_count=_MAX_SMILES_FENCES,
+        leftover=partial(uncaptioned_fence, "smiles"),
     )
     content = map_closed_fences(
         content,
         "chemistry",
-        _canonicalize_smiles_fence,
+        canonicalize,
         max_count=_MAX_SMILES_FENCES,
+        leftover=partial(uncaptioned_fence, "chemistry"),
     )
     mol3d_left = _MAX_3D_FENCES
 
@@ -174,9 +213,9 @@ def enrich_chemistry_fences(content: str) -> str:
     )
 
 
-def enrich_chemistry_fences_worker(content: str) -> str:
+def enrich_chemistry_fences_worker(content: str, named: Mapping[str, str] | None = None) -> str:
     """Picklable entry for the process pool (positional args only)."""
-    return enrich_chemistry_fences(content)
+    return enrich_chemistry_fences(content, named)
 
 
 # Header line of a server ```answer fence whose body is chemistry text, not LaTeX
@@ -304,6 +343,20 @@ def assemble_chemistry_reply(
     return f"{body}\n" if body else ""
 
 
+# A card's symbol: M of "M(CO₂) = 44.01 g/mol", pH, n.
+_CARD_SYMBOL = re.compile(r"^\s*(?:\\mathrm\{)?([A-Za-z]{1,2})(?![A-Za-z])")
+
+
+def _contradicted(prose: str, verified: VerifiedChemistry) -> bool:
+    """The Answer writes one value against the card's own symbol (its species or none:
+    "M = 28.01 g/mol" for M(CO₂)), and it is another than the card's."""
+    body = _answer_body(verified.result.answer.strip(), verbatim=verified.result.verbatim)
+    label = answer_fence_value(body).partition("=")[0]
+    head = _CARD_SYMBOL.match(label)
+    asked = (label.strip(), head.group(1)) if head and label.strip() else ()
+    return asked_verdict(prose, body, asked) == "conflict"
+
+
 def _correction(prose: str, verified: VerifiedChemistry) -> str | None:
     """One line when the prose's own final value differs from the verified answer."""
     answer = verified.result.answer.strip()
@@ -327,6 +380,11 @@ def validate_chemistry_fences(
         return content
     # An unclosed model fence would swallow the solver fences appended below it.
     prose = _without_one_line_answer(_strip_owned_fences(close_unclosed_fences(content)))
+    answer = verified.result.answer.strip()
+    if correct and answer and _contradicted(prose, verified):
+        # The Answer gives the card's own quantity one other value: the reply keeps it, with
+        # no check and no solver picture (``math/fence_conflict.py``).
+        return land_answer_card(prose.strip(), None)
     correction = _correction(prose, verified) if correct else None
     return assemble_chemistry_reply(prose, verified, marked=True, correction=correction)
 

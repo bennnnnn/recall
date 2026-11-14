@@ -6,9 +6,15 @@ reply out of shape or a broken picture fails its own test. Questions the solver
 declines, and pictures it does not draw, are coverage: ``stem_snapshot.json``
 names every question each subject answers and draws, so a change that answers
 one question fewer fails even when it answers another more (a count would stay
-level). A change that answers more records it: ``UPDATE_STEM_SNAPSHOT=1``. A
-``gap`` entry is a known miss: a strict expected failure, so the fix deletes its
-``gap`` line.
+level). A change that answers more records it: ``UPDATE_STEM_SNAPSHOT=1``. The same
+snapshot names every physics and chemistry reply whose Substitution writes a given's number
+without its unit (``working_units``), so none starts to and each fix is recorded; a row the
+server cannot label for certain stays bare there, since a wrong unit is worse. Every unit a
+reply does print is read back and checked (``labelled_rows``). A
+``gap`` names a known miss, a question the server declines and should answer; it never
+excuses a wrong number. Every entry, gap or not, fails on a critical problem: twelve
+known-wrong verified answers shipped behind strict expected failures until 2026-11-13
+(audit), green in CI while students got the wrong number with a check.
 """
 
 from __future__ import annotations
@@ -20,6 +26,7 @@ from pathlib import Path
 import pytest
 
 from app.modules.physics.solvers.motion_scenes import vertical_scene
+from app.tests.behavior.labelled_rows import row_problems
 from app.tests.behavior.stem_sweep import (
     SUBJECT_NAMES,
     Entry,
@@ -31,6 +38,7 @@ from app.tests.behavior.stem_sweep import (
     run,
     run_entry,
 )
+from app.tests.behavior.working_units import bare_given_lines
 
 SUBJECTS = ("chemistry", "math", "physics")
 SNAPSHOT = Path(__file__).with_name("stem_snapshot.json")
@@ -39,14 +47,10 @@ EXPECTS = {"answer", "explain", "decline", "not_subject"}
 ENTRIES = [(subject, entry) for subject in SUBJECTS for entry in load(subject)]
 
 
-def _param(subject: str, entry: Entry) -> object:
-    marks = [pytest.mark.xfail(reason=entry.gap, strict=True)] if entry.gap else []
-    return pytest.param(subject, entry, id=f"{subject}:{entry.id}", marks=marks)
-
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("subject", "entry"), [_param(subject, entry) for subject, entry in ENTRIES]
+    ("subject", "entry"),
+    [pytest.param(subject, entry, id=f"{subject}:{entry.id}") for subject, entry in ENTRIES],
 )
 async def test_stem_turn_is_never_wrong(
     subject: str, entry: Entry, thread_sympy_executor: None
@@ -57,11 +61,16 @@ async def test_stem_turn_is_never_wrong(
     )
 
 
-def _covered(outcomes: list[Outcome]) -> dict[str, list[str]]:
-    return {
+def _covered(subject: str, outcomes: list[Outcome]) -> dict[str, list[str]]:
+    covered = {
         "answered": sorted(outcome.entry.id for outcome in answered(outcomes)),
         "drawn": sorted(outcome.entry.id for outcome in drawn(outcomes)),
     }
+    if subject != "math":
+        covered["bare_units"] = sorted(
+            outcome.entry.id for outcome in outcomes if bare_given_lines(outcome.reply)
+        )
+    return covered
 
 
 @pytest.mark.asyncio
@@ -72,7 +81,17 @@ def _covered(outcomes: list[Outcome]) -> dict[str, list[str]]:
 async def test_stem_coverage_matches_its_snapshot(
     subject: str, thread_sympy_executor: None
 ) -> None:
-    covered = _covered(await run(load(subject), SUBJECT_NAMES[subject]))
+    outcomes = await run(load(subject), SUBJECT_NAMES[subject])
+    # Every unit a reply prints is right: read back from the text, each labelled row's
+    # units go together, make the value it states, and end in its quantity's dimension.
+    wrong = [
+        f"{outcome.entry.id}: {problem}"
+        for outcome in outcomes
+        if subject != "math"
+        for problem in row_problems(outcome.reply)[0]
+    ]
+    assert not wrong, "\n".join(wrong[:20])
+    covered = _covered(subject, outcomes)
     recorded = json.loads(SNAPSHOT.read_text())
     if os.environ.get("UPDATE_STEM_SNAPSHOT") == "1":
         recorded[subject] = covered
@@ -116,6 +135,10 @@ def test_stem_corpus_is_well_formed(subject: str) -> None:
         assert entry.prompt.strip(), entry.id
         assert entry.checked == (entry.expect == "answer"), entry.id
         assert entry.shared in {None, *SUBJECT_NAMES} - {subject}, entry.id
+        # A gap is a question the server should answer and declines. A decline, an
+        # explanation or a message that is not the subject has nothing to miss, and answered
+        # one would be wrong.
+        assert entry.gap is None or entry.expect == "answer", entry.id
 
 
 @pytest.mark.parametrize(

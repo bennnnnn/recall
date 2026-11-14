@@ -70,13 +70,6 @@
   },
   {
     "modules": [
-      "app.modules.math.image_extract",
-      "app.modules.math.ocr"
-    ],
-    "imports": 2
-  },
-  {
-    "modules": [
       "app.modules.math.match",
       "app.modules.math.match.needs",
       "app.modules.math.tools.block",

@@ -26,23 +26,28 @@ describe("comparison graph series", () => {
       points: [[-2, 4], [0, 0], [2, 4]], points2: [[-2, -4], [0, 0], [2, 4]],
       label: "Parabola", label2: "Line",
     });
-    const { getByDisplayValue } = await render(<FunctionGraphBlock content={content} />);
+    const { getByLabelText } = await render(<FunctionGraphBlock content={content} />);
     const strokes = mockPolyline.mock.calls.map(([props]) => props.stroke);
     expect(strokes).toEqual([theme.graphSeries[0], theme.graphSeries[1]]);
     expect(strokes[0]).not.toBe(strokes[1]);
-    expect(getByDisplayValue("y = x^2")).toBeOnTheScreen();
-    expect(getByDisplayValue("y = 2*x")).toBeOnTheScreen();
+    // Each curve's legend is its maths, a button that opens its field.
+    expect(getByLabelText("rich.graph_expr_a11y, y = x^2")).toBeOnTheScreen();
+    expect(getByLabelText("rich.graph_expr_a11y, y = 2*x")).toBeOnTheScreen();
     for (const color of [theme.graphSeries[0], theme.graphSeries[1]]) {
       const marker = mockPolyline.mock.calls
         .map(([props]) => props)
         .find((props) => props.stroke === color);
       expect(marker).toBeTruthy();
     }
-    const tree = getByDisplayValue("y = x^2").parent?.parent;
+    // The legend's row: the nearest ancestor holding a colour swatch.
+    let tree = getByLabelText("rich.graph_expr_a11y, y = x^2").parent;
+    const swatchIn = (node: typeof tree) =>
+      node?.children.find(
+        (child) => typeof child !== "string" && StyleSheet.flatten(child.props.style)?.backgroundColor,
+      );
+    while (tree && !swatchIn(tree)) tree = tree.parent;
     expect(tree).toBeTruthy();
-    const swatch = tree?.children.find(
-      (child) => typeof child !== "string" && StyleSheet.flatten(child.props.style)?.backgroundColor,
-    );
+    const swatch = swatchIn(tree);
     expect(
       swatch && typeof swatch !== "string" && StyleSheet.flatten(swatch.props.style).backgroundColor,
     ).toBe(theme.graphSeries[0]);

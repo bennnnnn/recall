@@ -103,6 +103,7 @@ type FenceSpecRow = {
   mathDiagram?: boolean;
   /** Lifted out of a list item so CommonMark reads it as a real fence. */
   liftOutOfLists?: boolean;
+  drawsWhileStreaming?: boolean; // A server fence drawn while streaming (lib/fence/held.ts).
 };
 
 const FENCE_TABLE = [
@@ -192,6 +193,7 @@ const FENCE_TABLE = [
     owner: "server", body: "data",
     fallback: "answer",
     liftOutOfLists: true,
+    drawsWhileStreaming: true,
   },
   {
     id: "arithmetic",

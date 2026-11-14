@@ -1,4 +1,4 @@
-# ruff: noqa: RUF001, RUF003 -- a solver row is read as written: ×, −.
+# ruff: noqa: RUF001, RUF002, RUF003 -- a solver row is read as written: ×, −.
 """Exact scan-friendly replies for complete verified chemistry calculations."""
 
 from __future__ import annotations
@@ -11,6 +11,7 @@ from app.modules.chemistry.extractors.atom_particles import asks_more_particles
 from app.modules.chemistry.fence import assemble_chemistry_reply
 from app.modules.chemistry.glossary import given_meaning
 from app.modules.chemistry.notation import typeset
+from app.modules.chemistry.questions import asks_more_questions
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.tex import chemistry_tex, law_symbols, symbol_tex
 from app.services.question_parts import asks_more_parts
@@ -19,6 +20,7 @@ from app.services.workout import (
     Workout,
     formula_heading,
     math_line,
+    method_heading,
     render_workout,
     text_line,
     where_line,
@@ -71,27 +73,31 @@ class _Rows:
         return math_line(alone) if alone is not None else text_line(self.show(find))
 
     def law(self) -> str:
-        """A law's equation (its name heads it); a procedure's rule written out."""
+        """A law's equation, or a procedure's rule written out; its name heads either."""
         result = self.result
         if result.method:
-            return text_line(f"{result.formula_name}: {self.show(result.formula)}")
+            return text_line(_lower_first(self.show(result.formula), upper=True))
         return self.line(result.formula)
 
     def substitution(self) -> tuple[str, ...]:
-        """The values put in, worked to the answer's value as physics' are: ``n = 36 g /
-        18.015 g/mol`` then ``n = 2.0 mol``."""
+        """The values put in, worked to their value as physics' are: ``n = 36 g /
+        18.015 g/mol`` then ``n = 1.998 mol``. The working's last value is unrounded; the card
+        rounds it to the data's figures (2.0 mol) and says it once."""
         rows = list(self.result.substitution)
         closing = _closing_row(rows, self.result.answer)
         if closing is not None and self.tex(closing) is not None:
             rows.append(closing)
+        if rows and not _works_with_rounded(rows[:-1], self.result.unrounded):
+            rows[-1] = _unrounded_value(rows[-1], self.result.unrounded)
         return tuple(self.line(row) for row in rows)
 
 
-def _lower_first(text: str) -> str:
-    """ "Amount" → "amount"; an acronym keeps its capitals ("pH", "NMR")."""
+def _lower_first(text: str, *, upper: bool = False) -> str:
+    """ "Amount" → "amount" (``upper``: "count each" → "Count each", a rule on its own line);
+    an acronym keeps its capitals ("pH", "NMR")."""
     if len(text) > 1 and text[1].isupper():
         return text
-    return text[:1].lower() + text[1:]
+    return (text[:1].upper() if upper else text[:1].lower()) + text[1:]
 
 
 def _base(side: str) -> str:
@@ -115,6 +121,31 @@ def _closing_row(rows: list[str], answer: str) -> str | None:
     return f"{symbol.strip()} = {value}"
 
 
+# A number as a solver writes it: "1.0", "6.0221 × 10^23".
+_NUMBER_TEXT = re.compile(r"-?\d+(?:\.\d+)?(?: × 10\^-?\d+)?")
+
+
+def _works_with_rounded(rows: list[str], unrounded: tuple[tuple[str, str], ...]) -> bool:
+    """Whether a row above works with a value rounded to the answer's figures. The value it
+    reaches is then the rounded one's: "(1.0 mol)(6.0221 × 10^23)" ending on 6.017 × 10^23
+    did not add up, so such a working ends rounded too."""
+    rounded = {text for text, _ in unrounded}
+    return any(number in rounded for row in rows for number in _NUMBER_TEXT.findall(row))
+
+
+def _unrounded_value(row: str, unrounded: tuple[tuple[str, str], ...]) -> str:
+    """``m = 29 g`` → ``m = 29.22 g``: a row ending on a value the solve rounded ends on it
+    unrounded, as worked; a row whose value nothing rounded stays."""
+    head, equals, value = row.rpartition(" = ")
+    if not equals:
+        return row
+    value = value.strip()
+    for text, worked in sorted(unrounded, key=lambda pair: -len(pair[0])):
+        if value == text or value.startswith(f"{text} "):
+            return f"{head} = {worked}{value[len(text) :]}"
+    return row
+
+
 def format_direct_chemistry_reply(verified: VerifiedChemistry) -> str:
     result = verified.result
     # A lookup that only draws (a named compound's structure) computes nothing: no
@@ -130,9 +161,13 @@ def format_direct_chemistry_reply(verified: VerifiedChemistry) -> str:
         given=rows.given(),
         find=(rows.required(),),
         formula=(rows.law(),),
-        # A law's name heads its equation ("Molar mass formula"); a procedure's
-        # rule names itself on its line, under **Formula**.
-        formula_heading=formula_heading(None if result.method else result.formula_name),
+        # A law's name heads its equation ("Molar mass formula"), and a procedure's name its
+        # rule ("Conservation of atoms and charge"), never a bare **Formula** (2026-11-11).
+        formula_heading=(
+            method_heading(result.formula_name)
+            if result.method
+            else formula_heading(result.formula_name)
+        ),
         # A procedure's rows check its rule (an atom tally, a range); they substitute nothing.
         steps=tuple(text_line(show(line)) for line in result.substitution) if result.method else (),
         substitution=() if result.method else rows.substitution(),
@@ -149,13 +184,16 @@ def maybe_direct_chemistry_reply(
     """Use exact output for typed text, and for a photo whose reading was confirmed.
 
     Not when the student stated a result to check: the model answers whether it is
-    right, with the verified answer beside it. Not for a question in more labelled parts
-    than the result answers either: the model answers them all.
+    right, with the verified answer beside it. Not for a question that asks more than the
+    result answers either (more labelled parts, more questions): the model answers them all.
     """
     if verified is None or has_stated_result(user_text):
         return None
-    if asks_more_parts(user_text, verified.result.answer) or asks_more_particles(
-        user_text, verified.result.answer
+    answers = verified.result.answer
+    if (
+        asks_more_parts(user_text, answers)
+        or asks_more_particles(user_text, answers)
+        or asks_more_questions(user_text, answers)
     ):
         return None
     if has_image_attachment:

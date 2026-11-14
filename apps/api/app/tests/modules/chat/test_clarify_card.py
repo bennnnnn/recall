@@ -268,7 +268,6 @@ def _state(raw: str, **ctx: Any) -> FinalizeState:
         usage={},
         outcome=TurnOutcome(),
         was_cancelled=False,
-        assistant_parts=[raw],
         should_cancel=None,
     )
 

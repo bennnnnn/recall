@@ -12,7 +12,8 @@ for the same words, so a declined feature never falls through to "solve".
 
 ``extract`` reads the request into one intent. ``solvers`` works it: ``forms``
 reads the equation as a function, a line or a quadratic and writes the TeX, and
-the features are solved in ``quadratics``, ``lines`` and ``sinusoids``.
+the features are solved in ``quadratics``, ``lines`` and ``sinusoids``; how many solutions
+an equation has in ``counts``, over what ``count_conditions`` reads.
 """
 
 from app.modules.math.tools.school.equation_features.extract import (

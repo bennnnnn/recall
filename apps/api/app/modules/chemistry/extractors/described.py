@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from functools import lru_cache
 
 from app.modules.chemistry.equations import balance_equation, format_balanced
 from app.modules.chemistry.extractors.equations import extract_equations
@@ -114,14 +115,36 @@ def _oxide_of(fuel: str, product: str) -> bool:
     return "O" in atoms and bool(atoms - {"O"}) and atoms - {"O"} <= set(parse_formula(fuel) or {})
 
 
-def _found(patterns: tuple[str, ...], question: str, *groups: str) -> list[tuple[str, ...]]:
+def _found(
+    patterns: tuple[re.Pattern[str], ...], question: str, *groups: str
+) -> list[tuple[str, ...]]:
     """Each match's groups, in the order the question writes them."""
     found = [
         (match.start(), tuple(match.group(group) for group in groups))
         for pattern in patterns
-        for match in re.finditer(pattern, question, re.IGNORECASE)
+        for match in pattern.finditer(question)
     ]
     return [values for _start, values in sorted(found)]
+
+
+def _compiled(patterns: tuple[str, ...]) -> tuple[re.Pattern[str], ...]:
+    return tuple(re.compile(pattern, re.IGNORECASE) for pattern in patterns)
+
+
+# The patterns below name the question's own substances, so each alternative is compiled once
+# (cached) rather than on every question, which flushed ``re``'s shared cache.
+@lru_cache(maxsize=128)
+def _fuel_patterns(
+    substance: str,
+) -> tuple[tuple[re.Pattern[str], ...], tuple[re.Pattern[str], ...]]:
+    """The grammar of what burns, and of what is made, for these substances."""
+    named = rf"(?<![A-Za-z0-9])(?P<x>{substance})"
+    grammar = (
+        rf"\b(?:{_BURN_VERB}|combustion\s+of)\s+{_FILLER}{_AMOUNT}?{named}",
+        rf"{named}\s+{_BEING}(?:{_BURN_VERB}\b|react(?:s|ed|ing)?\s+(?:completely\s+)?with)",
+    )
+    made_by = (rf"\b{PRODUCT_VERB}\s+{_FILLER}{_AMOUNT}?{named}",)
+    return _compiled(grammar), _compiled(made_by)
 
 
 def _fuel(question: str, formulas: tuple[str, ...], substance: str) -> str | None:
@@ -130,15 +153,10 @@ def _fuel(question: str, formulas: tuple[str, ...], substance: str) -> str | Non
     Without that grammar, the one substance that is neither oxygen nor a named product, or the
     one whose oxides are every other substance named.
     """
-    named = rf"(?<![A-Za-z0-9])(?P<x>{substance})"
-    grammar = (
-        rf"\b(?:{_BURN_VERB}|combustion\s+of)\s+{_FILLER}{_AMOUNT}?{named}",
-        rf"{named}\s+{_BEING}(?:{_BURN_VERB}\b|react(?:s|ed|ing)?\s+(?:completely\s+)?with)",
-    )
+    grammar, made_by = _fuel_patterns(substance)
     fuels = {x for (x,) in _found(grammar, question, "x") if x != _OXYGEN}
     if len(fuels) == 1:
         return fuels.pop()
-    made_by = (rf"\b{PRODUCT_VERB}\s+{_FILLER}{_AMOUNT}?{named}",)
     made = {product for (product,) in _found(made_by, question, "x")}
     candidates = [f for f in formulas if f != _OXYGEN and f not in made]
     covering = [
@@ -165,22 +183,24 @@ def _burning(question: str, formulas: tuple[str, ...], substance: str) -> Descri
     return DescribedReaction((fuel, _OXYGEN), products, question) if products else None
 
 
-def _reacting(question: str, substance: str) -> tuple[str, ...] | None:
-    """The two reactants of "X reacts with Y", "react X with Y", "X and Y react", "X combines
-    with Y" or "made from X and Y"."""
+@lru_cache(maxsize=128)
+def _reacting_patterns(substance: str) -> tuple[re.Pattern[str], ...]:
     x, y = rf"(?<![A-Za-z0-9])(?P<x>{substance})", rf"(?P<y>{substance})"
-    pairs = _found(
+    return _compiled(
         (
             rf"{x}\s+{_BEING}react(?:s|ed|ing)?\s+(?:completely\s+)?with\s+{_EXCESS}?{_AMOUNT}?{y}",
             rf"\breact(?:s|ed|ing)?\s+{_AMOUNT}?{x}\s+with\s+{_EXCESS}?{_AMOUNT}?{y}",
             rf"{x}\s+and\s+{_AMOUNT}?{y}\s+{_BEING}react",
             rf"{x}\s+{_BEING}combines?\s+with\s+{_EXCESS}?{_AMOUNT}?{y}",
             rf"\b{_MADE_FROM}\s+{_AMOUNT}?{x}\s+and\s+{_AMOUNT}?{y}",
-        ),
-        question,
-        "x",
-        "y",
+        )
     )
+
+
+def _reacting(question: str, substance: str) -> tuple[str, ...] | None:
+    """The two reactants of "X reacts with Y", "react X with Y", "X and Y react", "X combines
+    with Y" or "made from X and Y"."""
+    pairs = _found(_reacting_patterns(substance), question, "x", "y")
     # One pair, however often the question repeats it.
     if len({frozenset(pair) for pair in pairs}) != 1 or pairs[0][0] == pairs[0][1]:
         return None

@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { StyleSheet, Text, View, type StyleProp, type TextStyle } from "react-native";
 
+import { MathColumn } from "@/components/rich/mathColumn";
 import { MathText } from "@/components/rich/MathText";
 import { splitStreamCaret } from "@/components/StreamingCursor";
 import {
@@ -256,7 +257,9 @@ export function renderLessonStep(
                 marginTop: i === 0 ? WORK_GAP : 0,
               }}
             >
-              <MathText scrollOverflow latex={formula} fontSize={mathSizeOf(styles.body)} />
+              <MathColumn inset={WORK_INDENT}>
+                <MathText scrollOverflow latex={formula} fontSize={mathSizeOf(styles.body)} />
+              </MathColumn>
             </View>
           ))}
         </View>

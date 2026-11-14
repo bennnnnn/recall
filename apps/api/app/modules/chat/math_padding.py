@@ -12,14 +12,24 @@ from __future__ import annotations
 
 import re
 
-from app.modules.chat.inline_code import code_span_opens_within, escaped_at, read_inline_code_span
+from app.modules.chat.inline_code import (
+    code_span_opens_within,
+    escaped_at,
+    is_ratio,
+    read_inline_code_span,
+)
 from app.modules.chat.markdown_regions import leave_prose_line, map_prose_outside_fences
 
 # The phone's rules (inlineMath.ts): a digit or a spaced amount after the closer is a price,
 # a body that opens with an amount and goes on in words is one, and two words of three
 # letters or more (outside a sub- or superscript) are prose. A TeX command makes it maths.
+# An exclamation mark is a factorial only where the span ends or maths goes on (`$4!$`,
+# `$4! + 3!$`); followed by a number, a word, a dollar or a bracket it ends a price's clause.
 _PRICE_LEAD = re.compile(
-    r"\d[\d,.]*+(?:[kKmMbB]|/[A-Za-z]++)?(?:[;:!?](?:\s|$)|\s++([A-Za-z]++)(.*))", re.DOTALL
+    r"\d[\d,.]*+(?:[kKmMbB]|/[A-Za-z]++)?"
+    r"(?:[;:?](?:\s|$)|!\s++(?![\s=+\-\u2212\u00d7\u00f7*/\u00b7^<>\u2264\u2265\u2260)])"
+    r"|\s++([A-Za-z]++)(.*))",
+    re.DOTALL,
 )
 _MATH_WORD = re.compile(r"[a-z]|sin|cos|tan|sec|csc|cot|log|ln|exp|lim|max|min", re.IGNORECASE)
 _TEX_COMMAND = re.compile(r"\\[A-Za-z]")
@@ -54,11 +64,40 @@ def _trim_line(line: str) -> str:
         span = line[index:end]
         out.append(span if code_end is not None else f"${span[1:-1].strip()}$")
         index = end
-    return "".join(out)
+    trimmed = "".join(out)
+    # Trimming only takes the padding out of the formulas the phone reads: a line it would
+    # pair differently ("so$x = 20$" glued a dollar to the next formula's) is kept as written.
+    return trimmed if _pairs(trimmed) == [body.strip() for body in _pairs(line)] else line
+
+
+def _pairs(line: str) -> list[str]:
+    """The body of each ``$…$`` pair the phone reads in ``line``, in order."""
+    bodies: list[str] = []
+    index = 0
+    while index < len(line):
+        code_end = read_inline_code_span(line, index) if line[index] == "`" else None
+        end = code_end if code_end is not None else maths_pair_end(line, index)
+        if end is None:
+            index += 1
+            continue
+        if code_end is None:
+            bodies.append(line[index + 1 : end - 1])
+        index = end
+    return bodies
 
 
 def _maths_end(line: str, start: int) -> int | None:
-    """The end of the ``$…$`` maths span opening at ``start``, as the phone pairs it."""
+    """The end of the ``$…$`` maths span opening at ``start``, as the phone pairs it; None
+    for prose between two dollars, which the phone shows as text."""
+    end = maths_pair_end(line, start)
+    if end is None or _prose(line[start + 1 : end - 1]):
+        return None
+    return end
+
+
+def maths_pair_end(line: str, start: int) -> int | None:
+    """The end of the ``$…$`` pair opening at ``start``, as the phone's renderer pairs it
+    (``readInlineMathSpan``): none for a price, an escaped dollar, or a pair across code."""
     if line[start] != "$" or line[start - 1 : start] == "$" or line[start + 1 : start + 2] == "$":
         return None
     if escaped_at(line, start):
@@ -71,7 +110,7 @@ def _maths_end(line: str, start: int) -> int | None:
     body = line[start + 1 : end]
     if not body.strip() or code_span_opens_within(line, start + 1, end):
         return None
-    if _opens_price(line, end, body) or _price_body(body) or _prose(body):
+    if _opens_price(line, end, body) or _price_body(body):
         return None
     return end + 1
 
@@ -87,15 +126,22 @@ def _opens_price(line: str, dollar: int, body: str) -> bool:
 
 
 def _price_body(body: str) -> bool:
-    if _TEX_COMMAND.search(body):
+    if _TEX_COMMAND.search(body) or is_ratio(body):
         return False
-    lead = _PRICE_LEAD.match(body.lstrip())
+    # A span padded on its left ("$ 4! $") is read without its padding: the space before
+    # its closer is padding, not the space after a price's "!" ("$5! $x$").
+    read = body.strip() if body[:1].isspace() else body.lstrip()
+    lead = _PRICE_LEAD.match(read)
     if lead is None:
         return False
     word, rest = lead.group(1), lead.group(2) or ""
     if word is None or not _MATH_WORD.fullmatch(word):
         return True
-    return sum(1 for w in _LONG_WORD.findall(rest) if not _MATH_WORD.fullmatch(w)) >= 2
+    return _prose_words(rest) >= 2
+
+
+def _prose_words(text: str) -> int:
+    return sum(1 for w in _LONG_WORD.findall(text) if not _MATH_WORD.fullmatch(w))
 
 
 def _prose(body: str) -> bool:

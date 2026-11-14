@@ -6,6 +6,7 @@
  */
 
 import { codeSpanOpensWithin, escapedAt } from "@/lib/markdown/inlineCode";
+import { isRatio } from "@/lib/markdown/inlineMath";
 import { leaveProseLine, PRICE_TIER } from "@/lib/markdown/markdownRegions";
 import { ALNUM, charAt, LETTER, lastChar } from "@/lib/markdown/unicodeChars";
 import { applyOutsideFences } from "@/lib/fence/scan";
@@ -122,7 +123,8 @@ function readMath(text: string, index: number): number | null {
     // "$38.40 = $19.20" as maths saved "$ 19.20", which then read as maths.
     // Maths glued to a digit (`$a_n$2`) is still padded.
     if (/\d/.test(text[close + 1] ?? "") && /^\s*\d/.test(body)) return null;
-    if (/^\d/.test(body) && !/[\\=^_]/.test(body) && !bareNumber(body, text[close + 1])) {
+    // "$2:3$" is a ratio, not a price: skipped, its closer opened "$ costs $" and padded it.
+    if (/^\d/.test(body) && !/[\\=^_]/.test(body) && !bareNumber(body, text[close + 1]) && !isRatio(body)) {
       return null;
     }
     return close + 1;

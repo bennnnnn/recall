@@ -17,7 +17,7 @@ import pytest
 from app.core.config import Settings
 from app.models import model_catalog
 from app.models.routing_lanes import ROUTING
-from app.modules.chat.turn_prep.attachments import _AttachmentProcessResult
+from app.modules.chat.turn_prep.attachments import AttachmentProcessResult
 from app.modules.chat.turn_prep.context import await_user_message_persist
 from app.modules.chat.turn_prep.persist import UserTurn, turn_model
 from app.modules.chat.turn_prep.vision import inject_turn_images
@@ -59,8 +59,8 @@ def _turn(content: str, *, recent: list[Any], image: bool = False, alias: str | 
     )
 
 
-def _attachments(*, image: bool = False) -> _AttachmentProcessResult:
-    return _AttachmentProcessResult(
+def _attachments(*, image: bool = False) -> AttachmentProcessResult:
+    return AttachmentProcessResult(
         user=None,
         user_content="",
         content="",
@@ -122,7 +122,7 @@ async def test_a_generated_image_is_not_sent_back_to_the_model() -> None:
 
 @contextmanager
 def _prepared(
-    processed: _AttachmentProcessResult, bundle: Any, *, images_back: bool
+    processed: AttachmentProcessResult, bundle: Any, *, images_back: bool
 ) -> Iterator[None]:
     """``prepare_chat_turn`` with its attachments, prompt and save stood in for."""
     from app.modules.chat.turn_prep import prepare
@@ -143,7 +143,7 @@ async def test_a_resent_photo_moves_the_turn_and_its_backups_to_image_readers() 
     user = _pro_user()
     bundle = prompt_bundle(
         prompt_messages=[{"role": "user", "content": "and the colour?"}],
-        fallback_models=["glm-5.2"],
+        fallback_models=["qwen-3.8-flash"],
     )
     processed = _attachments()
     processed.user = user

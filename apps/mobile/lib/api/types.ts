@@ -114,6 +114,11 @@ export type Message = {
   completion?: "interrupted" | "user_stop" | null;
   /** Client-only: the reply came whole (`stream_end`), then the server failed to save it. */
   replyNotSaved?: boolean;
+  /**
+   * Client-only: the reply's photo was still on its way at `done`; its placeholder shows
+   * until the photo comes (`answer_photo`) or this time (ms since epoch) passes.
+   */
+  photo_pending_until?: number;
   created_at: string;
 };
 

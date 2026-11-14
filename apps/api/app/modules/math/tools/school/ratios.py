@@ -46,27 +46,32 @@ def _extract_ratio_split(cleaned: str, lower: str) -> MathIntent | None:
     )
 
 
+# A letter beside a number is a term ("3n", "2(m"), never a quantity in a ratio.
+_TERM = re.compile(r"\d[a-z(]|[a-z)]\s*[+\-*/^]", re.IGNORECASE)
+
+
 def _extract_colon_ratio(cleaned: str, lower: str) -> MathIntent | None:
-    if ":" in cleaned and ("ratio" in lower or "simplify" in lower):
-        first = DECIMAL_LITERAL.search(cleaned)
-        if first:
-            second = DECIMAL_LITERAL.search(cleaned, first.end())
-            if second:
-                left = finite_match_value(first)
-                right = finite_match_value(second)
-                if left is None or right is None:
-                    return None
-                extra = DECIMAL_LITERAL.search(cleaned, second.end())
-                if extra is not None:
-                    return None
-                return MathIntent(
-                    kind="arithmetic",
-                    school_op="ratio",
-                    percent_rate=left,
-                    percent_base=right,
-                    operation="solve",
-                )
-    return None
+    """``12:18``, its two numbers on either side of one colon, and no other number.
+
+    The first two numbers anywhere were the ratio once: "Simplify by combining like
+    terms: -(m + n) + 2(m - 3n)" had a colon and the word, and was a checked 2:3
+    (2026-11-13). The colon of a prompt's lead-in is not a ratio's.
+    """
+    if not ("ratio" in lower or "simplify" in lower) or _TERM.search(cleaned):
+        return None
+    grouped = _colon_ratio_parts(cleaned)
+    if grouped is None or len(grouped[0]) != 2:
+        return None
+    (left, right), spans = grouped
+    if any((m.start(), m.end()) not in spans for m in DECIMAL_LITERAL.finditer(cleaned)):
+        return None
+    return MathIntent(
+        kind="arithmetic",
+        school_op="ratio",
+        percent_rate=left,
+        percent_base=right,
+        operation="solve",
+    )
 
 
 # A percent is a rate applied to an amount, never a term of a proportion: "costs 2400,

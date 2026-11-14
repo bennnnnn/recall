@@ -9,12 +9,13 @@ it has lines:
 - **Required**: what is asked (**Find** before November 2026; a reader takes both), each
   unknown with its meaning in brackets on its line, ``$v$ (speed)`` (``asked_line``)
 - **Solution**: a heading alone, over the working below (none before November 2026)
-- **Formula**: the law or rule that governs it, headed by its name and "formula"
+- the formula: the law or rule that governs it, headed by its name and "formula"
   (**Average speed formula**, **Kinetic energy formula**; ``formula_heading``); a name
   that says what it is already keeps it (**Ohm's law**, **Pythagorean theorem**), and
-  a formula with no name is headed **Formula**. The name is never a note on the
-  formula's line. A rearrangement for the unknown is a line of its own,
-  ``Solve for $t$`` (``solve_for_line``), then the rearranged formula
+  a formula with no name has no heading of its own: its lines follow **Solution**, never
+  a bare **Formula** (2026-11-11). The name is never a note on the formula's line. A
+  rearrangement for the unknown is a line of its own, ``Solve for $t$``
+  (``solve_for_line``), then the rearranged formula
 - **Substitution**: values put into that formula
 - **Steps**: an equation changed one move at a time
 - **Answer**: the verified result (the caller's answer fence follows)
@@ -107,28 +108,47 @@ def note_from_label(label: str) -> str:
 
 
 # A name that already says what it is keeps it: "Ohm's law", "Heron's formula",
-# "Pythagorean theorem", "Slope-intercept form", "Newton's method".
+# "Pythagorean theorem", "Slope-intercept form", "Newton's method", and so does one that
+# says it before its end: "Law of cosines", "Newton's second law for rotation" (2026-11-11).
 _NAMED_KIND = re.compile(
-    r"\b(?:law|formula|theorem|rule|principle|equation|identity|form|method)s?$", re.I
+    r"\b(?:law|formula|theorem|rule|principle|equation|identity|form|method)s?\b", re.I
 )
 # The phone reads a formula's own heading as one when it is a few words with no
 # sentence end (``lib/markdown/workoutSection.ts``, ``lawHeading``).
 _HEADING_WORDS = 10
+# A heading of one bare word that names no law: the kind alone, or a section's own name.
+_NAMES_NOTHING = frozenset(
+    {"formula", "formulas", "equation", "law", "rule", "method", "theorem", "relation"}
+    | {"given", "required", "find", "solution", "substitution", "steps", "answer"}
+)
+
+
+def method_heading(name: str) -> str:
+    """A name as a heading, as written: ``integrating factor method`` → ``Integrating
+    factor method``. Nothing is added: a law, a principle or a method says what it is. A
+    trailing stop goes, and a bare kind ("Formula") or a section's name names nothing:
+    ""."""
+    text = re.sub(r"\s+", " ", name).strip().rstrip(".:;,!?").strip()
+    if text.lower() in _NAMES_NOTHING:
+        return ""
+    # A word opens it in capitals; a symbol keeps its case ("pH of the buffer").
+    return text[:1].upper() + text[1:] if re.match(r"[a-z]{2,}\b", text) else text
 
 
 def formula_heading(name: str | None) -> str:
     """The heading over a formula: ``Average speed`` → ``Average speed formula``.
 
     One rule for every subject. A name that says what it is already stays as it is
-    (``Ohm's law``, ``Triangle area formula``); no name, or one too long to read as a
-    heading, is **Formula**.
+    (``Ohm's law``, ``Triangle area formula``), and so does one holding maths, which names
+    a method or a step (``Substitution $x = \\tan t$``). No name, or one too long to read
+    as a heading, is "": the formula's lines follow **Solution** with no heading of their
+    own, never under a bare **Formula** (2026-11-11).
     """
-    text = re.sub(r"\s+", " ", name or "").strip().rstrip(".:")
-    if not text or "$" in text or re.search(r"[.?!]$", text):
-        return FORMULA
-    text = text[:1].upper() + text[1:]
-    heading = text if _NAMED_KIND.search(text) else f"{text} formula"
-    return heading if len(heading.split()) <= _HEADING_WORDS else FORMULA
+    text = method_heading(name or "")
+    if not text:
+        return ""
+    heading = text if _NAMED_KIND.search(text) or "$" in text else f"{text} formula"
+    return heading if len(heading.split()) <= _HEADING_WORDS else ""
 
 
 def names_a_formula(title: str) -> bool:
@@ -143,7 +163,7 @@ def _named(line: str) -> tuple[str, str] | None:
     if at < 0:
         return None
     note = line[at + len(_NOTE_SEPARATOR) :].strip()
-    if note[:1].isupper() and formula_heading(note) != FORMULA:
+    if note[:1].isupper() and formula_heading(note):
         return line[:at].strip(), note
     return None
 
@@ -153,7 +173,8 @@ def formula_sections(
 ) -> list[tuple[str, list[str]]]:
     """The formula lines under their headings. With ``heading`` they are one section;
     without, a named line opens a section headed by its name (the name leaves the line),
-    and an unnamed line stays in the section above it (**Formula** when it is first)."""
+    and an unnamed line stays in the section above it. A section headed "" has no heading
+    of its own (an unnamed first line): its lines follow **Solution**."""
     kept = _clean(lines)
     if heading is not None:
         return [(heading, kept)] if kept else []
@@ -164,7 +185,7 @@ def formula_sections(
             if sections:
                 sections[-1][1].append(line)
             else:
-                sections.append((FORMULA, [line]))
+                sections.append(("", [line]))
             continue
         title = formula_heading(named[1])
         if sections and sections[-1][0] == title:
@@ -197,7 +218,9 @@ def _clean(lines: tuple[str, ...]) -> list[str]:
 
 
 def _section(heading: str, lines: list[str]) -> str:
-    return f"**{heading}**{_HARD_BREAK}" + _HARD_BREAK.join(lines)
+    """A heading over its lines; with no heading, the lines alone."""
+    body = _HARD_BREAK.join(lines)
+    return f"**{heading}**{_HARD_BREAK}{body}" if heading else body
 
 
 def render_workout(
@@ -331,8 +354,9 @@ def _sections(formula: str) -> str:
 _WORKOUT_SECTIONS = _sections(
     'the governing law or rule under a bold heading of its name followed by "formula" '
     "(`**Average speed formula**`; a name that already ends in law, theorem, rule, "
-    "principle or equation stays as it is: `**Ohm's law**`), or **Formula** when it has "
-    "no name; never the name after the formula on its line"
+    "principle or equation stays as it is: `**Ohm's law**`); a formula with no name goes "
+    "under **Solution** with no heading of its own, never a bare **Formula**; never the "
+    "name after the formula on its line"
 )
 _WORKOUT_SECTION_LINES = (
     "Put each heading on its own line with its lines directly under it: one state per "
@@ -343,12 +367,13 @@ _WORKOUT_REARRANGED = (
     "Rearranging a formula for the unknown is a line of its own, never a note: "
     "`Solve for $t$`, then `$t = \\frac{d}{v}$`."
 )
-# One Given for every question in parts: a value one part uses is lettered there, never a
-# Given under a part (2026-11-02).
+# One Given for every question in parts, never a Given under a part (2026-11-02). A given
+# is data, so it carries no part's letter: a pie chart's angles lettered by the parts that
+# used them read as parts (2026-11-13). Only two values of one symbol are told apart so.
 _GIVEN_ONCE = (
-    "one **Given** for the whole question holding every given, a value only one part uses "
-    "lettered by its part as Required's lines are (`(a) $t = 1\\ \\text{s}$`), never a "
-    "**Given** under a part"
+    "one **Given** for the whole question holding every given once, with no part's letter "
+    "on a given (a given is data, not a part) except to tell apart two values of one symbol "
+    "(`(a) $d = 100\\ \\text{m}$`, `(b) $d = 300\\ \\text{m}$`), never a **Given** under a part"
 )
 _WORKOUT_PARTS = (
     f"A question in parts: {_GIVEN_ONCE}, then **Solution**, then for "
@@ -379,12 +404,13 @@ _WORKOUT_ONE_EXPRESSION = (
 # A learner reads each step: a converted given says how, the arithmetic reaches the
 # number, and the answer is labelled once.
 _PHYSICS_WORKING = (
-    "A given in a unit that is not SI stays one line, with the factor that converts it: "
-    "`$v = 100\\ \\text{km/h} \\times 1000/3600 = 27.78\\ \\text{m/s}$`, never the "
-    "symbol written twice. Carry **Substitution** one step at a time to the final value "
-    "with its unit: `$a = \\frac{27.78 - 0}{8}$`, `$a = \\frac{27.78}{8}$`, "
-    "`$a = 3.47\\ \\text{m/s}^2$`. Write **Answer** once, the value under it, never a "
-    "second `Answer:` line."
+    "A given in a unit that is not SI stays one line, with the factor that converts it, "
+    "every side equal: `$v = 100\\ \\text{km/h} = 100 \\times 1000/3600\\ \\text{m/s} = "
+    "27.78\\ \\text{m/s}$`, never the factor after the unit it converts, and never the "
+    "symbol written twice. Carry **Substitution** one step at a time to the value it "
+    "reaches, unrounded, with its unit: `$a = \\frac{27.78 - 0}{8}$`, "
+    "`$a = \\frac{27.78}{8}$`, `$a = 3.4725\\ \\text{m/s}^2$`. Write **Answer** once, "
+    "the value under it rounded (`3.47 m/s²`), never a second `Answer:` line."
 )
 
 

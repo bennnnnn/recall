@@ -37,9 +37,10 @@ const C14_RESPONSE = "The Taylor series of \\( f(x) = e^x \\) centered at \\( a 
 
 describe("native derivative and function notation", () => {
   it.each([false, true])("renders C14 primes without Markdown quotation marks, streaming=%s", async (streaming) => {
-    const { getAllByText, queryByText } = await render(<MarkdownContent content={C14_RESPONSE} streaming={streaming} />);
-    expect(getAllByText(/f′\(x\)/).length).toBeGreaterThan(0);
-    expect(getAllByText(/f′′\(x\)/).length).toBeGreaterThan(0);
+    const { getAllByTestId, queryByText } = await render(<MarkdownContent content={C14_RESPONSE} streaming={streaming} />);
+    // Each prime is a raised script on its f, never a quotation mark.
+    const scripts = getAllByTestId("math-script").map((node) => [].concat(node.props.children).join(""));
+    expect(scripts).toEqual(expect.arrayContaining(["′", "′′"]));
     expect(queryByText(/f[‘’]|[\uE000-\uE005]/)).toBeNull();
   });
   it("renders the exact C18 standalone answer with ordinary function arguments", async () => {

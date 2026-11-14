@@ -2,6 +2,8 @@ import { getSessionGeneration } from "@/lib/auth";
 import type { ClientGeo } from "@/features/chat/model/clientGeo";
 import { hasLocationPermission, requestDeviceGeo } from "@/lib/deviceLocation";
 import { isAmbiguousLocalPlacesQuery, isGeoQuery } from "@/lib/places/localPlacesQuery";
+import { recentSyncAt, recordSync } from "@/lib/syncRecords";
+import { tokenSubject } from "@/lib/tokenSubject";
 import { alertDialog, offerSettings } from "@/ui/overlay/dialogs";
 
 type ClientGeoResolveResult =
@@ -12,7 +14,7 @@ type Translate = (key: string, options?: Record<string, unknown>) => string;
 
 type LocationPatch = { location?: string; location_enabled?: true };
 
-type PersistLocation = (patch: LocationPatch) => void | Promise<void>;
+type PersistLocation = (patch: LocationPatch) => Promise<void>;
 
 export function queryNeedsClientGeo(queryText: string): boolean {
   return Boolean(
@@ -51,6 +53,53 @@ function locationPatch(locationSwitch: LocationSwitch, justAllowed: boolean, pla
 }
 
 /**
+ * How long the place a fix saved answers the account's location questions by itself.
+ * The server reads the saved place when a turn brings none; a GPS fix, a reverse
+ * geocode and a profile save on every places question cost battery and a request
+ * each time (2026-11-08). Fifteen minutes is a short drive across town.
+ */
+const SAVED_PLACE_FRESH_MS = 15 * 60_000;
+
+/**
+ * Location is on, a fix saved the account's place within `SAVED_PLACE_FRESH_MS`, and the
+ * phone may still read its location. Turned off in iOS Settings since, the saved place is
+ * no longer the phone's: the read below offers Settings (review, 2026-11-09).
+ */
+async function savedPlaceIsFresh(locationSwitch: LocationSwitch, account: string | null): Promise<boolean> {
+  if (locationSwitch !== "on" || !account) return false;
+  if ((await recentSyncAt("location", account, SAVED_PLACE_FRESH_MS)) === null) return false;
+  return hasLocationPermission();
+}
+
+/** The account's place is the phone's as of now, for `savedPlaceIsFresh` (and the hourly sync, `useLocationSync`). */
+function noteSavedPlace(account: string | null): void {
+  if (!account) return;
+  recordSync("location", account).catch(() => {
+    // Unrecorded, the next location question reads the phone again: one more fix.
+    console.warn("[location] saved place not recorded");
+  });
+}
+
+/**
+ * Saves a fix's place to the profile. The server reads a fix only from a user whose
+ * Location is on, so a save that turns it on is waited for; one that keeps an on switch's
+ * place fresh goes on in the background. The place counts as recent only once its save
+ * lands: a failed one is read again next time.
+ */
+async function saveFixPlace(patch: LocationPatch, persist: PersistLocation, account: string | null): Promise<void> {
+  const session = getSessionGeneration();
+  // A save for an account signed out meanwhile resolves without saving anything.
+  const saving = persist(patch).then(() => {
+    if (patch.location && session === getSessionGeneration()) noteSavedPlace(account);
+  });
+  if (patch.location_enabled) return saving;
+  saving.catch(() => {
+    // The turn has its fix; the profile keeps its last place until the next read.
+    console.warn("[location] place not saved");
+  });
+}
+
+/**
  * Resolve device geo for nearby / where-am-I asks.
  * Show the system permission sheet immediately — do not ask the model for a city,
  * and do not insert an in-app "Turn on" alert in front of the OS prompt.
@@ -59,13 +108,14 @@ function locationPatch(locationSwitch: LocationSwitch, justAllowed: boolean, pla
  * (`unknown`), a fix the phone already allows goes with the turn and nothing is
  * saved: the server applies the switch.
  * A recent fix serves, and the waits are bounded: with no fix in time the turn
- * goes without one. `persistLocation` is awaited only as far as it says: the
- * caller decides whether the turn must wait for the profile to save. Coordinates
- * alone never replace the profile's place: a name that comes after the turn
- * went saves then, for the account that asked.
+ * goes without one. The turn waits for the profile to save only when the save
+ * turns Location on (`saveFixPlace`). Coordinates alone never replace the
+ * profile's place: a name that comes after the turn went saves then, for the
+ * account that asked. A place saved in the last fifteen minutes is not read
+ * again: the turn goes without a fix and the server reads it.
  */
 export async function resolveClientGeoForQuery(
-  _token: string,
+  token: string,
   queryText: string,
   t: Translate,
   persistLocation: PersistLocation,
@@ -74,6 +124,8 @@ export async function resolveClientGeoForQuery(
   if (!queryNeedsClientGeo(queryText) || locationSwitch === "off") {
     return { ok: true, clientGeo: null };
   }
+  const account = tokenSubject(token);
+  if (await savedPlaceIsFresh(locationSwitch, account)) return { ok: true, clientGeo: null };
 
   const allowedBefore = locationSwitch !== "unknown" || (await hasLocationPermission());
   const session = getSessionGeneration();
@@ -94,14 +146,14 @@ export async function resolveClientGeoForQuery(
     const patch = locationPatch(locationSwitch, !allowedBefore, place);
     if (!patch && locationSwitch !== "on") return { ok: true, clientGeo };
     try {
-      if (patch) await persistLocation(patch);
+      if (patch) await saveFixPlace(patch, persistLocation, account);
     } catch {
       // Still use this turn's fix; Settings may catch up on next refresh.
     }
     void geo.lateLabel
       ?.then((late) => {
         const name = late?.trim();
-        if (name && session === getSessionGeneration()) return persistLocation({ location: name });
+        if (name && session === getSessionGeneration()) return saveFixPlace({ location: name }, persistLocation, account);
       })
       .catch(() => undefined);
     return { ok: true, clientGeo };

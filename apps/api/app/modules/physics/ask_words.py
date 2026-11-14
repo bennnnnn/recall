@@ -39,6 +39,8 @@ _QUANTITIES: dict[str, str] = {
     "how big": _UNKNOWN,
     "image size": _UNKNOWN,
     "size of the image": _UNKNOWN,
+    # A lamp's photons are counted each second as often as in all: the law reads which.
+    "how many photons": _UNKNOWN,
     "how many metres": "meter",
     "how many meters": "meter",
     "how many kilometres": "meter",

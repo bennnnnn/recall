@@ -20,6 +20,12 @@ nothing outside its ```worked block, a model still closed with "The car's speed 
 (2026-11-02). A short paragraph after the last card that states only the cards' numbers,
 in words the reply or the question already holds, goes; a picture, or a sentence with a
 number or a word of its own (a caveat, a direction the card lacks), stays.
+
+The working's own last line stays, worked to its value ("$v = 15\\,\\mathrm{km/h}$" above a
+card of 15 km/h), as a textbook closes its working before the boxed answer. From 2026-11-09
+a pass dropped that line as the card's restatement, so the working stopped one step short
+("v = 45 km / 3 h", then the card) in every subject; the owner's phone test of 2026-11-11
+read that as working left unfinished, and the pass is gone.
 """
 
 from __future__ import annotations

@@ -32,6 +32,7 @@ from app.modules.images.gen_intent_thread import (
     prior_user_contents_for_image_gen,
 )
 from app.modules.images.lookup_intent import extract_image_lookup_query, is_reference_subject
+from app.modules.turn_reading.see_request import asks_to_see
 
 if TYPE_CHECKING:
     from app.core.config import Settings
@@ -169,15 +170,21 @@ def composer_image_intent(
     image_attached: bool = False,
     image_search: bool = True,
     chemistry_enabled: bool = True,
+    can_generate: bool = True,
 ) -> ComposerImageIntent:
     """The chat turn's own reading of a composer send, before it is sent.
 
     A photo lookup and a maths, physics or chemistry turn go to chat. With an image
     attached the chat turn never draws, so an edit of that image ("make it blue")
-    is the composer's to draw, with the attachment as its reference.
+    is the composer's to draw, with the attachment as its reference. A picture of "it"
+    goes to chat too when the user can generate one: what "it" is, a model reads there
+    (``chat.referent_read``), and a curve or a shape is drawn, never generated. A user
+    who cannot (``can_generate``) keeps the composer's picture and its upgrade prompt.
     """
     subject = stem_subject(text, chemistry_enabled=chemistry_enabled)
     request: ImageGenRequest | None
+    if not image_attached and can_generate and asks_to_see(text):
+        return ComposerImageIntent(subject)
     if image_attached:
         rows = list(recent)
         prompt = extract_image_gen_prompt_from_thread(
@@ -203,6 +210,7 @@ async def composer_intent_for_chat(
     text: str,
     chat_id: UUID | None,
     image_attached: bool = False,
+    can_generate: bool = True,
 ) -> ComposerImageIntent | None:
     """``composer_image_intent`` over the chat's recent window.
 
@@ -227,4 +235,5 @@ async def composer_intent_for_chat(
         image_attached=image_attached,
         image_search=settings.image_search_enabled,
         chemistry_enabled=settings.chemistry_enabled,
+        can_generate=can_generate,
     )

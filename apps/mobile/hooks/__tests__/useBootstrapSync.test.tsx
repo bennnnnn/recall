@@ -5,7 +5,7 @@ import { act, render } from "@testing-library/react-native";
 import { ActionFeedbackContext, type ActionFeedbackApi } from "@/contexts/actionFeedbackCore";
 import { useBootstrapSync } from "@/hooks/useBootstrapSync";
 import { api, type User } from "@/lib/api";
-import { getDeviceLocationLabel } from "@/lib/deviceLocation";
+import { getDeviceLocationLabel, locationAccessDenied } from "@/lib/deviceLocation";
 import { registerPlanChangeListener } from "@/features/billing/model/purchases";
 import { attachPushForegroundSync } from "@/features/notifications/model/pushNotifications";
 import { onAppEvent } from "@/lib/appEvents";
@@ -25,12 +25,13 @@ jest.mock("@/lib/datetime/phoneClock", () => ({
 }));
 const mockAppStateListeners = new Set<(state: string, returned: boolean) => void>();
 jest.mock("@/lib/foregroundRefresh", () => ({
+  FOREGROUND_STALE_MS: { location: 60 * 60_000 },
   onAppStateChange: (listener: (state: string, returned: boolean) => void) => {
     mockAppStateListeners.add(listener);
     return () => { mockAppStateListeners.delete(listener); };
   },
 }));
-jest.mock("@/lib/deviceLocation", () => ({ getDeviceLocationLabel: jest.fn() }));
+jest.mock("@/lib/deviceLocation", () => ({ getDeviceLocationLabel: jest.fn(), locationAccessDenied: jest.fn() }));
 jest.mock("@/features/notifications/model/pushNotifications", () => ({ attachPushForegroundSync: jest.fn() }));
 const mockSyncRecords = new Map<string, { account: string; at: number }>();
 jest.mock("@/lib/syncRecords", () => ({
@@ -69,6 +70,7 @@ beforeEach(() => {
   mockDeviceZone = "America/Los_Angeles";
   (api.updateMe as jest.Mock).mockResolvedValue(userA);
   (getDeviceLocationLabel as jest.Mock).mockResolvedValue(null);
+  (locationAccessDenied as jest.Mock).mockResolvedValue(false);
   (registerPlanChangeListener as jest.Mock).mockResolvedValue(jest.fn());
 });
 
@@ -160,7 +162,7 @@ it("hands the push sync the app's toasts, so a push token failure is not silent"
 describe("location label", () => {
   const located = { ...userA, timezone: userB.timezone, location_enabled: true, location: "Paris" } as User;
 
-  it("reads the device location at most once a day while the server has a label", async () => {
+  it("reads the device location at most once an hour while the server has a label", async () => {
     (getDeviceLocationLabel as jest.Mock).mockResolvedValue("Lyon");
     (api.updateMe as jest.Mock).mockResolvedValue({ ...located, location: "Lyon" });
     const rendered = await render(<Probe user={located} token="a" />);
@@ -194,6 +196,43 @@ describe("location label", () => {
     await render(<Probe user={{ ...located, location: null }} token="a" />);
     await act(async () => {});
     expect(getDeviceLocationLabel).toHaveBeenCalledTimes(1);
+  });
+
+  const returnToApp = () =>
+    act(async () => { for (const listener of [...mockAppStateListeners]) listener("active", true); });
+
+  it("reads again on a return to the app once the saved place is an hour old", async () => {
+    // A place saved in San Francisco that morning answered the weather in New York that
+    // evening: only the next launch read the phone again (review, 2026-11-09).
+    (getDeviceLocationLabel as jest.Mock).mockResolvedValue("Paris");
+    await render(<Probe user={located} token="a" />);
+    await act(async () => {});
+    await returnToApp();
+    expect(getDeviceLocationLabel).toHaveBeenCalledTimes(1);
+    mockSyncRecords.set("location", { account: "a", at: Date.now() - 61 * 60_000 });
+    (getDeviceLocationLabel as jest.Mock).mockResolvedValue("New York, NY");
+    await returnToApp();
+    expect(getDeviceLocationLabel).toHaveBeenCalledTimes(2);
+    expect(api.updateMe).toHaveBeenLastCalledWith("a", { location: "New York, NY" });
+    // Opening the app never shows the permission sheet (Android's settings dialog: deviceLocation).
+    for (const args of (getDeviceLocationLabel as jest.Mock).mock.calls) expect(args).toEqual([{ ask: false }]);
+  });
+
+  it("saves the place even when it has not changed: the server dates the place it reads", async () => {
+    (getDeviceLocationLabel as jest.Mock).mockResolvedValue("Paris");
+    await render(<Probe user={located} token="a" />);
+    await act(async () => {});
+    expect(api.updateMe).toHaveBeenCalledWith("a", { location: "Paris" });
+  });
+
+  it("clears the saved place when the phone no longer lets Recall read it, and leaves the switch", async () => {
+    // Turned off in iOS Settings, the last city answered the weather indefinitely.
+    (locationAccessDenied as jest.Mock).mockResolvedValue(true);
+    await render(<Probe user={located} token="a" />);
+    await act(async () => {});
+    expect(getDeviceLocationLabel).not.toHaveBeenCalled();
+    expect(api.updateMe).toHaveBeenCalledWith("a", { location: null });
+    expect(api.updateMe).not.toHaveBeenCalledWith("a", expect.objectContaining({ location_enabled: false }));
   });
 
   it("tries again next launch when the label could not be saved", async () => {

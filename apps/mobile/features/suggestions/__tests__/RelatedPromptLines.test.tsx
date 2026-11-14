@@ -37,6 +37,18 @@ describe("RelatedPromptLines", () => {
     expect(onSelect).toHaveBeenLastCalledWith(PHYSICS);
   });
 
+  it("draws a text group's command as its character, never its source", async () => {
+    // A chip read "What if θ was 45^\textdegree instead?" under the incline problem.
+    const { toJSON, queryByText } = await render(
+      <RelatedPromptLines
+        prompts={[String.raw`What if $\theta$ was $45^\text{\textdegree}$ instead?`]}
+        onSelect={jest.fn()}
+      />,
+    );
+    expect(queryByText(/textdegree|\\/)).toBeNull();
+    expect(readLine(toJSON() as Element)).toContain("°");
+  });
+
   it("does not offer a fragment or a glued equation", async () => {
     const onSelect = jest.fn();
     const { queryByLabelText, getByLabelText } = await render(

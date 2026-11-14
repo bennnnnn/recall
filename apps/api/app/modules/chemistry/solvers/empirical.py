@@ -103,12 +103,12 @@ def solve_combustion(intent: ChemistryIntent) -> ChemistryResult:
         raise SolveServiceError("the combustion masses do not form a simple integer ratio")
     formula = hill_formula(counts)
     working = [
-        f"n(C) = {inp(co2)} / {molar_mass_working(co2_mass)} = {num(moles_c)} mol",
-        f"n(H) = 2 * {inp(water)} / {molar_mass_working(water_mass)} = {num(moles_h)} mol",
+        f"n(C) = {inp(co2)} / {molar_mass_working(co2_mass)} = {carried(moles_c)} mol",
+        f"n(H) = 2 * {inp(water)} / {molar_mass_working(water_mass)} = {carried(moles_h)} mol",
     ]
     if "O" in moles:
         working.append(
-            f"m(O) = {inp(sample)} - {num(mass_c)} - {num(mass_h)} = {carried(mass_o)} g"
+            f"m(O) = {inp(sample)} - {carried(mass_c)} - {carried(mass_h)} = {carried(mass_o)} g"
         )
         working.append(
             f"n(O) = {carried(mass_o)} / {molar_mass_working(oxygen)} = {carried(moles['O'])} mol"
