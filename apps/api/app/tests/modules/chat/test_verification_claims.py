@@ -196,7 +196,9 @@ def _prepared(subject: str | None, reason: str, *, verified: object = None) -> s
         money=None,
         user_message_content=_PROMPT,
     )
-    state = SimpleNamespace(server_text=False, text=_REPLY, settings=Settings(), ctx=ctx)
+    state = SimpleNamespace(
+        server_text=False, text=_REPLY, settings=Settings(), ctx=ctx, user_stopped=False
+    )
     return prepare_model_reply(cast(Any, state))
 
 
