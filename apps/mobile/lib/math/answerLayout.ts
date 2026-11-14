@@ -49,7 +49,8 @@ export function splitAnswerBranches(text: string): string[] {
 
 /**
  * An answer written as a sentence around its formulas ("$a = g\sin\theta$, which at
- * $30^\circ$ gives …"): two or more words outside the maths and no LaTeX there.
+ * $30^\circ$ gives …"): two or more words outside the maths, or a note in brackets after
+ * the value (`endsInNote`), and no LaTeX there.
  * Its formulas keep their dollars, so the words are drawn as words.
  */
 export function answerReadsAsProse(text: string): boolean {
@@ -57,7 +58,17 @@ export function answerReadsAsProse(text: string): boolean {
   if (!parts.some((part) => part.type === "math")) return false;
   const prose = parts.filter((part) => part.type === "text").map((part) => part.value);
   if (prose.some((value) => /\\[A-Za-z]/.test(value))) return false;
-  return prose.flatMap((value) => value.match(/[A-Za-z]{3,}/g) ?? []).length >= 2;
+  return endsInNote(parts) || prose.flatMap((value) => value.match(/[A-Za-z]{3,}/g) ?? []).length >= 2;
+}
+
+/**
+ * A value and its meaning after it in brackets, as a worked answer writes one ("$x = 3.74$
+ * (to 3 s.f.)", "$0$ (at x=1)"): the note is words. With the dollars dropped it was set as
+ * maths, "0(at x=1)" in italic letters (2026-11-13).
+ */
+function endsInNote(parts: ReturnType<typeof splitInlineMath>): boolean {
+  const last = parts.at(-1);
+  return parts.length > 1 && last?.type === "text" && /^\s*\([^()]*[A-Za-z]{2}[^()]*\)[.\s]*$/.test(last.value);
 }
 
 /**

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { parse, SvgAst, type JsxAST } from "react-native-svg";
 
+import { useFlashWhenClipped } from "@/components/rich/clippedScroll";
 import {
   AccessibleElementChildren,
   useInsideAccessibleElement,
@@ -52,9 +53,15 @@ type Props = {
   indent?: number;
   /** `indent` is already fitted for a block of lines (``MathBlock``): kept as it is. */
   indentFitted?: boolean;
+  /**
+   * The least the drawing may shrink to so the whole formula is in view (an answer card):
+   * on a narrower phone the card cut the answer at its edge, "… x^{5/2} −" (2026-11-13).
+   * What is wider even then scrolls, its scroll bar flashed. Unset, it scrolls at its size.
+   */
+  minFit?: number;
 };
 
-type FallbackProps = Required<Omit<Props, "minHeight" | "indentFitted">> & { label: string | undefined };
+type FallbackProps = Required<Omit<Props, "minHeight" | "indentFitted" | "minFit">> & { label: string | undefined };
 
 /** What MathJax could not convert: the same formula in readable native maths. */
 function FallbackMath({ latex, textColor, em, align, label, indent }: FallbackProps) {
@@ -109,8 +116,9 @@ export const MathSvgView = React.memo(function MathSvgView({
   align = "center",
   indent = 0,
   indentFitted = false,
+  minFit,
 }: Props) {
-  const { fontScale, width: windowWidth } = useWindowDimensions();
+  const { fontScale } = useWindowDimensions();
   const exPx = em * EX_PER_EM * fontScale;
   const justify = align === "start" ? styles.alignStart : null;
   // VoiceOver reads the formula as words: an SVG has no text of its own. Under
@@ -172,9 +180,37 @@ export const MathSvgView = React.memo(function MathSvgView({
 
   // Intrinsic size. minHeight is only the loading slot: stretching a short
   // MathJax SVG up to 48px turns `gt` and a limit into a smashed bar.
-  const width = Math.max(1, result.widthEx * exPx);
-  const height = Math.max(1, result.heightEx * exPx);
-  const left = indentFitted ? indent : fittedIndent(indent, width, windowWidth);
+  return (
+    <SvgDrawing
+      ast={ast}
+      natural={{ width: Math.max(1, result.widthEx * exPx), height: result.heightEx * exPx }}
+      place={{ indent, indentFitted, justify, minFit }}
+      own={own}
+      label={label}
+    />
+  );
+});
+
+type Placement = Required<Pick<Props, "indent" | "indentFitted">> & Pick<Props, "minFit"> & {
+  justify: typeof styles.alignStart | null;
+};
+
+/** The converted drawing in its sideways scroll, at its size or shrunk to its box (`minFit`). */
+function SvgDrawing({ ast, natural, place, own, label }: {
+  ast: JsxAST;
+  natural: { width: number; height: number };
+  place: Placement;
+  own: boolean;
+  label: string | undefined;
+}) {
+  const { width: windowWidth } = useWindowDimensions();
+  const [boxWidth, setBoxWidth] = useState(0);
+  const flash = useFlashWhenClipped();
+  const { indent, indentFitted, justify, minFit } = place;
+  const left = indentFitted ? indent : fittedIndent(indent, natural.width, windowWidth);
+  const scale = fitScale(natural.width, boxWidth - left - 2 * SCROLL_PAD, minFit);
+  const width = natural.width * scale;
+  const height = Math.max(1, natural.height * scale);
   return (
     <View
       style={[styles.wrap, indent > 0 && { paddingLeft: left }]}
@@ -182,12 +218,15 @@ export const MathSvgView = React.memo(function MathSvgView({
       accessible={own}
       accessibilityRole={own ? "text" : undefined}
       accessibilityLabel={label}
+      onLayout={minFit ? (event) => setBoxWidth(event.nativeEvent.layout.width) : undefined}
     >
       <ScrollView
         keyboardShouldPersistTaps="handled"
+        {...flash}
         horizontal
         nestedScrollEnabled
         showsHorizontalScrollIndicator
+        persistentScrollbar
         testID="math-svg-scroll"
         style={{ height }}
         contentContainerStyle={[styles.lineScroll, justify]}
@@ -199,7 +238,16 @@ export const MathSvgView = React.memo(function MathSvgView({
       </ScrollView>
     </View>
   );
-});
+}
+
+/** The scroll's own padding at each side (`lineScroll`). */
+const SCROLL_PAD = Space.xs;
+
+/** How much a drawing `natural` wide shrinks to fit `room`: never below `minFit`, never up. */
+export function fitScale(natural: number, room: number, minFit: number | undefined): number {
+  if (!minFit || room <= 0 || natural <= room) return 1;
+  return Math.max(minFit, room / natural);
+}
 
 const styles = StyleSheet.create({
   wrap: {
@@ -214,7 +262,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: "center",
     minWidth: "100%",
-    paddingHorizontal: Space.xs,
+    paddingHorizontal: SCROLL_PAD,
   },
   line: {
     textAlign: "center",

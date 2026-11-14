@@ -1,15 +1,9 @@
 /** How an answer card lays out what does not fit one formula: a sentence, a long line. */
-import { type ReactNode, useRef } from "react";
-import {
-  ScrollView,
-  Text,
-  type StyleProp,
-  type TextStyle,
-  type ViewStyle,
-  type ScrollViewInstance,
-} from "react-native";
+import { type ReactNode } from "react";
+import { ScrollView, Text, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 
 import { DisplayRow, InlineFlow } from "@/components/markdown/rules/inlineFlow";
+import { useFlashWhenClipped } from "@/components/rich/clippedScroll";
 import { MathText } from "@/components/rich/MathText";
 import { isHeavyInlineMath } from "@/lib/math/fenceRetag";
 import type { InlineMathPart } from "@/lib/markdown/inlineMath";
@@ -30,18 +24,11 @@ export function ScrollingLine({
   contentContainerStyle: StyleProp<ViewStyle>;
   children: ReactNode;
 }) {
-  const ref = useRef<ScrollViewInstance>(null);
-  const seen = useRef({ viewport: 0, content: 0, flashed: false });
-  const flashIfClipped = () => {
-    const size = seen.current;
-    if (size.flashed || size.viewport <= 0 || size.content <= size.viewport + 1) return;
-    size.flashed = true;
-    ref.current?.flashScrollIndicators();
-  };
+  const flash = useFlashWhenClipped();
   return (
     <ScrollView
       keyboardShouldPersistTaps="handled"
-      ref={ref}
+      {...flash}
       testID={testID}
       horizontal
       nestedScrollEnabled
@@ -50,14 +37,6 @@ export function ScrollingLine({
       bounces={false}
       style={style}
       contentContainerStyle={contentContainerStyle}
-      onLayout={(event) => {
-        seen.current.viewport = event.nativeEvent.layout.width;
-        flashIfClipped();
-      }}
-      onContentSizeChange={(width) => {
-        seen.current.content = width;
-        flashIfClipped();
-      }}
     >
       {children}
     </ScrollView>

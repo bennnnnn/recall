@@ -22,10 +22,7 @@ STATED_LAWS: dict[str, FormulaLaw] = {
             "Number of neutrons, N",
             ("N", ""),
             "mass_number - atomic_number",
-            (
-                ("mass_number", "A", ""),
-                ("atomic_number", "Z", ""),
-            ),
+            (("mass_number", "A", ""), ("atomic_number", "Z", "")),
             "N = {mass_number.value} − {atomic_number.value}",
         ),
         _law(
@@ -36,10 +33,7 @@ STATED_LAWS: dict[str, FormulaLaw] = {
             "Ion charge, q",
             ("q", ""),
             "atomic_number - electron_count",
-            (
-                ("atomic_number", "Z", ""),
-                ("electron_count", "Ne", ""),
-            ),
+            (("atomic_number", "Z", ""), ("electron_count", "Ne", "")),
             "q = {atomic_number.value} − {electron_count.value}",
             signed=frozenset({"electron_count"}),
         ),
@@ -62,10 +56,7 @@ STATED_LAWS: dict[str, FormulaLaw] = {
             "Bond order, BO",
             ("BO", ""),
             "(bonding - antibonding)/2",
-            (
-                ("bonding", "Nb", ""),
-                ("antibonding", "Na", ""),
-            ),
+            (("bonding", "Nb", ""), ("antibonding", "Na", "")),
             "BO = ({bonding.value} − {antibonding.value}) / 2",
             non_negative=frozenset({"bonding", "antibonding"}),
         ),
@@ -88,10 +79,7 @@ STATED_LAWS: dict[str, FormulaLaw] = {
             "Quantum yield, Φ",
             ("Φ", ""),
             "events/photons",
-            (
-                ("events", "events", ""),
-                ("photons", "photons", ""),
-            ),
+            (("events", "events", ""), ("photons", "photons", "")),
             "Φ = {events.value} / {photons.value}",
         ),
         _law(
@@ -144,10 +132,7 @@ STATED_LAWS: dict[str, FormulaLaw] = {
             "Moles of electrons, n",
             ("n", "mol"),
             "current*time/F",
-            (
-                ("current", "I", "A"),
-                ("time", "t", "s"),
-            ),
+            (("current", "I", "A"), ("time", "t", "s")),
             "n = ({current.value})({time.value}) / F",
         ),
         _law(
@@ -529,6 +514,18 @@ STATED_LAWS: dict[str, FormulaLaw] = {
                 ("volume_l", "V", "L"),
             ),
             "c = ({solute_mass} / {molar_mass}) / {volume_l}",
+        ),
+        # "5.85 g/L NaCl": solute per litre, never a density (extractors/mass_concentration).
+        _law(
+            "molarity_from_mass_concentration",
+            "solutions",
+            "Molarity from mass concentration",
+            "c = ρ / M",
+            "Molarity, c",
+            ("c", "mol/L"),
+            "mass_concentration/molar_mass",
+            (("mass_concentration", "ρ", "g/L"), ("molar_mass", "M({formula})", "g/mol")),
+            "c = {mass_concentration} / {molar_mass}",
         ),
     )
 }

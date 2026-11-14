@@ -119,7 +119,8 @@ describe("standalone answer typography", () => {
 
   it.each([
     ["27", "27", 20],
-    ["Value: $x^2$", "Value: x", 20],
+    // "Value" is a word, set upright on its own (latexUpright).
+    ["Value: $x^2$", "Value", 20],
     [String.raw`Area: $\frac{1}{2}$`, "1", 17.5],
   ] as const)(
     "uses the answer type scale across native content branches: %s", async (content, value, fontSize) => {

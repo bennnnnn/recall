@@ -545,6 +545,12 @@ STATED_LAW_CASES: tuple[tuple[str, str, str], ...] = (
         "molarity_from_mass",
         "c = 0.342 mol/L",
     ),
+    # A mass concentration is grams in each litre: 5.85 g/L / 58.44 g/mol = 0.100 mol/L.
+    (
+        "What is the molarity of a solution with 5.85 g/L NaCl?",
+        "molarity_from_mass_concentration",
+        "c = 0.100 mol/L",
+    ),
 )
 
 # Laws added for questions the STEM sweep found unanswered (``stem_corpus/chemistry``):

@@ -135,13 +135,6 @@ def test_the_live_chats_follow_up_past_numbers_goes_to_the_model() -> None:
             ),
             "what about 10 g of h2",
         ),
-        (
-            (
-                "how much water do i get if i burn 4 g of h2",
-                "how many molecules are in 2 moles of h2",
-            ),
-            "what if it was 3 mol of h2",
-        ),
         # A change of a change: the follow-up before holds a number.
         ((_BURN_H2, "what if i only had 16g of o2"), "what if i had 8 g of h2"),
         ((_BURN_H2, "what if i only had 16g of o2"), "and what if it was 2 g of h2"),
@@ -170,6 +163,18 @@ def test_an_amount_of_the_last_problems_substance_changes_that_problem() -> None
     problem = chemistry_followup_problem("what about 20 g of H2?", _recent(*lines))
     assert problem == "How many moles are in 20 g of H2?"
     assert "n(H2) = 9.9 mol" in (_answer(problem) or "")
+
+
+def test_a_lowercase_problem_in_between_is_the_one_a_follow_up_changes() -> None:
+    """A lowercase "2 moles of h2" is H2 where an amount names it: the moles question in between is a
+    problem, and "what if it was 3 mol of h2" changes it, not the reaction before it."""
+    lines = (
+        "how much water do i get if i burn 4 g of h2",
+        "how many molecules are in 2 moles of h2",
+    )
+    problem = chemistry_followup_problem("what if it was 3 mol of h2", _recent(*lines))
+    assert problem == "how many molecules are in 3 mol of h2"
+    assert "1.8" in (_answer(problem) or "")
 
 
 @pytest.mark.parametrize("between", ["whats a mole again", "lol ok", "wait im confused"])
