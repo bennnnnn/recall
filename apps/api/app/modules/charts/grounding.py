@@ -76,9 +76,21 @@ def grounded_points(request: ChartRequest, text: str) -> list[tuple[str, float]]
     numbers = [n for n in _numbers(text) if not any(s <= n.start < e for s, e in taken)]
     for after in (True, False):
         paired = _pair(labels, values, spans, numbers, after=after)
-        if paired is not None:
-            return paired
+        if paired is not None and _whole_and_in_order(paired[1], numbers):
+            return paired[0]
     return None
+
+
+def _whole_and_in_order(used: list[int], numbers: list[_Number]) -> bool:
+    """The reading is the user's whole list, in their order: every number they wrote is one
+    category's, read in the order written. "rent 1200, food 400, transport 150" read as rent
+    and food alone drew two slices of the wrong sizes, and "Jan, Feb, Mar" read backwards a
+    line in the wrong order (review, 2026-11-14). A year on its own ("my 2024 spending") is no
+    value; any other number left over means the list was not read whole."""
+    if used != sorted(used):
+        return False
+    left = [n for n in numbers if n.start not in set(used)]
+    return all(n.value.is_integer() and 1900 <= n.value <= 2099 for n in left)
 
 
 def _pair(
@@ -88,11 +100,11 @@ def _pair(
     numbers: list[_Number],
     *,
     after: bool,
-) -> list[tuple[str, float]] | None:
+) -> tuple[list[tuple[str, float]], list[int]] | None:
     """Each label with the number written next to it on one side, every pair agreeing with
-    the reading, no number used twice; None when any does not."""
+    the reading, no number used twice, and where each number is; None when any does not."""
     edges = sorted(edge for found in spans.values() for span in found for edge in span)
-    used: set[int] = set()
+    used: list[int] = []
     pairs: list[tuple[str, float]] = []
     for label, value in zip(labels, values, strict=True):
         match = None
@@ -103,9 +115,9 @@ def _pair(
                 break
         if match is None or value is None:
             return None
-        used.add(match.start)
+        used.append(match.start)
         pairs.append((label, value))
-    return pairs
+    return pairs, used
 
 
 def _neighbour(

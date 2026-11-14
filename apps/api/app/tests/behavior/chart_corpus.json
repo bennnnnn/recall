@@ -671,6 +671,114 @@
    "note": "a number stands between each label and its value"
   },
   {
+   "id": "reading-drops-category",
+   "prompt": "Pie chart of my budget: rent 1200, food 400, transport 150",
+   "earlier": [],
+   "reading": {
+    "kind": "pie",
+    "points": [
+     {
+      "label": "rent",
+      "value": "1200"
+     },
+     {
+      "label": "food",
+      "value": "400"
+     }
+    ]
+   },
+   "reply": "",
+   "expect": null,
+   "note": "two of three slices: the wrong proportions"
+  },
+  {
+   "id": "reading-wrong-order",
+   "prompt": "Line graph of my weight: Jan 70, Feb 69, Mar 68",
+   "earlier": [],
+   "reading": {
+    "kind": "line",
+    "points": [
+     {
+      "label": "Mar",
+      "value": "68"
+     },
+     {
+      "label": "Feb",
+      "value": "69"
+     },
+     {
+      "label": "Jan",
+      "value": "70"
+     }
+    ]
+   },
+   "reply": "",
+   "expect": null,
+   "note": "a line read backwards"
+  },
+  {
+   "id": "bar-year-in-title",
+   "prompt": "Make a bar chart of my 2024 spending: rent 1200, food 400, transport 150",
+   "earlier": [],
+   "reading": {
+    "kind": "bar",
+    "points": [
+     {
+      "label": "rent",
+      "value": "1200"
+     },
+     {
+      "label": "food",
+      "value": "400"
+     },
+     {
+      "label": "transport",
+      "value": "150"
+     }
+    ]
+   },
+   "reply": "",
+   "expect": {
+    "kind": "bar",
+    "labels": [
+     "rent",
+     "food",
+     "transport"
+    ],
+    "values": [
+     1200,
+     400,
+     150
+    ]
+   },
+   "note": "a year on its own is no value"
+  },
+  {
+   "id": "reading-skips-a-stray-number",
+   "prompt": "Bar chart of my spending (3 items): rent 1200, food 400, transport 150",
+   "earlier": [],
+   "reading": {
+    "kind": "bar",
+    "points": [
+     {
+      "label": "rent",
+      "value": "1200"
+     },
+     {
+      "label": "food",
+      "value": "400"
+     },
+     {
+      "label": "transport",
+      "value": "150"
+     }
+    ]
+   },
+   "reply": "",
+   "expect": null,
+   "note": "a number the reading leaves out: not read whole, so no chart"
+  },
+  {
    "id": "lookalike-chemistry",
    "prompt": "Our chemistry is off lately, any advice?",
    "earlier": [],
