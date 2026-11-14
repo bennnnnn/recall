@@ -163,18 +163,18 @@ def _two_radical_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeySte
 
 def fractional_power_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | None:
     """An odd-index root set to a number, solved over the reals: ``(x - 1)^(1/3) = -2``."""
-    from app.modules.math.solve.equations import (
-        _real_fractional_power_solutions,
-        odd_root_equation,
-    )
+    from app.modules.math.solve.odd_roots import odd_root_equation, real_odd_root_solutions
 
     found = odd_root_equation(lhs, rhs, var)
     if found is None:
         return None
     power, target = found
     exponent, base = power.exp, power.base
-    solutions = _real_fractional_power_solutions(lhs, rhs, var)
-    if not solutions:
+    if not target.is_Rational:
+        return []  # 3^(1/3)·x^(1/3) = -3 divided out: a value no student writes; the card stands
+    with sympy_decline() as declined:
+        solutions = real_odd_root_solutions(lhs, rhs, var)
+    if declined or not solutions:
         return []
     root = rf"\sqrt[{exponent.q}]{{{latex(base)}}}"
     raised = Eq(base ** int(exponent.p), simplify(target ** int(exponent.q)))

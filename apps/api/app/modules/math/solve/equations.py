@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from typing import Any, Literal
 
-from sympy import Add, Eq, Rational, S, Symbol, latex, oo, simplify, solve, solveset
+from sympy import Symbol, latex, oo, simplify, solve
 
 from app.core.config import get_settings
 from app.modules.math.schemas import EquationInput, MathSolveResult, RejectedRootLatex
@@ -20,6 +20,7 @@ from app.modules.math.solve.equation_conditions import (
     _parameter_solution_conditions,
     original_domain_conditions,
 )
+from app.modules.math.solve.odd_roots import real_odd_root_solutions
 from app.modules.math.solve.parse import (
     SolveServiceError,
     _expr_needs_real_domain,
@@ -78,60 +79,6 @@ def _reject_high_degree(lhs: Any, rhs: Any, variables: list[str]) -> None:
             raise SolveServiceError("Polynomial degree too high")
 
 
-def odd_root_equation(lhs: Any, rhs: Any, sym: Any) -> tuple[Any, Any] | None:
-    """``(power, value)`` when the equation is one odd-index root of the unknown set to a
-    number: ``x^(2/3) = 4``, ``(x - 1)^(1/3) = -2``, ``(x - 1)^(1/3) + 2 = 0``; else None."""
-    for power, target in ((lhs, rhs), (rhs, lhs)):
-        if _odd_root(power, sym) and getattr(target, "is_number", False):
-            return power, target
-    terms = Add.make_args(lhs - rhs)
-    varying = [term for term in terms if sym in term.free_symbols]
-    if len(varying) != 1:
-        return None
-    coefficient, power = varying[0].as_coeff_Mul()
-    rest = Add(*(term for term in terms if term is not varying[0]))
-    if not _odd_root(power, sym) or coefficient == 0 or not getattr(rest, "is_number", False):
-        return None
-    return power, simplify(-rest / coefficient)
-
-
-def _odd_root(power: Any, sym: Any) -> bool:
-    exponent = getattr(power, "exp", None)
-    return bool(
-        getattr(power, "is_Pow", False)
-        and sym in power.base.free_symbols
-        and isinstance(exponent, Rational)
-        and exponent.q % 2 == 1
-        and exponent.q != 1
-        and exponent.p > 0
-    )
-
-
-def _real_fractional_power_solutions(lhs: Any, rhs: Any, sym: Any) -> list[Any] | None:
-    """Real-school interpretation of an odd-index root (``odd_root_equation``).
-
-    SymPy uses the principal complex branch for rational powers and therefore reports only
-    ``8`` for ``x^(2/3)=4`` and no solution for ``(x - 1)^(1/3) = -2``. In real algebra the
-    odd root is defined for a negative radicand too, so the equivalent equation is
-    ``base^p = a^q``: x = ±8, and x = -7. Return None for every other shape so the ordinary
-    solver remains in charge.
-    """
-    found_root = odd_root_equation(lhs, rhs, sym)
-    if found_root is None:
-        return None
-    power, target = found_root
-    exponent = power.exp
-    if target.is_real is False:
-        return None
-    real_sym = Symbol(str(sym), real=True)
-    base = power.base.subs(sym, real_sym)
-    real_equation = Eq(base ** int(exponent.p), simplify(target ** int(exponent.q)))
-    found = solveset(real_equation, real_sym, domain=S.Reals)
-    if not getattr(found, "is_FiniteSet", False):
-        return None
-    return list(found)
-
-
 def _require_unknown(data: EquationInput, lhs: Any, rhs: Any) -> None:
     """Refuse an equation that does not contain the unknown it is solved for.
 
@@ -169,7 +116,7 @@ def solve_equation(data: EquationInput) -> MathSolveResult:
         if trig_result is not None:
             return trig_result
     try:
-        fractional = _real_fractional_power_solutions(lhs, rhs, syms[0]) if len(syms) == 1 else None
+        fractional = real_odd_root_solutions(lhs, rhs, syms[0]) if len(syms) == 1 else None
         raw_solutions = (
             [{syms[0]: value} for value in fractional]
             if fractional is not None

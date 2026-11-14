@@ -202,6 +202,16 @@ async def test_a_bare_domain_word_beside_an_equation_takes_its_card(
         ("(x+2)^(3/5)", "-8", ["x = -34"]),
         ("(2x+1)^(1/3)", "3", ["x = 13"]),
         ("x^(2/3)", "4", ["x = -8", "x = 8"]),
+        # A number's root split out of the radicand (3^(1/3)·x^(1/3)), and roots of the
+        # unknown beside the unknown itself: each was missing a real root (2026-11-14).
+        ("(3*x)^(1/3)", "-3", ["x = -9"]),
+        ("(x/2)^(1/3)", "-1", ["x = -2"]),
+        ("(2*x)^(1/5)", "-1", [r"x = - \frac{1}{2}"]),
+        ("x^(1/3)", "x", ["x = -1", "x = 0", "x = 1"]),
+        ("x^(1/3) + x^(2/3)", "2", ["x = -8", "x = 1"]),
+        ("x^(1/3)", "-2*x", ["x = 0"]),
+        ("(x^2 - 1)^(1/3)", "2", ["x = -3", "x = 3"]),
+        ("(x-2)^(4/3)", "16", ["x = -6", "x = 10"]),
         # Look-alikes: an even power of an odd root is never negative; an even root of the
         # unknown cannot be negative.
         ("x^(2/3)", "-4", []),
@@ -219,3 +229,11 @@ async def test_an_odd_root_equation_is_worked_over_the_reals() -> None:
     assert direct is not None
     assert "$\\sqrt[3]{x - 1} = -2$" in direct and "$x - 1 = -8$" in direct
     assert direct.rstrip().endswith("x = -7\n```")
+
+
+def test_odd_roots_of_two_radicands_are_declined_not_solved_on_the_complex_branch() -> None:
+    """Never "no solution", nor a root short, when the real set is not found."""
+    from app.services.solving import SolveServiceError
+
+    with pytest.raises(SolveServiceError):
+        solve_equation(EquationInput(lhs="(x+1)^(1/3)", rhs="(2*x)^(1/3)", variables=["x"]))

@@ -90,5 +90,10 @@
   {"id": "au-parts-two-squares-derived", "area": "several asked", "prompt": "Find the area of a square with side 2 and the perimeter of a square with side 8", "expect": "decline", "note": "8 is the first square's perimeter"},
   {"id": "au-parts-radius-from-diameter", "area": "several asked", "prompt": "Find the radius and area of a circle with diameter 6", "expect": "answer", "check": ["parts", [["num", "3"], ["num", "28.27"]]]},
   {"id": "au-num-parts-two-estimates", "area": "numerical method", "prompt": "Estimate the area under y = x^2 from 0 to 2 with 4 rectangles using left endpoints and then right endpoints", "expect": "decline", "note": "carded L_4 = 1.75 alone for two estimates (2026-11-14 review)"},
-  {"id": "au-num-parts-binomial-n", "area": "numerical method", "prompt": "Estimate the probability of 2 heads in 4 tosses using the binomial distribution with n = 4", "expect": "answer", "check": ["num", "3/8"], "note": "a probability's n is no method count: it declined after round 2"}
+  {"id": "au-num-parts-binomial-n", "area": "numerical method", "prompt": "Estimate the probability of 2 heads in 4 tosses using the binomial distribution with n = 4", "expect": "answer", "check": ["num", "3/8"], "note": "a probability's n is no method count: it declined after round 2"},
+  {"id": "au-dom-odd-root-coefficient", "area": "real domain", "prompt": "solve (3x)^(1/3) = -3", "expect": "answer", "check": ["num", "-9"], "note": "SymPy splits 3^(1/3)·x^(1/3): was 'no solution' (2026-11-14 review)"},
+  {"id": "au-dom-odd-root-half", "area": "real domain", "prompt": "solve (x/2)^(1/3) = -1", "expect": "answer", "check": ["num", "-2"]},
+  {"id": "au-dom-fifth-root-coefficient", "area": "real domain", "prompt": "solve (2x)^(1/5) = -1", "expect": "answer", "check": ["num", "-1/2"]},
+  {"id": "au-dom-cube-root-equals-x", "area": "real domain", "prompt": "solve x^(1/3) = x", "expect": "answer", "check": ["nums", ["-1", "0", "1"]], "note": "missed -1"},
+  {"id": "au-dom-two-odd-roots", "area": "real domain", "prompt": "solve x^(1/3) + x^(2/3) = 2", "expect": "answer", "check": ["nums", ["-8", "1"]], "note": "missed -8"}
 ]
