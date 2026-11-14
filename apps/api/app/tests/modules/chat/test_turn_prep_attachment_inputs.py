@@ -18,10 +18,12 @@ from app.core.config import Settings
 from app.exceptions import AttachmentValidationError, ChatNotFoundError
 from app.modules.chat.turn_prep.attachments import _process_attachments
 from app.modules.math.image_extract import camera_math_user_suffix
+from app.modules.math.ocr import MathOcrResult
 from app.modules.math.schemas import MathImageExtract
 from app.services.subject_scan import (
     BIOLOGY_CAMERA_PROMPT,
     CHEMISTRY_CAMERA_PROMPT,
+    MATH_CAMERA_PROMPT,
     PHYSICS_CAMERA_PROMPT,
     SCAN_CONFIRMED_PREFIX,
 )
@@ -88,6 +90,19 @@ async def _run(
     }
     mocks.update(fakes or {})
     statuses: list[str] = []
+
+    async def ocr(_settings: Settings, **kwargs: Any) -> MathOcrResult:
+        # The OCR read the turn makes, around the faked extract: its certainty and its
+        # transcription as a test sets them.
+        extract = await mocks["extract"](**kwargs)
+        return MathOcrResult(
+            extract=extract,
+            display_text=mocks.get("transcription", ""),
+            source="vision",
+            confidence=None,
+            uncertain=mocks.get("uncertain", False),
+        )
+
     signed_in: Any = SimpleNamespace(id=uuid4())
 
     async def on_status(
@@ -105,7 +120,7 @@ async def _run(
         patch("app.modules.attachments.content.purge_invalid_upload", mocks["purge"]),
         patch("app.modules.attachments.content.format_attachment_lines", mocks["format"]),
         patch("app.modules.attachments.content.read_attachment_bytes", mocks["read"]),
-        patch("app.modules.math.image_extract.extract_equation_from_image", mocks["extract"]),
+        patch("app.modules.math.ocr.extract_math_from_image", ocr),
         patch("app.modules.physics.read.read_physics_problem", mocks["physics_read"]),
         patch("app.modules.chemistry.read.read_chemistry_problem", mocks["chemistry_read"]),
         patch("app.services.quota.counters.refund", mocks["refund"]),
@@ -361,12 +376,61 @@ async def test_a_scan_read_waits_for_its_subject_to_be_on() -> None:
     with patch("app.modules.physics.read.read_physics_problem") as reader:
         from app.modules.physics.subject import PhysicsPhoto
 
-        _, content = await PhysicsPhoto().read(
+        reading = await PhysicsPhoto().read(
             PHYSICS_CAMERA_PROMPT,
             image_attachments=[("image/png", image.storage_key)],
-            load_image=AsyncMock(return_value=b"x"),
+            load_image=AsyncMock(return_value=("image/png", b"x")),
             settings=Settings(physics_enabled=False),
             on_status=None,
         )
     reader.assert_not_called()
-    assert content == PHYSICS_CAMERA_PROMPT
+    assert reading.content == PHYSICS_CAMERA_PROMPT
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("uncertain", [True, False])
+async def test_an_uncertain_photo_read_is_carried_to_the_turn(uncertain: bool) -> None:
+    """At Mathpix confidence 0.31 the turn kept only the extract and certified it (SCAN-02):
+    the read's certainty now goes with it, and the turn certifies nothing it was unsure of."""
+    result, _, _ = await _run(
+        [_row("image/png")], content=MATH_CAMERA_PROMPT, fakes={"uncertain": uncertain}
+    )
+    assert result.image_math_extract == _EXTRACTED
+    assert result.photo_uncertain is uncertain
+
+
+_PHYSICS_ON_THE_MATHS_TAB = "A car accelerates from 0 to 30 m/s in 6 s. What is its acceleration?"
+
+
+@pytest.mark.asyncio
+async def test_a_physics_problem_on_the_maths_tab_goes_to_physics() -> None:
+    """The tab picked the reader, so a physics word problem on the maths tab never reached
+    physics (SCAN-04): the transcription's subject, read by the subject order, decides."""
+    from app.services.subjects.dispatch import read_subject
+
+    result, _, _ = await _run(
+        [_row("image/png")],
+        content=MATH_CAMERA_PROMPT,
+        fakes={"extract": AsyncMock(return_value=None), "transcription": _PHYSICS_ON_THE_MATHS_TAB},
+    )
+    assert result.image_math_extract is None
+    assert result.content == (
+        f"{MATH_CAMERA_PROMPT}\n\n{SCAN_CONFIRMED_PREFIX} {_PHYSICS_ON_THE_MATHS_TAB}"
+    )
+    # The row keeps what the tab sent: the bubble shows what a maths photo's always did.
+    assert result.user_content.startswith(f"{MATH_CAMERA_PROMPT}\n\n[Image:")
+    assert await read_subject(result.content, Settings(), has_image_attachment=True) == "physics"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "transcription", ["2x + 3 = 7", "Find the area of a circle of radius 3 cm", ""]
+)
+async def test_a_maths_problem_on_the_maths_tab_stays_maths(transcription: str) -> None:
+    result, _, _ = await _run(
+        [_row("image/png")],
+        content=MATH_CAMERA_PROMPT,
+        fakes={"transcription": transcription},
+    )
+    assert result.image_math_extract == _EXTRACTED
+    assert SCAN_CONFIRMED_PREFIX not in result.content

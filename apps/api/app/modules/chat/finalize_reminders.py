@@ -20,12 +20,24 @@ from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
 from app.services.md_fence_scan import iter_fences, last_fence
+from app.services.prompt_safety import said_by_user
+from app.services.subject_scan import without_photo_reading
 
 logger = logging.getLogger(__name__)
 
 _REMINDER_FENCE_LANG = "reminder"
 _ASK_WHEN = "When should I remind you?"
 _TAG_CLOSER = re.compile(r"^[ \t]*</reminder>[ \t]*$\n?", re.MULTILINE)
+
+
+def own_words(ctx: StreamContext) -> str:
+    """What the user typed or said this turn, as their row keeps it: no attachment excerpt,
+    and none of the text read off their photo, which is its content, never a request
+    (audit SCAN-03, 2026-11-13). Maths' ``Solve:`` line is the prompt's alone."""
+    stored = ctx.stored_user_message
+    if stored is not None and stored != ctx.user_message_content:
+        return said_by_user(stored)
+    return without_photo_reading(ctx.user_message_content)
 
 
 def drop_cut_reminder_fence(text: str) -> str:
@@ -59,7 +71,8 @@ async def apply_reminder_pass(
     """
     # Chat in another language only reads to-dos; changes are made in To-do: the server
     # reads a change against the user's words in English (docs: modules/todos/chat_language).
-    message, prior = ctx.user_message_content, _prior_text(ctx, "user")
+    # The user's own words: text read off their photo never asks for a reminder.
+    message, prior = own_words(ctx), _prior_text(ctx, "user")
     locale = ctx.user.locale if ctx.user else None
     if todos_service.writes_todos_in_todo_screen(message, prior_user=prior, locale=locale):
         language = todos_service.message_language(message) or todos_service.message_language(prior)
@@ -67,7 +80,7 @@ async def apply_reminder_pass(
     try:
         given = text
         text, created = await _materialize(deps, redis, settings, ctx, text)
-        text = without_remember_turn_claims(ctx.user_message_content or "", ctx.user, text)
+        text = without_remember_turn_claims(message, ctx.user, text)
         # "I can't set reminders from here" is false: the card above, or the next one.
         text = todos_service.without_denials(text)
         # A reply that was only a reminder fence, with nothing saved, must still
@@ -113,7 +126,7 @@ async def _materialize(
             chat_id=ctx.chat_id,
             assistant_text=text,
             user_timezone=ctx.user_timezone or user.timezone,
-            user_text=ctx.user_message_content,
+            user_text=own_words(ctx),
             # "Mark it done" points at a reminder only after a reply about
             # reminders, or right after a message that asked about them.
             prior_assistant=_prior_text(ctx, "assistant"),

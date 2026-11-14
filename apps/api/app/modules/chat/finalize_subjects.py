@@ -20,13 +20,18 @@ from app.modules.chat.verification_claims import strip_verification_claims
 from app.modules.chat.worked_lead import drop_restated_tail
 from app.modules.chat.working_check import is_worked_solution, working_note
 from app.services.answer_fence import (
+    ANSWER_FENCE_LANGS,
     SERVER_DRAWN_LANGS,
+    UNCHECKED_ANSWER_MARKER,
+    VERIFIED_ANSWER_MARKER,
+    answer_header_and_value,
     demote_answer_fences,
     land_answer_card,
     mark_server_answer_fences,
     normalize_owned_fences,
     strip_forged_verified_markers,
 )
+from app.services.md_fence_scan import map_closed_fences
 from app.services.part_answer_cards import land_part_answer_cards
 from app.services.part_fences import keep_part_fences
 from app.services.solving import VerifiedPhysicsBlock, strip_verified_solve_markers
@@ -204,9 +209,38 @@ def recover_math_fences(state: FinalizeState) -> str:
 
 
 def mark_server_cards(state: FinalizeState) -> str:
-    if not state.server_text:
-        return state.text
-    return mark_server_answer_fences(state.text)
+    """Wholly server text gets the check on every card. Once every card is written (this
+    pass follows each subject's), a turn whose photo the reader was not sure it read
+    certifies nothing (``uncheck_cards``)."""
+    text = mark_server_answer_fences(state.text) if state.server_text else state.text
+    return uncheck_cards(text) if state.ctx.photo_uncertain else text
+
+
+# The scenes a solver samples: drawn from what may be a misread problem, they are no
+# picture of the photo's.
+_SOLVER_SCENES = ("simulation", "chem_scene")
+
+
+def _unchecked(body: str) -> str:
+    headers, value = answer_header_and_value(body)
+    kept = [UNCHECKED_ANSWER_MARKER if line == VERIFIED_ANSWER_MARKER else line for line in headers]
+    return "```answer\n" + "\n".join([*kept, value]).strip() + "\n```\n"
+
+
+def uncheck_cards(text: str) -> str:
+    """A photo read uncertainly keeps its solve and its answer, never the server's check:
+    each card shows "not checked" and a solver's scene goes. At Mathpix confidence 0.31 a
+    misread "2x + 3 = 1" was solved and shown checked (audit SCAN-02, 2026-11-13). Nothing
+    says what was read: the owner removed the read-back (#2263); only the check goes."""
+    if VERIFIED_ANSWER_MARKER in text:
+        ended_open = not text.endswith("\n")
+        for lang in ANSWER_FENCE_LANGS:
+            # The scan consumes the closer's newline, so the replacement restores it.
+            text = map_closed_fences(text, lang, _unchecked)
+        text = text.rstrip("\n") if ended_open else text
+    for lang in _SOLVER_SCENES:
+        text = map_closed_fences(text, lang, lambda _body: "")
+    return text
 
 
 def append_unverified_notes(state: FinalizeState) -> str:

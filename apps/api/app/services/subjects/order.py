@@ -10,12 +10,14 @@ looks a line up last. ``services.subjects.dispatch`` reads a line's subject from
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal
 
 from app.core.readings import reading
 from app.modules.math.tools.prompt import needs_symbolic_math
 from app.modules.physics.extract import extract_physics_intent, needs_physics
+from app.services.subjects.guard import neutral_on_error
 from app.services.subjects.registry import SubjectName
 
 # Which step of the subject order decided a line (``read_subject_reason``): the order is
@@ -95,6 +97,13 @@ def _chemical_equation(text: str) -> bool:
     return any(parse_reaction(match.group(1)) is not None for match in EQUATION_RE.finditer(text))
 
 
+def _step(subject: SubjectName, name: str, claims: Callable[[], bool]) -> bool:
+    """One step of the order, asking a subject's reader: a reader that raises claims nothing,
+    and the line goes on down the order. A chemistry reader raising here read no subject for
+    every line, maths' and physics' included (audit REL-01, 2026-11-13)."""
+    return neutral_on_error(subject, f"order.{name}", False, claims)
+
+
 def _math_curve_request(text: str) -> bool:
     from app.modules.math.tools.school.curve_points import extract_curve_point_intent
 
@@ -115,11 +124,20 @@ def read_subject_reason(
     # loop, and `n * 2` inside `nums.map` is not algebra.
     if has_code_syntax(text):
         return SubjectReading(None, "code")
-    from app.services.subject_scan import scanner_camera_subject
+    from app.services.subject_scan import confirmed_scan_reading, scanner_camera_subject
 
     # A subject's camera caption says "solve", which the math work-request
     # parser would claim. It is a photo plus a caption, not a math problem.
     scanned = scanner_camera_subject(text)
+    if scanned is not None:
+        # The photo's words, when the turn read them, decide its subject as a typed line's
+        # do; the tab decides only when they name none. No subject reads biology.
+        words = confirmed_scan_reading(text)
+        read = read_subject_reason(words, False, chemistry_enabled) if words else None
+        if read is not None and read.subject is not None:
+            return SubjectReading(read.subject, "scanned")
+        if scanned == "biology":
+            return SubjectReading(None, "scanned")
     if scanned == "chemistry":
         return SubjectReading("chemistry" if chemistry_enabled else None, "scanned")
     if scanned == "physics":
@@ -128,39 +146,45 @@ def read_subject_reason(
     # "the mass percent of 5 g of sugar in 95 g of water" has masses physics would read.
     # The laws both subjects use (gases, Q = mcΔT, half-lives) are physics' alone, so
     # chemistry never closes on one.
-    if chemistry_enabled and _closed_chemistry(text):
+    if chemistry_enabled and _step("chemistry", "closed", lambda: _closed_chemistry(text)):
         return SubjectReading("chemistry", "chemistry_closed")
-    if needs_physics(text):
-        if _math_curve_request(text):
-            # "h = 20t - 5t^2, find the maximum height" cues physics, but it states the
-            # function and asks its maximum: physics extracts nothing, calculus does.
-
-            if extract_physics_intent(text) is None:
-                return SubjectReading("math", "curve_to_math")
+    if _step("physics", "needs", lambda: needs_physics(text)):
+        # "h = 20t - 5t^2, find the maximum height" cues physics, but it states the
+        # function and asks its maximum: physics extracts nothing, calculus does.
+        if _step(
+            "math",
+            "curve",
+            lambda: _math_curve_request(text) and extract_physics_intent(text) is None,
+        ):
+            return SubjectReading("math", "curve_to_math")
         return SubjectReading("physics", "physics")
     from app.modules.physics import is_symbol_givens_request
 
     # Symbol givens with units ("P = 200 W, t = 10 s, find W") are physics even
     # when no catalog law binds; algebra would read W and s as unknowns.
-    if is_symbol_givens_request(text):
+    if _step("physics", "givens", lambda: is_symbol_givens_request(text)):
         return SubjectReading("physics", "physics_givens")
     # A pH, Ka or molarity question chemistry could not close is still not algebra: maths
     # would read the x of "1.8 x 10^-5" as its unknown and verify nonsense.
-    if chemistry_enabled and _chemistry_shaped(text):
+    if chemistry_enabled and _step("chemistry", "shaped", lambda: _chemistry_shaped(text)):
         return SubjectReading("chemistry", "chemistry_shaped")
-    if needs_symbolic_math(text, has_image_attachment=has_image_attachment):
+    if _step(
+        "math",
+        "needs",
+        lambda: needs_symbolic_math(text, has_image_attachment=has_image_attachment),
+    ):
         from app.modules.math.tools.extract import extract_math_intent
         from app.modules.turn_reading.chart import chart_names_no_curve
 
         # A scatter plot of the user's own numbers is a chart, not an unverified maths
         # turn whose note forbids drawing it ("Here's your scatter plot", and none).
-        if chart_names_no_curve(text, extract_math_intent):
+        if _step("math", "chart", lambda: chart_names_no_curve(text, extract_math_intent)):
             return SubjectReading(None, "chart")
         return SubjectReading("math", "math")
     if not chemistry_enabled:
         return SubjectReading(None, "chemistry_off")
     from app.modules.chemistry.request import is_chemistry_question
 
-    if is_chemistry_question(text):
+    if _step("chemistry", "question", lambda: is_chemistry_question(text)):
         return SubjectReading("chemistry", "chemistry_question")
     return SubjectReading(None, "none")

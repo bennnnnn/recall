@@ -18,6 +18,7 @@ from app.repositories import users as users_repo
 from app.services.subjects.registry import (
     SUBJECTS,
     MathImageExtract,
+    PhotoReading,
     SubjectPhoto,
     subject_adapter,
 )
@@ -63,6 +64,8 @@ class _AttachmentProcessResult:
     bytes_by_key: dict[str, bytes]
     # Ids to persist/link. None = caller keeps the request list (no attachments).
     resolved_attachment_ids: list[UUID] | None = None
+    # The photo's reader was not sure what it read: nothing from it is certified.
+    photo_uncertain: bool = False
 
 
 async def _process_attachments(
@@ -129,7 +132,7 @@ async def _process_attachment_inputs(
     attachment_lines, image_attachments, bytes_by_key = await _read_turn_attachments(
         gateway, attachment_rows, settings=settings, redis=redis, user_id=user_id
     )
-    image_math_extract, read_content = await _read_photo_problem(
+    reading, kept = await _read_photo_problem(
         content,
         image_attachments=image_attachments,
         bytes_by_key=bytes_by_key,
@@ -137,10 +140,8 @@ async def _process_attachment_inputs(
         settings=settings,
         on_status=on_status,
     )
-    user_content = _with_attachment_markers(
-        _stored_caption(content, read_content), attachment_lines
-    )
-    content = read_content
+    user_content = _with_attachment_markers(kept, attachment_lines)
+    content = reading.content
 
     return _AttachmentProcessResult(
         user=user,
@@ -152,10 +153,11 @@ async def _process_attachment_inputs(
         # injection instead of RAG, so only documents force rich context.
         has_document_attachment=len(attachment_rows) != len(image_attachments),
         image_attachments=image_attachments,
-        image_math_extract=image_math_extract,
+        image_math_extract=reading.extract,
         gateway=gateway,
         bytes_by_key=bytes_by_key,
         resolved_attachment_ids=resolved_ids,
+        photo_uncertain=reading.uncertain,
     )
 
 
@@ -167,18 +169,24 @@ async def _read_photo_problem(
     gateway: StorageGateway,
     settings: Settings,
     on_status: StreamStatusFn | None,
-) -> tuple[MathImageExtract | None, str]:
-    """The problem read off the first photo, and ``content`` with its line for the prompt.
+) -> tuple[PhotoReading, str]:
+    """The problem read off the first photo (``content`` with its line for the prompt), and
+    the caption the user's row keeps.
 
-    The scanner's tab names the subject in the caption, and that subject reads its own
-    photo; any other photo is maths' to try. Bytes downloaded here are kept in
-    ``bytes_by_key`` for the vision injection."""
+    The scanner's tab names the reader in the caption, and that subject reads its own photo;
+    any other photo is maths' to try. What the photo says then decides its subject, as a
+    typed line's words do (``_read_by_its_subject``). The stored bytes downloaded here are
+    kept in ``bytes_by_key`` for the vision injection; a reader gets the photo upright."""
     photo = _photo_reader(content)
     if photo is None:
-        return None, content
+        return PhotoReading(None, content), content
+    from app.core.blocking import run_blocking
     from app.modules.attachments import content as attachment_content_service
+    from app.modules.attachments.vision_input import upright_for_reading
 
-    async def load_image(storage_key: str) -> bytes | None:
+    content_types = {storage_key: content_type for content_type, storage_key in image_attachments}
+
+    async def load_image(storage_key: str) -> tuple[str, bytes] | None:
         image_bytes = bytes_by_key.get(storage_key)
         if image_bytes is None:
             image_bytes = await attachment_content_service.read_attachment_bytes(
@@ -186,14 +194,61 @@ async def _read_photo_problem(
             )
             if image_bytes:
                 bytes_by_key[storage_key] = image_bytes
-        return image_bytes
+        if not image_bytes:
+            return None
+        return await run_blocking(
+            "images",
+            upright_for_reading,
+            image_bytes,
+            content_types.get(storage_key, "image/jpeg"),
+            max_edge=settings.attachment_vision_max_edge,
+            max_pixels=settings.attachment_image_max_decode_pixels,
+        )
 
-    return await photo.read(
+    reading = await photo.read(
         content,
         image_attachments=image_attachments,
         load_image=load_image,
         settings=settings,
         on_status=on_status,
+    )
+    moved = await _read_by_its_subject(content, reading, settings)
+    if moved is not None:
+        # The row keeps what the tab sent, as a maths photo's row does: the bubble shows
+        # what it always showed, and the reading is the prompt's.
+        return moved, content
+    return reading, _stored_caption(content, reading.content)
+
+
+async def _read_by_its_subject(
+    content: str, reading: PhotoReading, settings: Settings
+) -> PhotoReading | None:
+    """A scanner photo whose words are another subject's problem: that subject's.
+
+    The tab picked the reader, and a physics word problem on the maths tab never reached
+    physics (audit SCAN-04, 2026-11-13). A reader that transcribed the page without stating
+    it (maths') hands its transcription to the subject order, which decides a typed line's
+    subject; when the order names another subject that is on, the transcription becomes the
+    photo's line, which that subject solves, and maths' structured read goes. None: the
+    photo stays the tab's.
+    """
+    from app.core.readings import read_aside
+    from app.services.subject_scan import scanner_camera_subject, with_confirmed_reading
+    from app.services.subjects.dispatch import detect_subject
+
+    tab = scanner_camera_subject(content)
+    if tab is None or not reading.transcription:
+        return None
+    subject = await read_aside(
+        detect_subject,
+        reading.transcription,
+        chemistry_enabled=settings.chemistry_enabled,
+        timeout=settings.subject_read_timeout_seconds,
+    )
+    if subject is None or subject == tab or not subject_adapter(subject).enabled(settings):
+        return None
+    return PhotoReading(
+        None, with_confirmed_reading(content, reading.transcription), uncertain=reading.uncertain
     )
 
 

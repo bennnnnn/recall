@@ -31,6 +31,7 @@ _PROVIDER_RESPONSES = frozenset({"response", "resp"})
 # (file, name): why the name holds no user text there.
 _ALLOWED = {
     ("services/scan_read.py", "subject"): "the STEM subject's name: maths, physics, chemistry",
+    ("services/subjects/guard.py", "subject"): "the subject's name: maths, physics, chemistry",
     ("background/handlers.py", "raw"): "a job payload's malformed user id",
     ("gateways/revenuecat_gateway.py", "raw"): "a RevenueCat webhook field (a timestamp)",
     ("background/periodic.py", "name"): "a scheduler's name",

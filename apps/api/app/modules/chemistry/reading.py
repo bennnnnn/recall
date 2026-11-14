@@ -7,8 +7,9 @@ from app.services.subject_scan import confirmed_scan_reading, scanner_camera_sub
 
 
 def confirmed_chemistry_reading(text: str) -> str | None:
-    """The line the student checked, when the chemistry camera caption is present."""
-    if scanner_camera_subject(text) != "chemistry":
+    """The photo's reading under a scanner caption, whichever tab took it (the subject order
+    gives chemistry a chemistry problem photographed on another tab)."""
+    if scanner_camera_subject(text) is None:
         return None
     return confirmed_scan_reading(text)
 

@@ -60,6 +60,37 @@ def vision_prompt_text(existing: Any, caption: str) -> str:
     return text or _DEFAULT_QUESTION
 
 
+# EXIF orientation: 1 is upright; a camera writes another value and leaves turning to the reader.
+_ORIENTATION_TAG = 0x0112
+
+
+def upright_for_reading(
+    data: bytes, content_type: str, *, max_edge: int, max_pixels: int
+) -> tuple[str, bytes]:
+    """(content type, bytes) of a photo as an OCR reader should get it: upright.
+
+    A photo stored on its side (its EXIF orientation says turn it) is turned and encoded as
+    vision's copy is; one already upright keeps its own bytes and type, so a reader gets
+    the full resolution. Bytes that do not decode go as they are: the reader says it found
+    nothing. The readers got the stored bytes, sideways for a client that does not turn
+    the photo itself (audit SCAN-06). CPU-bound: call it from a worker thread.
+    """
+    from PIL import Image
+
+    try:
+        with Image.open(io.BytesIO(data)) as opened:
+            orientation = opened.getexif().get(_ORIENTATION_TAG, 1)
+    except Exception:
+        return content_type, data
+    if orientation in (0, 1):
+        return content_type, data
+    try:
+        return encode_for_vision(data, max_edge=max_edge, max_pixels=max_pixels)
+    except Exception:
+        logger.info("photo could not be turned upright for its reader")
+        return content_type, data
+
+
 def encode_for_vision(data: bytes, *, max_edge: int, max_pixels: int) -> tuple[str, bytes]:
     """(mime, encoded bytes) of one photo, upright and at most ``max_edge`` on its long side.
 
