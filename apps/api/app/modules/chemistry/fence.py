@@ -11,8 +11,11 @@ from __future__ import annotations
 import json
 import logging
 import re
+from collections.abc import Mapping
+from functools import partial
 
 from app.modules.chemistry.block import VerifiedChemistry
+from app.modules.chemistry.caption_names import caption_name, checked_name
 from app.modules.chemistry.notation import typeset, typeset_json
 from app.modules.chemistry.schemas.scene import dump_scene
 from app.modules.chemistry.smiles import (
@@ -32,7 +35,12 @@ from app.services.answer_fence import (
     verified_answer_fence,
 )
 from app.services.asked_value import asked_verdict
-from app.services.md_fence_scan import close_unclosed_fences, map_closed_fences, strip_closed_fences
+from app.services.md_fence_scan import (
+    close_unclosed_fences,
+    iter_closed_fences,
+    map_closed_fences,
+    strip_closed_fences,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -115,20 +123,33 @@ def _read_fence(body: str) -> tuple[MoleculeProperties | None, str]:
     return props, caption
 
 
-def _canonicalize_smiles_fence(body: str) -> str:
+def _canonicalize_smiles_fence(body: str, named: Mapping[str, str] | None = None) -> str:
     """Validate and rewrite a fence body. Never generate 3D."""
     if _extract_smiles_from_fence(body)[0] is None:
         return f"```smiles\n{body}```\n"  # nothing to validate: leave the fence as written
-    props, _written = _read_fence(body)
+    props, written = _read_fence(body)
     if props is None:
         return _UNRENDERABLE
-    # The caption is the structure's own formula and mass, never the words above it: a
-    # model's "Caffeine" over ethanol's SMILES was drawn, captioned, as caffeine, with a 3D
-    # ethanol under it (audit CHEM-04, 2026-11-13).
-    caption = ""
+    # The caption is the structure's own formula and mass, and the written name only when the
+    # app's data gives that name this structure: a model's "Caffeine" over ethanol's SMILES
+    # was drawn, captioned, as caffeine, with a 3D ethanol under it (audit CHEM-04, 2026-11-13).
+    parts = [checked_name(written, props.smiles, named)]
     if props.formula and props.molecular_weight > 0:
-        caption = f"{typeset(props.formula)} · {props.molecular_weight:.2f} g/mol"
+        parts += [typeset(props.formula), f"{props.molecular_weight:.2f} g/mol"]
+    caption = " · ".join(part for part in parts if part) if parts[1:] else ""
     return _smiles_fence(props.smiles, caption) + "\n"
+
+
+def written_names(text: str) -> list[str]:
+    """The names a reply's valid structures are captioned with, as written. In the pool."""
+    names: list[str] = []
+    for lang in ("smiles", "chemistry"):
+        for _start, _end, body in iter_closed_fences(text, lang):
+            props, written = _read_fence(body)
+            name = caption_name(written) if props is not None else None
+            if name is not None:
+                names.append(name)
+    return names[:_MAX_SMILES_FENCES]
 
 
 def _attach_molecule3d(body: str) -> tuple[str, bool]:
@@ -148,7 +169,7 @@ def _attach_molecule3d(body: str) -> tuple[str, bool]:
     return smiles_fence + "\n", False
 
 
-def enrich_chemistry_fences(content: str) -> str:
+def enrich_chemistry_fences(content: str, named: Mapping[str, str] | None = None) -> str:
     """Validate and enrich all ```smiles / ```chemistry fences.
 
     Closed fences only (bare-backtick closer). Invalid SMILES become an
@@ -156,16 +177,17 @@ def enrich_chemistry_fences(content: str) -> str:
     only for the first ``_MAX_3D_FENCES`` valid molecules so one slow embed
     cannot skip stripping later invalid fences.
     """
+    canonicalize = partial(_canonicalize_smiles_fence, named=named)
     content = map_closed_fences(
         content,
         "smiles",
-        _canonicalize_smiles_fence,
+        canonicalize,
         max_count=_MAX_SMILES_FENCES,
     )
     content = map_closed_fences(
         content,
         "chemistry",
-        _canonicalize_smiles_fence,
+        canonicalize,
         max_count=_MAX_SMILES_FENCES,
     )
     mol3d_left = _MAX_3D_FENCES
@@ -187,9 +209,9 @@ def enrich_chemistry_fences(content: str) -> str:
     )
 
 
-def enrich_chemistry_fences_worker(content: str) -> str:
+def enrich_chemistry_fences_worker(content: str, named: Mapping[str, str] | None = None) -> str:
     """Picklable entry for the process pool (positional args only)."""
-    return enrich_chemistry_fences(content)
+    return enrich_chemistry_fences(content, named)
 
 
 # Header line of a server ```answer fence whose body is chemistry text, not LaTeX

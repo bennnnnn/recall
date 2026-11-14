@@ -8,7 +8,7 @@ reply through ``direct``, each imported when it runs; and its prompt copy from
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
@@ -124,10 +124,15 @@ class ChemistryFence:
         lowered = text.lower()
         return settings.chemistry_enabled and ("```smiles" in lowered or "```chemistry" in lowered)
 
-    def draw(self, text: str, settings: Settings) -> str:
+    async def named(self, text: str, settings: Settings) -> dict[str, str]:
+        from app.modules.chemistry.caption_names import checked_names
+
+        return await checked_names(text, settings)
+
+    def draw(self, text: str, settings: Settings, named: Mapping[str, str] | None = None) -> str:
         from app.modules.chemistry.fence import enrich_chemistry_fences_worker
 
-        return enrich_chemistry_fences_worker(text)
+        return enrich_chemistry_fences_worker(text, named)
 
     def tidy(self, text: str, user_text: str, verified: VerifiedSolveBlock | None) -> str:
         return text

@@ -336,6 +336,13 @@ async def _pubchem_lookup(name: str, *_args: Any, **_kwargs: Any) -> PubChemResu
     return PubChemResult(compound=compound) if compound else PubChemResult(error="not found")
 
 
+def offline_pubchem() -> AbstractContextManager[Any]:
+    """PubChem as the battery knows it: the finalize step checks a molecule's caption name
+    there too (``chemistry.caption_names``), and a sweep run from the command line has the
+    network."""
+    return patch("app.gateways.pubchem_gateway.lookup_by_name", _pubchem_lookup)
+
+
 def _rows(case: Case) -> list[SimpleNamespace]:
     return [
         SimpleNamespace(id=uuid4(), role=role, content=text, model="free-chat")
@@ -733,14 +740,15 @@ async def saved_reply(route: Route, settings: Settings | None = None) -> str:
         users=SimpleNamespace(get_by_id=AsyncMock(return_value=None)),
         todos=SimpleNamespace(materialize_reminder_fences=AsyncMock(side_effect=_no_reminders)),
     )
-    return await enrich_final_content(
-        deps,
-        AsyncMock(),
-        settings or battery_settings(),
-        route.context,
-        assistant_text=route.instant_text,
-        usage={},
-        outcome=TurnOutcome(),
-        was_cancelled=False,
-        should_cancel=None,
-    )
+    with offline_pubchem():
+        return await enrich_final_content(
+            deps,
+            AsyncMock(),
+            settings or battery_settings(),
+            route.context,
+            assistant_text=route.instant_text,
+            usage={},
+            outcome=TurnOutcome(),
+            was_cancelled=False,
+            should_cancel=None,
+        )

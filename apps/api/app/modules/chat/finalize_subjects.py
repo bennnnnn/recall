@@ -295,9 +295,13 @@ async def enrich_chemistry_fences(state: FinalizeState) -> str:
     chemistry = subject_adapter("chemistry").fence
     if not chemistry.draws(state.text, state.settings):
         return state.text
+    # A molecule keeps the name it is labelled with only when the app's data gives that name
+    # this structure; the look-up may wait on PubChem, so it runs before the pool's drawing.
+    named = await chemistry.named(state.text, state.settings)
     return await sympy_executor.run_sympy(
         chemistry.draw,
         state.text,
         state.settings,
+        named,
         timeout=state.settings.stem_solve_timeout_seconds,
     )

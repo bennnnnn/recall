@@ -42,6 +42,31 @@ def test_enrich_captions_a_structure_with_its_own_formula(written: str) -> None:
     assert written not in result
 
 
+_CAFFEINE = "CN1C=NC2=C1C(=O)N(C(=O)N2C)C"
+
+
+@pytest.mark.parametrize(
+    ("written", "smiles", "named", "caption"),
+    [
+        # A name PubChem gives this structure (looked up before the drawing) stays.
+        ("Caffeine", _CAFFEINE, {"caffeine": _CAFFEINE}, "Caffeine · C₈H₁₀N₄O₂ · 194.19 g/mol"),
+        ("**caffeine**", _CAFFEINE, {"caffeine": _CAFFEINE}, "caffeine · C₈H₁₀N₄O₂ · 194.19 g/mol"),
+        # Another structure's name, or a name nothing checked, does not.
+        ("Caffeine", "CCO", {"caffeine": _CAFFEINE}, "C₂H₆O · 46.07 g/mol"),
+        ("Caffeine", _CAFFEINE, {}, "C₈H₁₀N₄O₂ · 194.19 g/mol"),
+        # The chemistry tables give water its structure; ethanol's table formula is none.
+        ("Water", "O", None, "Water · H₂O · 18.02 g/mol"),
+        ("Water", "CCO", None, "C₂H₆O · 46.07 g/mol"),
+        ("Ethanol", "CCO", None, "C₂H₆O · 46.07 g/mol"),
+    ],
+)
+def test_enrich_keeps_a_name_only_on_its_own_structure(
+    written: str, smiles: str, named: dict[str, str] | None, caption: str
+) -> None:
+    result = chemistry_fence.enrich_chemistry_fences(f"```smiles\n{written}\n{smiles}\n```", named)
+    assert result.startswith(f"```smiles\n{caption}\n")
+
+
 def test_enrich_refuses_a_structure_past_the_phones_limit() -> None:
     # The phone refuses a SMILES longer than 500 characters; left as written it reached it.
     result = chemistry_fence.enrich_chemistry_fences("```smiles\n" + "C" * 600 + "\n```")

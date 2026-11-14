@@ -60,7 +60,12 @@ from app.modules.turn_reading.lesson_flow import has_lesson_title
 from app.modules.turn_reading.routing import EMOJI
 from app.services.md_fence_scan import iter_closed_fences, without_fences
 from app.tests.behavior.cases import Case, Expect
-from app.tests.behavior.harness import USER_TIMEZONE, battery_settings, route_case
+from app.tests.behavior.harness import (
+    USER_TIMEZONE,
+    battery_settings,
+    offline_pubchem,
+    route_case,
+)
 from app.tests.fakes import fake_session
 
 CORPUS = Path(__file__).with_name("sweep_corpus")
@@ -431,6 +436,7 @@ async def _run_entry(entry: Entry) -> Outcome:
     )
     with (
         _stores(outcome, user),
+        offline_pubchem(),
         patch("app.core.sympy_executor.run_sympy", _inline),
         patch.object(
             messages_repository,

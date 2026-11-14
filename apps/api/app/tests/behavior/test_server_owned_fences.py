@@ -70,3 +70,12 @@ async def test_a_smiles_caption_is_the_structures_own() -> None:
     )
     assert "Caffeine" not in out
     assert "```smiles\nC₂H₆O · 46.07 g/mol\nCCO\n```" in out
+
+
+@pytest.mark.asyncio
+async def test_a_smiles_caption_keeps_a_name_checked_against_its_structure() -> None:
+    caffeine = "CN1C=NC2=C1C(=O)N(C(=O)N2C)C"
+    out = await _finished(
+        "Tell me about caffeine", f"It looks like this:\n\n```smiles\nCaffeine\n{caffeine}\n```\n"
+    )
+    assert "```smiles\nCaffeine · C₈H₁₀N₄O₂ · 194.19 g/mol\n" in out

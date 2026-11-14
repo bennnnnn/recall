@@ -51,7 +51,7 @@ from there. ``tests/services/test_subject_registry.py`` holds the names to each 
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol, TypeGuard
@@ -198,7 +198,13 @@ class SubjectFence(Protocol):
         """The reply holds fences the subject draws from its own data (``draw``)."""
         ...
 
-    def draw(self, text: str, settings: Settings) -> str:
+    async def named(self, text: str, settings: Settings) -> dict[str, str]:
+        """What those fences are labelled, each checked against the app's own data: a
+        molecule's name and the structure it names (``draw`` keeps a name on its own
+        structure only). Before ``draw``, off the pool: it may look a name up."""
+        ...
+
+    def draw(self, text: str, settings: Settings, named: Mapping[str, str] | None = None) -> str:
         """Those fences drawn, in the pool: a chart's formula sampled, a molecule's data."""
         ...
 

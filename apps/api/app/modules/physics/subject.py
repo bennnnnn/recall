@@ -6,7 +6,7 @@ direct reply through ``direct``, and its prompt copy from ``reply_policy`` and `
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
@@ -132,7 +132,10 @@ class PhysicsFence:
     def draws(self, text: str, settings: Settings) -> bool:
         return False
 
-    def draw(self, text: str, settings: Settings) -> str:
+    async def named(self, text: str, settings: Settings) -> dict[str, str]:
+        return {}
+
+    def draw(self, text: str, settings: Settings, named: Mapping[str, str] | None = None) -> str:
         return text
 
     def tidy(self, text: str, user_text: str, verified: VerifiedSolveBlock | None) -> str:

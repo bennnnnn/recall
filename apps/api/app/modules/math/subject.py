@@ -8,7 +8,7 @@ direct reply through ``tools.direct``, and its prompt copy from ``reply_policy``
 from __future__ import annotations
 
 import json
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
@@ -165,7 +165,10 @@ class MathFence:
 
         return has_formula_chart(text)
 
-    def draw(self, text: str, settings: Settings) -> str:
+    async def named(self, text: str, settings: Settings) -> dict[str, str]:
+        return {}
+
+    def draw(self, text: str, settings: Settings, named: Mapping[str, str] | None = None) -> str:
         from app.modules.math.chart_formula import formula_charts_to_graphs
 
         return formula_charts_to_graphs(text, settings)
