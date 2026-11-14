@@ -30,7 +30,8 @@ async def test_saved_messages_remain_readable_when_title_backfill_fails(failure_
     ]
     with (
         patch(
-            "app.modules.chat.service.get_chat", AsyncMock(return_value=SimpleNamespace(title=None))
+            "app.modules.chat.service.get_chat",
+            AsyncMock(return_value=SimpleNamespace(id=uuid4(), title=None)),
         ),
         patch("app.modules.chat.service.finalize_registry.wait_for_inflight_stream", AsyncMock()),
         patch("app.modules.chat.service.finalize_registry.wait_for_pending_finalize", AsyncMock()),

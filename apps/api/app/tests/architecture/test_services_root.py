@@ -20,6 +20,7 @@ _ONE_OWNER = {
     "calendar_facts": "time_context's calendar half, split from it for size",
     "given_names": "workout's where line, split from it for size",
     "remark_after_answer": "answer_fence's card value and the remark under it, split for size",
+    "final_value": "answer_fence's test of a card's final value, split from it for size",
 }
 
 

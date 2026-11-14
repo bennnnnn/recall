@@ -181,3 +181,41 @@ async def test_access_continues_until_expiration(payload):
         await _process(payload)
     resolve.assert_not_awaited()
     apply_plan.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "app_user_id",
+    [
+        "../../v2/projects?x=1",
+        "user-1",
+        "00000000-0000-0000-0000-00000000001",
+        "$RCAnonymousID:not-hex",
+    ],
+)
+async def test_an_id_none_of_our_subscribers_has_is_ignored_unasked(app_user_id: str):
+    """CodeQL py/partial-ssrf: the gateway asks RevenueCat only for a UUID or an anonymous id.
+    An event naming anything else is no one's, as with no id: acknowledged, not retried."""
+    resolve = AsyncMock(return_value="pro")
+    subscriber_lock = AsyncMock(return_value="token")
+    with patch(f"{_SUB}.resolve_plan_from_revenuecat", resolve):
+        await revenuecat.process_event(
+            AsyncMock(),
+            fakeredis.aioredis.FakeRedis(decode_responses=True),
+            _settings(),
+            _payload("EXPIRATION", app_user_id=app_user_id),
+            subscriber_lock=subscriber_lock,
+            receipt_enqueuer=AsyncMock(),
+        )
+    subscriber_lock.assert_not_awaited()
+    resolve.assert_not_awaited()
+
+
+async def test_an_anonymous_id_is_still_rechecked():
+    """A purchase made before sign-in carries RevenueCat's anonymous id: still asked for."""
+    resolve = AsyncMock(return_value="free")
+    with (
+        patch(f"{_SUB}.resolve_plan_from_revenuecat", resolve),
+        patch(f"{_SUB}.apply_plan_for_app_user_id", AsyncMock(return_value=False)),
+    ):
+        await _process(_payload("EXPIRATION", app_user_id="$RCAnonymousID:" + "ab" * 16))
+    resolve.assert_awaited_once()

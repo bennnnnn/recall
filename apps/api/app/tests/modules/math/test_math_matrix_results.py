@@ -154,3 +154,39 @@ async def test_every_card_result_says_whose_it_is() -> None:
     assert answer.startswith(r"\lambda(A) = 1, 3,\quad E_{1}(A) = \operatorname{span}")
     assert r",\quad E_{3}(A) = \operatorname{span}" in answer
     assert r"\lambda=" not in answer
+
+
+@pytest.mark.parametrize(
+    ("typed", "read"),
+    [
+        ("[[2, 1], [5, 3]]", "[[2,1],[5,3]]"),
+        ("[ [2, 1] , [5, 3] ]", "[[2,1],[5,3]]"),
+        ("[[2 1], [5 3]]", "[[2,1],[5,3]]"),
+        ("[[2 1] [5 3]]", "[[2,1],[5,3]]"),
+        ("[[1, 2, 3],\n [4, 5, 6],\n [7, 8, 10]]", "[[1,2,3],[4,5,6],[7,8,10]]"),
+        ("[[-1.5, .5], [2, -3]]", "[[-1.5,.5],[2,-3]]"),
+        # Not a matrix of numbers apart by spaces: left for its reader to decline.
+        ("[[2 - 1], [5, 3]]", "[[2 - 1],[5,3]]"),
+        ("a list [1, 2, 3]", "a list [1, 2, 3]"),
+        ("see [1] and [2]", "see [1] and [2]"),
+    ],
+)
+def test_a_matrix_reads_the_same_however_it_is_spaced(typed: str, read: str) -> None:
+    from app.modules.math.match.scan import fold_matrix_spacing
+
+    assert fold_matrix_spacing(typed) == read
+
+
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        ("find the determinant of [[2, 1], [5, 3]]", "1"),
+        ("find the determinant of [[2,1],[5,3]]", "1"),
+        ("det [[2 3], [1 4]]", "5"),
+        ("find the determinant and inverse of [ [2, 1] , [5, 3] ]", r"\det(A) = 1"),
+    ],
+)
+async def test_a_spaced_matrix_is_worked_like_an_unspaced_one(text: str, answer: str) -> None:
+    """MATH-07 (2026-11-13 audit): "[[2, 1], [5, 3]]" was not maths at all."""
+    got, _direct = await _reply(text)
+    assert got is not None and got.startswith(answer)

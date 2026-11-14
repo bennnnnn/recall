@@ -2,7 +2,16 @@
 /**
  * Vendor CDN-served JS assets into local files so the sandboxed WebView
  * renderers (Mermaid, Vega, pdf.js, SmilesDrawer) work fully offline — no
- * runtime CDN fetch, tighter CSP, faster first render. Versions are pinned.
+ * runtime CDN fetch, tighter CSP, faster first render.
+ *
+ * Each library is the file its npm package ships (the same bytes jsDelivr and
+ * cdnjs serve for that version), at the exact version pinned below. `npm pack`
+ * fetches the package, and the script refuses the tarball unless its sha512
+ * is the one pinned beside that version, before reading anything from it. So
+ * a regen writes only the bytes this file names: a moved tag, a new release or
+ * a tampered mirror stops the script instead of landing in the app. To bump a
+ * library, change its version and integrity together
+ * (`npm view <name>@<version> dist.integrity`).
  *
  * Output: apps/mobile/lib/vendor/*.txt  (committed; this script regenerates them).
  * Each file is the library's own text. Metro ships them as assets beside the JS
@@ -11,96 +20,123 @@
  *
  * Usage: node scripts/vendor-cdn.mjs
  */
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { gunzipSync } from "node:zlib";
 
 const VENDOR_DIR = join(process.cwd(), "apps/mobile/lib/vendor");
-const TMP_DIR = join("/tmp", "recall-vendor-dl");
-mkdirSync(VENDOR_DIR, { recursive: true });
-mkdirSync(TMP_DIR, { recursive: true });
 
-const VERSIONS = {
-  // Pinned exactly to the committed bundle version (MathJax's internal
-  // version is 3.2.1). A floating "3" would silently pull whatever 3.x
-  // jsDelivr serves on the next vendor regen. Bump deliberately.
-  mermaid: "10",
-  vega: "5",
-  vegaLite: "5",
-  vegaEmbed: "6",
-  pdfjs: "3.11.174",
-  smilesDrawer: "2.1.7",
+/** Each package, by the name the manifest records its version under, with its tarball's integrity. */
+const PACKAGES = {
+  mermaid: {
+    name: "mermaid",
+    version: "10.9.6",
+    integrity: "sha512-XRjjRaI4aPCAMpVaOhxIwLYdx3U4Cb6mN0M268ggFAfFRqsvyFW8zxWbEZazN/mPkqsVWThb0oa1UawWK+XMNg==",
+  },
+  vega: {
+    name: "vega",
+    version: "5.33.1",
+    integrity: "sha512-1fArfVDUqVbb5z8n+/nVQb+VNBzx8svY6CrsyTK4Ujm4yrd9I1auoKxBAPXLCavY1LcrbHUskQbGUP8gXOzyQw==",
+  },
+  vegaLite: {
+    name: "vega-lite",
+    version: "5.23.0",
+    integrity: "sha512-l4J6+AWE3DIjvovEoHl2LdtCUkfm4zs8Xxx7INwZEAv+XVb6kR6vIN1gt3t2gN2gs/y4DYTs/RPoTeYAuEg6mA==",
+  },
+  vegaEmbed: {
+    name: "vega-embed",
+    version: "6.29.0",
+    integrity: "sha512-PmlshTLtLFLgWtF/b23T1OwX53AugJ9RZ3qPE2c01VFAbgt3/GSNI/etzA/GzdrkceXFma+FDHNXUppKuM0U6Q==",
+  },
+  pdfjs: {
+    name: "pdfjs-dist",
+    version: "3.11.174",
+    integrity: "sha512-TdTZPf1trZ8/UFu5Cx/GXB7GZM30LT+wWUNfsi6Bq8ePLnb+woNKtDymI2mxZYBpMbonNFqKmiz684DIfnd8dA==",
+  },
+  smilesDrawer: {
+    name: "smiles-drawer",
+    version: "2.1.7",
+    integrity: "sha512-gApm5tsWrAYDkjbGYQb5OhwIyHvtM2kIO40DfATaOV0DPm0wA63yn4Ow7us27BT49lDdU9busCOPN9fpyonzaA==",
+  },
 };
 
-async function download(url, dest) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`fetch ${url} -> ${res.status}`);
-  const buf = Buffer.from(await res.arrayBuffer());
-  writeFileSync(dest, buf);
-  return buf;
-}
-
-/** Each library's file in lib/vendor, by the name the manifest records its hash under. */
+/** Each library's file in lib/vendor, by the name the manifest records its hash under, and where its package keeps it. */
 const VENDOR_FILES = {
-  mermaidMinJs: "mermaid.min.js.txt",
-  vegaMinJs: "vega.min.js.txt",
-  vegaLiteMinJs: "vega-lite.min.js.txt",
-  vegaEmbedMinJs: "vega-embed.min.js.txt",
-  pdfMinJs: "pdf.min.js.txt",
-  pdfWorkerMinJs: "pdf.worker.min.js.txt",
-  smilesDrawerMinJs: "smiles-drawer.min.js.txt",
+  mermaidMinJs: { file: "mermaid.min.js.txt", pkg: "mermaid", path: "dist/mermaid.min.js", note: "Mermaid min." },
+  vegaMinJs: { file: "vega.min.js.txt", pkg: "vega", path: "build/vega.min.js", note: "Vega min." },
+  vegaLiteMinJs: { file: "vega-lite.min.js.txt", pkg: "vegaLite", path: "build/vega-lite.min.js", note: "Vega-Lite min." },
+  vegaEmbedMinJs: { file: "vega-embed.min.js.txt", pkg: "vegaEmbed", path: "build/vega-embed.min.js", note: "Vega-Embed min." },
+  pdfMinJs: { file: "pdf.min.js.txt", pkg: "pdfjs", path: "build/pdf.min.js", note: "pdf.js main." },
+  pdfWorkerMinJs: {
+    file: "pdf.worker.min.js.txt",
+    pkg: "pdfjs",
+    path: "build/pdf.worker.min.js",
+    note: "pdf.js worker (loaded via Blob URL at runtime).",
+  },
+  // SmilesDrawer (chemistry) — browserify bundle; WebView loads via require(1) shim.
+  // Its source map is not shipped, so the comment pointing at it goes.
+  smilesDrawerMinJs: {
+    file: "smiles-drawer.min.js.txt",
+    pkg: "smilesDrawer",
+    path: "dist/smiles-drawer.min.js",
+    note: "smiles-drawer min (browserify — load via require(1) shim).",
+    edit: (src) => src.replace(/\n?\/\/# sourceMappingURL=.*$/m, ""),
+  },
 };
 
-/** Write a library's text as is: the app reads the file, so nothing may wrap it. */
-function writeVendorFile(name, content, comment) {
-  writeFileSync(join(VENDOR_DIR, VENDOR_FILES[name]), content);
-  console.log(`${VENDOR_FILES[name]}: ${comment} ${(content.length / 1024).toFixed(0)} KB`);
+/** Fetch a package with npm and return its tarball, refused unless it is the pinned one. */
+function packVerified({ name, version, integrity }, dir) {
+  const packed = execFileSync(
+    "npm",
+    ["pack", `${name}@${version}`, "--ignore-scripts", "--json", "--pack-destination", dir],
+    { encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] },
+  );
+  // One read: the bytes checked here are the bytes the files come from.
+  const tarball = readFileSync(join(dir, JSON.parse(packed)[0].filename));
+  const actual = `sha512-${createHash("sha512").update(tarball).digest("base64")}`;
+  if (actual !== integrity) {
+    throw new Error(`${name}@${version}: tarball is ${actual}, pinned ${integrity}. Not vendoring it.`);
+  }
+  return tarball;
 }
 
-async function main() {
-  // 2. Mermaid
-  const mermaidBuf = await download(`https://cdn.jsdelivr.net/npm/mermaid@${VERSIONS.mermaid}/dist/mermaid.min.js`, join(TMP_DIR, "mermaid.min.js"));
-  writeVendorFile("mermaidMinJs", mermaidBuf.toString("utf8"), `Mermaid ${VERSIONS.mermaid} min.`);
+/** One file's text out of a verified npm tarball (gzipped ustar, every entry under package/). */
+function readEntry(tarball, path) {
+  const tar = gunzipSync(tarball);
+  const text = (at, length) => tar.toString("utf8", at, at + length).replace(/\0.*$/s, "");
+  for (let at = 0; at + 512 <= tar.length; ) {
+    const name = text(at, 100);
+    if (!name) break;
+    const prefix = text(at + 345, 155);
+    const size = parseInt(text(at + 124, 12).trim() || "0", 8);
+    at += 512;
+    if ((prefix ? `${prefix}/${name}` : name) === `package/${path}`) return tar.toString("utf8", at, at + size);
+    at += Math.ceil(size / 512) * 512;
+  }
+  throw new Error(`package/${path} is not in the tarball`);
+}
 
-  // 4. Vega stack
-  const vegaBuf = await download(`https://cdn.jsdelivr.net/npm/vega@${VERSIONS.vega}`, join(TMP_DIR, "vega.min.js"));
-  writeVendorFile("vegaMinJs", vegaBuf.toString("utf8"), `Vega ${VERSIONS.vega} min.`);
-  const vegaLiteBuf = await download(`https://cdn.jsdelivr.net/npm/vega-lite@${VERSIONS.vegaLite}`, join(TMP_DIR, "vega-lite.min.js"));
-  writeVendorFile("vegaLiteMinJs", vegaLiteBuf.toString("utf8"), `Vega-Lite ${VERSIONS.vegaLite} min.`);
-  const vegaEmbedBuf = await download(`https://cdn.jsdelivr.net/npm/vega-embed@${VERSIONS.vegaEmbed}`, join(TMP_DIR, "vega-embed.min.js"));
-  writeVendorFile("vegaEmbedMinJs", vegaEmbedBuf.toString("utf8"), `Vega-Embed ${VERSIONS.vegaEmbed} min.`);
+function main() {
+  mkdirSync(VENDOR_DIR, { recursive: true });
+  const work = mkdtempSync(join(tmpdir(), "recall-vendor-"));
+  const files = [];
+  try {
+    const tarballs = Object.fromEntries(
+      Object.entries(PACKAGES).map(([key, pkg]) => [key, packVerified(pkg, work)]),
+    );
+    for (const [name, spec] of Object.entries(VENDOR_FILES)) {
+      const src = readEntry(tarballs[spec.pkg], spec.path);
+      files.push([name, spec, spec.edit ? spec.edit(src) : src]);
+    }
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
 
-  // 5. pdf.js (main + worker)
-  const pdfBase = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${VERSIONS.pdfjs}`;
-  const pdfMainBuf = await download(`${pdfBase}/pdf.min.js`, join(TMP_DIR, "pdf.min.js"));
-  writeVendorFile("pdfMinJs", pdfMainBuf.toString("utf8"), `pdf.js ${VERSIONS.pdfjs} main.`);
-  const pdfWorkerBuf = await download(`${pdfBase}/pdf.worker.min.js`, join(TMP_DIR, "pdf.worker.min.js"));
-  writeVendorFile("pdfWorkerMinJs", pdfWorkerBuf.toString("utf8"), `pdf.js ${VERSIONS.pdfjs} worker (loaded via Blob URL at runtime).`);
-
-  // 6. SmilesDrawer (chemistry) — browserify bundle; WebView loads via require(1) shim.
-  const smilesUrl =
-    `https://cdn.jsdelivr.net/npm/smiles-drawer@${VERSIONS.smilesDrawer}/dist/smiles-drawer.min.js`;
-  const smilesBuf = await download(smilesUrl, join(TMP_DIR, "smiles-drawer.min.js"));
-  const smilesJs = smilesBuf
-    .toString("utf8")
-    .replace(/\n?\/\/# sourceMappingURL=.*$/m, "");
-  writeVendorFile(
-    "smilesDrawerMinJs",
-    smilesJs,
-    `smiles-drawer ${VERSIONS.smilesDrawer} min (browserify — load via require(1) shim).`,
-  );
-
-  // Manifest for traceability
-  const allJs = [
-    ["mermaidMinJs", mermaidBuf.toString("utf8")],
-    ["vegaMinJs", vegaBuf.toString("utf8")],
-    ["vegaLiteMinJs", vegaLiteBuf.toString("utf8")],
-    ["vegaEmbedMinJs", vegaEmbedBuf.toString("utf8")],
-    ["pdfMinJs", pdfMainBuf.toString("utf8")],
-    ["pdfWorkerMinJs", pdfWorkerBuf.toString("utf8")],
-    ["smilesDrawerMinJs", smilesJs],
-  ];
-  for (const [name, src] of allJs) {
+  // Checked before anything is written, so a bad upgrade leaves lib/vendor as it was.
+  for (const [name, , src] of files) {
     if (/<\/script>/i.test(src)) {
       throw new Error(
         `Vendored JS ${name} contains a "</script>" sequence — the inline-` +
@@ -109,25 +145,31 @@ async function main() {
       );
     }
   }
+
+  // Write a library's text as is: the app reads the file, so nothing may wrap it.
+  for (const [, spec, src] of files) {
+    const { version } = PACKAGES[spec.pkg];
+    writeFileSync(join(VENDOR_DIR, spec.file), src);
+    console.log(`${spec.file}: ${spec.note} ${version}, ${(src.length / 1024).toFixed(0)} KB`);
+  }
+
+  // Manifest for traceability
   const manifest = {
     generatedAt: new Date().toISOString(),
-    versions: VERSIONS,
-    sha256: {
-        mermaidMinJs: sha(mermaidBuf),
-      vegaMinJs: sha(vegaBuf),
-      vegaLiteMinJs: sha(vegaLiteBuf),
-      vegaEmbedMinJs: sha(vegaEmbedBuf),
-      pdfMinJs: sha(pdfMainBuf),
-      pdfWorkerMinJs: sha(pdfWorkerBuf),
-      smilesDrawerMinJs: sha(smilesJs),
-    },
+    versions: Object.fromEntries(Object.entries(PACKAGES).map(([key, { version }]) => [key, version])),
+    sha256: Object.fromEntries(files.map(([name, , src]) => [name, sha(src)])),
   };
   writeFileSync(join(VENDOR_DIR, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
   console.log("Vendor generation complete:", VENDOR_DIR);
 }
 
-function sha(buf) {
-  return createHash("sha256").update(buf).digest("hex").slice(0, 16);
+function sha(text) {
+  return createHash("sha256").update(text).digest("hex").slice(0, 16);
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+try {
+  main();
+} catch (e) {
+  console.error(e);
+  process.exit(1);
+}

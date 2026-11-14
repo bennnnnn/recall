@@ -15,6 +15,7 @@ from uuid import UUID, uuid4
 
 from redis.asyncio import Redis
 
+from app.core.log_text import log_safe
 from app.exceptions import DomainError
 from app.models.orm import User
 from app.modules.account.settings_intent import SettingsChange
@@ -140,5 +141,5 @@ async def confirm_proposal(redis: Redis, user: User, proposal_id: str) -> dict[s
             logger.exception(
                 "Settings confirm lock release failed user_id=%s proposal_id=%s",
                 user.id,
-                proposal_id,
+                log_safe(proposal_id),
             )
