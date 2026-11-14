@@ -10,17 +10,16 @@ import { TodoDetailMenu } from "@/features/todos/components/TodoDetailMenu";
 import { TodoEditorSheet, type TodoEditorHandle } from "@/features/todos/components/TodoEditorSheet";
 import { TodoSelectionBar } from "@/features/todos/components/TodoSelectionBar";
 import { TodosScrollList } from "@/features/todos/components/TodosScrollList";
-import { TodosViewMenu } from "@/features/todos/components/TodosViewMenu";
+import { TodosListMenu } from "@/features/todos/components/TodosListMenu";
 import { makeTodosStyles } from "@/features/todos/components/todosStyles";
 import { useTodosActions } from "@/features/todos/hooks/useTodosActions";
 import { useTodosHeader } from "@/features/todos/hooks/useTodosHeader";
+import { useTodoReveal } from "@/features/todos/hooks/useTodoReveal";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useReconnectRefresh } from "@/hooks/useReconnectRefresh";
-import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTodos } from "@/features/todos/context/TodosContext";
 import { buildTodoListRows } from "@/features/todos/model/todoListRows";
-import { todosForView, type TodoView, viewForNewTodo } from "@/features/todos/model/todoListFilter";
 import { useTheme } from "@/lib/theme";
 import { confirmDialog } from "@/ui/overlay/dialogs";
 import { SheetCover } from "@/ui/overlay/Sheet";
@@ -33,7 +32,6 @@ export default function TodosScreen() {
 function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const { token, user, updateUser } = useAuth();
   const { t } = useTranslation();
-  const feedback = useActionFeedbackOptional();
   const C = useTheme();
   const s = useMemo(() => makeTodosStyles(C), [C]);
   const { highlight } = useLocalSearchParams<{
@@ -60,12 +58,14 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const editRef = useRef<TodoEditorHandle>(null);
   /** Header ⋮ — both the list menu and the detail menu drop from it. */
   const menuAnchorRef = useRef<HostInstance>(null);
-  const [view, setView] = useState<TodoView>("today");
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const refreshingRef = useRef(false);
 
   const showTodosEmptyHero = todos.length === 0 && !olderCompleted;
+  // Nothing open: a line over the folded Completed heading, which alone read as an empty page.
+  const allDone = !showTodosEmptyHero && todos.every((todo) => todo.checked);
+  const { completedOpen, toggleCompleted, revealId, reveal, revealed } = useTodoReveal();
 
   const actions = useTodosActions({
     token,
@@ -93,8 +93,10 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     setMenuOpen(false);
     setDetailMenu(false);
     setEditorOpen(false);
+    // Its row, lit, is on screen when the user comes back from its page to the list.
+    reveal(todo);
     actions.openTodoEditor(todo);
-  }, [highlightId, todos, actions, isCurrentView]);
+  }, [highlightId, todos, actions, isCurrentView, reveal]);
 
   const editingId = actions.editingTodo?.id ?? null;
   const closeEditor = actions.closeTodoEditor;
@@ -131,7 +133,7 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   };
 
   useTodosHeader({
-    view, detailOpen, editingId, selecting, covered: editorOpen, menuAnchorRef,
+    detailOpen, editingId, selecting, covered: editorOpen, menuAnchorRef,
     onLeaveDetail: leaveDetail, onMenu: onHeaderMenu,
   });
 
@@ -160,14 +162,14 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         error={Boolean(error)}
         onRetry={retry}
         showEmpty={showTodosEmptyHero}
+        allDone={allDone}
       />
     ),
-    [error, retry, showTodosEmptyHero],
+    [error, retry, showTodosEmptyHero, allDone],
   );
 
   // `now` moves on as reminders fall due, so a to-do moves to Overdue while the list is open.
-  const visibleTodos = useMemo(() => todosForView(todos, view, now), [todos, view, now]);
-  const rows = useMemo(() => buildTodoListRows(visibleTodos, now), [visibleTodos, now]);
+  const rows = useMemo(() => buildTodoListRows(todos, now), [todos, now]);
   const selected = useMemo(() => new Set(selectedIds), [selectedIds]);
   // Every row takes these: a new function each render redrew every row on any change (a toggle).
   const openTodoEditor = actions.openTodoEditor;
@@ -221,8 +223,6 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         <TodosScrollList
           rows={rows}
           now={now}
-          showEmpty={showTodosEmptyHero}
-          view={view}
           error={Boolean(error)}
           listHeader={listHeader}
           refreshing={pullRefreshing}
@@ -235,9 +235,11 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
           selecting={selecting}
           selectedIds={selected}
           onSelect={toggleSelected}
-          onShowOlder={olderCompleted && !selecting && (view === "all" || view === "completed")
-            ? () => void showOlderCompleted()
-            : undefined}
+          onShowOlder={olderCompleted && !selecting ? () => void showOlderCompleted() : undefined}
+          completedOpen={completedOpen}
+          onToggleCompleted={toggleCompleted}
+          revealId={revealId}
+          onRevealed={revealed}
         />
         )}
 
@@ -259,14 +261,9 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         )}
       </SheetCover>
 
-      <TodosViewMenu
+      <TodosListMenu
         visible={menuOpen && !selecting && !detailOpen}
         anchorRef={menuAnchorRef}
-        view={view}
-        onView={(next) => {
-          setView(next);
-          leaveSelection();
-        }}
         onSelect={() => {
           setSelectedIds([]);
           setSelecting(true);
@@ -283,14 +280,12 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
           void actions.handleCreateTodo(
             content,
             due,
-            () => {
+            (created) => {
               if (!isCurrentView()) return;
               setEditorOpen(false);
-              // A to-do the current view would hide: show the view that lists it.
-              const shown = viewForNewTodo(view, due?.date ?? null);
-              if (shown === view) return;
-              setView(shown);
-              feedback?.info(t("todos.added_shown_open"));
+              // In its section wherever it falls, scrolled on screen: a later day or Anytime may
+              // be far down the list.
+              reveal(created);
             },
             recurrence,
             topic,
