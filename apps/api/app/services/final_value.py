@@ -13,8 +13,9 @@ import re
 _VALUE_NAME = re.compile(r"[A-Za-z]+(?:_\{?\w+\}?)?|\\[A-Za-z]+(?:\{[A-Za-z]+\})?")
 # A note in words after a value: "(at x = -3)", "(radius)".
 _VALUE_NOTE = re.compile(r"\s+\((?=[A-Za-z])[^()]*\)\s*$")
-# A point or an interval is one value, not a difference: "(1,-2,3)", "(-\infty,-3) \cup (1,\infty)".
-_GROUPED = re.compile(r"[(\[][^()\[\]]*[)\]]|\\cup")
+# A point or an interval (a comma inside) is one value, not a difference: "(1,-2,3)",
+# "(-\infty,-3) \cup (1,\infty)"; "-(-2)" is arithmetic still to do.
+_GROUPED = re.compile(r"[(\[][^()\[\],]*,[^()\[\]]*[)\]]|\\cup")
 _UNIT_TEXT = re.compile(r"\\(?:text|mathrm)\{[^}]*\}")
 # Arithmetic still to do: a product, quotient, fraction, power, sum, or a minus
 # after a term (a leading minus is the value's sign).

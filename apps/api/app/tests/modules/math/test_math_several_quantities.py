@@ -156,6 +156,8 @@ def test_each_value_of_the_card_is_held_to_its_own_name(
         # Working above the value stays working.
         ("$v = 9.8 \\times 2$  \n$v = 19.6$ m/s", "$v = 19.6$ m/s"),
         ("$2x = 8$  \n$x = 4$", "x = 4"),
+        # A bracketed negative is arithmetic still to do, not a point.
+        ("$pH = -(-2)$  \n$pH = 2.00$", "pH = 2.00"),
     ],
 )
 def test_a_part_asking_several_values_cards_each(section: str, carded: str) -> None:
