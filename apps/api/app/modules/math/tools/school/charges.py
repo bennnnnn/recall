@@ -32,11 +32,13 @@ _LEAD = (
     r"(?:(?:what(?:'s|s|\s+is|\s+would\s+be)|how\s+much\s+(?:is|would\s+be)|calculate|"
     r"work\s+out|find)\s++)?(?:(?:a|an|the|my)\s++)?"
 )
+# Each reads a whole message (fullmatch); \A says so, and a search is then tried at the start
+# alone instead of at every position of a long message.
 _FORMS = (
     # "a 15% tip on $48", "15% tax for a $30 order"
-    re.compile(rf"{_LEAD}{_RATE}\s++{_KIND}{_ON}{_AMOUNT}{_BILL}", re.IGNORECASE),
+    re.compile(rf"\A{_LEAD}{_RATE}\s++{_KIND}{_ON}{_AMOUNT}{_BILL}", re.IGNORECASE),
     # "the tip at 15% on $48", "a tip of 20% on a $65.50 bill"
-    re.compile(rf"{_LEAD}{_KIND}\s++(?:of|at)\s++{_RATE}{_ON}{_AMOUNT}{_BILL}", re.IGNORECASE),
+    re.compile(rf"\A{_LEAD}{_KIND}\s++(?:of|at)\s++{_RATE}{_ON}{_AMOUNT}{_BILL}", re.IGNORECASE),
 )
 # The sign the answer card draws (LaTeX), and the one the line under it writes.
 _SIGNS = {"$": (r"\$", "$"), "€": ("€", "€"), "£": ("£", "£")}

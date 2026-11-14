@@ -73,8 +73,9 @@ _NOT_FAIR_DEVICE = re.compile(
 
 
 # The whole request, for the direct reply: nothing else may ride along.
+# A whole message (fullmatch): \A keeps a search from trying every position of a long one.
 _TRIALS_QUESTION = re.compile(
-    rf"(?:what(?:'s|\s+is)\s+)?(?:the\s+)?(?:probability|chance|likelihood)\s+"
+    rf"\A(?:what(?:'s|\s+is)\s+)?(?:the\s+)?(?:probability|chance|likelihood)\s+"
     r"(?:of\s+)?(?:getting\s+|rolling\s+|flipping\s+|tossing\s+)?(?:exactly\s+)?"
     rf"{_COUNT}\s+(?:heads|tails|sixes)\s+(?:in|from|out\s+of|with)\s+{_COUNT}\s+"
     r"(?:fair\s+)?(?:coin\s+|die\s+|dice\s+)?(?:flips|tosses|throws|rolls)"

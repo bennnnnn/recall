@@ -46,7 +46,7 @@ from app.modules.math.tools.school import (
 )
 from app.modules.math.tools.school.equation_features import count_conditions, extract
 from app.modules.math.tools.school.geometry_measures import rules
-from app.modules.physics import motion, net_force
+from app.modules.physics import motion, net_force, parts
 from app.modules.physics.extractors import friction, thermal_readings
 from app.modules.physics.symbolic import request
 from app.modules.turn_reading import answer_subject, teaching, visuals
@@ -154,6 +154,7 @@ _CASES: list[tuple[str, Callable[[], object]]] = [
         lambda: probability._DICE_CONDITIONAL_SUM.search("2 fair dice are rolled" + _SPACES),
     ),
     ("trials", lambda: probability._TRIALS_SETUP.search("a coin is flipped 6 times" + _SPACES)),
+    ("joined quantity", lambda: list(parts._JOINED.finditer("and also the" + _SPACES + "\0"))),
 ]
 
 
@@ -171,6 +172,12 @@ def test_the_rewritten_patterns_still_read_what_they_read() -> None:
         "<arg_key> city name </arg_key>\n<arg_value>Paris</arg_value>"
     ) == [("city name", "Paris")]
     assert reply_labels._HEADING.match("**Answer:**  ")
+    joined = "find the deceleration and the braking force, plus its  kinetic energy as well as  the time taken"
+    assert [m.group(1) for m in parts._JOINED.finditer(joined)] == [
+        "force",
+        "kinetic energy",
+        "time taken",
+    ]
     assert reply_labels._HEADING.match("## Answer")
     setting = follow_up_repeats._SETS_A_VALUE.match("v_0 = 30\\text{ m/s}")
     assert setting is not None and setting.group(1) == "v_0"
