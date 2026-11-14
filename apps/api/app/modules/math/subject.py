@@ -8,7 +8,7 @@ direct reply through ``tools.direct``, and its prompt copy from ``reply_policy``
 from __future__ import annotations
 
 import json
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
@@ -31,12 +31,11 @@ from app.modules.math.tools.prompt import (
 )
 from app.modules.turn_reading.continued_problem import adds_to_problem
 from app.modules.turn_reading.see_request import asks_to_see
-from app.services.solving import SubjectAugmentation, VerifiedMathBlock
+from app.services.solving import PhotoReading, SubjectAugmentation, VerifiedMathBlock
 from app.services.subject_hints import SubjectHints
 
 if TYPE_CHECKING:
     from app.core.config import Settings
-    from app.modules.math.schemas import MathImageExtract
     from app.services.solving import VerifiedSolveBlock
     from app.services.subjects.registry import SubjectRequest
 
@@ -166,7 +165,10 @@ class MathFence:
 
         return has_formula_chart(text)
 
-    def draw(self, text: str, settings: Settings) -> str:
+    async def named(self, text: str, settings: Settings) -> dict[str, str]:
+        return {}
+
+    def draw(self, text: str, settings: Settings, named: Mapping[str, str] | None = None) -> str:
         from app.modules.math.chart_formula import formula_charts_to_graphs
 
         return formula_charts_to_graphs(text, settings)
@@ -192,10 +194,10 @@ class MathPhoto:
         content: str,
         *,
         image_attachments: list[tuple[str, str]],
-        load_image: Callable[[str], Awaitable[bytes | None]],
+        load_image: Callable[[str], Awaitable[tuple[str, bytes] | None]],
         settings: Settings,
         on_status: Callable[[str], Awaitable[None]] | None,
-    ) -> tuple[MathImageExtract | None, str]:
+    ) -> PhotoReading:
         from app.modules.math.camera import read_camera_maths
 
         return await read_camera_maths(

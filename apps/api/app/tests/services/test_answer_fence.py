@@ -6,7 +6,7 @@ import re
 
 import pytest
 
-from app.modules.chat.simulation_fences import strip_model_simulation_fences
+from app.modules.chat.simulation_fences import strip_model_drawn_fences
 from app.modules.chat.verification_claims import strip_verification_claims
 from app.services.answer_fence import (
     UNCHECKED_ANSWER_MARKER,
@@ -120,8 +120,8 @@ def test_demoting_keeps_the_value_and_drops_the_header() -> None:
 
 
 def test_a_model_simulation_is_dropped() -> None:
-    assert strip_model_simulation_fences("Here.\n\n```simulation\n{}\n```") == "Here."
-    assert strip_model_simulation_fences("```simulation\n{}\n```") == (
+    assert strip_model_drawn_fences("Here.\n\n```simulation\n{}\n```") == "Here."
+    assert strip_model_drawn_fences("```simulation\n{}\n```") == (
         "*Could not render that diagram.*"
     )
 

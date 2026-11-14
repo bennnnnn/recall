@@ -26,6 +26,7 @@ from typing import Any
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
+from app.core import readings
 from app.core.config import Settings
 from app.gateways.mcp import registry as tool_registry
 from app.gateways.pubchem_gateway import PubChemCompound, PubChemResult
@@ -70,7 +71,7 @@ from app.modules.chat.turn_prep.context import (
     stream_context_from_bundle,
 )
 from app.modules.chat.turn_prep.mode import classify_turn_mode
-from app.modules.chat.turn_prep.reading import subject_of
+from app.modules.chat.turn_prep.reading import read_turn_message, subject_of
 from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.chat.turn_trace import TurnTrace, begin_turn_trace
 from app.modules.images.gen_intent import stem_subject_claims
@@ -335,6 +336,13 @@ async def _pubchem_lookup(name: str, *_args: Any, **_kwargs: Any) -> PubChemResu
     return PubChemResult(compound=compound) if compound else PubChemResult(error="not found")
 
 
+def offline_pubchem() -> AbstractContextManager[Any]:
+    """PubChem as the battery knows it: the finalize step checks a molecule's caption name
+    there too (``chemistry.caption_names``), and a sweep run from the command line has the
+    network."""
+    return patch("app.gateways.pubchem_gateway.lookup_by_name", _pubchem_lookup)
+
+
 def _rows(case: Case) -> list[SimpleNamespace]:
     return [
         SimpleNamespace(id=uuid4(), role=role, content=text, model="free-chat")
@@ -375,6 +383,10 @@ def _hints_in(system: str, case: Case) -> set[str]:
 async def route_case(case: Case, settings: Settings | None = None) -> Route:
     settings = settings or battery_settings()
     trace = begin_turn_trace("new")
+    # As ``stream_entry`` starts a turn: the message stripped, its readings its own (a sweep
+    # run from the command line routes every entry in one context, and each read the memo the
+    # entry before it left).
+    readings.begin_turn()
     user = User(
         id=uuid4(),
         name=USER_NAME,
@@ -392,7 +404,10 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
     )
     chat = Chat(id=uuid4(), user_id=user.id, title=None)
     rows = _rows(case)
-    text = case.prompt
+    text = case.prompt.strip()
+    # The turn's load reads the message with the window, then picks the model from that
+    # reading (``turn_load``): a model picked first read the message on the loop instead.
+    await read_turn_message(text, rows, settings)
     prior_user, prior_model = last_user_turn(rows)
     model = model_choice.resolve_user_model(
         user,
@@ -725,14 +740,15 @@ async def saved_reply(route: Route, settings: Settings | None = None) -> str:
         users=SimpleNamespace(get_by_id=AsyncMock(return_value=None)),
         todos=SimpleNamespace(materialize_reminder_fences=AsyncMock(side_effect=_no_reminders)),
     )
-    return await enrich_final_content(
-        deps,
-        AsyncMock(),
-        settings or battery_settings(),
-        route.context,
-        assistant_text=route.instant_text,
-        usage={},
-        outcome=TurnOutcome(),
-        was_cancelled=False,
-        should_cancel=None,
-    )
+    with offline_pubchem():
+        return await enrich_final_content(
+            deps,
+            AsyncMock(),
+            settings or battery_settings(),
+            route.context,
+            assistant_text=route.instant_text,
+            usage={},
+            outcome=TurnOutcome(),
+            was_cancelled=False,
+            should_cancel=None,
+        )

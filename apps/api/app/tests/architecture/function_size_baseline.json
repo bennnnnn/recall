@@ -6,7 +6,6 @@
   "modules/chat/stream_api.py::_turn_sse_lines": 157,
   "modules/chat/stream_entry.py::stream_chat_response": 120,
   "modules/chat/stream_entry.py::stream_regenerate_response": 122,
-  "modules/chat/turn_prep/prepare.py::prepare_chat_turn": 102,
   "modules/chat/ws_turn.py::stream_over_ws": 123,
   "modules/chemistry/lewis.py::lewis_structure": 130,
   "modules/chemistry/solvers/amounts.py::solve_amount": 113,
@@ -50,8 +49,8 @@
   "modules/physics/extractors/waves.py::_extract_waves_intent": 173,
   "modules/physics/solvers/circular.py::solve_circular": 134,
   "modules/physics/solvers/friction.py::incline_scene": 121,
-  "modules/physics/solvers/momentum.py::solve_momentum": 118,
-  "modules/physics/solvers/oscillations.py::solve_spring": 133,
+  "modules/physics/solvers/momentum.py::solve_momentum": 109,
+  "modules/physics/solvers/oscillations.py::solve_spring": 117,
   "modules/physics/solvers/projectile.py::solve_projectile": 158,
   "modules/todos/spoken_apply.py::apply_spoken_change": 105
 }

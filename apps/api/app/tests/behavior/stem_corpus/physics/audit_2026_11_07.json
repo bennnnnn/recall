@@ -207,7 +207,7 @@
    "kg"
   ],
   "note": "mass is the same everywhere: 50 / 9.81",
-  "gap": "the Moon's g is applied to a weight stated on Earth (extractors/surface_gravity.py detect_gravity) (audit 2026-11-07)"
+  "gap": "declines: a weight stated on one body and a mass asked on another needs the body each value is on; until then a school g is no setting when two bodies are named (bodies.names_two_school_gravities)"
  },
  {
   "id": "au-earth-weight",
@@ -219,7 +219,7 @@
    "N"
   ],
   "note": "70 × 9.81",
-  "gap": "the Moon's g is applied to the weight asked on Earth (extractors/surface_gravity.py detect_gravity) (audit 2026-11-07)"
+  "gap": "declines: a mass stated on one body and a weight asked on another needs the body each value is on; until then a school g is no setting when two bodies are named (bodies.names_two_school_gravities)"
  },
  {
   "id": "au-first-reach",
@@ -231,7 +231,7 @@
    "s"
   ],
   "note": "15 = 20t − 4.905t², the earlier root",
-  "gap": "a height to reach is read as the launch height (extractors/kinematics.py) (audit 2026-11-07)"
+  "gap": "declines: no law gives the time to first reach a height; a height the body reaches is no launch height (law_refusals)"
  },
  {
   "id": "au-horizontal-speed",
@@ -243,7 +243,7 @@
    "m/s"
   ],
   "note": "vx = 10, vy = 9.81: √(100 + 96.24)",
-  "gap": "the cliff height is bound as a displacement along the horizontal speed (law_binding/fit.py, catalog/suvat.py) (audit 2026-11-07)"
+  "gap": "declines: no law gives a sideways launch's speed at a time; SUVAT is one line (catalog/suvat.py _SIDEWAYS)"
  },
  {
   "id": "au-horizontal-vy",
@@ -255,7 +255,7 @@
    "m/s"
   ],
   "note": "vy = gt",
-  "gap": "the horizontal speed is read as the vertical velocity (audit 2026-11-07)"
+  "gap": "declines: no law gives a sideways launch's vertical velocity at a time; SUVAT is one line (catalog/suvat.py _SIDEWAYS)"
  },
  {
   "id": "au-kick-x",
@@ -1612,7 +1612,7 @@
    "m/s^2"
   ],
   "note": "10 / 5: \"by 10 m/s\" is a change",
-  "gap": "a change \"by 10 m/s\" is bound as the final speed, so a = 0 (law_binding fit) (review 2026-11-07)"
+  "gap": "declines: no law takes a change in speed (a = Δv/t); a change is no final speed (law_binding.labels)"
  },
  {
   "id": "au-faster-than-light",
@@ -1626,32 +1626,28 @@
   "area": "guards",
   "prompt": "A −4 Ω resistor is connected across 12 V. What current flows?",
   "expect": "decline",
-  "note": "a resistance is never negative",
-  "gap": "no physical-range check: a negative resistance is solved (audit 2026-11-07)"
+  "note": "a resistance is never negative"
  },
  {
   "id": "au-air-resistance",
   "area": "guards",
   "prompt": "A ball is dropped from 20 m and air resistance is significant. What is its speed when it hits the ground?",
   "expect": "decline",
-  "note": "the drag is not given",
-  "gap": "a stated condition ('air resistance is significant') is never checked against the law (audit 2026-11-07)"
+  "note": "the drag is not given"
  },
  {
   "id": "au-conflict-constant",
   "area": "conflicts",
   "prompt": "A car travels at a constant speed of 20 m/s for 5 s and covers 200 m. What is its speed?",
   "expect": "decline",
-  "note": "20 m/s for 5 s is 100 m, not 200 m",
-  "gap": "'constant speed' is never checked against the numbers it is stated with (audit 2026-11-07)"
+  "note": "20 m/s for 5 s is 100 m, not 200 m"
  },
  {
   "id": "au-conflict-drop",
   "area": "conflicts",
   "prompt": "A ball dropped from 20 m hits the ground at 30 m/s. How long does it take to fall?",
   "expect": "decline",
-  "note": "dropped from 20 m it lands at 19.8 m/s, not 30",
-  "gap": "'dropped' (v0 = 0) is never checked against a landing speed that contradicts it (audit 2026-11-07)"
+  "note": "dropped from 20 m it lands at 19.8 m/s, not 30"
  },
  {
   "id": "au-inline-parts",
@@ -1690,7 +1686,7 @@
    ]
   ],
   "note": "now it stops: u = 20, v = 0, t = 10",
-  "gap": "a follow-up that changes the motion keeps the earlier law and swaps a number (followup.py physics_followup_problem) (audit 2026-11-07)"
+  "gap": "declines: a follow-up that changes the motion is not re-read as a new problem (followup.py physics_followup_problem)"
  },
  {
   "id": "au-avg-from-rest",
@@ -1723,8 +1719,7 @@
    360,
    "m"
   ],
-  "note": "d = (average speed) × t = 12 × 30; 12 m/s is no final speed",
-  "gap": "SUVAT reads a stated average speed as the final speed: s = (0 + 12)/2 × 30 = 180 m, verified (found 2026-11-07 probing #2333)"
+  "note": "d = (average speed) × t = 12 × 30; 12 m/s is no final speed"
  },
  {
   "id": "au-throw-decelerates",

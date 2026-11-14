@@ -280,7 +280,58 @@ def _image_distance(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult
     )
 
 
+def _lens_distances(intent: PhysicsIntent, p: dict[str, float]) -> tuple[float, float, str]:
+    """|f| and d_o in the unit both are written in (cm stays cm), else in m."""
+    units = intent.physics_units or {}
+    shown = units.get("focal", "m")
+    if shown in ("cm", "mm") and units.get("d_obj") == shown:
+        given = intent.physics_params or {}
+        return abs(given["focal"]), given["d_obj"], shown
+    return abs(p["focal"]), p["d_obj"], "m"
+
+
+def _with_unit(value: float, unit: str) -> str:
+    return rf"{value:g}\,\mathrm{{{unit}}}"
+
+
+def _diverging_lens_image_distance(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
+    """A diverging lens's image: virtual, on the object's side, |d_i| = d_o|f|/(d_o + |f|).
+    No sign is certified, as for a converging lens's virtual image."""
+    focal, obj, shown = _lens_distances(intent, p)
+    if focal <= 0 or obj <= 0:
+        raise SolveServiceError("a diverging lens needs a focal length and a real object")
+    img = obj * focal / (obj + focal)
+    o, f = _with_unit(obj, shown), _with_unit(focal, shown)
+    substitution = rf"|d_i| = \frac{{{o} \cdot {f}}}{{{o} + {f}}}"
+    return PhysicsResult(
+        answer=rf"{substitution} \approx {img:.4g} \text{{ {shown}}}",
+        formulas=(r"|d_i| = \frac{d_o |f|}{d_o + |f|}",),
+        substitutions=(substitution,),
+        quantities=(
+            QuantityResult("", img, shown, detail="virtual, on the object's side of the lens"),
+        ),
+    )
+
+
+def _diverging_lens_magnification(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
+    """m = |d_i|/d_o = |f|/(d_o + |f|): upright and smaller."""
+    focal, obj, shown = _lens_distances(intent, p)
+    if focal <= 0 or obj <= 0:
+        raise SolveServiceError("a diverging lens needs a focal length and a real object")
+    m_val = focal / (obj + focal)
+    o, f = _with_unit(obj, shown), _with_unit(focal, shown)
+    substitution = rf"m = \frac{{{f}}}{{{o} + {f}}}"
+    return PhysicsResult(
+        answer=rf"{substitution} \approx {m_val:.3g}",
+        formulas=(r"m = \frac{|d_i|}{d_o} = \frac{|f|}{d_o + |f|}",),
+        substitutions=(substitution,),
+        quantities=(QuantityResult("", m_val, "", detail="upright and smaller"),),
+    )
+
+
 _OPERATIONS: dict[str, Callable[[PhysicsIntent, dict[str, float]], PhysicsResult]] = {
+    "diverging_lens_image_distance": _diverging_lens_image_distance,
+    "diverging_lens_magnification": _diverging_lens_magnification,
     "lens_power": _lens_power,
     "double_slit_fringe_spacing": _double_slit_fringe_spacing,
     "diffraction_central_width": _diffraction_central_width,

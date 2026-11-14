@@ -31,6 +31,13 @@ from app.modules.physics.binding_values import fallback_value, light_starts_insi
 from app.modules.physics.bodies import names_only_water
 from app.modules.physics.catalog import CATALOG, WATER_ONLY
 from app.modules.physics.catalog.projectile import AT_AN_ANGLE
+from app.modules.physics.decay_share import (
+    ASKED_GONE_MARKER,
+    SHARE_GONE_MARKER,
+    asked_share,
+    share_markers,
+    share_reading,
+)
 from app.modules.physics.frames import FRAMES_UNREAD_MARKER, adds_speeds_across_frames
 from app.modules.physics.givens import FRACTION_OF_C, PHYSICS_UNITS, unit_expression
 from app.modules.physics.law_range import holds_its_range
@@ -50,6 +57,7 @@ from app.modules.physics.optic_elements import (
     LIGHT_INSIDE_MARKER,
     asked_in_vacuum,
     diverging_element,
+    diverging_lens,
     signed_distances,
 )
 from app.modules.physics.schemas import PhysicsIntent
@@ -340,6 +348,14 @@ def _cue_text(text: str, lower: str) -> str:
     # A stated angle is the cue a launch at an angle is written with (``AT_AN_ANGLE``).
     if states_an_angle(text):
         cue_text = f"{cue_text} {AT_AN_ANGLE}"
+    if share_reading(lower) == "gone":
+        cue_text = f"{cue_text} {SHARE_GONE_MARKER}"
+    # "A concave lens", "a minus lens": a diverging lens's laws are cued by any wording of the
+    # lens itself, never by a virtual image or diverging light (``optic_elements``).
+    if diverging_lens(lower):
+        cue_text = f"{cue_text} diverging"
+    if asked_share(lower) == "gone":
+        cue_text = f"{cue_text} {ASKED_GONE_MARKER}"
     return cue_text
 
 
@@ -402,6 +418,9 @@ def _with_markers(lower: str) -> str:
     # A rolling ball's spin is no part of the translational energy a question asks for.
     if rolling_body(lower) and "translational" not in (clause or ""):
         lower = f"{lower} {ROLLING_BODY_MARKER}"
+    # "75% of the sample to decay" is a share gone; "75% of the sample" says neither.
+    if markers := share_markers(lower):
+        lower = f"{lower} {markers}"
     return f"{lower} diverging" if diverging_element(lower) else lower
 
 

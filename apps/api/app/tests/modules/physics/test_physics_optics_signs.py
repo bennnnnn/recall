@@ -138,8 +138,6 @@ def test_inverted_image(text: str, inverted: bool) -> None:
         "other side of the lens. Find the magnification.",
         "An object 2 cm tall forms an image 6 cm tall 60 cm in front of a concave mirror. Find "
         "the magnification.",
-        "An object is placed 30 cm from a minus lens of focal length 15 cm. Find the image "
-        "distance.",
         "A mirror forms a virtual, erect and diminished image. Its focal length is 10 cm and "
         "the object is 15 cm away. Find the image distance.",
         "A mirror of focal length 15 cm is used as a rear-view mirror in a car. An object is "

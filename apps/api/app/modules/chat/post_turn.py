@@ -304,7 +304,11 @@ async def enqueue_saved_turn_jobs(redis: Redis, settings: Settings, saved: Saved
     turn = FinishedTurn(
         settings=settings,
         saved=saved,
-        memory_user_text=memory_extract_user_text(saved.user_message),
+        # The row as saved: maths' photo line ("Solve: …") is the prompt's alone, and a scanner
+        # photo's reading is dropped there (``memory_extract_user_text``).
+        memory_user_text=memory_extract_user_text(
+            saved.title_message if saved.title_message is not None else saved.user_message
+        ),
         turn_key=(
             str(saved.assistant_message_id)
             if saved.assistant_message_id is not None

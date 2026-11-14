@@ -20,6 +20,7 @@ from app.modules.chat.turn_prep.mode import _TurnMode
 from app.modules.chat.turn_prep.saved_place import last_reported_place, saved_place
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.services import time_context as time_context_service
+from app.services.subject_scan import without_photo_reading
 from app.services.subjects.registry import MathImageExtract
 
 
@@ -59,6 +60,15 @@ class TurnRequest:
     unhealthy_models: frozenset[str] | None = None
     # Open models past their cool-down, read with ``unhealthy_models``.
     half_open_models: frozenset[str] = frozenset()
+    # What the user typed or said, when ``content`` also holds text the turn read off their
+    # photo (its reading, maths' ``Solve:`` line); None: ``content`` is all theirs.
+    said: str | None = None
+
+    @property
+    def own_words(self) -> str:
+        """The user's own words, as the instant replies read them: text on a photo is the
+        photo's content, never a command (audit SCAN-03, 2026-11-13)."""
+        return without_photo_reading(self.content) if self.said is None else self.said
 
 
 @dataclass

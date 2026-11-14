@@ -68,6 +68,7 @@ def solve_physics_request(
             logger.info("symbolic physics model declined", exc_info=True)
             return "failed", None
     intent = extract_physics_intent(user_content)
+    read_text = user_content
     # The parts and asks a LaTeX paste holds are its plain text's (``latex_markup``).
     user_content = without_markup(user_content)
     block: VerifiedPhysicsBlock | None = None
@@ -83,7 +84,9 @@ def solve_physics_request(
     if block is None:
         return _picture_or(user_content, "note" if intent is None else "failed")
     partial = answers_part_of(user_content, block.physics_intent, len(block.physics_parts))
-    return "verified", replace(block, text=wrap_verified_physics(block.text), partial=partial)
+    return "verified", replace(
+        block, text=wrap_verified_physics(block.text), partial=partial, read_text=read_text
+    )
 
 
 def _more_answered(

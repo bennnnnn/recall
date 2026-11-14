@@ -53,14 +53,19 @@ from app.modules.chat.turn_deps import default_deps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.conversation import messages_repository
-from app.modules.memory import is_explicit_memory_command
+from app.modules.memory import is_explicit_memory_command, memory_extract_user_text
 from app.modules.todos import write_log
 from app.modules.todos.reply_check import KEEP_AS_REMINDER, NEED_A_TIME
 from app.modules.turn_reading.lesson_flow import has_lesson_title
 from app.modules.turn_reading.routing import EMOJI
 from app.services.md_fence_scan import iter_closed_fences, without_fences
 from app.tests.behavior.cases import Case, Expect
-from app.tests.behavior.harness import USER_TIMEZONE, battery_settings, route_case
+from app.tests.behavior.harness import (
+    USER_TIMEZONE,
+    battery_settings,
+    offline_pubchem,
+    route_case,
+)
 from app.tests.fakes import fake_session
 
 CORPUS = Path(__file__).with_name("sweep_corpus")
@@ -102,6 +107,10 @@ STEM_AREAS = {"math", "physics", "chemistry"}
 # A places ask the user's own location answers, whatever other capital it holds ("coffee
 # shops nearby, answer in Spanish"): the near-you list's hint is in the prompt.
 NEAR_USER_AREAS = {"places near user"}
+# The subject's name with nothing asked of it ("My chemistry teacher is mean", "Remind me to
+# study chemistry"), or an acronym beside a weak cue ("the SI base units of the newton"): no
+# chemistry status or prompt (audit 2026-11-13).
+NOT_CHEMISTRY_AREAS = {"chemistry word lookalike"}
 # Messages with separate requests, and look-alikes that are one request.
 MULTI_AREAS = {"multi"}
 SINGLE_PART_AREAS = {"multi lookalike"}
@@ -399,8 +408,10 @@ async def _run_entry(entry: Entry) -> Outcome:
         settings,
     )
     prior = entry.history[-1][1] if entry.history and entry.history[-1][0] == "assistant" else None
-    outcome.settings_changes = extract_settings_changes(entry.prompt, prior_assistant=prior)
-    outcome.memory_command = bool(is_explicit_memory_command(entry.prompt))
+    # The user's words as production's readers take them: a photo's text is its content.
+    said = memory_extract_user_text(entry.prompt)
+    outcome.settings_changes = extract_settings_changes(said, prior_assistant=prior)
+    outcome.memory_command = bool(is_explicit_memory_command(said))
 
     user = _user(pro=entry.pro)
     deps = replace(
@@ -429,6 +440,7 @@ async def _run_entry(entry: Entry) -> Outcome:
     )
     with (
         _stores(outcome, user),
+        offline_pubchem(),
         patch("app.core.sympy_executor.run_sympy", _inline),
         patch.object(
             messages_repository,
@@ -493,6 +505,8 @@ def judge(outcome: Outcome) -> list[str]:
         problems.append("split into separate requests")
     if entry.area in NEAR_USER_AREAS and "local_places" not in route.hints:
         problems.append("not read as places near the user")
+    if entry.area in NOT_CHEMISTRY_AREAS and route.subject == "chemistry":
+        problems.append("read as a chemistry question")
     return problems
 
 

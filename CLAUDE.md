@@ -300,7 +300,8 @@ turn, a reply out of shape or a broken picture, and holds coverage question by q
 `stem_snapshot.json` names every entry each subject answers and draws, so one answered fewer
 fails even when another is answered more (`UPDATE_STEM_SNAPSHOT=1` records a change). Physics, maths and
 chemistry each have a folder (physics `holdout.json` is questions written after the fixes, kept
-honest). An entry with a `gap` is a strict expected failure until the fix deletes the line;
+honest). A `gap` marks only a miss: an `answer` entry that declines today, until the fix deletes the
+line; a wrong verified number fails the test whether the entry has a `gap` or not;
 `shared` names the peer subject that owns a law both use (gases, Q = mcΔT and half-lives are
 physics'). `uv run python -m app.tests.behavior.stem_sweep math --show`.
 
