@@ -259,7 +259,8 @@ async def read_decision(
     try:
         # Past the day's spend cap, or with it unreadable, nothing is read: the word rules
         # and the reply's model decide.
-        if await quota_service.global_spend_exceeded(get_redis_client(), settings):
+        redis = get_redis_client()
+        if await quota_service.global_spend_exceeded(redis, settings):
             return None
     except Exception as exc:  # A read is a hint: any failure leaves the turn to the rules.
         logger.info("turn decision failed (%s)", type(exc).__name__)
@@ -269,12 +270,19 @@ async def read_decision(
         return _followed(
             await _ask(settings, model_alias, messages, settings.live_read_timeout_seconds), earlier
         )
+    skip = await _unsteady_readers(redis, settings)
+    if {ROUTING.decider, ROUTING.live_read, ROUTING.live_read_backup} <= skip:
+        # Every model the read could ask is failing: the rules decide now, with no wait.
+        return None
 
-    text_read = asyncio.create_task(_text_read(settings, messages))
+    text_read = asyncio.create_task(_text_read(settings, messages, skip))
     # Only a message with a number in it can be given the worked layout (``worked_turn``),
     # so only its read asks whether it works a result out.
     ask_work = any(char.isdigit() for char in question)
     try:
+        if ROUTING.decider in skip:
+            # The Decider's breaker is open: the text read decides, as when it refuses.
+            return _followed(await text_read, earlier)
         return await _join(settings, text_read, messages[-1]["content"], earlier, ask_work=ask_work)
     finally:
         # Whatever ends the read (an answer that needs no query, the reply's wait running
@@ -320,13 +328,35 @@ async def _join(
     return TurnDecision(**decided, query=read.query if read is not None else "")
 
 
-async def _text_read(settings: Settings, messages: list[dict[str, str]]) -> TurnDecision | None:
-    """The JSON read by the read's model, and by the backup when it refuses at once."""
+async def _unsteady_readers(redis: Any, settings: Settings) -> frozenset[str]:
+    """The read's models to pass over (MODEL-07): one whose breaker is open and cooling
+    (``services.model_health``), and the Decider while half-open unless this turn holds its
+    one probe. The text read's models share their breakers with the chat lanes on the same
+    models, so their probes are the chat's to claim: half-open, they are asked."""
+    from app.services import model_health
+
+    aliases = [ROUTING.decider, ROUTING.live_read, ROUTING.live_read_backup]
+    breakers = await model_health.read_breakers(redis, settings, aliases)
+    skip = set(breakers.cooling)
+    if ROUTING.decider in breakers.half_open and not await model_health.claim_probe(
+        redis, settings, ROUTING.decider
+    ):
+        skip.add(ROUTING.decider)
+    return frozenset(skip)
+
+
+async def _text_read(
+    settings: Settings, messages: list[dict[str, str]], skip: frozenset[str] = frozenset()
+) -> TurnDecision | None:
+    """The JSON read by the read's model, and by the backup when it refuses at once; a model
+    whose breaker is open (``skip``) is passed over without the wait."""
     budget = settings.live_read_timeout_seconds
     started = time.monotonic()
-    read = await _ask(settings, ROUTING.live_read, messages, budget)
+    read = None
+    if ROUTING.live_read not in skip:
+        read = await _ask(settings, ROUTING.live_read, messages, budget)
     left = budget - (time.monotonic() - started)
-    if read is None and left >= _BACKUP_MIN_SECONDS:
+    if read is None and left >= _BACKUP_MIN_SECONDS and ROUTING.live_read_backup not in skip:
         # The read's model is rate-limited upstream on 15-40% of calls at busy hours, and a
         # refusal comes back in about 0.3 s: the backup answers within the same budget.
         read = await _ask(settings, ROUTING.live_read_backup, messages, left)
@@ -375,6 +405,13 @@ def start_turn_decision(
     if not settings.live_read_enabled:
         return None
     return asyncio.create_task(read_decision(settings, text, earlier=earlier_turns(recent)))
+
+
+def drop_read(task: asyncio.Task[TurnDecision | None] | None) -> None:
+    """Stop a read nothing will ask any more: a turn an intercept answered, or an instant
+    reply. Its two or three calls run, and are billed, until they end (MODEL-06)."""
+    if task is not None and not task.done():
+        task.cancel()
 
 
 async def turn_decision_result(

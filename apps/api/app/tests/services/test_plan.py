@@ -10,6 +10,7 @@ from app.models import model_catalog
 from app.models.routing_lanes import ROUTING
 from app.modules.billing import plan as plan_service
 from app.modules.chat.model_routing import choice as model_choice
+from app.modules.chat.model_routing.thinking import thinks_on_escalate
 from app.tests.fakes import make_user
 
 
@@ -372,17 +373,73 @@ def test_pro_everyday_keeps_a_photo_turn() -> None:
 @pytest.mark.parametrize(
     ("plan", "expected"),
     [
+        # Pro's everyday model thinks at the escalate level itself.
         ("pro", ROUTING.everyday_strong),
-        ("free", model_catalog.auto_fast_alias()),
+        # The plan's maths lane thinks: DeepSeek on Plus.
+        ("plus", ROUTING.math),
+        # Free's maths lane is the everyday model, which never thinks: its backup does.
+        ("free", ROUTING.math_backups[ROUTING.math_free]),
     ],
 )
 def test_regenerating_a_cheap_everyday_reply_follows_the_plan(plan: str, expected: str) -> None:
-    """Review: "try again" on Pro reused the Qwen reply's model."""
+    """Review: "try again" on Pro reused the Qwen reply's model; on Free and Plus it repeated
+    the same call with no thinking (MODEL-02, 2026-11-13)."""
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
     resolved = model_choice.resolve_regenerate_model(
         _plan(plan), None, _EVERYDAY, model_catalog.auto_fast_alias(), settings
     )
     assert resolved == expected
+    assert thinks_on_escalate(resolved)
+
+
+@pytest.mark.parametrize("plan", ["free", "plus", "pro"])
+def test_a_regenerate_with_no_prior_model_also_thinks(plan: str) -> None:
+    """The prior reply's model is gone (a failed first turn): routing picks again, then the
+    regenerate moves to a model that thinks."""
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    resolved = model_choice.resolve_regenerate_model(_plan(plan), None, _EVERYDAY, None, settings)
+    assert thinks_on_escalate(resolved)
+
+
+@pytest.mark.parametrize("plan", ["free", "plus", "pro"])
+def test_a_first_reply_keeps_its_everyday_lane(plan: str) -> None:
+    """Only a regenerate moves: the first reply to an everyday line is unchanged."""
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    expected = ROUTING.everyday_strong if plan == "pro" else model_catalog.auto_fast_alias()
+    assert model_choice.resolve_user_model(_plan(plan), _EVERYDAY, settings) == expected
+
+
+def test_a_regenerate_passes_over_a_failing_thinking_model() -> None:
+    """Free's thinking backup is cooling: the cheapest other model that thinks answers."""
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    backup = ROUTING.math_backups[ROUTING.math_free]
+    resolved = model_choice.resolve_regenerate_model(
+        _plan("free"),
+        None,
+        _EVERYDAY,
+        model_catalog.auto_fast_alias(),
+        settings,
+        unhealthy=frozenset({backup}),
+    )
+    assert resolved != backup and thinks_on_escalate(resolved)
+
+
+def test_a_regenerate_keeps_a_model_the_user_chose() -> None:
+    """With Auto off, the user's own model answers the regenerate, thinking or not."""
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    everyday = model_catalog.auto_fast_alias()
+    user = _plan("plus", [everyday])
+    resolved = model_choice.resolve_regenerate_model(user, None, _EVERYDAY, everyday, settings)
+    assert resolved == everyday
+
+
+def test_a_regenerate_with_only_non_thinking_models_keeps_its_model() -> None:
+    """Auto on, but nothing in the pool thinks: the turn keeps its model."""
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    everyday = model_catalog.auto_fast_alias()
+    user = _plan("free", ["auto", everyday])
+    resolved = model_choice.resolve_regenerate_model(user, None, _EVERYDAY, everyday, settings)
+    assert resolved == everyday
 
 
 def test_the_strong_everyday_switch_is_read_per_plan() -> None:

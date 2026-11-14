@@ -17,7 +17,6 @@ from app.gateways.reasoning import ThinkingLevel
 from app.models.routing_lanes import ROUTING
 from app.modules.billing.plan import pick_math_lane, pick_preferred_tier
 from app.modules.chat.decider_read import READ_SUBJECTS
-from app.modules.chat.model_routing.thinking import lane_for_think
 
 Effort = Literal["none", "low", "high"]
 _EFFORTS: tuple[Effort, ...] = ("none", "low", "high")
@@ -63,14 +62,9 @@ def decided_lane(
     if lane == "everyday" and strong_everyday and ROUTING.everyday_strong in usable:
         return ROUTING.everyday_strong
     if lane == "math":
-        alias = pick_math_lane(math_lane, usable)
-    else:
-        preferred = {"everyday": ROUTING.everyday, "hard": ROUTING.hard}[lane]
-        alias = pick_preferred_tier(preferred, usable)
-    if decided_level(subject, effort) == "off":
-        return alias
-    # A level that thinks, on the maths lane's model that sends no reasoning.
-    return lane_for_think(alias, usable, unsteady) or alias
+        return pick_math_lane(math_lane, usable)
+    preferred = {"everyday": ROUTING.everyday, "hard": ROUTING.hard}[lane]
+    return pick_preferred_tier(preferred, usable)
 
 
 def math_backups(

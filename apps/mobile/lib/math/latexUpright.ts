@@ -12,7 +12,12 @@
  * - a word of the sentence between spaces (`so`, `and`, `per`, `therefore`) →
  *   `\text{ so }`; `at` is never one (`v = u + at`);
  * - a formula written with Unicode counts or a charge (`H₂O`, `Fe²⁺`) → `\mathrm{H₂O}`,
- *   drawn as written; `C₁V₁` and `V₂` are symbols, not formulas.
+ *   drawn as written; `C₁V₁` and `V₂` are symbols, not formulas;
+ * - a word written into the maths (`$extrema$`, `$increasing = (1, \infty)$`, 2026-11-13):
+ *   four letters or more, lowercase after the first, with a vowel → `\mathrm{extrema}`,
+ *   its space before a next word kept. A product of variables is a few letters (`mgh`,
+ *   `abc`) or has no vowel (`dxdy`), vertices are capitals (`ABCD`), and a word opening a
+ *   command's braces (`\begin{aligned}`, `\mathbf{v}`) is that command's.
  *
  * What is already upright (`\mathrm{…}`, `\text{…}`) and every script group is left as
  * written. The server lays out its own rows this way (`modules/chemistry/tex.py`).
@@ -51,6 +56,9 @@ const WORDS = new Set(
     "where if not the to from by which that"
   ).split(" "),
 );
+
+// A word written into the maths: four letters or more, lowercase after the first.
+const WRITTEN_WORD = /^[A-Za-z][a-z]{3,}(?![A-Za-z])/;
 
 // A charge is never followed by a superscript digit: in K⁻¹ the ⁻ is an exponent's sign.
 const FORMULA_RE = /^(?:\(?(?:[A-Z][a-z]?[₀-₉]*)+\)?[₀-₉]*)+[⁰¹²³⁴⁵⁶⁷⁸⁹]*(?:[⁺⁻](?![⁰¹²³⁴⁵⁶⁷⁸⁹]))?/;
@@ -182,6 +190,18 @@ export function uprightNotation(source: string): string {
         out += String.raw`\text{ ${word} }`;
         i += word.length;
         while (source[i] === " ") i += 1;
+        continue;
+      }
+      // A word opening braces is its command's; one after a private-use marker is upright already.
+      const written = /[{\uE000-\uF8FF]/.test(previous) ? undefined : WRITTEN_WORD.exec(source.slice(i))?.[0];
+      if (written && /[aeiou]/.test(written)) {
+        out += String.raw`\mathrm{${written}}`;
+        i += written.length;
+        // TeX drops a space in maths: "total cost" read "totalcost".
+        if (/^ +[A-Za-z]/.test(source.slice(i))) {
+          out += "\\ ";
+          while (source[i] === " ") i += 1;
+        }
         continue;
       }
       const formula = balanced(FORMULA_RE.exec(source.slice(i))?.[0]);

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -128,3 +129,59 @@ async def test_a_read_cancelled_ends_its_work_call(
     await asyncio.sleep(0)
     assert decider.work_cancelled
     assert metered == []
+
+
+@pytest.mark.parametrize(
+    ("failure", "success", "cause"),
+    [(None, True, None), (RuntimeError("down"), False, None)],
+)
+@pytest.mark.asyncio
+async def test_the_deciders_call_leaves_a_health_sample(
+    monkeypatch: pytest.MonkeyPatch,
+    metered: list[float],
+    failure: Exception | None,
+    success: bool,
+    cause: str | None,
+) -> None:
+    """MODEL-07: the Decider's breaker opens on its own failures, so it needs samples."""
+    from app.core import background_tasks
+    from app.services import model_health
+
+    samples: list[Any] = []
+
+    async def record(_redis: Any, batch: list[Any]) -> None:
+        samples.extend(batch)
+
+    monkeypatch.setattr(model_health, "record_samples", record)
+    monkeypatch.setattr("app.core.redis.get_redis_client", lambda: object())
+
+    async def decide(*_args: Any, **_kwargs: Any) -> DeciderReply:
+        if failure is not None:
+            raise failure
+        return DeciderReply.model_validate({"answers": _TURN})
+
+    monkeypatch.setattr(decider_gateway, "decide", decide)
+    await decider_read.decide_turn(
+        isolated_settings(openrouter_api_key="key"), "hi", has_earlier=False, seconds=1.0
+    )
+    await background_tasks.drain_background_tasks(timeout_seconds=1.0)
+    assert [(s.alias, s.success, s.cause) for s in samples] == [("decider-model", success, cause)]
+
+
+def test_a_refusal_for_capacity_opens_the_breaker_by_itself() -> None:
+    from types import SimpleNamespace
+
+    refused = SimpleNamespace(response=SimpleNamespace(status_code=429))
+    assert decider_read._failure_cause(refused) == "rate_limit"  # type: ignore[arg-type]
+    assert decider_read._failure_cause(RuntimeError("x")) is None
+
+
+@pytest.mark.asyncio
+async def test_no_key_leaves_no_sample(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.services import model_health
+
+    record = AsyncMock()
+    monkeypatch.setattr(model_health, "record_samples", record)
+    decider_read._note_health(isolated_settings(openrouter_api_key=""), "decider-model", 0.0, None)
+    await asyncio.sleep(0)
+    record.assert_not_awaited()

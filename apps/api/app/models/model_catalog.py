@@ -46,7 +46,7 @@ class ChatModel:
     tier: str = "standard"  # fast | standard | smart | max — used by Auto routing
     plan_access: str = "pro"  # free | pro — free-plan users only see free-tier models
     selectable: bool = True  # shown in the model picker
-    quota_multiplier: float = 1.0  # weight against daily token quota (R1 costs more)
+    quota_multiplier: float = 1.0  # weight against daily token quota (the smart tier costs more)
     # The OpenRouter reasoning sent at each level, from the model's own list of
     # supported efforts (GET /api/v1/models). An effort name is reasoning.effort;
     # "off" is reasoning.enabled false; None leaves the provider default. A
@@ -229,9 +229,9 @@ CATALOG: tuple[ChatModel, ...] = (
         json_mode=True,
         context_tokens=128_000,
     ),
-    # The free plan's everyday model: about a third of Luna's price per turn,
-    # as fast and as right on everyday turns, and it reads photos. Hard and
-    # maths turns go to GLM 5.3 Flash, which it does not match without thinking.
+    # The free plan's everyday model: a third of Luna's price per turn, as fast and as right on
+    # everyday turns, and it reads photos. Free's maths lane too (``ROUTING.math_free``); it
+    # sends no reasoning at any level, and GLM 5.3 Flash is that lane's backup.
     _or(
         id="qwen-3.7-flash",
         label="Qwen3.7 Flash",

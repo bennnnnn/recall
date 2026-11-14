@@ -72,28 +72,35 @@ def thinking_level(
     return "hard" if hard else "off"
 
 
-def thinks_when_hard(alias: str) -> bool:
-    """The model reasons at the "hard" level: its catalog names an effort for it."""
-    value = thinking_value(model_catalog.get(alias), "hard")
+def thinks_on_escalate(alias: str) -> bool:
+    """The model reasons at the "escalate" level: its catalog names an effort for it."""
+    value = thinking_value(model_catalog.get(alias), "escalate")
     return value in EFFORTS and value != "none"
 
 
-def lane_for_think(
-    model: str, pool: list[str], unsteady: frozenset[str] = frozenset()
-) -> str | None:
-    """Auto's lane for a turn the read says to think on, when it is the maths lane and its
-    model cannot think (its catalog sends no reasoning at "hard"): the pool's smart lane, or
-    another of the pool's strong models that can think. None keeps the lane. A hard
-    everyday question reaches the strong lane by the read's table (``ROUTING.decided``),
-    not here. A model whose breaker is open or half-open (``unsteady``) is never moved to:
-    the turn would wait out its timeout."""
-    if model != model_catalog.auto_math_alias() or model not in pool or thinks_when_hard(model):
-        return None
-    smart = model_catalog.auto_smart_alias()
-    strong = [
-        m
-        for m in pool
-        if model_catalog.get(m).tier in {"smart", "max"} and m != model and m not in unsteady
-    ]
-    ordered = ([smart] if smart in strong else []) + [m for m in strong if m != smart]
-    return next((alias for alias in ordered if thinks_when_hard(alias)), None)
+def escalation_model(
+    model: str,
+    plan_lane: tuple[str, ...],
+    pool: list[str],
+    unsteady: frozenset[str] = frozenset(),
+) -> str:
+    """The model a regenerate runs on: ``model`` when it thinks at the escalate level (Pro's
+    everyday model, the maths lane on a paid plan), else the plan's model that does. A
+    regenerate asks one level more (``thinking_level``), and the cheap everyday model sends
+    no reasoning at any level, so "try again" on it repeated the same call (2026-11-13).
+
+    The plan's thinking model is the first of its maths lane and that lane's backup
+    (billing's ``math_lane_for``) that thinks: DeepSeek on a plan that has it, GLM 5.3
+    Flash behind Qwen3.7 Flash on Free. With neither usable (switched off, or its breaker
+    open or half-open: ``unsteady``), the cheapest of the pool that thinks; with none,
+    ``model``."""
+    if model not in model_catalog.known_ids() or thinks_on_escalate(model):
+        return model
+    usable = [alias for alias in pool if alias not in unsteady]
+    thinking = [alias for alias in usable if thinks_on_escalate(alias)]
+    chosen = next((alias for alias in plan_lane if alias in thinking), None)
+    if chosen is None and thinking:
+        chosen = min(
+            thinking, key=lambda alias: model_catalog.price_sort_key(model_catalog.get(alias))
+        )
+    return chosen or model

@@ -1,0 +1,603 @@
+[
+ {
+  "id": "ca13-t01",
+  "area": "electrochem",
+  "prompt": "E° = 0.80 V, n = 1, Q = 0.010 at 350 K. Use the Nernst equation to find E.",
+  "expect": "answer",
+  "answers": [
+   [
+    0.9389,
+    "V"
+   ]
+  ],
+  "note": "audit 2026-11-13 CHEM-02: was 0.92 V, solved at 298.15 K; 0.80 - (8.314462618*350/96485.33212)*ln(0.010)"
+ },
+ {
+  "id": "ca13-t02",
+  "area": "electrochem",
+  "prompt": "Use the Nernst equation: E° = 0.80 V, n = 2, Q = 0.10 at a temperature of 310 K. Find E.",
+  "expect": "answer",
+  "answers": [
+   [
+    0.8308,
+    "V"
+   ]
+  ],
+  "note": "0.80 - (R*310/(2F))*ln(0.10)"
+ },
+ {
+  "id": "ca13-t03",
+  "area": "electrochem",
+  "prompt": "E° = 0.80 V, n = 1, Q = 0.010 at 25 °C. Use the Nernst equation to find E.",
+  "expect": "answer",
+  "answers": [
+   [
+    0.9183,
+    "V"
+   ]
+  ]
+ },
+ {
+  "id": "ca13-t04",
+  "area": "electrochem",
+  "prompt": "Use the Nernst equation: E° = 0.80 V, n = 1, Q = 0.010 at 100 °F. Find E.",
+  "expect": "answer",
+  "answers": [
+   [
+    0.9234,
+    "V"
+   ]
+  ],
+  "note": "100 °F = 310.93 K"
+ },
+ {
+  "id": "ca13-t05",
+  "area": "electrochem",
+  "prompt": "E° = 0.80 V, n = 1, Q = 0.010 at body temperature. Use the Nernst equation to find E.",
+  "expect": "decline",
+  "note": "a temperature named, not stated as a value: never 25 °C"
+ },
+ {
+  "id": "ca13-t06",
+  "area": "cell_potential",
+  "prompt": "Find the cell potential of a Zn/Cu cell with [Zn2+] = 1.0 M and [Cu2+] = 0.010 M at 350 K",
+  "expect": "answer",
+  "answers": [
+   [
+    1.0306,
+    "V"
+   ]
+  ],
+  "note": "E°cell = 0.34 - (-0.76) = 1.10 V; Q = [Zn2+]/[Cu2+] = 100; 1.10 - (R*350/(2F))*ln(100); was 1.04 V at 298.15 K"
+ },
+ {
+  "id": "ca13-t07",
+  "area": "equilibrium_kc",
+  "prompt": "Kc = 0.5 at 500 °C. Find Kp for N2 + 3 H2 -> 2 NH3.",
+  "expect": "answer",
+  "answers": [
+   [
+    0.00012422,
+    ""
+   ]
+  ],
+  "note": "Kp = Kc(RT)^Δn, Δn = -2, T = 773.15 K, R = 0.082057366 L·atm/(mol·K)"
+ },
+ {
+  "id": "ca13-t08",
+  "area": "ph",
+  "prompt": "Strong base: 0.010 M NaOH at 50 °C",
+  "expect": "decline",
+  "note": "Kw is 1.0e-14 at 25 °C only: pKw at 50 °C is 13.26, so pH = 12.00 would be wrong"
+ },
+ {
+  "id": "ca13-t09",
+  "area": "gibbs",
+  "prompt": "For a reaction ΔH = -92 kJ/mol and ΔS = -199 J/(mol·K). Find ΔG at 25 °C.",
+  "expect": "answer",
+  "answers": [
+   [
+    -32.67,
+    "kJ/mol"
+   ]
+  ],
+  "note": "-92 - 298.15*(-0.199)"
+ },
+ {
+  "id": "ca13-i01",
+  "area": "molar_mass",
+  "prompt": "What is the molar mass of NaCl3?",
+  "expect": "decline",
+  "note": "audit CHEM-05: was 129.34 g/mol verified; Na+ and Cl- cancel only as NaCl"
+ },
+ {
+  "id": "ca13-i02",
+  "area": "molar_mass",
+  "prompt": "What is the molar mass of MgCl3?",
+  "expect": "decline"
+ },
+ {
+  "id": "ca13-i03",
+  "area": "moles",
+  "prompt": "How many moles are in 10 g of NaCl3?",
+  "expect": "decline"
+ },
+ {
+  "id": "ca13-i04",
+  "area": "balancing",
+  "prompt": "Balance Na + Cl2 -> NaCl3",
+  "expect": "decline",
+  "note": "was 2 Na + 3 Cl2 -> 2 NaCl3, verified"
+ },
+ {
+  "id": "ca13-i05",
+  "area": "stoichiometry",
+  "prompt": "How many grams of AlCl2 form from 10 g of Al? Al + Cl2 -> AlCl2",
+  "expect": "decline",
+  "note": "was 36 g verified"
+ },
+ {
+  "id": "ca13-i06",
+  "area": "molar_mass",
+  "prompt": "What is the molar mass of PCl5?",
+  "expect": "answer",
+  "answers": [
+   [
+    208.224,
+    "g/mol"
+   ]
+  ],
+  "note": "look-alike of CHEM-05: a compound that exists keeps its answer"
+ },
+ {
+  "id": "ca13-i07",
+  "area": "molar_mass",
+  "prompt": "What is the molar mass of SF6?",
+  "expect": "answer",
+  "answers": [
+   [
+    146.048,
+    "g/mol"
+   ]
+  ],
+  "note": "look-alike of CHEM-05: a compound that exists keeps its answer"
+ },
+ {
+  "id": "ca13-i08",
+  "area": "molar_mass",
+  "prompt": "What is the molar mass of Fe3O4?",
+  "expect": "answer",
+  "answers": [
+   [
+    231.531,
+    "g/mol"
+   ]
+  ],
+  "note": "look-alike of CHEM-05: a compound that exists keeps its answer"
+ },
+ {
+  "id": "ca13-i09",
+  "area": "molar_mass",
+  "prompt": "What is the molar mass of CO?",
+  "expect": "answer",
+  "answers": [
+   [
+    28.01,
+    "g/mol"
+   ]
+  ],
+  "note": "look-alike of CHEM-05: a compound that exists keeps its answer"
+ },
+ {
+  "id": "ca13-i10",
+  "area": "molar_mass",
+  "prompt": "What is the molar mass of H2O2?",
+  "expect": "answer",
+  "answers": [
+   [
+    34.014,
+    "g/mol"
+   ]
+  ],
+  "note": "look-alike of CHEM-05: a compound that exists keeps its answer"
+ },
+ {
+  "id": "ca13-i11",
+  "area": "molar_mass",
+  "prompt": "What is the molar mass of Na2O2?",
+  "expect": "answer",
+  "answers": [
+   [
+    77.978,
+    "g/mol"
+   ]
+  ],
+  "note": "look-alike of CHEM-05: a compound that exists keeps its answer"
+ },
+ {
+  "id": "ca13-i12",
+  "area": "molar_mass",
+  "prompt": "What is the molar mass of KO2?",
+  "expect": "answer",
+  "answers": [
+   [
+    71.096,
+    "g/mol"
+   ]
+  ],
+  "note": "look-alike of CHEM-05: a compound that exists keeps its answer"
+ },
+ {
+  "id": "ca13-i13",
+  "area": "molar_mass",
+  "prompt": "What is the molar mass of KI3?",
+  "expect": "answer",
+  "answers": [
+   [
+    419.81,
+    "g/mol"
+   ]
+  ],
+  "note": "look-alike of CHEM-05: a compound that exists keeps its answer"
+ },
+ {
+  "id": "ca13-i14",
+  "area": "molar_mass",
+  "prompt": "What is the molar mass of NaN3?",
+  "expect": "answer",
+  "answers": [
+   [
+    65.011,
+    "g/mol"
+   ]
+  ],
+  "note": "look-alike of CHEM-05: a compound that exists keeps its answer"
+ },
+ {
+  "id": "ca13-w01",
+  "area": "molarity",
+  "prompt": "What is the molarity of 0.25 mol NaCl in 500. mL of solution?",
+  "expect": "answer",
+  "answers": [
+   [
+    0.5,
+    "M"
+   ]
+  ],
+  "note": "audit CHEM-07: a trailing decimal point marks 500's zeros significant"
+ },
+ {
+  "id": "ca13-w02",
+  "area": "ph",
+  "prompt": "What is the pH of 0.01 M hcl?",
+  "expect": "answer",
+  "answers": [
+   [
+    2.0,
+    ""
+   ]
+  ],
+  "abs_tol": 0.02,
+  "note": "a lowercase formula with one reading, where an amount names it"
+ },
+ {
+  "id": "ca13-w03",
+  "area": "moles",
+  "prompt": "How many moles are in 36 g of h2o?",
+  "expect": "answer",
+  "answers": [
+   [
+    1.9983,
+    "mol"
+   ]
+  ]
+ },
+ {
+  "id": "ca13-w04",
+  "area": "molar_mass",
+  "prompt": "What is the molar mass of co?",
+  "expect": "decline",
+  "note": "co is Co or CO: never guessed"
+ },
+ {
+  "id": "ca13-w05",
+  "area": "molar_mass",
+  "prompt": "What is the molar mass of (NH4)3PO4?",
+  "expect": "answer",
+  "answers": [
+   [
+    149.087,
+    "g/mol"
+   ]
+  ],
+  "note": "3(14.007) + 12(1.008) + 30.974 + 4(15.999)"
+ },
+ {
+  "id": "ca13-w06",
+  "area": "moles",
+  "prompt": "How many moles are in 10 g of (NH4)2SO4?",
+  "expect": "answer",
+  "answers": [
+   [
+    0.07568,
+    "mol"
+   ]
+  ],
+  "note": "M = 132.134 g/mol"
+ },
+ {
+  "id": "ca13-w07",
+  "area": "molarity",
+  "prompt": "What is the molarity of a solution with 5.85 g/L NaCl?",
+  "expect": "answer",
+  "answers": [
+   [
+    0.1001,
+    "M"
+   ]
+  ],
+  "note": "c = ρ / M = 5.85 / 58.44"
+ },
+ {
+  "id": "ca13-w08",
+  "area": "molarity",
+  "prompt": "A solution contains 20 g/L of NaOH. What is its molarity?",
+  "expect": "answer",
+  "answers": [
+   [
+    0.5,
+    "M"
+   ]
+  ],
+  "note": "20 / 39.997"
+ },
+ {
+  "id": "ca13-p01",
+  "area": "molar_mass",
+  "prompt": "a) molar mass of NH3 b) moles in 34 g of NH3",
+  "expect": "answer",
+  "answers": [
+   [
+    17.031,
+    "g/mol"
+   ]
+  ],
+  "parts": [
+   [
+    17.031,
+    "g/mol"
+   ],
+   [
+    1.9964,
+    "mol"
+   ]
+  ],
+  "note": "audit CHEM-08: neither part was verified"
+ },
+ {
+  "id": "ca13-p02",
+  "area": "moles",
+  "prompt": "(a) What is the molar mass of NH3? (b) How many moles are in 34 g of it?",
+  "expect": "answer",
+  "answers": [
+   [
+    17.031,
+    "g/mol"
+   ]
+  ],
+  "parts": [
+   [
+    17.031,
+    "g/mol"
+   ],
+   [
+    1.9964,
+    "mol"
+   ]
+  ],
+  "note": "part (b) asks of the NH3 part (a) named"
+ },
+ {
+  "id": "ca13-p03",
+  "area": "moles",
+  "prompt": "What is the molar mass of H2O? How many moles are in 36 g of H2O?",
+  "expect": "answer",
+  "answers": [
+   [
+    18.015,
+    "g/mol"
+   ]
+  ],
+  "parts": [
+   [
+    18.015,
+    "g/mol"
+   ],
+   [
+    1.9983,
+    "mol"
+   ]
+  ],
+  "note": "was answered with the molar mass alone, the moles never mentioned"
+ },
+ {
+  "id": "ca13-p04",
+  "area": "ph",
+  "prompt": "A solution has 0.010 M HCl. What is its pH? What is its pOH?",
+  "expect": "answer",
+  "answers": [
+   [
+    2.0,
+    ""
+   ]
+  ],
+  "parts": [
+   [
+    2.0,
+    ""
+   ],
+   [
+    12.0,
+    ""
+   ]
+  ],
+  "abs_tol": 0.02,
+  "note": "was answered with the pOH alone"
+ },
+ {
+  "id": "ca13-l01",
+  "area": "lookalike",
+  "prompt": "My chemistry teacher is mean",
+  "expect": "not_subject",
+  "note": "audit ARCH-01 / PHYS-11: no formula, quantity or chemistry task"
+ },
+ {
+  "id": "ca13-l02",
+  "area": "lookalike",
+  "prompt": "Remind me to study chemistry",
+  "expect": "not_subject",
+  "note": "audit ARCH-01 / PHYS-11: no formula, quantity or chemistry task"
+ },
+ {
+  "id": "ca13-l03",
+  "area": "lookalike",
+  "prompt": "I love the chemistry between us",
+  "expect": "not_subject",
+  "note": "audit ARCH-01 / PHYS-11: no formula, quantity or chemistry task"
+ },
+ {
+  "id": "ca13-l04",
+  "area": "lookalike",
+  "prompt": "I have a chemistry exam tomorrow and I'm nervous",
+  "expect": "not_subject",
+  "note": "audit ARCH-01 / PHYS-11: no formula, quantity or chemistry task"
+ },
+ {
+  "id": "ca13-l05",
+  "area": "lookalike",
+  "prompt": "What are the SI base units of the newton?",
+  "expect": "not_subject",
+  "note": "audit ARCH-01 / PHYS-11: no formula, quantity or chemistry task"
+ },
+ {
+  "id": "ca13-l06",
+  "area": "lookalike",
+  "prompt": "What are the SI base units of G?",
+  "expect": "not_subject",
+  "note": "audit ARCH-01 / PHYS-11: no formula, quantity or chemistry task"
+ },
+ {
+  "id": "ca13-d01",
+  "area": "molarity",
+  "prompt": "The density of a NaCl solution is 1.07 g/mL. What is its molarity?",
+  "expect": "decline",
+  "note": "review 2026-11-13: a solution's density (or another substance's grams per litre) is never the solute's mass concentration; verified up to 32.6 M before"
+ },
+ {
+  "id": "ca13-d02",
+  "area": "molarity",
+  "prompt": "What is the molarity of an HCl solution with a density of 1.19 g/mL?",
+  "expect": "decline",
+  "note": "review 2026-11-13: a solution's density (or another substance's grams per litre) is never the solute's mass concentration; verified up to 32.6 M before"
+ },
+ {
+  "id": "ca13-d03",
+  "area": "molarity",
+  "prompt": "An H2SO4 solution has a density of 1.84 g/mL. What is the molarity?",
+  "expect": "decline",
+  "note": "review 2026-11-13: a solution's density (or another substance's grams per litre) is never the solute's mass concentration; verified up to 32.6 M before"
+ },
+ {
+  "id": "ca13-d04",
+  "area": "molarity",
+  "prompt": "A NaCl solution has a density of 1.07 g/cm3. Find the molarity.",
+  "expect": "decline",
+  "note": "review 2026-11-13: a solution's density (or another substance's grams per litre) is never the solute's mass concentration; verified up to 32.6 M before"
+ },
+ {
+  "id": "ca13-d05",
+  "area": "molarity",
+  "prompt": "Find the molarity of NaOH whose density is 1.5 g/L",
+  "expect": "decline",
+  "note": "review 2026-11-13: a solution's density (or another substance's grams per litre) is never the solute's mass concentration; verified up to 32.6 M before"
+ },
+ {
+  "id": "ca13-d06",
+  "area": "molarity",
+  "prompt": "What is the molarity of a 1.19 g/mL HCl solution?",
+  "expect": "decline",
+  "note": "review 2026-11-13: a solution's density (or another substance's grams per litre) is never the solute's mass concentration; verified up to 32.6 M before"
+ },
+ {
+  "id": "ca13-d07",
+  "area": "molarity",
+  "prompt": "Seawater contains 35 g/L of dissolved salts. What is the molarity of NaCl?",
+  "expect": "decline",
+  "note": "review 2026-11-13: a solution's density (or another substance's grams per litre) is never the solute's mass concentration; verified up to 32.6 M before"
+ },
+ {
+  "id": "ca13-w09",
+  "area": "molarity",
+  "prompt": "What is the molarity of NaCl at 5.85 g/L?",
+  "expect": "answer",
+  "answers": [
+   [
+    0.1001,
+    "M"
+   ]
+  ],
+  "note": "5.85 / 58.44"
+ },
+ {
+  "id": "ca13-t10",
+  "area": "electrochem",
+  "prompt": "E° = 1.10 V, n = 2, Q = 0.0100 at 25 °C (298 K). Use the Nernst equation to find E.",
+  "expect": "answer",
+  "answers": [
+   [
+    1.1592,
+    "V"
+   ]
+  ],
+  "note": "review 2026-11-13: one temperature written twice; 1.10 - (R*298.15/(2F))*ln(0.0100)"
+ },
+ {
+  "id": "ca13-t11",
+  "area": "equilibrium_kc",
+  "prompt": "Kc = 0.500 at 0 °C (273 K) for N2 + 3H2 -> 2NH3. Find Kp.",
+  "expect": "answer",
+  "answers": [
+   [
+    0.0009953,
+    ""
+   ]
+  ],
+  "note": "Kp = Kc(RT)^-2, T = 273.15 K"
+ },
+ {
+  "id": "ca13-q01",
+  "area": "molar_mass",
+  "prompt": "What is the molar mass of CO2? What is the molar mass of H2O? Which one is heavier?",
+  "expect": "answer",
+  "answers": [
+   [
+    44.009,
+    "g/mol"
+   ]
+  ],
+  "note": "review 2026-11-13: three questions, the third no law answers: the model writes the reply, never an instant reply of two cards"
+ },
+ {
+  "id": "ca13-q02",
+  "area": "molar_mass",
+  "prompt": "What is the molar mass of NaCl? What is the molar mass of KCl? How many moles are in 10 g of it?",
+  "expect": "answer",
+  "answers": [
+   [
+    58.44,
+    "g/mol"
+   ]
+  ],
+  "note": "'it' is NaCl or KCl: the model asks or answers; no instant reply drops it"
+ }
+]

@@ -10,10 +10,10 @@ from app.modules.chemistry.extractors.parsing import (
     _pressure_species,
     _search,
 )
-from app.modules.chemistry.quantity import to_kelvin
 from app.modules.chemistry.request import CHEMICAL_FORMULA, EQUATION_RE
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.species_facts import dissolution_equation, named_species
+from app.modules.chemistry.temperature import stated_temperature
 
 _ICE_ASK = re.compile(r"\bICE equilibrium\b|\bequilibrium\s+concentrations?\b", re.IGNORECASE)
 
@@ -65,7 +65,9 @@ def _extract_equilibrium(text: str) -> ChemistryIntent | None:
     ):
         # "Kc = 0.5 at 500 K. Find Kp." converts the stated Kc; it has no partial pressures.
         kc = _search(rf"\bKc\s*=\s*({_N})", text, flags=0)
-        temperature = _search(rf"({_N})\s*K\b", text, flags=0)
+        temperature = stated_temperature(text)
+        if temperature is False:
+            return None
         if kc is not None and temperature is not None:
             return ChemistryIntent(
                 kind="equilibrium",
@@ -83,7 +85,9 @@ def _extract_equilibrium(text: str) -> ChemistryIntent | None:
     if converted is not None:
         return converted
     if re.search(r"\b(?:Kc to Kp|Kp to Kc)\b", text, re.IGNORECASE) and equation:
-        temperature = _search(rf"\bT\s*=\s*({_N})\s*K", text, flags=0)
+        temperature = stated_temperature(text)
+        if temperature is False:
+            return None
         kc = _search(rf"\bKc\s*=\s*({_N})", text, flags=0)
         kp = _search(rf"\bKp\s*=\s*({_N})", text, flags=0)
         params = {}
@@ -155,7 +159,6 @@ def _starting_amounts(text: str, equation: str) -> dict[str, float]:
 # "Kp for N2 + 3H2 ⇌ 2NH3 is 1.45 x 10^-5 at 500 °C. Find Kc.": one constant stated, the
 # other asked, at a stated temperature.
 _FIND_K = re.compile(r"\b(?:find|calculate|determine|what\s+is)\s+(?:the\s+)?(?-i:(Kc|Kp))\b", re.I)
-_TEMPERATURE = re.compile(rf"\b(?:at|T\s*=)\s*({_N})\s*(°\s*C|K)(?![A-Za-z])")
 
 
 def _stated_k(text: str, symbol: str) -> float | None:
@@ -173,11 +176,9 @@ def _stated_k_to_convert(text: str, equation: str | None) -> ChemistryIntent | N
     target = asked.group(1)
     source = "Kp" if target == "Kc" else "Kc"
     value = _stated_k(text, source)
-    temperatures = _TEMPERATURE.findall(text)
-    if value is None or len(temperatures) != 1 or _stated_k(text, target) is not None:
+    kelvin = stated_temperature(text)
+    if value is None or not isinstance(kelvin, float) or _stated_k(text, target) is not None:
         return None
-    number, unit = temperatures[0]
-    kelvin = to_kelvin(float(number), "celsius" if "C" in unit else "kelvin")
     return ChemistryIntent(
         kind="equilibrium",
         chemistry_op="kc_kp",

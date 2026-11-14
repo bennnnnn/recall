@@ -38,7 +38,9 @@ class RoutingLanes:
     math: str
     # The maths lane on a plan without ``math`` (Free): Qwen3.7 Flash kept the owner's
     # Given/Required layout and solved "How many solutions does $4X^2 + 4 = 6$ have?"
-    # (2026-11-10), at the lowest price of the pool (the owner's call, 2026-11-11).
+    # (2026-11-10), at the lowest price of the pool (the owner's call, 2026-11-11). It sends
+    # no reasoning at any level, so a hard question here does not think; a regenerate moves
+    # to its backup below, which does (``model_routing.thinking.escalation_model``).
     math_free: str
     # Each maths lane's first backup, from another company (the owner's calls, 2026-11-11):
     # Qwen3.8 Flash behind DeepSeek, in GLM 5.2's place at a fifth of its output price (right
@@ -89,9 +91,10 @@ class RoutingLanes:
     # and high, one of "everyday", "hard" and "math" above. Data, so routing names no model.
     # A subject not here (money: its calculator card holds the numbers) keeps the word
     # rules' lane. Only a hard question goes to the strong lane on a plan that has it (the
-    # owner's call, 2026-11-10): a low one, code too, stays on the everyday lane and thinks
-    # there (a git how-to read as low code waited 7.8 s on DeepSeek). STEM nothing verified
-    # goes to the maths lane, hard or not (the owner's call, 2026-11-11).
+    # owner's call, 2026-11-10): a low one, code too, stays on the everyday lane (a git how-to
+    # read as low code waited 7.8 s on DeepSeek), which thinks only where its model can: Pro's
+    # does, Qwen3.7 Flash on Free and Plus sends no reasoning. STEM nothing verified goes to
+    # the maths lane, hard or not (the owner's call, 2026-11-11).
     decided: Mapping[str, tuple[str, str, str]]
 
 
