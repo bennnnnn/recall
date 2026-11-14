@@ -23,6 +23,7 @@ from app.modules.chat.simulation_fences import (
 from app.modules.chat.verification_claims import strip_verification_claims
 from app.modules.chat.worked_lead import drop_restated_tail
 from app.modules.chat.working_check import is_worked_solution, working_note
+from app.modules.turn_reading.turn import current_turn_reading
 from app.services.answer_fence import (
     ANSWER_FENCE_LANGS,
     SERVER_DRAWN_LANGS,
@@ -86,23 +87,44 @@ def prepare_model_reply(state: FinalizeState) -> str:
     """Model text before any server card is added to it.
 
     The model cannot forge the server's ``verified: true`` line, every spelling
-    of its answer fences is put in the one form the subject passes demote, and
-    its own "✅ Verified with SymPy" claims go: on an unverified turn they fake
-    the check, and on a verified one the card says it (a claim beside a wrong
-    value would contradict it). A scene or a structure is the server's to draw, so the
-    model's own never ships: the chemistry pass and the SMILES drawing add the server's
-    after this, and a verified physics turn replaces a ```simulation in its pass.
+    of its answer fences is put in the one form the subject passes demote, and, on a
+    turn that can show a card, its own "✅ Verified with SymPy" claims go: on an
+    unverified turn they fake the check, and on a verified one the card says it (a claim
+    beside a wrong value would contradict it). A scene or a structure is the server's to
+    draw, so the model's own never ships: the chemistry pass and the SMILES drawing add the
+    server's after this, and a verified physics turn replaces a ```simulation in its pass.
     """
     if state.server_text:
         return state.text
     text = normalize_owned_fences(strip_forged_verified_markers(state.text))
-    text = strip_verification_claims(text)
+    if _may_show_a_card(state):
+        text = strip_verification_claims(text)
     # Left open, the model's own scene or structure is never the server's, on any turn.
     text = drop_open_fences(text, (*SERVER_DRAWN_LANGS, *CAPTIONED_LANGS))
     drawn: tuple[str, ...] = SERVER_DRAWN_LANGS
     if isinstance(state.ctx.verified_subject, VerifiedPhysicsBlock):
         drawn = tuple(lang for lang in drawn if lang != "simulation")
     return strip_model_drawn_fences(text, drawn)
+
+
+def _may_show_a_card(state: FinalizeState) -> bool:
+    """Whether the reply can carry a checked card, so a claim of a check would fake one: a
+    turn a subject read or solved, a calculation laid out, a money card. A coding or everyday
+    turn shows none, and its "The server validates the request" stays as written (review,
+    2026-11-13). A turn whose reading of its message is not known is taken as one."""
+    ctx = state.ctx
+    if ctx.verified_subject is not None or ctx.solver_unverified:
+        return True
+    if ctx.worked is not None or ctx.money is not None:
+        return True
+    reading = current_turn_reading()
+    if reading is None or reading.subject_reason in ("not_read", "read_declined"):
+        return True
+    if not reading.reads(
+        ctx.user_message_content, chemistry_enabled=state.settings.chemistry_enabled
+    ):
+        return True
+    return reading.subject is not None
 
 
 def _check_part_fences(state: FinalizeState) -> str | None:

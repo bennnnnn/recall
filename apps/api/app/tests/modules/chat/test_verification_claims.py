@@ -4,12 +4,23 @@ A claim survived when its words came in another order ("The server verified this
 with no checker ("The solution is verified: x = 42"), under a list marker ("- **Verified
 answer:** …") or as a label before a value ("✓ Verified: x = 42") (audit SEC-03, 2026-11-13).
 Only the claim goes, never the value beside it, and an everyday "confirmed" or "verified"
-stays, a checker that is no solver ("the app") included (review, 2026-11-13).
+stays, a checker that is no solver ("the app") included (review, 2026-11-13). What a tool
+does, code, and a check mark beside a student's line stay too, and only a turn that can show
+a card is read for claims at all (second review, 2026-11-13).
 """
+
+import contextvars
+from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
 
+from app.core.config import Settings
+from app.core.readings import begin_turn
+from app.modules.chat.finalize_subjects import prepare_model_reply
 from app.modules.chat.verification_claims import strip_verification_claims
+from app.modules.turn_reading.plan import single_plan
+from app.modules.turn_reading.turn import TurnReading, keep_turn_reading
 
 
 @pytest.mark.parametrize(
@@ -28,9 +39,6 @@ from app.modules.chat.verification_claims import strip_verification_claims
         ("x = 42 — SymPy agrees.", "x = 42."),
         ("I ran it through SymPy and got x = 42.", "x = 42."),
         ("Checked by Recall: x = 42", "x = 42"),
-        ("x = 42 ✓", "x = 42"),
-        ("x = 42 ✅", "x = 42"),
-        ("✅ x = 42", "x = 42"),
         ("Result verified ✅: x = 42", "x = 42"),
         ("Answer (verified): x = 42", "Answer: x = 42"),
         ("The solution is verified: x = 42", "x = 42"),
@@ -71,10 +79,16 @@ from app.modules.chat.verification_claims import strip_verification_claims
         ("x = 5. The answer has been double-checked numerically.", "x = 5."),
         ("Verified by SymPy: x = 5", "x = 5"),
         ("* __Verified solutions__: x = 1, x = 2", "* __Solutions__: x = 1, x = 2"),
-        (
-            "To verify, substitute x = 2: 2(2) + 3 = 7 ✓",
-            "To verify, substitute x = 2: 2(2) + 3 = 7",
-        ),
+        # The writer's own check, said as done, keeps its value (review, 2026-11-13).
+        ("I've verified the answer: x = 6.", "x = 6."),
+        ("I verified this answer by substituting it back: x = 6.", "x = 6."),
+        ("The solution is verified by substitution: $2(6) + 5 = 17$.", "$2(6) + 5 = 17$."),
+        ("x = 6, which I verified.", "x = 6."),
+        ("Double-checked: x = 6.", "x = 6."),
+        ("Confirmed: x = 6", "x = 6"),
+        ("x = 6 — confirmed.", "x = 6."),
+        ("x = 6 (I checked it twice).", "x = 6."),
+        ("I ran it through SymPy and got the same result: x = 6.", "x = 6."),
     ],
 )
 def test_verification_claims_a_claim_goes_and_its_value_stays(reply: str, kept: str) -> None:
@@ -122,6 +136,31 @@ def test_verification_claims_a_claim_goes_and_its_value_stays(reply: str, kept: 
         "The meeting is at 5:00. See https://example.com/a.b for details.",
         "Check your answer by plugging it back in.",
         "Did you double-check the units?",
+        # What a tool or a server does is no claim about this answer (review, 2026-11-13).
+        "The server checks the JWT signature before it trusts the token.",
+        "The server validates the request body against the schema.",
+        "Each session is checked by the server on every request.",
+        "The email address was verified by the server, so the account is active.",
+        "SymPy checks equality with simplify(a - b) == 0.",
+        "In Python, `x = 5` sets x. SymPy verifies identities with `simplify`.",
+        "SymPy verified the identity using `simplify`.",
+        "A SAT solver checks whether the clauses can all be true.",
+        "I ran it through SymPy and got a different result than by hand, so check the brackets.",
+        "The checker validates each move before the game continues.",
+        "```python\nx = 5\nprint(x)\n```\n\nAll tests pass. The results are verified.",
+        "```python\nassert add(2, 3) == 5\n```\n\nThe values are checked.",
+        "Run `pytest` and the results are verified: `x = 5` passes.",
+        # A check mark beside a value marks a line, the student's own in "check my work".
+        "Line 1: $2x + 5 = 17$ ✓\nLine 2: $2x = 12$ ✓\nLine 3: $x = 7$ ✗ (it should be 6)",
+        "- x = 2: $2^2 - 4 = 0$ ✅\n- x = 3: $3^2 - 4 = 5$ ❌",
+        "Your answer x = 6 is correct ✓",
+        "| Step | Work | OK? |\n|---|---|---|\n| 1 | 2x = 12 | ✓ |",
+        "x = 42 ✓",
+        "**x = 6** ✅",
+        "✅ x = 42",
+        "To verify, substitute x = 2: 2(2) + 3 = 7 ✓",
+        "Checked: you forgot the minus sign in 2x - 5 = 7.",
+        "x = 6. Confirmed: the museum is open on Mondays.",
     ],
 )
 def test_verification_claims_everything_else_stays(reply: str) -> None:
@@ -131,3 +170,50 @@ def test_verification_claims_everything_else_stays(reply: str) -> None:
 def test_verification_claims_inside_a_fence_are_code() -> None:
     reply = "```text\n✓ Verified: x = 42\nThe server verified this result.\n```"
     assert strip_verification_claims(reply) == reply
+
+
+_PROMPT = "How does my API check its requests?"
+_REPLY = "x = 42. This was verified by the server."
+
+
+def _prepared(subject: str | None, reason: str, *, verified: object = None) -> str:
+    begin_turn()
+    keep_turn_reading(
+        TurnReading(
+            _PROMPT,
+            True,
+            single_plan(_PROMPT),
+            "one_request",
+            "no_cue",
+            subject=subject,
+            subject_reason=reason,
+        )
+    )
+    ctx = SimpleNamespace(
+        verified_subject=verified,
+        solver_unverified=False,
+        worked=None,
+        money=None,
+        user_message_content=_PROMPT,
+    )
+    state = SimpleNamespace(server_text=False, text=_REPLY, settings=Settings(), ctx=ctx)
+    return prepare_model_reply(cast(Any, state))
+
+
+@pytest.mark.parametrize(
+    ("subject", "reason", "verified", "kept"),
+    [
+        # A coding or everyday turn shows no card: its words are its own (review, 2026-11-13).
+        (None, "code", None, _REPLY),
+        (None, "none", None, _REPLY),
+        # A subject's turn, a verified one, or one whose message was not read can show one.
+        ("math", "math", None, "x = 42."),
+        (None, "none", object(), "x = 42."),
+        (None, "not_read", None, "x = 42."),
+    ],
+)
+def test_a_claim_goes_only_on_a_turn_that_can_show_a_card(
+    subject: str | None, reason: str, verified: object, kept: str
+) -> None:
+    out = contextvars.copy_context().run(_prepared, subject, reason, verified=verified)
+    assert out == kept
