@@ -247,3 +247,24 @@ def test_a_part_asking_several_values_cards_each(section: str, carded: str) -> N
     landed = land_answer_card(f"**Solution**\n\nworking\n\n**Answer**\n\n{section}", None)
     card = landed.split("```answer\n", 1)[1].split("\n```", 1)[0]
     assert card == f"verified: false\n{carded}"
+
+
+@pytest.mark.parametrize(
+    ("part", "head"),
+    [
+        ("A = 15 m²", "A"),
+        (" P \\approx 16 m", "P"),
+        ("C ≈ 18.85", "C"),
+        ("gcd(252, 198) = 18", "gcd(252, 198)"),
+        ("= 5", None),
+        ("A\n= 5", "A"),
+        ("no separator", None),
+        (" " * 20_000, None),
+    ],
+)
+def test_a_card_part_is_named_by_its_text_before_the_first_separator(
+    part: str, head: str | None
+) -> None:
+    from app.modules.math.tools.block.measures import _part_head
+
+    assert _part_head(part) == head

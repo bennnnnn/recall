@@ -58,7 +58,8 @@ _CARD_NAME = {
     "lcm": r"\operatorname{lcm}",
 }
 _CARD_PARTS = re.compile(r",\s*\\quad\s*")
-_PART_HEAD = re.compile(r"^\s*(?P<head>.+?)\s*(?:=|\\approx|\u2248)")
+# Where a card part's name ends: its first "=", "≈" or "\\approx".
+_PART_SEPARATOR = re.compile(r"=|\\approx|\u2248")
 _ARGUMENTS = re.compile(r"\([^()]*\)$")
 
 
@@ -66,10 +67,24 @@ def _names_every(card: str, asked: Sequence[str]) -> bool:
     """``card`` holds one named value for each quantity asked: "A = 15 m², P = 16 m"."""
     heads = set()
     for part in _CARD_PARTS.split(card):
-        head = _PART_HEAD.match(part)
+        head = _part_head(part)
         if head is not None:
-            heads.add(_ARGUMENTS.sub("", head.group("head")).strip())
+            heads.add(_ARGUMENTS.sub("", head).strip())
     return len(heads) >= len(asked) and all(_CARD_NAME.get(name) in heads for name in asked)
+
+
+def _part_head(part: str) -> str | None:
+    """A card part's name: the text before its first separator with a name in front, on one
+    line. Read in one pass; a pattern with spaces on both sides of a lazy name backtracked in
+    cubic time on a long run of spaces (the CI regex gate)."""
+    rest = part.lstrip()
+    for separator in _PART_SEPARATOR.finditer(rest):
+        head = rest[: separator.start()].rstrip()
+        if "\n" in head:
+            return None
+        if head:
+            return head
+    return None
 
 
 # A circle's or sector's area, circumference and arc are multiples of π: never exact as a
