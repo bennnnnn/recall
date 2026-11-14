@@ -9,6 +9,7 @@ looks a line up last. ``services.subjects.dispatch`` reads a line's subject from
 
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -17,8 +18,10 @@ from typing import Literal
 from app.core.readings import reading
 from app.modules.math.tools.prompt import needs_symbolic_math
 from app.modules.physics.extract import extract_physics_intent, needs_physics
-from app.services.subjects.guard import neutral_on_error
+from app.services.subjects.guard import first_failure
 from app.services.subjects.registry import SubjectName
+
+logger = logging.getLogger(__name__)
 
 # Which step of the subject order decided a line (``read_subject_reason``): the order is
 # the precedence, written once there.
@@ -35,6 +38,8 @@ SubjectReason = Literal[
     "chemistry_off",
     "chemistry_question",
     "none",
+    # A step's reader raised: the line has no subject, never a later step's (``_step``).
+    "failed",
     # Not a step of the order: no step reads the whole line, and the turn's plan is separate
     # problems a subject solves each; the turn takes its first part's subject
     # (``chat.turn_prep.reading``).
@@ -97,11 +102,24 @@ def _chemical_equation(text: str) -> bool:
     return any(parse_reaction(match.group(1)) is not None for match in EQUATION_RE.finditer(text))
 
 
+class _ReaderFailed(Exception):
+    """A step's reader raised: the order ends there with no subject."""
+
+
 def _step(subject: SubjectName, name: str, claims: Callable[[], bool]) -> bool:
-    """One step of the order, asking a subject's reader: a reader that raises claims nothing,
-    and the line goes on down the order. A chemistry reader raising here read no subject for
-    every line, maths' and physics' included (audit REL-01, 2026-11-13)."""
-    return neutral_on_error(subject, f"order.{name}", False, claims)
+    """One step of the order, asking a subject's reader. A reader that raises ends the order
+    with no subject: it is the step the line was meant for, and a later step must not
+    verify a reading of it instead (the chemistry extractors' own rule). Uncaught, one
+    chemistry reader raising failed every turn, "hi there" included (audit REL-01); answered
+    False, a Ka problem fell to maths, which certified a negative concentration (review)."""
+    try:
+        return claims()
+    except Exception as exc:
+        if first_failure(subject, f"order.{name}"):
+            logger.exception("subject %s.order.%s failed; the line has no subject", subject, name)
+        else:
+            logger.info("subject %s.order.%s failed again", subject, name)
+        raise _ReaderFailed from exc
 
 
 def _math_curve_request(text: str) -> bool:
@@ -118,6 +136,14 @@ def read_subject_reason(
 
     None only when the turn's pool read gave up (its declined value).
     """
+    try:
+        return _ordered(text, has_image_attachment, chemistry_enabled)
+    except _ReaderFailed:
+        return SubjectReading(None, "failed")
+
+
+def _ordered(text: str, has_image_attachment: bool, chemistry_enabled: bool) -> SubjectReading:
+    """The order itself, step by step (``read_subject_reason``)."""
     from app.modules.turn_reading.coding import has_code_syntax
 
     # Pasted code is not a problem to solve: `for (int i = 1; i <= 3; i++)` is a
@@ -134,6 +160,8 @@ def read_subject_reason(
         # do; the tab decides only when they name none. No subject reads biology.
         words = confirmed_scan_reading(text)
         read = read_subject_reason(words, False, chemistry_enabled) if words else None
+        if read is not None and read.reason == "failed":
+            return read
         if read is not None and read.subject is not None:
             return SubjectReading(read.subject, "scanned")
         if scanned == "biology":

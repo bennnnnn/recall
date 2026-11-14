@@ -7,7 +7,8 @@ the turn, so one broken subject failed every turn, "hi there" included: chemistr
 2026-11-13). The registry hands chat each adapter inside ``GuardedSubject``: a member that
 raises is logged (its traceback the first time) and answers as a subject with
 nothing to say would: False, None, the text as it was, no solve. The subject order asks
-the subjects' readers directly (``order``), so each of its steps is guarded the same way.
+the subjects' readers directly (``order``): a step whose reader raises ends it with no
+subject, since a later step must not claim the line its own reader failed on.
 
 The fence is not guarded. Its members run inside the finalize passes, which fail closed
 on their own (a safety pass that raises gives way to its strip): a guard that kept the text
@@ -50,7 +51,7 @@ def neutral_on_error[T](subject: str, member: str, neutral: T, call: Callable[[]
     try:
         return call()
     except Exception:
-        if _first_failure(subject, member):
+        if first_failure(subject, member):
             logger.exception("subject %s.%s failed; the turn goes on without it", subject, member)
         else:
             logger.info("subject %s.%s failed again", subject, member)
@@ -63,14 +64,15 @@ async def _neutral_async[T](
     try:
         return await call()
     except Exception:
-        if _first_failure(subject, member):
+        if first_failure(subject, member):
             logger.exception("subject %s.%s failed; the turn goes on without it", subject, member)
         else:
             logger.info("subject %s.%s failed again", subject, member)
         return neutral
 
 
-def _first_failure(subject: str, member: str) -> bool:
+def first_failure(subject: str, member: str) -> bool:
+    """The first time ``subject``'s ``member`` failed: its traceback is logged then only."""
     if (subject, member) in _FAILED:
         return False
     _FAILED.add((subject, member))
