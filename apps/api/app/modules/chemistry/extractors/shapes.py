@@ -27,13 +27,9 @@ import re
 from functools import lru_cache
 
 from app.modules.chemistry.lewis import lewis_structure
+from app.modules.chemistry.lowercase_formulas import lowercase_formula
 from app.modules.chemistry.schemas import ChemistryIntent
-from app.modules.chemistry.species_words import (
-    Mention,
-    lowercase_formula,
-    substance_mentions,
-    with_formulas,
-)
+from app.modules.chemistry.species_words import Mention, substance_mentions, with_formulas
 
 # A shape question is short; a longer line is something else that mentions a molecule.
 _MAX_LINE = 200

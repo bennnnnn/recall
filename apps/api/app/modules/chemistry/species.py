@@ -14,13 +14,11 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from app.modules.chemistry.elements import BY_SYMBOL
+from app.modules.chemistry.elements import BY_SYMBOL, DIATOMIC_ELEMENTS
 from app.modules.chemistry.formula import parse_formula
 from app.modules.chemistry.input_text import spell_scripts
 
 _PHASE_RE = re.compile(r"\s*\((aq|s|l|g)\)$", re.IGNORECASE)
-# These elements are written as molecules. ``O2-`` is superoxide, not oxide.
-DIATOMIC_ELEMENTS = frozenset({"H", "N", "O", "F", "Cl", "Br", "I"})
 _CARET_CHARGE_RE = re.compile(r"\^(?:\{(\d*)([+-])\}|(\d*)([+-]))$")
 # Longest first: "<=>" contains "=>", and "-->" and "<->" contain "->".
 ARROWS = ("<=>", "<->", "-->", "->", "→", "⇌", "⇋", "⟶", "↔", "=>")

@@ -78,7 +78,10 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
         onPress={plot.openExplorer}
         testID="graph-expand"
         accessibilityRole="button"
-        accessibilityLabel={t("rich.expand")}
+        accessibilityLabel={t("rich.graph_card_a11y", {
+          expr: formatGraphExpr(spec.title?.trim() || spec.expr),
+        })}
+        accessibilityHint={t("rich.graph_expand_hint")}
         style={[explorerStyles.plotPress, { width: card.width, height: CHART_HEIGHT }]}
       >
         {plot.skia ? (

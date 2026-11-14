@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from functools import lru_cache, partial
 
 from app.modules.chemistry.elements import BY_SYMBOL
+from app.modules.chemistry.formula import LEADING_GROUP
 from app.modules.chemistry.formula_laws import FORMULA_LAWS
 from app.modules.chemistry.given_units import CHEMISTRY_UNITS
 from app.modules.chemistry.input_text import HYDRATE_DOT, read_chemistry_text
@@ -48,6 +49,7 @@ from app.modules.chemistry.species_facts import (
     is_formula,
 )
 from app.modules.chemistry.stoichiometry import molar_mass
+from app.modules.chemistry.temperature import stated_temperature
 from app.services.law_binding.ask import ask_clause
 from app.services.law_binding.fit import (
     Fit,
@@ -107,7 +109,8 @@ _SYMBOLS: tuple[tuple[re.Pattern[str], str], ...] = tuple(
 )
 # A hydrate is one substance: CuSO4·5H2O, not CuSO4 beside a stray H2O.
 _FORMULA_TOKEN = re.compile(
-    rf"(?<![A-Za-z0-9])([A-Z][A-Za-z0-9()]*(?:{HYDRATE_DOT}\d{{0,2}}[A-Z][A-Za-z0-9()]*)*)"
+    rf"(?<![A-Za-z0-9])({LEADING_GROUP}[A-Z][A-Za-z0-9()]*"
+    rf"(?:{HYDRATE_DOT}\d{{0,2}}[A-Z][A-Za-z0-9()]*)*)"
     rf"(?![A-Za-z0-9(_{HYDRATE_DOT}])"
 )
 # "Iron-56" and "Fe-56" are a mass number. Only a neutron question is rewritten, so a
@@ -248,7 +251,9 @@ def _fallback(prepared: Prepared, variable: VariableSpec, _text: str, _lower: st
         factor = VAN_T_HOFF.get(solutes[0]) if len(solutes) == 1 else None
         return None if factor is None else float(factor)
     if variable.fallback == "standard_temperature":
-        return STANDARD_TEMPERATURE_K
+        # Standard conditions only when the question states no temperature: one it states and
+        # the binder could not read ("at 100 °F", "at body temperature") declines.
+        return STANDARD_TEMPERATURE_K if stated_temperature(prepared.original) is None else None
     if variable.fallback in _WATER_POINTS:
         # Water's normal point is a setting only when water is the solvent the question names.
         aqueous = "H2O" in prepared.species or _AQUEOUS.search(prepared.original) is not None

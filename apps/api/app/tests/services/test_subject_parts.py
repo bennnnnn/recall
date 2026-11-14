@@ -11,7 +11,8 @@ from __future__ import annotations
 import re
 
 from app.core.config import Settings
-from app.services.subjects.dispatch import _in_parts, build_subject_augmentation
+from app.services.subjects.dispatch import build_subject_augmentation
+from app.services.worked_parts import answers_in_parts
 
 _SETTINGS = Settings.model_validate({})
 _SETUP = "A ball is dropped from 20 m."
@@ -22,7 +23,7 @@ _PARTS = (
 
 
 def test_the_parts_are_lettered_under_their_own_questions() -> None:
-    text = _in_parts(_PARTS, ["**Answer**\n\n9.81 m/s", "**Answer**\n\n2.02 s"])
+    text = answers_in_parts(_PARTS, ["**Answer**\n\n9.81 m/s", "**Answer**\n\n2.02 s"])
 
     assert text.startswith("**(a) What is its speed after 1 s?**")
     assert "**(b) How long does it take to reach the ground?**" in text

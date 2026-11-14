@@ -82,9 +82,30 @@ function expandLatexEnvironments(latex: string): string {
   });
 }
 
+/** Primes a glyph counts: a typed `'` or `′` one, `″` two, `‴` three. */
+const PRIME_COUNT: Record<string, number> = { "'": 1, "′": 1, "″": 2, "‴": 3 };
+
+/** Whether the primes from `i` to `end` are a postfix on the atom before them. A typed `'`
+ * may be an apostrophe ("don't", a quoted 'word'), so it follows one letter, a command, a
+ * digit or a closing bracket and no letter follows it; `′` `″` `‴` are only ever primes. */
+function isPostfixPrime(source: string, i: number, end: number): boolean {
+  const previous = source[i - 1] ?? "";
+  if (source[i] !== "'") return /[0-9A-Za-z)\]}|α-ωΑ-Ω]/.test(previous);
+  let atom = /[0-9)\]}α-ωΑ-Ω]/.test(previous);
+  if (/[A-Za-z]/.test(previous)) {
+    let wordStart = i - 1;
+    while (wordStart > 0 && /[A-Za-z]/.test(source[wordStart - 1])) wordStart -= 1;
+    atom = wordStart === i - 1 || source[wordStart - 1] === "\\";
+  }
+  return atom && !/[A-Za-z]/.test(source[end] ?? "");
+}
+
 /** Native postfix primes are math glyphs, not prose quotation marks.
  * Keep text-command contents and escaped quotes literal through recursive
- * fraction/root parsing. KaTeX receives only restoreMathEscapes, never this. */
+ * fraction/root parsing. KaTeX receives only restoreMathEscapes, never this.
+ * A prime is a superscript, as in TeX (`f'` is `f^{\prime}`), so it is emitted as one and
+ * drawn raised at script size: on the baseline at full size, the math face's prime (cut to
+ * be a superscript) read as a slash and f″ as "f//". Arcminutes (2′ 30″) are set the same. */
 function normalizeNativeDerivativePrimes(source: string): string {
   let out = "";
   for (let i = 0; i < source.length;) {
@@ -112,20 +133,17 @@ function normalizeNativeDerivativePrimes(source: string): string {
         continue;
       }
     }
-    if (source[i] === "'") {
-      let end = i + 1;
-      while (source[end] === "'") end += 1;
-      const previous = source[i - 1] ?? "";
-      let atom = /[0-9)\]}α-ωΑ-Ω]/.test(previous);
-      if (/[A-Za-z]/.test(previous)) {
-        let wordStart = i - 1;
-        while (wordStart > 0 && /[A-Za-z]/.test(source[wordStart - 1])) wordStart -= 1;
-        atom = wordStart === i - 1 || source[wordStart - 1] === "\\";
+    if (PRIME_COUNT[source[i]]) {
+      // A typed run and a Unicode run are read apart: `'` may be an apostrophe.
+      const typed = source[i] === "'";
+      let end = i;
+      let count = 0;
+      while (PRIME_COUNT[source[end]] && (source[end] === "'") === typed) {
+        count += PRIME_COUNT[source[end]];
+        end += 1;
       }
-      // A contraction/quoted word is not a mathematical postfix.
-      if (atom && !/[A-Za-z]/.test(source[end] ?? "")) {
-        const count = end - i;
-        out += count === 1 ? "′" : count === 2 ? "″" : count === 3 ? "‴" : "′".repeat(count);
+      if (isPostfixPrime(source, i, end)) {
+        out += `^{${count === 1 ? "′" : count === 2 ? "″" : count === 3 ? "‴" : "′".repeat(count)}}`;
       } else {
         out += source.slice(i, end);
       }

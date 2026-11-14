@@ -496,3 +496,98 @@ def test_the_deciders_work_odds_set_the_layout(odds: float | None, work: bool | 
     fields = decider_read.decision_fields(answers, has_earlier=False)
     assert fields is not None
     assert TurnDecision(**fields).work is work
+
+
+def _breakers(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    cooling: frozenset[str] = frozenset(),
+    half_open: frozenset[str] = frozenset(),
+    probe: bool = True,
+) -> AsyncMock:
+    from app.services import model_health
+
+    monkeypatch.setattr(
+        model_health,
+        "read_breakers",
+        AsyncMock(return_value=model_health.Breakers(cooling=cooling, half_open=half_open)),
+    )
+    claim = AsyncMock(return_value=probe)
+    monkeypatch.setattr(model_health, "claim_probe", claim)
+    return claim
+
+
+@pytest.mark.asyncio
+async def test_an_open_decider_breaker_is_not_waited_for(monkeypatch: pytest.MonkeyPatch) -> None:
+    """MODEL-07: during a Decider outage every Auto turn waited its whole timeout. With its
+    breaker open the text read decides at once."""
+    from app.models.routing_lanes import ROUTING
+
+    _breakers(monkeypatch, cooling=frozenset({ROUTING.decider}))
+    decider = AsyncMock(return_value=_fields(subject="physics"))
+    monkeypatch.setattr(decider_read, "decide_turn", decider)
+    ask = AsyncMock(return_value=TurnDecision(live=False, subject="maths"))
+    with patch(_STRUCTURED, ask):
+        read = await turn_decision.read_decision(_SETTINGS, "solve 2x = 4", earlier=[])
+    decider.assert_not_awaited()
+    assert read is not None and read.subject == "maths"
+
+
+@pytest.mark.parametrize(("probe", "asked"), [(True, True), (False, False)])
+@pytest.mark.asyncio
+async def test_a_half_open_decider_is_asked_by_the_turn_holding_its_probe(
+    monkeypatch: pytest.MonkeyPatch, probe: bool, asked: bool
+) -> None:
+    from app.models.routing_lanes import ROUTING
+
+    claim = _breakers(monkeypatch, half_open=frozenset({ROUTING.decider}), probe=probe)
+    decider = AsyncMock(return_value=_fields())
+    monkeypatch.setattr(decider_read, "decide_turn", decider)
+    with patch(_STRUCTURED, AsyncMock(return_value=TurnDecision(live=False))):
+        assert await turn_decision.read_decision(_SETTINGS, "hi", earlier=[]) is not None
+    claim.assert_awaited_once()
+    assert decider.await_count == (1 if asked else 0)
+
+
+@pytest.mark.asyncio
+async def test_an_open_text_read_breaker_goes_to_the_backup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.models.routing_lanes import ROUTING
+
+    _breakers(monkeypatch, cooling=frozenset({ROUTING.live_read}))
+    ask = AsyncMock(return_value=TurnDecision(live=False, subject="maths"))
+    with patch(_STRUCTURED, ask):
+        read = await turn_decision.read_decision(_SETTINGS, "solve 2x = 4", earlier=[])
+    assert read is not None
+    assert [call.kwargs["model_alias"] for call in ask.await_args_list] == [
+        ROUTING.live_read_backup
+    ]
+
+
+@pytest.mark.asyncio
+async def test_every_reader_open_reads_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.models.routing_lanes import ROUTING
+
+    every = frozenset({ROUTING.decider, ROUTING.live_read, ROUTING.live_read_backup})
+    _breakers(monkeypatch, cooling=every)
+    decider = AsyncMock(return_value=_fields())
+    monkeypatch.setattr(decider_read, "decide_turn", decider)
+    ask = AsyncMock()
+    with patch(_STRUCTURED, ask):
+        assert await turn_decision.read_decision(_SETTINGS, "hi", earlier=[]) is None
+    decider.assert_not_awaited()
+    ask.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_drop_read_stops_a_running_read_and_leaves_a_finished_one() -> None:
+    running = asyncio.ensure_future(asyncio.sleep(30))
+    turn_decision.drop_read(running)
+    await asyncio.sleep(0)
+    assert running.cancelled()
+    finished = asyncio.ensure_future(asyncio.sleep(0, result=None))
+    await finished
+    turn_decision.drop_read(finished)
+    assert not finished.cancelled()
+    turn_decision.drop_read(None)

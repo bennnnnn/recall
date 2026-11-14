@@ -20,7 +20,12 @@ import {
   WORK_RULE,
 } from "@/components/markdown/markdownContentStyles";
 import { mathSizeOf } from "@/components/markdown/rules/textWithMath";
-import { workingHeading, workoutInline } from "@/components/markdown/rules/workoutInline";
+import {
+  partLabel,
+  partLabelText,
+  workingHeading,
+  workoutInline,
+} from "@/components/markdown/rules/workoutInline";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { DYNAMIC_TYPE_MAX, Type, Weight } from "@/lib/type";
@@ -199,6 +204,7 @@ function renderWorkoutLine(
     : splitWorkoutNote(asked || given ? askedLine(marked.text) : marked.text);
   const naming = given && /^where\s/i.test(state);
   const move = !note && SOLVE_FOR.test(state);
+  const part = asked ? partLabel(state) : null;
   // Every line of a worked solution starts at the same left edge: a formula, its
   // substitution, a move and a given read down one column (a centred formula over
   // left-aligned substitution lines read as two layouts, November 2026). Words and
@@ -248,8 +254,9 @@ function renderWorkoutLine(
             maxWidth: "100%",
           }}
         >
+          {part ? partLabelText(part.label, body) : null}
           {workoutInline(
-            state,
+            part ? part.rest : state,
             `${lineKey}-state`,
             move ? [noteStyle, { flexShrink: 1 }] : [body, { flexShrink: 1 }],
             move ? t.textSecondary : t.assistantText,

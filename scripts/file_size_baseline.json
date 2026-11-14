@@ -14,7 +14,7 @@
       "why": "Exception: The one operation list (CLAUDE.md names it so)"
     },
     "apps/api/app/modules/chemistry/extractors/amounts.py": {
-      "lines": 555,
+      "lines": 554,
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
     },
     "apps/api/app/modules/chemistry/formula_bindings.py": {
@@ -29,16 +29,12 @@
       "lines": 524,
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
     },
-    "apps/api/app/modules/chemistry/request.py": {
-      "lines": 563,
-      "why": "Over 500 before the standards; split by responsibility after the ticketed files"
-    },
     "apps/api/app/modules/chemistry/stated_bindings.py": {
       "lines": 566,
       "why": "Exception: Binding catalog; all data"
     },
     "apps/api/app/modules/chemistry/stated_laws.py": {
-      "lines": 534,
+      "lines": 531,
       "why": "Exception: Law catalog; all data"
     },
     "apps/api/app/modules/images/gen_intent_words.py": {
