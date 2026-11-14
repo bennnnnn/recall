@@ -12,6 +12,7 @@ import json
 import logging
 import re
 
+from app.core.log_text import one_line
 from app.modules.chemistry.block import VerifiedChemistry
 from app.modules.chemistry.notation import typeset, typeset_json
 from app.modules.chemistry.schemas.scene import dump_scene
@@ -100,10 +101,12 @@ def _read_fence(body: str) -> tuple[MoleculeProperties | None, str]:
     try:
         props = validate_smiles(smiles)
     except Exception:
-        logger.info("chemistry fence validation failed for %r", smiles, exc_info=True)
+        logger.info(
+            "chemistry fence validation failed for %s", one_line(repr(smiles)), exc_info=True
+        )
         return None, caption
     if not props.valid:
-        logger.info("replacing invalid SMILES fence: %r", smiles)
+        logger.info("replacing invalid SMILES fence: %s", one_line(repr(smiles)))
         return None, caption
     return props, caption
 
@@ -133,7 +136,7 @@ def _attach_molecule3d(body: str) -> tuple[str, bool]:
             mol3d_fence = f"\n```molecule3d\n{coords.sdf.rstrip()}\n{title}\n```\n"
             return smiles_fence + mol3d_fence, True
     except Exception:
-        logger.info("3D SDF generation failed for %r", props.smiles, exc_info=True)
+        logger.info("3D SDF generation failed for %s", one_line(repr(props.smiles)), exc_info=True)
     return smiles_fence + "\n", False
 
 

@@ -13,6 +13,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
+from app.core.log_text import one_line
 from app.core.redis_lock import acquire_lock, release_lock
 from app.modules.billing import subscription as subscription_service
 from app.modules.billing.entitlements import PAID_PLANS
@@ -193,12 +194,20 @@ async def _recheck_plan(
     app_user_id: str,
 ) -> tuple[bool, str]:
     """Apply the plan RevenueCat's subscriber record holds now. Raises when unreadable."""
+    if subscription_service.account_id(app_user_id) is None:
+        # An anonymous id is no account: there is no plan to set, so nothing to retry.
+        logger.warning(
+            "RevenueCat %s ignored invalid app_user_id=%s",
+            one_line(event_type),
+            one_line(app_user_id),
+        )
+        return False, ""
     plan = await subscription_service.resolve_plan_from_revenuecat(settings, app_user_id)
     if plan is None:
         logger.warning(
             "RevenueCat %s deferred; subscriber fetch failed app_user_id=%s",
-            event_type,
-            app_user_id,
+            one_line(event_type),
+            one_line(app_user_id),
         )
         raise SubscriberFetchError(app_user_id)
     applied = await subscription_service.apply_plan_for_app_user_id(session, app_user_id, plan=plan)
@@ -245,7 +254,7 @@ async def _dispatch_event(
     ):
         logger.info(
             "RevenueCat CANCELLATION ignored until period end app_user_id=%s",
-            app_user_id,
+            one_line(app_user_id),
         )
         return True
     if event_type not in _RECHECK_EVENTS and event_type != "CANCELLATION":
@@ -294,7 +303,7 @@ async def process_event(
     if should_ignore_sandbox(payload, settings):
         logger.info(
             "RevenueCat sandbox webhook ignored in %s environment",
-            settings.environment,
+            one_line(settings.environment),
         )
         return
 
@@ -302,11 +311,11 @@ async def process_event(
     claimed = False
     if event_id:
         if await processed_check(redis, event_id):
-            logger.info("RevenueCat webhook replay ignored event_id=%s", event_id)
+            logger.info("RevenueCat webhook replay ignored event_id=%s", one_line(event_id))
             return
         claimed = await event_claim(redis, event_id)
         if not claimed:
-            logger.info("RevenueCat webhook in-flight ignored event_id=%s", event_id)
+            logger.info("RevenueCat webhook in-flight ignored event_id=%s", one_line(event_id))
             raise SubscriberBusyError(event_id)
 
     app_user_id = _app_user_id(payload)
@@ -334,9 +343,9 @@ async def process_event(
         ):
             logger.info(
                 "RevenueCat stale event ignored type=%s app_user_id=%s event_ts=%s",
-                event_type,
-                app_user_id,
-                event_timestamp_ms,
+                one_line(event_type),
+                one_line(app_user_id),
+                one_line(event_timestamp_ms),
             )
             if event_id:
                 await redis.set(_done_key(event_id), "1", ex=_EVENT_ID_TTL)

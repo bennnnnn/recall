@@ -53,3 +53,16 @@ def has_equation(text: str) -> bool:
         return False
     lhs, rhs = text[:eq].strip(), text[eq + 1 :].strip()
     return bool(lhs and rhs and any(c.isalnum() for c in lhs) and any(c.isalnum() for c in rhs))
+
+
+def after_spaces(text: str, index: int) -> int:
+    """The first index at or after ``index`` that is not whitespace (``\\s``), in one pass.
+
+    A pattern matched at a position never starts with ``\\s*`` or ``\\s+``: it is matched here
+    instead, so no run of spaces is read again from each of its starts (CodeQL
+    py/polynomial-redos).
+    """
+    length = len(text)
+    while index < length and text[index].isspace():
+        index += 1
+    return index

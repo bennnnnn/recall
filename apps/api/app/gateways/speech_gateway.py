@@ -8,6 +8,7 @@ import wave
 from pathlib import Path
 
 from app.core.config import Settings
+from app.core.log_text import one_line
 from app.gateways.http_client import get_pooled_client
 
 logger = logging.getLogger(__name__)
@@ -139,11 +140,11 @@ async def transcribe_via_openai(
         if response.status_code >= 400:
             logger.warning(
                 "OpenAI transcription failed model=%s format=%s size=%s status=%s body=%s",
-                model,
-                audio_format,
+                one_line(model),
+                one_line(audio_format),
                 len(audio_bytes),
                 response.status_code,
-                response.text[:500],
+                one_line(response.text[:500]),
             )
         response.raise_for_status()
         data = response.json()
@@ -151,8 +152,8 @@ async def transcribe_via_openai(
         if not text:
             logger.info(
                 "OpenAI transcription heard no speech model=%s format=%s size=%s",
-                model,
-                audio_format,
+                one_line(model),
+                one_line(audio_format),
                 len(audio_bytes),
             )
         # Empty string is a successful silence result. None is reserved for
@@ -161,8 +162,8 @@ async def transcribe_via_openai(
     except Exception:
         logger.exception(
             "Speech transcription failed model=%s format=%s size=%s",
-            model,
-            audio_format,
+            one_line(model),
+            one_line(audio_format),
             len(audio_bytes),
         )
         return None
@@ -226,14 +227,14 @@ async def synthesize_via_openai(
         if response.status_code >= 400:
             logger.warning(
                 "OpenAI TTS failed model=%s status=%s body=%s",
-                model,
+                one_line(model),
                 response.status_code,
-                response.text[:500],
+                one_line(response.text[:500]),
             )
         response.raise_for_status()
         audio = response.content
         if not audio:
-            logger.warning("OpenAI TTS returned empty audio model=%s", model)
+            logger.warning("OpenAI TTS returned empty audio model=%s", one_line(model))
             return None
         header_type = (response.headers.get("content-type") or "").lower()
         content_type = header_type.split(";")[0].strip()
@@ -248,5 +249,5 @@ async def synthesize_via_openai(
             return pcm_to_wav(audio, sample_rate=rate, channels=channels), "audio/wav"
         return audio, content_type or "audio/mpeg"
     except Exception:
-        logger.exception("Speech TTS failed model=%s chars=%s", model, len(text))
+        logger.exception("Speech TTS failed model=%s chars=%s", one_line(model), len(text))
         return None

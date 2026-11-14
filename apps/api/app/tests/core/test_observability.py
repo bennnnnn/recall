@@ -11,6 +11,7 @@ import pytest
 
 from app.core import saturation
 from app.core.log_context import bound_log_ids, current_log_ids, new_turn_id
+from app.core.log_text import one_line
 from app.core.logging import _JsonFormatter, _RequestIdFormatter, setup_logging
 
 
@@ -117,3 +118,9 @@ def test_a_line_from_a_request_never_forges_another_line() -> None:
     first, *traceback = line.split("\n")
     assert first.endswith(r"user said hi\nERROR forged\r")
     assert traceback and traceback[-1] == "ValueError: boom"
+
+
+def test_one_line_writes_a_requests_line_breaks_escaped() -> None:
+    """CodeQL py/log-injection: the value a socket names is logged on one line."""
+    assert one_line("abc\r\nERROR forged") == r"abc\r\nERROR forged"
+    assert one_line(42) == "42"

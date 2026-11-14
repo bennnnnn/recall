@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from functools import cache, lru_cache
 from typing import Any
 
+from app.core.log_text import one_line
+
 logger = logging.getLogger(__name__)
 
 MAX_SMILES_LENGTH = 500
@@ -137,7 +139,7 @@ def validate_smiles(smiles: str) -> MoleculeProperties:
             molecular_weight=float(rdMolDescriptors._CalcMolWt(mol)),
         )
     except Exception as exc:
-        logger.info("RDKit validate failed for %r: %s", cleaned, exc)
+        logger.info("RDKit validate failed for %s: %s", one_line(repr(cleaned)), exc)
         return MoleculeProperties.failure(cleaned, str(exc))
 
 
@@ -158,7 +160,7 @@ def drawing_smiles(smiles: str) -> str:
         Chem.Kekulize(mol, clearAromaticFlags=True)
         return str(Chem.MolToSmiles(mol, kekuleSmiles=True))
     except Exception:
-        logger.info("RDKit kekulize failed for %r", smiles, exc_info=True)
+        logger.info("RDKit kekulize failed for %s", one_line(repr(smiles)), exc_info=True)
         return smiles
 
 
@@ -222,7 +224,7 @@ def generate_3d_coordinates(smiles: str) -> MoleculeCoordinates:
         # Keep explicit H: RemoveHs made water a lone oxygen in the 3D card.
         sdf = Chem.MolToMolBlock(mol)
     except Exception as exc:
-        logger.info("RDKit 3D coords failed for %r: %s", canonical, exc)
+        logger.info("RDKit 3D coords failed for %s: %s", one_line(repr(canonical)), exc)
         return MoleculeCoordinates(smiles=canonical, error=str(exc))
     if len(sdf) > MAX_SDF_CHARS:
         return MoleculeCoordinates(smiles=canonical, error="3D structure is too large to send")

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import user_cache
 from app.core.config import Settings
+from app.core.log_text import one_line
 from app.exceptions import DomainError
 from app.gateways import revenuecat_gateway
 from app.models.orm import User
@@ -66,16 +67,25 @@ def _plan_from_revenuecat_payload(payload: dict[str, Any], settings: Settings) -
     return plan_from_entitlements(active, settings)
 
 
+def account_id(app_user_id: str) -> UUID | None:
+    """The account a RevenueCat app user id names, or None for any other id (an anonymous one)."""
+    try:
+        return UUID(app_user_id)
+    except ValueError:
+        return None
+
+
 async def resolve_plan_from_revenuecat(settings: Settings, app_user_id: str) -> str | None:
     """HTTP-only: the plan (``pro`` / ``plus`` / ``free``) the subscriber API
-    grants now, or None if the secret is missing or the fetch failed. Never
+    grants now, or None if the secret is missing, the id names no account (an anonymous
+    one, never asked about) or the fetch failed. Never
     defaults to a paid plan."""
     if not settings.revenuecat_secret_key.strip():
         return None
-    payload = await revenuecat_gateway.fetch_subscriber(
-        settings.revenuecat_secret_key,
-        app_user_id,
-    )
+    subscriber = account_id(app_user_id)
+    if subscriber is None:
+        return None
+    payload = await revenuecat_gateway.fetch_subscriber(settings.revenuecat_secret_key, subscriber)
     if payload is None:
         return None
     return _plan_from_revenuecat_payload(payload, settings)
@@ -119,11 +129,11 @@ async def apply_plan_for_app_user_id(
     try:
         user_id = UUID(app_user_id)
     except ValueError:
-        logger.warning("RevenueCat webhook ignored invalid app_user_id=%s", app_user_id)
+        logger.warning("RevenueCat webhook ignored invalid app_user_id=%s", one_line(app_user_id))
         return False
     user = await users_repo.get_by_id(session, user_id)
     if user is None:
-        logger.warning("RevenueCat webhook user not found id=%s", app_user_id)
+        logger.warning("RevenueCat webhook user not found id=%s", one_line(app_user_id))
         return False
     if user.plan == plan:
         # No change — return False so the caller doesn't fire a duplicate
@@ -156,20 +166,20 @@ async def handle_revenuecat_transfer(
     try:
         user_id = UUID(cleaned_new)
     except ValueError:
-        logger.warning("RevenueCat TRANSFER ignored invalid app_user_id=%s", cleaned_new)
+        logger.warning("RevenueCat TRANSFER ignored invalid app_user_id=%s", one_line(cleaned_new))
         return False
 
     plan = await resolve_plan_from_revenuecat(settings, cleaned_new)
     if plan is None:
         logger.warning(
             "RevenueCat TRANSFER deferred; subscriber fetch failed app_user_id=%s",
-            cleaned_new,
+            one_line(cleaned_new),
         )
         return False
 
     user = await users_repo.get_by_id(session, user_id)
     if user is None:
-        logger.warning("RevenueCat TRANSFER user not found id=%s", cleaned_new)
+        logger.warning("RevenueCat TRANSFER user not found id=%s", one_line(cleaned_new))
         return False
     if user.plan != plan:
         await apply_plan_for_app_user_id(session, cleaned_new, plan=plan)
@@ -196,6 +206,8 @@ async def _resync_transfer_source(
     await session.commit()
     plan = await resolve_plan_from_revenuecat(settings, app_user_id)
     if plan is None:
-        logger.warning("RevenueCat TRANSFER source unreadable; free app_user_id=%s", app_user_id)
+        logger.warning(
+            "RevenueCat TRANSFER source unreadable; free app_user_id=%s", one_line(app_user_id)
+        )
         plan = "free"
     await apply_plan_for_app_user_id(session, app_user_id, plan=plan)

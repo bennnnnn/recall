@@ -26,6 +26,7 @@ import httpx
 from redis.asyncio import Redis
 
 from app.core.config import Settings
+from app.core.log_text import one_line
 from app.gateways.safe_fetch import fetch_client, fetch_safely
 
 logger = logging.getLogger(__name__)
@@ -94,19 +95,19 @@ async def fetch_link_preview(url: str) -> dict[str, str | None]:
             html = resp.text[:_LINK_PREVIEW_MAX_HTML_CHARS]
     except ValueError:
         # Re-raised from resolve_external_host -- blocked internal address
-        logger.debug("Link preview blocked internal address: %s", url)
+        logger.debug("Link preview blocked internal address: %s", one_line(url))
         return {"url": url, "title": None, "description": None, "domain": domain}
     except TimeoutError:
         logger.info("Link preview passed its %.0fs deadline", _LINK_PREVIEW_DEADLINE_SECONDS)
         return {"url": url, "title": None, "description": None, "domain": domain}
     except httpx.HTTPStatusError as exc:
         # A site that refuses bots (403) or a dead page: expected, not ours to fix.
-        logger.info("Link preview of %s got HTTP %s", domain, exc.response.status_code)
+        logger.info("Link preview of %s got HTTP %s", one_line(domain), exc.response.status_code)
         return {"url": url, "title": None, "description": None, "domain": domain}
     except Exception as exc:
         # Ours to look at (a page that could not be decoded hid every preview): the
         # site and the error's kind, never the full URL.
-        logger.warning("Link preview fetch failed for %s: %s", domain, type(exc).__name__)
+        logger.warning("Link preview fetch failed for %s: %s", one_line(domain), type(exc).__name__)
         return {"url": url, "title": None, "description": None, "domain": domain}
 
     parser = _MetaParser()

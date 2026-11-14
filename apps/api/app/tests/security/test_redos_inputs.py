@@ -15,11 +15,15 @@ from app.modules.chat.notation_spans import code_notation, is_notation
 from app.modules.chat.posed_read import without_cheer
 from app.modules.chemistry.extractors.atom_particles import _placeholder
 from app.modules.math.match.spoken import _OVER, _fraction, _tight_carets, spoken_math_to_plain
+from app.modules.math.tools.school.price_changes import extract_price_changes_intent
 from app.modules.physics import force_pictures, force_rigs
 from app.modules.physics.binding import bind_physics_intent, drop_unit_request
-from app.modules.physics.numbers import _LENGTH_BEFORE_PLANK
+from app.modules.physics.givens import unit_at
+from app.modules.physics.numbers import _LENGTH_BEFORE_PLANK, unit_names_as_symbols
+from app.modules.physics.spelled import has_unread_quantity
 from app.modules.turn_reading.chart import _names_a_curve, is_chart_question
 from app.modules.web_search.release_asks import _bare_thing, released_thing
+from app.services.text_match import after_spaces
 
 # Twice the longest chat message. At half this, the old patterns took 1-5 s or more (the plank
 # check, already linear, excepted); the new ones take milliseconds.
@@ -181,3 +185,52 @@ def test_a_posed_problems_cheer_is_cut_in_one_pass(tail, kept):
     """CodeQL py/redos on the posed read's trailing-cheer pattern (PR #2407)."""
     question = "What is its speed?"
     assert without_cheer(question + tail) == (question if kept else question + tail)
+
+
+@pytest.mark.parametrize(
+    "text, measured",
+    [
+        ("she ran half a lap", True),
+        ("half the distance of 100 m", True),
+        ("ten-lap race", True),
+        ("ten  seconds later", True),
+        ("one of the cars", False),
+        ("two point five", False),
+        ("ten" + SPACES + "laps", True),
+        ("ten" + SPACES + "x", False),
+    ],
+)
+def test_a_spelled_amounts_quantity_is_read_after_its_spaces_once(text, measured):
+    """CodeQL py/polynomial-redos (physics/spelled.py): the pattern no longer starts with a run
+    of spaces; ``after_spaces`` reads it once, and the answers are main's."""
+    assert has_unread_quantity(text, unit_at) is measured
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["a speed of 5 metres per second", "5 metres squared", "5 metre's", "5 metres" + SPACES + "/s"],
+)
+def test_a_unit_that_goes_on_is_read_after_its_spaces_once(text):
+    """CodeQL py/polynomial-redos (physics/numbers.py): "per", "/", "squared" or an apostrophe
+    after a unit still keeps it a word, as on main."""
+    assert unit_names_as_symbols(text) == text
+
+
+@pytest.mark.parametrize(
+    "price, money",
+    [("2400" + SPACES + "shillings", "shillings"), ("$2400", "$"), ("2400 bucks", "$")],
+)
+def test_a_prices_currency_word_is_read_after_its_spaces_once(price, money):
+    """CodeQL py/polynomial-redos (school/price_changes.py)."""
+    intent = extract_price_changes_intent(
+        f"It costs {price}, 15% off, then 16% VAT. How much do I pay?"
+    )
+    assert intent is not None and intent.arithmetic_operands == ["2400", money, "-15", "+16"]
+
+
+@pytest.mark.parametrize(
+    "text, index, after",
+    [("", 0, 0), ("a", 0, 0), ("  \t x", 0, 4), ("ab  ", 2, 4), ("x" + SPACES, 1, N + 1)],
+)
+def test_after_spaces_skips_exactly_what_a_leading_whitespace_run_matched(text, index, after):
+    assert after_spaces(text, index) == after
