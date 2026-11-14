@@ -76,5 +76,9 @@
   {"id": "L75", "area": "lookalike", "prompt": "What should I wear in 20 degree weather?", "expect": "not_math"},
   {"id": "L76", "area": "lookalike", "prompt": "Can you remind me in 5 minutes?", "expect": "not_math"},
   {"id": "L77", "area": "lookalike", "prompt": "How many hours do I work in 5 days?", "expect": "not_math"},
-  {"id": "L78", "area": "lookalike", "prompt": "What is 2 km in my running plan?", "expect": "not_math"}
+  {"id": "L78", "area": "lookalike", "prompt": "What is 2 km in my running plan?", "expect": "not_math"},
+  {"id": "L79", "area": "lookalike", "prompt": "how many solutions does this company offer", "expect": "not_math"},
+  {"id": "L80", "area": "lookalike", "prompt": "how many roots does a tree have", "expect": "not_math"},
+  {"id": "L81", "area": "lookalike", "prompt": "how many real solutions does the climate crisis have", "expect": "not_math"},
+  {"id": "L82", "area": "lookalike", "prompt": "what is the number of solutions to the housing crisis", "expect": "not_math"}
 ]

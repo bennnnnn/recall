@@ -12,7 +12,13 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterator
-from contextlib import ExitStack, asynccontextmanager, contextmanager
+from contextlib import (
+    AbstractContextManager,
+    ExitStack,
+    asynccontextmanager,
+    contextmanager,
+    nullcontext,
+)
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from types import SimpleNamespace
@@ -20,6 +26,7 @@ from typing import Any
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
+from app.core import readings
 from app.core.config import Settings
 from app.gateways.mcp import registry as tool_registry
 from app.gateways.pubchem_gateway import PubChemCompound, PubChemResult
@@ -27,12 +34,13 @@ from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import Chat, User
 from app.modules import web_search as web_search_service
 from app.modules.billing import can_use
+from app.modules.chat import posed_read, prompt_memory, referent_read
 from app.modules.chat import prompt_constants as pc
-from app.modules.chat import prompt_memory
 from app.modules.chat.finalize_passes import enrich_final_content
 from app.modules.chat.json_output import JSON_OUTPUT_HINT
 from app.modules.chat.model_routing import choice as model_choice
 from app.modules.chat.model_routing.route import last_user_turn
+from app.modules.chat.posed_read import PosedPick
 from app.modules.chat.prompt_constants.clarify import CLARIFY_PICKS_HINT, CLARIFY_UNANSWERED_HINT
 from app.modules.chat.prompt_constants.coding import (
     CODE_DEBUG_HINT,
@@ -52,22 +60,26 @@ from app.modules.chat.prompt_constants.writing import (
     SOCIAL_DRAFT_HINT,
 )
 from app.modules.chat.prompt_context import _PromptContextBlocks
+from app.modules.chat.referent_read import ContinuationPick, ReferentPick, read_referent
 from app.modules.chat.stream_paths import run_tool_loop_path
 from app.modules.chat.tool_loop.reply_calls import offers_search
 from app.modules.chat.turn_deps import default_deps
-from app.modules.chat.turn_intercepts import _chemistry_draws_it, reply_picture_prompt
+from app.modules.chat.turn_intercepts import may_be_a_maths_picture, reply_picture_prompt
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep.context import (
     build_stream_prompt_context,
     stream_context_from_bundle,
 )
 from app.modules.chat.turn_prep.mode import classify_turn_mode
-from app.modules.chat.turn_prep.reading import subject_of
+from app.modules.chat.turn_prep.reading import read_turn_message, subject_of
 from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.chat.turn_trace import TurnTrace, begin_turn_trace
 from app.modules.images.gen_intent import stem_subject_claims
 from app.modules.images.intent import image_gen_request
 from app.modules.images.lookup_intent import dated_lookup_query, extract_image_lookup_query
+from app.modules.math.figure.request import FigureRequest
+from app.modules.math.reply_policy import GRAPH_NO_SUBSTITUTE_CLAUSE
+from app.modules.math.subject import PIECED_PROBLEM_NOTE
 from app.modules.money.block import (
     MONEY_HEADER,
     MONEY_RATE_MISSING,
@@ -79,7 +91,10 @@ from app.modules.money.block import (
 from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
 from app.modules.turn_reading.lesson_flow import active_lesson_step
 from app.services.mcp import setup_mcp_adapters
-from app.services.solving import VerifiedPhysicsBlock
+from app.services.md_fence_scan import iter_fences
+from app.services.solving import VerifiedMathBlock, VerifiedPhysicsBlock
+from app.services.subjects.dispatch import subject_shows_it
+from app.services.subjects.registry import subject_adapter
 from app.services.workout import SELF_CHECK_PROMPT_RULE
 from app.tests.behavior.cases import Case, Expect
 from app.tests.fakes import fake_session
@@ -154,6 +169,10 @@ HINTS: dict[str, str] = {
     "worked": WORKED_BLOCK_CONTRACT,
     # A message that only states the student's results to check: each compared, none reworked.
     "result_check": RESULT_CHECK_CONTRACT,
+    # A line that added to the open maths problem ("3", "the area"): the problem it completes.
+    "pieced_problem": PIECED_PROBLEM_NOTE,
+    # Maths' pack: a plot or a shape is never drawn by the model in text, SVG or a chart.
+    "no_text_figure": GRAPH_NO_SUBSTITUTE_CLAUSE,
     # The general layout contract, and the compact one a greeting or fragment gets.
     "format_contract": pc.FORMAT_CONTRACT,
     "compact": pc.COMPACT_RESPONSE_FORMAT_HINT,
@@ -213,6 +232,11 @@ class Route:
     history_rag: bool = False
     # The scenes a verified block appends under a model-written reply, as fences.
     server_pictures: str = ""
+    # The picture maths drew for a question asking to see one (``Case.figure``), as a fence.
+    figure: str = ""
+    # The picture the turn shows: the instant reply's, or the verified block's under a
+    # model-written reply (``Expect.drawn``).
+    drawn: str = ""
     # What the turn decided, as production records it (``turn_trace``): the trace keeps
     # collecting while the caller runs the reply's finalize step. ``decisions.py`` reads
     # both to diff a change's decisions against main's.
@@ -312,6 +336,13 @@ async def _pubchem_lookup(name: str, *_args: Any, **_kwargs: Any) -> PubChemResu
     return PubChemResult(compound=compound) if compound else PubChemResult(error="not found")
 
 
+def offline_pubchem() -> AbstractContextManager[Any]:
+    """PubChem as the battery knows it: the finalize step checks a molecule's caption name
+    there too (``chemistry.caption_names``), and a sweep run from the command line has the
+    network."""
+    return patch("app.gateways.pubchem_gateway.lookup_by_name", _pubchem_lookup)
+
+
 def _rows(case: Case) -> list[SimpleNamespace]:
     return [
         SimpleNamespace(id=uuid4(), role=role, content=text, model="free-chat")
@@ -352,6 +383,10 @@ def _hints_in(system: str, case: Case) -> set[str]:
 async def route_case(case: Case, settings: Settings | None = None) -> Route:
     settings = settings or battery_settings()
     trace = begin_turn_trace("new")
+    # As ``stream_entry`` starts a turn: the message stripped, its readings its own (a sweep
+    # run from the command line routes every entry in one context, and each read the memo the
+    # entry before it left).
+    readings.begin_turn()
     user = User(
         id=uuid4(),
         name=USER_NAME,
@@ -364,10 +399,15 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         memory_enabled=case.memory_enabled,
         location=case.location,
         location_enabled=case.location is not None,
+        # The phone saved its place a moment ago, as it does when the app opens.
+        location_saved_at=datetime.now(UTC) if case.location else None,
     )
     chat = Chat(id=uuid4(), user_id=user.id, title=None)
     rows = _rows(case)
-    text = case.prompt
+    text = case.prompt.strip()
+    # The turn's load reads the message with the window, then picks the model from that
+    # reading (``turn_load``): a model picked first read the message on the loop instead.
+    await read_turn_message(text, rows, settings)
     prior_user, prior_model = last_user_turn(rows)
     model = model_choice.resolve_user_model(
         user,
@@ -380,12 +420,25 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
 
     # "can u show me both" after a shape answer: the intercept lets chemistry draw the
     # molecules before a photo lookup or image generation is asked.
-    drawn = await _chemistry_draws_it(settings, text, rows)
+    with _referent_pick(case, rows):
+        referent = await read_referent(settings, text, rows)
+    drawn = await subject_shows_it(
+        settings, text, rows, referent.problem if referent is not None else None
+    )
     found = extract_image_lookup_query(text) if settings.image_search_enabled else None
-    photo = dated_lookup_query(found, datetime.now(UTC).year) if found and not drawn else ""
+    # A case with a figure reading is one the turn's read calls a maths picture: no photo of
+    # its maths, no painting of it.
+    figure_read = case.figure is not None
+    held = figure_read and found is not None and may_be_a_maths_picture(found)
+    photo = (
+        dated_lookup_query(found, datetime.now(UTC).year)
+        if found and not drawn and not held
+        else ""
+    )
     image_gen = bool(
         not photo
         and not drawn
+        and not figure_read
         and settings.image_generation_enabled
         and can_use(user, "image_generation", settings)
         # Read with the thread, as the turn's intercept reads it ("Image" after "Dog").
@@ -419,6 +472,9 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         def stub(target: str, value: Any) -> None:
             stack.enter_context(patch(target, value))
 
+        stack.enter_context(_referent_pick(case, rows))
+        stack.enter_context(_continuation_pick(case, rows))
+        stack.enter_context(_posed_pick(case, rows))
         stub("app.modules.chat.turn_prep.instant.SessionLocal", lambda: _Session())
         stub("app.modules.chat.prompt_builder._load_context_blocks", context_blocks)
         stub(
@@ -444,7 +500,9 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
                 content=text,
                 model=model,
                 client_timezone=USER_TIMEZONE,
-                client_location=case.location,
+                # The phone sends no fix while the place it saved is recent: the turn
+                # reads the account's.
+                client_location=None,
                 client_latitude=None,
                 client_longitude=None,
                 user=user,
@@ -519,9 +577,73 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         memory_scope=str(loaded.get("memory_scope") or "") if loaded.get("load_memory") else "",
         history_rag=bool(loaded.get("history_rag")),
         server_pictures=_server_pictures(verified),
+        figure=await _figure(case, settings, verified),
+        drawn=_drawn(bundle.instant_reply, verified),
         trace=trace,
         context=ctx,
     )
+
+
+def _referent_pick(case: Case, rows: list[Any]) -> AbstractContextManager[Any]:
+    """The model's pick of what "it" is, as the case names it (``Case.referent``); with none
+    named the read has no model, as the battery has none."""
+    if case.referent is None:
+        return nullcontext()
+    exchanges = referent_read.chat_before(rows, case.prompt)
+    _conversation, numbered = referent_read._conversation(exchanges)
+    users = [exchanges[index][1] for index in numbered]
+    pick = ReferentPick(message=users.index(case.referent) + 1 if case.referent else None)
+    return patch.object(referent_read, "pick_referent", AsyncMock(return_value=pick))
+
+
+def _continuation_pick(case: Case, rows: list[Any]) -> AbstractContextManager[Any]:
+    """The model's pick of the problem "3" or "the area" continues (``Case.continues``)."""
+    if case.continues is None:
+        return nullcontext()
+    exchanges = referent_read.chat_before(rows, case.prompt)
+    _conversation, numbered = referent_read._conversation(exchanges)
+    users = [exchanges[index][1] for index in numbered]
+    pick = (
+        ContinuationPick(kind="missing_value", message=users.index(case.continues) + 1)
+        if case.continues
+        else ContinuationPick(kind="answer")
+    )
+    return patch.object(referent_read, "pick_continuation", AsyncMock(return_value=pick))
+
+
+def _posed_pick(case: Case, rows: list[Any]) -> AbstractContextManager[Any]:
+    """The model's read of the problem "do it" refers to (``Case.posed``)."""
+    if case.posed is None:
+        return nullcontext()
+    if not case.posed:
+        pick = PosedPick(kind="other")
+    else:
+        exchanges = referent_read.chat_before(rows, case.prompt)
+        plain = [text.replace("**", "") for _role, text in exchanges]
+        message = next(i for i, text in enumerate(plain, start=1) if case.posed in text)
+        pick = PosedPick(
+            kind="solve" if case.posed_change is None else "change",
+            message=message,
+            problem=case.posed,
+            given=case.posed_change[0] if case.posed_change else None,
+            new=case.posed_change[1] if case.posed_change else None,
+        )
+    return patch.object(posed_read, "pick_posed", AsyncMock(return_value=pick))
+
+
+async def _figure(case: Case, settings: Settings, verified: Any) -> str:
+    """The picture maths draws for the turn as production does once the turn's read says a
+    maths question asks to see one, from the read's reading the case names; "" with none."""
+    figure = subject_adapter("math").figure
+    if case.figure is None or figure is None or figure.shown(verified):
+        return ""
+    reading = FigureRequest.model_validate_json(case.figure)
+    earlier = [said for role, said in reversed(case.history) if role == "user"][:3]
+    with patch("app.modules.math.figure.read.read_figure", AsyncMock(return_value=reading)):
+        fence = await figure.draw(case.prompt, earlier, settings) or ""
+    # Finalize adds it only beside what the solve's own pictures do not show.
+    cards = subject_adapter("math").fence.cards(verified) if verified is not None else ()
+    return fence if fence and figure.adds_to("\n".join(cards), fence) else ""
 
 
 def _server_pictures(verified: Any) -> str:
@@ -533,6 +655,23 @@ def _server_pictures(verified: Any) -> str:
         for spec in specs
         if isinstance(spec, dict) and spec.get("type") in SIMULATION_SPEC_TYPES
     )
+
+
+_PICTURE_FENCES = frozenset({"geometry", "graph", "simulation"})
+
+
+def _drawn(instant: str | None, verified: object) -> str:
+    """The fence of the turn's picture: the instant reply's own, or else the verified
+    block's, which finalize appends under the model's words; "" for none."""
+    if instant:
+        text = instant
+    elif isinstance(verified, VerifiedMathBlock):
+        text = "\n".join(subject_adapter("math").fence.cards(verified))
+    elif isinstance(verified, VerifiedPhysicsBlock):
+        text = "\n".join(subject_adapter("physics").fence.cards(verified))
+    else:
+        return ""
+    return next((fence.lang for fence in iter_fences(text) if fence.lang in _PICTURE_FENCES), "")
 
 
 def mismatches(expect: Expect, route: Route) -> list[str]:
@@ -568,6 +707,7 @@ def mismatches(expect: Expect, route: Route) -> list[str]:
     check("lightweight", expect.lightweight, route.lightweight)
     check("model", expect.model, route.model)
     check("memory", expect.memory, route.memory)
+    check("drawn", expect.drawn, route.drawn)
     if expect.memory_scope is not None and route.memory:
         check("memory_scope", expect.memory_scope, route.memory_scope)
     if expect.answer_photo and "answer_photo" not in route.hints:
@@ -600,15 +740,15 @@ async def saved_reply(route: Route, settings: Settings | None = None) -> str:
         users=SimpleNamespace(get_by_id=AsyncMock(return_value=None)),
         todos=SimpleNamespace(materialize_reminder_fences=AsyncMock(side_effect=_no_reminders)),
     )
-    return await enrich_final_content(
-        deps,
-        AsyncMock(),
-        settings or battery_settings(),
-        route.context,
-        assistant_text=route.instant_text,
-        usage={},
-        outcome=TurnOutcome(),
-        was_cancelled=False,
-        assistant_parts=[route.instant_text],
-        should_cancel=None,
-    )
+    with offline_pubchem():
+        return await enrich_final_content(
+            deps,
+            AsyncMock(),
+            settings or battery_settings(),
+            route.context,
+            assistant_text=route.instant_text,
+            usage={},
+            outcome=TurnOutcome(),
+            was_cancelled=False,
+            should_cancel=None,
+        )

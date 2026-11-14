@@ -22,8 +22,7 @@ const KEPT_APART: Record<string, string> = {
   "chat.attach_file chat.title_file": "the attach sheet's row, and a chat a file opened is titled with",
   "chat.delete chat.delete_confirm_title": "an action, and the title of the dialog it opens",
   "chat.email_card_subject chat.email_card_subject_placeholder": "a field's label, and its placeholder",
-  "chat.live_talk_a11y settings.live_talk_minutes upgrade.feature_live_talk_plain":
-    "the call button, a usage row and a plan feature",
+  "chat.live_talk_a11y upgrade.feature_live_talk_plain": "the call button and a plan feature",
   "chat.status.answer_photo chat.status.finding_photo": "a status line per step, named by its id",
   "chat.status.chemistry_1 chat.status.physics_1": "each subject's own steps",
   "chat.status.chemistry_2 chat.status.physics_2": "each subject's own steps",

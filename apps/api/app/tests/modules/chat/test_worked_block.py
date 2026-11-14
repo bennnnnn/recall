@@ -77,6 +77,9 @@ answer: d_{km} | 0.1 | km
                 symbol="t", value="40", unit="min", meaning="time", converted=r"2400\,\mathrm{s}"
             ),
         ),
+        # A quantity the question gives as a letter: a given with no value (2026-11-11).
+        ("given: M | | | mass of the rod", Given(symbol="M", meaning="mass of the rod")),
+        ("given: v", Given(symbol="v")),
         ("Required: s | displacement", Required(symbol="s", meaning="displacement")),
         ("formula: Ohm's law | V = IR", Formula(name="Ohm's law", tex="V = IR")),
         ("formula: V = IR", Formula(tex="V = IR")),
@@ -105,7 +108,6 @@ def test_read_record_validates_each_kind(line: str, record: object) -> None:
         "",
         "The answer is 2400 m.",
         "given:",
-        "given: v",  # a symbol with no value
         "answer: s |",  # no value
         "formula: Name |",
         "note: something",
@@ -370,7 +372,7 @@ def test_render_writes_a_sentence_in_a_maths_field_as_text() -> None:
     [("a) in cm, b) in km", True), ("length in cm", True), ("\\Delta x", False), ("v_i", False)],
 )
 def test_a_symbol_in_words_is_text(symbol: str, words: bool) -> None:
-    from app.modules.chat.worked_render import names_nothing
+    from app.modules.chat.worked_text import names_nothing
 
     assert names_nothing(symbol) is words
 
@@ -447,3 +449,46 @@ def test_no_laid_out_block_shows_latex_source(block: str) -> None:
     worked.feed(block)
     worked.close()
     assert latex_problems(worked.text) == []
+
+
+@pytest.mark.parametrize(
+    ("line", "record"),
+    [
+        # Grade 12 run (2026-11-13): \ln|x| was split at its bars, the card ended at \ln.
+        (
+            r"answer: \int f(x)\,dx | \frac{3}{4}x^{4/3} - \frac{1}{2}\ln|x| + C | | indefinite integral",
+            Answer(
+                symbol=r"\int f(x)\,dx",
+                value=r"\frac{3}{4}x^{4/3} - \frac{1}{2}\ln|x| + C",
+                note="indefinite integral",
+            ),
+        ),
+        # The given's value held |x - 5|: Given read "f(x) = {x = | function".
+        (
+            r"given: f(x) | \frac{x|x-5|}{x^2-25} | | function",
+            Given(symbol="f(x)", value=r"\frac{x|x-5|}{x^2-25}", meaning="function"),
+        ),
+        (r"given: d = |x_2 - x_1| | m | distance", Given(symbol="d", value="|x_2 - x_1|", unit="m", meaning="distance")),
+        ("answer: P(A|B) | 0.4", Answer(symbol="P(A|B)", value="0.4")),
+        (r"answer: \lvert v \rvert | 5 | m/s", Answer(symbol=r"\lvert v \rvert", value="5", unit="m/s")),
+        # A field of nothing but bars is empty: "(|)" stood after the card's value.
+        (r"answer: L | \frac{1}{5} | | |", Answer(symbol="L", value=r"\frac{1}{5}")),
+        # A record that spaces none of its bars still splits at each.
+        ("answer: v|3.33|m/s", Answer(symbol="v", value="3.33", unit="m/s")),
+        ("given: v|20|m/s|speed", Given(symbol="v", value="20", unit="m/s", meaning="speed")),
+        # "||" for an empty field, and separators spaced on one side (review, 2026-11-13).
+        ("given: n | 2 || amount of substance", Given(symbol="n", value="2", meaning="amount of substance")),
+        ("answer: n | 4 || to 3 s.f.", Answer(symbol="n", value="4", note="to 3 s.f.")),
+        ("answer: x | 5 ||", Answer(symbol="x", value="5")),
+        (r"given: m | 2 | kg || 2000\,\mathrm{g}", Given(symbol="m", value="2", unit="kg", converted=r"2000\,\mathrm{g}")),
+        ("answer: v |3.33 | m/s", Answer(symbol="v", value="3.33", unit="m/s")),
+        ("answer: v | 3.33|m/s", Answer(symbol="v", value="3.33", unit="m/s")),
+        ("given: v = 20|m/s | speed", Given(symbol="v", value="20", unit="m/s", meaning="speed")),
+        # A value that is all absolute value, and maths bars inside brackets.
+        ("answer: |-5|", Answer(value="|-5|")),
+        (r"answer: S | \{x | x > 0\}", Answer(symbol="S", value=r"\{x | x > 0\}")),
+        ("answer: p | P(A | B) = 0.4", Answer(symbol="p", value="P(A | B) = 0.4")),
+    ],
+)  # fmt: skip
+def test_a_bar_inside_the_maths_is_no_field_separator(line: str, record: object) -> None:
+    assert read_record(line) == record

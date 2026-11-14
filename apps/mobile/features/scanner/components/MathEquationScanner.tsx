@@ -37,16 +37,22 @@ import { useReduceMotion } from "@/lib/motion";
 import {
   containedPhotoRegion,
   defaultScanRegion,
-  regionToContainedImageCrop,
   regionToImageCrop,
   regionsClose,
   scanChromeInset,
   type ScanRegion,
 } from "@/lib/math/scannerRegion";
-import { cropScanImage, measureScanImage, SCAN_MAX_EDGE, ScanFiles } from "@/features/scanner/model/scanImage";
+import {
+  cropScanImage,
+  measureScanImage,
+  SCAN_MAX_EDGE,
+  ScanFiles,
+  solveCut,
+  type ShotSource,
+} from "@/features/scanner/model/scanImage";
 import {
   playScannerSwitchCue,
-  stopScannerSwitchCue,
+  useScannerSwitchCue,
 } from "@/features/scanner/model/switchCue";
 import { SCANNER_SUBJECTS, type ScannerSubject } from "@/lib/scanner/subjects";
 import { scheduleIdlePromise } from "@/lib/scheduleIdle";
@@ -68,7 +74,22 @@ type Props = {
  * A still on the crop screen, with the subject its tab had when it was taken or picked, and
  * for a camera shot where the live frame was in it (the crop frame opens there).
  */
-type ScanShot = PendingAttachment & { width: number; height: number; subject: ScannerSubject; aim?: ImageBox | null };
+/** A shot's file, and for a camera shot's cut the photo it was cut from. */
+type ShotFile = PendingAttachment & { source?: ShotSource | null };
+
+/** A camera shot's cut, carrying the photo Solve cuts the crop from (`cropInSource`). */
+function shotFile(pending: PendingAttachment, cutUri: string, photoUri: string, cut?: ShotSource["cut"]): ShotFile {
+  return { ...pending, localUri: cutUri, source: cut ? { uri: photoUri, cut } : null };
+}
+
+type ScanShot = PendingAttachment & {
+  width: number;
+  height: number;
+  subject: ScannerSubject;
+  aim?: ImageBox | null;
+  /** A camera shot's original photo, which Solve cuts the crop from (`cropInSource`). */
+  source?: ShotSource | null;
+};
 
 const ANDROID_DISMISS_MS = 400;
 
@@ -165,21 +186,18 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
       return;
     }
     files.discardAll();
-    stopScannerSwitchCue();
     if (Platform.OS === "ios") return;
     const timer = setTimeout(() => setHosted(false), ANDROID_DISMISS_MS);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- open-only reset: the crop helpers are stable enough per open
   }, [visible]);
 
-  useEffect(() => () => {
-    stopScannerSwitchCue();
-    files.discardAll();
-  }, [files]);
+  useEffect(() => () => files.discardAll(), [files]);
+  useScannerSwitchCue(visible);
 
   /** Show a shot for a manual crop, sized in the space the crop is cut in; `aim` is the live frame in it. */
   const showShot = useCallback(
-    async (pending: PendingAttachment, shotSubject: ScannerSubject, isCurrent: () => boolean, aim: ImageBox | null = null) => {
+    async (pending: ShotFile, shotSubject: ScannerSubject, isCurrent: () => boolean, aim: ImageBox | null = null) => {
       try {
         const size = await measureScanImage(pending.localUri);
         if (isCurrent()) setPreview({ ...pending, ...size, subject: shotSubject, aim });
@@ -255,7 +273,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
         kind: "image",
       };
       // Where the live frame is in the whole photo, and in the cut with room around it (`shotCrop`).
-      const framed: { inPhoto?: ImageBox; inCut?: ImageBox } = {};
+      const framed: { inPhoto?: ImageBox; inCut?: ImageBox; cut?: ShotSource["cut"] } = {};
       let cropped: { uri: string };
       try {
         cropped = await cropScanImage(photo.uri, (size) => {
@@ -263,6 +281,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
           const shot = shotCrop(frame, size);
           framed.inPhoto = boxIn(frame, size);
           framed.inCut = shot.aim;
+          framed.cut = shot.crop;
           return shot.crop;
         }, shotCutMaxEdge(SCAN_MAX_EDGE));
       } catch (error) {
@@ -271,12 +290,11 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
         await showShot(pending, shotSubject, isCurrent, framed.inPhoto ?? null);
         return;
       }
-      // The full-resolution capture is not needed once it is cropped.
-      files.discard(photo.uri);
+      // The full-resolution capture stays until Solve, which cuts the crop from it once.
       files.track(cropped.uri);
       if (isCurrent()) resetLive();
       // The framed shot waits on the crop screen: nothing is sent before Solve.
-      await showShot({ ...pending, localUri: cropped.uri }, shotSubject, isCurrent, framed.inCut ?? null);
+      await showShot(shotFile(pending, cropped.uri, photo.uri, framed.cut), shotSubject, isCurrent, framed.inCut ?? null);
     });
   }, [busy, cameraRef, cameraStatus.kind, crop, files, preview, resetLive, runShot, showShot, subject, t, view]);
 
@@ -287,9 +305,8 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
     void runShot(async (isCurrent) => {
       setBusy(true);
       setError(null);
-      const cropped = await cropScanImage(preview.localUri, (size) =>
-        regionToContainedImageCrop(region, previewFrame, size.width, size.height),
-      );
+      const cut = solveCut(preview, region, previewFrame);
+      const cropped = await cropScanImage(cut.uri, cut.cropFor, ...(cut.maxEdge === undefined ? [] : [cut.maxEdge]));
       deliverCrop(
         { localUri: cropped.uri, contentType: "image/jpeg", fileName: preview.fileName, kind: "image" },
         shotSubject,

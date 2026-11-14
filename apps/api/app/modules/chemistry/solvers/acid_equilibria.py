@@ -18,7 +18,7 @@ def _weakph_text(constant: float, concentration: float, *, acid: bool) -> tuple[
     amount = weak_dissociation(constant, concentration)
     share = amount / concentration * 100
     note = (
-        f"x/C = {num(share)}% > 5%, so the exact quadratic is used, not x ≈ √(KC)"
+        f"x/c = {num(share)}% > 5%, so the exact quadratic is used, not x ≈ √(K c)"
         if share > 5
         else ""
     )
@@ -29,7 +29,7 @@ def _weakph_text(constant: float, concentration: float, *, acid: bool) -> tuple[
 
 
 def _quadratic_lines(constant: float, concentration: float, amount: float) -> list[str]:
-    """The weak-electrolyte quadratic x^2 + Kx - KC = 0 with the numbers put in."""
+    """The weak-electrolyte quadratic x^2 + Kx - Kc = 0 with the numbers put in."""
     k, c = inp(constant), inp(concentration)
     return [
         f"x^2 + ({k})x − ({k})({c}) = 0",
@@ -51,7 +51,7 @@ def solve_weak_acid(intent: ChemistryIntent) -> ChemistryResult:
     lines.append(f"pH = −log10({carried(amount)}) = {ph_text}")
     return verified(
         "Verified weak-acid pH",
-        (f"C = {inp(concentration)} mol/L", f"Ka = {inp(constant)}"),
+        (f"c = {inp(concentration)} mol/L", f"Ka = {inp(constant)}"),
         "pH",
         *stated("weak_acid_ph"),
         lines,
@@ -78,7 +78,7 @@ def solve_conjugate_salt(intent: ChemistryIntent) -> ChemistryResult:
         lines.append(note)
     return verified(
         "Verified conjugate-salt pH",
-        (f"C = {inp(concentration)} mol/L", f"Ka = {inp(ka)}"),
+        (f"c = {inp(concentration)} mol/L", f"Ka = {inp(ka)}"),
         "pH",
         *stated("conjugate_salt_ph"),
         lines,
@@ -98,7 +98,7 @@ def solve_weak_acid_ka(intent: ChemistryIntent) -> ChemistryResult:
     value = num(ka)
     return verified(
         "Verified weak-acid constant",
-        (f"C = {inp(concentration)} mol/L", f"pH = {inp(ph)}"),
+        (f"c = {inp(concentration)} mol/L", f"pH = {inp(ph)}"),
         "Ka",
         *stated("weak_acid_ka"),
         (
@@ -125,7 +125,7 @@ def solve_weak_base(intent: ChemistryIntent) -> ChemistryResult:
     lines.append(f"pH = {PKW} − {p_value(-math.log10(amount))} = {ph_text}")
     return verified(
         "Verified weak-base pH",
-        (f"C = {inp(concentration)} mol/L", f"Kb = {inp(constant)}"),
+        (f"c = {inp(concentration)} mol/L", f"Kb = {inp(constant)}"),
         "pH",
         *stated("weak_base_ph"),
         lines,
@@ -224,7 +224,7 @@ def solve_amphiprotic(intent: ChemistryIntent) -> ChemistryResult:
     shown.append(f"pH = ({left} + {right}) / 2 = {ph_text}")
     given = tuple(shown[:-1]) or (f"pKa1 = {inp(pka1)}", f"pKa2 = {inp(pka2)}")
     if concentration is not None:
-        given = (*given, f"C = {inp(concentration)} mol/L")
+        given = (*given, f"c = {inp(concentration)} mol/L")
     return verified(
         "Verified amphiprotic pH",
         given,
@@ -247,7 +247,7 @@ def solve_diprotic_a2(intent: ChemistryIntent) -> ChemistryResult:
     amount = num(ka2)
     given = [f"Ka2 = {inp(ka2)}"]
     if concentration is not None:
-        given.append(f"C = {inp(concentration)} mol/L")
+        given.append(f"c = {inp(concentration)} mol/L")
     return verified(
         "Verified diprotic [A2-]",
         tuple(given),
@@ -266,7 +266,7 @@ def solve_polyprotic(intent: ChemistryIntent) -> ChemistryResult:
     ph = p_value(-math.log10(amount))
     return verified(
         "Verified polyprotic pH",
-        (f"C = {inp(concentration)} mol/L", f"Ka1 = {inp(ka1)}"),
+        (f"c = {inp(concentration)} mol/L", f"Ka1 = {inp(ka1)}"),
         "pH",
         *stated("polyprotic_ph"),
         (

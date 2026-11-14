@@ -52,16 +52,20 @@ class User(Base):
     # Last processed RevenueCat webhook event_timestamp_ms — ignore older events.
     rc_last_event_at_ms: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     enabled_models: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
-    response_tone: Mapped[str] = mapped_column(String, default="casual", server_default="casual")
+    # A new account's defaults are the owner's (2026-11-11): professional, lots of emoji
+    # ("more"), sensitive memory, email reminders and quiet hours (22:00-07:00) on.
+    response_tone: Mapped[str] = mapped_column(
+        String, default="professional", server_default="professional"
+    )
     # How many emoji replies use (Settings → Personalization): off, some or more.
-    emoji_use: Mapped[str] = mapped_column(String, default="some", server_default="some")
+    emoji_use: Mapped[str] = mapped_column(String, default="more", server_default="more")
     memory_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     # Three tappable follow-up questions under a reply (Settings → Personalization).
     follow_up_suggestions_enabled: Mapped[bool] = mapped_column(
         Boolean, default=True, server_default="true"
     )
     memory_include_sensitive: Mapped[bool] = mapped_column(
-        Boolean, default=False, server_default="false"
+        Boolean, default=True, server_default="true"
     )
     # Web search and photo lookups (Settings → Data controls). Off: no search leaves the server.
     web_search_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
@@ -90,12 +94,10 @@ class User(Base):
     # Read-aloud and live talk voice; None keeps the server default.
     tts_voice: Mapped[str | None] = mapped_column(String(16), nullable=True)
     email_reminders_enabled: Mapped[bool] = mapped_column(
-        Boolean, default=False, server_default="false"
+        Boolean, default=True, server_default="true"
     )
     reminder_lead_minutes: Mapped[int] = mapped_column(Integer, default=10, server_default="10")
-    quiet_hours_enabled: Mapped[bool] = mapped_column(
-        Boolean, default=False, server_default="false"
-    )
+    quiet_hours_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     quiet_hours_start_minute: Mapped[int] = mapped_column(
         Integer, default=1320, server_default="1320"
     )
@@ -108,6 +110,11 @@ class User(Base):
     # When the user last set the Location switch (Data controls, or Allow on the phone's
     # sheet). NULL: never chosen, which reads as off here but lets the phone ask.
     location_chosen_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # When the phone last saved ``location`` (a fix it read, the same place or a new one).
+    # A turn without a fix of its own reads the saved place only while it is recent.
+    location_saved_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
     age: Mapped[int | None] = mapped_column(Integer, nullable=True)

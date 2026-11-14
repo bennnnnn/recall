@@ -220,3 +220,28 @@ jestGlobals.mock("expo-linear-gradient", () => {
   const LinearGradient = (props) => React.createElement(View, props);
   return { LinearGradient };
 });
+
+/**
+ * React Native's Text tells what it holds that it sits in a Text, and its View that it does
+ * not (TextAncestorContext). A formula that is a box of its own keeps its last italic
+ * letter's ink, and one nested in a sentence does not need to (components/rich/MathText).
+ * The preset's mocks of the two pass nothing on, so here they pass it on as the real
+ * components do.
+ */
+function mockTextAncestor(path, value) {
+  const React = require("react");
+  const Context = require("react-native/Libraries/Text/TextAncestorContext").default;
+  const Mocked = require(path).default;
+  class Passed extends Mocked {
+    render() {
+      return React.createElement(Context.Provider, { value }, super.render());
+    }
+  }
+  return { __esModule: true, default: Passed };
+}
+jestGlobals.mock("react-native/Libraries/Text/Text", () =>
+  mockTextAncestor("@react-native/jest-preset/jest/mocks/Text", true),
+);
+jestGlobals.mock("react-native/Libraries/Components/View/View", () =>
+  mockTextAncestor("@react-native/jest-preset/jest/mocks/View", false),
+);

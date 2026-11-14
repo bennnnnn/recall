@@ -6,6 +6,7 @@ import re
 from collections.abc import Callable, Sequence
 from typing import Protocol
 
+from app.core.readings import kept_per_turn
 from app.modules.turn_reading.routing import is_short_confirmation
 from app.services.diagram_kinds import names_diagram_kind, names_idea_curve
 from app.services.prompt_safety import text_before_attachment_markers
@@ -263,7 +264,13 @@ def _chart_request_negated(cleaned: str) -> bool:
 
 def is_chart_question(text: str) -> bool:
     """True when the user asked to draw a numeric chart (Vega), not define one."""
-    cleaned = text.strip()
+    return _asks_for_a_chart(text.strip())
+
+
+@kept_per_turn
+def _asks_for_a_chart(cleaned: str) -> bool:
+    """``is_chart_question`` of stripped text, kept for the turn: asked six times a turn
+    (PERF-02)."""
     if not cleaned:
         return False
     if _is_chart_definition(cleaned) or _chart_request_negated(cleaned):

@@ -22,8 +22,26 @@ function dollarOpensPrice(text: string, dollar: number, body: string): boolean {
 /** A variable (`$2 x$`) or a function (`$2 sin x$`) after a leading number. */
 const MATH_WORD = /^[a-z]$|^(?:sin|cos|tan|sec|csc|cot|log|ln|exp|lim|max|min)$/i;
 /** An amount, maybe with a scale ("1.5M") or a rate ("30/day"), then a
- * clause break or a word. */
-const PRICE_LEAD = /^\d[\d,.]*(?:[kKmMbB]|\/[A-Za-z]+)?(?:[;:!?](?:\s|$)|\s+([A-Za-z]+)(.*))/;
+ * clause break or a word. An exclamation mark is a factorial only where the span ends or
+ * maths goes on, an operator or "=": `$4!$`, `$4! + 3!$` (the owner's phone, 2026-11-11,
+ * drew "$4!$" as source). Followed by anything else, a number, a word, a dollar or a
+ * bracket, it ends a price's clause: "$5! 10 left, $x$", "$5! I paid, so $x$". A space is
+ * in the set so a run of spaces is read whole. */
+const PRICE_LEAD =
+  /^\d[\d,.]*(?:[kKmMbB]|\/[A-Za-z]+)?(?:[;:?](?:\s|$)|!\s+(?![\s=+\-−×÷*/·^<>≤≥≠)])|\s+([A-Za-z]+)(.*))/;
+
+/**
+ * A ratio, read whole: numbers joined by colons and nothing else, its closing dollar after
+ * the last number ("$9: 12: 15$", "$ 3 : 4 $"). Read from its first colon, "$9: 12: 15 $ is
+ * the $ 3: 4: 5$" was a price, "$9:" (2026-11-13); a price before a colon and words stays
+ * one ("$60: 3 of us, so $x = 20$").
+ */
+const RATIO = /^\d[\d,.]*(?:\s*:\s*\d[\d,.]*)+$/;
+
+/** A ratio, read whole (`RATIO`); twin: the API's `inline_code.is_ratio`. */
+export function isRatio(body: string): boolean {
+  return RATIO.test(body.trim());
+}
 
 /**
  * A body that opens with an amount and goes on in words is a price that the
@@ -33,13 +51,21 @@ const PRICE_LEAD = /^\d[\d,.]*(?:[kKmMbB]|\/[A-Za-z]+)?(?:[;:!?](?:\s|$)|\s+([A-
  */
 function priceBody(value: string): boolean {
   // The live tail has swapped every backslash for a marker by now.
-  if (/\\[A-Za-z]/.test(restoreMathEscapes(value))) return false;
-  const lead = PRICE_LEAD.exec(value.trimStart());
+  if (/\\[A-Za-z]/.test(restoreMathEscapes(value)) || isRatio(value)) return false;
+  // A span padded on its left ("$ 4! $") is read without its padding: the space before
+  // its closer is padding, not the space after a price's "!" ("$5! $x$").
+  const body = /^\s/.test(value) ? value.trim() : value.trimStart();
+  const lead = PRICE_LEAD.exec(body);
   if (!lead) return false;
   const [, word, rest = ""] = lead;
   if (word === undefined || !MATH_WORD.test(word)) return true;
   // "a" reads as a variable; the prose after it does not.
-  return (rest.match(/[A-Za-z]{3,}/g) ?? []).filter((w) => !MATH_WORD.test(w)).length >= 2;
+  return proseWords(rest) >= 2;
+}
+
+/** Words of three letters or more that are not maths ("left", "then"; not "sin"). */
+function proseWords(text: string): number {
+  return (text.match(/[A-Za-z]{3,}/g) ?? []).filter((w) => !MATH_WORD.test(w)).length;
 }
 
 /** A complete, explicit math span. Currency and escaped dollars stay literal,

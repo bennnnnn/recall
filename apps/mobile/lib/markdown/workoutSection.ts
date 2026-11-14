@@ -23,7 +23,8 @@ export function isSolutionHeading(text: string): boolean {
 /**
  * The one worked-solution layout the API writes for every subject:
  * **Given**, **Required**, **Solution** (alone, `isSolutionHeading`), the formula under
- * its name ("**Average speed formula**", see `lawHeading`; **Formula** when unnamed),
+ * its name ("**Average speed formula**", see `lawHeading`; a formula with no name follows
+ * **Solution** with no heading of its own since 2026-11-11, **Formula** in older replies),
  * **Substitution** or **Steps**, **Answer** (**Answer (a)** for one part),
  * each a bold heading on its own line followed by one state per line, with
  * the move written as a short note after " — " (`$2x = 8$ — subtract 3`), which the
@@ -53,14 +54,16 @@ export function isAnswerHeading(heading: string): boolean {
 
 /**
  * A formula's own name heads its section ("**Constant acceleration formula**"), so it
- * is no fixed word: in a worked reply, a short bold line alone over a line of maths.
+ * is no fixed word: in a worked reply, a short bold line alone over a line of maths, or
+ * (`underSolution`) right under **Solution** over any line, as a procedure's name heads its
+ * rule in words ("**Conservation of atoms and charge**", 2026-11-11).
  */
-export function lawHeading(text: string, firstLine: string): string | null {
+export function lawHeading(text: string, firstLine: string, underSolution = false): string | null {
   const heading = text.trim();
   if (!heading || /[.:?!]$/.test(heading) || heading.split(/\s+/).length > 10) return null;
   // A numbered move ("1. Subtract 4 from both sides") and a part are their own blocks.
   if (/^\d+[.)]\s/.test(heading) || workoutPart(heading)) return null;
-  return /^\$/.test(firstLine.trim()) ? heading : null;
+  return underSolution || /^\$/.test(firstLine.trim()) ? heading : null;
 }
 
 const WORKED_LINE_RE = new RegExp(String.raw`^\*\*(?:${OPENING_HEADINGS.join("|")}):?\*\*`);
@@ -84,6 +87,24 @@ export function splitWorkoutNote(line: string): { state: string; note: string | 
     }
   }
   return { state: line, note: null };
+}
+
+// An answer line's maths, and a sentence's end before the next sentence's first letter.
+const MATHS = /\$\$[\s\S]*?\$\$|\$[^$\n]*\$|\\\([\s\S]*?\\\)|\\\[[\s\S]*?\\\]/g;
+const NEXT_SENTENCE = /[.!?]["'”’)\]]*\s+\p{Lu}/u;
+
+/**
+ * A line an answer's box holds: one sentence, whatever its words ("The speed is $20$
+ * meters per second"), never more. "A line from $(-3, -5)$ to $(3, 7)$ — slope $2$,
+ * $y$-intercept $1$." was boxed as drawn, its note above it: "slope 2, y-intercept 1. A line
+ * from (−3, −5) to (3, 7)", two sentences (2026-11-13). Maths is never a sentence's end.
+ * Twin: the API's `services/card_text.sentence_answer`, which keeps more than one sentence
+ * out of a card.
+ */
+export function isAnswerValue(line: string): boolean {
+  const { state, note } = splitWorkoutNote(line);
+  const drawn = note ? `${note} ${state}` : line;
+  return !NEXT_SENTENCE.test(drawn.replace(MATHS, "M"));
 }
 
 /**

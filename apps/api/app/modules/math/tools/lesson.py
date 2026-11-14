@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from app.modules.math.response_intent import (
@@ -171,7 +172,7 @@ def lesson_workout(
         lines = tuple(line for line in verified.check_latex.split("\n") if line.strip())
         blocks.append(_NumberedStep("Check", lines))
     workout = Workout(given=given, find=find, formula=tuple(formulas))
-    return workout, _render_numbered(blocks)
+    return workout, _render_numbered(blocks, formulas)
 
 
 def numbered_steps(
@@ -185,7 +186,7 @@ def numbered_steps(
     formulas, blocks = _numbered_blocks(
         key_steps, given_latex=given_latex, answer=answer, variable=variable, include_reasons=False
     )
-    return formulas, _render_numbered(blocks)
+    return formulas, _render_numbered(blocks, formulas)
 
 
 def with_requested_check(reply: str, verified: VerifiedMathBlock, user_text: str) -> str:
@@ -368,17 +369,29 @@ def _step_formula_lines(step: KeyStep, *, include_reasons: bool) -> list[str]:
     return [part for part in split_equality_chain(tex) if part.strip()]
 
 
-def _render_numbered(blocks: list[_NumberedStep]) -> str:
-    """One paragraph per step, so the phone can draw the number as a badge."""
+# A formula's maths with its spacing gone, to tell the same rule written twice.
+_TEX_SPACE = re.compile(r"\s+|\\[,;:! ]")
+
+
+def _maths_of(text: str) -> set[str]:
+    return {_TEX_SPACE.sub("", tex) for tex in re.findall(r"\$([^$]+)\$", text)}
+
+
+def _render_numbered(blocks: list[_NumberedStep], formulas: Sequence[str] = ()) -> str:
+    """One paragraph per step, so the phone can draw the number as a badge. A step's rule is
+    left off when the reply already states it under its name (``formulas``): the chain rule
+    was printed as the Formula and again beside step 1."""
+    stated: set[str] = set()
+    for line in formulas:
+        stated |= _maths_of(line)
     parts: list[str] = []
     for number, block in enumerate(blocks, start=1):
         heading = f"**{number}. {block.label}**"
+        rule = step_rule(block.label, " ".join(block.formulas))
+        if rule and _maths_of(rule) and _maths_of(rule) <= stated:
+            rule = None
         # The rule that allows the move, then any why-question reason after it.
-        note = " · ".join(
-            part
-            for part in (step_rule(block.label, " ".join(block.formulas)), block.reason)
-            if part
-        )
+        note = " · ".join(part for part in (rule, block.reason) if part)
         if note:
             heading += f" — {note}"
         lines = [heading, *(f"${with_times(formula)}$" for formula in block.formulas)]

@@ -14,6 +14,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from app.modules.chat.clarify_card import CLARIFY_FENCE
+from app.modules.chat.follow_up_latex import plain_follow_up
 from app.modules.chat.follow_up_repeats import changes_a_kept_symbol, repeats_earlier
 from app.modules.chat.follow_up_thread import subject_for_related, thread_problem
 from app.modules.chat.follow_up_words import LATIN, STOP_WORDS, TOPIC_WORD, topic_words
@@ -186,7 +187,10 @@ def _a_word(first: re.Match[str]) -> bool:
 
 def _prepare_question(candidate: str) -> str | None:
     """A short full question with a variable and a number kept apart, or none."""
-    cleaned = sentence_case(_typeset_symbols(collapse_ws(candidate).strip("\"'“”")))
+    # Plain text first: a chip showed the model's "45^\textdegree" (``follow_up_latex``).
+    cleaned = sentence_case(
+        _typeset_symbols(plain_follow_up(collapse_ws(candidate).strip("\"'“”")))
+    )
     if not cleaned.endswith("?") and _QUESTION_OPENER.match(cleaned):
         # The model left off the mark ("why does everest grow taller"): the question is whole.
         cleaned = cleaned.rstrip(".") + "?"

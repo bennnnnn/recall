@@ -64,10 +64,10 @@ jest.mock("@/features/chat/model/messageCache", () => {
   };
 });
 
-jest.mock("@/features/chat/hooks/useChatTitlePolling", () => ({
-  useChatTitlePolling: () => ({
+jest.mock("@/features/chat/hooks/useChatTitle", () => ({
+  useChatTitle: () => ({
     titleGenerating: false,
-    pollForTitle: jest.fn(),
+    awaitTitle: jest.fn(),
     handleFirstReply: mockHandleFirstReply,
   }),
 }));

@@ -3,6 +3,9 @@ import { AccessibilityInfo } from "react-native";
 
 import type { Message } from "@/lib/api";
 import { notifyConsentRequired } from "@/lib/api/consentRefusal";
+import { emitAppEvent } from "@/lib/appEvents";
+import { patchChatGlobal } from "@/features/chat/drawer/drawer";
+import { noteChatListChanged } from "@/features/chat/model/chatListCache";
 import { clearPendingChatTtft, markChatFirstToken } from "@/features/chat/model/latency";
 import { withdrawFromOpenedPage } from "@/features/chat/model/openedPage";
 import type { createStreamCueGate } from "@/features/chat/model/streamFeedback";
@@ -14,7 +17,7 @@ import {
   noteTurnToken,
   reportTurnOutcome,
 } from "@/features/chat/model/turnOutcome";
-import type { ChatTurnCommand, DroppedTurnFollow } from "@/features/chat/model/chatTurnCore";
+import type { ChatTurnCommand, DroppedTurnFollow, FirstReply } from "@/features/chat/model/chatTurnCore";
 
 /** What the chat turn's commands act on: the screen's state, the transport and the callers. */
 export type ChatTurnEffects = {
@@ -24,7 +27,7 @@ export type ChatTurnEffects = {
   popForRegenerate: () => void;
   cue: ReturnType<typeof createStreamCueGate>;
   onError?: (message: string, code?: string) => void;
-  onFirstReply?: () => void;
+  onFirstReply?: (reply: FirstReply) => void;
   onTodosSync?: () => void;
   onUsage?: (usage: TurnUsage) => void;
   dropSocket: () => void;
@@ -67,7 +70,17 @@ function runCommand(command: ChatTurnCommand, effects: ChatTurnEffects): void {
       effects.onError?.(command.message ?? effects.t(command.key), command.code);
       return;
     case "first_reply":
-      effects.onFirstReply?.();
+      effects.onFirstReply?.(command.reply);
+      return;
+    case "title":
+      // The drawer's row and the header (useChatMetadata) take it; the wait for it ends, and
+      // with none it reads the chat once (useChatTitle).
+      if (!command.chatId) return;
+      if (command.title) patchChatGlobal(command.chatId, { title: command.title });
+      emitAppEvent("chatTitleArrived", { chatId: command.chatId, title: command.title });
+      return;
+    case "reply_saved":
+      noteChatListChanged();
       return;
     case "todos_changed":
       effects.onTodosSync?.();

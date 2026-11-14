@@ -68,12 +68,12 @@ def _reply(prompt: str) -> str:
         (
             "A bus is moving in a straight line at a speed of 25m/s. What time does the bus "
             "take to cover 5km?",
-            r"$d = 5\,\mathrm{km} \times 1000 = 5000\,\mathrm{m}$",
+            r"$d = 5\,\mathrm{km} = 5 \times 1000\,\mathrm{m} = 5000\,\mathrm{m}$",
             r"$t = \frac{5000\,\mathrm{m}}{25\,\mathrm{m/s}}$",
         ),
         (
             "A train travels at 72 km/h for 30 minutes. How far does it go?",
-            r"$t = 30\,\mathrm{min} \times 60 = 1800\,\mathrm{s}$",
+            r"$t = 30\,\mathrm{min} = 30 \times 60\,\mathrm{s} = 1800\,\mathrm{s}$",
             r"$d = 20\,\mathrm{m/s} \times 1800\,\mathrm{s}$",
         ),
     ],
@@ -99,18 +99,18 @@ def test_units_that_agree_are_worked_as_written() -> None:
         (
             "Tirunesh Dibaba covers a distance of 5000m in 14.5 minutes. Calculate the "
             "average speed of Tirunesh in m/s.",
-            r"$t = 14.5\,\mathrm{min} \times 60 = 870\,\mathrm{s}$",
+            r"$t = 14.5\,\mathrm{min} = 14.5 \times 60\,\mathrm{s} = 870\,\mathrm{s}$",
             r"$v = \frac{5000\,\mathrm{m}}{870\,\mathrm{s}}$",
         ),
         # Asked in SI: every given in another unit is converted on its Given line.
         (
             "a car travels 150 km in 2 hours. what is its speed in m/s",
-            r"$t = 2\,\mathrm{h} \times 3600 = 7200\,\mathrm{s}$",
+            r"$t = 2\,\mathrm{h} = 2 \times 3600\,\mathrm{s} = 7200\,\mathrm{s}$",
             r"$v = \frac{1.5 \times 10^{5}\,\mathrm{m}}{7200\,\mathrm{s}}$",
         ),
         (
             "a train moves at 72 km/h for 15 minutes. how far does it go in meters",
-            r"$v = 72\,\mathrm{km/h} \times 1000/3600 = 20\,\mathrm{m/s}$",
+            r"$v = 72\,\mathrm{km/h} = 72 \times 1000/3600\,\mathrm{m/s} = 20\,\mathrm{m/s}$",
             r"$d = 20\,\mathrm{m/s} \times 900\,\mathrm{s}$",
         ),
     ],

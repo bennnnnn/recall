@@ -6,23 +6,31 @@ its LLM classifier never ran in production and are gone.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from contextlib import ExitStack
+from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING, Any
 
 from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.core.readings import read_off_loop
+from app.modules.chat.posed_read import posed_for_turn
 from app.modules.chat.prompt_builder import SubjectFetch, fetch_subject, inject_subject_block
+from app.modules.chat.referent_read import Referent, continuation_for_turn, referent_for_turn
 from app.modules.chat.turn_prep.followups import (
     SubjectFollowup,
+    resolve_posed_followup,
     resolve_subject_followup,
     role_content_dicts,
 )
 from app.modules.chat.turn_prep.instant import location_not_set_reply
 from app.modules.chat.turn_prep.mode import _should_augment_web_and_tools
 from app.modules.chat.turn_prep.model_read_shadow import start_model_read_shadow
-from app.modules.chat.turn_prep.reading import plan_of
+from app.modules.chat.turn_prep.reading import (
+    ask_turn_readings,
+    plan_of,
+    subject_of,
+)
 from app.modules.chat.turn_prep.request import TurnIdentity, TurnRequest
 from app.modules.chat.whole_question import whole_question_fetch
 from app.modules.chat.worked_render import WorkedLayout
@@ -38,7 +46,7 @@ from app.modules.web_search.subject import (
 )
 from app.services.solving import VerifiedSolveBlock
 from app.services.subjects.dispatch import SubjectName, read_direct_reply, read_subject
-from app.services.subjects.registry import subject_adapter
+from app.services.subjects.registry import SUBJECTS
 
 if TYPE_CHECKING:
     from app.services.subjects.registry import MoneyTurn
@@ -93,6 +101,7 @@ async def gather_and_inject(
     *,
     instant_reply: str | None,
     money: bool = False,
+    referent: Referent | None = None,
 ) -> Augmentation:
     """Phase B/C for one turn. A turn the gate turns away keeps its prompt as built.
 
@@ -110,7 +119,7 @@ async def gather_and_inject(
     ) or await _parts_subject(request, settings, plan)
     if instant_reply is None:
         start_model_read_shadow(request.content, settings, redis, subject=detected_subject)
-    needs_math, needs_chem = _turn_needs(request, settings, followup, detected_subject)
+    needs_subject = _turn_needs_subject(request, settings, followup, detected_subject)
     if not _should_augment_web_and_tools(
         instant_reply=instant_reply,
         lightweight=mode.lightweight,
@@ -118,17 +127,17 @@ async def gather_and_inject(
         day_planning=mode.day_planning,
         ambiguous_nearby=identity.geo.ambiguous_nearby,
         rich_context=mode.rich_context,
-        needs_math=needs_math,
-        needs_chem=needs_chem,
+        needs_subject=needs_subject,
     ):
         return Augmentation(prompt_messages, subject=detected_subject)
 
     # Phase B: the subject solve. Phase C: inject it before the last user message.
-    with subject_adapter("math").solve_timeouts() as timed_out:
+    with ExitStack() as stack:
+        timed_out = [stack.enter_context(adapter.solve_timeouts()) for adapter in SUBJECTS]
         fetched = await _fetch_subject_with_priors(
-            request, identity, settings, redis, prompt_messages, followup, plan
+            request, identity, settings, redis, prompt_messages, followup, plan, referent
         )
-    fetched = _readable_fetch(request, identity, prompt_messages, followup, fetched)
+    fetched = _readable_fetch(request, identity, prompt_messages, followup, fetched, referent)
     return Augmentation(
         prompt_messages=inject_subject_block(prompt_messages, fetched.subject_block),
         verified_subject=fetched.verified,
@@ -136,7 +145,7 @@ async def gather_and_inject(
         unverified_subject=fetched.unverified_subject,
         direct_text=fetched.direct_text,
         asks_more=plan.multi and any(part.kind != "solve" for part in plan.parts),
-        solve_timed_out=bool(timed_out),
+        solve_timed_out=any(timed_out),
         subject=detected_subject,
     )
 
@@ -147,6 +156,7 @@ def _readable_fetch(
     prompt_messages: list[dict[str, str]],
     followup: SubjectFollowup,
     fetched: SubjectFetch,
+    referent: Referent | None = None,
 ) -> SubjectFetch:
     """The fetch held to the whole question it answers (``whole_question``): the message,
     the problem a follow-up solves again, and the earlier lines a terse follow-up borrows
@@ -155,8 +165,8 @@ def _readable_fetch(
     writer's locale reads otherwise, and the result goes."""
     content = request.content
     borrowed: list[str] = []
-    if subject_adapter("math").followups.borrows_earlier(content):
-        borrowed = _prompt_prior_user_messages(prompt_messages, content)[-_PRIOR_USER_LINES:]
+    if any(adapter.followups.borrows_earlier(content) for adapter in SUBJECTS):
+        borrowed = _prior_user_lines(request, prompt_messages, referent)
     return whole_question_fetch(
         content,
         fetched,
@@ -199,29 +209,24 @@ def _solve_parts(plan: TurnPlan) -> tuple[str, ...]:
     return tuple(part.text for part in solves) if len(solves) >= 2 else ()
 
 
-def _turn_needs(
+def _turn_needs_subject(
     request: TurnRequest,
     settings: Settings,
     followup: SubjectFollowup,
     detected_subject: SubjectName | None,
-) -> tuple[bool, bool]:
-    """Whether the turn needs maths and chemistry, in that order. A search is the
-    reply's own call (``tool_loop.reply_calls``), never read here."""
-    content = request.content
-    needs_math = (
-        settings.math_tools_enabled
+) -> bool:
+    """Whether a subject whose switch is on solves the turn: the line is its, a follow-up
+    solves its earlier problem again, or the line alone continues its last one ("graph
+    it"). A search is the reply's own call (``tool_loop.reply_calls``), never read here."""
+    return any(
+        adapter.enabled(settings)
         and (
-            detected_subject == "math"
-            or followup.math is not None
-            or subject_adapter("math").followups.continues_alone(content)
+            detected_subject == adapter.name
+            or followup.problem_of(adapter.name) is not None
+            or adapter.followups.continues_alone(request.content)
         )
-    ) or (
-        settings.physics_enabled and (detected_subject == "physics" or followup.physics is not None)
+        for adapter in SUBJECTS
     )
-    needs_chem = settings.chemistry_enabled and (
-        detected_subject == "chemistry" or followup.chemistry is not None
-    )
-    return needs_math, needs_chem
 
 
 async def _fetch_subject_with_priors(
@@ -232,10 +237,9 @@ async def _fetch_subject_with_priors(
     prompt_messages: list[dict[str, str]],
     followup: SubjectFollowup,
     plan: TurnPlan,
+    referent: Referent | None,
 ) -> SubjectFetch:
-    # Earlier user lines can hold the problem a follow-up refers to. They come from
-    # the prompt's own history: a second read of the messages raced the current line.
-    priors = _prompt_prior_user_messages(prompt_messages, request.content)[-_PRIOR_USER_LINES:]
+    priors = _prior_user_lines(request, prompt_messages, referent)
     return await fetch_subject(
         request.content,
         settings,
@@ -253,6 +257,19 @@ async def _fetch_subject_with_priors(
     )
 
 
+def _prior_user_lines(
+    request: TurnRequest, prompt_messages: list[dict[str, str]], referent: Referent | None
+) -> list[str]:
+    """Earlier user lines can hold the problem a follow-up refers to. They come from the
+    prompt's own history: a second read of the messages raced the current line. When a model
+    read which one "draw it" means (``referent_read``), only that one is read: "graph it"
+    after "What's the capital of France?" draws no older curve. A read that named none is
+    no read: "graph it" to "Want me to graph it?" still finds the curve, however far back."""
+    if referent is not None and referent.problem:
+        return [referent.problem]
+    return _prompt_prior_user_messages(prompt_messages, request.content)[-_PRIOR_USER_LINES:]
+
+
 async def augment_after_prompt(
     request: TurnRequest,
     identity: TurnIdentity,
@@ -264,15 +281,28 @@ async def augment_after_prompt(
 ) -> tuple[Augmentation, str | None]:
     """Phases B and C after the prompt: a follow-up's subject, the verified solve (none for a
     money turn, whose numbers are worked already), and a reply the solve writes itself."""
-    followup = (
+    # "thanks", and a bare "ok" or "yes" that answers the reply: no problem to read for.
+    mode = identity.mode
+    followup, referent = await _turn_followup(
+        request,
+        settings,
+        prompt_messages,
+        small_talk=mode.lightweight or mode.lightweight_reason == "answers_offer",
+    )
+    if followup.asked is not None:
+        # "Do it" after a posed problem: the turn is the problem, as if typed, and read so,
+        # in the pool.
+        request = replace(request, content=followup.asked)
         await read_off_loop(
-            resolve_subject_followup,
-            request.content,
-            role_content_dicts(prompt_messages),
+            ask_turn_readings,
+            followup.asked,
+            prior_user=None,
+            prior_model=None,
+            lesson_active=False,
+            has_image_attachment=request.has_image_attachment,
+            settings=settings,
             timeout=settings.subject_read_timeout_seconds,
         )
-        or SubjectFollowup()
-    )
     if instant_reply is None:
         instant_reply = location_not_set_reply(
             request.content, identity.geo, followup, role_content_dicts(prompt_messages)
@@ -286,6 +316,7 @@ async def augment_after_prompt(
         followup,
         instant_reply=instant_reply,
         money=money is not None,
+        referent=referent,
     )
     timing = request.timing
     if timing is not None:
@@ -293,7 +324,7 @@ async def augment_after_prompt(
         timing.mark_prompt_ready()
     if instant_reply is None:
         instant_reply = await augmented.direct_reply(request, followup, settings)
-    subject = augmented.subject or _followup_subject(followup)
+    subject = augmented.subject or followup.subject
     answered = bool(instant_reply is not None or augmented.verified_subject or money)
     lightweight = identity.mode.lightweight
     augmented.worked = worked_layout(
@@ -313,10 +344,58 @@ async def augment_after_prompt(
     return augmented, instant_reply
 
 
-def _followup_subject(followup: SubjectFollowup) -> SubjectName | None:
-    """The subject of the earlier problem a follow-up solves again."""
-    if followup.physics is not None:
-        return "physics"
-    if followup.chemistry is not None:
-        return "chemistry"
-    return "math" if followup.math is not None else None
+async def _turn_followup(
+    request: TurnRequest,
+    settings: Settings,
+    prompt_messages: list[dict[str, str]],
+    *,
+    small_talk: bool,
+) -> tuple[SubjectFollowup, Referent | None]:
+    """The earlier problem the line follows up, and what "it" is in "draw it"."""
+    # What "it" is: the turn's read, kept since the photo intercept asked it. And the
+    # problem "3" or "the area" continues, which a model reads too.
+    recent = reads_window(request)
+    referent = await referent_for_turn(settings, request.content, recent)
+    continued = await continuation_for_turn(settings, request.content, recent)
+    timeout = settings.subject_read_timeout_seconds
+    followup = await read_off_loop(
+        resolve_subject_followup,
+        request.content,
+        role_content_dicts(prompt_messages),
+        referent.problem if referent is not None else None,
+        continued,
+        timeout=timeout,
+    )
+    if followup is not None and followup.found:
+        return followup, referent
+    # "Do it" after a problem the assistant posed: a model reads which problem, when the
+    # line has no subject of its own and is no "thanks".
+    if (
+        not small_talk
+        and referent is None
+        and continued is None
+        and subject_of(
+            request.content,
+            has_image_attachment=request.has_image_attachment,
+            chemistry_enabled=settings.chemistry_enabled,
+        )
+        is None
+    ):
+        posed = await posed_for_turn(settings, request.content, recent)
+        if posed is not None:
+            followup = await read_off_loop(
+                resolve_posed_followup,
+                request.content,
+                posed.problem,
+                posed.reply,
+                (posed.given, posed.new) if posed.changed else None,
+                timeout=timeout,
+            )
+    return followup or SubjectFollowup(), referent
+
+
+def reads_window(request: TurnRequest) -> list[Any]:
+    """The chat the turn's model reads see: a regenerate's window ends with the reply being
+    redone, which is no part of the chat the line answers."""
+    redone = request.omit_message_ids or set()
+    return [row for row in request.recent_messages or [] if getattr(row, "id", None) not in redone]

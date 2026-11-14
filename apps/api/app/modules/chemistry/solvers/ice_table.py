@@ -81,9 +81,9 @@ def solve_ice(intent: ChemistryIntent) -> ChemistryResult:
     rows = _ice_rows(intent, balanced.reactants, balanced.products, equilibrium)
     lines = [
         *_ice_setup(intent, balanced.reactants, balanced.products, concentrations),
-        f"K = {_ice_expression(balanced.reactants, balanced.products, concentrations)} = "
+        f"Kc = {_ice_expression(balanced.reactants, balanced.products, concentrations)} = "
         f"{inp(constant)}",
-        f"K = {_ice_substituted(intent, balanced.reactants, balanced.products, concentrations)}",
+        f"Kc = {_ice_substituted(intent, balanced.reactants, balanced.products, concentrations)}",
         f"{_polynomial_text(poly.all_coeffs())} = 0",
         f"x = {num(chosen)} (the root that keeps every concentration non-negative)",
     ]
@@ -91,10 +91,10 @@ def solve_ice(intent: ChemistryIntent) -> ChemistryResult:
     quotient = _ice_substituted(intent, balanced.reactants, balanced.products, concentrations)
     result = verified(
         "Verified ICE equilibrium",
-        (intent.equation, f"K = {inp(constant)}"),
+        (intent.equation, f"Kc = {inp(constant)}"),
         "Equilibrium extent and concentrations",
         stated("ice_equilibrium")[0],
-        f"K = {quotient}",
+        f"Kc = {quotient}",
         lines,
         answer,
         num(chosen),

@@ -1,16 +1,23 @@
-"""Plot follow-ups: "graph it" draws the curve an earlier message named or was.
+"""Plot follow-ups: "graph it" draws the curve or the shape an earlier message named.
 
-``resolve_graph_followup`` rewrites "plot it" from the prior user messages; the
-public surface stays ``app.modules.math.tools.extract``.
+``resolve_graph_followup`` rewrites "plot it" from the prior user messages: the one a
+model read as "it" (``chat.referent_read``) when the turn has that read, else each one
+back to the first plottable; the public surface stays ``app.modules.math.tools.extract``.
 """
 
 from __future__ import annotations
 
 import re
+from typing import TYPE_CHECKING
 
 from app.modules.math.solve.declines import sympy_decline
+from app.modules.math.tools.extractors.geometry_request import FIGURE_KINDS
+from app.modules.turn_reading.see_request import see_request_object
 
-_GRAPH_FOLLOWUP_VERBS = ("graph", "plot", "sketch", "draw", "visualize", "visualise", "chart")
+if TYPE_CHECKING:
+    from app.modules.math.schemas import MathIntent
+
+# "Graph the curve" names the subject as maths does; "graph it" names nothing.
 _GRAPH_FOLLOWUP_OBJECTS = frozenset(
     {
         "",
@@ -29,26 +36,6 @@ _GRAPH_FOLLOWUP_OBJECTS = frozenset(
         "that function",
     }
 )
-_POLITE_PREFIXES = ("please ", "can you ", "could you ")
-
-
-def _strip_polite_wrappers(lower: str) -> str:
-    s = lower
-    changed = True
-    while changed:
-        changed = False
-        if s.startswith("please "):
-            s = s[7:].strip()
-            changed = True
-        if s.endswith(" please"):
-            s = s[:-7].strip()
-            changed = True
-        for prefix in _POLITE_PREFIXES:
-            if s.startswith(prefix):
-                s = s[len(prefix) :].strip()
-                changed = True
-                break
-    return s
 
 
 def is_graph_followup(text: str) -> bool:
@@ -58,19 +45,7 @@ def is_graph_followup(text: str) -> bool:
     cleaned = prepare(text)
     if not cleaned:
         return False
-    lower = _strip_polite_wrappers(cleaned.lower().rstrip(".!?"))
-    rest: str | None = None
-    for verb in _GRAPH_FOLLOWUP_VERBS:
-        if lower == verb:
-            rest = ""
-            break
-        prefix = f"{verb} "
-        if lower.startswith(prefix):
-            rest = lower[len(prefix) :].strip()
-            break
-    if rest is None:
-        return False
-    return rest in _GRAPH_FOLLOWUP_OBJECTS
+    return see_request_object(cleaned) in _GRAPH_FOLLOWUP_OBJECTS
 
 
 def _is_plottable_expr(expr: str) -> bool:
@@ -143,10 +118,23 @@ def _bare_function_of_x(text: str) -> str | None:
     return expr if "x" in expr.lower() and _function_of_x(expr) else None
 
 
-def _plottable_graph_source(text: str) -> str | None:
+def drawing_of(text: str) -> str | None:
+    """What "draw it" draws of ``text``: ``graph <curve>``, or the shape the geometry solver
+    builds from it ("Triangle are with sides 5, 4, 3"), whose figure is the reply."""
     from app.modules.math.tools.extract import extract_math_intent
 
     intent = extract_math_intent(text)
+    if intent is not None and intent.kind in FIGURE_KINDS:
+        return text
+    return _graph_of(text, intent)
+
+
+def _graph_of(text: str, intent: MathIntent | None) -> str | None:
+    source = _plottable_graph_source(text, intent)
+    return None if source is None else f"graph {source}"
+
+
+def _plottable_graph_source(text: str, intent: MathIntent | None) -> str | None:
     if intent is None:
         # "what is the slope of y = 3x + 2 and y = 2x + 3" is not solved (the
         # lines' crossing point is not their slope), but "graph it" still
@@ -193,10 +181,12 @@ def resolve_graph_followup(text: str, prior_user_messages: list[str] | None) -> 
     """
     if not is_graph_followup(text):
         return text, False
+    from app.modules.math.tools.extract import extract_math_intent
+
     for prior in reversed(prior_user_messages or []):
-        src = _plottable_graph_source(prior)
-        if src:
-            return f"graph {src}", False
+        drawn = _graph_of(prior, extract_math_intent(prior))
+        if drawn:
+            return drawn, False
     # Data and no function ("Here are my exam marks: math 85, physics 78", then "graph it")
     # asks for a chart of it, which the chart contract draws; asking for a function to
     # graph was the reply (2026-10-24).

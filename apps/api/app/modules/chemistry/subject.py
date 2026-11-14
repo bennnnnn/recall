@@ -8,7 +8,7 @@ reply through ``direct``, each imported when it runs; and its prompt copy from
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
@@ -26,7 +26,7 @@ from app.modules.chemistry.shape_followup import (
     last_question_line,
     shape_followup_problem,
 )
-from app.services.solving import SubjectAugmentation
+from app.services.solving import PhotoReading, SubjectAugmentation
 from app.services.subject_hints import SubjectHints
 
 if TYPE_CHECKING:
@@ -44,6 +44,11 @@ _HINTS = SubjectHints(
 
 @dataclass(frozen=True)
 class ChemistryFollowups:
+    def changed_problem(self, problem: str, given: str | None, new: str) -> str | None:
+        from app.modules.chemistry.followup import changed_chemistry_problem
+
+        return changed_chemistry_problem(problem, given, new)
+
     def problem(
         self,
         query: str | None,
@@ -77,13 +82,18 @@ class ChemistryFollowups:
             return False
         return recent is None or could_ask_a_shape(last_question_line(recent))
 
-    def shown_problem(self, line: str, recent: Sequence[Any]) -> str | None:
+    def shown_problem(
+        self, line: str, recent: Sequence[Any], referent: str | None = None
+    ) -> str | None:
         return shape_followup_problem(line, recent)
 
 
 @dataclass(frozen=True)
 class ChemistryFence:
     """Chemistry checks the replies it verified, and draws its molecules (chat's finalize)."""
+
+    def owns(self, verified: VerifiedSolveBlock | None) -> bool:
+        return verified is not None and verified.subject == "chemistry"
 
     def needs_check(self, text: str, verified: VerifiedSolveBlock | None) -> bool:
         return True
@@ -114,10 +124,15 @@ class ChemistryFence:
         lowered = text.lower()
         return settings.chemistry_enabled and ("```smiles" in lowered or "```chemistry" in lowered)
 
-    def draw(self, text: str, settings: Settings) -> str:
+    async def named(self, text: str, settings: Settings) -> dict[str, str]:
+        from app.modules.chemistry.caption_lookup import checked_names
+
+        return await checked_names(text, settings)
+
+    def draw(self, text: str, settings: Settings, named: Mapping[str, str] | None = None) -> str:
         from app.modules.chemistry.fence import enrich_chemistry_fences_worker
 
-        return enrich_chemistry_fences_worker(text)
+        return enrich_chemistry_fences_worker(text, named)
 
     def tidy(self, text: str, user_text: str, verified: VerifiedSolveBlock | None) -> str:
         return text
@@ -136,25 +151,29 @@ class ChemistryPhoto:
         content: str,
         *,
         image_attachments: list[tuple[str, str]],
-        load_image: Callable[[str], Awaitable[bytes | None]],
+        load_image: Callable[[str], Awaitable[tuple[str, bytes] | None]],
         settings: Settings,
         on_status: Callable[[str], Awaitable[None]] | None,
-    ) -> tuple[None, str]:
+    ) -> PhotoReading:
+        # Its reader has no certainty signal: a plain-text vision read, stated as the line.
         if not settings.chemistry_enabled:
-            return None, content
+            return PhotoReading(None, content)
         from app.modules.chemistry.read import read_chemistry_problem
         from app.services.subject_scan import read_scanned_problem
 
         async def read(content_type: str, data: bytes) -> str:
             return await read_chemistry_problem(settings, content_type=content_type, data=data)
 
-        return None, await read_scanned_problem(
-            content,
-            subject="chemistry",
-            image_attachments=image_attachments,
-            load_image=load_image,
-            read=read,
-            on_status=on_status,
+        return PhotoReading(
+            None,
+            await read_scanned_problem(
+                content,
+                subject="chemistry",
+                image_attachments=image_attachments,
+                load_image=load_image,
+                read=read,
+                on_status=on_status,
+            ),
         )
 
 
@@ -162,11 +181,17 @@ class ChemistryPhoto:
 class ChemistrySubject:
     name: Literal["chemistry"] = "chemistry"
     hints: SubjectHints = _HINTS
+    status_phase: str = "chemistry"
     followups: ChemistryFollowups = ChemistryFollowups()
     fence: ChemistryFence = ChemistryFence()
     photo: ChemistryPhoto = ChemistryPhoto()
     # No model tool of its own.
     tool: None = None
+    # Its pictures come with its solve (a scene, a molecule), never from a separate read.
+    figure: None = None
+
+    def enabled(self, settings: Settings) -> bool:
+        return settings.chemistry_enabled
 
     def asks(self, text: str, *, has_image_attachment: bool = False) -> bool:
         return is_chemistry_question(text)
@@ -183,9 +208,10 @@ class ChemistrySubject:
 
         return not names_beyond(setup, question)
 
-    def fast_lane(self, text: str, *, tools_on: bool) -> bool | None:
-        # A chemistry answer's card is the server's: the fast model only presents it.
-        return True
+    def fast_lane(self, text: str, *, tools_on: bool, claimed: bool = True) -> bool | None:
+        # A chemistry answer's card is the server's: the fast model only presents it. A
+        # line chemistry was not given has no say here.
+        return True if claimed else None
 
     def instant_reply(self, text: str, *, prior_reply: str | None) -> str | None:
         return None
@@ -205,12 +231,25 @@ class ChemistrySubject:
         if not settings.chemistry_enabled:
             return SubjectAugmentation(None, None, None)
         from app.modules.chemistry.context import build_chemistry_augmentation
+        from app.modules.chemistry.parts import solve_chemistry_parts
+        from app.modules.chemistry.questions import MORE_QUESTIONS_NOTE, asks_more_questions
         from app.modules.chemistry.reading import chemistry_text_for_solve
         from app.modules.chemistry.reply_policy import attach_chemistry_fence_hint
+        from app.services.question_parts import ONE_PART_NOTE
 
+        text = chemistry_text_for_solve(request.text)
+        # A message of several questions, each verified on its own, is answered in parts.
+        parted = await solve_chemistry_parts(text, settings)
+        if parted is not None:
+            return parted
         block, verified, declined = await build_chemistry_augmentation(
-            chemistry_text_for_solve(request.text), settings, redis=request.redis
+            text, settings, redis=request.redis
         )
+        if block and verified is not None and ONE_PART_NOTE not in block:
+            # Read whole, the message's one result answers one of its questions: the model
+            # answers the rest (no instant reply does, ``direct``).
+            if asks_more_questions(text, verified.result.answer):
+                block = f"{block}\n{MORE_QUESTIONS_NOTE}"
         if block:
             block = attach_chemistry_fence_hint(block)
         return SubjectAugmentation(

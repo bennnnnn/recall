@@ -180,6 +180,8 @@ class _UserMath:
         self.expressions: list[Any] = []
         self.equations: list[Any] = []
         self.inequalities: list[tuple[Any, str]] = []
+        # The constant sides of "y = 3": the level lines a graph of a constant draws.
+        self.levels: list[Any] = []
         runs = _math_runs(text)
         if "\\" in text:
             # The keypad and a photo's reading type LaTeX: \frac{1}{x}, \int_{1}^{2}, x^{2}.
@@ -198,6 +200,9 @@ class _UserMath:
                     continue
                 if op == "=":
                     self.equations.append(lhs - rhs)
+                    for side, other in ((lhs, rhs), (rhs, lhs)):
+                        if side.is_Symbol and str(side) != "x" and not other.free_symbols:
+                            self.levels.append(other)
                 else:
                     self.inequalities.append((lhs - rhs, op))
         for left, right in pairs:
@@ -306,6 +311,15 @@ def _expression_arg(args: dict[str, Any], key: str, user: _UserMath) -> bool:
     return parsed is not None and _same_expression(parsed, user.expressions)
 
 
+def _graph_arg(args: dict[str, Any], key: str, user: _UserMath) -> bool:
+    """A graph of the user's formula. A constant is graphed only as a level line the user
+    writes ("y = 3"): the 3 of "x = 3" (a vertical line) or of "from -3 to 3" is none."""
+    parsed = _parse(str(args.get(key) or ""))
+    if parsed is None or not _same_expression(parsed, user.expressions):
+        return False
+    return bool(parsed.free_symbols) or _same_expression(parsed, user.levels)
+
+
 def _matches(args: dict[str, Any], user: _UserMath) -> bool:
     action = str(args.get("action") or "solve").strip().lower()
     if action == "solve":
@@ -343,9 +357,9 @@ def _matches(args: dict[str, Any], user: _UserMath) -> bool:
             args.get(key) in (None, "") or _number_written(args.get(key), user) for key in settings
         )
     if action == "graph":
-        if not _expression_arg(args, "expr", user):
+        if not _graph_arg(args, "expr", user):
             return False
-        return not args.get("expr2") or _expression_arg(args, "expr2", user)
+        return not args.get("expr2") or _graph_arg(args, "expr2", user)
     if action in {"rectangle", "square", "circle"}:
         keys = [key for key in ("width", "height", "side", "radius") if args.get(key) is not None]
         return bool(keys) and all(_number_written(args[key], user) for key in keys)
@@ -391,6 +405,53 @@ def intent_in_user_text(intent: Any, text: str) -> bool:
 def holds_no_formula(text: str) -> bool:
     """``text`` has no formula this check could match a call against."""
     return _UserMath(text).empty
+
+
+def written_relations(text: str) -> list[tuple[Any, str, Any]]:
+    """The relations ``text`` writes, each side parsed whole: "y = 2x + 1" is (y, "=",
+    2x + 1), and "-3 < n <= 2" is two. A side is never a piece of a longer formula."""
+    found: list[tuple[Any, str, Any]] = []
+    for run in _runs(text):
+        for left, op, right in _split_relation(run):
+            lhs, rhs = _parse(left), _parse(right)
+            if lhs is not None and rhs is not None:
+                found.append((lhs, op, rhs))
+    return found
+
+
+def written_expressions(text: str) -> list[Any]:
+    """The formulas ``text`` writes outside any relation ("graph x^2 - 4"), each whole."""
+    found = [_parse(run) for run in _runs(text) if not _split_relation(run)]
+    # A lone letter ("for x", "point A") is a name, not a formula.
+    return [expr for expr in found if expr is not None and expr.free_symbols and not expr.is_Symbol]
+
+
+def parse_formula(text: str) -> Any | None:
+    """``text`` as one SymPy expression, or None."""
+    return _parse(text)
+
+
+def same_value(a: Any, b: Any) -> bool:
+    """``a`` and ``b`` are the same expression (their difference simplifies to 0)."""
+    return _zero(a - b)
+
+
+def same_inequalities(read: str, text: str) -> bool:
+    """``read`` writes the inequalities ``text`` writes, every one and no other: "x > -3"
+    is not "2x > -3", and "x <= 3" is not "-2 < x <= 3"."""
+    mine, theirs = _UserMath(read), _UserMath(text)
+    if not mine.inequalities or not theirs.inequalities:
+        return False
+    return all(_same_inequality(d, op, theirs) for d, op in mine.inequalities) and all(
+        _same_inequality(d, op, mine) for d, op in theirs.inequalities
+    )
+
+
+def _runs(text: str) -> list[str]:
+    runs = _math_runs(text)
+    if "\\" in text:
+        runs += [run for run in _math_runs(_latex_as_typed(text)) if run not in runs]
+    return runs[:_MAX_CANDIDATES]
 
 
 def tool_call_matches_user_text(raw_args: str | dict[str, Any], user_texts: list[str]) -> bool:

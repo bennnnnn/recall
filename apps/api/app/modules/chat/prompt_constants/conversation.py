@@ -9,7 +9,11 @@
 - "yes" after the last reply asked them to confirm something ("Could you confirm both
   figures?") confirms it: ``CONFIRMED_HINT``, beside the follow-through hint every short yes
   gets. Live (2026-10-25): $100k monthly take-home and $50k essentials, "Could you confirm
-  both figures?", "Yes", and the reply asked to double-check them again.
+  both figures?", "Yes", and the reply asked to double-check them again. A yes to "Do you
+  mean A, B or something else?" takes A.
+- "the language" after "Python the language, or the snake?", or "Top 5 in Ethiopia" after a
+  list of the world's top universities, leans on the turn before it: the turn's read says
+  so (its ``follow``), and ``FOLLOW_NOTES`` says it beside the message.
 
 Patterns read text passed through ``collapse_ws`` (one space) and lowercased.
 """
@@ -123,10 +127,33 @@ CONTINUE_HINT = (
 # reading of the last reply, and a yes to an offer is still that offer's.
 CONFIRMED_HINT = (
     "If your last reply asked them to confirm something (figures, details, a plan or what "
-    "they meant), this yes confirms it exactly as stated, even a figure that looks unusual. "
-    "Treat it as settled and give the answer it was for now, using those values. Never ask "
+    "they meant), this yes confirms it exactly as stated, even a figure that looks unusual; "
+    "a yes to a question that offered readings takes the first one you named. Treat it as "
+    "settled and give the answer it was for now, using those values. Never ask "
     "them to confirm, double-check or restate it again."
 )
+
+
+# Beside a message the turn's read calls an answer to the last reply, or a change to what the
+# conversation is about (``decided_turn``). On a Pro phone test (2026-11-11) Claude Haiku
+# asked back about "the language" after "Python the language, or the snake?" on every try and
+# "the cheapest one" under five dinner ideas likewise, with the rule that a short message
+# takes what it leaves out from the conversation already in the system prompt: a small model
+# follows the note nearest the message. With these notes it answered both on 5 of 5.
+FOLLOW_NOTES = {
+    "answer": (
+        "This message answers what your last reply asked or offered. Take it as that answer: "
+        "a word that matches one of your options picks it, a yes accepts your offer or picks "
+        "the first reading you named, and a value is the one you asked for. Go on with it "
+        "now; never ask again what they meant."
+    ),
+    "change": (
+        "This message builds on the conversation: it changes or adds to what your last turns "
+        "were about (another place, time or item, a different detail, a new shape for the "
+        "answer), and the conversation fills in what it leaves out. Answer it now; never ask "
+        "what it refers to."
+    ),
+}
 
 
 # Above the chat's rolling summary: it is part of the conversation, so "what did we talk

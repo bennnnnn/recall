@@ -1,6 +1,11 @@
 import { parseFenceLang } from "@/lib/codeHighlight";
 import { readInlineCodeSpan } from "@/lib/markdown/inlineCode";
-import { isWorkedReply, lawHeading, WORKOUT_HEADINGS } from "@/lib/markdown/workoutSection";
+import {
+  isSolutionHeading,
+  isWorkedReply,
+  lawHeading,
+  WORKOUT_HEADINGS,
+} from "@/lib/markdown/workoutSection";
 import { applyOutsideFences, fencedLines, mapClosedFences, readFenceMarker } from "@/lib/fence/scan";
 
 const DETAILS_FENCE_LANGS = new Set(["details", "collapse", "summary"]);
@@ -86,7 +91,10 @@ export function separateStandaloneBoldLines(content: string, worked = false): st
     return headed.replace(STANDALONE_BOLD_LINE, (line: string, head: string, offset: number) => {
       const next = headed.slice(offset + line.length).split("\n", 1)[0] ?? "";
       const name = head.trim().replace(/^\*\*|\*\*$/g, "");
-      return workedProse && lawHeading(name, next) ? `${head.trimEnd()}  \n` : `${head}\n\n`;
+      // Right under **Solution**, a name heads its rule even in words (a procedure's).
+      const above = headed.slice(0, offset).trimEnd().split("\n").pop() ?? "";
+      const heads = lawHeading(name, next, isSolutionHeading(above.replace(/\*\*/g, "")));
+      return workedProse && heads ? `${head.trimEnd()}  \n` : `${head}\n\n`;
     });
   });
 }

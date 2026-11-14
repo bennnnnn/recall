@@ -7,6 +7,9 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 
+from app.modules.physics.ask import ask_clause
+from app.modules.physics.binding_values import light_starts_inside
+from app.modules.physics.catalog.lens import IMAGE_ASKS, MAGNIFICATION_ASKS
 from app.modules.physics.extractors.angles import INCLINE_ANGLE_RE
 from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
 from app.modules.physics.extractors.unit_patterns import (
@@ -18,6 +21,7 @@ from app.modules.physics.extractors.unit_patterns import (
 )
 from app.modules.physics.optic_elements import (
     converging_element,
+    diverging_lens,
     inverted_image,
     places_named,
     signed_distances,
@@ -143,8 +147,64 @@ def _critical_angle(cleaned: str) -> PhysicsIntent | None:
     )
 
 
-def _refraction_angles(cleaned: str) -> list[float]:
-    angles = [float(m.group(1)) for m in INCLINE_ANGLE_RE.finditer(cleaned)]
+# What names an angle: "the angle of incidence", "the refracted ray", "is refracted at".
+# "Refractive index" and "index of refraction" name the asked index, not an angle.
+_INCIDENCE_RE = re.compile(r"\binciden", re.IGNORECASE)
+_REFRACTION_RE = re.compile(r"(?<!index of )\brefract(?!ive)", re.IGNORECASE)
+
+
+def _named_as(before: str) -> str | None:
+    """Which angle the words before one name, by the last of them: incidence or refraction."""
+    incidence = max((m.end() for m in _INCIDENCE_RE.finditer(before)), default=-1)
+    refraction = max((m.end() for m in _REFRACTION_RE.finditer(before)), default=-1)
+    if incidence == refraction:
+        return None
+    return "incidence" if incidence > refraction else "refraction"
+
+
+# What an angle is measured from, said right after it: "30° to the normal", "40° with the
+# surface". Snell's law takes angles from the normal, so one from the surface is 90° less.
+_MEASURED_FROM = re.compile(
+    r"\s*(?:to|with|from)\s+(?:the\s+)?(?:[a-z-]+\s+)?(?P<line>normal|surface|boundary|interface)\b",
+    re.IGNORECASE,
+)
+
+
+def _incidence_first(cleaned: str, found: list[re.Match[str]]) -> list[float] | None:
+    """The two angles from the normal, the angle of incidence first, as their words name
+    them.
+
+    "The angle of refraction is 30° when the angle of incidence is 45°" states refraction
+    first: read in order, the index was sin 30°/sin 45° = 0.707 for 1.41. An angle "to the
+    surface" is 90° less from the normal: read as its own, 40° to the surface gave 1.26 for
+    1.50. One angle named names the other; neither named keeps the order stated; both named
+    alike is no reading, and so is an angle neither named nor said what it is measured from
+    ("strikes a block at 30°" may be to the surface).
+    """
+    names: list[str | None] = []
+    angles: list[float] = []
+    for index, angle in enumerate(found):
+        name = _named_as(cleaned[(found[index - 1].end() if index else 0) : angle.start()])
+        measured = _MEASURED_FROM.match(cleaned, angle.end())
+        line = None if measured is None else measured.group("line").lower()
+        if name is None and line is None:
+            return None
+        names.append(name)
+        angles.append(
+            float(angle.group(1)) if line in (None, "normal") else 90 - float(angle.group(1))
+        )
+    if names[0] == names[1] and names[0] is not None:
+        return None
+    if names[0] == "refraction" or names[1] == "incidence":
+        return angles[::-1]
+    return angles
+
+
+def _refraction_angles(cleaned: str) -> list[float] | None:
+    found = list(INCLINE_ANGLE_RE.finditer(cleaned))
+    if len(found) == 2:
+        return _incidence_first(cleaned, found)
+    angles = [float(m.group(1)) for m in found]
     if len(angles) < 2:
         # "bends from 30 to 20 degrees" puts the unit on the second angle only,
         # so the scan above sees one number where the question gave two.
@@ -160,9 +220,16 @@ def _refraction_angles(cleaned: str) -> list[float]:
 
 
 def _refractive_index(cleaned: str) -> PhysicsIntent | None:
-    """The index from Snell's two angles, or from the speed of light in the medium."""
+    """The index from Snell's two angles, or from the speed of light in the medium.
+
+    n = sin i / sin r holds for light that enters the medium from air. Light that leaves
+    the glass for air bends the other way: read as entering it, "30° in the glass, 48.6°
+    in air" was n = 0.667 for 1.50, so a ray that starts inside is not read.
+    """
     index_values = _index_values(cleaned)
     angles = _refraction_angles(cleaned)
+    if angles is None or (len(angles) == 2 and light_starts_inside(cleaned.lower())):
+        return None
     # n = sin(t1) / sin(t2) when both angles are given and the index is not.
     if len(angles) == 2 and not index_values:
         return PhysicsIntent(
@@ -272,6 +339,63 @@ def image_distance(cleaned: str) -> PhysicsIntent | None:
             "d_obj": obj[1] or "m",
             **dict.fromkeys(mirror, ""),
         },
+        operation="solve",
+    )
+
+
+# A distance asked from somewhere other than the lens: "the image distance from the object",
+# "the distance between the object and the image".
+_FROM_THE_OBJECT = re.compile(
+    r"\b(?:from|between)\s+(?:the\s+|its\s+)?object\b|\bobject\s+(?:and|to)\s+(?:the\s+|its\s+)?image\b"
+)
+
+
+def diverging_lens_asks(text: str) -> frozenset[str]:
+    """The diverging-lens laws the ask names: its image's distance from the lens, its
+    magnification, or both; none for anything else ("the power of the lens", "the focal
+    length in metres", "is the image real?"), which another law answers or none does.
+    Answered with the image distance, "What is the power of the lens?" was 16.7 cm (review
+    2026-11-13)."""
+    clause = (ask_clause(text) or "").lower()
+    named = set()
+    if any(phrase in clause for phrase in MAGNIFICATION_ASKS):
+        named.add("diverging_lens_magnification")
+    if any(phrase in clause for phrase in IMAGE_ASKS) and not _FROM_THE_OBJECT.search(clause):
+        named.add("diverging_lens_image_distance")
+    return frozenset(named)
+
+
+def _stated_image(cleaned: str) -> tuple[float, str] | None:
+    return find_value_with_specific_unit(
+        cleaned, LENGTH_UNIT_PATTERN, ("image",), require_keyword=True
+    )
+
+
+def diverging_lens_image(cleaned: str) -> PhysicsIntent | None:
+    """A diverging (concave) lens: its image is virtual, on the object's side, and smaller,
+    whichever sign its focal length is written with ("-10 cm", or "a concave lens of focal
+    length 10 cm"). Answered as a size and a side, as a converging lens's virtual image is
+    (owner, 2026-11-13); a convex mirror, a signed object distance or an image distance
+    stated (not read) stays declined."""
+    lower = cleaned.lower()
+    # Only a focal length the words name, never an image distance stated: "forms a virtual
+    # image 60 cm from the lens" is a converging lens's image, and read as |f| it was m = 0.667.
+    if not diverging_lens(cleaned) or "focal" not in lower or _stated_image(cleaned) is not None:
+        return None
+    focal = _focal_length(cleaned)
+    obj = _object_length(cleaned)
+    if focal is None or obj is None or obj[0] <= 0 or focal[0] == 0:
+        return None
+    asked = diverging_lens_asks(cleaned)
+    if not asked:
+        return None
+    # Of two asks, the image's place first: the chain answers the size beside it.
+    op = min(asked, key=lambda law: law != "diverging_lens_image_distance")
+    return PhysicsIntent(
+        kind="optics",
+        physics_op=op,
+        physics_params={"focal": focal[0], "d_obj": obj[0]},
+        physics_units={"focal": focal[1] or "m", "d_obj": obj[1] or "m"},
         operation="solve",
     )
 

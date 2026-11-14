@@ -1,6 +1,8 @@
 import { render, within } from "@testing-library/react-native";
 import { Dimensions, StyleSheet } from "react-native";
 
+import { WORK_INDENT } from "@/components/markdown/markdownContentStyles";
+import { MathColumn } from "@/components/rich/mathColumn";
 import { MathText } from "@/components/rich/MathText";
 import { expectFormulaBox } from "@/components/__tests__/support/mathInk";
 import { layoutMath } from "@/lib/math/layout";
@@ -89,5 +91,23 @@ describe("inline tall math overflow", () => {
     expect(formula.minWidth).toBe(contentWidth(latex));
     expect(formula.flexShrink).toBe(0);
     expect(formula.minWidth).toBeGreaterThan(390);
+  });
+
+  it("scrolls a line of working that fits the column but not the room left of its indent", async () => {
+    // Judged against the whole column, step 2 of ∫x sin x dx (about 300pt) was cut off at
+    // the right edge of the working's indent ("∫cos((").
+    const latex = String.raw`\int x \sin(x)\,dx = - x \cos(x) + \int \cos(x)\,dx`;
+    const width = contentWidth(latex);
+    expect(width).toBeLessThan(390 - 64);
+    expect(width).toBeGreaterThan(390 - 64 - WORK_INDENT);
+    const alone = await render(<MathText latex={latex} scrollOverflow />);
+    expect(alone.queryByTestId("math-text-scroll")).toBeNull();
+    alone.unmount();
+    const indented = await render(
+      <MathColumn inset={WORK_INDENT}>
+        <MathText latex={latex} scrollOverflow />
+      </MathColumn>,
+    );
+    expect(indented.getByTestId("math-text-scroll").props.horizontal).toBe(true);
   });
 });

@@ -9,7 +9,9 @@ _ASKS_ABOUT = re.compile(
     r"(?:what(?:['\u2019]s|\s+is|\s+are|\s+was|\s+were)\s+(?:an?\s+)?"
     r"|who(?:['\u2019]s|\s+is|\s+are|\s+was|\s+were)\s+"
     r"|(?:(?:can|could)\s+you\s+)?tell\s+me\s+(?:a\s+(?:little\s+)?bit\s+)?about\s+(?:the\s+)?)"
-    r"(?P<subject>[^\W\d_][\w'\u2019 .-]*?)\s*[?.!]*\s*$",
+    # The subject is read whole (possessive) and its trailing spaces and dots stripped after:
+    # a lazy subject beside \s* took cubic time on a run of spaces.
+    r"(?P<subject>[^\W\d_][\w'\u2019 .-]*+)\s*+[?.!]*+\s*+$",
     re.IGNORECASE,
 )
 

@@ -8,6 +8,7 @@ starts returning bad JSON shows up instead of silently dropping work.
 
 import asyncio
 import logging
+import time
 from datetime import UTC, datetime
 from typing import cast, get_args, get_origin
 
@@ -19,6 +20,7 @@ from app.core.redis import get_redis_client
 from app.core.redis_counters import hincr_with_ttl
 from app.gateways import llm_spend, mock_llm
 from app.gateways.model_output import parse_model_json
+from app.gateways.stream_signals import provider_fault
 from app.gateways.stream_usage import apply_usage
 from app.models import model_catalog
 
@@ -27,6 +29,12 @@ logger = logging.getLogger(__name__)
 # A day's counts outlive it long enough to read yesterday's, then expire.
 _INVALID_COUNT_TTL_SECONDS = 60 * 60 * 48
 _INVALID_COUNT_TIMEOUT_SECONDS = 2.0
+# A provider that refuses (rate-limited upstream, or a server error) answers in about 0.3 s,
+# so even a caller with its own deadline has time for the fallback. Qwen was refused on
+# nearly every follow-up chip, claim check and referent read of the owner's 2026-11-11 test.
+_REFUSALS = frozenset({"rate_limit", "server"})
+# The fallback answers in about 0.7 s: it is asked only with this much of the budget left.
+_REFUSAL_FALLBACK_MIN_SECONDS = 0.8
 
 
 def invalid_output_key(day: datetime | None = None) -> str:
@@ -60,6 +68,15 @@ def _list_field_name(schema: type[BaseModel]) -> str | None:
         if get_origin(ann) is list or any(get_origin(a) is list for a in get_args(ann)):
             return name
     return None
+
+
+def _seconds_after_refusal(exc: BaseException, budget: float, started: float) -> float | None:
+    """What is left of a foreground caller's budget after its model refused at once; None
+    when the failure was no refusal (a timeout, a bad request) or too little is left."""
+    if provider_fault(exc) not in _REFUSALS:
+        return None
+    left = budget - (time.monotonic() - started)
+    return left if left >= _REFUSAL_FALLBACK_MIN_SECONDS else None
 
 
 def fallback_alias(settings: Settings, primary: str) -> str | None:
@@ -148,33 +165,43 @@ async def complete_structured[T: BaseModel](
     allow_fallback: bool = True,
     fallback_on_invalid: bool = False,
     quiet_timeout: bool = False,
+    refusal_fallback: bool = True,
 ) -> T | None:
     """One structured reply, validated against ``schema``; None when there is none.
 
     ``allow_fallback``: a provider failure asks the background fallback model once.
+    Off (a foreground caller keeps its own deadline), only a refusal does, in what is
+    left of ``timeout_seconds``, unless ``refusal_fallback`` is off: a shadow read that
+    measures its own model, or a caller that asks a backup of its own.
     ``fallback_on_invalid``: so does output that does not parse or validate, even
-    with ``allow_fallback`` off (a foreground caller keeps its own deadline).
+    with ``allow_fallback`` off.
     ``quiet_timeout``: a call nothing waits on (a shadow read) logs running out of time at
     info, without a traceback, so a slow provider is no error report per call.
     """
     if mock_llm.should_mock_llm(settings):
         return None
     fallback = fallback_alias(settings, model_alias)
+    budget = settings.background_llm_timeout_seconds if timeout_seconds is None else timeout_seconds
+    started = time.monotonic()
 
-    async def ask(alias: str) -> T | None:
+    async def ask(alias: str, seconds: float | None = timeout_seconds) -> T | None:
         return await _complete_structured_once(
             settings=settings,
             model_alias=alias,
             messages=messages,
             schema=schema,
             max_tokens=max_tokens,
-            timeout_seconds=timeout_seconds,
+            timeout_seconds=seconds,
             usage=usage,
         )
 
-    async def ask_fallback(alias: str) -> T | None:
+    async def ask_fallback(alias: str, seconds: float | None = timeout_seconds) -> T | None:
         try:
-            return await ask(alias)
+            return await ask(alias, seconds)
+        except TimeoutError:
+            # Common in a rate-limit episode, when a refusal left it little time: no traceback.
+            logger.info("Background LLM fallback %s ran out of time", alias)
+            return None
         except Exception:
             logger.exception("Background LLM fallback %s also failed", alias)
             return None
@@ -185,13 +212,23 @@ async def complete_structured[T: BaseModel](
         if quiet_timeout and isinstance(exc, TimeoutError):
             logger.info("Background LLM %s ran out of time", model_alias)
             return None
-        if fallback is None or not allow_fallback:
-            logger.exception("Background LLM %s failed and no fallback configured", model_alias)
-            return None
-        logger.warning(
-            "Background LLM %s unavailable; retrying with fallback %s", model_alias, fallback
-        )
-        return await ask_fallback(fallback)
+        if fallback is not None and allow_fallback:
+            logger.warning(
+                "Background LLM %s unavailable; retrying with fallback %s", model_alias, fallback
+            )
+            return await ask_fallback(fallback)
+        refused_left = _seconds_after_refusal(exc, budget, started) if refusal_fallback else None
+        if fallback is not None and (left := refused_left):
+            logger.warning(
+                "Background LLM %s refused (%s); asking %s in the %.1f s left",
+                model_alias,
+                provider_fault(exc),
+                fallback,
+                left,
+            )
+            return await ask_fallback(fallback, left)
+        logger.exception("Background LLM %s failed; no fallback for this call", model_alias)
+        return None
     if result is not None or fallback is None or not fallback_on_invalid:
         return result
     logger.warning(

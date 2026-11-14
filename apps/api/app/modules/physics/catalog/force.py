@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
+from app.modules.physics.net_force import IN_A_LIFT_MARKER, NOT_NET_FORCE_MARKER
+from app.services.law_binding.spec import Binding, FormulaSpec, formula, var
 
 _FORWARD = ("to the right", "right", "east", "eastward", "forward", "forwards", "ahead")
 _BACKWARD = ("to the left", "left", "west", "westward", "backward", "backwards", "behind")
@@ -22,56 +23,20 @@ _RESTING_SIDE = (
 )
 _ON_THE_TABLE = ("block", "box", "cart", "trolley", "on a", "on the", "table", "surface")
 _HANGING = ("hanging", "hangs", "hung", "suspended", "dangling", "over the edge")
+# g said as gravity: "g = 1.6 m/s²", "(g moon = 1.62 m/s^2)", "gravity is 3.7 m/s²", "a
+# gravitational field strength of 1.6 N/kg". An acceleration the body itself has is no g, even
+# beside "falls" or "field": "a skydiver falls with an acceleration of 6 m/s²: her weight?"
+# was 420 N for 686.7 N, and "a car accelerates at 2 m/s²; its weight is 9810 N" 4905 kg.
+_NAMED_G = var(
+    "g",
+    "g",
+    "meter / second ** 2",
+    fallback="gravity",
+    words=("g", "gravit"),
+    needs_words=True,
+)
 
 SPECS: tuple[FormulaSpec, ...] = (
-    formula(
-        "lift_normal_force",
-        "force",
-        "Newton's second law in a lift",
-        "N",
-        base_latex="N = m(g + a)",
-        expression="m*(g + accel)",
-        variants=(
-            FormulaVariant(
-                latex="N = m(g - a)",
-                present=frozenset({"downward"}),
-                expression="m*(g - accel)",
-            ),
-        ),
-        variables=(
-            var("g", "g", "meter / second ** 2", fallback="gravity"),
-            var("m", "m", "kilogram"),
-            var("accel", "a", "meter / second ** 2", words=("accelerat",)),
-            var(
-                "downward",
-                "",
-                dimensionless=True,
-                visible=False,
-                implied=(
-                    ("accelerating downward", 1.0),
-                    ("accelerating downwards", 1.0),
-                    ("accelerates downward", 1.0),
-                    ("accelerates downwards", 1.0),
-                ),
-            ),
-        ),
-        binding=Binding(
-            asks=(
-                "normal force",
-                "apparent weight",
-                "scale reading",
-                "reading on the scale",
-                "scales read",
-                "scale read",
-                "scales show",
-                "scale show",
-            ),
-            result=("newton",),
-            inputs=(frozenset({"g", "m", "accel"}), frozenset({"g", "m", "accel", "downward"})),
-            cues=("elevator", "lift"),
-            nonnegative=True,
-        ),
-    ),
     formula(
         "net_force",
         "force",
@@ -167,14 +132,13 @@ SPECS: tuple[FormulaSpec, ...] = (
         "W",
         base_latex="W = mg",
         expression="m*g",
-        variables=(
-            var("g", "g", "meter / second ** 2", fallback="gravity"),
-            var("m", "m", "kilogram"),
-        ),
+        variables=(_NAMED_G, var("m", "m", "kilogram")),
         binding=Binding(
             asks=("weight",),
             result=("newton",),
             inputs=(frozenset({"g", "m"}),),
+            # A weight read in a lift is its apparent weight, the floor's push.
+            excludes=(IN_A_LIFT_MARKER,),
             nonnegative=True,
         ),
     ),
@@ -185,15 +149,13 @@ SPECS: tuple[FormulaSpec, ...] = (
         "m",
         base_latex="W = mg",
         expression="weight/g",
-        variables=(
-            var("g", "g", "meter / second ** 2", fallback="gravity"),
-            var("weight", "W", "newton"),
-        ),
+        variables=(_NAMED_G, var("weight", "W", "newton")),
         binding=Binding(
             asks=("mass",),
             result=("kilogram",),
             inputs=(frozenset({"g", "weight"}),),
             cues=("weigh",),
+            excludes=(IN_A_LIFT_MARKER,),
             nonnegative=True,
         ),
     ),
@@ -211,8 +173,9 @@ SPECS: tuple[FormulaSpec, ...] = (
             asks=("mass",),
             result=("kilogram",),
             inputs=(frozenset({"F", "accel"}),),
-            # A weight and a field strength are W = mg, the law the weight names.
-            excludes=("weigh",),
+            # A weight, a lift's floor, friction or a slope shares the net force with the
+            # force stated, unless the question calls that the net force (``net_force``).
+            excludes=(NOT_NET_FORCE_MARKER,),
             nonnegative=True,
         ),
     ),

@@ -35,6 +35,9 @@ from app.modules.chemistry.tex import chemistry_tex, law_symbols, symbol_tex
         ("M1V1 = M2V2", "M_{1} V_{1} = M_{2} V_{2}"),
         ("C₁V₁ = C₂V₂", "C_{1} V_{1} = C_{2} V_{2}"),
         ("V2 = 200 mL", r"V_{2} = 200\,\mathrm{mL}"),
+        ("c1V1 = c2V2", "c_{1} V_{1} = c_{2} V_{2}"),
+        # Avogadro's constant is N_A, though text can only write it Nₐ.
+        ("N = nNₐ", "N = n N_{A}"),
         # "Ae^" is A times e to a power; "MIt" is M·I·t.
         ("k = Ae^(−Ea/(RT))", "k = Ae^{-E_{a}/(R T)}"),
         ("m = MIt / nF", "m = M I t / n F"),
@@ -83,6 +86,9 @@ def test_symbol_tex(asked: str, tex: str | None) -> None:
         ("M(H2O) = 18.015 g/mol", "molar mass"),
         ("M1 = 2 mol/L", "molarity"),
         ("Nₐ = 6.0221 × 10^23 mol⁻¹", "Avogadro constant"),
+        ("c1 = 2 mol/L", "concentration"),
+        ("b = 0.5 mol/kg", "molality"),
+        ("ρ = 1.96 g/L", "density"),
         ("k = 0.1", None),
         ("[H+] = 0.001 mol/L", None),
     ],
@@ -103,6 +109,6 @@ def test_the_moles_of_water_reply_is_laid_out_as_physics() -> None:
     )
     assert (
         "**Substitution**  \n$n = 36\\,\\mathrm{g} / 18.015\\,\\mathrm{g/mol}$  \n"
-        "$n = 2.0\\,\\mathrm{mol}$\n\n**Answer**"
+        "$n = 1.998\\,\\mathrm{mol}$\n\n**Answer**"
     ) in reply
     assert reply.rstrip().endswith("```answer\nn(\\mathrm{H₂O}) = 2.0\\,\\mathrm{mol}\n```")

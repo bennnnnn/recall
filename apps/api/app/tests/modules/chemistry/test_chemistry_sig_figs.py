@@ -174,11 +174,11 @@ def test_a_molar_mass_stays_full_precision_until_the_answer() -> None:
     # 4.000 / 2.016 × 18.015 is 35.74 g; rounding to 2.02 and 18.02 first gave 35.68 g.
     water = _solve("How many grams of water are produced from 4.000 g of H2 in 2H2 + O2 -> 2H2O?")
     assert water.answer == "m(H2O) = 35.74 g"
-    assert water.substitution[-1] == "m(H2O) = 1.9841 × 18.015 = 35.74 g"
+    assert water.substitution[-1] == "m(H2O) = 1.9841 mol × 18.015 g/mol = 35.74 g"
     excess = _solve(
         "In 2H2 + O2 -> 2H2O, 10.00 g of H2 reacts with 64.00 g of O2. Find the limiting reagent."
     )
-    assert "excess H2 = (4.9603 − 4.0003) × 2.016 = 1.935 g" in excess.substitution
+    assert "excess H2 = (4.9603 mol − 4.0003 mol) × 2.016 g/mol = 1.935 g" in excess.substitution
     assert _solve("What is the molar mass of H2SO4?").answer == "M(H2SO4) = 98.07 g/mol"
 
 
@@ -213,13 +213,19 @@ def test_a_long_literal_is_not_recorded() -> None:
         # conceded. A value carried into the next line keeps two figures past the answer's.
         (
             "how many grams of water are made when 8 g of hydrogen gas reacts with enough oxygen",
-            ("n(H2) = 8 / 2.016 = 3.968 mol", "m(H2O) = 3.968 × 18.015 = 71 g"),
+            (
+                "n(H2) = 8 g / 2.016 g/mol = 3.968 mol",
+                "m(H2O) = 3.968 mol × 18.015 g/mol = 71 g",
+            ),
             "m(H2O) = 71 g",
         ),
         (
             "10 g of H2 and 64 g of O2 react to form water. which is the limiting reactant and "
             "how much water forms",
-            ("n(H2) = 10 / 2.016 = 4.960 mol", "excess H2 = (4.960 − 4.000) × 2.016 = 1.9 g"),
+            (
+                "n(H2) = 10 g / 2.016 g/mol = 4.960 mol",
+                "excess H2 = (4.960 mol − 4.000 mol) × 2.016 g/mol = 1.9 g",
+            ),
             "Limiting reagent = O2; 72 g H2O",
         ),
     ],

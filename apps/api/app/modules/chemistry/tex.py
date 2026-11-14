@@ -412,9 +412,13 @@ def _symbols(token: str) -> str:
         explicit = re.match(r"_([A-Za-z0-9]+)", token[at:])
         if explicit is not None:
             script, at = script + explicit.group(1), at + explicit.end()
+        scripted = at
         while at < len(token) and _scripted(token[at]):
             script += _SUBSCRIPTS.get(token[at], token[at])
             at += 1
+        if base == "N" and token[scripted:at] == "ₐ":
+            # Avogadro's constant is N_A; text has no subscript capital, so a row writes Nₐ.
+            script = "A"
         shown = (r"\Delta " if delta else "") + (rf"\bar{{{base}}}" if bar else base)
         shown += r"^\circ" if circle else ""
         shown += f"_{{{script}}}" if script else ""

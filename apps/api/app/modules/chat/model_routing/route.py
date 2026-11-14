@@ -2,7 +2,9 @@
 
 When a request uses the ``auto`` alias (or a user whose default model is
 ``auto``), pick a concrete model per message: cheap/fast for simple turns,
-the stronger model for genuinely hard ones. Heuristic only — no extra LLM call.
+the stronger model for genuinely hard ones. These word rules choose as the turn loads;
+the turn's read (``chat.turn_decision``) replaces their choice before the reply when it
+answers in time (``chat.decided_turn``), so they are the fallback.
 
 Routing always respects the caller's allowed model pool (plan + enabled toggles).
 """
@@ -10,18 +12,22 @@ Routing always respects the caller's allowed model pool (plan + enabled toggles)
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from app.core.config import Settings
 from app.models import model_catalog
 from app.modules.billing.plan import (
     pick_cheapest_from_pool,
     pick_fast_from_pool,
+    pick_math_lane,
     pick_preferred_tier,
     pick_smart_from_pool,
 )
 from app.modules.chat.model_routing.signals import SMART_TRIGGERS, needs_strong_model
 from app.modules.chat.turn_trace import note_route
+
+if TYPE_CHECKING:
+    from app.services.solving import SubjectName
 
 _FOLLOWUP_MAX_CHARS = 120
 # Linear phrase scan — same style as prompt_constants.routing `_OFFER_PHRASES`.
@@ -90,6 +96,12 @@ _FOLLOWUP_OBJECT_TOKENS = frozenset(
 )
 
 _LONG_MESSAGE_CHARS = 800
+# The maths lane's reasons (``_routed_line``, ``routed_chat_model``): a solve, not a reason
+# to think, whichever model the lane runs on.
+_MATH_LANE_REASONS = frozenset({"math", "inherit_math"})
+# A physics or chemistry question no solver answers: the rules' strong model, which on a
+# plan is its maths lane (the owner's call, 2026-11-11), thinking as the rules say.
+_STEM_REASONS = frozenset({"physics", "chemistry"})
 # Any fence opener counts as code, with or without a language tag: an allowlist of
 # languages left a bare fence, or bash, Kotlin or HTML, on the cheap model.
 #
@@ -268,14 +280,11 @@ def _routed_line(content: str, settings: Settings | None = None) -> tuple[str, s
     from app.services.subjects.registry import subject_adapter
 
     tools_on = settings is None or settings.math_tools_enabled
-    if subject == "chemistry":
-        chemistry_fast = subject_adapter("chemistry").fast_lane(content, tools_on=tools_on)
-        return (fast if chemistry_fast else smart), "chemistry"
     if subject != "math":
-        physics_on = settings is None or settings.physics_enabled
-        physics_fast = subject_adapter("physics").fast_lane(content, tools_on=physics_on)
-        if physics_fast is not None:
-            return (fast if physics_fast else smart), "physics"
+        lane = _subject_lane(content, subject, settings)
+        if lane is not None:
+            named, fast_enough = lane
+            return (fast if fast_enough else smart), named
     # Math turns (equations, graphs, geometry, calculus, stats, …) go to the math-tuned
     # strong model: a fast model's steps disagreed with the verified answer.
     from app.modules.chat.model_routing.rate_problems import is_multi_step_rate_problem
@@ -285,6 +294,24 @@ def _routed_line(content: str, settings: Settings | None = None) -> tuple[str, s
     if subject == "math" and not subject_adapter("math").fast_lane(content, tools_on=tools_on):
         return model_catalog.auto_math_alias(), "math"
     return fast, "math_verified" if subject == "math" else "everyday"
+
+
+def _subject_lane(
+    content: str, subject: SubjectName | None, settings: Settings | None
+) -> tuple[SubjectName, bool] | None:
+    """The lane a subject's own read suggests for a line maths does not answer: the subject
+    the order gave it first, then any whose cues claim a line no subject did ("a
+    pendulum's period" is physics' strong model). Each says whether its answer needs no
+    reasoning (True: the fast model), or has no say (None)."""
+    from app.services.subjects.registry import SUBJECTS
+
+    asked = sorted(SUBJECTS, key=lambda adapter: adapter.name != subject)
+    for adapter in asked:
+        tools_on = settings is None or adapter.enabled(settings)
+        verdict = adapter.fast_lane(content, tools_on=tools_on, claimed=adapter.name == subject)
+        if verdict is not None:
+            return adapter.name, verdict
+    return None
 
 
 def route_chat_model(
@@ -334,7 +361,12 @@ def routed_chat_model(
         and _should_inherit_smart(content, prior_user, prior_model)
     ):
         math = model_catalog.auto_math_alias()
-        if prior_model == math or _route_current_line(prior_user, settings) == math:
+        # The prior line's own lane, or its model while that is the maths lane alone (when
+        # the maths lane runs on the strong model, its model says nothing of the subject).
+        was_math = _routed_line(prior_user, settings)[1] == "math" or (
+            prior_model == math and math != smart
+        )
+        if was_math:
             return math, "inherit_math"
         return smart, "inherit_smart"
     return preferred, reason
@@ -351,18 +383,17 @@ def message_needs_thinking(
     """True only when this job should spend a reasoning pass.
 
     The same split Auto uses for the strong lane, except the math lane:
-    an equation still uses a strong model, and it does not think first.
+    an equation still uses a strong model, and it does not think first. The maths lane
+    may be the strong lane's model itself (``ROUTING.math``), so its reasons are named.
     """
-    return (
-        route_chat_model(
-            content,
-            prior_user=prior_user,
-            prior_model=prior_model,
-            lesson_active=lesson_active,
-            settings=settings,
-        )
-        == model_catalog.auto_smart_alias()
+    alias, reason = routed_chat_model(
+        content,
+        prior_user=prior_user,
+        prior_model=prior_model,
+        lesson_active=lesson_active,
+        settings=settings,
     )
+    return alias == model_catalog.auto_smart_alias() and reason not in _MATH_LANE_REASONS
 
 
 _MODES = frozenset({"auto", "fast", "smart"})
@@ -378,12 +409,14 @@ def resolve_alias_in_pool(
     prior_model: str | None = None,
     lesson_active: bool = False,
     unhealthy: frozenset[str] = frozenset(),
+    math_lane: tuple[str, str] | None = None,
 ) -> str:
     """Resolve a model mode or alias within an allowed pool.
 
     A concrete alias is the user's pick and passes through. A mode (auto, fast,
     smart) chooses among the pool's healthy models, and for a JSON ask among those
-    with JSON mode (``_usable_pool``).
+    with JSON mode (``_usable_pool``). A STEM turn the rules send to a strong model goes
+    to the plan's maths lane (``math_lane``, billing's ``math_lane_for``).
     """
     if not pool:
         note_route("no_pool")
@@ -406,6 +439,10 @@ def resolve_alias_in_pool(
         settings=settings,
     )
     note_route(f"auto.{reason}")
+    if reason in _MATH_LANE_REASONS or (
+        reason in _STEM_REASONS and preferred != model_catalog.auto_fast_alias()
+    ):
+        return pick_math_lane(math_lane, usable)
     return pick_preferred_tier(preferred, usable)
 
 

@@ -7,9 +7,11 @@ from collections.abc import Mapping
 from app.modules.math.schemas import GeometryRequest
 from app.modules.math.tools.direct_geometry_working.layout import (
     display,
+    exact,
     figure_unit,
     given,
     number,
+    pi_value,
     section,
 )
 
@@ -101,8 +103,11 @@ def sector_area(request: GeometryRequest, spec: Spec, result: str) -> str | None
         "Sector area formula",
         [r"A = \frac{\theta}{360^\circ}\pi r^2"],
         [
-            rf"A = \frac{{{display(angle)}^\circ}}{{360^\circ}}"
-            rf"\pi({display(radius)})^2 \approx {result}"
+            pi_value(
+                rf"A = \frac{{{display(angle)}^\circ}}{{360^\circ}}\pi({display(radius)})^2",
+                exact(angle) / 360 * exact(radius) ** 2,
+                result,
+            )
         ],
     )
 
@@ -118,7 +123,10 @@ def sector_arc_length(request: GeometryRequest, spec: Spec, result: str) -> str 
         "Arc length formula",
         [r"L = \frac{\theta}{360^\circ}(2\pi r)"],
         [
-            rf"L = \frac{{{display(angle)}^\circ}}{{360^\circ}}"
-            rf"(2\pi \times {display(radius)}) \approx {result}"
+            pi_value(
+                rf"L = \frac{{{display(angle)}^\circ}}{{360^\circ}}(2\pi \times {display(radius)})",
+                exact(angle) / 360 * 2 * exact(radius),
+                result,
+            )
         ],
     )

@@ -19,6 +19,8 @@ type Args = {
   height: number;
   pad: number;
   initialView: GraphView;
+  /** A new value puts the view back on `initialView`: the explorer opens on it each time. */
+  resetKey?: unknown;
   /** Called once per gesture end so the JS side can resample for the new window. */
   onCommit: (bounds: GraphView) => void;
 };
@@ -33,6 +35,7 @@ export function useSkiaGraphViewport({
   height,
   pad,
   initialView,
+  resetKey,
   onCommit,
 }: Args) {
   const bounds = useSharedValue<GraphViewW>(initialView);
@@ -45,7 +48,7 @@ export function useSkiaGraphViewport({
     bounds.value = initialView;
     gestureStart.value = initialView;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- shared values are mutable refs; reseed only for a new window
-  }, [initialView]);
+  }, [initialView, resetKey]);
 
   const commit = (next: GraphViewW) => {
     "worklet";

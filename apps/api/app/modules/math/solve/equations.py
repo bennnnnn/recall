@@ -17,8 +17,8 @@ from app.core.config import get_settings
 from app.modules.math.schemas import EquationInput, MathSolveResult
 from app.modules.math.solve.declines import declines
 from app.modules.math.solve.equation_conditions import (
-    _original_domain_conditions,
     _parameter_solution_conditions,
+    original_domain_conditions,
 )
 from app.modules.math.solve.parse import (
     SolveServiceError,
@@ -128,7 +128,7 @@ def solve_equation(data: EquationInput) -> MathSolveResult:
     original_excluded: list[Any] = []
     domain_conditions: list[str] = []
     if len(syms) == 1:
-        original_excluded, domain_conditions = _original_domain_conditions(data, syms[0])
+        original_excluded, domain_conditions = original_domain_conditions(data, syms[0])
     if len(syms) == 1:
         from app.modules.math.solve.trig_equations import solve_real_trig_equation
 

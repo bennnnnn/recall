@@ -71,7 +71,7 @@ from app.modules.math.schemas.graph import (
     GraphSampleResult,
     NumberLineInterval,
 )
-from app.modules.math.schemas.intent import MathIntent
+from app.modules.math.schemas.intent import MathIntent, declined_reading, is_declined
 from app.modules.math.schemas.word_problem import (
     WordProblemSetup,
 )
@@ -139,4 +139,6 @@ __all__ = [
     "TriangleSidesInput",
     "TriangleSidesResult",
     "WordProblemSetup",
+    "declined_reading",
+    "is_declined",
 ]

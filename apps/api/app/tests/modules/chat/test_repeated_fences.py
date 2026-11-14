@@ -1,0 +1,101 @@
+"""A picture the reply repeats word for word is shown once.
+
+The textbook run (2026-11-13) got its pie chart twice, with "%timeout" and a line of
+Arabic and Chinese characters between the two copies.
+"""
+
+from __future__ import annotations
+
+from types import SimpleNamespace
+from typing import Any, cast
+
+import pytest
+
+from app.modules.chat.repeated_fences import drop_repeated_fences, drop_repeated_pictures
+
+_PIE = (
+    '```chart\n{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","data":{"values":'
+    '[{"method":"Walk","students":12},{"method":"Bus","students":42}]},"mark":{"type":"arc"}}\n```'
+)
+
+
+@pytest.mark.parametrize("token", ["%timeout", "<|im_end|>", "</s>"])
+def test_the_copy_and_a_control_token_between_go(token: str) -> None:
+    reply = f"{_PIE} \n{token} \n\n{_PIE}\n"
+    out = drop_repeated_fences(reply)
+    assert out.count("```chart") == 1
+    assert token not in out
+
+
+@pytest.mark.parametrize(
+    "between",
+    ["Here is the same chart again, larger:", "The bus is the most common way to travel."],
+)
+def test_a_sentence_between_the_copies_stays(between: str) -> None:
+    out = drop_repeated_fences(f"{_PIE}\n\n{between}\n\n{_PIE}")
+    assert out.count("```chart") == 1
+    assert between in out
+
+
+def test_a_copy_further_down_goes_and_the_text_around_it_stays() -> None:
+    reply = f"Intro.\n\n{_PIE}\n\nThe walk share is 10%.\n\n{_PIE}\n\nThat is all."
+    out = drop_repeated_fences(reply)
+    assert out.count("```chart") == 1
+    assert "The walk share is 10%." in out and out.rstrip().endswith("That is all.")
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # Two different charts.
+        f"{_PIE}\n\n{_PIE.replace('42', '43')}",
+        # The same code twice is the user's to have: only pictures are deduplicated.
+        "```python\nprint(1)\n```\n\n```python\nprint(1)\n```",
+        # One chart.
+        f"Here:\n\n{_PIE}",
+    ],
+)
+def test_other_replies_are_left_alone(reply: str) -> None:
+    assert drop_repeated_fences(reply) == reply
+
+
+@pytest.mark.parametrize(
+    "line", ["ذریع娱乐代理", "直角三角形", "Это тот же треугольник."]
+)  # fmt: skip
+def test_a_line_in_any_script_between_the_copies_stays(line: str) -> None:
+    # Only control tokens go: a line is never judged by the script it is written in.
+    out = drop_repeated_fences(f"Here.\n\n{_PIE}\n{line}\n{_PIE}")
+    assert out.count("```chart") == 1
+    assert line in out
+
+
+@pytest.mark.parametrize("server_text", [False, True])
+def test_a_server_reply_keeps_its_scene_under_each_part(server_text: bool) -> None:
+    """A physics question in two parts gets the same scene under each part's card: the
+    server's pictures are its own; only the model's repeats go."""
+    reply = f"(a) 11.5 m\n\n{_PIE}\n\n(b) 1.53 s\n\n{_PIE}"
+    state: Any = SimpleNamespace(
+        server_text=server_text, text=reply, ctx=SimpleNamespace(user_message_content="")
+    )
+    kept = drop_repeated_pictures(cast(Any, state)).count("```chart")
+    assert kept == (2 if server_text else 1)
+
+
+_G = '```geometry\n{"type":"triangle","a":3,"b":4,"c":5}\n```'
+
+
+@pytest.mark.parametrize(
+    "reply, kept",
+    [
+        (f"Here:\n\n{_G}\n\n**Step 1**\n\nA = 6 cm²\n\n{_G}\n\nDone.", ["**Step 1**", "A = 6 cm²"]),
+        (f"{_G}\n\nWith θ = 30° the triangle looks the same:\n\n{_G}", ["θ = 30°"]),
+        (f"### Part (a)\n\n{_G}\n\n### Part (b)\n\n{_G}\n\nThe perimeter is 12.", ["### Part (b)"]),
+        (f"ሶስት ማዕዘኑ ይህ ነው:\n\n{_G}\n\nስለዚህ x = 5 ነው።\n\n{_G}", ["ስለዚህ x = 5 ነው።"]),
+        (f"هذا هو المثلث:\n\n{_G}\n\nإذن المساحة A = 6 سم²\n\n{_G}", ["إذن المساحة A = 6 سم²"]),
+        (f"これが三角形です。\n\n{_G}\n\nこの三角形の面積は6です。\n\n{_G}", ["この三角形の面積は6です。"]),
+    ],
+)  # fmt: skip
+def test_the_reply_s_own_lines_between_copies_stay(reply: str, kept: list[str]) -> None:
+    out = drop_repeated_fences(reply)
+    assert out.count("```geometry") == 1
+    assert all(line in out for line in kept)

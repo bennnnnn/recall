@@ -11,8 +11,12 @@ export type RenderCtx = {
   /** Device font scale only. Layout pixels are already at `em`. */
   fontScale: number;
   em: number;
-  /** The row is a View, so its last run is a box of its own and leans (`RunPad.lean`). */
+  /** The row's last run gets real room to lean into (`RunPad.lean`): the composer's draft,
+   * and a formula in a scroll, whose viewport would cut off ink past the content's end. */
   leanLast?: boolean;
+  /** The runs drawn now are nested in a Text (a formula of glyph runs, a fraction side
+   * drawn as one Text): that Text is their box, not each run (`RunPad.edge`). */
+  inText?: boolean;
 };
 
 export function scaled(px: number, fontScale: number): number {

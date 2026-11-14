@@ -263,10 +263,12 @@ describe("useChatSend", () => {
     }));
   });
 
+  // "draw" asks the server, which gives the molecule to chemistry; a lens question's "image"
+  // names no picture asked for, and goes to chat without the round trip (2026-11-08 feature test).
   it.each([
-    ["draw ethanol", "chemistry"],
-    ["A lens has focal length 15 cm. Where's the image?", "physics"],
-  ])("leaves %j to its subject as chat, not generation", async (text, subject) => {
+    ["draw ethanol", "chemistry", true],
+    ["A lens has focal length 15 cm. Where's the image?", "physics", false],
+  ])("leaves %j to its subject as chat, not generation", async (text, subject, asked) => {
     inputRef.current = text;
     mockImageIntent.mockResolvedValue(verdict({ subject }));
     const sendMessage = sent();
@@ -276,7 +278,8 @@ describe("useChatSend", () => {
     await act(async () => {
       await current.handleSend();
     });
-    expect(mockImageIntent).toHaveBeenCalledWith("token", intentRequest(text, "chat-1"));
+    if (asked) expect(mockImageIntent).toHaveBeenCalledWith("token", intentRequest(text, "chat-1"));
+    else expect(mockImageIntent).not.toHaveBeenCalled();
     expect(onGenerateImage).not.toHaveBeenCalled();
     expect(sendMessage).toHaveBeenCalledWith(text, expect.anything());
     expect(current.sendPhase).toBe("idle");
@@ -1717,49 +1720,26 @@ describe("useChatSend send steps", () => {
     expect(sendMessage).toHaveBeenCalledTimes(1);
   });
 
-  it.each([
-    ["on", 1],
-    ["never_chosen", 0],
-    ["unknown", 0],
-  ] as const)("a location question with the switch %p sends before the profile saves: %p", async (locationSwitch, sentEarly) => {
-    inputRef.current = "coffee near me";
-    needsGeo.mockReturnValue(true);
-    let saved!: () => void;
-    const updateUser = jest.fn(() => new Promise<void>((resolve) => { saved = resolve; }));
-    resolveGeo.mockImplementation(async (_token: string, _text: string, _t: unknown, persist: (patch: object) => unknown) => {
-      await persist({ location: "Oakland, CA", location_enabled: true });
-      return { ok: true, clientGeo: { label: "Oakland, CA", latitude: 1, longitude: 2 } };
-    });
-    const sendMessage = sent();
-    await render(
-      <Probe chatId="chat-1" sendMessage={sendMessage} updateUser={updateUser} locationSwitch={locationSwitch} />,
-    );
-    let sending!: Promise<boolean>;
-    await act(async () => { sending = current.handleSend(); });
-    expect(updateUser).toHaveBeenCalledWith({ location: "Oakland, CA", location_enabled: true });
-    // The fix rides with the turn; only switching location on must save first,
-    // since the server ignores a fix from a user whose location is off.
-    expect(sendMessage).toHaveBeenCalledTimes(sentEarly);
-    await act(async () => { saved(); await sending; });
-    expect(sendMessage).toHaveBeenCalledWith(
-      "coffee near me",
-      expect.objectContaining({ clientGeo: { label: "Oakland, CA", latitude: 1, longitude: 2 } }),
-    );
-  });
-
-  it("does not let a failed background profile save fail the send", async () => {
-    inputRef.current = "coffee near me";
-    needsGeo.mockReturnValue(true);
-    const updateUser = jest.fn(() => Promise.reject(new Error("update failed")));
-    resolveGeo.mockImplementation(async (_token: string, _text: string, _t: unknown, persist: (patch: object) => unknown) => {
-      await persist({ location: "Oakland, CA", location_enabled: true });
-      return { ok: true, clientGeo: null };
-    });
-    const sendMessage = sent();
-    await render(<Probe chatId="chat-1" sendMessage={sendMessage} updateUser={updateUser} locationSwitch="on" />);
-    await send();
-    expect(sendMessage).toHaveBeenCalledTimes(1);
-  });
+  it.each(["on", "never_chosen", "unknown"] as const)(
+    "a location question hands the account's profile save to the read (switch %p)",
+    async (locationSwitch) => {
+      // When the turn waits for that save is the read's to decide (`saveFixPlace`).
+      inputRef.current = "coffee near me";
+      needsGeo.mockReturnValue(true);
+      const updateUser = jest.fn(async () => undefined);
+      resolveGeo.mockResolvedValue({ ok: true, clientGeo: { label: "Oakland, CA", latitude: 1, longitude: 2 } });
+      const sendMessage = sent();
+      await render(
+        <Probe chatId="chat-1" sendMessage={sendMessage} updateUser={updateUser} locationSwitch={locationSwitch} />,
+      );
+      await send();
+      expect(resolveGeo).toHaveBeenCalledWith(expect.any(String), "coffee near me", expect.any(Function), updateUser, locationSwitch);
+      expect(sendMessage).toHaveBeenCalledWith(
+        "coffee near me",
+        expect.objectContaining({ clientGeo: { label: "Oakland, CA", latitude: 1, longitude: 2 } }),
+      );
+    },
+  );
 
   it("starts the time-to-first-token sample at the tap and marks the bubble's frame", async () => {
     const start = jest.spyOn(latency, "markChatTtftStart");

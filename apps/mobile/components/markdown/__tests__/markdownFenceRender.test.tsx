@@ -6,6 +6,8 @@ import { render, waitFor } from "@testing-library/react-native";
 
 import { renderFence, type FenceNode } from "../markdownFenceRender";
 import { renderRichFenceById } from "@/components/rich/RichFence";
+import { ReplyStreaming } from "@/components/markdown/ReplyStreaming";
+import { isHeldWhileStreaming } from "@/lib/fence/held";
 import "@/lib/i18n";
 
 // These check the English copy, so they read the real react-i18next over lib/i18n.
@@ -197,11 +199,17 @@ describe("renderFence geometry/graph dispatch", () => {
         [1, 1],
       ],
     });
-    const { getByDisplayValue, getByTestId } = await render(
+    const { getByLabelText, getByTestId } = await render(
       <>{renderFence(node(content, "graph"))}</>,
     );
     await waitFor(() => {
-      expect(getByDisplayValue("y = x^2")).toBeOnTheScreen();
+      expect(getByLabelText(/, y = x\^2$/)).toBeOnTheScreen();
+      expect(getByTestId("graph-expand")).toBeOnTheScreen();
+    });
+    // GFX-02: the tap area says which graph it opens, not just "Expand".
+    expect(getByTestId("graph-expand").props.accessibilityLabel).toMatch(/^Graph of .*x/);
+    expect(getByTestId("graph-expand").props.accessibilityHint).toBe("Opens the graph to zoom and pan.");
+    await waitFor(() => {
       expect(getByTestId("graph-expand")).toBeOnTheScreen();
     });
   });
@@ -226,11 +234,11 @@ describe("renderFence geometry/graph dispatch", () => {
         [1, 0.84],
       ],
     });
-    const { getByDisplayValue, getByTestId } = await render(
+    const { getByLabelText, getByTestId } = await render(
       <>{renderFence(node(content))}</>,
     );
     await waitFor(() => {
-      expect(getByDisplayValue("y = sin(x)")).toBeOnTheScreen();
+      expect(getByLabelText(/, y = sin\(x\)$/)).toBeOnTheScreen();
       expect(getByTestId("graph-expand")).toBeOnTheScreen();
     });
   });
@@ -422,4 +430,57 @@ describe("renderFence edge cases", () => {
     expect(queryByText("places:{not-json")).toBeNull();
     expect(getByText("{not-json")).toBeOnTheScreen();
   });
+});
+
+describe("server-owned fences while the reply streams", () => {
+  // A scene, a molecule or a graph the model wrote mid-reply is not the server's yet:
+  // finalize strikes it or puts the checked one in its place (2026-11-13 STEM audit).
+  const square = JSON.stringify({ type: "square", side: 5, unit: "cm" });
+
+  it("holds a server-owned card until the reply settles", async () => {
+    const { toJSON, rerender } = await render(
+      <ReplyStreaming value>{renderFence(node(square, "geometry"))}</ReplyStreaming>,
+    );
+    expect(toJSON()).toBeNull();
+    await rerender(
+      <ReplyStreaming value={false}>{renderFence(node(square, "geometry"))}</ReplyStreaming>,
+    );
+    await waitFor(() => {
+      expect(JSON.stringify(toJSON())).toContain("RNSVGSvgView");
+    });
+  });
+
+  it("keeps the card's own key, so a settled reply mounts the same block", () => {
+    const held = renderFence({ key: "k", content: square, sourceInfo: "geometry", tokenIndex: 4 });
+    const direct = renderRichFenceById("geometry", "geometry", square, "k", 4);
+    expect(keyOf(held)).toBe(keyOf(direct));
+  });
+
+  it("draws the answer card while streaming, as it always has", async () => {
+    const { getByText } = await render(
+      <ReplyStreaming value>{renderFence(node("verified: true\n120", "answer"))}</ReplyStreaming>,
+    );
+    expect(getByText("120")).toBeOnTheScreen();
+  });
+
+  it("draws a model-owned card while streaming", async () => {
+    const { toJSON } = await render(
+      <ReplyStreaming value>{renderFence(node("graph TD\nA-->B", "mermaid"))}</ReplyStreaming>,
+    );
+    expect(toJSON()).not.toBeNull();
+  });
+
+  it.each(["simulation", "chem_scene", "molecule3d", "geometry", "graph", "arithmetic", "calculator"] as const)(
+    "the registry holds %s while streaming",
+    (id) => {
+      expect(isHeldWhileStreaming(id)).toBe(true);
+    },
+  );
+
+  it.each(["answer", "chart", "mermaid", "chemistry", "quiz"] as const)(
+    "the registry draws %s while streaming",
+    (id) => {
+      expect(isHeldWhileStreaming(id)).toBe(false);
+    },
+  );
 });

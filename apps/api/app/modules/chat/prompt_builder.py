@@ -46,7 +46,7 @@ from app.services.subjects.dispatch import (
     build_subject_augmentation,
     read_subject,
 )
-from app.services.subjects.registry import MathImageExtract, subject_adapter
+from app.services.subjects.registry import SUBJECTS, MathImageExtract, subject_adapter
 
 if TYPE_CHECKING:
     from app.modules.memory import MemoryScope
@@ -97,9 +97,9 @@ async def fetch_subject(
     math_user_content = math_followup_problem or subject_text or user_content
     subject_user_content = subject_text or user_content
     subject: SubjectName | None
-    if math_followup_problem is not None or subject_adapter("math").followups.continues_alone(
-        user_content
-    ):
+    # "Draw it" after a projectile is physics' scene: a follow-up a subject resolved from
+    # the chat comes before maths' reading of the line alone.
+    if math_followup_problem is not None:
         subject = "math"
     elif chemistry_followup_problem is not None:
         subject = "chemistry"
@@ -107,6 +107,13 @@ async def fetch_subject(
     elif physics_followup_problem is not None:
         subject = "physics"
         subject_user_content = physics_followup_problem
+    elif (
+        alone := next(
+            (adapter for adapter in SUBJECTS if adapter.followups.continues_alone(user_content)),
+            None,
+        )
+    ) is not None:
+        subject = alone.name
     else:
         subject = await read_subject(
             subject_user_content,
@@ -114,15 +121,7 @@ async def fetch_subject(
             has_image_attachment=has_image_attachment,
             image_math_extract=image_math_extract,
         )
-    if subject == "chemistry":
-        needs_subject = settings.chemistry_enabled
-    elif subject == "physics":
-        needs_subject = settings.physics_enabled
-    elif subject == "math":
-        needs_subject = settings.math_tools_enabled
-    else:
-        needs_subject = False
-    if needs_subject and on_status is not None and subject is not None:
+    if on_status is not None and subject is not None and subject_adapter(subject).enabled(settings):
         await on_status(status_phase_for_subject(subject))
     subject_result = await build_subject_augmentation(
         subject_user_content,

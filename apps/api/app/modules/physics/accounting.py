@@ -26,7 +26,9 @@ from itertools import combinations, product
 from app.modules.physics.bodies import orbiting_body_masses
 from app.modules.physics.extractors.unit_patterns import NUMBER
 from app.modules.physics.givens import ANGLE, Given, scan_givens, unit_dimension, unit_expression
+from app.modules.physics.net_force import friction_coefficients, states_net_force
 from app.modules.physics.schemas import PhysicsIntent
+from app.modules.physics.set_aside import uses_set_aside_part
 from app.modules.physics.solvers.si import PARAM_SI_DIMENSIONS, to_si
 from app.services.law_binding.units import dimension_of
 from app.services.number_text import count_word_pattern, number_word_value
@@ -226,6 +228,13 @@ _COUNT_BEFORE = re.compile(
 )
 
 
+def _from_the_other_line(given: Given, params: list[_Param]) -> bool:
+    """An angle bound as 90° less: "40° to the surface" is 50° from the normal."""
+    return given.dimension == ANGLE and any(
+        _same(param.raw, 90.0 - given.value) for param in params if param.dimension == ANGLE
+    )
+
+
 def _counted_network(given: Given, text: str, params: list[_Param]) -> bool:
     """Three 9 Ω resistors are the 27 Ω or 3 Ω a network binds."""
     if given.dimension != _OHM_DIMENSION or given.si is None:
@@ -296,6 +305,9 @@ def competing_given(intent: PhysicsIntent, text: str) -> Given | None:
 def competing_given_of(intents: Sequence[PhysicsIntent], text: str) -> Given | None:
     """``competing_given`` over several laws applied in turn (``chain_solve``): one may
     use some stated values and the next the rest, so every one must be used by some."""
+    friction = _unused_friction(intents, text)
+    if friction is not None:
+        return friction
     params = [param for intent in intents for param in _params(intent)]
     op = ", ".join(intent.physics_op or "" for intent in intents)
     settings = [match.span() for match in _GRAVITY_SETTING.finditer(text)]
@@ -335,7 +347,11 @@ def competing_given_of(intents: Sequence[PhysicsIntent], text: str) -> Given | N
         derived = [
             param for param in same_kind if not any(_bound(other, [param]) for other in others)
         ]
-        if _derived(given, others, derived) or _counted_network(given, text, derived):
+        if (
+            _derived(given, others, derived)
+            or _counted_network(given, text, derived)
+            or _from_the_other_line(given, derived)
+        ):
             continue
         logger.info(
             "physics solve declined: %s %s left unbound by op=%s",
@@ -345,6 +361,38 @@ def competing_given_of(intents: Sequence[PhysicsIntent], text: str) -> Given | N
         )
         return given
     return None
+
+
+# The inputs that are a coefficient of friction, and the kinds a law of forces has.
+_FRICTION_INPUTS = ("mu", "mu_s")
+_FORCE_KINDS = frozenset({_kind("newton"), _kind("meter / second ** 2")})
+
+
+def _unused_friction(intents: Sequence[PhysicsIntent], text: str) -> Given | None:
+    """A coefficient of friction the question states that a law of forces leaves unused.
+
+    A pure number is otherwise a distractor, but a stated μ says friction acts on the
+    motion: "a 60 N push with μ = 0.2 gives 1 m/s²" was m = F/a = 60 kg, for 20.3 kg. A law
+    with no force and no acceleration in it (½mv² of a box sliding at 3 m/s) is not about
+    friction, μ = 0 says none acts, and a force the question calls the net force already
+    holds it. A question that says to ignore friction (``set_aside``) has none.
+    """
+    params = [param for intent in intents for param in _params(intent)]
+    if any(
+        name in (intent.physics_params or {}) for intent in intents for name in _FRICTION_INPUTS
+    ) or not any(param.dimension in _FORCE_KINDS for param in params):
+        return None
+    starts = [start for start, value in friction_coefficients(text) if value > 0]
+    if (
+        not starts
+        or uses_set_aside_part(dict.fromkeys(_FRICTION_INPUTS, 0.0), text)
+        or states_net_force(text.lower())
+    ):
+        return None
+    stated = next((given for given in scan_givens(text) if given.start in starts), None)
+    if stated is not None:
+        logger.info("physics solve declined: a stated coefficient of friction is never used")
+    return stated
 
 
 # A time measured from another event: "1 s after another ball", "1 s before it starts to

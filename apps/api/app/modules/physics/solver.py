@@ -21,7 +21,7 @@ from app.modules.physics.solvers.momentum import solve_momentum
 from app.modules.physics.solvers.optics import solve_optics
 from app.modules.physics.solvers.oscillations import solve_spring
 from app.modules.physics.solvers.projectile import solve_projectile
-from app.modules.physics.solvers.relation import solve_expression
+from app.modules.physics.solvers.relation import drawn_values, solve_expression
 from app.modules.physics.solvers.results import PhysicsResult
 from app.modules.physics.solvers.rotation import solve_rotation
 from app.modules.physics.solvers.school_extensions import SCHOOL_SOLVERS
@@ -105,6 +105,23 @@ def _claim_solvers() -> dict[str, Callable[[PhysicsIntent], PhysicsResult]]:
 PHYSICS_SOLVERS = _claim_solvers()
 
 
+def _outside_its_kind(value: float, unit: str) -> bool:
+    """A result no quantity of its kind takes (``law_binding.domains``): a mass of -5 kg, a
+    resistance of -3 Ω. An angular rate keeps its sign."""
+    from app.modules.physics.givens import unit_dimension, unit_expression
+    from app.modules.physics.solvers.si import to_si
+    from app.services.law_binding.domains import outside_kind
+
+    expression = unit_expression(unit) or ""
+    reading = unit_dimension(expression) if unit else None
+    if reading is None or expression.startswith(("radian", "revolution")):
+        return False
+    try:
+        return outside_kind(reading[0], to_si(value, unit))
+    except SolveServiceError:
+        return False
+
+
 def solve_physics(intent: PhysicsIntent) -> PhysicsResult:
     """Dispatch on the operation. The catalog id is the only key."""
     from app.modules.physics.solvers.catalog_scenes import catalog_scene
@@ -115,9 +132,13 @@ def solve_physics(intent: PhysicsIntent) -> PhysicsResult:
     if solver is None:
         raise SolveServiceError(f"unsupported physics op: {operation}")
     result = attach_recorded_working(solver(intent), intent)
+    if any(_outside_its_kind(quantity.value, quantity.unit) for quantity in result.quantities):
+        raise SolveServiceError(f"{operation} gives a value no such quantity takes")
     # A law solved as arithmetic has no solver of its own to draw it.
     if result.quantities and not result.simulation_specs and not result.graph_specs:
-        scene = catalog_scene(intent, params_in_si(intent), result.quantities[0].value)
+        quantity = result.quantities[0]
+        values, value = drawn_values(intent, params_in_si(intent), quantity.value, quantity.unit)
+        scene = catalog_scene(intent, values, value)
         if scene:
             result = replace(result, simulation_specs=scene)
     return result

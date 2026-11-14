@@ -138,8 +138,9 @@ def _stoichiometry_ratio_hint(content: str) -> str | None:
 def _descriptor_block(smiles: str) -> str | None:
     try:
         desc = compute_descriptors(smiles)
-    except Exception:
-        logger.info("descriptor context failed for %r", smiles, exc_info=True)
+    except Exception as exc:
+        # Its size and the error's class: a traceback quotes the SMILES.
+        logger.info("descriptor context failed: %s chars=%d", type(exc).__name__, len(smiles))
         return None
     if desc.error is not None:
         return None
@@ -351,10 +352,13 @@ async def build_chemistry_augmentation(
             pubchem_gateway.lookup_by_name(name, redis=redis), PUBCHEM_BUDGET_SECONDS
         )
     except TimeoutError:
-        logger.info("PubChem lookup timed out for %r", name)
+        logger.info("PubChem lookup timed out name_chars=%d", len(name))
         return unverified_chemistry_note(), None, True
     if lookup.error is not None or lookup.compound is None:
-        logger.info("PubChem lookup failed for %r: %s", name, lookup.error)
+        # Not the lookup's error either: it quotes the name.
+        logger.info(
+            "PubChem lookup failed name_chars=%d found=%s", len(name), lookup.compound is not None
+        )
         return unverified_chemistry_note(), None, True
     compound = lookup.compound
     if _SEE_STRUCTURE.search(content):

@@ -2,18 +2,18 @@
  * and identifiers like `x2` are typeset as supplied — exponents are not invented. */
 
 import { revealCurrencyDollars } from "@/lib/markdown/preprocessMathInline";
+import { bracePowers, bracketRuns } from "@/lib/math/gluedBrackets";
 import { readGroup } from "@/lib/math/latexGroups";
 import { applyOutsideInlineMath, priceDollarBefore, priceSymbolsAsText } from "@/lib/math/proseDollars";
 import { applyOutsideFences } from "@/lib/fence/scan";
 
 const LATEX_CMD = /\\(?:[a-zA-Z]+|.){1,}/;
-const MATH_IN_PARENS_RE = /\(\s*([^()\n]{1,180}?)\s*\)/g;
 // Line-start ``` fences are skipped via applyOutsideFences (a following
 // ```math is an opener, never a closer). Mid-line ```math is still prose, so
 // a glued `isolate x: ```math` + `\frac` still gets `$...$` wrapping.
 //
 // Display math (`$$...$$`, `\[...\]`) and `\(...\)` stay protected: without
-// that, MATH_IN_PARENS_RE matches the bare `(`/`)` inside `\(...\)` and
+// that, the bracket reader (gluedBrackets.ts) reads the bare `(`/`)` inside `\(...\)` and
 // wrapInlineLatexCommands shatters `\left(\frac{5}{7}\right)^2`.
 const DISPLAY_MATH_SPAN_RE = /\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)/g;
 
@@ -122,6 +122,12 @@ function looksLikeBareEquation(line: string): boolean {
   return words.every((w) => MATH_LINE_WORDS.test(w));
 }
 
+/** A word of two letters or more that is not a maths name ("Base", "cm"; not "sin"). */
+function hasProseWord(s: string): boolean {
+  const words = s.replace(/\\[a-zA-Z]+/g, " ").match(/[A-Za-z]{2,}/g) ?? [];
+  return words.some((w) => !MATH_LINE_WORDS.test(w));
+}
+
 function unwrapParens(expr: string): string {
   const s = expr.trim();
   const m = s.match(/^\(\s*([\s\S]+?)\s*\)$/);
@@ -138,9 +144,27 @@ function uprightJoiningWords(expr: string): string {
 }
 
 function wrapMath(expr: string, format?: (expr: string) => string): string {
-  const inner = uprightJoiningWords(unwrapParens(expr));
+  const inner = uprightJoiningWords(bracePowers(unwrapParens(expr)));
   const body = format ? format(inner) : fixImplicitExponents(inner);
   return `$${body}$`;
+}
+
+/** Each bracketed formula in a prose segment as maths (`gluedBrackets.ts`): a delimiter's
+ * inside alone, a glued run whole with the brackets that group it. */
+function wrapBracketedMath(seg: string, format?: (expr: string) => string): string {
+  let out = "";
+  let last = 0;
+  for (const run of bracketRuns(seg, isMathLike)) {
+    out += seg.slice(last, run.start);
+    if (run.delimited) {
+      out += wrapMath(run.latex, format);
+    } else {
+      const joined = uprightJoiningWords(run.latex);
+      out += `$${format ? format(joined) : fixImplicitExponents(joined)}$`;
+    }
+    last = run.end;
+  }
+  return out + seg.slice(last);
 }
 
 /** Index just past any {...} groups immediately following `start` (balanced
@@ -373,26 +397,27 @@ function normalizeMathLine(line: string, format?: (expr: string) => string, whol
     return out.replace(trimmed, wrapMath(trimmed, format));
   }
 
-  out = applyOutsideInlineMath(out, (seg) =>
-    seg.replace(MATH_IN_PARENS_RE, (full, inner: string) =>
-      isMathLike(String(inner)) ? wrapMath(String(inner), format) : full,
-    ),
-  );
+  out = applyOutsideInlineMath(out, (seg) => wrapBracketedMath(seg, format));
 
   out = wrapInlineLatexCommands(out);
   // Model often wraps a whole prose bullet as `$- Base = 8 cm$`. Only unwrap
   // those prose bullets. A math span that starts with a unary minus, such as
   // `$- x = -2$`, is an equation rather than Markdown list syntax; moving the
   // minus outside the dollars turns it into a visible bullet and changes the
-  // equation to `x = -2`.
+  // equation to `x = -2`. So did `$-2.5 < -0.33 < 0.75 < 1.5$`, an order of
+  // numbers drawn as a bullet and "2.5 < …" (2026-11-13): a minus is a bullet
+  // only with a space after it, as Markdown reads one, and over words.
   out = out.replace(
-    /^(\s*)\$([-*•])\s*(.+?)\s*\$$/,
-    (full, indent: string, mark: string, inner: string) => {
+    /^(\s*)\$([-*•])(\s*)(.+?)\s*\$$/,
+    (full, indent: string, mark: string, space: string, inner: string) => {
       const body = String(inner).trim();
-      // A negative number on its own line (`$-3$`) is maths, not a bullet.
-      if (mark === "-" && /^\d[\d,.]*$/.test(body)) return full;
+      // `$-2.5$`, `$-x < 3$`, `$-\frac{5}{2}$`: a sign glued to what it negates.
+      if (mark === "-" && !space) return full;
       const mathLike =
-        /\\[a-zA-Z]+/.test(body) || /[\^_]/.test(body) || looksLikeBareEquation(body);
+        /\\[a-zA-Z]+/.test(body) ||
+        /[\^_]/.test(body) ||
+        looksLikeBareEquation(body) ||
+        !hasProseWord(body);
       if (mark === "-" && mathLike) {
         return `${indent}$${mark} ${body}$`;
       }

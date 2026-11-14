@@ -5,7 +5,10 @@ card (marked ``verified: true``) lands under the reply's **Answer** heading in
 place of the model's final line, and the scene is appended. A reply that answers
 and then offers more ("Want the max height too?") keeps both; only a reply that
 asks instead of stating any result goes without. A final value in the prose
-that differs from the verified one gets one correction line above the card.
+that differs from the verified one gets one correction line above the card. An
+Answer that gives the asked quantity another value keeps the card too when a
+typed reader read the student's own words; a follow-up's rewrite or a photo's
+reading leaves that Answer's value standing, unchecked.
 """
 
 from __future__ import annotations
@@ -18,6 +21,7 @@ from app.modules.physics.part_answers import land_one_part_card, land_part_cards
 from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
 from app.services.answer_check import asks_without_answering, correction_line, stated_verdict
 from app.services.answer_fence import ANSWER_FENCE_LANGS, land_answer_card
+from app.services.asked_value import asked_verdict
 from app.services.md_fence_scan import (
     block_end,
     close_unclosed_fences,
@@ -26,6 +30,7 @@ from app.services.md_fence_scan import (
 )
 from app.services.part_answer_cards import land_part_answer_cards, own_line_part_answers
 from app.services.solving import VerifiedPhysicsBlock
+from app.services.subject_scan import scanner_camera_subject
 from app.services.workout import as_formula_heading
 
 logger = logging.getLogger(__name__)
@@ -83,6 +88,12 @@ def _scene_fences(verified: VerifiedPhysicsBlock) -> list[str]:
     return fences
 
 
+def scene_reply(verified: VerifiedPhysicsBlock) -> str | None:
+    """ "Draw it" after a physics problem: the solver's pictures alone, or None with none."""
+    fences = _scene_fences(verified)
+    return "\n\n".join(fences) + "\n" if fences else None
+
+
 def solver_cards(verified: VerifiedPhysicsBlock) -> tuple[str, ...]:
     """The fences physics writes for the block: its answer card (each part's, for a
     solve in parts) and its pictures."""
@@ -91,6 +102,17 @@ def solver_cards(verified: VerifiedPhysicsBlock) -> tuple[str, ...]:
         answers = [(verified.display_answer or verified.canonical_answer or "").strip()]
     cards = [f"```answer\n{answer}\n```" for answer in answers if answer]
     return (*cards, *_scene_fences(verified))
+
+
+# The unknown a law is solved for heads its formula, its subscript part of it: "h_{max}",
+# "v_{impact}", "λ", "I". A v with no subscript is not v_i.
+_UNKNOWN = re.compile(r"^\s*(\\?[A-Za-z]+(?:_\{(?:[^{}]|\{[^{}]*\})*\}|_[A-Za-z0-9])?)")
+
+
+def _asked(verified: VerifiedPhysicsBlock) -> tuple[str, ...]:
+    """The symbol the card answers."""
+    head = _UNKNOWN.match(verified.physics_formulas[0]) if verified.physics_formulas else None
+    return (head.group(1),) if head else ()
 
 
 def validate_physics_fences(
@@ -135,8 +157,19 @@ def validate_physics_fences(
     read = as_formula_heading(cleaned)
     if answer and _asks_instead_of_answering(read, answer):
         return cleaned
+    held = asked_verdict(read, answer, _asked(verified)) if answer and correct else None
+    if held == "conflict" and not read_from_their_words(verified, user_text):
+        # The Answer gives the asked quantity one value, another than the card's, and the card
+        # was read from a follow-up's rewrite or a photo: the two read the question differently
+        # and the server's reading is the one in doubt, so the reply keeps its own value with
+        # no check, and no scene of the server's reading.
+        return land_answer_card(cleaned, None)
     if answer:
-        conflict = correct and stated_verdict(read, answer) == "conflict"
+        # A typed reading of the student's own words stands: its card and scene, and a line
+        # saying the verified value, over the model's other one (owner, 2026-11-13).
+        conflict = correct and (
+            held == "conflict" or (held is None and stated_verdict(read, answer) == "conflict")
+        )
         cleaned = land_answer_card(
             cleaned, answer, above=correction_line(answer) if conflict else None
         )
@@ -145,6 +178,20 @@ def validate_physics_fences(
         return cleaned
     keep_diagrams = _ASKED_FOR_DIAGRAM.search(user_text) is not None
     return _with_pictures(_without_model_drawings(cleaned, keep_diagrams), extras)
+
+
+_SENTENCES = re.compile(r"(?<=[.?!])\s+")
+
+
+def read_from_their_words(verified: VerifiedPhysicsBlock, user_text: str) -> bool:
+    """The card is a typed reader's (an extractor, the binder, a chain of catalog laws) of the
+    student's own words: every sentence it read is in their message. A follow-up's rewritten
+    problem is not, and neither is a scanner photo's reading, which its caption carries."""
+    read = verified.read_text
+    if not read or verified.physics_intent is None or scanner_camera_subject(user_text):
+        return False
+    said = " ".join(user_text.split())
+    return all(" ".join(sentence.split()) in said for sentence in _SENTENCES.split(read.strip()))
 
 
 def _without_model_drawings(text: str, keep_diagrams: bool) -> str:

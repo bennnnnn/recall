@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from app.modules.physics.catalog import CATALOG
+from app.modules.physics.catalog import CATALOG, variable_for
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.si import PARAM_SI_DIMENSIONS
 from app.services.units import get_unit_registry
@@ -85,6 +85,7 @@ def test_solved_intent_params_are_declared_on_the_operation(text: str) -> None:
     intent = extract_physics_intent(text)
     assert isinstance(intent, PhysicsIntent)
     assert intent.physics_op is not None
-    declared = {variable.name for variable in CATALOG[intent.physics_op].variables}
-    undeclared = [key for key in (intent.physics_params or {}) if key not in declared]
+    spec = CATALOG[intent.physics_op]
+    # A law solved for one of its inputs is given its own result (``law_binding.inverse``).
+    undeclared = [key for key in (intent.physics_params or {}) if variable_for(spec, key) is None]
     assert not undeclared, f"{intent.physics_op} does not declare {undeclared}"

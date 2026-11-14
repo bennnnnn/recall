@@ -10,7 +10,7 @@ import re
 
 from app.modules.memory.commands import is_explicit_memory_command, is_memory_correction
 from app.modules.memory.ops import normalize_memory_text
-from app.services.prompt_safety import strip_untrusted_blocks, text_before_attachment_markers
+from app.services.prompt_safety import said_by_user
 
 _AS_OF_PREFIX_RE = re.compile(r"^As of \d{4}-\d{2}-\d{2}:\s*", re.IGNORECASE)
 
@@ -147,8 +147,9 @@ _NON_MEMORY_SMALL_TALK = frozenset(
 
 
 def memory_extract_user_text(content: str) -> str:
-    """User prose only — drop attachment OCR/excerpts so they cannot become memories."""
-    return text_before_attachment_markers(strip_untrusted_blocks(content or "")).strip()
+    """User prose only: attachment OCR and excerpts, and the text read off a scanner photo,
+    never become memories or memory commands (``prompt_safety.said_by_user``)."""
+    return said_by_user(content)
 
 
 def memory_extraction_due(user_text: str, *, turn_number: int, every_n_turns: int) -> bool:

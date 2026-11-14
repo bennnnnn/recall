@@ -24,6 +24,7 @@ import {
   type MathSegment,
 } from "@/lib/math/text";
 import { looksLikePipeRow } from "@/lib/markdown/streamTableHold";
+import { isPrimeScript } from "@/lib/math/glyphs";
 import { readGroup } from "@/lib/math/latexGroups";
 
 /** Walk prose and fenced blocks, converting each; the fence's markers are not kept. */
@@ -200,6 +201,7 @@ function copyMathSegments(segments: MathSegment[], depth = 0): string {
       case "sup":
       case "sub": {
         if (segment.type === "sup" && !segment.body && segment.value === DEGREE_RING) return "°";
+        if (segment.type === "sup" && !segment.body && isPrimeScript(segment.value)) return segment.value;
         const value = segment.body
           ? copyMathSegments(segment.body, depth + 1)
           : depth >= 12

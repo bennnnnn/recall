@@ -531,9 +531,9 @@ async def test_a_draw_line_after_a_shape_answer_is_left_to_image_generation(
 ) -> None:
     """The composer sends "draw both" to /images/generate before any chat turn; chemistry
     claiming it on the chat path would split that one reading."""
-    from app.modules.chat.turn_intercepts import _chemistry_draws_it
+    from app.services.subjects.dispatch import subject_shows_it
 
-    assert not await _chemistry_draws_it(Settings(), content, list(_MOLECULE_ROWS))
+    assert not await subject_shows_it(Settings(), content, list(_MOLECULE_ROWS))
 
 
 @pytest.mark.asyncio
@@ -575,10 +575,10 @@ async def test_a_photo_of_both_after_a_shape_answer_stays_a_photo(
 async def test_a_photo_turn_in_another_chat_never_waits_on_the_pool(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from app.modules.chat import turn_intercepts
+    from app.services.subjects import dispatch
 
     pool = AsyncMock()
-    monkeypatch.setattr(turn_intercepts, "run_sympy", pool)
+    monkeypatch.setattr(dispatch, "run_sympy", pool)
     handled, _resolve, _search, _misses = await _new_turn(
         list(_CALMENT_ROWS), "show me her image", "Jeanne Calment"
     )
@@ -591,10 +591,10 @@ async def test_a_pool_that_gives_up_leaves_the_photo_path_and_the_turns_readings
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from app.core import readings
-    from app.modules.chat import turn_intercepts
+    from app.services.subjects import dispatch
 
     readings.begin_turn()
-    monkeypatch.setattr(turn_intercepts, "run_sympy", AsyncMock(side_effect=TimeoutError))
+    monkeypatch.setattr(dispatch, "run_sympy", AsyncMock(side_effect=TimeoutError))
     handled, resolve, _search, _misses = await _new_turn(
         _MOLECULE_ROWS, "can u show me both", "water and carbon dioxide"
     )

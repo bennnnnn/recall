@@ -102,12 +102,12 @@ def _reply(query: str) -> str:
         (
             "Find the area of a sector with radius 4 cm and angle 90 degrees",
             r"$A = \frac{\theta}{360^\circ}\pi r^2$",
-            r"$A = \frac{90^\circ}{360^\circ}\pi(4)^2 \approx 12.5664$",
+            r"$A = \frac{90^\circ}{360^\circ}\pi(4)^2 = 4\pi \approx 12.5664$",
         ),
         (
             "Find the arc length of a sector with radius 4 cm and angle 90 degrees",
             r"$L = \frac{\theta}{360^\circ}(2\pi r)$",
-            r"$L = \frac{90^\circ}{360^\circ}(2\pi \times 4) \approx 6.28$",
+            r"$L = \frac{90^\circ}{360^\circ}(2\pi \times 4) = 2\pi \approx 6.28$",
         ),
     ],
 )

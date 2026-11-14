@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 
+from app.modules.math.match.letter_case import fold_capital_unknowns
 from app.modules.math.match.letter_runs import (
     _GLUEABLE_VIZ,
     _text_has_command,
@@ -103,8 +104,11 @@ def strip_inline_math_delims(text: str) -> str:
 
 def prepare(text: str) -> str | None:
     # ``1.8 x 10^-5`` is the product it means, never an unknown x, and folding
-    # it before superscripts become carets reads ``1.8·10⁻⁵`` too.
-    cleaned = normalize_symbolic_request(fold_scientific(text, style="product"))
+    # it before superscripts become carets reads ``1.8·10⁻⁵`` too. A capital X typed
+    # as the unknown is read as x while the ``$`` around it still marks it as maths.
+    cleaned = normalize_symbolic_request(
+        fold_capital_unknowns(fold_scientific(text, style="product"))
+    )
     if cleaned is None:
         return None
     return fold_digit_groups(fix_leading_solve_typo(cleaned))

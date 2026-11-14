@@ -39,15 +39,24 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("volume", "V", "meter ** 3"),
         ),
     ),
+    # Density is mass over volume, and so a mass or a volume from it (``law_binding.inverse``).
+    # Chemistry's densities are a gas's (PV = nRT); a solid's or a liquid's is this law.
     formula(
         "density",
         "fluids",
         "Density formula",
         "\\rho",
         base_latex="\\rho = \\frac{m}{V}",
+        expression="m/volume",
         variables=(
             var("m", "m", "kilogram"),
             var("volume", "V", "meter ** 3"),
+        ),
+        binding=Binding(
+            asks=("density",),
+            result=("kilogram / meter ** 3",),
+            inputs=(frozenset({"m", "volume"}),),
+            nonnegative=True,
         ),
     ),
     formula(
@@ -402,8 +411,8 @@ SPECS: tuple[FormulaSpec, ...] = (
         "pressure_from_weight",
         "fluids",
         "Pressure",
-        "p",
-        base_latex=r"p = \frac{m g}{A}",
+        "P",
+        base_latex=r"P = \frac{m g}{A}",
         expression="m*g/area",
         variables=(
             var("m", "m", "kilogram"),
@@ -418,13 +427,13 @@ SPECS: tuple[FormulaSpec, ...] = (
             nonnegative=True,
         ),
     ),
-    # The water's own pressure at a depth: p = rho g h, no atmosphere added.
+    # The water's own pressure at a depth: P = rho g h, no atmosphere added.
     formula(
         "water_pressure_at_depth",
         "fluids",
         "Hydrostatic pressure",
-        "p",
-        base_latex=r"p = \rho g h",
+        "P",
+        base_latex=r"P = \rho g h",
         assumptions=("the pressure due to the water alone, without the atmosphere",),
         expression="rho*g*depth",
         variables=(

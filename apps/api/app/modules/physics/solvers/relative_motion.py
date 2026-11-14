@@ -34,7 +34,7 @@ def _catch_up_time(intent: PhysicsIntent) -> PhysicsResult:
 
 
 def _displacement(intent: PhysicsIntent) -> PhysicsResult:
-    """d = √(d₁² + d₂²), at atan(d₂/d₁) from the first leg toward the second."""
+    """s = √(d₁² + d₂²), at atan(d₂/d₁) from the first leg toward the second."""
     params = intent.physics_params or {}
     unit = (intent.physics_units or {}).get("d1", "m")
     d1, d2 = params["d1"], params["d2"]
@@ -48,12 +48,12 @@ def _displacement(intent: PhysicsIntent) -> PhysicsResult:
     # The legs keep the unit they were walked in: the arithmetic is in km.
     leg1, leg2 = f"{latex_given(d1)}{shown}", f"{latex_given(d2)}{shown}"
     rows = (
-        rf"d = \sqrt{{({leg1})^2 + ({leg2})^2}} = {latex_number(value)}{shown}",
+        rf"s = \sqrt{{({leg1})^2 + ({leg2})^2}} = {latex_number(value)}{shown}",
         rf"\theta = \arctan\frac{{{leg2}}}{{{leg1}}} = {latex_number(angle)}^\circ",
     )
     return PhysicsResult(
         answer=rows[0],
-        formulas=(r"d = \sqrt{d_1^2 + d_2^2}", r"\theta = \arctan\frac{d_2}{d_1}"),
+        formulas=(r"s = \sqrt{d_1^2 + d_2^2}", r"\theta = \arctan\frac{d_2}{d_1}"),
         substitutions=rows,
         quantities=(
             QuantityResult("", value, unit, detail=f"{plain_number(angle)}° {second} of {first}"),

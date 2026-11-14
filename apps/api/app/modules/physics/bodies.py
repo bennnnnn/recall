@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
 from app.modules.physics.ask import SENTENCE
 from app.modules.physics.constants import (
@@ -13,6 +15,9 @@ from app.modules.physics.constants import (
     PROTON_MASS,
 )
 from app.services.text_match import word_index
+
+if TYPE_CHECKING:
+    from app.services.law_binding.spec import FormulaSpec
 
 _BODY_WORDS = re.compile(
     r"\b(?:earth|moon|mars|jupiter|sun|venus|mercury|saturn|uranus|neptune|pluto)\b",
@@ -102,6 +107,9 @@ def central_body(lower: str) -> tuple[float, float] | None:
     body in the table was Earth. A body that does the orbiting ("The Earth orbits the
     Sun") is never it, and a body the table has no numbers for (Venus) gives none.
     """
+    if names_another_moon(lower):
+        # "Europa, a moon of Jupiter", "Ganymede, the largest moon": no table body's numbers.
+        return None
     named = set(_ANY_BODY.findall(lower))
     orbited = set(_ORBITED.findall(lower))
     if len(orbited) == 1:
@@ -208,11 +216,90 @@ def orbiting_mass_fills(params: dict[str, float], text: str) -> bool:
 SCHOOL_GRAVITY: dict[str, float] = {"earth": 9.81, "moon": 1.62, "mars": 3.71}
 
 
+# A planet or asteroid the question leaves unnamed: "on a planet", "another planet",
+# "planet X". Its g is what the question works out or states; Earth's answered "on a planet,
+# a ball dropped from 20 m takes 4 s" with -9.81 m/s² for 2.5 m/s².
+_UNNAMED_BODY = re.compile(
+    r"\b(?:an?|another|some)\s+(?:[a-z-]+\s+){0,2}?(?:planet|exoplanet|asteroid)s?\b"
+    r"|\bplanet\s+[a-z]\b"
+)
+# A moon that is not ours: "a moon", "an icy moon", "moons", "Saturn's moon", "the moon of
+# Jupiter", "Ganymede, the largest moon". Read as ours, Europa had the Moon's g. "The Moon",
+# "Earth's moon" and a bare "moon" ("g moon = 1.62") are ours.
+_ANOTHER_MOON = re.compile(
+    r"\b(?:an?|another|one|some|its|their|which)\s+(?:[a-z-]+\s+){0,2}?moons?\b"
+    r"|\bmoons\b"
+    r"|\b(?!earth)[a-z]+['\u2019]s\s+(?:[a-z-]+\s+)?moons?\b"
+    r"|\bmoons?\s+of\s+(?!(?:the\s+)?earth\b)"
+    r"|\bthe\s+(?!moon\b)[a-z-]+\s+moons?\b"
+)
+_MOON = re.compile(r"\bmoon\b")
+# Planets a school question names with no agreed g; Mercury only as a place, not the metal.
+_NO_SCHOOL_G = re.compile(r"\b(?:venus|saturn|uranus|neptune|pluto)\b|\b(?:on|planet)\s+mercury\b")
+
+
+def names_another_moon(lower: str) -> bool:
+    """The question names a moon that is not ours: "a moon of Jupiter", "Saturn's moon"."""
+    return _ANOTHER_MOON.search(lower) is not None
+
+
+def names_our_moon(lower: str) -> bool:
+    """The question names the Moon, Earth's, and no other."""
+    return _MOON.search(lower) is not None and not names_another_moon(lower)
+
+
 def names_body_without_school_gravity(lower: str) -> bool:
-    """True when lowercased text names a body whose surface g has no school value."""
-    return any(
-        word_index(lower, name) != -1 for name in BODY_PROPERTIES if name not in SCHOOL_GRAVITY
+    """True when lowercased text names a body whose surface g has no school value, or a
+    planet, moon or asteroid it does not name."""
+    return (
+        _UNNAMED_BODY.search(lower) is not None
+        or names_another_moon(lower)
+        or _NO_SCHOOL_G.search(lower) is not None
+        or any(
+            word_index(lower, name) != -1 for name in BODY_PROPERTIES if name not in SCHOOL_GRAVITY
+        )
     )
+
+
+def takes_school_g_elsewhere(spec: FormulaSpec, params: Mapping[str, float], lower: str) -> bool:
+    """A filled law multiplies by a school g (Earth's, the Moon's, Mars's) that the question
+    never stated, for a body whose g that is not: Europa took the Moon's, Phobos Mars's.
+
+    A g the question gives the law ("a field strength of 3.7 N/kg") is its own, and so is
+    the g a law is solved for ("a 1 m pendulum on a planet at 0.4 Hz: its g?").
+    """
+    from app.services.law_binding.inverse import solved_input
+
+    unknown = solved_input(spec, params)
+    if unknown is not None and unknown.name == "g":
+        return False
+    filled = params.get("g", SCHOOL_GRAVITY["earth"]) in SCHOOL_GRAVITY.values()
+    return filled and (
+        names_body_without_school_gravity(lower) or names_two_school_gravities(lower)
+    )
+
+
+_MARS = re.compile(r"\bmars\b")
+# Earth as a place, not as the Moon's owner ("Earth's moon" is the Moon).
+_EARTH = re.compile(r"\bearth\b(?!['\u2019]s\s+moon\b)")
+
+
+def names_two_school_gravities(lower: str) -> bool:
+    """The question names two bodies whose school g differ (Earth and the Moon), neither set
+    aside: which one the weight, the fall or the swing is on is no one setting. "Weighs 50 N on
+    Earth. What is its mass on the Moon?" took the Moon's g for the weight, 30.9 kg for
+    5.10 kg (audit 2026-11-07)."""
+    from app.modules.physics.set_aside import set_aside_owner
+
+    named = {
+        body
+        for body, pattern in (("earth", _EARTH), ("moon", _MOON), ("mars", _MARS))
+        for found in pattern.finditer(lower)
+        if not set_aside_owner(lower, found.start())
+    }
+    if "moon" in named and not names_our_moon(lower):
+        named.discard("moon")
+    return len(named) > 1
 
 
 # Charge magnitude (C) of each particle a question names; e is exact in SI.

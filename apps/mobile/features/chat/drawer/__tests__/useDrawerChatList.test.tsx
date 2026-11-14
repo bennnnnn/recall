@@ -3,11 +3,13 @@ import { Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 import { useDrawerChatList } from "@/features/chat/drawer/useDrawerChatList";
 import { useDrawerChatSelection } from "@/features/chat/drawer/useDrawerChatSelection";
-import { api, type ChatList } from "@/lib/api";
+import { api, type Chat, type ChatList } from "@/lib/api";
 import {
   getCachedChat,
   getCachedChatList,
   invalidateChatListCache,
+  noteChatListChanged,
+  noteChatTitleMissing,
   seedChatListCacheForTest,
 } from "@/features/chat/model/chatListCache";
 import { readStoredChatList } from "@/features/chat/model/chatListFile";
@@ -199,28 +201,84 @@ describe("a chat started on another device", () => {
   const later = (ms: number) => jest.spyOn(Date, "now").mockReturnValue(Date.now() + ms);
   afterEach(() => jest.restoreAllMocks());
 
-  // The drawer read its list once a run: a chat made on the S23 never showed on the iPhone.
-  it("shows when the drawer opens once the list is stale, read behind the rows shown", async () => {
+  // 2026-11-08 feature test: every open read the list again, ten GET /chats in one run,
+  // nearly all 304. An open shows the rows held unless this phone changed a chat since.
+  it("is not read for again when the drawer opens with no chat changed, however old the list", async () => {
+    seedChatListCacheForTest(initial);
+    const view = await render(<Probe open={false} />);
+    later(10 * 60_000);
+    for (let open = 0; open < 3; open += 1) {
+      await act(async () => { await view.rerender(<Probe open />); });
+      await act(async () => { await view.rerender(<Probe open={false} />); });
+    }
+    expect(api.listChats).not.toHaveBeenCalled();
+    expect(current.allChats).toEqual([chat]);
+  });
+
+  it("is read behind the rows on the open after this phone changed a chat, and not on the next", async () => {
     seedChatListCacheForTest(initial);
     const view = await render(<Probe open={false} />);
     let finish!: (value: ChatList) => void;
     (api.listChats as jest.Mock).mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
-    later(21_000);
+    // A turn this phone finished, read at once (inside the 20 s a read stays fresh).
+    noteChatListChanged();
     await act(async () => { await view.rerender(<Probe open />); });
     expect(api.listChats).toHaveBeenCalledTimes(1);
     expect(current.loading).toBe(false);
     expect(current.allChats).toEqual([chat]);
     await act(async () => { finish(phone); });
     expect(current.allChats.map((row) => row.id)).toEqual(["phone", "old"]);
+    await act(async () => { await view.rerender(<Probe open={false} />); });
+    await act(async () => { await view.rerender(<Probe open />); });
+    expect(api.listChats).toHaveBeenCalledTimes(1);
   });
 
-  it("is not read for again when the drawer opens within 20 s of the last read", async () => {
-    seedChatListCacheForTest(initial);
+  // Review 2026-11-09: a read that ran before a late title was written counted the change as read,
+  // and the row stayed "New chat".
+  it("reads on each open while a new chat's title is missing, until its row has one", async () => {
+    const untitled = { ...chat, id: "new", title: null };
+    const titled = { ...untitled, title: "Late title" };
+    seedChatListCacheForTest({ ...initial, today: [untitled] });
+    (api.listChats as jest.Mock)
+      .mockResolvedValueOnce({ ...initial, today: [untitled] })
+      .mockResolvedValueOnce({ ...initial, today: [titled] });
     const view = await render(<Probe open={false} />);
+    noteChatTitleMissing("new");
+    for (let open = 0; open < 4; open += 1) {
+      await act(async () => { await view.rerender(<Probe open />); });
+      await act(async () => { await view.rerender(<Probe open={false} />); });
+      later(21_000 * (open + 1));
+    }
+    expect(api.listChats).toHaveBeenCalledTimes(2);
+    expect(getCachedChat("new")?.title).toBe("Late title");
+  });
+
+  it("stops reading for a missing title after two minutes", async () => {
+    const untitled = { ...chat, id: "new", title: null };
+    seedChatListCacheForTest({ ...initial, today: [untitled] });
+    (api.listChats as jest.Mock).mockResolvedValue({ ...initial, today: [untitled] });
+    const view = await render(<Probe open={false} />);
+    noteChatTitleMissing("new");
+    await act(async () => { await view.rerender(<Probe open />); });
+    await act(async () => { await view.rerender(<Probe open={false} />); });
+    later(2 * 60_000 + 1);
+    await act(async () => { await view.rerender(<Probe open />); });
+    expect(api.listChats).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ["a title it received", () => patchChatGlobal("old", { title: "Renamed" })],
+    ["a pin", () => current.patchChatInGroups("old", { pinned: true })],
+    ["an archive", () => current.moveChatArchiveState("old", true)],
+  ])("is read again on the next open after %s", async (_name, change) => {
+    seedChatListCacheForTest(initial);
+    (api.listChats as jest.Mock).mockResolvedValue(initial);
+    const view = await render(<Probe open={false} />);
+    await act(async () => { change(); });
     await act(async () => { await view.rerender(<Probe open />); });
     await act(async () => { await view.rerender(<Probe open={false} />); });
     await act(async () => { await view.rerender(<Probe open />); });
-    expect(api.listChats).not.toHaveBeenCalled();
+    expect(api.listChats).toHaveBeenCalledTimes(1);
   });
 
   it("shows after a return from the background, with the drawer closed (Home's last chat)", async () => {
@@ -241,7 +299,7 @@ describe("a chat started on another device", () => {
     await act(async () => {});
     await act(async () => { await current.loadOlderChats(); });
     await act(async () => { await view.rerender(<Probe open={false} />); });
-    later(21_000);
+    noteChatListChanged();
     await act(async () => { await view.rerender(<Probe open />); });
     expect(api.listChats).toHaveBeenCalledTimes(2);
     expect(current.allChats.map((row) => row.id)).toEqual(["old", "older"]);
@@ -274,6 +332,8 @@ describe("a chat started on another device", () => {
     seedChatListCacheForTest(initial);
     const view = await render(<Probe open={false} />);
     (api.listChats as jest.Mock).mockRejectedValue(new TypeError("Network request failed"));
+    // Unread, the change stays: each open would read for it.
+    noteChatListChanged();
     const now = Date.now();
     const at = (ms: number) => jest.spyOn(Date, "now").mockReturnValue(now + ms);
     const toggle = async () => {
@@ -303,6 +363,17 @@ describe("a chat started on another device", () => {
     expect(current.error).toBe(false);
     expect(mockWarn).not.toHaveBeenCalled();
   });
+});
+
+it("inserts a row with no title without telling anyone its title is gone", async () => {
+  seedChatListCacheForTest(initial);
+  await render(<Probe open={false} />);
+  const changes: (Partial<Chat> | null)[] = [];
+  const stop = subscribeChatChanges((_id, patch) => changes.push(patch));
+  await act(async () => { current.insertChatInGroups({ ...chat, id: "new", title: null }); });
+  stop();
+  expect(changes).toHaveLength(1);
+  expect(changes[0]).not.toHaveProperty("title");
 });
 
 it("reads older chats once at a time and appends them (CLAR-12)", async () => {

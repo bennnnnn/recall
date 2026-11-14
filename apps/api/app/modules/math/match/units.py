@@ -42,8 +42,9 @@ _DIMENSION_GLUE = {
 }
 
 
-# "in m3": an answer asked in another unit needs a conversion this reader does not make.
-_ASKED_IN_UNIT = re.compile(r"\bin\s+([a-z]+)(?:\^?[23])?[\s?.!]*$")
+# "in m3", "in square metres": an answer asked in another unit needs a conversion this
+# reader does not make (a circle in cm was a card in cm² for "in square metres").
+_ASKED_IN_UNIT = re.compile(r"\bin\s+(?:(?:square|sq\.?|cubic)\s+)?([a-z]+)(?:\^?[23])?[\s?.!]*$")
 
 
 def solid_length_unit(cleaned: str) -> str | None:

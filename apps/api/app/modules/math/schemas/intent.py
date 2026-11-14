@@ -24,6 +24,9 @@ class MathIntent(BaseModel):
     # Direct replies compare it with the current turn so a worked answer built
     # for one request cannot be reused for a different or compound request.
     _request_text: str | None = PrivateAttr(default=None)
+    # A reader recognised what is asked and could not read it ("how many solutions ...
+    # for x^4 - 5x^2 + 4 <= 0"): no other path may answer the turn (``declined_reading``).
+    _declined: bool = PrivateAttr(default=False)
     kind: Literal[
         "equation",
         "rectangle",
@@ -267,3 +270,23 @@ class MathIntent(BaseModel):
     # kind == "word_problem": the model's translation into unknowns and
     # equations, checked for numbers the problem never states before SymPy.
     word_problem: WordProblemSetup | None = None
+
+
+def declined_reading(school_op: str) -> MathIntent:
+    """The marker a reader returns when it recognised its question and declined it.
+
+    Returning None says "not mine", and the next reader, the model's reading or a tool
+    call may then answer: "how many solutions does x^2 = 9 have for x^4 - 5x^2 + 4 <= 0"
+    came back as a checked card for the condition's set (2026-11-10). This intent is
+    the turn's reading instead; nothing solves it, and the model answers unverified.
+    """
+    intent = MathIntent.model_validate(
+        {"kind": "arithmetic", "school_op": school_op, "operation": "solve"}
+    )
+    intent._declined = True
+    return intent
+
+
+def is_declined(intent: MathIntent | None) -> bool:
+    """Whether ``intent`` is a reader's ``declined_reading``."""
+    return intent is not None and intent._declined

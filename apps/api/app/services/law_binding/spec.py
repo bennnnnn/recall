@@ -12,6 +12,7 @@ each variable says how a question names it. An operation with an
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,6 +108,10 @@ class Binding:
     # Words before a value that say it is the result itself ("reaches" for a
     # final speed): such a question already states what this operation finds.
     result_words: tuple[str, ...] = ()
+    # Words that label a value as the result itself, written as its label ("a total power
+    # of 3 D", "the secondary voltage of a transformer is 12 V", ``words.labels_as``). An
+    # ask that uses them ("find the total capacitance of a 4 µF ...") labels nothing.
+    result_labels: tuple[str, ...] = ()
     # A negative result is not an answer (a time, a height, a power).
     nonnegative: bool = False
     # A negative result is reported as its size with this note: cooling "releases" heat.
@@ -259,11 +264,39 @@ def visible_assumptions(spec: FormulaSpec, params: dict[str, float]) -> tuple[st
 
 
 def variable_for(spec: FormulaSpec, name: str) -> VariableSpec | None:
-    """The declared input with this parameter name, or nothing."""
-    for variable in spec.variables:
+    """The declared input with this parameter name, or nothing. A law's result stated as a
+    given (``result_variable``) is one of its inputs too."""
+    for variable in (*spec.variables, *_as_tuple(result_variable(spec))):
         if variable.name == name:
             return variable
     return None
+
+
+@lru_cache(maxsize=1024)
+def result_variable(spec: FormulaSpec) -> VariableSpec | None:
+    """The law's result as a value a question states, when the law is solved for another of
+    its quantities: "400 J of work by a force of 80 N" states W and asks s (``inverse``).
+
+    Only a law written as arithmetic of one result has it. It is named by the law's id,
+    which no other input of another kind takes, written with the law's result symbol, and
+    told apart from a like input by the words the law is asked with ("work", "density").
+    """
+    binding = spec.binding
+    if spec.expression is None or binding is None or len(binding.result) != 1:
+        return None
+    unit = binding.result[0]
+    dimensionless = unit == "dimensionless"
+    return var(
+        spec.id,
+        spec.result_symbol,
+        None if dimensionless else unit,
+        dimensionless=dimensionless,
+        words=binding.asks,
+    )
+
+
+def _as_tuple(variable: VariableSpec | None) -> tuple[VariableSpec, ...]:
+    return () if variable is None else (variable,)
 
 
 def symbol_for(spec: FormulaSpec, name: str) -> str | None:

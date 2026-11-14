@@ -19,8 +19,9 @@ question a student would type, worked independently from the textbook formula
 ``history`` gives earlier turns for a follow-up, and ``locale`` the asker's app language
 (English when absent). ``shared`` names the peer
 subject that owns a law both use (gases, Q = mcΔT, half-lives are physics'), so
-its claiming the turn is no misread. ``gap`` marks a known miss: a strict
-expected failure until the fix deletes the line. Every verified physics and
+its claiming the turn is no misread. ``gap`` marks a known miss, an ``answer``
+entry the server declines; a gap never excuses a wrong number, and the fix deletes
+the line. Every verified physics and
 chemistry reply is also checked for its shape (Given, Required, [Solution,] Formula,
 Substitution, Answer; no calculator notation; no invented zero given), and
 every picture it carries is validated: a ``simulation`` scene against the
@@ -54,6 +55,7 @@ from typing import Any
 
 import pint
 
+from app.modules.math.schemas.figure import FigureSpec, PointsGraphSpec
 from app.modules.physics.schemas.simulation import SimulationBlockSpec
 from app.services.answer_fence import answer_fence_value
 from app.services.workout import REQUIRED_HEADINGS, SOLUTION, as_formula_heading
@@ -90,6 +92,11 @@ class Entry:
     history: tuple[tuple[str, str], ...] = ()
     shared: str | None = None
     visual: str | None = None
+    # A maths question asking to see a picture: the read's reading of what to draw (as the
+    # read model gives it), and the labels the drawn picture must carry, every one and no
+    # other (a length or an angle the question did not state is an invented one).
+    figure: dict[str, Any] | None = None
+    picture: tuple[str, ...] = ()
     note: str | None = None
     gap: str | None = None
     # The asker's app language, which reads their numbers ("1.200" is 1200 in Spanish).
@@ -145,6 +152,8 @@ def load(subject: str) -> list[Entry]:
                     history=tuple((role, said) for role, said in raw.get("history", [])),
                     shared=raw.get("shared"),
                     visual=raw.get("visual"),
+                    figure=raw.get("figure"),
+                    picture=tuple(raw.get("picture", [])),
                     note=raw.get("note"),
                     gap=raw.get("gap"),
                     locale=raw.get("locale", "en"),
@@ -198,6 +207,8 @@ def card_values(reply: str) -> list[tuple[float, str, str]]:
     cards = [text for lang, text in fences(reply) if lang == "answer"]
     for line in (line for card in cards for line in card.splitlines()):
         plain = latex_to_plain(line.replace("\u2212", "-"))
+        # "16π ≈ 50.27 cm²", "≈ 201.06 cm²": an exact form, then its value to a few places.
+        plain = re.sub(r"^.*?\bapprox\s+", "", plain)
         for part in re.split(r"\s+(?:and|at)\s+|;|,\s+(?=[a-zA-Z\\]*\s*=)|\s+/\s+", plain):
             part = re.sub(r"^[^\d-]*=\s*", "", part.strip())  # "R = 62.7 m"
             match = _NUMBER.match(part)
@@ -425,13 +436,30 @@ def _solution_out_of_place(prose: str, required: int, formula: int) -> bool:
     return at >= 0 and not required < at < formula
 
 
-def check_shape(entry: Entry, reply: str, subject: str = "physics") -> list[Problem]:
-    """A worked reply's sections and notation; maths replies are checked for notation only."""
+# A procedure's own name heads its rule right under **Solution** ("**Conservation of atoms
+# and charge**", 2026-11-11): the heading in the formula's place is its Method.
+_AFTER_SOLUTION = re.compile(
+    rf"(\*\*{SOLUTION}\*\*\n\n)\*\*"
+    r"(?![(\[])(?!(?:Formula|Method|Substitution|Steps|Working|Answer)\*\*)[^*\n]+\*\*"
+)
+
+
+def _procedure_as_method(prose: str) -> str:
+    return _AFTER_SOLUTION.sub(r"\1**Method**", prose, count=1)
+
+
+def check_shape(
+    entry: Entry, reply: str, subject: str = "physics", written: str | None = None
+) -> list[Problem]:
+    """A worked reply's sections and notation; maths replies are checked for notation only.
+    ``written``: the reply as the solver wrote it, before the finalize passes."""
     problems: list[Problem] = []
     # A formula is headed by its name ("**Constant acceleration formula**"): its Formula.
     prose = as_formula_heading(_prose(reply))
+    if subject == "chemistry":
+        prose = _procedure_as_method(prose)
     if subject == "physics":
-        problems.extend(_physics_working(_prose(reply)))
+        problems.extend(_physics_working(_prose(reply), _prose(written or reply)))
     sections = _SECTIONS.get(subject, ())
     positions = [_section_at(prose, names) for names in sections]
     missing = [names[0] for names, at in zip(sections, positions, strict=True) if at < 0]
@@ -459,9 +487,10 @@ _FIRST_NUMBER = re.compile(r"-?\d+(?:\.\d+)?")
 _ROW = re.compile(r"\$([^$]+)\$")
 
 
-def _physics_working(prose: str) -> list[Problem]:
+def _physics_working(prose: str, written: str) -> list[Problem]:
     """What a learner reads: the law by name, each given once, the arithmetic to its end,
-    one Answer label."""
+    one Answer label. The solver carries the arithmetic to the value (``written``), and the
+    saved reply keeps that last line above its card, as a textbook does."""
     problems: list[Problem] = []
     if "**Formula**" in prose:
         problems.append(Problem("shape", "Formula heading instead of the law's name"))
@@ -478,7 +507,7 @@ def _physics_working(prose: str) -> list[Problem]:
         problems.append(Problem("shape", f"given twice: {', '.join(repeated)}"))
     # Each part's working ends on a value: no operation left in its last row (a unit's "/"
     # is none).
-    for substitution in prose.split("**Substitution**")[1:]:
+    for substitution in written.split("**Substitution**")[1:]:
         rows = _ROW.findall(substitution.split("**Answer", 1)[0])
         last = re.sub(r"\\(?:mathrm|text)\{[^}]*\}", "", rows[-1].split("=")[-1]) if rows else ""
         if re.search(r"\\frac|\\cdot|\\sqrt|\\sin|\\cos|\\tan|[+*/]", last):
@@ -494,6 +523,51 @@ def _in_bounds(point: list[float], spec: SimulationBlockSpec, slack: float) -> b
     )
 
 
+def _drawn_kind(lang: str, data: dict[str, Any]) -> tuple[str, Problem | None] | None:
+    """A figure, a points plot or another maths shape: its kind, and a problem when it fails
+    the schema the server writes it to."""
+    schemas: dict[str, type[FigureSpec] | type[PointsGraphSpec]] = {
+        "figure": FigureSpec,
+        "points": PointsGraphSpec,
+    }
+    schema = schemas.get(str(data.get("type")))
+    if lang == "graph" and schema is None:
+        return None
+    if lang == "simulation":
+        return None
+    name = f"{lang}:{data.get('type')}"
+    if schema is None:
+        return name, None
+    try:
+        spec = schema.model_validate(data)
+    except Exception as exc:
+        return name, Problem("broken_visual", f"{name} fails its schema: {exc}")
+    return (f"{name}:{spec.shape}" if isinstance(spec, FigureSpec) else name), None
+
+
+def picture_problems(entry: Entry, fence: str) -> list[Problem]:
+    """The drawn picture carries the labels the entry names, and a figure no other."""
+    if not entry.picture:
+        return []
+    found = fences(fence)
+    if not found:
+        return []
+    lang, body = found[0]
+    data = json.loads(body)
+    if data.get("type") == "figure":
+        spec = FigureSpec.model_validate(data)
+        labels = {s.label for s in spec.segments if s.label} | {
+            a.label for a in spec.angles if a.label
+        }
+        if labels != set(entry.picture):
+            return [
+                Problem("wrong", f"picture labelled {sorted(labels)}, not {sorted(entry.picture)}")
+            ]
+        return []
+    missing = [text for text in entry.picture if text not in body]
+    return [Problem("wrong", f"{lang} picture lacks {missing}")] if missing else []
+
+
 def check_visuals(reply: str) -> tuple[list[str], list[Problem]]:
     kinds: list[str] = []
     problems: list[Problem] = []
@@ -501,12 +575,18 @@ def check_visuals(reply: str) -> tuple[list[str], list[Problem]]:
     # beside a fall says something the scene does not.
     path_graph = False
     for lang, body in fences(reply):
-        if lang not in {"simulation", "graph"}:
+        if lang not in {"simulation", "graph", "geometry"}:
             continue
         try:
             data = json.loads(body)
         except json.JSONDecodeError:
             problems.append(Problem("broken_visual", f"{lang} fence is not JSON"))
+            continue
+        drawn = _drawn_kind(lang, data)
+        if drawn is not None:
+            kind, problem = drawn
+            kinds.append(kind)
+            problems.extend([problem] if problem else [])
             continue
         if lang == "graph":
             kinds.append(f"graph:{data.get('type')}")
@@ -548,7 +628,8 @@ def check_visuals(reply: str) -> tuple[list[str], list[Problem]]:
     return kinds, problems
 
 
-def judge(entry: Entry, subject: str, route: Route) -> Outcome:
+def judge(entry: Entry, subject: str, route: Route, written: str = "") -> Outcome:
+    """``route`` judged as the student reads it; ``written`` is its reply before finalizing."""
     outcome = Outcome(entry=entry, route=route, reply=route.instant_text)
     problems = outcome.problems
     if route.photo:
@@ -559,18 +640,22 @@ def judge(entry: Entry, subject: str, route: Route) -> Outcome:
         if route.subject == subject:
             problems.append(Problem("misread", f"read as a {subject} question"))
         return outcome
+    if entry.figure is not None:
+        # The picture the read asked for, drawn beside the reply, judged once here.
+        kinds, figure_problems = check_visuals(route.figure)
+        outcome.visuals += kinds
+        problems.extend(figure_problems + picture_problems(entry, route.figure))
+        if entry.visual and entry.visual not in kinds:
+            problems.append(Problem("no_visual", f"no {entry.visual} picture"))
     if entry.expect in {"explain", "decline"}:
         if route.instant and route.instant != "solver":
             problems.append(Problem("misread", f"instant {route.instant} reply"))
         if route.solved:
             answer = read_answer(route.instant_text)
             problems.append(Problem("wrong", f"gave a number to a question with none: {answer}"))
-        if entry.visual:
+        if entry.visual and entry.figure is None:
             # "Draw the forces on a box on an incline": no number, still its picture.
-            outcome.visuals, visual_problems = check_visuals(route.server_pictures)
-            problems.extend(visual_problems)
-            if entry.visual not in outcome.visuals:
-                problems.append(Problem("no_visual", f"no {entry.visual} picture"))
+            _judge_pictures(entry, outcome, route.server_pictures)
         return outcome
     if not route.subject:
         problems.append(Problem("missed", f"not read as a {subject} question"))
@@ -585,39 +670,60 @@ def judge(entry: Entry, subject: str, route: Route) -> Outcome:
         )
     if not route.solved:
         problems.append(Problem("unsolved", "no verified answer"))
+        # An unsolved turn is judged for its picture too: it draws none of its own, so
+        # one it wanted is missing, never counted as drawn (``drawn``).
+        _judge_pictures(entry, outcome, route.server_pictures)
         return outcome
     if not route.instant_text:
         # Verified, but the model writes the reply around the verified result
-        # (an image question, a law kept off the direct path). Check the result.
+        # (a question in parts, an image question, a law kept off the direct path).
+        # Check the result, and the scenes the server appends under the reply.
         if not route.verified_answer:
             problems.append(Problem("unsolved", "no verified answer"))
+            _judge_pictures(entry, outcome, route.server_pictures)
             return outcome
         card = f"```answer\n{route.verified_answer}\n```\n\n{route.verified_text}"
         outcome.got, answer_problems = check_answer(entry, subject, card, whole=False)
         problems.extend(answer_problems)
+        _judge_pictures(entry, outcome, route.server_pictures)
         return outcome
     outcome.got, answer_problems = check_answer(entry, subject, route.instant_text)
     problems.extend(answer_problems)
     if route.subject == subject:
-        problems.extend(check_shape(entry, route.instant_text, subject))
+        problems.extend(check_shape(entry, route.instant_text, subject, written or None))
     problems.extend(Problem("latex", text) for text in latex_problems(route.instant_text))
-    outcome.visuals, visual_problems = check_visuals(route.instant_text)
-    problems.extend(visual_problems)
-    if entry.visual and entry.visual not in outcome.visuals:
-        problems.append(Problem("no_visual", f"no {entry.visual} picture"))
+    _judge_pictures(entry, outcome, route.instant_text)
     return outcome
+
+
+def _judge_pictures(entry: Entry, outcome: Outcome, shown: str) -> None:
+    """The pictures in ``shown`` checked, and the one the entry wants, when missing (a
+    figure entry's picture is judged once, where its figure is)."""
+    kinds, visual_problems = check_visuals(shown)
+    outcome.visuals += kinds
+    outcome.problems.extend(visual_problems)
+    if entry.visual and entry.figure is None and entry.visual not in outcome.visuals:
+        outcome.problems.append(Problem("no_visual", f"no {entry.visual} picture"))
 
 
 async def run_entry(entry: Entry, subject: str) -> Outcome:
     case = Case(
-        entry.id, entry.area, entry.prompt, Expect(), "", history=entry.history, locale=entry.locale
+        entry.id,
+        entry.area,
+        entry.prompt,
+        Expect(),
+        "",
+        history=entry.history,
+        locale=entry.locale,
+        figure=json.dumps(entry.figure) if entry.figure is not None else None,
     )
     route = await route_case(case)
+    written = route.instant_text
     if route.instant_text:
         # The reply the student reads is the one that saves: the finalize passes held its
         # cards to the verified result, and a question in parts lost every card there.
         route.instant_text = await saved_reply(route)
-    return judge(entry, subject, route)
+    return judge(entry, subject, route, written)
 
 
 async def run(entries: list[Entry], subject: str) -> list[Outcome]:

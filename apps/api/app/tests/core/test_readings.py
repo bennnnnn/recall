@@ -14,7 +14,7 @@ from unittest.mock import patch
 import pytest
 
 from app.core import readings
-from app.core.readings import begin_turn, first_read, read_off_loop, reading
+from app.core.readings import begin_turn, first_read, kept_per_turn, read_off_loop, reading
 
 CALLS: list[str] = []
 
@@ -29,6 +29,12 @@ def shout(text: str, *, loud: bool = True) -> dict[str, str]:
 def spelled(text: str) -> str:
     CALLS.append(text)
     return text
+
+
+@kept_per_turn
+def counted(text: str) -> int:
+    CALLS.append(text)
+    return len(text)
 
 
 def read_both(first: str, second: str) -> str:
@@ -141,3 +147,28 @@ async def test_a_missed_reading_inside_a_read_turn_is_reported_with_its_caller()
         await namespace["prepare"]()
 
     assert seen == [(f"{__name__}.shout", "app.modules.fake_turn.prepare")]
+
+
+async def test_a_kept_reader_runs_once_a_turn_by_its_arguments() -> None:
+    """PERF-02: ``writing_request_kind`` ran 12 times on one turn's message."""
+    begin_turn()
+    assert [counted("ab"), counted("ab"), counted(text="ab"), counted("abc")] == [2, 2, 2, 3]
+    assert CALLS == ["ab", "abc"]
+    begin_turn()
+    counted("ab")
+    assert CALLS == ["ab", "abc", "ab"]
+
+
+def test_a_kept_reader_outside_a_turn_computes_every_time() -> None:
+    counted("ab")
+    counted("ab")
+    assert CALLS == ["ab", "ab"]
+
+
+async def test_a_declined_turn_still_runs_its_kept_readers() -> None:
+    """Not a reading: a pool read that gave up does not decline it."""
+    begin_turn()
+    assert await read_off_loop(_slow_read, "x", timeout=5) is None
+    assert counted("ab") == 2
+    assert counted("ab") == 2
+    assert CALLS == ["ab"]

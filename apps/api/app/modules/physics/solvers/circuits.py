@@ -240,10 +240,10 @@ def _terminal_voltage(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResu
     v_val = p["E_emf"] - p["I"] * p["r_int"]
     return PhysicsResult(
         answer=(
-            rf"V = \varepsilon - I r = {p['E_emf']:g} - {p['I']:g} \cdot "
+            rf"V_{{terminal}} = \mathcal{{E}} - I r = {p['E_emf']:g} - {p['I']:g} \cdot "
             rf"{p['r_int']:g} \approx {v_val:.2f} \text{{ V}}"
         ),
-        formulas=(r"V = \varepsilon - I r",),
+        formulas=(r"V_{terminal} = \mathcal{E} - I r",),
         substitutions=(rf"V_{{terminal}} = {p['E_emf']:g} - {p['I']:g} \cdot {p['r_int']:g}",),
         quantities=(QuantityResult("", v_val, "V"),),
     )

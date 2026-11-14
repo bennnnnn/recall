@@ -24,8 +24,8 @@ _FRICTION_CUES = (
 _FRICTION_SUBJECT = r"friction|frictional|incline|inclined|ramp"
 
 _FRICTION_GIVEN = (
-    r"coefficient|(?:\\?(?:\bmu|\u03bc)\s*_?\s*[sk]?\s*(?:=|is))|"
-    rf"(?<!\d)\d+\s*{DEGREE_WORD}"
+    r"coefficient|(?:\\?(?:\bmu|\u03bc)\s*+_?\s*+[sk]?\s*+(?:=|is))|"
+    rf"(?<!\d)\d++\s*+{DEGREE_WORD}"
 )
 
 _FRICTION_CUE_RES: tuple[re.Pattern[str], ...] = (
@@ -67,6 +67,7 @@ _MU_KINETIC_RE = re.compile(
     r"\s*(?:=|is|of)?\s*(-?\d+(?:\.\d+)?)",
     re.IGNORECASE,
 )
+
 
 _MU_ASK_RE = re.compile(
     r"(?:what|find|calculate|determine|compute)\b[^.?!]{0,40}?"

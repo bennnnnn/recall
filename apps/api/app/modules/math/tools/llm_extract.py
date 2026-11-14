@@ -169,6 +169,7 @@ async def llm_extract_math_intent(
             timeout_seconds=timeout_seconds or settings.math_llm_extract_timeout_seconds,
             usage=usage,
             allow_fallback=not alone,
+            refusal_fallback=not alone,
             fallback_on_invalid=not alone,
             quiet_timeout=alone,
         )

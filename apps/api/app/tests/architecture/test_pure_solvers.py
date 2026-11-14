@@ -6,6 +6,10 @@ worker, in a test, in a sweep. The edges that do (each subject's ``api``, the ca
 LLM readers, ``math/tool.py``, ``chemistry/context.py``) are outside these packages.
 """
 
+from typing import get_args
+
+from app.services.solving import SubjectName
+
 from .boundary_support import APP_ROOT, _infrastructure_reached, _module_imports
 
 PURE_PACKAGES: tuple[str, ...] = (
@@ -22,7 +26,8 @@ PURE_PACKAGES: tuple[str, ...] = (
     "app.modules.chemistry.solvers",
     "app.services.law_binding",
 )
-SUBJECTS = frozenset({"chemistry", "math", "physics"})
+# Every registered subject (``SubjectName``).
+SUBJECTS: frozenset[str] = frozenset(get_args(SubjectName))
 # Besides the package itself, whose exported names the module-boundary test checks.
 SUBJECT_PUBLIC_FILES = frozenset({"api", "schemas", "service"})
 

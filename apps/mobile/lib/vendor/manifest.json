@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-10-16T00:13:24.700Z",
+  "generatedAt": "2026-11-14T19:40:42.058Z",
   "versions": {
-    "mermaid": "10",
-    "vega": "5",
-    "vegaLite": "5",
-    "vegaEmbed": "6",
+    "mermaid": "10.9.6",
+    "vega": "5.33.1",
+    "vegaLite": "5.23.0",
+    "vegaEmbed": "6.29.0",
     "pdfjs": "3.11.174",
     "smilesDrawer": "2.1.7"
   },

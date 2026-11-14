@@ -48,7 +48,8 @@ type Options = {
   notePageUnmerged: (chatId: string) => void;
   clearPageSync: () => void;
   resetPaging: () => void;
-  pollForTitle: (token: string, chatId: string) => unknown;
+  /** One read that waits for a new chat's title (useChatTitle). */
+  awaitTitle: (token: string, chatId: string) => unknown;
   startNewChat: (opts?: { force?: boolean }) => void;
   showActionBanner: (message: string, icon?: IconName) => void;
   t: (key: string) => string;
@@ -159,7 +160,7 @@ function openKeptPage(open: Open, kept: CachedChatPage | null): boolean {
   showCachedPage(open, kept, listed);
   options.notePageRead(chatId, cachedChatPageFetchedAt(kept) ?? Date.now());
   options.setChatLoading(false);
-  if (!listed.title && kept.messages.length > 0) options.pollForTitle(token, chatId);
+  if (!listed.title && kept.messages.length > 0) options.awaitTitle(token, chatId);
   return true;
 }
 
@@ -196,7 +197,7 @@ async function readOpenedChat(
       options.notePageRead(chatId);
     } else options.notePageUnmerged(chatId);
     if (currentChat && !currentChat.title && page.messages.length > 0) {
-      options.pollForTitle(token, chatId);
+      options.awaitTitle(token, chatId);
     }
   } catch (error) {
     if (isCurrent()) {

@@ -11,7 +11,7 @@ const mockUpdate = jest.fn();
 const mockFeedback = { error: jest.fn() };
 const mockRouter = { push: jest.fn() };
 const mockT = (key: string, args?: { count?: number }) => args?.count ? `${args.count} saved` : key;
-let mockSwitch: { onValueChange: (next: boolean) => void; busy: boolean };
+let mockSwitch: { onValueChange: (next: boolean) => void; busy?: boolean };
 let mockLink: { onPress: () => void; value?: string };
 let mockRetry: () => void;
 let mockCached: unknown[] | undefined;
@@ -22,12 +22,14 @@ jest.mock("@/lib/api", () => ({
   api: { clearMemories: jest.fn() },
 }));
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
-jest.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ token: mockToken, user: { memory_enabled: true }, updateUser: mockUpdate }) }));
+jest.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ token: mockToken, user: { id: "user-a", memory_enabled: true }, updateUser: mockUpdate }) }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => mockFeedback }));
 jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: mockT }) }));
 jest.mock("@/lib/theme", () => ({ useTheme: () => ({}) }));
 jest.mock("@/ui/feedback/StateView", () => ({ StateView: ({ onRetry }: { onRetry: () => void }) => { mockRetry = onRetry; return null; } }));
 jest.mock("@/features/account/components/settingsUi", () => ({
+  // The real save: it calls the account's updateUser and reports a failure.
+  useSettingSave: jest.requireActual("@/features/account/components/settingsUi").useSettingSave,
   SettingsPage: ({ children }: { children: React.ReactNode }) => children,
   SettingsGroup: ({ children }: { children: React.ReactNode }) => children,
   SettingsSwitchRow: (props: typeof mockSwitch & { title: string }) => {
@@ -83,45 +85,33 @@ it.each(["account", "blur-refocus", "unmount"])("rejects old toggle/navigation c
   expect(mockPrefetch).not.toHaveBeenCalled();
 });
 
-it("hides a previous account's pending toggle and its failure", async () => {
+it("hides a previous account's failed toggle", async () => {
   let reject!: (error: Error) => void;
   mockUpdate.mockReturnValueOnce(new Promise((_, fail) => { reject = fail; }));
   const ui = await render(<MemorySettingsScreen />);
   await act(() => { mockSwitch.onValueChange(false); });
-  expect(mockSwitch.busy).toBe(true);
   mockSession++; mockToken = "token-b"; await ui.rerender(<MemorySettingsScreen />);
-  expect(mockSwitch.busy).toBe(false);
   await act(async () => { reject(new Error("offline")); });
   expect(mockFeedback.error).not.toHaveBeenCalled();
 });
 
-it("deduplicates rapid toggle callbacks", async () => {
+it("says so when a toggle does not save", async () => {
+  mockUpdate.mockRejectedValueOnce(new Error("offline"));
+  await render(<MemorySettingsScreen />);
+  await act(async () => { mockSwitch.onValueChange(false); });
+  expect(mockFeedback.error).toHaveBeenCalledWith("common.error");
+});
+
+it("saves every tap, in order, never holding one back while another saves", async () => {
+  // The owner's report (2026-11-11): a switch tapped while saving did not move.
   let resolve!: () => void;
   mockUpdate.mockReturnValueOnce(new Promise<void>((done) => { resolve = done; }));
   await render(<MemorySettingsScreen />);
-  const toggle = mockSwitch.onValueChange;
-  await act(() => { toggle(false); toggle(false); });
-  expect(mockUpdate).toHaveBeenCalledTimes(1);
+  await act(() => { mockSwitch.onValueChange(false); mockSwitch.onValueChange(true); });
+  expect(mockUpdate.mock.calls).toEqual([[{ memory_enabled: false }], [{ memory_enabled: true }]]);
+  // Never a spinner in the switch's place.
+  expect(mockSwitch.busy).toBeUndefined();
   await act(async () => { resolve(); });
-  expect(mockSwitch.busy).toBe(false);
-});
-
-it.each(["blur-refocus", "unmount-remount"])("keeps a pending toggle exclusive across %s", async (change) => {
-  let resolve!: () => void;
-  mockUpdate.mockReturnValueOnce(new Promise<void>((done) => { resolve = done; }));
-  let ui = await render(<MemorySettingsScreen />);
-  await act(() => { mockSwitch.onValueChange(false); });
-  if (change === "blur-refocus") {
-    mockFocused = false; await ui.rerender(<MemorySettingsScreen />);
-    mockFocused = true; await ui.rerender(<MemorySettingsScreen />);
-  } else {
-    await ui.unmount(); ui = await render(<MemorySettingsScreen />);
-  }
-  expect(mockSwitch.busy).toBe(true);
-  await act(() => { mockSwitch.onValueChange(true); });
-  expect(mockUpdate).toHaveBeenCalledTimes(1);
-  await act(async () => { resolve(); });
-  expect(mockSwitch.busy).toBe(false);
 });
 
 it("refreshes the saved count when returning from the memory screen", async () => {

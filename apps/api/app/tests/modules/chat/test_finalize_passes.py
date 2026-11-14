@@ -54,7 +54,6 @@ def _state(raw: str) -> FinalizeState:
         usage={},
         outcome=TurnOutcome(),
         was_cancelled=False,
-        assistant_parts=[raw],
         should_cancel=None,
     )
 
@@ -86,6 +85,7 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "praise_opener",
         "meta_notes",
         "prompt_leaks",
+        "repeated_fences",
         "self_attribution",
         "turn_meta",
         "lesson_again",
@@ -96,6 +96,7 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "physics_fences",
         "math_fences",
         "formula_charts",
+        "figure",
         "server_answer_cards",
         "unverified_notes",
         "working_check",
@@ -121,7 +122,8 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "clock",
     ]
     # Every text pass goes on after a failure (ST-06), and so do the maths pass, the claim
-    # check and the lesson shape; every other effect falls back to the last committed text.
+    # check, the lesson shape and the figure; every other effect falls back to the last
+    # committed text.
     falls_back = {name for name, log_as, _ in order if log_as is None}
     assert falls_back == {
         "untrusted_media",
@@ -134,7 +136,8 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "clarify_card",
     }
     # A pass that goes on logs under its own name, but the subject fence passes (which
-    # recover their fences) and the chemistry enrichment, under their old steps' names.
+    # recover their fences) and the chemistry enrichment (which drops the structure names it
+    # could not check), under their old steps' names.
     renamed = {
         name: (log_as, rewrite is not None)
         for name, log_as, rewrite in order
@@ -144,7 +147,7 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "chemistry_fences": ("validate_math_fences", True),
         "physics_fences": ("validate_math_fences", True),
         "math_fences": ("validate_math_fences", True),
-        "chemistry_enrich": ("enrich_chemistry_fences", False),
+        "chemistry_enrich": ("enrich_chemistry_fences", True),
     }
 
 
@@ -240,6 +243,7 @@ def test_the_effect_passes_are_the_ones_that_change_the_turn() -> None:
         "math_fences",
         "claim_check",
         "lesson_shape",
+        "figure",
     }
 
 
@@ -622,7 +626,6 @@ async def test_a_fallback_its_safety_passes_emptied_reaches_done(
         usage={},
         outcome=outcome,
         was_cancelled=False,
-        assistant_parts=[_PLANTED],
         should_cancel=None,
     )
 
@@ -653,7 +656,6 @@ async def test_a_reply_the_passes_emptied_reaches_done(monkeypatch: pytest.Monke
         usage={},
         outcome=outcome,
         was_cancelled=False,
-        assistant_parts=[_PLANTED],
         should_cancel=None,
     )
 
@@ -704,3 +706,59 @@ async def test_a_formula_chart_is_drawn_by_sympy_and_a_data_chart_is_left_alone(
 
     data = '```chart\n{"mark":"bar","data":{"values":[{"a":1}]}}\n```'
     assert await draw_formula_charts(_state(data)) == data
+
+
+@pytest.mark.asyncio
+async def test_a_fall_back_after_the_cards_keeps_an_uncertain_photo_unchecked(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An uncertain photo's cards lose their check in the server-card pass; a text an effect
+    committed before it, saved when a later effect falls back, kept the check (review)."""
+    card = "Subtract 3.\n\n```answer\nverified: true\nx = -1\n```"
+
+    def commit(state: FinalizeState) -> str:
+        state.committed = card
+        return card
+
+    monkeypatch.setattr(
+        finalize_passes,
+        "FINALIZE_PASSES",
+        (
+            FinalizePass("cards", commit, FALL_BACK),
+            FinalizePass("broken", _raise(RuntimeError("boom")), FALL_BACK),
+        ),
+    )
+    state = _state("Subtract 3.")
+    state.ctx.photo_uncertain = True
+
+    assert await run_finalize_passes(state) is False
+    assert "verified: true" not in state.text
+    assert "```answer\nverified: false\nx = -1\n```" in state.text
+
+
+@pytest.mark.asyncio
+async def test_a_fall_back_before_the_chemistry_pass_keeps_no_structure_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A text committed before the chemistry pass held a structure's name to it, saved when a
+    later effect falls back: the model's "Caffeine" over ethanol shipped (review, 2026-11-13)."""
+    labelled = "Here:\n\n```smiles\nCaffeine\nCCO\n```\n"
+
+    def commit(state: FinalizeState) -> str:
+        state.committed = labelled
+        return labelled
+
+    monkeypatch.setattr(
+        finalize_passes,
+        "FINALIZE_PASSES",
+        (
+            FinalizePass("photo", commit, FALL_BACK),
+            FinalizePass("broken", _raise(RuntimeError("boom")), FALL_BACK),
+            _REAL_PASSES["chemistry_enrich"],
+        ),
+    )
+    state = _state(labelled)
+
+    assert await run_finalize_passes(state) is False
+    assert "Caffeine" not in state.text
+    assert "```smiles\nCCO\n```" in state.text

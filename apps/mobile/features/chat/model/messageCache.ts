@@ -16,6 +16,7 @@ import { scheduleIdleTask } from "@/lib/scheduleIdle";
 import { isServerMessageId } from "@/lib/serverMessageId";
 import { MESSAGE_PAGE_SIZE } from "@/features/chat/model/constants";
 import { shouldSkipSilentChatRefetch } from "@/features/chat/model/foregroundRefetch";
+import { hasPendingPhoto } from "@/features/chat/model/latePhoto";
 import { drawsSame } from "@/features/chat/model/messageMerge";
 import { chatPageReadAt, clearChatPageReads, noteChatPageRead } from "@/features/chat/model/pageReads";
 
@@ -244,6 +245,8 @@ export function isCachedChatPageFresh(
   // A clock set back makes the age negative: not fresh.
   const age = kept ? now - kept.writtenAt : -1;
   if (!kept || kept.stale || age < 0 || age >= CONTEXT_REFRESH_STALE_MS) return false;
+  // A reply still waiting for a photo its socket may never bring (latePhoto.ts): read the chat.
+  if (hasPendingPhoto(kept.page.messages)) return false;
   return kept.chatUpdatedAt === undefined || listedUpdatedAt === undefined ||
     kept.chatUpdatedAt === listedUpdatedAt;
 }

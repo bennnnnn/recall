@@ -8,9 +8,11 @@ from collections.abc import Callable
 from dataclasses import replace
 from typing import Any
 
+from pydantic import ValidationError
+
 from app.core.config import Settings
 from app.modules.math import solve as math_solve
-from app.modules.math.schemas import MathIntent
+from app.modules.math.schemas import MathIntent, is_declined
 from app.modules.math.solve.restated import REWRITES, card_restates
 from app.modules.math.tools.block.algebra import (
     _verified_block_equation,
@@ -62,6 +64,7 @@ from app.modules.math.tools.block.solid import _verified_block_solid
 from app.modules.math.tools.block.statistics import _verified_block_statistics
 from app.modules.math.tools.block.word import _verified_block_word_problem
 from app.modules.math.tools.block.work import _verified_block_work_check
+from app.services.asked_value import QUANTITY_NAMES
 from app.services.solving import (
     VerifiedMathBlock as VerifiedMathBlock,
 )
@@ -133,7 +136,16 @@ def _method_left_out(intent: MathIntent, block: VerifiedMathBlock) -> bool:
     return not worked and (calculus or intent.kind in {"limit", "series"})
 
 
+def _asked(intent: MathIntent) -> tuple[str, ...]:
+    """The symbol and names of the measure a shape question asks for."""
+    request = intent.geometry_request
+    return () if request is None else QUANTITY_NAMES.get(request.quantity, ())
+
+
 def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMathBlock | None:
+    if is_declined(intent):
+        # A reader's declined_reading: there is nothing to solve.
+        return None
     lines: list[str] = []
 
     try:
@@ -156,6 +168,7 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
             block,
             text=wrap_verified_math(block.text),
             geometry_request=intent.geometry_request,
+            asked=block.asked or _asked(intent),
             plot_point=intent.plot_point,
             read_from_words=not (intent.expr or intent.lhs or intent.system_equations),
             allow_direct=block.allow_direct and not _method_left_out(intent, block),
@@ -170,8 +183,10 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
                 block.canonical_answer if block.direct_reply is not None else None
             ),
         )
-    except math_solve.SolveServiceError as exc:
-        # The class only: a SolveServiceError's message quotes the user's expression.
+    except (math_solve.SolveServiceError, ValidationError) as exc:
+        # A decline, by its class only (its message quotes the user's expression): a solver
+        # input refuses a number past its bounds ("100000!", factorising a 13-digit number).
+        # Logged as a failure it raised a traceback into Sentry on every such message.
         logger.info("math_tools skipped: %s", type(exc).__name__)
         return None
     except Exception:

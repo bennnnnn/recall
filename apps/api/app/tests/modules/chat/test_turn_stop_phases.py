@@ -30,7 +30,14 @@ from app.core.config import get_settings
 from app.core.db import SessionLocal, engine
 from app.gateways import mock_llm, storage_gateway
 from app.models.orm import Message, User
-from app.modules.chat import finalize_registry, stream_entry, turn_load, turn_settle, ws_api
+from app.modules.chat import (
+    finalize_registry,
+    stream_entry,
+    title_event,
+    turn_load,
+    turn_settle,
+    ws_api,
+)
 from app.modules.chat import stream_pipeline as pipeline
 from app.repositories import usage as usage_repo
 from app.services.quota import get_daily_usage, utc_today
@@ -199,6 +206,9 @@ async def chat(
     core_redis.get_redis_client.cache_clear()
     core_redis.get_jobs_redis_client.cache_clear()
     monkeypatch.setattr(core_redis, "_connect", lambda *_a, **_k: user_generation_redis)
+    # A first reply's socket waits for its title (no topic job runs here) until the socket
+    # closes or the wait ends: the drain at the end would wait it out.
+    monkeypatch.setattr(title_event, "TITLE_WAIT_SECONDS", 0.05)
     await engine.dispose(close=False)
 
     async def reply(text: str | None = None, *, messages: Any = None) -> AsyncIterator[str]:
@@ -323,7 +333,8 @@ async def test_ws_stop_after_stream_end_still_sends_done(
 
     rows = await chat.rows()
     assert rows[-1][0] == "assistant" and done["message_id"]
-    assert sock.kinds()[-2:] == ["stream_end", "done"]
+    # A new chat's title may follow done (title_event); done follows stream_end.
+    assert [kind for kind in sock.kinds() if kind != "title"][-2:] == ["stream_end", "done"]
     used, in_db, locked = await chat.settled()
     assert used == in_db > 0 and not locked
     await sock.close()

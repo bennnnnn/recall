@@ -1,5 +1,7 @@
 """Catalog of chat models — the single source of truth for routing, pricing,
-provider, and availability. Adding a provider/model is one entry here.
+provider, and availability. Adding a provider/model is one entry here. Removing one adds
+its alias to ``model_removal.REMOVED_ALIASES``, no migration: a saved switch of it is
+off, a request naming it is Auto, and startup refuses lanes that still name it.
 
 Chat and image models route through **OpenRouter** using ``OPENROUTER_API_KEY``.
 Voice uses OpenAI directly with ``OPENAI_API_KEY``.
@@ -44,7 +46,7 @@ class ChatModel:
     tier: str = "standard"  # fast | standard | smart | max — used by Auto routing
     plan_access: str = "pro"  # free | pro — free-plan users only see free-tier models
     selectable: bool = True  # shown in the model picker
-    quota_multiplier: float = 1.0  # weight against daily token quota (R1 costs more)
+    quota_multiplier: float = 1.0  # weight against daily token quota (the smart tier costs more)
     # The OpenRouter reasoning sent at each level, from the model's own list of
     # supported efforts (GET /api/v1/models). An effort name is reasoning.effort;
     # "off" is reasoning.enabled false; None leaves the provider default. A
@@ -162,7 +164,7 @@ CATALOG: tuple[ChatModel, ...] = (
     _or(
         id="smart-chat",
         label="DeepSeek V4.1 Flash",
-        model="deepseek/deepseek-v4.1-flash",
+        model="deepseek/deepseek-v4.1-flash-1017",
         provider="deepseek",
         input_price_per_m=0.15,
         output_price_per_m=0.60,
@@ -194,20 +196,20 @@ CATALOG: tuple[ChatModel, ...] = (
         **_GLM_FLASH,
     ),
     _or(
-        id="glm-5.2",
-        label="GLM 5.2",
-        model="z-ai/glm-5.2",
-        input_price_per_m=0.62,
-        output_price_per_m=2.42,
-        description="Deep reasoning and coding; reads very long documents.",
+        id="qwen-3.8-flash",
+        label="Qwen3.8 Flash",
+        model="qwen/qwen3.8-flash",
+        provider="qwen",
+        input_price_per_m=0.15,
+        output_price_per_m=0.47,
+        description="Step-by-step reasoning for maths and tricky questions.",
         tier="smart",
         quota_multiplier=3.5,
         thinking_off="none",
-        thinking_on="none",
+        thinking_on="minimal",
         thinking_escalate="high",
-        # Text only (GLM's image readers are separate "V" models). JSON mode is
-        # unconfirmed across its providers, so routing does not count on it.
         supports_tools=True,
+        json_mode=True,
         context_tokens=128_000,
     ),
     _or(
@@ -227,9 +229,9 @@ CATALOG: tuple[ChatModel, ...] = (
         json_mode=True,
         context_tokens=128_000,
     ),
-    # The free plan's everyday model: about a third of Luna's price per turn,
-    # as fast and as right on everyday turns, and it reads photos. Hard and
-    # maths turns go to GLM 5.3 Flash, which it does not match without thinking.
+    # The free plan's everyday model: a third of Luna's price per turn, as fast and as right on
+    # everyday turns, and it reads photos. Free's maths lane too (``ROUTING.math_free``); it
+    # sends no reasoning at any level, and GLM 5.3 Flash is that lane's backup.
     _or(
         id="qwen-3.7-flash",
         label="Qwen3.7 Flash",
@@ -284,6 +286,19 @@ CATALOG: tuple[ChatModel, ...] = (
         thinking_off="none",
         cache_breakpoints=True,
         **_HAIKU,
+    ),
+    # Perplexity's Decider: closed questions answered with probabilities, no text
+    # (``gateways.decider_gateway``). The turn's read: it beat the Qwen read on every field of
+    # the 100-chat check-up's turns at 0.33 s p50 (2026-11-10). Priced per input token
+    # (it reports its own cost, about $0.00002 a read).
+    _or(
+        id="decider-model",
+        label="Decider",
+        model="perplexity/pplx-decider-v1.2",
+        provider="perplexity",
+        input_price_per_m=0.02,
+        output_price_per_m=0.0,
+        selectable=False,
     ),
     _or(
         id="embedding-model",
@@ -372,7 +387,8 @@ _BY_ID: dict[str, ChatModel] = {m.id: m for m in CATALOG}
 def get(model_id: str) -> ChatModel:
     """Resolve a known product alias. Unknown ids raise — never silent fallback.
 
-    Callers validate via ``known_ids()`` / ``validate_user_alias`` first.
+    Callers check ``known_ids()`` first; request schemas read an alias the catalog
+    removed as Auto and refuse any other unknown name (``model_removal``).
     """
     try:
         return _BY_ID[model_id]
@@ -460,19 +476,6 @@ def estimate_cost_usd(
     input_price = model.input_price_per_m or 0.0
     output_price = model.output_price_per_m or 0.0
     return (input_tokens / 1_000_000.0) * input_price + (output_tokens / 1_000_000.0) * output_price
-
-
-def validate_user_alias(alias: str, *, allow_auto: bool = False) -> None:
-    """Raise ``ValueError`` unless ``alias`` is a catalog id (or ``auto`` when allowed).
-
-    The catalog is the one list of aliases: adding a model here makes it valid
-    in request schemas too.
-    """
-    if allow_auto and alias == "auto":
-        return
-    if alias in _BY_ID:
-        return
-    raise ValueError(f"Unknown model alias: {alias}")
 
 
 # An entry with no list price (an open model whose price is not backfilled yet, likely

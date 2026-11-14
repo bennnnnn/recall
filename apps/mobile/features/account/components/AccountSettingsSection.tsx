@@ -9,7 +9,6 @@ import {
   SettingsValueRow,
 } from "@/features/account/components/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
-import { type User } from "@/lib/api";
 import { planNameKey, planOf, upgradeTargets } from "@/lib/plan";
 
 function manageSubscriptionUrl(): string {
@@ -18,19 +17,10 @@ function manageSubscriptionUrl(): string {
     : "https://play.google.com/store/account/subscriptions";
 }
 
-function signInLabel(
-  provider: User["sign_in_provider"] | undefined,
-  t: (key: string) => string,
-): string {
-  if (provider === "google") return t("settings.sign_in_google");
-  if (provider === "apple") return t("settings.sign_in_apple");
-  return t("settings.sign_in_dev");
-}
-
 /**
- * Email (with how you sign in), plan, and the Usage page.
- * Free opens the plans sheet (which also restores a purchase); a paid plan
- * manages its subscription in the store, and Plus also gets a way up to Pro.
+ * Email, plan, and the Usage page. Free opens the plans sheet (which also restores a
+ * purchase); a paid plan shows its name and has its own row to manage the subscription
+ * in the store, and Plus also gets a way up to Pro.
  */
 export function AccountSettingsSection() {
   const { user } = useAuth();
@@ -43,22 +33,16 @@ export function AccountSettingsSection() {
   return (
     <>
       <SettingsGroup label={t("settings.account")}>
-        <SettingsValueRow
-          icon="mail"
-          title={t("settings.email")}
-          value={user?.email ?? ""}
-          subtitle={t("settings.signed_in_with", {
-            provider: signInLabel(user?.sign_in_provider, t),
-          })}
-        />
+        <SettingsValueRow icon="mail" title={t("settings.email")} value={user?.email ?? ""} />
         {plan !== "free" ? (
-          <SettingsLinkRow
-            icon="credit-card"
-            title={t("settings.plan_label")}
-            value={planName}
-            subtitle={t("settings.manage_subscription")}
-            onPress={() => void Linking.openURL(manageSubscriptionUrl())}
-          />
+          <>
+            <SettingsValueRow icon="credit-card" title={t("settings.plan_label")} value={planName} />
+            <SettingsLinkRow
+              icon="external-link"
+              title={t("settings.manage_subscription")}
+              onPress={() => void Linking.openURL(manageSubscriptionUrl())}
+            />
+          </>
         ) : (
           <SettingsLinkRow
             icon="sparkles"

@@ -1,4 +1,4 @@
-import { normalizeUnicodeScripts } from "@/lib/unicodeSupSub";
+import { normalizeUnicodeScripts, normalizeUnicodeSubscripts } from "@/lib/unicodeSupSub";
 
 import { repairLeakedMath } from "@/lib/math/healMathSource";
 import { rewriteLatexChemistry } from "@/lib/math/latexChemistry";
@@ -6,6 +6,7 @@ import { CMD_REPLACEMENTS } from "@/lib/math/latexCommands";
 import { rewriteLatexDialects } from "@/lib/math/latexDialects";
 import { uprightNotation } from "@/lib/math/latexUpright";
 import { braceFractionArguments, isParenthesizedArgument, readGroup } from "@/lib/math/latexGroups";
+import { latexNameKind, symbolGlyph } from "@/lib/math/latexNames";
 import { rewriteLatexStructure } from "@/lib/math/latexStructure";
 import { rewriteSolutionSeparatorBars } from "@/lib/math/solutionBars";
 import {
@@ -81,9 +82,30 @@ function expandLatexEnvironments(latex: string): string {
   });
 }
 
+/** Primes a glyph counts: a typed `'` or `′` one, `″` two, `‴` three. */
+const PRIME_COUNT: Record<string, number> = { "'": 1, "′": 1, "″": 2, "‴": 3 };
+
+/** Whether the primes from `i` to `end` are a postfix on the atom before them. A typed `'`
+ * may be an apostrophe ("don't", a quoted 'word'), so it follows one letter, a command, a
+ * digit or a closing bracket and no letter follows it; `′` `″` `‴` are only ever primes. */
+function isPostfixPrime(source: string, i: number, end: number): boolean {
+  const previous = source[i - 1] ?? "";
+  if (source[i] !== "'") return /[0-9A-Za-z)\]}|α-ωΑ-Ω]/.test(previous);
+  let atom = /[0-9)\]}α-ωΑ-Ω]/.test(previous);
+  if (/[A-Za-z]/.test(previous)) {
+    let wordStart = i - 1;
+    while (wordStart > 0 && /[A-Za-z]/.test(source[wordStart - 1])) wordStart -= 1;
+    atom = wordStart === i - 1 || source[wordStart - 1] === "\\";
+  }
+  return atom && !/[A-Za-z]/.test(source[end] ?? "");
+}
+
 /** Native postfix primes are math glyphs, not prose quotation marks.
  * Keep text-command contents and escaped quotes literal through recursive
- * fraction/root parsing. KaTeX receives only restoreMathEscapes, never this. */
+ * fraction/root parsing. KaTeX receives only restoreMathEscapes, never this.
+ * A prime is a superscript, as in TeX (`f'` is `f^{\prime}`), so it is emitted as one and
+ * drawn raised at script size: on the baseline at full size, the math face's prime (cut to
+ * be a superscript) read as a slash and f″ as "f//". Arcminutes (2′ 30″) are set the same. */
 function normalizeNativeDerivativePrimes(source: string): string {
   let out = "";
   for (let i = 0; i < source.length;) {
@@ -111,20 +133,17 @@ function normalizeNativeDerivativePrimes(source: string): string {
         continue;
       }
     }
-    if (source[i] === "'") {
-      let end = i + 1;
-      while (source[end] === "'") end += 1;
-      const previous = source[i - 1] ?? "";
-      let atom = /[0-9)\]}α-ωΑ-Ω]/.test(previous);
-      if (/[A-Za-z]/.test(previous)) {
-        let wordStart = i - 1;
-        while (wordStart > 0 && /[A-Za-z]/.test(source[wordStart - 1])) wordStart -= 1;
-        atom = wordStart === i - 1 || source[wordStart - 1] === "\\";
+    if (PRIME_COUNT[source[i]]) {
+      // A typed run and a Unicode run are read apart: `'` may be an apostrophe.
+      const typed = source[i] === "'";
+      let end = i;
+      let count = 0;
+      while (PRIME_COUNT[source[end]] && (source[end] === "'") === typed) {
+        count += PRIME_COUNT[source[end]];
+        end += 1;
       }
-      // A contraction/quoted word is not a mathematical postfix.
-      if (atom && !/[A-Za-z]/.test(source[end] ?? "")) {
-        const count = end - i;
-        out += count === 1 ? "′" : count === 2 ? "″" : count === 3 ? "‴" : "′".repeat(count);
+      if (isPostfixPrime(source, i, end)) {
+        out += `^{${count === 1 ? "′" : count === 2 ? "″" : count === 3 ? "‴" : "′".repeat(count)}}`;
       } else {
         out += source.slice(i, end);
       }
@@ -142,11 +161,20 @@ function upright(text: string): string {
 }
 
 /** An upright group as drawn: a script inside it (`\mathrm{SO_4^{2-}}`, `\mathrm{H_2O}`) is a
- * real script on the upright letters, as in TeX, never its `_4^{2-}` source. */
+ * real script on the upright letters, as in TeX, never its `_4^{2-}` source. An underscore
+ * escaped for text mode before a brace group (`\text{white\_{pigment}}`) is a script too:
+ * those braces only ever hold one, and drawn as written they read "white_{pigment}". */
 function uprightRuns(value: string): string {
   let out = "";
   let run = "";
   for (let i = 0; i < value.length;) {
+    const escapedScript = value.startsWith("\\_{", i) ? readGroup(value, i + 2) : null;
+    if (escapedScript) {
+      out += upright(run) + "_" + value.slice(i + 2, escapedScript.next);
+      run = "";
+      i = escapedScript.next;
+      continue;
+    }
     if ((value[i] === "_" || value[i] === "^") && value[i - 1] !== "\\" && i + 1 < value.length) {
       const group = value[i + 1] === "{" ? readGroup(value, i + 1) : null;
       const end = group ? group.next : i + 2;
@@ -159,6 +187,18 @@ function uprightRuns(value: string): string {
     i += 1;
   }
   return out + upright(run);
+}
+
+/**
+ * A text group's own commands as the characters they set: `\text{\textdegree}` is "°" and
+ * `\text{50\%}` "50%". Drawn as written, a follow-up read "45^\textdegree".
+ */
+function textModeSymbols(value: string): string {
+  return value
+    .replace(/\\([A-Za-z]+)(?![A-Za-z]) ?/g, (command, name: string) =>
+      latexNameKind(name) === "symbol" ? symbolGlyph(name) : command,
+    )
+    .replace(/\\([%$#])/g, "$1");
 }
 
 function preserveNativeUprightRuns(source: string): string {
@@ -177,7 +217,9 @@ function preserveNativeUprightRuns(source: string): string {
           // Markdown attaches sentence punctuation to a math run as
           // `\text{.}` / `\text{,}`. Keep that punctuation in the adjacent
           // run so copy, wrapping, and tests see one continuous expression.
-          out += /^[\s.,;:!?]+$/.test(group.value) ? group.value : uprightRuns(group.value);
+          out += /^[\s.,;:!?]+$/.test(group.value)
+            ? group.value
+            : uprightRuns(normalizeUnicodeSubscripts(textModeSymbols(group.value)));
           i = group.next;
           continue;
         }
@@ -189,13 +231,65 @@ function preserveNativeUprightRuns(source: string): string {
   return out;
 }
 
+/** Where the brace group ending just before `end` opens, or -1. */
+function groupStartBefore(source: string, end: number): number {
+  let depth = 0;
+  for (let i = end - 1; i >= 0; i -= 1) {
+    if (source[i] === "}" && source[i - 1] !== "\\") depth += 1;
+    else if (source[i] === "{" && source[i - 1] !== "\\") {
+      depth -= 1;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
+/** A function's name as a command: `\ln`, `\sin`, `\arg`, `\operatorname` (whose own
+ * group is the name). `\frac` and `\sqrt` take their groups as arguments of another kind. */
+function functionCommand(name: string): boolean {
+  const kind = latexNameKind(name);
+  return name === "operatorname" || kind === "function" || kind === "operator";
+}
+
+/**
+ * Whether a brace group at `at` is a function's argument: it follows a function command
+ * (`\ln{`, `\sin^{2}{`, `\operatorname{acot}{`) or a one-letter name (`f{`). SymPy braces
+ * every function's argument; a command's was left whole and drew `ln((x² + 1 ))`.
+ */
+function followsFunctionHead(source: string, at: number): boolean {
+  let end = at;
+  if (source[end - 1] === "}") {
+    const open = groupStartBefore(source, end);
+    if (open < 0) return false;
+    // A power on the name (`\sin^{2}`) or the name itself in braces (`\operatorname{acot}`).
+    end = source[open - 1] === "^" || source[open - 1] === "_" ? open - 1 : open;
+    if (end < open) {
+      const name = /\\([A-Za-z]+)$/.exec(source.slice(0, end))?.[1];
+      return name !== undefined && functionCommand(name);
+    }
+  }
+  let start = end;
+  while (start > 0 && /[A-Za-z]/.test(source[start - 1] ?? "")) start -= 1;
+  if (start === end) return false;
+  if (source[start - 1] === "\\") return functionCommand(source.slice(start, end));
+  return end - start === 1;
+}
+
+/** TeX sets no space inside `\left( x \right)`. Drawn as written, SymPy's `x^{2} + 1 \right)`
+ * read "x² + 1 )". Only beside a one-character bracket: `\left\langle x` keeps the space
+ * that ends its name, and so does its `\right\rangle`. */
+function tightSizedDelimiters(source: string): string {
+  return source
+    .replace(/(\\left\s*[([|])\s+/g, "$1")
+    .replace(/\s+(\\right\s*[)\]|])/g, "$1");
+}
+
 /** Unwrap only SymPy's invisible function-argument group, before escaped
  * set braces lose their backslashes. Ordinary brace groups stay unchanged. */
 function unwrapSympyFunctionArguments(source: string): string {
   let out = "";
   for (let i = 0; i < source.length;) {
-    if (source.startsWith("{\\left(", i) && /[A-Za-z]/.test(source[i - 1] ?? "") &&
-      !/[A-Za-z]/.test(source[i - 2] ?? "")) {
+    if (source.startsWith("{\\left(", i) && followsFunctionHead(source, i)) {
       const group = readGroup(source, i);
       if (!group) { out += source.slice(i); break; }
       const body = group.value.trim();
@@ -241,7 +335,9 @@ export function preprocessLatex(latex: string): string {
   const source = rewriteLatexChemistry(
     uprightNotation(rewriteLatexDialects(restoreMathEscapes(latex.trim()))),
   );
-  let s = repairLeakedMath(normalizeNativeDerivativePrimes(unwrapSympyFunctionArguments(source)));
+  let s = repairLeakedMath(
+    normalizeNativeDerivativePrimes(unwrapSympyFunctionArguments(tightSizedDelimiters(source))),
+  );
   s = preserveNativeUprightRuns(s);
   // Protect visible set delimiters before command replacement turns `\{`
   // into an ordinary `{`, which is otherwise indistinguishable from an

@@ -4,7 +4,7 @@ import asyncio
 import time
 from collections.abc import Awaitable, Callable
 from contextlib import suppress
-from typing import Literal, Protocol
+from typing import Literal, Protocol, TypeGuard, get_args
 
 from app.services.solving import SubjectName
 
@@ -30,15 +30,13 @@ StreamStatusPhase = Literal[
     "answer_photo",
     # The step after the reply's text has ended: no label while the reply saves.
     "finishing",
+    # Not a label: the text streamed so far is taken back (a reply that said it couldn't
+    # check live facts, ``tool_loop.live_denial``), a new answer follows and done carries it.
+    "retract",
 ]
 
-# The status line a subject's solve shows, by the registry's names (``SubjectName``): the
-# phone has a label for each phase.
-_SUBJECT_STATUS_PHASE: dict[SubjectName, StreamStatusPhase] = {
-    "math": "calculating",
-    "physics": "physics",
-    "chemistry": "chemistry",
-}
+# Every phase, each with a label on the phone.
+STREAM_STATUS_PHASES: frozenset[str] = frozenset(get_args(StreamStatusPhase))
 
 # Status detail is rendered inline in the client label ("Searching — “…”"),
 # so keep it short on the wire.
@@ -51,8 +49,16 @@ SLOW_STEP_SECONDS = 1.0
 def status_phase_for_subject(
     subject: SubjectName,
 ) -> StreamStatusPhase:
-    """Bubble phase for one subject. Math keeps the calculating label."""
-    return _SUBJECT_STATUS_PHASE[subject]
+    """Bubble phase for one subject, as its adapter names it (maths keeps the calculating
+    label). A phase the phone has no label for shows the calculating one."""
+    from app.services.subjects.registry import subject_adapter
+
+    phase = subject_adapter(subject).status_phase
+    return phase if _is_phase(phase) else "calculating"
+
+
+def _is_phase(phase: str) -> TypeGuard[StreamStatusPhase]:
+    return phase in STREAM_STATUS_PHASES
 
 
 class StreamStatusFn(Protocol):

@@ -409,24 +409,24 @@ def complete_physics_intent(
 ) -> PhysicsIntent | None:
     """Attach every requested projectile quantity, or refuse a different solve.
 
-    A solve that skipped a stated quantity of a kind it uses is refused too.
-    The asked dimensions ride along so the block can refuse an answer to a
-    different question.
+    A solve that skipped a stated quantity of a kind it uses is refused too. The asked
+    dimensions ride along so the block can refuse an answer to a different question.
 
     ``step_of`` makes this one law of a chain (``chain_solve``): it carries its own ask,
     and whether every stated value was used is checked over the whole chain.
     """
     from app.modules.physics.accounting import competing_given, time_from_another_event
     from app.modules.physics.ask import asked_dimensions, asked_phrases, asked_unit
-    from app.modules.physics.asked_end_check import answers_the_other_end
+    from app.modules.physics.asked_end_check import answers_the_other_end, asks_a_part_of
     from app.modules.physics.bodies import (
         SCHOOL_GRAVITY,
-        names_body_without_school_gravity,
         orbiting_mass_fills,
+        takes_school_g_elsewhere,
     )
     from app.modules.physics.catalog import formula_spec
-    from app.modules.physics.counted import accounts_for_counted_items
+    from app.modules.physics.counted import accounts_for_counted_items, unclear_part_or_count
     from app.modules.physics.extractors.surface_gravity import gravity_unit_unread
+    from app.modules.physics.law_refusals import refuses
     from app.modules.physics.set_aside import uses_set_aside_part
 
     params = intent.physics_params or {}
@@ -442,21 +442,22 @@ def complete_physics_intent(
         params = {**params, **{name: float(on) for name, on in flags.items()}}
         units = {**(intent.physics_units or {}), **dict.fromkeys(flags, "")}
         intent = intent.model_copy(update={"physics_params": params, "physics_units": units})
-    if any(value < 0 for key, value in params.items() if key in {"m", "m1", "m2"}):
-        return None
     spec = formula_spec(intent.physics_op or "")
+    if spec is not None and refuses(spec, intent, request.text, chained=step_of is not None):
+        return None  # "a -5 Ω resistor", "an amplitude of 0.1 m" as a length, air resistance
     uses_g = spec is not None and _selection_uses_gravity(spec, params)
     if uses_g and gravity_unit_unread(request.text):  # "g = 10 ms^-2" is no m/s²
         return None
-    if uses_set_aside_part(params, request.text):  # "μ = 0.3 ... Ignore friction."
+    # "μ = 0.3 ... Ignore friction."; "the mass of each half", "1 200 kg": not this body's.
+    if uses_set_aside_part(params, request.text) or unclear_part_or_count(request.text):
         return None
-    # "On Jupiter" with no g written: Earth's school value would answer another planet.
-    # Only a selection that actually multiplies by g. Horizontal Bernoulli declares
-    # g for its height variant and does not use it.
+    # "On Jupiter" or "on a planet" with no g written: Earth's school g would answer another
+    # planet (``bodies``). Horizontal Bernoulli declares g for its height variant only.
     if (
         uses_g
+        and spec is not None
         and stated_gravity(request.text) is None
-        and names_body_without_school_gravity(request.text.lower())
+        and takes_school_g_elsewhere(spec, params, request.text.lower())
     ):
         return None
     # Moon and Mars have a school g. A solver that would otherwise fill Earth's
@@ -476,8 +477,8 @@ def complete_physics_intent(
         intent, request.text
     ):
         return None
-    if answers_the_other_end(intent, request.text):
-        # "Going 30 m/s after accelerating … its starting speed?": 30 m/s is the final speed.
+    if answers_the_other_end(intent, request.text) or asks_a_part_of(intent, request.text):
+        # "Going 30 m/s after accelerating … its starting speed?"; "one lens is 3 D: the other?"
         return None
     if not accounts_for_counted_items(intent, request.text):
         # "Two 5 kg blocks", "two resistors, each 10 Ω": one value for several items.

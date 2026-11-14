@@ -15,6 +15,7 @@ from app.modules.physics.catalog.capacitors import SPECS as CAPACITORS
 from app.modules.physics.catalog.circuit import SPECS as CIRCUIT
 from app.modules.physics.catalog.circular import SPECS as CIRCULAR
 from app.modules.physics.catalog.condensed_matter import SPECS as CONDENSED_MATTER
+from app.modules.physics.catalog.decayed import SPECS as DECAYED
 from app.modules.physics.catalog.electric_field import SPECS as ELECTRIC_FIELD
 from app.modules.physics.catalog.energy import SPECS as ENERGY
 from app.modules.physics.catalog.fluids import SPECS as FLUIDS
@@ -27,6 +28,7 @@ from app.modules.physics.catalog.heat import WATER_ONLY
 from app.modules.physics.catalog.inductance_ac import SPECS as INDUCTANCE_AC
 from app.modules.physics.catalog.kinematics import SPECS as KINEMATICS
 from app.modules.physics.catalog.lens import SPECS as LENS
+from app.modules.physics.catalog.lift import SPECS as LIFT
 from app.modules.physics.catalog.machine_ratios import SPECS as MACHINE_RATIOS
 from app.modules.physics.catalog.machines import SPECS as MACHINES
 from app.modules.physics.catalog.magnetism import SPECS as MAGNETISM
@@ -37,6 +39,7 @@ from app.modules.physics.catalog.momentum import SPECS as MOMENTUM
 from app.modules.physics.catalog.nuclear import SPECS as NUCLEAR
 from app.modules.physics.catalog.optics import SPECS as OPTICS
 from app.modules.physics.catalog.particles import SPECS as PARTICLES
+from app.modules.physics.catalog.periodic import SPECS as PERIODIC
 from app.modules.physics.catalog.plasma import SPECS as PLASMA
 from app.modules.physics.catalog.projectile import SPECS as PROJECTILE
 from app.modules.physics.catalog.quantum import SPECS as QUANTUM
@@ -53,6 +56,7 @@ from app.services.law_binding.spec import (
     FormulaSpec,
     formula,
     matching_variant,
+    result_variable,
     select_formula,
     symbol_for,
     variable_for,
@@ -67,6 +71,7 @@ __all__ = [
     "formula",
     "formula_spec",
     "matching_variant",
+    "result_variable",
     "select_formula",
     "symbol_for",
     "variable_for",
@@ -89,6 +94,7 @@ CATALOG: dict[str, FormulaSpec] = _register(
     KINEMATICS,
     PROJECTILE,
     SUVAT,
+    LIFT,
     FORCE,
     MECHANICAL_ENERGY,
     ENERGY,
@@ -98,6 +104,7 @@ CATALOG: dict[str, FormulaSpec] = _register(
     FRICTION,
     CIRCULAR,
     SPRING,
+    PERIODIC,
     TORQUE,
     ROTATION,
     CIRCUIT,
@@ -121,6 +128,7 @@ CATALOG: dict[str, FormulaSpec] = _register(
     QUANTUM,
     RELATIVITY,
     NUCLEAR,
+    DECAYED,
     PARTICLES,
     CONDENSED_MATTER,
     ASTROPHYSICS,
@@ -140,7 +148,9 @@ def check_intent(kind: str, operation: str, params: Iterable[str], units: Iterab
     spec = CATALOG.get(operation)
     if spec is None or spec.kind != kind:
         raise ValueError(f"{kind} does not define {operation}")
-    allowed = {variable.name for variable in spec.variables}
+    # A law solved for one of its inputs is given its own result (``law_binding.inverse``).
+    stated = result_variable(spec)
+    allowed = {variable.name for variable in spec.variables} | ({stated.name} if stated else set())
     given = set(params)
     unknown = given - allowed
     if unknown:

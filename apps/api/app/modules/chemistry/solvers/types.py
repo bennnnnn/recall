@@ -79,3 +79,6 @@ class ChemistryResult:
     verbatim: bool = False
     # The operation is a procedure: the answer shows its rule under **Method**, not **Formula**.
     method: bool = False
+    # Each value the answer rounds, by its rounded text, as the working writes it unrounded
+    # (``("29", "29.22")``): the working ends on it, and only the card rounds.
+    unrounded: tuple[tuple[str, str], ...] = ()

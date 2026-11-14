@@ -3,9 +3,19 @@ look up, and the time, memory, files and schedule loaded for it (``prompt_sectio
 
 from __future__ import annotations
 
+from typing import Protocol
+
 from app.core.config import Settings
+from app.models.orm import User
 from app.modules import web_search as web_search_service
-from app.modules.chat.prompt_constants import PHOTO_LOOKUP_HINT
+from app.modules.chat.prompt_constants import (
+    PHOTO_LOOKUP_HINT,
+    SEARCH_UNAVAILABLE_HINT,
+    WEB_SEARCH_OFF_HINT,
+)
+from app.modules.chat.prompt_profile import USE_THE_LOCATION
+from app.modules.chat.tool_loop.reply_calls import search_switches_on
+from app.modules.chat.turn_prep.saved_place import profile_place
 from app.services import time_context as time_context_service
 from app.services.prompt_safety import wrap_saved_memory, wrap_untrusted
 
@@ -26,16 +36,39 @@ def _geo_hints(query_text: str | None, prompt_location: str | None) -> list[str]
     return parts
 
 
-def slim_geo_hints(
-    settings: Settings, query_text: str | None, prompt_location: str | None
-) -> list[str]:
-    """A slim turn has no profile block, so it states the location the hints point to."""
-    if not settings.web_search_enabled or not query_text:
+class SlimTurn(Protocol):
+    """What a slim turn's location line reads (``prompt_sections.PromptTurn``)."""
+
+    @property
+    def settings(self) -> Settings: ...
+    @property
+    def query_text(self) -> str | None: ...
+    @property
+    def prompt_location(self) -> str | None: ...
+    @property
+    def user(self) -> User: ...
+    @property
+    def local_tz(self) -> str: ...
+    @property
+    def lightweight(self) -> bool: ...
+    @property
+    def minimal_personal_context(self) -> bool: ...
+
+
+def slim_geo_hints(turn: SlimTurn) -> list[str]:
+    """A slim turn has no profile block, so it states where the user is whenever Location
+    gives a place (the turn's fix, else the saved one), whatever the message's wording
+    (``USE_THE_LOCATION``). A greeting and a "who am I" turn, which share no profile detail,
+    state it only when they ask about a place; the places layout hints go with that too."""
+    query = turn.query_text
+    asks_place = bool(
+        turn.settings.web_search_enabled and query and web_search_service.is_geo_query(query)
+    )
+    if not asks_place and (turn.lightweight or turn.minimal_personal_context):
         return []
-    if not web_search_service.is_geo_query(query_text):
-        return []
-    parts = [f"The user's current location: {prompt_location}."] if prompt_location else []
-    return parts + _geo_hints(query_text, prompt_location)
+    location = turn.prompt_location or profile_place(turn.user, turn.local_tz)
+    parts = [f"The user's location: {location}. {USE_THE_LOCATION}"] if location else []
+    return parts + (_geo_hints(query, turn.prompt_location) if asks_place else [])
 
 
 def lookup_hints(settings: Settings) -> list[str]:
@@ -46,6 +79,15 @@ def lookup_hints(settings: Settings) -> list[str]:
     if settings.image_search_enabled:
         parts.append(PHOTO_LOOKUP_HINT)
     return parts
+
+
+def search_off_hints(user: User, settings: Settings) -> list[str]:
+    """Nothing can be looked up this turn, so the grounding rule's "the app looks it up when
+    they say yes" is not true: the user's own switch points to Settings; a server switch
+    (``reply_calls.search_switches_on``) offers nothing, and no setting is the reason."""
+    if user.web_search_enabled is False:
+        return [WEB_SEARCH_OFF_HINT]
+    return [] if search_switches_on(settings) else [SEARCH_UNAVAILABLE_HINT]
 
 
 def integration_hints(

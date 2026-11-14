@@ -35,6 +35,15 @@ from app.modules.physics.extractors.unit_patterns import LENGTH_UNIT_PATTERN, VE
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
+_TIME_UNITS = r"milliseconds?|ms|seconds?|secs?|sec|s|minutes?|mins?|min|hours?|hrs?|hr|h"
+
+
+def _timed_drop(h0: float | None, cleaned: str) -> bool:
+    """A height and a time are both stated. a = -g is a setting, not the question's: a drop
+    "from 20 m takes 4 s" states its own, 2h/t² = 2.5 m/s², which -9.81 m/s² never read."""
+    return h0 is not None and find_value_with_specific_unit(cleaned, _TIME_UNITS) is not None
+
+
 _GRAVITY_MOTION_CUES = (
     "dropped",
     "free fall",
@@ -265,17 +274,14 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
             return None
         op = "vertical_max_height"
     elif _ASKS_ACCELERATION_RE.search(lower) is not None and _ASKS_TIME_RE.search(lower) is None:
-        if not any(cue in lower for cue in _GRAVITY_MOTION_CUES):
+        if not any(cue in lower for cue in _GRAVITY_MOTION_CUES) or _timed_drop(h0, cleaned):
             return None
         op = "acceleration"
 
     time_value: float | None = None
     time_unit = "s"
     if op in ("position", "velocity", "speed"):
-        time_match = find_value_with_specific_unit(
-            cleaned,
-            r"milliseconds?|ms|seconds?|secs?|sec|s|minutes?|mins?|min|hours?|hrs?|hr|h",
-        )
+        time_match = find_value_with_specific_unit(cleaned, _TIME_UNITS)
         at_impact = op in ("speed", "velocity") and _IMPACT_RE.search(cleaned) is not None
         if time_match is None and not at_impact:
             # "velocity after" / "height after" without a duration is

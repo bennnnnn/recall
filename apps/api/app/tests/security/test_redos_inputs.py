@@ -12,6 +12,7 @@ import pytest
 
 from app.content.legal import contact_markdown, markdown_to_html
 from app.modules.chat.notation_spans import code_notation, is_notation
+from app.modules.chat.posed_read import without_cheer
 from app.modules.chemistry.extractors.atom_particles import _placeholder
 from app.modules.math.match.spoken import _OVER, _fraction, _tight_carets, spoken_math_to_plain
 from app.modules.physics import force_pictures, force_rigs
@@ -165,3 +166,18 @@ def test_placeholder_escapes_the_letter_it_builds_a_pattern_from():
     # Unescaped, "." would match any letter: "atom z has" would read "." as a placeholder.
     assert _placeholder(".", "the atom z has 3 protons") is False
     assert _placeholder("X", "element X has 6 protons") is True
+
+
+@pytest.mark.parametrize(
+    "tail, kept",
+    [
+        # No words after the question: nothing exclaims, so nothing is cut.
+        ("  !" * (N // 3), False),
+        ("!! " * (N // 3), False),
+        (" Go" + "!! " * (N // 3), True),
+    ],
+)
+def test_a_posed_problems_cheer_is_cut_in_one_pass(tail, kept):
+    """CodeQL py/redos on the posed read's trailing-cheer pattern (PR #2407)."""
+    question = "What is its speed?"
+    assert without_cheer(question + tail) == (question if kept else question + tail)

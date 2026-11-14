@@ -10,6 +10,7 @@ from app.modules.money.block import MONEY_REPLY_RULES, MONEY_WORKED_RULES, money
 from app.modules.money.read import read_money_request
 from app.modules.money.solve import work
 from app.modules.money.worked_problem import is_worked_problem, lays_out_working
+from app.services.workout import WORKOUT_PROMPT_RULE
 
 
 @pytest.mark.parametrize(
@@ -191,6 +192,9 @@ def test_the_block_asks_a_worked_problem_for_its_working() -> None:
     worked = work(request, None)
     lesson = money_block(request, worked, None, worked_problem=True)
     assert MONEY_WORKED_RULES in lesson and MONEY_REPLY_RULES not in lesson
-    assert "**Formula**" in lesson and "never work out an intermediate value" in lesson
+    # The layout every subject uses: the formula heading names its formula, never a bare
+    # **Formula**, and Required and Solution come before it (2026-11-12 review).
+    assert WORKOUT_PROMPT_RULE in lesson and "never a bare **Formula**" in lesson
+    assert "never work out an intermediate value" in lesson
     plain = money_block(request, worked, None)
     assert MONEY_REPLY_RULES in plain and MONEY_WORKED_RULES not in plain

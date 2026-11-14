@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator
 from contextlib import ExitStack
+from functools import partial
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID, uuid4
@@ -35,6 +36,7 @@ from app.modules.chat.client_message import (
     claim_client_message,
     claim_key,
 )
+from app.modules.chat.title_event import announce_title, title_event
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.tests.fakes import redis_mock
 from app.tests.modules.chat.chat_test_support import signed_in, ws_streams
@@ -228,13 +230,18 @@ async def test_claim_settle_after_waits_for_the_turn(fake_redis) -> None:
 _turns: list[str] = []
 
 
-async def _counted_turn(*_args: Any, outcome: TurnOutcome, content: str, **_kwargs: Any):
+async def _counted_turn(*args: Any, outcome: TurnOutcome, content: str, **kwargs: Any):
     _turns.append(content)
     if content == "over quota":
         raise QuotaExceededError("Daily limit reached.")
     if content == "slow":
         await asyncio.sleep(0.3)
     outcome.mark_user_message_saved()
+    if content == "first reply":
+        # A new chat's first reply, and the topic job as fast as it gets: titled before ``done``.
+        await announce_title(args[1], kwargs["chat_id"], "Heater repair message")
+        outcome.message_id = "reply"
+        outcome.title_wait = partial(title_event, args[1], kwargs["chat_id"])
     yield "answer"
 
 
@@ -294,6 +301,19 @@ def test_ws_answers_ping_while_a_turn_runs() -> None:
         socket.send_json({"type": "ping"})
         frames = [socket.receive_json()["type"] for _ in range(4)]
     assert frames == ["pong", *_TURN[1:]]
+
+
+def test_ws_first_reply_is_followed_by_the_chat_title() -> None:
+    """The phone read the new chat every 2 s until its title came (test_title_event.py)."""
+    user_id, chat_id = uuid4(), uuid4()
+    client, stack = _socket_client(user_id, fakeredis.aioredis.FakeRedis(decode_responses=True))
+    with stack, client.websocket_connect(f"/ws/chats/{chat_id}") as socket:
+        _auth(socket, user_id)
+        socket.send_json({"type": "message", "content": "first reply"})
+        frames = [socket.receive_json() for _ in range(5)]
+    assert [frame["type"] for frame in frames] == [*_TURN, "title"]
+    assert frames[3]["title_pending"] == "1"
+    assert frames[4] == {"type": "title", "title": "Heater repair message"}
 
 
 def test_ws_resent_message_is_followed_not_run_twice() -> None:

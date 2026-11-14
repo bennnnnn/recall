@@ -38,12 +38,12 @@ def test_user_out_derives_default_model_from_enabled_models() -> None:
         email="a@b.c",
         name=None,
         avatar_url=None,
-        enabled_models=["glm-5.2", "free-chat"],
+        enabled_models=["qwen-3.8-flash", "free-chat"],
         memory_enabled=True,
         created_at=datetime.now(UTC),
     )
-    assert out.default_model == "glm-5.2"
-    assert out.model_dump()["default_model"] == "glm-5.2"
+    assert out.default_model == "qwen-3.8-flash"
+    assert out.model_dump()["default_model"] == "qwen-3.8-flash"
 
 
 def _pro(enabled: list[str] | None) -> Any:
@@ -51,17 +51,17 @@ def _pro(enabled: list[str] | None) -> Any:
 
 
 def test_choosing_a_model_puts_it_first_and_keeps_the_rest_of_the_pool() -> None:
-    user = _pro(["auto", "free-chat", "smart-chat", "glm-5.2"])
-    assert plan.models_choosing(user, Settings(), "glm-5.2") == [
-        "glm-5.2",
+    user = _pro(["auto", "free-chat", "smart-chat", "qwen-3.8-flash"])
+    assert plan.models_choosing(user, Settings(), "qwen-3.8-flash") == [
+        "qwen-3.8-flash",
         "free-chat",
         "smart-chat",
     ]
 
 
 def test_choosing_auto_turns_auto_back_on_over_the_same_pool() -> None:
-    user = _pro(["glm-5.2", "free-chat"])
-    assert plan.models_choosing(user, Settings(), "auto") == ["auto", "glm-5.2", "free-chat"]
+    user = _pro(["qwen-3.8-flash", "free-chat"])
+    assert plan.models_choosing(user, Settings(), "auto") == ["auto", "qwen-3.8-flash", "free-chat"]
 
 
 def test_a_model_outside_the_plan_is_refused() -> None:
@@ -88,8 +88,10 @@ async def test_an_older_apps_default_model_patch_chooses_through_the_same_rule(
         return user
 
     monkeypatch.setattr(lifecycle.users_repo, "update", update)
-    user = _pro(["auto", "free-chat", "glm-5.2"])
+    user = _pro(["auto", "free-chat", "qwen-3.8-flash"])
     user.memory_enabled = True
-    await lifecycle.update_account(AsyncMock(), user, Settings(), {"default_model": "glm-5.2"})
-    assert written["enabled_models"] == ["glm-5.2", "free-chat"]
+    await lifecycle.update_account(
+        AsyncMock(), user, Settings(), {"default_model": "qwen-3.8-flash"}
+    )
+    assert written["enabled_models"] == ["qwen-3.8-flash", "free-chat"]
     assert "default_model" not in written  # the repository writes the copy

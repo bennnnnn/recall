@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import logging
+import re
 from datetime import UTC, datetime
 from typing import Any
+from urllib.parse import quote
 
 from app.core import sentry
+from app.core.log_text import log_safe
 from app.gateways.http_client import get_pooled_client
 
 logger = logging.getLogger(__name__)
@@ -14,11 +17,33 @@ logger = logging.getLogger(__name__)
 REVENUECAT_API = "https://api.revenuecat.com/v1/subscribers"
 REVENUECAT_TIMEOUT_SECONDS = 15.0
 
+# The two kinds of id a subscriber of ours has: our user id (a UUID: the phone configures
+# RevenueCat with the signed-in user's id) and the anonymous id RevenueCat gives a purchase
+# made before sign-in, which a TRANSFER names among its sources.
+_APP_USER_ID = (
+    r"[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}"
+    r"|\$RCAnonymousID:[0-9A-Fa-f]{32}"
+)
+
+
+def subscriber_id(app_user_id: str) -> str | None:
+    """*app_user_id* when it has the shape of one of our subscribers' ids, else None.
+
+    Only an id that passed is put in the URL, so whatever a webhook names, the request asks
+    for one subscriber's record and nothing else: no "/", "?", "." or "%" can reach the path
+    (CodeQL py/partial-ssrf, which knows this ``re.fullmatch`` as the check).
+    """
+    if re.fullmatch(_APP_USER_ID, app_user_id):
+        return app_user_id
+    return None
+
 
 async def fetch_subscriber(secret_key: str, app_user_id: str) -> dict[str, Any] | None:
-    if not secret_key.strip():
+    checked = subscriber_id(app_user_id)
+    if not secret_key.strip() or checked is None:
         return None
-    url = f"{REVENUECAT_API}/{app_user_id}"
+    # Encoded as RevenueCat asks: the anonymous id's "$" and ":" go as %24 and %3A.
+    url = f"{REVENUECAT_API}/{quote(checked, safe='')}"
     try:
         response = await get_pooled_client(REVENUECAT_TIMEOUT_SECONDS).get(
             url,
@@ -33,7 +58,7 @@ async def fetch_subscriber(secret_key: str, app_user_id: str) -> dict[str, Any] 
         payload = response.json()
         return payload if isinstance(payload, dict) else None
     except Exception:
-        logger.exception("RevenueCat subscriber fetch failed user=%s", app_user_id)
+        logger.exception("RevenueCat subscriber fetch failed user=%s", log_safe(app_user_id))
         sentry.report_breadcrumb(
             "billing.revenuecat",
             "subscriber fetch failed",

@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
+import type { User } from "@/lib/api";
 import { SettingsPinnedBar } from "@/features/account/components/SettingsPinnedBar";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { Space } from "@/lib/space";
@@ -166,12 +167,52 @@ export function SettingsValueRow({
   );
 }
 
+/**
+ * A switch. It moves when tapped and stays a switch while it saves: no spinner in its place,
+ * and never held back because another setting is saving (``useSettingSave``). `disabled` is
+ * only for a switch that cannot move, which its subtitle says why.
+ */
 export function SettingsSwitchRow({
   value,
   onValueChange,
   ...row
-}: Omit<RowBase, "value"> & { value: boolean; onValueChange: (next: boolean) => void }) {
+}: Omit<RowBase, "value" | "busy"> & { value: boolean; onValueChange: (next: boolean) => void }) {
   return <ListRow {...row} switchValue={value} onSwitchChange={onValueChange} />;
+}
+
+/**
+ * Saves account settings from a switch or a menu: the new value shows at once, saves run in
+ * the order they were made (``AuthContext.updateUser``), and a save that fails puts the old
+ * value back and says so. Nothing waits on it, so a second tap is never lost.
+ */
+export function useSettingSave() {
+  const { user, updateUser } = useAuth();
+  const { t } = useTranslation();
+  const feedback = useActionFeedbackOptional();
+  // The account by its id, not its token: a token refresh is the same account.
+  const account = user?.id ?? null;
+  const currentAccount = useRef(account);
+  useEffect(() => {
+    currentAccount.current = account;
+    // Left (a page for another account replaces it): its late failure says nothing.
+    return () => {
+      currentAccount.current = null;
+    };
+  }, [account]);
+  return useCallback(
+    (patch: Partial<User>) => {
+      const savedFor = currentAccount.current;
+      // Named, not written in place: it is handed the failure (swallowedCatches.test.ts).
+      const failed = () => {
+        // A save from an account signed out since says nothing to the next one.
+        if (savedFor && savedFor === currentAccount.current) {
+          reportRecoverableError(feedback, t("common.error"));
+        }
+      };
+      updateUser(patch).catch(failed);
+    },
+    [updateUser, feedback, t],
+  );
 }
 
 /**

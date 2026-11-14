@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from app.modules.physics.catalog.suvat import TWO_BODIES
 from app.modules.physics.motion import SPEED_CHANGE_MARKER
+from app.services.law_binding.labels import LABELS
 from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
+from app.services.law_binding.words import COMBINED_RESULT
 
 # A drop from a height and a sound's trip to a wall and back are not one
 # distance covered at one speed: d = vt read "rolls off a 1.2 m high table at
@@ -62,6 +64,10 @@ CLOSED_PATH = (
     "where she started",
     "where he started",
 )
+
+# d = vt holds for a speed that never changes and for an average one: 12 m/s on average over
+# 30 s is 360 m, however the speed went (``law_binding.labels``).
+_STEADY_OR_AVERAGE_SPEED = var("v", "v", "meter / second", words=LABELS["average speed"])
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
@@ -190,7 +196,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         base_latex="v = \\frac{d}{t}",
         variables=(
             var("t", "t", "second"),
-            var("v", "v", "meter / second"),
+            _STEADY_OR_AVERAGE_SPEED,
         ),
         binding=Binding(
             asks=("how far", "distance", "how many metres", "how many meters", "how much distance"),
@@ -208,7 +214,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         base_latex="v = \\frac{d}{t}",
         variables=(
             var("d", "d", "meter"),
-            var("v", "v", "meter / second"),
+            _STEADY_OR_AVERAGE_SPEED,
         ),
         binding=Binding(
             asks=("how long", "time taken", "time"),
@@ -307,8 +313,9 @@ SPECS: tuple[FormulaSpec, ...] = (
         "displacement_two_legs",
         "kinematics",
         "Displacement",
-        "d",
-        base_latex=r"d = \sqrt{d_1^2 + d_2^2}",
+        # The legs are distances walked; what they add to is a displacement, s.
+        "s",
+        base_latex=r"s = \sqrt{d_1^2 + d_2^2}",
         assumptions=("the two legs are at right angles",),
         variables=(
             var("d1", "d_1", "meter"),
@@ -476,6 +483,8 @@ SPECS: tuple[FormulaSpec, ...] = (
                 "accelerat",
             ),
             interchangeable=("v1", "v2"),
+            # "a resultant speed of 5 m/s" is the sum of the two, not one of them.
+            result_labels=COMBINED_RESULT,
             nonnegative=True,
         ),
     ),

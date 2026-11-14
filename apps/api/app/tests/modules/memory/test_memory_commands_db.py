@@ -57,7 +57,7 @@ def model(db_session):
         yield fake
 
 
-async def _chat(session) -> Chat:
+async def _chat(session, *, include_sensitive: bool = False) -> Chat:
     user = await users_repo.create(
         session,
         email=f"{uuid4()}@example.com",
@@ -65,6 +65,8 @@ async def _chat(session) -> Chat:
         avatar_url=None,
         google_sub=str(uuid4()),
     )
+    # On for a new account since 2026-11-11; these tests say which they mean.
+    user.memory_include_sensitive = include_sensitive
     chat = Chat(user_id=user.id, title="Dinner")
     session.add(chat)
     await session.flush()
@@ -158,18 +160,21 @@ async def test_a_bare_forget_after_a_question_leaves_the_fact_to_the_model(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("line", "saved"),
+    ("line", "include_sensitive", "saved"),
     [
-        ("Remember, I'm allergic to peanuts.", True),
-        ("remember: I'm allergic to peanuts", True),
-        ("Remember I've got a peanut allergy", True),
-        ("Save to memory that I'm allergic to peanuts", True),
-        # Said in passing, a health fact is not stored unless the user opted in.
-        ("I'm allergic to peanuts, what should I cook?", False),
+        ("Remember, I'm allergic to peanuts.", False, True),
+        ("remember: I'm allergic to peanuts", False, True),
+        ("Remember I've got a peanut allergy", False, True),
+        ("Save to memory that I'm allergic to peanuts", False, True),
+        # Said in passing, a health fact is not stored unless the sensitive switch is on.
+        ("I'm allergic to peanuts, what should I cook?", False, False),
+        ("I'm allergic to peanuts, what should I cook?", True, True),
     ],
 )
-async def test_an_asked_for_sensitive_fact_is_saved(db_session, model, line, saved):
-    chat = await _chat(db_session)
+async def test_an_asked_for_sensitive_fact_is_saved(
+    db_session, model, line, include_sensitive, saved
+):
+    chat = await _chat(db_session, include_sensitive=include_sensitive)
     model.ops = [_add("User is allergic to peanuts", sensitivity="health")]
 
     await _turn(db_session, chat, 1, line)

@@ -100,14 +100,14 @@ def _rolling_energy(params: dict[str, float]) -> PhysicsResult:
         raise SolveServiceError("rolling energy needs both speeds, or one speed and the radius")
     value = 0.5 * params["m"] * speed**2 + 0.5 * params["inertia"] * omega**2
     answer = (
-        r"K = \frac{1}{2}Mv^2 + \frac{1}{2}I\omega^2 \approx "
+        r"E_k = \frac{1}{2}Mv^2 + \frac{1}{2}I\omega^2 \approx "
         rf"{value:.2f} \text{{ J}}"
     )
     return PhysicsResult(
         answer=answer,
-        formulas=(r"K = \frac{1}{2}Mv^2 + \frac{1}{2}I\omega^2",),
+        formulas=(r"E_k = \frac{1}{2}Mv^2 + \frac{1}{2}I\omega^2",),
         substitutions=(
-            rf"K = \frac{{1}}{{2}} \cdot {params['m']:g} \cdot {speed:g}^2 + "
+            rf"E_k = \frac{{1}}{{2}} \cdot {params['m']:g} \cdot {speed:g}^2 + "
             rf"\frac{{1}}{{2}} \cdot {params['inertia']:g} \cdot {omega:g}^2",
         ),
         quantities=(QuantityResult("", value, "J"),),

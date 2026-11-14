@@ -174,14 +174,8 @@ export function useChatSendRoute({
 
       const authToken = token;
       if (!authToken) return giveBack();
-      // The fix goes with the turn. The server reads one only from a user whose
-      // location is on, so a switch this turn turns on has to save first.
-      const persistLocation = (patch: Partial<User>) => {
-        const saving = updateUser(patch);
-        if (locationSwitch !== "on") return saving;
-        void saving.catch(() => undefined);
-      };
-      const geo = await resolveClientGeoForQuery(authToken, send.text, t, persistLocation, locationSwitch);
+      // The fix goes with the turn; the read decides whether the turn waits for its save.
+      const geo = await resolveClientGeoForQuery(authToken, send.text, t, updateUser, locationSwitch);
       if (!geo.ok || !stillSending()) return giveBack();
       // The fix is in: "Locating…" gives way to the upload, or to nothing.
       setSendPhase(attached ? "uploading" : "preparing");

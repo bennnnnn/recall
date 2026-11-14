@@ -145,9 +145,9 @@ async def test_a_provider_that_is_slow_to_start_counts_as_failing() -> None:
     redis = _redis()
     now = time.time()
     await _store(
-        redis, "glm-5.2", (True, 800, now - 3), (True, 31_000, now - 2), (True, 32_000, now)
+        redis, "qwen-3.8-flash", (True, 800, now - 3), (True, 31_000, now - 2), (True, 32_000, now)
     )
-    assert (await _health(redis, "glm-5.2")).healthy is False
+    assert (await _health(redis, "qwen-3.8-flash")).healthy is False
 
 
 @pytest.mark.asyncio
@@ -157,7 +157,7 @@ async def test_every_model_is_read_in_one_round_trip() -> None:
         "free-chat",
         "smart-chat",
         "glm-5.3-flash",
-        "glm-5.2",
+        "qwen-3.8-flash",
         "gpt-6-luna",
         "qwen-3.7-flash",
         "vision-chat",
@@ -176,7 +176,7 @@ async def test_aliases_on_one_provider_model_share_its_breaker() -> None:
         redis, [HealthSample("vision-chat", latency_ms=900, success=False) for _ in range(3)]
     )
     found = await model_health.read_breakers(
-        redis, _SETTINGS, ["qwen-3.7-flash", "vision-chat", "glm-5.2"]
+        redis, _SETTINGS, ["qwen-3.7-flash", "vision-chat", "qwen-3.8-flash"]
     )
     assert found.cooling == {"qwen-3.7-flash", "vision-chat"}
     assert (await _health(redis, "qwen-3.7-flash")).sample_count == 3
@@ -189,12 +189,12 @@ async def test_a_turns_samples_are_written_in_one_round_trip() -> None:
         redis,  # type: ignore[arg-type]
         [
             HealthSample("smart-chat", latency_ms=4000, success=False),
-            HealthSample("glm-5.2", latency_ms=700, success=True),
+            HealthSample("qwen-3.8-flash", latency_ms=700, success=True),
         ],
     )
     assert redis.round_trips == 1
     assert (await _health(redis.inner, "smart-chat")).error_rate == 1.0
-    assert (await _health(redis.inner, "glm-5.2")).healthy is True
+    assert (await _health(redis.inner, "qwen-3.8-flash")).healthy is True
 
 
 @pytest.mark.asyncio
@@ -220,7 +220,7 @@ async def test_unreadable_health_is_all_healthy() -> None:
 async def test_an_open_model_cools_down_before_it_is_half_open() -> None:
     redis = _redis()
     await _store(redis, "smart-chat", (False, 50, time.time() - 5))
-    found = await model_health.read_breakers(redis, _SETTINGS, ["smart-chat", "glm-5.2"])
+    found = await model_health.read_breakers(redis, _SETTINGS, ["smart-chat", "qwen-3.8-flash"])
     assert found == model_health.Breakers(cooling=frozenset({"smart-chat"}))
 
 
@@ -228,7 +228,7 @@ async def test_an_open_model_cools_down_before_it_is_half_open() -> None:
 async def test_after_its_cool_down_an_open_model_is_half_open_and_reading_claims_nothing() -> None:
     redis = _redis()
     await _store(redis, "smart-chat", (False, 50, time.time() - 31))
-    aliases = ["smart-chat", "glm-5.2"]
+    aliases = ["smart-chat", "qwen-3.8-flash"]
     half_open = model_health.Breakers(half_open=frozenset({"smart-chat"}))
     # Every turn reads it half-open; none has used up its probe by reading.
     assert await model_health.read_breakers(redis, _SETTINGS, aliases) == half_open
@@ -242,7 +242,7 @@ async def test_one_turn_at_a_time_claims_the_probe() -> None:
     assert await model_health.claim_probe(redis, _SETTINGS, "smart-chat") is True
     assert await model_health.claim_probe(redis, _SETTINGS, "smart-chat") is False
     # Another model's probe is its own.
-    assert await model_health.claim_probe(redis, _SETTINGS, "glm-5.2") is True
+    assert await model_health.claim_probe(redis, _SETTINGS, "qwen-3.8-flash") is True
 
 
 @pytest.mark.asyncio

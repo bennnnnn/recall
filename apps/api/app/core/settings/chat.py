@@ -35,10 +35,19 @@ class ChatContextSettings(BaseModel):
     history_summary_urgent_pending: int = 3
     summary_max_tokens: int = 800
 
+    # "Draw it", "show it": a fast model reads which earlier message "it" is
+    # (``chat.referent_read``). Off, or no answer in time, and the turn reads the line
+    # as before. Foreground: kept short, no retry.
+    referent_read_enabled: bool = True
+    referent_read_timeout_seconds: float = 2.0
+
     # Claim check — on a searched reply, a claim the sources and the user's messages do not
     # support is cut before it saves (``modules/chat/claim_check.py``). Off: replies as written.
     claim_check_enabled: bool = True
     claim_check_timeout_seconds: float = 8.0
+    # A short reply is only read for its source chips, and `done` waits on it: past this,
+    # every chip stays. Live short checks took at most 2.4 s (2026-11-10).
+    claim_check_short_timeout_seconds: float = 2.5
 
     # Lesson shape — a lesson reply ends with its title and practice card, and a teach-me
     # outline lists its topics and ends on its question; what the model left out is added

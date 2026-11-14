@@ -20,10 +20,20 @@ could take either of two values.
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from functools import lru_cache
 
 from app.services.law_binding.givens import Given, scan_givens
+from app.services.law_binding.labels import (
+    CHANGE,
+    LABEL_UNITS,
+    QUALIFIED,
+    holds,
+    said_as_a_change,
+    through_a_range,
+    value_label,
+)
 from app.services.law_binding.roles import role_words
 from app.services.law_binding.spec import Binding, FormulaSpec, VariableSpec
 from app.services.law_binding.units import ANGLE, UnitTable, dimension_of, unit_dimension
@@ -31,6 +41,7 @@ from app.services.law_binding.words import (
     ask_strength,
     choose,
     implied_value,
+    labels_as,
     last_said,
     word_pattern,
     words_after,
@@ -252,16 +263,22 @@ def fit(
         if known and variable.name in known and variable.name not in params:
             params[variable.name], units[variable.name] = known[variable.name]
     listed = word_pattern("respectively").search(lower) is not None
+    labels = given_labels(lower, givens)
     previous = 0
     earlier = ""
     filled: list[VariableSpec] = []
     described = 0
     for index, given in enumerate(givens):
         kind = given_kind(given, subject.units)
+        # "An amplitude of 0.1 m" is no distance travelled: a value named as a quantity
+        # fills only an input that is it (``labels``).
         options = [
             variable
             for variable in variables
-            if variable.name not in params and kind is not None and variable_kind(variable) == kind
+            if variable.name not in params
+            and kind is not None
+            and variable_kind(variable) == kind
+            and holds(variable, labels[index])
         ]
         if not options:
             if known:
@@ -275,9 +292,12 @@ def fit(
         if _LIST_LINK.fullmatch(before):
             before, own = earlier, ""
         earlier = before
-        following = givens[index + 1].start if index + 1 < len(givens) else len(lower)
+        following = _next_start(givens, index, lower)
         after = words_after(lower, given.end, following)
         described = given.end + len(after)
+        if _labels_the_result(binding, given, produced, before, lower, following):
+            # "A total power of 3 D; one lens is 2 D": the sum stated is no lens.
+            return None
         choice = choose(
             options, before, after, binding, _given_dimension(given) in produced, listed=listed
         )
@@ -303,6 +323,60 @@ def fit(
     ):
         return None
     return Fit(spec, params, units, strength, stated)
+
+
+def _next_start(givens: Sequence[Given], index: int, lower: str) -> int:
+    return givens[index + 1].start if index + 1 < len(givens) else len(lower)
+
+
+# Every law the binder tries reads the same question's labels.
+@lru_cache(maxsize=256)
+def given_labels(lower: str, givens: tuple[Given, ...]) -> tuple[str | None, ...]:
+    """The quantity each value is named as (``labels.value_label``), in order: by the words
+    since the value before it, or the words that follow it."""
+    found: list[str | None] = []
+    previous = 0
+    for index, given in enumerate(givens):
+        end = value_end(lower, given)
+        before = words_before(lower, previous, given.start)
+        label = value_label(before, words_after(lower, end, _next_start(givens, index, lower)))
+        # "500 J per cycle" is a heat engine's work, no period.
+        unit = LABEL_UNITS.get(label or "")
+        if unit and given.dimension != dimension_of(unit):
+            label = None
+        # "At 20 m/s it reduces its speed by 5 m/s": a change of a value stated before it.
+        if label is None and _changes_one_before(givens, found, index):
+            if through_a_range(before):
+                label = QUALIFIED
+            elif said_as_a_change(before):
+                label = CHANGE
+        found.append(label)
+        previous = end
+    return tuple(found)
+
+
+def _changes_one_before(givens: Sequence[Given], labels: Sequence[str | None], index: int) -> bool:
+    """A value of the same kind as ``givens[index]`` is stated before it, itself no change."""
+    dimension = givens[index].dimension
+    return dimension is not None and any(
+        given.dimension == dimension and label != CHANGE
+        for given, label in zip(givens[:index], labels, strict=False)
+    )
+
+
+def _labels_the_result(
+    binding: Binding,
+    given: Given,
+    produced: set[str | None],
+    before: str,
+    lower: str,
+    following: int,
+) -> bool:
+    """The value is labelled as the law's result (``Binding.result_labels``)."""
+    if not binding.result_labels or _given_dimension(given) not in produced:
+        return False
+    after = words_after(lower, value_end(lower, given), following)
+    return labels_as(binding.result_labels, before, after)
 
 
 def _names_a_filled_input(choice: VariableSpec, filled: list[VariableSpec], before: str) -> bool:

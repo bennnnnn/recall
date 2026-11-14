@@ -350,6 +350,8 @@ export type FailureArea =
   | "chat_load"
   | "chat_refresh"
   | "chat_page"
+  /** A new chat's one read of its title; the drawer reads it with the list instead. */
+  | "chat_title"
   /** A thumb up or down on a reply (`useMessageFeedback`). */
   | "message_feedback"
   | "attachment_upload"

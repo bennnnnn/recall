@@ -2,17 +2,16 @@ import { useEffect, useLayoutEffect, useRef, type Dispatch, type SetStateAction 
 
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
-import { getDeviceLocationLabel } from "@/lib/deviceLocation";
 import { configurePurchases, isPurchasesConfigured, registerPlanChangeListener } from "@/features/billing/model/purchases";
 import { getSessionGeneration } from "@/lib/auth";
 import { api, type User } from "@/lib/api";
 import { ApiRequestError } from "@/lib/api/errorBody";
-import { recentSyncAt, recordSync } from "@/lib/syncRecords";
 import { emitAppEvent } from "@/lib/appEvents";
 import { onPhoneClockChange } from "@/lib/datetime/phoneClock";
 import { onAppStateChange } from "@/lib/foregroundRefresh";
 import { trackZoneReport } from "@/lib/zoneReport";
 import { useLatestRef } from "@/lib/latestRef";
+import { useLocationSync } from "@/hooks/useLocationSync";
 
 type Options = {
   token: string | null;
@@ -30,9 +29,6 @@ type ZoneReport = {
   /** The current run's report, which a report that lands calls when asked `again`. */
   latest: (() => void) | null;
 };
-
-/** A GPS fix and a reverse geocode for a city label: once a day is enough. */
-const LOCATION_SYNC_INTERVAL_MS = 24 * 60 * 60_000;
 
 /** Post-login side effects — timezone, location, push sync, RevenueCat. */
 export function useBootstrapSync({ token, user, setUser }: Options): void {
@@ -107,31 +103,7 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
     };
   }, [signedIn, userId, timezone, setUser, tokenRef]);
 
-  useEffect(() => {
-    if (!signedIn || !userId || !locationEnabled) return;
-    const generation = getSessionGeneration();
-    let cancelled = false;
-    const active = () => !cancelled && generation === getSessionGeneration();
-    void (async () => {
-      if (!active()) return;
-      // The server keeps the label between reads; without one, read it now.
-      if (location && (await recentSyncAt("location", userId, LOCATION_SYNC_INTERVAL_MS)) !== null) return;
-      if (!active()) return;
-      const label = await getDeviceLocationLabel();
-      const current = tokenRef.current;
-      if (!active() || !label || !current) return;
-      const updated = location === label ? null : await api.updateMe(current, { location: label });
-      if (!active()) return;
-      // Recorded before the new label re-runs this effect, so that run finds it.
-      await recordSync("location", userId);
-      if (!active() || !updated) return;
-      setUser((latest) => latest?.id === userId
-        ? { ...latest, location: updated.location } : latest);
-    })().catch(() => {
-      if (active()) console.warn("[bootstrap] location sync failed");
-    });
-    return () => { cancelled = true; };
-  }, [signedIn, userId, location, locationEnabled, setUser, tokenRef]);
+  useLocationSync({ signedIn, userId, location, locationEnabled, tokenRef, setUser });
 
   useEffect(() => {
     if (!signedIn || !userId) return;

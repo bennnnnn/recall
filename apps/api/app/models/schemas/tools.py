@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+
+# A graph's x-range when the call names none: the school window.
+_GRAPH_X_MIN, _GRAPH_X_MAX = -10.0, 10.0
 
 
 class WebSearchToolInput(BaseModel):
@@ -62,8 +65,8 @@ class SympyToolInput(BaseModel):
     variable2: str | None = Field(default=None, max_length=8)
     label: str | None = Field(default=None, max_length=64)
     label2: str | None = Field(default=None, max_length=64)
-    x_min: float = -10
-    x_max: float = 10
+    x_min: float = _GRAPH_X_MIN
+    x_max: float = _GRAPH_X_MAX
     # system: list of (lhs, rhs) pairs (mirrors SystemOfEquationsInput).
     equations: list[tuple[str, str]] = Field(default_factory=list, max_length=4)
     # inequality: comparator on lhs/rhs (compound inequalities stay on heuristic path).
@@ -81,6 +84,24 @@ class SympyToolInput(BaseModel):
     guess: float | None = Field(default=None, ge=-1_000_000, le=1_000_000)
     # diff: 1 = first derivative; 2 = second, …
     order: int = Field(default=1, ge=1, le=4)
+
+
+def _bound(value: Any, default: float) -> tuple[float, bool]:
+    """A bound the call gives, or the default and False when it gives none."""
+    if value is None or value == "":
+        return default, False
+    return float(value), True
+
+
+def graph_range(args: dict[str, Any]) -> tuple[float, float, bool]:
+    """A ``sympy`` graph call's ``x_min`` and ``x_max``, and whether it named both. A range
+    the call names is the learner's ("for x from 0 to 12"): 0 is a bound, not a missing one
+    (``or -10`` read it as -10), and the card opens on that range (``domain_explicit``).
+    The textbook's y = 2x + 1 "for x from -3 to 3" opened on the school window, cutting the
+    line off (2026-11-13)."""
+    x_min, low = _bound(args.get("x_min"), _GRAPH_X_MIN)
+    x_max, high = _bound(args.get("x_max"), _GRAPH_X_MAX)
+    return x_min, x_max, low and high
 
 
 class GenerateImageToolInput(BaseModel):

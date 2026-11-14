@@ -21,7 +21,11 @@ from app.services.md_fence_scan import iter_fences, line_fences
 from app.services.workout import REQUIRED_PATTERN
 
 # **Answer**, **Answer:**, ## Answer, Answer: — alone on its line.
-_HEADING = re.compile(r"^\s*(?:#{1,4}\s+)?(?:\*\*)?answer(?:\*\*)?\s*:?\s*(?:\*\*)?\s*:?\s*$", re.I)
+# Each run of space is read once (possessive): four plain \s* around the optional marks took
+# quartic time on "answer" and a run of spaces.
+_HEADING = re.compile(
+    r"^\s*+(?:#{1,4}\s++)?(?:\*\*)?answer(?:\*\*)?\s*+:?\s*+(?:\*\*)?\s*+:?\s*+$", re.I
+)
 # Answer: X, **Answer:** X, **Answer**: X — a label and its value on one line.
 _INLINE = re.compile(r"^\s*(?:\*\*)?answer\s*(?:\*\*)?\s*:\s*(?:\*\*)?\s*(?P<value>\S.*)$", re.I)
 # A part's label or its answer: **(a) Range**, **Part (b): Time**, **Answer (a)**.

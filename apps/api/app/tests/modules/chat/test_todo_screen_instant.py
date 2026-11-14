@@ -19,6 +19,7 @@ async def _instant(content: str, recent: list[tuple[str, str]], locale: str = "e
     rows = [SimpleNamespace(role=role, content=text) for role, text in recent]
     request: Any = SimpleNamespace(
         content=content,
+        own_words=content,
         has_image_attachment=False,
         recent_messages=[*rows, SimpleNamespace(role="user", content=content)],
     )

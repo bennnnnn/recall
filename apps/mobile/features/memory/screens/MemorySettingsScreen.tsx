@@ -7,13 +7,12 @@ import {
   SettingsLinkRow,
   SettingsPage,
   SettingsSwitchRow,
+  useSettingSave,
 } from "@/features/account/components/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
-import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { StateView } from "@/ui/feedback/StateView";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useReconnectRefresh } from "@/hooks/useReconnectRefresh";
-import { useMemoryToggle } from "@/features/memory/hooks/useMemoryToggle";
 import {
   fetchMemories,
   getCachedMemories,
@@ -21,7 +20,6 @@ import {
   prefetchMemories,
   subscribeMemoriesCache,
 } from "@/features/memory/model/memoryListCache";
-import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 export default function MemorySettingsScreen() {
   const view = useAccountViewOwner();
@@ -29,20 +27,13 @@ export default function MemorySettingsScreen() {
 }
 
 function MemorySettingsContent({ isCurrentView }: { isCurrentView: () => boolean }) {
-  const { token, user, updateUser } = useAuth();
+  const { token, user } = useAuth();
   const { t } = useTranslation();
   const router = useRouter();
   const [memCount, setMemCount] = useState(0);
   const [loadError, setLoadError] = useState(false);
   const requestRef = useRef(0);
-  const feedback = useActionFeedbackOptional();
-  const { saving, toggle } = useMemoryToggle(isCurrentView, useCallback(() => {
-    reportRecoverableError(feedback, t("common.error"));
-  }, [feedback, t]));
-
-  const onError = useCallback(() => {
-    reportRecoverableError(feedback, t("common.error"));
-  }, [feedback, t]);
+  const save = useSettingSave();
 
   const loadMemories = useCallback(async (force = false) => {
     if (!token || !isCurrentView()) return;
@@ -65,10 +56,13 @@ function MemorySettingsContent({ isCurrentView }: { isCurrentView: () => boolean
   // landed since the connection was lost.
   useReconnectRefresh(() => void loadMemories(), { onScreen: isCurrentView, readAt: memoriesReadAt });
 
+  // Each tap saves at once and in order (useSettingSave); a tap on a page left behind does nothing.
+  const toggle = useCallback((enabled: boolean) => {
+    if (isCurrentView()) save({ memory_enabled: enabled });
+  }, [isCurrentView, save]);
   const toggleSensitive = useCallback((enabled: boolean) => {
-    if (!isCurrentView() || saving) return;
-    void updateUser({ memory_include_sensitive: enabled }).catch(onError);
-  }, [isCurrentView, saving, updateUser, onError]);
+    if (isCurrentView()) save({ memory_include_sensitive: enabled });
+  }, [isCurrentView, save]);
 
   return (
     <SettingsPage>
@@ -78,16 +72,14 @@ function MemorySettingsContent({ isCurrentView }: { isCurrentView: () => boolean
           title={t("settings.memory")}
           subtitle={t("settings.memory_desc")}
           value={user?.memory_enabled ?? true}
-          disabled={saving}
-          busy={saving}
           onValueChange={toggle}
         />
         <SettingsSwitchRow
           icon="shield"
           title={t("settings.memory_include_sensitive")}
           subtitle={t("settings.memory_include_sensitive_desc")}
-          value={user?.memory_include_sensitive ?? false}
-          disabled={saving}
+          // On for a new account (the owner's call, 2026-11-11), as the server's default.
+          value={user?.memory_include_sensitive ?? true}
           onValueChange={toggleSensitive}
         />
         <SettingsLinkRow

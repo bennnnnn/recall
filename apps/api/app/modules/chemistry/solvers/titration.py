@@ -51,7 +51,7 @@ def solve_titration_strong(intent: ChemistryIntent) -> ChemistryResult:
         return _done(
             intent,
             "Verified strong titration",
-            (f"Ma = {inp(ma)} mol/L", f"Va = {inp(va)} L", f"Mb = {inp(mb)} mol/L"),
+            (f"c_a = {inp(ma)} mol/L", f"Va = {inp(va)} L", f"c_b = {inp(mb)} mol/L"),
             "Equivalence volume",
             "Strong acid–strong base equivalence",
             "MaVa = MbVb",
@@ -71,8 +71,8 @@ def solve_titration_strong(intent: ChemistryIntent) -> ChemistryResult:
     net = (acid_moles - base_moles) / total
     hydrogen = (net + math.sqrt(net * net + 4 * KW)) / 2
     lines = [
-        f"n(H+) = MaVa = ({inp(ma)})({inp(va)}) = {num(acid_moles)} mol",
-        f"n(OH-) = MbVb = ({inp(mb)})({inp(vb)}) = {num(base_moles)} mol",
+        f"n(H+) = c_a V_a = ({inp(ma)})({inp(va)}) = {num(acid_moles)} mol",
+        f"n(OH-) = c_b V_b = ({inp(mb)})({inp(vb)}) = {num(base_moles)} mol",
         f"V = Va + Vb = {inp(va)} + {inp(vb)} = {carried(total)} L",
     ]
     if abs(acid_moles - base_moles) <= _TOLERANCE * scale:
@@ -96,9 +96,9 @@ def solve_titration_strong(intent: ChemistryIntent) -> ChemistryResult:
         intent,
         "Verified strong titration",
         (
-            f"Ma = {inp(ma)} mol/L",
+            f"c_a = {inp(ma)} mol/L",
             f"Va = {inp(va)} L",
-            f"Mb = {inp(mb)} mol/L",
+            f"c_b = {inp(mb)} mol/L",
             f"Vb = {inp(vb)} L",
         ),
         "pH",
@@ -141,15 +141,15 @@ def _weak_titration(intent: ChemistryIntent, *, acid: bool) -> ChemistryResult:
         constant = require(intent, "ka", positive=True)
         symbol, weak, conj, titrant = "Ka", "HA", "A-", "OH-"
         analyte_moles, titrant_moles = ma * va, mb * vb
-        analyte_name = f"n(HA) = MaVa = ({inp(ma)})({inp(va)})"
-        titrant_name = f"n(OH-) = MbVb = ({inp(mb)})({inp(vb)})"
+        analyte_name = f"n(HA) = c_a V_a = ({inp(ma)})({inp(va)})"
+        titrant_name = f"n(OH-) = c_b V_b = ({inp(mb)})({inp(vb)})"
         analyte_conc = ma
     else:
         constant = require(intent, "kb", positive=True)
         symbol, weak, conj, titrant = "Kb", "B", "BH+", "H+"
         analyte_moles, titrant_moles = mb * vb, ma * va
-        analyte_name = f"n(B) = MbVb = ({inp(mb)})({inp(vb)})"
-        titrant_name = f"n(H+) = MaVa = ({inp(ma)})({inp(va)})"
+        analyte_name = f"n(B) = c_b V_b = ({inp(mb)})({inp(vb)})"
+        titrant_name = f"n(H+) = c_a V_a = ({inp(ma)})({inp(va)})"
         analyte_conc = mb
     total = va + vb
     p_constant = -math.log10(constant)
@@ -183,7 +183,7 @@ def _weak_titration(intent: ChemistryIntent, *, acid: bool) -> ChemistryResult:
             detail = f"half-equivalence: [{ion}] from charge balance"
             partner = "OH−" if acid else "H+"
             formula = (
-                f"[{ion}] = {k_name} (C − [{ion}] + [{partner}]) / (C + [{ion}] − [{partner}])"
+                f"[{ion}] = {k_name} (c − [{ion}] + [{partner}]) / (c + [{ion}] − [{partner}])"
             )
             lines.append(f"n({titrant}) = n({weak}) / 2, so {conj} = {weak} = {num(buffer)} mol/L")
             lines.append(f"{formula} = {carried(amount)} mol/L")
@@ -196,12 +196,12 @@ def _weak_titration(intent: ChemistryIntent, *, acid: bool) -> ChemistryResult:
     elif titrant_moles == 0:
         amount = weak_dissociation(constant, analyte_conc)
         governing = "H+" if acid else "OH-"
-        lines.append(f"{symbol} = x^2 / (C − x), C = {inp(analyte_conc)} mol/L")
+        lines.append(f"{symbol} = x^2 / (c − x), c = {inp(analyte_conc)} mol/L")
         lines.append(f"[{governing}] = x = {carried(amount)} mol/L")
         ph = p_value(-math.log10(amount) if acid else PKW + math.log10(amount))
         region = "start"
         detail = f"before titrant is added: [{governing}] = {carried(amount)}"
-        formula = f"{symbol} = x^2 / (C − x)"
+        formula = f"{symbol} = x^2 / (c − x)"
     elif titrant_moles < analyte_moles - _TOLERANCE * scale:
         remaining = analyte_moles - titrant_moles
         offset = math.log10(titrant_moles / remaining)
@@ -259,9 +259,9 @@ def _weak_titration(intent: ChemistryIntent, *, acid: bool) -> ChemistryResult:
         intent,
         "Verified weak titration" if acid else "Verified weak-base titration",
         (
-            f"Ma = {inp(ma)} mol/L",
+            f"c_a = {inp(ma)} mol/L",
             f"Va = {inp(va)} L",
-            f"Mb = {inp(mb)} mol/L",
+            f"c_b = {inp(mb)} mol/L",
             f"Vb = {inp(vb)} L",
             f"{symbol} = {inp(constant)}",
         ),

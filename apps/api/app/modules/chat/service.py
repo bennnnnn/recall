@@ -21,11 +21,13 @@ from app.models.schemas.page import Page
 from app.modules.analytics import service as analytics_service
 from app.modules.chat import finalize_registry
 from app.modules.chat.email_fence import rewrite_first_email_fence
+from app.modules.chat.late_photo import drop_late_photos
 from app.modules.chat.related_prompts import (
     RELATED_PROMPTS_TTL_SECONDS,
     forget_related_prompts,
     load_related_prompts,
 )
+from app.modules.chat.title_event import await_title
 from app.modules.chat.titles import sanitize_manual_chat_title, title_job_key, title_job_payload
 from app.modules.conversation import history as conversation_history
 from app.modules.conversation import service as conversation_service
@@ -130,6 +132,23 @@ async def get_chat(session: AsyncSession, user: User, chat_id: UUID) -> Chat:
     return chat
 
 
+async def get_chat_awaiting_title(
+    session: AsyncSession, redis: Redis, user: User, chat_id: UUID
+) -> ChatOut:
+    """The chat, with the title the topic job is writing for it waited for (a few seconds,
+    ``title_event``): one request where the phone polled. The wait holds no database
+    connection."""
+    chat = ChatOut.model_validate(await get_chat(session, user, chat_id))
+    if chat.title:
+        return chat
+    await session.rollback()
+    title = await await_title(redis, chat_id)
+    if title is None:
+        # Written but never announced (the job's Redis write failed): the row has it.
+        return ChatOut.model_validate(await get_chat(session, user, chat_id))
+    return ChatOut.model_validate({**chat.model_dump(), "title": title})
+
+
 async def rename_chat(session: AsyncSession, user: User, chat_id: UUID, title: str) -> Chat:
     chat = await get_chat(session, user, chat_id)
     cleaned = sanitize_manual_chat_title(title)
@@ -192,6 +211,7 @@ async def bulk_chats(
     if action == "delete":
         for chat_id in changed:
             conversation_service.forget_chat(chat_id)
+            drop_late_photos(user.id, chat_id)
     return changed
 
 
@@ -209,6 +229,7 @@ async def delete_all_chats(
     except Exception:
         await session.rollback()
         raise
+    drop_late_photos(user.id)
     return count
 
 
@@ -237,6 +258,7 @@ async def delete_chat(
     await session.delete(chat)
     await session.commit()
     conversation_service.forget_chat(chat_id)
+    drop_late_photos(user.id, chat_id)
 
 
 async def today_usage(
@@ -352,7 +374,8 @@ async def list_messages_page(
                         dedupe_key=title_job_key(chat_id),
                     )
             except Exception:
-                logger.warning("Title backfill enqueue failed chat_id=%s", chat_id, exc_info=True)
+                # The id off the chat's row, not the request's (CodeQL py/log-injection).
+                logger.warning("Title backfill enqueue failed chat_id=%s", chat.id, exc_info=True)
 
     outs = [MessageOut.model_validate(m) for m in msgs]
     if newest or (around is not None and not has_more_after):
@@ -459,11 +482,11 @@ async def update_message_email(
 ) -> Message:
     """Rewrite the first ```email fence on an assistant message. Not arbitrary content PATCH."""
     await get_chat(session, user, chat_id)
-    message = await conversation_history.message_in_chat(session, message_id, chat_id)
+    message = await conversation_history.message_to_rewrite(session, message_id, chat_id)
     if message is None:
         await session.commit()  # end the reads; no transaction across the wait
         await finalize_registry.wait_for_pending_finalize(chat_id, redis)
-        message = await conversation_history.message_in_chat(session, message_id, chat_id)
+        message = await conversation_history.message_to_rewrite(session, message_id, chat_id)
     if message is None:
         raise ChatsError("Message not found", status_code=404)
     if message.role != "assistant":

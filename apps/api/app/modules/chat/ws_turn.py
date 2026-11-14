@@ -16,6 +16,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import WebSocket, WebSocketDisconnect
+from starlette.websockets import WebSocketState
 
 from app.core.background_tasks import create_background_task
 from app.core.log_context import bound_log_ids, new_turn_id
@@ -31,6 +32,7 @@ from app.modules.chat.stream_events import (
     EXPECTED_TURN_ERRORS,
     TURN_KEEPALIVE_SECONDS,
     StreamEndEvent,
+    after_done_events,
     await_finalize_commit,
     build_keepalive_event,
     build_pong_event,
@@ -41,7 +43,6 @@ from app.modules.chat.stream_events import (
     persist_finalize_if_pending,
     pop_finalize_tasks,
     settled_turn_event,
-    take_related_prompts_event,
     turn_error_payload,
 )
 from app.modules.chat.turn_outcome import TurnOutcome
@@ -139,9 +140,9 @@ async def _run_stream(
     # the client keeps the local bubble and refetches instead of trusting
     # a row that may never persist if the shielded task later fails.
     commit = await await_finalize_commit(pop_finalize_tasks(outcome))
-    await safe_send_json(websocket, settled_turn_event(outcome, commit))
+    await safe_send_json(websocket, settled_turn_event(outcome, commit, title_follows=True))
     if commit == "committed":
-        schedule_related_prompts(websocket, outcome)
+        schedule_after_done(websocket, outcome)
 
 
 async def stream_over_ws(
@@ -330,15 +331,18 @@ async def run_chat_stream(
             return None
 
 
-def schedule_related_prompts(websocket: WebSocket, outcome: TurnOutcome) -> None:
-    """Send follow-up questions after ``done`` without holding the next message."""
-    task = outcome.related_task
-    if task is None:
+def schedule_after_done(websocket: WebSocket, outcome: TurnOutcome) -> None:
+    """Send what follows ``done`` (follow-up questions, a late photo, a new chat's title) as
+    it lands, without holding the next message."""
+    if outcome.related_task is None and outcome.title_wait is None and outcome.photo_task is None:
         return
 
-    async def _send() -> None:
-        event = await take_related_prompts_event(task)
-        if event is not None:
-            await safe_send_json(websocket, event)
+    def connected() -> bool:
+        return websocket.client_state == WebSocketState.CONNECTED
 
-    create_background_task(_send(), name="related_prompts_send")
+    async def _send() -> None:
+        async for event in after_done_events(outcome, title_wanted=connected):
+            if not await safe_send_json(websocket, event):
+                return
+
+    create_background_task(_send(), name="after_done_send")

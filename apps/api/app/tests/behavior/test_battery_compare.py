@@ -66,7 +66,7 @@ def test_identical_runs_have_no_regression() -> None:
             _case(route="searched (3 sources); model qwen-3.7-flash"),
             "hi: routing 'model qwen-3.7-flash' -> 'searched (3 sources); model qwen-3.7-flash'",
         ),
-        (_case(model="glm-5.2"), "hi: model qwen-3.7-flash -> glm-5.2"),
+        (_case(model="qwen-3.8-flash"), "hi: model qwen-3.7-flash -> qwen-3.8-flash"),
         (_case(first_token_s=4.0), "hi: first token 0.8s -> 4.0s"),
     ],
 )
@@ -99,7 +99,7 @@ def test_cases_in_only_one_run_are_noted() -> None:
 def test_main_exit_codes(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     base, new, bad = tmp_path / "a.json", tmp_path / "b.json", tmp_path / "c.json"
     base.write_text(json.dumps(_run(hi=_case())))
-    new.write_text(json.dumps(_run(hi=_case(model="glm-5.2"))))
+    new.write_text(json.dumps(_run(hi=_case(model="qwen-3.8-flash"))))
     bad.write_text("[]")
     assert compare_script.main([str(base), str(base)]) == 0
     assert compare_script.main([str(base), str(new)]) == 1

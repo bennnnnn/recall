@@ -72,3 +72,34 @@ async def test_only_a_user_who_turned_search_off_is_told_so(user_on, server_on, 
 def test_search_off_hint_points_to_the_setting_and_never_offers_a_search():
     assert "Settings, Data controls" in WEB_SEARCH_OFF_HINT
     assert "Never offer to search" in WEB_SEARCH_OFF_HINT  # safety phrase
+
+
+@pytest.mark.asyncio
+async def test_search_off_comes_after_the_rule_it_overrides():
+    """The grounding rule forbids saying the app can't look something up (Claude Haiku wrote
+    "I can't check live rankings from here" on a Pro phone test, 2026-11-11). With search
+    off it is true: that note overrides "the rule above", so it must come after it."""
+    from app.modules.chat.prompt_constants import FACT_GROUNDING_HINT
+
+    settings = Settings(attachment_rag_enabled=False, chat_history_rag_enabled=False)
+    system = await _system_prompt("who is the president of Kenya", settings, False)
+    assert FACT_GROUNDING_HINT in system and WEB_SEARCH_OFF_HINT in system
+    assert system.index(FACT_GROUNDING_HINT) < system.index(WEB_SEARCH_OFF_HINT)
+
+
+@pytest.mark.parametrize(
+    "switch", ["mcp_tool_loop_enabled", "reply_search_tool_enabled", "web_search_enabled"]
+)
+@pytest.mark.asyncio
+async def test_search_off_on_the_server_says_the_app_cannot_look_it_up(switch: str):
+    """Review (2026-11-11): the grounding rule's "the app looks it up when they say yes"
+    held with a kill switch off. Then a note after it says it cannot, and offers nothing;
+    it never points to the user's setting, which is not why."""
+    from app.modules.chat.prompt_constants import FACT_GROUNDING_HINT, SEARCH_UNAVAILABLE_HINT
+
+    on = Settings(attachment_rag_enabled=False, chat_history_rag_enabled=False)
+    settings = on.model_copy(update={switch: False})
+    system = await _system_prompt("who is the president of Kenya", settings)
+    assert system.index(FACT_GROUNDING_HINT) < system.index(SEARCH_UNAVAILABLE_HINT)
+    assert WEB_SEARCH_OFF_HINT not in system
+    assert SEARCH_UNAVAILABLE_HINT not in await _system_prompt("who is the president", on)

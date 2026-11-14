@@ -39,7 +39,14 @@ flowchart LR
    the head and tail of a long message (4,000 characters in all, up to 20,000). Every
    module-level physics regex is checked for linear time against adversarial text in
    `test_physics_detection_speed.py`.
-2. **Read numbers** (`services/number_text.py`). `2 × 10^-6`, `2x10^-6`, `2·10⁻⁶` and
+2. **Read markup and numbers.** A question pasted in LaTeX is read as its plain text first
+   (`services/latex_markup.py`, shared with chemistry): `\(q_1 = +2.0 \, \mu\text{C}\)`
+   is `q_1 = +2.0 μC`, `\(R_1 = 4.0 \, \Omega\)` is `R_1 = 4.0 Ω`, `\frac{\text{m}}{\text{s}^2}`
+   is `m/s^2`. A text run, a space command, a Greek letter or sign by its command, a braced
+   script, a fraction and a root are written plain; a command it does not know is left as
+   written. The model still sees what the student typed. Unread, five pasted questions
+   whose plain twins were verified went to the model (phone test 2026-11-11).
+   Numbers (`services/number_text.py`): `2 × 10^-6`, `2x10^-6`, `2·10⁻⁶` and
    `2 \times 10^{-6}` are all one number, folded to `2e-6` before anything scans the text.
    Without that, "2 × 10^-6 C" was a charge of −6 C. `numbers.py` then expands every literal
    to a plain decimal, or refuses a malformed one. A number written in words, a scale word
@@ -62,7 +69,8 @@ flowchart LR
    4 km north", answered with its bearing). An extractor's law whose catalog result is not
    the asked quantity gives way to the binder.
    When every extractor declines, the **binder** (`binding.py`) reads the question straight
-   into a catalog operation. Its engine is subject-neutral and shared
+   into a catalog operation, the law's own result or, when the question states that result,
+   whichever of its inputs is asked (below). Its engine is subject-neutral and shared
    (`services/law_binding`: the spec types, the givens scanner, the word windows, `fit`
    and the expression evaluator); physics brings its unit table (`givens.PHYSICS_UNITS`),
    its settings (`binding_values`) and its constants (`constants.py`, named for expressions in
@@ -79,6 +87,34 @@ flowchart LR
    - an input that `needs_words` takes a value only when its words name it: an object's
      density is not the fluid's, a tube's diameter is not its radius, and "at 20 °C" is
      not a temperature change;
+   - **a value named as a quantity is that quantity** (`services/law_binding/labels.py`):
+     "an amplitude of 0.1 m", "a period of 2 s", "4 s per cycle", "a wavelength of 200 km",
+     "an average speed of 12 m/s" fill only an input that is that quantity, one the catalog
+     names for it or whose words name it. Read by dimension alone, a spring's amplitude and
+     period filled v = d/t, 0.05 m/s for v_max = 2πA/T = 0.314 m/s, and so did a wave's and
+     a pendulum's (audit 2026-11-13). A duration said "over a period of 5 s" or "for a short
+     period of 10 s" names nothing, and a qualified amplitude ("peak-to-peak", "double") is
+     no A. A value a verb puts "by" or "through" beside a value of its kind stated before
+     it is a change of that value ("at 20 m/s it reduces its speed by 5 m/s", "a gas at
+     27 °C is heated through 100 °C") and fills only a Δ input; read as the end it gave
+     −7.5 m/s² and 124 kPa (review 2026-11-13). With nothing of its kind before it ("its
+     extension increases by 2 cm under a 4 N load") it is the law's own value, as ever. An
+     extractor's law is held to all of it too (`law_refusals.py`);
+   - **a quantity takes only values it can have** (`services/law_binding/domains.py`): a
+     mass, a resistance, a capacitance, an inductance, a density, a stiffness, a frequency,
+     an absolute temperature and a named period, wavelength or amplitude are above zero,
+     and no body moves faster than light (light's school 3 × 10⁸ m/s is not faster). A
+     stated value outside declines: "a −5 Ω resistor across 10 V" was −2 A, verified. So
+     does a result outside its kind's range (`solver.solve_physics`): "a force of −10 N gives
+     2 m/s²: the mass?" was −5 kg. A velocity, a displacement, an acceleration, a charge, a
+     spring's extension, an angular rate and any Δ keep their sign;
+   - **a share of a decaying sample** is what is left ("25% remains", "decayed to 25%") or
+     what went ("75% … to decay", "loses 75%", "has decomposed"), which leaves 1 − p
+     (`decay_share.py`), however it is written (75%, 3/4, 0.75; a share in words declines
+     with every number in words). "75% of a sample to decay, half-life 10 years" was 4.15
+     years for 20; a share the words call neither ("75% of the sample") declines. An asked
+     share is read the same way: "what percentage has decayed after 2 half-lives?" is 75%,
+     never the 25% left (`catalog/decayed.py`);
    - values listed after "and" share the words before the list ("at 100 kPa and 300 K"),
      and the words after a value stop at the first connector ("300 K is heated to 450 K"
      names 450 K, not 300 K). A rate in rad/s or rpm fills only an angular input, never a
@@ -94,7 +130,14 @@ flowchart LR
      law declines instead of answering;
    - light that strikes, hits or enters a medium, read alone, came from air (n₁ = 1), and
      an angle "to the surface" is 90° less than the angle of incidence. Light that starts
-     inside the glass or water does not take air's index;
+     inside the glass or water does not take air's index; light "travelling in air" does.
+     Snell's two angles give n = sin i / sin r with the angle of incidence read by its
+     words, whichever is stated first, each said from the normal or the surface (an angle
+     said from neither, "strikes a block at 30°", declines), and only for light from air:
+     light that leaves the glass, or an index below 1, declines (0.667 for glass, read as
+     entering it). "In air" in the ask is where the asked angle is, never the light's
+     start. A wavelength stated inside the medium, or asked in air, is not λ/n's, and
+     λ = c/f is the vacuum's: beside a refractive index, both decline;
    - the mass of what orbits a body or stands on it is never the body's mass. A central
      mass `M` is named by its body ("a planet of mass 6e24 kg") or is the named body's own;
      "a 500 kg satellite", "a 70 kg astronaut" fill the orbiting body's `m_body`, which
@@ -104,7 +147,14 @@ flowchart LR
      "around", "orbit of" or "the surface of" when more than one is named
      (`bodies.central_body`); one that orbits ("The Earth orbits the Sun") never is, and a
      body the table has no numbers for (Venus) declines. mgh declines for an orbit or a
-     height past 1% of Earth's radius;
+     height past 1% of Earth's radius. A planet left unnamed ("on a planet", "another
+     planet"), a planet with no agreed g (Venus, Saturn) and any moon but ours ("a moon of
+     Jupiter", "Saturn's moon", "Ganymede, the largest moon", `bodies.names_another_moon`)
+     have no school g: a solve that takes one it was never told (Earth's, the Moon's,
+     Mars's: Europa had the Moon's 1.62, Phobos Mars's 3.71) declines, one that states g
+     or is solved for it stands. Only "the Moon" (or "Earth's moon") has the Moon's g. A
+     fall's a = -g declines beside a stated height and time ("dropped from 20 m, takes
+     4 s": g is 2h/t², not -9.81 m/s²);
    - **A question never asks for a value it already states** (`services/law_binding/roles.py`,
      `asked_end_check.py`). An ask that names an end of the change ("its starting speed",
      "the original volume", "how fast was it going at first") is answered only by a law
@@ -119,6 +169,67 @@ flowchart LR
      an unmarked ask ("what is its speed?") is unchanged. Words that name the end of an
      input another value already filled decline ("compressed to 2 L at 300 kPa. Its
      initial pressure was 100 kPa").
+
+   - **Any unknown** (`services/law_binding/inverse.py`). A law written as arithmetic is
+     solved for whichever of its inputs the question asks, from its stated result and the
+     rest: "an engine does 400 J of work with a force of 80 N. How far?" is W = Fs solved
+     for s, and "a density of 2.5 g/mL: the mass of 40 mL?" is m = ρV. The law is named by
+     its result written beside a value of its kind in the law's own words ("400 J of work",
+     "a density of", "the work done on the cart is"), the asked input by its kind. A word
+     of the law elsewhere in the sentence names nothing ("rises in a capillary tube of
+     diameter 1 mm" states no rise), a result at one end of a change is named only by that
+     end's words (Boyle's P₂ by "new pressure", never by "initial pressure"), and a
+     direction another catalog law gives from the same quantities is that law's, with its
+     own checks (F = ma is `net_force`'s, which sets "a spring" aside). A question states a
+     result as a size ("gives out 36000 J of heat", "40 N in the opposite direction"), so a
+     law that prints its result as a size (`negative_detail`) is never solved for an input,
+     and any other only when the result's sign changes the answer's sign alone, never its
+     size (`inverse_of`): s = W/F is 5 m however W is signed, while T₂ = T₁ + Q/mc read a
+     block cooling from 80 °C as ending at 120 °C. SymPy rearranges
+     the law's own expression (one solution, positive quantities, or none), in the SymPy
+     pool with the turn's other readers, once per law and input; the working shows the
+     law, then `Solve for $s$` over the rearranged form. The answer is put back into the
+     law and must give the stated result. Only a question no law answers as its own
+     result is read so. A law solved by hand is not: resonance (n·v/2L) keeps its
+     whole-number and odd-harmonic checks in its solver, so "third harmonic at 150 Hz:
+     the wave speed?" is still the model's. A law the question's own words rule out (its
+     cues unsaid, a word it excludes said) owns no direction: capacitors in series say
+     nothing about two in parallel. Inputs that play the same part (two lenses in contact)
+     are one unknown, solved for once.
+   - **A result stated is never a part** (`Binding.result_labels`). A value labelled as a
+     combination's result ("a total power of 3 D", "an equivalent capacitance of 3 µF", "a
+     resultant speed of 5 m/s", `law_binding.words.COMBINED_RESULT`) or as a
+     transformer's output voltage is the law's result, so the part asked is the law
+     solved for it: "a total power of 3 D, one lens is 2 D: the other?" is 1 D, where the
+     sum read as a lens was 5 D. The ask's own words label nothing ("find the total
+     capacitance of a 4 µF and a 6 µF capacitor"). However the whole is worded ("together
+     they have 10 µF", "the pair has 5 D"), a question that asks for a part ("the other",
+     "the second", "each", `ask.asks_for_a_part`) is never answered by a law that adds its
+     like parts (`asked_end_check.asks_a_part_of`), resistors included: that law solved
+     for a part answers, or nothing does.
+   - **Relativistic addition reads frames** (`frames.py`): it answers only when one
+     stated speed is relative to a mover ("0.8c relative to the ship") and the question
+     does not ask in the mover's frame. "Seen from Earth a probe moves at 0.95c; the ship
+     at 0.8c: its speed in the ship's frame?" was 0.994c for 0.625c.
+   - **A lift's floor or scale pushes m(g ± a)** (`catalog/lift.py`), with the direction
+     said outright ("accelerating upward", "a downward acceleration"); a lift that
+     decelerates or a direction after the value declines, where up was the default. In a
+     lift the weight and m = F/a are not the law, and m = F/a also sets aside a weight,
+     friction that acts, a slope, a spring and a pull up against gravity: "60 N with
+     μ = 0.2 gives 1 m/s²" was a 60 kg box for 20.3 kg (`net_force.py`), unless the
+     question calls the force the net one. The weight's g is a value its words name as
+     gravity ("g moon = 1.62 m/s²", "a gravitational field of"), never the body's own
+     acceleration, however it falls ("a skydiver falls with an acceleration of 6 m/s²").
+   - **A transformer's law is asked by its secondary** ("secondary voltage", "output
+     voltage"): a bare "voltage" also asks the primary ("what voltage is supplied?"), and
+     handed back 0.6 V for 240 V.
+   - **½mv² is classical and translational**: it, and √(2gh), set aside a body that
+     spins as it rolls (`motion.rolling_body`: a sphere, a hoop or a ball, never a car
+     rolling along). `rolling_body_kinetic_energy` and `rolling_drop_speed`
+     (v = √(2gh/(1 + k))) answer for a named shape: 5.29 m/s for a solid sphere down 2 m,
+     where √(2gh) said 6.26. A translational energy asked is ½mv² still. ½mv² holds below
+     8% of c, its speed below half a percent of the rest energy (an electron's 8.2e-14 J
+     went 4.24e8 m/s, faster than light).
 
    Anything short of one operation with one way to fill it declines. That includes a value
    no input takes, two values for one input with no word to tell them apart, a value the
@@ -152,15 +263,22 @@ flowchart LR
      tall man") is the exception. A value of any other kind is a distractor and stays
      allowed (a ball's mass in free fall). So are values the extractor derived by adding or
      subtracting givens (ΔT = 80 − 20), a count of identical resistors ("three 9 Ω
-     resistors" are the 3 Ω a parallel bank binds), a direction sign, and a stated g.
+     resistors" are the 3 Ω a parallel bank binds), a direction sign, and a stated g. A
+     stated coefficient of friction above zero is never a distractor for a law of forces or
+     accelerations: friction acts, so such a solve that takes no μ declines, unless the
+     question sets friction aside or calls a force the net one. ½mv² of a sliding box
+     takes none.
    - **Asked quantity** (`ask.py`). The question's ask is read independently of the
      extractor, as dimensions, and kept on `PhysicsIntent.asked`. A quantity asked alone
      ("… amplitude 5 cm. max speed?") is an ask: unread, it was answered with the period.
      So is the unit the answer is wanted in ("in kWh", "the gauge pressure in psi at a
-     depth of 10 m"), kept on `asked_unit`.
+     depth of 10 m"), kept on `asked_unit`. A count of things ("how many turns") and an
+     atom's level ("to which level does it fall?") ask a pure number (`ask_numbers.py`),
+     never the force on a wire or the photon's energy they were answered with; a count in
+     a unit ("how many kWh") or each second ("photons per second") is not one.
 5. **Solve** (`solver.py`, `solvers/`, one module per topic). Pure arithmetic in SI, through
-   Pint (`_params_in_si`). Quadratics use the cancellation-free closed form; there is no SymPy on
-   the request path.
+   Pint (`_params_in_si`). Quadratics use the cancellation-free closed form. The one SymPy
+   step is a law's rearrangement for an asked input (step 3), run in the SymPy pool.
 
    Incline extraction retains equilibrium and kinetic motion direction. Static friction
    is the force needed for equilibrium, bounded by `mu_s*N`; it is not automatically that
@@ -186,9 +304,27 @@ flowchart LR
 7. **Respond** (`direct.py`). A complete verified request returns Given / Required / Formula /
    Substitution / Answer without waiting for the model. The law's heading holds its base
    form, then a rearrangement for the unknown as a step: `Solve for $t$`, then
-   `$t = \frac{d}{v}$` (never a "rearranged for" note). A given not in SI is followed by the
-   value the substitution uses (`λ = 500 nm`, then `λ = 5 × 10⁻⁷ m`). A solver that works
-   in the written units (150 km in 2 h) gets no conversion row. A stated result gets one
+   `$t = \frac{d}{v}$` (never a "rearranged for" note). A symbol the law works out from
+   the givens (ΔT = T₂ − T₁) is no unknown solved for: it is the note above the law written
+   in the givens (`with ΔT = T₂ − T₁` over `Q = m c (T₂ − T₁)`), and a form that drops a
+   right angle says so (`with θ = 90°` over `τ = F d`); a form that is the law rearranged
+   follows it with no note (`formula_rows.py`). Two forms with one left side always read as
+   one law (`law_binding/same_law.py`, both evaluated, never solved): the base written
+   another way (`h = gt²/2` under `h = ½gt²`) is shown once, a hundred times the base says
+   `as a percent`, the base with a symbol at 0 says so (`with h₀ = 0`), and a form that gives
+   another number for the question's givens (a train that stops before the time asked)
+   replaces the base, which does not hold there. A step the substitution takes for granted
+   is shown before it: `n = t / T½ = 20 days / 5 days = 4` above `N = 80 / 2⁴`
+   (`law_steps.py`). A given not in SI is followed, on its row, by the value the
+   substitution uses, every side equal: `λ = 500 nm = 500 × 10⁻⁹ m = 5 × 10⁻⁷ m`,
+   `q = 3 µC = 3 × 10⁻⁶ C` (`given_rows.py`; until November 2026 the factor followed the
+   unit, `3 µC × 10⁻⁶`, which read literally is 3 × 10⁻¹² C). A solver that works in the
+   written units (150 km in 2 h, a half-life in grams and days) gets no conversion.
+   **Required** names what is asked (`T (period)`): the glossary's word, the name of the
+   law's result (`law_nouns.py`: written for a reader, `de Broglie wavelength`, never the
+   lowercase words a question is matched by), or the word for its symbol in the answer's
+   dimension (`asked_names.py`); a result of several symbols names each (`a, T
+   (acceleration, tension)`). A stated result gets one
    line above the working: "Your 19.8 m/s is right." Image questions stay on the model
    path, and so does a reply the verified result is only part of (`parts.py`): a question
    in labelled parts or several questions the result does not all answer ("(a) how long …
@@ -219,9 +355,19 @@ flowchart LR
    thing the phone draws a green check for. A reply that answers and then offers more
    ("Want the max height too?") keeps the card and scene; only a reply that asks instead
    of stating any result goes without. A final value in the prose that differs from the
-   verified one (`R = 20.4 m` against `35.3 m`) gets one line above the card: "The
-   verified answer is …". A model-written `simulation` is never shown on a turn without
-   a verified physics block.
+   verified one at the precision the reply wrote it (`R = 20.4 m` against `35.3 m`; `20 m/s`
+   agrees with 19.8) means the two read the question differently, and which reading stands
+   depends on where the card's came from (`fence.read_from_their_words`):
+   - a typed reader (an extractor, the binder, a chain of catalog laws) read the student's
+     own words: the card and its scene stand, under one line, "The verified answer is …".
+     A model writing F = 3800 N for a 1200 kg car brought from rest to 20 m/s in 8 s no
+     longer drops the server's 3000 N (owner, 2026-11-13, with the audit's wrong typed
+     readings fixed: a typed reading that is wrong must not exist);
+   - a follow-up's rewritten problem or a scanner photo's reading: that reading is the one
+     in doubt, so the reply's value stands in a card with no check, and the scene goes
+     (#2420).
+
+   A model-written `simulation` is never shown on a turn without a verified physics block.
 
 ## Adding a law
 
@@ -238,8 +384,9 @@ catalog is also the one list of operations: every `PhysicsIntent` is checked aga
   positive, or the law declines;
 - for a law that is plain arithmetic, an `expression` (`"(F - mu*m*g)/m"`), with a variant
   per other input set. `services/law_binding/expression.py` evaluates it by walking a checked tree, and prints
-  the rearranged formula and the substitution from that same tree. Nothing is executed,
-  and nothing calls SymPy.
+  the rearranged formula and the substitution from that same tree. Nothing is executed.
+  The expression is also every other direction of the law: SymPy rearranges it for an
+  asked input (`law_binding.inverse`), so a law needs no second entry for m = F/a.
 
 `test_physics_binding.py` solves every promised input set with sample values and checks the
 result units the binding promised, so a binding cannot promise what its solver refuses.
@@ -327,12 +474,12 @@ The binder reads these laws, beside the extractors' own:
 | Area | Laws |
 |------|------|
 | Motion | SUVAT for v, s, t, a and u, including s = vt − ½at²; d = vt in any units; fall height; horizontal launch; rocket Δv; center of mass of two or three stated point masses |
-| Forces and energy | W = mg on a named body; Atwood; applied force with friction; static-friction sliding threshold on an incline; P = mgh/t; energy-conservation speed; Kepler period; vis-viva speed when the semi-major axis is stated; rotational KE; θ = (ω₀+ω)t/2 |
+| Forces and energy | W = Fs, Eₖ = ½mv², Eₚ = mgh and P = Fv or W/t for any unknown; W = mg on a named body; Atwood; applied force with friction; static-friction sliding threshold on an incline; P = mgh/t; energy-conservation speed; Kepler period; vis-viva speed when the semi-major axis is stated; rotational KE; θ = (ω₀+ω)t/2 |
 | Circuits | Q = It for I; Q = CV for Q, C and V; R = ρL/A; τ = RC; RC charging and discharging; capacitors in series and parallel; ideal-transformer voltage and current; parallel-plate capacitance with a stated dielectric; coaxial capacitance; a spherical capacitor; drift speed; mutual inductance; tan φ = (X_L − X_C)/R; average AC power when the phase angle is stated; quality factor from bandwidth or from series L, C, and R; capacitor energy U = Q²/(2C) and U = QV/2 |
 | Fields | E = V/d between plates; F = qE; W = qV (eV with "in eV"); solenoid B = μ₀NI/L; loop center and toroid B; solenoid self-inductance; cyclotron frequency; Hall voltage; electric and magnetic energy densities; magnetic moment μ = IA and τ = μB sinθ when the angle is stated; force per unit length between two parallel wires; electric dipole field on its axis; skin depth from conductivity or resistivity |
 | Waves and optics | resonance of a string or pipe; speed of sound in an ideal gas from γ, P, and ρ; thin-film thickness for constructive or destructive reflection at normal incidence; Snell for θ₂; diffraction grating angle; lens power; lenses in contact; lens-maker focal length; telescope angular magnification; compound-microscope magnification when the tube length and near point are stated; Rayleigh criterion; mirror f = R/2; magnification m = −v/u; electromagnetic-wave intensity; plane-wave intensity I = P/A; E = cB and B = E/c; Poynting magnitude EB/μ₀; longitudinal rod speed from Young's modulus; shear-wave speed; numerical aperture; grating resolving power R = mN |
 | Thermal | PV = nRT for any unknown; PV = NkT for any unknown; ideal-gas density ρ = PM/(RT); Boyle, Charles, Gay-Lussac and the combined law; Q = mcΔT for any unknown; water mixtures; latent heat; linear, area and volume expansion; isothermal work; mean free path; v_rms, mean and most probable speed; ⟨E_k⟩ = 3/2 kT; diatomic U = 5/2 nRT; adiabatic T V^{γ−1}; Mayer's relation C_p − C_v = R |
-| Fluids | absolute pressure; apparent weight when submerged; floating fraction; capillary rise |
+| Fluids | absolute pressure; apparent weight when submerged; floating fraction; capillary rise; density ρ = m/V for any unknown |
 | Modern | photon momentum; threshold frequency and wavelength; stopping potential; photoelectric KE; fraction and mass remaining; decay constant; activity; mean life; net blackbody power P = εσA(T^4 − T_0^4) |
 | Upper level | hydrogen transitions (λ and ΔE); hydrogen-like levels E = −13.6 Z²/n² eV when Z is stated; Bohr radius; hydrogen-like radius n²a₀/Z; Bohr L = nℏ; L² = ℏ²ℓ(ℓ+1); L_z = mℏ; normal Zeeman shift; pair-production threshold; quantum-oscillator levels; relativistic p, E and K; E² = (pc)² + (mc²)²; velocity addition; Lorentz transformation of one coordinate and of one time; Schwarzschild radius; gravitational time-dilation factor; Boltzmann ratio; S = k ln Ω; energy-time uncertainty; an orbit's period from its height; Fermi energy; Fermi-Dirac and Bose-Einstein occupation; Planck's law as spectral radiance; rectangular-barrier tunneling probability; Drude conductivity; Hall coefficient; nuclear radius R = R₀ A^{1/3}; Hawking temperature; Hawking power; Bekenstein-Hawking entropy; stellar luminosity; flux from a stated luminosity; Hubble's law; critical density; Friedmann Hubble parameter when density, curvature, scale, and Λ are stated; virial K = −U/2; plasma frequency; Debye length; Alfvén speed; sound speed from the bulk modulus; quadratic drag force from C_D; BCS gap; Higgs mass; one-loop strong coupling |
 | Round 3 | light travel time; gravitational force on a body at a named planet's surface; acceleration and net force from two opposing forces; recoil speed; push-off speed of either body; wave frequency from distance, time and wavelength; sound level from an intensity ratio; energy over days from a daily use |
@@ -344,7 +491,15 @@ The binder reads these laws, beside the extractors' own:
 ## Numbers and units
 
 - **Answers** have three significant figures, trailing zeros trimmed. Scientific notation is
-  used outside [10⁻³, 10⁵), and rounding comes first: 99999.7 is 1 × 10⁵. One formatter does
+  used outside [10⁻³, 10⁵), and rounding comes first: 99999.7 is 1 × 10⁵. That is the card's
+  precision: the Substitution ends on the value it reaches, unrounded (`a = 4.905 m/s²`
+  over a card of `4.9 m/s²`, `R = 31.0357 m` over `31 m`, `R_p = 1.78723 Ω` over `1.79 Ω`;
+  `working_steps._unrounded`), or the card's own value when nothing rounds (`v = 15 km/h`
+  over `15 km/h`), as a textbook closes its working before the boxed answer: only the card
+  rounds (the owner's rule, 2026-11-11, as in maths and chemistry). A value the working
+  reaches on the way is whole when it ends within six figures (8372, 0.0025) and four
+  figures otherwise (sin 70° = 0.9397, 2π = 6.283; `display.latex_working`); until
+  November 2026 those printed six figures (`0.939693`). One formatter does
   this, `display.py`; a solver never picks its own format. A 5 rounds up, as a class rounds:
   490.5 N is 491 N (`services/school_rounding.py`, the rule every subject shares).
 - **Givens** are echoed with the figures the user typed, up to six. A given is never rounded
@@ -367,6 +522,26 @@ The binder reads these laws, beside the extractors' own:
 - **Symbols say what they are, across topics.** A lens or mirror's distances are d_o and d_i
   (1/f = 1/d_o + 1/d_i), never u and v, which a student reads as speeds; an energy density
   is u_E or u_B. A symbol is the same in Given, Formula, Substitution and the picture.
+- **A unit named in words** is its symbol before any extractor reads it (`numbers.
+  unit_names_as_symbols`): "30 Newtons" is 30 N, "100 grams" 100 g, "a 12 volt battery"
+  12 V, each the unit table's own reading. An extractor reads the symbols its pattern lists,
+  so "a net force of 30 Newtons" had no force for F = ma. A length, a time, an angle, a
+  count and a temperature scale stay in words, as every reader reads them, and so does a
+  unit of two words ("30 newton metres", "6 newton-seconds"): its first word alone was a
+  force of 30 N. A liquid's density in g/mL, g/L or kg/L, and a constant's own unit
+  ("k = 9.0e9 N·m²/C²", "G = 6.67e-11 N m²/kg²"), are table spellings: read by its first
+  letter, a stated k was a force of 9e9 N. A stated constant's label (`k`, `k_e`, `G`) is
+  a given, not algebra.
+- **Thousands grouped by a space** ("1 200 kg") are one number or a count and another
+  (1 and a 200 kg), so the question declines (`counted.unclear_part_or_count`); a LaTeX
+  thin space between digit groups (`1\,500`) is one number.
+- **A stated constant is the one the answer uses**: "k = 9.0e9 N·m²/C²" gives Coulomb's
+  law 0.6 N where CODATA's k gives 0.599 N.
+- **A part of a divided body** ("cut in half: the weight of each half") is not the body the
+  question states, so a solve fed the whole's values declines.
+- **A speed's units are the table's**: "60 miles per hour for 4.5 hours" is mi over h, so
+  d = vt is worked in the question's units (270 mi). Split as text at its slash, a speed
+  written in words had none, and the train went to the model.
 - **Everyday spellings** are read before any extractor: "accelaration", "velocty" and
   "whats"; kph and kmph as km/h; °F, whose change is worked in kelvins, never as a raw
   °F difference; mAh and Ah; weeks; µs and ns; amu, and a bare "u" written
@@ -575,13 +750,27 @@ pipeline refuses:
 - a law outside its `requires`: a pull that lifts the block, a motor more than 100%
   efficient, an electron accelerated past 2% of its rest energy;
 - a count of photons over a stated time;
+- what `law_refusals.py` rules out from the question's own words: air resistance said to act
+  on a motion under gravity, a speed said to be constant answered by a law of a changing
+  speed ("a constant 20 m/s for 5 s covers 200 m"), and a height the body reaches read as
+  where it starts ("how long to first reach 15 m" was a launch from 15 m);
+- a school g when the question names two bodies whose g differ ("weighs 50 N on Earth: its
+  mass on the Moon?" took the Moon's g for the weight), a sideways launch read by the
+  one-line SUVAT laws, and a dropped body given a launch speed;
+- a follow-up that changes the motion, not a number ("what if it takes 10 s to stop
+  instead?" after a steady 20 m/s), and a clause that scales a stated value ("if the
+  amplitude is doubled, what is its maximum speed?");
+- a wave's speed for an ask about the medium's own motion ("the maximum speed of a
+  particle", "how fast does a point on the string move"), which needs the amplitude;
 - a result whose kind is not the asked one, and a price ("find the cost"), which no law
   answers;
 - a Doppler speed with no direction, or one speed when both parties move;
 - a magnification from a virtual image's distance, or a convex mirror's focal length, whose
   sign the conventions disagree on. A virtual image's distance itself is answered as a
   size and a side ("virtual, on the object's side of the lens"), with no sign to disagree
-  on;
+  on, and so is a diverging (concave) lens's image, whichever sign its focal length is
+  written with: 20 cm from a lens of focal length −10 cm is 6.67 cm, virtual, on the
+  object's side, magnification 0.333, upright (owner, 2026-11-13);
 - values listed "respectively" for inputs told apart by words ("primary and secondary coils
   with 100 and 500 turns respectively"); a list the law fills in order still binds;
 - a question in another language, and a number its writer reads otherwise ("1.200 kg"
@@ -589,4 +778,4 @@ pipeline refuses:
   grammars, so "Deux résistances de 10 ohms … en parallèle" was one resistor's 0.5 A
   (`turn_reading/readable.py`; chat drops the result whole, `chat/whole_question.py`);
 - every refusal listed under Physics in `FEATURES.md` (an unstated collision type, a
-  diverging lens, an absolute temperature written as bare "degrees", and the rest).
+  convex mirror's image, an absolute temperature written as bare "degrees", and the rest).

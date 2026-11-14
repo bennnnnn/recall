@@ -4,18 +4,14 @@ import {
   parsePlacesJson,
   repairBrokenMarkdownLinks,
   resolvePlaceLinkUrl,
-  resolvePlaces,
-  stripPlacesContent,
+  tagPlacesJsonFences,
 } from "@/lib/places/placesList";
 
 describe("placesList", () => {
-  it("parses places fence", () => {
-    const content = `Here are salons:
-
-\`\`\`places
-[{"name":"CODE Salon","url":"https://example.com/code","note":"4.7 stars","price":"$$"}]
-\`\`\``;
-    expect(resolvePlaces(content)).toEqual([
+  it("parses a places fence's rows", () => {
+    expect(
+      parsePlacesJson('[{"name":"CODE Salon","url":"https://example.com/code","note":"4.7 stars","price":"$$"}]'),
+    ).toEqual([
       {
         name: "CODE Salon",
         url: "https://example.com/code",
@@ -84,55 +80,36 @@ describe("placesList", () => {
     expect(googleMapsSearchUrl("CODE Salon")).toContain("CODE%20Salon");
   });
 
-  it("resolvePlaces ignores plain numbered lists (math, steps, etc.)", () => {
+  it("leaves a reply without a venue array as it is", () => {
     const math = `Area: 12 cm²
 
 1. **Base (b):**
    6 cm (the bottom side)
-2. **Height (h):**
-   4 cm (the vertical side)
-3. **Hypotenuse (c):**
-   ≈ 7.21 cm`;
 
-    expect(resolvePlaces(math)).toEqual([]);
+\`\`\`json
+{"base": 6, "height": 4}
+\`\`\`
+
+\`\`\`json
+not json
+\`\`\``;
+    expect(tagPlacesJsonFences(math)).toBe(math);
   });
 
-  it("resolvePlaces reads mis-tagged json venue arrays", () => {
+  it("makes a venue array fenced as json a places fence where it stands", () => {
     const content = `Here are gas stations:
 
 \`\`\`json
 [{"name":"Shell","url":"https://maps.google.com/?q=shell","address":"123 Market St","price":"$"}]
-\`\`\``;
-    expect(resolvePlaces(content)).toEqual([
-      expect.objectContaining({ name: "Shell", address: "123 Market St" }),
-    ]);
-    const places = resolvePlaces(content);
-    expect(stripPlacesContent(content, places)).not.toContain("```json");
-  });
+\`\`\`
 
-  it("resolvePlaces only reads explicit places fences", () => {
-    const content = `Intro
-1. **Old List Item** – should ignore
-\`\`\`places
-[{"name":"From Fence","url":"https://example.com","address":"1 Main"}]
-\`\`\``;
-    expect(resolvePlaces(content)).toEqual([
-      expect.objectContaining({ name: "From Fence" }),
-    ]);
-  });
-
-  it("stripPlacesContent removes only the places fence", () => {
-    const content = `Here are picks:
-
-1. **Benu** – fusion ($$)
+Open late.`;
+    expect(tagPlacesJsonFences(content)).toBe(`Here are gas stations:
 
 \`\`\`places
-[{"name":"Benu","url":"https://x.com","address":"SF"}]
-\`\`\``;
-    const places = resolvePlaces(content);
-    const stripped = stripPlacesContent(content, places);
-    expect(stripped).toContain("Here are picks");
-    expect(stripped).toContain("**Benu**");
-    expect(stripped).not.toContain("```places");
+[{"name":"Shell","url":"https://maps.google.com/?q=shell","address":"123 Market St","price":"$"}]
+\`\`\`
+
+Open late.`);
   });
 });

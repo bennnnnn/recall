@@ -2,11 +2,13 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { parse, SvgAst, type JsxAST } from "react-native-svg";
 
+import { useFlashWhenClipped } from "@/components/rich/clippedScroll";
 import {
   AccessibleElementChildren,
   useInsideAccessibleElement,
 } from "@/components/rich/accessibleElement";
 import { MathText } from "@/components/rich/MathText";
+import { italicEdge } from "@/components/rich/mathText/runs";
 import {
   latexToSvgMath,
   peekSvgMath,
@@ -18,6 +20,8 @@ import {
   MATH_TALL_LINE_HEIGHT,
   spokenFormula,
 } from "@/lib/math/text";
+import { latexLeanEm } from "@/lib/math/glyphs";
+import { fittedIndent } from "@/lib/math/layout";
 import { Space } from "@/lib/space";
 import { Type } from "@/lib/type";
 
@@ -41,17 +45,32 @@ type Props = {
    * lines around it (a reply); `center` centres it in its box (the answer card).
    */
   align?: "start" | "center";
+  /**
+   * The working column's indent (a reply's own display maths): kept while the formula fits
+   * after it, given up as it grows, so a long formula reaches the right edge only when the
+   * whole line cannot hold it (``fittedIndent``).
+   */
+  indent?: number;
+  /** `indent` is already fitted for a block of lines (``MathBlock``): kept as it is. */
+  indentFitted?: boolean;
+  /**
+   * The least the drawing may shrink to so the whole formula is in view (an answer card):
+   * on a narrower phone the card cut the answer at its edge, "… x^{5/2} −" (2026-11-13).
+   * What is wider even then scrolls, its scroll bar flashed. Unset, it scrolls at its size.
+   */
+  minFit?: number;
 };
 
-type FallbackProps = Required<Omit<Props, "minHeight">> & { label: string | undefined };
+type FallbackProps = Required<Omit<Props, "minHeight" | "indentFitted" | "minFit">> & { label: string | undefined };
 
 /** What MathJax could not convert: the same formula in readable native maths. */
-function FallbackMath({ latex, textColor, em, align, label }: FallbackProps) {
+function FallbackMath({ latex, textColor, em, align, label, indent }: FallbackProps) {
+  const { fontScale } = useWindowDimensions();
   const justify = align === "start" ? styles.alignStart : null;
   const own = label !== undefined;
   return (
     <View
-      style={[styles.wrap, styles.fallbackBox]}
+      style={[styles.wrap, styles.fallbackBox, indent > 0 && { paddingLeft: Space.xxs + indent }]}
       testID="math-svg-fallback"
       accessible={own}
       accessibilityRole={own ? "text" : undefined}
@@ -70,7 +89,8 @@ function FallbackMath({ latex, textColor, em, align, label }: FallbackProps) {
               <MathText latex={latex} textColor={textColor} fontSize={em} />
             </View>
           ) : (
-            <Text style={[styles.line, align === "start" && styles.lineStart]} selectable>
+            // The Text ends where the scroll does: its last italic letter needs real room.
+            <Text style={[styles.line, align === "start" && styles.lineStart, italicEdge(latexLeanEm(latex), em, fontScale, false)]} selectable>
               <MathText latex={latex} textColor={textColor} fontSize={em} />
             </Text>
           )}
@@ -94,6 +114,9 @@ export const MathSvgView = React.memo(function MathSvgView({
   minHeight = 48,
   em = Type.reading.fontSize,
   align = "center",
+  indent = 0,
+  indentFitted = false,
+  minFit,
 }: Props) {
   const { fontScale } = useWindowDimensions();
   const exPx = em * EX_PER_EM * fontScale;
@@ -102,10 +125,9 @@ export const MathSvgView = React.memo(function MathSvgView({
   // an accessible parent (an answer card) the parent reads it instead.
   const own = !useInsideAccessibleElement();
   const label = useMemo(() => (own ? spokenFormula(latex) : undefined), [own, latex]);
-  // The conversion is held with the latex it was made from. A view whose
-  // latex changes (a streaming answer growing, a reused row) never draws the
-  // previous formula's result, not even for one frame: until its own result
-  // arrives it shows the cached one for the new latex, or the loading slot.
+  // The conversion is held with the latex it was made from. A view whose latex changes (a
+  // streaming answer growing, a reused row) never draws the previous formula's result, not
+  // even for one frame: until its own result arrives it shows the cached one or the slot.
   const [loaded, setLoaded] = useState<Loaded>(() => ({
     latex,
     result: peekSvgMath(latex, true),
@@ -132,10 +154,9 @@ export const MathSvgView = React.memo(function MathSvgView({
     };
   }, [latex]);
 
-  // react-native-svg does not resolve currentColor — substitute the theme
-  // color. The parsed tree is kept with the conversion, per color: drawing
-  // the same formula again (a reused row, a re-cut streaming piece) parses
-  // nothing.
+  // react-native-svg does not resolve currentColor — substitute the theme color. The parsed
+  // tree is kept with the conversion, per color: drawing the same formula again (a reused
+  // row, a re-cut streaming piece) parses nothing.
   const ast = useMemo((): JsxAST | null => {
     if (!result) return null;
     try {
@@ -148,30 +169,64 @@ export const MathSvgView = React.memo(function MathSvgView({
   }, [result, textColor]);
 
   if (result === undefined) {
-    return <View style={[styles.wrap, { minHeight }]} testID="math-svg-loading" />;
+    return <View style={[styles.wrap, indent > 0 && { paddingLeft: indent }, { minHeight }]} testID="math-svg-loading" />;
   }
 
   if (result === null || ast == null) {
-    return <FallbackMath latex={latex} textColor={textColor} em={em} align={align} label={label} />;
+    return (
+      <FallbackMath latex={latex} textColor={textColor} em={em} align={align} label={label} indent={indent} />
+    );
   }
 
   // Intrinsic size. minHeight is only the loading slot: stretching a short
   // MathJax SVG up to 48px turns `gt` and a limit into a smashed bar.
-  const width = Math.max(1, result.widthEx * exPx);
-  const height = Math.max(1, result.heightEx * exPx);
+  return (
+    <SvgDrawing
+      ast={ast}
+      natural={{ width: Math.max(1, result.widthEx * exPx), height: result.heightEx * exPx }}
+      place={{ indent, indentFitted, justify, minFit }}
+      own={own}
+      label={label}
+    />
+  );
+});
+
+type Placement = Required<Pick<Props, "indent" | "indentFitted">> & Pick<Props, "minFit"> & {
+  justify: typeof styles.alignStart | null;
+};
+
+/** The converted drawing in its sideways scroll, at its size or shrunk to its box (`minFit`). */
+function SvgDrawing({ ast, natural, place, own, label }: {
+  ast: JsxAST;
+  natural: { width: number; height: number };
+  place: Placement;
+  own: boolean;
+  label: string | undefined;
+}) {
+  const { width: windowWidth } = useWindowDimensions();
+  const [boxWidth, setBoxWidth] = useState(0);
+  const flash = useFlashWhenClipped();
+  const { indent, indentFitted, justify, minFit } = place;
+  const left = indentFitted ? indent : fittedIndent(indent, natural.width, windowWidth);
+  const scale = fitScale(natural.width, boxWidth - left - 2 * SCROLL_PAD, minFit);
+  const width = natural.width * scale;
+  const height = Math.max(1, natural.height * scale);
   return (
     <View
-      style={styles.wrap}
+      style={[styles.wrap, indent > 0 && { paddingLeft: left }]}
       testID="math-svg-view"
       accessible={own}
       accessibilityRole={own ? "text" : undefined}
       accessibilityLabel={label}
+      onLayout={minFit ? (event) => setBoxWidth(event.nativeEvent.layout.width) : undefined}
     >
       <ScrollView
         keyboardShouldPersistTaps="handled"
+        {...flash}
         horizontal
         nestedScrollEnabled
         showsHorizontalScrollIndicator
+        persistentScrollbar
         testID="math-svg-scroll"
         style={{ height }}
         contentContainerStyle={[styles.lineScroll, justify]}
@@ -183,7 +238,16 @@ export const MathSvgView = React.memo(function MathSvgView({
       </ScrollView>
     </View>
   );
-});
+}
+
+/** The scroll's own padding at each side (`lineScroll`). */
+const SCROLL_PAD = Space.xs;
+
+/** How much a drawing `natural` wide shrinks to fit `room`: never below `minFit`, never up. */
+export function fitScale(natural: number, room: number, minFit: number | undefined): number {
+  if (!minFit || room <= 0 || natural <= room) return 1;
+  return Math.max(minFit, room / natural);
+}
 
 const styles = StyleSheet.create({
   wrap: {
@@ -198,7 +262,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: "center",
     minWidth: "100%",
-    paddingHorizontal: Space.xs,
+    paddingHorizontal: SCROLL_PAD,
   },
   line: {
     textAlign: "center",

@@ -121,7 +121,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "impulse",
         "momentum",
         "Impulse-momentum theorem",
-        "J",
+        "I",
         variables=(
             var("F", "F", "newton"),
             var("dt", r"\Delta t", "second"),
@@ -165,7 +165,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "collision_energy_lost",
         "momentum",
         "Perfectly inelastic collision",
-        r"\Delta KE",
+        r"\Delta E_k",
         assumptions=("the bodies stick together", "one dimension"),
         variables=(
             var("elastic", "elastic", dimensionless=True, visible=False),

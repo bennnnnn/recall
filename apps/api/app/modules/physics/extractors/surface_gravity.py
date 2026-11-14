@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.bodies import SCHOOL_GRAVITY
+from app.modules.physics.bodies import SCHOOL_GRAVITY, names_our_moon
 from app.modules.physics.extractors.written_unit import written_unit
 from app.services.solving import SolveServiceError
 from app.services.text_match import word_index
@@ -60,9 +60,11 @@ def detect_gravity(text: str) -> float:
     if stated is not None:
         return stated
     lower = text.lower()
-    for body in ("moon", "mars"):
-        if word_index(lower, body) != -1 and not _only_set_aside(lower, body):
-            return SCHOOL_GRAVITY[body]
+    # Only Earth's Moon has the Moon's g: "a moon of Jupiter" is another body.
+    if names_our_moon(lower) and not _only_set_aside(lower, "moon"):
+        return SCHOOL_GRAVITY["moon"]
+    if word_index(lower, "mars") != -1 and not _only_set_aside(lower, "mars"):
+        return SCHOOL_GRAVITY["mars"]
     return EARTH_G
 
 

@@ -12,6 +12,11 @@ A number the row wrote keeps its spelling in later rows (``299792458`` never tur
 into ``2.99792 \\times 10^{8}``); a worked value is printed as a given is. An angle
 stays in degrees, and an inverse sine gives one. Anything outside that grammar
 returns None: the caller keeps the row as the solver wrote it.
+
+Given ``LeafUnits``, every number carries its unit, and every worked number the unit
+it reduces to: ``\\frac{48\\,\\mathrm{m/s} - 8\\,\\mathrm{m/s}}{10\\,\\mathrm{s}}`` →
+``\\frac{40\\,\\mathrm{m/s}}{10\\,\\mathrm{s}}``. A number carries the unit of the law
+symbol it stands in for (``leaf_units``); the same parser reads the law in its symbols.
 """
 
 from __future__ import annotations
@@ -21,8 +26,18 @@ import math
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import Any
 
 from app.services.law_binding.expression import Notation, _latex
+from app.services.law_binding.leaf_units import (
+    SYMBOL,
+    UNIT,
+    LeafUnits,
+    carried,
+    label,
+    unit_of_node,
+)
+from app.services.law_binding.symbols import symbol_at
 
 _FUNCTIONS = {
     "sin": "sin",
@@ -77,22 +92,40 @@ class _Reading:
         self.angles[name] = radians
         return ast.Name(id=name, ctx=ast.Load())
 
-    def notation(self, number: Callable[[float], str]) -> Notation:
+    def notation(
+        self, number: Callable[[float], str], unit: Callable[[Any], str] | None = None
+    ) -> Notation:
+        def shown_unit(node: ast.Constant) -> str:
+            carried = getattr(node, UNIT, None)
+            return "" if unit is None or carried is None else unit(carried)
+
         return Notation(
-            constants={}, number=lambda value: self.spellings.get(value) or number(value)
+            constants={},
+            number=lambda value: self.spellings.get(value) or number(value),
+            unit=shown_unit,
         )
 
 
 class _Parser:
-    def __init__(self, tex: str, reading: _Reading) -> None:
+    """Reads a substituted side, numbers only; with ``names``, a law's side in its symbols."""
+
+    def __init__(self, tex: str, reading: _Reading, *, names: bool = False) -> None:
         self.tex = tex
         self.at = 0
         self.reading = reading
+        self.names = names
 
     # Tokens -------------------------------------------------------------------------
 
-    def _peek(self) -> tuple[str, str] | None:
+    def _next(self) -> tuple[str, str, int] | None:
         while True:
+            start = self.at
+            while start < len(self.tex) and self.tex[start].isspace():
+                start += 1
+            if self.names:
+                name = symbol_at(self.tex, start)
+                if name is not None:
+                    return "name", name[0], name[1]
             match = _TOKEN.match(self.tex, self.at)
             if match is None:
                 if self.tex[self.at :].strip():
@@ -103,17 +136,18 @@ class _Parser:
             if kind == "command" and value in _SPACING:
                 self.at = match.end()
                 continue
-            return kind, value
+            return kind, value, match.end()
+
+    def _peek(self) -> tuple[str, str] | None:
+        token = self._next()
+        return None if token is None else (token[0], token[1])
 
     def _take(self) -> tuple[str, str]:
-        token = self._peek()
+        token = self._next()
         if token is None:
             raise _Unreadable("ended early")
-        match = _TOKEN.match(self.tex, self.at)
-        if match is None:
-            raise _Unreadable("ended early")
-        self.at = match.end()
-        return token
+        self.at = token[2]
+        return token[0], token[1]
 
     def _expect(self, symbol: str) -> None:
         if self._take() != ("symbol", symbol):
@@ -158,7 +192,9 @@ class _Parser:
         kind, value = token
         if kind == "symbol":
             return value in "({["
-        return kind == "number" or (kind == "command" and value not in {"cdot", "times"})
+        if kind == "name":
+            return True
+        return kind == "number" or (kind == "command" and value not in {"cdot", "times", "rvert"})
 
     def _signed(self) -> ast.expr:
         token = self._peek()
@@ -203,6 +239,8 @@ class _Parser:
 
     def _atom(self) -> ast.expr:
         kind, value = self._take()
+        if kind == "name":
+            return ast.Name(id=f"{SYMBOL}{value}", ctx=ast.Load())
         if kind == "number":
             return self._number(value)
         if kind == "symbol" and value in "({[":
@@ -212,6 +250,11 @@ class _Parser:
         if kind == "symbol" and value == "|":
             node = self._sum()
             self._expect("|")
+            return self._call("abs", node)
+        if (kind, value) == ("command", "lvert"):
+            node = self._sum()
+            if self._take() != ("command", "rvert"):
+                raise _Unreadable("expected \\rvert")
             return self._call("abs", node)
         if kind != "command":
             raise _Unreadable(value)
@@ -308,7 +351,13 @@ def _worked(node: ast.expr, reading: _Reading) -> ast.expr:
         raise _Unreadable("operation")
     if isinstance(value, complex) or not math.isfinite(value):
         raise _Unreadable("no real value")
-    return reading.angle(value) if angle else ast.Constant(value=value)
+    if angle:
+        return reading.angle(value)
+    worked = ast.Constant(value=value)
+    unit = carried(node)
+    if unit is not None:
+        setattr(worked, UNIT, unit)
+    return worked
 
 
 _SUMS = (ast.Add, ast.Sub)
@@ -381,36 +430,71 @@ class Reduction:
     value: float
     # The value is an angle, in degrees.
     in_degrees: bool
+    # The substituted side again, each number with its unit (None when none were given).
+    substituted: str | None = None
+    # The unit the value is in, when the numbers carry units (None for a pure number).
+    unit: Any | None = None
 
 
 def reduce_substitution(
-    symbol: str, substituted: str, number: Callable[[float], str]
+    symbol: str,
+    substituted: str,
+    number: Callable[[float], str],
+    units: LeafUnits | None = None,
 ) -> Reduction | None:
     """``\\frac{27.7778 - 0}{8}`` → rows ``a = \\frac{27.7778}{8}`` and the value 3.47222.
 
     The last layer, the number itself, is not a row: the caller writes the answer
-    there as the solver verified it. ``number`` prints a worked value.
+    there as the solver verified it. ``number`` prints a worked value. With ``units``,
+    each number carries the unit of the symbol it stands for in the law (``label``), and
+    each worked number the unit it reduces to; a row they do not fit stays bare.
     """
-    reading = _Reading()
     try:
-        tree = _Parser(substituted, reading).read()
-        notation = reading.notation(number)
-        rows: list[str] = []
-        for _ in range(_MOST_STEPS):
-            if _leaf(tree):
-                break
-            tree = _layer(tree, reading)
-            if not _leaf(tree):
-                shown = _latex(tree, {}, reading.angles, notation, frozenset(reading.angles))
-                rows.append(f"{symbol} = {shown}")
-        else:
-            return None
-        if _is_pi(tree):
-            return None
-        degrees = _is_angle(tree, reading)
-        value = _value(tree, reading)
-    except (_Unreadable, ValueError, ZeroDivisionError, OverflowError, KeyError):
+        plain = _reduced(symbol, substituted, number, None)
+        if plain is None or units is None:
+            return plain
+        labelled = _reduced(symbol, substituted, number, units, plain.value)
+    except (_Unreadable, ValueError, TypeError, ZeroDivisionError, OverflowError, KeyError):
         return None
-    return Reduction(
-        rows=tuple(rows), value=math.degrees(value) if degrees else value, in_degrees=degrees
-    )
+    return labelled or plain
+
+
+def law_tree(formula: str) -> ast.expr | None:
+    try:
+        return _Parser(formula, _Reading(), names=True).read()
+    except (_Unreadable, ValueError, KeyError):
+        return None
+
+
+def _reduced(
+    symbol: str,
+    substituted: str,
+    number: Callable[[float], str],
+    units: LeafUnits | None,
+    value: float | None = None,
+) -> Reduction | None:
+    reading = _Reading()
+    tree = _Parser(substituted, reading).read()
+    laws = [law for law in map(law_tree, units.formulas) if law] if units is not None else []
+    if units is not None and (value is None or not label(tree, laws, units, value)):
+        return None
+    notation = reading.notation(number, units.shown if units is not None else None)
+    angles = frozenset(reading.angles)
+    written = _latex(tree, {}, reading.angles, notation, angles) if units else None
+    rows: list[str] = []
+    for _ in range(_MOST_STEPS):
+        if _leaf(tree):
+            break
+        tree = _layer(tree, reading)
+        if not _leaf(tree):
+            shown = _latex(tree, {}, reading.angles, notation, frozenset(reading.angles))
+            rows.append(f"{symbol} = {shown}")
+    else:
+        return None
+    if _is_pi(tree):
+        return None
+    degrees = _is_angle(tree, reading)
+    reached = _value(tree, reading)
+    worked = math.degrees(reached) if degrees else reached
+    unit = unit_of_node(tree) if units is not None else None
+    return Reduction(tuple(rows), worked, degrees, written, unit)

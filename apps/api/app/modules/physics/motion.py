@@ -24,10 +24,11 @@ _NOUN_BEFORE = re.compile(
 )
 
 # At rest at the end: it comes to rest, reaches a standstill, becomes stationary, or its
-# speed falls to zero (the bare verb is ``_STOP_VERB``).
+# speed falls to zero (the bare verb is ``_STOP_VERB``). The space after "until" is read once
+# (possessive): split between \s+ and \s*, "until" and a run of spaces took quadratic time.
 _ENDS_AT_REST = re.compile(
     r"\b(?:to|into)\s+(?:a\s+)?(?:complete\s+|full\s+|dead\s+)?(?:stop|halt|rest|standstill)\b"
-    r"|\b(?:becomes?|became|is\s+(?:then|now)|until\s+(?:it\s+is\s+)?)\s*"
+    r"|\b(?:becomes?|became|is\s+(?:then|now)|until\s++(?:it\s+is\s++)?)\s*+"
     r"(?:stationary|motionless|at\s+rest)\b"
     r"|\b(?:speed|velocity)\s+(?:becomes|reaches|falls\s+to|drops\s+to|decreases\s+to"
     r"|is\s+reduced\s+to)\s+zero\b"
@@ -71,6 +72,23 @@ _G_SIZED = re.compile(r"(?<![\d.])9\.8\d?\s*(?:m\s*/\s*s|m\s*s|ms)", re.IGNORECA
 
 # The marker the binder's excludes read for a speed that changes (``binding._with_markers``).
 SPEED_CHANGE_MARKER = "speedchange"
+# The marker for a body that spins as it rolls: ½mv² and √(2gh) leave its spin out (a solid
+# sphere rolling down 2 m is 5.29 m/s, not 6.26).
+ROLLING_BODY_MARKER = "rollingbody"
+# A body that can spin, said to roll: a ball, a hoop, a wheel. A car or a trolley "rolling"
+# along a road is moved, not spun, as a whole.
+_ROLLING_BODY_RE = re.compile(
+    r"\bwithout\s+slipping\b"
+    r"|\b(?:sphere|ball|marble|cylinder|disc|disk|hoop|ring|wheel|tyre|tire|can|pipe)s?\b"
+    r"[^.?!]{0,80}?\broll(?:s|ed|ing)?\b(?!\s+off\b)",
+    re.IGNORECASE,
+)
+
+
+def rolling_body(text: str) -> bool:
+    """The question's body spins as it rolls: "a solid sphere rolls down a slope"."""
+    return _ROLLING_BODY_RE.search(text) is not None
+
 
 # An average speed is the whole distance over the whole time, whatever the speed does on the
 # way: "starts from rest and covers 100 m in 12 s, average speed?" is 100 / 12.

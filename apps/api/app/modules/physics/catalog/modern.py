@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.modules.physics.decay_share import ASKED_GONE_MARKER
 from app.services.law_binding.spec import Binding, FormulaSpec, bind, formula, var
 
 # A half-life and the time that has passed are both times: the words say which.
@@ -28,6 +29,8 @@ SPECS: tuple[FormulaSpec, ...] = (
             "half_life",
             "m",
             cues=HALF_LIFE_CUES,
+            # What is left, never what went (``catalog/decayed.py``).
+            excludes=(ASKED_GONE_MARKER,),
         ),
     ),
     formula(
@@ -139,8 +142,8 @@ SPECS: tuple[FormulaSpec, ...] = (
         "photoelectric_kinetic_energy_wavelength",
         "modern",
         "Photoelectric equation",
-        "K_{max}",
-        base_latex=r"K_{max} = \frac{hc}{\lambda} - \phi",
+        r"E_{k,\max}",
+        base_latex=r"E_{k,\max} = \frac{hc}{\lambda} - \phi",
         expression="h_planck*c_light/wavelength - work_function",
         variables=(
             var("wavelength", r"\lambda", "meter"),
@@ -166,8 +169,8 @@ SPECS: tuple[FormulaSpec, ...] = (
         "photoelectric_kinetic_energy",
         "modern",
         "Photoelectric equation",
-        "K_{max}",
-        base_latex="K_{max} = hf - \\phi",
+        r"E_{k,\max}",
+        base_latex=r"E_{k,\max} = hf - \phi",
         variables=(
             var("freq", "f", "hertz"),
             var("work_function", r"\phi", "joule"),

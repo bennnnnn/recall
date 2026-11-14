@@ -8,20 +8,25 @@ reaches into a subject.
 
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import Sequence
 from dataclasses import replace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.core.readings import read_off_loop, reading
+from app.core.sympy_executor import run_sympy
+from app.services.problem_followup import message_role_content
 from app.services.solving import SubjectAugmentation, VerifiedSolveBlock
 from app.services.subjects.order import read_subject_reason
+from app.services.subjects.registry import SUBJECTS, SubjectRequest, subject_adapter
 from app.services.subjects.registry import SubjectName as SubjectName
-from app.services.subjects.registry import SubjectRequest, subject_adapter
-from app.services.worked_parts import parts_in_one_layout
+from app.services.worked_parts import answers_in_parts
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -80,7 +85,6 @@ def _subject_of_text(
 
 # "Dilute …, and also solve …" is two problems. One failed reading of the
 # whole line used to stamp "couldn't verify" under two correct answers.
-_ANSWER_LABEL = re.compile(r"^\*\*Answer:?\*\*", re.MULTILINE)
 _AND_ALSO = re.compile(r"(?:,\s*|\s+)\band\s+also\b\s+", re.IGNORECASE)
 
 
@@ -203,41 +207,13 @@ async def _solve_parts(
                 first.subject,
                 first.prompt_block,
                 replace(blocks[0], question_parts=blocks),
-                direct_text=_in_parts(parts, [r or "" for r in replies]),
+                direct_text=answers_in_parts(parts, [r or "" for r in replies]),
             )
     verified = next((piece for piece in pieces if piece.verified is not None), None)
     found = await whole()
     if found.verified is not None or verified is None:
         return found
     return verified
-
-
-def _in_parts(parts: Sequence[str], replies: Sequence[str]) -> str:
-    """The question in parts, in the one layout every worked answer in parts has
-    (``services/worked_parts``): the givens and what is asked once, then each part's
-    working closed by its own answer card. A reply in another shape keeps the old one:
-    each part's own question, then its reply."""
-    shared = _shared_setup(parts)
-    laid_out = parts_in_one_layout([part[len(shared) :] for part in parts], replies)
-    if laid_out is not None:
-        return laid_out
-    sections = []
-    for index, (part, reply) in enumerate(zip(parts, replies, strict=True)):
-        label = chr(ord("a") + index) if index < 26 else str(index + 1)
-        # A question in parts letters each answer: "**Answer (a)**".
-        answer = _ANSWER_LABEL.sub(f"**Answer ({label})**", reply.strip(), count=1)
-        sections.append(f"**({label}) {part[len(shared) :].strip()}**\n\n{answer}")
-    return "\n\n---\n\n".join(sections)
-
-
-def _shared_setup(parts: Sequence[str]) -> str:
-    """The setup every part opens with, up to the end of its last sentence."""
-    first = parts[0]
-    size = min(len(part) for part in parts)
-    same = next((i for i in range(size) if any(part[i] != first[i] for part in parts)), size)
-    prefix = first[:same]
-    end = max(prefix.rfind(". "), prefix.rfind("? "), prefix.rfind("! "))
-    return prefix[: end + 2] if end >= 0 else ""
 
 
 async def read_direct_reply(
@@ -276,3 +252,59 @@ def maybe_direct_subject_reply(
         has_image_attachment=has_image_attachment,
         verified_request_text=verified_request_text,
     )
+
+
+# The order subjects are asked whether they show a line. Any one that shows it settles it,
+# so the answer never depends on the order, but the cost does: each look is a read in the
+# SymPy pool on the path before the model, and the first subject that shows the line saves
+# the reads after it. A "show it" after a curve or a shape is maths' far more often than
+# physics', so maths is asked first and such a line pays one read, not two. Chemistry's
+# molecules ("show me both") come before either. Every subject is here
+# (``test_subject_shows_it_order``).
+SHOWING: tuple[SubjectName, ...] = ("chemistry", "math", "physics")
+
+
+def asks_a_subject_to_show(line: str) -> bool:
+    """A cheap look, with no chat read: some subject could show what the line asks to see."""
+    return any(adapter.followups.asks_to_see(line) for adapter in SUBJECTS)
+
+
+async def subject_shows_it(
+    settings: Settings, line: str, recent: Sequence[Any], referent: str | None = None
+) -> bool:
+    """A line asking to see what the chat is on, which a subject shows: neither a photo
+    search nor a generated picture takes it. "can u show me both" after a shape answer is
+    chemistry's molecules; "show it" or "a picture of it" when the message a model read as
+    "it" (``referent``) is a curve or a shape is maths' graph or figure (live, 2026-11-09,
+    "show it" after sin(x) searched photos for "it"); a projectile is physics' scene.
+
+    The cheap looks come first, on the line and the chat, so a photo turn in any other chat
+    ("show me her") never waits on the pool. A pool that cannot read it leaves the line to
+    the photo path and does not decline the turn's other readings.
+    """
+    turns = [
+        {"role": role, "content": content}
+        for role, content in map(message_role_content, recent)
+        if role is not None and content is not None
+    ]
+    for name in SHOWING:
+        adapter = subject_adapter(name)
+        followups = adapter.followups
+        if not adapter.enabled(settings) or not followups.asks_to_see(line, recent):
+            continue
+        try:
+            problem = await run_sympy(
+                followups.shown_problem,
+                line,
+                turns,
+                referent,
+                timeout=settings.subject_read_timeout_seconds,
+            )
+        except Exception:
+            logger.info(
+                "a shown-problem read gave up; the line stays a photo lookup", exc_info=True
+            )
+            continue
+        if problem is not None:
+            return True
+    return False

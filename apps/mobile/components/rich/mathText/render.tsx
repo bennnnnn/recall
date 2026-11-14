@@ -11,6 +11,7 @@ import {
   SQRT_LINE_AT_16,
   type MathLayout,
 } from "@/lib/math/layout";
+import { italicLeanEm } from "@/lib/math/glyphs";
 import { attachScripts, type MathSegment } from "@/lib/math/text";
 import { renderAccentMark } from "@/components/rich/mathText/accentMark";
 import {
@@ -21,6 +22,7 @@ import {
   type RenderCtx,
 } from "@/components/rich/mathText/context";
 import {
+  italicEdge,
   renderMathRun,
   renderNonVariableRun,
   type RunPad,
@@ -57,7 +59,8 @@ export function hasTallMath(segments: MathSegment[]): boolean {
   return hasStackedMath(segments) || hasRaisedScript(segments);
 }
 
-/** A run inside a stack: a row of Views when it holds stacked or raised math, else one Text. */
+/** A run inside a stack: a row of Views when it holds stacked or raised math, else one Text,
+ * a box of its own whose last italic letter keeps its ink (`italicEdge`). */
 function renderStackRow(
   segments: MathSegment[],
   layout: MathLayout | undefined,
@@ -65,11 +68,14 @@ function renderStackRow(
   rowCtx: RenderCtx,
   textStyle: object,
 ): ReactNode {
-  const children = renderSegments(segments, layout?.children ?? [], keyPrefix, rowCtx);
-  if (hasTallMath(segments)) {
+  const tall = hasTallMath(segments);
+  const children = renderSegments(segments, layout?.children ?? [], keyPrefix, { ...rowCtx, inText: !tall });
+  if (tall) {
     return <View style={rowCtx.styles.fracSideRow}>{children}</View>;
   }
-  return <Text style={textStyle}>{children}</Text>;
+  const last = segments.at(-1);
+  const edge = last?.type === "text" ? italicEdge(italicLeanEm(last.value), rowCtx.em, rowCtx.fontScale, true) : null;
+  return <Text style={[textStyle, edge]}>{children}</Text>;
 }
 
 function renderFracSide(
@@ -156,9 +162,10 @@ export function renderSegments(
     const key = `${keyPrefix}-${atom.index}`;
     const node = layouts[layoutIndex];
     layoutIndex += 1;
-    // Only a truly last glyph leans: TeX sets a script right against its base.
-    const lean = ctx.leanLast === true && n === atoms.length - 1 && !atom.sup;
-    const pad = { em: ctx.em, fontScale: ctx.fontScale, leadingAtom, lean };
+    // A last glyph leans into real room, and so does a base a superscript follows: TeX sets
+    // the superscript after the base's lean, a subscript at its advance (the layout agrees).
+    const lean = (ctx.leanLast === true && n === atoms.length - 1 && !atom.sup) || atom.supLean > 0;
+    const pad = { em: ctx.em, fontScale: ctx.fontScale, leadingAtom, lean, edge: ctx.inText !== true };
     leadingAtom = true;
     const rendered = renderOneSegment(atom.segment, node, key, inner, pad, false);
     if (atom.sup && atom.sub) {
@@ -188,11 +195,14 @@ function renderScriptBody(
   const scriptEm = node?.fontSize ?? ctx.em * SCRIPT_RATIO;
   const shift = scriptShift(node, ctx, placed);
   const inner = node?.children[0];
+  // A row, as the formula it hangs on is: a body of several runs (`x→5⁺`, `x + y^2`) stood
+  // its runs in a column, one glyph over the next.
   return (
     <View
       key={key}
       testID="math-script"
       style={{
+        ...ctx.styles.fracSideRow,
         width: scaled(node?.width ?? 0, ctx.fontScale),
         height: scaled(node?.height ?? 0, ctx.fontScale),
         paddingTop: scaled(inner?.padTop ?? 0, ctx.fontScale),

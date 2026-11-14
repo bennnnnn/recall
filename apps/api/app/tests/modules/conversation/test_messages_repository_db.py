@@ -171,3 +171,28 @@ async def test_get_last_user_uses_id_tiebreaker_when_created_at_ties(db_session)
 
     # Highest id wins the tie — deterministic regardless of insertion order.
     assert last_user is not None and last_user.content == "u2"
+
+
+@pytest.mark.asyncio
+async def test_put_above_puts_a_late_photo_over_the_reply_in_its_own_chat_only(db_session):
+    """A reply's photo that came after it was saved goes above its text (chat/late_photo.py);
+    the reply's id in another chat, or a reply gone, is left alone."""
+    user = await _make_user(db_session)
+    chat = await chats_repo.create(db_session, user_id=user.id, model="free-chat")
+    other = await chats_repo.create(db_session, user_id=user.id, model="free-chat")
+    reply = await messages_repo.create(
+        db_session,
+        chat_id=chat.id,
+        user_id=user.id,
+        role="assistant",
+        content="Ethiopia lies in the Horn of Africa.",
+    )
+    marker = f"[Image: /attachments/{uuid4()}/file]"
+
+    assert await messages_repo.put_above(db_session, reply.id, other.id, marker) is None
+    assert await messages_repo.put_above(db_session, uuid4(), chat.id, marker) is None
+    text = await messages_repo.put_above(db_session, reply.id, chat.id, marker)
+
+    assert text == f"{marker}\n\nEthiopia lies in the Horn of Africa."
+    found = await messages_repo.get_by_id(db_session, reply.id, chat.id)
+    assert found is not None and found.content == text

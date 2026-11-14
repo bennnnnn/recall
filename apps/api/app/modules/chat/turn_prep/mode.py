@@ -40,8 +40,7 @@ def _should_augment_web_and_tools(
     day_planning: bool,
     ambiguous_nearby: bool,
     rich_context: bool = True,
-    needs_math: bool = False,
-    needs_chem: bool = False,
+    needs_subject: bool = False,
 ) -> bool:
     """Shared gate for routing-context prefetch and web/tools augmentation.
 
@@ -49,7 +48,7 @@ def _should_augment_web_and_tools(
     updates still suppress augmentation the same way as before.
 
     Slim/casual chat (not ``rich_context``) still augments when the turn
-    actually needs math or chemistry — otherwise skip prior messages, SymPy
+    actually needs a subject's solve — otherwise skip prior messages, SymPy
     and PubChem.
     """
     if not (
@@ -60,7 +59,7 @@ def _should_augment_web_and_tools(
         and not ambiguous_nearby
     ):
         return False
-    return rich_context or needs_math or needs_chem
+    return rich_context or needs_subject
 
 
 # "I work 9am to 5:30pm with a 45 min lunch. How many hours do I work in a
@@ -173,8 +172,9 @@ def prior_user_texts(recent: Sequence[Any], content: str) -> list[str]:
 _DRAFT_HISTORY = 6
 
 
-def _continues_a_draft(recent: Sequence[Any], content: str) -> bool:
-    """ "Email" or "make it shorter" after a draft, or what it says after "what should it say?"."""
+def continues_a_draft(recent: Sequence[Any], content: str) -> bool:
+    """ "Email" or "make it shorter" after a draft, or what it says after "what should it say?".
+    ``recent`` may end with this line already stored (a regenerate keeps it)."""
     prior = [
         (message.role, message.content)
         for message in recent[-(_DRAFT_HISTORY + 1) :]
@@ -233,7 +233,7 @@ def classify_turn_mode(recent: Sequence[Any], content: str) -> _TurnMode:
     if not rich_context and not lightweight:
         # A change to a draft needs what the draft had: memory for names, and
         # the profile it is signed with. A slim turn signed it "[Your Name]".
-        rich_context = _continues_a_draft(recent, content)
+        rich_context = continues_a_draft(recent, content)
     advice_memory = (
         (
             is_personal_advice_question(content)

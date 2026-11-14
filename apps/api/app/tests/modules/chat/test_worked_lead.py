@@ -1,10 +1,15 @@
 """A worked reply's result comes after its working, never above it: not as a guess
-(2026-10-30), and not said early either (2026-11-07)."""
+(2026-10-30), and not said early either (2026-11-07). The working's own last line, worked
+to its value, stays above the card (2026-11-11)."""
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
+from app.modules.chat.finalize_passes import FINALIZE_PASSES
+from app.modules.chat.quality import _collect_format_signals
 from app.modules.chat.worked_lead import drop_guessed_lead, drop_restated_tail
 
 _WORKED = (
@@ -240,3 +245,79 @@ def test_a_picture_after_a_restatement_stays() -> None:
 def test_a_reply_without_a_card_is_unchanged() -> None:
     text = "**Answer**\n\n$s = 2400$\n\nThe displacement is 2400 m.\n"
     assert drop_restated_tail(text, _DISPLACEMENT_ASKED) == text
+
+
+def _card(value: str) -> str:
+    return f"**Answer**\n\n```answer\nverified: true\n{value}\n```\n"
+
+
+_DERIVATIVE = (
+    "**1. Chain rule with inside $x^{2} + 1$** — Chain rule  \n"
+    "$\\frac{d}{dx}\\left(\\ln{\\left(x^{2} + 1 \\right)}\\right) = \\frac{1}{x^{2} + 1} \\times 2 x$  \n"
+    "$= \\frac{2 x}{x^{2} + 1}$\n\n" + _card("\\frac{2 x}{x^{2} + 1}")
+)
+_NACL = (
+    "**Substitution**  \n$m = (0.5\\,\\mathrm{mol})(58.440\\,\\mathrm{g/mol})$  \n"
+    "$m = 29.2\\,\\mathrm{g}$\n\n" + _card("m(\\mathrm{NaCl}) = 29.2\\,\\mathrm{g}")
+)
+_INTEGRAL = (
+    "**3. Integrate what is left**  \n$\\int \\cos{\\left(x \\right)}\\,dx = \\sin{\\left(x \\right)}$\n\n"
+    "**4. Combine**  \n$- x \\cos{\\left(x \\right)} + \\sin{\\left(x \\right)} + C$\n\n"
+    + _card("- x \\cos{\\left(x \\right)} + \\sin{\\left(x \\right)} + C")
+)
+# The phone test of 2026-11-11: a verified cyclist and a model's train stopped one line short.
+_CYCLIST = (
+    "**Substitution**  \n$v = \\frac{45\\,\\mathrm{km}}{3\\,\\mathrm{h}}$  \n"
+    "$v = 15\\,\\mathrm{km/h}$\n\n" + _card("15\\,\\mathrm{km/h}")
+)
+_TRAIN = "**Substitution**  \n$d = 60 \\times 4.5$  \n$d = 270\\,\\mathrm{mi}$\n\n" + _card(
+    "270\\,\\mathrm{mi}"
+)
+_ROUNDED = "**Substitution**  \n$A = \\pi(3)^2 = 9\\pi \\approx 28.27$\n\n" + _card(
+    "\\approx 28.27\\ \\mathrm{cm}^{2}"
+)
+
+
+def _worked_lead_pass(text: str) -> str:
+    """The ``worked_lead`` finalize pass over ``text``."""
+    step = next(item for item in FINALIZE_PASSES if item.name == "worked_lead")
+    out = step.run(SimpleNamespace(text=text))  # type: ignore[arg-type]
+    assert isinstance(out, str)
+    return out
+
+
+@pytest.mark.parametrize(
+    ("worked", "last"),
+    [
+        (_CYCLIST, "$v = 15\\,\\mathrm{km/h}$"),
+        (_TRAIN, "$d = 270\\,\\mathrm{mi}$"),
+        (_NACL, "$m = 29.2\\,\\mathrm{g}$"),
+        (_DERIVATIVE, "$= \\frac{2 x}{x^{2} + 1}$"),
+        (_INTEGRAL, "**4. Combine**"),
+        (_ROUNDED, "9\\pi \\approx 28.27$"),
+    ],
+)
+def test_the_working_ends_on_its_value_above_the_card(worked: str, last: str) -> None:
+    """Textbook form: the last line worked to its value, then the boxed answer. Dropped as
+    the card's restatement from 2026-11-09, the working stopped one step short ("v = 45 km
+    / 3 h", then the card) in the owner's phone test (2026-11-11)."""
+    assert _worked_lead_pass(worked) == worked
+    assert last in worked
+    # The working reaching the card's value is the layout, not an answer said twice.
+    assert not any(signal.code == "duplicate_answer" for signal in _collect_format_signals(worked))
+
+
+def test_a_line_of_working_above_the_last_saying_the_card_is_still_flagged() -> None:
+    """Only the working's last line, just above the card, says its value by design."""
+    text = "**Substitution**  \n$v = 15\\,\\mathrm{km/h}$  \n$v = \\frac{45}{3}$\n\n" + _card(
+        "15\\,\\mathrm{km/h}"
+    )
+    assert any(signal.code == "duplicate_answer" for signal in _collect_format_signals(text))
+
+
+def test_prose_saying_the_cards_value_again_is_still_flagged() -> None:
+    text = (
+        "**Substitution**  \n$v = 15\\,\\mathrm{km/h}$\n\nSo v is 15\\,\\mathrm{km/h}.\n\n"
+        + _card("15\\,\\mathrm{km/h}")
+    )
+    assert any(signal.code == "duplicate_answer" for signal in _collect_format_signals(text))

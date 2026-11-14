@@ -83,19 +83,22 @@ def extract_implicit_intent(cleaned: str) -> MathIntent | None:
     )
 
 
+# Each part ends on a mark and each run of space is read once (possessive): lazy parts beside
+# \s+ and \s* took cubic time on "average value of" and a run of spaces.
 _AVERAGE_ON = re.compile(
-    r"\baverage\s+value\s+of\s+(?:the\s+function\s+)?(?P<expr>.+?)\s+"
-    r"(?:on|over|in)\s*(?:the\s+interval\s*)?\[\s*(?P<lo>[^,\]]+?)\s*,\s*(?P<hi>[^\]]+?)\s*\]"
-    r"|\baverage\s+value\s+of\s+(?:the\s+function\s+)?(?P<expr2>.+?)\s+between\s+"
-    r"(?:x\s*=\s*)?(?P<lo2>\S+)\s+and\s+(?:x\s*=\s*)?(?P<hi2>[^\s,;?.]+)",
+    r"\baverage\s+value\s+of\s++(?:the\s+function\s++)?(?P<expr>.*?\S)\s++"
+    r"(?:on|over|in)\s*+(?:the\s+interval\s*+)?\[\s*+(?P<lo>[^,\]]*?[^,\]\s])\s*+,"
+    r"\s*+(?P<hi>[^\]]*?[^\]\s])\s*+\]"
+    r"|\baverage\s+value\s+of\s++(?:the\s+function\s++)?(?P<expr2>.*?\S)\s++between\s++"
+    r"(?:x\s*+=\s*+)?(?P<lo2>\S++)\s++and\s++(?:x\s*+=\s*+)?(?P<hi2>[^\s,;?.]++)",
     re.IGNORECASE,
 )
 
 
 _AVERAGE_REQUEST = re.compile(
     r"(?:(?:find|what\s+is|what's|calculate|work\s+out|determine)\s+)?(?:the\s+)?"
-    r"average\s+value\s+of\s+[^?]+?\s+(?:(?:on|over|in)\s*(?:the\s+interval\s*)?\[[^\]]+\]"
-    r"|from\s+\S+\s+to\s+\S+|between\s+\S+\s+and\s+\S+)\s*[?.]?",
+    r"average\s+value\s+of\s++[^?]*?[^?\s]\s++(?:(?:on|over|in)\s*+(?:the\s+interval\s*+)?"
+    r"\[[^\]]+\]|from\s++\S++\s++to\s++\S++|between\s++\S++\s++and\s++\S++)\s*+[?.]?",
     re.IGNORECASE,
 )
 

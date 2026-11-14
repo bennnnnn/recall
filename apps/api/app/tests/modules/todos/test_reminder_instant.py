@@ -145,7 +145,9 @@ async def _push_user(session, **columns: object):
         avatar_url=None,
         google_sub=str(uuid4()),
     )
-    for key, value in columns.items():
+    # A new account starts with quiet hours on (22:00-07:00, 2026-11-11), which would move a
+    # reminder due at night to the morning: these tests are about the lead time alone.
+    for key, value in {"quiet_hours_enabled": False, **columns}.items():
         setattr(user, key, value)
     session.add(
         PushToken(user_id=user.id, expo_push_token=f"ExponentPushToken[{uuid4()}]", platform="ios")

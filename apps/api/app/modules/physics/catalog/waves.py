@@ -262,8 +262,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             nonnegative=True,
         ),
     ),
-    # A source radiating equally in all directions spreads its power over a
-    # sphere: I = P/(4πr²). 2 W at 5 m is 6.37 mW/m².
+    # A point source spreads its power over a sphere: I = P/(4πr²), 6.37 mW/m² for 2 W at 5 m.
     formula(
         "point_source_intensity",
         "waves",
@@ -525,7 +524,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             nonnegative=True,
         ),
     ),
-    # Light and radio waves travel at c: lambda = c / f.
+    # Light and radio waves travel at c: lambda = c / f in a vacuum; in glass it is c/(nf).
     formula(
         "em_wavelength",
         "waves",
@@ -539,6 +538,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             asks=("wavelength",),
             result=("meter",),
             inputs=(frozenset({"freq"}),),
+            excludes=("refractive index", "index of refraction"),
             cues=(
                 "radio",
                 "light",

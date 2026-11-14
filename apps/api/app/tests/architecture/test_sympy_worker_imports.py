@@ -101,3 +101,26 @@ def test_document_worker_does_not_import_the_model_client_or_web_stack() -> None
     )
     loaded = result.stdout.strip().splitlines()[-1] if result.stdout.strip() else ""
     assert loaded == "", f"Document worker imports pulled in: {loaded}"
+
+
+def test_the_warmup_loads_what_a_first_simplify_imports() -> None:
+    """PERF-03: ``sympy.simplify`` imports SymPy's units module on its first call, and no
+    warm solve simplifies, so the first solve that did (a system's substitution steps) paid
+    for the import on every new worker. The warmup loads it."""
+    script = "\n".join(
+        [
+            "import sys",
+            "from app.modules.chat.turn_prep.reading import warm_pool_worker",
+            "warm_pool_worker()",
+            "print('sympy.physics.units' in sys.modules)",
+        ]
+    )
+    result = subprocess.run(  # noqa: S603 - fixed argv: this interpreter and literal jobs
+        [sys.executable, "-c", script],
+        cwd=APP_ROOT.parent,
+        capture_output=True,
+        text=True,
+        timeout=180,
+        check=True,
+    )
+    assert result.stdout.strip().splitlines()[-1] == "True"

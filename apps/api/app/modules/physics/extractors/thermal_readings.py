@@ -28,11 +28,40 @@ _SPECIFIC_HEAT_UNIT = (
     r"|k?J\s*/\s*k?g\s*[·*]?\s*(?:K|°?\s*C)(?![A-Za-z])|k?J\s*k?g\^?-1\s*(?:K|°?\s*C)\^?-1"
 )
 
-# "from 20 °C to 80 °C": two readings, scale written on both or on the second.
-_TEMPERATURE_SPAN = re.compile(
-    rf"\bfrom\s+({NUMBER})\s*(°\s*C|K)?\s*(?:up\s+|down\s+)?(?:to|until)\s+"
-    rf"({NUMBER})\s*(°\s*C|K)(?![A-Za-z])",
+# A reading's scale as a question writes it: °C, C, degrees C, celsius, K, kelvin, or a bare
+# degree, which in a range of temperatures is Celsius's (a difference is kelvin's anyway).
+_SPAN_SCALE = (
+    r"°\s*C|degrees?\s+c(?:elsius)?\b|celsius\b|kelvins?\b|C(?![A-Za-z])|K(?![A-Za-z])"
+    r"|°|degrees?\b"
 )
+# "from 20 °C to 80 °C", "from 20 C to 80 C", "from 20 to 80 degrees", "20-80 °C",
+# "between 20 and 80 °C": two readings, the scale on both or on the second. Read with "°C"
+# only, "from 20 C to 80 C" fell to the change reader, which took the 20 for the rise.
+# Each run of space is read once (possessive): split between the \s* either side of a
+# missing scale, "heat" and a reading and a run of spaces took quadratic time.
+_TEMPERATURE_SPAN = re.compile(
+    rf"(?:\bfrom\s+|\bbetween\s+)?({NUMBER})\s*+({_SPAN_SCALE})?\s*+"
+    rf"(?:(?:up\s+|down\s+)?(?:to|until)\s+|[-\u2013\u2014]\s*|(?<=\s)and\s+)"
+    rf"({NUMBER})\s*+({_SPAN_SCALE})",
+    re.IGNORECASE,
+)
+
+
+def temperature_span(cleaned: str) -> re.Match[str] | None:
+    """The question's two temperature readings: groups 1 and 3 the readings, 2 and 4 their
+    scales (the first may be left off: "from 20 to 80 °C"). "and" joins two only after
+    "between"."""
+    for found in _TEMPERATURE_SPAN.finditer(cleaned):
+        joined = cleaned[found.start(3) - 4 : found.start(3)].strip().lower()
+        if joined == "and" and not found.group(0).lower().startswith("between"):
+            continue
+        return found
+    return None
+
+
+def reading_scale(scale: str) -> str:
+    """``K`` for a kelvin reading; Celsius's ``degC`` for every other spelling."""
+    return "K" if scale.strip().lower().startswith("k") else "degC"
 
 
 # A change of temperature reads the same in K and °C; it is named as a change.
@@ -47,10 +76,14 @@ def _temperature_change(cleaned: str, keywords: tuple[str, ...]) -> tuple[float,
     """A temperature change the words name ("heated by 10 °C"), in kelvin.
 
     A lone "at 20 °C" is a temperature, not a change: reading it as one
-    verified "heat 2 kg of water at 20 °C" as 167 kJ.
+    verified "heat 2 kg of water at 20 °C" as 167 kJ. Nor is a range's reading: "raise …
+    from 20 C to 80 C" is a change of 60, never of 20 (verified as 20930 J for 62790 J).
     """
     lower = cleaned.lower()
+    span = temperature_span(cleaned)
     for match in _TEMPERATURE_READING.finditer(cleaned):
+        if span is not None and span.start() <= match.start() < span.end():
+            continue
         before = lower[max(0, match.start() - _CHANGE_REACH) : match.start()]
         if any(keyword in before for keyword in keywords):
             return float(match.group(1)), "K"

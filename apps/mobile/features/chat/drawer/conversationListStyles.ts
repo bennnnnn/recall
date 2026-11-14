@@ -7,7 +7,8 @@ import type { Theme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 
 export const TOP_CHROME = 58;
-export const FOOTER_CHROME = 54;
+// The bottom bar over its safe area: 12 above a 44-pt row, and the hairline on top.
+export const FOOTER_CHROME = 57;
 export const FADE_EXTRA = 40;
 
 export function makeConversationListStyles(theme: Theme) {
@@ -27,8 +28,8 @@ export function makeConversationListStyles(theme: Theme) {
       left: 0,
       right: 0,
       zIndex: 100,
-      // Transparent so the header fade can blur titles sliding under the
-      // profile and new chat buttons, which paint above that veil.
+      // Transparent so the header fade dims titles sliding under Recall's mark and
+      // search, which paint above that veil (the owner, 2026-11-11).
       backgroundColor: "transparent",
     },
     header: { paddingHorizontal: Space.md, paddingBottom: Space.sm },
@@ -108,41 +109,39 @@ export function makeConversationListStyles(theme: Theme) {
       zIndex: 100,
       flexDirection: "row",
       alignItems: "center",
+      gap: Space.sm,
       paddingHorizontal: Space.md,
       paddingTop: Space.sm,
-      backgroundColor: "transparent",
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: theme.border,
     },
-    footerSearch: { flex: 1 },
-    searchBar: {
-      flex: 1,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.xs,
-      minHeight: Space.minTouch,
-      borderRadius: Radius.full,
-      paddingHorizontal: Space.sm,
-      backgroundColor: theme.bg,
-      ...shadowRaised(theme),
-    },
-    searchBarText: { ...Type.body, color: theme.textDisabled, flex: 1 },
-    newChatBtn: {
+    // The bottom bar is solid: titles scroll under it, never show through.
+    chromeBar: { backgroundColor: theme.bg },
+    headerSearch: { flex: 1 },
+    appMark: { width: 32, height: 32, borderRadius: Radius.sm },
+    headerIconBtn: {
       marginLeft: "auto",
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.xs,
-      paddingVertical: Space.xs,
-      paddingHorizontal: Space.sm,
-      borderRadius: Radius.sm,
-      backgroundColor: theme.primary,
-    },
-    newChatText: { ...Type.label, color: theme.onPrimary },
-    profileBtn: {
       width: Space.minTouch,
       height: Space.minTouch,
       alignItems: "center",
       justifyContent: "center",
       borderRadius: Radius.full,
-      backgroundColor: theme.bg,
+    },
+    accountRow: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: Space.sm,
+      minHeight: Space.minTouch,
+    },
+    accountName: { ...Type.body, ...Weight.semibold, color: theme.text, flexShrink: 1 },
+    newChatBtn: {
+      width: Space.minTouch,
+      height: Space.minTouch,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: Radius.full,
+      backgroundColor: theme.primary,
       ...shadowRaised(theme),
     },
     selectionBar: {

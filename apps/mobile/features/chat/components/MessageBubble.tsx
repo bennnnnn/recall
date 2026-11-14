@@ -4,9 +4,9 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SettingsProposalCard } from "@/features/chat/components/SettingsProposalCard";
 import { ReminderProposalCard } from "@/features/todos/components/ReminderProposalCard";
 import { TodoLinkButton } from "@/features/todos/components/TodoLinkButton";
-import { PlacesListBlock } from "@/components/rich/PlacesListBlock";
 import { UserMessageContent } from "@/features/chat/components/UserMessageContent";
 import { ChatMessageImageStrip } from "@/features/attachments/components/ChatMessageImageStrip";
+import { AnswerPhotoPlaceholder } from "@/features/images/components/AnswerPhotoPlaceholder";
 import { ImageGenPlaceholder } from "@/features/images/components/ImageGenPlaceholder";
 import { ActionShimmer } from "@/ui/feedback/ActionShimmer";
 import { SearchSourcesStack } from "@/features/chat/components/SearchSourcesStack";
@@ -132,8 +132,6 @@ export const MessageBubble = React.memo(function MessageBubble({
     reminderProposals,
     showReminderProposals,
     showTodoLink,
-    places,
-    showPlaces,
     images,
     showImages,
     markdownContent,
@@ -154,8 +152,7 @@ export const MessageBubble = React.memo(function MessageBubble({
     streamStatusDetail,
   );
   // Generated image with no prose — copy, read aloud and regenerate are noise.
-  const imageOnlyActions =
-    showImages && !hasMarkdown && !showLiveClock && !showSettingsProposals && !showPlaces;
+  const imageOnlyActions = showImages && !hasMarkdown && !showLiveClock && !showSettingsProposals;
 
   return (
     <View style={[b.row, isUser ? b.userRow : b.assistantRow, highlighted && b.rowHighlighted]}>
@@ -231,7 +228,7 @@ export const MessageBubble = React.memo(function MessageBubble({
                 </View>
               )
             ) : null}
-            {showImages ? <ChatMessageImageStrip images={images} /> : null}
+            {showImages ? <ChatMessageImageStrip images={images} /> : message.photo_pending_until ? <AnswerPhotoPlaceholder until={message.photo_pending_until} /> : null}
             {showLiveClock ? (
               <LazyCircularClockBlock content={clockTimezone} />
             ) : null}
@@ -269,7 +266,6 @@ export const MessageBubble = React.memo(function MessageBubble({
                 {t(message.replyNotSaved ? "chat.reply_not_saved" : "chat.generation_stopped")}
               </Text>
             ) : null}
-            {showPlaces ? <PlacesListBlock places={places} /> : null}
             {showSettingsProposals
               ? settingsProposals.map((proposal, index) => (
                   <SettingsProposalCard

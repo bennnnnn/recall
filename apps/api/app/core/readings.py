@@ -93,6 +93,63 @@ def reading[F: Callable[..., Any]](*, declined: Any = None) -> Callable[[F], F]:
     return wrap
 
 
+def kept_per_turn[F: Callable[..., Any]](fn: F) -> F:
+    """Keep this pure reader's answers for the turn, by its arguments: one asked again and
+    again while a turn is built and finalized, on the loop and off it.
+
+    Not a ``reading``: it may run on the event loop (it is cheap on a short message), and a
+    declined pool read does not decline it. Its answers ride back from the pool with the
+    turn's readings. ``writing_request_kind`` ran 12 times and ``is_chart_question`` 6
+    times on one turn, 262 ms of the loop on a 32 KB message (PERF-02, 2026-11-13). Outside
+    a turn it computes each time."""
+    name = f"{fn.__module__}.{fn.__qualname__}"
+    signature = inspect.signature(fn)
+
+    @functools.wraps(fn)
+    def read(*args: Any, **kwargs: Any) -> Any:
+        memo = _MEMO.get()
+        key = _key(name, signature, args, kwargs) if memo is not None else None
+        if memo is None or key is None:
+            return fn(*args, **kwargs)
+        kept_key = ("__kept__", *key)
+        if kept_key not in memo:
+            memo[kept_key] = fn(*args, **kwargs)
+        return _fresh(memo[kept_key])
+
+    return cast(F, read)
+
+
+async def read_aside[T](
+    fn: Callable[..., T],
+    *args: Any,
+    timeout: float,  # noqa: ASYNC109 - the pool implements it
+    **kwargs: Any,
+) -> T | None:
+    """``read_off_loop`` for a read the turn can do without (``chat.posed_read``'s look at
+    the reply before it): a pool that gives up returns None and the turn's readings stay
+    as they were, never declined, so its own solve still reads its message."""
+    from app.core.sympy_executor import run_sympy
+
+    memo = _MEMO.get()
+    if memo is None:
+        memo = {}
+        _MEMO.set(memo)
+    if _DECLINED in memo:
+        return None
+    try:
+        result: T
+        result, recorded = await run_sympy(
+            _record, fn, args, kwargs, dict(memo), timeout=timeout, lane="reading"
+        )
+    except Exception as exc:
+        logger.info(
+            "reading %s set aside (%s)", getattr(fn, "__qualname__", fn), type(exc).__name__
+        )
+        return None
+    memo.update(recorded)
+    return result
+
+
 def kept_reading[T](fn: Callable[..., T], *args: Any, **kwargs: Any) -> T | None:
     """The turn's kept reading of ``fn`` at these arguments, or None when it was not read.
 

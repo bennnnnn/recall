@@ -16,25 +16,29 @@ from decimal import ROUND_HALF_UP, Decimal
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 
+# Each run of space is read once (possessive): "15% tip on" and a run of spaces, split between
+# \s+ and \s*, took quadratic time.
 _KIND = r"(?P<kind>tip|gratuity|tax|sales\s+tax|vat|service\s+charge|service\s+fee)"
-_RATE = r"(?P<rate>\d{1,3}(?:\.\d{1,2})?)\s*%"
+_RATE = r"(?P<rate>\d{1,3}(?:\.\d{1,2})?)\s*+%"
 # The sign may be gone (prepare reads "$48 ... $7" as maths); a money word can stand in.
 _AMOUNT = (
-    r"(?P<sign>[$€£])?\s*(?P<base>\d{1,7}(?:\.\d{1,2})?)"
-    r"(?:\s*(?P<word>dollars?|bucks|usd|euros?|eur|pounds?|gbp))?"
+    r"(?P<sign>[$€£])?\s*+(?P<base>\d{1,7}(?:\.\d{1,2})?)"
+    r"(?:\s*+(?P<word>dollars?|bucks|usd|euros?|eur|pounds?|gbp))?"
 )
-_BILL = r"(?:\s+(?:bill|check|tab|meal|order|total|dinner|lunch))?"
-_ON = r"\s+(?:on|of|for)\s+(?:(?:a|an|the|my)\s+)?(?:(?:bill|check|total)\s+of\s+)?"
+_BILL = r"(?:\s++(?:bill|check|tab|meal|order|total|dinner|lunch))?"
+_ON = r"\s++(?:on|of|for)\s++(?:(?:a|an|the|my)\s++)?(?:(?:bill|check|total)\s++of\s++)?"
 _LEAD = (
-    r"(?:(?:btw|ok|okay|so|hey|and|quick\s+question)\s*,?\s+)?"
+    r"(?:(?:btw|ok|okay|so|hey|and|quick\s+question)(?:\s*+,\s++|\s++))?"
     r"(?:(?:what(?:'s|s|\s+is|\s+would\s+be)|how\s+much\s+(?:is|would\s+be)|calculate|"
-    r"work\s+out|find)\s+)?(?:(?:a|an|the|my)\s+)?"
+    r"work\s+out|find)\s++)?(?:(?:a|an|the|my)\s++)?"
 )
+# Each reads a whole message (fullmatch); \A says so, and a search is then tried at the start
+# alone instead of at every position of a long message.
 _FORMS = (
     # "a 15% tip on $48", "15% tax for a $30 order"
-    re.compile(rf"{_LEAD}{_RATE}\s+{_KIND}{_ON}{_AMOUNT}{_BILL}", re.IGNORECASE),
+    re.compile(rf"\A{_LEAD}{_RATE}\s++{_KIND}{_ON}{_AMOUNT}{_BILL}", re.IGNORECASE),
     # "the tip at 15% on $48", "a tip of 20% on a $65.50 bill"
-    re.compile(rf"{_LEAD}{_KIND}\s+(?:of|at)\s+{_RATE}{_ON}{_AMOUNT}{_BILL}", re.IGNORECASE),
+    re.compile(rf"\A{_LEAD}{_KIND}\s++(?:of|at)\s++{_RATE}{_ON}{_AMOUNT}{_BILL}", re.IGNORECASE),
 )
 # The sign the answer card draws (LaTeX), and the one the line under it writes.
 _SIGNS = {"$": (r"\$", "$"), "€": ("€", "€"), "£": ("£", "£")}

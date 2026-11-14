@@ -32,6 +32,10 @@ _MAX_INPUT_CHARS = 1500
 _BIND_SECONDS = 2.0
 
 
+# The subjects whose laws the reader lists, each its menu by kind; maths keeps its own read.
+_LAW_MENUS = {"physics": physics_menu, "chemistry": chemistry_menu}
+
+
 @lru_cache(maxsize=1)
 def _route_prompt() -> str:
     return route_prompt(physics_menu(), chemistry_menu(), list(MATH_TASKS))
@@ -53,6 +57,8 @@ async def _ask[T: LawRead | RouteRead](
         usage=usage,
         allow_fallback=False,
         quiet_timeout=True,
+        # A shadow read measures its own model: another's read would be recorded as its.
+        refusal_fallback=False,
     )
 
 
@@ -95,8 +101,11 @@ async def read_with_model(text: str, settings: Settings) -> ModelRead:
             if intent.kind != kind or (operation is not None and intent.operation != operation):
                 return done("math", intent.kind, None, "kind_mismatch")
             return done("math", intent.kind, intent, "ok")
-        menu = physics_menu() if route.subject == "physics" else chemistry_menu()
-        cards = menu.get(route.kind or "")
+        menu = _LAW_MENUS.get(route.subject)
+        if menu is None:
+            # A subject whose laws the reader does not list: never another subject's menu.
+            return done(route.subject, None, None, "unknown_kind")
+        cards = menu().get(route.kind or "")
         if not cards:
             return done(route.subject, None, None, "unknown_kind")
         read = await _ask(settings, law_prompt(route.subject, cards), question, LawRead, usage)
@@ -118,7 +127,7 @@ async def read_with_model(text: str, settings: Settings) -> ModelRead:
             bound = await run_sympy(
                 physics_read_intent, read.op, stated, question, timeout=_BIND_SECONDS
             )
-        else:
+        elif route.subject == "chemistry":
             bound = await run_sympy(
                 chemistry_read_intent,
                 read.op,
@@ -127,6 +136,8 @@ async def read_with_model(text: str, settings: Settings) -> ModelRead:
                 question,
                 timeout=_BIND_SECONDS,
             )
+        else:
+            bound = None
         if bound is None:
             return done(route.subject, read.op, None, "binder_disagrees")
         return done(route.subject, read.op, bound, "ok")

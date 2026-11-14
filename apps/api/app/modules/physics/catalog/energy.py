@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.modules.physics.motion import ROLLING_BODY_MARKER
 from app.services.law_binding.spec import Binding, FormulaSpec, formula, var
 
 SPECS: tuple[FormulaSpec, ...] = (
@@ -239,16 +240,16 @@ SPECS: tuple[FormulaSpec, ...] = (
             requires=("h_drop - h_bounce",),
         ),
     ),
-    # A steady force from rest along a frictionless floor: Fd = ½mv².
+    # A steady force from rest along a frictionless floor: Fs = ½mv².
     formula(
         "work_energy_speed",
         "energy",
         "Work-energy theorem",
         "v",
-        base_latex=r"Fd = \tfrac{1}{2}mv^2",
+        base_latex=r"Fs = \tfrac{1}{2}mv^2",
         assumptions=("from rest, no friction, the force along the motion",),
         expression="sqrt(2*F*d/m)",
-        variables=(var("F", "F", "newton"), var("d", "d", "meter"), var("m", "m", "kilogram")),
+        variables=(var("F", "F", "newton"), var("d", "s", "meter"), var("m", "m", "kilogram")),
         binding=Binding(
             asks=("how fast", "speed", "velocity", "final speed"),
             result=("meter / second",),
@@ -381,35 +382,12 @@ SPECS: tuple[FormulaSpec, ...] = (
                 "energy conservation",
                 "conservation of energy",
             ),
-            # Friction takes energy the drop would give: not this law.
+            # Friction takes energy the drop would give, and so does a rolling body's spin.
             excludes=(
-                "rough",
-                "coefficient",
-                "kinetic friction",
-                "friction force",
-                "with friction",
-                "against friction",
-                "μ",
+                ROLLING_BODY_MARKER,
+                *("rough", "coefficient", "kinetic friction", "friction force"),
+                *("with friction", "against friction", "μ"),
             ),
-            nonnegative=True,
-        ),
-    ),
-    formula(
-        "speed_from_kinetic_energy",
-        "energy",
-        "Kinetic energy",
-        "v",
-        base_latex=r"v = \sqrt{\frac{2 E_k}{m}}",
-        expression="sqrt(2*kinetic/m)",
-        variables=(
-            var("kinetic", "E_k", "joule", words=("kinetic",)),
-            var("m", "m", "kilogram"),
-        ),
-        binding=Binding(
-            asks=("how fast", "speed", "velocity"),
-            result=("meter / second",),
-            inputs=(frozenset({"kinetic", "m"}),),
-            cues=("kinetic energy",),
             nonnegative=True,
         ),
     ),

@@ -135,11 +135,16 @@ def _extract_shm_intent(cleaned: str) -> PhysicsIntent | None:
         omega = _ANGULAR_FREQ_RE.search(cleaned)
         if amplitude is None or omega is None:
             return None
+        params = {"x": amplitude[0], "omega": float(omega.group(1))}
+        units = {"x": amplitude[1] or "m", "omega": "rad/s"}
+        if "spring" in lower:
+            # Drawn on a spring only when it is on one (``catalog/spring.py``).
+            params["on_spring"], units["on_spring"] = 1.0, ""
         return PhysicsIntent(
             kind="spring",
             physics_op="shm_max_speed",
-            physics_params={"x": amplitude[0], "omega": float(omega.group(1))},
-            physics_units={"x": amplitude[1] or "m", "omega": "rad/s"},
+            physics_params=params,
+            physics_units=units,
             operation="solve",
         )
 

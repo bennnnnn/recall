@@ -8,13 +8,12 @@ from app.modules.chemistry.extractors.parsing import (
     _N,
     _search,
     seconds_per,
-    temperature_kelvin,
     timed,
 )
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers.constants import STANDARD_REDUCTION, STANDARD_TEMPERATURE_K
 from app.modules.chemistry.species_facts import named_elements
-from app.services.units import CELSIUS_OFFSET_K
+from app.modules.chemistry.temperature import stated_temperature
 
 
 def _extract_electrochem(text: str) -> ChemistryIntent | None:
@@ -22,9 +21,11 @@ def _extract_electrochem(text: str) -> ChemistryIntent | None:
         standard = _search(rf"E(?:°|0)\s*=\s*({_N})\s*V", text)
         electrons = _search(rf"\bn\s*=\s*({_N})", text)
         quotient = _search(rf"\bQ\s*=\s*({_N})", text, flags=0)
-        temperature = temperature_kelvin(text)
+        # "at 350 K" as well as "T = 350 K"; a temperature stated but not read is never
+        # replaced by 25 °C.
+        temperature = stated_temperature(text)
         if temperature is False:
-            return None  # a stated temperature without a usable unit is never replaced by 25 °C
+            return None
         if temperature is None:
             temperature = STANDARD_TEMPERATURE_K
         if standard is not None and electrons is not None and quotient is not None:
@@ -80,10 +81,12 @@ _METALS = tuple(symbol for symbol in STANDARD_REDUCTION if symbol != "K")
 _KELVIN_UNIT = re.compile(r"\d\s*K\b")
 
 
-# "Ag+/Ag (0.80 V)", "E°(Cu2+/Cu) = 0.34 V": a couple and its reduction potential.
+# "Ag+/Ag (0.80 V)", "E°(Cu2+/Cu) = 0.34 V": a couple and its reduction potential. Each run
+# of space is read once (possessive): three readings of a run around the optional ")" and
+# "=" took cubic time.
 _COUPLE = re.compile(
-    r"(?<![A-Za-z0-9])(?P<ion>[A-Z][a-z]?)(?P<charge>\d?)\+\s*/\s*(?P<metal>[A-Z][a-z]?)"
-    rf"(?![A-Za-z0-9])\s*\)?\s*(?:\(|=|:|,|is)?\s*(?P<volts>{_N})\s*V\b"
+    r"(?<![A-Za-z0-9])(?P<ion>[A-Z][a-z]?)(?P<charge>\d?)\+\s*+/\s*+(?P<metal>[A-Z][a-z]?)"
+    rf"(?![A-Za-z0-9])\s*+\)?\s*+(?:\(|=|:|,|is)?\s*+(?P<volts>{_N})\s*+V\b"
 )
 _VOLTS = re.compile(rf"(?<![A-Za-z0-9.]){_N}\s*V\b")
 _CELL_ASK = re.compile(
@@ -151,12 +154,9 @@ def _cell_at_concentrations(text: str) -> ChemistryIntent | None:
         return None
     if {label.rstrip("+").rstrip("0123456789") for label in ions} != set(metals):
         return None
-    temperature = temperature_kelvin(text)
+    temperature = stated_temperature(text)
     if temperature is None:
-        celsius = re.search(rf"\bat\s+({_N})\s*°\s*C\b", text)
         temperature = STANDARD_TEMPERATURE_K
-        if celsius is not None:
-            temperature = float(celsius.group(1)) + CELSIUS_OFFSET_K
     if temperature is False:
         return None
     return ChemistryIntent(

@@ -37,6 +37,8 @@ _RETRY_MAX_SECONDS = 1.0
 # PubChem renamed CanonicalSMILES to ConnectivitySMILES (and IsomericSMILES to SMILES) in the
 # response; whichever it sends, the connectivity form comes first.
 _SMILES_KEYS = ("CanonicalSMILES", "ConnectivitySMILES", "SMILES")
+# The structure with its stereo marks, in either spelling.
+_ISOMERIC_KEYS = ("IsomericSMILES", "SMILES")
 
 
 @dataclass(frozen=True)
@@ -49,6 +51,8 @@ class PubChemCompound:
     molecular_formula: str
     molecular_weight: float
     error: str | None = None
+    # With its stereo marks ("C[C@@H](C(=O)O)N" for L-alanine); "" when PubChem gave none.
+    isomeric_smiles: str = ""
 
 
 @dataclass(frozen=True)
@@ -92,6 +96,7 @@ def _compound_from_cache(raw: str) -> PubChemCompound | None:
                 smiles=str(data["smiles"]),
                 molecular_formula=str(data["molecular_formula"]),
                 molecular_weight=float(data["molecular_weight"]),
+                isomeric_smiles=str(data.get("isomeric_smiles", "")),
             )
         )
     except (KeyError, ValueError, TypeError):
@@ -106,6 +111,7 @@ def _compound_to_cache(compound: PubChemCompound) -> str:
             "smiles": compound.smiles,
             "molecular_formula": compound.molecular_formula,
             "molecular_weight": compound.molecular_weight,
+            "isomeric_smiles": compound.isomeric_smiles,
         }
     )
 
@@ -130,6 +136,7 @@ def _first_properties(data: dict[str, Any]) -> dict[str, Any] | None:
 def _compound_from_properties(props: dict[str, Any], name: str) -> PubChemCompound | None:
     try:
         smiles = next((str(props[key]) for key in _SMILES_KEYS if props.get(key)), "")
+        isomeric = next((str(props[key]) for key in _ISOMERIC_KEYS if props.get(key)), "")
         return _valid(
             PubChemCompound(
                 cid=int(props.get("CID", 0)),
@@ -137,6 +144,7 @@ def _compound_from_properties(props: dict[str, Any], name: str) -> PubChemCompou
                 smiles=smiles,
                 molecular_formula=str(props.get("MolecularFormula", "")),
                 molecular_weight=float(props.get("MolecularWeight", 0.0)),
+                isomeric_smiles=isomeric,
             )
         )
     except (ValueError, TypeError):
@@ -223,7 +231,7 @@ async def lookup_by_name(name: str, redis: Redis | None = None) -> PubChemResult
     # PUG-REST: /compound/name/<name>/property/<properties>/JSON
     url = (
         f"{PUG_REST_URL}/compound/name/{quote(name, safe='')}/property/"
-        "CanonicalSMILES,MolecularFormula,MolecularWeight/JSON"
+        "CanonicalSMILES,IsomericSMILES,MolecularFormula,MolecularWeight/JSON"
     )
     fetched = await _pug_get(url)
     if fetched.missing:

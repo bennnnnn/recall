@@ -111,3 +111,82 @@ describe("the window a graph card opens on", () => {
   });
 });
 
+
+describe("the window the full-screen explorer opens on", () => {
+  /** A Galaxy S23's explorer plot, 344 × 480, and a taller one with no editor rows. */
+  const EXPLORER_ASPECTS = [(344 - 32) / (480 - 32), (344 - 32) / (640 - 32)];
+  const span = (view: GraphView) => [view.xMax - view.xMin, view.yMax - view.yMin];
+
+  it.each(EXPLORER_ASPECTS)("opens y = x² − 4x + 3 on the card's region, filling a plot of aspect %p", (aspect) => {
+    // 2026-11-10: the card showed x from −1 to 4, the explorer a thin spike in ±50.
+    const spec = fn("x^2 - 4x + 3", (x) => x * x - 4 * x + 3);
+    const view = interactiveFunctionBounds(spec, aspect);
+    expect(view.xMin).toBeLessThanOrEqual(-1);
+    expect(view.xMax).toBeGreaterThanOrEqual(4);
+    expect(view.yMin).toBeLessThanOrEqual(-1);
+    expect(view.yMax).toBeGreaterThanOrEqual(6);
+    const [cardX] = span(interactiveFunctionBounds(spec, CARD_ASPECT));
+    const [x, y] = span(view);
+    expect(x).toBeLessThan(cardX * 1.5);
+    // Taller than wide on a tall plot, but never a column of empty grid.
+    expect(y).toBeLessThan(x / aspect + 1e-9);
+  });
+
+  it.each([
+    ["the steep y = x³ − 100x", fn("x^3 - 100x", (x) => x ** 3 - 100 * x), [[5.77, -384.9], [-5.77, 384.9]]],
+    ["the flat y = 0.1x + 2", fn("0.1x + 2", (x) => 0.1 * x + 2), [[0, 2]]],
+  ] as const)("shows what the card shows of %s, no wider", (_name, spec, features) => {
+    const card = interactiveFunctionBounds(spec, CARD_ASPECT);
+    for (const aspect of EXPLORER_ASPECTS) {
+      const view = interactiveFunctionBounds(spec, aspect);
+      for (const point of features) expect(shows(view, point as [number, number])).toBe(true);
+      expect(view.xMin).toBeLessThanOrEqual(card.xMin);
+      expect(view.xMax).toBeGreaterThanOrEqual(card.xMax);
+      expect(span(view)[0]).toBeLessThan(span(card)[0] * 1.5);
+    }
+  });
+
+  it("shows a vertical line off to one side, no wider than the card", () => {
+    const line = { type: "vertical", expr: "x = 8", x: 8, points: [[8, -10], [8, 10]], y_min: -10, y_max: 10 } as GraphSpec;
+    const card = interactiveFunctionBounds(line, CARD_ASPECT);
+    for (const aspect of EXPLORER_ASPECTS) {
+      const view = interactiveFunctionBounds(line, aspect);
+      expect(view.xMax).toBeGreaterThan(8.5);
+      expect(span(view)[0]).toBeLessThan(span(card)[0] * 1.5);
+    }
+  });
+});
+
+
+/** The server's samples across a range the learner named. */
+function over(xMin: number, xMax: number, f: (x: number) => number): [number, number][] {
+  return Array.from({ length: 96 }, (_, i) => {
+    const x = xMin + ((xMax - xMin) * i) / 95;
+    return [x, f(x)] as [number, number];
+  });
+}
+
+describe("a graph over the range the learner named", () => {
+  it.each([
+    ["a reservoir's depth over weeks 0 to 12", "144 - 4x", 0, 12, (x: number) => 144 - 4 * x],
+    ["y = 2x + 1 for x from −3 to 3", "2x + 1", -3, 3, (x: number) => 2 * x + 1],
+    ["a conversion graph to 12 inches", "2.54x", 0, 12, (x: number) => 2.54 * x],
+    ["a taxi fare over 0 to 10 km", "20 + 8x", 0, 10, (x: number) => 20 + 8 * x],
+  ])("shows the whole of %s", (_name, expr, xMin, xMax, f) => {
+    const spec = { type: "function", expr, points: over(xMin, xMax, f), x_min: xMin, x_max: xMax, domain_explicit: true } as GraphSpec;
+    const view = interactiveFunctionBounds(spec, CARD_ASPECT);
+    expect(view.xMin).toBe(xMin);
+    expect(view.xMax).toBe(xMax);
+    for (const [, y] of spec.points) {
+      expect(y).toBeGreaterThanOrEqual(view.yMin);
+      expect(y).toBeLessThanOrEqual(view.yMax);
+    }
+  });
+
+  it("keeps the crop for a curve with a pole across the range", () => {
+    const points = over(-Math.PI, Math.PI, Math.tan).filter(([, y]) => Number.isFinite(y));
+    const spec = { type: "function", expr: "tan(x)", points, x_min: -Math.PI, x_max: Math.PI, domain_explicit: true } as GraphSpec;
+    const view = interactiveFunctionBounds(spec, CARD_ASPECT);
+    expect(view.yMax - view.yMin).toBeLessThan(1000);
+  });
+});

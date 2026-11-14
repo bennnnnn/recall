@@ -19,6 +19,7 @@ from app.core.chat_rate_limit import allow_chat_message
 from app.core.config import Settings
 from app.core.deps import get_current_user, get_settings_dep
 from app.core.log_context import bound_log_ids, new_turn_id
+from app.core.log_text import log_safe
 from app.core.redis import get_redis_client
 from app.exceptions import RateLimitedError, RedisUnavailableError
 from app.models.orm import User
@@ -30,6 +31,7 @@ from app.modules.chat.stream_events import (
     EXPECTED_TURN_ERRORS,
     TURN_KEEPALIVE_SECONDS,
     StreamEndEvent,
+    after_done_events,
     await_finalize_commit,
     build_duplicate_event,
     build_keepalive_event,
@@ -43,7 +45,6 @@ from app.modules.chat.stream_events import (
     pop_finalize_tasks,
     restarting_payload,
     settled_turn_event,
-    take_related_prompts_event,
     turn_error_payload,
 )
 from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn
@@ -282,12 +283,11 @@ async def _turn_sse_lines(
         yield _sse(settled_turn_event(outcome, commit))
         if commit != "committed":
             return
-        related = await take_related_prompts_event(outcome.related_task)
-        if related is not None:
-            yield _sse(related)
+        async for event in after_done_events(outcome):
+            yield _sse(event)
     except Exception as exc:
         if not isinstance(exc, EXPECTED_TURN_ERRORS):
-            logger.exception("SSE chat stream failed chat_id=%s", chat_id)
+            logger.exception("SSE chat stream failed chat_id=%s", log_safe(chat_id))
         yield _sse(turn_error_payload(exc, user_message_saved=outcome.user_message_saved))
     finally:
         # The request task is cancelled when the client drops the socket.

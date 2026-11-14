@@ -73,7 +73,7 @@ async def apply_memory_section_rows(
     writes: list[MemoryFactWrite] = []
     expected_facts: dict[UUID, str] | None = None
     if expected_sections is not None:
-        expected_facts = {memory_id: text for memory_id, text in expected_sections.values()}
+        expected_facts = dict(expected_sections.values())
     for memory_type, text, confidence, source_chat_id in rows:
         if not text.strip():
             continue

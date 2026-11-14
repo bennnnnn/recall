@@ -19,6 +19,8 @@ from app.modules.physics.extractors.thermal_readings import (
     _WATER_SPECIFIC_HEAT,
     _temperature_change,
     _temperature_value,
+    reading_scale,
+    temperature_span,
 )
 from app.modules.physics.extractors.unit_patterns import DEGREE_WORD, MASS_UNITS, NUMBER
 from app.modules.physics.schemas import PhysicsIntent
@@ -54,6 +56,12 @@ _THERMAL_CUES = (
 )
 
 _THERMAL_CUE_RES: tuple[re.Pattern[str], ...] = (
+    # "raise 250 g of water from 20 degrees to 80 degrees": a range of temperatures, in
+    # whatever spelling, after a heating word.
+    re.compile(
+        rf"\b(?:heat|warm|cool|rais)\w*\b.{{0,80}}?{_TEMPERATURE_SPAN.pattern}",
+        re.IGNORECASE,
+    ),
     re.compile(
         rf"\b(?:heat|warm|cool)\w*\b.{{0,80}}?\d\s*(?:{_KELVIN_PATTERN}|{_CELSIUS_PATTERN})",
         re.IGNORECASE,
@@ -137,7 +145,7 @@ def _heat_energy(cleaned: str) -> PhysicsIntent | None:
         # answered 83.7 kJ for the 649 kJ that warming and boiling 250 g take.
         return None
     mass = find_value_with_specific_unit(cleaned, MASS_UNITS, ("mass", "of"))
-    readings = _TEMPERATURE_SPAN.search(cleaned)
+    readings = temperature_span(cleaned)
     rise = None if readings else _temperature_change(cleaned, ("by", "rise", "raise", "change"))
     if rise is None and readings is None:
         # A temperature *difference* is the same number in kelvin and celsius,
@@ -174,9 +182,7 @@ def _heat_energy(cleaned: str) -> PhysicsIntent | None:
         scale = readings.group(4)
         first_scale = readings.group(2) or scale
         params.update(temp_initial=float(readings.group(1)), temp_final=float(readings.group(3)))
-        units.update(
-            temp_initial=_temperature_unit(first_scale), temp_final=_temperature_unit(scale)
-        )
+        units.update(temp_initial=reading_scale(first_scale), temp_final=reading_scale(scale))
     elif rise is not None:
         # A temperature *difference* is the same number in kelvin and celsius,
         # so this one does not need the scale an absolute reading does.
@@ -189,10 +195,6 @@ def _heat_energy(cleaned: str) -> PhysicsIntent | None:
         physics_units=units,
         operation="solve",
     )
-
-
-def _temperature_unit(scale: str) -> str:
-    return "K" if scale.strip().upper() == "K" else "degC"
 
 
 def _capacity_unit(spelled: str) -> str:

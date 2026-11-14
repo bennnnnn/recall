@@ -7,6 +7,7 @@ import json
 from app.modules.math.followup_what_if import is_part_change
 from app.modules.math.match.leftover_words import leftover_non_math_request
 from app.modules.math.match.scan import closed_request_text
+from app.modules.math.schemas.geometry_request import PLANE_SHAPES
 from app.modules.math.tools.direct_fences import MAX_DIRECT_ANSWER_CHARS, solver_fences
 from app.modules.math.tools.direct_graph import (
     can_direct_graph,
@@ -241,12 +242,16 @@ def can_direct_verified_math_reply(
         return False
     if not answer or len(answer) > MAX_DIRECT_ANSWER_CHARS:
         return False
+    return all(_carried_by_a_direct_reply(verified, fence) for fence in solver_fences(verified))
+
+
+def _carried_by_a_direct_reply(verified: VerifiedMathBlock, fence: dict[str, object]) -> bool:
+    """A card, a teaching picture, or a worked school reply's own figure (a semicircle
+    drawn as one), which finalize appends under the working."""
     from app.modules.math.schemas.teaching import TEACHING_TYPES
 
-    fences = solver_fences(verified)
-    if not fences:
-        return True
-    return all(fence.get("type") in {"answer", *TEACHING_TYPES} for fence in fences)
+    figures = {"circle", "sector"} if verified.worked_reply is not None else set()
+    return fence.get("type") in {"answer", *TEACHING_TYPES, *figures}
 
 
 def format_direct_math_reply(verified: VerifiedMathBlock, user_text: str = "") -> str:
@@ -307,17 +312,7 @@ def _format_direct_math_body(
         if answer:
             return f"```answer\n{display_answer}\n```\n\n{graph_reply}"
         return graph_reply
-    if len(fences) == 1 and fences[0].get("type") in {
-        "rectangle",
-        "square",
-        "triangle",
-        "right_triangle",
-        "triangle_sides",
-        "parallelogram",
-        "trapezoid",
-        "circle",
-        "sector",
-    }:
+    if len(fences) == 1 and fences[0].get("type") in PLANE_SHAPES:
         from app.modules.math.tools.direct_geometry_working import (
             format_direct_geometry_working,
         )

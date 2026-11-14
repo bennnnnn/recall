@@ -20,19 +20,15 @@ jest.mock("@/ui/overlay/Sheet", () => {
 });
 
 describe("settings action feedback", () => {
-  it("replaces a saving switch with row-level progress", async () => {
+  it("keeps a switch a switch: it never turns into a spinner while it saves", async () => {
+    // The owner's report (2026-11-11): a saving switch became a spinner and could not be
+    // tapped. A switch row takes no busy state at all now (useSettingSave saves in order).
     const { getByRole, queryByRole } = await render(
-      <SettingsSwitchRow
-        title="Memory"
-        value
-        disabled
-        busy
-        onValueChange={jest.fn()}
-      />,
+      <SettingsSwitchRow title="Memory" value onValueChange={jest.fn()} />,
     );
 
-    expect(getByRole("progressbar")).toBeOnTheScreen();
-    expect(queryByRole("switch")).toBeNull();
+    expect(getByRole("switch")).toBeOnTheScreen();
+    expect(queryByRole("progressbar")).toBeNull();
   });
 
   it("binds the visible title to the native switch", async () => {

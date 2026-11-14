@@ -13,11 +13,13 @@ from app.modules.billing.plan import (
     AUTO_ALIAS,
     is_auto_enabled,
     is_explicit_pick,
+    math_lane_for,
     model_pool,
     override_pool,
     pick_cheapest_from_pool,
 )
 from app.modules.chat.model_routing.route import resolve_alias_in_pool
+from app.modules.chat.model_routing.thinking import escalation_model
 from app.modules.chat.turn_trace import note_route
 
 if TYPE_CHECKING:
@@ -50,6 +52,7 @@ def resolve_user_model(
             prior_model=prior_model,
             lesson_active=lesson_active,
             unhealthy=unhealthy,
+            math_lane=math_lane_for(user, settings),
         )
         return _everyday_for_plan(user, settings, routed, pool, unhealthy)
     note_route("single_model" if len(pool) == 1 else "cheapest")
@@ -113,16 +116,19 @@ def resolve_regenerate_model(
     content: str,
     prior_assistant_model: str | None,
     settings: Settings,
+    *,
+    unhealthy: frozenset[str] = frozenset(),
 ) -> str:
     """Pick a model for a regenerate turn.
 
     Honors an explicit concrete override (a per-message picker pick) just like
-    ``resolve_user_model_override``. When the picker is ``auto`` (or absent),
-    reuse the model that produced the prior assistant reply so "try again"
-    reproduces the same conditions instead of re-running the routing heuristic
-    — a borderline query that auto-routed to a smart model the first time would
-    otherwise re-route to a weaker model on regenerate. Falls back to routing
-    if the prior model is unknown or no longer in the user's enabled pool.
+    ``resolve_user_model_override``, and a model the user chose with Auto off. With Auto,
+    start from the model that produced the prior reply, so a borderline question that
+    auto-routed to a strong model the first time does not re-route to a weaker one
+    (routing again only when that model is unknown or no longer in the pool). A
+    regenerate thinks one level more, so Auto then moves a model that sends no reasoning
+    to the plan's model that does (``thinking.escalation_model``): GLM 5.3 Flash on Free,
+    DeepSeek on Plus. Pro's everyday model thinks there itself and keeps the turn.
     """
     pool = override_pool(user, settings)
     if is_explicit_pick(model_alias):
@@ -140,5 +146,14 @@ def resolve_regenerate_model(
         # gets Pro's everyday model.
         if not is_auto_enabled(user):
             return prior_assistant_model
-        return _everyday_for_plan(user, settings, prior_assistant_model, list(pool), frozenset())
-    return resolve_user_model(user, content, settings)
+        model = _everyday_for_plan(user, settings, prior_assistant_model, list(pool), unhealthy)
+    else:
+        model = resolve_user_model(user, content, settings, unhealthy=unhealthy)
+        if not is_auto_enabled(user):
+            return model
+    thinking = escalation_model(
+        model, math_lane_for(user, settings), model_pool(user, settings), unhealthy
+    )
+    if thinking != model:
+        note_route("regenerate_thinks")
+    return thinking
