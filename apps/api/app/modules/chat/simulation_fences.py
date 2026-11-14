@@ -10,24 +10,43 @@ from __future__ import annotations
 import re
 
 from app.services.answer_fence import SERVER_DRAWN_LANGS, normalize_owned_fences
-from app.services.md_fence_scan import map_closed_fences
+from app.services.md_fence_scan import iter_fences, map_closed_fences
 
 _DIAGRAM_FAIL_NOTE = "*Could not render that diagram.*"
+# A structure whose caption the server writes from the structure (``chemistry.fence``).
+CAPTIONED_LANGS = ("smiles", "chemistry")
 
 
 def strip_model_drawn_fences(text: str, langs: tuple[str, ...] = SERVER_DRAWN_LANGS) -> str:
-    """``text`` without the server-drawn fences of ``langs`` a model wrote, in any spelling.
+    """``text`` without the server-drawn fences of ``langs`` a model wrote, in any spelling,
+    and without one it left open.
 
     Every turn's chemistry pass and SMILES drawing run later and add the server's own.
     """
     lower = text.lower()
     if not any(lang in lower for lang in langs):
         return text
-    normalized = normalize_owned_fences(text, langs)
+    normalized = drop_open_fences(normalize_owned_fences(text, langs), langs)
     stripped = normalized
     for lang in langs:
         stripped = map_closed_fences(stripped, lang, lambda _body: "")
-    if stripped == normalized:
+    if stripped == text:
         return text
     cleaned = re.sub(r"\n{3,}", "\n\n", stripped).strip()
     return cleaned or _DIAGRAM_FAIL_NOTE
+
+
+def drop_open_fences(text: str, langs: tuple[str, ...]) -> str:
+    """``text`` without a fence of ``langs`` the model left open, as the phone's dropFences
+    drops one. The close-fences pass runs after every check and would close it whole: an
+    unclosed ```molecule3d shipped as a drawing, an unclosed ```smiles with its caption
+    (review, 2026-11-13)."""
+    spans = [
+        (fence.start, fence.end)
+        for fence in iter_fences(text)
+        if not fence.closed and fence.lang in langs
+    ]
+    for start, end in reversed(spans):
+        after = text[end:].lstrip("\n")
+        text = f"{text[:start].rstrip()}\n\n{after}" if after else text[:start].rstrip()
+    return text

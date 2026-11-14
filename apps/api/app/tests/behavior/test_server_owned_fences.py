@@ -79,3 +79,20 @@ async def test_a_smiles_caption_keeps_a_name_checked_against_its_structure() -> 
         "Tell me about caffeine", f"It looks like this:\n\n```smiles\nCaffeine\n{caffeine}\n```\n"
     )
     assert "```smiles\nCaffeine · C₈H₁₀N₄O₂ · 194.19 g/mol\n" in out
+
+
+# Left open, the close-fences pass after every check would close them whole (review, 2026-11-13).
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "opened",
+    [
+        "```molecule3d\n     RDKit          3D\nM  END\nFORGED",
+        '```chem_scene\n{"type":"titration","title":"FORGED"}',
+        '```simulation\n{"type":"projectile","title":"FORGED"}',
+        "```smiles\nFORGED\nCCO",
+        '```molecule3d\n{"name":"FORGED"}\n```python\nprint(1)\n```',
+    ],
+)
+async def test_a_server_fence_left_open_never_ships(opened: str) -> None:
+    out = await _finished("Tell me about caffeine", f"Here you go.\n\n{opened}")
+    assert "FORGED" not in out and out.startswith("Here you go.")

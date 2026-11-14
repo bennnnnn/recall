@@ -15,7 +15,11 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from app.core import sympy_executor
-from app.modules.chat.simulation_fences import strip_model_drawn_fences
+from app.modules.chat.simulation_fences import (
+    CAPTIONED_LANGS,
+    drop_open_fences,
+    strip_model_drawn_fences,
+)
 from app.modules.chat.verification_claims import strip_verification_claims
 from app.modules.chat.worked_lead import drop_restated_tail
 from app.modules.chat.working_check import is_worked_solution, working_note
@@ -93,6 +97,8 @@ def prepare_model_reply(state: FinalizeState) -> str:
         return state.text
     text = normalize_owned_fences(strip_forged_verified_markers(state.text))
     text = strip_verification_claims(text)
+    # Left open, the model's own scene or structure is never the server's, on any turn.
+    text = drop_open_fences(text, (*SERVER_DRAWN_LANGS, *CAPTIONED_LANGS))
     drawn: tuple[str, ...] = SERVER_DRAWN_LANGS
     if isinstance(state.ctx.verified_subject, VerifiedPhysicsBlock):
         drawn = tuple(lang for lang in drawn if lang != "simulation")
