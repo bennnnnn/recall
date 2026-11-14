@@ -24,8 +24,8 @@ _FRICTION_CUES = (
 _FRICTION_SUBJECT = r"friction|frictional|incline|inclined|ramp"
 
 _FRICTION_GIVEN = (
-    r"coefficient|(?:\\?(?:\bmu|\u03bc)\s*_?\s*[sk]?\s*(?:=|is))|"
-    rf"(?<!\d)\d+\s*{DEGREE_WORD}"
+    r"coefficient|(?:\\?(?:\bmu|\u03bc)\s*+_?\s*+[sk]?\s*+(?:=|is))|"
+    rf"(?<!\d)\d++\s*+{DEGREE_WORD}"
 )
 
 _FRICTION_CUE_RES: tuple[re.Pattern[str], ...] = (

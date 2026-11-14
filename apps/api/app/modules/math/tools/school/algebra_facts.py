@@ -23,13 +23,15 @@ ALGEBRA_FACT_OPS = frozenset({"complete_square", "cosine_rule", "polynomial_rema
 
 _COMPLETE_SQUARE = re.compile(
     r"(?:(?:please\s+)?(?:complete|completing)\s+the\s+square\s+(?:for|of|on|in)?\s*)(?P<expr>.+)"
-    r"|(?P<expr2>.+?)\s*,?\s+(?:by\s+)?(?:completing|complete)\s+the\s+square",
+    # The expression ends on a mark and each run of space is read once: a lazy expression
+    # beside \s*,?\s+ took cubic time on a run of spaces.
+    r"|(?P<expr2>.*?\S)(?:\s*+,\s++|\s++)(?:by\s++)?(?:completing|complete)\s+the\s+square",
     re.IGNORECASE,
 )
 # "what is the remainder when x^3 + 2x - 5 is divided by x - 2".
 _REMAINDER = re.compile(
-    r"(?:(?:what\s+is|what's|whats|find|calculate|work\s+out)\s+)?the\s+remainder\s+when\s+"
-    r"(?P<dividend>.+?)\s+is\s+divided\s+by\s+(?P<divisor>.+)",
+    r"(?:(?:what\s+is|what's|whats|find|calculate|work\s+out)\s+)?the\s+remainder\s+when\s++"
+    r"(?P<dividend>.*?\S)\s++is\s+divided\s+by\s++(?P<divisor>.+)",
     re.IGNORECASE,
 )
 _NUMBER = rf"({DECIMAL})"

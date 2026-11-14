@@ -59,13 +59,15 @@ _BOUNDED_DEGREE_DOMAIN = re.compile(
     rf"(?=\s|[.?!]|$)",
     re.IGNORECASE,
 )
+# Each run of space is read once (possessive): "on", a run of spaces and the space either
+# side of an optional "*" took cubic time.
 _RADIAN_BOUND = (
-    rf"[+-]?{DECIMAL}?\s*\*?\s*(?:pi|π)"
+    rf"[+-]?{DECIMAL}?\s*+\*?\s*+(?:pi|π)"
     rf"|{SIGNED_DECIMAL}"
 )
 _BOUNDED_RADIAN_DOMAIN = re.compile(
-    rf"\b(?:for|on)\s+({_RADIAN_BOUND})\s*(<=|<|≤)\s*"
-    rf"([a-zA-Z])\s*(<=|<|≤)\s*({_RADIAN_BOUND})(?=\s|[.?!]|$)",
+    rf"\b(?:for|on)\s++({_RADIAN_BOUND})\s*+(<=|<|≤)\s*+"
+    rf"([a-zA-Z])\s*+(<=|<|≤)\s*+({_RADIAN_BOUND})(?=\s|[.?!]|$)",
     re.IGNORECASE,
 )
 

@@ -30,13 +30,16 @@ _JOINING_WORDS = frozenset(
     {"if", "given", "let", "and", "suppose", "that", "then", "so", "where", "for"}
 )
 _NUMBER = re.compile(r"-?\d+(?:\.\d+)?(?:/\d+)?")
+# The ask and its expression: each run of space is read once (possessive) and the expression
+# ends on a mark. A lazy expression beside \s+ took cubic time on "find" and a run of spaces.
+_ASKED_EXPRESSION = rf"^(?:(?:{_ASK})\s++(?:the\s++value\s++of\s++)?)?(?P<expr>[^=]*?[^=\s])\s++"
 _AT_VALUE = re.compile(
-    rf"^(?:(?:{_ASK})\s+(?:the\s+value\s+of\s+)?)?(?P<expr>[^=]+?)\s+"
-    r"(?:when|at|for|if|where)\s+(?P<var>[a-z])\s*=\s*(?P<value>-?\d+(?:\.\d+)?(?:/\d+)?)$",
+    rf"{_ASKED_EXPRESSION}"
+    r"(?:when|at|for|if|where)\s++(?P<var>[a-z])\s*+=\s*+(?P<value>-?\d+(?:\.\d+)?(?:/\d+)?)$",
     re.I,
 )
 # Several given values: "x = 3 and y = -2", "x = 1, y = 2, z = 3".
-_ONE_VALUE = r"[a-z]\s*=\s*-?\d+(?:\.\d+)?(?:/\d+)?"
+_ONE_VALUE = r"[a-z]\s*+=\s*+-?\d+(?:\.\d+)?(?:/\d+)?"
 _GIVEN_VALUES = rf"{_ONE_VALUE}(?:\s*(?:,\s*(?:and\s+)?|and\s+){_ONE_VALUE}){{0,3}}"
 _VALUE_PAIR = re.compile(r"(?P<var>[a-z])\s*=\s*(?P<value>-?\d+(?:\.\d+)?(?:/\d+)?)", re.I)
 # "if x = 3 and y = -2, find x^2 - 2xy + y^2": the values first, then the ask.
@@ -47,8 +50,7 @@ _VALUES_FIRST = re.compile(
 )
 # "evaluate x^2 - 2xy + y^2 when x = 3 and y = -2".
 _VALUES_AFTER = re.compile(
-    rf"^(?:(?:{_ASK})\s+(?:the\s+value\s+of\s+)?)?(?P<expr>[^=]+?)\s+"
-    rf"(?:when|at|for|if|where|given)\s+(?P<given>{_GIVEN_VALUES})$",
+    rf"{_ASKED_EXPRESSION}(?:when|at|for|if|where|given)\s++(?P<given>{_GIVEN_VALUES})$",
     re.I,
 )
 

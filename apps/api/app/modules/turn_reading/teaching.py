@@ -308,11 +308,12 @@ _PREF_SENTENCE: tuple[re.Pattern[str], ...] = (
         _PREF_LEAD + r"when(?:ever)?\s+i\s+ask\s+(?:you\s+)?(?:for|about|to|a|an|anything|"
         r"something|questions?)\b[^,.;?!]{0,60},\s*" + _PREF_DO
     ),
-    # "From now on, …" / "Going forward, your answers should …"
+    # "From now on, …" / "Going forward, your answers should …". The space after the opening
+    # is read once (possessive): split between \s* and \s+, it took quadratic time.
     re.compile(
         _PREF_LEAD + r"(?:from\s+now\s+on|going\s+forward|moving\s+forward|from\s+here\s+on"
         r"(?:\s+out)?|in\s+(?:the\s+)?future|for\s+future\s+(?:answers|replies|lessons|chats|"
-        r"questions))\s*,?\s+(?:(?:you(?:'ll|\s+will|\s+should|\s+must|\s+can)?|your\s+"
+        r"questions))(?:\s*+,\s++|\s++)(?:(?:you(?:'ll|\s+will|\s+should|\s+must|\s+can)?|your\s+"
         r"(?:answers|replies|responses|explanations|lessons|examples)\s+(?:should|must|"
         r"need\s+to|will)|i\s+(?:want|need|'d\s+like|would\s+like)\s+you\s+to)\s+)?" + _PREF_DO
     ),

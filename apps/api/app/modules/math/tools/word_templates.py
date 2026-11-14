@@ -30,7 +30,8 @@ _MAX_CHARS = 400
 _NUM = DECIMAL
 _SMALL_COUNTS = {"two": 2, "three": 3, "four": 4, "five": 5}
 _ORDINALS = ("first", "second", "third", "fourth", "fifth")
-_END = r"\s*[?.!]?\s*"
+# The end of a question, each run of space read once (possessive): it ends every template.
+_END = r"\s*+[?.!]?\s*+"
 
 
 def _plain(text: str) -> str:
@@ -213,11 +214,11 @@ _TICKETS = re.compile(
     r"(?:the\s+)?(?:(?:school|show|movie|concert|game|play|museum|zoo|fair)\s+)?tickets?\s+"
     r"(?:cost|costs|are|were|sell\s+for|sold\s+for)\s+"
     rf"(?P<p1>{_PRICE})\s+(?:for|per)\s+(?:an?\s+|each\s+)?(?P<g1>{_GROUP})\s+and\s+"
-    rf"(?P<p2>{_PRICE})\s+(?:for|per)\s+(?:an?\s+|each\s+)?(?P<g2>{_GROUP})\s*[.,;]\s*"
+    rf"(?P<p2>{_PRICE})\s+(?:for|per)\s+(?:an?\s+|each\s+)?(?P<g2>{_GROUP})\s*+[.,;]\s*+"
     r"(?P<count_clause>(?:a\s+total\s+of\s+)?(?P<n>\d{1,5})\s+tickets\s+(?:were|was)\s+sold)\s+"
     rf"(?P<money_clause>(?:for|bringing\s+in|raising|making|earning)\s+(?:a\s+total\s+of\s+)?"
-    rf"(?P<t>{_PRICE}))\s*[.,;]?\s*"
-    rf"how\s+many\s+(?P<q>{_GROUP})(?:\s+tickets)?(?:\s+were\s+sold)?{_END}",
+    rf"(?P<t>{_PRICE}))\s*+[.,;]?\s*+"
+    rf"how\s+many\s+(?P<q>{_GROUP})(?:\s++tickets)?(?:\s++were\s+sold)?{_END}",
     re.IGNORECASE,
 )
 

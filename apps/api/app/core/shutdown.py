@@ -43,7 +43,8 @@ def begin_stop() -> None:
         return
     _stopping = True
     logger.info("Stop signal: ending %d in-flight hook(s)", len(_callbacks))
-    for callback in list(_callbacks):
+    # A copy: a hook may unregister itself while the others run.
+    for callback in list(_callbacks):  # noqa: PERF101
         try:
             callback()
         except Exception:
