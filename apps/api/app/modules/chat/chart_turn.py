@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING
 
 from app.core.config import Settings
 from app.modules.charts.model_chart import model_chart_request
-from app.modules.charts.read import chart_from_request, draw_chart
+from app.modules.charts.read import MAX_DATA_CHARS, chart_from_request, draw_chart
 from app.modules.chat.chart_bodies import parse_chart_body
 from app.modules.chat.continuation_subject import exchange_pairs
 from app.modules.chat.finalize_subjects import fallback_text
@@ -42,7 +42,8 @@ def chart_turn(line: str, earlier: Sequence[tuple[str, str]]) -> tuple[str, str 
     None for a turn the server draws no chart for (no numbers of the user's, or a kind of
     chart that is not one of its four)."""
     data = own_data_chart(line, earlier)
-    if not data:
+    if not data or len(data) > MAX_DATA_CHARS:
+        # Longer than the read is shown: a chart of its first part would be a wrong picture.
         return None
     named = named_chart_kind(line) or (named_chart_kind(data) if data != line else None)
     return None if named == "other" else (data, named)

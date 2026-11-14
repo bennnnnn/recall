@@ -202,3 +202,40 @@ async def test_a_read_draws_its_checked_chart() -> None:
 def test_the_chart_pass_runs_after_the_figure() -> None:
     names = [finalize_pass.name for finalize_pass in FINALIZE_PASSES]
     assert names.index("data_chart") > names.index("figure")
+
+
+def _scores(count: int) -> str:
+    return "My class's test scores: " + ", ".join(str(40 + (i * 7) % 60) for i in range(count))
+
+
+def test_a_follow_up_holds_the_chart_to_the_whole_earlier_list() -> None:
+    """Review (2026-11-14): "graph it" quoted the earlier list cut at 600 characters, and the
+    chart was grounded in that cut text, so a long list drew part of its data."""
+    from app.modules.chat.chart_turn import chart_turn
+
+    long_list = _scores(150)
+    assert 600 < len(long_list) <= 2000
+    turn = chart_turn("graph it", [("user", long_list), ("assistant", "Nice spread.")])
+    assert turn is not None and turn[0] == long_list
+    cut = ChartRequest(kind="histogram", values=long_list.split(": ")[1].split(", ")[:80])
+    assert chart_read.chart_for_reading(cut, turn[0], None) is None
+    whole = ChartRequest(kind="histogram", values=long_list.split(": ")[1].split(", "))
+    assert chart_read.chart_for_reading(whole, turn[0], None) is not None
+
+
+@pytest.mark.parametrize("line", [_scores(600) + ". Make a histogram.", "graph it"])
+def test_data_longer_than_the_read_is_shown_is_not_judged(line: str) -> None:
+    """A read of its first part would draw a chart of part of the data: no chart turn."""
+    from app.modules.chat.chart_turn import chart_turn
+
+    earlier = [("user", _scores(600)), ("assistant", "Got it.")]
+    assert len(_scores(600)) > chart_read.MAX_DATA_CHARS
+    assert chart_turn(line, earlier) is None
+
+
+@pytest.mark.asyncio
+async def test_draw_chart_refuses_data_too_long_to_read_whole() -> None:
+    ask = AsyncMock()
+    with patch("app.gateways.structured_completion.complete_structured", ask):
+        assert await chart_read.draw_chart("graph it", _scores(600), _settings()) is None
+    ask.assert_not_awaited()

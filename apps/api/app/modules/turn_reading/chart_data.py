@@ -25,8 +25,19 @@ def own_data_chart(query: str, prior_messages: Sequence[tuple[str, str]] | None)
     (a curve y = f(x), a chart of facts a search finds, code that draws one, no numbers)."""
     cleaned = query.strip()
     if is_chart_question(cleaned) and holds_data(cleaned) and not chart_of_public_facts(cleaned):
-        return " ".join(text_before_attachment_markers(cleaned).split())
-    return chart_followup_data(cleaned, prior_messages) or None
+        return _typed(cleaned)
+    quoted = chart_followup_data(cleaned, prior_messages)
+    if not quoted:
+        return None
+    # The follow-up quotes the earlier message cut short for the prompt: the chart holds to the
+    # whole of it, or a long list would be drawn from its first part (review, 2026-11-14).
+    whole = (_typed(text) for role, text in reversed(prior_messages or ()) if role == "user")
+    return next((typed for typed in whole if typed.startswith(quoted)), None)
+
+
+def _typed(text: str) -> str:
+    """What the user typed, one space between words: never a file's text after it."""
+    return " ".join(text_before_attachment_markers(text).split())
 
 
 # The kind of chart a message names. Bars, a pie, a line and a histogram are the server's to

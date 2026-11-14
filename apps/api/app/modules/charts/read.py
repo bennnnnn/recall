@@ -19,7 +19,9 @@ from app.modules.charts.request import ChartRequest
 logger = logging.getLogger(__name__)
 
 _MAX_TOKENS = 900
-_MAX_CHARS = 2000
+# The longest message the read is shown whole. A longer one is not judged
+# (``chat.chart_turn``): a read of its first part would draw a chart of part of the data.
+MAX_DATA_CHARS = 2000
 
 _PROMPT = (
     "The user wants a chart of numbers they wrote. Say what to chart, as JSON, copied from "
@@ -50,9 +52,9 @@ _PROMPT = (
 
 
 def _message(question: str, data: str) -> str:
-    if not data or data == question:
-        return question[:_MAX_CHARS]
-    return f"Earlier user message: {data[:_MAX_CHARS]}\n\nLast message: {question[:_MAX_CHARS]}"
+    if not data or data == " ".join(question.split()):
+        return question[:MAX_DATA_CHARS]
+    return f"Earlier user message: {data}\n\nLast message: {question[:MAX_DATA_CHARS]}"
 
 
 async def read_chart(settings: Settings, question: str, data: str) -> ChartRequest | None:
@@ -103,7 +105,7 @@ async def draw_chart(
     """The fence of the chart of the user's own numbers (``data``: the message that holds
     them, the question itself or an earlier one), or None. ``named``: the kind the user
     asked for, which the reading must be ("a scatter plot" read as a line is no chart)."""
-    if not settings.data_charts_enabled or not data.strip():
+    if not settings.data_charts_enabled or not data.strip() or len(data) > MAX_DATA_CHARS:
         return None
     return chart_for_reading(await read_chart(settings, question, data), data, named)
 
