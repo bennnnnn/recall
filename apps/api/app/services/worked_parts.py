@@ -293,3 +293,35 @@ def _sentence_case(title: str) -> str:
     opens with a symbol ("pH of …", "x-component") is left as written."""
     text = title.strip()
     return text[:1].upper() + text[1:] if re.match(r"[a-z]{2,}\b", text) else text
+
+
+# A reply's answer heading, lettered when the question is in parts: "**Answer (a)**".
+_ANSWER_LABEL = re.compile(r"^\*\*Answer:?\*\*", re.MULTILINE)
+
+
+def answers_in_parts(parts: Sequence[str], replies: Sequence[str]) -> str:
+    """Separate questions answered one by one, as the question in parts: in the one layout
+    (``parts_in_one_layout``) the givens and what is asked once, then each part's working
+    closed by its own answer card. A reply in another shape keeps the old one: each part's
+    own question, then its reply."""
+    shared = _shared_setup(parts)
+    laid_out = parts_in_one_layout([part[len(shared) :] for part in parts], replies)
+    if laid_out is not None:
+        return laid_out
+    sections = []
+    for index, (part, reply) in enumerate(zip(parts, replies, strict=True)):
+        label = chr(ord("a") + index) if index < 26 else str(index + 1)
+        # A question in parts letters each answer: "**Answer (a)**".
+        answer = _ANSWER_LABEL.sub(f"**Answer ({label})**", reply.strip(), count=1)
+        sections.append(f"**({label}) {part[len(shared) :].strip()}**\n\n{answer}")
+    return "\n\n---\n\n".join(sections)
+
+
+def _shared_setup(parts: Sequence[str]) -> str:
+    """The setup every part opens with, up to the end of its last sentence."""
+    first = parts[0]
+    size = min(len(part) for part in parts)
+    same = next((i for i in range(size) if any(part[i] != first[i] for part in parts)), size)
+    prefix = first[:same]
+    end = max(prefix.rfind(". "), prefix.rfind("? "), prefix.rfind("! "))
+    return prefix[: end + 2] if end >= 0 else ""

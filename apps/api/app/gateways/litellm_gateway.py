@@ -66,8 +66,10 @@ class ModelUnavailableError(Exception):
         return cls(_CHAT_MODEL_UNAVAILABLE_MSG, code=code, failed_alias=alias, cause=cause)
 
 
+# There is no model picker in the composer: another model is chosen in Settings (MODEL-13).
 _CHAT_MODEL_UNAVAILABLE_MSG = (
-    "That model isn't responding right now. Try again — or pick a different model."
+    "That model isn't responding right now. Try again, or choose another model in "
+    "Settings > Models."
 )
 
 

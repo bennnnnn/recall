@@ -95,7 +95,7 @@ async def test_a_regenerate_starts_the_read_and_hands_it_to_the_turn() -> None:
             "list_recent": AsyncMock(return_value=window),
             "count_for_chat": AsyncMock(return_value=len(window)),
         },
-        model_choice={"resolve_regenerate_model": lambda *_args: "gpt-6-luna"},
+        model_choice={"resolve_regenerate_model": lambda *_args, **_kwargs: "gpt-6-luna"},
         quota={"daily_limit_for_user": lambda *_args: 10000},
     )
     entry = "app.modules.chat.stream_entry"
@@ -120,3 +120,47 @@ async def test_a_regenerate_starts_the_read_and_hands_it_to_the_turn() -> None:
     assert start.call_args.args[1] == _PROBLEM
     assert start.call_args.kwargs["recent"] == earlier
     assert captured["ctx"].live_read is read
+
+
+@pytest.mark.asyncio
+async def test_a_regenerate_an_intercept_answers_stops_the_read() -> None:
+    """MODEL-06: a picture or photo intercept answers with no reply call, so the read stops
+    once the intercept has used it, not billed on to its own timeout."""
+    import asyncio
+
+    owner, chat_id = uuid4(), uuid4()
+    window = [_row("user", "show me a red panda"), _row("assistant", "[photo]")]
+    read = asyncio.ensure_future(asyncio.sleep(30))
+    resource = SimpleNamespace(reserve=AsyncMock(), reserved_tokens=100)
+
+    @asynccontextmanager
+    async def resources(*_args: Any, **_kwargs: Any) -> Any:
+        yield resource
+
+    deps = turn_deps(
+        session_factory=FakeSessionCM,
+        users={"get_by_id": AsyncMock(return_value=User(id=owner, email="a@b.c", name="A"))},
+        chats={"get_by_id": AsyncMock(return_value=Chat(id=chat_id, user_id=owner))},
+        messages={
+            "list_recent": AsyncMock(return_value=window),
+            "count_for_chat": AsyncMock(return_value=len(window)),
+        },
+        model_choice={"resolve_regenerate_model": lambda *_args, **_kwargs: "gpt-6-luna"},
+    )
+    entry = "app.modules.chat.stream_entry"
+    intercepts = "app.modules.chat.turn_intercepts"
+    with (
+        patch(f"{entry}.turn_resources", resources),
+        patch.object(turn_load, "wait_for_pending_finalize", AsyncMock()),
+        patch(f"{intercepts}.try_image_gen_for_turn", AsyncMock(return_value=True)),
+        patch.object(turn_decision, "start_turn_decision", MagicMock(return_value=read)),
+    ):
+        tokens = [
+            token
+            async for token in stream_entry.stream_regenerate_response(
+                deps, redis_mock(), Settings(), user_id=owner, chat_id=chat_id
+            )
+        ]
+    assert tokens == []
+    await asyncio.sleep(0)
+    assert read.cancelled()

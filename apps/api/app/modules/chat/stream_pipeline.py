@@ -324,10 +324,7 @@ async def _settle_reply(
         await _refund_turn(deps, redis, ctx, resources)
         return
     if not assistant_text:
-        raise ModelUnavailableError(
-            "That model isn't responding right now. Try again — or pick a different model.",
-            failed_alias=ctx.model,
-        )
+        raise ModelUnavailableError.for_alias(ctx.model)
     if outcome is not None and accum.completion != "complete":
         outcome.completion = accum.completion
 

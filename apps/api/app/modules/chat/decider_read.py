@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections.abc import Callable, Mapping
 from types import MappingProxyType
 from typing import Any
@@ -243,6 +244,7 @@ async def decide_turn(
 
     alias = ROUTING.decider
     work_read: asyncio.Task[Any] | None = None
+    started = time.monotonic()
     try:
         from app.models import model_catalog
 
@@ -252,9 +254,14 @@ async def decide_turn(
                 decide(settings, model=model, state=state, questions=WORK_QUESTION, seconds=seconds)
             )
             work_read.add_done_callback(_metered_work(alias))
-        reply = await decide(
-            settings, model=model, state=state, questions=QUESTIONS, seconds=seconds
-        )
+        try:
+            reply = await decide(
+                settings, model=model, state=state, questions=QUESTIONS, seconds=seconds
+            )
+        except Exception as exc:
+            _note_health(settings, alias, started, exc)
+            raise
+        _note_health(settings, alias, started, None)
         meter_reported_cost(alias, reply.usage.cost)
         answers = dict(reply.answers)
         if work_read is not None:
@@ -266,6 +273,37 @@ async def decide_turn(
         if work_read is not None and not work_read.done():
             work_read.cancel()
     return decision_fields(answers, has_earlier=has_earlier)
+
+
+def _note_health(
+    settings: Settings, alias: str, started: float, failure: BaseException | None
+) -> None:
+    """The Decider's call as one sample on its breaker (``services.model_health``), so a
+    Decider outage opens it and turns stop waiting the read's whole timeout for it
+    (MODEL-07). Written beside the turn, never in its way; a cancelled call (the reply
+    stopped waiting) says nothing about the provider and leaves none."""
+    from app.core.background_tasks import create_background_task
+    from app.core.redis import get_redis_client
+    from app.services.model_health import HealthSample, record_samples
+
+    if not settings.openrouter_api_key:
+        return  # No key, no call went out: nothing about the provider to note.
+    sample = HealthSample(
+        alias,
+        latency_ms=(time.monotonic() - started) * 1000,
+        success=failure is None,
+        cause=_failure_cause(failure),
+    )
+    try:
+        create_background_task(record_samples(get_redis_client(), [sample]))
+    except Exception as exc:  # A health sample is best-effort: the read goes on without it.
+        logger.info("decider health sample not written (%s)", type(exc).__name__)
+
+
+def _failure_cause(failure: BaseException | None) -> str | None:
+    """``rate_limit`` for a refusal for capacity, which opens the breaker by itself."""
+    response = getattr(failure, "response", None)
+    return "rate_limit" if getattr(response, "status_code", None) == 429 else None
 
 
 async def _work_answers(work_read: asyncio.Task[Any]) -> dict[str, Any]:

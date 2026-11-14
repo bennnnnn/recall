@@ -2,12 +2,15 @@ import { deleteAsync } from "expo-file-system/legacy";
 import { ImageManipulator } from "expo-image-manipulator";
 
 import {
+  cropInSource,
   cropScanImage,
   measureScanImage,
   SCAN_JPEG_QUALITY,
   SCAN_MAX_EDGE,
   ScanFiles,
   scanResize,
+  sentEdge,
+  solveCut,
 } from "@/features/scanner/model/scanImage";
 
 const mockSource = { width: 3024, height: 4032, release: jest.fn() };
@@ -105,5 +108,48 @@ describe("ScanFiles", () => {
     files.track("file:///capture.jpg");
     expect(() => files.discard("file:///capture.jpg")).not.toThrow();
     await Promise.resolve();
+  });
+});
+
+describe("SCAN-05: Solve cuts the camera's photo once", () => {
+  const source = { uri: "file:///shot.jpg", cut: { originX: 400, originY: 300, width: 3000, height: 1500 } };
+  const still = { width: 1500, height: 750 }; // the cut, saved at half size
+
+  it("maps a crop on the still into the photo's pixels", () => {
+    const inCut = { originX: 100, originY: 50, width: 600, height: 300 };
+    expect(cropInSource(inCut, source, still, { width: 4000, height: 3000 })).toEqual({
+      originX: 600,
+      originY: 400,
+      width: 1200,
+      height: 600,
+    });
+  });
+
+  it("keeps the crop inside the photo", () => {
+    const inCut = { originX: 1400, originY: 700, width: 600, height: 300 };
+    const crop = cropInSource(inCut, source, still, { width: 3000, height: 1700 });
+    expect(crop.originX + crop.width).toBeLessThanOrEqual(3000);
+    expect(crop.originY + crop.height).toBeLessThanOrEqual(1700);
+  });
+
+  it("sends at the long edge the still's crop had, never past the scan's", () => {
+    expect(sentEdge({ originX: 0, originY: 0, width: 600, height: 300 })).toBe(600);
+    expect(sentEdge({ originX: 0, originY: 0, width: 5000, height: 300 })).toBe(SCAN_MAX_EDGE);
+  });
+
+  it("cuts a picked photo, which has no camera source, from the still as before", () => {
+    const region = { x: 0, y: 0, width: 100, height: 100 };
+    const cut = solveCut({ localUri: "file:///picked.jpg", width: 800, height: 600 }, region, region);
+    expect(cut.uri).toBe("file:///picked.jpg");
+    expect(cut.maxEdge).toBeUndefined();
+    expect(cut.cropFor({ width: 800, height: 600 })).toEqual({ originX: 0, originY: 0, width: 800, height: 600 });
+  });
+
+  it("cuts a camera shot from its photo", () => {
+    const region = { x: 0, y: 0, width: 100, height: 100 };
+    const cut = solveCut({ localUri: "file:///cut.jpg", ...still, source }, region, region);
+    expect(cut.uri).toBe("file:///shot.jpg");
+    expect(cut.cropFor({ width: 4000, height: 3000 })).toEqual(source.cut);
+    expect(cut.maxEdge).toBe(1500);
   });
 });

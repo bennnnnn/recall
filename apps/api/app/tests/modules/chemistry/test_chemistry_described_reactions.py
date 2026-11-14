@@ -19,8 +19,9 @@ from app.modules.chemistry.extractors.described import (
     written_reaction_question,
 )
 from app.modules.chemistry.followup import chemistry_followup_problem
+from app.modules.chemistry.lowercase_formulas import lowercase_formula
 from app.modules.chemistry.request import is_chemistry_question
-from app.modules.chemistry.species_words import lowercase_formula, substance_mentions
+from app.modules.chemistry.species_words import substance_mentions
 
 _BURN_H2 = "Ok so chem hw. how much water do i get if i burn like 4g of h2"
 _BURN_CH4 = "how much oxygen is needed to burn 16 g of methane"

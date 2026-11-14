@@ -10,6 +10,7 @@ nothing here may import the prompt, attachment or database stack.
 
 from __future__ import annotations
 
+import importlib
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, cast
 
@@ -284,6 +285,10 @@ def warm_pool_worker() -> None:
     """
     from app.services.subjects.registry import SUBJECTS
 
+    # ``sympy.simplify`` imports SymPy's units module the first time it runs (a system's
+    # substitution steps, any solve that simplifies), and no warm solve simplifies: the first
+    # such solve on a new worker paid 35-100 ms for it (PERF-03, 2026-11-13).
+    importlib.import_module("sympy.physics.units")
     for subject in SUBJECTS:
         subject.warm()
     ask_turn_readings(

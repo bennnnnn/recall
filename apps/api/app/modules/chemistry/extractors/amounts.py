@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import re
 
-from app.modules.chemistry.elements import BY_SYMBOL, ELEMENTS
+from app.modules.chemistry.elements import BY_SYMBOL, DIATOMIC_ELEMENTS, ELEMENTS
 from app.modules.chemistry.equations import written_is_balanced
 from app.modules.chemistry.extractors.parsing import (
     _N,
@@ -20,7 +20,6 @@ from app.modules.chemistry.request import (
     SAMPLE_FORMULA,
 )
 from app.modules.chemistry.schemas import ChemistryIntent
-from app.modules.chemistry.species import DIATOMIC_ELEMENTS
 from app.modules.chemistry.species_facts import (
     ELEMENT_NAMES,
     NAMED_COMPOUNDS,
