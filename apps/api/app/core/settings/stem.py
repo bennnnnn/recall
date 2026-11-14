@@ -71,6 +71,13 @@ class StemSettings(BaseModel):
     figure_read_enabled: bool = True
     figure_read_timeout_seconds: float = 4.0
     figure_wait_seconds: float = 2.0
+    # A chart of numbers the user wrote (bar, pie, line, histogram) is drawn by the server
+    # from those numbers (``modules/charts``), only when every label and value is the user's,
+    # in place of the model's own chart, which no check read. Beside the reply, which waits at
+    # most ``chart_wait_seconds`` for it. Off: the model's chart stands, as before.
+    data_charts_enabled: bool = True
+    chart_read_timeout_seconds: float = 4.0
+    chart_wait_seconds: float = 2.0
     # The word-problem translation and the extraction above run side by side;
     # this bounds them together. It sits a little above the longer of the two
     # (two 3 s translation attempts), so it only stops a call that outlives its

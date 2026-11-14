@@ -264,7 +264,9 @@ async def test_the_turn_tells_its_tool_loop_the_photo_was_not_found() -> None:
     from app.modules.images.search import ImageSearchError
 
     search = AsyncMock(side_effect=ImageSearchError("no usable photo", status_code=502))
-    prepared = SimpleNamespace(reply_picture=None)
+    prepared = SimpleNamespace(
+        reply_picture=None, instant_reply=None, user_message_content="", recent_messages=[]
+    )
     streamed: list[Any] = []
 
     async def fake_stream(_deps: Any, _redis: Any, _settings: Any, ctx: Any, **_kwargs: Any):

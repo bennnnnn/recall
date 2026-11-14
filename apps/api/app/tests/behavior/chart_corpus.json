@@ -1,0 +1,1107 @@
+{
+ "entries": [
+  {
+   "id": "bar-spending",
+   "prompt": "Make a bar chart of my spending: rent 1200, food 400, transport 150",
+   "earlier": [],
+   "reading": {
+    "kind": "bar",
+    "points": [
+     {
+      "label": "rent",
+      "value": "1200"
+     },
+     {
+      "label": "food",
+      "value": "400"
+     },
+     {
+      "label": "transport",
+      "value": "150"
+     }
+    ]
+   },
+   "reply": "",
+   "expect": {
+    "kind": "bar",
+    "labels": [
+     "rent",
+     "food",
+     "transport"
+    ],
+    "values": [
+     1200,
+     400,
+     150
+    ]
+   },
+   "note": ""
+  },
+  {
+   "id": "pie-budget-dollars",
+   "prompt": "Pie chart of my budget: rent $1,200, groceries $400, savings $300",
+   "earlier": [],
+   "reading": {
+    "kind": "pie",
+    "points": [
+     {
+      "label": "rent",
+      "value": "$1,200"
+     },
+     {
+      "label": "groceries",
+      "value": "$400"
+     },
+     {
+      "label": "savings",
+      "value": "$300"
+     }
+    ]
+   },
+   "reply": "",
+   "expect": {
+    "kind": "pie",
+    "labels": [
+     "rent",
+     "groceries",
+     "savings"
+    ],
+    "values": [
+     1200,
+     400,
+     300
+    ]
+   },
+   "note": ""
+  },
+  {
+   "id": "line-weight",
+   "prompt": "Line graph of my weight: Jan 70, Feb 69, Mar 68.5, Apr 68",
+   "earlier": [],
+   "reading": {
+    "kind": "line",
+    "points": [
+     {
+      "label": "Jan",
+      "value": "70"
+     },
+     {
+      "label": "Feb",
+      "value": "69"
+     },
+     {
+      "label": "Mar",
+      "value": "68.5"
+     },
+     {
+      "label": "Apr",
+      "value": "68"
+     }
+    ]
+   },
+   "reply": "",
+   "expect": {
+    "kind": "line",
+    "labels": [
+     "Jan",
+     "Feb",
+     "Mar",
+     "Apr"
+    ],
+    "values": [
+     70,
+     69,
+     68.5,
+     68
+    ]
+   },
+   "note": ""
+  },
+  {
+   "id": "histogram-scores",
+   "prompt": "Make a histogram of these test scores: 55, 62, 68, 71, 75, 80, 82, 90",
+   "earlier": [],
+   "reading": {
+    "kind": "histogram",
+    "values": [
+     "55",
+     "62",
+     "68",
+     "71",
+     "75",
+     "80",
+     "82",
+     "90"
+    ]
+   },
+   "reply": "",
+   "expect": {
+    "kind": "histogram",
+    "values": [
+     55,
+     62,
+     68,
+     71,
+     75,
+     80,
+     82,
+     90
+    ]
+   },
+   "note": ""
+  },
+  {
+   "id": "bar-number-first",
+   "prompt": "Draw a bar chart: 10 in Jan, 12 in Feb, 9 in Mar",
+   "earlier": [],
+   "reading": {
+    "kind": "bar",
+    "points": [
+     {
+      "label": "Jan",
+      "value": "10"
+     },
+     {
+      "label": "Feb",
+      "value": "12"
+     },
+     {
+      "label": "Mar",
+      "value": "9"
+     }
+    ]
+   },
+   "reply": "",
+   "expect": {
+    "kind": "bar",
+    "labels": [
+     "Jan",
+     "Feb",
+     "Mar"
+    ],
+    "values": [
+     10,
+     12,
+     9
+    ]
+   },
+   "note": ""
+  },
+  {
+   "id": "graph-it-followup",
+   "prompt": "graph it",
+   "earlier": [
+    [
+     "user",
+     "My exam marks: math 85, physics 78, chemistry 92"
+    ],
+    [
+     "assistant",
+     "Nice marks! Want a chart of them?"
+    ]
+   ],
+   "reading": {
+    "kind": "bar",
+    "points": [
+     {
+      "label": "math",
+      "value": "85"
+     },
+     {
+      "label": "physics",
+      "value": "78"
+     },
+     {
+      "label": "chemistry",
+      "value": "92"
+     }
+    ]
+   },
+   "reply": "",
+   "expect": {
+    "kind": "bar",
+    "labels": [
+     "math",
+     "physics",
+     "chemistry"
+    ],
+    "values": [
+     85,
+     78,
+     92
+    ]
+   },
+   "note": ""
+  },
+  {
+   "id": "pie-after-bar",
+   "prompt": "now make it a pie chart",
+   "earlier": [
+    [
+     "user",
+     "Bar chart of my spending: rent 1200, food 400, transport 150"
+    ],
+    [
+     "assistant",
+     "Here it is."
+    ]
+   ],
+   "reading": {
+    "kind": "pie",
+    "points": [
+     {
+      "label": "rent",
+      "value": "1200"
+     },
+     {
+      "label": "food",
+      "value": "400"
+     },
+     {
+      "label": "transport",
+      "value": "150"
+     }
+    ]
+   },
+   "reply": "",
+   "expect": {
+    "kind": "pie",
+    "labels": [
+     "rent",
+     "food",
+     "transport"
+    ],
+    "values": [
+     1200,
+     400,
+     150
+    ]
+   },
+   "note": ""
+  },
+  {
+   "id": "bar-year-labels",
+   "prompt": "Make a bar graph of sales: 2021 120, 2022 135, 2023 150",
+   "earlier": [],
+   "reading": {
+    "kind": "bar",
+    "points": [
+     {
+      "label": "2021",
+      "value": "120"
+     },
+     {
+      "label": "2022",
+      "value": "135"
+     },
+     {
+      "label": "2023",
+      "value": "150"
+     }
+    ]
+   },
+   "reply": "",
+   "expect": {
+    "kind": "bar",
+    "labels": [
+     "2021",
+     "2022",
+     "2023"
+    ],
+    "values": [
+     120,
+     135,
+     150
+    ]
+   },
+   "note": ""
+  },
+  {
+   "id": "bar-thousands",
+   "prompt": "Chart my steps: Monday 8000, Tuesday 6500, Wednesday 10,200",
+   "earlier": [],
+   "reading": {
+    "kind": "bar",
+    "points": [
+     {
+      "label": "Monday",
+      "value": "8000"
+     },
+     {
+      "label": "Tuesday",
+      "value": "6500"
+     },
+     {
+      "label": "Wednesday",
+      "value": "10,200"
+     }
+    ]
+   },
+   "reply": "",
+   "expect": {
+    "kind": "bar",
+    "labels": [
+     "Monday",
+     "Tuesday",
+     "Wednesday"
+    ],
+    "values": [
+     8000,
+     6500,
+     10200
+    ]
+   },
+   "note": ""
+  },
+  {
+   "id": "model-chart-replaced",
+   "prompt": "Make a bar chart of my spending: rent 1200, food 400, transport 150",
+   "earlier": [],
+   "reading": {
+    "kind": "bar",
+    "points": [
+     {
+      "label": "rent",
+      "value": "1200"
+     },
+     {
+      "label": "food",
+      "value": "400"
+     },
+     {
+      "label": "transport",
+      "value": "150"
+     }
+    ]
+   },
+   "reply": "Here is your spending:\n\n```chart\n{\"$schema\":\"https://vega.github.io/schema/vega-lite/v5.json\",\"data\":{\"values\":[{\"item\":\"rent\",\"amount\":1300},{\"item\":\"food\",\"amount\":400}]},\"mark\":\"bar\",\"encoding\":{\"x\":{\"field\":\"amount\",\"type\":\"quantitative\"},\"y\":{\"field\":\"item\",\"type\":\"nominal\",\"sort\":null}}}\n```\n\nRent is your biggest cost.",
+   "expect": {
+    "kind": "bar",
+    "labels": [
+     "rent",
+     "food",
+     "transport"
+    ],
+    "values": [
+     1200,
+     400,
+     150
+    ]
+   },
+   "note": "the model's chart (rent 1300, transport missing) gives way to the server's"
+  },
+  {
+   "id": "model-chart-checked-when-no-read",
+   "prompt": "Make a bar chart of my spending: rent 1200, food 400, transport 150",
+   "earlier": [],
+   "reading": null,
+   "reply": "```chart\n{\"data\":{\"values\":[{\"item\":\"rent\",\"amount\":1200},{\"item\":\"food\",\"amount\":400},{\"item\":\"transport\",\"amount\":150}]},\"mark\":\"bar\",\"encoding\":{\"x\":{\"field\":\"amount\",\"type\":\"quantitative\"},\"y\":{\"field\":\"item\",\"type\":\"nominal\"}}}\n```",
+   "expect": {
+    "kind": "bar",
+    "labels": [
+     "rent",
+     "food",
+     "transport"
+    ],
+    "values": [
+     1200,
+     400,
+     150
+    ]
+   },
+   "note": "no read in time: the model's chart holds, so it is drawn from its checked numbers"
+  },
+  {
+   "id": "model-chart-wrong-when-no-read",
+   "prompt": "Make a bar chart of my spending: rent 1200, food 400, transport 150",
+   "earlier": [],
+   "reading": null,
+   "reply": "```chart\n{\"data\":{\"values\":[{\"item\":\"rent\",\"amount\":1200},{\"item\":\"food\",\"amount\":450},{\"item\":\"transport\",\"amount\":150}]},\"mark\":\"bar\",\"encoding\":{\"x\":{\"field\":\"amount\",\"type\":\"quantitative\"},\"y\":{\"field\":\"item\",\"type\":\"nominal\"}}}\n```",
+   "expect": null,
+   "note": "no read in time and the model's food is 450: no picture"
+  },
+  {
+   "id": "reading-invents-category",
+   "prompt": "Make a bar chart of my spending: rent 1200, food 400, transport 150",
+   "earlier": [],
+   "reading": {
+    "kind": "bar",
+    "points": [
+     {
+      "label": "rent",
+      "value": "1200"
+     },
+     {
+      "label": "food",
+      "value": "400"
+     },
+     {
+      "label": "transport",
+      "value": "150"
+     },
+     {
+      "label": "other",
+      "value": "100"
+     }
+    ]
+   },
+   "reply": "",
+   "expect": null,
+   "note": ""
+  },
+  {
+   "id": "reading-changes-value",
+   "prompt": "Make a bar chart of my spending: rent 1200, food 400, transport 150",
+   "earlier": [],
+   "reading": {
+    "kind": "bar",
+    "points": [
+     {
+      "label": "rent",
+      "value": "1200"
+     },
+     {
+      "label": "food",
+      "value": "450"
+     },
+     {
+      "label": "transport",
+      "value": "150"
+     }
+    ]
+   },
+   "reply": "",
+   "expect": null,
+   "note": ""
+  },
+  {
+   "id": "reading-adds-total",
+   "prompt": "Pie chart of my budget: rent 1200, food 400, transport 150",
+   "earlier": [],
+   "reading": {
+    "kind": "pie",
+    "points": [
+     {
+      "label": "rent",
+      "value": "1200"
+     },
+     {
+      "label": "food",
+      "value": "400"
+     },
+     {
+      "label": "transport",
+      "value": "150"
+     },
+     {
+      "label": "total",
+      "value": "1750"
+     }
+    ]
+   },
+   "reply": "",
+   "expect": null,
+   "note": ""
+  },
+  {
+   "id": "reading-swaps-values",
+   "prompt": "Line graph of my weight: Jan 70, Feb 69, Mar 68",
+   "earlier": [],
+   "reading": {
+    "kind": "line",
+    "points": [
+     {
+      "label": "Jan",
+      "value": "69"
+     },
+     {
+      "label": "Feb",
+      "value": "70"
+     },
+     {
+      "label": "Mar",
+      "value": "68"
+     }
+    ]
+   },
+   "reply": "",
+   "expect": null,
+   "note": ""
+  },
+  {
+   "id": "reading-wrong-side",
+   "prompt": "Draw a bar chart: 10 in Jan, 12 in Feb, 9 in Mar",
+   "earlier": [],
+   "reading": {
+    "kind": "bar",
+    "points": [
+     {
+      "label": "Jan",
+      "value": "12"
+     },
+     {
+      "label": "Feb",
+      "value": "9"
+     },
+     {
+      "label": "Mar",
+      "value": "10"
+     }
+    ]
+   },
+   "reply": "",
+   "expect": null,
+   "note": "each value is the number after the next label"
+  },
+  {
+   "id": "histogram-drops-value",
+   "prompt": "Make a histogram of these test scores: 55, 62, 68, 71, 75, 80, 82, 90",
+   "earlier": [],
+   "reading": {
+    "kind": "histogram",
+    "values": [
+     "55",
+     "62",
+     "68",
+     "71",
+     "75",
+     "80",
+     "82"
+    ]
+   },
+   "reply": "",
+   "expect": null,
+   "note": ""
+  },
+  {
+   "id": "histogram-adds-value",
+   "prompt": "Make a histogram of these test scores: 55, 62, 68, 71, 75, 80, 82, 90",
+   "earlier": [],
+   "reading": {
+    "kind": "histogram",
+    "values": [
+     "55",
+     "62",
+     "68",
+     "71",
+     "75",
+     "80",
+     "82",
+     "90",
+     "95"
+    ]
+   },
+   "reply": "",
+   "expect": null,
+   "note": ""
+  },
+  {
+   "id": "pie-negative",
+   "prompt": "Pie chart of my month: income 3000, spending -2500, savings 500",
+   "earlier": [],
+   "reading": {
+    "kind": "pie",
+    "points": [
+     {
+      "label": "income",
+      "value": "3000"
+     },
+     {
+      "label": "spending",
+      "value": "-2500"
+     },
+     {
+      "label": "savings",
+      "value": "500"
+     }
+    ]
+   },
+   "reply": "",
+   "expect": null,
+   "note": ""
+  },
+  {
+   "id": "reading-wrong-kind",
+   "prompt": "Make a bar chart of my spending: rent 1200, food 400, transport 150",
+   "earlier": [],
+   "reading": {
+    "kind": "pie",
+    "points": [
+     {
+      "label": "rent",
+      "value": "1200"
+     },
+     {
+      "label": "food",
+      "value": "400"
+     },
+     {
+      "label": "transport",
+      "value": "150"
+     }
+    ]
+   },
+   "reply": "",
+   "expect": null,
+   "note": "asked for bars, read as a pie"
+  },
+  {
+   "id": "value-not-next-to-label",
+   "prompt": "Bar chart: Jan (week 1) 10, Feb (week 5) 12, Mar (week 9) 9",
+   "earlier": [],
+   "reading": {
+    "kind": "bar",
+    "points": [
+     {
+      "label": "Jan",
+      "value": "10"
+     },
+     {
+      "label": "Feb",
+      "value": "12"
+     },
+     {
+      "label": "Mar",
+      "value": "9"
+     }
+    ]
+   },
+   "reply": "",
+   "expect": null,
+   "note": "a number stands between each label and its value"
+  },
+  {
+   "id": "reading-drops-category",
+   "prompt": "Pie chart of my budget: rent 1200, food 400, transport 150",
+   "earlier": [],
+   "reading": {
+    "kind": "pie",
+    "points": [
+     {
+      "label": "rent",
+      "value": "1200"
+     },
+     {
+      "label": "food",
+      "value": "400"
+     }
+    ]
+   },
+   "reply": "",
+   "expect": null,
+   "note": "two of three slices: the wrong proportions"
+  },
+  {
+   "id": "reading-wrong-order",
+   "prompt": "Line graph of my weight: Jan 70, Feb 69, Mar 68",
+   "earlier": [],
+   "reading": {
+    "kind": "line",
+    "points": [
+     {
+      "label": "Mar",
+      "value": "68"
+     },
+     {
+      "label": "Feb",
+      "value": "69"
+     },
+     {
+      "label": "Jan",
+      "value": "70"
+     }
+    ]
+   },
+   "reply": "",
+   "expect": null,
+   "note": "a line read backwards"
+  },
+  {
+   "id": "bar-year-in-title",
+   "prompt": "Make a bar chart of my 2024 spending: rent 1200, food 400, transport 150",
+   "earlier": [],
+   "reading": {
+    "kind": "bar",
+    "points": [
+     {
+      "label": "rent",
+      "value": "1200"
+     },
+     {
+      "label": "food",
+      "value": "400"
+     },
+     {
+      "label": "transport",
+      "value": "150"
+     }
+    ]
+   },
+   "reply": "",
+   "expect": {
+    "kind": "bar",
+    "labels": [
+     "rent",
+     "food",
+     "transport"
+    ],
+    "values": [
+     1200,
+     400,
+     150
+    ]
+   },
+   "note": "a year on its own is no value"
+  },
+  {
+   "id": "reading-skips-a-stray-number",
+   "prompt": "Bar chart of my spending (3 items): rent 1200, food 400, transport 150",
+   "earlier": [],
+   "reading": {
+    "kind": "bar",
+    "points": [
+     {
+      "label": "rent",
+      "value": "1200"
+     },
+     {
+      "label": "food",
+      "value": "400"
+     },
+     {
+      "label": "transport",
+      "value": "150"
+     }
+    ]
+   },
+   "reply": "",
+   "expect": null,
+   "note": "a number the reading leaves out: not read whole, so no chart"
+  },
+  {
+   "id": "model-temporal-line-replaced",
+   "prompt": "Line chart of my sales: Jan 10, Feb 12, Mar 9",
+   "earlier": [],
+   "reading": {
+    "kind": "line",
+    "points": [
+     {
+      "label": "Jan",
+      "value": "10"
+     },
+     {
+      "label": "Feb",
+      "value": "12"
+     },
+     {
+      "label": "Mar",
+      "value": "9"
+     }
+    ]
+   },
+   "reply": "```chart\n{\"data\":{\"values\":[{\"month\":\"2026-01\",\"sales\":15},{\"month\":\"2026-02\",\"sales\":11}]},\"mark\":\"line\",\"encoding\":{\"x\":{\"field\":\"month\",\"type\":\"temporal\"},\"y\":{\"field\":\"sales\",\"type\":\"quantitative\"}}}\n```",
+   "expect": {
+    "kind": "line",
+    "labels": [
+     "Jan",
+     "Feb",
+     "Mar"
+    ],
+    "values": [
+     10,
+     12,
+     9
+    ]
+   },
+   "note": "a temporal-x line gives way to the server's: never two charts"
+  },
+  {
+   "id": "model-temporal-line-unchecked-when-no-read",
+   "prompt": "Line chart of my sales: Jan 10, Feb 12, Mar 9",
+   "earlier": [],
+   "reading": null,
+   "reply": "```chart\n{\"data\":{\"values\":[{\"month\":\"2026-01\",\"sales\":15},{\"month\":\"2026-02\",\"sales\":11}]},\"mark\":\"line\",\"encoding\":{\"x\":{\"field\":\"month\",\"type\":\"temporal\"},\"y\":{\"field\":\"sales\",\"type\":\"quantitative\"}}}\n```",
+   "expect": null,
+   "note": "its months and numbers are not the user's: taken out"
+  },
+  {
+   "id": "model-chartjs-checked-when-no-read",
+   "prompt": "Line chart of my sales: Jan 10, Feb 12, Mar 9",
+   "earlier": [],
+   "reading": null,
+   "reply": "```chart\n{\"type\":\"line\",\"data\":{\"labels\":[\"Jan\",\"Feb\",\"Mar\"],\"datasets\":[{\"label\":\"Sales\",\"data\":[10,12,9]}]}}\n```",
+   "expect": {
+    "kind": "line",
+    "labels": [
+     "Jan",
+     "Feb",
+     "Mar"
+    ],
+    "values": [
+     10,
+     12,
+     9
+    ]
+   },
+   "note": "a Chart.js body is read and checked"
+  },
+  {
+   "id": "model-two-series-left-when-no-read",
+   "prompt": "Line chart of my sales: Jan 10, Feb 12, Mar 9",
+   "earlier": [],
+   "reading": null,
+   "reply": "```chart\n{\"type\":\"bar\",\"labels\":[\"Jan\",\"Feb\",\"Mar\"],\"series\":[{\"name\":\"a\",\"values\":[10,12,9]},{\"name\":\"b\",\"values\":[1,2,3]}]}\n```",
+   "expect": {
+    "kept": true
+   },
+   "note": "several series: not read here, so not judged and left as written"
+  },
+  {
+   "id": "model-two-series-gives-way-to-the-servers",
+   "prompt": "Line chart of my sales: Jan 10, Feb 12, Mar 9",
+   "earlier": [],
+   "reading": {
+    "kind": "line",
+    "points": [
+     {
+      "label": "Jan",
+      "value": "10"
+     },
+     {
+      "label": "Feb",
+      "value": "12"
+     },
+     {
+      "label": "Mar",
+      "value": "9"
+     }
+    ]
+   },
+   "reply": "```chart\n{\"type\":\"bar\",\"labels\":[\"Jan\",\"Feb\",\"Mar\"],\"series\":[{\"name\":\"a\",\"values\":[10,12,9]},{\"name\":\"b\",\"values\":[1,2,3]}]}\n```",
+   "expect": {
+    "kind": "line",
+    "labels": [
+     "Jan",
+     "Feb",
+     "Mar"
+    ],
+    "values": [
+     10,
+     12,
+     9
+    ]
+   },
+   "note": "with the server's chart in, there are never two"
+  },
+  {
+   "id": "model-numeric-year-line-checked",
+   "prompt": "Line graph of my savings: 2021 500, 2022 800, 2023 1,100",
+   "earlier": [],
+   "reading": null,
+   "reply": "```chart\n{\"data\":{\"values\":[{\"year\":2021,\"saved\":500},{\"year\":2022,\"saved\":800},{\"year\":2023,\"saved\":1100}]},\"mark\":\"line\",\"encoding\":{\"x\":{\"field\":\"year\",\"type\":\"quantitative\"},\"y\":{\"field\":\"saved\",\"type\":\"quantitative\"}}}\n```",
+   "expect": {
+    "kind": "line",
+    "labels": [
+     "2021",
+     "2022",
+     "2023"
+    ],
+    "values": [
+     500,
+     800,
+     1100
+    ]
+   },
+   "note": "a line's numeric x is its category"
+  },
+  {
+   "id": "lookalike-chemistry",
+   "prompt": "Our chemistry is off lately, any advice?",
+   "earlier": [],
+   "reading": null,
+   "reply": "",
+   "expect": null,
+   "note": "not a chart of the user's numbers"
+  },
+  {
+   "id": "lookalike-curve",
+   "prompt": "Plot y = 2x + 3",
+   "earlier": [],
+   "reading": null,
+   "reply": "",
+   "expect": null,
+   "note": "not a chart of the user's numbers"
+  },
+  {
+   "id": "lookalike-curve-line-graph",
+   "prompt": "Draw a line graph of y = x^2 from -3 to 3",
+   "earlier": [],
+   "reading": null,
+   "reply": "",
+   "expect": null,
+   "note": "not a chart of the user's numbers"
+  },
+  {
+   "id": "lookalike-public-facts",
+   "prompt": "Graph the population of Ethiopia over the last 10 years",
+   "earlier": [],
+   "reading": null,
+   "reply": "",
+   "expect": null,
+   "note": "not a chart of the user's numbers"
+  },
+  {
+   "id": "lookalike-code",
+   "prompt": "Write python code to plot my sales: Jan 10, Feb 12, Mar 9",
+   "earlier": [],
+   "reading": null,
+   "reply": "",
+   "expect": null,
+   "note": "not a chart of the user's numbers"
+  },
+  {
+   "id": "lookalike-movie-plot",
+   "prompt": "What's the plot of Inception?",
+   "earlier": [],
+   "reading": null,
+   "reply": "",
+   "expect": null,
+   "note": "not a chart of the user's numbers"
+  },
+  {
+   "id": "lookalike-org-chart",
+   "prompt": "Make an org chart for my team: CEO, CTO, 3 engineers",
+   "earlier": [],
+   "reading": null,
+   "reply": "",
+   "expect": null,
+   "note": "not a chart of the user's numbers"
+  },
+  {
+   "id": "lookalike-course",
+   "prompt": "Chart a course from Lisbon to Porto",
+   "earlier": [],
+   "reading": null,
+   "reply": "",
+   "expect": null,
+   "note": "not a chart of the user's numbers"
+  },
+  {
+   "id": "lookalike-sample",
+   "prompt": "Draw a pie chart of a sample budget",
+   "earlier": [],
+   "reading": null,
+   "reply": "",
+   "expect": null,
+   "note": "not a chart of the user's numbers"
+  },
+  {
+   "id": "lookalike-marks-no-ask",
+   "prompt": "I scored 85 in math and 78 in physics",
+   "earlier": [],
+   "reading": null,
+   "reply": "",
+   "expect": null,
+   "note": "not a chart of the user's numbers"
+  },
+  {
+   "id": "lookalike-no-numbers",
+   "prompt": "Make a bar chart",
+   "earlier": [],
+   "reading": null,
+   "reply": "",
+   "expect": null,
+   "note": "not a chart of the user's numbers"
+  },
+  {
+   "id": "lookalike-prices",
+   "prompt": "Compare iPhone 18 Pro and Pixel 11 prices in a chart",
+   "earlier": [],
+   "reading": null,
+   "reply": "",
+   "expect": null,
+   "note": "not a chart of the user's numbers"
+  },
+  {
+   "id": "lookalike-gantt",
+   "prompt": "Give me a Gantt chart for my project: design 2 weeks, build 6 weeks, test 2 weeks",
+   "earlier": [],
+   "reading": null,
+   "reply": "",
+   "expect": null,
+   "note": "not a chart of the user's numbers"
+  },
+  {
+   "id": "lookalike-chart-no-data",
+   "prompt": "Show my sales in a chart",
+   "earlier": [],
+   "reading": null,
+   "reply": "",
+   "expect": null,
+   "note": "not a chart of the user's numbers"
+  },
+  {
+   "id": "lookalike-scatter",
+   "prompt": "Make a scatter plot of hours vs score: (1, 50), (2, 55), (3, 61)",
+   "earlier": [],
+   "reading": null,
+   "reply": "",
+   "expect": null,
+   "note": "not a chart of the user's numbers"
+  },
+  {
+   "id": "lookalike-line-plot",
+   "prompt": "Make a line plot of these: 2, 3, 3, 4, 5, 5, 5",
+   "earlier": [],
+   "reading": null,
+   "reply": "",
+   "expect": null,
+   "note": "not a chart of the user's numbers"
+  },
+  {
+   "id": "lookalike-box-plot",
+   "prompt": "Make a box plot of these scores: 55, 62, 68, 71, 75, 80",
+   "earlier": [],
+   "reading": null,
+   "reply": "",
+   "expect": null,
+   "note": "not a chart of the user's numbers"
+  },
+  {
+   "id": "lookalike-flowchart",
+   "prompt": "Draw a flowchart for making tea",
+   "earlier": [],
+   "reading": null,
+   "reply": "",
+   "expect": null,
+   "note": "not a chart of the user's numbers"
+  },
+  {
+   "id": "lookalike-points",
+   "prompt": "Plot the points (1,2), (3,4) and (5,6)",
+   "earlier": [],
+   "reading": null,
+   "reply": "",
+   "expect": null,
+   "note": "not a chart of the user's numbers"
+  },
+  {
+   "id": "lookalike-graph-it-curve",
+   "prompt": "graph it",
+   "earlier": [
+    [
+     "user",
+     "y = 2x + 3"
+    ],
+    [
+     "assistant",
+     "That's a line with slope 2."
+    ]
+   ],
+   "reading": null,
+   "reply": "",
+   "expect": null,
+   "note": "not a chart of the user's numbers"
+  }
+ ]
+}
