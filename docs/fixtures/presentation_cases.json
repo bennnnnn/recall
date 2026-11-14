@@ -1254,6 +1254,108 @@
       "area": "calculation",
       "input": "v = u + at = 0 + 2(3) = 6",
       "expected": "$v = u + at$  \n$v = 0 + 2(3)$  \n$v = 6$"
+    },
+    {
+      "id": "semicolon-decimal-commas",
+      "area": "calculation",
+      "input": "$h = 0,5; T = 0,25(0 + 7) = 1,75$",
+      "expected": "$h = 0,5$  \n$T = 0,25(0 + 7)$  \n$T = 1,75$"
+    },
+    {
+      "id": "semicolon-decimal-commas-cdot",
+      "area": "calculation",
+      "input": "$m = 0,5; F = m \\cdot g = 0,5 \\cdot 9,8 = 4,9$",
+      "expected": "$m = 0,5$  \n$F = m \\cdot g$  \n$F = 0,5 \\cdot 9,8$  \n$F = 4,9$"
+    },
+    {
+      "id": "semicolon-decimal-commas-plain",
+      "area": "calculation",
+      "input": "a = 2,5; b = 2a = 5",
+      "expected": "$a = 2,5$  \n$b = 2a$  \n$b = 5$"
+    },
+    {
+      "id": "word-joins-before-digit",
+      "area": "calculation",
+      "input": "a = 3 so 2a = 2 × 3 = 6",
+      "expected": "a = 3 so 2a = 2 × 3 = 6"
+    },
+    {
+      "id": "word-joins-piece-before-digit",
+      "area": "calculation",
+      "input": "a = 3, so 2a = 2 × 3 = 6",
+      "expected": "a = 3, so 2a = 2 × 3 = 6"
+    },
+    {
+      "id": "word-joins-other-language-digit",
+      "area": "calculation",
+      "input": "x = 2 donc 2x = 4 + 0 = 4",
+      "expected": "x = 2 donc 2x = 4 + 0 = 4"
+    },
+    {
+      "id": "word-joins-amharic",
+      "area": "calculation",
+      "input": "$x = 2 ስለዚህ y = 3 + 1 = 4$",
+      "expected": "$x = 2 ስለዚህ y = 3 + 1 = 4$"
+    },
+    {
+      "id": "word-joins-chinese",
+      "area": "calculation",
+      "input": "$x = 2 所以 y = 3 + 1 = 4$",
+      "expected": "$x = 2 所以 y = 3 + 1 = 4$"
+    },
+    {
+      "id": "arrow-mark-ends-statement",
+      "area": "calculation",
+      "input": "$x = 2 ⇒ y = 3 + 1 = 4$",
+      "expected": "$x = 2 ⇒ y = 3 + 1 = 4$"
+    },
+    {
+      "id": "therefore-mark-ends-statement",
+      "area": "calculation",
+      "input": "$x = 2 ∴ y = 3 + 1 = 4$",
+      "expected": "$x = 2 ∴ y = 3 + 1 = 4$"
+    },
+    {
+      "id": "therefore-command-ends-statement",
+      "area": "calculation",
+      "input": "$x = 2 \\therefore y = 3 + 1 = 4$",
+      "expected": "$x = 2 \\therefore y = 3 + 1 = 4$"
+    },
+    {
+      "id": "text-semicolon-ends-statement",
+      "area": "calculation",
+      "input": "$h = 0.5 \\text{; } T = 0.25(7) = 1.75$",
+      "expected": "$h = 0.5 \\text{; } T = 0.25(7) = 1.75$"
+    },
+    {
+      "id": "text-word-joins",
+      "area": "calculation",
+      "input": "$x = 2 \\text{ so } y = 3 + 1 = 4$",
+      "expected": "$x = 2 \\text{ so } y = 3 + 1 = 4$"
+    },
+    {
+      "id": "line-break-ends-statement",
+      "area": "calculation",
+      "input": "$a = 1 \\\\ b = 2 + 3 = 5$",
+      "expected": "$a = 1 \\\\ b = 2 + 3 = 5$"
+    },
+    {
+      "id": "modifier-letters-are-symbols",
+      "area": "calculation",
+      "input": "$Σ xᵢ yᵢ = 2·3 + 4·5 = 26$",
+      "expected": "$Σ xᵢ yᵢ = 2·3 + 4·5$  \n$Σ xᵢ yᵢ = 26$"
+    },
+    {
+      "id": "sqrt-is-no-word",
+      "area": "calculation",
+      "input": "$y = sqrt x = 3$",
+      "expected": "$y = sqrt x$  \n$y = 3$"
+    },
+    {
+      "id": "semicolon-in-brackets-is-maths",
+      "area": "calculation",
+      "input": "$f(x; θ) = 2θ = 4$",
+      "expected": "$f(x; θ) = 2θ$  \n$f(x; θ) = 4$"
     }
   ]
 }

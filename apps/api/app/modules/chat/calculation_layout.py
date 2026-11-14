@@ -11,6 +11,7 @@ from __future__ import annotations
 import re
 
 from app.modules.chat.calculation_layout_tail import (
+    CHAIN_STOP_COMMANDS,
     CHAIN_STOP_WORDS,
     continues_sentence,
     converts_units,
@@ -32,20 +33,6 @@ from app.services.md_fence_scan import read_fence_marker
 _MATH_FENCE_LANGS = {"math", "latex", "tex", "equation"}
 _TEXT_COMMANDS = {"text", "mathrm", "mathbf", "textrm", "operatorname", "textbf", "mbox"}
 _NUMERIC_COMMANDS = {"times", "cdot", "div", "left", "right", "pm", "mp", "cdotp", "quad", "qquad"}
-# A gap that names a new relationship is one step, not another value of the first side.
-_CHAIN_STOP_COMMANDS = {
-    "rightarrow",
-    "leftarrow",
-    "Rightarrow",
-    "Leftarrow",
-    "to",
-    "implies",
-    "iff",
-    "Leftrightarrow",
-    "mapsto",
-    "quad",
-    "qquad",
-}
 _TRAILING_PUNCT = set(".,;:!?")
 
 
@@ -54,7 +41,13 @@ def split_math_expression(expr: str) -> list[str] | None:
     body = expr.strip()
     if not body or r"\begin{" in body or "&" in body:
         return None
-    pieces = _independent_pieces(body)
+    # A top-level ";" ends a statement: never one chain across it, and beside decimal commas
+    # ("h = 0,5; T = 0,25(7) = 1,75") a comma is no break.
+    pieces = _independent_pieces(body, ";")
+    if pieces is None and any(body[tok[1]] == ";" for tok in _tokenize(body) if tok[0] == "break"):
+        return None
+    if pieces is None:
+        pieces = _independent_pieces(body)
     if pieces is not None:
         # "w = 6, so A = 9 * 6 = 54": a piece that a word joins on stays the writer's sentence;
         # set as maths it made "so" an italic product and the row "so A = 54".
@@ -155,8 +148,12 @@ def _has_top_equals(expr: str) -> bool:
     return any(kind == "equals" and top for kind, _start, _end, top in _tokenize(expr))
 
 
-def _independent_pieces(expr: str) -> list[str] | None:
-    breaks = [tok for tok in _tokenize(expr) if tok[0] == "break" and tok[3]]
+def _independent_pieces(expr: str, only: str = "") -> list[str] | None:
+    breaks = [
+        tok
+        for tok in _tokenize(expr)
+        if tok[0] == "break" and tok[3] and (not only or expr[tok[1]] == only)
+    ]
     if not breaks:
         return None
     pieces: list[str] = []
@@ -215,7 +212,7 @@ def _segment_blocks_chain(segment: str) -> bool:
     while index < length:
         if segment[index] == "\\":
             name, end = _command_end(segment, index)
-            if name in _CHAIN_STOP_COMMANDS:
+            if name in CHAIN_STOP_COMMANDS:
                 return True
             index = end
             continue

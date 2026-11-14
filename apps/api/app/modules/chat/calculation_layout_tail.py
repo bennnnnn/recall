@@ -4,6 +4,7 @@ hard break (twin: calculationLayoutTail.ts)."""
 from __future__ import annotations
 
 import re
+import unicodedata
 
 
 def finish_inline(parts: list[str], tail: str) -> str:
@@ -91,11 +92,22 @@ def _has_unit(segment: str) -> bool:
 
 
 CHAIN_STOP_WORDS = {"or", "and"}
+# A gap that names a new relationship is one step, not another value of the first side.
+CHAIN_STOP_COMMANDS = {
+    "rightarrow", "leftarrow", "Rightarrow", "Leftarrow", "Longrightarrow", "longrightarrow",
+    "to", "implies", "iff", "Leftrightarrow", "mapsto", "quad", "qquad", "therefore", "because",
+    "\\",
+}  # fmt: skip
+# The same written as marks: "x = 2 ⇒ y = 4", "∴ y = 4".
+_STOP_MARKS = set("⇒⟹→⟶⇔↔∴∵")
+# Commands whose braces hold words ("\\text{ so }"): read as the sentence they are.
+_TEXT_COMMANDS = {"text", "textrm", "textit", "textbf", "mathrm", "mbox"}
 # Names a formula writes as a word before its argument ("ln x", "lim x"): no prose between two
 # statements.
 _FUNCTION_WORDS = {
     "sin", "cos", "tan", "sec", "csc", "cot", "sinh", "cosh", "tanh", "arcsin", "arccos",
     "arctan", "ln", "log", "exp", "lim", "max", "min", "det", "gcd", "lcm", "mod", "arg",
+    "sqrt", "abs",
 }  # fmt: skip
 
 
@@ -107,9 +119,11 @@ def joined_by_words(segments: list[str]) -> bool:
 
 
 def _word_then_term(segment: str) -> bool:
-    """A word of two letters or more (a capital only first: "So"), outside brackets, standing
-    alone and followed by a space and another term. A product of symbols ("ma", "mgh") is
-    followed by an operator or nothing; a function's name ("ln x") is no word."""
+    """A word outside brackets, standing alone and followed by a space and another term (a
+    letter, a digit or a command): "so A", "so 2a", "donc T". A product of symbols ("ma", "at")
+    is followed by an operator or nothing; a function's name ("ln x") is no word. A stated
+    arrow or "therefore" mark, or a ";" written in text, ends a statement too."""
+    segment = _inline_text(segment)
     depth = 0
     index = 0
     length = len(segment)
@@ -128,6 +142,8 @@ def _word_then_term(segment: str) -> bool:
             depth += 1
         elif char in ")]}":
             depth = max(0, depth - 1)
+        elif not depth and (char in _STOP_MARKS or char == ";"):
+            return True
         if not char.isalpha():
             index += 1
             continue
@@ -139,7 +155,7 @@ def _word_then_term(segment: str) -> bool:
             continue
         if word.lower() in CHAIN_STOP_WORDS:
             return True
-        if len(word) < 2 or not word[1:].islower() or word.lower() in _FUNCTION_WORDS:
+        if not _is_word(word) or word.lower() in _FUNCTION_WORDS:
             continue
         after = index
         while after < length and segment[after] == " ":
@@ -147,10 +163,45 @@ def _word_then_term(segment: str) -> bool:
         if (
             after > index
             and after < length
-            and (segment[after].isalpha() or segment[after] == "\\")
+            and (segment[after].isalnum() or segment[after] == "\\")
         ):
             return True
     return False
+
+
+def _is_word(word: str) -> bool:
+    """Two letters or more, a capital only first ("So"). Letters without case are words
+    (ስለዚህ, 所以); a modifier letter (the ᵢ of xᵢ, the ⁿ of xⁿ) marks a symbol, never a word."""
+    return (
+        len(word) >= 2
+        and not any(char.isupper() for char in word[1:])
+        and not any(unicodedata.category(char) == "Lm" for char in word)
+    )
+
+
+def _inline_text(segment: str) -> str:
+    """The segment with each text command's braces written out, so the words inside it
+    ("\\text{ so } A") read as the sentence they are."""
+    out: list[str] = []
+    index = 0
+    length = len(segment)
+    while index < length:
+        if segment[index] != "\\":
+            out.append(segment[index])
+            index += 1
+            continue
+        end = index + 1
+        while end < length and segment[end].isalpha():
+            end += 1
+        close = segment.find("}", end) if segment.startswith("{", end) else -1
+        if segment[index + 1 : end] in _TEXT_COMMANDS and close > 0:
+            out.append(f" {segment[end + 1 : close]} ")
+            index = close + 1
+            continue
+        end = max(end, index + 2)
+        out.append(segment[index:end])
+        index = end
+    return "".join(out)
 
 
 def join_rows(rows: list[str], delim: str, punct: str = "") -> str:

@@ -5,6 +5,7 @@
  */
 
 import {
+  CHAIN_STOP_COMMANDS,
   CHAIN_STOP_WORDS,
   continuesSentence,
   convertsUnits,
@@ -39,19 +40,6 @@ const NUMERIC_COMMANDS = new Set([
   "pm",
   "mp",
   "cdotp",
-  "quad",
-  "qquad",
-]);
-const CHAIN_STOP_COMMANDS = new Set([
-  "rightarrow",
-  "leftarrow",
-  "Rightarrow",
-  "Leftarrow",
-  "to",
-  "implies",
-  "iff",
-  "Leftrightarrow",
-  "mapsto",
   "quad",
   "qquad",
 ]);
@@ -129,8 +117,10 @@ function hasTopEquals(expr: string): boolean {
   return tokenize(expr).some((tok) => tok.kind === "equals" && tok.top);
 }
 
-function independentPieces(expr: string): string[] | null {
-  const breaks = tokenize(expr).filter((tok) => tok.kind === "break" && tok.top);
+function independentPieces(expr: string, only = ""): string[] | null {
+  const breaks = tokenize(expr).filter(
+    (tok) => tok.kind === "break" && tok.top && (!only || expr[tok.start] === only),
+  );
   if (breaks.length === 0) return null;
   const pieces: string[] = [];
   let start = 0;
@@ -214,7 +204,11 @@ function equalsChain(expr: string): string[] | null {
 function splitMathExpression(expr: string): string[] | null {
   const body = expr.trim();
   if (!body || body.includes("\\begin{") || body.includes("&")) return null;
-  const pieces = independentPieces(body);
+  // A top-level ";" ends a statement: never one chain across it, and beside decimal commas
+  // ("h = 0,5; T = 0,25(7) = 1,75") a comma is no break.
+  let pieces = independentPieces(body, ";");
+  if (!pieces && tokenize(body).some((tok) => tok.kind === "break" && body[tok.start] === ";")) return null;
+  pieces ??= independentPieces(body);
   if (pieces) {
     // "w = 6, so A = 9 * 6 = 54": a piece that a word joins on stays the writer's sentence; set
     // as maths it made "so" an italic product and the row "so A = 54".

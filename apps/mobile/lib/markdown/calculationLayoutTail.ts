@@ -2,7 +2,7 @@
  * Whether a plain line is a chain to lay out, and how a laid-out line ends: its note and
  * its hard break (twin: calculation_layout_tail.py).
  */
-import { charAt, LETTER } from "@/lib/markdown/unicodeChars";
+import { ALNUM, charAt, LETTER } from "@/lib/markdown/unicodeChars";
 
 // A unit after a value ("km/h", "m/s²", "N.", "kg·m/s"): letter runs of three or fewer, so
 // "here" or "only" read as words.
@@ -84,6 +84,29 @@ export function convertsUnits(segments: string[]): boolean {
 }
 
 export const CHAIN_STOP_WORDS = new Set(["or", "and"]);
+// A gap that names a new relationship is one step, not another value of the first side.
+export const CHAIN_STOP_COMMANDS = new Set([
+  "rightarrow",
+  "leftarrow",
+  "Rightarrow",
+  "Leftarrow",
+  "Longrightarrow",
+  "longrightarrow",
+  "to",
+  "implies",
+  "iff",
+  "Leftrightarrow",
+  "mapsto",
+  "quad",
+  "qquad",
+  "therefore",
+  "because",
+  "\\",
+]);
+// The same written as marks: "x = 2 ⇒ y = 4", "∴ y = 4".
+const STOP_MARKS = new Set([..."⇒⟹→⟶⇔↔∴∵"]);
+// Commands whose braces hold words ("\\text{ so }"): read as the sentence they are.
+const TEXT_COMMANDS = new Set(["text", "textrm", "textit", "textbf", "mathrm", "mbox"]);
 // Names a formula writes as a word before its argument ("ln x", "lim x"): no prose between two
 // statements.
 const FUNCTION_WORDS = new Set([
@@ -110,6 +133,8 @@ const FUNCTION_WORDS = new Set([
   "lcm",
   "mod",
   "arg",
+  "sqrt",
+  "abs",
 ]);
 
 /**
@@ -121,18 +146,27 @@ export function joinedByWords(segments: string[]): boolean {
   return segments.slice(0, -1).some(wordThenTerm);
 }
 
-/** A word: two letters or more, a capital only first ("So"), and letters that have case. */
+/**
+ * Two letters or more, a capital only first ("So"). Letters without case are words (ስለዚህ,
+ * 所以); a modifier letter (the ᵢ of xᵢ, the ⁿ of xⁿ) marks a symbol, never a word.
+ */
 function isWord(word: string): boolean {
-  const rest = word.slice(charAt(word, 0).length);
-  return Array.from(word).length >= 2 && rest === rest.toLowerCase() && rest !== rest.toUpperCase();
+  const chars = Array.from(word);
+  return (
+    chars.length >= 2 &&
+    !chars.slice(1).some((char) => char !== char.toLowerCase()) &&
+    !chars.some((char) => /\p{Lm}/u.test(char))
+  );
 }
 
 /**
- * A word outside brackets, standing alone and followed by a space and another term. A product
- * of symbols ("ma", "mgh") is followed by an operator or nothing; a function's name ("ln x") is
- * no word.
+ * A word outside brackets, standing alone and followed by a space and another term (a letter,
+ * a digit or a command): "so A", "so 2a", "donc T". A product of symbols ("ma", "at") is
+ * followed by an operator or nothing; a function's name ("ln x") is no word. A stated arrow or
+ * "therefore" mark, or a ";" written in text, ends a statement too.
  */
-function wordThenTerm(segment: string): boolean {
+function wordThenTerm(raw: string): boolean {
+  const segment = inlineText(raw);
   let depth = 0;
   let index = 0;
   while (index < segment.length) {
@@ -147,6 +181,7 @@ function wordThenTerm(segment: string): boolean {
     }
     if ("([{".includes(char)) depth += 1;
     else if (")]}".includes(char)) depth = Math.max(0, depth - 1);
+    else if (depth === 0 && (STOP_MARKS.has(char) || char === ";")) return true;
     if (!LETTER.test(char)) {
       index += char.length;
       continue;
@@ -160,9 +195,37 @@ function wordThenTerm(segment: string): boolean {
     let after = index;
     while (segment[after] === " ") after += 1;
     const next = charAt(segment, after);
-    if (after > index && (LETTER.test(next) || next === "\\")) return true;
+    if (after > index && (ALNUM.test(next) || next === "\\")) return true;
   }
   return false;
+}
+
+/**
+ * The segment with each text command's braces written out, so the words inside it
+ * ("\\text{ so } A") read as the sentence they are.
+ */
+function inlineText(segment: string): string {
+  let out = "";
+  let index = 0;
+  while (index < segment.length) {
+    if (segment[index] !== "\\") {
+      out += segment[index];
+      index += 1;
+      continue;
+    }
+    let end = index + 1;
+    while (end < segment.length && LETTER.test(segment[end])) end += 1;
+    const close = segment.startsWith("{", end) ? segment.indexOf("}", end) : -1;
+    if (TEXT_COMMANDS.has(segment.slice(index + 1, end)) && close > 0) {
+      out += ` ${segment.slice(end + 1, close)} `;
+      index = close + 1;
+      continue;
+    }
+    end = Math.max(end, index + 2);
+    out += segment.slice(index, end);
+    index = end;
+  }
+  return out;
 }
 
 export function joinRows(rows: string[], delim: string, punct = ""): string {
