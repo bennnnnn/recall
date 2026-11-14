@@ -5,6 +5,7 @@ from app.content.legal import contact_markdown, markdown_to_html
 from app.core.config import Settings
 from app.core.deps import get_settings_dep
 from app.main import create_app
+from app.models.model_catalog import CATALOG, ChatModel, openrouter_slug
 
 _SUPPORT = "help@recall.example"
 
@@ -55,6 +56,33 @@ def test_privacy_policy_html() -> None:
 )
 def test_privacy_policy_names_each_processor_and_fact(named: str) -> None:
     assert named in _client().get("/legal/privacy").text
+
+
+# Each catalog model's maker (its OpenRouter slug's first part), as the policy names it.
+# The turn's read sends every message to Perplexity's Decider, and the policy did not say so
+# (2026-11-13): a model from a maker missing here fails until the policy names it too.
+_MAKERS = {
+    "anthropic": "Anthropic",
+    "openai": "OpenAI",
+    "deepseek": "DeepSeek",
+    "qwen": "Qwen",
+    "z-ai": "Z.ai",
+    "perplexity": "Perplexity",
+    "black-forest-labs": "Black Forest Labs",
+}
+
+
+@pytest.mark.parametrize("model", CATALOG, ids=lambda model: model.id)
+def test_privacy_policy_names_the_maker_of_every_model_the_app_calls(model: ChatModel) -> None:
+    maker = openrouter_slug(model.id).split("/", 1)[0]
+    assert maker in _MAKERS, f"{model.id}: name its maker {maker!r} here and in the policy"
+    assert _MAKERS[maker] in _client().get("/legal/privacy").text
+
+
+def test_privacy_policy_says_what_the_decider_reads() -> None:
+    page = _client().get("/legal/privacy").text
+    assert "Decider model" in page and "Perplexity, to decide how a message is handled" in page
+    assert "up to four earlier messages" in page
 
 
 def test_privacy_policy_says_where_a_scanned_photo_goes() -> None:
