@@ -26,6 +26,7 @@ import { type ScanRegion, viewRegionToImageRegion } from "@/lib/math/scannerRegi
 import type { ScannerSubject } from "@/lib/scanner/subjects";
 import { LIVE_READ_INTERVAL_MS, shouldReadFrame } from "@/features/scanner/model/frameThrottle";
 import { type LiveReadState, nextLiveRead } from "@/features/scanner/model/liveText";
+import { scanPhotoOptions } from "@/features/scanner/model/scanPhoto";
 
 export type LiveScannerDetection = {
   hasText: boolean;
@@ -184,11 +185,7 @@ export const LiveMathScannerCameraNative = forwardRef<LiveScannerCameraHandle, L
         async takePictureAsync() {
           if (!device || !active) return null;
           const photo = await photoOutput.capturePhotoToFile(
-            {
-              flashMode: "off",
-              enableShutterSound: true,
-              enableDistortionCorrection: device.supportsDistortionCorrection,
-            },
+            scanPhotoOptions(device.supportsDistortionCorrection),
             {},
           );
           return {
