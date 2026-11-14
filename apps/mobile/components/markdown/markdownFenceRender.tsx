@@ -17,7 +17,7 @@ import {
 import { copyBlockLabelKey, draftFenceProseText } from "@/lib/copyBlock";
 import i18n from "@/lib/i18n";
 import { parseFenceLang } from "@/lib/codeHighlight";
-import { fenceIdForLang, isNeverCodeBlockLang } from "@/lib/fence/registry";
+import { fenceIdForLang, isHeldWhileStreaming, isNeverCodeBlockLang } from "@/lib/fence/registry";
 import {
   classifyFence,
   looksLikeMathMeta,
@@ -64,6 +64,11 @@ function neverCodeBlockFallback(key: string, content: string) {
   return <NeverCodeBlockFallback key={key} content={content} />;
 }
 
+/** A server-owned card the model wrote mid-reply: nothing until the reply settles (`isHeldWhileStreaming`). */
+function HeldWhileStreaming({ children }: { children: ReactNode }) {
+  return useReplyStreaming() ? null : <>{children}</>;
+}
+
 /** A streaming reply is not yet the server's final text: its answer has no check until it settles. */
 function FenceAnswerBlock({ content }: { content: string }) {
   const streaming = useReplyStreaming();
@@ -103,6 +108,11 @@ function renderFenceInner(
 
   if (decision.kind === "rich" && decision.id) {
     const rich = renderRichFenceById(decision.id, lang, content, key, tokenIndex);
+    if (rich && isHeldWhileStreaming(decision.id)) {
+      // Under the card's own key, which stays the same as the reply streams.
+      const heldKey = isValidElement(rich) && rich.key != null ? rich.key : key;
+      return <HeldWhileStreaming key={heldKey}>{rich}</HeldWhileStreaming>;
+    }
     if (rich) return rich;
     // Its body did not read (an empty list, no quote): the text shows instead.
     reportFenceRefused(decision.id, refusalOf(content));
