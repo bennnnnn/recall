@@ -674,5 +674,33 @@
   "prompt": "I got 3 of them right on the test. Did I get them all right next time if I study?",
   "reply": "Studying the ones you missed is the best way to get them all next time.",
   "expect": "answer"
+ },
+ {
+  "id": "ml-091",
+  "area": "math lookalike",
+  "prompt": "why is Simpson's rule usually more accurate than the trapezoidal rule?",
+  "reply": "Simpson's rule fits a parabola through each pair of strips, so it matches curved graphs much better than the straight tops of the trapezoidal rule. Its error shrinks like $h^4$, the trapezoidal rule's like $h^2$, so halving the strip width cuts Simpson's error about sixteen times.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-092",
+  "area": "math lookalike",
+  "prompt": "what is Euler's method in simple words?",
+  "reply": "Euler's method follows a curve in small straight steps: from a known point, move a short distance $h$ along the slope the differential equation gives there, then repeat from the new point. Smaller steps follow the true curve more closely.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-093",
+  "area": "math lookalike",
+  "prompt": "Newton's method or bisection: which one converges faster?",
+  "reply": "Near a simple root, **Newton's method** converges much faster: the number of correct digits roughly doubles each step. Bisection only halves the interval each step, but it never fails once the root is bracketed.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-094",
+  "area": "math lookalike",
+  "prompt": "my garden bed is a trapezoid with parallel sides 3 m and 5 m and it's 2 m deep, how much soil covers it?",
+  "reply": "The bed's area is $\\frac{(3 + 5)}{2} \\times 2 = 8$ m². Multiply by the soil depth you want: at 0.2 m deep you need $8 \\times 0.2 = 1.6$ m³ of soil.",
+  "expect": "answer"
  }
 ]

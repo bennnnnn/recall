@@ -23,6 +23,11 @@ StatisticsOp = Literal[StatsOp, BivariateStatsOp]
 
 CombinatoricsOp = Literal["factorial", "combinations", "permutations"]
 
+# A numerical method a question names (``match/numerical_methods.py``): the rules of
+# integration, Newton's and Euler's methods, and ``unworked`` for one no solver here works.
+WorkedNumericRule = Literal["trapezoid", "midpoint", "simpson", "left", "right", "newton", "euler"]
+NumericRule = Literal[WorkedNumericRule, "unworked"]
+
 # What the number-theory solver computes; a two-congruence CRT is read and answered apart.
 NumberTheorySolveOp = Literal[
     "gcd", "lcm", "factorize", "is_prime", "mod", "mod_inverse", "totient"

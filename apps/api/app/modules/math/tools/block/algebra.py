@@ -398,6 +398,11 @@ def _verified_block_system(
 def _verified_block_numerical_method(
     intent: MathIntent, settings: Settings, lines: list[str]
 ) -> VerifiedMathBlock | None:
+    if intent.numeric_rule is not None:
+        # A named rule, or Newton for a named number of steps: worked as asked.
+        from app.modules.math.tools.block.approximation import approximation_block
+
+        return approximation_block(intent, settings)
     if not (intent.expr and intent.newton_guess is not None):
         return None
     newton_input = NewtonMethodInput(

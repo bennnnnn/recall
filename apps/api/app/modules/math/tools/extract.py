@@ -17,6 +17,7 @@ from app.modules.math.tools.extractors.algebra import (
     PRE_DISCRETE_ALGEBRA_EXTRACTORS,
     oversized_system,
 )
+from app.modules.math.tools.extractors.approximation import extract_approximation_intent
 from app.modules.math.tools.extractors.calculus import CALCULUS_EXTRACTORS
 from app.modules.math.tools.extractors.calculus_applications import CALCULUS_APPLICATION_EXTRACTORS
 from app.modules.math.tools.extractors.discrete_statistics import DISCRETE_STATISTICS_EXTRACTORS
@@ -48,6 +49,10 @@ from app.modules.math.tools.request_text import _split_response_instruction_sent
 from app.modules.math.tools.school import SCHOOL_EXTRACTORS
 
 _INTENT_EXTRACTORS: Sequence[Callable[[str], MathIntent | None]] = (
+    # First: a named numerical method decides the whole reading. "The trapezoidal rule with
+    # n = 4 … the integral of x^2 from 0 to 2" read as the integral was a checked 8/3 for
+    # T_4 = 2.75; the method is read whole here, or declined.
+    extract_approximation_intent,
     SOLID_EXTRACTOR,
     # Ahead of the school and algebra extractors. "area between y=x and y=x^2
     # from 0 to 1" reads as two simultaneous equations to the algebra side,

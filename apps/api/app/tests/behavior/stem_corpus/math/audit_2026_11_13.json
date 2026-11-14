@@ -20,5 +20,21 @@
   {"id": "au-real-solutions-quadratic", "area": "real domain", "prompt": "find the real solutions of x^2 + 2x + 5 = 0", "expect": "answer", "check": ["regex", "no real solution"]},
   {"id": "au-real-control-roots", "area": "real domain", "prompt": "find the real roots of x^2 - 4 = 0", "expect": "answer", "check": ["nums", ["2", "-2"]]},
   {"id": "au-real-control-cube", "area": "real domain", "prompt": "solve x^3 = 8 over the reals", "expect": "answer", "check": ["num", "2"]},
-  {"id": "au-real-control-complex-asked", "area": "real domain", "prompt": "find the complex roots of x^2+4=0", "expect": "answer", "check": ["regex", "2 ?i"]}
+  {"id": "au-real-control-complex-asked", "area": "real domain", "prompt": "find the complex roots of x^2+4=0", "expect": "answer", "check": ["regex", "2 ?i"]},
+  {"id": "au-num-trapezoid", "area": "numerical method", "prompt": "use the trapezoidal rule with n = 4 to approximate the integral of x^2 from 0 to 2", "expect": "answer", "check": ["num", "2.75"], "note": "was a checked 8/3, the exact integral, and a model's correct 2.75 was 'corrected' to it (2026-11-13 audit, MATH-01)"},
+  {"id": "au-num-midpoint", "area": "numerical method", "prompt": "use the midpoint rule with n = 2 to approximate the integral of x^2 from 0 to 2", "expect": "answer", "check": ["num", "2.5"]},
+  {"id": "au-num-simpson", "area": "numerical method", "prompt": "use Simpson's rule with n = 4 to approximate the integral of x^3 from 0 to 2", "expect": "answer", "check": ["num", "4"]},
+  {"id": "au-num-left", "area": "numerical method", "prompt": "approximate the integral of x^2 from 0 to 2 using a left Riemann sum with 4 subintervals", "expect": "answer", "check": ["num", "1.75"]},
+  {"id": "au-num-right", "area": "numerical method", "prompt": "approximate the integral of x^2 from 0 to 2 using a right Riemann sum with 4 subintervals", "expect": "answer", "check": ["num", "3.75"]},
+  {"id": "au-num-trapezium-ordinates", "area": "numerical method", "prompt": "Use the trapezium rule with 5 ordinates to estimate the integral of e^x from 0 to 1", "expect": "answer", "check": ["num", "1.727222"], "note": "5 ordinates bound 4 strips"},
+  {"id": "au-num-newton-one", "area": "numerical method", "prompt": "use one iteration of Newton's method on x^2 - 5 = 0 starting at x0 = 3", "expect": "answer", "check": ["num", "7/3"]},
+  {"id": "au-num-newton-iteration", "area": "numerical method", "prompt": "apply 1 Newton iteration to x^2 - 10 = 0 from x = 3", "expect": "answer", "check": ["num", "19/6"], "note": "was a checked root √10 ≈ 3.16228 (2026-11-13 verification, item 7)"},
+  {"id": "au-num-newton-x3", "area": "numerical method", "prompt": "Use Newton's method with x1 = 2 to find x3 for x^3 - 2x - 5 = 0", "expect": "answer", "check": ["num", "11761/5615"], "note": "x1 is the start, so x3 is two steps"},
+  {"id": "au-num-euler", "area": "numerical method", "prompt": "use Euler's method with h = 0.1 to approximate y(0.2) for y' = x + y, y(0) = 1", "expect": "answer", "check": ["num", "1.22"]},
+  {"id": "au-num-no-count", "area": "numerical method", "prompt": "use the trapezoidal rule to approximate the integral of x^2 from 0 to 2", "expect": "decline", "note": "no n: the rule cannot be worked, and 8/3 is not what was asked"},
+  {"id": "au-num-riemann-no-side", "area": "numerical method", "prompt": "approximate the integral of x^2 from 0 to 2 with a Riemann sum with 4 rectangles", "expect": "decline"},
+  {"id": "au-num-improved-euler", "area": "numerical method", "prompt": "use the improved Euler method with h = 0.1 for y' = y, y(0) = 1 to find y(0.2)", "expect": "decline"},
+  {"id": "au-num-newton-no-start", "area": "numerical method", "prompt": "do two Newton steps on x^3 - 2 = 0", "expect": "decline"},
+  {"id": "au-num-control-integral", "area": "numerical method", "prompt": "integrate x^2 from 0 to 2", "expect": "answer", "check": ["num", "8/3"]},
+  {"id": "au-num-control-newton-root", "area": "numerical method", "prompt": "use Newton's method to solve x^2 - 5 = 0 starting at 3", "expect": "answer", "check": ["num", "2.23607"]}
 ]
