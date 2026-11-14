@@ -29,9 +29,10 @@ _LITERAL = re.compile(
     re.IGNORECASE,
 )
 # A change of temperature, not a temperature: "ΔT = 2.5 °C", "rises by 5 K".
+# Each space run is read once (possessive): what follows it is a word, a mark or the end.
 _DIFFERENCE = re.compile(
-    r"(?:Δ\s*T|\bdelta\s*T|\bchange|\bris(?:e|es|en)|\braised|\bincreas\w*|\bdecreas\w*|"
-    r"\bdrops?|\bfalls?|\bby)\s*(?:of|is|=|:)?\s*(?:about\s+)?$",
+    r"(?:Δ\s*+T|\bdelta\s*+T|\bchange|\bris(?:e|es|en)|\braised|\bincreas\w*|\bdecreas\w*|"
+    r"\bdrops?|\bfalls?|\bby)\s*+(?:(?:of|is|=|:)\s*+)?(?:about\s++)?$",
     re.IGNORECASE,
 )
 _DIFFERENCE_WINDOW = 24

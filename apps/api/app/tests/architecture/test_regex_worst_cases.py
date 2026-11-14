@@ -23,6 +23,7 @@ import pytest
 from app.gateways import text_tool_calls
 from app.modules.chat import follow_up_repeats, reply_labels, reply_meta
 from app.modules.chemistry import request as chemistry_request
+from app.modules.chemistry import temperature as chemistry_temperature
 from app.modules.chemistry.extractors import (
     amounts,
     electrochemistry,
@@ -65,6 +66,10 @@ _CLOCK = "It's currently **Sunday, October 25, 2026, 6:15"
 _SOLUTE = "How many grams of KCl are needed to prepare 2.00 kg of a 3.00% by mass"
 
 _CASES: list[tuple[str, Callable[[], object]]] = [
+    (
+        "temperature difference",
+        lambda: chemistry_temperature._DIFFERENCE.search("δt" + _SPACES + "x"),
+    ),
     ("tool call key", lambda: text_tool_calls._ARGUMENT.findall("<arg_key>" + _SPACES)),
     ("answer heading", lambda: reply_labels._HEADING.match("answer" + _SPACES + "0")),
     ("value set", lambda: follow_up_repeats._SETS_A_VALUE.match(_SPACES)),

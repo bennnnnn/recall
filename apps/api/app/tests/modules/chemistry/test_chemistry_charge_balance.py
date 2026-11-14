@@ -103,3 +103,19 @@ def test_a_question_about_an_impossible_compound_declines(text: str) -> None:
 )
 def test_a_compound_that_exists_keeps_its_answer(text: str, answer: str) -> None:
     assert _answer(text) == answer
+
+
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        # A complex ion's formula comes without its charge ("AlF6" of AlF6^3-): it is no neutral
+        # compound to refuse (PR #2438 review).
+        ("Balance Al3+ + F- -> AlF6^3-", "Al3+ + 6 F- -> AlF6^3-"),
+        ("Balance Zn2+ + Cl- -> ZnCl4^2-", "Zn2+ + 4 Cl- -> ZnCl4^2-"),
+        ("Balance Fe3+ + SCN- -> FeSCN^2+", "Fe3+ + SCN- -> FeSCN^2+"),
+    ],
+)
+def test_a_complex_ion_in_an_equation_keeps_its_answer(text: str, answer: str) -> None:
+    intent = extract_chemistry_intent(text)
+    assert intent is not None
+    assert build_verified_chemistry(intent).result.answer == answer

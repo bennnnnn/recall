@@ -328,5 +328,10 @@ def _named_formulas(intent: ChemistryIntent) -> list[str]:
     named.extend(intent.species)
     reaction = parse_reaction(intent.equation) if intent.equation else None
     if reaction is not None:
-        named.extend(term.species.formula for term in (*reaction.reactants, *reaction.products))
+        # An ion's formula comes without its charge ("ZnCl4" of ZnCl4^2-): no neutral compound.
+        named.extend(
+            term.species.formula
+            for term in (*reaction.reactants, *reaction.products)
+            if term.species.charge == 0
+        )
     return named

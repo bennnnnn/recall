@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable
+from functools import lru_cache
 
 from app.modules.chemistry.elements import BY_SYMBOL, DIATOMIC_ELEMENTS
 from app.modules.chemistry.formula import parse_formula
@@ -58,6 +59,8 @@ def _readings(token: str, symbol: Callable[[str], bool] = _school_symbol) -> lis
     return readings
 
 
+# A message that repeats a token ("co2 " nine hundred times) reads it once.
+@lru_cache(maxsize=4096)
 def lowercase_formula(token: str) -> str | None:
     """ "co2" → "CO2": the one school substance a lowercase token with a digit can be."""
     if len(token) > MAX_LOWERCASE or not any(char.isdigit() for char in token):
@@ -72,6 +75,7 @@ def lowercase_formula(token: str) -> str | None:
     return substances.pop() if len(substances) == 1 else None
 
 
+@lru_cache(maxsize=4096)
 def lowercase_substance(token: str) -> str | None:
     """A lowercase token where a formula is expected: "h2o" by ``lowercase_formula``, and one
     with no digit ("hcl") only as the one substance every element reading of it agrees on."""
