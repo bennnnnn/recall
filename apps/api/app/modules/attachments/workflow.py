@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import presence_cache
 from app.core.config import Settings
+from app.core.log_text import log_safe
 from app.core.redis import get_redis_client
 from app.exceptions import DomainError
 from app.gateways.storage_gateway import (
@@ -329,7 +330,7 @@ async def get_file_access(
         except StorageUnavailableError:
             raise
         except Exception:
-            logger.exception("Thumbnail resize failed attachment_id=%s", attachment_id)
+            logger.exception("Thumbnail resize failed attachment_id=%s", log_safe(attachment_id))
             raise AttachmentWorkflowError("Could not resize image", status_code=422) from None
         if thumb is None:
             await _drop_row_for_missing_file(session, row.id)
@@ -341,7 +342,7 @@ async def get_file_access(
         if path is None:
             logger.warning(
                 "attachment blob missing on disk attachment_id=%s storage_key=%s",
-                attachment_id,
+                log_safe(attachment_id),
                 row.storage_key,
             )
             await _drop_row_for_missing_file(session, row.id)
@@ -370,7 +371,9 @@ async def get_download(
         try:
             indexed = await chunks_repo.has_chunks_for_attachment(session, user.id, attachment_id)
         except Exception:
-            logger.warning("attachment indexed probe failed id=%s", attachment_id, exc_info=True)
+            logger.warning(
+                "attachment indexed probe failed id=%s", log_safe(attachment_id), exc_info=True
+            )
             indexed = False
     return AttachmentOut(
         id=row.id,

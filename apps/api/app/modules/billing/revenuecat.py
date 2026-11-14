@@ -13,7 +13,9 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
+from app.core.log_text import log_safe
 from app.core.redis_lock import acquire_lock, release_lock
+from app.gateways import revenuecat_gateway
 from app.modules.billing import subscription as subscription_service
 from app.modules.billing.entitlements import PAID_PLANS
 from app.modules.notifications import enqueue_purchase_receipt
@@ -197,8 +199,8 @@ async def _recheck_plan(
     if plan is None:
         logger.warning(
             "RevenueCat %s deferred; subscriber fetch failed app_user_id=%s",
-            event_type,
-            app_user_id,
+            log_safe(event_type),
+            log_safe(app_user_id),
         )
         raise SubscriberFetchError(app_user_id)
     applied = await subscription_service.apply_plan_for_app_user_id(session, app_user_id, plan=plan)
@@ -245,7 +247,7 @@ async def _dispatch_event(
     ):
         logger.info(
             "RevenueCat CANCELLATION ignored until period end app_user_id=%s",
-            app_user_id,
+            log_safe(app_user_id),
         )
         return True
     if event_type not in _RECHECK_EVENTS and event_type != "CANCELLATION":
@@ -294,7 +296,7 @@ async def process_event(
     if should_ignore_sandbox(payload, settings):
         logger.info(
             "RevenueCat sandbox webhook ignored in %s environment",
-            settings.environment,
+            log_safe(settings.environment),
         )
         return
 
@@ -302,14 +304,21 @@ async def process_event(
     claimed = False
     if event_id:
         if await processed_check(redis, event_id):
-            logger.info("RevenueCat webhook replay ignored event_id=%s", event_id)
+            logger.info("RevenueCat webhook replay ignored event_id=%s", log_safe(event_id))
             return
         claimed = await event_claim(redis, event_id)
         if not claimed:
-            logger.info("RevenueCat webhook in-flight ignored event_id=%s", event_id)
+            logger.info("RevenueCat webhook in-flight ignored event_id=%s", log_safe(event_id))
             raise SubscriberBusyError(event_id)
 
     app_user_id = _app_user_id(payload)
+    if app_user_id and revenuecat_gateway.subscriber_id(app_user_id) is None:
+        # Not an id any subscriber of ours has (our user ids, RevenueCat's anonymous ones):
+        # RevenueCat is asked nothing about it, so the event is no one's, as with no id.
+        logger.info(
+            "RevenueCat webhook ignored; app_user_id=%s is none of ours", log_safe(app_user_id)
+        )
+        app_user_id = None
     if not app_user_id:
         if claimed and event_id:
             await redis.delete(_event_lock_key(event_id))
@@ -334,8 +343,8 @@ async def process_event(
         ):
             logger.info(
                 "RevenueCat stale event ignored type=%s app_user_id=%s event_ts=%s",
-                event_type,
-                app_user_id,
+                log_safe(event_type),
+                log_safe(app_user_id),
                 event_timestamp_ms,
             )
             if event_id:
