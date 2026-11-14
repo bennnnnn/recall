@@ -515,7 +515,7 @@ STATED_LAWS: dict[str, FormulaLaw] = {
             ),
             "c = ({solute_mass} / {molar_mass}) / {volume_l}",
         ),
-        # "5.85 g/L NaCl": a mass concentration is grams in each litre.
+        # "5.85 g/L NaCl": solute per litre, never a density (extractors/mass_concentration).
         _law(
             "molarity_from_mass_concentration",
             "solutions",

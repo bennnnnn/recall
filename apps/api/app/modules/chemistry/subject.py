@@ -223,8 +223,10 @@ class ChemistrySubject:
             return SubjectAugmentation(None, None, None)
         from app.modules.chemistry.context import build_chemistry_augmentation
         from app.modules.chemistry.parts import solve_chemistry_parts
+        from app.modules.chemistry.questions import MORE_QUESTIONS_NOTE, asks_more_questions
         from app.modules.chemistry.reading import chemistry_text_for_solve
         from app.modules.chemistry.reply_policy import attach_chemistry_fence_hint
+        from app.services.question_parts import ONE_PART_NOTE
 
         text = chemistry_text_for_solve(request.text)
         # A message of several questions, each verified on its own, is answered in parts.
@@ -234,6 +236,11 @@ class ChemistrySubject:
         block, verified, declined = await build_chemistry_augmentation(
             text, settings, redis=request.redis
         )
+        if block and verified is not None and ONE_PART_NOTE not in block:
+            # Read whole, the message's one result answers one of its questions: the model
+            # answers the rest (no instant reply does, ``direct``).
+            if asks_more_questions(text, verified.result.answer):
+                block = f"{block}\n{MORE_QUESTIONS_NOTE}"
         if block:
             block = attach_chemistry_fence_hint(block)
         return SubjectAugmentation(

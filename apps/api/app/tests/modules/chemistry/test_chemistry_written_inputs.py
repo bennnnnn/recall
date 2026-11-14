@@ -84,10 +84,43 @@ def test_a_lowercase_word_with_another_reading_is_not(token: str) -> None:
         # 5.85 / 58.44 = 0.1001 mol/L; 20 / 39.997 = 0.500 mol/L.
         ("What is the molarity of a solution with 5.85 g/L NaCl?", "c = 0.100 mol/L"),
         ("A solution contains 20 g/L of NaOH. What is its molarity?", "c = 0.50 mol/L"),
+        ("What is the molarity of NaCl at 5.85 g/L?", "c = 0.100 mol/L"),
     ],
 )
 def test_the_written_input_is_answered(text: str, answer: str) -> None:
     assert _answer(text) == answer
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # A density is the solution's mass per volume, solute and water together: never the
+        # solute's grams per litre. Each was verified as a molarity, up to 32.6 M (review
+        # 2026-11-13); main declined them all.
+        "The density of a NaCl solution is 1.07 g/mL. What is its molarity?",
+        "What is the molarity of an HCl solution with a density of 1.19 g/mL?",
+        "An H2SO4 solution has a density of 1.84 g/mL. What is the molarity?",
+        "A NaCl solution has a density of 1.07 g/cm3. Find the molarity.",
+        "Find the molarity of NaOH whose density is 1.5 g/L",
+        "What is the molarity of a solution with 1.84 g/mL density of H2SO4?",
+        # Grams per millilitre on a solution is its density, named or not.
+        "What is the molarity of a 1.19 g/mL HCl solution?",
+        # A density and a mass percent need a law of their own: no reading of either alone.
+        "Concentrated HCl is 37% HCl by mass with a density of 1.19 g/mL. What is the molarity?",
+        "The solution has 5.85 g/L NaCl and a density of 1.00 g/mL. What is the molarity?",
+        # Grams of "dissolved salts" are not one salt's.
+        "Seawater contains 35 g/L of dissolved salts. What is the molarity of NaCl?",
+    ],
+)
+def test_a_density_is_never_a_solute_concentration(text: str) -> None:
+    assert _answer(text) is None
+
+
+def test_a_gas_density_still_gives_its_molar_mass() -> None:
+    # M = dRT/P = 1.25 g/L * 0.082057 * 273.15 K / 1 atm = 28.0 g/mol.
+    assert _answer("A gas has a density of 1.25 g/L at STP. What is its molar mass?") == (
+        "M = 28.0 g/mol"
+    )
 
 
 def test_a_formula_opening_with_a_bracket_is_a_chemistry_question() -> None:

@@ -14,7 +14,11 @@ import pytest
 
 from app.modules.chemistry.direct import maybe_direct_chemistry_reply
 from app.modules.chemistry.parts import _read_parts
-from app.modules.chemistry.questions import asks_more_questions, chemistry_questions
+from app.modules.chemistry.questions import (
+    MORE_QUESTIONS_NOTE,
+    asks_more_questions,
+    chemistry_questions,
+)
 from app.tests.behavior.cases import Case, Expect
 from app.tests.behavior.harness import route_case
 
@@ -33,9 +37,15 @@ from app.tests.behavior.harness import route_case
                 "A solution has 0.010 M HCl. What is its pOH?",
             ],
         ),
-        # A question that asks nothing of chemistry is no part of it.
-        ("Can you help? What is the molar mass of H2O?", ["What is the molar mass of H2O?"]),
-        ("What is the molar mass of H2O? Why is that?", ["What is the molar mass of H2O?"]),
+        # Every question counts, chemistry's or not: none of them goes unanswered.
+        (
+            "Can you help? What is the molar mass of H2O?",
+            ["Can you help?", "What is the molar mass of H2O?"],
+        ),
+        (
+            "What is the molar mass of H2O? Why is that?",
+            ["What is the molar mass of H2O?", "Why is that?"],
+        ),
     ],
 )
 def test_the_questions_a_message_asks(text: str, asked: list[str]) -> None:
@@ -98,19 +108,36 @@ def test_a_message_whose_parts_do_not_all_verify_is_not_answered_in_parts(text: 
     assert solved is None
 
 
-def test_an_instant_reply_never_answers_fewer_questions_than_are_asked() -> None:
-    """The second question has no verified answer of its own: the model answers both."""
-    text = "What is the molar mass of H2O? How many moles of H2O are in 5 L of steam?"
+@pytest.mark.parametrize(
+    "text",
+    [
+        # The second question has no verified answer of its own.
+        "What is the molar mass of H2O? How many moles of H2O are in 5 L of steam?",
+        # A question that asks no law ("which one is heavier", "why") still asks something.
+        "What is the molar mass of CO2? What is the molar mass of H2O? Which one is heavier?",
+        # "it" is NaCl or KCl: the third question names no one substance.
+        "What is the molar mass of NaCl? What is the molar mass of KCl? "
+        "How many moles are in 10 g of it?",
+        "What is the molar mass of H2O? Why is that?",
+        "What is the pH of 0.010 M HCl? Is it acidic?",
+    ],
+)
+@pytest.mark.asyncio
+async def test_an_instant_reply_never_answers_fewer_questions_than_are_asked(text: str) -> None:
+    """The model writes the reply, the verified result carded, and is told to answer every
+    question."""
     _questions, solved = _read_parts(text)
     assert solved is None
-    assert asks_more_questions(text, "M(H2O) = 18.02 g/mol")
+    route = await route_case(Case("parts", "chemistry", text, Expect(), ""))
+    assert route.solved and not route.instant_text
+    assert MORE_QUESTIONS_NOTE in route.system_prompt
 
 
 def test_one_question_keeps_its_instant_reply() -> None:
     from app.modules.chemistry.block import build_verified_chemistry
     from app.modules.chemistry.extract import extract_chemistry_intent
 
-    text = "Can you help? What is the molar mass of H2O?"
+    text = "Please help. What is the molar mass of H2O?"
     intent = extract_chemistry_intent("What is the molar mass of H2O?")
     assert intent is not None
     verified = build_verified_chemistry(intent)

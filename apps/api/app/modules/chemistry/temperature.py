@@ -40,6 +40,8 @@ _LABELLED = re.compile(rf"(?<![A-Za-z0-9Δ])(?<!delta\s)(?-i:T)\s*=\s*(?={TEXT_N
 # A temperature named in words ("at body temperature", "at a higher temperature"). Room and
 # standard temperature are 25 °C, as the textbooks take them.
 _NAMED = re.compile(r"(?<!room\s)(?<!standard\s)(?<!ambient\s)\btemp(?:erature)?s?\b", re.I)
+# Two statements of one temperature, rounded differently: "25 °C (298 K)", "0 °C or 273 K".
+_SAME_TEMPERATURE_K = 0.5
 # The kinds whose solvers hold water at 25 °C (Kw = 1.0e-14, pKw = 14).
 _AT_25_C_KINDS = frozenset({"acid_base"})
 
@@ -66,13 +68,14 @@ def stated_temperature(text: str) -> float | bool | None:
     """The one temperature ``text`` states, in kelvin.
 
     None when it states none, so a law may take standard conditions; False when it states a
-    temperature that is not one value this reader can take (two different values, "T = 310"
-    with no unit, "at body temperature"), so the law declines rather than take 25 °C.
+    temperature that is not one value this reader can take (two values more than half a kelvin
+    apart, "T = 310" with no unit, "at body temperature"), so the law declines rather than take
+    25 °C. "25 °C (298 K)" is one temperature, the first written.
     """
     if any(_LITERAL.match(text, label.end()) is None for label in _LABELLED.finditer(text)):
         return False
     written = _written(text)
-    if len({round(value, 6) for value in written}) > 1:
+    if any(abs(value - written[0]) > _SAME_TEMPERATURE_K for value in written):
         return False
     if written:
         return written[0]
@@ -97,4 +100,4 @@ def holds_stated_temperature(text: str, intent: ChemistryIntent) -> bool:
         used = STANDARD_TEMPERATURE_K
     else:
         return True
-    return stated is not False and math.isclose(used, float(stated), abs_tol=0.5)
+    return stated is not False and math.isclose(used, float(stated), abs_tol=_SAME_TEMPERATURE_K)

@@ -77,8 +77,9 @@ chemistry. The mobile app renders the result; it does not solve chemistry on-dev
      - the molar mass of the metal deposited, and the charge of its ion (`Cu2+`);
      - 25 °C for a Nernst cell whose question states no temperature. Every law with a
        temperature reads the one stated, labelled or not (`temperature.py`: “T = 310 K”,
-       “at 350 K”, “at 25 °C”, “98.6 °F”); one named but not read (“at body temperature”,
-       two different values, “T = 310”) declines, never 25 °C. The acid–base solvers hold
+       “at 350 K”, “at 25 °C”, “98.6 °F”; “25 °C (298 K)” is one, within half a kelvin); one
+       named but not read (“at body temperature”, two different values, “T = 310”) declines,
+       never 25 °C. The acid–base solvers hold
        water at 25 °C (Kw = 1.0 × 10^-14), so a pH at another stated temperature declines;
    - each input is converted to the unit its solver reads, so the solver is the same one
      a template reaches.
@@ -273,7 +274,9 @@ Element lookup (including atomic number and configuration), molecular descriptor
 
 The galvanic table is the common school set Li, K, Ba, Ca, Na, Mg, Al, Mn, Zn, Cr, Fe, Cd, Co, Ni, Sn, Pb, H, Cu, Ag, Hg, and Au. Polyprotic pH uses the first dissociation only. An amphiprotic intermediate uses both pKa values when any stated concentration is high enough for that average, and `[A2-]` is `Ka2` only when that concentration is asked and it stays well below the acid. Rate-law fitting needs the two experiments to change one concentration. VSEPR refuses a chain or a second central atom (`H2O2`, acetic acid), a formula whose center is not determined (`HOCl`), transition metals, and a Lewis structure whose formal charges do not sum to the charge. A bent or pyramidal angle is 104.5° or 107° only for a second-period center with hydrogen terminals (water, ammonia); any other lone-pair shape is reported as less than the ideal angle, not as one invented measurement (H2S is about 92°, not 104.5°). Sulfuric acid is refused as a strong monoprotic acid. Oxidation states that the school rules do not decide, such as `FeS`, are refused. A compound that cannot exist is refused by every law that names it (`charge_balance.py`): two elements, one a metal of a single charge (groups 1 and 2, Al, Zn) and the other an anion whose charge per atom cannot cancel it (NaCl3, MgCl3, AlCl2). Chains of an anion's atoms count, so peroxides, superoxides, polyiodides and azides (Na2O2, KO2, KI3, NaN3) keep their answers, and covalent or variable-valence formulas (PCl5, SF6, Fe3O4, AgF2) are never refused here.
 
-A message that asks several things gets a verified part for each (`parts.py`): its labelled parts ("a) molar mass of NH3 b) moles in 34 g of NH3"), or its question sentences that ask chemistry, each read with the statements before it, and one that names no substance takes the one named before it ("(b) How many moles are in 34 g of it?"). When every part verifies to its own answer, the reply is the question in parts, a card under each (`services/worked_parts.answers_in_parts`, the layout physics' parts use); otherwise the message is read whole, and the direct reply never answers fewer questions than the message asks.
+A message that asks several things gets a verified part for each (`parts.py`): its labelled parts ("a) molar mass of NH3 b) moles in 34 g of NH3"), or its question sentences, each read with the statements before it, and one that names no substance takes the one named before it ("(b) How many moles are in 34 g of it?"). When every part verifies to its own answer, the reply is the question in parts, a card under each (`services/worked_parts.answers_in_parts`, the layout physics' parts use). Otherwise the message is read whole and the model writes the reply, told to answer every question: an instant reply never answers fewer questions than the message asks, chemistry's or not ("… Which one is heavier?").
+
+A molarity from a mass concentration (`c = ρ / M`, `extractors/mass_concentration.py`) reads only the named solute's grams per litre ("5.85 g/L NaCl", "NaCl at 5.85 g/L"). A density is the whole solution's mass per volume, never the solute's: a question that names a density, or writes g/mL or g/cm³, declines, and so do grams per litre of "dissolved salts" asked as one salt's molarity.
 
 ## Notation and numbers
 

@@ -34,8 +34,11 @@ def _nernst(standard: float, electrons: int, quotient: float, kelvin: float) -> 
         ("at 25 ° C", 298.15),
         ("at 37 degrees Celsius", 310.15),
         ("at 100 °F", (100 - 32) * 5 / 9 + 273.15),
-        # One temperature written twice is one temperature.
+        # One temperature written twice is one temperature, rounded or not: the first is read.
         ("at 25 °C (298.15 K)", 298.15),
+        ("at 25 °C (298 K)", 298.15),
+        ("at 0 °C, or 273 K", 273.15),
+        ("at 298 K (25 °C)", 298.0),
     ],
 )
 def test_a_stated_temperature_is_read_however_it_is_written(text: str, kelvin: float) -> None:
@@ -67,6 +70,8 @@ def test_no_temperature_is_stated(text: str) -> None:
         "at body temperature",
         "T = 310",
         "heated from 300 K to 350 K",
+        # Two kelvin apart is two temperatures, not one rounded.
+        "at 298 K and 300 K",
         "at a higher temperature",
     ],
 )
@@ -108,6 +113,11 @@ def _volts(answer: str | None) -> float:
         (
             "Find the cell potential of a Zn/Cu cell with [Zn2+] = 1.0 M and [Cu2+] = 0.010 M",
             _nernst(1.10, 2, 1.0 / 0.010, 298.15),
+        ),
+        # Answered on main, then declined as two temperatures (review 2026-11-13).
+        (
+            "E° = 1.10 V, n = 2, Q = 0.0100 at 25 °C (298 K). Use the Nernst equation to find E.",
+            _nernst(1.10, 2, 0.0100, 298.15),
         ),
     ],
 )

@@ -45,7 +45,13 @@ STATED_LAW_BINDINGS: tuple[ChemistryLaw, ...] = (
                 words=("atomic number",),
                 needs_words=True,
             ),
-            var("electron_count", "Ne", dimensionless=True, words=("electron",), needs_words=True),
+            var(
+                "electron_count",
+                "Ne",
+                dimensionless=True,
+                words=("electron",),
+                needs_words=True,
+            ),
         ),
         cues=("ion charge", "charge of the ion"),
         excludes=("oxidation",),
@@ -66,7 +72,13 @@ STATED_LAW_BINDINGS: tuple[ChemistryLaw, ...] = (
         "dimensionless",
         (
             var("bonding", "Nb", dimensionless=True, words=("bonding",), needs_words=True),
-            var("antibonding", "Na", dimensionless=True, words=("antibonding",), needs_words=True),
+            var(
+                "antibonding",
+                "Na",
+                dimensionless=True,
+                words=("antibonding",),
+                needs_words=True,
+            ),
         ),
         cues=("bond order",),
     ),
@@ -548,18 +560,6 @@ STATED_LAW_BINDINGS: tuple[ChemistryLaw, ...] = (
             var("solute_mass", "m", "gram"),
             var("molar_mass", "M", "gram / mole", fallback="species_molar_mass"),
             var("volume_l", "V", "liter"),
-        ),
-        species="solute",
-    ),
-    # "5.85 g/L NaCl": a mass concentration is grams in each litre.
-    _law(
-        "molarity_from_mass_concentration",
-        "solutions",
-        ("molarity",),
-        _MOLAR,
-        (
-            var("mass_concentration", "ρ", "gram / liter"),  # noqa: RUF001 -- the symbol is rho
-            var("molar_mass", "M", "gram / mole", fallback="species_molar_mass"),
         ),
         species="solute",
     ),

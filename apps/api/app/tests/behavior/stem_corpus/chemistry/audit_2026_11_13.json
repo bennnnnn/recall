@@ -485,5 +485,119 @@
   "prompt": "What are the SI base units of G?",
   "expect": "not_subject",
   "note": "audit ARCH-01 / PHYS-11: no formula, quantity or chemistry task"
+ },
+ {
+  "id": "ca13-d01",
+  "area": "molarity",
+  "prompt": "The density of a NaCl solution is 1.07 g/mL. What is its molarity?",
+  "expect": "decline",
+  "note": "review 2026-11-13: a solution's density (or another substance's grams per litre) is never the solute's mass concentration; verified up to 32.6 M before"
+ },
+ {
+  "id": "ca13-d02",
+  "area": "molarity",
+  "prompt": "What is the molarity of an HCl solution with a density of 1.19 g/mL?",
+  "expect": "decline",
+  "note": "review 2026-11-13: a solution's density (or another substance's grams per litre) is never the solute's mass concentration; verified up to 32.6 M before"
+ },
+ {
+  "id": "ca13-d03",
+  "area": "molarity",
+  "prompt": "An H2SO4 solution has a density of 1.84 g/mL. What is the molarity?",
+  "expect": "decline",
+  "note": "review 2026-11-13: a solution's density (or another substance's grams per litre) is never the solute's mass concentration; verified up to 32.6 M before"
+ },
+ {
+  "id": "ca13-d04",
+  "area": "molarity",
+  "prompt": "A NaCl solution has a density of 1.07 g/cm3. Find the molarity.",
+  "expect": "decline",
+  "note": "review 2026-11-13: a solution's density (or another substance's grams per litre) is never the solute's mass concentration; verified up to 32.6 M before"
+ },
+ {
+  "id": "ca13-d05",
+  "area": "molarity",
+  "prompt": "Find the molarity of NaOH whose density is 1.5 g/L",
+  "expect": "decline",
+  "note": "review 2026-11-13: a solution's density (or another substance's grams per litre) is never the solute's mass concentration; verified up to 32.6 M before"
+ },
+ {
+  "id": "ca13-d06",
+  "area": "molarity",
+  "prompt": "What is the molarity of a 1.19 g/mL HCl solution?",
+  "expect": "decline",
+  "note": "review 2026-11-13: a solution's density (or another substance's grams per litre) is never the solute's mass concentration; verified up to 32.6 M before"
+ },
+ {
+  "id": "ca13-d07",
+  "area": "molarity",
+  "prompt": "Seawater contains 35 g/L of dissolved salts. What is the molarity of NaCl?",
+  "expect": "decline",
+  "note": "review 2026-11-13: a solution's density (or another substance's grams per litre) is never the solute's mass concentration; verified up to 32.6 M before"
+ },
+ {
+  "id": "ca13-w09",
+  "area": "molarity",
+  "prompt": "What is the molarity of NaCl at 5.85 g/L?",
+  "expect": "answer",
+  "answers": [
+   [
+    0.1001,
+    "M"
+   ]
+  ],
+  "note": "5.85 / 58.44"
+ },
+ {
+  "id": "ca13-t10",
+  "area": "electrochem",
+  "prompt": "E° = 1.10 V, n = 2, Q = 0.0100 at 25 °C (298 K). Use the Nernst equation to find E.",
+  "expect": "answer",
+  "answers": [
+   [
+    1.1592,
+    "V"
+   ]
+  ],
+  "note": "review 2026-11-13: one temperature written twice; 1.10 - (R*298.15/(2F))*ln(0.0100)"
+ },
+ {
+  "id": "ca13-t11",
+  "area": "equilibrium_kc",
+  "prompt": "Kc = 0.500 at 0 °C (273 K) for N2 + 3H2 -> 2NH3. Find Kp.",
+  "expect": "answer",
+  "answers": [
+   [
+    0.0009953,
+    ""
+   ]
+  ],
+  "note": "Kp = Kc(RT)^-2, T = 273.15 K"
+ },
+ {
+  "id": "ca13-q01",
+  "area": "molar_mass",
+  "prompt": "What is the molar mass of CO2? What is the molar mass of H2O? Which one is heavier?",
+  "expect": "answer",
+  "answers": [
+   [
+    44.009,
+    "g/mol"
+   ]
+  ],
+  "note": "review 2026-11-13: three questions, the third no law answers: the model writes the reply, never an instant reply of two cards"
+ },
+ {
+  "id": "ca13-q02",
+  "area": "molar_mass",
+  "prompt": "What is the molar mass of NaCl? What is the molar mass of KCl? How many moles are in 10 g of it?",
+  "expect": "answer",
+  "answers": [
+   [
+    58.44,
+    "g/mol"
+   ]
+  ],
+  "note": "'it' is NaCl or KCl: the model asks or answers; no instant reply drops it"
  }
 ]
