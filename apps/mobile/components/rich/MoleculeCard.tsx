@@ -77,7 +77,7 @@ export function MoleculeCard({ content }: { content: string }) {
       {caption ? <MoleculeCaption text={caption} /> : null}
 
       <View style={active === "2d" ? undefined : s.hidden}>
-        <Chemistry2DView smiles={smiles} fence="molecule" />
+        <Chemistry2DView smiles={smiles} fence="molecule" name={caption} />
       </View>
       {geometry && (seen3d || active === "3d") ? (
         <View style={active === "3d" ? undefined : s.hidden}>

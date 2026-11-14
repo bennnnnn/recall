@@ -184,6 +184,10 @@ def _needs_non_web_tool(
     return False
 
 
+# Tools only the reply's own model call carries (``reply_calls.REPLY_TOOL``).
+_REPLY_ONLY = frozenset({"web_search"})
+
+
 def _tools_for_user(
     settings: Settings,
     user: User | None,
@@ -194,12 +198,15 @@ def _tools_for_user(
     """OpenAI tool payloads for this turn, less the ones it already spent.
 
     Image generation is offered only when it is on, in the user's plan, and
-    *user_text* (the user's own message) asks for a picture.
+    *user_text* (the user's own message) asks for a picture. ``web_search`` is never
+    offered here: a turn loops for unsolved maths, a photo or a picture, and whether it
+    searches is the turn's read's call, or the reply's (``reply_calls``). The round offered
+    it to every unsolved maths turn the read had not decided (MATH-11, 2026-11-13).
     """
     tools = [
         tool
         for tool in mcp_registry.build_openai_tools()
-        if (tool.get("function") or {}).get("name") not in skip_tools
+        if (tool.get("function") or {}).get("name") not in skip_tools | _REPLY_ONLY
     ]
     from app.modules.chat.turn_prep.reading import plan_of
 

@@ -16,10 +16,15 @@ at the input:
   point and a product of two numbers are not hydrate dots;
 - a lowercase ``ph`` beside its value is pH: "whats the ph of 0.10 M HCl", "ph = 3.2";
 - an ``=`` between two sides of formulas is the arrow of an equation to balance:
-  "Al + HCl = AlCl3 + H2, balance it".
+  "Al + HCl = AlCl3 + H2, balance it";
+- a formula typed in lowercase where an amount names its substance is that formula: "0.01 M
+  hcl" is 0.01 M HCl and "36 g of h2o" 36 g of H2O (``lowercase_formulas``:
+  "co", Co or CO, stays a word);
+- a decimal point after a whole number's trailing zeros only marks them significant: "500. mL"
+  is 500 mL, which the readers already count as three figures (``sig_figs``).
 
-It changes how a formula or a symbol is written, never a number or a word, and reading text
-it already read changes nothing.
+It changes how a formula, a symbol or a number is written, never a value or a word, and
+reading text it already read changes nothing.
 """
 
 from __future__ import annotations
@@ -28,6 +33,7 @@ import re
 
 from app.modules.chemistry.elements import BY_SYMBOL
 from app.modules.chemistry.formula import parse_formula
+from app.modules.chemistry.lowercase_formulas import lowercase_substance
 from app.services.glyphs import SUBSCRIPT_DIGITS, SUPERSCRIPT_SIGNED
 from app.services.latex_markup import without_markup
 from app.services.number_text import DECIMAL
@@ -74,6 +80,20 @@ _CONCENTRATION = (
 _PH_WORD = re.compile(
     r"(?<![A-Za-z0-9])(?:ph(?=\s*(?:=|is)\s*(?:1[0-4]|\d)(?:\.\d+)?(?![\d.]))"
     rf"|(?:ph|PH|Ph)(?=\s+of\s+{_CONCENTRATION}))(?![A-Za-z0-9])"
+)
+
+# Where an amount or a quantity of a substance names it: "0.01 M hcl", "36 g of h2o", "the
+# molar mass of nacl". A lowercase token there may be a formula; anywhere else it is a word.
+_FORMULA_SLOT = re.compile(
+    rf"(?:(?<![\d.]){DECIMAL}\s*(?:M|mM|mol/L|(?i:molar|mol|moles?|mmol|g|grams?|mg|kg))\s+(?i:of\s+)?"
+    r"|(?i:\b(?:molar\s+mass|formula\s+mass|molecular\s+(?:mass|weight)|moles|grams|mass)"
+    r"\s+of\s+(?:the\s+)?)|(?<![A-Za-z])p(?:H|OH)\s+of\s+)"
+    r"(?P<token>[a-z][a-z0-9()]{1,11})(?![A-Za-z0-9(])"
+)
+# "500. mL": a whole number's trailing zeros made significant by a decimal point, before a unit.
+_TRAILING_POINT = re.compile(
+    r"(?<![\w.])(\d*0)\.(?=\s+(?:mL|L|g|mg|kg|mol|mmol|M|mM|K|°\s*C|atm|kPa|Pa|torr|mmHg|bar|"
+    r"J|kJ|cal|kcal|cm|nm|V|mV|min)(?![A-Za-z]))"
 )
 
 # "Al + HCl = AlCl3 + H2": an "=" is the arrow only when the question asks to balance and
@@ -173,6 +193,19 @@ def _equals_arrow(text: str) -> str:
     return "".join(pieces)
 
 
+def _lowercase_formulas(text: str) -> str:
+    if not _FORMULA_SLOT.search(text):
+        return text
+
+    def write(match: re.Match[str]) -> str:
+        formula = lowercase_substance(match.group("token"))
+        if formula is None:
+            return match.group(0)
+        return match.group(0)[: match.start("token") - match.start()] + formula
+
+    return _FORMULA_SLOT.sub(write, text)
+
+
 def read_chemistry_text(text: str) -> str:
     """The student's text with formulas, charges, hydrate dots and pH written in ASCII.
 
@@ -185,4 +218,5 @@ def read_chemistry_text(text: str) -> str:
     text = _SUBSCRIPT_COUNT.sub(r"\1", spell_scripts(without_markup(text)))
     text = _hydrate_dots(text)
     text = _PH_WORD.sub("pH", text)
+    text = _TRAILING_POINT.sub(r"\1", _lowercase_formulas(text))
     return _equals_arrow(text)

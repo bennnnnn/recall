@@ -11,7 +11,7 @@ import re
 from functools import lru_cache
 
 from app.modules.chemistry.elements import BY_SYMBOL, ELEMENTS
-from app.modules.chemistry.formula import parse_formula
+from app.modules.chemistry.formula import LEADING_GROUP, parse_formula
 
 # Common names a school question uses for a compound.
 NAMED_COMPOUNDS: dict[str, str] = {
@@ -113,6 +113,19 @@ VAN_T_HOFF: dict[str, int] = {
     "AlCl3": 4,
     "FeCl3": 4,
 }
+# Every substance these tables name, by formula: a formula written in capitals alone ("HF") or
+# in lowercase ("hcl") is read as one only when it is one of these.
+KNOWN_SUBSTANCES = frozenset(
+    {
+        *NAMED_COMPOUNDS.values(),
+        *STRONG_ACIDS,
+        *STRONG_BASES,
+        *WEAK_ACIDS,
+        *WEAK_BASES,
+        *CONJUGATE_SALTS,
+        *VAN_T_HOFF,
+    }
+)
 
 # An element named in words: "zinc", "copper" (and the American aluminum).
 ELEMENT_NAMES: dict[str, str] = {
@@ -132,7 +145,8 @@ def element_symbol(token: str) -> str | None:
 # A formula as a question writes it: capitals, digits and brackets, nothing glued on.
 # A hydrate (CuSO4·5H2O, its dot written by ``input_text``) is one formula.
 _FORMULA_TOKEN = re.compile(
-    r"(?<![A-Za-z0-9])([A-Z][A-Za-z0-9()]*(?:\u00b7\d{0,2}[A-Z][A-Za-z0-9()]*)*)"
+    rf"(?<![A-Za-z0-9])({LEADING_GROUP}[A-Z][A-Za-z0-9()]*"
+    r"(?:\u00b7\d{0,2}[A-Z][A-Za-z0-9()]*)*)"
     r"(?![A-Za-z0-9(_\u00b7])"
 )
 # An ion written with its charge: "Cu2+", "Fe3+".

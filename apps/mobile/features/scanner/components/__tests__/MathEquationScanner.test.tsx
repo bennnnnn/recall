@@ -570,13 +570,15 @@ describe("MathEquationScanner", () => {
     expect(view.getByLabelText("chat.math_scan_frame_a11y")).toBeTruthy();
     expect(view.getByTestId("math-scanner-preview-retake")).toBeTruthy();
     expect(onCaptured).not.toHaveBeenCalled();
-    // The full-resolution capture is deleted once cropped.
-    expect(deletedFiles()).toEqual(["file:///shot.jpg"]);
+    // The full-resolution capture stays until Solve, which cuts the crop from it once.
+    expect(deletedFiles()).toEqual([]);
     await act(async () => {
       fireEvent.press(view.getByLabelText("chat.math_scan_solve"));
     });
-    // Solve sends the crop straight to the chat: no reading step in between.
-    expect(cropScanImage).toHaveBeenLastCalledWith("file:///cropped.jpg", expect.any(Function));
+    // Solve sends the crop straight to the chat: no reading step in between. It is cut from
+    // the camera's photo, not the crop screen's copy, so it is encoded once (SCAN-05).
+    expect(cropScanImage).toHaveBeenLastCalledWith("file:///shot.jpg", expect.any(Function), expect.any(Number));
+    expect(deletedFiles()).toContain("file:///shot.jpg");
     expect(onCaptured).toHaveBeenCalledTimes(1);
     expect(onCaptured).toHaveBeenCalledWith(
       expect.objectContaining({ localUri: "file:///cropped.jpg" }),
@@ -597,13 +599,20 @@ describe("MathEquationScanner", () => {
     await act(async () => {
       fireEvent.press(view.getByLabelText("chat.math_scan_solve"));
     });
-    const [, cropFor] = jest.mocked(cropScanImage).mock.calls.at(-1)!;
+    const [uri, cropFor, maxEdge] = jest.mocked(cropScanImage).mock.calls.at(-1)!;
+    // Cut from the camera's photo: what was aimed at, in its pixels, within rounding.
+    expect(uri).toBe("file:///shot.jpg");
+    const photo = MOCK_SIZES["file:///shot.jpg"]!;
+    const sent = cropFor(photo);
     const { width, height } = MOCK_SIZES["file:///cropped.jpg"]!;
-    const sent = cropFor({ width, height });
-    expect(sent.originX / width).toBeCloseTo(aim.x, 2);
-    expect(sent.originY / height).toBeCloseTo(aim.y, 2);
-    expect(sent.width / width).toBeCloseTo(aim.width, 2);
-    expect(sent.height / height).toBeCloseTo(aim.height, 2);
+    const scale = crop.width / width;
+    expect(Math.abs(sent.originX - (crop.originX + aim.x * crop.width))).toBeLessThanOrEqual(scale + 1);
+    expect(Math.abs(sent.originY - (crop.originY + aim.y * crop.height))).toBeLessThanOrEqual(scale + 1);
+    expect(Math.abs(sent.width - aim.width * crop.width)).toBeLessThanOrEqual(scale + 1);
+    expect(Math.abs(sent.height - aim.height * crop.height)).toBeLessThanOrEqual(scale + 1);
+    // Sent at the size cutting the crop screen's still gave: only the second encode goes.
+    const stillEdge = Math.min(SCAN_MAX_EDGE, Math.max(aim.width * width, aim.height * height));
+    expect(Math.abs(maxEdge! - stillEdge)).toBeLessThanOrEqual(1);
     shot.mockRestore();
   });
 

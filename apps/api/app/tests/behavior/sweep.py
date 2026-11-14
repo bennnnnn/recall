@@ -102,6 +102,10 @@ STEM_AREAS = {"math", "physics", "chemistry"}
 # A places ask the user's own location answers, whatever other capital it holds ("coffee
 # shops nearby, answer in Spanish"): the near-you list's hint is in the prompt.
 NEAR_USER_AREAS = {"places near user"}
+# The subject's name with nothing asked of it ("My chemistry teacher is mean", "Remind me to
+# study chemistry"), or an acronym beside a weak cue ("the SI base units of the newton"): no
+# chemistry status or prompt (audit 2026-11-13).
+NOT_CHEMISTRY_AREAS = {"chemistry word lookalike"}
 # Messages with separate requests, and look-alikes that are one request.
 MULTI_AREAS = {"multi"}
 SINGLE_PART_AREAS = {"multi lookalike"}
@@ -493,6 +497,8 @@ def judge(outcome: Outcome) -> list[str]:
         problems.append("split into separate requests")
     if entry.area in NEAR_USER_AREAS and "local_places" not in route.hints:
         problems.append("not read as places near the user")
+    if entry.area in NOT_CHEMISTRY_AREAS and route.subject == "chemistry":
+        problems.append("read as a chemistry question")
     return problems
 
 

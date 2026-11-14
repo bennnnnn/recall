@@ -11,11 +11,12 @@ import { CopyButton } from "@/components/CopyButton";
 import { MermaidFullScreen } from "@/components/rich/MermaidFullScreen";
 import { usePreviewPage } from "@/components/rich/usePreviewPage";
 import { useWebPreviewHeight } from "@/components/rich/useWebPreviewHeight";
+import { imageLabelProps } from "@/components/rich/imageLabel";
 import { VisualCard } from "@/components/rich/VisualCard";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { copyToClipboard } from "@/lib/clipboard";
 import { CODE_FACE } from "@/lib/fonts";
-import { mermaidTitleKey } from "@/lib/mermaid/kind";
+import { mermaidSpokenParts, mermaidTitleKey } from "@/lib/mermaid/kind";
 import { MERMAID_MIN_HEIGHT, MERMAID_PREVIEW_HEIGHT } from "@/lib/mermaid/previewHeight";
 import { MERMAID_PAGE, mermaidPreviewConfig } from "@/lib/mermaid/previewHtml";
 import { sanitizeMermaidNodeLabels } from "@/lib/mermaid/sanitize";
@@ -54,7 +55,7 @@ export function MermaidBlock({ content }: Props) {
     Boolean(WebView) && canRenderInline && preview.status === "ready",
   );
   const previewError = preview.status === "failed" ? t("rich.mermaid_error") : null;
-  const title = t(mermaidTitleKey(sanitized));
+  const { title, spoken } = useMermaidTitles(sanitized);
 
   return (
     <VisualCard
@@ -103,7 +104,7 @@ export function MermaidBlock({ content }: Props) {
         </View>
       ) : canRenderInline && WebView ? (
         canMount && preview.status === "ready" ? (
-          <View style={[s.webWrap, { height }]}>
+          <View style={[s.webWrap, { height }]} {...imageLabelProps(spoken)}>
             <WebView
               key={preview.webViewKey}
               {...preview.webViewProps}
@@ -133,6 +134,14 @@ export function MermaidBlock({ content }: Props) {
       )}
     </VisualCard>
   );
+}
+
+/** The card's title, and what a screen reader hears of the drawing (GFX-02): the title and the texts it names. */
+function useMermaidTitles(source: string): { title: string; spoken: string } {
+  const { t } = useTranslation();
+  const title = t(mermaidTitleKey(source));
+  const parts = useMemo(() => mermaidSpokenParts(source), [source]);
+  return { title, spoken: parts ? t("rich.mermaid_a11y", { kind: title, parts }) : title };
 }
 
 /** Copy, the card's height toggle, full screen, and the online editor. */

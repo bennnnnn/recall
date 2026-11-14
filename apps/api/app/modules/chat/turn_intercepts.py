@@ -6,7 +6,9 @@ the same words. Either one stores the reply itself and fills the turn's outcome.
 """
 
 import asyncio
+import functools
 import re
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
@@ -19,7 +21,7 @@ from app.modules.chat.figure_turn import read_asks_for_a_figure
 from app.modules.chat.referent_read import Referent, referent_for_turn
 from app.modules.chat.reply_language import line_language
 from app.modules.chat.stream_status import StreamStatusFn, StreamStatusPhase, clip_status_detail
-from app.modules.chat.turn_decision import TurnDecision
+from app.modules.chat.turn_decision import TurnDecision, drop_read
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import RegenerateBackup
@@ -345,6 +347,23 @@ def start_reply_picture(
     )
 
 
+def _ends_the_read[**P](fn: Callable[P, Awaitable[bool]]) -> Callable[P, Awaitable[bool]]:
+    """An intercept that answered the turn (True) stops its read: it has used what it needed
+    of it, and no reply call will ask (MODEL-06). Its two or three calls were billed on to
+    their own timeout."""
+
+    @functools.wraps(fn)
+    async def intercept(*args: P.args, **kwargs: P.kwargs) -> bool:
+        handled = await fn(*args, **kwargs)
+        read = kwargs.get("read")
+        if handled and isinstance(read, asyncio.Task):
+            drop_read(read)
+        return handled
+
+    return intercept
+
+
+@_ends_the_read
 async def intercept_new_turn(
     deps: ChatTurnDeps,
     settings: Settings,
@@ -424,6 +443,7 @@ def _image_regenerate_content(
     return f"Generate image: {content}"
 
 
+@_ends_the_read
 async def intercept_regenerate(
     deps: ChatTurnDeps,
     settings: Settings,

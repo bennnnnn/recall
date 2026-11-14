@@ -1,6 +1,8 @@
 import { deleteAsync } from "expo-file-system/legacy";
 import { ImageManipulator, type ImageRef, SaveFormat } from "expo-image-manipulator";
 
+import { regionToContainedImageCrop, type ScanRegion } from "@/lib/math/scannerRegion";
+
 /**
  * Longest edge of a scan crop sent to the reader. Mathpix and the vision
  * models read handwriting well at this size; a full-resolution crop only adds
@@ -19,6 +21,45 @@ export function scanResize(
 ): { width: number } | { height: number } | null {
   if (Math.max(size.width, size.height) <= maxEdge) return null;
   return size.width >= size.height ? { width: maxEdge } : { height: maxEdge };
+}
+
+/**
+ * Where a camera shot's cut came from: the photo as the camera saved it, and the cut's
+ * rectangle in it. Solve cuts the student's crop from this photo, so the photo sent is
+ * encoded once from the camera's, not again from the crop screen's copy (SCAN-05,
+ * 2026-11-13 STEM audit).
+ */
+export type ShotSource = { uri: string; cut: PixelCrop };
+
+/**
+ * A crop drawn on a shot's cut (`inCut`, in the pixels of the cut as saved, `cutSize`: smaller
+ * when it was downscaled), in the original photo's pixels, kept inside the photo (`photo`,
+ * its decoded size).
+ */
+export function cropInSource(
+  inCut: PixelCrop,
+  source: ShotSource,
+  cutSize: ImageSize,
+  photo: ImageSize,
+): PixelCrop {
+  const sx = source.cut.width / cutSize.width;
+  const sy = source.cut.height / cutSize.height;
+  const originX = Math.min(photo.width - 1, Math.max(0, Math.round(source.cut.originX + inCut.originX * sx)));
+  const originY = Math.min(photo.height - 1, Math.max(0, Math.round(source.cut.originY + inCut.originY * sy)));
+  return {
+    originX,
+    originY,
+    width: Math.max(1, Math.min(photo.width - originX, Math.round(inCut.width * sx))),
+    height: Math.max(1, Math.min(photo.height - originY, Math.round(inCut.height * sy))),
+  };
+}
+
+/**
+ * The long edge the crop is sent at: what cutting it from the crop screen's copy gave, so
+ * the photo's size does not change, only its second encode goes.
+ */
+export function sentEdge(inCut: PixelCrop, maxEdge = SCAN_MAX_EDGE): number {
+  return Math.min(maxEdge, Math.max(inCut.width, inCut.height));
 }
 
 function validSize(image: ImageRef): ImageSize {
@@ -70,6 +111,32 @@ export async function cropScanImage(
     source?.release();
     context.release();
   }
+}
+
+/**
+ * What Solve cuts: the frame drawn on the crop screen's still (`region` over the still's frame
+ * on screen), from the camera's photo when the still is a camera shot's cut, so the photo is
+ * encoded once, at the long edge cutting the still would have given (`maxEdge`); else from the
+ * still, as before.
+ */
+export function solveCut(
+  shot: ImageSize & { localUri: string; source?: ShotSource | null },
+  region: ScanRegion,
+  frame: ScanRegion,
+): { uri: string; cropFor: (size: ImageSize) => PixelCrop; maxEdge?: number } {
+  const source = shot.source;
+  if (!source) {
+    return {
+      uri: shot.localUri,
+      cropFor: (size) => regionToContainedImageCrop(region, frame, size.width, size.height),
+    };
+  }
+  const inCut = regionToContainedImageCrop(region, frame, shot.width, shot.height);
+  return {
+    uri: source.uri,
+    cropFor: (size) => cropInSource(inCut, source, shot, size),
+    maxEdge: sentEdge(inCut),
+  };
 }
 
 /** A copy of a scan no longer than `maxEdge` on its long side; the caller deletes it. */

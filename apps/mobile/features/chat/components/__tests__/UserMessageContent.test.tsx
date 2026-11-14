@@ -114,6 +114,27 @@ describe("UserMessageContent math/markdown rendering", () => {
     expect(readLine(toJSON() as Element).replace(/\s+/g, " ").trim()).toBe(drawn);
   });
 
+  // A grade 12 student's typed scripts (2026-11-13), and what the markdown already reads.
+  it.each([
+    ["Evaluate ∑_{k=1}^{10} (3k − 1)", "math-script"],
+    ["Find lim_{x→5⁺} f(x) and lim_{x→5⁻} f(x).", "math-script"],
+    ["Evaluate lim_{x→9} (√x − 3)/(x² − 81)", "math-frac"],
+    [String.raw`Solve \(x^{2} - 4 = 0\)`, "math-script"],
+    [String.raw`If \(a_{n} = 2n\), find \(a_{5}\).`, "math-script"],
+    [String.raw`\frac{1}{x^{2}}`, "math-frac"],
+    [String.raw`Solve \frac{x^{2}}{4} = 1`, "math-frac"],
+    ["Simplify x^{2}y^{3}", "math-script"],
+  ])("draws the typed maths in %s, never its source", async (typed, piece) => {
+    const { getAllByTestId, toJSON } = await render(<UserMessageContent message={userMessage(typed)} />);
+    expect(getAllByTestId(piece).length).toBeGreaterThan(0);
+    // Every string drawn, read without metrics (∑ is drawn by the system face).
+    const strings = (node: unknown): string =>
+      typeof node === "string" ? node
+        : Array.isArray(node) ? node.map(strings).join("")
+          : node && typeof node === "object" ? strings((node as { children?: unknown }).children ?? null) : "";
+    expect(strings(toJSON())).not.toMatch(/[$\\]|[_^]\{/);
+  });
+
   it("spaces a bare unspaced equation the user typed", async () => {
     const { getByText } = await render(
       <UserMessageContent message={userMessage("x=3")} />,
