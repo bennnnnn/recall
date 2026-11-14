@@ -162,37 +162,41 @@ def _two_radical_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeySte
 
 
 def fractional_power_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | None:
-    power, target = lhs, rhs
-    if not (getattr(power, "is_Pow", False) and power.base == var):
-        if getattr(rhs, "is_Pow", False) and rhs.base == var:
-            power, target = rhs, lhs
-        else:
-            return None
-    exponent = power.exp
-    if not (getattr(exponent, "is_Rational", False) and exponent.q != 1 and exponent.q % 2 == 1):
-        return None
-    from app.modules.math.solve.equations import _real_fractional_power_solutions
+    """An odd-index root set to a number, solved over the reals: ``(x - 1)^(1/3) = -2``."""
+    from app.modules.math.solve.equations import (
+        _real_fractional_power_solutions,
+        odd_root_equation,
+    )
 
-    solutions = _real_fractional_power_solutions(power, target, var)
+    found = odd_root_equation(lhs, rhs, var)
+    if found is None:
+        return None
+    power, target = found
+    exponent, base = power.exp, power.base
+    solutions = _real_fractional_power_solutions(lhs, rhs, var)
     if not solutions:
         return []
-    equivalent = Eq(var ** int(exponent.p), simplify(target ** int(exponent.q)))
-    return [
+    root = rf"\sqrt[{exponent.q}]{{{latex(base)}}}"
+    raised = Eq(base ** int(exponent.p), simplify(target ** int(exponent.q)))
+    order = "3rd" if exponent.q == 3 else f"{exponent.q}th"
+    steps = [
         KeyStep(
             label="Use the real odd-root interpretation",
-            formula=(
-                rf"{latex(power)} = \left(\sqrt[{exponent.q}]{{{latex(var)}}}\right)"
-                rf"^{{{exponent.p}}}"
-            ),
+            formula=(root if exponent.p == 1 else rf"\left({root}\right)^{{{exponent.p}}}")
+            + f" = {latex(target)}",
         ),
         KeyStep(
-            label=f"Raise both sides to the {exponent.q}rd power"
-            if exponent.q == 3
-            else f"Raise both sides to the {exponent.q}th power",
-            formula=latex(equivalent),
+            label=f"Raise both sides to the {order} power",
+            formula=equation_tex(raised.lhs, raised.rhs),
         ),
-        KeyStep(label="Solve over the reals", formula=_canonical_root_formula(var, solutions)),
     ]
+    if base == var:
+        return [
+            *steps,
+            KeyStep(label="Solve over the reals", formula=_canonical_root_formula(var, solutions)),
+        ]
+    formula = _canonical_root_formula(var, solutions)
+    return [*steps, *worked_steps(raised.lhs, raised.rhs, var, "Solve over the reals", formula)]
 
 
 def exponential_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | None:

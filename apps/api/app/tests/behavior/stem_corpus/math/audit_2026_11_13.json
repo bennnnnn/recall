@@ -69,5 +69,9 @@
   {"id": "au-dom-en-bare-positive", "area": "real domain", "prompt": "Solve x^2 = 9 positive", "expect": "decline", "note": "an unread word that restricts the roots: was ±3 on main too"},
   {"id": "au-dom-en-in-n", "area": "real domain", "prompt": "Solve in N: x^2 = 4", "expect": "decline"},
   {"id": "au-dom-en-negative-x", "area": "real domain", "prompt": "solve x^2 - 4 = 0 for negative x", "expect": "decline", "note": "read aloud as -x and recovered as the bare equation, ±2 on main"},
-  {"id": "au-dom-en-negative-number", "area": "real domain", "prompt": "solve x plus negative 3 equals 5", "expect": "answer", "check": ["num", "8"], "note": "'negative 3' is a number, not a domain"}
+  {"id": "au-dom-en-negative-number", "area": "real domain", "prompt": "solve x plus negative 3 equals 5", "expect": "answer", "check": ["num", "8"], "note": "'negative 3' is a number, not a domain"},
+  {"id": "au-dom-odd-root-negative", "area": "real domain", "prompt": "Solve (x - 1)^(1/3) = -2", "expect": "answer", "check": ["num", "-7"], "note": "was a checked 'no solution' on main: a real odd root of a negative number is real (2026-11-14 review)"},
+  {"id": "au-dom-odd-root-isolate", "area": "real domain", "prompt": "solve (x - 1)^(1/3) + 2 = 0", "expect": "answer", "check": ["num", "-7"]},
+  {"id": "au-dom-fifth-root", "area": "real domain", "prompt": "solve (x + 2)^(3/5) = -8", "expect": "answer", "check": ["num", "-34"]},
+  {"id": "au-dom-even-power-of-odd-root", "area": "real domain", "prompt": "solve x^(2/3) = -4", "expect": "answer", "check": ["regex", "no (?:real )?solution"], "note": "an even power of a real root is never negative"}
 ]

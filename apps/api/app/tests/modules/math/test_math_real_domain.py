@@ -189,3 +189,33 @@ async def test_a_bare_domain_word_beside_an_equation_takes_its_card(
 ) -> None:
     got, _direct = await _reply(text)
     assert got == answer
+
+
+@pytest.mark.parametrize(
+    ("lhs", "rhs", "roots"),
+    [
+        # A real odd root of a negative number is real: SymPy's principal branch had none.
+        ("(x-1)^(1/3)", "-2", ["x = -7"]),
+        ("cbrt(x-1)", "-2", ["x = -7"]),
+        ("(x-1)^(1/3)+2", "0", ["x = -7"]),
+        ("2(x-1)^(1/3)", "-4", ["x = -7"]),
+        ("(x+2)^(3/5)", "-8", ["x = -34"]),
+        ("(2x+1)^(1/3)", "3", ["x = 13"]),
+        ("x^(2/3)", "4", ["x = -8", "x = 8"]),
+        # Look-alikes: an even power of an odd root is never negative; an even root of the
+        # unknown cannot be negative.
+        ("x^(2/3)", "-4", []),
+        ("(x-1)^(1/2)", "-2", []),
+    ],
+)
+def test_an_odd_root_of_a_negative_radicand_is_real(lhs: str, rhs: str, roots: list[str]) -> None:
+    """2026-11-14 review: "Solve (x - 1)^(1/3) = -2" was a checked "no solution"."""
+    result = solve_equation(EquationInput(lhs=lhs, rhs=rhs, variables=["x"]))
+    assert _tidy(result.solutions_latex) == _tidy(roots)
+
+
+async def test_an_odd_root_equation_is_worked_over_the_reals() -> None:
+    _answer, direct = await _reply("Solve (x - 1)^(1/3) = -2")
+    assert direct is not None
+    assert "$\\sqrt[3]{x - 1} = -2$" in direct and "$x - 1 = -8$" in direct
+    assert direct.rstrip().endswith("x = -7\n```")

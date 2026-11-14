@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from typing import Any, Literal
 
-from sympy import Eq, Rational, S, Symbol, latex, oo, simplify, solve, solveset
+from sympy import Add, Eq, Rational, S, Symbol, latex, oo, simplify, solve, solveset
 
 from app.core.config import get_settings
 from app.modules.math.schemas import EquationInput, MathSolveResult, RejectedRootLatex
@@ -78,27 +78,54 @@ def _reject_high_degree(lhs: Any, rhs: Any, variables: list[str]) -> None:
             raise SolveServiceError("Polynomial degree too high")
 
 
-def _real_fractional_power_solutions(lhs: Any, rhs: Any, sym: Any) -> list[Any] | None:
-    """Real-school interpretation of ``x^(p/q)=a`` when q is odd.
-
-    SymPy uses the principal complex branch for rational powers and therefore
-    reports only ``8`` for ``x^(2/3)=4``.  In real algebra the odd root is
-    defined for negative x too, so the equivalent equation is ``x^p=a^q``.
-    Return None for every other shape so the ordinary solver remains in charge.
-    """
-    power, target = lhs, rhs
-    if not (getattr(power, "is_Pow", False) and power.base == sym):
-        if getattr(rhs, "is_Pow", False) and rhs.base == sym:
-            power, target = rhs, lhs
-        else:
-            return None
-    exponent = power.exp
-    if not isinstance(exponent, Rational) or exponent.q == 1 or exponent.q % 2 == 0:
+def odd_root_equation(lhs: Any, rhs: Any, sym: Any) -> tuple[Any, Any] | None:
+    """``(power, value)`` when the equation is one odd-index root of the unknown set to a
+    number: ``x^(2/3) = 4``, ``(x - 1)^(1/3) = -2``, ``(x - 1)^(1/3) + 2 = 0``; else None."""
+    for power, target in ((lhs, rhs), (rhs, lhs)):
+        if _odd_root(power, sym) and getattr(target, "is_number", False):
+            return power, target
+    terms = Add.make_args(lhs - rhs)
+    varying = [term for term in terms if sym in term.free_symbols]
+    if len(varying) != 1:
         return None
-    if exponent.p <= 0 or not getattr(target, "is_number", False) or target.is_real is False:
+    coefficient, power = varying[0].as_coeff_Mul()
+    rest = Add(*(term for term in terms if term is not varying[0]))
+    if not _odd_root(power, sym) or coefficient == 0 or not getattr(rest, "is_number", False):
+        return None
+    return power, simplify(-rest / coefficient)
+
+
+def _odd_root(power: Any, sym: Any) -> bool:
+    exponent = getattr(power, "exp", None)
+    return bool(
+        getattr(power, "is_Pow", False)
+        and sym in power.base.free_symbols
+        and isinstance(exponent, Rational)
+        and exponent.q % 2 == 1
+        and exponent.q != 1
+        and exponent.p > 0
+    )
+
+
+def _real_fractional_power_solutions(lhs: Any, rhs: Any, sym: Any) -> list[Any] | None:
+    """Real-school interpretation of an odd-index root (``odd_root_equation``).
+
+    SymPy uses the principal complex branch for rational powers and therefore reports only
+    ``8`` for ``x^(2/3)=4`` and no solution for ``(x - 1)^(1/3) = -2``. In real algebra the
+    odd root is defined for a negative radicand too, so the equivalent equation is
+    ``base^p = a^q``: x = ±8, and x = -7. Return None for every other shape so the ordinary
+    solver remains in charge.
+    """
+    found_root = odd_root_equation(lhs, rhs, sym)
+    if found_root is None:
+        return None
+    power, target = found_root
+    exponent = power.exp
+    if target.is_real is False:
         return None
     real_sym = Symbol(str(sym), real=True)
-    real_equation = Eq(real_sym ** int(exponent.p), simplify(target ** int(exponent.q)))
+    base = power.base.subs(sym, real_sym)
+    real_equation = Eq(base ** int(exponent.p), simplify(target ** int(exponent.q)))
     found = solveset(real_equation, real_sym, domain=S.Reals)
     if not getattr(found, "is_FiniteSet", False):
         return None
