@@ -215,10 +215,12 @@ def solve_equation(data: EquationInput) -> MathSolveResult:
 def _concluded(
     steps: list[str], solutions_latex: list[str], rejected: list[RejectedRoot], lhs: Any, rhs: Any
 ) -> Literal["finite", "none", "infinite"]:
-    """The roots rejected, then what the solve concludes, written into ``steps``."""
+    """The roots rejected (each one the trace did not check itself), then what the solve
+    concludes, written into ``steps``."""
     steps.extend(
         f"Check {item.root} in the original equation: {item.why}, so it is rejected."
         for item in rejected
+        if not any(step.startswith(f"Check ${item.root}$") for step in steps)
     )
     if solutions_latex:
         steps.append(f"Solutions: {', '.join(solutions_latex)}")
