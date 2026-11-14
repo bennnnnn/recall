@@ -1,17 +1,19 @@
 """The model's own claims that a result was verified, taken out of a reply.
 
-Only the server's card says a result was checked; prose that says so on a turn the
-server did not verify would fake the check mark. Finalize asks this only on a turn that can
-show a card (``finalize_subjects.prepare_model_reply``).
+Only the server's card says a result was checked; prose that says so would fake the check
+mark, on any turn.
 
-A claim says a result was checked, as done: "verified with SymPy", "SymPy confirmed x = 42",
-"which the solver verified", "I ran it through SymPy and got x = 42", a check mark or
-brackets on the verb ("✅ Verified.", "(verified)"), a "Verified" label ("**Verified
-answer:**"). On a reply that holds maths, so do the words that say its result was checked
-with no checker named ("The solution is verified by substitution:", "I've verified the
-answer:", "x = 6, which I verified.", "x = 6 — confirmed.", "Double-checked: x = 6"). Only
-the claim goes, never the value beside it ("Recall's solver confirmed x = 42." keeps
-"x = 42."), and a claim's words go only when what is left still states a result.
+A claim says a result was checked, as done. On every turn, one that names the app's checker
+goes: "verified with SymPy", "SymPy confirmed x = 42", "which the solver verified", "This was
+verified by the server", "I ran it through SymPy and got x = 42", "✅ Verified with SymPy",
+"x = 6, confirmed by the app". On a turn that can show a card (``finalize_subjects``), so do
+a check mark or brackets on the verb ("✅ Verified.", "(verified)") and a "Verified" label
+("**Verified answer:**"); on such a turn whose reply holds maths, so do the words that say
+its result was checked with no checker named ("The solution is verified by substitution:",
+"I've verified the answer:", "x = 6, which I verified.", "x = 6 is verified.", "x = 6 —
+confirmed.", "Double-checked: x = 6"). Only the claim goes, never the value beside it
+("Recall's solver confirmed x = 42." keeps "x = 42."), and a claim's words go only when what
+is left still states a result.
 
 What a tool does is no claim ("SymPy checks equality with simplify", "The server validates
 the request body"), nor is an everyday use of the words ("The results were confirmed.",
@@ -45,6 +47,8 @@ _AGENT = rf"(?:{_SOLVER}|recall)"
 _BY = r"(?:with|by|using|via|in|through)"
 _BE = r"(?:was|is|were|are|has[ \t]+been|have[ \t]+been|had[ \t]+been|['\u2019]s[ \t]+been)"
 _RESULT_NOUN = r"(?:results?|answers?|solutions?|values?|roots?)"
+# What a claim naming the app leaves: maths ("x = 4, confirmed by the app"), never an errand.
+_MATHS_VALUE = re.compile(r"\$|\\[(\[]|[A-Za-z][\w']{0,3}[ \t]*=")
 # A result a clause states: a value ("x = 42", "$x$", "42") or a result's noun.
 _STATES_RESULT = re.compile(
     rf"\$|\\[(\[]|[A-Za-z][\w']{{0,3}}[ \t]*=|\d|\b{_RESULT_NOUN}\b", re.IGNORECASE
@@ -59,8 +63,8 @@ _VALUE_START = re.compile(
 _CLAIM_SPANS = tuple(
     re.compile(pattern, re.IGNORECASE)
     for pattern in (
-        # ", which SymPy verified," / ", as the solver confirmed," / ", which I verified"
-        rf"[ \t]*,[ \t]*(?:which|as)[ \t]+(?:{_SOLVER}|i|we)[ \t]+"
+        # ", which SymPy verified," / ", as the solver confirmed,"
+        rf"[ \t]*,[ \t]*(?:which|as)[ \t]+{_SOLVER}[ \t]+"
         rf"(?:(?:has|have|['\u2019]ve|also|just)[ \t]+){{0,2}}{_CLAIM_VERB}"
         r"(?:[ \t]+(?:it|this|that|them))?(?:[ \t]*,|$)",
         # "was verified by the server (and)" in "The answer x = 42 was verified by … is final."
@@ -78,6 +82,23 @@ _CLAIM_SPANS = tuple(
         r"(?:the[ \t]+same\b|\$|[A-Za-z][\w']{0,3}[ \t]*=|[-\u2212]?\d))|(?=[ \t]*$))",
     )
 )
+# The app named as the checker: what it leaves must be maths ("Your order was confirmed by
+# the app" is the user's errand).
+_APP_SPANS = tuple(
+    re.compile(pattern, re.IGNORECASE)
+    for pattern in (
+        rf"[ \t]+{_BE}[ \t]+(?:also[ \t]+)?{_CLAIM_VERB}[ \t]+{_BY}[ \t]+the[ \t]+app\b",
+        rf"(?:[ \t]*[,\u2014\u2013][ \t]*|[ \t]+)(?:as[ \t]+)?{_CLAIM_VERB}[ \t]+{_BY}[ \t]+"
+        r"the[ \t]+app\b",
+        r"\bthe[ \t]+app[ \t]+(?:has[ \t]+)?(?:verified|confirmed|checked)(?:[ \t]+that)?\b",
+    )
+)
+# On a maths reply: ", which I verified" after a value.
+_OWN_RELATIVE = re.compile(
+    rf"[ \t]*,[ \t]*(?:which|as)[ \t]+(?:i|we)[ \t]+(?:(?:have|['\u2019]ve|also|just)[ \t]+){{0,2}}"
+    rf"{_CLAIM_VERB}(?:[ \t]+(?:it|this|that|them))?(?:[ \t]*,|$)",
+    re.IGNORECASE,
+)
 # ✅ Verified with SymPy. / ✓ Checked, ending its sentence or line: "✅ Checked in online" stays.
 _MARK_CLAIM = re.compile(
     rf"[ \t]*[{_CHECK_MARKS}]️?[ \t]*{_EMPHASIS}?[ \t]*{_CLAIM_VERB}\b(?:[ \t]+(?:"
@@ -85,10 +106,22 @@ _MARK_CLAIM = re.compile(
     rf"[ \t]*{_EMPHASIS}?[ \t]*(?:[.!]{_EMPHASIS}?(?=\s|$)|(?=[ \t]*(?:\n|$)))",
     re.IGNORECASE,
 )
+# On any turn, a mark's claim that names the checker: "✅ Verified with SymPy."
+_MARK_CHECKER = re.compile(
+    rf"[ \t]*[{_CHECK_MARKS}]\ufe0f?[ \t]*{_EMPHASIS}?[ \t]*{_CLAIM_VERB}[ \t]+{_BY}[ \t]+"
+    rf"{_AGENT}\b[ \t]*{_EMPHASIS}?[ \t]*(?:[.!]{_EMPHASIS}?(?=\s|$)|(?=[ \t]*(?:\n|$)))",
+    re.IGNORECASE,
+)
 # (verified) / (verified with SymPy) / [checked]
 _PAREN_CLAIM = re.compile(
     rf"[ \t]*[(\[][ \t]*[{_CHECK_MARKS}]?️?[ \t]*{_CLAIM_VERB}"
     r"(?:[ \t]+(?:with|by|using|via|in)[ \t]+[^)\]\n]{1,40})?[ \t]*[)\]]",
+    re.IGNORECASE,
+)
+# On any turn, brackets that name the checker: "(verified by SymPy)".
+_PAREN_CHECKER = re.compile(
+    rf"[ \t]*[(\[][ \t]*[{_CHECK_MARKS}]?\ufe0f?[ \t]*{_CLAIM_VERB}[ \t]+{_BY}[ \t]+{_AGENT}\b"
+    r"[^)\]\n]{0,30}[)\]]",
     re.IGNORECASE,
 )
 # "Verified answer:" / "The verified result:": the label keeps its noun.
@@ -135,6 +168,11 @@ _TAGGED_CLAIM = re.compile(
     rf"{_ADVERB}(?:[ \t]*[{_CHECK_MARKS}]️?)?$",
     re.IGNORECASE,
 )
+# On a maths reply: a value said to be checked ("x = 6 is verified").
+_VALUE_CLAIM = re.compile(
+    rf"[ \t]+{_BE}[ \t]+(?:(?:now|also|all|both)[ \t]+)?{_CLAIM_VERB}{_ADVERB}{_HOW}$",
+    re.IGNORECASE,
+)
 # A clause the claim left with no words of its own: "This", "I", "the result".
 _LEFTOVER = re.compile(
     rf"(?:(?:this|that|it|i|we|which)|(?:the|this|that|my|our)[ \t]+(?:\w+[ \t]+)?{_RESULT_NOUN}"
@@ -165,18 +203,26 @@ def _whole_claim(words: str, end: str, following: str) -> bool:
     return end[:1] in {".", "!", ""} or (end[:1] == ":" and bool(_VALUE_START.match(following)))
 
 
+def _cut(words: str, span: re.Pattern[str], leaves: re.Pattern[str], *, alone: bool) -> str:
+    """``words`` without ``span`` when what is left matches ``leaves`` (or, ``alone``, is no
+    words of its own), else as they were."""
+    out = span.sub("", words)
+    rest = out.strip(" \t,\u2014\u2013-")
+    kept = (alone and _LEFTOVER.fullmatch(rest) is not None) or leaves.search(rest) is not None
+    return out if out != words and kept else words
+
+
 def _without_spans(words: str, *, maths: bool) -> str:
     """The clause's words without each claim span that leaves a result stated."""
     stripped = words
     for span in _CLAIM_SPANS:
-        out = span.sub("", stripped)
-        rest = out.strip(" \t,\u2014\u2013-")
-        if out != stripped and (_LEFTOVER.fullmatch(rest) or _STATES_RESULT.search(rest)):
-            stripped = out
+        stripped = _cut(stripped, span, _STATES_RESULT, alone=True)
+    for span in _APP_SPANS:
+        stripped = _cut(stripped, span, _MATHS_VALUE, alone=False)
     if maths and _STATES_RESULT.search(stripped):
-        stripped = _OWN_PAREN.sub("", stripped)
-        tagged = _TAGGED_CLAIM.sub("", stripped)
-        stripped = tagged if _STATES_RESULT.search(tagged) else stripped
+        stripped = _OWN_PAREN.sub("", _OWN_RELATIVE.sub("", stripped))
+        for span in (_TAGGED_CLAIM, _VALUE_CLAIM):
+            stripped = _cut(stripped, span, _MATHS_VALUE, alone=False)
     return stripped
 
 
@@ -209,9 +255,11 @@ def _label(match: re.Match[str]) -> str:
     return f"{lead}{noun.lower() if after_the else noun.capitalize()}{match.group('s')}"
 
 
-def _line_without_claims(line: str, *, maths: bool) -> str:
-    line = _PAREN_CLAIM.sub("", _MARK_CLAIM.sub("", line))
-    line = _NOUN_LABEL.sub(_label, line)
+def _line_without_claims(line: str, *, card: bool, maths: bool) -> str:
+    if card:
+        line = _NOUN_LABEL.sub(_label, _PAREN_CLAIM.sub("", _MARK_CLAIM.sub("", line)))
+    else:
+        line = _PAREN_CHECKER.sub("", _MARK_CHECKER.sub("", line))
     pieces = _CLAUSE_END.split(line)
     kept: list[list[str]] = []
     # After a claim that ended in a colon, its value takes the claim's place.
@@ -250,12 +298,12 @@ def _held(line: str) -> tuple[str, list[str]]:
     return _INLINE_CODE.sub(hold, line), spans
 
 
-def _tidied(line: str, *, maths: bool) -> str:
+def _tidied(line: str, *, card: bool, maths: bool) -> str:
     """The line without its claims (each takes its own space with it); a line with none is
     left exactly as written (a French " :", an indent, a Markdown line break). Inline code is
     code: no rule reads it."""
     held, spans = _held(line) if "`" in line else (line, [])
-    out = _line_without_claims(held, maths=maths)
+    out = _line_without_claims(held, card=card, maths=maths)
     if out == held:
         return line
     for index, span in enumerate(spans):
@@ -275,8 +323,9 @@ def _prose_holds_maths(text: str) -> bool:
     return any(_MATHS.search(run) for run in prose)
 
 
-def strip_verification_claims(text: str) -> str:
-    """Remove the model's own "verified" claims from prose (code untouched).
+def strip_verification_claims(text: str, *, card_turn: bool = True) -> str:
+    """Remove the model's own "verified" claims from prose (code untouched): on every turn
+    those that name the app's checker, and on a ``card_turn`` the rest.
 
     Only the server's card says a result was checked: on an unverified turn a claim fakes
     the check mark, and on a verified one the card says it (a claim beside a wrong value
@@ -287,10 +336,11 @@ def strip_verification_claims(text: str) -> str:
         word in lower for word in ("verif", "checked", "confirm", "validat", "sympy", "agree")
     ):
         return text
-    maths = _prose_holds_maths(text)
+    maths = card_turn and _prose_holds_maths(text)
 
     def claimless(prose: str) -> str:
-        out = "\n".join(_tidied(line, maths=maths) for line in prose.split("\n"))
+        lines = prose.split("\n")
+        out = "\n".join(_tidied(line, card=card_turn, maths=maths) for line in lines)
         return re.sub(r"\n{3,}", "\n\n", out)
 
     return map_outside_fences(text, claimless).strip()

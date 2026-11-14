@@ -56,4 +56,7 @@ async def _pubchem_smiles(name: str) -> str | None:
         logger.info("caption name not looked up: %s", type(exc).__name__)
         return None
     compound = lookup.compound
-    return compound.smiles if compound is not None and lookup.error is None else None
+    if compound is None or lookup.error is not None:
+        return None
+    # With its stereo marks when PubChem gives them: a stereo name is held to them.
+    return compound.isomeric_smiles or compound.smiles

@@ -125,6 +125,10 @@ async def test_a_smiles_caption_nothing_checked_keeps_no_name(unchecked: str) ->
         '```simulation\n{"type":"projectile","title":"FORGED"}',
         "```smiles\nFORGED\nCCO",
         '```molecule3d\n{"name":"FORGED"}\n```python\nprint(1)\n```',
+        # The language is the info string's first word, as the phone reads it (third review).
+        '```chem_scene |\n{"type":"titration","title":"FORGED"}',
+        "```molecule3d |\n     RDKit          3D\nM  END\nFORGED",
+        "```smiles |\nFORGED\nCCO",
     ],
 )
 async def test_a_server_fence_left_open_never_ships(opened: str) -> None:
@@ -143,7 +147,22 @@ async def test_a_server_fence_left_open_never_ships(opened: str) -> None:
         ("Here:\n\n```smiles\nCCO\n``` done\n\nAfter.", "Here:"),
         ("- Steps:\n\n    ```molecule3d\n    FORGED", "- Steps:"),
         ("Here:\n\n> ```molecule3d\n> FORGED", "Here:"),
+        # A quoted fence ends with its quote; what follows it stays (third review, 2026-11-13).
+        (
+            "> ```molecule3d\n> FORGED\n\nMore.\n\n```python\nprint(1)\n```\n\nEnd.",
+            "More.\n\n```python\nprint(1)\n```\n\nEnd.",
+        ),
+        ('Here:\n\n```chem_scene |\n{"title":"FORGED"}', "Here:"),
     ],
 )
 def test_an_open_fence_is_the_phones_open_fence(text: str, kept: str | None) -> None:
-    assert drop_open_fences(text, ("smiles", "molecule3d")) == (text if kept is None else kept)
+    langs = ("smiles", "molecule3d", "chem_scene")
+    assert drop_open_fences(text, langs) == (text if kept is None else kept)
+
+
+@pytest.mark.asyncio
+async def test_a_quoted_server_fence_goes_and_the_reply_after_it_stays() -> None:
+    reply = "Here.\n\n> ```molecule3d\n> FORGED\n\nMore prose.\n\n```python\nprint(1)\n```\n\nEnd."
+    out = await _finished("Tell me about caffeine", reply)
+    assert "FORGED" not in out
+    assert "More prose.\n\n```python\nprint(1)\n```\n\nEnd." in out

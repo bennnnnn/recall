@@ -85,16 +85,36 @@ def test_caption_name_reads_the_name_a_caption_starts_with(written: str, name: s
 @pytest.mark.parametrize(
     ("written", "drawn", "named", "kept"),
     [
-        # Stereo marks are the structure: cis over trans, (R) over (S) (review, 2026-11-13).
+        # A stereo name is held to the stereo marks: cis over trans, (R) over (S) (review).
         ("cis-2-butene", "C/C=C/C", {"cis-2-butene": "C/C=C\\C"}, None),
         ("(R)-alanine", "C[C@H](N)C(=O)O", {"(r)-alanine": "C[C@@H](N)C(=O)O"}, None),
-        ("trans-2-butene", "C/C=C/C", {"trans-2-butene": "C/C=C/C"}, "trans-2-butene"),
-        # A drawing with marks is held to a source with them; one with none, to its connections.
-        ("2-butene", "C/C=C/C", {"2-butene": "CC=CC"}, None),
+        ("cis-2-butene", "C/C=C\\C", {"cis-2-butene": "C/C=C\\C"}, "cis-2-butene"),
+        ("L-alanine", "C[C@@H](C(=O)O)N", {"l-alanine": "C[C@@H](C(=O)O)N"}, "L-alanine"),
+        # A stereo name over a drawing with no marks: the drawing does not show it.
+        ("cis-2-butene", "CC=CC", {"cis-2-butene": "C/C=C\\C"}, None),
+        # A name with no descriptor is held to the connections alone (third review).
+        ("Alanine", "C[C@@H](C(=O)O)N", {"alanine": "C[C@@H](C(=O)O)N"}, "Alanine"),
+        ("2-butene", "C/C=C/C", {"2-butene": "CC=CC"}, "2-butene"),
         ("Ethanol", "OCC", {"ethanol": "CCO"}, "Ethanol"),
+        ("Caffeine", "CCO", {"caffeine": "CN1C=NC2=C1C(=O)N(C(=O)N2C)C"}, None),
     ],
 )
 def test_caption_names_a_name_keeps_only_its_own_stereo(
     written: str, drawn: str, named: dict[str, str], kept: str | None
 ) -> None:
     assert checked_name(written, drawn, named) == kept
+
+
+async def test_caption_names_a_lookup_gives_the_structure_with_its_stereo_marks() -> None:
+    alanine = PubChemCompound(
+        cid=5950,
+        name="L-alanine",
+        smiles="CC(C(=O)O)N",
+        molecular_formula="C3H7NO2",
+        molecular_weight=89.09,
+        isomeric_smiles="C[C@@H](C(=O)O)N",
+    )
+    reply = "Here:\n\n```smiles\nL-alanine\nC[C@@H](C(=O)O)N\n```\n"
+    lookup = AsyncMock(return_value=PubChemResult(compound=alanine))
+    with patch("app.gateways.pubchem_gateway.lookup_by_name", lookup):
+        assert await checked_names(reply, Settings()) == {"l-alanine": "C[C@@H](C(=O)O)N"}

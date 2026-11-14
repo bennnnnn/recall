@@ -84,20 +84,22 @@ def prepare_model_reply(state: FinalizeState) -> str:
     """Model text before any server card is added to it.
 
     The model cannot forge the server's ``verified: true`` line, every spelling
-    of its answer fences is put in the one form the subject passes demote, and, on a
-    turn that can show a card, its own "✅ Verified with SymPy" claims go: on an
-    unverified turn they fake the check, and on a verified one the card says it (a claim
-    beside a wrong value would contradict it). A scene or a structure is the server's to
+    of its answer fences is put in the one form the subject passes demote, and its own
+    "✅ Verified with SymPy" claims go (on a turn that can show no card, only those naming
+    the app's checker): on an unverified turn they fake the check, and on a verified one the
+    card says it (a claim beside a wrong value would contradict it). A scene or a structure is the server's to
     draw, so the model's own never ships: the chemistry pass and the SMILES drawing add the
     server's after this, and a verified physics turn replaces a ```simulation in its pass.
     """
     if state.server_text:
         return state.text
-    text = normalize_owned_fences(strip_forged_verified_markers(state.text))
-    if _may_show_a_card(state):
-        text = strip_verification_claims(text)
-    # Left open, the model's own scene or structure is never the server's, on any turn.
-    text = drop_open_fences(text, (*SERVER_DRAWN_LANGS, *STRUCTURE_LANGS))
+    # Left open, the model's own scene or structure is never the server's, on any turn: read
+    # before its spelling is normalized, which takes a quoted fence out of its quote.
+    text = drop_open_fences(
+        strip_forged_verified_markers(state.text), (*SERVER_DRAWN_LANGS, *STRUCTURE_LANGS)
+    )
+    text = normalize_owned_fences(text)
+    text = strip_verification_claims(text, card_turn=_may_show_a_card(state))
     drawn: tuple[str, ...] = SERVER_DRAWN_LANGS
     if isinstance(state.ctx.verified_subject, VerifiedPhysicsBlock):
         drawn = tuple(lang for lang in drawn if lang != "simulation")
@@ -108,10 +110,11 @@ def prepare_model_reply(state: FinalizeState) -> str:
 
 
 def _may_show_a_card(state: FinalizeState) -> bool:
-    """Whether the reply can carry a checked card, so a claim of a check would fake one: a
-    turn a subject read or solved, a calculation laid out, a money card. A coding or everyday
-    turn shows none, and its "The server validates the request" stays as written (review,
-    2026-11-13). A turn whose reading of its message is not known is taken as one."""
+    """Whether the reply can carry a checked card, so any claim of a check would fake one: a
+    turn a subject read or solved, a calculation laid out, a money card. On a coding or
+    everyday turn only a claim naming the app's checker goes, and "Each step is checked" stays
+    as written (review, 2026-11-13). A turn whose reading of its message is not known is taken
+    as one."""
     ctx = state.ctx
     if ctx.verified_subject is not None or ctx.solver_unverified:
         return True

@@ -26,7 +26,8 @@ def strip_model_drawn_fences(text: str, langs: tuple[str, ...] = SERVER_DRAWN_LA
     lower = text.lower()
     if not any(lang in lower for lang in langs):
         return text
-    stripped = _without_phone_fences(normalize_owned_fences(text, langs), langs)
+    # As the phone reads them first: put in one spelling, a quoted fence leaves its quote.
+    stripped = normalize_owned_fences(_without_phone_fences(text, langs), langs)
     for lang in langs:
         stripped = map_closed_fences(stripped, lang, lambda _body: "")
     if stripped == text:
@@ -39,12 +40,12 @@ def drop_open_fences(text: str, langs: tuple[str, ...]) -> str:
     """``text`` without a fence of ``langs`` the model left open, as the phone's dropFences
     drops one. The close-fences pass runs after every check and would close it whole: an
     unclosed ```molecule3d shipped as a drawing, an unclosed ```smiles with its caption
-    (review, 2026-11-13)."""
-    fences = phone_fences(text)
-    last = fences[-1] if fences else None
-    if last is None or last.closed or last.lang not in langs:
-        return text
-    return text[: last.start].rstrip()
+    (review, 2026-11-13). One in a quote goes to the quote's end, the rest staying."""
+    spans = [(f.start, f.end) for f in phone_fences(text) if not f.closed and f.lang in langs]
+    for start, end in reversed(spans):
+        before, after = text[:start].rstrip(), text[end:].lstrip("\n")
+        text = f"{before}\n\n{after}" if before and after else before or after
+    return text
 
 
 def _without_phone_fences(text: str, langs: tuple[str, ...]) -> str:
@@ -66,6 +67,11 @@ def _indent(line: str) -> int:
     return len(line) - len(line.lstrip(" "))
 
 
+def _quote_depth(line: str) -> int:
+    """How many quotes the line is in: the ``>`` markers before its text."""
+    return line[: len(line) - len(line.lstrip(" \t>"))].count(">")
+
+
 def _code_line(lines: list[str], index: int) -> bool:
     """A line indented four spaces past any list item it continues: an indented code block,
     whose "```smiles" is text the phone shows, never a fence."""
@@ -80,10 +86,11 @@ def _code_line(lines: list[str], index: int) -> bool:
 
 def phone_fences(text: str) -> list[Fence]:
     """The fences the phone's markdown reads (react-native-markdown-display, CommonMark): in a
-    quote or a list item too, never an indented code block's "```" line, a ``` | ```java table
-    cell's leftover no opener, and closed only by a bare run of the opener's character at
-    least as long. Inside one, "```python" or "``` done" is its content, so a fence they do not
-    close runs to the end (review, 2026-11-13)."""
+    quote or a list item too, never an indented code block's "```" line, its language the
+    info string's first word ("```chem_scene |" is a chem_scene), and closed only by a bare
+    run of the opener's character at least as long. Inside one, "```python" or "``` done" is
+    its content, so a fence they do not close runs to the end, or, in a quote, to the quote's
+    end (review, 2026-11-13)."""
     fences: list[Fence] = []
     lines = text.split("\n")
     opener = None
@@ -91,11 +98,15 @@ def phone_fences(text: str) -> list[Fence]:
     for index, line in enumerate(lines):
         after = min(offset + len(line) + 1, len(text))
         marker = read_fence_marker(line, lenient=True)
+        if opener is not None and _quote_depth(line) < _quote_depth(opener.prefix):
+            # The quote ended, and the fence in it with it.
+            fences.append(Fence(start, body_start, offset, offset, opener, closed=False))
+            opener = None
         if opener is not None:
             if marker is not None and marker.closes(opener):
                 fences.append(Fence(start, body_start, offset, after, opener, closed=True))
                 opener = None
-        elif marker is not None and "|" not in marker.info and not _code_line(lines, index):
+        elif marker is not None and not _code_line(lines, index):
             opener, start, body_start = marker, offset, after
         offset = after
     if opener is not None:

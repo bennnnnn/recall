@@ -89,6 +89,8 @@ from app.modules.turn_reading.turn import TurnReading, keep_turn_reading
         ("x = 6 — confirmed.", "x = 6."),
         ("x = 6 (I checked it twice).", "x = 6."),
         ("I ran it through SymPy and got the same result: x = 6.", "x = 6."),
+        ("x = 6 is verified.", "x = 6."),
+        ("x = 6. I confirmed it by substitution. x = 6 is verified.", "x = 6. x = 6."),
     ],
 )
 def test_verification_claims_a_claim_goes_and_its_value_stays(reply: str, kept: str) -> None:
@@ -173,7 +175,7 @@ def test_verification_claims_inside_a_fence_are_code() -> None:
 
 
 _PROMPT = "How does my API check its requests?"
-_REPLY = "x = 42. This was verified by the server."
+_REPLY = "x = 42 is verified."
 
 
 def _prepared(subject: str | None, reason: str, *, verified: object = None) -> str:
@@ -205,7 +207,7 @@ def _prepared(subject: str | None, reason: str, *, verified: object = None) -> s
 @pytest.mark.parametrize(
     ("subject", "reason", "verified", "kept"),
     [
-        # A coding or everyday turn shows no card: its words are its own (review, 2026-11-13).
+        # A coding or everyday turn shows no card: only a claim naming the checker goes there.
         (None, "code", None, _REPLY),
         (None, "none", None, _REPLY),
         # A subject's turn, a verified one, or one whose message was not read can show one.
@@ -219,3 +221,34 @@ def test_a_claim_goes_only_on_a_turn_that_can_show_a_card(
 ) -> None:
     out = contextvars.copy_context().run(_prepared, subject, reason, verified=verified)
     assert out == kept
+
+
+# A turn that can show no card still never says the app checked it (third review, 2026-11-13).
+@pytest.mark.parametrize(
+    ("reply", "kept"),
+    [
+        ("About 384,400 km. This was verified by the server.", "About 384,400 km."),
+        (
+            "GPS uses timing: d = c·t. Verified with SymPy: d = 3×10^8 m.",
+            "GPS uses timing: d = c·t. d = 3×10^8 m.",
+        ),
+        (
+            "There are 86,400 seconds in a day. ✅ Verified with SymPy.",
+            "There are 86,400 seconds in a day.",
+        ),
+        ("The answer (verified by SymPy) is x = 42.", "The answer is x = 42."),
+        ("Recall's solver confirmed x = 42.", "x = 42."),
+        ("x = 4, confirmed by the app.", "x = 4."),
+        # Claims naming no checker are a card turn's to strip.
+        ("x = 42 is verified.", "x = 42 is verified."),
+        ("x = 42. ✅ Verified.", "x = 42. ✅ Verified."),
+        ("**Verified answer:** x = 7", "**Verified answer:** x = 7"),
+        ("Your order was confirmed by the app.", "Your order was confirmed by the app."),
+        (
+            "I checked with the app and it's open until 9.",
+            "I checked with the app and it's open until 9.",
+        ),
+    ],
+)
+def test_a_claim_naming_the_checker_goes_on_every_turn(reply: str, kept: str) -> None:
+    assert strip_verification_claims(reply, card_turn=False) == kept
