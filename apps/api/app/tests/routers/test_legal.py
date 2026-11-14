@@ -82,7 +82,7 @@ def test_privacy_policy_names_the_maker_of_every_model_the_app_calls(model: Chat
 def test_privacy_policy_says_what_the_decider_reads() -> None:
     page = _client().get("/legal/privacy").text
     assert "Decider model" in page and "Perplexity, to decide how a message is handled" in page
-    assert "up to four earlier messages" in page
+    assert "up to four earlier messages" in page  # safety phrase: what the Decider receives
 
 
 def test_privacy_policy_says_where_a_scanned_photo_goes() -> None:

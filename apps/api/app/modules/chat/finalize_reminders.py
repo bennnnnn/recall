@@ -34,10 +34,10 @@ def own_words(ctx: StreamContext) -> str:
     """What the user typed or said this turn, as their row keeps it: no attachment excerpt,
     and none of the text read off their photo, which is its content, never a request
     (audit SCAN-03, 2026-11-13). Maths' ``Solve:`` line is the prompt's alone."""
-    stored = ctx.stored_user_message
-    if stored is not None and stored != ctx.user_message_content:
+    stored, content = ctx.stored_user_message, ctx.user_message_content or ""
+    if isinstance(stored, str) and stored != content:
         return said_by_user(stored)
-    return without_photo_reading(ctx.user_message_content)
+    return without_photo_reading(content)
 
 
 def drop_cut_reminder_fence(text: str) -> str:

@@ -80,7 +80,8 @@ def upright_for_reading(
     try:
         with Image.open(io.BytesIO(data)) as opened:
             orientation = opened.getexif().get(_ORIENTATION_TAG, 1)
-    except Exception:
+    except Exception as exc:
+        logger.info("photo for its reader did not open: %s", type(exc).__name__)
         return content_type, data
     if orientation in (0, 1):
         return content_type, data

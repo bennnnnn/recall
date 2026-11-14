@@ -23,7 +23,7 @@ from app.modules.billing import plan as plan_service
 from app.modules.chat.model_routing.route import last_user_turn
 from app.modules.chat.model_routing.thinking import thinking_level
 from app.modules.chat.stream_status import StreamStatusFn
-from app.modules.chat.turn_prep.attachments import _process_attachments
+from app.modules.chat.turn_prep.attachments import _AttachmentProcessResult, _process_attachments
 from app.modules.chat.turn_prep.context import (
     StreamContext,
     TurnPromptBundle,
@@ -41,11 +41,7 @@ from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.chat.turn_prep.vision import inject_turn_images
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.modules.turn_reading.lesson_flow import active_lesson_step
-from app.services.prompt_safety import (
-    frame_photo_reading,
-    messages_have_attachment_marker,
-    said_by_user,
-)
+from app.services.prompt_safety import frame_photo_reading, messages_have_attachment_marker
 
 logger = logging.getLogger(__name__)
 
@@ -93,8 +89,6 @@ async def prepare_chat_turn(
     )
     if attachments.resolved_attachment_ids is not None:
         attachment_ids = attachments.resolved_attachment_ids
-    # The user's own words, before the turn adds what it read off their photo.
-    said = said_by_user(attachments.user_content) if attachments.has_image_attachment else None
     content = attachments.content
     turn = UserTurn(
         user_id=user_id,
@@ -141,19 +135,35 @@ async def prepare_chat_turn(
         current_user_message_id=turn.message_id,
         unhealthy_models=unhealthy,
         half_open_models=half_open,
-        said=said,
+        said=attachments.said,
     )
     persist: asyncio.Task[None] | None = None
     if history is None:
         bundle = await build_stream_prompt_context(request, settings, redis)
     else:
         bundle, persist = await _build_beside_persist(request, turn, settings, redis, on_user_saved)
+    return await _with_images(bundle, turn, attachments, settings, reserved_tokens, timing, persist)
+
+
+async def _with_images(
+    bundle: TurnPromptBundle,
+    turn: UserTurn,
+    attachments: _AttachmentProcessResult,
+    settings: Settings,
+    reserved_tokens: int,
+    timing: TurnTimingTracker | None,
+    persist: asyncio.Task[None] | None,
+) -> StreamContext:
+    """The turn's context once its photos are in the prompt, with how sure their read was."""
+    user, model = turn.user, turn.model
+    if user is None or model is None:
+        raise ChatNotFoundError("User not found.")
     # The photo's reading framed as the history frames the row (``frame_photo_reading``).
-    caption = frame_photo_reading(content)
+    caption = frame_photo_reading(turn.content)
     if await inject_turn_images(
-        bundle.prompt_messages, attachments, caption=caption, settings=settings, user=turn.user
+        bundle.prompt_messages, attachments, caption=caption, settings=settings, user=user
     ):
-        _route_to_vision(turn, turn.user, turn.model, bundle, settings)
+        _route_to_vision(turn, user, model, bundle, settings)
     ctx = _stream_context(
         bundle, turn, settings, reserved_tokens=reserved_tokens, timing=timing, persist=persist
     )

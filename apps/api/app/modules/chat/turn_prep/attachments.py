@@ -15,6 +15,7 @@ from app.models.orm import Attachment, User
 from app.modules.attachments.quota import has_current_upload_reservation, upload_counter
 from app.modules.chat.stream_status import StreamStatusFn
 from app.repositories import users as users_repo
+from app.services.prompt_safety import said_by_user
 from app.services.subjects.registry import (
     SUBJECTS,
     MathImageExtract,
@@ -66,6 +67,8 @@ class _AttachmentProcessResult:
     resolved_attachment_ids: list[UUID] | None = None
     # The photo's reader was not sure what it read: nothing from it is certified.
     photo_uncertain: bool = False
+    # The user's own words with a photo: no text the turn read off it (``TurnRequest.said``).
+    said: str | None = None
 
 
 async def _process_attachments(
@@ -158,6 +161,7 @@ async def _process_attachment_inputs(
         bytes_by_key=bytes_by_key,
         resolved_attachment_ids=resolved_ids,
         photo_uncertain=reading.uncertain,
+        said=said_by_user(user_content) if image_attachments else None,
     )
 
 

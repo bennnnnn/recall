@@ -5,7 +5,7 @@ last problem, which lane it suggests, whether its switch is on. An exception the
 the turn, so one broken subject failed every turn, "hi there" included: chemistry's
 ``continues_alone`` raising failed maths, physics and plain chat alike (audit REL-01,
 2026-11-13). The registry hands chat each adapter inside ``GuardedSubject``: a member that
-raises is logged once (the first time, with its traceback) and answers as a subject with
+raises is logged (its traceback the first time) and answers as a subject with
 nothing to say would: False, None, the text as it was, no solve. The subject order asks
 the subjects' readers directly (``order``), so each of its steps is guarded the same way.
 
@@ -46,11 +46,14 @@ _FAILED: set[tuple[str, str]] = set()
 
 
 def neutral_on_error[T](subject: str, member: str, neutral: T, call: Callable[[], T]) -> T:
-    """``call()``, or ``neutral`` when it raises (logged once per subject and member)."""
+    """``call()``, or ``neutral`` when it raises (its traceback logged once per member)."""
     try:
         return call()
     except Exception:
-        _note(subject, member)
+        if _first_failure(subject, member):
+            logger.exception("subject %s.%s failed; the turn goes on without it", subject, member)
+        else:
+            logger.info("subject %s.%s failed again", subject, member)
         return neutral
 
 
@@ -60,16 +63,18 @@ async def _neutral_async[T](
     try:
         return await call()
     except Exception:
-        _note(subject, member)
+        if _first_failure(subject, member):
+            logger.exception("subject %s.%s failed; the turn goes on without it", subject, member)
+        else:
+            logger.info("subject %s.%s failed again", subject, member)
         return neutral
 
 
-def _note(subject: str, member: str) -> None:
+def _first_failure(subject: str, member: str) -> bool:
     if (subject, member) in _FAILED:
-        logger.debug("subject %s.%s failed again", subject, member)
-        return
+        return False
     _FAILED.add((subject, member))
-    logger.exception("subject %s.%s failed; the turn goes on without it", subject, member)
+    return True
 
 
 class GuardedFollowups:

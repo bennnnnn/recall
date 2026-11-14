@@ -92,6 +92,7 @@ _SUBJECT_CALLERS: dict[str, tuple[int, str]] = {
     "modules/chat/prompt_builder.py::fetch_subject": (1, "the prompt's subject fetch"),
     "services/subjects/dispatch.py::build_subject_augmentation": (1, "a fetch with no subject"),
     # Readers of other text.
+    "services/subjects/order.py::read_subject_reason": (1, "a scanned photo's own words"),
     "modules/chat/turn_prep/intents.py::part_kind": (1, "a request's own text"),
     "modules/chat/turn_prep/intents.py::_continues_solve": (1, "the earlier request"),
     # A problem's setup and each question about it, read in the pool with the plan.

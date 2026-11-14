@@ -213,7 +213,7 @@ def mark_server_cards(state: FinalizeState) -> str:
     pass follows each subject's), a turn whose photo the reader was not sure it read
     certifies nothing (``uncheck_cards``)."""
     text = mark_server_answer_fences(state.text) if state.server_text else state.text
-    return uncheck_cards(text) if state.ctx.photo_uncertain else text
+    return uncheck_cards(text) if state.ctx.photo_uncertain is True else text
 
 
 # The scenes a solver samples: drawn from what may be a misread problem, they are no
