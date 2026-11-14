@@ -166,9 +166,20 @@ def _rules_asked(text: str) -> set[str]:
     return {rule for rule, pattern in _ESTIMATES if pattern.search(text)}
 
 
+# What makes a count beside an integral a count of pieces: the words cut the area into pieces
+# or estimate it. "Find the integral of x^n dx where n = 3" names no piece and estimates
+# nothing: its n is the exponent, and the exact integral stands (2026-11-14 review, #2446).
+_PIECE_WORDS = re.compile(
+    r"\b(?:strips?|trapez\w*|rectangles?|sub-?intervals?|intervals?|panels?|slices?|partitions?)\b",
+    re.I,
+)
+
+
 def _method_by_parts(text: str) -> NamedMethod | None:
     count = _interval_count(text)
     if count is None or _ESTIMATED_INTEGRAL.search(text) is None:
+        return None
+    if not (_ESTIMATE.search(text) or _PIECE_WORDS.search(text) or _rules_asked(text)):
         return None
     rule: NumericRule = "unworked"
     if len(_rules_asked(text)) > 1:

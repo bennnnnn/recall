@@ -287,3 +287,24 @@ def test_parts_without_an_estimate_are_no_method(text: str) -> None:
 async def test_the_turn_works_a_sum_named_by_its_parts(text: str, card: str | None) -> None:
     answer, _direct = await _reply(text)
     assert answer == card
+
+
+@pytest.mark.parametrize(
+    ("text", "is_method"),
+    [
+        # A bare n beside an integral is a parameter, not a count of pieces (#2446 review).
+        ("Find the integral of x^n dx where n = 3", False),
+        ("Evaluate the integral of x^n from 0 to 1 for n = 4", False),
+        # A count with pieces, an estimate or a named side is one.
+        ("Use 4 trapezoids to estimate the area under y = x^2 from 0 to 2", True),
+        ("Estimate the integral of x^2 from 0 to 2 with n = 4", True),
+        ("the integral of x^2 from 0 to 2 using 4 subintervals", True),
+        ("Using 4 rectangles and left endpoints, find the area under y = x^2 from 0 to 2", True),
+    ],
+)
+def test_a_count_beside_an_integral_is_a_method_only_with_pieces_or_an_estimate(
+    text: str, is_method: bool
+) -> None:
+    from app.modules.math.match.numerical_methods import _method_by_parts
+
+    assert (_method_by_parts(text) is not None) is is_method
