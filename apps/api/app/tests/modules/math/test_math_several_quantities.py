@@ -90,6 +90,26 @@ def test_the_quantities_asked_together_are_read(text: str, asked: list[str]) -> 
             "find the volume and surface area of a sphere of radius 2",
             r"V \approx 33.51\ \mathrm{units}^{3},\quad S \approx 50.27\ \mathrm{units}^{2}",
         ),
+        # A second shape that is part of the first, or names its base, is no second shape.
+        (
+            "Find the arc length and area of a sector of a circle with radius 5 and angle 60 "
+            "degrees",
+            r"L \approx 5.24\ \mathrm{units},\quad A \approx 13.09\ \mathrm{units}^{2}",
+        ),
+        (
+            "A sector of a circle has radius 6 and angle 90 degrees. Find its arc length and area.",
+            r"L \approx 9.42\ \mathrm{units},\quad A \approx 28.27\ \mathrm{units}^{2}",
+        ),
+        (
+            "Find the volume and surface area of a cylinder whose base is a circle of radius 3 "
+            "and height 5",
+            r"V \approx 141.37\ \mathrm{units}^{3},\quad S \approx 150.8\ \mathrm{units}^{2}",
+        ),
+        (
+            "Find the volume and surface area of a pyramid with a square base of side 4 and "
+            "height 6",
+            r"V = 32\ \mathrm{units}^{3},\quad S \approx 66.6\ \mathrm{units}^{2}",
+        ),
         # One quantity: the card is as before.
         ("find the gcd of 252 and 198", "18"),
         ("find the area of a circle of radius 3", "28.27"),
@@ -114,6 +134,19 @@ async def test_every_quantity_asked_is_on_the_card(text: str, card: str) -> None
         "Find the area of a circle of radius 2 and the circumference of a circle of radius 4",
         "Find the area of a square with side 2 and the perimeter of a square with side 8",
         "Find the area of a rectangle 2 by 3 and the perimeter of a square with side 6",
+        # Two shapes, each number a given of one of them: which one, a reading cannot tell
+        # (2026-11-14 third review: A ≈ 113.1 for 28.27, C ≈ 18.85 for 9.42, the cone's V).
+        "Find the area of a circle with diameter 6 and the circumference of a circle with radius 6",
+        "Find the area of a circle with radius 3 and the circumference of a circle with diameter 3",
+        "Find the volume of a sphere of radius 3 and the surface area of a cone of radius 3 and "
+        "height 4",
+        "Find the volume of a cylinder with radius 3 and height 3 and the surface area of a "
+        "sphere with radius 3",
+        "Find the area of a square with side 4 and the perimeter of a rectangle 5 by 7",
+        "Find the area of the square of side 4 and the circle of radius 2",
+        # One shape inside another: the numbers are the other's.
+        "Find the area and perimeter of a square inscribed in a circle of radius 2",
+        "Find the area and circumference of a circle inscribed in a square of side 4",
     ],
 )
 async def test_a_question_the_card_cannot_answer_whole_gets_no_card(text: str) -> None:
@@ -131,6 +164,11 @@ async def test_a_question_the_card_cannot_answer_whole_gets_no_card(text: str) -
         (
             "Find the radius and area of a circle with diameter 6",
             r"r = 3\ \mathrm{units},\quad A \approx 28.27\ \mathrm{units}^{2}",
+        ),
+        # One shape, a word that is no shape beside it.
+        (
+            "Find the area in square units and the perimeter of a rectangle 4 by 6",
+            r"A = 24\ \mathrm{units}^{2},\quad P = 20\ \mathrm{units}",
         ),
         (
             "Find the circumference of a circle of radius 3 and its area",

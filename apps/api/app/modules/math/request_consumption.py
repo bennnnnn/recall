@@ -114,9 +114,9 @@ _NONDEFAULT_DOMAIN = re.compile(
 )
 # A domain word with no cue before it still restricts the solutions: "Solve x^2 = 9
 # positive" and "Solve in N: x^2 = 4" were checked as ±3 and ±2 (2026-11-14 review).
-# "negative 3" is a number said aloud, not a domain.
+# "negative 3" is a number said aloud, and "an odd number of solutions" a count: no domain.
 _BARE_DOMAIN = re.compile(
-    rf"\b{_DOMAIN_ADJECTIVE}\b(?!\s*[\d.])|\b(?:integers?|integral|whole\s+numbers?|"
+    rf"\b{_DOMAIN_ADJECTIVE}\b(?!\s*[\d.]|\s+numbers?\s+of\b)|\b(?:integers?|integral|whole\s+numbers?|"
     r"natural\s+numbers?|(?:ir)?rationals?|counting\s+numbers?)\b|[\u2124\u2115\u211A]"
     r"|\\mathbb\s*\{\s*[ZNQ]\s*\}"
     # "natural" and "whole" beside the unknown, not "the natural log": "with x natural".

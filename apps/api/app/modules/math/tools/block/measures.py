@@ -107,6 +107,9 @@ def with_every_measure(intent: MathIntent, block: VerifiedMathBlock) -> Verified
         # No card to complete: a drawing, measures angles alone cannot fix, or a question
         # in parts, whose every part gets its own card.
         return block
+    if _several_shapes(request):
+        # Each measure may be of another shape, with its own dimensions.
+        return None
     picture = _picture(block)
     if not _operands_read(request, intent):
         # Each ask has its own operands ("the area of a circle with radius 3 and the
@@ -139,6 +142,54 @@ def with_every_measure(intent: MathIntent, block: VerifiedMathBlock) -> Verified
         worked_reply=None,
         asked=(),
     )
+
+
+# The shapes a question may name. "square" before a unit or "root" is no shape.
+_SHAPE = (
+    r"(?:circles?|semicircles?|sectors?|squares?(?!\s+(?:units?|roots?|cm|mm|m|km|in|ft|yd|"
+    r"inch\w*|feet|foot|yards?|miles?|met\w*|centimet\w*|kilomet\w*|millimet\w*)\b)|"
+    r"rectangles?|triangles?|trapezoids?|trapezi(?:a|ums?)|parallelograms?|rhomb(?:us|i)|"
+    r"kites?|polygons?|"
+    r"pentagons?|hexagons?|octagons?|ellipses?|spheres?|hemispheres?|cubes?|cuboids?|"
+    r"cylinders?|cones?|prisms?|pyramids?)"
+)
+_SHAPE_NOUN = re.compile(rf"\b{_SHAPE}\b", re.IGNORECASE)
+_PART = r"(?:base|face|end|cross[- ]?section)s?"
+# A shape that is part of another, with its dimensions, is no second shape: "a sector of a
+# circle", "a cylinder whose base is a circle"; nor one naming another's part or kind: "a
+# pyramid with a square base", "a square-based pyramid", "a square prism".
+_PART_OF_THE_LAST = re.compile(
+    rf"(?:\b{_SHAPE}\s+of|\b{_PART}\s+(?:is|are))\s+(?:a|an|the)\s+(?:[a-z-]+\s+){{0,2}}$",
+    re.IGNORECASE,
+)
+_NAMING_THE_NEXT = re.compile(rf"(?:\s+|-)(?:based\b|{_SHAPE}\b|{_PART}\b)", re.IGNORECASE)
+# A shape the question brings in: "a circle", "an equilateral triangle", "a right cone".
+_BROUGHT_IN = re.compile(r"\b(?:a|an)\s+(?:[a-z-]+\s+){0,2}$", re.IGNORECASE)
+
+
+_PLURALS = {"rhombi": "rhombus", "trapezia": "trapezium"}
+
+
+def _kind(noun: str) -> str:
+    word = noun.lower()
+    return _PLURALS.get(word) or (
+        word[:-1] if word.endswith("s") and not word.endswith("us") else word
+    )
+
+
+def _several_shapes(text: str) -> bool:
+    """The question brings in two shapes, or names two kinds, neither part of the other: its
+    measures may each be of another, with its own dimensions, which one reading cannot tell
+    apart ("the area of a circle with diameter 6 and the circumference of a circle with
+    radius 6" carded A ≈ 113.1 for 28.27, 2026-11-14 review)."""
+    shapes = [
+        match
+        for match in _SHAPE_NOUN.finditer(text)
+        if not _PART_OF_THE_LAST.search(text, 0, match.start())
+        and not _NAMING_THE_NEXT.match(text, match.end())
+    ]
+    brought_in = [match for match in shapes if _BROUGHT_IN.search(text, 0, match.start())]
+    return len(brought_in) >= 2 or len({_kind(match.group(0)) for match in shapes}) >= 2
 
 
 # A number as the question writes it: "3", "2.5", ".5".

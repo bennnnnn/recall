@@ -100,5 +100,14 @@
   {"id": "au-dom-en-foreign-positiv", "area": "real domain", "prompt": "Solve x^2 = 9 positiv", "expect": "decline"},
   {"id": "au-dom-en-whole-x", "area": "real domain", "prompt": "Solve x^2 = 9 for whole x", "expect": "decline"},
   {"id": "au-dom-en-whole-equation", "area": "real domain", "prompt": "Solve the whole equation 2x + 3 = 7", "expect": "answer", "check": ["num", "2"], "note": "'whole' away from the unknown is no domain"},
-  {"id": "au-lang-tr-solve", "area": "language", "prompt": "Çöz 3x = 12", "locale": "tr", "expect": "answer", "check": ["num", "4"], "note": "one short word is too little for the language gate; the solve verb itself is the evidence (2026-11-14 review)"}
+  {"id": "au-lang-tr-solve", "area": "language", "prompt": "Çöz 3x = 12", "locale": "tr", "expect": "answer", "check": ["num", "4"], "note": "one short word is too little for the language gate; the solve verb itself is the evidence (2026-11-14 review)"},
+  {"id": "au-parts-diameter-vs-radius", "area": "several asked", "prompt": "Find the area of a circle with diameter 6 and the circumference of a circle with radius 6", "expect": "decline", "note": "carded A ≈ 113.1 for 28.27 (2026-11-14 third review)"},
+  {"id": "au-parts-radius-vs-diameter", "area": "several asked", "prompt": "Find the area of a circle with radius 3 and the circumference of a circle with diameter 3", "expect": "decline", "note": "carded C ≈ 18.85 for 9.42"},
+  {"id": "au-parts-sphere-and-cone", "area": "several asked", "prompt": "Find the volume of a sphere of radius 3 and the surface area of a cone of radius 3 and height 4", "expect": "decline", "note": "carded the cone's volume for the sphere's"},
+  {"id": "au-parts-cylinder-and-sphere", "area": "several asked", "prompt": "Find the volume of a cylinder with radius 3 and height 3 and the surface area of a sphere with radius 3", "expect": "decline", "note": "right only by coincidence"},
+  {"id": "au-parts-square-and-rectangle", "area": "several asked", "prompt": "Find the area of a square with side 4 and the perimeter of a rectangle 5 by 7", "expect": "decline"},
+  {"id": "au-parts-inscribed-square", "area": "several asked", "prompt": "Find the area and perimeter of a square inscribed in a circle of radius 2", "expect": "decline", "note": "the numbers are the other shape's"},
+  {"id": "au-parts-sector-of-circle", "area": "several asked", "prompt": "Find the arc length and area of a sector of a circle with radius 5 and angle 60 degrees", "expect": "answer", "check": ["parts", [["num", "5.236"], ["num", "13.09"]]], "note": "a shape part of another is no second shape"},
+  {"id": "au-parts-cylinder-circle-base", "area": "several asked", "prompt": "Find the volume and surface area of a cylinder whose base is a circle of radius 3 and height 5", "expect": "answer", "check": ["parts", [["num", "141.37"], ["num", "150.80"]]]},
+  {"id": "au-dom-odd-number-of-solutions", "area": "real domain", "prompt": "Does x^3 - x = 0 have an odd number of solutions? Solve it.", "expect": "answer", "check": ["nums", ["-1", "0", "1"]], "note": "'odd number of' is a count, not a domain"}
 ]

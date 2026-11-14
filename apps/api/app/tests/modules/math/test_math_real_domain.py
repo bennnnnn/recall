@@ -190,6 +190,12 @@ def test_a_log_trace_checks_the_root_it_rejects() -> None:
         ("solve n^2 = 16", r"n = \pm 4"),
         # "whole" and "natural" away from the unknown are no domain.
         ("Solve the whole equation 2x + 3 = 7", "x = 2"),
+        # "an odd number of solutions" is a count, not a domain; "odd x" is one.
+        (
+            "Does x^3 - x = 0 have an odd number of solutions? Solve it.",
+            r"x = \pm 1 \text{ or } x = 0",
+        ),
+        ("Solve x^2 = 9 for odd x", None),
     ],
 )
 async def test_a_bare_domain_word_beside_an_equation_takes_its_card(
