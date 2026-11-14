@@ -1,18 +1,16 @@
 import MarkdownIt from "markdown-it";
 import taskLists from "markdown-it-task-lists";
 
-// `tables` is a valid markdown-it option (GFM tables) but is missing from
-// @types/markdown-it's Options interface, so cast the config to bypass it.
-const mdOptions = {
-  typographer: true,
-  linkify: true,
-  tables: true,
-} as unknown as ConstructorParameters<typeof MarkdownIt>[0];
-
-export const markdownItInstance = MarkdownIt(mdOptions).use(taskLists, {
+// GFM tables come with markdown-it's default preset; no option turns them on.
+export const markdownItInstance = MarkdownIt({ typographer: true, linkify: true }).use(taskLists, {
   enabled: true,
   label: true,
 });
+
+// markdown-it 15 brought linkify-it 6, which links a bare domain ("example.com",
+// "www.example.org") only when asked. Replies and user messages have always shown
+// those as links (`UserMessageContent` reads one as a link), so keep asking.
+markdownItInstance.linkify.set({ fuzzyLink: true });
 
 // The task-list plugin leaves the space after `[ ]` at the start of the
 // item's text; the checkbox already stands apart from it.

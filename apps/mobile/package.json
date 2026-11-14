@@ -53,7 +53,7 @@
     "expo-web-browser": "~58.0.7",
     "i18next": "^26.5.12",
     "katex": "^0.19.0",
-    "markdown-it": "^14.3.3",
+    "markdown-it": "^15.0.3",
     "markdown-it-task-lists": "^2.1.1",
     "mathjax-full": "^3.2.2",
     "prismjs": "^1.30.0",
@@ -83,7 +83,6 @@
     "@react-native/metro-config": "0.88.1",
     "@testing-library/react-native": "^14.1.0",
     "@types/jest": "^30.0.0",
-    "@types/markdown-it": "^14.1.2",
     "@types/prismjs": "^1.26.6",
     "@types/react": "~19.3.0",
     "eslint": "^9.39.4",
@@ -112,8 +111,8 @@
   },
   "pnpm": {
     "overrides": {
-      "markdown-it": "14.3.3",
-      "linkify-it": "5.0.2",
+      "markdown-it": "15.0.3",
+      "linkify-it": "6.1.0",
       "uuid": "11.1.1",
       "brace-expansion@1": "1.1.21",
       "brace-expansion@2": "2.1.7",
