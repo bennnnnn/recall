@@ -59,7 +59,14 @@ SPECS: tuple[FormulaSpec, ...] = (
         base_latex=r"v = \frac{\lambda}{T}",
         expression="wavelength/period",
         variables=(
-            var("wavelength", r"\lambda", "meter", words=("wavelength",), needs_words=True),
+            # The wavelength is the spacing of its crests: "the crests are 20 m apart".
+            var(
+                "wavelength",
+                r"\lambda",
+                "meter",
+                words=("wavelength", "crest", "trough", "compression"),
+                needs_words=True,
+            ),
             var("period", "T", "second", words=LABELS["period"], needs_words=True),
         ),
         binding=Binding(

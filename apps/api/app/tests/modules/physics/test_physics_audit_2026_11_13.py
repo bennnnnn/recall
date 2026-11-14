@@ -4,6 +4,10 @@
 - known-wrong answers shipped as strict expected failures (PHYS-GAPS);
 - a value no such quantity takes was solved (PHYS-03);
 - a share that decayed was read as the share left (CHEM-01, physics owns half-lives).
+
+The review of the fix (2026-11-13) found more inside the same classes: a share written as a
+fraction or a decimal, an asked share that decayed, a change "by" another verb, a qualified
+amplitude, a solved result outside its kind's range, and a wave's speed for a particle's.
 """
 
 from __future__ import annotations
@@ -142,3 +146,111 @@ def test_a_follow_up_that_changes_the_motion_is_no_new_problem() -> None:
     ]  # fmt: skip
     assert physics_followup_problem("What if it takes 10 s to stop instead?", recent) is None
     assert physics_followup_problem("what if it was 30 m/s?", recent) is not None
+
+
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        # A share however it is written: 3/4 and 0.75 are what the number reader leaves.
+        ("A sample has a half-life of 10 years. How long until 3/4 of it has decayed?",
+         "20\\,\\mathrm{years}"),
+        ("A sample has a half-life of 10 years. How long until 7/8 of it has decayed?",
+         "30\\,\\mathrm{years}"),
+        ("How long until 0.75 of the nuclei have decayed? The half-life is 10 years.",
+         "20\\,\\mathrm{years}"),
+        ("If 1/4 of a sample decays, how long has it been? The half-life is 10 years.",
+         "4.15\\,\\mathrm{years}"),
+        ("A sample has a half-life of 10 years. How long until it has lost 3/4 of its atoms?",
+         "20\\,\\mathrm{years}"),
+        ("A sample has a half-life of 10 years. How long until 1/4 of it remains?",
+         "20\\,\\mathrm{years}"),
+        # An asked share that decayed.
+        ("What percentage of a sample has decayed after 2 half-lives?", "75\\,\\%"),
+        ("What fraction of a sample has decayed after 3 half-lives?", "0.875"),
+        ("How much of a 100 g sample has decayed after 2 half-lives?", "75\\,\\mathrm{g}"),
+        ("A sample has a half-life of 10 years. What percentage has decayed after 20 years?",
+         "75\\,\\%"),
+        ("After 3 half-lives, what percentage of a sample remains?", "12.5\\,\\%"),
+        ("A 100 g sample with half-life 5 years. How much is left after 15 years?",
+         "12.5\\,\\mathrm{g}"),
+        # A change with nothing of its kind before it is the law's own value.
+        ("A spring's extension increases by 2 cm when a 4 N load is added. What is the spring "
+         "constant?", "200\\,\\mathrm{N/m}"),
+        ("The voltage across a 2 μF capacitor increases by 5 V. How much charge flows onto it?",
+         "1 \\times 10^{-5}\\,\\mathrm{C}"),
+        # Set-aside air resistance, a duration said "a period", crests apart.
+        ("A ball is dropped from 80 m with air resistance neglected. How long does it take to "
+         "fall?", "4.04\\,\\mathrm{s}"),
+        ("Considering air resistance to be negligible, how long does a stone dropped from 20 m "
+         "take to fall?", "2.02\\,\\mathrm{s}"),
+        ("A cyclist rides at 5 m/s for a short period of 10 s. How far does she go?",
+         "50\\,\\mathrm{m}"),
+        ("Ocean waves have a period of 4 s and the crests are 20 m apart. What is the wave "
+         "speed?", "5\\,\\mathrm{m/s}"),
+        # A diverging lens: a size and a side (owner, 2026-11-13).
+        ("An object is 20 cm from a diverging lens of focal length -10 cm. Find the image "
+         "distance.", "6.67\\,\\mathrm{cm}\\ (\\text{virtual, on the object's side of the lens})"),
+        ("An object is 20 cm from a concave lens of focal length 10 cm. Find the image "
+         "distance.", "6.67\\,\\mathrm{cm}\\ (\\text{virtual, on the object's side of the lens})"),
+        ("An object is placed 30 cm from a concave lens of focal length 15 cm. What is the "
+         "magnification?", "0.333\\ (\\text{upright and smaller})"),
+        ("An object is 30 cm from a convex lens of focal length 10 cm. Find the image distance.",
+         "15\\,\\mathrm{cm}"),
+        # Once declined for its sign, a diverging lens however worded (owner, 2026-11-13).
+        ("An object 30 cm from a concave thin lens of focal length 15 cm. Find the image "
+         "distance.", "10\\,\\mathrm{cm}\\ (\\text{virtual, on the object's side of the lens})"),
+        ("The lens is concave. An object is placed 30 cm from it and its focal length is 15 cm. "
+         "Find the image distance.",
+         "10\\,\\mathrm{cm}\\ (\\text{virtual, on the object's side of the lens})"),
+        ("An object is 30 cm from a biconcave lens of focal length 15 cm. Find the image "
+         "distance.", "10\\,\\mathrm{cm}\\ (\\text{virtual, on the object's side of the lens})"),
+        ("An object is placed 30 cm from a minus lens of focal length 15 cm. Find the image "
+         "distance.", "10\\,\\mathrm{cm}\\ (\\text{virtual, on the object's side of the lens})"),
+        ("what is the image distance for a diverging lens of focal length 10 cm and object at "
+         "30 cm", "7.5\\,\\mathrm{cm}\\ (\\text{virtual, on the object's side of the lens})"),
+        ("An object is 30 cm from a concave lens with focal length 10 cm. Where is the image "
+         "and how big is it?", "7.5\\,\\mathrm{cm}\\ (\\text{virtual, on the object's side of "
+         "the lens});\\quad 0.25\\ (\\text{upright and smaller})"),
+    ],
+)  # fmt: skip
+def test_the_reviewed_class_answers_right(text: str, answer: str) -> None:
+    assert _answer(text) == answer
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # A change of a stated value is no end of it.
+        "A car moving at 20 m/s reduces its speed by 5 m/s in 2 s. What is its deceleration?",
+        "A car moving at 10 m/s picks up speed by 6 m/s in 3 s. What is its acceleration?",
+        "A cyclist moving at 4 m/s accelerates by 2 m/s over 4 s. What is her acceleration?",
+        "A gas at 27 °C and 100 kPa is heated through 100 °C at constant volume. What is the new "
+        "pressure?",
+        "The temperature of a gas at 300 K and 2 L is raised by 150 K at constant pressure. What "
+        "is the new volume?",
+        "A gas at 400 K and 2 L has its temperature lowered by 100 K at constant pressure. What "
+        "is its new volume?",
+        "A gas at 20 °C and 1 atm in a sealed can is heated by 80 °C. What is the new pressure?",
+        # A qualified amplitude, and a condition that scales a given.
+        "A mass oscillates with a peak-to-peak amplitude of 0.2 m and a period of 2 s. What is "
+        "its maximum speed?",
+        "A mass oscillates with an amplitude of 0.1 m and a period of 2 s. If the amplitude is "
+        "doubled, what is its maximum speed?",
+        # A solved result no such quantity takes.
+        "A force of -10 N gives an acceleration of 2 m/s^2. What is the mass?",
+        "A potential difference of -6 V drives a current of 2 A. What is the resistance?",
+        # A particle's speed is no wave's.
+        "A wave has a wavelength of 2 m and a period of 0.5 s. What is the maximum speed of a "
+        "particle in the medium?",
+        "A wave on a string has a wavelength of 2 m and a period of 0.5 s. How fast does a point "
+        "on the string move?",
+        # A lens not said to diverge, with an image distance stated, is not read as one.
+        "An object is 30 cm from a lens and forms a virtual image 60 cm from the lens. Find the "
+        "magnification.",
+        # p = mv is classical, and a convex mirror's sign is a convention.
+        "A proton moves at 2.9e8 m/s. What is its momentum? (mass 1.67e-27 kg)",
+        "An object is 20 cm from a convex mirror of focal length 10 cm. Find the image distance.",
+    ],
+)
+def test_the_reviewed_class_declines(text: str) -> None:
+    assert _answer(text) is None

@@ -89,24 +89,32 @@ flowchart LR
      not a temperature change;
    - **a value named as a quantity is that quantity** (`services/law_binding/labels.py`):
      "an amplitude of 0.1 m", "a period of 2 s", "4 s per cycle", "a wavelength of 200 km",
-     "an average speed of 12 m/s" and "increases its speed by 10 m/s" fill only an input
-     that is that quantity, one the catalog names for it or whose words name it, and for a
-     change a Δ input. Read by dimension alone, a spring's amplitude and period filled
-     v = d/t, 0.05 m/s for v_max = 2πA/T = 0.314 m/s, and so did a wave's and a pendulum's
-     (audit 2026-11-13). A duration said "over a period of 5 s" names nothing. An
-     extractor's law is held to it too (`law_refusals.py`), except for a change, which the
-     extractors work into the ends they bind;
+     "an average speed of 12 m/s" fill only an input that is that quantity, one the catalog
+     names for it or whose words name it. Read by dimension alone, a spring's amplitude and
+     period filled v = d/t, 0.05 m/s for v_max = 2πA/T = 0.314 m/s, and so did a wave's and
+     a pendulum's (audit 2026-11-13). A duration said "over a period of 5 s" or "for a short
+     period of 10 s" names nothing, and a qualified amplitude ("peak-to-peak", "double") is
+     no A. A value a verb puts "by" or "through" beside a value of its kind stated before
+     it is a change of that value ("at 20 m/s it reduces its speed by 5 m/s", "a gas at
+     27 °C is heated through 100 °C") and fills only a Δ input; read as the end it gave
+     −7.5 m/s² and 124 kPa (review 2026-11-13). With nothing of its kind before it ("its
+     extension increases by 2 cm under a 4 N load") it is the law's own value, as ever. An
+     extractor's law is held to all of it too (`law_refusals.py`);
    - **a quantity takes only values it can have** (`services/law_binding/domains.py`): a
      mass, a resistance, a capacitance, an inductance, a density, a stiffness, a frequency,
      an absolute temperature and a named period, wavelength or amplitude are above zero,
      and no body moves faster than light (light's school 3 × 10⁸ m/s is not faster). A
-     stated value outside declines: "a −5 Ω resistor across 10 V" was −2 A, verified. A
-     velocity, a displacement, an acceleration, a charge, a spring's extension and any Δ
-     keep their sign;
+     stated value outside declines: "a −5 Ω resistor across 10 V" was −2 A, verified. So
+     does a result outside its kind's range (`solver.solve_physics`): "a force of −10 N gives
+     2 m/s²: the mass?" was −5 kg. A velocity, a displacement, an acceleration, a charge, a
+     spring's extension, an angular rate and any Δ keep their sign;
    - **a share of a decaying sample** is what is left ("25% remains", "decayed to 25%") or
      what went ("75% … to decay", "loses 75%", "has decomposed"), which leaves 1 − p
-     (`decay_share.py`). "75% of a sample to decay, half-life 10 years" was 4.15 years for
-     20; a share the words call neither ("75% of the sample") declines;
+     (`decay_share.py`), however it is written (75%, 3/4, 0.75; a share in words declines
+     with every number in words). "75% of a sample to decay, half-life 10 years" was 4.15
+     years for 20; a share the words call neither ("75% of the sample") declines. An asked
+     share is read the same way: "what percentage has decayed after 2 half-lives?" is 75%,
+     never the 25% left (`catalog/decayed.py`);
    - values listed after "and" share the words before the list ("at 100 kPa and 300 K"),
      and the words after a value stop at the first connector ("300 K is heated to 450 K"
      names 450 K, not 300 K). A rate in rad/s or rpm fills only an angular input, never a
@@ -750,14 +758,19 @@ pipeline refuses:
   mass on the Moon?" took the Moon's g for the weight), a sideways launch read by the
   one-line SUVAT laws, and a dropped body given a launch speed;
 - a follow-up that changes the motion, not a number ("what if it takes 10 s to stop
-  instead?" after a steady 20 m/s);
+  instead?" after a steady 20 m/s), and a clause that scales a stated value ("if the
+  amplitude is doubled, what is its maximum speed?");
+- a wave's speed for an ask about the medium's own motion ("the maximum speed of a
+  particle", "how fast does a point on the string move"), which needs the amplitude;
 - a result whose kind is not the asked one, and a price ("find the cost"), which no law
   answers;
 - a Doppler speed with no direction, or one speed when both parties move;
 - a magnification from a virtual image's distance, or a convex mirror's focal length, whose
   sign the conventions disagree on. A virtual image's distance itself is answered as a
   size and a side ("virtual, on the object's side of the lens"), with no sign to disagree
-  on;
+  on, and so is a diverging (concave) lens's image, whichever sign its focal length is
+  written with: 20 cm from a lens of focal length −10 cm is 6.67 cm, virtual, on the
+  object's side, magnification 0.333, upright (owner, 2026-11-13);
 - values listed "respectively" for inputs told apart by words ("primary and secondary coils
   with 100 and 500 turns respectively"); a list the law fills in order still binds;
 - a question in another language, and a number its writer reads otherwise ("1.200 kg"
@@ -765,4 +778,4 @@ pipeline refuses:
   grammars, so "Deux résistances de 10 ohms … en parallèle" was one resistor's 0.5 A
   (`turn_reading/readable.py`; chat drops the result whole, `chat/whole_question.py`);
 - every refusal listed under Physics in `FEATURES.md` (an unstated collision type, a
-  diverging lens, an absolute temperature written as bare "degrees", and the rest).
+  convex mirror's image, an absolute temperature written as bare "degrees", and the rest).

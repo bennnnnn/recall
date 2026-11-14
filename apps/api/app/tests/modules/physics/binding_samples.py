@@ -324,3 +324,10 @@ SAMPLES: dict[str, float] = {
     "r_int": 0.5,
     "v_final": 3.0,
 }
+
+# A law whose result the shared sample would put out of its range: a body in simple harmonic
+# motion at the photon sample's 1e15 Hz moves faster than light, which no result may.
+BY_LAW: dict[tuple[str, str], float] = {
+    ("shm_max_speed", "freq"): 2.0,
+    ("shm_max_acceleration", "freq"): 2.0,
+}

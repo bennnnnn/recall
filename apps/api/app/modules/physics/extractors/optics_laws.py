@@ -7,6 +7,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 
+from app.modules.physics.ask import ask_clause
 from app.modules.physics.binding_values import light_starts_inside
 from app.modules.physics.extractors.angles import INCLINE_ANGLE_RE
 from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
@@ -336,6 +337,46 @@ def image_distance(cleaned: str) -> PhysicsIntent | None:
             "d_obj": obj[1] or "m",
             **dict.fromkeys(mirror, ""),
         },
+        operation="solve",
+    )
+
+
+# An asked magnification, or a size: "the magnification", "how big is the image".
+_ASKS_SIZE = re.compile(r"\bmagnif\w*|\bhow\s+(?:big|large|tall)\b|\bsize\b", re.IGNORECASE)
+
+
+def _stated_image(cleaned: str) -> tuple[float, str] | None:
+    return find_value_with_specific_unit(
+        cleaned, LENGTH_UNIT_PATTERN, ("image",), require_keyword=True
+    )
+
+
+def diverging_lens_image(cleaned: str) -> PhysicsIntent | None:
+    """A diverging (concave) lens: its image is virtual, on the object's side, and smaller,
+    whichever sign its focal length is written with ("-10 cm", or "a concave lens of focal
+    length 10 cm"). Answered as a size and a side, as a converging lens's virtual image is
+    (owner, 2026-11-13); a convex mirror, a signed object distance or an image distance
+    stated (not read) stays declined."""
+    lower = cleaned.lower()
+    # Only a focal length the words name, never an image distance stated: "forms a virtual
+    # image 60 cm from the lens" is a converging lens's image, and read as |f| it was m = 0.667.
+    if "mirror" in lower or "focal" not in lower or _stated_image(cleaned) is not None:
+        return None
+    focal = _focal_length(cleaned)
+    obj = _object_length(cleaned)
+    if focal is None or obj is None or obj[0] <= 0 or focal[0] == 0:
+        return None
+    clause = ask_clause(cleaned) or ""
+    op = (
+        "diverging_lens_magnification"
+        if _ASKS_SIZE.search(clause)
+        else "diverging_lens_image_distance"
+    )
+    return PhysicsIntent(
+        kind="optics",
+        physics_op=op,
+        physics_params={"focal": focal[0], "d_obj": obj[0]},
+        physics_units={"focal": focal[1] or "m", "d_obj": obj[1] or "m"},
         operation="solve",
     )
 

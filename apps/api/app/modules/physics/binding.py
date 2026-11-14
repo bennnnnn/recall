@@ -31,7 +31,13 @@ from app.modules.physics.binding_values import fallback_value, light_starts_insi
 from app.modules.physics.bodies import names_only_water
 from app.modules.physics.catalog import CATALOG, WATER_ONLY
 from app.modules.physics.catalog.projectile import AT_AN_ANGLE
-from app.modules.physics.decay_share import SHARE_GONE_MARKER, share_markers, share_reading
+from app.modules.physics.decay_share import (
+    ASKED_GONE_MARKER,
+    SHARE_GONE_MARKER,
+    asked_share,
+    share_markers,
+    share_reading,
+)
 from app.modules.physics.frames import FRAMES_UNREAD_MARKER, adds_speeds_across_frames
 from app.modules.physics.givens import FRACTION_OF_C, PHYSICS_UNITS, unit_expression
 from app.modules.physics.law_range import holds_its_range
@@ -343,6 +349,11 @@ def _cue_text(text: str, lower: str) -> str:
         cue_text = f"{cue_text} {AT_AN_ANGLE}"
     if share_reading(lower) == "gone":
         cue_text = f"{cue_text} {SHARE_GONE_MARKER}"
+    # "A concave lens", "a minus lens": a diverging lens's laws are cued by any wording of it.
+    if diverging_element(lower):
+        cue_text = f"{cue_text} diverging"
+    if asked_share(lower) == "gone":
+        cue_text = f"{cue_text} {ASKED_GONE_MARKER}"
     return cue_text
 
 

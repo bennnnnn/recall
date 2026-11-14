@@ -25,7 +25,13 @@ from dataclasses import dataclass
 from functools import lru_cache
 
 from app.services.law_binding.givens import Given, scan_givens
-from app.services.law_binding.labels import LABEL_UNITS, holds, value_label
+from app.services.law_binding.labels import (
+    CHANGE,
+    LABEL_UNITS,
+    holds,
+    said_as_a_change,
+    value_label,
+)
 from app.services.law_binding.roles import role_words
 from app.services.law_binding.spec import Binding, FormulaSpec, VariableSpec
 from app.services.law_binding.units import ANGLE, UnitTable, dimension_of, unit_dimension
@@ -334,9 +340,23 @@ def given_labels(lower: str, givens: tuple[Given, ...]) -> tuple[str | None, ...
         label = value_label(before, words_after(lower, end, _next_start(givens, index, lower)))
         # "500 J per cycle" is a heat engine's work, no period.
         unit = LABEL_UNITS.get(label or "")
-        found.append(None if unit and given.dimension != dimension_of(unit) else label)
+        if unit and given.dimension != dimension_of(unit):
+            label = None
+        # "At 20 m/s it reduces its speed by 5 m/s": a change of a value stated before it.
+        if label is None and said_as_a_change(before) and _changes_one_before(givens, found, index):
+            label = CHANGE
+        found.append(label)
         previous = end
     return tuple(found)
+
+
+def _changes_one_before(givens: Sequence[Given], labels: Sequence[str | None], index: int) -> bool:
+    """A value of the same kind as ``givens[index]`` is stated before it, itself no change."""
+    dimension = givens[index].dimension
+    return dimension is not None and any(
+        given.dimension == dimension and label != CHANGE
+        for given, label in zip(givens[:index], labels, strict=False)
+    )
 
 
 def _labels_the_result(

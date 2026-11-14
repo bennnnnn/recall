@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 from app.modules.physics.catalog.modern import ELAPSED, HALF_LIFE, HALF_LIFE_CUES
-from app.modules.physics.decay_share import SHARE_GONE_MARKER, SHARE_UNSAID_MARKER
+from app.modules.physics.decay_share import (
+    ASKED_GONE_MARKER,
+    SHARE_GONE_MARKER,
+    SHARE_UNSAID_MARKER,
+)
 from app.services.law_binding.spec import Binding, FormulaSpec, formula, var
 
 _LAW = "Radioactive-decay law"
@@ -23,6 +27,8 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("dimensionless",),
             inputs=(frozenset({"elapsed", "half_life"}),),
             cues=HALF_LIFE_CUES,
+            # What is left, never what went (``catalog/decayed.py``).
+            excludes=(ASKED_GONE_MARKER,),
             nonnegative=True,
         ),
     ),
@@ -104,6 +110,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("percent",),
             inputs=(frozenset({"n_halves"}),),
             cues=("half-lives", "half lives"),
+            excludes=(ASKED_GONE_MARKER,),
             nonnegative=True,
         ),
     ),
@@ -128,6 +135,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("dimensionless",),
             inputs=(frozenset({"n_halves"}),),
             cues=("half-lives", "half lives"),
+            excludes=(ASKED_GONE_MARKER,),
             nonnegative=True,
         ),
     ),

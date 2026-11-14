@@ -52,6 +52,15 @@ def outside_domain(spec: FormulaSpec, si_params: Mapping[str, float]) -> str | N
     return None
 
 
+def outside_kind(kind: str | None, si_value: float) -> bool:
+    """A value of this kind (a dimension, as ``units.dimension_of`` writes it) that no such
+    quantity takes: a law solved for a mass is held to a mass's range too. "A force of -10 N
+    gives an acceleration of 2 m/s². The mass?" was -5 kg, verified (review 2026-11-13)."""
+    if kind in _ABOVE_ZERO and si_value <= 0:
+        return True
+    return kind == _SPEED and abs(si_value) > _fastest()
+
+
 @lru_cache(maxsize=1)
 def _fastest() -> float:
     """c in m/s, Pint's, with room for a school question's light at 3 x 10^8 m/s, a hair

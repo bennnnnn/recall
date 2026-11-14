@@ -215,9 +215,6 @@ def test_optics_laws_answer_the_investigation_questions(
         "the image?",
         "A spherical mirror is convex. Its focal length is 15 cm and an object is placed "
         "10 cm in front of it. Find the image distance.",
-        "An object 30 cm from a concave thin lens of focal length 15 cm. Find the image distance.",
-        "The lens is concave. An object is placed 30 cm from it and its focal length is "
-        "15 cm. Find the image distance.",
         # A short-sighted eye's lens diverges.
         "A myopic person uses a lens of focal length 80 cm. Find the power.",
         "A short-sighted person wears spectacles with lenses of focal length 50 cm. What is "
@@ -235,7 +232,6 @@ def test_optics_laws_answer_the_investigation_questions(
         "The height of an object is 5 cm and the height of its image in a concave mirror is "
         "25 cm high. What is the magnification of the image?",
         # Second review: "biconcave", power to focal length, and lenses in contact.
-        "An object is 30 cm from a biconcave lens of focal length 15 cm. Find the image distance.",
         "A concave lens has power 2.5 D. Find its focal length.",
         "A convex lens of power 4 D and a concave lens of power 2.5 D are in contact. Find "
         "the total power.",

@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.law_binding.domains import outside_domain
+from app.services.law_binding.domains import outside_domain, outside_kind
 from app.services.law_binding.fit import Question, Subject, fit, given_labels, read_givens
-from app.services.law_binding.labels import CHANGE, holds, value_label
+from app.services.law_binding.labels import CHANGE, QUALIFIED, holds, value_label
 from app.services.law_binding.spec import Binding, FormulaSpec, VariableSpec, var
 from app.services.law_binding.units import UnitTable, dimension_of
 
@@ -37,8 +37,11 @@ _RATE = FormulaSpec(
         (" and takes ", " per cycle", "period"),
         ("light of wavelength ", " falls", "wavelength"),
         ("reaches an average speed of ", " over", "average speed"),
-        ("increases its speed by ", " in", CHANGE),
-        ("its temperature rises by about ", ".", CHANGE),
+        # A qualified amplitude is another quantity: peak-to-peak is 2A.
+        ("with a peak-to-peak amplitude of ", " and", QUALIFIED),
+        ("with a double amplitude of ", " and", QUALIFIED),
+        ("has its amplitude ", ".", "amplitude"),
+        ("for a short period of ", ".", None),
         # Durations and plain values name nothing.
         ("a car covers 100 m over a period of ", ".", None),
         ("in a time period of ", ".", None),
@@ -100,6 +103,31 @@ def test_a_named_value_leaves_a_law_without_that_quantity_unfilled(
     assert _fit(text) == params
 
 
+@pytest.mark.parametrize(
+    ("text", "labels"),
+    [
+        # A verb, then "by" or "through", beside a value of its kind stated before it.
+        ("at 20 m/s it reduces its speed by 5 m/s in 2 s", (None, CHANGE, None)),
+        ("a gas at 300 k is heated through 100 k", (None, CHANGE)),
+        ("a gas at 300 k goes up by 100 k", (None, CHANGE)),
+        # Nothing of its kind before it: the law's own value.
+        ("its extension increases by 2 cm under a 4 n load", (None, None)),
+        ("a 10 kg crate is pulled by 50 n", (None, None)),
+        # No verb: dimensions, not a change.
+        ("a rectangle 8 cm by 5 cm", (None, None)),
+    ],
+)
+def test_a_change_is_a_value_said_by_a_verb_beside_one_of_its_kind(
+    text: str, labels: tuple[str | None, ...]
+) -> None:
+    units = UnitTable(
+        {"m/s": "meter / second", "s": "second", "k": "kelvin", "cm": "centimeter",
+         "kg": "kilogram", "n": "newton"},
+        {},
+    )  # fmt: skip
+    assert given_labels(text, read_givens(text, units)) == labels
+
+
 def test_each_given_carries_its_label_in_order() -> None:
     text = "an amplitude of 0.1 m, a period of 2 s and 5 kg"
     assert given_labels(text, read_givens(text, _UNITS)) == ("amplitude", "period", None)
@@ -142,3 +170,18 @@ def test_a_value_no_such_quantity_takes_is_outside_the_law(
     values: dict[str, float], outside: str | None
 ) -> None:
     assert outside_domain(_PARTS, values) == outside
+
+
+@pytest.mark.parametrize(
+    ("unit", "value", "outside"),
+    [
+        ("kilogram", -5.0, True),
+        ("ohm", -3.0, True),
+        ("kilogram", 5.0, False),
+        ("meter / second", 4e8, True),
+        ("meter / second", -20.0, False),
+        ("joule", -100.0, False),
+    ],
+)
+def test_a_result_is_held_to_its_kinds_range(unit: str, value: float, outside: bool) -> None:
+    assert outside_kind(dimension_of(unit), value) is outside
