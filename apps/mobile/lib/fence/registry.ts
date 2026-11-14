@@ -103,11 +103,7 @@ type FenceSpecRow = {
   mathDiagram?: boolean;
   /** Lifted out of a list item so CommonMark reads it as a real fence. */
   liftOutOfLists?: boolean;
-  /**
-   * A server-owned fence that still draws while its reply streams. Every other
-   * server-owned fence is held until the reply settles (`isHeldWhileStreaming`).
-   */
-  drawsWhileStreaming?: boolean;
+  drawsWhileStreaming?: boolean; // A server fence drawn while streaming (lib/fence/held.ts).
 };
 
 const FENCE_TABLE = [
@@ -197,8 +193,6 @@ const FENCE_TABLE = [
     owner: "server", body: "data",
     fallback: "answer",
     liftOutOfLists: true,
-    // The reply copies the verified answer into it as it writes: it streams with no
-    // check, which the card adds once the reply settles (`AnswerBlock`'s `settled`).
     drawsWhileStreaming: true,
   },
   {
@@ -473,18 +467,6 @@ export function documentFormForLang(lang: string): "copyText" | FenceDocumentBlo
 /** A ```json or unlabelled fence whose body is this card's JSON draws as this card. */
 export function drawsBareJson(id: FenceId): boolean {
   return BY_ID.get(id)?.bareJson ?? false;
-}
-
-/**
- * A fence the server writes or rewrites after the stream (a scene, a molecule, a graph,
- * a calculator) is drawn only once the reply settles. One the model wrote mid-reply is
- * not the server's yet: finalize strikes it or puts the checked one in its place, and a
- * picture the reader saw first would vanish or change. Held, like the reminder and
- * settings cards, until then.
- */
-export function isHeldWhileStreaming(id: FenceId): boolean {
-  const spec = BY_ID.get(id);
-  return spec?.owner === "server" && !spec.drawsWhileStreaming;
 }
 
 /** A card drawn from JSON or another machine format: its open fence never streams raw. */

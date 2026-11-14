@@ -7,7 +7,7 @@ import { render, waitFor } from "@testing-library/react-native";
 import { renderFence, type FenceNode } from "../markdownFenceRender";
 import { renderRichFenceById } from "@/components/rich/RichFence";
 import { ReplyStreaming } from "@/components/markdown/ReplyStreaming";
-import { isHeldWhileStreaming } from "@/lib/fence/registry";
+import { isHeldWhileStreaming } from "@/lib/fence/held";
 import "@/lib/i18n";
 
 // These check the English copy, so they read the real react-i18next over lib/i18n.

@@ -17,7 +17,8 @@ import {
 import { copyBlockLabelKey, draftFenceProseText } from "@/lib/copyBlock";
 import i18n from "@/lib/i18n";
 import { parseFenceLang } from "@/lib/codeHighlight";
-import { fenceIdForLang, isHeldWhileStreaming, isNeverCodeBlockLang } from "@/lib/fence/registry";
+import { isHeldWhileStreaming } from "@/lib/fence/held";
+import { fenceIdForLang, isNeverCodeBlockLang } from "@/lib/fence/registry";
 import {
   classifyFence,
   looksLikeMathMeta,
