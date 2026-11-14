@@ -15,6 +15,7 @@ _MODULE_EXPORTS = (
     "answer_subject",
     "capabilities",
     "chart",
+    "chart_data",
     "checklist",
     "clarify",
     "coding",

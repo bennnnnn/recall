@@ -559,7 +559,17 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   must be inline: a body it cannot draw, or one Vega draws no marks for, shows a note, the data as
   a table and the source, never a blank card. A chart of a formula is sampled by SymPy into a
   ` ```graph` (`modules/math/chart_formula.py`); the phone never evaluates one. A chart of the
-  user's own numbers is not a maths turn.
+  user's own numbers is not a maths turn. A bar, pie, line or histogram chart of numbers the user
+  wrote (this message, or an earlier one "graph it" points back to) is the server's
+  (`modules/charts/`, `modules/chat/chart_turn.py`, `data_charts_enabled`): one fast structured
+  call reads the data beside the reply, every label and value is held to the user's words (each
+  number next to its own label, all on the same side; a histogram's whole list, in order), and
+  the server writes the chart in one of the contract's shapes, in the place of the model's own.
+  Finalize waits for it at most 2 s (`chart_wait_seconds`). A reading that adds, drops, changes
+  or mis-pairs a number draws nothing; with no reading in time, the model's own chart of those
+  shapes is held to the same check and drawn from its checked numbers, or taken out. A kind the
+  user names that is not one of the four (a scatter, a box plot, a line plot) is left to the
+  model. `app/tests/behavior/chart_corpus.json` holds charts, refused readings and look-alikes.
 - ✅ **HTML/CSS/JS preview** — `html` fences get a sandboxed WebView preview ("run" → modal) plus
   "open in browser" (needs a dev build; see the code-execution policy below). Run may load
   scripts/styles only from `cdn.jsdelivr.net`, `unpkg.com`, `cdnjs.cloudflare.com`, and Google

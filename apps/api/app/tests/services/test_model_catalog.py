@@ -326,6 +326,7 @@ def test_routing_lanes_point_at_models_that_can_do_their_job() -> None:
         lanes.background,
         lanes.word_problems,
         lanes.math_extract,
+        lanes.chart_read,
         lanes.live_read,
         lanes.live_read_backup,
     ):

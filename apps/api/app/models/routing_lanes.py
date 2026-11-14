@@ -69,6 +69,10 @@ class RoutingLanes:
     # reply; its numbers are grounded in the question the same way.
     word_problems: str
     math_extract: str
+    # A chart of the user's own numbers, read beside the reply (``modules/charts``): its
+    # output is only a candidate, held label by label and number by number to the user's
+    # words. JSON mode, fast: the reply waits for it at most two seconds.
+    chart_read: str
     # How to handle a message (``chat.turn_decision``): live facts, subject, effort, picture
     # and follow-up. The reply waits on it, so the fastest JSON-mode model (Qwen3.7 Flash
     # read 8 of 8 search questions right in about 0.7s; GPT-6 Luna took over 2s).
@@ -112,6 +116,7 @@ ROUTING = RoutingLanes(
     titles="title-model",
     word_problems="gpt-6-luna",
     math_extract="gpt-6-luna",
+    chart_read="gpt-6-luna",
     live_read="title-model",
     live_read_backup="free-chat",
     decider="decider-model",

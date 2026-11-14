@@ -216,6 +216,9 @@ def test_every_spend_gate_is_listed() -> None:
         "background/handlers.py",
         # Skips (never raises): the user's message is saved. test_index_jobs.py.
         "modules/attachments/jobs.py",
+        # A chart of the user's numbers: no chart, the model's checked one or none stands.
+        # modules/chat/test_chart_turn.py.
+        "modules/charts/read.py",
         # The resolver answers None on any failure: modules/chat/test_conversation_reference.py.
         "modules/chat/conversation_reference.py",
         # Skips: the turn's jobs. modules/chat/test_post_turn_spend.py.

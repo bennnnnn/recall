@@ -405,7 +405,7 @@ _BACK_REFERENCE = re.compile(
 _BARE_VERB = re.compile(rf"^{_POLITE}(?:graph|chart|plot|visuali[sz]e)\W*$", re.IGNORECASE)
 
 
-def _holds_data(text: str) -> bool:
+def holds_data(text: str) -> bool:
     """Three numbers or more, or a list of them ("rent 1500, groceries 400") that asks
     nothing: "Compare iPhone 15 and Pixel 8 prices?" holds model names, not data."""
     count = len(_NUMBER.findall(_YEAR.sub(" ", text)))
@@ -485,7 +485,7 @@ def chart_followup_data(query: str, prior_messages: Sequence[tuple[str, str]] | 
     ]
     # "Yes" answers the last reply, so only the message that reply answered holds its numbers.
     for text in reversed(earlier[-1:] if accepts else earlier[-_FOLLOWUP_LOOKBACK:]):
-        if _holds_data(text):
+        if holds_data(text):
             return " ".join(text.split())[:600]
     # "Want me to graph it?" after "y = 2x + 3" offers maths' graph of a curve, not a chart.
     curve = any(_FORMULA.search(text) or _CURVE_WORDS.search(text) for text in earlier[-1:])

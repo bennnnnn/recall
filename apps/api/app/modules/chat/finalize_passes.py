@@ -34,6 +34,7 @@ from dataclasses import dataclass, field
 from redis.asyncio import Redis
 
 from app.core.config import Settings
+from app.modules.chat.chart_turn import attach_chart
 from app.modules.chat.claim_check import cut_unsupported_claims
 from app.modules.chat.control_tokens import drop_control_tokens, strip_control_tokens
 from app.modules.chat.emoji_placement import place_reply_emoji
@@ -284,14 +285,15 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         kind=TEXT,
         after=frozenset({fences_pass(FENCE_FALLBACK)}),
     ),
-    # The picture a maths question asks to see, drawn from its values beside the reply:
-    # after the passes that strip a picture no solver wrote, and a failure keeps the text.
-    FinalizePass(
-        "figure",
-        attach_figure,
-        OnError(log_as="figure"),
-        kind=EFFECT,  # waits on the picture's model read, and commits the text
-        after=frozenset({"math_fences", "formula_charts"}),
+    # The pictures drawn beside the reply, each waiting on its model read and committing the
+    # text, a failure keeping it: a maths question's figure, after the passes that strip a
+    # picture no solver wrote, then a chart of the user's numbers in the model's chart's place.
+    *(
+        FinalizePass(name, attach, OnError(log_as=name), kind=EFFECT, after=after)
+        for name, attach, after in (
+            ("figure", attach_figure, frozenset({"math_fences", "formula_charts"})),
+            ("data_chart", attach_chart, frozenset({"figure"})),
+        )
     ),
     FinalizePass("server_answer_cards", mark_server_cards, kind=TEXT),
     FinalizePass("unverified_notes", append_unverified_notes, kind=TEXT),
