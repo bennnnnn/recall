@@ -178,7 +178,7 @@
   "chat.math_scan_torch_on_a11y": "Apagar linterna",
   "chat.menu": "Opciones del chat",
   "chat.message_render_failed": "No se puede mostrar este mensaje.",
-  "chat.model_unavailable": "Ese modelo no responde ahora mismo. Elige otro modelo e inténtalo de nuevo.",
+  "chat.model_unavailable": "Ese modelo no responde ahora mismo. Inténtalo de nuevo o elige otro modelo en Ajustes › Modelo predeterminado.",
   "chat.new_chat": "Nuevo chat",
   "chat.offline_body": "Conéctate a internet para enviar mensajes.",
   "chat.open_drawer_a11y": "Abrir menú",

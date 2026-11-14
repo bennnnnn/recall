@@ -178,7 +178,7 @@
   "chat.math_scan_torch_on_a11y": "Éteindre la lampe",
   "chat.menu": "Options du chat",
   "chat.message_render_failed": "Impossible d’afficher ce message.",
-  "chat.model_unavailable": "Ce modèle ne répond pas pour le moment. Choisissez un autre modèle et réessayez.",
+  "chat.model_unavailable": "Ce modèle ne répond pas pour le moment. Réessayez ou choisissez un autre modèle dans Paramètres › Modèle par défaut.",
   "chat.new_chat": "Nouveau chat",
   "chat.offline_body": "Reconnectez-vous à Internet pour envoyer des messages.",
   "chat.open_drawer_a11y": "Ouvrir le menu",

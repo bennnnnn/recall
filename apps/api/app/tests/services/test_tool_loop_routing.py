@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.gateways.litellm_gateway import ModelUnavailableError
-from app.gateways.mcp.base import ToolResult
 from app.gateways.web_search_gateway import WebSearchHit
 from app.modules.chat import tool_loop
 from app.modules.chat.tool_loop import rounds, text_calls
@@ -88,7 +87,7 @@ def test_turn_needs_tool_loop_draw_request_does_not_trigger_lookup_path():
 
 
 @pytest.mark.asyncio
-async def test_tool_loop_no_tools_first_round_does_not_complete_twice(web_search_registered):
+async def test_tool_loop_no_tools_first_round_does_not_complete_twice(sympy_registered):
     """Probe found no tools — stream the answer; never complete_with_tools twice."""
     messages = [{"role": "user", "content": "tell me about Lisbon"}]
     complete = AsyncMock(return_value={"content": "Tokyo is the capital.", "tool_calls": []})
@@ -115,7 +114,7 @@ def test_tool_selectors_are_tool_capable_catalog_aliases():
 
 
 @pytest.mark.asyncio
-async def test_tool_loop_uses_dedicated_alias_for_smart_chat(web_search_registered):
+async def test_tool_loop_uses_dedicated_alias_for_smart_chat(sympy_registered):
     messages = [{"role": "user", "content": "tell me about Lisbon"}]
     complete = AsyncMock(return_value={"content": "ok", "tool_calls": []})
     with patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete):
@@ -159,7 +158,7 @@ def test_recovers_provider_text_function_call_only_for_offered_tool() -> None:
 
 
 @pytest.mark.asyncio
-async def test_tool_loop_model_unavailable_falls_through(web_search_registered):
+async def test_tool_loop_model_unavailable_falls_through(sympy_registered):
     messages = [{"role": "user", "content": "tell me about Lisbon"}]
     complete = AsyncMock(
         side_effect=ModelUnavailableError("down", failed_alias="free-chat"),
@@ -176,7 +175,7 @@ async def test_tool_loop_model_unavailable_falls_through(web_search_registered):
 
 
 @pytest.mark.asyncio
-async def test_tool_loop_never_searches_when_the_model_does_not(web_search_registered):
+async def test_tool_loop_never_searches_when_the_model_does_not(sympy_registered):
     """A round whose model calls no tool searches nothing: the server never searches
     for it, whatever the words look like."""
     messages = [{"role": "user", "content": "differentiate x^2, and what's the latest news?"}]
@@ -200,8 +199,9 @@ async def test_tool_loop_never_searches_when_the_model_does_not(web_search_regis
 
 
 @pytest.mark.asyncio
-async def test_a_search_that_finds_nothing_says_so_to_the_reply(web_search_registered):
-    # A math turn asks the model which tool to call; it may choose web_search.
+async def test_a_maths_round_that_calls_web_search_searches_nothing(sympy_registered):
+    """MATH-11: the selection round offers no web_search, so a call to it is refused, not
+    run: whether a turn searches is the read's call, or the reply's."""
     messages = [{"role": "user", "content": "differentiate x^2"}]
     complete = AsyncMock(
         return_value={
@@ -215,20 +215,20 @@ async def test_a_search_that_finds_nothing_says_so_to_the_reply(web_search_regis
             ],
         }
     )
-    invoke = AsyncMock(
-        return_value=ToolResult(name="web_search", content="(no results)", data={"hits": []})
-    )
+    invoke = AsyncMock(side_effect=AssertionError("web_search ran"))
     with (
         patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete),
         patch("app.modules.chat.tool_loop.calls.mcp_registry.invoke_validated", invoke),
     ):
-        out, _verified, _terminal, hits = await tool_loop.run_tool_rounds(
+        _out, _verified, _terminal, hits = await tool_loop.run_tool_rounds(
             settings=settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
             messages=messages,
             usage={},
         )
+    offered = {tool["function"]["name"] for tool in complete.await_args.kwargs["tools"]}
+    assert "web_search" not in offered
+    invoke.assert_not_awaited()
     assert hits == []
-    assert any(m.get("role") == "tool" and "(no results)" in str(m.get("content")) for m in out)
 
 
 @pytest.mark.asyncio

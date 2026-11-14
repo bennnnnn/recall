@@ -178,7 +178,7 @@
   "chat.math_scan_torch_on_a11y": "Taschenlampe ausschalten",
   "chat.menu": "Chat-Optionen",
   "chat.message_render_failed": "Diese Nachricht kann nicht angezeigt werden.",
-  "chat.model_unavailable": "Dieses Modell antwortet gerade nicht. Wähle ein anderes Modell und versuche es erneut.",
+  "chat.model_unavailable": "Dieses Modell antwortet gerade nicht. Versuche es erneut oder wähle unter Einstellungen › Standardmodell ein anderes Modell.",
   "chat.new_chat": "Neuer Chat",
   "chat.offline_body": "Verbinde dich mit dem Internet, um Nachrichten zu senden.",
   "chat.open_drawer_a11y": "Menü öffnen",
