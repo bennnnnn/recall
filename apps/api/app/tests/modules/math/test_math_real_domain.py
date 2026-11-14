@@ -167,3 +167,25 @@ def test_a_log_trace_checks_the_root_it_rejects() -> None:
     _, lhs, rhs = parse_equation(EquationInput(lhs="log(x)+log(x+3)", rhs="log(4)"))
     labels = [step.label for step in equation_key_steps(lhs, rhs, "x")]
     assert labels[-2:] == ["Check $x = -4$", "Reject values outside the domain"]
+
+
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        # An unread word that restricts the roots: no card (2026-11-14 review).
+        ("Solve x^2 = 9 positive", None),
+        ("Solve in N: x^2 = 4", None),
+        ("solve x^2 = 9 integers only", None),
+        # Read aloud, "negative x" is -x: the words still name a domain.
+        ("solve x^2 - 4 = 0 for negative x", None),
+        # Look-alikes: a signed number, and "n" as the unknown, not the naturals.
+        ("solve x plus negative 3 equals 5", "x = 8"),
+        ("solve x + 3 = -2", "x = -5"),
+        ("solve n^2 = 16", r"n = \pm 4"),
+    ],
+)
+async def test_a_bare_domain_word_beside_an_equation_takes_its_card(
+    text: str, answer: str | None
+) -> None:
+    got, _direct = await _reply(text)
+    assert got == answer

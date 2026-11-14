@@ -266,43 +266,43 @@ def misread_number(text: str, locale: str | None) -> bool:
     )
 
 
-# An equation in symbols means the same in any language. A message that is one and an
-# instruction ("Resuelve 2x + 5 = 17", "Résous x^2 - 5x + 6 = 0", "እኩልታውን ይፍቱ፡ …") is read
-# the same as in English, its words still unread: at most three of them, before or after the
-# maths and never inside it, none a number or a letter, and one relation in one unknown, so
-# the only reading is the one an English line of bare maths gets, to solve it (2026-11-13
-# audit, COV-01). A word problem in another language stays declined.
+# An equation in symbols means the same in any language. A message that is the word "solve"
+# in another language and one equation ("Resuelve 2x + 5 = 17", "Résous x^2 - 5x + 6 = 0",
+# "Решите 2x + 5 = 17") is read the same as an English line of bare maths: one relation in
+# one unknown, to solve (2026-11-13 audit, COV-01). Any other word is never read, so it is
+# never guessed at: "Löse x^2 = 9 positiv", "Resuelve x^2 = 9 entero" and "Factoriza x^2 - 5x +
+# 6 = 0" restrict or change the task, and were checked as the bare solve (2026-11-14 review).
+# A word problem in another language stays declined.
 _MATHS_TOKEN = re.compile(r"^(?:[A-Za-z]|.*[\d+\-*/^=<>≤≥()\[\]√²³$\\].*)$")
 _RELATIONS = re.compile(r"<=|>=|[=<>≤≥]")
 _LETTERS = re.compile(r"[A-Za-z]+")
 _FUNCTIONS = frozenset({"sqrt", "sin", "cos", "tan", "log", "ln", "exp", "abs", "pi"})
-_INSTRUCTION_WORDS = 3
-# Numbers in words, which a lone instruction never holds: "Resuelve dos veces …".
-_NUMBER_WORDS = frozenset(
+# The imperative "solve" in each of the app's other languages, the one word the line may
+# hold beside its equation. Data, not a grammar: a form missing here only declines.
+_SOLVE_VERBS = frozenset(
     """
-    uno una dos tres cuatro cinco seis siete ocho nueve diez cien doble mitad
-    une deux trois quatre cinq six sept huit neuf dix double moitié
-    eins zwei drei vier fünf sechs sieben acht neun zehn doppelt hälfte
-    due tre quattro cinque sette otto nove dieci doppio metà
-    dois duas três quatro cinco seis sete oito nove dez dobro metade
-    bir iki üç dört beş altı yedi sekiz dokuz on yarım
+    resuelve resuelva resolvé
+    résous résolvez
+    löse löst lösen
+    risolvi risolva risolvete
+    resolva resolve resolvam
+    çöz çözün çözünüz
+    реши решите
+    ፍታ ፍቱ ይፍቱ
     """.split()
 )
+_WORD_MARKS = ".,:;!?¿¡፡።"
 
 
 def equation_beside_instruction(text: str) -> str | None:
-    """The equation of a message that is no more than an instruction and an equation in
-    symbols, or None."""
+    """The equation of a message that is another language's "solve" and an equation in
+    symbols, nothing else, or None."""
     tokens = _without_code(text).split()
-    maths = [index for index, token in enumerate(tokens) if _MATHS_TOKEN.match(token)]
-    if not maths or maths != list(range(maths[0], maths[-1] + 1)):
+    if len(tokens) < 2 or tokens[0].strip(_WORD_MARKS).casefold() not in _SOLVE_VERBS:
         return None
-    words = tokens[: maths[0]] + tokens[maths[-1] + 1 :]
-    if len(words) > _INSTRUCTION_WORDS or any(
-        word.strip(".,:;!?¿¡፡።").casefold() in _NUMBER_WORDS for word in words
-    ):
+    equation = " ".join(tokens[1:]).strip(_WORD_MARKS + " ")
+    if not all(_MATHS_TOKEN.match(token) for token in equation.split()):
         return None
-    equation = " ".join(tokens[maths[0] : maths[-1] + 1]).strip(".,;!?")
     letters = {run for run in _LETTERS.findall(equation) if run.casefold() not in _FUNCTIONS}
     if len(_RELATIONS.findall(equation)) != 1 or len(letters) != 1 or len(next(iter(letters))) != 1:
         return None

@@ -233,6 +233,10 @@ def _heard_math_intent(text: str) -> MathIntent | None:
     heard = _extract_math_intent_any(spoken)
     if heard is None or (heard.kind == "graph" and not heard.expr):
         return None
+    if not request_consumption_complete(text, heard):
+        # The words say more than the maths heard in them: "for negative x" is a domain,
+        # not the minus sign "-x" it reads as aloud.
+        return None
     heard._request_text = text.strip()
     return heard
 
@@ -315,7 +319,9 @@ def _extract_math_intent_any(text: str) -> MathIntent | None:
     if oversized_system(normalized):
         return None
     recovered = _intent_from_free_standing_equation(normalized)
-    if recovered is not None:
+    # The whole message still holds what the equation alone does not carry: "solve x^2 -
+    # 4 = 0 for negative x" was declined above and recovered here as the bare ±2.
+    if recovered is not None and request_consumption_complete(normalized, recovered):
         recovered._request_text = text.strip()
         return recovered
     return None

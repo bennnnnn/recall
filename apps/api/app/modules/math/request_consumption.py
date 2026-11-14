@@ -111,6 +111,17 @@ _NONDEFAULT_DOMAIN = re.compile(
     r"\s+[a-z]\b",
     re.IGNORECASE,
 )
+# A domain word with no cue before it still restricts the solutions: "Solve x^2 = 9
+# positive" and "Solve in N: x^2 = 4" were checked as ±3 and ±2 (2026-11-14 review).
+# "negative 3" is a number said aloud, not a domain.
+_BARE_DOMAIN = re.compile(
+    rf"\b{_DOMAIN_ADJECTIVE}\b(?!\s*[\d.])|\b(?:integers?|whole\s+numbers?|natural\s+numbers?|"
+    r"rationals?|counting\s+numbers?)\b|[\u2124\u2115\u211A]|\\mathbb\s*\{\s*[ZNQ]\s*\}",
+    re.IGNORECASE,
+)
+# The number sets by letter, in capitals only: "in n" is a variable.
+_BARE_SET_LETTER = re.compile(r"\b(?:in|over)\s+[ZNQ]\b")
+_SOLUTION_SET_KINDS = frozenset({"equation", "system", "inequality"})
 _LINKED_EQUALITY_DOMAIN = re.compile(
     rf"{_EQUALITY_DOMAIN_CUE}\s+(?P<variable>[a-z])\s*={{1,2}}(?!=)",
     re.IGNORECASE,
@@ -264,6 +275,10 @@ def audit_math_request(text: str, intent: MathIntent) -> ConsumptionAudit:
     if _linked_equality_would_be_dropped(text, intent):
         has_unrepresented_domain = True
     if _SIGNED_OUTPUT_RESTRICTION.search(text):
+        has_unrepresented_domain = True
+    if intent.kind in _SOLUTION_SET_KINDS and (
+        _BARE_DOMAIN.search(text) or _BARE_SET_LETTER.search(text)
+    ):
         has_unrepresented_domain = True
     if intent.kind in _DOMAIN_BLIND_KINDS and has_unrepresented_domain:
         # These symbolic intents currently use their default real domain and

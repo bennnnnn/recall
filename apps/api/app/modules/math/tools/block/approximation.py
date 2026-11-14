@@ -170,7 +170,7 @@ def _newton_block(intent: MathIntent, settings: Settings) -> VerifiedMathBlock |
     substitution: list[str] = []
     for k in range(1, len(iterates)):
         previous = iterates[k - 1]
-        at = {s: previous for s in f.free_symbols}
+        at = dict.fromkeys(f.free_symbols, previous)
         rise, run = plain_tex(f.subs(at)), plain_tex(slope.subs(at))
         point = plain_tex(previous)
         substitution.append(math_line(rf"f({point}) = {rise},\quad f'({point}) = {run}"))

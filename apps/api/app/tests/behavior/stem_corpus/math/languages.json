@@ -5,7 +5,7 @@
   {"id": "num-am-comma", "area": "number marks", "prompt": "1,200 + 800", "expect": "answer", "locale": "am", "check": ["num", "2000"], "note": "Amharic groups thousands with a comma, as English does"},
   {"id": "num-en-dot", "area": "number marks", "prompt": "1.200 + 800", "expect": "answer", "check": ["num", "801.2"]},
   {"id": "num-space", "area": "number marks", "prompt": "12 000 + 800", "expect": "decline"},
-  {"id": "lang-am-equation", "area": "language", "prompt": "እኩልታውን ይፍቱ፡ (2x + 7)/3 - (x - 9)/2 = 5/2", "expect": "answer", "check": ["num", "-26"], "note": "an instruction beside an equation in symbols reads as the equation (2026-11-13 audit, COV-01); it was declined as another language"},
+  {"id": "lang-am-equation", "area": "language", "prompt": "እኩልታውን ይፍቱ፡ (2x + 7)/3 - (x - 9)/2 = 5/2", "expect": "decline", "note": "the card was right (x = -26); 'the equation' beside 'solve' is a word the readers do not read, so only 'solve' and the equation answer (2026-11-14 review)"},
   {"id": "lang-fr-solve", "area": "language", "prompt": "résous 3x + 7 = 22", "expect": "answer", "check": ["num", "5"], "note": "was declined as another language (COV-01)"},
   {"id": "lang-fr-user-system", "area": "language", "prompt": "x+y+z=6, 2x-y+z=3, x+2y-z=2", "expect": "answer", "locale": "fr", "check": ["nums", ["1", "2", "3"]], "note": "no words and no number a French reader reads otherwise"},
   {"id": "num-en-list", "area": "number marks", "prompt": "mean of 120 135 150", "expect": "answer", "check": ["num", "135"], "note": "three-digit numbers in a row are a list, not thousands"},

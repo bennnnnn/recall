@@ -64,9 +64,10 @@ def test_a_question_in_another_language_is_read_as_one(question: str) -> None:
     [
         ("résous 3x + 7 = 22", "3x + 7 = 22"),
         ("resuelve 2x + 3 = 7", "2x + 3 = 7"),
-        ("Resuelve la ecuación x^2 - 5x + 6 = 0", "x^2 - 5x + 6 = 0"),
+        ("Resuelve: 2x + 3 = 7.", "2x + 3 = 7"),
         ("Löse 3x - 7 = 11", "3x - 7 = 11"),
-        ("Решите уравнение 3x - 7 = 11", "3x - 7 = 11"),
+        ("Решите 2x + 5 = 17", "2x + 5 = 17"),
+        ("Résous x^2 - 5x + 6 > 0", "x^2 - 5x + 6 > 0"),
     ],
 )
 def test_another_languages_instruction_beside_an_equation_reads_as_the_equation(
@@ -83,7 +84,18 @@ def test_another_languages_instruction_beside_an_equation_reads_as_the_equation(
     [
         # A number its writer reads otherwise: "1.200" is 1200 in Spanish.
         ("Resuelve 1.200x = 2.400", "es"),
-        # More than an instruction: a number in words, two unknowns, no relation, a story.
+        # A word beside "solve" is never read, so it is never guessed at: each of these
+        # restricts or changes the task, and was checked as the bare solve (2026-11-14).
+        ("Löse x^2 = 9 positiv", "de"),
+        ("Resuelve x^2 = 25 solo positivas", "es"),
+        ("Calcule x^2 = 16 negativo", "es"),
+        ("Resuelve en \u2115 x^2 = 4", "es"),
+        ("Resuelve x^2 = 9 entero", "es"),
+        ("Factoriza x^2 - 5x + 6 = 0", "es"),
+        ("Résous dans \u2115 : x^2 = 9", "fr"),
+        ("Resuelve la ecuación x^2 - 5x + 6 = 0", "es"),
+        ("Решите уравнение 3x - 7 = 11", "ru"),
+        # A number in words, two unknowns, no relation, a story.
         ("Resuelve dos veces 2x = 4", "es"),
         ("Resuelve 2x + 3y = 7", "es"),
         ("Simplifie 2x + 4x", "fr"),
