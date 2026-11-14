@@ -33,6 +33,7 @@ from uuid import UUID
 
 from redis.asyncio import Redis
 
+from app.core.log_text import one_line
 from app.exceptions import ChatBusyError, RedisUnavailableError
 
 logger = logging.getLogger(__name__)
@@ -66,7 +67,7 @@ async def _await_bounded(task: asyncio.Task[None], *, timeout_log: str) -> None:
     try:
         await asyncio.wait_for(asyncio.shield(task), _FINALIZE_WAIT_TIMEOUT_SECONDS)
     except TimeoutError:
-        logger.warning(timeout_log)
+        logger.warning("%s", one_line(timeout_log))
     except Exception:
         with contextlib.suppress(Exception):
             logger.debug("In-flight chat task failed", exc_info=True)
@@ -115,7 +116,7 @@ async def mark_pending_finalize(redis: Redis, chat_id: UUID) -> None:
     try:
         await redis.set(_marker_key(chat_id), "1", ex=_FINALIZE_MARKER_TTL_SECONDS)
     except Exception:
-        logger.debug("Failed to mark pending finalize chat_id=%s", chat_id, exc_info=True)
+        logger.debug("Failed to mark pending finalize chat_id=%s", one_line(chat_id), exc_info=True)
 
 
 async def clear_pending_finalize(redis: Redis, chat_id: UUID) -> None:
@@ -123,7 +124,9 @@ async def clear_pending_finalize(redis: Redis, chat_id: UUID) -> None:
     try:
         await redis.delete(_marker_key(chat_id))
     except Exception:
-        logger.debug("Failed to clear pending finalize chat_id=%s", chat_id, exc_info=True)
+        logger.debug(
+            "Failed to clear pending finalize chat_id=%s", one_line(chat_id), exc_info=True
+        )
 
 
 async def wait_for_inflight_stream(chat_id: UUID) -> None:
@@ -171,10 +174,14 @@ async def wait_for_pending_finalize(
                 return
             await asyncio.sleep(_FINALIZE_POLL_INTERVAL_SECONDS)
     except Exception as exc:
-        logger.debug("Pending finalize Redis wait failed chat_id=%s", chat_id, exc_info=True)
+        logger.debug(
+            "Pending finalize Redis wait failed chat_id=%s", one_line(chat_id), exc_info=True
+        )
         if require_complete:
             raise RedisUnavailableError() from exc
         return
-    logger.warning("Pending turn finalize marker still set after wait chat_id=%s", chat_id)
+    logger.warning(
+        "Pending turn finalize marker still set after wait chat_id=%s", one_line(chat_id)
+    )
     if require_complete:
         raise ChatBusyError("Still saving the previous response. Please retry shortly.")

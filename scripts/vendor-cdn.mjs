@@ -16,9 +16,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const VENDOR_DIR = join(process.cwd(), "apps/mobile/lib/vendor");
-const TMP_DIR = join("/tmp", "recall-vendor-dl");
 mkdirSync(VENDOR_DIR, { recursive: true });
-mkdirSync(TMP_DIR, { recursive: true });
 
 const VERSIONS = {
   // Pinned exactly to the committed bundle version (MathJax's internal
@@ -32,12 +30,11 @@ const VERSIONS = {
   smilesDrawer: "2.1.7",
 };
 
-async function download(url, dest) {
+/** The file's bytes, kept in memory: the only file written is its copy in lib/vendor. */
+async function download(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`fetch ${url} -> ${res.status}`);
-  const buf = Buffer.from(await res.arrayBuffer());
-  writeFileSync(dest, buf);
-  return buf;
+  return Buffer.from(await res.arrayBuffer());
 }
 
 /** Each library's file in lib/vendor, by the name the manifest records its hash under. */
@@ -59,28 +56,28 @@ function writeVendorFile(name, content, comment) {
 
 async function main() {
   // 2. Mermaid
-  const mermaidBuf = await download(`https://cdn.jsdelivr.net/npm/mermaid@${VERSIONS.mermaid}/dist/mermaid.min.js`, join(TMP_DIR, "mermaid.min.js"));
+  const mermaidBuf = await download(`https://cdn.jsdelivr.net/npm/mermaid@${VERSIONS.mermaid}/dist/mermaid.min.js`);
   writeVendorFile("mermaidMinJs", mermaidBuf.toString("utf8"), `Mermaid ${VERSIONS.mermaid} min.`);
 
   // 4. Vega stack
-  const vegaBuf = await download(`https://cdn.jsdelivr.net/npm/vega@${VERSIONS.vega}`, join(TMP_DIR, "vega.min.js"));
+  const vegaBuf = await download(`https://cdn.jsdelivr.net/npm/vega@${VERSIONS.vega}`);
   writeVendorFile("vegaMinJs", vegaBuf.toString("utf8"), `Vega ${VERSIONS.vega} min.`);
-  const vegaLiteBuf = await download(`https://cdn.jsdelivr.net/npm/vega-lite@${VERSIONS.vegaLite}`, join(TMP_DIR, "vega-lite.min.js"));
+  const vegaLiteBuf = await download(`https://cdn.jsdelivr.net/npm/vega-lite@${VERSIONS.vegaLite}`);
   writeVendorFile("vegaLiteMinJs", vegaLiteBuf.toString("utf8"), `Vega-Lite ${VERSIONS.vegaLite} min.`);
-  const vegaEmbedBuf = await download(`https://cdn.jsdelivr.net/npm/vega-embed@${VERSIONS.vegaEmbed}`, join(TMP_DIR, "vega-embed.min.js"));
+  const vegaEmbedBuf = await download(`https://cdn.jsdelivr.net/npm/vega-embed@${VERSIONS.vegaEmbed}`);
   writeVendorFile("vegaEmbedMinJs", vegaEmbedBuf.toString("utf8"), `Vega-Embed ${VERSIONS.vegaEmbed} min.`);
 
   // 5. pdf.js (main + worker)
   const pdfBase = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${VERSIONS.pdfjs}`;
-  const pdfMainBuf = await download(`${pdfBase}/pdf.min.js`, join(TMP_DIR, "pdf.min.js"));
+  const pdfMainBuf = await download(`${pdfBase}/pdf.min.js`);
   writeVendorFile("pdfMinJs", pdfMainBuf.toString("utf8"), `pdf.js ${VERSIONS.pdfjs} main.`);
-  const pdfWorkerBuf = await download(`${pdfBase}/pdf.worker.min.js`, join(TMP_DIR, "pdf.worker.min.js"));
+  const pdfWorkerBuf = await download(`${pdfBase}/pdf.worker.min.js`);
   writeVendorFile("pdfWorkerMinJs", pdfWorkerBuf.toString("utf8"), `pdf.js ${VERSIONS.pdfjs} worker (loaded via Blob URL at runtime).`);
 
   // 6. SmilesDrawer (chemistry) — browserify bundle; WebView loads via require(1) shim.
   const smilesUrl =
     `https://cdn.jsdelivr.net/npm/smiles-drawer@${VERSIONS.smilesDrawer}/dist/smiles-drawer.min.js`;
-  const smilesBuf = await download(smilesUrl, join(TMP_DIR, "smiles-drawer.min.js"));
+  const smilesBuf = await download(smilesUrl);
   const smilesJs = smilesBuf
     .toString("utf8")
     .replace(/\n?\/\/# sourceMappingURL=.*$/m, "");

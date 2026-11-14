@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.db import SessionLocal
+from app.core.log_text import one_line
 from app.models.orm import Message, User
 from app.modules import todos as todos_service
 from app.modules.billing import can_use
@@ -323,7 +324,7 @@ async def _save_spoken_reminders(
             )
         return updated
     except Exception:
-        logger.exception("Live talk reminder materialize failed chat_id=%s", chat_id)
+        logger.exception("Live talk reminder materialize failed chat_id=%s", one_line(chat_id))
         return assistant
 
 
@@ -361,7 +362,9 @@ async def persist_live_talk_turn(
         async with SessionLocal() as session:
             chat = await chat_history.get_chat(session, chat_id, user.id)
             if chat is None:
-                logger.warning("Live talk persist skipped; chat missing chat_id=%s", chat_id)
+                logger.warning(
+                    "Live talk persist skipped; chat missing chat_id=%s", one_line(chat_id)
+                )
                 return None, None
             prior_count = await chat_history.message_count(session, chat_id)
             if should_write_user:

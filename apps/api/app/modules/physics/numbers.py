@@ -15,6 +15,7 @@ from functools import lru_cache
 from app.modules.physics.givens import ANGLE, unit_at, unit_dimension
 from app.services.number_text import LITERAL_START, NUMERIC_LITERAL
 from app.services.symbolic_text import _MAX_PHYSICS_REQUEST
+from app.services.text_match import after_spaces
 
 _GROUPED_CANDIDATE = re.compile(r"(?<![\w.])[+-]?\d(?:[\d,]*\d)?(?:\.\d+)?(?:[eE][+-]?\d+)?")
 _GROUPED_LITERAL = re.compile(r"[+-]?\d{1,3}(?:,\d{3})+(?:\.\d+)?(?:[eE][+-]?\d+)?")
@@ -156,9 +157,18 @@ _NUMBER_END = re.compile(r"\d(?![\d.])")
 # A unit that goes on past its name ("metres per second", "joules/kg") is read whole by
 # the table or not at all: its first word alone is not its symbol. A name in the possessive
 # ("2 Newtons' laws") names no unit.
-_UNIT_GOES_ON = re.compile(r"\s*(?:/|per\b|squared\b|cubed\b|\^)|['\u2019]", re.IGNORECASE)
+# Read after the unit's spaces (``after_spaces``); an apostrophe only right after it.
+_UNIT_GOES_ON = re.compile(r"/|per\b|squared\b|cubed\b|\^", re.IGNORECASE)
+_APOSTROPHE = frozenset("'\u2019")
 # What joins two words of one unit: "newton metres", "newton-seconds", "newton·metres".
 _UNIT_JOIN = re.compile(r"[-\u2010\u00b7]")
+
+
+def _unit_goes_on(text: str, end: int) -> bool:
+    """ "m/s", "metres per second", "metres squared", "m^2", "metre's": the unit is longer."""
+    if end < len(text) and text[end] in _APOSTROPHE:
+        return True
+    return _UNIT_GOES_ON.match(text, after_spaces(text, end)) is not None
 
 
 def _another_unit_after(text: str, end: int) -> bool:
@@ -188,7 +198,7 @@ def unit_names_as_symbols(text: str) -> str:
             continue
         start = text.find(unit[0], number.end())
         end = start + len(unit[0])
-        if _UNIT_GOES_ON.match(text, end) or _another_unit_after(text, end):
+        if _unit_goes_on(text, end) or _another_unit_after(text, end):
             continue
         pieces.extend((text[cursor:start], symbol))
         cursor = end

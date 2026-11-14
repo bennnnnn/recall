@@ -14,6 +14,7 @@ from app.core import jobs
 from app.core.aio import gather_or_cancel
 from app.core.config import Settings
 from app.core.db import SessionLocal
+from app.core.log_text import one_line
 from app.exceptions import DomainError
 from app.models.orm import Chat, Message, User
 from app.models.schemas import ChatListOut, ChatOut, MessageOut, MessagePageOut, UsageOut
@@ -374,7 +375,7 @@ async def list_messages_page(
                         dedupe_key=title_job_key(chat_id),
                     )
             except Exception:
-                logger.warning("Title backfill enqueue failed chat_id=%s", chat_id, exc_info=True)
+                logger.warning("Title backfill failed chat_id=%s", one_line(chat_id), exc_info=True)
 
     outs = [MessageOut.model_validate(m) for m in msgs]
     if newest or (around is not None and not has_more_after):

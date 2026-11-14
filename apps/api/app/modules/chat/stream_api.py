@@ -19,6 +19,7 @@ from app.core.chat_rate_limit import allow_chat_message
 from app.core.config import Settings
 from app.core.deps import get_current_user, get_settings_dep
 from app.core.log_context import bound_log_ids, new_turn_id
+from app.core.log_text import one_line
 from app.core.redis import get_redis_client
 from app.exceptions import RateLimitedError, RedisUnavailableError
 from app.models.orm import User
@@ -286,7 +287,7 @@ async def _turn_sse_lines(
             yield _sse(event)
     except Exception as exc:
         if not isinstance(exc, EXPECTED_TURN_ERRORS):
-            logger.exception("SSE chat stream failed chat_id=%s", chat_id)
+            logger.exception("SSE chat stream failed chat_id=%s", one_line(chat_id))
         yield _sse(turn_error_payload(exc, user_message_saved=outcome.user_message_saved))
     finally:
         # The request task is cancelled when the client drops the socket.

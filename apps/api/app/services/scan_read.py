@@ -31,6 +31,7 @@ from redis.asyncio import Redis
 from app.core.config import Settings
 from app.core.image_signatures import sniff_image_type
 from app.core.in_flight import InFlightBusyError, in_flight_slot
+from app.core.log_text import one_line
 from app.core.rate_limit import allow_request_unless_down
 from app.core.redis import get_redis_client
 from app.exceptions import DomainError
@@ -199,13 +200,17 @@ async def _run_reader[T](
         async with asyncio.timeout_at(deadline):
             return await read(photo, max(0.0, deadline - loop.time()))
     except TimeoutError:
-        logger.warning("%s scan read ran past %ss", subject, settings.scan_read_deadline_seconds)
+        logger.warning(
+            "%s scan read ran past %ss",
+            one_line(subject),
+            one_line(settings.scan_read_deadline_seconds),
+        )
         return None
     except Exception:
-        logger.warning("%s scan read failed", subject, exc_info=True)
+        logger.warning("%s scan read failed", one_line(subject), exc_info=True)
         return None
     finally:
         try:
             await quota_service.record_global_spend(redis, quota_service.MATH_SCAN_READ_SPEND_USD)
         except Exception:
-            logger.exception("record_global_spend failed after a %s scan read", subject)
+            logger.exception("record_global_spend failed after a %s scan read", one_line(subject))

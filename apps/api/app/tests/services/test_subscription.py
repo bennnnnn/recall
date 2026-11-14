@@ -383,8 +383,10 @@ async def test_resolve_plan_from_revenuecat_none_without_secret():
 
 
 @pytest.mark.asyncio
-async def test_a_subscriber_id_is_one_url_segment(monkeypatch: pytest.MonkeyPatch) -> None:
-    """CodeQL py/partial-ssrf: a "/", "?" or ".." in the id never reaches another endpoint."""
+async def test_a_subscriber_is_asked_about_by_its_account_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CodeQL py/partial-ssrf: the URL is the subscriber endpoint and the account's UUID."""
     asked: list[str] = []
 
     class _Client:
@@ -393,19 +395,20 @@ async def test_a_subscriber_id_is_one_url_segment(monkeypatch: pytest.MonkeyPatc
             return SimpleNamespace(status_code=404)
 
     monkeypatch.setattr(revenuecat_gateway, "get_pooled_client", lambda _timeout: _Client())
-    await revenuecat_gateway.fetch_subscriber("sk_test", "../../v2/projects?x=1")
-    assert asked == [f"{revenuecat_gateway.REVENUECAT_API}/..%2F..%2Fv2%2Fprojects%3Fx%3D1"]
+    account = uuid4()
+    await revenuecat_gateway.fetch_subscriber("sk_test", account)
+    assert asked == [f"{revenuecat_gateway.REVENUECAT_API}/{account}"]
 
 
-@pytest.mark.parametrize("app_user_id", ["", ".", ".."])
+@pytest.mark.parametrize(
+    "app_user_id", ["", ".", "..", "../../v2/projects?x=1", "$RCAnonymousID:abc123"]
+)
 @pytest.mark.asyncio
-async def test_a_dot_step_is_no_subscriber(
-    monkeypatch: pytest.MonkeyPatch, app_user_id: str
-) -> None:
-    """Review: an id that is exactly ".." still stepped up a path segment once encoded."""
-
-    def no_client(_timeout: float) -> object:
-        raise AssertionError("no request")
-
-    monkeypatch.setattr(revenuecat_gateway, "get_pooled_client", no_client)
-    assert await revenuecat_gateway.fetch_subscriber("sk_test", app_user_id) is None
+async def test_an_id_naming_no_account_is_never_asked_about(app_user_id: str) -> None:
+    """Only an account's UUID reaches RevenueCat: a path, a query or an anonymous id never does."""
+    with patch.object(revenuecat_gateway, "fetch_subscriber", AsyncMock()) as fetch:
+        plan = await subscription_service.resolve_plan_from_revenuecat(
+            Settings(revenuecat_secret_key="sk_test"), app_user_id
+        )
+    assert plan is None
+    fetch.assert_not_awaited()

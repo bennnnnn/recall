@@ -20,6 +20,7 @@ from redis.asyncio import Redis
 
 from app.core import jobs
 from app.core.config import Settings
+from app.core.log_text import one_line
 from app.exceptions import RedisUnavailableError
 from app.models.orm import Message, User
 from app.modules.chat.context_window import compute_history_split, should_run_compression
@@ -356,4 +357,4 @@ async def finish_turn(
     try:
         await enqueue_saved_turn_jobs(redis, settings, saved)
     except Exception:
-        logger.exception("Post-turn jobs not queued chat_id=%s", chat_id)
+        logger.exception("Post-turn jobs not queued chat_id=%s", one_line(chat_id))

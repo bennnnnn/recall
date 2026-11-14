@@ -22,6 +22,7 @@ from redis.asyncio import Redis
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.log_text import one_line
 from app.core.timezone import resolve_timezone
 from app.exceptions import DomainError
 from app.modules.conversation import service as conversation_service
@@ -342,13 +343,17 @@ async def confirm_proposal(
             await _mark_saved_in_chat(session, stored.chat_id, proposal_id)
         except Exception:
             await session.rollback()
-            logger.exception("Could not mark reminder card saved proposal_id=%s", proposal_id)
+            logger.exception(
+                "Could not mark reminder card saved proposal_id=%s", one_line(proposal_id)
+            )
         return ConfirmedProposal(items=stored.items, rows=rows, deleted_ids=deleted)
     finally:
         try:
             await redis.delete(lock_key)
         except Exception:
-            logger.exception("Reminder confirm lock release failed proposal_id=%s", proposal_id)
+            logger.exception(
+                "Reminder confirm lock release failed proposal_id=%s", one_line(proposal_id)
+            )
 
 
 def strip_cards(text: str) -> str:

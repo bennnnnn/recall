@@ -17,6 +17,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block.canonical import finish_with_answer
 from app.services.solving import VerifiedMathBlock
+from app.services.text_match import after_spaces
 from app.services.workout import Workout, math_line, render_workout
 
 _NUMBER = re.compile(r"(?<![\w.])\d{1,9}(?:,\d{3})*(?:\.\d+)?(?![\w.]*\d)")
@@ -38,8 +39,9 @@ _ASKS_PAID = re.compile(
     r"|\b(?:final|total|new)\s+(?:price|cost|amount|bill)\b|\bwhat\s+do\s+i\s+pay\b",
     re.I,
 )
+# Read after the price's spaces (``after_spaces``).
 _CURRENCY_WORD = re.compile(
-    r"\s*(?P<word>shillings?|ksh|birr|dollars?|bucks|euros?|pounds?|rupees?|naira|rand|cedis?|"
+    r"(?P<word>shillings?|ksh|birr|dollars?|bucks|euros?|pounds?|rupees?|naira|rand|cedis?|"
     r"francs?|yen|pesos?)\b",
     re.I,
 )
@@ -85,7 +87,7 @@ def extract_price_changes_intent(cleaned: str) -> MathIntent | None:
         if kind is None or not 0 < Decimal(rate.group("rate")) <= 100:
             return None
         changes.append(f"{kind}{rate.group('rate')}")
-    word = _CURRENCY_WORD.match(text, prices[0].end())
+    word = _CURRENCY_WORD.match(text, after_spaces(text, prices[0].end()))
     sign = _SIGN_BEFORE.search(text, 0, prices[0].start())
     named = word.group("word").lower() if word else ""
     money = sign.group("sign") if sign else _SIGN_OF.get(named.rstrip("s"), named)

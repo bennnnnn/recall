@@ -5,9 +5,10 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 from typing import Any
-from urllib.parse import quote
+from uuid import UUID
 
 from app.core import sentry
+from app.core.log_text import one_line
 from app.gateways.http_client import get_pooled_client
 
 logger = logging.getLogger(__name__)
@@ -16,13 +17,13 @@ REVENUECAT_API = "https://api.revenuecat.com/v1/subscribers"
 REVENUECAT_TIMEOUT_SECONDS = 15.0
 
 
-async def fetch_subscriber(secret_key: str, app_user_id: str) -> dict[str, Any] | None:
-    if not secret_key.strip() or app_user_id.strip(".") == "":
-        # "." and ".." are path steps even encoded: no subscriber is named that.
+async def fetch_subscriber(secret_key: str, app_user_id: UUID) -> dict[str, Any] | None:
+    if not secret_key.strip():
         return None
-    # The id is one path segment, encoded as RevenueCat asks: a "/", "?" or ".." in it may never
-    # reach another of its endpoints (CodeQL py/partial-ssrf).
-    url = f"{REVENUECAT_API}/{quote(app_user_id, safe='')}"
+    # Only an account's UUID is asked about, in the text the phone logs in with (``str(user.id)``,
+    # hex and dashes): the URL is always this endpoint, never one a caller's text names
+    # (CodeQL py/partial-ssrf).
+    url = f"{REVENUECAT_API}/{app_user_id}"
     try:
         response = await get_pooled_client(REVENUECAT_TIMEOUT_SECONDS).get(
             url,
@@ -37,7 +38,7 @@ async def fetch_subscriber(secret_key: str, app_user_id: str) -> dict[str, Any] 
         payload = response.json()
         return payload if isinstance(payload, dict) else None
     except Exception:
-        logger.exception("RevenueCat subscriber fetch failed user=%s", app_user_id)
+        logger.exception("RevenueCat subscriber fetch failed user=%s", one_line(app_user_id))
         sentry.report_breadcrumb(
             "billing.revenuecat",
             "subscriber fetch failed",
