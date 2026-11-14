@@ -23,7 +23,7 @@ from app.modules.billing import plan as plan_service
 from app.modules.chat.model_routing.route import last_user_turn
 from app.modules.chat.model_routing.thinking import thinking_level
 from app.modules.chat.stream_status import StreamStatusFn
-from app.modules.chat.turn_prep.attachments import _AttachmentProcessResult, _process_attachments
+from app.modules.chat.turn_prep.attachments import AttachmentProcessResult, _process_attachments
 from app.modules.chat.turn_prep.context import (
     StreamContext,
     TurnPromptBundle,
@@ -148,7 +148,7 @@ async def prepare_chat_turn(
 async def _with_images(
     bundle: TurnPromptBundle,
     turn: UserTurn,
-    attachments: _AttachmentProcessResult,
+    attachments: AttachmentProcessResult,
     settings: Settings,
     reserved_tokens: int,
     timing: TurnTimingTracker | None,

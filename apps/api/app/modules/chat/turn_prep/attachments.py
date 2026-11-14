@@ -48,7 +48,7 @@ def vision_reserve_tokens(settings: Settings, image_count: int) -> int:
 
 
 @dataclass
-class _AttachmentProcessResult:
+class AttachmentProcessResult:
     user: User | None
     user_content: str
     content: str
@@ -81,7 +81,7 @@ async def _process_attachments(
     redis: Redis,
     on_status: StreamStatusFn | None,
     rows: list[Attachment] | None = None,
-) -> _AttachmentProcessResult:
+) -> AttachmentProcessResult:
     """Storage outages here are safe to retry: no user message has been saved yet.
 
     ``rows``: the requested rows, when the turn already read them (``load_attachment_rows``).
@@ -113,7 +113,7 @@ async def _process_attachment_inputs(
     redis: Redis,
     on_status: StreamStatusFn | None,
     rows: list[Attachment] | None = None,
-) -> _AttachmentProcessResult:
+) -> AttachmentProcessResult:
     """Verify/format attachments and optionally vision-extract a camera math equation."""
     if attachment_ids and not settings.attachments_enabled:
         raise AttachmentValidationError("Attachments are temporarily unavailable.")
@@ -146,7 +146,7 @@ async def _process_attachment_inputs(
     user_content = _with_attachment_markers(kept, attachment_lines)
     content = reading.content
 
-    return _AttachmentProcessResult(
+    return AttachmentProcessResult(
         user=user,
         user_content=user_content,
         content=content,
@@ -280,9 +280,9 @@ def _photo_reader(content: str) -> SubjectPhoto | None:
 
 def _without_attachments(
     user: User | None, content: str, *, resolved_ids: list[UUID] | None = None
-) -> _AttachmentProcessResult:
+) -> AttachmentProcessResult:
     """A turn with nothing attached to read: the text passes through as it was sent."""
-    return _AttachmentProcessResult(
+    return AttachmentProcessResult(
         user=user,
         user_content=content,
         content=content,
