@@ -178,7 +178,7 @@
   "chat.math_scan_torch_on_a11y": "Turn flashlight off",
   "chat.menu": "Chat options",
   "chat.message_render_failed": "This message couldn't be shown.",
-  "chat.model_unavailable": "That model isn't responding right now. Pick a different model and try again.",
+  "chat.model_unavailable": "That model isn't responding right now. Try again, or choose another model in Settings › Models.",
   "chat.new_chat": "New chat",
   "chat.offline_body": "Reconnect to the internet to send messages.",
   "chat.open_drawer_a11y": "Open menu",

@@ -33,6 +33,7 @@ from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn, th
 from app.modules.chat.tool_loop import live_denial, reply_calls
 from app.modules.chat.tool_loop.rounds import ToolRoundsOutcome
 from app.modules.chat.tool_verified import with_tool_verified
+from app.modules.chat.turn_decision import drop_read
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext, await_user_message_persist
@@ -66,6 +67,9 @@ async def run_instant_reply_path(
     if not (should_cancel and should_cancel()):
         if ctx.instant_reply is None:
             return
+        if ctx.figure is None and ctx.reply_picture is None:
+            # No model call writes this reply and no picture waits for the read.
+            drop_read(ctx.live_read)
         await await_user_message_persist(ctx)
         if ctx.timing is not None:
             ctx.timing.mark_first_token()
@@ -182,8 +186,8 @@ async def run_tool_loop_path(
     gate = _LoopGate.of(ctx)
     if await _tool_spend_blocked(deps, redis, settings, ctx):
         return
-    # Whether to search is the model's call: the reply's own call carries
-    # ``web_search``, and so does the selection round of a turn that loops.
+    # Whether to search is the turn's read's call, or the reply's own call's, which carries
+    # ``web_search``; the selection round of a turn that loops never offers it.
     if not gate.needs_loop(settings, ctx.user):
         prompt = ctx.prompt_messages if isinstance(ctx.prompt_messages, list) else []
         ctx.reply_tools = gate.reply_tools(settings, prompt, ctx.user)

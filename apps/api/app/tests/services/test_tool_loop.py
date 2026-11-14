@@ -8,7 +8,6 @@ import pytest
 
 from app.gateways.mcp import registry as mcp_registry
 from app.gateways.mcp.base import ToolResult
-from app.gateways.web_search_gateway import WebSearchHit
 from app.modules.chat import tool_loop
 from app.modules.chat.tool_loop import calls, rounds, selection
 from app.tests.tool_context import tool_context
@@ -45,74 +44,37 @@ async def test_tool_loop_disabled_passthrough():
 
 
 @pytest.mark.asyncio
-async def test_tool_loop_single_web_search_round(web_search_registered):
-    messages = [{"role": "user", "content": "tell me about Lisbon"}]
-    usage: dict[str, int] = {}
-
-    complete = AsyncMock(
-        side_effect=[
-            {
-                "content": None,
-                "tool_calls": [
-                    {
-                        "id": "c1",
-                        "type": "function",
-                        "function": {
-                            "name": "web_search",
-                            "arguments": '{"query": "latest news"}',
-                        },
-                    }
-                ],
-            },
-        ]
-    )
-    invoke = AsyncMock(
-        return_value=ToolResult(
-            name="web_search",
-            content="- Example: https://example.com\n  snippet",
-            data={
-                "hits": [
-                    {
-                        "title": "Example",
-                        "url": "https://example.com",
-                        "snippet": "snippet",
-                    }
-                ]
-            },
-        )
-    )
-    statuses: list[tuple[str, str | None]] = []
-
-    async def on_status(phase: str, detail: str | None = None) -> None:
-        statuses.append((phase, detail))
-
-    with (
-        patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete),
-        patch("app.modules.chat.tool_loop.calls.mcp_registry.invoke_validated", invoke),
-    ):
+async def test_the_selection_round_never_offers_web_search(web_search_registered):
+    """MATH-11: the round offered web_search to every unsolved maths turn the read had not
+    decided. Whether a turn searches is the read's call or the reply's (``reply_calls``)."""
+    messages = [{"role": "user", "content": "Solve x^5 + x + 1 = 0 and what's the news?"}]
+    complete = AsyncMock()
+    with patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete):
         out, verified, terminal, hits = await tool_loop.run_tool_rounds(
             settings=settings(mcp_tool_loop_enabled=True, mcp_tool_loop_max_rounds=3),
             messages=messages,
-            usage=usage,
-            on_status=on_status,
+            usage={},
         )
-
-    assert complete.await_count == 1
-    invoke.assert_awaited_once()
-    # The search query rides along as status detail for the client label, and
-    # the label ends when the tool does (S7.2): the model round after it composes.
-    assert statuses == [("searching", "latest news"), ("composing", None)]
-    assert any(m.get("role") == "tool" for m in out)
-    assert any(m.get("role") == "assistant" and m.get("tool_calls") for m in out)
-    assert verified is None
-    assert terminal is None
-    assert hits == [WebSearchHit(title="Example", url="https://example.com", snippet="snippet")]
+    complete.assert_not_awaited()
+    assert (out, verified, terminal, hits) == (messages, None, None, [])
 
 
 @pytest.mark.asyncio
-async def test_a_slow_tool_selection_round_is_announced(web_search_registered):
+async def test_the_selection_round_offers_sympy_but_not_web_search(sympy_registered):
+    complete = AsyncMock(return_value={"content": "x = 2", "tool_calls": []})
+    with patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete):
+        await tool_loop.run_tool_rounds(
+            settings=settings(mcp_tool_loop_enabled=True),
+            messages=[{"role": "user", "content": "Solve 2x = 4"}],
+            usage={},
+        )
+    offered = {tool["function"]["name"] for tool in complete.await_args.kwargs["tools"]}
+    assert offered == {"sympy"}
+
+
+@pytest.mark.asyncio
+async def test_a_slow_tool_selection_round_is_announced(sympy_registered):
     """The selection round can take seconds: past one, the phone hears it is planning."""
-    from app.gateways.mcp.base import ToolResult
 
     async def slow_selection(**_kwargs):
         await asyncio.sleep(0.2)
@@ -122,12 +84,12 @@ async def test_a_slow_tool_selection_round_is_announced(web_search_registered):
                 {
                     "id": "c1",
                     "type": "function",
-                    "function": {"name": "web_search", "arguments": '{"query": "latest news"}'},
+                    "function": {"name": "sympy", "arguments": '{"query": "latest news"}'},
                 }
             ],
         }
 
-    invoke = AsyncMock(return_value=ToolResult(name="web_search", content="- Example"))
+    invoke = AsyncMock(return_value=ToolResult(name="sympy", content="- Example"))
     statuses: list[str] = []
 
     async def on_status(phase: str, detail: str | None = None) -> None:
@@ -148,16 +110,16 @@ async def test_a_slow_tool_selection_round_is_announced(web_search_registered):
             on_status=on_status,
         )
 
-    assert statuses == ["planning", "searching", "composing"]
+    assert statuses == ["planning", "calculating", "composing"]
 
 
 @pytest.mark.asyncio
-async def test_tool_loop_max_rounds(web_search_registered):
+async def test_tool_loop_max_rounds(sympy_registered):
     messages = [{"role": "user", "content": "tell me about Lisbon"}]
     tool_call = {
         "id": "c1",
         "type": "function",
-        "function": {"name": "web_search", "arguments": '{"query": "x"}'},
+        "function": {"name": "sympy", "arguments": '{"query": "x"}'},
     }
     complete = AsyncMock(
         return_value={"content": None, "tool_calls": [tool_call]},
@@ -179,13 +141,13 @@ async def test_tool_loop_max_rounds(web_search_registered):
 
 
 @pytest.mark.asyncio
-async def test_tool_loop_caps_calls_per_round(web_search_registered):
+async def test_tool_loop_caps_calls_per_round(sympy_registered):
     messages = [{"role": "user", "content": "tell me about Lisbon"}]
     tool_calls = [
         {
             "id": f"c{i}",
             "type": "function",
-            "function": {"name": "web_search", "arguments": '{"query": "x"}'},
+            "function": {"name": "sympy", "arguments": '{"query": "x"}'},
         }
         for i in range(6)
     ]
@@ -212,18 +174,18 @@ async def test_tool_loop_caps_calls_per_round(web_search_registered):
 
 @pytest.mark.wall_clock
 @pytest.mark.asyncio
-async def test_tool_loop_invoke_timeout_skips_remaining(web_search_registered):
+async def test_tool_loop_invoke_timeout_skips_remaining(sympy_registered):
     messages = [{"role": "user", "content": "search"}]
     tool_calls = [
         {
             "id": "c1",
             "type": "function",
-            "function": {"name": "web_search", "arguments": '{"query": "a"}'},
+            "function": {"name": "sympy", "arguments": '{"query": "a"}'},
         },
         {
             "id": "c2",
             "type": "function",
-            "function": {"name": "web_search", "arguments": '{"query": "b"}'},
+            "function": {"name": "sympy", "arguments": '{"query": "b"}'},
         },
     ]
     complete = AsyncMock(return_value={"content": None, "tool_calls": tool_calls})
@@ -312,7 +274,7 @@ async def test_tool_loop_collects_sympy_canonical_fence(sympy_registered):
 
 
 @pytest.mark.asyncio
-async def test_tool_loop_cancel_mid_round_trims_unanswered_tool_calls(web_search_registered):
+async def test_tool_loop_cancel_mid_round_trims_unanswered_tool_calls(sympy_registered):
     """Stop after assistant tool_calls but before tool results → trim that turn."""
     messages = [{"role": "user", "content": "tell me about Lisbon"}]
     complete = AsyncMock(
@@ -322,12 +284,12 @@ async def test_tool_loop_cancel_mid_round_trims_unanswered_tool_calls(web_search
                 {
                     "id": "c1",
                     "type": "function",
-                    "function": {"name": "web_search", "arguments": '{"query": "news"}'},
+                    "function": {"name": "sympy", "arguments": '{"query": "news"}'},
                 },
                 {
                     "id": "c2",
                     "type": "function",
-                    "function": {"name": "web_search", "arguments": '{"query": "more"}'},
+                    "function": {"name": "sympy", "arguments": '{"query": "more"}'},
                 },
             ],
         }
@@ -366,8 +328,8 @@ def test_first_unanswered_assistant_idx_detects_partial_tools():
         {
             "role": "assistant",
             "tool_calls": [
-                {"id": "a", "function": {"name": "web_search"}},
-                {"id": "b", "function": {"name": "web_search"}},
+                {"id": "a", "function": {"name": "sympy"}},
+                {"id": "b", "function": {"name": "sympy"}},
             ],
         },
         {"role": "tool", "tool_call_id": "a", "content": "ok"},
@@ -394,7 +356,6 @@ async def test_invoke_validated_rejects_empty_query(web_search_registered):
 @pytest.mark.asyncio
 async def test_tool_loop_generate_image_is_terminal():
     """Successful generate_image stops further completion rounds."""
-    from app.gateways.mcp.base import ToolResult
     from app.modules.images.gen_tool import ImageGenAdapter
 
     mcp_registry.clear()
@@ -469,7 +430,6 @@ async def test_tool_loop_generate_image_is_terminal():
 @pytest.mark.asyncio
 async def test_tool_loop_search_image_is_terminal():
     """Successful search_image (reference-photo lookup) stops further rounds."""
-    from app.gateways.mcp.base import ToolResult
     from app.modules.images.search_tool import ImageSearchAdapter
 
     mcp_registry.clear()

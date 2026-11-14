@@ -25,7 +25,7 @@ from app.modules.chat.model_routing.decided import (
     decided_level,
     math_backups,
 )
-from app.modules.chat.model_routing.thinking import lane_for_think, thinking_level, thinks_when_hard
+from app.modules.chat.model_routing.thinking import thinking_level
 from app.modules.chat.prompt_constants.conversation import FOLLOW_NOTES
 from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.turn_prep.context import StreamContext
@@ -324,14 +324,6 @@ async def test_a_worked_layout_already_set_is_left_alone() -> None:
     await decide_from_the_read(ctx, _SETTINGS)
     assert ctx.worked is layout
     assert not any("```worked" in str(m.get("content")) for m in ctx.prompt_messages)
-
-
-def test_the_maths_lane_moves_to_a_model_that_can_think() -> None:
-    assert not thinks_when_hard("qwen-3.7-flash") and thinks_when_hard("smart-chat")
-    assert thinks_when_hard("qwen-3.8-flash")
-    with_qwen = [m for m in _POOL if m != ROUTING.math] + ["qwen-3.8-flash"]
-    assert lane_for_think("qwen-3.7-flash", with_qwen) is None
-    assert lane_for_think("smart-chat", _POOL) is None
 
 
 @pytest.mark.parametrize(

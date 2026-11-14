@@ -109,3 +109,12 @@ async def test_stream_chat_completion_handles_exception():
             ):
                 pass
     assert "isn't responding" in exc_info.value.message
+
+
+def test_the_outage_text_points_to_settings() -> None:
+    """MODEL-13: there is no model picker in the composer; another model is chosen in
+    Settings, which the phone's own copy of this line names too."""
+    from app.gateways.litellm_gateway import ModelUnavailableError
+
+    message = ModelUnavailableError.for_alias("free-chat").message
+    assert "Settings" in message and "pick a different model" not in message
