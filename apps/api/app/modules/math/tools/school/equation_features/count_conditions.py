@@ -52,9 +52,15 @@ _BRACKETS = re.compile(
     r"(?P<close>[\])])",
     re.I,
 )
-# Both ends may or may not count: "between 0 and 5".
+# A condition's text that ends on a mark, each run of space inside it read once. Only a
+# run before a full stop ends it: "between 0 and 5 ." reads "5 " as the plain text did.
+_MARKED_TEXT = r"(?:[^,;?=]|(?<=[<>!])=)*?(?:[^,;?=\s]|(?<=[<>!])=)(?:\s++(?=\.(?:\s|$)))?"
+# Both ends may or may not count: "between 0 and 5". A lazy end beside \s+ took cubic time
+# on "between" and a run of spaces, so each end is a marked text.
 _BETWEEN = re.compile(
-    rf"(?:{_LEAD})?{_LIE}\bbetween\s+(?P<lo>{_TEXT})\s+and\s+(?P<hi>{_TEXT}){_END}", re.I
+    rf"(?:{_LEAD})?{_LIE}\bbetween\s++(?P<lo>{_MARKED_TEXT})\s++and\s++"
+    rf"(?P<hi>{_MARKED_TEXT}){_END}",
+    re.I,
 )
 _INEQUALITY = re.compile(rf"{_LEAD}(?P<text>{_TEXT}){_END}", re.I)
 _SIGN = re.compile(

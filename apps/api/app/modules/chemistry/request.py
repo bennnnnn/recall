@@ -23,13 +23,13 @@ from app.modules.chemistry.particle_cues import PARTICLE_WORD, asks_about_partic
 from app.modules.chemistry.species import ARROWS
 from app.modules.chemistry.species_facts import ELEMENT_NAMES, is_formula
 
-# Formula characters are case-sensitive on purpose. Under ``re.IGNORECASE`` a
-# lowercase word such as "sodium" splits into "so" + "di" + "um" in Fibonacci-many
-# ways, which made a 32-letter run cost seconds. Callers keep their own flags for
-# the words around a formula; ``(?-i:…)`` pins only the formula itself.
+# Formula characters are case-sensitive on purpose: under ``re.IGNORECASE`` "sodium" split into
+# "so" + "di" + "um" in Fibonacci-many ways (a 32-letter run cost seconds); ``(?-i:…)`` pins only
+# the formula, callers keep their flags. Subscripts are read whole (possessive): given back one
+# at a time to a charge ("Fe3+" is Fe, 3, +), a long run of digits took quadratic time.
 CHEMICAL_FORMULA = (
-    r"(?-i:(?:e-|[A-Z][a-z]?[0-9]*(?:\([A-Za-z0-9]+\)[0-9]*)*"
-    r"(?:[A-Z][a-z]?[0-9]*(?:\([A-Za-z0-9]+\)[0-9]?)?)*)"
+    r"(?-i:(?:e-|[A-Z][a-z]?[0-9]*+(?:\([A-Za-z0-9]+\)[0-9]*+)*"
+    r"(?:[A-Z][a-z]?[0-9]*+(?:\([A-Za-z0-9]+\)[0-9]?)?)*)"
     r"(?:\^(?:\{\d*[+-]\}|\d*[+-])|\d*[+-])?"
     r"(?:\((?:aq|s|l|g)\))?)"
 )

@@ -85,12 +85,12 @@ _FEATURES: tuple[tuple[str, re.Pattern[str]], ...] = (
 _PARAMETER = re.compile(
     r"^(?:find|determine|calculate|work\s+out|what\s+(?:is|are|must|should))\s+"
     r"(?:the\s+(?:possible\s+)?values?\s+of\s+|all\s+(?:possible\s+)?values\s+of\s+)?"
-    r"(?P<param>[a-z])(?:\s+(?:be|is))?\s*,?\s*"
-    r"(?:so\s+that|such\s+that|if|for\s+which|given\s+that|when|where)\s+(?:the\s+equation\s+)?"
-    r"(?P<equation>[^,;]+?)\s+(?:has|have)\s+"
+    r"(?P<param>[a-z])(?:\s++(?:be|is))?\s*+,?\s*+"
+    r"(?:so\s+that|such\s+that|if|for\s+which|given\s+that|when|where)\s++"
+    r"(?:the\s+equation\s++)?(?P<equation>[^,;]*?[^,;\s])\s++(?:has|have)\s++"
     r"(?P<count>exactly\s+one|only\s+one|one|1|a\s+single|a\s+repeated|a\s+double|"
     r"two\s+equal|equal|repeated|two\s+distinct|2\s+distinct|two\s+different|two|2|no)"
-    r"\s+(?:real\s+)?(?:solutions?|roots?|zeros?|zeroes?)(?:\s+in\s+x)?$",
+    r"\s++(?:real\s++)?(?:solutions?|roots?|zeros?|zeroes?)(?:\s++in\s++x)?$",
     re.I,
 )
 # A count's working solves the equation, so asking to solve it too is answered.

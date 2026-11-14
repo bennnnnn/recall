@@ -112,7 +112,9 @@ _FORMULA_COUNT = re.compile(r"(?<=[A-Za-z)\]])_(\d+)")
 _SPACE_RUN = re.compile(r"[ \t]{2,}")
 # Three digits that end a group of a number's digits: the "500" of 1\,500.
 _THOUSANDS = re.compile(r"\d{3}(?![\d])")
-_SPACE_BEFORE_MARK = re.compile(r"[ \t]+(?=[,.;:?!)])|(?<=\()[ \t]+")
+# A run starts only where its first space is: tried from every space of a run that no mark
+# follows, the run was read again from each one (quadratic).
+_SPACE_BEFORE_MARK = re.compile(r"(?<![ \t])[ \t]++(?=[,.;:?!)])|(?<=\()[ \t]+")
 
 
 def without_markup(text: str) -> str:
