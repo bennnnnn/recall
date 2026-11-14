@@ -176,12 +176,20 @@ def test_a_log_trace_checks_the_root_it_rejects() -> None:
         ("Solve x^2 = 9 positive", None),
         ("Solve in N: x^2 = 4", None),
         ("solve x^2 = 9 integers only", None),
+        # Domain adjectives as a class, the other languages' forms in an English line too.
+        ("Solve x^2 = 9 with x natural", None),
+        ("Solve x^2 = 9 positiv", None),
+        ("Solve x^2 = 9 for whole x", None),
+        ("solve x^2 = 9, x is an integer", None),
+        ("Solve x^2 = 2 for irrational x", None),
         # Read aloud, "negative x" is -x: the words still name a domain.
         ("solve x^2 - 4 = 0 for negative x", None),
         # Look-alikes: a signed number, and "n" as the unknown, not the naturals.
         ("solve x plus negative 3 equals 5", "x = 8"),
         ("solve x + 3 = -2", "x = -5"),
         ("solve n^2 = 16", r"n = \pm 4"),
+        # "whole" and "natural" away from the unknown are no domain.
+        ("Solve the whole equation 2x + 3 = 7", "x = 2"),
     ],
 )
 async def test_a_bare_domain_word_beside_an_equation_takes_its_card(

@@ -87,11 +87,24 @@ _FOREIGN = frozenset(
     uma uns umas os qual quais encontre resolva fatore converta velocidade em na dos pelo
     pela com
     bir ile nedir kaç kaçtır hesaplayın hesaplayınız bulun bulunuz olan olarak kütle kütlesi çöz
-    zaman akım
+    zaman akım raíz raíces solo solamente racine racines wurzel radice kök
+    """.split()
+) | frozenset(
+    """
     positivo positiva positivos positivas negativo negativa negativos negativas entero entera
-    enteros enteras raíz raíces solo solamente positif négatif entier entiers racine racines
-    positiv negativ ganze ganzzahlig wurzel intero interi radice inteiro inteiros pozitif
-    negatif tamsayı kök
+    enteros enteras natural naturales positif négatif entier entiers naturel naturels positiv
+    negativ ganze ganzzahlig natürlich intero interi naturale inteiro inteiros pozitif negatif
+    tamsayı doğal
+    """.split()
+)
+# Of those, the words that restrict an answer set as an adjective does: "positiv", "entero".
+# The maths reading declines an equation beside one (``request_consumption``).
+RESTRICTING_WORDS = frozenset(
+    """
+    positivo positiva positivos positivas negativo negativa negativos negativas entero entera
+    enteros enteras naturales positif négatif entier entiers naturel naturels positiv negativ
+    ganze ganzzahlig natürlich intero interi naturale inteiro inteiros pozitif negatif
+    tamsayı doğal
     """.split()
 )
 # Words of those languages that English names carry too ("de Broglie", "le Chatelier",

@@ -95,5 +95,9 @@
   {"id": "au-dom-odd-root-half", "area": "real domain", "prompt": "solve (x/2)^(1/3) = -1", "expect": "answer", "check": ["num", "-2"]},
   {"id": "au-dom-fifth-root-coefficient", "area": "real domain", "prompt": "solve (2x)^(1/5) = -1", "expect": "answer", "check": ["num", "-1/2"]},
   {"id": "au-dom-cube-root-equals-x", "area": "real domain", "prompt": "solve x^(1/3) = x", "expect": "answer", "check": ["nums", ["-1", "0", "1"]], "note": "missed -1"},
-  {"id": "au-dom-two-odd-roots", "area": "real domain", "prompt": "solve x^(1/3) + x^(2/3) = 2", "expect": "answer", "check": ["nums", ["-8", "1"]], "note": "missed -8"}
+  {"id": "au-dom-two-odd-roots", "area": "real domain", "prompt": "solve x^(1/3) + x^(2/3) = 2", "expect": "answer", "check": ["nums", ["-8", "1"]], "note": "missed -8"},
+  {"id": "au-dom-en-x-natural", "area": "real domain", "prompt": "Solve x^2 = 9 with x natural", "expect": "decline", "note": "was a checked ±3 on main (2026-11-14 review)"},
+  {"id": "au-dom-en-foreign-positiv", "area": "real domain", "prompt": "Solve x^2 = 9 positiv", "expect": "decline"},
+  {"id": "au-dom-en-whole-x", "area": "real domain", "prompt": "Solve x^2 = 9 for whole x", "expect": "decline"},
+  {"id": "au-dom-en-whole-equation", "area": "real domain", "prompt": "Solve the whole equation 2x + 3 = 7", "expect": "answer", "check": ["num", "2"], "note": "'whole' away from the unknown is no domain"}
 ]

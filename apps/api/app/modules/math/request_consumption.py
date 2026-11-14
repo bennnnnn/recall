@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from app.modules.math.function_calls import functions_dropped
 from app.modules.math.schemas import MathIntent, is_declined
+from app.modules.turn_reading.readable import RESTRICTING_WORDS
 from app.services.number_text import SIGNED_DECIMAL
 
 _ADDITIONAL_OPERATION = re.compile(
@@ -115,8 +116,15 @@ _NONDEFAULT_DOMAIN = re.compile(
 # positive" and "Solve in N: x^2 = 4" were checked as ±3 and ±2 (2026-11-14 review).
 # "negative 3" is a number said aloud, not a domain.
 _BARE_DOMAIN = re.compile(
-    rf"\b{_DOMAIN_ADJECTIVE}\b(?!\s*[\d.])|\b(?:integers?|whole\s+numbers?|natural\s+numbers?|"
-    r"rationals?|counting\s+numbers?)\b|[\u2124\u2115\u211A]|\\mathbb\s*\{\s*[ZNQ]\s*\}",
+    rf"\b{_DOMAIN_ADJECTIVE}\b(?!\s*[\d.])|\b(?:integers?|integral|whole\s+numbers?|"
+    r"natural\s+numbers?|(?:ir)?rationals?|counting\s+numbers?)\b|[\u2124\u2115\u211A]"
+    r"|\\mathbb\s*\{\s*[ZNQ]\s*\}"
+    # "natural" and "whole" beside the unknown, not "the natural log": "with x natural".
+    r"|\b[a-z]\s+(?:(?:is|are|be|must\s+be)\s+)?(?:an?\s+)?(?:natural|whole)\b"
+    r"|\b(?:natural|whole)\s+(?:numbers?\s+|values?\s+(?:of\s+)?)?[a-z]\b(?!\s*\()"
+    r"|\b(?:natural|whole)\s+(?:solutions?|roots?)\b"
+    # The other languages' words for them, in an English line: "Solve x^2 = 9 positiv".
+    rf"|\b(?:{'|'.join(sorted(RESTRICTING_WORDS))})\b",
     re.IGNORECASE,
 )
 # The number sets by letter, in capitals only: "in n" is a variable.
