@@ -1,9 +1,12 @@
-"""The quantities a question asks for together: "the gcd and lcm of 252 and 198", "the
-circumference and area of a circle of radius 3", "its volume, surface area and diagonal".
+"""The quantities a question asks for: "the gcd and lcm of 252 and 198", "the circumference
+and area of a circle of radius 3", "Find the circumference of a circle of radius 3 and its
+area", "its volume, surface area and diagonal".
 
 A card stands for the whole question only when it carries each of them. "gcd and lcm"
 carried 18 alone, and a complete correct reply lost its check; "circumference and area"
-carried ≈18.85 alone, the area left in the working (2026-11-13 audit, MATH-04).
+carried ≈18.85 alone, the area left in the working (2026-11-13 audit, MATH-04). An ask
+need not list them: "A circle has radius 3. Find its area and circumference." and "the gcd of
+12 and 18, and the lcm of 4 and 6" carded one value too (2026-11-14 review).
 """
 
 from __future__ import annotations
@@ -29,33 +32,39 @@ _NAMES: tuple[tuple[str, str], ...] = (
 _NAME = re.compile(
     "|".join(rf"(?P<{name}>\b(?:{pattern})\b)" for name, pattern in _NAMES), re.IGNORECASE
 )
-# What joins two names of one list: "and", a comma, "&", "as well as", "plus".
-_JOIN = re.compile(
-    r"\s*(?:,\s*(?:and\s+)?|\s+and\s+|\s*&\s*|\s+as\s+well\s+as\s+|\s+plus\s+)"
-    r"(?:(?:the|its|their|his|her)\s+)?(?:(?:length\s+of\s+the|value\s+of\s+the)\s+)?$",
-    re.IGNORECASE,
-)
 # A measure set to a value is a given, not an ask: "radius 3", "the radius is 3", "area =
 # 12". A gcd or lcm "of 12 and 18" names what it is taken of.
-_GIVEN_AFTER = re.compile(r"\s*(?:[-+\d.=:]|(?:is|are|was|equals|of)\s+[-+\d.])", re.IGNORECASE)
+_GIVEN_AFTER = re.compile(r"\s*(?:[-+\d=:]|\.\d|(?:is|are|was|equals|of)\s+[-+\d.])", re.IGNORECASE)
 _TAKEN_OF = frozenset({"gcd", "lcm"})
+# The sentences that ask: "… Find its area and circumference.", "What is …?". A statement
+# before them ("A circle has radius 3.") holds givens, never an ask.
+_SENTENCE = re.compile(r"(?:[^.?!\n]|\.(?=\d))+[.?!]?")
+_ASKS = re.compile(
+    r"\?|\b(?:find|calculate|compute|determine|work\s+out|give|state|what|how|evaluate|"
+    r"estimate)\b",
+    re.IGNORECASE,
+)
+
+
+def quantity_mentions(text: str) -> list[tuple[str, int, int]]:
+    """``(quantity, start, end)`` of each quantity the asking sentences of ``text`` ask
+    for, in order; a quantity set to a value there is a given and left out."""
+    if len(text) > 2000:
+        return []
+    sentences = [match for match in _SENTENCE.finditer(text) if _ASKS.search(match.group())]
+    spans = [(match.start(), match.end()) for match in sentences] or [(0, len(text))]
+    return [
+        (match.lastgroup or "", match.start(), match.end())
+        for begin, end in spans
+        for match in _NAME.finditer(text, begin, end)
+        if match.lastgroup in _TAKEN_OF or _GIVEN_AFTER.match(text, match.end()) is None
+    ]
 
 
 def asked_quantities(text: str) -> list[str]:
-    """The longest list of two or more quantities ``text`` asks for together, in its order;
-    empty when it lists fewer. "The area of a circle, the radius is 3" asks for one."""
-    if len(text) > 2000:
-        return []
-    found = [
-        (match.start(), match.end(), match.lastgroup or "")
-        for match in _NAME.finditer(text)
-        if match.lastgroup in _TAKEN_OF or _GIVEN_AFTER.match(text, match.end()) is None
-    ]
-    best: list[str] = []
-    run: list[str] = []
-    for index, (start, _end, name) in enumerate(found):
-        joined = index > 0 and _JOIN.match(text[found[index - 1][1] : start]) is not None
-        run = [*run, name] if joined else [name]
-        if len(set(run)) > len(set(best)):
-            best = list(dict.fromkeys(run))
-    return best if len(best) >= 2 else []
+    """The quantities ``text`` asks for, each once, in its order, when it asks for two or
+    more: "the gcd and lcm of …", "A circle has radius 3. Find its area and circumference.",
+    "the circumference of a circle of radius 3 and its area". Empty when it asks for one
+    ("The area of a square is 16. Find its perimeter.")."""
+    asked = list(dict.fromkeys(name for name, _start, _end in quantity_mentions(text)))
+    return asked if len(asked) >= 2 else []

@@ -79,5 +79,10 @@
   {"id": "au-num-parts-right", "area": "numerical method", "prompt": "Approximate the area under y = x^2 from x = 0 to x = 2 using 4 rectangles of equal width and right endpoints", "expect": "answer", "check": ["num", "3.75"]},
   {"id": "au-num-parts-midpoints", "area": "numerical method", "prompt": "Estimate the area under y = x^2 from 0 to 2 using 4 rectangles and midpoints", "expect": "answer", "check": ["num", "2.625"]},
   {"id": "au-num-parts-no-side", "area": "numerical method", "prompt": "Estimate the area under y = x^2 from 0 to 2 using 4 rectangles", "expect": "decline", "note": "which endpoints is not said: no card, never the exact 8/3"},
-  {"id": "au-num-parts-control-exact", "area": "numerical method", "prompt": "find the area under y = x^2 from 0 to 2", "expect": "answer", "check": ["num", "8/3"]}
+  {"id": "au-num-parts-control-exact", "area": "numerical method", "prompt": "find the area under y = x^2 from 0 to 2", "expect": "answer", "check": ["num", "8/3"]},
+  {"id": "au-parts-circle-after-statement", "area": "several asked", "prompt": "A circle has radius 3. Find its area and circumference.", "expect": "answer", "check": ["parts", [["num", "28.27"], ["num", "18.85"]]], "note": "carded ≈18.85 alone (2026-11-14 review)"},
+  {"id": "au-parts-circle-asked-apart", "area": "several asked", "prompt": "Find the circumference of a circle of radius 3 and its area", "expect": "answer", "check": ["parts", [["num", "18.85"], ["num", "28.27"]]]},
+  {"id": "au-parts-two-circles", "area": "several asked", "prompt": "Find the area of a circle with radius 3 and the circumference of a circle with radius 5", "expect": "decline", "note": "was a checked ≈18.85, wrong for both asks (28.27 and 31.42)"},
+  {"id": "au-parts-gcd-lcm-own-operands", "area": "several asked", "prompt": "What is the gcd of 12 and 18, and the lcm of 4 and 6?", "expect": "decline", "note": "was one card, 12"},
+  {"id": "au-parts-radius-area-from-circumference", "area": "several asked", "prompt": "Find the radius and area of a circle with circumference 10", "expect": "decline", "note": "carded the radius alone"}
 ]

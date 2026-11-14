@@ -32,7 +32,14 @@ async def _card(text: str) -> str | None:
         ("find the circumference and area of a circle of radius 3", ["circumference", "area"]),
         ("its volume, surface area and diagonal", ["volume", "surface_area", "diagonal"]),
         ("find the area and the perimeter", ["area", "perimeter"]),
+        # Asked apart, or after a statement of the givens (2026-11-14 review).
+        ("A circle has radius 3. Find its area and circumference.", ["area", "circumference"]),
+        ("Find the circumference of a circle of radius 3 and its area", ["circumference", "area"]),
+        ("What is the gcd of 12 and 18, and the lcm of 4 and 6?", ["gcd", "lcm"]),
+        ("A circle has radius 2.5. Find its area and circumference.", ["area", "circumference"]),
         # One quantity asked; the others are givens.
+        ("The area of a square is 16. Find its perimeter.", []),
+        ("The perimeter of a rectangle is 20 and its width is 4. Find its area.", []),
         ("find the area of a circle, the radius is 3", []),
         ("find the area of a circle with radius 3 and diameter 6", []),
         ("find the gcd of 12 and 18", []),
@@ -92,9 +99,37 @@ async def test_every_quantity_asked_is_on_the_card(text: str, card: str) -> None
     assert await _card(text) == card
 
 
-async def test_a_quantity_the_block_cannot_card_leaves_no_card() -> None:
-    """Half the question checked is worse than none."""
-    assert await _card("find the volume, surface area and diagonal of a cuboid 2 by 3 by 4") is None
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Half the question checked is worse than none.
+        "find the volume, surface area and diagonal of a cuboid 2 by 3 by 4",
+        "Find the radius and area of a circle with circumference 10",
+        # Each ask with its own operands: one reading answers neither (2026-11-14 review:
+        # ≈18.85 was checked for the area of radius 3 and the circumference of radius 5).
+        "Find the area of a circle with radius 3 and the circumference of a circle with radius 5",
+        "What is the gcd of 12 and 18, and the lcm of 4 and 6?",
+    ],
+)
+async def test_a_question_the_card_cannot_answer_whole_gets_no_card(text: str) -> None:
+    assert await _card(text) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "card"),
+    [
+        (
+            "A circle has radius 3. Find its area and circumference.",
+            r"A \approx 28.27\ \mathrm{units}^{2},\quad C \approx 18.85\ \mathrm{units}",
+        ),
+        (
+            "Find the circumference of a circle of radius 3 and its area",
+            r"C \approx 18.85\ \mathrm{units},\quad A \approx 28.27\ \mathrm{units}^{2}",
+        ),
+    ],
+)
+async def test_quantities_asked_apart_are_all_on_the_card(text: str, card: str) -> None:
+    assert await _card(text) == card
 
 
 def _verified(card: str) -> VerifiedMathBlock:

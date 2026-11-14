@@ -12,6 +12,7 @@ for half the question is worse than none.
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import Sequence
 from dataclasses import replace
 from typing import Any
@@ -84,10 +85,16 @@ def measures_card(
 def with_every_measure(intent: MathIntent, block: VerifiedMathBlock) -> VerifiedMathBlock | None:
     """``block`` with a card holding every measure the question asks for; ``block`` as it
     is when it asks for one; None when the block's picture lacks one asked."""
-    asked = asked_quantities(intent._request_text or "")
+    request = intent._request_text or ""
+    asked = asked_quantities(request)
     if len(asked) < 2 or block.canonical_answer is None:
         # No card to complete: a drawing, or measures angles alone cannot fix.
         return block
+    picture = _picture(block)
+    if not _operands_read(request, intent, picture):
+        # Each ask has its own operands ("the area of a circle with radius 3 and the
+        # circumference of one with radius 5"): one reading answers neither.
+        return None
     if intent.kind in _CARDED_BY_BLOCK:
         # These blocks card every value they read: one asked beyond them is not on it.
         named = {_CARD_NAME[quantity] for quantity in asked if quantity in _CARD_NAME}
@@ -96,10 +103,8 @@ def with_every_measure(intent: MathIntent, block: VerifiedMathBlock) -> Verified
             f"{name} " in card or f"{name}(" in card for name in named
         )
         return block if whole else None
-    if intent.kind not in SHAPE_KINDS:
-        return block
-    picture = _picture(block)
-    if picture is None:
+    if intent.kind not in SHAPE_KINDS or picture is None:
+        # A reading that cards one measure stands for a question asking several of none.
         return None
     values = [picture.get(quantity) for quantity in asked]
     numbers = [float(value) for value in values if isinstance(value, int | float)]
@@ -123,6 +128,37 @@ def with_every_measure(intent: MathIntent, block: VerifiedMathBlock) -> Verified
         worked_reply=None,
         asked=(),
     )
+
+
+# A number as the question writes it: "3", "2.5", ".5".
+_NUMBER = re.compile(r"(?<![\w.])\d+(?:\.\d+)?|(?<![\w\d])\.\d+")
+
+
+def _operands_read(text: str, intent: MathIntent, picture: dict[str, Any] | None) -> bool:
+    """Every number the question writes is one its reading holds: a dimension of the shape
+    it drew, or an operand of its intent."""
+    held = [*_numbers_in(intent.model_dump()), *_numbers_in(picture or {})]
+    return all(
+        any(math.isclose(float(written), value, rel_tol=1e-6, abs_tol=1e-9) for value in held)
+        for written in _NUMBER.findall(text)
+    )
+
+
+def _numbers_in(fields: Any) -> list[float]:
+    if isinstance(fields, bool):
+        return []
+    if isinstance(fields, int | float):
+        return [float(fields)]
+    if isinstance(fields, str):
+        try:
+            return [float(fields)]
+        except ValueError:
+            return []
+    if isinstance(fields, dict):
+        return [number for value in fields.values() for number in _numbers_in(value)]
+    if isinstance(fields, list | tuple):
+        return [number for value in fields for number in _numbers_in(value)]
+    return []
 
 
 def _picture(block: VerifiedMathBlock) -> dict[str, Any] | None:
