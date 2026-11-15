@@ -173,7 +173,12 @@ async def attach_drawing(state: FinalizeState) -> str:
     if not fences:
         return text
     drawing.fences = list(fences)
-    text = figure.without_drawn_substitutes(text).rstrip()
+    text = figure.without_drawn_substitutes(text)
+    if any(fence.startswith("```graph") for fence in fences):
+        # The checked graph stands in for every other graph of the turn: a solve's plot of
+        # the curve alone (round 3's c009 showed both) or the reply's own chart of it (c020).
+        text = strip_closed_fences(strip_closed_fences(text, "graph"), "chart")
+    text = text.rstrip()
     pictures = "\n\n".join(fences)
     text = f"{text}\n\n{pictures}\n" if text else f"{pictures}\n"
     # Committed, so a later pass that falls back keeps the picture.

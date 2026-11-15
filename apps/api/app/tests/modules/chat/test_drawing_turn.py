@@ -28,6 +28,7 @@ from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.chat.worked_stream import ReplyFilter
 from app.modules.math.drawing.contract import DRAW_CONTRACT
+from app.services.md_fence_scan import iter_closed_fences
 from app.tests.modules.chat.chat_test_support import turn_deps
 
 _VECTORS = (
@@ -252,6 +253,19 @@ async def test_a_checked_description_is_drawn_under_the_reply() -> None:
     assert out.startswith(text) and "```mermaid" not in out
     assert out.rstrip().endswith("```") and '"shape":"space"' in out
     assert ctx.drawing.drawn and state.committed == out
+
+
+async def test_a_drawn_graph_stands_in_for_every_other_graph() -> None:
+    """Round 3's c009 showed a solve's plot of the curve alone beside the drawn graph."""
+    line = "Let f(x) = x^2 - 4. Sketch the graph of f."
+    ctx = _ctx(line, live_read=_read(subject="maths", picture="graph"))
+    plot = {"kind": "plot", "items": [{"item": "curve", "name": "f", "y": "x^2 - 4"}]}
+    ctx.drawing = ReplyDrawing("read", descriptions=[json.dumps(plot)])
+    solved = '```graph\n{"type":"function","expr":"x^2 - 4","points":[[0,-4],[1,-3]]}\n```'
+    chart = '```chart\n{"mark":"line"}\n```'
+    out = await attach_drawing(_state(ctx, f"The vertex is (0, -4).\n\n{solved}\n\n{chart}"))
+    graphs = [body for _start, _end, body in iter_closed_fences(out, "graph")]
+    assert len(graphs) == 1 and '"type":"plot"' in graphs[0] and "```chart" not in out
 
 
 async def test_a_description_in_the_text_is_taken_out_and_drawn() -> None:
