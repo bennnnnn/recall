@@ -11,3 +11,10 @@ export const SkiaGraphCanvasLazy = lazy(() =>
     default: m.SkiaGraphCanvas,
   })),
 );
+
+/** A server-drawn plot's regions and lines, laid over the Skia function plot. */
+export const SkiaGraphLayersLazy = lazy(() =>
+  import("@/components/rich/skia/SkiaGraphLayers").then((m) => ({
+    default: m.SkiaGraphLayers,
+  })),
+);

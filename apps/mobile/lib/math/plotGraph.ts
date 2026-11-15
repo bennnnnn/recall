@@ -5,12 +5,13 @@
  * reads them and draws them with the function graph's own renderers
  * (`components/rich/plotDrawing`), in Skia or SVG alike, working nothing out. A part that is malformed is left out, never the graph.
  */
+import { parseJsonRecord } from "@/lib/fence/json";
 import { type GraphSpec } from "@/lib/math/graphSpec";
 
 type Pair = [number, number];
 export type PlotLineRole = "line" | "asymptote" | "axis" | "segment";
 /** A shaded area; a Riemann rectangle or a solid's slice; the slice turned about its axis. */
-export type PlotRegionKind = "shade" | "strip" | "mirror";
+type PlotRegionKind = "shade" | "strip" | "mirror";
 
 export type PlotGraph = {
   xMin: number;
@@ -71,14 +72,8 @@ function finite(raw: unknown): number | null {
 
 /** The fence's plot, or null when it is not one this build can draw. */
 export function parsePlotGraph(raw: string): PlotGraph | null {
-  let data: unknown;
-  try {
-    data = JSON.parse(raw.trim());
-  } catch {
-    return null;
-  }
-  if (!data || typeof data !== "object") return null;
-  const row = data as Record<string, unknown>;
+  const row = parseJsonRecord(raw.trim());
+  if (!row) return null;
   if (row.type !== "plot") return null;
   const [xMin, xMax, yMin, yMax] = [row.x_min, row.x_max, row.y_min, row.y_max].map(finite);
   if (xMin == null || xMax == null || yMin == null || yMax == null) return null;
@@ -122,7 +117,7 @@ export function parsePlotGraph(raw: string): PlotGraph | null {
   };
 }
 
-export type PlotBounds = { xMin: number; xMax: number; yMin: number; yMax: number };
+type PlotBounds = { xMin: number; xMax: number; yMin: number; yMax: number };
 
 /** The server's window, grown on one axis to one scale when the plot asks for it. */
 export function plotBounds(graph: PlotGraph, width: number, height: number, pad: number): PlotBounds {

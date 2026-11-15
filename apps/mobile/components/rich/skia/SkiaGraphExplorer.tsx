@@ -27,8 +27,6 @@ import {
 
 import type { DrawnSeries } from "@/hooks/useInteractiveGraph";
 import { NO_GRAPH_POINTS, type GraphPoints } from "@/components/rich/graphPoints";
-import { useFigureFont } from "@/components/rich/skia/figureFont";
-import { SkiaGraphLayers } from "@/components/rich/skia/SkiaGraphLayers";
 import { SkiaGraphPoints } from "@/components/rich/skia/SkiaGraphPoints";
 import {
   GRAPH_TICK_FONT_SIZE,
@@ -47,7 +45,6 @@ import {
 } from "@/components/rich/skia/graphPaths";
 import { selection } from "@/lib/haptics";
 import { formatShortW, mapPointW, nearestTraceSampleW } from "@/lib/math/graphWorklets";
-import { type GraphLayers } from "@/lib/math/plotGraph";
 import { NO_TRACE, traceTickW } from "@/lib/math/traceTicks";
 import type { Theme } from "@/lib/theme";
 
@@ -88,7 +85,6 @@ export function SkiaGraphCanvas({
   pad,
   theme,
   viewport,
-  layers,
   testID = "skia-graph-canvas",
 }: {
   drawn: DrawnSeries[];
@@ -103,8 +99,6 @@ export function SkiaGraphCanvas({
   pad: number;
   theme: Theme;
   viewport: Viewport;
-  /** A server-drawn plot's regions and lines (`lib/math/plotGraph`). */
-  layers?: GraphLayers;
   testID?: string;
 }) {
   // Project copy of katex/dist/fonts/KaTeX_Main-Regular.ttf. Skia reads a
@@ -115,9 +109,6 @@ export function SkiaGraphCanvas({
     GRAPH_TICK_FONT_SIZE,
   );
   const { bounds, traceActive, tracePos } = viewport;
-  const frame = { bounds, width, height, pad };
-  // The system face: it carries the turn arrow a layer draws beside an axis of revolution.
-  const figureFont = useFigureFont(GRAPH_TICK_FONT_SIZE);
   const clip = Skia.XYWHRect(
     pad,
     pad,
@@ -235,7 +226,6 @@ export function SkiaGraphCanvas({
           strokeWidth={1.25}
         />
         <Group clip={clip}>
-          {layers ? <SkiaGraphLayers layers={layers} part="under" frame={frame} theme={theme} font={figureFont} /> : null}
           {verticalX != null ? (
             <Path
               path={verticalPath}
@@ -269,7 +259,6 @@ export function SkiaGraphCanvas({
               ) : null}
             </Path>
           ))}
-          {layers ? <SkiaGraphLayers layers={layers} part="over" frame={frame} theme={theme} font={figureFont} /> : null}
           <Path path={markerPath} color={drawn[0]?.color ?? theme.primary} style="fill" />
           <SkiaGraphPoints points={points} frame={{ bounds, width, height, pad }} theme={theme} font={font} />
           <Path

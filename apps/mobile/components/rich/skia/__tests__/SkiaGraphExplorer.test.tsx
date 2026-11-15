@@ -110,28 +110,3 @@ describe("SkiaGraphCanvas", () => {
     expect(getByTestId("skia-graph-canvas")).toBeTruthy();
   });
 });
-
-describe("SkiaGraphCanvas with a server plot's layers", () => {
-  it("draws regions, lines and the axis a region turns about without crashing", async () => {
-    const layers = {
-      lines: [
-        { start: [-6, 0], end: [6, 0], role: "axis" as const, color: 0 },
-        { start: [2, -4], end: [2, 4], role: "asymptote" as const, color: 0 },
-      ] as { start: [number, number]; end: [number, number]; role: "axis" | "asymptote"; color: number }[],
-      regions: [
-        { points: [[0, 0], [1, 1], [1, 0]] as [number, number][], kind: "shade" as const, color: 0 },
-        { points: [[0, -1], [0, -2], [0.1, -2]] as [number, number][], kind: "mirror" as const, color: 3 },
-      ],
-    };
-    const viewport = {
-      bounds: { value: BOUNDS },
-      gesture: {},
-      traceActive: { value: false },
-      tracePos: { value: { px: 0, py: 0 } },
-    } as unknown as ReturnType<typeof useSkiaGraphViewport>;
-    const { getByTestId } = await render(
-      <SkiaGraphCanvas drawn={[series({})]} width={320} height={240} pad={28} theme={lightTheme} viewport={viewport} layers={layers} />,
-    );
-    expect(getByTestId("skia-graph-canvas")).toBeTruthy();
-  });
-});

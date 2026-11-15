@@ -1,10 +1,22 @@
 /**
- * A server-drawn plot's layers on the Skia function graph, following its view on the UI
- * thread: regions under the curves, lines over them, as `graphLayers.tsx` draws them in SVG.
+ * A server-drawn plot's layers over the Skia function graph (`SkiaGraphCanvas`), on a canvas
+ * of their own laid over it and following its view: regions, then lines, as
+ * `graphLayers.tsx` draws them in SVG. The function graph's canvas stays as it is.
  */
-import { DashPathEffect, Group, Path, Skia, type SkFont, Text as SkiaText } from "@shopify/react-native-skia";
+import { StyleSheet } from "react-native";
+import {
+  Canvas,
+  DashPathEffect,
+  Group,
+  Path,
+  Skia,
+  type SkFont,
+  Text as SkiaText,
+} from "@shopify/react-native-skia";
 import { useDerivedValue, type SharedValue } from "react-native-reanimated";
 
+import { GRAPH_TICK_FONT_SIZE } from "@/components/rich/graphPaint";
+import { useFigureFont } from "@/components/rich/skia/figureFont";
 import { MIRROR_DASH, PLOT_DASH, PLOT_TURN, plotColor, plotStroke, REGION_OPACITY } from "@/components/rich/plotPaint";
 import { mapPointW, type GraphViewW } from "@/lib/math/graphWorklets";
 import { type GraphLayers } from "@/lib/math/plotGraph";
@@ -63,37 +75,32 @@ function Turn({ line, frame, font, theme }: { line: GraphLayers["lines"][number]
 
 export function SkiaGraphLayers({
   layers,
-  part,
   frame,
   theme,
-  font,
 }: {
   layers: GraphLayers;
-  part: "under" | "over";
   frame: Frame;
   theme: Theme;
-  /** A face with the turn arrow; null while it loads. */
-  font: SkFont | null;
 }) {
-  if (part === "under") {
-    return (
-      <>
+  // The system face: it carries the turn arrow drawn beside an axis of revolution.
+  const font = useFigureFont(GRAPH_TICK_FONT_SIZE);
+  const { width, height, pad } = frame;
+  const clip = Skia.XYWHRect(pad, pad, Math.max(0, width - pad * 2), Math.max(0, height - pad * 2));
+  return (
+    <Canvas style={[StyleSheet.absoluteFill, { width, height }]} pointerEvents="none" testID="skia-plot-layers">
+      <Group clip={clip}>
         {layers.regions.map((region, i) => (
           <Region key={`region-${i}`} region={region} frame={frame} theme={theme} />
         ))}
-      </>
-    );
-  }
-  return (
-    <>
-      {layers.lines.map((line, i) => (
-        <PlotLine key={`line-${i}`} line={line} frame={frame} theme={theme} />
-      ))}
+        {layers.lines.map((line, i) => (
+          <PlotLine key={`line-${i}`} line={line} frame={frame} theme={theme} />
+        ))}
+      </Group>
       {font
         ? layers.lines
             .filter((line) => line.role === "axis")
             .map((line, i) => <Turn key={`turn-${i}`} line={line} frame={frame} font={font} theme={theme} />)
         : null}
-    </>
+    </Canvas>
   );
 }

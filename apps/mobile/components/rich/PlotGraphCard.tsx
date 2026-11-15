@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { GraphCanvas, GRAPH_AXIS_PAD } from "@/components/rich/GraphCanvas";
 import { PLOT_DASH, PLOT_HEIGHT, plotColor, plotStroke } from "@/components/rich/plotPaint";
-import { SkiaGraphCanvasLazy } from "@/components/rich/skia/SkiaGraphCanvasLazy";
+import { SkiaGraphCanvasLazy, SkiaGraphLayersLazy } from "@/components/rich/skia/SkiaGraphCanvasLazy";
 import { useSkiaGraphViewport } from "@/hooks/useSkiaGraphViewport";
 import { type GraphView } from "@/lib/math/graphViewport";
 import { plotDrawing, type PlotDrawing } from "@/components/rich/plotDrawing";
@@ -31,20 +31,23 @@ function SkiaPlot({ graph, drawing, bounds, width, theme }: Canvas) {
     initialView: bounds,
     onCommit: still,
   });
+  const frame = { bounds: viewport.bounds, width, height: PLOT_HEIGHT, pad: GRAPH_AXIS_PAD };
   return (
-    <SkiaGraphCanvasLazy
-      drawn={drawing.drawn}
-      points={drawing.points}
-      layers={drawing.layers}
-      xName={graph.xLabel}
-      yName={graph.yLabel}
-      width={width}
-      height={PLOT_HEIGHT}
-      pad={GRAPH_AXIS_PAD}
-      theme={theme}
-      viewport={viewport}
-      testID="plot-graph-skia"
-    />
+    <View style={{ width, height: PLOT_HEIGHT }}>
+      <SkiaGraphCanvasLazy
+        drawn={drawing.drawn}
+        points={drawing.points}
+        xName={graph.xLabel}
+        yName={graph.yLabel}
+        width={width}
+        height={PLOT_HEIGHT}
+        pad={GRAPH_AXIS_PAD}
+        theme={theme}
+        viewport={viewport}
+        testID="plot-graph-skia"
+      />
+      <SkiaGraphLayersLazy layers={drawing.layers} frame={frame} theme={theme} />
+    </View>
   );
 }
 
