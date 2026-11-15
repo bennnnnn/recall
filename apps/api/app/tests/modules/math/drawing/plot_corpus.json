@@ -1032,7 +1032,7 @@
   "id": "piece_wrong_end",
   "question": "Let f(x) = 3 if x = −5; f(x) = −0.6 if −5 < x ≤ −2; f(x) = x² − 4 if −2 < x < 3; f(x) = x + 2 if x ≥ 3. Sketch the graph of f and evaluate lim_{x→−5} f(x), lim_{x→−2} f(x) and lim_{x→3} f(x).",
   "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"pieces\": [{\"y\": \"-0.6\", \"when\": \"-5 <= x <= -2\"}, {\"y\": \"x^2 - 4\", \"when\": \"-2 < x < 3\"}]}]}",
-  "note": "the first piece closes an end the question leaves open: only the parabola is drawn",
+  "note": "the first piece closes an end the question leaves open: the question's own function is drawn, each end as the question writes it",
   "expect": "draw",
   "curves": [
    ""

@@ -187,7 +187,9 @@ def draw_plot(scene: Scene) -> PlotGraphSpec | None:
     for end in ends:
         scene.add_point(end)
     points = [
-        PlotPoint(x=p.x, y=p.y, open=p.open, label=p.label, color=p.color) for p in scene.points
+        PlotPoint(x=x, y=y, open=p.open, label=p.label, color=p.color)
+        for p in scene.points
+        for x, y in rounded([(p.x, p.y)])
     ]
     regions = [
         PlotRegion(points=rounded(r.points), kind=r.kind, color=r.color)  # type: ignore[arg-type]

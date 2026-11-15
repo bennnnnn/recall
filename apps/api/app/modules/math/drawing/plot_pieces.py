@@ -11,6 +11,7 @@ makes the function continuous, as such a question asks.
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field
 from typing import Any
@@ -155,9 +156,91 @@ def _letters_meet(spans: list[Span], letters: dict[str, Any]) -> bool:
     return True
 
 
+def _clause_formula(clause: Clause) -> Any | None:
+    """The one formula a clause defines, a value it gives at a point ("f(1) = 5") aside;
+    None when it holds none or more than one."""
+    given = [b for _a, b in clause.point_values]
+    found: list[Any] = []
+    for expr in clause.formulas:
+        if expr.is_number and any(same_value(expr, b) for b in given):
+            continue
+        if not any(same_value(expr, seen) for seen in found):
+            found.append(expr)
+    return found[0] if len(found) == 1 else None
+
+
+def _question_shape(question: PlotQuestion, letters: dict[str, Any]) -> Shape | None:
+    """The function the question defines in pieces, clause by clause, its letters at the
+    reply's values; None when it defines none, or a clause is not clear."""
+    shape = Shape()
+    for clause in question.clauses:
+        shape.dots += list(clause.point_values)
+        if not clause.conditions:
+            continue
+        expr = _clause_formula(clause)
+        if expr is None or not isinstance(expr, Expr) or not expr.free_symbols <= {_X}:
+            if clause.formulas:
+                return None
+            continue
+        conditions: list[Condition] = []
+        for c in clause.conditions:
+            at = letters.get(str(c.value)) if isinstance(c.value, Symbol) else c.value
+            if at is None:
+                return None
+            conditions.append(Condition(c.op, at))
+        if len(conditions) == 1 and conditions[0].op == "=":
+            shape.dots.append((conditions[0].value, expr))
+        else:
+            shape.spans += _spans(expr, conditions)
+    pieces = len(shape.spans) + len(shape.dots)
+    return shape if shape.spans and pieces >= 2 else None
+
+
+def _value_on(shape: Shape, x: float) -> float | None:
+    for span in shape.spans:
+        low = span.low == -oo or x > float(span.low)
+        high = span.high == oo or x < float(span.high)
+        if low and high:
+            value = span.fn.at(x)
+            return value if math.isfinite(value) else None
+    return None
+
+
+def _describes(curve: Curve, shape: Shape) -> bool:
+    """Every piece the reply wrote is the question's function where it holds (4x + 4 for
+    4|x² - 1|/(x - 1) when x > 1 is), and at least one is."""
+    agreed = 0
+    for piece in curve.pieces:
+        expr, mine = formula(piece.y), read_condition(piece.when)
+        if expr is None or mine is None:
+            continue
+        own = RealFunction(as_real(expr, _X))
+        for x in _inside_points(mine):
+            want, have = _value_on(shape, x), own.at(x)
+            if want is None or not math.isfinite(have):
+                continue
+            if abs(want - have) > 1e-9 * (1 + abs(want)):
+                return False
+            agreed += 1
+    return agreed > 0
+
+
+def _inside_points(conditions: list[Condition]) -> list[float]:
+    lows = [float(c.value) for c in conditions if c.op in _LOWER]
+    highs = [float(c.value) for c in conditions if c.op in _UPPER]
+    if lows and highs:
+        low, high = max(lows), min(highs)
+        return [low + (high - low) * t for t in (0.25, 0.5, 0.75)]
+    if highs:
+        return [min(highs) - 0.5, min(highs) - 2.0]
+    return [max(lows) + 0.5, max(lows) + 2.0] if lows else []
+
+
 def pieces_shape(curve: Curve, question: PlotQuestion) -> Shape | None:
-    """The pieces of ``curve`` the question writes, or None when none is, or when a letter's
-    value is not where its pieces meet (that picture would be wrong, not just short)."""
+    """The function in pieces the reply describes: the question's own, clause by clause,
+    when the reply's pieces are it where they hold; else the reply's pieces the question
+    writes. None when no piece is the question's, or when a letter's value is not where its
+    pieces meet (that picture would be wrong, not just short)."""
     shape = Shape()
     letters: dict[str, Any] = {}
     for piece in curve.pieces:
@@ -169,6 +252,9 @@ def pieces_shape(curve: Curve, question: PlotQuestion) -> Shape | None:
             shape.dots.append((mine[0].value, expr))
         else:
             shape.spans += _spans(expr, mine)
+    whole = _question_shape(question, letters)
+    if whole is not None and _describes(curve, whole):
+        shape = whole
     if not shape.spans or not _letters_meet(shape.spans, letters):
         return None
     return shape
