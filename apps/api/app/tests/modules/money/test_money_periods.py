@@ -302,3 +302,19 @@ def test_a_rate_by_the_month_is_labelled_as_the_yearly_rate_on_the_slider() -> N
 def test_a_yearly_rate_keeps_its_own_label(text: str, name: str, label: str) -> None:
     spec = _spec(calculator_fence(_worked(text), None, "USD"))
     assert next(control for control in spec.controls if control.name == name).label_key == label
+
+
+def test_a_rate_period_no_card_words_is_unknown() -> None:
+    """Review of #2457: "0.5% every 2 months" is 6 a year, which FREQUENCIES has no words
+    for; the rate is unknown and the request declines, never a KeyError in the note."""
+    from app.modules.money.compounding import UNKNOWN
+    from app.modules.money.read import _rate_per, read_money_request
+
+    assert _rate_per("0.5% every 2 months", {6}, ()) == UNKNOWN
+    assert (
+        read_money_request(
+            "I put $5,000 in a savings account at 0.5% every 2 months for 3 years. "
+            "How much will I have?"
+        )
+        is None
+    )

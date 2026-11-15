@@ -40,7 +40,7 @@ from app.modules.money.fits import (
 )
 from app.modules.money.kinds import named_variant
 from app.modules.money.loan_sums import LoanSums, loan_sums, rest_is_borrowed
-from app.modules.money.periods import paid_by, rate_period, rate_periods_said
+from app.modules.money.periods import FREQUENCIES, paid_by, rate_period, rate_periods_said
 from app.modules.money.phrases import (
     AMOUNT,
     BARE_RATE,
@@ -276,9 +276,10 @@ def _rate_per(text: str, beside: set[int], own: tuple[str, ...]) -> int:
     said = beside | rate_periods_said(text)
     if len(said) > 1 or UNKNOWN in said:
         return UNKNOWN
-    if beside:
-        return beside.pop()
-    return UNKNOWN if said - {1} else 1
+    per = beside.pop() if beside else (UNKNOWN if said - {1} else 1)
+    # "0.5% every 2 months" is 6 a year, a period no card or note words: unknown, not
+    # FREQUENCIES[6] (review of #2457).
+    return per if per in FREQUENCIES else UNKNOWN
 
 
 def _settings(
