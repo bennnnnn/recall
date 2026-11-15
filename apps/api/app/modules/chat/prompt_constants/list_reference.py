@@ -8,6 +8,12 @@ note closest to the message. So beside a short message that holds a number or a 
 list, the note names that item of the last reply's list. It is conditional ("if it points
 at an item"), because "give me 3 more examples" holds a number too: the model, which reads
 the whole message, decides.
+
+A reply that ends on a question offering choices ("Want to do the periodic table link
+properly, or jump to a mixed exam-style set?") is answered by a pick among them: in a long
+study chat (2026-11-15) "the first one", "the second one" and "2" all got the numbered list
+above that question, on every try, each reply opening "Item 1 is about…". After such a
+question the note names the question first, and a list's items only as the other reading.
 """
 
 from __future__ import annotations
@@ -36,6 +42,18 @@ _ITEM_CHARS = 90
 _REPLIES = 4
 _LISTS = 2
 _LIST_NAMES = ("your latest list", "the list before it")
+# The question a reply ends on, an emoji or two after its mark allowed. It offers choices
+# when it joins them with "or" ("…properly, or jump to a mixed set?"); "Which one do you
+# want, or should I pick?" asks for an item of the list above it.
+_CLOSING_QUESTION = re.compile(r"(?P<question>[^\n.!?]*\?)[^\w\n]*$")
+_ASIDE = re.compile(r"\s*\([^()]*\)")
+_WHICH = re.compile(r"\bwhich\b", re.IGNORECASE)
+_CHOICE_CHARS = 120
+# What any pick asks for: the item itself, no preamble about which number it was.
+_GO_ON = (
+    "Go straight on with the one it means; never open by naming its number, and never ask "
+    "what the number means."
+)
 
 
 def _items(reply: str) -> list[str]:
@@ -68,11 +86,31 @@ def _pointed(query: str, count: int) -> list[int]:
     return [n for n in dict.fromkeys(found) if 1 <= n <= count]
 
 
+def _offered_choices(reply: str) -> list[str]:
+    """The choices the question ``reply`` ends on offers, in its order, or none.
+
+    "Want to do the periodic table link properly (groups, periods and why they matter), or
+    jump to a mixed exam-style set?" offers two: an aside in brackets is part of its choice.
+    """
+    match = _CLOSING_QUESTION.search(reply.rstrip())
+    if match is None or _WHICH.search(match["question"]):
+        return []
+    question = _ASIDE.sub("", _MARKUP.sub(lambda m: m["text"] or "", match["question"]))
+    head, joined, last = question.rstrip("? ").rpartition(" or ")
+    if not joined:
+        return []
+    choices = [part.strip(" ,") for part in (*head.split(", "), last)]
+    if len(choices) < 2 or not all(0 < len(choice) <= _CHOICE_CHARS for choice in choices):
+        return []
+    return choices
+
+
 def list_reference_hint(query: str, prior: Sequence[tuple[str, str]]) -> str | None:
     """The note naming the items a short message may point at, or None.
 
     The lists of the last few replies, newest first: "4 from ur first list" got item 5 of
-    the newest one, invented, when the reply just before had no list (2026-11-06)."""
+    the newest one, invented, when the reply just before had no list (2026-11-06). After a
+    reply that ends on a question offering choices, a pick picks among them first."""
     if len(query.split()) > _SHORT_WORDS or _SUM.search(query):
         return None
     replies = [text for role, text in reversed(prior) if role == "assistant"][:_REPLIES]
@@ -82,10 +120,18 @@ def list_reference_hint(query: str, prior: Sequence[tuple[str, str]]) -> str | N
         named += [
             f'item {n} of {place} is "{_plain(items[n - 1])}"' for n in _pointed(query, len(items))
         ]
+    choices = _offered_choices(replies[0]) if replies else []
+    picked = _pointed(query, len(choices))
+    if picked:
+        named = [f'choice {n} is "{choices[n - 1]}"' for n in picked]
+        return (
+            "Your last reply ended on a question offering choices. If this message picks one by "
+            f"its number or place, it picks that choice, not an item of a list above it: "
+            f"{'; '.join(named)}. {_GO_ON}"
+        )
     if not named:
         return None
     return (
         "If this message points at an item of a list you gave, by its number or its place, "
-        f"it asks about that item: {'; '.join(named)}. Say more about the one it means, and "
-        "never ask what the number means."
+        f"it asks about that item: {'; '.join(named)}. {_GO_ON}"
     )

@@ -82,3 +82,50 @@ def test_every_message_after_a_reply_carries_the_own_mistake_note() -> None:
     exchange = [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "Hello!"}]
     assert OWN_MISTAKE_HINT in message_notes("u misunderstood me", exchange, _User())
     assert OWN_MISTAKE_HINT not in message_notes("hi", [], _User())
+
+
+# Live 2026-11-15: a lesson's method list, then a question offering two choices.
+_LESSON = (
+    "### The method\n\n1. **Find the electron count**\n2. **Fill the first shell**\n"
+    "3. **Fill the second shell**\n\nWant to do the periodic table link properly (groups, "
+    "periods and why they matter), or jump to a mixed exam-style set?"
+)
+
+
+@pytest.mark.parametrize(
+    "message, choice",
+    [
+        ("the first one", 'choice 1 is "Want to do the periodic table link properly"'),
+        ("the second one", 'choice 2 is "jump to a mixed exam-style set"'),
+        ("2", 'choice 2 is "jump to a mixed exam-style set"'),
+        ("first", 'choice 1 is "Want to do the periodic table link properly"'),
+        ("the last one pls", 'choice 2 is "jump to a mixed exam-style set"'),
+    ],
+)
+def test_a_pick_after_a_question_offering_choices_picks_a_choice(message, choice) -> None:
+    note = list_reference_hint(message, [("assistant", _MISTAKES), ("assistant", _LESSON)]) or ""
+    assert choice in note
+    assert "Find the electron count" not in note and "Mixing up" not in note
+
+
+@pytest.mark.parametrize(
+    "ending",
+    [
+        # No choice: the pick is the list's.
+        "Want me to explain any of these?",
+        # "Which" asks for an item of the list above it.
+        "Which one do you want, or should I pick?",
+        # The question is not the reply's last line.
+        "Want X, or Y?\n\nTake your time.",
+    ],
+)
+def test_a_pick_after_any_other_ending_names_the_list_item(ending: str) -> None:
+    note = list_reference_hint("2", [("assistant", f"{_MISTAKES}\n\n{ending}")]) or ""
+    assert 'item 2 of your latest list is "Indentation"' in note
+    assert "choice" not in note
+
+
+def test_three_choices_keep_their_order() -> None:
+    reply = "Do you want a quiz, a summary, or a worked example?"
+    note = list_reference_hint("the third one", [("assistant", reply)]) or ""
+    assert 'choice 3 is "a worked example"' in note
