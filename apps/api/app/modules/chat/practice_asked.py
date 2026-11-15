@@ -63,10 +63,12 @@ def may_set_practice(query: str | None, exchange: Sequence[Any]) -> bool:
     )
 
 
-async def _chat_replies(chat_id: UUID) -> list[str]:
-    """The chat's replies that hold a card, oldest first."""
+async def _chat_replies(chat_id: UUID, omit: set[UUID] | None = None) -> list[str]:
+    """The chat's replies that hold a card, oldest first. A reply being regenerated is still
+    stored while it is redone: its cards are the ones asked again, never ones already shown
+    (review of #2456)."""
     return await prompt_context.practice_replies(
-        chat_id, f"```{QUIZ_LANG}", limit=REPLIES_READ, scan=REPLIES_SCANNED
+        chat_id, f"```{QUIZ_LANG}", limit=REPLIES_READ, scan=REPLIES_SCANNED, exclude=omit or ()
     )
 
 
@@ -89,7 +91,7 @@ async def practice_questions(
     if not may_set_practice(query, _through_last_reply(recent, omit)):
         return ()
     try:
-        replies = await _chat_replies(chat_id)
+        replies = await _chat_replies(chat_id, omit)
     except Exception as exc:  # A listing is a hint: the turn never waits on its failure.
         logger.info("practice questions not read (%s)", type(exc).__name__)
         return ()

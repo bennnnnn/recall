@@ -177,7 +177,7 @@ async def test_the_chats_cards_are_listed_beyond_the_window(
 ) -> None:
     replies = [f"Lesson.\n\n{_card(_CL)}", f"More.\n\n{_card(_MG)}\n\n{_card(_CL)}", "No card."]
 
-    async def chat_replies(_chat_id: Any) -> list[str]:
+    async def chat_replies(_chat_id: Any, _omit: Any = None) -> list[str]:
         return replies
 
     monkeypatch.setattr(practice_asked, "_chat_replies", chat_replies)
@@ -193,7 +193,7 @@ async def test_the_chats_loaded_rows_say_whether_to_read_them(
     """The cards are read beside the history window, from the chat's loaded rows: this
     message after them, or a reply being regenerated, is not what came before it."""
 
-    async def chat_replies(_chat_id: Any) -> list[str]:
+    async def chat_replies(_chat_id: Any, _omit: Any = None) -> list[str]:
         return [f"Lesson.\n\n{_card(_CL)}"]
 
     monkeypatch.setattr(practice_asked, "_chat_replies", chat_replies)
@@ -232,7 +232,7 @@ async def test_the_scan_for_cards_reads_only_the_newest_replies() -> None:
 
 @pytest.mark.asyncio
 async def test_a_failed_read_lists_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
-    async def broken(_chat_id: Any) -> list[str]:
+    async def broken(_chat_id: Any, _omit: Any = None) -> list[str]:
         raise RuntimeError("database down")
 
     monkeypatch.setattr(practice_asked, "_chat_replies", broken)
@@ -259,3 +259,42 @@ async def test_a_python_quiz_of_one_question_over_new_code_keeps_every_card(
 def test_a_card_nested_past_the_parser_reads_as_no_card() -> None:
     deep = "```quiz\n" + "[" * 100_000 + "]" * 100_000 + "\n```"
     assert practice_cards(deep) == []
+
+
+@pytest.mark.asyncio
+async def test_a_regenerated_replys_cards_are_never_listed_as_shown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Review of #2456: the reply being regenerated is still stored while it is redone, and
+    its cards were listed as already shown, so the new reply was told not to ask them again
+    and an identical card was dropped. The read leaves it out."""
+    from app.modules.conversation import messages_repository
+
+    asked: list[Any] = []
+
+    async def chat_replies(_chat_id: Any, omit: Any = None) -> list[str]:
+        asked.append(omit)
+        return []
+
+    monkeypatch.setattr(practice_asked, "_chat_replies", chat_replies)
+    regenerated = SimpleNamespace(id=uuid4(), role="assistant", content=f"Again:\n\n{_card(_MG)}")
+    rows = [*_rows("quiz me", f"Try:\n\n{_card(_CL)}"), regenerated]
+    await practice_questions(uuid4(), "quiz me again", rows, omit={regenerated.id})
+    assert asked == [{regenerated.id}]
+
+    seen: list[Any] = []
+
+    class _Session:
+        async def execute(self, statement: Any) -> Any:
+            seen.append(statement)
+            return SimpleNamespace(scalars=lambda: SimpleNamespace(all=list))
+
+    await messages_repository.list_assistant_containing(
+        _Session(),  # type: ignore[arg-type]
+        uuid4(),
+        "```quiz",
+        limit=40,
+        scan=200,
+        exclude={regenerated.id},
+    )
+    assert "NOT IN" in str(seen[0].compile(compile_kwargs={"literal_binds": True}))

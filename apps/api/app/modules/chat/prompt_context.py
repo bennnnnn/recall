@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Collection
 from dataclasses import dataclass, field
 from functools import cached_property
 from typing import TYPE_CHECKING, Any
@@ -301,13 +302,15 @@ async def _load_context_blocks(
     return await _full_blocks(reads, chat)
 
 
-async def practice_replies(chat_id: UUID, needle: str, *, limit: int, scan: int) -> list[str]:
+async def practice_replies(
+    chat_id: UUID, needle: str, *, limit: int, scan: int, exclude: Collection[UUID] = ()
+) -> list[str]:
     """The chat's last ``limit`` replies holding ``needle`` (a practice card) among its last
-    ``scan``, oldest first, read in a short session of its own like the prompt's other
-    context."""
+    ``scan``, oldest first, the ``exclude`` ones (a reply being regenerated) left out, read in a
+    short session of its own like the prompt's other context."""
     async with SessionLocal() as session:
         return await conversation_history.replies_with(
-            session, chat_id, needle, limit=limit, scan=scan
+            session, chat_id, needle, limit=limit, scan=scan, exclude=exclude
         )
 
 

@@ -1,3 +1,4 @@
+from collections.abc import Collection
 from datetime import datetime
 from typing import NamedTuple
 from uuid import UUID
@@ -69,17 +70,23 @@ async def list_recent(
 
 
 async def list_assistant_containing(
-    session: AsyncSession, chat_id: UUID, needle: str, *, limit: int, scan: int
+    session: AsyncSession,
+    chat_id: UUID,
+    needle: str,
+    *,
+    limit: int,
+    scan: int,
+    exclude: Collection[UUID] = (),
 ) -> list[str]:
     """The text of the chat's newest ``limit`` replies holding ``needle``, oldest first, among
-    its newest ``scan`` replies: a long chat's whole history is not searched on every turn."""
-    newest = (
-        select(Message.content, Message.created_at, Message.id)
-        .where(Message.chat_id == chat_id, Message.role == "assistant")
-        .order_by(Message.created_at.desc(), Message.id.desc())
-        .limit(scan)
-        .subquery()
+    its newest ``scan`` replies: a long chat's whole history is not searched on every turn.
+    ``exclude``: replies left out, a reply being regenerated (still stored while it is redone)."""
+    rows = select(Message.content, Message.created_at, Message.id).where(
+        Message.chat_id == chat_id, Message.role == "assistant"
     )
+    if exclude:
+        rows = rows.where(Message.id.notin_(list(exclude)))
+    newest = rows.order_by(Message.created_at.desc(), Message.id.desc()).limit(scan).subquery()
     result = await session.execute(
         select(newest.c.content)
         .where(newest.c.content.contains(needle, autoescape=True))
