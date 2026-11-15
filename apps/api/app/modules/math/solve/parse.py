@@ -17,6 +17,7 @@ from sympy.parsing.sympy_parser import (
 from app.core.config import get_settings
 from app.core.sympy_notation import use_school_log_notation
 from app.modules.math.schemas import EquationInput
+from app.modules.math.solve.bare_arguments import close_bare_arguments
 from app.modules.math.solve.latex_normalize import normalize_latex_to_sympy
 from app.modules.math.solve.number_size import reject_huge_numbers
 from app.modules.math.solve.solved_functions import reject_unsolved_functions
@@ -32,6 +33,7 @@ use_school_log_notation()
 
 _TRANSFORMATIONS = (
     *standard_transformations,
+    close_bare_arguments,
     implicit_multiplication_application,
     convert_xor,
 )
