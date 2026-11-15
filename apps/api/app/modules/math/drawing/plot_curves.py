@@ -135,6 +135,8 @@ def _curves(
         expr = formula(curve.x, _Y)
         if expr is None or not _written_sideways(expr, question):
             return []
+        if expr.is_number and not _an_edge(expr, question):
+            return []  # "the gradient at x = 3" names a point, no line x = 3
         label = equation_text("x", expr.subs(_Y, Symbol("y")))
         return [
             DrawnCurve(name, label, color, sideways=RealFunction(as_real(expr, _Y)), search=search)
@@ -205,7 +207,7 @@ def _line(line: Line, question: PlotQuestion, color: int) -> DrawnLine | None:
             for w in question.formulas
             if at is not None and w.name == "x" and w.expr.is_number and same_value(w.expr, at)
         ]
-        if not own:
+        if not own or not _an_edge(own[0], question):
             return None
         return DrawnLine(vertical=own[0], label=equation_text("x", own[0]), color=color)
     expr = formula(line.y)
@@ -219,6 +221,12 @@ def _line(line: Line, question: PlotQuestion, color: int) -> DrawnLine | None:
     if not written and not _through_two(expr, question):
         return None
     return DrawnLine(slope, expr.subs(_X, 0), label=equation_text("y", expr), color=color)
+
+
+def _an_edge(at: Any, question: PlotQuestion) -> bool:
+    """x = ``at`` is a line the question names ("the line x = 3", "bounded by ... and x = 2"),
+    not a point it is said of ("the gradient at x = 3")."""
+    return any(same_value(edge, at) for edge in question.edges)
 
 
 def _through_two(expr: Any, question: PlotQuestion) -> bool:

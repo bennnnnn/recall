@@ -262,3 +262,14 @@ def test_an_average_with_no_closed_form_is_quick() -> None:
         {"item": "average", "of": "f", "from": "0", "to": "2"},
     )
     assert graph is not None and graph.lines and time.monotonic() - began < 1.5
+
+
+def test_a_value_said_of_a_point_is_no_vertical_line() -> None:
+    """ "The gradient at x = 3" names a point: no line x = 3, as a line or a curve x = g(y)."""
+    graph = _plot(
+        "Find the gradient of y = x^2 at x = 3 and sketch the curve.",
+        _curve("f", "x^2"),
+        {"item": "curve", "name": "v", "x": "3"},
+        {"item": "line", "name": "L", "x": "3"},
+    )
+    assert graph is not None and [c.label for c in graph.curves] == ["y = x²"] and not graph.lines
