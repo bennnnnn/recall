@@ -60,9 +60,9 @@ def curve_places(curve: DrawnCurve) -> list[tuple[float, float]]:
             elif side.kind == "infinite":
                 # Each side of a pole a step out: 1/(x - 1) shows both its branches.
                 x = float(found.x) + direction
-                span = curve.span_at(x)
-                if span is not None:
-                    places.append((x, span.fn.at(x)))
+                beside = curve.span_at(x)
+                if beside is not None:
+                    places.append((x, beside.fn.at(x)))
     return places
 
 

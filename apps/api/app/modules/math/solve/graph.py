@@ -40,9 +40,10 @@ from app.modules.math.solve.graph_sampling import (
     jump_xs,
     pole_xs,
     real_lambdify,
+    rounded_points,
     sample_at,
-    sample_places,
     singular_xs,
+    split_at_gaps,
 )
 from app.modules.math.solve.inequalities import compound_solution_set, inequality_solution_set
 from app.modules.math.solve.parse import parse_expression
@@ -100,22 +101,6 @@ def _split_at_xs(points: list[list[float]], pole_xs: list[float]) -> list[list[l
     if current:
         segments.append(current)
     return segments
-
-
-def _split_at_gaps(segments: list[list[list[float]]], step: float) -> list[list[list[float]]]:
-    """Each segment split where samples are missing (no real value there): √(x² + x) has
-    none on (-1, 0), and one segment drew a line across it (2026-11-15 review, t02)."""
-    found: list[list[list[float]]] = []
-    for segment in segments:
-        current: list[list[float]] = []
-        for point in segment:
-            if current and point[0] - current[-1][0] > 1.5 * step:
-                found.append(current)
-                current = []
-            current.append(point)
-        if current:
-            found.append(current)
-    return found
 
 
 def _removable_holes(
@@ -208,15 +193,8 @@ def sample_function(data: GraphSampleInput) -> GraphSampleResult:
         ys = sample_at(numpy_fn, xs)
     except Exception as exc:
         raise SolveServiceError(f"Could not sample function: {data.expr}") from exc
-    finite = ys[np.isfinite(ys)]
     # Written to places that hold the window's own scale: x² on [0, 0.001] is no flat line.
-    x_places = sample_places(x_max - x_min)
-    y_places = sample_places(float(np.ptp(finite))) if finite.size else x_places
-    points: list[list[float]] = []
-    for x_val, y_val in zip(xs, ys, strict=False):
-        if not np.isfinite(y_val):
-            continue
-        points.append([round(float(x_val), x_places), round(float(y_val), y_places)])
+    points = rounded_points(xs, ys)
 
     # SymPy's singular places, split at where the curve runs off to infinity or jumps,
     # even-order poles like 1/x**2 included, whose samples never flip sign; sin(x)/x's
@@ -231,7 +209,7 @@ def sample_function(data: GraphSampleInput) -> GraphSampleResult:
         x_min=x_min,
         x_max=x_max,
         points=points,
-        segments=_split_at_gaps(
+        segments=split_at_gaps(
             _split_at_xs(points, breaks) if breaks else _split_into_segments(points),
             (x_max - x_min) / max(n - 1, 1),
         ),

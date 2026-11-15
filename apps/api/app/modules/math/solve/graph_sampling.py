@@ -116,3 +116,32 @@ def jump_xs(fn: Any, places: list[float]) -> list[float]:
         if left.kind == right.kind == "finite" and apart:
             found.append(x0)
     return found
+
+
+def split_at_gaps(segments: list[list[list[float]]], step: float) -> list[list[list[float]]]:
+    """Each segment split where samples are missing (no real value there): √(x² + x) has
+    none on (-1, 0), and one segment drew a line across it (2026-11-15 review, t02)."""
+    found: list[list[list[float]]] = []
+    for segment in segments:
+        current: list[list[float]] = []
+        for point in segment:
+            if current and point[0] - current[-1][0] > 1.5 * step:
+                found.append(current)
+                current = []
+            current.append(point)
+        if current:
+            found.append(current)
+    return found
+
+
+def rounded_points(xs: Any, ys: Any) -> list[list[float]]:
+    """Each sample with a real value as [x, y], each to the places its own span holds
+    (``sample_places``)."""
+    finite = ys[np.isfinite(ys)]
+    x_places = sample_places(float(xs[-1] - xs[0])) if len(xs) > 1 else _PLACES
+    y_places = sample_places(float(np.ptp(finite))) if finite.size else x_places
+    return [
+        [round(float(x), x_places), round(float(y), y_places)]
+        for x, y in zip(xs, ys, strict=False)
+        if np.isfinite(y)
+    ]
