@@ -167,10 +167,10 @@ def _fundamental_theorem_working(intent: MathIntent, parsed: Any, integral: str)
             readable_antiderivative,
             textbook_antiderivative,
         )
-        from app.modules.math.solve.calculus import _absolute_logs
+        from app.modules.math.solve.calculus import absolute_logs
 
         # F(x) as a textbook writes it; one with a complex branch is no working a student reads.
-        antiderivative = _absolute_logs(textbook_antiderivative(parsed, symbol), parsed, symbol)
+        antiderivative = absolute_logs(textbook_antiderivative(parsed, symbol), parsed, symbol)
         if not readable_antiderivative(antiderivative, parsed):
             return None
         at_high = simplify(antiderivative.subs(symbol, high))

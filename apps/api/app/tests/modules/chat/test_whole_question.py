@@ -187,6 +187,8 @@ def test_some_of_the_electrons_are_no_atoms_count(question: str, read: bool) -> 
         ("Prove by induction that 1 + 2 + ... + n = n(n+1)/2.", r"n = 0, \frac{1}{2}, 1"),
         # A value at a point, not the function.
         ("Find the gradient of the curve y = x^2 + 1 at x = 3.", r"\frac{dy}{dx} = 2 x"),
+        ("Find dy/dx when x = 2 for y = x^3.", "3 x^{2}"),
+        ("Find dy/dx where x = 1.5, if y = x^3.", "3 x^{2}"),
         # An equation where one is asked.
         ("Find the equation of the line through (1, 0) and (3, 1).", "1"),
         # Solutions of the kind asked.
@@ -206,6 +208,9 @@ def test_a_result_that_answers_something_else_is_dropped(question: str, answer: 
         ("Find the gradient of the curve y = x^2 + 1 at x = 3.", r"\frac{dy}{dx} = 6"),
         ("Find the equation of the line through (1, 0) and (3, 1).", r"y = \frac{x - 1}{2}"),
         ("Find the derivative of x^2 sin x.", r"2 x \sin x + x^2 \cos x"),
+        # A function defined by a formula, after "when" or "where", is no point (2026-11-14).
+        ("Find dy/dx when y = 2x^3 - 5x.", "6 x^{2} - 5"),
+        ("Find dy/dx where y = 3 + x^2.", "2 x"),
         ("Find the rational zeros of x^3 - x.", "x = -1, 0, 1"),
         ("A ball is thrown up at 20 m/s. What is its velocity after 3 s?", "v = -9.4 m/s"),
     ],

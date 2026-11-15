@@ -14,6 +14,7 @@ from app.content.legal import contact_markdown, markdown_to_html
 from app.modules.chat.notation_spans import code_notation, is_notation
 from app.modules.chat.posed_read import without_cheer
 from app.modules.chemistry.extractors.atom_particles import _placeholder
+from app.modules.math.match.asked_operations import asked_operations
 from app.modules.math.match.derivative_order import derivative_orders
 from app.modules.math.match.spoken import _OVER, _fraction, _tight_carets, spoken_math_to_plain
 from app.modules.math.solve.extract_eq import _equation_spans
@@ -280,9 +281,14 @@ def test_the_equation_walker_reads_sides_as_before(text: str, sides: list[tuple[
         "2nd and " * (N // 8),
         "the " + "first and " * (N // 10) + "derivative",
         "d^" * (N // 2),
+        # The Leibniz pattern every reader shares, on text whose spaces are not collapsed.
+        "d^(" + SPACES + "n",
+        "dy/dx^(" + SPACES + "n",
+        "d " * (N // 2),
     ],
 )
 def test_derivative_orders_are_read_in_one_pass(text):
+    asked_operations(text)
     derivative_orders(text)
 
 

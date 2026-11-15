@@ -15,6 +15,7 @@ import json
 import pytest
 
 from app.core.config import Settings
+from app.modules.math.match.asked_operations import asked_operations
 from app.modules.math.match.derivative_order import asked_derivative_order, derivative_orders
 from app.modules.math.tool_check import tool_call_matches_user_text
 from app.services.subjects.dispatch import build_subject_augmentation
@@ -40,6 +41,10 @@ async def _verified(text: str) -> str | None:
         ("the 5th derivative of x^6", 5),
         ("find d^2y/dx^2 if y = x^4", 2),
         ("find d^2/dx^2 of x^4", 2),
+        ("find d3y/dx3 for y = x^4", 3),
+        ("find d²y/dx² for y = x^4", 2),
+        ("find d^{2}y/dx^{2} if y = x^4", 2),
+        ("find dy/dx if y = x^4", 1),
         ("find f''(x) if f(x) = x^4", 2),
         ("find f''''(x) if f(x) = x^5", 4),
         # The second derivative, wherever f'(x) is mentioned beside it.
@@ -82,6 +87,23 @@ def test_every_order_named_is_read() -> None:
     assert derivative_orders("the first, second, and third derivatives of x^3") == (1, 2, 3)
     assert derivative_orders("the first or 2nd derivative of x^3") == (1, 2)
     assert derivative_orders("the derivative of x^3") == ()
+
+
+@pytest.mark.parametrize(
+    ("text", "orders"),
+    [
+        ("Find the fifth derivative of x^6", {5}),
+        ("Find the nth derivative of e^(2x)", {None}),
+        ("Find the 2ⁿᵈ derivative of x⁴", {2}),
+        ("Find d3y/dx3 for y = x^4", {3}),
+        ("Find d^ny/dx^n if y = e^x", {None}),
+        ("the first and second derivatives of x^3", {1, 2}),
+        ("Find the derivative of x^3", {1}),
+    ],
+)
+def test_the_audit_reads_the_orders_this_reader_reads(text: str, orders: set[int | None]) -> None:
+    """The audit of a reading asks this reader, so it never holds a card to another order."""
+    assert asked_operations(text).derivative_orders == orders
 
 
 @pytest.mark.asyncio

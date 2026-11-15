@@ -39,9 +39,9 @@ from app.services.subjects.registry import subject_adapter
 logger = logging.getLogger(__name__)
 
 _UNMATCHED_TOOL_NOTE = (
-    "\nNote: this call's input does not match the problem as the user wrote it, so this "
-    "result is not verified for the user's question. Re-read the user's problem before "
-    "using it, and do not call it verified."
+    "\nNote: this result is not verified for the user's question: the call's input does not "
+    "match the problem as the user wrote it, or it computes a step, not the quantity the "
+    "question asks. Re-read the user's problem before using it, and do not call it verified."
 )
 _TIMED_OUT = "Tool round timed out."
 _TRIG_DOMAIN_REFUSAL = (

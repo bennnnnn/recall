@@ -10,6 +10,7 @@ fails that check drops the whole trace.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any
 
 from sympy import (
@@ -387,6 +388,32 @@ def integral_key_steps(expr: Any, variable: str) -> tuple[list[KeyStep], Any | N
     return steps, total
 
 
+def _real_logs(
+    steps: list[KeyStep], antiderivative: Any, integrand: Any, var: Any
+) -> tuple[list[KeyStep], Any]:
+    """The trace's ``ln u`` as ``ln|u|``, checked at real points, or no trace.
+
+    A substitution's log holds only where its argument is positive: ∫ sin 2t/(1 - cos 2t)
+    dt was a checked ln(2cos 2t - 2)/2, the log of a number never positive, which only the
+    complex numbers give (2026-11-14). The card shows a real antiderivative or none.
+    """
+    from app.modules.math.solve.antiderivative import differentiates_to
+    from app.modules.math.solve.calculus import absolute_logs
+
+    barred = absolute_logs(antiderivative, integrand, var)
+    if barred != antiderivative:
+        old, new = latex(antiderivative), latex(barred)
+        if old not in steps[-1].formula:
+            return [], antiderivative
+        last = steps[-1]
+        steps = [*steps[:-1], replace(last, formula=last.formula.replace(old, new))]
+    # On the real line: a symbol of no kind differentiates |u| through re and im.
+    real = Symbol(var.name, real=True)
+    if not differentiates_to(barred.subs(var, real), integrand.subs(var, real), real):
+        return [], antiderivative
+    return steps, barred
+
+
 def integral_trace(expr: str, variable: str) -> tuple[list[KeyStep], str | None, str | None]:
     """Parse, then trace: (steps, problem LaTeX, checked answer ``F + C``)."""
     from app.modules.math.solve.parse import parse_expression
@@ -399,6 +426,9 @@ def integral_trace(expr: str, variable: str) -> tuple[list[KeyStep], str | None,
     if not steps or antiderivative is None:
         return [], None, None
     var = next((s for s in parsed.free_symbols if str(s) == variable), Symbol(variable))
+    steps, antiderivative = _real_logs(steps, antiderivative, parsed, var)
+    if not steps:
+        return [], None, None
     answer = _ln_abs_latex(1, var) if antiderivative == log(Abs(var)) else latex(antiderivative)
     # One step is worth showing only when it is not the answer itself
     # (``x^{3 + 1} / (3 + 1)``, not ``\int \cos x\,dx = \sin x``).

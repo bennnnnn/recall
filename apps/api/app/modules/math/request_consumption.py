@@ -6,6 +6,7 @@ import re
 from dataclasses import dataclass
 
 from app.modules.math.function_calls import functions_dropped
+from app.modules.math.match.asked_operations import unasked_reading
 from app.modules.math.schemas import MathIntent, is_declined
 from app.modules.turn_reading.readable import RESTRICTING_WORDS
 from app.services.number_text import SIGNED_DECIMAL
@@ -173,6 +174,7 @@ _POINT_OF_THE_ASK = re.compile(
     r"|\(\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*\)\s+(?:lies|lie|is|are)\s+on\b",
     re.IGNORECASE,
 )
+_LETTER = re.compile(r"(?<![A-Za-z])[A-Za-z](?![A-Za-z])")
 _DOMAIN_BLIND_KINDS = frozenset(
     {"equation", "system", "inequality", "calculus", "limit", "graph", "graph_pair"}
 )
@@ -191,8 +193,14 @@ def _side_pattern(side: str) -> str:
 
 
 def _linked_equality_would_be_dropped(text: str, intent: MathIntent) -> bool:
-    """Return true only when a linked equality is absent from a typed system."""
+    """Return true only when a linked equality is absent from a typed system.
+
+    In a calculus reading, one that names a letter its expression lacks is the function's
+    own definition: "Given y = x^3 - 4x, find dy/dx" differentiates x^3 - 4x."""
     matches = list(_LINKED_EQUALITY_DOMAIN.finditer(text))
+    if intent.kind == "calculus":
+        letters = set(_LETTER.findall(intent.expr or ""))
+        matches = [match for match in matches if match["variable"] in letters]
     if not matches:
         return False
     represented_equations = intent.system_equations or []
@@ -273,6 +281,8 @@ def audit_math_request(text: str, intent: MathIntent) -> ConsumptionAudit:
         _EQUATION_FEATURE_REQUEST.search(text) or _SOLUTION_COUNT_CONDITION.search(text)
     ):
         leftovers.append("a feature of the equation, not its solutions")
+    # The reading computes what the sentences that ask ask, not a step or a solve.
+    leftovers.extend(unasked_reading(text, intent))
     if intent.kind in _SOLVED_EQUATION_KINDS and _POINT_OF_THE_ASK.search(text):
         sides = " ".join(
             part for pair in intent.system_equations or [] for part in pair

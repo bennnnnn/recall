@@ -19,13 +19,18 @@ An ordinal is read from the words straight before "derivative": "the eleventh de
 checked first derivative (review, 2026-11-14). The words are read once, left to right, so a
 32,000-character message costs what its words do; the regex this replaced took seconds on a
 run of spaces after ``d^``.
+
+It is the one reader of an order: the asked-operations audit, the extractor and the tool
+check all ask it, and Leibniz's notation is the one pattern the other readers share
+(``turn_reading/derivative_notation.py``).
 """
 
 from __future__ import annotations
 
 import re
 
-from app.modules.math.match.calculus import lagrange_prime_order
+from app.modules.math.match.calculus import lagrange_prime_run
+from app.modules.turn_reading.derivative_notation import LEIBNIZ
 
 _UNITS = (
     "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth",
@@ -54,11 +59,9 @@ _DIGIT_ORDINAL = re.compile(r"(\d+)(?:st|nd|rd|th)")
 # A letter's ordinal, which no number gives: "nth", "kth".
 _LETTER_ORDINAL = re.compile(r"[a-z]th")
 _WORDS = re.compile(r"[a-z0-9]+|[^\sa-z0-9]")
-# Leibniz's ``d^2y/dx^2``, ``d^2/dx^2``, ``d^(n)y/dx^(n)``: the power on the first d. Read on
-# text whose spaces are one each, so every piece is bounded and a run of them read once.
-_LEIBNIZ_ORDER = re.compile(
-    r"(?<![a-z])d ?\^ ?[({]? ?(?:(?P<digits>\d{1,2})|[a-z]) ?[)}]? ?[a-z]? ?/ ?d"
-)
+_SCRIPT_ORDERS = {"²": 2, "³": 3, "⁴": 4}
+# How far before "derivative" its ordinals are looked for: "the first, second and third".
+_LOOKBACK = 160
 
 # Not read: no ordinal stands before "derivative".
 _NONE_HERE = object()
@@ -121,6 +124,41 @@ def _orders_before(words: list[str], at: int) -> list[int | None]:
     return found[::-1]
 
 
+def leibniz_order(match: re.Match[str]) -> int | None:
+    """The order a ``LEIBNIZ`` match writes: 2 for d^2y/dx^2, 1 for dy/dx, None for d^ny/dx^n."""
+    if match["letter"]:
+        return None
+    if match["order"] or match["plain"]:
+        return int(match["order"] or match["plain"])
+    return _SCRIPT_ORDERS.get(match["script"] or "", 1)
+
+
+def higher_leibniz(text: str) -> re.Match[str] | None:
+    """The first derivative past the first written in Leibniz's notation, numbered or not."""
+    return next((m for m in LEIBNIZ.finditer(text) if leibniz_order(m) != 1), None)
+
+
+def _prime_order(text: str) -> int:
+    """The most Lagrange primes on one letter: 2 for f''(x), 4 for f''''(x), 0 for none."""
+    best = 0
+    i = 0
+    while i < len(text):
+        run = lagrange_prime_run(text, i) if text[i] == "'" else None
+        if run is None:
+            i += 1
+            continue
+        i, order = run
+        best = max(best, order)
+    return best
+
+
+def orders_before(text: str, at: int) -> tuple[int | None, ...]:
+    """The ordinals ``text`` writes straight before ``at``, where a "derivative" starts:
+    "the first and second" is (1, 2), "the nth" (None,), "find the" nothing."""
+    words = _WORDS.findall(" ".join(text[max(0, at - _LOOKBACK) : at].lower().split()))
+    return tuple(_orders_before(words, len(words)))
+
+
 def derivative_orders(text: str) -> tuple[int | None, ...]:
     """Every order the text names, in its order; ``None`` for one no number gives, and
     nothing when it names none (a plain "derivative" is the first)."""
@@ -130,9 +168,8 @@ def derivative_orders(text: str) -> tuple[int | None, ...]:
     for at, word in enumerate(words):
         if word.startswith("deriv"):
             orders.extend(_orders_before(words, at))
-    for match in _LEIBNIZ_ORDER.finditer(spaced):
-        orders.append(int(match.group("digits")) if match.group("digits") else None)
-    primes = lagrange_prime_order(text)
+    orders.extend(leibniz_order(match) for match in LEIBNIZ.finditer(spaced))
+    primes = _prime_order(text)
     if primes:
         orders.append(primes)
     return tuple(orders)
