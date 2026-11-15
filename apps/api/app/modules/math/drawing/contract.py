@@ -12,10 +12,13 @@ DRAW_CONTRACT = (
     "box, a sphere) or a word problem's shape, describe the picture in one ```draw block, "
     "after your answer; the app checks it against the question and draws it under your "
     "reply. This replaces the rule against drawing for that figure only.\n"
-    "- Write only JSON. Copy coordinates and sizes exactly as the question states them, and "
-    "write no other number: the app works out where everything goes.\n"
+    "- Write only JSON. Copy coordinates and sizes exactly as the question states them: the "
+    "app works out where everything goes, and every value it shows.\n"
     '- Label a part with a value the question states, with its unit ("12 m"), or with a '
-    'letter your working uses ("r", "h", "x"), never with a number you worked out.\n'
+    'letter your working uses ("r", "h", "x", "d", "θ"); the app adds the value it works '
+    "out for that part. For a best size (most area, least metal), give the amount the "
+    'question fixes and the one to make best: "fixed": {"volume": "10 litres"}, '
+    '"optimise": {"surface": "min"} (amounts: perimeter, area, surface, volume).\n'
     "- Use the question's own shape (a frustum is a frustum, a sphere is no circle). Leave "
     "out what the vocabulary cannot say. Never draw it in characters, Mermaid, SVG or a "
     "```geometry block, and do not mention the picture.\n"
@@ -42,5 +45,9 @@ DRAW_CONTRACT = (
     '"between":["a","b"],"label":"θ"}]}\n```\n'
     'Example: "Water fills a conical tank of radius 2 m and height 5 m; find dh/dt when '
     'the depth is 3 m. Draw the tank." -> ```draw\n{"kind":"shape","items":[{"item":"tank",'
-    '"container":"cone","radius":"2 m","height":"5 m","depth":"h","surface":"r"}]}\n```'
+    '"container":"cone","radius":"2 m","height":"5 m","depth":"h","surface":"r"}]}\n```\n'
+    'Example: "A rectangular field is fenced with 400 m of fencing. Find the largest area '
+    'and draw the field." -> ```draw\n{"kind":"shape","items":[{"item":"rectangle",'
+    '"width":"x","height":"y","fixed":{"perimeter":"400 m"},"optimise":{"area":"max"}}]}'
+    "\n```"
 )

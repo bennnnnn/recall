@@ -298,7 +298,7 @@
    "8 m",
    "6 m",
    "3 m",
-   "θ"
+   "θ ≈ 16.7°"
   ]
  },
  {
@@ -331,7 +331,9 @@
   "reply": "Centre $C(1, -2, 0)$. $PC = 3$, so the shortest distance is $d = 3 - 1$, $d = 2$.",
   "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"sphere\", \"name\": \"C\", \"equation\": \"(x-1)^2+(y+2)^2+z^2=1\"}, {\"item\": \"point\", \"name\": \"P\", \"at\": [3, -1, 2]}, {\"item\": \"segment\", \"from\": \"P\", \"to\": \"C\", \"label\": \"d\"}]}",
   "expect": "draw",
-  "labels": []
+  "labels": [
+   "1"
+  ]
  },
  {
   "id": "letter_on_its_length",
@@ -343,7 +345,7 @@
    "8 m",
    "6 m",
    "3 m",
-   "d"
+   "d = √109 m"
   ]
  },
  {
@@ -414,7 +416,9 @@
   "reply": "The centre is $C(0, 1, 0)$.",
   "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"sphere\", \"name\": \"C\", \"equation\": \"x^2 + y^2 + z^2 - 2y = 4\"}]}",
   "expect": "draw",
-  "labels": []
+  "labels": [
+   "√5"
+  ]
  },
  {
   "id": "sphere_centre_from_its_equation",
@@ -422,7 +426,9 @@
   "reply": "The centre is $C(0, 1, 0)$.",
   "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"sphere\", \"name\": \"C\", \"center\": [0, 1, 0], \"radius\": \"\\u221a5\"}]}",
   "expect": "draw",
-  "labels": []
+  "labels": [
+   "√5"
+  ]
  },
  {
   "id": "sphere_centre_not_its_equations",
@@ -438,7 +444,9 @@
   "reply": "The centre is $C(1, -2, 0)$.",
   "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"sphere\", \"name\": \"C\", \"equation\": \"(x-1)^2+(y+2)^2+z^2=1\"}, {\"item\": \"point\", \"name\": \"P\", \"at\": [3, -1, 2]}, {\"item\": \"segment\", \"from\": \"P\", \"to\": \"C\"}]}",
   "expect": "draw",
-  "labels": []
+  "labels": [
+   "1"
+  ]
  },
  {
   "id": "points_and_sphere",
@@ -459,7 +467,7 @@
   "labels": [
    "u",
    "v",
-   "θ"
+   "θ ≈ 70.53°"
   ]
  },
  {
@@ -488,7 +496,9 @@
   "reply": "",
   "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"point\", \"name\": \"P\", \"at\": [-1, 1, 1]}, {\"item\": \"point\", \"name\": \"Q\", \"at\": [2, 2, 2]}, {\"item\": \"segment\", \"from\": \"P\", \"to\": \"Q\", \"label\": \"3.32\"}]}",
   "expect": "draw",
-  "labels": []
+  "labels": [
+   "√11"
+  ]
  },
  {
   "id": "stated_value_wrong_place",
@@ -517,7 +527,7 @@
   "labels": [
    "u",
    "v",
-   "arc"
+   "70.53°"
   ]
  },
  {
@@ -603,6 +613,83 @@
   "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"point\", \"name\": \"A\", \"at\": [0, 0, 0]}, {\"item\": \"point\", \"name\": \"B\", \"at\": [700, 0, 12]}]}",
   "expect": "drop",
   "labels": null
+ },
+ {
+  "id": "window_at_its_best",
+  "question": "A window is built in the shape of a rectangle with a semicircle on top. If there is 12 m of framing material for the outside edge, what dimensions let in the most light? Draw the window.",
+  "reply": "Let $r$ be the radius and $h$ the height.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"window\", \"width\": \"2r\", \"height\": \"h\", \"radius\": \"r\", \"fixed\": {\"perimeter\": \"12 m\"}, \"optimise\": {\"area\": \"max\"}}]}",
+  "expect": "draw",
+  "labels": [
+   "2r ≈ 3.36 m",
+   "h ≈ 1.68 m",
+   "r ≈ 1.68 m"
+  ]
+ },
+ {
+  "id": "can_at_its_best",
+  "question": "A cylindrical can is to be made to hold 10 litres of oil. Find the dimensions of the can that will minimise the cost of the metal. Draw the can with its dimensions.",
+  "reply": "Let $r$ and $h$.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"cylinder\", \"radius\": \"r\", \"height\": \"h\", \"fixed\": {\"volume\": \"10 litres\"}, \"optimise\": {\"surface\": \"min\"}}]}",
+  "expect": "draw",
+  "labels": [
+   "h ≈ 23.35 cm",
+   "r ≈ 11.68 cm"
+  ]
+ },
+ {
+  "id": "can_numbers_checked",
+  "question": "A cylindrical can is to be made to hold 10 litres of oil. Find the dimensions of the can that will minimise the cost of the metal. Draw the can with its dimensions.",
+  "reply": "",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"cylinder\", \"radius\": \"11.68 cm\", \"height\": \"23.35 cm\", \"fixed\": {\"volume\": \"10 litres\"}, \"optimise\": {\"surface\": \"min\"}}]}",
+  "expect": "draw",
+  "labels": [
+   "23.35 cm",
+   "11.68 cm"
+  ]
+ },
+ {
+  "id": "can_wrong_number_left_off",
+  "question": "A cylindrical can is to be made to hold 10 litres of oil. Find the dimensions of the can that will minimise the cost of the metal. Draw the can with its dimensions.",
+  "reply": "",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"cylinder\", \"radius\": \"12 cm\", \"height\": \"23.35 cm\", \"fixed\": {\"volume\": \"10 litres\"}, \"optimise\": {\"surface\": \"min\"}}]}",
+  "expect": "draw",
+  "labels": [
+   "23.35 cm"
+  ]
+ },
+ {
+  "id": "open_box_at_its_best",
+  "question": "A manufacturer wants to design an open box with a square base and a surface area of 48 square units. What dimensions will produce a box with maximum volume? Draw the box.",
+  "reply": "base $x$ by $x$, height $h$",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"box\", \"open\": true, \"length\": \"x\", \"width\": \"x\", \"height\": \"h\", \"fixed\": {\"surface\": \"48 square units\"}, \"optimise\": {\"volume\": \"max\"}}]}",
+  "expect": "draw",
+  "labels": [
+   "x = 4",
+   "x = 4",
+   "h = 2"
+  ]
+ },
+ {
+  "id": "amount_not_stated",
+  "question": "A manufacturer wants to design an open box with a square base and a surface area of 48 square units. What dimensions will produce a box with maximum volume? Draw the box.",
+  "reply": "x and h",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"box\", \"open\": true, \"length\": \"x\", \"width\": \"x\", \"height\": \"h\", \"fixed\": {\"surface\": \"50 square units\"}, \"optimise\": {\"volume\": \"max\"}}]}",
+  "expect": "drop",
+  "labels": null
+ },
+ {
+  "id": "ladder_top_worked",
+  "question": "A ladder 10 m long leans against a wall with its foot 6 m from the wall. Draw it.",
+  "reply": "let $y$ be the height",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"ladder\", \"length\": \"10 m\", \"foot\": \"6 m\", \"top\": \"y\"}]}",
+  "expect": "draw",
+  "labels": [
+   "10 m",
+   "6 m",
+   "y = 8 m",
+   "right"
+  ]
  },
  {
   "id": "only_axes",

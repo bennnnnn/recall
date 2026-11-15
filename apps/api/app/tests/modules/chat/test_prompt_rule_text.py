@@ -66,8 +66,8 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # reply to describe the picture a maths question asks to see in a ```draw block, the one
 # exception to its never-draw rule (math.drawing.contract.DRAW_CONTRACT, 2026-11-15).
 _RULES = 183
-_RULE_GRAMS = 17048
-_RULE_GRAMS_SHA = "024e7b13a7e506f1"
+_RULE_GRAMS = 17119
+_RULE_GRAMS_SHA = "da75229b286076a4"
 
 
 def _rules() -> list[str]:

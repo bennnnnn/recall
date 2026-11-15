@@ -17,7 +17,7 @@ from typing import Any
 
 import pytest
 
-from app.modules.math.drawing.build import drawn_fence, first_drawn_fence
+from app.modules.math.drawing.build import drawn_fence, drawn_fences
 from app.modules.math.schemas.figure import FigureSpec
 
 _CORPUS = json.loads(Path(__file__).with_name("draw_corpus.json").read_text())
@@ -71,7 +71,7 @@ def test_draw_corpus_holds_both_outcomes_and_both_kinds() -> None:
         assert kinds[(kind, "draw")] >= 10 and kinds[(kind, "drop")] >= 5
 
 
-def test_the_first_description_that_holds_is_drawn() -> None:
+def test_the_first_description_of_each_kind_that_holds_is_drawn() -> None:
     question = "Find the angle between the vectors (−1, 1, 1) and (2, 2, 2), and draw both."
     unstated = json.dumps(
         {"kind": "space", "items": [{"item": "vector", "name": "u", "to": [1, 1, 1]}]}
@@ -79,6 +79,10 @@ def test_the_first_description_that_holds_is_drawn() -> None:
     stated = json.dumps(
         {"kind": "space", "items": [{"item": "vector", "name": "u", "to": [-1, 1, 1]}]}
     )
-    fence = first_drawn_fence([unstated, stated], [question], "Let $u$.")
-    assert fence is not None and '"label":"u"' in fence
-    assert first_drawn_fence([unstated], [question], "") is None
+    again = json.dumps(
+        {"kind": "space", "items": [{"item": "vector", "name": "v", "to": [2, 2, 2]}]}
+    )
+    fences = drawn_fences([unstated, stated, again], [question], "Let $u$ and $v$.")
+    # One figure: the first that holds; a second figure never joins it.
+    assert len(fences) == 1 and '"label":"u"' in fences[0]
+    assert drawn_fences([unstated], [question], "") == []

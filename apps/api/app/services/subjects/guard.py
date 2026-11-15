@@ -278,11 +278,11 @@ class GuardedFigure:
 
     async def described(
         self, descriptions: Sequence[str], texts: Sequence[str], reply: str, settings: Settings
-    ) -> str | None:
+    ) -> list[str]:
         return await _neutral_async(
             self._subject,
             "figure.described",
-            None,
+            [],
             lambda: self._inner.described(descriptions, texts, reply, settings),
         )
 

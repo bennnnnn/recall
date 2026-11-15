@@ -27,17 +27,29 @@ _TURNS = sorted(
     range(0, 360, 10),
     key=lambda turn: (min(abs(turn - _TEXTBOOK), 360 - abs(turn - _TEXTBOOK)), turn),
 )
+# An axis runs past the farthest point by this share, and at least this share of the
+# scene's reach; it starts a little behind the origin.
+_PAST = 0.15
+_LEAST = 0.35
+_BEHIND = 0.12
 # Two points closer than this share of the drawing fall together.
 _APART = 0.03
 # A point outside a sphere is drawn at least this far outside its outline, as a share of
 # the radius.
 _OUTSIDE = 0.03
-# Named points nearer than this share of the drawing crowd each other's letters.
-_NAMES_APART = 0.08
+# The phone sets a point's letter about this share of the drawing from it; letters nearer
+# each other than the next share, or a letter this near another point, read as one another's.
+_LETTER_GAP = 0.045
+_LABELS_APART = 0.06
+_CLEAR_OF_DOTS = 0.035
+# Where along an arrow its name sits: by its head.
+NAME_AT = 0.85
+# An axis drawn shorter than this share of its length is seen end on.
+_END_ON = 0.45
 # An arrow drawn shorter than this share of its length reads as another length.
 _SHORTEST = 0.6
 # Arrows from one point closer than this in direction read as one.
-_CROWDED = math.radians(9)
+_CROWDED = math.radians(15)
 # A marked angle drawn this far from its size reads as another angle.
 _ANGLE_SLACK = 25.0
 _AXES = ((1, 0, 0), (0, 1, 0), (0, 0, 1))
@@ -75,6 +87,8 @@ def span(scene: Scene, view: View) -> float:
 
 
 def _honest(scene: Scene, view: View) -> bool:
+    if scene.axes and any(_short(view, axis) > _SHORTEST - _END_ON for axis in _AXES):
+        return False  # an axis seen end on: a dot, its letter on the origin
     size = span(scene, view)
     own = {floats(scene.points[name]) for name in scene.dots | scene.shown}
     flat = [view(xyz) for xyz in own]
@@ -129,21 +143,68 @@ def _short(view: View, way: tuple[float, float, float]) -> float:
     return max(0.0, _SHORTEST - math.hypot(*view(way)) / length) if length else 0.0
 
 
-def _crowded_names(scene: Scene, view: View) -> float:
-    """Named points drawn so near each other that their letters read as one another's."""
-    flat = [view(floats(scene.points[name])) for name in scene.shown]
+def axis_ends(scene: Scene) -> list[tuple[tuple[float, float, float], tuple[float, float, float]]]:
+    """Each axis's two ends: past the farthest point (and sphere) on it, at least a share of
+    the scene's reach, starting a little behind the origin."""
+    values = [floats(p) for p in scene.points.values()]
+    for sphere in scene.spheres:
+        r = math.sqrt(float(sphere.radius_squared))
+        cx, cy, cz = floats(scene.points[sphere.centre])
+        values += [(cx - r, cy - r, cz - r), (cx + r, cy + r, cz + r)]
+    reach = max(max(abs(v) for v in xyz) for xyz in values) or 1.0
+    ends = []
+    for i in range(3):
+        high = max(max(xyz[i] for xyz in values) * (1 + _PAST), _LEAST * reach)
+        low = min(min(xyz[i] for xyz in values) * (1 + _PAST), -_BEHIND * reach)
+        start, end = [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]
+        start[i], end[i] = low, high
+        ends.append(((start[0], start[1], start[2]), (end[0], end[1], end[2])))
+    return ends
+
+
+def _away(point: Point, middle: Point, gap: float) -> Point:
+    dx, dy = point[0] - middle[0], point[1] - middle[1]
+    length = math.hypot(dx, dy) or 1.0
+    return (point[0] + dx / length * gap, point[1] + dy / length * gap)
+
+
+def _crowded_labels(scene: Scene, view: View) -> float:
+    """Letters the phone would set on one another or on another point: each point's letter
+    away from the drawing's middle, each arrow's name beside its head."""
     size = span(scene, view)
-    return sum(
-        1.0
-        for i, a in enumerate(flat)
-        for b in flat[i + 1 :]
-        if math.dist(a, b) < _NAMES_APART * size
-    )
+    flat = {name: view(floats(xyz)) for name, xyz in scene.points.items()}
+    # The phone's middle is all the drawing's points': the axes' ends among them.
+    spread = list(flat.values())
+    if scene.axes:
+        spread += [view(end) for pair in axis_ends(scene) for end in pair]
+    middle = (sum(p[0] for p in spread) / len(spread), sum(p[1] for p in spread) / len(spread))
+    shown = scene.shown | ({ORIGIN} if scene.axes else set())
+    labels = [(name, _away(flat[name], middle, _LETTER_GAP * size)) for name in shown]
+    for start, tip, name in scene.arrows:
+        if name:
+            a, b = flat[start], flat[tip]
+            at = (a[0] + (b[0] - a[0]) * NAME_AT, a[1] + (b[1] - a[1]) * NAME_AT)
+            labels.append((tip, _away(at, middle, _LETTER_GAP * size)))
+    dots = {name: flat[name] for name in scene.dots | shown}
+    penalty = 0.0
+    for i, (own, label) in enumerate(labels):
+        penalty += sum(
+            1.0 for _o, other in labels[i + 1 :] if math.dist(label, other) < _LABELS_APART * size
+        )
+        penalty += sum(
+            0.5
+            for name, dot in dots.items()
+            if name != own and math.dist(label, dot) < _CLEAR_OF_DOTS * size
+        )
+    return penalty
 
 
 def _penalty(scene: Scene, view: View) -> float:
     """How far a view falls short of clear: 0 for none."""
-    penalty = sum(_short(view, way) for way in _lines(scene)) + _crowded_names(scene, view)
+    penalty = sum(_short(view, way) for way in _lines(scene)) + _crowded_labels(scene, view)
+    if scene.axes:
+        # An axis seen end-on is a dot with its letter on the origin.
+        penalty += sum(_short(view, axis) for axis in _AXES)
     rays = _rays(scene)
     arrows = len(scene.arrows)
     for i, (start, way) in enumerate(rays[:arrows]):

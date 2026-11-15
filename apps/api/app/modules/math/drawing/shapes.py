@@ -19,7 +19,9 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from app.modules.math.drawing.amounts import optimum
 from app.modules.math.drawing.labels import Label
+from app.modules.math.figure.drawing import length_label, number_text
 
 _TOLERANCE = 1e-9
 
@@ -213,11 +215,47 @@ def _same_ratio(drawn: dict[str, float], pair: tuple[str, str], labels: dict[str
     return abs(mine - theirs) <= 1e-6 * max(mine, theirs)
 
 
+# A size the server works out is shown to two places (three under 1): the drawing is that
+# true to it (``figure.honest`` holds it to one in a thousand).
+_SHOWN_PLACES, _SMALL = 2, 1.0
+# A model's own number stands for a worked size within its rounding.
+_CLAIM_SLACK = 0.006
+
+
+def worked_value(value: float) -> tuple[str, bool]:
+    """A worked size as shown ("11.68"), and whether it is exact."""
+    if abs(value - round(value)) < 1e-9:
+        return str(round(value)), True
+    places = _SHOWN_PLACES if value >= _SMALL else _SHOWN_PLACES + 1
+    return number_text(round(value, places)), False
+
+
+def _worked(label: Label, length: float, unit: str) -> str | None:
+    """A label on a size the server worked out: the letter with its value ("r ≈ 1.68 m"), or
+    the server's value where the model's own number matches it; None where it does not."""
+    shown, exact = worked_value(length)
+    if label.claimed is not None:
+        if abs(label.claimed - length) > _CLAIM_SLACK * max(1.0, length) or label.unit != unit:
+            return None
+        named = label.text.partition(" = ")[0] if label.letter else ""
+        value = length_label(float(shown), unit)
+        return f"{named} {'=' if exact else '≈'} {value}" if named else value
+    if label.letter is not None:
+        return f"{label.text} {'=' if exact else '≈'} {length_label(float(shown), unit)}"
+    return label.text
+
+
 def _shown(
-    labels: dict[str, Label], implied: list[tuple[str, str]], drawn: dict[str, float]
+    labels: dict[str, Label],
+    implied: list[tuple[str, str]],
+    drawn: dict[str, float],
+    worked: set[str],
+    unit: str,
 ) -> dict[str, str]:
     """The labels that hold on the drawn shape. A multiple the question does not write
-    stands only beside its letter's plain use, in the ratio the shape itself gives them."""
+    stands only beside its letter's plain use, in the ratio the shape itself gives them; a
+    size the server worked out carries its value, and a model's own number stands only
+    there, as the server's."""
     wrong = {
         part
         for pair in implied
@@ -229,32 +267,80 @@ def _shown(
     shown: dict[str, str] = {}
     for part, label in labels.items():
         alone = label.coefficient != 1 and not label.written and letters.count(label.letter) < 2
-        if part not in wrong and not alone:
-            shown[part] = label.text
+        if part in wrong or alone:
+            continue
+        if part in worked and label.value is None:
+            text = _worked(label, drawn[part], unit)
+        else:
+            text = None if label.claimed is not None else label.text
+        if text is not None:
+            shown[part] = text
     return shown
 
 
-def sized(form: Form, labels: dict[str, Label]) -> Sized | None:
+def _settled(
+    lengths: dict[str, Any], symbols: Sequence[Any], sizes: list[float], other: list[float] | None
+) -> set[str]:
+    """The parts whose length the stated values fix: the same from two different starts."""
+    if other is None:
+        return set()
+    at = dict(zip(symbols, sizes, strict=True))
+    moved = dict(zip(symbols, other, strict=True))
+    return {
+        part
+        for part, length in lengths.items()
+        if abs(float(length.subs(at)) - float(length.subs(moved)))
+        <= 1e-9 * max(1.0, float(length.subs(at)))
+    }
+
+
+def sized(
+    form: Form,
+    labels: dict[str, Label],
+    *,
+    amounts: Callable[[Sequence[Any]], dict[str, Any]] | None = None,
+    fixed: dict[str, tuple[float, str]] | None = None,
+    goal: tuple[str, str] | None = None,
+) -> Sized | None:
     """The shape drawn from ``labels``: its sizes, each part's length and the labels shown;
-    None when its stated values cannot all hold, or hold in more than one way."""
+    None when its stated values cannot all hold, or hold in more than one way. ``fixed``:
+    the amounts the question states (``amounts``' names, in the drawing's unit), and
+    ``goal`` the amount to make "max" or "min" (``amounts.optimum``)."""
     import sympy
 
     symbols = sympy.symbols(f"s0:{len(form.sizes)}", positive=True)
     lengths = form.parts(symbols)
     labels = {part: label for part, label in labels.items() if part in lengths}
-    if len({label.unit for label in labels.values() if label.value is not None}) > 1:
+    fixed = fixed or {}
+    units = {label.unit for label in labels.values() if label.value is not None}
+    units |= {unit for _value, unit in fixed.values()}
+    if len(units) > 1:
         return None  # "2 m" and "50 cm" on one figure: no one scale draws both
+    unit = next(iter(units), "")
     stated = [(part, label.value) for part, label in labels.items() if label.value is not None]
     equations = [lengths[part] - sympy.nsimplify(value) for part, value in stated]
     imposed, implied = _relations(lengths, labels)
-    scale = 1.0
-    if stated:
-        part, value = stated[0]
-        start = dict(zip(symbols, form.sizes, strict=True))
-        scale = value / float(lengths[part].subs(start))
-    sizes = _solved(symbols, equations + imposed, [size * scale for size in form.sizes])
+    named = amounts(symbols) if amounts is not None else {}
+    if not set(fixed) <= set(named) or (goal is not None and goal[0] not in named):
+        return None
+    equations += imposed + [named[k] - sympy.nsimplify(v) for k, (v, _u) in fixed.items()]
+    worked: set[str]
+    if goal is not None:
+        sizes = optimum(symbols, equations, named[goal[0]], goal[1])
+        worked = set(lengths)
+    else:
+        scale = 1.0
+        if stated:
+            part, value = stated[0]
+            start = dict(zip(symbols, form.sizes, strict=True))
+            scale = value / float(lengths[part].subs(start))
+        begin = [size * scale for size in form.sizes]
+        sizes = _solved(symbols, equations, begin)
+        moved = [size * (1.0 + 0.173 * (i + 1)) for i, size in enumerate(begin)]
+        other = _solved(symbols, equations, moved) if sizes is not None else None
+        worked = _settled(lengths, symbols, sizes, other) if sizes is not None else set()
     if sizes is None or not all(math.isfinite(s) and s > 0 for s in sizes) or not form.fits(sizes):
         return None
     at = dict(zip(symbols, sizes, strict=True))
     drawn = {part: float(length.subs(at)) for part, length in lengths.items()}
-    return Sized(tuple(sizes), drawn, _shown(labels, implied, drawn))
+    return Sized(tuple(sizes), drawn, _shown(labels, implied, drawn, worked, unit))

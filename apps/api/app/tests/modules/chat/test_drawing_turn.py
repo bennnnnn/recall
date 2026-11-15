@@ -267,18 +267,21 @@ async def test_a_stopped_reply_draws_nothing() -> None:
     assert out == "The angle is" and not ctx.drawing.drawn
 
 
-async def test_the_read_figure_stands_aside_for_the_described_one() -> None:
+@pytest.mark.parametrize(
+    ("read_fence", "both"),
+    [
+        # The read's figure of the kind the reply drew stands aside for it.
+        ('```geometry\n{"type":"figure","shape":"cube"}\n```', False),
+        # One of the other kind joins it: a reply may carry a figure and a graph.
+        ('```graph\n{"type":"function","expr":"x"}\n```', True),
+    ],
+)
+async def test_one_picture_of_each_kind(read_fence: str, both: bool) -> None:
     ctx = _ctx(live_read=_read(subject="maths", picture="diagram"))
     ctx.drawing = ReplyDrawing("read", descriptions=[_DESCRIPTION])
-
-    async def never() -> str | None:
-        await asyncio.sleep(30)
-        return "```geometry\n{}\n```"
-
-    ctx.figure = asyncio.ensure_future(never())
+    ctx.figure = asyncio.ensure_future(asyncio.sleep(0, result=read_fence))
     state = _state(ctx, "Let $u$ and $v$ be the vectors.")
     state.text = await attach_drawing(state)
     out = await figure_turn.attach_figure(state)
     assert out.count("```geometry") == 1
-    await asyncio.sleep(0)
-    assert ctx.figure.cancelled()
+    assert ("```graph" in out) == both

@@ -13,7 +13,7 @@ import math
 
 from app.modules.math.drawing.arrows import arrowhead, axis
 from app.modules.math.drawing.scene import BOX_FACES, ORIGIN, Box, Scene
-from app.modules.math.drawing.view import View, clearest_view, floats, span
+from app.modules.math.drawing.view import NAME_AT, View, axis_ends, clearest_view, floats, span
 from app.modules.math.figure.drawing import Drawing, number_text
 from app.modules.math.figure.solids import ELLIPSE
 from app.modules.math.schemas.figure import FigureSpec
@@ -21,27 +21,15 @@ from app.modules.math.schemas.figure import FigureSpec
 _ARROW = 0.04
 # An axis runs past the farthest point by this share, and at least this share of the
 # scene's reach; it starts a little behind the origin.
-_PAST = 0.15
-_LEAST = 0.35
-_BEHIND = 0.12
 _AXES = ("x", "y", "z")
 _MINUS = "\u2212"
 
 
 def _axes(drawing: Drawing, scene: Scene, view: View, size: float) -> None:
-    values = [floats(p) for p in scene.points.values()]
-    for sphere in scene.spheres:
-        r = math.sqrt(float(sphere.radius_squared))
-        cx, cy, cz = floats(scene.points[sphere.centre])
-        values += [(cx - r, cy - r, cz - r), (cx + r, cy + r, cz + r)]
-    reach = max(max(abs(v) for v in xyz) for xyz in values) or 1.0
     taken = set(scene.points)
-    for i, name in enumerate(_AXES):
-        high = max(max(xyz[i] for xyz in values) * (1 + _PAST), _LEAST * reach)
-        low = min(min(xyz[i] for xyz in values) * (1 + _PAST), -_BEHIND * reach)
-        start, end = [0.0] * 3, [0.0] * 3
-        start[i], end[i] = low, high
-        axis(drawing, view(start), view(end), name if name not in taken else "", size)
+    for name, (start, end) in zip(_AXES, axis_ends(scene), strict=True):
+        # Dashed: the phone's thinner, muted stroke, so arrows and segments stand off them.
+        axis(drawing, view(start), view(end), name if name not in taken else "", size, dashed=True)
 
 
 def _coordinate(value: float) -> str:
@@ -181,7 +169,8 @@ def draw_scene(scene: Scene) -> FigureSpec | None:
     _boxes(drawing, scene, view, names)
     _spheres(drawing, scene, names)
     for start, tip, label in scene.arrows:
-        drawing.line(names[start], names[tip], label)
+        # The arrow's name beside its head.
+        drawing.line(names[start], names[tip], label, label_at=NAME_AT)
         arrowhead(drawing, drawing.at(names[start]), drawing.at(names[tip]), size, names[tip])
     for a, b, label in scene.segments:
         drawn = drawing.side_of(names[a], names[b])

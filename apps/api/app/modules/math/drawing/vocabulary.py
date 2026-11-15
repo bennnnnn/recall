@@ -192,6 +192,10 @@ class ShapePart(BaseModel):
     open: bool = False
     # A polygon's corners at the coordinates the question gives.
     vertices: list[PlanePoint] = Field(default_factory=list, max_length=8)
+    # The amount the question fixes ({"volume": "10 litres"}), and the one it asks to make
+    # largest or smallest ({"surface": "min"}): the server works the sizes out.
+    fixed: dict[str, str | float] = Field(default_factory=dict, max_length=2)
+    optimise: dict[str, Literal["max", "min"]] = Field(default_factory=dict, max_length=1)
 
     def labels(self) -> dict[str, str]:
         """Each part's label as written ("" for none)."""

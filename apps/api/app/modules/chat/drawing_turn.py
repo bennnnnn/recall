@@ -4,10 +4,10 @@ Owner decision (2026-11-14): the reply model decides what a picture shows; the s
 checks every item and computes every coordinate; an item that fails its check is left out,
 never drawn wrong. On a maths turn asking to see a picture the reply gets maths' contract
 (a ```draw block in a closed vocabulary) beside the message. The block never reaches the
-phone (``draw_stream``). Finalize draws the first description that checks under the reply
-(``SubjectFigure.described``), in place of the figure read's picture of the same question
-(``figure_turn``) and of any sketch or Mermaid diagram the reply drew for it; one that does
-not check is left out, with no note. A reply that was not asked for one, or whose read says
+phone (``draw_stream``). Finalize draws under the reply one picture of each kind (a figure,
+a graph), each the first description of its kind that checks (``SubjectFigure.described``),
+in place of the figure read's picture of that kind (``figure_turn``) and of any sketch or
+Mermaid diagram the reply drew for it; one that does not check is left out, with no note. A reply that was not asked for one, or whose read says
 the message asks to see no maths picture, keeps no block and gets no picture. Nothing here
 raises into a turn.
 """
@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
 
 from app.core.config import Settings
-from app.modules.chat.figure_turn import earlier_user_lines, read_asks_for_a_picture, stop_figure
+from app.modules.chat.figure_turn import earlier_user_lines, read_asks_for_a_picture
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.turn_decision import TurnDecision
@@ -55,7 +55,12 @@ class ReplyDrawing:
     asked: Literal["read", "words"]
     # The reply's ```draw blocks, as the stream kept them aside.
     descriptions: list[str] = field(default_factory=list)
-    drawn: bool = False
+    # The pictures drawn from them: one of each kind, a figure and a graph.
+    fences: list[str] = field(default_factory=list)
+
+    @property
+    def drawn(self) -> bool:
+        return bool(self.fences)
 
 
 def _figure() -> SubjectFigure | None:
@@ -146,16 +151,16 @@ async def attach_drawing(state: FinalizeState) -> str:
     line = ctx.user_message_content or ""
     texts = [line, *earlier_user_lines(ctx.recent_messages, line)]
     try:
-        fence = await figure.described(descriptions, texts, text, state.settings)
+        fences = await figure.described(descriptions, texts, text, state.settings)
     except Exception as exc:  # A drawing that fails is no drawing: the reply stands.
         logger.info("described picture failed (%s)", type(exc).__name__)
         return text
-    if not fence:
+    if not fences:
         return text
-    drawing.drawn = True
-    stop_figure(ctx)
+    drawing.fences = list(fences)
     text = figure.without_drawn_substitutes(text).rstrip()
-    text = f"{text}\n\n{fence}\n" if text else f"{fence}\n"
+    pictures = "\n\n".join(fences)
+    text = f"{text}\n\n{pictures}\n" if text else f"{pictures}\n"
     # Committed, so a later pass that falls back keeps the picture.
     state.committed = fallback_text(text, server_text=state.server_text)
     return text

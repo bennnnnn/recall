@@ -39,6 +39,8 @@ _LENGTH_TOLERANCE = 1e-3
 _ANGLE_WHATS = frozenset({"angle", "apex_angle", "base_angle"})
 _ANGLE_TOLERANCE = 0.05
 _LEADING_NUMBER = re.compile(r"\d+(?:\.\d+)?")
+# A letter naming the value after it: "r ≈ ", "x = ", "2r ≈ ".
+_NAMED = re.compile(r"^[^=\u2248]*[=\u2248]\s*")
 
 
 def measure_label(measure: Measure, unit: str) -> str | None:
@@ -50,8 +52,14 @@ def measure_label(measure: Measure, unit: str) -> str | None:
     return length_label(measure.value, unit)
 
 
+def said(label: str) -> str:
+    """What a label says a part measures: "r ≈ 1.68 m" and "x = 4" say "1.68 m" and "4"
+    (a size the server worked out, named by its letter); any other label is itself."""
+    return _NAMED.sub("", label)
+
+
 def _value(label: str) -> float | None:
-    found = _LEADING_NUMBER.match(label)
+    found = _LEADING_NUMBER.match(said(label))
     return float(found.group()) if found else None
 
 
@@ -67,7 +75,7 @@ def _labels_hold(spec: FigureSpec, request: FigureRequest, letters: frozenset[st
         if (label := measure_label(m, request.unit)) is not None and m.what not in folded
     )
     drawn = Counter(
-        label
+        said(label)
         for label in [s.label for s in spec.segments] + [a.label for a in spec.angles]
         if label and label not in letters
     )
