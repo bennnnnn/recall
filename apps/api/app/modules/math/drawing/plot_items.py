@@ -16,8 +16,8 @@ from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
 _FORMULA_CHARS = 120
 _VALUE_CHARS = 24
-# A curve, a line or a region named so other items can point at it: "f", "g", "L1".
-_REF_CHARS = 8
+# A curve, a line or a region named so other items can point at it: "f", "g", "y = 3x".
+_REF_CHARS = 24
 _MOST_PIECES = 6
 _MOST_RECTANGLES = 40
 _MOST_SHOWN = 6

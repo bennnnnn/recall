@@ -84,6 +84,9 @@ def shade(item: Shade, question: PlotQuestion, scene: Scene) -> None:
     if len(item.between) == 3:
         enclosed(item, scene)
         return
+    # Two curves x = g(y) bound a region along y, whatever the item says.
+    if all(_sideways_edge(name, scene) is not None for name in item.between):
+        item = item.model_copy(update={"wrt": "y"})
     pick = _sideways_edge if item.wrt == "y" else edge_function
     first, second = (pick(name, scene) for name in item.between)
     if first is None or second is None or len(scene.regions) >= _MOST_REGIONS:
