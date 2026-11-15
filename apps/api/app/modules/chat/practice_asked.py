@@ -18,7 +18,6 @@ listing's to prevent; a call that fails leaves the card as written.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import re
@@ -26,6 +25,7 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
+from app.core.aio import gather_or_cancel
 from app.modules.chat import prompt_context
 from app.modules.chat.lesson_calls import QuizCard, fresh_practice
 from app.modules.chat.prompt_constants.practice import PRACTICE_ASKED_OPENING
@@ -147,7 +147,7 @@ async def hold_new_practice(state: FinalizeState) -> str:
         return _without(text, {card.text for card in repeats})
     # Every card is one asked before (a mock set of five re-asked): each gets a fresh card of
     # its own, asked together; one that gets none, or a repeat, stays as it was.
-    fresh = await asyncio.gather(*(fresh_practice(state, card, listed) for card in repeats))
+    fresh = await gather_or_cancel(*(fresh_practice(state, card, listed) for card in repeats))
     bodies: dict[str, str] = {}
     for card, quiz in zip(repeats, fresh, strict=True):
         key = None if quiz is None else _key(_fresh_text(quiz))
