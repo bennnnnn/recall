@@ -60,10 +60,12 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # model never says it cannot draw, never gives sketching steps and never draws a number line
 # in characters (GRAPH_NO_SUBSTITUTE_CLAUSE, the textbook run 2026-11-13), then a given that
 # carries no part's letter but where one symbol has a value per part, in the layout a model
-# writes (services/workout._GIVEN_ONCE) and in a ```worked block's records.
-_RULES = 181
-_RULE_GRAMS = 16556
-_RULE_GRAMS_SHA = "5710d1712a796c31"
+# writes (services/workout._GIVEN_ONCE) and in a ```worked block's records, then a pick after
+# a question offering choices taken among them, the list above it the other reading
+# (prompt_constants.list_reference, UNCLEAR_MESSAGE_HINT).
+_RULES = 182
+_RULE_GRAMS = 16630
+_RULE_GRAMS_SHA = "2cdf5c9c8ac0e938"
 
 
 def _rules() -> list[str]:
