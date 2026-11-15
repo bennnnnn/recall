@@ -65,10 +65,11 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # (prompt_constants.list_reference, UNCLEAR_MESSAGE_HINT), then options lettered "A) …", an
 # ordinary personal request helped, a frightening turn met plainly with no weapon use told,
 # and "how" after a reply about something to do read as how to do it (OPTION_LETTERS_RULE,
-# prompt_constants.care, REPLY_HOW_HINT).
+# prompt_constants.care, REPLY_HOW_HINT); the option note judges a quiz's pick and goes on
+# with a menu's, and a retraction never drops talk of self-harm.
 _RULES = 186
-_RULE_GRAMS = 16887
-_RULE_GRAMS_SHA = "7d021970a147cc18"
+_RULE_GRAMS = 16880
+_RULE_GRAMS_SHA = "ba27616c2b597430"
 
 
 def _rules() -> list[str]:

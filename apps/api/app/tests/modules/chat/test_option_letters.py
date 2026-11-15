@@ -26,7 +26,6 @@ _PLAIN = "A) Roman Empire\n\nB) Greek Empire\n\nC) Ottoman Empire"
         "(A) Roman Empire\n(B) Greek Empire\n(C) Ottoman Empire",
         "**A.** Roman Empire\n**B.** Greek Empire\n**C.** Ottoman Empire",
         "**A) Roman Empire**\n**B) Greek Empire**\n**C) Ottoman Empire**",
-        "- A) Roman Empire\n- B) Greek Empire\n- C) Ottoman Empire",
         # Blank lines between them already.
         "\U0001f170️ Roman Empire\n\n\U0001f171️ Greek Empire\n\n\U0001f172 Ottoman Empire",
     ],
@@ -56,6 +55,12 @@ def test_an_options_markup_stays_and_the_emoji_pass_leaves_the_letters() -> None
         "A: Hi there\nB: Hello",
         # Inside a fence: code or a card.
         "```\nA) one\nB) two\n```",
+        # Review 2026-11-15: lettered lists that are no options keep their own marks.
+        "Authors:\nA. Einstein\nB. Podolsky\nC. Rosen",
+        "The clause says:\n(A) the tenant pays rent;\n(B) the landlord repairs;",
+        "Here's a plan:\n\nA) Pack bags\nB) Book train",
+        "Which one?\n- A) tea\n- B) coffee",
+        "1. Pick a route?\n   A) Highway\n   B) Coast road\n2. Book a hotel",
     ],
 )
 def test_text_that_is_not_a_run_of_options_is_left_alone(text: str) -> None:

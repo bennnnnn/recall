@@ -213,3 +213,47 @@ def test_a_pick_after_a_reply_that_only_graded_names_the_question_before_it() ->
 )
 def test_no_option_is_named_without_a_pick(message: str, prior) -> None:
     assert "it picked" not in (list_reference_hint(message, prior) or "")
+
+
+# Review 2026-11-15: after the quiz, a reply of its own outranks it.
+_FACTS = (
+    "Correct! 🎉 Here are three fun facts:\n\n1. It was shipped in 350 pieces.\n2. Its torch "
+    "was replaced in 1986.\n3. It turned green from oxidation.\n\nWant more on any of these?"
+)
+
+
+@pytest.mark.parametrize(
+    "message, last, named",
+    [
+        (
+            "the second one",
+            _FACTS,
+            'item 2 of your latest list is "Its torch was replaced in 1986."',
+        ),
+        ("the last one", _FACTS, 'item 3 of your latest list is "It turned green from oxidation."'),
+        ("tell me about the third one", _FACTS, "item 3 of your latest list"),
+        ("B", _FACTS, None),
+        # Words and places name only the last reply's options.
+        ("is it nice in france?", "It's 18°C and sunny today.", None),
+        ("the second one", "It's 18°C and sunny today.", None),
+    ],
+)
+def test_a_reply_of_its_own_outranks_the_quiz_before_it(
+    message: str, last: str, named: str | None
+) -> None:
+    prior = [("assistant", _TRIVIA), ("user", "B"), ("assistant", last)]
+    note = list_reference_hint(message, prior) or ""
+    assert "it picked" not in note
+    if named:
+        assert named in note
+
+
+def test_a_pick_from_a_menu_is_gone_on_with_and_a_quiz_pick_judged() -> None:
+    """ "B" for "Move on to ions" got "B) Move on to ions is right" told only to judge it: the
+    note leaves it to the model whether the question has a right answer."""
+    menu = "What would you like next?\n\nA) Try a harder question\nB) Move on to ions"
+    note = list_reference_hint("B", [("assistant", menu)]) or ""
+    assert 'it picked B) "Move on to ions"' in note
+    # The choice first: told to judge first, "B" got "B) Move on to ions is right" 3 of 3.
+    assert 'go straight on with "Move on to ions" and grade nothing' in note
+    assert note.index("go straight on") < note.index("If it is a quiz question")

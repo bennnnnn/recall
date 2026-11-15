@@ -562,9 +562,10 @@ async def test_the_reads_work_never_adds_a_layout_the_rules_would_not(content: s
 
 
 @pytest.mark.asyncio
-async def test_an_answer_names_the_question_it_answers_and_asks_no_recommendation() -> None:
+async def test_an_answer_names_the_question_it_answers() -> None:
     """ "To eat", a guess at "Why do cats purr?", got Oakland restaurants (2026-11-15): a word
-    rule read food in it, and the prompt said they asked for a personal recommendation."""
+    rule read food in it. Named the question it answers, it was the cat guess on 5 of 5; the
+    recommendation hint stays for an answer that asks for one."""
     asked = "Here's a random one: **Why do cats purr?** 🐱\n\nTake a guess, or I'll explain."
     ctx = _follow_turn(
         "To eat",
@@ -578,8 +579,7 @@ async def test_an_answer_names_the_question_it_answers_and_asks_no_recommendatio
     assert ctx.prompt_messages[-2]["content"] == (
         f'{FOLLOW_NOTES["answer"]} The question it answers: "Why do cats purr?"'
     )
-    assert not any(ADVICE_PERSONALIZE_HINT in m["content"] for m in ctx.prompt_messages)
-    assert {"role": "system", "content": "memory\n\nnotes"} in ctx.prompt_messages
+    assert any(ADVICE_PERSONALIZE_HINT in m["content"] for m in ctx.prompt_messages)
 
 
 @pytest.mark.parametrize(

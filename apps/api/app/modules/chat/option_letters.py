@@ -34,6 +34,7 @@ _OPTION = re.compile(
     r"(?P<text>\S.*?)[ \t]*$"
 )
 _MARKUP = re.compile(r"\*\*|__|[*_`]")
+_BULLET = re.compile(r"[-*+•][ \t]")
 # What may close a question line: markup, emoji, spaces.
 _QUESTION_END = re.compile(r"\?[^\w\n]*$")
 # The options close a question only when little comes after them ("Type A, B, or C. 🎯").
@@ -103,12 +104,29 @@ def _runs(lines: list[str]) -> list[tuple[int, int, list[Option]]]:
     return runs
 
 
+def _rewritten(lines: list[str], start: int, end: int) -> bool:
+    """A run of squared letters, or of plain ones at the margin under a question: an author
+    list ("A. Einstein / B. Podolsky"), a clause's "(A)" or a bulleted "- A) tea" stays."""
+    matches = [m for line in lines[start : end + 1] if (m := _OPTION.match(line)) is not None]
+    if any(m["squared"] for m in matches):
+        return True
+    above = next((line for line in reversed(lines[:start]) if line.strip()), "")
+    at_margin = all(not m["indent"] and not _BULLET.match(m.group(0)) for m in matches)
+    return at_margin and _QUESTION_END.search(above) is not None
+
+
+def has_lettered_run(text: str) -> bool:
+    """``text`` holds a run of lettered options, under a question or not."""
+    return bool(_runs(text.split("\n")))
+
+
 def plain_option_letters(text: str) -> str:
-    """``text`` with each run of lettered options written "A) …", a paragraph each."""
+    """``text`` with each run of lettered options under a question, or in squared letters,
+    written "A) …", a paragraph each."""
 
     def rewrite(prose: str) -> str:
         lines = prose.split("\n")
-        runs = _runs(lines)
+        runs = [run for run in _runs(lines) if _rewritten(lines, run[0], run[1])]
         if not runs:
             return prose
         out: list[str] = []

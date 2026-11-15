@@ -35,13 +35,6 @@ def should_include_profile_email(query_text: str | None) -> bool:
     return is_email_or_message_request(cleaned)
 
 
-# "bini" opened 94 of 100 replies in one chat (2026-11-15), an emergency's included: a
-# person uses a friend's name now and then, not in every message.
-_NAME_USE = (
-    "Use their name rarely: in a greeting, or a moment that calls for it (good news, "
-    "comfort). Most replies, and two in a row, do not use it. A saved wish to be called "
-    "by a name says which name, not how often."
-)
 # The user sends the drafts Recall writes, so the sign-off is their own name.
 _SIGN_DRAFTS_WITH = (
     "Sign emails and messages the user will send as {first}. Never write [Your Name] "
@@ -99,7 +92,6 @@ def format_user_profile_block(
     if location:
         lines.append(USE_THE_LOCATION)
     if user.name and user.name.strip():
-        lines.append(_NAME_USE)
         lines.append(_SIGN_DRAFTS_WITH.format(first=user.name.strip().split()[0]))
     else:
         lines.append(_NO_NAME_TO_SIGN)
@@ -117,7 +109,7 @@ def format_user_name_only_block(user: User) -> str:
     first = name.split()[0]
     return (
         f"User's first name: {first}. Use it in a 'who am I' reply; share no other profile "
-        f"detail. {_NAME_USE} {_SIGN_DRAFTS_WITH.format(first=first)}"
+        f"detail. {_SIGN_DRAFTS_WITH.format(first=first)}"
     )
 
 

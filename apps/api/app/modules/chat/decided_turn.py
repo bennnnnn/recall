@@ -38,8 +38,7 @@ from app.modules.chat.json_output import is_json_request
 from app.modules.chat.model_routing.decided import decided_lane, decided_level, math_backups
 from app.modules.chat.prompt_constants.conversation import FOLLOW_NOTES
 from app.modules.chat.prompt_constants.list_reference import OPTION_PICK_MARK
-from app.modules.chat.prompt_constants.privacy import ADVICE_PERSONALIZE_HINT
-from app.modules.chat.prompt_inject import inject_before_last_user, without_system_block
+from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.turn_decision import TurnDecision, turn_decision_result
 from app.modules.chat.turn_prep.reading import plan_of
 from app.modules.chat.turn_trace import note_decision, note_prompt_rule, note_route
@@ -251,13 +250,12 @@ def _follow_note(ctx: StreamContext, read: TurnDecision) -> None:
         return
     note_prompt_rule(f"read.follow_{read.follow}")
     messages = ctx.prompt_messages
-    if read.follow == "answer":
-        # "To eat", a guess at "Why do cats purr?", got Oakland restaurants "since your
-        # favorite color is green" (2026-11-15): a word rule read food in it and the prompt
-        # said they asked for a recommendation. An answer to the reply's question asks none.
-        messages = without_system_block(messages, ADVICE_PERSONALIZE_HINT)
-        if (question := _answered_question(ctx, messages)) is not None:
-            note = f'{note} The question it answers: "{question}"'
+    # "To eat", a guess at "Why do cats purr?", got Oakland restaurants "since your favorite
+    # color is green" on 2 of 3 (2026-11-15), a word rule having read food in it. Named the
+    # question it answers, it was the cat guess on 5 of 5, the recommendation hint kept for
+    # an answer that does ask for one ("Italian" to "What cuisine?").
+    if read.follow == "answer" and (question := _answered_question(ctx, messages)) is not None:
+        note = f'{note} The question it answers: "{question}"'
     ctx.prompt_messages = inject_before_last_user(messages, note)
 
 
