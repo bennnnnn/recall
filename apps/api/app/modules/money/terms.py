@@ -7,11 +7,20 @@ none, and the model answers.
 
 A count of payments is a term at the frequency they are paid (``periods``): "repay the loan
 in 48 equal monthly payments" is 4 years, "8 equal quarterly payments" 2 (live 2026-11-14,
-a grade 12 book: the 48 payments were left unread and a 5-year term assumed). A count no
-word says how often it is paid ("60 payments"), or a length no product's term counts ("in
-90 days"), works no numbers when no other term is given: a term is never assumed beside
-one the user stated. A length in quarters or weeks is a term when no year, month or
-payment count is given ("over 8 quarters").
+a grade 12 book: the 48 payments were left unread and a 5-year term assumed). Only in the
+loan's own sentence, and only in one form: opened by "in", "with", "over", "by" or "for",
+or as an item between commas ("car loan $30k, 72 monthly payments, 6.9% apr"). Any other
+count there ("I'm three monthly payments behind", "I can afford 400 monthly payments",
+"after 24 monthly payments") is no term: beside a term the user gives it changes nothing,
+and with none it leaves the term unknown, so nothing is worked (2026-11-14 review: "three
+monthly payments behind" was worked as a 3-month loan). A count no word says how often it
+is paid ("60 payments") is unknown too.
+
+A length in weeks or quarters is a term only after "for" or "over", as an item between
+commas, or naming the loan ("a 26-week loan"): "for 26 weeks", "over 8 quarters". Any other
+("in 3 weeks", "30 weeks pregnant", "a 2-week vacation", "200 quarters in a jar") is about
+something else, and the term is read without it. A length in days is no term a product
+works: said so, it works no numbers.
 """
 
 from __future__ import annotations
@@ -23,6 +32,22 @@ from collections.abc import Mapping
 from app.modules.money.catalog import Product
 from app.modules.money.periods import OTHER_DURATION, paid_by, payment_counts
 from app.modules.money.phrases import TERM, count_value
+from app.modules.money.schedule import sentence_kinds
+
+# A count of payments or a length that is the loan's term: "repaid in 48 monthly payments",
+# "with 60 monthly payments", "over 8 quarters", "for 26 weeks", "repay it in 90 days".
+_OPENS_TERM = re.compile(r"\b(?:in|with|over|by|for)\s++$", re.I)
+_LENGTH_OPENS = re.compile(r"\b(?:for|over)\s++$", re.I)
+# Or the loan repaid in it: "repay a 2000 loan at 5% in 90 days", "pay it off within 26 weeks".
+_IN = re.compile(r"\b(?:with)?in\s++$", re.I)
+_REPAID = re.compile(
+    r"\brepa(?:y|ys|id|ying|yable)\b|\bpa(?:y|ys|id|ying)\s++(?:\S++\s++){0,2}?(?:back|off)\b", re.I
+)
+# Or an item between commas: "car loan $30k, 72 monthly payments, 6.9% apr".
+_ITEM_BEFORE = re.compile(r"(?:^|[,;:])\s*+$")
+_ITEM_AFTER = re.compile(r"\s*+(?:$|[,;.!?])")
+# A length naming the loan: "a 26-week loan", "a 90-day term".
+_NAMES_LOAN = re.compile(r"[\s-]?(?:loan|term|mortgage|plan)\b", re.I)
 
 _YEARS = {"year", "years", "yr", "yrs"}
 # A length of time that is no term: an age, time gone by, a gap, payments already made
@@ -76,7 +101,11 @@ _SCALE_BEFORE = re.compile(r"\b(?:hundred|thousand)\s(?:and\s)?$", re.I)
 
 
 def read_term(
-    product: Product, text: str, paid: int | None, schedule: int = 12
+    product: Product,
+    text: str,
+    paid: int | None,
+    schedule: int = 12,
+    names: tuple[str, ...] = (),
 ) -> dict[str, float] | None:
     """The term the message gives, in the product's own unit; {} for none, None for two
     ("15 or 30 years", "a 3 year or 5 year car loan") or for a length it cannot read and no
@@ -84,8 +113,10 @@ def read_term(
 
     A count of payments is paid as its own words say ("48 monthly payments"), else ``paid``
     times a year. One said by another frequency than the loan's ``schedule`` ("I can manage
-    20 quarterly payments" on a loan read as monthly) is not this loan's count: no term."""
+    20 quarterly payments" on a loan read as monthly) is not this loan's count: no term.
+    ``names`` are the words naming the request's product, which mark the loan's sentences."""
     terms: set[tuple[tuple[str, float], ...]] = set()
+    loan, about = sentence_kinds(text, names)
     for match in TERM.finditer(text):
         before = text[max(0, match.start() - 30) : match.start()]
         if _SCALE_BEFORE.search(before):
@@ -95,20 +126,44 @@ def read_term(
         if _TERM_CHOICE.search(before):
             return None
         terms.add(tuple(term_in(product, count_value(match["n"]), match["unit"]).items()))
-    unread = False
+    unread = stray = False
+    unframed: list[float] = []
     for match, count, own in payment_counts(text):
-        per_year = own if own is not None else paid
-        if _no_term(text, match):
+        sentence = _within(match.start(), loan)
+        if sentence is None and _within(match.start(), about) is None:
             continue
+        if (
+            sentence is None
+            or _no_term(text, match)
+            or not _is_term(text, match, sentence, _OPENS_TERM)
+        ):
+            # Beside the loan, or in a sentence about payments ("It is repaid in 36 monthly
+            # payments"), a count not said as the loan's term is none.
+            stray = True
+            continue
+        per_year = own if own is not None else paid
         if own is not None and own != schedule:
             return None
-        if per_year is None or not paid_by(per_year):
+        if per_year is None:
+            # "for 3 years, 12 payments": the count must be the term's at the loan's schedule.
+            unframed.append(count)
+            continue
+        if not paid_by(per_year):
             unread = True
             continue
         terms.add(tuple(_payments_term(product, count, per_year).items()))
     others: set[tuple[tuple[str, float], ...]] = set()
     for match in OTHER_DURATION.finditer(text):
-        if _no_term(text, match):
+        own_sentence = _within(match.start(), loan)
+        sentence = own_sentence if own_sentence is not None else _within(match.start(), about)
+        if sentence is None or _no_term(text, match):
+            continue
+        if not (
+            _is_term(text, match, sentence, _LENGTH_OPENS) or _NAMES_LOAN.match(text, match.end())
+        ):
+            continue
+        if own_sentence is None:
+            stray = True
             continue
         if match["unit"].lower().startswith("d"):
             unread = True
@@ -118,8 +173,34 @@ def read_term(
     if len(found) > 1:
         return None
     if found:
-        return dict(found.pop())
-    return None if unread else {}
+        term = dict(found.pop())
+        if any(count != _count_over(term, schedule) for count in unframed):
+            return None
+        return term
+    return None if unread or stray or unframed else {}
+
+
+def _count_over(term: Mapping[str, float], per_year: int) -> float:
+    """The payments made over ``term`` at ``per_year`` a year."""
+    if "years" in term:
+        return term["years"] * per_year
+    return term.get("months", 0.0) * per_year / 12
+
+
+def _within(start: int, spans: list[tuple[int, int]]) -> int | None:
+    """Where the sentence holding ``start`` begins, when it is one of ``spans``."""
+    return next((begin for begin, end in spans if begin <= start < end), None)
+
+
+def _is_term(text: str, match: re.Match[str], sentence: int, opens: re.Pattern[str]) -> bool:
+    """The count or the length at ``match`` is said as the term: opened by ``opens``, or an
+    item between commas."""
+    before = text[sentence : match.start()]
+    if opens.search(before[-30:]):
+        return True
+    if opens is _LENGTH_OPENS and _IN.search(before) and _REPAID.search(before):
+        return True
+    return bool(_ITEM_BEFORE.search(before) and _ITEM_AFTER.match(text, match.end()))
 
 
 def whole_payments(

@@ -30,10 +30,10 @@ from app.modules.money.solve import work
         ("€250.000 mortgage at 3,75% over 25 years", {"rate": 3.75, "years": 25}, 1285.33),
         ("car loan of $20,000 at 6,9% APR for 5 years", {"rate": 6.9, "months": 60}, 395.08),
         # A term in words, hundreds and all.
-        ("car loan of $20,000 at 6% for one hundred twenty months", {"months": 120}, 222.04),
+        ("loan of $20,000 at 6% for one hundred twenty months", {"years": 10}, 222.04),
         ("Mortgage of $200,000 at 5% for three hundred sixty months", {"years": 30}, 1073.64),
-        ("car loan of $20,000 at 6% for a hundred and eighty months", {"months": 180}, 168.77),
-        ("car loan of $20,000 at 6% for one hundred months", {"months": 100}, None),
+        ("loan of $20,000 at 6% for a hundred and eighty months", {"years": 15}, 168.77),
+        ("loan of $20,000 at 6% for one hundred months", {"years": 100 / 12}, 254.64),
         # Look-alikes that were right and stay right.
         ("car loan of $20,000 at 6.9% for five years", {"rate": 6.9, "months": 60}, 395.08),
         ("car loan of $20,000 at 6% for 60 months", {"months": 60}, 386.66),

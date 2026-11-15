@@ -1,11 +1,14 @@
 """A frequency changes how often a loan is paid only when it is the loan's own schedule.
 
-A review of the rate-period reader (2026-11-14) found any "pay" or "paid" before a frequency
-setting the loan's schedule: "$300,000 mortgage at 6% for 30 years, how much do I pay
-annually?" worked one payment a year of 21,794.67 (the mortgage is 1,798.65 a month), and
-school fees, HOA dues, a wage and extra payments each moved the loan to their frequency. It
-also found "borrowed" naming a loan in growth questions and everyday lines, and a yearly
-car loan's term slider stopping at half a payment. Every expected payment is the textbook
+Two reviews of the rate-period reader (2026-11-14) found another thing's frequency setting
+the loan's schedule: "$300,000 mortgage at 6% for 30 years, how much do I pay annually?"
+worked one payment a year of 21,794.67 (the mortgage is 1,798.65 a month), and school fees,
+HOA dues, a wage paid weekly after a comma, extra payments, "quarterly taxes" and a car
+lease's payments each moved the loan to their frequency. Only a positive form in the loan's
+own sentence sets it now; a non-monthly frequency of payments there in any other form works
+no numbers, and one in a sentence about something else is ignored. It also found
+"borrowed" naming a loan in growth questions and everyday lines, and a yearly car loan's term
+slider stopping at half a payment. Every expected payment is the textbook
 P·i / (1 - (1 + i)^-n), worked apart from the catalog.
 """
 
@@ -41,30 +44,30 @@ def _payment(text: str) -> tuple[dict[str, float], float]:
         (f"{LOAN}. What do I pay each quarter?", 304.22),
         (f"{LOAN}. How much would I pay a year?", 304.22),
         ("Tell me how much I'd pay a year on a $10,000 loan at 6% for 3 years", 304.22),
-        ("$300,000 mortgage at 6% for 30 years, total paid yearly?", 1798.65),
-        # Something else paid by the period.
-        (f"{MORTGAGE}, school fees paid quarterly", 1798.65),
-        (f"{MORTGAGE}, HOA dues paid quarterly", 1798.65),
-        (f"{MORTGAGE}, my HOA payments are quarterly", 1798.65),
-        (f"{MORTGAGE}, my property taxes are paid half-yearly", 1798.65),
-        (f"{MORTGAGE}. The seller wants the deposit paid weekly", 1798.65),
-        (f"{MORTGAGE}, I pay my rent weekly", 1798.65),
-        (f"{LOAN} with interest paid quarterly", 304.22),
-        ("A $20,000 car loan at 6% for 5 years, my insurance premium is payable yearly", 386.66),
-        # A wage.
-        (f"{MORTGAGE}, I earn $2,000 paid weekly", 1798.65),
+        # Something else paid by the period, in a sentence of its own.
+        ("My salary is $4,000, paid weekly. What's my payment on a $300,000 mortgage at 6% for 30 years?", 1798.65),
+        ("I earn $2,000, paid weekly. What would a $20,000 car loan at 7% for 5 years cost me?", 396.02),
+        (f"{MORTGAGE}. HOA dues are $300, paid quarterly.", 1798.65),
+        (f"{MORTGAGE}. Property tax is $4,000, paid yearly.", 1798.65),
+        ("Nurse, paid weekly. What's the payment on a $250,000 mortgage at 6.5% for 30 years?", 1580.17),
+        ("We pay quarterly taxes. Our $400,000 mortgage at 6.5% for 30 years, what's the payment?", 2528.27),
+        ("I pay weekly for daycare. What's my payment on a $300,000 mortgage at 6% for 30 years?", 1798.65),
+        (f"{MORTGAGE}. I pay my bills weekly.", 1798.65),
+        (f"{MORTGAGE}. I get my paycheck weekly.", 1798.65),
+        (f"{MORTGAGE}. My bonus is paid yearly.", 1798.65),
+        (f"{MORTGAGE}. Dividends are paid quarterly.", 1798.65),
         (f"{LOAN}. My pay is weekly.", 304.22),
-        (f"{MORTGAGE}, and my wife gets paid every week", 1798.65),
-        (f"{MORTGAGE}, my husband is paid weekly", 1798.65),
-        # Payments made beside the loan's own.
-        (f"{MORTGAGE}, I can make extra payments annually", 1798.65),
-        (f"{MORTGAGE}, plus additional payments yearly", 1798.65),
-        (f"{MORTGAGE}; my student loan payments are quarterly", 1798.65),
-        ("A $20,000 car loan at 6% for 5 years; my mortgage payments are weekly", 386.66),
-        # Paid monthly, said as monthly.
-        ("I'm paid quarterly but pay monthly on my $300,000 mortgage at 6% for 30 years", 1798.65),
+        ("A $20,000 car loan at 7% for 5 years. My wife gets paid weekly and I'm paid monthly.", 396.02),
+        # A describing word of another noun in the loan's own sentence.
+        ("I pay annual property tax of $5,000 on my $300,000 mortgage at 6% for 30 years. What is my payment?", 1798.65),
+        ("I pay yearly insurance on my car. What is the payment on a $25,000 car loan at 6% for 5 years?", 483.32),
+        ("I need a $10,000 loan at 6% for 3 years to pay quarterly tuition", 304.22),
+        (f"{MORTGAGE} with weekly reminders to pay", 1798.65),
+        # Paid monthly, said as monthly, also as a count.
+        (f"{MORTGAGE}, twelve payments a year", 1798.65),
+        (f"{MORTGAGE} with 12 payments each year", 1798.65),
     ],
-)
+)  # fmt: skip
 def test_a_frequency_that_is_not_the_loans_schedule_leaves_it_monthly(
     text: str, payment: float
 ) -> None:
@@ -75,14 +78,9 @@ def test_a_frequency_that_is_not_the_loans_schedule_leaves_it_monthly(
     ("text", "payments", "payment"),
     [
         ("A loan of $10,000 at 6% for 3 years, payable quarterly", 4, 916.80),
-        (f"{LOAN}. I'm paying it weekly", 52, 70.08),
-        (f"{MORTGAGE}. I will pay it off weekly", 52, 414.79),
         (f"{MORTGAGE}, paid back yearly", 1, 21794.67),
         ("A loan of $10,000 at 6% for 3 years is repaid quarterly", 4, 916.80),
         ("A loan of $10,000 at 6% for 3 years, to be repaid in quarterly instalments", 4, 916.80),
-        (f"{LOAN} and I want to pay weekly", 52, 70.08),
-        ("What's the payment on a $10,000 loan at 6% for 3 years if I pay weekly?", 52, 70.08),
-        ("What's the payment on a $10,000 loan at 6% for 3 years, paying weekly?", 52, 70.08),
         ("A loan of $10,000 paid quarterly over 3 years at 6%", 4, 916.80),
         (f"{LOAN}, the payments are quarterly", 4, 916.80),
         ("car loan 20k at 6% paid quarterly for 5 years", 4, 1164.91),
@@ -91,6 +89,17 @@ def test_a_frequency_that_is_not_the_loans_schedule_leaves_it_monthly(
         ("A $10,000 loan at 6% quarterly payments for 3 years", 4, 916.80),
         ("A $10,000 loan at 6% for 3 years quarterly payments", 4, 916.80),
         ("A $10,000 loan at 6% for 3 years with 4 equal payments a year", 4, 916.80),
+        # Counted, spelled or in digits, as the one vocabulary reads it.
+        (f"{LOAN}, paid twice a year", 2, 1845.98),
+        (f"{LOAN}, repaid once a year", 1, 3741.10),
+        (f"{LOAN}, paid four times a year", 4, 916.80),
+        (f"{LOAN} with 2 payments per year", 2, 1845.98),
+        (f"{LOAN} with two payments a year", 2, 1845.98),
+        (f"{LOAN} with two equal payments a year", 2, 1845.98),
+        (f"{LOAN} paid every 3 months", 4, 916.80),
+        (f"{LOAN} paid every six months", 2, 1845.98),
+        ("A $300,000 mortgage at 6% for 30 years with four payments a year", 4, 5405.56),
+        ("A $300,000 mortgage at 6% for 30 years, fifty-two payments a year", 52, 414.79),
     ],
 )
 def test_the_loans_own_schedule_is_worked(text: str, payments: int, payment: float) -> None:
@@ -100,6 +109,35 @@ def test_the_loans_own_schedule_is_worked(text: str, payments: int, payment: flo
 @pytest.mark.parametrize(
     "text",
     [
+        # Another thing's frequency in the loan's own sentence, or in one about payments.
+        "$300,000 mortgage at 6% for 30 years, total paid yearly?",
+        f"{MORTGAGE}, school fees paid quarterly",
+        f"{MORTGAGE}, HOA dues paid quarterly",
+        f"{MORTGAGE}, my HOA payments are quarterly",
+        f"{MORTGAGE}, my property taxes are paid half-yearly",
+        f"{MORTGAGE}, I pay my rent weekly",
+        f"{MORTGAGE}, I earn $2,000 paid weekly",
+        f"{MORTGAGE}, insurance $1,200, paid annually",
+        f"{MORTGAGE}, and my wife gets paid every week",
+        f"{MORTGAGE}, I can make extra payments annually",
+        f"{MORTGAGE}, plus additional payments yearly",
+        f"{MORTGAGE}; my student loan payments are quarterly",
+        f"{MORTGAGE}; I also make quarterly payments on my student loan",
+        f"{MORTGAGE}. I make weekly payments to my credit card.",
+        "I'm self-employed with quarterly payments to the IRS. What's my payment on a $300,000 mortgage at 6% for 30 years?",
+        "My $300,000 mortgage at 6% for 30 years. I also have a car lease; the payments are quarterly.",
+        "A $20,000 car loan at 6% for 5 years; my mortgage payments are weekly",
+        "A $10,000 loan at 8% for 3 years to cover rent, paid weekly",
+        "A $15,000 personal loan at 9% for 3 years, paid annually by my employer as a bonus",
+        "Can I afford a $300,000 mortgage at 6% for 30 years if I'm paid every week?",
+        f"{LOAN} with interest paid quarterly",
+        # The loan's own schedule, but not said in the loan's own sentence or form.
+        f"{LOAN}. I'm paying it weekly",
+        f"{MORTGAGE}. I will pay it off weekly",
+        f"{LOAN} and I want to pay weekly",
+        "What's the payment on a $10,000 loan at 6% for 3 years if I pay weekly?",
+        f"{LOAN}. The payments are quarterly.",
+        f"{MORTGAGE}. What is my quarterly payment?",
         # Two frequencies offered.
         f"{LOAN} with monthly or quarterly payments",
         f"{LOAN}, should I pay weekly or monthly?",
@@ -111,13 +149,19 @@ def test_the_loans_own_schedule_is_worked(text: str, payments: int, payment: flo
         # "The yearly payment" with no schedule said: twelve monthly ones, or one a year.
         "What is my yearly mortgage payment on $300,000 at 6% for 30 years?",
         "What's the quarterly payment on a $10,000 loan at 6% for 3 years?",
+        # A count of payments the words do not give whole.
+        f"{MORTGAGE} with a dozen payments a year",
+        f"{LOAN} with several payments a year",
         # A count said by another frequency than the loan is read as paid by.
         "A loan of $10,000 at 6%, repaid quarterly, and I can manage 36 monthly payments",
         # A term that is no whole number of its payments.
         "car loan of 20k at 6% for 30 months with yearly payments",
         "a loan of 10,000 at 6% for 2.5 years with annual payments",
+        # Bare frequencies in a list: whose they are is not said.
+        "$300k mortgage, 6%, 30 years, weekly",
+        "$300k mortgage, 6%, 30 years, quarterly",
     ],
-)
+)  # fmt: skip
 def test_a_schedule_the_words_leave_open_works_no_numbers(text: str) -> None:
     assert read_money_request(text) is None
 

@@ -25,8 +25,17 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-from app.modules.money.catalog import PRODUCTS, Product, plausible_rates
+from app.modules.money.catalog import PRODUCTS, Product
 from app.modules.money.compounding import UNKNOWN, compounding_per_year
+from app.modules.money.fits import (
+    lends,
+    naming_words,
+    own_names,
+    said_by_period,
+    said_of_another,
+    states_payment,
+    term_fits,
+)
 from app.modules.money.kinds import named_variant
 from app.modules.money.loan_sums import LoanSums, loan_sums, rest_is_borrowed
 from app.modules.money.periods import paid_by, rate_period, rate_periods_said
@@ -40,9 +49,9 @@ from app.modules.money.phrases import (
     grouped,
     percent_value,
 )
-from app.modules.money.schedule import flow_frequency, names_payments
+from app.modules.money.schedule import flow_frequency, loose_rate_period, other_payments
 from app.modules.money.sums import MEASUREMENT, SAYS_MONEY, Sum, amounts
-from app.modules.money.terms import read_term, whole_payments
+from app.modules.money.terms import read_term
 
 _YEAR = re.compile(r"(?:19|20)\d{2}")
 # A percent that is a share of the price put down: "20% down", "a down payment of 20%",
@@ -181,7 +190,7 @@ def read_money_request(text: str) -> MoneyRequest | None:
     found = named_product(text)
     if found is None or _HOMEWORK_INTEREST.search(text) or measures_without_money(text):
         return None
-    rates, shares, periods = _percents(text)
+    rates, shares, periods = _percents(text, naming_words(found))
     sums = amounts(text)
     if sums is None or len(rates) > 1 or len(shares) > 1:
         return None
@@ -196,28 +205,29 @@ def read_money_request(text: str) -> MoneyRequest | None:
         return None
     if rate is None and not _FINANCE.search(_RATE_OF_A_QUANTITY.sub(" ", text)):
         return None
-    rate_per = _rate_per(text, periods) if rate is not None else 1
-    if rate is not None and rate_per > 1 and not _plausible(found, rate * rate_per):
+    own, names = own_names(found, text), naming_words(found)
+    rate_per = _rate_per(text, periods, own) if rate is not None else 1
+    if rate is not None and rate_per > 1 and not said_by_period(found, rate * rate_per):
         return None
     compounds = compounding_per_year(text)
     charged = rate_per if rate_per > 1 else None
-    flow = flow_frequency(
-        text, _own_names(found, text), saves=found.family == "savings", backing=(compounds, charged)
-    )
+    flow = flow_frequency(text, own, names, backing=(compounds, charged))
     settings = _settings(found, rate_per, flow, compounds)
-    if settings is None:
+    if settings is None or (found.family == "loan" and other_payments(text, own, names)):
         return None
     loan = loan_sums(sums, share, rest_is_borrowed(text)) if found.family == "loan" else None
     values = _values(found, rate, sums, loan, rate_per)
     # A count of payments with no frequency of its own ("12 equal payments") is paid as
     # the message says, else as often as its rate is charged ("1% per month").
     schedule = int(settings.get("payments", 12))
-    term = read_term(found, text, flow if flow is not None else charged, schedule)
-    if values is None or term is None:
+    term = read_term(found, text, flow if flow is not None else charged, schedule, names)
+    if values is None or term is None or not term_fits(found, term, settings):
+        return None
+    # "my payment is $100 a month. How long?", "48 monthly payments of $500. What is my
+    # rate?": what is missing is the question, never assumed.
+    if found.family == "loan" and (not term or rate is None) and states_payment(sums):
         return None
     values.update(term)
-    if not whole_payments(found, values, settings):
-        return None
     if not any(name in values for name in _principal_names(found)):
         return None
     recurring = _RECURRING.search(text) is not None or _RD.search(text) is not None
@@ -236,46 +246,21 @@ def read_money_request(text: str) -> MoneyRequest | None:
     )
 
 
-def _rate_per(text: str, beside: set[int]) -> int:
+def _rate_per(text: str, beside: set[int], own: tuple[str, ...]) -> int:
     """Times a year the one rate is charged, as its percent's words say; 1 when they say
     none. A period the message says of the interest or the rate away from the percent
     must agree, or the rate is ``UNKNOWN``: "interest per month at the rate of 2%" is no
-    yearly 2%, and "pays interest each month at 4%" may be a yearly 4% paid monthly."""
+    yearly 2%, and "pays interest each month at 4%" may be a yearly 4% paid monthly. So is
+    a period in the percent's sentence that belongs to nothing else ("The bank charges 2%
+    on the unpaid balance each month", ``schedule.loose_rate_period``)."""
+    if loose_rate_period(text, own):
+        return UNKNOWN
     said = beside | rate_periods_said(text)
     if len(said) > 1 or UNKNOWN in said:
         return UNKNOWN
     if beside:
         return beside.pop()
     return UNKNOWN if said - {1} else 1
-
-
-def _plausible(product: Product, rate: float) -> bool:
-    """A yearly ``rate`` read from a shorter period's ("2% a month" is 24%) is one the product
-    is plausibly charged; "a mortgage at 6% per month" was 6% said casually."""
-    low, high = plausible_rates(product)
-    return low <= rate <= high
-
-
-def _own_names(product: Product, text: str) -> tuple[str, ...]:
-    """The names of the request's own loan, in lower case: its product's words and a
-    plainer product's ("the loan" after "a car loan"). None at all when another loan is
-    named too ("a car loan … my mortgage payments are weekly"): payments said of a loan by
-    name are then not certainly this one's."""
-    lowered = text.lower()
-    names = [word for item in PRODUCTS if _plainer(item, product) for word in item.words]
-    for item in PRODUCTS:
-        if item.family != product.family or _plainer(item, product):
-            continue
-        if any(re.search(rf"\b{re.escape(word)}\b", lowered) for word in item.words):
-            return ()
-    return tuple(names)
-
-
-def _plainer(item: Product, product: Product) -> bool:
-    """``item`` is ``product`` or a plainer word for it: "loan" is inside "car loan"."""
-    return item is product or any(
-        re.search(rf"\b{re.escape(word)}\b", own) for word in item.words for own in product.words
-    )
 
 
 def _settings(
@@ -307,10 +292,10 @@ def _settings(
 
 def named_product(text: str) -> Product | None:
     """The first product, most specific words first, that the message names. A word that
-    names one only beside its payments ("borrowed", ``Product.asked_words``) counts when no
-    product's own word is said."""
+    names one only as a loan lent at a rate and repaid in payments ("borrowed",
+    ``Product.asked_words``) counts when no product's own word is said."""
     found = _named(text, lambda item: item.words)
-    if found is None and names_payments(text):
+    if found is None and lends(text):
         found = _named(text, lambda item: item.asked_words)
     return found
 
@@ -329,7 +314,7 @@ def _named(text: str, words: Callable[[Product], tuple[str, ...]]) -> Product | 
     return best[1] if best is not None else None
 
 
-def _percents(text: str) -> tuple[set[float], set[float], set[int]]:
+def _percents(text: str, names: tuple[str, ...]) -> tuple[set[float], set[float], set[int]]:
     """The rates and the shares of the price put down ("20% down") the message gives, and
     the periods its rates' own words say they are charged by: "a 400k house with 20% down
     at 6%" is the rate 6 and the share 20; "2% per month" the rate 2 charged 12 times a
@@ -343,6 +328,9 @@ def _percents(text: str) -> tuple[set[float], set[float], set[int]]:
         if value is None:
             # A percent the reader cannot read ("3,125%") is one it cannot certify: given
             # as two, so the slot takes no value.
+            rates |= {-1.0, -2.0}
+        elif said_of_another(text, *match.span(), names) and not _is_share_down(text, match):
+            # "at 3% raise", "1% a month in fees": another thing's share, never the rate.
             rates |= {-1.0, -2.0}
         elif not _is_share_down(text, match):
             rates.add(value)

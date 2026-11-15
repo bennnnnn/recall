@@ -32,10 +32,11 @@ from app.modules.money.catalog import Product
 from app.modules.money.change_line import read_change
 from app.modules.money.correction import corrected, is_correction
 from app.modules.money.fence import slider_range
+from app.modules.money.fits import term_fits
 from app.modules.money.purchase import purchase_request
 from app.modules.money.read import MoneyRequest, named_product, read_money_request
 from app.modules.money.solve import rate_name
-from app.modules.money.terms import term_in, whole_payments
+from app.modules.money.terms import term_in
 
 # The user lines a follow-up may reach back over: the request and the changes after it.
 _WINDOW = 3
@@ -128,7 +129,8 @@ def changed(request: MoneyRequest, line: str) -> MoneyRequest | None:
             return None
         values.update(term)
         names.extend(term)
-    if not _in_range(request, values) or not whole_payments(product, values, request.settings):
+    term = {name: values[name] for name in ("years", "months") if name in values}
+    if not _in_range(request, values) or not term_fits(product, term, request.settings):
         return None
     return replace(
         request,

@@ -7,8 +7,9 @@ own card is the worst a money turn can do.
 
 The model's words are never replaced or removed: a review (2026-10-26) found that rule
 dropped correct replies with taxes, other scenarios, rounding, the worked formula, and
-the user's own question. Only a payment the reply states next to its label ("monthly
-payment is $X", "$X a month", "$X/month", "$X per month") is read; an approximate one
+the user's own question. Only a payment the reply states next to its label, in the loan's
+own period ("monthly payment is $X", "$X a month", "$X/month", "$X per month"; for a loan
+paid quarterly "quarterly payment is $X", "$X a quarter") is read; an approximate one
 ("about $2,040", "≈", a range) is not. When the reply states at least one, none is the
 card's payment (to the cent or the whole unit), and none sits in a sentence about another
 scenario (another term, rate or sum; "if you", "instead", taxes, insurance, PMI, HOA), the
@@ -23,7 +24,7 @@ import re
 from dataclasses import dataclass
 
 from app.modules.money.numbers import money_text, percent_text
-from app.modules.money.periods import rate_words
+from app.modules.money.periods import ADJECTIVE, FREQUENCIES, NOUN, rate_words, times_a_year
 from app.modules.money.phrases import percent_value
 from app.modules.money.read import MoneyRequest
 from app.modules.money.solve import Worked, rate_name
@@ -37,12 +38,14 @@ _SUM = (
 )
 # A dash, an en dash, an em dash or "to" between two sums.
 _DASH = "(?:-|\u2013|\u2014|to)"
+# A payment beside its period, in the shared vocabulary (``periods``): "quarterly payment is
+# $X", "$X a quarter".
 _LABELLED = (
     re.compile(
-        rf"monthly\s+payments?\W{{0,6}}(?:(?:is|of|would\s+be|will\s+be|comes\s+to|=)\W{{0,4}})?{_SUM}",
+        rf"{ADJECTIVE}\s+payments?\W{{0,6}}(?:(?:is|of|would\s+be|will\s+be|comes\s+to|=)\W{{0,4}})?{_SUM}",
         re.IGNORECASE,
     ),
-    re.compile(rf"(?<![\d.,]){_SUM}\W{{0,4}}(?:a|per|/|each)\s?(?:month|mo)\b", re.IGNORECASE),
+    re.compile(rf"(?<![\d.,]){_SUM}\W{{0,4}}{NOUN}", re.IGNORECASE),
 )
 # Before a sum: it is approximate. Around it: a range.
 _APPROX = re.compile(
@@ -97,15 +100,16 @@ def card_figures(text: str, request: MoneyRequest, worked: Worked) -> CardFigure
     the line, after the reply."""
     product = worked.product
     payment = worked.outputs.get("payment")
-    # Only a monthly payment's words are read ("$X a month"): a quarterly loan's are not.
-    if product.family != "loan" or payment is None or worked.settings.get("payments", 12) != 12:
+    if product.family != "loan" or payment is None:
         return None
+    # A payment is read in the loan's own period: "$X a quarter" for one paid quarterly.
+    per_year = int(worked.settings.get("payments", 12))
     sentences = _SENTENCE.split(text or "")
     if not _states_card(text, worked.values["amount"], payment):
         misread = [
             value
             for sentence in sentences
-            for value, _cents in _labelled(sentence, approximate=True)
+            for value, _cents in _labelled(sentence, per_year, approximate=True)
             if not _other_scenario(sentence, request, worked, value, sums=False)
         ]
         if any(abs(value - payment) > _MISREAD * payment for value in misread):
@@ -113,7 +117,7 @@ def card_figures(text: str, request: MoneyRequest, worked: Worked) -> CardFigure
             return CardFigures(_line(request, worked, payment, on_top=True), on_top=True)
     stated: list[tuple[float, bool]] = []
     for sentence in sentences:
-        for value, cents in _labelled(sentence):
+        for value, cents in _labelled(sentence, per_year):
             if _other_scenario(sentence, request, worked, value):
                 return None
             stated.append((value, cents))
@@ -135,11 +139,16 @@ def _states_card(text: str, principal: float, payment: float) -> bool:
     return False
 
 
-def _labelled(sentence: str, *, approximate: bool = False) -> list[tuple[float, bool]]:
-    """Payments stated beside their label; an approximate one only when ``approximate``."""
+def _labelled(
+    sentence: str, per_year: int, *, approximate: bool = False
+) -> list[tuple[float, bool]]:
+    """Payments stated beside a label of the loan's period, ``per_year`` times a year; an
+    approximate one only when ``approximate``."""
     found: list[tuple[float, bool]] = []
     for pattern in _LABELLED:
         for match in pattern.finditer(sentence):
+            if times_a_year(match) != per_year:
+                continue
             if not approximate and _APPROX.search(sentence[: match.start("whole")]):
                 continue
             if _RANGE.match(sentence[match.end() :]) or _RANGE_BEFORE.search(
@@ -194,8 +203,9 @@ def _line(request: MoneyRequest, worked: Worked, payment: float, *, on_top: bool
     rate = percent_text(values[rate_name(worked.product)])
     if worked.rate_per != 1:
         rate += f" a year ({rate_words(values[rate_name(worked.product)], worked.rate_per)})"
+    per = FREQUENCIES[int(worked.settings.get("payments", 12))].per
     rest = (
-        f"a month on a {symbol}{money_text(values['amount'])} loan at {rate} over "
+        f"{per} on a {symbol}{money_text(values['amount'])} loan at {rate} over "
         f"{values[term_name]:g} {term_name}."
     )
     if on_top:

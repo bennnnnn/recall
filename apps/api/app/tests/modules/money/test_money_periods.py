@@ -56,7 +56,7 @@ def _worked(text: str) -> Worked:
         ("A loan of 6,000 at 1% a month is repaid in twenty-four monthly instalments.", "payment", 282.44),
         ("Rs 50,000 loan at 1% p.m. repaid in 24 EMIs", "payment", 2353.67),
         ("Loan 5000 at 1% per month repaid in 12 equal payments", "payment", 444.24),
-        ("a mortgage of 300k at 0.5% a month for 30 years", "payment", 1798.65),
+        ("personal loan of $10,000 at 1% a month for 3 years", "payment", 332.14),
         # Payments made other than monthly: the yearly rate over that many payments a year.
         ("A loan of 30,000 at 10% per year is repaid in 5 equal annual payments.", "payment", 7913.92),
         ("A loan of 30,000 at 6% per half-year repaid in 10 semi-annual payments", "payment", 4076.04),
@@ -75,7 +75,7 @@ def _worked(text: str) -> Worked:
         ("Put 1000 into a savings account at 0.75% a month for 2 years", "balance", 1196.41),
         ("savings account at 0.5% per month, I put in 300 a month for 4 years", "balance", 16229.35),
         # 200·(1.005^36 - 1)/0.005: 36 monthly deposits, never a 200 start and a 36 deposit.
-        ("I make 36 monthly deposits of $200 into a savings account at 6%. How much will I have?", "balance", 7867.22),
+        ("I save with 36 monthly deposits of $200 into a savings account at 6%. How much will I have?", "balance", 7867.22),
     ],
 )  # fmt: skip
 def test_a_rate_and_term_said_by_their_period_are_worked_as_said(
@@ -94,7 +94,7 @@ def test_a_rate_and_term_said_by_their_period_are_worked_as_said(
         (B098, "years", 4),
         (QUARTERLY, "rate", 12),
         (QUARTERLY, "years", 2),
-        ("car loan of 20000 at 1% a month over 36 monthly payments", "months", 36),
+        ("personal loan of 20000 at 1% a month over 36 monthly payments", "months", 36),
         ("I deposit $5,000 in a savings account at 2% per quarter compounded quarterly for 3 years.", "rate", 8),
     ],
 )  # fmt: skip
@@ -128,6 +128,16 @@ def test_the_yearly_rate_and_the_term_are_read_from_the_periods(
         # A count of payments or a length no word says how to read, and no other term.
         "car loan 20k at 6% with 60 payments",
         "repay a 2000 loan at 5% in 90 days",
+        # A count of payments that is not said as the term, with no other term.
+        "I make 36 monthly deposits of $200 into a savings account at 6%. How much will I have?",
+        # Another payee's payments in the loan's own sentence: no level loan the card works.
+        "my rent payments each month are 1500, mortgage 300k at 6% for 30 years payment?",
+        # A rate by the month on a loan only ever quoted by the year (2026-11-14 review).
+        "a mortgage of 300k at 0.5% a month for 30 years",
+        "car loan of $20,000 at 1% a month for 5 years",
+        "How much is a $25,000 car loan at 1.9% a month?",
+        "student loan of $30,000 at 0.4% a month for 10 years",
+        "car loan of 20000 at 1% a month over 36 monthly payments",
     ],
 )
 def test_a_period_the_words_leave_open_works_no_numbers(text: str) -> None:
@@ -144,9 +154,9 @@ def test_a_period_the_words_leave_open_works_no_numbers(text: str) -> None:
         ("I run at 10 km per hour; car loan 15000 at 7% for 4 years", "months", 48),
         ("I get paid weekly. Car loan of 20k at 6% for 5 years, what's the monthly payment?", "months", 60),
         ("My salary is Birr 8,000 per month. What would a loan of Birr 50,000 at 12% for 3 years cost each month?", "rate", 12),
-        # Another payee's payments, and a period a time is said in.
-        ("property tax payments each year of 3,000; what's the payment on a 300k mortgage at 6% over 30 years?", "amount", 300000),
-        ("my rent payments each month are 1500, mortgage 300k at 6% for 30 years payment?", "rate", 6),
+        # Another thing's period in a sentence of its own, and a period a time is said in.
+        ("Property tax is 3,000 each year. What's the payment on a 300k mortgage at 6% over 30 years?", "amount", 300000),
+        ("My rent payments each month are 1500. Mortgage 300k at 6% for 30 years, payment?", "rate", 6),
         ("I have 30 days to decide on a 20k car loan at 6% for 60 months", "months", 60),
         # Payments gone by are no term; a monthly payment beside a monthly count is one.
         ("I made 12 monthly payments on my car loan of 20k at 6% for 5 years", "months", 60),
@@ -197,14 +207,15 @@ def test_a_lessons_loan_with_its_count_of_payments_is_laid_out() -> None:
 
 
 def test_a_rate_said_by_the_month_is_judged_as_the_yearly_rate_it_is() -> None:
-    worked = _worked("a mortgage of 300k at 1.2% a month for 30 years")
-    note = market_note(worked, average(), 2.0)
+    worked = _worked("personal loan of $10,000 at 2.5% a month for 3 years")
+    note = market_note(worked, average(12, "personal loan interest rate"), 2.0)
     assert note is not None
-    assert note.startswith("**Note:** 1.2% a month (14.4% a year) is not a realistic")
+    assert note.startswith("**Note:** 2.5% a month (30% a year) is not a realistic")
 
 
 def test_a_monthly_rate_near_the_average_is_no_unrealistic_rate() -> None:
-    note = market_note(_worked("a mortgage of 300k at 0.5% a month for 30 years"), average(), 2.0)
+    worked = _worked("personal loan of $10,000 at 1% a month for 3 years")
+    note = market_note(worked, average(12, "personal loan interest rate"), 2.0)
     assert note is not None and "not a realistic" not in note
 
 
@@ -262,7 +273,7 @@ def test_a_rate_by_the_period_that_leaves_the_products_rates_is_not_worked(text:
         ("A loan of $10,000 at 6% interest annually for 3 years", 6, 1),
         ("A loan of $10,000 with annual interest at 6% for 3 years", 6, 1),
         # A product's plausible rate, said by the month.
-        ("car loan of $20,000 at 1% a month for 5 years", 12, 12),
+        ("personal loan of $20,000 at 1% a month for 5 years", 12, 12),
         ("I owe $3,000 on my credit card at 2% a month and pay $150 a month", 24, 12),
     ],
 )

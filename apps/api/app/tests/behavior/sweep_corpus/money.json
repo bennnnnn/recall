@@ -2489,7 +2489,7 @@
  {
   "id": "mo-147",
   "area": "money",
-  "prompt": "I make 36 monthly deposits of $200 into a savings account at 6%. How much will I have?",
+  "prompt": "I save with 36 monthly deposits of $200 into a savings account at 6%. How much will I have?",
   "history": [],
   "reply": "After 36 deposits you would have about $7,867.22: $7,200 deposited and $667.22 interest.",
   "expect": "answer"
@@ -2640,7 +2640,7 @@
  },
  {
   "id": "mo-166",
-  "area": "money",
+  "area": "money declined",
   "prompt": "What would my payment be on a $300,000 mortgage at 6% for 30 years, HOA dues paid quarterly?",
   "history": [],
   "reply": "The mortgage itself is $1,798.65 a month, before the HOA dues.",
@@ -2664,7 +2664,7 @@
  },
  {
   "id": "mo-169",
-  "area": "money",
+  "area": "money declined",
   "prompt": "What's the payment on a $300,000 mortgage at 6% for 30 years if I can make extra payments annually?",
   "history": [],
   "reply": "The regular payment is $1,798.65 a month; extra yearly payments would shorten the loan.",
@@ -2672,7 +2672,7 @@
  },
  {
   "id": "mo-170",
-  "area": "money",
+  "area": "money declined",
   "prompt": "A $300,000 mortgage at 6% for 30 years, plus additional payments yearly. What's the payment?",
   "history": [],
   "reply": "The regular payment is $1,798.65 a month.",
@@ -2680,7 +2680,7 @@
  },
  {
   "id": "mo-171",
-  "area": "money",
+  "area": "money declined",
   "prompt": "A $300,000 mortgage at 6% for 30 years, my property taxes are paid half-yearly. Monthly payment?",
   "history": [],
   "reply": "Principal and interest come to $1,798.65 a month, before the property taxes.",
@@ -2688,7 +2688,7 @@
  },
  {
   "id": "mo-172",
-  "area": "money",
+  "area": "money declined",
   "prompt": "A $20,000 car loan at 6% for 5 years, my insurance premium is payable yearly. What's the payment?",
   "history": [],
   "reply": "The car loan is $386.66 a month; the insurance premium is separate.",
@@ -2712,7 +2712,7 @@
  },
  {
   "id": "mo-175",
-  "area": "money",
+  "area": "money declined",
   "prompt": "A $10,000 loan at 6% for 3 years. I'm paying it weekly, how much each week?",
   "history": [],
   "reply": "Paid weekly over 3 years, each payment is about $70.08.",
@@ -2884,6 +2884,502 @@
   "prompt": "He borrows $20 from me every week and pays back 10% more, is that fair?",
   "history": [],
   "reply": "He pays back $22 each time; whether it's fair is up to you both.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-197",
+  "area": "money",
+  "prompt": "We close on our $300k mortgage at 6% in 3 weeks, what will the payment be?",
+  "history": [],
+  "reply": "Over 30 years (assumed) the payment is $1,798.65 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-198",
+  "area": "money",
+  "prompt": "I'm 30 weeks pregnant and we need a $300k mortgage at 6%. What's the payment?",
+  "history": [],
+  "reply": "Over 30 years (assumed) it is $1,798.65 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-199",
+  "area": "money",
+  "prompt": "We're taking a 2-week vacation, then buying a car with a $20,000 car loan at 6%",
+  "history": [],
+  "reply": "Over 60 months (assumed) that is $386.66 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-200",
+  "area": "money",
+  "prompt": "Rates may drop in 2 quarters; what is the payment on a $300k mortgage at 6% now?",
+  "history": [],
+  "reply": "At 6% over 30 years (assumed) it is $1,798.65 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-201",
+  "area": "money",
+  "prompt": "My kid saved 200 quarters in a jar; savings account at 4%, $50 to start",
+  "history": [],
+  "reply": "$50 at 4% grows to about $74.54 in 10 years (assumed).",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-202",
+  "area": "money declined",
+  "prompt": "Payday loan $500 at 15% for 2 weeks",
+  "history": [],
+  "reply": "A two-week payday loan at 15% costs $75 in fees on $500.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-203",
+  "area": "money",
+  "prompt": "A $5,000 personal loan for 26 weeks at 10%",
+  "history": [],
+  "reply": "Over 26 weeks (6 months) at 10% the payment is about $857.81 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-204",
+  "area": "money declined",
+  "prompt": "I'm three monthly payments behind on my $15,000 car loan at 7%, what do I owe?",
+  "history": [],
+  "reply": "Your lender's statement shows the overdue amount; at least three payments plus late fees.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-205",
+  "area": "money declined",
+  "prompt": "I fell 3 monthly payments behind on a $300k mortgage at 6%",
+  "history": [],
+  "reply": "Call your servicer about a repayment plan before it reaches foreclosure.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-206",
+  "area": "money declined",
+  "prompt": "I can skip 2 monthly payments on my $20,000 car loan at 6%",
+  "history": [],
+  "reply": "Skipped payments add interest; the loan runs longer.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-207",
+  "area": "money declined",
+  "prompt": "Deferring 6 monthly payments on my $30,000 student loan at 5%",
+  "history": [],
+  "reply": "Interest keeps accruing during the deferral, about $750 over six months.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-208",
+  "area": "money declined",
+  "prompt": "Twelve monthly payments into my $20,000 car loan at 6%, how much do I still owe?",
+  "history": [],
+  "reply": "That depends on the term; on a 60-month loan about $16,349 is left.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-209",
+  "area": "money declined",
+  "prompt": "A $20,000 car loan at 6%, 6 monthly payments deferred",
+  "history": [],
+  "reply": "Deferring adds about $600 of interest to the balance.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-210",
+  "area": "money declined",
+  "prompt": "I can afford 400 monthly payments on a $20,000 car loan at 6%",
+  "history": [],
+  "reply": "Car loans run up to 84 or 96 months, not 400.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-211",
+  "area": "money declined",
+  "prompt": "mortgage $300k at 6%, 900 monthly payments",
+  "history": [],
+  "reply": "900 months is 75 years; mortgages run up to 40.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-212",
+  "area": "money declined",
+  "prompt": "I've made 12 monthly payments on my $20,000 car loan at 6%; what is left?",
+  "history": [],
+  "reply": "That depends on the term; on 60 months about $16,349 is left.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-213",
+  "area": "money",
+  "prompt": "My salary is $4,000, paid weekly. What's my payment on a $300k mortgage at 6% for 30 years?",
+  "history": [],
+  "reply": "The payment is $1,798.65 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-214",
+  "area": "money",
+  "prompt": "I earn $2,000, paid weekly. What would a $20,000 car loan at 7% for 5 years cost me?",
+  "history": [],
+  "reply": "It is $396.02 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-215",
+  "area": "money",
+  "prompt": "A $300,000 mortgage at 6% for 30 years. HOA dues are $300, paid quarterly.",
+  "history": [],
+  "reply": "The mortgage is $1,798.65 a month, plus $100 a month of HOA dues.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-216",
+  "area": "money",
+  "prompt": "A $300,000 mortgage at 6% for 30 years. Property tax is $4,000, paid yearly.",
+  "history": [],
+  "reply": "The mortgage is $1,798.65 a month; property tax adds about $333 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-217",
+  "area": "money",
+  "prompt": "Nurse, paid weekly. What's the payment on a $250,000 mortgage at 6.5% for 30 years?",
+  "history": [],
+  "reply": "It is $1,580.17 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-218",
+  "area": "money",
+  "prompt": "We pay quarterly taxes. Our $400k mortgage at 6.5% for 30 years, what's the payment?",
+  "history": [],
+  "reply": "It is $2,528.27 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-219",
+  "area": "money",
+  "prompt": "I pay annual property tax of $5,000 on my $300k mortgage at 6% for 30 years. What is my payment?",
+  "history": [],
+  "reply": "Principal and interest are $1,798.65 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-220",
+  "area": "money",
+  "prompt": "I pay weekly for daycare. What's my payment on a $300k mortgage at 6% for 30 years?",
+  "history": [],
+  "reply": "It is $1,798.65 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-221",
+  "area": "money",
+  "prompt": "I pay yearly insurance on my car. What is the payment on a $25,000 car loan at 6% for 5 years?",
+  "history": [],
+  "reply": "It is $483.32 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-222",
+  "area": "money",
+  "prompt": "I need a $10,000 loan at 8% for 3 years to pay quarterly tuition",
+  "history": [],
+  "reply": "The loan is $313.36 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-223",
+  "area": "money declined",
+  "prompt": "$300k mortgage at 6% for 30 years, insurance $1,200, paid annually",
+  "history": [],
+  "reply": "The mortgage is about $1,799 a month and insurance about $100 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-224",
+  "area": "money declined",
+  "prompt": "A $10,000 loan at 8% for 3 years to cover rent, paid weekly",
+  "history": [],
+  "reply": "Monthly it would be about $313; weekly about $72.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-225",
+  "area": "money declined",
+  "prompt": "I'm self-employed with quarterly payments to the IRS. What's my payment on a $300k mortgage at 6% for 30 years?",
+  "history": [],
+  "reply": "The mortgage is about $1,799 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-226",
+  "area": "money declined",
+  "prompt": "A $300k mortgage at 6% for 30 years; I also make quarterly payments on my student loan",
+  "history": [],
+  "reply": "The mortgage is about $1,799 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-227",
+  "area": "money declined",
+  "prompt": "My $300k mortgage at 6% for 30 years. I also have a car lease; the payments are quarterly.",
+  "history": [],
+  "reply": "The mortgage is about $1,799 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-228",
+  "area": "money",
+  "prompt": "A $300k mortgage at 6% for 30 years, twelve payments a year",
+  "history": [],
+  "reply": "It is $1,798.65 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-229",
+  "area": "money",
+  "prompt": "A $300k mortgage at 6% for 30 years with four payments a year",
+  "history": [],
+  "reply": "Each quarterly payment is $5,405.56.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-230",
+  "area": "money",
+  "prompt": "A $300k mortgage at 6% for 30 years, fifty-two payments a year",
+  "history": [],
+  "reply": "Each weekly payment is $414.79.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-231",
+  "area": "money",
+  "prompt": "A $10,000 loan at 6% for 3 years with two equal payments a year",
+  "history": [],
+  "reply": "Each half-yearly payment is $1,845.98.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-232",
+  "area": "money declined",
+  "prompt": "A $300k mortgage at 6% for 30 years with a dozen payments a year",
+  "history": [],
+  "reply": "That is monthly: about $1,799 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-233",
+  "area": "money declined",
+  "prompt": "A man borrows Birr 100,000 and agrees to repay the loan in 48 equal monthly payments. The bank charges 2% on the unpaid balance each month. How much is each payment?",
+  "history": [],
+  "reply": "At 2% a month over 48 payments, each is about Birr 3,260.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-234",
+  "area": "money declined",
+  "prompt": "A loan of $10,000 is repaid in 24 equal monthly payments; 2% interest is charged per month. Find the payment.",
+  "history": [],
+  "reply": "At 2% a month over 24 payments, each is about $528.71.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-235",
+  "area": "money declined",
+  "prompt": "A loan of $10,000 is repaid in 24 equal monthly payments; interest of 1.5% is charged each month. Find the payment.",
+  "history": [],
+  "reply": "At 1.5% a month over 24 payments, each is about $499.24.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-236",
+  "area": "money declined",
+  "prompt": "A loan of $10,000 at 2%, charged monthly, repaid in 24 equal monthly payments. Find the payment.",
+  "history": [],
+  "reply": "If 2% a month, each payment is about $528.71.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-237",
+  "area": "money declined",
+  "prompt": "Birr 50,000 loan; the bank's rate is 1.5%, applied monthly to the balance; 36 monthly payments",
+  "history": [],
+  "reply": "At 1.5% a month, each payment is about Birr 1,807.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-238",
+  "area": "money declined",
+  "prompt": "A $10,000 loan at 2% [monthly] for 2 years",
+  "history": [],
+  "reply": "Is that 2% a month or a yearly 2% paid monthly?",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-239",
+  "area": "money",
+  "prompt": "A $10,000 loan at 2% (per month) for 2 years",
+  "history": [],
+  "reply": "At 2% a month (24% a year) the payment is $528.71 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-240",
+  "area": "money declined",
+  "prompt": "How much is a $25,000 car loan at 1.9% a month?",
+  "history": [],
+  "reply": "Did you mean 1.9% a year? Then about $437 a month over 60 months.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-241",
+  "area": "money declined",
+  "prompt": "What's the payment on a $300k mortgage at 1% a month for 30 years?",
+  "history": [],
+  "reply": "Did you mean 1% a year? Then about $965 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-242",
+  "area": "money declined",
+  "prompt": "I pay 1% a month in fees on my $10,000 loan",
+  "history": [],
+  "reply": "That is $100 a month, $1,200 a year in fees.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-243",
+  "area": "money declined",
+  "prompt": "My salary is $60,000 a year at 3% raise; my car loan is $20,000",
+  "history": [],
+  "reply": "A 3% raise is $1,800 a year.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-244",
+  "area": "money lookalike",
+  "prompt": "My brother borrowed $500 and makes payments of $50 a month. When will he be done?",
+  "history": [],
+  "reply": "Ten payments: about ten months.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-245",
+  "area": "money lookalike",
+  "prompt": "He borrowed $50,000 from his uncle with no interest, payments of $1,000 a month",
+  "history": [],
+  "reply": "Fifty payments, a little over four years.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-246",
+  "area": "money lookalike",
+  "prompt": "I borrowed $5,000 interest-free from my employer, payments come out of my paycheck",
+  "history": [],
+  "reply": "Ask payroll how much comes out each check.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-247",
+  "area": "money lookalike",
+  "prompt": "She borrowed $3,000 from her mom at 2% and pays it back in 12 monthly payments",
+  "history": [],
+  "reply": "About $253 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-248",
+  "area": "money declined",
+  "prompt": "I borrowed $1,000 at 10% and my payment is $100 a month. How long?",
+  "history": [],
+  "reply": "About 11 months.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-249",
+  "area": "money declined",
+  "prompt": "Tom borrowed $2,000 at 8% per annum and made 24 payments. How much interest?",
+  "history": [],
+  "reply": "On a two-year loan about $170 in interest.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-250",
+  "area": "money declined",
+  "prompt": "My car loan is $20,000 with 48 monthly payments of $500. What is my interest rate?",
+  "history": [],
+  "reply": "About 9.24% a year.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-251",
+  "area": "money declined",
+  "prompt": "$10,000 loan at 6% for 3 years, 12 payments",
+  "history": [],
+  "reply": "Twelve payments over 3 years would be quarterly: about $917 each.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-252",
+  "area": "money declined",
+  "prompt": "A $20,000 car loan at 6%, 48 monthly payments, plus 2 balloon payments",
+  "history": [],
+  "reply": "That depends on the balloon amounts.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-253",
+  "area": "money",
+  "prompt": "A $10,000 loan at 6% for 3 years, paid twice a year",
+  "history": [],
+  "reply": "Each half-yearly payment is $1,845.98.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-254",
+  "area": "money",
+  "prompt": "A $10,000 loan at 6% for 3 years, repaid once a year",
+  "history": [],
+  "reply": "Each yearly payment is $3,741.10.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-255",
+  "area": "money",
+  "prompt": "A $10,000 loan at 6% for 3 years, paid four times a year",
+  "history": [],
+  "reply": "Each quarterly payment is $916.80.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-256",
+  "area": "money",
+  "prompt": "car loan 25 000 at 6% for 5 years",
+  "history": [],
+  "reply": "It is 483.32 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-257",
+  "area": "money declined",
+  "prompt": "A loan of 250 300 dollars at 6% for 10 years",
+  "history": [],
+  "reply": "Is that $250,300, or two amounts?",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-258",
+  "area": "money declined",
+  "prompt": "I make 36 monthly deposits of $200 into a savings account at 6%. How much will I have?",
+  "history": [],
+  "reply": "About $7,867.22 after three years.",
   "expect": "answer"
  }
 ]

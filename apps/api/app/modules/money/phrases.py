@@ -44,9 +44,9 @@ AMOUNT = re.compile(
     rf"(?:\s?(?P<mult>{_SCALE}))?",
     re.I,
 )
-# Groups set apart by a plain space that are one number whatever stands beside them: a round
-# thousand ("100 000", "1 500 000") or a short lead and one group ("12 500"). "250 300 450"
-# may be a list (``sums`` reads it as one sum only with its currency after it).
+# Groups set apart by a plain space that are one number: a round thousand ("100 000",
+# "1 500 000") or a short lead and one group ("12 500"). "250 300 450" may be a list, with a
+# currency after it or not (``sums``: no sum).
 ONE_SPACED = re.compile(
     r"[1-9]\d{0,2}(?: \d{3})* 000(?:[.,]\d{1,2})?|[1-9]\d? \d{3}(?:[.,]\d{1,2})?"
 )

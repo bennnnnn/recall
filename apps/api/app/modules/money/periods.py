@@ -1,4 +1,4 @@
-"""How often a request's rate, payments and deposits run: "2% per month", "48 monthly payments".
+"""How often a request's rate, payments and deposits run, in one vocabulary every reader uses.
 
 Live (2026-11-14, an Ethiopian grade 12 book): "repay the loan in 48 equal monthly payments.
 If the bank charges 2% per month on the unpaid balance, compounded monthly, how much is each
@@ -21,8 +21,14 @@ so the reader says what the words mean in those, or works nothing:
   equal monthly payments", "quarterly installments", "repaid quarterly", "12 payments a
   year". Every two weeks, twice a month or daily is no frequency a product pays
   (``FREQUENCIES`` has no key for it).
-- A period said as a time is no rate's ("6% a month from now", "a month ago").
-- A count of payments is a term: "48 monthly payments" is 4 years, "8 quarterly payments" 2.
+- A period is said as a word ("quarterly"), after "per", "a", "each" or "every" ("each
+  quarter"), as a count ("twice a year", "four times a year", "every 3 months", "every six
+  months", spelled or in digits) or abbreviated ("p.a.", "pm"). Compounding (``compounding``),
+  sums (``sums``) and payments (``schedule``) read periods with this one vocabulary
+  (2026-11-14 review: "compounded twice a year" was read while "paid twice a year" was
+  silently monthly).
+- A period said as a time is none ("6% a month from now", "a month ago", "in a month", "for
+  a year").
 """
 
 from __future__ import annotations
@@ -30,8 +36,10 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from app.modules.money.compounding import UNKNOWN
 from app.modules.money.phrases import COUNT, count_value
+
+# A period no product works, or two that disagree: the request gets no worked numbers.
+UNKNOWN = 0
 
 
 @dataclass(frozen=True)
@@ -63,37 +71,51 @@ FREQUENCIES: dict[int, Frequency] = {
 # them (``UNKNOWN``).
 _WORDS: tuple[tuple[str, str, str, int], ...] = (
     (r"years?|yrs?|annum", r"annual(?:ly)?|yearly", r"p\.\s?a\.?|pa", 1),
-    (r"half[\s-]?years?|six\s+months|6\s+months",
-     r"semi[\s-]?annual(?:ly)?|half[\s-]?yearly", "", 2),
-    (r"quarters?|three\s+months|3\s+months", r"quarterly", "", 4),
+    (r"half[\s-]?years?", r"semi[\s-]?annual(?:ly)?|half[\s-]?yearly", "", 2),
+    (r"quarters?", r"quarterly", "", 4),
     (r"months?|mos?", r"monthly", r"p\.\s?m\.?|pm", 12),
     (r"weeks?|wks?", r"weekly", "", 52),
     (r"days?", r"daily", "", 365),
-    (r"(?:two|2)\s+(?:weeks|months)|fortnight|other\s+(?:week|month)",
+    (r"fortnight|other\s+(?:week|month)",
      r"bi[\s-]?(?:weekly|monthly)|fortnightly|semi[\s-]?monthly|twice[\s-]monthly", "", UNKNOWN),
 )  # fmt: skip
+# A period's unit, for a count of them: "twice a year", "every 3 months".
+_UNITS = {"year": 1, "quarter": 4, "month": 12, "week": 52, "day": 365}
+_ONCE = {"once": 1, "twice": 2, "thrice": 3}
+_COUNTED = (
+    rf"(?P<times>once|twice|thrice|{COUNT}\s+times)\s+(?:a|per|each|every)\s+"
+    r"(?P<tunit>year|quarter|month|week|day)\b"
+    rf"|(?:every|each)\s+(?P<every>{COUNT})\s+(?P<eunit>years?|quarters?|months?|weeks?|days?)\b"
+)
 _NOUNS = "|".join(rf"(?P<n{index}>{noun})" for index, (noun, _, _, _) in enumerate(_WORDS))
 _ADJECTIVES = "|".join(rf"(?P<a{index}>{word})" for index, (_, word, _, _) in enumerate(_WORDS))
 _SHORT = "|".join(
     rf"(?P<s{index}>{short})" for index, (_, _, short, _) in enumerate(_WORDS) if short
 )
-_PER = r"(?:per|a|an|each|every|/)\s*"
-# "A month" said as a time is no period: "6% a month from now", "a month ago", "a year later".
+# "A month" said as a time is no period: "6% a month from now", "a month ago", "a year
+# later", "in a month", "within a year", "for a year".
 _A_TIME = r"\s++(?:ago|from\s++(?:now|today|then)|later|earlier|hence|away|ahead|prior)\b"
-NOUN = rf"(?:{_PER}(?:{_NOUNS})\b(?!{_A_TIME})|(?<![\w.])(?:{_SHORT})(?![\w.]))"
+_PER = (
+    r"(?:(?<!\bin\s)(?<!\bwithin\s)(?<!\bfor\s)(?<!\bafter\s)(?:a|an)\s*"
+    r"|(?:per|each|every|/)\s*)"
+)
+NOUN = rf"(?:{_COUNTED}|{_PER}(?:{_NOUNS})\b(?!{_A_TIME})|(?<![\w.])(?:{_SHORT})(?![\w.]))"
 ADJECTIVE = rf"(?<![\w-])(?:{_ADJECTIVES})(?![\w-])"
-_FLOW = r"(?:re)?payments?|instal(?:l)?ments?|deposits?|contributions?"
-_RATE_WORDS = r"(?:interest\s+rate|interest|rate)"
+# Any period in the vocabulary: "quarterly", "each quarter", "twice a year", "p.a.".
+PERIOD = re.compile(rf"{NOUN}|{ADJECTIVE}", re.I)
+FLOW = r"(?:re)?payments?|instal(?:l)?ments?|deposits?|contributions?"
+_RATE_WORDS = r"(?:interest\s+rate|interest|rate|apr|apy)"
 # After a rate's percent: "2% per month", "2% interest per month", "2% monthly interest",
-# or a describing word on its own ("6% annually", "1.5% monthly", "2% interest monthly").
-# Each starts at the end of a word and reads its space once, so a run of spaces is read
-# in one pass.
-_RATE_NOUN_AFTER = re.compile(rf"(?<!\s)(?:\s++{_RATE_WORDS})?\s*+{NOUN}", re.I)
+# "2% (per month)", or a describing word on its own ("6% annually", "1.5% monthly", "2%
+# interest monthly", "2% [monthly]"). Each starts at the end of a word and reads its space
+# once, so a run of spaces is read in one pass.
+_BRACKET = r"(?:\s*+[(\[]\s*+|\s++)"
+_RATE_NOUN_AFTER = re.compile(rf"(?<!\s)(?:\s++{_RATE_WORDS})?(?:{_BRACKET}|){NOUN}", re.I)
 _RATE_ADJECTIVE_AFTER = re.compile(
-    rf"(?<!\s)(?:\s++{_RATE_WORDS})?\s++{ADJECTIVE}(?P<rate>\s++{_RATE_WORDS}\b)?", re.I
+    rf"(?<!\s)(?:\s++{_RATE_WORDS})?{_BRACKET}{ADJECTIVE}(?P<rate>\s++{_RATE_WORDS}\b)?", re.I
 )
 # A describing word after a percent that is a payment's or a compounding's, not the rate's.
-_NOT_THE_RATES = re.compile(rf"(?<!\s)\s++(?:(?:equal|level)\s++)?(?:{_FLOW}|compound\w*)\b", re.I)
+_NOT_THE_RATES = re.compile(rf"(?<!\s)\s++(?:(?:equal|level)\s++)?(?:{FLOW}|compound\w*)\b", re.I)
 # Before it: "a monthly rate of 2%", "monthly interest of 2%", "the interest rate per month
 # is 2%". "Monthly interest at 4%" and "interest each month at 4%" may be interest paid
 # monthly at a yearly 4% (``_INTEREST_AT``).
@@ -120,30 +142,58 @@ _A_YEAR = r"\s+(?:per|a|each|every)\s+(?:year|yr|annum)\b"
 PAYMENT_COUNT = re.compile(
     rf"(?<![\w.,$€£¥₹₦])(?P<count>{COUNT})\s+(?:(?:equal|level|fixed|regular|consecutive"
     rf"|successive|more)\s+){{0,2}}(?:{ADJECTIVE}\s+)?(?:(?:equal|level|loan|mortgage)\s+)?"
-    rf"(?:{_FLOW}|(?P<emi>EMIs?))\b(?!{_A_YEAR})",
+    rf"(?:{FLOW}|(?P<emi>EMIs?))\b(?!{_A_YEAR})",
     re.I,
 )
-# Payments gone by or a part of the term: "after 12 payments", "missed 2 payments", "the
-# first 12 monthly payments".
-_COUNT_GONE = re.compile(r"\b(?:made|missed|skipped|after|first|paid|late)\s+$", re.I)
 # A length in another period than a year or a month: "8 quarters", "104 weeks", "90 days".
 OTHER_DURATION = re.compile(
     rf"\b(?P<n>{COUNT})\s?-?\s?(?P<unit>quarters?|weeks?|wks?|days?)\b(?!\s+ago\b)", re.I
 )
 # A sum's period said before it: "monthly deposits of $200", "quarterly payments of 500".
 _SUM_PERIOD = re.compile(
-    rf"{ADJECTIVE}\s+(?:{_FLOW})(?:\s+(?:of|is|are|was|were))?\s*+[:=]?\s*+$", re.I
+    rf"{ADJECTIVE}\s+(?:{FLOW})(?:\s+(?:of|is|are|was|were))?\s*+[:=]?\s*+$", re.I
 )
 
 
 def times_a_year(match: re.Match[str]) -> int:
-    """Times a year of the period ``match`` named."""
+    """Times a year of the period ``match`` named; ``UNKNOWN`` for a count of periods that is
+    no whole number a year ("every 5 months", "every 2 years")."""
     found = match.groupdict()
+    if found.get("times"):
+        said = found["times"].lower()
+        count = _ONCE.get(said) or count_value(said.rsplit(None, 1)[0])
+        return _whole(count * _UNITS[found["tunit"].lower()])
+    if found.get("every"):
+        unit = found["eunit"].lower().rstrip("s")
+        return _whole(_UNITS[unit] / count_value(found["every"]))
     return next(
         count
         for index, (_, _, _, count) in enumerate(_WORDS)
         if any(found.get(f"{kind}{index}") for kind in "nas")
     )
+
+
+def _whole(per_year: float) -> int:
+    return int(per_year) if per_year >= 1 and float(per_year).is_integer() else UNKNOWN
+
+
+def rate_spans(text: str, start: int, end: int) -> list[tuple[int, int]]:
+    """Where the percent at ``text[start:end]`` says its own period, as ``rate_period``
+    reads it ("2% per month", "a monthly rate of 2%"): those words are the rate's, never a
+    payment's. "6% monthly payments" says none: "monthly" there is the payments'."""
+    after = _RATE_NOUN_AFTER.match(text, end)
+    if after is not None:
+        return [after.span()]
+    after = _RATE_ADJECTIVE_AFTER.match(text, end)
+    if after is not None and (after.group("rate") or not _NOT_THE_RATES.match(text, after.end())):
+        return [after.span()]
+    offset = max(0, start - 60)
+    before = text[offset:start]
+    for pattern in (*_RATE_BEFORE, _INTEREST_AT):
+        found = pattern.search(before)
+        if found is not None:
+            return [(offset + found.start(), offset + found.end())]
+    return []
 
 
 def rate_period(text: str, start: int, end: int) -> int | None:
@@ -175,6 +225,12 @@ def rate_periods_said(text: str) -> set[int]:
     return {times_a_year(match) for match in _RATE_PERIOD.finditer(text)}
 
 
+def rate_periods_spans(text: str) -> list[tuple[int, int]]:
+    """Where the message says the interest or the rate runs by a period: "interest per
+    month", "the quarterly rate"."""
+    return [match.span() for match in _RATE_PERIOD.finditer(text)]
+
+
 def paid_by(per_year: int) -> bool:
     """A payment made ``per_year`` times a year is one a product works and labels."""
     frequency = FREQUENCIES.get(per_year)
@@ -183,11 +239,9 @@ def paid_by(per_year: int) -> bool:
 
 def payment_counts(text: str) -> list[tuple[re.Match[str], float, int | None]]:
     """Each count of payments the message states, its number and the frequency its own words
-    give (None: the count says none, "60 payments"). Payments gone by are left out."""
+    give (None: the count says none, "60 payments"). Whether it is the term is ``terms``'."""
     counts = []
     for match in PAYMENT_COUNT.finditer(text):
-        if _COUNT_GONE.search(text[max(0, match.start() - 12) : match.start()]):
-            continue
         said = match.groupdict()
         own = 12 if said.get("emi") else None
         own = next(

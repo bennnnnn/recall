@@ -146,6 +146,9 @@ class Product:
     # but "Tom borrowed $2,000 at 8%. How much interest after 3 years?" is growth, and "I
     # borrowed $15,000 for a car" a car loan (``read.named_product``).
     asked_words: tuple[str, ...] = ()
+    # Quoted by the year only: a rate said by a shorter period ("1.9% a month") is no rate
+    # the reader can trust for it (``fits.said_by_period``).
+    yearly_only: bool = False
 
     def input(self, name: str) -> Input | None:
         return next((item for item in self.inputs if item.name == name), None)
@@ -276,6 +279,7 @@ PRODUCTS: tuple[Product, ...] = (
         inputs=(_AMOUNT, _RATE, _years(5, 40)),
         outputs=_loan_outputs(_BY_YEARS),
         settings={"payments": 12},
+        yearly_only=True,
         defaults={"years": 30},
         lookup=RateLookup("{term}-year fixed mortgage rate", (1.0, 15.0), 21, (15, 30)),
         goods=("house", "home", "condo"),
@@ -288,6 +292,7 @@ PRODUCTS: tuple[Product, ...] = (
         inputs=(_AMOUNT, _RATE, _months(12, 96, 6)),
         outputs=_loan_outputs(_BY_MONTHS),
         settings={"payments": 12},
+        yearly_only=True,
         defaults={"months": 60},
         lookup=RateLookup("{term}-month new car loan rate", (1.0, 25.0), 120, (36, 48, 60, 72)),
         goods=("car", "truck", "suv", "vehicle"),
@@ -309,6 +314,7 @@ PRODUCTS: tuple[Product, ...] = (
         inputs=(_AMOUNT, _RATE, _years(1, 30)),
         outputs=_loan_outputs(_BY_YEARS),
         settings={"payments": 12},
+        yearly_only=True,
         defaults={"years": 10},
         lookup=RateLookup("undergraduate federal student loan interest rate", (1.0, 15.0), 400),
     ),

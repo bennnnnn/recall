@@ -15,7 +15,8 @@ as a slider moves by **evaluating** the formula the server sent; it never solves
 |------|------|
 | Products, formulas, defaults, slider ranges (data, not code paths) | `apps/api/app/modules/money/catalog.py` |
 | Reading a request (product, amount, rate, term, payment, currency, country) | `apps/api/app/modules/money/read.py`; the kind (a used car), `kinds.py`; the term, `terms.py` |
-| How often the rate, the payments and the deposits run ("2% per month", "48 monthly payments") | `apps/api/app/modules/money/periods.py`; whose payments a frequency is ("8 quarterly payments", never "HOA dues paid quarterly"), `schedule.py` |
+| How often the rate, the payments and the deposits run ("2% per month", "48 monthly payments") | `apps/api/app/modules/money/periods.py` (the one period vocabulary); what each period word belongs to and the loan's own schedule ("8 quarterly payments", never "HOA dues paid quarterly"), `schedule.py` |
+| Whether a reading is one the product is worked at (term on its slider, two payments, a rate it is quoted at, "borrowed" from a lender at a rate, a stated payment) | `apps/api/app/modules/money/fits.py` |
 | A what-if that changes the chat's last request ("what if i only do 3 years instead") | `apps/api/app/modules/money/follow_up.py`, its grammar `change_line.py` |
 | A loan told over two lines ("I am planning to buy a car", then "20k with 6 percent") | `apps/api/app/modules/money/purchase.py`; what each loan buys, `Product.goods` |
 | The card's currency and the country a rate search names | `apps/api/app/modules/money/currencies.py` |
@@ -64,24 +65,35 @@ no used-car average and got no numbers at all, where the new-car average had wor
   `Output.labels`). It compounds by the period it is paid; one compounded or charged by
   another ("12% compounded monthly, quarterly payments", "1% per month repaid quarterly")
   is left to the model. Every two weeks, twice a month and daily are no frequency it pays.
-  A frequency is the loan's schedule only where a positive grammar reads it as the loan's own
-  (`schedule.py`; 2026-11-14 review, "how much do I pay annually?" was worked as one payment
-  a year): its payments as a noun whose phrase holds only a count, a sum, "equal" or the
-  loan's name, after a word that opens a phrase ("with quarterly payments", "in 8 equal
-  quarterly payments", "the payments are quarterly"); the loan repaid ("repaid quarterly",
-  "pay it back weekly"); or the loan paid ("payable quarterly", "I'm paying it weekly", "a
-  loan of $10,000 paid quarterly"). Anything else paid by the period leaves the loan monthly:
-  another's payments ("HOA dues paid quarterly", "school fees paid quarterly", "extra payments
-  annually", "my student loan payments" beside a mortgage), a wage ("I earn $2,000 paid
-  weekly", "my pay is weekly") and a question about what a period costs ("how much do I pay
-  annually?", "what do I pay each quarter?", "total paid yearly?"). Some words leave the
-  schedule open and work no numbers: two frequencies offered ("monthly or quarterly
-  payments"), a percent before "paid quarterly", "extra quarterly payments" or a word the
-  grammar does not read before them ("I can manage quarterly payments"), and "the yearly
-  payment" asked with no schedule, compounding or rate period beside it ("what is my yearly
-  mortgage payment?" may be twelve monthly ones). A loan paid other than monthly runs over a
-  whole number of its payments: 30 months paid yearly (2.5 payments) is not worked, and its
-  card's term slider steps by whole payments (a car loan paid yearly by 12 months).
+  Every period word is read in one vocabulary (`periods.py`: "quarterly", "each quarter",
+  "twice a year", "four times a year", "every 3 months", "every six months", "p.a.", "pm"),
+  which compounding, sums, payments and the reply check share, and is given what it belongs
+  to (`schedule.py`): the rate's own period beside its percent, a compounding's, a sum's
+  ("$200 a month"), the payments', an amount asked ("how much a month"), another noun's
+  ("annual income", "quarterly taxes"), or nothing. Two reviews (2026-11-14) found another
+  thing's frequency setting the schedule ("how much do I pay annually?" worked as one payment
+  a year; "My salary is $4,000, paid weekly", "HOA dues paid quarterly" and a car lease's
+  "the payments are quarterly" made a mortgage weekly or quarterly), so the default changed:
+  a frequency sets the schedule only in the loan's own sentence (one naming it or its rate),
+  in a message naming one loan, in one form: its payments' noun phrase with only a count, a
+  sum, "equal" or the loan's name in it, opened by a word such as "with", "in" or "the",
+  with nothing after it but a sum, a term, a rate or the clause's end ("in 8 equal
+  quarterly payments", "payments made each quarter", "12 payments a year", "twelve
+  payments a year"); or the loan repaid or paid, as its own participle or with the loan as
+  object ("a loan of $10,000 at 6%, payable quarterly", "paid back yearly", "repay it
+  monthly"). A non-monthly frequency of payments said any other way there, or in a sentence
+  about payments or "it", works no numbers ("I can make extra payments annually", "I'm paying
+  it weekly", "What is my quarterly payment?", "monthly or quarterly payments"); one in a
+  sentence about something else is ignored and the loan stays monthly ("My salary is $4,000,
+  paid weekly. What's my payment …"). A question about a period's total ("how much do I pay
+  annually?") changes nothing. Payments of another kind or payee in the loan's own sentence
+  ("plus 2 balloon payments", "12 late payments", "my HOA payments") mean no level loan the
+  card works. "The yearly payment" asked with no schedule, compounding or rate period beside
+  it works none ("what is my yearly mortgage payment?" may be twelve monthly ones).
+  A loan paid other than monthly runs over a whole number of its payments: 30 months paid
+  yearly (2.5 payments) is not worked, and its card's term slider steps by whole payments
+  (a car loan paid yearly by 12 months). The reply's payment is checked against the card's
+  in the loan's own period ("$916.80 a quarter", `agreement.py`).
 - **Card payoff**: balance, APR, monthly payment → months to pay off, total interest. A payment
   at or below the first month's interest never pays it off, and the card says so.
 - **Savings**: starting amount, monthly deposit, annual rate, years → final balance, total
@@ -105,8 +117,8 @@ sum for each input, one rate, one term, one money down, one compounding. Two rat
 terms (a comparison, a refinance, "15 or 30 years"), two sums for one input, a sum the reader
 cannot read whole ("5 lakh", "1.2 billion"; digits are read in every grouping: "250,000.50",
 "250.000,50", "5,00,000", "10 000" and "250 000,50" (spaced thousands; with plain spaces only
-with their currency after them, as a round thousand or as a short lead and one group, so
-"250 300 450" may be a list and is no sum); a rate's decimal comma is its decimal point, "3,5%" is 3.5%, and
+as a round thousand or a short lead and one group, so "250 300 dollars" and "250 300 450"
+may be lists and are no sum); a rate's decimal comma is its decimal point, "3,5%" is 3.5%, and
 "3,125%" could be either, so it is not read), a deposit paid each week, or a compounding word it cannot read
 give no worked numbers and no card: the model answers. "N% down" is always the share of the
 price put down, never the rate; a plan's name ("401k", "529 plan") is no sum; interest said
@@ -122,11 +134,19 @@ rate of 1.5%", "the interest rate per quarter is 3%"). The slider and the sums k
 rate: one charged by a period is the percent times its periods a year, as an APR is (2% a
 month is 24%, a card's 0.05% a day 18.25%), and the block and the market note say both ("2%
 a month (24% a year)"); the card's rate slider is then labelled "Yearly rate"
-(`money.yearly_rate`; a card's APR says so already). A yearly rate that comes to more or less
-than the product is plausibly charged (`RateLookup.plausible`, else the widest of its
-family's: a loan 1 to 40%) was a yearly rate said casually ("a $300k mortgage at 6% per
-month" is no 72% mortgage, 2026-11-14 review), so it is not worked. A period said as a time
-is none ("6% a month from now", "a year later", "a month ago"). Savings compound by their
+(`money.yearly_rate`; a card's APR says so already). A mortgage, a car or a student loan is
+quoted by the year only, so a rate said by another period there ("a $25,000 car loan at 1.9%
+a month") works no numbers (`Product.yearly_only`); on any other product a yearly rate that
+comes to more or less than the product is plausibly charged (`RateLookup.plausible`, else
+the widest of its family's: a loan 1 to 40%) was a yearly rate said casually, so it is not
+worked (2026-11-14 reviews, `fits.py`). A period said as a time is none ("6% a month from
+now", "a year later", "a month ago", "in a month", "for a year"). A period word in the
+percent's sentence that belongs to nothing else leaves the rate unknown, never yearly ("The
+bank charges 2% on the unpaid balance each month", "at 2%, charged monthly", "1.5%,
+applied monthly to the balance", "interest accrues daily"); one in brackets beside the
+percent is its own ("2% (per month)" is 24% a year). A percent said "in" a thing ("1% a
+month in fees") or in a sentence about none of the loan's things ("My salary is $60,000 a
+year at 3% raise; my car loan is $20,000") is no rate. Savings compound by their
 rate's period unless the request says otherwise. A describing word alone after a percent
 ("1.5% monthly", "4% quarterly", "2% interest monthly") may be the rate's period or how often
 it is paid or compounded, so it is not worked unless it is a year's ("6% annually"); one
@@ -135,14 +155,24 @@ the rate's. "1% pm" is per month, as "p.m." and "pa" are. A period said of the i
 "at" the percent ("monthly interest at 2%") or away from it ("interest per month at the rate
 of 2%", "pays interest each month at 4%") must be the one the percent has, or a year's, or
 nothing is worked. A follow-up rate after a rate by the month ("what about 1.5%?") goes to
-the model. A count of payments is a term at its frequency ("48
-monthly payments" is 4 years, "8 equal quarterly payments" 2, "24 EMIs" 2), and so is a
-length in quarters or weeks ("over 8 quarters") when no year, month or count is given;
-payments gone by ("after 12 payments", "made 12 monthly payments") are not. A sum said after
+the model. A count of payments is a term at its frequency ("48 monthly payments" is 4 years,
+"8 equal quarterly payments" 2, "24 EMIs" 2) only in the loan's own sentence and only opened
+by "in", "with", "over", "by" or "for", or as an item between commas ("car loan $30k, 72
+monthly payments, 6.9% apr"). Any other count there ("I'm three monthly payments behind",
+"I can afford 400 monthly payments", "made 12 monthly payments", "after 24 monthly
+payments") is no term: beside a term the user gives it changes nothing, and with none it
+leaves the term unknown. A count with no frequency of its own must be the term's at the
+loan's schedule ("for 3 years, 36 payments"; "for 3 years, 12 payments" works none). A
+length in weeks or quarters is a term only after "for" or "over", with the loan repaid in
+it, as an item, or naming the loan ("over 8 quarters", "repay it in 26 weeks", "a 26-week
+loan"); any other ("in 3 weeks", "30 weeks pregnant", "a 2-week vacation", "200 quarters in
+a jar") is about something else, and the term is read without it. A length in days said
+as the term works no numbers. A first ask's term is held to what a follow-up's is: on the
+product's term slider and at least two payments ("for 2 weeks", "900 monthly payments" and
+"if I wait 3 months to buy" on a mortgage work none). A sum said after
 its frequency is paid by it ("36 monthly deposits of $200" deposits 200 a month for 3 years,
 never a start of 200; "quarterly deposits of $500" pays in each quarter, which no product
-works). Another payee's payments ("property tax payments each year") and a wage ("I get paid
-weekly") say nothing of the loan's.
+works).
 
 A term the user didn't give comes from the row's default (a 30-year mortgage, a 5-year car loan),
 and the reply says it assumed one. A count no word says how often it is paid ("60 payments")
@@ -163,12 +193,16 @@ Which sum is the loan (`loan_sums.py`; live 2026-10-31, a house that "costs Birr
 "Birr 50,000 which he will use as a deposit" was worked as a 250,000 loan):
 
 - A sum said to be borrowed or owed ("borrow 20k", "still owe 20k") is the loan as it stands;
-  money put down came off it already. "Borrowed" and "borrows" name a loan only beside its
-  payments and no product's own word (`Product.asked_words`): "Ato Kebede borrowed Birr
-  10,000 … repays it in 18 equal monthly payments" is a loan, "I borrowed $15,000 for a car"
-  a car loan, and "Tom borrowed $2,000 at 8% per annum. How much interest after 3 years?",
-  "I borrowed $500 from my brother at 2% per month, how much do I owe after 6 months?" and
-  "my sister borrowed $200 from me and paid back 10%" no loan at all (2026-11-14 review).
+  money put down came off it already. "Borrowed" and "borrows" name a loan only when no
+  product's own word does, and only as one lent at a rate above 0 and repaid in payments,
+  never interest-free and from no one but a lender (`Product.asked_words`, `fits.lends`):
+  "Ato Kebede borrowed Birr 10,000 at 1.5% per month and repays it in 18 equal monthly
+  payments" is a loan, "I borrowed $15,000 for a car" a car loan, and "Tom borrowed $2,000
+  at 8% per annum. How much interest after 3 years?", "He borrowed $50,000 from his uncle
+  with no interest, payments of $1,000 a month" and "my sister borrowed $200 from me and
+  paid back 10%" no loan at all (2026-11-14 reviews). A loan that states its payment ("my
+  payment is $100 a month", "48 monthly payments of $500") with no term or no rate asks for
+  what is missing, so none is assumed.
 - Otherwise the price less the sum put down, said as a down payment or a deposit, also in a
   clause after it ("which he will use as a deposit"; not a deposit with a landlord, a bank or
   a booking), or as paid toward it when "the rest" is borrowed ("she pays $5,000 and borrows
