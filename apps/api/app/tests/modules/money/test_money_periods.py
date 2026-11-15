@@ -318,3 +318,10 @@ def test_a_rate_period_no_card_words_is_unknown() -> None:
         )
         is None
     )
+
+
+def test_a_period_of_zero_is_no_period() -> None:
+    """Review of #2457: "every 0 months" divided by zero in the reader; it declines."""
+    from app.modules.money.read import read_money_request
+
+    assert read_money_request("car loan 20000 at 6% every 0 months for 5 years") is None

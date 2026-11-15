@@ -179,7 +179,9 @@ def times_a_year(match: re.Match[str]) -> int:
         return _whole(count * _UNITS[found["tunit"].lower()])
     if found.get("every"):
         unit = found["eunit"].lower().rstrip("s")
-        return _whole(_UNITS[unit] / count_value(found["every"]))
+        every = count_value(found["every"])
+        # "every 0 months" names no period (review of #2457: it divided by zero).
+        return _whole(_UNITS[unit] / every) if every else UNKNOWN
     return next(
         count
         for index, (_, _, _, count) in enumerate(_WORDS)
