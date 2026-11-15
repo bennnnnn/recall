@@ -38,7 +38,6 @@ _GREETINGS = (
 )
 # Lines whose names are kept: a list item, a quote, a table row, a draft's salutation.
 _KEPT_LINE = re.compile(r"^\s*(?:[-*+•]\s|\d{1,3}[.)]\s|>|\|)")
-_INLINE_CODE = re.compile(r"(`+)[^`]*?\1")
 _ABOUT_THE_NAME = re.compile(r"\bnames?\b", re.IGNORECASE)
 
 
@@ -63,12 +62,34 @@ def _patterns(name: str) -> tuple[re.Pattern[str], ...]:
     )
 
 
+def _code_spans(text: str) -> list[tuple[int, int]]:
+    """Inline code spans: a run of backticks to the next run of the same length. Scanned once,
+    as a regex with a backreference read a long run of backticks again for each start
+    (CodeQL, #2459)."""
+    spans: list[tuple[int, int]] = []
+    at = text.find("`")
+    while at >= 0:
+        end = at
+        while end < len(text) and text[end] == "`":
+            end += 1
+        fence = text[at:end]
+        close = text.find(fence, end)
+        # The closing run must be exactly as long: not part of a longer one.
+        while close >= 0 and close + len(fence) < len(text) and text[close + len(fence)] == "`":
+            close = text.find(fence, close + len(fence) + 1)
+        if close < 0:
+            break
+        spans.append((at, close + len(fence)))
+        at = text.find("`", close + len(fence))
+    return spans
+
+
 def _outside_code(text: str, change: Callable[[str], str]) -> str:
     parts: list[str] = []
     last = 0
-    for span in _INLINE_CODE.finditer(text):
-        parts += [change(text[last : span.start()]), span.group(0)]
-        last = span.end()
+    for start, end in _code_spans(text):
+        parts += [change(text[last:start]), text[start:end]]
+        last = end
     return "".join([*parts, change(text[last:])])
 
 

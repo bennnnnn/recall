@@ -31,12 +31,11 @@ _OPTION = re.compile(
     r"^(?P<indent>[ \t]{0,3})(?:[-*+•][ \t]+)?(?P<open>\*\*)?"
     r"(?:(?P<squared>[\U0001f170-\U0001f189])️?[ \t]*"
     r"|(?:\((?P<wrapped>[A-H])\)|(?P<letter>[A-H])[.)])(?P<close>\*\*)?[ \t]+)"
-    r"(?P<text>\S.*?)[ \t]*$"
+    r"(?P<text>\S.*)$"
 )
 _MARKUP = re.compile(r"\*\*|__|[*_`]")
 _BULLET = re.compile(r"[-*+•][ \t]")
-# What may close a question line: markup, emoji, spaces.
-_QUESTION_END = re.compile(r"\?[^\w\n]*$")
+
 # The options close a question only when little comes after them ("Type A, B, or C. 🎯").
 _AFTER_LINES = 2
 _AFTER_CHARS = 200
@@ -71,7 +70,9 @@ def _option(line: str) -> tuple[str, Option] | None:
     squared = match["squared"]
     letter = chr(ord("A") + ord(squared) - _SQUARED_A) if squared else None
     letter = letter or match["wrapped"] or match["letter"]
-    text = match["text"]
+    # Trailing spaces go here, not in the pattern: a lazy match before "[ \t]*$" read a long
+    # run of tabs again for each start (CodeQL, #2459).
+    text = match["text"].rstrip(" \t")
     if match["open"] and not match["close"] and not squared:
         # "**A) England**": the bold wraps the whole option.
         text = text.removesuffix("**").rstrip()
@@ -112,7 +113,16 @@ def _rewritten(lines: list[str], start: int, end: int) -> bool:
         return True
     above = next((line for line in reversed(lines[:start]) if line.strip()), "")
     at_margin = all(not m["indent"] and not _BULLET.match(m.group(0)) for m in matches)
-    return at_margin and _QUESTION_END.search(above) is not None
+    return at_margin and _ends_on_question(above)
+
+
+def _ends_on_question(line: str) -> bool:
+    """The line closes on "?", only markup, emoji or spaces after it. Read back from the end
+    once: a search for "?" then anything to the end tried every "?" of a long run (CodeQL)."""
+    end = len(line)
+    while end and not (line[end - 1].isalnum() or line[end - 1] in "_\n?"):
+        end -= 1
+    return bool(end) and line[end - 1] == "?"
 
 
 def has_lettered_run(text: str) -> bool:
@@ -167,7 +177,7 @@ def asked_options(reply: str) -> OptionQuestion | None:
     if len(after) > _AFTER_LINES or sum(map(len, after)) > _AFTER_CHARS:
         return None
     above = next((line for line in reversed(lines[:start]) if line.strip()), "")
-    if not _QUESTION_END.search(above):
+    if not _ends_on_question(above):
         return None
     # The question ends at its mark: "Which planet is closest to the Sun? 🪐".
     question = _MARKUP.sub("", above)
