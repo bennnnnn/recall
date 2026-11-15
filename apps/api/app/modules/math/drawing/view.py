@@ -22,6 +22,7 @@ from app.modules.math.figure.drawing import Point, angle_at
 from app.modules.math.figure.solids import ELLIPSE
 
 _ELEVATION = math.asin(ELLIPSE)
+_OTHER_HEIGHTS = tuple(math.radians(degrees) for degrees in (28.0, 38.0, 10.0))
 _TEXTBOOK = 30.0
 _TURNS = sorted(
     range(0, 360, 10),
@@ -56,12 +57,13 @@ _AXES = ((1, 0, 0), (0, 1, 0), (0, 0, 1))
 
 
 class View:
-    """Orthographic projection seen from ``azimuth`` degrees round from the x-axis."""
+    """Orthographic projection seen from ``azimuth`` degrees round from the x-axis, from
+    ``elevation`` above (the solids' own height by default)."""
 
-    def __init__(self, azimuth: float) -> None:
+    def __init__(self, azimuth: float, elevation: float = _ELEVATION) -> None:
         turn = math.radians(azimuth)
         self._sin, self._cos = math.sin(turn), math.cos(turn)
-        self._up, self._flat = math.sin(_ELEVATION), math.cos(_ELEVATION)
+        self._up, self._flat = math.sin(elevation), math.cos(elevation)
         # Toward the reader.
         self.toward = (self._flat * self._cos, self._flat * self._sin, self._up)
 
@@ -180,6 +182,11 @@ def _crowded_labels(scene: Scene, view: View) -> float:
     middle = (sum(p[0] for p in spread) / len(spread), sum(p[1] for p in spread) / len(spread))
     shown = scene.shown | ({ORIGIN} if scene.axes else set())
     labels = [(name, _away(flat[name], middle, _LETTER_GAP * size)) for name in shown]
+    if scene.axes:
+        # Each axis's letter beside its head.
+        labels += [
+            ("", _away(view(end), middle, _LETTER_GAP * size)) for _s, end in axis_ends(scene)
+        ]
     for start, tip, name in scene.arrows:
         if name:
             a, b = flat[start], flat[tip]
@@ -219,7 +226,7 @@ def _penalty(scene: Scene, view: View) -> float:
                 for w, o in zip(way, other, strict=True)
             )
             if not same and _turn(flat, view(other)) < _CROWDED:
-                penalty += 1.0
+                penalty += 2.0
     for at, a, b, _label, _right in scene.angles:
         drawn = angle_at(*(view(floats(scene.points[n])) for n in (at, a, b)))
         u, v = (
@@ -237,8 +244,11 @@ def _penalty(scene: Scene, view: View) -> float:
 def clearest_view(scene: Scene) -> View | None:
     """The clearest honest view, nearest the textbook's; None when no view is honest."""
     best: tuple[float, View] | None = None
-    for turn in _TURNS:
-        view = View(float(turn))
+    # A sphere's equator is the solids' flat ellipse, seen from their height; a scene with
+    # none may be seen from higher or lower, where its arrows stand clear of each other.
+    heights = [_ELEVATION] if scene.spheres else [_ELEVATION, *_OTHER_HEIGHTS]
+    for height, turn in ((height, turn) for height in heights for turn in _TURNS):
+        view = View(float(turn), height)
         if not _honest(scene, view):
             continue
         penalty = _penalty(scene, view)

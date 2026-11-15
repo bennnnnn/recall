@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+from dataclasses import replace
 from typing import Any
 
 from app.modules.math.drawing.amounts import AMOUNTS, read_amount
@@ -50,12 +51,23 @@ def _shape(part: ShapePart, question: Question) -> Drawing | None:
         label = read_length(text, question)
         if label is not None and _its_part(name, label, question):
             labels[name] = label
-    found = _sized(key, form, labels, part, question)
+    found = _sized(key, _drawn_as(form, labels), labels, part, question)
     if found is None:
         return None
     if part.item == "box":
         return box(found.sizes, found.shown, lid=not part.open)
     return DRAWERS[key](found.sizes, found.shown)
+
+
+def _drawn_as(form: Form, labels: dict[str, Label]) -> Form:
+    """The shape's representative proportions as its letters read: two radii lettered R and
+    r are drawn with R the larger, whichever end the reply puts it at."""
+    top, bottom = labels.get("top_radius"), labels.get("bottom_radius")
+    if top is None or bottom is None or not top.letter or not bottom.letter:
+        return form
+    if top.letter.isupper() and bottom.letter == top.letter.lower():
+        return replace(form, sizes=(form.sizes[1], form.sizes[0], *form.sizes[2:]))
+    return form
 
 
 def _sized(

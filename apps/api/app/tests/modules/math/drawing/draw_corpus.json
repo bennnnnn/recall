@@ -746,6 +746,18 @@
   ]
  },
  {
+  "id": "frustum_R_on_top",
+  "question": "Using the volume of revolution, prove that the volume of a frustum of a right circular cone with radii R and r and height h is (π/3)h(R² + rR + r²). Draw the region you rotate and the frustum.",
+  "reply": "",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"frustum\", \"top_radius\": \"R\", \"bottom_radius\": \"r\", \"height\": \"h\"}]}",
+  "expect": "draw",
+  "labels": [
+   "h",
+   "R",
+   "r"
+  ]
+ },
+ {
   "id": "only_axes",
   "question": "Find the distance of the point P(4, −3, 5) from the xz-plane, the yz-plane and each axis. Locate P in space and show these distances.",
   "reply": "",
