@@ -19,7 +19,8 @@ from app.core.logging import _JsonFormatter
 from app.core.request_id import client_request_id
 from app.models import model_catalog
 from app.modules.chat import stream_pipeline, turn_trace
-from app.modules.chat.finalize_passes import FALL_BACK, FinalizePass, FinalizeState, OnError
+from app.modules.chat.finalize_contracts import FALL_BACK, OnError
+from app.modules.chat.finalize_passes import FinalizePass, FinalizeState
 from app.modules.chat.finalize_passes import _run_pass as run_pass
 from app.modules.chat.model_routing.route import resolve_alias_in_pool
 from app.modules.chat.prompt_format import HINT_RULES

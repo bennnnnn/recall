@@ -312,6 +312,13 @@ COMPACT_RESPONSE_FORMAT_HINT = (
     "correct or complete it — do not invent a topic essay or joke about the words."
 )
 
+# A trivia game wrote its options 🅰️ 🅱️ 🅲 (2026-11-15): the first two have colour emoji
+# forms and the third none, so C looked different; ``option_letters`` rewrites any that come.
+OPTION_LETTERS_RULE = (
+    "Options under a question you ask (a quiz, a game, a choice) are lettered with plain "
+    'capital letters, one per line: "A) England", never emoji letters such as 🅰️.'
+)
+
 # Appended after the tone line so "funny" cannot override answer-first format.
 TONE_FORMAT_GUARD = (
     "Configured tone is word choice only. Do not add a joke setup or recap "

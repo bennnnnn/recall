@@ -49,7 +49,7 @@ from app.modules.chat.prompt_constants import (
     SETTINGS_IN_APP_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     STYLE_HINTS,
-    TONE_FORMAT_GUARD,
+    TONE_RULES,
     UNCLEAR_MESSAGE_HINT,
     is_bare_writing_line,
     learning_plan_contract,
@@ -300,7 +300,7 @@ STABLE_SECTIONS: tuple[PromptSection, ...] = (
         lambda t: [
             response_tone_service.tone_hint(t.user.response_tone),
             response_tone_service.emoji_hint(t.user.emoji_use),
-            TONE_FORMAT_GUARD,
+            *TONE_RULES,
         ],
         name="tone",
     ),

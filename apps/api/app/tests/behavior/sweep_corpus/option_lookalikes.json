@@ -1,0 +1,138 @@
+[
+ {
+  "id": "ol-001",
+  "area": "option lookalike",
+  "prompt": "A lot of people mix those two up, right?",
+  "history": [
+   [
+    "user",
+    "quiz me"
+   ],
+   [
+    "assistant",
+    "Here's your next one: **Which planet is known as the Red Planet?**\n\n🅰️ Venus\n🅱️ Mars\n🅲 Jupiter\n\nType A, B, or C. 🎯"
+   ]
+  ],
+  "reply": "Yes, Venus and Mars get mixed up all the time: both are rocky and close to us, but only Mars is red.",
+  "expect": "answer"
+ },
+ {
+  "id": "ol-002",
+  "area": "option lookalike",
+  "prompt": "a dog just knocked my coffee over lol",
+  "history": [
+   [
+    "user",
+    "quiz me"
+   ],
+   [
+    "assistant",
+    "Here's your next one: **Which planet is known as the Red Planet?**\n\n🅰️ Venus\n🅱️ Mars\n🅲 Jupiter\n\nType A, B, or C. 🎯"
+   ]
+  ],
+  "reply": "Oh no, sorry about the coffee! Want to pick the quiz back up once you've cleaned up?",
+  "expect": "answer"
+ },
+ {
+  "id": "ol-003",
+  "area": "option lookalike",
+  "prompt": "A",
+  "history": [
+   [
+    "user",
+    "what is python"
+   ],
+   [
+    "assistant",
+    "Python is a programming language used for scripts, data and the web. Want to learn more?"
+   ]
+  ],
+  "reply": "Did you mean to type something after \"A\", or was that a slip?",
+  "expect": "answer"
+ },
+ {
+  "id": "ol-004",
+  "area": "option lookalike",
+  "prompt": "B sounds like the hard part, how do I pick a hotel?",
+  "history": [
+   [
+    "user",
+    "help me plan a weekend in Rome"
+   ],
+   [
+    "assistant",
+    "Here's the plan for the trip:\n\nA) Book the flights this week\nB) Reserve a hotel near the centre\nC) Pack light, it's a short stay\n\nWant me to look at dates next?"
+   ]
+  ],
+  "reply": "Pick a hotel within walking distance of what you want to see, check recent reviews, and compare the total price with taxes.",
+  "expect": "answer"
+ },
+ {
+  "id": "ol-005",
+  "area": "option lookalike",
+  "prompt": "B",
+  "history": [
+   [
+    "user",
+    "make me a quiz file"
+   ],
+   [
+    "assistant",
+    "Here's the quiz as JSON:\n\n```json\n{\"question\": \"Which is a mammal?\",\n\"A\": \"Shark\"}\n```\n\n```\nWhich is a mammal?\nA) Shark\nB) Whale\n```\n\nPaste it into your app."
+   ]
+  ],
+  "reply": "Do you want me to add a second question to the file, or change this one?",
+  "expect": "answer"
+ },
+ {
+  "id": "ol-006",
+  "area": "option lookalike",
+  "prompt": "B",
+  "history": [
+   [
+    "user",
+    "teach me photosynthesis"
+   ],
+   [
+    "assistant",
+    "**Which gas do plants take in?**\n\nA) Oxygen\nB) Carbon dioxide\n\nThat one comes up a lot. Plants take carbon dioxide from the air through tiny pores called stomata, and they let oxygen out the same way. The water they use comes up from the roots, and sunlight powers the whole process. Some plants open their pores only at night to save water, which is why cacti survive in deserts. If you want, I can explain how the leaf's layers work together, or we can do a quick experiment.\n\nTell me what you'd like next."
+   ]
+  ],
+  "reply": "Do you mean the carbon dioxide part? Plants pull it in through their stomata and use it to build sugar.",
+  "expect": "answer"
+ },
+ {
+  "id": "ol-007",
+  "area": "option lookalike",
+  "prompt": "A or B, which do you think is cheaper?",
+  "history": [
+   [
+    "user",
+    "compare two phones"
+   ],
+   [
+    "assistant",
+    "Phone A has a better camera and Phone B a bigger battery. Both run the same chip."
+   ]
+  ],
+  "reply": "Phone B is usually the cheaper of the two, by about $100 at most stores.",
+  "expect": "answer"
+ },
+ {
+  "id": "ol-008",
+  "area": "option lookalike",
+  "prompt": "Ok",
+  "history": [
+   [
+    "user",
+    "quiz me"
+   ],
+   [
+    "assistant",
+    "Sure!"
+   ]
+  ],
+  "reply": "Great, here's one: **Which ocean is the largest?**\n\n🅰️ Atlantic\n🅱️ Indian\n🅲 Pacific\n\nType A, B, or C.",
+  "expect": "answer"
+ }
+]

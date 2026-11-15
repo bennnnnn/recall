@@ -4,9 +4,14 @@ follow or precede. Every pass in ``finalize_passes.FINALIZE_PASSES`` declares th
 
 from __future__ import annotations
 
-from typing import Literal, get_args
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Literal, get_args
 
 from app.services.solving import SubjectName
+
+if TYPE_CHECKING:
+    from app.modules.chat.finalize_passes import FinalizeState
 
 # "text": the pass only returns the reply (SymPy pool work included). "effect": it writes
 # anything outside the text it returns: ctx/outcome fields, the committed text, usage
@@ -16,6 +21,19 @@ TEXT: PassKind = "text"
 EFFECT: PassKind = "effect"
 # In ``before``: ahead of every other pass.
 EVERY_OTHER = frozenset({"*"})
+
+
+@dataclass(frozen=True)
+class OnError:
+    """What an exception in one pass does to the reply (see ``finalize_passes``)."""
+
+    # The step a failure is logged as; None falls back to the last committed text.
+    log_as: str | None = None
+    # Makes the failed pass's input into the next pass's; None hands it on as it was.
+    rewrite: Callable[[FinalizeState], str] | None = None
+
+
+FALL_BACK = OnError()
 
 
 def fences_pass(subject: str) -> str:
@@ -46,6 +64,7 @@ STOPPED_REPLY_PASSES = frozenset(
         "meta_notes",
         "prompt_leaks",
         "self_attribution",
+        "option_letters",
         "emoji_use",
         "answer_photo",
         "server_answer_cards",
