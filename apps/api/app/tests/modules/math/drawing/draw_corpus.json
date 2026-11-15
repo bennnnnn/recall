@@ -585,6 +585,26 @@
   "labels": null
  },
  {
+  "id": "items_as_a_map",
+  "question": "A manufacturer wants to design an open box with a square base and a surface area of 48 square units. What dimensions will produce a box with maximum volume? Draw the box.",
+  "reply": "Let the base be $x$ by $x$ and the height $h$.",
+  "description": "{\"kind\": \"shape\", \"items\": {\"box\": {\"open\": true, \"length\": \"x\", \"width\": \"x\", \"height\": \"h\"}}}",
+  "expect": "draw",
+  "labels": [
+   "x",
+   "h",
+   "x"
+  ]
+ },
+ {
+  "id": "only_the_origin",
+  "question": "Two airplanes take off from the same airport. One heads north at 600 km/h and the other east at 700 km/h, at flight levels 10 km and 12 km. What is the distance between them after one hour? Show both planes and the airport in a 3D coordinate system.",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"point\", \"name\": \"A\", \"at\": [0, 0, 0]}, {\"item\": \"point\", \"name\": \"B\", \"at\": [700, 0, 12]}]}",
+  "expect": "drop",
+  "labels": null
+ },
+ {
   "id": "only_axes",
   "question": "Find the distance of the point P(4, −3, 5) from the xz-plane, the yz-plane and each axis. Locate P in space and show these distances.",
   "reply": "",

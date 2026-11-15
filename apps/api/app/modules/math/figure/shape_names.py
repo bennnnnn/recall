@@ -29,6 +29,9 @@ NAMES: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
     "rectangle": (("rectang", "oblong"), ()),
     "square": (("square",), ()),
     "box": (("box", "cuboid", "rectangular prism", "container", "crate", "room", "cube"), ()),
+    # A box drawn with its lid, whatever the question calls it ("a fish tank"): never for one
+    # it leaves open (round 3's c047 drew a closed cuboid for "an open box").
+    "closed_box": ((), ("open box", "open-top", "open top", "no lid", "without a lid", "no top")),
     "sheet": (("corner",), ()),
     "ladder": (("ladder",), ()),
 }
@@ -45,6 +48,5 @@ def names_shape(texts: Iterable[str], shape: str) -> bool:
         return True
     stems, unless = found
     words = " ".join(texts).lower()
-    return any(_said(words, stem) for stem in stems) and not any(
-        _said(words, stem) for stem in unless
-    )
+    named = not stems or any(_said(words, stem) for stem in stems)
+    return named and not any(_said(words, stem) for stem in unless)

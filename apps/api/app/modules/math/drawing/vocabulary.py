@@ -206,9 +206,18 @@ class ShapePart(BaseModel):
 _SPACE: TypeAdapter[Any] = TypeAdapter(SpaceItem)
 
 
+def _listed(value: Any) -> Any:
+    """Items written as a map by their names ({"box": {...}}) are those items, in order."""
+    if isinstance(value, dict):
+        return [{**body, "item": name} for name, body in value.items() if isinstance(body, dict)]
+    return value
+
+
 class Description(BaseModel):
     kind: DrawKind
-    items: list[dict[str, Any]] = Field(min_length=1, max_length=_MAX_ITEMS)
+    items: Annotated[
+        list[dict[str, Any]], BeforeValidator(_listed), Field(min_length=1, max_length=_MAX_ITEMS)
+    ]
 
 
 def read_description(body: str) -> Description | None:

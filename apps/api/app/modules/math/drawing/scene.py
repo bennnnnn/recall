@@ -408,5 +408,7 @@ def checked_scene(items: list[tuple[str, Any | None]], question: Question) -> Sc
         held = item is not None and _add(item, scene, question)
         if index == main and not held:
             return None
-    drawn = scene.arrows or scene.boxes or scene.spheres or scene.faces or len(scene.points) > 1
+    # Something beside the axes: a point the origin is not, or a solid, an arrow or a face.
+    placed = any(any(at) for at in scene.points.values())
+    drawn = scene.arrows or scene.boxes or scene.spheres or scene.faces or placed
     return scene if drawn else None

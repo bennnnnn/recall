@@ -43,7 +43,14 @@ def _fence(lang: str, body: dict[str, object]) -> str:
 
 # A solid or a circle is drawn only for a question that names it, and never for one that
 # names it as part of another shape: round 3 (2026-11-14) drew a cone for a frustum.
-_NAMED = {"cone": "cone", "cylinder": "cylinder", "sphere": "sphere", "hemisphere": "hemisphere"}
+_NAMED = {
+    "cone": "cone",
+    "cylinder": "cylinder",
+    "sphere": "sphere",
+    "hemisphere": "hemisphere",
+    "cube": "closed_box",
+    "cuboid": "closed_box",
+}
 
 
 def _the_questions_shape(request: FigureRequest, texts: list[str]) -> bool:

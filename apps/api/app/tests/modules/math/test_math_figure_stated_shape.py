@@ -111,6 +111,17 @@ _CONE = "The radius r of a right circular cone is increasing at a rate of 2 cm/m
             "Draw a right triangle with legs 3 cm and 4 cm.",
             True,
         ),
+        # An open box is never drawn with its lid; any other box is.
+        (
+            {"kind": "solid", "shape": "cuboid"},
+            "Design an open box with a square base and a surface area of 48 square units. Draw the box.",
+            False,
+        ),
+        (
+            {"kind": "solid", "shape": "cube", "measures": [{"what": "edge", "value": 4}]},
+            "A fish tank is a cube of edge 4 m. Draw it.",
+            True,
+        ),
     ],
 )
 def test_the_figure_is_the_questions_shape(
