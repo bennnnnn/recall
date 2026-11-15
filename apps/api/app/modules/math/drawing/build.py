@@ -128,14 +128,15 @@ def drawn_fence(body: str, texts: list[str], reply: str) -> str | None:
         return None
     question = read_question(texts, reply)
     items = read_items(description)
+    kind = description.kind
     try:
-        if description.kind == "space":
+        if kind == "space":
             scene = checked_scene(items, question)
             spec = draw_scene(scene) if scene is not None else None
         else:
             spec = _shapes(items, question)
     except Exception:  # SymPy's own errors included: a description that fails draws nothing.
-        logger.info("drawing failed for a %s description", description.kind, exc_info=True)
+        logger.info("drawing failed for a %s picture", kind, exc_info=True)
         return None
     if spec is None or not _held(spec):
         return None
