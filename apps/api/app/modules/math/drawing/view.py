@@ -14,16 +14,15 @@ on, and each marked angle drawn near its size.
 from __future__ import annotations
 
 import math
-from collections.abc import Iterable
 
 from app.modules.math.drawing.question import Triple
 from app.modules.math.drawing.scene import ORIGIN, Scene
 from app.modules.math.figure.drawing import Point, angle_at
-from app.modules.math.figure.solids import ELLIPSE
+from app.modules.math.figure.projection import ELEVATION, TEXTBOOK_AZIMUTH, View
 
-_ELEVATION = math.asin(ELLIPSE)
+_ELEVATION = ELEVATION
 _OTHER_HEIGHTS = tuple(math.radians(degrees) for degrees in (28.0, 38.0, 10.0))
-_TEXTBOOK = 30.0
+_TEXTBOOK = TEXTBOOK_AZIMUTH
 _TURNS = sorted(
     range(0, 360, 10),
     key=lambda turn: (min(abs(turn - _TEXTBOOK), 360 - abs(turn - _TEXTBOOK)), turn),
@@ -56,24 +55,6 @@ _CROWDED = math.radians(15)
 # A marked angle drawn this far from its size reads as another angle.
 _ANGLE_SLACK = 25.0
 _AXES = ((1, 0, 0), (0, 1, 0), (0, 0, 1))
-
-
-class View:
-    """Orthographic projection seen from ``azimuth`` degrees round from the x-axis, from
-    ``elevation`` above (the solids' own height by default)."""
-
-    def __init__(self, azimuth: float, elevation: float = _ELEVATION) -> None:
-        turn = math.radians(azimuth)
-        self._sin, self._cos = math.sin(turn), math.cos(turn)
-        self._up, self._flat = math.sin(elevation), math.cos(elevation)
-        # Toward the reader.
-        self.toward = (self._flat * self._cos, self._flat * self._sin, self._up)
-
-    def __call__(self, xyz: Iterable[float]) -> Point:
-        x, y, z = xyz
-        across = -x * self._sin + y * self._cos
-        up = -(x * self._cos + y * self._sin) * self._up + z * self._flat
-        return (across, up)
 
 
 def floats(xyz: Triple) -> tuple[float, float, float]:

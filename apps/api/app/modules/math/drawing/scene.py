@@ -19,8 +19,18 @@ from fractions import Fraction
 from typing import Any
 
 from app.modules.math.drawing.labels import read_angle, read_length
+from app.modules.math.drawing.lengths import (
+    ROUNDED,
+    dot,
+    exact,
+    minus,
+    states_size,
+    worked_length,
+)
 from app.modules.math.drawing.question import Question, Triple
+from app.modules.math.drawing.roles import stated_on
 from app.modules.math.drawing.shapes import worked_value
+from app.modules.math.drawing.spheres import the_sphere
 from app.modules.math.drawing.vocabulary import (
     Axes,
     SpaceAngle,
@@ -33,20 +43,15 @@ from app.modules.math.drawing.vocabulary import (
     SpaceVector,
 )
 from app.modules.math.figure.drawing import length_label
+from app.modules.math.figure.projection import BOX_CORNERS
 from app.modules.math.figure.shape_names import names_shape
 
 MAIN = frozenset({"box", "sphere", "polygon", "plane"})
-# A value the reply gives a letter is rounded ("d = 10.44" for √109): one in a hundred.
-_ROUNDED = 0.01
 # "√34", "√ 12": a root the reply writes on a length.
 _ROOT = re.compile(r"^\u221a\s*(\d+)$")
 _DEGREES = re.compile(r"^(\d+(?:\.\d+)?)\s*(?:°|\u00ba|deg|degrees?)$")
-_PART_LABEL = re.compile(r"\(\s*[a-z]\s*\)|(?<![\w)])[a-z]\)")
 ORIGIN = "O"
 _BOX_SIZE = (Fraction(3), Fraction(4), Fraction(2))
-# A box's corners: the bottom four from the origin round, then the top four above them.
-_CORNERS = [(0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0), (0, 0, 1), (1, 0, 1), (1, 1, 1), (0, 1, 1)]
-BOX_FACES = [[0, 1, 2, 3], [4, 5, 6, 7], [0, 1, 5, 4], [3, 2, 6, 7], [0, 3, 7, 4], [1, 2, 6, 5]]
 # The edges a box's length, width and height are labelled on.
 _SIZE_EDGES = ((0, 1), (1, 2), (0, 4))
 
@@ -86,26 +91,14 @@ class Scene:
     # (at, a, b, label, right)
     angles: list[tuple[str, str, str, str | None, bool]] = field(default_factory=list)
     axes: bool = False
-    # What a vector's name stands for in an angle: its tip.
+    # What a vector's name stands for in an angle: its tip, and the point it starts from.
     tips: dict[str, str] = field(default_factory=dict)
+    tails: dict[str, str] = field(default_factory=dict)
 
     def place(self, xyz: Triple, name: str = "") -> str:
         label = name or f"_{len(self.points)}"
         self.points[label] = xyz
         return label
-
-
-def _exact(values: tuple[float, ...]) -> Triple:
-    x, y, z = (Fraction(value).limit_denominator(10_000) for value in values)
-    return (x, y, z)
-
-
-def _minus(a: Triple, b: Triple) -> Triple:
-    return (a[0] - b[0], a[1] - b[1], a[2] - b[2])
-
-
-def _dot(a: Triple, b: Triple) -> Fraction:
-    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 
 
 def _named(name: str, question: Question, at: Triple | None = None) -> bool:
@@ -125,7 +118,7 @@ def _its_value(letter: str, size: float, question: Question, slack: float) -> bo
 
 
 def _point(item: SpacePoint, scene: Scene, question: Question) -> bool:
-    at = _exact(item.at)
+    at = exact(item.at)
     if not question.states_triple(at) or (item.name in scene.points and item.name != ORIGIN):
         return False
     if item.name == ORIGIN and any(at):
@@ -139,41 +132,43 @@ def _point(item: SpacePoint, scene: Scene, question: Question) -> bool:
     return True
 
 
-def _states_size(question: Question, value: Fraction) -> str | None:
-    """The unit a stated length is written with ("" for none), or None when it is unstated
-    (a rate, a size at one moment of a changing shape)."""
-    if value in question.changing:
-        return None
-    for written in question.numbers:
-        if written.in_formula or written.unit in {"deg", "area", "other"}:
-            continue
-        if written.value == value:
-            return written.unit
-    return None
-
-
 def _box(item: SpaceBox, scene: Scene, question: Question) -> bool:
     if not names_shape([question.words], "box"):
         return False
     labels: dict[tuple[int, int], str] = {}
     size = _BOX_SIZE
     if item.size is not None:
-        size = _exact(item.size)
-        units = [_states_size(question, value) for value in size]
+        size = exact(item.size)
+        units = [states_size(question, value) for value in size]
         if any(unit is None or value <= 0 for unit, value in zip(units, size, strict=True)):
+            return False
+        # Along x and y its length and width, either way round; up z its height.
+        roles = ({"length", "width"}, {"length", "width"}, {"height"})
+        every = ("length", "width", "height")
+        if not all(
+            stated_on(r, float(v), every, question) for r, v in zip(roles, size, strict=True)
+        ):
             return False
         for edge, value, unit in zip(_SIZE_EDGES, size, units, strict=True):
             labels[edge] = length_label(float(value), unit or "")
             scene.unit = scene.unit or unit or ""
     names = [""] * 8
     for name, written in item.corners.items():
-        place = _corner_of(_exact(written), size)
+        place = _corner_of(exact(written), size)
         if place is None or names[place]:
             return False  # a letter on no corner, or two on one: the lettering is not the box's
         names[place] = name
     corners: list[str] = []
-    for (i, j, k), name in zip(_CORNERS, names, strict=True):
+    for (i, j, k), name in zip(BOX_CORNERS, names, strict=True):
         corner = (size[0] * i, size[1] * j, size[2] * k)
+        # A letter the question puts elsewhere, or writes without saying where, is no
+        # corner's: round 2's review drew "G(5, 4, 3)" at (5, 0, 3), OG a face diagonal.
+        if (
+            name
+            and not (name == ORIGIN and not any(corner))
+            and not question.confirms(name, corner)
+        ):
+            name = ""
         # A corner the scene already holds there (the origin O) is that point.
         if name and name in scene.points and scene.points[name] != corner:
             return False
@@ -195,101 +190,16 @@ def _corner_of(at: Triple, size: Triple) -> int | None:
         if value not in {0, extent}:
             return None
         flags.append(int(value == extent and extent != 0))
-    return _CORNERS.index((flags[0], flags[1], flags[2]))
-
-
-def _written_spheres(question: Question) -> list[tuple[Any, Triple, Fraction]]:
-    """Each sphere the question writes an equation of: the equation (its sides' difference),
-    its centre and its squared radius (SymPy completes the square). An equation of no real
-    sphere (a radius squared of 0 or less) is none."""
-    import sympy
-
-    from app.modules.math.tool_check import written_relations
-
-    # "(a) x² + y² + z² - 2y = 4 (b) ...": each part's equation on its own, its letter left out.
-    texts = [_PART_LABEL.sub(";\n", text) for text in question.texts]
-    x, y, z = sympy.symbols("x y z")
-    found: list[tuple[Any, Triple, Fraction]] = []
-    for text in texts:
-        for lhs, op, rhs in written_relations(text):
-            expr = sympy.expand(lhs - rhs)
-            if op != "=" or not expr.free_symbols <= {x, y, z}:
-                continue
-            poly = sympy.Poly(expr, x, y, z)
-            if poly.total_degree() != 2 or not all(c.is_Rational for c in poly.coeffs()):
-                continue
-            square = poly.coeff_monomial(x**2)
-            cross = [poly.coeff_monomial(m) for m in (x * y, x * z, y * z)]
-            if (
-                square == 0
-                or any(cross)
-                or {poly.coeff_monomial(y**2), poly.coeff_monomial(z**2)} != {square}
-            ):
-                continue
-            a = Fraction(str(square))
-            linear = [Fraction(str(poly.coeff_monomial(v))) / a for v in (x, y, z)]
-            centre = (-linear[0] / 2, -linear[1] / 2, -linear[2] / 2)
-            radius_squared = sum(c * c for c in centre) - Fraction(str(poly.coeff_monomial(1))) / a
-            if radius_squared > 0:
-                found.append((expr, centre, radius_squared))
-    return found
-
-
-def _sphere_of(item: SpaceSphere, question: Question) -> tuple[Triple, Fraction] | None:
-    """The question's own sphere the item is: the one whose equation it copies, or whose
-    centre (and radius, when it gives one) it worked out from that equation."""
-    import sympy
-
-    from app.modules.math.tool_check import parse_formula, same_value
-
-    spheres = _written_spheres(question)
-    if item.equation.strip():
-        sides = item.equation.split("=")
-        parsed = [parse_formula(side) for side in sides] if len(sides) == 2 else []
-        if len(parsed) != 2 or parsed[0] is None or parsed[1] is None:
-            return None
-        mine = sympy.expand(parsed[0] - parsed[1])
-        matches = [s for s in spheres if same_value(mine, s[0]) or same_value(mine, -s[0])]
-    elif item.center is not None:
-        centre = _exact(item.center)
-        radius = item.radius if isinstance(item.radius, int | float) else None
-        matches = [
-            s
-            for s in spheres
-            if s[1] == centre
-            and (
-                radius is None
-                or abs(math.sqrt(float(s[2])) - radius) <= _ROUNDED * max(1.0, radius)
-            )
-        ]
-    else:
-        return None
-    return (matches[0][1], matches[0][2]) if len(matches) == 1 else None
+    return BOX_CORNERS.index((flags[0], flags[1], flags[2]))
 
 
 def _sphere(item: SpaceSphere, scene: Scene, question: Question) -> bool:
     if not names_shape([question.words], "sphere"):
         return False
-    label: str | None = None
-    given = item.radius if isinstance(item.radius, int | float) and item.radius > 0 else None
-    radius = Fraction(given).limit_denominator(10_000) if given is not None else None
-    unit = _states_size(question, radius) if radius is not None else None
-    centre = _exact(item.center) if item.center is not None else None
-    if centre is not None and radius is not None and unit is not None:
-        held = question.states_triple(centre)
-    else:
-        held = False
-    if held and centre is not None and radius is not None and unit is not None:
-        radius_squared = radius * radius
-        label = length_label(float(radius), unit)
-    else:
-        # Not stated: the question's own sphere, its centre and radius worked from its equation.
-        found = _sphere_of(item, question)
-        if found is None:
-            return False
-        centre, radius_squared = found
-        # Its radius as the server works it out from the equation (√5).
-        label = worked_length(radius_squared)[0]
+    found = the_sphere(item, question)
+    if found is None:
+        return False
+    centre, radius_squared, label = found
     if any(centre):
         name = item.name if item.name and item.name not in scene.points else ""
         if name and _named(name, question, centre):
@@ -311,31 +221,23 @@ def _vector(item: SpaceVector, scene: Scene, question: Question) -> bool:
             return False
         tip = item.end
     else:
-        components = _exact(item.end)
-        if components not in question.triples:
-            return False
+        components = exact(item.end)
         base = scene.points[start]
+        # From a point the origin is not, only a vector the question writes as one: from A
+        # to "B(4, 5, 6)" is no arrow of (4, 5, 6) (round 2's review drew A to A + B).
+        held = question.vectors if any(base) else question.triples
+        if components not in held:
+            return False
         tip = scene.place(
             (base[0] + components[0], base[1] + components[1], base[2] + components[2])
         )
     if start == tip:
         return False
-    way = _minus(scene.points[tip], scene.points[start])
+    way = minus(scene.points[tip], scene.points[start])
     scene.arrows.append((start, tip, item.name if _named(item.name, question, way) else None))
     scene.tips[item.name] = tip
+    scene.tails[item.name] = start
     return True
-
-
-def worked_length(squared: Fraction) -> tuple[str, float]:
-    """A length the server works out from stated points, as shown ("√34", "5", "10.44") and
-    as a number."""
-    length = math.sqrt(float(squared))
-    root = Fraction(round(length * 1_000_000), 1_000_000)
-    if root * root == squared:
-        return worked_value(float(root))[0], length
-    if squared.denominator == 1 and squared.numerator < 10_000:
-        return f"\u221a{squared.numerator}", length
-    return worked_value(length)[0], length
 
 
 def _segment_label(text: str, squared: Fraction, scene: Scene, question: Question) -> str | None:
@@ -354,11 +256,11 @@ def _segment_label(text: str, squared: Fraction, scene: Scene, question: Questio
             return None
         claimed = label.value if label.value is not None else label.claimed
     if claimed is not None:
-        held = abs(length - claimed) <= _ROUNDED * max(1.0, length)
+        held = abs(length - claimed) <= ROUNDED * max(1.0, length)
         return f"{shown}{unit}" if held else None
     if label is None or label.letter is None or label.coefficient != 1:
         return None
-    if not _its_value(label.letter, length, question, _ROUNDED):
+    if not _its_value(label.letter, length, question, ROUNDED):
         return None
     return f"{label.letter} = {shown}{unit}"
 
@@ -366,8 +268,8 @@ def _segment_label(text: str, squared: Fraction, scene: Scene, question: Questio
 def _segment(item: SpaceSegment, scene: Scene, question: Question) -> bool:
     if item.start not in scene.points or item.end not in scene.points or item.start == item.end:
         return False
-    gap = _minus(scene.points[item.end], scene.points[item.start])
-    text = _segment_label(item.label, _dot(gap, gap), scene, question) if item.label else None
+    gap = minus(scene.points[item.end], scene.points[item.start])
+    text = _segment_label(item.label, dot(gap, gap), scene, question) if item.label else None
     scene.segments.append((item.start, item.end, text))
     return True
 
@@ -377,7 +279,7 @@ def _polygon(item: SpacePolygon | SpacePlane, scene: Scene) -> bool:
     if len(set(names)) != len(names) or not all(name in scene.points for name in names):
         return False
     a, b, c = (scene.points[name] for name in names[:3])
-    u, v = _minus(b, a), _minus(c, a)
+    u, v = minus(b, a), minus(c, a)
     normal = (u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0])
     if not any(normal):
         return False  # three points on one line make no polygon and fix no plane
@@ -385,22 +287,48 @@ def _polygon(item: SpacePolygon | SpacePlane, scene: Scene) -> bool:
     if isinstance(item, SpacePlane):
         # The patch of the plane with A, B and C at three of its corners.
         corners.append(scene.place((a[0] + c[0] - b[0], a[1] + c[1] - b[1], a[2] + c[2] - b[2])))
-    elif any(_dot(normal, _minus(scene.points[name], a)) for name in names[3:]):
+    elif any(dot(normal, minus(scene.points[name], a)) for name in names[3:]):
         return False  # its corners are not in one plane
     scene.faces.append(corners)
     return True
+
+
+def _drawn(scene: Scene, a: str, b: str) -> bool:
+    """A line from ``a`` to ``b`` is on the picture: an arrow, a segment, a face's side or a
+    box's edge or diagonal."""
+    lines = {(s, t) for s, t, _ in [*scene.arrows, *scene.segments]}
+    lines |= {
+        (face[i], face[(i + 1) % len(face)]) for face in scene.faces for i in range(len(face))
+    }
+    for box in scene.boxes:
+        lines |= {(box.corners[i], box.corners[j]) for i, j in box.diagonals}
+        lines |= {
+            (box.corners[i], box.corners[j])
+            for i in range(8)
+            for j in range(8)
+            if sum(x != y for x, y in zip(BOX_CORNERS[i], BOX_CORNERS[j], strict=True)) == 1
+        }
+    return (a, b) in lines or (b, a) in lines
 
 
 def _angle(item: SpaceAngle, scene: Scene, question: Question) -> bool:
     ends = [scene.tips.get(name, name) for name in item.between]
     if item.at not in scene.points or not all(end in scene.points for end in ends):
         return False
-    u, v = (_minus(scene.points[end], scene.points[item.at]) for end in ends)
+    # Both arms start at the angle's vertex, and are drawn: an angle at O to an arrow drawn
+    # from P is not the angle between them (round 2's review).
+    for name, end in zip(item.between, ends, strict=True):
+        tail = scene.tails.get(name)
+        if (tail is not None and tail != item.at) or (
+            tail is None and not _drawn(scene, item.at, end)
+        ):
+            return False
+    u, v = (minus(scene.points[end], scene.points[item.at]) for end in ends)
     if not any(u) or not any(v) or ends[0] == ends[1]:
         return False
-    cosine = float(_dot(u, v)) / math.sqrt(float(_dot(u, u)) * float(_dot(v, v)))
+    cosine = float(dot(u, v)) / math.sqrt(float(dot(u, u)) * float(dot(v, v)))
     size = math.degrees(math.acos(max(-1.0, min(1.0, cosine))))
-    right = _dot(u, v) == 0
+    right = dot(u, v) == 0
     label = None if right else _angle_label(item.label, size, question)
     scene.angles.append((item.at, ends[0], ends[1], label, right))
     return True
@@ -422,7 +350,7 @@ def _angle_label(text: str, size: float, question: Question) -> str | None:
         return None
     # The mark names the angle it is drawn at, and the server gives its size: the letter
     # stands unless the reply works it out to another size.
-    if question.value_of(letter) and not _its_value(letter, size, question, _ROUNDED):
+    if question.value_of(letter) and not _its_value(letter, size, question, ROUNDED):
         return None
     return f"{letter} {'=' if exact else '≈'} {shown}°"
 

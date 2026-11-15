@@ -21,13 +21,15 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
 
 from app.core.config import Settings
+from app.modules.chat.draw_stream import without_draw_blocks
 from app.modules.chat.figure_turn import earlier_user_lines, read_asks_for_a_picture
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.turn_decision import TurnDecision
+from app.modules.chat.turn_intercepts import may_be_a_maths_picture
 from app.modules.chat.turn_trace import note_prompt_rule
 from app.modules.turn_reading.turn import current_turn_reading
-from app.services.md_fence_scan import has_closed_fence, iter_closed_fences, strip_closed_fences
+from app.services.md_fence_scan import has_closed_fence, strip_closed_fences
 from app.services.solving import VerifiedMathBlock
 from app.services.subjects.registry import SubjectFigure, subject_adapter
 
@@ -37,13 +39,17 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_LANG = "draw"
 # When the read has not answered by the reply's call: a maths message that asks to see a
 # picture in so many words ("draw the cone", "show P in space"; "show that" is a proof).
 _ASKS_TO_SEE = re.compile(
     r"\b(?:draw|sketch|graph|plot|illustrate|show(?!\s+(?:that|how|why|whether)\b))\b",
     re.IGNORECASE,
 )
+
+
+# The pictures the read may ask for that a description draws: a figure, and a graph (kind
+# "plot").
+_DESCRIBED = frozenset({"diagram", "graph"})
 
 
 @dataclass
@@ -79,15 +85,21 @@ def _asks_in_words(ctx: StreamContext) -> bool:
     return _ASKS_TO_SEE.search(ctx.user_message_content or "") is not None
 
 
-async def _read_for_a_picture(ctx: StreamContext, settings: Settings) -> TurnDecision | None:
-    """The read, when the message asks in so many words to see something and the reply's
-    call did not wait for it: waited for as long as the reply waits for a read (c081 and
-    c082 of round 3 went out before theirs, and drew nothing). Waited on, never cancelled:
-    the figure read waits for the same read."""
+async def _read_for_a_picture(ctx: StreamContext, deadline: float) -> TurnDecision | None:
+    """The read, when a message that may be maths asks in so many words to see something
+    and the reply's call did not wait for it: waited for until ``deadline``, the one the
+    reply's own wait for the read keeps (c081 and c082 of round 3 went out before theirs,
+    and drew nothing; round 2's review saw "plot of Hamlet" wait twice). Waited on, never
+    cancelled: the figure read waits for the same read."""
     task = ctx.live_read
+    line = ctx.user_message_content or ""
     if task is None or not _asks_in_words(ctx):
         return None
-    await asyncio.wait([task], timeout=settings.live_read_wait_seconds)
+    if not (_a_maths_turn(ctx) or may_be_a_maths_picture(line)):
+        return None
+    left = deadline - asyncio.get_running_loop().time()
+    if left > 0:
+        await asyncio.wait([task], timeout=left)
     if not task.done() or task.cancelled() or task.exception() is not None:
         return None
     return task.result()
@@ -102,26 +114,30 @@ async def write_for_a_picture(ctx: StreamContext, settings: Settings) -> None:
         return
     if _figure() is None or not settings.draw_descriptions_enabled or not _asks_in_words(ctx):
         return
-    read = await _read_for_a_picture(ctx, settings)
+    deadline = asyncio.get_running_loop().time() + settings.live_read_wait_seconds
+    read = await _read_for_a_picture(ctx, deadline)
     if read is not None and read_asks_for_a_picture(read):
         ctx.instant_reply = None
         note_prompt_rule("subject.draw_over_instant")
 
 
 async def ask_for_a_drawing(
-    ctx: StreamContext, settings: Settings, read: TurnDecision | None
+    ctx: StreamContext, settings: Settings, read: TurnDecision | None, deadline: float
 ) -> None:
-    """Maths' draw contract beside the message, when it asks to see a maths picture."""
+    """Maths' draw contract beside the message, when it asks to see a maths picture.
+    ``deadline``: the loop time the reply stops waiting for the read."""
     figure = _figure()
     if figure is None or not settings.draw_descriptions_enabled or ctx.drawing is not None:
         return
     if ctx.instant_reply is not None:
         return
     if read is None:
-        read = await _read_for_a_picture(ctx, settings)
+        read = await _read_for_a_picture(ctx, deadline)
     asked: Literal["read", "words"] | None = None
     if read is not None and read.subject is not None and read.picture is not None:
-        asked = "read" if read_asks_for_a_picture(read) else None
+        # A picture the contract draws: a diagram's figure or a graph.
+        wanted = read_asks_for_a_picture(read) and read.picture in _DESCRIBED
+        asked = "read" if wanted else None
     elif _a_maths_turn(ctx) and _asks_in_words(ctx):
         asked = "words"
     if asked is None:
@@ -145,22 +161,16 @@ def _still_wanted(ctx: StreamContext, drawing: ReplyDrawing) -> bool:
     return read_asks_for_a_picture(decision)
 
 
-def _taken_out(text: str) -> tuple[str, list[str]]:
-    """``text`` without its ```draw blocks, and their bodies (a reply that did not stream
-    through ``draw_stream``)."""
-    bodies = [body for _start, _end, body in iter_closed_fences(text, _LANG)]
-    return (strip_closed_fences(text, _LANG) if bodies else text), bodies
-
-
 async def attach_drawing(state: FinalizeState) -> str:
     """The reply's described picture under it, what stood in for it taken out."""
     ctx = state.ctx
-    text, written = _taken_out(state.text)
+    text, written = without_draw_blocks(state.text)
+    text = text.strip() if written else state.text
     drawing = ctx.drawing
     figure = _figure()
     if drawing is None or figure is None or state.was_cancelled:
         return text
-    descriptions = [*drawing.descriptions, *written]
+    descriptions = list(dict.fromkeys([*drawing.descriptions, *written]))
     if not descriptions or not _still_wanted(ctx, drawing):
         return text
     line = ctx.user_message_content or ""

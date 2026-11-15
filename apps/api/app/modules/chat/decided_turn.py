@@ -27,6 +27,7 @@ decided (``turn_trace.note_decision``).
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING
 
 from app.core.config import Settings
@@ -60,9 +61,11 @@ _NOTED_SUBJECTS = frozenset({"everyday", "code"})
 
 async def decide_from_the_read(ctx: StreamContext, settings: Settings) -> None:
     """The read's answer, applied to the turn; the word rules' choices when it has none."""
+    # One wait for the read, shared by Auto's lane and a picture's contract.
+    deadline = asyncio.get_running_loop().time() + settings.live_read_wait_seconds
     read = await _the_read(ctx, settings)
     # A maths picture the message asks to see: the reply describes it (``drawing_turn``).
-    await ask_for_a_drawing(ctx, settings, read)
+    await ask_for_a_drawing(ctx, settings, read, deadline)
     if read is None or read.effort is None:
         note_decision("rules")
         return

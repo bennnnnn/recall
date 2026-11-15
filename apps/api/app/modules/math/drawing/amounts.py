@@ -17,6 +17,7 @@ from typing import Any
 
 from app.modules.math.drawing.question import Question
 from app.modules.math.figure.grounding import unit_name
+from app.modules.math.solve import shape_formulas as formulas
 
 Amounts = Callable[[Sequence[Any], bool], dict[str, Any]]
 
@@ -27,76 +28,86 @@ def _pi() -> Any:
     return sympy.pi
 
 
-def _round(r: Any, h: Any, lid: bool) -> dict[str, Any]:
-    pi = _pi()
-    return {
-        "volume": pi * r**2 * h,
-        "surface": (2 if lid else 1) * pi * r**2 + 2 * pi * r * h,
-    }
+def _ends(lid: bool) -> int:
+    return 2 if lid else 1
 
 
-# Each shape's amounts in its free sizes (``shapes.FORMS``' order); ``lid``: closed.
+def _slant(r: Any, h: Any) -> Any:
+    import sympy
+
+    return sympy.sqrt(r**2 + h**2)
+
+
+# Each shape's amounts in its free sizes (``shapes.FORMS``' order); ``lid``: closed. The
+# formulas are the solver's own (``solve.shape_formulas``).
 AMOUNTS: dict[str, Amounts] = {
     "window": lambda s, _lid: {
         "perimeter": 2 * s[0] + 2 * s[1] + _pi() * s[0],
         "area": 2 * s[0] * s[1] + _pi() * s[0] ** 2 / 2,
     },
-    "rectangle": lambda s, _lid: {"perimeter": 2 * (s[0] + s[1]), "area": s[0] * s[1]},
-    "square": lambda s, _lid: {"perimeter": 4 * s[0], "area": s[0] ** 2},
-    "circle": lambda s, _lid: {"perimeter": 2 * _pi() * s[0], "area": _pi() * s[0] ** 2},
-    "cylinder": lambda s, lid: _round(s[0], s[1], lid),
-    "cone": lambda s, _lid: {"volume": _pi() * s[0] ** 2 * s[1] / 3},
-    "sphere": lambda s, _lid: {
-        "volume": 4 * _pi() * s[0] ** 3 / 3,
-        "surface": 4 * _pi() * s[0] ** 2,
-    },
-    "box": lambda s, lid: {
-        "volume": s[0] * s[1] * s[2],
-        "surface": (2 if lid else 1) * s[0] * s[1] + 2 * s[2] * (s[0] + s[1]),
-    },
+    "rectangle": lambda s, _lid: formulas.rectangle(s[0], s[1]),
+    "square": lambda s, _lid: formulas.square(s[0]),
+    "circle": lambda s, _lid: formulas.circle(s[0], _pi()),
+    "cylinder": lambda s, lid: formulas.cylinder(s[0], s[1], _pi(), _ends(lid)),
+    "cone": lambda s, _lid: formulas.cone(s[0], s[1], _pi(), _slant(s[0], s[1])),
+    "sphere": lambda s, _lid: formulas.sphere(s[0], _pi()),
+    "box": lambda s, lid: formulas.cuboid(s[0], s[1], s[2], _ends(lid)),
     "sheet": lambda s, _lid: {"volume": (s[0] - 2 * s[2]) * (s[1] - 2 * s[2]) * s[2]},
     "inscribed:cone": lambda s, _lid: {"volume": _pi() * s[2] ** 2 * s[1] * (1 - s[2] / s[0])},
 }
 
-_NUMBER = re.compile(r"^\s*(\d+(?:\.\d+)?)\s*(.*?)\s*\.?$")
-# The words and marks that say an amount is an area or a volume, and the unit of length it
-# is drawn in: "48 square units", "12 m²", "10 litres" (1000 cm³ each), "500 ml".
-_AREA = re.compile(r"^(?:square|sq\.?)\s+(\w+)$|^(\w+?)\s*(?:²|\^2|2)$")
-_VOLUME = re.compile(r"^(?:cubic|cu\.?)\s+(\w+)$|^(\w+?)\s*(?:³|\^3|3)$")
+# A stated number and the unit the question writes after it: "500 cm³", "48 square units",
+# "12 m of framing", "a 10-litre can", "500 ml", "20 m^2".
+_STATED = re.compile(
+    r"(?<![\d.])(\d+(?:\.\d+)?)(?![\d.])\s*-?\s*(?:(cubic|cu\.?|square|sq\.?)\s+)?([a-z]+)?"
+    r"\s*(²|³|\^\s*2|\^\s*3)?"
+)
 _LITRES = {"l": 1000.0, "litre": 1000.0, "litres": 1000.0, "liter": 1000.0, "liters": 1000.0,
            "ml": 1.0, "millilitre": 1.0, "millilitres": 1.0, "milliliter": 1.0,
            "milliliters": 1.0}  # fmt: skip
-_BARE = frozenset({"unit", "units", ""})
+_UNITS = frozenset({"unit", "units"})
+# What each amount is measured as.
+_KIND = {"volume": "volume", "surface": "area", "area": "area", "perimeter": "length"}
 
 
-def _length_unit(word: str) -> str | None:
-    word = word.lower()
-    return "" if word in _BARE else (unit_name(word) or None)
+def _stated(written: re.Match[str]) -> tuple[str, float, str] | None:
+    """What a stated number measures as the question writes it ("volume", "area" or
+    "length"), its scale to the drawing's unit of length cubed (a litre is 1000 cm³) and
+    that unit; None for a bare number, which says none of them."""
+    power, word, mark = written.group(2) or "", (written.group(3) or "").lower(), written.group(4)
+    mark = (mark or "").replace(" ", "")
+    if word in _LITRES and not power and not mark:
+        return "volume", _LITRES[word], "cm"
+    unit = "" if word in _UNITS else unit_name(word)
+    if not unit and word not in _UNITS:
+        return None
+    if power.startswith(("cubic", "cu")) or mark in {"³", "^3"}:
+        return "volume", 1.0, unit
+    if power.startswith(("square", "sq")) or mark in {"²", "^2"}:
+        return "area", 1.0, unit
+    return ("length", 1.0, unit) if word not in _UNITS else None
 
 
 def read_amount(kind: str, text: str, question: Question) -> tuple[float, str] | None:
     """A fixed amount as the question states it: its value in the drawing's unit of length
-    (cubed or squared) and that unit; None when the question states no such amount."""
-    found = _NUMBER.match(" ".join(str(text).split()))
-    if found is None:
+    (cubed or squared) and that unit; None when the question states no such amount. What it
+    measures is read from the question's own unit, never the description's: round 2's
+    review fed "500 cm³" in as a surface. A bare number ("an area of 48") says no unit, and
+    is left out."""
+    found = re.match(r"^\s*(\d+(?:\.\d+)?)", str(text))
+    if found is None or kind not in _KIND:
         return None
-    value, unit_text = float(found.group(1)), found.group(2).lower()
-    stated = any(
-        not w.in_formula and abs(float(w.value) - value) < 1e-9 and w.unit != "deg"
-        for w in question.numbers
-    )
-    if not stated or value <= 0:
+    value = float(found.group(1))
+    readings = {
+        reading
+        for text_ in question.texts
+        for written in _STATED.finditer(text_.lower())
+        if abs(float(written.group(1)) - value) < 1e-9 and (reading := _stated(written)) is not None
+    }
+    if value <= 0 or len(readings) != 1:
         return None
-    if kind == "perimeter":
-        unit = _length_unit(unit_text)
-        return None if unit is None else (value, unit)
-    if kind == "volume" and unit_text in _LITRES:
-        return value * _LITRES[unit_text], "cm"
-    shape = (_AREA if kind == "area" or kind == "surface" else _VOLUME).match(unit_text)
-    if shape is None:
-        return (value, "") if unit_text in _BARE else None
-    unit = _length_unit(shape.group(1) or shape.group(2) or "")
-    return None if unit is None else (value, unit)
+    measured, scale, unit = readings.pop()
+    return (value * scale, unit) if measured == _KIND[kind] else None
 
 
 def optimum(

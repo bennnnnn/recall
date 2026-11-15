@@ -1,7 +1,8 @@
 """Each word-problem shape drawn from its sizes, its parts labelled where they are.
 
-The drawings follow ``figure.solids``: a round solid seen from a little above, its circles
-ellipses with their back halves dashed; a box in oblique projection. A labelled part is
+The solids are ``figure.solids``' own drawers: a round solid seen from a little above, its
+circles ellipses with their back halves dashed; a box in the one projection every solid
+keeps (``figure.projection``). A labelled part is
 drawn at its true length on the flat drawing (a radius across, a height upright), so a
 stated value sits on a part of that length (``figure.honest`` checks it). A size the
 question leaves open is drawn in proportion and carries its letter only.
@@ -13,7 +14,13 @@ import math
 from collections.abc import Callable, Sequence
 
 from app.modules.math.figure.drawing import Drawing, polar
-from app.modules.math.figure.solids import ELLIPSE, draw_polyhedron, round_base
+from app.modules.math.figure.projection import ELLIPSE, box_drawing
+from app.modules.math.figure.solids import (
+    cone_drawing,
+    cylinder_drawing,
+    round_base,
+    sphere_drawing,
+)
 
 Shown = dict[str, str]
 # A dimension line stands this far beside its shape, as a share of the shape's width.
@@ -86,57 +93,28 @@ def circle(sizes: Sequence[float], shown: Shown) -> Drawing:
     return d
 
 
-def _upright(d: Drawing, r: float, h: float) -> tuple[str, str, str, str]:
-    """A cylinder's outline: its base (back dashed), its top and its sides; the centres and
-    the right side's ends."""
-    bottom, top = d.point((0.0, 0.0)), d.point((0.0, h))
-    round_base(d, bottom, r)
-    d.arc(top, r, r * ELLIPSE)
-    d.line(d.point((-r, 0.0)), d.point((-r, h)))
-    return bottom, top, d.point((r, 0.0)), d.point((r, h))
-
-
 def cylinder(sizes: Sequence[float], shown: Shown) -> Drawing:
     r, h = sizes
-    d = Drawing("cylinder")
-    _, top, low, high = _upright(d, r, h)
-    d.line(low, high, shown.get("height"))
-    if "diameter" in shown:
-        d.line(d.point((-r, h)), d.point((r, h)), shown["diameter"])
-    else:
-        d.line(top, d.point((r, h)), shown.get("radius"))
-    return d
+    return cylinder_drawing(
+        r, h, height=shown.get("height"), radius=shown.get("radius"), diameter=shown.get("diameter")
+    )
 
 
 def cone(sizes: Sequence[float], shown: Shown) -> Drawing:
     r, h = sizes
-    d = Drawing("cone")
-    centre = d.point((0.0, 0.0), dot=True)
-    apex = d.point((0.0, h))
-    left, right = d.point((-r, 0.0)), d.point((r, 0.0))
-    round_base(d, centre, r)
-    d.line(left, apex)
-    d.line(right, apex, shown.get("slant"))
-    d.line(apex, centre, shown.get("height"), dashed=True)
-    if "diameter" in shown:
-        d.line(left, right, shown["diameter"], dashed=True, label_at=0.75)
-    else:
-        d.line(centre, right, shown.get("radius"), dashed=True)
-    d.angle(centre, right, apex, right=True)
-    return d
+    return cone_drawing(
+        r,
+        h,
+        height=shown.get("height"),
+        radius=shown.get("radius"),
+        diameter=shown.get("diameter"),
+        slant=shown.get("slant"),
+    )
 
 
 def sphere(sizes: Sequence[float], shown: Shown) -> Drawing:
     (r,) = sizes
-    d = Drawing("sphere")
-    centre = d.point((0.0, 0.0), dot=True)
-    d.arc(centre, r)
-    round_base(d, centre, r)
-    if "diameter" in shown:
-        d.line(d.point((-r, 0.0)), d.point((r, 0.0)), shown["diameter"], dashed=True, label_at=0.75)
-    else:
-        d.line(centre, d.point(polar(r, 35)), shown.get("radius"))
-    return d
+    return sphere_drawing(r, radius=shown.get("radius"), diameter=shown.get("diameter"))
 
 
 def frustum(sizes: Sequence[float], shown: Shown) -> Drawing:
@@ -153,42 +131,14 @@ def frustum(sizes: Sequence[float], shown: Shown) -> Drawing:
     return d
 
 
-_BOX_FACES = [[0, 1, 2, 3], [4, 5, 6, 7], [0, 1, 5, 4], [3, 2, 6, 7], [0, 3, 7, 4], [1, 2, 6, 5]]
-_TOP = 3
-
-
-def _box(
-    shape: str, size: tuple[float, float, float], labels: dict[tuple[int, int], str], *, lid: bool
-) -> Drawing:
-    long, w, h = size
-    vertices = [
-        (0.0, 0.0, 0.0), (long, 0.0, 0.0), (long, h, 0.0), (0.0, h, 0.0),
-        (0.0, 0.0, w), (long, 0.0, w), (long, h, w), (0.0, h, w),
-    ]  # fmt: skip
-    d = draw_polyhedron(shape, vertices, _BOX_FACES, labels)
-    if not lid:
-        # No lid: its rim is all in sight, and so is the far corner inside it, down from the
-        # rim; no face covers the opening.
-        rim = d.points[3].name, d.points[2].name, d.points[6].name, d.points[7].name
-        for i, name in enumerate(rim):
-            edge = d.side_of(name, rim[(i + 1) % 4])
-            if edge is not None:
-                edge.dashed = False
-        inside = d.side_of(d.points[4].name, d.points[7].name)
-        if inside is not None:
-            inside.dashed = False
-        d.faces = [face for face in d.faces if set(face) != set(rim)]
-    return d
-
-
 def box(sizes: Sequence[float], shown: Shown, *, lid: bool = True) -> Drawing:
     long, w, h = sizes
+    # Its width going back, its length across, its height up (``figure.projection``).
     labels = {
-        edge: shown[part]
-        for edge, part in (((0, 1), "length"), ((1, 2), "height"), ((1, 5), "width"))
+        axis: shown[part] for axis, part in ((1, "length"), (2, "height"), (0, "width"))
         if part in shown
-    }
-    return _box("box" if lid else "open_box", (long, w, h), labels, lid=lid)
+    }  # fmt: skip
+    return box_drawing("box" if lid else "open_box", (w, long, h), labels, lid=lid)
 
 
 def sheet(sizes: Sequence[float], shown: Shown) -> Drawing:
@@ -251,10 +201,9 @@ def cone_tank(sizes: Sequence[float], shown: Shown) -> Drawing:
 
 def cylinder_tank(sizes: Sequence[float], shown: Shown) -> Drawing:
     big, h, depth = sizes
-    d = Drawing("tank")
-    _, top, low, high = _upright(d, big, h)
-    d.line(low, high, shown.get("height"))
-    d.line(top, d.point((big, h)), shown.get("radius"))
+    d = cylinder_drawing(
+        big, h, height=shown.get("height"), radius=shown.get("radius"), shape="tank"
+    )
     d.arc(d.point((0.0, depth)), big, big * ELLIPSE)
     if "depth" in shown:
         side = -big * (1 + _BESIDE)
