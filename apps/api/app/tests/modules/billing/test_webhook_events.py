@@ -141,6 +141,21 @@ async def test_expiration_fetch_failure_is_retryable():
     apply_plan.assert_not_awaited()
 
 
+async def test_an_anonymous_subscriber_is_settled_without_asking_revenuecat():
+    """An anonymous id names no account: RevenueCat is not asked (py/partial-ssrf) and the
+    event is not retried, as before, when its plan could set no account's."""
+    resolve = AsyncMock(return_value="pro")
+    with (
+        patch(f"{_SUB}.resolve_plan_from_revenuecat", resolve),
+        patch(f"{_SUB}.apply_plan_for_app_user_id", AsyncMock()) as apply_plan,
+        patch(f"{_SUB}.is_stale_rc_event", AsyncMock(return_value=False)),
+        patch(f"{_SUB}.advance_rc_event_watermark", AsyncMock()),
+    ):
+        await _process(_payload("EXPIRATION", app_user_id="$RCAnonymousID:abc123"))
+    resolve.assert_not_awaited()
+    apply_plan.assert_not_awaited()
+
+
 @pytest.mark.parametrize("event_type", ["TEMPORARY_ENTITLEMENT_GRANT", "REFUND_REVERSED"])
 async def test_access_granting_events_sync_the_plan(event_type):
     apply_plan = AsyncMock(return_value=True)

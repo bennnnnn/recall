@@ -17,6 +17,7 @@ import re
 from collections.abc import Callable
 
 from app.services.number_text import NUMBER_WORDS
+from app.services.text_match import after_spaces
 
 _NUMBER_WORD = "|".join(
     sorted((*NUMBER_WORDS, "hundred", "thousand", "million", "billion"), key=len, reverse=True)
@@ -34,14 +35,26 @@ _SPELLED = re.compile(
 # distance".
 # "half the time and 60 km/h for the other half" is a trip's shape, not an amount; "half the
 # distance of 100 m" is one.
-_QUANTITY_WORDS = re.compile(
-    r"(?:-|\s+)(?:(?:of\s+)?an?\s+)?(?:laps?|metres?|meters?|seconds?)\b"
-    r"|\s+(?:of\s+)?(?:the|its|his|her|their)\s+(?:distance|way|journey|trip|length|height"
+# Each is read after a hyphen or after the spaces before it (``_quantity_words``), so neither
+# starts with a run of spaces (CodeQL py/polynomial-redos).
+_QUANTITY_WORDS = re.compile(r"(?:(?:of\s+)?an?\s+)?(?:laps?|metres?|meters?|seconds?)\b", re.I)
+_SHARE_OF_QUANTITY = re.compile(
+    r"(?:of\s+)?(?:the|its|his|her|their)\s+(?:distance|way|journey|trip|length|height"
     r"|time|mass|volume)\s+(?:of\s+)?\d",
     re.IGNORECASE,
 )
 # "the one on the left", "one of the", "no one": "one" names a thing here.
 _PRONOUN_ONE = re.compile(r"(?<![\w-])one\s+(?:of|on|in|at|with|that|which|who|is|and|or)\b", re.I)
+
+
+def _quantity_words(text: str, end: int) -> bool:
+    """ "-lap", " a lap", " of the distance of 100": a quantity a spelled amount measures."""
+    if text.startswith("-", end):
+        return _QUANTITY_WORDS.match(text, end + 1) is not None
+    start = after_spaces(text, end)
+    if start == end:
+        return False
+    return bool(_QUANTITY_WORDS.match(text, start) or _SHARE_OF_QUANTITY.match(text, start))
 
 
 def has_unread_quantity(text: str, unit_at: Callable[[str, int], object | None]) -> bool:
@@ -53,6 +66,6 @@ def has_unread_quantity(text: str, unit_at: Callable[[str, int], object | None])
         if _PRONOUN_ONE.match(text, match.start()):
             continue
         following = end + 1 if text.startswith(("-", " "), end) else end
-        if unit_at(text, following) is not None or _QUANTITY_WORDS.match(text, end):
+        if unit_at(text, following) is not None or _quantity_words(text, end):
             return True
     return False

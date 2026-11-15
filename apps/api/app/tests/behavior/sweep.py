@@ -286,6 +286,7 @@ def _stores(outcome: Outcome, user: User) -> Iterator[None]:
             content=title,
             topic="Reminders",
             due_at=datetime(2026, 10, 20, 15, 0, tzinfo=UTC),
+            due_has_time=True,
             recurrence_rule=None,
             checked=False,
             chat_id=None,
@@ -306,7 +307,15 @@ def _stores(outcome: Outcome, user: User) -> Iterator[None]:
     # reminder card the user taps) is planned, not made.
     async def create(_session: Any, **kwargs: Any) -> Any:
         outcome.saved.append(kwargs)
-        fields = {"checked": False, "sort_order": 0, "source": "chat", **kwargs}
+        # The real row's defaults, the time flag included: ``write_log.plan_create`` reads it,
+        # and without it every planned save raised and printed a traceback into the run.
+        fields = {
+            "checked": False,
+            "sort_order": 0,
+            "source": "chat",
+            "due_has_time": True,
+            **kwargs,
+        }
         item = SimpleNamespace(id=uuid4(), **fields)
         planned = write_log.planned()
         if planned is not None:

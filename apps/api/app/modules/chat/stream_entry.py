@@ -24,6 +24,7 @@ from app.modules.account import profile as profile_service
 from app.modules.attachments.markers import image_attachment_ids_from_text
 from app.modules.billing import plan as plan_service
 from app.modules.chat import turn_decision
+from app.modules.chat.chart_turn import start_chart, stop_chart
 from app.modules.chat.figure_turn import start_figure, stop_figure
 from app.modules.chat.model_routing.thinking import thinking_level
 from app.modules.chat.stream_pipeline import stream_and_finalize
@@ -107,6 +108,7 @@ def _attach_reads(
     ctx.live_read = live_read
     ctx.photo_missed = "photo" in misses
     ctx.figure = start_figure(settings, ctx)
+    ctx.chart = start_chart(settings, ctx)
 
 
 def _stop_pictures(ctx: StreamContext) -> None:
@@ -114,6 +116,7 @@ def _stop_pictures(ctx: StreamContext) -> None:
     if ctx.reply_picture is not None:
         ctx.reply_picture.cancel()
     stop_figure(ctx)
+    stop_chart(ctx)
 
 
 async def _end_new_turn(ctx: StreamContext, chat_id: UUID) -> None:
