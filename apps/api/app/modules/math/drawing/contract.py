@@ -24,7 +24,7 @@ DRAW_CONTRACT = (
     "volume).\n"
     "- Use the question's own shape (a frustum is a frustum, a sphere is no circle). Leave "
     "out what the vocabulary cannot say. Never draw it in characters, Mermaid, SVG or a "
-    "```geometry block, and do not mention the picture.\n"
+    "```geometry, ```graph or ```chart block, and do not mention the picture.\n"
     'kind "space" items: {"item":"axes"}; {"item":"point","name":"P","at":[x,y,z],'
     '"guides":true}; {"item":"vector","name":"a","to":[x,y,z]} from the origin, or '
     '"from":"A","to":"B"; {"item":"segment","from":"A","to":"B","label":"d"}; '

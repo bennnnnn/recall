@@ -67,8 +67,8 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # exception to its never-draw rule (math.drawing.contract.DRAW_CONTRACT, 2026-11-15), its
 # graphs too (the "plot" items: curves, tangents, asymptotes, shading, rectangles, slices).
 _RULES = 183
-_RULE_GRAMS = 17477
-_RULE_GRAMS_SHA = "c3658a4c231c95cc"
+_RULE_GRAMS = 17480
+_RULE_GRAMS_SHA = "a1a6c1e96cca50a9"
 
 
 def _rules() -> list[str]:

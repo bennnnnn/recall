@@ -11,7 +11,7 @@ question's letter, its unit one the question writes.
 from __future__ import annotations
 
 import math
-from typing import Any, Literal
+from typing import Any
 
 from sympy import Expr, Integral, Rational, Symbol, integrate
 
@@ -95,16 +95,16 @@ def _no_constant(antiderivative: Any, integrand: Any, letter: Symbol) -> bool:
     return bool(found) and all(abs(v) < 1e-9 for v in found)
 
 
-def _domain(curve: Curve, question: PlotQuestion) -> tuple[Any, Any] | Literal[False] | None:
-    """The stated interval the curve is drawn on, None for none, False when it is not one
-    the question states."""
+def _domain(curve: Curve, question: PlotQuestion) -> tuple[Any, Any] | None:
+    """The stated interval the curve is drawn on; None for none, and for one the question
+    does not state (√(9 - x²) "on [-3, 3]" is drawn where it has values: its whole curve)."""
     if curve.domain is None:
         return None
     held = [
         stated(end, question) if (end := value(text)) is not None else None for text in curve.domain
     ]
     if held[0] is None or held[1] is None or float(held[0]) >= float(held[1]):
-        return False
+        return None
     return held[0], held[1]
 
 
@@ -134,7 +134,7 @@ def _curves(curve: Curve, question: PlotQuestion, color: int, scene: Scene) -> l
         return [] if shape is None else [DrawnCurve(name, "", color, shape, search=search)]
     found = _own_formula(curve.y, question)
     domain = _domain(curve, question)
-    if found is None or domain is False:
+    if found is None:
         return []
     expr, letter, quantity, antiderivative = found
     if isinstance(domain, tuple):

@@ -1220,5 +1220,23 @@
   "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"spline\", \"through\": [[0, 0], [1, 1]]}]}",
   "note": "an item the vocabulary does not hold",
   "expect": "drop"
+ },
+ {
+  "id": "domain_unstated",
+  "question": "Find the equation of the line tangent to f(x) = √(9 − x²) at x = 2, and the normal line at that point. Draw the curve, the tangent and the normal.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"sqrt(9 - x^2)\", \"domain\": [\"-3\", \"3\"]}, {\"item\": \"tangent\", \"to\": \"f\", \"at\": \"2\"}]}",
+  "note": "an interval the question does not state is left out, the curve drawn where it has values",
+  "expect": "draw",
+  "curves": [
+   "y = √(9 − x²)"
+  ],
+  "lines": [
+   "line:y = 9√5/5 − 2√5x/5"
+  ],
+  "points": [
+   "(2, √5)"
+  ],
+  "open": 0,
+  "regions": []
  }
 ]
