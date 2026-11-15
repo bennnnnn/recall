@@ -19,6 +19,9 @@ INVERSE = tuple(f"a{name}" for name in _DIRECT) + tuple(f"arc{name}" for name in
 MATH_FUNCTION_NAMES = frozenset(
     (*_DIRECT, *INVERSE, "log", "ln", "lg", "exp", "sqrt", "cbrt", "abs")
 )
+# The Greek letters a variable is written in, as a regex class body (``θ``, ``φ``, ``Δ``): π
+# is a constant and stays out.
+GREEK_LETTERS = "\u0391-\u03a9\u03b1-\u03bf\u03c1-\u03c9\u03d1\u03d5\u03f5"
 # Greek letters spelled out, which the parser reads as one name each (``theta``, not t·h·e·t·a).
 GREEK_NAMES = (
     "alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta", "iota",

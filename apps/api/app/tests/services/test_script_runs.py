@@ -22,6 +22,7 @@ from app.modules.math.solve.parse import parse_expression
 from app.modules.math.tool_check import _normalize as tool_check_normalize
 from app.modules.model_reader.checks import normalized as model_read_normalized
 from app.services.glyphs import SUBSCRIPT_GLYPHS, SUPERSCRIPT_GLYPHS
+from app.services.number_text import fold_scientific
 from app.services.solving import SolveServiceError
 from app.services.symbolic_text import normalize_symbolic_request
 
@@ -93,10 +94,15 @@ def test_the_phone_and_the_server_read_one_table() -> None:
         # A sign ending a run is a charge, and a lone sign raises nothing.
         ("Fe³⁺", "Fe^3⁺"),
         ("an e⁻ beam", "an e⁻ beam"),
-        # Raised letters that raise nothing stay as written: an ordinal, a sound, a letter
-        # after a space or after an accent, one before a letter of another alphabet.
-        ("the 21ˢᵗ century", "the 21ˢᵗ century"),
-        ("the 2ⁿᵈ and 3ʳᵈ runners", "the 2ⁿᵈ and 3ʳᵈ runners"),
+        # An English ordinal's raised suffix is the ordinal typed plain, after a number or a
+        # letter: n^(th) was no ordinal, and "the 2ⁿᵈ derivative" no order (2026-11-14).
+        ("the 21ˢᵗ century", "the 21st century"),
+        ("the 2ⁿᵈ and 3ʳᵈ runners", "the 2nd and 3rd runners"),
+        ("the 2ⁿᵈ derivative of x⁴", "the 2nd derivative of x^4"),
+        ("the nᵗʰ derivative of e²ˣ", "the nth derivative of e^(2x)"),
+        ("the (n+1)ᵗʰ term", "the (n+1)th term"),
+        # Raised letters that raise nothing stay as written: another language's ordinal, a
+        # sound, a letter after a space or after an accent, one before another alphabet.
         ("le 1ᵉʳ mai", "le 1ᵉʳ mai"),
         ("say pʰɪn", "say pʰɪn"),
         ("the ˣ key", "the ˣ key"),
@@ -104,10 +110,58 @@ def test_the_phone_and_the_server_read_one_table() -> None:
         # Only a big operator's lowered run is a limit here; a name's stays for the parser.
         ("x₁ + x₂", "x₁ + x₂"),
         ("nº 5 and 30º", "nº 5 and 30º"),
+        # A raised index standing on nothing before a root sign is the root's: "2 ³√27" was
+        # 2³·√27, a checked 24√3 for 6. On a letter or a number it stays a power.
+        ("2 ³√27", "2 ∛27"),
+        ("3 ⁴√16 + (³√8)", "3 ∜16 + (∛8)"),
+        ("²√9", "√9"),
+        ("2 ⁵√32", "2 ⁵√32"),
+        ("x²√x", "x^2√x"),
+        ("2³√27", "2^3√27"),
+        # A run straight after a caret's power raises nothing: e^((2x)^x) or (e^(2x))^x?
+        ("e^(2x)ˣ", "e^(2x)ˣ"),
+        ("e^2ˣ", "e^2ˣ"),
+        ("4^(1/2)⁻¹", "4^(1/2)⁻¹"),
+        ("x^{2}³", "x^2³"),
+        # A bracket or a letter with no caret before it still takes one.
+        ("x^2y²", "x^2y^2"),
+        ("(x^2)³", "(x^2)^3"),
+        ("sin(x)²", "sin(x)^2"),
+        # One raised run is one exponent, on base 10 too: 10²ˣ was the literal 10² to the x.
+        ("10²ˣ = 1000", "10^(2x) = 1000"),
+        ("10⁻³ˣ", "10^(-3x)"),
+        ("10²ˣ⁻¹", "10^(2x-1)"),
+        ("10²⁺¹", "10^(2+1)"),
     ],
 )
 def test_a_run_reads_as_the_power_it_writes(typed: str, read: str) -> None:
     assert normalize_symbolic_request(typed) == read
+
+
+@pytest.mark.parametrize(
+    ("typed", "folded"),
+    [
+        # The literal is the whole raised run, or it gives way to the shared reading.
+        ("Solve 10²ˣ = 1000", "Solve 10²ˣ = 1000"),
+        ("10⁻³ˣ + 10²⁺¹", "10⁻³ˣ + 10²⁺¹"),
+        ("10⁻¹²³⁴", "10⁻¹²³⁴"),
+        # Scientific notation still reads as one exact number.
+        ("1.8·10⁻⁵", "1.8*10^(-5)"),
+        ("2 × 10⁻⁶ C", "2*10^(-6) C"),
+        ("6.02 × 10²³ mol⁻¹", "6.02*10^23 mol⁻¹"),
+        ("10³ˣ = 10⁶", "10³ˣ = 10^6"),
+    ],
+)
+def test_a_scientific_literal_is_the_whole_raised_run(typed: str, folded: str) -> None:
+    assert fold_scientific(typed, style="product") == folded
+
+
+@pytest.mark.parametrize(
+    ("typed", "value"),
+    [("2 ⁵√32", 4), ("⁵√32 + 1", 3), ("3 ⁴√16", 6), ("(³√27)", 3)],
+)
+def test_the_parser_reads_a_raised_index_as_the_root(typed: str, value: int) -> None:
+    assert parse_expression(typed) == value
 
 
 @pytest.mark.parametrize(
@@ -129,7 +183,10 @@ def test_the_parser_reads_a_run_as_the_caret(typed: str, caret: str) -> None:
     assert parse_expression(typed) == parse_expression(caret)
 
 
-@pytest.mark.parametrize("typed", ["e ˣ", "eⁱᶿ", "aₙ₊₁ + 1", "pʰɪn"])
+@pytest.mark.parametrize(
+    "typed",
+    ["e ˣ", "eⁱᶿ", "aₙ₊₁ + 1", "pʰɪn", "e^(2x)ˣ", "4^(1/2)⁻¹", "e^(2x)²", "e^2ˣ", "x^{2}³"],
+)
 def test_a_raised_letter_no_power_holds_is_never_a_symbol(typed: str) -> None:
     with pytest.raises(SolveServiceError):
         parse_expression(typed)

@@ -25,6 +25,7 @@ import re
 from collections.abc import Iterable
 from typing import Any
 
+from app.modules.math.match.derivative_order import derivative_orders
 from app.services.glyphs import OPERATOR_GLYPHS
 from app.services.script_runs import fold_superscript_runs
 
@@ -79,7 +80,6 @@ _SIGNED = re.compile(r"(?<![A-Za-z0-9).])((?:-|minus\s+|negative\s+)?)\s*(\d+(?:
 _SIGNED_INFINITY = re.compile(
     r"(?<![\w).])((?:-|minus\s+|negative\s+)?)\s*(?:∞|\\infty|infinity|oo|inf)(?![a-z])"
 )
-_ORDER_WORDS = {2: ("second", "2nd", "d^2", "d²", "''"), 3: ("third", "3rd", "d^3", "'''")}
 
 
 def _normalize(text: str) -> str:
@@ -345,8 +345,10 @@ def _matches(args: dict[str, Any], user: _UserMath) -> bool:
         if not _expression_arg(args, "expr", user):
             return False
         if action == "diff":
+            # An order the user named, the first when none: a first derivative for "the 2nd
+            # derivative" answers another question, and "the nth" is no order at all.
             order = int(args.get("order") or 1)
-            return order == 1 or any(word in user.lower for word in _ORDER_WORDS.get(order, ()))
+            return order in (derivative_orders(fold_superscript_runs(user.text)) or (1,))
         settings = {
             "integrate": ("lower", "upper"),
             "limit": ("point",),

@@ -744,5 +744,47 @@
   "prompt": "Le 1ᵉʳ mai est un jour férié en France ?",
   "reply": "Oui, le 1ᵉʳ mai, fête du Travail, est un jour férié et chômé en France.",
   "expect": "answer"
+ },
+ {
+  "id": "ml-101",
+  "area": "math lookalike",
+  "prompt": "I came 2ⁿᵈ in my first 10 km race. Is 52 minutes good for a beginner?",
+  "reply": "Yes, 52 minutes is a strong first 10 km: about 5:12 per kilometre, quicker than most beginners. Second place on top of that means you paced it well.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-102",
+  "area": "math lookalike",
+  "prompt": "Our 25ᵗʰ anniversary is next month. What is the traditional gift?",
+  "reply": "The 25th anniversary is the silver anniversary, so silver is traditional: jewellery, an engraved frame or cutlery are common choices.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-103",
+  "area": "math lookalike",
+  "prompt": "Why is the ₂ in CO₂ written small and low?",
+  "reply": "It is a subscript: it counts the atoms just before it. CO₂ has one carbon atom and two oxygen atoms, and the small low 2 keeps that count apart from a coefficient like the 2 in 2CO₂.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-104",
+  "area": "math lookalike",
+  "prompt": "What does the θ mean on my geometry worksheet next to the angle?",
+  "reply": "θ (theta) is a Greek letter used as the name of an unknown angle, the way x names an unknown number. The worksheet is asking you to find that angle's size.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-105",
+  "area": "math lookalike",
+  "prompt": "Is aₙ just another way to write a sequence?",
+  "reply": "Yes. aₙ names the nth term of a sequence: a₁ is the first term, a₂ the second, and a rule such as aₙ = 2n + 1 gives every term from its position n.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-106",
+  "area": "math lookalike",
+  "prompt": "My nᵗʰ attempt at this recipe finally worked, thanks!",
+  "reply": "Glad it came together in the end! Keep a note of what you changed this time so the next batch turns out the same.",
+  "expect": "answer"
  }
 ]

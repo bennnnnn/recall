@@ -101,8 +101,12 @@ def _differentiation_steps(parsed: Any, sym: Any, result_latex: str) -> list[str
     return steps
 
 
+# The highest derivative worked as a trace, its steps named by ordinal.
+MAX_DERIVATIVE_ORDER = 4
+
+
 def differentiate_expression(expr: str, variable: str = "x", order: int = 1) -> MathExprResult:
-    if order < 1 or order > 4:
+    if order < 1 or order > MAX_DERIVATIVE_ORDER:
         raise SolveServiceError("unsupported derivative order")
     sym = Symbol(variable)
     parsed = parse_expression(expr, [variable])

@@ -297,5 +297,237 @@
     "prompt": "Why is the ˣ key on my phone keyboard so small?",
     "expect": "not_math",
     "note": "prose with raised letters is no maths"
+  },
+  {
+    "id": "rl-ten-2x",
+    "area": "algebra",
+    "prompt": "Solve 10²ˣ = 1000",
+    "expect": "answer",
+    "check": [
+      "num",
+      "3/2"
+    ],
+    "note": "was a checked x = log₂3; the literal 10² took the start of the raised run, so 10²ˣ was 10^(2^x) (review, 2026-11-14)"
+  },
+  {
+    "id": "rl-ten-3x",
+    "area": "algebra",
+    "prompt": "Solve 10³ˣ = 10⁶",
+    "expect": "answer",
+    "check": [
+      "num",
+      "2"
+    ],
+    "note": "was a checked log₃2 + 1; the literal 10² took the start of the raised run, so 10²ˣ was 10^(2^x) (review, 2026-11-14)"
+  },
+  {
+    "id": "rl-ten-2x-minus-1",
+    "area": "algebra",
+    "prompt": "Solve 10²ˣ⁻¹ = 1000",
+    "expect": "answer",
+    "check": [
+      "num",
+      "2"
+    ],
+    "note": "was a checked log₂6; the literal 10² took the start of the raised run, so 10²ˣ was 10^(2^x) (review, 2026-11-14)"
+  },
+  {
+    "id": "rl-ten-minus-3x",
+    "area": "algebra",
+    "prompt": "Solve 10⁻³ˣ = 1000",
+    "expect": "answer",
+    "check": [
+      "num",
+      "-1"
+    ],
+    "note": "was a checked complex number; the literal 10² took the start of the raised run, so 10²ˣ was 10^(2^x) (review, 2026-11-14)"
+  },
+  {
+    "id": "rl-ten-product",
+    "area": "algebra",
+    "prompt": "Simplify 10²ˣ · 10ˣ",
+    "expect": "answer",
+    "check": [
+      "expr",
+      "10**(3*x)"
+    ],
+    "note": "was a checked 10^(2^x + x); the literal 10² took the start of the raised run, so 10²ˣ was 10^(2^x) (review, 2026-11-14)"
+  },
+  {
+    "id": "rl-ten-derivative",
+    "area": "calculus",
+    "prompt": "Differentiate 10²ˣ",
+    "expect": "answer",
+    "check": [
+      "expr",
+      "2*log(10)*10**(2*x)"
+    ],
+    "note": "the literal 10² took the start of the raised run, so 10²ˣ was 10^(2^x) (review, 2026-11-14)"
+  },
+  {
+    "id": "rl-ten-raised-sum",
+    "area": "arithmetic",
+    "prompt": "What is 10²⁺¹?",
+    "expect": "answer",
+    "check": [
+      "num",
+      "1000"
+    ],
+    "note": "was a checked 100: 10² then a power of +1"
+  },
+  {
+    "id": "rl-2nd-raised-product",
+    "area": "calculus",
+    "prompt": "Find the 2ⁿᵈ derivative of eˣsin x",
+    "expect": "answer",
+    "check": [
+      "expr",
+      "2*exp(x)*cos(x)"
+    ],
+    "note": "the order reader knew only 2nd and 3rd, and read a raised suffix as no order: a checked first derivative (review, 2026-11-14)"
+  },
+  {
+    "id": "rl-2nd-raised-x4",
+    "area": "calculus",
+    "prompt": "Find the 2ⁿᵈ derivative of x⁴",
+    "expect": "answer",
+    "check": [
+      "expr",
+      "12*x**2"
+    ],
+    "note": "was a checked 4x³; the order reader knew only 2nd and 3rd, and read a raised suffix as no order: a checked first derivative (review, 2026-11-14)"
+  },
+  {
+    "id": "rl-3rd-raised-sin",
+    "area": "calculus",
+    "prompt": "Find the 3ʳᵈ derivative of sin x",
+    "expect": "answer",
+    "check": [
+      "expr",
+      "-cos(x)"
+    ],
+    "note": "was a checked cos x; the order reader knew only 2nd and 3rd, and read a raised suffix as no order: a checked first derivative (review, 2026-11-14)"
+  },
+  {
+    "id": "rl-2nd-raised-5x3",
+    "area": "calculus",
+    "prompt": "What is the 2ⁿᵈ derivative of 5x³?",
+    "expect": "answer",
+    "check": [
+      "expr",
+      "30*x"
+    ],
+    "note": "was a checked 15x²; the order reader knew only 2nd and 3rd, and read a raised suffix as no order: a checked first derivative (review, 2026-11-14)"
+  },
+  {
+    "id": "rl-4th-x5",
+    "area": "calculus",
+    "prompt": "Find the 4th derivative of x^5",
+    "expect": "answer",
+    "check": [
+      "expr",
+      "120*x"
+    ],
+    "note": "was a checked 5x⁴; the order reader knew only 2nd and 3rd, and read a raised suffix as no order: a checked first derivative (review, 2026-11-14)"
+  },
+  {
+    "id": "rl-fourth-x5",
+    "area": "calculus",
+    "prompt": "Find the fourth derivative of x^5",
+    "expect": "answer",
+    "check": [
+      "expr",
+      "120*x"
+    ],
+    "note": "was a checked 5x⁴; the order reader knew only 2nd and 3rd, and read a raised suffix as no order: a checked first derivative (review, 2026-11-14)"
+  },
+  {
+    "id": "rl-nth-e2x",
+    "area": "calculus",
+    "prompt": "Find the nᵗʰ derivative of e²ˣ",
+    "expect": "answer",
+    "check": [
+      "expr",
+      "2**n*exp(2*x)"
+    ],
+    "gap": "declines: an order in a letter is read as no number, and no reading works the nth derivative",
+    "note": "was a checked 2e^(2x), the first derivative (review, 2026-11-14)"
+  },
+  {
+    "id": "rl-root-index-3",
+    "area": "arithmetic",
+    "prompt": "Evaluate 2 ³√27",
+    "expect": "answer",
+    "check": [
+      "num",
+      "6"
+    ],
+    "note": "was a checked 24√3: the raised 3 was a power of 2"
+  },
+  {
+    "id": "rl-root-index-4",
+    "area": "arithmetic",
+    "prompt": "Evaluate 3 ⁴√16",
+    "expect": "answer",
+    "check": [
+      "num",
+      "6"
+    ],
+    "note": "was a checked 324"
+  },
+  {
+    "id": "rl-greek-differential",
+    "area": "calculus",
+    "prompt": "∫ sin θ dθ",
+    "expect": "answer",
+    "check": [
+      "expr",
+      "-cos(θ)"
+    ],
+    "note": "held cos(dθ²): the differential knew only Latin letters (review, 2026-11-14)"
+  },
+  {
+    "id": "rl-greek-differential-other",
+    "area": "calculus",
+    "prompt": "∫ x² dθ",
+    "expect": "answer",
+    "check": [
+      "expr",
+      "x**2*θ"
+    ],
+    "note": "was a checked d·x³θ/3 + C"
+  },
+  {
+    "id": "rl-sequence-sum",
+    "area": "sequences",
+    "prompt": "Find the sum of the first n terms of aₙ = 2n + 1",
+    "expect": "answer",
+    "check": [
+      "expr",
+      "n**2 + 2*n"
+    ],
+    "gap": "declines: no reader sums a sequence given by its rule",
+    "note": "was a checked n = -1: the equation walker took the n of aₙ as a side (review, 2026-11-14)"
+  },
+  {
+    "id": "rl-sequence-index",
+    "area": "sequences",
+    "prompt": "If bₙ = 3n, find n",
+    "expect": "decline",
+    "note": "was a checked n = 0; no value of bₙ is given, so n has none"
+  },
+  {
+    "id": "rl-two-names",
+    "area": "algebra",
+    "prompt": "Solve x₁ + x₂ = 5",
+    "expect": "decline",
+    "note": "was a checked 'no solution': one equation in two unknowns has no single value"
+  },
+  {
+    "id": "rl-caret-then-raised",
+    "area": "calculus",
+    "prompt": "Differentiate e^(2x)ˣ",
+    "expect": "decline",
+    "note": "e^((2x)^x) or (e^(2x))^x: a raised run after a caret's power says neither"
   }
 ]

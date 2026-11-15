@@ -4,7 +4,7 @@ superscripts and subscripts, and root signs."""
 from __future__ import annotations
 
 from app.services.glyphs import OPERATOR_GLYPHS
-from app.services.script_runs import fold_subscript_runs, fold_superscript_runs
+from app.services.script_runs import fold_subscript_runs, fold_superscript_runs, root_index_at
 
 # OCR / homework unicode operators → ASCII before the allowlist runs.
 # Do NOT widen `_SAFE_EXPR_CHARS`; map glyphs here instead.
@@ -45,18 +45,28 @@ def _rewrite_unicode_script_runs(s: str) -> str:
 _UNICODE_HIGHER_ROOTS = {"\u221b": "3", "\u221c": "4"}  # cube and fourth root signs
 
 
+def _higher_root_at(s: str, i: int) -> tuple[str, int] | None:
+    """The index of a root sign at ``i`` and where the sign ends: ``∛``, ``∜``, or an index
+    raised before ``√`` (``⁵√32``, the shared reading's ``root_index_at``)."""
+    index = _UNICODE_HIGHER_ROOTS.get(s[i])
+    if index is not None:
+        return index, i + 1
+    return root_index_at(s, i)
+
+
 def _rewrite_unicode_higher_roots(s: str) -> str:
-    """``∛(x)`` / ``∛8`` → ``((x))**(1/3)``; a sign with nothing after it is left alone."""
+    """``∛(x)`` / ``∛8`` / ``⁵√32`` → ``((x))**(1/3)``; a sign with nothing after it is left
+    alone."""
     out: list[str] = []
     i = 0
     n = len(s)
     while i < n:
-        index = _UNICODE_HIGHER_ROOTS.get(s[i])
-        if index is None:
+        root = _higher_root_at(s, i)
+        if root is None:
             out.append(s[i])
             i += 1
             continue
-        j = i + 1
+        index, j = root
         while j < n and s[j] in " \t":
             j += 1
         if j < n and s[j] == "(":

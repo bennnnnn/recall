@@ -12,11 +12,18 @@ back as ˣ·e·sin(2x)/2 and the derivative of 2ˣ as 0 (grade 12 textbook round
   bracket or π): ``eˣ``, ``e⁻ˣ``, ``e²ˣ``, ``xⁿ⁻¹``, ``2ˣ⁺¹``, ``(x+1)ⁿ``. Glued to a
   Latin letter after it, the power is bracketed so it ends where the raised letters do
   (``eˣsin x`` is ``e^(x)sin x``, never ``e^xsin``). Raised letters on a number are its
-  ordinal ("the 21ˢᵗ century", "le 1ᵉʳ mai"); before a letter English does not write
-  they are a sound's (IPA's "pʰæn"), and after a space there is nothing to raise. Those stay as
-  written, and the parser refuses a modifier letter it is handed, so no reading
-  certifies them.
+  ordinal ("le 1ᵉʳ mai"); before a letter English does not write they are a sound's (IPA's
+  "pʰæn"), and after a space there is nothing to raise. Those stay as written, and the
+  parser refuses a raised or lowered character it is handed, so no reading certifies them.
 - A sign that ends a run is a charge, not part of the power: ``Fe³⁺`` keeps its ⁺.
+- An English ordinal's raised suffix is the ordinal typed plain: ``2ⁿᵈ`` is ``2nd``, ``nᵗʰ``
+  ``nth``, "the 21ˢᵗ century" "the 21st century". Read as a power, "the nᵗʰ derivative"
+  was n^(th) and "the 2ⁿᵈ derivative" no order at all: a checked first derivative
+  (2026-11-14).
+- Raised digits standing on nothing before a root sign are its index: ``2 ³√27`` is
+  ``2 ∛27``, never 2³·√27 (24√3 for 6). On a letter they stay a power: ``x²√x``.
+- A run straight after a caret's power raises nothing: ``e^(2x)ˣ`` is e^((2x)^x) or
+  (e^(2x))^x, and nothing says which.
 - A lowered run straight after a big operator is its lower limit: ``∫₀¹`` is ``∫_0^1``.
 """
 
@@ -33,6 +40,13 @@ _CLOSED_ATOMS = frozenset(")]}π")
 _SIGNS = "+-"
 # Operators whose lowered script is a limit: ``∫₀¹``, ``∑ₖ₌₁¹⁰``.
 _BIG_OPERATORS = frozenset("∫∬∭∮∑∏")
+# The suffixes an English ordinal raises: "1ˢᵗ", "2ⁿᵈ", "3ʳᵈ", "4ᵗʰ", "nᵗʰ".
+_ORDINAL_SUFFIXES = frozenset({"st", "nd", "rd", "th"})
+_ROOT = "√"
+# A root's raised index as the sign that writes it; another index stays for the parser.
+_ROOT_SIGNS = {"2": _ROOT, "3": "∛", "4": "∜"}
+# The longest bracketed power read back to its caret.
+_POWER_SPAN = 200
 
 
 def _balanced(text: str) -> bool:
@@ -88,6 +102,62 @@ def _written(script: str, mark: str, *, group_numbers: bool, glued: bool) -> str
     return f"{mark}({inner})"
 
 
+def root_index_at(text: str, index: int) -> tuple[str, int] | None:
+    """The index raised before a root sign at ``index``, and where the sign ends:
+    ``³√27`` → ``("3", 2)``. Only digits that stand on nothing (the start, a space, an
+    operator or an opening bracket): after a letter or a number they are its power
+    (``x²√x`` is x² times √x). A run is read from its first digit."""
+    if index and text[index - 1] in SUPERSCRIPT_GLYPHS:
+        return None
+    end = index
+    while (
+        end < len(text)
+        and text[end] in SUPERSCRIPT_GLYPHS
+        and SUPERSCRIPT_GLYPHS[text[end]].isdigit()
+    ):
+        end += 1
+    if end == index or text[end : end + 1] != _ROOT or (index and _maths_atom(text[index - 1])):
+        return None
+    return "".join(SUPERSCRIPT_GLYPHS[char] for char in text[index:end]), end + 1
+
+
+def _opening(text: str, close: int) -> int:
+    """Where the bracket closing at ``close`` opens, or -1 past ``_POWER_SPAN`` characters
+    (no power is that long, and a long paste of brackets is not read back once per run)."""
+    depth = 0
+    for at in range(close, max(close - _POWER_SPAN, -1), -1):
+        depth += {")": 1, "]": 1, "}": 1, "(": -1, "[": -1, "{": -1}.get(text[at], 0)
+        if depth == 0:
+            return at
+    return -1
+
+
+def _after_caret_power(text: str, index: int) -> bool:
+    """The run at ``index`` continues a power typed with a caret: ``e^(2x)ˣ``, ``e^2ˣ``,
+    ``4^(1/2)⁻¹``. A caret's operand is a bracket, a number or one letter."""
+    before = text[index - 1] if index else ""
+    start = index - 1
+    if before in ")]}":
+        start = _opening(text, start)
+    elif before.isascii() and before.isdigit():
+        while (
+            start
+            and text[start - 1].isascii()
+            and (text[start - 1].isdigit() or text[start - 1] == ".")
+        ):
+            start -= 1
+    elif not (before.isascii() and before.isalpha()):
+        return False
+    return start > 0 and text[:start].endswith(("^", "**"))
+
+
+def _ordinal(body: str, before: str) -> bool:
+    """``21ˢᵗ``, ``2ⁿᵈ``, ``nᵗʰ``, ``(n+1)ᵗʰ``: a number's or a letter's ordinal suffix."""
+    if before.isascii() and before.isdigit():
+        return body in _ORDINAL_SUFFIXES
+    return body == "th" and ((before.isascii() and before.isalpha()) or before == ")")
+
+
 def fold_superscript_runs(text: str, *, mark: str = "^", group_numbers: bool = False) -> str:
     """Every raised run that writes a power, as ``mark`` and the power: ``eˣ`` → ``e^x``."""
     if not any(char in SUPERSCRIPT_GLYPHS for char in text):
@@ -99,6 +169,11 @@ def fold_superscript_runs(text: str, *, mark: str = "^", group_numbers: bool = F
             out.append(text[index])
             index += 1
             continue
+        root = root_index_at(text, index)
+        if root is not None and root[0] in _ROOT_SIGNS:
+            out.append(_ROOT_SIGNS[root[0]])
+            index = root[1]
+            continue
         end = index
         while end < len(text) and text[end] in SUPERSCRIPT_GLYPHS:
             end += 1
@@ -106,7 +181,13 @@ def fold_superscript_runs(text: str, *, mark: str = "^", group_numbers: bool = F
         core = run.rstrip(_DANGLING)
         before = text[index - 1] if index else ""
         after = text[end] if end < len(text) else ""
-        power = _raised(core, before, after) if core else None
+        if run == core and _ordinal(core, before):
+            out.append(core)
+            index = end
+            continue
+        power = None
+        if core and root is None and not _after_caret_power(text, index):
+            power = _raised(core, before, after)
         if power is None:
             out.append(text[index:end])
         else:

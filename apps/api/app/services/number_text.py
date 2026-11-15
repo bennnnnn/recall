@@ -24,7 +24,7 @@ import math
 import re
 from typing import Literal
 
-from app.services.glyphs import SUPERSCRIPT_SIGNED
+from app.services.glyphs import SUPERSCRIPT_GLYPHS, SUPERSCRIPT_SIGNED
 
 # 12, 3.5 or .5. A leading point is part of the number: skipping it once turned a
 # radius of .5 into a verified radius of 5.
@@ -136,10 +136,14 @@ _TIMES = r"(?:[x×X*·⋅]|\\times|\\cdot)"
 # A space may follow the sign ("10^- 5") but never stands in for one, so it never
 # competes with the gap before it: a run of spaces is tried once, not once per split.
 _SIGNED = rf"(?:[-+{_MINUS_SIGNS}]\s*)?\d{{1,3}}"
+# A raised run is one exponent: ``10²ˣ`` is 10^(2x) and ``10²⁺¹`` 10^(2+1), so the literal is
+# only the whole run. Read as ``10²`` and a run after it, "10²ˣ = 1000" was a checked
+# x = log₂3 (10^(2^x)) for 3/2 (2026-11-14).
+_RAISED = re.escape("".join(sorted(SUPERSCRIPT_GLYPHS)))
 _POWER = (
     rf"(?:\^|\*\*){_GAP}"
     rf"(?:\{{\s*(?P<braced>{_SIGNED})\s*\}}|\(\s*(?P<paren>{_SIGNED})\s*\)|(?P<plain>{_SIGNED}))"
-    r"|(?P<sup>[⁻⁺]?[⁰¹²³⁴⁵⁶⁷⁸⁹]{1,3})"
+    rf"|(?P<sup>[⁻⁺]?[⁰¹²³⁴⁵⁶⁷⁸⁹]{{1,3}})(?![{_RAISED}])"
 )
 _MANTISSA = rf"[-+{_MINUS_SIGNS}]?(?:\d{{1,3}}(?:,\d{{3}})+|\d+)(?:\.\d+)?"
 

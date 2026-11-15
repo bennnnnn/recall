@@ -130,3 +130,80 @@ async def test_a_glued_differential_is_the_differential(glued: str, spaced: str)
     expected = await _verified(spaced)
     assert expected is not None, spaced
     assert await _verified(glued) == expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("typed", "caret"),
+    [
+        # One raised run is one exponent on base 10 too: "10²" was read as the literal 100
+        # and the ˣ after it as a power of that, so 10²ˣ = 1000 was a checked x = log₂3.
+        ("Solve 10²ˣ = 1000", "Solve 10^(2x) = 1000"),
+        ("Solve 10³ˣ = 10⁶", "Solve 10^(3x) = 10^6"),
+        ("Solve 10²ˣ⁻¹ = 1000", "Solve 10^(2x-1) = 1000"),
+        ("Solve 10⁻³ˣ = 1000", "Solve 10^(-3x) = 1000"),
+        ("Simplify 10²ˣ · 10ˣ", "Simplify 10^(2x) · 10^x"),
+        ("Differentiate 10²ˣ", "Differentiate 10^(2x)"),
+        ("Integrate 10³ˣ dx", "Integrate 10^(3x) dx"),
+        ("Solve 2 × 10²ˣ = 200", "Solve 2 × 10^(2x) = 200"),
+        ("What is 10²⁺¹?", "What is 10^(2+1)?"),
+        # Scientific notation is still one number.
+        ("Compute 1.8 × 10⁻⁵ × 2", "Compute 1.8 × 10^-5 × 2"),
+    ],
+)
+async def test_a_raised_run_on_ten_is_one_exponent(typed: str, caret: str) -> None:
+    expected = await _verified(caret)
+    assert expected is not None, caret
+    assert await _verified(typed) == expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("typed", "answer"),
+    [
+        ("Solve 10²ˣ = 1000", r"x = \frac{3}{2}"),
+        ("Solve 10³ˣ = 10⁶", "x = 2"),
+        ("Solve 10²ˣ⁻¹ = 1000", "x = 2"),
+        ("Solve 10⁻³ˣ = 1000", "x = -1"),
+        ("What is 10²⁺¹?", "1000"),
+        # A raised index standing on nothing before a root sign is the root's: "2 ³√27" was
+        # 2³·√27, a checked 24√3.
+        ("Evaluate 2 ³√27", "6"),
+        ("Evaluate 3 ⁴√16", "6"),
+        ("Evaluate 2 ⁵√32", "4"),
+        ("Evaluate ³√8", "2"),
+        # On a letter it is still the letter's power.
+        ("Simplify x²√x", r"x^{2} \sqrt{x}"),
+        # A differential in a Greek letter is the differential: "∫ x² dθ" was a checked
+        # d·x³θ/3 + C and "∫ sin θ dθ" held cos(dθ²).
+        ("∫ x² dθ", r"x^{2} θ + C"),
+        ("∫ sin θ dθ", r"- \cos{\left(θ \right)} + C"),
+        ("∫ θ^2dθ", r"\frac{θ^{3}}{3} + C"),
+        ("∫ cos φ dφ", r"\sin{\left(φ \right)} + C"),
+        ("∫ 3 dα", "3 α + C"),
+        ("∫ sin(theta) d theta", r"- \cos{\left(\theta \right)} + C"),
+        ("integrate sin θ with respect to θ", r"- \cos{\left(θ \right)} + C"),
+        ("Differentiate sin θ with respect to θ", r"\cos{\left(θ \right)}"),
+        ("Differentiate θ²", "2 θ"),
+        # d is still a variable of its own.
+        ("Integrate 3d dd", r"\frac{3 d^{2}}{2} + C"),
+        ("Solve d² + 3d = 4", r"d = -4 \text{ or } d = 1"),
+    ],
+)
+async def test_a_raised_run_reads_as_written(typed: str, answer: str) -> None:
+    assert await _verified(typed) == answer
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "typed",
+    [
+        # Straight after a caret's power a raised run is ambiguous: e^((2x)^x) or (e^(2x))^x.
+        "Differentiate e^(2x)ˣ",
+        "Evaluate 4^(1/2)⁻¹",
+        "Evaluate e^2ˣ",
+        "Differentiate e^(2x)²",
+    ],
+)
+async def test_a_raised_run_after_a_caret_power_is_declined(typed: str) -> None:
+    assert await _verified(typed) is None

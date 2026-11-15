@@ -76,7 +76,11 @@ def fold_latex_marks(text: str) -> str:
 def fold_superscripts(text: str) -> str:
     """Unicode and braced numeric powers in caret notation: ``x²`` → ``x^2``, ``eˣ`` →
     ``e^x``, ``e⁻ˣ`` → ``e^(-x)``, ``x^{2}`` → ``x^2`` (``services/script_runs.py``)."""
-    text = fold_superscript_runs(text)
+    return fold_braced_powers(fold_superscript_runs(text))
+
+
+def fold_braced_powers(text: str) -> str:
+    """The keypad's braced whole-number powers in caret notation: ``x^{2}`` → ``x^2``."""
     if "^{" not in text:
         return text
     out: list[str] = []

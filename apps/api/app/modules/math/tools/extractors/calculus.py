@@ -5,8 +5,11 @@ from __future__ import annotations
 import re
 from typing import Literal
 
-from app.modules.math.schemas import MathIntent
+from app.modules.math.match.derivative_order import asked_derivative_order
+from app.modules.math.schemas import MathIntent, declined_reading
+from app.modules.math.solve.calculus import MAX_DERIVATIVE_ORDER
 from app.modules.math.tools.expr_rewrite import (
+    VARIABLE_NAME,
     _normalize_latex_expr,
     _strip_trailing_differential,
     math_expr_or_none,
@@ -31,10 +34,10 @@ from app.modules.math.tools.request_text import (
 )
 from app.services.number_text import SIGNED_DECIMAL
 
-_WRT_VARIABLE = re.compile(r"\b(?:with\s+respect\s+to|wrt)\s+([a-zA-Z])\b", re.IGNORECASE)
-_LEIBNIZ_VARIABLE = re.compile(r"/\s*d\s*([a-zA-Z])\b")
+_WRT_VARIABLE = re.compile(rf"\b(?:with\s+respect\s+to|wrt)\s+({VARIABLE_NAME})\b", re.IGNORECASE)
+_LEIBNIZ_VARIABLE = re.compile(rf"/\s*d\s*({VARIABLE_NAME})\b")
 # ``dx`` alone, or glued to a power or a bracket (``x^2dx``), as ``expr_rewrite`` peels it.
-_INTEGRAL_VARIABLE = re.compile(r"(?:\b|(?<=[\d)\]]))d\s*([a-zA-Z])(?=\s+from\b|\s*$)")
+_INTEGRAL_VARIABLE = re.compile(rf"(?:\b|(?<=[\d)\]]))d\s*({VARIABLE_NAME})(?=\s+from\b|\s*$)")
 _HIGHER_LEIBNIZ = re.compile(
     r"\bd\s*(?:\^\s*([2-4])|([²³⁴]))\s*[a-zA-Z]\s*/\s*"
     r"d\s*([a-zA-Z])\s*(?:\^\s*[2-4]|[²³⁴])",
@@ -82,28 +85,11 @@ def _split_find_clause(s: str) -> str:
     return s[:cut] if cut is not None else s
 
 
-def _derivative_order(cleaned: str) -> int:
-    """1-3 from Lagrange primes, then phrasing. Linear scans — no regex."""
-    from app.modules.math.match.calculus import lagrange_prime_order
-
-    primes = lagrange_prime_order(cleaned)
-    if primes:
-        return primes
-    low = cleaned.lower()
-    for phrase, order in (
-        ("third derivative", 3),
-        ("3rd derivative", 3),
-        ("second derivative", 2),
-        ("2nd derivative", 2),
-    ):
-        if phrase in low:
-            return order
-    compact = low.replace(" ", "")
-    if "d^3" in compact or "d³" in compact:
-        return 3
-    if "d^2" in compact or "d²" in compact:
-        return 2
-    return 1
+def _derivative_order(cleaned: str) -> int | None:
+    """The order asked (``match/derivative_order.py``); None for one the solver cannot work:
+    no number ("the nth derivative") or past its highest."""
+    order = asked_derivative_order(cleaned)
+    return order if order is not None and order <= MAX_DERIVATIVE_ORDER else None
 
 
 def _extract_critical_points_intent(cleaned: str) -> MathIntent | None:
@@ -369,6 +355,11 @@ def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
     if calc_op == "factor" and expr.strip().isdigit():
         # "factor 360" asks for its prime factors; SymPy's factor() returns 360.
         return None
+    order = _derivative_order(cleaned) if calc_op == "differentiate" else 1
+    if order is None:
+        # Declined, not "not mine": read as the first, "the nth derivative of e^(2x)" was a
+        # checked 2e^(2x), and no later reading or tool call may answer it either.
+        return declined_reading("derivative_order")
     return MathIntent(
         kind="calculus",
         expr=expr,
@@ -378,7 +369,7 @@ def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
         ),
         integral_lower=integral_lower,
         integral_upper=integral_upper,
-        derivative_order=_derivative_order(cleaned) if calc_op == "differentiate" else 1,
+        derivative_order=order,
         evaluation_point=evaluation_point,
     )
 

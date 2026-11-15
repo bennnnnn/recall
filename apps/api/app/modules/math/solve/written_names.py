@@ -33,6 +33,7 @@ from app.modules.math.function_names import (
     names_longest_first,
 )
 from app.modules.math.match.letter_runs import MATH_MULTI_LETTER
+from app.services.glyphs import SUBSCRIPT_GLYPHS, SUPERSCRIPT_GLYPHS
 from app.services.script_runs import fold_subscript_runs, fold_superscript_runs
 from app.services.solving import SolveServiceError
 
@@ -106,8 +107,9 @@ def reject_unknown_names(normalized: str, declared: set[str]) -> None:
     twice (``root``, ``speed``), four letters or more out of order (``cube``, ``velocity``),
     or three out of order applied to a bracket (``fog(x)``). A modifier letter is no name
     either: one the script reading left in place (``eˣsin x``, "the ˣ key") was a symbol of
-    its own, and ∫ x eˣ dx was certified as e·x²·ˣ/2 (2026-11-13)."""
-    if any(unicodedata.category(char) == "Lm" for char in normalized):
+    its own, and ∫ x eˣ dx was certified as e·x²·ˣ/2 (2026-11-13). Nor is any raised or
+    lowered character it left: a run it could not read (``e^(2x)²``, ``aₙ₊₁``) is no power."""
+    if any(_unread_script(char) for char in normalized):
         raise SolveServiceError(f"Could not parse expression: {normalized}")
     for match in _NAME.finditer(normalized):
         name = match.group()
@@ -119,6 +121,12 @@ def reject_unknown_names(normalized: str, declared: set[str]) -> None:
             name, applied=normalized[match.end() : match.end() + 1] == "("
         ):
             raise SolveServiceError(f"Could not parse expression: {name}")
+
+
+def _unread_script(char: str) -> bool:
+    return (
+        unicodedata.category(char) == "Lm" or char in SUPERSCRIPT_GLYPHS or char in SUBSCRIPT_GLYPHS
+    )
 
 
 def _letters_written_together(name: str, *, applied: bool) -> bool:
