@@ -48,6 +48,7 @@ from app.modules.chat.prompt_constants.coding import (
     CODE_RUN_HINT,
 )
 from app.modules.chat.prompt_constants.conversation import CONFIRMED_HINT
+from app.modules.chat.prompt_constants.list_reference import OPTION_PICK_MARK
 from app.modules.chat.prompt_constants.multi_part import MULTI_PART_MARKER
 from app.modules.chat.prompt_constants.reply_missed import REPLY_MISSED_HINT
 from app.modules.chat.prompt_constants.shared_numbers import SHARED_NUMBERS_HINT
@@ -161,6 +162,8 @@ HINTS: dict[str, str] = {
     "shared_numbers": SHARED_NUMBERS_HINT,
     # "What?" right after a reply: say it again more simply.
     "reply_missed": REPLY_MISSED_HINT,
+    # "A" under a question with lettered options: the option it picks, by its words.
+    "option_pick": OPTION_PICK_MARK,
     # "The user is asking for a personal recommendation": tastes shape the pick.
     "advice": pc.ADVICE_PERSONALIZE_HINT,
     # A STEM reply the model works out itself checks its own answer first.
@@ -350,6 +353,11 @@ def _rows(case: Case) -> list[SimpleNamespace]:
     ]
 
 
+def card_replies(rows: list[SimpleNamespace]) -> list[str]:
+    """The case's replies that hold a practice card: the chat's own rows the turn reads."""
+    return [row.content for row in rows if row.role == "assistant" and "```quiz" in row.content]
+
+
 def is_picture_only(block: object) -> bool:
     """A physics block that carries a picture and no verified result."""
     return (
@@ -477,6 +485,11 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         stack.enter_context(_posed_pick(case, rows))
         stub("app.modules.chat.turn_prep.instant.SessionLocal", lambda: _Session())
         stub("app.modules.chat.prompt_builder._load_context_blocks", context_blocks)
+        # The chat's replies that hold a card, as the database would give them.
+        stub(
+            "app.modules.chat.practice_asked._chat_replies",
+            AsyncMock(return_value=card_replies(rows)),
+        )
         stub(
             "app.modules.conversation.messages_repository.list_recent",
             AsyncMock(return_value=list(rows)),

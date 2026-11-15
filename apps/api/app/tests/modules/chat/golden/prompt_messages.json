@@ -124,10 +124,11 @@
   "Start with three easy runs a week. Want me to make you a 4-week plan?",
   "why does this fail?\n\nfor i in range(3)\n    print(i)",
   "plan my day today so I can learn SQL",
-  "\n\nA lesson is in progress. The learner has ALREADY SEEN Lesson 1, which ended with a practice ```quiz (they can check it in the app) and a preview of the next lesson. Do not repeat Lesson 1. Read the latest message first:\n- An answer to the practice question: if right, start with \"Correct! 🎉\" and say why in one sentence; if wrong or partial, start with \"Not quite\", fix that one misunderstanding in 1-3 sentences with a fresh tiny example, and do not ask them to try again. Then teach Lesson 2.\n- 'next', 'ok', 'got it', 'continue' or similar: teach Lesson 2.\n- Confusion ('I don't get it', 'why?', 'another example'): stay on the same idea, explain it a different way with a new analogy and example under the same `### Lesson 1: ...` title, and end with a fresh ```quiz.\n- A question about the lesson: answer it first, then continue.\n- Accidental or unclear input: do not grade it; give the practice answer in one sentence and teach Lesson 2.\n- A request to skip, stop, change topic, get everything at once, a summary or a cheat sheet: do that instead of the next lesson.\nLesson 2 covers what the preview promised, without a greeting or an outline, in the same shape (the app's ```quiz, ```array and ```steps cards included):\n- Title: `### Lesson N: <topic>` (the word Lesson in the reply language), N counting the lessons in this chat. Then numbered sections, each a `### 1. <title>` heading naming the one thing it teaches (a word, a rule, a step, an idea), for example `### 1. Eventually`, `### 2. Solution one: Brute force`. Under it, the thing itself, compact. A word or phrase gets a `**Meaning:**` line and an `**Example:**` sentence, ten of them in a lesson of words. Anything else: what it is or does in a line or two, then one concrete example (code with an API or a table of users; a date and what happened; a way to practise it), 3-5 sections. Never a paragraph on why it matters.\n- Code: short language-tagged blocks such as ```python. Explain it the way a tutor does: a `# 18` comment for what a line gives, then a bullet per idea that opens with the code in `inline code` (\"`ages[0]` gets the first item.\"), or `**How it works:**` with numbered steps for a loop, or `Let's break down the important parts:` with bullets. Only for the key function of an algorithm lesson (four or more lines), go line by line instead: the label `Line 1` on its own line, that one line alone in its own ```python block, then one sentence; never group lines (no `Line 3-5`). After code that prints, `Output:` with what it prints in a ```text block; after code that only defines a function, `Test it:` with a ```python block that calls it, then `Output:`. Never write `>>>` prompts.\n- A list or array: show its values over their indexes with an ```array fence holding JSON {\"title\": \"Think of a Python list as a row of numbered boxes.\", \"values\": [18, 25, 32, 40], \"note\": \"Python starts counting indexes at **0**, not 1.\"}, or for an algorithm {\"values\": [2, 7, 11, 15], \"highlight\": [0, 1], \"caption\": \"2 + 7 = 9\", \"note\": \"We return indexes, not the numbers themselves.\"}. Title (a line above the boxes), highlight, caption (a short result under them) and note are optional; write them as plain text, not LaTeX.\n- A trace of an algorithm or process: a ```steps fence, one numbered line per step with a bold title, and plain lines under it for what happens and the state, for example:\n```steps\n1. **Read `2` at index `0`**\nWe need `9 - 2 = 7`. Not seen yet, so save `2: 0`.\nDictionary: `{2: 0}`\n```\n- Cost in math: time $O(n^2)$, extra space $O(1)$. A key idea may be one display formula in a ```math fence. Compare approaches in a markdown table.\n- The last section is `### N. Your turn`, plus what it asks when it helps (code: `— predict the output`; history: `— check your understanding`). One practice question as a ```quiz fence, ```quiz alone on its line and the JSON on the next: {\"label\": \"Exercise 1\", \"question\": \"What will this Python code print?\", \"code\": \"<the code it needs, lines joined with \\n; empty without code>\", \"options\": [\"...\", \"...\", \"...\", \"...\"], \"answer\": <0-based index of the right option>, \"explanation\": \"<why, in one or two sentences>\"}. The app draws the label, question and code in one card; never repeat the code above it. For code prefer \"predict the output\" or \"what should it return\"; make the wrong options real mistakes. Options and the explanation may use `inline code`; the explanation may end with a short fenced code block. The app lets the learner pick and check; never reveal the answer in the text.\n- End with one sentence previewing the next lesson: \"Once you get this, we'll move to A, B and C.\" When they asked for one idea, the preview goes deeper into that same idea (for dictionaries: looping over one, nesting). No course outline, no table of contents, no \"ready to continue?\" question.\n- Unless emoji are off, one fitting emoji in the opening line (🐍 for Python) and 🎉 after a correct answer, no others.\nLESSON 1 WAS OVER A DAY AGO. Unless the latest message answers its practice question, the reply must start, before the new lesson's title, with `**Quick recap**`: two short lines on Lesson 1's key idea, then one warm-up ```quiz on it (label \"Warm-up\"). Only then `### Lesson 2: ...` (the warm-up is not a lesson, so the number is 2) on what Lesson 1's preview promised.\n\n",
+  "\n\nA lesson is in progress. The learner has ALREADY SEEN Lesson 1, which ended with a practice ```quiz (they can check it in the app) and a preview of the next lesson. Do not repeat Lesson 1. Read the latest message first:\n- An answer to the practice question: if right, start with \"Correct! 🎉\" and say why in one sentence; if wrong or partial, start with \"Not quite\", fix that one misunderstanding in 1-3 sentences with a fresh tiny example, and do not ask them to try again. Then teach Lesson 2; never ask whether to go on or try another first.\n- 'next', 'ok', 'got it', 'continue' or similar: teach Lesson 2.\n- A yes or a pick answering another offer the reply ended on (a reminder, a drawing, a harder one): do what it offered, not the next lesson.\n- Confusion ('I don't get it', 'why?', 'another example'): stay on the same idea, explain it a different way with a new analogy and example under the same `### Lesson 1: ...` title, and end with a fresh ```quiz.\n- A question about the lesson: answer it first, then continue.\n- A question about an idea the practice needs ('what are isotopes?'): teach it in a few lines, then say the practice above is still theirs to try. Never work the practice out in the text, and never show its card again.\n- Accidental or unclear input: do not grade it; give the practice answer in one sentence and teach Lesson 2.\n- A request to skip, stop, change topic, get everything at once, a summary or a cheat sheet: do that instead of the next lesson.\nLesson 2 covers what the preview promised, without a greeting or an outline, in the same shape (the app's ```quiz, ```array and ```steps cards included), its practice a new question on what it taught:\n- Title: `### Lesson N: <topic>` (the word Lesson in the reply language), N counting the lessons in this chat. Then numbered sections, each a `### 1. <title>` heading, then the practice. What the sections hold follows what is taught:\n",
+  "  - Code, an algorithm or a skill: 3-5 sections, each one idea with one concrete example (code with an API or a table of users; a way to practise it), for example `### 2. Solution one: Brute force`. Never a paragraph on why it matters.\n- Code: short language-tagged blocks such as ```python. Explain it the way a tutor does: a `# 18` comment for what a line gives, then a bullet per idea that opens with the code in `inline code` (\"`ages[0]` gets the first item.\"), or `**How it works:**` with numbered steps for a loop, or `Let's break down the important parts:` with bullets. Only for the key function of an algorithm lesson (four or more lines), go line by line instead: the label `Line 1` on its own line, that one line alone in its own ```python block, then one sentence; never group lines (no `Line 3-5`). After code that prints, `Output:` with what it prints in a ```text block; after code that only defines a function, `Test it:` with a ```python block that calls it, then `Output:`. Never write `>>>` prompts.\n- A list or array: show its values over their indexes with an ```array fence holding JSON {\"title\": \"Think of a Python list as a row of numbered boxes.\", \"values\": [18, 25, 32, 40], \"note\": \"Python starts counting indexes at **0**, not 1.\"}, or for an algorithm {\"values\": [2, 7, 11, 15], \"highlight\": [0, 1], \"caption\": \"2 + 7 = 9\", \"note\": \"We return indexes, not the numbers themselves.\"}. Title (a line above the boxes), highlight, caption (a short result under them) and note are optional; write them as plain text, not LaTeX.\n- Steps done in order (a method, a process, an algorithm's trace): a ```steps fence, one numbered line per step with a bold title, and plain lines under it for what happens and the state; the app draws each step as a box with an arrow to the next, for example:\n```steps\n1. **Read `2` at index `0`**\nWe need `9 - 2 = 7`. Not seen yet, so save `2: 0`.\nDictionary: `{2: 0}`\n```\n- Cost in math: time $O(n^2)$, extra space $O(1)$. A key idea may be one display formula in a ```math fence. Compare approaches in a markdown table.\n",
+  "- End with one sentence previewing the next lesson: \"Once you get this, we'll move to A, B and C.\" When they asked for one idea, the preview goes deeper into that same idea (for dictionaries: looping over one, nesting). No course outline, no table of contents, no \"ready to continue?\" question.\n- Unless emoji are off, one fitting emoji in the opening line (🐍 for Python) and 🎉 after a correct answer, no others.\nLESSON 1 WAS OVER A DAY AGO. Unless the latest message answers its practice question, the reply must start, before the new lesson's title, with `**Quick recap**`: two short lines on Lesson 1's key idea, then one warm-up ```quiz on it (label \"Warm-up\"). Only then `### Lesson 2: ...` (the warm-up is not a lesson, so the number is 2) on what Lesson 1's preview promised.\n\n",
   "### Lesson 1: The for loop\n\nA for loop repeats a block for each item.\n\n```quiz\nquestion: What does range(3) produce?\nanswer: 0, 1, 2\n```",
   "next",
-  "Current local time: Wednesday, October 14, 2026, 9:00:00 AM EAT. Year 2026. Month October. You know them and the dates below: name one only when asked or when it changes the answer, never as filler or to open a reply (\"Next weekend is …\"). Never say you lack a clock. Told today is another day? Give today's date once, no sorry. What you remember ends well before this date: the latest winner, whether something is out yet, who holds a post now or what comes next may have changed since: look it up when you have web_search, and never give a memory as today's fact. When you name the weekday of a date, write the full date with it (\"Friday, December 25, 2026\"). The next seven days: Thursday October 15, Friday October 16, Saturday October 17, Sunday October 18, Monday October 19, Tuesday October 20, Wednesday October 21.\n\nWrite this reply in English, the language of the user's message, whatever a saved memory or an earlier reply says.",
   "teach me how to solve 2x + 5 = 17",
   "rewrite this to sound friendlier: Send the report now.",
   "What is the pH of 0.01 M HCl?",
@@ -168,7 +169,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -176,7 +177,7 @@
      ],
      [
       "system",
-      "4 @READER_NOTE"
+      "4 @READER_NOTE 1 @DISTRESS_RULE"
      ]
     ],
     "out": {}
@@ -201,7 +202,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -217,7 +218,7 @@
      ],
      [
       "system",
-      "4 @OWN_MISTAKE_HINT 1 @NO_RECAP_NOTE 1 @FACTUAL_QUESTION_NOTE 1 @READER_NOTE 7 @PHYSICS_FOLLOWUP_HINT"
+      "4 @OWN_MISTAKE_HINT 1 @NO_RECAP_NOTE 1 @FACTUAL_QUESTION_NOTE 1 @READER_NOTE 1 @DISTRESS_RULE 7 @PHYSICS_FOLLOWUP_HINT"
      ]
     ],
     "out": {}
@@ -232,7 +233,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -240,7 +241,7 @@
      ],
      [
       "system",
-      "4 @FACTUAL_QUESTION_NOTE 1 @READER_NOTE 8"
+      "4 @FACTUAL_QUESTION_NOTE 1 @READER_NOTE 1 @DISTRESS_RULE 8"
      ]
     ],
     "out": {}
@@ -255,7 +256,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -263,7 +264,7 @@
      ],
      [
       "system",
-      "4 @READER_NOTE 8"
+      "4 @READER_NOTE 1 @DISTRESS_RULE 8"
      ]
     ],
     "out": {}
@@ -278,7 +279,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -286,7 +287,7 @@
      ],
      [
       "system",
-      "4 @FACTUAL_QUESTION_NOTE 1 @READER_NOTE 8"
+      "4 @FACTUAL_QUESTION_NOTE 1 @READER_NOTE 1 @DISTRESS_RULE 8"
      ]
     ],
     "out": {}
@@ -307,7 +308,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -315,7 +316,7 @@
      ],
      [
       "system",
-      "9 @DIRECTIONS_LINK_RULE 1 @LOCAL_PLACES_FORMAT_HINT 10 @ADVICE_PERSONALIZE_HINT 1 @READER_NOTE"
+      "9 @DIRECTIONS_LINK_RULE 1 @LOCAL_PLACES_FORMAT_HINT 10 @ADVICE_PERSONALIZE_HINT 1 @READER_NOTE 1 @DISTRESS_RULE"
      ]
     ],
     "out": {}
@@ -330,7 +331,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -338,7 +339,7 @@
      ],
      [
       "system",
-      "4 @READER_NOTE"
+      "4 @READER_NOTE 1 @DISTRESS_RULE"
      ]
     ],
     "out": {}
@@ -353,7 +354,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -361,7 +362,7 @@
      ],
      [
       "system",
-      "4 @READER_NOTE 8"
+      "4 @READER_NOTE 1 @DISTRESS_RULE 8"
      ]
     ],
     "out": {}
@@ -376,7 +377,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -384,7 +385,7 @@
      ],
      [
       "system",
-      "4 @READER_NOTE"
+      "4 @READER_NOTE 1 @DISTRESS_RULE"
      ],
      [
       "system",
@@ -404,7 +405,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -412,7 +413,7 @@
      ],
      [
       "system",
-      "@READER_NOTE"
+      "@READER_NOTE 1 @DISTRESS_RULE"
      ]
     ],
     "out": {}
@@ -428,7 +429,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -436,7 +437,7 @@
      ],
      [
       "system",
-      "4 @READER_NOTE 8"
+      "4 @READER_NOTE 1 @DISTRESS_RULE 8"
      ]
     ],
     "out": {}
@@ -452,7 +453,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -460,7 +461,7 @@
      ],
      [
       "system",
-      "4 @READER_NOTE"
+      "4 @READER_NOTE 1 @DISTRESS_RULE"
      ],
      [
       "system",
@@ -479,7 +480,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -487,7 +488,7 @@
      ],
      [
       "system",
-      "4 @READER_NOTE 8"
+      "4 @READER_NOTE 1 @DISTRESS_RULE 8"
      ]
     ],
     "out": {}
@@ -633,7 +634,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[professional] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 13"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[professional] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 13"
      ],
      [
       "system",
@@ -737,7 +738,7 @@
      ],
      [
       "system",
-      "40 @OWN_MISTAKE_HINT 1 @NO_RECAP_NOTE 1 @READER_NOTE"
+      "40 @OWN_MISTAKE_HINT 1 @NO_RECAP_NOTE 1 @READER_NOTE 1 @DISTRESS_RULE"
      ],
      [
       "user",
@@ -775,7 +776,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[professional] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 13"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[professional] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 13"
      ],
      [
       "system",
@@ -783,7 +784,7 @@
      ],
      [
       "system",
-      "43 @READER_NOTE"
+      "43 @READER_NOTE 1 @DISTRESS_RULE"
      ],
      [
       "user",
@@ -830,7 +831,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -850,7 +851,7 @@
      ],
      [
       "system",
-      "50 @OWN_MISTAKE_HINT 1 @NO_RECAP_NOTE 1 @READER_NOTE"
+      "50 @OWN_MISTAKE_HINT 1 @NO_RECAP_NOTE 1 @READER_NOTE 1 @DISTRESS_RULE"
      ],
      [
       "system",
@@ -892,7 +893,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -900,7 +901,7 @@
      ],
      [
       "system",
-      "55 @EXAMPLE_PERSONALIZE_HINT"
+      "55 @EXAMPLE_PERSONALIZE_HINT 1 @DISTRESS_RULE"
      ],
      [
       "system",
@@ -942,7 +943,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -950,7 +951,7 @@
      ],
      [
       "system",
-      "4 @READER_NOTE 8"
+      "4 @READER_NOTE 1 @DISTRESS_RULE 8"
      ],
      [
       "system",
@@ -986,7 +987,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -994,7 +995,7 @@
      ],
      [
       "system",
-      "4 @READER_NOTE"
+      "4 @READER_NOTE 1 @DISTRESS_RULE"
      ],
      [
       "user",
@@ -1020,7 +1021,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1028,7 +1029,7 @@
      ],
      [
       "system",
-      "4 @READER_NOTE 8"
+      "4 @READER_NOTE 1 @DISTRESS_RULE 8"
      ],
      [
       "user",
@@ -1056,7 +1057,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1064,7 +1065,7 @@
      ],
      [
       "system",
-      "64 @READER_NOTE 8"
+      "64 @READER_NOTE 1 @DISTRESS_RULE 8"
      ],
      [
       "user",
@@ -1090,7 +1091,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1098,7 +1099,7 @@
      ],
      [
       "system",
-      "4 @READER_NOTE"
+      "4 @READER_NOTE 1 @DISTRESS_RULE"
      ],
      [
       "user",
@@ -1126,7 +1127,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1134,7 +1135,11 @@
      ],
      [
       "system",
-      "67 @CAREER_PERSONALIZE_HINT 1 @READER_NOTE"
+      "67 @CAREER_PERSONALIZE_HINT 1 @READER_NOTE 1 @DISTRESS_RULE"
+     ],
+     [
+      "system",
+      "@STEPS_CONTRACT"
      ],
      [
       "user",
@@ -1162,7 +1167,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1170,7 +1175,7 @@
      ],
      [
       "system",
-      "67 @PROFILE_FACT_HINT 1 @READER_NOTE"
+      "67 @PROFILE_FACT_HINT 1 @READER_NOTE 1 @DISTRESS_RULE"
      ],
      [
       "user",
@@ -1196,7 +1201,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1204,7 +1209,7 @@
      ],
      [
       "system",
-      "4 @READER_NOTE 8"
+      "4 @READER_NOTE 1 @DISTRESS_RULE 8"
      ],
      [
       "user",
@@ -1235,7 +1240,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1251,7 +1256,7 @@
      ],
      [
       "system",
-      "64 @OWN_MISTAKE_HINT 1 @NO_RECAP_NOTE 1 @READER_NOTE"
+      "64 @OWN_MISTAKE_HINT 1 @NO_RECAP_NOTE 1 @READER_NOTE 1 @DISTRESS_RULE"
      ]
     ],
     "out": {}
@@ -1273,7 +1278,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1281,7 +1286,7 @@
      ],
      [
       "system",
-      "4 @READER_NOTE 8"
+      "4 @READER_NOTE 1 @DISTRESS_RULE 8"
      ],
      [
       "system",
@@ -1311,7 +1316,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1319,7 +1324,7 @@
      ],
      [
       "system",
-      "4 @READER_NOTE"
+      "4 @READER_NOTE 1 @DISTRESS_RULE"
      ],
      [
       "user",
@@ -1345,7 +1350,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1353,7 +1358,7 @@
      ],
      [
       "system",
-      "4 @READER_NOTE 8"
+      "4 @READER_NOTE 1 @DISTRESS_RULE 8"
      ],
      [
       "system",
@@ -1391,11 +1396,11 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
-      "@STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @NON_DRAFT_TURN_HINT 1 @UNIVERSAL_FORMAT_BASELINE 1 @FORMAT_CONTRACT 76 @VERIFIED_SOLVE_SAFETY_HINT 1 @PHYSICS_INTENT_HINT 1 @PHYSICS_SYMBOLS 1 @COPY_DELIVERABLE_HINT 1 @PHYSICS_REPLY_POLICY 1 @NEW_PROBLEM_HINT 1 @FACT_GROUNDING_HINT 3"
+      "@STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @NON_DRAFT_TURN_HINT 1 @UNIVERSAL_FORMAT_BASELINE 1 @FORMAT_CONTRACT 76 @LESSON_WORDS_SHAPE @LESSON_CONCEPT_SHAPE @LESSON_PROCESS_SHAPE 77 @LESSON_PRACTICE 78 @VERIFIED_SOLVE_SAFETY_HINT 1 @PHYSICS_INTENT_HINT 1 @PHYSICS_SYMBOLS 1 @COPY_DELIVERABLE_HINT 1 @PHYSICS_REPLY_POLICY 1 @NEW_PROBLEM_HINT 1 @FACT_GROUNDING_HINT 3"
      ],
      [
       "user",
@@ -1403,15 +1408,15 @@
      ],
      [
       "assistant",
-      "77"
+      "79"
      ],
      [
       "system",
-      "4 @OWN_MISTAKE_HINT"
+      "4 @OWN_MISTAKE_HINT 1 @DISTRESS_RULE"
      ],
      [
       "user",
-      "78"
+      "80"
      ]
     ],
     "out": {}
@@ -1433,7 +1438,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1441,7 +1446,7 @@
      ],
      [
       "system",
-      "79"
+      "4 @DISTRESS_RULE 8"
      ],
      [
       "system",
@@ -1449,7 +1454,7 @@
      ],
      [
       "user",
-      "80"
+      "81"
      ]
     ],
     "out": {}
@@ -1471,7 +1476,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1479,11 +1484,11 @@
      ],
      [
       "system",
-      "4 @READER_NOTE 8"
+      "4 @READER_NOTE 1 @DISTRESS_RULE 8"
      ],
      [
       "user",
-      "81"
+      "82"
      ]
     ],
     "out": {}
@@ -1513,7 +1518,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1521,19 +1526,19 @@
      ],
      [
       "user",
-      "82"
-     ],
-     [
-      "assistant",
       "83"
      ],
      [
+      "assistant",
+      "84"
+     ],
+     [
       "system",
-      "4 @OWN_MISTAKE_HINT 1 @NO_RECAP_NOTE 1 @FACTUAL_QUESTION_NOTE 1 @READER_NOTE 1 @CHEMISTRY_FOLLOWUP_HINT"
+      "4 @OWN_MISTAKE_HINT 1 @NO_RECAP_NOTE 1 @FACTUAL_QUESTION_NOTE 1 @READER_NOTE 1 @DISTRESS_RULE 1 @CHEMISTRY_FOLLOWUP_HINT"
      ],
      [
       "user",
-      "84"
+      "85"
      ]
     ],
     "out": {}
@@ -1555,7 +1560,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1563,11 +1568,11 @@
      ],
      [
       "system",
-      "4 @READER_NOTE 8"
+      "4 @READER_NOTE 1 @DISTRESS_RULE 8"
      ],
      [
       "user",
-      "85"
+      "86"
      ]
     ],
     "out": {}
@@ -1589,7 +1594,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1597,11 +1602,11 @@
      ],
      [
       "system",
-      "4 @READER_NOTE"
+      "4 @READER_NOTE 1 @DISTRESS_RULE"
      ],
      [
       "user",
-      "86"
+      "87"
      ]
     ],
     "out": {}
@@ -1623,7 +1628,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1631,11 +1636,11 @@
      ],
      [
       "system",
-      "4 @READER_NOTE"
+      "4 @READER_NOTE 1 @DISTRESS_RULE"
      ],
      [
       "user",
-      "87"
+      "88"
      ]
     ],
     "out": {}
@@ -1665,27 +1670,27 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
-      "@STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @UNIVERSAL_FORMAT_BASELINE 88 @MATH_FENCE_SAFETY_HINT 1 @COPY_DELIVERABLE_HINT 1 @FACT_GROUNDING_HINT 3"
+      "@STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @UNIVERSAL_FORMAT_BASELINE 89 @MATH_FENCE_SAFETY_HINT 1 @COPY_DELIVERABLE_HINT 1 @FACT_GROUNDING_HINT 3"
      ],
      [
       "user",
-      "89"
-     ],
-     [
-      "assistant",
       "90"
      ],
      [
+      "assistant",
+      "91"
+     ],
+     [
       "system",
-      "4 @OWN_MISTAKE_HINT 1 @NO_RECAP_NOTE 1 @READER_NOTE 8"
+      "4 @OWN_MISTAKE_HINT 1 @NO_RECAP_NOTE 1 @READER_NOTE 1 @DISTRESS_RULE 8"
      ],
      [
       "user",
-      "91"
+      "92"
      ]
     ],
     "out": {}
@@ -1707,19 +1712,19 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
-      "@STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @DAY_PLANNING_ANSWER_HINT 92 @UNIVERSAL_FORMAT_BASELINE 1 @EMAIL_ASK_PURPOSE_HINT 1 @MATH_FENCE_SAFETY_HINT 1 @COPY_DELIVERABLE_HINT 1 @FACT_GROUNDING_HINT 3"
+      "@STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @DAY_PLANNING_ANSWER_HINT 93 @UNIVERSAL_FORMAT_BASELINE 1 @EMAIL_ASK_PURPOSE_HINT 1 @MATH_FENCE_SAFETY_HINT 1 @COPY_DELIVERABLE_HINT 1 @FACT_GROUNDING_HINT 3"
      ],
      [
       "system",
-      "4 @READER_NOTE 8"
+      "4 @READER_NOTE 1 @DISTRESS_RULE 8"
      ],
      [
       "user",
-      "93"
+      "94"
      ]
     ],
     "out": {}
@@ -1741,7 +1746,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1749,11 +1754,11 @@
      ],
      [
       "system",
-      "4 @READER_NOTE 8"
+      "4 @READER_NOTE 1 @DISTRESS_RULE 8"
      ],
      [
       "user",
-      "94"
+      "95"
      ]
     ],
     "out": {}
@@ -1775,7 +1780,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1783,11 +1788,11 @@
      ],
      [
       "system",
-      "4 @READER_NOTE 1 @PERSONAL_DISCLOSURE_HINT"
+      "4 @READER_NOTE 1 @DISTRESS_RULE 1 @PERSONAL_DISCLOSURE_HINT"
      ],
      [
       "user",
-      "95"
+      "96"
      ]
     ],
     "out": {}
@@ -1817,7 +1822,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1833,11 +1838,11 @@
      ],
      [
       "system",
-      "4 @OWN_MISTAKE_HINT 1 @NO_RECAP_NOTE 1 @READER_NOTE"
+      "4 @OWN_MISTAKE_HINT 1 @NO_RECAP_NOTE 1 @READER_NOTE 1 @DISTRESS_RULE"
      ],
      [
       "user",
-      "96"
+      "97"
      ]
     ],
     "out": {}
@@ -1867,7 +1872,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1875,19 +1880,19 @@
      ],
      [
       "user",
-      "97"
-     ],
-     [
-      "assistant",
       "98"
      ],
      [
+      "assistant",
+      "99"
+     ],
+     [
       "system",
-      "4 @REPLY_HOW_HINT 1 @OWN_MISTAKE_HINT 1 @NO_RECAP_NOTE 1 @READER_NOTE 7 @MATH_REPLY_POLICY 1 @MATH_FOLLOWUP_HINT"
+      "4 @REPLY_HOW_HINT 1 @OWN_MISTAKE_HINT 1 @NO_RECAP_NOTE 1 @READER_NOTE 1 @DISTRESS_RULE 7 @MATH_REPLY_POLICY 1 @MATH_FOLLOWUP_HINT"
      ],
      [
       "user",
-      "99"
+      "100"
      ]
     ],
     "out": {}
@@ -1909,7 +1914,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1917,11 +1922,11 @@
      ],
      [
       "system",
-      "4 @READER_NOTE"
+      "4 @READER_NOTE 1 @DISTRESS_RULE"
      ],
      [
       "user",
-      "100"
+      "101"
      ]
     ],
     "out": {}
@@ -1943,7 +1948,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1951,11 +1956,11 @@
      ],
      [
       "system",
-      "4 @FACTUAL_QUESTION_NOTE 1 @READER_NOTE"
+      "4 @FACTUAL_QUESTION_NOTE 1 @READER_NOTE 1 @DISTRESS_RULE"
      ],
      [
       "user",
-      "101"
+      "102"
      ]
     ],
     "out": {}
@@ -1977,7 +1982,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1985,11 +1990,11 @@
      ],
      [
       "system",
-      "4 @FACTUAL_QUESTION_NOTE 1 @READER_NOTE 8"
+      "4 @FACTUAL_QUESTION_NOTE 1 @READER_NOTE 1 @DISTRESS_RULE 8"
      ],
      [
       "user",
-      "102"
+      "103"
      ]
     ],
     "out": {}
@@ -2019,7 +2024,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -2027,15 +2032,15 @@
      ],
      [
       "user",
-      "103"
-     ],
-     [
-      "assistant",
       "104"
      ],
      [
+      "assistant",
+      "105"
+     ],
+     [
       "system",
-      "4 @OWN_MISTAKE_HINT 1 @NO_RECAP_NOTE 1 @READER_NOTE"
+      "4 @OWN_MISTAKE_HINT 1 @NO_RECAP_NOTE 1 @READER_NOTE 1 @DISTRESS_RULE"
      ],
      [
       "system",
@@ -2043,7 +2048,7 @@
      ],
      [
       "user",
-      "105"
+      "106"
      ]
     ],
     "out": {}
@@ -2074,7 +2079,7 @@
     "messages": [
      [
       "system",
-      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @NO_SELF_TALK_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @OPTION_LETTERS_RULE 1 @PERSONAL_HELP_RULE 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -2082,15 +2087,15 @@
      ],
      [
       "user",
-      "106"
-     ],
-     [
-      "assistant",
       "107"
      ],
      [
+      "assistant",
+      "108"
+     ],
+     [
       "system",
-      "4 @ADVICE_PERSONALIZE_HINT 1 @OWN_MISTAKE_HINT 1 @NO_RECAP_NOTE 1 @READER_NOTE"
+      "4 @ADVICE_PERSONALIZE_HINT 1 @OWN_MISTAKE_HINT 1 @NO_RECAP_NOTE 1 @READER_NOTE 1 @DISTRESS_RULE"
      ],
      [
       "system",
@@ -2098,7 +2103,7 @@
      ],
      [
       "user",
-      "108"
+      "109"
      ]
     ],
     "out": {}

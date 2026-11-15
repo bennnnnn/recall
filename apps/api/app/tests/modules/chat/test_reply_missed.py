@@ -11,6 +11,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.modules.chat.message_notes import message_notes
+from app.modules.chat.prompt_constants.care import DISTRESS_RULE
 from app.modules.chat.prompt_constants.conversation import NO_RECAP_NOTE, OWN_MISTAKE_HINT
 from app.modules.chat.prompt_constants.format import READER_NOTE
 from app.modules.chat.prompt_constants.reply_missed import (
@@ -122,12 +123,14 @@ def test_the_notes_sit_in_order_and_only_when_they_apply() -> None:
     rain = "Monthly rainfall: Jan 15, Feb 30, Mar 60, Apr 85"
     # After a reply, owning a mistake rides along (``OWN_MISTAKE_HINT``), and so does no
     # recap of what the chat settled (``NO_RECAP_NOTE``); steps to follow are numbered on
-    # every message outside a lesson (``READER_NOTE``).
+    # every message outside a lesson (``READER_NOTE``), and a frightening turn is met
+    # plainly (``DISTRESS_RULE``).
     assert message_notes("??", _exchange(*_AFTER_A_REPLY), _EN) == [
         REPLY_MISSED_HINT,
         OWN_MISTAKE_HINT,
         NO_RECAP_NOTE,
         READER_NOTE,
+        DISTRESS_RULE,
     ]
     assert NO_RECAP_NOTE not in message_notes("hi", [], _EN)
     assert message_notes(rain, [], _EN)[0].startswith(SHARED_NUMBERS_HINT)
@@ -221,3 +224,11 @@ def test_how_after_a_question_or_an_offer_is_not_about_an_answer(
     last_reply: str, query: str
 ) -> None:
     assert reply_how_hint(query, [("user", "hi"), ("assistant", last_reply)]) is None
+
+
+def test_how_after_a_reply_ending_on_a_question_and_an_emoji_answers_it() -> None:
+    # Live 2026-11-15: "How" after "…or ideas for meeting people in Oakland? 😊" was told the
+    # reply had an answer to explain, and explained its own reasoning.
+    reply = "1. **Dating apps**\n2. **Friends**\n\nWant help with a profile, or ideas? 😊"
+    assert reply_how_hint("How", [("assistant", reply)]) is None
+    assert reply_how_hint("How", [("assistant", "Answer: 16.09344 km 🚗")]) is not None

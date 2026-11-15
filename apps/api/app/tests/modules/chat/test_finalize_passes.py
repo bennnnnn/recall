@@ -12,14 +12,13 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.chat import finalize_passes
-from app.modules.chat.finalize_contracts import EVERY_OTHER, STOPPED_REPLY_PASSES
-from app.modules.chat.finalize_passes import (
+from app.modules.chat.finalize_contracts import (
+    EVERY_OTHER,
     FALL_BACK,
-    FinalizePass,
-    FinalizeState,
+    STOPPED_REPLY_PASSES,
     OnError,
-    run_finalize_passes,
 )
+from app.modules.chat.finalize_passes import FinalizePass, FinalizeState, run_finalize_passes
 from app.modules.chat.finalize_subjects import (
     check_math_fences,
     draw_formula_charts,
@@ -89,6 +88,8 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "self_attribution",
         "turn_meta",
         "lesson_again",
+        "option_letters",
+        "name_use",
         "emoji_use",
         "answer_photo",
         "reply_picture",
@@ -114,6 +115,7 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "instant_usage",
         "close_fences",
         "clarify_card",
+        "new_practice",
         "lesson_shape",
         "requested_json",
         "recipient_placeholders",
@@ -244,6 +246,7 @@ def test_the_effect_passes_are_the_ones_that_change_the_turn() -> None:
         "clarify_card",
         "math_fences",
         "claim_check",
+        "new_practice",
         "lesson_shape",
         "drawing",
         "figure",

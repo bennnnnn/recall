@@ -43,10 +43,12 @@ from app.modules.chat.finalize_contracts import (
     CARD_PASSES,
     EFFECT,
     EVERY_OTHER,
+    FALL_BACK,
     FENCE_READERS,
     SERVER_MEDIA,
     STOPPED_REPLY_PASSES,
     TEXT,
+    OnError,
     PassKind,
     fences_pass,
 )
@@ -94,6 +96,9 @@ from app.modules.chat.json_output import check_requested_json
 from app.modules.chat.lesson_again import keep_to_lesson_again_pass
 from app.modules.chat.lesson_shape import hold_lesson_shape
 from app.modules.chat.meta_notes import unwrap_meta_notes
+from app.modules.chat.name_use import spare_name_pass
+from app.modules.chat.option_letters import plain_options_pass
+from app.modules.chat.practice_asked import hold_new_practice
 from app.modules.chat.praise_opener import strip_praise_opener
 from app.modules.chat.prompt_leaks import drop_prompt_leaks_pass, drop_prompt_lines
 from app.modules.chat.repeated_fences import drop_repeated_pictures
@@ -146,19 +151,6 @@ class FinalizeState:
 
 
 @dataclass(frozen=True)
-class OnError:
-    """What an exception in one pass does to the reply (see the module docstring)."""
-
-    # The step a failure is logged as; None falls back to the last committed text.
-    log_as: str | None = None
-    # Makes the failed pass's input into the next pass's; None hands it on as it was.
-    rewrite: Callable[[FinalizeState], str] | None = None
-
-
-FALL_BACK = OnError()
-
-
-@dataclass(frozen=True)
 class FinalizePass:
     """One pass: ``run`` returns the reply after it; ``name`` labels its timing."""
 
@@ -191,6 +183,8 @@ class FinalizePass:
 # A failed subject pass recovers its subject's fences (no model answer card
 # survives it) and logs under the name the one subject step had.
 _SUBJECT_FENCES_STEP = "validate_math_fences"
+
+_AFTER_CLOSER = frozenset({"close_fences"})
 
 FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     # First: no other pass reads a leaked end-of-turn token as the reply's text.
@@ -253,6 +247,9 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         kind=TEXT,
     ),
     FinalizePass("lesson_again", keep_to_lesson_again_pass, kind=TEXT),
+    # Before the emoji pass, which took 🅰️'s variation mark and the space after it.
+    FinalizePass("option_letters", plain_options_pass, kind=TEXT),
+    FinalizePass("name_use", spare_name_pass, kind=TEXT),
     FinalizePass("emoji_use", place_reply_emoji, kind=TEXT),
     # A linked photo commits the text, so a later failure keeps its marker.
     FinalizePass("answer_photo", attach_answer_photo, kind=EFFECT),
@@ -333,21 +330,13 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass("instant_usage", record_instant_usage, kind=EFFECT),
     # Layout, after the passes that read the model's fences as it wrote them.
     FinalizePass("close_fences", close_open_fences, kind=TEXT, after=FENCE_READERS),
-    # After the closer: a card the model left open is read once it is closed.
-    FinalizePass(
-        "clarify_card",
-        settle_clarify,
-        kind=EFFECT,
-        after=frozenset({"close_fences"}),
-    ),
-    # After the closer, so a card the model left open is whole; a model call when the
-    # reply left out a lesson's title and card or an outline's topics.
-    FinalizePass(
-        "lesson_shape",
-        hold_lesson_shape,
-        OnError(log_as="lesson_shape"),
-        kind=EFFECT,
-        after=frozenset({"close_fences"}),
+    # After the closer, so a card the model left open is whole: a clarify card is read; a
+    # practice card the chat's cards already showed goes, or a model call writes a fresh one;
+    # a model call when the reply left out a lesson's title and card.
+    FinalizePass("clarify_card", settle_clarify, kind=EFFECT, after=_AFTER_CLOSER),
+    *(
+        FinalizePass(name, hold, OnError(log_as=name), kind=EFFECT, after=_AFTER_CLOSER)
+        for name, hold in (("new_practice", hold_new_practice), ("lesson_shape", hold_lesson_shape))
     ),
     FinalizePass("requested_json", check_requested_json, kind=TEXT),
     FinalizePass("recipient_placeholders", strip_recipient_placeholders, kind=TEXT),

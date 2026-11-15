@@ -43,7 +43,8 @@ DEFAULT_EMOJI_USE: EmojiUse = "some"
 _EMOJI_NEVER = (
     "Never in a number, maths, code, a fenced card, a worked maths, physics or chemistry "
     "solution, an answer to a school exercise, a draft the user will send, or a reply "
-    "about something painful."
+    "about something painful, frightening or urgent (danger, an injury, an emergency, "
+    "grief), even at the user's setting."
 )
 
 # A saved "prefers replies without emojis" outranked "more" (2026-10-24): the setting decides.

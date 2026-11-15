@@ -15,13 +15,21 @@ worked from it.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
+from app.modules.money.periods import (
+    OTHER_DURATION,
+    PAYMENT_COUNT,
+    PERIOD,
+    sum_period,
+    times_a_year,
+)
 from app.modules.money.phrases import (
     AMOUNT,
     CURRENCY_WORD,
     CURRENCY_WORDS,
     MULTIPLIERS,
+    ONE_SPACED,
     RATE,
     TERM,
     UNREAD_DIGITS,
@@ -48,22 +56,29 @@ class Sum:
     paid: bool = False
     # An income ("my salary is 90,000", "I make 80k a year"): never a loan.
     income: bool = False
-    # Paid each week, fortnight, day or quarter: no product works it ("$200 a week").
+    # Paid each week, fortnight, day, quarter or half-year: no product works it ("$200 a
+    # week", "$500 twice a year").
     other_period: bool = False
+    # Said to be the payment ("payments of $500", "my EMI is 2,000"): never the loan.
+    payment: bool = False
+    # Said to be reached ("to have $20,000 in 10 years", "to accumulate $50,000"): a goal,
+    # never the sum saved from.
+    goal: bool = False
 
 
-# "200 at the end of each month" is a monthly deposit too: the one the savings formula pays
-# in. Paid at a month's start it earns a month more, which no product works, so it is
-# another period (2026-11-01: "at the end of each month" read as one $200 lump sum).
-_MONTHLY = re.compile(
-    r"\s?(?:at\s+the\s+end\s+of\s+)?(?:a|per|/|each|every)\s?(?:month|mo)\b|\s?monthly\b"
-    r"|\s?/\s?mo\b",
-    re.I,
+# How often a sum is paid, said right after it in the shared vocabulary (``periods``): "200
+# a month", "200 monthly", "$500 a quarter", "$300 twice a year", "$50 every two weeks". "200
+# at the end of each month" is a monthly deposit too: the one the savings formula pays in.
+# Paid at a month's start it earns a month more, which no product works, so it is another
+# period (2026-11-01: "at the end of each month" read as one $200 lump sum). A yearly sum
+# ("80k a year") is said once a year, as an income or a price is, and stays a sum.
+_SUM_PERIOD_AFTER = re.compile(r"\s?(?:at\s+the\s+end\s+of\s+)?", re.I)
+_MONTH_START = re.compile(
+    r"\s?at\s+the\s+(?:start|beginning)\s+of\s+(?:each|every)\s+month\b", re.I
 )
-_OTHER_PERIOD = re.compile(
-    r"\s?(?:a|per|/|each|every)\s?(?:week|wk|fortnight|day|quarter)\b"
-    r"|\s?(?:weekly|bi-?weekly|fortnightly|daily|quarterly)\b"
-    r"|\s?at\s+the\s+(?:start|beginning)\s+of\s+(?:each|every)\s+month\b",
+_PAYMENT_BEFORE = re.compile(
+    r"(?<!down\s)(?<!down-)\b(?:(?:re)?payments?|instal(?:l)?ments?|EMIs?)"
+    r"(?:\s+(?:is|are|of|would\s+be|will\s+be))?\s?[:=]?\s?$",
     re.I,
 )
 _DOWN = re.compile(r"\b(?:down\s?payment(?:\s(?:of|is))?|put(?:ting)?\s(?:down)?|down)\s?$", re.I)
@@ -98,7 +113,19 @@ _LOAN_BEFORE = re.compile(
 _LOAN_AFTER = re.compile(
     r"\s?(?:(?:car|auto|home|house|student|personal|business|bank)\s)?(?:loan|mortgage)\b", re.I
 )
+_GOAL_BEFORE = re.compile(
+    r"\b(?:to\s(?:have|reach|accumulate|get|hit|grow\sto|end\sup\swith|build(?:\sup)?)"
+    r"|reach(?:es|ing)?|goal\s(?:of|is)|target\s(?:of|is))\s?$",
+    re.I,
+)
 _BORROWED_BEFORE = re.compile(r"\b(?:borrow(?:s|ed|ing)?|owe[sd]?|owing)(?:\sup\sto)?\s?$", re.I)
+# A sum joined to the one before it shares its verb: "borrowing $20,000 for a car and $5,000
+# for a motorbike" borrows both.
+_JOINED_BEFORE = re.compile(
+    r"\d\s?(?:k|m|thousand|grand)?(?:\s(?:for|on|to)\s(?:(?:a|an|the|my|our)\s)?[a-z]+)?"
+    r"\s?(?:,|and|plus|&)\s(?:another\s)?$",
+    re.I,
+)
 _PRICE_BEFORE = re.compile(
     r"\b(?:costs?|costing|priced\sat|price(?:\s(?:of|is|tag\sof))?|worth|sells?\sfor|"
     r"selling\sfor|valued\sat)\s?$",
@@ -137,6 +164,8 @@ _UNREAD_SCALE = re.compile(r"\s?(?:lakhs?|lacs?|crores?|billions?|bn|trillions?|
 _PLAN = re.compile(r"(?:401|403|457)\s?\(?[kb]\)?(?!\w)|529\s(?:plan|account|savings)\b", re.I)
 # A currency named before its sum, as many countries write it: "Birr 3,000", "USD 500".
 _CURRENCY_BEFORE = re.compile(rf"\b(?:{CURRENCY_WORDS})\s?$", re.I)
+# A currency's sign after its sum, as much of Europe writes it: "20 000 €".
+_SIGN_AFTER = re.compile(r"\s?[$€£¥₹₦](?!\s?\d)")
 
 # What follows an "m" or "k" that makes it a unit: "6m/s2", "5 m²", "3 km".
 _UNIT_AFTER_LETTER = re.compile(r"[/^²³\d]")
@@ -161,15 +190,24 @@ def amounts(text: str) -> list[Sum] | None:
     found: list[Sum] = []
     for match in AMOUNT.finditer(text):
         start = match.start("num")
-        if RATE.match(text, start) or TERM.match(text, start) or _PLAN.match(text, start):
+        if (
+            RATE.match(text, start)
+            or TERM.match(text, start)
+            or PAYMENT_COUNT.match(text, start)
+            or OTHER_DURATION.match(text, start)
+            or _PLAN.match(text, start)
+        ):
             continue
         word = CURRENCY_WORD.match(text, match.end())
+        if word is None and match.group("sym") is None:
+            word = _SIGN_AFTER.match(text, match.end())
         end = word.end() if word else match.end()
         rest, clause = text[end : end + 24], text[end : end + 64]
         at = match.start("sym") if match.group("sym") else match.start("num")
         lead = text[max(0, at - 40) : at]
         named = None if match.group("sym") else _CURRENCY_BEFORE.search(lead)
-        before = (lead[: named.start()] if named else lead)[-24:]
+        ahead = lead[: named.start()] if named else lead
+        before = ahead[-24:]
         marked = bool(
             match.group("sym")
             or match.group("mult")
@@ -177,10 +215,13 @@ def amounts(text: str) -> list[Sum] | None:
             or named
             or grouped(match["num"])
             or _PRODUCT_AFTER.match(rest)
-            or _MONTHLY.match(rest)
+            or _paid_every(rest) == 12
         )
         if not marked and _MONEY_BEFORE.search(before) is None:
             continue
+        if not _whole(match["num"]):
+            # "payments of 250 300 450" may be three sums or one: neither is read.
+            return None
         if match.group("mult") and not _is_multiplier(text, match):
             # "6m/s2", "20 m/s": a measurement, never 6 million.
             continue
@@ -193,8 +234,25 @@ def amounts(text: str) -> list[Sum] | None:
         number = amount_value(match["num"])
         if match.group("mult"):
             number *= MULTIPLIERS[match["mult"].lower()]
-        found.append(_sum(number, before, rest, clause, lead))
+        item = _sum(number, before, rest, clause, lead, sum_period(ahead))
+        if found and found[-1].borrowed and _JOINED_BEFORE.search(before):
+            item = replace(item, borrowed=True)
+        found.append(item)
     return found
+
+
+def _paid_every(rest: str) -> int | None:
+    """Times a year the sum before ``rest`` is paid, by the period right after it, or None."""
+    lead = _SUM_PERIOD_AFTER.match(rest)
+    found = PERIOD.match(rest, lead.end() if lead is not None else 0)
+    return times_a_year(found) if found is not None else None
+
+
+def _whole(num: str) -> bool:
+    """Digits set apart by spaces are one sum: with no-break or thin spaces, or as
+    ``ONE_SPACED`` reads them ("100 000", "12 500"). "250 300 dollars" may be a list with a
+    currency after it, so it is no sum. Digits with no space between are whole as they are."""
+    return " " not in num or ONE_SPACED.fullmatch(num) is not None
 
 
 def _no_sum(before: str, rest: str) -> bool:
@@ -206,11 +264,13 @@ def _no_sum(before: str, rest: str) -> bool:
     )
 
 
-def _sum(value: float, before: str, rest: str, clause: str, lead: str) -> Sum:
+def _sum(value: float, before: str, rest: str, clause: str, lead: str, period: int | None) -> Sum:
+    """The sum with its roles; ``period`` is how often it is paid by the words before it
+    ("monthly deposits of 200", "quarterly payments of 500")."""
     deposit = _DOWN_CLAUSE.match(clause)
     return Sum(
         value=value,
-        monthly=_MONTHLY.match(clause) is not None,
+        monthly=_paid_every(clause) == 12 or period == 12,
         down=_DOWN.search(before) is not None
         or _DOWN_AFTER.match(rest) is not None
         or (deposit is not None and not _NOT_PURCHASE.search(lead + deposit.group(0))),
@@ -220,7 +280,11 @@ def _sum(value: float, before: str, rest: str, clause: str, lead: str) -> Sum:
         price=_PRICE_BEFORE.search(before) is not None or _GOODS_AFTER.match(rest) is not None,
         paid=_PAID_BEFORE.search(before) is not None,
         income=_INCOME_BEFORE.search(before) is not None or _INCOME_AFTER.match(rest) is not None,
-        other_period=_OTHER_PERIOD.match(clause) is not None,
+        payment=_PAYMENT_BEFORE.search(before) is not None,
+        goal=_GOAL_BEFORE.search(before) is not None,
+        other_period=_paid_every(clause) not in (None, 12, 1)
+        or _MONTH_START.match(clause) is not None
+        or period not in (None, 12),
     )
 
 

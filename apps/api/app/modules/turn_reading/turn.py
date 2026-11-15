@@ -16,7 +16,11 @@ from typing import Literal
 
 from app.core.readings import keep_for_turn, kept_for_turn
 from app.modules.turn_reading.plan import TurnPlan
-from app.modules.turn_reading.teaching import TeachingReason, is_teaching_request
+from app.modules.turn_reading.teaching import (
+    TeachingReason,
+    is_teaching_request,
+    teaching_reason,
+)
 
 # Why the plan is what it is: one request, several, or the pool read gave up (the whole
 # message as one request, as every turn before plans).
@@ -117,6 +121,15 @@ def is_homework(text: str) -> bool:
 
 def _same_line(left: str, right: str) -> bool:
     return left.split() == right.split()
+
+
+def teaching_reason_of(text: str) -> TeachingReason:
+    """Why ``text`` asks to be taught or not ("procedure": a task to do), from the turn's own
+    reading when ``text`` is the turn's message, as ``teaching_of``."""
+    kept = current_turn_reading()
+    if kept is not None and kept.text == text:
+        return kept.teaching_reason
+    return teaching_reason(text)
 
 
 def teaching_of(text: str) -> bool:

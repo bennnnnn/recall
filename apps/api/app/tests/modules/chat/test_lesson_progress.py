@@ -295,3 +295,28 @@ async def test_job_writes_the_line_and_retries_a_busy_memory():
         await handlers._handle_lesson_progress(Settings(), payload)
     assert record.await_args.kwargs["text"] == progress.text
     assert retry.await_args.kwargs["job_type"] == "lesson_progress"
+
+
+def test_the_practice_and_an_emoji_title_leave_the_progress_line_right():
+    """The owner's chat (2026-11-14): its practice heading is no lesson ("### Your turn"), and
+    "### 🧪 Lesson 3: …" is Lesson 3."""
+    third = (
+        "Correct! 🎉\n\n### 🧪 Lesson 3: Moles in equations\n\n### 1. The ratio\nText.\n\n"
+        '### Your turn\n\n```quiz\n{"question": "q"}\n```'
+    )
+    progress = lesson_progress(
+        [
+            _msg("user", "teach me moles"),
+            _msg("assistant", _lesson(1, "The mole")),
+            _msg("user", "next"),
+            _msg("assistant", _lesson(2, "Moles and particles")),
+            _msg("user", "ok next"),
+            _msg("assistant", third),
+        ],
+        title=None,
+    )
+    assert progress is not None
+    assert progress.text == (
+        "Learning Moles: reached Lesson 3, Moles in equations. "
+        "Covered: The mole; Moles and particles; Moles in equations"
+    )
