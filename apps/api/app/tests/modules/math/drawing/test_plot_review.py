@@ -279,3 +279,20 @@ def test_a_derivative_the_question_gives_is_no_picture_of_f() -> None:
     """f'(x) = 3x² - 3 written as the curve y = 3x² - 3 would label f' as f."""
     graph = _plot("Given f'(x) = 3x^2 - 3 and f(0) = 1, sketch f.", _curve("f", "3x^2 - 3"))
     assert graph is None
+
+
+def test_a_stated_interval_cut_where_the_curve_crosses_is_shaded() -> None:
+    """u5-037: ∫ from -3 to 3 shaded in two parts cut at the crossing 0; π/2 written 1.5708."""
+    odd = _plot(
+        "Verify by computing ∫ from −3 to 3 of (x³ + x) dx, and show it.",
+        _curve("f", "x^3 + x"),
+        _shade("f", "x-axis", "-3", "0"),
+        _shade("f", "x-axis", "0", "3"),
+    )
+    assert odd is not None and len(odd.regions) == 2
+    sine = _plot(
+        "Evaluate ∫ from −π/2 to π/2 of sin x dx. Show it on a graph.",
+        _curve("f", "sin(x)"),
+        _shade("f", "x-axis", "-1.5708", "1.5708"),
+    )
+    assert sine is not None and sine.regions

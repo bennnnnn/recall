@@ -13,7 +13,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from sympy import Symbol
+from sympy import Float, Symbol
 
 from app.modules.math.drawing.curve_features import snapped, zeros
 from app.modules.math.drawing.plot_pieces import value
@@ -38,8 +38,11 @@ def stated(number: Any, question: PlotQuestion) -> Any | None:
 
 
 def _same(a: Any, b: Any) -> bool:
+    """``b``, a value a description writes, is ``a``: exactly, or to the places a decimal
+    written for it holds (π/2 written 1.5708)."""
     try:
-        return abs(float(a) - float(b)) < 1e-9 * max(1.0, abs(float(b)))
+        near = 1e-4 if isinstance(b, Float) else 1e-9
+        return abs(float(a) - float(b)) < near * max(1.0, abs(float(b)))
     except (TypeError, ValueError):
         return False
 
@@ -57,11 +60,21 @@ def stated_interval(low: Any, high: Any, question: PlotQuestion) -> tuple[Any, A
     return (a, b) if a is not None and b is not None and float(a) < float(b) else None
 
 
-def stated_end(number: Any, question: PlotQuestion) -> Any | None:
-    """The question's own edge equal to ``number`` ("x = 2", "x ≥ 0", the y-axis): one end of
-    a region whose other end is a place the server finds. One end of an interval is no edge:
-    b03's 3, of "between 2 and 3" said of the answer, shaded [0, 3]."""
-    return next((edge for edge in question.edges if _same(edge, number)), None)
+def stated_end(number: Any, question: PlotQuestion, meet: float) -> Any | None:
+    """The question's own value equal to ``number`` that ends a region whose other end is
+    ``meet``, a place the edges meet: an edge it names ("x = 2", "x ≥ 0", the y-axis), or an
+    end of an interval it writes that holds the meet (u5-037's ∫ from -3 to 3 cut at 0). An
+    end of an interval elsewhere is none: b03's 3, of "between 2 and 3" said of the answer,
+    shaded [0, 3]."""
+    edge = next((edge for edge in question.edges if _same(edge, number)), None)
+    if edge is not None:
+        return edge
+    for pair in question.intervals:
+        if float(pair[0]) <= meet <= float(pair[1]):
+            end = next((end for end in pair if _same(end, number)), None)
+            if end is not None:
+                return end
+    return None
 
 
 def reach(question: PlotQuestion) -> float:

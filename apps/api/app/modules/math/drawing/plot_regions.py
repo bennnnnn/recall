@@ -78,9 +78,10 @@ def _stated_bounds(item: Shade, meets: list[float], question: PlotQuestion) -> l
     ends = [_meet(low, meets), _meet(high, meets)]
     if ends == [None, None]:
         return None
+    meet = next(end for end in ends if end is not None)
     for i, number in enumerate((low, high)):
         if ends[i] is None:
-            own = stated_end(number, question) if along_x else None
+            own = stated_end(number, question, meet) if along_x else None
             if own is None:
                 return None
             ends[i] = float(own)

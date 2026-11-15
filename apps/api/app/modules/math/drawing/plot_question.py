@@ -32,7 +32,9 @@ from app.modules.math.tool_check import parse_formula, written_expressions, writ
 from app.services.glyphs import OPERATOR_GLYPHS
 
 # The reader's own glyphs, on top of the shared operator table (services/glyphs).
-_READER_GLYPHS = {"\u2264": "<=", "\u2265": ">=", "\u2260": " != ", "\u03c0": "pi"}
+_READER_GLYPHS = {
+    "\u2264": "<=", "\u2265": ">=", "\u2260": " != ", "\u03c0": "pi", "\\pi": "pi"
+}  # fmt: skip
 # Where a formula written after "=" ends: a clause's punctuation or a word of English.
 _ENDS = frozenset(
     "if for when on from and is at which that has where with between to in then over about "
