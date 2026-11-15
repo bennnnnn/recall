@@ -80,10 +80,21 @@ _ASKS_HOW = re.compile(
     rf"{_END}",
     re.IGNORECASE,
 )
+# "How" after a reply that worked nothing out ("I'm happy to help with a first message or a
+# date plan") asks how to do what it was about: told the reply had an answer to explain, the
+# model asked "how I got my previous answer, or how to do something?" (2026-11-15).
 REPLY_HOW_HINT = (
-    "The user asks how your last reply got its answer. Explain it: the steps or reasoning "
-    "that lead to it, briefly, the main point first. Do not ask what they meant."
+    "The user asks how, about your last reply. When it gave an answer or a result, explain "
+    "how it got there: the steps or reasoning, briefly, the main point first. When it was "
+    'about something they want to do, a "how" asks how to do it: give the steps. Do not '
+    "ask what they meant."
 )
+
+
+# A question an emoji or two follows ("…or ideas for meeting people? 😊") still ends the
+# reply: "How" after it was told the reply had an answer to explain (2026-11-15).
+_ENDS_ASKING = re.compile(r"\?[^\w\n]*$")
+_TAIL = 200
 
 
 def reply_how_hint(query: str, prior: Sequence[tuple[str, str]]) -> str | None:
@@ -94,7 +105,7 @@ def reply_how_hint(query: str, prior: Sequence[tuple[str, str]]) -> str | None:
     asks how a reply was reached.
     """
     last = next((text for role, text in reversed(prior) if role == "assistant"), "")
-    if not last.strip() or last.rstrip().endswith("?"):
+    if not last.strip() or _ENDS_ASKING.search(last.rstrip()[-_TAIL:]):
         return None
     text = collapse_ws(straighten_apostrophes(query)).strip()
     return REPLY_HOW_HINT if _ASKS_HOW.match(text) else None

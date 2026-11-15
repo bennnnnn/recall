@@ -63,6 +63,10 @@ _LIGHTWEIGHT_CALLERS: dict[str, tuple[int, str]] = {
 _TEACHING_CALLERS: dict[str, tuple[int, str]] = {
     "modules/chat/turn_prep/reading.py::read_turn": (1, "owner: the turn's reading"),
     "modules/turn_reading/turn.py::teaching_of": (1, "owner: any text that is not the turn's"),
+    "modules/turn_reading/turn.py::teaching_reason_of": (
+        1,
+        "owner: why, for a text not the turn's",
+    ),
     "modules/turn_reading/teaching.py::is_teaching_request": (1, "the reader's yes/no"),
     "modules/chat/lesson_progress.py::lesson_progress": (1, "the chat's earlier user lines"),
     "modules/turn_reading/lesson_flow.py::outline_awaits_pick": (1, "the line before the reply"),

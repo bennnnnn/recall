@@ -124,6 +124,8 @@ async def render(case: Case) -> tuple[list[dict[str, str]], dict[str, object]]:
         "app.modules.chat.prompt_builder._load_context_blocks": AsyncMock(return_value=blocks),
         "app.modules.attachments.rag.SessionLocal": _Session,
         "app.modules.chat.prompt_context.SessionLocal": _Session,
+        # The chat's earlier practice cards, read from its rows: none in these chats.
+        "app.modules.chat.practice_asked._chat_replies": AsyncMock(return_value=[]),
         # "error": the attachment-chunk probe fails, and the turn goes on without it.
         "app.modules.attachments.service.chat_has_document_chunks": AsyncMock(
             side_effect=RuntimeError("probe") if case["has_chunks"] == "error" else None,

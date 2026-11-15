@@ -14,7 +14,15 @@ the rules' (``model_routing.decided``):
   number ("Translate the algebraic expression 7x in different word phrases");
 - an everyday message the read calls an answer to the last reply, or a change to what the
   conversation is about, gets a note beside it saying so (``FOLLOW_NOTES``): "the
-  language" after "Python the language, or the snake?" was asked back on every try without it.
+  language" after "Python the language, or the snake?" was asked back on every try without it;
+- an answer to the practice cards the last reply ended on (the option the read says it
+  gives) is graded by the server against each card, with no ```worked layout of its own
+  (``quiz_verdict_note``); one answer to several cards that says not which is asked about
+  (``QUIZ_WHICH_NOTE``); a question that names an option ("why is 18 wrong?") is answered,
+  ungraded, and a reply to the card that answers nothing ("is it 35 or 52?") is talked
+  through, never laid out as a calculation; and an
+  answer to a lesson's card or a message the read says goes on gets the next lesson's
+  contract (``lesson_next_contract``). On such a turn the reply waits for the read.
 
 Numbers a server path already worked keep their lane and their level (a verified solve, a
 money card): the model only presents them. A lesson's step stays quick, a regenerate or a
@@ -28,17 +36,23 @@ decided (``turn_trace.note_decision``).
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING
+import re
+from typing import TYPE_CHECKING, Any
 
 from app.core.config import Settings
 from app.modules.billing import plan as plan_service
 from app.modules.billing.entitlements import has_strong_everyday_model
-from app.modules.chat.decider_read import READ_SUBJECTS
+from app.modules.chat.decider_read import NO_ANSWER, OTHER_ANSWER, READ_SUBJECTS
 from app.modules.chat.drawing_turn import ask_for_a_drawing
 from app.modules.chat.json_output import is_json_request
+from app.modules.chat.lesson_again import lesson_again
 from app.modules.chat.model_routing.decided import decided_lane, decided_level, math_backups
 from app.modules.chat.prompt_constants.conversation import FOLLOW_NOTES
+from app.modules.chat.prompt_constants.lesson_flow import LESSON_ASIDE_NOTE, lesson_next_contract
+from app.modules.chat.prompt_constants.list_reference import OPTION_PICK_MARK
+from app.modules.chat.prompt_constants.practice import QUIZ_WHICH_NOTE, quiz_verdict_note
 from app.modules.chat.prompt_inject import inject_before_last_user
+from app.modules.chat.quiz_cards import PracticeCard, last_reply_cards, option_letter
 from app.modules.chat.turn_decision import TurnDecision, turn_decision_result
 from app.modules.chat.turn_prep.reading import plan_of
 from app.modules.chat.turn_trace import note_decision, note_prompt_rule, note_route
@@ -48,12 +62,43 @@ from app.modules.chat.worked_turn import (
     without_worked_contract,
     worked_layout,
 )
-from app.modules.turn_reading.lesson_flow import active_lesson_step, outline_awaits_pick
+from app.modules.turn_reading.lesson_flow import (
+    active_lesson_step,
+    lesson_teaches_words,
+    outline_awaits_pick,
+)
 from app.modules.turn_reading.school_question import is_school_exercise
+from app.services.md_fence_scan import line_fences
 
 if TYPE_CHECKING:
     from app.modules.chat.turn_prep.context import StreamContext
 
+# The question an answer answers: the last one the reply asked, read from its end. "To eat"
+# after "Here's a random one: **Why do cats purr?** … Take a guess" got restaurants on 2 of
+# 3 tries told only that it answered the last reply (2026-11-15).
+_QUESTION = re.compile(r"[^\n.!?:]*\?")
+_MARKUP = re.compile(r"[*_`]+")
+# An emoji or a mark before the question's first word.
+_LEAD = re.compile(r"^[^\w\"'(]+")
+_QUESTION_TAIL = 800
+_QUESTION_CHARS = 200
+
+
+def _asked_question(reply: str) -> str | None:
+    """The last question ``reply`` asked outside its fences (a sources card comes after it)."""
+    prose = "\n".join(
+        line
+        for line, owner in zip(reply.split("\n"), line_fences(reply), strict=False)
+        if owner is None
+    )
+    tail = _MARKUP.sub("", prose.rstrip()[-_QUESTION_TAIL:])
+    found = [_LEAD.sub("", m.group(0)).strip() for m in _QUESTION.finditer(tail)]
+    found = [q for q in found if len(q.split()) >= 2 and len(q) <= _QUESTION_CHARS]
+    return found[-1] if found else None
+
+
+# The most of an option's words a verdict quotes (a card is the model's text).
+_OPTION_CHARS = 120
 # The subjects whose follow-ups get the read's note. Maths, physics, chemistry and money
 # read their own ("what if it was 30 m/s?" changes the posed problem, ``chat.posed_read``).
 _NOTED_SUBJECTS = frozenset({"everyday", "code"})
@@ -79,12 +124,22 @@ async def decide_from_the_read(ctx: StreamContext, settings: Settings) -> None:
     )
     ctx.thinking = _level(ctx, read)
     _follow_the_lane(ctx, settings, read)
-    _worked_layout(ctx, settings, read)
+    answered = _answered(ctx, read)
+    # One answer the read places on several cards ("B" after three): which is it for?
+    unplaced = len(answered) > 1 and read.unplaced is True
+    _goes_on_with_the_lesson(ctx, read, answered, unplaced=unplaced)
+    if _grades_the_card(ctx, answered, unplaced=unplaced):
+        return
+    if _replies_to_the_card(ctx, read):
+        _without_worked_layout(ctx)
+    else:
+        _worked_layout(ctx, settings, read)
     _follow_note(ctx, read)
 
 
 async def _the_read(ctx: StreamContext, settings: Settings) -> TurnDecision | None:
-    """The read when it is in; waited for only when it could still move Auto's lane."""
+    """The read when it is in; waited for only when it could still move Auto's lane, the
+    layout, or grade a card."""
     task = ctx.live_read
     if task is None:
         return None
@@ -92,9 +147,31 @@ async def _the_read(ctx: StreamContext, settings: Settings) -> TurnDecision | No
         if task.cancelled() or task.exception() is not None:
             return None
         return task.result()
-    if not (_lane_may_move(ctx) or _layout_at_stake(ctx)):
+    if not (_lane_may_move(ctx) or _layout_at_stake(ctx) or _reads_the_cards(ctx)):
         return None
     return await turn_decision_result(task, settings)
+
+
+def _answered_window(ctx: StreamContext) -> list[Any]:
+    """The window the message answers, as the read saw it: on a regenerate, without the reply
+    being redone (``RegenerateTurn.before_line``). Lesson 1's card, "b", then a regenerate of
+    Lesson 2: graded against Lesson 2's options, with Lesson 3 asked for (review of #2456)."""
+    recent = list(ctx.recent_messages or [])
+    backup = ctx.regenerate_backup
+    if backup is None:
+        return recent
+    return [message for message in recent if getattr(message, "id", None) != backup.message_id]
+
+
+def _reads_the_cards(ctx: StreamContext) -> bool:
+    """The last reply ended on practice cards or a lesson: the read says which option the
+    message gives, which the server grades, and whether it goes on, which the lesson follows.
+    Not waited for, "b" went ungraded whenever the read came in after the prep (review,
+    2026-11-14); late past the reply's wait, the system prompt's lesson steps stand."""
+    if ctx.instant_reply is not None:
+        return False
+    recent = _answered_window(ctx)
+    return bool(last_reply_cards(recent)) or active_lesson_step(recent) is not None
 
 
 def _layout_at_stake(ctx: StreamContext) -> bool:
@@ -203,6 +280,106 @@ def _worked_layout(ctx: StreamContext, settings: Settings, read: TurnDecision) -
         ctx.prompt_messages = with_worked_contract(ctx.prompt_messages)
 
 
+def _goes_on_with_the_lesson(
+    ctx: StreamContext,
+    read: TurnDecision,
+    answered: list[tuple[PracticeCard, str]],
+    *,
+    unplaced: bool,
+) -> None:
+    """A message that answers a lesson's card, or that the read says asks to go on ("ok
+    next"), gets the next lesson's contract beside it. A yes to another offer, a pick among
+    the choices the reply offered, or a question, one naming an option included ("why is 18
+    wrong?"), gets a note to do that instead: "the first one", after "Want to try a harder
+    one, or move on to ions?", was graded "Correct!" and Lesson 2 followed (review,
+    2026-11-14). An answer whose card is asked about first starts nothing."""
+    recent = _answered_window(ctx)
+    number = active_lesson_step(recent)
+    # "Let's start with lesson 1", the lesson just above, is pointed to (``lesson_again``).
+    if number is None or unplaced:
+        return
+    if lesson_again(ctx.user_message_content or "", recent):
+        return
+    named = any(pick != NO_ANSWER for pick in read.card_picks or [])
+    if answered or (read.goes_on and not named):
+        note_prompt_rule("read.lesson_next")
+        note = lesson_next_contract(number, words=lesson_teaches_words(recent))
+    elif named or read.goes_on is False:
+        note_prompt_rule("read.lesson_aside")
+        note = LESSON_ASIDE_NOTE
+    else:
+        return
+    ctx.prompt_messages = inject_before_last_user(ctx.prompt_messages, note)
+
+
+def _answered(ctx: StreamContext, read: TurnDecision) -> list[tuple[PracticeCard, str]]:
+    """Each card of the last reply the message answers, with the option the read says it
+    gives ("b", or "other": none of them); none when the read says it gives no answer and
+    only names an option ("can you explain why 18 is wrong" was graded and the next lesson
+    followed, review 2026-11-14). An option's own words beat its letter (``option_said``)."""
+    if read.answers is not True:
+        return []
+    message = ctx.user_message_content or ""
+    cards = last_reply_cards(_answered_window(ctx))
+    return [
+        (card, pick if (said := card.option_said(message)) is None else option_letter(said).lower())
+        for card, pick in zip(cards, read.card_picks or [], strict=False)
+        if pick != NO_ANSWER
+    ]
+
+
+def _replies_to_the_card(ctx: StreamContext, read: TurnDecision) -> bool:
+    """A reply to the last reply's card that the read says gives no answer to it: talked
+    through, never laid out as a calculation of its own. "is it 35 or 52?" came back Given to
+    Answer on every try once its lesson's note said to do what it asks (review, 2026-11-14);
+    a new problem asked after the card stands alone, and keeps its layout."""
+    return (
+        read.answers is False
+        and read.follow == "answer"
+        and bool(last_reply_cards(_answered_window(ctx)))
+    )
+
+
+def _verdict(card: PracticeCard, pick: str) -> str | None:
+    """The server's grade of one answer, in words the reply may repeat as they stand ("Their
+    answer '35' isn't one of the options" was, review 2026-11-14), or None for a card with no
+    right option named. An option goes by its words: the phone shows no letters. Each line
+    says whose answer it grades: "Question 1: 6, right." was read as Question 1 wrong."""
+    if card.right is None or card.answer is None:
+        return None
+    name = card.label or card.question[:60]
+    right = card.right[:_OPTION_CHARS]
+    index = ord(pick[:1] or "?") - ord("a")
+    if pick == OTHER_ANSWER or not 0 <= index < len(card.options):
+        return f"{name}: the answer given is none of the options; the right answer is {right}."
+    chosen = card.options[index][:_OPTION_CHARS]
+    if index == card.answer:
+        return f"{name}: the answer given, {chosen}, is right."
+    return f"{name}: the answer given, {chosen}, is wrong; the right answer is {right}."
+
+
+def _grades_the_card(
+    ctx: StreamContext, answered: list[tuple[PracticeCard, str]], *, unplaced: bool
+) -> bool:
+    """A message that answers the last reply's practice cards, in the read's words: the server
+    grades each against its card, and the reply opens with that verdict, never a calculation
+    laid out of its own; one answer that may be any card's is asked about first. A new
+    question asked after a card answers none, and is worked as any question is."""
+    if not answered or _worked(ctx) or ctx.instant_reply:
+        return False
+    _without_worked_layout(ctx)
+    if unplaced:
+        note_prompt_rule("read.quiz_which")
+        ctx.prompt_messages = inject_before_last_user(ctx.prompt_messages, QUIZ_WHICH_NOTE)
+        return True
+    verdicts = [found for card, pick in answered if (found := _verdict(card, pick))]
+    if verdicts:
+        note_prompt_rule("read.quiz_answer")
+        note = quiz_verdict_note(verdicts)
+        ctx.prompt_messages = inject_before_last_user(ctx.prompt_messages, note)
+    return True
+
+
 def _without_worked_layout(ctx: StreamContext) -> None:
     """No ```worked contract: the read says the message asks for no result worked out. With
     one, "Translate the algebraic expression 7x in different word phrases" was answered
@@ -228,4 +405,28 @@ def _follow_note(ctx: StreamContext, read: TurnDecision) -> None:
     if active_lesson_step(ctx.recent_messages) or outline_awaits_pick(ctx.recent_messages):
         return
     note_prompt_rule(f"read.follow_{read.follow}")
-    ctx.prompt_messages = inject_before_last_user(ctx.prompt_messages, note)
+    messages = ctx.prompt_messages
+    # "To eat", a guess at "Why do cats purr?", got Oakland restaurants "since your favorite
+    # color is green" on 2 of 3 (2026-11-15), a word rule having read food in it. Named the
+    # question it answers, it was the cat guess on 5 of 5, the recommendation hint kept for
+    # an answer that does ask for one ("Italian" to "What cuisine?").
+    if read.follow == "answer" and (question := _answered_question(ctx, messages)) is not None:
+        note = f'{note} The question it answers: "{question}"'
+    ctx.prompt_messages = inject_before_last_user(messages, note)
+
+
+def _answered_question(ctx: StreamContext, messages: list[dict[str, Any]]) -> str | None:
+    """The question the last reply asked, unless a pick note names another: "Is it A or B?"
+    after the reply that graded it is about the lettered question before, whose note says so,
+    and the last reply's "Want another round?" would point the other way."""
+    last = next(
+        (
+            getattr(m, "content", "")
+            for m in reversed(ctx.recent_messages or [])
+            if getattr(m, "role", None) == "assistant"
+        ),
+        "",
+    )
+    question = _asked_question(last) if isinstance(last, str) else None
+    picks = [str(m.get("content")) for m in messages if OPTION_PICK_MARK in str(m.get("content"))]
+    return question if question and all(question in pick for pick in picks) else None

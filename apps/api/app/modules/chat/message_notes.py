@@ -1,7 +1,7 @@
 """What the latest message is, said beside it: a list of values, "What?" or "How?" at the
 last reply, a number naming an item of its list, owning a mistake when told of one, no
-recap of what the chat settled, how a reply is laid out to be scanned, the user's Emoji
-setting, and the language it is written in.
+recap of what the chat settled, how a reply is laid out to be scanned, a frightening turn
+met plainly, the user's Emoji setting, and the language it is written in.
 
 These sit nearest the user's turn (``prompt_sections.CONTEXT_SECTIONS``): a small model
 follows the note closest to the message. A lesson, its outline and a clarify card read
@@ -16,6 +16,7 @@ from typing import Any
 
 from app.modules.chat.clarify_turn import clarify_reply_hint
 from app.modules.chat.continuation_subject import exchange_pairs
+from app.modules.chat.prompt_constants.care import DISTRESS_RULE
 from app.modules.chat.prompt_constants.conversation import NO_RECAP_NOTE, OWN_MISTAKE_HINT
 from app.modules.chat.prompt_constants.format import READER_NOTE
 from app.modules.chat.prompt_constants.list_reference import list_reference_hint
@@ -63,6 +64,9 @@ def message_notes(query: str, exchange: list[Any], user: Any, memory_block: str 
         recap,
         school,
         reader,
+        # Beside every message: in an emergency role-play (2026-11-15) the free plan's model
+        # told the user when to fire a gun with the rule only at the top of the prompt.
+        DISTRESS_RULE,
         emoji,
         language,
     )

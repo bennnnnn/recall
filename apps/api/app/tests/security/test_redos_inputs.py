@@ -265,3 +265,15 @@ def test_equation_walker_reads_a_run_of_spaces_once(text: str) -> None:
 )
 def test_the_equation_walker_reads_sides_as_before(text: str, sides: list[tuple[str, str]]) -> None:
     assert [(lhs, rhs) for _left, _right, lhs, rhs in _equation_spans(text)] == sides
+
+
+def test_the_names_and_options_passes_read_long_runs_once() -> None:
+    """CodeQL on #2459: inline code by backreference, an option line's lazy text before its
+    trailing tabs, and a question end after a run of "?"."""
+    from app.modules.chat.name_use import without_name
+    from app.modules.chat.option_letters import has_lettered_run
+
+    without_name("`" * N, "bini")
+    has_lettered_run("A) x" + "\t" * N + "y\nB) z")
+    has_lettered_run("?" * N + "\nA) x\nB) y")
+    assert without_name("Hey bini! See `bini` here.", "bini") == "Hey! See `bini` here."

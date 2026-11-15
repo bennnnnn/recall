@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from app.modules.money.catalog import Product
 from app.modules.money.numbers import day_text, money_text, percent_text
+from app.modules.money.periods import FREQUENCIES, rate_words
 from app.modules.money.rates import MarketRate
 from app.modules.money.read import MoneyRequest
 from app.modules.money.solve import Worked, rate_name
@@ -205,7 +206,14 @@ def _inputs(product: Product, worked: Worked) -> list[str]:
         text = f"{_INPUT_WORDS.get(item.name, item.name)} {value}"
         if item.name in worked.assumed:
             text += " (assumed: the user did not say)"
+        elif item.name == rate_name(product) and worked.rate_per != 1:
+            # "2% a month" is worked as 24% a year; the reply says both.
+            said = rate_words(worked.values[item.name], worked.rate_per)
+            text += f" (the user's {said}, times {worked.rate_per})"
         parts.append(text)
+    payments = _payments(worked)
+    if payments != 12:
+        parts.append(f"payments {FREQUENCIES[payments].adjective}")
     if "per_year" in product.settings:
         per_year = worked.settings.get("per_year", product.settings["per_year"])
         times = _COMPOUNDING_WORDS[int(per_year)]
@@ -214,11 +222,18 @@ def _inputs(product: Product, worked: Worked) -> list[str]:
     return parts
 
 
+def _payments(worked: Worked) -> int:
+    """Times a year the loan is paid (12 for every other product)."""
+    return int(worked.settings.get("payments", worked.product.settings.get("payments", 12)))
+
+
 def _outputs(product: Product, worked: Worked) -> list[str]:
     parts = []
     for item in product.outputs:
         value = worked.outputs.get(item.name)
         words = _OUTPUT_WORDS.get(item.name, item.name)
+        if item.labelled_by == "payments":
+            words = f"{FREQUENCIES[_payments(worked)].adjective} payment"
         if value is None:
             parts.append(f"{words}: never, the payment does not cover the interest")
         elif item.format == "months":
@@ -242,7 +257,7 @@ def standing_block(
     lines.append("Inputs: " + "; ".join(_inputs(product, worked)) + ".")
     lines.append("Results: " + "; ".join(_outputs(product, worked)) + ".")
     for term, outputs in others.items():
-        at = Worked(product, worked.values, (), dict(outputs), worked.settings)
+        at = Worked(product, worked.values, (), dict(outputs), worked.settings, worked.rate_per)
         words = _INPUT_WORDS.get(term_name(product) or "", "term")
         lines.append(f"With {words} {term:g}: " + "; ".join(_outputs(product, at)) + ".")
     return "\n".join(lines)

@@ -60,14 +60,27 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # model never says it cannot draw, never gives sketching steps and never draws a number line
 # in characters (GRAPH_NO_SUBSTITUTE_CLAUSE, the textbook run 2026-11-13), then a given that
 # carries no part's letter but where one symbol has a value per part, in the layout a model
-# writes (services/workout._GIVEN_ONCE) and in a ```worked block's records, then a pick after
+# writes (services/workout._GIVEN_ONCE) and in a ```worked block's records, then a lesson's
+# shape that follows what it teaches (a language's words, a concept, a process as a ```steps
+# card), its practice an unnumbered `### Your turn`, the next lesson's contract and the grading
+# of a card's answer (prompt_constants.teaching, lesson_flow, practice), and a how-to's steps
+# as the ```steps flow card (STEPS_FORMAT_HINT), the owner's chat 2026-11-14; then the cards
+# a chat already showed listed whole and a card's answer graded by the server (practice), the
+# steps card restated beside a how-to's message (STEPS_CONTRACT), READER_NOTE's numbered list
+# yielding to it, and a yes to another offer after a lesson's card done, beside the message
+# when the read says it is one (LESSON_ASIDE_NOTE) (review, 2026-11-14); then a pick after
 # a question offering choices taken among them, the list above it the other reading
-# (prompt_constants.list_reference, UNCLEAR_MESSAGE_HINT), then maths' contract asking a
+# (prompt_constants.list_reference, UNCLEAR_MESSAGE_HINT); then a card's verdict naming the
+# option by its words, and one answer to several cards asked about first (QUIZ_WHICH_NOTE)
+# (review, 2026-11-14); then options lettered "A) …", an ordinary personal request helped, a
+# frightening turn met plainly with no weapon use told and a retraction never dropping talk of
+# self-harm, and "how" after a reply about something to do read as how to do it
+# (OPTION_LETTERS_RULE, prompt_constants.care, REPLY_HOW_HINT); then maths' contract asking a
 # reply to describe the picture a maths question asks to see in a ```draw block, the one
 # exception to its never-draw rule (math.drawing.contract.DRAW_CONTRACT, 2026-11-15).
-_RULES = 183
-_RULE_GRAMS = 17142
-_RULE_GRAMS_SHA = "1ebb67b892be0730"
+_RULES = 198
+_RULE_GRAMS = 17910
+_RULE_GRAMS_SHA = "a4e8fed35dc72710"
 
 
 def _rules() -> list[str]:

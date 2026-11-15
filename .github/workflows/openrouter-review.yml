@@ -1,0 +1,56 @@
+name: OpenRouter Review
+
+# A second opinion from a non-Anthropic model when a pull request gets one of these labels:
+#   review-deepseek  ->  deepseek/deepseek-v4-pro
+#   review-glm       ->  z-ai/glm-5.3
+# The model reads the project's rules, the diff and the changed files in full, and its
+# findings are posted as one PR comment (scripts/openrouter_review.py). It is advisory: it
+# never approves, blocks or pushes, it is not a required check, and every finding is checked
+# against the code before anything changes. To run again, remove the label and add it back.
+#
+# Needs the repository secret OPENROUTER_API_KEY. Dependabot and fork pull requests get no
+# secrets, so the steps skip there.
+
+on:
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: openrouter-review-${{ github.event.pull_request.number }}-${{ github.event.label.name }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: openrouter review (${{ github.event.label.name }})
+    if: ${{ github.event.label.name == 'review-deepseek' || github.event.label.name == 'review-glm' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      HAS_KEY: ${{ secrets.OPENROUTER_API_KEY != '' }}
+      MODEL: ${{ github.event.label.name == 'review-glm' && 'z-ai/glm-5.3' || 'deepseek/deepseek-v4-pro' }}
+    steps:
+      - uses: actions/checkout@v7
+        if: env.HAS_KEY == 'true'
+        with:
+          fetch-depth: 0
+
+      - name: Ask the model
+        if: env.HAS_KEY == 'true'
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: python3 scripts/openrouter_review.py pr --model "$MODEL" --base "$BASE" --head "$HEAD" --out review.md
+
+      - name: Post the findings
+        if: env.HAS_KEY == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body-file review.md

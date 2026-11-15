@@ -73,3 +73,8 @@ _COPY: dict[str, LessonCopy] = {
 def lesson_copy(message: str, locale: Any) -> LessonCopy:
     """The server's lesson words in the language of the reply to ``message``."""
     return _COPY.get(line_language(message, locale), _COPY["en"])
+
+
+# The practice heading's name in every app language, folded: a lesson the model wrote in
+# one of them names its practice so.
+PRACTICE_NAMES = frozenset(" ".join(copy.your_turn.casefold().split()) for copy in _COPY.values())

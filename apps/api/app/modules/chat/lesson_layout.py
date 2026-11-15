@@ -4,7 +4,9 @@ A teach-me ("teach me Python") gets ``TEACHING_HINT``: a lesson, a whole subject
 at its most useful first piece. A walkthrough ("I don't understand recursion") gets ``WALKTHROUGH_HINT``:
 a lesson. The style hints decide it (``prompt_format``); this module only reads their choice,
 so the contract beside the message and the finalize pass that holds the reply to it
-(``lesson_shape``) never disagree with the layout the prompt gave.
+(``lesson_shape``) never disagree with the layout the prompt gave. The next lesson's contract
+goes beside a message the turn's read calls an answer to a lesson (``decided_turn``), and is
+read back the same way.
 """
 
 from __future__ import annotations
@@ -12,6 +14,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any, Literal
 
+from app.modules.chat.prompt_constants.format import STEPS_CONTRACT, STEPS_FORMAT_HINT
+from app.modules.chat.prompt_constants.lesson_flow import LESSON_NEXT_OPENING
 from app.modules.chat.prompt_constants.teaching import (
     LESSON_CONTRACT,
     TEACH_CONTRACT,
@@ -19,9 +23,14 @@ from app.modules.chat.prompt_constants.teaching import (
     WALKTHROUGH_HINT,
 )
 
-LessonLayout = Literal["teaching", "walkthrough"]
+LessonLayout = Literal["teaching", "walkthrough", "next"]
 
-_CONTRACTS: dict[LessonLayout, str] = {"teaching": TEACH_CONTRACT, "walkthrough": LESSON_CONTRACT}
+_CONTRACTS: dict[LessonLayout, str] = {
+    "teaching": TEACH_CONTRACT,
+    "walkthrough": LESSON_CONTRACT,
+    # Its contract names the lesson's number: found by its opening.
+    "next": LESSON_NEXT_OPENING,
+}
 
 
 def lesson_layout_of(style_hints: Sequence[str]) -> LessonLayout | None:
@@ -35,6 +44,12 @@ def lesson_contract(style_hints: Sequence[str]) -> list[str]:
     """The contract restated beside the user's message for the turn's lesson layout."""
     layout = lesson_layout_of(style_hints)
     return [_CONTRACTS[layout]] if layout else []
+
+
+def steps_contract(style_hints: Sequence[str]) -> list[str]:
+    """A how-to's steps card, restated beside the message when the turn's layout asks for it:
+    only there, never on a plan or a list of tips."""
+    return [STEPS_CONTRACT] if STEPS_FORMAT_HINT in style_hints else []
 
 
 def prompt_lesson_layout(prompt_messages: Sequence[dict[str, Any]]) -> LessonLayout | None:
