@@ -16,7 +16,9 @@ payment count is given ("over 8 quarters").
 
 from __future__ import annotations
 
+import math
 import re
+from collections.abc import Mapping
 
 from app.modules.money.catalog import Product
 from app.modules.money.periods import OTHER_DURATION, paid_by, payment_counts
@@ -73,13 +75,16 @@ _CLAUSE_BREAK = re.compile(
 _SCALE_BEFORE = re.compile(r"\b(?:hundred|thousand)\s(?:and\s)?$", re.I)
 
 
-def read_term(product: Product, text: str, paid: int | None) -> dict[str, float] | None:
+def read_term(
+    product: Product, text: str, paid: int | None, schedule: int = 12
+) -> dict[str, float] | None:
     """The term the message gives, in the product's own unit; {} for none, None for two
     ("15 or 30 years", "a 3 year or 5 year car loan") or for a length it cannot read and no
     other ("60 payments" that ``paid``, the message's frequency, does not say how often).
 
     A count of payments is paid as its own words say ("48 monthly payments"), else ``paid``
-    times a year."""
+    times a year. One said by another frequency than the loan's ``schedule`` ("I can manage
+    20 quarterly payments" on a loan read as monthly) is not this loan's count: no term."""
     terms: set[tuple[tuple[str, float], ...]] = set()
     for match in TERM.finditer(text):
         before = text[max(0, match.start() - 30) : match.start()]
@@ -95,6 +100,8 @@ def read_term(product: Product, text: str, paid: int | None) -> dict[str, float]
         per_year = own if own is not None else paid
         if _no_term(text, match):
             continue
+        if own is not None and own != schedule:
+            return None
         if per_year is None or not paid_by(per_year):
             unread = True
             continue
@@ -113,6 +120,24 @@ def read_term(product: Product, text: str, paid: int | None) -> dict[str, float]
     if found:
         return dict(found.pop())
     return None if unread else {}
+
+
+def whole_payments(
+    product: Product, values: Mapping[str, float], settings: Mapping[str, float]
+) -> bool:
+    """A loan paid other than monthly runs over a whole number of its payments: 30 months
+    paid yearly is 2.5 payments, which no loan makes, so it is not worked. A monthly loan
+    keeps its term as said, as before."""
+    payments = settings.get("payments", product.settings.get("payments", 12))
+    if payments == 12:
+        return True
+    if "years" in values:
+        count = values["years"] * payments
+    elif "months" in values:
+        count = values["months"] * payments / 12
+    else:
+        return True
+    return math.isclose(count, round(count), abs_tol=1e-9)
 
 
 def _no_term(text: str, match: re.Match[str]) -> bool:

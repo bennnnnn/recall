@@ -491,6 +491,7 @@
   "money.title.investing": "Inversión",
   "money.amount": "Importe del préstamo",
   "money.rate": "Tipo de interés",
+  "money.yearly_rate": "Tipo de interés anual",
   "money.term_years": "Plazo",
   "money.term_months": "Plazo",
   "money.balance": "Saldo de la tarjeta",

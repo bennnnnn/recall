@@ -23,6 +23,7 @@ from app.modules.money.phrases import (
     CURRENCY_WORD,
     CURRENCY_WORDS,
     MULTIPLIERS,
+    ONE_SPACED,
     RATE,
     TERM,
     UNREAD_DIGITS,
@@ -138,6 +139,8 @@ _UNREAD_SCALE = re.compile(r"\s?(?:lakhs?|lacs?|crores?|billions?|bn|trillions?|
 _PLAN = re.compile(r"(?:401|403|457)\s?\(?[kb]\)?(?!\w)|529\s(?:plan|account|savings)\b", re.I)
 # A currency named before its sum, as many countries write it: "Birr 3,000", "USD 500".
 _CURRENCY_BEFORE = re.compile(rf"\b(?:{CURRENCY_WORDS})\s?$", re.I)
+# A currency's sign after its sum, as much of Europe writes it: "20 000 €".
+_SIGN_AFTER = re.compile(r"\s?[$€£¥₹₦](?!\s?\d)")
 
 # What follows an "m" or "k" that makes it a unit: "6m/s2", "5 m²", "3 km".
 _UNIT_AFTER_LETTER = re.compile(r"[/^²³\d]")
@@ -171,6 +174,8 @@ def amounts(text: str) -> list[Sum] | None:
         ):
             continue
         word = CURRENCY_WORD.match(text, match.end())
+        if word is None and match.group("sym") is None:
+            word = _SIGN_AFTER.match(text, match.end())
         end = word.end() if word else match.end()
         rest, clause = text[end : end + 24], text[end : end + 64]
         at = match.start("sym") if match.group("sym") else match.start("num")
@@ -189,6 +194,9 @@ def amounts(text: str) -> list[Sum] | None:
         )
         if not marked and _MONEY_BEFORE.search(before) is None:
             continue
+        if not _whole(match["num"], word is not None):
+            # "payments of 250 300 450" may be three sums or one: neither is read.
+            return None
         if match.group("mult") and not _is_multiplier(text, match):
             # "6m/s2", "20 m/s": a measurement, never 6 million.
             continue
@@ -203,6 +211,15 @@ def amounts(text: str) -> list[Sum] | None:
             number *= MULTIPLIERS[match["mult"].lower()]
         found.append(_sum(number, before, rest, clause, lead, sum_period(ahead)))
     return found
+
+
+def _whole(num: str, currency_after: bool) -> bool:
+    """Digits set apart by spaces are one sum: with no-break or thin spaces, with their
+    currency after them ("10 000 dollars", "20 000 €"), or as ``ONE_SPACED`` reads them
+    ("100 000", "12 500"). Digits with no space between are whole as they are."""
+    if " " not in num or currency_after:
+        return True
+    return ONE_SPACED.fullmatch(num) is not None
 
 
 def _no_sum(before: str, rest: str) -> bool:

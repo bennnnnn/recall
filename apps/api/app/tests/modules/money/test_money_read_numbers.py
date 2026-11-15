@@ -140,3 +140,57 @@ def test_a_percent_starts_at_no_digit_point_or_a_digits_comma() -> None:
     # "3,5%" is one rate, "1000%" no "000%", ".5%" no 5%, and "3%,4%" two rates.
     found = [match["pct"] for match in RATE.finditer("3,5% 1000% .5% 3%,4%")]
     assert found == ["3,5", "3", "4"]
+
+
+@pytest.mark.parametrize(
+    ("text", "amount", "payment"),
+    [
+        # Thousands set apart by spaces (2026-11-14 review: "10 000 dollars" was read as 10,
+        # a payment of 0.47).
+        ("A loan of 10 000 dollars at 12% per year for 2 years, how much per month?", 10000, 470.73),
+        ("Loan of 20 000 € at 4,5 % per year for 10 years", 20000, 207.28),
+        ("A loan of Birr 250 000 at 12% for 20 years", 250000, 2752.72),
+        ("a loan of 10 000 at 12% for 2 years", 10000, 470.73),
+        ("car loan of 12 500 dollars at 6% for 5 years", 12500, None),
+        ("a mortgage of 1 500 000 birr at 9% for 20 years", 1500000, 13495.89),
+        # A no-break or thin space, as French writes it.
+        ("prêt de 10\u202f000 € à 12% for 2 years loan", 10000, 470.73),
+        # Grouped by commas and dots, as before.
+        ("A loan of 10,000 dollars at 12% per year for 2 years", 10000, 470.73),
+        ("A loan of €10.000 at 12% for 2 years", 10000, 470.73),
+    ],
+)  # fmt: skip
+def test_a_sum_in_spaced_thousands_is_read_whole(
+    text: str, amount: float, payment: float | None
+) -> None:
+    request = read_money_request(text)
+    assert request is not None, text
+    assert request.values["amount"] == amount
+    if payment is not None:
+        worked = work(request, None)
+        assert worked is not None and round(worked.outputs["payment"] or 0, 2) == payment
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # A run of three-digit groups may be a list: neither one sum nor three is read.
+        "my loan payments were 250 300 450 at 6% for 3 years",
+        "a loan of $250 300 at 6%",
+    ],
+)
+def test_spaced_groups_that_may_be_a_list_are_not_read(text: str) -> None:
+    assert read_money_request(text) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "amount"),
+    [
+        # Spaced numbers that are no sum stay out of the request.
+        ("car loan of 20k at 6% for 5 years, the car has 100 000 miles", 20000),
+        ("car loan of $20,000 at 6% for 5 years; call me on 555 123 4567", 20000),
+    ],
+)
+def test_spaced_numbers_that_are_no_sum_are_left_out(text: str, amount: float) -> None:
+    request = read_money_request(text)
+    assert request is not None and request.values["amount"] == amount

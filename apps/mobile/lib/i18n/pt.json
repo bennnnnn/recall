@@ -491,6 +491,7 @@
   "money.title.investing": "Investimento",
   "money.amount": "Valor do empréstimo",
   "money.rate": "Taxa de juro",
+  "money.yearly_rate": "Taxa de juro anual",
   "money.term_years": "Prazo",
   "money.term_months": "Prazo",
   "money.balance": "Saldo do cartão",

@@ -51,6 +51,9 @@ class Input:
     label_key: str
     format: Format
     span: Span
+    # Its label when the request said the rate by a shorter period ("2% a month"): the
+    # slider holds the yearly rate it comes to, so it says so. "" keeps ``label_key``.
+    yearly_key: str = ""
 
 
 @dataclass(frozen=True)
@@ -138,6 +141,11 @@ class Product:
     # year savings compound. The outputs name them; ``outputs_at`` writes them in as numbers,
     # so a card's trees name only its sliders.
     settings: dict[str, float] = field(default_factory=dict)
+    # Words that name the product only beside its payments and no other product's word:
+    # "Ato Kebede borrowed Birr 10,000 … repays it in 18 equal monthly payments" is a loan,
+    # but "Tom borrowed $2,000 at 8%. How much interest after 3 years?" is growth, and "I
+    # borrowed $15,000 for a car" a car loan (``read.named_product``).
+    asked_words: tuple[str, ...] = ()
 
     def input(self, name: str) -> Input | None:
         return next((item for item in self.inputs if item.name == name), None)
@@ -224,7 +232,9 @@ _SAVED = (
 # --- Inputs ---------------------------------------------------------------------------
 
 _AMOUNT = Input("amount", "money.amount", "money", Span("scale", 0.25, 2.5, base=100_000))
-_RATE = Input("rate", "money.rate", "percent", Span("rate", 0.0, 15.0, step=0.05))
+_RATE = Input(
+    "rate", "money.rate", "percent", Span("rate", 0.0, 15.0, step=0.05), "money.yearly_rate"
+)
 _APR = Input("apr", "money.apr", "percent", Span("rate", 0.0, 36.0, step=0.1))
 _BALANCE = Input("balance", "money.balance", "money", Span("scale", 0.25, 3.0, base=5000))
 _CARD_PAYMENT = Input(
@@ -317,7 +327,8 @@ PRODUCTS: tuple[Product, ...] = (
         key="loan",
         family="loan",
         title_key="money.title.loan",
-        words=("loan", "borrow", "borrows", "borrowed", "borrowing", "finance", "financing"),
+        words=("loan", "borrow", "borrowing", "finance", "financing"),
+        asked_words=("borrows", "borrowed"),
         inputs=(_AMOUNT, _RATE, _years(1, 40)),
         outputs=_loan_outputs(_BY_YEARS),
         settings={"payments": 12},
@@ -387,3 +398,18 @@ PRODUCTS: tuple[Product, ...] = (
 
 def product(key: str) -> Product:
     return next(item for item in PRODUCTS if item.key == key)
+
+
+def plausible_rates(item: Product) -> tuple[float, float]:
+    """The yearly rates ``item`` is plausibly charged: its average's plausible range, else the
+    widest of its family's ("a loan" may be any loan). A rate said by a shorter period that
+    comes to more or less was said casually: "a $300k mortgage at 6% per month" is no 72%
+    loan (2026-11-14 review), so it is not worked."""
+    if item.lookup is not None:
+        return item.lookup.plausible
+    ranges = [
+        other.lookup.plausible
+        for other in PRODUCTS
+        if other.family == item.family and other.lookup is not None
+    ]
+    return min(low for low, _ in ranges), max(high for _, high in ranges)

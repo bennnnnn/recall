@@ -497,6 +497,7 @@
   "money.title.investing": "Инвестиции",
   "money.amount": "Сумма кредита",
   "money.rate": "Процентная ставка",
+  "money.yearly_rate": "Годовая процентная ставка",
   "money.term_years": "Срок",
   "money.term_months": "Срок",
   "money.balance": "Долг по карте",

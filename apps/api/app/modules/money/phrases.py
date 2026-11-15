@@ -32,14 +32,23 @@ RATE = re.compile(PERCENT, re.I)
 TERM = re.compile(rf"\b{DURATION}", re.I)
 _SCALE = r"(?:k|m|thousand|million|mil|grand)\b"
 # A sum's digits in every grouping people write: "250,000.50", "5,00,000" (lakh),
-# "250.000,50" (a dot between thousands, a comma before the cents), "250000".
+# "250.000,50" (a dot between thousands, a comma before the cents), "10 000" and
+# "250 000,50" (a space between thousands, also a no-break or thin one), "250000".
 _US = r"\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?"
 _LAKH = r"\d{1,2}(?:,\d{2})+,\d{3}(?:\.\d{1,2})?"
 _DOTTED = rf"\d{{1,3}}(?:\.\d{{3}})+(?:,\d{{1,2}})?(?!\s?{_SCALE})"
+_GAP = "[ \u00a0\u2009\u202f]"
+_SPACED = rf"[1-9]\d{{0,2}}(?:{_GAP}\d{{3}})+(?:[.,]\d{{1,2}})?(?!\d)"
 AMOUNT = re.compile(
-    rf"(?P<sym>[$€£¥₹₦])?\s?(?P<num>{_US}|{_LAKH}|{_DOTTED}|\d+(?:\.\d{{1,2}})?)"
+    rf"(?P<sym>[$€£¥₹₦])?\s?(?P<num>{_US}|{_LAKH}|{_DOTTED}|{_SPACED}|\d+(?:\.\d{{1,2}})?)"
     rf"(?:\s?(?P<mult>{_SCALE}))?",
     re.I,
+)
+# Groups set apart by a plain space that are one number whatever stands beside them: a round
+# thousand ("100 000", "1 500 000") or a short lead and one group ("12 500"). "250 300 450"
+# may be a list (``sums`` reads it as one sum only with its currency after it).
+ONE_SPACED = re.compile(
+    r"[1-9]\d{0,2}(?: \d{3})* 000(?:[.,]\d{1,2})?|[1-9]\d? \d{3}(?:[.,]\d{1,2})?"
 )
 # Digits left over after a sum: "25.000" read as 25.00 and a 0, "5,00,000" as 5.
 UNREAD_DIGITS = re.compile(r"[.,]?\d")
@@ -64,8 +73,15 @@ def grouped(num: str) -> bool:
     return "," in num or re.fullmatch(_DOTTED, num) is not None
 
 
+def _spaced(num: str) -> bool:
+    """The digits' thousands are set apart by spaces: "10 000"."""
+    return re.search(_GAP, num) is not None
+
+
 def amount_value(num: str) -> float:
     """The ``num`` group of ``AMOUNT`` as a number, in the grouping it was written in."""
+    if _spaced(num):
+        return float(re.sub(_GAP, "", num).replace(",", "."))
     if re.fullmatch(_DOTTED, num):
         return float(num.replace(".", "").replace(",", "."))
     return float(num.replace(",", ""))

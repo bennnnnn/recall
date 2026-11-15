@@ -13,6 +13,7 @@ import itertools
 import json
 import logging
 import math
+from fractions import Fraction
 
 from pydantic import ValidationError
 
@@ -110,6 +111,11 @@ def _control(item: Input, worked: Worked, average: MarketRate | None) -> Control
     low, high, step = slider_range(
         item.span, value, average.value if (is_rate and average) else None
     )
+    if item.format in ("years", "months"):
+        payments = worked.settings.get("payments", worked.product.settings.get("payments", 12))
+        low, high, step = _whole_payments(item.format, low, high, step, int(payments))
+    # "2% a month" is on the slider as the 24% a year it comes to, and the label says so.
+    yearly = is_rate and worked.rate_per != 1 and item.yearly_key
     marker = None
     if is_rate and average is not None:
         marker = Marker(
@@ -120,13 +126,29 @@ def _control(item: Input, worked: Worked, average: MarketRate | None) -> Control
         )
     return Control(
         name=item.name,
-        label_key=item.label_key,
+        label_key=item.yearly_key if yearly else item.label_key,
         format=item.format,
         min=min(low, value),
         max=max(high, value),
         step=step,
         value=value,
         marker=marker,
+    )
+
+
+def _whole_payments(
+    unit: str, low: float, high: float, step: float, payments: int
+) -> tuple[float, float, float]:
+    """A term slider's ends and step on whole payments: a car loan paid yearly steps by 12
+    months, never 6, where the card would show 2.5 payments."""
+    if not step.is_integer():
+        return low, high, step
+    grain = Fraction(payments, 12 if unit == "months" else 1).denominator
+    whole = math.lcm(int(step), grain)
+    return (
+        float(math.ceil(low / whole) * whole),
+        float(math.floor(high / whole) * whole),
+        float(whole),
     )
 
 

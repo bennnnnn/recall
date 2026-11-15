@@ -14,25 +14,22 @@ The kind of the product is read by ``kinds`` ("buying a used car" is looked up a
 used-car average), each sum's role by ``sums`` and the loan among them by ``loan_sums``.
 The percent and the length of time (``phrases``) are shared with ``change_line``, which
 reads a follow-up ("what if i only do 3 years instead") by its own stricter grammar.
-``periods`` reads how often the rate, the payments and the deposits run ("2% per month" is
-24% a year) and ``terms`` the term ("48 monthly payments" is 4 years).
+``periods`` reads how often the rate runs ("2% per month" is 24% a year), ``schedule`` how
+often the loan's own payments do ("8 quarterly payments", never "HOA dues paid quarterly")
+and ``terms`` the term ("48 monthly payments" is 4 years).
 """
 
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
-from app.modules.money.catalog import PRODUCTS, Product
+from app.modules.money.catalog import PRODUCTS, Product, plausible_rates
 from app.modules.money.compounding import UNKNOWN, compounding_per_year
 from app.modules.money.kinds import named_variant
 from app.modules.money.loan_sums import LoanSums, loan_sums, rest_is_borrowed
-from app.modules.money.periods import (
-    flow_frequency,
-    paid_by,
-    rate_period,
-    rate_periods_said,
-)
+from app.modules.money.periods import paid_by, rate_period, rate_periods_said
 from app.modules.money.phrases import (
     AMOUNT,
     CURRENCY_WORD,
@@ -43,8 +40,9 @@ from app.modules.money.phrases import (
     grouped,
     percent_value,
 )
+from app.modules.money.schedule import flow_frequency, names_payments
 from app.modules.money.sums import MEASUREMENT, SAYS_MONEY, Sum, amounts
-from app.modules.money.terms import read_term
+from app.modules.money.terms import read_term, whole_payments
 
 _YEAR = re.compile(r"(?:19|20)\d{2}")
 # A percent that is a share of the price put down: "20% down", "a down payment of 20%",
@@ -199,19 +197,27 @@ def read_money_request(text: str) -> MoneyRequest | None:
     if rate is None and not _FINANCE.search(_RATE_OF_A_QUANTITY.sub(" ", text)):
         return None
     rate_per = _rate_per(text, periods) if rate is not None else 1
-    flow = flow_frequency(text)
-    settings = _settings(found, text, rate_per, flow)
+    if rate is not None and rate_per > 1 and not _plausible(found, rate * rate_per):
+        return None
+    compounds = compounding_per_year(text)
+    charged = rate_per if rate_per > 1 else None
+    flow = flow_frequency(
+        text, _own_names(found, text), saves=found.family == "savings", backing=(compounds, charged)
+    )
+    settings = _settings(found, rate_per, flow, compounds)
     if settings is None:
         return None
     loan = loan_sums(sums, share, rest_is_borrowed(text)) if found.family == "loan" else None
     values = _values(found, rate, sums, loan, rate_per)
     # A count of payments with no frequency of its own ("12 equal payments") is paid as
     # the message says, else as often as its rate is charged ("1% per month").
-    paid = flow if flow is not None else (rate_per if rate_per > 1 else None)
-    term = read_term(found, text, paid)
+    schedule = int(settings.get("payments", 12))
+    term = read_term(found, text, flow if flow is not None else charged, schedule)
     if values is None or term is None:
         return None
     values.update(term)
+    if not whole_payments(found, values, settings):
+        return None
     if not any(name in values for name in _principal_names(found)):
         return None
     recurring = _RECURRING.search(text) is not None or _RD.search(text) is not None
@@ -243,8 +249,37 @@ def _rate_per(text: str, beside: set[int]) -> int:
     return UNKNOWN if said - {1} else 1
 
 
+def _plausible(product: Product, rate: float) -> bool:
+    """A yearly ``rate`` read from a shorter period's ("2% a month" is 24%) is one the product
+    is plausibly charged; "a mortgage at 6% per month" was 6% said casually."""
+    low, high = plausible_rates(product)
+    return low <= rate <= high
+
+
+def _own_names(product: Product, text: str) -> tuple[str, ...]:
+    """The names of the request's own loan, in lower case: its product's words and a
+    plainer product's ("the loan" after "a car loan"). None at all when another loan is
+    named too ("a car loan … my mortgage payments are weekly"): payments said of a loan by
+    name are then not certainly this one's."""
+    lowered = text.lower()
+    names = [word for item in PRODUCTS if _plainer(item, product) for word in item.words]
+    for item in PRODUCTS:
+        if item.family != product.family or _plainer(item, product):
+            continue
+        if any(re.search(rf"\b{re.escape(word)}\b", lowered) for word in item.words):
+            return ()
+    return tuple(names)
+
+
+def _plainer(item: Product, product: Product) -> bool:
+    """``item`` is ``product`` or a plainer word for it: "loan" is inside "car loan"."""
+    return item is product or any(
+        re.search(rf"\b{re.escape(word)}\b", own) for word in item.words for own in product.words
+    )
+
+
 def _settings(
-    product: Product, text: str, rate_per: int, flow: int | None
+    product: Product, rate_per: int, flow: int | None, compounds: int | None
 ) -> dict[str, float] | None:
     """The settings ``text`` fixes; None when it says one the product cannot work, or two
     that disagree: savings "compounded continuously" or paid into each quarter, a loan
@@ -252,7 +287,6 @@ def _settings(
     quarterly), or a rate or a payment the reader cannot place ("1.5% monthly", "bi-weekly
     payments"). A card's APR is charged a month at a time however it compounds, as its
     statement works it, and it is paid monthly."""
-    compounds = compounding_per_year(text)
     if UNKNOWN in (rate_per, flow, compounds):
         return None
     if product.family == "card_payoff":
@@ -272,11 +306,20 @@ def _settings(
 
 
 def named_product(text: str) -> Product | None:
-    """The first product, most specific words first, that the message names."""
+    """The first product, most specific words first, that the message names. A word that
+    names one only beside its payments ("borrowed", ``Product.asked_words``) counts when no
+    product's own word is said."""
+    found = _named(text, lambda item: item.words)
+    if found is None and names_payments(text):
+        found = _named(text, lambda item: item.asked_words)
+    return found
+
+
+def _named(text: str, words: Callable[[Product], tuple[str, ...]]) -> Product | None:
     lowered = text.lower()
     best: tuple[int, Product] | None = None
     for item in PRODUCTS:
-        for word in item.words:
+        for word in words(item):
             match = re.search(rf"\b{re.escape(word)}\b", lowered)
             if match is None:
                 continue

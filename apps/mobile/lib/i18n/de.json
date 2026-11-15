@@ -485,6 +485,7 @@
   "money.title.investing": "Geldanlage",
   "money.amount": "Kreditbetrag",
   "money.rate": "Zinssatz",
+  "money.yearly_rate": "Jahreszinssatz",
   "money.term_years": "Laufzeit",
   "money.term_months": "Laufzeit",
   "money.balance": "Kartensaldo",

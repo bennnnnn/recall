@@ -35,7 +35,7 @@ from app.modules.money.fence import slider_range
 from app.modules.money.purchase import purchase_request
 from app.modules.money.read import MoneyRequest, named_product, read_money_request
 from app.modules.money.solve import rate_name
-from app.modules.money.terms import term_in
+from app.modules.money.terms import term_in, whole_payments
 
 # The user lines a follow-up may reach back over: the request and the changes after it.
 _WINDOW = 3
@@ -128,7 +128,7 @@ def changed(request: MoneyRequest, line: str) -> MoneyRequest | None:
             return None
         values.update(term)
         names.extend(term)
-    if not _in_range(request, values):
+    if not _in_range(request, values) or not whole_payments(product, values, request.settings):
         return None
     return replace(
         request,

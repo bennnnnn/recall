@@ -491,6 +491,7 @@
   "money.title.investing": "Investissement",
   "money.amount": "Montant du prêt",
   "money.rate": "Taux d'intérêt",
+  "money.yearly_rate": "Taux d'intérêt annuel",
   "money.term_years": "Durée",
   "money.term_months": "Durée",
   "money.balance": "Solde de la carte",

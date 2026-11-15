@@ -485,6 +485,7 @@
   "money.title.investing": "Investing",
   "money.amount": "Loan amount",
   "money.rate": "Interest rate",
+  "money.yearly_rate": "Yearly rate",
   "money.term_years": "Term",
   "money.term_months": "Term",
   "money.balance": "Card balance",

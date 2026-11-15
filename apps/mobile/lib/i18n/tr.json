@@ -485,6 +485,7 @@
   "money.title.investing": "Yatırım",
   "money.amount": "Kredi tutarı",
   "money.rate": "Faiz oranı",
+  "money.yearly_rate": "Yıllık faiz oranı",
   "money.term_years": "Vade",
   "money.term_months": "Vade",
   "money.balance": "Kart borcu",

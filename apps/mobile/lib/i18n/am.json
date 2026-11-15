@@ -485,6 +485,7 @@
   "money.title.investing": "ኢንቨስትመንት",
   "money.amount": "የብድር መጠን",
   "money.rate": "የወለድ መጠን",
+  "money.yearly_rate": "ዓመታዊ የወለድ መጠን",
   "money.term_years": "የክፍያ ጊዜ",
   "money.term_months": "የክፍያ ጊዜ",
   "money.balance": "የካርድ ዕዳ",

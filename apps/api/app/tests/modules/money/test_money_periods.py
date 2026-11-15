@@ -70,9 +70,9 @@ def _worked(text: str) -> Worked:
         ("credit card debt of 4000 at 0.05% per day, I pay 200 a month", "months", 24.03),
         ("credit card balance of $3,000 at 24% APR with a monthly payment of $150, how long to pay off?", "months", 25.80),
         # Savings compound by the period their rate is charged by.
-        ("I deposit $5,000 in a savings account at 5% per quarter compounded quarterly for 3 years.", "balance", 8979.28),
+        ("I deposit $5,000 in a savings account at 2% per quarter compounded quarterly for 3 years.", "balance", 6341.21),
         ("Put 2,000 in a savings account at 2% per half-year for 3 years, compounded semi-annually", "balance", 2252.32),
-        ("Put 1000 into a savings account at 1% a month for 2 years", "balance", 1269.73),
+        ("Put 1000 into a savings account at 0.75% a month for 2 years", "balance", 1196.41),
         ("savings account at 0.5% per month, I put in 300 a month for 4 years", "balance", 16229.35),
         # 200·(1.005^36 - 1)/0.005: 36 monthly deposits, never a 200 start and a 36 deposit.
         ("I make 36 monthly deposits of $200 into a savings account at 6%. How much will I have?", "balance", 7867.22),
@@ -95,7 +95,7 @@ def test_a_rate_and_term_said_by_their_period_are_worked_as_said(
         (QUARTERLY, "rate", 12),
         (QUARTERLY, "years", 2),
         ("car loan of 20000 at 1% a month over 36 monthly payments", "months", 36),
-        ("I deposit $5,000 in a savings account at 5% per quarter compounded quarterly for 3 years.", "rate", 20),
+        ("I deposit $5,000 in a savings account at 2% per quarter compounded quarterly for 3 years.", "rate", 8),
     ],
 )  # fmt: skip
 def test_the_yearly_rate_and_the_term_are_read_from_the_periods(
@@ -197,10 +197,10 @@ def test_a_lessons_loan_with_its_count_of_payments_is_laid_out() -> None:
 
 
 def test_a_rate_said_by_the_month_is_judged_as_the_yearly_rate_it_is() -> None:
-    worked = _worked("a mortgage of 300k at 2% a month for 30 years")
+    worked = _worked("a mortgage of 300k at 1.2% a month for 30 years")
     note = market_note(worked, average(), 2.0)
     assert note is not None
-    assert note.startswith("**Note:** 2% a month (24% a year) is not a realistic")
+    assert note.startswith("**Note:** 1.2% a month (14.4% a year) is not a realistic")
 
 
 def test_a_monthly_rate_near_the_average_is_no_unrealistic_rate() -> None:
@@ -222,3 +222,72 @@ def test_a_new_term_keeps_how_often_the_loan_is_paid() -> None:
     assert worked is not None and worked.outputs["payment"] is not None
     # 20,000·0.03/(1 - 1.03^-12)
     assert round(worked.outputs["payment"], 2) == 2009.24
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # A yearly rate said casually with "per month": no 72% mortgage (2026-11-14 review).
+        "How much would I pay on a $300k mortgage at 6% per month?",
+        "how much is a $25,000 car loan at 5% per month over 5 years",
+        "what's a 300k mortgage at 6.5% a month for 30 years",
+        "A $20,000 car loan at 6% per month for 60 months",
+        "student loan of $30,000 at 4% a month for 10 years",
+        "credit card balance of $3,000 at 5% a month, paying $150 a month",
+        "I put $5,000 in a savings account at 5% per quarter for 3 years",
+        "If I borrow $1,000 at 5% per month and pay nothing for a year, how much will I owe?",
+        # A rate's period the words leave open: as "1.5% monthly".
+        "A loan of $10,000, 2% interest monthly, 3 years",
+        "A loan of $10,000 with monthly interest at 2% for 3 years",
+        "car loan of 20k with interest each month at 1.5% for 3 years",
+    ],
+)
+def test_a_rate_by_the_period_that_leaves_the_products_rates_is_not_worked(text: str) -> None:
+    assert read_money_request(text) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "rate", "per"),
+    [
+        # A time is no rate's period.
+        ("If I take a $20,000 car loan at 6% a month from now, what's the payment?", 6, 1),
+        ("A $20,000 car loan at 6% a month later, what's the payment over 5 years?", 6, 1),
+        ("$300k mortgage at 6.5% a year from now for 30 years", 6.5, 1),
+        ("$20,000 car loan at 6%, a month from now rates may rise", 6, 1),
+        # "pm" is per month, as "p.m." and "pa" are.
+        ("A loan of $12,000 at 1.25% pm for 24 months", 15, 12),
+        ("A loan of $12,000 at 1.25% p.m. for 24 months", 15, 12),
+        ("A loan of $12,000 at 15% pa for 2 years", 15, 1),
+        # The yearly words: one yearly rate either way.
+        ("A loan of $10,000 at 6% interest annually for 3 years", 6, 1),
+        ("A loan of $10,000 with annual interest at 6% for 3 years", 6, 1),
+        # A product's plausible rate, said by the month.
+        ("car loan of $20,000 at 1% a month for 5 years", 12, 12),
+        ("I owe $3,000 on my credit card at 2% a month and pay $150 a month", 24, 12),
+    ],
+)
+def test_a_rate_said_by_its_period_or_as_a_time(text: str, rate: float, per: int) -> None:
+    request = read_money_request(text)
+    assert request is not None, text
+    name = "apr" if request.product.family == "card_payoff" else "rate"
+    assert (request.values[name], request.rate_per) == (rate, per)
+
+
+def test_a_rate_by_the_month_is_labelled_as_the_yearly_rate_on_the_slider() -> None:
+    spec = _spec(calculator_fence(_worked(B098), None, "ETB"))
+    rate = next(control for control in spec.controls if control.name == "rate")
+    assert (rate.label_key, rate.value) == ("money.yearly_rate", 24)
+
+
+@pytest.mark.parametrize(
+    ("text", "name", "label"),
+    [
+        ("A loan of 50,000 at 12% annual interest repaid in 36 monthly payments", "rate", "money.rate"),
+        ("a mortgage of 300k at 6% for 30 years", "rate", "money.rate"),
+        # An APR says it is yearly already.
+        ("I owe $2,000 on my credit card at 1.5% a month and pay $100 a month", "apr", "money.apr"),
+    ],
+)  # fmt: skip
+def test_a_yearly_rate_keeps_its_own_label(text: str, name: str, label: str) -> None:
+    spec = _spec(calculator_fence(_worked(text), None, "USD"))
+    assert next(control for control in spec.controls if control.name == name).label_key == label
