@@ -1,12 +1,15 @@
-"""A derivative or an integral is worked with respect to a letter the expression holds.
+"""A derivative or an integral the question names no variable for is worked in a letter the
+expression holds.
 
 Unnamed, the variable was the expression's one letter, else x. With a Greek letter read as a
 variable, "Differentiate k sin θ" had two letters, so it was worked with respect to x, a letter
 it does not hold: a checked 0, and "Integrate a cos θ" a checked a·x·cos θ + C (review,
 2026-11-14). Before that, main read "k sin θ" in k (a checked sin θ) and "k sin t" in x (a
 checked 0). Nothing says which letter is the variable there, so no card answers it; x among
-several letters is still the variable, as it always was (``k sin x``). An expression
-"y = f(x, y)" names y on both sides, so its dy/dx is implicit, never f's with y held still.
+several letters is still the variable, as it always was (``k sin x``). A variable the question
+names ("dx", "dt", "with respect to t") is worked as named, every other letter a constant:
+∫ k dx is kx + C (review, 2026-11-15). An expression "y = f(x, y)" names y on both sides, so
+its dy/dx is implicit, never f's with y held still.
 """
 
 from __future__ import annotations
@@ -47,21 +50,35 @@ def test_the_implied_variable_is_one_letter_or_x(expr: str, variable: str | None
 
 
 @pytest.mark.parametrize(
-    ("expr", "variable"),
-    [("k*sin(t)", "x"), ("x**2", "t"), ("a", "x"), ("r**2*θ", "x")],
+    "expr",
+    ["k*sin(x)", "θ**2", "3*t**2 + 2*t", "x*sin(θ)", "a*x**3 + b*x**2 + c*x + d"],
 )
-def test_the_solver_refuses_a_variable_the_expression_lacks(expr: str, variable: str) -> None:
-    with pytest.raises(math_solve.SolveServiceError):
-        math_solve.differentiate_expression(expr, variable)
-    with pytest.raises(math_solve.SolveServiceError):
-        math_solve.integrate_expression(expr, variable)
-    with pytest.raises(math_solve.SolveServiceError):
-        math_solve.integrate_definite(expr, variable, "0", "1")
+def test_an_implied_variable_is_one_the_expression_holds(expr: str) -> None:
+    variable = implied_variable(expr)
+    assert variable is not None and variable in str(math_solve.parse_expression(expr))
 
 
-def test_a_number_alone_is_still_worked_in_x() -> None:
+def test_a_named_variable_is_worked_as_named() -> None:
     assert math_solve.integrate_expression("5", "x").latex == "5 x"
+    assert math_solve.integrate_expression("k", "x").latex == "k x"
     assert math_solve.differentiate_expression("7", "x").latex == "0"
+    assert math_solve.differentiate_expression("x**2", "t").latex == "0"
+
+
+@pytest.mark.parametrize(
+    ("expr", "point", "value"),
+    [("x**2 + k", "2", "4"), ("x**2", "3", "6"), ("a*t**2", "1", "0")],
+)
+def test_a_derivative_at_a_point_is_worked_when_its_value_is_a_number(
+    expr: str, point: str, value: str
+) -> None:
+    assert math_solve.differentiate_at_point(expr, "x", point).latex == value
+
+
+def test_a_derivative_whose_value_is_in_another_letter_is_refused() -> None:
+    # Its limits' finiteness unknown, "the derivative of k x^2 at x = 1" was "undefined".
+    with pytest.raises(math_solve.SolveServiceError):
+        math_solve.differentiate_at_point("k*x**2", "x", "1")
 
 
 @pytest.mark.asyncio
@@ -83,14 +100,9 @@ def test_a_number_alone_is_still_worked_in_x() -> None:
         "Differentiate e^(kt)",
         "Differentiate A sin(ωt)",
         "Differentiate t^n",
-        # A named variable the expression lacks: implicit, or a letter held constant? The
-        # derivative of y³ with respect to x is 3y²·dy/dx when y is a function of x; it was
-        # a checked 0.
-        "Differentiate x² with respect to t",
-        "differentiate y^3 with respect to x",
-        "Integrate k dx",
-        "∫ x² dθ",
-        # At a point, another letter left "undefined" for 2k, and with respect to x a 0.
+        # A decay constant or the variable? In a likelihood, d/dλ is the one asked.
+        "Differentiate e^(−λt)",
+        # At a point, a value in another letter left "undefined" for 2k.
         "Find the derivative of a t^2 at t = 1",
         "Find the derivative of k x^2 at x = 1",
     ],
@@ -115,9 +127,18 @@ async def test_an_open_or_absent_variable_gets_no_card(question: str) -> None:
         ("Find the derivative of 3t^2 + 2t", "6 t + 2"),
         ("Integrate 5 dx", "5 x + C"),
         ("Differentiate 7", "0"),
+        # Named, the variable is worked as named and the other letters are constants.
+        ("Integrate k dx", "k x + C"),
+        ("Integrate v dt", "t v + C"),
+        ("Integrate a² dx from 0 to 1", "a^{2}"),
+        ("d/dx (a²)", "0"),
+        ("Differentiate x² with respect to t", "0"),
+        ("differentiate y^3 with respect to x", "0"),
+        ("∫ x² dθ", r"x^{2} θ + C"),
+        ("Find the derivative of x² + k at x = 2", "4"),
     ],
 )
-async def test_a_variable_the_expression_holds_is_still_worked(question: str, answer: str) -> None:
+async def test_a_variable_the_question_gives_is_worked(question: str, answer: str) -> None:
     assert await _verified(question) == answer
 
 
