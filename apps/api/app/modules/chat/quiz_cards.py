@@ -32,6 +32,8 @@ QUIZ_LANG = "quiz"
 # as, and what a new card is matched against. Python quizzes ask "What will this Python code
 # print?" of every card, so the question alone named a different card the same.
 _LINE_CHARS = 240
+# The mark a listed card's line ends on when it was cut to ``_LINE_CHARS``.
+CUT_MARK = "…"
 
 
 @dataclass(frozen=True)
@@ -53,14 +55,21 @@ class PracticeCard:
         return self.options[self.answer]
 
     @property
-    def line(self) -> str:
-        """The whole card on one line."""
+    def text(self) -> str:
+        """The whole card on one line, uncut: what tells two cards apart."""
         parts = [self.question]
         if self.code:
             parts.append(f"Code: {self.code}")
         if self.options:
             parts.append(f"Options: {'; '.join(self.options)}")
-        return " ".join(" ".join(parts).split())[:_LINE_CHARS]
+        return " ".join(" ".join(parts).split())
+
+    @property
+    def line(self) -> str:
+        """The card on one line as a listing shows it: cut to ``_LINE_CHARS``, ending on
+        ``CUT_MARK`` when it was."""
+        text = self.text
+        return text if len(text) <= _LINE_CHARS else f"{text[:_LINE_CHARS]}{CUT_MARK}"
 
     def option_said(self, message: str) -> int | None:
         """The option whose words are the whole message, when exactly one's are: on a card of

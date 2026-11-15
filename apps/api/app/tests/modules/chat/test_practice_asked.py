@@ -298,3 +298,46 @@ async def test_a_regenerated_replys_cards_are_never_listed_as_shown(
         exclude={regenerated.id},
     )
     assert "NOT IN" in str(seen[0].compile(compile_kwargs={"literal_binds": True}))
+
+
+@pytest.mark.asyncio
+async def test_a_long_card_sharing_an_earlier_ones_start_is_kept(calls: _Calls) -> None:
+    """Review of #2456: lines cut at 240 characters made two Python cards sharing their first
+    200 characters of code one card, and the new one was deleted. A cut line matches none."""
+    helper = "def area(w, h):\n    return w * h\n" + "# shared helper line\n" * 12
+    old = _line(_PRINT, f"{helper}print(area(2, 3))")
+    new = "How many protons does a sodium atom have?"
+    reply = (
+        f"Two more:\n\n{_card(_PRINT, 'Q1', code=f'{helper}print(area(4, 5))')}"
+        f"\n\n{_card(new, 'Q2')}"
+    )
+    assert old.endswith("…")
+    out = await hold_new_practice(_state(reply, (old,)))
+    assert [card.question for card in practice_cards(out)] == [_PRINT, new]
+    assert calls.asked == []
+
+
+@pytest.mark.asyncio
+async def test_every_card_of_a_set_asked_before_gets_its_own_fresh_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Review of #2456: a set whose every card was asked before had only its first replaced."""
+    answers = [
+        {**_FRESH, "question": "Carbon-14 has atomic number 6. How many neutrons?"},
+        {**_FRESH, "question": "Oxygen-18 has atomic number 8. How many neutrons?"},
+    ]
+
+    async def fake(**kwargs: Any) -> Any:
+        return kwargs["schema"].model_validate(answers.pop(0))
+
+    monkeypatch.setattr(lesson_calls, "complete_structured", fake)
+    reply = f"Mock set:\n\n{_card(_MG, 'Q1')}\n\n{_card(_CL, 'Q2')}"
+    out = await hold_new_practice(_state(reply, (_line(_MG), _line(_CL))))
+    questions = [card.question for card in practice_cards(out)]
+    assert sorted(questions) == sorted(
+        [
+            "Carbon-14 has atomic number 6. How many neutrons?",
+            "Oxygen-18 has atomic number 8. How many neutrons?",
+        ]
+    )
+    assert [card.label for card in practice_cards(out)] == ["Q1", "Q2"]

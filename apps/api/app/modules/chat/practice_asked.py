@@ -18,6 +18,7 @@ listing's to prevent; a call that fails leaves the card as written.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -28,7 +29,7 @@ from uuid import UUID
 from app.modules.chat import prompt_context
 from app.modules.chat.lesson_calls import QuizCard, fresh_practice
 from app.modules.chat.prompt_constants.practice import PRACTICE_ASKED_OPENING
-from app.modules.chat.quiz_cards import QUIZ_LANG, PracticeCard, practice_cards
+from app.modules.chat.quiz_cards import CUT_MARK, QUIZ_LANG, PracticeCard, practice_cards
 from app.modules.turn_reading.lesson_flow import active_lesson_step, outline_awaits_pick
 from app.modules.turn_reading.practice import is_practice_request
 from app.modules.turn_reading.turn import teaching_of
@@ -133,42 +134,56 @@ async def hold_new_practice(state: FinalizeState) -> str:
     if state.server_text or state.was_cancelled or f"```{QUIZ_LANG}" not in text:
         return text
     listed = asked_in_prompt(state.ctx.prompt_messages)
-    asked = {_key(line) for line in listed}
+    # A card is a repeat only when it is a listed card whole: a line cut for length matches
+    # none (two Python cards sharing their first 200 characters of code are two cards, and
+    # the new one was deleted, review of #2456).
+    asked = {_key(line) for line in listed if not line.endswith(CUT_MARK)}
     cards = practice_cards(text)
-    repeats = [card for card in cards if _key(card.line) in asked]
+    repeats = [card for card in cards if _key(card.text) in asked]
     if not repeats:
         return text
     if len(repeats) < len(cards):
-        # Another card is still new: the repeat goes.
-        return _without(text, {card.line for card in repeats})
-    card = repeats[0]
-    fresh = await fresh_practice(state, card, listed)
-    if fresh is None or _key(_fresh_line(fresh)) in asked:
-        return text
-    return _replaced(text, card.line, _card_body(card.label, fresh))
+        # Another card is still new: the repeats go.
+        return _without(text, {card.text for card in repeats})
+    # Every card is one asked before (a mock set of five re-asked): each gets a fresh card of
+    # its own, asked together; one that gets none, or a repeat, stays as it was.
+    fresh = await asyncio.gather(*(fresh_practice(state, card, listed) for card in repeats))
+    bodies: dict[str, str] = {}
+    for card, quiz in zip(repeats, fresh, strict=True):
+        key = None if quiz is None else _key(_fresh_text(quiz))
+        if quiz is None or key in asked or card.text in bodies:
+            continue
+        asked.add(key or "")
+        bodies[card.text] = _card_body(card.label, quiz)
+    return _replaced(text, bodies) if bodies else text
 
 
-def _fresh_line(quiz: QuizCard) -> str:
-    return PracticeCard("", quiz.question, tuple(quiz.options), quiz.answer, quiz.code).line
+def _fresh_text(quiz: QuizCard) -> str:
+    return PracticeCard("", quiz.question, tuple(quiz.options), quiz.answer, quiz.code).text
 
 
-def _line_of(text: str, fence: Fence) -> str | None:
+def _text_of(text: str, fence: Fence) -> str | None:
     found = practice_cards(text[fence.start : block_end(text, fence)])
-    return found[0].line if found else None
+    return found[0].text if found else None
 
 
-def _without(text: str, lines: set[str]) -> str:
+def _without(text: str, cards: set[str]) -> str:
     def replace(fence: Fence, _body: str) -> str:
         original = text[fence.start : block_end(text, fence)]
-        return "" if _line_of(text, fence) in lines else original
+        return "" if _text_of(text, fence) in cards else original
 
     return re.sub(r"\n{3,}", "\n\n", map_fence_blocks(text, replace, lang=QUIZ_LANG)).strip()
 
 
-def _replaced(text: str, line: str, body: str) -> str:
+def _replaced(text: str, bodies: dict[str, str]) -> str:
+    """Each card in ``bodies`` replaced by its new body, once: the same card twice keeps its
+    second copy as it was rather than two of one fresh card."""
+    pending = dict(bodies)
+
     def replace(fence: Fence, _body: str) -> str:
         original = text[fence.start : block_end(text, fence)]
-        if _line_of(text, fence) != line:
+        body = pending.pop(_text_of(text, fence) or "", None)
+        if body is None:
             return original
         opener = text[fence.start : fence.body_start]
         closer = text[fence.body_end : block_end(text, fence)]
