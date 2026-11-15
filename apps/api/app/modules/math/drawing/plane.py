@@ -49,11 +49,13 @@ def polygon_at(part: ShapePart, question: Question) -> Drawing | None:
         end = [0.0, 0.0]
         start[index], end[index] = low - _PAST * reach, high + _PAST * reach
         axis(drawing, (start[0], start[1]), (end[0], end[1]), "xy"[index], size)
+    # The corners' letters when the question or the reply letters them all; else each its own
+    # coordinates (one lettered corner among coordinates reads as something else).
+    lettered = all(given.name and given.name in question.letters for given in part.vertices)
     names: list[str] = []
     for given, (x, y) in zip(part.vertices, corners, strict=True):
         written = _coordinates(float(x), float(y))
-        name = given.name if given.name and given.name in question.letters else ""
-        label = name or (written if len(written) <= _NAME_CHARS else "")
+        label = given.name if lettered else (written if len(written) <= _NAME_CHARS else "")
         names.append(drawing.point((float(x), float(y)), label, show=bool(label), dot=True))
     drawing.outline(names)
     return drawing
