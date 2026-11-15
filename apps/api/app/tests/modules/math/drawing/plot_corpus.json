@@ -1797,5 +1797,26 @@
   ],
   "open": 0,
   "regions": []
+ },
+ {
+  "id": "pieces_of_one_formula",
+  "question": "Find the intervals in which f(x) = |ln x| is increasing or decreasing and sketch its graph. Where is f not differentiable, and how does it bend?",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"pieces\": [{\"y\": \"-ln x\", \"when\": \"0 < x < 1\"}, {\"y\": \"ln x\", \"when\": \"x > 1\"}]}]}",
+  "note": "the reply wrote the question's one formula in pieces: the formula is drawn whole",
+  "expect": "draw",
+  "curves": [
+   ""
+  ],
+  "lines": [],
+  "points": [],
+  "open": 0,
+  "regions": []
+ },
+ {
+  "id": "domain_cuts_curve",
+  "question": "Determine the values of the constants a and b so that f is continuous, and show the continuous function on a graph: f(x) = x² + 1 if x < a; f(x) = 15 − 5x if a ≤ x ≤ b; f(x) = 5x − 25 if x > b.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"x^2 + 1\", \"domain\": [\"-10\", \"-7\"]}]}",
+  "note": "a piece written as an interval the question never states: the parabola would stand for f, so nothing is drawn",
+  "expect": "drop"
  }
 ]

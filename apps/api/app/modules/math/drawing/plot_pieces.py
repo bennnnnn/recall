@@ -196,6 +196,19 @@ def _question_shape(question: PlotQuestion, letters: dict[str, Any]) -> Shape | 
     return shape if shape.spans and pieces >= 2 else None
 
 
+def _one_formula(question: PlotQuestion) -> Shape | None:
+    """The question's one formula, when the reply wrote it in pieces it does not (|ln x| as
+    -ln x and ln x, x²|9 - x²|/(3 - x) as two cubics): drawn whole, its breaks found."""
+    found: list[Any] = []
+    for written in question.formulas:
+        expr = written.expr
+        if written.name == "x" or not expr.free_symbols or not expr.free_symbols <= {_X}:
+            continue
+        if not any(same_value(expr, seen) for seen in found):
+            found.append(expr)
+    return formula_shape(found[0], None) if len(found) == 1 else None
+
+
 def _value_on(shape: Shape, x: float) -> float | None:
     for span in shape.spans:
         low = span.low == -oo or x > float(span.low)
@@ -252,7 +265,7 @@ def pieces_shape(curve: Curve, question: PlotQuestion) -> Shape | None:
             shape.dots.append((mine[0].value, expr))
         else:
             shape.spans += _spans(expr, mine)
-    whole = _question_shape(question, letters)
+    whole = _question_shape(question, letters) or _one_formula(question)
     if whole is not None and _describes(curve, whole):
         shape = whole
     if not shape.spans or not _letters_meet(shape.spans, letters):

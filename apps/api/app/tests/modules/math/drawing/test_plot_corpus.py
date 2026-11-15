@@ -109,3 +109,28 @@ def test_a_worked_out_label_shows_only_when_the_reply_agrees(
     assert len(graph.lines) == 3 and len(graph.points) == 2
     assert sorted(p.label for p in graph.points if p.label) == sorted(points)
     assert sorted(line.label for line in graph.lines if line.label) == sorted(lines)
+
+
+@pytest.mark.parametrize(
+    ("formula", "low", "high", "peak"),
+    [
+        # SymPy prints a natural log as log(x), which the sampler reads as base 10: the
+        # first live round drew (ln x)/x a third as high as its own maximum (e, 1/e).
+        ("ln(x)/x", 1.0, 6.0, 0.36788),
+        ("x^(2/3)", -8.0, 1.0, 4.0),
+    ],
+)
+def test_a_curve_is_drawn_through_its_own_values(
+    formula: str, low: float, high: float, peak: float
+) -> None:
+    question = f"Sketch the graph of f(x) = {formula} for {low} <= x <= {high}."
+    domain = [str(low), str(high)]
+    plot = {
+        "kind": "plot",
+        "items": [{"item": "curve", "name": "f", "y": formula, "domain": domain}],
+    }
+    fence = drawn_fence(json.dumps(plot), [question], "")
+    assert fence is not None
+    graph = _graph(fence)
+    inside = [y for segment in graph.curves[0].segments for x, y in segment if low <= x <= high]
+    assert max(inside) == pytest.approx(peak, rel=1e-3)

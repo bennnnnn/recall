@@ -11,7 +11,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from sympy import oo, sstr
+from sympy import oo
 
 from app.modules.math.drawing.plot_scene import DrawnCurve, DrawnLine, DrawnPoint, Scene
 from app.modules.math.drawing.plot_window import (
@@ -25,8 +25,11 @@ from app.modules.math.drawing.plot_window import (
 from app.modules.math.schemas import GraphSampleInput
 from app.modules.math.schemas.plot import PlotCurve, PlotGraphSpec, PlotLine, PlotPoint, PlotRegion
 from app.modules.math.solve import SolveServiceError, sample_function
+from app.modules.math.solve.graph_expr_text import graph_expr_text
 
 _SAMPLES = 400
+# Half the last place the sampler writes x to.
+_ROUNDING = 5e-5
 
 
 def _ends(curve: DrawnCurve) -> list[DrawnPoint]:
@@ -103,10 +106,13 @@ def _pieces(
 def _sample(expr: Any, low: float, high: float) -> list[tuple[list[float], list[float]]]:
     """The graph sampler's own samples of ``expr`` on [low, high], piece by piece: odd roots
     real, split at its poles and jumps, as every ```graph is sampled."""
+    # Printed in the grammar the sampler and the phone read: ln for a natural log, log for
+    # base 10 (SymPy's own "log(x)" is read as base 10, and drew (ln x)/x a third as high).
+    text = graph_expr_text(expr, "x")
+    if not text:
+        return []
     try:
-        found = sample_function(
-            GraphSampleInput(expr=sstr(expr), x_min=low, x_max=high, n=_SAMPLES)
-        )
+        found = sample_function(GraphSampleInput(expr=text, x_min=low, x_max=high, n=_SAMPLES))
     except (SolveServiceError, ValueError):
         return []
     pieces = found.segments or [found.points]
@@ -121,6 +127,7 @@ def _sampled(curve: DrawnCurve, window: Window) -> list[list[tuple[float, float]
         return [
             [(x, t) for t, x in piece]
             for ts, xs in _sample(curve.sideways.expr, y_lo, y_hi)
+            if _true_to(curve.sideways, ts, xs)
             for piece in _pieces(ts, xs, [], across)
         ]
     if curve.shape is None:
@@ -132,8 +139,26 @@ def _sampled(curve: DrawnCurve, window: Window) -> list[list[tuple[float, float]
         low, high = span_range(span, x_lo, x_hi)
         if low < high:
             for xs, ys in _sample(span.expr, low, high):
+                if not _true_to(span.fn, xs, ys):
+                    return []
                 found += _pieces(xs, ys, cuts, limit)
     return found
+
+
+def _true_to(fn: Any, xs: list[float], ys: list[float]) -> bool:
+    """The samples are the curve's own values, the ones every place on it was found from:
+    a curve the sampler read another way (log as base 10) is drawn nowhere, never wrong."""
+    picks = range(0, len(xs), max(1, len(xs) // 12))
+    for i in picks:
+        # The sampler writes x to four places: the value anywhere in that rounding is its own.
+        around = [fn.at(xs[i] + step) for step in (-_ROUNDING, 0.0, _ROUNDING)]
+        if not all(math.isfinite(v) for v in around):
+            continue
+        low, high = min(around), max(around)
+        slack = 1e-3 * (1.0 + abs(around[1]))
+        if not low - slack <= ys[i] <= high + slack:
+            return False
+    return True
 
 
 def _drawn_line(line: DrawnLine, window: Window) -> PlotLine | None:

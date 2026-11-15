@@ -11,7 +11,7 @@ question's letter, its unit one the question writes.
 from __future__ import annotations
 
 import math
-from typing import Any
+from typing import Any, Literal
 
 from sympy import Expr, Integral, Rational, Symbol, integrate
 
@@ -37,6 +37,8 @@ _LABEL_CHARS = 48
 _FAMILY_REACH = 5
 # Where an antiderivative is compared with SymPy's: a few places most functions are defined.
 _SAMPLES = (0.37, 1.3, 2.9, 4.7)
+# Just beyond an interval's ends, where a curve the interval does not cut has no values.
+_BEYOND = (1e-3, 0.1, 0.5, 2.0)
 # Names that call a function by name, not a quantity an axis measures.
 _FUNCTION_NAMES = frozenset({"f", "g", "h", "F", "G", "y", ""})
 
@@ -95,17 +97,26 @@ def _no_constant(antiderivative: Any, integrand: Any, letter: Symbol) -> bool:
     return bool(found) and all(abs(v) < 1e-9 for v in found)
 
 
-def _domain(curve: Curve, question: PlotQuestion) -> tuple[Any, Any] | None:
-    """The stated interval the curve is drawn on; None for none, and for one the question
-    does not state (√(9 - x²) "on [-3, 3]" is drawn where it has values: its whole curve)."""
+def _domain(
+    curve: Curve, question: PlotQuestion, expr: Any
+) -> tuple[Any, Any] | Literal[False] | None:
+    """The stated interval the curve is drawn on, None for none, and False for one the
+    question does not state that cuts the curve: c011's reply drew a piece x² + 1 "on [-10,
+    -7]", and the whole parabola stood for f. One that is only where the curve has values
+    (√(9 - x²) "on [-3, 3]") is no cut: the curve is drawn whole."""
     if curve.domain is None:
         return None
-    held = [
-        stated(end, question) if (end := value(text)) is not None else None for text in curve.domain
+    ends = [value(text) for text in curve.domain]
+    held = [stated(end, question) if end is not None else None for end in ends]
+    if held[0] is not None and held[1] is not None and float(held[0]) < float(held[1]):
+        return held[0], held[1]
+    if ends[0] is None or ends[1] is None:
+        return False
+    fn = RealFunction(as_real(expr, _X))
+    outside = [float(ends[0]) - step for step in _BEYOND] + [
+        float(ends[1]) + step for step in _BEYOND
     ]
-    if held[0] is None or held[1] is None or float(held[0]) >= float(held[1]):
-        return None
-    return held[0], held[1]
+    return None if not any(math.isfinite(fn.at(x)) for x in outside) else False
 
 
 def _shift(text: str, question: PlotQuestion) -> Any | None:
@@ -133,8 +144,8 @@ def _curves(curve: Curve, question: PlotQuestion, color: int, scene: Scene) -> l
         shape = pieces_shape(curve, question)
         return [] if shape is None else [DrawnCurve(name, "", color, shape, search=search)]
     found = _own_formula(curve.y, question)
-    domain = _domain(curve, question)
-    if found is None:
+    domain = _domain(curve, question, found[0]) if found is not None else None
+    if found is None or domain is False:
         return []
     expr, letter, quantity, antiderivative = found
     if isinstance(domain, tuple):
