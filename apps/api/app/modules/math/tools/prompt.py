@@ -424,12 +424,13 @@ async def _llm_extract_preserving(user_content: str, settings: Settings) -> Math
 
 def _model_intent_is_users(user_content: str, intent: MathIntent) -> bool:
     """A model's reading may be solved and certified only when it is the user's own maths:
-    the whole request, and an equation or expression the user wrote (``tool_check``)."""
-    from app.modules.math.tool_check import intent_in_user_text
+    the whole request, an equation or expression the user wrote (``tool_check``), and the
+    operation asked (f'(x) is no answer to a limit, a maximum or a second derivative)."""
+    from app.modules.math.match.asked_operations import reading_computes_the_ask as asked
+    from app.modules.math.tool_check import intent_in_user_text as written
 
-    return _intent_preserves_request(user_content, intent) and intent_in_user_text(
-        intent, user_content
-    )
+    whole = _intent_preserves_request(user_content, intent)
+    return whole and written(intent, user_content) and asked(user_content, intent)
 
 
 def _unverified_math_note(kind: str | None) -> str:

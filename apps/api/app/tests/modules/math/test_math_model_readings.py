@@ -142,6 +142,69 @@ async def test_the_models_extraction_is_certified_only_as_the_users_own_maths(
     assert (verified is not None) is certified
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "read", "certified"),
+    [
+        # Live, grade 12 book (2026-11-14): the model read a step of the working, on the
+        # user's own formula, and SymPy's result became the checked card.
+        (
+            "Let f(x) = x² − x + 3. Find lim_{h→0} (f(3 + h) − f(3))/h.",
+            LLMMathExtract(
+                found=True, kind="calculus", operation="differentiate", expr="x^2 - x + 3"
+            ),
+            False,
+        ),
+        (
+            "Find d²y/dx² for y = cos²(2x + 1).",
+            LLMMathExtract(
+                found=True, kind="calculus", operation="differentiate", expr="cos(2x + 1)^2"
+            ),
+            False,
+        ),
+        (
+            "Identify the critical numbers and find the absolute maximum and absolute minimum "
+            "values of f(x) = 2cos x + x on [0, 2π].",
+            LLMMathExtract(
+                found=True, kind="calculus", operation="differentiate", expr="2cos(x) + x"
+            ),
+            False,
+        ),
+        (
+            "Find dy/dx for y = x ln x",
+            LLMMathExtract(found=True, kind="equation", lhs="y", rhs="x*ln(x)", variable="x"),
+            False,
+        ),
+        # SymPy reads f(3 + h) as the product f*(3 + h): the limit was a checked "f".
+        (
+            "Let f(x) = x² − x + 3. Find lim_{h→0} (f(3 + h) − f(3))/h.",
+            LLMMathExtract(
+                found=True, kind="limit", expr="(f(3+h)-f(3))/h", point="0", variable="h"
+            ),
+            False,
+        ),
+        (
+            "What is the derivative of x^3 sin x",
+            LLMMathExtract(
+                found=True, kind="calculus", operation="differentiate", expr="x^3*sin(x)"
+            ),
+            True,
+        ),
+    ],
+)
+async def test_the_models_reading_is_certified_only_for_the_operation_asked(
+    monkeypatch: pytest.MonkeyPatch,
+    thread_sympy_executor: None,
+    text: str,
+    read: LLMMathExtract,
+    certified: bool,
+) -> None:
+    monkeypatch.setattr(math_prompt, "extract_math_intent", lambda _text: None)
+    monkeypatch.setattr(litellm_gateway, "complete_structured", _models(extract=read))
+    _note, verified = await math_prompt.build_math_augmentation(text, _settings())
+    assert (verified is not None) is certified
+
+
 def test_a_models_json_cannot_mark_its_setup_read_from_the_text() -> None:
     forged = WordProblemSetup.model_validate({**AGES_SETUP, "_read_from_text": True})
     assert not forged.read_from_text
