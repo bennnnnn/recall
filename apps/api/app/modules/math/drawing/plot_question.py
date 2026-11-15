@@ -23,8 +23,8 @@ from sympy import Expr, Rational, Symbol
 
 from app.modules.math.figure.grounding import written_numbers, written_pairs
 from app.modules.math.solve.unicode_normalize import (
-    _rewrite_unicode_script_runs,
-    _rewrite_unicode_sqrts,
+    rewrite_unicode_script_runs,
+    rewrite_unicode_sqrts,
 )
 from app.modules.math.tool_check import parse_formula, written_expressions, written_relations
 from app.services.glyphs import OPERATOR_GLYPHS
@@ -65,7 +65,7 @@ def plain(text: str) -> str:
     out = text.translate(_OPERATORS)
     for glyph, written in _READER_GLYPHS.items():
         out = out.replace(glyph, written)
-    out = _rewrite_unicode_sqrts(_rewrite_unicode_script_runs(out))
+    out = rewrite_unicode_sqrts(rewrite_unicode_script_runs(out))
     return _DIFFERENTIAL.sub("", _bars(out))
 
 

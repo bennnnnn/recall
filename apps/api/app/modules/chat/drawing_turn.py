@@ -27,7 +27,7 @@ from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.turn_trace import note_prompt_rule
 from app.modules.turn_reading.turn import current_turn_reading
-from app.services.md_fence_scan import iter_closed_fences, strip_closed_fences
+from app.services.md_fence_scan import has_closed_fence, iter_closed_fences, strip_closed_fences
 from app.services.solving import VerifiedMathBlock
 from app.services.subjects.registry import SubjectFigure, subject_adapter
 
@@ -174,7 +174,7 @@ async def attach_drawing(state: FinalizeState) -> str:
         return text
     drawing.fences = list(fences)
     text = figure.without_drawn_substitutes(text)
-    if any(fence.startswith("```graph") for fence in fences):
+    if any(has_closed_fence(fence, "graph") for fence in fences):
         # The checked graph stands in for every other graph of the turn: a solve's plot of
         # the curve alone (round 3's c009 showed both) or the reply's own chart of it (c020).
         text = strip_closed_fences(strip_closed_fences(text, "graph"), "chart")

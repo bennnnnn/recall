@@ -18,8 +18,8 @@ from app.modules.math.solve.unicode_normalize import (
     _UNICODE_OP_SUBS,
     _UNICODE_VULGAR,
     _rewrite_unicode_higher_roots,
-    _rewrite_unicode_script_runs,
-    _rewrite_unicode_sqrts,
+    rewrite_unicode_script_runs,
+    rewrite_unicode_sqrts,
 )
 from app.services.symbolic_text import strip_inline_math_delimiters
 
@@ -362,8 +362,8 @@ def normalize_latex_to_sympy(expr: str) -> str:
     for glyph, repl in _UNICODE_VULGAR:
         s = s.replace(glyph, repl)
     s = _rewrite_unicode_higher_roots(s)
-    s = _rewrite_unicode_sqrts(s)
-    s = _rewrite_unicode_script_runs(s)
+    s = rewrite_unicode_sqrts(s)
+    s = rewrite_unicode_script_runs(s)
     for _ in range(8):
         nxt = _rewrite_latex_sqrts(s)
         if nxt == s:

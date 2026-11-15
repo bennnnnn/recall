@@ -46,7 +46,7 @@ _SUP_TABLE = str.maketrans(_SUP_GLYPHS, "0123456789-+xyn")
 _SUB_TABLE = SUBSCRIPT_DIGITS
 
 
-def _rewrite_unicode_script_runs(s: str) -> str:
+def rewrite_unicode_script_runs(s: str) -> str:
     out: list[str] = []
     i = 0
     n = len(s)
@@ -115,7 +115,7 @@ def _rewrite_unicode_higher_roots(s: str) -> str:
     return "".join(out)
 
 
-def _rewrite_unicode_sqrts(s: str) -> str:
+def rewrite_unicode_sqrts(s: str) -> str:
     """``√9`` / ``√x`` / ``√(x+1)`` → ``sqrt(...)``. Linear scan, leftover ``√`` → ``sqrt``."""
     out: list[str] = []
     i = 0
