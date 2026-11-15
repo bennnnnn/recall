@@ -31,6 +31,7 @@ from app.services.glyphs import OPERATOR_GLYPHS
 logger = logging.getLogger(__name__)
 
 _MAX_CANDIDATES = 24
+_MAX_VALUE_RUNS = 400
 _MAX_TEXT = 2000
 
 # The operators are the shared table (services/glyphs.py); the rest are this check's.
@@ -430,12 +431,12 @@ def written_expressions(text: str) -> list[Any]:
 
 
 def written_values(text: str) -> list[float]:
-    """Each real value written as a side of a relation or in a list: "f(2) = √5", "(e, 1/e)"."""
+    """Each real value a side of a relation or in a list, line by line: "f(2) = √5", "(e, 1)"."""
     found: list[float] = []
-    for run in _runs(text):
+    for run in [run for line in text.splitlines() for run in _runs(line)][:_MAX_VALUE_RUNS]:
         for piece in [side for a, _op, b in _split_relation(run) for side in (a, b)] or [run]:
             inner = piece.strip(" .,;:")
-            inner = inner[1:-1] if inner[:1] in "([" and inner[-1:] in ")]" else inner
+            inner = inner[1:-1] if inner[:1] + inner[-1:] in {"()", "[]"} else inner
             values = [_parse(part) for part in inner.split(",")]
             found += [float(v) for v in values if v is not None and v.is_number and v.is_real]
     return found

@@ -45,7 +45,8 @@ def plot_spec(
     reply's text, whose working the server's labels are held to."""
     question = read_plot_question(texts)
     read = [item for _name, item in items if item is not None]
-    scene = Scene(reply_values=tuple(written_values(reply)), reply_lines=written_lines(reply))
+    working = _both_signs(reply)
+    scene = Scene(reply_values=tuple(written_values(working)), reply_lines=written_lines(working))
     add_curves(read, question, scene)
     if not scene.curves:
         return None
@@ -58,10 +59,21 @@ def plot_spec(
     return draw_plot(scene)
 
 
+def _both_signs(reply: str) -> str:
+    """The working with each ± line written twice, once with each sign: "x = ±2" writes both
+    -2 and 2."""
+    lines = reply.splitlines()
+    signed = [line for line in lines if "\u00b1" in line or "\\pm" in line]
+    plus = [line.replace("\u00b1", "+").replace("\\pm", "+") for line in signed]
+    minus = [line.replace("\u00b1", "-").replace("\\pm", "-") for line in signed]
+    return "\n".join([*lines, *plus, *minus])
+
+
 def written_lines(reply: str) -> tuple[tuple[float | None, float], ...]:
     """The lines the reply's working writes: y = mx + c as (m, c), x = a as (None, a)."""
     found: list[tuple[float | None, float]] = []
-    for lhs, op, rhs in written_relations(reply):
+    relations = [relation for line in reply.splitlines() for relation in written_relations(line)]
+    for lhs, op, rhs in relations:
         if op != "=" or not isinstance(lhs, Symbol) or not rhs.free_symbols <= {_X}:
             continue
         slope = rhs.diff(_X)
