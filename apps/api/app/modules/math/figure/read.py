@@ -21,6 +21,7 @@ from app.core.config import Settings
 from app.models.routing_lanes import ROUTING
 from app.modules.math.figure.build import build_figure_fence
 from app.modules.math.figure.request import FigureRequest
+from app.modules.math.tools.lesson import wants_answer_only
 
 logger = logging.getLogger(__name__)
 
@@ -28,9 +29,30 @@ _MAX_TOKENS = 400
 _MAX_CHARS = 1200
 _EARLIER_CHARS = 600
 
-_PROMPT = (
+_ASKED = (
     "The user wants to see a picture for a maths question. Say what to draw, as JSON, "
     "from what the question states.\n"
+)
+# Not asked: a figure only where a student follows the question better with one in front of
+# them (the owner, 2026-11-15: "we don't have to ask it to draw, it must draw to teach").
+_TEACH = (
+    "The user did not ask for a picture. Draw one only when a figure helps a student "
+    "follow this maths question: a shape it gives sizes or angles of (any triangle, "
+    "rectangle, square, parallelogram, rhombus, trapezium, kite or polygon), a solid or a "
+    "circle it measures, angles or lines, points on a coordinate plane, an inequality or "
+    "numbers to place on a number line, or the graph of a formula y = ... it asks about "
+    "(its slope, intercepts, vertex or where it crosses: kind function). Otherwise kind is "
+    "none: arithmetic, fractions or percentages worked "
+    "as numbers, money, an equation solved without a graph, a word problem with no shape, "
+    "statistics, probability, a definition or a proof in words, and a request for only the "
+    "answer. A question that names a shape, a solid, a circle, an angle or points is drawn: "
+    "when in doubt, draw it. Say what to draw, as JSON, from what the question states.\n"
+    'Not asked, drawn: "A triangle has sides 3, 4 and 5. Is it right-angled?" -> polygon; '
+    '"A circle has diameter 10 cm. Find its area." -> circle; "Two angles at a point are '
+    '150° and 90°. Find the third." -> lines; "Find the volume of a box 2 m by 3 m by 4 m." '
+    '-> solid. Not asked, none: "Solve 3x - 4 = 8.", "What is 3/5 of 40?".\n'
+)
+_BODY = (
     "\n"
     "Copy every number exactly as the question writes it. Never work a number out, round "
     "it or make one up: leave out any value the question does not state, and the app "
@@ -103,9 +125,10 @@ def _message(question: str, earlier: Sequence[str]) -> str:
 
 
 async def read_figure(
-    settings: Settings, question: str, earlier: Sequence[str]
+    settings: Settings, question: str, earlier: Sequence[str], *, asked: bool = True
 ) -> FigureRequest | None:
-    """The model's reading of what to draw, or None when there is no read."""
+    """The model's reading of what to draw, or None when there is no read. ``asked``: the
+    message asks to see a picture; otherwise the read draws only one that helps teach."""
     from app.core.redis import get_redis_client
     from app.gateways.structured_completion import complete_structured
     from app.services import quota as quota_service
@@ -117,7 +140,7 @@ async def read_figure(
             settings=settings,
             model_alias=ROUTING.math_extract,
             messages=[
-                {"role": "system", "content": _PROMPT},
+                {"role": "system", "content": (_ASKED if asked else _TEACH) + _BODY},
                 {"role": "user", "content": _message(question, earlier)},
             ],
             schema=FigureRequest,
@@ -131,11 +154,16 @@ async def read_figure(
         return None
 
 
-async def draw_figure(question: str, earlier: Sequence[str], settings: Settings) -> str | None:
-    """The fence of the picture the question asks to see, or None."""
+async def draw_figure(
+    question: str, earlier: Sequence[str], settings: Settings, *, asked: bool = True
+) -> str | None:
+    """The fence of the picture the question asks to see, or, not asked, of the one that
+    helps teach it (``teaching_figures_enabled``); None when nothing is drawn."""
     if not settings.figure_read_enabled or not question.strip():
         return None
-    request = await read_figure(settings, question, earlier)
+    if not asked and (not settings.teaching_figures_enabled or wants_answer_only(question)):
+        return None
+    request = await read_figure(settings, question, earlier, asked=asked)
     if request is None or request.kind == "none":
         return None
     texts = [question, *earlier]

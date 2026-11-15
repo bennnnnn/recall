@@ -71,6 +71,10 @@ class StemSettings(BaseModel):
     figure_read_enabled: bool = True
     figure_read_timeout_seconds: float = 4.0
     figure_wait_seconds: float = 2.0
+    # A maths turn that asks to see nothing still gets the figure when one helps teach it (a
+    # shape it measures, angles, points, a number line, a line's graph): the same read, told
+    # to draw only then, and the same checks. Off: only a question that asks gets one.
+    teaching_figures_enabled: bool = True
     # A chart of numbers the user wrote (bar, pie, line, histogram) is drawn by the server
     # from those numbers (``modules/charts``), only when every label and value is the user's,
     # in place of the model's own chart, which no check read. Beside the reply, which waits at

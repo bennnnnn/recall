@@ -1,0 +1,298 @@
+{
+ "_doc": "Questions that ask to see no picture, labelled with whether a teaching picture is drawn (teaching_pictures_eval.py). maths: kind is the figure the read should name. chemistry: name is the compound, as the user writes it; methane and ammonia draw nothing by design (one atom besides hydrogen).",
+ "maths": [
+  {
+   "id": "tri-legs",
+   "prompt": "Find the area of a right triangle with legs 9 cm and 12 cm.",
+   "draw": true,
+   "kind": "polygon"
+  },
+  {
+   "id": "rect-perim",
+   "prompt": "A rectangle is 8 m long and 5 m wide. What is its perimeter?",
+   "draw": true,
+   "kind": "polygon"
+  },
+  {
+   "id": "para-angle",
+   "prompt": "In parallelogram ABCD, angle A = 70°. Find angle B.",
+   "draw": true,
+   "kind": "polygon"
+  },
+  {
+   "id": "circle-circ",
+   "prompt": "A circle has radius 7 cm. Find its circumference.",
+   "draw": true,
+   "kind": "circle"
+  },
+  {
+   "id": "cube-vol",
+   "prompt": "Find the volume of a cube with edges of 4 cm.",
+   "draw": true,
+   "kind": "solid"
+  },
+  {
+   "id": "transversal",
+   "prompt": "Two parallel lines are cut by a transversal. One angle is 65°. Find the alternate angle.",
+   "draw": true,
+   "kind": "lines"
+  },
+  {
+   "id": "hypotenuse",
+   "prompt": "Find the hypotenuse of a right triangle with legs 6 and 8.",
+   "draw": true,
+   "kind": "polygon"
+  },
+  {
+   "id": "rhombus",
+   "prompt": "A rhombus has diagonals 10 cm and 24 cm. Find its side.",
+   "draw": true,
+   "kind": "polygon"
+  },
+  {
+   "id": "quadrant",
+   "prompt": "Plot the points A(2, 3) and B(-1, 4). Which quadrant is B in?",
+   "draw": true,
+   "kind": "points"
+  },
+  {
+   "id": "slope",
+   "prompt": "What is the slope and y-intercept of y = 2x + 1?",
+   "draw": true,
+   "kind": "function"
+  },
+  {
+   "id": "inequality",
+   "prompt": "Solve -2 < x <= 3 and show which integers satisfy it.",
+   "draw": true,
+   "kind": "number_line"
+  },
+  {
+   "id": "straight-line",
+   "prompt": "Angles on a straight line: one is 110°. Find the other.",
+   "draw": true,
+   "kind": "lines"
+  },
+  {
+   "id": "cylinder",
+   "prompt": "A cylinder has radius 3 cm and height 10 cm. Find its volume.",
+   "draw": true,
+   "kind": "solid"
+  },
+  {
+   "id": "trapezium",
+   "prompt": "Find the area of a trapezium with parallel sides 6 cm and 10 cm and height 4 cm.",
+   "draw": true,
+   "kind": "polygon"
+  },
+  {
+   "id": "isosceles",
+   "prompt": "An isosceles triangle has equal sides 5 cm and base 6 cm. Find its height.",
+   "draw": true,
+   "kind": "polygon"
+  },
+  {
+   "id": "percent",
+   "prompt": "What is 15% of 80?",
+   "draw": false
+  },
+  {
+   "id": "linear",
+   "prompt": "Solve 2x + 3 = 11.",
+   "draw": false
+  },
+  {
+   "id": "fractions",
+   "prompt": "Simplify 3/4 + 5/6.",
+   "draw": false
+  },
+  {
+   "id": "product",
+   "prompt": "What is 12 times 13?",
+   "draw": false
+  },
+  {
+   "id": "discount",
+   "prompt": "A shirt costs $40 with 25% off. What do I pay?",
+   "draw": false
+  },
+  {
+   "id": "factor",
+   "prompt": "Factor x^2 - 5x + 6.",
+   "draw": false
+  },
+  {
+   "id": "mean",
+   "prompt": "What is the mean of 3, 5, 7 and 9?",
+   "draw": false
+  },
+  {
+   "id": "coin",
+   "prompt": "If I flip a coin 3 times, what is the probability of 3 heads?",
+   "draw": false
+  },
+  {
+   "id": "answer-only",
+   "prompt": "Just the answer: area of a square with side 6?",
+   "draw": false
+  },
+  {
+   "id": "prime",
+   "prompt": "What is a prime number?",
+   "draw": false
+  },
+  {
+   "id": "expand",
+   "prompt": "Expand (x + 2)(x - 3).",
+   "draw": false
+  },
+  {
+   "id": "convert",
+   "prompt": "Convert 2.5 km to metres.",
+   "draw": false
+  },
+  {
+   "id": "proof",
+   "prompt": "Prove that the square root of 2 is irrational.",
+   "draw": false
+  },
+  {
+   "id": "apples",
+   "prompt": "Tom has 3 times as many apples as Sam. Together they have 24. How many does Sam have?",
+   "draw": false
+  },
+  {
+   "id": "derivative",
+   "prompt": "What is the derivative of x^3?",
+   "draw": false
+  }
+ ],
+ "chemistry": [
+  {
+   "id": "ibuprofen",
+   "prompt": "What is ibuprofen?",
+   "draw": true,
+   "name": "ibuprofen"
+  },
+  {
+   "id": "ethanol",
+   "prompt": "Why does ethanol mix with water?",
+   "draw": true,
+   "name": "ethanol"
+  },
+  {
+   "id": "glucose-groups",
+   "prompt": "What functional groups does glucose have?",
+   "draw": true,
+   "name": "glucose"
+  },
+  {
+   "id": "benzene",
+   "prompt": "Is benzene aromatic?",
+   "draw": true,
+   "name": "benzene"
+  },
+  {
+   "id": "glucose-mass",
+   "prompt": "What is the molar mass of glucose?",
+   "draw": true,
+   "name": "glucose"
+  },
+  {
+   "id": "acetic",
+   "prompt": "Why is acetic acid a weak acid?",
+   "draw": true,
+   "name": "acetic acid"
+  },
+  {
+   "id": "aspirin",
+   "prompt": "How does aspirin reduce pain?",
+   "draw": true,
+   "name": "aspirin"
+  },
+  {
+   "id": "formula",
+   "prompt": "Why does C2H5OH burn with a clean flame?",
+   "draw": true,
+   "name": "C2H5OH"
+  },
+  {
+   "id": "caffeine",
+   "prompt": "What is caffeine and why does it keep you awake?",
+   "draw": true,
+   "name": "caffeine"
+  },
+  {
+   "id": "acetone",
+   "prompt": "What is the boiling point of acetone?",
+   "draw": true,
+   "name": "acetone"
+  },
+  {
+   "id": "phenol",
+   "prompt": "Explain why phenol is more acidic than ethanol.",
+   "draw": true,
+   "name": "phenol"
+  },
+  {
+   "id": "balance",
+   "prompt": "Balance H2 + O2 -> H2O",
+   "draw": false
+  },
+  {
+   "id": "ph",
+   "prompt": "What is the pH of 0.1 M HCl?",
+   "draw": false
+  },
+  {
+   "id": "bond",
+   "prompt": "What is a covalent bond?",
+   "draw": false
+  },
+  {
+   "id": "moles",
+   "prompt": "How many moles are in 36 g of water?",
+   "draw": false
+  },
+  {
+   "id": "salt",
+   "prompt": "What is sodium chloride used for?",
+   "draw": false
+  },
+  {
+   "id": "le-chatelier",
+   "prompt": "Explain Le Chatelier's principle.",
+   "draw": false
+  },
+  {
+   "id": "config",
+   "prompt": "What is the electron configuration of iron?",
+   "draw": false
+  },
+  {
+   "id": "safety",
+   "prompt": "Is it safe to mix bleach and ammonia at home?",
+   "draw": false
+  },
+  {
+   "id": "redox",
+   "prompt": "What happens in a redox reaction?",
+   "draw": false
+  },
+  {
+   "id": "gas-law",
+   "prompt": "A gas occupies 2 L at 300 K. What volume at 600 K?",
+   "draw": false
+  },
+  {
+   "id": "methane",
+   "prompt": "What is the shape of a methane molecule?",
+   "draw": false
+  },
+  {
+   "id": "ammonia",
+   "prompt": "Is ammonia polar?",
+   "draw": false
+  }
+ ]
+}

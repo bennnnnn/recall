@@ -259,10 +259,12 @@ class MathTool:
 class MathFigure:
     """The picture a maths question asks to see, drawn from its own values (``figure``)."""
 
-    async def draw(self, question: str, earlier: Sequence[str], settings: Settings) -> str | None:
+    async def draw(
+        self, question: str, earlier: Sequence[str], settings: Settings, *, asked: bool = True
+    ) -> str | None:
         from app.modules.math.figure.read import draw_figure
 
-        return await draw_figure(question, earlier, settings)
+        return await draw_figure(question, earlier, settings, asked=asked)
 
     def shown(self, verified: VerifiedSolveBlock | None) -> bool:
         from app.modules.math.figure.substitutes import verified_picture

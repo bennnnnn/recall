@@ -237,6 +237,9 @@ def test_every_spend_gate_is_listed() -> None:
         "modules/chat/turn_prep/model_read_shadow.py",
         # The chat turn: the socket's and SSE's unavailable frame. test_turn_quota_reserve.py.
         "modules/chat/turn_resources.py",
+        # An unasked compound's structure: none past the cap or in an outage, the reply stands.
+        # modules/chemistry/test_teaching_structure.py.
+        "modules/chemistry/figure.py",
         # Image generation: "image generation" above, and the chat's picture turns.
         "modules/images/generation.py",
         # Photo lookup: the chat's photo turn, and a reply's photo (best-effort, none).
