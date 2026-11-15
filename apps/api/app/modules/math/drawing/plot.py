@@ -29,12 +29,15 @@ from app.modules.math.drawing.plot_items import (
     Slice,
     Touching,
 )
+from app.modules.math.drawing.plot_pieces import formula_shape
 from app.modules.math.drawing.plot_question import PlotQuestion, read_plot_question
-from app.modules.math.drawing.plot_scene import Scene
+from app.modules.math.drawing.plot_scene import DrawnCurve, Scene
+from app.modules.math.drawing.real_curve import X
 from app.modules.math.schemas.plot import PlotGraphSpec
 from app.modules.math.tool_check import written_relations, written_values
 
 logger = logging.getLogger(__name__)
+_MOST_LINE_CURVES = 4
 _X = Symbol("x")
 
 
@@ -49,6 +52,8 @@ def plot_spec(
     scene = Scene(reply_values=tuple(written_values(working)), reply_lines=written_lines(working))
     add_curves(read, question, scene)
     if not scene.curves:
+        _lines_as_curves(scene)
+    if not scene.curves:
         return None
     # A slice is cut from a region and turned about an axis: it comes after both.
     for item in sorted(read, key=lambda found: isinstance(found, Slice)):
@@ -57,6 +62,16 @@ def plot_spec(
         except Exception:  # SymPy's and numpy's own errors included: that item is left out.
             logger.info("plot item %s failed", type(item).__name__, exc_info=True)
     return draw_plot(scene)
+
+
+def _lines_as_curves(scene: Scene) -> None:
+    """A picture of lines alone (a triangle's three sides) draws its stated lines as its
+    curves, so shading between them holds as between any curves."""
+    for name, line in list(scene.lines.items()):
+        if line.vertical is None and len(scene.curves) < _MOST_LINE_CURVES:
+            expr = line.slope * X + line.offset
+            scene.curves[name] = DrawnCurve(name, line.label, line.color, formula_shape(expr, None))
+            del scene.lines[name]
 
 
 def _both_signs(reply: str) -> str:

@@ -1818,5 +1818,54 @@
   "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"x^2 + 1\", \"domain\": [\"-10\", \"-7\"]}, {\"item\": \"curve\", \"name\": \"f\", \"y\": \"15 - 5x\", \"domain\": [\"-7\", \"4\"]}, {\"item\": \"curve\", \"name\": \"f\", \"y\": \"5x - 25\", \"domain\": [\"4\", \"10\"]}]}",
   "note": "one function written as three curves of one name on intervals the question never states: a whole parabola would stand for f, so nothing is drawn",
   "expect": "drop"
+ },
+ {
+  "id": "line_through_two_points",
+  "question": "Find, by integration, the area of the triangle-shaped region whose vertices are (−4, −1), (0, 0) and (5, 4). It is bounded by the lines y = x/4, y = 4x/5 and the line through (−4, −1) and (5, 4). Draw the three lines and shade the region.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"line\", \"name\": \"L1\", \"y\": \"x/4\"}, {\"item\": \"line\", \"name\": \"L2\", \"y\": \"4x/5\"}, {\"item\": \"line\", \"name\": \"L3\", \"y\": \"5x/9 + 11/9\"}, {\"item\": \"shade\", \"between\": [\"L1\", \"L2\", \"L3\"]}]}",
+  "note": "lines alone, the third worked out through two points the question writes",
+  "expect": "draw",
+  "curves": [
+   "y = x/4",
+   "y = 4x/5",
+   "y = 5x/9 + 11/9"
+  ],
+  "lines": [],
+  "points": [
+   [
+    -4.0,
+    -1.0,
+    ""
+   ],
+   [
+    0.0,
+    0.0,
+    "(0, 0)"
+   ],
+   [
+    5.0,
+    4.0,
+    ""
+   ]
+  ],
+  "open": 0,
+  "regions": [
+   "shade",
+   "shade"
+  ]
+ },
+ {
+  "id": "line_through_one_point",
+  "question": "Find, by integration, the area of the triangle-shaped region whose vertices are (−4, −1), (0, 0) and (5, 4). It is bounded by the lines y = x/4, y = 4x/5 and the line through (−4, −1) and (5, 4). Draw the three lines and shade the region.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"line\", \"name\": \"L1\", \"y\": \"x/4\"}, {\"item\": \"line\", \"name\": \"L3\", \"y\": \"x + 3\"}]}",
+  "note": "a line through only one of the question's points is no line it states",
+  "expect": "draw",
+  "curves": [
+   "y = x/4"
+  ],
+  "lines": [],
+  "points": [],
+  "open": 0,
+  "regions": []
  }
 ]

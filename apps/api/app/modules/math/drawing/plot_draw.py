@@ -220,9 +220,21 @@ def _line_agreed(line: DrawnLine, scene: Scene) -> bool:
     return any(m is not None and _near(slope, m) and _near(offset, c) for m, c in scene.reply_lines)
 
 
+def _about_the_regions(scene: Scene) -> None:
+    """A picture of a region marks the places that bound it: sin x and cos x cross every π,
+    and u5-062 marked eight crossings across a window of 18 for a region of π/4."""
+    xs = [x for region in scene.regions for x, _ in region.points]
+    if not xs:
+        return
+    low, high = min(xs), max(xs)
+    room = 0.1 * (high - low) + 1e-9
+    scene.points = [p for p in scene.points if not p.held or low - room <= p.x <= high + room]
+
+
 def draw_plot(scene: Scene) -> PlotGraphSpec | None:
     if not scene.curves:
         return None
+    _about_the_regions(scene)
     ends = [point for curve in scene.curves.values() for point in _ends(curve)]
     places = [p for curve in scene.curves.values() for p in curve_places(curve)]
     places = of_interest(scene, places)

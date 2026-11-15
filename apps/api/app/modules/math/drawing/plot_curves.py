@@ -196,20 +196,35 @@ def _line(line: Line, question: PlotQuestion, color: int) -> DrawnLine | None:
         return _through(line, question, color)
     if line.x and not line.y:
         at = value(line.x)
-        if at is None or not any(
-            w.name == "x" and w.expr.is_number and same_value(w.expr, at) for w in question.formulas
-        ):
+        # The question's own value, as it writes it (-1/2, never the reply's -0.5).
+        own = [
+            w.expr
+            for w in question.formulas
+            if at is not None and w.name == "x" and w.expr.is_number and same_value(w.expr, at)
+        ]
+        if not own:
             return None
-        return DrawnLine(vertical=at, label=equation_text("x", at), color=color)
+        return DrawnLine(vertical=own[0], label=equation_text("x", own[0]), color=color)
     expr = formula(line.y)
-    if expr is None or not any(
-        w.name != "x" and same_value(w.expr, expr) for w in question.formulas
-    ):
+    slope = expr.diff(_X) if expr is not None else None
+    if expr is None or slope is None or slope.free_symbols:
         return None
-    slope = expr.diff(_X)
-    if slope.free_symbols:
+    written = any(w.name != "x" and same_value(w.expr, expr) for w in question.formulas)
+    if not written and not _through_two(expr, question):
         return None
     return DrawnLine(slope, expr.subs(_X, 0), label=equation_text("y", expr), color=color)
+
+
+def _through_two(expr: Any, question: PlotQuestion) -> bool:
+    """A line the reply worked out through two points the question writes ("the line
+    through (-4, -1) and (5, 4)" written y = 5x/9 + 11/9): every such point checked on it."""
+    on = [
+        (p, q)
+        for p, q in question.pairs
+        if expr.subs(_X, Rational(p.numerator, p.denominator))
+        == Rational(q.numerator, q.denominator)
+    ]
+    return len({p for p, _q in on}) >= 2
 
 
 def _axis_name(text: str, letter: str, question: PlotQuestion) -> str | None:
