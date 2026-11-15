@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 
+from app.modules.math.function_names import variable_letters
 from app.modules.math.match.letter_runs import looks_like_math_expr
 from app.modules.math.tools.request_text import _MAX_MATH_INPUT, _strip_expr_leadins
 from app.services.text_normalize import collapse_ws
@@ -121,8 +122,9 @@ def substituted_eval_expr(cleaned: str) -> str | None:
     return result
 
 
-def peel_function_definition(expr: str) -> str:
-    """``y = x^3 - 3x`` / ``of y = …`` / ``if y = …`` → the rhs expression."""
+def _definition(expr: str) -> tuple[str, str | None, str]:
+    """The text with its lead-ins dropped, the name a definition there gives (``y``,
+    ``f(x)``) or None, and its right side."""
     s = _strip_expr_leadins(collapse_ws(expr))
     if len(s) > _MAX_MATH_INPUT:
         s = s[:_MAX_MATH_INPUT]
@@ -132,9 +134,24 @@ def peel_function_definition(expr: str) -> str:
         s = _strip_expr_leadins(s)
     eq = s.find("=")
     if eq == -1:
-        return s
+        return s, None, s
     left = s[:eq].strip()
     right = s[eq + 1 :].strip()
     if is_named_function_lhs(left) and looks_like_math_expr(right):
-        return right
-    return s
+        return s, left.replace(" ", ""), right
+    return s, None, s
+
+
+def peel_function_definition(expr: str) -> str:
+    """``y = x^3 - 3x`` / ``of y = …`` / ``if y = …`` → the rhs expression."""
+    _text, _name, right = _definition(expr)
+    return right
+
+
+def self_referring_definition(expr: str) -> tuple[str, str] | None:
+    """``(name, right)`` when a one-letter definition names itself on its right: ``y = x^y``
+    is an equation in y, not a function of x."""
+    _text, name, right = _definition(expr)
+    if name is None or len(name) != 1 or name not in variable_letters(right):
+        return None
+    return name, right

@@ -9,6 +9,10 @@
  * text with no WebView. When a character has no Unicode super/subscript (e.g.
  * a parenthesis or an unusual letter), the caller falls back to the styled
  * smaller-Text rendering.
+ *
+ * The glyphs read back as scripts are the server's table: `docs/fixtures/script_glyphs.json`
+ * holds both to Unicode's whole class (every raised and lowered digit, Latin letter, sign and
+ * bracket), so a pasted `eˣ` is `e^x` here and in every reader on the server.
  */
 
 const SUPERSCRIPT: Record<string, string> = {
@@ -134,10 +138,23 @@ export function toSuperscript(value: string): string | null {
   return toVerticalForm(value, SUPERSCRIPT);
 }
 
+/**
+ * Raised letters read but never drawn: Unicode 14 added them (C, F, Q and a small q), and
+ * the phone's faces have no glyph for them, so a script of those letters is drawn as styled
+ * Text instead.
+ */
+const READ_ONLY_SUPERSCRIPT: Record<string, string> = {
+  "\uA7F2": "C",
+  "\uA7F3": "F",
+  "\uA7F4": "Q",
+  "\u{107A5}": "q",
+};
+
 /** Reverse maps: Unicode super/subscript glyph → ASCII base char. */
-const FROM_SUPERSCRIPT: Record<string, string> = Object.fromEntries(
-  Object.entries(SUPERSCRIPT).map(([ascii, uni]) => [uni, ascii]),
-);
+const FROM_SUPERSCRIPT: Record<string, string> = {
+  ...Object.fromEntries(Object.entries(SUPERSCRIPT).map(([ascii, uni]) => [uni, ascii])),
+  ...READ_ONLY_SUPERSCRIPT,
+};
 const FROM_SUBSCRIPT: Record<string, string> = Object.fromEntries(
   Object.entries(SUBSCRIPT).map(([ascii, uni]) => [uni, ascii]),
 );
@@ -188,16 +205,18 @@ export function normalizeUnicodeSubscripts(input: string): string {
 
 function scriptRunsToCarets(input: string, superscripts: boolean): string {
   if (!input) return input;
+  // By code point: the small raised q is outside the BMP, two UTF-16 units.
+  const chars = Array.from(input);
   let out = "";
   let i = 0;
-  while (i < input.length) {
-    const ch = input[i]!;
+  while (i < chars.length) {
+    const ch = chars[i]!;
     if ((superscripts && isSuperscriptChar(ch)) || isSubscriptChar(ch)) {
       const kind: "sup" | "sub" = superscripts && isSuperscriptChar(ch) ? "sup" : "sub";
       const isRun = kind === "sup" ? isSuperscriptChar : isSubscriptChar;
       let j = i + 1;
-      while (j < input.length && isRun(input[j]!)) j += 1;
-      out += scriptRunToCaret(input.slice(i, j), kind);
+      while (j < chars.length && isRun(chars[j]!)) j += 1;
+      out += scriptRunToCaret(chars.slice(i, j).join(""), kind);
       i = j;
       continue;
     }

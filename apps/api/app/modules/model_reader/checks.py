@@ -15,9 +15,8 @@ import unicodedata
 from collections.abc import Iterable
 
 from app.modules.model_reader.schemas import LawRead, Reason
+from app.services.script_runs import fold_superscript_runs
 
-_SUPERSCRIPTS = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹⁻", "0123456789-")
-_SUPERSCRIPT_RUN = re.compile(r"[⁰¹²³⁴⁵⁶⁷⁸⁹⁻]+")
 _SPACE = re.compile(r"\s+")
 # One number as written: "3", "3.5", "3,5", ".5", "-2". A digit right after a letter belongs to
 # a name ("H2O", "v0", "m1"), and one after "^" is a power ("m/s^2"), not a stated value.
@@ -29,7 +28,8 @@ _POWER = re.compile(r"(-?\d+(?:[.,]\d+)?)\s?(?:[\u00d7x*\u00b7]\s?10\^|e)(-?\d+)
 def normalized(text: str) -> str:
     """``text`` with every digit ASCII, superscript powers as ``^n``, spaces single, and
     lowercase."""
-    text = _SUPERSCRIPT_RUN.sub(lambda run: "^" + run.group(0).translate(_SUPERSCRIPTS), text)
+    # The shared reading of a raised run: NFKC below would make "eˣ" the letters "ex".
+    text = fold_superscript_runs(text)
     digits = "".join(
         str(unicodedata.digit(char)) if char.isdigit() and not char.isascii() else char
         for char in text

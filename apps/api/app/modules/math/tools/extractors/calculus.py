@@ -5,8 +5,10 @@ from __future__ import annotations
 import re
 from typing import Literal
 
-from app.modules.math.match.asked_operations import asked_operations, asks_rate_of_change
-from app.modules.math.schemas import MathIntent
+from app.modules.math.match.asked_operations import asks_rate_of_change
+from app.modules.math.match.derivative_order import asked_derivative_order, higher_leibniz
+from app.modules.math.schemas import MathIntent, declined_reading
+from app.modules.math.solve.calculus import MAX_DERIVATIVE_ORDER
 from app.modules.math.tools.expr_rewrite import (
     _normalize_latex_expr,
     _strip_trailing_differential,
@@ -16,6 +18,11 @@ from app.modules.math.tools.extractors.calculus_methods import (
     extract_average_value_intent,
     extract_implicit_intent,
     extract_linear_approx_intent,
+    implicit_definition_intent,
+)
+from app.modules.math.tools.extractors.calculus_variable import (
+    calculus_variable,
+    explicit_variable,
 )
 from app.modules.math.tools.extractors.derivative_givens import defined_function
 from app.modules.math.tools.extractors.multivariable import (
@@ -25,7 +32,10 @@ from app.modules.math.tools.extractors.multivariable import (
     extract_gradient_intent,
     extract_triple_integral_intent,
 )
-from app.modules.math.tools.function_def import peel_function_definition
+from app.modules.math.tools.function_def import (
+    peel_function_definition,
+    self_referring_definition,
+)
 from app.modules.math.tools.request_text import (
     _calc_expr_tail,
     _strip_series_prefix,
@@ -33,14 +43,10 @@ from app.modules.math.tools.request_text import (
 )
 from app.modules.turn_reading.derivative_notation import (
     CONSTANT_POINT,
-    LEIBNIZ,
     PRIME_AT_NUMBER,
-    higher_leibniz,
     point_value,
 )
 
-_WRT_VARIABLE = re.compile(r"\b(?:with\s+respect\s+to|wrt)\s+([a-zA-Z])\b", re.IGNORECASE)
-_INTEGRAL_VARIABLE = re.compile(r"\bd\s*([a-zA-Z])(?=\s+from\b|\s*$)")
 _DERIVATIVE_AT_POINT = re.compile(
     rf"\s+at\s+([a-zA-Z])\s*=\s*({CONSTANT_POINT.pattern})\s*$",
     re.IGNORECASE,
@@ -56,27 +62,6 @@ _UNICODE_SIGMA_EXPR = re.compile(
 )
 
 
-def _stated_variable(cleaned: str) -> str | None:
-    wrt = _WRT_VARIABLE.search(cleaned)
-    if wrt is not None:
-        return wrt.group(1)
-    leibniz = LEIBNIZ.search(cleaned)
-    return leibniz["var"] if leibniz is not None else None
-
-
-def _calculus_variable(cleaned: str, raw: str, expr: str, *, integrate: bool) -> str:
-    from app.modules.math.solve import guess_variables
-
-    if (stated := _stated_variable(cleaned)) is not None:
-        return stated
-    if integrate:
-        differential = _INTEGRAL_VARIABLE.search(raw)
-        if differential is not None:
-            return differential.group(1)
-    variables = guess_variables(expr)
-    return variables[0] if len(variables) == 1 else "x"
-
-
 def _split_find_clause(s: str) -> str:
     """``f(x) = x^3 - 3x, find f''(x)`` → the definition before ``, find``."""
     lower = s.lower()
@@ -86,6 +71,13 @@ def _split_find_clause(s: str) -> str:
         if idx != -1 and (cut is None or idx < cut):
             cut = idx
     return s[:cut] if cut is not None else s
+
+
+def _derivative_order(cleaned: str) -> int | None:
+    """The order asked (``match/derivative_order.py``); None for one the solver cannot work:
+    no number ("the nth derivative") or past its highest."""
+    order = asked_derivative_order(cleaned)
+    return order if order is not None and order <= MAX_DERIVATIVE_ORDER else None
 
 
 def _extract_critical_points_intent(cleaned: str) -> MathIntent | None:
@@ -246,10 +238,28 @@ def _leading_integral_bounds(cleaned: str) -> tuple[str, str, str] | None:
     return expr, low, high
 
 
-def _asked_order(cleaned: str) -> int:
-    """The derivative's order the question asks; one that asks two is no reading of one
-    (the audit's, ``asked_operations.unasked_reading``)."""
-    return max(asked_operations(cleaned).derivative_orders, default=1)
+_SIMPLIFY_NOTES = (
+    " state all excluded values",
+    " state the excluded values",
+    " include all excluded values",
+    # The symbolic verifier already creates real-valued symbols. A
+    # real-domain qualifier therefore narrows the same task; consume
+    # it instead of letting prose make sqrt(x*x) unverifiable.
+    " over the real numbers",
+    " over the reals",
+    " assuming x is real",
+    " for real x",
+)
+
+
+def _without_simplify_note(raw: str) -> str:
+    """A simplification with its note on excluded values or the real domain taken off."""
+    lower_raw = raw.lower()
+    for suffix in _SIMPLIFY_NOTES:
+        at = lower_raw.find(suffix)
+        if at != -1:
+            return raw[:at].rstrip(" ,;.")
+    return raw
 
 
 def _derivative_point(raw: str, cleaned: str) -> tuple[str, str | None]:
@@ -309,24 +319,14 @@ def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
     if calc_op == "differentiate":
         raw, evaluation_point = _derivative_point(raw, cleaned)
     if calc_op == "simplify":
-        lower_raw = raw.lower()
-        for suffix in (
-            " state all excluded values",
-            " state the excluded values",
-            " include all excluded values",
-            # The symbolic verifier already creates real-valued symbols. A
-            # real-domain qualifier therefore narrows the same task; consume
-            # it instead of letting prose make sqrt(x*x) unverifiable.
-            " over the real numbers",
-            " over the reals",
-            " assuming x is real",
-            " for real x",
-        ):
-            at = lower_raw.find(suffix)
-            if at != -1:
-                raw = raw[:at].rstrip(" ,;.")
-                break
+        raw = _without_simplify_note(raw)
     raw = _split_find_clause(raw)
+    self_referring = self_referring_definition(raw)
+    if self_referring is not None:
+        name, right = self_referring
+        return implicit_definition_intent(
+            cleaned, calc_op, evaluation_point, name, right, explicit_variable(cleaned)
+        )
     raw = peel_function_definition(raw)
     # ``simplify 4x+2x=18`` is an equation, not a simplify-of-equality. Fall
     # through so the algebra extractor can solve it. Explicit factor/expand
@@ -356,7 +356,7 @@ def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
             raw, integral_lower, integral_upper = bounds
     expr = math_expr_or_none(raw)
     if calc_op == "differentiate":
-        given = defined_function(cleaned, raw, expr, _stated_variable(cleaned) or "x")
+        given = defined_function(cleaned, raw, expr, explicit_variable(cleaned) or "x")
         if isinstance(given, MathIntent):
             return given
         expr, evaluation_point = given[0], evaluation_point or given[1]
@@ -365,16 +365,43 @@ def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
     if calc_op == "factor" and expr.strip().isdigit():
         # "factor 360" asks for its prime factors; SymPy's factor() returns 360.
         return None
+    return _calculus_intent(
+        cleaned,
+        calc_op,
+        expr,
+        raw_with_differential,
+        (integral_lower, integral_upper),
+        evaluation_point,
+    )
+
+
+def _calculus_intent(
+    cleaned: str,
+    calc_op: Literal["simplify", "differentiate", "integrate", "factor", "expand"],
+    expr: str,
+    raw_with_differential: str,
+    bounds: tuple[str | None, str | None],
+    evaluation_point: str | None,
+) -> MathIntent:
+    """The intent read, or declined when its order or its variable is no reading's."""
+    order = _derivative_order(cleaned) if calc_op == "differentiate" else 1
+    if order is None:
+        # Declined, not "not mine": read as the first, "the nth derivative of e^(2x)" was a
+        # checked 2e^(2x), and no later reading or tool call may answer it either.
+        return declined_reading("derivative_order")
+    variable = calculus_variable(
+        cleaned, raw_with_differential, expr, integrate=calc_op == "integrate"
+    )
+    if variable is None and calc_op in {"differentiate", "integrate"}:
+        return declined_reading("calculus_variable")
     return MathIntent(
         kind="calculus",
         expr=expr,
         operation=calc_op,
-        variable=_calculus_variable(
-            cleaned, raw_with_differential, expr, integrate=calc_op == "integrate"
-        ),
-        integral_lower=integral_lower,
-        integral_upper=integral_upper,
-        derivative_order=_asked_order(cleaned) if calc_op == "differentiate" else 1,
+        variable=variable or "x",
+        integral_lower=bounds[0],
+        integral_upper=bounds[1],
+        derivative_order=order,
         evaluation_point=evaluation_point,
     )
 

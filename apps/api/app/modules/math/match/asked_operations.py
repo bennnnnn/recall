@@ -13,7 +13,8 @@ minimum (2026-11-14, grade 12 book).
 Only the sentences that ask are read ("The derivative of a function is 2x - 4. Solve 2x -
 4 = 0." asks a solve), and only what they ask, not what they state: "f'(x) = 3x^2" and
 "the rate of change of y with respect to x is 2x" are givens. The notation is the readers'
-own (``calc_op``'s verbs, ``turn_reading.derivative_notation``); a word is read as an
+own (``calc_op``'s verbs, ``turn_reading.derivative_notation``) and an order the one order
+reader's (``match/derivative_order.py``); a word is read as an
 operation only where it names one: "the limit of", not a speed limit; "the integral of",
 not integral solutions.
 """
@@ -26,10 +27,12 @@ from typing import Any, Literal
 
 from app.modules.math.match.asked_quantities import ASKS, asking_spans
 from app.modules.math.match.calculus import lagrange_prime_run
+from app.modules.math.match.derivative_order import leibniz_order, orders_before
 from app.modules.math.match.scan import CALC_OP, CALC_OP_SPELLINGS
 from app.modules.math.schemas import MathIntent
-from app.modules.turn_reading.derivative_notation import LEIBNIZ, asks_at_a_point, leibniz_order
+from app.modules.turn_reading.derivative_notation import LEIBNIZ, asks_at_a_point
 from app.services.glyphs import fold_operator_glyphs, fold_primes
+from app.services.script_runs import fold_superscript_runs
 
 _MAX_TEXT = 2000
 # A sentence asks when it asks (``ASKS``) or names the operation to do.
@@ -40,10 +43,8 @@ _ASKS_AN_OPERATION = re.compile(
 )
 # What follows a quantity set to a value: "f'(x) = 3x^2", "... is 2x". "dy/dx = ?" asks.
 _STATED = re.compile(r"\s*(?:=(?!\s*\?)|(?:is|are|was|equals)\b)", re.IGNORECASE)
-_ORDINAL_DERIVATIVE = re.compile(
-    r"\b(second|2nd|third|3rd|fourth|4th)[\s-]+(?:order\s+)?deriv", re.IGNORECASE
-)
-_ORDINALS = {"second": 2, "2nd": 2, "third": 3, "3rd": 3, "fourth": 4, "4th": 4}
+# "the first and second derivatives": a plural the verbs' pattern leaves out.
+_DERIVATIVES = re.compile(r"\bderivatives\b", re.IGNORECASE)
 # The instantaneous rate of one letter in another is its derivative: "the rate of change of
 # y with respect to x". An average rate is a difference quotient over an interval.
 RATE_OF_CHANGE = re.compile(
@@ -108,6 +109,15 @@ _LONE_LETTER = re.compile(r"(?<![A-Za-z])[B-HJ-Zb-z]$")
 _AND_BEFORE = re.compile(r"(?:\band|&)$", re.IGNORECASE)
 _AND_AFTER = re.compile(r"(?:and\b|&)", re.IGNORECASE)
 _DERIVATIVE_WORDS = frozenset({"differentiate", "derivative"})
+# A value asked by its letter (not the article "a") or at a number, in a sentence that asks
+# no derivative: "What is y when x = 2?", "find f(3)". Beside a derivative asked in another
+# sentence it is a second ask: dy/dx at 2 was the checked card for "Differentiate y = x^3.
+# What is y when x = 2?".
+_VALUE_ASKED = re.compile(
+    r"\b(?:what\s+is|what's|find|calculate|evaluate|work\s+out)\s+(?:the\s+value\s+of\s+)?"
+    r"(?:(?!a\s)[a-zA-Z](?![\w'(/])|[a-zA-Z]\s*\(\s*-?[\d.]+\s*\))",
+    re.IGNORECASE,
+)
 Computation = Literal["solve", "derivative", "integral", "limit", "rewrite"]
 
 
@@ -115,7 +125,8 @@ Computation = Literal["solve", "derivative", "integral", "limit", "rewrite"]
 class AskedOperations:
     """What a question asks to be computed."""
 
-    derivative_orders: frozenset[int] = frozenset()
+    # None is an order no number gives: "the nth derivative".
+    derivative_orders: frozenset[int | None] = frozenset()
     # A value at a point, not a function: f'(3), "dy/dx at x = 2".
     at_point: bool = False
     # The derivative asked is one term of more ("f'(3) - f(3)", "2 dy/dx") or one of two
@@ -151,8 +162,9 @@ class AskedOperations:
 
 
 def _asking_sentences(text: str) -> list[str]:
-    """The sentences of ``text`` that ask, in the readers' spelling of primes and operators."""
-    text = fold_operator_glyphs(fold_primes(text[:_MAX_TEXT]))
+    """The sentences of ``text`` that ask, in the readers' spelling of primes, operators and
+    raised ordinals ("the 2ⁿᵈ derivative")."""
+    text = fold_operator_glyphs(fold_primes(fold_superscript_runs(text[:_MAX_TEXT])))
     return [text[start:end] for start, end in asking_spans(text, _ASKS_AN_OPERATION)]
 
 
@@ -204,9 +216,9 @@ def _joined(text: str, start: int, end: int, *, operand_after: bool) -> bool:
     return after[:1] in tuple(_OPERATOR) or glued.isalnum() or glued == "("
 
 
-def _derivatives(text: str) -> tuple[frozenset[int], bool]:
+def _derivatives(text: str) -> tuple[frozenset[int | None], bool]:
     """The orders of the derivatives ``text`` asks, and whether one is joined to more."""
-    orders: set[int] = set()
+    orders: set[int | None] = set()
     combined = False
     for start, end, order in _prime_derivatives(text):
         orders.add(order)
@@ -218,15 +230,17 @@ def _derivatives(text: str) -> tuple[frozenset[int], bool]:
         combined = combined or _joined(
             text, match.start(), match.end(), operand_after=match["of"] is not None
         )
-    for match in _ORDINAL_DERIVATIVE.finditer(text):
-        orders.add(_ORDINALS[match.group(1).lower()])
-    # The plain verbs and the rate, once the ordinals above have claimed theirs.
-    plain = _ORDINAL_DERIVATIVE.sub(" ", text)
-    for match in CALC_OP.finditer(plain):
+    for match in _DERIVATIVES.finditer(text):
+        orders.update(orders_before(text, match.start()))
+    # A "derivative" with its ordinals ("the second derivative"), else the plain verbs.
+    for match in CALC_OP.finditer(text):
         word = CALC_OP_SPELLINGS.get(match.group(1).lower(), match.group(1).lower())
-        if word in _DERIVATIVE_WORDS and not _NAMED_THEN_STATED.match(plain, match.end()):
+        named = orders_before(text, match.start()) if word == "derivative" else ()
+        if named:
+            orders.update(named)
+        elif word in _DERIVATIVE_WORDS and not _NAMED_THEN_STATED.match(text, match.end()):
             orders.add(1)
-    if any(not _stated(plain, m.end()) for m in RATE_OF_CHANGE.finditer(plain)):
+    if any(not _stated(text, m.end()) for m in RATE_OF_CHANGE.finditer(text)):
         orders.add(1)
     return frozenset(orders), combined
 
@@ -247,7 +261,13 @@ def asked_operations(text: str) -> AskedOperations:
     asked = "\n".join(sentences)
     read = [_derivatives(sentence) for sentence in sentences]
     orders = frozenset().union(*(found for found, _joined_up in read))
-    combined = any(joined_up for _found, joined_up in read)
+    combined = any(joined_up for _found, joined_up in read) or (
+        bool(orders)
+        and any(
+            not found and _VALUE_ASKED.search(sentence)
+            for sentence, (found, _joined_up) in zip(sentences, read, strict=True)
+        )
+    )
     words = {CALC_OP_SPELLINGS.get(w.lower(), w.lower()) for w in CALC_OP.findall(asked)}
     rate = any(not _stated(asked, m.end()) for m in _RATE_QUANTITY.finditer(asked))
     return AskedOperations(

@@ -25,18 +25,18 @@ import re
 from collections.abc import Iterable
 from typing import Any
 
+from app.modules.math.match.derivative_order import derivative_orders
 from app.services.glyphs import OPERATOR_GLYPHS
+from app.services.script_runs import fold_superscript_runs
 
 logger = logging.getLogger(__name__)
 
 _MAX_CANDIDATES = 24
 _MAX_TEXT = 2000
 
-# The operators are the shared table (services/glyphs.py); the rest are this check's.
+# The operators are the shared table (services/glyphs.py) and raised powers the shared
+# reading (services/script_runs.py); the rest are this check's.
 _UNICODE = {
-    "²": "^2",
-    "³": "^3",
-    "⁴": "^4",
     **OPERATOR_GLYPHS,
     "π": "pi",
     "√": "sqrt",
@@ -80,14 +80,13 @@ _SIGNED = re.compile(r"(?<![A-Za-z0-9).])((?:-|minus\s+|negative\s+)?)\s*(\d+(?:
 _SIGNED_INFINITY = re.compile(
     r"(?<![\w).])((?:-|minus\s+|negative\s+)?)\s*(?:∞|\\infty|infinity|oo|inf)(?![a-z])"
 )
-_ORDER_WORDS = {2: ("second", "2nd", "d^2", "d²", "''"), 3: ("third", "3rd", "d^3", "'''")}
 # A function the message defines: "f(x) = x^2 - x + 3".
 _DEFINED_FUNCTION = re.compile(r"(?<![A-Za-z])([a-zA-Z])\s*\(\s*[a-zA-Z]\s*\)\s*=")
 _FORMULA_ARGS = ("expr", "expr2", "lhs", "rhs")
 
 
 def _normalize(text: str) -> str:
-    out = text[:_MAX_TEXT]
+    out = fold_superscript_runs(text[:_MAX_TEXT])
     for raw, plain in _UNICODE.items():
         out = out.replace(raw, plain)
     return out.replace("$", " ").replace("\\cdot", "*").replace("\\times", "*")
@@ -361,8 +360,10 @@ def _matches(args: dict[str, Any], user: _UserMath) -> bool:
         if not _expression_arg(args, "expr", user):
             return False
         if action == "diff":
+            # An order the user named, the first when none: a first derivative for "the 2nd
+            # derivative" answers another question, and "the nth" is no order at all.
             order = int(args.get("order") or 1)
-            return order == 1 or any(word in user.lower for word in _ORDER_WORDS.get(order, ()))
+            return order in (derivative_orders(fold_superscript_runs(user.text)) or (1,))
         settings = {
             "integrate": ("lower", "upper"),
             "limit": ("point",),

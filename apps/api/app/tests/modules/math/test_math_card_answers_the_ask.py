@@ -94,6 +94,10 @@ async def _card(text: str) -> str | None:
         "+ π all have the same derivative 2x + 3. Then draw the graphs of f, g, h and k "
         "together on the same axes. What does this tell you about ∫(2x + 3) dx?",
         "If the derivative is 2x - 4, where is the function increasing?",
+        # A value of the function asked in a sentence of its own is a second ask: dy/dx at 2
+        # was the card for the first.
+        "Differentiate y = x^3. What is y when x = 2?",
+        "Find f'(x) if f(x) = x^2 + 1. Then find f(3).",
         # Where or when, not how much; a rate of the formula given, not its value.
         "Find the x-coordinate of the local minimum of f(x) = x^3 - 3x",
         "A ball's height is h = 20t - 5t^2. When is the ball at its maximum height?",
@@ -132,6 +136,10 @@ async def test_a_question_no_reading_answers_gets_no_card(text: str) -> None:
         # An order in plain digits (main solved y = x^4 for x).
         ("Find d3y/dx3 for y = x^4", "24*x"),
         ("Find d3s/dt3 for s = t^5", "60*t**2"),
+        # The derivative's own value asked in the next sentence.
+        ("Find dy/dx for y = x^3. What is its value at x = 2?", "12"),
+        ("y = x^3. Find dy/dx. What is the gradient at x = 2?", "12"),
+        ("Find dy/dx for y = x^3. What is a tangent line?", "3*x**2"),
     ],
 )
 async def test_the_card_asked_stays(text: str, answer: str) -> None:

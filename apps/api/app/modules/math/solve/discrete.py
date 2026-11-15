@@ -10,6 +10,7 @@ from typing import Literal
 from sympy import Matrix, Rational, factorint, isprime, latex
 
 from app.modules.math.function_names import (
+    GREEK_LETTERS,
     GREEK_NAMES,
     MATH_FUNCTION_NAMES,
     function_name_alternation,
@@ -36,6 +37,7 @@ _FUNCTION_NAME_RE = re.compile(
 )
 # A Greek letter name is one unknown (the keypad's θ), not five letters.
 _GREEK_NAME_RE = re.compile(rf"(?<![A-Za-z])(?:{'|'.join(GREEK_NAMES)})(?![A-Za-z])")
+_GREEK_LETTER_RE = re.compile(rf"[{GREEK_LETTERS}]")
 
 # Multi-letter mathematical constants that must NOT be split into per-letter
 # variable candidates. Without this, "sin(pi*x) = 0" would guess 'i' and 'p'
@@ -56,6 +58,9 @@ def guess_variables(text: str) -> list[str]:
     greek = list(dict.fromkeys(_GREEK_NAME_RE.findall(stripped)))
     stripped = _GREEK_NAME_RE.sub(" ", stripped)
     stripped = mask_unknown_letter_runs(stripped)
+    # A Greek letter typed as itself is a variable too: read as none, "Differentiate θ²" was
+    # a checked 0 (with respect to x) and "Solve 2θ + 1 = 7" a checked "no solution".
+    greek += sorted(set(_GREEK_LETTER_RE.findall(stripped)))
     found = sorted(set(re.findall(r"[a-zA-Z]", stripped)))
     # Exclude single-letter constants: e (Euler's number), i (imaginary unit
     # in some contexts, though commonly a variable index -- keep it for now

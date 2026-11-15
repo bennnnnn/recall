@@ -18,6 +18,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from app.modules.math.function_names import variable_letters
 from app.modules.math.match.asked_operations import asked_operations
 from app.modules.math.schemas import MathIntent, declined_reading
 from app.modules.math.tools.expr_rewrite import math_expr_or_none
@@ -83,6 +84,9 @@ def derivative_givens(cleaned: str, variable: str) -> DerivativeGivens | None:
             points.append(point_value(rhs.strip().strip("()")))
         elif name is not None and _free_of(name, rhs) and math_expr_or_none(rhs) is not None:
             functions.append((name, rhs))
+        elif name == "y" and variable in variable_letters(rhs):
+            # y = x^y names y on both sides: a curve in x and y, differentiated implicitly.
+            curves.append((lhs, rhs))
         elif is_named_function_lhs(lhs):
             # A constant or a substitution: no reading here puts it in.
             return DerivativeGivens(unresolved=True)

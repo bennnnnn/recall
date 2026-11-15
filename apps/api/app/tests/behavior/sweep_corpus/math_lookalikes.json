@@ -706,124 +706,264 @@
  {
   "id": "ml-095",
   "area": "math lookalike",
+  "prompt": "In IPA, aspirated stops are written pʰ, tʰ and kʰ. Why does English aspirate them?",
+  "reply": "English aspirates a voiceless stop at the start of a stressed syllable: the vocal folds stay apart for a moment after the release, so a puff of air follows **p**, **t** or **k** in *pin*, *tin* and *kin*. After an *s* (*spin*) there is no puff.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-096",
+  "area": "math lookalike",
+  "prompt": "What happened in the 21ˢᵗ century so far?",
+  "reply": "A few of the biggest shifts: smartphones and social media, the 2008 financial crisis, the COVID-19 pandemic, and fast progress in renewable energy and AI.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-097",
+  "area": "math lookalike",
+  "prompt": "The 2ⁿᵈ and 3ʳᵈ place runners finished together. Who gets the silver medal?",
+  "reply": "If they truly finished together, officials use the photo finish. If it still shows a tie, both runners can share second place and each gets a silver medal; no bronze is awarded.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-098",
+  "area": "math lookalike",
+  "prompt": "Tell me about the Kʷak̓ʷala language and where it is spoken.",
+  "reply": "Kʷak̓ʷala is the language of the Kwakwaka'wakw people, spoken on northern Vancouver Island and the nearby mainland coast of British Columbia. It belongs to the Wakashan family, and revitalization programs teach it in local schools.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-099",
+  "area": "math lookalike",
+  "prompt": "Why is the ˣ key on my phone keyboard so small?",
+  "reply": "Raised letters like that are drawn at superscript size on purpose: they sit above the line, so the keyboard shows them smaller than ordinary letters. Long-press the letter to see the full-size choices.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-100",
+  "area": "math lookalike",
+  "prompt": "Le 1ᵉʳ mai est un jour férié en France ?",
+  "reply": "Oui, le 1ᵉʳ mai, fête du Travail, est un jour férié et chômé en France.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-101",
+  "area": "math lookalike",
+  "prompt": "I came 2ⁿᵈ in my first 10 km race. Is 52 minutes good for a beginner?",
+  "reply": "Yes, 52 minutes is a strong first 10 km: about 5:12 per kilometre, quicker than most beginners. Second place on top of that means you paced it well.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-102",
+  "area": "math lookalike",
+  "prompt": "Our 25ᵗʰ anniversary is next month. What is the traditional gift?",
+  "reply": "The 25th anniversary is the silver anniversary, so silver is traditional: jewellery, an engraved frame or cutlery are common choices.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-103",
+  "area": "math lookalike",
+  "prompt": "Why is the ₂ in CO₂ written small and low?",
+  "reply": "It is a subscript: it counts the atoms just before it. CO₂ has one carbon atom and two oxygen atoms, and the small low 2 keeps that count apart from a coefficient like the 2 in 2CO₂.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-104",
+  "area": "math lookalike",
+  "prompt": "What does the θ mean on my geometry worksheet next to the angle?",
+  "reply": "θ (theta) is a Greek letter used as the name of an unknown angle, the way x names an unknown number. The worksheet is asking you to find that angle's size.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-105",
+  "area": "math lookalike",
+  "prompt": "Is aₙ just another way to write a sequence?",
+  "reply": "Yes. aₙ names the nth term of a sequence: a₁ is the first term, a₂ the second, and a rule such as aₙ = 2n + 1 gives every term from its position n.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-106",
+  "area": "math lookalike",
+  "prompt": "My nᵗʰ attempt at this recipe finally worked, thanks!",
+  "reply": "Glad it came together in the end! Keep a note of what you changed this time so the next batch turns out the same.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-107",
+  "area": "math lookalike",
+  "prompt": "Why do textbooks write sin x cos x without any brackets?",
+  "reply": "By convention a function's argument runs to the next function name or operator, so sin x cos x means (sin x)(cos x). Brackets are added only when the argument is longer, as in sin(x + 1).",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-108",
+  "area": "math lookalike",
+  "prompt": "In my physics notes I wrote k sin θ. What does the k stand for?",
+  "reply": "Here k is most likely a constant that scales the sine, such as an amplitude or a spring constant. Check where it was first defined in your notes; θ is the angle.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-109",
+  "area": "math lookalike",
+  "prompt": "Is ³√ on my keyboard the same thing as a cube root?",
+  "reply": "Yes. A small 3 written before the root sign is the root's index, so ³√27 is the cube root of 27, which is 3.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-110",
+  "area": "math lookalike",
+  "prompt": "Как будет «x = 5 и y = 2» по-английски?",
+  "reply": "По-английски это «x equals 5 and y equals 2».",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-111",
+  "area": "math lookalike",
+  "prompt": "Is it a sin to put cream in carbonara?",
+  "reply": "Traditional Roman carbonara uses no cream: the silky sauce comes from egg yolks, pecorino and the pasta water. Cream makes a different, heavier dish, which is fine if you enjoy it.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-112",
+  "area": "math lookalike",
+  "prompt": "Il est arrivé 2ᵉ à sa première course, c'est bien pour un débutant ?",
+  "reply": "Oui, finir 2ᵉ dès sa première course est un très bon résultat pour un débutant. Il peut viser une régularité à l'entraînement pour progresser encore.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-113",
+  "area": "math lookalike",
+  "prompt": "It was 30° today, should I wear shorts tomorrow?",
+  "reply": "At 30° shorts are comfortable; check tomorrow's forecast in the morning, and bring a light layer if it is due to cool down.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-114",
+  "area": "math lookalike",
+  "prompt": "Why do my sin and cos flashcards keep getting mixed up when I study?",
+  "reply": "They look alike and are learned together. Try a picture on each card: sine as the height on the unit circle, cosine as the width, and quiz yourself on one at a time before mixing them.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-115",
+  "area": "math lookalike",
   "prompt": "What's the speed limit on motorways in the UK?",
   "reply": "On UK motorways the national speed limit for cars is **70 mph** (112 km/h), unless signs show a lower limit.",
   "expect": "answer"
  },
  {
-  "id": "ml-096",
+  "id": "ml-116",
   "area": "math lookalike",
   "prompt": "Is there a time limit on the IELTS speaking test?",
   "reply": "Yes. The IELTS speaking test lasts **11 to 14 minutes**, in three parts: an interview, a short talk and a discussion.",
   "expect": "answer"
  },
  {
-  "id": "ml-097",
+  "id": "ml-117",
   "area": "math lookalike",
   "prompt": "What's a good credit limit for a first credit card?",
   "reply": "For a first card, a limit of a few hundred to about a thousand dollars is common. Keep your balance under 30% of it to help your credit score.",
   "expect": "answer"
  },
  {
-  "id": "ml-098",
+  "id": "ml-118",
   "area": "math lookalike",
   "prompt": "How do economists measure the rate of change in inflation?",
   "reply": "They compare a price index, such as the consumer price index, with the same month a year earlier. The percentage change is the annual inflation rate.",
   "expect": "answer"
  },
  {
-  "id": "ml-099",
+  "id": "ml-119",
   "area": "math lookalike",
   "prompt": "How steep is a 30 degree slope for skiing?",
   "reply": "A 30 degree slope is steep: most black runs sit between 25 and 35 degrees, so it suits confident intermediate and advanced skiers.",
   "expect": "answer"
  },
  {
-  "id": "ml-100",
+  "id": "ml-120",
   "area": "math lookalike",
   "prompt": "What is a derivative contract in finance?",
   "reply": "A derivative is a contract whose value comes from something else, such as a stock, a currency or a commodity. Futures, options and swaps are the common kinds.",
   "expect": "answer"
  },
  {
-  "id": "ml-101",
+  "id": "ml-121",
   "area": "math lookalike",
   "prompt": "Y'all ready for the trip on Friday?",
   "reply": "Sounds fun! Want a packing list or a plan for the drive?",
   "expect": "answer"
  },
  {
-  "id": "ml-102",
+  "id": "ml-122",
   "area": "math lookalike",
   "prompt": "I'd like a maximum of two meetings a day. How should I plan my week?",
   "reply": "Block your mornings for focused work, put the two meetings after lunch, and keep Friday afternoon free for catching up.",
   "expect": "answer"
  },
  {
-  "id": "ml-103",
+  "id": "ml-123",
   "area": "math lookalike",
   "prompt": "Why is the population of Lagos increasing so fast?",
   "reply": "Lagos grows through high birth rates and people moving in from rural areas for work, and its port and businesses keep drawing more.",
   "expect": "answer"
  },
  {
-  "id": "ml-104",
+  "id": "ml-124",
   "area": "math lookalike",
   "prompt": "What's the maximum weight for checked luggage on most airlines?",
   "reply": "Most airlines allow **23 kg (50 lb)** per checked bag in economy, and 32 kg in business or first class.",
   "expect": "answer"
  },
  {
-  "id": "ml-105",
+  "id": "ml-125",
   "area": "math lookalike",
   "prompt": "My heart rate keeps increasing when I climb stairs, is that normal?",
   "reply": "Yes, a faster heart rate on stairs is normal: your muscles need more oxygen. See a doctor if you feel chest pain, dizziness or very short of breath.",
   "expect": "answer"
  },
  {
-  "id": "ml-106",
+  "id": "ml-126",
   "area": "math lookalike",
   "prompt": "What's an integral part of a good essay?",
   "reply": "A clear thesis: one sentence that states your argument, which every paragraph then supports.",
   "expect": "answer"
  },
  {
-  "id": "ml-107",
+  "id": "ml-127",
   "area": "math lookalike",
   "prompt": "Which ski slopes in Whistler are best for beginners?",
   "reply": "Try the green runs off the Olympic and Emerald chairs on Whistler, and Easy Out on Blackcomb.",
   "expect": "answer"
  },
  {
-  "id": "ml-108",
+  "id": "ml-128",
   "area": "math lookalike",
   "prompt": "What's the minimum wage in Kenya?",
   "reply": "Kenya sets minimum wages by region and job; in Nairobi a general labourer earns about **KSh 15,200 a month**.",
   "expect": "answer"
  },
  {
-  "id": "ml-109",
+  "id": "ml-129",
   "area": "math lookalike",
   "prompt": "The derivative of a song is a cover. Who covered Hallelujah best?",
   "reply": "Jeff Buckley's 1994 version is the best known, though k.d. lang and John Cale have their fans too.",
   "expect": "answer"
  },
  {
-  "id": "ml-110",
+  "id": "ml-130",
   "area": "math lookalike",
   "prompt": "Is there a limit to how much water I should drink a day?",
   "reply": "Yes: drinking several litres very fast can lower your blood sodium. Most adults do well with 2 to 3 litres a day, more in heat or exercise.",
   "expect": "answer"
  },
  {
-  "id": "ml-111",
+  "id": "ml-131",
   "area": "math lookalike",
   "prompt": "What's the slope of the learning curve for Rust?",
   "reply": "Rust has a steep start: ownership and borrowing take a few weeks to click, then most people find it productive.",
   "expect": "answer"
  },
  {
-  "id": "ml-112",
+  "id": "ml-132",
   "area": "math lookalike",
   "prompt": "What are the teachers' lounge rules at most schools?",
   "reply": "Usually: keep it tidy, label your food, keep student matters confidential and keep phone calls short.",

@@ -17,14 +17,16 @@ from app.services.glyphs import fold_primes
 from app.services.number_text import SIGNED_DECIMAL
 
 _MAX_TEXT = 2000
-# d/dx, dy/dx, d^2y/dx^2, d²y/dx², d^{2}y/dx^{2}, d3y/dx3: its order, the letter
-# differentiated and the variable.
+# d/dx, dy/dx, d^2y/dx^2, d²y/dx², d^{2}y/dx^{2}, d3y/dx3, d^ny/dx^n: the order written on
+# the first d (``match/derivative_order.py`` reads it), the letter differentiated and the
+# variable. Each run of space is read once (possessive), so a run after "d^" costs its length.
 LEIBNIZ = re.compile(
-    r"(?<![A-Za-z])d\s*(?:\^\s*\{?(?P<order>[2-4])\}?\s*|(?P<script>[²³⁴])\s*|(?P<plain>[2-4]))?"
-    r"(?:(?P<of>[a-zA-Z])\s*)?/\s*d\s*(?P<var>[a-zA-Z])"
-    r"(?:\s*\^\s*\{?[2-4]\}?|\s*[²³⁴]|[2-4](?![\d.]))?(?![A-Za-z])"
+    r"(?<![A-Za-z])d\s*+(?:\^\s*+[({]?\s*+(?:(?P<order>\d{1,2})|(?P<letter>[a-zA-Z]))\s*+[)}]?\s*+"
+    r"|(?P<script>[²³⁴])\s*+|(?P<plain>[2-4]))?"
+    r"(?:(?P<of>[a-zA-Z])\s*+)?/\s*+d\s*+(?P<var>[a-zA-Z])"
+    r"(?:\s*+\^\s*+(?:[({]\s*+(?:\d{1,2}|[a-zA-Z])\s*+[)}]|\d{1,2}|[a-zA-Z])|\s*+[²³⁴]"
+    r"|[2-4](?![\d.]))?(?![A-Za-z])"
 )
-_SCRIPT_ORDERS = {"²": 2, "³": 3, "⁴": 4}
 # A point a value is asked at: a number, a fraction, or a multiple of π (π/2, 2π, pi/4).
 # Compiled, so no reader of the prompt's copy takes its pattern for a rule.
 CONSTANT_POINT = re.compile(
@@ -43,22 +45,10 @@ _AT = re.compile(
 _FORMULA_ON = re.compile(r"[\w(^]|\.\d|\s*[-+*/^]")
 
 
-def leibniz_order(match: re.Match[str]) -> int:
-    """The order a ``LEIBNIZ`` match writes: 2 for d^2y/dx^2, 1 for dy/dx."""
-    if match["order"] or match["plain"]:
-        return int(match["order"] or match["plain"])
-    return _SCRIPT_ORDERS.get(match["script"] or "", 1)
-
-
 def point_value(written: str) -> str:
     """A ``CONSTANT_POINT`` as SymPy reads it: "π/2" is "pi/2", "2π" is "2*pi"."""
     compact = re.sub(r"\s+", "", written).replace("π", "pi")
     return re.sub(r"(?<=[\d.])\*?pi", "*pi", compact)
-
-
-def higher_leibniz(text: str) -> re.Match[str] | None:
-    """The first derivative of order two or more written in Leibniz's notation."""
-    return next((m for m in LEIBNIZ.finditer(text) if leibniz_order(m) > 1), None)
 
 
 def differentiated_letters(text: str) -> frozenset[str]:

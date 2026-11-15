@@ -72,7 +72,7 @@ def lagrange_prime_run(text: str, prime_at: int) -> tuple[int, int] | None:
         j += 1
     if j < n and text[j].isalpha():
         return None
-    return j, min(j - prime_at, 3)
+    return j, j - prime_at
 
 
 def _lagrange_derivative_cue(text: str) -> bool:
