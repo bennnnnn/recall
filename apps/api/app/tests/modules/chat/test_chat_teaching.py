@@ -1,5 +1,6 @@
 """Teach-me turns run as a lesson, and the next turn continues it."""
 
+import time
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -220,6 +221,19 @@ def test_learning_plan_request_declines_non_plans(text):
 )
 def test_lesson_step(reply, expected):
     assert lesson_step(reply) == expected
+
+
+@pytest.mark.wall_clock
+@pytest.mark.parametrize(
+    "reply",
+    ["\n" * 32_000, " \n" * 16_000, "**\n" * 16_000, "### 🧪\n" * 6_000, "### Lesson\n" * 5_000],
+)
+def test_a_title_is_read_in_one_pass_over_blank_lines(reply):
+    """From each line's start ``\\s*`` ran on over the blank lines after it: 6.2 s on a reply
+    of 32,000 newlines (review, 2026-11-14), and every reply is read at finalize."""
+    started = time.perf_counter()
+    assert lesson_step(reply + "### Lesson 2: Loops\n\nWhat prints?") == 2
+    assert time.perf_counter() - started < 0.5
 
 
 def test_active_lesson_step_reads_only_the_latest_assistant_reply():

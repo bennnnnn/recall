@@ -170,10 +170,14 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   already showed: each is listed beside the message (question, code and options), and a
   card shown again whole gives way to a fresh one (`chat/practice_asked.py`). An answer to
   the last reply's cards (“b”, “the second one”, “35”, “1.2 times 10 to the 24?”) is read
-  by the turn's read as the option it names, graded by the server against each card and
-  never laid out as a calculation; an answer or “ok next” after a lesson gets the next
-  lesson's contract; a yes to another offer, a pick among offered choices or a question of
-  its own gets a note to do that instead of a new lesson (`chat/decided_turn.py`). A `quiz` or `array` fence whose JSON is broken still reads: the question,
+  by the turn's read as the option it names, graded by the server against each card (the
+  verdict names the option by its words, as the card shows it; an option's whole words beat
+  its letter) and never laid out as a calculation; the reply waits for that read. A
+  question that only names an option (“why is 18 wrong?”, “is it 35 or 52?”) is answered,
+  ungraded; one answer after several cards that says not which (“B”) is asked about first.
+  An answer or “ok next” after a lesson gets the next lesson's contract; a yes to another
+  offer, a pick among offered choices or a question of its own gets a note to do that
+  instead of a new lesson (`chat/decided_turn.py`). A `quiz` or `array` fence whose JSON is broken still reads: the question,
   lettered options and a **Show answer** tap, or the list's values as text
   (`lib/lesson/lessonFences.ts` loose readers); a fence counts as finished once its braces close. The next turn grades a typed answer (“Correct! 🎉” or a
   short fix), then teaches Lesson N+1 from the preview; confusion re-explains the same

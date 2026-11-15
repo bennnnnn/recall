@@ -40,8 +40,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# The chat's newest replies that hold a card, and the cards listed from them.
+# The chat's newest replies that hold a card, read among its newest replies, and the cards
+# listed from them.
 REPLIES_READ = 40
+REPLIES_SCANNED = 200
 _CARDS_LISTED = 24
 _NOT_WORDS = re.compile(r"[\W_]+")
 
@@ -63,16 +65,28 @@ def may_set_practice(query: str | None, exchange: Sequence[Any]) -> bool:
 
 async def _chat_replies(chat_id: UUID) -> list[str]:
     """The chat's replies that hold a card, oldest first."""
-    return await prompt_context.practice_replies(chat_id, f"```{QUIZ_LANG}", limit=REPLIES_READ)
+    return await prompt_context.practice_replies(
+        chat_id, f"```{QUIZ_LANG}", limit=REPLIES_READ, scan=REPLIES_SCANNED
+    )
+
+
+def _through_last_reply(recent: Sequence[Any], omit: set[UUID] | None) -> list[Any]:
+    """The chat's loaded rows through its last reply, a regenerated one left out: what came
+    before this message."""
+    rows = [row for row in recent if not omit or getattr(row, "id", None) not in omit]
+    while rows and getattr(rows[-1], "role", None) != "assistant":
+        rows.pop()
+    return rows
 
 
 async def practice_questions(
-    chat_id: UUID, query: str | None, exchange: Sequence[Any]
+    chat_id: UUID, query: str | None, recent: Sequence[Any], *, omit: set[UUID] | None = None
 ) -> tuple[str, ...]:
     """The chat's cards, oldest first, each on one line (its question, code and options), when
     the reply may set practice; none when the read fails (the turn goes on without the
-    listing)."""
-    if not may_set_practice(query, exchange):
+    listing). ``recent``: the chat's loaded rows, oldest first, so the read runs beside the
+    history window's."""
+    if not may_set_practice(query, _through_last_reply(recent, omit)):
         return ()
     try:
         replies = await _chat_replies(chat_id)

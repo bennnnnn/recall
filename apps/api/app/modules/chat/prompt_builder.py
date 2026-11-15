@@ -8,6 +8,7 @@ from uuid import UUID
 
 from redis.asyncio import Redis
 
+from app.core.aio import gather_or_cancel
 from app.core.config import Settings
 from app.core.readings import read_off_loop
 from app.models.orm import Chat, User
@@ -239,6 +240,34 @@ async def _context_plan(
     )
 
 
+async def _window_and_practice(
+    chat_id: UUID,
+    chat: Chat | None,
+    recent_all: list[Any],
+    settings: Settings,
+    *,
+    query_text: str | None,
+    omit_message_ids: set[UUID] | None,
+    current_user_message_id: UUID | None,
+    prior_count: int | None,
+) -> tuple[PromptWindow, tuple[str, ...]]:
+    """The history window and the chat's earlier practice cards, read side by side: each is
+    its own short read, and the cards' waited on the window's (review, 2026-11-14)."""
+    return await gather_or_cancel(
+        load_prompt_window(
+            chat_id,
+            chat,
+            recent_all,
+            settings,
+            query_text=query_text,
+            omit_message_ids=omit_message_ids,
+            current_user_message_id=current_user_message_id,
+            prior_count=prior_count,
+        ),
+        practice_questions(chat_id, query_text, recent_all, omit=omit_message_ids),
+    )
+
+
 async def _history_rag_block(
     settings: Settings,
     user: User,
@@ -379,7 +408,7 @@ async def build_prompt_messages(
         recent_messages=recent_messages,
         accepted_offer=accepted_offer,
     )
-    window = await load_prompt_window(
+    window, asked_practice = await _window_and_practice(
         chat_id,
         blocks.chat,
         blocks.recent_all,
@@ -422,6 +451,6 @@ async def build_prompt_messages(
         memory_paused=await _memory_paused(user, settings, query_text),
         recalls_shared_past=plan.recalls_shared_past,
         holds_attachment=holds_attachment,
-        asked_practice=await practice_questions(chat_id, query_text, window.exchange),
+        asked_practice=asked_practice,
     )
     return _assemble(turn, window, math_followup=followup == "math")

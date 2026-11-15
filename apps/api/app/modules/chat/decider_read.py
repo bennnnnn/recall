@@ -52,10 +52,11 @@ _WORK_AT = 0.5
 # Going on to the next lesson: the yes of a plain yes or no.
 _GOES_ON_AT = 0.5
 # How long the turn's read waits for the work question's call once its own is in: both
-# start together and answer in about 0.33 s. The cards' questions, beside them, came in past
-# that on 2 reads of 60 (2026-11-14): theirs waits longer, on a lesson's turn only.
+# start together and answer in about 0.33 s. The cards' call is waited for as long as the
+# read's own budget allows (and the reply waits no longer than ``live_read_wait_seconds``
+# for the read): on a card's turn its answers are what the read is for, and dropped 0.6 s
+# past the read, a call a second late left "b" ungraded (review, 2026-11-14).
 _WORK_GRACE_SECONDS = 0.25
-_LESSON_GRACE_SECONDS = 0.6
 # The read's name for each registered subject (``SubjectName``; its choices call maths
 # "maths"). The read's own words for them are the subject question's criteria below, part
 # of its measured prompt; ``tests/services/test_subject_completeness.py`` holds the two and
@@ -195,27 +196,38 @@ WORK_QUESTION: dict[str, dict[str, Any]] = {
 
 
 # A practice card the message may answer, at most this many from the last reply (a set of
-# five), each its own choice question; and the most options one names by letter.
+# five), each its own choice question; the most options one names by letter; and how much of
+# a card's question, code and each option the questions quote (a card is the model's text).
 CARDS_READ = 5
 _OPTIONS_READ = 8
+_QUESTION_CHARS = 300
 _CODE_CHARS = 300
+_OPTION_CHARS = 120
 # The answer a choice question gives when the message names no option of its card, and the
 # one when it answers with something that is none of them.
 NO_ANSWER = "none"
 OTHER_ANSWER = "other"
+# Whether the message gives its answer at all: "can you explain why 18 is wrong" names an
+# option as plainly as "18" does, and was graded as the answer, the next lesson after it
+# (review, 2026-11-14). And, after several cards, whether its one answer says which it is
+# for: a lone "B" was graded against each of three.
+_ANSWERS_AT = 0.5
+_UNPLACED_AT = 0.5
 
 
 def lesson_questions(cards: Sequence[PracticeCard], *, lesson: bool) -> dict[str, dict[str, Any]]:
     """The questions about a message after practice cards or a lesson, asked in a call of their
-    own: which option of each card it gives as its answer, and whether it asks to go on.
+    own: which option of each card it names, whether it gives that as its answer, and whether
+    it asks to go on.
 
     In the owner's study chat (2026-11-14) "b" for the card's B was graded wrong, "a" right and
     "the second one" as its third option: the reply's model was told only the right answer's
     words. A model reads which option the message names, in any words; the server grades it."""
     questions: dict[str, dict[str, Any]] = {}
-    for number, card in enumerate(cards[:CARDS_READ], start=1):
+    read = cards[:CARDS_READ]
+    for number, card in enumerate(read, start=1):
         criteria = {
-            option_letter(index).lower(): f"{option_letter(index)}: {option}"
+            option_letter(index).lower(): f"{option_letter(index)}: {option[:_OPTION_CHARS]}"
             for index, option in enumerate(card.options[:_OPTIONS_READ])
         }
         criteria[OTHER_ANSWER] = "an answer to it that is none of these options"
@@ -228,12 +240,36 @@ def lesson_questions(cards: Sequence[PracticeCard], *, lesson: bool) -> dict[str
         questions[f"card{number}"] = {
             "type": "choice",
             "instructions": (
-                f"The assistant's last reply set the practice question {card.question!r}{code}. "
-                "Which option does the user's last message give as their answer to it: named "
-                "by its letter (B), its place (the second one, option 2), its words, or a value "
-                "equal to it?"
+                f"The assistant's last reply set the practice question "
+                f"{card.question[:_QUESTION_CHARS]!r}{code}. Which option does the user's last "
+                "message name as its answer to it: by its letter (B), its place (the second "
+                "one, option 2), its words, or a value equal to it?"
             ),
             "criteria": criteria,
+        }
+    if read:
+        questions["answers"] = {
+            "type": "noul",
+            "instructions": (
+                "The assistant's last reply set practice questions. Does the user's last "
+                "message give its own answer to one of them: a letter, a place, an option's "
+                "words or a value, a guess included (is it 17?, I think 18)? Not a question "
+                "that names an option to ask something else about it or the topic (why is 18 "
+                "wrong?, what does 52 mean?, does 17 hold for sodium too?), a question between "
+                "two answers (is it 35 or 52?), asking for the answer or a hint, an answer to "
+                "an earlier question the last reply did not set, a yes or no to an offer, or "
+                "asking to go on."
+            ),
+        }
+    if len(read) > 1:
+        questions["unplaced"] = {
+            "type": "noul",
+            "instructions": (
+                f"The assistant's last reply set {len(read)} practice questions. Does the "
+                "user's last message give one answer without saying which of them it is for "
+                "(a lone B)? Not answers to several of them in turn (1. b 2. c, or b, c, a), "
+                "nor one it says is for a question (for number 2, the neutron)."
+            ),
         }
     if lesson:
         questions["goes_on"] = {
@@ -241,8 +277,9 @@ def lesson_questions(cards: Sequence[PracticeCard], *, lesson: bool) -> dict[str
             "instructions": (
                 "The assistant's last reply taught a lesson. Does the user's last message ask to "
                 "go on to the next lesson (next, ok, continue, got it, or an answer to its "
-                "practice question)? Not a yes to another offer the reply made, a pick among "
-                "other choices it offered, a question, or another request."
+                "practice question)? Not a question, one between two answers included (is it "
+                "35 or 52?), a yes to another offer the reply made, a pick among other choices "
+                "it offered, or another request."
             ),
         }
     return questions
@@ -256,6 +293,11 @@ def _picks(answers: dict[str, Any]) -> list[str] | None:
         if f"card{number}" in answers
     ]
     return picks or None
+
+
+def _yes(odds: float | None, at: float) -> bool | None:
+    """A yes or no question's answer at its threshold; None when it was not asked."""
+    return None if odds is None else odds >= at
 
 
 def get_choice(answers: dict[str, Any], name: str) -> Any:
@@ -303,7 +345,9 @@ def decision_fields(answers: dict[str, Any], *, has_earlier: bool) -> dict[str, 
         # None (unanswered): the rules decide the layout.
         "work": None if work is None else work >= _WORK_AT,
         "card_picks": _picks(answers),
-        "goes_on": None if (on := get("goes_on", "noul")) is None else on >= _GOES_ON_AT,
+        "answers": _yes(get("answers", "noul"), _ANSWERS_AT),
+        "unplaced": _yes(get("unplaced", "noul"), _UNPLACED_AT),
+        "goes_on": _yes(get("goes_on", "noul"), _GOES_ON_AT),
     }
 
 
@@ -325,15 +369,15 @@ async def decide_turn(
     from app.gateways.llm_spend import meter_reported_cost
 
     alias = ROUTING.decider
-    beside: list[tuple[asyncio.Task[Any], float]] = []
+    beside: list[tuple[asyncio.Task[Any], float | None]] = []
     started = time.monotonic()
     try:
         from app.models import model_catalog
 
         model = model_catalog.get(alias).model.removeprefix("openrouter/")
-        calls = (
+        calls: tuple[tuple[dict[str, dict[str, Any]] | None, float | None], ...] = (
             (WORK_QUESTION if ask_work else None, _WORK_GRACE_SECONDS),
-            (lesson or None, _LESSON_GRACE_SECONDS),
+            (lesson or None, None),
         )
         for questions, grace in calls:
             if questions is not None:
@@ -352,7 +396,10 @@ async def decide_turn(
         _note_health(settings, alias, started, None)
         meter_reported_cost(alias, reply.usage.cost)
         answers = dict(reply.answers)
-        for found in await gather_or_cancel(*(_work_answers(*call) for call in beside)):
+        # The cards' call (no grace of its own) is waited for to the read's whole budget.
+        left = max(0.0, seconds - (time.monotonic() - started))
+        waits = [(read, left if grace is None else grace) for read, grace in beside]
+        for found in await gather_or_cancel(*(_work_answers(*call) for call in waits)):
             answers.update(found)
     except Exception as exc:  # A read is a hint: the text read or the rules decide.
         logger.info("decider read failed (%s)", type(exc).__name__)
@@ -397,7 +444,7 @@ def _failure_cause(failure: BaseException | None) -> str | None:
 
 async def _work_answers(work_read: asyncio.Task[Any], grace: float) -> dict[str, Any]:
     """A call's answers beside the turn's read (the work question, the cards'), waited for
-    only a moment past it; none (the rules decide) when it is late or failed."""
+    ``grace`` past it; none (the rules decide) when it is late or failed."""
     try:
         reply = await asyncio.wait_for(work_read, grace)
     except TimeoutError:  # Late: the rules lay the turn out.

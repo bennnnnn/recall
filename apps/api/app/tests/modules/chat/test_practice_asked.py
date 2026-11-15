@@ -187,6 +187,50 @@ async def test_the_chats_cards_are_listed_beyond_the_window(
 
 
 @pytest.mark.asyncio
+async def test_the_chats_loaded_rows_say_whether_to_read_them(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The cards are read beside the history window, from the chat's loaded rows: this
+    message after them, or a reply being regenerated, is not what came before it."""
+
+    async def chat_replies(_chat_id: Any) -> list[str]:
+        return [f"Lesson.\n\n{_card(_CL)}"]
+
+    monkeypatch.setattr(practice_asked, "_chat_replies", chat_replies)
+    after_card = _rows("quiz me", f"Try:\n\n{_card(_MG)}")
+    message = SimpleNamespace(id=uuid4(), role="user", content="the second one")
+    assert await practice_questions(uuid4(), "the second one", [*after_card, message])
+    regenerated = SimpleNamespace(id=uuid4(), role="assistant", content=f"Again:\n\n{_card(_MG)}")
+    plain = [*_rows("hi", "Hello!"), message, regenerated]
+    omit = {regenerated.id}
+    assert await practice_questions(uuid4(), "the second one", plain, omit=omit) == ()
+
+
+@pytest.mark.asyncio
+async def test_the_scan_for_cards_reads_only_the_newest_replies() -> None:
+    """A long chat's whole history was searched for cards on every turn (review, 2026-11-14):
+    the search reads among the newest replies only."""
+    from app.modules.conversation import messages_repository
+
+    seen: list[Any] = []
+
+    class _Session:
+        async def execute(self, statement: Any) -> Any:
+            seen.append(statement)
+            return SimpleNamespace(scalars=lambda: SimpleNamespace(all=list))
+
+    await messages_repository.list_assistant_containing(
+        _Session(),  # type: ignore[arg-type]
+        uuid4(),
+        "```quiz",
+        limit=40,
+        scan=200,
+    )
+    sql = str(seen[0].compile(compile_kwargs={"literal_binds": True}))
+    assert "LIMIT 200" in sql and "LIMIT 40" in sql
+
+
+@pytest.mark.asyncio
 async def test_a_failed_read_lists_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
     async def broken(_chat_id: Any) -> list[str]:
         raise RuntimeError("database down")

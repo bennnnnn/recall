@@ -62,9 +62,18 @@ class PracticeCard:
             parts.append(f"Options: {'; '.join(self.options)}")
         return " ".join(" ".join(parts).split())[:_LINE_CHARS]
 
+    def option_said(self, message: str) -> int | None:
+        """The option whose words are the whole message, when exactly one's are: on a card of
+        blood types O, AB, A and B, "A" is the type A, not the letter A (O), which the read
+        graded "Correct" (review, 2026-11-14). The phone shows a card's options unlettered."""
+        said = _plain(message).rstrip(".!?")
+        found = [index for index, option in enumerate(self.options) if _plain(option) == said]
+        return found[0] if len(found) == 1 and said else None
+
 
 def option_letter(index: int) -> str:
-    """An option's letter as the card shows it: 0 is A."""
+    """An option's letter, as a learner may name it: 0 is A. The phone's card shows none; a
+    card it cannot read is shown as text, lettered."""
     return chr(ord("A") + index)
 
 

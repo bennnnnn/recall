@@ -301,11 +301,14 @@ async def _load_context_blocks(
     return await _full_blocks(reads, chat)
 
 
-async def practice_replies(chat_id: UUID, needle: str, *, limit: int) -> list[str]:
-    """The chat's last ``limit`` replies holding ``needle`` (a practice card), oldest first,
-    read in a short session of its own like the prompt's other context."""
+async def practice_replies(chat_id: UUID, needle: str, *, limit: int, scan: int) -> list[str]:
+    """The chat's last ``limit`` replies holding ``needle`` (a practice card) among its last
+    ``scan``, oldest first, read in a short session of its own like the prompt's other
+    context."""
     async with SessionLocal() as session:
-        return await conversation_history.replies_with(session, chat_id, needle, limit=limit)
+        return await conversation_history.replies_with(
+            session, chat_id, needle, limit=limit, scan=scan
+        )
 
 
 def _persisted_messages(window: list[Any], current_user_message_id: UUID | None) -> list[Any]:

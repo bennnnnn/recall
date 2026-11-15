@@ -31,10 +31,13 @@ async def recent_messages(session: AsyncSession, chat_id: UUID, *, limit: int) -
 
 
 async def replies_with(
-    session: AsyncSession, chat_id: UUID, needle: str, *, limit: int
+    session: AsyncSession, chat_id: UUID, needle: str, *, limit: int, scan: int
 ) -> list[str]:
-    """The text of the chat's last ``limit`` replies that hold ``needle``, oldest first."""
-    return await _messages.list_assistant_containing(session, chat_id, needle, limit=limit)
+    """The text of the chat's last ``limit`` replies that hold ``needle``, oldest first, among
+    its last ``scan`` replies."""
+    return await _messages.list_assistant_containing(
+        session, chat_id, needle, limit=limit, scan=scan
+    )
 
 
 async def last_user_message(session: AsyncSession, chat_id: UUID) -> Message | None:

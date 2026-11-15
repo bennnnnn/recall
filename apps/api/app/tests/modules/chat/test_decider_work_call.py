@@ -207,17 +207,28 @@ _CODE_CARD = PracticeCard(
 
 def test_each_card_is_a_choice_among_its_lettered_options() -> None:
     questions = decider_read.lesson_questions([_CARD, _CODE_CARD], lesson=True)
-    assert set(questions) == {"card1", "card2", "goes_on"}
+    assert set(questions) == {"card1", "card2", "answers", "unplaced", "goes_on"}
     card = questions["card1"]
     assert card["type"] == "choice"
     assert card["criteria"]["b"] == "B: 35"
     assert {"other", "none"} <= set(card["criteria"])
     assert "scores" in questions["card2"]["instructions"]
-    assert questions["goes_on"]["type"] == "noul"
-    # A reply with no card and no lesson asks nothing; a lesson with no card asks to go on.
+    assert {questions[name]["type"] for name in ("answers", "unplaced", "goes_on")} == {"noul"}
+    # A reply with no card and no lesson asks nothing; a lesson with no card asks to go on;
+    # one card has no other card its answer could be for.
     assert decider_read.lesson_questions([], lesson=False) == {}
     assert set(decider_read.lesson_questions([], lesson=True)) == {"goes_on"}
-    assert len(decider_read.lesson_questions([_CARD] * 9, lesson=False)) == 5
+    assert set(decider_read.lesson_questions([_CARD], lesson=False)) == {"card1", "answers"}
+    assert len(decider_read.lesson_questions([_CARD] * 9, lesson=False)) == 5 + 2
+
+
+def test_a_cards_words_are_quoted_only_so_far() -> None:
+    """A card is the model's text: its question and options go into the read's instructions
+    cut short, whatever their length (review, 2026-11-14)."""
+    long = PracticeCard("Exercise 1", "Why? " * 400, ("x" * 5000, "y"), 0, code="z" * 5000)
+    questions = decider_read.lesson_questions([long], lesson=False)
+    assert len(questions["card1"]["instructions"]) < 1000
+    assert max(len(text) for text in questions["card1"]["criteria"].values()) < 300
 
 
 class _LessonDecider(_Decider):
@@ -242,7 +253,11 @@ class _LessonDecider(_Decider):
         return DeciderReply.model_validate({"answers": answers, "usage": {"cost": 0.003}})
 
 
-@pytest.mark.parametrize(("delay", "read"), [(0.0, True), (5.0, False)], ids=["in", "late"])
+# Past the read's own call but inside its budget, the cards are read: 0.6 s past it, a call a
+# second late left "b" ungraded (review, 2026-11-14).
+@pytest.mark.parametrize(
+    ("delay", "read"), [(0.0, True), (0.8, True), (5.0, False)], ids=["in", "slow", "late"]
+)
 @pytest.mark.asyncio
 async def test_the_cards_questions_are_a_call_of_their_own(
     monkeypatch: pytest.MonkeyPatch, metered: list[float], delay: float, read: bool

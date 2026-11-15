@@ -38,12 +38,22 @@ def quiz_verdict_note(verdicts: Sequence[str]) -> str:
     reply graded "b" for B wrong and "a" right (the owner's chat, 2026-11-14)."""
     listed = "\n".join(f"- {verdict}" for verdict in verdicts)
     return (
-        "The app checked this message against the practice card in your last reply:\n"
-        f"{listed}\n"
+        "Grade this message's answer to the practice card in your last reply as the app "
+        f"checked it:\n{listed}\n"
         'Open with that verdict in a sentence or two, the way a tutor does ("Correct! 🎉", or '
-        '"Not quite" and the one fix), naming their option by its letter and words. No Given, '
-        "Required or worked layout and no answer card. Then go on as the conversation does."
+        '"Not quite" and the one fix), naming the option by its words. An answer that is none '
+        "of the options is right only when it means the same as the right one, rounded or "
+        "reworded. No Given, Required or worked layout and no answer card. Then go on as the "
+        "conversation does."
     )
+
+
+# Beside one answer to a reply of several practice cards that says not which card it answers:
+# a lone "B" after three was graded against each (review, 2026-11-14).
+QUIZ_WHICH_NOTE = (
+    "Ask in one short line which of your last reply's practice questions this answer is for: "
+    "it gives one answer and does not say. Grade nothing yet and begin nothing new."
+)
 
 
 # Beside a message whose reply may set practice (``practice_asked``); the finalize pass reads

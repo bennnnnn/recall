@@ -189,10 +189,14 @@ class TurnDecision(BaseModel):
     # Whether the reply works a result out, laid out as working (``chat.decided_turn``). The
     # Decider's alone: None from the text read, and the rules decide.
     work: bool | None = None
-    # After practice cards: the option the message gives for each card in order ("b",
-    # "other" for none of them, "none" for no answer); after a lesson, whether it asks to go
-    # on. The Decider's alone, asked only then (``decider_read.lesson_questions``).
+    # After practice cards: the option the message names for each card in order ("b",
+    # "other" for none of them, "none" for no answer), whether it gives that as its answer
+    # ("why is 18 wrong?" names one and answers nothing), whether its one answer leaves
+    # unsaid which of several cards it is for; after a lesson, whether it asks to go on. The
+    # Decider's alone, asked only then (``decider_read.lesson_questions``).
     card_picks: list[str] | None = None
+    answers: bool | None = None
+    unplaced: bool | None = None
     goes_on: bool | None = None
 
     @field_validator("subject", mode="before")

@@ -70,10 +70,12 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # yielding to it, and a yes to another offer after a lesson's card done, beside the message
 # when the read says it is one (LESSON_ASIDE_NOTE) (review, 2026-11-14); then a pick after
 # a question offering choices taken among them, the list above it the other reading
-# (prompt_constants.list_reference, UNCLEAR_MESSAGE_HINT).
-_RULES = 190
-_RULE_GRAMS = 17033
-_RULE_GRAMS_SHA = "c5193522fba30134"
+# (prompt_constants.list_reference, UNCLEAR_MESSAGE_HINT); then a card's verdict naming the
+# option by its words, and one answer to several cards asked about first (QUIZ_WHICH_NOTE)
+# (review, 2026-11-14).
+_RULES = 191
+_RULE_GRAMS = 17061
+_RULE_GRAMS_SHA = "be28e77f10764713"
 
 
 def _rules() -> list[str]:
