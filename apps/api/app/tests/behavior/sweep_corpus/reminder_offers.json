@@ -1,0 +1,206 @@
+[
+ {
+  "id": "ro-001",
+  "area": "reminder offer",
+  "prompt": "yes",
+  "history": [
+   [
+    "user",
+    "can u make me a short cheat sheet of all this so i can look at it before the test"
+   ],
+   [
+    "assistant",
+    "Here's a one-page cheat sheet you can scan before the test 🧪\n\n### ⚛️ Atoms and particles\n\n- **Protons** — atomic number; decides the element\n- **Mass number** — protons + neutrons\n\nWant me to save this as a reminder for the morning of the test? 🌙"
+   ]
+  ],
+  "reply": "Set for **Friday, November 20 at 7:00 AM** — you'll get a nudge to run through the sheet before the test 🌙\n\nIt's past 5:30 in the morning where you are, so a proper sleep now will do more for you than one more read of the sheet.",
+  "expect": "ask_time"
+ },
+ {
+  "id": "ro-002",
+  "area": "reminder offer",
+  "prompt": "yep",
+  "history": [
+   [
+    "user",
+    "can u make me a short cheat sheet of all this so i can look at it before the test"
+   ],
+   [
+    "assistant",
+    "Here's a one-page cheat sheet you can scan before the test 🧪\n\n### ⚛️ Atoms and particles\n\n- **Protons** — atomic number; decides the element\n- **Mass number** — protons + neutrons\n\nWant me to save this as a reminder for the morning of the test? 🌙"
+   ]
+  ],
+  "reply": "Done! I'll remind you on the morning of the test to look over the sheet.",
+  "expect": "ask_time"
+ },
+ {
+  "id": "ro-003",
+  "area": "reminder offer",
+  "prompt": "sure",
+  "history": [
+   [
+    "user",
+    "can u make me a short cheat sheet of all this so i can look at it before the test"
+   ],
+   [
+    "assistant",
+    "Here's a one-page cheat sheet you can scan before the test 🧪\n\n### ⚛️ Atoms and particles\n\n- **Protons** — atomic number; decides the element\n- **Mass number** — protons + neutrons\n\nWant me to save this as a reminder for the morning of the test? 🌙"
+   ]
+  ],
+  "reply": "Saved ✅ You'll get it Friday at 7:00 AM.",
+  "expect": "ask_time"
+ },
+ {
+  "id": "ro-004",
+  "area": "reminder offer",
+  "prompt": "ok",
+  "history": [
+   [
+    "user",
+    "can u make me a short cheat sheet of all this so i can look at it before the test"
+   ],
+   [
+    "assistant",
+    "Here's a one-page cheat sheet you can scan before the test 🧪\n\n### ⚛️ Atoms and particles\n\n- **Protons** — atomic number; decides the element\n- **Mass number** — protons + neutrons\n\nWant me to save this as a reminder for the morning of the test? 🌙"
+   ]
+  ],
+  "reply": "Perfect, all set for the big day! Good luck 🍀",
+  "expect": "ask_time"
+ },
+ {
+  "id": "ro-005",
+  "area": "reminder offer",
+  "prompt": "yes please",
+  "history": [
+   [
+    "user",
+    "can u make me a short cheat sheet of all this so i can look at it before the test"
+   ],
+   [
+    "assistant",
+    "Nice work today. Would you like me to set a reminder to review moles tomorrow?"
+   ]
+  ],
+  "reply": "Great — I've got that covered for tomorrow. Keep it up!",
+  "expect": "ask_time"
+ },
+ {
+  "id": "ro-006",
+  "area": "reminder offer",
+  "prompt": "go ahead",
+  "history": [
+   [
+    "user",
+    "can u make me a short cheat sheet of all this so i can look at it before the test"
+   ],
+   [
+    "assistant",
+    "Shall I add flashcards practice to your to-do list?"
+   ]
+  ],
+  "reply": "On your list ✅",
+  "expect": "ask_time"
+ },
+ {
+  "id": "ro-007",
+  "area": "reminder offer",
+  "prompt": "yes",
+  "history": [
+   [
+    "user",
+    "can u make me a short cheat sheet of all this so i can look at it before the test"
+   ],
+   [
+    "assistant",
+    "Here's a one-page cheat sheet you can scan before the test 🧪\n\n### ⚛️ Atoms and particles\n\n- **Protons** — atomic number; decides the element\n- **Mass number** — protons + neutrons\n\nWant me to save this as a reminder for the morning of the test? 🌙"
+   ]
+  ],
+  "reply": "Sure! What day is your test?",
+  "expect": "ask_time"
+ },
+ {
+  "id": "ro-008",
+  "area": "reminder offer lookalike",
+  "prompt": "yes",
+  "history": [
+   [
+    "user",
+    "can u make me a short cheat sheet of all this so i can look at it before the test"
+   ],
+   [
+    "assistant",
+    "Here's a one-page cheat sheet you can scan before the test 🧪\n\n### ⚛️ Atoms and particles\n\n- **Protons** — atomic number; decides the element\n- **Mass number** — protons + neutrons\n\nWant me to explain isotopes next?"
+   ]
+  ],
+  "reply": "**Isotopes** are atoms of the same element with different numbers of neutrons. Carbon-12 and carbon-14 both have 6 protons.",
+  "expect": "answer"
+ },
+ {
+  "id": "ro-009",
+  "area": "reminder offer lookalike",
+  "prompt": "yep",
+  "history": [
+   [
+    "user",
+    "can u make me a short cheat sheet of all this so i can look at it before the test"
+   ],
+   [
+    "assistant",
+    "Here's a one-page cheat sheet you can scan before the test 🧪\n\n### ⚛️ Atoms and particles\n\n- **Protons** — atomic number; decides the element\n- **Mass number** — protons + neutrons\n\nWould you like a reminder of the key steps for balancing equations?"
+   ]
+  ],
+  "reply": "Here are the key steps:\n\n1. Count the atoms of each element on both sides.\n2. Change coefficients, never subscripts.\n3. Check every element balances.",
+  "expect": "answer"
+ },
+ {
+  "id": "ro-010",
+  "area": "reminder offer lookalike",
+  "prompt": "sure",
+  "history": [
+   [
+    "user",
+    "can u make me a short cheat sheet of all this so i can look at it before the test"
+   ],
+   [
+    "assistant",
+    "Should I make the cheat sheet shorter?"
+   ]
+  ],
+  "reply": "Here's a shorter one:\n\n- **Protons** = atomic number\n- **Neutrons** = mass number − atomic number",
+  "expect": "answer"
+ },
+ {
+  "id": "ro-011",
+  "area": "reminder offer lookalike",
+  "prompt": "yes",
+  "history": [
+   [
+    "user",
+    "can u make me a short cheat sheet of all this so i can look at it before the test"
+   ],
+   [
+    "assistant",
+    "Want me to quiz you on it?"
+   ]
+  ],
+  "reply": "Question 1: How many neutrons does carbon-14 have?",
+  "expect": "answer"
+ },
+ {
+  "id": "ro-012",
+  "area": "reminder offer lookalike",
+  "prompt": "ok",
+  "history": [
+   [
+    "user",
+    "can u make me a short cheat sheet of all this so i can look at it before the test"
+   ],
+   [
+    "assistant",
+    "Do you want me to remind you how electron shells fill?"
+   ]
+  ],
+  "reply": "Shells fill from the inside out: 2 in the first, then 8, then 8.",
+  "expect": "answer"
+ }
+]

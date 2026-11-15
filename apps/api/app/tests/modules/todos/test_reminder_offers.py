@@ -20,6 +20,7 @@ from app.modules.conversation import chats_repository as chats_repo
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.offer_reply import accepted_offer_in, accepted_reminder_offer
 from app.modules.todos.reminder_fences import materialize_reminder_fences
+from app.modules.todos.reply_check import NEED_A_TIME, reply_to_accepted_offer
 from app.modules.todos.reply_denials import is_denial, without_denials
 from app.repositories import users as users_repo
 
@@ -157,6 +158,53 @@ async def test_a_yes_never_rewrites_a_reply_that_wrote_no_card(db_session, fake_
     assert text == reply
 
 
+# Live (2026-11-15): a long study chat's offer, and the reply to its "yes".
+TEST_OFFER = (
+    "### ⚖️ Relative atomic mass\n\n- **Check** — the answer always sits between the lightest "
+    "and heaviest isotope\n\nWant me to save this as a reminder for the morning of the test? 🌙"
+)
+TEST_REPLY = (
+    "Set for **Friday, November 20 at 7:00 AM** — you'll get a nudge to run through the sheet "
+    "before the test 🌙\n\nIt's past 5:30 in the morning where you are, so a proper sleep "
+    "now will do more for you than one more read of the sheet."
+)
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        TEST_REPLY,
+        "Done! I'll remind you on the morning of the test to look over the sheet.",
+        "Saved ✅ You'll get it Friday at 7:00 AM.",
+        "Got it — that's in your to-do list now.",
+        "Perfect, all set for the big day! Good luck 🍀",
+    ],
+)
+def test_a_yes_with_no_card_never_says_it_was_set(reply: str) -> None:
+    """Whatever a reply with no card says, nothing was set: the user is asked when."""
+    assert accepted_reminder_offer("yes", TEST_OFFER)
+    assert reply_to_accepted_offer(reply) == NEED_A_TIME
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "Sure! What day is your test?",
+        "Happy to. When is the test, and what time should I remind you that morning?",
+        'I\'ve added a reminder field:\n\n```tsx\n<input name="reminder" />\n```',
+    ],
+)
+def test_a_yes_with_no_card_keeps_a_reply_that_asks_when(reply: str) -> None:
+    assert reply_to_accepted_offer(reply) == reply
+
+
+@pytest.mark.asyncio
+async def test_a_yes_to_the_offer_with_no_card_asks_when(db_session, fake_redis):
+    text, user = await _offer_turn(db_session, fake_redis, TEST_REPLY, TEST_OFFER)
+    assert text == NEED_A_TIME
+    assert await todos_repo.list_for_user(db_session, user.id, limit=10) == []
+
+
 @pytest.mark.asyncio
 async def test_a_yes_to_another_offer_keeps_the_time_check(db_session, fake_redis):
     """The model's own time, after "Want a practice problem?", is still not the user's."""
@@ -196,6 +244,9 @@ def test_a_denial_is_dropped_and_the_rest_kept() -> None:
         ("I can't set reminders for you in Todoist, but you can use its Quick Add.", False),
         ("I can't remind you every day how much you mean to me, but I hope it shows.", False),
         ("I can't create a to-do list for you.", True),
+        # Live (2026-11-15), after a yes to its own offer.
+        ("I can't create reminders from this chat, so the one I mentioned isn't saved.", True),
+        ("I can't set reminders from the app, sorry.", True),
         ("I can't remind you enough how much sleep matters.", False),
         ("I can't remind you of everything.", False),
         ("I can't read your iPhone's Reminders app.", False),

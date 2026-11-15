@@ -115,7 +115,7 @@ _COMMON_WORDS = frozenset(
         "your",
     }
 )
-_ASKS_WHEN_RE = re.compile(r"\b(?:when|what time|which day)\b", re.IGNORECASE)
+_ASKS_WHEN_RE = re.compile(r"\b(?:when|what time|which day|what day|what date)\b", re.IGNORECASE)
 # A reply is about the user's reminders when it says so, or confirms a dated
 # one the way the app does ("Set: read — Monday, Oct 12, 8:00 AM.").
 _REMINDER_TALK_RE = re.compile(
@@ -194,6 +194,23 @@ def reply_when_nothing_saved(
 
 
 _UNCHANGED = "I didn't change your reminders."
+
+
+def reply_to_accepted_offer(text: str) -> str:
+    """The reply to a yes to the last reply's offer of a reminder, when no card came of it.
+
+    Live (2026-11-15): "Want me to save this as a reminder for the morning of the test?",
+    then "yes", got "Set for **Friday, November 20 at 7:00 AM** — you'll get a nudge…" with
+    no card and nothing saved, on a day the user never said. The user asked for a reminder
+    and nothing was set, so whatever the reply says it asks when, unless it already asks
+    that and claims nothing ("What day is your test?"). A reply holding code answered
+    something else ("Should I add it to your list?" read as a code offer) and stays.
+    """
+    if any(True for _fence in iter_fences(text)):
+        return text
+    words = _without_code(text)
+    claims = COLON_CLAIM_RE.search(words) or PROSE_CLAIM_RE.search(words) or _claims_in(words)
+    return text if _ASKS_WHEN_RE.search(words) and not claims else NEED_A_TIME
 
 
 def _asked_about_an_add(prior_assistant: str | None, prior_user: str | None) -> bool:
