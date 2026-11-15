@@ -190,6 +190,11 @@ EMOJI_KEPT_AREAS = {"emoji lookalike"}
 MONEY_STANDING_AREAS = {"money standing"}
 # Not a lesson: the finalize pass that holds a lesson's shape (``lesson_shape``) adds nothing.
 LESSON_LOOKALIKE_AREAS = {"walkthrough lookalike", "teaching lookalike"}
+# The learner's answer to the practice card the last reply ended on ("1.2 times 10 to the
+# 24?"): graded against the card, never solved or laid out as a calculation of its own (the
+# owner's chat, 2026-11-14). A new question asked after a card is solved as any question is.
+QUIZ_ANSWER_AREAS = {"quiz answer"}
+AFTER_QUIZ_QUESTION_AREAS = {"quiz new question"}
 
 
 def _lesson_parts(text: str) -> tuple[bool, int]:
@@ -571,6 +576,11 @@ def _judge_expect(outcome: Outcome, expect: str) -> list[str]:
             entry.reply
         ):
             problems.append("made into a lesson or an outline by the server")
+        worked = route.solved or route.context.worked is not None
+        if entry.area in QUIZ_ANSWER_AREAS and worked:
+            problems.append("a quiz answer solved or laid out as a calculation")
+        if entry.area in AFTER_QUIZ_QUESTION_AREAS and not worked:
+            problems.append("a new question after a quiz card left unsolved")
         if entry.area in MONEY_AREAS and "money" not in route.hints:
             problems.append("numbers not worked by the server (no money block)")
         if entry.area in MONEY_LESSON_AREAS and "money_worked" not in route.hints:

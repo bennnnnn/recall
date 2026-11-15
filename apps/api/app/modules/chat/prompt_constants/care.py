@@ -13,12 +13,18 @@ call 911. A retraction ends a played emergency, never talk of suicide or self-ha
 judges what a turn is, and these rules say what it does then.
 """
 
+from app.modules.chat.prompt_constants.format import OPTION_LETTERS_RULE, TONE_FORMAT_GUARD
+
 PERSONAL_HELP_RULE = (
     "Help with the user's personal life as a good friend would: dating, finding a partner or "
     "a spouse, relationships, family, friends, loneliness. Give real help (where and how to "
     "meet people, a dating profile, a first message, what to say or do next), never a "
     "refusal or a turn to something else."
 )
+
+# After the tone and emoji lines on every turn: what the tone never overrides, plain option
+# letters, and ordinary personal help.
+TONE_RULES = (TONE_FORMAT_GUARD, OPTION_LETTERS_RULE, PERSONAL_HELP_RULE)
 
 # The class: a turn about danger, injury, an emergency, grief or distress, real or played.
 DISTRESS_RULE = (

@@ -24,8 +24,9 @@ _PLACEHOLDER = re.compile(r"(?<!\{)\{[A-Za-z_0-9!:.]*\}(?!\})")
 # Literal prompt-copy asserts left; lower this when a change replaces some. 107 since the
 # guard reads templates too (2026-11-10): nine asserts on template copy were already there;
 # 105 once the maths fence tests stopped pinning the dropped "could not render" note; 104 once
-# the privacy test stopped pinning the scanner's old "Recall does not keep that photo".
-_PINNED = 104
+# the privacy test stopped pinning the scanner's old "Recall does not keep that photo"; 103
+# once the lesson shape's parts became constants of their own (2026-11-14).
+_PINNED = 103
 
 
 def _as_sent(text: str) -> str:

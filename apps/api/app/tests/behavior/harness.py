@@ -353,6 +353,11 @@ def _rows(case: Case) -> list[SimpleNamespace]:
     ]
 
 
+def card_replies(rows: list[SimpleNamespace]) -> list[str]:
+    """The case's replies that hold a practice card: the chat's own rows the turn reads."""
+    return [row.content for row in rows if row.role == "assistant" and "```quiz" in row.content]
+
+
 def is_picture_only(block: object) -> bool:
     """A physics block that carries a picture and no verified result."""
     return (
@@ -480,6 +485,11 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         stack.enter_context(_posed_pick(case, rows))
         stub("app.modules.chat.turn_prep.instant.SessionLocal", lambda: _Session())
         stub("app.modules.chat.prompt_builder._load_context_blocks", context_blocks)
+        # The chat's replies that hold a card, as the database would give them.
+        stub(
+            "app.modules.chat.practice_asked._chat_replies",
+            AsyncMock(return_value=card_replies(rows)),
+        )
         stub(
             "app.modules.conversation.messages_repository.list_recent",
             AsyncMock(return_value=list(rows)),

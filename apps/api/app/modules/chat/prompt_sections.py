@@ -27,7 +27,7 @@ from app.modules.chat import response_tone as response_tone_service
 from app.modules.chat.clarify_turn import clarify_reply_hint
 from app.modules.chat.continuation_subject import exchange_pairs, is_resume_request
 from app.modules.chat.json_output import JSON_OUTPUT_HINT, is_json_request
-from app.modules.chat.lesson_layout import lesson_contract
+from app.modules.chat.lesson_layout import lesson_contract, steps_contract
 from app.modules.chat.lesson_progress import resumes_course
 from app.modules.chat.message_notes import message_notes
 from app.modules.chat.prompt_constants import (
@@ -43,15 +43,13 @@ from app.modules.chat.prompt_constants import (
     LIGHTWEIGHT_REPLY_HINT,
     MATH_FENCE_SAFETY_HINT,
     NO_SELF_TALK_RULE,
-    OPTION_LETTERS_RULE,
     PERSONAL_DISCLOSURE_HINT,
-    PERSONAL_HELP_RULE,
     PROFILE_FACT_HINT,
     SETTINGS_ASK_REMINDER,
     SETTINGS_IN_APP_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     STYLE_HINTS,
-    TONE_FORMAT_GUARD,
+    TONE_RULES,
     UNCLEAR_MESSAGE_HINT,
     is_bare_writing_line,
     learning_plan_contract,
@@ -61,6 +59,7 @@ from app.modules.chat.prompt_constants import (
 )
 from app.modules.chat.prompt_constants.conversation import SUMMARY_LEAD
 from app.modules.chat.prompt_constants.multi_part import multi_part_contract
+from app.modules.chat.prompt_constants.practice import practice_asked_notes
 from app.modules.chat.prompt_constants.reactions import clock_is_relevant
 from app.modules.chat.prompt_context_hints import (
     integration_hints,
@@ -147,6 +146,7 @@ class PromptTurn:
     recalls_shared_past: bool = False
     # The message carries its own file or photo: "the pdf I attached" names it, not the past.
     holds_attachment: bool = False
+    asked_practice: tuple[str, ...] = ()  # what the chat's practice cards already asked
 
     @property
     def query(self) -> str:
@@ -300,9 +300,7 @@ STABLE_SECTIONS: tuple[PromptSection, ...] = (
         lambda t: [
             response_tone_service.tone_hint(t.user.response_tone),
             response_tone_service.emoji_hint(t.user.emoji_use),
-            TONE_FORMAT_GUARD,
-            OPTION_LETTERS_RULE,
-            PERSONAL_HELP_RULE,
+            *TONE_RULES,
         ],
         name="tone",
     ),
@@ -467,8 +465,10 @@ NEARBY_CONTRACTS: tuple[PromptSection, ...] = (
         lambda t: _present(programming_lesson_contract(t.query)),
         name="programming_lesson_contract",
     ),
-    # A lesson or a teach-me outline: its shape here too (``lesson_layout``).
+    # Beside the message too: a lesson's shape, a how-to's steps card, the chat's earlier cards.
     PromptSection(_always, lambda t: lesson_contract(t.style_hints), name="lesson_contract"),
+    PromptSection(_always, lambda t: steps_contract(t.style_hints), name="steps_contract"),
+    PromptSection(_always, lambda t: practice_asked_notes(t.asked_practice), name="practice_asked"),
     # Pasted code to explain or fix: the `$...$` math rule must not reach its values.
     PromptSection(
         lambda t: not t.lightweight and bool(code_question_layout(t.query_text)),

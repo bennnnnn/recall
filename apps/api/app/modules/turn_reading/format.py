@@ -6,6 +6,7 @@ import re
 
 from app.modules.turn_reading.chart import is_chart_question
 from app.modules.turn_reading.diagrams import is_mermaid_question
+from app.modules.turn_reading.turn import teaching_reason_of
 
 _COMPARISON_TURN = re.compile(
     r"(?:"
@@ -182,11 +183,13 @@ _STEPWISE_TURN = re.compile(
 
 
 def is_task_howto(text: str) -> bool:
-    """True for "how do I <do a task>": numbered steps, not a plan or an essay."""
+    """True for "how do I <do a task>": numbered steps, not a plan or an essay. "Teach me how
+    to balance an equation" is one too: the teaching reader calls it a procedure, no lesson,
+    and with neither layout it was answered as a plain list ending "Want to try one?"."""
     cleaned = text.strip()
     if not cleaned or len(cleaned) > 300:
         return False
-    if _TASK_HOWTO.search(cleaned) is not None:
+    if _TASK_HOWTO.search(cleaned) is not None or teaching_reason_of(cleaned) == "procedure":
         return True
     return _STEPWISE_TURN.search(cleaned) is not None and not _owned_by_another_layout(cleaned)
 

@@ -10,7 +10,7 @@ from app.modules.chat.prompt_constants.capabilities import (
     SETTINGS_ASK_REMINDER,
     SETTINGS_IN_APP_HINT,
 )
-from app.modules.chat.prompt_constants.care import PERSONAL_HELP_RULE
+from app.modules.chat.prompt_constants.care import PERSONAL_HELP_RULE, TONE_RULES
 from app.modules.chat.prompt_constants.chart import CHART_FORMAT_HINT
 from app.modules.chat.prompt_constants.checklist import CHECKLIST_FORMAT_HINT
 from app.modules.chat.prompt_constants.clarify import CLARIFY_CARD_HINT
@@ -164,6 +164,7 @@ __all__ = [
     "STYLE_HINTS",
     "TEACHING_HINT",
     "TONE_FORMAT_GUARD",
+    "TONE_RULES",
     "UNCLEAR_MESSAGE_HINT",
     "UNIVERSAL_FORMAT_BASELINE",
     "VERIFIED_SOLVE_SAFETY_HINT",

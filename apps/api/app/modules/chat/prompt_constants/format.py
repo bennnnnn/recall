@@ -38,14 +38,34 @@ HOWTO_FORMAT_HINT = (
 )
 
 
+# "If I ask how to do something, I need to see a flow with arrows" (the owner, 2026-11-14):
+# the phone draws a ```steps card as boxes joined by arrows (``StepFlow.tsx``).
 STEPS_FORMAT_HINT = (
-    "This is a how-to task. Give numbered steps, one action each, in the order they are done. "
-    "Put what is needed (ingredients, tools, documents) first as a short list when there is "
-    "any. A warning or a must-do-first (back up, switch off the power) goes just before the "
-    "step it applies to, never after it. Add a one-line tip at the end only if it helps. "
-    "No headings for a short task. A goal reached in several independent ways rather than "
-    "one sequence (save money, sleep better) takes the ways layout instead: numbered items, "
-    "each opening with a bold label."
+    "This is a how-to task. Put what is needed (ingredients, tools, documents) first as a "
+    "short list when there is any. Then the steps, in the order they are done, in one "
+    "```steps card, which the app draws as boxes joined by arrows: one numbered line per step "
+    "with its action in bold, and a plain line or two under it for how, for example:\n"
+    "```steps\n1. **Boil the water**\nBring fresh water to a rolling boil.\n2. **Steep the "
+    "tea**\nPour it over the bag and wait 3 minutes.\n```\n"
+    "A warning or a must-do-first (back up, switch off the power) is a line in the box of the "
+    "step it applies to, never a step after it. A method from school or work (balancing an "
+    "equation, long division) gets one short worked example after the card. Add a one-line "
+    "tip at the end only if it helps. No headings for a short task. A goal reached in several "
+    "independent ways rather than one sequence (save money, sleep better, learn a language "
+    "fast) takes the ways layout instead, never the card: numbered items, each opening with a "
+    "bold label."
+)
+
+
+# Restated beside a how-to's message (``lesson_layout.steps_contract``): the reader note beside
+# every message asks for a numbered list, and the note nearest the message won: with this rule
+# only in the system prompt, "how do I balance a chemical equation" came as a list 9 of 9
+# (review, 2026-11-14).
+STEPS_CONTRACT = (
+    "Give the steps in one ```steps card, never a plain numbered list: one numbered line per "
+    "step with its action in bold and a plain line or two under it. A goal reached in several "
+    "independent ways (save money, sleep better, learn a language fast, make friends) keeps "
+    "the ways layout instead, never the card."
 )
 
 
@@ -65,7 +85,8 @@ READER_NOTE = (
     "Write it to be scanned on a phone. The answer comes first, and its key part is bold: the "
     "number, name or verdict (**206 bones**, **Spain won**). Paragraphs are 1-3 short "
     "sentences. Steps or stages in order (a process, a recipe, how something works) are a "
-    "numbered list, one each; three or more parallel points are bullets that open with a "
+    "numbered list, one each, or the ```steps card where the layout rules ask for it; three "
+    "or more parallel points are bullets that open with a "
     "**bold label**; dated events are bullets that open with the bold date. Only when the "
     "user asks which of the options they named to pick (rent or buy, iPhone or Pixel), close "
     "with one **Choose A if** … line per option, unless the reply already says when to pick "
