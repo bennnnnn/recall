@@ -1,4 +1,4 @@
-"""A subscripted name, or a letter of another alphabet, is never read as part of itself.
+"""A subscripted name, or a Greek letter, is never read as part of itself.
 
 The equation walker steps out from ``=`` over the characters a side may hold, and it carries
 no ``_``, lowered digit or Greek letter. Stopped there, a side was the tail of a name: "a_n =
@@ -6,6 +6,10 @@ no ``_``, lowered digit or Greek letter. Stopped there, a side was the tail of a
 n = -1; "x₁ + x₂ = 5" was 2 = 5, a checked "no solution"; "5 = x_1 + 2" was 5 = x; and "2θ +
 1 = 7" was + 1 = 7 (2026-11-14). A side cut short inside a name is no side, so the turn goes to
 the model unchecked, and a sequence's rule is never solved for its index.
+
+Another alphabet's word only ends a side, as an English one does: read as a name, "3x = 9 и
+2y = 8" lost its x = 3, y = 4 (review, 2026-11-14). A word the walk read half of ("x = 5 où"
+read the o) is still no side: it was the equation x = 5o.
 """
 
 from __future__ import annotations
@@ -41,6 +45,8 @@ async def _verified(text: str) -> str | None:
         "log_2 x = 5",
         "2θ + 1 = 7",
         "3 = 2α",
+        "Solve θ + 1 = 7",
+        "x = 5 où",
     ],
 )
 def test_a_side_cut_inside_a_name_is_no_equation(text: str) -> None:
@@ -64,6 +70,14 @@ def test_a_compound_inequality_cut_inside_a_name_is_none() -> None:
         # A name before a space, or prose of any alphabet around it, cuts nothing.
         ("let a_1 be the start and 2x + 3 = 7", [("2x + 3", "7")]),
         ("2x + 3 = 7 años", [("2x + 3", "7")]),
+        ("3x = 9 и 2y = 8", [("3x", "9"), ("2y", "8")]),
+        ("3x = 9 è 2y = 8", [("3x", "9"), ("2y", "8")]),
+        ("Решите 2x + 3 = 11 пожалуйста", [("2x + 3", "11")]),
+        ("2x+1=7 ነው", [("2x+1", "7")]),
+        ("x = 3 à", [("x", "3")]),
+        ("x+1=3吗", [("x+1", "3")]),
+        ("x = 4 ですか", [("x", "4")]),
+        ("2x + 1 = 7 für x", [("2x + 1", "7")]),
     ],
 )
 def test_an_equation_beside_a_name_is_still_read(text: str, pairs: list[tuple[str, str]]) -> None:
@@ -86,6 +100,8 @@ def test_an_equation_beside_a_name_is_still_read(text: str, pairs: list[tuple[st
         "Solve x_1 + x_2 = 5, x_1 - x_2 = 1",
         "Solve x_1 + 2 > 5",
         "Solve 2θ + 1 = 7",
+        "Solve θ + 1 = 7",
+        "Solve x = 5 où",
     ],
 )
 async def test_an_equation_in_a_subscripted_name_gets_no_card(question: str) -> None:
@@ -100,6 +116,11 @@ async def test_an_equation_in_a_subscripted_name_gets_no_card(question: str) -> 
         ("Solve x + y = 5, x - y = 1", "x = 3, y = 2"),
         ("Solve log_2(x) = 3", "x = 8"),
         ("Résous 2x + 3 = 7", "x = 2"),
+        ("3x = 9 и 2y = 8", "x = 3, y = 4"),
+        ("Solve 3x = 9 и 2y = 8", "x = 3, y = 4"),
+        ("3x = 9 è 2y = 8", "x = 3, y = 4"),
+        ("Solve x + 1 = 3 и", "x = 2"),
+        ("Solve 2x + 1 = 7 ነው", "x = 3"),
     ],
 )
 async def test_an_equation_with_no_name_in_it_is_still_solved(question: str, answer: str) -> None:

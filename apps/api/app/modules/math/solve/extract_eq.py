@@ -6,6 +6,7 @@ import re
 import unicodedata
 from itertools import pairwise
 
+from app.modules.math.function_names import GREEK_LETTERS
 from app.modules.math.match.letter_runs import peel_edge_english
 from app.modules.math.schemas import EquationInput
 from app.modules.math.solve.declines import sympy_decline
@@ -19,6 +20,8 @@ from app.modules.math.solve.equation_sides import (
 )
 from app.modules.math.solve.latex_normalize import normalize_latex_to_sympy
 from app.services.glyphs import SUBSCRIPT_GLYPHS
+
+_GREEK_LETTER = re.compile(rf"[{GREEK_LETTERS}]")
 
 _FILLER_VERBS = (
     "solve",
@@ -191,24 +194,36 @@ def _cut_short(text: str, left: int, right: int) -> bool:
     return (
         _stopped_at_math_symbol(text, left - 1)
         or _stopped_at_math_symbol(text, right)
-        or _stopped_in_a_name(text, left - 1)
-        or _stopped_in_a_name(text, right)
+        or _stopped_in_a_name(text, left - 1, toward=1)
+        or _stopped_in_a_name(text, right, toward=-1)
     )
 
 
-def _stopped_in_a_name(text: str, index: int) -> bool:
+def _stopped_in_a_name(text: str, index: int, *, toward: int) -> bool:
     """True when the walk ended inside a name it cannot carry: a subscript (``a_n``,
-    ``x_1``, ``u_{n+1}``) or a letter of another alphabet (``2θ``).
+    ``x_1``, ``u_{n+1}``), a Greek letter (``2θ``), or a word it read half of (``où``).
+    ``toward`` is the step from ``index`` to the side the walk read.
 
     A subscripted name is one symbol, and the walker carries no ``_``: "a_n = 2n" was the
     equation n = 2n, a checked n = 0; "x₁ + x₂ = 5" was 2 = 5, a checked "no solution", and
-    "5 = x_1 + 2" was 5 = x (2026-11-14). "2θ + 1 = 7" was + 1 = 7 the same way. A name the
-    walker cannot carry leaves no side.
+    "5 = x_1 + 2" was 5 = x (2026-11-14). "2θ + 1 = 7" and "Solve θ + 1 = 7" were + 1 = 7 the
+    same way, and "x = 5 où" the equation x = 5o. A name the walker cannot carry leaves no
+    side. Another alphabet's word after a space only ends the side: "3x = 9 и 2y = 8" is two
+    equations, as "3x = 9 and 2y = 8" is.
     """
     if not 0 <= index < len(text):
         return False
     char = text[index]
-    return char == "_" or char in SUBSCRIPT_GLYPHS or (char.isalpha() and not char.isascii())
+    if char == "_" or char in SUBSCRIPT_GLYPHS or _GREEK_LETTER.fullmatch(char):
+        return True
+    inner = index + toward
+    return (
+        char.isalpha()
+        and not char.isascii()
+        and 0 <= inner < len(text)
+        and text[inner].isascii()
+        and text[inner].isalpha()
+    )
 
 
 def _stopped_at_math_symbol(text: str, index: int) -> bool:
@@ -379,7 +394,9 @@ def try_extract_compound_inequality_from_text(
                 break
             right += 1
         high = cleaned[b[1] : right].strip()
-        if _stopped_in_a_name(cleaned, left - 1) or _stopped_in_a_name(cleaned, right):
+        if _stopped_in_a_name(cleaned, left - 1, toward=1) or _stopped_in_a_name(
+            cleaned, right, toward=-1
+        ):
             return None
         if not (
             _is_equation_side(low)
@@ -415,7 +432,9 @@ def try_extract_inequality_from_text(text: str) -> tuple[str, str, str] | None:
         rhs = cleaned[after:right].strip()
         if cleaned[left - 1 : left] in {"<", ">", "≤", "≥", "="}:
             return None  # one link of a chain the compound reader could not read
-        if _stopped_in_a_name(cleaned, left - 1) or _stopped_in_a_name(cleaned, right):
+        if _stopped_in_a_name(cleaned, left - 1, toward=1) or _stopped_in_a_name(
+            cleaned, right, toward=-1
+        ):
             return None  # ``x_1 + 2 > 5`` is no inequality in ``1 + 2``
         if _is_equation_side(lhs) and _is_equation_side(rhs):
             if best is not None:
