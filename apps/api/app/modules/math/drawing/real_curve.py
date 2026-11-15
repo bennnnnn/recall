@@ -22,8 +22,6 @@ from app.modules.math.solve.odd_roots import real_branch
 # The variable every formula is read in: real, so |x| and sign(x) differentiate as they do
 # on the number line.
 X = Symbol("x", real=True)
-# A sample this far beyond the window is drawn at its edge: the line still leaves the picture.
-_FAR = 1e7
 
 
 def _no_impulse(expr: Any) -> Any:
@@ -90,14 +88,3 @@ class RealFunction:
         if not isinstance(value, Expr) or not value.is_real or value.has(S.ComplexInfinity):
             return None
         return value
-
-
-def sample(fn: RealFunction, low: float, high: float, count: int, extra: list[float]) -> Any:
-    """x and y over [low, high]: ``count`` even steps and the ``extra`` x's (turning points,
-    cusps), so a sharp point is drawn where it is, not cut off between two steps."""
-    xs = np.linspace(low, high, count)
-    if extra:
-        inside = [x for x in extra if low < x < high]
-        xs = np.unique(np.concatenate([xs, np.array(inside, dtype=float)]))
-    ys = fn.values(xs)
-    return xs, np.clip(ys, -_FAR, _FAR)

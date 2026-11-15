@@ -8,7 +8,6 @@ from app.services.glyphs import (
     SUBSCRIPT_DIGIT_GLYPHS,
     SUBSCRIPT_DIGITS,
     SUPERSCRIPT_DIGIT_GLYPHS,
-    SUPERSCRIPT_DIGITS,
 )
 
 # OCR / homework unicode operators → ASCII before the allowlist runs.
@@ -40,9 +39,10 @@ _UNICODE_VULGAR: tuple[tuple[str, str], ...] = (
     ("\u215e", "(7)/(8)"),
 )
 
-_SUP_GLYPHS = SUPERSCRIPT_DIGIT_GLYPHS
+# An exponent's digits, with its sign and the letters a book writes up there: 10⁻⁹, eˣ, 2ⁿ.
+_SUP_GLYPHS = SUPERSCRIPT_DIGIT_GLYPHS + "\u207b\u207a\u02e3\u02b8\u207f"
 _SUB_GLYPHS = SUBSCRIPT_DIGIT_GLYPHS
-_SUP_TABLE = SUPERSCRIPT_DIGITS
+_SUP_TABLE = str.maketrans(_SUP_GLYPHS, "0123456789-+xyn")
 _SUB_TABLE = SUBSCRIPT_DIGITS
 
 

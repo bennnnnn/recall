@@ -115,7 +115,7 @@ def shade(item: Shade, question: PlotQuestion, scene: Scene) -> None:
         other = first.exact_at(exact) if not exact.is_Float else None
         across = other if other is not None else first.at(meet)
         x, y = (across, exact) if item.wrt == "y" else (exact, across)
-        scene.add_point(DrawnPoint(float(x), float(y), point_text(x, y)))
+        scene.add_point(DrawnPoint(float(x), float(y), point_text(x, y), held=(float(x), float(y))))
     scene.focus += [(low, 0.0), (high, 0.0)] if item.wrt == "x" else [(0.0, low), (0.0, high)]
 
 
@@ -149,7 +149,7 @@ def rectangles(item: Rectangles, question: PlotQuestion, scene: Scene) -> None:
     held = [stated(v, question) if v is not None else None for v in (start, end)]
     if fn is None or held[0] is None or held[1] is None or float(held[0]) >= float(held[1]):
         return
-    counts = {int(v) for v in question.values if getattr(v, "is_Integer", False) and v > 0}
+    counts = set(question.counts)
     if (counts and item.n not in counts) or (not counts and item.n > _MOST_UNSTATED_RECTANGLES):
         return
     edges = np.linspace(float(held[0]), float(held[1]), item.n + 1)

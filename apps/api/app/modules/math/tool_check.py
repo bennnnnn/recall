@@ -429,6 +429,18 @@ def written_expressions(text: str) -> list[Any]:
     return [expr for expr in found if expr is not None and expr.free_symbols and not expr.is_Symbol]
 
 
+def written_values(text: str) -> list[float]:
+    """Each real value written as a side of a relation or in a list: "f(2) = √5", "(e, 1/e)"."""
+    found: list[float] = []
+    for run in _runs(text):
+        for piece in [side for a, _op, b in _split_relation(run) for side in (a, b)] or [run]:
+            inner = piece.strip(" .,;:")
+            inner = inner[1:-1] if inner[:1] in "([" and inner[-1:] in ")]" else inner
+            values = [_parse(part) for part in inner.split(",")]
+            found += [float(v) for v in values if v is not None and v.is_number and v.is_real]
+    return found
+
+
 def parse_formula(text: str) -> Any | None:
     """``text`` as one SymPy expression, or None."""
     return _parse(text)

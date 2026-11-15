@@ -1,146 +1,62 @@
-import { Suspense, lazy, useId, useMemo } from "react";
+import { Suspense, useCallback, useId, useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import Svg, { Circle, G, Line, Polygon, Polyline, Text as SvgText } from "react-native-svg";
 
-import { CartesianAxes } from "@/components/rich/CartesianAxes";
-import { GRAPH_AXIS_PAD } from "@/components/rich/GraphCanvas";
-import { GRAPH_TICK_FONT_SIZE } from "@/components/rich/graphPaint";
-import {
-  MIRROR_DASH,
-  PLOT_DASH,
-  PLOT_HEIGHT,
-  PLOT_TURN,
-  plotColor,
-  plotStroke,
-  REGION_OPACITY,
-} from "@/components/rich/plotPaint";
+import { GraphCanvas, GRAPH_AXIS_PAD } from "@/components/rich/GraphCanvas";
+import { PLOT_DASH, PLOT_HEIGHT, plotColor, plotStroke } from "@/components/rich/plotPaint";
+import { SkiaGraphCanvasLazy } from "@/components/rich/skia/SkiaGraphCanvasLazy";
+import { useSkiaGraphViewport } from "@/hooks/useSkiaGraphViewport";
+import { type GraphView } from "@/lib/math/graphViewport";
+import { plotDrawing, type PlotDrawing } from "@/components/rich/plotDrawing";
+import { plotAxes, plotBounds, plotDescription, type PlotGraph } from "@/lib/math/plotGraph";
 import { isSkiaAvailable } from "@/lib/skiaAvailability";
-import { plotDescription, plotLayout, type PlotGraph, type PlotLayout } from "@/lib/math/plotGraph";
 import { Space } from "@/lib/space";
 import { type Theme } from "@/lib/theme";
-import { Type, Weight } from "@/lib/type";
+import { Type } from "@/lib/type";
 
-const SkiaPlotCanvas = lazy(() =>
-  import("@/components/rich/skia/SkiaPlotCanvas").then((m) => ({ default: m.SkiaPlotCanvas })),
-);
-
-const points = (path: { px: number; py: number }[]) => path.map(({ px, py }) => `${px},${py}`).join(" ");
-
-/** The plot drawn in SVG: the fallback where Skia is not linked (Expo Go), and in tests. */
-export function SvgPlotCanvas({
-  graph,
-  layout,
-  width,
-  theme,
-}: {
+type Canvas = {
   graph: PlotGraph;
-  layout: PlotLayout;
+  drawing: PlotDrawing;
+  bounds: GraphView;
   width: number;
   theme: Theme;
-}) {
-  const clipId = useId();
-  const clip = `url(#${clipId})`;
+};
+
+/** The Skia function graph, held still on the server's window: a plot has no pan or zoom. */
+function SkiaPlot({ graph, drawing, bounds, width, theme }: Canvas) {
+  const still = useCallback(() => {}, []);
+  const viewport = useSkiaGraphViewport({
+    width,
+    height: PLOT_HEIGHT,
+    pad: GRAPH_AXIS_PAD,
+    initialView: bounds,
+    onCommit: still,
+  });
   return (
-    <Svg width={width} height={PLOT_HEIGHT} testID="plot-graph-svg">
-      <CartesianAxes
-        width={width}
-        height={PLOT_HEIGHT}
-        pad={GRAPH_AXIS_PAD}
-        bounds={layout.bounds}
-        clipId={clipId}
-        axisColor={theme.textSecondary}
-        labelColor={theme.textSecondary}
-        gridColor={theme.border}
-        xName={graph.xLabel}
-        yName={graph.yLabel}
-        keepAxesInView
-        fractionalTicks
-      />
-      <G clipPath={clip}>
-        {layout.regions.map((region, i) => (
-          <Polygon
-            key={`region-${i}`}
-            testID={`plot-region-${region.kind}`}
-            points={points(region.points)}
-            fill={plotColor(theme, region.color)}
-            fillOpacity={REGION_OPACITY[region.kind]}
-            stroke={region.kind === "shade" ? "none" : plotColor(theme, region.color)}
-            strokeWidth={1}
-            strokeDasharray={region.kind === "mirror" ? MIRROR_DASH.join(" ") : undefined}
-          />
-        ))}
-        {layout.curves.flatMap((curve, i) =>
-          curve.paths.map((path, j) => (
-            <Polyline
-              key={`curve-${i}-${j}`}
-              testID="plot-curve"
-              points={points(path)}
-              fill="none"
-              stroke={plotColor(theme, curve.color)}
-              strokeWidth={2.5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          )),
-        )}
-        {layout.lines.map((line, i) => {
-          const stroke = plotStroke(theme, line.role, line.color);
-          return (
-            <Line
-              key={`line-${i}`}
-              testID={`plot-line-${line.role}`}
-              x1={line.from.px}
-              y1={line.from.py}
-              x2={line.to.px}
-              y2={line.to.py}
-              stroke={stroke.color}
-              strokeWidth={stroke.width}
-              strokeDasharray={PLOT_DASH[line.role]?.join(" ")}
-              strokeLinecap="round"
-            />
-          );
-        })}
-      </G>
-      {layout.turns.map((turn, i) => (
-        <SvgText key={`turn-${i}`} x={turn.px} y={turn.py - 6} fill={theme.text} fontSize={16} textAnchor="end">
-          {PLOT_TURN}
-        </SvgText>
-      ))}
-      {layout.dots.map((dot, i) => (
-        <Circle
-          key={`dot-${i}`}
-          testID={dot.open ? "plot-dot-open" : "plot-dot"}
-          cx={dot.at.px}
-          cy={dot.at.py}
-          r={dot.open ? 4.5 : 4}
-          fill={dot.open ? theme.elevated : plotColor(theme, dot.color)}
-          stroke={dot.open ? plotColor(theme, dot.color) : theme.surface}
-          strokeWidth={dot.open ? 2 : 1.5}
-        />
-      ))}
-      {layout.labels.map((label, i) => {
-        const at = { x: label.x, y: label.y, fontSize: GRAPH_TICK_FONT_SIZE, textAnchor: label.anchor, ...Weight.semibold };
-        return (
-          <G key={`label-${i}`}>
-            <SvgText {...at} fill={theme.surface} stroke={theme.surface} strokeWidth={3}>
-              {label.text}
-            </SvgText>
-            <SvgText {...at} fill={theme.text} testID="plot-label">
-              {label.text}
-            </SvgText>
-          </G>
-        );
-      })}
-    </Svg>
+    <SkiaGraphCanvasLazy
+      drawn={drawing.drawn}
+      points={drawing.points}
+      layers={drawing.layers}
+      xName={graph.xLabel}
+      yName={graph.yLabel}
+      width={width}
+      height={PLOT_HEIGHT}
+      pad={GRAPH_AXIS_PAD}
+      theme={theme}
+      viewport={viewport}
+      testID="plot-graph-skia"
+    />
   );
 }
 
-function Legend({ layout, theme }: { layout: PlotLayout; theme: Theme }) {
-  if (!layout.legend.length) return null;
+function Legend({ drawing, theme }: { drawing: PlotDrawing; theme: Theme }) {
+  if (!drawing.legend.length) return null;
   return (
     <View style={styles.legend} testID="plot-legend">
-      {layout.legend.map((row, i) => {
-        const stroke = row.role === "curve" ? { color: plotColor(theme, row.color), width: 2.5 } : plotStroke(theme, row.role, row.color);
+      {drawing.legend.map((row, i) => {
+        const stroke =
+          row.role === "curve"
+            ? { color: plotColor(theme, row.color), width: 2.5 }
+            : plotStroke(theme, row.role, row.color);
         const dashed = row.role !== "curve" && PLOT_DASH[row.role] != null;
         return (
           <View key={`legend-${i}`} style={styles.row}>
@@ -158,22 +74,40 @@ function Legend({ layout, theme }: { layout: PlotLayout; theme: Theme }) {
   );
 }
 
-/** A server-drawn plot: its canvas (Skia where linked, else SVG) and its legend. */
+/**
+ * A server-drawn plot: the function graph's own canvas (Skia where linked, else SVG) on the
+ * server's window, its layers and points the server's, and a legend of its equations.
+ */
 export function PlotGraphCard({ graph, width, theme }: { graph: PlotGraph; width: number; theme: Theme }) {
-  const layout = useMemo(() => plotLayout(graph, width, PLOT_HEIGHT, GRAPH_AXIS_PAD), [graph, width]);
-  const svg = <SvgPlotCanvas graph={graph} layout={layout} width={width} theme={theme} />;
+  const clipId = useId();
+  const bounds = useMemo(() => plotBounds(graph, width, PLOT_HEIGHT, GRAPH_AXIS_PAD), [graph, width]);
+  const drawing = useMemo(() => plotDrawing(graph, theme.graphSeries), [graph, theme.graphSeries]);
+  const axes = useMemo(() => plotAxes(graph), [graph]);
+  const svg = (
+    <GraphCanvas
+      spec={axes}
+      theme={theme}
+      clipId={clipId}
+      width={width}
+      height={PLOT_HEIGHT}
+      bounds={bounds}
+      drawn={drawing.drawn}
+      points={drawing.points}
+      layers={drawing.layers}
+    />
+  );
   return (
     <View style={[styles.card, { width }]} testID="plot-graph">
       <View accessible accessibilityRole="image" accessibilityLabel={plotDescription(graph)}>
         {isSkiaAvailable() ? (
           <Suspense fallback={svg}>
-            <SkiaPlotCanvas graph={graph} layout={layout} width={width} theme={theme} />
+            <SkiaPlot graph={graph} drawing={drawing} bounds={bounds} width={width} theme={theme} />
           </Suspense>
         ) : (
           svg
         )}
       </View>
-      <Legend layout={layout} theme={theme} />
+      <Legend drawing={drawing} theme={theme} />
     </View>
   );
 }

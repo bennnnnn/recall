@@ -37,7 +37,7 @@ def point_of(place: Place, fn: RealFunction | None, color: int, label: bool = Tr
     y = _exact_y(fn, place.x) if fn is not None else place.y
     x_shown, y_shown = place.x, y
     text = point_text(x_shown, y_shown) if label else ""
-    return DrawnPoint(float(place.x), float(y), text, color=color)
+    return DrawnPoint(float(place.x), float(y), text, color=color, held=(float(place.x), float(y)))
 
 
 def _value_and_slope(fn: RealFunction, at: Any) -> tuple[Any, Any] | None:
@@ -66,15 +66,19 @@ def touching(item: Touching, question: PlotQuestion, scene: Scene) -> None:
     if item.item == "tangent":
         offset = radsimp(y0 - slope * at)
         line = DrawnLine(slope, offset, label=line_text(slope, offset), color=_TOUCH_COLOR)
+        line.held = (float(slope), float(offset))
     elif slope == 0:
         line = DrawnLine(vertical=at, label=equation_text("x", at), color=_NORMAL_COLOR)
+        line.held = (float(at),)
     else:
         normal = radsimp(-1 / slope)
         offset = radsimp(y0 - normal * at)
         line = DrawnLine(normal, offset, label=line_text(normal, offset), color=_NORMAL_COLOR)
+        line.held = (float(normal), float(offset))
         scene.equal = True
     scene.marks.append(line)
-    scene.add_point(DrawnPoint(float(at), float(y0), point_text(at, y0), color=line.color))
+    contact = (float(at), float(y0))
+    scene.add_point(DrawnPoint(*contact, point_text(at, y0), color=line.color, held=contact))
 
 
 def asymptotes(item: Asymptotes, scene: Scene) -> None:
@@ -84,13 +88,21 @@ def asymptotes(item: Asymptotes, scene: Scene) -> None:
     for found in curve.breaks:
         if found.asymptote:
             label = equation_text("x", found.x) if not found.x.is_Float else ""
-            scene.marks.append(DrawnLine(vertical=found.x, role="asymptote", label=label))
+            scene.marks.append(
+                DrawnLine(vertical=found.x, role="asymptote", label=label, held=(float(found.x),))
+            )
     fn = curve.single
     if fn is None or curve.stated_domain:
         return
     for slope, offset in end_lines(fn):
         scene.marks.append(
-            DrawnLine(slope, offset, role="asymptote", label=line_text(slope, offset))
+            DrawnLine(
+                slope,
+                offset,
+                role="asymptote",
+                label=line_text(slope, offset),
+                held=(float(slope), float(offset)),
+            )
         )
         scene.asymptote_sides |= _sides_approached(fn, slope, offset)
 
@@ -192,5 +204,6 @@ def nearest(item: Nearest, question: PlotQuestion, scene: Scene) -> None:
             else "≈ " + number_text(Float(math.sqrt(distance.at(x)), 12))
         )
         ends = ((place.x, place.y), (target.x, target.y))
-        scene.marks.append(DrawnLine(role="segment", ends=ends, label=length, color=2))
+        held = (math.sqrt(distance.at(x)),)
+        scene.marks.append(DrawnLine(role="segment", ends=ends, label=length, color=2, held=held))
     scene.equal = True

@@ -24,7 +24,7 @@ _CASES: list[dict[str, Any]] = json.loads(FIXTURE.read_text())["cases"]
 
 
 def _drawn(case: dict[str, Any]) -> dict[str, Any]:
-    fence = drawn_fence(json.dumps(case["description"]), [case["question"]], "")
+    fence = drawn_fence(json.dumps(case["description"]), [case["question"]], case["reply"])
     assert fence is not None
     body: dict[str, Any] = json.loads(fence.split("\n", 1)[1].rsplit("\n```", 1)[0])
     return body

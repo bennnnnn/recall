@@ -1,12 +1,13 @@
 /**
  * The server's plot fences (docs/fixtures/plot_fences.json, held to what the server draws
- * by the API's test_plot_fence_fixture.py) read and laid out as the card draws them: every
- * curve piece, line, region and point the server sent, open circles where it said, labels
- * that never sit on one another, and one scale on both axes when the plot asks for it. A
- * part that is malformed is left out, never the graph; a fence that is no plot is refused.
+ * by the API's test_plot_fence_fixture.py) read and handed to the function graph's own
+ * renderers: every curve piece, line, region and point the server sent, open circles where
+ * it said, the server's labels and no others, and one scale on both axes when the plot asks
+ * for it. A part that is malformed is left out, never the graph; a fence that is no plot is
+ * refused.
  */
 import { realPower } from "@/lib/math/graphExpr";
-import { parsePlotGraph, plotBounds, plotLayout } from "@/lib/math/plotGraph";
+import { parsePlotGraph, plotBounds } from "@/lib/math/plotGraph";
 
 declare const __dirname: string;
 const { readFileSync } = jest.requireActual<{
@@ -18,7 +19,6 @@ type Case = { id: string; body: Record<string, unknown> };
 const CASES: Case[] = JSON.parse(
   readFileSync(join(__dirname, "../../../../docs/fixtures/plot_fences.json"), "utf8"),
 ).cases;
-const body = (id: string) => CASES.find((c) => c.id === id)!.body;
 
 describe("plot fences the server draws", () => {
   it.each(CASES.map((c) => [c.id, c.body] as const))("reads %s whole", (_id, raw) => {
@@ -31,41 +31,6 @@ describe("plot fences the server draws", () => {
     expect(graph!.points).toHaveLength(sent.points.length);
   });
 
-  it("draws a function in pieces with its open and filled circles (round 3, c008)", () => {
-    const layout = plotLayout(parsePlotGraph(JSON.stringify(body("c008")))!, 343, 220, 16);
-    expect(layout.dots.filter((d) => d.open)).toHaveLength(2);
-    expect(layout.dots.filter((d) => !d.open)).toHaveLength(2);
-    // Three pieces drawn apart: never one line across a jump.
-    expect(layout.curves[0].paths).toHaveLength(3);
-  });
-
-  it("draws asymptotes as lines of their own, named in the legend (c029)", () => {
-    const layout = plotLayout(parsePlotGraph(JSON.stringify(body("c029")))!, 343, 220, 16);
-    expect(layout.lines.filter((l) => l.role === "asymptote")).toHaveLength(2);
-    expect(layout.legend.map((row) => row.label)).toEqual(expect.arrayContaining(["x = 2", "y = x"]));
-    expect(layout.curves[0].paths).toHaveLength(2);
-  });
-
-  it("draws a washer's region, its slice and the slice turned about the axis", () => {
-    const layout = plotLayout(parsePlotGraph(JSON.stringify(body("washer")))!, 343, 220, 16);
-    expect(layout.regions.map((r) => r.kind).sort()).toEqual(["mirror", "shade", "strip"]);
-    expect(layout.turns).toHaveLength(1);
-  });
-
-  it.each(CASES.map((c) => [c.id, c.body] as const))("sets no label of %s on another", (_id, raw) => {
-    const layout = plotLayout(parsePlotGraph(JSON.stringify(raw))!, 343, 220, 16);
-    const boxes = layout.labels.map((l) => {
-      const w = l.text.length * 6.8;
-      const x0 = l.anchor === "start" ? l.x : l.anchor === "end" ? l.x - w : l.x - w / 2;
-      return { x0, x1: x0 + w, y0: l.y - 11, y1: l.y + 2 };
-    });
-    for (let i = 0; i < boxes.length; i += 1) {
-      for (let j = i + 1; j < boxes.length; j += 1) {
-        const [a, b] = [boxes[i], boxes[j]];
-        expect(a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1).toBe(false);
-      }
-    }
-  });
 });
 
 describe("parsePlotGraph", () => {

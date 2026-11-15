@@ -66,7 +66,11 @@ def enclosed(item: Shade, scene: Scene) -> None:
             exact = snapped(x, [], fns[i].expr - fns[j].expr)
             y = fns[i].exact_at(exact) if not exact.is_Float else None
             y = y if y is not None else Float(fns[i].at(x), 12)
-            scene.add_point(DrawnPoint(float(exact), float(y), point_text(exact, y)))
+            scene.add_point(
+                DrawnPoint(
+                    float(exact), float(y), point_text(exact, y), held=(float(exact), float(y))
+                )
+            )
         low, high = min(c for _, c in placed), max(c for _, c in placed)
         scene.shaded.append(Shaded(fns[0], fns[1], low, high, "x"))
         return

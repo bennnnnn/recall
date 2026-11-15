@@ -2,10 +2,10 @@
  * A ```graph `plot`: a graph the server drew from a checked picture description (curves,
  * tangents, asymptotes, points, shaded regions, Riemann rectangles, an axis of revolution).
  * Every coordinate and label is the server's (`app/modules/math/schemas/plot.py`); the phone
- * reads them, lays them out in pixels (`plotLayout`) and draws them, in Skia or SVG alike,
- * working nothing out. A part that is malformed is left out, never the graph.
+ * reads them and draws them with the function graph's own renderers
+ * (`components/rich/plotDrawing`), in Skia or SVG alike, working nothing out. A part that is malformed is left out, never the graph.
  */
-import { mapGraphPoint } from "@/lib/math/graphBlock";
+import { type GraphSpec } from "@/lib/math/graphSpec";
 
 type Pair = [number, number];
 export type PlotLineRole = "line" | "asymptote" | "axis" | "segment";
@@ -27,7 +27,7 @@ export type PlotGraph = {
   points: { x: number; y: number; open: boolean; label: string; color: number }[];
 };
 
-const MAX_CURVES = 6;
+const MAX_CURVES = 4;
 const MAX_SEGMENTS = 24;
 const MAX_SAMPLES = 800;
 const MAX_LINES = 16;
@@ -139,114 +139,21 @@ export function plotBounds(graph: PlotGraph, width: number, height: number, pad:
   return { ...bounds, xMin: bounds.xMin - grow, xMax: bounds.xMax + grow };
 }
 
-type Px = { px: number; py: number };
-export type PlotLabel = { x: number; y: number; text: string; anchor: "start" | "end" | "middle" };
-
-export type PlotLayout = {
-  bounds: PlotBounds;
-  curves: { color: number; paths: Px[][] }[];
-  lines: { from: Px; to: Px; role: PlotLineRole; color: number }[];
-  regions: { points: Px[]; kind: PlotRegionKind; color: number }[];
-  dots: { at: Px; open: boolean; color: number }[];
-  labels: PlotLabel[];
-  /** Where the axis of revolution's turning arrow sits. */
-  turns: Px[];
-  legend: { label: string; color: number; role: PlotLineRole | "curve" }[];
+/** What a function graph does not draw, a plot adds as layers: lines and regions. */
+export type GraphLayers = {
+  lines: { start: Pair; end: Pair; role: PlotLineRole; color: number }[];
+  regions: { points: Pair[]; kind: PlotRegionKind; color: number }[];
 };
 
-const LABEL_SIZE = 11;
-/** A semibold 11pt label's advance per character, rounded up so labels never touch. */
-const CHAR_PX = 6.8;
-const LABEL_GAP = 6;
-
-type Box = { x0: number; y0: number; x1: number; y1: number };
-
-function overlaps(a: Box, b: Box): boolean {
-  return a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
-}
-
-/**
- * A label beside its point, in the first place around it that stays on the canvas and meets
- * no other label; none when every place does (the dot stays, its label left out, never set
- * over another's).
- */
-function placeLabel(at: Px, label: string, taken: Box[], width: number, height: number): PlotLabel | null {
-  const w = label.length * CHAR_PX;
-  const places: [number, number, "start" | "end" | "middle"][] = [];
-  for (const gap of [LABEL_GAP, LABEL_GAP * 2.5]) {
-    places.push(
-      [at.px + gap, at.py - gap, "start"],
-      [at.px - gap, at.py - gap, "end"],
-      [at.px + gap, at.py + gap + LABEL_SIZE, "start"],
-      [at.px - gap, at.py + gap + LABEL_SIZE, "end"],
-      [at.px, at.py - gap - 2, "middle"],
-      [at.px, at.py + gap + LABEL_SIZE + 2, "middle"],
-    );
-  }
-  const inside = (b: Box) => b.x0 >= 2 && b.x1 <= width - 2 && b.y0 >= 2 && b.y1 <= height - 2;
-  for (const [x, y, anchor] of places) {
-    const x0 = anchor === "start" ? x : anchor === "end" ? x - w : x - w / 2;
-    const box = { x0, y0: y - LABEL_SIZE, x1: x0 + w, y1: y + 2 };
-    if (inside(box) && !taken.some((t) => overlaps(t, box))) {
-      taken.push(box);
-      return { x, y, text: label, anchor };
-    }
-  }
-  return null;
-}
-
-function inBounds(x: number, y: number, b: PlotBounds): boolean {
-  return x >= b.xMin && x <= b.xMax && y >= b.yMin && y <= b.yMax;
-}
-
-/** Every part of the plot in pixels, for a canvas `width` by `height` inset by `pad`. */
-export function plotLayout(graph: PlotGraph, width: number, height: number, pad: number): PlotLayout {
-  const bounds = plotBounds(graph, width, height, pad);
-  const at = ([x, y]: Pair) => mapGraphPoint(x, y, bounds, width, height, pad);
-  const taken: Box[] = [];
-  const labels: PlotLabel[] = [];
-  const dots = graph.points
-    .filter((p) => inBounds(p.x, p.y, bounds))
-    .map((p) => {
-      const spot = at([p.x, p.y]);
-      const placed = p.label ? placeLabel(spot, p.label, taken, width, height) : null;
-      if (placed) labels.push(placed);
-      return { at: spot, open: p.open, color: p.color };
-    });
-  const lines = graph.lines.map((line) => ({
-    from: at(line.start),
-    to: at(line.end),
-    role: line.role,
-    color: line.color,
-  }));
-  for (const line of graph.lines) {
-    if (line.role === "segment" && line.label) {
-      const mid: Pair = [(line.start[0] + line.end[0]) / 2, (line.start[1] + line.end[1]) / 2];
-      const placed = placeLabel(at(mid), line.label, taken, width, height);
-      if (placed) labels.push(placed);
-    }
-  }
-  const turns = graph.lines
-    .filter((line) => line.role === "axis")
-    .map((line) => {
-      const end = at(line.end);
-      return { px: Math.min(end.px, width - pad - 10), py: Math.max(end.py, pad + 10) };
-    });
-  const legend: PlotLayout["legend"] = [
-    ...graph.curves.filter((c) => c.label).map((c) => ({ label: c.label, color: c.color, role: "curve" as const })),
-    ...graph.lines
-      .filter((l) => l.label && l.role !== "segment")
-      .map((l) => ({ label: l.label, color: l.color, role: l.role })),
-  ];
+/** The plot as a function graph's spec, for what its axes are named. */
+export function plotAxes(graph: PlotGraph): GraphSpec {
+  const first = graph.curves[0];
   return {
-    bounds,
-    curves: graph.curves.map((curve) => ({ color: curve.color, paths: curve.segments.map((s) => s.map(at)) })),
-    lines,
-    regions: graph.regions.map((region) => ({ points: region.points.map(at), kind: region.kind, color: region.color })),
-    dots,
-    labels,
-    turns,
-    legend,
+    type: "function",
+    expr: first.label,
+    points: first.segments.flat(),
+    x_label: graph.xLabel,
+    y_label: graph.yLabel,
   };
 }
 

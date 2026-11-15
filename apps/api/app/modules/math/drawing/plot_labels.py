@@ -1,7 +1,7 @@
 """A graph's labels, written by the server from the values it worked out.
 
 A value is written exactly when it is short that way (-7, 1/2, √5, π/4, e, 1/e) and as a
-two-place decimal otherwise (1.16); a formula as a reader writes it (y = x² - 5x + 1, |ln x|,
+figure writes a decimal otherwise (1.165); a formula as a reader writes it (y = x² - 5x + 1, |ln x|,
 xeˣ - 4). Every label is the server's: none is copied from the reply.
 """
 
@@ -13,6 +13,7 @@ from sympy import Expr, Float, Integer, Rational, Symbol, exp, sympify
 from sympy.printing.str import StrPrinter
 
 from app.modules.math.drawing.real_curve import X
+from app.modules.math.figure.drawing import number_text as decimal_text
 
 _MINUS = "\u2212"
 _SUPERSCRIPT = str.maketrans("0123456789-", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻")
@@ -112,7 +113,8 @@ def _whole_word(text: str, word: str, shown: str) -> str:
 
 
 def number_text(value: Any) -> str:
-    """A value the server worked out, exact when that is short, else to two places."""
+    """A value the server worked out, exact when that is short, else as a figure prints a
+    decimal (``figure.drawing.number_text``)."""
     number = sympify(value)
     if isinstance(number, Integer):
         return str(number).replace("-", _MINUS)
@@ -124,10 +126,8 @@ def number_text(value: Any) -> str:
         shown = formula_text(number)
         if len(shown.lstrip(_MINUS)) <= _EXACT_CHARS - 1:
             return shown
-    decimal = float(number)
-    places = 3 if 0 < abs(decimal) < 0.1 else 2
-    text = f"{decimal:.{places}f}".rstrip("0").rstrip(".")
-    return ("0" if text in {"-0", ""} else text).replace("-", _MINUS)
+    text = decimal_text(float(number))
+    return ("0" if text == "-0" else text).replace("-", _MINUS)
 
 
 def point_text(x: Any, y: Any) -> str:

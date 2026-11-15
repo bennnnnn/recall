@@ -86,7 +86,7 @@ def places_of(curve: DrawnCurve, scene: Scene, question: PlotQuestion) -> list[A
     own = curve.single
     if own is not None:
         low, high = curve.search
-        slopes = {float(v) for v in question.values} | _written_slopes(question)
+        slopes = {float(v) for v in question.slopes} | _written_slopes(question)
         for slope in slopes:
             difference = RealFunction(own.derivative(1) - slope)
             xs += [snapped(x, [], difference.expr) for x in zeros(difference.values, low, high)]

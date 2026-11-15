@@ -101,7 +101,7 @@ def test_end_lines_are_sympys(formula: str, lines: list[tuple[int, int]]) -> Non
 @pytest.mark.parametrize(
     ("value", "text"),
     [(Rational(-1, 2), "−1/2"), (sqrt(5), "√5"), (pi / 4, "π/4"), (exp(-1), "1/e"),
-     (E, "e"), (-2 * sqrt(3) / 3, "−1.15"), (Rational(1, 300), "0.003")],
+     (E, "e"), (-2 * sqrt(3) / 3, "−1.155"), (Rational(1, 300), "0.003")],
 )  # fmt: skip
 def test_a_value_is_exact_when_short(value: object, text: str) -> None:
     assert number_text(value) == text
@@ -113,8 +113,8 @@ def test_a_formula_reads_as_a_question_writes_it() -> None:
 
 
 def test_bars_superscripts_and_roots_read_plainly() -> None:
-    assert plain("f(x) = x²|9 − x²|/(3 − x)") == "f(x) = x^(2)abs(9 - x^(2))/(3 - x)"
-    assert plain("y = √x and eˣ") == "y = sqrt(x) and e^(x)"
+    assert plain("f(x) = x²|9 − x²|/(3 − x)") == "f(x) = x**2 abs(9 - x**2)/(3 - x)"
+    assert plain("y = √x and eˣ, ∫ 2x dx") == "y = sqrt(x) and e**x, ∫ 2x"
     question = read_plot_question(["Let v(t) = t² − 4t + 3 m/s for 0 ≤ t ≤ 4."])
     assert [str(w.expr) for w in question.formulas if w.name == "v"] == ["t**2 - 4*t + 3"]
     assert sorted(float(v) for v in question.x_values) == [0.0, 4.0]

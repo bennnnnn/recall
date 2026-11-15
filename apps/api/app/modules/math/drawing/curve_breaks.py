@@ -4,7 +4,8 @@ A break is a place the formula is undefined or jumps: a zero of a denominator, t
 a logarithm's domain, a place the samples run off to infinity. Each side is read from the
 curve itself (it runs off to infinity, settles on a value, or has no values there), so a
 removable hole, a jump and a vertical asymptote are told apart without SymPy's limits,
-which can stall on |…| and odd roots. A horizontal or oblique asymptote is SymPy's: its
+which can stall on |…| and odd roots; each side is read as the graph sampler reads it
+(``solve.graph_sampling.side``). A horizontal or oblique asymptote is SymPy's: its
 slope and offset are limits at ±∞, taken only when the samples already settle on them.
 """
 
@@ -12,26 +13,19 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from itertools import pairwise
-from typing import Any, Literal
+from typing import Any
 
 import numpy as np
 from sympy import Expr, Symbol, limit, oo
 
 from app.modules.math.drawing.curve_features import GRID, snapped
 from app.modules.math.drawing.real_curve import RealFunction, X
+from app.modules.math.solve.graph_sampling import Side, side
 
-_STEPS = (1e-3, 1e-4, 1e-5, 1e-6, 1e-7)
 # Samples this large either side of a sign change are a pole's, not a root's.
 _HUGE = 1e5
 _FAR = (1e4, 1e5, 1e6)
 _T = Symbol("t", positive=True)
-
-
-@dataclass(frozen=True)
-class Side:
-    kind: Literal["none", "finite", "infinite"]
-    value: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -45,24 +39,6 @@ class Break:
     @property
     def asymptote(self) -> bool:
         return "infinite" in (self.left.kind, self.right.kind)
-
-
-def _side(fn: RealFunction, x0: float, direction: int) -> Side:
-    """How the curve leaves ``x0`` on one side: to a value (the steps toward it shrink), to
-    infinity (its size grows and the steps do not shrink, as 1/x's and ln x's do not), or
-    not at all (no values there)."""
-    scale = max(1.0, abs(x0))
-    values = [fn.at(x0 + direction * step * scale) for step in _STEPS]
-    if not all(math.isfinite(v) for v in values):
-        return Side("none")
-    steps = [abs(b - a) for a, b in pairwise(values)]
-    sizes = [abs(v) for v in values]
-    if steps[-1] <= 1e-4 * (1.0 + sizes[-1]):
-        return Side("finite", values[-1])
-    growing = all(b > a for a, b in pairwise(sizes))
-    if growing and steps[-1] >= 0.5 * steps[-2] and sizes[-1] > 5:
-        return Side("infinite", math.copysign(1.0, values[-1]))
-    return Side("none")
 
 
 def _candidates(fn: RealFunction, low: float, high: float, exact: list[Any]) -> list[Any]:
@@ -97,7 +73,7 @@ def breaks(fn: RealFunction, low: float, high: float, exact: list[Any]) -> list[
     found: list[Break] = []
     for candidate in _candidates(fn, low, high, exact):
         x0 = float(candidate)
-        left, right = _side(fn, x0, -1), _side(fn, x0, 1)
+        left, right = side(fn.values, x0, -1), side(fn.values, x0, 1)
         here = fn.at(x0)
         value = here if math.isfinite(here) else None
         sides = (left.kind, right.kind)

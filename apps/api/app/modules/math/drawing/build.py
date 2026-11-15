@@ -168,7 +168,7 @@ def drawn_fence(body: str, texts: list[str], reply: str) -> str | None:
     items = read_items(description)
     kind = description.kind
     if kind == "plot":
-        return _graph_fence(items, texts)
+        return _graph_fence(items, texts, reply)
     question = read_question(texts, reply)
     try:
         if kind == "space":
@@ -185,9 +185,9 @@ def drawn_fence(body: str, texts: list[str], reply: str) -> str | None:
     return f"```geometry\n{json.dumps(body_out, separators=(',', ':'), ensure_ascii=False)}\n```"
 
 
-def _graph_fence(items: list[tuple[str, Any | None]], texts: list[str]) -> str | None:
+def _graph_fence(items: list[tuple[str, Any | None]], texts: list[str], reply: str) -> str | None:
     try:
-        spec = plot_spec(items, texts)
+        spec = plot_spec(items, texts, reply)
     except Exception:  # SymPy's and numpy's own errors included: it draws nothing.
         logger.info("drawing failed for a plot picture", exc_info=True)
         return None

@@ -37,7 +37,7 @@ from app.modules.math.solve.extract_eq import (
     try_extract_inequality_from_text,
 )
 from app.modules.math.solve.graph_expr_text import graph_expr_text
-from app.modules.math.solve.graph_sampling import real_lambdify, sample_at
+from app.modules.math.solve.graph_sampling import jump_xs, real_lambdify, sample_at
 from app.modules.math.solve.inequalities import compound_solution_set, inequality_solution_set
 from app.modules.math.solve.parse import parse_expression
 from app.services.solving import SolveServiceError
@@ -243,12 +243,11 @@ def sample_function(data: GraphSampleInput) -> GraphSampleResult:
             continue
         points.append([round(float(x_val), 4), round(float(y_val), 4)])
 
-    # Symbolic poles (confirmed diverging by the samples) split at the true
-    # singularity x — including even-order poles like 1/x**2 whose samples
-    # never flip sign, which the numeric heuristic below cannot see. When
-    # SymPy finds nothing decidable (tan, 1/sin, …) the numeric sign-flip
-    # heuristic stays the fallback.
-    pole_xs = _confirmed_pole_xs(points, _symbolic_pole_xs(parsed, sym, x_min, x_max))
+    # Symbolic poles (confirmed diverging by the samples) and jumps split at the true x,
+    # even-order poles like 1/x**2 included, whose samples never flip sign. When SymPy
+    # finds nothing decidable (tan, 1/sin, …) the numeric sign-flip heuristic stays.
+    found = _symbolic_pole_xs(parsed, sym, x_min, x_max)
+    pole_xs = sorted({*_confirmed_pole_xs(points, found), *jump_xs(numpy_fn, found)})
     return GraphSampleResult(
         # The phone re-reads this to resample on zoom, so it is SymPy's reading, not the raw text.
         expr=graph_expr_text(parsed, data.variable) or data.expr,

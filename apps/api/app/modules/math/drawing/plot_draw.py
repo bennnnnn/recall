@@ -11,7 +11,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from sympy import oo
+from sympy import oo, sstr
 
 from app.modules.math.drawing.plot_scene import DrawnCurve, DrawnLine, DrawnPoint, Scene
 from app.modules.math.drawing.plot_window import (
@@ -22,10 +22,11 @@ from app.modules.math.drawing.plot_window import (
     of_interest,
     span_range,
 )
-from app.modules.math.drawing.real_curve import sample
+from app.modules.math.schemas import GraphSampleInput
 from app.modules.math.schemas.plot import PlotCurve, PlotGraphSpec, PlotLine, PlotPoint, PlotRegion
+from app.modules.math.solve import SolveServiceError, sample_function
 
-_SAMPLES = 360
+_SAMPLES = 400
 
 
 def _ends(curve: DrawnCurve) -> list[DrawnPoint]:
@@ -99,29 +100,39 @@ def _pieces(
     return [p for p in pieces if len(p) >= 2]
 
 
+def _sample(expr: Any, low: float, high: float) -> list[tuple[list[float], list[float]]]:
+    """The graph sampler's own samples of ``expr`` on [low, high], piece by piece: odd roots
+    real, split at its poles and jumps, as every ```graph is sampled."""
+    try:
+        found = sample_function(
+            GraphSampleInput(expr=sstr(expr), x_min=low, x_max=high, n=_SAMPLES)
+        )
+    except (SolveServiceError, ValueError):
+        return []
+    pieces = found.segments or [found.points]
+    return [([p[0] for p in piece], [p[1] for p in piece]) for piece in pieces]
+
+
 def _sampled(curve: DrawnCurve, window: Window) -> list[list[tuple[float, float]]]:
     x_lo, x_hi, y_lo, y_hi = window
-    height = y_hi - y_lo
-    limit = (y_lo - 3 * height, y_hi + 3 * height)
+    height, width = y_hi - y_lo, x_hi - x_lo
     if curve.sideways is not None:
-        ts, xs = sample(curve.sideways, y_lo, y_hi, _SAMPLES, [])
+        across = (x_lo - 3 * width, x_hi + 3 * width)
         return [
             [(x, t) for t, x in piece]
-            for piece in _pieces(ts, xs, [], (x_lo - 3 * (x_hi - x_lo), x_hi + 3 * (x_hi - x_lo)))
+            for ts, xs in _sample(curve.sideways.expr, y_lo, y_hi)
+            for piece in _pieces(ts, xs, [], across)
         ]
     if curve.shape is None:
         return []
     cuts = _cuts(curve)
-    near = 1e-4 * (x_hi - x_lo)
-    extra = [float(p.x) for p in [*curve.turns, *curve.roots, *curve.inflections]]
-    extra += [c + d for c in cuts for d in (-near, near)]
+    limit = (y_lo - 3 * height, y_hi + 3 * height)
     found: list[list[tuple[float, float]]] = []
     for span in curve.shape.spans:
         low, high = span_range(span, x_lo, x_hi)
-        if low >= high:
-            continue
-        xs, ys = sample(span.fn, low, high, _SAMPLES, extra)
-        found += _pieces(xs, ys, cuts, limit)
+        if low < high:
+            for xs, ys in _sample(span.expr, low, high):
+                found += _pieces(xs, ys, cuts, limit)
     return found
 
 
@@ -159,6 +170,31 @@ def _rounded(window: Window) -> Any:
     return each
 
 
+def _agreed(held: tuple[float, ...], scene: Scene) -> bool:
+    """Every value the server worked out for a label is one the reply's working writes (to
+    the label's two places), or 0: a label never says what the reply does not."""
+    return all(
+        abs(value) < 1e-9
+        or any(abs(value - own) <= 0.006 * max(1.0, abs(value)) for own in scene.reply_values)
+        for value in held
+    )
+
+
+def _near(a: float, b: float) -> bool:
+    return abs(a - b) <= 0.006 * max(1.0, abs(a))
+
+
+def _line_agreed(line: DrawnLine, scene: Scene) -> bool:
+    """A line the server worked out is named only as the reply writes it: its slope and
+    offset one of the reply's lines (y = 7x - 35), or a vertical one's x."""
+    if all(abs(value) < 1e-9 for value in line.held) or line.role == "segment" or line.ends:
+        return _agreed(line.held, scene)
+    if len(line.held) == 1:
+        return any(m is None and _near(line.held[0], c) for m, c in scene.reply_lines)
+    slope, offset = line.held
+    return any(m is not None and _near(slope, m) and _near(offset, c) for m, c in scene.reply_lines)
+
+
 def draw_plot(scene: Scene) -> PlotGraphSpec | None:
     if not scene.curves:
         return None
@@ -179,6 +215,10 @@ def draw_plot(scene: Scene) -> PlotGraphSpec | None:
     ]
     if not curves:
         return None
+    for point in scene.points:
+        point.label = point.label if _agreed(point.held, scene) else ""
+    for mark in scene.marks:
+        mark.label = mark.label if _line_agreed(mark, scene) else ""
     lines = [
         drawn
         for line in [*scene.lines.values(), *scene.marks]

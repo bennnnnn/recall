@@ -109,4 +109,6 @@ def average(item: Average, question: PlotQuestion, scene: Scene) -> None:
     shown = number_text(mean)
     label = f"{scene.y_label[:1] or 'y'} = {shown}" if not mean.is_Float else f"≈ {shown}"
     line = ((float(ends[0]), float(mean)), (float(ends[1]), float(mean)))
-    scene.marks.append(DrawnLine(role="line", ends=line, label=label, color=_AVERAGE_COLOR))
+    scene.marks.append(
+        DrawnLine(role="line", ends=line, label=label, color=_AVERAGE_COLOR, held=(float(mean),))
+    )

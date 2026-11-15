@@ -156,6 +156,8 @@ class DrawnLine:
     role: str = "line"
     label: str = ""
     color: int = 0
+    # The values the server worked out for its label: shown only when the reply agrees.
+    held: tuple[float, ...] = ()
 
     def y_at(self, x: float) -> float:
         return float(self.slope) * x + float(self.offset)
@@ -168,6 +170,8 @@ class DrawnPoint:
     label: str = ""
     open: bool = False
     color: int = 0
+    # The values the server worked out for its label: shown only when the reply agrees.
+    held: tuple[float, ...] = ()
 
 
 @dataclass
@@ -200,6 +204,11 @@ class Scene:
     focus: list[tuple[float, float]] = field(default_factory=list)
     equal: bool = False
     asymptote_sides: set[int] = field(default_factory=set)
+    # The values the reply's own working writes: a label the server worked out is shown
+    # only when they hold it.
+    reply_values: tuple[float, ...] = ()
+    # The lines it writes, each (slope, offset), or (None, a) for x = a.
+    reply_lines: tuple[tuple[float | None, float], ...] = ()
     # What the axes measure: the question's letters ("t", "v"), with units when it gives them.
     x_label: str = "x"
     y_label: str = "y"

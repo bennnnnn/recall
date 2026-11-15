@@ -8,8 +8,8 @@ end of an interval is a value the question writes ("x = e", "from x = -1/2 to x 
 clause by clause: each piece's formula and its condition ("-5 < x <= -2") are written
 together, so a piece never takes a neighbour's formula or an end it does not have.
 
-The question is read in a plain spelling first: superscripts as powers, |…| as abs(…),
-≤ ≥ ≠ as <= >= !=, so x⁵, eˣ and |x² - 1| read as they are written.
+The question is read in a plain spelling first (``plain``), so x⁵, eˣ, √x and |x² - 1|
+read as they are written.
 """
 
 from __future__ import annotations
@@ -22,14 +22,15 @@ from typing import Any
 from sympy import Expr, Rational, Symbol
 
 from app.modules.math.figure.grounding import written_numbers, written_pairs
+from app.modules.math.solve.unicode_normalize import (
+    _rewrite_unicode_script_runs,
+    _rewrite_unicode_sqrts,
+)
 from app.modules.math.tool_check import parse_formula, written_expressions, written_relations
+from app.services.glyphs import OPERATOR_GLYPHS
 
-_SUPERSCRIPTS = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺ˣʸⁿ⁽⁾", "0123456789-+xyn()")
-_SUPERSCRIPT_SET = frozenset("⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺ˣʸⁿ⁽⁾")
-_GLYPHS = {
-    "\u2212": "-", "\u2013": "-", "\u2264": "<=", "\u2265": ">=", "\u2260": " != ",
-    "\u00d7": "*", "\u00b7": "*", "\u03c0": "pi",
-}  # fmt: skip
+# The reader's own glyphs, on top of the shared operator table (services/glyphs).
+_READER_GLYPHS = {"\u2264": "<=", "\u2265": ">=", "\u2260": " != ", "\u03c0": "pi"}
 # Where a formula written after "=" ends: a clause's punctuation or a word of English.
 _ENDS = frozenset(
     "if for when on from and is at which that has where with between to in then over about "
@@ -45,44 +46,27 @@ _DEFINES = re.compile(r"\b[a-zA-Z]\(\s?[a-z]\s?\)\s?=")
 _FROM_TO = re.compile(
     r"\b(?:from|between)\s(?:[a-z]\s?=\s?)?([-+]?[\w./()]{1,12})\s(?:to|and)\s(?:[a-z]\s?=\s?)?([-+]?[\w./()]{1,12})"
 )
+_NUMBER = r"([-+]?\d+(?:\.\d+)?(?:/\d+)?)"
+_SLOPE = re.compile(r"\b(?:slope|gradient)\s(?:of\s|is\s|=\s?)?" + _NUMBER)
+_COUNT = re.compile(
+    _NUMBER + r"\s(?:equal\s)?(?:sub)?(?:intervals|rectangles|strips)\b|\bn\s?=\s?" + _NUMBER
+)
 # A differential after an integrand: the "dx" of "∫ sin x dx".
 _DIFFERENTIAL = re.compile(r"(?<=\S)\s+d[a-z](?![\w/])")
 _COMPARISONS = ("<=", ">=", "!=", "<", ">", "=")
+_OPERATORS = str.maketrans(OPERATOR_GLYPHS)
 _FLIPPED = {"<": ">", ">": "<", "<=": ">=", ">=": "<=", "=": "=", "!=": "!="}
 
 
 def plain(text: str) -> str:
-    """``text`` in the spelling the formula reader reads (see the module's docstring)."""
-    out: list[str] = []
-    run: list[str] = []
-    for ch in text:
-        if ch in _SUPERSCRIPT_SET:
-            run.append(ch)
-            continue
-        if run:
-            out.append("^(" + "".join(run).translate(_SUPERSCRIPTS) + ")")
-            run = []
-        out.append(_GLYPHS.get(ch, ch))
-    if run:
-        out.append("^(" + "".join(run).translate(_SUPERSCRIPTS) + ")")
-    return _DIFFERENTIAL.sub("", _bars(_roots("".join(out))))
-
-
-def _roots(text: str) -> str:
-    """√(9 - x²) as sqrt(9 - x²), and √x or √2x as sqrt(x), sqrt(2x)."""
-    out: list[str] = []
-    i = 0
-    while i < len(text):
-        if text[i] != "√":
-            out.append(text[i])
-            i += 1
-            continue
-        j = i + 1
-        while j < len(text) and (text[j].isalnum() or text[j] == "."):
-            j += 1
-        out.append(f"sqrt({text[i + 1 : j]})" if j > i + 1 else "sqrt")
-        i = j
-    return "".join(out)
+    """``text`` in the spelling the formula reader reads: the solver's own rewrites of
+    operators, superscripts and roots (``solve.unicode_normalize``), then |…| as abs(…)
+    and no differential after an integrand."""
+    out = text.translate(_OPERATORS)
+    for glyph, written in _READER_GLYPHS.items():
+        out = out.replace(glyph, written)
+    out = _rewrite_unicode_sqrts(_rewrite_unicode_script_runs(out))
+    return _DIFFERENTIAL.sub("", _bars(out))
 
 
 def _bars(text: str) -> str:
@@ -94,9 +78,10 @@ def _bars(text: str) -> str:
             out.append(ch)
             continue
         before = "".join(out).rstrip()[-1:]
-        if depth == 0 or before in {"", "(", "+", "-", "*", "/", "^", "="}:
-            # After a letter, a word apart: ln|x| is ln abs(x), never the name "lnabs".
-            out.append(" abs(" if before.isalpha() else "abs(")
+        if depth == 0 or before in {"", "(", "+", "-", "*", "/", "^", "=", ","}:
+            # A word apart from what stands before it: ln|x| is ln abs(x), never the name
+            # "lnabs", and x²|9 - x²| a product, never a power 2·|9 - x²|.
+            out.append(" abs(" if before.isalnum() or before == ")" else "abs(")
             depth += 1
         else:
             out.append(")")
@@ -135,6 +120,11 @@ class PlotQuestion:
     # values it gives x ("at x = e", "from x = 0 to x = π/2", "[1, 2]").
     values: tuple[Any, ...]
     x_values: tuple[Any, ...]
+    # A value the question names a slope ("a slope of -3", "gradient 2"), and a count of
+    # rectangles ("5 subintervals", "n = 4"): a number elsewhere ("the area is 9") is
+    # neither.
+    slopes: tuple[Any, ...]
+    counts: tuple[int, ...]
     pairs: frozenset[tuple[Any, Any]]
     clauses: tuple[Clause, ...]
     words: str
@@ -256,6 +246,13 @@ def _values(original: str) -> list[Any]:
     return values + _x_values(plain(original))
 
 
+def _named(pattern: re.Pattern[str], text: str) -> list[Any]:
+    found = [
+        _number(group) for match in pattern.finditer(text) for group in match.groups() if group
+    ]
+    return [value for value in found if value is not None]
+
+
 def read_plot_question(texts: Sequence[str]) -> PlotQuestion:
     """What ``texts`` (the last user message first) state for a graph: the last message's,
     or the earlier ones' when it writes no formula ("now draw it")."""
@@ -270,6 +267,10 @@ def read_plot_question(texts: Sequence[str]) -> PlotQuestion:
         formulas=formulas,
         values=tuple(v for text in own for v in _values(text)),
         x_values=tuple(v for text in readable for v in _x_values(text, letters)),
+        slopes=tuple(v for text in readable for v in _named(_SLOPE, text)),
+        counts=tuple(
+            int(v) for text in readable for v in _named(_COUNT, text) if v.is_Integer and v > 0
+        ),
         pairs=frozenset(pair for text in own for pair in written_pairs(text)),
         clauses=tuple(clause for text in readable for clause in _clauses(text)),
         words=" ".join(readable).lower(),
