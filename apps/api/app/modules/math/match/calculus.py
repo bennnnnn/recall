@@ -75,26 +75,6 @@ def lagrange_prime_run(text: str, prime_at: int) -> tuple[int, int] | None:
     return j, min(j - prime_at, 3)
 
 
-def lagrange_prime_order(text: str) -> int:
-    """Highest Lagrange prime count (``''`` → 2, ``'''`` → 3). 0 if none."""
-    best = 0
-    i = 0
-    n = len(text)
-    while i < n:
-        if text[i] != "'":
-            i += 1
-            continue
-        run = lagrange_prime_run(text, i)
-        if run is None:
-            i += 1
-            continue
-        after, order = run
-        if order > best:
-            best = order
-        i = after
-    return best
-
-
 def _lagrange_derivative_cue(text: str) -> bool:
     """True for ``y'`` / ``f''(x)`` that are not an ODE assignment (not followed by ``=``)."""
     i = 0

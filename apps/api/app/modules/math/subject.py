@@ -209,14 +209,36 @@ class MathPhoto:
         )
 
 
-def _call_computes(text: str, raw_args: Any) -> bool:
-    from app.modules.math.match.asked_operations import call_computes_the_ask
+def _call_asked(raw_args: Any, user_texts: list[str], matched: str) -> bool:
+    """The call computes what is asked, not a step toward it: f'(x) of the user's f is no
+    answer to "the absolute maximum of f". The newest message asks when it names an
+    operation ("now integrate it"); otherwise the question the call works on does, as the
+    server reads it, and with no reading of its own, as its asking sentences ask."""
+    from app.modules.math.match.asked_operations import (
+        asked_operations,
+        call_answers_reading,
+        call_computes_the_ask,
+    )
+    from app.modules.math.schemas import is_declined
+    from app.modules.math.tools.extract import extract_math_intent
 
     try:
         args = json.loads(raw_args) if isinstance(raw_args, str) else dict(raw_args)
     except (TypeError, ValueError):
         return False
-    return isinstance(args, dict) and call_computes_the_ask(text, args)
+    if not isinstance(args, dict):
+        return False
+    reading = extract_math_intent(matched)
+    if is_declined(reading):
+        # A reader recognised that message's question and declined it: a call on a formula
+        # in it (a count's condition) answers another question.
+        return False
+    newest = user_texts[0] if user_texts else matched
+    if newest != matched and asked_operations(newest).named:
+        return call_computes_the_ask(newest, args)
+    if reading is not None:
+        return call_answers_reading(args, reading)
+    return call_computes_the_ask(matched, args)
 
 
 @dataclass(frozen=True)
@@ -243,25 +265,12 @@ class MathTool:
         )
 
     def call_matches(self, raw_args: Any, user_texts: list[str]) -> str | None:
-        from app.modules.math.match.asked_operations import asked_operations
-        from app.modules.math.schemas import is_declined
         from app.modules.math.tool_check import matched_user_text
-        from app.modules.math.tools.extract import extract_math_intent
 
         matched = matched_user_text(raw_args, user_texts)
-        if matched is None:
+        if matched is None or not _call_asked(raw_args, user_texts, matched):
             return None
-        if is_declined(extract_math_intent(matched)):
-            # A reader recognised that message's question and declined it: a call on
-            # a formula in it (a count's condition) answers another question.
-            return None
-        # The call must compute what is asked: f'(x) of the user's f is a step toward "the
-        # absolute maximum of f". The newest message asks, unless it names no operation
-        # ("why?", "show the steps"): then the question the call works on does.
-        asked = user_texts[0] if user_texts else matched
-        if not asked_operations(asked).named:
-            asked = matched
-        return matched if _call_computes(asked, raw_args) else None
+        return matched
 
     def draws_curve(self, fence: dict[str, Any] | None) -> bool:
         from app.modules.math.text_plot import is_curve_fence

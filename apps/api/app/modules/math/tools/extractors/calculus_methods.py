@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import re
 
-from app.modules.math.schemas import MathIntent
+from app.modules.math.match.asked_operations import asked_operations
+from app.modules.math.schemas import MathIntent, declined_reading
 from app.modules.math.tools.expr_rewrite import math_expr_or_none
 from app.modules.math.tools.extractors.derivative_givens import derivative_givens
 from app.modules.math.tools.function_def import peel_function_definition
@@ -39,6 +40,10 @@ def _dy_dx_given_intent(cleaned: str) -> MathIntent | None:
     rhs = math_expr_or_none(strip_trailing_filler(given.implicit[1].strip()))
     if not lhs or not rhs or "y" not in (lhs + rhs).replace(" ", "").lower():
         return None
+    if asked_operations(cleaned).derivative_orders != {1}:
+        # y'' of x^2 + y^2 = 25 is -25/y^3; this reading differentiates once, and its -x/y
+        # was the checked card for it.
+        return declined_reading("implicit_order")
     return MathIntent(
         kind="calculus",
         operation="differentiate",

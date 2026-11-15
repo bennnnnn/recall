@@ -39,11 +39,18 @@ _TAKEN_OF = frozenset({"gcd", "lcm"})
 # The sentences that ask: "… Find its area and circumference.", "What is …?". A statement
 # before them ("A circle has radius 3.") holds givens, never an ask.
 _SENTENCE = re.compile(r"(?:[^.?!\n]|\.(?=\d))+[.?!]?")
-_ASKS = re.compile(
+ASKS = re.compile(
     r"\?|\b(?:find|calculate|compute|determine|work\s+out|give|state|what|how|evaluate|"
     r"estimate)\b",
     re.IGNORECASE,
 )
+
+
+def asking_spans(text: str, asks: re.Pattern[str] = ASKS) -> list[tuple[int, int]]:
+    """Where the sentences of ``text`` that ask stand (``asks`` names the words of an
+    ask); the whole text when none does."""
+    sentences = [match for match in _SENTENCE.finditer(text) if asks.search(match.group())]
+    return [(match.start(), match.end()) for match in sentences] or [(0, len(text))]
 
 
 def quantity_mentions(text: str) -> list[tuple[str, int, int]]:
@@ -51,8 +58,7 @@ def quantity_mentions(text: str) -> list[tuple[str, int, int]]:
     for, in order; a quantity set to a value there is a given and left out."""
     if len(text) > 2000:
         return []
-    sentences = [match for match in _SENTENCE.finditer(text) if _ASKS.search(match.group())]
-    spans = [(match.start(), match.end()) for match in sentences] or [(0, len(text))]
+    spans = asking_spans(text)
     return [
         (match.lastgroup or "", match.start(), match.end())
         for begin, end in spans

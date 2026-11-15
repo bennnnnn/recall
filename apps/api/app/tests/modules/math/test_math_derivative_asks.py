@@ -210,14 +210,20 @@ def test_a_solve_asked_is_still_solved(text: str) -> None:
         ("Find d^{2}y/dx^{2} if y = x^3", AskedOperations(derivative_orders=frozenset({2}))),
         ("Find the second derivative of x^4", AskedOperations(derivative_orders=frozenset({2}))),
         ("Find y″ if y = x^4", AskedOperations(derivative_orders=frozenset({2}))),
-        ("Find f'(x) and f''(x)", AskedOperations(derivative_orders=frozenset({1, 2}))),
+        (
+            "Find f'(x) and f''(x)",
+            AskedOperations(derivative_orders=frozenset({1, 2}), combined=True),
+        ),
         ("Find f'(3)", AskedOperations(derivative_orders=frozenset({1}), at_point=True)),
         (
             "Find dy/dx at x = 2 for y = x^3",
             AskedOperations(derivative_orders=frozenset({1}), at_point=True),
         ),
         # A function defined by a formula is no point.
-        ("Find dy/dx when y = 2x^3 - 5x", AskedOperations(derivative_orders=frozenset({1}))),
+        (
+            "Find dy/dx when y = 2x^3 - 5x",
+            AskedOperations(derivative_orders=frozenset({1}), location=True),
+        ),
         # A derivative given, not asked: "f'(x) = 3x^2, find f(x)".
         ("If f'(x) = 3x^2 and f(0) = 1, find f(x)", AskedOperations()),
         (
@@ -247,7 +253,7 @@ def test_a_solve_asked_is_still_solved(text: str) -> None:
             AskedOperations(both_extremes=True),
         ),
         ("Find the critical numbers of f(x) = x^3 - 3x", AskedOperations(behaviour=True)),
-        ("Where is f(x) = x^3 increasing?", AskedOperations(behaviour=True)),
+        ("Where is f(x) = x^3 increasing?", AskedOperations(behaviour=True, location=True)),
         ("Find the asymptotes of y = 1/(x - 2)", AskedOperations(behaviour=True)),
         ("Solve 2x + 5 = 17", AskedOperations()),
         ("Simplify (x^2 - 1)/(x - 1)", AskedOperations()),
@@ -282,7 +288,10 @@ _LIMIT = AskedOperations(limit=True)
         (_DERIVATIVE, "integral", 1, False, False),
         (_DERIVATIVE, "solve", 1, False, False),  # y = x ln x solved for x
         (AskedOperations(), "solve", 1, False, True),
-        (_EXTREMA, "rewrite", 1, False, False),  # the simplified f for a sketch
+        # A sketch's simplified f is a step the server's reading of the sketch refuses
+        # (``call_answers_reading``); words alone refuse no rewrite.
+        (_EXTREMA, "rewrite", 1, False, True),
+        (_EXTREMA, "solve", 1, False, True),  # "the maximum value of x if 2x + 3 = 11"
         (AskedOperations(), "rewrite", 1, False, True),
     ],
 )
@@ -310,12 +319,6 @@ def test_a_computation_answers_only_what_is_asked(
         (
             "Find the local maximum and minimum values of f(x) = 2x − 3x^(2/3).",
             {"action": "diff", "expr": "2*x - 3*x^(2/3)"},
-            False,
-        ),
-        (
-            "Sketch the graph of f(x) = (2x − 6)/(x² − 9), indicating the domain, the "
-            "intercepts and the asymptotes.",
-            {"action": "simplify", "expr": "(2*x - 6)/(x^2 - 9)"},
             False,
         ),
         (

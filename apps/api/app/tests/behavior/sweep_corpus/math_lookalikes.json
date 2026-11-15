@@ -702,5 +702,131 @@
   "prompt": "my garden bed is a trapezoid with parallel sides 3 m and 5 m and it's 2 m deep, how much soil covers it?",
   "reply": "The bed's area is $\\frac{(3 + 5)}{2} \\times 2 = 8$ m². Multiply by the soil depth you want: at 0.2 m deep you need $8 \\times 0.2 = 1.6$ m³ of soil.",
   "expect": "answer"
+ },
+ {
+  "id": "ml-095",
+  "area": "math lookalike",
+  "prompt": "What's the speed limit on motorways in the UK?",
+  "reply": "On UK motorways the national speed limit for cars is **70 mph** (112 km/h), unless signs show a lower limit.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-096",
+  "area": "math lookalike",
+  "prompt": "Is there a time limit on the IELTS speaking test?",
+  "reply": "Yes. The IELTS speaking test lasts **11 to 14 minutes**, in three parts: an interview, a short talk and a discussion.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-097",
+  "area": "math lookalike",
+  "prompt": "What's a good credit limit for a first credit card?",
+  "reply": "For a first card, a limit of a few hundred to about a thousand dollars is common. Keep your balance under 30% of it to help your credit score.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-098",
+  "area": "math lookalike",
+  "prompt": "How do economists measure the rate of change in inflation?",
+  "reply": "They compare a price index, such as the consumer price index, with the same month a year earlier. The percentage change is the annual inflation rate.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-099",
+  "area": "math lookalike",
+  "prompt": "How steep is a 30 degree slope for skiing?",
+  "reply": "A 30 degree slope is steep: most black runs sit between 25 and 35 degrees, so it suits confident intermediate and advanced skiers.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-100",
+  "area": "math lookalike",
+  "prompt": "What is a derivative contract in finance?",
+  "reply": "A derivative is a contract whose value comes from something else, such as a stock, a currency or a commodity. Futures, options and swaps are the common kinds.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-101",
+  "area": "math lookalike",
+  "prompt": "Y'all ready for the trip on Friday?",
+  "reply": "Sounds fun! Want a packing list or a plan for the drive?",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-102",
+  "area": "math lookalike",
+  "prompt": "I'd like a maximum of two meetings a day. How should I plan my week?",
+  "reply": "Block your mornings for focused work, put the two meetings after lunch, and keep Friday afternoon free for catching up.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-103",
+  "area": "math lookalike",
+  "prompt": "Why is the population of Lagos increasing so fast?",
+  "reply": "Lagos grows through high birth rates and people moving in from rural areas for work, and its port and businesses keep drawing more.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-104",
+  "area": "math lookalike",
+  "prompt": "What's the maximum weight for checked luggage on most airlines?",
+  "reply": "Most airlines allow **23 kg (50 lb)** per checked bag in economy, and 32 kg in business or first class.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-105",
+  "area": "math lookalike",
+  "prompt": "My heart rate keeps increasing when I climb stairs, is that normal?",
+  "reply": "Yes, a faster heart rate on stairs is normal: your muscles need more oxygen. See a doctor if you feel chest pain, dizziness or very short of breath.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-106",
+  "area": "math lookalike",
+  "prompt": "What's an integral part of a good essay?",
+  "reply": "A clear thesis: one sentence that states your argument, which every paragraph then supports.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-107",
+  "area": "math lookalike",
+  "prompt": "Which ski slopes in Whistler are best for beginners?",
+  "reply": "Try the green runs off the Olympic and Emerald chairs on Whistler, and Easy Out on Blackcomb.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-108",
+  "area": "math lookalike",
+  "prompt": "What's the minimum wage in Kenya?",
+  "reply": "Kenya sets minimum wages by region and job; in Nairobi a general labourer earns about **KSh 15,200 a month**.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-109",
+  "area": "math lookalike",
+  "prompt": "The derivative of a song is a cover. Who covered Hallelujah best?",
+  "reply": "Jeff Buckley's 1994 version is the best known, though k.d. lang and John Cale have their fans too.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-110",
+  "area": "math lookalike",
+  "prompt": "Is there a limit to how much water I should drink a day?",
+  "reply": "Yes: drinking several litres very fast can lower your blood sodium. Most adults do well with 2 to 3 litres a day, more in heat or exercise.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-111",
+  "area": "math lookalike",
+  "prompt": "What's the slope of the learning curve for Rust?",
+  "reply": "Rust has a steep start: ownership and borrowing take a few weeks to click, then most people find it productive.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-112",
+  "area": "math lookalike",
+  "prompt": "What are the teachers' lounge rules at most schools?",
+  "reply": "Usually: keep it tidy, label your food, keep student matters confidential and keep phone calls short.",
+  "expect": "answer"
  }
 ]

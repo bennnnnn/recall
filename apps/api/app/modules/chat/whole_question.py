@@ -19,7 +19,7 @@ from __future__ import annotations
 import re
 
 from app.modules.chat.prompt_builder import SubjectFetch
-from app.modules.turn_reading.at_a_point import asks_at_a_point
+from app.modules.turn_reading.derivative_notation import asks_at_a_point
 from app.modules.turn_reading.readable import unreadable
 from app.services.question_parts import labelled_parts
 from app.services.solving import VerifiedSolveBlock

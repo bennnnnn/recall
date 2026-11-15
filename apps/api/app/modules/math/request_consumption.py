@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 
 from app.modules.math.function_calls import functions_dropped
-from app.modules.math.match.asked_operations import asked_operations
+from app.modules.math.match.asked_operations import unasked_reading
 from app.modules.math.schemas import MathIntent, is_declined
 from app.modules.turn_reading.readable import RESTRICTING_WORDS
 from app.services.number_text import SIGNED_DECIMAL
@@ -281,19 +281,8 @@ def audit_math_request(text: str, intent: MathIntent) -> ConsumptionAudit:
         _EQUATION_FEATURE_REQUEST.search(text) or _SOLUTION_COUNT_CONDITION.search(text)
     ):
         leftovers.append("a feature of the equation, not its solutions")
-    if intent.kind in _SOLUTION_SET_KINDS and asked_operations(text).calculus:
-        # "Find dy/dx for y = x ln x" read as the equation y = x ln x certified its solve
-        # for x, x = e^{W(y)}, as the derivative (2026-11-14).
-        leftovers.append("a derivative, integral or limit asked, not solutions")
-    if intent.operation == "critical_points" and not intent.school_op:
-        if asked_operations(text).extreme_values:
-            # "the relative extrema of x + 4/x" was a checked "-2, 2": where the function
-            # turns, not its extreme values -4 and 4 (2026-11-14).
-            leftovers.append("extreme values asked, not the critical points")
-    if intent.school_op == "extreme_value" and asked_operations(text).both_extremes:
-        # One extreme read: "the local maximum and minimum values of x^3 - 6x^2 + 9x + 1"
-        # was a checked 5, the maximum alone (the minimum is 1).
-        leftovers.append("the maximum and the minimum asked, one read")
+    # The reading computes what the sentences that ask ask, not a step or a solve.
+    leftovers.extend(unasked_reading(text, intent))
     if intent.kind in _SOLVED_EQUATION_KINDS and _POINT_OF_THE_ASK.search(text):
         sides = " ".join(
             part for pair in intent.system_equations or [] for part in pair

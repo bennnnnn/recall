@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Literal
 
-from app.modules.math.match.asked_operations import RATE_OF_CHANGE
+from app.modules.math.match.asked_operations import asked_operations, asks_rate_of_change
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.expr_rewrite import (
     _normalize_latex_expr,
@@ -31,22 +31,16 @@ from app.modules.math.tools.request_text import (
     _strip_series_prefix,
     strip_trailing_filler,
 )
+from app.modules.turn_reading.derivative_notation import PRIME_AT_NUMBER, higher_leibniz
 from app.services.number_text import SIGNED_DECIMAL
 
 _WRT_VARIABLE = re.compile(r"\b(?:with\s+respect\s+to|wrt)\s+([a-zA-Z])\b", re.IGNORECASE)
 _LEIBNIZ_VARIABLE = re.compile(r"/\s*d\s*([a-zA-Z])\b")
 _INTEGRAL_VARIABLE = re.compile(r"\bd\s*([a-zA-Z])(?=\s+from\b|\s*$)")
-_HIGHER_LEIBNIZ = re.compile(
-    r"\bd\s*(?:\^\s*([2-4])|([²³⁴]))\s*[a-zA-Z]\s*/\s*"
-    r"d\s*([a-zA-Z])\s*(?:\^\s*[2-4]|[²³⁴])",
-    re.IGNORECASE,
-)
 _DERIVATIVE_AT_POINT = re.compile(
     rf"\s+at\s+([a-zA-Z])\s*=\s*({SIGNED_DECIMAL})\s*$",
     re.IGNORECASE,
 )
-# ``f'(3)``: a derivative asked at a number, in Lagrange's notation.
-_PRIME_AT_NUMBER = re.compile(rf"(?<![A-Za-z])[a-zA-Z]'{{1,3}}\(\s*({SIGNED_DECIMAL})\s*\)")
 _BY_PARTS = re.compile(
     r"^\s*(?:by|using)\s+(?:integration\s+by\s+)?parts\s+"
     r"|\s*,?\s+(?:by|using)\s+(?:integration\s+by\s+)?parts\s*[.?!]?\s*$",
@@ -85,30 +79,6 @@ def _split_find_clause(s: str) -> str:
         if idx != -1 and (cut is None or idx < cut):
             cut = idx
     return s[:cut] if cut is not None else s
-
-
-def _derivative_order(cleaned: str) -> int:
-    """1-3 from Lagrange primes, then phrasing. Linear scans — no regex."""
-    from app.modules.math.match.calculus import lagrange_prime_order
-
-    primes = lagrange_prime_order(cleaned)
-    if primes:
-        return primes
-    low = cleaned.lower()
-    for phrase, order in (
-        ("third derivative", 3),
-        ("3rd derivative", 3),
-        ("second derivative", 2),
-        ("2nd derivative", 2),
-    ):
-        if phrase in low:
-            return order
-    compact = low.replace(" ", "")
-    if "d^3" in compact or "d³" in compact:
-        return 3
-    if "d^2" in compact or "d²" in compact:
-        return 2
-    return 1
 
 
 def _extract_critical_points_intent(cleaned: str) -> MathIntent | None:
@@ -269,22 +239,28 @@ def _leading_integral_bounds(cleaned: str) -> tuple[str, str, str] | None:
     return expr, low, high
 
 
+def _asked_order(cleaned: str) -> int:
+    """The derivative's order the question asks; one that asks two is no reading of one
+    (the audit's, ``asked_operations.unasked_reading``)."""
+    return max(asked_operations(cleaned).derivative_orders, default=1)
+
+
 def _derivative_point(raw: str, cleaned: str) -> tuple[str, str | None]:
     """The words after a derivative's cue without the point it is asked at, and that point:
     "x^2 at x = 3", or f'(3)."""
     point_match = _DERIVATIVE_AT_POINT.search(raw.rstrip(".?!"))
     if point_match is not None:
         return raw[: point_match.start()].rstrip(" ,;."), point_match.group(2)
-    prime_at = _PRIME_AT_NUMBER.search(cleaned)
+    prime_at = PRIME_AT_NUMBER.search(cleaned)
     return raw, prime_at.group(1) if prime_at is not None else None
 
 
 def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
     from app.modules.math import match as mtm
 
-    higher_leibniz = _HIGHER_LEIBNIZ.search(cleaned)
+    higher = higher_leibniz(cleaned)
     op_word = mtm.calc_op(cleaned)
-    if op_word is None and (higher_leibniz is not None or RATE_OF_CHANGE.search(cleaned)):
+    if op_word is None and (higher is not None or asks_rate_of_change(cleaned)):
         op_word = "differentiate"
     if op_word is None or op_word in {"taylor", "partial", "dsolve"}:
         return None
@@ -309,12 +285,12 @@ def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
         return None
     leading_bounds = _leading_integral_bounds(cleaned) if calc_op == "integrate" else None
     tail = _calc_expr_tail(cleaned)
-    if calc_op == "differentiate" and higher_leibniz is not None:
+    if calc_op == "differentiate" and higher is not None:
         # ``find d²y/dx² if y = ...`` puts the function after the derivative
         # request, not after a word such as "differentiate".  Keep the whole
         # function definition so ``peel_function_definition`` can remove y=.
         lower_cleaned = cleaned.lower()
-        if_at = lower_cleaned.find(" if ", higher_leibniz.end())
+        if_at = lower_cleaned.find(" if ", higher.end())
         if if_at != -1:
             tail = cleaned[if_at + 4 :]
     raw = (
@@ -391,7 +367,7 @@ def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
         ),
         integral_lower=integral_lower,
         integral_upper=integral_upper,
-        derivative_order=_derivative_order(cleaned) if calc_op == "differentiate" else 1,
+        derivative_order=_asked_order(cleaned) if calc_op == "differentiate" else 1,
         evaluation_point=evaluation_point,
     )
 
