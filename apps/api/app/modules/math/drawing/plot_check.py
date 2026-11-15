@@ -48,7 +48,7 @@ def edge_function(name: str, scene: Scene) -> RealFunction | None:
         return RealFunction(X * 0)
     curve = scene.curves.get(name)
     if curve is not None:
-        return curve.single
+        return curve.whole
     line = scene.lines.get(name)
     if line is not None and line.vertical is None:
         return RealFunction(line.slope * X + line.offset)

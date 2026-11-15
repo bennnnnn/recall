@@ -144,7 +144,7 @@ def _heights(fn: RealFunction, edges: Any, rule: str) -> Any:
 
 def rectangles(item: Rectangles, question: PlotQuestion, scene: Scene) -> None:
     curve = scene.curves.get(item.under)
-    fn = curve.single if curve is not None else None
+    fn = curve.whole if curve is not None else None
     start, end = value(item.start), value(item.end)
     held = [stated(v, question) if v is not None else None for v in (start, end)]
     if fn is None or held[0] is None or held[1] is None or float(held[0]) >= float(held[1]):

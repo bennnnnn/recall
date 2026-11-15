@@ -66,12 +66,14 @@ class Curve(_Item):
 
 
 class Line(_Item):
-    """A line the question writes: y = mx + c (``y``) or x = a (``x``)."""
+    """A line the question writes: y = mx + c (``y``), x = a (``x``), or the line through
+    two points it writes (``through``)."""
 
     item: Literal["line"]
     name: Ref = ""
     y: Formula = ""
     x: Formula = ""
+    through: list[Pair] = Field(default_factory=list, max_length=2)
 
 
 class Touching(_Item):

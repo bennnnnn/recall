@@ -859,6 +859,162 @@
   ]
  },
  {
+  "id": "u5_050_pieces_area",
+  "question": "Let f(x) = 2ˣ if x ≤ 1, and f(x) = 1 + 1/x if x > 1. Find the area of the region enclosed by the graph of f and the x-axis between x = −1 and x = 2, and show it on a graph.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"pieces\": [{\"y\": \"2^x\", \"when\": \"x <= 1\"}, {\"y\": \"1 + 1/x\", \"when\": \"x > 1\"}]}, {\"item\": \"shade\", \"between\": [\"f\", \"x-axis\"], \"from\": \"-1\", \"to\": \"2\"}]}",
+  "expect": "draw",
+  "curves": [
+   ""
+  ],
+  "lines": [],
+  "points": [],
+  "open": 0,
+  "regions": [
+   "shade"
+  ]
+ },
+ {
+  "id": "u5_066_line_through",
+  "question": "Find, by integration, the area of the triangle-shaped region whose vertices are (−4, −1), (0, 0) and (5, 4). It is bounded by the lines y = x/4, y = 4x/5 and the line through (−4, −1) and (5, 4). Draw the three lines and shade the region.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"a\", \"y\": \"x/4\"}, {\"item\": \"curve\", \"name\": \"b\", \"y\": \"4x/5\"}, {\"item\": \"line\", \"name\": \"c\", \"through\": [[\"-4\", \"-1\"], [\"5\", \"4\"]]}, {\"item\": \"shade\", \"between\": [\"a\", \"b\", \"c\"]}]}",
+  "expect": "draw",
+  "curves": [
+   "y = x/4",
+   "y = 4x/5"
+  ],
+  "lines": [
+   "line:y = 5x/9 + 11/9"
+  ],
+  "points": [
+   "(0, 0)",
+   "(5, 4)",
+   "(−4, −1)"
+  ],
+  "open": 0,
+  "regions": [
+   "shade",
+   "shade"
+  ]
+ },
+ {
+  "id": "u5_067_three_edges",
+  "question": "Find the area of the region enclosed by f(x) = x, y = 1/x and y = 4. Draw the three graphs and shade the region.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"x\"}, {\"item\": \"curve\", \"name\": \"g\", \"y\": \"1/x\"}, {\"item\": \"line\", \"name\": \"L\", \"y\": \"4\"}, {\"item\": \"shade\", \"between\": [\"f\", \"g\", \"L\"]}]}",
+  "expect": "draw",
+  "curves": [
+   "y = x",
+   "y = 1/x"
+  ],
+  "lines": [
+   "line:y = 4"
+  ],
+  "points": [
+   "(1, 1)",
+   "(1/4, 4)",
+   "(4, 4)"
+  ],
+  "open": 0,
+  "regions": [
+   "shade",
+   "shade"
+  ]
+ },
+ {
+  "id": "u5_005_log_family",
+  "question": "Integrate 5/(2x) with respect to x, then sketch the members of the family of antiderivatives with c = −1, 0 and 1 on one graph.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"F\", \"y\": \"5/2 ln|x|\", \"shifts\": [\"-1\", \"0\", \"1\"]}]}",
+  "expect": "draw",
+  "curves": [
+   "C = −1",
+   "C = 0",
+   "C = 1"
+  ],
+  "lines": [],
+  "points": [],
+  "open": 0,
+  "regions": []
+ },
+ {
+  "id": "u5_062_y_axis_bound",
+  "question": "Find the area of the region in the first quadrant which is enclosed by the y-axis and the curves f(x) = cos x and g(x) = sin x. Show it on a graph.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"cos x\"}, {\"item\": \"curve\", \"name\": \"g\", \"y\": \"sin x\"}, {\"item\": \"shade\", \"between\": [\"f\", \"g\"], \"from\": \"0\", \"to\": \"pi/4\"}]}",
+  "expect": "draw",
+  "curves": [
+   "y = cos(x)",
+   "y = sin(x)"
+  ],
+  "lines": [],
+  "points": [
+   "(π/4, √2/2)"
+  ],
+  "open": 0,
+  "regions": [
+   "shade"
+  ]
+ },
+ {
+  "id": "u5_036_signed_sine",
+  "question": "Evaluate ∫ from −π/2 to π/2 of sin x dx. What is this definite integral representing? Show it on a graph.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"sin x\"}, {\"item\": \"shade\", \"between\": [\"f\", \"x-axis\"], \"from\": \"-pi/2\", \"to\": \"pi/2\"}]}",
+  "expect": "draw",
+  "curves": [
+   "y = sin(x)"
+  ],
+  "lines": [],
+  "points": [
+   "(0, 0)"
+  ],
+  "open": 0,
+  "regions": [
+   "shade",
+   "shade"
+  ]
+ },
+ {
+  "id": "u5_084_shell_y_axis",
+  "question": "Find the volume of the solid of revolution generated when the region enclosed by the curve y = eˣ, the y-axis and the line y = e rotates about the y-axis. Sketch the region and the axis.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"e^x\"}, {\"item\": \"line\", \"name\": \"L\", \"y\": \"e\"}, {\"item\": \"shade\", \"between\": [\"L\", \"f\"], \"from\": \"0\", \"to\": \"1\"}, {\"item\": \"axis\", \"line\": \"y-axis\"}, {\"item\": \"slice\", \"method\": \"shell\"}]}",
+  "expect": "draw",
+  "curves": [
+   "y = eˣ"
+  ],
+  "lines": [
+   "axis:",
+   "line:y = e"
+  ],
+  "points": [
+   "(1, e)"
+  ],
+  "open": 0,
+  "regions": [
+   "mirror",
+   "shade",
+   "strip"
+  ]
+ },
+ {
+  "id": "u5_001_four_curves",
+  "question": "Check that f(x) = x² + 3x + 1, g(x) = x² + 3x, h(x) = x² + 3x − 12 and k(x) = x² + 3x + π all have the same derivative 2x + 3. Then draw the graphs of f, g, h and k together on the same axes. What does this tell you about ∫(2x + 3) dx?",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"x^2 + 3x + 1\"}, {\"item\": \"curve\", \"name\": \"g\", \"y\": \"x^2 + 3x\"}, {\"item\": \"curve\", \"name\": \"h\", \"y\": \"x^2 + 3x - 12\"}, {\"item\": \"curve\", \"name\": \"k\", \"y\": \"x^2 + 3x + pi\"}]}",
+  "expect": "draw",
+  "curves": [
+   "y = x² + 3x + 1",
+   "y = x² + 3x",
+   "y = x² + 3x − 12",
+   "y = x² + 3x + π"
+  ],
+  "lines": [],
+  "points": [],
+  "open": 0,
+  "regions": []
+ },
+ {
+  "id": "u5_088_constant_unchecked",
+  "question": "A particle P moves along a straight line OX with acceleration 3.5t m/s². When t = 2 s, P is 10 m from O and has velocity 15 m/s. Find the velocity and the displacement when t = 5 s. Draw the velocity–time graph and show the distance covered between t = 2 and t = 5 as an area.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"v\", \"y\": \"1.75t^2 + 8\"}]}",
+  "expect": "drop"
+ },
+ {
   "id": "salary_in_words",
   "question": "The monthly base salary of a shoe salesperson is Birr 900. She gets a commission of 2% on all sales over Birr 10,000 during the month, and if the monthly sales are Birr 15,000 or more she also receives a Birr 500 bonus. If x is the monthly sales in Birr and f(x) her income in Birr, express f(x) in terms of x, discuss the continuity of f on [0, 25000], and draw the graph.",
   "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"pieces\": [{\"y\": \"900\", \"when\": \"0 <= x <= 10000\"}, {\"y\": \"0.02x + 700\", \"when\": \"10000 < x < 15000\"}, {\"y\": \"0.02x + 1200\", \"when\": \"15000 <= x <= 25000\"}]}]}",

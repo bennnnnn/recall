@@ -96,7 +96,7 @@ def _mean(fn: RealFunction, a: Any, b: Any) -> Any | None:
 
 def average(item: Average, question: PlotQuestion, scene: Scene) -> None:
     curve = scene.curves.get(item.of)
-    fn = curve.single if curve is not None else None
+    fn = curve.whole if curve is not None else None
     ends = [
         stated(v, question) if (v := value(text)) is not None else None
         for text in (item.start, item.end)

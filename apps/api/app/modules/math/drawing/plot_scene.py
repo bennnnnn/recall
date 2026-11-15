@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Any
 
-from sympy import Integer, oo
+from sympy import And, Integer, Piecewise, nan, oo
 
 from app.modules.math.drawing.curve_breaks import Break, breaks
 from app.modules.math.drawing.curve_features import (
@@ -24,7 +24,7 @@ from app.modules.math.drawing.curve_features import (
     zeros,
 )
 from app.modules.math.drawing.plot_pieces import Shape, Span
-from app.modules.math.drawing.real_curve import RealFunction
+from app.modules.math.drawing.real_curve import RealFunction, X
 
 
 @dataclass(frozen=True)
@@ -47,6 +47,13 @@ def _sharpened(fn: RealFunction, x: float) -> float:
     if math.isfinite(left) and math.isfinite(right) and (left > 0) != (right > 0):
         return bisect(lambda v: fn.values(v, 1), x - step, x + step)
     return x
+
+
+def _holds(span: Span) -> Any:
+    """Where ``span`` holds, as SymPy's condition on x."""
+    low = (X >= span.low) if span.low_closed else (X > span.low)
+    high = (X <= span.high) if span.high_closed else (X < span.high)
+    return And(low if span.low != -oo else True, high if span.high != oo else True)
 
 
 def _inside(span: Span, low: float, high: float) -> tuple[float, float] | None:
@@ -72,6 +79,17 @@ class DrawnCurve:
         if self.shape is None or len(self.shape.spans) != 1 or self.shape.dots:
             return None
         return self.shape.spans[0].fn
+
+    @cached_property
+    def whole(self) -> RealFunction | None:
+        """The curve as one formula of x, pieces and all: what a region under it, its
+        rectangles and its average are taken from."""
+        if self.shape is None or not self.shape.spans:
+            return None
+        if len(self.shape.spans) == 1:
+            return self.shape.spans[0].fn
+        cases = [(span.fn.expr, _holds(span)) for span in self.shape.spans]
+        return RealFunction(Piecewise(*cases, (nan, True)))
 
     def _each(self) -> list[tuple[Span, float, float]]:
         if self.shape is None:

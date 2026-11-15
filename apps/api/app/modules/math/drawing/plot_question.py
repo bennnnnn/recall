@@ -39,6 +39,14 @@ _ENDS = frozenset(
 _POINT_VALUE = re.compile(r"\b[a-z]\(\s*([-+]?[\w./]{1,12})\s*\)\s*=\s*([-+]?[\w./]{1,12})")
 # "[1, 2]" or "[-2, 2]": an interval the question writes.
 _INTERVAL = re.compile(r"\[\s*([^\[\],]{1,16}),\s*([^\[\],]{1,16})\]")
+# A function defined: "f(x) =", "g(t)=".
+_DEFINES = re.compile(r"\b[a-zA-Z]\(\s?[a-z]\s?\)\s?=")
+# An interval written in words: "from -π/2 to π/2", "between x = 1 and x = 2".
+_FROM_TO = re.compile(
+    r"\b(?:from|between)\s(?:[a-z]\s?=\s?)?([-+]?[\w./()]{1,12})\s(?:to|and)\s(?:[a-z]\s?=\s?)?([-+]?[\w./()]{1,12})"
+)
+# A differential after an integrand: the "dx" of "∫ sin x dx".
+_DIFFERENTIAL = re.compile(r"(?<=\S)\s+d[a-z](?![\w/])")
 _COMPARISONS = ("<=", ">=", "!=", "<", ">", "=")
 _FLIPPED = {"<": ">", ">": "<", "<=": ">=", ">=": "<=", "=": "=", "!=": "!="}
 
@@ -57,7 +65,7 @@ def plain(text: str) -> str:
         out.append(_GLYPHS.get(ch, ch))
     if run:
         out.append("^(" + "".join(run).translate(_SUPERSCRIPTS) + ")")
-    return _bars(_roots("".join(out)))
+    return _DIFFERENTIAL.sub("", _bars(_roots("".join(out))))
 
 
 def _roots(text: str) -> str:
@@ -87,7 +95,8 @@ def _bars(text: str) -> str:
             continue
         before = "".join(out).rstrip()[-1:]
         if depth == 0 or before in {"", "(", "+", "-", "*", "/", "^", "="}:
-            out.append("abs(")
+            # After a letter, a word apart: ln|x| is ln abs(x), never the name "lnabs".
+            out.append(" abs(" if before.isalpha() else "abs(")
             depth += 1
         else:
             out.append(")")
@@ -200,9 +209,21 @@ def _conditions(text: str, variables: frozenset[str] = frozenset("x")) -> list[C
     return found
 
 
+def _parts(text: str) -> list[str]:
+    """The clauses a function in pieces is written in: split at ";", a new line, LaTeX's
+    row break, a sentence's end, and wherever a function is defined again ("f(x) = 2^x if
+    x <= 1, and f(x) = 1 + 1/x if x > 1")."""
+    parts: list[str] = []
+    for part in re.split(r"[;\n]|\\\\|\.\s(?=[A-Z])", text):
+        starts = [m.start() for m in _DEFINES.finditer(part)][1:]
+        for start, end in zip([0, *starts], [*starts, len(part)], strict=True):
+            parts.append(part[start:end])
+    return parts
+
+
 def _clauses(text: str) -> list[Clause]:
     clauses: list[Clause] = []
-    for part in re.split(r"[;\n]|\\\\", text):
+    for part in _parts(text):
         points = [
             (a, b)
             for a, b in ((_number(x), _number(y)) for x, y in _POINT_VALUE.findall(part))
@@ -214,9 +235,13 @@ def _clauses(text: str) -> list[Clause]:
 
 
 def _x_values(text: str, variables: frozenset[str] = frozenset("x")) -> list[Any]:
+    """The values the question gives x: in a comparison or an equation of x, an interval
+    in brackets or in words, and 0 where it names the y-axis as an edge."""
     values = [c.value for c in _conditions(text, variables) if c.value.is_number]
-    for low, high in _INTERVAL.findall(text):
+    for low, high in [*_INTERVAL.findall(text), *_FROM_TO.findall(text)]:
         values += [v for v in (_number(low), _number(high)) if v is not None]
+    if "y-axis" in text.lower():
+        values.append(Rational(0))
     return values
 
 

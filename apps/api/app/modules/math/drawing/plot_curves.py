@@ -10,13 +10,19 @@ question's letter, its unit one the question writes.
 
 from __future__ import annotations
 
+import math
 from typing import Any, Literal
 
-from sympy import Expr, Symbol, diff
+from sympy import Expr, Integral, Rational, Symbol, integrate
 
 from app.modules.math.drawing.plot_check import reach, stated
 from app.modules.math.drawing.plot_items import AxisNames, Curve, Line
-from app.modules.math.drawing.plot_labels import equation_text, formula_text, number_text
+from app.modules.math.drawing.plot_labels import (
+    equation_text,
+    formula_text,
+    line_text,
+    number_text,
+)
 from app.modules.math.drawing.plot_pieces import formula, formula_shape, pieces_shape, value
 from app.modules.math.drawing.plot_question import PlotQuestion, plain
 from app.modules.math.drawing.plot_scene import DrawnCurve, DrawnLine, Scene
@@ -29,6 +35,8 @@ _MOST_LINES = 4
 _LABEL_CHARS = 48
 # Constants of a family the question leaves to the reply: a few small whole numbers.
 _FAMILY_REACH = 5
+# Where an antiderivative is compared with SymPy's: a few places most functions are defined.
+_SAMPLES = (0.37, 1.3, 2.9, 4.7)
 # Names that call a function by name, not a quantity an axis measures.
 _FUNCTION_NAMES = frozenset({"f", "g", "h", "F", "G", "y", ""})
 
@@ -50,12 +58,41 @@ def _own_formula(text: str, question: PlotQuestion) -> tuple[Any, str, str, bool
     for written in question.formulas:
         if written.name == "x" or not written.expr.free_symbols <= {letter}:
             continue
-        name = written.name if written.name not in _FUNCTION_NAMES else "y"
+        # "v(t)" names what an axis measures; "k(x)" only names a function.
+        quantity = letter != _X and written.name not in _FUNCTION_NAMES
+        name = written.name if quantity else "y"
         if same_value(written.expr, parsed):
             return parsed.subs(letter, _X), str(letter), name, False
-        if written.expr.free_symbols and same_value(diff(parsed, letter), written.expr):
-            return parsed.subs(letter, _X), str(letter), "y", True
+        if written.expr.free_symbols and _derivative_is(parsed, written.expr, letter):
+            if _no_constant(parsed, written.expr, letter):
+                return parsed.subs(letter, _X), str(letter), "y", True
     return None
+
+
+def _derivative_is(antiderivative: Any, integrand: Any, letter: Symbol) -> bool:
+    """SymPy's derivative of ``antiderivative`` is ``integrand`` on the real line (the
+    derivative of ln|x| is 1/x), compared where both have values."""
+    slope = RealFunction(as_real(antiderivative, letter))
+    target = RealFunction(as_real(integrand, letter))
+    pairs = [(slope.at(x, 1), target.at(x)) for x in (*_SAMPLES, *(-v for v in _SAMPLES))]
+    found = [(a, b) for a, b in pairs if math.isfinite(a) and math.isfinite(b)]
+    return len(found) >= 2 and all(abs(a - b) < 1e-9 * (1 + abs(b)) for a, b in found)
+
+
+def _no_constant(antiderivative: Any, integrand: Any, letter: Symbol) -> bool:
+    """``antiderivative`` is SymPy's own, with no constant added: a constant the reply chose
+    (an initial value, a C) is no value the server can check. ln|x| is ln x where both are
+    defined; a family's constants are its ``shifts``, labelled."""
+    try:
+        own = integrate(integrand, letter)
+    except (ValueError, TypeError, NotImplementedError):
+        return False
+    if own.has(Integral):
+        return False
+    gap = RealFunction(as_real(antiderivative - own, letter))
+    values = [gap.at(x) for x in _SAMPLES]
+    found = [v for v in values if math.isfinite(v)]
+    return bool(found) and all(abs(v) < 1e-9 for v in found)
 
 
 def _domain(curve: Curve, question: PlotQuestion) -> tuple[Any, Any] | Literal[False] | None:
@@ -123,7 +160,33 @@ def _curves(curve: Curve, question: PlotQuestion, color: int, scene: Scene) -> l
     return [DrawnCurve(name, shown, color, shape, search=search, stated_domain=domain is not None)]
 
 
+def _through(line: Line, question: PlotQuestion, color: int) -> DrawnLine | None:
+    """The line through two points the question writes, "the line through (-4, -1) and
+    (5, 4)": its slope and offset worked out exactly."""
+    ends: list[tuple[Any, Any]] = [
+        (a, b)
+        for a, b in ((value(p), value(q)) for p, q in line.through)
+        if a is not None and b is not None
+    ]
+    if len(ends) != 2:
+        return None
+    written = {
+        (Rational(p.numerator, p.denominator), Rational(q.numerator, q.denominator))
+        for p, q in question.pairs
+    }
+    (x0, y0), (x1, y1) = ends
+    if {(x0, y0), (x1, y1)} - written or (x0, y0) == (x1, y1):
+        return None
+    if x0 == x1:
+        return DrawnLine(vertical=x0, label=equation_text("x", x0), color=color)
+    slope = (y1 - y0) / (x1 - x0)
+    offset = y0 - slope * x0
+    return DrawnLine(slope, offset, label=line_text(slope, offset), color=color)
+
+
 def _line(line: Line, question: PlotQuestion, color: int) -> DrawnLine | None:
+    if line.through:
+        return _through(line, question, color)
     if line.x and not line.y:
         at = value(line.x)
         if at is None or not any(
