@@ -76,9 +76,9 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # frightening turn met plainly with no weapon use told and a retraction never dropping talk of
 # self-harm, and "how" after a reply about something to do read as how to do it
 # (OPTION_LETTERS_RULE, prompt_constants.care, REPLY_HOW_HINT).
-_RULES = 195
-_RULE_GRAMS = 17311
-_RULE_GRAMS_SHA = "5bf2b87d77f5b2ff"
+_RULES = 197
+_RULE_GRAMS = 17398
+_RULE_GRAMS_SHA = "c3a7be77b192971e"
 
 
 def _rules() -> list[str]:

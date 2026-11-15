@@ -69,12 +69,18 @@ def programming_lesson_contract(text: str) -> str:
 # (apps/mobile/components/rich/QuizCard.tsx, ArrayBlock.tsx, StepFlow.tsx). A lesson on atoms
 # once came back as ten `### N. <term>` sections, each a Meaning and an Example: the shape
 # built for a language's words, read as a glossary (2026-11-14). A concept gets its own.
+# "Lesson 2: Idioms about money, work and feelings" came back as three sections named for
+# the themes ("Money idioms: Meaning: phrases that describe spending…") whose examples held
+# no idiom (owner, 2026-11-15): a word lesson's every heading is one of the words.
 # What the sections hold follows what is taught; each its own constant so the tests
 # hold which lessons get it.
 LESSON_WORDS_SHAPE = (
     "  - Words or phrases of a language (useful English words, Spanish greetings): one section "
     "per word, its heading the word itself (`### 1. Eventually`), a `**Meaning:**` line and an "
-    "`**Example:**` sentence, ten of them. Only a language's words get this shape.\n"
+    "`**Example:**` sentence that uses it, ten of them. Every heading is a word or phrase of the "
+    "language, never a theme or a kind of phrase (`### 1. Money idioms`): a lesson on a theme "
+    "lists that theme's own phrases. Only a language's words "
+    "get this shape.\n"
 )
 LESSON_CONCEPT_SHAPE = (
     "  - A concept or a school topic (atoms, the mole, photosynthesis, a law of physics, the "
@@ -209,7 +215,8 @@ WALKTHROUGH_HINT = (
 _LESSON_PARTS = (
     "the title line `### Lesson N: <topic>` after a one-sentence hook (N is 1 unless "
     "this chat already taught lessons), then numbered `### 1. <title>` sections. For words or "
-    "phrases of a language, one section per word, its heading the word itself, a "
+    "phrases of a language, one section per word, its heading the word itself (a word or "
+    "phrase, never a theme like `Money idioms`; a lesson on a theme lists its own phrases), a "
     "`**Meaning:**` line and an `**Example:**` sentence that uses it, ten sections in all. For "
     "anything else a few deeper sections, never one per term: the one idea first, then how it "
     "works (a process's steps in one ```steps card), then one example worked through, never a "

@@ -14,7 +14,11 @@ def _sent_keys() -> set[str]:
     for product in PRODUCTS:
         keys.add(product.title_key)
         keys.update(item.label_key for item in product.inputs)
+        # A rate said by the month is on its slider as the yearly rate: "Yearly rate".
+        keys.update(item.yearly_key for item in product.inputs if item.yearly_key)
         keys.update(item.label_key for item in product.outputs)
+        # A label a setting gives: a loan paid quarterly is "Quarterly payment".
+        keys.update(key for item in product.outputs for key in item.labels.values())
         keys.update(item.never_key for item in product.outputs if item.never_key)
     return keys
 

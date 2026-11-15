@@ -74,6 +74,22 @@ def lesson_step(text: str | None) -> int | None:
     return None
 
 
+# A word lesson's section: its **Meaning:** line, the shape the lesson contract asks for.
+_MEANING_LINE = re.compile(r"^\*\*Meaning:\*\*", re.MULTILINE)
+_WORD_SECTIONS = 3
+
+
+def lesson_teaches_words(messages: list[Any] | None) -> bool:
+    """Whether the most recent assistant reply taught a language's words: three or more
+    sections with a **Meaning:** line, the shape the lesson contract gives words alone."""
+    for message in reversed(messages or []):
+        if getattr(message, "role", None) != "assistant":
+            continue
+        content = getattr(message, "content", None)
+        return isinstance(content, str) and len(_MEANING_LINE.findall(content)) >= _WORD_SECTIONS
+    return False
+
+
 def active_lesson_step(messages: list[Any] | None) -> int | None:
     """The lesson the most recent assistant reply taught, in an oldest-first window."""
     for message in reversed(messages or []):
