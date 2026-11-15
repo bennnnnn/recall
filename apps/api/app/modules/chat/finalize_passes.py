@@ -43,10 +43,12 @@ from app.modules.chat.finalize_contracts import (
     CARD_PASSES,
     EFFECT,
     EVERY_OTHER,
+    FALL_BACK,
     FENCE_READERS,
     SERVER_MEDIA,
     STOPPED_REPLY_PASSES,
     TEXT,
+    OnError,
     PassKind,
     fences_pass,
 )
@@ -94,6 +96,8 @@ from app.modules.chat.json_output import check_requested_json
 from app.modules.chat.lesson_again import keep_to_lesson_again_pass
 from app.modules.chat.lesson_shape import hold_lesson_shape
 from app.modules.chat.meta_notes import unwrap_meta_notes
+from app.modules.chat.name_use import spare_name_pass
+from app.modules.chat.option_letters import plain_options_pass
 from app.modules.chat.praise_opener import strip_praise_opener
 from app.modules.chat.prompt_leaks import drop_prompt_leaks_pass, drop_prompt_lines
 from app.modules.chat.repeated_fences import drop_repeated_pictures
@@ -143,19 +147,6 @@ class FinalizeState:
     def server_text(self) -> bool:
         """An instant reply is wholly server text: every card in it is the server's."""
         return self.ctx.instant_reply is not None
-
-
-@dataclass(frozen=True)
-class OnError:
-    """What an exception in one pass does to the reply (see the module docstring)."""
-
-    # The step a failure is logged as; None falls back to the last committed text.
-    log_as: str | None = None
-    # Makes the failed pass's input into the next pass's; None hands it on as it was.
-    rewrite: Callable[[FinalizeState], str] | None = None
-
-
-FALL_BACK = OnError()
 
 
 @dataclass(frozen=True)
@@ -253,6 +244,9 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         kind=TEXT,
     ),
     FinalizePass("lesson_again", keep_to_lesson_again_pass, kind=TEXT),
+    # Before the emoji pass, which took 🅰️'s variation mark and the space after it.
+    FinalizePass("option_letters", plain_options_pass, kind=TEXT),
+    FinalizePass("name_use", spare_name_pass, kind=TEXT),
     FinalizePass("emoji_use", place_reply_emoji, kind=TEXT),
     # A linked photo commits the text, so a later failure keeps its marker.
     FinalizePass("answer_photo", attach_answer_photo, kind=EFFECT),

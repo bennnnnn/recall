@@ -62,10 +62,13 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # carries no part's letter but where one symbol has a value per part, in the layout a model
 # writes (services/workout._GIVEN_ONCE) and in a ```worked block's records, then a pick after
 # a question offering choices taken among them, the list above it the other reading
-# (prompt_constants.list_reference, UNCLEAR_MESSAGE_HINT).
-_RULES = 182
-_RULE_GRAMS = 16630
-_RULE_GRAMS_SHA = "2cdf5c9c8ac0e938"
+# (prompt_constants.list_reference, UNCLEAR_MESSAGE_HINT), then options lettered "A) …", an
+# ordinary personal request helped, a frightening turn met plainly with no weapon use told,
+# and "how" after a reply about something to do read as how to do it (OPTION_LETTERS_RULE,
+# prompt_constants.care, REPLY_HOW_HINT).
+_RULES = 186
+_RULE_GRAMS = 16887
+_RULE_GRAMS_SHA = "7d021970a147cc18"
 
 
 def _rules() -> list[str]:

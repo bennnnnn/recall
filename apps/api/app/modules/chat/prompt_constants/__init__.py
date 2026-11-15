@@ -10,6 +10,7 @@ from app.modules.chat.prompt_constants.capabilities import (
     SETTINGS_ASK_REMINDER,
     SETTINGS_IN_APP_HINT,
 )
+from app.modules.chat.prompt_constants.care import PERSONAL_HELP_RULE
 from app.modules.chat.prompt_constants.chart import CHART_FORMAT_HINT
 from app.modules.chat.prompt_constants.checklist import CHECKLIST_FORMAT_HINT
 from app.modules.chat.prompt_constants.clarify import CLARIFY_CARD_HINT
@@ -41,6 +42,7 @@ from app.modules.chat.prompt_constants.format import (
     COMPARISON_FORMAT_HINT,
     FORMAT_CONTRACT,
     HOWTO_FORMAT_HINT,
+    OPTION_LETTERS_RULE,
     QUOTE_FORMAT_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     STATISTICS_PRESENTATION_HINT,
@@ -141,8 +143,10 @@ __all__ = [
     "NON_DRAFT_TURN_HINT",
     "NO_RECAP_NOTE",
     "NO_SELF_TALK_RULE",
+    "OPTION_LETTERS_RULE",
     "OWN_MISTAKE_HINT",
     "PERSONAL_DISCLOSURE_HINT",
+    "PERSONAL_HELP_RULE",
     "PHOTO_LOOKUP_HINT",
     "PRIVACY_HINT",
     "PROFILE_FACT_HINT",

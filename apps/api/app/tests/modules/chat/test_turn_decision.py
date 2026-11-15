@@ -591,3 +591,16 @@ async def test_drop_read_stops_a_running_read_and_leaves_a_finished_one() -> Non
     turn_decision.drop_read(finished)
     assert not finished.cancelled()
     turn_decision.drop_read(None)
+
+
+def test_the_reply_just_before_the_message_is_read_further() -> None:
+    # "Where is the golf" after a news reply whose fourth point was the golf course searched
+    # "golf course near me" (2026-11-15): the course was past the first 400 characters.
+    recent = [
+        SimpleNamespace(role="user", content="y" * 1000),
+        SimpleNamespace(role="assistant", content="x" * 2000),
+    ]
+    assert turn_decision.earlier_turns(recent) == [
+        ("user", "y" * 400),
+        ("assistant", "x" * 1500),
+    ]

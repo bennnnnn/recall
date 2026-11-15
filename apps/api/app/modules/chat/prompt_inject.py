@@ -28,6 +28,22 @@ def append_after_history(messages: list[dict[str, str]], block: str) -> list[dic
     return augmented
 
 
+def without_system_block(messages: list[dict[str, Any]], block: str) -> list[dict[str, Any]]:
+    """The prompt with ``block`` taken out of the system messages that hold it, the blank
+    line that set it apart with it, and a system message it leaves empty dropped."""
+    kept: list[dict[str, Any]] = []
+    for message in messages:
+        content = message.get("content")
+        if message.get("role") != "system" or not isinstance(content, str) or block not in content:
+            kept.append(message)
+            continue
+        parts = [part for part in content.split("\n\n") if part.strip() != block]
+        rest = "\n\n".join(parts).replace(block, "").strip()
+        if rest:
+            kept.append({**message, "content": rest})
+    return kept
+
+
 def conversation_turns(messages: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
     """A built prompt's user and assistant turns, in order.
 

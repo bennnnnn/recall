@@ -137,6 +137,9 @@ LOOKALIKE_HINTS = {
     # A question of its own after a reply, not "What?" at it.
     "missed lookalike": "reply_missed",
     "quiz lookalike": "quiz",
+    # A lone "A" that is a word, a letter with no lettered question above it, a lettered
+    # outline that asks nothing: no note names an option as picked.
+    "option lookalike": "option_pick",
     "checklist lookalike": "checklist",
     # "Label: value" lines with no card before them are not picks.
     "clarify lookalike": "clarify_picks",

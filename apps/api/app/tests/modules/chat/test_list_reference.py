@@ -151,3 +151,65 @@ def test_three_choices_keep_their_order() -> None:
     reply = "Do you want a quiz, a summary, or a worked example?"
     note = list_reference_hint("the third one", [("assistant", reply)]) or ""
     assert 'choice 3 is "a worked example"' in note
+
+
+# The owner's trivia game, 2026-11-15: "A" for England got "A is correct! … a gift from
+# France"; the note names the option picked, by its words.
+_TRIVIA = (
+    "**B is correct!** The Lighthouse of Alexandria.\n\nNext question: **Which country gifted "
+    "the Statue of Liberty to the United States?**\n\n\U0001f170️ England\n"
+    "\U0001f171️ France\n\U0001f172 Spain\n\nType A, B, or C. \U0001f3af"
+)
+
+
+@pytest.mark.parametrize(
+    "message, picked",
+    [
+        ("A", ['A) "England"']),
+        ("b", ['B) "France"']),
+        ("(c)", ['C) "Spain"']),
+        ("I think C", ['C) "Spain"']),
+        ("the second one", ['B) "France"']),
+        ("france", ['B) "France"']),
+        ("is it spain?", ['C) "Spain"']),
+        ("Is it A or B?", ['A) "England" and B) "France"']),
+        ("is it a or b", ['A) "England" and B) "France"']),
+    ],
+)
+def test_a_pick_under_lettered_options_names_the_option(message: str, picked: list[str]) -> None:
+    note = list_reference_hint(message, [("assistant", _TRIVIA)]) or ""
+    assert 'asked "Which country gifted the Statue of Liberty to the United States?"' in note
+    for named in picked:
+        assert f"it picked {named}" in note
+
+
+def test_the_option_words_shared_with_the_others_pick_nothing() -> None:
+    reply = "Which ocean is the largest?\n\nA) Atlantic Ocean\nB) Indian Ocean\nC) Pacific Ocean"
+    note = list_reference_hint("pacific", [("assistant", reply)]) or ""
+    assert 'it picked C) "Pacific Ocean"' in note
+    # "ocean" is every option's: it names none of them.
+    assert list_reference_hint("the ocean one", [("assistant", reply)]) is None
+
+
+def test_a_pick_after_a_reply_that_only_graded_names_the_question_before_it() -> None:
+    prior = [("assistant", _TRIVIA), ("user", "A"), ("assistant", "A is correct! France.")]
+    note = list_reference_hint("Is it A or B?", prior) or ""
+    assert note.startswith("Your reply before last asked")
+
+
+@pytest.mark.parametrize(
+    "message, prior",
+    [
+        # "A" as a word.
+        ("A lot of people get that one wrong", [("assistant", _TRIVIA)]),
+        ("a dog just knocked my coffee over", [("assistant", _TRIVIA)]),
+        # A letter that is no option.
+        ("D", [("assistant", _TRIVIA)]),
+        # A letter with no lettered question above it.
+        ("A", [("assistant", "Python is a programming language. Want to learn more?")]),
+        # A lettered outline that asks nothing.
+        ("B", [("assistant", "The plan:\n\nA) Book flights\nB) Reserve a hotel\n\nAll set.")]),
+    ],
+)
+def test_no_option_is_named_without_a_pick(message: str, prior) -> None:
+    assert "it picked" not in (list_reference_hint(message, prior) or "")

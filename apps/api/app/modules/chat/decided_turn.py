@@ -27,7 +27,8 @@ decided (``turn_trace.note_decision``).
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import re
+from typing import TYPE_CHECKING, Any
 
 from app.core.config import Settings
 from app.modules.billing import plan as plan_service
@@ -36,7 +37,9 @@ from app.modules.chat.decider_read import READ_SUBJECTS
 from app.modules.chat.json_output import is_json_request
 from app.modules.chat.model_routing.decided import decided_lane, decided_level, math_backups
 from app.modules.chat.prompt_constants.conversation import FOLLOW_NOTES
-from app.modules.chat.prompt_inject import inject_before_last_user
+from app.modules.chat.prompt_constants.list_reference import OPTION_PICK_MARK
+from app.modules.chat.prompt_constants.privacy import ADVICE_PERSONALIZE_HINT
+from app.modules.chat.prompt_inject import inject_before_last_user, without_system_block
 from app.modules.chat.turn_decision import TurnDecision, turn_decision_result
 from app.modules.chat.turn_prep.reading import plan_of
 from app.modules.chat.turn_trace import note_decision, note_prompt_rule, note_route
@@ -48,9 +51,34 @@ from app.modules.chat.worked_turn import (
 )
 from app.modules.turn_reading.lesson_flow import active_lesson_step, outline_awaits_pick
 from app.modules.turn_reading.school_question import is_school_exercise
+from app.services.md_fence_scan import line_fences
 
 if TYPE_CHECKING:
     from app.modules.chat.turn_prep.context import StreamContext
+
+# The question an answer answers: the last one the reply asked, read from its end. "To eat"
+# after "Here's a random one: **Why do cats purr?** … Take a guess" got restaurants on 2 of
+# 3 tries told only that it answered the last reply (2026-11-15).
+_QUESTION = re.compile(r"[^\n.!?:]*\?")
+_MARKUP = re.compile(r"[*_`]+")
+# An emoji or a mark before the question's first word.
+_LEAD = re.compile(r"^[^\w\"'(]+")
+_QUESTION_TAIL = 800
+_QUESTION_CHARS = 200
+
+
+def _asked_question(reply: str) -> str | None:
+    """The last question ``reply`` asked outside its fences (a sources card comes after it)."""
+    prose = "\n".join(
+        line
+        for line, owner in zip(reply.split("\n"), line_fences(reply), strict=False)
+        if owner is None
+    )
+    tail = _MARKUP.sub("", prose.rstrip()[-_QUESTION_TAIL:])
+    found = [_LEAD.sub("", m.group(0)).strip() for m in _QUESTION.finditer(tail)]
+    found = [q for q in found if len(q.split()) >= 2 and len(q) <= _QUESTION_CHARS]
+    return found[-1] if found else None
+
 
 # The subjects whose follow-ups get the read's note. Maths, physics, chemistry and money
 # read their own ("what if it was 30 m/s?" changes the posed problem, ``chat.posed_read``).
@@ -222,4 +250,29 @@ def _follow_note(ctx: StreamContext, read: TurnDecision) -> None:
     if active_lesson_step(ctx.recent_messages) or outline_awaits_pick(ctx.recent_messages):
         return
     note_prompt_rule(f"read.follow_{read.follow}")
-    ctx.prompt_messages = inject_before_last_user(ctx.prompt_messages, note)
+    messages = ctx.prompt_messages
+    if read.follow == "answer":
+        # "To eat", a guess at "Why do cats purr?", got Oakland restaurants "since your
+        # favorite color is green" (2026-11-15): a word rule read food in it and the prompt
+        # said they asked for a recommendation. An answer to the reply's question asks none.
+        messages = without_system_block(messages, ADVICE_PERSONALIZE_HINT)
+        if (question := _answered_question(ctx, messages)) is not None:
+            note = f'{note} The question it answers: "{question}"'
+    ctx.prompt_messages = inject_before_last_user(messages, note)
+
+
+def _answered_question(ctx: StreamContext, messages: list[dict[str, Any]]) -> str | None:
+    """The question the last reply asked, unless a pick note names another: "Is it A or B?"
+    after the reply that graded it is about the lettered question before, whose note says so,
+    and the last reply's "Want another round?" would point the other way."""
+    last = next(
+        (
+            getattr(m, "content", "")
+            for m in reversed(ctx.recent_messages or [])
+            if getattr(m, "role", None) == "assistant"
+        ),
+        "",
+    )
+    question = _asked_question(last) if isinstance(last, str) else None
+    picks = [str(m.get("content")) for m in messages if OPTION_PICK_MARK in str(m.get("content"))]
+    return question if question and all(question in pick for pick in picks) else None

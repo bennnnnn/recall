@@ -41,8 +41,12 @@ from app.modules.chat.decider_read import NEAR_LIVE_AT
 logger = logging.getLogger(__name__)
 
 _MAX_INPUT_CHARS = 1200
-# Each earlier message the read sees, and how many: the last two exchanges.
+# Each earlier message the read sees, and how many: the last two exchanges. The reply just
+# before the message is read further: "Where is the golf" after a four-point news reply
+# whose last point was a golf course in Washington searched "golf course near me"
+# (2026-11-15), the course being past the first 400 characters.
 _EARLIER_CHARS = 400
+_LAST_REPLY_CHARS = 1500
 _EARLIER_MESSAGES = 4
 # Eight short keys: about 55 tokens of JSON.
 _MAX_TOKENS = 120
@@ -218,13 +222,22 @@ def earlier_turns(recent: list[Any] | None) -> list[tuple[str, str]]:
     """The last exchanges of an oldest-first window, as the read sees them: what a short
     follow-up ("How much", "Can I walk?", "Draw it") refers to."""
     turns = [
-        (role, content[:_EARLIER_CHARS])
+        (role, content)
         for message in recent or []
         if (role := getattr(message, "role", None)) in {"user", "assistant"}
         and isinstance(content := getattr(message, "content", None), str)
         and content.strip()
+    ][-_EARLIER_MESSAGES:]
+    last = len(turns) - 1
+    return [
+        (
+            role,
+            content[
+                : _LAST_REPLY_CHARS if index == last and role == "assistant" else _EARLIER_CHARS
+            ],
+        )
+        for index, (role, content) in enumerate(turns)
     ]
-    return turns[-_EARLIER_MESSAGES:]
 
 
 def decision_messages(text: str, earlier: list[tuple[str, str]]) -> list[dict[str, str]]:

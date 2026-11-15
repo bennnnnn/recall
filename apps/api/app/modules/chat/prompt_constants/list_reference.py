@@ -16,12 +16,23 @@ above that question, on every try, each reply opening "Item 1 is about…". Afte
 question the note names the question's choices first and a list's items as the other reading:
 "Want me to go deeper on any of these, or suggest a study plan?" is answered by "2" naming
 the list's second item, which a note naming only the choices sent to the study plan.
+
+A question with lettered options under it ("🅰️ England", "A) England") is answered by a
+letter, a place or the option's words. In the owner's trivia game (2026-11-15) the free
+plan's model knew the facts but not which option a letter was: "A" for England got "A is
+correct! The Statue of Liberty was a gift from France", and B for the Indian Ocean "B is
+correct! The Pacific …". So the note names the option the message picks, its words beside
+its letter, and asks for the verdict on that option. Whether the reply then grades it right
+is the model's: telling "A is correct" from "A is wrong" in its reply takes reading its
+words, which no rule here does.
 """
 
 from __future__ import annotations
 
 import re
 from collections.abc import Sequence
+
+from app.modules.chat.option_letters import OptionQuestion, asked_options
 
 # A list item: "1. …", "2) …", "- …", "* …", "• …" at the line's start, not indented.
 _NUMBERED = re.compile(r"^(?P<n>\d{1,2})[.)]\s+(?P<item>\S.*)$")
@@ -109,6 +120,87 @@ def _offered_choices(reply: str) -> list[str]:
     return choices
 
 
+# A letter on its own ("B", "b?", "(c)", "is it A or B"), never one inside a word, a
+# contraction ("I'd") or an abbreviation ("e.g.").
+_LETTER = re.compile(r"(?<![\w'\u2019.])(?P<letter>[A-Ha-h])(?![\w'\u2019]|\.\w)")
+# "A lot of people" and "a dog": a lone "a" before a word is the article, unless the message
+# names another letter too ("a or b?").
+_ARTICLE = re.compile(r"\s+[^\W\d_]")
+_WORD = re.compile(r"[^\W\d_]{3,}")
+_REPLIES_ASKING = ("your last reply", "your reply before last")
+# What marks the option note in a prompt (the behaviour sweep's look-alikes must lack it).
+OPTION_PICK_MARK = "If this message answers it, by a letter, a place or an option's words"
+
+
+def _letters(query: str, letters: str) -> list[str]:
+    found = [m for m in _LETTER.finditer(query) if m["letter"].upper() in letters]
+    picked = [m["letter"].upper() for m in found]
+    if len(set(picked)) > 1:
+        return list(dict.fromkeys(picked))
+    alone = query.strip(" ?!.()").lower() in {letter.lower() for letter in letters}
+    kept = [
+        m["letter"].upper()
+        for m in found
+        if alone or m["letter"].upper() != "A" or not _ARTICLE.match(query, m.end())
+    ]
+    return list(dict.fromkeys(kept))
+
+
+def _picked_options(query: str, asked: OptionQuestion) -> list[str]:
+    """The letters of the options ``query`` may pick: by letter, place or the option's own
+    words (one no other option or the question shares: "pacific", not "ocean")."""
+    letters = "".join(option.letter for option in asked.options)
+    picked = _letters(query, letters)
+    picked += [letters[n - 1] for n in _pointed_places(query, len(letters))]
+    words = {word.lower() for word in _WORD.findall(query)}
+    for option in asked.options:
+        if query.strip(" ?!.").lower() == option.plain.lower():
+            # "7" for seven continents, "Au" for gold: the option as written.
+            picked.append(option.letter)
+        others = " ".join(o.plain for o in asked.options if o is not option)
+        shared = {w.lower() for w in _WORD.findall(f"{others} {asked.question}")}
+        own = {w.lower() for w in _WORD.findall(option.plain)} - shared
+        if own & words:
+            picked.append(option.letter)
+    return list(dict.fromkeys(picked))
+
+
+def _option_note(query: str, replies: list[str]) -> str | None:
+    """The note naming the option a message picks, after a reply that asked a question with
+    lettered options (the last reply, or the one before when the last only graded it)."""
+    for where, reply in zip(_REPLIES_ASKING, replies, strict=False):
+        asked = asked_options(reply)
+        if asked is None:
+            continue
+        picked = _picked_options(query, asked)
+        if not picked:
+            return None
+        options = {option.letter: option.plain for option in asked.options}
+        listed = "; ".join(f"{letter}) {text}" for letter, text in options.items())
+        named = " and ".join(f'{letter}) "{options[letter]}"' for letter in picked)
+        first = options[picked[0]]
+        verdict = (
+            f'Decide whether "{first}" answers the question, then say so in your first '
+            f'sentence with its letter and its words ("{picked[0]}) {first} is right", or '
+            f'"{picked[0]}) {first} isn\'t it: the answer is …").'
+            if len(picked) == 1
+            else "Say which of those, if any, is the answer, by its letter and its words."
+        )
+        return (
+            f'{where.capitalize()} asked "{asked.question}" with the options {listed}. '
+            f"{OPTION_PICK_MARK}, it picked {named}. {verdict}"
+        )
+    return None
+
+
+def _pointed_places(query: str, count: int) -> list[int]:
+    found = [
+        count if m["word"].lower() == "last" else _PLACES[m["word"].lower()]
+        for m in _PLACE.finditer(query)
+    ]
+    return [n for n in dict.fromkeys(found) if 1 <= n <= count]
+
+
 def list_reference_hint(query: str, prior: Sequence[tuple[str, str]]) -> str | None:
     """The note naming the items a short message may point at, or None.
 
@@ -118,6 +210,8 @@ def list_reference_hint(query: str, prior: Sequence[tuple[str, str]]) -> str | N
     if len(query.split()) > _SHORT_WORDS or _SUM.search(query):
         return None
     replies = [text for role, text in reversed(prior) if role == "assistant"][:_REPLIES]
+    if (option := _option_note(query, replies[: len(_REPLIES_ASKING)])) is not None:
+        return option
     lists = [items for items in map(_items, replies) if len(items) >= 2][:_LISTS]
     named: list[str] = []
     for place, items in zip(_LIST_NAMES, lists, strict=False):

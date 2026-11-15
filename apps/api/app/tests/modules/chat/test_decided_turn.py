@@ -27,6 +27,7 @@ from app.modules.chat.model_routing.decided import (
 )
 from app.modules.chat.model_routing.thinking import thinking_level
 from app.modules.chat.prompt_constants.conversation import FOLLOW_NOTES
+from app.modules.chat.prompt_constants.privacy import ADVICE_PERSONALIZE_HINT
 from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.turn_prep.context import StreamContext
 from app.modules.chat.turn_trace import begin_turn_trace
@@ -558,3 +559,53 @@ async def test_the_reads_work_never_adds_a_layout_the_rules_would_not(content: s
     ctx = _turn(content, _read("maths", False, work=True))
     await decide_from_the_read(ctx, _SETTINGS)
     assert ctx.worked is None
+
+
+@pytest.mark.asyncio
+async def test_an_answer_names_the_question_it_answers_and_asks_no_recommendation() -> None:
+    """ "To eat", a guess at "Why do cats purr?", got Oakland restaurants (2026-11-15): a word
+    rule read food in it, and the prompt said they asked for a personal recommendation."""
+    asked = "Here's a random one: **Why do cats purr?** 🐱\n\nTake a guess, or I'll explain."
+    ctx = _follow_turn(
+        "To eat",
+        _follow_read("answer"),
+        recent_messages=[SimpleNamespace(role="assistant", content=asked)],
+    )
+    ctx.prompt_messages.insert(
+        -1, {"role": "system", "content": f"memory\n\n{ADVICE_PERSONALIZE_HINT}\n\nnotes"}
+    )
+    await decide_from_the_read(ctx, _SETTINGS)
+    assert ctx.prompt_messages[-2]["content"] == (
+        f'{FOLLOW_NOTES["answer"]} The question it answers: "Why do cats purr?"'
+    )
+    assert not any(ADVICE_PERSONALIZE_HINT in m["content"] for m in ctx.prompt_messages)
+    assert {"role": "system", "content": "memory\n\nnotes"} in ctx.prompt_messages
+
+
+@pytest.mark.parametrize(
+    ("pick", "quoted"),
+    [
+        # The pick note names the reply before last's question: the last reply's would
+        # point the other way (live, 2026-11-15: "Is it A or B?" got "my last question was
+        # 'Want another round?'" on 3 of 3 with it).
+        ('Your reply before last asked "Which country gifted it?" with', False),
+        # The same question as the last reply's: quoted beside it.
+        ('Your last reply asked "Want another round?" with', True),
+    ],
+)
+@pytest.mark.asyncio
+async def test_an_answer_quotes_no_question_a_pick_note_contradicts(
+    pick: str, quoted: bool
+) -> None:
+    from app.modules.chat.prompt_constants.list_reference import OPTION_PICK_MARK
+
+    ctx = _follow_turn(
+        "Is it A or B?",
+        _follow_read("answer"),
+        recent_messages=[SimpleNamespace(role="assistant", content="Want another round?")],
+    )
+    ctx.prompt_messages.insert(-1, {"role": "system", "content": f"{pick} … {OPTION_PICK_MARK}"})
+    await decide_from_the_read(ctx, _SETTINGS)
+    assert ctx.prompt_messages[-2]["content"] == FOLLOW_NOTES["answer"] + (
+        ' The question it answers: "Want another round?"' if quoted else ""
+    )
