@@ -786,5 +786,40 @@
   "prompt": "My nᵗʰ attempt at this recipe finally worked, thanks!",
   "reply": "Glad it came together in the end! Keep a note of what you changed this time so the next batch turns out the same.",
   "expect": "answer"
+ },
+ {
+  "id": "ml-107",
+  "area": "math lookalike",
+  "prompt": "Why do textbooks write sin x cos x without any brackets?",
+  "reply": "By convention a function's argument runs to the next function name or operator, so sin x cos x means (sin x)(cos x). Brackets are added only when the argument is longer, as in sin(x + 1).",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-108",
+  "area": "math lookalike",
+  "prompt": "In my physics notes I wrote k sin θ. What does the k stand for?",
+  "reply": "Here k is most likely a constant that scales the sine, such as an amplitude or a spring constant. Check where it was first defined in your notes; θ is the angle.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-109",
+  "area": "math lookalike",
+  "prompt": "Is ³√ on my keyboard the same thing as a cube root?",
+  "reply": "Yes. A small 3 written before the root sign is the root's index, so ³√27 is the cube root of 27, which is 3.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-110",
+  "area": "math lookalike",
+  "prompt": "Как будет «x = 5 и y = 2» по-английски?",
+  "reply": "По-английски это «x equals 5 and y equals 2».",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-111",
+  "area": "math lookalike",
+  "prompt": "Is it a sin to put cream in carbonara?",
+  "reply": "Traditional Roman carbonara uses no cream: the silky sauce comes from egg yolks, pecorino and the pasta water. Cream makes a different, heavier dish, which is fine if you enjoy it.",
+  "expect": "answer"
  }
 ]

@@ -102,5 +102,16 @@
   {"id": "xj11", "area": "J", "prompt": "expand (x+1)(x+2)", "expect": "answer", "check": ["expr", "x**2+3*x+2"]},
   {"id": "xj12", "area": "J", "prompt": "simplify 2x + 3x", "expect": "answer", "check": ["expr", "5*x"]},
   {"id": "xj13", "area": "J", "prompt": "what is the limit of a function", "expect": "explain"},
-  {"id": "xj14", "area": "J", "prompt": "integrate by parts x e^x", "expect": "answer", "check": ["anti", "x*exp(x)-exp(x)"]}
+  {"id": "xj14", "area": "J", "prompt": "integrate by parts x e^x", "expect": "answer", "check": ["anti", "x*exp(x)-exp(x)"]},
+  {"id": "xv1", "area": "V", "prompt": "Differentiate sin x cos x", "expect": "answer", "check": ["expr", "cos(2*x)"], "note": "was sin(x·cos x): a bare argument ran on past the next function name (review, 2026-11-14)"},
+  {"id": "xv2", "area": "V", "prompt": "Integrate 2 sin x cos x", "expect": "answer", "check": ["anti", "sin(x)**2"], "note": "was 2 sin(x·cos x), declined"},
+  {"id": "xv3", "area": "V", "prompt": "Simplify ln x sin x", "expect": "answer", "check": ["expr", "log(x)*sin(x)"], "note": "was a checked ln(x sin x)"},
+  {"id": "xv4", "area": "V", "prompt": "Differentiate x sin x cos x", "expect": "answer", "check": ["expr", "sin(2*x)/2 + x*cos(2*x)"], "note": "was a checked derivative of x·sin(x cos x)"},
+  {"id": "xv5", "area": "V", "prompt": "Differentiate k sin t", "expect": "decline", "note": "was a checked 0, worked in x: is k or t the variable? (review, 2026-11-14)"},
+  {"id": "xv6", "area": "V", "prompt": "Integrate k t", "expect": "decline", "note": "was a checked k·t·x + C"},
+  {"id": "xv7", "area": "V", "prompt": "Differentiate a x^3 + b x^2 + c x + d", "expect": "answer", "check": ["expr", "3*a*x**2 + 2*b*x + c"], "note": "x among several letters is still the variable"},
+  {"id": "xv8", "area": "V", "prompt": "Find dy/dx if y = x^y", "expect": "answer", "check": ["expr", "x**(y - 1)*y/(1 - x**y*log(x))"], "note": "y on both sides is implicit: held constant, y made it a checked x^(y-1)·y (review, 2026-11-14)"},
+  {"id": "xv9", "area": "V", "prompt": "Find dy/dx if y = sin(xy)", "expect": "answer", "check": ["expr", "y*cos(x*y)/(1 - x*cos(x*y))"], "note": "was a checked y cos(xy)"},
+  {"id": "xv10", "area": "V", "prompt": "Find the derivative of k x^2 at x = 1", "expect": "decline", "note": "was a checked 'undefined' for 2k: with k free the difference quotient's limits were not known finite"},
+  {"id": "xv11", "area": "V", "prompt": "3x = 9 и 2y = 8", "expect": "answer", "check": ["nums", ["3", "4"]], "note": "another alphabet's word between two equations was read as part of a name and both were lost (review, 2026-11-14)"}
 ]
