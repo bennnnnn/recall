@@ -113,5 +113,14 @@
   {"id": "xv8", "area": "V", "prompt": "Find dy/dx if y = x^y", "expect": "answer", "check": ["expr", "x**(y - 1)*y/(1 - x**y*log(x))"], "note": "y on both sides is implicit: held constant, y made it a checked x^(y-1)·y (review, 2026-11-14)"},
   {"id": "xv9", "area": "V", "prompt": "Find dy/dx if y = sin(xy)", "expect": "answer", "check": ["expr", "y*cos(x*y)/(1 - x*cos(x*y))"], "note": "was a checked y cos(xy)"},
   {"id": "xv10", "area": "V", "prompt": "Find the derivative of k x^2 at x = 1", "expect": "decline", "note": "was a checked 'undefined' for 2k: with k free the difference quotient's limits were not known finite"},
-  {"id": "xv11", "area": "V", "prompt": "3x = 9 и 2y = 8", "expect": "answer", "check": ["nums", ["3", "4"]], "note": "another alphabet's word between two equations was read as part of a name and both were lost (review, 2026-11-14)"}
+  {"id": "xv11", "area": "V", "prompt": "3x = 9 и 2y = 8", "expect": "answer", "check": ["nums", ["3", "4"]], "note": "another alphabet's word between two equations was read as part of a name and both were lost (review, 2026-11-14)"},
+  {"id": "xv12", "area": "V", "prompt": "Evaluate sin 30° + cos 60°", "expect": "answer", "check": ["num", "1"], "note": "was a checked -0.00748: the one-angle reader took 30° + cos 60 as its angle (review, 2026-11-15)"},
+  {"id": "xv13", "area": "V", "prompt": "Evaluate sin 30° cos 60°", "expect": "answer", "check": ["num", "1/4"], "note": "was a checked -0.0087"},
+  {"id": "xv14", "area": "V", "prompt": "Evaluate sin²30° + cos²30°", "expect": "answer", "check": ["num", "1"]},
+  {"id": "xv15", "area": "V", "prompt": "Evaluate sin(30° + 15°)", "expect": "decline", "note": "was a checked 0.268: the angle converted to radians twice"},
+  {"id": "xv16", "area": "V", "prompt": "Find the eleventh derivative of x^12", "expect": "decline", "note": "was a checked 12x¹¹: an ordinal the reader did not know was read as the first (review, 2026-11-15)"},
+  {"id": "xv17", "area": "V", "prompt": "Find the 3 rd derivative of x^5", "expect": "answer", "check": ["expr", "60*x**2"], "note": "was a checked 5x⁴"},
+  {"id": "xv18", "area": "V", "prompt": "Differentiate ln sin x cos x", "expect": "answer", "check": ["expr", "-log(sin(x))*sin(x) + cos(x)**2/sin(x)"], "note": "was the derivative of ln(sin x·cos x): a nested name ran on through the product (review, 2026-11-15)"},
+  {"id": "xv19", "area": "V", "prompt": "Integrate k dx", "expect": "answer", "check": ["anti", "k*x"], "note": "a named variable is worked as named, the other letters constant"},
+  {"id": "xv20", "area": "V", "prompt": "Find the derivative of x² + k at x = 2", "expect": "answer", "check": ["num", "4"], "note": "a letter that drops out of the value at the point declines nothing"}
 ]

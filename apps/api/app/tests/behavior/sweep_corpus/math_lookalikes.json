@@ -821,5 +821,26 @@
   "prompt": "Is it a sin to put cream in carbonara?",
   "reply": "Traditional Roman carbonara uses no cream: the silky sauce comes from egg yolks, pecorino and the pasta water. Cream makes a different, heavier dish, which is fine if you enjoy it.",
   "expect": "answer"
+ },
+ {
+  "id": "ml-112",
+  "area": "math lookalike",
+  "prompt": "Il est arrivé 2ᵉ à sa première course, c'est bien pour un débutant ?",
+  "reply": "Oui, finir 2ᵉ dès sa première course est un très bon résultat pour un débutant. Il peut viser une régularité à l'entraînement pour progresser encore.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-113",
+  "area": "math lookalike",
+  "prompt": "It was 30° today, should I wear shorts tomorrow?",
+  "reply": "At 30° shorts are comfortable; check tomorrow's forecast in the morning, and bring a light layer if it is due to cool down.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-114",
+  "area": "math lookalike",
+  "prompt": "Why do my sin and cos flashcards keep getting mixed up when I study?",
+  "reply": "They look alike and are learned together. Try a picture on each card: sine as the height on the unit circle, cosine as the width, and quiz yourself on one at a time before mixing them.",
+  "expect": "answer"
  }
 ]
