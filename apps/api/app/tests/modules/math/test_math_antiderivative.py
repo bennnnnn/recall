@@ -32,6 +32,11 @@ POINTS = (Rational(43, 10), Rational(61, 10), Rational(97, 10))
         ("(2*x + 1)^5", r"\frac{\left(2 x + 1\right)^{6}}{12}"),
         ("x^2*sqrt(x^3 + 1)", r"\frac{2 \left(x^{3} + 1\right)^{\frac{3}{2}}}{9}"),
         ("x*cos(x)", None),
+        # The rule-based answer, ln(2x⁴ + 4x² + 2)/4 + ..., is longer: integrate()'s stands.
+        (
+            "x^3/(x^2 + 1)^2",
+            r"\frac{\left(x^{2} + 1\right) \ln{\left(x^{2} + 1 \right)} + 1}{2 \left(x^{2} + 1\right)}",
+        ),
         ("1/x", r"\ln\left|x\right|"),
     ],
 )
@@ -47,11 +52,18 @@ def test_integrate_expression_gives_the_textbook_form(integrand: str, shown: str
         assert result.latex == shown
 
 
-def test_integrate_expression_withholds_a_complex_branch() -> None:
-    # Only integrate() closes ∫ √(x² - 1)/x dx, with an i branch for |x| < 1; the rule-based
-    # answer's Piecewise names the wrong domain. Neither is a card a student can use.
-    result = math_solve.integrate_expression("sqrt(x^2 - 1)/x", "x")
-    assert result.solved is False
+@pytest.mark.parametrize(
+    "integrand",
+    [
+        # Only integrate() closes it, with an i branch for |x| < 1; the rule-based answer's
+        # Piecewise names the wrong domain. Neither is a card a student can use.
+        "sqrt(x^2 - 1)/x",
+        # A hypergeometric function of exp_polar(i pi) x³: right, and no school answer.
+        "sqrt(1 + x^3)",
+    ],
+)
+def test_integrate_expression_withholds_a_complex_form(integrand: str) -> None:
+    assert math_solve.integrate_expression(integrand, "x").solved is False
 
 
 def test_integrate_expression_keeps_a_parameter_piecewise() -> None:

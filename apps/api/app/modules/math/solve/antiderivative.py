@@ -2,10 +2,12 @@
 
 SymPy's ``integrate`` is right but often not what a student can read on a card:
 ``∫ (x + 2)√(x - 3) dx`` comes back as a ``Piecewise`` over complex branches with ``i`` in it,
-``∫ sec²x dx`` as ``sin x / cos x``. The rule-based ``manualintegrate`` works the way a
-textbook does (substitution, parts, the table) and gives ``(2/5)(x - 3)^{5/2} +
-(10/3)(x - 3)^{3/2}`` and ``tan x``. Its answer is kept only when it is finished and
-differentiates back to the integrand; otherwise ``integrate``'s own answer stands.
+``∫ (2x + 1)⁵ dx`` as a degree-6 polynomial over 3. The rule-based ``manualintegrate`` works
+the way a textbook does (substitution, parts, the table) and gives ``(2/5)(x - 3)^{5/2} +
+(10/3)(x - 3)^{3/2}`` and ``(2x + 1)⁶/12``. Its answer counts only when it is one closed
+formula that differentiates back to the integrand. It is shown when ``integrate``'s is no
+readable formula, or when it is no longer than that one (``count_ops``, a tie to the
+textbook): ``∫ x³/(x² + 1)² dx`` keeps ``integrate``'s ``ln(x² + 1)``, not ``ln(2x⁴ + 4x² + 2)``.
 
 ``readable_antiderivative`` says whether an antiderivative may be shown as a checked card at
 all: one still holding an ``Integral``, or an ``i`` the integrand never had (a branch for the
@@ -18,7 +20,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sympy import I, Integral, Piecewise, Rational, diff, integrate, simplify
+from sympy import I, Integral, Piecewise, Rational, count_ops, diff, integrate, simplify
 
 from app.modules.math.solve.declines import sympy_decline
 
@@ -32,14 +34,18 @@ _TOLERANCE = 1e-9
 
 
 def textbook_antiderivative(integrand: Any, sym: Any) -> Any:
-    """``∫ integrand d(sym)`` without ``+ C``: the textbook form when it checks, else SymPy's."""
+    """``∫ integrand d(sym)`` without ``+ C``: the textbook form when it checks and reads no
+    worse, else SymPy's."""
     from sympy.integrals.manualintegrate import manualintegrate
 
+    found = integrate(integrand, sym)
     with sympy_decline() as declined:
         worked = manualintegrate(integrand, sym)
-    if not declined and _finished(worked) and _differentiates_to(worked, integrand, sym):
+    if declined or not _finished(worked) or not _differentiates_to(worked, integrand, sym):
+        return found
+    if not _finished(found) or not readable_antiderivative(found, integrand):
         return worked
-    return integrate(integrand, sym)
+    return worked if count_ops(worked) <= count_ops(found) else found
 
 
 def readable_antiderivative(result: Any, integrand: Any) -> bool:
