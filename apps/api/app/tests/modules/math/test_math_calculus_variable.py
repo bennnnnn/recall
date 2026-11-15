@@ -83,8 +83,11 @@ def test_a_number_alone_is_still_worked_in_x() -> None:
         "Differentiate e^(kt)",
         "Differentiate A sin(ωt)",
         "Differentiate t^n",
-        # A named variable the expression lacks: implicit, or a letter held constant?
+        # A named variable the expression lacks: implicit, or a letter held constant? The
+        # derivative of y³ with respect to x is 3y²·dy/dx when y is a function of x; it was
+        # a checked 0.
         "Differentiate x² with respect to t",
+        "differentiate y^3 with respect to x",
         "Integrate k dx",
         "∫ x² dθ",
         # At a point, another letter left "undefined" for 2k, and with respect to x a 0.

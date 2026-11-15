@@ -120,7 +120,6 @@ def _settings() -> Settings:
         ("differentiate x^3", "calculus", "3 x^{2}"),
         ("differentiate y^3 with respect to y", "calculus", "3 y^{2}"),
         ("differentiate y^3 wrt y", "calculus", "3 y^{2}"),
-        ("differentiate y^3 with respect to x", "calculus", "0"),
         ("d/dt t^3", "calculus", "3 t^{2}"),
         ("integrate y^2 dy", "calculus", r"\frac{y^{3}}{3} + C"),
         ("integrate t^2 dt from 0 to 2", "calculus", r"\frac{8}{3}"),
