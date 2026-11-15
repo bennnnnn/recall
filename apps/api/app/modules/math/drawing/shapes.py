@@ -73,9 +73,11 @@ FORMS: dict[str, Form] = {
         lambda s: {"top_radius": s[0], "bottom_radius": s[1], "height": s[2]},
         fits=lambda s: abs(s[0] - s[1]) > _TOLERANCE * max(s),
     ),
+    # A square base when nothing sizes it: an open box's is, mostly, and a square is a
+    # rectangle (round 3's c047, its computed sizes left off, drew a 3-by-2 base).
     "box": Form(
         ("box",),
-        (3.0, 2.0, 1.5),
+        (3.0, 3.0, 1.8),
         lambda s: {"length": s[0], "width": s[1], "height": s[2]},
     ),
     # A sheet with a square cut from each corner, folded up into an open box.
