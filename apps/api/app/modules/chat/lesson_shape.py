@@ -23,6 +23,13 @@ holds the shape, for the turn whose prompt carried the lesson contract
   A lesson missing its title gets ``### Lesson N: <topic>`` after its opening hook: the topic
   as the learner named it, N one past the chat's last lesson. Title and card land together
   or not at all: a call that fails leaves the reply as written.
+- The next lesson (the turn after one, ``lesson_layout``'s "next") gets its missing card
+  when the reply titles it: a reply without a title answered something else (a question, a
+  cheat sheet) and stays as written.
+
+The practice heading is never numbered: "### 6. Your turn" after five taught sections read
+as a sixth item of the lesson (the owner's chat, 2026-11-14). Any reply with a lesson title
+gets its practice heading unnumbered, whichever turn wrote it.
 """
 
 from __future__ import annotations
@@ -41,7 +48,7 @@ from app.modules.chat.lesson_blocks import (
     joined,
 )
 from app.modules.chat.lesson_calls import QuizCard, lesson_practice
-from app.modules.chat.lesson_copy import LessonCopy, lesson_copy
+from app.modules.chat.lesson_copy import PRACTICE_NAMES, LessonCopy, lesson_copy
 from app.modules.chat.lesson_layout import prompt_lesson_layout
 from app.modules.chat.lesson_progress import PROGRESS_LINE
 from app.modules.turn_reading.lesson_flow import has_lesson_title, lesson_step, lesson_topic
@@ -59,6 +66,10 @@ _CLOSER_MAX_CHARS = 400
 _NUMBERED_SECTION = re.compile(r"^\s{0,3}#{2,4}\s+\d{1,2}[.)]\s", re.MULTILINE)
 # A heading's marks and section number, before its words.
 _HEADING_NAME = re.compile(r"^#{1,6}\s+(?:\*\*)?(?:\d{1,2}[.)]\s+)?")
+# What a practice heading asks, after its name: "Your turn — predict the output".
+_PRACTICE_ASKS = re.compile(r"\s+[\u2014\u2013-]\s+|:\s+")
+# A heading's section number: "### 6. Your turn" keeps "### " and "Your turn".
+_SECTION_NUMBER = re.compile(r"^(\s{0,3}#{1,6}\s+(?:\*\*)?)\d{1,2}[.)]\s+")
 
 
 # Fewer numbered items than this is no list of topics yet.
@@ -137,11 +148,19 @@ def _card(quiz: QuizCard, copy: LessonCopy) -> str:
     return f"```quiz\n{body}\n```"
 
 
+def _is_practice_heading(block: str) -> bool:
+    """The practice's own heading, with what it asks or not: "### Your turn — predict the
+    output"; "### Your turn to think about stack depth" is a section of its own."""
+    if not is_heading(block):
+        return False
+    name = _heading_name(block)
+    return _PRACTICE_ASKS.split(name, maxsplit=1)[0].strip() in PRACTICE_NAMES
+
+
 def with_practice(text: str, quiz: QuizCard, copy: LessonCopy) -> str:
     """The card last, under the lesson's practice heading."""
     parts = blocks(text)
-    names = {_folded(copy.your_turn), "your turn"}
-    own = [i for i, part in enumerate(parts) if is_heading(part) and _heading_name(part) in names]
+    own = [i for i, part in enumerate(parts) if _is_practice_heading(part)]
     if own:
         # The card takes the place of the prose practice under the heading; the sections
         # after it ("Common mistakes", a closing note under its own heading) stay.
@@ -150,9 +169,19 @@ def with_practice(text: str, quiz: QuizCard, copy: LessonCopy) -> str:
         return joined([*parts[: at + 1], _card(quiz, copy), *parts[end:]])
     if parts and is_question(parts[-1]) and len(parts[-1]) <= _CLOSER_MAX_CHARS:
         parts = parts[:-1]
-    sections = len(_NUMBERED_SECTION.findall(without_fences(text, "")))
-    heading = f"### {sections + 1}. {copy.your_turn}" if sections else f"### {copy.your_turn}"
-    return joined([*parts, heading, _card(quiz, copy)])
+    return joined([*parts, f"### {copy.your_turn}", _card(quiz, copy)])
+
+
+def unnumbered_practice(text: str) -> str:
+    """A lesson's practice heading without its number: "### 6. Your turn" is "### Your turn"."""
+    if not has_lesson_title(text):
+        return text
+    parts = blocks(text)
+    if not any(_is_practice_heading(part) and _SECTION_NUMBER.match(part) for part in parts):
+        return text
+    return joined(
+        [_SECTION_NUMBER.sub(r"\1", part) if _is_practice_heading(part) else part for part in parts]
+    )
 
 
 def _folded(name: str) -> str:
@@ -165,9 +194,8 @@ def _heading_name(heading: str) -> str:
     return _folded(_HEADING_NAME.sub("", heading.strip()).rstrip(" :!.?*"))
 
 
-async def hold_lesson(state: FinalizeState, copy: LessonCopy) -> str:
+async def hold_lesson(state: FinalizeState, text: str, copy: LessonCopy) -> str:
     """The pass's lesson step: the missing title and card, both or neither."""
-    text = state.text
     titled = has_lesson_title(text)
     quizzed = any(fence.lang == "quiz" for fence in iter_fences(text))
     if titled and quizzed:
@@ -197,8 +225,9 @@ async def hold_lesson_shape(state: FinalizeState) -> str:
         or not text.strip()
     ):
         return text
+    text = unnumbered_practice(text)
     layout = prompt_lesson_layout(state.ctx.prompt_messages)
-    if layout is None:
+    if layout is None or (layout == "next" and not has_lesson_title(text)):
         return text
     user = state.ctx.user
     copy = lesson_copy(state.ctx.user_message_content or "", user.locale if user else None)
@@ -211,4 +240,4 @@ async def hold_lesson_shape(state: FinalizeState) -> str:
     # practice card under it would quiz nothing.
     if layout in ("walkthrough", "teaching") and asks_back(text):
         return text
-    return await hold_lesson(state, copy)
+    return await hold_lesson(state, text, copy)

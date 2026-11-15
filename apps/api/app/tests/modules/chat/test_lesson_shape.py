@@ -17,6 +17,10 @@ from app.modules.chat import lesson_calls
 from app.modules.chat.lesson_calls import LessonPractice, QuizCard
 from app.modules.chat.lesson_layout import lesson_contract, lesson_layout_of, prompt_lesson_layout
 from app.modules.chat.lesson_shape import hold_lesson_shape, next_lesson_number, teaches
+from app.modules.chat.prompt_constants.lesson_flow import (
+    lesson_continue_hint,
+    lesson_next_contract,
+)
 from app.modules.chat.prompt_constants.teaching import (
     LESSON_CONTRACT,
     TEACH_CONTRACT,
@@ -119,7 +123,9 @@ async def test_a_walkthrough_without_its_parts_gets_its_title_and_card(calls: _C
 
 
 @pytest.mark.asyncio
-async def test_numbered_sections_get_the_next_number_for_the_practice(calls: _Calls) -> None:
+async def test_the_practice_after_numbered_sections_has_no_number(calls: _Calls) -> None:
+    """The owner's chat (2026-11-14): "### 6. Your turn" after five taught sections read as a
+    sixth item of the lesson."""
     reply = (
         "Two Sum is a classic.\n\n### Lesson 1: Two Sum\n\n### 1. The problem\n\nFind two.\n\n"
         "### 2. Brute force\n\nCheck every pair.\n\nOnce you get this, we'll try three sum."
@@ -127,7 +133,8 @@ async def test_numbered_sections_get_the_next_number_for_the_practice(calls: _Ca
     out = await hold_lesson_shape(_state(reply, "help me understand two sum"))
 
     assert out.count("### Lesson 1: Two Sum") == 1
-    assert "### 3. Your turn\n\n```quiz" in out
+    assert "\n\n### Your turn\n\n```quiz" in out
+    assert "### 3." not in out
     assert "we'll try three sum" in out
 
 
@@ -140,9 +147,44 @@ async def test_the_lessons_own_practice_section_holds_the_card(calls: _Calls) ->
     out = await hold_lesson_shape(_state(reply, "I'm confused about pointers in C"))
 
     assert out.endswith("```")
-    assert "### 2. Your turn\n\n```quiz\n" in out
+    assert "\n\n### Your turn\n\n```quiz\n" in out
     assert "Try it and tell me" not in out
     assert out.count("Your turn") == 1
+
+
+_CARD = '```quiz\n{"label": "Exercise 1", "question": "q", "options": ["a", "b"], "answer": 0}\n```'
+
+
+@pytest.mark.parametrize(
+    ("heading", "unnumbered"),
+    [
+        ("### 6. Your turn", "### Your turn"),
+        ("### 11. Your turn — predict the answer", "### Your turn — predict the answer"),
+        ("## 3) Your turn:", "## Your turn:"),
+        ("### **4. Your turn**", "### **Your turn**"),
+        ("### 2. Tu turno", "### Tu turno"),
+        ("### 5. Sıra sende", "### Sıra sende"),
+        # Taught sections keep their numbers; a heading that only mentions the practice too.
+        ("### 6. Your turn to think about stack depth", None),
+        ("### 2. How it works", None),
+    ],
+)
+@pytest.mark.parametrize("contract", [LESSON_CONTRACT, None], ids=["lesson turn", "any turn"])
+@pytest.mark.asyncio
+async def test_a_lessons_practice_heading_is_never_numbered(
+    calls: _Calls, heading: str, unnumbered: str | None, contract: str | None
+) -> None:
+    reply = f"Hook.\n\n### Lesson 2: Moles\n\n### 1. The idea\n\nA count.\n\n{heading}\n\n{_CARD}"
+    out = await hold_lesson_shape(_state(reply, "next", contract=contract))
+    assert out == (reply if unnumbered is None else reply.replace(heading, unnumbered))
+    assert "### 1. The idea" in out
+    assert calls.asked == []
+
+
+@pytest.mark.asyncio
+async def test_a_numbered_practice_heading_outside_a_lesson_stays(calls: _Calls) -> None:
+    reply = f"Five questions to try.\n\n### 6. Your turn\n\n{_CARD}"
+    assert await hold_lesson_shape(_state(reply, "quiz me", contract=None)) == reply
 
 
 @pytest.mark.asyncio
@@ -384,3 +426,49 @@ def test_every_teach_me_is_a_lesson_that_starts_now() -> None:
     """ "Teach me useful English words" once got a menu of areas and a question about the
     user's level before a single word (2026-11-06)."""
     assert lesson_contract([TEACHING_HINT]) == [TEACH_CONTRACT]
+
+
+# ── The turn after a lesson ────────────────────────────────────────────
+
+
+def test_the_next_lessons_contract_is_read_back_from_the_prompt() -> None:
+    """The owner's chat (2026-11-14): "is it 35?" after Lesson 1 came back "Yes! Want to try
+    one more, or should we move on to ions?", and the chat left the lesson."""
+    contract = lesson_next_contract(2)
+    assert "`### Lesson 3: <topic>`" in contract and "unnumbered `### Your turn`" in contract
+    assert "Never ask whether to go on" in contract
+    messages = [{"role": "system", "content": f"rules\n\n{contract}"}]
+    assert prompt_lesson_layout(messages) == "next"
+    # The style hints never ask for it: the turn's read does (``decided_turn``).
+    assert lesson_layout_of([lesson_continue_hint(2)]) is None
+
+
+_NEXT_LESSON = (
+    "Correct! 🎉 Moles count particles.\n\n### 🧪 Lesson 3: Moles in equations\n\n"
+    "### 1. The ratio\n\nThe big numbers are mole ratios.\n\nOnce you get this, we'll do yields."
+)
+
+
+@pytest.mark.asyncio
+async def test_the_next_lesson_gets_the_card_it_left_out(calls: _Calls) -> None:
+    state = _state(_NEXT_LESSON, "ok next", contract=lesson_next_contract(2))
+    out = await hold_lesson_shape(state)
+    # Its own title stands, an emoji before the word Lesson and all.
+    assert lesson_step(out) == 3
+    assert "\n\n### Your turn\n\n```quiz\n" in out
+    assert calls.asked == ["LessonPractice"]
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "Correct! 🎉 2 × 6.02 × 10²³ is 1.204 × 10²⁴.",
+        "### Cheat sheet\n\n### 1. Atoms\n\nProtons, neutrons, electrons.",
+    ],
+    ids=["graded only", "a cheat sheet asked for"],
+)
+@pytest.mark.asyncio
+async def test_a_reply_after_a_lesson_that_is_no_lesson_stays(calls: _Calls, reply: str) -> None:
+    state = _state(reply, "make me a cheat sheet", contract=lesson_next_contract(2))
+    assert await hold_lesson_shape(state) == reply
+    assert calls.asked == []

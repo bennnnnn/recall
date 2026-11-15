@@ -21,15 +21,22 @@ from app.services.text_normalize import collapse_ws, straighten_apostrophes
 _LESSON_WORDS = r"lesson|lecci[oó]n|le[cç]on|lektion|lezione|li[cç][aã]o|aula|урок|ders|ትምህርት"
 
 
+# An emoji or bold marks may open it: "### 🧪 Lesson 3: Moles" was read as no lesson, and the
+# chat's next "ok next" as no lesson's (the owner's chat, 2026-11-14). Spaces and tabs only,
+# never a line break: from every line's start a ``\s*`` ran on over the blank lines after it,
+# 6.2 s on a reply of 32,000 of them (review, 2026-11-14), and every reply is read at finalize.
+_TITLE_OPENING = (
+    r"^[ \t]*(?:#{1,4}[ \t]+|\*\*)[ \t]*(?:[^\w\s#]{1,4}[ \t]*)?(?:" + _LESSON_WORDS + r")[ \t]+"
+)
 _LESSON_TITLE = re.compile(
-    r"^\s*(?:#{1,4}\s+|\*\*)\s*(?:" + _LESSON_WORDS + r")\s+(\d{1,2})\s*[:.\-—–]",
+    _TITLE_OPENING + r"(\d{1,2})\s*[:.\-—–]",
     re.MULTILINE | re.IGNORECASE,
 )
 
 
 # The same heading with its topic: "### Lesson 2: Dictionaries" -> (2, "Dictionaries").
 _LESSON_HEADING = re.compile(
-    r"^\s*(?:#{1,4}\s+|\*\*)\s*(?:" + _LESSON_WORDS + r")\s+(\d{1,2})\s*[:.\-—–]\s*(.+?)\s*\**\s*$",
+    _TITLE_OPENING + r"(\d{1,2})\s*[:.\-—–]\s*(.+?)\s*\**\s*$",
     re.MULTILINE | re.IGNORECASE,
 )
 
@@ -65,6 +72,22 @@ def lesson_step(text: str | None) -> int | None:
     if quiz or any(mark in rest for mark in _QUESTION_MARKS):
         return found
     return None
+
+
+# A word lesson's section: its **Meaning:** line, the shape the lesson contract asks for.
+_MEANING_LINE = re.compile(r"^\*\*Meaning:\*\*", re.MULTILINE)
+_WORD_SECTIONS = 3
+
+
+def lesson_teaches_words(messages: list[Any] | None) -> bool:
+    """Whether the most recent assistant reply taught a language's words: three or more
+    sections with a **Meaning:** line, the shape the lesson contract gives words alone."""
+    for message in reversed(messages or []):
+        if getattr(message, "role", None) != "assistant":
+            continue
+        content = getattr(message, "content", None)
+        return isinstance(content, str) and len(_MEANING_LINE.findall(content)) >= _WORD_SECTIONS
+    return False
 
 
 def active_lesson_step(messages: list[Any] | None) -> int | None:

@@ -18,6 +18,7 @@ from __future__ import annotations
 import re
 
 from app.modules.money.numbers import day_text, money_text, percent_text
+from app.modules.money.periods import rate_words
 from app.modules.money.rates import MarketRate
 from app.modules.money.read import MoneyRequest
 from app.modules.money.solve import Worked, rate_name
@@ -108,8 +109,12 @@ def market_note(worked: Worked, average: MarketRate | None, ratio: float) -> str
         )
     unrealistic = average.value <= 0 or not average.value / ratio <= rate <= average.value * ratio
     if unrealistic and not caveat:
+        said = percent_text(rate)
+        if worked.rate_per != 1:
+            # "2% a month (24% a year)": the user's words, and the yearly rate an average is.
+            said = f"{rate_words(rate, worked.rate_per)} ({said} a year)"
         return (
-            f"**Note:** {percent_text(rate)} is not a realistic {average.name}. As of {when}, "
+            f"**Note:** {said} is not a realistic {average.name}. As of {when}, "
             f"the average in {average.country} is {level} ({source})."
         )
     return (

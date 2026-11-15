@@ -143,7 +143,7 @@ def test_read_money_request_leaves_other_messages(text: str) -> None:
         ("my wife's used car loan is paid off, now we need a car loan of 30k at 6% for 60 months", ""),
         ("car loan 18000 at 7% to replace my old used car, payment over 60 months", ""),
         ("trading in my used car, new car loan 30000 at 6%", ""),
-        ("I used a calculator and got 400 a month on a car loan of 20000 at 6%", ""),
+        ("I used a calculator and got 400 a month on a car loan of 20000 at 6% for 5 years", ""),
         ("car loan 25000 at 6%, what rate is used", ""),
         ("new car loan 30000 at 6% for 5 years", ""),
         # A product with no kinds priced apart.

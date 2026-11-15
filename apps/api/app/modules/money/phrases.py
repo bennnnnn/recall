@@ -24,22 +24,55 @@ _SPELLED = (
 # or a digit's comma, so "3,5%" is never read as "5%" (2026-11-01: a 5% mortgage worked from
 # "3,5%"), and "3%,4%" is two rates.
 PERCENT = r"(?<![\d.])(?<!\d,)(?P<pct>\d{1,3}(?:[.,]\d{1,4})?)\s?(?:%|percent\b|per\s?cent\b|pct\b)"
+# A count in digits or words ("48", "two and a half"); its value is ``count_value``'s.
+COUNT = rf"(?:\d{{1,3}}(?:\.\d{{1,2}})?|{_SPELLED})"
 # A length of time; its count is ``count_value``'s.
-DURATION = (
-    rf"(?P<n>\d{{1,3}}(?:\.\d{{1,2}})?|{_SPELLED})\s?-?\s?(?P<unit>years?|yrs?|months?|mos?)\b"
-)
+DURATION = rf"(?P<n>{COUNT})\s?-?\s?(?P<unit>years?|yrs?|months?|mos?)\b"
 RATE = re.compile(PERCENT, re.I)
+# A percent said in words: "six percent", "seven point five percent", "six and a half per
+# cent". The reader does not read it, so it is no rate it can work.
+SPELLED_PERCENT = re.compile(
+    rf"\b{_SPELLED}(?:\s(?:point|dot)\s(?:{_ONES}|zero)(?:\s(?:{_ONES}|zero))*)?"
+    r"\s(?:percent|per\s?cent)\b",
+    re.I,
+)
+# A rate's number said with no percent ("interest rate: 6", "APR 22.9"): the reader does
+# not certify it, and never puts today's average in its place.
+BARE_RATE = re.compile(
+    r"\b(?:interest(?:\s+rate)?|rates?|apr|apy)\s*+(?:is\s+|of\s+|at\s+|[:=]\s*)?"
+    r"(?<![\d.])\d{1,2}(?:\.\d{1,3}|,\d{1,2}(?!\d))?(?![\d.,]*\s*(?:%|percent\b|per\s?cent\b|pct\b))"
+    r"(?!\s*(?:years?|yrs?|months?|mos?|k\b|m\b|thousand|million|\d|,\d))",
+    re.I,
+)
+# A rate said as what a year earns or costs in all ("4.5% APY", "an effective annual rate of
+# 12.68%"), not as the nominal rate the card compounds.
+EFFECTIVE_RATE = re.compile(
+    r"\b(?:apy|aer|ear|eir|annual\s+percentage\s+yield|annual\s+equivalent\s+rate"
+    r"|effective\s+(?:annual\s+|yearly\s+)?(?:interest\s+)?rate"
+    r"|effective\s+(?:per\s+annum|annual(?:ly)?|yearly|p\.?\s?a\.?))\b"
+    r"|%\s*+effective\b",
+    re.I,
+)
 TERM = re.compile(rf"\b{DURATION}", re.I)
 _SCALE = r"(?:k|m|thousand|million|mil|grand)\b"
 # A sum's digits in every grouping people write: "250,000.50", "5,00,000" (lakh),
-# "250.000,50" (a dot between thousands, a comma before the cents), "250000".
+# "250.000,50" (a dot between thousands, a comma before the cents), "10 000" and
+# "250 000,50" (a space between thousands, also a no-break or thin one), "250000".
 _US = r"\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?"
 _LAKH = r"\d{1,2}(?:,\d{2})+,\d{3}(?:\.\d{1,2})?"
 _DOTTED = rf"\d{{1,3}}(?:\.\d{{3}})+(?:,\d{{1,2}})?(?!\s?{_SCALE})"
+_GAP = "[ \u00a0\u2009\u202f]"
+_SPACED = rf"[1-9]\d{{0,2}}(?:{_GAP}\d{{3}})+(?:[.,]\d{{1,2}})?(?!\d)"
 AMOUNT = re.compile(
-    rf"(?P<sym>[$€£¥₹₦])?\s?(?P<num>{_US}|{_LAKH}|{_DOTTED}|\d+(?:\.\d{{1,2}})?)"
+    rf"(?P<sym>[$€£¥₹₦])?\s?(?P<num>{_US}|{_LAKH}|{_DOTTED}|{_SPACED}|\d+(?:\.\d{{1,2}})?)"
     rf"(?:\s?(?P<mult>{_SCALE}))?",
     re.I,
+)
+# Groups set apart by a plain space that are one number: a round thousand ("100 000",
+# "1 500 000") or a short lead and one group ("12 500"). "250 300 450" may be a list, with a
+# currency after it or not (``sums``: no sum).
+ONE_SPACED = re.compile(
+    r"[1-9]\d{0,2}(?: \d{3})* 000(?:[.,]\d{1,2})?|[1-9]\d? \d{3}(?:[.,]\d{1,2})?"
 )
 # Digits left over after a sum: "25.000" read as 25.00 and a 0, "5,00,000" as 5.
 UNREAD_DIGITS = re.compile(r"[.,]?\d")
@@ -60,12 +93,22 @@ def sum_phrase(name: str) -> str:
 
 
 def grouped(num: str) -> bool:
-    """The digits are grouped as money is written ("250,000", "250.000", "5,00,000")."""
+    """The digits are grouped as money is written ("250,000", "250.000", "5,00,000", "5 000"
+    as ``ONE_SPACED`` reads it whole, with a no-break or thin space too)."""
+    if _spaced(num):
+        return " " not in num or ONE_SPACED.fullmatch(num) is not None
     return "," in num or re.fullmatch(_DOTTED, num) is not None
+
+
+def _spaced(num: str) -> bool:
+    """The digits' thousands are set apart by spaces: "10 000"."""
+    return re.search(_GAP, num) is not None
 
 
 def amount_value(num: str) -> float:
     """The ``num`` group of ``AMOUNT`` as a number, in the grouping it was written in."""
+    if _spaced(num):
+        return float(re.sub(_GAP, "", num).replace(",", "."))
     if re.fullmatch(_DOTTED, num):
         return float(num.replace(".", "").replace(",", "."))
     return float(num.replace(",", ""))
