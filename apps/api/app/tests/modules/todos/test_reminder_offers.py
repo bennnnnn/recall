@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import re
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 from uuid import uuid4
@@ -20,6 +21,11 @@ from app.modules.conversation import chats_repository as chats_repo
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.offer_reply import accepted_offer_in, accepted_reminder_offer
 from app.modules.todos.reminder_fences import materialize_reminder_fences
+from app.modules.todos.reply_check import (
+    KEEP_AS_REMINDER,
+    NEED_A_TIME,
+    reply_to_accepted_offer,
+)
 from app.modules.todos.reply_denials import is_denial, without_denials
 from app.repositories import users as users_repo
 
@@ -157,6 +163,67 @@ async def test_a_yes_never_rewrites_a_reply_that_wrote_no_card(db_session, fake_
     assert text == reply
 
 
+# Live (2026-11-15): a long study chat's offer, and the reply to its "yes".
+TEST_OFFER = (
+    "### ⚖️ Relative atomic mass\n\n- **Check** — the answer always sits between the lightest "
+    "and heaviest isotope\n\nWant me to save this as a reminder for the morning of the test? 🌙"
+)
+TEST_REPLY = (
+    "Set for **Friday, November 20 at 7:00 AM** — you'll get a nudge to run through the sheet "
+    "before the test 🌙\n\nIt's past 5:30 in the morning where you are, so a proper sleep "
+    "now will do more for you than one more read of the sheet."
+)
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        TEST_REPLY,
+        "Done! I'll remind you on the morning of the test to look over the sheet.",
+        "Saved ✅ You'll get it Friday at 7:00 AM.",
+        "Reminder set for 7am Wednesday.",
+    ],
+)
+def test_a_yes_with_no_card_never_says_it_was_set(reply: str) -> None:
+    """A reply that says the reminder exists, when nothing was made, asks when instead."""
+    assert accepted_reminder_offer("yes", TEST_OFFER)
+    assert reply_to_accepted_offer(reply, TEST_OFFER) == NEED_A_TIME
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "Sure! What day is your test?",
+        "Happy to. When is the test, and what time should I remind you that morning?",
+        'I\'ve added a reminder field:\n\n```tsx\n<input name="reminder" />\n```',
+    ],
+)
+def test_a_yes_with_no_card_keeps_a_reply_that_asks_when(reply: str) -> None:
+    assert reply_to_accepted_offer(reply, TEST_OFFER) == reply
+
+
+@pytest.mark.parametrize(
+    ("reply", "offer", "asked"),
+    [
+        ("Perfect, all set for the big day! Good luck 🍀", TEST_OFFER, NEED_A_TIME),
+        (
+            "Here's your shopping list:\n\n- 1 whole chicken\n- 2 lemons",
+            "Want me to add the ingredients to your shopping list?",
+            KEEP_AS_REMINDER,
+        ),
+    ],
+)
+def test_a_yes_with_no_card_keeps_the_reply_and_asks_when(reply, offer, asked) -> None:
+    assert reply_to_accepted_offer(reply, offer) == f"{reply}\n\n{asked}"
+
+
+@pytest.mark.asyncio
+async def test_a_yes_to_the_offer_with_no_card_asks_when(db_session, fake_redis):
+    text, user = await _offer_turn(db_session, fake_redis, TEST_REPLY, TEST_OFFER)
+    assert text == NEED_A_TIME
+    assert await todos_repo.list_for_user(db_session, user.id, limit=10) == []
+
+
 @pytest.mark.asyncio
 async def test_a_yes_to_another_offer_keeps_the_time_check(db_session, fake_redis):
     """The model's own time, after "Want a practice problem?", is still not the user's."""
@@ -196,6 +263,9 @@ def test_a_denial_is_dropped_and_the_rest_kept() -> None:
         ("I can't set reminders for you in Todoist, but you can use its Quick Add.", False),
         ("I can't remind you every day how much you mean to me, but I hope it shows.", False),
         ("I can't create a to-do list for you.", True),
+        # Live (2026-11-15), after a yes to its own offer.
+        ("I can't create reminders from this chat, so the one I mentioned isn't saved.", True),
+        ("I can't set reminders from the app, sorry.", True),
         ("I can't remind you enough how much sleep matters.", False),
         ("I can't remind you of everything.", False),
         ("I can't read your iPhone's Reminders app.", False),
@@ -532,3 +602,62 @@ def test_the_write_hint_says_the_model_has_access_and_how_to_read_a_result_line(
     untapped = reminder_cards_as_text(f"```{FENCE_LANG}\n{card}\n```")
     marker = ", ".join(untapped.split(", ")[:2])  # "Card offered, not tapped"
     assert marker in TODO_HINT
+
+
+_REGISTRY = Path(__file__).resolve().parents[5] / "mobile" / "lib" / "fence" / "registry.ts"
+
+
+def test_every_card_the_phone_draws_is_no_code() -> None:
+    from app.modules.todos.offer_reply import CARD_LANGS
+
+    found = {
+        lang.strip().strip("\"'")
+        for match in re.finditer(r"langs:\s*\[([^\]]*)\]", _REGISTRY.read_text(encoding="utf-8"))
+        for lang in match.group(1).split(",")
+        if lang.strip()
+    }
+    assert {"quiz", "steps", "math"} <= found
+    assert found <= CARD_LANGS, sorted(found - CARD_LANGS)
+
+
+_STEPS = "```steps\n1. **Plan** — pick a topic\n2. **Start** — 20 minutes\n```"
+_QUIZ = '```quiz\n{"question": "Mass number?", "options": ["17", "35"], "answer": 1}\n```'
+
+
+@pytest.mark.parametrize("card", [_STEPS, _QUIZ, "```math\nx = 2\n```"])
+def test_an_offer_under_the_apps_card_is_still_an_offer(card: str) -> None:
+    prior = f"Here's the plan:\n\n{card}\n\nWant me to remind you to start this tomorrow?"
+    assert accepted_reminder_offer("yes", prior)
+
+
+def test_an_offer_under_code_is_no_reminder() -> None:
+    prior = 'Here:\n\n```tsx\n<input name="due" />\n```\n\nShould I add it to your list?'
+    assert accepted_reminder_offer("yes", prior) is None
+
+
+def test_a_reply_holding_a_card_keeps_it_and_loses_its_claim() -> None:
+    reply = f"Here's your quiz, and I've set the reminder for tomorrow at 7 PM.\n\n{_QUIZ}"
+    out = reply_to_accepted_offer(reply, "Want me to remind you to revise tomorrow?")
+    assert _QUIZ in out and out.endswith(NEED_A_TIME)
+    assert "set the reminder" not in out and "7 PM" not in out
+
+
+@pytest.mark.parametrize(
+    "offer",
+    [
+        "Want a quiz on this, or should I set a reminder to review it tomorrow?",
+        "Should I remind you at 9, or would you rather pick your own time?",
+    ],
+)
+def test_a_yes_to_one_of_several_choices_keeps_a_reply_that_claims_nothing(offer: str) -> None:
+    reply = "Yes! Want me to go deeper on isotopes first?"
+    assert reply_to_accepted_offer(reply, offer) == reply
+    assert reply_to_accepted_offer("Done, it's set for tomorrow.", offer) == NEED_A_TIME
+
+
+@pytest.mark.parametrize(
+    "offer",
+    ["Want me to remind you at 7 or 8?", "Want me to set a reminder for Monday or Tuesday?"],
+)
+def test_two_times_for_the_one_reminder_are_no_choice_of_offers(offer: str) -> None:
+    assert reply_to_accepted_offer("Sounds good!", offer) == f"Sounds good!\n\n{NEED_A_TIME}"

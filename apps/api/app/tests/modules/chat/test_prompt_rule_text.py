@@ -68,10 +68,12 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # a chat already showed listed whole and a card's answer graded by the server (practice), the
 # steps card restated beside a how-to's message (STEPS_CONTRACT), READER_NOTE's numbered list
 # yielding to it, and a yes to another offer after a lesson's card done, beside the message
-# when the read says it is one (LESSON_ASIDE_NOTE) (review, 2026-11-14).
-_RULES = 189
-_RULE_GRAMS = 16959
-_RULE_GRAMS_SHA = "46dd1fa91f5ae0b4"
+# when the read says it is one (LESSON_ASIDE_NOTE) (review, 2026-11-14); then a pick after
+# a question offering choices taken among them, the list above it the other reading
+# (prompt_constants.list_reference, UNCLEAR_MESSAGE_HINT).
+_RULES = 190
+_RULE_GRAMS = 17033
+_RULE_GRAMS_SHA = "c5193522fba30134"
 
 
 def _rules() -> list[str]:

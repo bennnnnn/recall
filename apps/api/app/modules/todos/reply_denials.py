@@ -28,7 +28,7 @@ _CANNOT = (
 # What may follow "reminders" in a denial of them all: an end, or words that place nothing.
 _END = r"(?=\s*(?:[.,;!:)]|$))"
 _ALL_OF_THEM = (
-    rf"(?:\s+(?:from here|here|for you|in (?:this|the) (?:chat|app)|right now|myself|though"
+    rf"(?:\s+(?:from here|here|for you|(?:in|from) (?:this|the) (?:chat|app)|right now|myself|though"
     rf"|anymore|on my own))*{_END}"
 )
 _DENIAL = re.compile(
