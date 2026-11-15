@@ -105,11 +105,25 @@ def _differentiation_steps(parsed: Any, sym: Any, result_latex: str) -> list[str
 MAX_DERIVATIVE_ORDER = 4
 
 
+def require_variable(parsed: Any, variable: str) -> None:
+    """Refuse to work an expression in letters with respect to one it does not contain.
+
+    Its derivative is 0 and its integral the expression times the variable, true only if
+    every letter in it is a constant, and the question meant one of them: with respect to
+    x, "Differentiate k sin θ" was a checked 0 and "Integrate a cos θ" a checked
+    a·x·cos θ + C (2026-11-14). A number alone (``∫ 5 dx``) has no letter to mean.
+    """
+    names = {str(symbol) for symbol in getattr(parsed, "free_symbols", ())}
+    if names and variable not in names:
+        raise SolveServiceError("the expression does not contain the variable")
+
+
 def differentiate_expression(expr: str, variable: str = "x", order: int = 1) -> MathExprResult:
     if order < 1 or order > MAX_DERIVATIVE_ORDER:
         raise SolveServiceError("unsupported derivative order")
     sym = Symbol(variable)
     parsed = parse_expression(expr, [variable])
+    require_variable(parsed, variable)
     result = diff(parsed, sym, order)
     result_latex = derivative_latex(result)
     if order == 1:
@@ -142,6 +156,11 @@ def differentiate_at_point(expr: str, variable: str, point: str) -> MathExprResu
     """Evaluate the two-sided derivative definition at a named real point."""
     sym = Symbol(variable, real=True)
     parsed = parse_expression(expr, [variable], real=True)
+    if {str(symbol) for symbol in parsed.free_symbols} - {variable}:
+        # Another letter leaves the limits' finiteness unknown: "the derivative of k x^2 at
+        # x = 1" was a checked "undefined" for 2k (2026-11-14), and with respect to x,
+        # "of a t^2 at x = 1" a checked 0. A higher derivative at a point declines the same.
+        raise SolveServiceError("a derivative at a point is worked in its variable alone")
     at = parse_expression(point, [variable], real=True)
     quotient = simplify((parsed - parsed.subs(sym, at)) / (sym - at))
     try:
@@ -191,6 +210,7 @@ def _absolute_logs(antiderivative: Any, integrand: Any, sym: Any) -> Any:
 def integrate_expression(expr: str, variable: str = "x") -> MathExprResult:
     sym = Symbol(variable)
     parsed = parse_expression(expr, [variable])
+    require_variable(parsed, variable)
     result = _absolute_logs(integrate(parsed, sym), parsed, sym)
     # integrate() can fail to find a closed form and hand back a result that
     # still contains an unevaluated Integral(...) rather than raising —
@@ -259,6 +279,7 @@ def integrate_definite(expr: str, variable: str, lower: str, upper: str) -> Math
     """
     sym = Symbol(variable)
     parsed = parse_expression(expr, [variable])
+    require_variable(parsed, variable)
     a = _parse_infinity_aware_point(lower)
     b = _parse_infinity_aware_point(upper)
     try:

@@ -354,6 +354,9 @@ def implicit_derivative(lhs: str, rhs: str, independent: str = "x", dependent: s
         out = idiff(left - right, Symbol(dependent), Symbol(independent))
     except Exception as exc:
         raise SolveServiceError("could not implicitly differentiate") from exc
+    if out.has(zoo, nan, oo, -oo):
+        # ``y = x^2 + y`` leaves no y to solve for: idiff divides by 0 (``zoo·x``).
+        raise SolveServiceError("the equation does not determine dy/dx")
     return format_verified_latex(simplify(out))
 
 

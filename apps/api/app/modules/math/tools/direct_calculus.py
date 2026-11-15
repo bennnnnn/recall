@@ -10,6 +10,7 @@ from app.modules.math.schemas import MathIntent
 from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.tools.expr_rewrite import math_expr_or_none
 from app.modules.math.tools.extract import extract_math_intent
+from app.modules.math.tools.extractors.calculus_variable import implied_variable
 from app.modules.math.tools.request_text import _split_response_instruction_sentence
 from app.services.number_text import bounded_decimal
 from app.services.text_match import parens_balanced
@@ -105,13 +106,9 @@ def _matches_expression(actual: MathIntent, raw: str) -> bool:
     return expected is not None and _compact(actual.expr or "") == _compact(expected)
 
 
-def _variable(expr: str, explicit: str | None) -> str:
-    from app.modules.math.solve import guess_variables
-
-    if explicit is not None:
-        return explicit
-    variables = guess_variables(expr)
-    return variables[0] if len(variables) == 1 else "x"
+def _variable(expr: str, explicit: str | None) -> str | None:
+    """The extractor's own reading of the variable, so the two agree on what was asked."""
+    return explicit if explicit is not None else implied_variable(expr)
 
 
 def _limit_request(request: str, actual: MathIntent) -> bool:
