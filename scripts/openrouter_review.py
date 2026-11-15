@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import urllib.error
@@ -127,11 +128,14 @@ def _bundle(paths: list[Path]) -> str:
 
 def pr_material(base: str, head: str) -> str:
     diff = _git("diff", "--unified=5", f"{base}...{head}")
-    changed = [Path(p) for p in _git("diff", "--name-only", f"{base}...{head}").split()]
+    if len(diff) > MAX_CODE_CHARS // 2:
+        cut = "\n… (the diff is cut here for length; the rest is not shown)\n"
+        diff = diff[: MAX_CODE_CHARS // 2] + cut
+    # -z: a path with spaces or non-ASCII letters is one NUL-ended name, never git-quoted.
+    names = _git("diff", "--name-only", "-z", f"{base}...{head}")
+    changed = [Path(p) for p in names.split("\0") if p]
     files = _bundle([p for p in changed if _wanted(p) and (ROOT / p).exists()])
-    return (
-        f"THE DIFF\n{diff[: MAX_CODE_CHARS // 2]}\n\nTHE CHANGED FILES IN FULL\n{files}"
-    )
+    return f"THE DIFF\n{diff}\n\nTHE CHANGED FILES IN FULL\n{files}"
 
 
 def paths_material(targets: list[str]) -> str:
@@ -167,9 +171,16 @@ def ask(model: str, material: str) -> dict:
         with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
             reply = json.load(response)
     except urllib.error.HTTPError as exc:
+        # The status and the error's own message only, never the raw body.
         raise SystemExit(
-            f"OpenRouter answered {exc.code}: {exc.read()[:300]!r}"
-        ) from exc
+            f"OpenRouter answered {exc.code}: {_error_message(exc)}"
+        ) from None
+    except (urllib.error.URLError, TimeoutError) as exc:
+        raise SystemExit(
+            f"OpenRouter could not be reached: {type(exc).__name__}"
+        ) from None
+    except json.JSONDecodeError:
+        raise SystemExit("OpenRouter's answer was not JSON") from None
     choice = reply["choices"][0]
     text = choice["message"].get("content") or ""
     if not text.strip() or choice.get("finish_reason") == "length":
@@ -186,6 +197,22 @@ def ask(model: str, material: str) -> dict:
         found = {"findings": [], "unparsed": text[:4000]}
     found["usage"] = reply.get("usage", {})
     return found
+
+
+def _error_message(exc: urllib.error.HTTPError) -> str:
+    try:
+        message = json.loads(exc.read() or b"{}").get("error", {}).get("message", "")
+    except (json.JSONDecodeError, AttributeError):
+        message = ""
+    return str(message)[:200] or str(exc.reason)
+
+
+def _fenced(text: str) -> list[str]:
+    """``text`` in a code fence longer than any backtick run inside it, so the model's words
+    can never close the fence and render as markup in the PR comment."""
+    longest = max((len(run) for run in re.findall(r"`+", text)), default=0)
+    fence = "`" * max(3, longest + 1)
+    return [fence, text, fence]
 
 
 def markdown(model: str, found: dict) -> str:
@@ -211,9 +238,7 @@ def markdown(model: str, found: dict) -> str:
             "",
             "The model's answer was not JSON:",
             "",
-            "```",
-            found["unparsed"],
-            "```",
+            *_fenced(found["unparsed"]),
         ]
     tokens = f"{usage.get('prompt_tokens', '?')} in / {usage.get('completion_tokens', '?')} out tokens"
     if usage.get("cost") is not None:
