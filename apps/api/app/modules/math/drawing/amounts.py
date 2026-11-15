@@ -15,9 +15,9 @@ import re
 from collections.abc import Callable, Sequence
 from typing import Any
 
+import app.modules.math.solve.shape_formulas as formulas
 from app.modules.math.drawing.question import Question
 from app.modules.math.figure.grounding import unit_name
-from app.modules.math.solve import shape_formulas as formulas
 
 Amounts = Callable[[Sequence[Any], bool], dict[str, Any]]
 
