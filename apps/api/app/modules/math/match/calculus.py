@@ -72,11 +72,11 @@ def _lagrange_prime_run(text: str, prime_at: int) -> tuple[int, int] | None:
         j += 1
     if j < n and text[j].isalpha():
         return None
-    return j, min(j - prime_at, 3)
+    return j, j - prime_at
 
 
 def lagrange_prime_order(text: str) -> int:
-    """Highest Lagrange prime count (``''`` → 2, ``'''`` → 3). 0 if none."""
+    """Highest Lagrange prime count (``''`` → 2, ``''''`` → 4). 0 if none."""
     best = 0
     i = 0
     n = len(text)

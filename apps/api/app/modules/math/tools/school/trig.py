@@ -8,12 +8,13 @@ from dataclasses import replace
 from app.core.config import Settings
 from app.modules.math import match as mtm
 from app.modules.math import school as math_school
-from app.modules.math.function_names import TRIG, function_name_alternation
+from app.modules.math.function_names import TRIG
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.modules.math.tools.expr_rewrite import math_expr_or_none
 from app.modules.math.tools.school.coordinate import extract_sas_area, sas_area_block
 from app.modules.math.tools.school.teaching import _attach_picture
+from app.modules.math.tools.school.trig_degrees import degree_expression_intent
 from app.modules.math.tools.school.trig_equations import bounded_equation_block
 from app.services.number_text import DECIMAL, DECIMAL_LITERAL, SIGNED_DECIMAL
 from app.services.workout import Workout, math_line, render_workout
@@ -49,10 +50,6 @@ _TRIG_PREFIXES = (
 )
 
 
-_DEGREE_TRIG_CALL = re.compile(
-    rf"(?<![A-Za-z])({function_name_alternation(TRIG)})\s*\(\s*({SIGNED_DECIMAL})\s*(?:degrees?|deg|°)\s*\)",
-    re.IGNORECASE,
-)
 _BOUNDED_DEGREE_DOMAIN = re.compile(
     rf"\bfor\s+({SIGNED_DECIMAL})\s*(?:degrees?|deg|°)?\s*(<=|<|≤)\s*"
     rf"([a-zA-Z])\s*(<=|<|≤)\s*({SIGNED_DECIMAL})\s*(?:degrees?|deg|°)"
@@ -153,19 +150,9 @@ def _extract_trig_intent(cleaned: str) -> MathIntent | None:
         if expression.lower().startswith(prefix + " "):
             expression = expression[len(prefix) :].lstrip()
             break
-    rewritten, count = _DEGREE_TRIG_CALL.subn(
-        lambda match: f"{match.group(1).lower()}(({match.group(2)})*pi/180)",
-        expression,
-    )
-    if count >= 2:
-        parsed = math_expr_or_none(rewritten)
-        if parsed is not None:
-            return MathIntent(
-                kind="trig",
-                school_op="expression",
-                expr=parsed,
-                operation="solve",
-            )
+    degrees = degree_expression_intent(expression)
+    if degrees is not None:
+        return degrees
     # The same complete-expression path for exact radian inputs. Degree calls
     # are handled above because their unit must be converted explicitly;
     # ``pi``/``π`` already denotes radians and needs no per-call special case.
@@ -247,6 +234,8 @@ def _extract_trig_intent(cleaned: str) -> MathIntent | None:
             angle_unit = "degrees" if unit in {"degrees", "degree", "deg", "°"} else "radians"
             rest = rest[: -len(unit)].strip()
             break
+    if "°" in rest:  # "sin(30° + 15°)": a mark left inside, never converted twice
+        return None
     arg = math_expr_or_none(rest)
     if arg is None:
         return None

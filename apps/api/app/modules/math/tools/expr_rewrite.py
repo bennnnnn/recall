@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import re
-from string import ascii_letters
 
+from app.modules.math.function_names import GREEK_LETTERS, GREEK_NAMES, names_longest_first
 from app.modules.math.match.letter_runs import looks_like_math_expr
 from app.modules.math.tools.request_text import _MAX_MATH_INPUT, _strip_expr_leadins
 from app.services.text_normalize import collapse_ws
@@ -17,19 +17,28 @@ def _normalize_latex_expr(expr: str) -> str:
     return normalize_latex_to_sympy(expr)
 
 
+# The variable a differential or "with respect to" names: one letter, Latin or Greek (``dθ``;
+# π is a constant), or a Greek letter's name (the keypad's ``\theta`` is ``theta``). Read as
+# Latin only, "∫ x² dθ" was a checked d·x³θ/3 + C and "∫ sin θ dθ" held cos(dθ²) (2026-11-14).
+VARIABLE_NAME = rf"(?:{'|'.join(names_longest_first(GREEK_NAMES))}|[A-Za-z{GREEK_LETTERS}])"
+# Where a differential may end: the expression's end, or the bounds after it.
+_DIFFERENTIAL_END = r"(?=\s+from\b|\s*$)"
+# ``x dx``, ``x d x``, ``x dθ from 0 to 1``.
+_SPACED_DIFFERENTIAL = re.compile(rf"\s+d ?{VARIABLE_NAME}{_DIFFERENTIAL_END}", re.IGNORECASE)
+# ``x^2dx``, ``(x+1)dx``, ``e^(x)dx``: a differential glued to a power or a bracket. Left in,
+# its d was a factor: "∫ x²dx" was a checked d·x⁴/4 + C (2026-11-14). After a letter
+# (``2xdx``) the letters run together and the reading declines.
+_GLUED_DIFFERENTIAL = re.compile(rf"(?<=[\d)\]])d{VARIABLE_NAME}{_DIFFERENTIAL_END}")
+
+
 def _strip_trailing_differential(expr: str) -> str:
     """Peel ``dx`` / ``d x`` so implicit multiplication does not eat the integrand."""
     s = collapse_ws(expr)
     if len(s) > _MAX_MATH_INPUT:
         s = s[:_MAX_MATH_INPUT]
-    lower = s.lower()
-    for token in (f" d{space}{var}" for var in ascii_letters for space in ("", " ")):
-        if lower.endswith(token):
-            return s[: -len(token)].rstrip()
-        marker = token + " from "
-        idx = lower.find(marker)
-        if idx != -1:
-            return (s[:idx] + s[idx + len(token) :]).rstrip()
+    differential = _SPACED_DIFFERENTIAL.search(s) or _GLUED_DIFFERENTIAL.search(s)
+    if differential is not None:
+        return (s[: differential.start()] + s[differential.end() :]).rstrip()
     return s
 
 

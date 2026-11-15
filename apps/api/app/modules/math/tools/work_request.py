@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from app.modules.math.function_names import MATH_FUNCTION_NAMES
 from app.services.glyphs import OPERATOR_GLYPHS
 from app.services.number_text import FRACTION_OR_DECIMAL
+from app.services.script_runs import fold_superscript_runs
 from app.services.student_claim import CLAIM_LEAD
 
 _MAX_TEXT = 1000
@@ -91,15 +92,14 @@ _HINT_CUES: tuple[str, ...] = (
     "i want to finish",
 )
 
-# The operators are the shared table (services/glyphs.py); the rest are this reader's.
+# The operators are the shared table (services/glyphs.py) and raised powers the shared
+# reading (services/script_runs.py); the rest are this reader's.
 _UNICODE = (
     ("\u2019", "'"),
     *OPERATOR_GLYPHS.items(),
     ("\u2264", "<="),
     ("\u2265", ">="),
     ("\u00b1", "+-"),
-    ("\u00b2", "^2"),
-    ("\u00b3", "^3"),
 )
 
 # A new line of work starts after a newline, ";", ", ", a sentence end, an
@@ -297,6 +297,7 @@ def _and_pieces(segment: str) -> list[str]:
 
 
 def _normalize(text: str) -> str:
+    text = fold_superscript_runs(text)
     for glyph, replacement in _UNICODE:
         text = text.replace(glyph, replacement)
     # "1. 2x + 3 = 11": the list number's period is not a sentence end.

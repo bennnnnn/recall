@@ -584,6 +584,36 @@
       "value": "1/1048576"
     },
     {
+      "id": "raised-square",
+      "draft": "3²+1",
+      "sympy": "3**2+1",
+      "value": "10"
+    },
+    {
+      "id": "raised-negative",
+      "draft": "2⁻¹",
+      "sympy": "2**(-1)",
+      "value": "1/2"
+    },
+    {
+      "id": "raised-sum",
+      "draft": "2³⁺¹",
+      "sympy": "2**(3+1)",
+      "value": "16"
+    },
+    {
+      "id": "raised-in-keys",
+      "draft": "$10⁻²\\times 5$",
+      "sympy": "10**(-2)*5",
+      "value": "1/20"
+    },
+    {
+      "id": "raised-sum-on-ten",
+      "draft": "10²⁺¹",
+      "sympy": "10**(2+1)",
+      "value": "1000"
+    },
+    {
       "id": "percent-after-plus",
       "draft": "$50+10\\%$",
       "sympy": null,
@@ -736,6 +766,13 @@
       "sympy": null,
       "value": null,
       "why": "calculus"
+    },
+    {
+      "id": "raised-letter",
+      "draft": "2ˣ",
+      "sympy": null,
+      "value": null,
+      "why": "a letter: 2 to the power x"
     }
   ]
 }
