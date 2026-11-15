@@ -46,6 +46,42 @@ _OFFER = re.compile(
 # The reply's sentences that ask; the offer is the last one, near the end.
 _QUESTION = re.compile(r"[^.!?\n]*\?")
 _TAIL_CHARS = 240
+# Every fence the phone draws as a card (``apps/mobile/lib/fence/registry.ts``, held to it by
+# test_reminder_offers), the server's worked layout and its reminder card. Any other fence
+# holds code: "Should I add a reminder field to the form?" under a ```tsx block offers code.
+# A lesson's ```steps or ```quiz card is no code: an offer under one is still an offer
+# (review 2026-11-15: a yes to "remind you to start this tomorrow?" under a steps card got
+# "I'll set the reminder…" with nothing made, and "use your phone app").
+CARD_LANGS = frozenset(
+    {
+        "3dmol", "answer", "arithmetic", "array", "blockquote", "calculator", "callout",
+        "caption", "chart", "chem_scene", "chemistry", "clarify", "clock", "compare",
+        "comparison", "copy", "email", "facebook", "fb", "fields", "final", "geometry", "graph",
+        "ig", "important", "info", "insta", "instagram", "keyvalue", "kv", "latex", "linkedin",
+        "math", "mermaid", "message", "mol3d", "molecule", "molecule3d", "note", "places",
+        "plot", "pros", "quiz", "quote", "reply", "result", "simulation", "smiles", "sms",
+        "social", "sources", "step", "steps", "tex", "threads", "tiktok", "time", "tip",
+        "tweet", "twitter", "vega", "vega-lite", "warning", "x", "worked", CARD_FENCE,
+    }
+)  # fmt: skip
+# "Want a quiz on this, or should I set a reminder?": the reminder is one of the choices.
+# "…at 7 or 8?" is the reminder's own: the other side is too short to be another offer.
+_OR = re.compile(r",?\s+or\s+", re.IGNORECASE)
+_CHOICE_WORDS = 3
+
+
+def holds_code(text: str) -> bool:
+    """Whether ``text`` holds a fence the app does not draw as a card: code."""
+    return any(fence.lang.lower() not in CARD_LANGS for fence in iter_fences(text))
+
+
+def offers_a_choice(offer: str) -> bool:
+    """Whether the question offers the reminder as one of several things, so a bare yes
+    accepts none of them for certain."""
+    parts = _OR.split(offer.rstrip(" ?"))
+    return len(parts) > 1 and any(
+        not _OFFER.search(part) and len(part.split()) >= _CHOICE_WORDS for part in parts
+    )
 
 
 def accepted_reminder_offer(user_text: str | None, prior_assistant: str | None) -> str | None:
@@ -53,13 +89,14 @@ def accepted_reminder_offer(user_text: str | None, prior_assistant: str | None) 
 
     Only a bare yes counts ("yes", "sure", "go ahead"): "yes but make it 8" changes
     the offer and is read as its own words. A reply holding code offers code ("Should I
-    add a reminder field to the form?"), whatever its words.
+    add a reminder field to the form?"), whatever its words; a lesson's or a sum's card is
+    no code.
     """
     from app.modules.turn_reading.routing import is_short_confirmation
 
     if not user_text or not prior_assistant or not is_short_confirmation(user_text):
         return None
-    if any(fence.lang != CARD_FENCE for fence in iter_fences(prior_assistant)):
+    if holds_code(prior_assistant):
         return None
     tail = prior_assistant.rstrip()[-_TAIL_CHARS:]
     questions = _QUESTION.findall(tail)
