@@ -126,8 +126,11 @@ async def write_for_a_picture(ctx: StreamContext, settings: Settings) -> None:
     "graph"; "show" alone asks for no picture)."""
     if ctx.instant_reply is None or not isinstance(ctx.verified_subject, VerifiedMathBlock):
         return
-    if _figure() is None or not settings.draw_descriptions_enabled or not _asks_in_words(ctx):
+    figure = _figure()
+    if figure is None or not settings.draw_descriptions_enabled or not _asks_in_words(ctx):
         return
+    if figure.shown(ctx.verified_subject):
+        return  # the card already draws the picture ("Graph y = x² and y = 2x")
     read = _read_in(ctx)
     if read is not None:
         asks = read_asks_for_a_picture(read)

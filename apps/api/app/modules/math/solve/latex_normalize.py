@@ -86,15 +86,18 @@ def _rewrite_inverse_functions(s: str) -> str:
 _BAR_OPENS_AFTER = frozenset({"", "(", "[", "{", "+", "-", "*", "/", "^", "=", ",", "<", ">"})
 
 
-def rewrite_abs_bars(expr: str) -> str:
+def rewrite_abs_bars(expr: str, *, apart: bool = False) -> str:
     """Rewrite ``|inner|`` → ``Abs(inner)``, nested bars too (``||x| - 2|``), in one pass.
 
     A bar opens where none is open or after an operator, an opening bracket or a comparison,
     and otherwise closes the last one open: ``|x - 2| < 5``, ``x²|9 - x²|`` (a product: the
-    bar opens after a letter only when none is open). An opening right after a letter, a
-    digit or a bracket is set apart by a space, so ``ln|x|`` reads ``ln Abs(x)``, never one
-    name. Bare pipes are rejected by the expression allowlist; converting first lets homework
-    like ``|x-2|<5`` reach SymPy without loosening ``_SAFE_EXPR_CHARS``. Bars that do not pair
+    bar opens after a letter only when none is open). ``apart``: an opening right after a
+    letter, a digit or a bracket is set apart by a space, so ``ln|x|`` reads ``ln Abs(x)``
+    (a graph's reader); the solver's own reading keeps ``lnAbs(x)``, a function it does not
+    model, and declines it (``test_math_unmodeled_functions``).
+
+    Bare pipes are rejected by the expression allowlist; converting first lets homework like
+    ``|x-2|<5`` reach SymPy without loosening ``_SAFE_EXPR_CHARS``. Bars that do not pair
     (one left open) leave the text as it is (still rejected later).
     """
     out: list[str] = []
@@ -106,7 +109,8 @@ def rewrite_abs_bars(expr: str) -> str:
             last = last if ch.isspace() else ch
             continue
         if depth == 0 or last in _BAR_OPENS_AFTER:
-            out.append(" Abs(" if last.isalnum() or last in {")", "]"} else "Abs(")
+            spaced = apart and (last.isalnum() or last in {")", "]"})
+            out.append(" Abs(" if spaced else "Abs(")
             depth += 1
             last = "("
         else:

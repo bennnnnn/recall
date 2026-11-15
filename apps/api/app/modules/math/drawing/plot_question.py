@@ -69,7 +69,7 @@ def plain(text: str) -> str:
     for glyph, written in _READER_GLYPHS.items():
         out = out.replace(glyph, written)
     out = rewrite_unicode_sqrts(rewrite_unicode_script_runs(out))
-    return _DIFFERENTIAL.sub("", rewrite_abs_bars(out))
+    return _DIFFERENTIAL.sub("", rewrite_abs_bars(out, apart=True))
 
 
 @dataclass(frozen=True)
