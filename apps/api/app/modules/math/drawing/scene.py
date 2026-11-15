@@ -35,6 +35,8 @@ from app.modules.math.figure.drawing import length_label
 from app.modules.math.figure.shape_names import names_shape
 
 MAIN = frozenset({"box", "sphere", "polygon", "plane"})
+# A value the reply gives a letter is rounded ("d = 10.44" for √109): one in a hundred.
+_ROUNDED = 0.01
 _PART_LABEL = re.compile(r"\(\s*[a-z]\s*\)|(?<![\w)])[a-z]\)")
 ORIGIN = "O"
 _BOX_SIZE = (Fraction(3), Fraction(4), Fraction(2))
@@ -100,8 +102,20 @@ def _dot(a: Triple, b: Triple) -> Fraction:
     return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 
 
-def _named(name: str, question: Question) -> bool:
-    return all(letter in question.letters for letter in name if letter.isalpha())
+def _named(name: str, question: Question, at: Triple | None = None) -> bool:
+    """A name shown on the picture: letters the question or the reply names, and never the
+    name the question gives another triple ("A(0, 0, 3)": (2, 8, 1) is no A)."""
+    lettered = all(letter in question.letters for letter in name if letter.isalpha())
+    return lettered and (at is None or question.names_right(name, at))
+
+
+def _its_value(letter: str, size: float, question: Question, slack: float) -> bool:
+    """A letter on a length or an angle is the reply's name for it: the reply works that
+    letter out to this size. Round 3's c079 labelled P to the centre "d", the reply's
+    shortest distance, which is only the part outside the sphere."""
+    return any(
+        abs(value - size) <= slack * max(1.0, abs(size)) for value in question.value_of(letter)
+    )
 
 
 def _point(item: SpacePoint, scene: Scene, question: Question) -> bool:
@@ -112,7 +126,7 @@ def _point(item: SpacePoint, scene: Scene, question: Question) -> bool:
         return False
     scene.place(at, item.name)
     scene.dots.add(item.name)
-    if _named(item.name, question):
+    if _named(item.name, question, at):
         scene.shown.add(item.name)
     if item.guides and any(at):
         scene.guides.append(item.name)
@@ -157,7 +171,7 @@ def _box(item: SpaceBox, scene: Scene, question: Question) -> bool:
         if name and name in scene.points and scene.points[name] != corner:
             return False
         corners.append(scene.place(corner, name))
-        if name and _named(name, question):
+        if name and _named(name, question, corner):
             scene.shown.add(name)
     box = Box(corners, labels)
     for diagonal in item.diagonals:
@@ -265,7 +279,7 @@ def _sphere(item: SpaceSphere, scene: Scene, question: Question) -> bool:
         centre, radius_squared = found
     if any(centre):
         name = item.name if item.name and item.name not in scene.points else ""
-        if name and _named(name, question):
+        if name and _named(name, question, centre):
             scene.shown.add(name)
         name = scene.place(centre, name)
     else:
@@ -293,7 +307,8 @@ def _vector(item: SpaceVector, scene: Scene, question: Question) -> bool:
         )
     if start == tip:
         return False
-    scene.arrows.append((start, tip, item.name if _named(item.name, question) else None))
+    way = _minus(scene.points[tip], scene.points[start])
+    scene.arrows.append((start, tip, item.name if _named(item.name, question, way) else None))
     scene.tips[item.name] = tip
     return True
 
@@ -303,11 +318,16 @@ def _segment(item: SpaceSegment, scene: Scene, question: Question) -> bool:
         return False
     label = read_length(item.label, question) if item.label else None
     text = label.text if label is not None else None
+    gap = _minus(scene.points[item.end], scene.points[item.start])
+    length = math.sqrt(float(_dot(gap, gap)))
     if label is not None and label.value is not None:
-        gap = _minus(scene.points[item.end], scene.points[item.start])
-        if abs(float(_dot(gap, gap)) - label.value**2) > 1e-6 * max(1.0, label.value**2):
+        if abs(length - label.value) > 1e-6 * max(1.0, label.value):
             text = None  # a stated value that is not this segment's length
-    elif label is not None and label.coefficient != 1:
+    elif label is not None and (
+        label.coefficient != 1
+        or label.letter is None
+        or not _its_value(label.letter, length, question, _ROUNDED)
+    ):
         text = None
     scene.segments.append((item.start, item.end, text))
     return True
@@ -343,6 +363,12 @@ def _angle(item: SpaceAngle, scene: Scene, question: Question) -> bool:
     size = math.degrees(math.acos(max(-1.0, min(1.0, cosine))))
     right = _dot(u, v) == 0
     label = None if right else read_angle(item.label, question, size)
+    if (
+        label is not None
+        and not label[0].isdigit()
+        and not _its_value(label, size, question, _ROUNDED)
+    ):
+        label = None
     scene.angles.append((item.at, ends[0], ends[1], label, right))
     return True
 

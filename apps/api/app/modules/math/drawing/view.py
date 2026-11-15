@@ -32,6 +32,8 @@ _APART = 0.03
 # A point outside a sphere is drawn at least this far outside its outline, as a share of
 # the radius.
 _OUTSIDE = 0.03
+# Named points nearer than this share of the drawing crowd each other's letters.
+_NAMES_APART = 0.08
 # An arrow drawn shorter than this share of its length reads as another length.
 _SHORTEST = 0.6
 # Arrows from one point closer than this in direction read as one.
@@ -110,15 +112,44 @@ def _turn(a: Point, b: Point) -> float:
     return math.acos(max(-1.0, min(1.0, cosine)))
 
 
+def _lines(scene: Scene) -> list[tuple[float, float, float]]:
+    """The scene's segments and box diagonals, each as the way from one end to the other."""
+    pairs = [(a, b) for a, b, _label in scene.segments]
+    pairs += [(box.corners[i], box.corners[j]) for box in scene.boxes for i, j in box.diagonals]
+    ways = []
+    for a, b in pairs:
+        p, q = floats(scene.points[a]), floats(scene.points[b])
+        ways.append((q[0] - p[0], q[1] - p[1], q[2] - p[2]))
+    return ways
+
+
+def _short(view: View, way: tuple[float, float, float]) -> float:
+    """How much shorter than it is a line is drawn, past what reads as its length."""
+    length = math.sqrt(sum(w * w for w in way))
+    return max(0.0, _SHORTEST - math.hypot(*view(way)) / length) if length else 0.0
+
+
+def _crowded_names(scene: Scene, view: View) -> float:
+    """Named points drawn so near each other that their letters read as one another's."""
+    flat = [view(floats(scene.points[name])) for name in scene.shown]
+    size = span(scene, view)
+    return sum(
+        1.0
+        for i, a in enumerate(flat)
+        for b in flat[i + 1 :]
+        if math.dist(a, b) < _NAMES_APART * size
+    )
+
+
 def _penalty(scene: Scene, view: View) -> float:
     """How far a view falls short of clear: 0 for none."""
-    penalty = 0.0
+    penalty = sum(_short(view, way) for way in _lines(scene)) + _crowded_names(scene, view)
     rays = _rays(scene)
     arrows = len(scene.arrows)
     for i, (start, way) in enumerate(rays[:arrows]):
         flat = view(way)
         length = math.sqrt(sum(w * w for w in way))
-        penalty += max(0.0, _SHORTEST - math.hypot(*flat) / length)
+        penalty += _short(view, way)
         for other_start, other in rays[:i] + rays[i + 1 :]:
             if other_start != start:
                 continue

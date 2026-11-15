@@ -68,7 +68,15 @@ def _name(value: Any) -> str:
 
 
 Name = Annotated[str, BeforeValidator(_name)]
-Label = Annotated[str, Field(max_length=_LABEL_CHARS)]
+
+
+def _label(value: Any) -> str:
+    """A label too long to be one ("floor diagonal") is no label: the part is still drawn."""
+    text = str(value if value is not None else "").strip()
+    return text if len(text) <= _LABEL_CHARS else ""
+
+
+Label = Annotated[str, BeforeValidator(_label)]
 Triple = Annotated[tuple[float, float, float], AfterValidator(_finite)]
 Pair = Annotated[tuple[float, float], AfterValidator(_finite)]
 

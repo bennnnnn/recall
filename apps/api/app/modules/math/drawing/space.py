@@ -12,7 +12,7 @@ from __future__ import annotations
 import math
 
 from app.modules.math.drawing.arrows import arrowhead, axis
-from app.modules.math.drawing.scene import BOX_FACES, ORIGIN, Scene
+from app.modules.math.drawing.scene import BOX_FACES, ORIGIN, Box, Scene
 from app.modules.math.drawing.view import View, clearest_view, floats, span
 from app.modules.math.figure.drawing import Drawing, number_text
 from app.modules.math.figure.solids import ELLIPSE
@@ -91,15 +91,33 @@ _PARALLEL = (
 )
 
 
+def _seen(box: Box, scene: Scene, view: View) -> list[bool]:
+    """Which of the box's faces the reader sees."""
+    corners = [floats(scene.points[name]) for name in box.corners]
+    middle = [sum(c[k] for c in corners) / 8 for k in range(3)]
+    seen = []
+    for face in BOX_FACES:
+        centre = [sum(corners[i][k] for i in face) / 4 for k in range(3)]
+        outward = [centre[k] - middle[k] for k in range(3)]
+        seen.append(sum(o * t for o, t in zip(outward, view.toward, strict=True)) > 1e-9)
+    return seen
+
+
+def _hidden(scene: Scene, view: View, a: str, b: str) -> bool:
+    """A line between two corners of a box that lies across no face the reader sees: through
+    the box, or across a face behind it, it is dashed like a hidden edge."""
+    for box in scene.boxes:
+        if a in box.corners and b in box.corners:
+            i, j = box.corners.index(a), box.corners.index(b)
+            faces = zip(BOX_FACES, _seen(box, scene, view), strict=True)
+            return not any(visible and i in face and j in face for face, visible in faces)
+    return False
+
+
 def _boxes(drawing: Drawing, scene: Scene, view: View, names: dict[str, str]) -> None:
     for box in scene.boxes:
         corners = [floats(scene.points[name]) for name in box.corners]
-        middle = [sum(c[k] for c in corners) / 8 for k in range(3)]
-        seen = []
-        for face in BOX_FACES:
-            centre = [sum(corners[i][k] for i in face) / 4 for k in range(3)]
-            outward = [centre[k] - middle[k] for k in range(3)]
-            seen.append(sum(o * t for o, t in zip(outward, view.toward, strict=True)) > 1e-9)
+        seen = _seen(box, scene, view)
         edges: dict[tuple[int, int], bool] = {}
         for face, visible in zip(BOX_FACES, seen, strict=True):
             for i, a in enumerate(face):
@@ -122,13 +140,9 @@ def _boxes(drawing: Drawing, scene: Scene, view: View, names: dict[str, str]) ->
             drawing.line(
                 names[box.corners[a]], names[box.corners[b]], labels.get((a, b)), dashed=not visible
             )
-        # A diagonal is in sight only across a face the reader sees; one through the box, or
-        # across a face behind it, is dashed like a hidden edge.
         for a, b in box.diagonals:
-            on_view = any(
-                v and a in face and b in face for face, v in zip(BOX_FACES, seen, strict=True)
-            )
-            drawing.line(names[box.corners[a]], names[box.corners[b]], dashed=not on_view)
+            hidden = _hidden(scene, view, box.corners[a], box.corners[b])
+            drawing.line(names[box.corners[a]], names[box.corners[b]], dashed=hidden)
         drawing.faces += [
             [names[box.corners[i]] for i in face]
             for face, v in zip(BOX_FACES, seen, strict=True)
@@ -170,8 +184,11 @@ def draw_scene(scene: Scene) -> FigureSpec | None:
         drawing.line(names[start], names[tip], label)
         arrowhead(drawing, drawing.at(names[start]), drawing.at(names[tip]), size, names[tip])
     for a, b, label in scene.segments:
-        if not _drawn(drawing, names[a], names[b]) or label:
-            drawing.line(names[a], names[b], label)
+        drawn = drawing.side_of(names[a], names[b])
+        if drawn is None:
+            drawing.line(names[a], names[b], label, dashed=_hidden(scene, view, a, b))
+        elif label:
+            drawn.label = label
     for face in scene.faces:
         corners = [names[name] for name in face]
         for i, corner in enumerate(corners):

@@ -49,6 +49,18 @@ _GREEK = {
 _TERM = re.compile(r"(?<![\w.])(\d+(?:\.\d+)?)\*?([A-Za-z])(?![A-Za-z])")
 # A letter set equal to a multiple of another: "h = 3r", "w = 2x".
 _RELATION = re.compile(r"(?<![A-Za-z\\])[A-Za-z]\s*=\s*\d+(?:\.\d+)?\*?[A-Za-z](?![A-Za-z])")
+# A letter naming a triple: "A(0, 0, 3)", "p = (2, 5, 6)", "a = 2i + j + 3k" (to the line's end
+# or the next comma-free stop).
+_NAMED = re.compile(
+    r"(?<![A-Za-z\\])([A-Za-z])\s*(?:=\s*)?((?:[(<\u27e8][^()<>\u27e8\u27e9]*[)>\u27e9])"
+    r"|(?:[-+]?\s*\d*(?:\.\d+)?\s*\*?\s*[ijk](?![A-Za-z])\s*){2,3})"
+)
+# The reply giving a letter a value: "d = 2", "$D = 10.44\,\mathrm{m}$", "d = \sqrt{109}",
+# "\theta \approx 70.53^\circ" (never a term of a formula: "x = 2x + 1", "d = 3 - 1").
+_GIVEN = re.compile(
+    r"(?<![A-Za-z\\_{])(\\theta|\u03b8|[A-Za-z])\s*(?:=|\\approx|\u2248)\s*"
+    r"(?:(\d+(?:\.\d+)?)(?![\d.A-Za-z])(?!\s*[+\-*/^(])|\\sqrt\{(\d+)\}(?!\s*[+\-*/^]))"
+)
 # A value given a letter: "r = 5 cm", "h=12".
 _ASSIGNED = re.compile(r"(?<![A-Za-z\\])([A-Za-z])\s*=\s*(\d+(?:\.\d+)?)(?![\d.A-Za-z])")
 # The words that say which part a stated size is, and how near the number they stand.
@@ -78,6 +90,10 @@ class Question:
     # value it gives a letter ("r = 5 cm": ("r", 5)).
     relations: frozenset[str]
     assigned: frozenset[tuple[str, Fraction]]
+    # The triples the question names ("P(4, -3, 5)", "a = 2i + j + 3k"), and the values the
+    # reply works out for its letters ("d = 2").
+    named: frozenset[tuple[str, Triple]]
+    reply_values: frozenset[tuple[str, float]]
     words: str
     texts: tuple[str, ...]
 
@@ -94,14 +110,21 @@ class Question:
         return found
 
     def states_triple(self, triple: Triple) -> bool:
-        """A point the question places, or its foot on an axis or a coordinate plane: each
-        coordinate is the stated one or 0 ((4, 0, 0) beneath P(4, -3, 5))."""
-        if all(value == 0 for value in triple):
-            return True
-        return any(
-            all(mine in {theirs, 0} for mine, theirs in zip(triple, stated, strict=True))
-            for stated in self.triples
-        )
+        """A point the question places, or the origin. A point it does not ((4, 0, 0) below
+        P(4, -3, 5)) is the reply's reading: round 3's c081 drew a foot under P as one of the
+        two points √12 from it."""
+        return all(value == 0 for value in triple) or triple in self.triples
+
+    def names_right(self, name: str, triple: Triple) -> bool:
+        """``name`` is no other triple's: "A(0, 0, 3)" makes (2, 8, 1) no A, and "a = 2i + j +
+        3k" makes (-3, 4, -1) no a."""
+        named = {written for letter, written in self.named if letter == name}
+        others = {letter for letter, written in self.named if written == triple}
+        return (not named or triple in named) and (not others or name in others)
+
+    def value_of(self, letter: str) -> set[float]:
+        """The values the reply works out for ``letter`` ("d = 2", "D = \\sqrt{109}")."""
+        return {value for name, value in self.reply_values if name == letter}
 
 
 def _one_number(part: str) -> Fraction | None:
@@ -133,6 +156,28 @@ def written_triples(text: str) -> set[Triple]:
     return found
 
 
+def named_triples(text: str) -> set[tuple[str, Triple]]:
+    """The triples a text names: "A(0, 0, 3)", "p = (2, 5, 6)", "a = 2i + j + 3k"."""
+    found: set[tuple[str, Triple]] = set()
+    for match in _NAMED.finditer(text.replace("\u2212", "-")):
+        for triple in written_triples(match.group(2)):
+            found.add((match.group(1), triple))
+    return found
+
+
+def _reply_values(reply: str) -> set[tuple[str, float]]:
+    """Each value the reply's working gives a letter: "d = 2", "D = 10.44 m", "d = \\sqrt{109}"."""
+    found: set[tuple[str, float]] = set()
+    degrees = reply.replace("^{\\circ}", "\u00b0").replace("^\\circ", "\u00b0")
+    for written, number, root in _GIVEN.findall(degrees):
+        letter = "\u03b8" if written == "\\theta" else written
+        if number:
+            found.add((letter, float(number)))
+        elif root:
+            found.add((letter, float(root) ** 0.5))
+    return found
+
+
 def _letters(text: str) -> set[str]:
     found: set[str] = set()
     for match in _LETTER.finditer(text):
@@ -160,6 +205,8 @@ def read_question(texts: Sequence[str], reply: str) -> Question:
     terms = frozenset(
         f"{Fraction(number)}{letter}" for text in texts for number, letter in _TERM.findall(text)
     )
+    named = frozenset(pair for text in own for pair in named_triples(text))
+    reply_values = frozenset(_reply_values(reply))
     relations = frozenset(match.group() for text in texts for match in _RELATION.finditer(text))
     assigned = frozenset(
         (letter, Fraction(value)) for text in own for letter, value in _ASSIGNED.findall(text)
@@ -174,6 +221,8 @@ def read_question(texts: Sequence[str], reply: str) -> Question:
         terms,
         relations,
         assigned,
+        named,
+        reply_values,
         words,
         tuple(own),
     )

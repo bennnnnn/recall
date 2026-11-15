@@ -51,6 +51,10 @@ def test_draw_corpus_draws_or_leaves_out(entry: dict[str, Any]) -> None:
     assert Counter(labels) == Counter(expected)
     marks = [label for label in _labels(body) if label in {"right", "arc"}]
     assert Counter(marks) == Counter(m for m in entry["labels"] if m in {"right", "arc"})
+    if entry.get("shown") is not None:
+        # The question's letters, each on its own point and on no other.
+        named = {point["name"] for point in body["points"] if point.get("show")}
+        assert named & set("ABCDPQ") == set(entry["shown"])
 
 
 def test_draw_corpus_holds_both_outcomes_and_both_kinds() -> None:
