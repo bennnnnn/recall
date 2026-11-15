@@ -113,7 +113,6 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "instant_usage",
         "close_fences",
         "clarify_card",
-        "steps_flow",
         "new_practice",
         "lesson_shape",
         "requested_json",

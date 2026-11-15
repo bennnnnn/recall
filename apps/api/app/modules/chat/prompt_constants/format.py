@@ -51,8 +51,21 @@ STEPS_FORMAT_HINT = (
     "step it applies to, never a step after it. A method from school or work (balancing an "
     "equation, long division) gets one short worked example after the card. Add a one-line "
     "tip at the end only if it helps. No headings for a short task. A goal reached in several "
-    "independent ways rather than one sequence (save money, sleep better) takes the ways "
-    "layout instead: bullets, each opening with a bold label, never numbered."
+    "independent ways rather than one sequence (save money, sleep better, learn a language "
+    "fast) takes the ways layout instead, never the card: numbered items, each opening with a "
+    "bold label."
+)
+
+
+# Restated beside a how-to's message (``lesson_layout.steps_contract``): the reader note beside
+# every message asks for a numbered list, and the note nearest the message won: with this rule
+# only in the system prompt, "how do I balance a chemical equation" came as a list 9 of 9
+# (review, 2026-11-14).
+STEPS_CONTRACT = (
+    "Give the steps in one ```steps card, never a plain numbered list: one numbered line per "
+    "step with its action in bold and a plain line or two under it. A goal reached in several "
+    "independent ways (save money, sleep better, learn a language fast, make friends) keeps "
+    "the ways layout instead, never the card."
 )
 
 
@@ -71,11 +84,9 @@ STEPS_FORMAT_HINT = (
 READER_NOTE = (
     "Write it to be scanned on a phone. The answer comes first, and its key part is bold: the "
     "number, name or verdict (**206 bones**, **Spain won**). Paragraphs are 1-3 short "
-    "sentences. Steps the reader will carry out in order (a method, a procedure, a recipe) go "
-    "in one ```steps card, which the app draws as boxes joined by arrows: one numbered line "
-    "per step, its action in bold, a plain line or two under it; a calculation keeps its own "
-    "layout. Stages of how something works are a numbered list, one each; three or more "
-    "parallel points are bullets that open with a "
+    "sentences. Steps or stages in order (a process, a recipe, how something works) are a "
+    "numbered list, one each, or the ```steps card where the layout rules ask for it; three "
+    "or more parallel points are bullets that open with a "
     "**bold label**; dated events are bullets that open with the bold date. Only when the "
     "user asks which of the options they named to pick (rent or buy, iPhone or Pixel), close "
     "with one **Choose A if** … line per option, unless the reply already says when to pick "

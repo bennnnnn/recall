@@ -64,10 +64,14 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # shape that follows what it teaches (a language's words, a concept, a process as a ```steps
 # card), its practice an unnumbered `### Your turn`, the next lesson's contract and the grading
 # of a card's answer (prompt_constants.teaching, lesson_flow, practice), and a how-to's steps
-# as the ```steps flow card (STEPS_FORMAT_HINT, READER_NOTE), the owner's chat 2026-11-14.
-_RULES = 187
-_RULE_GRAMS = 16898
-_RULE_GRAMS_SHA = "52556342fa9d27d2"
+# as the ```steps flow card (STEPS_FORMAT_HINT), the owner's chat 2026-11-14; then the cards
+# a chat already showed listed whole and a card's answer graded by the server (practice), the
+# steps card restated beside a how-to's message (STEPS_CONTRACT), READER_NOTE's numbered list
+# yielding to it, and a yes to another offer after a lesson's card done, beside the message
+# when the read says it is one (LESSON_ASIDE_NOTE) (review, 2026-11-14).
+_RULES = 189
+_RULE_GRAMS = 16959
+_RULE_GRAMS_SHA = "46dd1fa91f5ae0b4"
 
 
 def _rules() -> list[str]:

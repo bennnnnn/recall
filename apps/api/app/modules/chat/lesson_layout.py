@@ -14,6 +14,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any, Literal
 
+from app.modules.chat.prompt_constants.format import STEPS_CONTRACT, STEPS_FORMAT_HINT
 from app.modules.chat.prompt_constants.lesson_flow import LESSON_NEXT_OPENING
 from app.modules.chat.prompt_constants.teaching import (
     LESSON_CONTRACT,
@@ -43,6 +44,12 @@ def lesson_contract(style_hints: Sequence[str]) -> list[str]:
     """The contract restated beside the user's message for the turn's lesson layout."""
     layout = lesson_layout_of(style_hints)
     return [_CONTRACTS[layout]] if layout else []
+
+
+def steps_contract(style_hints: Sequence[str]) -> list[str]:
+    """A how-to's steps card, restated beside the message when the turn's layout asks for it:
+    only there, never on a plan or a list of tips."""
+    return [STEPS_CONTRACT] if STEPS_FORMAT_HINT in style_hints else []
 
 
 def prompt_lesson_layout(prompt_messages: Sequence[dict[str, Any]]) -> LessonLayout | None:

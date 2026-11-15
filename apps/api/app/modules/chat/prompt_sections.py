@@ -27,7 +27,7 @@ from app.modules.chat import response_tone as response_tone_service
 from app.modules.chat.clarify_turn import clarify_reply_hint
 from app.modules.chat.continuation_subject import exchange_pairs, is_resume_request
 from app.modules.chat.json_output import JSON_OUTPUT_HINT, is_json_request
-from app.modules.chat.lesson_layout import lesson_contract
+from app.modules.chat.lesson_layout import lesson_contract, steps_contract
 from app.modules.chat.lesson_progress import resumes_course
 from app.modules.chat.message_notes import message_notes
 from app.modules.chat.prompt_constants import (
@@ -465,9 +465,9 @@ NEARBY_CONTRACTS: tuple[PromptSection, ...] = (
         lambda t: _present(programming_lesson_contract(t.query)),
         name="programming_lesson_contract",
     ),
-    # A lesson or a teach-me outline: its shape here too (``lesson_layout``).
+    # Beside the message too: a lesson's shape, a how-to's steps card, the chat's earlier cards.
     PromptSection(_always, lambda t: lesson_contract(t.style_hints), name="lesson_contract"),
-    # What the chat's cards already asked: a new card asks something else (``practice_asked``).
+    PromptSection(_always, lambda t: steps_contract(t.style_hints), name="steps_contract"),
     PromptSection(_always, lambda t: practice_asked_notes(t.asked_practice), name="practice_asked"),
     # Pasted code to explain or fix: the `$...$` math rule must not reach its values.
     PromptSection(

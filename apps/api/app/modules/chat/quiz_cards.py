@@ -28,14 +28,22 @@ from app.services.md_fence_scan import Fence, block_end, iter_fences, map_fence_
 QUIZ_LANG = "quiz"
 
 
+# A card as one line (its question, code and options): what a chat's earlier cards are listed
+# as, and what a new card is matched against. Python quizzes ask "What will this Python code
+# print?" of every card, so the question alone named a different card the same.
+_LINE_CHARS = 240
+
+
 @dataclass(frozen=True)
 class PracticeCard:
-    """A ```quiz card as the learner sees it: its label, question, options and right one."""
+    """A ```quiz card as the learner sees it: its label, question, code, options and right
+    one."""
 
     label: str
     question: str
     options: tuple[str, ...]
     answer: int | None
+    code: str = ""
 
     @property
     def right(self) -> str | None:
@@ -44,11 +52,27 @@ class PracticeCard:
             return None
         return self.options[self.answer]
 
+    @property
+    def line(self) -> str:
+        """The whole card on one line."""
+        parts = [self.question]
+        if self.code:
+            parts.append(f"Code: {self.code}")
+        if self.options:
+            parts.append(f"Options: {'; '.join(self.options)}")
+        return " ".join(" ".join(parts).split())[:_LINE_CHARS]
+
+
+def option_letter(index: int) -> str:
+    """An option's letter as the card shows it: 0 is A."""
+    return chr(ord("A") + index)
+
 
 def _practice_card(body: str) -> PracticeCard | None:
     try:
         card = json.loads(body)
-    except ValueError:
+    except (ValueError, RecursionError):
+        # A model's card nested past the parser's depth is no card, never a failed turn.
         return None
     if not isinstance(card, dict) or not isinstance(question := card.get("question"), str):
         return None
@@ -56,11 +80,13 @@ def _practice_card(body: str) -> PracticeCard | None:
     options = tuple(str(o) for o in raw) if isinstance(raw, list) else ()
     answer = card.get("answer")
     label = card.get("label")
+    code = card.get("code")
     return PracticeCard(
         label=label.strip() if isinstance(label, str) else "",
         question=question.strip(),
         options=options,
         answer=answer if isinstance(answer, int) and not isinstance(answer, bool) else None,
+        code=code.strip() if isinstance(code, str) else "",
     )
 
 
@@ -74,6 +100,16 @@ def practice_cards(text: str | None) -> list[PracticeCard]:
         if fence.closed and fence.lang == QUIZ_LANG
     )
     return [card for card in found if card is not None and card.question]
+
+
+def block_end_of_cards(text: str) -> int:
+    """Where the reply's last ```quiz card ends: what follows is its closing words."""
+    ends = [
+        block_end(text, fence)
+        for fence in iter_fences(text)
+        if fence.closed and fence.lang == QUIZ_LANG
+    ]
+    return max(ends, default=len(text))
 
 
 def last_reply_cards(messages: Sequence[Any] | None) -> list[PracticeCard]:

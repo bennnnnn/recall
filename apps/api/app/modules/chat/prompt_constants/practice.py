@@ -9,8 +9,6 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from app.modules.chat.quiz_cards import PracticeCard
-
 QUIZ_FORMAT_HINT = (
     "This turn asked for a quiz, flashcards or true/false questions. Each question is its "
     "own ```quiz card the app lets them answer and check: ```quiz alone on its line, the "
@@ -31,39 +29,36 @@ QUIZ_FORMAT_HINT = (
 )
 
 
-def quiz_answer_note(cards: Sequence[PracticeCard]) -> str:
-    """Beside a message the read calls an answer to the last reply, which ended on cards:
-    an answer to them is graded against them; "ok next", which the read calls an answer too,
-    goes on.
+def quiz_verdict_note(verdicts: Sequence[str]) -> str:
+    """Beside a message that answers the last reply's cards: the server's verdict on each.
 
     "1.2 times 10 to the 24?" answered a lesson's card on the molecules in 2 mol of water; the
     turn laid it out as a calculation, Given to Answer, and then asked whether it was "asking
-    how that compares to the answer on the card" (the owner's chat, 2026-11-14)."""
-    keys = "; ".join(
-        f'{card.label or card.question[:60]}: "{card.right}"' for card in cards if card.right
-    )
+    how that compares to the answer on the card"; told only the right answer's words, the
+    reply graded "b" for B wrong and "a" right (the owner's chat, 2026-11-14)."""
+    listed = "\n".join(f"- {verdict}" for verdict in verdicts)
     return (
-        f"The practice card in your last reply has the right answer {keys}. When this message "
-        "gives an answer to it, grade it against that answer in a sentence or two, the way a "
-        "tutor does: a rounded or reworded answer that means the same is right. No Given, "
-        "Required or worked layout and no answer card; show the working only to fix a wrong "
-        "answer. A message that only says to go on ('next', 'ok') is no answer: no grade and "
-        "no word about the card. Either way, then go on as the conversation does."
+        "The app checked this message against the practice card in your last reply:\n"
+        f"{listed}\n"
+        'Open with that verdict in a sentence or two, the way a tutor does ("Correct! 🎉", or '
+        '"Not quite" and the one fix), naming their option by its letter and words. No Given, '
+        "Required or worked layout and no answer card. Then go on as the conversation does."
     )
 
 
 # Beside a message whose reply may set practice (``practice_asked``); the finalize pass reads
 # the questions back by this opening.
-PRACTICE_ASKED_OPENING = "Practice questions this chat has already asked"
+PRACTICE_ASKED_OPENING = "Practice cards this chat has already shown"
 
 
-def practice_asked_notes(questions: Sequence[str]) -> list[str]:
-    """The chat's earlier practice questions, one a line, when there are any: a new card
-    asks something else."""
-    if not questions:
+def practice_asked_notes(cards: Sequence[str]) -> list[str]:
+    """The chat's earlier practice cards, one a line (question, code, options), when there
+    are any: a new card asks something else."""
+    if not cards:
         return []
-    listed = "\n".join(f"- {question}" for question in questions)
+    listed = "\n".join(f"- {card}" for card in cards)
     return [
-        f"{PRACTICE_ASKED_OPENING}; any new practice card asks something else, never one of "
-        "these again, reworded or with the same example and numbers:\n" + listed
+        f"{PRACTICE_ASKED_OPENING}; a new card asks something else: never one of these again, "
+        "nor its example and numbers reworded. A question's words may repeat with a new "
+        'example ("What will this code print?" over new code):\n' + listed
     ]

@@ -1,17 +1,19 @@
-"""The practice questions a chat already asked: listed beside the message, held at finalize.
+"""The practice cards a chat already showed: listed beside the message, held at finalize.
 
 In the owner's study chat (2026-11-14) a mock set promised "no repeats" and asked
 magnesium-25's neutrons again, seventeen turns after the first time, and a mixed set asked
 two of the first lesson's questions again. The history window (twenty messages) had long
 dropped them, so the model could not see what it had asked; the chat's own rows still hold
 every card. A turn that may set practice (a lesson, a teach-me, a quiz, a chat whose window
-holds cards) reads them and lists their questions beside the message (``NEARBY_CONTRACTS``).
+holds cards) reads them and lists each card beside the message (``NEARBY_CONTRACTS``) on one
+line: its question, code and options, since a Python quiz asks "What will this Python code
+print?" of every card.
 
-The finalize pass holds the rest: a card that asks one of the listed questions again, word
-for word ("Here it is again, with the answer hidden behind your own reasoning", after the
-text had worked it out), goes when the reply has another card, or gives way to a fresh card
-on the same idea from a cheap model (``lesson_calls.fresh_practice``). A reworded repeat is
-the listing's to prevent; a call that fails leaves the card as written.
+The finalize pass holds the rest: a card the reply shows again whole, its question, code and
+options ("Here it is again, with the answer hidden behind your own reasoning", after the text
+had worked it out), goes when the reply has another card, or gives way to a fresh card on the
+same idea from a cheap model (``lesson_calls.fresh_practice``). A reworded repeat is the
+listing's to prevent; a call that fails leaves the card as written.
 """
 
 from __future__ import annotations
@@ -26,7 +28,7 @@ from uuid import UUID
 from app.modules.chat import prompt_context
 from app.modules.chat.lesson_calls import QuizCard, fresh_practice
 from app.modules.chat.prompt_constants.practice import PRACTICE_ASKED_OPENING
-from app.modules.chat.quiz_cards import QUIZ_LANG, practice_cards
+from app.modules.chat.quiz_cards import QUIZ_LANG, PracticeCard, practice_cards
 from app.modules.turn_reading.lesson_flow import active_lesson_step, outline_awaits_pick
 from app.modules.turn_reading.practice import is_practice_request
 from app.modules.turn_reading.turn import teaching_of
@@ -38,10 +40,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# The chat's newest replies that hold a card, and the questions listed from them.
+# The chat's newest replies that hold a card, and the cards listed from them.
 REPLIES_READ = 40
-_QUESTIONS_LISTED = 30
-_QUESTION_CHARS = 160
+_CARDS_LISTED = 24
 _NOT_WORDS = re.compile(r"[\W_]+")
 
 
@@ -68,8 +69,9 @@ async def _chat_replies(chat_id: UUID) -> list[str]:
 async def practice_questions(
     chat_id: UUID, query: str | None, exchange: Sequence[Any]
 ) -> tuple[str, ...]:
-    """The questions the chat's cards asked, oldest first, when the reply may set practice;
-    none when the read fails (the turn goes on without the listing)."""
+    """The chat's cards, oldest first, each on one line (its question, code and options), when
+    the reply may set practice; none when the read fails (the turn goes on without the
+    listing)."""
     if not may_set_practice(query, exchange):
         return ()
     try:
@@ -77,16 +79,16 @@ async def practice_questions(
     except Exception as exc:  # A listing is a hint: the turn never waits on its failure.
         logger.info("practice questions not read (%s)", type(exc).__name__)
         return ()
-    questions = dict.fromkeys(
-        " ".join(card.question.split())[:_QUESTION_CHARS]
-        for reply in replies
-        for card in practice_cards(reply)
-    )
-    return tuple(questions)[-_QUESTIONS_LISTED:]
+    try:
+        lines = dict.fromkeys(card.line for reply in replies for card in practice_cards(reply))
+    except Exception as exc:  # A reply it cannot read lists nothing, never a failed turn.
+        logger.info("practice cards not read (%s)", type(exc).__name__)
+        return ()
+    return tuple(lines)[-_CARDS_LISTED:]
 
 
 def asked_in_prompt(prompt_messages: Sequence[dict[str, Any]]) -> tuple[str, ...]:
-    """The questions the turn's prompt listed, read back from the note beside the message."""
+    """The cards the turn's prompt listed, read back from the note beside the message."""
     for message in prompt_messages:
         content = message.get("content")
         if message.get("role") != "system" or not isinstance(content, str):
@@ -108,42 +110,49 @@ def _card_body(label: str, quiz: QuizCard) -> str:
 
 
 async def hold_new_practice(state: FinalizeState) -> str:
-    """Pass entry: no card asks a question the chat's earlier cards asked, word for word."""
+    """Pass entry: no card is one the chat's earlier cards showed, whole: its question, code
+    and options. A Python quiz asks "What will this Python code print?" of every card, and
+    keyed on the question alone, three new cards of five were cut (review, 2026-11-14)."""
     text = state.text
     if state.server_text or state.was_cancelled or f"```{QUIZ_LANG}" not in text:
         return text
-    asked = {_key(question) for question in asked_in_prompt(state.ctx.prompt_messages)}
+    listed = asked_in_prompt(state.ctx.prompt_messages)
+    asked = {_key(line) for line in listed}
     cards = practice_cards(text)
-    repeats = [card for card in cards if _key(card.question[:_QUESTION_CHARS]) in asked]
+    repeats = [card for card in cards if _key(card.line) in asked]
     if not repeats:
         return text
     if len(repeats) < len(cards):
         # Another card is still new: the repeat goes.
-        return _without(text, {card.question for card in repeats})
+        return _without(text, {card.line for card in repeats})
     card = repeats[0]
-    fresh = await fresh_practice(state, card, asked_in_prompt(state.ctx.prompt_messages))
-    if fresh is None or _key(fresh.question) in asked:
+    fresh = await fresh_practice(state, card, listed)
+    if fresh is None or _key(_fresh_line(fresh)) in asked:
         return text
-    return _replaced(text, card.question, _card_body(card.label, fresh))
+    return _replaced(text, card.line, _card_body(card.label, fresh))
 
 
-def _question_of(text: str, fence: Fence) -> str | None:
+def _fresh_line(quiz: QuizCard) -> str:
+    return PracticeCard("", quiz.question, tuple(quiz.options), quiz.answer, quiz.code).line
+
+
+def _line_of(text: str, fence: Fence) -> str | None:
     found = practice_cards(text[fence.start : block_end(text, fence)])
-    return found[0].question if found else None
+    return found[0].line if found else None
 
 
-def _without(text: str, questions: set[str]) -> str:
+def _without(text: str, lines: set[str]) -> str:
     def replace(fence: Fence, _body: str) -> str:
         original = text[fence.start : block_end(text, fence)]
-        return "" if _question_of(text, fence) in questions else original
+        return "" if _line_of(text, fence) in lines else original
 
     return re.sub(r"\n{3,}", "\n\n", map_fence_blocks(text, replace, lang=QUIZ_LANG)).strip()
 
 
-def _replaced(text: str, question: str, body: str) -> str:
+def _replaced(text: str, line: str, body: str) -> str:
     def replace(fence: Fence, _body: str) -> str:
         original = text[fence.start : block_end(text, fence)]
-        if _question_of(text, fence) != question:
+        if _line_of(text, fence) != line:
             return original
         opener = text[fence.start : fence.body_start]
         closer = text[fence.body_end : block_end(text, fence)]

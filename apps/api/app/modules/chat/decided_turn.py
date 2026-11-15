@@ -15,9 +15,10 @@ the rules' (``model_routing.decided``):
 - an everyday message the read calls an answer to the last reply, or a change to what the
   conversation is about, gets a note beside it saying so (``FOLLOW_NOTES``): "the
   language" after "Python the language, or the snake?" was asked back on every try without it;
-- an answer to the practice cards the last reply ended on is graded against their answers,
-  with no ```worked layout of its own (``quiz_answer_note``), and an answer to a lesson ("is
-  it 35?", "ok next") gets the next lesson's contract (``lesson_next_contract``).
+- an answer to the practice cards the last reply ended on (the option the read says it
+  gives) is graded by the server against each card, with no ```worked layout of its own
+  (``quiz_verdict_note``), and an answer to a lesson's card or a message the read says goes
+  on gets the next lesson's contract (``lesson_next_contract``).
 
 Numbers a server path already worked keep their lane and their level (a verified solve, a
 money card): the model only presents them. A lesson's step stays quick, a regenerate or a
@@ -35,15 +36,15 @@ from typing import TYPE_CHECKING
 from app.core.config import Settings
 from app.modules.billing import plan as plan_service
 from app.modules.billing.entitlements import has_strong_everyday_model
-from app.modules.chat.decider_read import READ_SUBJECTS
+from app.modules.chat.decider_read import NO_ANSWER, OTHER_ANSWER, READ_SUBJECTS
 from app.modules.chat.json_output import is_json_request
 from app.modules.chat.lesson_again import lesson_again
 from app.modules.chat.model_routing.decided import decided_lane, decided_level, math_backups
 from app.modules.chat.prompt_constants.conversation import FOLLOW_NOTES
-from app.modules.chat.prompt_constants.lesson_flow import lesson_next_contract
-from app.modules.chat.prompt_constants.practice import quiz_answer_note
+from app.modules.chat.prompt_constants.lesson_flow import LESSON_ASIDE_NOTE, lesson_next_contract
+from app.modules.chat.prompt_constants.practice import quiz_verdict_note
 from app.modules.chat.prompt_inject import inject_before_last_user
-from app.modules.chat.quiz_cards import last_reply_cards
+from app.modules.chat.quiz_cards import PracticeCard, last_reply_cards, option_letter
 from app.modules.chat.turn_decision import TurnDecision, turn_decision_result
 from app.modules.chat.turn_prep.reading import plan_of
 from app.modules.chat.turn_trace import note_decision, note_prompt_rule, note_route
@@ -80,8 +81,9 @@ async def decide_from_the_read(ctx: StreamContext, settings: Settings) -> None:
     )
     ctx.thinking = _level(ctx, read)
     _follow_the_lane(ctx, settings, read)
-    _goes_on_with_the_lesson(ctx, read)
-    if _grades_the_card(ctx, read):
+    answered = _answered(ctx, read)
+    _goes_on_with_the_lesson(ctx, read, answered)
+    if _grades_the_card(ctx, read, answered):
         return
     _worked_layout(ctx, settings, read)
     _follow_note(ctx, read)
@@ -207,35 +209,74 @@ def _worked_layout(ctx: StreamContext, settings: Settings, read: TurnDecision) -
         ctx.prompt_messages = with_worked_contract(ctx.prompt_messages)
 
 
-def _goes_on_with_the_lesson(ctx: StreamContext, read: TurnDecision) -> None:
-    """A message the read calls an answer to a lesson (its card's answer, "ok next") gets the
-    next lesson's contract beside it; a new question after it gets none. A lesson keeps its
-    quick steps: a read not in yet is not waited for, and the system prompt's steps stand."""
+def _goes_on_with_the_lesson(
+    ctx: StreamContext, read: TurnDecision, answered: list[tuple[PracticeCard, str]]
+) -> None:
+    """A message that answers a lesson's card, or that the read says asks to go on ("ok
+    next"), gets the next lesson's contract beside it. A yes to another offer, a pick among
+    the choices the reply offered or a question of its own gets a note to do that instead:
+    "the first one", after "Want to try a harder one, or move on to ions?", was graded
+    "Correct!" and Lesson 2 followed (review, 2026-11-14). A lesson keeps its quick steps: a
+    read not in yet is not waited for, and the system prompt's steps stand."""
     number = active_lesson_step(ctx.recent_messages)
     # "Let's start with lesson 1", the lesson just above, is pointed to (``lesson_again``).
-    if number is None or read.follow != "answer" or lesson_again(_said(ctx), ctx.recent_messages):
+    if number is None or lesson_again(ctx.user_message_content or "", ctx.recent_messages):
         return
-    note_prompt_rule("read.lesson_next")
-    ctx.prompt_messages = inject_before_last_user(ctx.prompt_messages, lesson_next_contract(number))
+    if answered or read.goes_on:
+        note_prompt_rule("read.lesson_next")
+        note = lesson_next_contract(number)
+    elif read.goes_on is False:
+        note_prompt_rule("read.lesson_aside")
+        note = LESSON_ASIDE_NOTE
+    else:
+        return
+    ctx.prompt_messages = inject_before_last_user(ctx.prompt_messages, note)
 
 
-def _said(ctx: StreamContext) -> str:
-    return ctx.user_message_content or ""
-
-
-def _grades_the_card(ctx: StreamContext, read: TurnDecision) -> bool:
-    """A message the read calls an answer, after a reply that ended on practice cards: the
-    learner's answer to them. It is graded against the cards' own answers, never laid out as
-    a calculation of its own; a new question asked after a card reads as solve, and is
-    worked as any question is."""
-    if read.follow != "answer" or _worked(ctx) or ctx.instant_reply:
-        return False
+def _answered(ctx: StreamContext, read: TurnDecision) -> list[tuple[PracticeCard, str]]:
+    """Each card of the last reply the message answers, with the option the read says it
+    gives ("b", or "other": none of them)."""
     cards = last_reply_cards(ctx.recent_messages)
-    if not any(card.right for card in cards):
+    return [
+        (card, pick)
+        for card, pick in zip(cards, read.card_picks or [], strict=False)
+        if pick != NO_ANSWER
+    ]
+
+
+def _verdict(card: PracticeCard, pick: str) -> str | None:
+    """The server's grade of one answer, or None for a card with no right option named."""
+    if card.right is None or card.answer is None:
+        return None
+    name = card.label or card.question[:60]
+    right = f"{option_letter(card.answer)} ({card.right})"
+    index = ord(pick[:1] or "?") - ord("a")
+    if pick == OTHER_ANSWER or not 0 <= index < len(card.options):
+        return (
+            f"{name}: their answer is none of the options; the right one is {right}. Call it "
+            "right only when it means the same, a rounded or reworded value."
+        )
+    chosen = f"{option_letter(index)} ({card.options[index]})"
+    if index == card.answer:
+        return f"{name}: they chose {chosen}, which is right."
+    return f"{name}: they chose {chosen}, which is wrong; the right answer is {right}."
+
+
+def _grades_the_card(
+    ctx: StreamContext, read: TurnDecision, answered: list[tuple[PracticeCard, str]]
+) -> bool:
+    """A message that answers the last reply's practice cards, in the read's words: the server
+    grades each against its card, and the reply opens with that verdict, never a calculation
+    laid out of its own. A new question asked after a card answers none, and is worked as any
+    question is."""
+    if not answered or _worked(ctx) or ctx.instant_reply:
         return False
     _without_worked_layout(ctx)
-    note_prompt_rule("read.quiz_answer")
-    ctx.prompt_messages = inject_before_last_user(ctx.prompt_messages, quiz_answer_note(cards))
+    verdicts = [found for card, pick in answered if (found := _verdict(card, pick))]
+    if verdicts:
+        note_prompt_rule("read.quiz_answer")
+        note = quiz_verdict_note(verdicts)
+        ctx.prompt_messages = inject_before_last_user(ctx.prompt_messages, note)
     return True
 
 

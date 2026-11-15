@@ -36,8 +36,14 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.core.config import Settings
 from app.models.routing_lanes import ROUTING
-from app.modules.chat.decider_read import NEAR_LIVE_AT
-from app.modules.chat.quiz_cards import practice_cards
+from app.modules.chat.decider_read import NEAR_LIVE_AT, lesson_questions
+from app.modules.chat.quiz_cards import (
+    block_end_of_cards,
+    last_reply_cards,
+    option_letter,
+    practice_cards,
+)
+from app.modules.turn_reading.lesson_flow import active_lesson_step
 
 logger = logging.getLogger(__name__)
 
@@ -45,8 +51,10 @@ _MAX_INPUT_CHARS = 1200
 # Each earlier message the read sees, and how many: the last two exchanges.
 _EARLIER_CHARS = 400
 _EARLIER_MESSAGES = 4
-# A reply's practice card the cut leaves out, quoted after it: its question and options.
+# A reply's practice card the cut leaves out, quoted after it: its question and options, then
+# what the reply says after it.
 _CARD_CHARS = 300
+_CLOSING_CHARS = 200
 # Eight short keys: about 55 tokens of JSON.
 _MAX_TOKENS = 120
 # The backup read is asked only with this much of the budget left: it answers in about 0.7 s
@@ -181,6 +189,11 @@ class TurnDecision(BaseModel):
     # Whether the reply works a result out, laid out as working (``chat.decided_turn``). The
     # Decider's alone: None from the text read, and the rules decide.
     work: bool | None = None
+    # After practice cards: the option the message gives for each card in order ("b",
+    # "other" for none of them, "none" for no answer); after a lesson, whether it asks to go
+    # on. The Decider's alone, asked only then (``decider_read.lesson_questions``).
+    card_picks: list[str] | None = None
+    goes_on: bool | None = None
 
     @field_validator("subject", mode="before")
     @classmethod
@@ -238,12 +251,27 @@ def _quoted(role: str, content: str) -> str:
     head = content[:_EARLIER_CHARS]
     if role != "assistant" or len(content) <= _EARLIER_CHARS:
         return head
-    cut = [card for card in practice_cards(content) if card.question not in head]
-    cards = " | ".join(
-        f"{card.question} Options: {'; '.join(card.options)}" if card.options else card.question
-        for card in cut
-    )
-    return f"{head} … [practice card: {cards[:_CARD_CHARS]}]" if cards else head
+    try:
+        found = practice_cards(content)
+        # What the reply says after its cards hands the turn back ("Want to try a harder
+        # one, or move on to ions?"): "the first one" picks from it, not from the card.
+        closing = " ".join(content[block_end_of_cards(content) :].split())[-_CLOSING_CHARS:]
+    except Exception as exc:  # A reply it cannot read is quoted by its start, never a failure.
+        logger.info("practice cards not quoted (%s)", type(exc).__name__)
+        return head
+    if not found:
+        return head
+    cut = [card for card in found if card.question not in head]
+    cards = " | ".join(f"{card.question} {_lettered(card.options)}".strip() for card in cut)
+    quoted = f"{head} … [practice card: {cards[:_CARD_CHARS]}]" if cards else head
+    return f"{quoted} … {closing}" if closing and closing not in head else quoted
+
+
+def _lettered(options: tuple[str, ...]) -> str:
+    """A card's options as the app letters them: "Options: A) 17; B) 35"."""
+    if not options:
+        return ""
+    return "Options: " + "; ".join(f"{option_letter(i)}) {o}" for i, o in enumerate(options))
 
 
 def decision_messages(text: str, earlier: list[tuple[str, str]]) -> list[dict[str, str]]:
@@ -266,6 +294,7 @@ async def read_decision(
     *,
     earlier: list[tuple[str, str]],
     model_alias: str | None = None,
+    lesson: dict[str, dict[str, Any]] | None = None,
 ) -> TurnDecision | None:
     """How to handle the message; None: no read. ``model_alias`` is for measurement."""
     question = text.strip()
@@ -302,7 +331,9 @@ async def read_decision(
         if ROUTING.decider in skip:
             # The Decider's breaker is open: the text read decides, as when it refuses.
             return _followed(await text_read, earlier)
-        return await _join(settings, text_read, messages[-1]["content"], earlier, ask_work=ask_work)
+        return await _join(
+            settings, text_read, messages[-1]["content"], earlier, ask_work=ask_work, lesson=lesson
+        )
     finally:
         # Whatever ends the read (an answer that needs no query, the reply's wait running
         # out and cancelling it, an error), the text read and its backup stop being billed.
@@ -316,6 +347,7 @@ async def _join(
     earlier: list[tuple[str, str]],
     *,
     ask_work: bool = False,
+    lesson: dict[str, dict[str, Any]] | None = None,
 ) -> TurnDecision | None:
     """The Decider's read, with the text read's query when it calls the turn live or asked;
     the text read's own when the Decider gives none."""
@@ -328,6 +360,7 @@ async def _join(
         has_earlier=bool(earlier),
         seconds=settings.live_read_timeout_seconds,
         ask_work=ask_work,
+        lesson=lesson,
     )
     if decided is None:
         # The Decider gave no answer (refused at once, at busy hours): the text read decides.
@@ -423,7 +456,21 @@ def start_turn_decision(
     reads: the lane and the thinking come from it too."""
     if not settings.live_read_enabled:
         return None
-    return asyncio.create_task(read_decision(settings, text, earlier=earlier_turns(recent)))
+    lesson = _lesson_questions(recent)
+    return asyncio.create_task(
+        read_decision(settings, text, earlier=earlier_turns(recent), lesson=lesson)
+    )
+
+
+def _lesson_questions(recent: list[Any] | None) -> dict[str, dict[str, Any]] | None:
+    """The questions about the last reply's cards and lesson, when it ended on either."""
+    try:
+        cards = last_reply_cards(recent)
+        lesson = active_lesson_step(list(recent or [])) is not None
+    except Exception as exc:  # A read is a hint: a reply it cannot read asks nothing of it.
+        logger.info("lesson questions not built (%s)", type(exc).__name__)
+        return None
+    return lesson_questions(cards, lesson=lesson) or None
 
 
 def drop_read(task: asyncio.Task[TurnDecision | None] | None) -> None:

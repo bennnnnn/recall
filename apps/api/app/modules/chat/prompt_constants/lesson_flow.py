@@ -35,6 +35,8 @@ def lesson_continue_hint(number: int, *, after_gap: bool = False) -> str:
         "misunderstanding in 1-3 sentences with a fresh tiny example, and do not ask them to "
         f"try again. Then teach Lesson {nxt}; never ask whether to go on or try another first.\n"
         f"- 'next', 'ok', 'got it', 'continue' or similar: teach Lesson {nxt}.\n"
+        "- A yes or a pick answering another offer the reply ended on (a reminder, a drawing, "
+        "a harder one): do what it offered, not the next lesson.\n"
         "- Confusion ('I don't get it', 'why?', 'another example'): stay on the same idea, "
         f"explain it a different way with a new analogy and example under the same "
         f"`### Lesson {number}: ...` title, and end with a fresh ```quiz.\n"
@@ -50,6 +52,16 @@ def lesson_continue_hint(number: int, *, after_gap: bool = False) -> str:
         "in the same shape (the app's ```quiz, ```array and ```steps cards included), its "
         "practice a new question on what it taught:\n" + _LESSON_SHAPE + recap
     )
+
+
+# Beside a message after a lesson that the turn's read says neither answers its card nor asks
+# to go on: "yes" to "Want me to set a reminder to review this tomorrow?" got Lesson 2 (review,
+# 2026-11-14), the system prompt's steps reading every short reply as "next".
+LESSON_ASIDE_NOTE = (
+    "This message neither answers the lesson's practice card nor asks for the next lesson: it "
+    "accepts another offer your last reply made, picks among choices it offered, or asks "
+    "something of its own. Do that now, and teach no new lesson unless it asks for one."
+)
 
 
 # Beside a message the turn's read calls an answer to a lesson's last reply: its card's

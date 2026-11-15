@@ -15,12 +15,14 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from types import MappingProxyType
 from typing import Any
 
+from app.core.aio import gather_or_cancel
 from app.core.config import Settings
 from app.models.routing_lanes import ROUTING
+from app.modules.chat.quiz_cards import PracticeCard, option_letter
 from app.services.solving import SubjectName
 
 logger = logging.getLogger(__name__)
@@ -47,9 +49,13 @@ _ASKED_AT = 0.5
 # and none of the 34 other questions, where a number and a subject laid out 77% of them
 # (``tests/behavior/work_need_eval.py``).
 _WORK_AT = 0.5
+# Going on to the next lesson: the yes of a plain yes or no.
+_GOES_ON_AT = 0.5
 # How long the turn's read waits for the work question's call once its own is in: both
-# start together and answer in about 0.33 s.
+# start together and answer in about 0.33 s. The cards' questions, beside them, came in past
+# that on 2 reads of 60 (2026-11-14): theirs waits longer, on a lesson's turn only.
 _WORK_GRACE_SECONDS = 0.25
+_LESSON_GRACE_SECONDS = 0.6
 # The read's name for each registered subject (``SubjectName``; its choices call maths
 # "maths"). The read's own words for them are the subject question's criteria below, part
 # of its measured prompt; ``tests/services/test_subject_completeness.py`` holds the two and
@@ -188,6 +194,77 @@ WORK_QUESTION: dict[str, dict[str, Any]] = {
 }
 
 
+# A practice card the message may answer, at most this many from the last reply (a set of
+# five), each its own choice question; and the most options one names by letter.
+CARDS_READ = 5
+_OPTIONS_READ = 8
+_CODE_CHARS = 300
+# The answer a choice question gives when the message names no option of its card, and the
+# one when it answers with something that is none of them.
+NO_ANSWER = "none"
+OTHER_ANSWER = "other"
+
+
+def lesson_questions(cards: Sequence[PracticeCard], *, lesson: bool) -> dict[str, dict[str, Any]]:
+    """The questions about a message after practice cards or a lesson, asked in a call of their
+    own: which option of each card it gives as its answer, and whether it asks to go on.
+
+    In the owner's study chat (2026-11-14) "b" for the card's B was graded wrong, "a" right and
+    "the second one" as its third option: the reply's model was told only the right answer's
+    words. A model reads which option the message names, in any words; the server grades it."""
+    questions: dict[str, dict[str, Any]] = {}
+    for number, card in enumerate(cards[:CARDS_READ], start=1):
+        criteria = {
+            option_letter(index).lower(): f"{option_letter(index)}: {option}"
+            for index, option in enumerate(card.options[:_OPTIONS_READ])
+        }
+        criteria[OTHER_ANSWER] = "an answer to it that is none of these options"
+        criteria[NO_ANSWER] = (
+            "no answer to it: it asks to go on or for more, asks something else, answers yes "
+            "or no to an offer, or picks one of the choices a question after the card offered "
+            "(the second one, after: a harder one, or move on?)"
+        )
+        code = f" (code: {card.code[:_CODE_CHARS]})" if card.code else ""
+        questions[f"card{number}"] = {
+            "type": "choice",
+            "instructions": (
+                f"The assistant's last reply set the practice question {card.question!r}{code}. "
+                "Which option does the user's last message give as their answer to it: named "
+                "by its letter (B), its place (the second one, option 2), its words, or a value "
+                "equal to it?"
+            ),
+            "criteria": criteria,
+        }
+    if lesson:
+        questions["goes_on"] = {
+            "type": "noul",
+            "instructions": (
+                "The assistant's last reply taught a lesson. Does the user's last message ask to "
+                "go on to the next lesson (next, ok, continue, got it, or an answer to its "
+                "practice question)? Not a yes to another offer the reply made, a pick among "
+                "other choices it offered, a question, or another request."
+            ),
+        }
+    return questions
+
+
+def _picks(answers: dict[str, Any]) -> list[str] | None:
+    """Each card's chosen option ("a", "other", "none"), in order; None when not asked."""
+    picks = [
+        str(get_choice(answers, f"card{number}") or NO_ANSWER)
+        for number in range(1, CARDS_READ + 1)
+        if f"card{number}" in answers
+    ]
+    return picks or None
+
+
+def get_choice(answers: dict[str, Any], name: str) -> Any:
+    answer = answers.get(name)
+    if answer is None:
+        return None
+    return answer.get("choice") if isinstance(answer, dict) else getattr(answer, "choice", None)
+
+
 def decision_fields(answers: dict[str, Any], *, has_earlier: bool) -> dict[str, Any] | None:
     """The read's fields from the Decider's answers (``DeciderAnswer`` objects or dicts);
     None when a question went unanswered."""
@@ -225,6 +302,8 @@ def decision_fields(answers: dict[str, Any], *, has_earlier: bool) -> dict[str, 
         "asked": asked >= _ASKED_AT,
         # None (unanswered): the rules decide the layout.
         "work": None if work is None else work >= _WORK_AT,
+        "card_picks": _picks(answers),
+        "goes_on": None if (on := get("goes_on", "noul")) is None else on >= _GOES_ON_AT,
     }
 
 
@@ -235,25 +314,34 @@ async def decide_turn(
     has_earlier: bool,
     seconds: float,
     ask_work: bool = False,
+    lesson: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any] | None:
     """The Decider's read of ``state`` (the message, its earlier turns quoted), or None. With
-    ``ask_work`` the work question goes in a call of its own begun beside it, which ends when
-    the read does, whatever ends it (an answer, a failure, the reply's wait, a Stop)."""
+    ``ask_work`` the work question, and with ``lesson`` the questions about the last reply's
+    cards (``lesson_questions``), go in calls of their own begun beside it: the Decider weighs
+    one call's questions together. Each ends when the read does, whatever ends it (an answer,
+    a failure, the reply's wait, a Stop)."""
     from app.gateways.decider_gateway import decide
     from app.gateways.llm_spend import meter_reported_cost
 
     alias = ROUTING.decider
-    work_read: asyncio.Task[Any] | None = None
+    beside: list[tuple[asyncio.Task[Any], float]] = []
     started = time.monotonic()
     try:
         from app.models import model_catalog
 
         model = model_catalog.get(alias).model.removeprefix("openrouter/")
-        if ask_work:
-            work_read = asyncio.create_task(
-                decide(settings, model=model, state=state, questions=WORK_QUESTION, seconds=seconds)
-            )
-            work_read.add_done_callback(_metered_work(alias))
+        calls = (
+            (WORK_QUESTION if ask_work else None, _WORK_GRACE_SECONDS),
+            (lesson or None, _LESSON_GRACE_SECONDS),
+        )
+        for questions, grace in calls:
+            if questions is not None:
+                read = asyncio.create_task(
+                    decide(settings, model=model, state=state, questions=questions, seconds=seconds)
+                )
+                read.add_done_callback(_metered_work(alias))
+                beside.append((read, grace))
         try:
             reply = await decide(
                 settings, model=model, state=state, questions=QUESTIONS, seconds=seconds
@@ -264,14 +352,15 @@ async def decide_turn(
         _note_health(settings, alias, started, None)
         meter_reported_cost(alias, reply.usage.cost)
         answers = dict(reply.answers)
-        if work_read is not None:
-            answers.update(await _work_answers(work_read))
+        for found in await gather_or_cancel(*(_work_answers(*call) for call in beside)):
+            answers.update(found)
     except Exception as exc:  # A read is a hint: the text read or the rules decide.
         logger.info("decider read failed (%s)", type(exc).__name__)
         return None
     finally:
-        if work_read is not None and not work_read.done():
-            work_read.cancel()
+        for read, _grace in beside:
+            if not read.done():
+                read.cancel()
     return decision_fields(answers, has_earlier=has_earlier)
 
 
@@ -306,11 +395,11 @@ def _failure_cause(failure: BaseException | None) -> str | None:
     return "rate_limit" if getattr(response, "status_code", None) == 429 else None
 
 
-async def _work_answers(work_read: asyncio.Task[Any]) -> dict[str, Any]:
-    """The work call's answers, waited for only a moment past the turn's read; none (the
-    rules lay the turn out) when it is late or failed."""
+async def _work_answers(work_read: asyncio.Task[Any], grace: float) -> dict[str, Any]:
+    """A call's answers beside the turn's read (the work question, the cards'), waited for
+    only a moment past it; none (the rules decide) when it is late or failed."""
     try:
-        reply = await asyncio.wait_for(work_read, _WORK_GRACE_SECONDS)
+        reply = await asyncio.wait_for(work_read, grace)
     except TimeoutError:  # Late: the rules lay the turn out.
         return {}
     except Exception as exc:  # Failed: the rules lay the turn out.
@@ -320,8 +409,9 @@ async def _work_answers(work_read: asyncio.Task[Any]) -> dict[str, Any]:
 
 
 def _metered_work(alias: str) -> Callable[[asyncio.Task[Any]], None]:
-    """Each finished work call metered against the day's spend, and a failed one's error read
-    (asyncio logs an unread one as an error); a failure the turn awaited is logged there."""
+    """Each finished call beside the read metered against the day's spend, and a failed one's
+    error read (asyncio logs an unread one as an error); a failure the turn awaited is logged
+    there."""
     from app.gateways.llm_spend import meter_reported_cost
 
     def settle(task: asyncio.Task[Any]) -> None:

@@ -7,6 +7,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
+from app.modules.chat.lesson_layout import steps_contract
 from app.modules.chat.prompt_builder import build_prompt_messages
 from app.modules.chat.prompt_constants import (
     COMPACT_RESPONSE_FORMAT_HINT,
@@ -20,6 +21,7 @@ from app.modules.chat.prompt_constants import (
     learning_plan_contract,
     programming_lesson_contract,
 )
+from app.modules.chat.prompt_constants.format import STEPS_CONTRACT
 from app.modules.chat.prompt_constants.lesson_flow import OUTLINE_PICK_HINT, lesson_continue_hint
 from app.modules.chat.prompt_constants.teaching import (
     LESSON_CONCEPT_SHAPE,
@@ -727,3 +729,19 @@ def test_a_skill_or_a_topic_to_learn_stays_a_lesson(query: str) -> None:
     hints = _hints(query)
     assert TEACHING_HINT in hints
     assert STEPS_FORMAT_HINT not in hints
+
+
+@pytest.mark.parametrize(
+    ("query", "card"),
+    [
+        ("how do I balance a chemical equation", True),
+        ("teach me how to make tea", True),
+        # A plan, a lesson or a reply to an offer: the card is the how-to's alone (review,
+        # 2026-11-14: "yes" to a study plan came back as a dated plan in the card 3 of 3).
+        ("yes", False),
+        ("teach me photosynthesis", False),
+        ("make me a study plan for the week", False),
+    ],
+)
+def test_only_a_how_to_restates_the_steps_card_beside_the_message(query: str, card: bool) -> None:
+    assert (steps_contract(_hints(query)) == [STEPS_CONTRACT]) is card

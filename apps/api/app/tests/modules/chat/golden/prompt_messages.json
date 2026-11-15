@@ -124,7 +124,9 @@
   "Start with three easy runs a week. Want me to make you a 4-week plan?",
   "why does this fail?\n\nfor i in range(3)\n    print(i)",
   "plan my day today so I can learn SQL",
-  "\n\nA lesson is in progress. The learner has ALREADY SEEN Lesson 1, which ended with a practice ```quiz (they can check it in the app) and a preview of the next lesson. Do not repeat Lesson 1. Read the latest message first:\n- An answer to the practice question: if right, start with \"Correct! 🎉\" and say why in one sentence; if wrong or partial, start with \"Not quite\", fix that one misunderstanding in 1-3 sentences with a fresh tiny example, and do not ask them to try again. Then teach Lesson 2; never ask whether to go on or try another first.\n- 'next', 'ok', 'got it', 'continue' or similar: teach Lesson 2.\n- Confusion ('I don't get it', 'why?', 'another example'): stay on the same idea, explain it a different way with a new analogy and example under the same `### Lesson 1: ...` title, and end with a fresh ```quiz.\n- A question about the lesson: answer it first, then continue.\n- A question about an idea the practice needs ('what are isotopes?'): teach it in a few lines, then say the practice above is still theirs to try. Never work the practice out in the text, and never show its card again.\n- Accidental or unclear input: do not grade it; give the practice answer in one sentence and teach Lesson 2.\n- A request to skip, stop, change topic, get everything at once, a summary or a cheat sheet: do that instead of the next lesson.\nLesson 2 covers what the preview promised, without a greeting or an outline, in the same shape (the app's ```quiz, ```array and ```steps cards included), its practice a new question on what it taught:\n- Title: `### Lesson N: <topic>` (the word Lesson in the reply language), N counting the lessons in this chat. Then numbered sections, each a `### 1. <title>` heading, then the practice. What the sections hold follows what is taught:\n  - Words or phrases of a language (useful English words, Spanish greetings): one section per word, its heading the word itself (`### 1. Eventually`), a `**Meaning:**` line and an `**Example:**` sentence, ten of them. Only a language's words get this shape.\n  - A concept or a school topic (atoms, the mole, photosynthesis, a law of physics, the causes of a war): the idea, never a glossary of its terms. `### 1. <the one idea>`: the idea itself in two or three plain sentences. `### 2. How it works`: the mechanism, the rule or the key formula, with what each part means. `### 3. <an example>`: one example worked through to its result (a problem to its answer, a reaction, a date and what happened). Two to four sections, never one per term.\n  - A process or method the learner will carry out (balancing an equation, long division, writing an electron configuration, setting up a project, kneading dough): the idea in a line, its steps in one ```steps card, then one worked example. Never a ```mermaid flowchart or a plain numbered list for the steps.\n  - Code, an algorithm or a skill: 3-5 sections, each one idea with one concrete example (code with an API or a table of users; a way to practise it), for example `### 2. Solution one: Brute force`. Never a paragraph on why it matters.\n- Code: short language-tagged blocks such as ```python. Explain it the way a tutor does: a `# 18` comment for what a line gives, then a bullet per idea that opens with the code in `inline code` (\"`ages[0]` gets the first item.\"), or `**How it works:**` with numbered steps for a loop, or `Let's break down the important parts:` with bullets. Only for the key function of an algorithm lesson (four or more lines), go line by line instead: the label `Line 1` on its own line, that one line alone in its own ```python block, then one sentence; never group lines (no `Line 3-5`). After code that prints, `Output:` with what it prints in a ```text block; after code that only defines a function, `Test it:` with a ```python block that calls it, then `Output:`. Never write `>>>` prompts.\n- A list or array: show its values over their indexes with an ```array fence holding JSON {\"title\": \"Think of a Python list as a row of numbered boxes.\", \"values\": [18, 25, 32, 40], \"note\": \"Python starts counting indexes at **0**, not 1.\"}, or for an algorithm {\"values\": [2, 7, 11, 15], \"highlight\": [0, 1], \"caption\": \"2 + 7 = 9\", \"note\": \"We return indexes, not the numbers themselves.\"}. Title (a line above the boxes), highlight, caption (a short result under them) and note are optional; write them as plain text, not LaTeX.\n- Steps done in order (a method, a process, an algorithm's trace): a ```steps fence, one numbered line per step with a bold title, and plain lines under it for what happens and the state; the app draws each step as a box with an arrow to the next, for example:\n```steps\n1. **Read `2` at index `0`**\nWe need `9 - 2 = 7`. Not seen yet, so save `2: 0`.\nDictionary: `{2: 0}`\n```\n- Cost in math: time $O(n^2)$, extra space $O(1)$. A key idea may be one display formula in a ```math fence. Compare approaches in a markdown table.\n- The practice comes last, under an unnumbered `### Your turn` heading (in the reply language; it is no section, so it has no number), plus what it asks when it helps (code: `— predict the output`; history: `— check your understanding`). One practice question as a ```quiz fence, ```quiz alone on its line and the JSON on the next: {\"label\": \"Exercise 1\", \"question\": \"What will this Python code print?\", \"code\": \"<the code it needs, lines joined with \\n; empty without code>\", \"options\": [\"...\", \"...\", \"...\", \"...\"], \"answer\": <0-based index of the right option>, \"explanation\": \"<why, in one or two sentences>\"}. The app draws the label, question and code in one card; never repeat the code above it. For code prefer \"predict the output\" or \"what should it return\"; make the wrong options real mistakes. It asks only what this lesson or an earlier one taught, and never a question this chat already asked. Exactly one option is right: check that each wrong option is false for the question as written (asked what two things share, no wrong option is something else they share). Options and the explanation may use `inline code`; the explanation may end with a short fenced code block. The app lets the learner pick and check; never reveal the answer in the text.\n- End with one sentence previewing the next lesson: \"Once you get this, we'll move to A, B and C.\" When they asked for one idea, the preview goes deeper into that same idea (for dictionaries: looping over one, nesting). No course outline, no table of contents, no \"ready to continue?\" question.\n- Unless emoji are off, one fitting emoji in the opening line (🐍 for Python) and 🎉 after a correct answer, no others.\nLESSON 1 WAS OVER A DAY AGO. Unless the latest message answers its practice question, the reply must start, before the new lesson's title, with `**Quick recap**`: two short lines on Lesson 1's key idea, then one warm-up ```quiz on it (label \"Warm-up\"). Only then `### Lesson 2: ...` (the warm-up is not a lesson, so the number is 2) on what Lesson 1's preview promised.\n\n",
+  "\n\nA lesson is in progress. The learner has ALREADY SEEN Lesson 1, which ended with a practice ```quiz (they can check it in the app) and a preview of the next lesson. Do not repeat Lesson 1. Read the latest message first:\n- An answer to the practice question: if right, start with \"Correct! 🎉\" and say why in one sentence; if wrong or partial, start with \"Not quite\", fix that one misunderstanding in 1-3 sentences with a fresh tiny example, and do not ask them to try again. Then teach Lesson 2; never ask whether to go on or try another first.\n- 'next', 'ok', 'got it', 'continue' or similar: teach Lesson 2.\n- A yes or a pick answering another offer the reply ended on (a reminder, a drawing, a harder one): do what it offered, not the next lesson.\n- Confusion ('I don't get it', 'why?', 'another example'): stay on the same idea, explain it a different way with a new analogy and example under the same `### Lesson 1: ...` title, and end with a fresh ```quiz.\n- A question about the lesson: answer it first, then continue.\n- A question about an idea the practice needs ('what are isotopes?'): teach it in a few lines, then say the practice above is still theirs to try. Never work the practice out in the text, and never show its card again.\n- Accidental or unclear input: do not grade it; give the practice answer in one sentence and teach Lesson 2.\n- A request to skip, stop, change topic, get everything at once, a summary or a cheat sheet: do that instead of the next lesson.\nLesson 2 covers what the preview promised, without a greeting or an outline, in the same shape (the app's ```quiz, ```array and ```steps cards included), its practice a new question on what it taught:\n- Title: `### Lesson N: <topic>` (the word Lesson in the reply language), N counting the lessons in this chat. Then numbered sections, each a `### 1. <title>` heading, then the practice. What the sections hold follows what is taught:\n",
+  "  - Code, an algorithm or a skill: 3-5 sections, each one idea with one concrete example (code with an API or a table of users; a way to practise it), for example `### 2. Solution one: Brute force`. Never a paragraph on why it matters.\n- Code: short language-tagged blocks such as ```python. Explain it the way a tutor does: a `# 18` comment for what a line gives, then a bullet per idea that opens with the code in `inline code` (\"`ages[0]` gets the first item.\"), or `**How it works:**` with numbered steps for a loop, or `Let's break down the important parts:` with bullets. Only for the key function of an algorithm lesson (four or more lines), go line by line instead: the label `Line 1` on its own line, that one line alone in its own ```python block, then one sentence; never group lines (no `Line 3-5`). After code that prints, `Output:` with what it prints in a ```text block; after code that only defines a function, `Test it:` with a ```python block that calls it, then `Output:`. Never write `>>>` prompts.\n- A list or array: show its values over their indexes with an ```array fence holding JSON {\"title\": \"Think of a Python list as a row of numbered boxes.\", \"values\": [18, 25, 32, 40], \"note\": \"Python starts counting indexes at **0**, not 1.\"}, or for an algorithm {\"values\": [2, 7, 11, 15], \"highlight\": [0, 1], \"caption\": \"2 + 7 = 9\", \"note\": \"We return indexes, not the numbers themselves.\"}. Title (a line above the boxes), highlight, caption (a short result under them) and note are optional; write them as plain text, not LaTeX.\n- Steps done in order (a method, a process, an algorithm's trace): a ```steps fence, one numbered line per step with a bold title, and plain lines under it for what happens and the state; the app draws each step as a box with an arrow to the next, for example:\n```steps\n1. **Read `2` at index `0`**\nWe need `9 - 2 = 7`. Not seen yet, so save `2: 0`.\nDictionary: `{2: 0}`\n```\n- Cost in math: time $O(n^2)$, extra space $O(1)$. A key idea may be one display formula in a ```math fence. Compare approaches in a markdown table.\n",
+  "- End with one sentence previewing the next lesson: \"Once you get this, we'll move to A, B and C.\" When they asked for one idea, the preview goes deeper into that same idea (for dictionaries: looping over one, nesting). No course outline, no table of contents, no \"ready to continue?\" question.\n- Unless emoji are off, one fitting emoji in the opening line (🐍 for Python) and 🎉 after a correct answer, no others.\nLESSON 1 WAS OVER A DAY AGO. Unless the latest message answers its practice question, the reply must start, before the new lesson's title, with `**Quick recap**`: two short lines on Lesson 1's key idea, then one warm-up ```quiz on it (label \"Warm-up\"). Only then `### Lesson 2: ...` (the warm-up is not a lesson, so the number is 2) on what Lesson 1's preview promised.\n\n",
   "### Lesson 1: The for loop\n\nA for loop repeats a block for each item.\n\n```quiz\nquestion: What does range(3) produce?\nanswer: 0, 1, 2\n```",
   "next",
   "Current local time: Wednesday, October 14, 2026, 9:00:00 AM EAT. Year 2026. Month October. You know them and the dates below: name one only when asked or when it changes the answer, never as filler or to open a reply (\"Next weekend is …\"). Never say you lack a clock. Told today is another day? Give today's date once, no sorry. What you remember ends well before this date: the latest winner, whether something is out yet, who holds a post now or what comes next may have changed since: look it up when you have web_search, and never give a memory as today's fact. When you name the weekday of a date, write the full date with it (\"Friday, December 25, 2026\"). The next seven days: Thursday October 15, Friday October 16, Saturday October 17, Sunday October 18, Monday October 19, Tuesday October 20, Wednesday October 21.\n\nWrite this reply in English, the language of the user's message, whatever a saved memory or an earlier reply says.",
@@ -1137,6 +1139,10 @@
       "67 @CAREER_PERSONALIZE_HINT 1 @READER_NOTE"
      ],
      [
+      "system",
+      "@STEPS_CONTRACT"
+     ],
+     [
       "user",
       "68"
      ]
@@ -1395,7 +1401,7 @@
      ],
      [
       "system",
-      "@STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @NON_DRAFT_TURN_HINT 1 @UNIVERSAL_FORMAT_BASELINE 1 @FORMAT_CONTRACT 76 @VERIFIED_SOLVE_SAFETY_HINT 1 @PHYSICS_INTENT_HINT 1 @PHYSICS_SYMBOLS 1 @COPY_DELIVERABLE_HINT 1 @PHYSICS_REPLY_POLICY 1 @NEW_PROBLEM_HINT 1 @FACT_GROUNDING_HINT 3"
+      "@STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @NON_DRAFT_TURN_HINT 1 @UNIVERSAL_FORMAT_BASELINE 1 @FORMAT_CONTRACT 76 @LESSON_WORDS_SHAPE @LESSON_CONCEPT_SHAPE @LESSON_PROCESS_SHAPE 77 @LESSON_PRACTICE 78 @VERIFIED_SOLVE_SAFETY_HINT 1 @PHYSICS_INTENT_HINT 1 @PHYSICS_SYMBOLS 1 @COPY_DELIVERABLE_HINT 1 @PHYSICS_REPLY_POLICY 1 @NEW_PROBLEM_HINT 1 @FACT_GROUNDING_HINT 3"
      ],
      [
       "user",
@@ -1403,7 +1409,7 @@
      ],
      [
       "assistant",
-      "77"
+      "79"
      ],
      [
       "system",
@@ -1411,7 +1417,7 @@
      ],
      [
       "user",
-      "78"
+      "80"
      ]
     ],
     "out": {}
@@ -1441,7 +1447,7 @@
      ],
      [
       "system",
-      "79"
+      "81"
      ],
      [
       "system",
@@ -1449,7 +1455,7 @@
      ],
      [
       "user",
-      "80"
+      "82"
      ]
     ],
     "out": {}
@@ -1483,7 +1489,7 @@
      ],
      [
       "user",
-      "81"
+      "83"
      ]
     ],
     "out": {}
@@ -1521,11 +1527,11 @@
      ],
      [
       "user",
-      "82"
+      "84"
      ],
      [
       "assistant",
-      "83"
+      "85"
      ],
      [
       "system",
@@ -1533,7 +1539,7 @@
      ],
      [
       "user",
-      "84"
+      "86"
      ]
     ],
     "out": {}
@@ -1567,7 +1573,7 @@
      ],
      [
       "user",
-      "85"
+      "87"
      ]
     ],
     "out": {}
@@ -1601,7 +1607,7 @@
      ],
      [
       "user",
-      "86"
+      "88"
      ]
     ],
     "out": {}
@@ -1635,7 +1641,7 @@
      ],
      [
       "user",
-      "87"
+      "89"
      ]
     ],
     "out": {}
@@ -1669,15 +1675,15 @@
      ],
      [
       "system",
-      "@STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @UNIVERSAL_FORMAT_BASELINE 88 @MATH_FENCE_SAFETY_HINT 1 @COPY_DELIVERABLE_HINT 1 @FACT_GROUNDING_HINT 3"
+      "@STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @UNIVERSAL_FORMAT_BASELINE 90 @MATH_FENCE_SAFETY_HINT 1 @COPY_DELIVERABLE_HINT 1 @FACT_GROUNDING_HINT 3"
      ],
      [
       "user",
-      "89"
+      "91"
      ],
      [
       "assistant",
-      "90"
+      "92"
      ],
      [
       "system",
@@ -1685,7 +1691,7 @@
      ],
      [
       "user",
-      "91"
+      "93"
      ]
     ],
     "out": {}
@@ -1711,7 +1717,7 @@
      ],
      [
       "system",
-      "@STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @DAY_PLANNING_ANSWER_HINT 92 @UNIVERSAL_FORMAT_BASELINE 1 @EMAIL_ASK_PURPOSE_HINT 1 @MATH_FENCE_SAFETY_HINT 1 @COPY_DELIVERABLE_HINT 1 @FACT_GROUNDING_HINT 3"
+      "@STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @DAY_PLANNING_ANSWER_HINT 94 @UNIVERSAL_FORMAT_BASELINE 1 @EMAIL_ASK_PURPOSE_HINT 1 @MATH_FENCE_SAFETY_HINT 1 @COPY_DELIVERABLE_HINT 1 @FACT_GROUNDING_HINT 3"
      ],
      [
       "system",
@@ -1719,7 +1725,7 @@
      ],
      [
       "user",
-      "93"
+      "95"
      ]
     ],
     "out": {}
@@ -1753,7 +1759,7 @@
      ],
      [
       "user",
-      "94"
+      "96"
      ]
     ],
     "out": {}
@@ -1787,7 +1793,7 @@
      ],
      [
       "user",
-      "95"
+      "97"
      ]
     ],
     "out": {}
@@ -1837,7 +1843,7 @@
      ],
      [
       "user",
-      "96"
+      "98"
      ]
     ],
     "out": {}
@@ -1875,11 +1881,11 @@
      ],
      [
       "user",
-      "97"
+      "99"
      ],
      [
       "assistant",
-      "98"
+      "100"
      ],
      [
       "system",
@@ -1887,7 +1893,7 @@
      ],
      [
       "user",
-      "99"
+      "101"
      ]
     ],
     "out": {}
@@ -1921,7 +1927,7 @@
      ],
      [
       "user",
-      "100"
+      "102"
      ]
     ],
     "out": {}
@@ -1955,7 +1961,7 @@
      ],
      [
       "user",
-      "101"
+      "103"
      ]
     ],
     "out": {}
@@ -1989,7 +1995,7 @@
      ],
      [
       "user",
-      "102"
+      "104"
      ]
     ],
     "out": {}
@@ -2027,11 +2033,11 @@
      ],
      [
       "user",
-      "103"
+      "105"
      ],
      [
       "assistant",
-      "104"
+      "106"
      ],
      [
       "system",
@@ -2043,7 +2049,7 @@
      ],
      [
       "user",
-      "105"
+      "107"
      ]
     ],
     "out": {}
@@ -2082,11 +2088,11 @@
      ],
      [
       "user",
-      "106"
+      "108"
      ],
      [
       "assistant",
-      "107"
+      "109"
      ],
      [
       "system",
@@ -2098,7 +2104,7 @@
      ],
      [
       "user",
-      "108"
+      "110"
      ]
     ],
     "out": {}

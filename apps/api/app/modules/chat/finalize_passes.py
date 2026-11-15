@@ -102,7 +102,6 @@ from app.modules.chat.reply_labels import one_answer_label
 from app.modules.chat.reply_meta import local_today, without_turn_meta
 from app.modules.chat.search_links import unlink_unretrieved_links
 from app.modules.chat.self_attribution import drop_self_attribution
-from app.modules.chat.steps_flow import hold_step_flow
 from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
@@ -337,12 +336,10 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass("instant_usage", record_instant_usage, kind=EFFECT),
     # Layout, after the passes that read the model's fences as it wrote them.
     FinalizePass("close_fences", close_open_fences, kind=TEXT, after=FENCE_READERS),
-    # After the closer, so a card or list the model left open is whole: a clarify card is
-    # read; a how-to's labelled list becomes its flow card; a practice card that asks again
-    # what the chat's cards asked goes, or a model call writes a fresh one; a model call when
-    # the reply left out a lesson's title and card.
+    # After the closer, so a card the model left open is whole: a clarify card is read; a
+    # practice card the chat's cards already showed goes, or a model call writes a fresh one;
+    # a model call when the reply left out a lesson's title and card.
     FinalizePass("clarify_card", settle_clarify, kind=EFFECT, after=_AFTER_CLOSER),
-    FinalizePass("steps_flow", hold_step_flow, kind=TEXT, after=_AFTER_CLOSER),
     *(
         FinalizePass(name, hold, OnError(log_as=name), kind=EFFECT, after=_AFTER_CLOSER)
         for name, hold in (("new_practice", hold_new_practice), ("lesson_shape", hold_lesson_shape))

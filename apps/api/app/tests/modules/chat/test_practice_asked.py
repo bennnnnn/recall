@@ -24,15 +24,24 @@ from app.modules.chat.practice_asked import (
     practice_questions,
 )
 from app.modules.chat.prompt_constants.practice import practice_asked_notes
-from app.modules.chat.quiz_cards import practice_cards
+from app.modules.chat.quiz_cards import PracticeCard, practice_cards
+
+_OPTIONS = ("12", "13", "25")
 
 
-def _card(question: str, label: str = "Exercise 4", answer: int = 1) -> str:
-    body = {"label": label, "question": question, "options": ["12", "13", "25"], "answer": answer}
+def _card(question: str, label: str = "Exercise 4", answer: int = 1, code: str = "") -> str:
+    body: dict[str, object] = {"label": label, "question": question, "code": code}
+    body.update(options=list(_OPTIONS), answer=answer)
     return f"```quiz\n{json.dumps(body, ensure_ascii=False)}\n```"
 
 
+def _line(question: str, code: str = "") -> str:
+    """A card as the listing writes it: question, code and options on one line."""
+    return PracticeCard("", question, _OPTIONS, 1, code).line
+
+
 _MG = "Magnesium-25 has atomic number 12. How many neutrons does it have?"
+_PRINT = "What will this Python code print?"
 _CL = "A chlorine atom has atomic number 17 and mass number 37. How many neutrons does it have?"
 _FRESH = {
     "question": "Carbon-14 has atomic number 6. How many neutrons does it have?",
@@ -75,22 +84,24 @@ def _state(text: str, asked: tuple[str, ...]) -> Any:
     )
 
 
-def test_the_listed_questions_read_back_from_the_prompt() -> None:
-    [note] = practice_asked_notes((_MG, _CL))
+def test_the_listed_cards_read_back_from_the_prompt() -> None:
+    lines = (_line(_MG), _line(_CL))
+    [note] = practice_asked_notes(lines)
     assert practice_asked_notes(()) == []
-    assert note.endswith(f"- {_MG}\n- {_CL}")
+    assert note.endswith(f"- {lines[0]}\n- {lines[1]}")
+    assert lines[0] == f"{_MG} Options: 12; 13; 25"
     messages = [
         {"role": "system", "content": f"other rules\n\n{note}"},
         {"role": "user", "content": "x"},
     ]
-    assert asked_in_prompt(messages) == (_MG, _CL)
+    assert asked_in_prompt(messages) == lines
     assert asked_in_prompt([{"role": "system", "content": "rules"}]) == ()
 
 
 @pytest.mark.asyncio
 async def test_a_card_shown_again_gives_way_to_a_fresh_one(calls: _Calls) -> None:
     reply = f"Here it is again, with the answer hidden 🧪\n\n{_card(_MG)}"
-    out = await hold_new_practice(_state(reply, (_CL, _MG)))
+    out = await hold_new_practice(_state(reply, (_line(_CL), _line(_MG))))
     [card] = practice_cards(out)
     assert card.question == _FRESH["question"]
     assert card.label == "Exercise 4"
@@ -105,7 +116,7 @@ async def test_a_repeat_among_new_cards_goes_without_a_call(calls: _Calls) -> No
     reply = (
         f"Fresh set:\n\n{_card(_CL.upper() + '  ', 'Mixed 1')}\n\n{_card(new, 'Mixed 2')}\n\nGo!"
     )
-    out = await hold_new_practice(_state(reply, (_CL,)))
+    out = await hold_new_practice(_state(reply, (_line(_CL),)))
     assert [card.question for card in practice_cards(out)] == [new]
     assert out == f"Fresh set:\n\n{_card(new, 'Mixed 2')}\n\nGo!"
     assert calls.asked == []
@@ -116,13 +127,19 @@ async def test_a_repeat_among_new_cards_goes_without_a_call(calls: _Calls) -> No
     [
         # Nothing listed, or nothing repeated: as written, no call.
         (f"Try this.\n\n{_card(_MG)}", (), _FRESH),
-        (f"Try this.\n\n{_card(_MG)}", (_CL,), _FRESH),
+        (f"Try this.\n\n{_card(_MG)}", (_line(_CL),), _FRESH),
         # A failed call keeps the card rather than leave the lesson without practice.
-        (f"Again:\n\n{_card(_MG)}", (_MG,), None),
+        (f"Again:\n\n{_card(_MG)}", (_line(_MG),), None),
         # A fresh card that is itself a repeat is no better.
-        (f"Again:\n\n{_card(_MG)}", (_MG,), {**_FRESH, "question": _MG}),
+        (
+            f"Again:\n\n{_card(_MG)}",
+            (_line(_MG),),
+            {**_FRESH, "question": _MG, "options": list(_OPTIONS)},
+        ),
+        # The same question over new code, or with other options, is a new card.
+        (f"Try:\n\n{_card(_PRINT, code='print(2)')}", (_line(_PRINT, "print(1)"),), _FRESH),
     ],
-    ids=["no listing", "no repeat", "call failed", "fresh repeats"],
+    ids=["no listing", "no repeat", "call failed", "fresh repeats", "same words, new code"],
 )
 @pytest.mark.asyncio
 async def test_a_reply_stays_as_written(
@@ -165,7 +182,7 @@ async def test_the_chats_cards_are_listed_beyond_the_window(
 
     monkeypatch.setattr(practice_asked, "_chat_replies", chat_replies)
     asked = await practice_questions(uuid4(), "quiz me again", [])
-    assert asked == (_CL, _MG)
+    assert asked == (_line(_CL), _line(_MG))
     assert await practice_questions(uuid4(), "what's the weather?", []) == ()
 
 
@@ -176,3 +193,25 @@ async def test_a_failed_read_lists_nothing(monkeypatch: pytest.MonkeyPatch) -> N
 
     monkeypatch.setattr(practice_asked, "_chat_replies", broken)
     assert await practice_questions(uuid4(), "quiz me", []) == ()
+
+
+@pytest.mark.asyncio
+async def test_a_python_quiz_of_one_question_over_new_code_keeps_every_card(
+    calls: _Calls,
+) -> None:
+    """Review, 2026-11-14: five cards asking "What will this Python code print?" over
+    different code came back as two, and every later lesson's card cost a fresh model call."""
+    earlier = tuple(_line(_PRINT, f"print({n})") for n in range(5))
+    reply = "Five more:\n\n" + "\n\n".join(
+        _card(_PRINT, f"Question {n}", code=f"print({n} * 2)") for n in range(5)
+    )
+    assert await hold_new_practice(_state(reply, earlier)) == reply
+    # One shown again whole goes; the rest stay.
+    again = f"{reply}\n\n{_card(_PRINT, 'Question 5', code='print(3)')}"
+    assert await hold_new_practice(_state(again, earlier)) == reply
+    assert calls.asked == []
+
+
+def test_a_card_nested_past_the_parser_reads_as_no_card() -> None:
+    deep = "```quiz\n" + "[" * 100_000 + "]" * 100_000 + "\n```"
+    assert practice_cards(deep) == []

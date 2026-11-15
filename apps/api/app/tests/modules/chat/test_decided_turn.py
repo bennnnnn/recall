@@ -28,7 +28,7 @@ from app.modules.chat.model_routing.decided import (
 )
 from app.modules.chat.model_routing.thinking import thinking_level
 from app.modules.chat.prompt_constants.conversation import FOLLOW_NOTES
-from app.modules.chat.prompt_constants.lesson_flow import lesson_next_contract
+from app.modules.chat.prompt_constants.lesson_flow import LESSON_ASIDE_NOTE, lesson_next_contract
 from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.turn_prep.context import StreamContext
 from app.modules.chat.turn_trace import begin_turn_trace
@@ -577,98 +577,145 @@ _AFTER_CARD = [
 ]
 
 
-def _answer_read(follow: str) -> TurnDecision:
+def _card_read(
+    picks: list[str] | None, *, goes_on: bool | None = None, follow: str = "answer"
+) -> TurnDecision:
     return TurnDecision.model_validate(
-        {"live": False, "subject": "chemistry", "think": False, "follow": follow, "work": True}
+        {
+            "live": False,
+            "subject": "chemistry",
+            "think": False,
+            "follow": follow,
+            "work": True,
+            "card_picks": picks,
+            "goes_on": goes_on,
+        }
     )
 
 
+def _note(ctx: StreamContext) -> str:
+    return str(ctx.prompt_messages[-2]["content"])
+
+
 @pytest.mark.parametrize(
-    "content",
-    ["1.2 times 10 to the 24?", "is it 1.204 x 10^24", "B", "2 × 6.02 × 10²³ = 1.2 × 10²⁴"],
+    ("content", "pick", "verdict"),
+    [
+        # "b", "the second one", "is it 1.204 x 10^24", "B": the read names option B.
+        ("b", "b", "they chose B (1.204 × 10²⁴), which is right"),
+        ("the second one", "b", "they chose B (1.204 × 10²⁴), which is right"),
+        ("a", "a", "they chose A (6.02 × 10²³), which is wrong; the right answer is B"),
+        ("is it 2 × 10^23", "c", "they chose C (2 × 10²³), which is wrong"),
+        # A value none of the options is: the reply judges whether it means the right one.
+        ("1.2 times 10 to the 24?", "other", "none of the options; the right one is B"),
+    ],
 )
 @pytest.mark.parametrize("readers_layout", [False, True], ids=["read's layout", "readers' layout"])
 @pytest.mark.asyncio
-async def test_an_answer_to_the_last_replys_card_is_graded_not_worked(
-    content: str, readers_layout: bool
+async def test_an_answer_to_the_card_is_graded_by_the_server(
+    content: str, pick: str, verdict: str, readers_layout: bool
 ) -> None:
+    """Told only the right answer's words, the reply graded "b" for B wrong and "a" right, and
+    read "the second one" as the third option (review, 2026-11-14)."""
     trace = begin_turn_trace("new")
     fields: dict[str, Any] = {"recent_messages": _AFTER_CARD}
     if readers_layout:
         fields["worked"] = WorkedLayout()
-    ctx = _turn(content, _answer_read("answer"), **fields)
+    ctx = _turn(content, _card_read([pick]), **fields)
     if readers_layout:
         ctx.prompt_messages = with_worked_contract(ctx.prompt_messages)
     await decide_from_the_read(ctx, _SETTINGS)
     assert ctx.worked is None
     assert not any("```worked" in str(m.get("content")) for m in ctx.prompt_messages)
-    note = ctx.prompt_messages[-2]
-    assert note["role"] == "system"
-    assert 'Exercise 2: "1.204 × 10²⁴"' in note["content"]
+    assert verdict in _note(ctx) and "Exercise 2" in _note(ctx)
     assert ctx.prompt_messages[-1] == {"role": "user", "content": content}
     assert "read.quiz_answer" in trace.prompt_rules
+    # Lesson 2's card answered: Lesson 3 comes next.
+    assert any(m["content"] == lesson_next_contract(2) for m in ctx.prompt_messages)
 
 
 @pytest.mark.parametrize(
-    ("follow", "recent"),
+    ("picks", "follow"),
     [
-        # A new question after the card is solved as any question is.
-        ("solve", _AFTER_CARD),
-        ("change", _AFTER_CARD),
-        # An answer to a reply with no card, or to a flashcard (no options), is no quiz answer.
-        ("answer", [SimpleNamespace(role="assistant", content="Want another set?")]),
-        (
-            "answer",
-            [SimpleNamespace(role="assistant", content='```quiz\n{"question": "front"}\n```')],
-        ),
+        # A new question after the card answers none of it, and is worked as any question is.
+        (["none"], "solve"),
+        (["none"], "answer"),
+        # No read of the cards (late, or the text read): the rules stand.
+        (None, "answer"),
     ],
-    ids=["solve", "change", "no card", "flashcard"],
+    ids=["new question", "no option named", "cards unread"],
 )
 @pytest.mark.asyncio
-async def test_a_new_question_after_a_card_keeps_its_worked_layout(
-    follow: str, recent: list[Any]
+async def test_a_message_that_answers_no_card_keeps_its_worked_layout(
+    picks: list[str] | None, follow: str
 ) -> None:
     trace = begin_turn_trace("new")
     content = "How many molecules are in 3 mol of carbon dioxide?"
-    ctx = _turn(content, _answer_read(follow), recent_messages=recent)
+    ctx = _turn(content, _card_read(picks, follow=follow), recent_messages=_AFTER_CARD)
     await decide_from_the_read(ctx, _SETTINGS)
     assert ctx.worked is not None
     assert "read.quiz_answer" not in trace.prompt_rules
+
+
+@pytest.mark.asyncio
+async def test_each_card_of_a_set_gets_its_own_verdict() -> None:
+    cards = "\n\n".join(
+        "```quiz\n"
+        f'{{"label": "Mixed {n}", "question": "Q{n}?", "options": ["x", "y", "z"], "answer": {n % 3}}}'
+        "\n```"
+        for n in range(1, 4)
+    )
+    recent = [SimpleNamespace(role="assistant", content=f"A mixed set.\n\n{cards}")]
+    ctx = _turn("y, z, x", _card_read(["b", "none", "a"]), recent_messages=recent)
+    await decide_from_the_read(ctx, _SETTINGS)
+    note = _note(ctx)
+    assert "Mixed 1: they chose B (y), which is right" in note
+    assert "Mixed 3: they chose A (x), which is right" in note
+    assert "Mixed 2" not in note
 
 
 _LESSON_ONE = (
     "### Lesson 1: Atoms\n\n### 1. The idea\n\nProtons and neutrons make the nucleus.\n\n"
     "### Your turn\n\n```quiz\n"
     '{"label": "Exercise 1", "question": "17 protons and 18 neutrons: mass number?", '
-    '"options": ["17", "35", "18"], "answer": 1}\n```'
+    '"options": ["17", "35", "18"], "answer": 1}\n```\n\n'
+    "Want to try a harder one, or move on to ions?"
 )
 
 
 @pytest.mark.parametrize(
-    ("content", "follow", "goes_on"),
+    ("content", "picks", "goes_on", "next_lesson", "graded"),
     [
-        ("woah thats a lot lol. ok is it 35?", "answer", True),
-        ("ok next", "answer", True),
+        ("woah thats a lot lol. ok is it 35?", ["b"], True, True, True),
+        ("ok next", ["none"], True, True, False),
+        # A pick among the choices the reply offered, or a yes to another offer: neither
+        # (review, 2026-11-14: "the first one" was graded "Correct!" and Lesson 2 followed).
+        ("the first one", ["none"], False, False, False),
+        ("yes", ["none"], False, False, False),
         # A question of its own after the lesson is answered as itself.
-        ("how many neutrons does chlorine 37 have", "solve", False),
-        ("why is the electron not in the nucleus?", "explain", False),
+        ("why is the electron not in the nucleus?", ["none"], False, False, False),
         # The lesson just above, asked for again, is pointed to, never taught on.
-        ("lets start with lesson 1", "answer", False),
+        ("lets start with lesson 1", ["none"], True, False, False),
+        # No read of the cards: the system prompt's steps stand.
+        ("yes", None, None, False, False),
     ],
 )
 @pytest.mark.asyncio
-async def test_an_answer_to_a_lesson_gets_the_next_lessons_contract(
-    content: str, follow: str, goes_on: bool
+async def test_only_an_answer_or_a_go_on_gets_the_next_lesson(
+    content: str, picks: list[str] | None, goes_on: bool | None, next_lesson: bool, graded: bool
 ) -> None:
     trace = begin_turn_trace("new")
     recent = [
         SimpleNamespace(role="user", content="teach me atoms"),
         SimpleNamespace(role="assistant", content=_LESSON_ONE),
     ]
-    ctx = _turn(content, _answer_read(follow), recent_messages=recent)
+    ctx = _turn(content, _card_read(picks, goes_on=goes_on), recent_messages=recent)
     await decide_from_the_read(ctx, _SETTINGS)
     contract = lesson_next_contract(1)
-    assert any(m["content"] == contract for m in ctx.prompt_messages) is goes_on
-    assert ("read.lesson_next" in trace.prompt_rules) is goes_on
-    assert prompt_lesson_layout(ctx.prompt_messages) == ("next" if goes_on else None)
+    assert any(m["content"] == contract for m in ctx.prompt_messages) is next_lesson
+    assert ("read.lesson_next" in trace.prompt_rules) is next_lesson
+    assert prompt_lesson_layout(ctx.prompt_messages) == ("next" if next_lesson else None)
+    assert ("read.quiz_answer" in trace.prompt_rules) is graded
+    # What the read says is no answer and no go-on gets the aside note: do that instead.
+    aside = goes_on is False and content != "lets start with lesson 1"
+    assert any(m["content"] == LESSON_ASIDE_NOTE for m in ctx.prompt_messages) is aside
     assert ctx.prompt_messages[-1] == {"role": "user", "content": content}
