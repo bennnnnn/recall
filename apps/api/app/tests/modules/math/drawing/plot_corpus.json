@@ -1813,10 +1813,10 @@
   "regions": []
  },
  {
-  "id": "domain_cuts_curve",
+  "id": "pieces_as_curves",
   "question": "Determine the values of the constants a and b so that f is continuous, and show the continuous function on a graph: f(x) = x² + 1 if x < a; f(x) = 15 − 5x if a ≤ x ≤ b; f(x) = 5x − 25 if x > b.",
-  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"x^2 + 1\", \"domain\": [\"-10\", \"-7\"]}]}",
-  "note": "a piece written as an interval the question never states: the parabola would stand for f, so nothing is drawn",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"x^2 + 1\", \"domain\": [\"-10\", \"-7\"]}, {\"item\": \"curve\", \"name\": \"f\", \"y\": \"15 - 5x\", \"domain\": [\"-7\", \"4\"]}, {\"item\": \"curve\", \"name\": \"f\", \"y\": \"5x - 25\", \"domain\": [\"4\", \"10\"]}]}",
+  "note": "one function written as three curves of one name on intervals the question never states: a whole parabola would stand for f, so nothing is drawn",
   "expect": "drop"
  }
 ]

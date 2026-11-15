@@ -11,6 +11,7 @@ question's letter, its unit one the question writes.
 from __future__ import annotations
 
 import math
+from collections import Counter
 from typing import Any, Literal
 
 from sympy import Expr, Integral, Rational, Symbol, integrate
@@ -37,8 +38,6 @@ _LABEL_CHARS = 48
 _FAMILY_REACH = 5
 # Where an antiderivative is compared with SymPy's: a few places most functions are defined.
 _SAMPLES = (0.37, 1.3, 2.9, 4.7)
-# Just beyond an interval's ends, where a curve the interval does not cut has no values.
-_BEYOND = (1e-3, 0.1, 0.5, 2.0)
 # Names that call a function by name, not a quantity an axis measures.
 _FUNCTION_NAMES = frozenset({"f", "g", "h", "F", "G", "y", ""})
 
@@ -98,25 +97,20 @@ def _no_constant(antiderivative: Any, integrand: Any, letter: Symbol) -> bool:
 
 
 def _domain(
-    curve: Curve, question: PlotQuestion, expr: Any
+    curve: Curve, question: PlotQuestion, split: bool
 ) -> tuple[Any, Any] | Literal[False] | None:
-    """The stated interval the curve is drawn on, None for none, and False for one the
-    question does not state that cuts the curve: c011's reply drew a piece x² + 1 "on [-10,
-    -7]", and the whole parabola stood for f. One that is only where the curve has values
-    (√(9 - x²) "on [-3, 3]") is no cut: the curve is drawn whole."""
+    """The stated interval the curve is drawn on; None for none, and for one the question
+    does not state, a window the reply chose (the curve is drawn where the picture shows it).
+    False when that interval is a piece: the reply wrote one function as curves of one name
+    (c011's x² + 1 "on [-10, -7]", 15 - 5x "on [-7, 4]"), and a whole parabola would stand
+    for f."""
     if curve.domain is None:
         return None
     ends = [value(text) for text in curve.domain]
     held = [stated(end, question) if end is not None else None for end in ends]
     if held[0] is not None and held[1] is not None and float(held[0]) < float(held[1]):
         return held[0], held[1]
-    if ends[0] is None or ends[1] is None:
-        return False
-    fn = RealFunction(as_real(expr, _X))
-    outside = [float(ends[0]) - step for step in _BEYOND] + [
-        float(ends[1]) + step for step in _BEYOND
-    ]
-    return None if not any(math.isfinite(fn.at(x)) for x in outside) else False
+    return False if split else None
 
 
 def _shift(text: str, question: PlotQuestion) -> Any | None:
@@ -129,7 +123,9 @@ def _shift(text: str, question: PlotQuestion) -> Any | None:
     return number if number.is_Integer and abs(number) <= _FAMILY_REACH else None
 
 
-def _curves(curve: Curve, question: PlotQuestion, color: int, scene: Scene) -> list[DrawnCurve]:
+def _curves(
+    curve: Curve, question: PlotQuestion, color: int, scene: Scene, split: bool
+) -> list[DrawnCurve]:
     search = (-reach(question), reach(question))
     name = curve.name or f"curve{color}"
     if curve.x and not curve.y and not curve.pieces:
@@ -144,7 +140,7 @@ def _curves(curve: Curve, question: PlotQuestion, color: int, scene: Scene) -> l
         shape = pieces_shape(curve, question)
         return [] if shape is None else [DrawnCurve(name, "", color, shape, search=search)]
     found = _own_formula(curve.y, question)
-    domain = _domain(curve, question, found[0]) if found is not None else None
+    domain = _domain(curve, question, split)
     if found is None or domain is False:
         return []
     expr, letter, quantity, antiderivative = found
@@ -229,9 +225,10 @@ def _axis_name(text: str, letter: str, question: PlotQuestion) -> str | None:
 
 def add_curves(items: list[Any], question: PlotQuestion, scene: Scene) -> None:
     color = 0
+    names = Counter(item.name for item in items if isinstance(item, Curve) and item.name)
     for item in items:
         if isinstance(item, Curve) and len(scene.curves) < _MOST_CURVES:
-            for drawn in _curves(item, question, color, scene):
+            for drawn in _curves(item, question, color, scene, names[item.name] > 1):
                 if drawn.name not in scene.curves and len(scene.curves) < _MOST_CURVES:
                     scene.curves[drawn.name] = drawn
                     color += 1
