@@ -29,8 +29,11 @@ class Worked:
     assumed: tuple[str, ...]
     # None is no number: a card payment that never clears the balance.
     outputs: dict[str, float | None]
-    # The request's settings (``Product.settings``): how often savings compound.
+    # The request's settings (``Product.settings``): how often savings compound, how often a
+    # loan is paid.
     settings: dict[str, float] = field(default_factory=dict)
+    # Times a year the rate is charged as the user said it (``MoneyRequest.rate_per``).
+    rate_per: int = 1
 
     def expressions(self) -> dict[str, str]:
         """Each output's formula with the settings written in, as the card sends it."""
@@ -63,7 +66,7 @@ def work(request: MoneyRequest, average: float | None) -> Worked | None:
         item.name: output_value(item.expression, values) for item in product.outputs_at(settings)
     }
     ordered = tuple(item.name for item in product.inputs if item.name in assumed)
-    return Worked(product, values, ordered, outputs, settings)
+    return Worked(product, values, ordered, outputs, settings, request.rate_per)
 
 
 def output_value(expression: str, values: dict[str, float]) -> float | None:
