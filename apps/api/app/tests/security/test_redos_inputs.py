@@ -15,6 +15,7 @@ from app.modules.chat.notation_spans import code_notation, is_notation
 from app.modules.chat.posed_read import without_cheer
 from app.modules.chemistry.extractors.atom_particles import _placeholder
 from app.modules.math.match.spoken import _OVER, _fraction, _tight_carets, spoken_math_to_plain
+from app.modules.math.solve.extract_eq import _equation_spans
 from app.modules.math.tools.school.price_changes import extract_price_changes_intent
 from app.modules.physics import force_pictures, force_rigs
 from app.modules.physics.binding import bind_physics_intent, drop_unit_request
@@ -234,3 +235,33 @@ def test_a_prices_currency_word_is_read_after_its_spaces_once(price, money):
 )
 def test_after_spaces_skips_exactly_what_a_leading_whitespace_run_matched(text, index, after):
     assert after_spaces(text, index) == after
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "x" + SPACES + "= 3",
+        "the value of x" + SPACES + "= 5",
+        "x = 0" + SPACES + "(2x - 1) = 0",
+        "x = " + "1 " * (N // 2),
+    ],
+)
+def test_equation_walker_reads_a_run_of_spaces_once(text: str) -> None:
+    """PERF-01 (2026-11-13 STEM audit): the walk out from ``=`` asked whether an English word
+    stood before each space of a run, crossing the run again each time: ``x`` + 8,000 spaces
+    + ``=`` took 3 s, and a long paste ran the turn's reading past its timeout."""
+    _equation_spans(text)
+
+
+@pytest.mark.parametrize(
+    ("text", "sides"),
+    [
+        ("x" + "   " + "= 3", [("x", "3")]),
+        ("Solve 2x + 3 = 7 please", [("2x + 3", "7")]),
+        # A bare 0 ends its side before the next equation's parenthesis.
+        ("x^2 - 5x + 6 = 0 (x - 2)(x - 3) = 0", [("x^2 - 5x + 6", "0")]),
+        ("the answer is x = 0   (x - 1) = 2", [("x", "0")]),
+    ],
+)
+def test_the_equation_walker_reads_sides_as_before(text: str, sides: list[tuple[str, str]]) -> None:
+    assert [(lhs, rhs) for _left, _right, lhs, rhs in _equation_spans(text)] == sides
