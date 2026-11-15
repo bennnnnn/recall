@@ -718,6 +718,7 @@
   "rich.array_index": "İndeks {{index}}",
   "rich.quiz_check": "Cevabı kontrol et",
   "rich.quiz_correct": "Doğru! 🎉",
+  "rich.step_flow_a11y": "Adım {{n}} / {{total}}",
   "rich.quiz_wrong": "Tam değil.",
   "rich.quiz_show_answer": "Cevabı göster",
   "rich.simulation_play_a11y": "Fizik animasyonunu oynat",

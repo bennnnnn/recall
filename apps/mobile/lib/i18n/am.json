@@ -718,6 +718,7 @@
   "rich.array_index": "ማውጫ {{index}}",
   "rich.quiz_check": "መልሱን አረጋግጥ",
   "rich.quiz_correct": "ትክክል! 🎉",
+  "rich.step_flow_a11y": "ደረጃ {{n}} ከ{{total}}",
   "rich.quiz_wrong": "ትክክል አይደለም።",
   "rich.quiz_show_answer": "መልሱን አሳይ",
   "rich.simulation_play_a11y": "የፊዚክስ እንቅስቃሴውን አጫውት",

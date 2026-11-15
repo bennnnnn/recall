@@ -1,20 +1,23 @@
-"""The two parts of a lesson the server asks a model for when the reply left them out.
+"""The parts of a lesson the server asks a model for when the reply left them out.
 
-A lesson's practice card (``LessonPractice``) and an outline's topics (``OutlineTopics``)
-are written by a cheap model from the reply itself, validated with Pydantic (CLAUDE.md golden
-rule 6) and laid out by the server (``lesson_shape``, ``lesson_outline``). A call that
-fails, times out or returns something invalid gives None: the reply then stays as written.
+A lesson's practice card (``LessonPractice``) and a fresh card in place of one the chat
+already asked (``fresh_practice``) are written by a cheap model from the reply itself,
+validated with Pydantic (CLAUDE.md golden rule 6) and laid out by the server
+(``lesson_shape``, ``practice_asked``). A call that fails, times out or returns something
+invalid gives None: the reply then stays as written.
 """
 
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Annotated, Self
 
 from pydantic import BaseModel, Field, StringConstraints, field_validator, model_validator
 
 from app.gateways.structured_completion import complete_structured
 from app.models.routing_lanes import ROUTING
+from app.modules.chat.quiz_cards import PracticeCard
 from app.modules.chat.stream_status import announced_if_slow
 
 if TYPE_CHECKING:
@@ -108,3 +111,25 @@ async def _ask[T: BaseModel](
 async def lesson_practice(state: FinalizeState) -> LessonPractice | None:
     """A practice card for the lesson in ``state.text``, or None."""
     return await _ask(state, _PRACTICE_SYSTEM, LessonPractice, 900)
+
+
+_FRESH_SYSTEM = (
+    "You write a new practice card in place of one that asks again what the chat already "
+    "asked. Read the reply and the card it ends on (THE CARD), and write ONE multiple-choice "
+    "question on the same idea with a different example, in the reply's language. It must "
+    "not ask any question in ASKED, reworded or with the same numbers. Give 3 or 4 short "
+    "options with exactly one right: check each wrong option is false for the question as "
+    "written. `answer` is the 0-based index of the right option; `explanation` says why in "
+    "one or two sentences; `code` is empty unless the question needs code. Plain text, no "
+    'LaTeX. Return JSON: {"question": ..., "code": ..., "options": [...], "answer": ..., '
+    '"explanation": ...}.'
+)
+
+
+async def fresh_practice(
+    state: FinalizeState, card: PracticeCard, asked: Sequence[str]
+) -> QuizCard | None:
+    """A card on ``card``'s idea that asks none of ``asked``, or None."""
+    listed = "\n".join(f"- {question}" for question in asked)
+    system = f"{_FRESH_SYSTEM}\n\nTHE CARD:\n{card.question}\n\nASKED:\n{listed}"
+    return await _ask(state, system, QuizCard, 700)

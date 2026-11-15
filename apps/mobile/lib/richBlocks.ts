@@ -147,6 +147,12 @@ export function parseSteps(text: string): string[] {
   return steps;
 }
 
+/** A step's first line is its title, the lines under it what happens (a trace's state). */
+export function stepParts(step: string): { title: string; body: string } {
+  const [title = "", ...rest] = step.split("\n");
+  return { title, body: rest.join("\n").trim() };
+}
+
 export function parseComparison(text: string): ComparisonDraft | null {
   const lines = text.split("\n");
   let mode: "left" | "right" | null = null;

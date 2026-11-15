@@ -156,12 +156,28 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   “English”) first gets 5-8 topics in learning order and one question about where to
   start, and the answer (“3”, “start”, “I'm a beginner”) starts Lesson 1 there. A lesson is
   a complete reply: a one-line hook tied to the user's goal or level from memory (one fitting emoji),
-  `### Lesson 1: <topic>`, 3-5 numbered sections (`### 1. Understand the problem`, …) with
-  real-world examples, code explained line by line with its output, an `array` card for
-  values over their indexes, a trace as `steps` cards, cost in math ($O(n)$) and a
-  comparison table, then `### N. Your turn` with a `quiz` card (pick an option, **Check
-  answer**, see why; checked on the phone, nothing is sent) and one line previewing the
-  next lesson. A `quiz` or `array` fence whose JSON is broken still reads: the question,
+  `### Lesson 1: <topic>`, then numbered sections that follow what is taught: a language's
+  words get ten `**Meaning:**` / `**Example:**` sections; a concept gets the one idea, how
+  it works and one worked example (never a glossary of its terms); a process its steps as a
+  `steps` card, drawn as boxes joined by arrows (`StepFlow`), and a worked example; code
+  3-5 sections explained line by line with its output, an `array` card for values over
+  their indexes, cost in math ($O(n)$) and a comparison table. Then an unnumbered
+  `### Your turn` (the server takes the number off one the model wrote) with a `quiz` card
+  (pick an option, **Check answer**, see why; checked on the phone, nothing is sent) and
+  one line previewing the next lesson. A how-to (“how do I make a budget”, “teach me how
+  to balance an equation”) gets its steps as the same flow card; a goal reached several
+  ways (save money) keeps its list. A practice card never repeats one the chat's cards
+  already showed: each is listed beside the message (question, code and options), and a
+  card shown again whole gives way to a fresh one (`chat/practice_asked.py`). An answer to
+  the last reply's cards (“b”, “the second one”, “35”, “1.2 times 10 to the 24?”) is read
+  by the turn's read as the option it names, graded by the server against each card (the
+  verdict names the option by its words, as the card shows it; an option's whole words beat
+  its letter) and never laid out as a calculation; the reply waits for that read. A
+  question that only names an option (“why is 18 wrong?”, “is it 35 or 52?”) is answered,
+  ungraded; one answer after several cards that says not which (“B”) is asked about first.
+  An answer or “ok next” after a lesson gets the next lesson's contract; a yes to another
+  offer, a pick among offered choices or a question of its own gets a note to do that
+  instead of a new lesson (`chat/decided_turn.py`). A `quiz` or `array` fence whose JSON is broken still reads: the question,
   lettered options and a **Show answer** tap, or the list's values as text
   (`lib/lesson/lessonFences.ts` loose readers); a fence counts as finished once its braces close. The next turn grades a typed answer (“Correct! 🎉” or a
   short fix), then teaches Lesson N+1 from the preview; confusion re-explains the same
@@ -581,12 +597,13 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   ` ```email ` fence so Copy, follow-ups, and reopen see the same draft.
 - ✅ **Fence ownership** — [fence/registry.ts](apps/mobile/lib/fence/registry.ts) marks each
   fence `model` / `server` / `legacy`. New turns: Markdown plus a small model-facing
-  set (`copy` / drafts, `mermaid`, `chart`, `math`, lesson `quiz` / `array` / `steps`,
+  set (`copy` / drafts, `mermaid`, `chart`, `math`, lesson `quiz` / `array`, `steps` for
+  a lesson's or a how-to's steps,
   chemistry source). Server attaches
   verified `answer` / `graph` / `geometry` and `sources`; a `places` list is the model's,
   drawn where it wrote it, and keeps only the addresses the search's pages give each
   place (the pages never become a list themselves). Layout fences
-  (`steps`, `comparison`, `keyvalue`, `quote`, `clock`, `callout`)
+  (`comparison`, `keyvalue`, `quote`, `clock`, `callout`)
   still render for history; the prompt must not choose them. A `>` quote card is
   only a citation whose last line is `— Name`. `details` / `collapse` / `summary`
   and HTML `<details>` unwrap to a bold title plus markdown. Reminder

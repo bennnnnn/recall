@@ -130,7 +130,7 @@ const FENCE_TABLE = [
     owner: "legacy", body: "data",
   },
   {
-    // A lesson's trace: numbered step cards, a state line under each.
+    // Steps done in order (a method, a how-to, a trace): boxes joined by arrows (StepFlow).
     id: "steps",
     langs: ["steps", "step"],
     structured: true,
