@@ -23,6 +23,7 @@ _PAD = 0.12
 # Room beside a vertical asymptote and along a horizontal or oblique one, as a share of the span.
 _ASYMPTOTE_ROOM = 0.25
 _END_ROOM = 0.6
+_ASYMPTOTE_REACH = 4.0
 # A curve may run on past its places by this share of their height before it leaves.
 _RUN_ON = 0.6
 _LEAST_HEIGHT = 0.6
@@ -118,10 +119,13 @@ def _x_window(scene: Scene, places: list[tuple[float, float]]) -> tuple[float, f
                 x_lo = min(x_lo, x - _ASYMPTOTE_ROOM * span)
             if _runs_beside(scene, x + 0.05 * span):
                 x_hi = max(x_hi, x + _ASYMPTOTE_ROOM * span)
+    # Room to run along a horizontal or oblique asymptote, and to come near it: √(x² + 1)'s
+    # places all lie within 1 of 0, where it is nowhere near y = ±x (d05).
+    along = _END_ROOM * max(span, _ASYMPTOTE_REACH)
     if 1 in scene.asymptote_sides:
-        x_hi += _END_ROOM * span
+        x_hi += along
     if -1 in scene.asymptote_sides:
-        x_lo -= _END_ROOM * span
+        x_lo -= along
     return _padded(x_lo, x_hi, 2.0)
 
 

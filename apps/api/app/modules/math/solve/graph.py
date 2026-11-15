@@ -102,6 +102,22 @@ def _split_at_xs(points: list[list[float]], pole_xs: list[float]) -> list[list[l
     return segments
 
 
+def _split_at_gaps(segments: list[list[list[float]]], step: float) -> list[list[list[float]]]:
+    """Each segment split where samples are missing (no real value there): √(x² + x) has
+    none on (-1, 0), and one segment drew a line across it (2026-11-15 review, t02)."""
+    found: list[list[list[float]]] = []
+    for segment in segments:
+        current: list[list[float]] = []
+        for point in segment:
+            if current and point[0] - current[-1][0] > 1.5 * step:
+                found.append(current)
+                current = []
+            current.append(point)
+        if current:
+            found.append(current)
+    return found
+
+
 def _removable_holes(
     original: Any, simplified: Any, sym: Symbol, x_min: float, x_max: float
 ) -> list[list[float]]:
@@ -215,7 +231,10 @@ def sample_function(data: GraphSampleInput) -> GraphSampleResult:
         x_min=x_min,
         x_max=x_max,
         points=points,
-        segments=_split_at_xs(points, breaks) if breaks else _split_into_segments(points),
+        segments=_split_at_gaps(
+            _split_at_xs(points, breaks) if breaks else _split_into_segments(points),
+            (x_max - x_min) / max(n - 1, 1),
+        ),
         holes=_removable_holes(original, parsed, sym, x_min, x_max),
     )
 
