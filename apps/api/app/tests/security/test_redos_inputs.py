@@ -14,9 +14,11 @@ from app.content.legal import contact_markdown, markdown_to_html
 from app.modules.chat.notation_spans import code_notation, is_notation
 from app.modules.chat.posed_read import without_cheer
 from app.modules.chemistry.extractors.atom_particles import _placeholder
+from app.modules.math.match.derivative_order import derivative_orders
 from app.modules.math.match.spoken import _OVER, _fraction, _tight_carets, spoken_math_to_plain
 from app.modules.math.solve.extract_eq import _equation_spans
 from app.modules.math.tools.school.price_changes import extract_price_changes_intent
+from app.modules.math.tools.school.trig_degrees import degree_expression_intent
 from app.modules.physics import force_pictures, force_rigs
 from app.modules.physics.binding import bind_physics_intent, drop_unit_request
 from app.modules.physics.givens import unit_at
@@ -265,3 +267,38 @@ def test_equation_walker_reads_a_run_of_spaces_once(text: str) -> None:
 )
 def test_the_equation_walker_reads_sides_as_before(text: str, sides: list[tuple[str, str]]) -> None:
     assert [(lhs, rhs) for _left, _right, lhs, rhs in _equation_spans(text)] == sides
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # The tool check reads the user's whole message: "d^" and a run of spaces took 10.8 s
+        # at 32,000 characters, "d^2" and spaces and tabs more than 15 s (review, 2026-11-15).
+        "d^" + SPACES + "x",
+        "d^2" + " \t" * (N // 2) + "y",
+        "d^2" + SPACES + "y" + SPACES + "q",
+        "2nd and " * (N // 8),
+        "the " + "first and " * (N // 10) + "derivative",
+        "d^" * (N // 2),
+    ],
+)
+def test_derivative_orders_are_read_in_one_pass(text):
+    derivative_orders(text)
+
+
+def test_derivative_orders_read_as_before_around_a_run_of_spaces():
+    assert derivative_orders("find d^2y/dx^2" + SPACES) == (2,)
+    assert derivative_orders("the second" + SPACES + "derivative") == (2,)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "sin" + SPACES + "30°",
+        "sin(" + SPACES + "π",
+        "sin 30° + " + "cos(" * (N // 4),
+        "sin 30° " + "sin 30° " * (N // 8),
+    ],
+)
+def test_degree_calls_are_read_in_one_pass(text):
+    degree_expression_intent(text)
