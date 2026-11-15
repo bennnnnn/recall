@@ -50,6 +50,7 @@ logger = logging.getLogger(__name__)
 _MAX_INPUT_CHARS = 1200
 # Each earlier message the read sees, and how many: the last two exchanges.
 _EARLIER_CHARS = 400
+_LAST_REPLY_CHARS = 1500  # "Where is the golf": the course was past 400 (2026-11-15).
 _EARLIER_MESSAGES = 4
 # A reply's practice card the cut leaves out, quoted after it: its question and options, then
 # what the reply says after it.
@@ -238,22 +239,23 @@ def earlier_turns(recent: list[Any] | None) -> list[tuple[str, str]]:
     """The last exchanges of an oldest-first window, as the read sees them: what a short
     follow-up ("How much", "Can I walk?", "Draw it") refers to."""
     turns = [
-        (role, _quoted(role, content))
+        (role, content)
         for message in recent or []
         if (role := getattr(message, "role", None)) in {"user", "assistant"}
         and isinstance(content := getattr(message, "content", None), str)
         and content.strip()
-    ]
-    return turns[-_EARLIER_MESSAGES:]
+    ][-_EARLIER_MESSAGES:]
+    return [(r, _quoted(r, t, i == len(turns) - 1)) for i, (r, t) in enumerate(turns)]
 
 
-def _quoted(role: str, content: str) -> str:
+def _quoted(role: str, content: str, last: bool = False) -> str:
     """The message as the read sees it: its start, and a reply's practice cards the cut left
     out. A lesson ends on its card, past the first 400 characters: "1.2 times 10 to the 24?"
     answered one, and read without it, it was a calculation laid out as working (the owner's
     chat, 2026-11-14)."""
-    head = content[:_EARLIER_CHARS]
-    if role != "assistant" or len(content) <= _EARLIER_CHARS:
+    limit = _LAST_REPLY_CHARS if last and role == "assistant" else _EARLIER_CHARS
+    head = content[:limit]
+    if role != "assistant" or len(content) <= limit:
         return head
     try:
         found = practice_cards(content)

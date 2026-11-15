@@ -302,3 +302,15 @@ def test_derivative_orders_read_as_before_around_a_run_of_spaces():
 )
 def test_degree_calls_are_read_in_one_pass(text):
     degree_expression_intent(text)
+
+
+def test_the_names_and_options_passes_read_long_runs_once() -> None:
+    """CodeQL on #2459: inline code by backreference, an option line's lazy text before its
+    trailing tabs, and a question end after a run of "?"."""
+    from app.modules.chat.name_use import without_name
+    from app.modules.chat.option_letters import has_lettered_run
+
+    without_name("`" * N, "bini")
+    has_lettered_run("A) x" + "\t" * N + "y\nB) z")
+    has_lettered_run("?" * N + "\nA) x\nB) y")
+    assert without_name("Hey bini! See `bini` here.", "bini") == "Hey! See `bini` here."
