@@ -330,7 +330,7 @@ async def _save_user_remind(turn: _Turn) -> tuple[str, int]:
     draft = _user_remind(turn)
     if draft is None and turn.offer is not None:
         # A yes to the offer asked for a reminder, and the reply wrote no card for it.
-        return reply_to_accepted_offer(turn.assistant_text), 0
+        return reply_to_accepted_offer(turn.assistant_text, turn.offer), 0
     if draft is None:
         # Right after a reply about saved reminders, "Moved **gym** to Sunday"
         # with nothing moved is a false claim.

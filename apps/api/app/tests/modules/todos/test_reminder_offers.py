@@ -20,7 +20,11 @@ from app.modules.conversation import chats_repository as chats_repo
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.offer_reply import accepted_offer_in, accepted_reminder_offer
 from app.modules.todos.reminder_fences import materialize_reminder_fences
-from app.modules.todos.reply_check import NEED_A_TIME, reply_to_accepted_offer
+from app.modules.todos.reply_check import (
+    KEEP_AS_REMINDER,
+    NEED_A_TIME,
+    reply_to_accepted_offer,
+)
 from app.modules.todos.reply_denials import is_denial, without_denials
 from app.repositories import users as users_repo
 
@@ -176,14 +180,13 @@ TEST_REPLY = (
         TEST_REPLY,
         "Done! I'll remind you on the morning of the test to look over the sheet.",
         "Saved ✅ You'll get it Friday at 7:00 AM.",
-        "Got it — that's in your to-do list now.",
-        "Perfect, all set for the big day! Good luck 🍀",
+        "Reminder set for 7am Wednesday.",
     ],
 )
 def test_a_yes_with_no_card_never_says_it_was_set(reply: str) -> None:
-    """Whatever a reply with no card says, nothing was set: the user is asked when."""
+    """A reply that says the reminder exists, when nothing was made, asks when instead."""
     assert accepted_reminder_offer("yes", TEST_OFFER)
-    assert reply_to_accepted_offer(reply) == NEED_A_TIME
+    assert reply_to_accepted_offer(reply, TEST_OFFER) == NEED_A_TIME
 
 
 @pytest.mark.parametrize(
@@ -195,7 +198,22 @@ def test_a_yes_with_no_card_never_says_it_was_set(reply: str) -> None:
     ],
 )
 def test_a_yes_with_no_card_keeps_a_reply_that_asks_when(reply: str) -> None:
-    assert reply_to_accepted_offer(reply) == reply
+    assert reply_to_accepted_offer(reply, TEST_OFFER) == reply
+
+
+@pytest.mark.parametrize(
+    ("reply", "offer", "asked"),
+    [
+        ("Perfect, all set for the big day! Good luck 🍀", TEST_OFFER, NEED_A_TIME),
+        (
+            "Here's your shopping list:\n\n- 1 whole chicken\n- 2 lemons",
+            "Want me to add the ingredients to your shopping list?",
+            KEEP_AS_REMINDER,
+        ),
+    ],
+)
+def test_a_yes_with_no_card_keeps_the_reply_and_asks_when(reply, offer, asked) -> None:
+    assert reply_to_accepted_offer(reply, offer) == f"{reply}\n\n{asked}"
 
 
 @pytest.mark.asyncio

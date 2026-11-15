@@ -196,21 +196,26 @@ def reply_when_nothing_saved(
 _UNCHANGED = "I didn't change your reminders."
 
 
-def reply_to_accepted_offer(text: str) -> str:
+def reply_to_accepted_offer(text: str, offer: str) -> str:
     """The reply to a yes to the last reply's offer of a reminder, when no card came of it.
 
     Live (2026-11-15): "Want me to save this as a reminder for the morning of the test?",
     then "yes", got "Set for **Friday, November 20 at 7:00 AM** — you'll get a nudge…" with
-    no card and nothing saved, on a day the user never said. The user asked for a reminder
-    and nothing was set, so whatever the reply says it asks when, unless it already asks
-    that and claims nothing ("What day is your test?"). A reply holding code answered
+    no card and nothing saved, on a day the user never said. The user asked for something
+    and nothing was made: a reply that says it was (a claim, or the time it is set for)
+    becomes the question of when; one that already asks when stays; any other ("Here's your
+    shopping list: …") stays with the question after it. A reply holding code answered
     something else ("Should I add it to your list?" read as a code offer) and stays.
     """
     if any(True for _fence in iter_fences(text)):
         return text
     words = _without_code(text)
-    claims = COLON_CLAIM_RE.search(words) or PROSE_CLAIM_RE.search(words) or _claims_in(words)
-    return text if _ASKS_WHEN_RE.search(words) and not claims else NEED_A_TIME
+    asked = NEED_A_TIME if re.search(r"\bremind", offer, re.IGNORECASE) else KEEP_AS_REMINDER
+    if _claims_in(words) or COLON_CLAIM_RE.search(words) or user_named_a_clock(words):
+        return asked
+    if _ASKS_WHEN_RE.search(words):
+        return text
+    return f"{text.rstrip()}\n\n{asked}"
 
 
 def _asked_about_an_add(prior_assistant: str | None, prior_user: str | None) -> bool:
