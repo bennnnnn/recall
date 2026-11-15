@@ -273,3 +273,9 @@ def test_a_value_said_of_a_point_is_no_vertical_line() -> None:
         {"item": "line", "name": "L", "x": "3"},
     )
     assert graph is not None and [c.label for c in graph.curves] == ["y = x²"] and not graph.lines
+
+
+def test_a_derivative_the_question_gives_is_no_picture_of_f() -> None:
+    """f'(x) = 3x² - 3 written as the curve y = 3x² - 3 would label f' as f."""
+    graph = _plot("Given f'(x) = 3x^2 - 3 and f(0) = 1, sketch f.", _curve("f", "3x^2 - 3"))
+    assert graph is None

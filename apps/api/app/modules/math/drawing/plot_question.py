@@ -172,8 +172,8 @@ def _without_unit(formula: str) -> str:
 def _formulas(text: str) -> list[Written]:
     found: list[Written] = []
     for name, formula in _equals_spans(text):
-        if _AT_A_POINT.fullmatch(name):
-            continue  # "f(2) = 4": the value at a point, no formula
+        if _AT_A_POINT.fullmatch(name) or not (name.isalpha() or _DEFINES_NAME.fullmatch(name)):
+            continue  # "f(2) = 4" is a value at a point; "f'(x) =" a derivative, not f
         parsed = parse_formula(_without_unit(formula))
         if isinstance(parsed, Expr):
             defines = name == "y" or _DEFINES_NAME.fullmatch(name) is not None
