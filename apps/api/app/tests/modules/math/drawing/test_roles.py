@@ -7,6 +7,8 @@ import pytest
 from app.modules.math.drawing.amounts import read_amount
 from app.modules.math.drawing.question import read_question
 from app.modules.math.drawing.roles import stated_on
+from app.modules.math.drawing.spheres import the_sphere
+from app.modules.math.drawing.vocabulary import SpaceSphere
 from app.modules.math.match.dimensions import measures_after, measures_before
 
 
@@ -58,3 +60,30 @@ def test_an_amount_is_what_the_question_measures_it_as(
     question: str, kind: str, text: str, amount: tuple[float, str] | None
 ) -> None:
     assert read_amount(kind, text, read_question([question], "")) == amount
+
+
+@pytest.mark.parametrize(
+    ("texts", "equation", "placed"),
+    [
+        # The same sphere written twice (asked again, pasted earlier) is one sphere.
+        (
+            ["Find the centre of x² + y² + z² - 2y = 4.", "Sketch x² + y² + z² - 2y = 4."],
+            "x^2 + y^2 + z^2 - 2*y = 4",
+            True,
+        ),
+        # Two different spheres with one centre: the item is still unplaced.
+        (
+            ["Compare x² + y² + z² = 4 and x² + y² + z² = 9."],
+            "",
+            False,
+        ),
+    ],
+)
+def test_a_sphere_written_twice_is_one_sphere(
+    texts: list[str], equation: str, placed: bool
+) -> None:
+    item = SpaceSphere(item="sphere", equation=equation, center=None if equation else (0, 0, 0))
+    found = the_sphere(item, read_question(texts, ""))
+    assert (found is not None) is placed
+    if placed:
+        assert found is not None and found[0] == (0, 1, 0) and found[1] == 5
