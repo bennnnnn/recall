@@ -151,3 +151,109 @@ def test_three_choices_keep_their_order() -> None:
     reply = "Do you want a quiz, a summary, or a worked example?"
     note = list_reference_hint("the third one", [("assistant", reply)]) or ""
     assert 'choice 3 is "a worked example"' in note
+
+
+# The owner's trivia game, 2026-11-15: "A" for England got "A is correct! … a gift from
+# France"; the note names the option picked, by its words.
+_TRIVIA = (
+    "**B is correct!** The Lighthouse of Alexandria.\n\nNext question: **Which country gifted "
+    "the Statue of Liberty to the United States?**\n\n\U0001f170️ England\n"
+    "\U0001f171️ France\n\U0001f172 Spain\n\nType A, B, or C. \U0001f3af"
+)
+
+
+@pytest.mark.parametrize(
+    "message, picked",
+    [
+        ("A", ['A) "England"']),
+        ("b", ['B) "France"']),
+        ("(c)", ['C) "Spain"']),
+        ("I think C", ['C) "Spain"']),
+        ("the second one", ['B) "France"']),
+        ("france", ['B) "France"']),
+        ("is it spain?", ['C) "Spain"']),
+        ("Is it A or B?", ['A) "England" and B) "France"']),
+        ("is it a or b", ['A) "England" and B) "France"']),
+    ],
+)
+def test_a_pick_under_lettered_options_names_the_option(message: str, picked: list[str]) -> None:
+    note = list_reference_hint(message, [("assistant", _TRIVIA)]) or ""
+    assert 'asked "Which country gifted the Statue of Liberty to the United States?"' in note
+    for named in picked:
+        assert f"it picked {named}" in note
+
+
+def test_the_option_words_shared_with_the_others_pick_nothing() -> None:
+    reply = "Which ocean is the largest?\n\nA) Atlantic Ocean\nB) Indian Ocean\nC) Pacific Ocean"
+    note = list_reference_hint("pacific", [("assistant", reply)]) or ""
+    assert 'it picked C) "Pacific Ocean"' in note
+    # "ocean" is every option's: it names none of them.
+    assert list_reference_hint("the ocean one", [("assistant", reply)]) is None
+
+
+def test_a_pick_after_a_reply_that_only_graded_names_the_question_before_it() -> None:
+    prior = [("assistant", _TRIVIA), ("user", "A"), ("assistant", "A is correct! France.")]
+    note = list_reference_hint("Is it A or B?", prior) or ""
+    assert note.startswith("Your reply before last asked")
+
+
+@pytest.mark.parametrize(
+    "message, prior",
+    [
+        # "A" as a word.
+        ("A lot of people get that one wrong", [("assistant", _TRIVIA)]),
+        ("a dog just knocked my coffee over", [("assistant", _TRIVIA)]),
+        # A letter that is no option.
+        ("D", [("assistant", _TRIVIA)]),
+        # A letter with no lettered question above it.
+        ("A", [("assistant", "Python is a programming language. Want to learn more?")]),
+        # A lettered outline that asks nothing.
+        ("B", [("assistant", "The plan:\n\nA) Book flights\nB) Reserve a hotel\n\nAll set.")]),
+    ],
+)
+def test_no_option_is_named_without_a_pick(message: str, prior) -> None:
+    assert "it picked" not in (list_reference_hint(message, prior) or "")
+
+
+# Review 2026-11-15: after the quiz, a reply of its own outranks it.
+_FACTS = (
+    "Correct! 🎉 Here are three fun facts:\n\n1. It was shipped in 350 pieces.\n2. Its torch "
+    "was replaced in 1986.\n3. It turned green from oxidation.\n\nWant more on any of these?"
+)
+
+
+@pytest.mark.parametrize(
+    "message, last, named",
+    [
+        (
+            "the second one",
+            _FACTS,
+            'item 2 of your latest list is "Its torch was replaced in 1986."',
+        ),
+        ("the last one", _FACTS, 'item 3 of your latest list is "It turned green from oxidation."'),
+        ("tell me about the third one", _FACTS, "item 3 of your latest list"),
+        ("B", _FACTS, None),
+        # Words and places name only the last reply's options.
+        ("is it nice in france?", "It's 18°C and sunny today.", None),
+        ("the second one", "It's 18°C and sunny today.", None),
+    ],
+)
+def test_a_reply_of_its_own_outranks_the_quiz_before_it(
+    message: str, last: str, named: str | None
+) -> None:
+    prior = [("assistant", _TRIVIA), ("user", "B"), ("assistant", last)]
+    note = list_reference_hint(message, prior) or ""
+    assert "it picked" not in note
+    if named:
+        assert named in note
+
+
+def test_a_pick_from_a_menu_is_gone_on_with_and_a_quiz_pick_judged() -> None:
+    """ "B" for "Move on to ions" got "B) Move on to ions is right" told only to judge it: the
+    note leaves it to the model whether the question has a right answer."""
+    menu = "What would you like next?\n\nA) Try a harder question\nB) Move on to ions"
+    note = list_reference_hint("B", [("assistant", menu)]) or ""
+    assert 'it picked B) "Move on to ions"' in note
+    # The choice first: told to judge first, "B" got "B) Move on to ions is right" 3 of 3.
+    assert 'go straight on with "Move on to ions" and grade nothing' in note
+    assert note.index("go straight on") < note.index("If it is a quiz question")

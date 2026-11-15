@@ -72,10 +72,13 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # a question offering choices taken among them, the list above it the other reading
 # (prompt_constants.list_reference, UNCLEAR_MESSAGE_HINT); then a card's verdict naming the
 # option by its words, and one answer to several cards asked about first (QUIZ_WHICH_NOTE)
-# (review, 2026-11-14).
-_RULES = 193
-_RULE_GRAMS = 17148
-_RULE_GRAMS_SHA = "7e50c6612a290999"
+# (review, 2026-11-14); then options lettered "A) …", an ordinary personal request helped, a
+# frightening turn met plainly with no weapon use told and a retraction never dropping talk of
+# self-harm, and "how" after a reply about something to do read as how to do it
+# (OPTION_LETTERS_RULE, prompt_constants.care, REPLY_HOW_HINT).
+_RULES = 197
+_RULE_GRAMS = 17398
+_RULE_GRAMS_SHA = "c3a7be77b192971e"
 
 
 def _rules() -> list[str]:

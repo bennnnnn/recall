@@ -593,12 +593,26 @@ async def test_drop_read_stops_a_running_read_and_leaves_a_finished_one() -> Non
     turn_decision.drop_read(None)
 
 
+def test_the_reply_just_before_the_message_is_read_further() -> None:
+    # "Where is the golf" after a news reply whose fourth point was the golf course searched
+    # "golf course near me" (2026-11-15): the course was past the first 400 characters.
+    recent = [
+        SimpleNamespace(role="user", content="y" * 1000),
+        SimpleNamespace(role="assistant", content="x" * 2000),
+    ]
+    assert turn_decision.earlier_turns(recent) == [
+        ("user", "y" * 400),
+        ("assistant", "x" * 1500),
+    ]
+
+
 def test_the_read_sees_the_practice_card_a_long_reply_ends_on() -> None:
     """The owner's chat (2026-11-14): Lesson 2's card sat past the first 400 characters, so
     the read judged "1.2 times 10 to the 24?" without the question it answered."""
     lesson = (
         "### Lesson 2: Moles and particles\n\n"
-        + "Since one mole holds 6.02 × 10²³ particles, N = n × N_A. " * 10
+        # Past the 1,500 characters the reply just before the message is read to.
+        + "Since one mole holds 6.02 × 10²³ particles, N = n × N_A. " * 30
         + '\n\n### Your turn\n\n```quiz\n{"label": "Exercise 2", "question": "How many '
         'molecules are in 2 mol of water?", "options": ["6.02 × 10²³", "1.204 × 10²⁴"], '
         '"answer": 1}\n```\n\nOnce you get this, we\'ll balance equations.'
@@ -609,7 +623,7 @@ def test_the_read_sees_the_practice_card_a_long_reply_ends_on() -> None:
     ]
     (_, user), (_, quoted) = turn_decision.earlier_turns(recent)
     assert user == "2 mol. continue"
-    assert quoted.startswith(lesson[:400])
+    assert quoted.startswith(lesson[:1500])
     # Lettered as the app letters them, then what the reply says after its card.
     assert quoted.endswith(
         "[practice card: How many molecules are in 2 mol of water? Options: A) 6.02 × 10²³; "
@@ -629,7 +643,8 @@ def test_the_read_sees_the_practice_card_a_long_reply_ends_on() -> None:
 def test_a_reply_the_read_cannot_parse_is_quoted_by_its_start() -> None:
     deep = "Long lesson. " * 40 + "```quiz\n" + "[" * 100_000 + "]" * 100_000 + "\n```"
     [(_, quoted)] = turn_decision.earlier_turns([SimpleNamespace(role="assistant", content=deep)])
-    assert quoted == deep[:400]
+    # The reply just before the message is read to 1,500 characters.
+    assert quoted == deep[:1500]
 
 
 def test_the_read_sees_what_a_card_reply_offers_after_its_card() -> None:
