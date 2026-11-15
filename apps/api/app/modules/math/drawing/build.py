@@ -16,11 +16,11 @@ import re
 from dataclasses import replace
 from typing import Any
 
-from app.modules.math.drawing.amounts import AMOUNTS, read_amount
+from app.modules.math.drawing.amounts import AMOUNTS, read_amount, stated_amounts
 from app.modules.math.drawing.labels import Label, read_length
 from app.modules.math.drawing.plane import polygon_at
 from app.modules.math.drawing.question import Question, read_question
-from app.modules.math.drawing.roles import PART_ROLES, stated_on
+from app.modules.math.drawing.roles import PART_ROLES, stated_on, usual_letter
 from app.modules.math.drawing.scene import checked_scene
 from app.modules.math.drawing.shape_drawings import DRAWERS, beside, box
 from app.modules.math.drawing.shapes import FORMS, Form, Sized, form_key, sized
@@ -107,33 +107,121 @@ def _sized(
     trusted: bool,
 ) -> Sized | None:
     """The shape's sizes: from its labels, and from the amount the question fixes and the one
-    it makes best, when the description names them (``amounts``). A size worked from them is
-    shown only where the lid is the question's and the reply works it out to the same value;
-    else the shape is drawn in its representative proportion, its letters bare."""
+    it makes best (``amounts``), as the description names them or, where it gives the sizes
+    as numbers, as the server finds them (the stated amount they meet, the best they are).
+    A size the server works out is labelled with its value unless the lid is not the
+    question's, the question weighs its parts (a cost per cm² twice as much), or the reply
+    works the letter out to another value; else the shape is drawn in its own proportion
+    with its letters, never with no labels (round 2: a window lost its r, h and w)."""
     equal = _equal(key, question)
-    plain = sized(form, labels, equal=equal)
-    if not part.fixed and not part.optimise:
+    plain = sized(form, _lettered(form, labels, question), equal=equal)
+    of = AMOUNTS.get(key)
+    if of is None or _WEIGHTED.search(question.words):
         return plain
-    if not trusted and "surface" in {*part.fixed, *part.optimise}:
+    uses = {*part.fixed, *part.optimise}
+    if not trusted and ("surface" in uses or (not uses and key in _LIDDED)):
         return plain
+    claims = any(label.claimed is not None for label in labels.values())
+    if not uses and not claims:
+        return plain  # no amounts and no numbers: nothing for the server to find or check
+    readings = _readings(part, of, form, question) if uses else _found_readings(of, form, question)
+    labels = _named_numbers(labels, _lettered(form, labels, question))
+    for fixed, goal in readings:
+        found = sized(
+            form, labels, amounts=lambda s: of(s, lid), fixed=fixed, goal=goal, equal=equal
+        )
+        if found is None and goal is not None and uses:
+            # A best the description leaves unsettled (sizes left free): drawn without it.
+            found = sized(form, labels, amounts=lambda s: of(s, lid), fixed=fixed, equal=equal)
+        claimed = {p for p, label in labels.items() if label.claimed is not None}
+        if found is None or not claimed <= set(found.shown):
+            continue  # the model's own numbers are not this best's
+        if _worked(found, labels) and _reply_agrees(found, labels, question):
+            return _with_letters(found, plain, labels)
+    return plain
+
+
+# The shapes whose surface counts a lid, and a question that weighs its parts' amounts.
+_LIDDED = frozenset({"cylinder", "box"})
+_WEIGHTED = re.compile(
+    r"\b(?:twice|thrice|(?:two|three|four|five|\d+(?:\.\d+)?)\s+times)\s+as\s+much\b"
+    r"|\bper\s+(?:square|sq\b|cm|m\b|metre|meter|ft\b|foot|feet|inch|unit)"
+)
+_GOALS = ("max", "min")
+Reading = tuple[dict[str, tuple[float, str]], tuple[str, str] | None]
+
+
+def _readings(part: ShapePart, of: Any, form: Form, question: Question) -> list[Reading]:
+    """The description's own amounts: each must be one the question states."""
     fixed: dict[str, tuple[float, str]] = {}
     for kind, text in part.fixed.items():
         amount = read_amount(kind, str(text), question)
         if amount is None:
-            return plain  # an amount the question does not state: no sizes worked from it
+            return []  # an amount the question does not state: no sizes worked from it
         fixed[kind] = amount
-    goal = next(iter(part.optimise.items()), None)
-    of = AMOUNTS.get(key)
-    if of is None:
-        return plain
-    amounts = (lambda symbols: of(symbols, lid)) if of is not None else None
-    found = sized(form, labels, amounts=amounts, fixed=fixed, goal=goal, equal=equal)
-    if found is None and goal is not None:
-        # A best the description leaves unsettled (sizes left free): drawn without it.
-        found = sized(form, labels, amounts=amounts, fixed=fixed, equal=equal)
-    if found is None or not _reply_agrees(found, labels, question) or not _worked(found, labels):
-        return plain  # nothing worked out to show: the shape in its own proportion
-    return found
+    return [(fixed, next(iter(part.optimise.items()), None))]
+
+
+def _found_readings(of: Any, form: Form, question: Question) -> list[Reading]:
+    """Where the description gives sizes as numbers and no amounts: each amount the question
+    states held fixed, with each other amount made largest or smallest, for the server to
+    find the one the numbers are the best of."""
+    import sympy
+
+    kinds = list(of(sympy.symbols(f"s0:{len(form.sizes)}", positive=True), True))
+    return [
+        ({kind: (value, unit)}, (other, goal))
+        for kind, value, unit in stated_amounts(question, kinds)
+        for other in kinds
+        if other != kind
+        for goal in _GOALS
+    ]
+
+
+def _with_letters(found: Sized, plain: Sized | None, labels: dict[str, Label]) -> Sized:
+    """The worked shape, each part whose number is not shown keeping its letter."""
+    if plain is None:
+        return found
+    shown = dict(found.shown)
+    for part, text in plain.shown.items():
+        if part not in shown and labels.get(part) is not None:
+            shown[part] = text
+    return replace(found, shown=shown)
+
+
+def _lettered(form: Form, labels: dict[str, Label], question: Question) -> dict[str, Label]:
+    """The labels with each number the description wrote, and the server does not show,
+    read as the letter it stands for: the reply's one letter worked out to it ("w = 3.36"),
+    else the part's usual letter where the reply or question uses it."""
+    lettered: dict[str, Label] = {}
+    for part, label in labels.items():
+        if label.claimed is None:
+            lettered[part] = label
+            continue
+        named = {
+            letter
+            for letter, _value, _places in question.reply_values
+            if question.gives(letter, label.claimed)
+        }
+        usual = usual_letter(part)
+        letter = next(iter(named)) if len(named) == 1 else usual if usual in named else None
+        if letter is None and not named and usual in question.letters:
+            letter = usual
+        found = read_length(letter, question) if letter else None
+        if found is not None:
+            lettered[part] = found
+    return lettered
+
+
+def _named_numbers(labels: dict[str, Label], lettered: dict[str, Label]) -> dict[str, Label]:
+    """Each number the description wrote named by the letter it stands for, so a worked
+    value it matches is shown with it ("w ≈ 3.36 m")."""
+    named = dict(labels)
+    for part, label in labels.items():
+        letter = lettered.get(part)
+        if label.claimed is not None and letter is not None and letter.letter is not None:
+            named[part] = replace(label, text=f"{letter.text} = {label.text}", letter=letter.letter)
+    return named
 
 
 def _worked(found: Sized, labels: dict[str, Label]) -> bool:
@@ -147,19 +235,17 @@ def _worked(found: Sized, labels: dict[str, Label]) -> bool:
 
 
 def _reply_agrees(found: Sized, labels: dict[str, Label], question: Question) -> bool:
-    """Every size worked from an amount is the reply's own: the letter it labels is worked
-    out to that value in the reply ("r ≈ 4.30 cm"). A best worked from the model's reading of
-    the question (a field fenced on three sides read as four) is no answer the reply gives."""
+    """No size worked from an amount is one the reply works out to another value: a best
+    worked from the model's reading of the question (a field fenced on three sides read as
+    four) is no answer the reply gives. A reply that gives no value for the letter leaves the
+    server's own checked value standing."""
     for part, label in labels.items():
         if label.value is not None or found.shown.get(part, label.text) == label.text:
             continue
         size = found.lengths[part] / float(label.coefficient)
-        if label.letter is not None and not question.agrees(label.letter, size):
-            return False
-        if label.letter is None and not any(
-            question.agrees(letter, size) for letter, _v, _p in question.reply_values
-        ):
-            return False
+        if label.letter is not None and question.value_of(label.letter):
+            if not question.gives(label.letter, size):
+                return False
     return True
 
 

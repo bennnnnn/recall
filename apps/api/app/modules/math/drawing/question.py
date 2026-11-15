@@ -126,13 +126,12 @@ class Question:
         """The values the reply works out for ``letter`` ("d = 2", "D = \\sqrt{109}")."""
         return {value for name, value, _places in self.reply_values if name == letter}
 
-    def agrees(self, letter: str, size: float) -> bool:
-        """The reply works ``letter`` out, and every value it gives it is ``size`` as rounded
-        to the places it writes ("r ≈ 4.3" for 4.301)."""
-        given = [(value, places) for name, value, places in self.reply_values if name == letter]
-        return bool(given) and all(
-            abs(value - size) <= 0.5 * 10.0**-places + 1e-9 * max(1.0, abs(size))
-            for value, places in given
+    def gives(self, letter: str, size: float) -> bool:
+        """The reply works ``letter`` out to ``size`` somewhere, as rounded to the places it
+        writes ("r ≈ 4.3" for 4.301); its working may give the letter other values first."""
+        return any(
+            name == letter and abs(value - size) <= 0.5 * 10.0**-places + 1e-9 * max(1.0, abs(size))
+            for name, value, places in self.reply_values
         )
 
 

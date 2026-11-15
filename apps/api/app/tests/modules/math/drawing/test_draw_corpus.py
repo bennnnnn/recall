@@ -18,6 +18,7 @@ from typing import Any
 import pytest
 
 from app.modules.math.drawing.build import drawn_fence, drawn_fences
+from app.modules.math.drawing.question import read_question
 from app.modules.math.schemas.figure import FigureSpec
 
 _CORPUS = json.loads(Path(__file__).with_name("draw_corpus.json").read_text())
@@ -86,3 +87,43 @@ def test_the_first_description_of_each_kind_that_holds_is_drawn() -> None:
     # One figure: the first that holds; a second figure never joins it.
     assert len(fences) == 1 and '"label":"u"' in fences[0]
     assert drawn_fences([unstated], [question], "") == []
+
+
+def _named_parts(entry: dict[str, Any]) -> bool:
+    """A word problem's description that names a part by a letter the question or the reply
+    uses ("r", "2r"), or by a number the reply gives a letter ("w = 3.36")."""
+    if not entry["description"].startswith('{"'):
+        return False
+    description = json.loads(entry["description"])
+    if description.get("kind") != "shape":
+        return False
+    question = read_question([entry["question"]], entry["reply"])
+    values = [
+        value.strip()
+        for item in description.get("items", [])
+        if isinstance(item, dict) and item.get("item") != "polygon"
+        for key, value in item.items()
+        if key not in {"item", "container", "open"} and isinstance(value, str)
+    ]
+    lettered = any(value[-1:] in question.letters for value in values if value[-1:].isalpha())
+    given = {round(value, 2) for _letter, value, _places in question.reply_values}
+    numbered = any(
+        value.split()[0].replace(".", "", 1).isdigit()
+        and round(float(value.split()[0]), 2) in given
+        for value in values
+        if value
+    )
+    return lettered or numbered
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [e for e in _CORPUS if e["expect"] == "draw" and _named_parts(e)],
+    ids=lambda e: e["id"],
+)
+def test_a_word_problem_figure_keeps_a_label(entry: dict[str, Any]) -> None:
+    """Round 2 (coordinator): a figure whose numbers the server cannot show keeps the
+    letters they stand for, never no label at all (a window lost its r, h and w)."""
+    fence = drawn_fence(entry["description"], [entry["question"]], entry["reply"])
+    assert fence is not None
+    assert [label for label in _labels(_body(fence)) if label not in {"right", "arc"}]
