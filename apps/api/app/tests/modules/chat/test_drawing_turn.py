@@ -210,6 +210,7 @@ async def test_a_message_asking_to_see_waits_for_a_late_read(
     task.cancel()
 
 
+@pytest.mark.wall_clock
 async def test_the_picture_wait_shares_the_reply_s_deadline() -> None:
     """The reply already waited out its time for the read: the contract waits no more."""
     task = asyncio.ensure_future(_late(_decision(subject="maths", picture="diagram"), 0.2))

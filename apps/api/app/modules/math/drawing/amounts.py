@@ -12,12 +12,12 @@ works out and checks may be labelled; the model's own number never is).
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from typing import Any
 
+import app.modules.math.solve.shape_formulas as formulas
 from app.modules.math.drawing.question import Question
 from app.modules.math.figure.grounding import unit_name
-from app.modules.math.solve import shape_formulas as formulas
 
 Amounts = Callable[[Sequence[Any], bool], dict[str, Any]]
 
@@ -88,6 +88,17 @@ def _stated(written: re.Match[str]) -> tuple[str, float, str] | None:
     return ("length", 1.0, unit) if word not in _UNITS else None
 
 
+def _readings(question: Question) -> dict[float, set[tuple[str, float, str]]]:
+    """Each number the question states with a unit, and what that unit says it measures."""
+    found: dict[float, set[tuple[str, float, str]]] = {}
+    for text in question.texts:
+        for written in _STATED.finditer(text.lower()):
+            reading = _stated(written)
+            if reading is not None:
+                found.setdefault(float(written.group(1)), set()).add(reading)
+    return found
+
+
 def read_amount(kind: str, text: str, question: Question) -> tuple[float, str] | None:
     """A fixed amount as the question states it: its value in the drawing's unit of length
     (cubed or squared) and that unit; None when the question states no such amount. What it
@@ -98,16 +109,24 @@ def read_amount(kind: str, text: str, question: Question) -> tuple[float, str] |
     if found is None or kind not in _KIND:
         return None
     value = float(found.group(1))
-    readings = {
-        reading
-        for text_ in question.texts
-        for written in _STATED.finditer(text_.lower())
-        if abs(float(written.group(1)) - value) < 1e-9 and (reading := _stated(written)) is not None
-    }
+    readings = next((r for v, r in _readings(question).items() if abs(v - value) < 1e-9), set())
     if value <= 0 or len(readings) != 1:
         return None
-    measured, scale, unit = readings.pop()
+    measured, scale, unit = next(iter(readings))
     return (value * scale, unit) if measured == _KIND[kind] else None
+
+
+def stated_amounts(question: Question, kinds: Iterable[str]) -> list[tuple[str, float, str]]:
+    """Every amount of ``kinds`` the question states, as ``read_amount`` reads it: each
+    kind with its value in the drawing's unit and that unit ("12 m of framing": a
+    perimeter of 12 m)."""
+    found = []
+    for value, readings in _readings(question).items():
+        if value <= 0 or len(readings) != 1:
+            continue
+        measured, scale, unit = next(iter(readings))
+        found += [(kind, value * scale, unit) for kind in kinds if _KIND.get(kind) == measured]
+    return found
 
 
 def optimum(

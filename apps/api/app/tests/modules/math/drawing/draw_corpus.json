@@ -147,6 +147,7 @@
   "expect": "draw",
   "labels": [
    "h",
+   "r",
    "right"
   ]
  },
@@ -167,7 +168,11 @@
   "reply": "x = 4, h = 2",
   "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"box\", \"open\": true, \"length\": \"4\", \"width\": \"4\", \"height\": \"2\"}]}",
   "expect": "draw",
-  "labels": []
+  "labels": [
+   "x = 4",
+   "x = 4",
+   "h = 2"
+  ]
  },
  {
   "id": "optimum_is_no_label",
@@ -210,7 +215,8 @@
   "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"window\", \"width\": \"r\", \"height\": \"h\", \"radius\": \"r\"}]}",
   "expect": "draw",
   "labels": [
-   "h"
+   "h",
+   "r"
   ]
  },
  {
@@ -648,8 +654,8 @@
   "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"cylinder\", \"radius\": \"11.68 cm\", \"height\": \"23.35 cm\", \"fixed\": {\"volume\": \"10 litres\"}, \"optimise\": {\"surface\": \"min\"}}]}",
   "expect": "draw",
   "labels": [
-   "23.35 cm",
-   "11.68 cm"
+   "h ≈ 23.35 cm",
+   "r ≈ 11.68 cm"
   ]
  },
  {
@@ -659,7 +665,8 @@
   "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"cylinder\", \"radius\": \"12 cm\", \"height\": \"23.35 cm\", \"fixed\": {\"volume\": \"10 litres\"}, \"optimise\": {\"surface\": \"min\"}}]}",
   "expect": "draw",
   "labels": [
-   "23.35 cm"
+   "h",
+   "r"
   ]
  },
  {
@@ -749,7 +756,10 @@
   "reply": "Let $r$ be the radius.",
   "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"window\", \"width\": \"2r\", \"height\": \"r\", \"radius\": \"r\"}]}",
   "expect": "draw",
-  "labels": []
+  "labels": [
+   "2r",
+   "r"
+  ]
  },
  {
   "id": "frustum_R_on_top",
@@ -778,6 +788,88 @@
   "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"expr\": \"x/4\"}]}",
   "expect": "drop",
   "labels": null
+ },
+ {
+  "id": "numbers_found_as_the_best",
+  "question": "A window is built in the shape of a rectangle with a semicircle on top. If there is 12 m of framing material for the outside edge, what dimensions let in the most light (maximum area)? Draw the window.",
+  "reply": "So $w = 3.36$ m, $h = 1.68$ m and $r = 1.68$ m (earlier $h = 6 - 2r$).",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"window\", \"width\": \"3.36 m\", \"height\": \"1.68 m\", \"radius\": \"1.68 m\"}]}",
+  "expect": "draw",
+  "labels": [
+   "w ≈ 3.36 m",
+   "h ≈ 1.68 m",
+   "r ≈ 1.68 m"
+  ]
+ },
+ {
+  "id": "numbers_no_best_keep_letters",
+  "question": "A window is built in the shape of a rectangle with a semicircle on top. If there is 12 m of framing material for the outside edge, what dimensions let in the most light? Draw the window.",
+  "reply": "So $w = 3.4$ m, $h = 1.5$ m and $r = 1.7$ m.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"window\", \"width\": \"3.4 m\", \"height\": \"1.5 m\", \"radius\": \"1.7 m\"}]}",
+  "expect": "draw",
+  "labels": [
+   "w",
+   "h",
+   "r"
+  ]
+ },
+ {
+  "id": "best_without_the_reply_echo",
+  "question": "A window is built in the shape of a rectangle with a semicircle on top. If there is 12 m of framing material for the outside edge, what dimensions let in the most light (maximum area)? Draw the window.",
+  "reply": "Let $r$ be the radius and $h$ the height.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"window\", \"width\": \"2r\", \"height\": \"h\", \"radius\": \"r\", \"fixed\": {\"perimeter\": \"12 m\"}, \"optimise\": {\"area\": \"max\"}}]}",
+  "expect": "draw",
+  "labels": [
+   "2r ≈ 3.36 m",
+   "h ≈ 1.68 m",
+   "r ≈ 1.68 m"
+  ]
+ },
+ {
+  "id": "letters_the_reply_works_out",
+  "question": "A window is built in the shape of a rectangle with a semicircle on top. If there is 12 m of framing material for the outside edge, what dimensions let in the most light (maximum area)? Draw the window.",
+  "reply": "So $w = 3.36$ m, $h = 1.68$ m and $r = 1.68$ m.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"window\", \"width\": \"w\", \"height\": \"h\", \"radius\": \"r\"}]}",
+  "expect": "draw",
+  "labels": [
+   "w ≈ 3.36 m",
+   "h ≈ 1.68 m",
+   "r ≈ 1.68 m"
+  ]
+ },
+ {
+  "id": "letters_the_reply_works_otherwise",
+  "question": "A window is built in the shape of a rectangle with a semicircle on top. If there is 12 m of framing material for the outside edge, what dimensions let in the most light (maximum area)? Draw the window.",
+  "reply": "So $w = 3$ m, $h = 2$ m and $r = 1.5$ m.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"window\", \"width\": \"w\", \"height\": \"h\", \"radius\": \"r\"}]}",
+  "expect": "draw",
+  "labels": [
+   "w",
+   "h",
+   "r"
+  ]
+ },
+ {
+  "id": "best_of_an_amount_not_named_needs_the_echo",
+  "question": "A cylindrical can is to be made to hold 10 litres of oil. Find the dimensions of the can that will minimise the cost of the metal. Draw the can with its dimensions.",
+  "reply": "Let $r$ be the radius and $h$ the height.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"cylinder\", \"radius\": \"r\", \"height\": \"h\", \"fixed\": {\"volume\": \"10 litres\"}, \"optimise\": {\"surface\": \"min\"}}]}",
+  "expect": "draw",
+  "labels": [
+   "h",
+   "r"
+  ]
+ },
+ {
+  "id": "best_the_reply_disputes_keeps_letters",
+  "question": "A cylindrical can is to be made to hold 10 litres of oil. Find the dimensions of the can that will minimise the cost of the metal. Draw the can with its dimensions.",
+  "reply": "So $r = 10$ cm and $h = 31.8$ cm.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"cylinder\", \"radius\": \"r\", \"height\": \"h\", \"fixed\": {\"volume\": \"10 litres\"}, \"optimise\": {\"surface\": \"min\"}}]}",
+  "expect": "draw",
+  "labels": [
+   "h",
+   "r"
+  ]
  },
  {
   "id": "r2_sph_rhs_as_radius",
@@ -1118,7 +1210,9 @@
   "reply": "Let $r$.",
   "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"cylinder\", \"radius\": \"r\", \"height\": \"r\"}]}",
   "expect": "draw",
-  "labels": [],
+  "labels": [
+   "r"
+  ],
   "shown": []
  },
  {

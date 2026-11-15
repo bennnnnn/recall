@@ -42,6 +42,9 @@ PART_ROLES = {
     "depth": "depth", "width": "width", "length": "length", "side": "side", "slant": "slant",
 }  # fmt: skip
 
+# Each part's usual letter: r for a radius, h for a height.
+_LETTERS = {"radius": "r", "height": "h", "width": "w", "length": "l", "side": "s",
+            "diameter": "d", "depth": "d", "slant": "l", "top": "h", "foot": "x"}  # fmt: skip
 _SAME = 1e-9
 _RESPECTIVELY = re.compile(r"\brespectively\b")
 _SENTENCE_END = re.compile(r"[.;:?!](?:\s|$)")
@@ -100,3 +103,8 @@ def stated_on(roles: set[str], value: float, all_roles: Iterable[str], question:
         for v in _named_by(_WORDS[role], question)
     ]
     return not _among(value, [*others, *_named_by((_AMOUNTS, ()), question)])
+
+
+def usual_letter(part: str) -> str | None:
+    """The letter a part of ``shapes.FORMS`` usually goes by ("r" for a radius)."""
+    return _LETTERS.get(PART_ROLES.get(part, part))

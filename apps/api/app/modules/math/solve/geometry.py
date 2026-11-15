@@ -6,6 +6,7 @@ import math
 
 from pydantic import BaseModel
 
+import app.modules.math.solve.shape_formulas as shape_formulas
 from app.modules.math.schemas import (
     CircleGeometryInput,
     CircleGeometryResult,
@@ -28,7 +29,6 @@ from app.modules.math.schemas import (
     TriangleSidesInput,
     TriangleSidesResult,
 )
-from app.modules.math.solve import shape_formulas
 from app.modules.math.solve.triangle import cosine_rule_angle, heron_area, sine_rule_side
 from app.services.solving import SolveServiceError
 

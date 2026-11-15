@@ -21,6 +21,7 @@ from typing import Any
 
 from app.modules.math.drawing.amounts import optimum
 from app.modules.math.drawing.labels import Label
+from app.modules.math.drawing.roles import usual_letter
 from app.modules.math.figure.drawing import length_label, number_text
 
 _TOLERANCE = 1e-9
@@ -164,7 +165,10 @@ def _relations(
     for parts in uses.values():
         # Each use is held to the letter's plain use where it has one ("r", beside "2r"):
         # two plain uses are one length, whatever multiple comes first.
-        base = next((part for part in parts if labels[part].coefficient == 1), parts[0])
+        plain = [part for part in parts if labels[part].coefficient == 1]
+        # Its usual part first ("r" on a radius): the letter is surely that part's.
+        usual = [part for part in plain if usual_letter(part) == labels[part].letter]
+        base = (usual or plain or parts)[0]
         first = labels[base]
         for part in parts:
             if part == base:
@@ -178,7 +182,8 @@ def _relations(
                 relation = lengths[part] * first.coefficient - lengths[base] * label.coefficient
                 imposed.append(relation)
             elif label.coefficient == first.coefficient:
-                dropped |= {base, part}  # which part the letter names is the model's guess
+                # Which part the letter names is the model's guess, unless one is its usual.
+                dropped |= {part} if usual else {base, part}
             else:
                 implied.append((base, part))
     return imposed, implied, dropped
@@ -223,6 +228,7 @@ def _same_ratio(drawn: dict[str, float], pair: tuple[str, str], labels: dict[str
 # A size the server works out is shown to two places (three under 1): the drawing is that
 # true to it (``figure.honest`` holds it to one in a thousand).
 _SHOWN_PLACES, _SMALL = 2, 1.0
+_HONEST, _MOST_PLACES = 0.9e-3, 6
 # A model's own number stands for a worked size within its rounding.
 _CLAIM_SLACK = 0.006
 
@@ -232,6 +238,10 @@ def worked_value(value: float) -> tuple[str, bool]:
     if abs(value - round(value)) < 1e-9:
         return str(round(value)), True
     places = _SHOWN_PLACES if value >= _SMALL else _SHOWN_PLACES + 1
+    # One more place where two leave it further than ``figure.honest`` holds a label to its
+    # part (10/3 is 3.333, not 3.33).
+    while abs(round(value, places) - value) > _HONEST * abs(value) and places < _MOST_PLACES:
+        places += 1
     return number_text(round(value, places)), False
 
 
@@ -333,6 +343,8 @@ def sized(
     if not set(fixed) <= set(named) or (goal is not None and goal[0] not in named):
         return None
     equations += imposed + [named[k] - sympy.nsimplify(v) for k, (v, _u) in fixed.items()]
+    # Parts the question makes equal are equal, lettered or not ("a square base").
+    equations += [lengths[a] - lengths[b] for a, b in (sorted(pair) for pair in equal)]
     worked: set[str]
     if goal is not None:
         sizes = optimum(symbols, equations, named[goal[0]], goal[1])
