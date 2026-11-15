@@ -6,6 +6,7 @@ import {
   parseQuoteAttribution,
   parseSocialPlatform,
   parseSteps,
+  stepParts,
 } from "@/lib/richBlocks";
 import { fullEmailText } from "@/features/drafts/model/emailCompose";
 
@@ -199,6 +200,16 @@ describe("parseSteps", () => {
     expect(
       parseSteps("1. **Read `2` at index `0`**\n   We need `7`.\n   Dictionary: `{2: 0}`\n2. Read `7`"),
     ).toEqual(["**Read `2` at index `0`**\nWe need `7`.\nDictionary: `{2: 0}`", "Read `7`"]);
+  });
+});
+
+describe("stepParts", () => {
+  it("takes a step's first line as its title and the rest as what happens", () => {
+    expect(stepParts("**Read `2` at index `0`**\nWe need `7`.\nDictionary: `{2: 0}`")).toEqual({
+      title: "**Read `2` at index `0`**",
+      body: "We need `7`.\nDictionary: `{2: 0}`",
+    });
+    expect(stepParts("Mix")).toEqual({ title: "Mix", body: "" });
   });
 });
 

@@ -1,5 +1,6 @@
 """Teach-me turns run as a lesson, and the next turn continues it."""
 
+import time
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -7,6 +8,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
+from app.modules.chat.lesson_layout import steps_contract
 from app.modules.chat.prompt_builder import build_prompt_messages
 from app.modules.chat.prompt_constants import (
     COMPACT_RESPONSE_FORMAT_HINT,
@@ -20,7 +22,14 @@ from app.modules.chat.prompt_constants import (
     learning_plan_contract,
     programming_lesson_contract,
 )
+from app.modules.chat.prompt_constants.format import STEPS_CONTRACT
 from app.modules.chat.prompt_constants.lesson_flow import OUTLINE_PICK_HINT, lesson_continue_hint
+from app.modules.chat.prompt_constants.teaching import (
+    LESSON_CONCEPT_SHAPE,
+    LESSON_PRACTICE,
+    LESSON_PROCESS_SHAPE,
+    LESSON_WORDS_SHAPE,
+)
 from app.modules.chat.prompt_format import _style_format_hints
 from app.modules.conversation import chats_repository, messages_repository
 from app.modules.turn_reading.lesson_flow import (
@@ -193,6 +202,12 @@ def test_learning_plan_request_declines_non_plans(text):
         ("### Урок 4: Итог\n\nЧто выведет код?", 4),
         ("### Lesson 1: A\n\ntext\n\n### Lesson 2: B\n\nWhich one?", 2),
         ('### Lesson 5: Sets\n\n```quiz\n{"question": "Pick one", "options": ["a", "b"]}\n```', 5),
+        # An emoji or bold marks before the word: the owner's chat (2026-11-14) wrote
+        # "### 🧪 Lesson 3: …", and the next "ok next" was read as no lesson's.
+        ('### 🧪 Lesson 3: Moles\n\n```quiz\n{"question": "Pick one"}\n```', 3),
+        ("### ⚖️ Lesson 4 — Ratios\n\nWhich one?", 4),
+        ("### **Lesson 2: Dicts**\n\nWhat prints?", 2),
+        ("### 💡 The one idea\n\nWhat is it?", None),
         # Plans, parts and how-tos are not lessons.
         ("### Day 1: Arrive\n\nReady for day 2?", None),
         ("### Step 2/6 — Accessing values\n\nWhat does it print?", None),
@@ -206,6 +221,19 @@ def test_learning_plan_request_declines_non_plans(text):
 )
 def test_lesson_step(reply, expected):
     assert lesson_step(reply) == expected
+
+
+@pytest.mark.wall_clock
+@pytest.mark.parametrize(
+    "reply",
+    ["\n" * 32_000, " \n" * 16_000, "**\n" * 16_000, "### 🧪\n" * 6_000, "### Lesson\n" * 5_000],
+)
+def test_a_title_is_read_in_one_pass_over_blank_lines(reply):
+    """From each line's start ``\\s*`` ran on over the blank lines after it: 6.2 s on a reply
+    of 32,000 newlines (review, 2026-11-14), and every reply is read at finalize."""
+    started = time.perf_counter()
+    assert lesson_step(reply + "### Lesson 2: Loops\n\nWhat prints?") == 2
+    assert time.perf_counter() - started < 0.5
 
 
 def test_active_lesson_step_reads_only_the_latest_assistant_reply():
@@ -674,3 +702,60 @@ def test_reply_to_an_outline_teaches_lesson_one(answer):
 def test_new_teach_request_after_an_outline_starts_over():
     hints = _hints("teach me cooking", outline_pick=True)
     assert TEACHING_HINT in hints and OUTLINE_PICK_HINT not in hints
+
+
+@pytest.mark.parametrize("hint", [TEACHING_HINT, WALKTHROUGH_HINT, lesson_continue_hint(2)])
+def test_every_lesson_gets_the_shape_for_what_it_teaches(hint: str) -> None:
+    """The owner's chat (2026-11-14): atoms and the mole came back as ten `### N. <term>`
+    sections, each a Meaning and an Example, the shape built for a language's words; and
+    "### 6. Your turn" after five taught items read as a sixth."""
+    for shape in (LESSON_WORDS_SHAPE, LESSON_CONCEPT_SHAPE, LESSON_PROCESS_SHAPE, LESSON_PRACTICE):
+        assert shape in hint
+    assert "### N. Your turn" not in hint
+
+
+def test_the_turn_after_a_lesson_never_shows_its_card_again() -> None:
+    hint = lesson_continue_hint(1)
+    assert "never ask whether to go on" in hint
+    assert "never show its card again" in hint and "Never work the practice out" in hint
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "teach me how to balance a chemical equation",
+        "teach me how to do long division",
+        "teach me how to make a budget",
+        "how do I make a budget",
+        "how do I do long division",
+    ],
+)
+def test_a_task_to_learn_gets_its_steps_as_a_flow(query: str) -> None:
+    hints = _hints(query)
+    assert STEPS_FORMAT_HINT in hints
+    assert TEACHING_HINT not in hints
+
+
+@pytest.mark.parametrize(
+    "query", ["teach me how to solve a quadratic", "teach me photosynthesis", "teach me moles"]
+)
+def test_a_skill_or_a_topic_to_learn_stays_a_lesson(query: str) -> None:
+    hints = _hints(query)
+    assert TEACHING_HINT in hints
+    assert STEPS_FORMAT_HINT not in hints
+
+
+@pytest.mark.parametrize(
+    ("query", "card"),
+    [
+        ("how do I balance a chemical equation", True),
+        ("teach me how to make tea", True),
+        # A plan, a lesson or a reply to an offer: the card is the how-to's alone (review,
+        # 2026-11-14: "yes" to a study plan came back as a dated plan in the card 3 of 3).
+        ("yes", False),
+        ("teach me photosynthesis", False),
+        ("make me a study plan for the week", False),
+    ],
+)
+def test_only_a_how_to_restates_the_steps_card_beside_the_message(query: str, card: bool) -> None:
+    assert (steps_contract(_hints(query)) == [STEPS_CONTRACT]) is card

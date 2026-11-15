@@ -591,3 +591,54 @@ async def test_drop_read_stops_a_running_read_and_leaves_a_finished_one() -> Non
     turn_decision.drop_read(finished)
     assert not finished.cancelled()
     turn_decision.drop_read(None)
+
+
+def test_the_read_sees_the_practice_card_a_long_reply_ends_on() -> None:
+    """The owner's chat (2026-11-14): Lesson 2's card sat past the first 400 characters, so
+    the read judged "1.2 times 10 to the 24?" without the question it answered."""
+    lesson = (
+        "### Lesson 2: Moles and particles\n\n"
+        + "Since one mole holds 6.02 × 10²³ particles, N = n × N_A. " * 10
+        + '\n\n### Your turn\n\n```quiz\n{"label": "Exercise 2", "question": "How many '
+        'molecules are in 2 mol of water?", "options": ["6.02 × 10²³", "1.204 × 10²⁴"], '
+        '"answer": 1}\n```\n\nOnce you get this, we\'ll balance equations.'
+    )
+    recent = [
+        SimpleNamespace(role="user", content="2 mol. continue"),
+        SimpleNamespace(role="assistant", content=lesson),
+    ]
+    (_, user), (_, quoted) = turn_decision.earlier_turns(recent)
+    assert user == "2 mol. continue"
+    assert quoted.startswith(lesson[:400])
+    # Lettered as the app letters them, then what the reply says after its card.
+    assert quoted.endswith(
+        "[practice card: How many molecules are in 2 mol of water? Options: A) 6.02 × 10²³; "
+        "B) 1.204 × 10²⁴] … Once you get this, we'll balance equations."
+    )
+    # A card already in view, or a user's long message, is quoted as it was.
+    short = 'Try this.\n\n```quiz\n{"question": "What is 6 × 7?", "options": ["42", "48"]}\n```'
+    long_user = "my notes: " + "```quiz " * 80
+    assert turn_decision.earlier_turns(
+        [
+            SimpleNamespace(role="assistant", content=short),
+            SimpleNamespace(role="user", content=long_user),
+        ]
+    ) == [("assistant", short), ("user", long_user[:400])]
+
+
+def test_a_reply_the_read_cannot_parse_is_quoted_by_its_start() -> None:
+    deep = "Long lesson. " * 40 + "```quiz\n" + "[" * 100_000 + "]" * 100_000 + "\n```"
+    [(_, quoted)] = turn_decision.earlier_turns([SimpleNamespace(role="assistant", content=deep)])
+    assert quoted == deep[:400]
+
+
+def test_the_read_sees_what_a_card_reply_offers_after_its_card() -> None:
+    """Review, 2026-11-14: "the first one" after "Want to try a harder one, or move on to
+    ions?" was read as the card's first option: the read saw neither the question nor the
+    choices after the cut."""
+    card = '```quiz\n{"question": "17 protons and 18 neutrons: mass number?", "options": ["17", "35"]}\n```'
+    reply = f"Short lesson.\n\n{card}\n\n" + "A note. " * 50 + "Want to try a harder one, or ions?"
+    [(_, quoted)] = turn_decision.earlier_turns([SimpleNamespace(role="assistant", content=reply)])
+    assert quoted.startswith(reply[:400])
+    assert quoted.endswith("Want to try a harder one, or ions?")
+    assert "[practice card:" not in quoted  # its card is in view already

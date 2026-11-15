@@ -6,9 +6,11 @@ with them and the phone redraws the card from the same trees (docs/money.md). No
 else branches on a product's name, so a new product is a new row, and a kind of one
 priced apart (a used car) is a ``Variant`` on its row.
 
-Rates are yearly percentages (``rate`` 6.5 is 6.5 %) and payments and deposits are
-monthly. Loans and cards compound monthly; savings compound as often as the request says
-(``per_year``, a setting: no slider moves it), monthly when it says nothing.
+Rates are yearly percentages (``rate`` 6.5 is 6.5 %; "2% a month" is read as 24, ``periods``)
+and deposits and card payments are monthly. A loan is paid and compounds as often as the
+request says (``payments``, a setting: no slider moves it), monthly when it says nothing; a
+card compounds monthly; savings compound as often as the request says (``per_year``),
+monthly when it says nothing.
 """
 
 from __future__ import annotations
@@ -17,6 +19,8 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from typing import Literal
+
+from app.modules.money.periods import FREQUENCIES
 
 Format = Literal["money", "percent", "years", "months", "number"]
 Family = Literal["loan", "card_payoff", "savings"]
@@ -47,6 +51,9 @@ class Input:
     label_key: str
     format: Format
     span: Span
+    # Its label when the request said the rate by a shorter period ("2% a month"): the
+    # slider holds the yearly rate it comes to, so it says so. "" keeps ``label_key``.
+    yearly_key: str = ""
 
 
 @dataclass(frozen=True)
@@ -58,6 +65,10 @@ class Output:
     primary: bool = False
     # Shown when the value is not a number: a payment that never pays the card off.
     never_key: str | None = None
+    # Its label at each value of the setting ``labelled_by`` names: a loan's payment made
+    # four times a year is "Quarterly payment" (``Product.outputs_at``).
+    labelled_by: str = ""
+    labels: Mapping[float, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -130,6 +141,14 @@ class Product:
     # year savings compound. The outputs name them; ``outputs_at`` writes them in as numbers,
     # so a card's trees name only its sliders.
     settings: dict[str, float] = field(default_factory=dict)
+    # Words that name the product only beside its payments and no other product's word:
+    # "Ato Kebede borrowed Birr 10,000 … repays it in 18 equal monthly payments" is a loan,
+    # but "Tom borrowed $2,000 at 8%. How much interest after 3 years?" is growth, and "I
+    # borrowed $15,000 for a car" a car loan (``read.named_product``).
+    asked_words: tuple[str, ...] = ()
+    # Quoted by the year only: a rate said by a shorter period ("1.9% a month") is no rate
+    # the reader can trust for it (``fits.said_by_period``).
+    yearly_only: bool = False
 
     def input(self, name: str) -> Input | None:
         return next((item for item in self.inputs if item.name == name), None)
@@ -141,7 +160,11 @@ class Product:
             return self.outputs
         named = re.compile(r"\b(" + "|".join(map(re.escape, fixed)) + r")\b")
         return tuple(
-            replace(item, expression=named.sub(lambda m: f"{fixed[m[1]]:g}", item.expression))
+            replace(
+                item,
+                expression=named.sub(lambda m: f"{fixed[m[1]]:g}", item.expression),
+                label_key=item.labels.get(fixed.get(item.labelled_by, 0.0), item.label_key),
+            )
             for item in self.outputs
         )
 
@@ -156,22 +179,41 @@ class Product:
 
 # --- Formulas -------------------------------------------------------------------------
 
-_MONTHLY = "(rate/1200)"
+# A loan's rate for one of its ``payments`` a year: 12 a year is a month's (rate/1200).
+_PERIOD_RATE = "(rate/(100*payments))"
+# The card's label for a loan's payment, by how many are made a year.
+_PAYMENT_LABELS: dict[float, str] = {
+    count: item.payment_key for count, item in FREQUENCIES.items() if item.payment_key
+}
 
 
-def _payment(months: str) -> str:
-    """The level monthly payment on ``amount`` over ``months``; at 0 % it is amount ÷ months."""
-    r = _MONTHLY
-    return f"(amount*{r}/(1 - (1 + {r})**(-({months}))) if rate > 0 else amount/({months}))"
+def _payment(count: str) -> str:
+    """The level payment on ``amount`` over ``count`` payments; at 0 % it is amount ÷ count."""
+    r = _PERIOD_RATE
+    return f"(amount*{r}/(1 - (1 + {r})**(-({count}))) if rate > 0 else amount/({count}))"
 
 
-def _loan_outputs(months: str) -> tuple[Output, ...]:
-    payment = _payment(months)
+def _loan_outputs(count: str) -> tuple[Output, ...]:
+    """A loan's results; ``count`` is its number of payments over its term."""
+    payment = _payment(count)
     return (
-        Output("payment", "money.monthly_payment", "money", payment, primary=True),
-        Output("interest", "money.total_interest", "money", f"{payment}*({months}) - amount"),
-        Output("total", "money.total_paid", "money", f"{payment}*({months})"),
+        Output(
+            "payment",
+            "money.monthly_payment",
+            "money",
+            payment,
+            primary=True,
+            labelled_by="payments",
+            labels=_PAYMENT_LABELS,
+        ),
+        Output("interest", "money.total_interest", "money", f"{payment}*({count}) - amount"),
+        Output("total", "money.total_paid", "money", f"{payment}*({count})"),
     )
+
+
+# Payments over a term counted in years, or in months.
+_BY_YEARS = "years*payments"
+_BY_MONTHS = "months*payments/12"
 
 
 _CARD_R = "(apr/1200)"
@@ -193,7 +235,9 @@ _SAVED = (
 # --- Inputs ---------------------------------------------------------------------------
 
 _AMOUNT = Input("amount", "money.amount", "money", Span("scale", 0.25, 2.5, base=100_000))
-_RATE = Input("rate", "money.rate", "percent", Span("rate", 0.0, 15.0, step=0.05))
+_RATE = Input(
+    "rate", "money.rate", "percent", Span("rate", 0.0, 15.0, step=0.05), "money.yearly_rate"
+)
 _APR = Input("apr", "money.apr", "percent", Span("rate", 0.0, 36.0, step=0.1))
 _BALANCE = Input("balance", "money.balance", "money", Span("scale", 0.25, 3.0, base=5000))
 _CARD_PAYMENT = Input(
@@ -233,7 +277,9 @@ PRODUCTS: tuple[Product, ...] = (
         title_key="money.title.mortgage",
         words=("mortgage", "home loan", "house loan", "housing loan", "house", "home", "condo"),
         inputs=(_AMOUNT, _RATE, _years(5, 40)),
-        outputs=_loan_outputs("years*12"),
+        outputs=_loan_outputs(_BY_YEARS),
+        settings={"payments": 12},
+        yearly_only=True,
         defaults={"years": 30},
         lookup=RateLookup("{term}-year fixed mortgage rate", (1.0, 15.0), 21, (15, 30)),
         goods=("house", "home", "condo"),
@@ -244,7 +290,9 @@ PRODUCTS: tuple[Product, ...] = (
         title_key="money.title.car",
         words=("car loan", "auto loan", "car payment", "vehicle loan", "truck loan", "car", "auto"),
         inputs=(_AMOUNT, _RATE, _months(12, 96, 6)),
-        outputs=_loan_outputs("months"),
+        outputs=_loan_outputs(_BY_MONTHS),
+        settings={"payments": 12},
+        yearly_only=True,
         defaults={"months": 60},
         lookup=RateLookup("{term}-month new car loan rate", (1.0, 25.0), 120, (36, 48, 60, 72)),
         goods=("car", "truck", "suv", "vehicle"),
@@ -264,7 +312,9 @@ PRODUCTS: tuple[Product, ...] = (
         title_key="money.title.student",
         words=("student loan", "student loans", "college loan", "school loan"),
         inputs=(_AMOUNT, _RATE, _years(1, 30)),
-        outputs=_loan_outputs("years*12"),
+        outputs=_loan_outputs(_BY_YEARS),
+        settings={"payments": 12},
+        yearly_only=True,
         defaults={"years": 10},
         lookup=RateLookup("undergraduate federal student loan interest rate", (1.0, 15.0), 400),
     ),
@@ -274,7 +324,8 @@ PRODUCTS: tuple[Product, ...] = (
         title_key="money.title.personal",
         words=("personal loan", "personal loans"),
         inputs=(_AMOUNT, _RATE, _months(6, 84, 6)),
-        outputs=_loan_outputs("months"),
+        outputs=_loan_outputs(_BY_MONTHS),
+        settings={"payments": 12},
         defaults={"months": 36},
         lookup=RateLookup("personal loan interest rate", (3.0, 40.0), 120),
     ),
@@ -283,8 +334,10 @@ PRODUCTS: tuple[Product, ...] = (
         family="loan",
         title_key="money.title.loan",
         words=("loan", "borrow", "borrowing", "finance", "financing"),
+        asked_words=("borrows", "borrowed"),
         inputs=(_AMOUNT, _RATE, _years(1, 40)),
-        outputs=_loan_outputs("years*12"),
+        outputs=_loan_outputs(_BY_YEARS),
+        settings={"payments": 12},
         defaults={"years": 5},
     ),
     Product(
@@ -351,3 +404,18 @@ PRODUCTS: tuple[Product, ...] = (
 
 def product(key: str) -> Product:
     return next(item for item in PRODUCTS if item.key == key)
+
+
+def plausible_rates(item: Product) -> tuple[float, float]:
+    """The yearly rates ``item`` is plausibly charged: its average's plausible range, else the
+    widest of its family's ("a loan" may be any loan). A rate said by a shorter period that
+    comes to more or less was said casually: "a $300k mortgage at 6% per month" is no 72%
+    loan (2026-11-14 review), so it is not worked."""
+    if item.lookup is not None:
+        return item.lookup.plausible
+    ranges = [
+        other.lookup.plausible
+        for other in PRODUCTS
+        if other.family == item.family and other.lookup is not None
+    ]
+    return min(low for low, _ in ranges), max(high for _, high in ranges)

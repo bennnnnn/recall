@@ -66,16 +66,65 @@ def programming_lesson_contract(text: str) -> str:
 
 # The lesson's shape, shared by a first lesson, a one-idea lesson and the next
 # lesson. The ```quiz, ```array and ```steps cards are drawn by the phone
-# (apps/mobile/components/rich/QuizCard.tsx, ArrayBlock.tsx, StepList.tsx).
+# (apps/mobile/components/rich/QuizCard.tsx, ArrayBlock.tsx, StepFlow.tsx). A lesson on atoms
+# once came back as ten `### N. <term>` sections, each a Meaning and an Example: the shape
+# built for a language's words, read as a glossary (2026-11-14). A concept gets its own.
+# "Lesson 2: Idioms about money, work and feelings" came back as three sections named for
+# the themes ("Money idioms: Meaning: phrases that describe spending…") whose examples held
+# no idiom (owner, 2026-11-15): a word lesson's every heading is one of the words.
+# What the sections hold follows what is taught; each its own constant so the tests
+# hold which lessons get it.
+LESSON_WORDS_SHAPE = (
+    "  - Words or phrases of a language (useful English words, Spanish greetings): one section "
+    "per word, its heading the word itself (`### 1. Eventually`), a `**Meaning:**` line and an "
+    "`**Example:**` sentence that uses it, ten of them. Every heading is a word or phrase of the "
+    "language, never a theme or a kind of phrase (`### 1. Money idioms`): a lesson on a theme "
+    "lists that theme's own phrases. Only a language's words "
+    "get this shape.\n"
+)
+LESSON_CONCEPT_SHAPE = (
+    "  - A concept or a school topic (atoms, the mole, photosynthesis, a law of physics, the "
+    "causes of a war): the idea, never a glossary of its terms. `### 1. <the one idea>`: the "
+    "idea itself in two or three plain sentences. `### 2. How it works`: the mechanism, the "
+    "rule or the key formula, with what each part means. `### 3. <an example>`: one example "
+    "worked through to its result (a problem to its answer, a reaction, a date and what "
+    "happened). Two to four sections, never one per term.\n"
+)
+LESSON_PROCESS_SHAPE = (
+    "  - A process or method the learner will carry out (balancing an equation, long division, "
+    "writing an electron configuration, setting up a project, kneading dough): the idea in a "
+    "line, its steps in one ```steps card, then one worked example. Never a ```mermaid "
+    "flowchart or a plain numbered list for the steps.\n"
+)
+# The practice, last: never numbered, so never read as one more taught item.
+LESSON_PRACTICE = (
+    "- The practice comes last, under an unnumbered `### Your turn` heading (in the reply "
+    "language; it is no section, so it has no number), plus what it asks when it helps (code: "
+    "`— predict the output`; history: `— check your understanding`). One practice question as "
+    'a ```quiz fence, ```quiz alone on its line and the JSON on the next: {"label": "Exercise '
+    '1", "question": "What will this Python code print?", "code": "<the code it needs, lines '
+    'joined with \\n; empty without code>", "options": ["...", "...", "...", "..."], "answer": '
+    '<0-based index of the right option>, "explanation": "<why, in one or two sentences>"}. '
+    "The app draws the label, question and code in one card; never repeat the code above it. "
+    'For code prefer "predict the output" or "what should it return"; make the wrong options '
+    "real mistakes. It asks only what this lesson or an earlier one taught, and never a "
+    "question this chat already asked. Exactly one option is right: check that each wrong "
+    "option is false for the question as written (asked what two things share, no wrong "
+    "option is something else they share). Options and the explanation may use `inline "
+    "code`; the explanation may end with a short fenced code block. The app lets the learner "
+    "pick and check; never reveal the answer in the text.\n"
+)
+
 _LESSON_SHAPE = (
     "- Title: `### Lesson N: <topic>` (the word Lesson in the reply language), N counting the "
-    "lessons in this chat. Then numbered sections, each a `### 1. <title>` heading naming the "
-    "one thing it teaches (a word, a rule, a step, an idea), for example `### 1. Eventually`, "
-    "`### 2. Solution one: Brute force`. Under it, the thing itself, compact. A word or phrase "
-    "gets a `**Meaning:**` line and an `**Example:**` sentence, ten of them in a lesson of "
-    "words. Anything else: what it is or does in a line or two, then one concrete example "
-    "(code with an API or a table of users; a date and what happened; a way to practise it), "
-    "3-5 sections. Never a paragraph on why it matters.\n"
+    "lessons in this chat. Then numbered sections, each a `### 1. <title>` heading, then the "
+    "practice. What the sections hold follows what is taught:\n"
+    + LESSON_WORDS_SHAPE
+    + LESSON_CONCEPT_SHAPE
+    + LESSON_PROCESS_SHAPE
+    + "  - Code, an algorithm or a skill: 3-5 sections, each one idea with one concrete example "
+    "(code with an API or a table of users; a way to practise it), for example "
+    "`### 2. Solution one: Brute force`. Never a paragraph on why it matters.\n"
     "- Code: short language-tagged blocks such as ```python. Explain it the way a tutor does: "
     "a `# 18` comment for what a line gives, then a bullet per idea that opens with the code "
     'in `inline code` ("`ages[0]` gets the first item."), or `**How it works:**` with '
@@ -93,23 +142,15 @@ _LESSON_SHAPE = (
     'return indexes, not the numbers themselves."}. Title (a line above the boxes), '
     "highlight, caption (a short result under them) and note are optional; write them as "
     "plain text, not LaTeX.\n"
-    "- A trace of an algorithm or process: a ```steps fence, one numbered line per step with a "
-    "bold title, and plain lines under it for what happens and the state, for example:\n"
+    "- Steps done in order (a method, a process, an algorithm's trace): a ```steps fence, one "
+    "numbered line per step with a bold title, and plain lines under it for what happens and "
+    "the state; the app draws each step as a box with an arrow to the next, for example:\n"
     "```steps\n1. **Read `2` at index `0`**\nWe need `9 - 2 = 7`. Not seen yet, so save "
     "`2: 0`.\nDictionary: `{2: 0}`\n```\n"
     "- Cost in math: time $O(n^2)$, extra space $O(1)$. A key idea may be one display formula "
     "in a ```math fence. Compare approaches in a markdown table.\n"
-    "- The last section is `### N. Your turn`, plus what it asks when it helps (code: `— predict "
-    "the output`; history: `— check your understanding`). One practice question as a ```quiz "
-    'fence, ```quiz alone on its line and the JSON on the next: {"label": "Exercise 1", '
-    '"question": "What will this Python code print?", "code": "<the code it needs, lines joined '
-    'with \\n; empty without code>", "options": ["...", "...", "...", "..."], "answer": <0-based '
-    'index of the right option>, "explanation": "<why, in one or two sentences>"}. The app draws '
-    "the label, question and code in one card; never repeat the code above it. For code prefer "
-    '"predict the output" or "what should it return"; make the wrong options real mistakes. Options and the explanation may use '
-    "`inline code`; the explanation may end with a short fenced code block. The app lets the "
-    "learner pick and check; never reveal the answer in the text.\n"
-    "- End with one sentence previewing the next lesson: \"Once you get this, we'll move to A, "
+    + LESSON_PRACTICE
+    + "- End with one sentence previewing the next lesson: \"Once you get this, we'll move to A, "
     'B and C." When they asked for one idea, the preview goes deeper into that same idea '
     "(for dictionaries: looping over one, nesting). No course outline, no table of "
     'contents, no "ready to continue?" question.\n'
@@ -173,14 +214,15 @@ WALKTHROUGH_HINT = (
 # here, so…", 2026-11-03): the contracts say what to write, never name themselves.
 _LESSON_PARTS = (
     "the title line `### Lesson N: <topic>` after a one-sentence hook (N is 1 unless "
-    "this chat already taught lessons), then numbered `### 1. <title>` sections, one per item "
-    "taught: the heading is the item itself (the word, the phrase, the rule, the step), never "
-    "a group of them. Under a word or phrase: a `**Meaning:**` line and an `**Example:**` "
-    "sentence that uses it, ten sections in all. Under anything else: what it is or does in "
-    "a line or two, then one concrete example (code, a date and what happened, a way to "
-    "practise it), never a paragraph on why it matters, 3-5 sections; and last "
-    "`### N. Your turn` holding exactly one ```quiz card (```quiz alone on its line, the JSON "
-    "on the next), then one sentence previewing the next lesson"
+    "this chat already taught lessons), then numbered `### 1. <title>` sections. For words or "
+    "phrases of a language, one section per word, its heading the word itself (a word or "
+    "phrase, never a theme like `Money idioms`; a lesson on a theme lists its own phrases), a "
+    "`**Meaning:**` line and an `**Example:**` sentence that uses it, ten sections in all. For "
+    "anything else a few deeper sections, never one per term: the one idea first, then how it "
+    "works (a process's steps in one ```steps card), then one example worked through, never a "
+    "paragraph on why it matters; and last an unnumbered `### Your turn` heading holding "
+    "exactly one ```quiz card (```quiz alone on its line, the JSON on the next) on what was "
+    "taught, then one sentence previewing the next lesson"
 )
 
 LESSON_CONTRACT = (

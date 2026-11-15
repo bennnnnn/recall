@@ -46,8 +46,9 @@ from app.modules.money.phrases import (
     percent_value,
     sum_phrase,
 )
-from app.modules.money.read import MoneyRequest, bare_year, read_sum, term_in
+from app.modules.money.read import MoneyRequest, bare_year, read_sum
 from app.modules.money.solve import rate_name
+from app.modules.money.terms import term_in
 from app.services.text_normalize import collapse_ws, straighten_apostrophes
 
 _MAX_CHARS = 120
