@@ -826,6 +826,30 @@
   ]
  },
  {
+  "id": "letters_the_reply_works_out",
+  "question": "A window is built in the shape of a rectangle with a semicircle on top. If there is 12 m of framing material for the outside edge, what dimensions let in the most light (maximum area)? Draw the window.",
+  "reply": "So $w = 3.36$ m, $h = 1.68$ m and $r = 1.68$ m.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"window\", \"width\": \"w\", \"height\": \"h\", \"radius\": \"r\"}]}",
+  "expect": "draw",
+  "labels": [
+   "w ≈ 3.36 m",
+   "h ≈ 1.68 m",
+   "r ≈ 1.68 m"
+  ]
+ },
+ {
+  "id": "letters_the_reply_works_otherwise",
+  "question": "A window is built in the shape of a rectangle with a semicircle on top. If there is 12 m of framing material for the outside edge, what dimensions let in the most light (maximum area)? Draw the window.",
+  "reply": "So $w = 3$ m, $h = 2$ m and $r = 1.5$ m.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"window\", \"width\": \"w\", \"height\": \"h\", \"radius\": \"r\"}]}",
+  "expect": "draw",
+  "labels": [
+   "w",
+   "h",
+   "r"
+  ]
+ },
+ {
   "id": "best_of_an_amount_not_named_needs_the_echo",
   "question": "A cylindrical can is to be made to hold 10 litres of oil. Find the dimensions of the can that will minimise the cost of the metal. Draw the can with its dimensions.",
   "reply": "Let $r$ be the radius and $h$ the height.",

@@ -122,8 +122,12 @@ def _sized(
     if not trusted and ("surface" in uses or (not uses and key in _LIDDED)):
         return plain
     claims = any(label.claimed is not None for label in labels.values())
-    if not uses and not claims:
-        return plain  # no amounts and no numbers: nothing for the server to find or check
+    # Letters the reply works out ("w = 3.36"): the server may find the best they are.
+    worked_letters = any(
+        label.letter is not None and question.value_of(label.letter) for label in labels.values()
+    )
+    if not uses and not claims and not worked_letters:
+        return plain  # no amounts, no numbers: nothing for the server to find or check
     readings = _readings(part, of, form, question) if uses else _found_readings(of, form, question)
     labels = _named_numbers(labels, _lettered(form, labels, question))
     for fixed, goal in readings:
@@ -136,7 +140,9 @@ def _sized(
         claimed = {p for p, label in labels.items() if label.claimed is not None}
         if found is None or not claimed <= set(found.shown):
             continue  # the model's own numbers are not this best's
-        echoed = _reply_gives(found, labels, question)
+        if not uses and not claims and not _reply_gives(found, labels, question, every=True):
+            continue  # a best found for bare letters is one the reply works out
+        echoed = _reply_gives(found, labels, question, every=not uses and not claims)
         asked = goal is not None and _ASKED[goal[0]].search(question.words) is not None
         if _worked(found, labels) and _reply_agrees(found, labels, question) and (asked or echoed):
             return _with_letters(found, plain, labels)
@@ -245,14 +251,17 @@ def _worked(found: Sized, labels: dict[str, Label]) -> bool:
     )
 
 
-def _reply_gives(found: Sized, labels: dict[str, Label], question: Question) -> bool:
-    """The reply works some shown letter out to the server's value."""
-    return any(
+def _reply_gives(
+    found: Sized, labels: dict[str, Label], question: Question, *, every: bool = False
+) -> bool:
+    """The reply works some shown letter (``every``: each one) out to the server's value."""
+    gives = [
         label.letter is not None
         and question.gives(label.letter, found.lengths[part] / float(label.coefficient))
         for part, label in labels.items()
         if label.value is None and part in found.shown
-    )
+    ]
+    return all(gives) if every else any(gives)
 
 
 def _reply_agrees(found: Sized, labels: dict[str, Label], question: Question) -> bool:
