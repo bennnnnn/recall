@@ -30,7 +30,7 @@ import { MessagePreview } from "@/components/rich/MessagePreview";
 import { QuizCard } from "@/components/rich/QuizCard";
 import { QuoteBlock } from "@/components/rich/QuoteBlock";
 import { SocialPostCard } from "@/components/rich/SocialPostCard";
-import { StepList } from "@/components/rich/StepList";
+import { StepFlow } from "@/components/rich/StepFlow";
 import type { FenceId } from "@/lib/fence/registry";
 import {
   isMessageLang,
@@ -115,7 +115,7 @@ export function renderRichFenceById(
     case "steps": {
       const steps = parseSteps(content);
       if (steps.length === 0) return null;
-      return <StepList key={key} steps={steps} />;
+      return <StepFlow key={key} steps={steps} />;
     }
     case "quiz":
       return <QuizCard key={key} content={content} />;

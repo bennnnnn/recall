@@ -734,6 +734,7 @@
   "rich.array_index": "Индекс {{index}}",
   "rich.quiz_check": "Проверить ответ",
   "rich.quiz_correct": "Верно! 🎉",
+  "rich.step_flow_a11y": "Шаг {{n}} из {{total}}",
   "rich.quiz_wrong": "Не совсем.",
   "rich.quiz_show_answer": "Показать ответ",
   "rich.simulation_play_a11y": "Воспроизвести физическую анимацию",

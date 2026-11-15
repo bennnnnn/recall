@@ -718,6 +718,7 @@
   "rich.array_index": "Index {{index}}",
   "rich.quiz_check": "Check answer",
   "rich.quiz_correct": "Correct! 🎉",
+  "rich.step_flow_a11y": "Step {{n}} of {{total}}",
   "rich.quiz_wrong": "Not quite.",
   "rich.quiz_show_answer": "Show answer",
   "rich.simulation_play_a11y": "Play the physics animation",
