@@ -5,9 +5,11 @@ SymPy's implicit application runs a bare argument on through every product, so i
 ``sin x cos x`` as sin(x·cos x), and ``2 sin x cos x``, ``ln x sin x`` and ``sin θ cos θ`` the
 same way: each a checked derivative, integral or value of a function nobody wrote
 (2026-11-14). This step runs on SymPy's tokens before that one and closes the argument where
-the next function name starts. Explicit brackets (``sin(x cos x)``), a nested name
-(``sin cos x``), a power's operand (``x^cos x``) and anything ending the argument sooner
-(``sin x + cos x``, ``sin x/cos x``) are left as they were.
+the next function name starts. Explicit brackets (``sin(x cos x)``), a nested name with
+nothing after it (``sin cos x``), a power's operand (``x^cos x``) and anything ending the
+argument sooner (``sin x + cos x``, ``sin x/cos x``) are left as they were. A name nested in
+the argument ends it where its own argument ends: ``ln sin x cos x`` is ln(sin x)·cos x,
+never ln(sin x·cos x).
 """
 
 from __future__ import annotations
@@ -55,19 +57,38 @@ def _operand_end(tokens: list[_Token], at: int) -> int | None:
     return at + 1 if token[0] in (NAME, NUMBER) else None
 
 
-def _bare_argument_start(tokens: list[_Token], after: int) -> int | None:
-    """Where the bare argument of the function before ``after`` starts: past a power
-    (``sin**2 x``) and the product mark the normaliser puts after its digits. None when
-    the argument is bracketed, signed or itself a function."""
+def _past_power(tokens: list[_Token], after: int) -> int | None:
+    """Past the power on the function before ``after`` (``sin**2 x``) and the product mark
+    the normaliser puts after its digits; None when the power is no operand read here."""
     at = after
     if at < len(tokens) and _is_op(tokens[at], "**"):
         end = _operand_end(tokens, at + 1)
         if end is None:
             return None
         at = end + 1 if end < len(tokens) and _is_op(tokens[end], "*") else end
-    if at >= len(tokens) or _is_function(tokens[at]):
+    return at if at < len(tokens) else None
+
+
+def _nested_end(tokens: list[_Token], at: int) -> int | None:
+    """Where the names nested from ``at`` (``sin x`` of ``ln sin x cos x``) meet the next
+    function name: the innermost one's argument, bare or bracketed, ends there. None when
+    it ends first, which leaves the whole to SymPy (``ln sin x + 1``)."""
+    start: int | None = at
+    while start is not None and _is_function(tokens[start]):
+        start = _past_power(tokens, start + 1)
+    if start is None:
         return None
-    return at if tokens[at][0] in (NAME, NUMBER) else None
+    if _is_op(tokens[start], "("):
+        group = _group_end(tokens, start)
+        if group is None or group >= len(tokens):
+            return None
+        if _is_function(tokens[group]):
+            return group
+        following = group + 1
+        if _is_op(tokens[group], "*") and following < len(tokens):
+            return group if _is_function(tokens[following]) else None
+        return None
+    return _argument_end(tokens, start) if tokens[start][0] in (NAME, NUMBER) else None
 
 
 def _argument_end(tokens: list[_Token], start: int) -> int | None:
@@ -105,9 +126,17 @@ def close_bare_arguments(tokens: list[_Token], _local_dict: Any, _global_dict: A
         index += 1
         if not _is_function(token):
             continue
-        start = _bare_argument_start(tokens, index)
-        end = None if start is None else _argument_end(tokens, start)
-        if start is None or end is None:
+        start = _past_power(tokens, index)
+        if start is None:
+            continue
+        if _is_function(tokens[start]):
+            # ``ln sin x cos x`` is ln(sin x)·cos x: the outer argument ends with the inner.
+            end = _nested_end(tokens, start)
+        elif tokens[start][0] in (NAME, NUMBER):
+            end = _argument_end(tokens, start)
+        else:
+            continue  # bracketed or signed: SymPy reads it as written
+        if end is None:
             continue
         out.extend(tokens[index:start])
         out.append((OP, "("))

@@ -55,6 +55,15 @@ async def _verified(text: str) -> str | None:
         ("sin x y", "sin(x*y)"),
         ("sin 2x", "sin(2*x)"),
         ("x^cos x", "x**cos(x)"),
+        # A name nested in the argument ends it where its own argument ends.
+        ("ln sin x cos x", "ln(sin(x))*cos(x)"),
+        ("sin cos x tan x", "sin(cos(x))*tan(x)"),
+        ("ln sin²x cos x", "ln(sin(x)**2)*cos(x)"),
+        ("ln sin(x) cos x", "ln(sin(x))*cos(x)"),
+        ("ln ln x sin x", "ln(ln(x))*sin(x)"),
+        ("sin cos x * tan x", "sin(cos(x))*tan(x)"),
+        ("sqrt ln x sin x", "sqrt(ln(x))*sin(x)"),
+        ("sin cos(x) + 1", "sin(cos(x)) + 1"),
     ],
 )
 def test_a_bare_argument_ends_at_the_next_function(typed: str, bracketed: str) -> None:
@@ -97,6 +106,11 @@ def test_a_bare_argument_ends_at_the_next_function(typed: str, bracketed: str) -
         ("Simplify sin x cos x / cos x", r"\sin{\left(x \right)}"),
         ("Find the derivative of sin x cos x at x = 0", "1"),
         ("Let x = 2. What is sin x cos x?", r"\frac{\sin{\left(4 \right)}}{2}"),
+        (
+            "Differentiate ln sin x cos x",
+            r"- \ln{\left(\sin{\left(x \right)} \right)} \sin{\left(x \right)} - \sin{\left(x \right)}"
+            r" + \frac{1}{\sin{\left(x \right)}}",
+        ),
         # Read as before.
         (
             "Differentiate e^x sin x",
