@@ -307,7 +307,7 @@ def test_extract_math_intent_reads_function_zeros_and_method_words(
         ("expected value of a fair die roll", "3.5"),
         ("what is the remainder when x^3 + 2x - 5 is divided by x - 2", "7"),
         ("find the inverse of f(x) = (2x+1)/(x-3)", r"\frac{3 x + 1}{x - 2}"),
-        ("find the angle between vectors (1,0) and (1,1)", "45"),
+        ("find the angle between vectors (1,0) and (1,1)", r"45^\circ"),
         ("find the zeros of f(x) = x^2 - 4x", r"x = 0 \text{ or } x = 4"),
         ("integrate by parts x e^x", r"\left(x - 1\right) e^{x} + C"),
         ("find the period of y = sin(2x)", r"\pi"),

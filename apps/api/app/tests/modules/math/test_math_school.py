@@ -91,7 +91,7 @@ def test_formula_helpers():
     assert math_formulas.present_value(1157.625, 5, 3) == "1000"
     assert math_formulas.line_through(1, 2, 3, 6) == "y = 2 x"
     assert math_formulas.vector_unit([3, 4]) == "<0.6, 0.8>"
-    assert math_formulas.vector_angle_degrees([1, 0], [0, 1]) == "90"
+    assert math_formulas.vector_angle_degrees([1, 0], [0, 1]) == r"90^\circ"
     assert math_formulas.complex_modulus("3+4i") == "5"
     assert math_formulas.geometric_pmf(2, 0.5) == "0.25"
     assert math_formulas.complement_probability(0.3) == "0.7"

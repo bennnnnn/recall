@@ -37,7 +37,7 @@ from app.modules.math.solve import (
     parse_expression,
 )
 from app.modules.math.solve.calculus import _parse_infinity_aware_point
-from app.services.school_rounding import round_figures, round_places
+from app.services.school_rounding import format_places, round_figures, round_places, trim_zeros
 
 
 def sale_price(base: float, rate: float) -> str:
@@ -118,7 +118,12 @@ def vector_angle_degrees(a: list[float], b: list[float]) -> str:
         raise SolveServiceError("angle needs nonzero vectors")
     cosine = sum(x * y for x, y in zip(a, b, strict=True)) / (mag_a * mag_b)
     cosine = max(-1.0, min(1.0, cosine))
-    return _format_school_number(math.degrees(math.acos(cosine)))
+    # A card says the unit and rounds once, as a class writes it: ``35.26°``, never
+    # ``35.2643896828`` (a student cannot tell degrees from radians), ``90°`` when whole.
+    angle = math.degrees(math.acos(cosine))
+    whole = round(angle)
+    shown = str(whole) if abs(angle - whole) < 1e-9 else trim_zeros(format_places(angle, 2))
+    return rf"{shown}^\circ"
 
 
 def vector_unit(vec: list[float]) -> str:
