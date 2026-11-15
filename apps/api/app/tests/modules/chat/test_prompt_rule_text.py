@@ -73,9 +73,9 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # (prompt_constants.list_reference, UNCLEAR_MESSAGE_HINT); then a card's verdict naming the
 # option by its words, and one answer to several cards asked about first (QUIZ_WHICH_NOTE)
 # (review, 2026-11-14).
-_RULES = 191
-_RULE_GRAMS = 17061
-_RULE_GRAMS_SHA = "be28e77f10764713"
+_RULES = 193
+_RULE_GRAMS = 17148
+_RULE_GRAMS_SHA = "7e50c6612a290999"
 
 
 def _rules() -> list[str]:

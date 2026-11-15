@@ -58,7 +58,11 @@ from app.modules.chat.worked_turn import (
     without_worked_contract,
     worked_layout,
 )
-from app.modules.turn_reading.lesson_flow import active_lesson_step, outline_awaits_pick
+from app.modules.turn_reading.lesson_flow import (
+    active_lesson_step,
+    lesson_teaches_words,
+    outline_awaits_pick,
+)
 from app.modules.turn_reading.school_question import is_school_exercise
 
 if TYPE_CHECKING:
@@ -266,7 +270,7 @@ def _goes_on_with_the_lesson(
     named = any(pick != NO_ANSWER for pick in read.card_picks or [])
     if answered or (read.goes_on and not named):
         note_prompt_rule("read.lesson_next")
-        note = lesson_next_contract(number)
+        note = lesson_next_contract(number, words=lesson_teaches_words(recent))
     elif named or read.goes_on is False:
         note_prompt_rule("read.lesson_aside")
         note = LESSON_ASIDE_NOTE

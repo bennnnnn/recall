@@ -73,14 +73,31 @@ LESSON_ASIDE_NOTE = (
 LESSON_NEXT_OPENING = "The last reply taught Lesson "
 
 
-def lesson_next_contract(number: int) -> str:
-    """What the reply holds when the message answers Lesson ``number``'s card or goes on."""
+# "Lesson 2: Idioms about money, work and feelings", after a lesson of ten idioms, came back
+# as three sections named for the themes ("Money idioms: Meaning: phrases that describe
+# spending…") whose examples held no idiom (owner, 2026-11-15): the next lesson keeps the
+# words shape, a theme lists its own phrases.
+_NEXT_WORDS = (
+    "its sections, as the last lesson's: one per word or phrase of the language, its heading "
+    "the phrase itself (never a theme or kind such as `Money idioms`: a lesson on a theme "
+    "lists that theme's own phrases), a `**Meaning:**` line and an `**Example:**` sentence "
+    "that uses it"
+)
+_NEXT_SECTIONS = (
+    "its few sections (for a concept the idea, how it works and one worked example, never a "
+    "section per term unless it teaches a language's words)"
+)
+
+
+def lesson_next_contract(number: int, *, words: bool = False) -> str:
+    """What the reply holds when the message answers Lesson ``number``'s card or goes on;
+    ``words``: the last lesson taught a language's words, and the next one does too."""
     nxt = number + 1
+    sections = _NEXT_WORDS if words else _NEXT_SECTIONS
     return (
         f"{LESSON_NEXT_OPENING}{number}, ending on its practice card, which the learner can "
-        f"check in the app. Teach Lesson {nxt} now: the title `### Lesson {nxt}: <topic>`, its "
-        "few sections (for a concept the idea, how it works and one worked example, never a "
-        "section per term unless it teaches a language's words), an unnumbered `### Your "
+        f"check in the app. Teach Lesson {nxt} now: the title `### Lesson {nxt}: <topic>`, "
+        f"{sections}, an unnumbered `### Your "
         "turn` heading holding one new ```quiz card, and one sentence previewing the next "
         "lesson. Open with one or two sentences grading the latest message only when it gives "
         'an answer to the card ("Correct! 🎉", or "Not quite" and the fix); a message that '
