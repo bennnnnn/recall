@@ -45,6 +45,8 @@ _LABELS_APART = 0.06
 _CLEAR_OF_DOTS = 0.035
 # Where along an arrow its name sits: by its head.
 NAME_AT = 0.85
+# Axes nearer each other than this in the drawing read as one line.
+_AXES_APART = math.radians(25)
 # An axis drawn shorter than this share of its length is seen end on.
 _END_ON = 0.45
 # An arrow drawn shorter than this share of its length reads as another length.
@@ -91,6 +93,14 @@ def span(scene: Scene, view: View) -> float:
 def _honest(scene: Scene, view: View) -> bool:
     if scene.axes and any(_short(view, axis) > _SHORTEST - _END_ON for axis in _AXES):
         return False  # an axis seen end on: a dot, its letter on the origin
+    if scene.axes:
+        ways = [view(axis) for axis in _AXES]
+        # Two axes drawn along one line (or opposite ways on it) read as one.
+        for i, a in enumerate(ways):
+            for b in ways[i + 1 :]:
+                turn = _turn(a, b)
+                if min(turn, math.pi - turn) < _AXES_APART:
+                    return False
     size = span(scene, view)
     own = {floats(scene.points[name]) for name in scene.dots | scene.shown}
     flat = [view(xyz) for xyz in own]
