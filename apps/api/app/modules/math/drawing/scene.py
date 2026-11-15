@@ -20,6 +20,7 @@ from typing import Any
 
 from app.modules.math.drawing.labels import read_angle, read_length
 from app.modules.math.drawing.question import Question, Triple
+from app.modules.math.drawing.shapes import worked_value
 from app.modules.math.drawing.vocabulary import (
     Axes,
     SpaceAngle,
@@ -37,6 +38,9 @@ from app.modules.math.figure.shape_names import names_shape
 MAIN = frozenset({"box", "sphere", "polygon", "plane"})
 # A value the reply gives a letter is rounded ("d = 10.44" for √109): one in a hundred.
 _ROUNDED = 0.01
+# "√34", "√ 12": a root the reply writes on a length.
+_ROOT = re.compile(r"^\u221a\s*(\d+)$")
+_DEGREES = re.compile(r"^(\d+(?:\.\d+)?)\s*(?:°|\u00ba|deg|degrees?)$")
 _PART_LABEL = re.compile(r"\(\s*[a-z]\s*\)|(?<![\w)])[a-z]\)")
 ORIGIN = "O"
 _BOX_SIZE = (Fraction(3), Fraction(4), Fraction(2))
@@ -67,6 +71,8 @@ class Scene:
     """What a checked scene draws, in exact coordinates."""
 
     points: dict[str, Triple] = field(default_factory=lambda: {ORIGIN: (Fraction(0),) * 3})
+    # The unit of length a stated box size is written in: a worked length is shown in it.
+    unit: str = ""
     shown: set[str] = field(default_factory=set)
     # The points drawn as dots: the question's own, and a sphere's centre.
     dots: set[str] = field(default_factory=set)
@@ -158,6 +164,7 @@ def _box(item: SpaceBox, scene: Scene, question: Question) -> bool:
             return False
         for edge, value, unit in zip(_SIZE_EDGES, size, units, strict=True):
             labels[edge] = length_label(float(value), unit or "")
+            scene.unit = scene.unit or unit or ""
     names = [""] * 8
     for name, written in item.corners.items():
         place = _corner_of(_exact(written), size)
@@ -249,7 +256,11 @@ def _sphere_of(item: SpaceSphere, question: Question) -> tuple[Triple, Fraction]
         matches = [
             s
             for s in spheres
-            if s[1] == centre and (radius is None or abs(float(s[2]) - radius**2) < 1e-6)
+            if s[1] == centre
+            and (
+                radius is None
+                or abs(math.sqrt(float(s[2])) - radius) <= _ROUNDED * max(1.0, radius)
+            )
         ]
     else:
         return None
@@ -277,6 +288,8 @@ def _sphere(item: SpaceSphere, scene: Scene, question: Question) -> bool:
         if found is None:
             return False
         centre, radius_squared = found
+        # Its radius as the server works it out from the equation (√5).
+        label = worked_length(radius_squared)[0]
     if any(centre):
         name = item.name if item.name and item.name not in scene.points else ""
         if name and _named(name, question, centre):
@@ -313,22 +326,48 @@ def _vector(item: SpaceVector, scene: Scene, question: Question) -> bool:
     return True
 
 
+def worked_length(squared: Fraction) -> tuple[str, float]:
+    """A length the server works out from stated points, as shown ("√34", "5", "10.44") and
+    as a number."""
+    length = math.sqrt(float(squared))
+    root = Fraction(round(length * 1_000_000), 1_000_000)
+    if root * root == squared:
+        return worked_value(float(root))[0], length
+    if squared.denominator == 1 and squared.numerator < 10_000:
+        return f"\u221a{squared.numerator}", length
+    return worked_value(length)[0], length
+
+
+def _segment_label(text: str, squared: Fraction, scene: Scene, question: Question) -> str | None:
+    """A segment's label as the server shows it: a stated value or the model's own number
+    only where it is the segment's length (as the server works it out, √34 or 5.83), a
+    letter only where the reply works that letter out to it ("d = √109")."""
+    shown, length = worked_length(squared)
+    unit = f" {scene.unit}" if scene.unit else ""
+    root = _ROOT.match(text.strip())
+    if root is not None:
+        claimed: float | None = math.sqrt(float(root.group(1)))
+        label = None
+    else:
+        label = read_length(text, question)
+        if label is None:
+            return None
+        claimed = label.value if label.value is not None else label.claimed
+    if claimed is not None:
+        held = abs(length - claimed) <= _ROUNDED * max(1.0, length)
+        return f"{shown}{unit}" if held else None
+    if label is None or label.letter is None or label.coefficient != 1:
+        return None
+    if not _its_value(label.letter, length, question, _ROUNDED):
+        return None
+    return f"{label.letter} = {shown}{unit}"
+
+
 def _segment(item: SpaceSegment, scene: Scene, question: Question) -> bool:
     if item.start not in scene.points or item.end not in scene.points or item.start == item.end:
         return False
-    label = read_length(item.label, question) if item.label else None
-    text = label.text if label is not None else None
     gap = _minus(scene.points[item.end], scene.points[item.start])
-    length = math.sqrt(float(_dot(gap, gap)))
-    if label is not None and label.value is not None:
-        if abs(length - label.value) > 1e-6 * max(1.0, label.value):
-            text = None  # a stated value that is not this segment's length
-    elif label is not None and (
-        label.coefficient != 1
-        or label.letter is None
-        or not _its_value(label.letter, length, question, _ROUNDED)
-    ):
-        text = None
+    text = _segment_label(item.label, _dot(gap, gap), scene, question) if item.label else None
     scene.segments.append((item.start, item.end, text))
     return True
 
@@ -362,15 +401,30 @@ def _angle(item: SpaceAngle, scene: Scene, question: Question) -> bool:
     cosine = float(_dot(u, v)) / math.sqrt(float(_dot(u, u)) * float(_dot(v, v)))
     size = math.degrees(math.acos(max(-1.0, min(1.0, cosine))))
     right = _dot(u, v) == 0
-    label = None if right else read_angle(item.label, question, size)
-    if (
-        label is not None
-        and not label[0].isdigit()
-        and not _its_value(label, size, question, _ROUNDED)
-    ):
-        label = None
+    label = None if right else _angle_label(item.label, size, question)
     scene.angles.append((item.at, ends[0], ends[1], label, right))
     return True
+
+
+def _angle_label(text: str, size: float, question: Question) -> str | None:
+    """An angle's label as the server shows it, its size worked out from the stated points:
+    a number only where it is that size, a letter only where the reply works it out to it
+    ("θ ≈ 70.53°")."""
+    text = " ".join(text.split())
+    if not text:
+        return None
+    shown, exact = worked_value(size)
+    number = _DEGREES.match(text)
+    if number is not None:
+        return f"{shown}°" if abs(float(number.group(1)) - size) <= 0.05 else None
+    letter = read_angle(text, question, size)
+    if letter is None or letter[0].isdigit():
+        return None
+    # The mark names the angle it is drawn at, and the server gives its size: the letter
+    # stands unless the reply works it out to another size.
+    if question.value_of(letter) and not _its_value(letter, size, question, _ROUNDED):
+        return None
+    return f"{letter} {'=' if exact else '≈'} {shown}°"
 
 
 def _add(item: Any, scene: Scene, question: Question) -> bool:

@@ -291,10 +291,11 @@ class SubjectFigure(Protocol):
 
     async def described(
         self, descriptions: Sequence[str], texts: Sequence[str], reply: str, settings: Settings
-    ) -> str | None:
-        """The picture the reply described, checked against ``texts`` (the user's last
-        message first) and drawn from the first description that holds; None when none
-        does. ``reply``: the reply's text, whose working names its letters."""
+    ) -> list[str]:
+        """The pictures the reply described, checked against ``texts`` (the user's last
+        message first): one of each kind (a figure, a graph), each from the first
+        description of its kind that holds; none when none does. ``reply``: the reply's
+        text, whose working names its letters."""
         ...
 
     def without_drawn_substitutes(self, text: str) -> str:

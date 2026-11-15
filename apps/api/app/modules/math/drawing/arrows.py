@@ -33,9 +33,12 @@ def arrowhead(drawing: Drawing, tail: Point, tip: Point, size: float, tip_name: 
         drawing.line(tip_name, drawing.point(end))
 
 
-def axis(drawing: Drawing, start: Point, tip: Point, name: str, size: float) -> str:
-    """An axis from ``start`` to its arrowhead at ``tip``, its letter beside the head."""
+def axis(
+    drawing: Drawing, start: Point, tip: Point, name: str, size: float, *, dashed: bool = False
+) -> str:
+    """An axis from ``start`` to its arrowhead at ``tip``, its letter beside the head;
+    ``dashed`` draws it in the phone's light stroke, apart from what stands on it."""
     tip_name = drawing.point(tip, name, show=True)
-    drawing.line(drawing.point(start), tip_name)
+    drawing.line(drawing.point(start), tip_name, dashed=dashed)
     arrowhead(drawing, start, tip, size, tip_name)
     return tip_name

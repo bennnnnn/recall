@@ -293,12 +293,12 @@ class MathFigure:
 
     async def described(
         self, descriptions: Sequence[str], texts: Sequence[str], reply: str, settings: Settings
-    ) -> str | None:
+    ) -> list[str]:
         from app.core import sympy_executor
-        from app.modules.math.drawing.build import first_drawn_fence
+        from app.modules.math.drawing.build import drawn_fences
 
         return await sympy_executor.run_sympy(
-            first_drawn_fence,
+            drawn_fences,
             list(descriptions),
             list(texts),
             reply,

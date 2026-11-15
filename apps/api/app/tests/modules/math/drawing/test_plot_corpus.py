@@ -20,7 +20,7 @@ from typing import Any
 
 import pytest
 
-from app.modules.math.drawing.build import drawn_fence, first_drawn_fence
+from app.modules.math.drawing.build import drawn_fence, drawn_fences
 from app.modules.math.schemas.plot import PlotGraphSpec
 
 _CORPUS = json.loads(Path(__file__).with_name("plot_corpus.json").read_text())
@@ -59,12 +59,9 @@ def test_a_figure_and_a_graph_are_both_drawn() -> None:
         "Find the area enclosed by y = 4 − x² and y = 3x, shade it, and draw a cone of "
         "radius 3 cm and height 4 cm."
     )
-    plot = json.dumps(
-        {"kind": "plot", "items": [{"item": "curve", "name": "f", "y": "4 - x^2"}]}
-    )
+    plot = json.dumps({"kind": "plot", "items": [{"item": "curve", "name": "f", "y": "4 - x^2"}]})
     cone = json.dumps(
         {"kind": "shape", "items": [{"item": "cone", "radius": "3 cm", "height": "4 cm"}]}
     )
-    fences = first_drawn_fence([plot, cone, plot], [question], "")
-    assert fences is not None
-    assert fences.count("```graph\n") == 1 and fences.count("```geometry\n") == 1
+    fences = drawn_fences([plot, cone, plot], [question], "")
+    assert sorted(fence.split("\n", 1)[0] for fence in fences) == ["```geometry", "```graph"]

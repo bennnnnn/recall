@@ -13,19 +13,21 @@ from __future__ import annotations
 
 import json
 import logging
+from dataclasses import replace
 from typing import Any
 
+from app.modules.math.drawing.amounts import AMOUNTS, read_amount
 from app.modules.math.drawing.labels import Label, read_length
 from app.modules.math.drawing.plane import polygon_at
 from app.modules.math.drawing.plot import plot_spec
 from app.modules.math.drawing.question import Question, read_question
 from app.modules.math.drawing.scene import checked_scene
 from app.modules.math.drawing.shape_drawings import DRAWERS, beside, box
-from app.modules.math.drawing.shapes import FORMS, PART_ROLES, form_key, sized
+from app.modules.math.drawing.shapes import FORMS, PART_ROLES, Form, Sized, form_key, sized
 from app.modules.math.drawing.space import draw_scene
 from app.modules.math.drawing.vocabulary import ShapePart, read_description, read_items
 from app.modules.math.figure.drawing import Drawing
-from app.modules.math.figure.honest import honours
+from app.modules.math.figure.honest import honours, said
 from app.modules.math.figure.request import FigureRequest, Measure
 from app.modules.math.figure.shape_names import names_shape
 from app.modules.math.schemas.figure import FigureSpec
@@ -34,8 +36,7 @@ logger = logging.getLogger(__name__)
 
 # At most this many shapes side by side in one word problem's figure.
 _MOST_SHAPES = 3
-# A reply's descriptions read, at most: one picture of each fence is drawn, from the first
-# that checks (a figure and a graph).
+# A reply's descriptions read, at most: one picture of each kind is drawn.
 _MOST_DESCRIPTIONS = 3
 
 
@@ -52,12 +53,47 @@ def _shape(part: ShapePart, question: Question) -> Drawing | None:
         label = read_length(text, question)
         if label is not None and _its_part(name, label, question):
             labels[name] = label
-    found = sized(form, labels)
+    found = _sized(key, _drawn_as(form, labels), labels, part, question)
     if found is None:
         return None
     if part.item == "box":
         return box(found.sizes, found.shown, lid=not part.open)
     return DRAWERS[key](found.sizes, found.shown)
+
+
+def _drawn_as(form: Form, labels: dict[str, Label]) -> Form:
+    """The shape's representative proportions as its letters read: two radii lettered R and
+    r are drawn with R the larger, whichever end the reply puts it at."""
+    top, bottom = labels.get("top_radius"), labels.get("bottom_radius")
+    if top is None or bottom is None or not top.letter or not bottom.letter:
+        return form
+    if top.letter.isupper() and bottom.letter == top.letter.lower():
+        return replace(form, sizes=(form.sizes[1], form.sizes[0], *form.sizes[2:]))
+    return form
+
+
+def _sized(
+    key: str, form: Form, labels: dict[str, Label], part: ShapePart, question: Question
+) -> Sized | None:
+    """The shape's sizes: from its labels, and from the amount the question fixes and the one
+    it makes best, when the description names them (``amounts``)."""
+    fixed: dict[str, tuple[float, str]] = {}
+    for kind, text in part.fixed.items():
+        amount = read_amount(kind, str(text), question)
+        if amount is None:
+            return None  # an amount the question does not state: no sizes worked from it
+        fixed[kind] = amount
+    goal = next(iter(part.optimise.items()), None)
+    of = AMOUNTS.get(key)
+    if (fixed or goal) and of is None:
+        return None
+    lid = not part.open
+    amounts = (lambda symbols: of(symbols, lid)) if of is not None else None
+    found = sized(form, labels, amounts=amounts, fixed=fixed, goal=goal)
+    if found is None and goal is not None:
+        # A best the description leaves unsettled (sizes left free): drawn without it.
+        found = sized(form, labels, amounts=amounts, fixed=fixed)
+    return found
 
 
 def _its_part(part: str, label: Label, question: Question) -> bool:
@@ -116,7 +152,7 @@ def _held(spec: FigureSpec) -> bool:
 def _value(label: str) -> tuple[float | None, str]:
     """A label's stated value and unit ("12 m" and "r = 12 m": 12 and "m"), or None for a
     letter ("r", "h = 3r")."""
-    head, _, unit = label.rpartition("= ")[2].partition(" ")
+    head, _, unit = said(label).partition(" ")
     try:
         return float(head.rstrip("°")), unit
     except ValueError:
@@ -162,12 +198,15 @@ def _graph_fence(items: list[tuple[str, Any | None]], texts: list[str]) -> str |
     )
 
 
-def first_drawn_fence(bodies: list[str], texts: list[str], reply: str) -> str | None:
-    """Picklable entry for ``core.sympy_executor.run_sympy``: the first description of each
-    fence that checks, drawn: one figure and one graph at most."""
-    fences: dict[str, str] = {}
+def drawn_fences(bodies: list[str], texts: list[str], reply: str) -> list[str]:
+    """Picklable entry for ``core.sympy_executor.run_sympy``: the pictures the descriptions
+    draw, one of each kind (a ```geometry figure, a ```graph), each from the first
+    description of that kind that checks (owner decision 2026-11-15: a reply may carry a
+    figure and a graph)."""
+    drawn: dict[str, str] = {}
     for body in bodies[:_MOST_DESCRIPTIONS]:
         fence = drawn_fence(body, texts, reply)
-        if fence is not None:
-            fences.setdefault(fence.split("\n", 1)[0], fence)
-    return "\n\n".join(fences.values()) or None
+        kind = fence.split("\n", 1)[0].removeprefix("```") if fence else ""
+        if fence is not None and kind not in drawn:
+            drawn[kind] = fence
+    return list(drawn.values())

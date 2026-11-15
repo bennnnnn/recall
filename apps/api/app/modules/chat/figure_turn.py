@@ -109,6 +109,16 @@ async def _draw(
     return await figure.draw(line, earlier, settings)
 
 
+def _kinds(fences: Sequence[str]) -> set[str]:
+    return {fence.split("\n", 1)[0].removeprefix("```") for fence in fences}
+
+
+def _without(text: str, fences: Sequence[str]) -> str:
+    for fence in fences:
+        text = text.replace(fence, "")
+    return text
+
+
 def stop_figure(ctx: StreamContext) -> None:
     if ctx.figure is not None and not ctx.figure.done():
         ctx.figure.cancel()
@@ -121,9 +131,7 @@ async def attach_figure(state: FinalizeState) -> str:
     figure = _figure()
     if task is None or figure is None:
         return state.text
-    # The reply's own described picture of it, checked and drawn, stands (``drawing_turn``).
-    drawn = ctx.drawing is not None and ctx.drawing.drawn
-    if drawn or state.was_cancelled or figure.whole(state.text) or ctx.live_read is None:
+    if state.was_cancelled or figure.whole(state.text) or ctx.live_read is None:
         stop_figure(ctx)
         return state.text
     if not _asks_for_a_picture(ctx.live_read):
@@ -140,7 +148,12 @@ async def attach_figure(state: FinalizeState) -> str:
         logger.info("figure task failed: %r", None if task.cancelled() else task.exception())
         return state.text
     fence = task.result()
-    if not fence or not figure.adds_to(state.text, fence):
+    # The reply's own described picture of that kind, checked and drawn, stands
+    # (``drawing_turn``); one of the other kind leaves room for this one.
+    drawn = ctx.drawing.fences if ctx.drawing is not None else []
+    if not fence or fence.split("\n", 1)[0].removeprefix("```") in _kinds(drawn):
+        return state.text
+    if not figure.adds_to(_without(state.text, drawn), fence):
         return state.text
     text = figure.without_substitutes(state.text).rstrip()
     text = f"{text}\n\n{fence}\n" if text else f"{fence}\n"

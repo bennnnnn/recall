@@ -9,8 +9,9 @@ A label is one of three things, and anything else is left off its part:
 - a whole multiple of such a letter ("2r"), shown only when the figure's own shape makes it
   true (a window's width is twice its radius) or the question writes it ("h = 3r").
 
-No label is a number the question does not state: an optimisation's answer, a computed
-distance or the size at one instant of a related-rates problem is the reply's to give.
+A number the question does not state ("11.68 cm") is the model's own: it is shown only where
+the server works that part out to it (an optimum, a length fixed by stated ones), and then
+as the server's value (``claimed``). The size at one moment of a changing shape is none.
 """
 
 from __future__ import annotations
@@ -40,6 +41,9 @@ class Label:
     letter: str | None = None
     coefficient: Fraction = Fraction(1)
     written: bool = False
+    # A number the question does not state ("11.68 cm"): the model's own, shown only where
+    # the server works the part out to it, and then as the server's value.
+    claimed: float | None = None
 
 
 def read_length(text: str, question: Question) -> Label | None:
@@ -57,8 +61,10 @@ def read_length(text: str, question: Question) -> Label | None:
     if value is not None and (not written_unit or unit_name(written_unit)):
         number, unit = float(value.group(1)), unit_name(written_unit)
         changing = Fraction(number).limit_denominator(10_000) in question.changing
-        if number <= 0 or changing or not states_length(list(question.numbers), number, unit):
+        if number <= 0 or changing:
             return None
+        if not states_length(list(question.numbers), number, unit):
+            return Label(length_label(number, unit), unit=unit, claimed=number)
         return Label(length_label(number, unit), value=number, unit=unit)
     term = _TERM.match(text)
     if term is None:
@@ -80,6 +86,8 @@ def _named(name: str, rest: str, text: str, question: Question) -> Label | None:
     letter = read_length(name, question)
     if said is None or letter is None or letter.letter is None or letter.coefficient != 1:
         return None
+    if said.claimed is not None:
+        return replace(said, text=f"{letter.text} = {said.text}", letter=letter.letter)
     if said.value is None and _spaced(text) not in {_spaced(t) for t in question.relations}:
         return None
     if said.value is not None and not _its_value(letter.letter, said.value, question):

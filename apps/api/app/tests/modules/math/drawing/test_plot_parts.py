@@ -18,7 +18,7 @@ from app.modules.math.drawing.curve_breaks import breaks, end_lines
 from app.modules.math.drawing.curve_features import bends, exact_xs, turning_points, zeros
 from app.modules.math.drawing.plot_labels import formula_text, number_text
 from app.modules.math.drawing.plot_question import plain, read_plot_question
-from app.modules.math.drawing.real_curve import X, RealFunction, as_real
+from app.modules.math.drawing.real_curve import RealFunction, X, as_real
 from app.modules.math.tool_check import parse_formula
 
 _x = Symbol("x")
