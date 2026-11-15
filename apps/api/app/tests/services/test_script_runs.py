@@ -110,17 +110,34 @@ def test_the_phone_and_the_server_read_one_table() -> None:
         # Only a big operator's lowered run is a limit here; a name's stays for the parser.
         ("x₁ + x₂", "x₁ + x₂"),
         ("nº 5 and 30º", "nº 5 and 30º"),
-        # A raised index standing on nothing before a root sign is the root's: "2 ³√27" was
-        # 2³·√27, a checked 24√3 for 6. On a letter or a number it stays a power.
+        # A raised index before a root sign is the root's: "2 ³√27" and "2³√27" were
+        # 2³·√27, a checked 24√3 for 6. A square root writes no index, so on a letter or a
+        # number a raised 2 stays a power, and so does a longer run.
         ("2 ³√27", "2 ∛27"),
         ("3 ⁴√16 + (³√8)", "3 ∜16 + (∛8)"),
         ("²√9", "√9"),
         ("2 ⁵√32", "2 ⁵√32"),
+        ("2³√27", "2∛27"),
+        ("3⁴√16", "3∜16"),
+        ("x³√x", "x∛x"),
+        ("(x+1)³√x", "(x+1)∛x"),
+        ("2⁵√32", "2⁵√32"),
         ("x²√x", "x^2√x"),
-        ("2³√27", "2^3√27"),
-        # A run straight after a caret's power raises nothing: e^((2x)^x) or (e^(2x))^x?
+        ("2²√9", "2^2√9"),
+        ("x²³√x", "x^23√x"),
+        # Raised digits on a caret's number or letter go on with its power, as main read
+        # them: e^x² is e^(x²), the tower grouping to the right.
+        ("e^x²", "e^x^2"),
+        ("2^3²", "2^3^2"),
+        ("x^2²", "x^2^2"),
+        ("e^x²³", "e^x^23"),
+        ("e^-x²", "e^-x^2"),
+        # Any other run straight after a caret's power raises nothing: e^((2x)^x) or
+        # (e^(2x))^x?
         ("e^(2x)ˣ", "e^(2x)ˣ"),
+        ("e^(2x)²", "e^(2x)²"),
         ("e^2ˣ", "e^2ˣ"),
+        ("e^x⁻¹", "e^x⁻¹"),
         ("4^(1/2)⁻¹", "4^(1/2)⁻¹"),
         ("x^{2}³", "x^2³"),
         # A bracket or a letter with no caret before it still takes one.
@@ -158,7 +175,18 @@ def test_a_scientific_literal_is_the_whole_raised_run(typed: str, folded: str) -
 
 @pytest.mark.parametrize(
     ("typed", "value"),
-    [("2 ⁵√32", 4), ("⁵√32 + 1", 3), ("3 ⁴√16", 6), ("(³√27)", 3)],
+    [
+        ("2 ⁵√32", 4),
+        ("⁵√32 + 1", 3),
+        ("3 ⁴√16", 6),
+        ("(³√27)", 3),
+        ("2³√27", 6),
+        ("3⁴√16", 6),
+        ("2⁵√32", 4),
+        ("2²√9", 12),
+        ("2^3²", 512),
+        ("2^2³", 256),
+    ],
 )
 def test_the_parser_reads_a_raised_index_as_the_root(typed: str, value: int) -> None:
     assert parse_expression(typed) == value
@@ -177,6 +205,10 @@ def test_the_parser_reads_a_raised_index_as_the_root(typed: str, value: int) -> 
         ("x⁻¹", "x^(-1)"),
         ("eˣsin x", "e^x sin(x)"),
         ("x₁ + aₙ", "x_1 + a_n"),
+        ("e^x²", "e^(x^2)"),
+        ("x e^x²", "x e^(x^2)"),
+        ("2^x²", "2^(x^2)"),
+        ("x³√x", "x (x^(1/3))"),
     ],
 )
 def test_the_parser_reads_a_run_as_the_caret(typed: str, caret: str) -> None:
@@ -185,7 +217,18 @@ def test_the_parser_reads_a_run_as_the_caret(typed: str, caret: str) -> None:
 
 @pytest.mark.parametrize(
     "typed",
-    ["e ˣ", "eⁱᶿ", "aₙ₊₁ + 1", "pʰɪn", "e^(2x)ˣ", "4^(1/2)⁻¹", "e^(2x)²", "e^2ˣ", "x^{2}³"],
+    [
+        "e ˣ",
+        "eⁱᶿ",
+        "aₙ₊₁ + 1",
+        "pʰɪn",
+        "e^(2x)ˣ",
+        "4^(1/2)⁻¹",
+        "e^(2x)²",
+        "e^2ˣ",
+        "x^{2}³",
+        "e^x⁻¹",
+    ],
 )
 def test_a_raised_letter_no_power_holds_is_never_a_symbol(typed: str) -> None:
     with pytest.raises(SolveServiceError):

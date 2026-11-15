@@ -122,7 +122,7 @@ def test_prose_with_raised_letters_is_not_maths(prose: str) -> None:
         ("Find ∫ x eˣdx", "Find ∫ x e^x dx"),
         ("∫_0^1 x^2dx", "∫_0^1 x^2 dx"),
         ("∫ x²dx from 0 to 2", "∫ x^2 dx from 0 to 2"),
-        ("integrate x^2dt", "integrate x^2 dt"),
+        ("integrate t^2dt", "integrate t^2 dt"),
     ],
 )
 async def test_a_glued_differential_is_the_differential(glued: str, spaced: str) -> None:
@@ -166,17 +166,27 @@ async def test_a_raised_run_on_ten_is_one_exponent(typed: str, caret: str) -> No
         ("Solve 10²ˣ⁻¹ = 1000", "x = 2"),
         ("Solve 10⁻³ˣ = 1000", "x = -1"),
         ("What is 10²⁺¹?", "1000"),
-        # A raised index standing on nothing before a root sign is the root's: "2 ³√27" was
+        # A raised index before a root sign is the root's: "2 ³√27" and "2³√27" were
         # 2³·√27, a checked 24√3.
         ("Evaluate 2 ³√27", "6"),
+        ("Evaluate 2³√27", "6"),
         ("Evaluate 3 ⁴√16", "6"),
+        ("Evaluate 3⁴√16", "6"),
         ("Evaluate 2 ⁵√32", "4"),
         ("Evaluate ³√8", "2"),
-        # On a letter it is still the letter's power.
+        ("Simplify x³√x", r"x \sqrt[3]{x}"),
+        # A square root writes no index, so a raised 2 is still its letter's power.
         ("Simplify x²√x", r"x^{2} \sqrt{x}"),
-        # A differential in a Greek letter is the differential: "∫ x² dθ" was a checked
-        # d·x³θ/3 + C and "∫ sin θ dθ" held cos(dθ²).
-        ("∫ x² dθ", r"x^{2} θ + C"),
+        ("Evaluate 2²√9", "12"),
+        # Raised digits on a caret's letter or number go on with its power, as they always
+        # did: declined, "Differentiate e^x²" lost its card (2026-11-14).
+        ("Differentiate e^x²", r"2 x e^{x^{2}}"),
+        ("Find the derivative of e^x²", r"2 x e^{x^{2}}"),
+        ("Integrate x·e^x² dx", r"\frac{e^{x^{2}}}{2} + C"),
+        ("Differentiate 2^x²", r"2^{x^{2}} x \ln 4"),
+        ("Differentiate x^2²", r"4 x^{3}"),
+        ("Evaluate 2^3²", "512"),
+        # A differential in a Greek letter is the differential: "∫ sin θ dθ" held cos(dθ²).
         ("∫ sin θ dθ", r"- \cos{\left(θ \right)} + C"),
         ("∫ θ^2dθ", r"\frac{θ^{3}}{3} + C"),
         ("∫ cos φ dφ", r"\sin{\left(φ \right)} + C"),
@@ -203,6 +213,7 @@ async def test_a_raised_run_reads_as_written(typed: str, answer: str) -> None:
         "Evaluate 4^(1/2)⁻¹",
         "Evaluate e^2ˣ",
         "Differentiate e^(2x)²",
+        "Differentiate e^x⁻¹",
     ],
 )
 async def test_a_raised_run_after_a_caret_power_is_declined(typed: str) -> None:

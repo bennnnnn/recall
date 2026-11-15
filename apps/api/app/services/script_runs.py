@@ -20,10 +20,13 @@ back as ˣ·e·sin(2x)/2 and the derivative of 2ˣ as 0 (grade 12 textbook round
   ``nth``, "the 21ˢᵗ century" "the 21st century". Read as a power, "the nᵗʰ derivative"
   was n^(th) and "the 2ⁿᵈ derivative" no order at all: a checked first derivative
   (2026-11-14).
-- Raised digits standing on nothing before a root sign are its index: ``2 ³√27`` is
-  ``2 ∛27``, never 2³·√27 (24√3 for 6). On a letter they stay a power: ``x²√x``.
-- A run straight after a caret's power raises nothing: ``e^(2x)ˣ`` is e^((2x)^x) or
-  (e^(2x))^x, and nothing says which.
+- Raised digits before a root sign are its index: ``2 ³√27`` and ``2³√27`` are ``2 ∛27``,
+  never 2³·√27 (24√3 for 6), as ``³√`` is how a phone types a cube root. A square root
+  writes no index, so on a letter or a number a raised 2 stays its power (``x²√x``), and
+  so does a longer run (``x²³√x``).
+- Raised digits straight after a caret's number or letter go on with its power, as a
+  tower groups to the right: ``e^x²`` is e^(x²), ``2^3²`` 2⁹. Any other run there raises
+  nothing: ``e^(2x)ˣ`` is e^((2x)^x) or (e^(2x))^x, and nothing says which.
 - A lowered run straight after a big operator is its lower limit: ``∫₀¹`` is ``∫_0^1``.
 """
 
@@ -104,9 +107,11 @@ def _written(script: str, mark: str, *, group_numbers: bool, glued: bool) -> str
 
 def root_index_at(text: str, index: int) -> tuple[str, int] | None:
     """The index raised before a root sign at ``index``, and where the sign ends:
-    ``³√27`` → ``("3", 2)``. Only digits that stand on nothing (the start, a space, an
-    operator or an opening bracket): after a letter or a number they are its power
-    (``x²√x`` is x² times √x). A run is read from its first digit."""
+    ``³√27`` → ``("3", 2)``. A run is read from its first digit. After a letter or a
+    number only one digit from 3 is an index (``2³√27`` is 2∛27); a 2 or a longer run
+    there is its power (``x²√x`` is x² times √x), since a square root writes no index.
+
+    Read as the power, "Evaluate 2³√27" was a checked 24√3 (2026-11-14)."""
     if index and text[index - 1] in SUPERSCRIPT_GLYPHS:
         return None
     end = index
@@ -116,9 +121,12 @@ def root_index_at(text: str, index: int) -> tuple[str, int] | None:
         and SUPERSCRIPT_GLYPHS[text[end]].isdigit()
     ):
         end += 1
-    if end == index or text[end : end + 1] != _ROOT or (index and _maths_atom(text[index - 1])):
+    if end == index or text[end : end + 1] != _ROOT:
         return None
-    return "".join(SUPERSCRIPT_GLYPHS[char] for char in text[index:end]), end + 1
+    digits = "".join(SUPERSCRIPT_GLYPHS[char] for char in text[index:end])
+    if index and _maths_atom(text[index - 1]) and not (len(digits) == 1 and digits >= "3"):
+        return None
+    return digits, end + 1
 
 
 def _opening(text: str, close: int) -> int:
@@ -133,8 +141,9 @@ def _opening(text: str, close: int) -> int:
 
 
 def _after_caret_power(text: str, index: int) -> bool:
-    """The run at ``index`` continues a power typed with a caret: ``e^(2x)ˣ``, ``e^2ˣ``,
-    ``4^(1/2)⁻¹``. A caret's operand is a bracket, a number or one letter."""
+    """The run at ``index`` comes straight after a power typed with a caret: ``e^x²``,
+    ``e^(2x)ˣ``, ``e^2ˣ``, ``4^(1/2)⁻¹``. A caret's operand is a bracket, a number or one
+    letter."""
     before = text[index - 1] if index else ""
     start = index - 1
     if before in ")]}":
@@ -149,6 +158,15 @@ def _after_caret_power(text: str, index: int) -> bool:
     elif not (before.isascii() and before.isalpha()):
         return False
     return start > 0 and text[:start].endswith(("^", "**"))
+
+
+def _raises_here(text: str, index: int, core: str) -> bool:
+    """Whether the run at ``index`` may raise what it stands on. After a caret's number or
+    letter, only digits do, going on with that power: read as nothing, "Differentiate e^x²"
+    and "Evaluate 2^3²" were declined, which they never were before (2026-11-14)."""
+    if not _after_caret_power(text, index):
+        return True
+    return core.isdigit() and text[index - 1] not in _CLOSED_ATOMS
 
 
 def _ordinal(body: str, before: str) -> bool:
@@ -186,7 +204,7 @@ def fold_superscript_runs(text: str, *, mark: str = "^", group_numbers: bool = F
             index = end
             continue
         power = None
-        if core and root is None and not _after_caret_power(text, index):
+        if core and root is None and _raises_here(text, index, core):
             power = _raised(core, before, after)
         if power is None:
             out.append(text[index:end])
