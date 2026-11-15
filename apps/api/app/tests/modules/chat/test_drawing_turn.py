@@ -163,6 +163,11 @@ def test_a_draw_block_never_streams_to_the_phone(size: int) -> None:
     assert [body for _at, body in accum.drawings] == [_DESCRIPTION]
 
 
+def test_a_block_closed_at_the_very_end_is_whole() -> None:
+    sent, accum = _stream(["Done.\n\n```draw\n", _DESCRIPTION, "\n```"])
+    assert sent == "Done.\n\n" and [body for _at, body in accum.drawings] == [_DESCRIPTION]
+
+
 def test_other_fences_stream_as_written() -> None:
     reply = "Here:\n\n```python\nprint('draw')\n```\n\n```drawing\nnot ours\n```\nDone."
     sent, accum = _stream([reply[i : i + 3] for i in range(0, len(reply), 3)])

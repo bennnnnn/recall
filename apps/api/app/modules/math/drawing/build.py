@@ -14,8 +14,6 @@ import json
 import logging
 from typing import Any
 
-from pydantic import ValidationError
-
 from app.modules.math.drawing.labels import Label, read_length
 from app.modules.math.drawing.plane import polygon_at
 from app.modules.math.drawing.question import Question, read_question
@@ -29,7 +27,6 @@ from app.modules.math.figure.honest import honours
 from app.modules.math.figure.request import FigureRequest, Measure
 from app.modules.math.figure.shape_names import names_shape
 from app.modules.math.schemas.figure import FigureSpec
-from app.services.solving import SolveServiceError
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +124,7 @@ def drawn_fence(body: str, texts: list[str], reply: str) -> str | None:
             spec = draw_scene(scene) if scene is not None else None
         else:
             spec = _shapes(items, question)
-    except (SolveServiceError, ValidationError, ValueError, ZeroDivisionError, TypeError):
+    except Exception:  # SymPy's own errors included: a description that fails draws nothing.
         logger.info("drawing failed for a %s description", description.kind, exc_info=True)
         return None
     if spec is None or not _held(spec):

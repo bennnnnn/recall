@@ -120,7 +120,10 @@ def _point(item: SpacePoint, scene: Scene, question: Question) -> bool:
 
 
 def _states_size(question: Question, value: Fraction) -> str | None:
-    """The unit a stated length is written with ("" for none), or None when it is unstated."""
+    """The unit a stated length is written with ("" for none), or None when it is unstated
+    (a rate, a size at one moment of a changing shape)."""
+    if value in question.changing:
+        return None
     for written in question.numbers:
         if written.in_formula or written.unit in {"deg", "area", "other"}:
             continue

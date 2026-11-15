@@ -46,13 +46,13 @@ class DrawFilter:
         return "".join(out)
 
     def flush(self) -> str:
-        """The stream ended: a line left over is read; an open block is kept unshown."""
+        """The stream ended: a line left over is read (a block's closer with no newline
+        after it closes it); a block still open is kept, unshown."""
         line, self._line = self._line, ""
-        if self._fence is None:
-            return self._take(line, "")
-        self._body.append(line)
-        self._keep()
-        return ""
+        sent = self._take(line, "")
+        if self._fence is not None:
+            self._keep()
+        return sent
 
     def _take(self, line: str, end: str) -> str:
         marker = read_fence_marker(line)

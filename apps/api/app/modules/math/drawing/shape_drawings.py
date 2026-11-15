@@ -28,8 +28,8 @@ def _dimension(
     """A length shown beside a shape: a line its true length, closed by a mark at each end."""
     start, end = drawing.point(a), drawing.point(b)
     drawing.line(start, end, label)
-    length = math.hypot(b[0] - a[0], b[1] - a[1])
-    across = (-(b[1] - a[1]) / length * length * _END, (b[0] - a[0]) / length * length * _END)
+    # Across the line, a share of its length each way.
+    across = (-(b[1] - a[1]) * _END, (b[0] - a[0]) * _END)
     for x, y in (a, b):
         drawing.line(
             drawing.point((x - across[0], y - across[1])),
