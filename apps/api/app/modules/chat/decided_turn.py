@@ -62,7 +62,7 @@ async def decide_from_the_read(ctx: StreamContext, settings: Settings) -> None:
     """The read's answer, applied to the turn; the word rules' choices when it has none."""
     read = await _the_read(ctx, settings)
     # A maths picture the message asks to see: the reply describes it (``drawing_turn``).
-    ask_for_a_drawing(ctx, settings, read)
+    await ask_for_a_drawing(ctx, settings, read)
     if read is None or read.effort is None:
         note_decision("rules")
         return

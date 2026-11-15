@@ -104,9 +104,9 @@ def _state(ctx: StreamContext, text: str, *, cancelled: bool = False) -> Finaliz
         ("maths", "image", False),
     ],
 )
-def test_ask_for_a_drawing_follows_the_read(subject: str, picture: str, asked: bool) -> None:
+async def test_ask_for_a_drawing_follows_the_read(subject: str, picture: str, asked: bool) -> None:
     ctx = _ctx()
-    ask_for_a_drawing(ctx, _settings(), _decision(subject=subject, picture=picture))
+    await ask_for_a_drawing(ctx, _settings(), _decision(subject=subject, picture=picture))
     assert (ctx.drawing is not None) == asked
     assert any(m["content"] == DRAW_CONTRACT for m in ctx.prompt_messages) == asked
     if asked:
@@ -125,22 +125,50 @@ def test_ask_for_a_drawing_follows_the_read(subject: str, picture: str, asked: b
         ("Draw me a cat wearing a hat.", False, False),
     ],
 )
-def test_ask_for_a_drawing_without_a_read_asks_a_maths_message_in_words(
+async def test_ask_for_a_drawing_without_a_read_asks_a_maths_message_in_words(
     monkeypatch: pytest.MonkeyPatch, line: str, maths: bool, asked: bool
 ) -> None:
     monkeypatch.setattr(drawing_turn, "_a_maths_turn", lambda _ctx: maths)
     ctx = _ctx(line)
-    ask_for_a_drawing(ctx, _settings(), None)
+    await ask_for_a_drawing(ctx, _settings(), None)
     assert (ctx.drawing is not None and ctx.drawing.asked == "words") == asked
 
 
-def test_ask_for_a_drawing_is_off_with_its_switch_or_an_instant_reply() -> None:
+async def test_ask_for_a_drawing_is_off_with_its_switch_or_an_instant_reply() -> None:
     read = _decision(subject="maths", picture="diagram")
     off = _ctx()
-    ask_for_a_drawing(off, _settings(draw_descriptions_enabled=False), read)
+    await ask_for_a_drawing(off, _settings(draw_descriptions_enabled=False), read)
     instant = _ctx(instant_reply="It is 3 pm.")
-    ask_for_a_drawing(instant, _settings(), read)
+    await ask_for_a_drawing(instant, _settings(), read)
     assert off.drawing is None and instant.drawing is None
+
+
+async def _late(decision: TurnDecision, after: float) -> TurnDecision | None:
+    await asyncio.sleep(after)
+    return decision
+
+
+@pytest.mark.parametrize(
+    ("line", "after", "asked"),
+    [
+        # Round 3's c082: the reply's call went out before the read; it says draw.
+        ("Find the angle between (−1, 1, 1) and (2, 2, 2), and draw both vectors.", 0.05, "read"),
+        # No word asking to see anything: no wait.
+        ("Find the angle between (−1, 1, 1) and (2, 2, 2).", 0.05, None),
+        # A read later than the reply waits for one: no picture.
+        ("Draw both vectors (−1, 1, 1) and (2, 2, 2).", 5.0, None),
+    ],
+)
+async def test_a_message_asking_to_see_waits_for_a_late_read(
+    line: str, after: float, asked: str | None
+) -> None:
+    task = asyncio.ensure_future(_late(_decision(subject="maths", picture="diagram"), after))
+    ctx = _ctx(line, live_read=task)
+    await ask_for_a_drawing(ctx, _settings(live_read_wait_seconds=0.5), None)
+    assert (ctx.drawing.asked if ctx.drawing is not None else None) == asked
+    # Waited on, never cancelled: the figure read waits for the same read.
+    assert not task.cancelled()
+    task.cancel()
 
 
 def _stream(pieces: list[str]) -> tuple[str, StreamAccum]:

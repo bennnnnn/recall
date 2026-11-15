@@ -14,6 +14,7 @@ raises into a turn.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from dataclasses import dataclass, field
@@ -69,17 +70,39 @@ def _a_maths_turn(ctx: StreamContext) -> bool:
     return kept is not None and kept.text == ctx.user_message_content and kept.subject == "math"
 
 
-def ask_for_a_drawing(ctx: StreamContext, settings: Settings, read: TurnDecision | None) -> None:
+def _asks_in_words(ctx: StreamContext) -> bool:
+    return _ASKS_TO_SEE.search(ctx.user_message_content or "") is not None
+
+
+async def _read_for_a_picture(ctx: StreamContext, settings: Settings) -> TurnDecision | None:
+    """The read, when the message asks in so many words to see something and the reply's
+    call did not wait for it: waited for as long as the reply waits for a read (c081 and
+    c082 of round 3 went out before theirs, and drew nothing). Waited on, never cancelled:
+    the figure read waits for the same read."""
+    task = ctx.live_read
+    if task is None or not _asks_in_words(ctx):
+        return None
+    await asyncio.wait([task], timeout=settings.live_read_wait_seconds)
+    if not task.done() or task.cancelled() or task.exception() is not None:
+        return None
+    return task.result()
+
+
+async def ask_for_a_drawing(
+    ctx: StreamContext, settings: Settings, read: TurnDecision | None
+) -> None:
     """Maths' draw contract beside the message, when it asks to see a maths picture."""
     figure = _figure()
     if figure is None or not settings.draw_descriptions_enabled or ctx.drawing is not None:
         return
     if ctx.instant_reply is not None:
         return
+    if read is None:
+        read = await _read_for_a_picture(ctx, settings)
     asked: Literal["read", "words"] | None = None
     if read is not None and read.subject is not None and read.picture is not None:
         asked = "read" if read_asks_for_a_picture(read) else None
-    elif _a_maths_turn(ctx) and _ASKS_TO_SEE.search(ctx.user_message_content or ""):
+    elif _a_maths_turn(ctx) and _asks_in_words(ctx):
         asked = "words"
     if asked is None:
         return
