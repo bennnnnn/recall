@@ -224,13 +224,14 @@ def _drawn_line(line: DrawnLine, window: Window) -> PlotLine | None:
 
 
 def _rounded(window: Window) -> Any:
-    """A coordinate to a ten-thousandth of the window, far finer than a pixel: the fence
-    stays small."""
-    span = max(window[1] - window[0], window[3] - window[2])
-    places = max(0, 4 - math.floor(math.log10(span)))
+    """Each coordinate to a ten-thousandth of the window's own width or height, far finer
+    than a pixel: the fence stays small. One rounding for both drew e^x on [0, 20] (a height
+    of 5·10⁸) in whole steps of x, and x² on [0, 0.001] as a staircase (j01, j02)."""
+    x_places = max(0, 4 - math.floor(math.log10(window[1] - window[0])))
+    y_places = max(0, 4 - math.floor(math.log10(window[3] - window[2])))
 
     def each(points: list[tuple[float, float]]) -> list[tuple[float, float]]:
-        return [(round(x, places), round(y, places)) for x, y in points]
+        return [(round(x, x_places), round(y, y_places)) for x, y in points]
 
     return each
 

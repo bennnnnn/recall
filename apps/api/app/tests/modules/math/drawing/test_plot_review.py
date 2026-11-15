@@ -33,9 +33,11 @@ def _curve(name: str, y: str | None = None, **more: Any) -> dict[str, Any]:
     return {"item": "curve", "name": name, **({"y": y} if y else {}), **more}
 
 
-def _shade(*between: str, start: str | None = None, end: str | None = None) -> dict[str, Any]:
+def _shade(
+    first: str, second: str, start: str | None = None, end: str | None = None
+) -> dict[str, Any]:
     ends = {"from": start, "to": end} if start is not None else {}
-    return {"item": "shade", "between": list(between), **ends}
+    return {"item": "shade", "between": [first, second], **ends}
 
 
 _PIECES = [{"y": "x^2", "when": "x < 1"}, {"y": "x + 3", "when": "x >= 1"}]
@@ -111,7 +113,7 @@ def test_a_three_edge_region_is_the_one_all_three_enclose() -> None:
         "Find the area enclosed by y = x^2, y = 2 - x and the x-axis for x >= 0. Shade it.",
         _curve("f", "x^2"),
         _curve("g", "2 - x"),
-        _shade("f", "g", "x-axis"),
+        {"item": "shade", "between": ["f", "g", "x-axis"]},
     )
     assert graph is not None and graph.regions
     xs = [x for region in graph.regions for x, _y in region.points]
@@ -197,13 +199,25 @@ def test_an_average_across_a_pole_is_left_out() -> None:
     assert graph is not None and not graph.lines
 
 
+def _true_to(graph: PlotGraphSpec, fn: Any) -> bool:
+    """Every point drawn is the curve's own, to a hundredth of the window's height: no
+    staircase of rounded coordinates (j01, j02)."""
+    height = graph.y_max - graph.y_min
+    points = [point for segment in graph.curves[0].segments for point in segment]
+    return all(
+        abs(y - fn(x)) <= 0.01 * height for x, y in points if graph.y_min <= y <= graph.y_max
+    )
+
+
 def test_a_curve_is_drawn_at_its_own_scale() -> None:
     """W10: tan x within a readable height, x² on [0, 0.001] no flat line, and sin 50x on
     the whole interval asked."""
     tan = _plot("Sketch y = tan x.", _curve("f", "tan(x)"))
     assert tan is not None and max(abs(tan.y_min), abs(tan.y_max)) < 50
     tiny = _plot("Sketch y = x^2 on [0, 0.001].", _curve("f", "x^2", domain=["0", "0.001"]))
-    assert tiny is not None and max(y for s in tiny.curves[0].segments for _x, y in s) > 0
+    assert tiny is not None and _true_to(tiny, lambda x: x * x)
+    huge = _plot("Sketch y = e^x on [0, 20].", _curve("f", "e^x", domain=["0", "20"]))
+    assert huge is not None and _true_to(huge, math.exp)
     waves = _plot("Sketch y = sin(50x) on [0, 2pi].", _curve("f", "sin(50x)", domain=["0", "2pi"]))
     assert waves is not None
     xs = [x for s in waves.curves[0].segments for x, _y in s]

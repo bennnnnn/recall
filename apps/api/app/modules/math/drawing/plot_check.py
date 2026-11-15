@@ -58,10 +58,10 @@ def stated_interval(low: Any, high: Any, question: PlotQuestion) -> tuple[Any, A
 
 
 def stated_end(number: Any, question: PlotQuestion) -> Any | None:
-    """The question's own edge or interval end equal to ``number``: one end of a region whose
-    other end is a place the server finds."""
-    ends = [*question.edges, *(end for pair in question.intervals for end in pair)]
-    return next((end for end in ends if _same(end, number)), None)
+    """The question's own edge equal to ``number`` ("x = 2", "x ≥ 0", the y-axis): one end of
+    a region whose other end is a place the server finds. One end of an interval is no edge:
+    b03's 3, of "between 2 and 3" said of the answer, shaded [0, 3]."""
+    return next((edge for edge in question.edges if _same(edge, number)), None)
 
 
 def reach(question: PlotQuestion) -> float:
