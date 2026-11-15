@@ -13,7 +13,9 @@ A reply that ends on a question offering choices ("Want to do the periodic table
 properly, or jump to a mixed exam-style set?") is answered by a pick among them: in a long
 study chat (2026-11-15) "the first one", "the second one" and "2" all got the numbered list
 above that question, on every try, each reply opening "Item 1 is about…". After such a
-question the note names the question first, and a list's items only as the other reading.
+question the note names the question's choices first and a list's items as the other reading:
+"Want me to go deeper on any of these, or suggest a study plan?" is answered by "2" naming
+the list's second item, which a note naming only the choices sent to the study plan.
 """
 
 from __future__ import annotations
@@ -46,13 +48,15 @@ _LIST_NAMES = ("your latest list", "the list before it")
 # when it joins them with "or" ("…properly, or jump to a mixed set?"); "Which one do you
 # want, or should I pick?" asks for an item of the list above it.
 _CLOSING_QUESTION = re.compile(r"(?P<question>[^\n.!?]*\?)[^\w\n]*$")
+# Only the reply's end is searched: a 32,000-character line with no mark took the search 2 s.
+_TAIL_CHARS = 1_000
 _ASIDE = re.compile(r"\s*\([^()]*\)")
 _WHICH = re.compile(r"\bwhich\b", re.IGNORECASE)
 _CHOICE_CHARS = 120
 # What any pick asks for: the item itself, no preamble about which number it was.
 _GO_ON = (
-    "Go straight on with the one it means; never open by naming its number, and never ask "
-    "what the number means."
+    "Go straight on with the one it means; never open by naming its number or saying which "
+    "one was picked, and never ask what the number means."
 )
 
 
@@ -92,7 +96,7 @@ def _offered_choices(reply: str) -> list[str]:
     "Want to do the periodic table link properly (groups, periods and why they matter), or
     jump to a mixed exam-style set?" offers two: an aside in brackets is part of its choice.
     """
-    match = _CLOSING_QUESTION.search(reply.rstrip())
+    match = _CLOSING_QUESTION.search(reply.rstrip()[-_TAIL_CHARS:])
     if match is None or _WHICH.search(match["question"]):
         return []
     question = _ASIDE.sub("", _MARKUP.sub(lambda m: m["text"] or "", match["question"]))
@@ -123,11 +127,18 @@ def list_reference_hint(query: str, prior: Sequence[tuple[str, str]]) -> str | N
     choices = _offered_choices(replies[0]) if replies else []
     picked = _pointed(query, len(choices))
     if picked:
-        named = [f'choice {n} is "{choices[n - 1]}"' for n in picked]
+        offered = "; ".join(f'choice {n} is "{choices[n - 1]}"' for n in picked)
+        other = (
+            " But when one of those choices offers to go on with an item of a list above it, a "
+            f"number or place may name that item instead: {'; '.join(named)}. Decide from the "
+            "question which it means."
+            if named
+            else ""
+        )
+        listed = "; ".join(f"({n}) {choice}" for n, choice in enumerate(choices, 1))
         return (
-            "Your last reply ended on a question offering choices. If this message picks one by "
-            f"its number or place, it picks that choice, not an item of a list above it: "
-            f"{'; '.join(named)}. {_GO_ON}"
+            f"Your last reply ended on a question offering choices: {listed}. If this message "
+            f"picks one by its number or place, it picks that choice: {offered}.{other} {_GO_ON}"
         )
     if not named:
         return None

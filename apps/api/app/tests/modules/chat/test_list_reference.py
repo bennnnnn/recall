@@ -104,8 +104,30 @@ _LESSON = (
 )
 def test_a_pick_after_a_question_offering_choices_picks_a_choice(message, choice) -> None:
     note = list_reference_hint(message, [("assistant", _MISTAKES), ("assistant", _LESSON)]) or ""
+    # The choice first; the list's item only as the other reading, after it.
     assert choice in note
-    assert "Find the electron count" not in note and "Mixing up" not in note
+    other = note.find("may name that item instead")
+    assert other > note.index(choice)
+    assert " of your latest list is " not in note[:other]
+
+
+def test_a_choice_that_offers_the_lists_items_keeps_them_named() -> None:
+    # Live review 2026-11-15: "2" and "tell me more about the second one" after this got the
+    # study plan 3/3 when the note named only the choices; main gave item 2.
+    reply = (
+        "1. Books\n2. Courses\n3. Projects\n4. Videos\n5. Mentors\n\n"
+        "Want me to go deeper on any of these, or suggest a study plan?"
+    )
+    for message in ("2", "tell me more about the second one"):
+        note = list_reference_hint(message, [("assistant", reply)]) or ""
+        assert 'choice 2 is "suggest a study plan"' in note
+        assert 'item 2 of your latest list is "Courses"' in note
+
+
+@pytest.mark.timeout(1, func_only=True)
+def test_a_long_reply_with_no_mark_is_read_once() -> None:
+    # CodeQL-style: the closing question was searched over the whole reply, 2 s at 32,000.
+    assert list_reference_hint("2", [("assistant", "a" * 32_000 + " or b?")]) is None
 
 
 @pytest.mark.parametrize(
