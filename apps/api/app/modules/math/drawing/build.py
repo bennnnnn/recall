@@ -136,7 +136,9 @@ def _sized(
         claimed = {p for p, label in labels.items() if label.claimed is not None}
         if found is None or not claimed <= set(found.shown):
             continue  # the model's own numbers are not this best's
-        if _worked(found, labels) and _reply_agrees(found, labels, question):
+        echoed = _reply_gives(found, labels, question)
+        asked = goal is not None and _ASKED[goal[0]].search(question.words) is not None
+        if _worked(found, labels) and _reply_agrees(found, labels, question) and (asked or echoed):
             return _with_letters(found, plain, labels)
     return plain
 
@@ -148,6 +150,15 @@ _WEIGHTED = re.compile(
     r"|\bper\s+(?:square|sq\b|cm|m\b|metre|meter|ft\b|foot|feet|inch|unit)"
 )
 _GOALS = ("max", "min")
+# The words a question asks for each amount by: a best of an amount it never names (its
+# volume, where it asks for the largest curved surface) is the model's reading, labelled
+# only where the reply gives the same values.
+_ASKED = {
+    "volume": re.compile(r"\bvolume"),
+    "surface": re.compile(r"\bsurface"),
+    "area": re.compile(r"(?<!surface )\barea"),
+    "perimeter": re.compile(r"\bperimeter"),
+}
 Reading = tuple[dict[str, tuple[float, str]], tuple[str, str] | None]
 
 
@@ -231,6 +242,16 @@ def _worked(found: Sized, labels: dict[str, Label]) -> bool:
         label.value is None and (label.claimed is not None or found.shown[part] != label.text)
         for part, label in labels.items()
         if part in found.shown
+    )
+
+
+def _reply_gives(found: Sized, labels: dict[str, Label], question: Question) -> bool:
+    """The reply works some shown letter out to the server's value."""
+    return any(
+        label.letter is not None
+        and question.gives(label.letter, found.lengths[part] / float(label.coefficient))
+        for part, label in labels.items()
+        if label.value is None and part in found.shown
     )
 
 

@@ -228,6 +228,7 @@ def _same_ratio(drawn: dict[str, float], pair: tuple[str, str], labels: dict[str
 # A size the server works out is shown to two places (three under 1): the drawing is that
 # true to it (``figure.honest`` holds it to one in a thousand).
 _SHOWN_PLACES, _SMALL = 2, 1.0
+_HONEST, _MOST_PLACES = 0.9e-3, 6
 # A model's own number stands for a worked size within its rounding.
 _CLAIM_SLACK = 0.006
 
@@ -237,6 +238,10 @@ def worked_value(value: float) -> tuple[str, bool]:
     if abs(value - round(value)) < 1e-9:
         return str(round(value)), True
     places = _SHOWN_PLACES if value >= _SMALL else _SHOWN_PLACES + 1
+    # One more place where two leave it further than ``figure.honest`` holds a label to its
+    # part (10/3 is 3.333, not 3.33).
+    while abs(round(value, places) - value) > _HONEST * abs(value) and places < _MOST_PLACES:
+        places += 1
     return number_text(round(value, places)), False
 
 
