@@ -47,6 +47,10 @@ class StreamAccum:
     # The reply stopped extending what the client was sent (a ```worked block laid out
     # again when a record came out of order, ``worked_stream``): ``done`` carries it.
     rewritten: bool = False
+    # The reply's ```draw blocks, kept out of what the client was sent (``draw_stream``),
+    # each with how many pieces of text the client had been sent when it closed: finalize
+    # draws the picture they describe, and text taken back takes its own blocks with it.
+    drawings: list[tuple[int, str]] = field(default_factory=list)
 
     @property
     def retracted(self) -> str:
@@ -57,6 +61,7 @@ class StreamAccum:
         taken = ("".join(self.parts[parts_from:]), "".join(self.shown[shown_from:]))
         self.taken_back.append(taken)
         del self.parts[parts_from:], self.shown[shown_from:]
+        self.drawings = [(at, body) for at, body in self.drawings if at < shown_from]
 
     def restore_retracted(self) -> None:
         """A stop or a failure left nothing in the place of text taken back: the last of it

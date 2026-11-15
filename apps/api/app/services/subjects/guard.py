@@ -272,6 +272,28 @@ class GuardedFigure:
             lambda: self._inner.without_substitutes(text),
         )
 
+    @property
+    def contract(self) -> str:
+        return self._inner.contract
+
+    async def described(
+        self, descriptions: Sequence[str], texts: Sequence[str], reply: str, settings: Settings
+    ) -> str | None:
+        return await _neutral_async(
+            self._subject,
+            "figure.described",
+            None,
+            lambda: self._inner.described(descriptions, texts, reply, settings),
+        )
+
+    def without_drawn_substitutes(self, text: str) -> str:
+        return neutral_on_error(
+            self._subject,
+            "figure.without_drawn_substitutes",
+            text,
+            lambda: self._inner.without_drawn_substitutes(text),
+        )
+
 
 class GuardedSubject:
     """A registered subject as chat asks it, each member answering neutrally if it raises."""

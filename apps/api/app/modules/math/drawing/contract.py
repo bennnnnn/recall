@@ -1,0 +1,45 @@
+"""The prompt contract that asks a reply to describe its picture in a ```draw block.
+
+Added beside the message only on a maths turn that asks to see a picture (chat's
+``figure_turn``). It is the one exception to the maths pack's "never draw" rule
+(``reply_policy.GRAPH_NO_SUBSTITUTE_CLAUSE``): the reply says what the picture shows, in
+the closed vocabulary ``vocabulary`` reads, and never in characters or Mermaid. Its words
+are rules the leak pass knows (math's ``beside_visuals``).
+"""
+
+DRAW_CONTRACT = (
+    "Picture for this question: when it asks to see a figure in space (points, vectors, a "
+    "box, a sphere) or a word problem's shape, describe the picture in one ```draw block, "
+    "after your answer; the app checks it against the question and draws it under your "
+    "reply. This replaces the rule against drawing for that figure only.\n"
+    "- Write only JSON. Copy coordinates and sizes exactly as the question states them, and "
+    "write no other number: the app works out where everything goes.\n"
+    '- Label a part with a value the question states, with its unit ("12 m"), or with a '
+    'letter your working uses ("r", "h", "x"), never with a number you worked out.\n'
+    "- Use the question's own shape (a frustum is a frustum, a sphere is no circle). Leave "
+    "out what the vocabulary cannot say. Never draw it in characters, Mermaid, SVG or a "
+    "```geometry block, and do not mention the picture.\n"
+    'kind "space" items: {"item":"axes"}; {"item":"point","name":"P","at":[x,y,z],'
+    '"guides":true}; {"item":"vector","name":"a","to":[x,y,z]} from the origin, or '
+    '"from":"A","to":"B"; {"item":"segment","from":"A","to":"B","label":"d"}; '
+    '{"item":"polygon","vertices":["A","B","C"]}; {"item":"box","size":[x,y,z],'
+    '"vertices":"ABCDEFGH","diagonals":["AG"]} (corners: the bottom ABCD from the origin, '
+    'the top EFGH above them); {"item":"sphere","name":"C","center":[x,y,z],"radius":r} '
+    'or {"item":"sphere","name":"C","equation":"..."}; {"item":"plane","through":'
+    '["A","B","C"]}; {"item":"angle","at":"O","between":["a","b"],"label":"θ"}.\n'
+    'kind "shape" items, each part a key whose value is its label: window (width, height, '
+    "radius); rectangle (width, height); square (side); circle (radius); cylinder (radius, "
+    "height); cone (radius, height, slant); sphere (radius); frustum (top_radius, "
+    'bottom_radius, height); box (length, width, height, "open": true); sheet (length, '
+    "width, cut: the squares cut from its corners); ladder (length, foot, top); tank "
+    '("container": "cone" or "cylinder"; radius, height, depth, surface); inscribed (a '
+    'cylinder in a "container": "cone" or "sphere"; outer_radius, outer_height, radius, '
+    'height); polygon ("vertices": [{"name":"A","at":[x,y]}]).\n'
+    'Example: "Find the angle between a = (1, 2, 2) and b = (2, 0, 1) and draw them." -> '
+    '```draw\n{"kind":"space","items":[{"item":"axes"},{"item":"vector","name":"a",'
+    '"to":[1,2,2]},{"item":"vector","name":"b","to":[2,0,1]},{"item":"angle","at":"O",'
+    '"between":["a","b"],"label":"θ"}]}\n```\n'
+    'Example: "Water fills a conical tank of radius 2 m and height 5 m; find dh/dt when '
+    'the depth is 3 m. Draw the tank." -> ```draw\n{"kind":"shape","items":[{"item":"tank",'
+    '"container":"cone","radius":"2 m","height":"5 m","depth":"h","surface":"r"}]}\n```'
+)

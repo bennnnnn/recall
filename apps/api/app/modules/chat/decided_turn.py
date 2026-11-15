@@ -33,6 +33,7 @@ from app.core.config import Settings
 from app.modules.billing import plan as plan_service
 from app.modules.billing.entitlements import has_strong_everyday_model
 from app.modules.chat.decider_read import READ_SUBJECTS
+from app.modules.chat.drawing_turn import ask_for_a_drawing
 from app.modules.chat.json_output import is_json_request
 from app.modules.chat.model_routing.decided import decided_lane, decided_level, math_backups
 from app.modules.chat.prompt_constants.conversation import FOLLOW_NOTES
@@ -60,6 +61,8 @@ _NOTED_SUBJECTS = frozenset({"everyday", "code"})
 async def decide_from_the_read(ctx: StreamContext, settings: Settings) -> None:
     """The read's answer, applied to the turn; the word rules' choices when it has none."""
     read = await _the_read(ctx, settings)
+    # A maths picture the message asks to see: the reply describes it (``drawing_turn``).
+    ask_for_a_drawing(ctx, settings, read)
     if read is None or read.effort is None:
         note_decision("rules")
         return

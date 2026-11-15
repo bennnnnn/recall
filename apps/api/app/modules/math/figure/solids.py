@@ -22,7 +22,7 @@ Point3 = tuple[float, float, float]
 _DEPTH_SCALE = 0.5
 _DEPTH_TURN = math.radians(35)
 # A circle seen from a little above: its ellipse's height against its width.
-_ELLIPSE = 0.3
+ELLIPSE = 0.3
 # Sizes for what a question leaves open.
 _EDGE, _LENGTH, _WIDTH, _HEIGHT, _RADIUS = 4.0, 6.0, 3.0, 4.0, 2.0
 _TOLERANCE = 1e-9
@@ -231,10 +231,10 @@ def _pyramid(request: FigureRequest) -> FigureSpec | None:
     return drawing.spec()
 
 
-def _round_base(drawing: Drawing, centre: str, r: float) -> None:
+def round_base(drawing: Drawing, centre: str, r: float) -> None:
     """A circle lying flat: its front half drawn, its back half dashed."""
-    drawing.arc(centre, r, r * _ELLIPSE, start=180, end=360)
-    drawing.arc(centre, r, r * _ELLIPSE, start=0, end=180, dashed=True)
+    drawing.arc(centre, r, r * ELLIPSE, start=180, end=360)
+    drawing.arc(centre, r, r * ELLIPSE, start=0, end=180, dashed=True)
 
 
 def round_size(request: FigureRequest) -> tuple[float | None, str | None, bool]:
@@ -256,8 +256,8 @@ def _cylinder(request: FigureRequest) -> FigureSpec | None:
     drawing = Drawing("cylinder")
     bottom = drawing.point((0.0, 0.0))
     top = drawing.point((0.0, h), dot=radius is not None)
-    _round_base(drawing, bottom, r)
-    drawing.arc(top, r, r * _ELLIPSE)
+    round_base(drawing, bottom, r)
+    drawing.arc(top, r, r * ELLIPSE)
     left_low, left_high = drawing.point((-r, 0.0)), drawing.point((-r, h))
     right_low, right_high = drawing.point((r, 0.0)), drawing.point((r, h))
     drawing.line(left_low, left_high)
@@ -286,7 +286,7 @@ def _cone(request: FigureRequest) -> FigureSpec | None:
     centre = drawing.point((0.0, 0.0), dot=True)
     apex = drawing.point((0.0, h))
     left, right = drawing.point((-r, 0.0)), drawing.point((r, 0.0))
-    _round_base(drawing, centre, r)
+    round_base(drawing, centre, r)
     unit = request.unit
     drawing.line(left, apex)
     drawing.line(right, apex, length_label(slant, unit) if slant is not None else None)
@@ -308,10 +308,10 @@ def _sphere(request: FigureRequest, *, half: bool = False) -> FigureSpec | None:
     centre = drawing.point((0.0, 0.0), dot=True)
     if half:
         drawing.arc(centre, r, start=180, end=360)
-        drawing.arc(centre, r, r * _ELLIPSE)
+        drawing.arc(centre, r, r * ELLIPSE)
     else:
         drawing.arc(centre, r)
-        _round_base(drawing, centre, r)
+        round_base(drawing, centre, r)
     edge = drawing.point((r, 0.0))
     if across:
         drawing.line(drawing.point((-r, 0.0)), edge, label, dashed=True, label_at=0.75)

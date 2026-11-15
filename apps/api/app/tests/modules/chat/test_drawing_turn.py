@@ -1,0 +1,251 @@
+"""The picture a maths reply describes: asked for, kept off the phone, checked, drawn.
+
+Round 3 (2026-11-14) left 32 of 61 pictures undrawn: the server drew only what its figure
+read could name, and the reply model was told never to draw. Now, on a maths turn asking
+to see a picture, the reply describes it in a ```draw block; the block never streams to
+the phone; finalize checks it against the question and draws it under the reply, in place
+of the figure read's picture and of any sketch or Mermaid diagram the reply drew for it.
+A block on a turn not asked for one, or one that does not check, goes with no note.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+from typing import Any
+from uuid import uuid4
+
+import pytest
+
+from app.core.config import Settings
+from app.models.orm import User
+from app.modules.chat import drawing_turn, figure_turn
+from app.modules.chat.drawing_turn import ReplyDrawing, ask_for_a_drawing, attach_drawing
+from app.modules.chat.finalize_passes import FinalizeState
+from app.modules.chat.stream_accum import StreamAccum
+from app.modules.chat.turn_decision import TurnDecision
+from app.modules.chat.turn_outcome import TurnOutcome
+from app.modules.chat.turn_prep import StreamContext
+from app.modules.chat.worked_stream import ReplyFilter
+from app.modules.math.drawing.contract import DRAW_CONTRACT
+from app.tests.modules.chat.chat_test_support import turn_deps
+
+_VECTORS = (
+    "Find the angle between the vectors (-1, 1, 1) and (2, 2, 2), and draw both from the origin."
+)
+_DESCRIPTION = json.dumps(
+    {
+        "kind": "space",
+        "items": [
+            {"item": "axes"},
+            {"item": "vector", "name": "u", "to": [-1, 1, 1]},
+            {"item": "vector", "name": "v", "to": [2, 2, 2]},
+        ],
+    }
+)
+_REPLY = f"Let $u$ and $v$ be the vectors.\n\n**Answer** $\\theta \\approx 70.53^\\circ$\n\n```draw\n{_DESCRIPTION}\n```\n"
+
+
+def _settings(**overrides: Any) -> Settings:
+    return Settings(_env_file=None, **overrides)  # type: ignore[call-arg]
+
+
+def _ctx(line: str = _VECTORS, **fields: Any) -> StreamContext:
+    user = User(id=uuid4(), name="Bini", plan="pro", emoji_use="some", locale="en")
+    ctx = StreamContext(
+        user_id=user.id,
+        chat_id=uuid4(),
+        model="smart-chat",
+        prompt_messages=[{"role": "system", "content": "rules"}, {"role": "user", "content": line}],
+        run_title=False,
+        user_message_content=line,
+        reserved_tokens=0,
+        max_output_tokens=0,
+        user_timezone="UTC",
+        user=user,
+    )
+    for name, value in fields.items():
+        setattr(ctx, name, value)
+    return ctx
+
+
+def _decision(**fields: Any) -> TurnDecision:
+    return TurnDecision(live=False, think=False, **fields)
+
+
+def _read(**fields: Any) -> asyncio.Future[TurnDecision | None]:
+    read: asyncio.Future[TurnDecision | None] = asyncio.get_event_loop().create_future()
+    read.set_result(_decision(**fields))
+    return read
+
+
+def _state(ctx: StreamContext, text: str, *, cancelled: bool = False) -> FinalizeState:
+    return FinalizeState(
+        deps=turn_deps(),
+        settings=_settings(),
+        ctx=ctx,
+        raw=text,
+        text=text,
+        usage={},
+        outcome=TurnOutcome(),
+        was_cancelled=cancelled,
+        should_cancel=None,
+    )
+
+
+@pytest.mark.parametrize(
+    ("subject", "picture", "asked"),
+    [
+        ("maths", "diagram", True),
+        ("maths", "graph", True),
+        ("maths", "none", False),
+        ("physics", "diagram", False),
+        ("everyday", "diagram", False),
+        ("maths", "image", False),
+    ],
+)
+def test_ask_for_a_drawing_follows_the_read(subject: str, picture: str, asked: bool) -> None:
+    ctx = _ctx()
+    ask_for_a_drawing(ctx, _settings(), _decision(subject=subject, picture=picture))
+    assert (ctx.drawing is not None) == asked
+    assert any(m["content"] == DRAW_CONTRACT for m in ctx.prompt_messages) == asked
+    if asked:
+        assert ctx.drawing is not None and ctx.drawing.asked == "read"
+        # Beside the message, before it.
+        assert ctx.prompt_messages[-2]["content"] == DRAW_CONTRACT
+
+
+@pytest.mark.parametrize(
+    ("line", "maths", "asked"),
+    [
+        ("Draw the cone of radius 3 cm and find its volume.", True, True),
+        ("Sketch the vectors a = (1, 2, 3) and b = (0, 1, 1).", True, True),
+        ("Show that the volume of the frustum is (π/3)h(R² + rR + r²).", True, False),
+        ("Find the volume of a cone of radius 3 cm and height 4 cm.", True, False),
+        ("Draw me a cat wearing a hat.", False, False),
+    ],
+)
+def test_ask_for_a_drawing_without_a_read_asks_a_maths_message_in_words(
+    monkeypatch: pytest.MonkeyPatch, line: str, maths: bool, asked: bool
+) -> None:
+    monkeypatch.setattr(drawing_turn, "_a_maths_turn", lambda _ctx: maths)
+    ctx = _ctx(line)
+    ask_for_a_drawing(ctx, _settings(), None)
+    assert (ctx.drawing is not None and ctx.drawing.asked == "words") == asked
+
+
+def test_ask_for_a_drawing_is_off_with_its_switch_or_an_instant_reply() -> None:
+    read = _decision(subject="maths", picture="diagram")
+    off = _ctx()
+    ask_for_a_drawing(off, _settings(draw_descriptions_enabled=False), read)
+    instant = _ctx(instant_reply="It is 3 pm.")
+    ask_for_a_drawing(instant, _settings(), read)
+    assert off.drawing is None and instant.drawing is None
+
+
+def _stream(pieces: list[str]) -> tuple[str, StreamAccum]:
+    accum = StreamAccum()
+    reply = ReplyFilter(accum, None)
+    for piece in pieces:
+        sent = reply.feed(piece)
+        accum.parts.append(piece)
+        accum.shown.append(sent)
+    accum.shown.append(reply.flush())
+    return "".join(accum.shown), accum
+
+
+@pytest.mark.parametrize("size", [1, 2, 3, 7, 40, 1000])
+def test_a_draw_block_never_streams_to_the_phone(size: int) -> None:
+    pieces = [_REPLY[i : i + size] for i in range(0, len(_REPLY), size)]
+    sent, accum = _stream(pieces)
+    assert "```draw" not in sent and '"kind"' not in sent
+    assert sent.startswith("Let $u$ and $v$ be the vectors.") and "70.53" in sent
+    assert [body for _at, body in accum.drawings] == [_DESCRIPTION]
+
+
+def test_other_fences_stream_as_written() -> None:
+    reply = "Here:\n\n```python\nprint('draw')\n```\n\n```drawing\nnot ours\n```\nDone."
+    sent, accum = _stream([reply[i : i + 3] for i in range(0, len(reply), 3)])
+    assert sent == reply and accum.drawings == []
+
+
+def test_an_unclosed_draw_block_is_never_shown() -> None:
+    sent, accum = _stream(["Answer: 3.\n\n```draw\n", '{"kind":"space",', '"items":[]}'])
+    assert sent == "Answer: 3.\n\n" and len(accum.drawings) == 1
+
+
+def test_text_taken_back_takes_its_drawings() -> None:
+    accum = StreamAccum(parts=["a"], shown=["a"])
+    accum.drawings = [(1, "kept"), (2, "taken")]
+    accum.shown.append("b")
+    accum.retract(1, 2)
+    assert accum.drawings == [(1, "kept")]
+
+
+async def test_a_checked_description_is_drawn_under_the_reply() -> None:
+    ctx = _ctx(live_read=_read(subject="maths", picture="diagram"))
+    ctx.drawing = ReplyDrawing("read", descriptions=[_DESCRIPTION])
+    text = "Let $u$ and $v$ be the vectors.\n\n**Answer** $\\theta \\approx 70.53^\\circ$"
+    state = _state(ctx, text + "\n\n```mermaid\ngraph LR\n  O --> A\n```")
+    out = await attach_drawing(state)
+    assert out.startswith(text) and "```mermaid" not in out
+    assert out.rstrip().endswith("```") and '"shape":"space"' in out
+    assert ctx.drawing.drawn and state.committed == out
+
+
+async def test_a_description_in_the_text_is_taken_out_and_drawn() -> None:
+    ctx = _ctx(live_read=_read(subject="maths", picture="diagram"))
+    ctx.drawing = ReplyDrawing("read")
+    out = await attach_drawing(_state(ctx, _REPLY))
+    assert "```draw" not in out and "```geometry" in out
+
+
+@pytest.mark.parametrize(
+    ("drawing", "read", "description"),
+    [
+        # Not asked for one: the block goes, nothing is drawn.
+        (None, {"subject": "maths", "picture": "diagram"}, _DESCRIPTION),
+        # Asked on the message's words, then the read said no picture.
+        (ReplyDrawing("words"), {"subject": "maths", "picture": "none"}, _DESCRIPTION),
+        (ReplyDrawing("words"), {"subject": "everyday", "picture": "diagram"}, _DESCRIPTION),
+        # A vector the question does not write: nothing left but the axes.
+        (
+            ReplyDrawing("read"),
+            {"subject": "maths", "picture": "diagram"},
+            json.dumps(
+                {"kind": "space", "items": [{"item": "vector", "name": "w", "to": [3, 1, 4]}]}
+            ),
+        ),
+    ],
+)
+async def test_a_description_not_wanted_or_not_held_draws_nothing(
+    drawing: ReplyDrawing | None, read: dict[str, str], description: str
+) -> None:
+    ctx = _ctx(live_read=_read(**read), drawing=drawing)
+    text = f"The angle is about 70.53°.\n\n```draw\n{description}\n```"
+    out = await attach_drawing(_state(ctx, text))
+    assert out.strip() == "The angle is about 70.53°."
+
+
+async def test_a_stopped_reply_draws_nothing() -> None:
+    ctx = _ctx(live_read=_read(subject="maths", picture="diagram"))
+    ctx.drawing = ReplyDrawing("read", descriptions=[_DESCRIPTION])
+    out = await attach_drawing(_state(ctx, "The angle is", cancelled=True))
+    assert out == "The angle is" and not ctx.drawing.drawn
+
+
+async def test_the_read_figure_stands_aside_for_the_described_one() -> None:
+    ctx = _ctx(live_read=_read(subject="maths", picture="diagram"))
+    ctx.drawing = ReplyDrawing("read", descriptions=[_DESCRIPTION])
+
+    async def never() -> str | None:
+        await asyncio.sleep(30)
+        return "```geometry\n{}\n```"
+
+    ctx.figure = asyncio.ensure_future(never())
+    state = _state(ctx, "Let $u$ and $v$ be the vectors.")
+    state.text = await attach_drawing(state)
+    out = await figure_turn.attach_figure(state)
+    assert out.count("```geometry") == 1
+    await asyncio.sleep(0)
+    assert ctx.figure.cancelled()

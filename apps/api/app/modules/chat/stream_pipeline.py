@@ -327,6 +327,9 @@ async def _settle_reply(
         raise ModelUnavailableError.for_alias(ctx.model)
     if outcome is not None and accum.completion != "complete":
         outcome.completion = accum.completion
+    if ctx.drawing is not None:
+        # The reply's ```draw blocks, kept out of what the phone was sent (``draw_stream``).
+        ctx.drawing.descriptions = [body for _at, body in accum.drawings]
 
     async def persist_reply() -> None:
         final_text = await enrich_final_content(

@@ -38,7 +38,7 @@ def _figure() -> SubjectFigure | None:
     return subject_adapter("math").figure
 
 
-def _earlier(recent: Sequence[Any] | None, line: str) -> list[str]:
+def earlier_user_lines(recent: Sequence[Any] | None, line: str) -> list[str]:
     """The user's earlier messages, newest first, without the turn's own line."""
     texts = [
         content
@@ -68,15 +68,20 @@ def start_figure(settings: Settings, ctx: StreamContext) -> asyncio.Task[str | N
     ):
         return None
     line = ctx.user_message_content or ""
-    earlier = _earlier(ctx.recent_messages, line)
+    earlier = earlier_user_lines(ctx.recent_messages, line)
     return asyncio.create_task(_draw(settings, figure, ctx.live_read, line, earlier))
+
+
+def read_asks_for_a_picture(decision: TurnDecision) -> bool:
+    """The read calls the message a maths question asking to see a graph or a diagram."""
+    return decision.subject == "maths" and decision.picture in _DRAWN
 
 
 def _asks_for_a_picture(read: asyncio.Task[TurnDecision | None]) -> bool:
     if not read.done() or read.cancelled() or read.exception() is not None:
         return False
     decision = read.result()
-    return decision is not None and decision.subject == "maths" and decision.picture in _DRAWN
+    return decision is not None and read_asks_for_a_picture(decision)
 
 
 async def read_asks_for_a_figure(read: asyncio.Task[TurnDecision | None] | None) -> bool:
@@ -116,7 +121,9 @@ async def attach_figure(state: FinalizeState) -> str:
     figure = _figure()
     if task is None or figure is None:
         return state.text
-    if state.was_cancelled or figure.whole(state.text) or ctx.live_read is None:
+    # The reply's own described picture of it, checked and drawn, stands (``drawing_turn``).
+    drawn = ctx.drawing is not None and ctx.drawing.drawn
+    if drawn or state.was_cancelled or figure.whole(state.text) or ctx.live_read is None:
         stop_figure(ctx)
         return state.text
     if not _asks_for_a_picture(ctx.live_read):

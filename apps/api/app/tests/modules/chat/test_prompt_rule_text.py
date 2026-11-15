@@ -62,10 +62,12 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # carries no part's letter but where one symbol has a value per part, in the layout a model
 # writes (services/workout._GIVEN_ONCE) and in a ```worked block's records, then a pick after
 # a question offering choices taken among them, the list above it the other reading
-# (prompt_constants.list_reference, UNCLEAR_MESSAGE_HINT).
-_RULES = 182
-_RULE_GRAMS = 16630
-_RULE_GRAMS_SHA = "2cdf5c9c8ac0e938"
+# (prompt_constants.list_reference, UNCLEAR_MESSAGE_HINT), then maths' contract asking a
+# reply to describe the picture a maths question asks to see in a ```draw block, the one
+# exception to its never-draw rule (math.drawing.contract.DRAW_CONTRACT, 2026-11-15).
+_RULES = 183
+_RULE_GRAMS = 17041
+_RULE_GRAMS_SHA = "1405aabb2001cb33"
 
 
 def _rules() -> list[str]:

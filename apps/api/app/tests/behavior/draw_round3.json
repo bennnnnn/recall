@@ -1,0 +1,142 @@
+[
+ {
+  "id": "c042",
+  "prompt": "A window is built in the shape of a rectangle with a semicircle on top. If there is 12 m of framing material for the outside edge, what must the dimensions of the window be to let in the most light (maximum area)? Draw the window with its dimensions.",
+  "working": "Let $r$ be the radius and $h$ the height of the rectangle.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"window\", \"width\": \"2r\", \"height\": \"h\", \"radius\": \"r\"}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c043",
+  "prompt": "A ten metre wire is to be cut to form a square and a circle. (a) Express the sum of the areas of the square and the circle as a function A(x) of the side x of the square. (b) Identify the domain of A(x). (c) How much wire should be used for the square and how much for the circle to enclose the smallest total area? Draw the two shapes.",
+  "working": "Let $x$ be the side and $r$ the radius.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"square\", \"side\": \"x\"}, {\"item\": \"circle\", \"radius\": \"r\"}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c046",
+  "prompt": "A cylindrical can is to be made to hold 10 litres of oil. Find the dimensions of the can that will minimise the cost of the metal used to make it (closed top and bottom). Draw the can with its dimensions.",
+  "working": "Let $r$ be the radius and $h$ the height.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"cylinder\", \"radius\": \"r\", \"height\": \"h\"}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c047",
+  "prompt": "A manufacturer wants to design an open box with a square base and a surface area of 48 square units. What dimensions will produce a box with maximum volume? Draw the box.",
+  "working": "Let the base be $x$ by $x$ and the height $h$.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"box\", \"open\": true, \"length\": \"x\", \"width\": \"x\", \"height\": \"h\"}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c048",
+  "prompt": "The radius r of a right circular cone is increasing at a rate of 2 cm/min, and its height is always h = 3r. Find the rate of change of the volume when (a) r = 3 cm (b) r = 6 cm. Draw the cone.",
+  "working": "$V = \\pi r^3$",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"cone\", \"radius\": \"r\", \"height\": \"3r\"}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c049",
+  "prompt": "A spherical balloon is inflated with gas at the rate of 20 cm³/min. How fast is the radius of the balloon changing at the instant when the radius is 1 cm, 2 cm and 3 cm? Draw the balloon with its radius.",
+  "working": "$V = \\frac{4}{3}\\pi r^3$",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"sphere\", \"radius\": \"r\"}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c061",
+  "prompt": "Find, by integration, the area of the triangle-shaped region whose vertices are (−4, −1), (0, 0) and (5, 4). It is bounded by the lines y = x/4, y = 4x/5 and the line through (−4, −1) and (5, 4). Draw the three lines and shade the region.",
+  "working": "",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"polygon\", \"vertices\": [{\"at\": [-4, -1]}, {\"at\": [0, 0]}, {\"at\": [5, 4]}]}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c065",
+  "prompt": "Using the volume of revolution, prove that the volume of a frustum of a right circular cone with radii R and r and height h is (π/3)h(R² + rR + r²). Draw the region you rotate and the frustum.",
+  "working": "",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"frustum\", \"top_radius\": \"r\", \"bottom_radius\": \"R\", \"height\": \"h\"}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c072",
+  "prompt": "Two airplanes take off from the same airport at the same time. One heads north with a ground speed of 600 km/h and the other heads east with a ground speed of 700 km/h. If the flight level of the first is 10 km and that of the second is 12 km, what is the direct distance between the two airplanes exactly one hour after takeoff? Show both planes and the airport in a 3D coordinate system.",
+  "working": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"point\", \"name\": \"A\", \"at\": [0, 600, 10]}, {\"item\": \"point\", \"name\": \"B\", \"at\": [700, 0, 12]}, {\"item\": \"segment\", \"from\": \"A\", \"to\": \"B\"}]}",
+  "expect": "drop"
+ },
+ {
+  "id": "c073",
+  "prompt": "Assume your classroom is a rectangular box with a floor 8 metres long and 6 metres wide, and the height from floor to ceiling is 3 metres. (a) Find the diagonal distance between a corner of the room on the floor and the opposite corner on the ceiling. (b) Using vectors, find the angle between this diagonal and the diagonal of the floor from the same corner. Draw the room with both diagonals.",
+  "working": "Corner $O$, ceiling corner $F$, floor corner $B$; angle $\\theta$.",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"box\", \"size\": [8, 6, 3], \"vertices\": \"OABCDEFG\", \"diagonals\": [\"OF\", \"OB\"]}, {\"item\": \"angle\", \"at\": \"O\", \"between\": [\"F\", \"B\"], \"label\": \"θ\"}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c074",
+  "prompt": "Find the distance of the point P(4, −3, 5) from (a) the xz-plane (b) the yz-plane (c) the x-axis (d) the y-axis (e) the z-axis. Locate P in space and show these distances.",
+  "working": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"point\", \"name\": \"P\", \"at\": [4, -3, 5], \"guides\": true}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c075",
+  "prompt": "Determine the nature of triangle ABC using distances, where A(0, 0, 3), B(2, 8, 1) and C(−9, 6, 18). Draw the triangle in space.",
+  "working": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"point\", \"name\": \"A\", \"at\": [0, 0, 3]}, {\"item\": \"point\", \"name\": \"B\", \"at\": [2, 8, 1]}, {\"item\": \"point\", \"name\": \"C\", \"at\": [-9, 6, 18]}, {\"item\": \"polygon\", \"vertices\": [\"A\", \"B\", \"C\"]}, {\"item\": \"angle\", \"at\": \"A\", \"between\": [\"B\", \"C\"]}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c076",
+  "prompt": "Determine the nature of triangle ABC using distances, where A(1, 0, −3), B(2, 2, 0) and C(4, 6, 6). Show the points in space.",
+  "working": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"point\", \"name\": \"A\", \"at\": [1, 0, -3]}, {\"item\": \"point\", \"name\": \"B\", \"at\": [2, 2, 0]}, {\"item\": \"point\", \"name\": \"C\", \"at\": [4, 6, 6]}, {\"item\": \"segment\", \"from\": \"A\", \"to\": \"C\"}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c077",
+  "prompt": "Make a three-dimensional sketch showing each vector with initial point at the origin: a = 2i + j + 3k, b = −3i + 4j − k, c = −3i + 5j + 5k, d = 4j − 7k. Then calculate 2a − 3b + c and the magnitude of each of a, b, c and d.",
+  "working": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"vector\", \"name\": \"a\", \"to\": [2, 1, 3]}, {\"item\": \"vector\", \"name\": \"b\", \"to\": [-3, 4, -1]}, {\"item\": \"vector\", \"name\": \"c\", \"to\": [-3, 5, 5]}, {\"item\": \"vector\", \"name\": \"d\", \"to\": [0, 4, -7]}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c078",
+  "prompt": "Decide whether each is the equation of a sphere. If it is, find its centre and radius and draw it: (a) x² + y² + z² − 2y = 4 (b) x² + y² + z² − x + 2y − 3z + 4 = 0",
+  "working": "The centre is $C(0, 1, 0)$.",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"sphere\", \"name\": \"C\", \"equation\": \"x^2 + y^2 + z^2 - 2y = 4\"}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c079",
+  "prompt": "How far is the point P(3, −1, 2) from the sphere whose equation is (x − 1)² + (y + 2)² + z² = 1? Draw the sphere, the point and the shortest distance.",
+  "working": "The centre is $C(1, -2, 0)$.",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"sphere\", \"name\": \"C\", \"equation\": \"(x-1)^2+(y+2)^2+z^2=1\"}, {\"item\": \"point\", \"name\": \"P\", \"at\": [3, -1, 2]}, {\"item\": \"segment\", \"from\": \"P\", \"to\": \"C\"}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c080",
+  "prompt": "If the centre of a sphere is at the origin and its radius is 10 units, determine which of these points lie inside, outside or on the sphere, and show them with the sphere: A(2, 1, 2), B(−3, 2, 4), C(5, 8, 6), D(0, 8, 6), E(−8, −6, 0).",
+  "working": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"sphere\", \"center\": [0, 0, 0], \"radius\": 10}, {\"item\": \"point\", \"name\": \"A\", \"at\": [2, 1, 2]}, {\"item\": \"point\", \"name\": \"B\", \"at\": [-3, 2, 4]}, {\"item\": \"point\", \"name\": \"C\", \"at\": [5, 8, 6]}, {\"item\": \"point\", \"name\": \"D\", \"at\": [0, 8, 6]}, {\"item\": \"point\", \"name\": \"E\", \"at\": [-8, -6, 0]}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c081",
+  "prompt": "Find the coordinates of the two points on the x-axis which are √12 units from the point P(−1, −1, 2). Show them in space.",
+  "working": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"point\", \"name\": \"P\", \"at\": [-1, -1, 2]}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c082",
+  "prompt": "Find the angle between the vectors (−1, 1, 1) and (2, 2, 2), and draw both vectors from the origin.",
+  "working": "Let $u$ and $v$, and $\\theta$ the angle.",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"vector\", \"name\": \"u\", \"to\": [-1, 1, 1]}, {\"item\": \"vector\", \"name\": \"v\", \"to\": [2, 2, 2]}, {\"item\": \"angle\", \"at\": \"O\", \"between\": [\"u\", \"v\"], \"label\": \"θ\"}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c083",
+  "prompt": "Calculate the scalar (dot) product of p = (2, 5, 6) and q = (6, 6, −7), find the cosine of the angle between them, and show both vectors in space.",
+  "working": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"vector\", \"name\": \"p\", \"to\": [2, 5, 6]}, {\"item\": \"vector\", \"name\": \"q\", \"to\": [6, 6, -7]}, {\"item\": \"angle\", \"at\": \"O\", \"between\": [\"p\", \"q\"]}]}",
+  "expect": "draw"
+ }
+]

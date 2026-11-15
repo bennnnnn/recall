@@ -25,6 +25,7 @@ import re
 from collections.abc import Iterable
 from typing import Any
 
+from app.modules.math.figure.shape_names import names_shape
 from app.services.glyphs import OPERATOR_GLYPHS
 
 logger = logging.getLogger(__name__)
@@ -362,7 +363,9 @@ def _matches(args: dict[str, Any], user: _UserMath) -> bool:
         return not args.get("expr2") or _graph_arg(args, "expr2", user)
     if action in {"rectangle", "square", "circle"}:
         keys = [key for key in ("width", "height", "side", "radius") if args.get(key) is not None]
-        return bool(keys) and all(_number_written(args[key], user) for key in keys)
+        # A circle card answers a circle, never a sphere's equation (round 3, c079).
+        named = action != "circle" or names_shape([user.lower], "circle")
+        return named and bool(keys) and all(_number_written(args[key], user) for key in keys)
     # dsolve, or the free-text fallback: the text must be the user's own words.
     text = str(args.get("text") or args.get("expr") or "")
     compact = re.sub(r"\s+", "", text.lower())

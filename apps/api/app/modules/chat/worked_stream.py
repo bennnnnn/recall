@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 
+from app.modules.chat.draw_stream import DrawFilter
 from app.modules.chat.stream_accum import StreamAccum
 from app.modules.chat.stream_scaffold import ScaffoldFilter
 from app.modules.chat.worked_render import WorkedLayout, render_worked
@@ -140,7 +141,8 @@ class WorkedFilter:
 
 
 class ReplyFilter:
-    """The scaffold filter, then the worked block's layout when the turn asks for one.
+    """The scaffold filter, a ```draw block kept aside (``draw_stream``), then the worked
+    block's layout when the turn asks for one.
 
     ``feed`` and ``flush`` return what to send next. Everything this filter returns is
     appended to ``accum.shown`` from ``start`` on, so when the reply's text stops
@@ -149,20 +151,22 @@ class ReplyFilter:
 
     def __init__(self, accum: StreamAccum, layout: WorkedLayout | None) -> None:
         self._scaffold = ScaffoldFilter()
+        self._draw = DrawFilter(accum)
         self._worked = WorkedFilter(layout) if layout is not None else None
         self._accum = accum
         self._start = len(accum.shown)
         self._sent = ""
 
     def feed(self, token: str) -> str:
-        visible = self._scaffold.feed(token)
+        visible = self._draw.feed(self._scaffold.feed(token))
         if self._worked is None:
             return visible
         self._worked.feed(visible)
         return self._delta(self._worked.text)
 
     def flush(self) -> str:
-        tail = self._scaffold.flush()
+        scaffold = self._scaffold.flush()
+        tail = self._draw.feed(scaffold) + self._draw.flush()
         if self._worked is None:
             return tail
         self._worked.feed(tail)
