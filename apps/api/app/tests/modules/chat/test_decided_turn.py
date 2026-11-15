@@ -875,3 +875,36 @@ async def test_only_an_answer_or_a_go_on_gets_the_next_lesson(
     aside = goes_on is False and content != "lets start with lesson 1"
     assert any(m["content"] == LESSON_ASIDE_NOTE for m in ctx.prompt_messages) is aside
     assert ctx.prompt_messages[-1] == {"role": "user", "content": content}
+
+
+@pytest.mark.asyncio
+async def test_a_regenerate_grades_the_card_the_message_answered() -> None:
+    """Lesson 1's card, "b", then a regenerate of Lesson 2: the pick is Lesson 1's, graded
+    against its options, and Lesson 2 is asked for again, never Lesson 3 (review of #2456)."""
+    from uuid import uuid4
+
+    from app.modules.chat.turn_prep.context import RegenerateBackup
+
+    redone = SimpleNamespace(
+        id=uuid4(),
+        role="assistant",
+        content=_LESSON_ONE.replace("Lesson 1: Atoms", "Lesson 2: Ions")
+        .replace('"17", "35", "18"', '"Na+", "Cl+", "Mg-"')
+        .replace("Exercise 1", "Exercise 2"),
+    )
+    recent = [
+        SimpleNamespace(id=uuid4(), role="user", content="teach me atoms"),
+        SimpleNamespace(id=uuid4(), role="assistant", content=_LESSON_ONE),
+        SimpleNamespace(id=uuid4(), role="user", content="b"),
+        redone,
+    ]
+    trace = begin_turn_trace("new")
+    ctx = _turn("b", _card_read(["b"], goes_on=True), recent_messages=recent)
+    ctx.regenerate_backup = RegenerateBackup(
+        content=redone.content, model=None, message_id=redone.id
+    )
+    await decide_from_the_read(ctx, _SETTINGS)
+    assert "read.quiz_answer" in trace.prompt_rules
+    assert "35" in _note(ctx) and "Na+" not in _note(ctx)
+    assert any(m["content"] == lesson_next_contract(1) for m in ctx.prompt_messages)
+    assert not any(m["content"] == lesson_next_contract(2) for m in ctx.prompt_messages)

@@ -35,7 +35,7 @@ decided (``turn_trace.note_decision``).
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from app.core.config import Settings
 from app.modules.billing import plan as plan_service
@@ -115,6 +115,17 @@ async def _the_read(ctx: StreamContext, settings: Settings) -> TurnDecision | No
     return await turn_decision_result(task, settings)
 
 
+def _answered_window(ctx: StreamContext) -> list[Any]:
+    """The window the message answers, as the read saw it: on a regenerate, without the reply
+    being redone (``RegenerateTurn.before_line``). Lesson 1's card, "b", then a regenerate of
+    Lesson 2: graded against Lesson 2's options, with Lesson 3 asked for (review of #2456)."""
+    recent = list(ctx.recent_messages or [])
+    backup = ctx.regenerate_backup
+    if backup is None:
+        return recent
+    return [message for message in recent if getattr(message, "id", None) != backup.message_id]
+
+
 def _reads_the_cards(ctx: StreamContext) -> bool:
     """The last reply ended on practice cards or a lesson: the read says which option the
     message gives, which the server grades, and whether it goes on, which the lesson follows.
@@ -122,7 +133,7 @@ def _reads_the_cards(ctx: StreamContext) -> bool:
     2026-11-14); late past the reply's wait, the system prompt's lesson steps stand."""
     if ctx.instant_reply is not None:
         return False
-    recent = ctx.recent_messages
+    recent = _answered_window(ctx)
     return bool(last_reply_cards(recent)) or active_lesson_step(recent) is not None
 
 
@@ -245,11 +256,12 @@ def _goes_on_with_the_lesson(
     wrong?"), gets a note to do that instead: "the first one", after "Want to try a harder
     one, or move on to ions?", was graded "Correct!" and Lesson 2 followed (review,
     2026-11-14). An answer whose card is asked about first starts nothing."""
-    number = active_lesson_step(ctx.recent_messages)
+    recent = _answered_window(ctx)
+    number = active_lesson_step(recent)
     # "Let's start with lesson 1", the lesson just above, is pointed to (``lesson_again``).
     if number is None or unplaced:
         return
-    if lesson_again(ctx.user_message_content or "", ctx.recent_messages):
+    if lesson_again(ctx.user_message_content or "", recent):
         return
     named = any(pick != NO_ANSWER for pick in read.card_picks or [])
     if answered or (read.goes_on and not named):
@@ -271,7 +283,7 @@ def _answered(ctx: StreamContext, read: TurnDecision) -> list[tuple[PracticeCard
     if read.answers is not True:
         return []
     message = ctx.user_message_content or ""
-    cards = last_reply_cards(ctx.recent_messages)
+    cards = last_reply_cards(_answered_window(ctx))
     return [
         (card, pick if (said := card.option_said(message)) is None else option_letter(said).lower())
         for card, pick in zip(cards, read.card_picks or [], strict=False)
@@ -287,7 +299,7 @@ def _replies_to_the_card(ctx: StreamContext, read: TurnDecision) -> bool:
     return (
         read.answers is False
         and read.follow == "answer"
-        and bool(last_reply_cards(ctx.recent_messages))
+        and bool(last_reply_cards(_answered_window(ctx)))
     )
 
 
