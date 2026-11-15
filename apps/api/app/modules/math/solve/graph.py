@@ -37,7 +37,7 @@ from app.modules.math.solve.extract_eq import (
     try_extract_inequality_from_text,
 )
 from app.modules.math.solve.graph_expr_text import graph_expr_text
-from app.modules.math.solve.graph_sampling import sample_at
+from app.modules.math.solve.graph_sampling import real_lambdify, sample_at
 from app.modules.math.solve.inequalities import compound_solution_set, inequality_solution_set
 from app.modules.math.solve.parse import parse_expression
 from app.services.solving import SolveServiceError
@@ -228,7 +228,7 @@ def sample_function(data: GraphSampleInput) -> GraphSampleResult:
     if parsed.is_Relational:
         raise SolveServiceError("Inequality expressions are number lines, not y=f(x) plots")
 
-    numpy_fn = lambdify(sym, parsed, modules=["numpy"])
+    numpy_fn = real_lambdify(sym, parsed)
     x_min, x_max, n = _adapt_sample_window(
         data.x_min, data.x_max, data.n, _oscillation_period(parsed, sym)
     )

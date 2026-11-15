@@ -143,6 +143,34 @@ async def test_ask_for_a_drawing_is_off_with_its_switch_or_an_instant_reply() ->
     assert off.drawing is None and instant.drawing is None
 
 
+_SKETCH = "Find the local maximum of f(x) = x/(1 + x)², and sketch its graph."
+
+
+@pytest.mark.parametrize(
+    ("line", "picture", "verified", "kept"),
+    [
+        # Round 3's c031: the solver's card alone answered, and no graph could be described.
+        (_SKETCH, "graph", True, False),
+        # The read says no picture: the instant reply stands.
+        (_SKETCH, None, True, True),
+        # A server reply with no solve behind it (the time, a setting) is no maths card.
+        (_SKETCH, "graph", False, True),
+        # Nothing asked to be seen: no wait, the instant reply stands.
+        ("Find the local maximum of f(x) = x/(1 + x)².", "graph", True, True),
+    ],
+)
+async def test_a_picture_asked_for_takes_the_place_of_an_instant_card(
+    line: str, picture: str | None, verified: bool, kept: bool
+) -> None:
+    from app.services.solving import VerifiedMathBlock
+
+    solved = VerifiedMathBlock(text="1/4") if verified else None
+    read = _read(subject="maths", picture=picture) if picture else _read(subject="maths")
+    ctx = _ctx(line, instant_reply="The maximum is 1/4.", verified_subject=solved, live_read=read)
+    await drawing_turn.write_for_a_picture(ctx, _settings())
+    assert (ctx.instant_reply is not None) == kept
+
+
 async def _late(decision: TurnDecision, after: float) -> TurnDecision | None:
     await asyncio.sleep(after)
     return decision

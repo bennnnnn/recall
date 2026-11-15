@@ -1,11 +1,12 @@
 """What a ```draw description may hold: a closed vocabulary, read item by item.
 
 ``kind`` names the picture: "space", a scene in three dimensions (axes, points, vectors,
-segments, polygons, a box, a sphere, a plane, an angle), or "shape", a word problem's figure
+segments, polygons, a box, a sphere, a plane, an angle); "shape", a word problem's figure
 (a window, a ladder, a tank, a frustum, a cylinder in a cone, a polygon at stated
-coordinates). A graph's curves and lines join later as a third kind, "plot", with items of
-its own. A description carries no coordinate the question does not state: a shape's parts
-are labelled ("r", "2r", "12 m") and the server works out where everything goes.
+coordinates); or "plot", a graph (curves, lines, tangents, asymptotes, points, a shaded
+region, rectangles, an axis of revolution: ``plot_items``). A description carries no
+coordinate the question does not state: a shape's parts are labelled ("r", "2r", "12 m")
+and the server works out where everything goes.
 
 Each item is read on its own: one the vocabulary does not hold is left out, and keeps its
 place and name (``read_items``), so the check can tell when the picture's main object went
@@ -29,7 +30,9 @@ from pydantic import (
     ValidationError,
 )
 
-DrawKind = Literal["space", "shape"]
+from app.modules.math.drawing.plot_items import PlotItem
+
+DrawKind = Literal["space", "shape", "plot"]
 ShapeName = Literal[
     "window",
     "rectangle",
@@ -204,6 +207,7 @@ class ShapePart(BaseModel):
 
 
 _SPACE: TypeAdapter[Any] = TypeAdapter(SpaceItem)
+_PLOT: TypeAdapter[Any] = TypeAdapter(PlotItem)
 
 
 def _listed(value: Any) -> Any:
@@ -237,6 +241,8 @@ def read_items(description: Description) -> list[tuple[str, Any | None]]:
         try:
             if description.kind == "space":
                 read.append((name, _SPACE.validate_python(raw)))
+            elif description.kind == "plot":
+                read.append((name, _PLOT.validate_python(raw)))
             else:
                 read.append((name, ShapePart.model_validate(raw)))
         except ValidationError:

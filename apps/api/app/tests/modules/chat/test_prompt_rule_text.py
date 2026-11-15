@@ -64,10 +64,11 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # a question offering choices taken among them, the list above it the other reading
 # (prompt_constants.list_reference, UNCLEAR_MESSAGE_HINT), then maths' contract asking a
 # reply to describe the picture a maths question asks to see in a ```draw block, the one
-# exception to its never-draw rule (math.drawing.contract.DRAW_CONTRACT, 2026-11-15).
+# exception to its never-draw rule (math.drawing.contract.DRAW_CONTRACT, 2026-11-15), its
+# graphs too (the "plot" items: curves, tangents, asymptotes, shading, rectangles, slices).
 _RULES = 183
-_RULE_GRAMS = 17048
-_RULE_GRAMS_SHA = "024e7b13a7e506f1"
+_RULE_GRAMS = 17383
+_RULE_GRAMS_SHA = "0bf1e3dae22a4a2f"
 
 
 def _rules() -> list[str]:

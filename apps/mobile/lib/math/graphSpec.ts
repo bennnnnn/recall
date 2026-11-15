@@ -81,8 +81,10 @@ const GRAPH_KIND_SET: Record<GraphSpec["type"], true> = {
 };
 
 /** Every graph this build draws; a fence naming another is refused as an unknown kind.
- * `points` (lettered points on a plane) is read on its own (`lib/math/pointsGraph`). */
-export const GRAPH_KINDS = [...Object.keys(GRAPH_KIND_SET), "points"];
+ * `points` (lettered points on a plane) and `plot` (a graph the server drew from a checked
+ * picture description: curves, tangents, asymptotes, shaded regions) are read on their own
+ * (`lib/math/pointsGraph`, `lib/math/plotGraph`). */
+export const GRAPH_KINDS = [...Object.keys(GRAPH_KIND_SET), "points", "plot"];
 
 /** What each axis measures: the server's names ("inches", "centimetres"), else x and y. */
 export function graphAxisNames(spec: GraphSpec): { x: string; y: string } {

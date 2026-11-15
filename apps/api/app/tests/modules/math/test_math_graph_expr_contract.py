@@ -22,6 +22,7 @@ from sympy import N, Rational, Symbol
 
 from app.modules.math.schemas import GraphSampleInput
 from app.modules.math.solve import SolveServiceError, parse_expression, sample_function
+from app.modules.math.solve.odd_roots import real_branch
 
 FIXTURE = Path(__file__).resolve().parents[6] / "docs" / "fixtures" / "graph_expr_cases.json"
 CONTRACT: dict[str, Any] = json.loads(FIXTURE.read_text())
@@ -43,7 +44,8 @@ def _sympy_y(parsed: Any, x: float) -> float | None:
 
 
 def _assert_samples(text: str, case: dict[str, Any]) -> None:
-    parsed = parse_expression(text, [VARIABLE])
+    # The sampler's reading: an odd root of a negative is real (x^(1/3) at -8 is -2).
+    parsed = real_branch(parse_expression(text, [VARIABLE]))
     assert len(case["y"]) == len(case["x"])
     for x, expected in zip(case["x"], case["y"], strict=True):
         actual = _sympy_y(parsed, x)

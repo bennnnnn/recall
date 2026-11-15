@@ -1,0 +1,173 @@
+"""A graph's curves and lines, each the question's own, and the names its axes carry.
+
+A curve's formula is one the question writes, compared with SymPy, in the question's own
+letter ("v(t) = 3t² - 12t" draws against t and v), or an antiderivative of one, which SymPy
+confirms by differentiating it back: a family F(x) + C is drawn once for each constant, each
+labelled with its C. A line is one the question writes ("the line y = 3", "x = -3"). A
+function in pieces is held clause by clause (``plot_pieces``). An axis's name is the
+question's letter, its unit one the question writes.
+"""
+
+from __future__ import annotations
+
+from typing import Any, Literal
+
+from sympy import Expr, Symbol, diff
+
+from app.modules.math.drawing.plot_check import reach, stated
+from app.modules.math.drawing.plot_items import AxisNames, Curve, Line
+from app.modules.math.drawing.plot_labels import equation_text, formula_text, number_text
+from app.modules.math.drawing.plot_pieces import formula, formula_shape, pieces_shape, value
+from app.modules.math.drawing.plot_question import PlotQuestion, plain
+from app.modules.math.drawing.plot_scene import DrawnCurve, DrawnLine, Scene
+from app.modules.math.drawing.real_curve import RealFunction, as_real
+from app.modules.math.tool_check import parse_formula, same_value
+
+_X, _Y = Symbol("x"), Symbol("y")
+_MOST_CURVES = 5
+_MOST_LINES = 4
+_LABEL_CHARS = 48
+# Constants of a family the question leaves to the reply: a few small whole numbers.
+_FAMILY_REACH = 5
+# Names that call a function by name, not a quantity an axis measures.
+_FUNCTION_NAMES = frozenset({"f", "g", "h", "F", "G", "y", ""})
+
+
+def _written_sideways(expr: Any, question: PlotQuestion) -> bool:
+    return any(
+        w.name == "x" and w.expr.free_symbols <= {_Y} and same_value(w.expr, expr)
+        for w in question.formulas
+    )
+
+
+def _own_formula(text: str, question: PlotQuestion) -> tuple[Any, str, str, bool] | None:
+    """The formula in x, the question's letter for x, its name for y, and whether it is an
+    antiderivative of the question's function rather than the function itself."""
+    parsed = parse_formula(plain(text))
+    if not isinstance(parsed, Expr) or len(parsed.free_symbols) > 1:
+        return None
+    letter = next(iter(parsed.free_symbols), _X)
+    for written in question.formulas:
+        if written.name == "x" or not written.expr.free_symbols <= {letter}:
+            continue
+        name = written.name if written.name not in _FUNCTION_NAMES else "y"
+        if same_value(written.expr, parsed):
+            return parsed.subs(letter, _X), str(letter), name, False
+        if written.expr.free_symbols and same_value(diff(parsed, letter), written.expr):
+            return parsed.subs(letter, _X), str(letter), "y", True
+    return None
+
+
+def _domain(curve: Curve, question: PlotQuestion) -> tuple[Any, Any] | Literal[False] | None:
+    """The stated interval the curve is drawn on, None for none, False when it is not one
+    the question states."""
+    if curve.domain is None:
+        return None
+    held = [
+        stated(end, question) if (end := value(text)) is not None else None for text in curve.domain
+    ]
+    if held[0] is None or held[1] is None or float(held[0]) >= float(held[1]):
+        return False
+    return held[0], held[1]
+
+
+def _shift(text: str, question: PlotQuestion) -> Any | None:
+    """A family's constant: one the question writes, or a small whole number."""
+    number = value(text)
+    if number is None:
+        return None
+    if any(abs(float(v) - float(number)) < 1e-12 for v in question.values):
+        return number
+    return number if number.is_Integer and abs(number) <= _FAMILY_REACH else None
+
+
+def _curves(curve: Curve, question: PlotQuestion, color: int, scene: Scene) -> list[DrawnCurve]:
+    search = (-reach(question), reach(question))
+    name = curve.name or f"curve{color}"
+    if curve.x and not curve.y and not curve.pieces:
+        expr = formula(curve.x, _Y)
+        if expr is None or not _written_sideways(expr, question):
+            return []
+        label = equation_text("x", expr.subs(_Y, Symbol("y")))
+        return [
+            DrawnCurve(name, label, color, sideways=RealFunction(as_real(expr, _Y)), search=search)
+        ]
+    if curve.pieces:
+        shape = pieces_shape(curve, question)
+        return [] if shape is None else [DrawnCurve(name, "", color, shape, search=search)]
+    found = _own_formula(curve.y, question)
+    domain = _domain(curve, question)
+    if found is None or domain is False:
+        return []
+    expr, letter, quantity, antiderivative = found
+    if isinstance(domain, tuple):
+        search = (float(domain[0]), float(domain[1]))
+    scene.x_label = letter
+    scene.y_label = quantity
+    label = f"{quantity} = {formula_text(expr.subs(_X, Symbol(letter)))}"
+    if antiderivative and curve.shifts:
+        constants = [c for text in curve.shifts if (c := _shift(text, question)) is not None]
+        return [
+            DrawnCurve(
+                name if i == 0 else f"{name}~{i}",
+                f"C = {number_text(c)}",
+                color + i,
+                formula_shape(expr + c, domain),
+                search=search,
+                stated_domain=domain is not None,
+            )
+            for i, c in enumerate(constants[:_MOST_CURVES])
+        ]
+    shown = label if len(label) <= _LABEL_CHARS else ""
+    shape = formula_shape(expr, domain)
+    return [DrawnCurve(name, shown, color, shape, search=search, stated_domain=domain is not None)]
+
+
+def _line(line: Line, question: PlotQuestion, color: int) -> DrawnLine | None:
+    if line.x and not line.y:
+        at = value(line.x)
+        if at is None or not any(
+            w.name == "x" and w.expr.is_number and same_value(w.expr, at) for w in question.formulas
+        ):
+            return None
+        return DrawnLine(vertical=at, label=equation_text("x", at), color=color)
+    expr = formula(line.y)
+    if expr is None or not any(
+        w.name != "x" and same_value(w.expr, expr) for w in question.formulas
+    ):
+        return None
+    slope = expr.diff(_X)
+    if slope.free_symbols:
+        return None
+    return DrawnLine(slope, expr.subs(_X, 0), label=equation_text("y", expr), color=color)
+
+
+def _axis_name(text: str, letter: str, question: PlotQuestion) -> str | None:
+    """ "t (s)": the axis's own letter, and a unit the question writes."""
+    head, _, unit = text.partition("(")
+    unit = unit.rstrip(")").strip()
+    if head.strip() != letter:
+        return None
+    if unit and unit.lower() not in question.words:
+        return None
+    return text.strip()
+
+
+def add_curves(items: list[Any], question: PlotQuestion, scene: Scene) -> None:
+    color = 0
+    for item in items:
+        if isinstance(item, Curve) and len(scene.curves) < _MOST_CURVES:
+            for drawn in _curves(item, question, color, scene):
+                if drawn.name not in scene.curves and len(scene.curves) < _MOST_CURVES:
+                    scene.curves[drawn.name] = drawn
+                    color += 1
+    for item in items:
+        if isinstance(item, Line) and len(scene.lines) < _MOST_LINES:
+            line = _line(item, question, color)
+            if line is not None:
+                scene.lines[item.name or f"line{color}"] = line
+                color += 1
+    for item in items:
+        if isinstance(item, AxisNames):
+            scene.x_label = _axis_name(item.x, scene.x_label, question) or scene.x_label
+            scene.y_label = _axis_name(item.y, scene.y_label, question) or scene.y_label

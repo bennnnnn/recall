@@ -20,6 +20,7 @@ from app.core.ids import uuid7
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models import model_catalog
 from app.modules.chat.decided_turn import decide_from_the_read
+from app.modules.chat.drawing_turn import write_for_a_picture
 from app.modules.chat.finalize_passes import enrich_final_content
 from app.modules.chat.finalize_registry import mark_pending_finalize, register_pending_finalize
 from app.modules.chat.late_photo import follow_late_photo
@@ -229,6 +230,7 @@ async def _produce_reply(
     After the tool loop the turn may have become an instant reply, or a terminal
     picture that yields nothing (``_is_terminal_image``).
     """
+    await write_for_a_picture(ctx, settings)
     if ctx.instant_reply:
         async for token in run_instant_reply_path(ctx, should_cancel=should_cancel, accum=accum):
             yield token

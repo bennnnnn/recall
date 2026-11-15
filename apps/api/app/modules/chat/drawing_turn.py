@@ -88,6 +88,21 @@ async def _read_for_a_picture(ctx: StreamContext, settings: Settings) -> TurnDec
     return task.result()
 
 
+async def write_for_a_picture(ctx: StreamContext, settings: Settings) -> None:
+    """A solver's instant reply gives way to the model's when the message asks to see a
+    maths picture: the instant reply carries the card alone, and no picture can be
+    described for it (round 3's c031, "find the maximum ... and sketch its graph", got only
+    the maximum). The model writes around the same checked card, and describes the graph."""
+    if ctx.instant_reply is None or not isinstance(ctx.verified_subject, VerifiedMathBlock):
+        return
+    if _figure() is None or not settings.draw_descriptions_enabled or not _asks_in_words(ctx):
+        return
+    read = await _read_for_a_picture(ctx, settings)
+    if read is not None and read_asks_for_a_picture(read):
+        ctx.instant_reply = None
+        note_prompt_rule("subject.draw_over_instant")
+
+
 async def ask_for_a_drawing(
     ctx: StreamContext, settings: Settings, read: TurnDecision | None
 ) -> None:

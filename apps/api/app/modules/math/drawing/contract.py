@@ -9,9 +9,10 @@ are rules the leak pass knows (math's ``beside_visuals``).
 
 DRAW_CONTRACT = (
     "Picture for this question: when it asks to see a figure in space (points, vectors, a "
-    "box, a sphere) or a word problem's shape, describe the picture in one ```draw block, "
-    "after your answer; the app checks it against the question and draws it under your "
-    "reply. This replaces the rule against drawing for that figure only.\n"
+    "box, a sphere), a word problem's shape, or a graph (a sketch, a tangent, an area, a "
+    "volume), describe the picture in one ```draw block, after your answer (a figure and a "
+    "graph: one block each); the app checks it against the question and draws it under "
+    "your reply. This replaces the rule against drawing for that picture only.\n"
     "- Write only JSON. Copy coordinates and sizes exactly as the question states them, and "
     "write no other number: the app works out where everything goes.\n"
     '- Label a part with a value the question states, with its unit ("12 m"), or with a '
@@ -36,11 +37,36 @@ DRAW_CONTRACT = (
     '("container": "cone" or "cylinder"; radius, height, depth, surface); inscribed (a '
     'cylinder in a "container": "cone" or "sphere"; outer_radius, outer_height, radius, '
     'height); polygon ("vertices": [{"name":"A","at":[x,y]}]).\n'
+    'kind "plot" items, formulas and values as the question writes them, as text: '
+    '{"item":"curve","name":"f","y":"x^2 - 5x + 1"} ("x":"9 - 2y^2" for x = g(y); '
+    '"domain":["-2","2"] for a stated interval; a function in pieces: "pieces":[{"y":'
+    '"x^2 - 4","when":"-2 < x < 3"}], each piece with its whole condition; an '
+    'antiderivative with "shifts":["-1","0","1"] for the family F(x) + C; in the '
+    'question\'s own letter, "y":"t^2 - 4t" for v(t)); '
+    '{"item":"line","name":"L","y":"7"} or "x":"-3" (a line the question writes); '
+    '{"item":"tangent","to":"f","at":"2"} and {"item":"normal","to":"f","at":"2"}; '
+    '{"item":"asymptotes","of":"f"}; {"item":"points","of":"f","show":["extrema",'
+    '"inflections","intercepts","ends","crossings"]}; {"item":"point","at":["2","1"]} (a '
+    'point the question writes); {"item":"nearest","on":"f","to":["2","1"]}; {"item":'
+    '"shade","between":["f","g"],"from":"-4","to":"1"} ("x-axis" as an edge; "wrt":"y" '
+    "along y; no from and to for the region the edges enclose; three names for the region "
+    'three edges enclose); {"item":"rectangles","under":"f","from":"1","to":"2","n":5,'
+    '"rule":"left"} (left, right, midpoint, lower, upper); {"item":"average","of":"f",'
+    '"from":"0","to":"3"} (the average value); {"item":"axes","x":"t (s)","y":"v (m/s)"} '
+    '(the question\'s letters and units); {"item":"axis","line":"x-axis"} (the axis a '
+    'region turns about, or "y = -1"); {"item":"slice","method":"washer"} (disc, washer or '
+    "shell: one strip of the region and its turn about the axis). The app "
+    "finds every crossing, turning point and asymptote itself and labels them; where a "
+    "tangent touches or a bound may be a value your working finds, which the app checks.\n"
     'Example: "Find the angle between a = (1, 2, 2) and b = (2, 0, 1) and draw them." -> '
     '```draw\n{"kind":"space","items":[{"item":"axes"},{"item":"vector","name":"a",'
     '"to":[1,2,2]},{"item":"vector","name":"b","to":[2,0,1]},{"item":"angle","at":"O",'
     '"between":["a","b"],"label":"θ"}]}\n```\n'
     'Example: "Water fills a conical tank of radius 2 m and height 5 m; find dh/dt when '
     'the depth is 3 m. Draw the tank." -> ```draw\n{"kind":"shape","items":[{"item":"tank",'
-    '"container":"cone","radius":"2 m","height":"5 m","depth":"h","surface":"r"}]}\n```'
+    '"container":"cone","radius":"2 m","height":"5 m","depth":"h","surface":"r"}]}\n```\n'
+    'Example: "Find the area enclosed by y = 4 - x^2 and y = 3x. Shade the region." -> '
+    '```draw\n{"kind":"plot","items":[{"item":"curve","name":"f","y":"4 - x^2"},{"item":'
+    '"curve","name":"g","y":"3x"},{"item":"shade","between":["f","g"]},{"item":"points",'
+    '"of":"f","show":["crossings"]}]}\n```'
 )

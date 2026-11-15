@@ -381,6 +381,27 @@ export function parseGraphExpr(src: string, variable = "x"): GraphExprNode | nul
   return new Parser(insertImplicitMul(toks), variable.toLowerCase()).parseExpr();
 }
 
+/** Least odd denominator a power's exponent is tried against: x^(2/3), x^(1/5). */
+const ODD_ROOT_DENOMINATORS = [3, 5, 7, 9, 11];
+
+/**
+ * `base ** exponent` over the reals, as the server's sampler reads it: a negative base to a
+ * power p/q with q odd is the real root, sign^p · |base|^(p/q). JavaScript's `**` takes no
+ * real root of a negative (NaN), so x^(1/3)(x + 3)^(2/3) lost its cusp at −3 and
+ * (x² − 4)^(2/3) drew a flat line across [−2, 2] (round 3, c033 and c034).
+ */
+export function realPower(base: number, exponent: number): number {
+  if (base >= 0 || Number.isInteger(exponent)) return base ** exponent;
+  for (const q of ODD_ROOT_DENOMINATORS) {
+    const p = Math.round(exponent * q);
+    if (Math.abs(p / q - exponent) < 1e-12) {
+      const magnitude = Math.abs(base) ** exponent;
+      return p % 2 === 0 ? magnitude : -magnitude;
+    }
+  }
+  return NaN;
+}
+
 export function evalGraphExpr(node: GraphExprNode, x: number): number {
   switch (node.t) {
     case "num":
@@ -398,7 +419,7 @@ export function evalGraphExpr(node: GraphExprNode, x: number): number {
       if (node.op === "-") return l - r;
       if (node.op === "*") return l * r;
       if (node.op === "/") return l / r;
-      return l ** r;
+      return realPower(l, r);
     }
   }
 }
