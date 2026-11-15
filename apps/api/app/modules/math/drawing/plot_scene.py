@@ -16,6 +16,7 @@ from sympy import And, Integer, Piecewise, nan, oo
 
 from app.modules.math.drawing.curve_breaks import Break, breaks
 from app.modules.math.drawing.curve_features import (
+    GRID,
     bends,
     bisect,
     exact_xs,
@@ -107,9 +108,13 @@ class DrawnCurve:
         """Each place ``finder`` finds, its x exact where SymPy confirms it (the formula's
         ``order``-th derivative is zero there, or it is a root of one of its factors)."""
         found: list[Place] = []
+        breaks_at = [float(b.x) for b in self.breaks]
         for span, low, high in self._each():
             candidates = exact_xs(span.fn)
+            beside = 2 * (high - low) / GRID
             for x in finder(span, low, high):
+                if any(abs(x - b) < beside for b in breaks_at):
+                    continue  # a pole's run to infinity is no turn and no crossing
                 x = _sharpened(span.fn, x) if order == 1 else x
                 y = span.fn.at(x)
                 if math.isfinite(y):
@@ -172,6 +177,8 @@ class DrawnPoint:
     color: int = 0
     # The values the server worked out for its label: shown only when the reply agrees.
     held: tuple[float, ...] = ()
+    # Where two edges meet: beside a region, only the meets that bound it are marked.
+    meet: bool = False
 
 
 @dataclass
@@ -218,5 +225,6 @@ class Scene:
             near = 1e-6 * max(1.0, abs(point.x), abs(point.y))
             if abs(seen.x - point.x) < near and abs(seen.y - point.y) < near:
                 seen.label = seen.label or point.label
+                seen.meet = seen.meet and point.meet
                 return
         self.points.append(point)

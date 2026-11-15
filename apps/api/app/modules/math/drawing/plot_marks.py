@@ -1,7 +1,9 @@
 """The lines and points a graph marks on its curves, each worked out by the server.
 
 A tangent's slope is SymPy's derivative at the place, its normal the perpendicular through
-the same point (a vertical line where the tangent is flat). Asymptotes are the ones SymPy
+the same point (a vertical line where the tangent is flat), worked out as the solver's card
+works it (``tangent_line``); none where the curve has no one tangent (a corner, a cusp, a
+jump). Asymptotes are the ones SymPy
 and the samples agree on, drawn dashed. A labelled point carries the server's coordinates:
 a turning point, an inflection point, a crossing, the end of a stated interval, a point
 the question writes, or the points of a curve nearest a point the question writes.
@@ -23,6 +25,8 @@ from app.modules.math.drawing.plot_pieces import value
 from app.modules.math.drawing.plot_question import PlotQuestion
 from app.modules.math.drawing.plot_scene import DrawnCurve, DrawnLine, DrawnPoint, Place, Scene
 from app.modules.math.drawing.real_curve import RealFunction, X
+from app.modules.math.solve.graph_sampling import side
+from app.modules.math.tangent_line import touching_line
 
 _TOUCH_COLOR = 3
 _NORMAL_COLOR = 2
@@ -53,29 +57,49 @@ def _value_and_slope(fn: RealFunction, at: Any) -> tuple[Any, Any] | None:
     return Float(y0, 12), Float(slope, 12)
 
 
+def _smooth_at(fn: RealFunction, x0: float) -> bool:
+    """The curve has one tangent at ``x0``: it is defined and continuous there, and its
+    slope is the same from both sides. |x - 2| at 2 (a corner), x^(2/3) at 0 (a cusp), a
+    jump between pieces and a hole have none (c01, c02, c03, c04, c07 of the review)."""
+    here = fn.at(x0)
+    if not math.isfinite(here):
+        return False
+    sides = [side(fn.values, x0, direction) for direction in (-1, 1)]
+    near = 1e-6 * (1.0 + abs(here))
+    if any(s.kind != "finite" or abs(s.value - here) > near for s in sides):
+        return False
+
+    def rise(xs: Any) -> Any:
+        return (fn.values(xs) - here) / (xs - x0)
+
+    slopes = [side(rise, x0, direction) for direction in (-1, 1)]
+    if any(s.kind != "finite" for s in slopes):
+        return False
+    return abs(slopes[0].value - slopes[1].value) <= 1e-3 * (1.0 + abs(slopes[1].value))
+
+
 def touching(item: Touching, question: PlotQuestion, scene: Scene) -> None:
     curve = scene.curves.get(item.to)
-    if curve is None or curve.shape is None:
+    if curve is None or curve.shape is None or curve.whole is None:
         return
     at = named_place(item.at, curve, scene, question)
     span = curve.span_at(float(at)) if at is not None else None
-    found = _value_and_slope(span.fn, at) if span is not None else None
-    if at is None or found is None:
+    if at is None or span is None or not _smooth_at(curve.whole, float(at)):
+        return
+    found = _value_and_slope(span.fn, at)
+    if found is None:
         return
     y0, slope = found
-    if item.item == "tangent":
-        offset = radsimp(y0 - slope * at)
-        line = DrawnLine(slope, offset, label=line_text(slope, offset), color=_TOUCH_COLOR)
-        line.held = (float(slope), float(offset))
-    elif slope == 0:
-        line = DrawnLine(vertical=at, label=equation_text("x", at), color=_NORMAL_COLOR)
-        line.held = (float(at),)
+    normal = item.item == "normal"
+    line_slope, offset = touching_line(at, y0, slope, normal, radsimp)
+    color = _NORMAL_COLOR if normal else _TOUCH_COLOR
+    if line_slope is None:
+        line = DrawnLine(vertical=at, label=equation_text("x", at), color=color, held=(float(at),))
     else:
-        normal = radsimp(-1 / slope)
-        offset = radsimp(y0 - normal * at)
-        line = DrawnLine(normal, offset, label=line_text(normal, offset), color=_NORMAL_COLOR)
-        line.held = (float(normal), float(offset))
-        scene.equal = True
+        held = (float(line_slope), float(offset))
+        line = DrawnLine(line_slope, offset, label=line_text(line_slope, offset), color=color)
+        line.held = held
+        scene.equal = scene.equal or normal
     scene.marks.append(line)
     contact = (float(at), float(y0))
     scene.add_point(DrawnPoint(*contact, point_text(at, y0), color=line.color, held=contact))
@@ -140,12 +164,13 @@ def key_points(item: KeyPoints, scene: Scene) -> None:
         places += curve.roots + ([curve.y_intercept] if curve.y_intercept else [])
     if "ends" in item.show:
         places += _ends(curve)
-    if "crossings" in item.show:
-        places += crossings(curve, scene)
-    for place in places:
+    meets = crossings(curve, scene) if "crossings" in item.show else []
+    for place, meet in [*((p, False) for p in places), *((p, True) for p in meets)]:
         span = curve.span_at(float(place.x))
         if span is not None:
-            scene.add_point(point_of(place, span.fn, curve.color))
+            point = point_of(place, span.fn, curve.color)
+            point.meet = meet
+            scene.add_point(point)
 
 
 def _written_pair(a: Any, b: Any, question: PlotQuestion) -> bool:

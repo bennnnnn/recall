@@ -29,6 +29,8 @@ SUBSCRIPT_DIGIT_GLYPHS = "₀₁₂₃₄₅₆₇₈₉"
 # Superscript digits alone, and with the signs an exponent carries ("10⁻⁹").
 SUPERSCRIPT_SIGNED = str.maketrans(SUPERSCRIPT_DIGIT_GLYPHS + "⁻⁺", "0123456789-+")
 SUBSCRIPT_DIGITS = str.maketrans(SUBSCRIPT_DIGIT_GLYPHS, "0123456789")
+# An exponent written raised: "x²", "m⁻¹" (a worked block's units, a graph's labels).
+TO_SUPERSCRIPT = str.maketrans("0123456789-", SUPERSCRIPT_DIGIT_GLYPHS + "⁻")
 
 
 def fold_operator_glyphs(text: str) -> str:

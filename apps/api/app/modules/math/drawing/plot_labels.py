@@ -7,6 +7,7 @@ xeˣ - 4). Every label is the server's: none is copied from the reply.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from sympy import Expr, Float, Integer, Rational, exp, sympify
@@ -14,9 +15,11 @@ from sympy.printing.str import StrPrinter
 
 from app.modules.math.drawing.real_curve import X
 from app.modules.math.figure.drawing import number_text as decimal_text
+from app.modules.math.tangent_line import slope_intercept
+from app.services.glyphs import TO_SUPERSCRIPT
 
 _MINUS = "\u2212"
-_SUPERSCRIPT = str.maketrans("0123456789-", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻")
+_COMMON_LOG = re.compile(r"\bln( ?)(\([^()]*\)|\w+)/ln ?\(?10\)?")
 _LABEL_CHARS = 48
 # A value written exactly when that is this short (√5, π/4, 9/4, 28√2), else as a decimal.
 _EXACT_CHARS = 5
@@ -63,7 +66,7 @@ def _powers(text: str) -> str:
                 digits += text[j]
                 j += 1
             if digits and digits != "-":
-                out.append(digits.translate(_SUPERSCRIPT))
+                out.append(digits.translate(TO_SUPERSCRIPT))
                 i = j
                 continue
             out.append("^")
@@ -99,6 +102,8 @@ def formula_text(expr: Any) -> str:
         text = _whole_word(text, word, shown)
     if text == "(1/e)":
         text = "1/e"
+    # SymPy holds log x as ln x/ln 10: written as the question writes it (i01).
+    text = _COMMON_LOG.sub(r"log\1\2", text)
     return text.replace(" - ", f" {_MINUS} ").replace("-", _MINUS)
 
 
@@ -146,4 +151,13 @@ def equation_text(name: str, expr: Any) -> str:
 
 
 def line_text(slope: Any, offset: Any) -> str:
-    return equation_text("y", sympify(slope) * X + sympify(offset))
+    """ "y = -x/2 + 3/2", the x term first (``tangent_line.slope_intercept``), cut to
+    nothing when too long to sit on a graph."""
+    text = slope_intercept(
+        sympify(slope),
+        sympify(offset),
+        lambda m: formula_text(m * X),
+        formula_text,
+        minus=_MINUS,
+    )
+    return text if len(text) <= _LABEL_CHARS else ""

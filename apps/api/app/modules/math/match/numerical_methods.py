@@ -238,16 +238,24 @@ def _number(word: str) -> int:
     return int(word) if word.isdigit() else _WORDS[word.lower()]
 
 
-def _interval_count(text: str) -> int | None:
-    found = _INTERVAL_COUNT.search(text)
-    if found is None:
-        return None
+def interval_counts(text: str) -> list[int]:
+    """Every count of subintervals ``text`` writes, in order: "n = 4", "5 subintervals", "(a)
+    5 subintervals (b) 10 subintervals"."""
+    return [_pieces_counted(found) for found in _INTERVAL_COUNT.finditer(text)]
+
+
+def _pieces_counted(found: re.Match[str]) -> int:
     if found.group("n"):
         return int(found.group("n"))
     count = _number(found.group("count"))
     # Five ordinates (or points) bound four strips.
     piece = found.group("piece").lower()
     return count - 1 if piece.startswith(("ordinate", "point")) else count
+
+
+def _interval_count(text: str) -> int | None:
+    found = _INTERVAL_COUNT.search(text)
+    return None if found is None else _pieces_counted(found)
 
 
 def _steps_named(text: str) -> int | None:

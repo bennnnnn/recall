@@ -113,7 +113,7 @@ def test_a_formula_reads_as_a_question_writes_it() -> None:
 
 
 def test_bars_superscripts_and_roots_read_plainly() -> None:
-    assert plain("f(x) = x²|9 − x²|/(3 − x)") == "f(x) = x**2 abs(9 - x**2)/(3 - x)"
+    assert plain("f(x) = x²|9 − x²|/(3 − x)") == "f(x) = x**2 Abs(9 - x**2)/(3 - x)"
     assert plain("y = √x and eˣ, ∫ 2x dx") == "y = sqrt(x) and e**x, ∫ 2x"
     question = read_plot_question(["Let v(t) = t² − 4t + 3 m/s for 0 ≤ t ≤ 4."])
     assert [str(w.expr) for w in question.formulas if w.name == "v"] == ["t**2 - 4*t + 3"]

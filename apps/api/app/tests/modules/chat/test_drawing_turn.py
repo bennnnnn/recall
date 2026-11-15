@@ -305,17 +305,57 @@ async def test_a_checked_description_is_drawn_under_the_reply() -> None:
     assert ctx.drawing.drawn and state.committed == out
 
 
-async def test_a_drawn_graph_stands_in_for_every_other_graph() -> None:
-    """Round 3's c009 showed a solve's plot of the curve alone beside the drawn graph."""
-    line = "Let f(x) = x^2 - 4. Sketch the graph of f."
+async def test_a_drawn_graph_takes_the_place_of_a_graph_of_its_curve_alone() -> None:
+    """Round 3's c009 showed a solve's plot of the curve beside the drawn graph; a solver's
+    number line and a chart are no graph of that curve, and stay (2026-11-15 review)."""
+    line = "Let f(x) = x^2 - 4. Sketch the graph of f and solve x^2 - 4 < 0."
     ctx = _ctx(line, live_read=_read(subject="maths", picture="graph"))
     plot = {"kind": "plot", "items": [{"item": "curve", "name": "f", "y": "x^2 - 4"}]}
     ctx.drawing = ReplyDrawing("read", descriptions=[json.dumps(plot)])
-    solved = '```graph\n{"type":"function","expr":"x^2 - 4","points":[[0,-4],[1,-3]]}\n```'
+    xs = [i / 4 for i in range(-12, 13)]
+    curve = json.dumps([[x, x * x - 4] for x in xs])
+    cube = json.dumps([[x, x**3] for x in xs])
+    solved = f'```graph\n{{"type":"function","expr":"x^2 - 4","points":{curve}}}\n```'
+    other = f'```graph\n{{"type":"function","expr":"x^3","points":{cube}}}\n```'
+    line_fence = (
+        '```graph\n{"type":"number_line","expr":"x^2 - 4 < 0","intervals":'
+        '[{"start":-2,"end":2}]}\n```'
+    )
     chart = '```chart\n{"mark":"line"}\n```'
-    out = await attach_drawing(_state(ctx, f"The vertex is (0, -4).\n\n{solved}\n\n{chart}"))
+    text = f"The vertex is (0, -4).\n\n{solved}\n\n{other}\n\n{line_fence}\n\n{chart}"
+    out = await attach_drawing(_state(ctx, text))
     graphs = [body for _start, _end, body in iter_closed_fences(out, "graph")]
-    assert len(graphs) == 1 and '"type":"plot"' in graphs[0] and "```chart" not in out
+    assert len(graphs) == 3 and '"type":"plot"' in graphs[-1]
+    assert '"x^2 - 4","points"' not in out and '"x^3"' in out and "number_line" in out
+    assert "```chart" in out
+
+
+@pytest.mark.wall_clock
+async def test_an_instant_reply_never_waits_for_the_read() -> None:
+    """ "Show your steps" waited 1.2 s for a read that had not come (2026-11-15 review)."""
+    from app.services.solving import VerifiedMathBlock
+
+    pending: asyncio.Future[TurnDecision | None] = asyncio.get_event_loop().create_future()
+    line = "Find the local maximum of f(x) = x/(1 + x)² and show your steps."
+    ctx = _ctx(
+        line,
+        instant_reply="The maximum is 1/4.",
+        verified_subject=VerifiedMathBlock(text="1/4"),
+        live_read=pending,
+    )
+    loop = asyncio.get_running_loop()
+    began = loop.time()
+    await drawing_turn.write_for_a_picture(ctx, _settings())
+    assert loop.time() - began < 0.1 and ctx.instant_reply is not None
+    sketch = _ctx(
+        _SKETCH,
+        instant_reply="The maximum is 1/4.",
+        verified_subject=VerifiedMathBlock(text="1/4"),
+        live_read=pending,
+    )
+    await drawing_turn.write_for_a_picture(sketch, _settings())
+    assert sketch.instant_reply is None
+    pending.cancel()
 
 
 async def test_a_description_in_the_text_is_taken_out_and_drawn() -> None:

@@ -1,4 +1,5 @@
 import { Suspense, useCallback, useId, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { StyleSheet, Text, View } from "react-native";
 
 import { GraphCanvas, GRAPH_AXIS_PAD } from "@/components/rich/GraphCanvas";
@@ -82,7 +83,11 @@ function Legend({ drawing, theme }: { drawing: PlotDrawing; theme: Theme }) {
  * server's window, its layers and points the server's, and a legend of its equations.
  */
 export function PlotGraphCard({ graph, width, theme }: { graph: PlotGraph; width: number; theme: Theme }) {
+  const { t } = useTranslation();
   const clipId = useId();
+  // Its labels, or (none written) what it plots against what: never an empty label.
+  const label =
+    plotDescription(graph) || t("rich.graph_card_a11y", { expr: `${graph.yLabel}(${graph.xLabel})` });
   const bounds = useMemo(() => plotBounds(graph, width, PLOT_HEIGHT, GRAPH_AXIS_PAD), [graph, width]);
   const drawing = useMemo(() => plotDrawing(graph, theme.graphSeries), [graph, theme.graphSeries]);
   const axes = useMemo(() => plotAxes(graph), [graph]);
@@ -101,7 +106,7 @@ export function PlotGraphCard({ graph, width, theme }: { graph: PlotGraph; width
   );
   return (
     <View style={[styles.card, { width }]} testID="plot-graph">
-      <View accessible accessibilityRole="image" accessibilityLabel={plotDescription(graph)}>
+      <View accessible accessibilityRole="image" accessibilityLabel={label}>
         {isSkiaAvailable() ? (
           <Suspense fallback={svg}>
             <SkiaPlot graph={graph} drawing={drawing} bounds={bounds} width={width} theme={theme} />

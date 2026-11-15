@@ -13,6 +13,7 @@ from typing import Any
 
 from sympy import oo
 
+from app.modules.math.drawing.plot_check import crossings
 from app.modules.math.drawing.plot_scene import DrawnCurve, DrawnLine, DrawnPoint, Scene
 from app.modules.math.drawing.plot_window import (
     Window,
@@ -26,10 +27,11 @@ from app.modules.math.schemas import GraphSampleInput
 from app.modules.math.schemas.plot import PlotCurve, PlotGraphSpec, PlotLine, PlotPoint, PlotRegion
 from app.modules.math.solve import SolveServiceError, sample_function
 from app.modules.math.solve.graph_expr_text import graph_expr_text
+from app.modules.math.solve.graph_sampling import sample_places
 
 _SAMPLES = 400
-# Half the last place the sampler writes x to.
-_ROUNDING = 5e-5
+# An interval with too many waves for one sampling is halved at most this often.
+_MOST_HALVINGS = 2
 
 
 def _ends(curve: DrawnCurve) -> list[DrawnPoint]:
@@ -38,6 +40,9 @@ def _ends(curve: DrawnCurve) -> list[DrawnPoint]:
     if curve.shape is None:
         return []
     events: list[tuple[float, float, bool]] = []
+    # An end a piece leaves out, where no other piece drawn has a value: open only when the
+    # shape holds every piece (else the value there may be a piece left out, t09).
+    lone: list[tuple[float, float, bool]] = []
     for span in curve.shape.spans:
         for end, closed, inward in (
             (span.low, span.low_closed, 1),
@@ -48,7 +53,7 @@ def _ends(curve: DrawnCurve) -> list[DrawnPoint]:
             x = float(end)
             y = span.fn.at(x) if closed else span.fn.at(x + inward * 1e-7 * max(1.0, abs(x)))
             if math.isfinite(y) and abs(y) < 1e6:
-                events.append((x, y, closed))
+                (events if closed or curve.shape.complete else lone).append((x, y, closed))
     for x_at, y_at in curve.shape.dots:
         events.append((float(x_at), float(y_at), True))
     for found in curve.breaks:
@@ -61,7 +66,25 @@ def _ends(curve: DrawnCurve) -> list[DrawnPoint]:
             abs(found.value - s.value) > 1e-6 for s in (found.left, found.right)
         ):
             events.append((x, found.value, True))
+    events += [end for end in lone if _covered(curve, end[0])]
     return _circles(events, curve.color)
+
+
+def _covered(curve: DrawnCurve, x: float) -> bool:
+    """Another drawn piece, or a value the question gives, holds at ``x``."""
+    shape = curve.shape
+    if shape is None:
+        return False
+    near = 1e-9 * max(1.0, abs(x))
+    dots = any(abs(float(at) - x) < near for at, _ in shape.dots)
+    return (
+        dots
+        or sum(
+            (s.low == -oo or float(s.low) < x + near) and (s.high == oo or x - near < float(s.high))
+            for s in shape.spans
+        )
+        > 1
+    )
 
 
 def _circles(events: list[tuple[float, float, bool]], color: int) -> list[DrawnPoint]:
@@ -103,9 +126,13 @@ def _pieces(
     return [p for p in pieces if len(p) >= 2]
 
 
-def _sample(expr: Any, low: float, high: float) -> list[tuple[list[float], list[float]]]:
+def _sample(
+    expr: Any, low: float, high: float, depth: int = 0
+) -> list[tuple[list[float], list[float]]] | None:
     """The graph sampler's own samples of ``expr`` on [low, high], piece by piece: odd roots
-    real, split at its poles and jumps, as every ```graph is sampled."""
+    real, split at its poles and jumps, as every ```graph is sampled. Where it holds too
+    many waves for one call the sampler shows only some of them (sin 50x on [0, 2π] came
+    back on [2.64, 3.64], n04): the interval is sampled in halves, or not drawn (None)."""
     # Printed in the grammar the sampler and the phone read: ln for a natural log, log for
     # base 10 (SymPy's own "log(x)" is read as base 10, and drew (ln x)/x a third as high).
     text = graph_expr_text(expr, "x")
@@ -115,6 +142,12 @@ def _sample(expr: Any, low: float, high: float) -> list[tuple[list[float], list[
         found = sample_function(GraphSampleInput(expr=text, x_min=low, x_max=high, n=_SAMPLES))
     except (SolveServiceError, ValueError):
         return []
+    if (found.x_min, found.x_max) != (low, high):
+        if depth >= _MOST_HALVINGS:
+            return None
+        middle = (low + high) / 2
+        halves = [_sample(expr, a, b, depth + 1) for a, b in ((low, middle), (middle, high))]
+        return None if None in halves else [piece for half in halves for piece in half or []]
     pieces = found.segments or [found.points]
     return [([p[0] for p in piece], [p[1] for p in piece]) for piece in pieces]
 
@@ -126,8 +159,8 @@ def _sampled(curve: DrawnCurve, window: Window) -> list[list[tuple[float, float]
         across = (x_lo - 3 * width, x_hi + 3 * width)
         return [
             [(x, t) for t, x in piece]
-            for ts, xs in _sample(curve.sideways.expr, y_lo, y_hi)
-            if _true_to(curve.sideways, ts, xs)
+            for ts, xs in _sample(curve.sideways.expr, y_lo, y_hi) or []
+            if _true_to(curve.sideways, ts, xs, y_hi - y_lo)
             for piece in _pieces(ts, xs, [], across)
         ]
     if curve.shape is None:
@@ -138,20 +171,25 @@ def _sampled(curve: DrawnCurve, window: Window) -> list[list[tuple[float, float]
     for span in curve.shape.spans:
         low, high = span_range(span, x_lo, x_hi)
         if low < high:
-            for xs, ys in _sample(span.expr, low, high):
-                if not _true_to(span.fn, xs, ys):
+            sampled = _sample(span.expr, low, high)
+            if sampled is None:
+                return []
+            for xs, ys in sampled:
+                if not _true_to(span.fn, xs, ys, high - low):
                     return []
                 found += _pieces(xs, ys, cuts, limit)
     return found
 
 
-def _true_to(fn: Any, xs: list[float], ys: list[float]) -> bool:
+def _true_to(fn: Any, xs: list[float], ys: list[float], width: float) -> bool:
     """The samples are the curve's own values, the ones every place on it was found from:
     a curve the sampler read another way (log as base 10) is drawn nowhere, never wrong."""
     picks = range(0, len(xs), max(1, len(xs) // 12))
+    # The sampler writes x to so many places for the width it samples: the value anywhere in
+    # that rounding is its own.
+    rounding = 0.5 * 10.0 ** -sample_places(width)
     for i in picks:
-        # The sampler writes x to four places: the value anywhere in that rounding is its own.
-        around = [fn.at(xs[i] + step) for step in (-_ROUNDING, 0.0, _ROUNDING)]
+        around = [fn.at(xs[i] + step) for step in (-rounding, 0.0, rounding)]
         if not all(math.isfinite(v) for v in around):
             continue
         low, high = min(around), max(around)
@@ -172,10 +210,13 @@ def _drawn_line(line: DrawnLine, window: Window) -> PlotLine | None:
         start, end = (x, y_lo), (x, y_hi)
     else:
         slope, offset = float(line.slope), float(line.offset)
-        xs = [x_lo, x_hi] if slope == 0 else sorted(
-            [max(x_lo, min((y_lo - offset) / slope, (y_hi - offset) / slope)),
-             min(x_hi, max((y_lo - offset) / slope, (y_hi - offset) / slope))]
-        )  # fmt: skip
+        if slope == 0:
+            xs = [x_lo, x_hi]
+        else:
+            # Where the line enters and leaves the window's height, cut to its width: a line
+            # that never crosses the window is none (d05's asymptotes).
+            crossed = sorted([(y_lo - offset) / slope, (y_hi - offset) / slope])
+            xs = [max(x_lo, crossed[0]), min(x_hi, crossed[1])]
         if xs[0] >= xs[1] or (slope == 0 and not y_lo <= offset <= y_hi):
             return None
         start, end = (xs[0], slope * xs[0] + offset), (xs[1], slope * xs[1] + offset)
@@ -220,14 +261,15 @@ def _line_agreed(line: DrawnLine, scene: Scene) -> bool:
 
 
 def _about_the_regions(scene: Scene) -> None:
-    """A picture of a region marks the places that bound it: sin x and cos x cross every π,
-    and u5-062 marked eight crossings across a window of 18 for a region of π/4."""
+    """A picture of a region marks the meets that bound it: sin x and cos x cross every π,
+    and u5-062 marked eight crossings across a window of 18 for a region of π/4. A turning
+    point or an inflection asked for stays wherever it is (j04)."""
     xs = [x for region in scene.regions for x, _ in region.points]
     if not xs:
         return
     low, high = min(xs), max(xs)
     room = 0.1 * (high - low) + 1e-9
-    scene.points = [p for p in scene.points if not p.held or low - room <= p.x <= high + room]
+    scene.points = [p for p in scene.points if not p.meet or low - room <= p.x <= high + room]
 
 
 def draw_plot(scene: Scene) -> PlotGraphSpec | None:
@@ -236,6 +278,9 @@ def draw_plot(scene: Scene) -> PlotGraphSpec | None:
     _about_the_regions(scene)
     ends = [point for curve in scene.curves.values() for point in _ends(curve)]
     places = [p for curve in scene.curves.values() for p in curve_places(curve)]
+    # Where the curves meet each other: two curves are drawn to be seen together (b01).
+    if len(scene.curves) > 1:
+        places += [p.at for curve in scene.curves.values() for p in crossings(curve, scene)]
     places = of_interest(scene, places)
     places += [(p.x, p.y) for p in [*scene.points, *ends]] + scene.focus
     places += [p for region in scene.regions for p in region.points]

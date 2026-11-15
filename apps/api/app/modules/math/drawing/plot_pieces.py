@@ -46,6 +46,9 @@ class Shape:
     spans: list[Span] = field(default_factory=list)
     # Values the question gives the function at single points ("f(1) = 5").
     dots: list[tuple[Any, Any]] = field(default_factory=list)
+    # Every piece the question defines is drawn: an end a piece leaves out is then a gap.
+    # Drawn from some pieces only, the value there may be a missing piece's (t09).
+    complete: bool = True
 
 
 def formula(text: str, variable: Symbol = _X) -> Any | None:
@@ -265,6 +268,7 @@ def pieces_shape(curve: Curve, question: PlotQuestion) -> Shape | None:
             shape.dots.append((mine[0].value, expr))
         else:
             shape.spans += _spans(expr, mine)
+    shape.complete = False
     whole = _question_shape(question, letters) or _one_formula(question)
     if whole is not None and _describes(curve, whole):
         shape = whole

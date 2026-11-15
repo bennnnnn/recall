@@ -7,8 +7,9 @@ washer's lies wholly to one side of it with a gap, both cut across the axis; a s
 strip runs along it. The strip stands at the middle of the region, the server's choice, and
 carries no number.
 
-A curve's average value over a stated interval is SymPy's integral divided by its length,
-drawn as a level line across that interval and labelled with it.
+A curve's average value over a stated interval is SymPy's integral divided by its length
+(by its quick methods, else to six places from the samples), drawn as a level line across
+that interval and labelled with it; never across a pole.
 """
 
 from __future__ import annotations
@@ -17,15 +18,16 @@ import math
 from typing import Any, Literal
 
 import numpy as np
-from sympy import Abs, Float, Integral, integrate, radsimp, sign
+from sympy import Abs, Float, radsimp, sign
 
-from app.modules.math.drawing.plot_check import stated
+from app.modules.math.drawing.curve_breaks import has_pole
+from app.modules.math.drawing.plot_check import stated_interval
 from app.modules.math.drawing.plot_items import Average, Slice
 from app.modules.math.drawing.plot_labels import number_text
 from app.modules.math.drawing.plot_pieces import value
 from app.modules.math.drawing.plot_question import PlotQuestion
 from app.modules.math.drawing.plot_scene import DrawnLine, DrawnRegion, Scene
-from app.modules.math.drawing.real_curve import RealFunction, X
+from app.modules.math.drawing.real_curve import RealFunction, X, closed_integral
 
 _STRIP = 0.04
 _STRIP_COLOR = 3
@@ -84,8 +86,8 @@ def _mean(fn: RealFunction, a: Any, b: Any) -> Any | None:
     """The mean value, exact from SymPy when the formula has no |…| or odd root in it,
     else to twelve places from the samples (labelled as a decimal)."""
     if not fn.expr.has(Abs, sign):
-        total = integrate(fn.expr, (X, a, b))
-        if not total.has(Integral) and total.is_finite:
+        total = closed_integral(fn.expr, (X, a, b))
+        if total is not None and total.is_finite:
             return radsimp(total / (b - a))
     xs = np.linspace(float(a), float(b), _QUADRATURE)
     ys = fn.values(xs)
@@ -98,12 +100,10 @@ def _mean(fn: RealFunction, a: Any, b: Any) -> Any | None:
 def average(item: Average, question: PlotQuestion, scene: Scene) -> None:
     curve = scene.curves.get(item.of)
     fn = curve.whole if curve is not None else None
-    ends = [
-        stated(v, question) if (v := value(text)) is not None else None
-        for text in (item.start, item.end)
-    ]
-    if fn is None or ends[0] is None or ends[1] is None or float(ends[0]) >= float(ends[1]):
-        return
+    start, end = value(item.start), value(item.end)
+    ends = stated_interval(start, end, question) if start is not None and end is not None else None
+    if fn is None or ends is None or has_pole(fn, float(ends[0]), float(ends[1])):
+        return  # no stated interval, or one across a pole (1/(x - 1) on [0, 3])
     mean = _mean(fn, ends[0], ends[1])
     if mean is None:
         return

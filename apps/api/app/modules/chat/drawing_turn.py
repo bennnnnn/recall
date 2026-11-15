@@ -29,7 +29,6 @@ from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.turn_intercepts import may_be_a_maths_picture
 from app.modules.chat.turn_trace import note_prompt_rule
 from app.modules.turn_reading.turn import current_turn_reading
-from app.services.md_fence_scan import has_closed_fence, strip_closed_fences
 from app.services.solving import VerifiedMathBlock
 from app.services.subjects.registry import SubjectFigure, subject_adapter
 
@@ -45,6 +44,10 @@ _ASKS_TO_SEE = re.compile(
     r"\b(?:draw|sketch|graph|plot|illustrate|show(?!\s+(?:that|how|why|whether)\b))\b",
     re.IGNORECASE,
 )
+
+
+# A word that asks for a picture itself: "show" may ask for steps or working.
+_ASKS_TO_DRAW = re.compile(r"\b(?:draw|sketch|graph|plot|illustrate)\b", re.IGNORECASE)
 
 
 # The pictures the read may ask for that a description draws: a figure, and a graph (kind
@@ -105,18 +108,32 @@ async def _read_for_a_picture(ctx: StreamContext, deadline: float) -> TurnDecisi
     return task.result()
 
 
+def _read_in(ctx: StreamContext) -> TurnDecision | None:
+    """The read, when it has answered by now; never waited for."""
+    task = ctx.live_read
+    if task is None or not task.done() or task.cancelled() or task.exception() is not None:
+        return None
+    return task.result()
+
+
 async def write_for_a_picture(ctx: StreamContext, settings: Settings) -> None:
     """A solver's instant reply gives way to the model's when the message asks to see a
     maths picture: the instant reply carries the card alone, and no picture can be
     described for it (round 3's c031, "find the maximum ... and sketch its graph", got only
-    the maximum). The model writes around the same checked card, and describes the graph."""
+    the maximum). The model writes around the same checked card, and describes the graph.
+    An instant reply never waits for the read (the 2026-11-15 review saw "show your steps"
+    wait 1.2 s): the read in by now decides, else a word that asks to draw ("sketch",
+    "graph"; "show" alone asks for no picture)."""
     if ctx.instant_reply is None or not isinstance(ctx.verified_subject, VerifiedMathBlock):
         return
     if _figure() is None or not settings.draw_descriptions_enabled or not _asks_in_words(ctx):
         return
-    deadline = asyncio.get_running_loop().time() + settings.live_read_wait_seconds
-    read = await _read_for_a_picture(ctx, deadline)
-    if read is not None and read_asks_for_a_picture(read):
+    read = _read_in(ctx)
+    if read is not None:
+        asks = read_asks_for_a_picture(read)
+    else:
+        asks = _ASKS_TO_DRAW.search(ctx.user_message_content or "") is not None
+    if asks:
         ctx.instant_reply = None
         note_prompt_rule("subject.draw_over_instant")
 
@@ -183,14 +200,13 @@ async def attach_drawing(state: FinalizeState) -> str:
     if not fences:
         return text
     drawing.fences = list(fences)
-    text = figure.without_drawn_substitutes(text)
-    if any(has_closed_fence(fence, "graph") for fence in fences):
-        # The checked graph stands in for every other graph of the turn: a solve's plot of
-        # the curve alone (round 3's c009 showed both) or the reply's own chart of it (c020).
-        text = strip_closed_fences(strip_closed_fences(text, "graph"), "chart")
     text = text.rstrip()
     pictures = "\n\n".join(fences)
     text = f"{text}\n\n{pictures}\n" if text else f"{pictures}\n"
+    # Beside the pictures, what stood in for them goes: a sketch, a Mermaid diagram, a
+    # solve's graph of a curve the checked graph draws (round 3's c009 showed both). A
+    # solver's number line, inequality or points graph stays (2026-11-15 review).
+    text = figure.without_drawn_substitutes(text)
     # Committed, so a later pass that falls back keeps the picture.
     state.committed = fallback_text(text, server_text=state.server_text)
     return text

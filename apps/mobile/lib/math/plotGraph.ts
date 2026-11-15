@@ -28,7 +28,7 @@ export type PlotGraph = {
   points: { x: number; y: number; open: boolean; label: string; color: number }[];
 };
 
-const MAX_CURVES = 4;
+const MAX_CURVES = 5;
 const MAX_SEGMENTS = 24;
 const MAX_SAMPLES = 800;
 const MAX_LINES = 16;

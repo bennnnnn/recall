@@ -14,6 +14,7 @@ from typing import Any
 
 from app.modules.math.function_names import variable_letters
 from app.modules.math.schemas import MathIntent
+from app.modules.math.tangent_line import slope_intercept, touching_line
 from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.modules.math.tools.school.curve_point_patterns import (
     GRADIENT_AT,
@@ -206,18 +207,10 @@ def _line_tex(slope: Any, intercept: Any, variable: str) -> str:
     """
     from sympy import latex
 
-    if slope == 0:
-        return f"y = {latex(intercept)}"
-    if slope == 1:
-        term = variable
-    elif slope == -1:
-        term = f"-{variable}"
-    else:
-        term = f"{latex(slope)} {variable}"
-    if intercept == 0:
-        return f"y = {term}"
-    sign = "-" if intercept.is_negative else "+"
-    return f"y = {term} {sign} {latex(abs(intercept))}"
+    def term(m: Any) -> str:
+        return variable if m == 1 else f"-{variable}" if m == -1 else f"{latex(m)} {variable}"
+
+    return slope_intercept(slope, intercept, term, latex)
 
 
 def _tangent_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
@@ -245,19 +238,19 @@ def _tangent_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | 
             f"gradient at ${var} = {latex(x1)}$",
         ),
     ]
+    line_slope, intercept = touching_line(x1, y1, slope, normal, simplify)
+    if line_slope is None:
+        answer = f"{var} = {latex(x1)}"
+        steps.append(math_line(answer, "the tangent is flat, so the normal is vertical"))
+        return _finish(intent, lines, steps, answer, curve)
     if normal:
-        if slope == 0:
-            answer = f"{var} = {latex(x1)}"
-            steps.append(math_line(answer, "the tangent is flat, so the normal is vertical"))
-            return _finish(intent, lines, steps, answer, curve)
-        tangent_slope, slope = slope, simplify(-1 / slope)
         steps.append(
             math_line(
-                rf"m_{{n}} = -\frac{{1}}{{{latex(tangent_slope)}}} = {latex(slope)}",
+                rf"m_{{n}} = -\frac{{1}}{{{latex(slope)}}} = {latex(line_slope)}",
                 "perpendicular to the tangent",
             )
         )
-    intercept = simplify(y1 - slope * x1)
+    slope = line_slope
     coefficient = {1: "", -1: "-"}.get(slope, latex(slope)) if slope.is_Integer else latex(slope)
     point_form = f"y - {latex(y1)} = {coefficient}\\left({var} - {latex(x1)}\\right)"
     steps.append(math_line(point_form.replace("- -", "+ "), "point-slope form"))

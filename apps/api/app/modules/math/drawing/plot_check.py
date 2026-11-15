@@ -37,6 +37,33 @@ def stated(number: Any, question: PlotQuestion) -> Any | None:
     return None
 
 
+def _same(a: Any, b: Any) -> bool:
+    try:
+        return abs(float(a) - float(b)) < 1e-9 * max(1.0, abs(float(b)))
+    except (TypeError, ValueError):
+        return False
+
+
+def stated_interval(low: Any, high: Any, question: PlotQuestion) -> tuple[Any, Any] | None:
+    """The question's own interval [low, high], its ends as it writes them: one interval it
+    writes ("[0, 3]", "from x = 0 to x = 2", "0 ≤ x ≤ 2"), or two of its edges ("the lines
+    x = -1/2 and x = 3"). Two values from different places ("from x = 0 to x = 2 ... between
+    2 and 3") are none."""
+    for a, b in question.intervals:
+        if _same(a, low) and _same(b, high):
+            return a, b
+    a = next((edge for edge in question.edges if _same(edge, low)), None)
+    b = next((edge for edge in question.edges if _same(edge, high)), None)
+    return (a, b) if a is not None and b is not None and float(a) < float(b) else None
+
+
+def stated_end(number: Any, question: PlotQuestion) -> Any | None:
+    """The question's own edge or interval end equal to ``number``: one end of a region whose
+    other end is a place the server finds."""
+    ends = [*question.edges, *(end for pair in question.intervals for end in pair)]
+    return next((end for end in ends if _same(end, number)), None)
+
+
 def reach(question: PlotQuestion) -> float:
     far = [abs(float(v)) for v in question.values if math.isfinite(float(v))]
     return min(_FARTHEST, max([_REACH, *(3 * v for v in far)]))

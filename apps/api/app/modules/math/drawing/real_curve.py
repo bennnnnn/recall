@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
-from sympy import Abs, DiracDelta, Expr, S, Symbol, diff, lambdify, sign
+from sympy import Abs, DiracDelta, Expr, Integral, S, Symbol, diff, integrate, lambdify, sign
 
 from app.modules.math.solve.graph_sampling import sample_at
 from app.modules.math.solve.odd_roots import real_branch
@@ -88,3 +88,14 @@ class RealFunction:
         if not isinstance(value, Expr) or not value.is_real or value.has(S.ComplexInfinity):
             return None
         return value
+
+
+def closed_integral(expr: Any, *limits: Any) -> Any | None:
+    """SymPy's integral of ``expr`` by its quick methods (the table, substitution, parts), or
+    None when it has no closed form that way: e^(x²)/(1 + x⁴) took 2.5 s of a 5 s solve to
+    come back unworked (2026-11-15 review), and a picture does not wait on it."""
+    try:
+        found = integrate(expr, *limits, risch=False, meijerg=False, heurisch=False)
+    except (ValueError, TypeError, NotImplementedError, ZeroDivisionError):
+        return None
+    return None if found.has(Integral) else found

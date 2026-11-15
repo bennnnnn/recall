@@ -1,9 +1,11 @@
 """A graph's curves and lines, each the question's own, and the names its axes carry.
 
 A curve's formula is one the question writes, compared with SymPy, in the question's own
-letter ("v(t) = 3t² - 12t" draws against t and v), or an antiderivative of one, which SymPy
-confirms by differentiating it back: a family F(x) + C is drawn once for each constant, each
-labelled with its C. A line is one the question writes ("the line y = 3", "x = -3"). A
+letter ("v(t) = 3t² - 12t" draws against t and v), or, when the question asks for
+antiderivatives, one of those, which SymPy confirms by differentiating it back: a family
+F(x) + C is drawn once for each constant, each labelled with its C. A line is one the
+question writes ("the line y = 3", "x = -3"); a number is a level line only when the
+question names y or a function equal to it, never "a = 3". A
 function in pieces is held clause by clause (``plot_pieces``). An axis's name is the
 question's letter, its unit one the question writes.
 """
@@ -14,9 +16,9 @@ import math
 from collections import Counter
 from typing import Any, Literal
 
-from sympy import Expr, Integral, Rational, Symbol, integrate
+from sympy import Expr, Rational, Symbol
 
-from app.modules.math.drawing.plot_check import reach, stated
+from app.modules.math.drawing.plot_check import reach, stated_interval
 from app.modules.math.drawing.plot_items import AxisNames, Curve, Line
 from app.modules.math.drawing.plot_labels import (
     equation_text,
@@ -27,7 +29,7 @@ from app.modules.math.drawing.plot_labels import (
 from app.modules.math.drawing.plot_pieces import formula, formula_shape, pieces_shape, value
 from app.modules.math.drawing.plot_question import PlotQuestion, plain
 from app.modules.math.drawing.plot_scene import DrawnCurve, DrawnLine, Scene
-from app.modules.math.drawing.real_curve import RealFunction, as_real
+from app.modules.math.drawing.real_curve import RealFunction, as_real, closed_integral
 from app.modules.math.tool_check import parse_formula, same_value
 
 _X, _Y = Symbol("x"), Symbol("y")
@@ -62,8 +64,12 @@ def _own_formula(text: str, question: PlotQuestion) -> tuple[Any, str, str, bool
         # "v(t)" names what an axis measures; "k(x)" only names a function.
         quantity = letter != _X and written.name not in _FUNCTION_NAMES
         name = written.name if quantity else "y"
+        if not parsed.free_symbols and not written.defines:
+            continue  # "a = 3" names a value, never the line y = 3
         if same_value(written.expr, parsed):
             return parsed.subs(letter, _X), str(letter), name, False
+        if not question.antiderivatives:
+            continue  # x² is no picture of f(x) = 2x unless antiderivatives are asked for
         if written.expr.free_symbols and _derivative_is(parsed, written.expr, letter):
             if _no_constant(parsed, written.expr, letter):
                 return parsed.subs(letter, _X), str(letter), "y", True
@@ -84,11 +90,8 @@ def _no_constant(antiderivative: Any, integrand: Any, letter: Symbol) -> bool:
     """``antiderivative`` is SymPy's own, with no constant added: a constant the reply chose
     (an initial value, a C) is no value the server can check. ln|x| is ln x where both are
     defined; a family's constants are its ``shifts``, labelled."""
-    try:
-        own = integrate(integrand, letter)
-    except (ValueError, TypeError, NotImplementedError):
-        return False
-    if own.has(Integral):
+    own = closed_integral(integrand, letter)
+    if own is None:
         return False
     gap = RealFunction(as_real(antiderivative - own, letter))
     values = [gap.at(x) for x in _SAMPLES]
@@ -107,9 +110,9 @@ def _domain(
     if curve.domain is None:
         return None
     ends = [value(text) for text in curve.domain]
-    held = [stated(end, question) if end is not None else None for end in ends]
-    if held[0] is not None and held[1] is not None and float(held[0]) < float(held[1]):
-        return held[0], held[1]
+    held = stated_interval(*ends, question) if None not in ends else None
+    if held is not None:
+        return held
     return False if split else None
 
 
@@ -209,7 +212,10 @@ def _line(line: Line, question: PlotQuestion, color: int) -> DrawnLine | None:
     slope = expr.diff(_X) if expr is not None else None
     if expr is None or slope is None or slope.free_symbols:
         return None
-    written = any(w.name != "x" and same_value(w.expr, expr) for w in question.formulas)
+    written = any(
+        w.name != "x" and (w.defines or not expr.is_number) and same_value(w.expr, expr)
+        for w in question.formulas
+    )
     if not written and not _through_two(expr, question):
         return None
     return DrawnLine(slope, expr.subs(_X, 0), label=equation_text("y", expr), color=color)

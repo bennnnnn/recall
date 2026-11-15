@@ -68,7 +68,7 @@ class PlotGraphSpec(BaseModel):
     equal: bool = False
     x_label: str = Field(default="x", max_length=16)
     y_label: str = Field(default="y", max_length=16)
-    curves: list[PlotCurve] = Field(default_factory=list, max_length=6)
+    curves: list[PlotCurve] = Field(default_factory=list, max_length=5)
     lines: list[PlotLine] = Field(default_factory=list, max_length=16)
     regions: list[PlotRegion] = Field(default_factory=list, max_length=48)
     points: list[PlotPoint] = Field(default_factory=list, max_length=24)

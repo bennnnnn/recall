@@ -419,6 +419,9 @@ export function evalGraphExpr(node: GraphExprNode, x: number): number {
       if (node.op === "-") return l - r;
       if (node.op === "*") return l * r;
       if (node.op === "/") return l / r;
+      // A decimal exponent (x^0.4) is no fraction with an odd root, as the server reads it:
+      // a negative base has no real power then.
+      if (node.r.t === "num" && !Number.isInteger(node.r.v)) return l >= 0 ? l ** r : NaN;
       return realPower(l, r);
     }
   }

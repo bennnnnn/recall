@@ -9,9 +9,15 @@ from itertools import pairwise
 from typing import Any, Literal
 
 import numpy as np
+from sympy import FiniteSet, Union
+from sympy.calculus.singularities import singularities
 from sympy.utilities.lambdify import lambdify
 
+from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.solve.odd_roots import real_branch
+
+# Where a sampler writes coordinates to this many places past the window's own scale.
+_PLACES = 4
 
 
 def sample_at(fn: Any, inputs: Any) -> Any:
@@ -28,6 +34,38 @@ def real_lambdify(variable: Any, expr: Any) -> Any:
     """``expr`` as a numpy function of ``variable``, odd roots of negatives real (x^(1/3) at
     -8 is -2), as the phone reads the graph fence (``lib/math/graphExpr.ts``)."""
     return lambdify(variable, real_branch(expr), modules=["numpy"])
+
+
+def sample_places(span: float) -> int:
+    """The decimal places a coordinate is written to for a window ``span`` wide: four at a
+    width of 1 or more, and as many more as the window is narrower (x² on [0, 0.001] is no
+    flat line at 0)."""
+    if not math.isfinite(span) or span <= 0:
+        return _PLACES
+    return _PLACES + max(0, -math.floor(math.log10(span)))
+
+
+def singular_xs(expr: Any, variable: Any, low: float, high: float) -> list[Any]:
+    """The places strictly inside (low, high) SymPy finds ``expr`` singular at, exactly:
+    poles, holes and jumps of its formula. A periodic set (tan's) or one SymPy cannot decide
+    is left to the samples. Never raises."""
+    with sympy_decline() as declined:
+        found = singularities(expr, variable)
+    if declined:
+        return []
+    sets = list(found.args) if isinstance(found, Union) else [found]
+    xs: list[Any] = []
+    for item in sets:
+        if not isinstance(item, FiniteSet):
+            continue
+        for place in item:
+            try:
+                at = float(place)
+            except (TypeError, ValueError):
+                continue
+            if math.isfinite(at) and low < at < high:
+                xs.append(place)
+    return sorted(xs, key=float)
 
 
 # How near a break a side is read: each step a tenth of the one before.
@@ -59,6 +97,12 @@ def side(fn: Any, x0: float, direction: int) -> Side:
     if growing and steps[-1] >= 0.5 * steps[-2] and sizes[-1] > 5:
         return Side("infinite", math.copysign(1.0, values[-1]))
     return Side("none")
+
+
+def pole_xs(fn: Any, places: list[float]) -> list[float]:
+    """The places among ``places`` the curve runs off to infinity at, on either side: 1/x²'s
+    0, never sin(x)/x's, which settles on 1."""
+    return [x0 for x0 in places if "infinite" in (side(fn, x0, -1).kind, side(fn, x0, 1).kind)]
 
 
 def jump_xs(fn: Any, places: list[float]) -> list[float]:

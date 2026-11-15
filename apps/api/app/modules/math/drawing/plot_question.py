@@ -22,6 +22,8 @@ from typing import Any
 from sympy import Expr, Rational, Symbol
 
 from app.modules.math.figure.grounding import written_numbers, written_pairs
+from app.modules.math.match.numerical_methods import interval_counts, named_numerical_method
+from app.modules.math.solve.latex_normalize import rewrite_abs_bars
 from app.modules.math.solve.unicode_normalize import (
     rewrite_unicode_script_runs,
     rewrite_unicode_sqrts,
@@ -44,49 +46,30 @@ _INTERVAL = re.compile(r"\[\s*([^\[\],]{1,16}),\s*([^\[\],]{1,16})\]")
 _DEFINES = re.compile(r"\b[a-zA-Z]\(\s?[a-z]\s?\)\s?=")
 # An interval written in words: "from -π/2 to π/2", "between x = 1 and x = 2".
 _FROM_TO = re.compile(
-    r"\b(?:from|between)\s(?:[a-z]\s?=\s?)?([-+]?[\w./()]{1,12})\s(?:to|and)\s(?:[a-z]\s?=\s?)?([-+]?[\w./()]{1,12})"
+    r"\b(?:from|between)\s(?:[a-z]\s?=\s?)?([-+]?[\w./()*^]{1,12})\s(?:to|and)\s(?:[a-z]\s?=\s?)?([-+]?[\w./()*^]{1,12})"
 )
 _NUMBER = r"([-+]?\d+(?:\.\d+)?(?:/\d+)?)"
 _SLOPE = re.compile(r"\b(?:slope|gradient)\s(?:of\s|is\s|=\s?)?" + _NUMBER)
-_COUNT = re.compile(
-    _NUMBER + r"\s(?:equal\s)?(?:sub)?(?:intervals|rectangles|strips)\b|\bn\s?=\s?" + _NUMBER
-)
+# "f(x)" names a function of its variable; "f(2)" its value at a point.
+_DEFINES_NAME = re.compile(r"[a-zA-Z]\(\s?[a-z]\s?\)")
+_AT_A_POINT = re.compile(r"[a-zA-Z]\([^a-zA-Z)]{1,12}\)")
 # A differential after an integrand: the "dx" of "∫ sin x dx".
 _DIFFERENTIAL = re.compile(r"(?<=\S)\s+d[a-z](?![\w/])")
 _COMPARISONS = ("<=", ">=", "!=", "<", ">", "=")
+_LOWER_OR_UPPER = frozenset({"<", "<=", ">", ">="})
 _OPERATORS = str.maketrans(OPERATOR_GLYPHS)
 _FLIPPED = {"<": ">", ">": "<", "<=": ">=", ">=": "<=", "=": "=", "!=": "!="}
 
 
 def plain(text: str) -> str:
     """``text`` in the spelling the formula reader reads: the solver's own rewrites of
-    operators, superscripts and roots (``solve.unicode_normalize``), then |…| as abs(…)
-    and no differential after an integrand."""
+    operators, superscripts and roots (``solve.unicode_normalize``), |…| as Abs(…) as the
+    solver reads it (``solve.latex_normalize``), and no differential after an integrand."""
     out = text.translate(_OPERATORS)
     for glyph, written in _READER_GLYPHS.items():
         out = out.replace(glyph, written)
     out = rewrite_unicode_sqrts(rewrite_unicode_script_runs(out))
-    return _DIFFERENTIAL.sub("", _bars(out))
-
-
-def _bars(text: str) -> str:
-    """|A| as abs(A): a bar opens where nothing is open or after an operator, else closes."""
-    out: list[str] = []
-    depth = 0
-    for ch in text:
-        if ch != "|":
-            out.append(ch)
-            continue
-        before = "".join(out).rstrip()[-1:]
-        if depth == 0 or before in {"", "(", "+", "-", "*", "/", "^", "=", ","}:
-            # A word apart from what stands before it: ln|x| is ln abs(x), never the name
-            # "lnabs", and x²|9 - x²| a product, never a power 2·|9 - x²|.
-            out.append(" abs(" if before.isalnum() or before == ")" else "abs(")
-            depth += 1
-        else:
-            out.append(")")
-            depth -= 1
-    return "".join(out) + ")" * depth
+    return _DIFFERENTIAL.sub("", rewrite_abs_bars(out))
 
 
 @dataclass(frozen=True)
@@ -95,6 +78,9 @@ class Written:
 
     name: str
     expr: Any
+    # Named y, or a function of the variable ("f(x) ="): a number it equals is a level line.
+    # "a = 3", "A = 9" and "f(2) = 4" name values, never a curve.
+    defines: bool = False
 
 
 @dataclass(frozen=True)
@@ -128,6 +114,20 @@ class PlotQuestion:
     pairs: frozenset[tuple[Any, Any]]
     clauses: tuple[Clause, ...]
     words: str
+    # The intervals of x it writes ("[0, 3]", "from x = 0 to x = 2", "0 ≤ x ≤ 2"), and the
+    # single values that edge a region ("the lines x = -1/2 and x = 3", "x ≥ 0", the
+    # y-axis): what an area, rectangles or an average may stand between. "The gradient at
+    # x = 3" and "between 2 and 3" said of an answer edge nothing.
+    intervals: tuple[tuple[Any, Any], ...] = ()
+    edges: tuple[Any, ...] = ()
+    # The axis a region turns about, read after "about" or "around": ("y", 0) the x-axis,
+    # ("x", 0) the y-axis, ("y", -1) the line y = -1.
+    revolution_axis: tuple[str, Any] | None = None
+    # A rectangle's width the question gives ("of width 0.5", "Δx = 0.5"), the numerical
+    # rule it names (``match.numerical_methods``), and whether it asks for antiderivatives.
+    width: Any | None = None
+    rule: str | None = None
+    antiderivatives: bool = False
 
 
 def _number(text: str) -> Any | None:
@@ -172,12 +172,15 @@ def _without_unit(formula: str) -> str:
 def _formulas(text: str) -> list[Written]:
     found: list[Written] = []
     for name, formula in _equals_spans(text):
+        if _AT_A_POINT.fullmatch(name):
+            continue  # "f(2) = 4": the value at a point, no formula
         parsed = parse_formula(_without_unit(formula))
         if isinstance(parsed, Expr):
-            found.append(Written(name[0], parsed))
+            defines = name == "y" or _DEFINES_NAME.fullmatch(name) is not None
+            found.append(Written(name[0], parsed, defines))
     for lhs, op, rhs in written_relations(text):
         if op == "=" and isinstance(lhs, Symbol):
-            found.append(Written(str(lhs), rhs))
+            found.append(Written(str(lhs), rhs, str(lhs) == "y"))
         elif op == "=" and lhs.is_Mul and len(lhs.free_symbols) == 2:
             found.append(Written(str(min(lhs.free_symbols, key=str)), rhs))
     found += [Written("", expr) for expr in written_expressions(text)]
@@ -235,6 +238,86 @@ def _x_values(text: str, variables: frozenset[str] = frozenset("x")) -> list[Any
     return values
 
 
+# "x = 2" names an edge ("bounded by ... and x = 2", "the lines x = -1/2 and x = 3"); after
+# these words it names a point of x ("the gradient at x = 3", "f(x) = 3 if x = -5").
+_X_EQUALS = re.compile(r"\bx\s?=\s?([-+]?[\w./()*^]{1,12})")
+_POINT_WORDS = frozenset("at when where whenever if for of point then".split())
+_LINE_WORDS = frozenset("the line lines vertical".split())
+_PIECE_WORDS = re.compile(r"\b(?:if|when|otherwise)\b")
+_ABOUT = re.compile(r"\b(?:about|around)\s+", re.IGNORECASE)
+_AXIS_LINE = re.compile(
+    r"\s*(?:the\s+)?(?:(?P<axis>[xy])[-\s]?axis\b"
+    r"|(?:line\s+)?(?P<name>[xy])\s?=\s?(?P<at>[-+]?[\w./()*^]{1,12}))",
+    re.IGNORECASE,
+)
+_WIDTH = re.compile(
+    r"(?:\bwidths?|\u0394\s?x|\bdelta\s?x|\bh)\s?(?:of\s|=\s?|is\s)?" + _NUMBER + r"(?![/\w])"
+)
+_ANTIDERIVATIVES = re.compile(
+    r"\banti-?derivatives?\b|\bprimitives?\b|\bindefinite\s+integrals?\b|\bfamil(?:y|ies)\b"
+)
+
+
+def _edge_values(text: str, variables: frozenset[str]) -> list[Any]:
+    """The single values ``text`` gives x that edge a region: an equation of x not said of a
+    point, a one-sided condition outside a piece ("for x ≥ 0"), 0 for the y-axis."""
+    edges: list[Any] = []
+    for match in _X_EQUALS.finditer(text):
+        before = [w for w in text[: match.start()].lower().split() if w not in _LINE_WORDS]
+        if before and before[-1].strip(",;:") in _POINT_WORDS:
+            continue
+        number = _number(match.group(1).rstrip(".,;:)"))
+        if number is not None:
+            edges.append(number)
+    for part in _parts(text):
+        if _PIECE_WORDS.search(part.lower()):
+            continue
+        one_sided = [c for c in _conditions(part, variables) if c.op in _LOWER_OR_UPPER]
+        if len(one_sided) == 1 and one_sided[0].value.is_number:
+            edges.append(one_sided[0].value)
+    if "y-axis" in text.lower():
+        edges.append(Rational(0))
+    return edges
+
+
+def _intervals(text: str, variables: frozenset[str]) -> list[tuple[Any, Any]]:
+    """The intervals of x ``text`` writes: in brackets, in words, and as a double comparison
+    in one clause ("0 ≤ x ≤ 2π", "-5 < x ≤ -2")."""
+    found: list[tuple[Any, Any]] = []
+    for low, high in [*_INTERVAL.findall(text), *_FROM_TO.findall(text)]:
+        ends = (_number(low.rstrip(".,;:")), _number(high.rstrip(".,;:")))
+        if ends[0] is not None and ends[1] is not None and ends[0] != ends[1]:
+            found.append((min(ends, key=float), max(ends, key=float)))
+    for part in _parts(text):
+        sided = [c for c in _conditions(part, variables) if c.value.is_number]
+        lows = [c.value for c in sided if c.op in {">", ">="}]
+        highs = [c.value for c in sided if c.op in {"<", "<="}]
+        if len(lows) == 1 and len(highs) == 1 and float(lows[0]) < float(highs[0]):
+            found.append((lows[0], highs[0]))
+    return found
+
+
+def axis_line(text: str) -> tuple[str, Any] | None:
+    """The axis line ``text`` begins with: ("y", 0) for "the x-axis" or "y = 0", ("x", 0)
+    for "the y-axis", ("y", -1) for "the line y = -1"."""
+    found = _AXIS_LINE.match(text)
+    if found is None:
+        return None
+    if found.group("axis"):
+        return ("y" if found.group("axis").lower() == "x" else "x"), Rational(0)
+    at = _number(found.group("at").rstrip(".,;:"))
+    return None if at is None else (found.group("name").lower(), at)
+
+
+def _revolution_axis(text: str) -> tuple[str, Any] | None:
+    """The axis a region turns about: the line named right after "about" or "around"."""
+    for found in _ABOUT.finditer(text):
+        axis = axis_line(text[found.end() :])
+        if axis is not None:
+            return axis
+    return None
+
+
 def _values(original: str) -> list[Any]:
     """The values ``original`` writes outside its formulas, with their signs: the 2 of x²
     is no value."""
@@ -268,10 +351,16 @@ def read_plot_question(texts: Sequence[str]) -> PlotQuestion:
         values=tuple(v for text in own for v in _values(text)),
         x_values=tuple(v for text in readable for v in _x_values(text, letters)),
         slopes=tuple(v for text in readable for v in _named(_SLOPE, text)),
-        counts=tuple(
-            int(v) for text in readable for v in _named(_COUNT, text) if v.is_Integer and v > 0
-        ),
+        counts=tuple(n for text in readable for n in interval_counts(text) if n > 0),
         pairs=frozenset(pair for text in own for pair in written_pairs(text)),
         clauses=tuple(clause for text in readable for clause in _clauses(text)),
         words=" ".join(readable).lower(),
+        intervals=tuple(pair for text in readable for pair in _intervals(text, letters)),
+        edges=tuple(v for text in readable for v in _edge_values(text, letters)),
+        revolution_axis=next(
+            (axis for text in readable if (axis := _revolution_axis(text)) is not None), None
+        ),
+        width=next(iter(v for text in readable for v in _named(_WIDTH, text)), None),
+        rule=next((named.rule for text in own if (named := named_numerical_method(text))), None),
+        antiderivatives=any(_ANTIDERIVATIVES.search(text.lower()) for text in readable),
     )

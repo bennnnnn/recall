@@ -3,7 +3,8 @@
 Each pair of edges meets once at a corner the server finds; the corners in order along x
 cut the region in two, each part lying between the two edges that meet at its outer corner.
 It is drawn only when that holds: the edge the two parts share stays on one side of both
-others, so the parts close up into one region. Otherwise nothing is shaded.
+others, so the parts close up into one region, and no edge runs through either part.
+Otherwise nothing is shaded.
 """
 
 from __future__ import annotations
@@ -41,6 +42,16 @@ def _part(
 def _side(top: RealFunction, other: RealFunction, a: float, b: float) -> float:
     middle = (a + b) / 2
     return float(np.sign(top.at(middle) - other.at(middle)))
+
+
+def _outside(edge: RealFunction, one: RealFunction, two: RealFunction, a: float, b: float) -> bool:
+    """``edge`` runs nowhere strictly between ``one`` and ``two`` on (a, b): b12's region
+    under y = 2 - x across [0, 2] had y = x² running through it."""
+    ts = np.linspace(a, b, _SAMPLES)[1:-1]
+    found, u, v = edge.values(ts), one.values(ts), two.values(ts)
+    low, high = np.minimum(u, v), np.maximum(u, v)
+    gap = 1e-9 * (1.0 + np.abs(high))
+    return not bool(np.any((found > low + gap) & (found < high - gap)))
 
 
 def enclosed(item: Shade, scene: Scene) -> None:
@@ -90,6 +101,11 @@ def _drawn(fns: list[RealFunction], corners: list[tuple[tuple[int, int], float]]
     side = _side(fns[k], fns[left_other], a, m)
     if side == 0 or side != _side(fns[k], fns[right_other], m, b):
         return None
+    if not (
+        _outside(fns[right_other], fns[k], fns[left_other], a, m)
+        and _outside(fns[left_other], fns[k], fns[right_other], m, b)
+    ):
+        return None  # the third edge runs through a part: no region all three enclose
     first = _part(fns[k], fns[left_other], a, m)
     second = _part(fns[k], fns[right_other], m, b)
     if first is None or second is None:
