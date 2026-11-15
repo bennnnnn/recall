@@ -20,6 +20,7 @@ import pytest
 from app.core.config import Settings
 from app.models.orm import User
 from app.modules.chat import drawing_turn, figure_turn
+from app.modules.chat.draw_stream import without_draw_blocks
 from app.modules.chat.drawing_turn import ReplyDrawing, ask_for_a_drawing, attach_drawing
 from app.modules.chat.finalize_passes import FinalizeState
 from app.modules.chat.stream_accum import StreamAccum
@@ -79,6 +80,10 @@ def _read(**fields: Any) -> asyncio.Future[TurnDecision | None]:
     return read
 
 
+def _deadline(seconds: float = 1.2) -> float:
+    return asyncio.get_running_loop().time() + seconds
+
+
 def _state(ctx: StreamContext, text: str, *, cancelled: bool = False) -> FinalizeState:
     return FinalizeState(
         deps=turn_deps(),
@@ -97,7 +102,8 @@ def _state(ctx: StreamContext, text: str, *, cancelled: bool = False) -> Finaliz
     ("subject", "picture", "asked"),
     [
         ("maths", "diagram", True),
-        ("maths", "graph", True),
+        # Not yet: the contract draws no graph (round 2's review, cost).
+        ("maths", "graph", False),
         ("maths", "none", False),
         ("physics", "diagram", False),
         ("everyday", "diagram", False),
@@ -106,7 +112,9 @@ def _state(ctx: StreamContext, text: str, *, cancelled: bool = False) -> Finaliz
 )
 async def test_ask_for_a_drawing_follows_the_read(subject: str, picture: str, asked: bool) -> None:
     ctx = _ctx()
-    await ask_for_a_drawing(ctx, _settings(), _decision(subject=subject, picture=picture))
+    await ask_for_a_drawing(
+        ctx, _settings(), _decision(subject=subject, picture=picture), _deadline()
+    )
     assert (ctx.drawing is not None) == asked
     assert any(m["content"] == DRAW_CONTRACT for m in ctx.prompt_messages) == asked
     if asked:
@@ -130,16 +138,16 @@ async def test_ask_for_a_drawing_without_a_read_asks_a_maths_message_in_words(
 ) -> None:
     monkeypatch.setattr(drawing_turn, "_a_maths_turn", lambda _ctx: maths)
     ctx = _ctx(line)
-    await ask_for_a_drawing(ctx, _settings(), None)
+    await ask_for_a_drawing(ctx, _settings(), None, _deadline())
     assert (ctx.drawing is not None and ctx.drawing.asked == "words") == asked
 
 
 async def test_ask_for_a_drawing_is_off_with_its_switch_or_an_instant_reply() -> None:
     read = _decision(subject="maths", picture="diagram")
     off = _ctx()
-    await ask_for_a_drawing(off, _settings(draw_descriptions_enabled=False), read)
+    await ask_for_a_drawing(off, _settings(draw_descriptions_enabled=False), read, _deadline())
     instant = _ctx(instant_reply="It is 3 pm.")
-    await ask_for_a_drawing(instant, _settings(), read)
+    await ask_for_a_drawing(instant, _settings(), read, _deadline())
     assert off.drawing is None and instant.drawing is None
 
 
@@ -157,6 +165,8 @@ async def _late(decision: TurnDecision, after: float) -> TurnDecision | None:
         ("Find the angle between (−1, 1, 1) and (2, 2, 2).", 0.05, None),
         # A read later than the reply waits for one: no picture.
         ("Draw both vectors (−1, 1, 1) and (2, 2, 2).", 5.0, None),
+        # Nothing maths about it (round 2's review: "show me something fun" waited 1.2 s).
+        ("hi! show me something fun", 0.05, None),
     ],
 )
 async def test_a_message_asking_to_see_waits_for_a_late_read(
@@ -164,10 +174,21 @@ async def test_a_message_asking_to_see_waits_for_a_late_read(
 ) -> None:
     task = asyncio.ensure_future(_late(_decision(subject="maths", picture="diagram"), after))
     ctx = _ctx(line, live_read=task)
-    await ask_for_a_drawing(ctx, _settings(live_read_wait_seconds=0.5), None)
+    await ask_for_a_drawing(ctx, _settings(live_read_wait_seconds=0.5), None, _deadline(0.5))
     assert (ctx.drawing.asked if ctx.drawing is not None else None) == asked
     # Waited on, never cancelled: the figure read waits for the same read.
     assert not task.cancelled()
+    task.cancel()
+
+
+async def test_the_picture_wait_shares_the_reply_s_deadline() -> None:
+    """The reply already waited out its time for the read: the contract waits no more."""
+    task = asyncio.ensure_future(_late(_decision(subject="maths", picture="diagram"), 0.2))
+    ctx = _ctx("Draw both vectors (−1, 1, 1) and (2, 2, 2).", live_read=task)
+    loop = asyncio.get_running_loop()
+    began = loop.time()
+    await ask_for_a_drawing(ctx, _settings(), None, began)
+    assert loop.time() - began < 0.1 and ctx.drawing is None
     task.cancel()
 
 
@@ -205,6 +226,34 @@ def test_other_fences_stream_as_written() -> None:
 def test_an_unclosed_draw_block_is_never_shown() -> None:
     sent, accum = _stream(["Answer: 3.\n\n```draw\n", '{"kind":"space",', '"items":[]}'])
     assert sent == "Answer: 3.\n\n" and len(accum.drawings) == 1
+
+
+_BLOCK = f"```draw\n{_DESCRIPTION}\n"
+
+
+@pytest.mark.parametrize(
+    ("reply", "shown", "kept"),
+    [
+        # A block closed with tildes, or with a longer run, is closed: the text after it shows.
+        (f"Done.\n\n{_BLOCK}~~~\nAfter.", "Done.\n\nAfter.", 1),
+        (f"Done.\n\n{_BLOCK}````\nAfter.", "Done.\n\nAfter.", 1),
+        # An example of a block inside an outer fence is the example's content.
+        (f"Like this:\n````markdown\n{_BLOCK}```\n````\nEnd.", None, 0),
+        # "```draw" mid-line opens nothing.
+        ("Write it as ```draw then JSON.\nEnd.", None, 0),
+        # A block cut off at the reply's end runs to it.
+        (f"Answer: 3.\n\n{_BLOCK}", "Answer: 3.\n\n", 1),
+    ],
+)
+@pytest.mark.parametrize("size", [1, 5, 1000])
+def test_one_rule_for_a_draw_block_live_and_saved(
+    reply: str, shown: str | None, kept: int, size: int
+) -> None:
+    sent, accum = _stream([reply[i : i + size] for i in range(0, len(reply), size)])
+    assert sent == (reply if shown is None else shown)
+    assert len(accum.drawings) == kept
+    saved, bodies = without_draw_blocks(reply)
+    assert saved == sent and len(bodies) == kept
 
 
 def test_text_taken_back_takes_its_drawings() -> None:

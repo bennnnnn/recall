@@ -10,27 +10,36 @@ in pieces. A block that never closes is never shown either.
 
 from __future__ import annotations
 
+import re
+from collections.abc import Callable
+
 from app.modules.chat.stream_accum import StreamAccum
 from app.services.md_fence_scan import FenceMarker, read_fence_marker
 
 _LANG = "draw"
-_OPENERS = tuple(run * 3 + _LANG for run in "`~")
+# The start of a line that may still become a fence line: up to three spaces, then a run of
+# backticks or tildes.
+_MAY_BE_FENCE = re.compile(r"^ {0,3}(?:`+|~+)")
 
 
 def _may_open(partial: str) -> bool:
-    """Whether a line still being written could become a block's opener."""
-    compact = partial.replace(" ", "").replace("\t", "").lower()
-    return bool(partial) and any(
-        opener.startswith(compact) or compact.startswith(opener) for opener in _OPENERS
-    )
+    """Whether a line still being written could become a fence line (a block's opener, or
+    an outer fence's)."""
+    return _MAY_BE_FENCE.match(partial) is not None or partial in {" ", "  ", "   "}
 
 
-class DrawFilter:
-    """``feed`` each piece of the reply; it returns what the client may be sent."""
+class DrawScan:
+    """The one rule for what a ```draw block is, live and in a saved reply: a ```draw (or
+    ~~~draw) line opens one outside any other fence ("````markdown" around an example keeps
+    it as content), a bare fence line of either kind closes it, and one never closed runs to
+    the reply's end. ``feed`` each piece; it returns the text around the blocks."""
 
-    def __init__(self, accum: StreamAccum) -> None:
-        self._accum = accum
+    def __init__(self, keep: Callable[[str], None]) -> None:
+        self._keep_body = keep
         self._line = ""
+        # Part of the current line went out already: the rest of it is no fence line.
+        self._mid = False
+        self._outer: FenceMarker | None = None
         self._fence: FenceMarker | None = None
         self._body: list[str] = []
 
@@ -40,35 +49,66 @@ class DrawFilter:
         while "\n" in self._line:
             line, self._line = self._line.split("\n", 1)
             out.append(self._take(line, "\n"))
-        if self._fence is None and not _may_open(self._line):
+            self._mid = False
+        if self._line and self._fence is None and (self._mid or not _may_open(self._line)):
             out.append(self._line)
-            self._line = ""
+            self._line, self._mid = "", True
         return "".join(out)
 
     def flush(self) -> str:
         """The stream ended: a line left over is read (a block's closer with no newline
         after it closes it); a block still open is kept, unshown."""
         line, self._line = self._line, ""
-        sent = self._take(line, "")
+        sent = self._take(line, "") if line else ""
         if self._fence is not None:
             self._keep()
         return sent
 
     def _take(self, line: str, end: str) -> str:
-        marker = read_fence_marker(line)
-        if self._fence is None:
-            if marker is not None and marker.lang == _LANG:
-                self._fence, self._body = marker, []
-                return ""
+        if self._mid:
             return line + end
-        if marker is not None and marker.closes(self._fence):
-            self._keep()
-        else:
-            self._body.append(line)
-        return ""
+        marker = read_fence_marker(line)
+        if self._fence is not None:
+            if marker is not None and not marker.info:
+                self._keep()
+            else:
+                self._body.append(line)
+            return ""
+        if self._outer is not None:
+            if marker is not None and marker.closes(self._outer):
+                self._outer = None
+            return line + end
+        if marker is not None and marker.lang == _LANG:
+            self._fence, self._body = marker, []
+            return ""
+        if marker is not None:
+            self._outer = marker
+        return line + end
 
     def _keep(self) -> None:
         body = "\n".join(self._body).strip()
         if body:
-            self._accum.drawings.append((len(self._accum.shown), body))
+            self._keep_body(body)
         self._fence, self._body = None, []
+
+
+def without_draw_blocks(text: str) -> tuple[str, list[str]]:
+    """``text`` without its ```draw blocks, and their bodies: the rule the stream keeps."""
+    bodies: list[str] = []
+    scan = DrawScan(bodies.append)
+    return scan.feed(text) + scan.flush(), bodies
+
+
+class DrawFilter:
+    """``feed`` each piece of the reply; it returns what the client may be sent. Each block
+    is kept on the accumulator, at the place in the shown text it stood."""
+
+    def __init__(self, accum: StreamAccum) -> None:
+        self._accum = accum
+        self._scan = DrawScan(lambda body: accum.drawings.append((len(accum.shown), body)))
+
+    def feed(self, chunk: str) -> str:
+        return self._scan.feed(chunk)
+
+    def flush(self) -> str:
+        return self._scan.flush()

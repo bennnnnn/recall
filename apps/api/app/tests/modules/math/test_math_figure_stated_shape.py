@@ -20,7 +20,7 @@ import pytest
 from app.modules.math.figure.build import figure_fence
 from app.modules.math.figure.grounding import changing_values, written_numbers
 from app.modules.math.figure.request import FigureRequest
-from app.modules.math.figure.shape_names import names_shape
+from app.modules.math.figure.shape_names import lid_said, names_shape
 from app.modules.math.tool_check import matched_user_text
 
 
@@ -139,6 +139,14 @@ def test_the_figure_is_the_questions_shape(
         ("a hemispherical bowl", "sphere", False),
         ("a spherical balloon", "sphere", True),
         ("the truncated cone of a lampshade", "cone", False),
+        # An everyday thing names no shape: the reading stands (round 2's review).
+        ("a tin can of radius 3 cm", "cylinder", True),
+        ("a ball of radius 5 cm", "sphere", True),
+        ("a pizza of 100 square inches", "circle", True),
+        ("a round pond", "circle", True),
+        # Another shape named is a refusal.
+        ("a square of side 4 cm", "circle", False),
+        ("the volume of the cone", "box", False),
     ],
 )
 def test_names_shape_refuses_only(words: str, shape: str, named: bool) -> None:
@@ -168,3 +176,17 @@ def test_names_shape_refuses_only(words: str, shape: str, named: bool) -> None:
 )
 def test_a_circle_card_answers_a_circle(args: dict[str, Any], question: str, matched: bool) -> None:
     assert (matched_user_text(json.dumps(args), [question]) is not None) == matched
+
+
+@pytest.mark.parametrize(
+    ("words", "lid"),
+    [
+        ("a cylindrical can", True),
+        ("an open box with a square base", False),
+        ("a box without a lid", False),
+        ("a closed tank", True),
+        ("an open-top tank that is closed at the base and has a lid", None),
+    ],
+)
+def test_lid_said(words: str, lid: bool | None) -> None:
+    assert lid_said([words]) is lid

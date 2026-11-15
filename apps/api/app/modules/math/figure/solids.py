@@ -1,82 +1,25 @@
 """Solids drawn as a textbook draws them, from the sizes a question states.
 
-A box, a prism or a pyramid is drawn in oblique projection: the front face true to size,
-the depth going back up and to the right at half scale, and the edges hidden behind the
-solid dashed (an edge is hidden when no face that meets it faces the reader). A cylinder,
-a cone and a sphere are drawn with ellipses, their back halves dashed. Only stated sizes
-are labelled; a size left open is drawn in proportion.
+A box, a prism or a pyramid is drawn in the one projection every solid figure keeps
+(``projection``): seen from a little above, the edges hidden behind the solid dashed. A
+cylinder, a cone and a sphere are drawn with ellipses, their back halves dashed. Only stated
+sizes are labelled; a size left open is drawn in proportion. The round solids' drawers
+take their sizes and labels (``cylinder_drawing``, ``cone_drawing``, ``sphere_drawing``), so a
+word problem's solid (``math.drawing``) is drawn by the same code.
 """
 
 from __future__ import annotations
 
 import math
-from collections.abc import Sequence
 
 from app.modules.math.figure.drawing import Drawing, length_label
+from app.modules.math.figure.projection import ELLIPSE, TEXTBOOK, box_drawing, draw_polyhedron
 from app.modules.math.figure.request import FigureRequest
 from app.modules.math.figure.triangles import determined
 from app.modules.math.schemas.figure import FigureSpec
 
-Point3 = tuple[float, float, float]
-# The receding axis: half scale, 35° up from the horizontal.
-_DEPTH_SCALE = 0.5
-_DEPTH_TURN = math.radians(35)
-# A circle seen from a little above: its ellipse's height against its width.
-ELLIPSE = 0.3
 # Sizes for what a question leaves open.
 _EDGE, _LENGTH, _WIDTH, _HEIGHT, _RADIUS = 4.0, 6.0, 3.0, 4.0, 2.0
-_TOLERANCE = 1e-9
-_DEPTH_X = _DEPTH_SCALE * math.cos(_DEPTH_TURN)
-_DEPTH_Y = _DEPTH_SCALE * math.sin(_DEPTH_TURN)
-
-
-def project(point: Point3) -> tuple[float, float]:
-    x, y, z = point
-    return (x + z * _DEPTH_X, y + z * _DEPTH_Y)
-
-
-def _normal(points: Sequence[Point3]) -> Point3:
-    (ax, ay, az), (bx, by, bz), (cx, cy, cz) = points[0], points[1], points[2]
-    ux, uy, uz = bx - ax, by - ay, bz - az
-    vx, vy, vz = cx - ax, cy - ay, cz - az
-    return (uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx)
-
-
-def _facing(vertices: list[Point3], face: list[int]) -> bool:
-    """The face's outward side looks toward the reader (who looks along +z, receding)."""
-    points = [vertices[i] for i in face]
-    nx, ny, nz = _normal(points)
-    middle = [sum(p[k] for p in vertices) / len(vertices) for k in range(3)]
-    centre = [sum(p[k] for p in points) / len(points) for k in range(3)]
-    if sum(n * (c - m) for n, c, m in zip((nx, ny, nz), centre, middle, strict=True)) < 0:
-        nx, ny, nz = -nx, -ny, -nz
-    # The view direction: the 3D direction the projection flattens to a point.
-    return nx * -_DEPTH_X + ny * -_DEPTH_Y + nz * 1.0 < -_TOLERANCE
-
-
-def draw_polyhedron(
-    shape: str,
-    vertices: list[Point3],
-    faces: list[list[int]],
-    labels: dict[tuple[int, int], str],
-) -> Drawing:
-    drawing = Drawing(shape)
-    names = [drawing.point(project(vertex)) for vertex in vertices]
-    shown = [_facing(vertices, face) for face in faces]
-    edges: dict[tuple[int, int], bool] = {}
-    for face, visible in zip(faces, shown, strict=True):
-        for i, a in enumerate(face):
-            b = face[(i + 1) % len(face)]
-            key = (min(a, b), max(a, b))
-            edges[key] = edges.get(key, False) or visible
-    for (a, b), visible in edges.items():
-        drawing.line(names[a], names[b], labels.get((a, b)), dashed=not visible)
-    # The faces the reader sees, lightly filled; a side's label sits outside the first
-    # of them that holds it.
-    drawing.faces = [
-        [names[i] for i in face] for face, visible in zip(faces, shown, strict=True) if visible
-    ]
-    return drawing
 
 
 def box_sizes(request: FigureRequest) -> tuple[float | None, ...] | None:
@@ -103,26 +46,16 @@ def _box(request: FigureRequest) -> FigureSpec | None:
     long, w, h = (
         (edge, edge, edge) if cube else (length or _LENGTH, width or _WIDTH, height or _HEIGHT)
     )
-    vertices = [
-        (0, 0, 0), (long, 0, 0), (long, h, 0), (0, h, 0),
-        (0, 0, w), (long, 0, w), (long, h, w), (0, h, w),
-    ]  # fmt: skip
-    faces = [[0, 1, 2, 3], [4, 5, 6, 7], [0, 1, 5, 4], [3, 2, 6, 7], [0, 3, 7, 4], [1, 2, 6, 5]]
     unit = request.unit
-    labels: dict[tuple[int, int], str] = {}
+    # Its width going back (x), its length across (y), its height up (z).
+    labels: dict[int, str] = {}
     if length is not None:
-        labels[(0, 1)] = length_label(length, unit)
+        labels[1] = length_label(length, unit)
     if height is not None and not cube:
-        labels[(1, 2)] = length_label(height, unit)
+        labels[2] = length_label(height, unit)
     if width is not None and not cube:
-        labels[(1, 5)] = length_label(width, unit)
-    return draw_polyhedron(
-        "cube" if cube else "cuboid", [_f(v) for v in vertices], faces, labels
-    ).spec()
-
-
-def _f(point: tuple[float, ...]) -> Point3:
-    return (float(point[0]), float(point[1]), float(point[2]))
+        labels[0] = length_label(width, unit)
+    return box_drawing("cube" if cube else "cuboid", (w, long, h), labels).spec()
 
 
 _END_ROLES = frozenset({"side", "leg", "hypotenuse", "base", "equal_side", "angle"})
@@ -176,7 +109,8 @@ def _prism(request: FigureRequest) -> FigureSpec | None:
         return None
     _, corners, end_labels, length = end
     depth = length or _LENGTH
-    vertices = [(x, y, 0.0) for x, y in corners] + [(x, y, depth) for x, y in corners]
+    # Its front end upright toward the reader, its length going back along x.
+    vertices = [(depth, x, y) for x, y in corners] + [(0.0, x, y) for x, y in corners]
     faces = [[0, 1, 2], [3, 4, 5], [0, 1, 4, 3], [1, 2, 5, 4], [2, 0, 3, 5]]
     labels = {_END_EDGES[i]: label for i, label in end_labels.items()}
     if length is not None:
@@ -214,7 +148,7 @@ def _pyramid(request: FigureRequest) -> FigureSpec | None:
         return None
     base, h = found
     a = base or _EDGE
-    vertices = [(0.0, 0.0, 0.0), (a, 0.0, 0.0), (a, 0.0, a), (0.0, 0.0, a), (a / 2, h, a / 2)]
+    vertices = [(0.0, 0.0, 0.0), (a, 0.0, 0.0), (a, a, 0.0), (0.0, a, 0.0), (a / 2, a / 2, h)]
     faces = [[0, 1, 2, 3], [0, 1, 4], [1, 2, 4], [2, 3, 4], [3, 0, 4]]
     unit = request.unit
     labels = {(0, 1): length_label(base, unit)} if base is not None else {}
@@ -223,11 +157,12 @@ def _pyramid(request: FigureRequest) -> FigureSpec | None:
         labels[(1, 4)] = length_label(lateral, unit)
     drawing = draw_polyhedron("square_pyramid", vertices, faces, labels)
     if (height := request.first("height")) is not None:
-        centre = drawing.point(project((a / 2, 0.0, a / 2)), dot=True)
+        centre = drawing.point(TEXTBOOK((a / 2, a / 2, 0.0)), dot=True)
         drawing.line(drawing.points[4].name, centre, length_label(height, unit), dashed=True)
     if (slant := request.first("slant_height")) is not None:
-        middle = drawing.point(project((a / 2, 0.0, 0.0)))
-        drawing.line(drawing.points[4].name, middle, length_label(slant, unit), dashed=True)
+        # Down the face in sight, to its base edge's middle.
+        middle = drawing.point(TEXTBOOK((a, a / 2, 0.0)))
+        drawing.line(drawing.points[4].name, middle, length_label(slant, unit))
     return drawing.spec()
 
 
@@ -249,24 +184,72 @@ def round_size(request: FigureRequest) -> tuple[float | None, str | None, bool]:
     return None, None, False
 
 
-def _cylinder(request: FigureRequest) -> FigureSpec | None:
-    radius, label, diameter_shown = round_size(request)
-    height = request.first("height", "length")
-    r, h = radius or _RADIUS, height or _HEIGHT * 1.2
-    drawing = Drawing("cylinder")
+def cylinder_drawing(
+    r: float,
+    h: float,
+    *,
+    height: str | None = None,
+    radius: str | None = None,
+    diameter: str | None = None,
+    shape: str = "cylinder",
+) -> Drawing:
+    """An upright cylinder: its height labelled up its right side, its radius from the top's
+    centre (or its diameter across the top)."""
+    drawing = Drawing(shape)
     bottom = drawing.point((0.0, 0.0))
-    top = drawing.point((0.0, h), dot=radius is not None)
+    top = drawing.point((0.0, h), dot=radius is not None or diameter is not None)
     round_base(drawing, bottom, r)
     drawing.arc(top, r, r * ELLIPSE)
     left_low, left_high = drawing.point((-r, 0.0)), drawing.point((-r, h))
     right_low, right_high = drawing.point((r, 0.0)), drawing.point((r, h))
     drawing.line(left_low, left_high)
+    drawing.line(right_low, right_high, height)
+    if diameter is not None:
+        drawing.line(left_high, right_high, diameter)
+    elif radius is not None:
+        drawing.line(top, right_high, radius)
+    return drawing
+
+
+def _cylinder(request: FigureRequest) -> FigureSpec | None:
+    radius, label, diameter_shown = round_size(request)
+    height = request.first("height", "length")
+    r, h = radius or _RADIUS, height or _HEIGHT * 1.2
     unit = request.unit
-    drawing.line(right_low, right_high, length_label(height, unit) if height is not None else None)
-    if radius is not None:
-        start = left_high if diameter_shown else top
-        drawing.line(start, right_high, label)
-    return drawing.spec()
+    return cylinder_drawing(
+        r,
+        h,
+        height=length_label(height, unit) if height is not None else None,
+        radius=label if not diameter_shown else None,
+        diameter=label if diameter_shown else None,
+    ).spec()
+
+
+def cone_drawing(
+    r: float,
+    h: float,
+    *,
+    height: str | None = None,
+    radius: str | None = None,
+    diameter: str | None = None,
+    slant: str | None = None,
+) -> Drawing:
+    """A cone on its base: its slant labelled on the right, its height dashed down the middle
+    to the base's centre, its radius (or diameter) dashed across the base."""
+    drawing = Drawing("cone")
+    centre = drawing.point((0.0, 0.0), dot=True)
+    apex = drawing.point((0.0, h))
+    left, right = drawing.point((-r, 0.0)), drawing.point((r, 0.0))
+    round_base(drawing, centre, r)
+    drawing.line(left, apex)
+    drawing.line(right, apex, slant)
+    drawing.line(apex, centre, height, dashed=True)
+    if diameter is not None:
+        drawing.line(left, right, diameter, dashed=True, label_at=0.75)
+    else:
+        drawing.line(centre, right, radius, dashed=True)
+    drawing.angle(centre, right, apex, right=True)
+    return drawing
 
 
 def _cone(request: FigureRequest) -> FigureSpec | None:
@@ -282,28 +265,22 @@ def _cone(request: FigureRequest) -> FigureSpec | None:
         h = height or _HEIGHT
     if height is not None and slant is not None and abs(math.hypot(r, h) - slant) > 1e-4 * slant:
         return None
-    drawing = Drawing("cone")
-    centre = drawing.point((0.0, 0.0), dot=True)
-    apex = drawing.point((0.0, h))
-    left, right = drawing.point((-r, 0.0)), drawing.point((r, 0.0))
-    round_base(drawing, centre, r)
     unit = request.unit
-    drawing.line(left, apex)
-    drawing.line(right, apex, length_label(slant, unit) if slant is not None else None)
-    drawing.line(
-        apex, centre, length_label(height, unit) if height is not None else None, dashed=True
-    )
-    if across:
-        drawing.line(left, right, label, dashed=True, label_at=0.75)
-    else:
-        drawing.line(centre, right, label, dashed=True)
-    drawing.angle(centre, right, apex, right=True)
-    return drawing.spec()
+    return cone_drawing(
+        r,
+        h,
+        height=length_label(height, unit) if height is not None else None,
+        radius=label if not across else None,
+        diameter=label if across else None,
+        slant=length_label(slant, unit) if slant is not None else None,
+    ).spec()
 
 
-def _sphere(request: FigureRequest, *, half: bool = False) -> FigureSpec | None:
-    radius, label, across = round_size(request)
-    r = radius or _RADIUS
+def sphere_drawing(
+    r: float, *, radius: str | None = None, diameter: str | None = None, half: bool = False
+) -> Drawing:
+    """A sphere (or a hemisphere on its flat face) with its equator, its radius labelled from
+    the centre (or its diameter across)."""
     drawing = Drawing("hemisphere" if half else "sphere")
     centre = drawing.point((0.0, 0.0), dot=True)
     if half:
@@ -313,11 +290,21 @@ def _sphere(request: FigureRequest, *, half: bool = False) -> FigureSpec | None:
         drawing.arc(centre, r)
         round_base(drawing, centre, r)
     edge = drawing.point((r, 0.0))
-    if across:
-        drawing.line(drawing.point((-r, 0.0)), edge, label, dashed=True, label_at=0.75)
+    if diameter is not None:
+        drawing.line(drawing.point((-r, 0.0)), edge, diameter, dashed=True, label_at=0.75)
     else:
-        drawing.line(centre, edge, label)
-    return drawing.spec()
+        drawing.line(centre, edge, radius)
+    return drawing
+
+
+def _sphere(request: FigureRequest, *, half: bool = False) -> FigureSpec | None:
+    radius, label, across = round_size(request)
+    return sphere_drawing(
+        radius or _RADIUS,
+        radius=label if not across else None,
+        diameter=label if across else None,
+        half=half,
+    ).spec()
 
 
 _BOXES = frozenset({"cube", "cuboid", "box", "rectangular_prism", "rectangular_box"})

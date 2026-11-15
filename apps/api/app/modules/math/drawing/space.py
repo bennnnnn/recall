@@ -12,10 +12,11 @@ from __future__ import annotations
 import math
 
 from app.modules.math.drawing.arrows import arrowhead, axis
-from app.modules.math.drawing.scene import BOX_FACES, ORIGIN, Box, Scene
-from app.modules.math.drawing.view import NAME_AT, View, axis_ends, clearest_view, floats, span
+from app.modules.math.drawing.scene import ORIGIN, Box, Scene
+from app.modules.math.drawing.view import NAME_AT, axis_ends, clearest_view, floats, span
 from app.modules.math.figure.drawing import Drawing, number_text
-from app.modules.math.figure.solids import ELLIPSE
+from app.modules.math.figure.projection import BOX_FACES, View, draw_faces, faces_seen
+from app.modules.math.figure.solids import round_base
 from app.modules.math.schemas.figure import FigureSpec
 
 _ARROW = 0.04
@@ -69,26 +70,9 @@ _GUIDE_EDGES = (
 )  # fmt: skip
 
 
-# A box's edges along x, y and z, by its corners (``scene._CORNERS``): a stated size is
-# labelled on one of its four edges the reader sees, the lowest (an upright one, the
-# rightmost).
-_PARALLEL = (
-    ((0, 1), (3, 2), (4, 5), (7, 6)),
-    ((1, 2), (0, 3), (5, 6), (4, 7)),
-    ((0, 4), (1, 5), (2, 6), (3, 7)),
-)
-
-
 def _seen(box: Box, scene: Scene, view: View) -> list[bool]:
     """Which of the box's faces the reader sees."""
-    corners = [floats(scene.points[name]) for name in box.corners]
-    middle = [sum(c[k] for c in corners) / 8 for k in range(3)]
-    seen = []
-    for face in BOX_FACES:
-        centre = [sum(corners[i][k] for i in face) / 4 for k in range(3)]
-        outward = [centre[k] - middle[k] for k in range(3)]
-        seen.append(sum(o * t for o, t in zip(outward, view.toward, strict=True)) > 1e-9)
-    return seen
+    return faces_seen([floats(scene.points[name]) for name in box.corners], BOX_FACES, view)
 
 
 def _hidden(scene: Scene, view: View, a: str, b: str) -> bool:
@@ -105,37 +89,11 @@ def _hidden(scene: Scene, view: View, a: str, b: str) -> bool:
 def _boxes(drawing: Drawing, scene: Scene, view: View, names: dict[str, str]) -> None:
     for box in scene.boxes:
         corners = [floats(scene.points[name]) for name in box.corners]
-        seen = _seen(box, scene, view)
-        edges: dict[tuple[int, int], bool] = {}
-        for face, visible in zip(BOX_FACES, seen, strict=True):
-            for i, a in enumerate(face):
-                b = face[(i + 1) % 4]
-                key = (min(a, b), max(a, b))
-                edges[key] = edges.get(key, False) or visible
-        labels: dict[tuple[int, int], str] = {}
-        for along, parallel in enumerate(_PARALLEL):
-            label = box.labels.get(parallel[0])
-            in_sight = [edge for edge in parallel if edges[(min(edge), max(edge))]]
-            if label is None or not in_sight:
-                continue
-            flat = {edge: [view(corners[i]) for i in edge] for edge in in_sight}
-            if along == 2:
-                edge = max(in_sight, key=lambda e: flat[e][0][0])
-            else:
-                edge = min(in_sight, key=lambda e: flat[e][0][1] + flat[e][1][1])
-            labels[(min(edge), max(edge))] = label
-        for (a, b), visible in edges.items():
-            drawing.line(
-                names[box.corners[a]], names[box.corners[b]], labels.get((a, b)), dashed=not visible
-            )
+        own = [names[name] for name in box.corners]
+        draw_faces(drawing, own, corners, BOX_FACES, box.labels, view)
         for a, b in box.diagonals:
             hidden = _hidden(scene, view, box.corners[a], box.corners[b])
-            drawing.line(names[box.corners[a]], names[box.corners[b]], dashed=hidden)
-        drawing.faces += [
-            [names[box.corners[i]] for i in face]
-            for face, v in zip(BOX_FACES, seen, strict=True)
-            if v
-        ]
+            drawing.line(own[a], own[b], dashed=hidden)
 
 
 def _spheres(drawing: Drawing, scene: Scene, names: dict[str, str]) -> None:
@@ -143,8 +101,7 @@ def _spheres(drawing: Drawing, scene: Scene, names: dict[str, str]) -> None:
         r = math.sqrt(float(sphere.radius_squared))
         centre = names[sphere.centre]
         drawing.arc(centre, r)
-        drawing.arc(centre, r, r * ELLIPSE, start=180, end=360)
-        drawing.arc(centre, r, r * ELLIPSE, start=0, end=180, dashed=True)
+        round_base(drawing, centre, r)
         cx, cy = drawing.at(centre)
         drawing.line(centre, drawing.point((cx + r, cy)), sphere.label)
 

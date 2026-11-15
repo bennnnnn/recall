@@ -71,7 +71,7 @@ _PAIR = re.compile(r"\(([^()]*[,;][^()]*)\)")
 _WRITTEN = re.compile(r"^\s*([+-]?)\s*(\d+(?:\.\d+)?)(?:\s+(\d+)\s*/\s*(\d+)|\s*/\s*(\d+))?\s*$")
 _THOUSANDS = re.compile(r"(?<=\d),(?=\d{3}(?!\d))")
 # A letter given a value ("r = 3 cm"), and a letter tied to another ("h = 3r", "h = r").
-_ASSIGNED = re.compile(r"(?<![a-z\\])([a-z])\s*=\s*(\d+(?:\.\d+)?)(?![\d.a-z])")
+ASSIGNED = re.compile(r"(?<![A-Za-z\\])([A-Za-z])\s*=\s*(\d+(?:\.\d+)?)(?![\d.A-Za-z])")
 _TIED = re.compile(r"(?<![a-z\\])([a-z])\s*=\s*(?:\d+(?:\.\d+)?)?\*?([a-z])(?![a-z])")
 # What follows a unit that makes it a rate: "/min", "/s", " per hour".
 _RATE = re.compile(r"\s*(?:/\s*[a-z]|per\b)")
@@ -182,7 +182,7 @@ def changing_values(texts: Sequence[str]) -> set[Fraction]:
     values: dict[str, set[Fraction]] = {}
     tied: set[str] = set()
     for text in lowered:
-        for letter, value in _ASSIGNED.findall(text):
+        for letter, value in ASSIGNED.findall(text):
             values.setdefault(letter, set()).add(Fraction(value))
         for left, right in _TIED.findall(text):
             tied |= {left, right}

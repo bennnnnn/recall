@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import replace
 from typing import Any
 
@@ -19,15 +20,16 @@ from app.modules.math.drawing.amounts import AMOUNTS, read_amount
 from app.modules.math.drawing.labels import Label, read_length
 from app.modules.math.drawing.plane import polygon_at
 from app.modules.math.drawing.question import Question, read_question
+from app.modules.math.drawing.roles import PART_ROLES, stated_on
 from app.modules.math.drawing.scene import checked_scene
 from app.modules.math.drawing.shape_drawings import DRAWERS, beside, box
-from app.modules.math.drawing.shapes import FORMS, PART_ROLES, Form, Sized, form_key, sized
+from app.modules.math.drawing.shapes import FORMS, Form, Sized, form_key, sized
 from app.modules.math.drawing.space import draw_scene
 from app.modules.math.drawing.vocabulary import ShapePart, read_description, read_items
 from app.modules.math.figure.drawing import Drawing
 from app.modules.math.figure.honest import honours, said
 from app.modules.math.figure.request import FigureRequest, Measure
-from app.modules.math.figure.shape_names import names_shape
+from app.modules.math.figure.shape_names import lid_said, names_shape
 from app.modules.math.schemas.figure import FigureSpec
 
 logger = logging.getLogger(__name__)
@@ -47,15 +49,21 @@ def _shape(part: ShapePart, question: Question) -> Drawing | None:
     if form is None or not all(names_shape([question.words], name) for name in form.named):
         return None
     labels: dict[str, Label] = {}
+    roles = [PART_ROLES.get(name, name) for name in form.parts(form.sizes)]
     for name, text in part.labels().items():
         label = read_length(text, question)
-        if label is not None and _its_part(name, label, question):
+        if label is not None and _its_part(name, label, roles, question):
             labels[name] = label
-    found = _sized(key, _drawn_as(form, labels), labels, part, question)
+    said = lid_said(question.texts)
+    lid = not part.open if said is None else said
+    # A lid the description and the question disagree on, or one the question says both of,
+    # leaves the amounts unworked: a closed can's best size is not an open one's.
+    trusted = said is not None and said == (not part.open)
+    found = _sized(key, _drawn_as(form, labels), labels, part, question, lid, trusted)
     if found is None:
         return None
     if part.item == "box":
-        return box(found.sizes, found.shown, lid=not part.open)
+        return box(found.sizes, found.shown, lid=lid)
     return DRAWERS[key](found.sizes, found.shown)
 
 
@@ -70,37 +78,97 @@ def _drawn_as(form: Form, labels: dict[str, Label]) -> Form:
     return form
 
 
+# The words that make a box's base square, and all its edges one.
+_SQUARE_BASE = re.compile(r"\bsquare(?:[- ]based|\s+(?:base|bottom|end|ends))\b")
+_CUBE = re.compile(r"\bcub(?:e|es|ic|ical)\b(?!\s+(?:units?|cm|m|metres?|feet|inch))")
+
+
+def _equal(key: str, question: Question) -> frozenset[frozenset[str]]:
+    """The parts the question makes equal: a square base's length and width, a cube's edges."""
+    if key != "box":
+        return frozenset()
+    if _CUBE.search(question.words):
+        return frozenset(
+            {frozenset({"length", "width"}), frozenset({"length", "height"}),
+             frozenset({"width", "height"})}
+        )  # fmt: skip
+    if _SQUARE_BASE.search(question.words):
+        return frozenset({frozenset({"length", "width"})})
+    return frozenset()
+
+
 def _sized(
-    key: str, form: Form, labels: dict[str, Label], part: ShapePart, question: Question
+    key: str,
+    form: Form,
+    labels: dict[str, Label],
+    part: ShapePart,
+    question: Question,
+    lid: bool,
+    trusted: bool,
 ) -> Sized | None:
     """The shape's sizes: from its labels, and from the amount the question fixes and the one
-    it makes best, when the description names them (``amounts``)."""
+    it makes best, when the description names them (``amounts``). A size worked from them is
+    shown only where the lid is the question's and the reply works it out to the same value;
+    else the shape is drawn in its representative proportion, its letters bare."""
+    equal = _equal(key, question)
+    plain = sized(form, labels, equal=equal)
+    if not part.fixed and not part.optimise:
+        return plain
+    if not trusted and "surface" in {*part.fixed, *part.optimise}:
+        return plain
     fixed: dict[str, tuple[float, str]] = {}
     for kind, text in part.fixed.items():
         amount = read_amount(kind, str(text), question)
         if amount is None:
-            return None  # an amount the question does not state: no sizes worked from it
+            return plain  # an amount the question does not state: no sizes worked from it
         fixed[kind] = amount
     goal = next(iter(part.optimise.items()), None)
     of = AMOUNTS.get(key)
-    if (fixed or goal) and of is None:
-        return None
-    lid = not part.open
+    if of is None:
+        return plain
     amounts = (lambda symbols: of(symbols, lid)) if of is not None else None
-    found = sized(form, labels, amounts=amounts, fixed=fixed, goal=goal)
+    found = sized(form, labels, amounts=amounts, fixed=fixed, goal=goal, equal=equal)
     if found is None and goal is not None:
         # A best the description leaves unsettled (sizes left free): drawn without it.
-        found = sized(form, labels, amounts=amounts, fixed=fixed)
+        found = sized(form, labels, amounts=amounts, fixed=fixed, equal=equal)
+    if found is None or not _reply_agrees(found, labels, question) or not _worked(found, labels):
+        return plain  # nothing worked out to show: the shape in its own proportion
     return found
 
 
-def _its_part(part: str, label: Label, question: Question) -> bool:
-    """A stated size the question names beside its number ("radius 5 cm", "12 m long") goes
-    on that part only: a cone's 12 cm height is never its radius."""
+def _worked(found: Sized, labels: dict[str, Label]) -> bool:
+    """Some label shows a size the server worked out ("x = 4", "r ≈ 4.3 cm"), or the model's
+    own number where the server works the part out to it."""
+    return any(
+        label.value is None and (label.claimed is not None or found.shown[part] != label.text)
+        for part, label in labels.items()
+        if part in found.shown
+    )
+
+
+def _reply_agrees(found: Sized, labels: dict[str, Label], question: Question) -> bool:
+    """Every size worked from an amount is the reply's own: the letter it labels is worked
+    out to that value in the reply ("r ≈ 4.30 cm"). A best worked from the model's reading of
+    the question (a field fenced on three sides read as four) is no answer the reply gives."""
+    for part, label in labels.items():
+        if label.value is not None or found.shown.get(part, label.text) == label.text:
+            continue
+        size = found.lengths[part] / float(label.coefficient)
+        if label.letter is not None and not question.agrees(label.letter, size):
+            return False
+        if label.letter is None and not any(
+            question.agrees(letter, size) for letter, _v, _p in question.reply_values
+        ):
+            return False
+    return True
+
+
+def _its_part(part: str, label: Label, roles: list[str], question: Question) -> bool:
+    """A stated size the question names ("radius 5 cm", "12 m long") goes on that part
+    only: a cone's 12 cm height is never its radius, nor its 13 cm slant its height."""
     if label.value is None:
         return True
-    roles = question.roles(label.value)
-    return not roles or PART_ROLES.get(part) in roles
+    return stated_on({PART_ROLES.get(part, part)}, label.value, roles, question)
 
 
 def _shapes(items: list[tuple[str, Any | None]], question: Question) -> FigureSpec | None:

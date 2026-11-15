@@ -28,6 +28,7 @@ from app.modules.math.schemas import (
     TriangleSidesInput,
     TriangleSidesResult,
 )
+from app.modules.math.solve import shape_formulas
 from app.modules.math.solve.triangle import cosine_rule_angle, heron_area, sine_rule_side
 from app.services.solving import SolveServiceError
 
@@ -114,8 +115,8 @@ def rectangle_geometry(data: RectangleGeometryInput) -> RectangleGeometryResult:
     w, h = data.width, data.height
     diagonal = math.sqrt(w * w + h * h)
     angle_deg = math.degrees(math.atan2(h, w))
-    area = w * h
-    perimeter = 2 * (w + h)
+    amounts = shape_formulas.rectangle(w, h)
+    area, perimeter = amounts["area"], amounts["perimeter"]
     unit = data.unit
     labels = {
         "width": f"{w:g} {unit}",
@@ -141,8 +142,8 @@ def rectangle_geometry(data: RectangleGeometryInput) -> RectangleGeometryResult:
 def square_geometry(data: SquareGeometryInput) -> SquareGeometryResult:
     s = data.side
     diagonal = math.sqrt(2 * s * s)
-    area = s * s
-    perimeter = 4 * s
+    amounts = shape_formulas.square(s)
+    area, perimeter = amounts["area"], amounts["perimeter"]
     unit = data.unit
     labels = {
         "side": f"{s:g} {unit}",
@@ -159,6 +160,10 @@ def square_geometry(data: SquareGeometryInput) -> SquareGeometryResult:
         perimeter=round(perimeter, 4),
         labels=labels,
     )
+
+
+def _volume_and_surface(amounts: dict[str, float]) -> tuple[float, float]:
+    return amounts["volume"], amounts["surface"]
 
 
 def solid_geometry(data: SolidGeometryInput) -> SolidGeometryResult:
@@ -180,8 +185,7 @@ def solid_geometry(data: SolidGeometryInput) -> SolidGeometryResult:
         if data.width is None or data.height is None or data.depth is None:
             raise SolveServiceError("rectangular prism requires three edges")
         length, w, h = data.width, data.depth, data.height
-        volume = length * w * h
-        surface = 2 * (length * w + length * h + w * h)
+        volume, surface = _volume_and_surface(shape_formulas.cuboid(length, w, h))
         extra["length"] = f"{length:g} {unit}"
         extra["width"] = f"{w:g} {unit}"
         extra["height"] = f"{h:g} {unit}"
@@ -189,8 +193,7 @@ def solid_geometry(data: SolidGeometryInput) -> SolidGeometryResult:
         if data.radius is None or data.height is None:
             raise SolveServiceError("cylinder requires radius and height")
         r, h = data.radius, data.height
-        volume = math.pi * r * r * h
-        surface = 2 * math.pi * r * (r + h)
+        volume, surface = _volume_and_surface(shape_formulas.cylinder(r, h, math.pi))
         extra["radius"] = f"{r:g} {unit}"
         extra["height"] = f"{h:g} {unit}"
     elif shape == "cone":
@@ -198,8 +201,7 @@ def solid_geometry(data: SolidGeometryInput) -> SolidGeometryResult:
             raise SolveServiceError("cone requires radius and height")
         r, h = data.radius, data.height
         slant = math.sqrt(r * r + h * h)
-        volume = (1.0 / 3.0) * math.pi * r * r * h
-        surface = math.pi * r * (r + slant)
+        volume, surface = _volume_and_surface(shape_formulas.cone(r, h, math.pi, slant))
         extra["radius"] = f"{r:g} {unit}"
         extra["height"] = f"{h:g} {unit}"
         extra["slant"] = f"{format_geometry_decimal(slant)} {unit}"
@@ -207,8 +209,7 @@ def solid_geometry(data: SolidGeometryInput) -> SolidGeometryResult:
         if data.radius is None:
             raise SolveServiceError("sphere requires radius")
         r = data.radius
-        volume = (4.0 / 3.0) * math.pi * r * r * r
-        surface = 4 * math.pi * r * r
+        volume, surface = _volume_and_surface(shape_formulas.sphere(r, math.pi))
         extra["radius"] = f"{r:g} {unit}"
     elif shape == "pyramid":
         pyr_h = data.height
@@ -299,8 +300,8 @@ def right_triangle_geometry(data: RightTriangleGeometryInput) -> RightTriangleGe
 def circle_geometry(data: CircleGeometryInput) -> CircleGeometryResult:
     r = data.radius
     diameter = 2 * r
-    area = math.pi * r * r
-    circumference = 2 * math.pi * r
+    amounts = shape_formulas.circle(r, math.pi)
+    area, circumference = amounts["area"], amounts["perimeter"]
     unit = data.unit
     labels = {
         "radius": f"{r:g} {unit}",

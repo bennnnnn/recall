@@ -133,16 +133,6 @@ FORMS: dict[str, Form] = {
 }
 
 
-# Each part's own word for the size beside its number: a stated size the question names as
-# another part ("height 12 cm" on a radius) is not this part's.
-PART_ROLES = {
-    "radius": "radius", "top_radius": "radius", "bottom_radius": "radius",
-    "outer_radius": "radius", "surface": "radius", "diameter": "diameter",
-    "height": "height", "outer_height": "height", "top": "height", "depth": "depth",
-    "width": "width", "length": "length", "side": "side", "slant": "slant",
-}  # fmt: skip
-
-
 def form_key(item: str, container: str | None) -> str:
     return f"{item}:{container}" if item in {"tank", "inscribed"} else item
 
@@ -157,16 +147,20 @@ class Sized:
 
 
 def _relations(
-    lengths: dict[str, Any], labels: dict[str, Label]
-) -> tuple[list[Any], list[tuple[str, str]]]:
-    """What the labels' letters say: equations to impose (one letter on two parts, a
-    multiple the question writes), and the pairs of parts whose ratio must already hold."""
+    lengths: dict[str, Any], labels: dict[str, Label], equal: frozenset[frozenset[str]]
+) -> tuple[list[Any], list[tuple[str, str]], set[str]]:
+    """What the labels' letters say: equations to impose (a multiple the question writes,
+    one letter on two parts the question or the shape makes equal: ``equal``), the pairs of
+    parts whose ratio must already hold, and the parts whose letter says nothing true: one
+    letter on two parts nothing makes equal is the model's own relation (round 2's review
+    drew a can with h = r, its optimum being h = 2r)."""
     uses: dict[str, list[str]] = {}
     for part, label in labels.items():
         if label.letter is not None:
             uses.setdefault(label.letter, []).append(part)
     imposed: list[Any] = []
     implied: list[tuple[str, str]] = []
+    dropped: set[str] = set()
     for parts in uses.values():
         # Each use is held to the letter's plain use where it has one ("r", beside "2r"):
         # two plain uses are one length, whatever multiple comes first.
@@ -176,12 +170,18 @@ def _relations(
             if part == base:
                 continue
             label = labels[part]
-            if label.coefficient == first.coefficient or label.written or first.written:
+            if (
+                label.written
+                or first.written
+                or (label.coefficient == first.coefficient and frozenset({base, part}) in equal)
+            ):
                 relation = lengths[part] * first.coefficient - lengths[base] * label.coefficient
                 imposed.append(relation)
+            elif label.coefficient == first.coefficient:
+                dropped |= {base, part}  # which part the letter names is the model's guess
             else:
                 implied.append((base, part))
-    return imposed, implied
+    return imposed, implied, dropped
 
 
 def _solved(symbols: Sequence[Any], equations: list[Any], start: list[float]) -> list[float] | None:
@@ -306,11 +306,13 @@ def sized(
     amounts: Callable[[Sequence[Any]], dict[str, Any]] | None = None,
     fixed: dict[str, tuple[float, str]] | None = None,
     goal: tuple[str, str] | None = None,
+    equal: frozenset[frozenset[str]] = frozenset(),
 ) -> Sized | None:
     """The shape drawn from ``labels``: its sizes, each part's length and the labels shown;
     None when its stated values cannot all hold, or hold in more than one way. ``fixed``:
     the amounts the question states (``amounts``' names, in the drawing's unit), and
-    ``goal`` the amount to make "max" or "min" (``amounts.optimum``)."""
+    ``goal`` the amount to make "max" or "min" (``amounts.optimum``); ``equal``: the pairs of
+    parts the question makes equal ("a square base")."""
     import sympy
 
     symbols = sympy.symbols(f"s0:{len(form.sizes)}", positive=True)
@@ -324,7 +326,9 @@ def sized(
     unit = next(iter(units), "")
     stated = [(part, label.value) for part, label in labels.items() if label.value is not None]
     equations = [lengths[part] - sympy.nsimplify(value) for part, value in stated]
-    imposed, implied = _relations(lengths, labels)
+    imposed, implied, dropped = _relations(lengths, labels, equal)
+    labels = {part: label for part, label in labels.items() if part not in dropped}
+    implied = [pair for pair in implied if not set(pair) & dropped]
     named = amounts(symbols) if amounts is not None else {}
     if not set(fixed) <= set(named) or (goal is not None and goal[0] not in named):
         return None
