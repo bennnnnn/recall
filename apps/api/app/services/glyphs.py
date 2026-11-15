@@ -24,6 +24,18 @@ OPERATOR_GLYPHS: dict[str, str] = {
 }
 _OPERATORS = str.maketrans(OPERATOR_GLYPHS)
 
+# A derivative's primes as typed: iOS smart punctuation curls them ("\u2019"), a book sets
+# prime, double and triple prime glyphs. Every reader of derivative notation folds these.
+_PRIMES = str.maketrans(
+    {
+        "\u2019": "'",  # right single quotation mark
+        "\u2032": "'",  # prime
+        "\u2035": "'",  # reversed prime
+        "\u2033": "''",  # double prime
+        "\u2034": "'''",  # triple prime
+    }
+)
+
 SUPERSCRIPT_DIGIT_GLYPHS = "⁰¹²³⁴⁵⁶⁷⁸⁹"
 SUBSCRIPT_DIGIT_GLYPHS = "₀₁₂₃₄₅₆₇₈₉"
 # Superscript digits and the signs an exponent carries ("10⁻⁹"), for number readers.
@@ -56,3 +68,8 @@ SUBSCRIPT_GLYPHS: dict[str, str] = dict(
 def fold_operator_glyphs(text: str) -> str:
     """Every operator glyph a reader meets, as ASCII: times, divide and minus signs."""
     return text.translate(_OPERATORS)
+
+
+def fold_primes(text: str) -> str:
+    """Every prime glyph as ASCII apostrophes: y″ is y''."""
+    return text.translate(_PRIMES)

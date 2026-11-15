@@ -47,6 +47,7 @@ from app.modules.math.tools.keyboard_notation import (
 )
 from app.modules.math.tools.request_text import _split_response_instruction_sentence
 from app.modules.math.tools.school import SCHOOL_EXTRACTORS
+from app.services.glyphs import fold_primes
 
 _INTENT_EXTRACTORS: Sequence[Callable[[str], MathIntent | None]] = (
     # First: a named numerical method decides the whole reading. "The trapezoidal rule with
@@ -242,10 +243,10 @@ def _heard_math_intent(text: str) -> MathIntent | None:
 
 
 def _extract_math_intent_any(text: str) -> MathIntent | None:
-    # iOS smart punctuation turns derivative primes into curly apostrophes.
-    # Normalize them before every extractor while retaining the original
-    # request text for whole-request direct-reply checks.
-    normalized = text.translate({ord("\u2019"): "'", ord("\u2032"): "'", ord("\u2035"): "'"})
+    # iOS smart punctuation turns derivative primes into curly apostrophes, and a book's
+    # double prime is two. Normalize them before every extractor while retaining the
+    # original request text for whole-request direct-reply checks.
+    normalized = fold_primes(text)
     # Read on the raw text: prepare() collapses the newlines that separate
     # a student's lines of work.
     work = work_check_intent(normalized)

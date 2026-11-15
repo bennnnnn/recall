@@ -21,6 +21,7 @@ _MODULE_EXPORTS = (
     "coding",
     "continued_problem",
     "conversation",
+    "derivative_notation",
     "diagrams",
     "format",
     "length",
