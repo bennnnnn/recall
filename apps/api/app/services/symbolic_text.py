@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from app.services.glyphs import SUPERSCRIPT_DIGIT_GLYPHS, SUPERSCRIPT_SIGNED
+from app.services.script_runs import fold_operator_subscripts, fold_superscript_runs
 from app.services.text_normalize import collapse_ws
 
 _MAX_SYMBOLIC_REQUEST = 1000
@@ -15,9 +15,6 @@ _MAX_PHYSICS_REQUEST = 4_000
 # The longest message a subject gate reads at all. Past this it is a document,
 # and only its head and tail are worth looking at.
 _MAX_SUBJECT_TEXT = 20_000
-_SUP_GLYPHS = SUPERSCRIPT_DIGIT_GLYPHS
-_SUP_SIGNS = "⁻⁺"
-_SUP_TABLE = SUPERSCRIPT_SIGNED
 
 
 _MATH_SPAN = re.compile(r"\$([^$]+)\$")
@@ -76,23 +73,20 @@ def fold_latex_marks(text: str) -> str:
     return text
 
 
-def fold_numeric_superscripts(text: str) -> str:
-    """Normalize Unicode and braced numeric powers to caret notation."""
-    if "^{" not in text and not any(glyph in text for glyph in _SUP_GLYPHS):
+def fold_superscripts(text: str) -> str:
+    """Unicode and braced numeric powers in caret notation: ``x²`` → ``x^2``, ``eˣ`` →
+    ``e^x``, ``e⁻ˣ`` → ``e^(-x)``, ``x^{2}`` → ``x^2`` (``services/script_runs.py``)."""
+    return fold_braced_powers(fold_superscript_runs(text))
+
+
+def fold_braced_powers(text: str) -> str:
+    """The keypad's braced whole-number powers in caret notation: ``x^{2}`` → ``x^2``."""
+    if "^{" not in text:
         return text
     out: list[str] = []
     index = 0
     while index < len(text):
         char = text[index]
-        # A sign opens the power it belongs to: "s⁻²" is "s^-2", not "s⁻^2".
-        signed = char in _SUP_SIGNS and index + 1 < len(text) and text[index + 1] in _SUP_GLYPHS
-        if char in _SUP_GLYPHS or signed:
-            end = index + 1
-            while end < len(text) and text[end] in _SUP_GLYPHS:
-                end += 1
-            out.append("^" + text[index:end].translate(_SUP_TABLE))
-            index = end
-            continue
         if char == "^" and index + 1 < len(text) and text[index + 1] == "{":
             close = text.find("}", index + 2)
             if close != -1:
@@ -150,4 +144,5 @@ def normalize_symbolic_request(text: str, *, limit: int = _MAX_SYMBOLIC_REQUEST)
     cleaned = collapse_ws(fold_latex_marks(strip_inline_math_delimiters(text)))
     if len(cleaned) > ceiling:
         return None
-    return collapse_repeated_si_unit_powers(fold_numeric_superscripts(cleaned))
+    # A lowered limit first, so the raised one after it stands on a number: ``∫₀¹`` → ``∫_0^1``.
+    return collapse_repeated_si_unit_powers(fold_superscripts(fold_operator_subscripts(cleaned)))
