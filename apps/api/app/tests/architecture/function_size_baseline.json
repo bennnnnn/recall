@@ -29,7 +29,7 @@
   "modules/math/tools/school/calculus.py::apply_calculus_extension": 177,
   "modules/math/tools/school/probability.py::_extract_probability_intent": 103,
   "modules/math/tools/school/probability.py::_verified_block_probability": 126,
-  "modules/math/tools/school/trig.py::_extract_trig_intent": 184,
+  "modules/math/tools/school/trig.py::_extract_trig_intent": 176,
   "modules/math/tools/school/trig_equations.py::bounded_equation_block": 101,
   "modules/memory/llm.py::revise_memory_facts": 112,
   "modules/memory/writes_repository.py::apply_fact_ops": 109,
