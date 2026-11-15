@@ -58,10 +58,13 @@ AMOUNTS: dict[str, Amounts] = {
 
 # A stated number and the unit the question writes after it: "500 cm³", "48 square units",
 # "12 m of framing", "a 10-litre can", "500 ml", "20 m^2".
+# Read on text whose whitespace runs are one space (``_one_space``): single optional spaces
+# cannot backtrack, where "\s*-?\s*" did at degree 3 (CI's slow-regex gate on #2462).
 _STATED = re.compile(
-    r"(?<![\d.])(\d+(?:\.\d+)?)(?![\d.])\s*-?\s*(?:(cubic|cu\.?|square|sq\.?)\s+)?([a-z]+)?"
-    r"\s*(²|³|\^\s*2|\^\s*3)?"
+    r"(?<![\d.])(\d+(?:\.\d+)?)(?![\d.]) ?-? ?(?:(cubic|cu\.?|square|sq\.?) )?([a-z]+)?"
+    r" ?(²|³|\^ ?2|\^ ?3)?"
 )
+_SPACES = re.compile(r"\s+")
 _LITRES = {"l": 1000.0, "litre": 1000.0, "litres": 1000.0, "liter": 1000.0, "liters": 1000.0,
            "ml": 1.0, "millilitre": 1.0, "millilitres": 1.0, "milliliter": 1.0,
            "milliliters": 1.0}  # fmt: skip
@@ -92,7 +95,7 @@ def _readings(question: Question) -> dict[float, set[tuple[str, float, str]]]:
     """Each number the question states with a unit, and what that unit says it measures."""
     found: dict[float, set[tuple[str, float, str]]] = {}
     for text in question.texts:
-        for written in _STATED.finditer(text.lower()):
+        for written in _STATED.finditer(_SPACES.sub(" ", text.lower())):
             reading = _stated(written)
             if reading is not None:
                 found.setdefault(float(written.group(1)), set()).add(reading)

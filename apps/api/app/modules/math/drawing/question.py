@@ -27,14 +27,17 @@ Triple = tuple[Fraction, Fraction, Fraction]
 Point = tuple[Fraction, ...]
 
 # A bracketed triple: "(4, -3, 5)", "<2, 5, 6>", "⟨2, 5, 6⟩".
-_TRIPLE = re.compile(r"[(<⟨]([^()<>⟨⟩]*?,[^()<>⟨⟩]*?,[^()<>⟨⟩]*?)[)>⟩]")
+# Three comma-free parts: a lazy part that could hold a comma read a run of commas again for
+# each start (CI's slow-regex gate on #2462); a triple has exactly two commas anyway.
+_TRIPLE = re.compile(r"[(<⟨]([^()<>⟨⟩,]*,[^()<>⟨⟩,]*,[^()<>⟨⟩,]*)[)>⟩]")
+_SPACES = re.compile(r"\s+")
 # One term of a vector written with unit vectors: "2i", "- j", "+ 3.5k", "-7\hat{k}".
 _UNIT_TERM = re.compile(
-    r"([+\-\u2212]?)\s*(\d+(?:\.\d+)?)?\s*\*?\s*(?:\\hat\{|\\mathbf\{|\\vec\{)?([ijk])\}?(?![A-Za-z])"
+    r"([+\-\u2212]?) ?(\d+(?:\.\d+)?)? ?\*? ?(?:\\hat\{|\\mathbf\{|\\vec\{)?([ijk])\}?(?![A-Za-z])"
 )
 _UNIT_RUN = re.compile(
-    r"(?<![A-Za-z\\])(?:[+\-\u2212]?\s*(?:\d+(?:\.\d+)?)?\s*\*?\s*(?:\\hat\{|\\mathbf\{|\\vec\{)?"
-    r"[ijk]\}?(?![A-Za-z])\s*){2,3}"
+    r"(?<![A-Za-z\\])(?:[+\-\u2212]? ?(?:\d+(?:\.\d+)?)? ?\*? ?(?:\\hat\{|\\mathbf\{|\\vec\{)?"
+    r"[ijk]\}?(?![A-Za-z]) ?){2,3}"
 )
 # A letter standing alone, as a variable: "r", "h", "A", "x'" (never one inside a word or a
 # LaTeX command).
@@ -142,7 +145,8 @@ def _one_number(part: str) -> Fraction | None:
 
 def written_triples(text: str) -> set[Triple]:
     """The triples a text writes: bracketed coordinates, and vectors in i, j and k."""
-    lowered = text.replace("\u2212", "-")
+    # One space per whitespace run: the unit-vector patterns read single optional spaces.
+    lowered = _SPACES.sub(" ", text.replace("\u2212", "-"))
     found: set[Triple] = set()
     for inside in _TRIPLE.findall(lowered):
         parts = [_one_number(part) for part in inside.split(",")]
