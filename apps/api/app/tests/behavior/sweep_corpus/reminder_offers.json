@@ -202,5 +202,56 @@
   ],
   "reply": "Shells fill from the inside out: 2 in the first, then 8, then 8.",
   "expect": "answer"
+ },
+ {
+  "id": "ro-013",
+  "area": "reminder offer",
+  "prompt": "yes",
+  "history": [
+   [
+    "user",
+    "how do I start a school project"
+   ],
+   [
+    "assistant",
+    "Here's how to start your project:\n\n```steps\n1. **Pick a topic** — one you care about\n2. **Plan** — three small milestones\n3. **Start** — 20 minutes today\n```\n\nWant me to remind you to start this tomorrow?"
+   ]
+  ],
+  "reply": "I'll set the reminder for tomorrow morning so you get started on step 1!",
+  "expect": "ask_time"
+ },
+ {
+  "id": "ro-014",
+  "area": "reminder offer",
+  "prompt": "yes please",
+  "history": [
+   [
+    "user",
+    "teach me atoms"
+   ],
+   [
+    "assistant",
+    "Lesson 1 done. Try this:\n\n```quiz\n{\"label\": \"Exercise 1\", \"question\": \"What is the mass number of an atom with 17 protons and 18 neutrons?\", \"code\": \"\", \"options\": [\"17\", \"35\", \"18\", \"52\"], \"answer\": 1, \"explanation\": \"17 + 18 = 35.\"}\n```\n\nShould I set a reminder to review this tomorrow evening?"
+   ]
+  ],
+  "reply": "Done, it's set for tomorrow at 7 PM. Good work on Lesson 1!",
+  "expect": "ask_time"
+ },
+ {
+  "id": "ro-015",
+  "area": "reminder offer",
+  "prompt": "sure",
+  "history": [
+   [
+    "user",
+    "teach me isotopes"
+   ],
+   [
+    "assistant",
+    "Lesson 1 done. Try this:\n\n```quiz\n{\"label\": \"Exercise 1\", \"question\": \"What is the mass number of an atom with 17 protons and 18 neutrons?\", \"code\": \"\", \"options\": [\"17\", \"35\", \"18\", \"52\"], \"answer\": 1, \"explanation\": \"17 + 18 = 35.\"}\n```\n\nShould I set a reminder to review this tomorrow evening?"
+   ]
+  ],
+  "reply": "Here's one more to try, and I've set the reminder for tomorrow evening.\n\n```quiz\n{\"label\": \"Review\", \"question\": \"How many neutrons does carbon-14 have?\", \"code\": \"\", \"options\": [\"6\", \"8\", \"14\"], \"answer\": 1, \"explanation\": \"14 - 6 = 8.\"}\n```",
+  "expect": "ask_time"
  }
 ]
