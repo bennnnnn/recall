@@ -14,7 +14,7 @@ drawn as a level line across that interval and labelled with it.
 from __future__ import annotations
 
 import math
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 from sympy import Abs, Float, Integral, integrate, radsimp, sign
@@ -73,9 +73,10 @@ def slice_of(item: Slice, scene: Scene) -> None:
         far = 2 * level - middle
         mirror = (far - half, far + half, ends[0], ends[1])
     strip = (middle - half, middle + half, ends[0], ends[1])
-    for (t0, t1, v0, v1), kind in ((strip, "strip"), (mirror, "mirror")):
+    for (t0, t1, v0, v1), turned in ((strip, False), (mirror, True)):
         corners = [(t0, v0), (t0, v1), (t1, v1), (t1, v0)]
         points = corners if region.wrt == "x" else [(v, t) for t, v in corners]
+        kind: Literal["strip", "mirror"] = "mirror" if turned else "strip"
         scene.regions.append(DrawnRegion(points, kind=kind, color=_STRIP_COLOR))
 
 

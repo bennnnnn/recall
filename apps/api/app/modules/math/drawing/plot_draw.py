@@ -179,8 +179,7 @@ def _drawn_line(line: DrawnLine, window: Window) -> PlotLine | None:
         if xs[0] >= xs[1] or (slope == 0 and not y_lo <= offset <= y_hi):
             return None
         start, end = (xs[0], slope * xs[0] + offset), (xs[1], slope * xs[1] + offset)
-    role = line.role if line.role in {"line", "asymptote", "axis", "segment"} else "line"
-    return PlotLine(start=start, end=end, role=role, label=line.label, color=line.color)  # type: ignore[arg-type]
+    return PlotLine(start=start, end=end, role=line.role, label=line.label, color=line.color)
 
 
 def _rounded(window: Window) -> Any:
@@ -269,8 +268,7 @@ def draw_plot(scene: Scene) -> PlotGraphSpec | None:
         for x, y in rounded([(p.x, p.y)])
     ]
     regions = [
-        PlotRegion(points=rounded(r.points), kind=r.kind, color=r.color)  # type: ignore[arg-type]
-        for r in scene.regions
+        PlotRegion(points=rounded(r.points), kind=r.kind, color=r.color) for r in scene.regions
     ]
     return PlotGraphSpec(
         x_min=window[0], x_max=window[1], y_min=window[2], y_max=window[3], equal=square,

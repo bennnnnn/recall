@@ -27,7 +27,6 @@ _OPERATORS = str.maketrans(OPERATOR_GLYPHS)
 SUPERSCRIPT_DIGIT_GLYPHS = "⁰¹²³⁴⁵⁶⁷⁸⁹"
 SUBSCRIPT_DIGIT_GLYPHS = "₀₁₂₃₄₅₆₇₈₉"
 # Superscript digits alone, and with the signs an exponent carries ("10⁻⁹").
-SUPERSCRIPT_DIGITS = str.maketrans(SUPERSCRIPT_DIGIT_GLYPHS, "0123456789")
 SUPERSCRIPT_SIGNED = str.maketrans(SUPERSCRIPT_DIGIT_GLYPHS + "⁻⁺", "0123456789-+")
 SUBSCRIPT_DIGITS = str.maketrans(SUBSCRIPT_DIGIT_GLYPHS, "0123456789")
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sympy import Expr, Float, Integer, Rational, Symbol, exp, sympify
+from sympy import Expr, Float, Integer, Rational, exp, sympify
 from sympy.printing.str import StrPrinter
 
 from app.modules.math.drawing.real_curve import X
@@ -74,20 +74,25 @@ def _powers(text: str) -> str:
     return "".join(out)
 
 
-class _Reading(StrPrinter):
+def _reading() -> Any:
     """SymPy's printing, a sum that would begin with a negative term written the other way
     round, as a question writes it: 9 - x², 3 - x, 5 - 2x² + 4x³ - x⁵."""
+    printer = StrPrinter()
+    ordered = printer._as_ordered_terms
 
-    def _as_ordered_terms(self, expr: Any, order: Any = None) -> list[Any]:
-        terms = list(super()._as_ordered_terms(expr, order="lex"))
+    def terms_of(expr: Any, order: Any = None) -> list[Any]:
+        terms = list(ordered(expr, order="lex"))
         if terms[0].could_extract_minus_sign() and not terms[-1].could_extract_minus_sign():
             return terms[::-1]
         return terms
 
+    printer._as_ordered_terms = terms_of
+    return printer
+
 
 def formula_text(expr: Any) -> str:
     """``expr`` as a reader writes it: x² - 5x + 1, x/(x + 1)², |x² - 1|, 9 - x²."""
-    text = _Reading().doprint(expr).replace("exp(-1)", "(1/e)")
+    text = _reading().doprint(expr).replace("exp(-1)", "(1/e)")
     text = _powers(_calls(text)).replace("*", "")
     words = {"pi": "π", "E": "e"}
     for word, shown in words.items():
@@ -142,8 +147,3 @@ def equation_text(name: str, expr: Any) -> str:
 
 def line_text(slope: Any, offset: Any) -> str:
     return equation_text("y", sympify(slope) * X + sympify(offset))
-
-
-def in_x(expr: Any, variable: Symbol | None) -> Any:
-    """``expr`` written in ``X``, for its label."""
-    return expr if variable is None else expr.subs(variable, X)

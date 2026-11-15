@@ -10,7 +10,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from functools import cached_property
-from typing import Any
+from typing import Any, Literal
 
 from sympy import And, Integer, Piecewise, nan, oo
 
@@ -153,7 +153,7 @@ class DrawnLine:
     offset: Any = None
     vertical: Any = None
     ends: tuple[tuple[float, float], tuple[float, float]] | None = None
-    role: str = "line"
+    role: Literal["line", "asymptote", "axis", "segment"] = "line"
     label: str = ""
     color: int = 0
     # The values the server worked out for its label: shown only when the reply agrees.
@@ -177,7 +177,7 @@ class DrawnPoint:
 @dataclass
 class DrawnRegion:
     points: list[tuple[float, float]]
-    kind: str = "shade"
+    kind: Literal["shade", "strip", "mirror"] = "shade"
     color: int = 0
 
 
