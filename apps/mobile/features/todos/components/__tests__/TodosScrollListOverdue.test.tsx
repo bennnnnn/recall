@@ -31,13 +31,15 @@ const TODO = {
 const noop = () => {};
 const BUSY = new Set<string>();
 
+/** Completed is open, so a done row is drawn and read too. */
 function list(now: Date, todos = [TODO]) {
   return (
     <TodosScrollList
       rows={buildTodoListRows(todos, now)}
       now={now}
-      showEmpty={false} view="all"
       error={false}
+      completedOpen
+      onToggleCompleted={noop}
       listHeader={<View />}
       busyTodoIds={BUSY}
       onToggle={noop}

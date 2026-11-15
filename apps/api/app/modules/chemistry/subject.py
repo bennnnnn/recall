@@ -242,7 +242,7 @@ class ChemistrySubject:
         parted = await solve_chemistry_parts(text, settings)
         if parted is not None:
             return parted
-        block, verified, declined = await build_chemistry_augmentation(
+        block, verified, declined, unanswerable = await build_chemistry_augmentation(
             text, settings, redis=request.redis
         )
         if block and verified is not None and ONE_PART_NOTE not in block:
@@ -257,6 +257,7 @@ class ChemistrySubject:
             prompt_block=block,
             verified=verified,
             unverified=declined,
+            unanswerable=unanswerable,
         )
 
     def direct_reply(

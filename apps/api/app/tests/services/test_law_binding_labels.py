@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.law_binding.domains import outside_domain, outside_kind
+from app.services.law_binding.domains import input_rule, kind_rule, outside_domain
 from app.services.law_binding.fit import Question, Subject, fit, given_labels, read_givens
 from app.services.law_binding.labels import CHANGE, QUALIFIED, holds, value_label
 from app.services.law_binding.spec import Binding, FormulaSpec, VariableSpec, var
@@ -184,4 +184,40 @@ def test_a_value_no_such_quantity_takes_is_outside_the_law(
     ],
 )
 def test_a_result_is_held_to_its_kinds_range(unit: str, value: float, outside: bool) -> None:
-    assert outside_kind(dimension_of(unit), value) is outside
+    assert (kind_rule(dimension_of(unit), value) is not None) is outside
+
+
+@pytest.mark.parametrize(
+    ("unit", "value", "rule"),
+    [
+        ("ohm", -5.0, "a resistance cannot be zero or negative"),
+        ("kilogram", 0.0, "a mass cannot be zero or negative"),
+        ("farad", -1e-6, "a capacitance cannot be zero or negative"),
+        ("kelvin", -26.85, "no temperature is at or below absolute zero (-273.15 °C)"),
+        ("meter / second", 4e8, "nothing moves faster than light"),
+        ("meter / second", -20.0, None),
+        ("joule", -100.0, None),
+        ("kelvin", 263.15, None),
+    ],
+)
+def test_the_rule_a_value_breaks_is_said(unit: str, value: float, rule: str | None) -> None:
+    """The clause a decline's reason gives the model (``physics.out_of_range``)."""
+    assert kind_rule(dimension_of(unit), value) == rule
+
+
+@pytest.mark.parametrize(
+    ("name", "value", "noun", "rule"),
+    [
+        ("R", -5.0, "resistance", "a resistance cannot be zero or negative"),
+        ("period", -2.0, None, "a period cannot be zero or negative"),
+        ("T", -26.85, "temperature", "no temperature is at or below absolute zero (-273.15 °C)"),
+        # A spring's extension and a change keep their sign.
+        ("ext", -0.1, "extension", None),
+        ("delta_temp", -40.0, "temperature change", None),
+    ],
+)
+def test_an_inputs_rule_is_said_of_its_meaning(
+    name: str, value: float, noun: str | None, rule: str | None
+) -> None:
+    variable = next(variable for variable in _PARTS.variables if variable.name == name)
+    assert input_rule(variable, value, noun) == rule

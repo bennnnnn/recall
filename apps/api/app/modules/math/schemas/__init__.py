@@ -13,6 +13,7 @@ from app.modules.math.schemas.algebra import (
     NewtonIterationStep,
     NewtonMethodInput,
     NewtonMethodResult,
+    RejectedRootLatex,
     SystemOfEquationsInput,
 )
 from app.modules.math.schemas.arithmetic import (
@@ -115,6 +116,7 @@ __all__ = [
     "PartialProduct",
     "RectangleGeometryInput",
     "RectangleGeometryResult",
+    "RejectedRootLatex",
     "RightTriangleGeometryBlockSpec",
     "RightTriangleGeometryInput",
     "RightTriangleGeometryResult",

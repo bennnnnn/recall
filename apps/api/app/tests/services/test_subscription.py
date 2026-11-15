@@ -382,11 +382,23 @@ async def test_resolve_plan_from_revenuecat_none_without_secret():
     fetch.assert_not_awaited()
 
 
+_USER_ID = "3f2b8c1e-9a4d-4e6f-8b7a-1c2d3e4f5a6b"
+_ANONYMOUS_ID = "$RCAnonymousID:8b6fe9f9d5ad4b8f9b5fa4a8b8c7e6e5"
+
+
+@pytest.mark.parametrize(
+    "app_user_id, url_segment",
+    [
+        (_USER_ID, _USER_ID),
+        (_USER_ID.upper(), _USER_ID.upper()),
+        (_ANONYMOUS_ID, "%24RCAnonymousID%3A8b6fe9f9d5ad4b8f9b5fa4a8b8c7e6e5"),
+    ],
+)
 @pytest.mark.asyncio
-async def test_a_subscriber_is_asked_about_by_its_account_id(
-    monkeypatch: pytest.MonkeyPatch,
+async def test_a_real_subscriber_id_is_asked_for(
+    monkeypatch: pytest.MonkeyPatch, app_user_id: str, url_segment: str
 ) -> None:
-    """CodeQL py/partial-ssrf: the URL is the subscriber endpoint and the account's UUID."""
+    """Our user ids and RevenueCat's anonymous ids reach the subscriber URL as before."""
     asked: list[str] = []
 
     class _Client:
@@ -395,20 +407,43 @@ async def test_a_subscriber_is_asked_about_by_its_account_id(
             return SimpleNamespace(status_code=404)
 
     monkeypatch.setattr(revenuecat_gateway, "get_pooled_client", lambda _timeout: _Client())
-    account = uuid4()
-    await revenuecat_gateway.fetch_subscriber("sk_test", account)
-    assert asked == [f"{revenuecat_gateway.REVENUECAT_API}/{account}"]
+    assert revenuecat_gateway.subscriber_id(app_user_id) == app_user_id
+    await revenuecat_gateway.fetch_subscriber("sk_test", app_user_id)
+    assert asked == [f"{revenuecat_gateway.REVENUECAT_API}/{url_segment}"]
 
 
 @pytest.mark.parametrize(
-    "app_user_id", ["", ".", "..", "../../v2/projects?x=1", "$RCAnonymousID:abc123"]
+    "app_user_id",
+    [
+        "",
+        ".",
+        "..",
+        "../../v2/projects?x=1",
+        f"{_USER_ID}/attributes",
+        f"{_USER_ID}?x=1",
+        f"{_USER_ID}\n",
+        f" {_USER_ID}",
+        _USER_ID.replace("-", ""),
+        _USER_ID[:-1],
+        "%2e%2e",
+        "user-1",
+        "$RCAnonymousID:",
+        _ANONYMOUS_ID[:-1],
+        f"{_ANONYMOUS_ID}0",
+        "$RCAnonymousID:../../v2/projects",
+        "$rcanonymousid:8b6fe9f9d5ad4b8f9b5fa4a8b8c7e6e5",
+    ],
 )
 @pytest.mark.asyncio
-async def test_an_id_naming_no_account_is_never_asked_about(app_user_id: str) -> None:
-    """Only an account's UUID reaches RevenueCat: a path, a query or an anonymous id never does."""
-    with patch.object(revenuecat_gateway, "fetch_subscriber", AsyncMock()) as fetch:
-        plan = await subscription_service.resolve_plan_from_revenuecat(
-            Settings(revenuecat_secret_key="sk_test"), app_user_id
-        )
-    assert plan is None
-    fetch.assert_not_awaited()
+async def test_an_id_of_no_subscriber_shape_asks_nothing(
+    monkeypatch: pytest.MonkeyPatch, app_user_id: str
+) -> None:
+    """CodeQL py/partial-ssrf: only a UUID or an anonymous id is put in the URL, so a "/",
+    "?", "..", a line break or an encoded step in a webhook's id never reaches RevenueCat."""
+
+    def no_client(_timeout: float) -> object:
+        raise AssertionError("no request")
+
+    monkeypatch.setattr(revenuecat_gateway, "get_pooled_client", no_client)
+    assert revenuecat_gateway.subscriber_id(app_user_id) is None
+    assert await revenuecat_gateway.fetch_subscriber("sk_test", app_user_id) is None

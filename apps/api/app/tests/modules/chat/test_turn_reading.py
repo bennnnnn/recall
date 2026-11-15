@@ -138,7 +138,7 @@ async def test_every_read_crosses_the_process_boundary(pickling_pool: None) -> N
     reply = await read_direct_reply(verified, "solve 2x + 3 = 7", settings)
     assert reply is not None and "x = 2" in reply
 
-    _note, physics, failed = await build_physics_augmentation(
+    _note, physics, failed, _ = await build_physics_augmentation(
         "A 2 kg ball falls 5 m. Find its speed.", settings
     )
     assert physics is not None and not failed

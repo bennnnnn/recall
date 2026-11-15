@@ -148,7 +148,7 @@ def _motion(
 
 def _shm_max_speed(p: dict[str, float]) -> PhysicsResult:
     """v_max = Aω, from ω itself, the period (2πA/T) or the frequency (2πAf)."""
-    amplitude = p["x"]
+    amplitude = p["amplitude"]
     if "period" in p:
         omega = 2 * math.pi / p["period"] if p["period"] > 0 else 0.0
         formula = r"v_{max} = \frac{2\pi A}{T}"
@@ -288,7 +288,7 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
             rf"\approx {t_period:.2f} \text{{ s}}"
         )
 
-        graph, scene = _motion(t_period, p.get("x"))
+        graph, scene = _motion(t_period, p.get("amplitude"))
         return PhysicsResult(
             answer=answer,
             formulas=(r"T = 2\pi\sqrt{\frac{m}{k}}",),

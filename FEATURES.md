@@ -1078,7 +1078,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   accepted API payload; failed saves preserve drafts. Account/focus guards, coordinated
   list reads and row mutations, Android date-then-time selection, serialized local
   notifications, and conditional server recurrence/delivery writes protect reminder state.
-  Opening Schedule lands on overdue and today. All tasks stays in the menu.
+  Schedule is one list of sections: Overdue, Today, Tomorrow, each later day, Anytime, and
+  Completed folded at the end under its count ("Completed · 3"); ⋯ only starts selecting.
+  A new to-do, or one Home or a push opens, is scrolled to in its section.
   Schedule loads through immutable-ID cursor pages so edits between pages cannot hide
   existing reminders. Recurring reminders are excluded from email; one-shot email
   finalization cannot mark a concurrently edited occurrence as delivered.

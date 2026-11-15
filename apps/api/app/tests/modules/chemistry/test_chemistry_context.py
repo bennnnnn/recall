@@ -88,7 +88,7 @@ async def test_build_chemistry_augmentation_pubchem_success() -> None:
         chemistry_context.pubchem_gateway, "lookup_by_name", new_callable=AsyncMock
     ) as mock_lookup:
         mock_lookup.return_value = fake_result
-        block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
+        block, _verified, _declined, _ = await chemistry_context.build_chemistry_augmentation(
             "what is aspirin?", _SETTINGS
         )
     assert block is not None
@@ -115,7 +115,7 @@ async def test_build_chemistry_augmentation_does_not_teach_molecule3d() -> None:
         new_callable=AsyncMock,
     ) as mock_lookup:
         mock_lookup.return_value = fake_result
-        block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
+        block, _verified, _declined, _ = await chemistry_context.build_chemistry_augmentation(
             "Show the molecular structure of ethanol. Include 2D and 3D.",
             _SETTINGS,
         )
@@ -134,7 +134,7 @@ async def test_build_chemistry_augmentation_pubchem_not_found() -> None:
         chemistry_context.pubchem_gateway, "lookup_by_name", new_callable=AsyncMock
     ) as mock_lookup:
         mock_lookup.return_value = fake_result
-        block, _verified, declined = await chemistry_context.build_chemistry_augmentation(
+        block, _verified, declined, _ = await chemistry_context.build_chemistry_augmentation(
             "structure of caffeine", _SETTINGS
         )
     assert declined is True
@@ -143,7 +143,7 @@ async def test_build_chemistry_augmentation_pubchem_not_found() -> None:
 
 async def test_build_chemistry_augmentation_non_chemistry() -> None:
     """Non-chemistry questions return None."""
-    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
+    block, _verified, _declined, _ = await chemistry_context.build_chemistry_augmentation(
         "what is 2 + 2?", _SETTINGS
     )
     assert block is None
@@ -156,7 +156,7 @@ async def test_build_chemistry_augmentation_non_chemistry() -> None:
 
 async def test_build_chemistry_augmentation_balance_equation() -> None:
     """When the user asks to balance an equation, the context block includes the balanced form."""
-    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
+    block, _verified, _declined, _ = await chemistry_context.build_chemistry_augmentation(
         "balance the equation H2 + O2 -> H2O", _SETTINGS
     )
     assert block is not None
@@ -172,7 +172,7 @@ async def test_build_chemistry_augmentation_balance_equation() -> None:
 
 async def test_build_chemistry_augmentation_molar_mass() -> None:
     """When the user asks for molar mass, the context block includes the verified mass."""
-    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
+    block, _verified, _declined, _ = await chemistry_context.build_chemistry_augmentation(
         "what is the molar mass of H2O?", _SETTINGS
     )
     assert block is not None
@@ -187,7 +187,7 @@ async def test_build_chemistry_augmentation_molar_mass() -> None:
 
 async def test_build_chemistry_augmentation_stoichiometry() -> None:
     """When the user asks 'how much product' with an equation, stoichiometry context is injected."""
-    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
+    block, _verified, _declined, _ = await chemistry_context.build_chemistry_augmentation(
         "how much H2O is produced from H2 + O2 -> H2O?",
         _SETTINGS,
     )
@@ -197,7 +197,7 @@ async def test_build_chemistry_augmentation_stoichiometry() -> None:
 
 
 async def test_build_chemistry_augmentation_stoichiometry_with_amount() -> None:
-    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
+    block, _verified, _declined, _ = await chemistry_context.build_chemistry_augmentation(
         "How many moles of H2O from 4 mol H2 in H2 + O2 -> H2O?",
         _SETTINGS,
     )
@@ -208,7 +208,7 @@ async def test_build_chemistry_augmentation_stoichiometry_with_amount() -> None:
 
 
 async def test_build_chemistry_augmentation_limiting_reagent() -> None:
-    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
+    block, _verified, _declined, _ = await chemistry_context.build_chemistry_augmentation(
         "limiting reagent: 1 mol H2 and 1 mol O2 in H2 + O2 -> H2O",
         _SETTINGS,
     )
@@ -224,7 +224,7 @@ async def test_build_chemistry_augmentation_limiting_reagent() -> None:
 
 async def test_build_chemistry_augmentation_ph() -> None:
     """When the user asks about pH with [H+], the verified pH is injected."""
-    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
+    block, _verified, _declined, _ = await chemistry_context.build_chemistry_augmentation(
         "what is the pH if [H+] = 0.001?",
         _SETTINGS,
     )
@@ -241,7 +241,7 @@ async def test_build_chemistry_augmentation_ph() -> None:
 
 async def test_build_chemistry_augmentation_gas_law() -> None:
     """Gas-law questions without enough numbers do not fake a verified block."""
-    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
+    block, _verified, _declined, _ = await chemistry_context.build_chemistry_augmentation(
         "use PV=nRT to find the pressure of an ideal gas",
         _SETTINGS,
     )
@@ -261,7 +261,7 @@ async def test_build_chemistry_augmentation_gas_law_does_not_steal_pubchem() -> 
         chemistry_context.pubchem_gateway, "lookup_by_name", new_callable=AsyncMock
     ) as mock_lookup:
         mock_lookup.return_value = fake_result
-        block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
+        block, _verified, _declined, _ = await chemistry_context.build_chemistry_augmentation(
             "what is aspirin? the pressure and volume of the bottle are unknown",
             _SETTINGS,
         )
@@ -278,7 +278,7 @@ async def test_build_chemistry_augmentation_gas_law_does_not_steal_pubchem() -> 
 
 async def test_build_chemistry_augmentation_solution() -> None:
     """Molarity without numbers does not fake a verified block."""
-    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
+    block, _verified, _declined, _ = await chemistry_context.build_chemistry_augmentation(
         "calculate the molarity of the solution",
         _SETTINGS,
     )
@@ -286,7 +286,7 @@ async def test_build_chemistry_augmentation_solution() -> None:
 
 
 async def test_build_chemistry_augmentation_molarity_verified() -> None:
-    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
+    block, _verified, _declined, _ = await chemistry_context.build_chemistry_augmentation(
         "Calculate the molarity of 0.5 mol in 2 L",
         _SETTINGS,
     )
@@ -296,7 +296,7 @@ async def test_build_chemistry_augmentation_molarity_verified() -> None:
 
 
 async def test_build_chemistry_augmentation_poh() -> None:
-    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
+    block, _verified, _declined, _ = await chemistry_context.build_chemistry_augmentation(
         "what is the pH when pOH = 4?",
         _SETTINGS,
     )
@@ -306,7 +306,7 @@ async def test_build_chemistry_augmentation_poh() -> None:
 
 
 async def test_build_chemistry_augmentation_element() -> None:
-    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
+    block, _verified, _declined, _ = await chemistry_context.build_chemistry_augmentation(
         "what is the atomic mass of Fe?",
         _SETTINGS,
     )
@@ -319,7 +319,7 @@ async def test_build_chemistry_augmentation_element() -> None:
 
 
 async def test_build_chemistry_augmentation_h_from_ph() -> None:
-    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
+    block, _verified, _declined, _ = await chemistry_context.build_chemistry_augmentation(
         "what is [H+] when pH = 3?",
         _SETTINGS,
     )
@@ -329,7 +329,7 @@ async def test_build_chemistry_augmentation_h_from_ph() -> None:
 
 
 async def test_build_chemistry_augmentation_dilution() -> None:
-    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
+    block, _verified, _declined, _ = await chemistry_context.build_chemistry_augmentation(
         "dilute a solution: M1=2 V1=1 M2=1",
         _SETTINGS,
     )
@@ -340,7 +340,7 @@ async def test_build_chemistry_augmentation_dilution() -> None:
 
 async def test_build_chemistry_augmentation_stoich_named_product_not_first_rhs() -> None:
     """'how much H2O' must not verify CO2 just because it appears first in the equation."""
-    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
+    block, _verified, _declined, _ = await chemistry_context.build_chemistry_augmentation(
         "how much H2O from 2 mol C2H6 in C2H6 + O2 -> CO2 + H2O",
         _SETTINGS,
     )
@@ -351,7 +351,7 @@ async def test_build_chemistry_augmentation_stoich_named_product_not_first_rhs()
 
 
 async def test_build_chemistry_augmentation_element_as_is_not_arsenic() -> None:
-    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
+    block, _verified, _declined, _ = await chemistry_context.build_chemistry_augmentation(
         "Which element is used as a semiconductor?",
         _SETTINGS,
     )
@@ -361,7 +361,7 @@ async def test_build_chemistry_augmentation_element_as_is_not_arsenic() -> None:
 
 
 async def test_build_chemistry_augmentation_dilution_ml_keeps_ml() -> None:
-    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
+    block, _verified, _declined, _ = await chemistry_context.build_chemistry_augmentation(
         "dilute a solution: M1=1 V1=100 mL M2=0.5",
         _SETTINGS,
     )
@@ -374,7 +374,7 @@ async def test_build_chemistry_augmentation_dilution_ml_keeps_ml() -> None:
 
 
 async def test_build_chemistry_augmentation_gas_law_zero_pressure_does_not_crash() -> None:
-    block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
+    block, _verified, _declined, _ = await chemistry_context.build_chemistry_augmentation(
         "PV=nRT find the volume of 1 mol at 0 atm and 273 K",
         _SETTINGS,
     )
@@ -458,7 +458,7 @@ async def test_logp_of_a_named_compound_uses_the_pubchem_smiles() -> None:
         chemistry_context.pubchem_gateway, "lookup_by_name", new_callable=AsyncMock
     ) as mock_lookup:
         mock_lookup.return_value = result
-        block, _verified, _declined = await chemistry_context.build_chemistry_augmentation(
+        block, _verified, _declined, _ = await chemistry_context.build_chemistry_augmentation(
             "logP of aspirin", _SETTINGS
         )
     assert block is not None
@@ -475,9 +475,9 @@ def test_chemistry_warm_runs_a_real_solve(monkeypatch: pytest.MonkeyPatch) -> No
     verified: list[bool] = []
     real = context._read_locally
 
-    def spy(content: str) -> tuple[Any, Any, Any, Any]:
+    def spy(content: str) -> Any:
         result = real(content)
-        verified.append(result[1] is not None)
+        verified.append(result.solved is not None)
         return result
 
     monkeypatch.setattr(context, "_read_locally", spy)

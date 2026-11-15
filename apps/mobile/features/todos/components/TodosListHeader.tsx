@@ -1,13 +1,15 @@
 import { useTranslation } from "react-i18next";
 
-import { todoViewCopy } from "@/features/todos/components/todoViews";
-import { RECENT_COMPLETED_DAYS, type TodoView } from "@/features/todos/model/todoListFilter";
 import { StateView } from "@/ui/feedback/StateView";
 
 type Props = {
   error: boolean;
   onRetry: () => void;
+  /** No to-dos at all: "No to-dos yet". */
   showEmpty: boolean;
+  /** Every to-do is completed: "Nothing left to do" over the folded Completed heading, which
+   * alone read as an empty page. */
+  allDone?: boolean;
 };
 
 /** Compact list state; the To-do page intentionally has no calendar wall. */
@@ -15,6 +17,7 @@ export function TodosListHeader({
   error,
   onRetry,
   showEmpty,
+  allDone = false,
 }: Props) {
   const { t } = useTranslation();
 
@@ -33,21 +36,14 @@ export function TodosListHeader({
           icon="check-circle"
           title={t("todos.empty_title")}
         />
+      ) : allDone ? (
+        <StateView
+          variant="empty"
+          compact
+          icon="check-circle"
+          title={t("todos.empty_open")}
+        />
       ) : null}
     </>
   );
-}
-
-/**
- * A view with nothing in it. It read "Nothing in this view" with no icon, and the view was
- * named only inside the ⋯ menu; its title now names the view. `olderHidden`: completed to-dos
- * older than the list's window exist, and "Show older completed" sits under it.
- */
-export function TodosViewEmpty({ view, olderHidden = false }: { view: TodoView; olderHidden?: boolean }) {
-  const { t } = useTranslation();
-  const { emptyIcon, emptyTitle, emptyTitleOlderHidden } = todoViewCopy(view);
-  const title = olderHidden && emptyTitleOlderHidden
-    ? t(emptyTitleOlderHidden, { days: RECENT_COMPLETED_DAYS })
-    : t(emptyTitle);
-  return <StateView variant="empty" icon={emptyIcon} title={title} />;
 }

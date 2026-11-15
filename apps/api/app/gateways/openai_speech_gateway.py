@@ -17,7 +17,7 @@ from typing import Literal
 import httpx
 
 from app.core.config import Settings
-from app.core.log_text import one_line
+from app.core.log_text import log_safe
 from app.gateways.http_client import get_pooled_client
 from app.gateways.speech_gateway import stt_language_code
 from app.models.model_catalog import openrouter_slug
@@ -193,15 +193,15 @@ async def create_realtime_client_secret(
                 "status=%s body=%s; minting it without the language",
                 stt_language_code(language),
                 response.status_code,
-                one_line(response.text[:400]),
+                response.text[:400],
             )
             response = await _post_client_secret(client, headers, session(None))
         if response.status_code >= 400:
             logger.warning(
                 "OpenAI Realtime client-secret failed model=%s status=%s body=%s",
-                one_line(model),
+                log_safe(model),
                 response.status_code,
-                one_line(response.text[:800]),
+                response.text[:800],
             )
         response.raise_for_status()
         payload = response.json()
@@ -256,7 +256,7 @@ async def create_realtime_call(
             logger.warning(
                 "OpenAI Realtime call failed status=%s body=%s",
                 response.status_code,
-                one_line(response.text[:400]),
+                response.text[:400],
             )
             return None
         call_id = _call_id_from_location(response.headers.get("location", ""))
@@ -280,7 +280,7 @@ async def hangup_realtime_call(settings: Settings, call_id: str) -> HangupOutcom
             headers={"Authorization": f"Bearer {key}"},
         )
     except Exception:
-        logger.warning("OpenAI Realtime hang-up failed call=%s", one_line(call_id), exc_info=True)
+        logger.warning("OpenAI Realtime hang-up failed call=%s", call_id, exc_info=True)
         return "failed"
     if response.status_code < 300:
         return "ended"
@@ -288,8 +288,8 @@ async def hangup_realtime_call(settings: Settings, call_id: str) -> HangupOutcom
         return "gone"
     logger.warning(
         "OpenAI Realtime hang-up refused call=%s status=%s body=%s",
-        one_line(call_id),
+        call_id,
         response.status_code,
-        one_line(response.text[:400]),
+        response.text[:400],
     )
     return "failed"

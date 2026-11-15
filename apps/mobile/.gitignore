@@ -6,12 +6,8 @@ node_modules/
 # Expo
 .expo/
 dist/
-# Vendored image-size ships its built CJS under dist/ (Metro override).
+# Vendored deepmerge (the GHSA-gcqx-w48m-w2h4 fix) ships its built CJS under dist/, for @expo/config and jest-config.
 !vendor/
-!vendor/image-size/
-!vendor/image-size/dist/
-!vendor/image-size/dist/**
-# So does vendored deepmerge (the GHSA-gcqx-w48m-w2h4 fix), for @expo/config and jest-config.
 !vendor/deepmerge/
 !vendor/deepmerge/dist/
 !vendor/deepmerge/dist/**

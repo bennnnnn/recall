@@ -204,10 +204,13 @@ def test_labeling_a_hypotenuse_does_not_attach_unsolicited_answer() -> None:
     assert _verified(query).canonical_answer is None
 
 
-def test_explicit_multi_measure_right_triangle_keeps_existing_answer_priority_and_model() -> None:
+def test_explicit_multi_measure_right_triangle_cards_every_measure_and_keeps_the_model() -> None:
+    """Every measure asked on the card, not the perimeter alone (2026-11-13 audit, MATH-04)."""
     query = "Find the area, perimeter and hypotenuse of a right triangle legs 3 and 4"
     verified = _verified(query)
-    assert verified.canonical_answer == "12"
+    assert verified.canonical_answer == (
+        r"A = 6\ \mathrm{units}^{2},\quad P = 12\ \mathrm{units},\quad c = 5\ \mathrm{units}"
+    )
     assert maybe_direct_math_reply(verified, query) is None
 
 

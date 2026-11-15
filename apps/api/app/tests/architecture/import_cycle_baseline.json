@@ -125,11 +125,10 @@
   },
   {
     "modules": [
-      "app.modules.math.solve.equations",
       "app.modules.math.solve.key_steps",
       "app.modules.math.solve.key_steps_special"
     ],
-    "imports": 4
+    "imports": 2
   },
   {
     "modules": [

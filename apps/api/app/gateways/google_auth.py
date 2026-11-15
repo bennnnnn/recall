@@ -12,7 +12,7 @@ from google.oauth2 import id_token
 
 from app.core.blocking import run_blocking
 from app.core.config import Settings
-from app.core.log_text import one_line
+from app.core.log_text import log_safe
 from app.core.validation import claim_is_true
 from app.exceptions import AuthenticationError
 from app.gateways.signing_keys import KeyCache, KeySet, max_age_seconds
@@ -187,6 +187,6 @@ async def verify_google_id_token(id_token_str: str, settings: Settings) -> dict[
         )
     except TimeoutError as exc:
         logger.warning(
-            "Google ID token verification timed out after %ss", one_line(f"{deadline:.1f}")
+            "Google ID token verification timed out after %ss", log_safe(round(deadline, 1))
         )
         raise GoogleAuthUnavailableError("Google sign-in is unavailable right now") from exc

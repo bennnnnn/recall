@@ -8,7 +8,11 @@ trip takes: read as v = d/t, a spring's amplitude and period were a maximum spee
 
 from __future__ import annotations
 
-from app.modules.physics.catalog.spring import MAX_ACCELERATION_ASKS, SHM_CUES
+from app.modules.physics.catalog.spring import (
+    MAX_ACCELERATION_ASKS,
+    OSCILLATION_AMPLITUDE,
+    SHM_CUES,
+)
 from app.services.law_binding.labels import LABELS
 from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
 
@@ -20,22 +24,22 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Simple-harmonic-motion equation",
         "a_{max}",
         base_latex=r"a_{max} = A\omega^2",
-        expression="x*omega**2",
+        expression="amplitude*omega**2",
         variants=(
             FormulaVariant(
                 latex=r"a_{max} = \frac{4\pi^2 A}{T^2}",
                 present=frozenset({"period"}),
-                expression="4*pi**2*x/period**2",
+                expression="4*pi**2*amplitude/period**2",
             ),
             FormulaVariant(
                 latex=r"a_{max} = 4\pi^2 A f^2",
                 present=frozenset({"freq"}),
-                expression="4*pi**2*x*freq**2",
+                expression="4*pi**2*amplitude*freq**2",
             ),
         ),
         assumptions=("simple harmonic motion",),
         variables=(
-            var("x", "A", "meter", words=("amplitude",), needs_words=True),
+            OSCILLATION_AMPLITUDE,
             var("omega", r"\omega", "radian / second"),
             var("period", "T", "second", words=LABELS["period"], needs_words=True),
             var("freq", "f", "hertz"),
@@ -43,7 +47,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         binding=Binding(
             asks=MAX_ACCELERATION_ASKS,
             result=("meter / second ** 2",),
-            inputs=tuple(frozenset({"x", rate}) for rate in ("omega", "period", "freq")),
+            inputs=tuple(frozenset({"amplitude", rate}) for rate in ("omega", "period", "freq")),
             cues=SHM_CUES,
             nonnegative=True,
         ),

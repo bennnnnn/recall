@@ -4,14 +4,13 @@
 /**
  * A date alone is held at the start of its day in the profile's zone. Read in the phone's
  * zone, that instant falls on the day before for a phone to the west (a flight not yet
- * reported, or a zone the server refused), so the list, its heading, Today, the overdue rule
- * and the editor read the day the server sends (`due_date`) instead.
+ * reported, or a zone the server refused), so the list, its heading, the overdue rule and the
+ * editor read the day the server sends (`due_date`) instead.
  */
 import { render } from "@testing-library/react-native";
 
 import { TodoDateFields } from "@/features/todos/components/TodoDateFields";
 import { dueFields, dueOfTodo, overdueAt } from "@/features/todos/model/dueDate";
-import { todosForView } from "@/features/todos/model/todoListFilter";
 import { buildTodoListRows } from "@/features/todos/model/todoListRows";
 import type { Todo } from "@/lib/api";
 import { formatDate, refreshPhoneClock } from "@/lib/datetime/format";
@@ -42,7 +41,6 @@ beforeEach(() => {
 it("lists, heads and edits it on its own day on a phone west of the profile", async () => {
   const ninthNoon = new Date(2026, 10, 9, 12, 0);
   expect(buildTodoListRows([RENT], ninthNoon)[0]).toMatchObject({ kind: "heading", section: "tomorrow" });
-  expect(todosForView([RENT], "today", ninthNoon)).toEqual([]);
   // Overdue once the 10th has ended on the phone's clock, not at 21:00 on the 9th.
   expect(overdueAt(RENT)).toBe(new Date(2026, 10, 11).getTime());
 

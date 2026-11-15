@@ -30,7 +30,6 @@ from typing import Any, TypeVar
 
 from app.core.blocking import run_blocking
 from app.core.log_context import current_log_ids
-from app.core.log_text import one_line
 from app.core.sympy_slots import OwnerTurns, SlotPool, SympyLane
 from app.core.sympy_slots import WorkerBusyError as WorkerBusyError  # callers import it here
 from app.core.sympy_worker_process import (
@@ -315,8 +314,10 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
                 async with asyncio.timeout(timeout):
                     result = await asyncio.wrap_future(future)
             except TimeoutError:
-                waited = one_line(f"{timeout:.3f}s (queued {queue_s:.3f}s)")
-                logger.warning("sympy worker timed out after %s", waited)
+                # How long it ran, measured here rather than echoing the caller's ``timeout``,
+                # which CodeQL traces to a request (py/log-injection).
+                ran = time.monotonic() - t_start
+                logger.warning("sympy worker timed out after %.3fs (queued %.3fs)", ran, queue_s)
                 future.cancel()
                 await self._kill_slot_async(slot)
                 raise

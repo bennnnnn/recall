@@ -18,7 +18,7 @@ from typing import Final
 from redis.asyncio import Redis
 from redis.exceptions import RedisError, ResponseError
 
-from app.core.log_text import one_line
+from app.core.log_text import log_safe
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ async def release_lock(redis: Redis, key: str, token: str) -> None:
             if await redis.get(key) == token:
                 await redis.delete(key)
     except (RedisError, OSError) as exc:
-        logger.warning("Lock release failed; %s expires on its TTL: %s", one_line(key), repr(exc))
+        logger.warning("Lock release failed; %s expires on its TTL: %r", log_safe(key), exc)
 
 
 async def refresh_lock(redis: Redis, key: str, token: str, ttl_seconds: int) -> bool:
