@@ -250,6 +250,30 @@ def _leading_integral_bounds(cleaned: str) -> tuple[str, str, str] | None:
     return expr, low, high
 
 
+_SIMPLIFY_NOTES = (
+    " state all excluded values",
+    " state the excluded values",
+    " include all excluded values",
+    # The symbolic verifier already creates real-valued symbols. A
+    # real-domain qualifier therefore narrows the same task; consume
+    # it instead of letting prose make sqrt(x*x) unverifiable.
+    " over the real numbers",
+    " over the reals",
+    " assuming x is real",
+    " for real x",
+)
+
+
+def _without_simplify_note(raw: str) -> str:
+    """A simplification with its note on excluded values or the real domain taken off."""
+    lower_raw = raw.lower()
+    for suffix in _SIMPLIFY_NOTES:
+        at = lower_raw.find(suffix)
+        if at != -1:
+            return raw[:at].rstrip(" ,;.")
+    return raw
+
+
 def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
     from app.modules.math import match as mtm
 
@@ -304,23 +328,7 @@ def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
             if prime_at is not None:
                 evaluation_point = prime_at.group(1)
     if calc_op == "simplify":
-        lower_raw = raw.lower()
-        for suffix in (
-            " state all excluded values",
-            " state the excluded values",
-            " include all excluded values",
-            # The symbolic verifier already creates real-valued symbols. A
-            # real-domain qualifier therefore narrows the same task; consume
-            # it instead of letting prose make sqrt(x*x) unverifiable.
-            " over the real numbers",
-            " over the reals",
-            " assuming x is real",
-            " for real x",
-        ):
-            at = lower_raw.find(suffix)
-            if at != -1:
-                raw = raw[:at].rstrip(" ,;.")
-                break
+        raw = _without_simplify_note(raw)
     raw = _split_find_clause(raw)
     raw = peel_function_definition(raw)
     # ``simplify 4x+2x=18`` is an equation, not a simplify-of-equality. Fall
