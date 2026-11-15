@@ -16,7 +16,7 @@ distance or the size at one instant of a related-rates problem is the reply's to
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from fractions import Fraction
 
 from app.modules.math.drawing.question import Question
@@ -43,8 +43,12 @@ class Label:
 
 
 def read_length(text: str, question: Question) -> Label | None:
-    """A part's label, or None when it is none the question allows."""
+    """A part's label, or None when it is none the question allows. A letter named with
+    its value ("h = 3r", "r = 5 cm") says what the value does, on the same terms."""
     text = " ".join(text.split())
+    name, equals, rest = text.partition("=")
+    if equals:
+        return _named(name.strip(), rest.strip(), text, question)
     if not text:
         return None
     value = _VALUE.match(text)
@@ -68,6 +72,32 @@ def read_length(text: str, question: Question) -> Label | None:
     shown = letter if coefficient == 1 else f"{_coefficient(coefficient)}{letter}"
     written = f"{coefficient}{term.group(2)}" in question.terms
     return Label(shown, letter=letter, coefficient=coefficient, written=written)
+
+
+def _named(name: str, rest: str, text: str, question: Question) -> Label | None:
+    """ "h = 3r": the question writes that relation; "r = 5 cm": a stated value of r."""
+    said = read_length(rest, question) if "=" not in rest else None
+    letter = read_length(name, question)
+    if said is None or letter is None or letter.letter is None or letter.coefficient != 1:
+        return None
+    if said.value is None and _spaced(text) not in {_spaced(t) for t in question.relations}:
+        return None
+    if said.value is not None and not _its_value(letter.letter, said.value, question):
+        return None
+    return replace(said, text=f"{letter.text} = {said.text}")
+
+
+def _its_value(letter: str, value: float, question: Question) -> bool:
+    """A value named by a letter is that letter's where the question gives letters values:
+    never another letter's ("r = 12 cm" beside "h = 12 cm")."""
+    exact = Fraction(value).limit_denominator(10_000)
+    mine = {given for name, given in question.assigned if name == letter}
+    others = {given for name, given in question.assigned if name != letter}
+    return exact in mine if mine else exact not in others
+
+
+def _spaced(text: str) -> str:
+    return "".join(text.split()).lower()
 
 
 def read_angle(text: str, question: Question, size: float) -> str | None:

@@ -19,7 +19,7 @@ from app.modules.math.drawing.plane import polygon_at
 from app.modules.math.drawing.question import Question, read_question
 from app.modules.math.drawing.scene import checked_scene
 from app.modules.math.drawing.shape_drawings import DRAWERS, beside, box
-from app.modules.math.drawing.shapes import FORMS, form_key, sized
+from app.modules.math.drawing.shapes import FORMS, PART_ROLES, form_key, sized
 from app.modules.math.drawing.space import draw_scene
 from app.modules.math.drawing.vocabulary import ShapePart, read_description, read_items
 from app.modules.math.figure.drawing import Drawing
@@ -47,7 +47,7 @@ def _shape(part: ShapePart, question: Question) -> Drawing | None:
     labels: dict[str, Label] = {}
     for name, text in part.labels().items():
         label = read_length(text, question)
-        if label is not None:
+        if label is not None and _its_part(name, label, question):
             labels[name] = label
     found = sized(form, labels)
     if found is None:
@@ -55,6 +55,15 @@ def _shape(part: ShapePart, question: Question) -> Drawing | None:
     if part.item == "box":
         return box(found.sizes, found.shown, lid=not part.open)
     return DRAWERS[key](found.sizes, found.shown)
+
+
+def _its_part(part: str, label: Label, question: Question) -> bool:
+    """A stated size the question names beside its number ("radius 5 cm", "12 m long") goes
+    on that part only: a cone's 12 cm height is never its radius."""
+    if label.value is None:
+        return True
+    roles = question.roles(label.value)
+    return not roles or PART_ROLES.get(part) in roles
 
 
 def _shapes(items: list[tuple[str, Any | None]], question: Question) -> FigureSpec | None:
@@ -102,8 +111,9 @@ def _held(spec: FigureSpec) -> bool:
 
 
 def _value(label: str) -> tuple[float | None, str]:
-    """A label's stated value and unit ("12 m": 12 and "m"), or None for a letter."""
-    head, _, unit = label.partition(" ")
+    """A label's stated value and unit ("12 m" and "r = 12 m": 12 and "m"), or None for a
+    letter ("r", "h = 3r")."""
+    head, _, unit = label.rpartition("= ")[2].partition(" ")
     try:
         return float(head.rstrip("°")), unit
     except ValueError:

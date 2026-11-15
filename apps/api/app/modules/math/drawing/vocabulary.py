@@ -111,12 +111,14 @@ class SpacePolygon(_Item):
 
 
 class SpaceBox(_Item):
-    """A box with its edges along x, y and z; its size (x, y, z) when the question states it,
-    its corners lettered in order (bottom ABCD from the first corner, top EFGH above them)."""
+    """A box from the origin with its edges along x, y and z: its size (x, y, z) as the
+    question states it, the corners the reply letters by where they are ({"G": [8, 6, 3]}),
+    and diagonals between lettered corners. A letter tied to its corner leaves no doubt
+    which diagonal is which (a lettering order would)."""
 
     item: Literal["box"]
     size: Triple | None = None
-    vertices: str = Field(default="", max_length=8)
+    corners: dict[Name, Triple] = Field(default_factory=dict, max_length=8)
     diagonals: list[Annotated[str, Field(min_length=2, max_length=2)]] = Field(
         default_factory=list, max_length=4
     )
@@ -126,7 +128,9 @@ class SpaceSphere(_Item):
     item: Literal["sphere"]
     name: str = Field(default="", max_length=3)
     center: Triple | None = None
-    radius: float | None = Field(default=None, gt=0, le=_MAX_COORDINATE)
+    # The radius the question states; one the reply worked out ("√5") is checked against
+    # the question's own equation instead.
+    radius: float | str | None = None
     # The sphere's equation as the question writes it: its centre and radius worked out.
     equation: str = Field(default="", max_length=120)
 

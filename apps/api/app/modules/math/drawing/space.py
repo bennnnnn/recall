@@ -49,34 +49,36 @@ def _coordinate(value: float) -> str:
 
 
 def _guides(drawing: Drawing, scene: Scene, view: View, names: dict[str, str]) -> None:
-    """Each guided point's box from the origin: its edges dashed, its feet on the axes
-    marked with the point's own coordinates."""
+    """A guided point's box from the origin, its edges dashed and its feet on the axes marked
+    with the point's own coordinates; with several guided points, each one's drop to the
+    xy-plane only (three boxes crowd out the points they locate)."""
     used = {point.name for point in drawing.points}
     for guided in scene.guides:
         x, y, z = floats(scene.points[guided])
+        if len(scene.guides) > 1:
+            if z:
+                drawing.line(names[guided], drawing.point(view((x, y, 0.0)), dot=True), dashed=True)
+            continue
         corners = {
             "x": (x, 0.0, 0.0), "y": (0.0, y, 0.0), "z": (0.0, 0.0, z),
             "xy": (x, y, 0.0), "xz": (x, 0.0, z), "yz": (0.0, y, z),
         }  # fmt: skip
         at: dict[str, str] = {"": names[ORIGIN], "xyz": names[guided]}
         for key, xyz in corners.items():
-            tick = _coordinate(xyz["xyz".index(key)]) if len(key) == 1 and xyz != (0.0,) * 3 else ""
+            tick = _coordinate(xyz["xyz".index(key)]) if len(key) == 1 and any(xyz) else ""
             name = tick if tick and tick not in used and len(tick) <= 8 else ""
             used.add(name)
             at[key] = drawing.point(view(xyz), name, show=bool(name), dot=bool(name))
-        for low, high in (
-            ("x", "xy"),
-            ("y", "xy"),
-            ("x", "xz"),
-            ("z", "xz"),
-            ("y", "yz"),
-            ("z", "yz"),
-            ("xy", "xyz"),
-            ("xz", "xyz"),
-            ("yz", "xyz"),
-        ):
+        for low, high in _GUIDE_EDGES:
             if drawing.at(at[low]) != drawing.at(at[high]):
                 drawing.line(at[low], at[high], dashed=True)
+
+
+# A guided point's box: its edges off the axes, by the corners they join.
+_GUIDE_EDGES = (
+    ("x", "xy"), ("y", "xy"), ("x", "xz"), ("z", "xz"), ("y", "yz"), ("z", "yz"),
+    ("xy", "xyz"), ("xz", "xyz"), ("yz", "xyz"),
+)  # fmt: skip
 
 
 # A box's edges along x, y and z, by its corners (``scene._CORNERS``): a stated size is

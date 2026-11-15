@@ -167,12 +167,16 @@ def _box(
     ]  # fmt: skip
     d = draw_polyhedron(shape, vertices, _BOX_FACES, labels)
     if not lid:
-        # No lid: its rim is all in sight, and no face covers the opening.
+        # No lid: its rim is all in sight, and so is the far corner inside it, down from the
+        # rim; no face covers the opening.
         rim = d.points[3].name, d.points[2].name, d.points[6].name, d.points[7].name
         for i, name in enumerate(rim):
             edge = d.side_of(name, rim[(i + 1) % 4])
             if edge is not None:
                 edge.dashed = False
+        inside = d.side_of(d.points[4].name, d.points[7].name)
+        if inside is not None:
+            inside.dashed = False
         d.faces = [face for face in d.faces if set(face) != set(rim)]
     return d
 

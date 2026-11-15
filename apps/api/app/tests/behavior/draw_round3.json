@@ -66,7 +66,7 @@
   "id": "c073",
   "prompt": "Assume your classroom is a rectangular box with a floor 8 metres long and 6 metres wide, and the height from floor to ceiling is 3 metres. (a) Find the diagonal distance between a corner of the room on the floor and the opposite corner on the ceiling. (b) Using vectors, find the angle between this diagonal and the diagonal of the floor from the same corner. Draw the room with both diagonals.",
   "working": "Corner $O$, ceiling corner $F$, floor corner $B$; angle $\\theta$.",
-  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"box\", \"size\": [8, 6, 3], \"vertices\": \"OABCDEFG\", \"diagonals\": [\"OF\", \"OB\"]}, {\"item\": \"angle\", \"at\": \"O\", \"between\": [\"F\", \"B\"], \"label\": \"θ\"}]}",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"box\", \"size\": [8, 6, 3], \"corners\": {\"O\": [0, 0, 0], \"F\": [8, 6, 3], \"B\": [8, 6, 0]}, \"diagonals\": [\"OF\", \"OB\"]}, {\"item\": \"angle\", \"at\": \"O\", \"between\": [\"F\", \"B\"], \"label\": \"θ\"}]}",
   "expect": "draw"
  },
  {

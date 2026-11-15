@@ -47,6 +47,18 @@ _GREEK = {
 }
 # A coefficient written against a letter, as a term: the "3r" of "h = 3r" ("12 m" is a length).
 _TERM = re.compile(r"(?<![\w.])(\d+(?:\.\d+)?)\*?([A-Za-z])(?![A-Za-z])")
+# A letter set equal to a multiple of another: "h = 3r", "w = 2x".
+_RELATION = re.compile(r"(?<![A-Za-z\\])[A-Za-z]\s*=\s*\d+(?:\.\d+)?\*?[A-Za-z](?![A-Za-z])")
+# A value given a letter: "r = 5 cm", "h=12".
+_ASSIGNED = re.compile(r"(?<![A-Za-z\\])([A-Za-z])\s*=\s*(\d+(?:\.\d+)?)(?![\d.A-Za-z])")
+# The words that say which part a stated size is, and how near the number they stand.
+_ROLE_WORDS = {
+    "radius": "radius", "radii": "radius", "diameter": "diameter", "across": "diameter",
+    "height": "height", "high": "height", "tall": "height", "depth": "depth", "deep": "depth",
+    "width": "width", "wide": "width", "breadth": "width", "length": "length", "long": "length",
+    "side": "side", "sides": "side", "edge": "side", "slant": "slant",
+}  # fmt: skip
+_BEFORE, _AFTER = 3, 2
 # A letter after a number and a space is its unit ("12 m", "3 h").
 _AFTER_NUMBER = re.compile(r"\d\s+$")
 
@@ -62,8 +74,24 @@ class Question:
     triples: frozenset[Triple]
     letters: frozenset[str]
     terms: frozenset[str]
+    # Each "letter = term" relation the question writes ("h = 3r"), as written, and each
+    # value it gives a letter ("r = 5 cm": ("r", 5)).
+    relations: frozenset[str]
+    assigned: frozenset[tuple[str, Fraction]]
     words: str
     texts: tuple[str, ...]
+
+    def roles(self, value: float) -> set[str]:
+        """The parts the question names right beside ``value`` ("radius 5 cm", "12 m long"):
+        empty when it names none there ("a 20 cm by 30 cm sheet")."""
+        found: set[str] = set()
+        for text in self.texts:
+            words = re.findall(r"[a-z]+|\d+(?:\.\d+)?", text.lower())
+            for at, word in enumerate(words):
+                if word.replace(".", "", 1).isdigit() and abs(float(word) - value) < 1e-9:
+                    near = words[max(0, at - _BEFORE) : at] + words[at + 1 : at + 1 + _AFTER]
+                    found |= {_ROLE_WORDS[w] for w in near if w in _ROLE_WORDS}
+        return found
 
     def states_triple(self, triple: Triple) -> bool:
         """A point the question places, or its foot on an axis or a coordinate plane: each
@@ -132,7 +160,20 @@ def read_question(texts: Sequence[str], reply: str) -> Question:
     terms = frozenset(
         f"{Fraction(number)}{letter}" for text in texts for number, letter in _TERM.findall(text)
     )
+    relations = frozenset(match.group() for text in texts for match in _RELATION.finditer(text))
+    assigned = frozenset(
+        (letter, Fraction(value)) for text in own for letter, value in _ASSIGNED.findall(text)
+    )
     words = " ".join(texts).lower()
     return Question(
-        numbers, frozenset(changing_values(own)), pairs, triples, letters, terms, words, tuple(own)
+        numbers,
+        frozenset(changing_values(own)),
+        pairs,
+        triples,
+        letters,
+        terms,
+        relations,
+        assigned,
+        words,
+        tuple(own),
     )

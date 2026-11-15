@@ -23,9 +23,10 @@ DRAW_CONTRACT = (
     '"guides":true}; {"item":"vector","name":"a","to":[x,y,z]} from the origin, or '
     '"from":"A","to":"B"; {"item":"segment","from":"A","to":"B","label":"d"}; '
     '{"item":"polygon","vertices":["A","B","C"]}; {"item":"box","size":[x,y,z],'
-    '"vertices":"ABCDEFGH","diagonals":["AG"]} (corners: the bottom ABCD from the origin, '
-    'the top EFGH above them); {"item":"sphere","name":"C","center":[x,y,z],"radius":r} '
-    'or {"item":"sphere","name":"C","equation":"..."}; {"item":"plane","through":'
+    '"corners":{"O":[0,0,0],"G":[x,y,z]},"diagonals":["OG"]} (from the origin along the '
+    'axes, each lettered corner at its coordinates); {"item":"sphere","name":"C",'
+    '"center":[x,y,z],"radius":r} or {"item":"sphere","name":"C","equation":"..."}; '
+    '{"item":"plane","through":'
     '["A","B","C"]}; {"item":"angle","at":"O","between":["a","b"],"label":"θ"}.\n'
     'kind "shape" items, each part a key whose value is its label: window (width, height, '
     "radius); rectangle (width, height); square (side); circle (radius); cylinder (radius, "

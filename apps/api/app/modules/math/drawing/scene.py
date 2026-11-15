@@ -38,7 +38,7 @@ MAIN = frozenset({"box", "sphere", "polygon", "plane"})
 _PART_LABEL = re.compile(r"\(\s*[a-z]\s*\)|(?<![\w)])[a-z]\)")
 ORIGIN = "O"
 _BOX_SIZE = (Fraction(3), Fraction(4), Fraction(2))
-# A box's corners in order: the bottom ABCD from its first corner, the top EFGH above them.
+# A box's corners: the bottom four from the origin round, then the top four above them.
 _CORNERS = [(0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0), (0, 0, 1), (1, 0, 1), (1, 1, 1), (0, 1, 1)]
 BOX_FACES = [[0, 1, 2, 3], [4, 5, 6, 7], [0, 1, 5, 4], [3, 2, 6, 7], [0, 3, 7, 4], [1, 2, 6, 5]]
 # The edges a box's length, width and height are labelled on.
@@ -144,16 +144,19 @@ def _box(item: SpaceBox, scene: Scene, question: Question) -> bool:
             return False
         for edge, value, unit in zip(_SIZE_EDGES, size, units, strict=True):
             labels[edge] = length_label(float(value), unit or "")
-    names = list(item.vertices) if len(item.vertices) == 8 else [""] * 8
-    if len({name for name in names if name}) != len([name for name in names if name]):
-        return False
+    names = [""] * 8
+    for name, written in item.corners.items():
+        place = _corner_of(_exact(written), size)
+        if place is None or names[place]:
+            return False  # a letter on no corner, or two on one: the lettering is not the box's
+        names[place] = name
     corners: list[str] = []
     for (i, j, k), name in zip(_CORNERS, names, strict=True):
-        at = (size[0] * i, size[1] * j, size[2] * k)
+        corner = (size[0] * i, size[1] * j, size[2] * k)
         # A corner the scene already holds there (the origin O) is that point.
-        if name and name in scene.points and scene.points[name] != at:
+        if name and name in scene.points and scene.points[name] != corner:
             return False
-        corners.append(scene.place(at, name))
+        corners.append(scene.place(corner, name))
         if name and _named(name, question):
             scene.shown.add(name)
     box = Box(corners, labels)
@@ -164,63 +167,102 @@ def _box(item: SpaceBox, scene: Scene, question: Question) -> bool:
     return True
 
 
-def _sphere_of(equation: str, question: Question) -> tuple[Triple, Fraction] | None:
-    """The centre and squared radius of the sphere ``equation`` writes, when the question
-    writes that equation; None for no sphere (a radius squared of 0 or less)."""
+def _corner_of(at: Triple, size: Triple) -> int | None:
+    """Which of the box's corners ``at`` is (each coordinate 0 or the box's size)."""
+    flags = []
+    for value, extent in zip(at, size, strict=True):
+        if value not in {0, extent}:
+            return None
+        flags.append(int(value == extent and extent != 0))
+    return _CORNERS.index((flags[0], flags[1], flags[2]))
+
+
+def _written_spheres(question: Question) -> list[tuple[Any, Triple, Fraction]]:
+    """Each sphere the question writes an equation of: the equation (its sides' difference),
+    its centre and its squared radius (SymPy completes the square). An equation of no real
+    sphere (a radius squared of 0 or less) is none."""
     import sympy
 
-    from app.modules.math.tool_check import parse_formula, same_value, written_relations
+    from app.modules.math.tool_check import written_relations
 
-    if equation.count("=") != 1:
-        return None
-    left, right = (parse_formula(side) for side in equation.split("="))
-    if left is None or right is None:
-        return None
-    mine = sympy.expand(left - right)
     # "(a) x² + y² + z² - 2y = 4 (b) ...": each part's equation on its own, its letter left out.
     texts = [_PART_LABEL.sub(";\n", text) for text in question.texts]
-    theirs = [lhs - rhs for text in texts for lhs, op, rhs in written_relations(text) if op == "="]
-    if not any(same_value(mine, other) or same_value(mine, -other) for other in theirs):
-        return None
     x, y, z = sympy.symbols("x y z")
-    if not mine.free_symbols <= {x, y, z}:
+    found: list[tuple[Any, Triple, Fraction]] = []
+    for text in texts:
+        for lhs, op, rhs in written_relations(text):
+            expr = sympy.expand(lhs - rhs)
+            if op != "=" or not expr.free_symbols <= {x, y, z}:
+                continue
+            poly = sympy.Poly(expr, x, y, z)
+            if poly.total_degree() != 2 or not all(c.is_Rational for c in poly.coeffs()):
+                continue
+            square = poly.coeff_monomial(x**2)
+            cross = [poly.coeff_monomial(m) for m in (x * y, x * z, y * z)]
+            if (
+                square == 0
+                or any(cross)
+                or {poly.coeff_monomial(y**2), poly.coeff_monomial(z**2)} != {square}
+            ):
+                continue
+            a = Fraction(str(square))
+            linear = [Fraction(str(poly.coeff_monomial(v))) / a for v in (x, y, z)]
+            centre = (-linear[0] / 2, -linear[1] / 2, -linear[2] / 2)
+            radius_squared = sum(c * c for c in centre) - Fraction(str(poly.coeff_monomial(1))) / a
+            if radius_squared > 0:
+                found.append((expr, centre, radius_squared))
+    return found
+
+
+def _sphere_of(item: SpaceSphere, question: Question) -> tuple[Triple, Fraction] | None:
+    """The question's own sphere the item is: the one whose equation it copies, or whose
+    centre (and radius, when it gives one) it worked out from that equation."""
+    import sympy
+
+    from app.modules.math.tool_check import parse_formula, same_value
+
+    spheres = _written_spheres(question)
+    if item.equation.strip():
+        sides = item.equation.split("=")
+        parsed = [parse_formula(side) for side in sides] if len(sides) == 2 else []
+        if len(parsed) != 2 or parsed[0] is None or parsed[1] is None:
+            return None
+        mine = sympy.expand(parsed[0] - parsed[1])
+        matches = [s for s in spheres if same_value(mine, s[0]) or same_value(mine, -s[0])]
+    elif item.center is not None:
+        centre = _exact(item.center)
+        radius = item.radius if isinstance(item.radius, int | float) else None
+        matches = [
+            s
+            for s in spheres
+            if s[1] == centre and (radius is None or abs(float(s[2]) - radius**2) < 1e-6)
+        ]
+    else:
         return None
-    poly = sympy.Poly(mine, x, y, z)
-    if poly.total_degree() != 2 or not all(c.is_Rational for c in poly.coeffs()):
-        return None
-    square = Fraction(str(poly.coeff_monomial(x**2)))
-    cross = [poly.coeff_monomial(m) for m in (x * y, x * z, y * z)]
-    if (
-        square == 0
-        or any(cross)
-        or {poly.coeff_monomial(y**2), poly.coeff_monomial(z**2)} != {sympy.Rational(str(square))}
-    ):
-        return None
-    linear = [Fraction(str(poly.coeff_monomial(v))) / square for v in (x, y, z)]
-    constant = Fraction(str(poly.coeff_monomial(1))) / square
-    centre = (-linear[0] / 2, -linear[1] / 2, -linear[2] / 2)
-    radius_squared = sum(c * c for c in centre) - constant
-    return (centre, radius_squared) if radius_squared > 0 else None
+    return (matches[0][1], matches[0][2]) if len(matches) == 1 else None
 
 
 def _sphere(item: SpaceSphere, scene: Scene, question: Question) -> bool:
     if not names_shape([question.words], "sphere"):
         return False
     label: str | None = None
-    if item.equation.strip():
-        found = _sphere_of(item.equation, question)
+    given = item.radius if isinstance(item.radius, int | float) and item.radius > 0 else None
+    radius = Fraction(given).limit_denominator(10_000) if given is not None else None
+    unit = _states_size(question, radius) if radius is not None else None
+    centre = _exact(item.center) if item.center is not None else None
+    if centre is not None and radius is not None and unit is not None:
+        held = question.states_triple(centre)
+    else:
+        held = False
+    if held and centre is not None and radius is not None and unit is not None:
+        radius_squared = radius * radius
+        label = length_label(float(radius), unit)
+    else:
+        # Not stated: the question's own sphere, its centre and radius worked from its equation.
+        found = _sphere_of(item, question)
         if found is None:
             return False
         centre, radius_squared = found
-    elif item.center is not None and item.radius is not None:
-        centre = _exact(item.center)
-        radius = Fraction(item.radius).limit_denominator(10_000)
-        unit = _states_size(question, radius)
-        if not question.states_triple(centre) or unit is None:
-            return False
-        radius_squared, label = radius * radius, length_label(float(radius), unit)
-    else:
-        return False
     if any(centre):
         name = item.name if item.name and item.name not in scene.points else ""
         if name and _named(name, question):

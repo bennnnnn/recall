@@ -292,7 +292,7 @@
   "id": "room",
   "question": "Assume your classroom is a rectangular box with a floor 8 metres long and 6 metres wide, and the height from floor to ceiling is 3 metres. Find the diagonal from a floor corner to the opposite ceiling corner, and the angle with the floor diagonal. Draw the room with both diagonals.",
   "reply": "Let $O$ be the corner and $\\theta$ the angle.",
-  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"box\", \"size\": [8, 6, 3], \"vertices\": \"OABCDEFG\", \"diagonals\": [\"OF\", \"OB\"]}, {\"item\": \"angle\", \"at\": \"O\", \"between\": [\"F\", \"B\"], \"label\": \"\\u03b8\"}]}",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"box\", \"size\": [8, 6, 3], \"corners\": {\"O\": [0, 0, 0], \"F\": [8, 6, 3], \"B\": [8, 6, 0]}, \"diagonals\": [\"OF\", \"OB\"]}, {\"item\": \"angle\", \"at\": \"O\", \"between\": [\"F\", \"B\"], \"label\": \"\\u03b8\"}]}",
   "expect": "draw",
   "labels": [
    "8 m",
@@ -357,6 +357,22 @@
   "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"sphere\", \"name\": \"C\", \"equation\": \"x^2 + y^2 + z^2 - 2y = 4\"}]}",
   "expect": "draw",
   "labels": []
+ },
+ {
+  "id": "sphere_centre_from_its_equation",
+  "question": "Decide whether each is the equation of a sphere. If it is, find its centre and radius and draw it: (a) x² + y² + z² − 2y = 4 (b) x² + y² + z² − x + 2y − 3z + 4 = 0",
+  "reply": "The centre is $C(0, 1, 0)$.",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"sphere\", \"name\": \"C\", \"center\": [0, 1, 0], \"radius\": \"\\u221a5\"}]}",
+  "expect": "draw",
+  "labels": []
+ },
+ {
+  "id": "sphere_centre_not_its_equations",
+  "question": "Decide whether each is the equation of a sphere. If it is, find its centre and radius and draw it: (a) x² + y² + z² − 2y = 4 (b) x² + y² + z² − x + 2y − 3z + 4 = 0",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"sphere\", \"center\": [0, 1, 0], \"radius\": 2}]}",
+  "expect": "drop",
+  "labels": null
  },
  {
   "id": "sphere_and_point",
@@ -451,6 +467,14 @@
   "question": "Two airplanes take off from the same airport. One heads north at 600 km/h and the other east at 700 km/h, at flight levels 10 km and 12 km. What is the distance between them after one hour? Show both planes and the airport in a 3D coordinate system.",
   "reply": "",
   "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"point\", \"name\": \"A\", \"at\": [0, 600, 10]}, {\"item\": \"point\", \"name\": \"B\", \"at\": [700, 0, 12]}, {\"item\": \"segment\", \"from\": \"A\", \"to\": \"B\"}]}",
+  "expect": "drop",
+  "labels": null
+ },
+ {
+  "id": "box_corner_off_the_box",
+  "question": "Assume your classroom is a rectangular box with a floor 8 metres long and 6 metres wide, and the height from floor to ceiling is 3 metres. Find the diagonal from a floor corner to the opposite ceiling corner, and the angle with the floor diagonal. Draw the room with both diagonals.",
+  "reply": "Let $O$ and $F$.",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"box\", \"size\": [8, 6, 3], \"corners\": {\"O\": [0, 0, 0], \"F\": [8, 6, 4]}, \"diagonals\": [\"OF\"]}]}",
   "expect": "drop",
   "labels": null
  },

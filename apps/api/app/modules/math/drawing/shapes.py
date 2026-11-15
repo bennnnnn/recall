@@ -129,6 +129,16 @@ FORMS: dict[str, Form] = {
 }
 
 
+# Each part's own word for the size beside its number: a stated size the question names as
+# another part ("height 12 cm" on a radius) is not this part's.
+PART_ROLES = {
+    "radius": "radius", "top_radius": "radius", "bottom_radius": "radius",
+    "outer_radius": "radius", "surface": "radius", "diameter": "diameter",
+    "height": "height", "outer_height": "height", "top": "height", "depth": "depth",
+    "width": "width", "length": "length", "side": "side", "slant": "slant",
+}  # fmt: skip
+
+
 def form_key(item: str, container: str | None) -> str:
     return f"{item}:{container}" if item in {"tank", "inscribed"} else item
 
