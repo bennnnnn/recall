@@ -285,9 +285,9 @@ def _intervals(text: str, variables: frozenset[str]) -> list[tuple[Any, Any]]:
     in one clause ("0 ≤ x ≤ 2π", "-5 < x ≤ -2")."""
     found: list[tuple[Any, Any]] = []
     for low, high in [*_INTERVAL.findall(text), *_FROM_TO.findall(text)]:
-        ends = (_number(low.rstrip(".,;:")), _number(high.rstrip(".,;:")))
-        if ends[0] is not None and ends[1] is not None and ends[0] != ends[1]:
-            found.append((min(ends, key=float), max(ends, key=float)))
+        a, b = _number(low.rstrip(".,;:")), _number(high.rstrip(".,;:"))
+        if a is not None and b is not None and a != b:
+            found.append((a, b) if float(a) < float(b) else (b, a))
     for part in _parts(text):
         sided = [c for c in _conditions(part, variables) if c.value.is_number]
         lows = [c.value for c in sided if c.op in {">", ">="}]

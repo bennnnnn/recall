@@ -67,10 +67,10 @@ def _stated_bounds(item: Shade, meets: list[float], question: PlotQuestion) -> l
     one of them perhaps an edge the question names ("bounded by y = x², the x-axis and
     x = 2"). Any other value the question writes bounds nothing (b01's "the gradient at
     x = 3", b03's "between 2 and 3" said of the answer)."""
-    written = [value(text) for text in (item.start, item.end)]
-    if written[0] is None or written[1] is None:
+    start, end = value(item.start), value(item.end)
+    if start is None or end is None:
         return None
-    low, high = sorted(written, key=float)
+    low, high = (start, end) if float(start) <= float(end) else (end, start)
     along_x = item.wrt == "x"
     held = stated_interval(low, high, question) if along_x else None
     if held is not None:

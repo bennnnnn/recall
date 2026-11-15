@@ -109,8 +109,8 @@ def _domain(
     for f."""
     if curve.domain is None:
         return None
-    ends = [value(text) for text in curve.domain]
-    held = stated_interval(*ends, question) if None not in ends else None
+    start, end = (value(text) for text in curve.domain)
+    held = stated_interval(start, end, question) if start is not None and end is not None else None
     if held is not None:
         return held
     return False if split else None

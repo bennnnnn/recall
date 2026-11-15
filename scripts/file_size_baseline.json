@@ -6,7 +6,7 @@
       "why": "Exception: The one model catalog (CLAUDE.md names it so); every alias as data"
     },
     "apps/api/app/modules/chat/calculation_layout.py": {
-      "lines": 539,
+      "lines": 531,
       "why": "Over 500 before the standards; one algorithm, held to its twin by docs/fixtures/presentation_cases.json (ES-06); split by responsibility after the ticketed files"
     },
     "apps/api/app/modules/chemistry/catalog.py": {
@@ -54,7 +54,7 @@
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
     },
     "apps/api/app/modules/math/solve/graph.py": {
-      "lines": 550,
+      "lines": 509,
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
     },
     "apps/api/app/modules/math/solve/key_steps.py": {
@@ -78,7 +78,7 @@
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
     },
     "apps/api/app/modules/math/tools/school/curve_points.py": {
-      "lines": 540,
+      "lines": 533,
       "why": "Over 500 before the standards; tracked in ES-09"
     },
     "apps/api/app/modules/physics/catalog/energy.py": {
@@ -134,7 +134,7 @@
       "why": "Exception: Prism grammar registration: Metro needs about 47 literal `require`s in one module"
     },
     "apps/mobile/lib/markdown/calculationLayout.ts": {
-      "lines": 519,
+      "lines": 504,
       "why": "Over 500 before the standards; one algorithm, held to its twin by docs/fixtures/presentation_cases.json (ES-06); split by responsibility after the ticketed files"
     },
     "apps/mobile/lib/math/keyboardCatalog.ts": {
