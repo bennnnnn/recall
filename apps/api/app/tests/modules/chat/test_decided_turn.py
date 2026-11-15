@@ -19,6 +19,7 @@ import pytest
 from app.models.orm import User
 from app.models.routing_lanes import ROUTING
 from app.modules.chat.decided_turn import decide_from_the_read
+from app.modules.chat.lesson_layout import prompt_lesson_layout
 from app.modules.chat.model_routing.decided import (
     Effort,
     decided_lane,
@@ -27,6 +28,7 @@ from app.modules.chat.model_routing.decided import (
 )
 from app.modules.chat.model_routing.thinking import thinking_level
 from app.modules.chat.prompt_constants.conversation import FOLLOW_NOTES
+from app.modules.chat.prompt_constants.lesson_flow import lesson_next_contract
 from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.turn_prep.context import StreamContext
 from app.modules.chat.turn_trace import begin_turn_trace
@@ -558,3 +560,115 @@ async def test_the_reads_work_never_adds_a_layout_the_rules_would_not(content: s
     ctx = _turn(content, _read("maths", False, work=True))
     await decide_from_the_read(ctx, _SETTINGS)
     assert ctx.worked is None
+
+
+# The owner's chat (2026-11-14): Lesson 2 ended on this card, and "1.2 times 10 to the 24?"
+# came back laid out Given to Answer, then "you're asking how that compares to the card?".
+_MOLES_LESSON = (
+    "### Lesson 2: Moles and particles\n\n### 1. Counting particles\n\n$$N = n \\times N_A$$\n\n"
+    "### Your turn\n\n```quiz\n"
+    '{"label": "Exercise 2", "question": "How many molecules are in 2 mol of water?", '
+    '"options": ["6.02 × 10²³", "1.204 × 10²⁴", "2 × 10²³"], "answer": 1, '
+    '"explanation": "2 × 6.02 × 10²³."}\n```'
+)
+_AFTER_CARD = [
+    SimpleNamespace(role="user", content="2 mol. continue"),
+    SimpleNamespace(role="assistant", content=_MOLES_LESSON),
+]
+
+
+def _answer_read(follow: str) -> TurnDecision:
+    return TurnDecision.model_validate(
+        {"live": False, "subject": "chemistry", "think": False, "follow": follow, "work": True}
+    )
+
+
+@pytest.mark.parametrize(
+    "content",
+    ["1.2 times 10 to the 24?", "is it 1.204 x 10^24", "B", "2 × 6.02 × 10²³ = 1.2 × 10²⁴"],
+)
+@pytest.mark.parametrize("readers_layout", [False, True], ids=["read's layout", "readers' layout"])
+@pytest.mark.asyncio
+async def test_an_answer_to_the_last_replys_card_is_graded_not_worked(
+    content: str, readers_layout: bool
+) -> None:
+    trace = begin_turn_trace("new")
+    fields: dict[str, Any] = {"recent_messages": _AFTER_CARD}
+    if readers_layout:
+        fields["worked"] = WorkedLayout()
+    ctx = _turn(content, _answer_read("answer"), **fields)
+    if readers_layout:
+        ctx.prompt_messages = with_worked_contract(ctx.prompt_messages)
+    await decide_from_the_read(ctx, _SETTINGS)
+    assert ctx.worked is None
+    assert not any("```worked" in str(m.get("content")) for m in ctx.prompt_messages)
+    note = ctx.prompt_messages[-2]
+    assert note["role"] == "system"
+    assert 'Exercise 2: "1.204 × 10²⁴"' in note["content"]
+    assert ctx.prompt_messages[-1] == {"role": "user", "content": content}
+    assert "read.quiz_answer" in trace.prompt_rules
+
+
+@pytest.mark.parametrize(
+    ("follow", "recent"),
+    [
+        # A new question after the card is solved as any question is.
+        ("solve", _AFTER_CARD),
+        ("change", _AFTER_CARD),
+        # An answer to a reply with no card, or to a flashcard (no options), is no quiz answer.
+        ("answer", [SimpleNamespace(role="assistant", content="Want another set?")]),
+        (
+            "answer",
+            [SimpleNamespace(role="assistant", content='```quiz\n{"question": "front"}\n```')],
+        ),
+    ],
+    ids=["solve", "change", "no card", "flashcard"],
+)
+@pytest.mark.asyncio
+async def test_a_new_question_after_a_card_keeps_its_worked_layout(
+    follow: str, recent: list[Any]
+) -> None:
+    trace = begin_turn_trace("new")
+    content = "How many molecules are in 3 mol of carbon dioxide?"
+    ctx = _turn(content, _answer_read(follow), recent_messages=recent)
+    await decide_from_the_read(ctx, _SETTINGS)
+    assert ctx.worked is not None
+    assert "read.quiz_answer" not in trace.prompt_rules
+
+
+_LESSON_ONE = (
+    "### Lesson 1: Atoms\n\n### 1. The idea\n\nProtons and neutrons make the nucleus.\n\n"
+    "### Your turn\n\n```quiz\n"
+    '{"label": "Exercise 1", "question": "17 protons and 18 neutrons: mass number?", '
+    '"options": ["17", "35", "18"], "answer": 1}\n```'
+)
+
+
+@pytest.mark.parametrize(
+    ("content", "follow", "goes_on"),
+    [
+        ("woah thats a lot lol. ok is it 35?", "answer", True),
+        ("ok next", "answer", True),
+        # A question of its own after the lesson is answered as itself.
+        ("how many neutrons does chlorine 37 have", "solve", False),
+        ("why is the electron not in the nucleus?", "explain", False),
+        # The lesson just above, asked for again, is pointed to, never taught on.
+        ("lets start with lesson 1", "answer", False),
+    ],
+)
+@pytest.mark.asyncio
+async def test_an_answer_to_a_lesson_gets_the_next_lessons_contract(
+    content: str, follow: str, goes_on: bool
+) -> None:
+    trace = begin_turn_trace("new")
+    recent = [
+        SimpleNamespace(role="user", content="teach me atoms"),
+        SimpleNamespace(role="assistant", content=_LESSON_ONE),
+    ]
+    ctx = _turn(content, _answer_read(follow), recent_messages=recent)
+    await decide_from_the_read(ctx, _SETTINGS)
+    contract = lesson_next_contract(1)
+    assert any(m["content"] == contract for m in ctx.prompt_messages) is goes_on
+    assert ("read.lesson_next" in trace.prompt_rules) is goes_on
+    assert prompt_lesson_layout(ctx.prompt_messages) == ("next" if goes_on else None)
+    assert ctx.prompt_messages[-1] == {"role": "user", "content": content}

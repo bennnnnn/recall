@@ -156,12 +156,22 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   “English”) first gets 5-8 topics in learning order and one question about where to
   start, and the answer (“3”, “start”, “I'm a beginner”) starts Lesson 1 there. A lesson is
   a complete reply: a one-line hook tied to the user's goal or level from memory (one fitting emoji),
-  `### Lesson 1: <topic>`, 3-5 numbered sections (`### 1. Understand the problem`, …) with
-  real-world examples, code explained line by line with its output, an `array` card for
-  values over their indexes, a trace as `steps` cards, cost in math ($O(n)$) and a
-  comparison table, then `### N. Your turn` with a `quiz` card (pick an option, **Check
-  answer**, see why; checked on the phone, nothing is sent) and one line previewing the
-  next lesson. A `quiz` or `array` fence whose JSON is broken still reads: the question,
+  `### Lesson 1: <topic>`, then numbered sections that follow what is taught: a language's
+  words get ten `**Meaning:**` / `**Example:**` sections; a concept gets the one idea, how
+  it works and one worked example (never a glossary of its terms); a process its steps as a
+  `steps` card, drawn as boxes joined by arrows (`StepFlow`), and a worked example; code
+  3-5 sections explained line by line with its output, an `array` card for values over
+  their indexes, cost in math ($O(n)$) and a comparison table. Then an unnumbered
+  `### Your turn` (the server takes the number off one the model wrote) with a `quiz` card
+  (pick an option, **Check answer**, see why; checked on the phone, nothing is sent) and
+  one line previewing the next lesson. A how-to (“how do I make a budget”, “teach me how
+  to balance an equation”) gets its steps as the same flow card; a numbered list of
+  labelled steps on such a turn becomes the card (`chat/steps_flow.py`). A practice card
+  never asks what the chat's cards already asked: their questions are listed beside the
+  message, and a card shown again word for word gives way to a fresh one
+  (`chat/practice_asked.py`). A typed answer to the last reply's card (“1.2 times 10 to
+  the 24?”) is graded against the card, never laid out as a calculation, and an answer or
+  “ok next” after a lesson gets the next lesson's contract (`chat/decided_turn.py`). A `quiz` or `array` fence whose JSON is broken still reads: the question,
   lettered options and a **Show answer** tap, or the list's values as text
   (`lib/lesson/lessonFences.ts` loose readers); a fence counts as finished once its braces close. The next turn grades a typed answer (“Correct! 🎉” or a
   short fix), then teaches Lesson N+1 from the preview; confusion re-explains the same
@@ -581,12 +591,13 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   ` ```email ` fence so Copy, follow-ups, and reopen see the same draft.
 - ✅ **Fence ownership** — [fence/registry.ts](apps/mobile/lib/fence/registry.ts) marks each
   fence `model` / `server` / `legacy`. New turns: Markdown plus a small model-facing
-  set (`copy` / drafts, `mermaid`, `chart`, `math`, lesson `quiz` / `array` / `steps`,
+  set (`copy` / drafts, `mermaid`, `chart`, `math`, lesson `quiz` / `array`, `steps` for
+  a lesson's or a how-to's steps,
   chemistry source). Server attaches
   verified `answer` / `graph` / `geometry` and `sources`; a `places` list is the model's,
   drawn where it wrote it, and keeps only the addresses the search's pages give each
   place (the pages never become a list themselves). Layout fences
-  (`steps`, `comparison`, `keyvalue`, `quote`, `clock`, `callout`)
+  (`comparison`, `keyvalue`, `quote`, `clock`, `callout`)
   still render for history; the prompt must not choose them. A `>` quote card is
   only a citation whose last line is `— Name`. `details` / `collapse` / `summary`
   and HTML `<details>` unwrap to a bold title plus markdown. Reminder

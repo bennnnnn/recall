@@ -21,15 +21,18 @@ from app.services.text_normalize import collapse_ws, straighten_apostrophes
 _LESSON_WORDS = r"lesson|lecci[oó]n|le[cç]on|lektion|lezione|li[cç][aã]o|aula|урок|ders|ትምህርት"
 
 
+# An emoji or bold marks may open it: "### 🧪 Lesson 3: Moles" was read as no lesson, and the
+# chat's next "ok next" as no lesson's (the owner's chat, 2026-11-14).
+_TITLE_OPENING = r"^\s*(?:#{1,4}\s+|\*\*)\s*(?:[^\w\s#]{1,4}\s*)?(?:" + _LESSON_WORDS + r")\s+"
 _LESSON_TITLE = re.compile(
-    r"^\s*(?:#{1,4}\s+|\*\*)\s*(?:" + _LESSON_WORDS + r")\s+(\d{1,2})\s*[:.\-—–]",
+    _TITLE_OPENING + r"(\d{1,2})\s*[:.\-—–]",
     re.MULTILINE | re.IGNORECASE,
 )
 
 
 # The same heading with its topic: "### Lesson 2: Dictionaries" -> (2, "Dictionaries").
 _LESSON_HEADING = re.compile(
-    r"^\s*(?:#{1,4}\s+|\*\*)\s*(?:" + _LESSON_WORDS + r")\s+(\d{1,2})\s*[:.\-—–]\s*(.+?)\s*\**\s*$",
+    _TITLE_OPENING + r"(\d{1,2})\s*[:.\-—–]\s*(.+?)\s*\**\s*$",
     re.MULTILINE | re.IGNORECASE,
 )
 

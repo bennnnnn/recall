@@ -12,6 +12,7 @@ from app.core.config import Settings
 from app.core.readings import read_off_loop
 from app.models.orm import Chat, User
 from app.modules.attachments import service as attachments_service
+from app.modules.chat.practice_asked import practice_questions
 from app.modules.chat.prompt_context import _load_context_blocks
 from app.modules.chat.prompt_inject import append_after_history, inject_before_last_user
 from app.modules.chat.prompt_memory import (
@@ -378,10 +379,9 @@ async def build_prompt_messages(
         recent_messages=recent_messages,
         accepted_offer=accepted_offer,
     )
-    chat = blocks.chat
     window = await load_prompt_window(
         chat_id,
-        chat,
+        blocks.chat,
         blocks.recent_all,
         settings,
         query_text=query_text,
@@ -398,7 +398,7 @@ async def build_prompt_messages(
         window=window,
         omit_message_ids=omit_message_ids,
     )
-    _fill_stats(stats, blocks.recalled, blocks.memory_hints, chat)
+    _fill_stats(stats, blocks.recalled, blocks.memory_hints, blocks.chat)
     turn = PromptTurn(
         user=user,
         settings=settings,
@@ -422,5 +422,6 @@ async def build_prompt_messages(
         memory_paused=await _memory_paused(user, settings, query_text),
         recalls_shared_past=plan.recalls_shared_past,
         holds_attachment=holds_attachment,
+        asked_practice=await practice_questions(chat_id, query_text, window.exchange),
     )
     return _assemble(turn, window, math_followup=followup == "math")

@@ -59,6 +59,7 @@ from app.modules.chat.prompt_constants import (
 )
 from app.modules.chat.prompt_constants.conversation import SUMMARY_LEAD
 from app.modules.chat.prompt_constants.multi_part import multi_part_contract
+from app.modules.chat.prompt_constants.practice import practice_asked_notes
 from app.modules.chat.prompt_constants.reactions import clock_is_relevant
 from app.modules.chat.prompt_context_hints import (
     integration_hints,
@@ -145,6 +146,7 @@ class PromptTurn:
     recalls_shared_past: bool = False
     # The message carries its own file or photo: "the pdf I attached" names it, not the past.
     holds_attachment: bool = False
+    asked_practice: tuple[str, ...] = ()  # what the chat's practice cards already asked
 
     @property
     def query(self) -> str:
@@ -465,6 +467,8 @@ NEARBY_CONTRACTS: tuple[PromptSection, ...] = (
     ),
     # A lesson or a teach-me outline: its shape here too (``lesson_layout``).
     PromptSection(_always, lambda t: lesson_contract(t.style_hints), name="lesson_contract"),
+    # What the chat's cards already asked: a new card asks something else (``practice_asked``).
+    PromptSection(_always, lambda t: practice_asked_notes(t.asked_practice), name="practice_asked"),
     # Pasted code to explain or fix: the `$...$` math rule must not reach its values.
     PromptSection(
         lambda t: not t.lightweight and bool(code_question_layout(t.query_text)),

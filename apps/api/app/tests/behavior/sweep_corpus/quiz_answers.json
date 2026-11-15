@@ -1,0 +1,342 @@
+[
+ {
+  "id": "qa-001",
+  "area": "quiz answer",
+  "prompt": "1.2 times 10 to the 24?",
+  "history": [
+   [
+    "user",
+    "teach me moles"
+   ],
+   [
+    "assistant",
+    "Correct! 🎉 36 g ÷ 18 g/mol is 2 mol.\n\n### Lesson 2: Moles and particles\n\n### 1. Counting particles\n\nOne mole holds 6.02 × 10²³ particles, so N = n × N_A.\n\n### Your turn\n\n```quiz\n{\"label\": \"Exercise 2\", \"question\": \"How many molecules are in 2 mol of water?\", \"code\": \"\", \"options\": [\"6.02 × 10²³\", \"1.204 × 10²⁴\", \"2 × 10²³\", \"1.8 × 10¹\"], \"answer\": 1, \"explanation\": \"2 × 6.02 × 10²³ = 1.204 × 10²⁴.\"}\n```\n\nOnce you get this, we'll balance equations with moles."
+   ]
+  ],
+  "reply": "Correct! 🎉 2 × 6.02 × 10²³ is 1.204 × 10²⁴.",
+  "expect": "answer"
+ },
+ {
+  "id": "qa-002",
+  "area": "quiz answer",
+  "prompt": "is it 1.204 x 10^24",
+  "history": [
+   [
+    "user",
+    "teach me moles"
+   ],
+   [
+    "assistant",
+    "Correct! 🎉 36 g ÷ 18 g/mol is 2 mol.\n\n### Lesson 2: Moles and particles\n\n### 1. Counting particles\n\nOne mole holds 6.02 × 10²³ particles, so N = n × N_A.\n\n### Your turn\n\n```quiz\n{\"label\": \"Exercise 2\", \"question\": \"How many molecules are in 2 mol of water?\", \"code\": \"\", \"options\": [\"6.02 × 10²³\", \"1.204 × 10²⁴\", \"2 × 10²³\", \"1.8 × 10¹\"], \"answer\": 1, \"explanation\": \"2 × 6.02 × 10²³ = 1.204 × 10²⁴.\"}\n```\n\nOnce you get this, we'll balance equations with moles."
+   ]
+  ],
+  "reply": "Correct! 🎉 2 × 6.02 × 10²³ is 1.204 × 10²⁴.",
+  "expect": "answer"
+ },
+ {
+  "id": "qa-003",
+  "area": "quiz answer",
+  "prompt": "2 × 6.02 × 10²³ = 1.204 × 10²⁴",
+  "history": [
+   [
+    "user",
+    "teach me moles"
+   ],
+   [
+    "assistant",
+    "Correct! 🎉 36 g ÷ 18 g/mol is 2 mol.\n\n### Lesson 2: Moles and particles\n\n### 1. Counting particles\n\nOne mole holds 6.02 × 10²³ particles, so N = n × N_A.\n\n### Your turn\n\n```quiz\n{\"label\": \"Exercise 2\", \"question\": \"How many molecules are in 2 mol of water?\", \"code\": \"\", \"options\": [\"6.02 × 10²³\", \"1.204 × 10²⁴\", \"2 × 10²³\", \"1.8 × 10¹\"], \"answer\": 1, \"explanation\": \"2 × 6.02 × 10²³ = 1.204 × 10²⁴.\"}\n```\n\nOnce you get this, we'll balance equations with moles."
+   ]
+  ],
+  "reply": "Correct! 🎉 2 × 6.02 × 10²³ is 1.204 × 10²⁴.",
+  "expect": "answer"
+ },
+ {
+  "id": "qa-004",
+  "area": "quiz answer",
+  "prompt": "B",
+  "history": [
+   [
+    "user",
+    "teach me moles"
+   ],
+   [
+    "assistant",
+    "Correct! 🎉 36 g ÷ 18 g/mol is 2 mol.\n\n### Lesson 2: Moles and particles\n\n### 1. Counting particles\n\nOne mole holds 6.02 × 10²³ particles, so N = n × N_A.\n\n### Your turn\n\n```quiz\n{\"label\": \"Exercise 2\", \"question\": \"How many molecules are in 2 mol of water?\", \"code\": \"\", \"options\": [\"6.02 × 10²³\", \"1.204 × 10²⁴\", \"2 × 10²³\", \"1.8 × 10¹\"], \"answer\": 1, \"explanation\": \"2 × 6.02 × 10²³ = 1.204 × 10²⁴.\"}\n```\n\nOnce you get this, we'll balance equations with moles."
+   ]
+  ],
+  "reply": "Correct! 🎉 2 × 6.02 × 10²³ is 1.204 × 10²⁴.",
+  "expect": "answer"
+ },
+ {
+  "id": "qa-005",
+  "area": "quiz answer",
+  "prompt": "the second one",
+  "history": [
+   [
+    "user",
+    "teach me moles"
+   ],
+   [
+    "assistant",
+    "Correct! 🎉 36 g ÷ 18 g/mol is 2 mol.\n\n### Lesson 2: Moles and particles\n\n### 1. Counting particles\n\nOne mole holds 6.02 × 10²³ particles, so N = n × N_A.\n\n### Your turn\n\n```quiz\n{\"label\": \"Exercise 2\", \"question\": \"How many molecules are in 2 mol of water?\", \"code\": \"\", \"options\": [\"6.02 × 10²³\", \"1.204 × 10²⁴\", \"2 × 10²³\", \"1.8 × 10¹\"], \"answer\": 1, \"explanation\": \"2 × 6.02 × 10²³ = 1.204 × 10²⁴.\"}\n```\n\nOnce you get this, we'll balance equations with moles."
+   ]
+  ],
+  "reply": "Correct! 🎉 2 × 6.02 × 10²³ is 1.204 × 10²⁴.",
+  "expect": "answer"
+ },
+ {
+  "id": "qa-006",
+  "area": "quiz answer",
+  "prompt": "1.2e24 molecules",
+  "history": [
+   [
+    "user",
+    "teach me moles"
+   ],
+   [
+    "assistant",
+    "Correct! 🎉 36 g ÷ 18 g/mol is 2 mol.\n\n### Lesson 2: Moles and particles\n\n### 1. Counting particles\n\nOne mole holds 6.02 × 10²³ particles, so N = n × N_A.\n\n### Your turn\n\n```quiz\n{\"label\": \"Exercise 2\", \"question\": \"How many molecules are in 2 mol of water?\", \"code\": \"\", \"options\": [\"6.02 × 10²³\", \"1.204 × 10²⁴\", \"2 × 10²³\", \"1.8 × 10¹\"], \"answer\": 1, \"explanation\": \"2 × 6.02 × 10²³ = 1.204 × 10²⁴.\"}\n```\n\nOnce you get this, we'll balance equations with moles."
+   ]
+  ],
+  "reply": "Correct! 🎉 2 × 6.02 × 10²³ is 1.204 × 10²⁴.",
+  "expect": "answer"
+ },
+ {
+  "id": "qa-007",
+  "area": "quiz answer",
+  "prompt": "is it 35?",
+  "history": [
+   [
+    "user",
+    "teach me atoms for my chemistry test"
+   ],
+   [
+    "assistant",
+    "### Lesson 1: Atoms\n\n### 1. The idea\n\nProtons and neutrons make the nucleus.\n\n### Your turn\n\n```quiz\n{\"label\": \"Exercise 1\", \"question\": \"An atom has 17 protons, 18 neutrons and 17 electrons. What is its mass number?\", \"code\": \"\", \"options\": [\"17\", \"35\", \"18\", \"52\"], \"answer\": 1, \"explanation\": \"17 + 18 = 35.\"}\n```"
+   ]
+  ],
+  "reply": "Correct! 🎉 17 + 18 = 35.",
+  "expect": "answer"
+ },
+ {
+  "id": "qa-008",
+  "area": "quiz answer",
+  "prompt": "17 + 18 = 35",
+  "history": [
+   [
+    "user",
+    "teach me atoms for my chemistry test"
+   ],
+   [
+    "assistant",
+    "### Lesson 1: Atoms\n\n### 1. The idea\n\nProtons and neutrons make the nucleus.\n\n### Your turn\n\n```quiz\n{\"label\": \"Exercise 1\", \"question\": \"An atom has 17 protons, 18 neutrons and 17 electrons. What is its mass number?\", \"code\": \"\", \"options\": [\"17\", \"35\", \"18\", \"52\"], \"answer\": 1, \"explanation\": \"17 + 18 = 35.\"}\n```"
+   ]
+  ],
+  "reply": "Correct! 🎉 17 + 18 = 35.",
+  "expect": "answer"
+ },
+ {
+  "id": "qa-009",
+  "area": "quiz answer",
+  "prompt": "35",
+  "history": [
+   [
+    "user",
+    "teach me atoms for my chemistry test"
+   ],
+   [
+    "assistant",
+    "### Lesson 1: Atoms\n\n### 1. The idea\n\nProtons and neutrons make the nucleus.\n\n### Your turn\n\n```quiz\n{\"label\": \"Exercise 1\", \"question\": \"An atom has 17 protons, 18 neutrons and 17 electrons. What is its mass number?\", \"code\": \"\", \"options\": [\"17\", \"35\", \"18\", \"52\"], \"answer\": 1, \"explanation\": \"17 + 18 = 35.\"}\n```"
+   ]
+  ],
+  "reply": "Correct! 🎉 17 + 18 = 35.",
+  "expect": "answer"
+ },
+ {
+  "id": "qa-010",
+  "area": "quiz answer",
+  "prompt": "52?",
+  "history": [
+   [
+    "user",
+    "teach me atoms for my chemistry test"
+   ],
+   [
+    "assistant",
+    "### Lesson 1: Atoms\n\n### 1. The idea\n\nProtons and neutrons make the nucleus.\n\n### Your turn\n\n```quiz\n{\"label\": \"Exercise 1\", \"question\": \"An atom has 17 protons, 18 neutrons and 17 electrons. What is its mass number?\", \"code\": \"\", \"options\": [\"17\", \"35\", \"18\", \"52\"], \"answer\": 1, \"explanation\": \"17 + 18 = 35.\"}\n```"
+   ]
+  ],
+  "reply": "Correct! 🎉 17 + 18 = 35.",
+  "expect": "answer"
+ },
+ {
+  "id": "qa-011",
+  "area": "quiz answer",
+  "prompt": "woah thats a lot lol. ok is it 35?",
+  "history": [
+   [
+    "user",
+    "teach me atoms for my chemistry test"
+   ],
+   [
+    "assistant",
+    "### Lesson 1: Atoms\n\n### 1. The idea\n\nProtons and neutrons make the nucleus.\n\n### Your turn\n\n```quiz\n{\"label\": \"Exercise 1\", \"question\": \"An atom has 17 protons, 18 neutrons and 17 electrons. What is its mass number?\", \"code\": \"\", \"options\": [\"17\", \"35\", \"18\", \"52\"], \"answer\": 1, \"explanation\": \"17 + 18 = 35.\"}\n```"
+   ]
+  ],
+  "reply": "Correct! 🎉 17 + 18 = 35.",
+  "expect": "answer"
+ },
+ {
+  "id": "qa-012",
+  "area": "quiz new question",
+  "prompt": "how many molecules are in 3 mol of carbon dioxide?",
+  "history": [
+   [
+    "user",
+    "teach me moles"
+   ],
+   [
+    "assistant",
+    "Correct! 🎉 36 g ÷ 18 g/mol is 2 mol.\n\n### Lesson 2: Moles and particles\n\n### 1. Counting particles\n\nOne mole holds 6.02 × 10²³ particles, so N = n × N_A.\n\n### Your turn\n\n```quiz\n{\"label\": \"Exercise 2\", \"question\": \"How many molecules are in 2 mol of water?\", \"code\": \"\", \"options\": [\"6.02 × 10²³\", \"1.204 × 10²⁴\", \"2 × 10²³\", \"1.8 × 10¹\"], \"answer\": 1, \"explanation\": \"2 × 6.02 × 10²³ = 1.204 × 10²⁴.\"}\n```\n\nOnce you get this, we'll balance equations with moles."
+   ]
+  ],
+  "reply": "Given n = 3 mol, N = 3 × 6.02 × 10²³ = 1.806 × 10²⁴ molecules.",
+  "expect": "answer"
+ },
+ {
+  "id": "qa-013",
+  "area": "quiz new question",
+  "prompt": "what is the mass of 0.5 mol of NaCl?",
+  "history": [
+   [
+    "user",
+    "teach me moles"
+   ],
+   [
+    "assistant",
+    "Correct! 🎉 36 g ÷ 18 g/mol is 2 mol.\n\n### Lesson 2: Moles and particles\n\n### 1. Counting particles\n\nOne mole holds 6.02 × 10²³ particles, so N = n × N_A.\n\n### Your turn\n\n```quiz\n{\"label\": \"Exercise 2\", \"question\": \"How many molecules are in 2 mol of water?\", \"code\": \"\", \"options\": [\"6.02 × 10²³\", \"1.204 × 10²⁴\", \"2 × 10²³\", \"1.8 × 10¹\"], \"answer\": 1, \"explanation\": \"2 × 6.02 × 10²³ = 1.204 × 10²⁴.\"}\n```\n\nOnce you get this, we'll balance equations with moles."
+   ]
+  ],
+  "reply": "Given n = 3 mol, N = 3 × 6.02 × 10²³ = 1.806 × 10²⁴ molecules.",
+  "expect": "answer"
+ },
+ {
+  "id": "qa-014",
+  "area": "quiz new question",
+  "prompt": "convert 50 g of water to moles",
+  "history": [
+   [
+    "user",
+    "teach me moles"
+   ],
+   [
+    "assistant",
+    "Correct! 🎉 36 g ÷ 18 g/mol is 2 mol.\n\n### Lesson 2: Moles and particles\n\n### 1. Counting particles\n\nOne mole holds 6.02 × 10²³ particles, so N = n × N_A.\n\n### Your turn\n\n```quiz\n{\"label\": \"Exercise 2\", \"question\": \"How many molecules are in 2 mol of water?\", \"code\": \"\", \"options\": [\"6.02 × 10²³\", \"1.204 × 10²⁴\", \"2 × 10²³\", \"1.8 × 10¹\"], \"answer\": 1, \"explanation\": \"2 × 6.02 × 10²³ = 1.204 × 10²⁴.\"}\n```\n\nOnce you get this, we'll balance equations with moles."
+   ]
+  ],
+  "reply": "Given n = 3 mol, N = 3 × 6.02 × 10²³ = 1.806 × 10²⁴ molecules.",
+  "expect": "answer"
+ },
+ {
+  "id": "qa-015",
+  "area": "quiz new question",
+  "prompt": "how many neutrons does chlorine-37 have?",
+  "history": [
+   [
+    "user",
+    "teach me atoms for my chemistry test"
+   ],
+   [
+    "assistant",
+    "### Lesson 1: Atoms\n\n### 1. The idea\n\nProtons and neutrons make the nucleus.\n\n### Your turn\n\n```quiz\n{\"label\": \"Exercise 1\", \"question\": \"An atom has 17 protons, 18 neutrons and 17 electrons. What is its mass number?\", \"code\": \"\", \"options\": [\"17\", \"35\", \"18\", \"52\"], \"answer\": 1, \"explanation\": \"17 + 18 = 35.\"}\n```"
+   ]
+  ],
+  "reply": "Chlorine-37 has 37 − 17 = 20 neutrons.",
+  "expect": "answer"
+ },
+ {
+  "id": "qa-016",
+  "area": "quiz new question",
+  "prompt": "what is 17 + 18 × 2?",
+  "history": [
+   [
+    "user",
+    "teach me atoms for my chemistry test"
+   ],
+   [
+    "assistant",
+    "### Lesson 1: Atoms\n\n### 1. The idea\n\nProtons and neutrons make the nucleus.\n\n### Your turn\n\n```quiz\n{\"label\": \"Exercise 1\", \"question\": \"An atom has 17 protons, 18 neutrons and 17 electrons. What is its mass number?\", \"code\": \"\", \"options\": [\"17\", \"35\", \"18\", \"52\"], \"answer\": 1, \"explanation\": \"17 + 18 = 35.\"}\n```"
+   ]
+  ],
+  "reply": "Chlorine-37 has 37 − 17 = 20 neutrons.",
+  "expect": "answer"
+ },
+ {
+  "id": "qa-017",
+  "area": "quiz answer",
+  "prompt": "13, period 4, 6.92",
+  "history": [
+   [
+    "user",
+    "quiz me on atoms"
+   ],
+   [
+    "assistant",
+    "Here's a mixed set 🧪\n\n```quiz\n{\"label\": \"Mixed 1\", \"question\": \"How many neutrons does magnesium-25 have? Its atomic number is 12.\", \"options\": [\"12\", \"13\", \"25\", \"37\"], \"answer\": 1, \"explanation\": \"25 − 12 = 13.\"}\n```\n\n```quiz\n{\"label\": \"Mixed 2\", \"question\": \"An element has the configuration 2, 8, 8, 1. Which period is it in?\", \"options\": [\"Period 1\", \"Period 4\", \"Period 3\", \"Period 8\"], \"answer\": 1, \"explanation\": \"Four shells.\"}\n```\n\n```quiz\n{\"label\": \"Mixed 3\", \"question\": \"Lithium-6 is 8% and lithium-7 is 92%. What is its relative atomic mass?\", \"options\": [\"6.5\", \"6.8\", \"6.92\", \"7.0\"], \"answer\": 2, \"explanation\": \"(6 × 8 + 7 × 92) ÷ 100 = 6.92.\"}\n```"
+   ]
+  ],
+  "reply": "All three are right ✅ 13, period 4 and 6.92.",
+  "expect": "answer"
+ },
+ {
+  "id": "qa-018",
+  "area": "quiz answer",
+  "prompt": "13 neutrons, 4, and 6.92 i think",
+  "history": [
+   [
+    "user",
+    "quiz me on atoms"
+   ],
+   [
+    "assistant",
+    "Here's a mixed set 🧪\n\n```quiz\n{\"label\": \"Mixed 1\", \"question\": \"How many neutrons does magnesium-25 have? Its atomic number is 12.\", \"options\": [\"12\", \"13\", \"25\", \"37\"], \"answer\": 1, \"explanation\": \"25 − 12 = 13.\"}\n```\n\n```quiz\n{\"label\": \"Mixed 2\", \"question\": \"An element has the configuration 2, 8, 8, 1. Which period is it in?\", \"options\": [\"Period 1\", \"Period 4\", \"Period 3\", \"Period 8\"], \"answer\": 1, \"explanation\": \"Four shells.\"}\n```\n\n```quiz\n{\"label\": \"Mixed 3\", \"question\": \"Lithium-6 is 8% and lithium-7 is 92%. What is its relative atomic mass?\", \"options\": [\"6.5\", \"6.8\", \"6.92\", \"7.0\"], \"answer\": 2, \"explanation\": \"(6 × 8 + 7 × 92) ÷ 100 = 6.92.\"}\n```"
+   ]
+  ],
+  "reply": "All three are right ✅ 13, period 4 and 6.92.",
+  "expect": "answer"
+ },
+ {
+  "id": "qa-019",
+  "area": "quiz answer",
+  "prompt": "b b c",
+  "history": [
+   [
+    "user",
+    "quiz me on atoms"
+   ],
+   [
+    "assistant",
+    "Here's a mixed set 🧪\n\n```quiz\n{\"label\": \"Mixed 1\", \"question\": \"How many neutrons does magnesium-25 have? Its atomic number is 12.\", \"options\": [\"12\", \"13\", \"25\", \"37\"], \"answer\": 1, \"explanation\": \"25 − 12 = 13.\"}\n```\n\n```quiz\n{\"label\": \"Mixed 2\", \"question\": \"An element has the configuration 2, 8, 8, 1. Which period is it in?\", \"options\": [\"Period 1\", \"Period 4\", \"Period 3\", \"Period 8\"], \"answer\": 1, \"explanation\": \"Four shells.\"}\n```\n\n```quiz\n{\"label\": \"Mixed 3\", \"question\": \"Lithium-6 is 8% and lithium-7 is 92%. What is its relative atomic mass?\", \"options\": [\"6.5\", \"6.8\", \"6.92\", \"7.0\"], \"answer\": 2, \"explanation\": \"(6 × 8 + 7 × 92) ÷ 100 = 6.92.\"}\n```"
+   ]
+  ],
+  "reply": "All three are right ✅ 13, period 4 and 6.92.",
+  "expect": "answer"
+ },
+ {
+  "id": "qa-020",
+  "area": "quiz new question",
+  "prompt": "what is the relative atomic mass of boron if boron-10 is 20% and boron-11 is 80%?",
+  "history": [
+   [
+    "user",
+    "quiz me on atoms"
+   ],
+   [
+    "assistant",
+    "Here's a mixed set 🧪\n\n```quiz\n{\"label\": \"Mixed 1\", \"question\": \"How many neutrons does magnesium-25 have? Its atomic number is 12.\", \"options\": [\"12\", \"13\", \"25\", \"37\"], \"answer\": 1, \"explanation\": \"25 − 12 = 13.\"}\n```\n\n```quiz\n{\"label\": \"Mixed 2\", \"question\": \"An element has the configuration 2, 8, 8, 1. Which period is it in?\", \"options\": [\"Period 1\", \"Period 4\", \"Period 3\", \"Period 8\"], \"answer\": 1, \"explanation\": \"Four shells.\"}\n```\n\n```quiz\n{\"label\": \"Mixed 3\", \"question\": \"Lithium-6 is 8% and lithium-7 is 92%. What is its relative atomic mass?\", \"options\": [\"6.5\", \"6.8\", \"6.92\", \"7.0\"], \"answer\": 2, \"explanation\": \"(6 × 8 + 7 × 92) ÷ 100 = 6.92.\"}\n```"
+   ]
+  ],
+  "reply": "(10 × 20 + 11 × 80) ÷ 100 = 10.8.",
+  "expect": "answer"
+ }
+]

@@ -1,4 +1,4 @@
-"""A quiz card's answer is the one its own explanation reaches.
+"""A quiz card's answer is the one its own explanation reaches; the cards a reply holds.
 
 Live (2026-10-24): "A gas has a volume of 4.0 L at 2 atm. What is the new volume if the
 pressure is increased to 8 atm?", options ["1.0 L", "2.0 L", "0.5 L", "16.0 L"], answer 2
@@ -19,11 +19,74 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Any
 
-from app.services.md_fence_scan import Fence, block_end, map_fence_blocks
+from app.services.md_fence_scan import Fence, block_end, iter_fences, map_fence_blocks
 
 QUIZ_LANG = "quiz"
+
+
+@dataclass(frozen=True)
+class PracticeCard:
+    """A ```quiz card as the learner sees it: its label, question, options and right one."""
+
+    label: str
+    question: str
+    options: tuple[str, ...]
+    answer: int | None
+
+    @property
+    def right(self) -> str | None:
+        """The right option's words, when the card names one."""
+        if self.answer is None or not 0 <= self.answer < len(self.options):
+            return None
+        return self.options[self.answer]
+
+
+def _practice_card(body: str) -> PracticeCard | None:
+    try:
+        card = json.loads(body)
+    except ValueError:
+        return None
+    if not isinstance(card, dict) or not isinstance(question := card.get("question"), str):
+        return None
+    raw = card.get("options")
+    options = tuple(str(o) for o in raw) if isinstance(raw, list) else ()
+    answer = card.get("answer")
+    label = card.get("label")
+    return PracticeCard(
+        label=label.strip() if isinstance(label, str) else "",
+        question=question.strip(),
+        options=options,
+        answer=answer if isinstance(answer, int) and not isinstance(answer, bool) else None,
+    )
+
+
+def practice_cards(text: str | None) -> list[PracticeCard]:
+    """Each closed ```quiz card in ``text`` that asks a question, in order."""
+    if not text or f"```{QUIZ_LANG}" not in text:
+        return []
+    found = (
+        _practice_card(text[fence.body_start : fence.body_end])
+        for fence in iter_fences(text)
+        if fence.closed and fence.lang == QUIZ_LANG
+    )
+    return [card for card in found if card is not None and card.question]
+
+
+def last_reply_cards(messages: Sequence[Any] | None) -> list[PracticeCard]:
+    """The cards with options the last assistant reply of an oldest-first window ends on:
+    the practice the next message may answer."""
+    for message in reversed(messages or []):
+        if getattr(message, "role", None) != "assistant":
+            continue
+        content = getattr(message, "content", None)
+        return [card for card in practice_cards(content) if card.options]
+    return []
+
+
 # Where the model corrects itself: everything from here is thinking aloud. Not "actually"
 # ("it actually doubles"), a bare "wait" ("wait 2 s"), "Hmm" or "Hold on", which teach.
 _DOUBT = re.compile(

@@ -30,6 +30,13 @@ async def recent_messages(session: AsyncSession, chat_id: UUID, *, limit: int) -
     return await _messages.list_recent(session, chat_id, limit=limit)
 
 
+async def replies_with(
+    session: AsyncSession, chat_id: UUID, needle: str, *, limit: int
+) -> list[str]:
+    """The text of the chat's last ``limit`` replies that hold ``needle``, oldest first."""
+    return await _messages.list_assistant_containing(session, chat_id, needle, limit=limit)
+
+
 async def last_user_message(session: AsyncSession, chat_id: UUID) -> Message | None:
     """The chat's latest message from the user."""
     return await _messages.get_last_user(session, chat_id)

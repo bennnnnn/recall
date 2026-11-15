@@ -591,3 +591,35 @@ async def test_drop_read_stops_a_running_read_and_leaves_a_finished_one() -> Non
     turn_decision.drop_read(finished)
     assert not finished.cancelled()
     turn_decision.drop_read(None)
+
+
+def test_the_read_sees_the_practice_card_a_long_reply_ends_on() -> None:
+    """The owner's chat (2026-11-14): Lesson 2's card sat past the first 400 characters, so
+    the read judged "1.2 times 10 to the 24?" without the question it answered."""
+    lesson = (
+        "### Lesson 2: Moles and particles\n\n"
+        + "Since one mole holds 6.02 × 10²³ particles, N = n × N_A. " * 10
+        + '\n\n### Your turn\n\n```quiz\n{"label": "Exercise 2", "question": "How many '
+        'molecules are in 2 mol of water?", "options": ["6.02 × 10²³", "1.204 × 10²⁴"], '
+        '"answer": 1}\n```\n\nOnce you get this, we\'ll balance equations.'
+    )
+    recent = [
+        SimpleNamespace(role="user", content="2 mol. continue"),
+        SimpleNamespace(role="assistant", content=lesson),
+    ]
+    (_, user), (_, quoted) = turn_decision.earlier_turns(recent)
+    assert user == "2 mol. continue"
+    assert quoted.startswith(lesson[:400])
+    assert quoted.endswith(
+        "[practice card: How many molecules are in 2 mol of water? Options: 6.02 × 10²³; "
+        "1.204 × 10²⁴]"
+    )
+    # A card already in view, or a user's long message, is quoted as it was.
+    short = 'Try this.\n\n```quiz\n{"question": "What is 6 × 7?", "options": ["42", "48"]}\n```'
+    long_user = "my notes: " + "```quiz " * 80
+    assert turn_decision.earlier_turns(
+        [
+            SimpleNamespace(role="assistant", content=short),
+            SimpleNamespace(role="user", content=long_user),
+        ]
+    ) == [("assistant", short), ("user", long_user[:400])]

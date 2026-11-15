@@ -37,6 +37,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from app.core.config import Settings
 from app.models.routing_lanes import ROUTING
 from app.modules.chat.decider_read import NEAR_LIVE_AT
+from app.modules.chat.quiz_cards import practice_cards
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,8 @@ _MAX_INPUT_CHARS = 1200
 # Each earlier message the read sees, and how many: the last two exchanges.
 _EARLIER_CHARS = 400
 _EARLIER_MESSAGES = 4
+# A reply's practice card the cut leaves out, quoted after it: its question and options.
+_CARD_CHARS = 300
 # Eight short keys: about 55 tokens of JSON.
 _MAX_TOKENS = 120
 # The backup read is asked only with this much of the budget left: it answers in about 0.7 s
@@ -218,13 +221,29 @@ def earlier_turns(recent: list[Any] | None) -> list[tuple[str, str]]:
     """The last exchanges of an oldest-first window, as the read sees them: what a short
     follow-up ("How much", "Can I walk?", "Draw it") refers to."""
     turns = [
-        (role, content[:_EARLIER_CHARS])
+        (role, _quoted(role, content))
         for message in recent or []
         if (role := getattr(message, "role", None)) in {"user", "assistant"}
         and isinstance(content := getattr(message, "content", None), str)
         and content.strip()
     ]
     return turns[-_EARLIER_MESSAGES:]
+
+
+def _quoted(role: str, content: str) -> str:
+    """The message as the read sees it: its start, and a reply's practice cards the cut left
+    out. A lesson ends on its card, past the first 400 characters: "1.2 times 10 to the 24?"
+    answered one, and read without it, it was a calculation laid out as working (the owner's
+    chat, 2026-11-14)."""
+    head = content[:_EARLIER_CHARS]
+    if role != "assistant" or len(content) <= _EARLIER_CHARS:
+        return head
+    cut = [card for card in practice_cards(content) if card.question not in head]
+    cards = " | ".join(
+        f"{card.question} Options: {'; '.join(card.options)}" if card.options else card.question
+        for card in cut
+    )
+    return f"{head} … [practice card: {cards[:_CARD_CHARS]}]" if cards else head
 
 
 def decision_messages(text: str, earlier: list[tuple[str, str]]) -> list[dict[str, str]]:
