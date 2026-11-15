@@ -8,14 +8,15 @@ it closes, as a bracket would: each call here is its own ``f((n)*pi/180)``, brac
 ``cos^2 60°``). Calls in radians may stand beside them when π brackets the angle
 (``cos(π/3)``). Anything else there, a degree mark the calls do not hold (``sin 30° + 15°``),
 another name (``arcsin 0.5``) or a bare radian call whose argument nothing ends
-(``cos π/3``), is declined, never read as one long argument.
+(``cos π/3``), is declined, never read as one long argument. Words or a list beside the calls
+("sin(30°), cos(60°) and tan(45°)") are another reader's.
 """
 
 from __future__ import annotations
 
 import re
 
-from app.modules.math.function_names import TRIG, function_name_alternation
+from app.modules.math.function_names import MATH_FUNCTION_NAMES, TRIG, function_name_alternation
 from app.modules.math.schemas import MathIntent, declined_reading
 from app.modules.math.tools.expr_rewrite import math_expr_or_none
 from app.services.number_text import SIGNED_DECIMAL
@@ -33,6 +34,11 @@ _RADIAN_TRIG_CALL = re.compile(
     re.IGNORECASE,
 )
 _PLACEHOLDER = re.compile(r"@(\d+)@")
+# Maths beside the calls that no call holds: a degree mark, or a function name.
+_UNREAD_MATHS = re.compile(
+    rf"°|\bdeg(?:rees?)?\b|(?<![a-z])(?:{function_name_alternation(MATH_FUNCTION_NAMES)})(?![a-z])",
+    re.IGNORECASE,
+)
 # What may stand between the calls: numbers, operators, brackets and π.
 _BETWEEN_CALLS = re.compile("[\\d\\s.+\\-\u2212*/\u00d7\u00b7\u00f7^()]*")
 
@@ -62,8 +68,10 @@ def degree_expression_intent(expression: str) -> MathIntent | None:
         return None
     between = _PLACEHOLDER.sub(" ", _RADIAN_TRIG_CALL.sub(" ", marked))
     between = re.sub(r"\bpi\b|π", " ", between, flags=re.IGNORECASE)
-    if _BETWEEN_CALLS.fullmatch(between) is None:
+    if _UNREAD_MATHS.search(between):
         return declined_reading("trig_degrees")
+    if _BETWEEN_CALLS.fullmatch(between) is None:
+        return None  # words or a list beside the calls: another reader's ("sin(30°), cos(60°)")
     expr = math_expr_or_none(_PLACEHOLDER.sub(lambda found: calls[int(found[1])], marked))
     if expr is None:
         return declined_reading("trig_degrees")

@@ -9,7 +9,7 @@ from app.core.config import Settings
 from app.modules.math import match as mtm
 from app.modules.math import school as math_school
 from app.modules.math.function_names import TRIG
-from app.modules.math.schemas import MathIntent, declined_reading
+from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.modules.math.tools.expr_rewrite import math_expr_or_none
 from app.modules.math.tools.school.coordinate import extract_sas_area, sas_area_block
@@ -235,7 +235,7 @@ def _extract_trig_intent(cleaned: str) -> MathIntent | None:
             rest = rest[: -len(unit)].strip()
             break
     if "°" in rest:  # "sin(30° + 15°)": a mark left inside, never converted twice
-        return declined_reading("trig_degrees")
+        return None
     arg = math_expr_or_none(rest)
     if arg is None:
         return None
