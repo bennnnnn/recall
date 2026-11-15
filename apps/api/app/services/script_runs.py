@@ -12,7 +12,8 @@ back as ˣ·e·sin(2x)/2 and the derivative of 2ˣ as 0 (grade 12 textbook round
   bracket or π): ``eˣ``, ``e⁻ˣ``, ``e²ˣ``, ``xⁿ⁻¹``, ``2ˣ⁺¹``, ``(x+1)ⁿ``. Glued to a
   Latin letter after it, the power is bracketed so it ends where the raised letters do
   (``eˣsin x`` is ``e^(x)sin x``, never ``e^xsin``). Raised letters on a number are its
-  ordinal ("le 1ᵉʳ mai"); before a letter English does not write they are a sound's (IPA's
+  ordinal ("le 1ᵉʳ mai", "le 2ᵉ", "la 2ᵈᵉ"; read as a power, a French "2ᵉ" was an instant
+  card 2^e); before a letter English does not write they are a sound's (IPA's
   "pʰæn"), and after a space there is nothing to raise. Those stay as written, and the
   parser refuses a raised or lowered character it is handed, so no reading certifies them.
 - A sign that ends a run is a charge, not part of the power: ``Fe³⁺`` keeps its ⁺.
@@ -20,10 +21,13 @@ back as ˣ·e·sin(2x)/2 and the derivative of 2ˣ as 0 (grade 12 textbook round
   ``nth``, "the 21ˢᵗ century" "the 21st century". Read as a power, "the nᵗʰ derivative"
   was n^(th) and "the 2ⁿᵈ derivative" no order at all: a checked first derivative
   (2026-11-14).
-- Raised digits before a root sign are its index: ``2 ³√27`` and ``2³√27`` are ``2 ∛27``,
-  never 2³·√27 (24√3 for 6), as ``³√`` is how a phone types a cube root. A square root
-  writes no index, so on a letter or a number a raised 2 stays its power (``x²√x``), and
-  so does a longer run (``x²³√x``).
+- Raised digits standing on nothing before a root sign (the start, a space, an operator or
+  an opening bracket) are its index: ``³√27`` is ``∛27`` and ``2 ³√27`` ``2 ∛27``, never
+  2³·√27 (24√3 for 6). Glued to what they could raise, they could be either: ``x³√x`` is
+  x·∛x or x³·√x, and read as the index, "Differentiate (x+1)³√x" and "Integrate x⁴√x"
+  were checked answers to the cube and fourth roots (review, 2026-11-15). Those stay as
+  written and get no card. A square root writes no index, so a lone raised 2 there is
+  still its power (``x²√x``).
 - Raised digits straight after a caret's number or letter go on with its power, as a
   tower groups to the right: ``e^x²`` is e^(x²), ``2^3²`` 2⁹. Any other run there raises
   nothing: ``e^(2x)ˣ`` is e^((2x)^x) or (e^(2x))^x, and nothing says which.
@@ -45,6 +49,9 @@ _SIGNS = "+-"
 _BIG_OPERATORS = frozenset("∫∬∭∮∑∏")
 # The suffixes an English ordinal raises: "1ˢᵗ", "2ⁿᵈ", "3ʳᵈ", "4ᵗʰ", "nᵗʰ".
 _ORDINAL_SUFFIXES = frozenset({"st", "nd", "rd", "th"})
+# One raised letter that is an ordinal on a number in the app's other languages: French
+# "2ᵉ" (deuxième) and "2ᵈ" (second). Longer suffixes ("1ᵉʳ", "1ʳᵉ", "2ᵈᵉ") are words already.
+_NUMBER_ORDINAL_LETTERS = frozenset({"e", "d"})
 _ROOT = "√"
 # A root's raised index as the sign that writes it; another index stays for the parser.
 _ROOT_SIGNS = {"2": _ROOT, "3": "∛", "4": "∜"}
@@ -105,13 +112,9 @@ def _written(script: str, mark: str, *, group_numbers: bool, glued: bool) -> str
     return f"{mark}({inner})"
 
 
-def root_index_at(text: str, index: int) -> tuple[str, int] | None:
-    """The index raised before a root sign at ``index``, and where the sign ends:
-    ``³√27`` → ``("3", 2)``. A run is read from its first digit. After a letter or a
-    number only one digit from 3 is an index (``2³√27`` is 2∛27); a 2 or a longer run
-    there is its power (``x²√x`` is x² times √x), since a square root writes no index.
-
-    Read as the power, "Evaluate 2³√27" was a checked 24√3 (2026-11-14)."""
+def _root_run(text: str, index: int) -> tuple[str, int] | None:
+    """The raised digits from ``index`` straight before a root sign, and where the sign
+    ends: ``³√27`` → ``("3", 2)``. A run is read from its first digit."""
     if index and text[index - 1] in SUPERSCRIPT_GLYPHS:
         return None
     end = index
@@ -123,10 +126,25 @@ def root_index_at(text: str, index: int) -> tuple[str, int] | None:
         end += 1
     if end == index or text[end : end + 1] != _ROOT:
         return None
-    digits = "".join(SUPERSCRIPT_GLYPHS[char] for char in text[index:end])
-    if index and _maths_atom(text[index - 1]) and not (len(digits) == 1 and digits >= "3"):
+    return "".join(SUPERSCRIPT_GLYPHS[char] for char in text[index:end]), end + 1
+
+
+def root_index_at(text: str, index: int) -> tuple[str, int] | None:
+    """The index raised before a root sign at ``index``, and where the sign ends, when the
+    digits stand on nothing: the start, a space, an operator or an opening bracket."""
+    run = _root_run(text, index)
+    if run is None or (index and _maths_atom(text[index - 1])):
         return None
-    return digits, end + 1
+    return run
+
+
+def unclear_root_index(text: str, index: int) -> bool:
+    """Raised digits glued to a letter, a number, π or a bracket before a root sign: the
+    index of the root or the power of what they stand on (``2³√27`` is 2∛27 = 6 or
+    2³·√27 = 24√3), and nothing says which. A lone 2 is a power, as a square root writes
+    no index."""
+    run = _root_run(text, index)
+    return run is not None and index > 0 and _maths_atom(text[index - 1]) and run[0] != "2"
 
 
 def _opening(text: str, close: int) -> int:
@@ -169,6 +187,20 @@ def _raises_here(text: str, index: int, core: str) -> bool:
     return core.isdigit() and text[index - 1] not in _CLOSED_ATOMS
 
 
+def _number_ordinal(text: str, index: int, core: str) -> bool:
+    """``2ᵉ``, ``2ᵈ``: one raised letter that is a number's ordinal in French, on a number
+    standing as a word. A limit's number (``∫_1ᵉ``) or a power's (``x^2ᵉ``) has none."""
+    if core not in _NUMBER_ORDINAL_LETTERS:
+        return False
+    start = index
+    while start and text[start - 1].isascii() and text[start - 1].isdigit():
+        start -= 1
+    if start == index:
+        return False
+    before = text[start - 1] if start else " "
+    return not (before.isalnum() or before in "_^.,")
+
+
 def _ordinal(body: str, before: str) -> bool:
     """``21ˢᵗ``, ``2ⁿᵈ``, ``nᵗʰ``, ``(n+1)ᵗʰ``: a number's or a letter's ordinal suffix."""
     if before.isascii() and before.isdigit():
@@ -204,7 +236,13 @@ def fold_superscript_runs(text: str, *, mark: str = "^", group_numbers: bool = F
             index = end
             continue
         power = None
-        if core and root is None and _raises_here(text, index, core):
+        if (
+            core
+            and root is None
+            and _raises_here(text, index, core)
+            and not unclear_root_index(text, index)
+            and not _number_ordinal(text, index, core)
+        ):
             power = _raised(core, before, after)
         if power is None:
             out.append(text[index:end])

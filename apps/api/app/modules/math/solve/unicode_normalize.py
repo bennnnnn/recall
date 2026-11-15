@@ -3,8 +3,13 @@ superscripts and subscripts, and root signs."""
 
 from __future__ import annotations
 
-from app.services.glyphs import OPERATOR_GLYPHS
-from app.services.script_runs import fold_subscript_runs, fold_superscript_runs, root_index_at
+from app.services.glyphs import OPERATOR_GLYPHS, SUPERSCRIPT_GLYPHS
+from app.services.script_runs import (
+    fold_subscript_runs,
+    fold_superscript_runs,
+    root_index_at,
+    unclear_root_index,
+)
 
 # OCR / homework unicode operators → ASCII before the allowlist runs.
 # Do NOT widen `_SAFE_EXPR_CHARS`; map glyphs here instead.
@@ -94,6 +99,17 @@ def _rewrite_unicode_higher_roots(s: str) -> str:
     return "".join(out)
 
 
+def _after_unclear_index(s: str, root_at: int) -> bool:
+    """Raised digits glued to what they could raise stand before the root sign at
+    ``root_at``: ``2³√27`` is 2∛27 or 2³·√27 (``services/script_runs.py``)."""
+    start = root_at
+    while (
+        start and s[start - 1] in SUPERSCRIPT_GLYPHS and SUPERSCRIPT_GLYPHS[s[start - 1]].isdigit()
+    ):
+        start -= 1
+    return start < root_at and unclear_root_index(s, start)
+
+
 def _rewrite_unicode_sqrts(s: str) -> str:
     """``√9`` / ``√x`` / ``√(x+1)`` → ``sqrt(...)``. Linear scan, leftover ``√`` → ``sqrt``."""
     out: list[str] = []
@@ -103,6 +119,10 @@ def _rewrite_unicode_sqrts(s: str) -> str:
     while i < n:
         if s[i] != root:
             out.append(s[i])
+            i += 1
+            continue
+        if _after_unclear_index(s, i):
+            out.append(root)  # left for the parser to refuse: index or power, nothing says
             i += 1
             continue
         i += 1

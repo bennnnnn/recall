@@ -166,15 +166,13 @@ async def test_a_raised_run_on_ten_is_one_exponent(typed: str, caret: str) -> No
         ("Solve 10²ˣ⁻¹ = 1000", "x = 2"),
         ("Solve 10⁻³ˣ = 1000", "x = -1"),
         ("What is 10²⁺¹?", "1000"),
-        # A raised index before a root sign is the root's: "2 ³√27" and "2³√27" were
+        # A raised index standing on nothing before a root sign is the root's: "2 ³√27" was
         # 2³·√27, a checked 24√3.
         ("Evaluate 2 ³√27", "6"),
-        ("Evaluate 2³√27", "6"),
         ("Evaluate 3 ⁴√16", "6"),
-        ("Evaluate 3⁴√16", "6"),
         ("Evaluate 2 ⁵√32", "4"),
         ("Evaluate ³√8", "2"),
-        ("Simplify x³√x", r"x \sqrt[3]{x}"),
+        ("Evaluate ∛27", "3"),
         # A square root writes no index, so a raised 2 is still its letter's power.
         ("Simplify x²√x", r"x^{2} \sqrt{x}"),
         ("Evaluate 2²√9", "12"),
@@ -214,7 +212,21 @@ async def test_a_raised_run_reads_as_written(typed: str, answer: str) -> None:
         "Evaluate e^2ˣ",
         "Differentiate e^(2x)²",
         "Differentiate e^x⁻¹",
+        # Glued to what it could raise before a root sign, a raised run is the root's index or
+        # that thing's power: read as the index, each was a checked answer to the other.
+        "Evaluate 2³√27",
+        "Evaluate 3⁴√16",
+        "Simplify x³√x",
+        "Differentiate (x+1)³√x",
+        "Integrate x⁴√x",
+        "Evaluate (1+1)³√4",
+        "Simplify (2x)³√x",
+        "Evaluate 10³√8",
+        "Evaluate x³√8 for x = 2",
+        # A French ordinal on a number is no power of e.
+        "2ᵉ",
+        "Combien font 2ᵉ ?",
     ],
 )
-async def test_a_raised_run_after_a_caret_power_is_declined(typed: str) -> None:
+async def test_a_raised_run_nothing_settles_is_declined(typed: str) -> None:
     assert await _verified(typed) is None

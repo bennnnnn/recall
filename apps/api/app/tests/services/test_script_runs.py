@@ -104,27 +104,40 @@ def test_the_phone_and_the_server_read_one_table() -> None:
         # Raised letters that raise nothing stay as written: another language's ordinal, a
         # sound, a letter after a space or after an accent, one before another alphabet.
         ("le 1ᵉʳ mai", "le 1ᵉʳ mai"),
+        # A French ordinal's one raised letter on a number is no power: "2ᵉ" was 2^e.
+        ("2ᵉ", "2ᵉ"),
+        ("le 3ᵉ arrondissement", "le 3ᵉ arrondissement"),
+        ("la 2ᵈᵉ guerre", "la 2ᵈᵉ guerre"),
+        ("2ᵈ", "2ᵈ"),
+        # On a letter, a limit or a power the letter is still a power.
+        ("xᵉ", "x^e"),
         ("say pʰɪn", "say pʰɪn"),
         ("the ˣ key", "the ˣ key"),
         ("eⁱᶿ", "eⁱᶿ"),
         # Only a big operator's lowered run is a limit here; a name's stays for the parser.
         ("x₁ + x₂", "x₁ + x₂"),
         ("nº 5 and 30º", "nº 5 and 30º"),
-        # A raised index before a root sign is the root's: "2 ³√27" and "2³√27" were
-        # 2³·√27, a checked 24√3 for 6. A square root writes no index, so on a letter or a
-        # number a raised 2 stays a power, and so does a longer run.
+        # A raised index standing on nothing before a root sign is the root's: "2 ³√27" was
+        # 2³·√27, a checked 24√3 for 6.
         ("2 ³√27", "2 ∛27"),
         ("3 ⁴√16 + (³√8)", "3 ∜16 + (∛8)"),
         ("²√9", "√9"),
         ("2 ⁵√32", "2 ⁵√32"),
-        ("2³√27", "2∛27"),
-        ("3⁴√16", "3∜16"),
-        ("x³√x", "x∛x"),
-        ("(x+1)³√x", "(x+1)∛x"),
+        # Glued to what it could raise, it is the root's index or that thing's power, and
+        # stays as written: read as the index, "Differentiate (x+1)³√x" was a checked answer
+        # for (x+1)·∛x (review, 2026-11-15). A lone 2 is a power, as a square root writes none.
+        ("2³√27", "2³√27"),
+        ("3⁴√16", "3⁴√16"),
+        ("x³√x", "x³√x"),
+        ("(x+1)³√x", "(x+1)³√x"),
+        ("x⁴√x", "x⁴√x"),
+        ("10³√8", "10³√8"),
+        ("π³√8", "π³√8"),
         ("2⁵√32", "2⁵√32"),
+        ("x²³√x", "x²³√x"),
         ("x²√x", "x^2√x"),
         ("2²√9", "2^2√9"),
-        ("x²³√x", "x^23√x"),
+        ("x² √x", "x^2 √x"),
         # Raised digits on a caret's number or letter go on with its power, as main read
         # them: e^x² is e^(x²), the tower grouping to the right.
         ("e^x²", "e^x^2"),
@@ -180,9 +193,9 @@ def test_a_scientific_literal_is_the_whole_raised_run(typed: str, folded: str) -
         ("⁵√32 + 1", 3),
         ("3 ⁴√16", 6),
         ("(³√27)", 3),
-        ("2³√27", 6),
-        ("3⁴√16", 6),
-        ("2⁵√32", 4),
+        ("³√27", 3),
+        ("∛27", 3),
+        ("2 ³√27", 6),
         ("2²√9", 12),
         ("2^3²", 512),
         ("2^2³", 256),
@@ -208,7 +221,6 @@ def test_the_parser_reads_a_raised_index_as_the_root(typed: str, value: int) -> 
         ("e^x²", "e^(x^2)"),
         ("x e^x²", "x e^(x^2)"),
         ("2^x²", "2^(x^2)"),
-        ("x³√x", "x (x^(1/3))"),
     ],
 )
 def test_the_parser_reads_a_run_as_the_caret(typed: str, caret: str) -> None:
@@ -228,6 +240,15 @@ def test_the_parser_reads_a_run_as_the_caret(typed: str, caret: str) -> None:
         "e^2ˣ",
         "x^{2}³",
         "e^x⁻¹",
+        "2³√27",
+        "3⁴√16",
+        "2⁵√32",
+        "x³√x",
+        "(x+1)³√x",
+        "(1+1)³√4",
+        "10³√8",
+        "x²³√x",
+        "2ᵉ",
     ],
 )
 def test_a_raised_letter_no_power_holds_is_never_a_symbol(typed: str) -> None:
