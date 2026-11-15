@@ -16,9 +16,11 @@ DRAW_CONTRACT = (
     "app works out where everything goes, and every value it shows.\n"
     '- Label a part with a value the question states, with its unit ("12 m"), or with a '
     'letter your working uses ("r", "h", "x", "d", "θ"); the app adds the value it works '
-    "out for that part. For a best size (most area, least metal), give the amount the "
-    'question fixes and the one to make best: "fixed": {"volume": "10 litres"}, '
-    '"optimise": {"surface": "min"} (amounts: perimeter, area, surface, volume).\n'
+    "out for that part. A number you worked out is left off unless the app can work it out "
+    "too: for a best size (most area, least metal, largest volume) always give the amount "
+    'the question fixes, as it states it, and the one to make best: "fixed": {"volume": '
+    '"10 litres"}, "optimise": {"surface": "min"} (amounts: perimeter, area, surface, '
+    "volume).\n"
     "- Use the question's own shape (a frustum is a frustum, a sphere is no circle). Leave "
     "out what the vocabulary cannot say. Never draw it in characters, Mermaid, SVG or a "
     "```geometry block, and do not mention the picture.\n"

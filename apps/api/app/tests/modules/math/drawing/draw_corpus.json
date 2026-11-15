@@ -692,6 +692,48 @@
   ]
  },
  {
+  "id": "sphere_radius_rounded",
+  "question": "Decide whether each is the equation of a sphere. If it is, find its centre and radius and draw it: (a) x² + y² + z² − 2y = 4 (b) x² + y² + z² − x + 2y − 3z + 4 = 0",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"sphere\", \"name\": \"C\", \"center\": [0, 1, 0], \"radius\": 2.236}]}",
+  "expect": "draw",
+  "labels": [
+   "√5"
+  ]
+ },
+ {
+  "id": "sphere_radius_wrong",
+  "question": "Decide whether each is the equation of a sphere. If it is, find its centre and radius and draw it: (a) x² + y² + z² − 2y = 4 (b) x² + y² + z² − x + 2y − 3z + 4 = 0",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"sphere\", \"center\": [0, 1, 0], \"radius\": 2.3}]}",
+  "expect": "drop",
+  "labels": null
+ },
+ {
+  "id": "angle_letter_server_sized",
+  "question": "Find the angle between the vectors (−1, 1, 1) and (2, 2, 2), and draw both vectors from the origin.",
+  "reply": "Let $a$ and $b$; $\\cos\\theta = 1/3$.",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"vector\", \"name\": \"a\", \"to\": [-1, 1, 1]}, {\"item\": \"vector\", \"name\": \"b\", \"to\": [2, 2, 2]}, {\"item\": \"angle\", \"at\": \"O\", \"between\": [\"a\", \"b\"], \"label\": \"\\u03b8\"}]}",
+  "expect": "draw",
+  "labels": [
+   "a",
+   "b",
+   "θ ≈ 70.53°"
+  ]
+ },
+ {
+  "id": "angle_letter_other_size",
+  "question": "Find the angle between the vectors (−1, 1, 1) and (2, 2, 2), and draw both vectors from the origin.",
+  "reply": "Let $a$ and $b$; $\\theta = 30^\\circ$.",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"vector\", \"name\": \"a\", \"to\": [-1, 1, 1]}, {\"item\": \"vector\", \"name\": \"b\", \"to\": [2, 2, 2]}, {\"item\": \"angle\", \"at\": \"O\", \"between\": [\"a\", \"b\"], \"label\": \"\\u03b8\"}]}",
+  "expect": "draw",
+  "labels": [
+   "a",
+   "b",
+   "arc"
+  ]
+ },
+ {
   "id": "only_axes",
   "question": "Find the distance of the point P(4, −3, 5) from the xz-plane, the yz-plane and each axis. Locate P in space and show these distances.",
   "reply": "",

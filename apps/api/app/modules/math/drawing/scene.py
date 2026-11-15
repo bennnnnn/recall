@@ -256,7 +256,11 @@ def _sphere_of(item: SpaceSphere, question: Question) -> tuple[Triple, Fraction]
         matches = [
             s
             for s in spheres
-            if s[1] == centre and (radius is None or abs(float(s[2]) - radius**2) < 1e-6)
+            if s[1] == centre
+            and (
+                radius is None
+                or abs(math.sqrt(float(s[2])) - radius) <= _ROUNDED * max(1.0, radius)
+            )
         ]
     else:
         return None
@@ -414,7 +418,11 @@ def _angle_label(text: str, size: float, question: Question) -> str | None:
     if number is not None:
         return f"{shown}°" if abs(float(number.group(1)) - size) <= 0.05 else None
     letter = read_angle(text, question, size)
-    if letter is None or letter[0].isdigit() or not _its_value(letter, size, question, _ROUNDED):
+    if letter is None or letter[0].isdigit():
+        return None
+    # The mark names the angle it is drawn at, and the server gives its size: the letter
+    # stands unless the reply works it out to another size.
+    if question.value_of(letter) and not _its_value(letter, size, question, _ROUNDED):
         return None
     return f"{letter} {'=' if exact else '≈'} {shown}°"
 
