@@ -19,6 +19,7 @@ from sympy import Symbol
 from sympy.parsing.sympy_parser import parse_expr
 
 from app.core.config import Settings
+from app.modules.math import solve as math_solve
 from app.modules.math.match.asked_operations import call_answers_reading, call_computes_the_ask
 from app.modules.math.schemas import MathIntent
 from app.modules.math.subject import MathTool
@@ -88,6 +89,11 @@ async def _card(text: str) -> str | None:
         "the graph with its asymptotes.",
         "Find the local maximum and minimum values of f(x) = (x² − 4)^(2/3) and sketch the "
         "graph, including where it is concave up or down.",
+        # A derivative given by its value, not asked (Unit 5, u5-001: the card was 2).
+        "Check that f(x) = x² + 3x + 1, g(x) = x² + 3x, h(x) = x² + 3x − 12 and k(x) = x² + 3x "
+        "+ π all have the same derivative 2x + 3. Then draw the graphs of f, g, h and k "
+        "together on the same axes. What does this tell you about ∫(2x + 3) dx?",
+        "If the derivative is 2x - 4, where is the function increasing?",
         # Where or when, not how much; a rate of the formula given, not its value.
         "Find the x-coordinate of the local minimum of f(x) = x^3 - 3x",
         "A ball's height is h = 20t - 5t^2. When is the ball at its maximum height?",
@@ -265,3 +271,30 @@ def test_a_model_computation_with_no_reading_answers_what_is_asked(
     text: str, args: dict[str, Any], answers: bool
 ) -> None:
     assert call_computes_the_ask(text, args) is answers
+
+
+@pytest.mark.parametrize(
+    ("integrand", "variable", "traced"),
+    [
+        # ln(2cos 2t - 2)/2 was the card: the log of a number never positive (Unit 5, u5-017).
+        ("sin(2*t)/(1 - cos(2*t))", "t", True),
+        ("sin(x)/(cos(x) - 1)", "x", True),
+        ("1/(x - 3)", "x", True),
+        ("-1/(1 - x)", "x", False),
+    ],
+)
+def test_a_traced_antiderivative_is_real(integrand: str, variable: str, traced: bool) -> None:
+    from app.modules.math.solve.antiderivative import differentiates_to
+    from app.modules.math.solve.integral_steps import integral_trace
+
+    steps, _problem, answer = integral_trace(integrand, variable)
+    assert bool(steps) is traced, "the working is kept"
+    card = answer or math_solve.integrate_expression(integrand, variable).latex
+    assert "\\left|" in card, card
+    result = math_solve.integrate_expression(integrand, variable)
+    symbol = Symbol(variable, real=True)
+    assert differentiates_to(
+        parse_expr(result.result, local_dict={variable: symbol}),
+        parse_expr(integrand, local_dict={variable: symbol}),
+        symbol,
+    )

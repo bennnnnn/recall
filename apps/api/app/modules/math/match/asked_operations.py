@@ -52,6 +52,11 @@ RATE_OF_CHANGE = re.compile(
 )
 # A derivative's noun phrase that a sentence then states: "the derivative of f is 2x".
 _NAMED_THEN_STATED = re.compile(r"\s+of\s+[a-zA-Z](?:\s*\([^()]{0,20}\))?\s*(?:=|is\b)")
+# A derivative the message gives by its value: "all have the same derivative 2x + 3", "the
+# derivative is 2x - 4". Its formula is the given's, not a function to differentiate.
+_DERIVATIVE_GIVEN = re.compile(
+    r"\bderivatives?\s+(?:is\s+|=\s*|equals\s+)?(?=[-(\d]|[a-z](?![a-z]))", re.IGNORECASE
+)
 # How fast a quantity changes, asked by name: a velocity, a speed, an acceleration.
 _RATE_QUANTITY = re.compile(r"\b(?:velocity|speed|acceleration)\b", re.IGNORECASE)
 # A limit asked: lim, "the limit of", "the limit as x -> 2". A speed or time limit is none.
@@ -132,6 +137,8 @@ class AskedOperations:
     features: int = 0
     # A rewrite asked by name: simplify, factor, expand.
     rewrite: bool = False
+    # Anywhere in the message, a derivative given by its value ("the same derivative 2x + 3").
+    derivative_given: bool = False
 
     @property
     def calculus(self) -> bool:
@@ -256,6 +263,7 @@ def asked_operations(text: str) -> AskedOperations:
         location=_LOCATION.search(asked) is not None,
         features=len({m.lastgroup for m in _FEATURES.finditer(asked)}),
         rewrite=bool(words & _REWRITE_WORDS),
+        derivative_given=_DERIVATIVE_GIVEN.search(fold_primes(text[:_MAX_TEXT])) is not None,
     )
 
 
@@ -409,6 +417,10 @@ def unasked_reading(text: str, intent: MathIntent) -> list[str]:
     if intent.kind in _SOLUTION_SETS and asked.calculus:
         why.append("a derivative, integral, limit or rate asked, not solutions")
     differentiated = intent.kind == "calculus" and intent.operation == "differentiate"
+    if differentiated and not asked.derivative_orders and asked.derivative_given:
+        # "Check that f, g, h and k all have the same derivative 2x + 3" differentiated the
+        # given 2x + 3 and certified 2 (2026-11-14, Unit 5).
+        why.append("a derivative given by its value, none asked")
     if differentiated and intent.school_op in _DIFFERENTIATED_READINGS and asked.derivative_orders:
         at_point = intent.evaluation_point is not None
         if not derivative_answers(asked, intent.derivative_order, at_point=at_point):

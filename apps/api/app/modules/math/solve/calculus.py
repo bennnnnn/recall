@@ -168,7 +168,7 @@ def differentiate_at_point(expr: str, variable: str, point: str) -> MathExprResu
     )
 
 
-def _absolute_logs(antiderivative: Any, integrand: Any, sym: Any) -> Any:
+def absolute_logs(antiderivative: Any, integrand: Any, sym: Any) -> Any:
     """``∫ u'/u = ln|u|``: SymPy writes ``log(u)``, true only where ``u > 0``.
 
     A log the integrand already had (``∫ ln x``) keeps its own domain, and an
@@ -188,7 +188,7 @@ def _absolute_logs(antiderivative: Any, integrand: Any, sym: Any) -> Any:
 def integrate_expression(expr: str, variable: str = "x") -> MathExprResult:
     sym = Symbol(variable)
     parsed = parse_expression(expr, [variable])
-    result = _absolute_logs(textbook_antiderivative(parsed, sym), parsed, sym)
+    result = absolute_logs(textbook_antiderivative(parsed, sym), parsed, sym)
     # integrate() can fail to find a closed form and hand back a result that
     # still contains an unevaluated Integral(...) rather than raising, or one only
     # a Piecewise over complex branches says: callers must not treat either as a
