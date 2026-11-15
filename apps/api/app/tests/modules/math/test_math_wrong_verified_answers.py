@@ -337,7 +337,7 @@ def test_it_with_no_expression_in_the_thread_stays_unresolved(
         (
             "now integrate it",
             _history("expand (x+1)^2", "```answer\nx^{2} + 2 x + 1\n```"),
-            r"Verified result: x \left(\frac{x^{2}}{3} + x + 1\right) + C",
+            r"Verified result: \frac{\left(x + 1\right)^{3}}{3} + C",
         ),
         (
             "now differentiate it",

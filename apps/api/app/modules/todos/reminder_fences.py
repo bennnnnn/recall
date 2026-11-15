@@ -35,6 +35,7 @@ from app.modules.todos.reminder_writes import ReminderWrites, create_one, load_e
 from app.modules.todos.reply_check import (
     about_saved_reminders,
     edits_prior_reply,
+    reply_to_accepted_offer,
     reply_when_nothing_saved,
 )
 from app.modules.todos.reply_claims import without_claims, without_when_questions
@@ -327,6 +328,9 @@ def _past_fence_title(spans: _Spans, user_timezone: str | None) -> str | None:
 async def _save_user_remind(turn: _Turn) -> tuple[str, int]:
     """No fence: save an explicit "remind me … at 6pm", or pass on no false claim."""
     draft = _user_remind(turn)
+    if draft is None and turn.offer is not None:
+        # A yes to the offer asked for a reminder, and the reply wrote no card for it.
+        return reply_to_accepted_offer(turn.assistant_text, turn.offer), 0
     if draft is None:
         # Right after a reply about saved reminders, "Moved **gym** to Sunday"
         # with nothing moved is a false claim.
