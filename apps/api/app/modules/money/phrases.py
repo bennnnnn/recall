@@ -29,6 +29,30 @@ COUNT = rf"(?:\d{{1,3}}(?:\.\d{{1,2}})?|{_SPELLED})"
 # A length of time; its count is ``count_value``'s.
 DURATION = rf"(?P<n>{COUNT})\s?-?\s?(?P<unit>years?|yrs?|months?|mos?)\b"
 RATE = re.compile(PERCENT, re.I)
+# A percent said in words: "six percent", "seven point five percent", "six and a half per
+# cent". The reader does not read it, so it is no rate it can work.
+SPELLED_PERCENT = re.compile(
+    rf"\b{_SPELLED}(?:\s(?:point|dot)\s(?:{_ONES}|zero)(?:\s(?:{_ONES}|zero))*)?"
+    r"\s(?:percent|per\s?cent)\b",
+    re.I,
+)
+# A rate's number said with no percent ("interest rate: 6", "APR 22.9"): the reader does
+# not certify it, and never puts today's average in its place.
+BARE_RATE = re.compile(
+    r"\b(?:interest(?:\s+rate)?|rates?|apr|apy)\s*+(?:is\s+|of\s+|at\s+|[:=]\s*)?"
+    r"(?<![\d.])\d{1,2}(?:\.\d{1,3}|,\d{1,2}(?!\d))?(?![\d.,]*\s*(?:%|percent\b|per\s?cent\b|pct\b))"
+    r"(?!\s*(?:years?|yrs?|months?|mos?|k\b|m\b|thousand|million|\d|,\d))",
+    re.I,
+)
+# A rate said as what a year earns or costs in all ("4.5% APY", "an effective annual rate of
+# 12.68%"), not as the nominal rate the card compounds.
+EFFECTIVE_RATE = re.compile(
+    r"\b(?:apy|aer|ear|eir|annual\s+percentage\s+yield|annual\s+equivalent\s+rate"
+    r"|effective\s+(?:annual\s+|yearly\s+)?(?:interest\s+)?rate"
+    r"|effective\s+(?:per\s+annum|annual(?:ly)?|yearly|p\.?\s?a\.?))\b"
+    r"|%\s*+effective\b",
+    re.I,
+)
 TERM = re.compile(rf"\b{DURATION}", re.I)
 _SCALE = r"(?:k|m|thousand|million|mil|grand)\b"
 # A sum's digits in every grouping people write: "250,000.50", "5,00,000" (lakh),
@@ -69,7 +93,10 @@ def sum_phrase(name: str) -> str:
 
 
 def grouped(num: str) -> bool:
-    """The digits are grouped as money is written ("250,000", "250.000", "5,00,000")."""
+    """The digits are grouped as money is written ("250,000", "250.000", "5,00,000", "5 000"
+    as ``ONE_SPACED`` reads it whole, with a no-break or thin space too)."""
+    if _spaced(num):
+        return " " not in num or ONE_SPACED.fullmatch(num) is not None
     return "," in num or re.fullmatch(_DOTTED, num) is not None
 
 

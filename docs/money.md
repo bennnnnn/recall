@@ -15,8 +15,8 @@ as a slider moves by **evaluating** the formula the server sent; it never solves
 |------|------|
 | Products, formulas, defaults, slider ranges (data, not code paths) | `apps/api/app/modules/money/catalog.py` |
 | Reading a request (product, amount, rate, term, payment, currency, country) | `apps/api/app/modules/money/read.py`; the kind (a used car), `kinds.py`; the term, `terms.py` |
-| How often the rate, the payments and the deposits run ("2% per month", "48 monthly payments") | `apps/api/app/modules/money/periods.py` (the one period vocabulary); what each period word belongs to and the loan's own schedule ("8 quarterly payments", never "HOA dues paid quarterly"), `schedule.py` |
-| Whether a reading is one the product is worked at (term on its slider, two payments, a rate it is quoted at, "borrowed" from a lender at a rate, a stated payment) | `apps/api/app/modules/money/fits.py` |
+| How often the rate, the payments and the deposits run ("2% per month", "48 monthly payments") | `apps/api/app/modules/money/periods.py` (the one period vocabulary); what each period word belongs to and the loan's own schedule ("8 quarterly payments", never "HOA dues paid quarterly"), `schedule.py`; whose payments a phrase names (the loan's own, never "our insurance's"), `ownership.py` |
+| Whether a reading is one the product is worked at (term on its slider, two payments, a rate it is quoted at, "borrowed" from a lender at a rate, a stated payment, one loan named, the level shape: no first payment timed otherwise, no balloon) | `apps/api/app/modules/money/fits.py` |
 | A what-if that changes the chat's last request ("what if i only do 3 years instead") | `apps/api/app/modules/money/follow_up.py`, its grammar `change_line.py` |
 | A loan told over two lines ("I am planning to buy a car", then "20k with 6 percent") | `apps/api/app/modules/money/purchase.py`; what each loan buys, `Product.goods` |
 | The card's currency and the country a rate search names | `apps/api/app/modules/money/currencies.py` |
@@ -173,6 +173,40 @@ product's term slider and at least two payments ("for 2 weeks", "900 monthly pay
 its frequency is paid by it ("36 monthly deposits of $200" deposits 200 a month for 3 years,
 never a start of 200; "quarterly deposits of $500" pays in each quarter, which no product
 works).
+
+**Whose payments, and what shape** (`ownership.py`, `fits.py`; a third review, 2026-11-14,
+found "a $20,000 car loan at 6% with 24 monthly payments missed" worked over 24 months, "and
+we pay our insurance in 4 quarterly payments" setting the loan's schedule, "the first one
+made today" and "a final balloon of $5,000" worked as an ordinary loan, and "2% per mth" as a
+yearly 2%). A count of payments is the loan's term only when its clause's subject or object
+is the loan ("A $20,000 car loan at 6% with …", "repay it in …", "is to be repaid in …",
+"The rate is 2% on a $10,000 loan … with quarterly payments"), the clause follows the loan
+after a comma, or the payments are said to be on it ("12 quarterly payments on a loan of
+10,000"; never "on my old car" or "her loan"), and only when nothing follows them but the
+clause's end, a sum, a term, a rate or the loan ("missed", "already made", "left",
+"deferred", "that I missed" make it none). A length still to run ("3 years left") reads no
+term. The loan's sentences that time its first payment otherwise than one period after the
+loan is made ("the first one made today", "beginning at the end of the third year",
+"starting 6 months from now", "in advance", "at the beginning of each year", "after a 2 year
+deferment", "a 6-month grace period", "after graduation", "on signing"), or leave a part of
+it to its end ("balloon", "residual", "a final payment", "a lump sum", "a guaranteed future
+value", "$10,000 due at the end"), or put another sum into it ("a $1,200 warranty rolled
+in"), work no numbers; "the first due one year from now" and "at the end of the first year"
+are the ordinary timing and are worked. A grace period of days or weeks is a late fee's
+window, not a deferral. A period the vocabulary does not read ("per semester", "per 30 days",
+"per six months", "/ fortnight") and a rate not charged on the balance ("9% flat", "2% per
+month flat", "6% add-on") leave the rate unknown, never yearly; "per mth", "pcm", "per
+calendar month", "p/m" and "per qtr" are read. A rate in words ("six percent") or with no
+percent ("interest rate: 6") is none the reader certifies, so today's average never takes its
+place. A savings rate said as its year's yield ("4.5% APY", "AER") compounds once a year at
+it; a loan's effective rate ("EAR", "an effective annual rate of 12.68%") works none. Two
+loans named by their own words ("my car loan … my student loan", "a car loan …; I also have
+a mortgage", a savings account beside a personal loan), two sums borrowed together ("$20,000
+for a car and $5,000 for a motorbike"), a savings goal ("to have $20,000 in 10 years") and a
+length in another of the app's languages ("25 Jahre") work none. A length joined to a noun
+that is not the loan's ("a 3-year warranty") or said in a clause about none of its things
+("we plan to stay 7 years") is no term. A sum with spaced thousands ("down 5 000") is read
+where a comma-grouped one is.
 
 A term the user didn't give comes from the row's default (a 30-year mortgage, a 5-year car loan),
 and the reply says it assumed one. A count no word says how often it is paid ("60 payments")

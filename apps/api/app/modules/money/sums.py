@@ -15,7 +15,7 @@ worked from it.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from app.modules.money.periods import (
     OTHER_DURATION,
@@ -61,6 +61,9 @@ class Sum:
     other_period: bool = False
     # Said to be the payment ("payments of $500", "my EMI is 2,000"): never the loan.
     payment: bool = False
+    # Said to be reached ("to have $20,000 in 10 years", "to accumulate $50,000"): a goal,
+    # never the sum saved from.
+    goal: bool = False
 
 
 # How often a sum is paid, said right after it in the shared vocabulary (``periods``): "200
@@ -110,7 +113,19 @@ _LOAN_BEFORE = re.compile(
 _LOAN_AFTER = re.compile(
     r"\s?(?:(?:car|auto|home|house|student|personal|business|bank)\s)?(?:loan|mortgage)\b", re.I
 )
+_GOAL_BEFORE = re.compile(
+    r"\b(?:to\s(?:have|reach|accumulate|get|hit|grow\sto|end\sup\swith|build(?:\sup)?)"
+    r"|reach(?:es|ing)?|goal\s(?:of|is)|target\s(?:of|is))\s?$",
+    re.I,
+)
 _BORROWED_BEFORE = re.compile(r"\b(?:borrow(?:s|ed|ing)?|owe[sd]?|owing)(?:\sup\sto)?\s?$", re.I)
+# A sum joined to the one before it shares its verb: "borrowing $20,000 for a car and $5,000
+# for a motorbike" borrows both.
+_JOINED_BEFORE = re.compile(
+    r"\d\s?(?:k|m|thousand|grand)?(?:\s(?:for|on|to)\s(?:(?:a|an|the|my|our)\s)?[a-z]+)?"
+    r"\s?(?:,|and|plus|&)\s(?:another\s)?$",
+    re.I,
+)
 _PRICE_BEFORE = re.compile(
     r"\b(?:costs?|costing|priced\sat|price(?:\s(?:of|is|tag\sof))?|worth|sells?\sfor|"
     r"selling\sfor|valued\sat)\s?$",
@@ -219,7 +234,10 @@ def amounts(text: str) -> list[Sum] | None:
         number = amount_value(match["num"])
         if match.group("mult"):
             number *= MULTIPLIERS[match["mult"].lower()]
-        found.append(_sum(number, before, rest, clause, lead, sum_period(ahead)))
+        item = _sum(number, before, rest, clause, lead, sum_period(ahead))
+        if found and found[-1].borrowed and _JOINED_BEFORE.search(before):
+            item = replace(item, borrowed=True)
+        found.append(item)
     return found
 
 
@@ -263,6 +281,7 @@ def _sum(value: float, before: str, rest: str, clause: str, lead: str, period: i
         paid=_PAID_BEFORE.search(before) is not None,
         income=_INCOME_BEFORE.search(before) is not None or _INCOME_AFTER.match(rest) is not None,
         payment=_PAYMENT_BEFORE.search(before) is not None,
+        goal=_GOAL_BEFORE.search(before) is not None,
         other_period=_paid_every(clause) not in (None, 12, 1)
         or _MONTH_START.match(clause) is not None
         or period not in (None, 12),

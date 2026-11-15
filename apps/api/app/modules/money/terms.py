@@ -29,7 +29,8 @@ import math
 import re
 from collections.abc import Mapping
 
-from app.modules.money.catalog import Product
+from app.modules.money.catalog import PRODUCTS, Product
+from app.modules.money.ownership import clean_after, owned
 from app.modules.money.periods import OTHER_DURATION, paid_by, payment_counts
 from app.modules.money.phrases import TERM, count_value
 from app.modules.money.schedule import sentence_kinds
@@ -46,10 +47,38 @@ _REPAID = re.compile(
 # Or an item between commas: "car loan $30k, 72 monthly payments, 6.9% apr".
 _ITEM_BEFORE = re.compile(r"(?:^|[,;:])\s*+$")
 _ITEM_AFTER = re.compile(r"\s*+(?:$|[,;.!?])")
+# A length in years or months that is another thing's is no term (2026-11-14 review): one
+# joined to a noun that is not the loan's ("a 3-year warranty"), one "of" another thing
+# ("my 4 years of school"), or one after a word that opens no length in a clause about none
+# of the loan's things ("we plan to stay 7 years"). Every other is read as before.
+_OPENS_LENGTH = re.compile(
+    r"\b(?:for|over|in|within|of|after|next|a|an|the|my|our|your|this|that|is|be|term|tenure|"
+    r"duration|period|length|maturity)\s*+$",
+    re.I,
+)
+_WORD_AFTER = re.compile(r"(?P<joined>-)?\s*+(?P<word>[a-z]+)(?:\s++of\s++(?P<what>[a-z]+))?", re.I)
+# Words after a length that are no noun it describes: "3 year at 6%", "5 years for it".
+_FUNCTION = frozenset(
+    "at for in on of to with and or but is are was be the a an from by as so if then than per "
+    "each every it its that this which when while i we you he she they my our your please "
+    "only now plus total max later instead".split()
+)
+# What a length joined to a noun may name: the loan or its term ("30-year fixed", "a 10-year
+# standard plan", "a 5-year car loan").
+_TERM_NAMES = frozenset(
+    "term terms fixed variable arm amortization amortisation repayment repayments plan "
+    "schedule loan loans mortgage mortgages note deal financing finance period payoff payback "
+    "standard payments payment".split()
+)
+_ABOUT_LOAN = re.compile(
+    r"\b(?:it|them|the\s+loan|repa\w*|pay\s+(?:it\s+)?off)\b|%|[$€£¥₹₦]\s?\d", re.I
+)
 # A length naming the loan: "a 26-week loan", "a 90-day term".
 _NAMES_LOAN = re.compile(r"[\s-]?(?:loan|term|mortgage|plan)\b", re.I)
 
 _YEARS = {"year", "years", "yr", "yrs"}
+# Every product's name: "a 5 year car loan" names the loan after its length.
+_LOAN_WORDS = tuple(word for item in PRODUCTS for word in (*item.words, *item.asked_words))
 # A length of time that is no term: an age, time gone by, a gap, payments already made
 # ("ten years ago", "thirty years old", "five years apart", "been paying for three years",
 # "twelve months of payments", "for the past 3 years", "every 3 months").
@@ -95,6 +124,17 @@ _CLAUSE_BREAK = re.compile(
     r"[.?!;](?=\s|$)|\n|,\s|\b(?:and|but|so|or|yet|then|because|while|although|though)\b",
     re.I,
 )
+# A length in another of the app's languages ("25 Jahre", "5 años", "10 ans", "3 anni"): one
+# the reader cannot read, so no term is (2026-11-14: "25 Jahre" was left to an assumed 30).
+_FOREIGN_LENGTH = re.compile(
+    r"(?<![\w.,])\d{1,3}\s?-?\s?(?:jahre?n?|monate?n?|años?|anos?|mes|meses|mês|ans|années?|mois"
+    r"|anni|anno|mesi|mese|\u0433\u043e\u0434\u0430?|\u043b\u0435\u0442"
+    r"|\u043c\u0435\u0441\u044f\u0446(?:\u0430|\u0435\u0432)?|y\u0131l|ay|ዓመት|ወር)(?![\w-])",
+    re.I,
+)
+# A length still to run ("3 years left", "2 years remaining"): the loan is part-paid, and
+# the sum may be what was lent or what is owed, so no term is read.
+_LEFT_AFTER = re.compile(r"\s*+(?:left|remaining|to\s++go)\b", re.I)
 # A count word right before a term the reader did not take in whole ("two thousand and
 # twenty months"): the term is not read.
 _SCALE_BEFORE = re.compile(r"\b(?:hundred|thousand)\s(?:and\s)?$", re.I)
@@ -106,6 +146,7 @@ def read_term(
     paid: int | None,
     schedule: int = 12,
     names: tuple[str, ...] = (),
+    own_names: tuple[str, ...] = (),
 ) -> dict[str, float] | None:
     """The term the message gives, in the product's own unit; {} for none, None for two
     ("15 or 30 years", "a 3 year or 5 year car loan") or for a length it cannot read and no
@@ -114,17 +155,25 @@ def read_term(
     A count of payments is paid as its own words say ("48 monthly payments"), else ``paid``
     times a year. One said by another frequency than the loan's ``schedule`` ("I can manage
     20 quarterly payments" on a loan read as monthly) is not this loan's count: no term.
-    ``names`` are the words naming the request's product, which mark the loan's sentences."""
+    ``names`` are the words naming the request's product, which mark the loan's sentences;
+    ``own_names`` the loan's own names, which a count's clause must have as its subject or
+    object ("repay it in 48 monthly payments", never "we pay our insurance in 4 quarterly
+    payments"), with nothing after its payments but a sum, a rate, a term or the clause's end
+    (never "24 monthly payments missed")."""
     terms: set[tuple[tuple[str, float], ...]] = set()
     loan, about = sentence_kinds(text, names)
+    if _FOREIGN_LENGTH.search(text):
+        return None
     for match in TERM.finditer(text):
         before = text[max(0, match.start() - 30) : match.start()]
-        if _SCALE_BEFORE.search(before):
+        if _SCALE_BEFORE.search(before) or _LEFT_AFTER.match(text, match.end()):
             return None
         if _no_term(text, match):
             continue
         if _TERM_CHOICE.search(before):
             return None
+        if not _said_as_term(text, match, names):
+            continue
         terms.add(tuple(term_in(product, count_value(match["n"]), match["unit"]).items()))
     unread = stray = False
     unframed: list[float] = []
@@ -136,6 +185,8 @@ def read_term(
             sentence is None
             or _no_term(text, match)
             or not _is_term(text, match, sentence, _OPENS_TERM)
+            or not owned(text, match.start(), match.end(), own_names)
+            or not clean_after(text, match.end(), own_names)
         ):
             # Beside the loan, or in a sentence about payments ("It is repaid in 36 monthly
             # payments"), a count not said as the loan's term is none.
@@ -185,6 +236,37 @@ def _count_over(term: Mapping[str, float], per_year: int) -> float:
     if "years" in term:
         return term["years"] * per_year
     return term.get("months", 0.0) * per_year / 12
+
+
+def _said_as_term(text: str, match: re.Match[str], names: tuple[str, ...]) -> bool:
+    """The length at ``match`` is not another thing's: see ``_OPENS_LENGTH``."""
+    own = {word.lower() for word in names} | _TERM_NAMES
+    after = _WORD_AFTER.match(text, match.end())
+    if after is not None:
+        what = after["what"]
+        if what is not None and what.lower() not in own and not _names_product(text, after):
+            return False  # "my 4 years of school"
+        word = after["word"].lower()
+        # A length joined to the noun after it ("a 3-year warranty", "a 7 year warranty").
+        joined = after["joined"] or "-" in match.group(0) or not match["unit"].lower().endswith("s")
+        if joined and word not in _FUNCTION and word not in own and not _names_product(text, after):
+            return False
+    breaks = [found.end() for found in _CLAUSE_BREAK.finditer(text, 0, match.start())]
+    start = breaks[-1] if breaks else 0
+    before = text[start : match.start()]
+    if not before.strip() or _OPENS_LENGTH.search(before):
+        return True
+    ends = _CLAUSE_BREAK.search(text, match.end())
+    clause = text[start : ends.start() if ends is not None else len(text)]
+    return bool(_ABOUT_LOAN.search(clause)) or any(
+        re.search(rf"\b{re.escape(word)}\b", clause, re.I) for word in names
+    )
+
+
+def _names_product(text: str, after: re.Match[str]) -> bool:
+    """The words after a length name a loan: "a 5 year car loan", "a 36-month auto loan"."""
+    rest = text[after.start("word") : after.start("word") + 24].lower()
+    return any(rest.startswith(word) for word in _LOAN_WORDS)
 
 
 def _within(start: int, spans: list[tuple[int, int]]) -> int | None:

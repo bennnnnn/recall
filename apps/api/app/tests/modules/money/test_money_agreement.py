@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from dataclasses import replace
 
 import pytest
@@ -183,3 +184,29 @@ def test_a_decimal_comma_rate_in_the_reply_is_the_cards(reply: str, corrected: b
     worked = work(request, None)
     assert worked is not None
     assert (card_figures(reply, request, worked) is not None) is corrected
+
+
+@pytest.mark.wall_clock
+@pytest.mark.parametrize(
+    ("ask", "said"),
+    [
+        ("A $20,000 loan at 6% for 5 years", "$1 a month, "),
+        ("A $20,000 loan at 6% for 5 years, paid quarterly", "$1 a quarter, "),
+        ("A $20,000 loan at 6% for 5 years", "about $1,000 a month, "),
+        ("A $20,000 loan at 6% for 5 years", "$1,000 - $2,000 a month at 7% "),
+    ],
+)
+def test_a_long_reply_is_read_in_one_pass(ask: str, said: str) -> None:
+    # A reply is any length and is read on the event loop: each sentence is read once and
+    # each sum's approximate word or range in a short window before it (2026-11-14 review:
+    # 32,000 characters took 9 s).
+    request = read_money_request(ask)
+    assert request is not None
+    worked = work(request, None)
+    assert worked is not None
+    reply = (said * (32_000 // len(said) + 1))[:32_000]
+
+    start = time.perf_counter()
+    card_figures(reply, request, worked)
+
+    assert time.perf_counter() - start < 0.5

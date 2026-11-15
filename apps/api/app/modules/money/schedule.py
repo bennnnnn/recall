@@ -35,6 +35,17 @@ from collections.abc import Collection, Iterator
 from dataclasses import dataclass
 from typing import Literal
 
+from app.modules.money.ownership import (
+    BETWEEN,
+    CLAUSE,
+    MODIFIER,
+    OBJECT,
+    SUM,
+    clean_after,
+    names_the_loan,
+    of_the_loan,
+    on_the_loan,
+)
 from app.modules.money.periods import (
     FLOW,
     OTHER_DURATION,
@@ -45,7 +56,7 @@ from app.modules.money.periods import (
     rate_spans,
     times_a_year,
 )
-from app.modules.money.phrases import COUNT, CURRENCY_WORDS, RATE, TERM, count_value
+from app.modules.money.phrases import COUNT, RATE, TERM, count_value
 
 Role = Literal["rate", "compounding", "sum", "payments", "asked", "describes", "loose"]
 Schedule = Literal["said", "asked", "total", ""]
@@ -59,24 +70,13 @@ _NAMES_PAYMENTS = re.compile(
 )
 # Where a sentence ends: never a decimal point ("6.5%") or an abbreviation ("p.a.", "Rs.").
 _SENTENCE_END = re.compile(r"(?<![.\s][a-z])(?<!\bRs)(?<!\bvs)[.?!;](?=\s|$)|\n", re.I)
-_CLAUSE = re.compile(
-    r"[.?!;:,(\n](?=\s|$)|\b(?:and|but|so|then|if|when|while|because|although|though|or)\b",
-    re.I,
-)
-_SUM = (
-    rf"(?:(?:{CURRENCY_WORDS})\s)?(?:[$€£¥₹₦]\s?)?\d[\d,.]*+"
-    rf"(?:\s?(?:k|m|thousand|million|grand))?(?:\s?(?:{CURRENCY_WORDS}))?"
-)
-_PERCENT = r"\d{1,3}(?:[.,]\d{1,4})?\s?(?:%|percent\b|per\s?cent\b|pct\b)"
-_TERM = rf"(?:{COUNT})\s?-?\s?(?:years?|yrs?|months?|mos?)\b"
-
 # --- What a period word belongs to ----------------------------------------------------
 
 _COMPOUNDING_BEFORE = re.compile(
     r"\bcompound(?:ed|ing|s)?(?:\s+interest)?(?:\s+(?:is|are))?\s+(?:on\s+an?\s+)?$", re.I
 )
 _COMPOUNDING_AFTER = re.compile(r"\s+(?:basis\s+)?compound(?:ed|ing)\b", re.I)
-_SUM_BEFORE = re.compile(rf"(?<![\w.,]){_SUM}\s?(?:at\s+the\s+end\s+of\s+)?$", re.I)
+_SUM_BEFORE = re.compile(rf"(?<![\w.,]){SUM}\s?(?:at\s+the\s+end\s+of\s+)?$", re.I)
 # "quarterly payments", "monthly car loan payments": up to three words between.
 _NOUN_AFTER = re.compile(rf"(?P<words>(?:\s++[\w'\u2019-]++){{0,3}}?)\s++(?P<noun>{FLOW})\b", re.I)
 # "payments each quarter", "the payments are quarterly", "payments made each quarter".
@@ -85,15 +85,11 @@ _NOUN_BEFORE = re.compile(
     r"(?:(?:made|due|paid|payable)\s++)?$",
     re.I,
 )
-_OBJECT = (
-    r"(?:it|them|him|her|me|us"
-    r"|(?:the|this|that|my|our|his|her|their|your)(?:\s++[\w'\u2019-]++){1,3}?)"
-)
 # Paying or being paid: "repaid quarterly", "pay it back weekly", "paying it weekly",
 # "payable quarterly", "paid weekly".
 _PAID = re.compile(
     rf"\b(?P<verb>repa(?:y|ys|id|ying|yable)|pa(?:y|ys|id|ying|yable))"
-    rf"(?:\s++(?P<object>{_OBJECT}))?(?:\s++(?:back|off))?\s++$",
+    rf"(?:\s++(?P<object>{OBJECT}))?(?:\s++(?:back|off))?\s++$",
     re.I,
 )
 _ASKED_BEFORE = re.compile(
@@ -114,7 +110,6 @@ _JOINS = frozenset(
 
 # --- The loan's own schedule ----------------------------------------------------------
 
-_BETWEEN = frozenset("equal level fixed regular".split())
 # Words that open a payment's noun phrase: a determiner, a preposition, a verb of paying or
 # having, a question's word, a conjunction, the rate or the term said just before ("at 6%
 # quarterly payments"). "HOA", "extra" and "tax" do not.
@@ -130,31 +125,11 @@ _OPENS = frozenset(
     "yrs month months mos total regular usual estimated expected current new".split()
 )
 _OFFERS = frozenset("or nor vs vs. versus either".split())  # "weekly or monthly payments"
-_MODIFIER = re.compile(
-    rf"{COUNT}|{_SUM}|equal|level|fixed|regular|consecutive|successive|scheduled", re.I
-)
 _PHRASE_WORDS = 5
 _CLAUSE_END = ",.;:!?(\u2013\u2014-"
-# What may follow the loan's own payments: nothing, a sum, a term, a rate.
-_CLEAN_AFTER = re.compile(
-    rf"\s*+(?:$|[,.;:!?)\]]|(?:and|but|so|then|which|that|starting|beginning)\b"
-    rf"|of\s++{_SUM}|(?:for|over|in)\s++{_TERM}|at\s++{_PERCENT}"
-    rf"|(?:on|to|toward|towards|into|for)\s++(?P<payee>(?:it|them)\b|(?:a|an|the|this|that|my|"
-    r"our|his|her|their|your)(?:\s++[\w'\u2019-]++){1,3}))",
-    re.I,
-)
 _OFFERED = re.compile(r"\s*+,?\s*+(?:or|nor|vs\.?|versus)\s++", re.I)
 _COUNT_BEFORE = re.compile(
     rf"(?<![\w.,])(?P<count>{COUNT})\s++(?:(?:equal|level|fixed|regular)\s++)*+$", re.I
-)
-# The loan named with its numbers, read from its end: "a loan of $10,000 at 6% for 3 years".
-_DETAIL = re.compile(
-    rf"\s++(?:(?:of|at|for|over|from)\s++)?(?:{_PERCENT}(?:\s++(?:annual\s++)?interest)?"
-    rf"(?:\s++(?:per|a|an)\s++(?:year|annum)\b|\s++p\.?\s?a\.?)?|{_TERM}|{_SUM})\s*+$",
-    re.I,
-)
-_LEAD = re.compile(
-    rf"^(?:(?:a|an|the|this|that|my|our|his|her|their|your)\s++)?(?:{_SUM}\s++)?", re.I
 )
 _BE = re.compile(
     r"(?:\b(?:is|are|was|were|be|will\s++be|to\s++be|is\s++to\s++be|must\s++be)"
@@ -236,10 +211,16 @@ def _belongs(text: str, match: re.Match[str], per_year: int, own: frozenset[str]
     if adjective and (after := _NOUN_AFTER.match(text, end)) is not None:
         own_words = _between(after["words"], own)
         if own_words is not None:
-            said = (
-                bool(own) and own_words and _opens(before, own) and _clean(text, after.end(), own)
-            )
             singular = not after["noun"].lower().endswith("s")
+            # Payments said are the loan's only with the loan as their clause's subject or
+            # object; "the quarterly payment" asked of is the loan's own question.
+            said = (
+                bool(own)
+                and own_words
+                and _opens(before, own)
+                and clean_after(text, after.end(), own)
+                and (singular or of_the_loan(before, own) or on_the_loan(text, after.end(), own))
+            )
             schedule: Schedule = ("asked" if singular else "said") if said else ""
             return Period(start, end, per_year, "payments", schedule)
     if _SUM_BEFORE.search(before):
@@ -264,7 +245,7 @@ def _between(words: str, own: frozenset[str]) -> bool | None:
     spoken = words.split()
     if len(spoken) > 3:
         return None
-    return all(word.lower() in _BETWEEN for word in spoken) or " ".join(spoken).lower() in own
+    return all(word.lower() in BETWEEN for word in spoken) or " ".join(spoken).lower() in own
 
 
 def _counted(
@@ -279,7 +260,9 @@ def _counted(
         per_year = _times(count_value(count["count"]) * per_year)
     elif per_phrase:
         return Period(start, end, per_year, "payments")
-    said = bool(own) and _opens(head, own) and _clean(text, end, own)
+    said = (
+        bool(own) and _opens(head, own) and clean_after(text, end, own) and of_the_loan(head, own)
+    )
     return Period(start, end, per_year, "payments", "said" if said else "")
 
 
@@ -296,7 +279,7 @@ def _opens(before: str, own: frozenset[str], *, periods: bool = False) -> bool:
         for size in range(min(_PHRASE_WORDS, len(words)), 0, -1):
             tail = " ".join(words[-size:])
             if (
-                _MODIFIER.fullmatch(tail)
+                MODIFIER.fullmatch(tail)
                 or tail.lower() in own
                 or (periods and PERIOD.fullmatch(tail))
             ):
@@ -310,16 +293,6 @@ def _opens(before: str, own: frozenset[str], *, periods: bool = False) -> bool:
     return last not in _OFFERS and (last[-1] in f"{_CLAUSE_END}%" or last in _OPENS)
 
 
-def _clean(text: str, end: int, own: frozenset[str]) -> bool:
-    """Nothing after the loan's payments names another payee: the clause ends, or a sum, a
-    term, a rate or the loan itself follows ("quarterly payments on it")."""
-    after = _CLEAN_AFTER.match(text, end)
-    if after is None:
-        return False
-    payee = after["payee"]
-    return payee is None or _names_the_loan(payee, own)
-
-
 def _paid(
     text: str, before: str, verb: re.Match[str], end: int, own: frozenset[str]
 ) -> Literal["said", "total", ""]:
@@ -329,40 +302,30 @@ def _paid(
     quarterly"); a question about what a period costs is a "total"."""
     if _asks(before[: verb.start("verb")]):
         return "total"
-    if not own or not _clean(text, end, own):
+    if not own or not clean_after(text, end, own):
         return ""
     paid = verb["object"]
     if paid is not None:
-        return "said" if _names_the_loan(paid, own) else ""
+        return "said" if names_the_loan(paid, own) else ""
     head = before[: verb.start()]
-    breaks = [found.end() for found in _CLAUSE.finditer(head)]
+    breaks = [found.end() for found in CLAUSE.finditer(head)]
     clause = head[breaks[-1] if breaks else 0 :]
     if (be := _BE.search(clause)) is not None:
         clause = clause[: be.start()]
     if clause.strip():
-        return "said" if _names_the_loan(clause, own) else ""
+        return "said" if names_the_loan(clause, own) else ""
     # A participle after a comma belongs to the clause before it: "a loan of $10,000 at 6%
     # for 3 years, paid back weekly".
     earlier = head[: breaks[-1]].rstrip(" ,") if breaks else ""
-    clauses = [found.end() for found in _CLAUSE.finditer(earlier)]
-    return "said" if _names_the_loan(earlier[clauses[-1] if clauses else 0 :], own) else ""
+    clauses = [found.end() for found in CLAUSE.finditer(earlier)]
+    return "said" if names_the_loan(earlier[clauses[-1] if clauses else 0 :], own) else ""
 
 
 def _asks(before: str) -> bool:
     """The verb ending ``before`` asks what a period costs: "how much do I pay annually?"."""
-    breaks = [found.end() for found in _CLAUSE.finditer(before)]
+    breaks = [found.end() for found in CLAUSE.finditer(before)]
     clause = before[breaks[-1] if breaks else 0 :]
     return bool(_ASKS.search(before) or _HOW_MUCH.search(clause))
-
-
-def _names_the_loan(subject: str, own: frozenset[str]) -> bool:
-    """``subject`` is the loan, with its numbers: "the loan", "a $10,000 loan", "a loan of
-    $10,000 at 6% for 3 years", "it"."""
-    name = subject.strip()
-    while (detail := _DETAIL.search(name)) is not None:
-        name = name[: detail.start()]
-    name = _LEAD.sub("", name.strip()).lower()
-    return name in own or name in ("it", "them", "which", "this")
 
 
 # --- The readers ------------------------------------------------------------------------

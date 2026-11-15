@@ -16,7 +16,7 @@ from collections.abc import Mapping, Sequence
 
 from app.modules.money.catalog import PRODUCTS, Product, plausible_rates
 from app.modules.money.periods import rate_spans
-from app.modules.money.phrases import RATE, percent_value
+from app.modules.money.phrases import COUNT, RATE, percent_value
 from app.modules.money.schedule import names_payments, sentence_kinds
 from app.modules.money.sums import Sum
 from app.modules.money.terms import whole_payments
@@ -35,6 +35,68 @@ _FROM = re.compile(
 _LENDERS = frozenset(
     "bank banks lender lenders credit microfinance building finance lending sacco".split()
 )
+# The first payment timed: "the first one made today", "first payment due in 45 days", "the
+# first due at the end of 2 years", "payments beginning now", "starting 6 months from now".
+_FIRST = re.compile(
+    r"\bfirst(?:\s++(?:monthly|annual|yearly|quarterly|weekly|equal|level))?"
+    r"(?:\s++(?:(?:re)?payments?|instal+ments?|emis?|deposits?|one)\b"
+    r"|(?=\s++(?:is|was|will|being|to|made|due|paid|payable|on|at|in|after)\b))"
+    r"|\b(?:begin(?:s|ning)?|start(?:s|ing)?|commenc(?:e|es|ing))\s++"
+    r"(?:(?:re)?pay(?:ments?|ing)\s++)?(?=(?:now|today|immediately|right|in|after|from|next|on"
+    rf"|upon|when|once|at\s++the|{COUNT})\b)",
+    re.I,
+)
+# The one timing worked: a period after the loan is made, by the payments' own period ("the
+# first due one year from now", "at the end of the first month", "starting next month").
+_ORDINARY = re.compile(
+    r"\s*+(?:(?:is|was|will\s++be|being|to\s++be)\s++)?(?:(?:made|due|paid|payable)\s++)?"
+    r"(?:at\s++the\s++end\s++of\s++the\s++first\s++(?P<a>[a-z-]+)"
+    r"|(?:one|1|a)\s++(?P<b>[a-z-]+)\s++(?:from\s++now|after\b|later|hence)"
+    r"|in\s++(?:one|1|a)\s++(?P<c>[a-z-]+)|at\s++the\s++end\s++of\s++(?P<d>[a-z-]+)\s++(?:one|1)\b"
+    r"|next\s++(?P<e>[a-z-]+))\b",
+    re.I,
+)
+_UNIT_TIMES = {"year": 1, "half-year": 2, "half": 2, "quarter": 4, "month": 12, "week": 52}
+# Payments or deposits timed otherwise, or put off: "in advance", "at the beginning of each
+# year", "after a 2 year deferment" ("tax-deferred" savings are none).
+_TIMED = re.compile(
+    r"\b(?:paid|payable|made|(?:re)?payments?|instal+ments?|deposits?|emis?)\s++in\s++advance\b"
+    r"|\bat\s++the\s++(?:beginning|start)\s++of\s++(?:each|every)\b|\bannuity[\s-]due\b"
+    r"|(?<!tax-)(?<!tax\s)\bdefer(?:s|red|ring|ral|ment)?\b",
+    re.I,
+)
+# A loan's repaying put off, or its interest added on before it: "after graduation", "on
+# signing", "interest accrues during my 4 years of school", "interest capitalized annually".
+_DEFERRED = re.compile(
+    r"\bforbearance\b|\bpayment\s++holiday\b|\bmoratorium\b|\binterest[\s-]only\b"
+    r"|\bafter\s++(?:graduation|graduating|school|college)\b|\b(?:on|upon|at)\s++signing\b"
+    r"|\baccru\w*+\s++(?:during|while|until|in\s++school)\b|\bcapitali[sz](?:e|es|ed|ing|ation)\b",
+    re.I,
+)
+# Another sum put into the loan: "a $1,200 warranty rolled in", "fees added to the loan".
+_ROLLED_IN = re.compile(
+    r"\brolled\s++in(?:to)?\b|\badded\s++(?:on\s++)?to\s++the\s++(?:loan|balance|amount)\b"
+    r"|\bfinanced\s++in(?:to)?\b|\bincluded\s++in\s++the\s++(?:loan|financing)\b",
+    re.I,
+)
+# A grace period before repaying starts ("a 6-month grace period"); one of days or weeks is
+# the window before a late fee ("a 2 week grace period" on a mortgage), no deferral.
+_GRACE = re.compile(
+    rf"(?:\b{COUNT}[\s-]?(?P<before>[a-z]+)\s++)?\bgrace\s++period\b"
+    rf"(?:\s++of\s++{COUNT}[\s-]?(?P<after>[a-z]+))?",
+    re.I,
+)
+# A part of the loan left to its end: no level loan the card works ("a $5,000 balloon", "a
+# residual value", "$10,000 due at the end", "a guaranteed future value of $12,000").
+_LEFT_TO_THE_END = re.compile(
+    r"\bballoon\b|\bresidual\b|\bfinal\s++(?:(?:re)?payment|instal+ment)\b"
+    r"|\blast\s++(?:re)?payment\s++of\b|\blump[\s-]?sum\b|\bfuture\s++value\b|\bbullet\b"
+    r"|\b(?:due|owed|owing|payable|outstanding|remaining|left)\s++at\s++the\s++end"
+    r"(?:\s++of\s++the\s++(?:loan|term|lease|contract|agreement)\b|(?!\s++of\b))",
+    re.I,
+)
+# A word that names a loan by itself, not a thing bought with one ("car", "house").
+_LOAN_NAME = re.compile(r"\b(?:loans?|mortgages?|payment)\b")
 # The fewest payments a loan or a deposit plan makes.
 _FEWEST_PAYMENTS = 2
 # A percent said "in" something is that thing's share, never the rate: "1% a month in
@@ -67,6 +129,26 @@ def own_names(product: Product, text: str) -> tuple[str, ...]:
         if any(re.search(rf"\b{re.escape(word)}\b", lowered) for word in item.words):
             return ()
     return tuple(names)
+
+
+def names_another_loan(product: Product, text: str) -> bool:
+    """Another loan than ``product`` is named by a loan's own words ("My car loan is $15,000
+    at 5% and my student loan is $30,000", "a $25,000 car loan …; I also have a mortgage",
+    "My savings account pays 0.5% per month. What's the payment on a $5,000 personal
+    loan?"): the sums and the rate are then not certainly this one's (2026-11-14: a student
+    loan of 15,000, savings worked for a loan's payment). A plainer word for it ("the loan")
+    or a thing bought ("a car") is none."""
+    lowered = text.lower()
+    return any(
+        item.family == "loan"
+        and not _plainer(item, product)
+        and not _plainer(product, item)
+        and any(
+            _LOAN_NAME.search(word) and re.search(rf"\b{re.escape(word)}\b", lowered)
+            for word in item.words
+        )
+        for item in PRODUCTS
+    )
 
 
 def _plainer(item: Product, product: Product) -> bool:
@@ -130,3 +212,36 @@ def lends(text: str) -> bool:
     if not any((percent_value(found["pct"]) or 0) > 0 for found in RATE.finditer(text)):
         return False
     return all(found["who"].lower() in _LENDERS for found in _FROM.finditer(text))
+
+
+def shaped_otherwise(product: Product, text: str, names: Sequence[str], per_year: int) -> bool:
+    """The request's own sentences time its payments otherwise than one period after it
+    starts, leave a part of a loan to its end or put another sum into it: none is the level
+    loan or deposit plan the card works. 2026-11-14: "5 equal annual payments, the first
+    one made today" was worked as 2,504.56 for 2,319.04, "a final balloon of $5,000" and "a
+    $1,200 warranty rolled in" as an ordinary loan."""
+    loan, about = sentence_kinds(text, names)
+    is_loan = product.family == "loan"
+    loan_only = (_DEFERRED, _LEFT_TO_THE_END, _ROLLED_IN) if is_loan else ()
+    for begin, end in (*loan, *about):
+        part = text[begin:end]
+        if any(pattern.search(part) for pattern in (_TIMED, *loan_only)):
+            return True
+        if is_loan and any(_defers(found) for found in _GRACE.finditer(part)):
+            return True
+        if any(not _ordinary(part, found.end(), per_year) for found in _FIRST.finditer(part)):
+            return True
+    return False
+
+
+def _ordinary(part: str, start: int, per_year: int) -> bool:
+    found = _ORDINARY.match(part, start)
+    if found is None:
+        return False
+    unit = next(word for word in found.groups() if word).lower().rstrip("s")
+    return unit == "period" or _UNIT_TIMES.get(unit) == per_year
+
+
+def _defers(grace: re.Match[str]) -> bool:
+    unit = (grace["before"] or grace["after"] or "").lower()
+    return not unit.startswith(("day", "week"))

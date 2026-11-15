@@ -29,10 +29,12 @@ from app.modules.money.catalog import PRODUCTS, Product
 from app.modules.money.compounding import UNKNOWN, compounding_per_year
 from app.modules.money.fits import (
     lends,
+    names_another_loan,
     naming_words,
     own_names,
     said_by_period,
     said_of_another,
+    shaped_otherwise,
     states_payment,
     term_fits,
 )
@@ -41,10 +43,13 @@ from app.modules.money.loan_sums import LoanSums, loan_sums, rest_is_borrowed
 from app.modules.money.periods import paid_by, rate_period, rate_periods_said
 from app.modules.money.phrases import (
     AMOUNT,
+    BARE_RATE,
     CURRENCY_WORD,
     CURRENCY_WORDS,
+    EFFECTIVE_RATE,
     MULTIPLIERS,
     RATE,
+    SPELLED_PERCENT,
     amount_value,
     grouped,
     percent_value,
@@ -190,11 +195,16 @@ def read_money_request(text: str) -> MoneyRequest | None:
     found = named_product(text)
     if found is None or _HOMEWORK_INTEREST.search(text) or measures_without_money(text):
         return None
+    if names_another_loan(found, text):
+        return None
     rates, shares, periods = _percents(text, naming_words(found))
     sums = amounts(text)
     if sums is None or len(rates) > 1 or len(shares) > 1:
         return None
     if any(item.other_period and not item.income for item in sums):
+        return None
+    if found.family == "savings" and any(item.goal for item in sums):
+        # "invest now at 5% to have $20,000 in 10 years" asks what to put in.
         return None
     rate, share = next(iter(rates), None), next(iter(shares), None)
     currency = _currency(text)
@@ -210,17 +220,25 @@ def read_money_request(text: str) -> MoneyRequest | None:
     if rate is not None and rate_per > 1 and not said_by_period(found, rate * rate_per):
         return None
     compounds = compounding_per_year(text)
+    if rate is not None and EFFECTIVE_RATE.search(text):
+        # A savings rate said as its year's yield compounds once a year at it; a loan's or a
+        # card's is no rate the card charges.
+        if found.family != "savings" or rate_per != 1 or compounds not in (None, 1):
+            return None
+        compounds = 1
     charged = rate_per if rate_per > 1 else None
     flow = flow_frequency(text, own, names, backing=(compounds, charged))
     settings = _settings(found, rate_per, flow, compounds)
     if settings is None or (found.family == "loan" and other_payments(text, own, names)):
+        return None
+    if shaped_otherwise(found, text, names, int(settings.get("payments", 12))):
         return None
     loan = loan_sums(sums, share, rest_is_borrowed(text)) if found.family == "loan" else None
     values = _values(found, rate, sums, loan, rate_per)
     # A count of payments with no frequency of its own ("12 equal payments") is paid as
     # the message says, else as often as its rate is charged ("1% per month").
     schedule = int(settings.get("payments", 12))
-    term = read_term(found, text, flow if flow is not None else charged, schedule, names)
+    term = read_term(found, text, flow if flow is not None else charged, schedule, names, own)
     if values is None or term is None or not term_fits(found, term, settings):
         return None
     # "my payment is $100 a month. How long?", "48 monthly payments of $500. What is my
@@ -323,6 +341,10 @@ def _percents(text: str, names: tuple[str, ...]) -> tuple[set[float], set[float]
     rates: set[float] = set()
     shares: set[float] = set()
     periods: set[int] = set()
+    if SPELLED_PERCENT.search(text) or BARE_RATE.search(text):
+        # "a car loan at six percent", "interest rate: 6": a rate said in words or with no
+        # percent is none the reader can certify.
+        rates |= {-1.0, -2.0}
     for match in RATE.finditer(text):
         value = percent_value(match["pct"])
         if value is None:

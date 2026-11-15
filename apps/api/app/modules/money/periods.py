@@ -70,10 +70,11 @@ FREQUENCIES: dict[int, Frequency] = {
 # two months are said too, so they are never read as a week or a month: no product works
 # them (``UNKNOWN``).
 _WORDS: tuple[tuple[str, str, str, int], ...] = (
-    (r"years?|yrs?|annum", r"annual(?:ly)?|yearly", r"p\.\s?a\.?|pa", 1),
+    (r"years?|yrs?|annum", r"annual(?:ly)?|yearly", r"p\.\s?a\.?|pa|p/a", 1),
     (r"half[\s-]?years?", r"semi[\s-]?annual(?:ly)?|half[\s-]?yearly", "", 2),
-    (r"quarters?", r"quarterly", "", 4),
-    (r"months?|mos?", r"monthly", r"p\.\s?m\.?|pm", 12),
+    (r"quarters?|qtrs?", r"quarterly|qtrly", "", 4),
+    (r"(?:calendar\s+)?months?|mos?|mths?|mnths?", r"monthly|mthly|mnthly",
+     r"p\.\s?m\.?|pm|pcm|p/m", 12),
     (r"weeks?|wks?", r"weekly", "", 52),
     (r"days?", r"daily", "", 365),
     (r"fortnight|other\s+(?:week|month)",
@@ -85,7 +86,7 @@ _ONCE = {"once": 1, "twice": 2, "thrice": 3}
 _COUNTED = (
     rf"(?P<times>once|twice|thrice|{COUNT}\s+times)\s+(?:a|per|each|every)\s+"
     r"(?P<tunit>year|quarter|month|week|day)\b"
-    rf"|(?:every|each)\s+(?P<every>{COUNT})\s+(?P<eunit>years?|quarters?|months?|weeks?|days?)\b"
+    rf"|(?:every|each|per)\s+(?P<every>{COUNT})\s+(?P<eunit>years?|quarters?|months?|weeks?|days?)\b"
 )
 _NOUNS = "|".join(rf"(?P<n{index}>{noun})" for index, (noun, _, _, _) in enumerate(_WORDS))
 _ADJECTIVES = "|".join(rf"(?P<a{index}>{word})" for index, (_, word, _, _) in enumerate(_WORDS))
@@ -114,6 +115,19 @@ _RATE_NOUN_AFTER = re.compile(rf"(?<!\s)(?:\s++{_RATE_WORDS})?(?:{_BRACKET}|){NO
 _RATE_ADJECTIVE_AFTER = re.compile(
     rf"(?<!\s)(?:\s++{_RATE_WORDS})?{_BRACKET}{ADJECTIVE}(?P<rate>\s++{_RATE_WORDS}\b)?", re.I
 )
+# After a percent, a period the vocabulary cannot read ("2% per semester", "1.5% per
+# mensem", "2% per 30 days", "3% for each 3 months") or a bare unit ("1.5% month"): the rate
+# is unknown, never yearly (2026-11-14 review: "2% per mth" was worked as a yearly 2%). So is
+# a rate not charged on the balance ("9% flat", "2% per month flat", "6% add-on").
+_UNREAD_PERIOD = re.compile(
+    rf"(?<!\s)(?:\s++{_RATE_WORDS})?\s*+[(\[]?\s*+(?:(?:per|each|every|for\s++(?:each|every))\s++"
+    r"(?=[a-z\d])|/\s*+(?=[a-z\d])|(?:months?|years?|quarters?|weeks?|days?)\b)",
+    re.I,
+)
+_FLAT_BEFORE = re.compile(
+    r"\b(?:flat|add[\s-]?on)(?:\s+(?:interest\s+)?rate\s*(?:of|is|:)?)?\s*$", re.I
+)
+_FLAT_AFTER = re.compile(r"\s*+[(\[]?\s*+(?:flat|add[\s-]?on)\b", re.I)
 # A describing word after a percent that is a payment's or a compounding's, not the rate's.
 _NOT_THE_RATES = re.compile(rf"(?<!\s)\s++(?:(?:equal|level)\s++)?(?:{FLOW}|compound\w*)\b", re.I)
 # Before it: "a monthly rate of 2%", "monthly interest of 2%", "the interest rate per month
@@ -198,7 +212,16 @@ def rate_spans(text: str, start: int, end: int) -> list[tuple[int, int]]:
 
 def rate_period(text: str, start: int, end: int) -> int | None:
     """Times a year the percent at ``text[start:end]`` is charged by its own words, or None
-    when they say none (a yearly rate); ``UNKNOWN`` when they say one no product reads."""
+    when they say none (a yearly rate); ``UNKNOWN`` when they say one no product reads, or
+    a rate not charged on the balance ("9% flat", "2% per month flat", "a flat 9%")."""
+    spans = rate_spans(text, start, end)
+    after = max([end, *(stop for _, stop in spans)])
+    if _FLAT_AFTER.match(text, after) or _FLAT_BEFORE.search(text[max(0, start - 60) : start]):
+        return UNKNOWN
+    return _period(text, start, end)
+
+
+def _period(text: str, start: int, end: int) -> int | None:
     after = _RATE_NOUN_AFTER.match(text, end)
     if after is not None:
         return times_a_year(after)
@@ -217,7 +240,7 @@ def rate_period(text: str, start: int, end: int) -> int | None:
     found = _INTEREST_AT.search(before)
     if found is not None:
         return 1 if times_a_year(found) == 1 else UNKNOWN
-    return None
+    return UNKNOWN if _UNREAD_PERIOD.match(text, end) else None
 
 
 def rate_periods_said(text: str) -> set[int]:

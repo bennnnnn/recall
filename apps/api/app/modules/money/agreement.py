@@ -53,7 +53,7 @@ _APPROX = re.compile(
     r"|over)|under|over|up\s+to|at\s+least|~|≈|\\approx)\W{0,3}$",
     re.IGNORECASE,
 )
-_RANGE = re.compile(rf"^\s?{_DASH}\s?\W?\d")
+_RANGE = re.compile(rf"\s?{_DASH}\s?\W?\d")
 _RANGE_BEFORE = re.compile(rf"\d\s?{_DASH}\s?\W?$")
 _OTHER_SCENARIO = re.compile(
     r"\b(?:if\s+you|instead|plus|including|includes|extra|tax(?:es)?|insurance|pmi|hoa|escrow"
@@ -80,6 +80,10 @@ _SCALES = {"k": 1_000, "m": 1_000_000, "thousand": 1_000}
 # names the card's figures, is another loan's.
 _NEAR_PAYMENT = 0.01
 _MISREAD = 0.05
+# How far before a sum its approximate word or its range's dash is read: the words above are
+# a few characters long, and a reply is any length (a 32,000-character one took 9 s when the
+# whole sentence before each sum was searched, 2026-11-14 review).
+_WINDOW = 32
 
 
 @dataclass(frozen=True)
@@ -106,19 +110,25 @@ def card_figures(text: str, request: MoneyRequest, worked: Worked) -> CardFigure
     per_year = int(worked.settings.get("payments", 12))
     sentences = _SENTENCE.split(text or "")
     if not _states_card(text, worked.values["amount"], payment):
-        misread = [
-            value
-            for sentence in sentences
-            for value, _cents in _labelled(sentence, per_year, approximate=True)
-            if not _other_scenario(sentence, request, worked, value, sums=False)
-        ]
+        misread: list[float] = []
+        for sentence in sentences:
+            labelled = _labelled(sentence, per_year, approximate=True)
+            if labelled and not _other_words(sentence, worked):
+                misread += [value for value, _cents in labelled]
         if any(abs(value - payment) > _MISREAD * payment for value in misread):
             logger.info("money reply worked another loan than its card; the card's figures lead")
             return CardFigures(_line(request, worked, payment, on_top=True), on_top=True)
     stated: list[tuple[float, bool]] = []
     for sentence in sentences:
-        for value, cents in _labelled(sentence, per_year):
-            if _other_scenario(sentence, request, worked, value):
+        labelled = _labelled(sentence, per_year)
+        if not labelled:
+            continue
+        # Read once a sentence, whatever its payments: a long reply is read in one pass.
+        if _other_words(sentence, worked):
+            return None
+        foreign = _other_sums(sentence, request, worked)
+        for value, cents in labelled:
+            if foreign - {value}:
                 return None
             stated.append((value, cents))
     if not stated or any(_is(value, cents, payment) for value, cents in stated):
@@ -149,11 +159,10 @@ def _labelled(
         for match in pattern.finditer(sentence):
             if times_a_year(match) != per_year:
                 continue
-            if not approximate and _APPROX.search(sentence[: match.start("whole")]):
+            before = sentence[max(0, match.start("whole") - _WINDOW) : match.start("whole")]
+            if not approximate and _APPROX.search(before):
                 continue
-            if _RANGE.match(sentence[match.end() :]) or _RANGE_BEFORE.search(
-                sentence[: match.start("whole")]
-            ):
+            if _RANGE.match(sentence, match.end()) or _RANGE_BEFORE.search(before):
                 continue
             whole = match.group("whole").replace("{,}", "").replace(",", "")
             cents = match.group("cents")
@@ -166,10 +175,8 @@ def _is(value: float, cents: bool, payment: float) -> bool:
     return round(value, 2) == round(payment, 2) if cents else value == round(payment)
 
 
-def _other_scenario(
-    sentence: str, request: MoneyRequest, worked: Worked, value: float, *, sums: bool = True
-) -> bool:
-    """The sentence is about another loan: other words, rate, term or (``sums``) sum."""
+def _other_words(sentence: str, worked: Worked) -> bool:
+    """The sentence is about another loan by its words, its rate or its term."""
     if _OTHER_SCENARIO.search(sentence):
         return True
     rate = worked.values[rate_name(worked.product)]
@@ -185,15 +192,20 @@ def _other_scenario(
         own = worked.values[term_name] * (12 if term_name == "years" else 1)
         if months != own:
             return True
-    if not sums:
-        return False
+    return False
+
+
+def _other_sums(sentence: str, request: MoneyRequest, worked: Worked) -> set[float]:
+    """The sums of 1,000 or more in the sentence that are none of the card's: a payment the
+    sentence states beside one of them is another loan's, unless it is that sum itself."""
     own_sums = {round(v) for v in (worked.values.get("amount"), request.price, request.down) if v}
     own_sums |= {round(v) for v in worked.outputs.values() if v is not None}
+    foreign: set[float] = set()
     for digits, scale in _MONEY.findall(sentence):
         amount = float(digits.replace(",", "")) * {"k": 1_000, "m": 1_000_000}.get(scale.lower(), 1)
-        if amount >= 1_000 and round(amount) not in own_sums and amount != value:
-            return True
-    return False
+        if amount >= 1_000 and round(amount) not in own_sums:
+            foreign.add(amount)
+    return foreign
 
 
 def _line(request: MoneyRequest, worked: Worked, payment: float, *, on_top: bool) -> str:

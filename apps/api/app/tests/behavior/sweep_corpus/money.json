@@ -3381,5 +3381,373 @@
   "history": [],
   "reply": "About $7,867.22 after three years.",
   "expect": "answer"
+ },
+ {
+  "id": "mo-259",
+  "area": "money declined",
+  "prompt": "A $20,000 car loan at 6% with 24 monthly payments missed",
+  "history": [],
+  "reply": "Missing 24 payments changes what you owe; how much is left on the loan?",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-260",
+  "area": "money declined",
+  "prompt": "A $20,000 car loan at 6% with 24 monthly payments already made. What do I still owe?",
+  "history": [],
+  "reply": "After 24 payments on a 60-month loan you would owe about $12,000.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-261",
+  "area": "money declined",
+  "prompt": "A $20,000 car loan at 6% with 36 monthly payments left",
+  "history": [],
+  "reply": "With 36 payments left, is $20,000 the balance now or what you first borrowed?",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-262",
+  "area": "money declined",
+  "prompt": "A $10,000 loan at 8% over 24 monthly payments I already paid",
+  "history": [],
+  "reply": "Those 24 payments bring the balance down; how long was the loan for?",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-263",
+  "area": "money declined",
+  "prompt": "A $40,000 student loan at 5% with 120 monthly payments forgiven",
+  "history": [],
+  "reply": "Forgiveness after 120 payments depends on the program.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-264",
+  "area": "money declined",
+  "prompt": "A $20,000 car loan at 6%; I've got 3 years left",
+  "history": [],
+  "reply": "Is the $20,000 what you owe now, with 3 years to go?",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-265",
+  "area": "money declined",
+  "prompt": "A $20,000 car loan at 6%, and we pay our insurance in 4 quarterly payments",
+  "history": [],
+  "reply": "Your car loan payment depends on its term; how long is it?",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-266",
+  "area": "money declined",
+  "prompt": "A $25,000 car loan at 7%, and my sister repays her loan in 36 monthly payments",
+  "history": [],
+  "reply": "How long is your own car loan for?",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-267",
+  "area": "money declined",
+  "prompt": "I have a $20,000 car loan at 6% and pay my tuition in 2 semi-annual payments",
+  "history": [],
+  "reply": "How many years is the car loan?",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-268",
+  "area": "money declined",
+  "prompt": "A $20,000 car loan at 6% for 5 years, and we pay our insurance with quarterly payments",
+  "history": [],
+  "reply": "The car loan is $386.66 a month; insurance is separate.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-269",
+  "area": "money declined",
+  "prompt": "A loan of $10,000 at 8% per annum is repaid in 5 equal annual payments, the first one made today.",
+  "history": [],
+  "reply": "Paid from today, each payment is $2,319.04.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-270",
+  "area": "money declined",
+  "prompt": "A loan of Birr 50,000 at 10% per annum is to be repaid in 5 equal annual payments beginning at the end of the third year.",
+  "history": [],
+  "reply": "This is a deferred annuity: each payment is about Birr 15,991.67.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-271",
+  "area": "money declined",
+  "prompt": "A loan of $10,000 at 8% is to be repaid in 5 equal annual payments in advance.",
+  "history": [],
+  "reply": "In advance, each payment is $2,319.04.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-272",
+  "area": "money declined",
+  "prompt": "A $5,000 loan at 6% repaid in 4 annual payments after a 2 year deferment",
+  "history": [],
+  "reply": "Interest builds during the deferment first.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-273",
+  "area": "money declined",
+  "prompt": "A loan of $30,000 at 6% p.a. with 4 equal annual payments and a final balloon of $5,000",
+  "history": [],
+  "reply": "With the balloon, each annual payment is $7,514.79.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-274",
+  "area": "money declined",
+  "prompt": "A $30,000 car loan at 6% for 48 months with a $10,000 residual value",
+  "history": [],
+  "reply": "With the residual left to the end, the payment is lower.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-275",
+  "area": "money declined",
+  "prompt": "Student loan of $27,000 at 4.99%, 6-month grace period, then 10 years",
+  "history": [],
+  "reply": "Interest accrues during the grace period.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-276",
+  "area": "money declined",
+  "prompt": "Car loan $18,500 at 4.9% for 66 months, plus a $1,200 extended warranty rolled in",
+  "history": [],
+  "reply": "Rolled in, you borrow $19,700.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-277",
+  "area": "money declined",
+  "prompt": "Loan of $5,000 at 2% per six months for 2 years",
+  "history": [],
+  "reply": "2% every six months is about 4% a year.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-278",
+  "area": "money declined",
+  "prompt": "Loan of $2,000 at 1.5% per 30 days for 1 year",
+  "history": [],
+  "reply": "1.5% per 30 days is about 18.25% a year.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-279",
+  "area": "money declined",
+  "prompt": "Loan of $5,000 at 3% per semester for 2 years",
+  "history": [],
+  "reply": "A semester is usually half a year.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-280",
+  "area": "money declined",
+  "prompt": "Car loan ₹8,00,000 at 9% flat rate for 5 years. What is the EMI?",
+  "history": [],
+  "reply": "At a 9% flat rate the EMI is ₹19,333.33.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-281",
+  "area": "money declined",
+  "prompt": "A loan of $3,000 at 2% per month flat for 2 years",
+  "history": [],
+  "reply": "Flat interest is charged on the full $3,000 each month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-282",
+  "area": "money declined",
+  "prompt": "A $20,000 car loan at 6% add-on interest for 4 years",
+  "history": [],
+  "reply": "Add-on interest is $4,800, so each payment is $516.67.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-283",
+  "area": "money declined",
+  "prompt": "A $20,000 car loan at six percent for 5 years",
+  "history": [],
+  "reply": "At 6% over 60 months it is $386.66 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-284",
+  "area": "money declined",
+  "prompt": "$20,000 car loan, interest rate: 6, term 5 years",
+  "history": [],
+  "reply": "Is that 6% a year?",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-285",
+  "area": "money declined",
+  "prompt": "A loan of $10,000 at an effective annual rate of 12.68% repaid monthly for 2 years",
+  "history": [],
+  "reply": "12.68% effective is 1% a month: $470.73.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-286",
+  "area": "money declined",
+  "prompt": "My car loan is $15,000 at 5% and my student loan is $30,000",
+  "history": [],
+  "reply": "Which loan should I work out?",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-287",
+  "area": "money declined",
+  "prompt": "A $25,000 car loan at 6% for 5 years; I also have a mortgage",
+  "history": [],
+  "reply": "The car loan is $483.32 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-288",
+  "area": "money declined",
+  "prompt": "My savings account pays 0.5% per month. What's the payment on a $5,000 personal loan for 2 years?",
+  "history": [],
+  "reply": "What rate is the personal loan at?",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-289",
+  "area": "money declined",
+  "prompt": "I'm borrowing $20,000 for a car and $5,000 for a motorbike at 7% for 4 years",
+  "history": [],
+  "reply": "Together that is $25,000 at 7%.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-290",
+  "area": "money declined",
+  "prompt": "How much should I invest now at 5% to have $20,000 in 10 years?",
+  "history": [],
+  "reply": "You need to invest about $12,278.27 now.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-291",
+  "area": "money declined",
+  "prompt": "Mortgage: 300 000 €, 3,2 %, 25 Jahre",
+  "history": [],
+  "reply": "Über 25 Jahre sind es etwa 1.453 € im Monat.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-292",
+  "area": "money",
+  "prompt": "Loan of $5,000 at 2% per mth for 12 months",
+  "history": [],
+  "reply": "It is $472.80 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-293",
+  "area": "money",
+  "prompt": "Personal loan $3,000 at 1.5% pcm for 1 year",
+  "history": [],
+  "reply": "It is $275.04 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-294",
+  "area": "money",
+  "prompt": "Loan of £4,000 at 1% per calendar month for 2 years",
+  "history": [],
+  "reply": "It is £188.29 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-295",
+  "area": "money",
+  "prompt": "A loan of $12,000 at 10% per annum is repaid in 3 equal yearly payments, the first due one year from now.",
+  "history": [],
+  "reply": "Each payment is $4,825.38.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-296",
+  "area": "money",
+  "prompt": "A loan of $60,000 at 10% p.a. is to be repaid in 5 equal annual installments, the first one due at the end of the first year.",
+  "history": [],
+  "reply": "Each installment is $15,827.85.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-297",
+  "area": "money",
+  "prompt": "The quarterly rate is 2% on a $10,000 loan over 2 years with quarterly payments",
+  "history": [],
+  "reply": "Each quarterly payment is $1,365.10.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-298",
+  "area": "money",
+  "prompt": "A $4,000 loan at 1.5% per month on the outstanding balance, repaid in 24 monthly instalments",
+  "history": [],
+  "reply": "Each instalment is $199.70.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-299",
+  "area": "money",
+  "prompt": "Car loan at 6% for 5 years: price 30 000, down 5 000",
+  "history": [],
+  "reply": "You borrow 25 000: 483.32 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-300",
+  "area": "money",
+  "prompt": "I live in a flat; car loan of $20,000 at 6% for 5 years",
+  "history": [],
+  "reply": "It is $386.66 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-301",
+  "area": "money",
+  "prompt": "Car loan $20,000 at 6%, 3-year warranty included",
+  "history": [],
+  "reply": "Over a usual 60 months it is $386.66 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-302",
+  "area": "money",
+  "prompt": "Mortgage $300k at 6%, we plan to stay 7 years",
+  "history": [],
+  "reply": "Over 30 years it is $1,798.65 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-303",
+  "area": "money",
+  "prompt": "High-yield savings at 4.5% APY, $10,000 for 5 years",
+  "history": [],
+  "reply": "You would have $12,461.82.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-304",
+  "area": "money",
+  "prompt": "A $300,000 mortgage at 6% with a 2 week grace period",
+  "history": [],
+  "reply": "It is $1,798.65 a month over 30 years.",
+  "expect": "answer"
  }
 ]
