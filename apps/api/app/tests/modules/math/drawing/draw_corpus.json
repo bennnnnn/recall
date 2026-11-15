@@ -734,6 +734,18 @@
   ]
  },
  {
+  "id": "one_letter_one_length",
+  "question": "A window is built in the shape of a rectangle with a semicircle on top. If there is 12 m of framing material for the outside edge, what dimensions let in the most light? Draw the window.",
+  "reply": "Let $r$ be the radius.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"window\", \"width\": \"2r\", \"height\": \"r\", \"radius\": \"r\"}]}",
+  "expect": "draw",
+  "labels": [
+   "2r",
+   "r",
+   "r"
+  ]
+ },
+ {
   "id": "only_axes",
   "question": "Find the distance of the point P(4, −3, 5) from the xz-plane, the yz-plane and each axis. Locate P in space and show these distances.",
   "reply": "",

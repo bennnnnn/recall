@@ -168,14 +168,19 @@ def _relations(
     imposed: list[Any] = []
     implied: list[tuple[str, str]] = []
     for parts in uses.values():
-        first = labels[parts[0]]
-        for part in parts[1:]:
+        # Each use is held to the letter's plain use where it has one ("r", beside "2r"):
+        # two plain uses are one length, whatever multiple comes first.
+        base = next((part for part in parts if labels[part].coefficient == 1), parts[0])
+        first = labels[base]
+        for part in parts:
+            if part == base:
+                continue
             label = labels[part]
             if label.coefficient == first.coefficient or label.written or first.written:
-                relation = lengths[part] * first.coefficient - lengths[parts[0]] * label.coefficient
+                relation = lengths[part] * first.coefficient - lengths[base] * label.coefficient
                 imposed.append(relation)
             else:
-                implied.append((parts[0], part))
+                implied.append((base, part))
     return imposed, implied
 
 
