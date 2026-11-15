@@ -82,3 +82,72 @@ def test_every_message_after_a_reply_carries_the_own_mistake_note() -> None:
     exchange = [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "Hello!"}]
     assert OWN_MISTAKE_HINT in message_notes("u misunderstood me", exchange, _User())
     assert OWN_MISTAKE_HINT not in message_notes("hi", [], _User())
+
+
+# Live 2026-11-15: a lesson's method list, then a question offering two choices.
+_LESSON = (
+    "### The method\n\n1. **Find the electron count**\n2. **Fill the first shell**\n"
+    "3. **Fill the second shell**\n\nWant to do the periodic table link properly (groups, "
+    "periods and why they matter), or jump to a mixed exam-style set?"
+)
+
+
+@pytest.mark.parametrize(
+    "message, choice",
+    [
+        ("the first one", 'choice 1 is "Want to do the periodic table link properly"'),
+        ("the second one", 'choice 2 is "jump to a mixed exam-style set"'),
+        ("2", 'choice 2 is "jump to a mixed exam-style set"'),
+        ("first", 'choice 1 is "Want to do the periodic table link properly"'),
+        ("the last one pls", 'choice 2 is "jump to a mixed exam-style set"'),
+    ],
+)
+def test_a_pick_after_a_question_offering_choices_picks_a_choice(message, choice) -> None:
+    note = list_reference_hint(message, [("assistant", _MISTAKES), ("assistant", _LESSON)]) or ""
+    # The choice first; the list's item only as the other reading, after it.
+    assert choice in note
+    other = note.find("may name that item instead")
+    assert other > note.index(choice)
+    assert " of your latest list is " not in note[:other]
+
+
+def test_a_choice_that_offers_the_lists_items_keeps_them_named() -> None:
+    # Live review 2026-11-15: "2" and "tell me more about the second one" after this got the
+    # study plan 3/3 when the note named only the choices; main gave item 2.
+    reply = (
+        "1. Books\n2. Courses\n3. Projects\n4. Videos\n5. Mentors\n\n"
+        "Want me to go deeper on any of these, or suggest a study plan?"
+    )
+    for message in ("2", "tell me more about the second one"):
+        note = list_reference_hint(message, [("assistant", reply)]) or ""
+        assert 'choice 2 is "suggest a study plan"' in note
+        assert 'item 2 of your latest list is "Courses"' in note
+
+
+@pytest.mark.timeout(1, func_only=True)
+def test_a_long_reply_with_no_mark_is_read_once() -> None:
+    # CodeQL-style: the closing question was searched over the whole reply, 2 s at 32,000.
+    assert list_reference_hint("2", [("assistant", "a" * 32_000 + " or b?")]) is None
+
+
+@pytest.mark.parametrize(
+    "ending",
+    [
+        # No choice: the pick is the list's.
+        "Want me to explain any of these?",
+        # "Which" asks for an item of the list above it.
+        "Which one do you want, or should I pick?",
+        # The question is not the reply's last line.
+        "Want X, or Y?\n\nTake your time.",
+    ],
+)
+def test_a_pick_after_any_other_ending_names_the_list_item(ending: str) -> None:
+    note = list_reference_hint("2", [("assistant", f"{_MISTAKES}\n\n{ending}")]) or ""
+    assert 'item 2 of your latest list is "Indentation"' in note
+    assert "choice" not in note
+
+
+def test_three_choices_keep_their_order() -> None:
+    reply = "Do you want a quiz, a summary, or a worked example?"
+    note = list_reference_hint("the third one", [("assistant", reply)]) or ""
+    assert 'choice 3 is "a worked example"' in note

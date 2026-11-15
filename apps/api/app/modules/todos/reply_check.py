@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 
+from app.modules.todos.offer_reply import holds_code, offers_a_choice
 from app.modules.todos.reminder_fence_parse import explicitly_declines_reminder_creation
 from app.modules.todos.reply_claims import (
     CLAIM_VERBS,
@@ -18,6 +19,7 @@ from app.modules.todos.reply_claims import (
     is_claim,
     split_sentences,
     without_claim_lines,
+    without_claims,
 )
 from app.modules.todos.spoken_add import (
     ADD_REQUEST_RE,
@@ -115,7 +117,7 @@ _COMMON_WORDS = frozenset(
         "your",
     }
 )
-_ASKS_WHEN_RE = re.compile(r"\b(?:when|what time|which day)\b", re.IGNORECASE)
+_ASKS_WHEN_RE = re.compile(r"\b(?:when|what time|which day|what day|what date)\b", re.IGNORECASE)
 # A reply is about the user's reminders when it says so, or confirms a dated
 # one the way the app does ("Set: read — Monday, Oct 12, 8:00 AM.").
 _REMINDER_TALK_RE = re.compile(
@@ -194,6 +196,47 @@ def reply_when_nothing_saved(
 
 
 _UNCHANGED = "I didn't change your reminders."
+
+
+def reply_to_accepted_offer(text: str, offer: str) -> str:
+    """The reply to a yes to the last reply's offer of a reminder, when no card came of it.
+
+    Live (2026-11-15): "Want me to save this as a reminder for the morning of the test?",
+    then "yes", got "Set for **Friday, November 20 at 7:00 AM** — you'll get a nudge…" with
+    no card and nothing saved, on a day the user never said. The user asked for something
+    and nothing was made: a reply that says it was (a claim, or the time it is set for)
+    becomes the question of when; one that already asks when stays; any other ("Here's your
+    shopping list: …") stays with the question after it. A reply holding code answered
+    something else ("Should I add it to your list?" read as a code offer) and stays. A reply
+    holding the app's cards keeps them: a lesson's quiz stays and only its claim goes. When
+    the offer was one of several choices ("Want a quiz, or should I set a reminder?"), a
+    reply that claims nothing may have taken another one, and stays as it is.
+    """
+    if holds_code(text):
+        return text
+    words = _without_code(text)
+    asked = NEED_A_TIME if re.search(r"\bremind", offer, re.IGNORECASE) else KEEP_AS_REMINDER
+    if _says_it_was_set(words):
+        return _cards_and(text, asked)
+    if _ASKS_WHEN_RE.search(words) or offers_a_choice(offer):
+        return text
+    return f"{text.rstrip()}\n\n{asked}"
+
+
+def _says_it_was_set(words: str) -> bool:
+    return bool(_claims_in(words) or COLON_CLAIM_RE.search(words) or user_named_a_clock(words))
+
+
+def _cards_and(text: str, asked: str) -> str:
+    """The reply's cards and words that claim nothing, then ``asked``; with no card, only
+    ``asked``. Words that still claim after their claims go leave the cards alone."""
+    cards = [text[fence.start : fence.end].strip() for fence in iter_fences(text)]
+    if not cards:
+        return asked
+    kept = without_claims(text)
+    if kept and not _says_it_was_set(_without_code(kept)):
+        return f"{kept.rstrip()}\n\n{asked}"
+    return "\n\n".join([*cards, asked])
 
 
 def _asked_about_an_add(prior_assistant: str | None, prior_user: str | None) -> bool:

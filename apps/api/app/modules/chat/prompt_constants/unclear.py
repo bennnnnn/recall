@@ -24,16 +24,27 @@ language" after "Python the language, or the snake?" on every try: the rule open
 ask, and the model named the obvious reading first in its question. The rule now opens on the
 conversation filling in what a short message leaves out, takes a reading it would name first as
 clear, and reads a reply to its own question as the answer.
+
+In a 51-turn study chat (2026-11-15) a reply listed five topics, taught the first, and
+ended "Want to do the periodic table link properly, or jump to a mixed exam-style set?";
+"the first one" got item 1 of the list above, on every try, and so did "the second one"
+and "2", each reply opening "Item 1 is about…". A pick by number or place after a question
+that offered choices picks among them; a list's item is picked only when no such question
+came after it.
 """
 
 UNCLEAR_MESSAGE_HINT = (
     "Read each message as the next turn of this conversation: what a short one leaves out "
     "comes from the turns before it, and the reading the conversation points to is what it "
     "means. A reading you would name first in a question back is clear enough: answer it, "
-    "never ask whether they meant it. A short message that points into a list of yours, by "
-    'number, place or quality ("1", "more on 4", "#2", "the second one", "the last one", '
-    '"the quickest"), means that item of your most recent list: say more about that item, '
-    "and never ask what the number means. A follow-up that leaves out what it is about "
+    "never ask whether they meant it. When your last reply ended on a question offering "
+    'choices ("Want X, or Y?"), a message that picks by number or place ("1", "2", "the '
+    'first one", "the second", "the last one") picks among those choices, in the order you '
+    "wrote them, never an item of a list above them. Otherwise a short message that points "
+    'into a list of yours, by number, place or quality ("1", "more on 4", "#2", "the second '
+    'one", "the last one", "the quickest"), means that item of your most recent list. Go '
+    "straight on with the item picked, never opening by naming its number, and never ask "
+    "what the number means. A follow-up that leaves out what it is about "
     '("explain it so a kid gets it", "who created it", "why is that", "a cheaper one?") is '
     'about your most recent reply: "it" or "that" is what the reply was about, and a '
     "comparison asks for new picks of the kind it suggested, changed that way. One that "

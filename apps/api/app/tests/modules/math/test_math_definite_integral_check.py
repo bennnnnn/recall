@@ -139,3 +139,38 @@ def test_every_definite_integral_answer_goes_through_the_check(
     _closed_form(monkeypatch, S(-5), Integral(x, x))
     with pytest.raises(SolveServiceError):
         answer()
+
+
+@pytest.mark.parametrize(
+    ("expr", "low", "high", "line"),
+    [
+        # SymPy cannot show ln(1 + √2) equal to the value's two-log form; the working stays.
+        ("sec(x)", "0", "pi/4", r"F(x) = \ln\left|"),
+        # F(x) as the indefinite card writes it, not the search's -x²/4 + x(x/2 + ...).
+        (
+            "x*cos(x)^2",
+            "0",
+            "pi",
+            r"F(x) = \frac{x^{2}}{4} + \frac{x \sin{\left(2 x \right)}}{4}",
+        ),
+    ],
+)
+def test_the_fundamental_theorem_working_shows_the_cards_antiderivative(
+    expr: str, low: str, high: str, line: str
+) -> None:
+    from app.modules.math.solve.parse import parse_expression
+    from app.services.workout import render_workout
+
+    intent = MathIntent(
+        kind="calculus",
+        operation="integrate",
+        expr=expr,
+        integral_lower=low,
+        integral_upper=high,
+        variable="x",
+    )
+    real_x = Symbol("x", real=True)
+    integrand = parse_expression(expr, ["x"]).subs(Symbol("x"), real_x)
+    working = _fundamental_theorem_working(intent, integrand, "I")
+    assert working is not None
+    assert line in render_workout(working)

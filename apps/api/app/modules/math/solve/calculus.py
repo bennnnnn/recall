@@ -31,6 +31,7 @@ from app.modules.math.schemas import (
     MathLimitResult,
     MathSeriesResult,
 )
+from app.modules.math.solve.antiderivative import readable_antiderivative, textbook_antiderivative
 from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.solve.display import derivative_latex, format_verified_latex
 from app.modules.math.solve.parse import SolveServiceError, parse_expression
@@ -211,11 +212,12 @@ def integrate_expression(expr: str, variable: str = "x") -> MathExprResult:
     sym = Symbol(variable)
     parsed = parse_expression(expr, [variable])
     require_variable(parsed, variable)
-    result = _absolute_logs(integrate(parsed, sym), parsed, sym)
+    result = _absolute_logs(textbook_antiderivative(parsed, sym), parsed, sym)
     # integrate() can fail to find a closed form and hand back a result that
-    # still contains an unevaluated Integral(...) rather than raising —
-    # callers must not treat that as a verified, fully-solved answer.
-    solved = not result.has(Integral)
+    # still contains an unevaluated Integral(...) rather than raising, or one only
+    # a Piecewise over complex branches says: callers must not treat either as a
+    # verified answer a student can read.
+    solved = readable_antiderivative(result, parsed)
     return MathExprResult(result=str(result), latex=format_verified_latex(result), solved=solved)
 
 

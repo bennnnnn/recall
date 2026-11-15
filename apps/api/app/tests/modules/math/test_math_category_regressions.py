@@ -58,7 +58,7 @@ def _settings() -> Settings:
         ("present value of 1157.625 at 5% for 3 years", "arithmetic", "1000"),
         ("equation of the line through (1,2) and (3,6)", "coord", "y = 2 x"),
         ("unit vector of <3,4>", "vector", "<0.6, 0.8>"),
-        ("angle between <1,0> and <0,1>", "vector", "90"),
+        ("angle between <1,0> and <0,1>", "vector", r"90^\circ"),
         ("modulus of 3+4i", "complex", "5"),
         ("range of 1,2,3,4", "statistics", "3"),
         ("modular inverse of 3 mod 11", "number_theory", "4"),
