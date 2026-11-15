@@ -908,3 +908,23 @@ async def test_a_regenerate_grades_the_card_the_message_answered() -> None:
     assert "35" in _note(ctx) and "Na+" not in _note(ctx)
     assert any(m["content"] == lesson_next_contract(1) for m in ctx.prompt_messages)
     assert not any(m["content"] == lesson_next_contract(2) for m in ctx.prompt_messages)
+
+
+@pytest.mark.asyncio
+async def test_a_word_lesson_is_followed_by_more_words() -> None:
+    """Owner, 2026-11-15: after ten idioms, "ok" gave Lesson 2 as three sections named for
+    themes ("Money idioms") whose examples held no idiom. The next lesson keeps the words
+    shape when the last lesson taught words, and stays a concept lesson otherwise."""
+    idioms = (
+        "### Lesson 1: Idioms\n\n"
+        + "\n\n".join(
+            f"### {n}. Phrase {n}\n\n**Meaning:** m{n}\n\n**Example:** e{n}" for n in range(1, 4)
+        )
+        + '\n\n### Your turn\n\n```quiz\n{"question": "q?", "options": ["a", "b"], "answer": 0}\n```'
+    )
+    for lesson, words in ((idioms, True), (_LESSON_ONE, False)):
+        recent = [SimpleNamespace(role="assistant", content=lesson)]
+        ctx = _turn("ok", _card_read(["none"], goes_on=True), recent_messages=recent)
+        await decide_from_the_read(ctx, _SETTINGS)
+        expected = lesson_next_contract(1, words=words)
+        assert any(m["content"] == expected for m in ctx.prompt_messages)
