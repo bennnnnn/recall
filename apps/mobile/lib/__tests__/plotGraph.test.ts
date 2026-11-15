@@ -6,7 +6,7 @@
  * for it. A part that is malformed is left out, never the graph; a fence that is no plot is
  * refused.
  */
-import { realPower } from "@/lib/math/graphExpr";
+import { evalGraphExpr, parseGraphExpr, realPower } from "@/lib/math/graphExpr";
 import { parsePlotGraph, plotBounds } from "@/lib/math/plotGraph";
 
 declare const __dirname: string;
@@ -75,5 +75,19 @@ describe("realPower", () => {
 
   it("has no real even root of a negative", () => {
     expect(realPower(-4, 0.5)).toBeNaN();
+  });
+
+  it("reads a decimal power as the server does: no odd root of a negative (x^0.4)", () => {
+    expect(evalGraphExpr(parseGraphExpr("x^0.4")!, -32)).toBeNaN();
+    expect(evalGraphExpr(parseGraphExpr("x^(2/5)")!, -32)).toBeCloseTo(4, 12);
+  });
+});
+
+describe("the curves a plot keeps", () => {
+  it("are the five the server draws", () => {
+    const curve = { label: "", segments: [[[0, 0], [1, 1]]] };
+    const curves = [curve, curve, curve, curve, curve];
+    const plot = parsePlotGraph(JSON.stringify({ type: "plot", x_min: -1, x_max: 1, y_min: -1, y_max: 1, curves }));
+    expect(plot?.curves).toHaveLength(5);
   });
 });

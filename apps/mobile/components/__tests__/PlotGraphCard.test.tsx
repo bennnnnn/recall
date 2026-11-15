@@ -50,6 +50,14 @@ describe("a plot fence", () => {
     expect(screen.getByTestId("plot-line-axis")).toBeTruthy();
   });
 
+  it("names what it plots when it labels nothing", async () => {
+    const curves = [{ label: "", segments: [[[0, 0], [1, 1]]] }];
+    const bare = { type: "plot", x_min: -1, x_max: 1, y_min: -1, y_max: 1, x_label: "t", y_label: "v", curves };
+    await render(<FunctionGraphBlock content={JSON.stringify(bare)} />);
+    // Never an empty label: the card names its graph (the key, where tests load no language).
+    expect(screen.getByLabelText(/Graph of v\(t\)|rich\.graph_card_a11y/)).toBeTruthy();
+  });
+
   it("refuses a plot it cannot read, as any graph", async () => {
     await render(<FunctionGraphBlock content={JSON.stringify({ type: "plot", x_min: 1, x_max: 0 })} />);
     expect(screen.queryByTestId("plot-graph")).toBeNull();
