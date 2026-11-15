@@ -127,7 +127,7 @@
       "compression": "1.8.2",
       "handlebars": "4.7.10",
       "browserslist": "4.28.7",
-      "node-forge": "1.4.2",
+      "node-forge": "1.4.3",
       "zod": "4.6.7",
       "deepmerge": "file:vendor/deepmerge",
       "glob@>=9.0.0 <14.0.2": "14.0.3",
