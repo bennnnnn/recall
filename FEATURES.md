@@ -444,7 +444,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   `ε = ΔL/L`, `E = σ/ε`, shear modulus, bulk modulus, and Poisson's ratio) and **modern** (`E = hf` or `hc/λ`, de Broglie, half-life,
   `E = mc²`).
   **What it refuses is the design.** An unstated collision type, a 2D collision,
-  a diverging lens (the sign conventions disagree), an absolute temperature
+  a convex mirror's image (the sign conventions disagree), an absolute temperature
   written as bare "degrees" (27 °C and 27 K differ elevenfold), efficiency from
   two temperatures (that is Carnot), a Doppler question with no stated
   direction, a price ("find the cost"), a magnification from a virtual image's
@@ -1078,7 +1078,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   accepted API payload; failed saves preserve drafts. Account/focus guards, coordinated
   list reads and row mutations, Android date-then-time selection, serialized local
   notifications, and conditional server recurrence/delivery writes protect reminder state.
-  Opening Schedule lands on overdue and today. All tasks stays in the menu.
+  Schedule is one list of sections: Overdue, Today, Tomorrow, each later day, Anytime, and
+  Completed folded at the end under its count ("Completed · 3"); ⋯ only starts selecting.
+  A new to-do, or one Home or a push opens, is scrolled to in its section.
   Schedule loads through immutable-ID cursor pages so edits between pages cannot hide
   existing reminders. Recurring reminders are excluded from email; one-shot email
   finalization cannot mark a concurrently edited occurrence as delivered.

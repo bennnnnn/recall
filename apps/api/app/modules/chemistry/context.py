@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+from dataclasses import dataclass, replace
 
 from redis.asyncio import Redis
 
@@ -13,7 +14,7 @@ from app.core.sympy_executor import run_sympy
 from app.gateways import pubchem_gateway
 from app.modules.chemistry.block import (
     VerifiedChemistry,
-    build_verified_chemistry,
+    checked_chemistry,
     verified_iupac,
     verified_structure,
 )
@@ -30,6 +31,7 @@ from app.modules.chemistry.request import (
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.smiles import MAX_SMILES_LENGTH, compute_descriptors
 from app.services.question_parts import ONE_PART_NOTE, asks_more_parts
+from app.services.solving import ImpossibleProblemError
 from app.services.workout import SELF_CHECK_PROMPT_RULE, WORKOUT_PROMPT_RULE
 
 logger = logging.getLogger(__name__)
@@ -138,8 +140,9 @@ def _stoichiometry_ratio_hint(content: str) -> str | None:
 def _descriptor_block(smiles: str) -> str | None:
     try:
         desc = compute_descriptors(smiles)
-    except Exception:
-        logger.info("descriptor context failed for %r", smiles, exc_info=True)
+    except Exception as exc:
+        # Its size and the error's class: a traceback quotes the SMILES.
+        logger.info("descriptor context failed: %s chars=%d", type(exc).__name__, len(smiles))
         return None
     if desc.error is not None:
         return None
@@ -244,6 +247,19 @@ def unverified_chemistry_note() -> str:
     )
 
 
+def no_answer_chemistry_note(reason: str) -> str:
+    """A question that names something no chemistry has (``ImpossibleProblemError``): the
+    reply says why and works nothing out. Told only that nothing verified, the model called
+    NaCl3 "sodium trichloride" and gave it 112 g/mol, then 129 (live round, 2026-11-14)."""
+    return (
+        f"Chemistry note: the question as written has no answer. {reason} Say so plainly in "
+        "the reply's first line, as a fact about the question, and work out no value for it: "
+        "no Given, Solution or Answer, and no ```worked block. Ask which they meant when one "
+        "is likely, such as a subscript or a charge typed by mistake. Do not emit answer, "
+        "smiles, or chem_scene fences."
+    )
+
+
 def append_unverified_chemistry_note(content: str) -> str:
     """Keep the chemistry decline in the prompt. Do not paste it under the answer."""
     note = unverified_chemistry_note()
@@ -254,38 +270,51 @@ def append_unverified_chemistry_note(content: str) -> str:
     return without.rstrip()
 
 
-def _solve_locally(
-    content: str,
-) -> tuple[ChemistryIntent | None, VerifiedChemistry | None, str | None]:
+@dataclass(frozen=True)
+class _LocalReading:
+    """What the pool read of a chemistry turn, before any lookup."""
+
+    intent: ChemistryIntent | None
+    solved: VerifiedChemistry | None = None
+    # Balancing, descriptors or element data, when nothing verified.
+    context: str | None = None
+    # Why the question has no answer as written (``ImpossibleProblemError``).
+    impossible: str | None = None
+    # The compound to look up when nothing local answers.
+    lookup: str | None = None
+
+
+def _solve_locally(content: str) -> _LocalReading:
     """The CPU-bound part of a chemistry turn: read the question, solve it, or build
     local context (balancing, RDKit descriptors). Runs in the SymPy pool, where a
     pathological question is stopped at the solve timeout instead of holding the
     event loop and every other request on it."""
     intent = extract_chemistry_intent(content)
     if intent is not None:
-        solved = build_verified_chemistry(intent)
+        try:
+            solved = checked_chemistry(intent)
+        except ImpossibleProblemError as found:
+            return _LocalReading(intent, impossible=str(found))
         if solved is not None:
-            return intent, solved, None
+            return _LocalReading(intent, solved)
     for local_context in (
         _stoichiometry_ratio_hint(content),
         _descriptor_context(content),
         _element_context(content),
     ):
         if local_context is not None:
-            return intent, None, local_context
-    return intent, None, None
+            return _LocalReading(intent, context=local_context)
+    return _LocalReading(intent)
 
 
-def _read_locally(
-    content: str,
-) -> tuple[ChemistryIntent | None, VerifiedChemistry | None, str | None, str | None]:
+def _read_locally(content: str) -> _LocalReading:
     """``_solve_locally``, and the compound to look up when nothing local answers. The gate
     is a pure reading of the text and is read here, in the pool, never on the event loop."""
-    intent, solved, local_context = _solve_locally(content)
-    lookup = None
-    if intent is None and solved is None and local_context is None:
+    reading = _solve_locally(content)
+    if reading.intent is None and reading.solved is None and reading.context is None:
         lookup = extract_compound_name(content) if is_chemistry_question(content) else None
-    return intent, solved, local_context, lookup
+        return replace(reading, lookup=lookup)
+    return reading
 
 
 def warm_chemistry_solve() -> None:
@@ -297,12 +326,14 @@ async def build_chemistry_augmentation(
     content: str,
     settings: Settings,
     redis: Redis | None = None,
-) -> tuple[str | None, VerifiedChemistry | None, bool]:
-    """Return prompt context, a typed solve, and whether that solve declined.
+) -> tuple[str | None, VerifiedChemistry | None, bool, bool]:
+    """Return prompt context, a typed solve, whether that solve declined, and whether the
+    question has no answer as written.
 
     The third value is true only when a verification was attempted and nothing
     verified replaced it. A PubChem record or element table is context, so it
-    stays false.
+    stays false. The fourth is true when the question names something no chemistry
+    has (NaCl3): the reply works nothing out (``SubjectAugmentation.unanswerable``).
     """
     content = read_chemistry_text(content)
     iupac_smiles = _iupac_smiles(content)
@@ -321,47 +352,55 @@ async def build_chemistry_augmentation(
                 "Do not invent an IUPAC name.",
                 None,
                 True,
+                False,
             )
         verified = verified_iupac(iupac_smiles, name)
-        return verified.prompt_text, verified, False
+        return verified.prompt_text, verified, False, False
     try:
-        intent, solved, local_context, name = await run_sympy(
+        reading = await run_sympy(
             _read_locally, content, timeout=settings.stem_solve_timeout_seconds
         )
     except TimeoutError:
         logger.warning("chemistry solve timed out after %ss", settings.stem_solve_timeout_seconds)
-        return unverified_chemistry_note(), None, True
+        return unverified_chemistry_note(), None, True, False
     except Exception:
         logger.warning("chemistry solve failed", exc_info=True)
-        return unverified_chemistry_note(), None, True
+        return unverified_chemistry_note(), None, True, False
+    solved = reading.solved
     if solved is not None:
         answer = solved.result.answer
         if asks_more_parts(content, answer) or asks_more_particles(content, answer):
-            return f"{solved.prompt_text}\n{ONE_PART_NOTE}", solved, False
-        return solved.prompt_text, solved, False
-    if local_context is not None:
-        return local_context, None, False
+            return f"{solved.prompt_text}\n{ONE_PART_NOTE}", solved, False, False
+        return solved.prompt_text, solved, False, False
+    if reading.impossible is not None:
+        return no_answer_chemistry_note(reading.impossible), None, True, True
+    if reading.context is not None:
+        return reading.context, None, False, False
 
-    if intent is not None:
-        return unverified_chemistry_note(), None, True
+    if reading.intent is not None:
+        return unverified_chemistry_note(), None, True, False
+    name = reading.lookup
     if name is None:
-        return None, None, False
+        return None, None, False, False
     try:
         lookup = await asyncio.wait_for(
             pubchem_gateway.lookup_by_name(name, redis=redis), PUBCHEM_BUDGET_SECONDS
         )
     except TimeoutError:
-        logger.info("PubChem lookup timed out for %r", name)
-        return unverified_chemistry_note(), None, True
+        logger.info("PubChem lookup timed out name_chars=%d", len(name))
+        return unverified_chemistry_note(), None, True, False
     if lookup.error is not None or lookup.compound is None:
-        logger.info("PubChem lookup failed for %r: %s", name, lookup.error)
-        return unverified_chemistry_note(), None, True
+        # Not the lookup's error either: it quotes the name.
+        logger.info(
+            "PubChem lookup failed name_chars=%d found=%s", len(name), lookup.compound is not None
+        )
+        return unverified_chemistry_note(), None, True, False
     compound = lookup.compound
     if _SEE_STRUCTURE.search(content):
         verified = verified_structure(
             name, compound.smiles, compound.molecular_formula, compound.molecular_weight
         )
-        return verified.prompt_text, verified, False
+        return verified.prompt_text, verified, False, False
     lines = [
         f"[Chemistry context for {name}]",
         f"Canonical SMILES: {compound.smiles}",
@@ -374,7 +413,7 @@ async def build_chemistry_augmentation(
         descriptors = _descriptor_block(compound.smiles)
         if descriptors is not None:
             lines.extend(["", descriptors])
-    return "\n".join(lines), None, False
+    return "\n".join(lines), None, False, False
 
 
 def _iupac_smiles(content: str) -> str | None:

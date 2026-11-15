@@ -15,7 +15,7 @@ from app.modules.physics.direct import maybe_direct_physics_reply
 from app.modules.physics.display import si_symbol
 from app.modules.physics.givens import unit_dimension
 from app.modules.physics.schemas import PhysicsIntent
-from app.tests.modules.physics.binding_samples import SAMPLES
+from app.tests.modules.physics.binding_samples import BY_LAW, SAMPLES
 
 _SETTINGS = Settings(math_tools_enabled=True)
 
@@ -322,8 +322,8 @@ def test_an_asked_phrase_that_labels_a_given_is_not_the_ask() -> None:
     assert intent is not None and intent.physics_op == "suvat_time"
 
 
-def _sample(name: str) -> float:
-    return SAMPLES[name]
+def _sample(operation: str, name: str) -> float:
+    return BY_LAW.get((operation, name), SAMPLES[name])
 
 
 def _bindings() -> list[tuple[str, frozenset[str]]]:
@@ -349,7 +349,7 @@ def test_every_promised_input_set_solves_to_the_promised_results(
     intent = PhysicsIntent(
         kind=spec.kind,  # type: ignore[arg-type]
         physics_op=operation,
-        physics_params={name: _sample(name) for name in sorted(inputs)},
+        physics_params={name: _sample(operation, name) for name in sorted(inputs)},
         physics_units=units,
     )
     result = solve_physics(intent)

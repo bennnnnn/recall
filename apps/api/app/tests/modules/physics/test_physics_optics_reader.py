@@ -119,9 +119,7 @@ def test_optics_reader_reads_each_law(
 @pytest.mark.parametrize(
     "text",
     [
-        # The gates: a diverging lens, the catalog's microscope.
-        "A diverging lens has a focal length of 10 cm and an object at 30 cm. Find the image "
-        "distance.",
+        # The gate: the catalog's microscope.
         "A microscope objective has focal length 4 mm and the object is 5 mm away. Find the "
         "image distance.",
         # A named law that cannot be read declines: it never falls through to a later law.

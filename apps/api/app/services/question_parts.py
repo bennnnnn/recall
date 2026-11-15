@@ -30,3 +30,22 @@ def labelled_parts(text: str) -> int:
     """How many distinct part labels ``text`` has; 0 when fewer than two."""
     labels = {match.group(1).lower() for match in _PART_LABEL.finditer(text)}
     return len(labels) if len(labels) >= 2 else 0
+
+
+def labelled_part_texts(text: str) -> tuple[str, tuple[str, ...]]:
+    """The statement before the first label, and each labelled part's own words in order;
+    no parts unless ``text`` has two distinct labels or more, each used once."""
+    found = list(_PART_LABEL.finditer(text))
+    labels = [match.group(1).lower() for match in found]
+    if len(labels) < 2 or len(set(labels)) != len(labels):
+        return text.strip(), ()
+    # A label starts at its bracket, "(a)", or at its letter, "a)".
+    starts = [
+        match.start(1) - 1 if match.start(1) and text[match.start(1) - 1] == "(" else match.start(1)
+        for match in found
+    ]
+    parts = tuple(
+        text[match.end() : end].strip(" \t\n,;")
+        for match, end in zip(found, [*starts[1:], len(text)], strict=True)
+    )
+    return text[: starts[0]].strip(), parts

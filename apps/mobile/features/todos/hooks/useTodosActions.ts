@@ -114,7 +114,7 @@ export function useTodosActions({ token, userId, todos, getTodos,
   const handleCreateTodo = useCallback(async (
     content: string,
     due: TodoDue | null,
-    onCreated: () => void,
+    onCreated: (created: Todo) => void,
     recurrence: RecurrenceRule | null = null,
     topic: string = DEFAULT_TOPIC,
   ) => {
@@ -150,7 +150,7 @@ export function useTodosActions({ token, userId, todos, getTodos,
         else if (userId) void markReminderIdsSeen(userId, [created.id]);
       }
       if (canAct()) {
-        onCreated();
+        onCreated(created);
       }
     } catch {
       applyTodos((rows) => removeTodoById(rows, optimistic.id));

@@ -14,7 +14,7 @@ card. Model text never keeps it:
    ``Answer``, ``result`` / ``final``) to the plain column-0 form, so each
    subject's fence pass sees and demotes all of them, not only ``\\n```answer``.
 3. ``modules/chat/verification_claims`` drops the model's own "✅ Verified with SymPy",
-   and ``chat.simulation_fences`` its own ```simulation scene.
+   and ``chat.simulation_fences`` its own scenes and structures (``SERVER_DRAWN_LANGS``).
 
 The server writes the line with ``verified_answer_fence`` (post-stream cards) and
 ``mark_server_answer_fences`` (an instant reply, once, when it is sent). ``land_answer_card``
@@ -32,6 +32,7 @@ from dataclasses import dataclass
 
 from app.services.card_text import card_maths, named_value, without_emphasis, wordy
 from app.services.card_value import final_answer_only
+from app.services.final_value import is_final_value
 from app.services.md_fence_scan import fence_lang as fence_lang
 from app.services.md_fence_scan import map_closed_fences, read_fence_marker
 from app.services.remark_after_answer import split_tail
@@ -44,8 +45,11 @@ CHEMISTRY_NOTATION_LINE = "notation: chemistry"
 # also wrote ``label: answer`` when they moved an **Answer** heading inside.
 ANSWER_HEADER_LINES = _CHECK_LINES | {CHEMISTRY_NOTATION_LINE, "label: answer"}
 ANSWER_FENCE_LANGS = ("answer", "result", "final")
+# Fences only the server draws (a solver's scene; RDKit's or PubChem's structure), which the
+# phone draws as the server's: a model's own never ships (audit SEC-01, 2026-11-13).
+SERVER_DRAWN_LANGS = ("simulation", "chem_scene", "molecule", "molecule3d", "mol3d", "3dmol")
 # Server-owned fences a model must not ship in any spelling.
-OWNED_FENCE_LANGS = (*ANSWER_FENCE_LANGS, "simulation")
+OWNED_FENCE_LANGS = (*ANSWER_FENCE_LANGS, *SERVER_DRAWN_LANGS)
 # Fences whose body a client may read as an answer card. A marker line inside
 # any other fence (```yaml, ```python) is code the user asked for, so it stays.
 _MARKER_SCRUB_LANGS = frozenset(
@@ -376,32 +380,11 @@ def _answer_values(lines: list[str], start: int) -> tuple[list[tuple[int, str]],
     return values, end, False
 
 
-_BARE_SYMBOL = re.compile(r"[A-Za-z](?:_\{?\w+\}?)?")
-_UNIT_TEXT = re.compile(r"\\(?:text|mathrm)\{[^}]*\}")
-# Arithmetic still to do: a product, quotient, fraction, power, sum, or a minus
-# after a term (a leading minus is the value's sign).
-_ARITHMETIC = re.compile(r"\\(?:times|cdot|div|frac)|[\u00d7\u00b7*/\u00f7+^]|\S\s*[-\u2212]")
-# An exact fraction is a value, not a division still to do: x = \frac{1}{2}.
-_EXACT_FRACTION = re.compile(r"\\d?frac\{-?\d+\}\{-?\d+\}")
-
-
-def _is_final_value(value: str) -> bool:
-    """``x = 2``, ``x_1 = -3``, ``v = 19.6\\ \\text{m/s}``: a name set to a value with no
-    arithmetic left, unlike the working line ``v = 9.8 \\times 2`` or ``2x = 4``."""
-    left, equals, right = _relations(value.replace("$", "")).partition("=")
-    right = _EXACT_FRACTION.sub("1", _UNIT_TEXT.sub("", right)).strip()
-    return (
-        bool(equals and right)
-        and _BARE_SYMBOL.fullmatch(left.strip()) is not None
-        and _ARITHMETIC.search(right) is None
-    )
-
-
 def _card_start(values: list[tuple[int, str]]) -> int:
     """Where the card's values begin: the last one, and the final values just before it
     (both roots, ``x = 2`` and ``x = -2``); earlier lines are working."""
     start = len(values) - 1
-    while start > 0 and all(_is_final_value(values[i][1]) for i in (start - 1, start)):
+    while start > 0 and all(is_final_value(_relations(values[i][1])) for i in (start - 1, start)):
         start -= 1
     return start
 
@@ -443,9 +426,12 @@ def land_answer_card(text: str, verified_body: str | None, *, above: str | None 
         card = verified_answer_fence(verified_body)
     else:
         parts = [v for _, v in values[shown:]] or [""]
-        # Both roots read on one line (x = 2, x = -2): a card draws one line of maths.
-        joined = parts[0] if len(parts) == 1 else ", ".join(" ".join(p.split()) for p in parts)
-        value, said = split_tail(named_value(answer_header_and_value(joined)[1]))
+        if len(parts) == 1:
+            value, said = split_tail(named_value(answer_header_and_value(parts[0])[1]))
+        else:
+            # Both roots, or each value a part asks for, on one line: a card draws one line
+            # of maths, each value with its own note ("$f_{max} = 15$ (at x = 3)").
+            value = ", ".join(" ".join(part.split()) for part in parts)
         if value.startswith("\\[") and value.endswith("\\]"):
             value = f"$${value[2:-2]}$$"  # the card reads $$ display maths
         # A card draws maths; "Paris" under a quiz's Answer, a paragraph or a sentence stays.

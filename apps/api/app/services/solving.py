@@ -28,7 +28,12 @@ from app.services.workout import GIVEN
 # makes them lazy strings), so no runtime import is needed at all.
 if TYPE_CHECKING:
     from app.modules.math.response_intent import MathResponseIntent
-    from app.modules.math.schemas import GeometryRequest, NewtonMethodInput, NewtonMethodResult
+    from app.modules.math.schemas import (
+        GeometryRequest,
+        MathImageExtract,
+        NewtonMethodInput,
+        NewtonMethodResult,
+    )
     from app.modules.math.solve.key_steps import KeyStep
     from app.modules.physics.schemas import PhysicsIntent
     from app.modules.physics.schemas.symbolic import SymbolicPhysicsRequest
@@ -52,6 +57,14 @@ _VERIFIED_MARKERS = (
 
 class SolveServiceError(ValueError):
     """A deterministic subject solve declined invalid or unsupported input."""
+
+
+class ImpossibleProblemError(SolveServiceError):
+    """A solve declined because the question, as the solver read it, describes something no
+    real case has: a compound whose ions cannot balance, an equation no coefficients balance,
+    values that give a negative mass. Its message is that reason, a sentence for the reply's
+    model. Told only that nothing verified, the model gave NaCl3 a molar mass of 129 g/mol
+    (live round, 2026-11-14)."""
 
 
 @dataclass(frozen=True)
@@ -160,6 +173,10 @@ class VerifiedPhysicsBlock(VerifiedSolveBlock):
     symbolic_request: SymbolicPhysicsRequest | None = None
     # The question asks for more than this result answers: the model answers the rest.
     partial: bool = False
+    # The words physics read this result from. A typed reading of the student's own words
+    # keeps its card over a model's other value; a follow-up's rewrite or a photo's reading
+    # does not (``physics.fence``).
+    read_text: str | None = None
 
 
 @dataclass(frozen=True)
@@ -173,6 +190,25 @@ class SubjectAugmentation:
     # Both halves of "…, and also …", or each question of a problem in parts, already
     # rendered. Chat shows this and does not ask the model to redo any of them.
     direct_text: str | None = None
+    # The question as written has no answer (a -5 Ω resistor, NaCl3): the prompt block says
+    # why, and the reply works nothing out, so the turn gets no ```worked block either.
+    unanswerable: bool = False
+
+
+@dataclass(frozen=True)
+class PhotoReading:
+    """What a subject read off a turn's photo (``SubjectPhoto.read``)."""
+
+    # Maths' structured read, when it found an equation to solve.
+    extract: MathImageExtract | None
+    # The message with the line the prompt states the photo's problem in.
+    content: str
+    # The reader was not sure what it read: the turn still solves and answers it, and
+    # nothing from it is certified (no check on its card).
+    uncertain: bool = False
+    # The photo's words as the reader transcribed them, for the subject order to read when
+    # the reader did not state them itself (maths' reading of a physics word problem).
+    transcription: str | None = None
 
 
 def wrap_verified_math(text: str) -> str:

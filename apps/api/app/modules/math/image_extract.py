@@ -234,16 +234,3 @@ def _read_extract(response: Any) -> MathImageExtract | None:
         # the structured JSON dropped a printed restriction or subtask.
         return None
     return parsed
-
-
-async def extract_equation_from_image(
-    settings: Settings,
-    *,
-    content_type: str,
-    data: bytes,
-) -> MathImageExtract | None:
-    """Best-effort extract — Mathpix when configured, else vision-chat."""
-    from app.modules.math.ocr import extract_math_from_image
-
-    result = await extract_math_from_image(settings, content_type=content_type, data=data)
-    return result.extract

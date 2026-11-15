@@ -374,7 +374,8 @@ async def list_messages_page(
                         dedupe_key=title_job_key(chat_id),
                     )
             except Exception:
-                logger.warning("Title backfill enqueue failed chat_id=%s", chat_id, exc_info=True)
+                # The id off the chat's row, not the request's (CodeQL py/log-injection).
+                logger.warning("Title backfill enqueue failed chat_id=%s", chat.id, exc_info=True)
 
     outs = [MessageOut.model_validate(m) for m in msgs]
     if newest or (around is not None and not has_more_after):

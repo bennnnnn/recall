@@ -71,6 +71,9 @@ class Augmentation:
     subject: SubjectName | None = None
     # A calculation nothing verified: the model writes a ```worked block (``worked_turn``).
     worked: WorkedLayout | None = None
+    # The question as written has no answer: the subject's note says why, and nothing is
+    # worked out (``SubjectAugmentation.unanswerable``).
+    unanswerable: bool = False
 
     async def direct_reply(
         self, request: TurnRequest, followup: SubjectFollowup, settings: Settings
@@ -147,6 +150,7 @@ async def gather_and_inject(
         asks_more=plan.multi and any(part.kind != "solve" for part in plan.parts),
         solve_timed_out=any(timed_out),
         subject=detected_subject,
+        unanswerable=fetched.unanswerable,
     )
 
 
@@ -325,7 +329,10 @@ async def augment_after_prompt(
     if instant_reply is None:
         instant_reply = await augmented.direct_reply(request, followup, settings)
     subject = augmented.subject or followup.subject
-    answered = bool(instant_reply is not None or augmented.verified_subject or money)
+    # A question with no answer as written is answered by the note that says why.
+    answered = bool(
+        instant_reply is not None or augmented.verified_subject or money or augmented.unanswerable
+    )
     lightweight = identity.mode.lightweight
     augmented.worked = worked_layout(
         request.content,

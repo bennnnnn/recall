@@ -11,9 +11,11 @@ from app.modules.math.schemas.operations import (
     CombinatoricsOp,
     MatrixOp,
     NumberTheoryOp,
+    NumberTheorySolveOp,
     SolidShape,
     StatisticsOp,
     SummaryStatsOp,
+    WorkedNumericRule,
 )
 from app.modules.math.schemas.word_problem import WordProblemSetup
 
@@ -135,6 +137,17 @@ class MathIntent(BaseModel):
     # Newton's method starting point — `expr` above holds f(x) (already
     # converted from "lhs = rhs" to "lhs - rhs" if needed).
     newton_guess: float | None = None
+    # A numerical method the question names (``match/numerical_methods.py``): its rule, its
+    # subintervals or steps (None: Newton runs to convergence), the index the starting
+    # value carries (x_0 or x_1), and Euler's step h. ``expr`` is the integrand, f(x) or
+    # Euler's y' in x and y; the integral's bounds, Euler's start (``initial_x``,
+    # ``initial_y``) and its end (``evaluation_point``) use their own fields.
+    numeric_rule: WorkedNumericRule | None = None
+    numeric_steps: int | None = None
+    numeric_first_index: int = 0
+    numeric_step_size: str | None = None
+    # Newton: every iterate up to the last was asked for ("find x_1 and x_2").
+    numeric_every_step: bool = False
     # Which rectangle quantities the user's own wording actually asked for —
     # lets the rectangle augmentation only annotate the diagram with what was
     # requested instead of always drawing a diagonal + angle.
@@ -177,6 +190,9 @@ class MathIntent(BaseModel):
     numtheory_exponent: int | None = None
     # gcd/lcm of three or more numbers ("lcm of 12, 18 and 30"), in order.
     numtheory_values: list[int] | None = None
+    # "the gcd and lcm of 252 and 198": both, in the order asked; None asks for
+    # ``numtheory_op`` alone.
+    numtheory_ops: list[NumberTheorySolveOp] | None = None
     # Matrix — small-matrix operations. Multiplication/addition use matrix_rows_b;
     # determinant/inverse/eigens/diagonalization require a square matrix.
     matrix_op: MatrixOp | None = None

@@ -35,7 +35,8 @@ An adapter has what the dispatcher and chat ask of every subject:
 - ``fence``: which verified blocks it finishes, how it holds a finished reply's fences to
   its block, and the notes, drawings and clean-up it adds (``SubjectFence``).
 
-A subject with nothing to offer for a member answers None or False, or returns the text as it is.
+A subject with nothing to offer for a member answers None or False, or returns the text as it is;
+a member that raises answers the same way, logged once (``services/subjects/guard``).
 
 Money is registered beside them as a peer (``MONEY``, a ``MoneyPeer``): a loan, card or
 savings question is worked before the prompt and gets its calculator card after the reply,
@@ -50,7 +51,7 @@ from there. ``tests/services/test_subject_registry.py`` holds the names to each 
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol, TypeGuard
@@ -62,7 +63,11 @@ from app.modules.math.schemas import MathImageExtract as MathImageExtract
 from app.modules.math.subject import MATH_SUBJECT
 from app.modules.money.subject import MONEY_PEER
 from app.modules.physics.subject import PHYSICS_SUBJECT
+
+# What a subject read off a photo (``photo``).
+from app.services.solving import PhotoReading as PhotoReading
 from app.services.solving import SubjectName as SubjectName
+from app.services.subjects.guard import GuardedSubject
 
 if TYPE_CHECKING:
     from redis.asyncio import Redis
@@ -193,7 +198,13 @@ class SubjectFence(Protocol):
         """The reply holds fences the subject draws from its own data (``draw``)."""
         ...
 
-    def draw(self, text: str, settings: Settings) -> str:
+    async def named(self, text: str, settings: Settings) -> dict[str, str]:
+        """What those fences are labelled, each checked against the app's own data: a
+        molecule's name and the structure it names (``draw`` keeps a name on its own
+        structure only). Before ``draw``, off the pool: it may look a name up."""
+        ...
+
+    def draw(self, text: str, settings: Settings, named: Mapping[str, str] | None = None) -> str:
         """Those fences drawn, in the pool: a chart's formula sampled, a molecule's data."""
         ...
 
@@ -210,13 +221,14 @@ class SubjectPhoto(Protocol):
         content: str,
         *,
         image_attachments: list[tuple[str, str]],
-        load_image: Callable[[str], Awaitable[bytes | None]],
+        load_image: Callable[[str], Awaitable[tuple[str, bytes] | None]],
         settings: Settings,
         on_status: Callable[[str], Awaitable[None]] | None,
-    ) -> tuple[MathImageExtract | None, str]:
+    ) -> PhotoReading:
         """What it read, and ``content`` with the line the prompt states it in.
 
-        ``load_image`` gives a photo's bytes by its storage key.
+        ``load_image`` gives a photo by its storage key as a reader should see it: upright,
+        with its content type.
         """
         ...
 
@@ -385,11 +397,11 @@ MONEY: MoneyPeer = MONEY_PEER
 
 # The registration: one entry per subject. Which subject a line is never follows this order
 # (the subject order does); chat states the subjects' fixed prompt copy in it, which the
-# leak pass joins as listed (``chat.prompt_subjects``).
-SUBJECTS: tuple[SubjectAdapter, ...] = (
-    PHYSICS_SUBJECT,
-    MATH_SUBJECT,
-    CHEMISTRY_SUBJECT,
+# leak pass joins as listed (``chat.prompt_subjects``). Chat gets each one guarded: a member
+# that raises answers as a subject with nothing to say (``guard``), so one subject's bug
+# never fails another's turn.
+SUBJECTS: tuple[SubjectAdapter, ...] = tuple(
+    GuardedSubject(adapter) for adapter in (PHYSICS_SUBJECT, MATH_SUBJECT, CHEMISTRY_SUBJECT)
 )
 
 _BY_NAME: dict[str, SubjectAdapter] = {adapter.name: adapter for adapter in SUBJECTS}

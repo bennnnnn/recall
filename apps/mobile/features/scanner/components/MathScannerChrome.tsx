@@ -201,11 +201,8 @@ export function MathScannerChrome({
                 style={[s.shutter, shutterStyle, cameraReady ? null : s.dimmed]}
                 testID={`math-scanner-shutter-${camera}`}
               >
-                {capturing || cameraStarting ? (
-                  <ActivityIndicator color={capturing ? theme.text : theme.onMedia} />
-                ) : (
-                  <ShutterSubjectDisc subject={subject} />
-                )}
+                {/* The mark shows from the first frame; a starting camera only dims the shutter. */}
+                {capturing ? <ActivityIndicator color={theme.text} /> : <ShutterSubjectDisc subject={subject} />}
               </Animated.View>
             </GHPressable>
             <View style={s.sideSlot}>

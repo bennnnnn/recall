@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from typing import Literal
 
 from app.core.config import Settings
@@ -35,7 +35,41 @@ def _unverified_physics_note() -> str:
     )
 
 
+def _no_answer_note(reason: str) -> str:
+    """A question that states a value no such quantity takes has no answer as written: the
+    reply says why and works nothing out (``out_of_range``)."""
+    return (
+        f"Physics note: the question as written has no answer. {reason} Say so plainly in "
+        "the reply's first line, as a fact about the question, and work out no result from "
+        "it: no Given, Solution or Answer, and no ```worked block. This replaces the rule to "
+        "finish under Answer. Ask which value they meant when one is likely, such as a minus "
+        "sign typed by mistake. Do not emit answer, graph, or simulation fences."
+    )
+
+
+def _sign_check_note(reason: str) -> str:
+    """The question's law, filled with its values as signed, gives a result no such quantity
+    takes. Its signs may only mark directions, so the reply checks them before it answers."""
+    return (
+        f"{_unverified_physics_note()}\n\nPhysics sign check: {reason} Check the signs the "
+        "question states before you answer. When they make it impossible as written (a force "
+        "said to point against the acceleration it gives), say so plainly and work out no "
+        "result. When they only mark directions (a braking force given as a size beside a "
+        "deceleration written negative), answer with sizes and say so."
+    )
+
+
 PhysicsOutcome = Literal["skip", "note", "failed", "symbolic", "verified", "picture"]
+
+
+@dataclass(frozen=True)
+class NoAnswer:
+    """Why a declined question has no answer as written, as the note the prompt carries."""
+
+    note: str
+    # The question states the value itself (a -5 Ω resistor): the reply works nothing out.
+    # A result is only as signed as the reader read it, and may be answered with sizes.
+    stated: bool
 
 
 def solve_physics_request(
@@ -68,6 +102,7 @@ def solve_physics_request(
             logger.info("symbolic physics model declined", exc_info=True)
             return "failed", None
     intent = extract_physics_intent(user_content)
+    read_text = user_content
     # The parts and asks a LaTeX paste holds are its plain text's (``latex_markup``).
     user_content = without_markup(user_content)
     block: VerifiedPhysicsBlock | None = None
@@ -83,7 +118,28 @@ def solve_physics_request(
     if block is None:
         return _picture_or(user_content, "note" if intent is None else "failed")
     partial = answers_part_of(user_content, block.physics_intent, len(block.physics_parts))
-    return "verified", replace(block, text=wrap_verified_physics(block.text), partial=partial)
+    return "verified", replace(
+        block, text=wrap_verified_physics(block.text), partial=partial, read_text=read_text
+    )
+
+
+def solve_or_say_why(
+    user_content: str, settings: Settings, needs_subject: bool | None
+) -> tuple[PhysicsOutcome, VerifiedPhysicsBlock | None, NoAnswer | None]:
+    """``solve_physics_request``, and for a question it declines, why the question has no
+    answer as written when its values say so (``out_of_range``), in the same pool call."""
+    outcome, block = solve_physics_request(user_content, settings, needs_subject)
+    if outcome not in ("note", "failed"):
+        return outcome, block, None
+    from app.modules.physics.out_of_range import result_out_of_range, stated_out_of_range
+
+    stated = stated_out_of_range(user_content)
+    if stated is not None:
+        return outcome, None, NoAnswer(_no_answer_note(stated), stated=True)
+    result = result_out_of_range(user_content)
+    if result is not None:
+        return outcome, None, NoAnswer(_sign_check_note(result), stated=False)
+    return outcome, None, None
 
 
 def _more_answered(
@@ -115,20 +171,22 @@ async def build_physics_augmentation(
     settings: Settings,
     *,
     needs_subject: bool | None = None,
-) -> tuple[str | None, VerifiedPhysicsBlock | None, bool]:
+) -> tuple[str | None, VerifiedPhysicsBlock | None, bool, bool]:
     """Build physics context without passing through math extraction or blocks.
 
     The third value is true only when a matching template was solved and that
-    solve failed. A physics question with no template still gets the prompt
-    note, and it is not reported as a failed check.
+    solve failed, or the question has no answer as written. A physics question with
+    no template still gets the prompt note, and it is not reported as a failed check.
+    The fourth is true when the question states a value no such quantity takes: the
+    reply works nothing out (``SubjectAugmentation.unanswerable``).
     """
     if not settings.physics_enabled:
-        return None, None, False
+        return None, None, False, False
     from app.core.sympy_executor import run_sympy
 
     try:
-        outcome, block = await run_sympy(
-            solve_physics_request,
+        outcome, block, no_answer = await run_sympy(
+            solve_or_say_why,
             user_content,
             settings,
             needs_subject,
@@ -138,21 +196,23 @@ async def build_physics_augmentation(
         logger.warning(
             "physics read and solve timed out after %ss", settings.stem_solve_timeout_seconds
         )
-        return _unverified_physics_note(), None, True
+        return _unverified_physics_note(), None, True, False
     except Exception:
         logger.warning("physics read and solve failed", exc_info=True)
-        return _unverified_physics_note(), None, True
+        return _unverified_physics_note(), None, True, False
     if outcome == "skip":
-        return None, None, False
+        return None, None, False, False
+    if no_answer is not None:
+        return no_answer.note, None, True, no_answer.stated
     if outcome == "note":
-        return _unverified_physics_note(), None, False
+        return _unverified_physics_note(), None, False, False
     if outcome == "picture" and block is not None:
-        return block.text, block, False
+        return block.text, block, False, False
     if block is None:
-        return _unverified_physics_note(), None, True
+        return _unverified_physics_note(), None, True, False
     policy = (
         f"{PHYSICS_REPLY_POLICY}\n\n{PHYSICS_PARTIAL_POLICY}"
         if block.partial
         else PHYSICS_REPLY_POLICY
     )
-    return f"{block.text}\n\n{policy}", block, False
+    return f"{block.text}\n\n{policy}", block, False, False

@@ -44,7 +44,7 @@ def test_chemistry_solves_the_question_and_leaves_the_verdict_to_the_model(
     lead: str, check: str
 ) -> None:
     text = f"How many grams are in 0.5 mol of NaCl? {lead} 29.2 g, {check}"
-    _intent, solved, _context = _solve_locally(chemistry_text_for_solve(text))
+    solved = _solve_locally(chemistry_text_for_solve(text)).solved
     assert solved is not None
     assert maybe_direct_chemistry_reply(solved, has_image_attachment=False, user_text=text) is None
 

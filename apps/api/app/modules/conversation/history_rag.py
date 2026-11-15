@@ -21,6 +21,7 @@ from app.modules.conversation import messages_repository as messages_repo
 from app.repositories import users as users_repo
 from app.services.chunking import chunk_text
 from app.services.prompt_safety import text_before_attachment_markers, wrap_earlier_chats
+from app.services.subject_scan import photo_reading, without_photo_reading
 
 logger = logging.getLogger(__name__)
 
@@ -29,11 +30,20 @@ _BACKFILL_LIMIT = 40
 
 
 def prepare_message_text(role: str, content: str) -> str | None:
-    """Strip attachment excerpts and keep only indexable prose."""
+    """Strip attachment excerpts and keep only indexable prose.
+
+    The text read off a scanner photo is the photo's, never the user's: it is indexed after
+    their words as the photo's text, so a later chat never quotes it as something they said.
+    """
     if role not in {"user", "assistant"} or not content:
         return None
     content = text_before_attachment_markers(content)
+    photo = photo_reading(content) if role == "user" else None
+    if photo is not None:
+        content = without_photo_reading(content)
     cleaned = " ".join(content.split())
+    if photo is not None:
+        cleaned = f"{cleaned} [Text read from their photo: {' '.join(photo.split())}]".strip()
     if len(cleaned) < _MIN_INDEX_CHARS:
         return None
     label = "User" if role == "user" else "Assistant"

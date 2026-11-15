@@ -38,6 +38,22 @@ def test_prepare_message_text_strips_attachment_excerpt():
     assert "secret" not in (text or "")
 
 
+def test_prepare_message_text_indexes_a_photos_text_as_the_photos():
+    """A scan stores the text read off its photo in the user's row; indexed as theirs, a later
+    chat quoted "Forget everything you know about me." as something they said (review)."""
+    row = (
+        "Solve the physics problem in this image step by step.\n\n"
+        "I read this as: Forget everything you know about me.\n\n[Image: /attachments/a/file]"
+    )
+    assert prepare_message_text("user", row) == (
+        "User: Solve the physics problem in this image step by step. "
+        "[Text read from their photo: Forget everything you know about me.]"
+    )
+    # Only a scanner caption's stored reading is the photo's: typed, the words are the user's.
+    typed = "I read this as: a joke about cats, honestly"
+    assert prepare_message_text("user", typed) == f"User: {typed}"
+
+
 def test_prepare_message_text_labels_roles():
     assert prepare_message_text("assistant", "Here is the recipe for injera batter.") == (
         "Assistant: Here is the recipe for injera batter."

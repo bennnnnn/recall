@@ -52,7 +52,7 @@ import {
 } from "@/features/scanner/model/scanImage";
 import {
   playScannerSwitchCue,
-  stopScannerSwitchCue,
+  useScannerSwitchCue,
 } from "@/features/scanner/model/switchCue";
 import { SCANNER_SUBJECTS, type ScannerSubject } from "@/lib/scanner/subjects";
 import { scheduleIdlePromise } from "@/lib/scheduleIdle";
@@ -186,17 +186,14 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
       return;
     }
     files.discardAll();
-    stopScannerSwitchCue();
     if (Platform.OS === "ios") return;
     const timer = setTimeout(() => setHosted(false), ANDROID_DISMISS_MS);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- open-only reset: the crop helpers are stable enough per open
   }, [visible]);
 
-  useEffect(() => () => {
-    stopScannerSwitchCue();
-    files.discardAll();
-  }, [files]);
+  useEffect(() => () => files.discardAll(), [files]);
+  useScannerSwitchCue(visible);
 
   /** Show a shot for a manual crop, sized in the space the crop is cut in; `aim` is the live frame in it. */
   const showShot = useCallback(

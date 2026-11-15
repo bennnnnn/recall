@@ -32,7 +32,7 @@ from app.modules.attachments import content as attachment_content
 from app.modules.attachments import markers as attachment_markers
 from app.modules.attachments import service as attachments_service
 from app.modules.attachments import vision_input
-from app.modules.chat.turn_prep.attachments import _AttachmentProcessResult
+from app.modules.chat.turn_prep.attachments import AttachmentProcessResult
 from app.modules.images.gen_intent import IMAGE_NOUNS
 
 logger = logging.getLogger(__name__)
@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 
 async def inject_turn_images(
     prompt_messages: list[dict[str, Any]],
-    attachments: _AttachmentProcessResult,
+    attachments: AttachmentProcessResult,
     *,
     caption: str,
     settings: Settings,

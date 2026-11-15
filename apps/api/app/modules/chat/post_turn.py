@@ -20,6 +20,7 @@ from redis.asyncio import Redis
 
 from app.core import jobs
 from app.core.config import Settings
+from app.core.log_text import log_safe
 from app.exceptions import RedisUnavailableError
 from app.models.orm import Message, User
 from app.modules.chat.context_window import compute_history_split, should_run_compression
@@ -303,7 +304,11 @@ async def enqueue_saved_turn_jobs(redis: Redis, settings: Settings, saved: Saved
     turn = FinishedTurn(
         settings=settings,
         saved=saved,
-        memory_user_text=memory_extract_user_text(saved.user_message),
+        # The row as saved: maths' photo line ("Solve: …") is the prompt's alone, and a scanner
+        # photo's reading is dropped there (``memory_extract_user_text``).
+        memory_user_text=memory_extract_user_text(
+            saved.title_message if saved.title_message is not None else saved.user_message
+        ),
         turn_key=(
             str(saved.assistant_message_id)
             if saved.assistant_message_id is not None
@@ -352,4 +357,4 @@ async def finish_turn(
     try:
         await enqueue_saved_turn_jobs(redis, settings, saved)
     except Exception:
-        logger.exception("Post-turn jobs not queued chat_id=%s", chat_id)
+        logger.exception("Post-turn jobs not queued chat_id=%s", log_safe(chat_id))

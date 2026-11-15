@@ -11,8 +11,10 @@ snapshot names every physics and chemistry reply whose Substitution writes a giv
 without its unit (``working_units``), so none starts to and each fix is recorded; a row the
 server cannot label for certain stays bare there, since a wrong unit is worse. Every unit a
 reply does print is read back and checked (``labelled_rows``). A
-``gap`` entry is a known miss: a strict expected failure, so the fix deletes its
-``gap`` line.
+``gap`` names a known miss, a question the server declines and should answer; it never
+excuses a wrong number. Every entry, gap or not, fails on a critical problem: twelve
+known-wrong verified answers shipped behind strict expected failures until 2026-11-13
+(audit), green in CI while students got the wrong number with a check.
 """
 
 from __future__ import annotations
@@ -45,14 +47,10 @@ EXPECTS = {"answer", "explain", "decline", "not_subject"}
 ENTRIES = [(subject, entry) for subject in SUBJECTS for entry in load(subject)]
 
 
-def _param(subject: str, entry: Entry) -> object:
-    marks = [pytest.mark.xfail(reason=entry.gap, strict=True)] if entry.gap else []
-    return pytest.param(subject, entry, id=f"{subject}:{entry.id}", marks=marks)
-
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("subject", "entry"), [_param(subject, entry) for subject, entry in ENTRIES]
+    ("subject", "entry"),
+    [pytest.param(subject, entry, id=f"{subject}:{entry.id}") for subject, entry in ENTRIES],
 )
 async def test_stem_turn_is_never_wrong(
     subject: str, entry: Entry, thread_sympy_executor: None
@@ -137,6 +135,10 @@ def test_stem_corpus_is_well_formed(subject: str) -> None:
         assert entry.prompt.strip(), entry.id
         assert entry.checked == (entry.expect == "answer"), entry.id
         assert entry.shared in {None, *SUBJECT_NAMES} - {subject}, entry.id
+        # A gap is a question the server should answer and declines. A decline, an
+        # explanation or a message that is not the subject has nothing to miss, and answered
+        # one would be wrong.
+        assert entry.gap is None or entry.expect == "answer", entry.id
 
 
 @pytest.mark.parametrize(

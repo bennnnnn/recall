@@ -274,7 +274,32 @@ def takes_school_g_elsewhere(spec: FormulaSpec, params: Mapping[str, float], low
     if unknown is not None and unknown.name == "g":
         return False
     filled = params.get("g", SCHOOL_GRAVITY["earth"]) in SCHOOL_GRAVITY.values()
-    return filled and names_body_without_school_gravity(lower)
+    return filled and (
+        names_body_without_school_gravity(lower) or names_two_school_gravities(lower)
+    )
+
+
+_MARS = re.compile(r"\bmars\b")
+# Earth as a place, not as the Moon's owner ("Earth's moon" is the Moon).
+_EARTH = re.compile(r"\bearth\b(?!['\u2019]s\s+moon\b)")
+
+
+def names_two_school_gravities(lower: str) -> bool:
+    """The question names two bodies whose school g differ (Earth and the Moon), neither set
+    aside: which one the weight, the fall or the swing is on is no one setting. "Weighs 50 N on
+    Earth. What is its mass on the Moon?" took the Moon's g for the weight, 30.9 kg for
+    5.10 kg (audit 2026-11-07)."""
+    from app.modules.physics.set_aside import set_aside_owner
+
+    named = {
+        body
+        for body, pattern in (("earth", _EARTH), ("moon", _MOON), ("mars", _MARS))
+        for found in pattern.finditer(lower)
+        if not set_aside_owner(lower, found.start())
+    }
+    if "moon" in named and not names_our_moon(lower):
+        named.discard("moon")
+    return len(named) > 1
 
 
 # Charge magnitude (C) of each particle a question names; e is exact in SI.

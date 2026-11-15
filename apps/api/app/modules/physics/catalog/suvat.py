@@ -90,6 +90,11 @@ TWO_BODIES = (
 # A second change after the first: "accelerates for 5 s ... It then brakes at 5 m/s²" is
 # two intervals, and the first one's time is not the second's.
 _TWO_STAGES = ("then brakes", "then decelerates", "then slows", "then accelerates")
+# A launch sideways falls as it goes: its path is not one line, and a cliff's height is no
+# displacement along its speed. "Thrown horizontally at 10 m/s from a 20 m cliff: its speed
+# after 1 s?" was v = 2s/t - u = 30 m/s for 14.0 (audit 2026-11-07).
+_SIDEWAYS = ("horizontally", "rolls off", "rolled off", "slides off", "runs off", "drives off")
+_NOT_ONE_LINE = (*TWO_BODIES, *_TWO_STAGES, *_SIDEWAYS)
 
 _U = var("u", "u", _SPEED, words=_INITIAL, implied=(("from rest", 0.0),))
 _V = var(
@@ -149,7 +154,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         binding=Binding(
             asks=("final velocity", "final speed", "velocity", "speed", "how fast"),
             result=(_SPEED,),
-            excludes=(*TWO_BODIES, *_TWO_STAGES),
+            excludes=_NOT_ONE_LINE,
             inputs=_inputs("uat", "uad", "udt"),
             result_words=_FINAL,
         ),
@@ -189,7 +194,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         binding=Binding(
             asks=("displacement", "distance", "how far"),
             result=("meter",),
-            excludes=(*TWO_BODIES, *_TWO_STAGES),
+            excludes=_NOT_ONE_LINE,
             inputs=_inputs("uat", "uva", "uvt", "vat"),
         ),
     ),
@@ -215,7 +220,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         binding=Binding(
             asks=("how long", "time taken", "time"),
             result=("second",),
-            excludes=(*TWO_BODIES, *_TWO_STAGES),
+            excludes=_NOT_ONE_LINE,
             inputs=_inputs("uva", "uad", "uvd"),
         ),
     ),
@@ -241,7 +246,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         binding=Binding(
             asks=("acceleration", "deceleration", "retardation"),
             result=(_ACCELERATION,),
-            excludes=(*TWO_BODIES, *_TWO_STAGES),
+            excludes=_NOT_ONE_LINE,
             inputs=_inputs("uvt", "uvd", "udt"),
         ),
     ),
@@ -274,7 +279,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         binding=Binding(
             asks=("initial velocity", "initial speed", "starting speed", "starting velocity"),
             result=(_SPEED,),
-            excludes=(*TWO_BODIES, *_TWO_STAGES),
+            excludes=_NOT_ONE_LINE,
             inputs=_inputs("vat", "vad", "vdt", "adt"),
             result_words=_STARTS,
         ),

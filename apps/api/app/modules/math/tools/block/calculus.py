@@ -52,6 +52,10 @@ _SCHOOL_ONLY_OPS = {
     "identity",
 }
 
+# Each returns None when SymPy hands the expression back unevaluated: a decline, not a
+# verified result. A block saying "No closed-form result" went into the prompt as verified
+# maths, so the reply's own "verified" claims survived, and SymPy giving up proves no
+# closed form is impossible: "Integrate x^x dx" (audit SEC-02, 2026-11-13).
 _Operation = Callable[[MathIntent, str, Settings, list[str]], VerifiedMathBlock | None]
 
 
@@ -79,11 +83,6 @@ def _verified_block_calculus(
     return operation(intent, intent.expr, settings, lines) if operation else None
 
 
-def _no_closed_form(out: MathExprResult, lines: list[str]) -> VerifiedMathBlock:
-    lines.append(f"No closed-form result (got: {out.latex}).")
-    return VerifiedMathBlock(text="\n".join(lines))
-
-
 def _finish_operation(
     out: MathExprResult,
     lines: list[str],
@@ -103,33 +102,33 @@ def _finish_operation(
 
 def _simplify(
     intent: MathIntent, expr: str, settings: Settings, lines: list[str]
-) -> VerifiedMathBlock:
+) -> VerifiedMathBlock | None:
     out = math_solve.simplify_expression(expr, intent.variable)
     if not out.solved:
-        return _no_closed_form(out, lines)
+        return None
     reply = _simplification_direct_reply(intent, out.latex)
     if reply is None:
         # A value the simplification cancelled may be one the question excludes, and
         # which it is cannot be worked out: certify nothing.
-        return _no_closed_form(out, lines)
+        return None
     return replace(_finish_operation(out, lines, out.latex), direct_reply=reply)
 
 
 def _factor(
     intent: MathIntent, expr: str, settings: Settings, lines: list[str]
-) -> VerifiedMathBlock:
+) -> VerifiedMathBlock | None:
     out = math_solve.factor_expression(expr, intent.variable)
     if not out.solved:
-        return _no_closed_form(out, lines)
+        return None
     return _finish_operation(out, lines, out.latex)
 
 
 def _expand(
     intent: MathIntent, expr: str, settings: Settings, lines: list[str]
-) -> VerifiedMathBlock:
+) -> VerifiedMathBlock | None:
     out = math_solve.expand_expression(expr, intent.variable)
     if not out.solved:
-        return _no_closed_form(out, lines)
+        return None
     return _finish_operation(out, lines, out.latex)
 
 
@@ -147,7 +146,7 @@ def _differentiate(
         trace, given = derivative_trace(expr[: settings.math_max_expr_length], intent.variable)
     out = math_solve.differentiate_expression(expr, intent.variable, intent.derivative_order)
     if not out.solved:
-        return _no_closed_form(out, lines)
+        return None
     answer = out.latex
     block = _finish_operation(out, lines, answer, trace, given)
     if trace:
@@ -164,13 +163,13 @@ def _differentiate(
 
 def _integrate(
     intent: MathIntent, expr: str, settings: Settings, lines: list[str]
-) -> VerifiedMathBlock:
+) -> VerifiedMathBlock | None:
     out, trace, given, checked_answer = _integral(intent, expr, settings)
     improper = _improper_integral_block(out, lines)
     if improper is not None:
         return improper
     if not out.solved:
-        return _no_closed_form(out, lines)
+        return None
     answer = out.latex
     if intent.integral_lower is None and _is_log_over_x_integral(expr, intent.variable):
         answer = rf"\ln\left|\ln\left({intent.variable}\right)\right| + C"

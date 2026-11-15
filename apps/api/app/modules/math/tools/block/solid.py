@@ -10,6 +10,7 @@ from app.modules.math.schemas import MathIntent, SolidGeometryInput
 from app.modules.math.solve.geometry import answer_is_rounded
 from app.modules.math.tools.block.answer_text import format_quantity
 from app.modules.math.tools.block.canonical import finish_with_answer
+from app.modules.math.tools.block.measures import measures_card
 from app.services.solving import VerifiedMathBlock
 
 
@@ -39,6 +40,15 @@ def _verified_block_solid(
         lines.append(f"{key}={value}")
     if not (intent.wants_volume or intent.wants_surface_area):
         return VerifiedMathBlock(text="\n".join(lines))
+    if intent.wants_volume and intent.wants_surface_area:
+        # Both asked: both on the card, each named (``measures``).
+        both = measures_card(
+            [
+                ("volume", geo.volume, geo.unit),
+                ("surface_area", geo.surface_area, geo.unit),
+            ]
+        )
+        return finish_with_answer(lines, both)
     if intent.wants_surface_area and not intent.wants_volume:
         answer, unit = geo.labels["surface_area"].rsplit(" ", 1)
     else:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -245,6 +246,51 @@ async def test_pubchems_renamed_smiles_key_is_read() -> None:
         result = await pubchem_gateway.lookup_by_name("ethanol")
     assert result.compound is not None
     assert result.compound.smiles == "CCO"
+
+
+@pytest.mark.parametrize(
+    "spelling",
+    [
+        {"CanonicalSMILES": "CC(C(=O)O)N", "IsomericSMILES": "C[C@@H](C(=O)O)N"},
+        {
+            "CanonicalSMILES": None,
+            "ConnectivitySMILES": "CC(C(=O)O)N",
+            "SMILES": "C[C@@H](C(=O)O)N",
+        },
+    ],
+)
+@pytest.mark.asyncio
+async def test_a_compound_keeps_its_stereo_marks_in_either_spelling(
+    spelling: dict[str, object],
+) -> None:
+    client = AsyncMock()
+    client.get = AsyncMock(return_value=_mock_response(200, _properties(**spelling)))
+    redis = redis_mock(get=None)
+    with patch.object(pubchem_gateway, "get_pooled_client", return_value=client):
+        result = await pubchem_gateway.lookup_by_name("L-alanine", redis=redis)
+    assert result.compound is not None
+    assert result.compound.smiles == "CC(C(=O)O)N"
+    assert result.compound.isomeric_smiles == "C[C@@H](C(=O)O)N"
+    assert "IsomericSMILES" in client.get.await_args.args[0]
+    # The cache keeps them too.
+    redis.get = AsyncMock(return_value=redis.set.await_args.args[1])
+    cached = await pubchem_gateway.lookup_by_name("L-alanine", redis=redis)
+    assert cached.compound == result.compound
+
+
+@pytest.mark.asyncio
+async def test_a_cache_entry_from_before_the_stereo_marks_reads_with_none() -> None:
+    entry = {
+        "cid": 5950,
+        "name": "alanine",
+        "smiles": "CC(C(=O)O)N",
+        "molecular_formula": "C3H7NO2",
+        "molecular_weight": 89.09,
+    }
+    result = await pubchem_gateway.lookup_by_name(
+        "alanine", redis=redis_mock(get=json.dumps(entry))
+    )
+    assert result.compound is not None and result.compound.isomeric_smiles == ""
 
 
 @pytest.mark.asyncio

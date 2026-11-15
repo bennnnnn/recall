@@ -382,7 +382,9 @@ async def test_settings_card_for_the_settings_part() -> None:
 async def test_a_multi_part_message_gets_no_instant_reply() -> None:
     """The settings card used to be the whole reply and drop "what is the capital"."""
     text = "switch to dark mode, and also what is the capital of France?"
-    request = SimpleNamespace(content=text, has_image_attachment=False, recent_messages=[])
+    request = SimpleNamespace(
+        content=text, own_words=text, has_image_attachment=False, recent_messages=[]
+    )
     reply = await resolve_instant_reply(
         request,  # type: ignore[arg-type]
         _identity(),

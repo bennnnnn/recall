@@ -205,3 +205,14 @@ async def test_tool_accumulation_bounds_are_not_an_integral_value(expr):
         )
     assert result.data is None
     assert "did not establish a defined value" in result.content
+
+
+@pytest.mark.parametrize(
+    "query", ["Integrate x^x dx", "Integrate sin(x)/log(x)", "integrate exp(-x^2)*log(x)^x"]
+)
+def test_an_integral_sympy_hands_back_unevaluated_is_declined(query):
+    """SymPy giving up proves no closed form is impossible: "No closed-form result" sat in
+    the verified block, solved, and the reply kept its own "verified" claim (SEC-02)."""
+    intent = extract_math_intent(query)
+    assert intent is not None
+    assert _build_verified_block(intent, _SETTINGS) is None

@@ -15,6 +15,7 @@ from app.modules.physics.catalog.capacitors import SPECS as CAPACITORS
 from app.modules.physics.catalog.circuit import SPECS as CIRCUIT
 from app.modules.physics.catalog.circular import SPECS as CIRCULAR
 from app.modules.physics.catalog.condensed_matter import SPECS as CONDENSED_MATTER
+from app.modules.physics.catalog.decayed import SPECS as DECAYED
 from app.modules.physics.catalog.electric_field import SPECS as ELECTRIC_FIELD
 from app.modules.physics.catalog.energy import SPECS as ENERGY
 from app.modules.physics.catalog.fluids import SPECS as FLUIDS
@@ -38,6 +39,7 @@ from app.modules.physics.catalog.momentum import SPECS as MOMENTUM
 from app.modules.physics.catalog.nuclear import SPECS as NUCLEAR
 from app.modules.physics.catalog.optics import SPECS as OPTICS
 from app.modules.physics.catalog.particles import SPECS as PARTICLES
+from app.modules.physics.catalog.periodic import SPECS as PERIODIC
 from app.modules.physics.catalog.plasma import SPECS as PLASMA
 from app.modules.physics.catalog.projectile import SPECS as PROJECTILE
 from app.modules.physics.catalog.quantum import SPECS as QUANTUM
@@ -102,6 +104,7 @@ CATALOG: dict[str, FormulaSpec] = _register(
     FRICTION,
     CIRCULAR,
     SPRING,
+    PERIODIC,
     TORQUE,
     ROTATION,
     CIRCUIT,
@@ -125,6 +128,7 @@ CATALOG: dict[str, FormulaSpec] = _register(
     QUANTUM,
     RELATIVITY,
     NUCLEAR,
+    DECAYED,
     PARTICLES,
     CONDENSED_MATTER,
     ASTROPHYSICS,

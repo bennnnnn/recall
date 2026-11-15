@@ -43,6 +43,7 @@ from app.modules.chemistry.extractors.kinetics import (
     _extract_michaelis,
     _extract_rate_laws,
 )
+from app.modules.chemistry.extractors.mass_concentration import extract_mass_concentration
 from app.modules.chemistry.extractors.nuclear import (
     _extract_mass_defect,
     _extract_nuclear_equation,
@@ -88,6 +89,8 @@ CHEMISTRY_EXTRACTORS: tuple[Extractor, ...] = (
     _extract_electrochem,
     _extract_beer_lambert,
     _extract_solutions,
+    # A solute's grams per litre, never a solution's density, before any reader of grams.
+    extract_mass_concentration,
     _extract_amounts,
     # One atom's or ion's particles, before a one-law reader takes the neutrons alone.
     extract_atom_particles,

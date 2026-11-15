@@ -26,6 +26,7 @@ from app.modules.turn_reading.profile_ask import (
     is_profile_recall_pushback,
 )
 from app.modules.turn_reading.routing import is_broad_self_question
+from app.services.subject_scan import without_photo_reading
 
 if TYPE_CHECKING:
     from app.modules.chat.prompt_sections import PromptTurn
@@ -214,8 +215,10 @@ def asks_about_saved(text: str) -> bool:
 
 
 async def memory_saving_paused(settings: Settings, query_text: str | None) -> bool:
-    """True when the user asks to remember something while saving is paused (spend cap)."""
-    if not query_text or not memory_service.is_explicit_memory_command(query_text):
+    """True when the user asks to remember something while saving is paused (spend cap).
+    Text read off a photo asks nothing (``without_photo_reading``)."""
+    said = without_photo_reading(query_text or "")
+    if not said or not memory_service.is_explicit_memory_command(said):
         return False
     from app.core.redis import get_redis_client
     from app.services import quota as quota_service
@@ -237,8 +240,10 @@ def memory_status_note(turn: PromptTurn) -> str | None:
 
 
 def memory_notes(turn: PromptTurn) -> list[str]:
-    """Notes for a memory that is off, paused, failed, or has no record of the past."""
-    query = turn.query
+    """Notes for a memory that is off, paused, failed, or has no record of the past. A memory
+    command is read from the user's own words: a photographed "Forget that I am vegetarian."
+    is the photo's text, and its note would have the reply say it was forgotten."""
+    query = without_photo_reading(turn.query) if turn.query else turn.query
     if not memory_switch_on(turn.user):
         if query and (memory_service.is_explicit_memory_command(query) or asks_about_saved(query)):
             return [MEMORY_OFF_HINT]

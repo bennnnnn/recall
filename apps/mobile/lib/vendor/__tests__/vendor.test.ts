@@ -17,7 +17,10 @@ const { join } = jest.requireActual<{ join(...parts: string[]): string }>("node:
 
 const VENDOR_DIR = join(__dirname, "..");
 const read = (file: string): string => readFileSync(join(VENDOR_DIR, file), "utf8");
-const manifest = JSON.parse(read("manifest.json")) as { sha256: Record<string, string> };
+const manifest = JSON.parse(read("manifest.json")) as {
+  versions: Record<string, string>;
+  sha256: Record<string, string>;
+};
 
 /** Each file, by the name the manifest records its hash under. */
 const FILES: [string, string][] = [
@@ -35,6 +38,21 @@ describe("vendored web libraries", () => {
   it.each(FILES)("%s is the file scripts/vendor-cdn.mjs wrote", (name, file) => {
     const sha = createHash("sha256").update(read(file)).digest("hex");
     expect(sha.slice(0, 16)).toBe(manifest.sha256[name]);
+  });
+
+  it("records the exact version each library came from", () => {
+    // The generator pins each package's version beside its tarball's integrity; a range
+    // ("mermaid": "10") would let a regen write whatever release is newest that day.
+    expect(Object.keys(manifest.versions).sort()).toEqual([
+      "mermaid",
+      "pdfjs",
+      "smilesDrawer",
+      "vega",
+      "vegaEmbed",
+      "vegaLite",
+    ]);
+    const ranges = Object.entries(manifest.versions).filter(([, v]) => !/^\d+\.\d+\.\d+$/.test(v));
+    expect(ranges).toEqual([]);
   });
 
   it("ships every vendored file as an asset, and only those", () => {

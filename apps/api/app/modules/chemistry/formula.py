@@ -7,6 +7,9 @@ from itertools import pairwise
 from app.modules.chemistry.elements import BY_SYMBOL
 
 _HYDRATE_DOTS = frozenset({".", "\u00b7"})
+# A formula may open with a bracketed group and its count: (NH4)3PO4, (NH4)2SO4, (CH3)3N. The
+# formula patterns put this before the capital every other formula opens with.
+LEADING_GROUP = r"(?:\((?:[A-Z][a-z]?[0-9]*)+\)[0-9]+)?"
 _PHASES = frozenset({"aq", "s", "l", "g"})
 _MAX_NESTING = 12
 

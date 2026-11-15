@@ -190,6 +190,8 @@ ELEMENTS: tuple[Element, ...] = tuple(
 )
 BY_SYMBOL: dict[str, Element] = {element.symbol: element for element in ELEMENTS}
 BY_NUMBER: dict[int, Element] = {element.number: element for element in ELEMENTS}
+# These elements are written as molecules. ``O2-`` is superoxide, not oxide.
+DIATOMIC_ELEMENTS = frozenset({"H", "N", "O", "F", "Cl", "Br", "I"})
 
 
 def valence_electrons(symbol: str) -> int | None:

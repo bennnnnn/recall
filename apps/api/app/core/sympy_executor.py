@@ -314,11 +314,10 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
                 async with asyncio.timeout(timeout):
                     result = await asyncio.wrap_future(future)
             except TimeoutError:
-                logger.warning(
-                    "sympy worker timed out after %.3fs (queued %.3fs)",
-                    timeout,
-                    queue_s,
-                )
+                # How long it ran, measured here rather than echoing the caller's ``timeout``,
+                # which CodeQL traces to a request (py/log-injection).
+                ran = time.monotonic() - t_start
+                logger.warning("sympy worker timed out after %.3fs (queued %.3fs)", ran, queue_s)
                 future.cancel()
                 await self._kill_slot_async(slot)
                 raise

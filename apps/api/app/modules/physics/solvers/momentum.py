@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import math
 
+from app.modules.physics.constants import SPEED_OF_LIGHT
 from app.modules.physics.display import GIVEN_FIGURES, latex_given, latex_number, plain_number
 from app.modules.physics.schemas import PhysicsIntent, SimulationBlockSpec, SimulationBody
 from app.modules.physics.solvers.arithmetic import latex_num
@@ -29,6 +30,23 @@ def _collision_substitutions(intent: PhysicsIntent, *, elastic: bool) -> tuple[s
             rf"v_2' = \frac{{({m2}-{m1})\cdot {v2} + 2\cdot {m1}\cdot {v1}}}{{{m1}+{m2}}}",
         )
     return (rf"v_f = \frac{{{m1}\cdot {v1} + {m2}\cdot {v2}}}{{{m1}+{m2}}}",)
+
+
+def _momentum(p: dict[str, float]) -> PhysicsResult:
+    """p = mv, which is classical: past 8% of c it falls short of the relativistic momentum,
+    as ½mv² does. A proton at 2.9e8 m/s was 4.84e-19 kg·m/s for 1.9e-18 (review 2026-11-13)."""
+    if abs(p["v"]) > 0.08 * SPEED_OF_LIGHT:
+        raise SolveServiceError("p = mv is classical: the speed is relativistic")
+    p_val = p["m"] * p["v"]
+    return PhysicsResult(
+        answer=(
+            rf"p = m v = {p['m']:g} \cdot {p['v']:g} "
+            rf"\approx {p_val:.2f} \text{{ kg}}\cdot\text{{m/s}}"
+        ),
+        formulas=(r"p = m v",),
+        substitutions=(rf"p = {p['m']:g} \cdot {p['v']:g}",),
+        quantities=(QuantityResult("", p_val, "kg*m/s"),),
+    )
 
 
 def solve_momentum(intent: PhysicsIntent) -> PhysicsResult:
@@ -55,16 +73,7 @@ def solve_momentum(intent: PhysicsIntent) -> PhysicsResult:
         )
 
     if op == "momentum":
-        p_val = p["m"] * p["v"]
-        return PhysicsResult(
-            answer=(
-                rf"p = m v = {p['m']:g} \cdot {p['v']:g} "
-                rf"\approx {p_val:.2f} \text{{ kg}}\cdot\text{{m/s}}"
-            ),
-            formulas=(r"p = m v",),
-            substitutions=(rf"p = {p['m']:g} \cdot {p['v']:g}",),
-            quantities=(QuantityResult("", p_val, "kg*m/s"),),
-        )
+        return _momentum(p)
 
     if op == "impulse":
         v1 = p.get("v1", 0.0)

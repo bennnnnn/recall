@@ -15,20 +15,28 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from app.core import sympy_executor
-from app.modules.chat.simulation_fences import strip_model_simulation_fences
+from app.modules.chat.simulation_fences import drop_open_fences, strip_model_drawn_fences
 from app.modules.chat.verification_claims import strip_verification_claims
 from app.modules.chat.worked_lead import drop_restated_tail
 from app.modules.chat.working_check import is_worked_solution, working_note
+from app.modules.turn_reading.turn import current_turn_reading
 from app.services.answer_fence import (
+    ANSWER_FENCE_LANGS,
+    SERVER_DRAWN_LANGS,
+    UNCHECKED_ANSWER_MARKER,
+    VERIFIED_ANSWER_MARKER,
+    answer_header_and_value,
     demote_answer_fences,
     land_answer_card,
     mark_server_answer_fences,
     normalize_owned_fences,
     strip_forged_verified_markers,
 )
+from app.services.md_fence_scan import map_closed_fences
 from app.services.part_answer_cards import land_part_answer_cards
 from app.services.part_fences import keep_part_fences
 from app.services.solving import VerifiedPhysicsBlock, strip_verified_solve_markers
+from app.services.structure_captions import STRUCTURE_LANGS, without_structure_captions
 from app.services.subjects.registry import (
     FENCE_FALLBACK,
     SubjectName,
@@ -66,7 +74,7 @@ def drop_check_lines(text: str) -> str:
     a check marker, none of its own check claims and none of its own scenes."""
     text = _without_marker_lines(text)
     try:
-        return strip_model_simulation_fences(strip_verification_claims(text))
+        return strip_model_drawn_fences(strip_verification_claims(text))
     except Exception:
         logger.exception("check-claim strip failed; dropping lines that name a check")
         return "\n".join(line for line in text.split("\n") if not _CHECK_WORDS.search(line))
@@ -76,19 +84,50 @@ def prepare_model_reply(state: FinalizeState) -> str:
     """Model text before any server card is added to it.
 
     The model cannot forge the server's ``verified: true`` line, every spelling
-    of its answer fences is put in the one form the subject passes demote, and
-    its own "✅ Verified with SymPy" claims go: on an unverified turn they fake
-    the check, and on a verified one the card says it (a claim beside a wrong
-    value would contradict it). A ```simulation scene is solver-sampled, so the
-    model's own never ships; a verified physics turn replaces it in its pass.
+    of its answer fences is put in the one form the subject passes demote, and its own
+    "✅ Verified with SymPy" claims go (on a turn that can show no card, only those naming
+    the app's checker): on an unverified turn they fake the check, and on a verified one the
+    card says it (a claim beside a wrong value would contradict it). A scene or a structure is the server's to
+    draw, so the model's own never ships: the chemistry pass and the SMILES drawing add the
+    server's after this, and a verified physics turn replaces a ```simulation in its pass.
     """
     if state.server_text:
         return state.text
-    text = normalize_owned_fences(strip_forged_verified_markers(state.text))
-    text = strip_verification_claims(text)
-    if not isinstance(state.ctx.verified_subject, VerifiedPhysicsBlock):
-        text = strip_model_simulation_fences(text)
-    return text
+    # Left open, the model's own scene or structure is never the server's, on any turn: read
+    # before its spelling is normalized, which takes a quoted fence out of its quote.
+    text = drop_open_fences(
+        strip_forged_verified_markers(state.text), (*SERVER_DRAWN_LANGS, *STRUCTURE_LANGS)
+    )
+    text = normalize_owned_fences(text)
+    text = strip_verification_claims(text, card_turn=_may_show_a_card(state))
+    drawn: tuple[str, ...] = SERVER_DRAWN_LANGS
+    if isinstance(state.ctx.verified_subject, VerifiedPhysicsBlock):
+        drawn = tuple(lang for lang in drawn if lang != "simulation")
+    if state.user_stopped:
+        # A stopped reply never reaches the chemistry pass that checks a structure's name.
+        text = without_structure_captions(text)
+    return strip_model_drawn_fences(text, drawn)
+
+
+def _may_show_a_card(state: FinalizeState) -> bool:
+    """Whether the reply can carry a checked card, so any claim of a check would fake one: a
+    turn a subject read or solved, a calculation laid out, a money card. On a coding or
+    everyday turn only a claim naming the app's checker goes, and "Each step is checked" stays
+    as written (review, 2026-11-13). A turn whose reading of its message is not known is taken
+    as one."""
+    ctx = state.ctx
+    if ctx.verified_subject is not None or ctx.solver_unverified:
+        return True
+    if ctx.worked is not None or ctx.money is not None:
+        return True
+    reading = current_turn_reading()
+    if reading is None or reading.subject_reason in ("not_read", "read_declined"):
+        return True
+    if not reading.reads(
+        ctx.user_message_content, chemistry_enabled=state.settings.chemistry_enabled
+    ):
+        return True
+    return reading.subject is not None
 
 
 def _check_part_fences(state: FinalizeState) -> str | None:
@@ -201,9 +240,38 @@ def recover_math_fences(state: FinalizeState) -> str:
 
 
 def mark_server_cards(state: FinalizeState) -> str:
-    if not state.server_text:
-        return state.text
-    return mark_server_answer_fences(state.text)
+    """Wholly server text gets the check on every card. Once every card is written (this
+    pass follows each subject's), a turn whose photo the reader was not sure it read
+    certifies nothing (``uncheck_cards``)."""
+    text = mark_server_answer_fences(state.text) if state.server_text else state.text
+    return uncheck_cards(text) if state.ctx.photo_uncertain is True else text
+
+
+# The scenes a solver samples: drawn from what may be a misread problem, they are no
+# picture of the photo's.
+_SOLVER_SCENES = ("simulation", "chem_scene")
+
+
+def _unchecked(body: str) -> str:
+    headers, value = answer_header_and_value(body)
+    kept = [UNCHECKED_ANSWER_MARKER if line == VERIFIED_ANSWER_MARKER else line for line in headers]
+    return "```answer\n" + "\n".join([*kept, value]).strip() + "\n```\n"
+
+
+def uncheck_cards(text: str) -> str:
+    """A photo read uncertainly keeps its solve and its answer, never the server's check:
+    each card shows "not checked" and a solver's scene goes. At Mathpix confidence 0.31 a
+    misread "2x + 3 = 1" was solved and shown checked (audit SCAN-02, 2026-11-13). Nothing
+    says what was read: the owner removed the read-back (#2263); only the check goes."""
+    if VERIFIED_ANSWER_MARKER in text:
+        ended_open = not text.endswith("\n")
+        for lang in ANSWER_FENCE_LANGS:
+            # The scan consumes the closer's newline, so the replacement restores it.
+            text = map_closed_fences(text, lang, _unchecked)
+        text = text.rstrip("\n") if ended_open else text
+    for lang in _SOLVER_SCENES:
+        text = map_closed_fences(text, lang, lambda _body: "")
+    return text
 
 
 def append_unverified_notes(state: FinalizeState) -> str:
@@ -257,10 +325,34 @@ def strip_solve_markers(state: FinalizeState) -> str:
 async def enrich_chemistry_fences(state: FinalizeState) -> str:
     chemistry = subject_adapter("chemistry").fence
     if not chemistry.draws(state.text, state.settings):
-        return state.text
+        # Chemistry off: nothing checks a structure's name, so none the model wrote ships.
+        return without_structure_captions(state.text)
+    # A molecule keeps the name it is labelled with only when the app's data gives that name
+    # this structure; the look-up may wait on PubChem, so it runs before the pool's drawing.
+    named = await chemistry.named(state.text, state.settings)
     return await sympy_executor.run_sympy(
         chemistry.draw,
         state.text,
         state.settings,
+        named,
         timeout=state.settings.stem_solve_timeout_seconds,
     )
+
+
+# The chemistry pass's name: a text it never ran on keeps no structure name (``fallen_back``).
+CHEMISTRY_ENRICH = "chemistry_enrich"
+
+
+def uncaptioned(state: FinalizeState) -> str:
+    """What the chemistry pass hands on when it fails: no name it could not check."""
+    return without_structure_captions(state.text)
+
+
+def fallen_back(state: FinalizeState, text: str, missed: set[str]) -> str:
+    """A fallback text, past the safety passes: an unsure photo's cards unchecked, and no
+    structure name the chemistry pass (in ``missed``, the passes it has not been through)
+    did not check."""
+    if state.ctx.photo_uncertain is True:
+        # A text committed before the cards were unchecked keeps no check either.
+        text = uncheck_cards(text)
+    return without_structure_captions(text) if CHEMISTRY_ENRICH in missed else text

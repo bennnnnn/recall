@@ -12,7 +12,7 @@ import { shotCutMaxEdge } from "@/features/scanner/model/contentFit";
 import { readTextLines } from "@/features/scanner/model/readTextLines";
 import { cropScanImage, measureScanImage, SCAN_MAX_EDGE } from "@/features/scanner/model/scanImage";
 import { selection } from "@/lib/haptics";
-import { playScannerSwitchCue } from "@/features/scanner/model/switchCue";
+import { playScannerSwitchCue, useScannerSwitchCue } from "@/features/scanner/model/switchCue";
 import { AA, compositeOver, contrastRatio } from "@/lib/__tests__/support/contrast";
 
 const mockTakePictureAsync = jest.fn(async (): Promise<{ uri: string } | null> => ({
@@ -131,6 +131,7 @@ jest.mock("@/lib/haptics", () => ({
 }));
 jest.mock("@/features/scanner/model/switchCue", () => ({
   playScannerSwitchCue: jest.fn(async () => undefined),
+  useScannerSwitchCue: jest.fn(),
   stopScannerSwitchCue: jest.fn(),
 }));
 jest.mock("@/lib/scheduleIdle", () => ({
@@ -325,7 +326,7 @@ describe("MathEquationScanner", () => {
     }
   });
 
-  it("shows the shutter starting until the camera is ready, then captures", async () => {
+  it("shows the subject's mark on a dimmed shutter until the camera is ready, then captures", async () => {
     mockCamera.startsReady = false;
     const view = await render(
       <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,
@@ -335,7 +336,8 @@ describe("MathEquationScanner", () => {
     expect(view.getByTestId("math-scanner-shutter").props.accessibilityHint).toBe(
       "chat.math_scan_camera_starting",
     );
-    expect(view.queryByTestId("math-scanner-shutter-disc")).toBeNull();
+    // The mark is there from the first frame, not after the camera starts (2026-11-13).
+    expect(view.getByTestId("scanner-subject-mark-math")).toBeTruthy();
     await act(async () => {
       fireEvent.press(view.getByTestId("math-scanner-shutter"));
     });
@@ -433,6 +435,8 @@ describe("MathEquationScanner", () => {
     const { getByTestId } = await render(
       <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,
     );
+    // The cues load as the scanner opens, so the first switch is heard.
+    expect(useScannerSwitchCue).toHaveBeenCalledWith(true);
     await act(async () => {
       fireEvent.press(getByTestId("scanner-subject-physics"));
     });

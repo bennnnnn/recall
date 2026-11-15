@@ -109,6 +109,7 @@ _MEANINGS: dict[str, str] = {
     "focal_eye": "eyepiece focal length",
     "focal_obj": "objective focal length",
     "fraction_left": "fraction remaining",
+    "fraction_gone": "fraction decayed",
     "freq": "frequency",
     "freq2": "second frequency",
     "g": "acceleration due to gravity",

@@ -11,24 +11,36 @@ Cues come in three strengths:
 * weak single words ("acid", "boiling", "nuclear", "mole") that also appear in
   cooking, weather and politics. Weak cues count only in pairs, or next to a
   formula such as ``H2SO4``.
+
+The subject's own name is a weak cue: "My chemistry teacher is mean" and "Remind me to
+study chemistry" name the class and ask nothing of it (audit 2026-11-13). Beside a task ("Solve
+the chemistry problem in this image", "Help me with chemistry homework") it asks for
+chemistry's work.
 """
 
 from __future__ import annotations
 
 import re
 
+from app.modules.chemistry.compound_words import (
+    COMMON_COMPOUNDS,
+    COMPOUND_ENDINGS,
+    NAME_STOPWORDS,
+    NOT_NAMES,
+)
 from app.modules.chemistry.elements import BY_SYMBOL
+from app.modules.chemistry.formula import LEADING_GROUP
 from app.modules.chemistry.input_text import HYDRATE_DOT, read_chemistry_text
 from app.modules.chemistry.particle_cues import PARTICLE_WORD, asks_about_particles
 from app.modules.chemistry.species import ARROWS
-from app.modules.chemistry.species_facts import ELEMENT_NAMES, is_formula
+from app.modules.chemistry.species_facts import ELEMENT_NAMES, KNOWN_SUBSTANCES, is_formula
 
 # Formula characters are case-sensitive on purpose: under ``re.IGNORECASE`` "sodium" split into
 # "so" + "di" + "um" in Fibonacci-many ways (a 32-letter run cost seconds); ``(?-i:…)`` pins only
 # the formula, callers keep their flags. Subscripts are read whole (possessive): given back one
 # at a time to a charge ("Fe3+" is Fe, 3, +), a long run of digits took quadratic time.
 CHEMICAL_FORMULA = (
-    r"(?-i:(?:e-|[A-Z][a-z]?[0-9]*+(?:\([A-Za-z0-9]+\)[0-9]*+)*"
+    rf"(?-i:(?:e-|{LEADING_GROUP}[A-Z][a-z]?[0-9]*+(?:\([A-Za-z0-9]+\)[0-9]*+)*"
     r"(?:[A-Z][a-z]?[0-9]*+(?:\([A-Za-z0-9]+\)[0-9]?)?)*)"
     r"(?:\^(?:\{\d*[+-]\}|\d*[+-])|\d*[+-])?"
     r"(?:\((?:aq|s|l|g)\))?)"
@@ -125,7 +137,9 @@ _LAB_DATA = re.compile(
     r"\d\s*(?:mL|L|g|mg|kg|mol|mmol|M|mM|ppm|ppb|%)(?![A-Za-z])",
     re.IGNORECASE,
 )
-# "Chemistry" names the subject, except in the idiom for getting along ("great chemistry").
+# "Chemistry" names the subject (a weak cue), except in the idiom for getting along ("great
+# chemistry"). A task beside it asks for chemistry's work.
+_TASK_CUE = re.compile(r"\b(?:solve|calculate|compute|determine|balance|work\s+out|help)\b", re.I)
 _SUBJECT_CUE = re.compile(r"\bchemistry\b", re.IGNORECASE)
 _CHEMISTRY_IDIOM = re.compile(
     r"\b(?:great|good|bad|no|real|instant|amazing|natural|undeniable|zero|romantic|"
@@ -188,9 +202,11 @@ _WEAK_CUE = re.compile(
     r"chemical|atoms?|bond|neutrali[sz]\w*|isotopes?|diffus\w*)\b",
     re.IGNORECASE,
 )
-# An element followed by a digit ("H2O", "Fe2") or a capital run ("NaOH").
+# An element followed by a digit ("H2O", "Fe2") or a capital run ("NaOH"). Capitals alone are an
+# acronym as often as a formula ("SI base units", "OK"): such a run counts only as a substance
+# the tables name ("HF", "KOH").
 _FORMULA_HINT = re.compile(r"\b[A-Z][a-z]?\d|\b(?:[A-Z][a-z]?){2,4}\b")
-_FORMULA_WORD = re.compile(r"(?<![A-Za-z0-9])([A-Z][A-Za-z0-9()]*)")
+_FORMULA_WORD = re.compile(rf"(?<![A-Za-z0-9])({LEADING_GROUP}[A-Z][A-Za-z0-9()]*)")
 
 # "What % of Fe2O3 is iron?": an element's share of a compound written as a formula.
 _SHARE_OF_COMPOUND = re.compile(
@@ -297,154 +313,6 @@ _BARE_NAME_RE = re.compile(
     r"(?:\?|$|\.|,|\s+(?:and|or|with|in|at|for|to|is|are|the)\b)",
     re.IGNORECASE,
 )
-_COMMON_COMPOUNDS = frozenset(
-    {
-        "aspirin",
-        "caffeine",
-        "ibuprofen",
-        "paracetamol",
-        "acetaminophen",
-        "penicillin",
-        "insulin",
-        "morphine",
-        "nicotine",
-        "dopamine",
-        "serotonin",
-        "adrenaline",
-        "epinephrine",
-        "cholesterol",
-        "glucose",
-        "fructose",
-        "sucrose",
-        "lactose",
-        "ammonia",
-        "methane",
-        "ethane",
-        "propane",
-        "butane",
-        "pentane",
-        "hexane",
-        "ethylene",
-        "propylene",
-        "acetylene",
-        "benzene",
-        "toluene",
-        "phenol",
-        "aniline",
-        "ethanol",
-        "methanol",
-        "propanol",
-        "glycerol",
-        "glycerin",
-        "acetone",
-        "urea",
-        "formaldehyde",
-        "acetaldehyde",
-        "chloroform",
-        "menthol",
-        "vanillin",
-        "retinol",
-        "adenosine",
-        "adenine",
-        "guanine",
-        "cytosine",
-        "thymine",
-        "uracil",
-        "dna",
-        "glycine",
-        "alanine",
-        "cysteine",
-        "tryptophan",
-        "histamine",
-        "melatonin",
-        "testosterone",
-        "estradiol",
-        "cortisol",
-        "capsaicin",
-        "limonene",
-        "camphor",
-        "naphthalene",
-        "ozone",
-        "hydrogen peroxide",
-        "salt",
-        "sugar",
-        "vinegar",
-    }
-)
-_COMPOUND_ENDINGS = (
-    "oxide",
-    "dioxide",
-    "chloride",
-    "bromide",
-    "iodide",
-    "fluoride",
-    "sulfate",
-    "sulfite",
-    "sulfide",
-    "nitrate",
-    "nitrite",
-    "hydroxide",
-    "carbonate",
-    "bicarbonate",
-    "phosphate",
-    "acetate",
-    "cyanide",
-    "peroxide",
-    "acid",
-    "amine",
-    "amide",
-    "ester",
-    "ether",
-    "ketone",
-    "aldehyde",
-    "alcohol",
-    "glycol",
-)
-_NAME_STOPWORDS = frozenset(
-    {
-        "the",
-        "of",
-        "a",
-        "an",
-        "and",
-        "for",
-        "to",
-        "in",
-        "on",
-        "at",
-        "with",
-        "from",
-        "about",
-        "this",
-        "that",
-        "your",
-        "my",
-        "you",
-        "me",
-        "it",
-        "is",
-        "are",
-    }
-)
-_FALSE_POSITIVES = frozenset(
-    {
-        "the",
-        "this",
-        "that",
-        "it",
-        "a",
-        "an",
-        "light",
-        "energy",
-        "time",
-        "space",
-        "code",
-        "data",
-        "file",
-        "image",
-        "text",
-    }
-)
 # "compound interest", "compound sentence": not a chemical compound.
 _NOT_A_COMPOUND = re.compile(
     r"\bcompound\s+(?:interest|word|sentence|noun|fracture|growth|annual|return|verb|eye)\b",
@@ -456,6 +324,13 @@ _STRUCTURE_VERB = re.compile(
 _STRUCTURE_NOUN = re.compile(
     r"\b(?:molecules?|smiles|molecular|chemical|compounds?)\b", re.IGNORECASE
 )
+
+
+def _formula_hint(text: str) -> bool:
+    return any(
+        any(char.isdigit() or char.islower() for char in hint) or hint in KNOWN_SUBSTANCES
+        for hint in _FORMULA_HINT.findall(text)
+    )
 
 
 def _window(content: str) -> str:
@@ -478,8 +353,6 @@ def is_chemistry_question(content: str) -> bool:
         return True
     if _DATA_STATISTIC.search(cleaned) and _LAB_DATA.search(cleaned):
         return True
-    if _SUBJECT_CUE.search(cleaned) and not _CHEMISTRY_IDIOM.search(cleaned):
-        return True
     if _HALF_LIFE.search(cleaned) and _DECAY_CONTEXT.search(cleaned):
         return True
     if _ELEMENT_IN_SAMPLE.search(cleaned):
@@ -496,7 +369,11 @@ def is_chemistry_question(content: str) -> bool:
     if shape is not None and is_formula(shape.group(1)):
         return True
     weak = {match.group(0).lower() for match in _WEAK_CUE.finditer(cleaned)}
-    if len(weak) >= 2 or (weak and _FORMULA_HINT.search(cleaned)):
+    if _SUBJECT_CUE.search(cleaned) and not _CHEMISTRY_IDIOM.search(cleaned):
+        if _TASK_CUE.search(cleaned):
+            return True
+        weak.add("chemistry")
+    if len(weak) >= 2 or (weak and _formula_hint(cleaned)):
         return True
     if asks_about_particles(cleaned):
         return True
@@ -529,22 +406,20 @@ def _clean_name(raw: str) -> str | None:
     name = re.sub(r"\s(?:the|a|an|of|for|with)$", "", name).strip()
     name = re.sub(r"^(?:the\s+)?(?:lewis\s+)?structure\s+of\s+", "", name).strip()
     name = re.sub(r"^(?:molecule|compound)\s+", "", name).strip()
-    if not name or name in _FALSE_POSITIVES or not 3 <= len(name) <= 40:
+    if not name or name in NOT_NAMES or not 3 <= len(name) <= 40:
         return None
     words = name.split()
     # "what is the capital of France" matches the same lead as "what is aspirin".
     # A real compound name has no function words.
-    if len(words) > 3 or any(word in _NAME_STOPWORDS for word in words):
+    if len(words) > 3 or any(word in NAME_STOPWORDS for word in words):
         return None
     return name
 
 
 def _looks_like_compound(name: str) -> bool:
-    if name in _COMMON_COMPOUNDS:
+    if name in COMMON_COMPOUNDS:
         return True
-    return any(
-        word in _COMMON_COMPOUNDS or word.endswith(_COMPOUND_ENDINGS) for word in name.split()
-    )
+    return any(word in COMMON_COMPOUNDS or word.endswith(COMPOUND_ENDINGS) for word in name.split())
 
 
 def extract_compound_name(content: str) -> str | None:

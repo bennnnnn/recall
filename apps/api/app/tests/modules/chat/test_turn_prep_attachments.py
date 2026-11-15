@@ -11,9 +11,17 @@ from app.modules.chat.model_routing import choice as model_choice
 from app.modules.chat.turn_prep import TurnPromptBundle
 from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.conversation import chats_repository, messages_repository
+from app.modules.math.ocr import MathOcrResult
 from app.modules.math.schemas import MathImageExtract
 from app.tests.fakes import FakeSessionCM, redis_mock
 from app.tests.modules.chat.chat_test_support import prompt_bundle
+
+
+def _read(extracted: MathImageExtract) -> MathOcrResult:
+    """The OCR read of a photo whose equation is ``extracted``."""
+    return MathOcrResult(
+        extract=extracted, display_text="", source="vision", confidence=None, uncertain=False
+    )
 
 
 @pytest.mark.asyncio
@@ -131,7 +139,7 @@ async def test_prepare_chat_turn_refunds_image_quota_when_r2_bytes_invalid():
 async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context(linked_count):
     """End-to-end coverage for the camera-math OCR block (zero coverage
     before this test): attaching an image + the exact camera trigger
-    phrase must invoke extract_equation_from_image and pass the resulting
+    phrase must invoke the OCR read (extract_math_from_image) and pass the resulting
     structured MathImageExtract through to build_stream_prompt_context as
     image_math_extract — not just discard it after stringifying into the
     free-text content (Phase B item 6 fix)."""
@@ -200,8 +208,8 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context(li
             AsyncMock(),
         ),
         patch(
-            "app.modules.math.image_extract.extract_equation_from_image",
-            AsyncMock(return_value=extracted),
+            "app.modules.math.ocr.extract_math_from_image",
+            AsyncMock(return_value=_read(extracted)),
         ) as extract_mock,
         patch.object(
             model_choice,
@@ -267,7 +275,7 @@ async def _run_prepare_chat_turn_with_caption(caption: str) -> AsyncMock:
     """Shared harness for the camera-caption-edit regression tests below —
     identical to test_prepare_chat_turn_threads_image_math_extract_to_prompt_context's
     setup, parametrized only on the sent caption text. Returns the mocked
-    extract_equation_from_image so callers can assert whether OCR ran."""
+    OCR read (extract_math_from_image) so callers can assert whether OCR ran."""
     from app.modules.chat.turn_prep import prepare_chat_turn
 
     user_id = uuid4()
@@ -329,8 +337,8 @@ async def _run_prepare_chat_turn_with_caption(caption: str) -> AsyncMock:
             AsyncMock(),
         ),
         patch(
-            "app.modules.math.image_extract.extract_equation_from_image",
-            AsyncMock(return_value=extracted),
+            "app.modules.math.ocr.extract_math_from_image",
+            AsyncMock(return_value=_read(extracted)),
         ) as extract_mock,
         patch.object(
             model_choice,

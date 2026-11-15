@@ -135,11 +135,16 @@ def _extract_shm_intent(cleaned: str) -> PhysicsIntent | None:
         omega = _ANGULAR_FREQ_RE.search(cleaned)
         if amplitude is None or omega is None:
             return None
+        params = {"amplitude": amplitude[0], "omega": float(omega.group(1))}
+        units = {"amplitude": amplitude[1] or "m", "omega": "rad/s"}
+        if "spring" in lower:
+            # Drawn on a spring only when it is on one (``catalog/spring.py``).
+            params["on_spring"], units["on_spring"] = 1.0, ""
         return PhysicsIntent(
             kind="spring",
             physics_op="shm_max_speed",
-            physics_params={"x": amplitude[0], "omega": float(omega.group(1))},
-            physics_units={"x": amplitude[1] or "m", "omega": "rad/s"},
+            physics_params=params,
+            physics_units=units,
             operation="solve",
         )
 
@@ -234,8 +239,10 @@ def _extract_spring_intent(cleaned: str) -> PhysicsIntent | None:
     params: dict[str, float] = {"k": stiffness[0]}
     units: dict[str, str] = {"k": stiffness[1]}
     if displacement is not None and op != "shm_frequency":
-        params["x"] = displacement[0]
-        units["x"] = displacement[1] or "m"
+        # An oscillation's displacement is its swing, the amplitude (``catalog/spring.py``).
+        name = "amplitude" if op == "shm_period" else "x"
+        params[name] = displacement[0]
+        units[name] = displacement[1] or "m"
     if mass is not None:
         params["m"] = mass[0]
         units["m"] = mass[1] or "kg"

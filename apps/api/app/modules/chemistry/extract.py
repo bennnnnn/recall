@@ -14,9 +14,14 @@ from functools import lru_cache
 from app.core.readings import reading
 from app.modules.chemistry.binding import bind_chemistry_intent
 from app.modules.chemistry.input_text import read_chemistry_text
-from app.modules.chemistry.registry import CHEMISTRY_EXTRACTORS, UNIT_AWARE_EXTRACTORS
+from app.modules.chemistry.registry import (
+    CHEMISTRY_EXTRACTORS,
+    UNIT_AWARE_EXTRACTORS,
+    Extractor,
+)
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.sig_figs import written_numbers
+from app.modules.chemistry.temperature import holds_stated_temperature
 from app.services.number_text import fold_scientific
 
 _MAX_TEXT_LENGTH = 4000
@@ -50,6 +55,15 @@ def _extract_chemistry_intent(text: str) -> ChemistryIntent | None:
     readers = UNIT_AWARE_EXTRACTORS if _TEMPLATE_UNREAD_UNIT.search(text) else EXTRACTORS
     # H₂SO₄, Fe³⁺, CuSO4.5H2O and a lowercase "ph" are read as the ASCII the readers know.
     text = fold_scientific(read_chemistry_text(text))
+    intent = _first_reading(text, readers)
+    # A law read at a temperature other than the one the question states, or a solver that
+    # holds water at 25 °C asked about another temperature, is no answer to it.
+    if intent is None or not holds_stated_temperature(text, intent):
+        return None
+    return intent
+
+
+def _first_reading(text: str, readers: tuple[Extractor, ...]) -> ChemistryIntent | None:
     for extractor in readers:
         try:
             intent = extractor(text)

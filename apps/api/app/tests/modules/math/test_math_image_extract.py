@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -9,6 +10,13 @@ from app.modules.math import image_extract as mie
 from app.modules.math.schemas import MathImageExtract
 from app.modules.math.tools import needs_symbolic_math
 from app.services.subject_scan import MATH_CAMERA_PROMPT
+
+
+async def _extract(settings: Settings, **kwargs: Any) -> MathImageExtract | None:
+    """The equation the turn's OCR read takes from a photo (``math.ocr``)."""
+    from app.modules.math.ocr import extract_math_from_image
+
+    return (await extract_math_from_image(settings, **kwargs)).extract
 
 
 def test_camera_math_display_text():
@@ -52,9 +60,7 @@ async def test_extract_equation_mock_mode():
     settings = Settings()
     settings.mock_llm_enabled = True
     settings.openrouter_api_key = ""
-    result = await mie.extract_equation_from_image(
-        settings, content_type="image/jpeg", data=b"fake"
-    )
+    result = await _extract(settings, content_type="image/jpeg", data=b"fake")
     assert result is not None
     assert result.lhs == "2*x+3"
     assert result.rhs == "7"
@@ -62,7 +68,7 @@ async def test_extract_equation_mock_mode():
 
 @pytest.mark.asyncio
 async def test_extract_equation_empty_bytes():
-    result = await mie.extract_equation_from_image(Settings(), content_type="image/jpeg", data=b"")
+    result = await _extract(Settings(), content_type="image/jpeg", data=b"")
     assert result is None
 
 
@@ -97,9 +103,7 @@ async def test_extract_equation_uses_dedicated_ocr_timeout_not_solve_timeout():
         return response
 
     with patch("app.gateways.litellm_gateway.acompletion", AsyncMock(side_effect=_slow_completion)):
-        result = await mie.extract_equation_from_image(
-            settings, content_type="image/jpeg", data=b"fake"
-        )
+        result = await _extract(settings, content_type="image/jpeg", data=b"fake")
 
     assert result is not None
     assert result.lhs == "x"
@@ -143,9 +147,7 @@ async def test_extract_equation_parses_well_formed_json(raw_content: str):
         "app.gateways.litellm_gateway.acompletion",
         AsyncMock(return_value=_fake_response(raw_content)),
     ):
-        result = await mie.extract_equation_from_image(
-            _real_path_settings(), content_type="image/jpeg", data=b"fake"
-        )
+        result = await _extract(_real_path_settings(), content_type="image/jpeg", data=b"fake")
     assert result is not None
     assert result.lhs == "2*x+3"
     assert result.rhs == "7"
@@ -159,9 +161,7 @@ async def test_extract_equation_found_false_returns_none():
         "app.gateways.litellm_gateway.acompletion",
         AsyncMock(return_value=_fake_response(raw)),
     ):
-        result = await mie.extract_equation_from_image(
-            _real_path_settings(), content_type="image/jpeg", data=b"fake"
-        )
+        result = await _extract(_real_path_settings(), content_type="image/jpeg", data=b"fake")
     assert result is None
 
 
@@ -179,9 +179,7 @@ async def test_extract_equation_malformed_json_returns_none(raw_content: str):
         "app.gateways.litellm_gateway.acompletion",
         AsyncMock(return_value=_fake_response(raw_content)),
     ):
-        result = await mie.extract_equation_from_image(
-            _real_path_settings(), content_type="image/jpeg", data=b"fake"
-        )
+        result = await _extract(_real_path_settings(), content_type="image/jpeg", data=b"fake")
     assert result is None
 
 
@@ -191,9 +189,7 @@ async def test_extract_equation_bad_json_is_read_again_by_the_backup_photo_model
     good = '{"lhs":"2*x+3","rhs":"7","variables":["x"],"found":true,"source_text":"2*x+3=7"}'
     completion = AsyncMock(side_effect=[_fake_response("not json {{"), _fake_response(good)])
     with patch("app.gateways.litellm_gateway.acompletion", completion):
-        result = await mie.extract_equation_from_image(
-            _real_path_settings(), content_type="image/jpeg", data=b"fake"
-        )
+        result = await _extract(_real_path_settings(), content_type="image/jpeg", data=b"fake")
     assert result is not None and result.lhs == "2*x+3"
     models = [call.kwargs["model"] for call in completion.await_args_list]
     assert models == ["openrouter/qwen/qwen3.7-flash", "openrouter/z-ai/glm-5.3-flash"]
@@ -204,9 +200,7 @@ async def test_extract_equation_no_problem_on_the_photo_is_not_retried():
     raw = '{"lhs":"0","rhs":"0","variables":["x"],"found":false}'
     completion = AsyncMock(return_value=_fake_response(raw))
     with patch("app.gateways.litellm_gateway.acompletion", completion):
-        result = await mie.extract_equation_from_image(
-            _real_path_settings(), content_type="image/jpeg", data=b"fake"
-        )
+        result = await _extract(_real_path_settings(), content_type="image/jpeg", data=b"fake")
     assert result is None
     completion.assert_awaited_once()
 
@@ -220,9 +214,7 @@ async def test_extract_equation_pydantic_validation_failure_returns_none():
         "app.gateways.litellm_gateway.acompletion",
         AsyncMock(return_value=_fake_response(raw)),
     ):
-        result = await mie.extract_equation_from_image(
-            _real_path_settings(), content_type="image/jpeg", data=b"fake"
-        )
+        result = await _extract(_real_path_settings(), content_type="image/jpeg", data=b"fake")
     assert result is None
 
 
@@ -234,9 +226,7 @@ async def test_extract_equation_unwraps_single_element_list():
         "app.gateways.litellm_gateway.acompletion",
         AsyncMock(return_value=_fake_response(raw)),
     ):
-        result = await mie.extract_equation_from_image(
-            _real_path_settings(), content_type="image/jpeg", data=b"fake"
-        )
+        result = await _extract(_real_path_settings(), content_type="image/jpeg", data=b"fake")
     assert result is not None
     assert result.lhs == "x^2"
     assert result.rhs == "5"
@@ -260,9 +250,7 @@ async def test_extract_equation_real_timeout_returns_none():
         raise AssertionError("should have been cancelled by the timeout")
 
     with patch("app.gateways.litellm_gateway.acompletion", side_effect=_hangs):
-        result = await mie.extract_equation_from_image(
-            settings, content_type="image/jpeg", data=b"fake"
-        )
+        result = await _extract(settings, content_type="image/jpeg", data=b"fake")
     assert result is None
 
 
@@ -393,9 +381,7 @@ async def test_extract_equation_failure_logs_at_warning_not_debug(caplog):
         ),
         caplog.at_level(logging.WARNING, logger="app.gateways.litellm_gateway"),
     ):
-        result = await mie.extract_equation_from_image(
-            settings, content_type="image/jpeg", data=b"fake"
-        )
+        result = await _extract(settings, content_type="image/jpeg", data=b"fake")
 
     assert result is None
     assert any(

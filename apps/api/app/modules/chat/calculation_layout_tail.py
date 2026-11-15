@@ -4,6 +4,7 @@ hard break (twin: calculationLayoutTail.ts)."""
 from __future__ import annotations
 
 import re
+import unicodedata
 
 
 def finish_inline(parts: list[str], tail: str) -> str:
@@ -88,3 +89,172 @@ _UNIT_MARKS = (r"\mathrm{", r"\text{", r"\Omega", r"^\circ", "°")
 
 def _has_unit(segment: str) -> bool:
     return any(mark in segment for mark in _UNIT_MARKS)
+
+
+CHAIN_STOP_WORDS = {"or", "and"}
+# A gap that names a new relationship is one step, not another value of the first side.
+CHAIN_STOP_COMMANDS = {
+    "rightarrow", "leftarrow", "Rightarrow", "Leftarrow", "Longrightarrow", "longrightarrow",
+    "to", "implies", "iff", "Leftrightarrow", "mapsto", "quad", "qquad", "therefore", "because",
+    "\\",
+}  # fmt: skip
+# The same written as marks: "x = 2 ⇒ y = 4", "∴ y = 4".
+_STOP_MARKS = set("⇒⟹→⟶⇔↔∴∵")
+# Commands whose braces hold words ("\\text{ so }"): read as the sentence they are.
+_TEXT_COMMANDS = {"text", "textrm", "textit", "textbf", "mathrm", "mbox"}
+# Names a formula writes as a word before its argument ("ln x", "lim x"): no prose between two
+# statements.
+_FUNCTION_WORDS = {
+    "sin", "cos", "tan", "sec", "csc", "cot", "sinh", "cosh", "tanh", "arcsin", "arccos",
+    "arctan", "ln", "log", "exp", "lim", "max", "min", "det", "gcd", "lcm", "mod", "arg",
+    "sqrt", "abs",
+}  # fmt: skip
+
+
+def joined_by_words(segments: list[str]) -> bool:
+    """True when a word joins two statements before the last side: "so A = 54", "0.5 donc T",
+    "πr² where r = 3", in any language. Copied into each row, the word and the symbol after it
+    became the row's left side ("so A = 54"). A unit after the last value ("6 kg m/s") is no join."""
+    return any(_word_then_term(part) for part in segments[:-1])
+
+
+def _word_then_term(segment: str) -> bool:
+    """A word outside brackets, standing alone and followed by a space and another term (a
+    letter, a digit or a command): "so A", "so 2a", "donc T". A product of symbols ("ma", "at")
+    is followed by an operator or nothing; a function's name ("ln x") is no word. A stated
+    arrow or "therefore" mark, or a ";" written in text, ends a statement too."""
+    segment = _inline_text(segment)
+    depth = 0
+    index = 0
+    length = len(segment)
+    while index < length:
+        char = segment[index]
+        if char == "\\":
+            # A command's name ("\\Delta x") is no word; skip it whole, or the one mark after.
+            index += 1
+            if index < length and segment[index].isalpha():
+                while index < length and segment[index].isalpha():
+                    index += 1
+            else:
+                index += 1
+            continue
+        if char in "([{":
+            depth += 1
+        elif char in ")]}":
+            depth = max(0, depth - 1)
+        elif not depth and (char in _STOP_MARKS or char == ";"):
+            return True
+        if not char.isalpha():
+            index += 1
+            continue
+        start = index
+        while index < length and segment[index].isalpha():
+            index += 1
+        word = segment[start:index]
+        if depth or (start and not segment[start - 1].isspace()):
+            continue
+        if word.lower() in CHAIN_STOP_WORDS:
+            return True
+        if not _is_word(word) or word.lower() in _FUNCTION_WORDS:
+            continue
+        if _starts_term(segment, index):
+            return True
+    return False
+
+
+# What may follow a word and keep it maths: an operator ("2 kg \\cdot 9.8") or TeX spacing.
+_OPERATOR_COMMANDS = {
+    "cdot", "cdotp", "times", "div", "pm", "mp", "ast", "star", "circ", "bullet",
+    "approx", "neq", "ne", "leq", "le", "geq", "ge", "equiv", "sim", "simeq", "propto",
+}  # fmt: skip
+_SPACE_COMMANDS = {"quad", "qquad", "thinspace", "enspace"}
+
+
+def _starts_term(segment: str, index: int) -> bool:
+    """Whether another term follows a word ending at ``index``, past spaces and TeX spacing:
+    a letter, a digit, a bracket or a command that is no operator ("so A", "so 2a", "so \\frac12"; not
+    the unit of "2 kg \\cdot 9.8")."""
+    length = len(segment)
+    start = index
+    while index < length:
+        if segment[index] == " ":
+            index += 1
+            continue
+        if segment[index] != "\\":
+            break
+        if index + 1 < length and segment[index + 1] in ",;:! ":
+            index += 2
+            continue
+        end = index + 1
+        while end < length and segment[end].isalpha():
+            end += 1
+        name = segment[index + 1 : end]
+        if name in _SPACE_COMMANDS:
+            index = end
+            continue
+        return index > start and name not in _OPERATOR_COMMANDS
+    # A bracket, a bar or a root opens a term too ("so (x + 1)", "so |x|"); a minus sign does
+    # not, or a unit before one ("5 kg - 2 kg") would read as prose.
+    return start < index < length and (segment[index].isalnum() or segment[index] in "([|√∛")
+
+
+def _is_word(word: str) -> bool:
+    """Two letters or more, a capital only first ("So"). Letters without case are words
+    (ስለዚህ, 所以); a modifier letter (the ᵢ of xᵢ, the ⁿ of xⁿ) marks a symbol, never a word."""
+    return (
+        len(word) >= 2
+        and not any(char.isupper() for char in word[1:])
+        and not any(unicodedata.category(char) == "Lm" for char in word)
+    )
+
+
+def _inline_text(segment: str) -> str:
+    """The segment with each text command's braces written out, so the words inside it
+    ("\\text{ so } A") read as the sentence they are."""
+    out: list[str] = []
+    index = 0
+    length = len(segment)
+    while index < length:
+        if segment[index] != "\\":
+            out.append(segment[index])
+            index += 1
+            continue
+        end = index + 1
+        while end < length and segment[end].isalpha():
+            end += 1
+        close = segment.find("}", end) if segment.startswith("{", end) else -1
+        if segment[index + 1 : end] in _TEXT_COMMANDS and close > 0:
+            out.append(f" {segment[end + 1 : close]} ")
+            index = close + 1
+            continue
+        end = max(end, index + 2)
+        out.append(segment[index:end])
+        index = end
+    return "".join(out)
+
+
+def join_rows(rows: list[str], delim: str, punct: str = "") -> str:
+    lines = [f"{delim}{row}{delim}" for row in rows]
+    if punct:
+        lines[-1] = f"{lines[-1]}{punct}"
+    if len(lines) == 1:
+        return lines[0]
+    return "\n".join(
+        f"{line}  " if index < len(lines) - 1 else line for index, line in enumerate(lines)
+    )
+
+
+def list_prefix(line: str) -> tuple[str, str]:
+    index = 0
+    while index < len(line) and line[index] == " ":
+        index += 1
+    rest = line[index:]
+    for marker in ("- ", "* ", "+ "):
+        if rest.startswith(marker):
+            return line[: index + 2], rest[2:]
+    digits = 0
+    while digits < len(rest) and rest[digits].isdigit():
+        digits += 1
+    if 0 < digits <= 3 and rest[digits : digits + 2] == ". ":
+        return line[: index + digits + 2], rest[digits + 2 :]
+    return "", line

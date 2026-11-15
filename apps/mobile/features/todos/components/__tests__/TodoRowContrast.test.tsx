@@ -64,8 +64,9 @@ function list(item: Todo, state: State, todos = OVERDUE) {
     <TodosScrollList
       rows={buildTodoListRows(todos, NOW)}
       now={NOW}
-      showEmpty={false} view="all"
       error={false}
+      completedOpen
+      onToggleCompleted={jest.fn()}
       listHeader={<View />}
       busyTodoIds={new Set()}
       onToggle={jest.fn()}

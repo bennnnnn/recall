@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import user_cache
 from app.core.config import Settings
+from app.core.log_text import log_safe
 from app.exceptions import DomainError
 from app.gateways import revenuecat_gateway
 from app.models.orm import User
@@ -119,11 +120,11 @@ async def apply_plan_for_app_user_id(
     try:
         user_id = UUID(app_user_id)
     except ValueError:
-        logger.warning("RevenueCat webhook ignored invalid app_user_id=%s", app_user_id)
+        logger.warning("RevenueCat webhook ignored invalid app_user_id=%s", log_safe(app_user_id))
         return False
     user = await users_repo.get_by_id(session, user_id)
     if user is None:
-        logger.warning("RevenueCat webhook user not found id=%s", app_user_id)
+        logger.warning("RevenueCat webhook user not found id=%s", log_safe(app_user_id))
         return False
     if user.plan == plan:
         # No change — return False so the caller doesn't fire a duplicate
@@ -156,20 +157,20 @@ async def handle_revenuecat_transfer(
     try:
         user_id = UUID(cleaned_new)
     except ValueError:
-        logger.warning("RevenueCat TRANSFER ignored invalid app_user_id=%s", cleaned_new)
+        logger.warning("RevenueCat TRANSFER ignored invalid app_user_id=%s", log_safe(cleaned_new))
         return False
 
     plan = await resolve_plan_from_revenuecat(settings, cleaned_new)
     if plan is None:
         logger.warning(
             "RevenueCat TRANSFER deferred; subscriber fetch failed app_user_id=%s",
-            cleaned_new,
+            log_safe(cleaned_new),
         )
         return False
 
     user = await users_repo.get_by_id(session, user_id)
     if user is None:
-        logger.warning("RevenueCat TRANSFER user not found id=%s", cleaned_new)
+        logger.warning("RevenueCat TRANSFER user not found id=%s", log_safe(cleaned_new))
         return False
     if user.plan != plan:
         await apply_plan_for_app_user_id(session, cleaned_new, plan=plan)
@@ -196,6 +197,8 @@ async def _resync_transfer_source(
     await session.commit()
     plan = await resolve_plan_from_revenuecat(settings, app_user_id)
     if plan is None:
-        logger.warning("RevenueCat TRANSFER source unreadable; free app_user_id=%s", app_user_id)
+        logger.warning(
+            "RevenueCat TRANSFER source unreadable; free app_user_id=%s", log_safe(app_user_id)
+        )
         plan = "free"
     await apply_plan_for_app_user_id(session, app_user_id, plan=plan)

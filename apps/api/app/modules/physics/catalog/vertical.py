@@ -46,7 +46,9 @@ _NOT_VERTICAL = (
     *TWO_BODIES,
 )
 _FALL_G = var("g", "g", "meter / second ** 2", fallback="gravity")
-_FALL_V0 = var("v0", "v_0", "meter / second")
+# A dropped body starts at rest: "dropped from 20 m, hits the ground at 30 m/s" states no
+# launch speed, and read as one it fell for 6.72 s, verified (audit 2026-11-07).
+_FALL_V0 = var("v0", "v_0", "meter / second", implied=(("dropped", 0.0), ("from rest", 0.0)))
 _FALL_H0 = var("h0", "h_0", "meter")
 # A throw from the hand: its top and the time to it need no height. Above a stated
 # launch height, "how high" may be above the ground or above the launch point; the

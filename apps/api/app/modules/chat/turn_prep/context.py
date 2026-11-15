@@ -19,10 +19,7 @@ from app.models.orm import User
 from app.modules.billing import plan as plan_service
 from app.modules.chat.prompt_builder import PromptStats, build_prompt_messages
 from app.modules.chat.turn_prep.augment import Augmentation, augment_after_prompt
-from app.modules.chat.turn_prep.instant import (
-    recurring_pay_reply,
-    resolve_instant_reply,
-)
+from app.modules.chat.turn_prep.instant import recurring_pay_reply, resolve_instant_reply
 from app.modules.chat.turn_prep.mode import classify_turn_mode
 from app.modules.chat.turn_prep.money import server_parts, with_money_block
 from app.modules.chat.turn_prep.reading import read_turn, read_turn_message
@@ -157,6 +154,8 @@ class StreamContext:
     money: MoneyTurn | None = None
     # A calculation nothing verified: its ```worked block is laid out as it streams.
     worked: WorkedLayout | None = None
+    # The photo's reader was unsure of its read: nothing is certified (``uncheck_cards``).
+    photo_uncertain: bool = False
 
 
 @dataclass

@@ -24,7 +24,7 @@ from app.services.solving import SubjectAugmentation, VerifiedSolveBlock
 from app.services.subjects.order import read_subject_reason
 from app.services.subjects.registry import SUBJECTS, SubjectRequest, subject_adapter
 from app.services.subjects.registry import SubjectName as SubjectName
-from app.services.worked_parts import parts_in_one_layout
+from app.services.worked_parts import answers_in_parts
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +85,6 @@ def _subject_of_text(
 
 # "Dilute …, and also solve …" is two problems. One failed reading of the
 # whole line used to stamp "couldn't verify" under two correct answers.
-_ANSWER_LABEL = re.compile(r"^\*\*Answer:?\*\*", re.MULTILINE)
 _AND_ALSO = re.compile(r"(?:,\s*|\s+)\band\s+also\b\s+", re.IGNORECASE)
 
 
@@ -208,41 +207,13 @@ async def _solve_parts(
                 first.subject,
                 first.prompt_block,
                 replace(blocks[0], question_parts=blocks),
-                direct_text=_in_parts(parts, [r or "" for r in replies]),
+                direct_text=answers_in_parts(parts, [r or "" for r in replies]),
             )
     verified = next((piece for piece in pieces if piece.verified is not None), None)
     found = await whole()
     if found.verified is not None or verified is None:
         return found
     return verified
-
-
-def _in_parts(parts: Sequence[str], replies: Sequence[str]) -> str:
-    """The question in parts, in the one layout every worked answer in parts has
-    (``services/worked_parts``): the givens and what is asked once, then each part's
-    working closed by its own answer card. A reply in another shape keeps the old one:
-    each part's own question, then its reply."""
-    shared = _shared_setup(parts)
-    laid_out = parts_in_one_layout([part[len(shared) :] for part in parts], replies)
-    if laid_out is not None:
-        return laid_out
-    sections = []
-    for index, (part, reply) in enumerate(zip(parts, replies, strict=True)):
-        label = chr(ord("a") + index) if index < 26 else str(index + 1)
-        # A question in parts letters each answer: "**Answer (a)**".
-        answer = _ANSWER_LABEL.sub(f"**Answer ({label})**", reply.strip(), count=1)
-        sections.append(f"**({label}) {part[len(shared) :].strip()}**\n\n{answer}")
-    return "\n\n---\n\n".join(sections)
-
-
-def _shared_setup(parts: Sequence[str]) -> str:
-    """The setup every part opens with, up to the end of its last sentence."""
-    first = parts[0]
-    size = min(len(part) for part in parts)
-    same = next((i for i in range(size) if any(part[i] != first[i] for part in parts)), size)
-    prefix = first[:same]
-    end = max(prefix.rfind(". "), prefix.rfind("? "), prefix.rfind("! "))
-    return prefix[: end + 2] if end >= 0 else ""
 
 
 async def read_direct_reply(

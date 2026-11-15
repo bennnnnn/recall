@@ -14,7 +14,7 @@ from PIL import Image
 from app.core.config import Settings
 from app.gateways.storage_gateway import StorageUnavailableError
 from app.modules.chat.prompt_constants.visuals import IMAGE_GEN_UNAVAILABLE_HINT
-from app.modules.chat.turn_prep.attachments import _AttachmentProcessResult
+from app.modules.chat.turn_prep.attachments import AttachmentProcessResult
 from app.modules.chat.turn_prep.vision import inject_turn_images
 from app.tests.modules.chat.chat_test_support import FakeSessionCM
 
@@ -40,7 +40,7 @@ def _colour(part) -> str:
 
 
 def _attachments(*, images: list[tuple[str, str]] | None = None, gateway=None):
-    return _AttachmentProcessResult(
+    return AttachmentProcessResult(
         user=None,
         user_content="",
         content="",

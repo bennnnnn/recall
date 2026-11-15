@@ -1,0 +1,706 @@
+[
+ {
+  "id": "r13-decay-3-4",
+  "area": "modern",
+  "prompt": "A sample has a half-life of 10 years. How long until 3/4 of it has decayed?",
+  "expect": "answer",
+  "answer": [
+   20,
+   "year"
+  ],
+  "note": "3/4 gone, however written: two half-lives (was 4.15)"
+ },
+ {
+  "id": "r13-decay-7-8",
+  "area": "modern",
+  "prompt": "A sample has a half-life of 10 years. How long until 7/8 of it has decayed?",
+  "expect": "answer",
+  "answer": [
+   30,
+   "year"
+  ],
+  "note": "1/8 left: three half-lives (was 1.93)"
+ },
+ {
+  "id": "r13-decay-decimal",
+  "area": "modern",
+  "prompt": "How long until 0.75 of the nuclei have decayed? The half-life is 10 years.",
+  "expect": "answer",
+  "answer": [
+   20,
+   "year"
+  ],
+  "note": "0.75 gone"
+ },
+ {
+  "id": "r13-decay-quarter",
+  "area": "modern",
+  "prompt": "If 1/4 of a sample decays, how long has it been? The half-life is 10 years.",
+  "expect": "answer",
+  "answer": [
+   4.150375,
+   "year"
+  ],
+  "note": "1/4 gone leaves 3/4 (was 20)"
+ },
+ {
+  "id": "r13-lost-3-4",
+  "area": "modern",
+  "prompt": "A sample has a half-life of 10 years. How long until it has lost 3/4 of its atoms?",
+  "expect": "answer",
+  "answer": [
+   20,
+   "year"
+  ],
+  "note": "3/4 lost"
+ },
+ {
+  "id": "r13-quarter-remains",
+  "area": "modern",
+  "prompt": "A sample has a half-life of 10 years. How long until 1/4 of it remains?",
+  "expect": "answer",
+  "answer": [
+   20,
+   "year"
+  ],
+  "note": "1/4 left, look-alike"
+ },
+ {
+  "id": "r13-asked-percent-decayed",
+  "area": "modern",
+  "prompt": "What percentage of a sample has decayed after 2 half-lives?",
+  "expect": "answer",
+  "answer": [
+   75,
+   "%"
+  ],
+  "note": "asked share gone (was 25%)"
+ },
+ {
+  "id": "r13-asked-percent-decayed-4",
+  "area": "modern",
+  "prompt": "What percentage of the original nuclei have decayed after 4 half-lives?",
+  "expect": "answer",
+  "answer": [
+   93.75,
+   "%"
+  ],
+  "note": "1 - 1/16"
+ },
+ {
+  "id": "r13-asked-fraction-decayed",
+  "area": "modern",
+  "prompt": "What fraction of a sample has decayed after 3 half-lives?",
+  "expect": "answer",
+  "answer": [
+   0.875,
+   ""
+  ],
+  "note": "1 - 1/8 (was 0.125)"
+ },
+ {
+  "id": "r13-asked-mass-decayed",
+  "area": "modern",
+  "prompt": "How much of a 100 g sample has decayed after 2 half-lives?",
+  "expect": "answer",
+  "answer": [
+   75,
+   "g"
+  ],
+  "note": "100 - 25 (was 25 g)"
+ },
+ {
+  "id": "r13-asked-percent-time",
+  "area": "modern",
+  "prompt": "A sample has a half-life of 10 years. What percentage has decayed after 20 years?",
+  "expect": "answer",
+  "answer": [
+   75,
+   "%"
+  ],
+  "note": "two half-lives"
+ },
+ {
+  "id": "r13-asked-percent-remains",
+  "area": "modern",
+  "prompt": "After 3 half-lives, what percentage of a sample remains?",
+  "expect": "answer",
+  "answer": [
+   12.5,
+   "%"
+  ],
+  "note": "asked share left, look-alike"
+ },
+ {
+  "id": "r13-asked-mass-left",
+  "area": "modern",
+  "prompt": "A 100 g sample with half-life 5 years. How much is left after 15 years?",
+  "expect": "answer",
+  "answer": [
+   12.5,
+   "g"
+  ],
+  "note": "asked mass left, look-alike"
+ },
+ {
+  "id": "r13-change-speed-by",
+  "area": "kinematics",
+  "prompt": "A car moving at 20 m/s reduces its speed by 5 m/s in 2 s. What is its deceleration?",
+  "expect": "decline",
+  "note": "a change of the stated speed is no final speed (was -7.5)"
+ },
+ {
+  "id": "r13-change-picks-up",
+  "area": "kinematics",
+  "prompt": "A car moving at 10 m/s picks up speed by 6 m/s in 3 s. What is its acceleration?",
+  "expect": "decline",
+  "note": "was -1.33"
+ },
+ {
+  "id": "r13-change-goes-down",
+  "area": "kinematics",
+  "prompt": "The speed of a train moving at 30 m/s goes down by 10 m/s in 5 s. What is its deceleration?",
+  "expect": "decline",
+  "note": "was -4"
+ },
+ {
+  "id": "r13-gas-heated-through",
+  "area": "thermal",
+  "prompt": "A gas at 27 °C and 100 kPa is heated through 100 °C at constant volume. What is the new pressure?",
+  "expect": "decline",
+  "note": "a change of the stated temperature (was 124 kPa)"
+ },
+ {
+  "id": "r13-gas-raised-by",
+  "area": "thermal",
+  "prompt": "The temperature of a gas at 300 K and 2 L is raised by 150 K at constant pressure. What is the new volume?",
+  "expect": "decline",
+  "note": "was 1 L"
+ },
+ {
+  "id": "r13-gas-lowered-by",
+  "area": "thermal",
+  "prompt": "A gas at 400 K and 2 L has its temperature lowered by 100 K at constant pressure. What is its new volume?",
+  "expect": "decline",
+  "note": "was 0.5 L"
+ },
+ {
+  "id": "r13-gas-sealed-can",
+  "area": "thermal",
+  "prompt": "A gas at 20 °C and 1 atm in a sealed can is heated by 80 °C. What is the new pressure?",
+  "expect": "decline",
+  "note": "was 1.2 atm"
+ },
+ {
+  "id": "r13-gas-heated-to",
+  "area": "thermal",
+  "prompt": "A gas at 300 K and 100 kPa is heated to 400 K at constant volume. What is the new pressure?",
+  "expect": "answer",
+  "answer": [
+   133.333,
+   "kPa"
+  ],
+  "note": "heated to: an end, look-alike"
+ },
+ {
+  "id": "r13-spring-extension-by",
+  "area": "spring",
+  "prompt": "A spring's extension increases by 2 cm when a 4 N load is added. What is the spring constant?",
+  "expect": "answer",
+  "answer": [
+   200,
+   "N/m"
+  ],
+  "note": "a change with nothing of its kind before it: k = ΔF/Δx"
+ },
+ {
+  "id": "r13-capacitor-by",
+  "area": "electricity",
+  "prompt": "The voltage across a 2 μF capacitor increases by 5 V. How much charge flows onto it?",
+  "expect": "answer",
+  "answer": [
+   1e-05,
+   "C"
+  ],
+  "note": "ΔQ = CΔV"
+ },
+ {
+  "id": "r13-heat-water-by",
+  "area": "thermal",
+  "prompt": "The temperature of 3 kg of water decreases by 10 °C. c = 4200 J/kg°C. How much heat is released?",
+  "expect": "answer",
+  "answer": [
+   126000,
+   "J"
+  ],
+  "note": "ΔT, look-alike"
+ },
+ {
+  "id": "r13-peak-to-peak",
+  "area": "oscillations",
+  "prompt": "A mass oscillates with a peak-to-peak amplitude of 0.2 m and a period of 2 s. What is its maximum speed?",
+  "expect": "decline",
+  "note": "peak-to-peak is 2A (was 0.628)"
+ },
+ {
+  "id": "r13-double-amplitude",
+  "area": "oscillations",
+  "prompt": "A mass oscillates with a double amplitude of 0.2 m and a period of 2 s. What is its maximum speed?",
+  "expect": "decline",
+  "note": "double amplitude is 2A"
+ },
+ {
+  "id": "r13-amplitude-doubled",
+  "area": "oscillations",
+  "prompt": "A mass oscillates with an amplitude of 0.1 m and a period of 2 s. If the amplitude is doubled, what is its maximum speed?",
+  "expect": "decline",
+  "note": "a condition that scales a given (was 0.314)"
+ },
+ {
+  "id": "r13-solved-mass-negative",
+  "area": "forces",
+  "prompt": "A force of -10 N gives an acceleration of 2 m/s^2. What is the mass?",
+  "expect": "decline",
+  "note": "a mass is above zero (was -5 kg)"
+ },
+ {
+  "id": "r13-solved-resistance-negative",
+  "area": "circuits",
+  "prompt": "A potential difference of -6 V drives a current of 2 A. What is the resistance?",
+  "expect": "decline",
+  "note": "was -3 Ω"
+ },
+ {
+  "id": "r13-air-neglected",
+  "area": "free_fall",
+  "prompt": "A ball is dropped from 80 m with air resistance neglected. How long does it take to fall?",
+  "expect": "answer",
+  "answer": [
+   4.03855,
+   "s"
+  ],
+  "note": "set aside"
+ },
+ {
+  "id": "r13-air-considered-negligible",
+  "area": "free_fall",
+  "prompt": "Considering air resistance to be negligible, how long does a stone dropped from 20 m take to fall?",
+  "expect": "answer",
+  "answer": [
+   2.019275,
+   "s"
+  ],
+  "note": "set aside"
+ },
+ {
+  "id": "r13-short-period",
+  "area": "kinematics",
+  "prompt": "A cyclist rides at 5 m/s for a short period of 10 s. How far does she go?",
+  "expect": "answer",
+  "answer": [
+   50,
+   "m"
+  ],
+  "note": "a duration"
+ },
+ {
+  "id": "r13-crests-apart",
+  "area": "waves",
+  "prompt": "Ocean waves have a period of 4 s and the crests are 20 m apart. What is the wave speed?",
+  "expect": "answer",
+  "answer": [
+   5,
+   "m/s"
+  ],
+  "note": "crest spacing is the wavelength"
+ },
+ {
+  "id": "r13-particle-speed",
+  "area": "waves",
+  "prompt": "A wave has a wavelength of 2 m and a period of 0.5 s. What is the maximum speed of a particle in the medium?",
+  "expect": "decline",
+  "note": "a particle's speed needs the amplitude (was 4 m/s)"
+ },
+ {
+  "id": "r13-point-on-string",
+  "area": "waves",
+  "prompt": "A wave on a string has a wavelength of 2 m and a period of 0.5 s. How fast does a point on the string move?",
+  "expect": "decline",
+  "note": "was 4 m/s"
+ },
+ {
+  "id": "r13-float-waves",
+  "area": "waves",
+  "prompt": "A float bobs up and down with a period of 2 s as waves of wavelength 6 m pass. How fast do the waves travel?",
+  "expect": "answer",
+  "answer": [
+   3,
+   "m/s"
+  ],
+  "note": "the waves' speed, look-alike"
+ },
+ {
+  "id": "r13-proton-relativistic",
+  "area": "momentum",
+  "prompt": "A proton moves at 2.9e8 m/s. What is its momentum? (mass 1.67e-27 kg)",
+  "expect": "decline",
+  "note": "p = mv is classical (was 4.84e-19)"
+ },
+ {
+  "id": "r13-diverging-signed",
+  "area": "optics",
+  "prompt": "An object is 20 cm from a diverging lens of focal length -10 cm. Find the image distance.",
+  "expect": "answer",
+  "answer": [
+   6.666667,
+   "cm"
+  ],
+  "note": "virtual, on the object's side (owner 2026-11-13)"
+ },
+ {
+  "id": "r13-concave-lens",
+  "area": "optics",
+  "prompt": "An object is 20 cm from a concave lens of focal length 10 cm. Find the image distance.",
+  "expect": "answer",
+  "answer": [
+   6.666667,
+   "cm"
+  ],
+  "note": "a concave lens's focal length is negative"
+ },
+ {
+  "id": "r13-concave-lens-m",
+  "area": "optics",
+  "prompt": "An object is placed 30 cm from a concave lens of focal length 15 cm. What is the magnification?",
+  "expect": "answer",
+  "answer": [
+   0.333333,
+   ""
+  ],
+  "note": "upright and smaller"
+ },
+ {
+  "id": "r13-convex-lens",
+  "area": "optics",
+  "prompt": "An object is 30 cm from a convex lens of focal length 10 cm. Find the image distance.",
+  "expect": "answer",
+  "answer": [
+   15,
+   "cm"
+  ],
+  "note": "converging, unchanged"
+ },
+ {
+  "id": "r13-convex-mirror",
+  "area": "optics",
+  "prompt": "An object is 20 cm from a convex mirror of focal length 10 cm. Find the image distance.",
+  "expect": "decline",
+  "note": "a convex mirror stays declined"
+ },
+ {
+  "id": "r13b-convex-virtual",
+  "area": "optics",
+  "prompt": "A convex lens of focal length 10 cm forms a virtual image of an object placed 5 cm from it. Where is the image?",
+  "expect": "decline",
+  "note": "a converging lens's virtual image: no diverging lens (was 3.33 cm)"
+ },
+ {
+  "id": "r13b-magnifier",
+  "area": "optics",
+  "prompt": "A magnifying glass is a converging lens of focal length 10 cm. It forms a virtual image of an object 6 cm away. Find the image distance.",
+  "expect": "decline",
+  "note": "was 3.75"
+ },
+ {
+  "id": "r13b-diverging-light",
+  "area": "optics",
+  "prompt": "Light diverging from a point source 30 cm in front of a converging lens of focal length 10 cm is focused. Where is the image?",
+  "expect": "decline",
+  "note": "diverging light is no diverging lens (was 7.5 virtual)"
+ },
+ {
+  "id": "r13b-rays-diverging",
+  "area": "optics",
+  "prompt": "Rays diverging from an object 40 cm from a convex lens of focal length 10 cm are brought to a focus. Find the image distance.",
+  "expect": "decline",
+  "note": "was 8 cm virtual"
+ },
+ {
+  "id": "r13b-diverging-power",
+  "area": "optics",
+  "prompt": "A concave lens has a focal length of 25 cm. An object is 50 cm away. What is the power of the lens?",
+  "expect": "decline",
+  "note": "the power is no image distance (was 16.7 cm)"
+ },
+ {
+  "id": "r13b-diverging-focal-metres",
+  "area": "optics",
+  "prompt": "A concave lens of focal length 20 cm has an object 30 cm away. What is the focal length in metres?",
+  "expect": "decline",
+  "note": "was 0.12 m"
+ },
+ {
+  "id": "r13b-image-from-object",
+  "area": "optics",
+  "prompt": "A diverging lens of focal length 10 cm has an object 20 cm away. What is the image distance from the object?",
+  "expect": "decline",
+  "note": "from the object, not the lens (was 6.67)"
+ },
+ {
+  "id": "r13b-replaced-by-convex",
+  "area": "optics",
+  "prompt": "A concave lens of focal length 10 cm has an object 20 cm away. Where is the image if the lens is replaced by a convex lens of the same focal length?",
+  "expect": "decline",
+  "note": "a convex lens named (was 6.67)"
+ },
+ {
+  "id": "r13b-negative-focal",
+  "area": "optics",
+  "prompt": "A lens of focal length -10 cm has an object 20 cm away. Where is the image?",
+  "expect": "answer",
+  "answer": [
+   6.666667,
+   "cm"
+  ],
+  "note": "a negative focal length is a diverging lens"
+ },
+ {
+  "id": "r13b-telescope-eyepiece",
+  "area": "optics",
+  "prompt": "A Galilean telescope eyepiece is a concave lens of focal length 5 cm. An object is 20 cm from it. Where is the image?",
+  "expect": "answer",
+  "answer": [
+   4,
+   "cm"
+  ],
+  "note": "20·5/25"
+ },
+ {
+  "id": "r13b-both-asks",
+  "area": "optics",
+  "prompt": "A concave lens of focal length 20 cm forms a virtual image of an object placed 20 cm in front of it. Find the image distance and the magnification.",
+  "expect": "answer",
+  "answer": [
+   10,
+   "cm"
+  ],
+  "note": "10 cm and 0.5",
+  "parts": [
+   [
+    10,
+    "cm"
+   ],
+   [
+    0.5,
+    ""
+   ]
+  ]
+ },
+ {
+  "id": "r13b-not-decayed",
+  "area": "modern",
+  "prompt": "What fraction of the sample has not decayed after 3 half-lives?",
+  "expect": "answer",
+  "answer": [
+   0.125,
+   ""
+  ],
+  "note": "not decayed is left (was 0.875)"
+ },
+ {
+  "id": "r13b-not-yet-decayed",
+  "area": "modern",
+  "prompt": "What fraction of the sample has not yet decayed after 3 half-lives?",
+  "expect": "answer",
+  "answer": [
+   0.125,
+   ""
+  ],
+  "note": "was 0.875"
+ },
+ {
+  "id": "r13b-yet-to-decay",
+  "area": "modern",
+  "prompt": "What percentage of the nuclei are yet to decay after 2 half-lives?",
+  "expect": "answer",
+  "answer": [
+   25,
+   "%"
+  ],
+  "note": "was 75%"
+ },
+ {
+  "id": "r13b-undecayed",
+  "area": "modern",
+  "prompt": "What fraction of the original nuclei remain undecayed after 3 half-lives?",
+  "expect": "answer",
+  "answer": [
+   0.125,
+   ""
+  ],
+  "note": "look-alike"
+ },
+ {
+  "id": "r13b-has-decayed",
+  "area": "modern",
+  "prompt": "What fraction of the nuclei have decayed in 1 hour? The half-life is 20 min.",
+  "expect": "answer",
+  "answer": [
+   0.875,
+   ""
+  ],
+  "note": "look-alike"
+ },
+ {
+  "id": "r13b-air-taken-zero",
+  "area": "free_fall",
+  "prompt": "A ball is dropped from 45 m with air resistance taken as zero. How long does it take to fall?",
+  "expect": "answer",
+  "answer": [
+   3.028913,
+   "s"
+  ],
+  "note": "set aside"
+ },
+ {
+  "id": "r13b-air-can-be-ignored",
+  "area": "free_fall",
+  "prompt": "A ball is dropped from 45 m. Air resistance can be ignored. How long does it take to fall?",
+  "expect": "answer",
+  "answer": [
+   3.028913,
+   "s"
+  ],
+  "note": "set aside"
+ },
+ {
+  "id": "r13b-air-not-neglected",
+  "area": "free_fall",
+  "prompt": "A ball is dropped from 45 m with air resistance not neglected. How long does it take to fall?",
+  "expect": "decline",
+  "note": "acts (main ignored it)"
+ },
+ {
+  "id": "r13b-from-through",
+  "area": "thermal",
+  "prompt": "A steel rod 2 m long is heated from 20 °C through 50 °C. α = 1.2e-5 /K. How much does it expand?",
+  "expect": "decline",
+  "note": "from 20 through 50 reads either way (was 7.2e-4)"
+ },
+ {
+  "id": "r13b-from-to",
+  "area": "thermal",
+  "prompt": "A steel rod 2 m long is heated from 20 °C to 50 °C. α = 1.2e-5 /K. How much does it expand?",
+  "expect": "answer",
+  "answer": [
+   0.00072,
+   "m"
+  ],
+  "note": "look-alike"
+ },
+ {
+  "id": "r13c-havent-decayed",
+  "area": "modern",
+  "prompt": "What fraction of the nuclei haven't decayed after 3 half-lives?",
+  "expect": "answer",
+  "answer": [
+   0.125,
+   ""
+  ],
+  "note": "a contraction negates (was 0.875)"
+ },
+ {
+  "id": "r13c-hasnt-curly",
+  "area": "modern",
+  "prompt": "What fraction of the sample hasn’t decayed after 2 half-lives?",
+  "expect": "answer",
+  "answer": [
+   0.25,
+   ""
+  ],
+  "note": "curly apostrophe"
+ },
+ {
+  "id": "r13c-hasnt-stated",
+  "area": "modern",
+  "prompt": "A sample has a half-life of 10 years. How long until 25% hasn't decayed?",
+  "expect": "answer",
+  "answer": [
+   20,
+   "year"
+  ],
+  "note": "25% left (was 4.15)"
+ },
+ {
+  "id": "r13c-failed-to",
+  "area": "modern",
+  "prompt": "What fraction of the sample has failed to decay after 2 half-lives?",
+  "expect": "answer",
+  "answer": [
+   0.25,
+   ""
+  ],
+  "note": "failed to decay is left"
+ },
+ {
+  "id": "r13c-left-to-decay",
+  "area": "modern",
+  "prompt": "What fraction is left to decay after 2 half-lives?",
+  "expect": "answer",
+  "answer": [
+   0.25,
+   ""
+  ],
+  "note": "left to decay is left"
+ },
+ {
+  "id": "r13c-not-the-remaining",
+  "area": "modern",
+  "prompt": "What fraction has decayed after 2 half-lives? (not the fraction remaining)",
+  "expect": "answer",
+  "answer": [
+   0.75,
+   ""
+  ],
+  "note": "the mention set aside is no ask"
+ },
+ {
+  "id": "r13c-both-shares",
+  "area": "modern",
+  "prompt": "How much of a 100 g sample has decayed, not how much is left, after 2 half-lives?",
+  "expect": "decline",
+  "note": "the ask's clause is the one set aside: declines (was 25 g)"
+ },
+ {
+  "id": "r13c-air-cannot-ignore",
+  "area": "free_fall",
+  "prompt": "A ball is dropped from 45 m. Air resistance cannot be ignored. How long does it take to fall?",
+  "expect": "decline",
+  "note": "acts (was 3.03 s)"
+ },
+ {
+  "id": "r13c-air-should-not-neglect",
+  "area": "free_fall",
+  "prompt": "A ball is dropped from 45 m. Air resistance should not be neglected. How long does it take to fall?",
+  "expect": "decline",
+  "note": "acts"
+ },
+ {
+  "id": "r13c-air-taken-into-account",
+  "area": "free_fall",
+  "prompt": "A ball is dropped from 45 m. Air resistance must be taken into account. How long does it take to fall?",
+  "expect": "decline",
+  "note": "acts"
+ },
+ {
+  "id": "r13c-air-not-included",
+  "area": "free_fall",
+  "prompt": "A ball is dropped from 45 m. Air resistance is not included. How long does it take to fall?",
+  "expect": "answer",
+  "answer": [
+   3.028913,
+   "s"
+  ],
+  "note": "set aside, look-alike"
+ }
+]

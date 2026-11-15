@@ -18,6 +18,7 @@ from app.modules.physics.ask_words import _DIMENSIONLESS, _MONEY, _QUANTITIES
 from app.modules.physics.extract import extract_physics_intent, needs_physics
 from app.modules.physics.givens import ANGLE, PHYSICS_UNITS
 from app.modules.physics.kept_property import kept_property_problem
+from app.modules.physics.motion import read_motion
 from app.modules.physics.verified_answers import results as _results
 from app.modules.physics.verified_answers import verified_display as _verified_display
 from app.modules.physics.verified_answers import verifies as _verifies
@@ -107,6 +108,10 @@ def physics_followup_problem(query: str | None, recent: Sequence[Any]) -> str | 
         return None
     if EXPLAIN_RE.fullmatch(line):
         return prior
+    if read_motion(line).changes_speed and not read_motion(prior).changes_speed:
+        # "What if it takes 10 s to stop instead?" after a steady 20 m/s for 5 s changes the
+        # motion, not a number: swapped in, it covered 200 m for 100 m (audit 2026-11-07).
+        return None
     # Before the other shapes: "what if it was 3 times higher" is no new value.
     scaled = scaled_given(line)
     if scaled is not None:

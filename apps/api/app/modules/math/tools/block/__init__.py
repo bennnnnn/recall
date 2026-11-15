@@ -8,6 +8,8 @@ from collections.abc import Callable
 from dataclasses import replace
 from typing import Any
 
+from pydantic import ValidationError
+
 from app.core.config import Settings
 from app.modules.math import solve as math_solve
 from app.modules.math.schemas import MathIntent, is_declined
@@ -57,6 +59,7 @@ from app.modules.math.tools.block.graph import (
 )
 from app.modules.math.tools.block.limits import _verified_block_limit
 from app.modules.math.tools.block.matrix import _verified_block_matrix
+from app.modules.math.tools.block.measures import with_every_measure
 from app.modules.math.tools.block.series import _verified_block_series
 from app.modules.math.tools.block.solid import _verified_block_solid
 from app.modules.math.tools.block.statistics import _verified_block_statistics
@@ -155,6 +158,9 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
         if builder is None:
             return None
         block = builder(intent, settings, lines)
+        if block is not None:
+            # Several measures asked of one shape: all on the card, or no card.
+            block = with_every_measure(intent, block)
         if block is None or _shows_non_finite(block):
             return None
         if _restates(intent, block):
@@ -181,8 +187,10 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
                 block.canonical_answer if block.direct_reply is not None else None
             ),
         )
-    except math_solve.SolveServiceError as exc:
-        # The class only: a SolveServiceError's message quotes the user's expression.
+    except (math_solve.SolveServiceError, ValidationError) as exc:
+        # A decline, by its class only (its message quotes the user's expression): a solver
+        # input refuses a number past its bounds ("100000!", factorising a 13-digit number).
+        # Logged as a failure it raised a traceback into Sentry on every such message.
         logger.info("math_tools skipped: %s", type(exc).__name__)
         return None
     except Exception:

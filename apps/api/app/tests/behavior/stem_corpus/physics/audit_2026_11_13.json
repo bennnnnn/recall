@@ -1,0 +1,362 @@
+[
+ {
+  "id": "a13-shm-spring-period",
+  "area": "oscillations",
+  "prompt": "A mass on a spring oscillates with an amplitude of 0.1 m and a period of 2 s. What is its maximum speed?",
+  "expect": "answer",
+  "answer": [
+   0.314159,
+   "m/s"
+  ],
+  "note": "v_max = 2πA/T; read as d/t it was 0.05 m/s (audit 2026-11-13)"
+ },
+ {
+  "id": "a13-shm-system-velocity",
+  "area": "oscillations",
+  "prompt": "A mass-spring system has amplitude 0.1 m and period 2 s. Find the maximum velocity.",
+  "expect": "answer",
+  "answer": [
+   0.314159,
+   "m/s"
+  ],
+  "note": "2πA/T"
+ },
+ {
+  "id": "a13-shm-object",
+  "area": "oscillations",
+  "prompt": "An object in simple harmonic motion has an amplitude of 0.1 m and a period of 2 s. What is its maximum speed?",
+  "expect": "answer",
+  "answer": [
+   0.314159,
+   "m/s"
+  ],
+  "note": "2πA/T"
+ },
+ {
+  "id": "a13-shm-bob",
+  "area": "oscillations",
+  "prompt": "A pendulum bob swings with amplitude 0.1 m and period 2 s. What is its maximum speed?",
+  "expect": "answer",
+  "answer": [
+   0.314159,
+   "m/s"
+  ],
+  "note": "small swings: 2πA/T; the amplitude is no pendulum length"
+ },
+ {
+  "id": "a13-shm-frequency",
+  "area": "oscillations",
+  "prompt": "A body in SHM has amplitude 0.1 m and frequency 0.5 Hz. Find its maximum speed.",
+  "expect": "answer",
+  "answer": [
+   0.314159,
+   "m/s"
+  ],
+  "note": "2πAf"
+ },
+ {
+  "id": "a13-shm-omega",
+  "area": "oscillations",
+  "prompt": "A mass oscillates with amplitude 0.1 m and angular frequency 3.14 rad/s. What is its maximum speed?",
+  "expect": "answer",
+  "answer": [
+   0.314,
+   "m/s"
+  ],
+  "note": "Aω"
+ },
+ {
+  "id": "a13-shm-piston",
+  "area": "oscillations",
+  "prompt": "A piston moves in SHM with an amplitude of 5 cm and a period of 0.02 s. What is its top speed?",
+  "expect": "answer",
+  "answer": [
+   15.707963,
+   "m/s"
+  ],
+  "note": "2πA/T; read as d/t it was 2.5 m/s"
+ },
+ {
+  "id": "a13-shm-tuning-fork",
+  "area": "oscillations",
+  "prompt": "A tuning fork prong vibrates with amplitude 1 mm and period 2 ms. What is the prong's maximum speed?",
+  "expect": "answer",
+  "answer": [
+   3.141593,
+   "m/s"
+  ],
+  "note": "2πA/T; read as d/t it was 0.5 mm/ms"
+ },
+ {
+  "id": "a13-shm-max-acceleration",
+  "area": "oscillations",
+  "prompt": "A mass on a spring oscillates with an amplitude of 0.1 m and a period of 2 s. What is its maximum acceleration?",
+  "expect": "answer",
+  "answer": [
+   0.98696,
+   "m/s^2"
+  ],
+  "note": "4π²A/T²"
+ },
+ {
+  "id": "a13-shm-how-long-swung",
+  "area": "oscillations",
+  "prompt": "A mass on a spring oscillates with an amplitude of 0.1 m for 10 s. What is its maximum speed?",
+  "expect": "decline",
+  "note": "10 s is how long it swung, not its period"
+ },
+ {
+  "id": "a13-wave-amplitude-period",
+  "area": "waves",
+  "prompt": "A wave has an amplitude of 0.1 m and a period of 2 s. What is its speed?",
+  "expect": "decline",
+  "note": "a wave's speed needs its wavelength; read as d/t it was 0.05 m/s"
+ },
+ {
+  "id": "a13-pendulum-1m",
+  "area": "oscillations",
+  "prompt": "A pendulum 1 m long has a period of 2 s. What is the bob's speed?",
+  "expect": "decline",
+  "note": "the bob's speed needs its swing; read as d/t it was 0.5 m/s"
+ },
+ {
+  "id": "a13-pendulum-2m",
+  "area": "oscillations",
+  "prompt": "A pendulum 2 m long has a period of 2.8 s. How fast does the bob move?",
+  "expect": "decline",
+  "note": "the bob's speed needs its swing; read as d/t it was 0.714 m/s"
+ },
+ {
+  "id": "a13-tsunami",
+  "area": "waves",
+  "prompt": "A tsunami has a wavelength of 200 km and a period of 15 minutes. How fast does it travel?",
+  "expect": "answer",
+  "answer": [
+   222.222222,
+   "m/s"
+  ],
+  "note": "v = λ/T (was d/t with the right number from the wrong law)"
+ },
+ {
+  "id": "a13-sound-period",
+  "area": "waves",
+  "prompt": "A sound wave has a wavelength of 0.5 m and a period of 0.002 s. What is its speed?",
+  "expect": "answer",
+  "answer": [
+   250,
+   "m/s"
+  ],
+  "note": "v = λ/T"
+ },
+ {
+  "id": "a13-runner",
+  "area": "kinematics",
+  "prompt": "A runner moves 0.1 m in 2 s. What is her speed?",
+  "expect": "answer",
+  "answer": [
+   0.05,
+   "m/s"
+  ],
+  "note": "a distance travelled in a time: d/t"
+ },
+ {
+  "id": "a13-over-a-period",
+  "area": "kinematics",
+  "prompt": "A car covers 100 m over a period of 5 s. What is its speed?",
+  "expect": "answer",
+  "answer": [
+   20,
+   "m/s"
+  ],
+  "note": "\"over a period of\" is a duration, not an oscillation's period"
+ },
+ {
+  "id": "a13-negative-resistor",
+  "area": "guards",
+  "prompt": "A resistor of -5 Ω is connected to a 10 V battery. What current flows?",
+  "expect": "decline",
+  "note": "a resistance is never negative (was -2 A, verified)"
+ },
+ {
+  "id": "a13-below-absolute-zero",
+  "area": "guards",
+  "prompt": "A gas at -300 °C is heated at constant pressure to 27 °C. Its volume was 2 L. What is its new volume?",
+  "expect": "decline",
+  "note": "-300 °C is below absolute zero"
+ },
+ {
+  "id": "a13-zero-mass",
+  "area": "guards",
+  "prompt": "A box with a mass of 0 kg is pushed with a force of 20 N. What is its acceleration?",
+  "expect": "decline",
+  "note": "a body has a mass above zero"
+ },
+ {
+  "id": "a13-light-school-speed",
+  "area": "kinematics",
+  "prompt": "Light travels at 3 × 10^8 m/s. How long does it take to cross 3 × 10^8 m?",
+  "expect": "answer",
+  "answer": [
+   1.0,
+   "s"
+  ],
+  "note": "3 × 10⁸ m/s is light's school speed, not faster than light"
+ },
+ {
+  "id": "a13-signed-extension",
+  "area": "spring",
+  "prompt": "A spring with k = 200 N/m is stretched by -0.1 m. What energy is stored?",
+  "expect": "answer",
+  "answer": [
+   1.0,
+   "J"
+  ],
+  "note": "an extension keeps its sign: ½kx² = 1 J"
+ },
+ {
+  "id": "a13-decay-75-gone",
+  "area": "modern",
+  "prompt": "How long does it take for 75% of a radioactive sample to decay if its half-life is 10 years?",
+  "expect": "answer",
+  "answer": [
+   20,
+   "year"
+  ],
+  "note": "75% gone is 25% left: two half-lives (was 4.15 years, verified)"
+ },
+ {
+  "id": "a13-decompose-75-gone",
+  "area": "modern",
+  "prompt": "How long for 75% of a first-order reactant to decompose? The half-life is 12 min.",
+  "expect": "answer",
+  "answer": [
+   24,
+   "min"
+  ],
+  "note": "75% gone is two half-lives (was 4.98 min, verified)"
+ },
+ {
+  "id": "a13-decay-87-gone",
+  "area": "modern",
+  "prompt": "A radioactive isotope has a half-life of 8 days. How long until 87.5% of it has decayed?",
+  "expect": "answer",
+  "answer": [
+   24,
+   "day"
+  ],
+  "note": "12.5% left: three half-lives"
+ },
+ {
+  "id": "a13-decay-25-remains",
+  "area": "modern",
+  "prompt": "A sample has a half-life of 10 years. How long until 25% remains?",
+  "expect": "answer",
+  "answer": [
+   20,
+   "year"
+  ],
+  "note": "25% left"
+ },
+ {
+  "id": "a13-decay-75-left",
+  "area": "modern",
+  "prompt": "A sample has a half-life of 10 years. How long until 75% of the sample is left?",
+  "expect": "answer",
+  "answer": [
+   4.150375,
+   "year"
+  ],
+  "note": "75% left: 10 log₂(4/3)"
+ },
+ {
+  "id": "a13-decayed-to-25",
+  "area": "modern",
+  "prompt": "A sample has a half-life of 10 years. How long until it has decayed to 25%?",
+  "expect": "answer",
+  "answer": [
+   20,
+   "year"
+  ],
+  "note": "decayed to 25% is 25% left"
+ },
+ {
+  "id": "a13-loses-75",
+  "area": "modern",
+  "prompt": "A sample has a half-life of 10 years. How long until it loses 75% of its activity?",
+  "expect": "answer",
+  "answer": [
+   20,
+   "year"
+  ],
+  "note": "75% lost is 25% left"
+ },
+ {
+  "id": "a13-share-unsaid",
+  "area": "modern",
+  "prompt": "A sample has a half-life of 10 years. How long for 75% of the sample?",
+  "expect": "decline",
+  "note": "75% of the sample says neither left nor gone"
+ },
+ {
+  "id": "a13-air-ignored",
+  "area": "free_fall",
+  "prompt": "Ignoring air resistance, a ball is dropped from 20 m. What is its speed when it hits the ground?",
+  "expect": "answer",
+  "answer": [
+   19.809089,
+   "m/s"
+  ],
+  "note": "air resistance set aside: √(2gh)"
+ },
+ {
+  "id": "a13-air-negligible",
+  "area": "free_fall",
+  "prompt": "A ball is dropped from 20 m. Air resistance is negligible. What is its speed when it hits the ground?",
+  "expect": "answer",
+  "answer": [
+   19.809089,
+   "m/s"
+  ],
+  "note": "air resistance set aside"
+ },
+ {
+  "id": "a13-constant-velocity",
+  "area": "kinematics",
+  "prompt": "A car travels at a constant velocity of 15 m/s for 8 s. How far does it go?",
+  "expect": "answer",
+  "answer": [
+   120,
+   "m"
+  ],
+  "note": "constant speed: d = vt"
+ },
+ {
+  "id": "a13-dropped-time",
+  "area": "free_fall",
+  "prompt": "A stone is dropped from a 45 m cliff. How long does it take to fall?",
+  "expect": "answer",
+  "answer": [
+   3.028913,
+   "s"
+  ],
+  "note": "dropped: v₀ = 0"
+ },
+ {
+  "id": "a13-moon-only",
+  "area": "gravitation",
+  "prompt": "A 70 kg astronaut stands on the Moon. What is her weight?",
+  "expect": "answer",
+  "answer": [
+   113.4,
+   "N"
+  ],
+  "note": "one body named: the Moon's g"
+ },
+ {
+  "id": "a13-speed-at-height",
+  "area": "free_fall",
+  "prompt": "A ball is thrown straight up at 20 m/s. What is its speed at a height of 15 m?",
+  "expect": "decline",
+  "note": "a height reached is no launch height"
+ }
+]

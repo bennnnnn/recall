@@ -30,6 +30,9 @@ NOT_READ_BACK = frozenset(
         "impact_speed:angle+g+h0+v0",
         "latent_heat:latent_heat+m+temp_phase",
         "lens_power_sum:p1+p2",
+        # Cued by an asked share gone ("how much has decayed"), which no read writes back.
+        "mass_decayed:elapsed+half_life+m",
+        "mass_decayed:m+n_halves",
         # A lift's direction is a phrase ("accelerating upward"), which no read writes back.
         "lift_normal_force:accel+downward+g+m",
         "lift_normal_force:accel+g+m+upward",

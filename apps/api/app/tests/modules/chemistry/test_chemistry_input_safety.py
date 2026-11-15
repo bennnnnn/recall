@@ -132,6 +132,19 @@ def test_hostile_input_returns_quickly(text: str) -> None:
         "they have zero chemistry on screen",
         "the half-life of my phone battery",
         "the half life of my motivation",
+        # The subject's name with nothing asked of it: no formula, quantity or task (audit
+        # 2026-11-13, ARCH-01).
+        "My chemistry teacher is mean",
+        "Remind me to study chemistry",
+        "remind me to study chemistry tomorrow at 7pm",
+        "I have a chemistry exam tomorrow and I'm nervous",
+        "I love the chemistry between us",
+        "What is chemistry?",
+        "a good chemistry textbook for beginners",
+        # "SI" is an acronym in capitals, not a formula beside the weak cue "base".
+        "What are the SI base units of the newton?",
+        "What are the SI base units of G?",
+        "Is the US a good base for a startup?",
     ],
 )
 def test_everyday_language_is_not_a_chemistry_question(text: str) -> None:
@@ -158,9 +171,12 @@ def test_everyday_language_is_not_a_chemistry_question(text: str) -> None:
         "Lewis structure of CO2",
         "oxidation state of Mn in KMnO4",
         "coordination number of [Co(NH3)6]Cl3",
+        "Solve the chemistry problem in this image step by step.",
         "chemistry homework help",
-        "What is chemistry?",
-        "a good chemistry textbook for beginners",
+        "Help me with chemistry homework: what is the molar mass of NaCl?",
+        "chemistry homework: balance Fe + O2 -> Fe2O3",
+        "explain the chemistry when an acid meets a base",
+        "Is HF an acid?",
         "half-life of carbon-14",
         "What is the half-life of a radioactive isotope?",
         "Find the half-life when k = 0.2 s^-1",
@@ -258,7 +274,7 @@ async def test_slow_pubchem_does_not_hold_the_turn(monkeypatch: pytest.MonkeyPat
     result = await chemistry_context.build_chemistry_augmentation(
         "what is the structure of aspirin?", _SETTINGS
     )
-    assert result == (chemistry_context.unverified_chemistry_note(), None, True)
+    assert result == (chemistry_context.unverified_chemistry_note(), None, True, False)
     assert time.perf_counter() - start < 1.0
 
 
@@ -277,7 +293,7 @@ async def test_a_slow_solve_is_stopped_and_declined(monkeypatch: pytest.MonkeyPa
     result = await chemistry_context.build_chemistry_augmentation(
         "Find the molar mass of H2O", settings
     )
-    assert result == (chemistry_context.unverified_chemistry_note(), None, True)
+    assert result == (chemistry_context.unverified_chemistry_note(), None, True, False)
     assert time.perf_counter() - start < 0.9
 
 
@@ -291,12 +307,12 @@ async def test_a_failed_solve_declines_instead_of_failing_the_turn(
     result = await chemistry_context.build_chemistry_augmentation(
         "Find the molar mass of H2O", _SETTINGS
     )
-    assert result == (chemistry_context.unverified_chemistry_note(), None, True)
+    assert result == (chemistry_context.unverified_chemistry_note(), None, True, False)
 
 
 async def test_a_non_chemistry_sentence_is_untouched_when_pubchem_would_fail() -> None:
     result = await chemistry_context.build_chemistry_augmentation("what is 2 + 2?", _SETTINGS)
-    assert result == (None, None, False)
+    assert result == (None, None, False, False)
 
 
 @pytest.mark.parametrize(

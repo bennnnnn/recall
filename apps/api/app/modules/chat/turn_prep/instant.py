@@ -30,6 +30,7 @@ from app.modules.memory.switch import memory_switch_on
 from app.modules.turn_reading.plan import TurnPlan
 from app.modules.turn_reading.profile_ask import profile_question_to_answer
 from app.services import time_context as time_context_service
+from app.services.subject_scan import without_photo_reading
 from app.services.subjects.registry import subject_adapter
 from app.services.text_normalize import collapse_ws
 
@@ -68,8 +69,10 @@ async def resolve_instant_reply(
     """
     if plan is not None and plan.multi:
         return None
-    content = request.content
-    earlier = _earlier_user_texts(request.recent_messages, content)
+    # The user's own words: text read off their photo is its content, never a request
+    # ("Forget everything you know about me." on a scanned page is no memory reset).
+    content = request.own_words
+    earlier = _earlier_user_texts(request.recent_messages, request.content)
     todo_screen = todos_service.todo_screen_reply(
         content,
         prior_user=earlier[-1] if earlier else None,
@@ -99,7 +102,7 @@ async def resolve_instant_reply(
             return last_report_answer(geo.user_location, geo.place_as_of, identity.local_tz)
         return time_context_service.format_location_answer(geo.user_location, identity.local_tz)
     asked = profile_question_to_answer(
-        content, _earlier_user_texts(request.recent_messages, content)
+        content, _earlier_user_texts(request.recent_messages, request.content)
     )
     if asked:
         return await _profile_reply(asked, identity)
@@ -186,6 +189,7 @@ def location_not_set_reply(
 
 
 def _earlier_user_texts(recent_messages: list[Any] | None, content: str) -> list[str]:
+    """The user's earlier lines, each without the text read off its photo."""
     texts = [
         message.content
         for message in recent_messages or []
@@ -194,7 +198,7 @@ def _earlier_user_texts(recent_messages: list[Any] | None, content: str) -> list
     ]
     if texts and collapse_ws(texts[-1]) == collapse_ws(content):
         texts = texts[:-1]
-    return texts
+    return [without_photo_reading(text) for text in texts]
 
 
 def _last_recent_assistant_content(recent_messages: list[Any] | None) -> str | None:

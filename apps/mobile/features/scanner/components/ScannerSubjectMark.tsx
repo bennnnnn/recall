@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { StyleSheet } from "react-native";
 import Animated, {
   cancelAnimation,
@@ -19,21 +19,23 @@ const MARK = 36;
 
 /**
  * The shutter's white disc, showing the subject tab's mark, so the button says what a shot
- * is for. A new subject's mark grows in.
+ * is for. The first mark is there when the scanner opens; a new subject's mark grows in.
  */
 export function ShutterSubjectDisc({ subject }: { subject: ScannerSubject }) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const reduceMotion = useReduceMotion();
   const reveal = useSharedValue(1);
+  const shown = useRef(subject);
   const transitionMs = motionMs(Motion.duration.standard, reduceMotion);
 
   useEffect(() => {
     cancelAnimation(reveal);
-    if (reduceMotion) {
+    if (reduceMotion || shown.current === subject) {
       reveal.value = 1;
       return;
     }
+    shown.current = subject;
     reveal.value = 0;
     reveal.value = withTiming(1, { duration: transitionMs });
     return () => cancelAnimation(reveal);

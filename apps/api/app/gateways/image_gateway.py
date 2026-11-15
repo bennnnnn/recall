@@ -8,6 +8,7 @@ import logging
 
 from app.core.attachment_limits import MAX_ATTACHMENT_SIZE
 from app.core.config import Settings
+from app.core.log_text import log_safe
 from app.gateways import safe_fetch
 from app.gateways.http_client import get_pooled_client
 
@@ -69,7 +70,7 @@ async def generate_via_openrouter(
         if response.status_code >= 400:
             logger.warning(
                 "OpenRouter image generation failed model=%s status=%s body=%s",
-                model,
+                log_safe(model),
                 response.status_code,
                 response.text[:500],
             )
@@ -79,7 +80,7 @@ async def generate_via_openrouter(
         data = response.json()
         items = data.get("data")
         if not isinstance(items, list) or not items:
-            logger.warning("OpenRouter image generation returned no data model=%s", model)
+            logger.warning("OpenRouter image generation returned no data model=%s", log_safe(model))
             return None
         first = items[0]
         if not isinstance(first, dict):
@@ -98,7 +99,7 @@ async def generate_via_openrouter(
                 if len(raw) > MAX_ATTACHMENT_SIZE:
                     logger.warning(
                         "OpenRouter image generation b64_json exceeds size cap model=%s bytes=%s",
-                        model,
+                        log_safe(model),
                         len(raw),
                     )
                     return None
@@ -107,12 +108,16 @@ async def generate_via_openrouter(
         url = first.get("url")
         if isinstance(url, str) and url.startswith(("http://", "https://")):
             return await _download_result(url, model)
-        logger.warning("OpenRouter image generation response missing image payload model=%s", model)
+        logger.warning(
+            "OpenRouter image generation response missing image payload model=%s", log_safe(model)
+        )
         return None
     except ImageContentBlockedError:
         raise
     except Exception:
-        logger.exception("Image generation failed model=%s prompt_len=%s", model, len(prompt))
+        logger.exception(
+            "Image generation failed model=%s prompt_len=%s", log_safe(model), len(prompt)
+        )
         return None
 
 
@@ -132,12 +137,14 @@ async def _download_result(url: str, model: str) -> tuple[bytes, str] | None:
     img_resp.raise_for_status()
     content_type = img_resp.headers.get("content-type", "image/png").split(";")[0].strip().lower()
     if not img_resp.content:
-        logger.warning("OpenRouter image generation response missing image payload model=%s", model)
+        logger.warning(
+            "OpenRouter image generation response missing image payload model=%s", log_safe(model)
+        )
         return None
     if len(img_resp.content) > MAX_ATTACHMENT_SIZE:
         logger.warning(
             "OpenRouter image generation URL response exceeds size cap model=%s bytes=%s",
-            model,
+            log_safe(model),
             len(img_resp.content),
         )
         return None

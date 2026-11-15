@@ -7,7 +7,6 @@ import {
 } from "@/features/todos/hooks/useReminderClock";
 import { firstOverdueHomeTodo } from "@/features/todos/model/homeUrgentTodos";
 import { buildTodoListRows } from "@/features/todos/model/todoListRows";
-import { todosForView } from "@/features/todos/model/todoListFilter";
 
 const foreground: ((state: string) => void)[] = [];
 jest.mock("@/lib/foregroundRefresh", () => ({
@@ -147,6 +146,5 @@ describe("useReminderClock", () => {
     });
 
     expect(headings()).toEqual(["today"]);
-    expect(todosForView(todos, "today", result.current).map((item) => item.id)).toEqual(["Dentist"]);
   });
 });

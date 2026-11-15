@@ -59,8 +59,9 @@ _NOTATION_SCRIPTS = (
 )  # fmt: skip
 
 # Words Spanish, French, German, Italian, Portuguese and Turkish write in a question and
-# English never does: articles, pronouns, prepositions, question words, numbers and the
-# verbs that set an exercise. Words English writes too stay out: "a", "e", "o", "y", "i",
+# English never does: articles, pronouns, prepositions, question words, numbers, the verbs
+# that set an exercise, and the words that restrict its answers ("positiva", "entero",
+# "raíz": "Raíz positiva: x^2 = 4" was a checked ±2, read as English). Words English writes too stay out: "a", "e", "o", "y", "i",
 # "in", "en", "no", "do", "die", "son", "per", "pour", "sin", "tan", "del" (∇), "du" (du/dx),
 # "si" (SI units), "al" ("et al."), "six", "sept", "ve" ("I've"), "mil", "hay", "media",
 # "comment", "tension", "determine", and unit symbols ("um", "au"). Letters English does not
@@ -86,7 +87,24 @@ _FOREIGN = frozenset(
     uma uns umas os qual quais encontre resolva fatore converta velocidade em na dos pelo
     pela com
     bir ile nedir kaç kaçtır hesaplayın hesaplayınız bulun bulunuz olan olarak kütle kütlesi çöz
-    zaman akım
+    zaman akım raíz raíces solo solamente racine racines wurzel radice kök
+    """.split()
+) | frozenset(
+    """
+    positivo positiva positivos positivas negativo negativa negativos negativas entero entera
+    enteros enteras natural naturales positif négatif entier entiers naturel naturels positiv
+    negativ ganze ganzzahlig natürlich intero interi naturale inteiro inteiros pozitif negatif
+    tamsayı doğal
+    """.split()
+)
+# Of those, the words that restrict an answer set as an adjective does: "positiv", "entero".
+# The maths reading declines an equation beside one (``request_consumption``).
+RESTRICTING_WORDS = frozenset(
+    """
+    positivo positiva positivos positivas negativo negativa negativos negativas entero entera
+    enteros enteras naturales positif négatif entier entiers naturel naturels positiv negativ
+    ganze ganzzahlig natürlich intero interi naturale inteiro inteiros pozitif negatif
+    tamsayı doğal
     """.split()
 )
 # Words of those languages that English names carry too ("de Broglie", "le Chatelier",
@@ -266,10 +284,60 @@ def misread_number(text: str, locale: str | None) -> bool:
     )
 
 
+# An equation in symbols means the same in any language. A message that is the word "solve"
+# in another language and one equation ("Resuelve 2x + 5 = 17", "Résous x^2 - 5x + 6 = 0",
+# "Решите 2x + 5 = 17") is read the same as an English line of bare maths: one relation in
+# one unknown, to solve (2026-11-13 audit, COV-01). Any other word is never read, so it is
+# never guessed at: "Löse x^2 = 9 positiv", "Resuelve x^2 = 9 entero" and "Factoriza x^2 - 5x +
+# 6 = 0" restrict or change the task, and were checked as the bare solve (2026-11-14 review).
+# A word problem in another language stays declined.
+_MATHS_TOKEN = re.compile(r"^(?:[A-Za-z]|.*[\d+\-*/^=<>≤≥()\[\]√²³$\\].*)$")
+_RELATIONS = re.compile(r"<=|>=|[=<>≤≥]")
+_LETTERS = re.compile(r"[A-Za-z]+")
+_FUNCTIONS = frozenset({"sqrt", "sin", "cos", "tan", "log", "ln", "exp", "abs", "pi"})
+# The imperative "solve" in each of the app's other languages, the one word the line may
+# hold beside its equation. Data, not a grammar: a form missing here only declines.
+_SOLVE_VERBS = frozenset(
+    """
+    resuelve resuelva resolvé
+    résous résolvez
+    löse löst lösen
+    risolvi risolva risolvete
+    resolva resolve resolvam
+    çöz çözün çözünüz
+    реши решите
+    ፍታ ፍቱ ይፍቱ
+    """.split()
+)
+_WORD_MARKS = ".,:;!?¿¡፡።"
+
+
+def equation_beside_instruction(text: str) -> str | None:
+    """The equation of a message that is another language's "solve" and an equation in
+    symbols, nothing else, or None."""
+    tokens = _without_code(text).split()
+    if len(tokens) < 2 or tokens[0].strip(_WORD_MARKS).casefold() not in _SOLVE_VERBS:
+        return None
+    equation = " ".join(tokens[1:]).strip(_WORD_MARKS + " ")
+    if not all(_MATHS_TOKEN.match(token) for token in equation.split()):
+        return None
+    letters = {run for run in _LETTERS.findall(equation) if run.casefold() not in _FUNCTIONS}
+    if len(_RELATIONS.findall(equation)) != 1 or len(letters) != 1 or len(next(iter(letters))) != 1:
+        return None
+    return equation
+
+
 def unreadable(text: str, locale: str | None) -> Unreadable | None:
-    """Why the subject readers cannot read ``text`` whole for a user of ``locale``, or None."""
+    """Why the subject readers cannot read ``text`` whole for a user of ``locale``, or None.
+
+    Another language's instruction beside an equation in symbols is read as the equation
+    (``equation_beside_instruction``); its numbers are still read as its writer means them.
+    """
     if other_language(text):
-        return "other_language"
+        equation = equation_beside_instruction(text)
+        if equation is None:
+            return "other_language"
+        text = equation
     if misread_number(text, locale):
         return "number_marks"
     return None
