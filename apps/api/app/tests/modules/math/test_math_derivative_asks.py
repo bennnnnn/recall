@@ -238,25 +238,37 @@ def test_a_solve_asked_is_still_solved(text: str) -> None:
         ("Find an antiderivative of 2x", AskedOperations(integral=True)),
         (
             "Find the absolute maximum of f(x) = x^3 on [0, 2]",
-            AskedOperations(behaviour=True, extreme_values=True),
+            AskedOperations(behaviour=True, extreme_values=True, features=1),
         ),
         (
             "Find the relative extrema of f(x) = x + 4/x",
-            AskedOperations(behaviour=True, extreme_values=True),
+            AskedOperations(behaviour=True, extreme_values=True, features=1),
         ),
         (
             "Find the local maximum and minimum values of f(x) = 2x³ + 3x² − 12x",
-            AskedOperations(behaviour=True, extreme_values=True, both_extremes=True),
+            AskedOperations(behaviour=True, extreme_values=True, both_extremes=True, features=1),
         ),
         (
             "Find the greatest and least values of y = x^2 on [0, 1]",
             AskedOperations(both_extremes=True),
         ),
-        ("Find the critical numbers of f(x) = x^3 - 3x", AskedOperations(behaviour=True)),
-        ("Where is f(x) = x^3 increasing?", AskedOperations(behaviour=True, location=True)),
-        ("Find the asymptotes of y = 1/(x - 2)", AskedOperations(behaviour=True)),
+        (
+            "Find the critical numbers of f(x) = x^3 - 3x",
+            AskedOperations(behaviour=True, features=1),
+        ),
+        (
+            "Where is f(x) = x^3 increasing?",
+            AskedOperations(behaviour=True, location=True, features=1),
+        ),
+        ("Find the asymptotes of y = 1/(x - 2)", AskedOperations(behaviour=True, features=1)),
+        # A study of a function lists its features, which no one value answers.
+        (
+            "For f(x) = x^3 - 3x find the critical numbers, the intervals of increase and "
+            "decrease, and sketch the graph",
+            AskedOperations(behaviour=True, features=3),
+        ),
         ("Solve 2x + 5 = 17", AskedOperations()),
-        ("Simplify (x^2 - 1)/(x - 1)", AskedOperations()),
+        ("Simplify (x^2 - 1)/(x - 1)", AskedOperations(rewrite=True)),
         # "min" for minutes is no minimum.
         ("Solve 3x = 12, then rest for 5 min", AskedOperations()),
     ],
@@ -288,11 +300,14 @@ _LIMIT = AskedOperations(limit=True)
         (_DERIVATIVE, "integral", 1, False, False),
         (_DERIVATIVE, "solve", 1, False, False),  # y = x ln x solved for x
         (AskedOperations(), "solve", 1, False, True),
-        # A sketch's simplified f is a step the server's reading of the sketch refuses
-        # (``call_answers_reading``); words alone refuse no rewrite.
-        (_EXTREMA, "rewrite", 1, False, True),
-        (_EXTREMA, "solve", 1, False, True),  # "the maximum value of x if 2x + 3 = 11"
-        (AskedOperations(), "rewrite", 1, False, True),
+        # "the maximum value of x if 2x + 3 = 11": one feature named beside a solve.
+        (AskedOperations(behaviour=True, features=1), "solve", 1, False, True),
+        # A study of the function's features: no one solve answers it.
+        (AskedOperations(behaviour=True, features=3), "solve", 1, False, False),
+        (AskedOperations(rewrite=True), "rewrite", 1, False, True),
+        # The function rewritten for "the intervals on which f is continuous".
+        (AskedOperations(features=2), "rewrite", 1, False, False),
+        (AskedOperations(), "rewrite", 1, False, False),
     ],
 )
 def test_a_computation_answers_only_what_is_asked(

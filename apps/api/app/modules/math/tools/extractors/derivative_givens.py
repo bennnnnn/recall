@@ -22,9 +22,11 @@ from app.modules.math.match.asked_operations import asked_operations
 from app.modules.math.schemas import MathIntent, declined_reading
 from app.modules.math.tools.expr_rewrite import math_expr_or_none
 from app.modules.math.tools.function_def import is_named_function_lhs
-from app.modules.turn_reading.derivative_notation import differentiated_letters
-
-_NUMBER = re.compile(r"-?\d+(?:\.\d+)?")
+from app.modules.turn_reading.derivative_notation import (
+    CONSTANT_POINT,
+    differentiated_letters,
+    point_value,
+)
 
 
 @dataclass(frozen=True)
@@ -76,9 +78,9 @@ def derivative_givens(cleaned: str, variable: str) -> DerivativeGivens | None:
         name = _function_name(lhs, named)
         if lhs.replace(" ", "") == variable:
             # x = 2 is the point; x = t^2 gives the variable itself by another.
-            if _NUMBER.fullmatch(rhs.replace(" ", "")) is None:
+            if CONSTANT_POINT.fullmatch(rhs.strip().strip("()")) is None:
                 return DerivativeGivens(unresolved=True)
-            points.append(rhs.replace(" ", ""))
+            points.append(point_value(rhs.strip().strip("()")))
         elif name is not None and _free_of(name, rhs) and math_expr_or_none(rhs) is not None:
             functions.append((name, rhs))
         elif is_named_function_lhs(lhs):

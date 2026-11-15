@@ -17,6 +17,7 @@ from typing import Any
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.modules.math.tools.school._parse import request_body
+from app.modules.turn_reading.derivative_notation import CONSTANT_POINT, point_value
 from app.services.workout import math_line
 
 _MAX = 300
@@ -33,9 +34,11 @@ _NUMBER = re.compile(r"-?\d+(?:\.\d+)?(?:/\d+)?")
 # The ask and its expression: each run of space is read once (possessive) and the expression
 # ends on a mark. A lazy expression beside \s+ took cubic time on "find" and a run of spaces.
 _ASKED_EXPRESSION = rf"^(?:(?:{_ASK})\s++(?:the\s++value\s++of\s++)?)?(?P<expr>[^=]*?[^=\s])\s++"
+# The value may be a multiple of π: "evaluate sin x at x = π/4" read the point as the equation
+# x = π/4 and certified it (2026-11-14).
 _AT_VALUE = re.compile(
     rf"{_ASKED_EXPRESSION}"
-    r"(?:when|at|for|if|where)\s++(?P<var>[a-z])\s*+=\s*+(?P<value>-?\d+(?:\.\d+)?(?:/\d+)?)$",
+    rf"(?:when|at|for|if|where)\s++(?P<var>[a-z])\s*+=\s*+(?P<value>{CONSTANT_POINT.pattern})$",
     re.I,
 )
 # Several given values: "x = 3 and y = -2", "x = 1, y = 2, z = 3".
@@ -154,7 +157,7 @@ def _expression_value_intent(body: str) -> MathIntent | None:
         school_op="expression_value",
         expr=match["expr"].strip(),
         variable=match["var"],
-        evaluation_point=match["value"],
+        evaluation_point=point_value(match["value"]),
         operation="solve",
     )
 

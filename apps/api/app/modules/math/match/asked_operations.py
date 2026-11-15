@@ -71,6 +71,19 @@ _BEHAVIOUR = re.compile(
     r"|monoton(?:e|ic|icity)|asymptotes?|intercepts?)\b",
     re.IGNORECASE,
 )
+# The features of a function a question may list, each by kind: a sketch or a study of a
+# function asks several ("the critical numbers, extreme values, intervals ... and sketch").
+_FEATURES = re.compile(
+    r"(?P<extreme>\b(?:maxim(?:um|a)|minim(?:um|a)|extrem(?:um|a|e)|critical|stationary"
+    r"|turning\s+points?)\b)"
+    r"|(?P<monotonic>\b(?:increas\w*|decreas\w*|monoton\w*)\b)"
+    r"|(?P<concavity>\b(?:concav\w*|inflect\w*|inflexion|bends?)\b)"
+    r"|(?P<asymptote>\basymptot\w*)|(?P<intercept>\bintercepts?\b)|(?P<hole>\bholes?\b)"
+    r"|(?P<continuity>\b(?:continuous|continuity|discontinu\w*)\b)"
+    r"|(?P<drawn>\b(?:sketch|graph|plot)\w*)",
+    re.IGNORECASE,
+)
+_REWRITE_WORDS = frozenset({"simplify", "factor", "expand"})
 # Of those, the extreme values themselves: where the function turns is a step to them.
 _EXTREME_VALUES = re.compile(
     r"\b(?:maxim(?:um|a)|minim(?:um|a)|extrem(?:um|a|e\s+values?)"
@@ -114,6 +127,11 @@ class AskedOperations:
     both_extremes: bool = False
     # Where or when, not how much: "the x-coordinate of the minimum", "when is it highest".
     location: bool = False
+    # How many kinds of a function's features it asks: two or more is a study of the
+    # function, which no one value answers.
+    features: int = 0
+    # A rewrite asked by name: simplify, factor, expand.
+    rewrite: bool = False
 
     @property
     def calculus(self) -> bool:
@@ -236,6 +254,8 @@ def asked_operations(text: str) -> AskedOperations:
         extreme_values=_EXTREME_VALUES.search(asked) is not None,
         both_extremes=bool(_MAXIMUM.search(asked) and _MINIMUM.search(asked)),
         location=_LOCATION.search(asked) is not None,
+        features=len({m.lastgroup for m in _FEATURES.finditer(asked)}),
+        rewrite=bool(words & _REWRITE_WORDS),
     )
 
 
@@ -255,8 +275,9 @@ def computes_the_ask(
     """A ``computation`` computes what was ``asked``, not a step toward it.
 
     A derivative answers only a derivative asked (``derivative_answers``), never a question
-    about how the function behaves; an integral or a limit only that; a solve or a rewrite
-    (simplify, factor, expand) no derivative, integral, limit or rate asked.
+    about how the function behaves; an integral or a limit only that; a solve no
+    derivative, integral, limit or rate asked, nor a study of a function's several
+    features; a rewrite (simplify, factor, expand) the same, and only when it is asked.
     """
     if computation == "derivative":
         return derivative_answers(asked, order, at_point=at_point) and not asked.behaviour
@@ -264,7 +285,11 @@ def computes_the_ask(
         return asked.integral and not asked.behaviour
     if computation == "limit":
         return asked.limit and not asked.behaviour
-    return not asked.calculus
+    if asked.calculus or asked.features > 1:
+        return False
+    # The function rewritten is no answer unless a rewrite is asked: "the largest intervals
+    # on which 4|x^2 - 1|/(x - 1) is continuous" had the function itself as its card.
+    return computation == "solve" or asked.rewrite
 
 
 # What each kind of computation is, as a SymPy tool call names it and as a reading does.

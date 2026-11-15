@@ -31,14 +31,18 @@ from app.modules.math.tools.request_text import (
     _strip_series_prefix,
     strip_trailing_filler,
 )
-from app.modules.turn_reading.derivative_notation import PRIME_AT_NUMBER, higher_leibniz
-from app.services.number_text import SIGNED_DECIMAL
+from app.modules.turn_reading.derivative_notation import (
+    CONSTANT_POINT,
+    LEIBNIZ,
+    PRIME_AT_NUMBER,
+    higher_leibniz,
+    point_value,
+)
 
 _WRT_VARIABLE = re.compile(r"\b(?:with\s+respect\s+to|wrt)\s+([a-zA-Z])\b", re.IGNORECASE)
-_LEIBNIZ_VARIABLE = re.compile(r"/\s*d\s*([a-zA-Z])\b")
 _INTEGRAL_VARIABLE = re.compile(r"\bd\s*([a-zA-Z])(?=\s+from\b|\s*$)")
 _DERIVATIVE_AT_POINT = re.compile(
-    rf"\s+at\s+([a-zA-Z])\s*=\s*({SIGNED_DECIMAL})\s*$",
+    rf"\s+at\s+([a-zA-Z])\s*=\s*({CONSTANT_POINT.pattern})\s*$",
     re.IGNORECASE,
 )
 _BY_PARTS = re.compile(
@@ -53,8 +57,11 @@ _UNICODE_SIGMA_EXPR = re.compile(
 
 
 def _stated_variable(cleaned: str) -> str | None:
-    explicit = _WRT_VARIABLE.search(cleaned) or _LEIBNIZ_VARIABLE.search(cleaned)
-    return explicit.group(1) if explicit is not None else None
+    wrt = _WRT_VARIABLE.search(cleaned)
+    if wrt is not None:
+        return wrt.group(1)
+    leibniz = LEIBNIZ.search(cleaned)
+    return leibniz["var"] if leibniz is not None else None
 
 
 def _calculus_variable(cleaned: str, raw: str, expr: str, *, integrate: bool) -> str:
@@ -250,9 +257,9 @@ def _derivative_point(raw: str, cleaned: str) -> tuple[str, str | None]:
     "x^2 at x = 3", or f'(3)."""
     point_match = _DERIVATIVE_AT_POINT.search(raw.rstrip(".?!"))
     if point_match is not None:
-        return raw[: point_match.start()].rstrip(" ,;."), point_match.group(2)
+        return raw[: point_match.start()].rstrip(" ,;."), point_value(point_match.group(2))
     prime_at = PRIME_AT_NUMBER.search(cleaned)
-    return raw, prime_at.group(1) if prime_at is not None else None
+    return raw, point_value(prime_at.group(1)) if prime_at is not None else None
 
 
 def _extract_calculus_intent(cleaned: str) -> MathIntent | None:

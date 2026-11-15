@@ -19,7 +19,7 @@ from sympy import Symbol
 from sympy.parsing.sympy_parser import parse_expr
 
 from app.core.config import Settings
-from app.modules.math.match.asked_operations import call_answers_reading
+from app.modules.math.match.asked_operations import call_answers_reading, call_computes_the_ask
 from app.modules.math.schemas import MathIntent
 from app.modules.math.subject import MathTool
 from app.services.subjects.dispatch import build_subject_augmentation
@@ -80,6 +80,14 @@ async def _card(text: str) -> str | None:
         "Find f'(x) and f''(x) for f(x) = x^3",
         "Find y' and y'' for y = sin x",
         "Given y = x^2, find the derivative and the second derivative",
+        # A study of a function: no one value answers it (round 3, c009-c037).
+        "Let f(x) = 4|x² − 1|/(x − 1) if x ≠ 1 and f(1) = 5. Find the largest interval(s) on "
+        "which f is continuous, and show the function on a graph.",
+        "For f(x) = (x² − 2x + 4)/(x − 2) find the critical numbers, local extreme values, "
+        "intervals of monotonicity, intervals of concavity and inflection points, and sketch "
+        "the graph with its asymptotes.",
+        "Find the local maximum and minimum values of f(x) = (x² − 4)^(2/3) and sketch the "
+        "graph, including where it is concave up or down.",
         # Where or when, not how much; a rate of the formula given, not its value.
         "Find the x-coordinate of the local minimum of f(x) = x^3 - 3x",
         "A ball's height is h = 20t - 5t^2. When is the ball at its maximum height?",
@@ -109,6 +117,15 @@ async def test_a_question_no_reading_answers_gets_no_card(text: str) -> None:
         ("s = 5t^2 + 2t, find ds/dt when t = 3", "32"),
         ("If x = 3y^2, find dx/dy", "6*y"),
         ("Find y'' when x = 1 for y = x^4", "12"),
+        # At the point asked, a constant one included (main's cards: cos x, x = π, x = π/4).
+        ("If f(x) = sin x, find f'(π/2)", "0"),
+        ("Find f'(1/2) if f(x) = x^3", "3/4"),
+        ("Find dy/dx at x = π for y = x sin x", "-pi"),
+        ("Evaluate x² at x = π", "pi**2"),
+        ("Evaluate sin x at x = π/4", "sqrt(2)/2"),
+        # An order in plain digits (main solved y = x^4 for x).
+        ("Find d3y/dx3 for y = x^4", "24*x"),
+        ("Find d3s/dt3 for s = t^5", "60*t**2"),
     ],
 )
 async def test_the_card_asked_stays(text: str, answer: str) -> None:
@@ -221,3 +238,30 @@ def test_a_tool_call_on_the_users_problem_stays_checked(
     text: str, args: dict[str, Any], matched: bool
 ) -> None:
     assert (MathTool().call_matches(json.dumps(args), [text]) is not None) is matched
+
+
+@pytest.mark.parametrize(
+    ("text", "args", "answers"),
+    [
+        # The function rewritten is no answer to where it is continuous.
+        (
+            "Let f(x) = 4|x² − 1|/(x − 1) if x ≠ 1 and f(1) = 5. Find the largest interval(s) "
+            "on which f is continuous, and show the function on a graph.",
+            {"action": "simplify", "expr": "4*Abs(x**2 - 1)/(x - 1)"},
+            False,
+        ),
+        # One solve of a study's several features (its x-intercept) is no answer to it.
+        (
+            "Find the intervals in which f(x) = 2x³ − 3x² + 5 is strictly increasing or "
+            "decreasing, then sketch the graph showing every extreme point, the inflection "
+            "point and the x-intercept.",
+            {"action": "solve", "lhs": "2*x**3 - 3*x**2 + 5", "rhs": "0"},
+            False,
+        ),
+        ("Simplify (x^2 - 1)/(x - 1)", {"action": "simplify", "expr": "(x**2 - 1)/(x - 1)"}, True),
+    ],
+)
+def test_a_model_computation_with_no_reading_answers_what_is_asked(
+    text: str, args: dict[str, Any], answers: bool
+) -> None:
+    assert call_computes_the_ask(text, args) is answers
