@@ -9,9 +9,9 @@ A count of payments is a term at the frequency they are paid (``periods``): "rep
 in 48 equal monthly payments" is 4 years, "8 equal quarterly payments" 2 (live 2026-11-14,
 a grade 12 book: the 48 payments were left unread and a 5-year term assumed). A count no
 word says how often it is paid ("60 payments"), or a length no product's term counts ("in
-90 days"), is read as no term only when no other is given: the reply must never assume a
-term beside a count the user stated. A length in quarters or weeks is a term when no year,
-month or payment count is given ("over 8 quarters").
+90 days"), works no numbers when no other term is given: a term is never assumed beside
+one the user stated. A length in quarters or weeks is a term when no year, month or
+payment count is given ("over 8 quarters").
 """
 
 from __future__ import annotations
