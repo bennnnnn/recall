@@ -122,8 +122,14 @@ def vector_angle_degrees(a: list[float], b: list[float]) -> str:
     # ``35.2643896828`` (a student cannot tell degrees from radians), ``90°`` when whole.
     angle = math.degrees(math.acos(cosine))
     whole = round(angle)
-    shown = str(whole) if abs(angle - whole) < 1e-9 else trim_zeros(format_places(angle, 2))
-    return rf"{shown}^\circ"
+    if abs(angle - whole) < 1e-9:
+        return rf"{whole}^\circ"
+    # An angle that is not whole never rounds to one: 0.00057° shown as 0° says the vectors
+    # are parallel, 89.9999° as 90° that they are perpendicular.
+    places = 2
+    while places < 12 and float(format_places(angle, places)) == whole:
+        places += 1
+    return rf"{trim_zeros(format_places(angle, places))}^\circ"
 
 
 def vector_unit(vec: list[float]) -> str:

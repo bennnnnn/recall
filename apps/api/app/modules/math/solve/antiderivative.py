@@ -8,6 +8,9 @@ the way a textbook does (substitution, parts, the table) and gives ``(2/5)(x - 3
 formula that differentiates back to the integrand. It is shown when ``integrate``'s is no
 readable formula, or when it is no longer than that one (``count_ops``, a tie to the
 textbook): ``∫ x³/(x² + 1)² dx`` keeps ``integrate``'s ``ln(x² + 1)``, not ``ln(2x⁴ + 4x² + 2)``.
+A fraction of polynomials with the variable below the line never asks it: ``integrate`` already
+gives the partial fractions a textbook writes, and the rule-based search can take seconds on one
+(``x⁵/(x² + 1)³``: 4.7 s against 0.01 s), past the solve's time limit.
 
 ``readable_antiderivative`` says whether an antiderivative may be shown as a checked card at
 all: one still holding an ``Integral``, or an ``i`` the integrand never had (a branch for the
@@ -20,7 +23,18 @@ from __future__ import annotations
 
 from typing import Any
 
-from sympy import I, Integral, Piecewise, Rational, count_ops, diff, integrate, simplify
+from sympy import (
+    I,
+    Integral,
+    Piecewise,
+    Rational,
+    count_ops,
+    diff,
+    fraction,
+    integrate,
+    simplify,
+    together,
+)
 
 from app.modules.math.solve.declines import sympy_decline
 
@@ -39,9 +53,13 @@ def textbook_antiderivative(integrand: Any, sym: Any) -> Any:
     from sympy.integrals.manualintegrate import manualintegrate
 
     found = integrate(integrand, sym)
+    if _partial_fractions(integrand, sym):
+        return found
     with sympy_decline() as declined:
         worked = manualintegrate(integrand, sym)
-    if declined or not _finished(worked) or not _differentiates_to(worked, integrand, sym):
+    if declined or not _finished(worked) or not readable_antiderivative(worked, integrand):
+        return found
+    if not _differentiates_to(worked, integrand, sym):
         return found
     if not _finished(found) or not readable_antiderivative(found, integrand):
         return worked
@@ -53,6 +71,14 @@ def readable_antiderivative(result: Any, integrand: Any) -> bool:
     if result.has(Integral):
         return False
     return not (result.has(I) and not integrand.has(I))
+
+
+def _partial_fractions(integrand: Any, sym: Any) -> bool:
+    """A fraction of polynomials in ``sym`` with ``sym`` in its denominator."""
+    if not integrand.is_rational_function(sym):
+        return False
+    _numerator, denominator = fraction(together(integrand))
+    return bool(denominator.has(sym))
 
 
 def _finished(result: Any) -> bool:

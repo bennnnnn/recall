@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from app.modules.math import school as math_school
 from app.modules.math.ode import solve_ode
 
@@ -104,3 +106,23 @@ def test_formula_helpers():
     assert math_school.twice_as_many(30) == "10 and 20"
     assert math_school.analyze_identity("sin(x)**2+cos(x)**2", "1")[0] is True
     assert math_school.analyze_identity("(x+1)**2", "x**2+2*x+1")[0] is True
+
+
+@pytest.mark.parametrize(
+    ("a", "b", "angle"),
+    [
+        ([1, 0], [0, 1], r"90^\circ"),
+        ([1, 0], [1, 1], r"45^\circ"),
+        ([1, 1, 1], [1, 0, 0], r"54.74^\circ"),
+        # Not parallel, not perpendicular, not opposite: never shown as 0°, 90° or 180°.
+        ([1, 0], [100000, 1], r"0.001^\circ"),
+        ([1, 0], [-100000, 1], r"179.999^\circ"),
+        ([1, 0], [1, 100000], r"89.999^\circ"),
+    ],
+)
+def test_vector_angle_never_rounds_to_a_whole_angle_it_is_not(
+    a: list[float], b: list[float], angle: str
+) -> None:
+    from app.modules.math import formulas as math_formulas
+
+    assert math_formulas.vector_angle_degrees(a, b) == angle

@@ -71,3 +71,45 @@ def test_integrate_expression_keeps_a_parameter_piecewise() -> None:
     result = math_solve.integrate_expression("x^n", "x")
     assert result.solved is True
     assert "n + 1" in result.result
+
+
+@pytest.mark.parametrize(
+    "integrand",
+    [
+        # The rule-based search took 1-5 s on each of these, past the solve's time limit.
+        "x^5/(x^2 + 1)^3",
+        "1/(x*(x^2 + 1)^2)",
+        "x^2/(x^3 + 1)^2",
+        "1/((x - 1)^2*(x + 1)^2)",
+        "(x^2 + 2)/((x + 1)^2*(x - 2))",
+        "x/(x^2 + 1)",
+    ],
+)
+def test_a_fraction_of_polynomials_takes_integrates_partial_fractions(
+    integrand: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import sympy.integrals.manualintegrate as manual
+
+    def never(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("the rule-based search ran on a fraction of polynomials")
+
+    monkeypatch.setattr(manual, "manualintegrate", never)
+    result = math_solve.integrate_expression(integrand, "x")
+    assert result.solved is True
+    antiderivative = parse_expr(result.result, {"x": X})
+    function = parse_expression(integrand, ["x"]).subs(Symbol("x"), X)
+    for point in POINTS:
+        assert abs(complex((diff(antiderivative, X) - function).subs(X, point).evalf())) < 1e-9
+
+
+def test_a_rule_based_answer_with_an_i_is_never_preferred(monkeypatch: pytest.MonkeyPatch) -> None:
+    import sympy.integrals.manualintegrate as manual
+    from sympy import cos, exp, sin
+
+    # sin x written through e^(ix): right, and no answer a school card shows.
+    monkeypatch.setattr(
+        manual, "manualintegrate", lambda *_a, **_k: (exp(I * X) - exp(-I * X)) / (2 * I)
+    )
+    from app.modules.math.solve.antiderivative import textbook_antiderivative
+
+    assert textbook_antiderivative(cos(X), X) == sin(X)

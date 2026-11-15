@@ -8,6 +8,7 @@ from app.core.config import Settings
 from app.modules.math import solve as math_solve
 from app.modules.math.schemas import MathExprResult, MathIntent
 from app.modules.math.solve.declines import sympy_decline
+from app.modules.math.solve.display import format_verified_latex
 from app.modules.math.solve.integral_steps import integral_trace
 from app.modules.math.solve.key_steps import KeyStep
 from app.modules.math.tools.calculus_outcome import infinite_integral_note, undefined_integral_note
@@ -175,8 +176,10 @@ def _fundamental_theorem_working(intent: MathIntent, parsed: Any, integral: str)
         at_high = simplify(antiderivative.subs(symbol, high))
         at_low = simplify(antiderivative.subs(symbol, low))
         value = simplify(math_solve.definite_integral(parsed, symbol, low, high))
-        if not (at_high.is_finite and at_low.is_finite) or simplify(at_high - at_low - value) != 0:
+        if not (at_high.is_finite and at_low.is_finite) or not _same_value(at_high - at_low, value):
             return None
+        # F(x) as the indefinite card shows it, not the rule-based search's working form.
+        shown = format_verified_latex(antiderivative)
     if declined:
         return None
     var = latex(symbol)
@@ -189,9 +192,9 @@ def _fundamental_theorem_working(intent: MathIntent, parsed: Any, integral: str)
             math_line(r"\int_{a}^{b} f(x)\,dx = F(b) - F(a)", "Fundamental theorem of calculus"),
         ),
         substitution=(
-            math_line(f"F({var}) = {latex(antiderivative)}", "antiderivative"),
+            math_line(f"F({var}) = {shown}", "antiderivative"),
             math_line(
-                rf"{integral} = \left[{latex(antiderivative)}\right]"
+                rf"{integral} = \left[{shown}\right]"
                 rf"_{{{latex(low)}}}^{{{latex(high)}}}"
             ),
             math_line(
@@ -202,6 +205,19 @@ def _fundamental_theorem_working(intent: MathIntent, parsed: Any, integral: str)
             ),
         ),
     )
+
+
+def _same_value(worked: Any, value: Any) -> bool:
+    """``F(b) - F(a)`` equals the integral's value: exactly, or to 1e-12 when SymPy cannot
+    show two closed forms equal (``ln(1 + √2)`` and ``(ln(1 + √2/2) - ln(1 - √2/2))/2``)."""
+    from sympy import simplify
+
+    gap = worked - value
+    if simplify(gap) == 0:
+        return True
+    if gap.free_symbols:
+        return False
+    return abs(complex(gap.evalf(30))) < 1e-12 * (1 + abs(complex(value.evalf(30))))
 
 
 def _unbounded_at_an_endpoint(parsed: Any, intent: MathIntent) -> bool:
