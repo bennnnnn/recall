@@ -54,9 +54,15 @@ def curve_places(curve: DrawnCurve) -> list[tuple[float, float]]:
                     places.append((x, span.fn.at(x + inward * 1e-7 * max(1.0, abs(x)))))
         places += [(float(x), float(y)) for x, y in curve.shape.dots]
     for found in curve.breaks:
-        for side in (found.left, found.right):
+        for side, direction in ((found.left, -1), (found.right, 1)):
             if side.kind == "finite":
                 places.append((float(found.x), side.value))
+            elif side.kind == "infinite":
+                # Each side of a pole a step out: 1/(x - 1) shows both its branches.
+                x = float(found.x) + direction
+                span = curve.span_at(x)
+                if span is not None:
+                    places.append((x, span.fn.at(x)))
     return places
 
 

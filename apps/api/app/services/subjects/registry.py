@@ -299,8 +299,8 @@ class SubjectFigure(Protocol):
         ...
 
     def without_drawn_substitutes(self, text: str) -> str:
-        """``text`` without what stood in for the picture it described: a sketch in
-        characters, a Mermaid diagram."""
+        """``text``, its described pictures in it, without what stood in for them: a sketch
+        in characters, a Mermaid diagram, a function graph of a curve a drawn graph draws."""
         ...
 
 
