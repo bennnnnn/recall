@@ -214,6 +214,9 @@ async def test_finalize_waits_no_longer_than_its_cap(monkeypatch: pytest.MonkeyP
         (2.998e8, "m/s", "2.998\\times 10^{8}\\ \\mathrm{m/s}"),
         (0.5, "", "0.5"),
         (12.0, "ohm", "12\\ \\Omega"),
+        # A product of units is one \cdot, never a line break (review of #2465).
+        (2.5, "N*m", "2.5\\ \\mathrm{N\\cdot m}"),
+        (4180.0, "J/(kg*K)", "4180\\ \\mathrm{J/(kg\\cdot K)}"),
         (12000.0, "m", "12000\\ \\mathrm{m}"),
         (50000.0, "m", "50000\\ \\mathrm{m}"),
         (12345.6, "J", "12350\\ \\mathrm{J}"),

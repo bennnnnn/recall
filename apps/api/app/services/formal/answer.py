@@ -76,4 +76,6 @@ def unit_latex(unit: str) -> str:
         return _UNIT_LATEX[text]
     text = re.sub(r"\*\*|\^", "^", text)
     text = re.sub(r"\^(-?\d+)", r"^{\1}", text)
-    return f"\\mathrm{{{text.replace('*', '\\\\cdot ')}}}"
+    # One backslash: two are a LaTeX line break (N*m showed a break, then "cdot").
+    product = text.replace("*", "\\cdot ")
+    return f"\\mathrm{{{product}}}"
