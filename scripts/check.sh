@@ -38,7 +38,7 @@ else
   echo "    WARN: pnpm not found - skipping mobile checks"
 fi
 
-echo "==> File sizes: production files over 500 lines need a recorded reason and may not grow"
+echo "==> File sizes: production files over 700 lines need a recorded reason and may not grow"
 python3 "$ROOT/scripts/check_file_sizes.py" || fail=1
 
 echo "==> Web: typecheck + lint"

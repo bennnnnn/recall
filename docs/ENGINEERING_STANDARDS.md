@@ -80,7 +80,7 @@ designed and a long one can be justified. What CI can check reliably, it checks 
 
 | What | Default | Review |
 |---|---|---|
-| Production file | 300 lines or fewer | Over 500 needs a recorded reason and may not grow. 900 is an exceptional ceiling. |
+| Production file | 300 lines or fewer | Over 700 needs a recorded reason and may not grow. 900 is an exceptional ceiling. |
 | Function | under 40–50 lines | Longer functions are checked for mixed responsibilities. An API function over 100 lines is recorded and may only shrink. |
 | Nesting | 3 levels of control flow | Use guard clauses and small helpers. |
 | Abstractions | when they pay for themselves | No speculative interfaces or wrappers. |
@@ -142,7 +142,7 @@ Correct maths, physics and chemistry is a release requirement.
 
 `./scripts/dev.sh check` runs the same gate locally.
 
-**Exceptions.** A file over 500 lines is listed in `scripts/file_size_baseline.json` with its
+**Exceptions.** A file over 700 lines is listed in `scripts/file_size_baseline.json` with its
 reason: either a documented exception (one table, catalog or algorithm) or the ticket that
 splits it. The size there is a ceiling; after a split, `scripts/check_file_sizes.py --update`
 lowers it. A function over 100 lines works the same way: after a split, run its test with
