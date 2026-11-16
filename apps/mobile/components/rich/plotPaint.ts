@@ -22,8 +22,10 @@ export function plotColor(theme: Theme, index: number): string {
   return theme.graphSeries[index % theme.graphSeries.length];
 }
 
+/** A line's stroke: an asymptote dashed and thin in its curve's colour (the server's
+ * `color`), so a legend row names the lines of one curve only. */
 export function plotStroke(theme: Theme, role: PlotLineRole, color: number): { color: string; width: number } {
-  if (role === "asymptote") return { color: theme.textSecondary, width: 1.5 };
+  if (role === "asymptote") return { color: plotColor(theme, color), width: 1.5 };
   if (role === "axis") return { color: theme.text, width: 1.5 };
   return { color: plotColor(theme, color), width: 2 };
 }

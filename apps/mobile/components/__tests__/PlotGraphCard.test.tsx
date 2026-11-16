@@ -8,7 +8,9 @@ import { render, screen } from "@testing-library/react-native";
 
 import { FunctionGraphBlock } from "@/components/rich/FunctionGraphBlock";
 import { plotDrawing } from "@/components/rich/plotDrawing";
+import { plotStroke } from "@/components/rich/plotPaint";
 import { parsePlotGraph } from "@/lib/math/plotGraph";
+import { lightTheme } from "@/lib/theme";
 
 jest.mock("@/lib/skiaAvailability", () => ({ isSkiaAvailable: () => false }));
 
@@ -40,6 +42,10 @@ describe("a plot fence", () => {
     expect(screen.getByText("y = x")).toBeTruthy();
     // The turning points' labels, the server's, set on the canvas; none of the phone's own.
     expect(screen.getAllByTestId(/^graph-mark-label-/)).toHaveLength(2);
+  });
+
+  it("strokes an asymptote in its curve's colour, so its legend row names that curve's", () => {
+    expect(plotStroke(lightTheme, "asymptote", 1)).toEqual({ color: lightTheme.graphSeries[1], width: 1.5 });
   });
 
   it("draws a washer's region, its slice, its turn and the axis", async () => {

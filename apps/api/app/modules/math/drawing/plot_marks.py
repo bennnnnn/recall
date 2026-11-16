@@ -29,7 +29,9 @@ from app.modules.math.drawing.real_curve import RealFunction, X, defined_at
 from app.modules.math.solve.graph_sampling import side
 from app.modules.math.tangent_line import touching_line
 
-_TOUCH_COLOR = 3
+# A tangent and an asymptote are drawn in their curve's colour, so a legend row names the
+# lines of one curve only (u5-006: three tangents in one colour beside one row, y = 2x); a
+# normal in its own, apart from the tangent at the same point.
 _NORMAL_COLOR = 2
 
 
@@ -95,7 +97,7 @@ def touching(item: Touching, question: PlotQuestion, scene: Scene) -> None:
     y0, slope = found
     normal = item.item == "normal"
     line_slope, offset = touching_line(at, y0, slope, normal, radsimp)
-    color = _NORMAL_COLOR if normal else _TOUCH_COLOR
+    color = _NORMAL_COLOR if normal else curve.color
     if line_slope is None:
         line = DrawnLine(vertical=at, label=equation_text("x", at), color=color, held=(float(at),))
     else:
@@ -116,7 +118,13 @@ def asymptotes(item: Asymptotes, scene: Scene) -> None:
         if found.asymptote:
             label = equation_text("x", found.x) if not found.x.is_Float else ""
             scene.marks.append(
-                DrawnLine(vertical=found.x, role="asymptote", label=label, held=(float(found.x),))
+                DrawnLine(
+                    vertical=found.x,
+                    role="asymptote",
+                    label=label,
+                    color=curve.color,
+                    held=(float(found.x),),
+                )
             )
     fn = curve.single
     if fn is None or curve.stated_domain:
@@ -128,6 +136,7 @@ def asymptotes(item: Asymptotes, scene: Scene) -> None:
                 offset,
                 role="asymptote",
                 label=line_text(slope, offset),
+                color=curve.color,
                 held=(float(slope), float(offset)),
             )
         )
