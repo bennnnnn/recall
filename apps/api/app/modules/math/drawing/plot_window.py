@@ -134,8 +134,8 @@ def _x_window(scene: Scene, places: list[tuple[float, float]]) -> tuple[float, f
     # (1/x on [0, 2] showed only [0.88, 2.12]).
     for curve in scene.curves.values():
         if curve.stated_domain and curve.shape is not None:
-            for span in curve.shape.spans:
-                ends = [float(end) for end in (span.low, span.high) if end not in (-oo, oo)]
+            for piece in curve.shape.spans:
+                ends = [float(end) for end in (piece.low, piece.high) if end not in (-oo, oo)]
                 x_lo, x_hi = min([x_lo, *ends]), max([x_hi, *ends])
     x_lo, x_hi = _with_axis(x_lo, x_hi)
     span = max(x_hi - x_lo, 1.0)

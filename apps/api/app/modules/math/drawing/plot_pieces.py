@@ -310,6 +310,11 @@ def _written_rules(raw: Any) -> list[tuple[str, Any]]:
     return rules
 
 
+def _runs_through(fn: RealFunction, x: float) -> bool:
+    sides = [side(fn.values, x, direction) for direction in (-1, 1)]
+    return all(found.kind == "finite" for found in sides)
+
+
 def _as_written_conditions(expr: Any, raw: Any) -> list[Condition]:
     """Where ``raw``, a formula as the question writes it, has no value though ``expr``, its
     simplified form, does: where a denominator it writes is 0 (x/x at 0), and beyond a bound
@@ -330,11 +335,12 @@ def _as_written_conditions(expr: Any, raw: Any) -> list[Condition]:
             snapped(x, [], part.expr) for x in zeros(part.values, -_WRITTEN_REACH, _WRITTEN_REACH)
         ]
         if op == "!=":
+            # A hole only where the simplified formula runs on through (x/x at 0); where it
+            # runs off to infinity (1/sin x at kπ) its own breaks say so.
             found += [
                 Condition("!=", at)
                 for at in edges
-                if all(abs(float(at) - x) > 1e-9 for x in own)
-                and math.isfinite(simple.at(float(at)))
+                if all(abs(float(at) - x) > 1e-9 for x in own) and _runs_through(simple, float(at))
             ]
             continue
         values = part.values(xs)

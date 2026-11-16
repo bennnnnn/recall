@@ -24,7 +24,7 @@ from app.modules.math.drawing.plot_enclosed import enclosed
 from app.modules.math.drawing.plot_items import Axis, Rectangles, Shade
 from app.modules.math.drawing.plot_labels import point_text
 from app.modules.math.drawing.plot_question import PlotQuestion
-from app.modules.math.drawing.plot_reading import number
+from app.modules.math.drawing.plot_reading import number, same_number
 from app.modules.math.drawing.plot_scene import DrawnLine, DrawnPoint, DrawnRegion, Scene, Shaded
 from app.modules.math.drawing.plot_x import axis_line
 from app.modules.math.drawing.real_curve import RealFunction, X
@@ -47,7 +47,7 @@ def _sideways_edge(name: str, scene: Scene) -> RealFunction | None:
 
 
 def _meet(written: Any, meets: list[float]) -> float | None:
-    near = [m for m in meets if abs(m - float(written)) < 1e-3 * max(1.0, abs(m))]
+    near = [m for m in meets if same_number(written, m, 1e-3)]
     return min(near, key=lambda m: abs(m - float(written))) if near else None
 
 
@@ -210,7 +210,7 @@ def axis(item: Axis, question: PlotQuestion, scene: Scene) -> None:
     if wanted is None or own is None or own[0] != wanted[0]:
         return
     name, at = wanted
-    if abs(float(own[1]) - float(at)) > 1e-12 * max(1.0, abs(float(at))):
+    if not same_number(own[1], at):
         return
     scene.marks.append(
         DrawnLine(vertical=at, role="axis") if name == "x" else DrawnLine(0, at, role="axis")

@@ -22,6 +22,8 @@ from app.modules.math.drawing.plot_scene import DrawnCurve, Place, Scene
 from app.modules.math.drawing.plot_x import Interval
 from app.modules.math.drawing.real_curve import RealFunction, X
 
+# A value an item writes names a place the server found to this share of its size.
+_NAMED_PLACE = 1e-3
 # Places are looked for this far out, or three times the farthest value the question writes.
 _REACH, _FARTHEST = 10.0, 500.0
 
@@ -139,10 +141,7 @@ def named_place(text: str, curve: DrawnCurve, scene: Scene, question: PlotQuesti
     written = value(text)
     if written is None:
         return None
-    for x in places_of(curve, scene, question):
-        try:
-            if abs(float(x) - float(written)) < 1e-3 * max(1.0, abs(float(x))):
-                return x
-        except (TypeError, ValueError):
-            continue
-    return None
+    return next(
+        (x for x in places_of(curve, scene, question) if same_number(written, x, _NAMED_PLACE)),
+        None,
+    )

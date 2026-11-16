@@ -522,3 +522,9 @@ def test_an_antiderivative_as_the_card_writes_it_draws() -> None:
         _curve("F", "(x + 1)^3/3", shifts=["-1", "0", "1"]),
     )
     assert graph is not None and len(graph.curves) == 3
+
+
+def test_a_written_denominator_cuts_only_a_hole_its_simplified_form_runs_through() -> None:
+    """1/sin x keeps its own breaks at kπ (no cut there), x/x gets its hole at 0."""
+    cosecant = _plot("Sketch y = 1/sin(x).", _curve("f", "1/sin(x)"))
+    assert cosecant is not None and len(cosecant.curves[0].segments) > 1

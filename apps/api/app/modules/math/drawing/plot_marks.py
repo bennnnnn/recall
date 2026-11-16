@@ -23,7 +23,7 @@ from app.modules.math.drawing.plot_items import Asymptotes, KeyPoints, Nearest, 
 from app.modules.math.drawing.plot_labels import equation_text, line_text, number_text, point_text
 from app.modules.math.drawing.plot_pieces import end_value
 from app.modules.math.drawing.plot_question import PlotQuestion
-from app.modules.math.drawing.plot_reading import number
+from app.modules.math.drawing.plot_reading import number, same_number
 from app.modules.math.drawing.plot_scene import DrawnCurve, DrawnLine, DrawnPoint, Place, Scene
 from app.modules.math.drawing.real_curve import RealFunction, X
 from app.modules.math.solve.graph_sampling import side
@@ -182,10 +182,7 @@ def key_points(item: KeyPoints, scene: Scene) -> None:
 
 
 def _written_pair(a: Any, b: Any, question: PlotQuestion) -> bool:
-    return any(
-        abs(float(a) - float(p)) < 1e-12 and abs(float(b) - float(q)) < 1e-12
-        for p, q in question.pairs
-    )
+    return any(same_number(p, a) and same_number(q, b) for p, q in question.pairs)
 
 
 def point(item: Point, question: PlotQuestion, scene: Scene) -> None:
