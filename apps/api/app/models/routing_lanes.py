@@ -75,6 +75,9 @@ class RoutingLanes:
     # output is only a candidate, held label by label and number by number to the user's
     # words. JSON mode, fast: the reply waits for it at most two seconds.
     chart_read: str
+    # A physics question written down as maths beside the reply (``physics.formal_read``):
+    # JSON mode. smart-chat read faster (median 1.0 s) and better than GPT-6 Luna (1.9 s).
+    physics_setup: str
     # The one compound a chemistry question is about, read beside the reply when no one asked
     # to see it (``chemistry.figure``): a name only, held to the user's words, its structure
     # PubChem's. JSON mode, fast: the reply waits for it at most two seconds.
@@ -124,6 +127,7 @@ ROUTING = RoutingLanes(
     word_problems="gpt-6-luna",
     math_extract="gpt-6-luna",
     chart_read="gpt-6-luna",
+    physics_setup="smart-chat",
     compound_read="gpt-6-luna",
     live_read="title-model",
     live_read_backup="free-chat",

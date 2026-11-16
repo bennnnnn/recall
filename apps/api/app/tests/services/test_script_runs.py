@@ -20,7 +20,6 @@ import pytest
 from app.modules.math.match.bare_expression import read_bare_expression
 from app.modules.math.solve.parse import parse_expression
 from app.modules.math.tool_check import _normalize as tool_check_normalize
-from app.modules.model_reader.checks import normalized as model_read_normalized
 from app.services.glyphs import SUBSCRIPT_GLYPHS, SUPERSCRIPT_GLYPHS
 from app.services.number_text import fold_scientific
 from app.services.solving import SolveServiceError
@@ -265,7 +264,6 @@ def test_the_bare_expression_reader_reads_every_raised_power(typed: str, read: s
     assert expression is not None and expression.text == read
 
 
-def test_the_tool_check_and_the_model_read_check_read_the_caret() -> None:
+def test_the_tool_check_reads_the_caret() -> None:
     assert tool_check_normalize("∫ x eˣ dx") == "∫ x e^x dx"
     assert tool_check_normalize("x²³") == "x^23"
-    assert model_read_normalized("v = 2ˣ m/s") == model_read_normalized("v = 2^x m/s")

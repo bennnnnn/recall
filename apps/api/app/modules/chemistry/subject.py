@@ -235,6 +235,8 @@ class ChemistrySubject:
     # A scene or an asked-for molecule comes with its solve; the structure of the one compound
     # a question is about, unasked, from a read beside the reply (``chemistry.figure``).
     figure: ChemistryFigure = ChemistryFigure()
+    # No worked answer of a model's setup yet (docs/FORMAL_READER.md).
+    formal: None = None
 
     def enabled(self, settings: Settings) -> bool:
         return settings.chemistry_enabled

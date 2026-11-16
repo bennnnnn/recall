@@ -352,6 +352,8 @@ class MathSubject:
     photo: MathPhoto = MathPhoto()
     tool: MathTool = MathTool()
     figure: MathFigure = MathFigure()
+    # No worked answer of a model's setup yet (docs/FORMAL_READER.md).
+    formal: None = None
 
     def enabled(self, settings: Settings) -> bool:
         return settings.math_tools_enabled

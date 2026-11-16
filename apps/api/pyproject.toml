@@ -153,6 +153,7 @@ ignore = ["PERF401", "C408"]
 "app/modules/notifications/push.py" = ["RUF001", "RUF002", "RUF003"]
 "app/modules/notifications/email_copy.py" = ["RUF001", "RUF002", "RUF003"]
 "app/services/reminder_timing.py" = ["RUF001", "RUF002", "RUF003"]
+"app/modules/chat/formal_turn.py" = ["RUF001", "RUF002", "RUF003"]
 # Writes the scanner reading in the glyphs students use (ℤ, ×, √).
 "app/modules/math/reading.py" = ["RUF001", "RUF002", "RUF003"]
 "app/modules/todos/**" = ["E501", "S101"]

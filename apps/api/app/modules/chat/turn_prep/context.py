@@ -136,17 +136,17 @@ class StreamContext:
     # A multi-part message's settings card and picture: the server's part of the reply.
     settings_card: str | None = None
     reply_picture: ReplyPicture | None = None
-    # The tools the reply's own model call carries, when the tool loop leaves the
-    # turn to it: ``web_search`` (``tool_loop.reply_calls``).
+    # Tools (``web_search``) on the reply's own call, the loop left it (``tool_loop.reply_calls``).
     reply_tools: list[dict[str, Any]] = field(default_factory=list)
     # How to handle the message, read by a model beside the prep (``chat.turn_decision``); the
-    # tool the reply's first call must make when it said live but wrote no query; the pictures
-    # beside the reply (``figure_turn``, ``chart_turn``) and the one it describes (``drawing``).
+    # tool the reply's first call must make when it said live but wrote no query; what is
+    # drawn or worked out beside it (``figure_turn``, ``chart_turn``, ``drawing``, ``formal_turn``).
     live_read: asyncio.Task[TurnDecision | None] | None = None
     reply_requires: str | None = None
     figure: asyncio.Task[str | None] | None = None
     chart: asyncio.Task[str | None] | None = None
     drawing: ReplyDrawing | None = None
+    formal: asyncio.Task[Any] | None = None
     # A retry's tools after a denial of live data (``tool_loop.live_denial``, settled reads).
     denial_retry_tools: list[dict[str, Any]] = field(default_factory=list)
     # The last reply asked with a clarify card: this reply may not ask again.

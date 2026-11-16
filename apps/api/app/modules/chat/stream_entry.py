@@ -26,6 +26,7 @@ from app.modules.billing import plan as plan_service
 from app.modules.chat import turn_decision
 from app.modules.chat.chart_turn import start_chart, stop_chart
 from app.modules.chat.figure_turn import start_figure, stop_figure
+from app.modules.chat.formal_turn import start_formal, stop_formal
 from app.modules.chat.model_routing.thinking import thinking_level
 from app.modules.chat.stream_pipeline import stream_and_finalize
 from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn
@@ -109,6 +110,7 @@ def _attach_reads(
     ctx.photo_missed = "photo" in misses
     ctx.figure = start_figure(settings, ctx)
     ctx.chart = start_chart(settings, ctx)
+    ctx.formal = start_formal(settings, ctx)
 
 
 def _stop_pictures(ctx: StreamContext) -> None:
@@ -117,6 +119,7 @@ def _stop_pictures(ctx: StreamContext) -> None:
         ctx.reply_picture.cancel()
     stop_figure(ctx)
     stop_chart(ctx)
+    stop_formal(ctx)
 
 
 async def _end_new_turn(ctx: StreamContext, chat_id: UUID) -> None:

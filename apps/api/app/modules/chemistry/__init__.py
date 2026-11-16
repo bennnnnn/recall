@@ -11,8 +11,6 @@ is drawn or described. Other modules import the submodules below.
 _MODULE_EXPORTS = (
     "extract",
     "input_text",
-    # The laws a model reader chooses from, and the intent its read binds to.
-    "model_read",
     "request",
     "species",
     "subject",

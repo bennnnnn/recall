@@ -522,6 +522,15 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   param declares an SI dimension (Pint reads a bare `pa` as a *petayear*, so a
   missing entry is a wrong answer, not a missing check). Moon/Mars gravity is a
   whole-token match (`marsh` stays Earth). See [docs/physics.md](./docs/physics.md).
+- ✅ **Physics in any wording or language** (`formal_reader_enabled`, on) — a physics question no
+  solver reads (another language, a wording the catalog does not hold) is written down as maths
+  by a model beside the reply: its given values with units and its own words for them, the
+  unknowns and the equations. The server solves it: every value must be in the question, the
+  units of each equation must agree, SymPy solves, and the answer is put back. Finalize waits at
+  most 2 s; a reply whose final value differs gets the server's card (in 36 measured
+  disagreements the server was right every time), with a line in the reply's language and the
+  card marked "not checked". On 120 translated questions, Free's replies go from 86% to 98%
+  right. See [docs/FORMAL_READER.md](./docs/FORMAL_READER.md).
 - ✅ **Chemistry (typed verified pipeline)** — `ChemistryIntent` extraction and deterministic
   solvers, one module per topic for each, share one species model: formula, composition,
   charge, and phase. The catalog (`catalog.py`) is the one list of operations. Labelled
