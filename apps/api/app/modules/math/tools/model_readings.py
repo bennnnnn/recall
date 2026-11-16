@@ -27,7 +27,7 @@ def image_intent_on_the_page(intent: MathIntent, extract: MathImageExtract) -> b
     """A photo's equations, system, inequality or expression are on the page as read (its
     source text, compared with SymPy). Kinds the page states as numbers (a shape's sides, a
     data list), and an extract with no page reading, are audited as before."""
-    from app.modules.math.tool_check import READ_KINDS, intent_in_user_text
+    from app.modules.math.intent_check import READ_KINDS, intent_in_user_text
 
     sources = [text for text in (extract.source_text, extract.alternate_source_text) if text]
     # No page reading to hold it to: the OCR path declines a vision read without one

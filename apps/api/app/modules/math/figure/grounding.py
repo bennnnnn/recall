@@ -13,7 +13,9 @@ matched to a number the question writes with the same sign, unit and role:
 - none of them a coefficient or a term of a formula ("2x + 10" states no 10° angle);
 - a polygon's number of sides by its name (a hexagon's six) or as a bare count.
 
-A number counts in digits ("12", "2.54", "5/2", "1 1/2") or in words ("twelve"). The last
+A rate ("2 cm/min") is no length, and a value the question gives a changing quantity
+("when r = 3 cm", where "h = 3r") is no size of the figure (``changing_values``). A
+number counts in digits ("12", "2.54", "5/2", "1 1/2") or in words ("twelve"). The last
 message's numbers are the question's; the earlier messages count only when it states none
 ("now draw it"). A formula's own numbers are held to the formula and an inequality's to the
 inequality (``coordinate``), as a whole.
@@ -68,6 +70,11 @@ _PAIR = re.compile(r"\(([^()]*[,;][^()]*)\)")
 # One number as a reading writes it: "-5/2", "1.5", "2 1/2".
 _WRITTEN = re.compile(r"^\s*([+-]?)\s*(\d+(?:\.\d+)?)(?:\s+(\d+)\s*/\s*(\d+)|\s*/\s*(\d+))?\s*$")
 _THOUSANDS = re.compile(r"(?<=\d),(?=\d{3}(?!\d))")
+# A letter given a value ("r = 3 cm"), and a letter tied to another ("h = 3r", "h = r").
+ASSIGNED = re.compile(r"(?<![A-Za-z\\])([A-Za-z])\s*=\s*(\d+(?:\.\d+)?)(?![\d.A-Za-z])")
+_TIED = re.compile(r"(?<![a-z\\])([a-z])\s*=\s*(?:\d+(?:\.\d+)?)?\*?([a-z])(?![a-z])")
+# What follows a unit that makes it a rate: "/min", "/s", " per hour".
+_RATE = re.compile(r"\s*(?:/\s*[a-z]|per\b)")
 
 
 @dataclass(frozen=True)
@@ -106,22 +113,25 @@ def _minus_before(text: str, start: int) -> tuple[bool, bool]:
 
 def _unit_after(text: str, end: int) -> tuple[str, bool]:
     """The unit written after a number, and whether a letter is glued to it as a variable
-    ("2x")."""
+    ("2x"). A unit per another ("2 cm/min", "20 cm³ per minute", "600 km/h") is a rate,
+    never a length: c048's "increasing at 2 cm/min" was drawn as a cone's 2 cm radius."""
     match = _AFTER.match(text, end)
     if match is None or not match.group(2):
         return "", False
-    gap, token, power = match.groups()
-    if token in _DEGREES:
-        return "deg", False
-    if token in _SQUARE_WORDS:
-        return "area", False
-    if token in _OTHER_UNITS:
+    gap, word, power = match.groups()
+    if word == "per" or _RATE.match(text, match.end()):
         return "other", False
-    unit = _LENGTH_UNITS.get(token, "")
+    if word in _DEGREES:
+        return "deg", False
+    if word in _SQUARE_WORDS:
+        return "area", False
+    if word in _OTHER_UNITS:
+        return "other", False
+    unit = _LENGTH_UNITS.get(word, "")
     if unit:
         return ("area" if power else unit), False
-    glued = not gap and token not in _ORDINAL_ENDS and number_word_value(token) is None
-    return "", glued and len(token) <= 2
+    glued = not gap and word not in _ORDINAL_ENDS and number_word_value(word) is None
+    return "", glued and len(word) <= 2
 
 
 def _in_formula(text: str, start: int, end: int, subtracted: bool, glued: bool) -> bool:
@@ -163,6 +173,27 @@ def written_numbers(text: str) -> list[Written]:
     return found
 
 
+def changing_values(texts: Sequence[str]) -> set[Fraction]:
+    """The values a question gives a quantity that changes: a letter it gives two values
+    ("when r = 3 cm and r = 6 cm") or ties to another letter ("h = 3r"). Each is the size
+    at one moment of a related-rates problem, never a size of its figure: round 3 labelled
+    a cone's height "3 cm" from "r = 3 cm"."""
+    lowered = [text.lower() for text in texts]
+    values: dict[str, set[Fraction]] = {}
+    tied: set[str] = set()
+    for text in lowered:
+        for letter, value in ASSIGNED.findall(text):
+            values.setdefault(letter, set()).add(Fraction(value))
+        for left, right in _TIED.findall(text):
+            tied |= {left, right}
+    return {
+        value
+        for letter, given in values.items()
+        if len(given) > 1 or letter in tied
+        for value in given
+    }
+
+
 def number_value(written: str) -> Fraction | None:
     """'-5/2', '1.5', '2 1/2' as an exact value; None for anything else."""
     match = _WRITTEN.match(written.replace("\u2212", "-").replace("\u2013", "-"))
@@ -197,7 +228,7 @@ def _same(written: Fraction, value: float) -> bool:
     return abs(float(written) - value) <= _TOLERANCE * max(1.0, abs(value))
 
 
-def _length(found: list[Written], value: float, unit: str) -> bool:
+def states_length(found: list[Written], value: float, unit: str) -> bool:
     """A length written with the reading's unit beside it, or bare when that unit is the
     one the question writes for all ("8 by 5 cm"); a question writing two units ("2 dm long
     and 15 cm wide") states each length with its own."""
@@ -207,13 +238,13 @@ def _length(found: list[Written], value: float, unit: str) -> bool:
     return any(not w.in_formula and w.unit in allowed and _same(w.value, value) for w in found)
 
 
-def _angle(found: list[Written], value: float) -> bool:
+def states_angle(found: list[Written], value: float) -> bool:
     """An angle in degrees, or bare when the question writes no other unit of angle."""
     allowed = {"deg"} if any(w.unit == "other" for w in found) else {"deg", ""}
     return any(not w.in_formula and w.unit in allowed and _same(w.value, value) for w in found)
 
 
-def _signed(found: list[Written], value: float) -> bool:
+def states_signed(found: list[Written], value: float) -> bool:
     return any(not w.in_formula and w.unit != "area" and _same(w.value, value) for w in found)
 
 
@@ -233,9 +264,9 @@ def _measures_hold(request: FigureRequest, found: list[Written]) -> bool:
         if measure.what in _ANGLE_WHATS:
             if abs(measure.value - 90) < _TOLERANCE and _implied_right(request):
                 continue
-            if not _angle(found, measure.value):
+            if not states_angle(found, measure.value):
                 return False
-        elif not _length(found, measure.value, unit):
+        elif not states_length(found, measure.value, unit):
             return False
     return True
 
@@ -243,7 +274,7 @@ def _measures_hold(request: FigureRequest, found: list[Written]) -> bool:
 def _numbers_hold(request: FigureRequest, found: list[Written]) -> bool:
     for written in request.numbers:
         value = number_value(written)
-        if value is None or not _signed(found, float(value)):
+        if value is None or not states_signed(found, float(value)):
             return False
     return True
 
@@ -255,6 +286,12 @@ def grounded(request: FigureRequest, texts: Sequence[str]) -> bool:
     found = [w for text in own for w in written_numbers(text)]
     if not _measures_hold(request, found) or not _numbers_hold(request, found):
         return False
+    changing = changing_values(own)
+    if any(
+        Fraction(measure.value).limit_denominator(10_000) in changing
+        for measure in request.measures
+    ):
+        return False
     if (
         request.sides is not None
         and request.sides not in _counts([*texts[:1], *own])
@@ -265,17 +302,17 @@ def grounded(request: FigureRequest, texts: Sequence[str]) -> bool:
         return False
     origin = request.kind in {"function", "points"}
     bounds = [v for v in (request.x_min, request.x_max) if v is not None]
-    if not all((origin and v == 0) or _signed(found, v) for v in bounds):
+    if not all((origin and v == 0) or states_signed(found, v) for v in bounds):
         return False
     # A point is one the question writes as a pair: C(-3, -2) is no (3, -2), though A(2, 3)
     # writes a 3, and "x-coordinate 2 and y-coordinate -5" is no pair at all.
-    pairs = [pair for text in own for pair in _pairs(text)]
+    pairs = [pair for text in own for pair in written_pairs(text)]
     return all(
         any(_same(x, point.x) and _same(y, point.y) for x, y in pairs) for point in request.points
     )
 
 
-def _pairs(text: str) -> list[tuple[Fraction, Fraction]]:
+def written_pairs(text: str) -> list[tuple[Fraction, Fraction]]:
     """The coordinate pairs a text writes, "(2, 3)" and "(-3, -2)", each with its signs."""
     found: list[tuple[Fraction, Fraction]] = []
     for inside in _PAIR.findall(text):

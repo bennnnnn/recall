@@ -9,7 +9,7 @@ settings (bounds, the limit point, a radius) appear in the user's text.
 
 The model's other reading, the structured extraction a turn falls back to when no regex
 reader matched (``tools/llm_extract.py``), is held to the same test
-(``intent_in_user_text``): "The polynomial f(x) = A(x - 1)^2 + B(x + 2)^2 is divided by
+(``intent_check.intent_in_user_text``): "The polynomial f(x) = A(x - 1)^2 + B(x + 2)^2 is divided by
 x + 1 and x - 2 …" was read as 9B = 3 and A + 16B = -15, and SymPy's checked card said
 A = -61/3, B = 1/3 for A = 1, B = -1 (2026-11-01).
 
@@ -25,6 +25,7 @@ import re
 from collections.abc import Iterable
 from typing import Any
 
+from app.modules.math.figure.shape_names import names_shape
 from app.modules.math.match.derivative_order import derivative_orders
 from app.services.glyphs import OPERATOR_GLYPHS
 from app.services.script_runs import fold_superscript_runs
@@ -378,44 +379,13 @@ def _matches(args: dict[str, Any], user: _UserMath) -> bool:
         return not args.get("expr2") or _graph_arg(args, "expr2", user)
     if action in {"rectangle", "square", "circle"}:
         keys = [key for key in ("width", "height", "side", "radius") if args.get(key) is not None]
-        return bool(keys) and all(_number_written(args[key], user) for key in keys)
+        # A circle card answers a circle, never a sphere's equation (round 3, c079).
+        named = action != "circle" or names_shape([user.lower], "circle")
+        return named and bool(keys) and all(_number_written(args[key], user) for key in keys)
     # dsolve, or the free-text fallback: the text must be the user's own words.
     text = str(args.get("text") or args.get("expr") or "")
     compact = re.sub(r"\s+", "", text.lower())
     return bool(compact) and compact in re.sub(r"\s+", "", user.lower)
-
-
-_CALCULUS_ACTIONS = {"differentiate": "diff"}
-# The kinds whose maths this check compares with what the user wrote.
-READ_KINDS = frozenset(
-    {"equation", "system", "inequality", "calculus", "limit", "graph", "complex"}
-)
-
-
-def intent_in_user_text(intent: Any, text: str) -> bool:
-    """Whether a model-extracted ``MathIntent`` is mathematics the user wrote: its equation,
-    system, inequality or expression, compared with SymPy, and its bounds or limit point
-    written in ``text``. A reading the model derived (equations from a story, "x squared"
-    for x²) is not the user's text, and SymPy's answer to it is no checked answer."""
-    args: dict[str, Any]
-    if intent.kind == "equation":
-        args = {"action": "solve", "lhs": intent.lhs, "rhs": intent.rhs}
-    elif intent.kind == "system":
-        args = {"action": "system", "equations": intent.system_equations or []}
-    elif intent.kind == "inequality":
-        args = {"action": "inequality", "lhs": intent.lhs, "rhs": intent.rhs}
-        args["comparator"] = intent.comparator
-    elif intent.kind == "calculus":
-        action = _CALCULUS_ACTIONS.get(intent.operation, intent.operation)
-        args = {"action": action, "expr": intent.expr}
-        args |= {"lower": intent.integral_lower, "upper": intent.integral_upper}
-    elif intent.kind == "limit":
-        args = {"action": "limit", "expr": intent.expr, "point": intent.limit_point}
-    elif intent.kind in {"graph", "complex"}:
-        args = {"action": "graph" if intent.kind == "graph" else "simplify", "expr": intent.expr}
-    else:
-        return False
-    return tool_call_matches_user_text(args, [text])
 
 
 def holds_no_formula(text: str) -> bool:

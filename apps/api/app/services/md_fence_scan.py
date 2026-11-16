@@ -70,6 +70,24 @@ def read_fence_marker(line: str, *, lenient: bool = False) -> FenceMarker | None
     return FenceMarker(line[:index], char, length, info)
 
 
+def may_become_fence_line(partial: str) -> bool:
+    """Whether a line still being written could end as a fence line (strict, as
+    ``read_fence_marker``): up to three spaces so far, a run of backticks or tildes with
+    nothing after it yet, or a fence line already. "`useEffect` runs" or "~5 min" can never
+    be one, so a stream need not hold it for its newline."""
+    index = 0
+    while index < len(partial) and index < 3 and partial[index] == " ":
+        index += 1
+    if index == len(partial):
+        return True
+    if partial[index] not in "`~":
+        return False
+    run_end = index
+    while run_end < len(partial) and partial[run_end] == partial[index]:
+        run_end += 1
+    return run_end == len(partial) or read_fence_marker(partial) is not None
+
+
 # A line that may be a fence line: its prefix, then three backticks or tildes. Every line
 # ``read_fence_marker`` accepts matches, so the scan reads only these lines and the
 # pattern passes over prose in C (a whole-reply scan read every line in Python).

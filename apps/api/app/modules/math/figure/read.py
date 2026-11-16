@@ -35,7 +35,8 @@ _PROMPT = (
     "Copy every number exactly as the question writes it. Never work a number out, round "
     "it or make one up: leave out any value the question does not state, and the app "
     'works out the rest. When the last message only asks to draw or show "it", the '
-    "picture is what the earlier user message states.\n"
+    "picture is what the earlier user message states. A rate (2 cm/min) or a size at one "
+    'moment of a changing shape ("when r = 3 cm") is not the figure\'s size: leave it out.\n'
     "\n"
     "kind:\n"
     '- "polygon": a triangle, a four-sided shape or a regular polygon\n'
@@ -48,7 +49,9 @@ _PROMPT = (
     '- "function": the graph of a formula the question writes, y = f(x)\n'
     '- "points": points plotted on a coordinate plane\n'
     '- "none": data to chart (a bar graph, pie chart, line graph of recorded values, '
-    "pictograph, histogram, tally), a photo, or nothing to draw\n"
+    "pictograph, histogram, tally), a photo, nothing to draw, or a shape the shape lists "
+    "below do not name (a frustum, points or vectors in space, a polygon at given "
+    "coordinates, a window or a ladder): never a listed shape in its place\n"
     "\n"
     "Fields, only those the picture needs:\n"
     "- shape: for a polygon one of triangle, right_triangle, isosceles_triangle, "

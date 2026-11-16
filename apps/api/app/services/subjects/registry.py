@@ -284,6 +284,25 @@ class SubjectFigure(Protocol):
         """``text`` without the model's own picture of the figure drawn in characters."""
         ...
 
+    @property
+    def contract(self) -> str:
+        """The prompt rule that asks the reply to describe its picture (a ```draw block)."""
+        ...
+
+    async def described(
+        self, descriptions: Sequence[str], texts: Sequence[str], reply: str, settings: Settings
+    ) -> list[str]:
+        """The pictures the reply described, checked against ``texts`` (the user's last
+        message first): one of each kind (a figure, a graph), each from the first
+        description of its kind that holds; none when none does. ``reply``: the reply's
+        text, whose working names its letters."""
+        ...
+
+    def without_drawn_substitutes(self, text: str) -> str:
+        """``text`` without what stood in for the picture it described: a sketch in
+        characters, a Mermaid diagram."""
+        ...
+
 
 class SubjectAdapter(Protocol):
     """One subject, as the dispatcher and chat ask it."""
