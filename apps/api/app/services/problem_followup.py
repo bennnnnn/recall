@@ -312,7 +312,12 @@ class GivenRewriter:
         matches = [
             g for g in self._of_dimension(prior, new_dim) if plays_role(prior, g, name or "")
         ]
-        if len(matches) != 1 or counted(prior, matches[0]) or self._anothers(prior, matches[0]):
+        kind = self._of_dimension(prior, new_dim)
+        if (
+            len(matches) != 1
+            or counted(prior, matches[0], kind)
+            or self._anothers(prior, matches[0])
+        ):
             return None
         rewritten = replace_given(prior, matches[0], value, written_unit)
         if rewritten == prior:
@@ -326,11 +331,16 @@ class GivenRewriter:
         new_dim = self.unit_dimension(" ".join(unit.split()))
         if new_dim is None or not fully_read(prior):
             return None
-        matches = self._of_dimension(prior, new_dim)
+        kind = self._of_dimension(prior, new_dim)
+        matches = kind
         if len(matches) > 1:
             quoted = _quoted_numbers(written or "")
             matches = [given for given in matches if given.value in quoted]
-        if len(matches) != 1 or counted(prior, matches[0]) or self._anothers(prior, matches[0]):
+        if (
+            len(matches) != 1
+            or counted(prior, matches[0], kind)
+            or self._anothers(prior, matches[0])
+        ):
             return None
         rewritten = replace_given(prior, matches[0], value, " ".join(unit.split()))
         return rewritten if rewritten != prior and self.verifies(rewritten) else None
@@ -352,7 +362,7 @@ class GivenRewriter:
         if len(matches) != 1:
             return None
         given = matches[0]
-        if counted(prior, given) or not _scales(prior, given):
+        if counted(prior, given, self._of_dimension(prior, named_dim)) or not _scales(prior, given):
             return None
         # "The mass of Earth is 6e24 kg" in a satellite's problem: "the mass" may be either.
         if owner is None and self._anothers(prior, given):

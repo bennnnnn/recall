@@ -108,7 +108,7 @@ async def test_a_named_change_is_solved_as_the_problem_typed_with_it(
         line,
         history=(("user", question), ("assistant", "**Answer** worked above.")),
         posed=question,
-        posed_change=change,
+        posed_changes=(change,),
     )
     assert expected.solved
     assert followed.verified_answer == expected.verified_answer
@@ -206,6 +206,38 @@ async def test_a_change_that_adds_to_a_given_is_no_solve(
         line,
         history=(("user", question), ("assistant", "**Answer** worked above.")),
         posed=question,
-        posed_change=change,
+        posed_changes=(change,),
     )
     assert not followed.solved, followed.verified_answer
+
+
+_COULOMB = (
+    "8. Two point charges, one of 3.0 C and the other of 2.0 C, are placed 5.0 m apart. "
+    "Calculate the force which acts between them. (Take 1/(4πε₀) to be "
+    "9.0 × 10⁹ N m²/C².)"
+)
+_REPEAT = (
+    "9. The answer to question 8 is an enormous force – a coulomb is a huge unit for "
+    "static charge, and we do not normally encounter point charges of anything like that "
+    "size. Repeat the calculation but this time take the charges as 3.0 pC (p = pico- = "
+    "× 10⁻¹²) and 2.0 μC."
+)
+
+
+@pytest.mark.asyncio
+async def test_a_textbook_repeat_with_new_charges_is_the_problem_typed_with_them(
+    thread_sympy_executor: None,
+) -> None:
+    """The owner's chat (2026-11-16): question 9 changed both charges of question 8, in pico-
+    and micro-coulombs, and its reply worked them out with no check. The read names both
+    changes; the server puts each in place, keeping the stated constant, and solves it."""
+    typed = await _route(_COULOMB.replace("3.0 C", "3.0 pC").replace("2.0 C", "2.0 μC"))
+    followed = await _route(
+        _REPEAT,
+        history=(("user", _COULOMB), ("assistant", "**Answer** $2.16 \\times 10^{9}$ N")),
+        posed=_COULOMB,
+        posed_changes=(("3.0 C", "3.0 pC"), ("2.0 C", "2.0 µC")),
+    )
+    assert typed.solved and followed.solved
+    assert followed.verified_answer == typed.verified_answer
+    assert "2.16" in (followed.verified_answer or "") and "-9" in (followed.verified_answer or "")

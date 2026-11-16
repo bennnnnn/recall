@@ -1,0 +1,112 @@
+[
+ {
+  "id": "pc-owner-repeat",
+  "area": "prefixes",
+  "prompt": "Two point charges, one of 3.0 pC and the other of 2.0 μC, are placed 5.0 m apart. Calculate the force which acts between them. (Take 1/(4πε₀) to be 9.0 × 10⁹ N m²/C².)",
+  "expect": "answer",
+  "answer": [
+   2.16e-09,
+   "N"
+  ],
+  "note": "F = 9.0e9 × 3.0e-12 × 2.0e-6 / 5.0² (the owner's question 9 typed whole, 2026-11-16)"
+ },
+ {
+  "id": "pc-micro-sign",
+  "area": "prefixes",
+  "prompt": "Two point charges of 3.0 pC and 2.0 µC are placed 5.0 m apart. Calculate the force between them. (Take 1/(4πε₀) to be 9.0 × 10⁹ N m²/C².)",
+  "expect": "answer",
+  "answer": [
+   2.16e-09,
+   "N"
+  ],
+  "note": "µ, the micro sign, is the same prefix as the Greek μ"
+ },
+ {
+  "id": "pc-words",
+  "area": "prefixes",
+  "prompt": "Two point charges of 20 picocoulombs and 50 picocoulombs are 0.10 m apart. What is the force between them? (k = 9.0 × 10⁹ N m²/C²)",
+  "expect": "answer",
+  "answer": [
+   9e-10,
+   "N"
+  ],
+  "note": "9.0e9 × 20e-12 × 50e-12 / 0.10²: a prefix spelled out"
+ },
+ {
+  "id": "pc-field",
+  "area": "prefixes",
+  "prompt": "What is the electric field strength 0.20 m from a point charge of 8.0 pC? (k = 9.0 × 10⁹ N m²/C²)",
+  "expect": "answer",
+  "answer": [
+   1.8,
+   "N/C"
+  ],
+  "note": "E = kq/r² = 9.0e9 × 8.0e-12 / 0.04"
+ },
+ {
+  "id": "pc-field-from-force",
+  "area": "prefixes",
+  "prompt": "A charge of 2.0 pC experiences a force of 6.0 nN in an electric field. What is the electric field strength?",
+  "expect": "answer",
+  "answer": [
+   3000,
+   "N/C"
+  ],
+  "note": "E = F/q = 6.0e-9 / 2.0e-12: pico- and nano- in one question"
+ },
+ {
+  "id": "nc-force-in-field",
+  "area": "prefixes",
+  "prompt": "A charge of 4.0 nC sits in an electric field of strength 500 N/C. What force acts on it?",
+  "expect": "answer",
+  "answer": [
+   2e-06,
+   "N"
+  ],
+  "note": "F = qE = 4.0e-9 × 500"
+ },
+ {
+  "id": "mc-coulomb",
+  "area": "prefixes",
+  "prompt": "Two charges of 5.0 mC and 2.0 mC are 3.0 m apart. Find the force between them. (k = 9.0 × 10⁹ N m²/C²)",
+  "expect": "answer",
+  "answer": [
+   10000.0,
+   "N"
+  ],
+  "note": "9.0e9 × 5.0e-3 × 2.0e-3 / 9.0: milli-, never mega-"
+ },
+ {
+  "id": "ma-charge",
+  "area": "prefixes",
+  "prompt": "A current of 2.0 mA flows for 30 s. How much charge passes?",
+  "expect": "answer",
+  "answer": [
+   0.06,
+   "C"
+  ],
+  "note": "Q = It = 2.0e-3 × 30"
+ },
+ {
+  "id": "na-charge",
+  "area": "prefixes",
+  "prompt": "How much charge flows when a current of 250 nA flows for 4.0 s?",
+  "expect": "answer",
+  "answer": [
+   1e-06,
+   "C"
+  ],
+  "note": "Q = It = 250e-9 × 4.0"
+ },
+ {
+  "id": "kc-current",
+  "area": "prefixes",
+  "prompt": "A charge of 6.0 kC flows in 2.0 min. What is the current?",
+  "expect": "answer",
+  "answer": [
+   50,
+   "A"
+  ],
+  "note": "I = Q/t = 6000 / 120"
+ }
+]

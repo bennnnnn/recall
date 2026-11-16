@@ -17,7 +17,7 @@ Which given a reading names, and whether its object owns it, is the rewriter's c
 from __future__ import annotations
 
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from app.services.law_binding.givens import Given
@@ -359,12 +359,18 @@ def subject_of(prior: str, is_quantity: Callable[[str], bool]) -> str | None:
 _COUNTED = frozenset({"two", "three", "four", "both", "each", "pair", "identical", "equal", "same"})
 
 
-def counted(prior: str, given: Given) -> bool:
-    """True when the value's sentence holds a count or a sameness word."""
+def counted(prior: str, given: Given, kind: Sequence[Given] = ()) -> bool:
+    """True when the value's sentence holds a count or a sameness word, and states no other
+    value of its kind (``kind``: the problem's givens of that kind). "Two point charges, one
+    of 3.0 C and the other of 2.0 C" gives each charge its own value: neither is both
+    bodies' (live, 2026-11-16), where "two 5 kg masses" is."""
     start = max((m.end() for m in re.finditer(r"[.?!]\s", prior[: given.start])), default=0)
     stop = re.search(r"[.?!](?:\s|$)", prior[given.end :])
-    sentence = prior[start : given.end + (stop.start() if stop else len(prior))]
-    return any(word in _COUNTED for word in re.findall(r"[a-z]+", sentence.lower()))
+    end = given.end + (stop.start() if stop else len(prior))
+    sentence = prior[start:end]
+    if not any(word in _COUNTED for word in re.findall(r"[a-z]+", sentence.lower())):
+        return False
+    return not any(other != given and start <= other.start < end for other in kind)
 
 
 def thrown_at(prior: str, given: Given, throw: str) -> bool:

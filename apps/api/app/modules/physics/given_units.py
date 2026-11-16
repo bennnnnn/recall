@@ -7,11 +7,13 @@ technical atmosphere, "in" an inch, "a" a year).
 from __future__ import annotations
 
 from app.modules.physics.per_kelvin_units import PER_KELVIN_WORDS
+from app.modules.physics.prefixed_units import prefixed_symbols, prefixed_words
 
 # Spelling -> Pint expression. Single letters are case-sensitive SI symbols;
 # a lowercase "a" is an article and "v" a variable. Longer spellings below are
-# matched without case.
-_SYMBOLS: dict[str, str] = {
+# matched without case. Every SI prefix on every base is added below (``prefixed_units``);
+# a spelling listed here is read as listed.
+_LISTED_SYMBOLS: dict[str, str] = {
     "m": "meter",
     "g": "gram",
     "s": "second",
@@ -137,8 +139,10 @@ _SYMBOLS: dict[str, str] = {
     "N·s/m": "newton * second / meter",
     "N*s/m": "newton * second / meter",
 }
+_SYMBOLS: dict[str, str] = {**prefixed_symbols(_LISTED_SYMBOLS), **_LISTED_SYMBOLS}
 
 _WORDS: dict[str, str] = {
+    **prefixed_words(),
     **PER_KELVIN_WORDS,
     # A nucleus's mass: "0.003 amu". A bare "u" is read in givens.py.
     "amu": "dalton",

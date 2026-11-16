@@ -103,10 +103,10 @@ class Case:
     continues: str | None = None
     # "Do it" / "what if it took 10 s?": the problem the model's read names, as a message
     # (the assistant's too) states it (``chat.posed_read``); "" when it names none ("do it"
-    # to an offer). None: no read. With ``posed_change``, the line changes it: the given as
-    # the problem writes it and the line's new value, as the read names them.
+    # to an offer). None: no read. With ``posed_changes``, the line changes it: each given as
+    # the problem writes it and the line's new value for it, as the read names them.
     posed: str | None = None
-    posed_change: tuple[str, str] | None = None
+    posed_changes: tuple[tuple[str, str], ...] = ()
     # A maths question asking to see a picture: the read's reading of what to draw (its kind
     # and the values it copied, ``math.figure.read``), as JSON. None: no read.
     figure: str | None = None
@@ -643,7 +643,7 @@ CASES: tuple[Case, ...] = (
         "12 m/s: the posed car question with 10 s, worked as typed.",
         history=_POSED_CAR,
         posed=_POSED_CAR_QUESTION,
-        posed_change=("20 seconds", "10 s"),
+        posed_changes=(("20 seconds", "10 s"),),
     ),
     Case(
         "physics-posed-answer-is-no-solve",
@@ -667,7 +667,7 @@ CASES: tuple[Case, ...] = (
             ("assistant", "**Answer**\n\n```answer\nverified: true\n0.4\\ (\\text{40\\%})\n```"),
         ),
         posed=_CARNOT,
-        posed_change=("300 K", "200 K"),
+        posed_changes=(("300 K", "200 K"),),
     ),
     Case(
         "physics-force",
@@ -812,7 +812,7 @@ CASES: tuple[Case, ...] = (
             ("assistant", "**Answer**\n\n```answer\nLimiting reagent = O2; 18 g H2O\n```"),
         ),
         posed=_WATER_YIELD,
-        posed_change=("16.0 g of oxygen", "32.0 g"),
+        posed_changes=(("16.0 g of oxygen", "32.0 g"),),
     ),
     Case(
         "chemistry-do-it-accepts-an-offer",

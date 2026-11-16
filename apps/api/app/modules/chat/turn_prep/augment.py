@@ -45,7 +45,7 @@ from app.modules.web_search.subject import (
 )
 from app.services.solving import VerifiedSolveBlock
 from app.services.subjects.dispatch import SubjectName, read_direct_reply, read_subject
-from app.services.subjects.registry import SUBJECTS
+from app.services.subjects.registry import SUBJECTS, subject_adapter
 
 if TYPE_CHECKING:
     from app.services.subjects.registry import MoneyTurn
@@ -373,29 +373,35 @@ async def _turn_followup(
     if followup is not None and followup.found:
         return followup, referent
     # "Do it" after a problem the assistant posed: a model reads which problem, when the
-    # line has no subject of its own and is no "thanks".
-    if (
-        not small_talk
-        and referent is None
-        and continued is None
-        and subject_of(
+    # line has no problem of its own and is no "thanks".
+    if not small_talk and referent is None and continued is None:
+        subject = subject_of(
             request.content,
             has_image_attachment=request.has_image_attachment,
             chemistry_enabled=settings.chemistry_enabled,
         )
-        is None
-    ):
-        posed = await posed_for_turn(settings, request.content, recent)
+        claimed = subject is not None
+        if claimed and await _reads_a_problem(subject, request.content, timeout):
+            return followup or SubjectFollowup(), referent
+        posed = await posed_for_turn(settings, request.content, recent, claimed=claimed)
         if posed is not None:
             followup = await read_off_loop(
                 resolve_posed_followup,
                 request.content,
                 posed.problem,
                 posed.reply,
-                (posed.given, posed.new) if posed.changed else None,
+                posed.changes if posed.changed else None,
                 timeout=timeout,
             )
     return followup or SubjectFollowup(), referent
+
+
+async def _reads_a_problem(subject: SubjectName | None, line: str, wait: float) -> bool:
+    """The subject reads a problem of the line's own; a pool that gives up says it does."""
+    if subject is None:
+        return False
+    read = await read_off_loop(subject_adapter(subject).reads, line, timeout=wait)
+    return read is not False
 
 
 def reads_window(request: TurnRequest) -> list[Any]:

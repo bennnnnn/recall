@@ -9,12 +9,17 @@ whose exchange holds a problem a subject reads (the reply's question, or the use
 before it), one small structured read (``referent_read.ask_read``) names the message, the
 assistant's or the user's, that states the problem the line asks to solve or to change
 ("What if h was 10 m?", a tapped follow-up question), and the problem as written there. A
-change is named, never written: the given that changes and the line's new value, which the
-problem's subject puts in its place (``SubjectFollowups.changed_problem``). The quiz guard
+change is named, never written: each given that changes and the line's new value for it,
+which the problem's subject puts in its place (``SubjectFollowups.changed_problem``). The quiz guard
 holds: a line that answers a question ("the hypotenuse") asks no solve. The read runs only
 where it decides the turn: no reader claimed the line, it is no small talk, and no other
 read found its problem (``turn_prep.augment``); Stop cancels it with the turn. With no read,
 or none named, the turn is read as before.
+
+A line a subject claims but reads no problem in gets the read too when it states a value:
+"Repeat the calculation but this time take the charges as 3.0 pC and 2.0 μC", after a
+verified Coulomb's law answer, was physics with no problem of its own, and its reply worked
+both charges out with no check (live, 2026-11-16). Such a line may run to a few sentences.
 """
 
 from __future__ import annotations
@@ -37,6 +42,12 @@ logger = logging.getLogger(__name__)
 
 # A line that only refers to a problem: "Do it", "Step by step", "What if it took 10 s?".
 _MAX_WORDS = 12
+# A line a subject claims that restates values for a problem stated before it: a textbook's
+# "repeat the calculation" question, which says why before what changes.
+_MAX_RESTATED_WORDS = 80
+_STATES_A_VALUE = re.compile(r"\d")
+# Most values one line changes at once.
+_MAX_CHANGES = 4
 _MESSAGE_CHARS = 500
 # A reply short enough to be a posed problem; a longer one is read for its exchange's line.
 _REPLY_CHARS = 600
@@ -54,8 +65,8 @@ _SYSTEM = (
     "a practice question, a quiz or an example, exactly as it stands and asking nothing "
     "else of it: do it, solve it, what's the answer, step by step, show the working, and "
     'how, even the one word "How" alone, which asks how that problem is solved;\n'
-    '- "change": the same problem with one of its values changed ("what if it took 10 s?", '
-    '"what if the mass was 500 g?");\n'
+    '- "change": the same problem with some of its values changed ("what if it took 10 s?", '
+    '"what if the mass was 500 g?", "repeat it with the charges as 3 nC and 5 nC");\n'
     '- "answer": the user answers a question themselves (a quiz answer, a value they were '
     "asked for, yes or no);\n"
     '- "other": anything else: a question that asks something else of the problem (another '
@@ -64,12 +75,12 @@ _SYSTEM = (
     "accepting an offer to do something that is no problem to solve.\n"
     "For solve and change, message is the number of the message that states the problem, "
     "and problem is the problem as that message states it, copied word for word, without "
-    "greetings, praise or offers. For change, given is the value that changes as the "
-    "problem writes it (20 seconds, 16.0 g of oxygen), or in an equation or expression the "
-    "part it replaces, copied exactly; and new is the new value as the user's line gives "
-    "it, in plain text with its unit (10 s, 32.0 g, 2x). Otherwise all null. Reply with "
-    'JSON only, for example {"kind": "change", "message": 2, "problem": "A ball falls 20 m. '
-    'How long does it take?", "given": "20 m", "new": "45 m"}.'
+    "greetings, praise or offers. For change, changes lists each value that changes: given "
+    "as the problem writes it (20 seconds, 16.0 g of oxygen), or in an equation or "
+    "expression the part it replaces, copied exactly; and new as the user's line gives it, "
+    "in plain text with its unit (10 s, 32.0 g, 2x). Otherwise null and no changes. Reply "
+    'with JSON only, for example {"kind": "change", "message": 2, "problem": "A ball falls '
+    '20 m. How long does it take?", "changes": [{"given": "20 m", "new": "45 m"}]}.'
 )
 
 
@@ -82,16 +93,21 @@ class Posed:
     problem: str
     reply: str
     changed: bool = False
-    given: str | None = None
-    new: str | None = None
+    # Each change: the given as the problem writes it, and the line's new value (None when
+    # the line does not hold the value the read gave).
+    changes: tuple[tuple[str | None, str | None], ...] = ()
+
+
+class PosedChange(BaseModel):
+    given: str | None = Field(default=None, max_length=120)
+    new: str | None = Field(default=None, max_length=60)
 
 
 class PosedPick(BaseModel):
     kind: Literal["solve", "change", "answer", "other"]
     message: int | None = None
     problem: str | None = Field(default=None, max_length=600)
-    given: str | None = Field(default=None, max_length=120)
-    new: str | None = Field(default=None, max_length=60)
+    changes: list[PosedChange] = Field(default_factory=list, max_length=_MAX_CHANGES)
 
 
 def _numbered(exchanges: Sequence[tuple[str, str]]) -> str:
@@ -107,7 +123,9 @@ def _plain(text: str) -> str:
 
 
 def _unlatexed(text: str) -> str:
-    return collapse_ws(_LATEX_SPACE.sub(" ", _LATEX_WORD.sub(r"\1", text))).casefold()
+    # The micro sign and the Greek mu are one prefix: a read may copy "2.0 μC" as "2.0 µC".
+    plain = _LATEX_SPACE.sub(" ", _LATEX_WORD.sub(r"\1", text)).replace("\u00b5", "\u03bc")
+    return collapse_ws(plain).casefold()
 
 
 def _stated(role: str, message: str, quoted: str | None) -> str | None:
@@ -149,15 +167,32 @@ def holds_a_problem(asked: str | None, reply: str) -> bool:
     return len(plain) <= _REPLY_CHARS and subject_of(plain) is not None
 
 
+def reads_a_problem(asked: str | None, _reply: str) -> bool:
+    """Whether the user's line before the reply is a problem its subject reads, values and
+    all: a line that changes values changes a problem the user stated, never a request to
+    draw ("Repeat question 2 for two negative charges" after "Draw the field of a charge"
+    is no change). Read in the pool."""
+    from app.modules.chat.turn_prep.reading import subject_of
+    from app.services.subjects.registry import subject_adapter
+
+    subject = subject_of(asked) if asked else None
+    return subject is not None and subject_adapter(subject).reads(asked or "")
+
+
 async def pick_posed(settings: Settings, line: str, conversation: str) -> PosedPick | None:
     """The model's read of the problem a short line refers to, or None when there is no read."""
-    return await ask_read(settings, _SYSTEM, line, conversation, PosedPick, max_tokens=160)
+    return await ask_read(settings, _SYSTEM, line, conversation, PosedPick, max_tokens=240)
 
 
-def may_refer_to_a_problem(line: str, recent: Sequence[Any]) -> bool:
-    """A cheap look on the loop: a short line right after a reply."""
+def may_refer_to_a_problem(line: str, recent: Sequence[Any], *, claimed: bool = False) -> bool:
+    """A cheap look on the loop: a short line right after a reply. ``claimed``: a subject
+    claims the line but reads no problem in it, so only a line that states a value may
+    change one, and it may be longer."""
     words = collapse_ws(line).split()
-    if not words or len(words) > _MAX_WORDS:
+    if claimed:
+        if len(words) > _MAX_RESTATED_WORDS or not _STATES_A_VALUE.search(line):
+            return False
+    elif not words or len(words) > _MAX_WORDS:
         return False
     exchanges = chat_before(recent, line)
     return bool(exchanges) and exchanges[-1][0] == "assistant"
@@ -171,29 +206,35 @@ def _key(line: str, recent: Sequence[Any]) -> tuple[str, tuple[tuple[str, str], 
     return line, tuple(chat_before(recent, line))
 
 
-async def posed_for_turn(settings: Settings, line: str, recent: Sequence[Any]) -> Posed | None:
+async def posed_for_turn(
+    settings: Settings, line: str, recent: Sequence[Any], *, claimed: bool = False
+) -> Posed | None:
     """``read_posed`` once a turn, kept as the other reads are (``core.readings``)."""
     key = _key(line, recent)
     kept = kept_for_turn(_KEPT)
     if isinstance(kept, tuple) and kept[0] == key:
         posed: Posed | None = kept[1]
         return posed
-    posed = await read_posed(settings, line, recent)
+    posed = await read_posed(settings, line, recent, claimed=claimed)
     keep_for_turn(_KEPT, (key, posed))
     return posed
 
 
-async def read_posed(settings: Settings, line: str, recent: Sequence[Any]) -> Posed | None:
+async def read_posed(
+    settings: Settings, line: str, recent: Sequence[Any], *, claimed: bool = False
+) -> Posed | None:
     """The problem a short line asks to solve or change, as its message states it; None with
     no read, after an exchange that holds no problem, or when the line answers a question
-    or asks no solve."""
-    if not settings.referent_read_enabled or not may_refer_to_a_problem(line, recent):
+    or asks no solve. ``claimed``: as ``may_refer_to_a_problem`` reads it."""
+    if not settings.referent_read_enabled or not may_refer_to_a_problem(
+        line, recent, claimed=claimed
+    ):
         return None
     exchanges = chat_before(recent, line)
     asked = exchanges[-2][1] if len(exchanges) > 1 and exchanges[-2][0] == "user" else None
     # A look the turn can do without: a pool that gives up never declines its readings.
     held = await read_aside(
-        holds_a_problem,
+        reads_a_problem if claimed else holds_a_problem,
         asked,
         exchanges[-1][1],
         timeout=settings.subject_read_timeout_seconds,
@@ -216,6 +257,8 @@ async def read_posed(settings: Settings, line: str, recent: Sequence[Any]) -> Po
         problem=problem,
         reply=exchanges[-1][1],
         changed=True,
-        given=collapse_ws(read.given or "") or None,
-        new=_line_value(line, read.new),
+        changes=tuple(
+            (collapse_ws(change.given or "") or None, _line_value(line, change.new))
+            for change in read.changes
+        ),
     )
