@@ -348,16 +348,17 @@ def solve_formal(problem_json: str, question: str) -> str:
     candidates = _target_values(solutions if isinstance(solutions, list) else [], target, unknowns)
     if not candidates:
         return _refused("no real solution")
-    scale = float(
-        registry.Quantity(1.0, target_unit.to_base_units().units).to(target_unit.units).magnitude
-    )
-    shown = [c * scale for c in candidates]
+    # Each value converted on its own: an offset unit (°C from kelvin) is no factor.
+    base_unit = target_unit.to_base_units().units
+    shown = [
+        float(registry.Quantity(c, base_unit).to(target_unit.units).magnitude) for c in candidates
+    ]
     chosen = _choose(shown, problem.answer)
     if chosen is None:
         return json.dumps(
             asdict(FormalResult(solved=False, reason="several solutions", candidates=shown))
         )
-    if not _satisfies(system, solutions, target, chosen / scale):
+    if not _satisfies(system, solutions, target, candidates[shown.index(chosen)]):
         return _refused("solution does not satisfy the equations")
     agrees = None if problem.answer is None else _close(problem.answer, chosen)
     unit = problem.target_unit or ""

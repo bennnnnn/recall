@@ -193,3 +193,23 @@ async def test_no_setup_read_past_the_spend_cap_or_in_an_outage(gate: AsyncMock)
     ):
         assert await read_physics_setup(Settings(_env_file=None), CAR) is None  # type: ignore[call-arg]
     call.assert_not_awaited()
+
+
+def test_a_temperature_asked_in_celsius_is_converted_not_scaled() -> None:
+    """Review: degrees Celsius are an offset from kelvin, not a factor of it."""
+    question = (
+        "Water at 20 °C gains 4186 J per kg per degree and is heated by 25 °C. Final temperature?"
+    )
+    setup = {
+        "givens": [
+            {"symbol": "T1", "value": "20", "unit": "degC", "quote": "20 °C"},
+            {"symbol": "dT", "value": "25", "unit": "delta_degC", "quote": "25 °C"},
+        ],
+        "unknowns": [{"symbol": "T2", "unit": "K"}],
+        "equations": ["T2 = T1 + dT"],
+        "target": "T2",
+        "target_unit": "degC",
+        "answer": 45,
+    }
+    result = _solve(setup, question)
+    assert result["solved"] and result["value"] == pytest.approx(45.0)
