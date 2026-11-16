@@ -70,6 +70,13 @@ def _done(decision: TurnDecision | None) -> asyncio.Future[TurnDecision | None]:
     return future
 
 
+def _solved_whole(message: str) -> Any:
+    """The verified block of a one-part question."""
+    intent = extract_physics_intent(message)
+    assert intent is not None
+    return build_verified_physics_block(intent, Settings(math_tools_enabled=True))
+
+
 def _solved(message: str) -> Any:
     """The verified block the turn solves: its problem part, as ``augment`` solves it."""
     (part,) = plan_turn(message).of_kind("solve")
@@ -109,9 +116,7 @@ def test_a_solve_draws_its_own_kind_of_picture() -> None:
     assert solve_draws(_solved(CIRCUIT), "diagram")
     assert solve_draws(_solved(PATH), "diagram")
     # A kinematics solve draws a velocity-time graph: no free-body diagram.
-    acceleration = build_verified_physics_block(
-        extract_physics_intent(ACCELERATION), Settings(math_tools_enabled=True)
-    )
+    acceleration = _solved_whole(ACCELERATION)
     assert solve_draws(acceleration, "graph")
     assert not solve_draws(acceleration, "diagram")
     assert not solve_draws(None, "diagram")
@@ -293,9 +298,7 @@ def test_a_solves_picture_the_message_asks_for_gets_no_words(
     from app.services.picture_copy import DRAWN_PICTURE_NOTE
 
     if message == ACCELERATION:
-        verified = build_verified_physics_block(
-            extract_physics_intent(message), Settings(math_tools_enabled=True)
-        )
+        verified = _solved_whole(message)
     else:
         verified = _solved(message)
     state = _state("x", verified_subject=verified)
