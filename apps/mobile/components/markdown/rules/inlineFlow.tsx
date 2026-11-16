@@ -27,6 +27,7 @@ import {
   AccessibleElementChildren,
   useInsideAccessibleElement,
 } from "@/components/rich/accessibleElement";
+import { formulaMayScroll } from "@/components/rich/mathColumn";
 import { MathText } from "@/components/rich/MathText";
 import { MathBlock } from "@/components/rich/MathView";
 import { latexLeanEm } from "@/lib/math/glyphs";
@@ -129,7 +130,11 @@ function collect(node: ReactNode, ctx: Ctx, flow: Flow): void {
       return;
     }
   }
-  const inText = node.type === Text || (node.type === MathText && latex != null && !latexHasNestedMathView(latex));
+  // A formula that may scroll is a View too: in a unit's Text it was laid out 0×0 on iOS.
+  const fontSize = typeof props.fontSize === "number" ? props.fontSize : BODY_FONT_SIZE;
+  const inText =
+    node.type === Text ||
+    (node.type === MathText && latex != null && !latexHasNestedMathView(latex) && !formulaMayScroll(latex, fontSize));
   flow.pieces.push({ kind: "atom", node, space: 0, inText });
   flow.label.push(latex ? spokenFormula(latex) : node.type === Text ? plainText(props.children) : "");
 }

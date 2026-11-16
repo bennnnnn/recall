@@ -1,10 +1,11 @@
 import { createContext, type ReactElement, type ReactNode, useContext } from "react";
 import { Dimensions, PixelRatio, View } from "react-native";
 
+import { WORK_INDENT } from "@/components/markdown/markdownContentStyles";
 import { scaled } from "@/components/rich/mathText/context";
 import { splitInlineMath } from "@/lib/markdown/inlineMath";
 import { splitWorkoutNote } from "@/lib/markdown/workoutSection";
-import { fittedIndent, layoutMath } from "@/lib/math/layout";
+import { fittedIndent, inlineMathNeedsScroll, layoutMath } from "@/lib/math/layout";
 import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
 import { parseSimpleLatex } from "@/lib/math/text";
 
@@ -40,6 +41,24 @@ export function formulaLinesIndent(latexLines: string[], indent: number, fontSiz
 
 function formulaWidth(latex: string, fontSize: number, fontScale: number): number {
   return scaled(layoutMath(parseSimpleLatex(fixImplicitExponents(latex.trim())), fontSize).width, fontScale);
+}
+
+/**
+ * Whether a formula may be wider than its line, so ``MathText`` scrolls it sideways: wider
+ * than the line less the working column's indent, the most a column takes. A scroller is a
+ * View, and a View in a sentence's Text (Text > Text > View) is what iOS lays out as 0×0:
+ * "adding the atomic masses: $8(12.011) + … = 194.19\ \text{g/mol}$ ☕" showed "adding the
+ * atomic masses: ☕" (live, 2026-11-15). Such a formula is hosted outside the Text, as a
+ * raised or stacked one is.
+ */
+export function formulaMayScroll(latex: string, fontSize: number): boolean {
+  const width = formulaWidth(latex, fontSize, PixelRatio.getFontScale());
+  return inlineMathNeedsScroll(width, Dimensions.get("window").width - WORK_INDENT);
+}
+
+/** Whether `text` (words and ``$…$`` maths) holds a formula that may scroll. */
+export function holdsWideFormula(text: string, fontSize: number): boolean {
+  return splitInlineMath(text).some((part) => part.type === "math" && formulaMayScroll(part.value, fontSize));
 }
 
 /**

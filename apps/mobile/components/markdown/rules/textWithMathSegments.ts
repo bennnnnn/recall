@@ -76,8 +76,15 @@ function mathRuns(
   return runs;
 }
 
-/** A markdown text node's prose and math, and how its runs are hosted. */
-export function segmentTextWithMath(text: string): TextWithMathSegments {
+/**
+ * A markdown text node's prose and math, and how its runs are hosted. `isWide` picks a
+ * formula that may be wider than its line: it scrolls in a View, hosted outside the Text as
+ * a raised or stacked formula is (iOS lays out a View in Text > Text as 0×0).
+ */
+export function segmentTextWithMath(
+  text: string,
+  isWide: (latex: string) => boolean = () => false,
+): TextWithMathSegments {
   // Strip standalone ":" lines — the model puts a colon on its own line as a
   // "leads to the next line" marker. It strands as a lone "two dots" between
   // a label and the formula on the next line. Drop it for all content, not
@@ -117,7 +124,8 @@ export function segmentTextWithMath(text: string): TextWithMathSegments {
   if (parts.some((p) => p.type === "math" && isHeavyInlineMath(p.value))) {
     return { ...segments, layout: "display", runs: mathRuns(parts, isHeavyInlineMath, true) };
   }
-  if (parts.some((p) => p.type === "math" && latexHasNestedMathView(p.value))) {
+  const ownHost = (latex: string) => latexHasNestedMathView(latex) || isWide(latex);
+  if (parts.some((p) => p.type === "math" && ownHost(p.value))) {
     // A trailing text part that is only a colon (e.g. "Use the product rule
     // $\sqrt{ab}=\sqrt{a}\sqrt{b}$:") strands onto its own line here: the math
     // is a nested View, so the ":" after it can't share its line box and
@@ -130,7 +138,7 @@ export function segmentTextWithMath(text: string): TextWithMathSegments {
       if (i !== parts.length - 1) return true;
       return p.value.trim() !== ":";
     });
-    return { ...segments, layout: "nested", runs: mathRuns(trimmed, latexHasNestedMathView, false) };
+    return { ...segments, layout: "nested", runs: mathRuns(trimmed, ownHost, false) };
   }
   return { ...segments, layout: "inline", runs: [] };
 }
