@@ -80,7 +80,7 @@ _WIDTH = re.compile(
 # comma, "is defined for", "on the interval", "with domain".
 _JOINS = frozenset(
     "for when if whenever where with on over is are has defined domain its the interval "
-    "restricted to in \u2208".split()
+    "restricted to in \u2208 drawn plotted sketched graphed shown".split()
 )
 # A condition starting the text: "0 ≤ x ≤ 4", "x ≥ 0", "x ∈ [-1, 2]".
 _A_CONDITION = re.compile(r"\s*[-+]?[\w.()/]{1,12}\s*(?:<=|>=|<|>|\u2208|in\s+\[)")
@@ -88,6 +88,7 @@ _A_CONDITION = re.compile(r"\s*[-+]?[\w.()/]{1,12}\s*(?:<=|>=|<|>|\u2208|in\s+\[
 # estimate the root"), "only" ("for 0 ≤ x ≤ 3 only").
 _CLOSING_WORDS = frozenset("and to only then".split())
 _SENTENCE_END = re.compile(r"[.;!?]")
+_SENTENCES = re.compile(r"[;\n]|\\\\|[.?!]\s(?=[A-Z])")
 # What a clause about the curve itself starts with, after a condition and a comma.
 _CURVE_SUBJECTS = frozenset("y it its the this which curve graph function".split())
 # A closing word a condition's run takes in at its end: "0 ≤ x ≤ 3 and shade the area",
@@ -165,6 +166,8 @@ class PlotQuestion:
     # The intervals it says of x, the lines it names (x = -1/2, x ≥ 0, the y-axis; y = 3)
     # and the points it is said of ("at x = 3", "where y = 4") (``plot_x``).
     intervals: tuple[Interval, ...] = ()
+    # Each interval with the formulas its sentence writes (``tied_intervals``).
+    ties: tuple[tuple[Interval, tuple[Any, ...]], ...] = ()
     edges: tuple[Any, ...] = ()
     x_points: tuple[Any, ...] = ()
     y_points: tuple[Any, ...] = ()
@@ -351,6 +354,21 @@ def _closes(tail: str, letters: frozenset[str]) -> bool:
     return first in _CLOSING_WORDS
 
 
+def _ties(text: str, letters: frozenset[str]) -> list[tuple[Interval, tuple[Any, ...]]]:
+    """Each interval ``text`` writes, with the formulas of y its sentence writes: what the
+    interval is said of ("the area under y = x from x = 2 to x = 5"; "the integral of x³
+    from 3 to 4" is said of x³, not of a region between x² and 2x)."""
+    found: list[tuple[Interval, tuple[Any, ...]]] = []
+    for sentence in _SENTENCES.split(text):
+        stated = intervals(sentence, letters)
+        if stated:
+            said = tuple(
+                w.expr for w in _formulas(sentence) if w.name != "x" and w.expr.free_symbols
+            )
+            found += [(interval, said) for interval in stated]
+    return found
+
+
 def _written_forms(rest: str) -> list[tuple[str, re.Match[str] | None]]:
     return [
         ("compared", _COMPARISON.search(rest)),
@@ -456,6 +474,7 @@ def read_plot_question(texts: Sequence[str]) -> PlotQuestion:
         for text in readable
         for name, expr, unit in motion_formulas(text)
     )
+    motion = tuple(Interval(m[1], m[2]) for m in map(motion_interval, readable) if m is not None)
     # The letter the question's functions are written in ("v(t) = ...": t) is its x.
     letters = frozenset(
         {"x"} | {str(s) for w in formulas if w.name != "x" for s in w.expr.free_symbols}
@@ -482,8 +501,10 @@ def read_plot_question(texts: Sequence[str]) -> PlotQuestion:
         ),
         clauses=tuple(clause for text in readable for clause in _clauses(text, letters)),
         words=" ".join(readable).lower(),
-        intervals=tuple(i for text in readable for i in intervals(text, letters))
-        + tuple(Interval(m[1], m[2]) for m in map(motion_interval, readable) if m is not None),
+        intervals=tuple(i for text in readable for i in intervals(text, letters)) + motion,
+        # The motion's interval is said of the motion itself: of every region on its graph.
+        ties=tuple(tie for text in readable for tie in _ties(text, letters))
+        + tuple((interval, ()) for interval in motion),
         edges=tuple(v for lines, _points in xs for v in lines),
         x_points=tuple(v for _lines, points in xs for v in points),
         y_points=tuple(v for lines, points in ys for v in points if v not in lines),

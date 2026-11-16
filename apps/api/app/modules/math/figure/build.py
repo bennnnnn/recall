@@ -18,6 +18,7 @@ from app.modules.math.figure.grounding import grounded, own_texts, with_unit, wr
 from app.modules.math.figure.honest import honours
 from app.modules.math.figure.polygon import build_polygon
 from app.modules.math.figure.request import FigureRequest
+from app.modules.math.figure.revolution import revolves_into
 from app.modules.math.figure.shape_names import names_shape
 from app.modules.math.schemas.figure import FigureSpec
 from app.services.solving import SolveServiceError
@@ -59,6 +60,8 @@ def _the_questions_shape(request: FigureRequest, texts: list[str]) -> bool:
     not at all; a triangle drawn to a default size in their place was wrong (round 3)."""
     if request.kind == "circle":
         return names_shape(texts, "circle")
+    if request.kind == "solid" and not revolves_into(request.shape, texts):
+        return False  # x = √y about the y-axis is no cylinder (u5-083)
     if request.kind == "solid" and request.shape in _NAMED:
         return names_shape(texts, _NAMED[request.shape])
     if request.kind == "polygon":

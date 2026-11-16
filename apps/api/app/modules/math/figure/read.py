@@ -107,9 +107,10 @@ _BODY = (
     'inequality: the inequality to show, copied exactly ("-2 < x <= 3"); integers: true '
     "when only the whole numbers that meet it are asked for.\n"
     '- expr: the right side of y = ... ("2x + 1", "2.54x", "144 - 4t") in the '
-    'question\'s own letter; variable: that letter ("x", "t"); x_min and x_max: the range '
-    'the question states; x_label and y_label: what each axis measures ("inches", '
-    '"centimetres").\n'
+    'question\'s own letter; variable: that letter ("x", "t"); x_min and x_max: the ends of '
+    "the range the question states, each one value as a JSON string written with ASCII "
+    'characters ("-3", "-1/2", "2*pi", "1/e", "e^2"), or null when none is stated; x_label '
+    'and y_label: what each axis measures ("inches", "centimetres").\n'
     '- points: [{"name": "A", "x": 2, "y": 3}]; quadrants: true when the question asks '
     "which quadrant.\n"
     "\n"

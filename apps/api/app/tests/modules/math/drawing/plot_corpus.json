@@ -1793,7 +1793,7 @@
   "note": "the reply wrote the question's one formula in pieces: the formula is drawn whole",
   "expect": "draw",
   "curves": [
-   ""
+   "y = |ln x|"
   ],
   "lines": [],
   "points": [],
