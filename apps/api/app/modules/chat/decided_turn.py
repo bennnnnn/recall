@@ -145,8 +145,12 @@ def _leave_the_picture(ctx: StreamContext, settings: Settings, read: TurnDecisio
     """A picture the read says the message asks to see. A multi-part message's picture part
     is the problem's, for the app to draw: its contract says so (``with_problem_pictures``).
     When the solve drew that very kind of picture, the reply gives it no section or words and
-    never places it (``drawn_picture``); a velocity-time graph is no free-body diagram."""
-    if read is None or not asks_for_a_drawing(read):
+    never places it (``drawn_picture``); a velocity-time graph is no free-body diagram.
+
+    What the prompt was told is what finalize does (``ctx.problem_picture``): a photo or a
+    painting the prompt still asked for is never taken away because the read came in later."""
+    ctx.problem_picture = read is not None and asks_for_a_drawing(read)
+    if read is None or not ctx.problem_picture:
         return
     ctx.prompt_messages = with_problem_pictures(
         ctx.prompt_messages, plan_of(ctx.user_message_content or "", settings)
@@ -159,7 +163,7 @@ def _leave_the_picture(ctx: StreamContext, settings: Settings, read: TurnDecisio
 
 async def _the_read(ctx: StreamContext, settings: Settings) -> TurnDecision | None:
     """The read when it is in; waited for only when it could still move Auto's lane, the
-    layout, or grade a card."""
+    layout, a picture part, or grade a card."""
     task = ctx.live_read
     if task is None:
         return None
@@ -167,9 +171,23 @@ async def _the_read(ctx: StreamContext, settings: Settings) -> TurnDecision | No
         if task.cancelled() or task.exception() is not None:
             return None
         return task.result()
-    if not (_lane_may_move(ctx) or _layout_at_stake(ctx) or _reads_the_cards(ctx)):
+    if not (
+        _lane_may_move(ctx)
+        or _layout_at_stake(ctx)
+        or _reads_the_cards(ctx)
+        or _picture_at_stake(ctx, settings)
+    ):
         return None
     return await turn_decision_result(task, settings)
+
+
+def _picture_at_stake(ctx: StreamContext, settings: Settings) -> bool:
+    """A multi-part message with a picture or photo part: the read says whether it is the
+    problem's, for the app to draw, and the prompt and finalize take the same answer (PR #2467
+    review: unwaited, a verified solve's prompt asked for a photo finalize then dropped)."""
+    if ctx.instant_reply is not None:
+        return False
+    return bool(plan_of(ctx.user_message_content or "", settings).of_kind("image", "photo"))
 
 
 def _answered_window(ctx: StreamContext) -> list[Any]:

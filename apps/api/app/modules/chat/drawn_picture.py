@@ -86,8 +86,11 @@ def solve_draws(verified: VerifiedSolveBlock | None, kind: str | None) -> bool:
 
 
 def app_draws_the_picture(ctx: StreamContext) -> bool:
-    """At finalize: the read (if it is in) calls the message a STEM question asking to see a
-    graph, a diagram or a molecule, so no photo or painting stands in for it. Nothing is
-    waited for."""
+    """At finalize: the read calls the message a STEM question asking to see a graph, a
+    diagram or a molecule, so no photo or painting stands in for it. The answer the reply's
+    prompt was given, when it was given one; else the read, if it is in. Nothing is waited
+    for."""
+    if ctx.problem_picture is not None:
+        return ctx.problem_picture
     read = ctx.live_read
     return read is not None and asks_for_a_drawing(_answered(read))

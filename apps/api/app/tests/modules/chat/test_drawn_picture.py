@@ -304,3 +304,32 @@ def test_a_solves_picture_the_message_asks_for_gets_no_words(
     state = _state("x", verified_subject=verified)
     _leave_the_picture(state.ctx, Settings(), read)
     assert any(m["content"] == DRAWN_PICTURE_NOTE for m in state.ctx.prompt_messages) is noted
+
+
+async def _late(decision: TurnDecision) -> TurnDecision:
+    await asyncio.sleep(0.05)
+    return decision
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("message", "waited"), [(PATH, True), (ACCELERATION, False)])
+async def test_a_picture_part_waits_for_the_read(message: str, waited: bool) -> None:
+    """A verified solve moves no lane, so the read was not waited for: the prompt kept its
+    photo note and finalize, the read in by then, dropped the photo (PR #2467 review). A
+    picture or photo part now waits, so both take one answer."""
+    from app.modules.chat.decided_turn import _the_read
+
+    read = _read("physics", "diagram")
+    state = _state("x", verified_subject=_solved_whole(ACCELERATION))
+    state.ctx.user_message_content = message
+    state.ctx.live_read = asyncio.ensure_future(_late(read))
+    assert (await _the_read(state.ctx, Settings()) is not None) is waited
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("told", "drawn"), [(False, False), (True, True)])
+async def test_finalize_does_what_the_prompt_was_told(told: bool, drawn: bool) -> None:
+    """The read came in after the prompt said "a real photo": the photo stays."""
+    state = _state("x", live_read=_done(_read("physics", "diagram")))
+    state.ctx.problem_picture = told
+    assert app_draws_the_picture(state.ctx) is drawn
