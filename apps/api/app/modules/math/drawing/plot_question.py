@@ -222,7 +222,8 @@ def _equals_spans(text: str) -> list[tuple[str, str, int]]:
         words: list[str] = []
         for word in text[at + 1 :].split(" "):
             bare = word.strip().lower().rstrip(".,;:")
-            if bare in _ENDS or any(mark in word for mark in ";\n"):
+            prose = len(bare) >= 3 and bare.isalpha() and bare not in _MATH_WORDS
+            if bare in _ENDS or prose or any(mark in word for mark in ";\n"):
                 if any(mark in word for mark in ";\n"):
                     words.append(re.split(r"[;\n]", word)[0])
                 break
@@ -240,40 +241,53 @@ def _equals_spans(text: str) -> list[tuple[str, str, int]]:
 
 
 _SMALL_UNITS = frozenset("msg")
+# The words a formula is written with: any other word of three letters or more is prose,
+# and ends it ("F = (9 - x/2) N moves a body ...").
+_MATH_WORDS = frozenset(
+    "sin cos tan sec csc cot sinh cosh tanh arcsin arccos arctan asin acos atan sqrt exp "
+    "log ln abs pi floor ceil mod".split()
+)
+# A letter the text gives a value ("where m = 3"): a factor, never a unit.
+_GIVEN = re.compile(r"(?<![A-Za-z])([A-Za-z])\s*=\s*[-+]?\d")
 
 
-def _without_unit(formula: str) -> str:
-    """ "t² - 4t + 3 m/s" without its unit: the last word when it is letters and a slash or
-    two or more letters, after a number; or any word of letters after a bracket that is no
-    letter of the formula ("F = (9 - x/2) N", u5-087's force)."""
-    head, _, last = formula.rpartition(" ")
-    head = head.rstrip()
-    bare = re.sub(r"(?:\^|\*\*)?[0-9\u00b2\u00b3]", "", last.replace("/", ""))
-    if not head or not bare.isalpha():
-        return formula
-    unit_like = len(bare) > 1 or "/" in last
-    if head[-1:].isdigit() and unit_like:
-        return head
-    # After a bracket a capital ("N", "J") or one of m, s and g is a unit too, unless the
-    # formula is written in it; another lone small letter is a factor ("(x + 1) k").
-    unit_like = unit_like or bare.isupper() or bare in _SMALL_UNITS
-    written_in = re.search(rf"(?<![A-Za-z]){re.escape(bare)}(?![A-Za-z])", head)
-    if head[-1:] == ")" and unit_like and not written_in:
-        return head
+def _without_unit(formula: str, given: frozenset[str] = frozenset()) -> str:
+    """ "t² - 4t + 3 m/s" without its unit: the last word (or two, "m s") when it is a unit,
+    never a letter the text gives a value (``given``: "y = (x + 1) m, where m = 3").
+    After a number: letters and a slash, or two or more letters. After a bracket or the
+    formula's variable ("x = t^2 - 4t m"): those, a capital ("N"), or m, s or g; and never
+    a letter the formula is written in ("(x + 1) x"). Another lone small letter is a
+    factor ("(x + 1) k")."""
+    for _ in range(2):
+        head, _, last = formula.rpartition(" ")
+        head = head.rstrip()
+        bare = re.sub(r"(?:\^|\*\*)?-?[0-9\u00b2\u00b3]+", "", last.replace("/", ""))
+        if not head or not bare.isalpha() or bare in given:
+            return formula
+        if head[-1:].isdigit() and (len(bare) > 1 or "/" in last):
+            formula = head
+            continue
+        unit_like = len(bare) > 1 or "/" in last or bare.isupper() or bare in _SMALL_UNITS
+        written_in = re.search(rf"(?<![A-Za-z]){re.escape(bare)}(?![A-Za-z])", head)
+        after = head[-1:] == ")" or head[-1:].isalpha()
+        if not (after and unit_like and not written_in):
+            return formula
+        formula = head
     return formula
 
 
 def _formulas(text: str) -> list[Written]:
     found: list[Written] = []
+    given = frozenset(_GIVEN.findall(text))
     for name, formula, _end in _equals_spans(text):
         if _AT_A_POINT.fullmatch(name) or not (name.isalpha() or _DEFINES_NAME.fullmatch(name)):
             continue  # "f(2) = 4" is a value at a point; "f'(x) =" a derivative, not f
-        bare = _without_unit(formula)
+        bare = _without_unit(formula, given)
         parsed = parse_formula(bare)
         if isinstance(parsed, Expr):
             defines = name == "y" or _DEFINES_NAME.fullmatch(name) is not None
             unit = formula[len(bare) :].strip()
-            found.append(Written(name[0], parsed, defines, _as_written(formula, parsed), unit))
+            found.append(Written(name[0], parsed, defines, _as_written(bare, parsed), unit))
     for lhs, op, rhs in written_relations(text):
         if op == "=" and isinstance(lhs, Symbol):
             found.append(Written(str(lhs), rhs, str(lhs) == "y"))
@@ -291,7 +305,7 @@ def _as_written(formula: str, parsed: Any) -> Any | None:
     """``formula`` read as it is written, SymPy's simplifications left undone."""
     letters = sorted(str(symbol) for symbol in parsed.free_symbols)
     try:
-        raw = parse_expression(_without_unit(formula), letters, evaluate=False)
+        raw = parse_expression(formula, letters, evaluate=False)
     except (SolveServiceError, SyntaxError, TypeError, ValueError, AttributeError):
         return None
     return raw if isinstance(raw, Expr) else None
@@ -382,8 +396,9 @@ def _domains(part: str, letters: frozenset[str]) -> list[Domain]:
     ("f: [0, 3] → R, f(x) = x²")."""
     found: list[Domain] = []
     mapped = _MAPPED.search(part)
+    given = frozenset(_GIVEN.findall(part))
     for name, formula, end in _equals_spans(part):
-        parsed = parse_formula(_without_unit(formula))
+        parsed = parse_formula(_without_unit(formula, given))
         if not isinstance(parsed, Expr) or name == "x":
             continue
         if mapped is not None and name[0] == mapped.group(1):

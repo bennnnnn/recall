@@ -600,3 +600,19 @@ async def test_an_instant_card_that_gives_way_gets_the_draw_contract_in_the_real
     assert ctx.drawing is not None and ctx.drawing.asked == "read"
     assert any(DRAW_CONTRACT in str(message.get("content")) for message in sent[0])
     assert ctx.verified_subject is solved
+
+
+async def test_a_physics_card_with_its_graph_against_time_gets_no_second_graph() -> None:
+    from app.services.solving import VerifiedPhysicsBlock
+
+    graphed = VerifiedPhysicsBlock(
+        text="v = 4 m/s", subject="physics", canonical_fences=[{"type": "trajectory"}]
+    )
+    for verified, asked in (
+        (graphed, False),
+        (VerifiedPhysicsBlock(text="v", subject="physics"), True),
+    ):
+        ctx = _ctx(verified_subject=verified)
+        read = _decision(subject="physics", picture="graph")
+        await ask_for_a_drawing(ctx, _settings(), read, _deadline())
+        assert (ctx.drawing is not None) is asked

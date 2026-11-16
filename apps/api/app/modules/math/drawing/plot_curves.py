@@ -116,7 +116,11 @@ def _own_expr(parsed: Expr, question: PlotQuestion) -> _Own | None:
         return None
     letter = next(iter(parsed.free_symbols), _X)
     for written in question.formulas:
-        if written.name == "x" or not written.expr.free_symbols <= {letter}:
+        # "x = g(y)" is a curve on its side, drawn apart; "x = t² - 4t" is a position in t.
+        sideways = written.name == "x" and not (
+            written.expr.free_symbols - {_X, _Y} and letter != _X
+        )
+        if sideways or not written.expr.free_symbols <= {letter}:
             continue
         # "v(t)" names what an axis measures, as does a formula written with its unit
         # ("F = (9 - x/2) N"); "k(x)" only names a function.

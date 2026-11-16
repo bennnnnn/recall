@@ -29,7 +29,7 @@ from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.turn_intercepts import may_be_a_maths_picture
 from app.modules.chat.turn_trace import note_prompt_rule
 from app.modules.turn_reading.turn import current_turn_reading
-from app.services.solving import VerifiedMathBlock
+from app.services.solving import VerifiedMathBlock, VerifiedPhysicsBlock, VerifiedSolveBlock
 from app.services.subjects.registry import SubjectFigure, subject_adapter
 
 if TYPE_CHECKING:
@@ -117,6 +117,20 @@ async def _read_for_a_picture(ctx: StreamContext, deadline: float) -> TurnDecisi
     return task.result()
 
 
+# The kind of graph a physics solve draws against time (a v-t or x-t trajectory).
+_TIME_GRAPH = "trajectory"
+
+
+def _solver_graphed(verified: VerifiedSolveBlock | None) -> bool:
+    """A physics solve's card already draws a graph against time: no second graph of the
+    reply's beside it."""
+    if not isinstance(verified, VerifiedPhysicsBlock):
+        return False
+    blocks = [verified, *verified.question_parts]
+    specs = [s for b in blocks for s in (b.canonical_fence, *b.canonical_fences) if s]
+    return any(spec.get("type") == _TIME_GRAPH for spec in specs)
+
+
 def _wants_a_drawing(read: TurnDecision) -> bool:
     """The read calls the message a maths question asking to see a picture a description
     draws, a diagram's figure or a graph, or a physics question asking to see a graph: a
@@ -166,6 +180,8 @@ async def ask_for_a_drawing(
     asked: Literal["read", "words"] | None = None
     if read is not None and read.subject is not None and read.picture is not None:
         asked = "read" if _wants_a_drawing(read) else None
+        if read.subject == "physics" and _solver_graphed(ctx.verified_subject):
+            asked = None  # the physics card already carries its graph against time
     elif _a_maths_turn(ctx) and _asks_in_words(ctx):
         asked = "words"
     if asked is None:

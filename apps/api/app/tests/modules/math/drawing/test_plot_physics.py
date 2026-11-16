@@ -72,9 +72,9 @@ _U5_089 = (
     [
         (_U5_088, {"a": "7*t/2", "v": "7*t**2/4 + 8", "s": "7*t**3/12 + 8*t - 32/3"}),
         (_U5_089, {"a": "-3*t**2/2", "v": "4 - t**3/2", "s": "4*t - t**4/8"}),
-        # From rest at the start: v(0) = 0; no position stated, no displacement.
+        # From rest at the start: v(0) = 0, and its displacement is from where it starts.
         ("A body moves from rest with acceleration (6t - 2) m/s². Draw its v-t graph.",
-         {"a": "6*t - 2", "v": "3*t**2 - 2*t"}),
+         {"a": "6*t - 2", "v": "3*t**2 - 2*t", "s": "t**3 - t**2"}),
         # No velocity stated: only the acceleration.
         ("A particle moves with acceleration 2t m/s². Sketch a against t.", {"a": "2*t"}),
     ],
@@ -151,3 +151,53 @@ def test_a_velocity_described_in_x_is_the_question_s_v_of_t() -> None:
     graph = _plot(_U5_088, _curve("v", "1.75*x^2 + 8"))
     assert graph is not None and [c.label for c in graph.curves] == ["v = 7t²/4 + 8"]
     assert _plot(_U5_088, _curve("v", "1.75*x^2 + 9")) is None
+
+
+@pytest.mark.parametrize(
+    ("question", "formulas"),
+    [
+        # Each value at the time its own clause names, in either order.
+        ("A particle moves with acceleration 6t m/s². When t = 1 s it has velocity 4 m/s, and "
+         "when t = 3 s it is 20 m from O. Sketch s.",
+         {"a": "6*t", "v": "3*t**2 + 1", "s": "t**3 + t - 10"}),
+        ("A particle moves with acceleration 6t m/s². It is 20 m from O when t = 3 s, and its "
+         "velocity is 4 m/s when t = 1 s. Sketch s.",
+         {"a": "6*t", "v": "3*t**2 + 1", "s": "t**3 + t - 10"}),
+        # At rest at the start and 10 m/s after 4 s: no v(t) = t² + C holds both.
+        ("Initially at rest, after 4 s a particle has velocity 10 m/s. It moves with "
+         "acceleration 2t m/s². Sketch v.", {"a": "2*t"}),
+        # From rest is no place it starts from: s(2) = 10 alone fixes s.
+        ("A particle starts from rest. Its acceleration is 6t m/s². When t = 2 s it is 10 m "
+         "from O. Sketch s.", {"a": "6*t", "v": "3*t**2", "s": "t**3 + 2"}),
+        ("A particle's acceleration is 4t m/s². At t = 0 its velocity is 3 m/s and it is 5 m "
+         "from O.", {"a": "4*t", "v": "2*t**2 + 3", "s": "2*t**3/3 + 3*t + 5"}),
+        # "is", and the units m s^-2, ms^-2 and ms^-1.
+        ("The acceleration is 2t m s^-2. When t = 0 it has velocity 1 m/s.",
+         {"a": "2*t", "v": "t**2 + 1"}),
+        ("A particle moves with acceleration 6t ms^-2. When t = 0 it has velocity 1 ms^-1.",
+         {"a": "6*t", "v": "3*t**2 + 1"}),
+        # A constant acceleration, said at no one time.
+        ("A car starts from rest with acceleration 2 m/s². Draw the v-t graph for 5 s.",
+         {"a": "2", "v": "2*t", "s": "t**2"}),
+        ("When t = 2 s its acceleration is 3 m/s² and its velocity is 4 m/s. Sketch v.", {}),
+    ],
+)  # fmt: skip
+def test_each_value_is_said_at_its_own_time(question: str, formulas: dict[str, str]) -> None:
+    test_the_motion_is_worked_out_from_the_values_it_states(question, formulas)
+
+
+@pytest.mark.parametrize(
+    ("question", "y", "drawn"),
+    [
+        # A letter the question gives a value is a factor, never a unit.
+        ("Sketch y = (x + 1) m, where m = 3.", "x + 1", False),
+        # A unit after the formula's own variable.
+        ("The position of a particle is x = t^2 - 4t m. Sketch x against t.", "t^2 - 4t", True),
+        # The formula ends where prose begins.
+        ("A force F = (9 - x/2) N moves a body through a displacement of 10 m, where x is the "
+         "displacement. Sketch F against x.", "9 - x/2", True),
+        ("A particle has velocity v = (4 - t) m s. Sketch v.", "4 - t", True),
+    ],
+)  # fmt: skip
+def test_a_unit_is_read_only_where_it_is_one(question: str, y: str, drawn: bool) -> None:
+    assert (_plot(question, _curve("f", y)) is not None) is drawn
