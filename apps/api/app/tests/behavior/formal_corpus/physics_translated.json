@@ -1,0 +1,1202 @@
+[
+ {
+  "id": "h-kin-01-es",
+  "source": "h-kin-01",
+  "locale": "es",
+  "prompt": "mi coche pasa de 0 a 100 km/h en 8 segundos, ¿cuál es la aceleración en m/s^2?",
+  "answer": [
+   3.47222,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "h-kin-01-fr",
+  "source": "h-kin-01",
+  "locale": "fr",
+  "prompt": "ma voiture passe de 0 à 100 km/h en 8 secondes, quelle est l'accélération en m/s^2",
+  "answer": [
+   3.47222,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "h-kin-01-am",
+  "source": "h-kin-01",
+  "locale": "am",
+  "prompt": "መኪናዬ ከ0 ወደ 100 km/h በ8 ሰከንድ ይሄዳል፣ ፍጥነቱ በ m/s^2 ስንት ነው?",
+  "answer": [
+   3.47222,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "h-kin-01-ru",
+  "source": "h-kin-01",
+  "locale": "ru",
+  "prompt": "моя машина разгоняется от 0 до 100 км/ч за 8 секунд, какое ускорение в м/с^2",
+  "answer": [
+   3.47222,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "h-kin-02-es",
+  "source": "h-kin-02",
+  "locale": "es",
+  "prompt": "Un camión reduce su velocidad de 72 km/h a 36 km/h en 5 s. Encuentra su aceleración.",
+  "answer": [
+   -2.0,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "h-kin-02-fr",
+  "source": "h-kin-02",
+  "locale": "fr",
+  "prompt": "Un camion ralentit de 72 km/h à 36 km/h en 5 s. Trouve son accélération.",
+  "answer": [
+   -2.0,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "h-kin-02-am",
+  "source": "h-kin-02",
+  "locale": "am",
+  "prompt": "አንድ የጭነት መኪና ከ72 km/h ወደ 36 km/h በ5 s ውስጥ ፍጥነቱን ይቀንሳል። ፍጥነቱን (acceleration) ፈልግ።",
+  "answer": [
+   -2.0,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "h-kin-02-ru",
+  "source": "h-kin-02",
+  "locale": "ru",
+  "prompt": "Грузовик замедляется с 72 км/ч до 36 км/ч за 5 с. Найдите его ускорение.",
+  "answer": [
+   -2.0,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "h-kin-03-es",
+  "source": "h-kin-03",
+  "locale": "es",
+  "prompt": "Una atleta corre a 6 m/s durante 2 minutos. ¿Qué distancia recorre?",
+  "answer": [
+   720.0,
+   "m"
+  ]
+ },
+ {
+  "id": "h-kin-03-fr",
+  "source": "h-kin-03",
+  "locale": "fr",
+  "prompt": "Une athlète court à 6 m/s pendant 2 minutes. Quelle distance parcourt-elle ?",
+  "answer": [
+   720.0,
+   "m"
+  ]
+ },
+ {
+  "id": "h-kin-03-am",
+  "source": "h-kin-03",
+  "locale": "am",
+  "prompt": "አንድ አትሌት በ6 m/s ለ2 ደቂቃ ትመራለች። ምን ያህል ርቀት ትመራለች?",
+  "answer": [
+   720.0,
+   "m"
+  ]
+ },
+ {
+  "id": "h-kin-03-ru",
+  "source": "h-kin-03",
+  "locale": "ru",
+  "prompt": "Спортсменка бежит со скоростью 6 м/с в течение 2 минут. Какое расстояние она пробежит?",
+  "answer": [
+   720.0,
+   "m"
+  ]
+ },
+ {
+  "id": "h-kin-04-es",
+  "source": "h-kin-04",
+  "locale": "es",
+  "prompt": "¿Cuánto tarda la luz en recorrer 3000 km?",
+  "answer": [
+   0.0100067,
+   "s"
+  ]
+ },
+ {
+  "id": "h-kin-04-fr",
+  "source": "h-kin-04",
+  "locale": "fr",
+  "prompt": "Combien de temps la lumière met-elle pour parcourir 3000 km ?",
+  "answer": [
+   0.0100067,
+   "s"
+  ]
+ },
+ {
+  "id": "h-kin-04-am",
+  "source": "h-kin-04",
+  "locale": "am",
+  "prompt": "ብርሃን 3000 km ለመሻገር ምን ያህል ጊዜ ይወስዳል?",
+  "answer": [
+   0.0100067,
+   "s"
+  ]
+ },
+ {
+  "id": "h-kin-04-ru",
+  "source": "h-kin-04",
+  "locale": "ru",
+  "prompt": "Сколько времени свет проходит 3000 км?",
+  "answer": [
+   0.0100067,
+   "s"
+  ]
+ },
+ {
+  "id": "h-kin-05-es",
+  "source": "h-kin-05",
+  "locale": "es",
+  "prompt": "Una bici parte del reposo y alcanza 12 m/s en 4 s. ¿Qué distancia recorre en este tiempo?",
+  "answer": [
+   24.0,
+   "m"
+  ]
+ },
+ {
+  "id": "h-kin-05-fr",
+  "source": "h-kin-05",
+  "locale": "fr",
+  "prompt": "Un vélo part du repos et atteint 12 m/s en 4 s. Quelle distance parcourt-il pendant ce temps ?",
+  "answer": [
+   24.0,
+   "m"
+  ]
+ },
+ {
+  "id": "h-kin-05-am",
+  "source": "h-kin-05",
+  "locale": "am",
+  "prompt": "አንድ ብስክሌት ከእረፍት ተነስቶ በ4 s ውስጥ 12 m/s ይደርሳል። በዚህ ጊዜ ውስጥ ምን ያህል ርቀት ይጓዛል?",
+  "answer": [
+   24.0,
+   "m"
+  ]
+ },
+ {
+  "id": "h-kin-05-ru",
+  "source": "h-kin-05",
+  "locale": "ru",
+  "prompt": "Велосипед начинает движение из состояния покоя и достигает 12 м/с за 4 с. Какое расстояние он проезжает за это время?",
+  "answer": [
+   24.0,
+   "m"
+  ]
+ },
+ {
+  "id": "h-kin-06-es",
+  "source": "h-kin-06",
+  "locale": "es",
+  "prompt": "Una piedra se deja caer desde el reposo. ¿Cuánto cae en 2 segundos?",
+  "answer": [
+   19.62,
+   "m"
+  ]
+ },
+ {
+  "id": "h-kin-06-fr",
+  "source": "h-kin-06",
+  "locale": "fr",
+  "prompt": "Une pierre est lâchée depuis le repos. Quelle distance parcourt-elle en 2 secondes ?",
+  "answer": [
+   19.62,
+   "m"
+  ]
+ },
+ {
+  "id": "h-kin-06-am",
+  "source": "h-kin-06",
+  "locale": "am",
+  "prompt": "ድንጋይ ከእረፍት ላይ ይጣላል። በ2 ሰከንድ ውስጥ ምን ያህል ይወድቃል?",
+  "answer": [
+   19.62,
+   "m"
+  ]
+ },
+ {
+  "id": "h-kin-06-ru",
+  "source": "h-kin-06",
+  "locale": "ru",
+  "prompt": "Камень падает из состояния покоя. Какое расстояние он пролетит за 2 секунды?",
+  "answer": [
+   19.62,
+   "m"
+  ]
+ },
+ {
+  "id": "h-kin-07-es",
+  "source": "h-kin-07",
+  "locale": "es",
+  "prompt": "Un coche que se mueve a 20 m/s acelera a 1.5 m/s^2 durante 10 s. ¿Cuál es su velocidad final?",
+  "answer": [
+   35.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "h-kin-07-fr",
+  "source": "h-kin-07",
+  "locale": "fr",
+  "prompt": "Une voiture roulant à 20 m/s accélère à 1,5 m/s^2 pendant 10 s. Quelle est sa vitesse finale ?",
+  "answer": [
+   35.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "h-kin-07-am",
+  "source": "h-kin-07",
+  "locale": "am",
+  "prompt": "20 m/s በሚጓዝ መኪና 1.5 m/s^2 በ 10 s ካፋጠነ፣ የመጨረሻ ፍጥነቱ ስንት ነው?",
+  "answer": [
+   35.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "h-kin-07-ru",
+  "source": "h-kin-07",
+  "locale": "ru",
+  "prompt": "Автомобиль, движущийся со скоростью 20 м/с, ускоряется с ускорением 1.5 м/с^2 в течение 10 с. Какова его конечная скорость?",
+  "answer": [
+   35.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "h-kin-08-es",
+  "source": "h-kin-08",
+  "locale": "es",
+  "prompt": "Un objeto acelera uniformemente de 3 m/s a 15 m/s en 36 m. Halla el tiempo empleado.",
+  "answer": [
+   4.0,
+   "s"
+  ]
+ },
+ {
+  "id": "h-kin-08-fr",
+  "source": "h-kin-08",
+  "locale": "fr",
+  "prompt": "Un objet accélère uniformément de 3 m/s à 15 m/s sur 36 m. Trouve le temps mis.",
+  "answer": [
+   4.0,
+   "s"
+  ]
+ },
+ {
+  "id": "h-kin-08-am",
+  "source": "h-kin-08",
+  "locale": "am",
+  "prompt": "አንድ ነገር በተመሳሳይ ፍጥነት ከ 3 m/s ወደ 15 m/s በ 36 m ውስጥ ይፋጠናል። የወሰደውን ጊዜ ፈልግ።",
+  "answer": [
+   4.0,
+   "s"
+  ]
+ },
+ {
+  "id": "h-kin-08-ru",
+  "source": "h-kin-08",
+  "locale": "ru",
+  "prompt": "Объект равноускоренно движется от 3 м/с до 15 м/с на расстоянии 36 м. Найдите затраченное время.",
+  "answer": [
+   4.0,
+   "s"
+  ]
+ },
+ {
+  "id": "h-kin-09-es",
+  "source": "h-kin-09",
+  "locale": "es",
+  "prompt": "Un coche frena de 30 m/s a 10 m/s en 4 s. ¿Qué distancia recorre durante el frenado?",
+  "answer": [
+   80.0,
+   "m"
+  ]
+ },
+ {
+  "id": "h-kin-09-fr",
+  "source": "h-kin-09",
+  "locale": "fr",
+  "prompt": "Une voiture freine de 30 m/s à 10 m/s en 4 s. Quelle distance parcourt-elle pendant le freinage ?",
+  "answer": [
+   80.0,
+   "m"
+  ]
+ },
+ {
+  "id": "h-kin-09-am",
+  "source": "h-kin-09",
+  "locale": "am",
+  "prompt": "አንድ መኪና ከ 30 m/s ወደ 10 m/s በ 4 s ውስጥ ብሬክ ያደርጋል። በብሬክ ጊዜ ምን ያህል ርቀት ይጓዛል?",
+  "answer": [
+   80.0,
+   "m"
+  ]
+ },
+ {
+  "id": "h-kin-09-ru",
+  "source": "h-kin-09",
+  "locale": "ru",
+  "prompt": "Автомобиль тормозит с 30 м/с до 10 м/с за 4 с. Какой путь он проходит за время торможения?",
+  "answer": [
+   80.0,
+   "m"
+  ]
+ },
+ {
+  "id": "h-kin-10-es",
+  "source": "h-kin-10",
+  "locale": "es",
+  "prompt": "Un cohete parte del reposo y acelera a 15 m/s^2. ¿Qué distancia ha recorrido después de 6 s?",
+  "answer": [
+   270.0,
+   "m"
+  ]
+ },
+ {
+  "id": "h-kin-10-fr",
+  "source": "h-kin-10",
+  "locale": "fr",
+  "prompt": "Une fusée démarre au repos et accélère à 15 m/s^2. Quelle distance a-t-elle parcourue après 6 s ?",
+  "answer": [
+   270.0,
+   "m"
+  ]
+ },
+ {
+  "id": "h-kin-10-am",
+  "source": "h-kin-10",
+  "locale": "am",
+  "prompt": "አንድ ሮኬት ከእረፍት ተነስቶ በ15 m/s^2 ይፋጠናል። ከ6 s በኋላ ምን ያህል ርቀት ተጓዘ?",
+  "answer": [
+   270.0,
+   "m"
+  ]
+ },
+ {
+  "id": "h-kin-10-ru",
+  "source": "h-kin-10",
+  "locale": "ru",
+  "prompt": "Ракета начинает движение из состояния покоя и ускоряется с 15 m/s^2. Какой путь она прошла через 6 s?",
+  "answer": [
+   270.0,
+   "m"
+  ]
+ },
+ {
+  "id": "h-fall-01-es",
+  "source": "h-fall-01",
+  "locale": "es",
+  "prompt": "Se deja caer una piedra desde un puente de 78 m. ¿Cuánto tiempo tarda en salpicar al río?",
+  "answer": [
+   3.98775,
+   "s"
+  ]
+ },
+ {
+  "id": "h-fall-01-fr",
+  "source": "h-fall-01",
+  "locale": "fr",
+  "prompt": "Un caillou est lâché du haut d'un pont de 78 m. Combien de temps faut-il avant qu'il ne fasse des éclaboussures dans la rivière ?",
+  "answer": [
+   3.98775,
+   "s"
+  ]
+ },
+ {
+  "id": "h-fall-01-am",
+  "source": "h-fall-01",
+  "locale": "am",
+  "prompt": "አንድ ጠጠር ከ78 m ድልድይ ላይ ይጣላል። ወደ ወንዙ ለመውደቅ ምን ያህል ጊዜ ይወስዳል?",
+  "answer": [
+   3.98775,
+   "s"
+  ]
+ },
+ {
+  "id": "h-fall-01-ru",
+  "source": "h-fall-01",
+  "locale": "ru",
+  "prompt": "Камень падает с моста высотой 78 м. Через сколько времени он плеснёт в реку?",
+  "answer": [
+   3.98775,
+   "s"
+  ]
+ },
+ {
+  "id": "h-fall-02-es",
+  "source": "h-fall-02",
+  "locale": "es",
+  "prompt": "Una pelota se lanza verticalmente hacia arriba a 25 m/s. Encuentra el tiempo para alcanzar la altura máxima.",
+  "answer": [
+   2.54842,
+   "s"
+  ]
+ },
+ {
+  "id": "h-fall-02-fr",
+  "source": "h-fall-02",
+  "locale": "fr",
+  "prompt": "Une balle est lancée verticalement vers le haut à 25 m/s. Trouve le temps pour atteindre le sommet.",
+  "answer": [
+   2.54842,
+   "s"
+  ]
+ },
+ {
+  "id": "h-fall-02-am",
+  "source": "h-fall-02",
+  "locale": "am",
+  "prompt": "አንድ ኳስ በ 25 m/s ቀጥ ብሎ ወደ ላይ ይወረወራል። ወደ ላይ ለመድረስ የሚወስደውን ጊዜ ፈልግ።",
+  "answer": [
+   2.54842,
+   "s"
+  ]
+ },
+ {
+  "id": "h-fall-02-ru",
+  "source": "h-fall-02",
+  "locale": "ru",
+  "prompt": "Мяч брошен вертикально вверх со скоростью 25 м/с. Найдите время подъёма до верхней точки.",
+  "answer": [
+   2.54842,
+   "s"
+  ]
+ },
+ {
+  "id": "h-fall-03-es",
+  "source": "h-fall-03",
+  "locale": "es",
+  "prompt": "Una pelota se lanza verticalmente hacia arriba a 18 m/s. ¿Qué altura máxima alcanza?",
+  "answer": [
+   16.5138,
+   "m"
+  ]
+ },
+ {
+  "id": "h-fall-03-fr",
+  "source": "h-fall-03",
+  "locale": "fr",
+  "prompt": "Une balle est lancée verticalement vers le haut à 18 m/s. Quelle hauteur maximale atteint-elle ?",
+  "answer": [
+   16.5138,
+   "m"
+  ]
+ },
+ {
+  "id": "h-fall-03-am",
+  "source": "h-fall-03",
+  "locale": "am",
+  "prompt": "አንድ ኳስ በ18 m/s በአቀባዊ ወደ ላይ ይወረወራል። የሚደርሰው ከፍተኛ ከፍታ ስንት ነው?",
+  "answer": [
+   16.5138,
+   "m"
+  ]
+ },
+ {
+  "id": "h-fall-03-ru",
+  "source": "h-fall-03",
+  "locale": "ru",
+  "prompt": "Мяч бросают вертикально вверх со скоростью 18 м/с. Какой максимальной высоты он достигнет?",
+  "answer": [
+   16.5138,
+   "m"
+  ]
+ },
+ {
+  "id": "h-fall-04-es",
+  "source": "h-fall-04",
+  "locale": "es",
+  "prompt": "¿A qué velocidad cae un paracaidista 3 s después de saltar, ignorando la resistencia del aire?",
+  "answer": [
+   29.43,
+   "m/s"
+  ]
+ },
+ {
+  "id": "h-fall-04-fr",
+  "source": "h-fall-04",
+  "locale": "fr",
+  "prompt": "À quelle vitesse un parachutiste chute-t-il 3 s après avoir sauté, en ignorant la résistance de l'air ?",
+  "answer": [
+   29.43,
+   "m/s"
+  ]
+ },
+ {
+  "id": "h-fall-04-am",
+  "source": "h-fall-04",
+  "locale": "am",
+  "prompt": "አንድ ስካይዳይቨር ከዘለለ ከ3 s በኋላ ምን ያህል ፍጥነት ይወድቃል፣ የአየር መቋቋምን ችላ ብንል?",
+  "answer": [
+   29.43,
+   "m/s"
+  ]
+ },
+ {
+  "id": "h-fall-04-ru",
+  "source": "h-fall-04",
+  "locale": "ru",
+  "prompt": "Как быстро падает парашютист через 3 с после прыжка, без учёта сопротивления воздуха?",
+  "answer": [
+   29.43,
+   "m/s"
+  ]
+ },
+ {
+  "id": "h-fall-05-es",
+  "source": "h-fall-05",
+  "locale": "es",
+  "prompt": "Un huevo se cae de un mostrador de 1,5 m. ¿Cuánto tiempo tarda en llegar al suelo?",
+  "answer": [
+   0.553001,
+   "s"
+  ]
+ },
+ {
+  "id": "h-fall-05-fr",
+  "source": "h-fall-05",
+  "locale": "fr",
+  "prompt": "Un œuf tombe d'un comptoir de 1,5 m. Combien de temps avant qu'il touche le sol ?",
+  "answer": [
+   0.553001,
+   "s"
+  ]
+ },
+ {
+  "id": "h-fall-05-am",
+  "source": "h-fall-05",
+  "locale": "am",
+  "prompt": "አንድ እንቁላል ከ1.5 m ጠረጴዛ ላይ ወደቀ። ወለሉን ለመድረስ ምን ያህል ጊዜ ይወስዳል?",
+  "answer": [
+   0.553001,
+   "s"
+  ]
+ },
+ {
+  "id": "h-fall-05-ru",
+  "source": "h-fall-05",
+  "locale": "ru",
+  "prompt": "Яйцо падает со стола высотой 1.5 м. Сколько времени пройдёт до удара об пол?",
+  "answer": [
+   0.553001,
+   "s"
+  ]
+ },
+ {
+  "id": "h-proj-01-es",
+  "source": "h-proj-01",
+  "locale": "es",
+  "prompt": "Se patea un balón de fútbol a 18 m/s con un ángulo de 35 grados sobre la horizontal. ¿Qué distancia recorre?",
+  "answer": [
+   31.0357,
+   "m"
+  ]
+ },
+ {
+  "id": "h-proj-01-fr",
+  "source": "h-proj-01",
+  "locale": "fr",
+  "prompt": "Un ballon de football est frappé à 18 m/s à 35 degrés au-dessus de l'horizontale. Quelle distance parcourt-il ?",
+  "answer": [
+   31.0357,
+   "m"
+  ]
+ },
+ {
+  "id": "h-proj-01-am",
+  "source": "h-proj-01",
+  "locale": "am",
+  "prompt": "አንድ የእግር ኳስ ከአድማስ በላይ በ35 ዲግሪ በ18 m/s ተመታ። ምን ያህል ይሄዳል?",
+  "answer": [
+   31.0357,
+   "m"
+  ]
+ },
+ {
+  "id": "h-proj-01-ru",
+  "source": "h-proj-01",
+  "locale": "ru",
+  "prompt": "Футбольный мяч ударен со скоростью 18 м/с под углом 35 градусов к горизонту. Какое расстояние он пролетит?",
+  "answer": [
+   31.0357,
+   "m"
+  ]
+ },
+ {
+  "id": "h-proj-02-es",
+  "source": "h-proj-02",
+  "locale": "es",
+  "prompt": "Un carrito de juguete rueda desde una mesa de 0.8 m de altura a 2 m/s. ¿A qué distancia de la mesa cae?",
+  "answer": [
+   0.80771,
+   "m"
+  ]
+ },
+ {
+  "id": "h-proj-02-fr",
+  "source": "h-proj-02",
+  "locale": "fr",
+  "prompt": "Une petite voiture roule au bord d'une table de 0,8 m de haut à 2 m/s. À quelle distance de la table atterrit-elle ?",
+  "answer": [
+   0.80771,
+   "m"
+  ]
+ },
+ {
+  "id": "h-proj-02-am",
+  "source": "h-proj-02",
+  "locale": "am",
+  "prompt": "አንድ የአሻንጉሊት መኪና ከ0.8 m ከፍታ ካለው ጠረጴዛ ላይ በ2 m/s ፍጥነት ወደታች ይንሸራተታል። ከጠረጴዛው ምን ያህል ርቀት ላይ ይወድቃል?",
+  "answer": [
+   0.80771,
+   "m"
+  ]
+ },
+ {
+  "id": "h-proj-02-ru",
+  "source": "h-proj-02",
+  "locale": "ru",
+  "prompt": "Игрушечная машинка скатывается со стола высотой 0,8 м со скоростью 2 м/с. На каком расстоянии от стола она приземлится?",
+  "answer": [
+   0.80771,
+   "m"
+  ]
+ },
+ {
+  "id": "h-proj-03-es",
+  "source": "h-proj-03",
+  "locale": "es",
+  "prompt": "Una flecha se dispara a 50 m/s a 15°. ¿Cuál es su tiempo de vuelo?",
+  "answer": [
+   2.63832,
+   "s"
+  ]
+ },
+ {
+  "id": "h-proj-03-fr",
+  "source": "h-proj-03",
+  "locale": "fr",
+  "prompt": "Une flèche est tirée à 50 m/s à 15°. Quel est son temps de vol ?",
+  "answer": [
+   2.63832,
+   "s"
+  ]
+ },
+ {
+  "id": "h-proj-03-am",
+  "source": "h-proj-03",
+  "locale": "am",
+  "prompt": "ቀስት በ50 m/s በ15° ይተኮሳል። የበረራ ጊዜው ስንት ነው?",
+  "answer": [
+   2.63832,
+   "s"
+  ]
+ },
+ {
+  "id": "h-proj-03-ru",
+  "source": "h-proj-03",
+  "locale": "ru",
+  "prompt": "Стрела выпущена со скоростью 50 м/с под углом 15°. Каково время полёта?",
+  "answer": [
+   2.63832,
+   "s"
+  ]
+ },
+ {
+  "id": "h-proj-04-es",
+  "source": "h-proj-04",
+  "locale": "es",
+  "prompt": "Se lanza un globo de agua horizontalmente a 6 m/s desde una ventana de 20 m de altura. ¿Cuánto tiempo está en el aire?",
+  "answer": [
+   2.01928,
+   "s"
+  ]
+ },
+ {
+  "id": "h-proj-04-fr",
+  "source": "h-proj-04",
+  "locale": "fr",
+  "prompt": "Un ballon d'eau est lancé horizontalement à 6 m/s depuis une fenêtre de 20 m de haut. Combien de temps reste-t-il en l'air ?",
+  "answer": [
+   2.01928,
+   "s"
+  ]
+ },
+ {
+  "id": "h-proj-04-am",
+  "source": "h-proj-04",
+  "locale": "am",
+  "prompt": "የውሃ ፊኛ ከ20 m ከፍታ ያለው መስኮት ላይ በ6 m/s በአግድመት ይወረወራል። በአየር ላይ ምን ያህል ጊዜ ይቆያል?",
+  "answer": [
+   2.01928,
+   "s"
+  ]
+ },
+ {
+  "id": "h-proj-04-ru",
+  "source": "h-proj-04",
+  "locale": "ru",
+  "prompt": "С воздушного шарика с водой бросают горизонтально со скоростью 6 м/с из окна высотой 20 м. Сколько времени он находится в воздухе?",
+  "answer": [
+   2.01928,
+   "s"
+  ]
+ },
+ {
+  "id": "h-force-01-es",
+  "source": "h-force-01",
+  "locale": "es",
+  "prompt": "¿Cuánta fuerza se necesita para acelerar a un velocista de 70 kg a 4 m/s^2?",
+  "answer": [
+   280.0,
+   "N"
+  ]
+ },
+ {
+  "id": "h-force-01-fr",
+  "source": "h-force-01",
+  "locale": "fr",
+  "prompt": "Combien de force faut-il pour accélérer un sprinteur de 70 kg à 4 m/s^2 ?",
+  "answer": [
+   280.0,
+   "N"
+  ]
+ },
+ {
+  "id": "h-force-01-am",
+  "source": "h-force-01",
+  "locale": "am",
+  "prompt": "70 kg የሆነ ሯጭን በ4 m/s^2 ለማፋጠን ምን ያህል ኃይል ይፈጃል?",
+  "answer": [
+   280.0,
+   "N"
+  ]
+ },
+ {
+  "id": "h-force-01-ru",
+  "source": "h-force-01",
+  "locale": "ru",
+  "prompt": "Сколько силы нужно, чтобы разогнать спринтера массой 70 кг с ускорением 4 м/с^2?",
+  "answer": [
+   280.0,
+   "N"
+  ]
+ },
+ {
+  "id": "h-force-02-es",
+  "source": "h-force-02",
+  "locale": "es",
+  "prompt": "Un objeto de 3 kg es empujado con una fuerza neta de 12 N. Encuentra su aceleración.",
+  "answer": [
+   4.0,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "h-force-02-fr",
+  "source": "h-force-02",
+  "locale": "fr",
+  "prompt": "Un objet de 3 kg est poussé avec une force nette de 12 N. Trouve son accélération.",
+  "answer": [
+   4.0,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "h-force-02-am",
+  "source": "h-force-02",
+  "locale": "am",
+  "prompt": "3 kg የሆነ ነገር በ12 N የተጣራ ኃይል ይገፋል። ማጣደፉን ፈልግ።",
+  "answer": [
+   4.0,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "h-force-02-ru",
+  "source": "h-force-02",
+  "locale": "ru",
+  "prompt": "Объект массой 3 кг толкают с равнодействующей силой 12 Н. Найдите его ускорение.",
+  "answer": [
+   4.0,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "h-force-03-es",
+  "source": "h-force-03",
+  "locale": "es",
+  "prompt": "¿Cuál es la masa de un objeto que pesa 490 N en la Tierra?",
+  "answer": [
+   49.949,
+   "kg"
+  ]
+ },
+ {
+  "id": "h-force-03-fr",
+  "source": "h-force-03",
+  "locale": "fr",
+  "prompt": "Quelle est la masse d'un objet qui pèse 490 N sur Terre ?",
+  "answer": [
+   49.949,
+   "kg"
+  ]
+ },
+ {
+  "id": "h-force-03-am",
+  "source": "h-force-03",
+  "locale": "am",
+  "prompt": "በምድር ላይ 490 N የሚመዝን ነገር መጠኑ ስንት ነው?",
+  "answer": [
+   49.949,
+   "kg"
+  ]
+ },
+ {
+  "id": "h-force-03-ru",
+  "source": "h-force-03",
+  "locale": "ru",
+  "prompt": "Какова масса объекта, который весит 490 Н на Земле?",
+  "answer": [
+   49.949,
+   "kg"
+  ]
+ },
+ {
+  "id": "h-force-04-es",
+  "source": "h-force-04",
+  "locale": "es",
+  "prompt": "Una fuerza de 900 N acelera una moto a 3 m/s^2. ¿Cuál es la masa de la moto?",
+  "answer": [
+   300.0,
+   "kg"
+  ]
+ },
+ {
+  "id": "h-force-04-fr",
+  "source": "h-force-04",
+  "locale": "fr",
+  "prompt": "Une force de 900 N accélère une moto à 3 m/s^2. Quelle est la masse de la moto ?",
+  "answer": [
+   300.0,
+   "kg"
+  ]
+ },
+ {
+  "id": "h-force-04-am",
+  "source": "h-force-04",
+  "locale": "am",
+  "prompt": "900 N ኃይል ሞተር ብስክሌትን በ 3 m/s^2 ያፋጥናል። የሞተር ብስክሌቱ ክብደት ስንት ነው?",
+  "answer": [
+   300.0,
+   "kg"
+  ]
+ },
+ {
+  "id": "h-force-04-ru",
+  "source": "h-force-04",
+  "locale": "ru",
+  "prompt": "Сила 900 Н ускоряет мотоцикл на 3 м/с^2. Какова масса мотоцикла?",
+  "answer": [
+   300.0,
+   "kg"
+  ]
+ },
+ {
+  "id": "h-force-05-es",
+  "source": "h-force-05",
+  "locale": "es",
+  "prompt": "Un ascensor de masa 600 kg acelera hacia arriba a 1,5 m/s^2. Calcula la tensión del cable.",
+  "answer": [
+   6786.0,
+   "N"
+  ]
+ },
+ {
+  "id": "h-force-05-fr",
+  "source": "h-force-05",
+  "locale": "fr",
+  "prompt": "Un ascenseur de masse 600 kg accélère vers le haut à 1,5 m/s^2. Trouve la tension du câble.",
+  "answer": [
+   6786.0,
+   "N"
+  ]
+ },
+ {
+  "id": "h-force-05-am",
+  "source": "h-force-05",
+  "locale": "am",
+  "prompt": "600 kg የሆነ ሊፍት ወደ ላይ በ 1.5 m/s^2 ይፋጠናል። በኬብሉ ውስጥ ያለውን ውጥረት ፈልግ።",
+  "answer": [
+   6786.0,
+   "N"
+  ]
+ },
+ {
+  "id": "h-force-05-ru",
+  "source": "h-force-05",
+  "locale": "ru",
+  "prompt": "Лифт массой 600 кг разгоняется вверх с ускорением 1,5 м/с^2. Найдите натяжение троса.",
+  "answer": [
+   6786.0,
+   "N"
+  ]
+ },
+ {
+  "id": "h-force-06-es",
+  "source": "h-force-06",
+  "locale": "es",
+  "prompt": "Un paracaidista de 75 kg cae a una velocidad terminal constante. ¿Cuál es la fuerza de resistencia sobre él?",
+  "answer": [
+   735.75,
+   "N"
+  ]
+ },
+ {
+  "id": "h-force-06-fr",
+  "source": "h-force-06",
+  "locale": "fr",
+  "prompt": "Un parachutiste de 75 kg tombe à une vitesse terminale constante. Quelle est la force de traînée qui s'exerce sur lui ?",
+  "answer": [
+   735.75,
+   "N"
+  ]
+ },
+ {
+  "id": "h-force-06-am",
+  "source": "h-force-06",
+  "locale": "am",
+  "prompt": "75 kg የሆነ የፓራሹት ተንሳፋፊ በቋሚ የመጨረሻ ፍጥነት ይወድቃል። በእሱ ላይ ያለው የመጎተት ኃይል ስንት ነው?",
+  "answer": [
+   735.75,
+   "N"
+  ]
+ },
+ {
+  "id": "h-force-06-ru",
+  "source": "h-force-06",
+  "locale": "ru",
+  "prompt": "Парашютист массой 75 кг падает с постоянной терминальной скоростью. Какова сила сопротивления, действующая на него?",
+  "answer": [
+   735.75,
+   "N"
+  ]
+ },
+ {
+  "id": "h-force-07-es",
+  "source": "h-force-07",
+  "locale": "es",
+  "prompt": "Una fuerza neta de 50 N actúa sobre un carrito de 10 kg que parte del reposo durante 4 s. ¿A qué velocidad va?",
+  "answer": [
+   20.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "h-force-07-fr",
+  "source": "h-force-07",
+  "locale": "fr",
+  "prompt": "Une force nette de 50 N agit sur un chariot de 10 kg à partir du repos pendant 4 s. À quelle vitesse va-t-il ?",
+  "answer": [
+   20.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "h-force-07-am",
+  "source": "h-force-07",
+  "locale": "am",
+  "prompt": "50 N የተጣራ ኃይል ከእረፍት ጀምሮ በ10 kg ትሮሊ ላይ ለ4 s ይሠራል። ምን ያህል ፍጥነት ይኖረዋል?",
+  "answer": [
+   20.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "h-force-07-ru",
+  "source": "h-force-07",
+  "locale": "ru",
+  "prompt": "На тележку массой 10 кг, начиная с состояния покоя, в течение 4 с действует равнодействующая сила 50 Н. Какую скорость она разовьёт?",
+  "answer": [
+   20.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "h-fric-01-es",
+  "source": "h-fric-01",
+  "locale": "es",
+  "prompt": "Una caja de 15 kg se desliza por un suelo con μk = 0,4. ¿Cuál es la fuerza de rozamiento cinético?",
+  "answer": [
+   58.86,
+   "N"
+  ]
+ },
+ {
+  "id": "h-fric-01-fr",
+  "source": "h-fric-01",
+  "locale": "fr",
+  "prompt": "Une boîte de 15 kg glisse sur un sol avec μk = 0,4. Quelle est la force de frottement cinétique ?",
+  "answer": [
+   58.86,
+   "N"
+  ]
+ },
+ {
+  "id": "h-fric-01-am",
+  "source": "h-fric-01",
+  "locale": "am",
+  "prompt": "15 kg ሳጥን በወለል ላይ μk = 0.4 እያለ ይንሸራተታል። የኪነቲክ ግጭት ኃይል ስንት ነው?",
+  "answer": [
+   58.86,
+   "N"
+  ]
+ },
+ {
+  "id": "h-fric-01-ru",
+  "source": "h-fric-01",
+  "locale": "ru",
+  "prompt": "Коробка массой 15 кг скользит по полу с μk = 0.4. Какова сила кинетического трения?",
+  "answer": [
+   58.86,
+   "N"
+  ]
+ },
+ {
+  "id": "h-fric-02-es",
+  "source": "h-fric-02",
+  "locale": "es",
+  "prompt": "Un trineo se desliza hacia abajo por una colina sin fricción inclinada a 20 grados. ¿Cuál es su aceleración?",
+  "answer": [
+   3.35522,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "h-fric-02-fr",
+  "source": "h-fric-02",
+  "locale": "fr",
+  "prompt": "Un traîneau glisse sur une colline sans frottement inclinée à 20 degrés. Quelle est son accélération ?",
+  "answer": [
+   3.35522,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "h-fric-02-am",
+  "source": "h-fric-02",
+  "locale": "am",
+  "prompt": "ጓል ከ20 ዲግሪ ተዳፋት ጋር በሚገኝ ግጭት አልባ ኮረብታ ላይ ወደታች ይንሸራተታል። ፍጥነቱ ምንድን ነው?",
+  "answer": [
+   3.35522,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "h-fric-02-ru",
+  "source": "h-fric-02",
+  "locale": "ru",
+  "prompt": "Санки скользят с без трения горки с наклоном 20 градусов. Каково их ускорение?",
+  "answer": [
+   3.35522,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "h-fric-03-es",
+  "source": "h-fric-03",
+  "locale": "es",
+  "prompt": "Una caja de 8 kg descansa sobre una rampa a 25°. ¿Qué fuerza de fricción la mantiene quieta?",
+  "answer": [
+   33.1671,
+   "N"
+  ]
+ },
+ {
+  "id": "h-fric-03-fr",
+  "source": "h-fric-03",
+  "locale": "fr",
+  "prompt": "Une caisse de 8 kg repose sur une rampe à 25°. Quelle force de frottement la maintient immobile ?",
+  "answer": [
+   33.1671,
+   "N"
+  ]
+ },
+ {
+  "id": "h-fric-03-am",
+  "source": "h-fric-03",
+  "locale": "am",
+  "prompt": "8 kg የሆነ ሳጥን በ25° ተዳፋት ላይ ያርፋል። እንዳይንቀሳቀስ የሚያደርገው የግጭት ኃይል ስንት ነው?",
+  "answer": [
+   33.1671,
+   "N"
+  ]
+ },
+ {
+  "id": "h-fric-03-ru",
+  "source": "h-fric-03",
+  "locale": "ru",
+  "prompt": "Ящик массой 8 кг покоится на наклонной плоскости под углом 25°. Какая сила трения удерживает его на месте?",
+  "answer": [
+   33.1671,
+   "N"
+  ]
+ },
+ {
+  "id": "h-fric-04-es",
+  "source": "h-fric-04",
+  "locale": "es",
+  "prompt": "Una piedra de curling se desliza a 3 m/s sobre hielo con un coeficiente de rozamiento de 0,02. ¿Qué distancia recorre antes de detenerse?",
+  "answer": [
+   22.9358,
+   "m"
+  ]
+ },
+ {
+  "id": "h-fric-04-fr",
+  "source": "h-fric-04",
+  "locale": "fr",
+  "prompt": "Une pierre de curling glisse à 3 m/s sur la glace avec un coefficient de frottement de 0,02. Quelle distance parcourt-elle avant de s'arrêter ?",
+  "answer": [
+   22.9358,
+   "m"
+  ]
+ },
+ {
+  "id": "h-fric-04-am",
+  "source": "h-fric-04",
+  "locale": "am",
+  "prompt": "የኩርሊንግ ድንጋይ በበረዶ ላይ በ3 m/s ይንሸራተታል፣ የግጭት ኮፊሸንት 0.02 ነው። ከመቆሙ በፊት ምን ያህል ይጓዛል?",
+  "answer": [
+   22.9358,
+   "m"
+  ]
+ },
+ {
+  "id": "h-fric-04-ru",
+  "source": "h-fric-04",
+  "locale": "ru",
+  "prompt": "Камень для кёрлинга скользит по льву со скоростью 3 м/с при коэффициенте трения 0.02. Какое расстояние он пройдёт до остановки?",
+  "answer": [
+   22.9358,
+   "m"
+  ]
+ }
+]

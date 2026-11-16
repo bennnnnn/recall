@@ -233,10 +233,11 @@ def test_every_spend_gate_is_listed() -> None:
         "modules/chat/stream_paths.py",
         # The turn's read answers None past the cap: modules/chat/test_turn_decision.py.
         "modules/chat/turn_decision.py",
-        # Skips the model reader's shadow read: nothing waits on it. test_model_read_shadow.py.
-        "modules/chat/turn_prep/model_read_shadow.py",
         # The chat turn: the socket's and SSE's unavailable frame. test_turn_quota_reserve.py.
         "modules/chat/turn_resources.py",
+        # An unasked compound's structure: none past the cap or in an outage, the reply stands.
+        # modules/chemistry/test_teaching_structure.py.
+        "modules/chemistry/figure.py",
         # Image generation: "image generation" above, and the chat's picture turns.
         "modules/images/generation.py",
         # Photo lookup: the chat's photo turn, and a reply's photo (best-effort, none).
@@ -244,6 +245,8 @@ def test_every_spend_gate_is_listed() -> None:
         # A maths picture's read: no picture, the reply stands. modules/math/test_math_figure.py.
         "modules/math/figure/read.py",
         "modules/memory/api.py",  # memory edits
+        # A physics setup: no read past the cap (a prototype). services/test_formal_solve.py.
+        "modules/physics/formal_read.py",
         "modules/speech/gates.py",  # dictation, read aloud, live talk's session and saves
         "services/scan_read.py",  # photo scans, every subject
     ]

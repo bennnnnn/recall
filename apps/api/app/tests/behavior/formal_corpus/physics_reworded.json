@@ -1,0 +1,452 @@
+[
+ {
+  "id": "h-kin-01-rw",
+  "source": "h-kin-01",
+  "style": "casual and short",
+  "prompt": "my car goes from 0 to 100 km/h in 8 seconds what's the acceleration in m/s^2",
+  "answer": [
+   3.47222,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "h-kin-03-rw",
+  "source": "h-kin-03",
+  "style": "as a story problem with the values in a different order than usual",
+  "prompt": "An athlete runs for 2 minutes at a speed of 6 m/s. How far does she run?",
+  "answer": [
+   720.0,
+   "m"
+  ]
+ },
+ {
+  "id": "h-kin-05-rw",
+  "source": "h-kin-05",
+  "style": "as a confused student asking for help",
+  "prompt": "Hey, I'm really stuck on this physics problem and could use some help: A bike starts from rest and reaches 12 m/s in 4 s. How far does it travel in this time? Also, my teacher mentioned something about graphs but I didn't catch what kind, and I think I lost my notes somewhere. I keep getting confused about which formula to use, so could you walk me through it?",
+  "answer": [
+   24.0,
+   "m"
+  ]
+ },
+ {
+  "id": "h-kin-07-rw",
+  "source": "h-kin-07",
+  "style": "casual and short",
+  "prompt": "car going 20 m/s accelerates at 1.5 m/s^2 for 10 s what's its final speed",
+  "answer": [
+   35.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "h-kin-09-rw",
+  "source": "h-kin-09",
+  "style": "as a story problem with the values in a different order than usual",
+  "prompt": "During a 4 s interval, a car's speed drops from 30 m/s to 10 m/s as it brakes. How far, in meters, does the car travel while braking?",
+  "answer": [
+   80.0,
+   "m"
+  ]
+ },
+ {
+  "id": "h-fall-01-rw",
+  "source": "h-fall-01",
+  "style": "as a confused student asking for help",
+  "prompt": "I'm really stuck on this physics problem: a pebble is dropped off a 78 m bridge — how long until it splashes into the river? Also, I keep wondering whether the river water temperature matters for something like this, but I don't think that's part of it.",
+  "answer": [
+   3.98775,
+   "s"
+  ]
+ },
+ {
+  "id": "h-fall-03-rw",
+  "source": "h-fall-03",
+  "style": "casual and short",
+  "prompt": "ball thrown straight up at 18 m/s what max height does it reach",
+  "answer": [
+   16.5138,
+   "m"
+  ]
+ },
+ {
+  "id": "h-fall-05-rw",
+  "source": "h-fall-05",
+  "style": "as a story problem with the values in a different order than usual",
+  "prompt": "A curious toddler watches an egg roll off the edge of a kitchen counter that is 1.5 m above the floor. Wondering whether there's still time to react, the toddler wants to know how many seconds will pass before the egg reaches the floor. How long until it hits the floor?",
+  "answer": [
+   0.553001,
+   "s"
+  ]
+ },
+ {
+  "id": "h-proj-02-rw",
+  "source": "h-proj-02",
+  "style": "as a confused student asking for help",
+  "prompt": "I'm really stuck on this physics problem and my brain is just not cooperating today — a toy car rolls off a 0.8 m high table at 2 m/s, and I have to find how far from the table it lands, but I keep getting confused about which equation to use. Also, my cat kept walking across my homework earlier, which did not help at all. How far from the table does it land?",
+  "answer": [
+   0.80771,
+   "m"
+  ]
+ },
+ {
+  "id": "h-proj-04-rw",
+  "source": "h-proj-04",
+  "style": "casual and short",
+  "prompt": "water balloon thrown horizontally at 6 m/s from a 20 m high window how long is it in the air",
+  "answer": [
+   2.01928,
+   "s"
+  ]
+ },
+ {
+  "id": "h-force-02-rw",
+  "source": "h-force-02",
+  "style": "as a story problem with the values in a different order than usual",
+  "prompt": "A physics student is analyzing a moving cart. She knows that the net force acting on the cart is 12 N. She also knows that the cart's mass is 3 kg. She wants to determine the cart's acceleration. What is the acceleration of the cart?",
+  "answer": [
+   4.0,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "h-force-04-rw",
+  "source": "h-force-04",
+  "style": "as a confused student asking for help",
+  "prompt": "I'm really stuck on this physics problem and I don't know where to start—also my teacher mentioned something about friction but I forget what that was about. A 900 N force accelerates a motorbike at 3 m/s^2. What is the mass of the motorbike?",
+  "answer": [
+   300.0,
+   "kg"
+  ]
+ },
+ {
+  "id": "h-force-06-rw",
+  "source": "h-force-06",
+  "style": "casual and short",
+  "prompt": "a 75 kg parachutist falls at a steady terminal speed what's the drag force on him",
+  "answer": [
+   735.75,
+   "N"
+  ]
+ },
+ {
+  "id": "h-fric-01-rw",
+  "source": "h-fric-01",
+  "style": "as a story problem with the values in a different order than usual",
+  "prompt": "A warehouse worker checks the friction on a crate. The coefficient of kinetic friction between the crate and the floor is 0.4, and the crate has a mass of 15 kg. What is the kinetic friction force?",
+  "answer": [
+   58.86,
+   "N"
+  ]
+ },
+ {
+  "id": "h-fric-03-rw",
+  "source": "h-fric-03",
+  "style": "as a confused student asking for help",
+  "prompt": "I'm really stuck on this physics problem and could use some help: A 8 kg crate rests on a ramp at 25°. What friction force holds it still? Also, I keep wondering whether the color of the crate would matter in a real experiment.",
+  "answer": [
+   33.1671,
+   "N"
+  ]
+ },
+ {
+  "id": "h-fric-05-rw",
+  "source": "h-fric-05",
+  "style": "casual and short",
+  "prompt": "6 kg block on a 40° incline what's the normal force",
+  "answer": [
+   45.0894,
+   "N"
+  ]
+ },
+ {
+  "id": "h-en-02-rw",
+  "source": "h-en-02",
+  "style": "as a story problem with the values in a different order than usual",
+  "prompt": "An elevator weighing 20 kg rises by 500 m. How much potential energy, in joules, does the elevator gain?",
+  "answer": [
+   98100.0,
+   "J"
+  ]
+ },
+ {
+  "id": "h-en-04-rw",
+  "source": "h-en-04",
+  "style": "as a confused student asking for help",
+  "prompt": "I'm really stuck on this physics question: a crane lifts a 2000 kg beam 15 m in 30 s, and I need to find what power it develops, but I keep getting confused about which formulas to use—also, our teacher mentioned something about extra friction losses that may or may not matter. What power does it develop, and what unit should the answer be in?",
+  "answer": [
+   9810.0,
+   "W"
+  ]
+ },
+ {
+  "id": "h-en-06-rw",
+  "source": "h-en-06",
+  "style": "casual and short",
+  "prompt": "a motor uses 500 j of electrical energy and does 400 j of useful work what is its efficiency",
+  "answer": [
+   80.0,
+   "%"
+  ]
+ },
+ {
+  "id": "h-en-08-rw",
+  "source": "h-en-08",
+  "style": "as a story problem with the values in a different order than usual",
+  "prompt": "A warehouse worker named Sam is tidying up the stockroom. On the floor sits a box with a mass of 10 kg. Sam needs to place this box on a shelf that is 1.2 m above the ground. To get the box onto the shelf, Sam lifts it straight up from the floor. How much work, in joules, does Sam do in lifting the box onto the shelf?",
+  "answer": [
+   117.72,
+   "J"
+  ]
+ },
+ {
+  "id": "h-mom-02-rw",
+  "source": "h-mom-02",
+  "style": "as a confused student asking for help",
+  "prompt": "I'm really stuck on this physics problem and I don't even know where to start—A 4 kg ball moving at 5 m/s collides with a stationary 1 kg ball and they stick together. Find their velocity. Also, my teacher mentioned something about momentum but I missed that part of class because the fire alarm went off.",
+  "answer": [
+   4.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "h-mom-04-rw",
+  "source": "h-mom-04",
+  "style": "casual and short",
+  "prompt": "a 1000 kg car brakes from 15 m/s to rest in 3 s what's the average braking force",
+  "answer": [
+   5000.0,
+   "N"
+  ]
+ },
+ {
+  "id": "h-circ-02-rw",
+  "source": "h-circ-02",
+  "style": "as a story problem with the values in a different order than usual",
+  "prompt": "A ceiling fan whirs away, completing its steady circular motion at a rate of 300 rpm. Curious about the timing of each individual turn, you wonder: what is the period of one rotation?",
+  "answer": [
+   0.2,
+   "s"
+  ]
+ },
+ {
+  "id": "h-grav-01-rw",
+  "source": "h-grav-01",
+  "style": "as a confused student asking for help",
+  "prompt": "I'm really stuck on this physics problem and could use some help: What is the acceleration due to gravity on the Moon? Also, I keep wondering whether the Moon's phases affect how we measure things there, but I don't think that's related—please keep the answer in the unit asked for.",
+  "answer": [
+   1.62331,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "h-osc-01-rw",
+  "source": "h-osc-01",
+  "style": "casual and short",
+  "prompt": "pendulum is 2.5 m long what's its period",
+  "answer": [
+   3.17187,
+   "s"
+  ]
+ },
+ {
+  "id": "h-osc-03-rw",
+  "source": "h-osc-03",
+  "style": "as a story problem with the values in a different order than usual",
+  "prompt": "A musician counted 3 s of a guitar string humming, and during that time the string vibrated 1320 times. What is its frequency?",
+  "answer": [
+   440.0,
+   "Hz"
+  ]
+ },
+ {
+  "id": "h-osc-05-rw",
+  "source": "h-osc-05",
+  "style": "as a confused student asking for help",
+  "prompt": "Hey, I'm really stuck on this physics problem and could use some help—my brain is just not cooperating today. Also, I keep forgetting whether I left my lunch in the fridge or on the counter. The question says a pendulum completes 15 oscillations in 30 s. What is its period?",
+  "answer": [
+   2.0,
+   "s"
+  ]
+ },
+ {
+  "id": "h-wave-02-rw",
+  "source": "h-wave-02",
+  "style": "casual and short",
+  "prompt": "whats the wavelength of a microwave with frequency 2.45 ghz",
+  "answer": [
+   0.122367,
+   "m"
+  ]
+ },
+ {
+  "id": "h-wave-04-rw",
+  "source": "h-wave-04",
+  "style": "as a story problem with the values in a different order than usual",
+  "prompt": "A drummer counts the beats of a song: each beat lasts exactly 0.25 s. If the drummer wants to know how many beats happen in one second, what is the frequency of the beat?",
+  "answer": [
+   4.0,
+   "Hz"
+  ]
+ },
+ {
+  "id": "h-opt-02-rw",
+  "source": "h-opt-02",
+  "style": "as a confused student asking for help",
+  "prompt": "Hey, I'm really stuck on this physics problem and could use some help: What is the critical angle of diamond, n = 2.42? Also, my lab partner keeps saying the cafeteria pizza tastes like cardboard, which is honestly distracting me from studying. I still need the answer in degrees, keeping every number and unit exactly as given.",
+  "answer": [
+   24.4075,
+   "deg"
+  ]
+ },
+ {
+  "id": "h-opt-04-rw",
+  "source": "h-opt-04",
+  "style": "casual and short",
+  "prompt": "lens power is 2.5 dioptres whats its focal length",
+  "answer": [
+   0.4,
+   "m"
+  ]
+ },
+ {
+  "id": "h-elec-02-rw",
+  "source": "h-elec-02",
+  "style": "as a story problem with the values in a different order than usual",
+  "prompt": "A chef is checking the electrical setup for a new commercial oven. The oven's specifications label says it operates at 240 V and is rated at 2400 W. Curious about the wiring requirements, the chef wonders what current, in amperes, the oven will draw when running.",
+  "answer": [
+   10.0,
+   "A"
+  ]
+ },
+ {
+  "id": "h-elec-04-rw",
+  "source": "h-elec-04",
+  "style": "as a confused student asking for help",
+  "prompt": "I'm really stuck on this physics problem and I don't know where to start — a current of 0.5 A flows for 10 minutes, so how much charge flows? Also, I missed lunch today and my brain feels like it's running on low power.",
+  "answer": [
+   300.0,
+   "C"
+  ]
+ },
+ {
+  "id": "h-elec-06-rw",
+  "source": "h-elec-06",
+  "style": "casual and short",
+  "prompt": "9 v battery moves 180 j of energy how much charge passed through",
+  "answer": [
+   20.0,
+   "C"
+  ]
+ },
+ {
+  "id": "h-elec-08-rw",
+  "source": "h-elec-08",
+  "style": "as a story problem with the values in a different order than usual",
+  "prompt": "Maya was sorting through a box of old electronics when she found a small bulb and a 6 V battery. Curious, she connected them in a simple circuit and measured that the bulb drew 0.25 A of current. She wondered what the resistance of the bulb must be, in ohms.",
+  "answer": [
+   24.0,
+   "ohm"
+  ]
+ },
+ {
+  "id": "h-estat-02-rw",
+  "source": "h-estat-02",
+  "style": "as a confused student asking for help",
+  "prompt": "Hey, I'm really stuck on this physics problem and I can't figure out where to even start, plus my dog kept barking all night so my brain feels like mush. What is the electric field 3 cm from a 2 µC point charge?",
+  "answer": [
+   19973300.0,
+   "N/C"
+  ]
+ },
+ {
+  "id": "h-mag-02-rw",
+  "source": "h-mag-02",
+  "style": "casual and short",
+  "prompt": "a 0.2 m wire carrying 5 a sits at right angles in a 0.3 t field find the force on the wire",
+  "answer": [
+   0.3,
+   "N"
+  ]
+ },
+ {
+  "id": "h-heat-02-rw",
+  "source": "h-heat-02",
+  "style": "as a story problem with the values in a different order than usual",
+  "prompt": "A copper block's temperature rises after it gains 3850 J of heat. If the block has a mass of 0.5 kg and a specific heat capacity of 385 J/kg·K, by how much does its temperature rise?",
+  "answer": [
+   20.0,
+   "K"
+  ]
+ },
+ {
+  "id": "h-heat-04-rw",
+  "source": "h-heat-04",
+  "style": "as a confused student asking for help",
+  "prompt": "I'm really stuck on this physics problem and could use some help: A gas at 2 atm and 4 L is compressed at constant temperature to 2 L. What is the new pressure? Also, I keep wondering whether my calculator's battery is about to die, which is distracting me. I need the answer in atm.",
+  "answer": [
+   4.0,
+   "atm"
+  ]
+ },
+ {
+  "id": "h-fluid-02-rw",
+  "source": "h-fluid-02",
+  "style": "casual and short",
+  "prompt": "a 60 kg woman stands on high heels with a total area of 0.0002 m^2 what pressure does she exert",
+  "answer": [
+   2943000.0,
+   "Pa"
+  ]
+ },
+ {
+  "id": "h-mod-01-rw",
+  "source": "h-mod-01",
+  "style": "as a story problem with the values in a different order than usual",
+  "prompt": "Maya was calibrating a homemade spectrometer in her garage when she noticed a faint red glow coming from a laser pointer someone had left on the workbench. Curious about its properties, she measured the light's wavelength and found it to be 700 nm. She wanted to know how much energy each individual photon of that red light carried, so she set out to calculate the photon energy in joules.",
+  "answer": [
+   2.83782e-19,
+   "J"
+  ]
+ },
+ {
+  "id": "h-mod-03-rw",
+  "source": "h-mod-03",
+  "style": "as a confused student asking for help",
+  "prompt": "I'm really stuck on this one: A sample has a half-life of 3 hours. What fraction is left after 9 hours? Also, I keep wondering why my calculator's screen looks brighter when I tilt it.",
+  "answer": [
+   0.125,
+   ""
+  ]
+ },
+ {
+  "id": "h-heat-range-02-rw",
+  "source": "h-heat-range-02",
+  "style": "casual and short",
+  "prompt": "how much heat to raise 250 g of water from 20 degrees to 80 degrees",
+  "answer": [
+   62790.0,
+   "J"
+  ]
+ },
+ {
+  "id": "h-heat-range-04-rw",
+  "source": "h-heat-range-04",
+  "style": "as a story problem with the values in a different order than usual",
+  "prompt": "A pot holds 500 g of water sitting at 10 degrees C. A cook wants to warm it until the thermometer reads 60 degrees C. How much energy is needed, and what unit should it be reported in?",
+  "answer": [
+   104650.0,
+   "J"
+  ]
+ },
+ {
+  "id": "h-heat-range-06-rw",
+  "source": "h-heat-range-06",
+  "style": "as a confused student asking for help",
+  "prompt": "I'm really stuck on this physics problem and could use some help: How much heat warms 400 g of water between 25 and 75 degrees Celsius? Also, our cafeteria changed the sandwich menu again this week.",
+  "answer": [
+   83720.0,
+   "J"
+  ]
+ }
+]

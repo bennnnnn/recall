@@ -25,7 +25,6 @@ from app.modules.chat.turn_prep.followups import (
 )
 from app.modules.chat.turn_prep.instant import location_not_set_reply
 from app.modules.chat.turn_prep.mode import _should_augment_web_and_tools
-from app.modules.chat.turn_prep.model_read_shadow import start_model_read_shadow
 from app.modules.chat.turn_prep.reading import (
     ask_turn_readings,
     plan_of,
@@ -120,8 +119,6 @@ async def gather_and_inject(
         has_image_attachment=request.has_image_attachment,
         image_math_extract=request.image_math_extract,
     ) or await _parts_subject(request, settings, plan)
-    if instant_reply is None:
-        start_model_read_shadow(request.content, settings, redis, subject=detected_subject)
     needs_subject = _turn_needs_subject(request, settings, followup, detected_subject)
     if not _should_augment_web_and_tools(
         instant_reply=instant_reply,

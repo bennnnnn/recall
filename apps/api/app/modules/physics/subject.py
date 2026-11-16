@@ -26,6 +26,7 @@ from app.services.subject_hints import SubjectHints
 
 if TYPE_CHECKING:
     from app.core.config import Settings
+    from app.services.formal.answer import FormalAnswer
     from app.services.solving import VerifiedSolveBlock
     from app.services.subjects.registry import SubjectRequest
 
@@ -186,6 +187,17 @@ class PhysicsPhoto:
 
 
 @dataclass(frozen=True)
+class PhysicsFormal:
+    """A physics question its solvers did not read: a model writes it down as maths and the
+    server solves it (``physics.formal_read``); None unless the two answers agree."""
+
+    async def answer(self, question: str, settings: Settings) -> FormalAnswer | None:
+        from app.modules.physics import formal_read
+
+        return await formal_read.formal_answer(question, settings)
+
+
+@dataclass(frozen=True)
 class PhysicsSubject:
     name: Literal["physics"] = "physics"
     hints: SubjectHints = _HINTS
@@ -197,6 +209,8 @@ class PhysicsSubject:
     tool: None = None
     # Its pictures come with its solve (a scene, a molecule), never from a separate read.
     figure: None = None
+    # A question its solvers did not read, written down as maths by a model and solved.
+    formal: PhysicsFormal = PhysicsFormal()
 
     def enabled(self, settings: Settings) -> bool:
         return settings.physics_enabled

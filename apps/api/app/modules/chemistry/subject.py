@@ -178,6 +178,51 @@ class ChemistryPhoto:
 
 
 @dataclass(frozen=True)
+class ChemistryFigure:
+    """The structure that helps teach a question about one compound (``chemistry.figure``).
+    A question that asks to see a molecule gets it from its solve: an asked draw is none."""
+
+    async def draw(
+        self, question: str, earlier: Sequence[str], settings: Settings, *, asked: bool = True
+    ) -> str | None:
+        if asked:
+            return None
+        from app.modules.chemistry.figure import draw_structure
+
+        return await draw_structure(question, earlier, settings)
+
+    def shown(self, verified: VerifiedSolveBlock | None) -> bool:
+        from app.modules.chemistry.figure import solve_drew_a_structure
+
+        return solve_drew_a_structure(verified)
+
+    def whole(self, text: str) -> bool:
+        from app.modules.chemistry.figure import holds_a_structure
+
+        return holds_a_structure(text)
+
+    def adds_to(self, text: str, fence: str) -> bool:
+        return not self.whole(text)
+
+    def without_substitutes(self, text: str) -> str:
+        return text
+
+    # A reply describes no chemistry picture (``math/drawing`` is maths' alone): chat asks
+    # only maths' figure for these, and chemistry's answer is none.
+    @property
+    def contract(self) -> str:
+        return ""
+
+    async def described(
+        self, descriptions: Sequence[str], texts: Sequence[str], reply: str, settings: Settings
+    ) -> list[str]:
+        return []
+
+    def without_drawn_substitutes(self, text: str) -> str:
+        return text
+
+
+@dataclass(frozen=True)
 class ChemistrySubject:
     name: Literal["chemistry"] = "chemistry"
     hints: SubjectHints = _HINTS
@@ -187,8 +232,11 @@ class ChemistrySubject:
     photo: ChemistryPhoto = ChemistryPhoto()
     # No model tool of its own.
     tool: None = None
-    # Its pictures come with its solve (a scene, a molecule), never from a separate read.
-    figure: None = None
+    # A scene or an asked-for molecule comes with its solve; the structure of the one compound
+    # a question is about, unasked, from a read beside the reply (``chemistry.figure``).
+    figure: ChemistryFigure = ChemistryFigure()
+    # No worked answer of a model's setup yet (docs/FORMAL_READER.md).
+    formal: None = None
 
     def enabled(self, settings: Settings) -> bool:
         return settings.chemistry_enabled

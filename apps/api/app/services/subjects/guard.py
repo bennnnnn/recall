@@ -29,6 +29,7 @@ from app.services.solving import PhotoReading, SubjectAugmentation
 
 if TYPE_CHECKING:
     from app.core.config import Settings
+    from app.services.formal.answer import FormalAnswer
     from app.services.solving import SubjectName, VerifiedSolveBlock
     from app.services.subject_hints import SubjectHints
     from app.services.subjects.registry import (
@@ -36,6 +37,7 @@ if TYPE_CHECKING:
         SubjectFence,
         SubjectFigure,
         SubjectFollowups,
+        SubjectFormal,
         SubjectPhoto,
         SubjectRequest,
         SubjectTool,
@@ -240,12 +242,14 @@ class GuardedFigure:
         self._inner = inner
         self._subject = subject
 
-    async def draw(self, question: str, earlier: Sequence[str], settings: Settings) -> str | None:
+    async def draw(
+        self, question: str, earlier: Sequence[str], settings: Settings, *, asked: bool = True
+    ) -> str | None:
         return await _neutral_async(
             self._subject,
             "figure.draw",
             None,
-            lambda: self._inner.draw(question, earlier, settings),
+            lambda: self._inner.draw(question, earlier, settings, asked=asked),
         )
 
     def shown(self, verified: VerifiedSolveBlock | None) -> bool:
@@ -295,6 +299,19 @@ class GuardedFigure:
         )
 
 
+class GuardedFormal:
+    """A subject's worked answer; a failing member answers nothing."""
+
+    def __init__(self, inner: SubjectFormal, subject: str) -> None:
+        self._inner = inner
+        self._subject = subject
+
+    async def answer(self, question: str, settings: Settings) -> FormalAnswer | None:
+        return await _neutral_async(
+            self._subject, "formal.answer", None, lambda: self._inner.answer(question, settings)
+        )
+
+
 class GuardedSubject:
     """A registered subject as chat asks it, each member answering neutrally if it raises."""
 
@@ -305,6 +322,8 @@ class GuardedSubject:
         self._photo = GuardedPhoto(photo, inner.name) if photo is not None else None
         self._tool = GuardedTool(tool, inner.name) if tool is not None else None
         self._figure = GuardedFigure(figure, inner.name) if figure is not None else None
+        formal = inner.formal
+        self._formal = GuardedFormal(formal, inner.name) if formal is not None else None
 
     @property
     def name(self) -> SubjectName:
@@ -337,6 +356,10 @@ class GuardedSubject:
     @property
     def figure(self) -> GuardedFigure | None:
         return self._figure
+
+    @property
+    def formal(self) -> GuardedFormal | None:
+        return self._formal
 
     def enabled(self, settings: Settings) -> bool:
         # Off: its lines go to the model, as with its switch off.

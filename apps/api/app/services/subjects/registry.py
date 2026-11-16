@@ -30,6 +30,8 @@ An adapter has what the dispatcher and chat ask of every subject:
   None;
 - ``figure``: the picture it draws for a question that asks to see one, from the question's
   own values (``SubjectFigure``), or None;
+- ``formal``: its answer to a question its solvers did not read, worked out by the server
+  from a model's setup (``SubjectFormal``), or None;
 - ``followups``: how it reads a line that goes back to its last problem
   (``SubjectFollowups``);
 - ``fence``: which verified blocks it finishes, how it holds a finished reply's fences to
@@ -65,6 +67,7 @@ from app.modules.money.subject import MONEY_PEER
 from app.modules.physics.subject import PHYSICS_SUBJECT
 
 # What a subject read off a photo (``photo``).
+from app.services.formal.answer import FormalAnswer
 from app.services.solving import PhotoReading as PhotoReading
 from app.services.solving import SubjectName as SubjectName
 from app.services.subjects.guard import GuardedSubject
@@ -263,9 +266,12 @@ class SubjectFigure(Protocol):
     a number line), from the question's own values; started beside the reply and added
     after it when the reply holds no picture of the server's."""
 
-    async def draw(self, question: str, earlier: Sequence[str], settings: Settings) -> str | None:
+    async def draw(
+        self, question: str, earlier: Sequence[str], settings: Settings, *, asked: bool = True
+    ) -> str | None:
         """The picture's fence, or None when nothing is drawn. ``earlier``: the user's
-        earlier messages, newest first, for a request to draw "it"."""
+        earlier messages, newest first, for a request to draw "it". ``asked``: the message
+        asks to see a picture; otherwise only one that helps teach the question is drawn."""
         ...
 
     def shown(self, verified: VerifiedSolveBlock | None) -> bool:
@@ -302,6 +308,13 @@ class SubjectFigure(Protocol):
         """``text``, its described pictures in it, without what stood in for them: a sketch
         in characters, a Mermaid diagram, a function graph of a curve a drawn graph draws."""
         ...
+
+
+class SubjectFormal(Protocol):
+    """The subject's answer to a question its solvers did not read: a model writes it down as
+    maths, the server solves it (``services.formal``); None unless the two agree."""
+
+    async def answer(self, question: str, settings: Settings) -> FormalAnswer | None: ...
 
 
 class SubjectAdapter(Protocol):
@@ -358,6 +371,9 @@ class SubjectAdapter(Protocol):
 
     @property
     def figure(self) -> SubjectFigure | None: ...
+
+    @property
+    def formal(self) -> SubjectFormal | None: ...
 
     async def solve(self, request: SubjectRequest, settings: Settings) -> SubjectAugmentation: ...
 

@@ -522,6 +522,15 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   param declares an SI dimension (Pint reads a bare `pa` as a *petayear*, so a
   missing entry is a wrong answer, not a missing check). Moon/Mars gravity is a
   whole-token match (`marsh` stays Earth). See [docs/physics.md](./docs/physics.md).
+- ✅ **Physics in any wording or language** (`formal_reader_enabled`, on) — a physics question no
+  solver reads (another language, a wording the catalog does not hold) is written down as maths
+  by a model beside the reply: its given values with units and its own words for them, the
+  unknowns and the equations. The server solves it: every value must be in the question, the
+  units of each equation must agree, SymPy solves, and the answer is put back. Finalize waits at
+  most 2 s; a reply whose final value differs gets the server's card (in 36 measured
+  disagreements the server was right every time), with a line in the reply's language and the
+  card marked "not checked". On 120 translated questions, Free's replies go from 86% to 98%
+  right. See [docs/FORMAL_READER.md](./docs/FORMAL_READER.md).
 - ✅ **Chemistry (typed verified pipeline)** — `ChemistryIntent` extraction and deterministic
   solvers, one module per topic for each, share one species model: formula, composition,
   charge, and phase. The catalog (`catalog.py`) is the one list of operations. Labelled
@@ -564,6 +573,19 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   ` ```molecule3d ` for the first two valid molecules. Chemically aware 2D layout remains
   smiles-drawer; interactive 3D renders on a native Skia canvas, with an SVG fallback for
   Expo Go or a stale native client. See [docs/chemistry.md](./docs/chemistry.md).
+- ✅ **Pictures without asking** (`teaching_figures_enabled`, on) — a student need not ask to see
+  a picture. A maths question that asks for none still gets the figure that helps teach it: a
+  shape, solid or circle it measures, angles, points, a number line or the line it asks about,
+  read beside the reply by the same figure read (told the user did not ask) and drawn from the
+  question's own numbers, so a number it never wrote draws nothing. Arithmetic, algebra,
+  money, statistics and "just the answer" get none. A chemistry question about one molecular
+  compound ("What is ibuprofen?", "the molar mass of glucose") gets its structure: a read
+  names the compound in the user's own words, PubChem gives the structure and RDKit holds it
+  to one molecule worth drawing (a salt, a mixture or a one-atom molecule draws nothing).
+  Physics already draws its scene with every answer it solves. Measured on
+  `app/tests/behavior/teaching_pictures_corpus.json` (`teaching_pictures_eval.py`): over four
+  runs, maths 59 of 60 figures, chemistry 44 of 44 structures, no picture for any of the 108
+  look-alikes. Each picture waits at most 2 s after the reply's text.
 - ✅ **Geometry diagrams** — ` ```geometry` JSON fences render labeled shapes (rectangle, circle,
   triangle, trapezoid, sector, …) via native SVG (`react-native-svg`; works in Expo Go).
 - ✅ **Function graphs** — ` ```graph` JSON fences plot y=f(x) from server-computed point arrays

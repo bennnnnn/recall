@@ -80,11 +80,10 @@ from app.services.law_binding.inverse import (
     stated_strength,
     twins,
 )
-from app.services.law_binding.model_read import excluded
 from app.services.law_binding.roles import contradicts, counterparts, variable_role
 from app.services.law_binding.spec import FormulaSpec
 from app.services.law_binding.units import dimension_of
-from app.services.law_binding.words import implied_value
+from app.services.law_binding.words import excluded, implied_value
 
 # Reading a paste full of numbers would cost every chat turn.
 _MAX_GIVENS = 16

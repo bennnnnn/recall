@@ -290,10 +290,12 @@ class MathTool:
 class MathFigure:
     """The picture a maths question asks to see, drawn from its own values (``figure``)."""
 
-    async def draw(self, question: str, earlier: Sequence[str], settings: Settings) -> str | None:
+    async def draw(
+        self, question: str, earlier: Sequence[str], settings: Settings, *, asked: bool = True
+    ) -> str | None:
         from app.modules.math.figure.read import draw_figure
 
-        return await draw_figure(question, earlier, settings)
+        return await draw_figure(question, earlier, settings, asked=asked)
 
     def shown(self, verified: VerifiedSolveBlock | None) -> bool:
         from app.modules.math.figure.substitutes import verified_picture
@@ -350,6 +352,8 @@ class MathSubject:
     photo: MathPhoto = MathPhoto()
     tool: MathTool = MathTool()
     figure: MathFigure = MathFigure()
+    # No worked answer of a model's setup yet (docs/FORMAL_READER.md).
+    formal: None = None
 
     def enabled(self, settings: Settings) -> bool:
         return settings.math_tools_enabled

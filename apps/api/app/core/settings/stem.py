@@ -71,11 +71,22 @@ class StemSettings(BaseModel):
     figure_read_enabled: bool = True
     figure_read_timeout_seconds: float = 4.0
     figure_wait_seconds: float = 2.0
+    # A maths turn that asks to see nothing still gets the figure when one helps teach it (a
+    # shape it measures, angles, points, a number line, a line's graph): the same read, told
+    # to draw only then, and the same checks. Off: only a question that asks gets one.
+    teaching_figures_enabled: bool = True
     # The same maths turns let the reply describe its picture in a ```draw block (3D scenes,
     # word problems' shapes): the server checks every item against the question and draws
     # the rest (``math/drawing``), and the reply's checked picture stands in for the read's.
     # Off: no reply is asked for one, and a block a reply writes anyway is dropped.
     draw_descriptions_enabled: bool = True
+    # A physics turn the solvers did not answer: a model writes the question down as maths
+    # beside the reply, the server solves it (``physics.formal_read``, ``services.formal``),
+    # and finalize waits at most ``formal_wait_seconds`` for it. A reply whose final value
+    # differs gets the server's (docs/FORMAL_READER.md). Off: the reply stands as written.
+    formal_reader_enabled: bool = True
+    formal_read_timeout_seconds: float = 6.0
+    formal_wait_seconds: float = 2.0
     # A chart of numbers the user wrote (bar, pie, line, histogram) is drawn by the server
     # from those numbers (``modules/charts``), only when every label and value is the user's,
     # in place of the model's own chart, which no check read. Beside the reply, which waits at
@@ -88,15 +99,6 @@ class StemSettings(BaseModel):
     # (two 3 s translation attempts), so it only stops a call that outlives its
     # own timeout; a finished extraction is used when the translation runs long.
     math_model_intent_budget_seconds: float = 7.0
-    # A model reads each question beside the patterns, and the turn's trace line says
-    # whether the two agree (docs/MODEL_READER.md). Off: a measurement, not a feature;
-    # nothing it reads reaches a reply. Each of its two calls has this long: the measured
-    # p95 of a call (docs/MODEL_READER.md); the turn never waits for the read.
-    model_reader_shadow_enabled: bool = False
-    # The share of STEM turns read in shadow when it is on (0 none, 1 every one): each read
-    # costs two model calls.
-    model_reader_shadow_rate: float = 0.1
-    model_reader_timeout_seconds: float = 3.5
     # POST /{math,physics,chemistry}/scan/read runs OCR (Mathpix, then vision)
     # so the student can confirm what the camera read before it is solved.
     # Per user, per hour, shared by every subject's reader (it was

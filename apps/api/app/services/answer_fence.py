@@ -389,7 +389,9 @@ def _card_start(values: list[tuple[int, str]]) -> int:
     return start
 
 
-def land_answer_card(text: str, verified_body: str | None, *, above: str | None = None) -> str:
+def land_answer_card(
+    text: str, verified_body: str | None, *, above: str | None = None, verified: bool = True
+) -> str:
     """Put the reply's final answer in one card under one **Answer** heading.
 
     The reply's last Answer section (``**Answer**``, ``**Answer:** $x = 3$``, ``## Answer``,
@@ -400,6 +402,8 @@ def land_answer_card(text: str, verified_body: str | None, *, above: str | None 
     the answer stays below. ``above`` (written working, a correction line) goes directly above
     the heading. With no Answer section, a verified card is added at the end unless the reply
     already has one; an unverified reply, or one whose answer is not maths, is left as written.
+    ``verified=False``: the server's value, worked out from a reading no solver checked, in a
+    card marked ``verified: false`` (``chat.formal_turn``).
     """
     lines = text.split("\n")
     fences, inside = _scan(lines)
@@ -422,7 +426,10 @@ def land_answer_card(text: str, verified_body: str | None, *, above: str | None 
             return text
         end = max(end, heading)
     shown = _card_start(values) if values else 0
-    if verified_body is not None:
+    if verified_body is not None and not verified:
+        value = card_maths(answer_fence_value(verified_body))
+        card = f"```answer\n{UNCHECKED_ANSWER_MARKER}\n{value}\n```"
+    elif verified_body is not None:
         card = verified_answer_fence(verified_body)
     else:
         parts = [v for _, v in values[shown:]] or [""]
