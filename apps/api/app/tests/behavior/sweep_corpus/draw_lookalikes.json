@@ -1,0 +1,74 @@
+[
+ {
+  "id": "draw-001",
+  "area": "draw lookalike",
+  "prompt": "How do I draw a cube in Blender?",
+  "history": [],
+  "reply": "Press **Shift + A**, choose **Mesh**, then **Cube**. Scale it with **S** and move it with **G**; in Edit Mode you can bevel its edges with **Ctrl + B**.\n\n```draw\n{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"sphere\", \"center\": [0, 0, 0], \"radius\": 1}]}\n```",
+  "expect": "answer",
+  "note": "a drawing tool's how-to: a description the model wrote anyway never reaches the phone"
+ },
+ {
+  "id": "draw-002",
+  "area": "draw lookalike",
+  "prompt": "What is a sphere in geometry?",
+  "history": [],
+  "reply": "A sphere is the set of all points in space at the same distance, the radius, from one point, its centre. Its surface area is $4\\pi r^2$ and its volume $\\frac{4}{3}\\pi r^3$.\n\n```draw\n{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"sphere\", \"center\": [0, 0, 0], \"radius\": 1}]}\n```",
+  "expect": "answer",
+  "note": "no picture asked: the description goes"
+ },
+ {
+  "id": "draw-003",
+  "area": "draw lookalike",
+  "prompt": "Sketch out a plan for my week: gym three times, two study evenings and a dinner with Sam.",
+  "history": [],
+  "reply": "Here's a balanced week: gym on Monday, Wednesday and Friday mornings; study on Tuesday and Thursday evenings; dinner with Sam on Saturday night, with Sunday kept free to rest.\n\n```draw\n{\"kind\": \"shape\", \"items\": [{\"item\": \"window\", \"width\": \"w\", \"height\": \"h\"}]}\n```",
+  "expect": "answer",
+  "note": "a plan sketched in words"
+ },
+ {
+  "id": "draw-004",
+  "area": "draw lookalike",
+  "prompt": "Plot twist ideas for my story about a ladder that leads nowhere?",
+  "history": [],
+  "reply": "The ladder could lead back to the bottom of itself, so every climber meets their own past; or it could only appear to people who are about to make a choice they will regret.\n\n```draw\n{\"kind\": \"shape\", \"items\": [{\"item\": \"window\", \"width\": \"w\", \"height\": \"h\"}]}\n```",
+  "expect": "answer",
+  "note": "a story's plot"
+ },
+ {
+  "id": "draw-005",
+  "area": "draw lookalike",
+  "prompt": "Show me how to draw a window in AutoCAD.",
+  "history": [],
+  "reply": "Use **RECTANG** for the frame, **OFFSET** it inwards for the glass, then **LINE** for the mullions; **ARC** with three points makes a rounded top.\n\n```draw\n{\"kind\": \"shape\", \"items\": [{\"item\": \"window\", \"width\": \"w\", \"height\": \"h\"}]}\n```",
+  "expect": "answer",
+  "note": "a drawing tool's how-to"
+ },
+ {
+  "id": "draw-006",
+  "area": "draw lookalike",
+  "prompt": "What's the volume of a cone with radius 3 cm and height 4 cm?",
+  "history": [],
+  "reply": "The volume of a cone is $V = \\frac{1}{3}\\pi r^2 h$, so $V = \\frac{1}{3}\\pi (3)^2(4) = 12\\pi \\approx 37.7$ cubic centimetres.\n\n```draw\n{\"kind\": \"shape\", \"items\": [{\"item\": \"cone\", \"radius\": \"3 cm\", \"height\": \"4 cm\"}]}\n```",
+  "expect": "answer",
+  "note": "maths that asks for no picture: no read asked for one, and the description goes"
+ },
+ {
+  "id": "draw-007",
+  "area": "draw lookalike",
+  "prompt": "Explain how vectors add, like forces on a box being pushed.",
+  "history": [],
+  "reply": "Vectors add head to tail: put the second arrow's tail at the first arrow's head, and the sum runs from the first tail to the last head. Two pushes of 3 N east and 4 N north add to 5 N.\n\n```draw\n{\"kind\": \"shape\", \"items\": [{\"item\": \"box\", \"length\": \"3 cm\", \"width\": \"4 cm\", \"height\": \"5 cm\"}]}\n```",
+  "expect": "answer",
+  "note": "physics in words"
+ },
+ {
+  "id": "draw-008",
+  "area": "draw lookalike",
+  "prompt": "Draw a box diagram of how my team's approval process works.",
+  "history": [],
+  "reply": "Request comes in, the team lead reviews it, then finance signs off if it costs more than the limit, and the requester hears back within two days.\n\n```draw\n{\"kind\": \"shape\", \"items\": [{\"item\": \"box\", \"length\": \"3 cm\", \"width\": \"4 cm\", \"height\": \"5 cm\"}]}\n```",
+  "expect": "answer",
+  "note": "a process, not a solid"
+ }
+]

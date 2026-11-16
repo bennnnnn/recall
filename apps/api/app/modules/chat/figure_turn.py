@@ -38,7 +38,7 @@ def _figure() -> SubjectFigure | None:
     return subject_adapter("math").figure
 
 
-def _earlier(recent: Sequence[Any] | None, line: str) -> list[str]:
+def earlier_user_lines(recent: Sequence[Any] | None, line: str) -> list[str]:
     """The user's earlier messages, newest first, without the turn's own line."""
     texts = [
         content
@@ -68,15 +68,20 @@ def start_figure(settings: Settings, ctx: StreamContext) -> asyncio.Task[str | N
     ):
         return None
     line = ctx.user_message_content or ""
-    earlier = _earlier(ctx.recent_messages, line)
+    earlier = earlier_user_lines(ctx.recent_messages, line)
     return asyncio.create_task(_draw(settings, figure, ctx.live_read, line, earlier))
+
+
+def read_asks_for_a_picture(decision: TurnDecision) -> bool:
+    """The read calls the message a maths question asking to see a graph or a diagram."""
+    return decision.subject == "maths" and decision.picture in _DRAWN
 
 
 def _asks_for_a_picture(read: asyncio.Task[TurnDecision | None]) -> bool:
     if not read.done() or read.cancelled() or read.exception() is not None:
         return False
     decision = read.result()
-    return decision is not None and decision.subject == "maths" and decision.picture in _DRAWN
+    return decision is not None and read_asks_for_a_picture(decision)
 
 
 async def read_asks_for_a_figure(read: asyncio.Task[TurnDecision | None] | None) -> bool:
@@ -102,6 +107,16 @@ async def _draw(
     if not _asks_for_a_picture(read):
         return None
     return await figure.draw(line, earlier, settings)
+
+
+def _kinds(fences: Sequence[str]) -> set[str]:
+    return {fence.split("\n", 1)[0].removeprefix("```") for fence in fences}
+
+
+def _without(text: str, fences: Sequence[str]) -> str:
+    for fence in fences:
+        text = text.replace(fence, "")
+    return text
 
 
 def stop_figure(ctx: StreamContext) -> None:
@@ -133,7 +148,12 @@ async def attach_figure(state: FinalizeState) -> str:
         logger.info("figure task failed: %r", None if task.cancelled() else task.exception())
         return state.text
     fence = task.result()
-    if not fence or not figure.adds_to(state.text, fence):
+    # The reply's own described picture of that kind, checked and drawn, stands
+    # (``drawing_turn``); one of the other kind leaves room for this one.
+    drawn = ctx.drawing.fences if ctx.drawing is not None else []
+    if not fence or fence.split("\n", 1)[0].removeprefix("```") in _kinds(drawn):
+        return state.text
+    if not figure.adds_to(_without(state.text, drawn), fence):
         return state.text
     text = figure.without_substitutes(state.text).rstrip()
     text = f"{text}\n\n{fence}\n" if text else f"{fence}\n"

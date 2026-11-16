@@ -15,7 +15,7 @@ import json
 from typing import Any
 
 from app.modules.math.text_plot import strip_text_plots
-from app.services.md_fence_scan import has_closed_fence, iter_closed_fences
+from app.services.md_fence_scan import has_closed_fence, iter_closed_fences, strip_closed_fences
 from app.services.solving import VerifiedMathBlock
 
 # The fences a picture the server drew comes in: maths' figures and graphs, physics' scenes.
@@ -85,3 +85,11 @@ def without_substitutes(text: str) -> str:
     that still drew its number line or graph in characters loses it beside the real one. A
     Mermaid diagram is never taken out: "show the steps as a flow diagram" asked for one."""
     return strip_text_plots(text)
+
+
+def without_drawn_substitutes(text: str) -> str:
+    """The reply described its picture (a ```draw block the server drew): anything else it
+    drew for that picture stands in for it. A Mermaid flowchart standing in for two vectors
+    (round 3, c082) goes, with a sketch in characters; a flow diagram a question asks for
+    gets no ```draw block, and keeps its Mermaid."""
+    return strip_closed_fences(strip_text_plots(text), "mermaid")

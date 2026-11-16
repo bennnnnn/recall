@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 
 
 if TYPE_CHECKING:
+    from app.modules.chat.drawing_turn import ReplyDrawing
     from app.modules.chat.turn_decision import TurnDecision
     from app.modules.images.answer_photo import AnswerPhoto
     from app.modules.images.reply_picture import ReplyPicture
@@ -113,9 +114,8 @@ class StreamContext:
     unverified_subject: str | None = None
     timing: TurnTimingTracker | None = None
     lightweight_turn: bool = False
-    # False = casual chat (skip memory/todos). Status theater
-    # (preparing/remembering/thinking/composing) is never shown; activity
-    # chips remain for search, files, math, image gen.
+    # False = casual chat (skip memory/todos). Status theater (preparing, remembering,
+    # thinking, composing) is never shown; activity chips remain for search, files, math.
     rich_context_turn: bool = True
     # Background insert of the user row. The LLM stream must not wait on it;
     # finalize and stream teardown await it so the assistant insert cannot
@@ -136,16 +136,16 @@ class StreamContext:
     # A multi-part message's settings card and picture: the server's part of the reply.
     settings_card: str | None = None
     reply_picture: ReplyPicture | None = None
-    # The tools the reply's own model call carries, when the tool loop leaves the
-    # turn to it: ``web_search`` (``tool_loop.reply_calls``).
+    # Tools (``web_search``) on the reply's own call, the loop left it (``tool_loop.reply_calls``).
     reply_tools: list[dict[str, Any]] = field(default_factory=list)
     # How to handle the message, read by a model beside the prep (``chat.turn_decision``); the
-    # tool the reply's first call must make when it said live but wrote no query; the pictures
-    # and answer beside the reply (``chat.figure_turn``, ``chart_turn``, ``formal_turn``).
+    # tool the reply's first call must make when it said live but wrote no query; what is
+    # drawn or worked out beside it (``figure_turn``, ``chart_turn``, ``drawing``, ``formal_turn``).
     live_read: asyncio.Task[TurnDecision | None] | None = None
     reply_requires: str | None = None
     figure: asyncio.Task[str | None] | None = None
     chart: asyncio.Task[str | None] | None = None
+    drawing: ReplyDrawing | None = None
     formal: asyncio.Task[Any] | None = None
     # A retry's tools after a denial of live data (``tool_loop.live_denial``, settled reads).
     denial_retry_tools: list[dict[str, Any]] = field(default_factory=list)

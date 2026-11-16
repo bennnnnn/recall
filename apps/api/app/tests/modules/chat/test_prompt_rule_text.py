@@ -75,10 +75,12 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # (review, 2026-11-14); then options lettered "A) …", an ordinary personal request helped, a
 # frightening turn met plainly with no weapon use told and a retraction never dropping talk of
 # self-harm, and "how" after a reply about something to do read as how to do it
-# (OPTION_LETTERS_RULE, prompt_constants.care, REPLY_HOW_HINT).
-_RULES = 197
-_RULE_GRAMS = 17398
-_RULE_GRAMS_SHA = "c3a7be77b192971e"
+# (OPTION_LETTERS_RULE, prompt_constants.care, REPLY_HOW_HINT); then maths' contract asking a
+# reply to describe the picture a maths question asks to see in a ```draw block, the one
+# exception to its never-draw rule (math.drawing.contract.DRAW_CONTRACT, 2026-11-15).
+_RULES = 198
+_RULE_GRAMS = 17910
+_RULE_GRAMS_SHA = "a4e8fed35dc72710"
 
 
 def _rules() -> list[str]:
