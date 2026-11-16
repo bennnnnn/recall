@@ -15,6 +15,7 @@ from typing import Any
 from sympy import Symbol
 
 from app.modules.math.drawing import plot_marks, plot_regions, plot_volumes
+from app.modules.math.drawing.plot_check import asked_places
 from app.modules.math.drawing.plot_curves import add_curves
 from app.modules.math.drawing.plot_draw import draw_plot
 from app.modules.math.drawing.plot_items import (
@@ -49,7 +50,11 @@ def plot_spec(
     question = read_plot_question(texts)
     read = [item for _name, item in items if item is not None]
     working = _both_signs(reply)
-    scene = Scene(reply_values=tuple(written_values(working)), reply_lines=written_lines(working))
+    scene = Scene(
+        reply_values=tuple(written_values(working)),
+        reply_lines=written_lines(working),
+        asked=tuple(asked_places(question)),
+    )
     add_curves(read, question, scene)
     if not scene.curves:
         _lines_as_curves(scene)

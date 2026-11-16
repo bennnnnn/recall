@@ -25,7 +25,7 @@ from app.modules.math.drawing.plot_pieces import end_value
 from app.modules.math.drawing.plot_question import PlotQuestion
 from app.modules.math.drawing.plot_reading import number, same_number
 from app.modules.math.drawing.plot_scene import DrawnCurve, DrawnLine, DrawnPoint, Place, Scene
-from app.modules.math.drawing.real_curve import RealFunction, X
+from app.modules.math.drawing.real_curve import RealFunction, X, defined_at
 from app.modules.math.solve.graph_sampling import side
 from app.modules.math.tangent_line import touching_line
 
@@ -154,7 +154,9 @@ def _ends(curve: DrawnCurve) -> list[Place]:
     for end, closed, inward in ends:
         y = end_value(span, end, closed, inward) if end not in (-oo, oo) else None
         if y is not None:
-            held = closed and math.isfinite(span.fn.at(float(end)))
+            held = (
+                closed and math.isfinite(span.fn.at(float(end))) and defined_at(span.fn.expr, end)
+            )
             places.append(Place(end, _exact_y(span.fn, end) if held else y))
     return places
 
@@ -178,8 +180,9 @@ def key_points(item: KeyPoints, scene: Scene) -> None:
         places += [(p, "") for p in _ends(curve)]
     meets = crossings(curve, scene) if "crossings" in item.show else []
     for place, kind, meet in [*((p, k, False) for p, k in places), *((p, "", True) for p in meets)]:
-        span = curve.span_at(float(place.x))
-        if span is not None:
+        span = curve.span_holding(float(place.x))
+        # A place the formula has no value at is no point on it (x^x's 1 at 0).
+        if span is not None and defined_at(span.fn.expr, place.x):
             point = point_of(place, span.fn, curve.color)
             point.meet, point.kind = meet, kind
             scene.add_point(point)

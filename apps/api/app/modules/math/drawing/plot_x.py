@@ -29,6 +29,8 @@ _FROM_TO = re.compile(
 # Words before "between A and B" that say it of a value, not of x: "is between 2 and 3".
 # A region "lying between 1 and 3" lies between values of x.
 _SAID_OF_A_VALUE = frozenset("is are answer result value estimate was".split())
+# "x = ±1": a value and its negative.
+_PLUS_MINUS = r"\u00b1\s?|\\pm\s?|\+/?-\s?"
 # A list after "x =": "x = 1 and -2", "x = 1, 2 or 3".
 _NUMBER_VALUE = r"[-+]?(?:\d|pi\b)[\w./()*^]{0,11}"
 _LISTED = rf"\s?(?:,|\band\b|\bor\b)\s?(?:and\s)?{_NUMBER_VALUE}(?=[\s,.;)]|$)"
@@ -95,11 +97,13 @@ def named_values(text: str, letter: str, variables: frozenset[str]) -> tuple[lis
     points: list[Any] = []
     said: list[Any] | None = None
     last = 0
-    for match in re.finditer(rf"\b{letter}\s?=\s?({_VALUE})((?:{_LISTED})*)", text):
+    for match in re.finditer(rf"\b{letter}\s?=\s?({_PLUS_MINUS})?({_VALUE})((?:{_LISTED})*)", text):
         if text[match.start() - 1 : match.start()] in {"(", "'"}:
             continue  # f(x = ...) is no line
-        values = [match.group(1), *re.findall(_LISTED_VALUE, match.group(2))]
+        values = [match.group(2), *re.findall(_LISTED_VALUE, match.group(3))]
         found = [v for v in (number(w.rstrip(")")) for w in values) if v is not None]
+        if match.group(1):
+            found += [-v for v in found]  # "x = ±1" is 1 and -1
         if not found:
             continue
         before = [w for w in _words_before(text, match.start()) if w not in _LINE_WORDS]

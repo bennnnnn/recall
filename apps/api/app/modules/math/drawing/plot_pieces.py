@@ -19,7 +19,7 @@ from typing import Any
 import numpy as np
 from sympy import Expr, Pow, Symbol, log, nsimplify, oo, preorder_traversal, simplify
 
-from app.modules.math.drawing.curve_features import snapped, zeros
+from app.modules.math.drawing.curve_features import exact_xs, snapped, zeros
 from app.modules.math.drawing.plot_items import Curve
 from app.modules.math.drawing.plot_question import Clause, PlotQuestion
 from app.modules.math.drawing.plot_reading import (
@@ -293,8 +293,9 @@ _WRITTEN_REACH = 50.0
 def _written_rules(raw: Any) -> list[tuple[str, Any]]:
     """What the formula as written asks of x, read from its own tree before SymPy
     simplifies it: a logarithm's argument above 0, an even root's at least 0, a power below
-    0's base not 0 (x/x is x·x⁻¹). Each argument is read on its own, so e^(ln x) keeps its
-    ln x > 0 though SymPy reads the whole as x; an odd root (x^(2/3)) asks nothing."""
+    0 or of 0 its base not 0 (x/x is x·x⁻¹; x⁰ has no value at 0). Each argument is read on
+    its own, so e^(ln x) keeps its ln x > 0 though SymPy reads the whole as x; an odd root
+    (x^(2/3)) asks nothing."""
     rules: list[tuple[str, Any]] = []
     for node in preorder_traversal(raw):
         if isinstance(node, log):
@@ -303,8 +304,8 @@ def _written_rules(raw: Any) -> list[tuple[str, Any]]:
             power = node.exp.doit()
             if not power.is_Rational:
                 continue
-            if power.is_negative:
-                rules.append(("!=", node.base.doit()))
+            if power.is_negative or power.is_zero:
+                rules.append(("!=", node.base.doit()))  # x/x and x⁰ have none at 0
             if power.q % 2 == 0:
                 rules.append((">=", node.base.doit()))
     return rules
@@ -331,8 +332,10 @@ def _as_written_conditions(expr: Any, raw: Any) -> list[Condition]:
     bounds: list[tuple[Any, str]] = []
     for op, arg in _written_rules(raw):
         part = RealFunction(as_real(arg, letters[0]))
+        exact = exact_xs(part)
         edges = [
-            snapped(x, [], part.expr) for x in zeros(part.values, -_WRITTEN_REACH, _WRITTEN_REACH)
+            snapped(x, exact, part.expr)
+            for x in zeros(part.values, -_WRITTEN_REACH, _WRITTEN_REACH)
         ]
         if op == "!=":
             # A hole only where the simplified formula runs on through (x/x at 0); where it

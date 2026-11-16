@@ -27,7 +27,7 @@ from app.modules.math.drawing.curve_features import (
     zeros,
 )
 from app.modules.math.drawing.plot_pieces import Shape, Span
-from app.modules.math.drawing.real_curve import RealFunction, X
+from app.modules.math.drawing.real_curve import RealFunction, X, defined_at
 
 
 @dataclass(frozen=True)
@@ -108,6 +108,20 @@ class DrawnCurve:
     def span_at(self, x: float) -> Span | None:
         for span, low, high in self._each():
             if low <= x <= high:
+                return span
+        return None
+
+    def span_holding(self, x: float) -> Span | None:
+        """The piece whose own domain holds ``x``, an end it leaves out excluded (x⁰ has
+        no value at 0, though its pieces run up to it)."""
+        for span, low, high in self._each():
+            inside = low < x < high
+            # An end the search cut, not the piece's own, holds x.
+            at_low = x == low and (span.low == -oo or float(span.low) != low or span.low_closed)
+            at_high = x == high and (
+                span.high == oo or float(span.high) != high or span.high_closed
+            )
+            if inside or at_low or at_high:
                 return span
         return None
 
@@ -210,8 +224,8 @@ class DrawnCurve:
 
     @cached_property
     def y_intercept(self) -> Place | None:
-        span = self.span_at(0.0)
-        if span is None:
+        span = self.span_holding(0.0)
+        if span is None or not defined_at(span.fn.expr, Integer(0)):
             return None
         y = span.fn.at(0.0)
         return Place(Integer(0), y) if math.isfinite(y) else None
@@ -287,6 +301,9 @@ class Scene:
     reply_values: tuple[float, ...] = ()
     # The lines it writes, each (slope, offset), or (None, a) for x = a.
     reply_lines: tuple[tuple[float | None, float], ...] = ()
+    # The kinds of place the question asks for ("turning points": "turns"): kept whole when
+    # a picture marks more than it can carry.
+    asked: tuple[str, ...] = ()
     # What the axes measure: the question's letters ("t", "v"), with units when it gives them.
     x_label: str = "x"
     y_label: str = "y"

@@ -78,9 +78,15 @@ _WIDTH = re.compile(
 # What may stand between a formula and the domain it is written with: "for", "when", a
 # comma, "is defined for", "on the interval", "with domain".
 _JOINS = frozenset(
-    "for when if whenever where with on over is are defined domain its the interval "
-    "restricted to".split()
+    "for when if whenever where with on over is are has defined domain its the interval "
+    "restricted to in \u2208".split()
 )
+# A condition starting the text: "0 ≤ x ≤ 4", "x ≥ 0", "x ∈ [-1, 2]".
+_A_CONDITION = re.compile(r"\s*[-+]?[\w.()/]{1,12}\s*(?:<=|>=|<|>|\u2208|in\s+\[)")
+# What a join word is read without: a set's braces and bar ("{x : 0 ≤ x ≤ 3}", "{x | x > 0}").
+_JOIN_MARKS = ",(){}:|"
+# An interval of x in words, right after the formula's joins: "for x between -1 and 2".
+_BETWEEN = re.compile(r"\bbetween\s+([-+]?[\w./()*^]{1,12})\s+and\s+([-+]?[\w./()*^]{1,12})")
 _COMPARISON = re.compile(r"<=|>=|!=|<|>")
 # A domain the question names one: "defined for", "domain", "restricted to", "… only".
 _NAMED_DOMAIN = re.compile(r"\b(?:defined|domain|restricted|only)\b", re.IGNORECASE)
@@ -198,6 +204,9 @@ def _equals_spans(text: str) -> list[tuple[str, str, int]]:
                     words.append(re.split(r"[;\n]", word)[0])
                 break
             words.append(word)
+            after = text[at + 1 + len(" ".join(words)) :]
+            if word.rstrip().endswith(",") and _A_CONDITION.match(after):
+                break  # "f(x) = 2x + 1, 0 ≤ x ≤ 4": the formula ends at its domain
             if word.rstrip().endswith((",", ".")) and not word.rstrip()[-2:-1].isdigit():
                 break
         formula = " ".join(words).strip().rstrip(".,;:")
@@ -247,32 +256,43 @@ def _as_written(formula: str, parsed: Any) -> Any | None:
 
 def _written_with(rest: str, letters: frozenset[str]) -> Domain | None:
     """The domain ``rest``, the text right after a formula, writes it with: comparisons of
-    the variable ("for x ≥ 0", ", 0 < x < 2", "is defined for 0 ≤ x ≤ 3 only") or an
-    interval in brackets ("on [0, 2]"), joined to the formula by nothing but ``_JOINS``.
-    Anything else between ("is decreasing for", "and show that y < 0 when", "and find the
-    area under it for") says it of something else. Its formula is left for the caller."""
-    compared = _COMPARISON.search(rest)
-    bracket = BRACKETS.search(rest)
-    found: tuple[Condition, ...]
-    if bracket is not None and (compared is None or bracket.start() < compared.start()):
-        start, end = bracket.start(), bracket.end()
-        low, high = (number(group) for group in bracket.groups())
-        both = low is not None and high is not None
-        found = (Condition(">=", low), Condition("<=", high)) if both else ()
-    elif compared is not None:
-        head = rest[: compared.start()].rstrip()
-        start = len(head) - len(head.split()[-1]) if head.split() else len(head)
-        stop = _CONDITION_END.search(rest, compared.end())
-        end = stop.start() if stop is not None else len(rest)
-        found = tuple(
-            c for c in conditions(rest[start:end], letters) if c.op != "=" and c.value.is_number
-        )
-    else:
-        return None
-    if not found or not all(w.strip(",()").lower() in _JOINS for w in rest[:start].split()):
+    the variable ("for x ≥ 0", ", 0 < x < 2", "is defined for 0 ≤ x ≤ 3 only", "with domain
+    {x : 0 ≤ x ≤ 3}"), an interval in brackets ("on [0, 2]", "x ∈ [-1, 2]") or in words
+    ("for x between -1 and 2"), joined to the formula by nothing but ``_JOINS`` and the
+    variable. Anything else between ("is decreasing for", "and show that y < 0 when", "and
+    find the area under it for", "which is negative for") says it of something else. Its
+    formula is left for the caller."""
+    found: tuple[Condition, ...] = ()
+    start = end = -1
+    for kind, match in sorted(
+        ((k, m) for k, m in _written_forms(rest) if m is not None), key=lambda km: km[1].start()
+    )[:1]:
+        if kind == "compared":
+            head = rest[: match.start()].rstrip()
+            start = len(head) - len(head.split()[-1]) if head.split() else len(head)
+            stop = _CONDITION_END.search(rest, match.end())
+            end = stop.start() if stop is not None else len(rest)
+            found = tuple(
+                c for c in conditions(rest[start:end], letters) if c.op != "=" and c.value.is_number
+            )
+        else:
+            start, end = match.start(), match.end()
+            low, high = (number(group) for group in match.groups())
+            if low is not None and high is not None and float(low) < float(high):
+                found = (Condition(">=", low), Condition("<=", high))
+    joins = [word.strip(_JOIN_MARKS).lower() for word in rest[:start].split()]
+    if not found or not all(not w or w in _JOINS or w in letters for w in joins):
         return None
     named = _NAMED_DOMAIN.search(rest[: end + len(" only")]) is not None
     return Domain(None, found, named)
+
+
+def _written_forms(rest: str) -> list[tuple[str, re.Match[str] | None]]:
+    return [
+        ("compared", _COMPARISON.search(rest)),
+        ("bracket", BRACKETS.search(rest)),
+        ("between", _BETWEEN.search(rest)),
+    ]
 
 
 def _domains(part: str, letters: frozenset[str]) -> list[Domain]:

@@ -361,6 +361,27 @@ def _instant(line: str, read: asyncio.Future[TurnDecision | None]) -> StreamCont
 
 
 @pytest.mark.wall_clock
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Two cards are drawn from a deck. Find P(both aces).",
+        "As shown, the triangle has sides 3, 4 and 5. Find its area.",
+        "Find the x-intercepts of the graph of y = x^2 - 4.",
+        "Solve x^2 - 5x + 6 = 0 and show your steps.",
+    ],
+)
+async def test_a_word_that_asks_for_no_picture_never_waits(line: str) -> None:
+    """ "drawn", "as shown" and "the graph of" are no ask: whole words only (round 5)."""
+    pending: asyncio.Future[TurnDecision | None] = asyncio.get_event_loop().create_future()
+    loop = asyncio.get_running_loop()
+    ctx = _instant(line, pending)
+    began = loop.time()
+    await drawing_turn.write_for_a_picture(ctx, _settings())
+    pending.cancel()
+    assert loop.time() - began < 0.1 and ctx.instant_reply is not None
+
+
+@pytest.mark.wall_clock
 async def test_an_instant_card_waits_for_the_read_only_when_words_may_ask() -> None:
     """ "Show your steps" waited 1.2 s for a read that had not come (2026-11-15 review): a
     message whose words cannot ask to see a picture never waits. One that may waits up to
@@ -488,3 +509,24 @@ async def test_an_instant_card_gives_way_when_the_read_asks_for_a_picture(line: 
     ctx = _instant(line, _read(subject="maths", picture="graph"))
     await drawing_turn.write_for_a_picture(ctx, _settings())
     assert ctx.instant_reply is None
+
+
+async def test_a_drawing_that_runs_too_long_is_cut_off_and_the_reply_stands(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Drawing runs in the SymPy pool under the solve timeout, whose worker is killed when it
+    runs over (``core.sympy_executor``): a description that spins never holds the turn."""
+    from app.core import sympy_executor
+
+    asked: dict[str, float] = {}
+
+    async def spins(fn: Any, *args: Any, **kwargs: Any) -> Any:
+        asked["timeout"] = kwargs["timeout"]
+        raise TimeoutError
+
+    monkeypatch.setattr(sympy_executor, "run_sympy", spins)
+    ctx = _ctx(live_read=_read(subject="maths", picture="diagram"))
+    ctx.drawing = ReplyDrawing("read", descriptions=[_DESCRIPTION])
+    out = await attach_drawing(_state(ctx, "Let $u$ and $v$ be the vectors."))
+    assert out == "Let $u$ and $v$ be the vectors." and not ctx.drawing.drawn
+    assert asked["timeout"] == _settings().stem_solve_timeout_seconds

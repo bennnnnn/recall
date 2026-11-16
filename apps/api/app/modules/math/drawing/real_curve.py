@@ -14,7 +14,22 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
-from sympy import Abs, DiracDelta, Expr, S, Symbol, diff, lambdify, sign
+from sympy import (
+    Abs,
+    DiracDelta,
+    Expr,
+    Float,
+    Rational,
+    S,
+    Symbol,
+    diff,
+    lambdify,
+    nan,
+    oo,
+    preorder_traversal,
+    sign,
+    zoo,
+)
 
 from app.modules.math.solve.graph_sampling import sample_at
 from app.modules.math.solve.odd_roots import real_branch
@@ -88,3 +103,36 @@ class RealFunction:
         if not isinstance(value, Expr) or not value.is_real or value.has(S.ComplexInfinity):
             return None
         return value
+
+
+# The largest denominator a decimal place is read as a simple fraction with.
+_SIMPLE_DENOMINATOR = 1000
+
+
+def defined_at(expr: Any, x0: Any) -> bool:
+    """``expr`` has a value at ``x0`` as written: no 0⁰ or ∞⁰ and no division by zero there.
+    SymPy and numpy both give 1 for x^x and (1 + 1/x)^x at 0, where neither has one, and a
+    point marked there marked what is not on the curve. A decimal is read as the simple
+    number it is within 1e-9 of (0^x + x's root found at 2·10⁻¹⁶ is 0, where it has none)."""
+    if isinstance(x0, (Float, float)):
+        # Only a simple fraction: nsimplify turned x^x's turn at 1/e into a ratio of
+        # ten-digit numbers, and SymPy's exact power of it ran for hours.
+        near = Rational(float(x0)).limit_denominator(_SIMPLE_DENOMINATOR)
+        close = abs(float(near) - float(x0)) <= 1e-9 * max(1.0, abs(float(x0)))
+        if close and not defined_at(expr, near):
+            return False
+    try:
+        for node in preorder_traversal(expr):
+            if not getattr(node, "free_symbols", None):
+                continue
+            if node.is_Pow:
+                base, exponent = (part.subs(X, x0) for part in node.args)
+                if base.has(zoo, nan, oo, -oo) or exponent.has(zoo, nan, oo, -oo):
+                    return False
+                if base == 0 and (exponent == 0 or exponent.is_negative):
+                    return False
+            if node.subs(X, x0).has(zoo, nan):
+                return False
+    except (TypeError, ValueError, ZeroDivisionError):
+        return False
+    return True

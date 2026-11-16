@@ -28,6 +28,7 @@ from app.modules.math.drawing.plot_window import (
     of_interest,
     span_range,
 )
+from app.modules.math.drawing.real_curve import defined_at
 from app.modules.math.schemas import GraphSampleInput
 from app.modules.math.schemas.plot import PlotCurve, PlotGraphSpec, PlotLine, PlotPoint, PlotRegion
 from app.modules.math.solve import SolveServiceError, sample_function
@@ -60,19 +61,24 @@ def _ends(curve: DrawnCurve) -> list[DrawnPoint]:
             y = end_value(span, end, closed, inward)
             if y is not None:
                 closed = closed and math.isfinite(span.fn.at(float(end)))
+                closed = closed and defined_at(span.fn.expr, end)
                 (events if closed or curve.shape.complete else lone).append((float(end), y, closed))
     for x_at, y_at in curve.shape.dots:
         events.append((float(x_at), float(y_at), True))
     for found in curve.breaks:
         x = float(found.x)
+        # Its value there, when a piece holds x and the formula has one (x⁰ has none at 0).
+        holder = curve.span_holding(x)
+        held = holder is not None and defined_at(holder.fn.expr, found.x)
+        value = found.value if held else None
         for side in (found.left, found.right):
             if side.kind == "finite":
-                closed = found.value is not None and abs(found.value - side.value) < 1e-6
+                closed = value is not None and abs(value - side.value) < 1e-6
                 events.append((x, side.value, closed))
-        if found.value is not None and all(
-            abs(found.value - s.value) > 1e-6 for s in (found.left, found.right)
+        if value is not None and all(
+            abs(value - s.value) > 1e-6 for s in (found.left, found.right)
         ):
-            events.append((x, found.value, True))
+            events.append((x, value, True))
     events += [end for end in lone if _covered(curve, end[0])]
     return _circles(events, curve.color)
 
@@ -331,9 +337,11 @@ _DROPPED_FIRST = ("inflections", "turns", "roots")
 
 
 def _within_the_cap(scene: Scene) -> None:
-    """A kind of place is marked whole or not at all: past the cap, the bends go, then the
-    turns. Cut at the cap, three of sin x + cos 2x's roots went unmarked in view."""
-    for kind in _DROPPED_FIRST:
+    """A kind of place is marked whole or not at all: past the cap, the kinds the question
+    does not ask for go first, the bends before the turns. Cut at the cap, three of
+    sin x + cos 2x's roots went unmarked in view; then its asked turns lost to its bends."""
+    order = sorted(_DROPPED_FIRST, key=lambda kind: kind in scene.asked)
+    for kind in order:
         if len(scene.points) <= _MOST_POINTS:
             return
         scene.points = [p for p in scene.points if p.kind != kind]

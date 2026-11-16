@@ -34,6 +34,8 @@ _DIFFERENTIAL = re.compile(r"(?<=\S)\s+d[a-z](?![\w/])")
 _BOUND = r"(?:\{([^{}]{1,12})\}|(-?[\w.]{1,8}))"
 _SCRIPTED_INTEGRAL = re.compile(rf"(?:∫|\\int)\s*_\s*{_BOUND}\s*(?:\^|\*\*)\s*{_BOUND}")
 _THIN_SPACE = re.compile(r"\\[,;:!]")
+# A function as a mapping, "f: x ↦ x² - 1", read as "f(x) = x² - 1".
+_MAPPING = re.compile(r"\b([a-zA-Z])\s?:\s?([a-z])\s?(?:\u21a6|\|->)\s?")
 # A function defined: "f(x) =", "g(t)=".
 DEFINES = re.compile(r"\b[a-zA-Z]\(\s?[a-z]\s?\)\s?=")
 LOWER, UPPER = frozenset({">", ">="}), frozenset({"<", "<="})
@@ -50,6 +52,7 @@ def plain(text: str) -> str:
         out = out.replace(glyph, written)
     out = rewrite_unicode_sqrts(rewrite_unicode_script_runs(out))
     out = _SCRIPTED_INTEGRAL.sub(_integral_words, _THIN_SPACE.sub(" ", out))
+    out = _MAPPING.sub(r"\1(\2) = ", out)
     return _DIFFERENTIAL.sub("", rewrite_abs_bars(out, apart=True))
 
 

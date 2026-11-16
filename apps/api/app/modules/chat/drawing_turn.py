@@ -40,12 +40,13 @@ logger = logging.getLogger(__name__)
 
 # Words that may ask to see a maths picture. They decide only whether a turn waits for the
 # read (an instant card), or, when the read is late, whether the reply is asked for a
-# description, which finalize keeps only if the read, in by then, agrees. Broad on purpose:
-# "the graph of y = x²" waits, and the read keeps the card. "Show that" is a proof and
-# "show your steps" asks for working: neither waits.
+# description, which finalize keeps only if the read, in by then, agrees. Broad on purpose,
+# but whole words: "graph y = x²" waits and the read decides; "drawn", "as shown" and "the
+# graph of" name no ask. "Show that" is a proof and "show your steps" asks for working.
 _ASKS_TO_SEE = re.compile(
-    r"\b(?:draw|sketch|graph|plot|illustrate|shade|visuali[sz]e|diagram"
-    r"|show(?!\s+(?:that|how|why|whether|your|all|each|every|(?:the\s+)?(?:steps?|working|work))\b))",
+    r"\b(?:draw|sketch|illustrate|shade|visuali[sz]e|diagram|plot(?!\s+of\b)"
+    r"|graph(?!\s+of\b)"
+    r"|show(?!\s+(?:that|how|why|whether|your|all|each|every|(?:the\s+)?(?:steps?|working|work))\b))\b",
     re.IGNORECASE,
 )
 
