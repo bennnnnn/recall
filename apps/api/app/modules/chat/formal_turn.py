@@ -110,6 +110,11 @@ async def attach_formal(state: FinalizeState) -> str:
     answer = task.result()
     body = answer.card_value
     verdict = stated_verdict(state.text, body)
+    if verdict not in _AGREES and any(
+        stated_verdict(state.text, same) in _AGREES for same in answer.same_answers[1:]
+    ):
+        # The same answer another way: 90% for 0.9, 7500 N for a braking force of -7500 N.
+        verdict = "same"
     logger.info("formal answer: reply %s, waited %.2f s", verdict, waited)
     if verdict in _AGREES:
         return state.text

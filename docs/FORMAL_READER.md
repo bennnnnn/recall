@@ -109,7 +109,9 @@ answer disagreed with the server's: that is why finalize requires them to agree.
   start with the reply (`chat/formal_turn.py`); the reply streams as before.
 - **At finalize** (`formal_answer` pass), waiting at most `formal_wait_seconds` (2 s), and
   only for an answer whose setup's own answer agreed with the server's:
-  - the reply's final value is the server's, or a rounding of it: the reply stands;
+  - the reply's final value is the server's, or a rounding of it, or the same answer
+    written another way (90% for 0.9, a braking force's 7500 N for the server's −7500 N, the
+    sign being the reply's convention): the reply stands;
   - another value: its Answer becomes the server's card;
   - a value the readers cannot find (an Answer heading in another language): the server's
     card under the reply, both shown.
@@ -123,6 +125,18 @@ answer disagreed with the server's: that is why finalize requires them to agree.
   …, waited … s`).
 - **The adapter:** `SubjectAdapter.formal` (`SubjectFormal`, guarded), so chat reaches it
   through the registry; maths and chemistry answer None until they have a reader.
+
+**Harder US grade-7 questions (2026-11-16).** 33 two-step questions (an average over two
+legs, efficiency from a pulley's work, mixing water, a heater's time); the catalog solvers
+answer 16. Three fixes came out of them, each for every question of its kind:
+- a percentage is asked as `"%"` and written as the plain ratio (a setup with `* 100` is
+  refused, as any number written into an equation is);
+- a standard constant named with no value takes the table's when only one constant is of
+  its kind (water's specific heat), and is refused when more than one is (a speed);
+- a unit after a slash is all denominator (`J/kg*K` is per kilogram per kelvin).
+
+Rerun on the translated and reworded sets afterwards (365 questions, setup by smart-chat):
+299 answers used, all right; 112 of the 120 translated questions answered.
 
 ## One model reader
 

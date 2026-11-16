@@ -18,7 +18,25 @@ class FormalAnswer:
     @property
     def card_value(self) -> str:
         """The value as card maths: "31.07\\ \\mathrm{m}"."""
-        return f"{_number_latex(self.value)}\\ {unit_latex(self.unit)}".rstrip("\\ ")
+        return _card(self.value, self.unit)
+
+    @property
+    def same_answers(self) -> list[str]:
+        """The card value and the other ways a reply may state the same answer: a pure
+        number as a percentage or a percentage as a fraction (an efficiency, 0.9 or 90%),
+        and a negative value's size (a braking force's sign is the reply's convention)."""
+        forms = [self.card_value]
+        if unit_latex(self.unit) == "":
+            forms.append(_card(self.value * 100, "percent"))
+        elif self.unit.strip() in _PERCENT:
+            forms.append(_card(self.value / 100, ""))
+        if self.value < 0:
+            forms += [form.replace("-", "", 1) for form in list(forms)]
+        return forms
+
+
+def _card(value: float, unit: str) -> str:
+    return f"{_number_latex(value)}\\ {unit_latex(unit)}".rstrip("\\ ")
 
 
 def _number_latex(value: float) -> str:
@@ -44,7 +62,9 @@ _UNIT_LATEX = {
     "degree": "^\\circ",
     "ohm": "\\Omega",
     "percent": "\\%",
+    "%": "\\%",
 }
+_PERCENT = frozenset({"percent", "%"})
 
 
 def unit_latex(unit: str) -> str:

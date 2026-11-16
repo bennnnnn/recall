@@ -32,8 +32,8 @@ PROMPT = (
     'state it, copied exactly, in the question\'s language, e.g. "100 km/h"). A count '
     'written in words is a given too ("two resistors" -> value 2). A standard constant the '
     "question does not state (g, c, G, the speed of sound, water's density or specific "
-    "heat) is a given with constant true and no quote. Never invent any other value; when "
-    "a value the answer needs is missing, solvable is false.\n"
+    "heat) is a given with its standard value, constant true and no quote. Never invent "
+    "any other value; when a value the answer needs is missing, solvable is false.\n"
     "unknowns: the quantity asked, and every other symbol the equations use that is not a "
     "given, each with its unit.\n"
     'equations: the physics that joins them, one relation per entry, "lhs = rhs" in the '
@@ -42,7 +42,8 @@ PROMPT = (
     "fine). An angle in degrees is a given in degree; a temperature change is in delta_degC "
     "or K, a temperature in degC or K.\n"
     "target (always): the symbol asked for; target_unit: the unit the question asks for it in, or "
-    "the usual SI unit.\n"
+    'the usual SI unit; a percentage (an efficiency, a percent change) in "%", its equation '
+    'the plain ratio (no "* 100": the unit makes it a percentage).\n'
     "answer: your own final numeric answer, in target_unit.\n"
     "solvable: false when the message is no question with one numeric answer (a concept, "
     "an explanation, several separate questions).\n"

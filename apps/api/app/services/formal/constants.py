@@ -54,3 +54,18 @@ def is_standard(magnitude: float, units: Any, registry: Any) -> bool:
         if magnitude and abs(magnitude - known.magnitude) <= TOLERANCE * abs(known.magnitude):
             return True
     return False
+
+
+def standard_value(units: Any, registry: Any) -> float | None:
+    """The value, in base SI, of the one standard constant of ``units``' kind, for a constant
+    the setup named with no value (water's specific heat in a mixing question); None when no
+    constant or more than one is of that kind (a speed: light's or sound's)."""
+    found = [
+        known.magnitude
+        for value, unit in CONSTANTS
+        if (known := registry.Quantity(value, unit).to_base_units()).dimensionality
+        == units.dimensionality
+    ]
+    if not found or any(abs(v - found[0]) > TOLERANCE * abs(found[0]) for v in found):
+        return None
+    return float(found[0])

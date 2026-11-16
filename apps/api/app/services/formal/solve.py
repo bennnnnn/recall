@@ -29,7 +29,7 @@ import unicodedata
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
-from app.services.formal.constants import is_standard
+from app.services.formal.constants import is_standard, standard_value
 from app.services.formal.problem import FormalProblem
 
 logger = logging.getLogger(__name__)
@@ -83,7 +83,12 @@ def _unit_text(unit: str) -> str:
         text = text.replace(old, new)
     text = text.replace("²", "**2").replace("³", "**3").replace("^", "**")
     text = text.replace("·", "*").replace("Ω", "ohm").replace("µ", "u").replace("μ", "u")
-    return text.replace("%", "percent")
+    text = text.replace("%", "percent")
+    # "J/kg*K" is J/(kg*K) as a science book writes it, not (J/kg)*K as pint reads it.
+    numerator, slash, denominator = text.partition("/")
+    if slash and "(" not in text and "/" not in denominator and "*" in denominator:
+        return f"{numerator}/({denominator})"
+    return text
 
 
 def _quantity(value: float, unit: str) -> Any:
@@ -305,13 +310,20 @@ def solve_formal(problem_json: str, question: str) -> str:
     try:
         for given in problem.givens:
             number = parse_number(given.value)
-            if number is None:
+            if number is None and given.constant:
+                # A standard constant named with no value: the table's, when only one is
+                # of its kind (water's specific heat), else refused.
+                kind = _quantity(1.0, given.unit).to_base_units().units
+                number = standard_value(kind, registry)
+                base = None if number is None else registry.Quantity(number, kind)
+            else:
+                base = None if number is None else _quantity(number, given.unit).to_base_units()
+            if base is None:
                 return _refused(f"value of {given.symbol}")
-            base = _quantity(number, given.unit).to_base_units()
             if given.constant:
                 if not is_standard(base.magnitude, base.units, registry):
                     return _refused(f"constant {given.symbol} is no standard value")
-            elif not grounded(number, given.quote, question):
+            elif number is None or not grounded(number, given.quote, question):
                 return _refused(f"{given.symbol} is not in the question")
             values[symbols[given.symbol]] = float(base.magnitude)
             units[symbols[given.symbol]] = base.units

@@ -238,3 +238,91 @@ async def test_the_server_s_answer_is_used_only_when_the_setup_s_own_agrees(
     assert (answer is not None) is kept
     if answer is not None:
         assert answer.value == pytest.approx(3.4722, rel=1e-4) and answer.unit == "m/s^2"
+
+
+MIXING = "2 kg of water at 80 C is mixed with 3 kg of water at 20 C. What is the final temperature?"
+PULLEY = "A pulley lifts a 900 N load 2 m when an effort of 250 N pulls the rope 8 m. Efficiency?"
+
+
+def _mixing(c: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "givens": [
+            {"symbol": "m1", "value": "2", "unit": "kg", "quote": "2 kg"},
+            {"symbol": "T1", "value": "80", "unit": "degC", "quote": "80 C"},
+            {"symbol": "m2", "value": "3", "unit": "kg", "quote": "3 kg"},
+            {"symbol": "T2", "value": "20", "unit": "degC", "quote": "20 C"},
+            c,
+        ],
+        "unknowns": [{"symbol": "Tf", "unit": "degC"}],
+        "equations": ["m1*c*(T1 - Tf) = m2*c*(Tf - T2)"],
+        "target": "Tf",
+        "target_unit": "degC",
+        "answer": 44,
+    }
+
+
+def test_a_standard_constant_named_with_no_value_takes_the_table_s() -> None:
+    """Water's specific heat, the only constant of its kind, named but not valued."""
+    c = {"symbol": "c", "value": "", "unit": "J/(kg*K)", "constant": True}
+    result = _solve(_mixing(c), MIXING)
+    assert result["solved"] and result["agrees"] and result["value"] == pytest.approx(44)
+
+
+@pytest.mark.parametrize(
+    "c",
+    [
+        {"symbol": "c", "value": "", "unit": "m/s", "constant": True},
+        {"symbol": "c", "value": "", "unit": "kg", "constant": True},
+        {"symbol": "c", "value": "", "unit": "J/(kg*K)", "constant": False, "quote": "x"},
+    ],
+    ids=["a-speed-light-s-or-sound-s", "a-mass-of-five", "not-a-constant"],
+)
+def test_a_constant_with_no_value_and_more_than_one_of_its_kind_is_refused(
+    c: dict[str, Any],
+) -> None:
+    assert _solve(_mixing(c), MIXING)["reason"] == "value of c"
+
+
+def test_a_percentage_is_the_ratio_in_the_unit_asked() -> None:
+    setup = {
+        "givens": [
+            {"symbol": "L", "value": "900", "unit": "N", "quote": "900 N"},
+            {"symbol": "dl", "value": "2", "unit": "m", "quote": "2 m"},
+            {"symbol": "E", "value": "250", "unit": "N", "quote": "250 N"},
+            {"symbol": "de", "value": "8", "unit": "m", "quote": "8 m"},
+        ],
+        "unknowns": [{"symbol": "eta", "unit": "%"}],
+        "equations": ["eta = L*dl/(E*de)"],
+        "target": "eta",
+        "target_unit": "%",
+        "answer": 90,
+    }
+    result = _solve(setup, PULLEY)
+    assert result["solved"] and result["agrees"]
+    assert (result["value"], result["unit"]) == (pytest.approx(90), "%")
+    times_100 = setup | {"equations": ["eta = L*dl/(E*de)*100"]}
+    assert not _solve(times_100, PULLEY)["solved"]
+
+
+HEATER = "A 1000 W heater warms 2 kg of water by 30 C. How long? The specific heat is 4200 J/kg C."
+
+
+@pytest.mark.parametrize("unit", ["J/kg*degC", "J/kg*K", "J/(kg*K)", "J/(kg*delta_degC)"])
+def test_a_unit_after_a_slash_is_all_denominator(unit: str) -> None:
+    """A science book's J/kg*K is per kilogram per kelvin, never (J/kg)*K (the heater's time
+    was refused for its units)."""
+    setup = {
+        "givens": [
+            {"symbol": "P", "value": "1000", "unit": "W", "quote": "1000 W"},
+            {"symbol": "m", "value": "2", "unit": "kg", "quote": "2 kg"},
+            {"symbol": "dT", "value": "30", "unit": "delta_degC", "quote": "30 C"},
+            {"symbol": "c", "value": "4200", "unit": unit, "quote": "4200 J/kg C"},
+        ],
+        "unknowns": [{"symbol": "t", "unit": "s"}],
+        "equations": ["P*t = m*c*dT"],
+        "target": "t",
+        "target_unit": "s",
+        "answer": 252,
+    }
+    result = _solve(setup, HEATER)
+    assert result["solved"] and result["value"] == pytest.approx(252)

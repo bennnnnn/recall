@@ -120,6 +120,41 @@ async def test_a_reply_whose_value_cannot_be_read_gets_both_in_its_language(
     assert "**Answer**" not in text
 
 
+def _answered(monkeypatch: pytest.MonkeyPatch, answer: FormalAnswer) -> None:
+    async def worked(question: str, settings: Settings) -> FormalAnswer:
+        return answer
+
+    monkeypatch.setattr(formal_read, "formal_answer", worked)
+
+
+@pytest.mark.parametrize(
+    ("server", "stated"),
+    [
+        (FormalAnswer(value=0.9, unit=""), "The efficiency is 90%."),
+        (FormalAnswer(value=0.9, unit=""), "Efficiency $= 90\\%$"),
+        (FormalAnswer(value=90.0, unit="%"), "The efficiency is 0.9."),
+        (FormalAnswer(value=-7500.0, unit="N"), "The braking force is 7500 N."),
+        (FormalAnswer(value=-4.0, unit="m/s^2"), "The acceleration is -4 m/s²."),
+    ],
+    ids=["percent-for-a-fraction", "percent-in-maths", "fraction-for-a-percent", "size", "signed"],
+)
+async def test_the_same_answer_stated_another_way_stands(
+    monkeypatch: pytest.MonkeyPatch, server: FormalAnswer, stated: str
+) -> None:
+    """A correct reply is never overwritten for writing 90% where the server has 0.9, or a
+    braking force's size where the server's value carries the sign of its direction."""
+    _answered(monkeypatch, server)
+    reply = f"**Answer**\n\n{stated}"
+    assert await _finalized(_ctx(live_read=_read()), reply) == reply
+
+
+async def test_another_size_still_gets_the_server_s_card(monkeypatch: pytest.MonkeyPatch) -> None:
+    _answered(monkeypatch, FormalAnswer(value=-7500.0, unit="N"))
+    text = await _finalized(_ctx(live_read=_read()), "**Answer**\n\nThe braking force is 8000 N.")
+    assert "```answer\nverified: false\n-7500\\ \\mathrm{N}\n```" in text
+    assert "8000 N" not in text.split("**Answer**")[1]
+
+
 async def test_a_turn_a_solver_answered_never_asks(answer: list[str]) -> None:
     verified = VerifiedPhysicsBlock(text="")
     ctx = _ctx(live_read=_read(), verified_subject=verified)
@@ -186,6 +221,7 @@ async def test_finalize_waits_no_longer_than_its_cap(monkeypatch: pytest.MonkeyP
         (0.0012346, "m", "0.001235\\ \\mathrm{m}"),
         (-4.0, "m/s^2", "-4\\ \\mathrm{m/s^{2}}"),
         (5e10, "m", "5\\times 10^{10}\\ \\mathrm{m}"),
+        (90.0, "%", "90\\ \\%"),
     ],
 )
 def test_the_card_draws_the_value_and_its_unit(value: float, unit: str, shown: str) -> None:
