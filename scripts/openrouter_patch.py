@@ -30,7 +30,7 @@ You cannot run anything, so read the code closely and keep the change small and 
 Answer with JSON only, no prose around it:
 {"summary": "what you changed and why, in a few sentences",
  "edits": [{"file": "path", "find": "an exact passage of the current file, long enough to
-   occur once", "replace": "its new text"}],
+   occur once", "replace": "its new text"}]  (always present: [] when you only add files),
  "new_files": [{"file": "path", "content": "the whole file"}],
  "tests": "which tests to run to prove it"}
 """
@@ -48,24 +48,47 @@ def _target(path: str) -> Path:
     return full
 
 
+def _text(item: object, key: str) -> str:
+    """A string field of one edit or new file; anything else (a missing field, null, a
+    number) refuses the whole answer rather than writing "None" into a source file."""
+    value = item.get(key) if isinstance(item, dict) else None
+    if not isinstance(value, str):
+        raise SystemExit(f"refused: an entry has no text for {key!r}")
+    return value
+
+
+def _entries(answer: dict, key: str) -> list[object]:
+    value = answer.get(key) or []
+    if not isinstance(value, list):
+        raise SystemExit(f"refused: {key!r} is not a list")
+    return value
+
+
 def apply(answer: dict) -> list[str]:
     """Every edit checked first, then all written: a failed edit leaves the checkout as it was."""
     pending: dict[Path, str] = {}
-    for edit in answer.get("edits") or []:
-        target = _target(str(edit.get("file", "")))
-        text = pending.get(target) or target.read_text(encoding="utf-8")
-        find, replace = str(edit.get("find", "")), str(edit.get("replace", ""))
+    for edit in _entries(answer, "edits"):
+        target = _target(_text(edit, "file"))
+        if target in pending:
+            text = pending[target]
+        elif target.is_file():
+            text = target.read_text(encoding="utf-8")
+        else:
+            raise SystemExit(f"refused: {_text(edit, 'file')} is not a file to edit")
+        find, replace = _text(edit, "find"), _text(edit, "replace")
         count = text.count(find) if find else 0
         if count != 1:
             raise SystemExit(
-                f"refused: the passage occurs {count} times in {edit.get('file')}"
+                f"refused: the passage occurs {count} times in {_text(edit, 'file')}"
             )
         pending[target] = text.replace(find, replace, 1)
-    for new in answer.get("new_files") or []:
-        target = _target(str(new.get("file", "")))
-        if target.exists():
-            raise SystemExit(f"refused: {new.get('file')} already exists")
-        pending[target] = str(new.get("content", ""))
+    for new in _entries(answer, "new_files"):
+        target = _target(_text(new, "file"))
+        if target.exists() or target in pending:
+            raise SystemExit(f"refused: {_text(new, 'file')} already exists")
+        pending[target] = _text(new, "content")
+    if not pending:
+        raise SystemExit("refused: the answer changes nothing")
     for target, text in pending.items():
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(text, encoding="utf-8")

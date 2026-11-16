@@ -28,12 +28,8 @@ from app.core.redis import get_redis_client  # noqa: E402
 
 async def main() -> int:
     parser = argparse.ArgumentParser(description="Replay Recall job DLQ entries.")
-    parser.add_argument(
-        "--count", type=int, default=50, help="max entries to replay/list"
-    )
-    parser.add_argument(
-        "--list", action="store_true", help="list DLQ entries without replaying"
-    )
+    parser.add_argument("--count", type=int, default=50, help="max entries to replay/list")
+    parser.add_argument("--list", action="store_true", help="list DLQ entries without replaying")
     args = parser.parse_args()
 
     settings = Settings()
@@ -56,15 +52,11 @@ async def main() -> int:
                         ensure_ascii=False,
                     )
                 )
-            print(
-                f"\n{len(entries)} entr{'y' if len(entries) == 1 else 'ies'} (showing up to {args.count})."
-            )
+            print(f"\n{len(entries)} entr{'y' if len(entries) == 1 else 'ies'} (showing up to {args.count}).")
             return 0
 
         replayed = await jobs.replay_dlq(redis, count=args.count, delete=True)
-        print(
-            f"Replayed {replayed} DLQ entr{'y' if replayed == 1 else 'ies'} back onto the jobs stream."
-        )
+        print(f"Replayed {replayed} DLQ entr{'y' if replayed == 1 else 'ies'} back onto the jobs stream.")
         return 0
     finally:
         await redis.aclose()

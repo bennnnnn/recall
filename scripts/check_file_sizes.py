@@ -93,13 +93,9 @@ def check(apps: list[str]) -> int:
             if belongs_to(path, app) and path not in sizes
         ]
 
-    print(
-        f"File sizes: {over_target} production files over the {TARGET_LINES}-line target."
-    )
+    print(f"File sizes: {over_target} production files over the {TARGET_LINES}-line target.")
     if shrunk:
-        print(
-            "Smaller than recorded; run scripts/check_file_sizes.py --update to lock it in:"
-        )
+        print("Smaller than recorded; run scripts/check_file_sizes.py --update to lock it in:")
         print("\n".join(f"  {line}" for line in shrunk))
     for error in errors:
         print(f"ERROR {error}")
@@ -116,13 +112,9 @@ def update() -> int:
         for path, entry in document["files"].items()
         if sizes.get(path, 0) > REVIEW_LINES
     }
-    print(
-        f"Recorded files over {REVIEW_LINES} lines: {len(document['files'])} -> {len(kept)}."
-    )
+    print(f"Recorded files over {REVIEW_LINES} lines: {len(document['files'])} -> {len(kept)}.")
     document["files"] = dict(sorted(kept.items()))
-    BASELINE.write_text(
-        json.dumps(document, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
+    BASELINE.write_text(json.dumps(document, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return 0
 
 
