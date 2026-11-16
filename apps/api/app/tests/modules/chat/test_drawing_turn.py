@@ -110,6 +110,9 @@ def _state(ctx: StreamContext, text: str, *, cancelled: bool = False) -> Finaliz
         ("maths", "graph", True),
         ("maths", "none", False),
         ("physics", "diagram", False),
+        # A physics graph (F against x, v against t) is drawn as any curve is (u5-087).
+        ("physics", "graph", True),
+        ("chemistry", "graph", False),
         ("everyday", "diagram", False),
         ("maths", "image", False),
     ],

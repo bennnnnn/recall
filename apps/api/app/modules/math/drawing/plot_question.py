@@ -23,6 +23,7 @@ from typing import Any
 
 from sympy import Expr, Rational, Symbol
 
+from app.modules.math.drawing.plot_motion import motion_formulas, motion_interval
 from app.modules.math.drawing.plot_reading import (
     Condition,
     conditions,
@@ -124,6 +125,8 @@ class Written:
     # The formula as written, unsimplified: e^(ln x) and (√x)² have no value below 0, and
     # x/x none at 0, though SymPy reads each as x or 1 (``plot_pieces.formula_shape``).
     raw: Any = None
+    # The unit written after it ("F = (9 - x/2) N"): a quantity, named on its axis.
+    unit: str = ""
 
 
 @dataclass(frozen=True)
@@ -233,13 +236,27 @@ def _equals_spans(text: str) -> list[tuple[str, str, int]]:
     return found
 
 
+_SMALL_UNITS = frozenset("msg")
+
+
 def _without_unit(formula: str) -> str:
     """ "t² - 4t + 3 m/s" without its unit: the last word when it is letters and a slash or
-    two or more letters, after a number."""
+    two or more letters, after a number; or any word of letters after a bracket that is no
+    letter of the formula ("F = (9 - x/2) N", u5-087's force)."""
     head, _, last = formula.rpartition(" ")
-    bare = last.replace("/", "").replace("^", "")
-    if head and head.rstrip()[-1:].isdigit() and bare.isalpha() and (len(bare) > 1 or "/" in last):
-        return head.rstrip()
+    head = head.rstrip()
+    bare = re.sub(r"(?:\^|\*\*)?[0-9\u00b2\u00b3]", "", last.replace("/", ""))
+    if not head or not bare.isalpha():
+        return formula
+    unit_like = len(bare) > 1 or "/" in last
+    if head[-1:].isdigit() and unit_like:
+        return head
+    # After a bracket a capital ("N", "J") or one of m, s and g is a unit too, unless the
+    # formula is written in it; another lone small letter is a factor ("(x + 1) k").
+    unit_like = unit_like or bare.isupper() or bare in _SMALL_UNITS
+    written_in = re.search(rf"(?<![A-Za-z]){re.escape(bare)}(?![A-Za-z])", head)
+    if head[-1:] == ")" and unit_like and not written_in:
+        return head
     return formula
 
 
@@ -248,10 +265,12 @@ def _formulas(text: str) -> list[Written]:
     for name, formula, _end in _equals_spans(text):
         if _AT_A_POINT.fullmatch(name) or not (name.isalpha() or _DEFINES_NAME.fullmatch(name)):
             continue  # "f(2) = 4" is a value at a point; "f'(x) =" a derivative, not f
-        parsed = parse_formula(_without_unit(formula))
+        bare = _without_unit(formula)
+        parsed = parse_formula(bare)
         if isinstance(parsed, Expr):
             defines = name == "y" or _DEFINES_NAME.fullmatch(name) is not None
-            found.append(Written(name[0], parsed, defines, _as_written(formula, parsed)))
+            unit = formula[len(bare) :].strip()
+            found.append(Written(name[0], parsed, defines, _as_written(formula, parsed), unit))
     for lhs, op, rhs in written_relations(text):
         if op == "=" and isinstance(lhs, Symbol):
             found.append(Written(str(lhs), rhs, str(lhs) == "y"))
@@ -431,6 +450,12 @@ def read_plot_question(texts: Sequence[str]) -> PlotQuestion:
     own = list(texts[:1]) if texts and _formulas(plain(texts[0])) else list(texts)
     readable = [plain(text) for text in own]
     formulas = tuple(w for text in readable for w in _formulas(text))
+    # A particle's acceleration, and the velocity and displacement worked out from it.
+    formulas += tuple(
+        Written(name, expr, True, None, unit)
+        for text in readable
+        for name, expr, unit in motion_formulas(text)
+    )
     # The letter the question's functions are written in ("v(t) = ...": t) is its x.
     letters = frozenset(
         {"x"} | {str(s) for w in formulas if w.name != "x" for s in w.expr.free_symbols}
@@ -457,7 +482,8 @@ def read_plot_question(texts: Sequence[str]) -> PlotQuestion:
         ),
         clauses=tuple(clause for text in readable for clause in _clauses(text, letters)),
         words=" ".join(readable).lower(),
-        intervals=tuple(i for text in readable for i in intervals(text, letters)),
+        intervals=tuple(i for text in readable for i in intervals(text, letters))
+        + tuple(Interval(m[1], m[2]) for m in map(motion_interval, readable) if m is not None),
         edges=tuple(v for lines, _points in xs for v in lines),
         x_points=tuple(v for _lines, points in xs for v in points),
         y_points=tuple(v for lines, points in ys for v in points if v not in lines),

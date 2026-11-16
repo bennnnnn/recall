@@ -84,8 +84,10 @@ def _own_formula(text: str, question: PlotQuestion) -> _Own | None:
     for written in question.formulas:
         if written.name == "x" or not written.expr.free_symbols <= {letter}:
             continue
-        # "v(t)" names what an axis measures; "k(x)" only names a function.
-        quantity = letter != _X and written.name not in _FUNCTION_NAMES
+        # "v(t)" names what an axis measures, as does a formula written with its unit
+        # ("F = (9 - x/2) N"); "k(x)" only names a function.
+        named = written.name not in {"y", ""} and bool(written.unit)
+        quantity = named or (letter != _X and written.name not in _FUNCTION_NAMES)
         name = written.name if quantity else "y"
         if not parsed.free_symbols and not _a_level_line(written, question):
             continue  # "a = 3", "where y = 4" name values, never the line y = 3

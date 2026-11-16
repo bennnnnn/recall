@@ -119,7 +119,11 @@ async def _read_for_a_picture(ctx: StreamContext, deadline: float) -> TurnDecisi
 
 def _wants_a_drawing(read: TurnDecision) -> bool:
     """The read calls the message a maths question asking to see a picture a description
-    draws: a diagram's figure or a graph."""
+    draws, a diagram's figure or a graph, or a physics question asking to see a graph: a
+    force against displacement or a velocity against time is drawn as any curve is, held
+    to the question's own formula (u5-087's F = 9 - x/2)."""
+    if read.subject == "physics":
+        return read.picture == "graph"
     return read.picture in _DESCRIBED and read_asks_for_a_picture(read)
 
 
