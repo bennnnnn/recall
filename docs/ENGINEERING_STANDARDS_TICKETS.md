@@ -1247,6 +1247,9 @@ not counted. ES-27 covers `layoutSimulationScene` and `readScene`, ES-36 covers
 
 ## Documented exceptions (files over 500 lines that stay)
 
+> The limit is 700 lines since 2026-11-16 (`scripts/check_file_sizes.py`); the counts and
+> tickets above were written against 500.
+
 These are cohesive: one data table, catalog, schema or algorithm. Each stays as it is. If a file
 in this list grows logic beyond its table, it leaves the list.
 
