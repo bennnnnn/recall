@@ -156,3 +156,8 @@ _.should_exit  # unused attribute (app/worker_main.py)
 auto_close_connection_pool  # redis-py reads it when the client closes (app/core/redis.py)
 get_nowait  # the slot pool keeps asyncio.Queue's interface (app/core/sympy_slots.py)
 noul  # the Decider's yes probability, read by name (app/modules/chat/decider_read.py)
+
+# A measured prototype, not yet in a turn: the eval calls it (app/tests/behavior/formal_eval.py),
+# and the chat wiring that will call it waits on the owner's decision (docs/FORMAL_READER.md).
+read_physics_setup  # unused function (app/modules/physics/formal_read.py)
+solve_formal  # unused function (app/services/formal/solve.py)

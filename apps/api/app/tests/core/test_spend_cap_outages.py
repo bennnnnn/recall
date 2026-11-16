@@ -244,6 +244,8 @@ def test_every_spend_gate_is_listed() -> None:
         # A maths picture's read: no picture, the reply stands. modules/math/test_math_figure.py.
         "modules/math/figure/read.py",
         "modules/memory/api.py",  # memory edits
+        # A physics setup: no read past the cap (a prototype). services/test_formal_solve.py.
+        "modules/physics/formal_read.py",
         "modules/speech/gates.py",  # dictation, read aloud, live talk's session and saves
         "services/scan_read.py",  # photo scans, every subject
     ]
