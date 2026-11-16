@@ -30,9 +30,10 @@ You cannot run anything, so read the code closely and keep the change small and 
 Answer with JSON only, no prose around it:
 {"summary": "what you changed and why, in a few sentences",
  "edits": [{"file": "path", "find": "an exact passage of the current file, long enough to
-   occur once", "replace": "its new text"}]  (always present: [] when you only add files),
+   occur once", "replace": "its new text"}],
  "new_files": [{"file": "path", "content": "the whole file"}],
  "tests": "which tests to run to prove it"}
+"edits" is always present: [] when you only add files.
 """
 
 _BARRED = (".git", ".github")

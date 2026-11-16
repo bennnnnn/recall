@@ -143,9 +143,11 @@ def paths_material(targets: list[str]) -> str:
     for target in targets:
         root = ROOT / target
         found = [root] if root.is_file() else sorted(root.rglob("*"))
-        files += [p.relative_to(ROOT) for p in found if p.is_file() and _wanted(p)]
-    if not files:
-        raise SystemExit(f"nothing to send: no code file under {', '.join(targets)}")
+        own = [p.relative_to(ROOT) for p in found if p.is_file() and _wanted(p)]
+        if not own:
+            # A mistyped path is never dropped quietly beside one that has files.
+            raise SystemExit(f"nothing to send: no code file under {target}")
+        files += own
     return f"THE CODE\n{_bundle(files)}"
 
 
@@ -196,7 +198,7 @@ def ask(
     if not text.strip() or choice.get("finish_reason") == "length":
         # Out of output before the answer: say so, never "0 findings".
         return {
-            "findings": [],
+            listed: [],
             "unparsed": f"(no answer: finish_reason {choice.get('finish_reason')})",
             "usage": reply.get("usage", {}),
         }
@@ -207,7 +209,7 @@ def ask(
         found = None
     items = found.get(listed) if isinstance(found, dict) else None
     if not isinstance(items, list) or not all(isinstance(i, dict) for i in items):
-        found = {listed: [], "unparsed": text[:4000]}
+        found = {listed: [], "unparsed": text[:20000]}
     found["usage"] = reply.get("usage", {})
     return found
 
