@@ -83,10 +83,21 @@ def main() -> None:
     parser.add_argument(
         "targets", nargs="+", help="files and folders the model may read"
     )
+    parser.add_argument(
+        "--effort",
+        choices=("low", "medium", "high"),
+        help="how long the model reasons; a model that reasons past its output writes nothing",
+    )
     args = parser.parse_args()
     task = Path(args.task).read_text(encoding="utf-8")
     material = f"THE TASK\n{task}\n\n{paths_material(args.targets)}"
-    answer = ask(args.model, material, prompt=PROMPT, listed="edits")
+    answer = ask(
+        args.model,
+        material,
+        prompt=PROMPT,
+        listed="edits",
+        reasoning={"effort": args.effort} if args.effort else None,
+    )
     Path(args.out).write_text(json.dumps(answer, indent=1), encoding="utf-8")
     if answer.get("unparsed"):
         raise SystemExit(f"no usable answer; see {args.out}")

@@ -150,7 +150,11 @@ def paths_material(targets: list[str]) -> str:
 
 
 def ask(
-    model: str, material: str, prompt: str = PROMPT, listed: str = "findings"
+    model: str,
+    material: str,
+    prompt: str = PROMPT,
+    listed: str = "findings",
+    reasoning: dict[str, object] | None = None,
 ) -> dict:
     """The model's JSON answer, whose ``listed`` field is a list of objects; any other
     shape is kept as ``unparsed`` text, never read as an empty answer."""
@@ -166,7 +170,7 @@ def ask(
         "response_format": {"type": "json_object"},
         "temperature": 0,
         "max_tokens": MAX_OUTPUT_TOKENS,
-        "reasoning": REASONING.get(model, DEFAULT_REASONING),
+        "reasoning": reasoning or REASONING.get(model, DEFAULT_REASONING),
     }
     request = urllib.request.Request(
         API,
