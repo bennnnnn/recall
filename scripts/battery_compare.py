@@ -64,7 +64,11 @@ def _latency(
 
 def _cost_note(case_id: str, old: dict[str, Any], new: dict[str, Any]) -> str | None:
     before, after = old.get("est_cost_usd"), new.get("est_cost_usd")
-    if not isinstance(before, int | float) or not isinstance(after, int | float) or before <= 0:
+    if (
+        not isinstance(before, int | float)
+        or not isinstance(after, int | float)
+        or before <= 0
+    ):
         return None
     if after > before * COST_CHANGE_RATIO or after < before / COST_CHANGE_RATIO:
         return f"{case_id}: est. cost ${before:.5f} -> ${after:.5f}"
@@ -82,9 +86,13 @@ def _compare_case(
         regressions.append(f"{case_id}: now misses {', '.join(new_misses)}")
     if not new.get("error") and not old.get("error"):
         if old.get("route") != new.get("route"):
-            regressions.append(f"{case_id}: routing {old.get('route')!r} -> {new.get('route')!r}")
+            regressions.append(
+                f"{case_id}: routing {old.get('route')!r} -> {new.get('route')!r}"
+            )
         elif old.get("model") != new.get("model"):
-            regressions.append(f"{case_id}: model {old.get('model')} -> {new.get('model')}")
+            regressions.append(
+                f"{case_id}: model {old.get('model')} -> {new.get('model')}"
+            )
         slower = _latency(case_id, old, new, ratio, floor)
         if slower:
             regressions.append(slower)
@@ -108,7 +116,11 @@ def compare(
         result.notes.append(f"{case_id}: new case")
     for case_id in sorted(old_cases.keys() & new_cases.keys()):
         regressions, notes = _compare_case(
-            case_id, old_cases[case_id], new_cases[case_id], latency_ratio, latency_floor_s
+            case_id,
+            old_cases[case_id],
+            new_cases[case_id],
+            latency_ratio,
+            latency_floor_s,
         )
         result.regressions += regressions
         result.notes += notes
@@ -123,7 +135,9 @@ def _load(path: str) -> dict[str, Any]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Fail on regressions between two battery runs.")
+    parser = argparse.ArgumentParser(
+        description="Fail on regressions between two battery runs."
+    )
     parser.add_argument("base", help="the earlier run's tmp/battery/<model>-<sha>.json")
     parser.add_argument("new", help="the later run's record")
     parser.add_argument("--latency-ratio", type=float, default=DEFAULT_LATENCY_RATIO)
@@ -132,7 +146,10 @@ def main(argv: list[str] | None = None) -> int:
     try:
         base, new = _load(args.base), _load(args.new)
         result = compare(
-            base, new, latency_ratio=args.latency_ratio, latency_floor_s=args.latency_floor
+            base,
+            new,
+            latency_ratio=args.latency_ratio,
+            latency_floor_s=args.latency_floor,
         )
     except (OSError, ValueError) as exc:
         print(f"Cannot compare: {exc}", file=sys.stderr)

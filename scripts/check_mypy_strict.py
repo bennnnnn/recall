@@ -158,10 +158,16 @@ def bypasses() -> list[str]:
             relative = path.relative_to(API).as_posix()
             for line, comment, alone in _comments(path):
                 if _INLINE_CONFIG.search(comment):
-                    problems.append(f"{relative}:{line}: `{comment}` changes mypy for the file")
+                    problems.append(
+                        f"{relative}:{line}: `{comment}` changes mypy for the file"
+                    )
                 elif alone and _IGNORE.search(comment):
-                    problems.append(f"{relative}:{line}: a `# type: ignore` alone on its line")
-    config = tomllib.loads((API / "pyproject.toml").read_text(encoding="utf-8"))["tool"]["mypy"]
+                    problems.append(
+                        f"{relative}:{line}: a `# type: ignore` alone on its line"
+                    )
+    config = tomllib.loads((API / "pyproject.toml").read_text(encoding="utf-8"))[
+        "tool"
+    ]["mypy"]
     sections = [("[tool.mypy]", config, ["app"])] + [
         (f"override {override.get('module')}", override, _modules(override))
         for override in config.get("overrides", [])
@@ -175,7 +181,9 @@ def bypasses() -> list[str]:
             if package.startswith(module.rstrip(".*")) or module.startswith(package)
         ]
         if escapes and reached:
-            problems.append(f"pyproject.toml {name}: {', '.join(escapes)} reaches {reached[0]}")
+            problems.append(
+                f"pyproject.toml {name}: {', '.join(escapes)} reaches {reached[0]}"
+            )
     return problems
 
 
@@ -207,7 +215,9 @@ def check() -> int:
             continue
         if now > was:
             moved = ""
-            if path not in recorded and not _package_grew(package_of(path), counts, recorded):
+            if path not in recorded and not _package_grew(
+                package_of(path), counts, recorded
+            ):
                 moved = (
                     f"\n  If it was renamed or split from a recorded file ({package_of(path)}'s "
                     "total did not grow), run this script with --update to record it."
@@ -228,7 +238,9 @@ def check() -> int:
                 "overrides in apps/api/pyproject.toml, then run this script with --update."
             )
     total = sum(counts.values())
-    print(f"Strict typing: {total} errors in {len(counts)} files of {', '.join(packages)}.")
+    print(
+        f"Strict typing: {total} errors in {len(counts)} files of {', '.join(packages)}."
+    )
     for problem in problems:
         print(f"ERROR {problem}")
     return 1 if problems else 0
@@ -248,9 +260,13 @@ def update() -> int:
         if _package_grew(package_of(path), counts, recorded):
             refused.append(f"{path}: {counts[path]} errors")
         else:
-            kept[path] = counts[path]  # a renamed or split file: its package's total held
+            kept[path] = counts[
+                path
+            ]  # a renamed or split file: its package's total held
     if refused:
-        print("Not recorded: new errors in a package whose total grew. Type them first:")
+        print(
+            "Not recorded: new errors in a package whose total grew. Type them first:"
+        )
         print("\n".join(f"  {line}" for line in refused))
         return 1
     print(f"Recorded files with strict errors: {len(recorded)} -> {len(kept)}.")

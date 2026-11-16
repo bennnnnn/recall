@@ -55,7 +55,11 @@ with warnings.catch_warnings():
     from regexploit.ast.sequence import Sequence
     from regexploit.ast.sre import SreOpParser
     from regexploit.languages.python_node_visitor import PythonNodeVisitor
-    from regexploit.redos import Redos, expand_branches, find_redos_in_branchless_sequence
+    from regexploit.redos import (
+        Redos,
+        expand_branches,
+        find_redos_in_branchless_sequence,
+    )
 
 # regexploit's own line: a quadratic one is common and slow only on far longer input.
 _WORST_ALLOWED = 2
@@ -125,10 +129,14 @@ def _compiled(package: str) -> Found:
         for name, value in vars(module).items():
             values = [(value, f"{info.name}.{name}")]
             if isinstance(value, type) and value.__module__ == info.name:
-                values += [(v, f"{info.name}.{name}.{n}") for n, v in vars(value).items()]
+                values += [
+                    (v, f"{info.name}.{name}.{n}") for n, v in vars(value).items()
+                ]
             for item, where in values:
                 for pattern, label in _patterns_in(item, where):
-                    found.setdefault((pattern.pattern, pattern.flags & ~re.UNICODE), label)
+                    found.setdefault(
+                        (pattern.pattern, pattern.flags & ~re.UNICODE), label
+                    )
     return found
 
 
@@ -141,7 +149,9 @@ def _inline(root: Path) -> Found:
         visitor = PythonNodeVisitor()
         visitor.visit(ast.parse(path.read_bytes()))
         for regex in visitor.patterns:
-            found.setdefault((regex.pattern, regex.flags & ~re.UNICODE), f"{path}:{regex.lineno}")
+            found.setdefault(
+                (regex.pattern, regex.flags & ~re.UNICODE), f"{path}:{regex.lineno}"
+            )
     return found
 
 
@@ -154,7 +164,11 @@ def _find(parsed: Any) -> list[Redos]:
     for count, way in enumerate(expand_branches(sequence), 1):
         if count > _RATING_WAYS:
             raise _TooMany
-        found += [redos for redos in find_redos_in_branchless_sequence(way) if redos not in found]
+        found += [
+            redos
+            for redos in find_redos_in_branchless_sequence(way)
+            if redos not in found
+        ]
     return found
 
 
@@ -174,7 +188,9 @@ def _example(redos: Redos, length: int) -> str:
         repeated, killer = both, None
     prefix, tail = redos.example_prefix, killer.example() if killer else ""
     unit = repeated.example()
-    return prefix + unit * max(1, (length - len(prefix) - len(tail)) // len(unit)) + tail
+    return (
+        prefix + unit * max(1, (length - len(prefix) - len(tail)) // len(unit)) + tail
+    )
 
 
 def _seconds(pattern: re.Pattern[str], text: str, *, search: bool = False) -> float:
@@ -197,7 +213,9 @@ def _fits(items: list[tuple[Any, Any]], char: str, flags: int) -> bool:
         if op is sre.NEGATE:
             negate = True
         elif op is sre.LITERAL:
-            hit |= chr(value) == char or bool(flags & re.I and chr(value).lower() == char.lower())
+            hit |= chr(value) == char or bool(
+                flags & re.I and chr(value).lower() == char.lower()
+            )
         elif op is sre.RANGE:
             hit |= value[0] <= ord(char) <= value[1]
         elif op is sre.CATEGORY:
@@ -223,7 +241,9 @@ class _Grammar:
         return "".join(self.op(op, value) for op, value in ops)
 
     def op(self, op: Any, value: Any) -> str:
-        pick = self.rng.choice if self.mode == "random" else (lambda options: options[0])
+        pick = (
+            self.rng.choice if self.mode == "random" else (lambda options: options[0])
+        )
         if op is sre.LITERAL:
             return chr(value)
         if op in (sre.NOT_LITERAL, sre.ANY):
@@ -233,7 +253,11 @@ class _Grammar:
             negated = any(o is sre.NEGATE for o, _ in value)
             fits = [c for c in _POOL if _fits(value, c, self.flags)]
             return pick((literals if literals and not negated else fits) or [""])
-        if op in (sre.MAX_REPEAT, sre.MIN_REPEAT, getattr(sre, "POSSESSIVE_REPEAT", None)):
+        if op in (
+            sre.MAX_REPEAT,
+            sre.MIN_REPEAT,
+            getattr(sre, "POSSESSIVE_REPEAT", None),
+        ):
             least, most, inner = value
             most = least + 3 if most is sre.MAXREPEAT else most
             times = {"least": least, "once": max(least, min(1, most))}.get(
@@ -284,7 +308,9 @@ def _timed(pattern: str, flags: int, where: str) -> str | None:
     return None
 
 
-def _rated(pattern: str, flags: int, where: str, found: list[Redos], plain: bool) -> str | None:
+def _rated(
+    pattern: str, flags: int, where: str, found: list[Redos], plain: bool
+) -> str | None:
     """A report line for regexploit's worst finding that holds on the real pattern, else None."""
     compiled = re.compile(pattern, flags)
     for redos in (r for r in found if r.starriness > _WORST_ALLOWED):
@@ -311,7 +337,10 @@ def _check(item: tuple[tuple[str, int], str]) -> tuple[str, str | None]:
     try:
         found, plain = _rate(pattern, flags)
     except re.error:
-        return "rated", None  # Not a regex: a fragment of one, or prose the source scan read.
+        return (
+            "rated",
+            None,
+        )  # Not a regex: a fragment of one, or prose the source scan read.
     except Exception:
         # Too many ways through it, or a limit of regexploit's own: time it instead.
         signal.setitimer(signal.ITIMER_REAL, 0)
@@ -336,7 +365,9 @@ def main(package: str = "app") -> int:
         found = _compiled(package)
     for key, where in _inline(Path(package)).items():
         found.setdefault(key, where)
-    items = sorted((key, where) for key, where in found.items() if _worth_rating(key[0]))
+    items = sorted(
+        (key, where) for key, where in found.items() if _worth_rating(key[0])
+    )
     with warnings.catch_warnings(), ProcessPoolExecutor() as pool:
         warnings.simplefilter("ignore")
         results = list(pool.map(_check, items, chunksize=2))

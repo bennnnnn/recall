@@ -109,7 +109,9 @@ class Turn:
             parts.append("photo above the answer")
         elif self.generated:
             parts.append("generated image")
-        phases = [p for p in dict.fromkeys(self.phases) if p not in {"thinking", "writing"}]
+        phases = [
+            p for p in dict.fromkeys(self.phases) if p not in {"thinking", "writing"}
+        ]
         if phases:
             parts.append("status: " + ", ".join(phases))
         if self.model and self.model not in {"image-search-model", "image-gen-model"}:
@@ -218,7 +220,9 @@ class Battery:
             print("  (post-turn jobs still running after 60 s; clearing memory anyway)")
         elif settled is None and not self.queue_unreadable_noted:
             self.queue_unreadable_noted = True
-            print("  (the job queue can't be read; memory is cleared without waiting for it)")
+            print(
+                "  (the job queue can't be read; memory is cleared without waiting for it)"
+            )
         for _ in range(30):
             response = self.client.delete("/memories", headers=self._headers(pro))
             if response.status_code != 409:
@@ -229,7 +233,9 @@ class Battery:
 
     def _reset_quota(self, pro: bool) -> None:
         """A battery spends a day's free tokens; the dev reset keeps every prompt answerable."""
-        response = self.client.post("/chats/usage/today/reset", headers=self._headers(pro))
+        response = self.client.post(
+            "/chats/usage/today/reset", headers=self._headers(pro)
+        )
         if response.status_code >= 400:
             sys.exit(
                 f"Could not reset the test account's daily quota (HTTP {response.status_code}). "
@@ -246,13 +252,19 @@ class Battery:
         ).raise_for_status()
         self.location[pro] = location
 
-    def _send(self, pro: bool, chat_id: str, content: str, location: str | None) -> Turn:
+    def _send(
+        self, pro: bool, chat_id: str, content: str, location: str | None
+    ) -> Turn:
         wait = PACE_SECONDS - (time.monotonic() - self.last_send)
         if wait > 0:
             time.sleep(wait)
         self.last_send = time.monotonic()
         turn = Turn()
-        body = {"content": content, "client_timezone": TIMEZONE, "client_location": location}
+        body = {
+            "content": content,
+            "client_timezone": TIMEZONE,
+            "client_location": location,
+        }
         if self.model != "auto":
             body["model"] = self.model
         started = time.monotonic()
@@ -343,7 +355,11 @@ def check(case: Case, turn: Turn) -> list[str]:
     wants_photo = bool(expect.photo) or bool(expect.photo_not)
     if wants_photo and not turn.photo:
         misses.append("no photo")
-    if expect.photo == "" and (turn.photo or turn.answer_photo) and not expect.answer_photo:
+    if (
+        expect.photo == ""
+        and (turn.photo or turn.answer_photo)
+        and not expect.answer_photo
+    ):
         misses.append("photo shown")
     # An answer photo streams with the model's reply, so the reply's model is the chat model.
     if expect.answer_photo and not (turn.photo or turn.answer_photo):
@@ -381,7 +397,9 @@ def _select(args: argparse.Namespace) -> list[Case]:
     cases = list(CASES)
     if args.category:
         if args.category not in CATEGORIES:
-            sys.exit(f"Unknown category {args.category!r}. One of: {', '.join(CATEGORIES)}")
+            sys.exit(
+                f"Unknown category {args.category!r}. One of: {', '.join(CATEGORIES)}"
+            )
         cases = [case for case in cases if case.category == args.category]
     if args.only:
         wanted = {name.strip() for name in args.only.split(",") if name.strip()}
@@ -401,7 +419,9 @@ def write_report(results: list[tuple[Case, Turn]], out_dir: Path, api: str) -> P
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     mock = any(turn.reply.startswith(MOCK_REPLY_START) for _, turn in results)
     mock_search = any(
-        source.get("url") == MOCK_SEARCH_URL for _, turn in results for source in turn.sources
+        source.get("url") == MOCK_SEARCH_URL
+        for _, turn in results
+        for source in turn.sources
     )
     misses = {case.id: check(case, turn) for case, turn in results}
     lines = [
@@ -450,7 +470,8 @@ def write_report(results: list[tuple[Case, Turn]], out_dir: Path, api: str) -> P
             lines.append(f"- **Known gap:** {case.gap}")
         if case.history:
             lines.append(
-                "- **Asked first:** " + " / ".join(t for r, t in case.history if r == "user")
+                "- **Asked first:** "
+                + " / ".join(t for r, t in case.history if r == "user")
             )
         if case.location:
             lines.append(f"- **Location:** {case.location}")
@@ -478,7 +499,10 @@ def write_report(results: list[tuple[Case, Turn]], out_dir: Path, api: str) -> P
     report.write_text("\n".join(lines) + "\n")
     (out_dir / f"{stamp}.json").write_text(
         json.dumps(
-            [{"case": case.id, "prompt": case.prompt, **asdict(turn)} for case, turn in results],
+            [
+                {"case": case.id, "prompt": case.prompt, **asdict(turn)}
+                for case, turn in results
+            ],
             indent=2,
             ensure_ascii=False,
         )
@@ -518,7 +542,9 @@ def run_record(
             "sha": sha,
             "api": api,
             "date": datetime.now().isoformat(timespec="seconds"),
-            "stand_in_model": any(turn.reply.startswith(MOCK_REPLY_START) for _, turn in results),
+            "stand_in_model": any(
+                turn.reply.startswith(MOCK_REPLY_START) for _, turn in results
+            ),
         },
         "cases": {
             case.id: {
@@ -562,7 +588,11 @@ _KEEP_REPORTS = 20
 def _prune_old_reports(out_dir: Path) -> None:
     """Keep the newest reports; only names this script writes are touched."""
     stamps = sorted(
-        (path.stem for path in out_dir.glob("*.md") if re.fullmatch(r"\d{8}-\d{6}", path.stem)),
+        (
+            path.stem
+            for path in out_dir.glob("*.md")
+            if re.fullmatch(r"\d{8}-\d{6}", path.stem)
+        ),
         reverse=True,
     )
     for stamp in stamps[_KEEP_REPORTS:]:
@@ -571,16 +601,24 @@ def _prune_old_reports(out_dir: Path) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Send the behavior battery to a running API.")
-    parser.add_argument("--api", default=os.environ.get("BATTERY_API", "http://127.0.0.1:8000"))
+    parser = argparse.ArgumentParser(
+        description="Send the behavior battery to a running API."
+    )
+    parser.add_argument(
+        "--api", default=os.environ.get("BATTERY_API", "http://127.0.0.1:8000")
+    )
     parser.add_argument("--category", help=f"one of: {', '.join(CATEGORIES)}")
     parser.add_argument("--only", help="comma-separated case ids")
     parser.add_argument("--out", default=str(ROOT / "tmp" / "battery"))
     parser.add_argument(
-        "--pro", action="store_true", help="every prompt as a Pro user: what a paying user sees"
+        "--pro",
+        action="store_true",
+        help="every prompt as a Pro user: what a paying user sees",
     )
     parser.add_argument(
-        "--model", default="auto", help="a model alias to answer every prompt (default: auto)"
+        "--model",
+        default="auto",
+        help="a model alias to answer every prompt (default: auto)",
     )
     args = parser.parse_args()
 
@@ -599,10 +637,15 @@ def main() -> int:
         found = check(case, turn)
         mark = "✗" if found else "✓"
         note = f"  ← {', '.join(found)}" if found else ""
-        print(f"[{index:>2}/{len(cases)}] {mark} {case.id:<28} {turn.route()}{note}", flush=True)
+        print(
+            f"[{index:>2}/{len(cases)}] {mark} {case.id:<28} {turn.route()}{note}",
+            flush=True,
+        )
 
     report = write_report(results, Path(args.out), battery.api)
-    record = write_run_record(results, Path(args.out), model=args.model, api=battery.api)
+    record = write_run_record(
+        results, Path(args.out), model=args.model, api=battery.api
+    )
     failed = sum(1 for _, turn in results if turn.error)
     print(f"\nReport: {report}\nRun record: {record}")
     if failed:

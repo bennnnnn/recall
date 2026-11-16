@@ -164,7 +164,11 @@ def parse_json(line: str) -> Hit | None:
     method = payload.get("method")
     path = payload.get("path")
     status = payload.get("status")
-    if not isinstance(method, str) or not isinstance(path, str) or not isinstance(status, int):
+    if (
+        not isinstance(method, str)
+        or not isinstance(path, str)
+        or not isinstance(status, int)
+    ):
         return None
     duration = payload.get("duration_ms")
     duration_s = f"{duration}ms" if isinstance(duration, (int, float)) else None
@@ -301,22 +305,32 @@ def drain_stdin(watcher: Watcher) -> None:
 
 
 def self_test() -> int:
-    uvicorn = (
-        'INFO:     127.0.0.1:51814 - "GET /projects/abc HTTP/1.1" 500 Internal Server Error'
-    )
-    app_http = (
-        "2026-08-23 23:30:15,054 INFO [app.http] [request_id=req-1] GET /projects/abc 500 12.3ms"
-    )
+    uvicorn = 'INFO:     127.0.0.1:51814 - "GET /projects/abc HTTP/1.1" 500 Internal Server Error'
+    app_http = "2026-08-23 23:30:15,054 INFO [app.http] [request_id=req-1] GET /projects/abc 500 12.3ms"
     ok = 'INFO:     127.0.0.1:1 - "GET /health HTTP/1.1" 200 OK'
     created = 'INFO:     127.0.0.1:1 - "POST /projects HTTP/1.1" 201 Created'
     hit500 = parse_uvicorn(uvicorn)
     hit_app = parse_app_http(app_http)
-    assert hit500 is not None and hit500.status == 500 and hit500.path == "/projects/abc"
-    assert hit_app is not None and hit_app.request_id == "req-1" and hit_app.duration == "12.3ms"
+    assert (
+        hit500 is not None and hit500.status == 500 and hit500.path == "/projects/abc"
+    )
+    assert (
+        hit_app is not None
+        and hit_app.request_id == "req-1"
+        and hit_app.duration == "12.3ms"
+    )
     assert parse_uvicorn(ok) is not None and not is_failure(parse_uvicorn(ok).status)  # type: ignore[union-attr]
-    assert parse_uvicorn(created) is not None and not is_failure(parse_uvicorn(created).status)  # type: ignore[union-attr]
+    assert parse_uvicorn(created) is not None and not is_failure(
+        parse_uvicorn(created).status
+    )  # type: ignore[union-attr]
     payload = json.dumps(
-        {"event": "http_request", "method": "GET", "path": "/x", "status": 429, "duration_ms": 2}
+        {
+            "event": "http_request",
+            "method": "GET",
+            "path": "/x",
+            "status": 429,
+            "duration_ms": 2,
+        }
     )
     hit_json = parse_json(payload)
     assert hit_json is not None and hit_json.status == 429
@@ -331,7 +345,9 @@ def main(argv: Iterable[str] | None = None) -> int:
         action="store_true",
         help="Copy every log line to stdout; errors also go to stderr.",
     )
-    parser.add_argument("--file", type=Path, help="Read this log file instead of stdin.")
+    parser.add_argument(
+        "--file", type=Path, help="Read this log file instead of stdin."
+    )
     parser.add_argument(
         "--follow",
         action="store_true",
@@ -347,7 +363,9 @@ def main(argv: Iterable[str] | None = None) -> int:
         type=Path,
         help="Append highlighted failures (and 5xx tracebacks) to this file.",
     )
-    parser.add_argument("--self-test", action="store_true", help="Run parser checks and exit.")
+    parser.add_argument(
+        "--self-test", action="store_true", help="Run parser checks and exit."
+    )
     args = parser.parse_args(list(argv) if argv is not None else None)
     if args.self_test:
         return self_test()

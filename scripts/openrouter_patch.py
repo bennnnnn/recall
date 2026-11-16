@@ -86,7 +86,7 @@ def main() -> None:
     args = parser.parse_args()
     task = Path(args.task).read_text(encoding="utf-8")
     material = f"THE TASK\n{task}\n\n{paths_material(args.targets)}"
-    answer = ask(args.model, material, prompt=PROMPT)
+    answer = ask(args.model, material, prompt=PROMPT, listed="edits")
     Path(args.out).write_text(json.dumps(answer, indent=1), encoding="utf-8")
     if answer.get("unparsed"):
         raise SystemExit(f"no usable answer; see {args.out}")

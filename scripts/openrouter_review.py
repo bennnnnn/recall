@@ -144,10 +144,16 @@ def paths_material(targets: list[str]) -> str:
         root = ROOT / target
         found = [root] if root.is_file() else sorted(root.rglob("*"))
         files += [p.relative_to(ROOT) for p in found if p.is_file() and _wanted(p)]
+    if not files:
+        raise SystemExit(f"nothing to send: no code file under {', '.join(targets)}")
     return f"THE CODE\n{_bundle(files)}"
 
 
-def ask(model: str, material: str, prompt: str = PROMPT) -> dict:
+def ask(
+    model: str, material: str, prompt: str = PROMPT, listed: str = "findings"
+) -> dict:
+    """The model's JSON answer, whose ``listed`` field is a list of objects; any other
+    shape is kept as ``unparsed`` text, never read as an empty answer."""
     key = os.environ.get("OPENROUTER_API_KEY", "")
     if not key:
         raise SystemExit("OPENROUTER_API_KEY is not set")
@@ -192,9 +198,12 @@ def ask(model: str, material: str, prompt: str = PROMPT) -> dict:
         }
     start, end = text.find("{"), text.rfind("}")
     try:
-        found = json.loads(text[start : end + 1]) if start >= 0 else {}
+        found = json.loads(text[start : end + 1]) if start >= 0 else None
     except json.JSONDecodeError:
-        found = {"findings": [], "unparsed": text[:4000]}
+        found = None
+    items = found.get(listed) if isinstance(found, dict) else None
+    if not isinstance(items, list) or not all(isinstance(i, dict) for i in items):
+        found = {listed: [], "unparsed": text[:4000]}
     found["usage"] = reply.get("usage", {})
     return found
 
