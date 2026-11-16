@@ -7,6 +7,7 @@ import { render } from "@testing-library/react-native";
 import { Dimensions } from "react-native";
 
 import { MarkdownContent } from "@/components/MarkdownContent";
+import { formulaMayScroll } from "@/components/rich/mathColumn";
 import { readLine, type Element } from "@/components/__tests__/support/mathInk";
 
 jest.mock("@/components/LinkPreviewCard", () => ({ LinkPreviewCard: "LinkPreviewCard" }));
@@ -59,5 +60,26 @@ describe("a formula wider than the line", () => {
     const shown = readLine(view.toJSON() as unknown as Element);
     expect(shown).toContain("2(15.999) = 96.088 + 10.08 + 56.028 + 31.998");
     expect(shown).toContain("2(15.999) = 194.19 g/mol");
+  });
+
+  // Every way a sentence can hold one (PR #2467 review): in bold, beside a display formula
+  // (`\sum` sends the paragraph to the display layout), in a list item.
+  it.each([
+    ["bold", `Adding them: **$${SUM}$** in all.`],
+    ["beside a display formula", String.raw`Since $\sum_{i=1}^{4} n_i A_i$ adds them: ` + `$${SUM}$ ☕`],
+    ["a list item", `- Adding the masses: $${SUM}$ ☕`],
+  ])("in %s, is never in a scroller inside a Text", async (_name, content) => {
+    const view = await render(<MarkdownContent content={content} />);
+    for (const scroller of view.queryAllByTestId("math-text-scroll") as unknown as Node[]) {
+      expect(insideText(scroller)).toBe(false);
+    }
+    expect(readLine(view.toJSON() as unknown as Element)).toContain("31.998");
+  });
+
+  it("is judged once for its width, and again for another width", () => {
+    expect(formulaMayScroll(SUM, 18)).toBe(true);
+    expect(formulaMayScroll(SUM, 18)).toBe(true);
+    jest.spyOn(Dimensions, "get").mockReturnValue({ width: 2400, height: 956, scale: 3, fontScale: 1 });
+    expect(formulaMayScroll(SUM, 18)).toBe(false);
   });
 });

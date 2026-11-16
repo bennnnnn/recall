@@ -52,9 +52,22 @@ function formulaWidth(latex: string, fontSize: number, fontScale: number): numbe
  * raised or stacked one is.
  */
 export function formulaMayScroll(latex: string, fontSize: number): boolean {
-  const width = formulaWidth(latex, fontSize, PixelRatio.getFontScale());
-  return inlineMathNeedsScroll(width, Dimensions.get("window").width - WORK_INDENT);
+  const fontScale = PixelRatio.getFontScale();
+  const room = Dimensions.get("window").width - WORK_INDENT;
+  // Asked of every formula in a paragraph each time a streamed reply's text changes, by
+  // the paragraph, its text runs and its inline flow: each answer is laid out once.
+  const key = `${fontSize}|${fontScale}|${room}|${latex}`;
+  const known = scrollsByFormula.get(key);
+  if (known !== undefined) return known;
+  if (scrollsByFormula.size >= SCROLL_CACHE_SIZE) scrollsByFormula.clear();
+  const scrolls = inlineMathNeedsScroll(formulaWidth(latex, fontSize, fontScale), room);
+  scrollsByFormula.set(key, scrolls);
+  return scrolls;
 }
+
+/** Enough for every formula of a long chat; cleared whole when full. */
+const SCROLL_CACHE_SIZE = 500;
+const scrollsByFormula = new Map<string, boolean>();
 
 /** Whether `text` (words and ``$…$`` maths) holds a formula that may scroll. */
 export function holdsWideFormula(text: string, fontSize: number): boolean {
