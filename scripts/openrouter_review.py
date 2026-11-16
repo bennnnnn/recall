@@ -7,7 +7,7 @@ Two uses, one prompt:
     openrouter_review.py pr --model deepseek/deepseek-v4-pro --base <sha> --head <sha> \
         --out review.md
   Whole-code audit, run by hand a module at a time:
-    openrouter_review.py paths --model z-ai/glm-5.3 apps/api/app/modules/money --out money.md
+    openrouter_review.py paths --model google/gemini-4-carbon apps/api/app/modules/money --out money.md
 
 The model gets the project's rules (CLAUDE.md, docs/ENGINEERING_STANDARDS.md) and the code,
 and answers with findings in JSON, each one a concrete input or sequence that breaks the
