@@ -179,6 +179,13 @@ async def test_finalize_waits_no_longer_than_its_cap(monkeypatch: pytest.MonkeyP
         (2.998e8, "m/s", "2.998\\times 10^{8}\\ \\mathrm{m/s}"),
         (0.5, "", "0.5"),
         (12.0, "ohm", "12\\ \\Omega"),
+        (12000.0, "m", "12000\\ \\mathrm{m}"),
+        (50000.0, "m", "50000\\ \\mathrm{m}"),
+        (12345.6, "J", "12350\\ \\mathrm{J}"),
+        (9999.9, "J", "10000\\ \\mathrm{J}"),
+        (0.0012346, "m", "0.001235\\ \\mathrm{m}"),
+        (-4.0, "m/s^2", "-4\\ \\mathrm{m/s^{2}}"),
+        (5e10, "m", "5\\times 10^{10}\\ \\mathrm{m}"),
     ],
 )
 def test_the_card_draws_the_value_and_its_unit(value: float, unit: str, shown: str) -> None:

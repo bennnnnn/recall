@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
 
@@ -21,10 +22,17 @@ class FormalAnswer:
 
 
 def _number_latex(value: float) -> str:
-    """Four significant figures; a power of ten for very large or small values."""
-    if value == 0 or 1e-3 <= abs(value) < 1e6:
-        return f"{value:.4g}"
+    """Four significant figures, written out ("12350", "0.001234"); a power of ten for very
+    large or small values. Never Python's exponent form ("5e+04"), which a card shows raw."""
+    rounded = float(f"{value:.4g}")
+    if rounded == 0:
+        return "0"
+    if 1e-3 <= abs(rounded) < 1e6:
+        decimals = max(0, 3 - math.floor(math.log10(abs(rounded))))
+        text = f"{rounded:.{decimals}f}"
+        return text.rstrip("0").rstrip(".") if "." in text else text
     mantissa, exponent = f"{value:.3e}".split("e")
+    mantissa = mantissa.rstrip("0").rstrip(".")
     return f"{mantissa}\\times 10^{{{int(exponent)}}}"
 
 
