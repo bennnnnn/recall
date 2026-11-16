@@ -93,6 +93,13 @@ are counted as the same here.
 
 So the server is right in every disagreement, and finalize overwrites (below).
 
+**Arabic and Hindi** (the kept experiment's questions, 40 each, `formal_corpus/translated/`,
+one run): Free's replies go from 72% to 85% right in Arabic and 60% to 85% in Hindi, paid's
+from 92% to 95% and 88% to 98%. Where the setup's own answer agreed with the server's, they
+differed from the reply 20 times (15 Free, 5 paid), and the server was right all 20. The one
+question the reply got right and the server wrong (a lens, in Hindi) was a setup whose own
+answer disagreed with the server's: that is why finalize requires them to agree.
+
 ## In the app (physics, `formal_reader_enabled`, on)
 
 - **When:** a physics turn (the turn's read says physics) that no solver answered and the
