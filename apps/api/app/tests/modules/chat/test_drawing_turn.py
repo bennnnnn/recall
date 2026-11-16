@@ -368,6 +368,9 @@ def _instant(line: str, read: asyncio.Future[TurnDecision | None]) -> StreamCont
         "As shown, the triangle has sides 3, 4 and 5. Find its area.",
         "Find the x-intercepts of the graph of y = x^2 - 4.",
         "Solve x^2 - 5x + 6 = 0 and show your steps.",
+        "A plot of land is 20 m by 30 m. Find its area.",
+        "Find the area of the shaded region between y = x and y = x^2.",
+        "Find the graphs' intersection of y = x and y = x^2.",
     ],
 )
 async def test_a_word_that_asks_for_no_picture_never_waits(line: str) -> None:
@@ -379,6 +382,24 @@ async def test_a_word_that_asks_for_no_picture_never_waits(line: str) -> None:
     await drawing_turn.write_for_a_picture(ctx, _settings())
     pending.cancel()
     assert loop.time() - began < 0.1 and ctx.instant_reply is not None
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Solve x^2 - 4 = 0 graphically.",
+        "Use graphing to solve x^2 = 4.",
+        "Find the vertex of y = x^2 - 4x. Graph of it please.",
+        "Sketching: y = x^2 - 4, then find its roots.",
+    ],
+)
+async def test_each_form_of_a_drawing_verb_waits_for_the_read(line: str) -> None:
+    """ "graphically", "graphing", "Graph of it please": a read in at 0.05 s takes the card's
+    place (round 6: whole words had lost these)."""
+    late = asyncio.ensure_future(_late(_decision(subject="maths", picture="graph"), 0.05))
+    ctx = _instant(line, late)
+    await drawing_turn.write_for_a_picture(ctx, _settings())
+    assert ctx.instant_reply is None
 
 
 @pytest.mark.wall_clock

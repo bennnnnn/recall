@@ -17,6 +17,7 @@ from sympy import (
     cos,
     denom,
     limit,
+    numer,
     sin,
     solve,
     tan,
@@ -98,9 +99,15 @@ def _removable_holes(
     if declined:
         return []
     holes: list[list[float]] = []
+    top = numer(original)
     for root in roots[:8]:
         try:
             x_value = float(root)
+            # A finite limit needs the numerator written to vanish there too; where it does
+            # not, the curve runs off to infinity, and SymPy's limit at a cubic's radical
+            # root took nine seconds to say so.
+            if abs(complex(top.subs(sym, root).evalf(30))) > 1e-9:
+                continue
             y_limit = limit(simplified, sym, root)
             y_value = float(y_limit)
         except (TypeError, ValueError, OverflowError):

@@ -127,9 +127,6 @@ _ASKED_PLACES = (
 )
 
 
-_ORIGIN = re.compile(r"\borigin\b")
-
-
 def asked_places(question: PlotQuestion) -> list[str]:
     """The kinds of place the question's words ask for: "turns", "roots", "crossings"…"""
     return [kind for pattern, kind in _ASKED_PLACES if pattern.search(question.words)]
@@ -140,16 +137,13 @@ def places_of(curve: DrawnCurve, scene: Scene, question: PlotQuestion) -> list[A
     question asks about ("at x = 1", "at the point (1, 1)"), the server's own places of the
     kind it names ("at its local maximum", "where it crosses the x-axis", "where it meets
     the y-axis", "at the origin", each where the curve has it), and where the slope is one
-    it states ("a slope of -3", "parallel to y = 2x + 1"). A point it states off the curve
-    gives the places whose tangent passes through it ("the tangent to y = x² + 1 that
-    passes through the origin" touches at ±1). An end of the interval it sketches on is
-    none (the tangent "at x = 1 ... on [-2, 2]" drew at 2)."""
+    it states ("a slope of -3", "parallel to y = 2x + 1"). A point off the curve a tangent
+    is said to pass through or be drawn from gives the places whose tangent reaches it
+    ("the tangent to y = x² + 1 that passes through the origin" touches at ±1); a point
+    stated for another reason ("mark the origin") gives none. An end of the interval it
+    sketches on is none (the tangent "at x = 1 ... on [-2, 2]" drew at 2)."""
     own = curve.single
-    stated = [
-        *question.pairs,
-        *([(Rational(0), Rational(0))] if _ORIGIN.search(question.words) else []),
-    ]
-    on = [(p, q) for p, q in stated if own is not None and _on(own, p, q)]
+    on = [(p, q) for p, q in question.pairs if own is not None and _on(own, p, q)]
     xs: list[Any] = [*question.x_points, *(p for p, _q in on)]
     found = {
         "turns": curve.turns,
@@ -166,8 +160,8 @@ def places_of(curve: DrawnCurve, scene: Scene, question: PlotQuestion) -> list[A
         for slope in {float(v) for v in question.slopes}:
             difference = RealFunction(own.derivative(1) - slope)
             xs += [snapped(x, [], difference.expr) for x in zeros(difference.values, low, high)]
-        for p, q in stated:
-            if (p, q) not in on:
+        for p, q in question.tangent_points:
+            if not _on(own, p, q):
                 # The tangent at a reaches (p, q): f(a) + f'(a)(p - a) = q.
                 miss = RealFunction(own.expr + own.derivative(1) * (p - X) - q)
                 xs += [snapped(x, [], miss.expr) for x in zeros(miss.values, low, high)]

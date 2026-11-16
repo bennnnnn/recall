@@ -41,11 +41,19 @@ logger = logging.getLogger(__name__)
 # Words that may ask to see a maths picture. They decide only whether a turn waits for the
 # read (an instant card), or, when the read is late, whether the reply is asked for a
 # description, which finalize keeps only if the read, in by then, agrees. Broad on purpose,
-# but whole words: "graph y = x²" waits and the read decides; "drawn", "as shown" and "the
-# graph of" name no ask. "Show that" is a proof and "show your steps" asks for working.
+# in whole words and each verb's own forms ("sketching", "graph it", "graphically", "use
+# graphing", "Graph of it please", "on a graph"). Not a word's other senses: "drawn", "as
+# shown", "a plot of land", "the shaded region", and "the graph of" naming a curve ("the
+# x-intercepts of the graph of y = x² - 4", "the graphs' intersection"). "Show that"
+# is a proof and "show your steps" asks for working.
+_GRAPH = r"graph(?:s|ed|ing|ically)?"
 _ASKS_TO_SEE = re.compile(
-    r"\b(?:draw|sketch|illustrate|shade|visuali[sz]e|diagram|plot(?!\s+of\b)"
-    r"|graph(?!\s+of\b)"
+    r"\b(?:draw|sketch(?:es|ing)?|illustrate|shade|visuali[sz]e|diagram|plot(?!\s+of\b)"
+    r"|(?:(?<!\bthe\s)(?<!\ba\s)(?<!\bits\s)(?<!\bthis\s)(?<!\btheir\s)"
+    + _GRAPH
+    + r"|"
+    + _GRAPH
+    + r"(?!\s+of\b))(?!')"
     r"|show(?!\s+(?:that|how|why|whether|your|all|each|every|(?:the\s+)?(?:steps?|working|work))\b))\b",
     re.IGNORECASE,
 )

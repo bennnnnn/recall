@@ -83,6 +83,19 @@ _JOINS = frozenset(
 )
 # A condition starting the text: "0 ≤ x ≤ 4", "x ≥ 0", "x ∈ [-1, 2]".
 _A_CONDITION = re.compile(r"\s*[-+]?[\w.()/]{1,12}\s*(?:<=|>=|<|>|\u2208|in\s+\[)")
+# What a condition may hand on to: the next instruction ("and shade"), a purpose ("to
+# estimate the root"), "only" ("for 0 ≤ x ≤ 3 only").
+_CLOSING_WORDS = frozenset("and to only then".split())
+_SENTENCE_END = re.compile(r"[.;!?]")
+# What a clause about the curve itself starts with, after a condition and a comma.
+_CURVE_SUBJECTS = frozenset("y it its the this which curve graph function".split())
+# A closing word a condition's run takes in at its end: "0 ≤ x ≤ 3 and shade the area",
+# "x > 0 to estimate the root".
+_TRAILING_JOIN = re.compile(r"\s+(?:and|or|to|then)\s*$")
+_TANGENT = re.compile(r"\btangents?\b", re.IGNORECASE)
+_THROUGH_POINT = re.compile(
+    r"\b(?:through|from)\s+(?:the\s+)?(?:point\s+)?(\([^()]{1,30}\)|origin)", re.IGNORECASE
+)
 # What a join word is read without: a set's braces and bar ("{x : 0 ≤ x ≤ 3}", "{x | x > 0}").
 _JOIN_MARKS = ",(){}:|"
 # An interval of x in words, right after the formula's joins: "for x between -1 and 2".
@@ -162,6 +175,10 @@ class PlotQuestion:
     sums: frozenset[str] = frozenset()
     # The rules whose rectangles it names by their side ("left and right endpoints", "L4").
     sides: frozenset[str] = frozenset()
+    # The points a tangent is said to pass through or be drawn from ("the tangent … that
+    # passes through the origin", "the tangents from (1, -3)"): a point stated elsewhere
+    # ("mark the origin", "plot the point (3, 0)") is none.
+    tangent_points: tuple[tuple[Any, Any], ...] = ()
     # Every estimate it names, rectangles or not ("the trapezoidal rule").
     estimates: frozenset[str] = frozenset()
     antiderivatives: bool = False
@@ -240,6 +257,10 @@ def _formulas(text: str) -> list[Written]:
             found.append(Written(str(lhs), rhs, str(lhs) == "y"))
         elif op == "=" and lhs.is_Mul and len(lhs.free_symbols) == 2:
             found.append(Written(str(min(lhs.free_symbols, key=str)), rhs))
+        elif op == "=" and len((lhs - rhs).free_symbols) == 1:
+            # An equation in one variable ("x² - 4 = 0", "x² = 4"): solved graphically, its
+            # two sides are its curves, and so is their difference, whose roots it asks for.
+            found += [Written("", side, side.is_number) for side in (lhs, rhs, lhs - rhs)]
     found += [Written("", expr) for expr in written_expressions(text)]
     return found
 
@@ -272,6 +293,8 @@ def _written_with(rest: str, letters: frozenset[str]) -> Domain | None:
             start = len(head) - len(head.split()[-1]) if head.split() else len(head)
             stop = _CONDITION_END.search(rest, match.end())
             end = stop.start() if stop is not None else len(rest)
+            joined = _TRAILING_JOIN.search(rest, start, end)
+            end = joined.start() if joined is not None else end  # "0 ≤ x ≤ 3 and shade …"
             found = tuple(
                 c for c in conditions(rest[start:end], letters) if c.op != "=" and c.value.is_number
             )
@@ -283,8 +306,30 @@ def _written_with(rest: str, letters: frozenset[str]) -> Domain | None:
     joins = [word.strip(_JOIN_MARKS).lower() for word in rest[:start].split()]
     if not found or not all(not w or w in _JOINS or w in letters for w in joins):
         return None
+    if not _closes(rest[end:], letters):
+        return None
     named = _NAMED_DOMAIN.search(rest[: end + len(" only")]) is not None
     return Domain(None, found, named)
+
+
+def _closes(tail: str, letters: frozenset[str]) -> bool:
+    """The condition closes the formula's phrase: what follows it ends the sentence, joins
+    the next instruction ("and shade …", ", sketch f", "to estimate the root") or names it
+    the only one. A clause it opens is a property: a question ("when x < 2, is f increasing
+    …?"), a word right after it ("where x > 0 gives the positive root", "for x between 4
+    and 5 the curve is above the axis"), or after a comma a clause about the curve itself
+    (", f is increasing", ", the curve rises", ", it is negative")."""
+    tail = tail.lstrip("}) ")
+    sentence = _SENTENCE_END.search(tail)
+    if sentence is not None and sentence.group() == "?":
+        return False
+    if not tail or tail[0] in ".;!":
+        return True
+    words = tail.lstrip(",").split()
+    first = words[0].lower().strip(_JOIN_MARKS) if words else ""
+    if tail[0] == ",":
+        return first not in _CURVE_SUBJECTS and first not in letters and first not in "fgh"
+    return first in _CLOSING_WORDS
 
 
 def _written_forms(rest: str) -> list[tuple[str, re.Match[str] | None]]:
@@ -334,6 +379,20 @@ def _clauses(text: str, letters: frozenset[str]) -> list[Clause]:
             )
         )
     return clauses
+
+
+def _tangent_points(text: str) -> list[tuple[Any, Any]]:
+    """The points a clause about a tangent says it passes through or is drawn from."""
+    found: list[tuple[Any, Any]] = []
+    for part in parts(text):
+        if not _TANGENT.search(part):
+            continue
+        for match in _THROUGH_POINT.finditer(part):
+            if match.group(1).lower() == "origin":
+                found.append((Rational(0), Rational(0)))
+            else:
+                found += [(_rational(a), _rational(b)) for a, b in written_pairs(match.group(1))]
+    return found
 
 
 def _rational(value: Fraction) -> Any:
@@ -410,5 +469,6 @@ def read_plot_question(texts: Sequence[str]) -> PlotQuestion:
         sums=frozenset(side for text in own for side in sums_named(text)),
         sides=frozenset(side for text in own for side in rectangle_sides(text)),
         estimates=frozenset(rule for text in own for rule in estimates_named(text)),
+        tangent_points=tuple(p for text in own for p in _tangent_points(plain(text))),
         antiderivatives=any(_ANTIDERIVATIVES.search(text.lower()) for text in readable),
     )
