@@ -83,10 +83,11 @@ _SYSTEM = (
     "accepting an offer to do something that is no problem to solve.\n"
     "For solve and change, message is the number of the message that states the problem, "
     "and problem is the problem as that message states it, copied word for word, without "
-    "greetings, praise or offers. For change, changes lists each value that changes: given "
-    "as the problem writes it (20 seconds, 16.0 g of oxygen), or in an equation or "
-    "expression the part it replaces, copied exactly; and new as the user's line gives it, "
-    "in plain text with its unit (10 s, 32.0 g, 2x). Otherwise null and no changes. Reply "
+    "greetings, praise or offers. For change, changes lists each value that changes, one "
+    "entry per value, never two values in one entry: given as the problem writes it (20 "
+    "seconds, 16.0 g of oxygen), or in an equation or expression the part it replaces, "
+    "copied exactly; and new as the user's line gives it, the value and its unit alone (10 "
+    "s, 32.0 g, 2x), without a note around it. Otherwise null and no changes. Reply "
     'with JSON only, for example {"kind": "change", "message": 2, "problem": "A ball falls '
     '20 m. How long does it take?", "changes": [{"given": "20 m", "new": "45 m"}]}.'
 )
@@ -255,7 +256,12 @@ async def read_posed(
         return None
     started = time.perf_counter()
     read = await pick_posed(settings, collapse_ws(line), _numbered(exchanges))
-    logger.info("posed read took %.0f ms", (time.perf_counter() - started) * 1000)
+    logger.info(
+        "posed read took %.0f ms kind=%s changes=%d",
+        (time.perf_counter() - started) * 1000,
+        read.kind if read is not None else None,
+        len(read.changes) if read is not None else 0,
+    )
     if read is None or read.kind not in ("solve", "change") or read.message is None:
         return None
     if not 1 <= read.message <= len(exchanges):
