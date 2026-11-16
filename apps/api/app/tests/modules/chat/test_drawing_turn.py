@@ -20,7 +20,7 @@ import pytest
 from app.core.config import Settings
 from app.models.orm import User
 from app.modules.chat import drawing_turn, figure_turn
-from app.modules.chat.draw_stream import without_draw_blocks
+from app.modules.chat.draw_stream import DrawScan, without_draw_blocks
 from app.modules.chat.drawing_turn import ReplyDrawing, ask_for_a_drawing, attach_drawing
 from app.modules.chat.finalize_passes import FinalizeState
 from app.modules.chat.stream_accum import StreamAccum
@@ -255,6 +255,25 @@ def test_one_rule_for_a_draw_block_live_and_saved(
     assert len(accum.drawings) == kept
     saved, bodies = without_draw_blocks(reply)
     assert saved == sent and len(bodies) == kept
+
+
+@pytest.mark.parametrize(
+    ("first", "held"),
+    [
+        # A short run with text after it can never open a fence: it streams before its line ends.
+        ("`useEffect` runs after", False),
+        ("~5 min later the", False),
+        ("``x`` and", False),
+        # A run that may still grow into a fence waits for its line's end.
+        ("``", True),
+        ("~", True),
+        ("```dra", True),
+        ("   ~~~", True),
+    ],
+)
+def test_only_a_line_that_may_open_a_fence_waits(first: str, held: bool) -> None:
+    scan = DrawScan(lambda _body: None)
+    assert (scan.feed(first) == "") is held
 
 
 def test_text_taken_back_takes_its_drawings() -> None:

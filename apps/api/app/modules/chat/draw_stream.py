@@ -18,8 +18,9 @@ from app.services.md_fence_scan import FenceMarker, read_fence_marker
 
 _LANG = "draw"
 # The start of a line that may still become a fence line: up to three spaces, then a run of
-# backticks or tildes.
-_MAY_BE_FENCE = re.compile(r"^ {0,3}(?:`+|~+)")
+# three or more backticks or tildes, or a shorter run with nothing after it yet. "`useEffect`
+# runs…" or "~5 min later" can never open one and streams at once (review of #2462).
+_MAY_BE_FENCE = re.compile(r"^ {0,3}(?:`{3,}|~{3,}|`{1,2}$|~{1,2}$)")
 
 
 def _may_open(partial: str) -> bool:
