@@ -164,20 +164,43 @@ def test_numbers_as_people_write_them(text: str, number: float) -> None:
     assert parse_number(text) == pytest.approx(number)
 
 
+UNIFORM = "A car accelerates uniformly from rest. How far does it go?"
+
+
 @pytest.mark.parametrize(
-    ("value", "quote", "question", "held"),
+    ("value", "quote", "question", "count", "held"),
     [
-        (100, "100 km/h", CAR, True),
-        (100, "100  KM/H", CAR, True),  # spacing and case
-        (2, "Dos resistencias", PARALLEL_ES, True),  # a count in words
-        (20, "Dos resistencias", PARALLEL_ES, False),  # not a small count
-        (100, "100 km/h", "my car goes from 0 to 90 km/h", False),
+        (100, "100 km/h", CAR, False, True),
+        (100, "100  KM/H", CAR, False, True),  # spacing and case
+        (2, "Dos resistencias", PARALLEL_ES, True, True),  # a count in words
+        (20, "Dos resistencias", PARALLEL_ES, True, False),  # not a small count
+        (100, "100 km/h", "my car goes from 0 to 90 km/h", False, False),
+        (0, "from rest", UNIFORM, False, True),  # a state's zero, any unit
+        (5, "car", UNIFORM, False, False),  # a time from words that say no number
+        (5, "uniformly", UNIFORM, False, False),
+        (2, "Dos resistencias", PARALLEL_ES, False, False),  # words count, never measure
     ],
 )
 def test_a_given_is_held_to_the_question_s_words(
-    value: float, quote: str, question: str, held: bool
+    value: float, quote: str, question: str, count: bool, held: bool
 ) -> None:
-    assert grounded(value, quote, question) is held
+    assert grounded(value, quote, question, count=count) is held
+
+
+def test_an_invented_time_from_words_with_no_number_is_refused() -> None:
+    setup = {
+        "givens": [
+            {"symbol": "u", "value": "0", "unit": "m/s", "quote": "from rest"},
+            {"symbol": "a", "value": "2", "unit": "m/s^2", "quote": "car"},
+            {"symbol": "t", "value": "5", "unit": "s", "quote": "uniformly"},
+        ],
+        "unknowns": [{"symbol": "d", "unit": "m"}],
+        "equations": ["d = u*t + a*t**2/2"],
+        "target": "d",
+        "target_unit": "m",
+        "answer": 25,
+    }
+    assert _solve(setup, UNIFORM)["reason"] == "a is not in the question"
 
 
 @pytest.mark.asyncio

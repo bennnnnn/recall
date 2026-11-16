@@ -115,16 +115,19 @@ def _folded(text: str) -> str:
     return " ".join(unicodedata.normalize("NFKC", text).casefold().split())
 
 
-def grounded(value: float, quote: str, question: str) -> bool:
-    """The given's words are in the question and say its number. A count written in words
-    ("two resistors", "dos resistencias") carries no digits: a whole number up to twelve
-    is taken from words the question holds."""
+def grounded(value: float, quote: str, question: str, *, count: bool = False) -> bool:
+    """The given's words are in the question and say its number. Words with no digits say
+    only a state's zero ("from rest", "desde el reposo") or, for a pure number (``count``),
+    a whole count up to twelve ("two resistors", "dos resistencias"): a time, a length or a
+    speed takes its number from the question's digits, never from any words it holds."""
     if not quote.strip() or _folded(quote) not in _folded(question):
         return False
     numbers = [parse_number(match.group()) for match in _NUMBER.finditer(quote)]
     if any(n is not None and math.isclose(n, value, rel_tol=1e-9) for n in numbers):
         return True
-    return not numbers and float(value).is_integer() and 0 <= value <= 12
+    if numbers:
+        return False
+    return value == 0 or (count and float(value).is_integer() and 1 <= value <= 12)
 
 
 def _sympy_tree(node: ast.expr, symbols: dict[str, Any]) -> Any:
@@ -323,7 +326,9 @@ def solve_formal(problem_json: str, question: str) -> str:
             if given.constant:
                 if not is_standard(base.magnitude, base.units, registry):
                     return _refused(f"constant {given.symbol} is no standard value")
-            elif number is None or not grounded(number, given.quote, question):
+            elif number is None or not grounded(
+                number, given.quote, question, count=bool(base.dimensionless)
+            ):
                 return _refused(f"{given.symbol} is not in the question")
             values[symbols[given.symbol]] = float(base.magnitude)
             units[symbols[given.symbol]] = base.units
