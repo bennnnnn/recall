@@ -141,6 +141,33 @@ def test_a_curve_described_twice_is_drawn_once(items: list[dict[str, Any]]) -> N
         ("cone", "The line y = x + 1 from x = -1 to x = 2 is rotated about the line y = 0.", True),
         ("cone", "The line y = x + 1 from x = 0 to x = 2 is rotated about the line y = 1.", True),
         ("cone", "The line y = x + 1 from x = 0 to x = 2 is rotated about the line y = -1.", False),
+        # The axis as an edge: the curve's meeting with it ends the region (PR #2480 review).
+        (
+            "cone",
+            "The region bounded by y = 2x, y = 0 and x = 3 is rotated about the x-axis.",
+            True,
+        ),
+        (
+            "cone",
+            "The region bounded by y = 2x, the x-axis and x = 3 is rotated about the x-axis.",
+            True,
+        ),
+        # ... and between two curves, neither the axis, the solid is hollow: no cone.
+        (
+            "cone",
+            "The region bounded by y = 2x, y = x and x = 3 is rotated about the x-axis.",
+            False,
+        ),
+        (
+            "cone",
+            "The region bounded by y = 2x, y = 1 and x = 3 is rotated about the x-axis.",
+            False,
+        ),
+        (
+            "frustum",
+            "The region bounded by y = x + 1, y = 0, x = 0 and x = 2 is rotated about the x-axis.",
+            True,
+        ),
     ],
 )
 def test_a_solid_is_the_one_its_written_curves_sweep(
@@ -282,3 +309,38 @@ def test_a_cylinder_read_for_a_paraboloid_is_not_drawn() -> None:
         "measures": [{"what": "height", "value": 4}],
     }
     assert build_figure_fence(json.dumps(request), [question]) is None
+
+
+_TWO_FUNCTIONS = (
+    "Integrate f(x) = 2x and g(x) = 3x^2 with respect to x. Sketch the family of "
+    "antiderivatives of f with c = −1 and 1, the antiderivative of g, and f itself."
+)
+
+
+@pytest.mark.parametrize(
+    ("items", "labels"),
+    [
+        (
+            [_curve("F", "x^2 - 1"), _curve("F", "x^2 + 1"), _curve("G", "x^3"), _curve("f", "2x")],
+            ["C = −1", "C = 1", "y = x³", "y = 2x"],
+        ),
+        (
+            [_curve("F", "x^2", shifts=["-1", "0", "1"]), _curve("G", "x^3"), _curve("f", "2x")],
+            ["C = −1", "C = 0", "C = 1", "y = x³", "y = 2x"],
+        ),
+        (
+            [
+                _curve("F", "x^2 - 1"),
+                _curve("F", "x^2"),
+                _curve("F", "x^2 + 1"),
+                _curve("G", "x^3"),
+            ],
+            ["C = −1", "C = 0", "C = 1", "y = x³"],
+        ),
+    ],
+)
+def test_a_family_drawn_beside_an_unrelated_curve_keeps_every_label(
+    items: list[dict[str, Any]], labels: list[str]
+) -> None:
+    graph = _plot(_TWO_FUNCTIONS, *items)
+    assert graph is not None and [curve.label for curve in graph.curves] == labels

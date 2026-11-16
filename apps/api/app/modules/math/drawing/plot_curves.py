@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 import numpy as np
-from sympy import E, Expr, Symbol, oo, pi, preorder_traversal
+from sympy import E, Expr, Symbol, oo, pi, preorder_traversal, simplify
 
 from app.modules.math.drawing.plot_check import reach, stated_interval
 from app.modules.math.drawing.plot_items import (
@@ -505,6 +505,15 @@ def _drawn_as(curve: DrawnCurve) -> tuple[Any, ...]:
     return (tuple(spans), tuple(dots), curve.sideways, curve.stated_domain and curve.search)
 
 
+def _one_family(curve: DrawnCurve, member: DrawnCurve) -> bool:
+    """``member`` is ``curve`` and a constant: two members of one family."""
+    if curve.shape is None or member.shape is None:
+        return False
+    if len(curve.shape.spans) != 1 or len(member.shape.spans) != 1:
+        return False
+    return bool(simplify(member.shape.spans[0].expr - curve.shape.spans[0].expr).is_number)
+
+
 def _unique(name: str, scene: Scene) -> str:
     found, k = name, 1
     while found in scene.curves:
@@ -528,10 +537,12 @@ def add_curves(items: list[Any], question: PlotQuestion, scene: Scene) -> None:
                     drawn.name = _unique(drawn.name, scene)
                     scene.curves[drawn.name] = drawn
                     color += 1
-    # Beside members of its family ("C = 1"), the antiderivative itself is "C = 0".
-    if any(curve.label.startswith("C = ") for curve in scene.curves.values()):
-        for curve in scene.curves.values():
-            curve.label = "C = 0" if curve.antiderivative else curve.label
+    # Beside members of its own family ("C = 1"), the antiderivative itself is "C = 0"; an
+    # antiderivative of another function keeps its formula (x³ beside x² + C).
+    members = [curve for curve in scene.curves.values() if curve.label.startswith("C = ")]
+    for curve in scene.curves.values():
+        if curve.antiderivative and any(_one_family(curve, member) for member in members):
+            curve.label = "C = 0"
     for item in items:
         if isinstance(item, Line) and len(scene.lines) < _MOST_LINES:
             line = _line(item, question, color)
