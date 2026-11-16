@@ -138,6 +138,30 @@ def test_a_curve_described_twice_is_drawn_once(items: list[dict[str, Any]]) -> N
             False,
         ),
         ("cylinder", "The line y = 2 from x = 0 to x = 3 is rotated about the line y = 1.", True),
+        # A curve written the other way to its axis is turned round; one that cannot be
+        # (y = x², two branches about the y-axis) draws no solid (PR #2480 review).
+        (
+            "cylinder",
+            "The region between y = x^2 and the y-axis from y = 0 to y = 4 is rotated about "
+            "the y-axis.",
+            False,
+        ),
+        (
+            "cone",
+            "The region bounded by y = 2x, the y-axis and y = 4 is rotated about the y-axis.",
+            True,
+        ),
+        # About a line x = c, the region's ends are values of y.
+        (
+            "frustum",
+            "The region bounded by x = y + 1, x = 0, y = 0 and y = 2 is rotated about the y-axis.",
+            True,
+        ),
+        (
+            "cone",
+            "The region bounded by x = y + 1, x = 0, y = 0 and y = 2 is rotated about the y-axis.",
+            False,
+        ),
         ("cone", "The line y = x + 1 from x = -1 to x = 2 is rotated about the line y = 0.", True),
         ("cone", "The line y = x + 1 from x = 0 to x = 2 is rotated about the line y = 1.", True),
         ("cone", "The line y = x + 1 from x = 0 to x = 2 is rotated about the line y = -1.", False),
@@ -344,3 +368,61 @@ def test_a_family_drawn_beside_an_unrelated_curve_keeps_every_label(
 ) -> None:
     graph = _plot(_TWO_FUNCTIONS, *items)
     assert graph is not None and [curve.label for curve in graph.curves] == labels
+
+
+_U5_051 = (
+    "Find the area of the region enclosed by the graph of f(x) = 12 − 3x² and the x-axis "
+    "from x = −4 to x = 3. Draw the graph and shade the region."
+)
+_ON_AN_INTERVAL = (
+    "Find the area of the region enclosed by the x-axis and f(x) = 12 − 3x² on [−4, 3]. Shade it."
+)
+
+
+@pytest.mark.parametrize(
+    ("question", "shade", "spans"),
+    [
+        # A region its edges' meeting bounds is held to the interval said of it too.
+        (_U5_051, _shade("f", "x-axis"), []),
+        # A curve's domain stated in an area's clause is the region's interval.
+        (_ON_AN_INTERVAL, _shade("f", "x-axis", "-2", "2"), []),
+        (_ON_AN_INTERVAL, _shade("f", "x-axis"), []),
+        (
+            _ON_AN_INTERVAL,
+            _shade("f", "x-axis", "-4", "3"),
+            [(-4.0, -2.0), (-2.0, 2.0), (2.0, 3.0)],
+        ),
+    ],
+)
+def test_every_region_stands_on_the_interval_its_clause_states(
+    question: str, shade: dict[str, Any], spans: list[tuple[float, float]]
+) -> None:
+    graph = _plot(question, _curve("f", "12 - 3x^2"), shade)
+    assert graph is not None
+    drawn = sorted(
+        (round(min(x for x, _ in r.points), 6), round(max(x for x, _ in r.points), 6))
+        for r in graph.regions
+    )
+    assert drawn == spans
+
+
+@pytest.mark.parametrize(
+    ("question", "low", "high"),
+    [
+        ("Sketch y = sin(x) for 0 ≤ x ≤ 2π.", "0", "2π"),
+        ("Sketch y = sin x from -π/2 to π/2.", "−π/2", "π/2"),
+    ],
+)
+def test_a_bound_written_with_pi_is_grounded_in_the_question(
+    question: str, low: str, high: str
+) -> None:
+    from app.modules.math.figure.grounding import grounded
+
+    request = FigureRequest.model_validate(
+        {"kind": "function", "expr": "sin(x)", "x_min": low, "x_max": high}
+    )
+    assert grounded(request, [question])
+    wrong = FigureRequest.model_validate(
+        {"kind": "function", "expr": "sin(x)", "x_min": "-π", "x_max": "π"}
+    )
+    assert not grounded(wrong, ["Sketch y = sin x from -π/2 to π/2."])

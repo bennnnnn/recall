@@ -87,6 +87,10 @@ _A_CONDITION = re.compile(r"\s*[-+]?[\w.()/]{1,12}\s*(?:<=|>=|<|>|\u2208|in\s+\[
 # estimate the root"), "only" ("for 0 ≤ x ≤ 3 only").
 _CLOSING_WORDS = frozenset("and to only then".split())
 _SENTENCE_END = re.compile(r"[.;!?]")
+# Where one task ends and another begins within a sentence ("..., and the area enclosed by").
+_TASK_CLAUSES = re.compile(r",\s*(?=and\b|then\b)|;")
+# What asks for a region on an interval: an area, an integral, a volume, a shading.
+_TASK = re.compile(r"\b(?:area|region|integral|integrate|volume|average|shade[sd]?)\b|\u222b")
 _SENTENCES = re.compile(r"[;\n]|\\\\|[.?!]\s(?=[A-Z])")
 # What a clause about the curve itself starts with, after a condition and a comma.
 _CURVE_SUBJECTS = frozenset("y it its the this which curve graph function".split())
@@ -163,8 +167,9 @@ class PlotQuestion:
     # The intervals it says of x, the lines it names (x = -1/2, x ≥ 0, the y-axis; y = 3)
     # and the points it is said of ("at x = 3", "where y = 4") (``plot_x``).
     intervals: tuple[Interval, ...] = ()
-    # Each interval with the formulas its sentence writes (``tied_intervals``).
-    ties: tuple[tuple[Interval, tuple[Any, ...]], ...] = ()
+    # Each interval with the formulas its clause writes, and whether that clause asks for
+    # an area or an integral (``_ties``).
+    ties: tuple[tuple[Interval, tuple[Any, ...], bool], ...] = ()
     edges: tuple[Any, ...] = ()
     x_points: tuple[Any, ...] = ()
     y_points: tuple[Any, ...] = ()
@@ -335,18 +340,22 @@ def _closes(tail: str, letters: frozenset[str]) -> bool:
     return first in _CLOSING_WORDS
 
 
-def _ties(text: str, letters: frozenset[str]) -> list[tuple[Interval, tuple[Any, ...]]]:
-    """Each interval ``text`` writes, with the formulas of y its sentence writes: what the
-    interval is said of ("the area under y = x from x = 2 to x = 5"; "the integral of x³
-    from 3 to 4" is said of x³, not of a region between x² and 2x)."""
-    found: list[tuple[Interval, tuple[Any, ...]]] = []
+def _ties(text: str, letters: frozenset[str]) -> list[tuple[Interval, tuple[Any, ...], bool]]:
+    """Each interval ``text`` writes, with the formulas of y its clause writes (what the
+    interval is said of: "the area under y = x from x = 2 to x = 5, and the area enclosed
+    by y = x² and y = x"; "the integral of x³ from 3 to 4" is said of x³, not of a region
+    between x² and 2x), and whether that clause asks for an area, an integral or a shading
+    (a curve's own domain stated in one is the region's interval too)."""
+    found: list[tuple[Interval, tuple[Any, ...], bool]] = []
     for sentence in _SENTENCES.split(text):
-        stated = intervals(sentence, letters)
-        if stated:
-            said = tuple(
-                w.expr for w in _formulas(sentence) if w.name != "x" and w.expr.free_symbols
-            )
-            found += [(interval, said) for interval in stated]
+        for clause in _TASK_CLAUSES.split(sentence):
+            stated = intervals(clause, letters)
+            if stated:
+                said = tuple(
+                    w.expr for w in _formulas(clause) if w.name != "x" and w.expr.free_symbols
+                )
+                task = _TASK.search(clause.lower()) is not None
+                found += [(interval, said, task) for interval in stated]
     return found
 
 
