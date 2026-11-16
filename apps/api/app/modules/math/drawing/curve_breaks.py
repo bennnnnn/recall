@@ -19,7 +19,7 @@ from typing import Any
 import numpy as np
 from sympy import Expr, Symbol, limit, oo
 
-from app.modules.math.drawing.curve_features import GRID, bisect, snapped
+from app.modules.math.drawing.curve_features import GRID, MOST_FOUND, bisect_all, snapped
 from app.modules.math.drawing.real_curve import RealFunction, X
 from app.modules.math.solve.graph_sampling import (
     SIDE_STEPS,
@@ -66,12 +66,14 @@ def _candidates(fn: RealFunction, low: float, high: float, exact: list[Any]) -> 
     gaps = [i for i in range(len(xs) - 1) if np.isfinite(ys[i]) != np.isfinite(ys[i + 1])]
     # The graph sampler's own poles (``graph_sampling.pole_flips``), each at its own place:
     # the sign flips there, and its reciprocal is zero there (tan x's π/2, exactly).
-    poles = set(pole_flips(ys))
+    poles = sorted(set(pole_flips(ys)))
+    # Bisected all at once; snapped to an exact place only when they are few: a fast
+    # oscillation's hundreds of flips cost a second of SymPy for places no label shows.
+    at = bisect_all(fn.values, xs[poles], xs[[i + 1 for i in poles]]) if poles else []
+    residual = 1 / fn.expr if len(poles) <= MOST_FOUND else None
+    pole_at = {i: snapped(float(x), [], residual) for i, x in zip(poles, at, strict=True)}
     for i in sorted({*gaps, *poles}):
-        if i in poles:
-            x = snapped(bisect(fn.values, float(xs[i]), float(xs[i + 1])), [], 1 / fn.expr)
-        else:
-            x = snapped(float((xs[i] + xs[i + 1]) / 2), [], None)
+        x = pole_at[i] if i in pole_at else snapped(float((xs[i] + xs[i + 1]) / 2), [], None)
         if all(abs(float(seen) - float(x)) > (xs[1] - xs[0]) for seen in found):
             found.append(x)
     return found

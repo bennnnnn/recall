@@ -47,38 +47,51 @@ MOST_FOUND = 12
 Values = Callable[[Any], Any]
 
 
-def _scalar(values: Values, x: float) -> float:
-    return float(values(np.array([x]))[0])
-
-
 def bisect(values: Values, low: float, high: float) -> float:
-    f_low = _scalar(values, low)
+    return float(bisect_all(values, np.array([low]), np.array([high]))[0])
+
+
+def bisect_all(values: Values, lows: Any, highs: Any) -> Any:
+    """Each bracket [low, high] bisected to its sign change, all at once: one call of
+    ``values`` a step for every bracket, not one per bracket (a fast-oscillating curve's
+    thousand roots took a second and a half one by one). A bracket whose midpoint has no
+    value stops there."""
+    low, high = np.asarray(lows, dtype=float).copy(), np.asarray(highs, dtype=float).copy()
+    if not low.size:
+        return low
+    f_low = values(low)
+    done = np.zeros(low.shape, dtype=bool)
+    result = np.empty(low.shape)
     for _ in range(_BISECTIONS):
         mid = (low + high) / 2
-        f_mid = _scalar(values, mid)
-        if not math.isfinite(f_mid):
-            return mid
-        if (f_mid > 0) == (f_low > 0):
-            low, f_low = mid, f_mid
-        else:
-            high = mid
-    return (low + high) / 2
+        f_mid = values(mid)
+        stop = ~done & ~np.isfinite(f_mid)
+        result[stop], done[stop] = mid[stop], True
+        same = (f_mid > 0) == (f_low > 0)
+        move_low = ~done & same
+        move_high = ~done & ~same
+        low[move_low], f_low[move_low] = mid[move_low], f_mid[move_low]
+        high[move_high] = mid[move_high]
+    result[~done] = ((low + high) / 2)[~done]
+    return result
 
 
-def _golden(values: Values, low: float, high: float, sense: int) -> float:
-    """The x in [low, high] where ``sense`` * value is least."""
-    a, b = low, high
+def _golden_all(values: Values, lows: Any, highs: Any, senses: Any) -> Any:
+    """Each bracket's x where ``sense`` * value is least, all at once (``_bisect_all``)."""
+    a, b = np.asarray(lows, dtype=float).copy(), np.asarray(highs, dtype=float).copy()
+    if not a.size:
+        return a
     c, d = b - _GOLDEN * (b - a), a + _GOLDEN * (b - a)
+    done = np.zeros(a.shape, dtype=bool)
     for _ in range(_BISECTIONS):
-        fc, fd = sense * _scalar(values, c), sense * _scalar(values, d)
-        if not (math.isfinite(fc) and math.isfinite(fd)):
-            break
-        if fc < fd:
-            b, d = d, c
-            c = b - _GOLDEN * (b - a)
-        else:
-            a, c = c, d
-            d = a + _GOLDEN * (b - a)
+        fc, fd = senses * values(c), senses * values(d)
+        done |= ~(np.isfinite(fc) & np.isfinite(fd))
+        left = ~done & (fc < fd)
+        right = ~done & ~(fc < fd)
+        b[left], d[left] = d[left], c[left]
+        c[left] = b[left] - _GOLDEN * (b[left] - a[left])
+        a[right], c[right] = c[right], d[right]
+        d[right] = a[right] + _GOLDEN * (b[right] - a[right])
     return (a + b) / 2
 
 
@@ -106,20 +119,23 @@ def zeros(values: Values, low: float, high: float) -> list[float]:
     ys = values(xs)
     scale = _scale(ys) + 1.0
     found: list[float] = [float(x) for x, y in zip(xs, ys, strict=True) if y == 0]
-    for i in range(len(xs) - 1):
-        y0, y1 = ys[i], ys[i + 1]
-        if not (np.isfinite(y0) and np.isfinite(y1)) or y0 == 0 or y1 == 0 or (y0 > 0) == (y1 > 0):
-            continue
-        root = bisect(values, float(xs[i]), float(xs[i + 1]))
-        if abs(_scalar(values, root)) < 1e-6 * scale:
-            found.append(root)
-    magnitude = np.abs(ys)
-    for i in range(1, len(xs) - 1):
-        m0, m1, m2 = magnitude[i - 1], magnitude[i], magnitude[i + 1]
-        if np.isfinite(m0) and np.isfinite(m2) and m1 <= m0 and m1 < m2 and m1 < 1e-2 * scale:
-            touch = _golden(lambda v: np.abs(values(v)), float(xs[i - 1]), float(xs[i + 1]), 1)
-            if abs(_scalar(values, touch)) < 1e-9 * scale:
-                found.append(touch)
+    y0, y1 = ys[:-1], ys[1:]
+    with np.errstate(invalid="ignore"):
+        crossing = (
+            np.isfinite(y0) & np.isfinite(y1) & (y0 != 0) & (y1 != 0) & ((y0 > 0) != (y1 > 0))
+        )
+    roots = bisect_all(values, xs[:-1][crossing], xs[1:][crossing])
+    held = np.abs(values(roots)) < 1e-6 * scale if roots.size else np.array([], dtype=bool)
+    found += [float(x) for x in roots[held]]
+    m = np.abs(ys)
+    m0, m1, m2 = m[:-2], m[1:-1], m[2:]
+    with np.errstate(invalid="ignore"):
+        dips = np.isfinite(m0) & np.isfinite(m2) & (m1 <= m0) & (m1 < m2) & (m1 < 1e-2 * scale)
+    touches = _golden_all(
+        lambda v: np.abs(values(v)), xs[:-2][dips], xs[2:][dips], np.ones(int(dips.sum()))
+    )
+    if touches.size:
+        found += [float(x) for x in touches[np.abs(values(touches)) < 1e-9 * scale]]
     return _dedupe(found, low, high)
 
 
@@ -127,18 +143,17 @@ def turning_points(values: Values, low: float, high: float) -> list[float]:
     """Interior local maxima and minima, cusps and corners included; a flat stretch none."""
     xs = np.linspace(low, high, GRID)
     ys = values(xs)
-    found: list[float] = []
-    for i in range(1, len(xs) - 1):
-        y0, y1, y2 = ys[i - 1], ys[i], ys[i + 1]
-        if not (np.isfinite(y0) and np.isfinite(y1) and np.isfinite(y2)) or y0 == y1 == y2:
-            continue
-        sense = 1 if (y1 <= y0 and y1 < y2) else -1 if (y1 >= y0 and y1 > y2) else 0
-        if sense == 0:
-            continue
-        x = _golden(values, float(xs[i - 1]), float(xs[i + 1]), sense)
-        if math.isfinite(_scalar(values, x)):
-            found.append(x)
-    return _dedupe(found, low, high)
+    y0, y1, y2 = ys[:-2], ys[1:-1], ys[2:]
+    with np.errstate(invalid="ignore"):
+        finite = np.isfinite(y0) & np.isfinite(y1) & np.isfinite(y2) & ~((y0 == y1) & (y1 == y2))
+        low_turn = finite & (y1 <= y0) & (y1 < y2)
+        high_turn = finite & ~low_turn & (y1 >= y0) & (y1 > y2)
+    turn = low_turn | high_turn
+    senses = np.where(low_turn, 1.0, -1.0)[turn]
+    found = _golden_all(values, xs[:-2][turn], xs[2:][turn], senses)
+    if found.size:
+        found = found[np.isfinite(values(found))]
+    return _dedupe([float(x) for x in found], low, high)
 
 
 def bends(fn: RealFunction, low: float, high: float) -> list[float]:
@@ -152,17 +167,19 @@ def bends(fn: RealFunction, low: float, high: float) -> list[float]:
     if not finite.size:
         return []
     noise = 1e-9 * (1.0 + float(np.median(finite)))
-    found: list[float] = []
+    lows: list[float] = []
+    highs: list[float] = []
     last: int | None = None
     for i in range(len(xs)):
         s1 = second[i]
         if not np.isfinite(s1) or abs(s1) <= noise:
             continue
         if last is not None and (second[last] > 0) != (s1 > 0):
-            x = bisect(lambda v: fn.values(v, 2), float(xs[last]), float(xs[i]))
-            if continuous_at(fn, x):
-                found.append(x)
+            lows.append(float(xs[last]))
+            highs.append(float(xs[i]))
         last = i
+    changes = bisect_all(lambda v: fn.values(v, 2), np.array(lows), np.array(highs))
+    found = [float(x) for x in changes if continuous_at(fn, float(x))]
     return _dedupe(found, low, high)
 
 

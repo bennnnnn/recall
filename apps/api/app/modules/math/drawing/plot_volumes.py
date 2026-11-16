@@ -17,7 +17,21 @@ from __future__ import annotations
 import math
 from typing import Any, Literal
 
-from sympy import Abs, Float, Integral, radsimp, sign, sympify
+from sympy import (
+    Abs,
+    Float,
+    Integral,
+    cancel,
+    cos,
+    degree,
+    exp,
+    log,
+    radsimp,
+    sign,
+    sin,
+    sympify,
+    tan,
+)
 
 from app.modules.math.drawing.curve_breaks import has_pole
 from app.modules.math.drawing.plot_check import stated_interval
@@ -82,12 +96,31 @@ def slice_of(item: Slice, scene: Scene) -> None:
         scene.regions.append(DrawnRegion(points, kind=kind, color=_STRIP_COLOR))
 
 
+# The functions whose argument decides whether an integral has an elementary closed form.
+_TRANSCENDENTAL = (exp, log, sin, cos, tan)
+
+
+def _may_have_a_closed_form(expr: Any) -> bool:
+    """A cheap test before SymPy is asked for the integral: each exp, log or trig of an
+    argument past linear (e^(x²), sin(x³)) comes with that argument's derivative as its
+    factor (2x·e^(x²), a substitution). Else no closed form is likely, and the quadrature
+    answers at once: e^(x²)·sin(x³)'s quick integral took nearly a second, and nine on CI."""
+    for atom in expr.atoms(*_TRANSCENDENTAL):
+        argument = atom.args[0]
+        if argument.is_polynomial(X) and degree(argument, X) <= 1:
+            continue
+        rest = cancel(expr / (atom * argument.diff(X)))
+        if X in rest.free_symbols:
+            return False
+    return True
+
+
 def _mean(fn: RealFunction, a: Any, b: Any) -> Any | None:
     """The mean value from the solver's own integral (``solve.calculus.definite_integral``,
     its closed form held to a quadrature), by SymPy's quick methods; else the quadrature's
     own value to six places (labelled as a decimal). A formula with |…| or an odd root in it
     goes to the quadrature at once."""
-    if not fn.expr.has(Abs, sign):
+    if not fn.expr.has(Abs, sign) and _may_have_a_closed_form(fn.expr):
         try:
             total = definite_integral(fn.expr, X, a, b, quick=True)
         except SolveServiceError:
