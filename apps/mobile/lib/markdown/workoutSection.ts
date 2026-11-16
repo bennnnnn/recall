@@ -12,7 +12,7 @@ const GIVEN_HEADINGS = workedHeadings("given");
 const REQUIRED_HEADINGS: readonly string[] = [...workedHeadings("required"), "Find"];
 
 /** The headings that open a worked reply, behind a thin rule: what it is given and what is asked. */
-export const OPENING_HEADINGS: readonly string[] = [...GIVEN_HEADINGS, ...REQUIRED_HEADINGS];
+const OPENING_HEADINGS: readonly string[] = [...GIVEN_HEADINGS, ...REQUIRED_HEADINGS];
 
 /**
  * The English ones: they alone open a worked reply. A model writes them as its contract says,
