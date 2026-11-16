@@ -152,6 +152,24 @@ def test_a_curve_in_pieces_the_question_writes_whole_keeps_its_legend() -> None:
     assert graph is not None and graph.curves[0].label == "y = |x|"
 
 
+@pytest.mark.parametrize("axis", [_curve("g", "0"), {"item": "line", "name": "g", "y": "0"}])
+def test_an_edge_described_as_y_equals_0_is_the_x_axis(axis: dict[str, Any]) -> None:
+    # u5-071: the reply named the x-axis "g" (y = 0) and shaded between f and g.
+    graph = _plot(
+        "Revolve the region enclosed by y = |x|, the x-axis and the lines x = −3 and x = 1.",
+        _curve(
+            "f", pieces=[{"y": "-x", "when": "-3 <= x <= 0"}, {"y": "x", "when": "0 <= x <= 1"}]
+        ),
+        axis,
+        _shade("f", "g", "-3", "1"),
+    )
+    assert graph is not None
+    spans = sorted(
+        (min(x for x, _ in r.points), max(x for x, _ in r.points)) for r in graph.regions
+    )
+    assert spans == [(-3.0, 0.0), (0.0, 1.0)]
+
+
 def test_a_cylinder_read_for_a_paraboloid_is_not_drawn() -> None:
     """u5-083: the figure read drew x = √y about the y-axis as a cylinder of height 4."""
     import json
