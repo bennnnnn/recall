@@ -12,9 +12,10 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Sequence
 from typing import Any
 
-from sympy import Rational
+from sympy import Rational, Symbol
 
 from app.modules.math.drawing.curve_features import snapped, zeros
 from app.modules.math.drawing.plot_question import PlotQuestion
@@ -23,7 +24,9 @@ from app.modules.math.drawing.plot_reading import same_number
 from app.modules.math.drawing.plot_scene import DrawnCurve, Place, Scene
 from app.modules.math.drawing.plot_x import Interval
 from app.modules.math.drawing.real_curve import RealFunction, X
+from app.modules.math.tool_check import same_value
 
+_WRITTEN_X = Symbol("x")
 # A value an item writes names a place the server found to this share of its size.
 _NAMED_PLACE = 1e-3
 # Places are looked for this far out, or three times the farthest value the question writes.
@@ -63,12 +66,21 @@ def region_intervals(question: PlotQuestion) -> list[Interval]:
     ]
 
 
-def on_a_stated_interval(low: float, high: float, question: PlotQuestion) -> bool:
-    """A region along x from ``low`` to ``high`` stands on an interval the question states,
-    when it states one: inside it and reaching at least one of its ends (u5-037's ∫ from -3
-    to 3 shaded as [-3, 0] and [0, 3]). u5-051's "from x = -4 to x = 3" shaded between
-    the roots ±2 alone, a picture of the reply's wrong 32 and not the question's 71."""
-    stated = region_intervals(question)
+def on_a_stated_interval(
+    low: float, high: float, question: PlotQuestion, edges: Sequence[Any]
+) -> bool:
+    """A region from ``low`` to ``high`` between ``edges`` stands on the interval the
+    question states for it, when it states one: inside it and reaching at least one of its
+    ends (u5-037's ∫ from -3 to 3 shaded as [-3, 0] and [0, 3]). u5-051's "from x = -4 to
+    x = 3" shaded between the roots ±2 alone, a picture of the reply's wrong 32 and not the
+    question's 71. An interval is the region's when its sentence writes one of the edges or
+    no formula at all: "the integral of x³ from 3 to 4" says nothing of the area between x²
+    and 2x."""
+    stated = [
+        interval
+        for interval, said in question.ties
+        if interval in region_intervals(question) and _said_of(said, edges)
+    ]
     near = 1e-6 * max(1.0, abs(low), abs(high))
     for interval in stated:
         a, b = float(interval.low), float(interval.high)
@@ -76,6 +88,12 @@ def on_a_stated_interval(low: float, high: float, question: PlotQuestion) -> boo
         if inside and (abs(low - a) <= near or abs(high - b) <= near):
             return True
     return not stated
+
+
+def _said_of(said: Sequence[Any], edges: Sequence[Any]) -> bool:
+    # An edge is a formula of the real x; the question's are of x as written.
+    curves = [edge.xreplace({X: _WRITTEN_X}) for edge in edges if edge.free_symbols]
+    return not said or any(same_value(one, edge) for one in said for edge in curves)
 
 
 def stated_end(number: Any, question: PlotQuestion, meet: float) -> Any | None:

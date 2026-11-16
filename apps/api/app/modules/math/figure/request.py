@@ -55,6 +55,10 @@ class NamedPoint(BaseModel):
     y: float = Field(ge=-1_000_000, le=1_000_000)
 
 
+# The longest range end kept as written ("-π/2", "2*pi", "e^2"): a longer one is no end.
+_BOUND_CHARS = 24
+
+
 class FigureRequest(BaseModel):
     kind: FigureKind = "none"
     # The shape by its plain name ("parallelogram", "right_triangle", "cylinder",
@@ -85,8 +89,10 @@ class FigureRequest(BaseModel):
     # A function graph: y = expr in ``variable``, over the stated range, axis names.
     expr: str = Field(default="", max_length=120)
     variable: str = Field(default="x", max_length=4)
-    x_min: float | None = None
-    x_max: float | None = None
+    # Each end as written ("-3", "2π", "1/e"): read to a number in the SymPy pool alone
+    # (``bounds``), never while the reply's read is validated on the event loop.
+    x_min: float | str | None = None
+    x_max: float | str | None = None
     x_label: str = Field(default="", max_length=32)
     y_label: str = Field(default="", max_length=32)
     # Points on a coordinate plane.
@@ -108,19 +114,21 @@ class FigureRequest(BaseModel):
 
     @field_validator("x_min", "x_max", mode="before")
     @classmethod
-    def _bound(cls, value: Any) -> float | None:
+    def _bound(cls, value: Any) -> float | str | None:
         """A range's end as the question writes it ("-3" with its minus sign, "-1/2", "2π",
-        "1/e", "e²"), read by the drawing check's own number reader; one it cannot read is
-        left out, never the whole reading (12 of 98 Unit 5 turns lost theirs, 2026-11-16)."""
+        "1/e", "e²"), kept as written; one that is no number or text is left out, never the
+        whole reading (12 of 98 Unit 5 turns lost theirs, 2026-11-16)."""
         if value is None or isinstance(value, bool):
             return None
         if isinstance(value, int | float):
             return float(value) if math.isfinite(value) else None
-        read = number(str(value))
-        if read is None:
-            return None
-        found = float(read)
-        return found if math.isfinite(found) else None
+        text = str(value).strip()
+        return text if 0 < len(text) <= _BOUND_CHARS else None
+
+    def bounds(self) -> tuple[float | None, float | None]:
+        """The range's ends as numbers, each read by the drawing check's own number reader
+        (SymPy: call it in the SymPy pool only); one it cannot read is None."""
+        return _read_bound(self.x_min), _read_bound(self.x_max)
 
     @field_validator("apex", mode="before")
     @classmethod
@@ -161,3 +169,11 @@ class FigureRequest(BaseModel):
 
     def has_part(self, part: str) -> bool:
         return any(part in item for item in self.parts)
+
+
+def _read_bound(value: float | str | None) -> float | None:
+    if value is None or isinstance(value, float):
+        return value
+    read = number(value)
+    found = None if read is None else float(read)
+    return found if found is not None and math.isfinite(found) else None

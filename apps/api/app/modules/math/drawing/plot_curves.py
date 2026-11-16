@@ -492,6 +492,19 @@ def _stated_points_on(line: DrawnLine, question: PlotQuestion) -> list[tuple[flo
     return found
 
 
+def _drawn_as(curve: DrawnCurve) -> tuple[Any, ...]:
+    """What a curve draws: its formula on each piece with the piece's ends, its dots, the
+    way it is written, and the interval it is held to."""
+    shape = curve.shape
+    spans = (
+        [(str(s.expr), s.low, s.low_closed, s.high, s.high_closed) for s in shape.spans]
+        if shape
+        else []
+    )
+    dots = [(x, str(y)) for x, y in shape.dots] if shape else []
+    return (tuple(spans), tuple(dots), curve.sideways, curve.stated_domain and curve.search)
+
+
 def _unique(name: str, scene: Scene) -> str:
     found, k = name, 1
     while found in scene.curves:
@@ -506,7 +519,9 @@ def add_curves(items: list[Any], question: PlotQuestion, scene: Scene) -> None:
     for item in items:
         if isinstance(item, Curve) and len(scene.curves) < _MOST_CURVES:
             for drawn in _curves(item, question, color, scene, names[item.name] > 1, tasks):
-                if len(scene.curves) < _MOST_CURVES:
+                # The same curve described twice is drawn once (a family's members differ).
+                drawn_already = any(_drawn_as(c) == _drawn_as(drawn) for c in scene.curves.values())
+                if len(scene.curves) < _MOST_CURVES and not drawn_already:
                     # A name is a label: two curves the reply named alike ("y", "F(x)") are
                     # two curves, the later one under a name of its own (g04 lost its second
                     # line, u5-005 two members of its family).

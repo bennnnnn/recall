@@ -32,6 +32,80 @@ def test_a_region_between_found_places_inside_a_stated_interval_is_left_out() ->
 
 
 @pytest.mark.parametrize(
+    ("question", "items", "spans"),
+    [
+        # An interval stated for another task holds no region bounded where edges meet.
+        (
+            "Find the area under y = x from x = 2 to x = 5, and the area enclosed by y = x^2 "
+            "and y = x. Shade both.",
+            [_curve("f", "x"), _curve("g", "x^2"), _shade("f", "x-axis", "2", "5"),
+             _shade("f", "g")],
+            [(0.0, 1.0), (2.0, 5.0)],
+        ),
+        (
+            "Find the area enclosed by y = x^2 and y = 2x. Then evaluate the integral of x^3 "
+            "from 3 to 4. Shade the region.",
+            [_curve("f", "x^2"), _curve("g", "2x"), _shade("g", "f")],
+            [(0.0, 2.0)],
+        ),
+        # ... nor one with ends, when the interval is said of another formula.
+        (
+            "Find the area enclosed by y = x^2 and y = 2x. Then evaluate the integral of x^3 "
+            "from 3 to 4. Shade the region.",
+            [_curve("f", "x^2"), _curve("g", "2x"), _shade("g", "f", "0", "2")],
+            [(0.0, 2.0)],
+        ),
+        (
+            "The curve y = x^2 - 4 is drawn for -3 ≤ x ≤ 3. Shade the region enclosed by the "
+            "curve and the x-axis.",
+            [_curve("f", "x^2 - 4"), _shade("f", "x-axis")],
+            [(-2.0, 2.0)],
+        ),
+        # Said of the region's own curve, the interval holds it.
+        (
+            "Find the area between y = x^2 - 4 and the x-axis over [-3, 3]. Shade it.",
+            [_curve("f", "x^2 - 4"), _shade("f", "x-axis", "-2", "2")],
+            [],
+        ),
+    ],
+)  # fmt: skip
+def test_a_region_is_held_to_the_interval_said_of_it(
+    question: str, items: list[dict[str, Any]], spans: list[tuple[float, float]]
+) -> None:
+    graph = _plot(question, *items)
+    assert graph is not None
+    drawn = sorted(
+        (round(min(x for x, _ in r.points), 6), round(max(x for x, _ in r.points), 6))
+        for r in graph.regions
+    )
+    assert drawn == spans
+
+
+def test_a_curve_said_to_be_drawn_on_an_interval_is_drawn_there() -> None:
+    graph = _plot(
+        "The curve y = x^2 - 4 is drawn for -3 ≤ x ≤ 3. Shade the region enclosed by the "
+        "curve and the x-axis.",
+        _curve("f", "x^2 - 4"),
+    )
+    assert graph is not None
+    xs = [x for segment in graph.curves[0].segments for x, _ in segment]
+    assert (min(xs), max(xs)) == pytest.approx((-3.0, 3.0))
+
+
+@pytest.mark.parametrize(
+    "items",
+    [
+        [_curve("f", "x^2"), _curve("f", "x^2")],
+        [_curve("f", "x^2"), _curve("g", "x**2")],
+        [_curve("f", "x^2", domain=["-2", "2"]), _curve("f", "x^2", domain=["-2", "2"])],
+    ],
+)
+def test_a_curve_described_twice_is_drawn_once(items: list[dict[str, Any]]) -> None:
+    graph = _plot("Sketch y = x^2 on [-2, 2] and its tangent at x = 1.", *items)
+    assert graph is not None and [curve.label for curve in graph.curves] == ["y = x²"]
+
+
+@pytest.mark.parametrize(
     ("shape", "question", "sweeps"),
     [
         (
@@ -51,9 +125,25 @@ def test_a_region_between_found_places_inside_a_stated_interval_is_left_out() ->
         ),
         ("sphere", "Revolve the region under y = √(4 − x²) about the x-axis.", True),
         ("sphere", "Show that the volume of a sphere of radius r is (4/3)πr³.", True),
+        # Every curve that bounds the region sweeps the solid: a washer is no cone.
+        ("cone", "The region between y = x and y = x^2 is rotated about the x-axis.", False),
+        # A circle about any centre on the axis.
+        ("sphere", "The semicircle y = √(4 - (x - 2)^2) is rotated about the x-axis.", True),
+        ("sphere", "The curve y = √(4 - x^2) + 1 is rotated about the x-axis.", False),
+        # The distance is measured from the line the region turns about.
+        (
+            "cylinder",
+            "The region between x = √y and the y-axis from y = 0 to y = 4 is rotated about "
+            "the line x = -1.",
+            False,
+        ),
+        ("cylinder", "The line y = 2 from x = 0 to x = 3 is rotated about the line y = 1.", True),
+        ("cone", "The line y = x + 1 from x = -1 to x = 2 is rotated about the line y = 0.", True),
+        ("cone", "The line y = x + 1 from x = 0 to x = 2 is rotated about the line y = 1.", True),
+        ("cone", "The line y = x + 1 from x = 0 to x = 2 is rotated about the line y = -1.", False),
     ],
 )
-def test_a_solid_is_the_one_its_written_curve_sweeps(
+def test_a_solid_is_the_one_its_written_curves_sweep(
     shape: str, question: str, sweeps: bool
 ) -> None:
     assert revolves_into(shape, [question]) is sweeps
@@ -90,14 +180,19 @@ def test_a_curve_of_x_in_y_is_drawn_on_its_stated_interval() -> None:
 def test_a_range_end_is_read_as_the_question_writes_it(written: Any, value: float) -> None:
     """The figure read's 12 refusals of Unit 5 round 1, each value as the model sent it."""
     request = FigureRequest.model_validate({"kind": "function", "expr": "x", "x_min": written})
-    assert request.x_min == pytest.approx(value)
+    assert request.bounds()[0] == pytest.approx(value)
 
 
 def test_an_unreadable_range_end_is_left_out_not_the_reading() -> None:
     request = FigureRequest.model_validate(
         {"kind": "function", "expr": "x^2", "x_min": "the left end", "x_max": "∞"}
     )
-    assert request.kind == "function" and request.x_min is None and request.x_max is None
+    assert request.kind == "function" and request.bounds() == (None, None)
+
+
+def test_a_range_end_too_long_to_be_one_is_left_out() -> None:
+    request = FigureRequest.model_validate({"kind": "function", "expr": "x", "x_min": "9" * 40})
+    assert request.x_min is None
 
 
 @pytest.mark.parametrize(
