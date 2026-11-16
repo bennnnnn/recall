@@ -49,8 +49,9 @@ _ASKS_TO_SEE = re.compile(
 # An ask to draw: the verb, never "the graph of" naming a curve or "a plot of" a story;
 # "graph" a verb only before what it graphs ("graph y = x²", "graph the function").
 _ASKS_TO_DRAW = re.compile(
-    r"\b(?:draw|sketch|illustrate|plot)\b(?!\s+of\b)"
-    r"|\bgraph\b(?=\s+(?:[a-z]\s?=|[a-z]\(|the\s+(?:function|curve|equation|line|parabola)|it\b|both\b|them\b))",
+    r"\b(?:draw|sketch|illustrate|plot|shade)\b(?!\s+of\b)"
+    r"|\bgraph\b(?=\s+(?:[a-z]\s?=|[a-z]\(|the\s+(?:function|curve|equation|line|parabola)|it\b|both\b|them\b))"
+    r"|\bon\s+(?:a|the)\s+(?:graph|diagram|coordinate\s+plane)\b",
     re.IGNORECASE,
 )
 # An ask made not to: "don't draw anything", "no need to sketch".

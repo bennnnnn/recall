@@ -461,3 +461,26 @@ async def test_an_instant_card_stays_unless_asked_to_draw(line: str) -> None:
     await drawing_turn.write_for_a_picture(ctx, _settings())
     pending.cancel()
     assert ctx.instant_reply is not None
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Find the area enclosed by f(x) = 4 - x^2 and g(x) = 3x. Show the curves and shade the region.",
+        "Find the area enclosed by f(x) = ln x and the x-axis from x = 1 to x = e. Show it on a graph.",
+        "Find the local maximum of f(x) = x/(1 + x)^2, and sketch its graph.",
+    ],
+)
+async def test_an_instant_card_gives_way_to_an_ask_to_draw(line: str) -> None:
+    from app.services.solving import VerifiedMathBlock
+
+    pending: asyncio.Future[TurnDecision | None] = asyncio.get_event_loop().create_future()
+    ctx = _ctx(
+        line,
+        instant_reply="The area is 125/6.",
+        verified_subject=VerifiedMathBlock(text="125/6"),
+        live_read=pending,
+    )
+    await drawing_turn.write_for_a_picture(ctx, _settings())
+    pending.cancel()
+    assert ctx.instant_reply is None
