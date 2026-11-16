@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """File-size ratchet for production code (docs/ENGINEERING_STANDARDS.md).
 
-A production file may run to 500 lines. A longer one needs an entry in
-scripts/file_size_baseline.json saying why, and it may never grow past the size
-recorded there. Tests, vendored code and generated files are not counted.
+A production file may run to 700 lines (the owner raised it from 500 on 2026-11-16). A
+longer one needs an entry in scripts/file_size_baseline.json saying why, and it may never
+grow past the size recorded there. Tests, vendored code and generated files are not counted.
 
 Usage:
   scripts/check_file_sizes.py [api|mobile ...]   check (default: both)
@@ -22,7 +22,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 BASELINE = ROOT / "scripts" / "file_size_baseline.json"
 TARGET_LINES = 300
-REVIEW_LINES = 500
+REVIEW_LINES = 700
 
 MOBILE_DIRS = ("app", "components", "contexts", "features", "hooks", "lib", "ui")
 # app -> (directories scanned, file suffixes, path parts that mark non-production code)
