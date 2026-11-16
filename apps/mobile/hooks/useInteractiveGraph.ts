@@ -43,6 +43,8 @@ export type DrawnSeries = GraphSeriesState & {
   segments?: [number, number][][];
   invalid: boolean;
   cmp: GraphCmp;
+  /** False: draw no dot on each sample of a short curve (a server plot marks its own). */
+  marked?: boolean;
 };
 
 function sampleInView(

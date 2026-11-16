@@ -51,30 +51,35 @@ def rule_sum(expr_text: str, variable: str, low: str, high: str, n: int, rule: s
     if expr.free_symbols - {x}:
         raise SolveServiceError("integrand has another letter")
     a, b = exact_number(low), exact_number(high)
-    h = simplify((b - a) / n)
-    if rule == "midpoint":
-        nodes = [a + (i + Rational(1, 2)) * h for i in range(n)]
-        weights, factor = [Integer(1)] * n, h
-    elif rule == "left":
-        nodes, weights, factor = [a + i * h for i in range(n)], [Integer(1)] * n, h
-    elif rule == "right":
-        nodes, weights, factor = [a + i * h for i in range(1, n + 1)], [Integer(1)] * n, h
-    elif rule in {"trapezoid", "simpson"}:
-        nodes = [a + i * h for i in range(n + 1)]
-        inner = (
-            [Integer(2)] * (n - 1)
-            if rule == "trapezoid"
-            else [Integer(4) if i % 2 else Integer(2) for i in range(1, n)]
-        )
-        weights = [Integer(1), *inner, Integer(1)]
-        factor = h / 2 if rule == "trapezoid" else h / 3
-    else:
-        raise SolveServiceError(f"unknown rule {rule}")
+    h, nodes, weights, factor = rule_nodes(a, b, n, rule)
     values = [simplify(expr.subs(x, node)) for node in nodes]
     if any(not value.is_finite for value in values):
         raise SolveServiceError("integrand undefined at a node")
     total = simplify(factor * sum(w * v for w, v in zip(weights, values, strict=True)))
     return RuleSum(rule, h, tuple(nodes), tuple(weights), tuple(values), simplify(factor), total)
+
+
+def rule_nodes(a: Any, b: Any, n: int, rule: str) -> tuple[Any, list[Any], list[Any], Any]:
+    """``rule`` with ``n`` equal subintervals on [a, b]: the width h, the nodes the curve is
+    taken at, their weights, and the factor before the bracket (h/2 trapezoid, h/3 Simpson,
+    h the others). A Riemann rectangle stands on each node of the left, right and midpoint
+    rules (``math.drawing.plot_regions``)."""
+    h = simplify((b - a) / n)
+    if rule == "midpoint":
+        return h, [a + (i + Rational(1, 2)) * h for i in range(n)], [Integer(1)] * n, h
+    if rule == "left":
+        return h, [a + i * h for i in range(n)], [Integer(1)] * n, h
+    if rule == "right":
+        return h, [a + i * h for i in range(1, n + 1)], [Integer(1)] * n, h
+    if rule not in {"trapezoid", "simpson"}:
+        raise SolveServiceError(f"unknown rule {rule}")
+    inner = (
+        [Integer(2)] * (n - 1)
+        if rule == "trapezoid"
+        else [Integer(4) if i % 2 else Integer(2) for i in range(1, n)]
+    )
+    nodes = [a + i * h for i in range(n + 1)]
+    return h, nodes, [Integer(1), *inner, Integer(1)], h / 2 if rule == "trapezoid" else h / 3
 
 
 def newton_iterates(expr_text: str, variable: str, start: str, steps: int) -> tuple[Any, ...]:

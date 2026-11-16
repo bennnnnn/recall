@@ -41,7 +41,7 @@ _UNICODE_VULGAR: tuple[tuple[str, str], ...] = (
 )
 
 
-def _rewrite_unicode_script_runs(s: str) -> str:
+def rewrite_unicode_script_runs(s: str) -> str:
     """``x²`` → ``x**2``, ``eˣ`` → ``e**x``, ``e⁻ˣ`` → ``e**(-x)``, ``x₁`` → ``x_1``: the
     one reading every reader shares (``services/script_runs.py``)."""
     return fold_subscript_runs(fold_superscript_runs(s, mark="**", group_numbers=True))
@@ -110,7 +110,7 @@ def _after_unclear_index(s: str, root_at: int) -> bool:
     return start < root_at and unclear_root_index(s, start)
 
 
-def _rewrite_unicode_sqrts(s: str) -> str:
+def rewrite_unicode_sqrts(s: str) -> str:
     """``√9`` / ``√x`` / ``√(x+1)`` → ``sqrt(...)``. Linear scan, leftover ``√`` → ``sqrt``."""
     out: list[str] = []
     i = 0

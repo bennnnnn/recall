@@ -121,7 +121,7 @@ def named_numerical_method(text: str) -> NamedMethod | None:
     if rule in INTEGRATION_RULES:
         # "the trapezoidal rule and Simpson's rule", "left and right sums": every estimate
         # asked on the card, or none.
-        rule = rule if len(_rules_asked(text)) <= 1 else "unworked"
+        rule = rule if len(estimates_named(text)) <= 1 else "unworked"
         return NamedMethod(rule=rule, count=_interval_count(text))
     if rule == "euler":
         step = _STEP_SIZE.search(text)
@@ -162,7 +162,50 @@ _ESTIMATES: tuple[tuple[str, re.Pattern[str]], ...] = (
 )
 
 
-def _rules_asked(text: str) -> set[str]:
+# A lower or an upper sum, by its name or its rectangles ("upper and lower sums",
+# "inscribed (left-endpoint) rectangles"): no rule here works it, and a graph's rectangles
+# stand under (or over) the curve as it says.
+_SUM_SIDES = re.compile(r"\b(lower|upper)\b(?=[^.;?]{0,30}\bsums?\b)", re.IGNORECASE)
+_RECTANGLE_SIDES = re.compile(
+    r"\b(inscribed|circumscribed)\b(?=[^.;?]{0,60}\brectangles?\b)", re.IGNORECASE
+)
+
+
+def sums_named(text: str) -> set[str]:
+    """The sides of the sums ``text`` names: "lower", "upper" ("inscribed rectangles" is a
+    lower sum, "circumscribed rectangles" an upper one)."""
+    sides = {found.group(1).lower() for found in _SUM_SIDES.finditer(text)}
+    for found in _RECTANGLE_SIDES.finditer(text):
+        sides.add("lower" if found.group(1).lower() == "inscribed" else "upper")
+    return sides
+
+
+# The side a rectangle's height stands at, named alone or in a list ("left endpoints", "the
+# left and right Riemann sums", "left- and right-hand endpoints"), or in a sum's own notation
+# ("L4 and R4", "M_4"). "Increasing to the right" names no side.
+_SIDE = r"(?:left|right|mid[-\s]?point)(?:[-\s]+hand)?"
+_SIDES_NAMED = re.compile(
+    rf"\b({_SIDE}(?:\s*(?:,|and|or|/|-)\s*{_SIDE})*)[-\s]+(?:riemann\s+)?"
+    r"(?:sums?|rules?|approximations?|estimates?|end[-\s]?points?|sides?|corners?)\b",
+    re.IGNORECASE,
+)
+_SUM_NOTATION = re.compile(r"\b([LRM])_?\{?\d{1,3}\}?(?!\w)")
+_SIDE_RULES = {"left": "left", "right": "right", "mid": "midpoint", "L": "left", "R": "right"}
+
+
+def rectangle_sides(text: str) -> set[str]:
+    """The rules whose rectangles ``text`` names by their side: left, right, midpoint."""
+    found = {
+        _SIDE_RULES[side.lower()]
+        for named in _SIDES_NAMED.finditer(text)
+        for side in re.findall(r"left|right|mid", named.group(1), re.IGNORECASE)
+    }
+    found |= {_SIDE_RULES.get(m.group(1), "midpoint") for m in _SUM_NOTATION.finditer(text)}
+    return found
+
+
+def estimates_named(text: str) -> set[str]:
+    """Every estimate ``text`` names: trapezoid, simpson, midpoint, left, right."""
     return {rule for rule, pattern in _ESTIMATES if pattern.search(text)}
 
 
@@ -179,10 +222,10 @@ def _method_by_parts(text: str) -> NamedMethod | None:
     count = _interval_count(text)
     if count is None or _ESTIMATED_INTEGRAL.search(text) is None:
         return None
-    if not (_ESTIMATE.search(text) or _PIECE_WORDS.search(text) or _rules_asked(text)):
+    if not (_ESTIMATE.search(text) or _PIECE_WORDS.search(text) or estimates_named(text)):
         return None
     rule: NumericRule = "unworked"
-    if len(_rules_asked(text)) > 1:
+    if len(estimates_named(text)) > 1:
         rule = "unworked"
     elif _TRAPEZOID_PIECES.search(text):
         rule = "trapezoid"
@@ -238,16 +281,24 @@ def _number(word: str) -> int:
     return int(word) if word.isdigit() else _WORDS[word.lower()]
 
 
-def _interval_count(text: str) -> int | None:
-    found = _INTERVAL_COUNT.search(text)
-    if found is None:
-        return None
+def interval_counts(text: str) -> list[int]:
+    """Every count of subintervals ``text`` writes, in order: "n = 4", "5 subintervals", "(a)
+    5 subintervals (b) 10 subintervals"."""
+    return [_pieces_counted(found) for found in _INTERVAL_COUNT.finditer(text)]
+
+
+def _pieces_counted(found: re.Match[str]) -> int:
     if found.group("n"):
         return int(found.group("n"))
     count = _number(found.group("count"))
     # Five ordinates (or points) bound four strips.
     piece = found.group("piece").lower()
     return count - 1 if piece.startswith(("ordinate", "point")) else count
+
+
+def _interval_count(text: str) -> int | None:
+    found = _INTERVAL_COUNT.search(text)
+    return None if found is None else _pieces_counted(found)
 
 
 def _steps_named(text: str) -> int | None:

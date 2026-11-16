@@ -41,6 +41,8 @@ SUBSCRIPT_DIGIT_GLYPHS = "₀₁₂₃₄₅₆₇₈₉"
 # Superscript digits and the signs an exponent carries ("10⁻⁹"), for number readers.
 SUPERSCRIPT_SIGNED = str.maketrans(SUPERSCRIPT_DIGIT_GLYPHS + "⁻⁺", "0123456789-+")
 SUBSCRIPT_DIGITS = str.maketrans(SUBSCRIPT_DIGIT_GLYPHS, "0123456789")
+# An exponent written raised: "x²", "m⁻¹" (a worked block's units, a graph's labels).
+TO_SUPERSCRIPT = str.maketrans("0123456789-", SUPERSCRIPT_DIGIT_GLYPHS + "⁻")
 
 # Every raised and lowered form Unicode has of a digit, a Latin letter, a plus, minus or
 # equals sign and a round bracket (its <super> and <sub> forms), as the character it

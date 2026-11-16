@@ -77,13 +77,15 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # self-harm, and "how" after a reply about something to do read as how to do it
 # (OPTION_LETTERS_RULE, prompt_constants.care, REPLY_HOW_HINT); then maths' contract asking a
 # reply to describe the picture a maths question asks to see in a ```draw block, the one
-# exception to its never-draw rule (math.drawing.contract.DRAW_CONTRACT, 2026-11-15); then a
-# picture asked beside a solved problem left to the solve, and no reply placing or promising a
-# picture (multi_part.PROBLEM_PICTURE_NOTE, services.picture_copy), and a ```worked block
-# naming the language of its reply first (prompt_constants.worked, live and review 2026-11-15).
+# exception to its never-draw rule (math.drawing.contract.DRAW_CONTRACT, 2026-11-15), its
+# graphs too (the "plot" items: curves, tangents, asymptotes, shading, rectangles, slices);
+# then a picture asked beside a solved problem left to the solve, and no reply placing or
+# promising a picture (multi_part.PROBLEM_PICTURE_NOTE, services.picture_copy), and a
+# ```worked block naming the language of its reply first (prompt_constants.worked, live and
+# review 2026-11-15).
 _RULES = 200
-_RULE_GRAMS = 18007
-_RULE_GRAMS_SHA = "bb8be2731d891175"
+_RULE_GRAMS = 18345
+_RULE_GRAMS_SHA = "8a48efdaf79563a4"
 
 
 def _rules() -> list[str]:

@@ -85,7 +85,7 @@ def test_quadrature_does_not_judge_what_it_cannot_resolve(
     integrand: Any, low: Any, high: Any
 ) -> None:
     """An oscillating tail, a kink, another symbol or a pole: no verdict, the closed form stands."""
-    assert calculus._quadrature(integrand, x, S(low), S(high)) is None
+    assert calculus.quadrature(integrand, x, S(low), S(high)) is None
 
 
 def test_definite_integral_rebuilds_a_contradicted_closed_form(

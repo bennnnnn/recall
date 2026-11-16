@@ -301,7 +301,7 @@ def can_direct_number_line(
     already stripped ("show steps for 2x+3<7" leaves the bare inequality).
     """
     from app.modules.math.match import prepare
-    from app.modules.math.solve.latex_normalize import _rewrite_bare_abs_bars
+    from app.modules.math.solve.latex_normalize import rewrite_abs_bars
 
     answer = (verified.canonical_answer or "").strip()
     fences = solver_fences(verified)
@@ -335,7 +335,7 @@ def can_direct_number_line(
 
     def compact(value: str) -> str:
         return (
-            _rewrite_bare_abs_bars(value)
+            rewrite_abs_bars(value)
             .replace(" ", "")
             .replace("^", "**")
             .replace("≤", "<=")

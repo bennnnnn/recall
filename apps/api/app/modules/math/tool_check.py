@@ -33,6 +33,7 @@ from app.services.script_runs import fold_superscript_runs
 logger = logging.getLogger(__name__)
 
 _MAX_CANDIDATES = 24
+_MAX_VALUE_RUNS = 400
 _MAX_TEXT = 2000
 
 # The operators are the shared table (services/glyphs.py) and raised powers the shared
@@ -410,6 +411,18 @@ def written_expressions(text: str) -> list[Any]:
     found = [_parse(run) for run in _runs(text) if not _split_relation(run)]
     # A lone letter ("for x", "point A") is a name, not a formula.
     return [expr for expr in found if expr is not None and expr.free_symbols and not expr.is_Symbol]
+
+
+def written_values(text: str) -> list[float]:
+    """Each real value a side of a relation or in a list, line by line: "f(2) = √5", "(e, 1)"."""
+    found: list[float] = []
+    for run in [run for line in text.splitlines() for run in _runs(line)][:_MAX_VALUE_RUNS]:
+        for piece in [side for a, _op, b in _split_relation(run) for side in (a, b)] or [run]:
+            inner = piece.strip(" .,;:")
+            inner = inner[1:-1] if inner[:1] + inner[-1:] in {"()", "[]"} else inner
+            values = [_parse(part) for part in inner.split(",")]
+            found += [float(v) for v in values if v is not None and v.is_number and v.is_real]
+    return found
 
 
 def parse_formula(text: str) -> Any | None:

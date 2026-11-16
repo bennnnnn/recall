@@ -14,7 +14,21 @@ from __future__ import annotations
 from math import lcm
 from typing import Any
 
-from sympy import Add, Dummy, Eq, Rational, S, Symbol, preorder_traversal, simplify, solve, solveset
+from sympy import (
+    Abs,
+    Add,
+    Dummy,
+    Eq,
+    Pow,
+    Rational,
+    S,
+    Symbol,
+    preorder_traversal,
+    sign,
+    simplify,
+    solve,
+    solveset,
+)
 
 from app.services.solving import SolveServiceError
 
@@ -105,3 +119,18 @@ def _rational_root(power: Any, sym: Any) -> bool:
         and isinstance(exponent, Rational)
         and exponent.q != 1
     )
+
+
+def real_branch(expr: Any) -> Any:
+    """``expr`` with each odd root of a varying base taken as the real one: b^(p/q) with q
+    odd is sign(b)^p |b|^(p/q), so x^(1/3) is -2 at -8 and (x² - 4)^(2/3) is real between -2
+    and 2. The graph samplers evaluate this form; numpy's power of a negative is NaN."""
+
+    def real(node: Any) -> Any:
+        exp = node.exp
+        if not exp.is_Rational or exp.is_Integer or exp.q % 2 == 0 or not node.base.free_symbols:
+            return node
+        magnitude = Abs(node.base) ** exp
+        return magnitude if exp.p % 2 == 0 else sign(node.base) * magnitude
+
+    return expr.replace(lambda node: isinstance(node, Pow), real)

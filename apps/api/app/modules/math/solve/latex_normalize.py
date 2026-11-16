@@ -18,8 +18,8 @@ from app.modules.math.solve.unicode_normalize import (
     _UNICODE_OP_SUBS,
     _UNICODE_VULGAR,
     _rewrite_unicode_higher_roots,
-    _rewrite_unicode_script_runs,
-    _rewrite_unicode_sqrts,
+    rewrite_unicode_script_runs,
+    rewrite_unicode_sqrts,
 )
 from app.services.symbolic_text import strip_inline_math_delimiters
 
@@ -82,46 +82,42 @@ def _rewrite_inverse_functions(s: str) -> str:
     return _INVERSE_POWER_RE.sub(lambda m: f"a{m.group(1).lower()} ", s)
 
 
-def _rewrite_bare_abs_bars(expr: str) -> str:
-    """Rewrite paired ``|inner|`` → ``Abs(inner)``.
+# What a bar opens after: nothing, an operator, an opening bracket or a comparison.
+_BAR_OPENS_AFTER = frozenset({"", "(", "[", "{", "+", "-", "*", "/", "^", "=", ",", "<", ">"})
 
-    Bare pipes are rejected by the expression allowlist; converting first lets
-    homework like ``|x-2|<5`` reach SymPy without loosening ``_SAFE_EXPR_CHARS``.
-    Unbalanced ``|`` is left as-is (still rejected later).
+
+def rewrite_abs_bars(expr: str, *, apart: bool = False) -> str:
+    """Rewrite ``|inner|`` → ``Abs(inner)``, nested bars too (``||x| - 2|``), in one pass.
+
+    A bar opens where none is open or after an operator, an opening bracket or a comparison,
+    and otherwise closes the last one open: ``|x - 2| < 5``, ``x²|9 - x²|`` (a product: the
+    bar opens after a letter only when none is open). ``apart``: an opening right after a
+    letter, a digit or a bracket is set apart by a space, so ``ln|x|`` reads ``ln Abs(x)``
+    (a graph's reader); the solver's own reading keeps ``lnAbs(x)``, a function it does not
+    model, and declines it (``test_math_unmodeled_functions``).
+
+    Bare pipes are rejected by the expression allowlist; converting first lets homework like
+    ``|x-2|<5`` reach SymPy without loosening ``_SAFE_EXPR_CHARS``. Bars that do not pair
+    (one left open) leave the text as it is (still rejected later).
     """
     out: list[str] = []
-    i = 0
-    n = len(expr)
-    while i < n:
-        if expr[i] != "|":
-            out.append(expr[i])
-            i += 1
+    depth = 0
+    last = ""
+    for ch in expr:
+        if ch != "|":
+            out.append(ch)
+            last = last if ch.isspace() else ch
             continue
-        depth = 0
-        j = i + 1
-        found = -1
-        while j < n:
-            ch = expr[j]
-            if ch == "|" and depth == 0:
-                found = j
-                break
-            if ch == "(":
-                depth += 1
-            elif ch == ")":
-                depth = max(0, depth - 1)
-            j += 1
-        if found == -1:
-            out.append("|")
-            i += 1
-            continue
-        inner = expr[i + 1 : found]
-        if not inner.strip():
-            out.append("|")
-            i += 1
-            continue
-        out.append(f"Abs({inner})")
-        i = found + 1
-    return "".join(out)
+        if depth == 0 or last in _BAR_OPENS_AFTER:
+            spaced = apart and (last.isalnum() or last in {")", "]"})
+            out.append(" Abs(" if spaced else "Abs(")
+            depth += 1
+            last = "("
+        else:
+            out.append(")")
+            depth -= 1
+            last = ")"
+    return expr if depth else "".join(out)
 
 
 def _read_brace_group(s: str, i: int) -> tuple[str, int] | None:
@@ -362,8 +358,8 @@ def normalize_latex_to_sympy(expr: str) -> str:
     for glyph, repl in _UNICODE_VULGAR:
         s = s.replace(glyph, repl)
     s = _rewrite_unicode_higher_roots(s)
-    s = _rewrite_unicode_sqrts(s)
-    s = _rewrite_unicode_script_runs(s)
+    s = rewrite_unicode_sqrts(s)
+    s = rewrite_unicode_script_runs(s)
     for _ in range(8):
         nxt = _rewrite_latex_sqrts(s)
         if nxt == s:
@@ -387,7 +383,7 @@ def normalize_latex_to_sympy(expr: str) -> str:
         if nxt == s:
             break
         s = nxt
-    s = _rewrite_bare_abs_bars(s)
+    s = rewrite_abs_bars(s)
     s = _rewrite_latex_braced_scripts(s)
     s = _rewrite_log_bases(s)
     return s

@@ -18,9 +18,9 @@ import re
 import unicodedata
 from collections.abc import Iterable, Sequence
 
+from app.services.glyphs import TO_SUPERSCRIPT
 from app.services.latex_groups import map_groups
 
-_SUPERSCRIPTS = str.maketrans("0123456789-", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻")
 _POWER = re.compile(r"\^\{?(-?\d+)\}?")
 _TEXT_WRAP = re.compile(r"^\\(?:text|mathrm)\s*\{(?P<unit>[^{}]*)\}$")
 _UNIT_SYMBOLS = {
@@ -74,7 +74,7 @@ def unit_tex(unit: str) -> str:
         return _UNIT_SYMBOLS[text]
     if "\\" in text:
         return rf"\,{text}"  # written in LaTeX already
-    plain = _POWER.sub(lambda match: match.group(1).translate(_SUPERSCRIPTS), text)
+    plain = _POWER.sub(lambda match: match.group(1).translate(TO_SUPERSCRIPT), text)
     plain = plain.replace("*", "·").replace("{", "").replace("}", "")
     # A bare $ would close the maths around it.
     plain = plain.replace("%", r"\%").replace("$", r"\$")

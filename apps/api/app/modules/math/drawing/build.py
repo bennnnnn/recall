@@ -4,8 +4,9 @@ Runs in the SymPy pool (``drawn_fence`` is its picklable entry). The description
 item by item (``vocabulary``), held to what the question states (``question``: its numbers,
 points, letters and shape names), drawn by the server (a scene in space by ``scene`` and
 ``space``, a word problem's shapes by ``shapes`` and ``shape_drawings``), and the drawing
-is checked last as every server figure is (``figure.honest``). What fails is left out; a
-picture whose main object fails is not drawn at all.
+is checked last as every server figure is (``figure.honest``). A graph (kind "plot") is
+checked and drawn by ``plot`` as a ```graph ``plot``. What fails is left out; a picture
+whose main object fails is not drawn at all. A reply may carry one figure and one graph.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ from typing import Any
 from app.modules.math.drawing.amounts import AMOUNTS, read_amount, stated_amounts
 from app.modules.math.drawing.labels import Label, read_length
 from app.modules.math.drawing.plane import polygon_at
+from app.modules.math.drawing.plot import plot_spec
 from app.modules.math.drawing.question import Question, read_question
 from app.modules.math.drawing.roles import PART_ROLES, stated_on, usual_letter
 from app.modules.math.drawing.scene import checked_scene
@@ -347,9 +349,11 @@ def drawn_fence(body: str, texts: list[str], reply: str) -> str | None:
     description = read_description(body)
     if description is None:
         return None
-    question = read_question(texts, reply)
     items = read_items(description)
     kind = description.kind
+    if kind == "plot":
+        return _graph_fence(items, texts, reply)
+    question = read_question(texts, reply)
     try:
         if kind == "space":
             scene = checked_scene(items, question)
@@ -363,6 +367,19 @@ def drawn_fence(body: str, texts: list[str], reply: str) -> str | None:
         return None
     body_out = {"type": spec.type, **spec.model_dump(exclude_defaults=True)}
     return f"```geometry\n{json.dumps(body_out, separators=(',', ':'), ensure_ascii=False)}\n```"
+
+
+def _graph_fence(items: list[tuple[str, Any | None]], texts: list[str], reply: str) -> str | None:
+    try:
+        spec = plot_spec(items, texts, reply)
+    except Exception:  # SymPy's and numpy's own errors included: it draws nothing.
+        logger.info("drawing failed for a plot picture", exc_info=True)
+        return None
+    if spec is None:
+        return None
+    return (
+        f"```graph\n{json.dumps(spec.model_dump(), separators=(',', ':'), ensure_ascii=False)}\n```"
+    )
 
 
 def drawn_fences(bodies: list[str], texts: list[str], reply: str) -> list[str]:

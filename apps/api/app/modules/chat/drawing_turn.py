@@ -38,16 +38,30 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# When the read has not answered by the reply's call: a maths message that asks to see a
-# picture in so many words ("draw the cone", "show P in space"; "show that" is a proof).
+# Words that may ask to see a maths picture. They decide only whether a turn waits for the
+# read (an instant card), or, when the read is late, whether the reply is asked for a
+# description, which finalize keeps only if the read, in by then, agrees. Broad on purpose,
+# in whole words and each verb's own forms ("sketching", "graph it", "graphically", "use
+# graphing", "Graph of it please", "on a graph"). Not a word's other senses: "drawn", "as
+# shown", "a plot of land", "the shaded region", and "the graph of" naming a curve ("the
+# x-intercepts of the graph of y = x² - 4", "the graphs' intersection"). "Show that"
+# is a proof and "show your steps" asks for working.
+_GRAPH = r"graph(?:s|ed|ing|ically)?"
 _ASKS_TO_SEE = re.compile(
-    r"\b(?:draw|sketch|graph|plot|illustrate|show(?!\s+(?:that|how|why|whether)\b))\b",
+    r"\b(?:draw|sketch(?:es|ing)?|illustrate|shade|visuali[sz]e|diagram|plot(?!\s+of\b)"
+    r"|(?:(?<!\bthe\s)(?<!\ba\s)(?<!\bits\s)(?<!\bthis\s)(?<!\btheir\s)"
+    + _GRAPH
+    + r"|"
+    + _GRAPH
+    + r"(?!\s+of\b))(?!')"
+    r"|show(?!\s+(?:that|how|why|whether|your|all|each|every|(?:the\s+)?(?:steps?|working|work))\b))\b",
     re.IGNORECASE,
 )
 
 
-# The pictures the read may ask for that a description draws.
-_DESCRIBED = frozenset({"diagram"})
+# The pictures the read may ask for that a description draws: a figure, and a graph (kind
+# "plot").
+_DESCRIBED = frozenset({"diagram", "graph"})
 
 
 @dataclass
@@ -103,6 +117,36 @@ async def _read_for_a_picture(ctx: StreamContext, deadline: float) -> TurnDecisi
     return task.result()
 
 
+def _wants_a_drawing(read: TurnDecision) -> bool:
+    """The read calls the message a maths question asking to see a picture a description
+    draws: a diagram's figure or a graph."""
+    return read.picture in _DESCRIBED and read_asks_for_a_picture(read)
+
+
+async def write_for_a_picture(ctx: StreamContext, settings: Settings) -> None:
+    """A solver's instant reply gives way to the model's when the read says the message asks
+    to see a maths picture: the instant reply carries the card alone, and no picture can be
+    described for it (round 3's c031, "find the maximum ... and sketch its graph", got only
+    the maximum). The model writes around the same checked card, and describes the graph.
+    The read decides, never a word: a message whose words may ask (``_ASKS_TO_SEE``) waits
+    for it up to ``live_read_wait_seconds``; a read later than that keeps the card, which
+    loses a picture, never the card to a guess; any other message never waits."""
+    if ctx.instant_reply is None or not isinstance(ctx.verified_subject, VerifiedMathBlock):
+        return
+    figure = _figure()
+    if figure is None or not settings.draw_descriptions_enabled or not _asks_in_words(ctx):
+        return
+    if figure.shown(ctx.verified_subject):
+        return  # the card already draws the picture ("Graph y = x² and y = 2x")
+    deadline = asyncio.get_running_loop().time() + settings.live_read_wait_seconds
+    read = await _read_for_a_picture(ctx, deadline)
+    if read is None and ctx.live_read is not None and not ctx.live_read.done():
+        note_prompt_rule("subject.instant_read_late")
+    if read is not None and _wants_a_drawing(read):
+        ctx.instant_reply = None
+        note_prompt_rule("subject.draw_over_instant")
+
+
 async def ask_for_a_drawing(
     ctx: StreamContext, settings: Settings, read: TurnDecision | None, deadline: float
 ) -> None:
@@ -117,10 +161,7 @@ async def ask_for_a_drawing(
         read = await _read_for_a_picture(ctx, deadline)
     asked: Literal["read", "words"] | None = None
     if read is not None and read.subject is not None and read.picture is not None:
-        # A diagram's: the contract draws no graph yet, and a graph's turn would carry its
-        # 900 tokens for nothing (round 2's review: 37 of 61 picture turns were graphs).
-        wanted = read_asks_for_a_picture(read) and read.picture in _DESCRIBED
-        asked = "read" if wanted else None
+        asked = "read" if _wants_a_drawing(read) else None
     elif _a_maths_turn(ctx) and _asks_in_words(ctx):
         asked = "words"
     if asked is None:
@@ -166,9 +207,13 @@ async def attach_drawing(state: FinalizeState) -> str:
     if not fences:
         return text
     drawing.fences = list(fences)
-    text = figure.without_drawn_substitutes(text).rstrip()
+    text = text.rstrip()
     pictures = "\n\n".join(fences)
     text = f"{text}\n\n{pictures}\n" if text else f"{pictures}\n"
+    # Beside the pictures, what stood in for them goes: a sketch, a Mermaid diagram, a
+    # solve's graph of a curve the checked graph draws (round 3's c009 showed both). A
+    # solver's number line, inequality or points graph stays (2026-11-15 review).
+    text = figure.without_drawn_substitutes(text)
     # Committed, so a later pass that falls back keeps the picture.
     state.committed = fallback_text(text, server_text=state.server_text)
     return text

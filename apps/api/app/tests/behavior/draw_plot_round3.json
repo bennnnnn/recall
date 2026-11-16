@@ -1,0 +1,206 @@
+[
+ {
+  "id": "c008",
+  "prompt": "Let f(x) = 3 if x = −5; f(x) = −0.6 if −5 < x ≤ −2; f(x) = x² − 4 if −2 < x < 3; f(x) = x + 2 if x ≥ 3. Sketch the graph of f and evaluate lim_{x→−5} f(x), lim_{x→−2} f(x) and lim_{x→3} f(x).",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"pieces\": [{\"y\": \"3\", \"when\": \"x = -5\"}, {\"y\": \"-0.6\", \"when\": \"-5 < x <= -2\"}, {\"y\": \"x^2 - 4\", \"when\": \"-2 < x < 3\"}, {\"y\": \"x + 2\", \"when\": \"x >= 3\"}]}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c009",
+  "prompt": "Let f(x) = 4|x² − 1|/(x − 1) if x ≠ 1 and f(1) = 5. Find the largest interval(s) on which f is continuous, and show the function on a graph.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"pieces\": [{\"y\": \"4|x^2-1|/(x-1)\", \"when\": \"x != 1\"}, {\"y\": \"5\", \"when\": \"x = 1\"}]}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c011",
+  "prompt": "Determine the values of the constants a and b so that f is continuous, and show the continuous function on a graph: f(x) = x² + 1 if x < a; f(x) = 15 − 5x if a ≤ x ≤ b; f(x) = 5x − 25 if x > b.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"pieces\": [{\"y\": \"x^2+1\", \"when\": \"x < 2\"}, {\"y\": \"15-5x\", \"when\": \"2 <= x <= 4\"}, {\"y\": \"5x-25\", \"when\": \"x > 4\"}]}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c018",
+  "prompt": "Find the equation of the line tangent to the graph of y = x² − 5x + 1 at the point(s) where the curve crosses the line y = 7. Draw the curve, the line y = 7 and the tangent line(s).",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"x^2-5x+1\"}, {\"item\": \"line\", \"name\": \"L\", \"y\": \"7\"}, {\"item\": \"tangent\", \"to\": \"f\", \"at\": \"-1\"}, {\"item\": \"tangent\", \"to\": \"f\", \"at\": \"6\"}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c019",
+  "prompt": "Find the equation of the tangent to the curve y = 1/x + x² which has a slope of −3, and show the curve and the tangent line(s) on a graph.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"1/x + x^2\"}, {\"item\": \"asymptotes\", \"of\": \"f\"}, {\"item\": \"tangent\", \"to\": \"f\", \"at\": \"-1\"}, {\"item\": \"tangent\", \"to\": \"f\", \"at\": \"1/2\"}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c020",
+  "prompt": "Find the value of k so that the line y = −8x + k is tangent to the curve y = 3x² + 4x + 1. Also find the normal line at the point of contact, and draw the curve with both lines.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"3x^2+4x+1\"}, {\"item\": \"tangent\", \"to\": \"f\", \"at\": \"-2\"}, {\"item\": \"normal\", \"to\": \"f\", \"at\": \"-2\"}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c021",
+  "prompt": "Find the equation of the line tangent to f(x) = √(9 − x²) at x = 2, and the normal line at that point. Draw the curve, the tangent and the normal.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"sqrt(9-x^2)\"}, {\"item\": \"tangent\", \"to\": \"f\", \"at\": \"2\"}, {\"item\": \"normal\", \"to\": \"f\", \"at\": \"2\"}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c022",
+  "prompt": "Find the equation of the line tangent to f(x) = (ln x)/x at x = e and the normal line there. Draw the graph of f with both lines, showing its asymptotes, intercept, maximum and inflection point.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"ln(x)/x\"}, {\"item\": \"tangent\", \"to\": \"f\", \"at\": \"e\"}, {\"item\": \"normal\", \"to\": \"f\", \"at\": \"e\"}, {\"item\": \"asymptotes\", \"of\": \"f\"}, {\"item\": \"points\", \"of\": \"f\", \"show\": [\"extrema\", \"inflections\", \"intercepts\"]}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c028",
+  "prompt": "For f(x) = x⁴ − 8x² + 6 find the critical numbers, the local extreme values, the intervals of monotonicity, the intervals of concavity and the inflection points, then sketch the graph.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"x^4-8x^2+6\"}, {\"item\": \"points\", \"of\": \"f\", \"show\": [\"extrema\", \"inflections\", \"intercepts\"]}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c029",
+  "prompt": "For f(x) = (x² − 2x + 4)/(x − 2) find the critical numbers, local extreme values, intervals of monotonicity, intervals of concavity and inflection points, and sketch the graph with its asymptotes.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"(x^2-2x+4)/(x-2)\"}, {\"item\": \"asymptotes\", \"of\": \"f\"}, {\"item\": \"points\", \"of\": \"f\", \"show\": [\"extrema\"]}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c030",
+  "prompt": "Sketch the graph of f(x) = (x² + x − 20)/(x² + 4x − 5). Show its hole, its asymptotes and intercepts, and say where it is increasing and how it bends.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"(x^2+x-20)/(x^2+4x-5)\"}, {\"item\": \"asymptotes\", \"of\": \"f\"}, {\"item\": \"points\", \"of\": \"f\", \"show\": [\"intercepts\"]}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c031",
+  "prompt": "Find the local maximum and minimum values of f(x) = x/(1 + x)², and sketch its graph showing the asymptotes, intervals of increase and decrease, concavity and inflection point.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"x/(1+x)^2\"}, {\"item\": \"asymptotes\", \"of\": \"f\"}, {\"item\": \"points\", \"of\": \"f\", \"show\": [\"extrema\", \"inflections\", \"intercepts\"]}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c032",
+  "prompt": "For f(x) = (x − 1)/(x² + 8), find the intervals where f is increasing or decreasing, its local extrema and inflection points, and draw the graph.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"(x-1)/(x^2+8)\"}, {\"item\": \"asymptotes\", \"of\": \"f\"}, {\"item\": \"points\", \"of\": \"f\", \"show\": [\"extrema\", \"inflections\", \"intercepts\"]}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c033",
+  "prompt": "Find the intervals in which f(x) = x^(1/3)(x + 3)^(2/3) is strictly increasing or strictly decreasing, then sketch the graph, showing its cusp, vertical tangent, concavity and slant asymptote.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"x^(1/3)(x+3)^(2/3)\"}, {\"item\": \"asymptotes\", \"of\": \"f\"}, {\"item\": \"points\", \"of\": \"f\", \"show\": [\"extrema\", \"inflections\"]}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c034",
+  "prompt": "Find the local maximum and minimum values of f(x) = (x² − 4)^(2/3) and sketch the graph, including where it is concave up or down.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"(x^2-4)^(2/3)\"}, {\"item\": \"points\", \"of\": \"f\", \"show\": [\"extrema\", \"inflections\"]}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c035",
+  "prompt": "Identify the critical numbers and find the absolute maximum and minimum of f(x) = 3x⁵ − 20x³ on [−2, 2]. Then sketch the graph on that interval with its inflection points.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"3x^5-20x^3\", \"domain\": [\"-2\", \"2\"]}, {\"item\": \"points\", \"of\": \"f\", \"show\": [\"ends\", \"inflections\"]}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c036",
+  "prompt": "Find the intervals in which f(x) = (x² − 1)³ is increasing or decreasing, its local extreme values and its inflection points, and sketch the graph.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"(x^2-1)^3\"}, {\"item\": \"points\", \"of\": \"f\", \"show\": [\"extrema\", \"inflections\"]}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c037",
+  "prompt": "Find the intervals in which f(x) = 2x³ − 3x² + 5 is strictly increasing or decreasing, then sketch the graph showing every extreme point, the inflection point and the x-intercept.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"2x^3-3x^2+5\"}, {\"item\": \"points\", \"of\": \"f\", \"show\": [\"extrema\", \"inflections\", \"intercepts\"]}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c038",
+  "prompt": "Let f(x) = x²|9 − x²|/(3 − x). Is f continuous at x = 3? Sketch the graph of f, showing what happens at x = −3 and at x = 3, and its turning points.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"x^2|9-x^2|/(3-x)\"}, {\"item\": \"points\", \"of\": \"f\", \"show\": [\"extrema\"]}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c039",
+  "prompt": "Find the intervals in which f(x) = xeˣ − 4 is increasing or decreasing, and sketch its graph showing the minimum, the inflection point, the intercepts and the asymptote.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"x e^x - 4\"}, {\"item\": \"asymptotes\", \"of\": \"f\"}, {\"item\": \"points\", \"of\": \"f\", \"show\": [\"extrema\", \"inflections\", \"intercepts\"]}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c040",
+  "prompt": "Find the intervals in which f(x) = |ln x| is increasing or decreasing and sketch its graph. Where is f not differentiable, and how does it bend?",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"|ln x|\"}, {\"item\": \"asymptotes\", \"of\": \"f\"}, {\"item\": \"points\", \"of\": \"f\", \"show\": [\"extrema\"]}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c044",
+  "prompt": "Find the point on the graph of f(x) = x² that is closest to the point (2, 1), and show it on a graph.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"x^2\"}, {\"item\": \"nearest\", \"on\": \"f\", \"to\": [\"2\", \"1\"]}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c045",
+  "prompt": "Find the points on the graph of f(x) = x² + 1 that are closest to the point (0, 4). Show the curve, the point and the shortest distances on a graph.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"x^2+1\"}, {\"item\": \"nearest\", \"on\": \"f\", \"to\": [\"0\", \"4\"]}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c053",
+  "prompt": "Estimate the area of the region bounded by the graph of f(x) = x³ and the x-axis between x = 1 and x = 2 by dividing [1, 2] into (a) 5 subintervals (b) 10 subintervals (c) n subintervals of equal length. Use inscribed (left-endpoint) and circumscribed (right-endpoint) rectangles, and draw the rectangles for n = 5. What is the exact area?",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"x^3\"}, {\"item\": \"rectangles\", \"under\": \"f\", \"from\": \"1\", \"to\": \"2\", \"n\": 5, \"rule\": \"left\"}, {\"item\": \"shade\", \"between\": [\"f\", \"x-axis\"], \"from\": \"1\", \"to\": \"2\"}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c054",
+  "prompt": "The area under the curve y = 5 − 2x² + 4x³ − x⁵ from x = −1/2 to x = 3/2 is divided into n strips, each approximated by a rectangle of width 2/n. What is the limit of the sum of the areas of all the rectangles as n → ∞? Show the curve with some of the strips.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"5-2x^2+4x^3-x^5\"}, {\"item\": \"rectangles\", \"under\": \"f\", \"from\": \"-1/2\", \"to\": \"3/2\", \"n\": 8, \"rule\": \"midpoint\"}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c055",
+  "prompt": "Find the area of the region enclosed between the curves y = x³/(x² + 1) and y = x/2. Draw the curves and shade the region.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"x^3/(x^2+1)\"}, {\"item\": \"curve\", \"name\": \"g\", \"y\": \"x/2\"}, {\"item\": \"shade\", \"between\": [\"f\", \"g\"]}, {\"item\": \"points\", \"of\": \"f\", \"show\": [\"crossings\"]}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c056",
+  "prompt": "Find the area of the region bounded by the curve y = x⁴ − x² and the line y = 3. Draw it and shade the region.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"x^4-x^2\"}, {\"item\": \"line\", \"name\": \"L\", \"y\": \"3\"}, {\"item\": \"shade\", \"between\": [\"f\", \"L\"]}, {\"item\": \"points\", \"of\": \"f\", \"show\": [\"crossings\"]}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c057",
+  "prompt": "Find the area of the region enclosed by f(x) = 4 − x² and g(x) = 3x. Show the curves and shade the region.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"4-x^2\"}, {\"item\": \"curve\", \"name\": \"g\", \"y\": \"3x\"}, {\"item\": \"shade\", \"between\": [\"f\", \"g\"], \"from\": \"-4\", \"to\": \"1\"}, {\"item\": \"points\", \"of\": \"f\", \"show\": [\"crossings\"]}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c058",
+  "prompt": "Determine the area of the region enclosed by the graphs of x = −y² and x = 9 − 2y². Integrate with respect to y, and draw the region shaded.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"x\": \"-y^2\"}, {\"item\": \"curve\", \"name\": \"g\", \"x\": \"9-2y^2\"}, {\"item\": \"shade\", \"between\": [\"f\", \"g\"], \"wrt\": \"y\"}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c059",
+  "prompt": "Find the area of the region bounded by the graph of f(x) = |x² − 1|, the x-axis and the lines x = −3 and x = 2. Sketch and shade it.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"|x^2-1|\"}, {\"item\": \"line\", \"name\": \"a\", \"x\": \"-3\"}, {\"item\": \"line\", \"name\": \"b\", \"x\": \"2\"}, {\"item\": \"shade\", \"between\": [\"f\", \"x-axis\"], \"from\": \"-3\", \"to\": \"2\"}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c060",
+  "prompt": "Find the area of the region bounded by the graph of f(x) = x³ − 2x² − 5x + 6, the x-axis and the lines x = −2 and x = 3. Draw it and shade the region.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"x^3-2x^2-5x+6\"}, {\"item\": \"shade\", \"between\": [\"f\", \"x-axis\"], \"from\": \"-2\", \"to\": \"3\"}, {\"item\": \"points\", \"of\": \"f\", \"show\": [\"extrema\", \"intercepts\"]}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c062",
+  "prompt": "Find the volume of the solid of revolution about the x-axis generated by revolving the region enclosed by f(x) = sin x and g(x) = cos x from x = 0 to x = π/2. Show the region and the axis of rotation.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"sin x\", \"domain\": [\"0\", \"pi/2\"]}, {\"item\": \"curve\", \"name\": \"g\", \"y\": \"cos x\", \"domain\": [\"0\", \"pi/2\"]}, {\"item\": \"shade\", \"between\": [\"f\", \"g\"], \"from\": \"0\", \"to\": \"pi/2\"}, {\"item\": \"points\", \"of\": \"f\", \"show\": [\"crossings\"]}, {\"item\": \"axis\", \"line\": \"x-axis\"}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c063",
+  "prompt": "Find the volume of the solid generated by revolving about the x-axis the region enclosed by f(x) = x² and g(x) = |x| from x = −2 to x = 2. Draw the region and the axis.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"x^2\"}, {\"item\": \"curve\", \"name\": \"g\", \"y\": \"|x|\"}, {\"item\": \"shade\", \"between\": [\"f\", \"g\"], \"from\": \"-2\", \"to\": \"2\"}, {\"item\": \"points\", \"of\": \"f\", \"show\": [\"crossings\"]}, {\"item\": \"axis\", \"line\": \"x-axis\"}]}",
+  "expect": "draw"
+ },
+ {
+  "id": "c064",
+  "prompt": "Find the volume of the solid generated when the region bounded by y = 3x and y = x² + 2 rotates about the x-axis. Show the region and the axis of rotation.",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"f\", \"y\": \"3x\"}, {\"item\": \"curve\", \"name\": \"g\", \"y\": \"x^2+2\"}, {\"item\": \"shade\", \"between\": [\"f\", \"g\"]}, {\"item\": \"points\", \"of\": \"f\", \"show\": [\"crossings\"]}, {\"item\": \"axis\", \"line\": \"x-axis\"}]}",
+  "expect": "draw"
+ }
+]

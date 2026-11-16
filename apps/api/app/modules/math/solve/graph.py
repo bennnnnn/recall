@@ -17,11 +17,11 @@ from sympy import (
     cos,
     denom,
     limit,
+    numer,
     sin,
     solve,
     tan,
 )
-from sympy.calculus.singularities import singularities
 from sympy.utilities.lambdify import lambdify
 
 from app.modules.math.schemas import (
@@ -37,97 +37,34 @@ from app.modules.math.solve.extract_eq import (
     try_extract_inequality_from_text,
 )
 from app.modules.math.solve.graph_expr_text import graph_expr_text
-from app.modules.math.solve.graph_sampling import sample_at
+from app.modules.math.solve.graph_sampling import (
+    jump_xs,
+    pole_flips,
+    pole_xs,
+    real_lambdify,
+    rounded_points,
+    sample_at,
+    singular_xs,
+    split_at_gaps,
+)
 from app.modules.math.solve.inequalities import compound_solution_set, inequality_solution_set
 from app.modules.math.solve.parse import parse_expression
 from app.services.solving import SolveServiceError
 
 
-def _split_into_segments(
-    points: list[list[float]], percentile: float = 85.0
-) -> list[list[list[float]]]:
-    """Split a continuous point list wherever a vertical asymptote likely
-    sits between two consecutive samples (e.g. tan(x) near pi/2) — without
-    this, naively connecting every finite sample draws a near-vertical line
-    straight across the discontinuity.
-
-    Numeric heuristic, not full symbolic singularity detection: flag a gap
-    only where consecutive y-values (a) flip sign AND (b) both sit above the
-    given percentile of |y| across the whole sample. A pole is exactly this
-    shape — y diverges to +inf on one side and -inf on the other, so the two
-    samples straddling it are both large AND opposite in sign. An ordinary
-    zero-crossing (e.g. sin(x)) also flips sign but both values are small
-    there, so it's correctly left unsplit; matches empirical validation
-    against tan(x) (isolates all 6 real asymptotes in [-10, 10] with no
-    over-splitting) and sin(x)/x**2 (never splits).
-    """
+def _split_into_segments(points: list[list[float]]) -> list[list[list[float]]]:
+    """Split a point list where a vertical asymptote lies between two samples (tan x at
+    π/2), as ``graph_sampling.pole_flips`` finds it: naively joining every finite sample
+    draws a near-vertical line straight across the discontinuity."""
     if len(points) < 2:
         return [points] if points else []
-    abs_ys = sorted(abs(p[1]) for p in points)
-    idx = min(len(abs_ys) - 1, int(len(abs_ys) * percentile / 100))
-    large_threshold = abs_ys[idx]
-    if large_threshold <= 0:
-        return [points]
+    flips = set(pole_flips([p[1] for p in points]))
     segments: list[list[list[float]]] = [[points[0]]]
     for i in range(1, len(points)):
-        y0, y1 = points[i - 1][1], points[i][1]
-        sign_flip = (y0 > 0) != (y1 > 0)
-        both_large = abs(y0) > large_threshold and abs(y1) > large_threshold
-        if sign_flip and both_large:
+        if i - 1 in flips:
             segments.append([])
         segments[-1].append(points[i])
     return [seg for seg in segments if seg]
-
-
-def _symbolic_pole_xs(parsed: Any, sym: Symbol, x_min: float, x_max: float) -> list[float]:
-    """Real poles of ``parsed`` strictly inside the window, via SymPy.
-
-    Only finite, exactly-known singularities are returned — ConditionSet /
-    ImageSet results (tan(x), 1/sin(x), …) are left to the numeric heuristic
-    in ``_split_into_segments``. Never raises: any SymPy failure means "no
-    symbolic poles", not a failed graph.
-    """
-    with sympy_decline() as declined:
-        found = singularities(parsed, sym)
-    if declined:
-        return []
-    sets = list(found.args) if isinstance(found, Union) else [found]
-    xs: list[float] = []
-    for item in sets:
-        if not isinstance(item, FiniteSet):
-            continue
-        for value in item:
-            try:
-                numeric = float(value)
-            except (TypeError, ValueError):
-                continue
-            if x_min < numeric < x_max and math.isfinite(numeric):
-                xs.append(numeric)
-    return sorted(xs)
-
-
-def _confirmed_pole_xs(points: list[list[float]], pole_xs: list[float]) -> list[float]:
-    """Keep only symbolic poles the samples confirm as diverging.
-
-    sin(x)/x has a *removable* singularity at 0 — y stays near 1 — and must
-    render as one smooth curve; 1/x**2 has an even-order pole (no sign flip)
-    that the numeric sign-flip heuristic misses entirely. A percentile-of-|y|
-    test cannot separate them (a small-magnitude curve makes y≈1 look
-    "large"), so confirmation is a ratio: the sample nearest the pole must
-    dwarf the curve's own median |y| (pole-adjacent samples are orders of
-    magnitude larger; sin(x)/x's center is only ~5x its median).
-    """
-    if not points or not pole_xs:
-        return []
-    abs_ys = sorted(abs(p[1]) for p in points)
-    median = abs_ys[len(abs_ys) // 2]
-    scale = max(median, 1e-9)
-    confirmed: list[float] = []
-    for pole in pole_xs[:8]:  # a pathological expr cannot explode segment count
-        nearest = min(points, key=lambda p: abs(p[0] - pole))
-        if abs(nearest[1]) > 25 * scale:
-            confirmed.append(pole)
-    return confirmed
 
 
 def _split_at_xs(points: list[list[float]], pole_xs: list[float]) -> list[list[list[float]]]:
@@ -162,9 +99,15 @@ def _removable_holes(
     if declined:
         return []
     holes: list[list[float]] = []
+    top = numer(original)
     for root in roots[:8]:
         try:
             x_value = float(root)
+            # A finite limit needs the numerator written to vanish there too; where it does
+            # not, the curve runs off to infinity, and SymPy's limit at a cubic's radical
+            # root took nine seconds to say so.
+            if abs(complex(top.subs(sym, root).evalf(30))) > 1e-9:
+                continue
             y_limit = limit(simplified, sym, root)
             y_value = float(y_limit)
         except (TypeError, ValueError, OverflowError):
@@ -228,7 +171,7 @@ def sample_function(data: GraphSampleInput) -> GraphSampleResult:
     if parsed.is_Relational:
         raise SolveServiceError("Inequality expressions are number lines, not y=f(x) plots")
 
-    numpy_fn = lambdify(sym, parsed, modules=["numpy"])
+    numpy_fn = real_lambdify(sym, parsed)
     x_min, x_max, n = _adapt_sample_window(
         data.x_min, data.x_max, data.n, _oscillation_period(parsed, sym)
     )
@@ -237,18 +180,15 @@ def sample_function(data: GraphSampleInput) -> GraphSampleResult:
         ys = sample_at(numpy_fn, xs)
     except Exception as exc:
         raise SolveServiceError(f"Could not sample function: {data.expr}") from exc
-    points: list[list[float]] = []
-    for x_val, y_val in zip(xs, ys, strict=False):
-        if not np.isfinite(y_val):
-            continue
-        points.append([round(float(x_val), 4), round(float(y_val), 4)])
+    # Written to places that hold the window's own scale: x² on [0, 0.001] is no flat line.
+    points = rounded_points(xs, ys)
 
-    # Symbolic poles (confirmed diverging by the samples) split at the true
-    # singularity x — including even-order poles like 1/x**2 whose samples
-    # never flip sign, which the numeric heuristic below cannot see. When
-    # SymPy finds nothing decidable (tan, 1/sin, …) the numeric sign-flip
-    # heuristic stays the fallback.
-    pole_xs = _confirmed_pole_xs(points, _symbolic_pole_xs(parsed, sym, x_min, x_max))
+    # SymPy's singular places, split at where the curve runs off to infinity or jumps,
+    # even-order poles like 1/x**2 included, whose samples never flip sign; sin(x)/x's
+    # removable 0 is no break. When SymPy finds nothing decidable (tan, 1/sin, …) the
+    # numeric sign-flip heuristic stays.
+    found = [float(x) for x in singular_xs(parsed, sym, x_min, x_max)][:8]
+    breaks = sorted({*pole_xs(numpy_fn, found), *jump_xs(numpy_fn, found)})
     return GraphSampleResult(
         # The phone re-reads this to resample on zoom, so it is SymPy's reading, not the raw text.
         expr=graph_expr_text(parsed, data.variable) or data.expr,
@@ -256,7 +196,10 @@ def sample_function(data: GraphSampleInput) -> GraphSampleResult:
         x_min=x_min,
         x_max=x_max,
         points=points,
-        segments=_split_at_xs(points, pole_xs) if pole_xs else _split_into_segments(points),
+        segments=split_at_gaps(
+            _split_at_xs(points, breaks) if breaks else _split_into_segments(points),
+            (x_max - x_min) / max(n - 1, 1),
+        ),
         holes=_removable_holes(original, parsed, sym, x_min, x_max),
     )
 

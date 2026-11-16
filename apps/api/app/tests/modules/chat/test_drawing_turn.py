@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 from uuid import uuid4
 
 import pytest
@@ -29,7 +29,11 @@ from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.chat.worked_stream import ReplyFilter
 from app.modules.math.drawing.contract import DRAW_CONTRACT
+from app.services.md_fence_scan import iter_closed_fences
 from app.tests.modules.chat.chat_test_support import turn_deps
+
+if TYPE_CHECKING:
+    from redis.asyncio import Redis
 
 _VECTORS = (
     "Find the angle between the vectors (-1, 1, 1) and (2, 2, 2), and draw both from the origin."
@@ -102,8 +106,8 @@ def _state(ctx: StreamContext, text: str, *, cancelled: bool = False) -> Finaliz
     ("subject", "picture", "asked"),
     [
         ("maths", "diagram", True),
-        # Not yet: the contract draws no graph (round 2's review, cost).
-        ("maths", "graph", False),
+        # The contract draws graphs too (kind "plot").
+        ("maths", "graph", True),
         ("maths", "none", False),
         ("physics", "diagram", False),
         ("everyday", "diagram", False),
@@ -149,6 +153,34 @@ async def test_ask_for_a_drawing_is_off_with_its_switch_or_an_instant_reply() ->
     instant = _ctx(instant_reply="It is 3 pm.")
     await ask_for_a_drawing(instant, _settings(), read, _deadline())
     assert off.drawing is None and instant.drawing is None
+
+
+_SKETCH = "Find the local maximum of f(x) = x/(1 + x)², and sketch its graph."
+
+
+@pytest.mark.parametrize(
+    ("line", "picture", "verified", "kept"),
+    [
+        # Round 3's c031: the solver's card alone answered, and no graph could be described.
+        (_SKETCH, "graph", True, False),
+        # The read says no picture: the instant reply stands.
+        (_SKETCH, None, True, True),
+        # A server reply with no solve behind it (the time, a setting) is no maths card.
+        (_SKETCH, "graph", False, True),
+        # Nothing asked to be seen: no wait, the instant reply stands.
+        ("Find the local maximum of f(x) = x/(1 + x)².", "graph", True, True),
+    ],
+)
+async def test_a_picture_asked_for_takes_the_place_of_an_instant_card(
+    line: str, picture: str | None, verified: bool, kept: bool
+) -> None:
+    from app.services.solving import VerifiedMathBlock
+
+    solved = VerifiedMathBlock(text="1/4") if verified else None
+    read = _read(subject="maths", picture=picture) if picture else _read(subject="maths")
+    ctx = _ctx(line, instant_reply="The maximum is 1/4.", verified_subject=solved, live_read=read)
+    await drawing_turn.write_for_a_picture(ctx, _settings())
+    assert (ctx.instant_reply is not None) == kept
 
 
 async def _late(decision: TurnDecision, after: float) -> TurnDecision | None:
@@ -295,6 +327,111 @@ async def test_a_checked_description_is_drawn_under_the_reply() -> None:
     assert ctx.drawing.drawn and state.committed == out
 
 
+async def test_a_drawn_graph_takes_the_place_of_a_graph_of_its_curve_alone() -> None:
+    """Round 3's c009 showed a solve's plot of the curve beside the drawn graph; a solver's
+    number line and a chart are no graph of that curve, and stay (2026-11-15 review)."""
+    line = "Let f(x) = x^2 - 4. Sketch the graph of f and solve x^2 - 4 < 0."
+    ctx = _ctx(line, live_read=_read(subject="maths", picture="graph"))
+    plot = {"kind": "plot", "items": [{"item": "curve", "name": "f", "y": "x^2 - 4"}]}
+    ctx.drawing = ReplyDrawing("read", descriptions=[json.dumps(plot)])
+    xs = [i / 4 for i in range(-12, 13)]
+    curve = json.dumps([[x, x * x - 4] for x in xs])
+    cube = json.dumps([[x, x**3] for x in xs])
+    solved = f'```graph\n{{"type":"function","expr":"x^2 - 4","points":{curve}}}\n```'
+    other = f'```graph\n{{"type":"function","expr":"x^3","points":{cube}}}\n```'
+    line_fence = (
+        '```graph\n{"type":"number_line","expr":"x^2 - 4 < 0","intervals":'
+        '[{"start":-2,"end":2}]}\n```'
+    )
+    chart = '```chart\n{"mark":"line"}\n```'
+    text = f"The vertex is (0, -4).\n\n{solved}\n\n{other}\n\n{line_fence}\n\n{chart}"
+    out = await attach_drawing(_state(ctx, text))
+    graphs = [body for _start, _end, body in iter_closed_fences(out, "graph")]
+    assert len(graphs) == 3 and '"type":"plot"' in graphs[-1]
+    assert '"x^2 - 4","points"' not in out and '"x^3"' in out and "number_line" in out
+    assert "```chart" in out
+
+
+def _instant(line: str, read: asyncio.Future[TurnDecision | None]) -> StreamContext:
+    from app.services.solving import VerifiedMathBlock
+
+    return _ctx(
+        line,
+        instant_reply="The maximum is 1/4.",
+        verified_subject=VerifiedMathBlock(text="1/4"),
+        live_read=read,
+    )
+
+
+@pytest.mark.wall_clock
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Two cards are drawn from a deck. Find P(both aces).",
+        "As shown, the triangle has sides 3, 4 and 5. Find its area.",
+        "Find the x-intercepts of the graph of y = x^2 - 4.",
+        "Solve x^2 - 5x + 6 = 0 and show your steps.",
+        "A plot of land is 20 m by 30 m. Find its area.",
+        "Find the area of the shaded region between y = x and y = x^2.",
+        "Find the graphs' intersection of y = x and y = x^2.",
+    ],
+)
+async def test_a_word_that_asks_for_no_picture_never_waits(line: str) -> None:
+    """ "drawn", "as shown" and "the graph of" are no ask: whole words only (round 5)."""
+    pending: asyncio.Future[TurnDecision | None] = asyncio.get_event_loop().create_future()
+    loop = asyncio.get_running_loop()
+    ctx = _instant(line, pending)
+    began = loop.time()
+    await drawing_turn.write_for_a_picture(ctx, _settings())
+    pending.cancel()
+    assert loop.time() - began < 0.1 and ctx.instant_reply is not None
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Solve x^2 - 4 = 0 graphically.",
+        "Use graphing to solve x^2 = 4.",
+        "Find the vertex of y = x^2 - 4x. Graph of it please.",
+        "Sketching: y = x^2 - 4, then find its roots.",
+    ],
+)
+async def test_each_form_of_a_drawing_verb_waits_for_the_read(line: str) -> None:
+    """ "graphically", "graphing", "Graph of it please": a read in at 0.05 s takes the card's
+    place (round 6: whole words had lost these)."""
+    late = asyncio.ensure_future(_late(_decision(subject="maths", picture="graph"), 0.05))
+    ctx = _instant(line, late)
+    await drawing_turn.write_for_a_picture(ctx, _settings())
+    assert ctx.instant_reply is None
+
+
+@pytest.mark.wall_clock
+async def test_an_instant_card_waits_for_the_read_only_when_words_may_ask() -> None:
+    """ "Show your steps" waited 1.2 s for a read that had not come (2026-11-15 review): a
+    message whose words cannot ask to see a picture never waits. One that may waits up to
+    the read's wait, and a read later than that keeps the card."""
+    pending: asyncio.Future[TurnDecision | None] = asyncio.get_event_loop().create_future()
+    loop = asyncio.get_running_loop()
+    steps = _instant("Find the local maximum of f(x) = x/(1 + x)² and show your steps.", pending)
+    began = loop.time()
+    await drawing_turn.write_for_a_picture(steps, _settings())
+    assert loop.time() - began < 0.1 and steps.instant_reply is not None
+    sketch = _instant(_SKETCH, pending)
+    began = loop.time()
+    await drawing_turn.write_for_a_picture(sketch, _settings(live_read_wait_seconds=0.2))
+    assert 0.15 < loop.time() - began < 0.5 and sketch.instant_reply is not None
+    pending.cancel()
+
+
+async def test_an_instant_card_gives_way_to_a_read_that_comes_within_the_wait() -> None:
+    """The read decides, late or not: one answering within the wait takes the card's place."""
+    sketch = _instant(
+        _SKETCH, asyncio.ensure_future(_late(_decision(subject="maths", picture="graph"), 0.05))
+    )
+    await drawing_turn.write_for_a_picture(sketch, _settings())
+    assert sketch.instant_reply is None
+
+
 async def test_a_description_in_the_text_is_taken_out_and_drawn() -> None:
     ctx = _ctx(live_read=_read(subject="maths", picture="diagram"))
     ctx.drawing = ReplyDrawing("read")
@@ -354,3 +491,109 @@ async def test_one_picture_of_each_kind(read_fence: str, both: bool) -> None:
     out = await figure_turn.attach_figure(state)
     assert out.count("```geometry") == 1
     assert ("```graph" in out) == both
+
+
+# The 2026-11-15 reviews' look-alikes: a word that may ask to see a picture, and a read
+# that says the message asks for none. The read keeps the card, never a word.
+_NO_PICTURE = [
+    "Find the x-intercepts of the graph of y = x^2 - 4.",
+    "Find the x-intercepts of the graph y = x^2 - 4.",
+    "Find the gradient of the graph of y = x^3 at x = 2.",
+    "Find the point on the graph of y = x^2 where the gradient is 4.",
+    "Find the coordinates of the points on the graph of y = x^3 - 3x where the tangent is horizontal.",
+    "What is the vertex of the parabola? Don't draw anything, just give the coordinates: "
+    "y = x^2 - 4x + 1",
+    "If you draw two cards from a deck of 52, what is the probability both are aces?",
+    "A rectangular plot is 20 m long and 15 m wide. Find its area.",
+    "Find the area of the plot if it measures 12 m by 8 m.",
+    "No need to sketch it, just find the roots of x^2 - 5x + 6 = 0.",
+    "A lamp shade is a frustum with radii 10 cm and 20 cm and height 15 cm. Find its volume.",
+    "Find dy/dx for y = x^2 sin x; I will graph it myself later.",
+]
+# A picture asked for, as the read says it: the card gives way.
+_A_PICTURE = [
+    "Find the area enclosed by f(x) = 4 - x^2 and g(x) = 3x. Show the curves and shade the region.",
+    "Find the area enclosed by f(x) = ln x and the x-axis from x = 1 to x = e. Show it on a graph.",
+    "Find the local maximum of f(x) = x/(1 + x)^2, and sketch its graph.",
+    "Find the area between y = x^2 and y = 2x and shade the region.",
+    "Find the stationary points of y = x^3 - 3x and visualize the curve.",
+    "Find the turning points of y = x^3 - 3x and represent them on a graph.",
+]
+
+
+@pytest.mark.parametrize("line", _NO_PICTURE)
+async def test_an_instant_card_stays_when_the_read_asks_for_no_picture(line: str) -> None:
+    ctx = _instant(line, _read(subject="maths"))
+    await drawing_turn.write_for_a_picture(ctx, _settings())
+    assert ctx.instant_reply is not None
+
+
+@pytest.mark.parametrize("line", _A_PICTURE)
+async def test_an_instant_card_gives_way_when_the_read_asks_for_a_picture(line: str) -> None:
+    ctx = _instant(line, _read(subject="maths", picture="graph"))
+    await drawing_turn.write_for_a_picture(ctx, _settings())
+    assert ctx.instant_reply is None
+
+
+async def test_a_drawing_that_runs_too_long_is_cut_off_and_the_reply_stands(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Drawing runs in the SymPy pool under the solve timeout, whose worker is killed when it
+    runs over (``core.sympy_executor``): a description that spins never holds the turn."""
+    from app.core import sympy_executor
+
+    asked: dict[str, float] = {}
+
+    async def spins(fn: Any, *args: Any, **kwargs: Any) -> Any:
+        asked["timeout"] = kwargs["timeout"]
+        raise TimeoutError
+
+    monkeypatch.setattr(sympy_executor, "run_sympy", spins)
+    ctx = _ctx(live_read=_read(subject="maths", picture="diagram"))
+    ctx.drawing = ReplyDrawing("read", descriptions=[_DESCRIPTION])
+    out = await attach_drawing(_state(ctx, "Let $u$ and $v$ be the vectors."))
+    assert out == "Let $u$ and $v$ be the vectors." and not ctx.drawing.drawn
+    assert asked["timeout"] == _settings().stem_solve_timeout_seconds
+
+
+async def test_an_instant_card_that_gives_way_gets_the_draw_contract_in_the_real_order(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The reply path in its own order (``stream_pipeline._produce_reply``): the card gives
+    way, the tool loop runs, the read's decision asks for the drawing, and the reply's model
+    is called with the ```draw contract, the solve's card kept for it to write around (PR
+    #2468 review: the card lost and no contract)."""
+    from app.modules.chat import stream_pipeline
+    from app.services.solving import VerifiedMathBlock
+
+    sent: list[list[dict[str, Any]]] = []
+
+    async def no_tool_loop(*_args: Any, **_kwargs: Any) -> None:
+        return None
+
+    async def reply(*_args: Any, **kwargs: Any) -> Any:
+        ctx_arg = _args[3]
+        sent.append(list(ctx_arg.prompt_messages))
+        yield "The maximum is 1/4."
+
+    monkeypatch.setattr(stream_pipeline, "run_tool_loop_path", no_tool_loop)
+    monkeypatch.setattr(stream_pipeline, "run_llm_token_stream", reply)
+    solved = VerifiedMathBlock(text="1/4")
+    ctx = _ctx(
+        _SKETCH,
+        instant_reply="The maximum is 1/4.",
+        verified_subject=solved,
+        live_read=_read(subject="maths", picture="graph", effort="low"),
+    )
+    settings = _settings(image_search_enabled=False)
+    tokens = [
+        token
+        async for token in stream_pipeline._produce_reply(
+            turn_deps(), cast("Redis", None), settings, ctx, usage={}, accum=StreamAccum(),
+            should_cancel=None, outcome=None, on_status=None, on_reasoning=None,
+        )
+    ]  # fmt: skip
+    assert tokens == ["The maximum is 1/4."] and ctx.instant_reply is None
+    assert ctx.drawing is not None and ctx.drawing.asked == "read"
+    assert any(DRAW_CONTRACT in str(message.get("content")) for message in sent[0])
+    assert ctx.verified_subject is solved

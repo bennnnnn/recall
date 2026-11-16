@@ -6,12 +6,14 @@ import { CoordinatePlaneChart } from "@/components/rich/CoordinatePlaneChart";
 import { NumberLineChart } from "@/components/rich/NumberLineChart";
 import { InequalityGraphChart } from "@/components/rich/InequalityGraphChart";
 import { InteractiveFunctionPlot } from "@/components/rich/InteractiveFunctionPlot";
+import { PlotGraphCard } from "@/components/rich/PlotGraphCard";
 import { TrajectoryChart } from "@/components/rich/TrajectoryChart";
 import { figureTitleStyle, figureWidth } from "@/components/rich/figure";
 import { NUMBER_LINE_HEIGHT } from "@/components/rich/graphPlaceholder";
 import { useFenceRefused } from "@/components/rich/useFenceRefused";
 import { formatGraphExpr, formatInequalityExpr } from "@/lib/math/graphBlock";
 import { GRAPH_KINDS, parseGraphSpec } from "@/lib/math/graphSpec";
+import { parsePlotGraph } from "@/lib/math/plotGraph";
 import { parsePointsGraph } from "@/lib/math/pointsGraph";
 import { Theme, useTheme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
@@ -28,9 +30,14 @@ export function FunctionGraphBlock({ content }: Props) {
   const { width: screenWidth } = useWindowDimensions();
   const spec = useMemo(() => parseGraphSpec(content), [content]);
   const plane = useMemo(() => (spec ? null : parsePointsGraph(content)), [content, spec]);
+  const plot = useMemo(() => (spec || plane ? null : parsePlotGraph(content)), [content, spec, plane]);
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const chartWidth = figureWidth(screenWidth);
-  useFenceRefused("graph", content, spec === null && plane === null, GRAPH_BODY);
+  useFenceRefused("graph", content, spec === null && plane === null && plot === null, GRAPH_BODY);
+
+  if (plot) {
+    return <PlotGraphCard graph={plot} width={chartWidth} theme={theme} />;
+  }
 
   if (plane) {
     return <CoordinatePlaneChart graph={plane} width={chartWidth} theme={theme} styles={styles} />;

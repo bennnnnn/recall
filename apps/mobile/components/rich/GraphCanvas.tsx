@@ -1,6 +1,7 @@
 import Svg, { Circle, G, Polygon, Polyline } from "react-native-svg";
 
 import { CartesianAxes } from "@/components/rich/CartesianAxes";
+import { SvgGraphLayers } from "@/components/rich/graphLayers";
 import { NO_GRAPH_POINTS, SvgGraphPoints, type GraphPoints } from "@/components/rich/graphPoints";
 import { type DrawnSeries } from "@/hooks/useInteractiveGraph";
 import {
@@ -12,6 +13,7 @@ import {
 } from "@/lib/math/graphBlock";
 import { xAxisInPi } from "@/lib/math/graphFit";
 import { type GraphSpec, graphAxisNames } from "@/lib/math/graphSpec";
+import { type GraphLayers } from "@/lib/math/plotGraph";
 import { inequalityFillPoints, type GraphCmp } from "@/lib/math/graphExpr";
 import { type GraphView } from "@/lib/math/graphViewport";
 import { Theme } from "@/lib/theme";
@@ -30,6 +32,9 @@ type Props = {
   drawn: DrawnSeries[];
   points?: GraphPoints;
   verticalX?: number;
+  /** A server-drawn plot's regions and lines (`lib/math/plotGraph`): its points are all the
+   * server's, so the canvas marks none of its own. */
+  layers?: GraphLayers;
 };
 
 export function GraphCanvas({
@@ -42,13 +47,16 @@ export function GraphCanvas({
   drawn,
   points = NO_GRAPH_POINTS,
   verticalX,
+  layers,
 }: Props) {
   const isVerticalLine = verticalX != null;
   const visibleSeries = drawn.filter((row) => row.visible);
   const primary = drawn[0];
   const inView = ([x, y]: [number, number]) =>
     x >= bounds.xMin && x <= bounds.xMax && y >= bounds.yMin && y <= bounds.yMax;
+  const serverPoints = layers != null;
   const scatterMarkers =
+    !serverPoints &&
     !isVerticalLine &&
     visibleSeries.length === 1 &&
     primary.points.length <= MAX_MARKED_POINTS
@@ -58,13 +66,14 @@ export function GraphCanvas({
     !isVerticalLine && visibleSeries.length === 1 ? interiorVertex(primary.points) : null;
   // The fence's own marks name the roots; these dots are for a fence without them.
   const rootMarkers =
-    vertex && !points.marks.length && Math.abs(vertex.y) >= SHIFTED_VERTEX_MIN
+    !serverPoints && vertex && !points.marks.length && Math.abs(vertex.y) >= SHIFTED_VERTEX_MIN
       ? graphXIntercepts(primary.points)
           .filter((x) => x >= bounds.xMin && x <= bounds.xMax)
           .slice(0, 3)
           .map((x) => mapGraphPoint(x, 0, bounds, width, height, GRAPH_AXIS_PAD))
       : [];
   const clip = `url(#${clipId})`;
+  const frame = { bounds, width, height, pad: GRAPH_AXIS_PAD };
 
   return (
     <Svg width={width} height={height}>
@@ -83,6 +92,7 @@ export function GraphCanvas({
         piTicks={xAxisInPi(spec)}
       />
       <G clipPath={clip}>
+        {layers ? <SvgGraphLayers layers={layers} part="under" {...frame} theme={theme} /> : null}
         {isVerticalLine ? (
           <Polyline
             points={graphPolylinePoints(
@@ -106,6 +116,7 @@ export function GraphCanvas({
             <SeriesPolylines key={row.id} row={row} width={width} height={height} bounds={bounds} />
           ))
         )}
+        {layers ? <SvgGraphLayers layers={layers} part="over" {...frame} theme={theme} /> : null}
       </G>
       {scatterMarkers.map(({ px, py }, i) => (
         <Circle key={i} cx={px} cy={py} r={4} fill={primary.color} />

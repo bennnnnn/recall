@@ -12,6 +12,7 @@ plane shapes; any other picture the reply already holds stands alone.
 from __future__ import annotations
 
 import json
+from itertools import pairwise
 from typing import Any
 
 from app.modules.math.text_plot import strip_text_plots
@@ -20,6 +21,8 @@ from app.services.solving import VerifiedMathBlock
 
 # The fences a picture the server drew comes in: maths' figures and graphs, physics' scenes.
 _PICTURE_FENCES = ("geometry", "graph", "simulation")
+# Points of a function graph checked on a drawn curve before it counts as that curve.
+_COMPARED = 5
 # A solve's pictures that are the whole picture: a graph or a teaching picture.
 _WHOLE_KINDS = frozenset({"graph", "teach"})
 # The solids a figure draws, and their nets: a plane shape is at most one of their parts.
@@ -88,8 +91,78 @@ def without_substitutes(text: str) -> str:
 
 
 def without_drawn_substitutes(text: str) -> str:
-    """The reply described its picture (a ```draw block the server drew): anything else it
-    drew for that picture stands in for it. A Mermaid flowchart standing in for two vectors
-    (round 3, c082) goes, with a sketch in characters; a flow diagram a question asks for
-    gets no ```draw block, and keeps its Mermaid."""
-    return strip_closed_fences(strip_text_plots(text), "mermaid")
+    """The reply described its picture (a ```draw block the server drew, in ``text`` now):
+    anything else it drew for that picture stands in for it. A Mermaid flowchart standing in
+    for two vectors (round 3, c082) goes, with a sketch in characters, and a function graph
+    of a curve the checked graph draws (c009 showed both); a flow diagram a question asks for
+    gets no ```draw block, and keeps its Mermaid. A solver's number line, an inequality's
+    region, a graph of points or of another curve stays."""
+    return _without_replaced_graphs(strip_closed_fences(strip_text_plots(text), "mermaid"))
+
+
+def _graph_body(body: str) -> dict[str, Any] | None:
+    try:
+        spec = json.loads(body)
+    except ValueError:
+        return None
+    return spec if isinstance(spec, dict) else None
+
+
+def _drawn_segments(text: str) -> list[list[list[tuple[float, float]]]]:
+    """Each curve of the checked graphs (```graph ``plot``) in ``text``, as its segments."""
+    found: list[list[list[tuple[float, float]]]] = []
+    for _start, _end, body in iter_closed_fences(text, "graph"):
+        spec = _graph_body(body)
+        if spec is None or spec.get("type") != "plot":
+            continue
+        for curve in spec.get("curves") or []:
+            found.append([[(float(x), float(y)) for x, y in seg] for seg in curve["segments"]])
+    return found
+
+
+def _on_curve(points: list[Any], segments: list[list[tuple[float, float]]]) -> bool:
+    """Every point of ``points`` that a segment spans lies on it (between the samples beside
+    it, give or take a fiftieth of the curve's height), and enough of them to tell."""
+    ys = [y for seg in segments for _x, y in seg]
+    if not ys:
+        return False
+    slack = 0.02 * (max(ys) - min(ys) + 1e-9)
+    compared = 0
+    for point in points[:: max(1, len(points) // 40)]:
+        x, y = float(point[0]), float(point[1])
+        for seg in segments:
+            beside = next(((a, b) for a, b in pairwise(seg) if a[0] <= x <= b[0]), None)
+            if beside is None or not min(ys) <= y <= max(ys):
+                continue
+            low, high = sorted((beside[0][1], beside[1][1]))
+            if not low - slack <= y <= high + slack:
+                return False
+            compared += 1
+            break
+    return compared >= _COMPARED
+
+
+def _replaced(spec: dict[str, Any], drawn: list[list[list[tuple[float, float]]]]) -> bool:
+    """A function graph each of whose curves the checked graph draws."""
+    if spec.get("type", "function") != "function":
+        return False
+    # Its points, as the maths fence pass sampled them before the picture comes.
+    curves = [points for key in ("points", "points2") if (points := spec.get(key))]
+    return bool(curves) and all(
+        any(_on_curve(points, segments) for segments in drawn) for points in curves
+    )
+
+
+def _without_replaced_graphs(text: str) -> str:
+    drawn = _drawn_segments(text)
+    if not drawn:
+        return text
+    pieces: list[str] = []
+    cursor = 0
+    for start, end, body in iter_closed_fences(text, "graph"):
+        spec = _graph_body(body)
+        if spec is not None and _replaced(spec, drawn):
+            pieces.append(text[cursor:start])
+            cursor = end
+    pieces.append(text[cursor:])
+    return "".join(pieces)
