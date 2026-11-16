@@ -103,12 +103,33 @@ class Question:
     # The letters the question itself writes, and the points the reply names.
     stated_letters: frozenset[str] = frozenset()
     reply_named: frozenset[tuple[str, Point]] = frozenset()
+    # The pairs it writes as vectors ("u = (2, 1)", "<1, 3>").
+    plane_vectors: frozenset[tuple[Fraction, Fraction]] = frozenset()
+
+    @property
+    def flat(self) -> bool:
+        """It writes pairs and no triple: its points and vectors lie in the plane, and one
+        described in space as (a, b, 0) is its pair (a, b) (d06's u = (2, 1))."""
+        return bool(self.pairs) and not self.triples
 
     def states_triple(self, triple: Triple) -> bool:
         """A point the question places, or the origin. A point it does not ((4, 0, 0) below
         P(4, -3, 5)) is the reply's reading: round 3's c081 drew a foot under P as one of the
         two points √12 from it."""
-        return all(value == 0 for value in triple) or triple in self.triples
+        if all(value == 0 for value in triple) or triple in self.triples:
+            return True
+        return self.flat and triple[2] == 0 and (triple[0], triple[1]) in self.pairs
+
+    def states_vector(self, components: Triple, from_origin: bool) -> bool:
+        """A vector the question writes: from the origin, any triple it writes (any pair, in
+        the plane); from another point, only one it writes as a vector, as "A(1, 2, 3)"
+        writes no arrow from B (round 2's review drew A to A + B)."""
+        if (from_origin and components in self.triples) or components in self.vectors:
+            return True
+        if not self.flat or components[2] != 0:
+            return False
+        pair = (components[0], components[1])
+        return pair in (self.pairs if from_origin else self.plane_vectors)
 
     def names_right(self, name: str, at: Point) -> bool:
         """``name`` is no other point's: "A(0, 0, 3)" makes (2, 8, 1) no A, "A(0, 0)" makes
@@ -187,6 +208,14 @@ def written_vectors(text: str) -> set[Triple]:
     for match in _AS_VECTOR.finditer(lowered):
         found |= written_triples(match.group(1))
     return found
+
+
+def _plane_vectors(text: str) -> set[tuple[Fraction, Fraction]]:
+    """The pairs a text writes as vectors: given a letter with "=" or in angle brackets."""
+    lowered = text.replace("\u2212", "-")
+    return {
+        pair for match in _AS_VECTOR.finditer(lowered) for pair in written_pairs(match.group(1))
+    }
 
 
 _EXACT_PLACES = 9
@@ -269,4 +298,5 @@ def read_question(texts: Sequence[str], reply: str) -> Question:
         frozenset(triple for text in own for triple in written_vectors(text)),
         stated_letters,
         frozenset(named_points(reply)),
+        frozenset(pair for text in own for pair in _plane_vectors(text)),
     )
