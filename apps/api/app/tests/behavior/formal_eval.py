@@ -36,6 +36,37 @@ HOLDOUT = HERE / "stem_corpus" / "physics" / "holdout.json"
 TRANSLATED = HERE / "formal_corpus" / "physics_translated.json"
 # Holdout questions reworded the way students type (casual, values reordered, an aside).
 REWORDED = HERE / "formal_corpus" / "physics_reworded.json"
+# 600 STEM corpus questions translated into Amharic, Arabic, Spanish, French and Hindi (40
+# each of maths, physics and chemistry a language), from the model reader experiment: each
+# entry names its corpus id, whose answer is the corpus's (``translated_questions``).
+TRANSLATED_DIR = HERE / "formal_corpus" / "translated"
+
+
+def translated_questions(subject: str) -> list[Question]:
+    """The translated questions of one subject whose corpus entry has one numeric answer,
+    each in a set named ``<locale>-reader``."""
+    from app.tests.behavior.stem_sweep import load
+
+    answers = {
+        entry.id: entry.answers[0]
+        for entry in load(subject)
+        if entry.expect == "answer" and len(entry.answers) == 1 and not entry.parts
+    }
+    found: list[Question] = []
+    for path in sorted(TRANSLATED_DIR.glob("*.json")):
+        for item in json.loads(path.read_text(encoding="utf-8")):
+            if item["subject"] == subject and item["id"] in answers:
+                found.append(
+                    Question(
+                        f"{item['id']}-{path.stem}",
+                        f"{path.stem}-reader",
+                        item["prompt"],
+                        answers[item["id"]],
+                    )
+                )
+    return found
+
+
 _CONCURRENCY = 6
 READERS = ("gpt-6-luna", "smart-chat")
 REPLIES = ("qwen-3.7-flash", "smart-chat")
@@ -79,9 +110,11 @@ def questions(limit: int) -> list[Question]:
         Question(r["id"], "en-reworded", r["prompt"], (float(r["answer"][0]), str(r["answer"][1])))
         for r in json.loads(REWORDED.read_text(encoding="utf-8"))
     ]
+    reader = translated_questions("physics")
     if limit:
         english, translated, reworded = english[:limit], translated[: limit * 4], reworded[:limit]
-    return english + reworded + translated
+        reader = reader[: limit * 5]
+    return english + reworded + translated + reader
 
 
 def right(value: float | None, unit: str, want: tuple[float, str]) -> bool | None:

@@ -125,6 +125,10 @@ of the catalog's laws, run only in shadow. Its code is removed (`modules/model_r
 settings, `law_binding/model_read.py` but for `excluded`, now in `law_binding/words.py`).
 
 What stays:
+- its 600 translated questions (Amharic, Arabic, Spanish, French, Hindi; 40 each of maths,
+  physics and chemistry a language), now `formal_corpus/translated/`: `formal_eval.py`
+  measures physics on them (the `-reader` sets) and maths and chemistry will be measured on
+  them next; `test_formal_corpus.py` holds every id to a corpus entry;
 - the catalog readers, the fast path: a question they read is solved with no model call,
   and the formal reader is never asked. They get no new wording rules;
 - maths' own typed read (`math/tools/llm_extract.py`), the next to go, when maths has a
