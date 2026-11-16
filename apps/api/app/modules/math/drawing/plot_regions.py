@@ -66,7 +66,7 @@ def _stated_bounds(item: Shade, meets: list[float], question: PlotQuestion) -> l
         return None
     low, high = (start, end) if float(start) <= float(end) else (end, start)
     along_x = item.wrt == "x"
-    held = stated_interval(low, high, question) if along_x else None
+    held = stated_interval(low, high, question, item.wrt)
     if held is not None:
         return [float(held.low), float(held.high)]
     ends = [_meet(low, meets), _meet(high, meets)]
@@ -95,14 +95,13 @@ def _bounds(item: Shade, low_edge: RealFunction, high_edge: RealFunction, scene:
         found = [meets[0], meets[-1]]
     else:
         stated_ends = _stated_bounds(item, meets, question)
-        edges = (low_edge.expr, high_edge.expr)
         if stated_ends is None:
             return None
-        low, high = min(stated_ends), max(stated_ends)
-        if item.wrt == "x" and not on_a_stated_interval(low, high, question, edges):
-            return None  # the question's own interval, or no region
         found = stated_ends
     low, high = sorted(found)
+    edges = (low_edge.expr, high_edge.expr)
+    if item.wrt == "x" and not on_a_stated_interval(low, high, question, edges):
+        return None  # the question's own interval, or no region
     if high - low < 1e-9 or has_pole(low_edge, low, high) or has_pole(high_edge, low, high):
         return None  # no area, or one across a pole (1/x² on [-1, 1])
     return low, high, [m for m in meets if low - 1e-9 <= m <= high + 1e-9]

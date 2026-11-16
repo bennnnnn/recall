@@ -56,6 +56,17 @@ class Interval:
     high: Any
     low_closed: bool = True
     high_closed: bool = True
+    # The letter it is said of when the question names it ("from y = 0 to y = 4": "y").
+    of: str = ""
+
+
+def _compared(text: str, letter: str) -> bool:
+    """``text`` compares ``letter`` with something ("0 ≤ y", "y < 4")."""
+    marks = "<>\u2264\u2265"
+    return (
+        re.search(rf"[{marks}]=?\s*{letter}(?![A-Za-z])|(?<![A-Za-z]){letter}\s*[{marks}]", text)
+        is not None
+    )
 
 
 def _words_before(text: str, at: int) -> list[str]:
@@ -66,24 +77,28 @@ def intervals(text: str, variables: frozenset[str]) -> list[Interval]:
     """The intervals of x ``text`` writes: in brackets, in words, and as a double comparison
     in one clause ("0 ≤ x ≤ 2π", "-5 < x ≤ -2", its strictness kept)."""
     found: list[Interval] = []
-    pairs = [(m.group(1), m.group(2)) for m in BRACKETS.finditer(text)]
+    pairs = [(m.group(1), m.group(2), "") for m in BRACKETS.finditer(text)]
     for match in _FROM_TO.finditer(text):
         before = _words_before(text, match.start())[-3:]
         said_of_value = match.group("word") == "between" and not match.group("named")
         if said_of_value and _SAID_OF_A_VALUE & set(before):
             continue
-        pairs.append((match.group("low"), match.group("high")))
-    for low, high in pairs:
+        named = (match.group("named") or "").strip(" =")
+        pairs.append((match.group("low"), match.group("high"), named))
+    for low, high, of in pairs:
         a, b = number(low), number(high)
         if a is not None and b is not None and a != b:
-            found.append(Interval(a, b) if float(a) < float(b) else Interval(b, a))
+            a, b = (a, b) if float(a) < float(b) else (b, a)
+            found.append(Interval(a, b, of=of))
     for part in parts(text):
         sided = [c for c in conditions(part, variables) if c.value.is_number]
         lows = [c for c in sided if c.op in LOWER]
         highs = [c for c in sided if c.op in UPPER]
         if len(lows) == 1 and len(highs) == 1 and float(lows[0].value) < float(highs[0].value):
             low, high = lows[0], highs[0]
-            found.append(Interval(low.value, high.value, low.op == ">=", high.op == "<="))
+            # Of y only when y alone is compared: "0 ≤ y ≤ 4", not "-2 ≤ y ≤ 2 and 0 ≤ x ≤ 1".
+            of = "y" if _compared(part, "y") and not _compared(part, "x") else ""
+            found.append(Interval(low.value, high.value, low.op == ">=", high.op == "<=", of))
     return found
 
 
