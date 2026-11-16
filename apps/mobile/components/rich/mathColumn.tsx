@@ -1,10 +1,11 @@
 import { createContext, type ReactElement, type ReactNode, useContext } from "react";
 import { Dimensions, PixelRatio, View } from "react-native";
 
+import { WORK_INDENT } from "@/components/markdown/markdownContentStyles";
 import { scaled } from "@/components/rich/mathText/context";
 import { splitInlineMath } from "@/lib/markdown/inlineMath";
 import { splitWorkoutNote } from "@/lib/markdown/workoutSection";
-import { fittedIndent, layoutMath } from "@/lib/math/layout";
+import { fittedIndent, inlineMathNeedsScroll, layoutMath } from "@/lib/math/layout";
 import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
 import { parseSimpleLatex } from "@/lib/math/text";
 
@@ -40,6 +41,43 @@ export function formulaLinesIndent(latexLines: string[], indent: number, fontSiz
 
 function formulaWidth(latex: string, fontSize: number, fontScale: number): number {
   return scaled(layoutMath(parseSimpleLatex(fixImplicitExponents(latex.trim())), fontSize).width, fontScale);
+}
+
+/**
+ * Whether a formula may be wider than its line, so ``MathText`` scrolls it sideways: wider
+ * than the line less the working column's indent, the most a column takes. A scroller is a
+ * View, and a View in a sentence's Text (Text > Text > View) is what iOS lays out as 0×0:
+ * "adding the atomic masses: $8(12.011) + … = 194.19\ \text{g/mol}$ ☕" showed "adding the
+ * atomic masses: ☕" (live, 2026-11-15). Such a formula is hosted outside the Text, as a
+ * raised or stacked one is.
+ */
+export function formulaMayScroll(latex: string, fontSize: number): boolean {
+  const fontScale = PixelRatio.getFontScale();
+  const room = Dimensions.get("window").width - WORK_INDENT;
+  // Asked of every formula in a paragraph each time a streamed reply's text changes, by
+  // the paragraph, its text runs and its inline flow: each answer is laid out once.
+  const key = `${fontSize}|${fontScale}|${room}|${latex}`;
+  const known = scrollsByFormula.get(key);
+  if (known !== undefined) return known;
+  if (scrollsByFormula.size >= SCROLL_CACHE_SIZE) scrollsByFormula.clear();
+  const scrolls = inlineMathNeedsScroll(formulaWidth(latex, fontSize, fontScale), room);
+  scrollsByFormula.set(key, scrolls);
+  return scrolls;
+}
+
+/** Enough for every formula of a long chat; cleared whole when full, and at sign-out: its
+ * keys are the account's formulas. */
+const SCROLL_CACHE_SIZE = 500;
+const scrollsByFormula = new Map<string, boolean>();
+
+/** Forget every formula's width (``signOutCleanup``). */
+export function clearFormulaWidthCache(): void {
+  scrollsByFormula.clear();
+}
+
+/** Whether `text` (words and ``$…$`` maths) holds a formula that may scroll. */
+export function holdsWideFormula(text: string, fontSize: number): boolean {
+  return splitInlineMath(text).some((part) => part.type === "math" && formulaMayScroll(part.value, fontSize));
 }
 
 /**

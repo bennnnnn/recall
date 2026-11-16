@@ -14,12 +14,15 @@ the collision.
 
 from __future__ import annotations
 
+import math
+
 import pytest
 
 from app.core.config import Settings
 from app.modules.math.tools import _build_verified_block as build_math_block
 from app.modules.math.tools import extract_math_intent as extract_real_math_intent
 from app.modules.physics.direct import maybe_direct_physics_reply
+from app.modules.physics.solvers.friction import incline_scene
 from app.tests.modules.physics.support import build_verified_physics_block, extract_physics_intent
 
 PHYSICS_KINDS = {"kinematics", "projectile", "force", "energy", "momentum", "friction"}
@@ -346,3 +349,30 @@ def test_plain_newtons_second_law_still_reaches_the_force_extractor() -> None:
 
     assert intent is not None and intent.kind == "force"
     assert _verified_answer("a 5 kg mass accelerates at 2 m/s^2, what is the net force") == "10 N"
+
+
+@pytest.mark.parametrize("deg", [10.0, 30.0, 45.0, 60.0])
+def test_a_sliding_block_rests_on_the_ramp_with_room_for_its_weight(deg: float) -> None:
+    """The frame a finished playback rests on is the free-body diagram a student reads: the
+    block still on the ramp, high enough that its weight arrow is not cut by the ground. Slid
+    to the foot, "a 5 kg block on a 30° frictionless incline" ended past the ramp's end with
+    no mg arrow (live, 2026-11-15)."""
+    theta = math.radians(deg)
+    (scene,) = incline_scene(deg, mu=0.0, accel=9.81 * math.sin(theta), mass=5.0, g=9.81)
+    (body,) = scene.bodies
+    top = scene.y_max - 0.18 * 6.0  # the slope's top: the scene's height less its margin
+    foot = 6.0 * math.cos(theta)
+    for x, y in body.path:
+        # Every frame's box sits on the slope: under it is the ramp, not the floor past it.
+        assert x < foot - body.radius
+        assert y > body.radius
+    last_x, last_y = body.path[-1]
+    assert last_x < foot / 2 + body.radius
+    assert last_y >= top / 2
+    assert body.path[0] != body.path[-1]
+
+
+def test_a_held_block_stays_where_it_starts() -> None:
+    (scene,) = incline_scene(30.0, mu=0.6, held=True, mass=5.0, g=9.81)
+    (body,) = scene.bodies
+    assert len({tuple(point) for point in body.path}) == 1

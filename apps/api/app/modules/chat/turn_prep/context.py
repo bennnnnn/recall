@@ -155,6 +155,12 @@ class StreamContext:
     money: MoneyTurn | None = None
     # A calculation nothing verified: its ```worked block is laid out as it streams.
     worked: WorkedLayout | None = None
+    # The app language that block named for its words (``worked_language``).
+    worked_language: str | None = None
+    # What the reply's prompt was told of the message's picture: True, the problem's for the
+    # app to draw; False, a photo or painting as asked; None, the read was never applied
+    # (``decided_turn._leave_the_picture``, ``drawn_picture.app_draws_the_picture``).
+    problem_picture: bool | None = None
     # The photo's reader was unsure of its read: nothing is certified (``uncheck_cards``).
     photo_uncertain: bool = False
 

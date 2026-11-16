@@ -113,6 +113,7 @@ from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.chat.turn_trace import note_pass, note_pass_failed
 from app.modules.chat.untrusted_media import drop_media_lines, neutralize_untrusted_media
+from app.modules.chat.worked_language import localize_working_pass
 from app.modules.chat.worked_lead import drop_guessed_lead
 from app.services.subjects.registry import FENCE_FALLBACK, SUBJECTS
 
@@ -353,6 +354,8 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass("proper_case", restore_case, kind=TEXT),
     FinalizePass("presentation", present_markdown, kind=TEXT),
     FinalizePass("clock", fix_clock, kind=TEXT),
+    # Last: every pass above reads the worked layout's words in English.
+    FinalizePass("worked_language", localize_working_pass, kind=TEXT),
 )
 
 

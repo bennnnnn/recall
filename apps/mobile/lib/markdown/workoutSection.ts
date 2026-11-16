@@ -1,24 +1,50 @@
 import { fencedLines } from "@/lib/fence/scan";
+import { WORKED_WORDS, workedHeadings } from "@/lib/markdown/workedWords";
+
+// Every heading below is read in each app language: the API writes a worked layout's
+// headings in the reply's language (`workedWords.ts`).
+const GIVEN_HEADINGS = workedHeadings("given");
 
 /**
  * What is asked: **Required**, or **Find** in a reply written before November 2026 (and in
  * one a model still heads that way).
  */
-const REQUIRED_HEADINGS: readonly string[] = ["Required", "Find"];
+const REQUIRED_HEADINGS: readonly string[] = [...workedHeadings("required"), "Find"];
 
 /** The headings that open a worked reply, behind a thin rule: what it is given and what is asked. */
-export const OPENING_HEADINGS: readonly string[] = ["Given", ...REQUIRED_HEADINGS];
+const OPENING_HEADINGS: readonly string[] = [...GIVEN_HEADINGS, ...REQUIRED_HEADINGS];
+
+/**
+ * The English ones: they alone open a worked reply. A model writes them as its contract says,
+ * and a reply streams with them (the API writes another language's in only once it ends).
+ * Another language's heading opens one only beside a second of the layout's (`isWorkedReply`):
+ * a plain Spanish reply may head a paragraph **Datos**.
+ */
+export const ENGLISH_OPENING_HEADINGS: readonly string[] = [
+  WORKED_WORDS.en.given,
+  WORKED_WORDS.en.required,
+  "Find",
+];
 
 /**
  * The heading alone between what is asked and the working (November 2026): no lines of its
  * own, the sections below it are its lines.
  */
-export const SOLUTION_HEADING = "Solution";
+export const SOLUTION_HEADINGS = workedHeadings("solution");
 
 /** **Solution** alone on its line, with an optional trailing colon. */
 export function isSolutionHeading(text: string): boolean {
-  return text.trim().replace(/:$/, "") === SOLUTION_HEADING;
+  return SOLUTION_HEADINGS.includes(text.trim().replace(/:$/, ""));
 }
+
+/** **Given**: what the question states. */
+export function isGivenHeading(heading: string): boolean {
+  return GIVEN_HEADINGS.includes(heading);
+}
+
+const ANSWER_HEADINGS = workedHeadings("answer");
+/** One part's answer, "Answer (a)", as a regex alternation's source. */
+export const PART_ANSWER_SOURCE = String.raw`(?:${ANSWER_HEADINGS.join("|")}) \([a-h]\)`;
 
 /**
  * The one worked-solution layout the API writes for every subject:
@@ -34,12 +60,12 @@ export function isSolutionHeading(text: string): boolean {
 export const WORKOUT_HEADINGS: readonly string[] = [
   ...OPENING_HEADINGS,
   "Formula",
-  "Substitution",
-  "Steps",
-  "Answer",
+  ...workedHeadings("substitution"),
+  ...workedHeadings("steps"),
+  ...ANSWER_HEADINGS,
 ];
 
-const PART_ANSWER = /^Answer \([a-h]\)$/;
+const PART_ANSWER = new RegExp(`^${PART_ANSWER_SOURCE}$`);
 
 /** A heading as written, with an optional trailing colon. */
 export function workoutHeading(text: string): string | null {
@@ -49,7 +75,7 @@ export function workoutHeading(text: string): string | null {
 
 /** The answer of the whole question, or of one part ("Answer (a)"). */
 export function isAnswerHeading(heading: string): boolean {
-  return heading === "Answer" || PART_ANSWER.test(heading);
+  return ANSWER_HEADINGS.includes(heading) || PART_ANSWER.test(heading);
 }
 
 /**
@@ -66,15 +92,27 @@ export function lawHeading(text: string, firstLine: string, underSolution = fals
   return underSolution || /^\$/.test(firstLine.trim()) ? heading : null;
 }
 
-const WORKED_LINE_RE = new RegExp(String.raw`^\*\*(?:${OPENING_HEADINGS.join("|")}):?\*\*`);
+const WORKED_LINE_RE = new RegExp(String.raw`^\*\*(${OPENING_HEADINGS.join("|")}):?\*\*`);
+const BOLD_LEAD_RE = /^\*\*([^*\n]+?):?\*\*/;
 
 /** A reply worked in sections: it states what it is given or what is asked (a follow-up
  * that changes one given often skips Required). Read over the whole reply, its fences
- * left out: a part after an answer card (`---`, **(b) …**) is as worked as the first. */
+ * left out: a part after an answer card (`---`, **(b) …**) is as worked as the first.
+ * Another language's Given or Required counts only beside a second heading of the layout
+ * (`ENGLISH_OPENING_HEADINGS`). */
 export function isWorkedReply(text: string): boolean {
   if (!text.includes("**")) return false;
   const fenced = fencedLines(text, false);
-  return text.split("\n").some((line, index) => !fenced[index] && WORKED_LINE_RE.test(line));
+  const lines = text.split("\n").filter((_line, index) => !fenced[index]);
+  const opening = lines.map((line) => WORKED_LINE_RE.exec(line)?.[1]).filter((name) => name !== undefined);
+  if (opening.length === 0) return false;
+  if (opening.some((name) => ENGLISH_OPENING_HEADINGS.includes(name))) return true;
+  const headings = new Set<string>();
+  for (const line of lines) {
+    const lead = BOLD_LEAD_RE.exec(line)?.[1]?.trim();
+    if (lead && (workoutHeading(lead) !== null || isSolutionHeading(lead))) headings.add(lead);
+  }
+  return headings.size >= 2;
 }
 
 /** ``$2x = 8$ — subtract 3``: the state, then its move. A dash inside math is the math's. */

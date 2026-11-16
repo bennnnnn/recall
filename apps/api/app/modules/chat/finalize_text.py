@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from app.modules.chat.chart_sanitize import sanitize_chart_fences
 from app.modules.chat.clarify_card import CLARIFY_FENCE, NEVER_WITH_CARD, settle_clarify_cards
 from app.modules.chat.clock_denial import model_denies_clock
+from app.modules.chat.drawn_picture import app_draws_the_picture
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.formula_fences import unfence_formulas, unwrap_code_maths
 from app.modules.chat.json_output import is_json_request
@@ -42,12 +43,14 @@ async def attach_answer_photo(state: FinalizeState) -> str:
     """Swap the reply's ```photo fence for the photo found while it streamed.
 
     A linked photo commits the text, so a later failure keeps its marker. A Stop,
-    even one after the last token, does not wait (up to 2 s) for the photo.
+    even one after the last token, does not wait (up to 2 s) for the photo. A picture
+    the app draws itself (``drawn_picture``) gets no photo: "Show the path." beside a
+    projectile is its scene, not a photo of some path.
     """
     ctx = state.ctx
     photo = ctx.answer_photo
     stopped = state.should_cancel is not None and state.should_cancel()
-    if photo is None or state.was_cancelled or stopped:
+    if photo is None or state.was_cancelled or stopped or app_draws_the_picture(ctx):
         if photo is not None:
             photo.cancel()
         return strip_photo_fences(state.text)

@@ -26,6 +26,7 @@ from app.modules.physics.solver import PhysicsResult, solve_physics
 from app.modules.physics.solvers.chip import render_quantity, render_quantity_latex
 from app.modules.physics.solvers.results import PartResult, QuantityResult
 from app.modules.physics.working_steps import carried_to_answer, result_units
+from app.services.picture_copy import PICTURE_PLACEMENT_RULE
 from app.services.solving import (
     PhysicsPartWorking,
     SolveServiceError,
@@ -154,13 +155,17 @@ def _with_conversions(solved: PhysicsResult, shown: PhysicsResult) -> PhysicsRes
     return replace(shown, substitutions=(*shown.substitutions, *rows)) if rows else shown
 
 
-# The solver's scene is the drawing: the model neither denies it nor draws its own.
+# The solver's scene is the drawing: the model neither denies it nor draws its own, nor
+# says where it is or that the app will draw it ("The app will draw the ray diagram", under
+# the one drawn, live 2026-11-15). It answers a request to draw or show the problem.
 NATIVE_VISUAL_RULE = (
     "A verified native physics visual will render with this answer and will animate "
     "automatically when the scene contains motion. Never claim that you cannot show, "
     "embed, or provide an animation or diagram. Do not discuss how the visual is attached "
     "and do not emit a simulation fence yourself, or draw the situation again as a "
-    "```mermaid diagram, ASCII art or a text sketch: the app's picture is the drawing."
+    "```mermaid diagram, ASCII art or a text sketch: the app's picture is the drawing, and "
+    "it answers a request to draw or show the problem, which needs no words or section of "
+    f"its own. {PICTURE_PLACEMENT_RULE}"
 )
 
 

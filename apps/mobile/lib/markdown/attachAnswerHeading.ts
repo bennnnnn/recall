@@ -1,7 +1,16 @@
-// **Answer**, **Answer:**, ## Answer, Answer:, **Answer (a)** — the heading written above a card.
-const ANSWER_HEADING = /^(?:#{1,4}\s+)?(?:\*\*)?answer(?:\s*\(([a-h])\))?:?(?:\*\*)?:?$/i;
+import { ANSWER_WORDS_SOURCE } from "@/lib/markdown/workedWords";
+
+// **Answer**, **Answer:**, ## Answer, Answer:, **Answer (a)** — the heading written above a card,
+// in any app language: the API writes a worked layout's headings in the reply's (**Respuesta**).
+const ANSWER_HEADING = new RegExp(
+  String.raw`^(?:#{1,4}\s+)?(?:\*\*)?(?:${ANSWER_WORDS_SOURCE})(?:\s*\(([a-h])\))?:?(?:\*\*)?:?$`,
+  "iu",
+);
 // "Answer: 26.3\,\mathrm{N·m}": a heading and its value on one line.
-const ANSWER_WITH_VALUE = /^(?:\*\*)?answer:(?:\*\*)?\s*(\S.*)$/i;
+const ANSWER_WITH_VALUE = new RegExp(
+  String.raw`^(?:\*\*)?(?:${ANSWER_WORDS_SOURCE}):(?:\*\*)?\s*(\S.*)$`,
+  "iu",
+);
 // Every fence the card draws: ```answer, ~~~result, ```final.
 const ANSWER_FENCE = /^(?:`{3,}|~{3,})\s*(?:answer|result|final)\b/i;
 

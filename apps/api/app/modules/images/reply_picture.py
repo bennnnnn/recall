@@ -82,9 +82,11 @@ async def draw_unlinked(settings: Settings, *, user: User, chat_id: UUID, prompt
 class ReplyPicture:
     """One picture for one reply: started with the turn, attached when the reply ends.
 
-    ``figure`` answers whether the turn's read calls the picture a maths figure ("draw the
-    cylinder and find its volume"): maths draws that from the question's values, so no
-    painting is made (nor a day's picture spent) and no line says one was not."""
+    ``figure`` answers whether the turn's read calls the picture one the app draws itself, a
+    maths, physics or chemistry question's graph, diagram or molecule ("draw the cylinder
+    and find its volume", "find the current and draw the circuit"): that is drawn from the
+    question's values, so no painting is made (nor a day's picture spent) and no line says
+    one was not."""
 
     def __init__(
         self,
@@ -114,12 +116,12 @@ class ReplyPicture:
         language: str | None = None,
         figure: asyncio.Task[bool] | None = None,
     ) -> ReplyPicture:
-        """Start drawing once the read says it is no maths figure; a line saying why not is
-        in ``language`` (else the app's)."""
+        """Start drawing once the read says the app does not draw it; a line saying why not
+        is in ``language`` (else the app's)."""
 
         async def drawn() -> UUID | None:
             if figure is not None and await asyncio.shield(figure):
-                return None  # a maths figure: maths draws it
+                return None  # a picture the app draws itself
             return await draw_unlinked(settings, user=user, chat_id=chat_id, prompt=prompt)
 
         task = asyncio.create_task(drawn(), name="reply_picture")

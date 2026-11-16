@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 from uuid import uuid4
 
 import pytest
@@ -31,6 +31,9 @@ from app.modules.chat.worked_stream import ReplyFilter
 from app.modules.math.drawing.contract import DRAW_CONTRACT
 from app.services.md_fence_scan import iter_closed_fences
 from app.tests.modules.chat.chat_test_support import turn_deps
+
+if TYPE_CHECKING:
+    from redis.asyncio import Redis
 
 _VECTORS = (
     "Find the angle between the vectors (-1, 1, 1) and (2, 2, 2), and draw both from the origin."
@@ -586,7 +589,7 @@ async def test_an_instant_card_that_gives_way_gets_the_draw_contract_in_the_real
     tokens = [
         token
         async for token in stream_pipeline._produce_reply(
-            turn_deps(), None, settings, ctx, usage={}, accum=StreamAccum(),
+            turn_deps(), cast("Redis", None), settings, ctx, usage={}, accum=StreamAccum(),
             should_cancel=None, outcome=None, on_status=None, on_reasoning=None,
         )
     ]  # fmt: skip

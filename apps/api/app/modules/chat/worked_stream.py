@@ -21,7 +21,7 @@ from app.modules.chat.draw_stream import DrawFilter
 from app.modules.chat.stream_accum import StreamAccum
 from app.modules.chat.stream_scaffold import ScaffoldFilter
 from app.modules.chat.worked_render import WorkedLayout, render_worked
-from app.modules.chat.worked_solution import RecordModel, assemble, read_record
+from app.modules.chat.worked_solution import RecordModel, assemble, read_language, read_record
 from app.modules.chat.worked_text import units_in_working
 from app.services.md_fence_scan import FenceMarker, read_fence_marker
 
@@ -58,6 +58,8 @@ class WorkedFilter:
         # A block closed at the length cap: its own closer line is dropped when it comes.
         self._cut_off: FenceMarker | None = None
         self.blocks = 0
+        # The app language a block's ``language`` record named (``worked_language``).
+        self.language: str | None = None
 
     @property
     def text(self) -> str:
@@ -105,6 +107,11 @@ class WorkedFilter:
             return
         if marker is not None and marker.closes(self._fence):
             self._close()
+            return
+        language = read_language(line)
+        if language is not None:
+            # Never drawn, nor shown with the model's lines when the block has no records.
+            self.language = language
             return
         self._raw.append(line)
         self._raw_chars += len(line) + 1
@@ -162,6 +169,7 @@ class ReplyFilter:
         if self._worked is None:
             return visible
         self._worked.feed(visible)
+        self._accum.worked_language = self._worked.language
         return self._delta(self._worked.text)
 
     def flush(self) -> str:
@@ -171,6 +179,7 @@ class ReplyFilter:
             return tail
         self._worked.feed(tail)
         self._worked.close()
+        self._accum.worked_language = self._worked.language
         return self._delta(self._worked.text)
 
     def _delta(self, text: str) -> str:

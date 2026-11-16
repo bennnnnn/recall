@@ -64,6 +64,7 @@ from app.modules.chat.turn_resources import (
 )
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.modules.chat.turn_trace import traced_turn
+from app.modules.images.reply_picture import ReplyPicture
 
 logger = logging.getLogger(__name__)
 
@@ -264,9 +265,7 @@ async def stream_chat_response(
         )
         _attach_reads(ctx, settings, live_read, misses)
         try:
-            ctx.reply_picture = start_reply_picture(
-                deps, settings, user=turn.user, chat_id=chat_id, content=content, read=live_read
-            )
+            ctx.reply_picture = _start_picture(deps, settings, ctx, turn.user, content, live_read)
             await top_up_reserve_for_prompt(
                 res, settings=settings, ctx=ctx, daily_limit=turn.daily_limit
             )
@@ -284,6 +283,27 @@ async def stream_chat_response(
                 yield token
         finally:
             await _end_new_turn(ctx, chat_id)
+
+
+def _start_picture(
+    deps: ChatTurnDeps,
+    settings: Settings,
+    ctx: StreamContext,
+    user: User,
+    content: str,
+    read: asyncio.Task[TurnDecision | None] | None,
+) -> ReplyPicture | None:
+    """A multi-part message's picture, started once the turn's solve is known: a picture the
+    solve drew is never painted (``drawn_picture.app_draws``)."""
+    return start_reply_picture(
+        deps,
+        settings,
+        user=user,
+        chat_id=ctx.chat_id,
+        content=content,
+        read=read,
+        verified=ctx.verified_subject,
+    )
 
 
 @traced_turn("regenerate")
@@ -391,9 +411,7 @@ async def stream_regenerate_response(
             ctx=ctx,
             daily_limit=deps.quota.daily_limit_for_user(turn.user, settings),
         )
-        ctx.reply_picture = start_reply_picture(
-            deps, settings, user=turn.user, chat_id=chat_id, content=turn.content, read=live_read
-        )
+        ctx.reply_picture = _start_picture(deps, settings, ctx, turn.user, turn.content, live_read)
         try:
             async for token in stream_and_finalize(
                 deps,

@@ -44,6 +44,7 @@ from app.modules.billing import plan as plan_service
 from app.modules.billing.entitlements import has_strong_everyday_model
 from app.modules.chat.decider_read import NO_ANSWER, OTHER_ANSWER, READ_SUBJECTS
 from app.modules.chat.drawing_turn import ask_for_a_drawing
+from app.modules.chat.drawn_picture import app_draws, solve_draws
 from app.modules.chat.json_output import is_json_request
 from app.modules.chat.lesson_again import lesson_again
 from app.modules.chat.model_routing.decided import decided_lane, decided_level, math_backups
@@ -52,6 +53,7 @@ from app.modules.chat.prompt_constants.lesson_flow import LESSON_ASIDE_NOTE, les
 from app.modules.chat.prompt_constants.list_reference import OPTION_PICK_MARK
 from app.modules.chat.prompt_constants.practice import QUIZ_WHICH_NOTE, quiz_verdict_note
 from app.modules.chat.prompt_inject import inject_before_last_user
+from app.modules.chat.prompt_sections import with_problem_pictures
 from app.modules.chat.quiz_cards import PracticeCard, last_reply_cards, option_letter
 from app.modules.chat.turn_decision import TurnDecision, turn_decision_result
 from app.modules.chat.turn_prep.reading import plan_of
@@ -69,6 +71,7 @@ from app.modules.turn_reading.lesson_flow import (
 )
 from app.modules.turn_reading.school_question import is_school_exercise
 from app.services.md_fence_scan import line_fences
+from app.services.picture_copy import DRAWN_PICTURE_NOTE
 
 if TYPE_CHECKING:
     from app.modules.chat.turn_prep.context import StreamContext
@@ -111,6 +114,7 @@ async def decide_from_the_read(ctx: StreamContext, settings: Settings) -> None:
     read = await _the_read(ctx, settings)
     # A maths picture the message asks to see: the reply describes it (``drawing_turn``).
     await ask_for_a_drawing(ctx, settings, read, deadline)
+    _leave_the_picture(ctx, settings, read)
     if read is None or read.effort is None:
         note_decision("rules")
         return
@@ -137,9 +141,29 @@ async def decide_from_the_read(ctx: StreamContext, settings: Settings) -> None:
     _follow_note(ctx, read)
 
 
+def _leave_the_picture(ctx: StreamContext, settings: Settings, read: TurnDecision | None) -> None:
+    """A picture the app draws (``drawn_picture.app_draws``): a multi-part message's picture
+    part is the problem's, and its contract says so (``with_problem_pictures``); when the
+    solve drew it, the reply gives it no section or words and never places it. Otherwise the
+    painting or photo asked for stays, and nothing says the app draws it.
+
+    What the prompt was told is what finalize does (``ctx.problem_picture``): a photo or a
+    painting the prompt still asked for is never taken away because the read came in later."""
+    ctx.problem_picture = app_draws(read, ctx.verified_subject)
+    if read is None or not ctx.problem_picture:
+        return
+    ctx.prompt_messages = with_problem_pictures(
+        ctx.prompt_messages, plan_of(ctx.user_message_content or "", settings)
+    )
+    if not solve_draws(ctx.verified_subject, read.picture):
+        return
+    note_prompt_rule("drawn_picture")
+    ctx.prompt_messages = inject_before_last_user(ctx.prompt_messages, DRAWN_PICTURE_NOTE)
+
+
 async def _the_read(ctx: StreamContext, settings: Settings) -> TurnDecision | None:
     """The read when it is in; waited for only when it could still move Auto's lane, the
-    layout, or grade a card."""
+    layout, a picture part, or grade a card."""
     task = ctx.live_read
     if task is None:
         return None
@@ -147,9 +171,23 @@ async def _the_read(ctx: StreamContext, settings: Settings) -> TurnDecision | No
         if task.cancelled() or task.exception() is not None:
             return None
         return task.result()
-    if not (_lane_may_move(ctx) or _layout_at_stake(ctx) or _reads_the_cards(ctx)):
+    if not (
+        _lane_may_move(ctx)
+        or _layout_at_stake(ctx)
+        or _reads_the_cards(ctx)
+        or _picture_at_stake(ctx, settings)
+    ):
         return None
     return await turn_decision_result(task, settings)
+
+
+def _picture_at_stake(ctx: StreamContext, settings: Settings) -> bool:
+    """A multi-part message with a picture or photo part: the read says whether it is the
+    problem's, for the app to draw, and the prompt and finalize take the same answer (PR #2467
+    review: unwaited, a verified solve's prompt asked for a photo finalize then dropped)."""
+    if ctx.instant_reply is not None:
+        return False
+    return bool(plan_of(ctx.user_message_content or "", settings).of_kind("image", "photo"))
 
 
 def _answered_window(ctx: StreamContext) -> list[Any]:
