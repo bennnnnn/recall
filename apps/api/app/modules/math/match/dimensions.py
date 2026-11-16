@@ -6,6 +6,7 @@ Also the shape and draw words the geometry extractors require. Linear scans (Cod
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 
 from app.services.number_text import DECIMAL, DECIMAL_LITERAL
 from app.services.text_match import word_index
@@ -230,6 +231,40 @@ def _slanted(before: str) -> bool:
     return before.rstrip(" \t\n-").endswith("slant")
 
 
+def _whole_number(text: str, number: re.Match[str]) -> float | None:
+    """``number`` read whole: None when a root, π, a fraction, a decimal comma or a power
+    makes the measure more than that number."""
+    rest = text[number.end() :]
+    if (
+        _GLUED_AFTER.match(rest)
+        or _SPACED_AFTER.match(rest.lstrip())
+        or _after_root(text[: number.start()])
+    ):
+        return None
+    return float(number.group(0))
+
+
+def _read_after(text: str, lower: str, end: int) -> float | bool | None:
+    """The measure after a name ending at ``end``: its value, None when no number follows
+    at all, False when the next number is not this name's."""
+    number = _NUMBER.search(text, end)
+    if number is None:
+        return None
+    between = re.findall(r"[a-z]+|[^\sa-z]", lower[end : number.start()])
+    if not all(word in _LINK_WORDS for word in between):
+        return False
+    found = _whole_number(text, number)
+    return False if found is None else found
+
+
+def _names(lower: str, label: str) -> list[re.Match[str]]:
+    return [
+        name
+        for name in re.finditer(rf"(?<![a-z]){re.escape(label)}(?![a-z])", lower)
+        if not _slanted(lower[: name.start()])
+    ]
+
+
 def measure_after(text: str, label: str) -> float | None:
     """The measure stated right after ``label``, read whole, or None.
 
@@ -240,24 +275,39 @@ def measure_after(text: str, label: str) -> float | None:
     reader that took "slant height 50√2" as a height of 50 now declines.
     """
     lower = text.lower()
-    for name in re.finditer(rf"(?<![a-z]){re.escape(label)}(?![a-z])", lower):
-        if _slanted(lower[: name.start()]):
-            continue
-        number = _NUMBER.search(text, name.end())
-        if number is None:
-            return None
-        between = re.findall(r"[a-z]+|[^\sa-z]", lower[name.end() : number.start()])
-        if not all(word in _LINK_WORDS for word in between):
-            return None
-        rest = text[number.end() :]
-        if (
-            _GLUED_AFTER.match(rest)
-            or _SPACED_AFTER.match(rest.lstrip())
-            or _after_root(text[: number.start()])
-        ):
-            return None
-        return float(number.group(0))
+    for name in _names(lower, label):
+        found = _read_after(text, lower, name.end())
+        return None if found is None or found is False else float(found)
     return None
+
+
+def measures_after(text: str, label: str) -> list[float]:
+    """Every measure stated right after ``label`` ("radius 3 cm ... radius 5 cm"), each read
+    as ``measure_after`` reads one."""
+    lower = text.lower()
+    found = [_read_after(text, lower, name.end()) for name in _names(lower, label)]
+    return [float(value) for value in found if value is not None and value is not False]
+
+
+# A measure named after it: "6 m wide", "8 m up the wall", "1.2 m in diameter": the number,
+# its unit (one word, or none) and the name.
+_BEFORE_NAME = re.compile(rf"(?<![\d.,])({DECIMAL})\s*(?:([a-z]+)\.?)?\s+$")
+
+
+def measures_before(text: str, label: str, is_unit: Callable[[str], bool]) -> list[float]:
+    """Every measure stated right before ``label``, with a unit (``is_unit``) or none
+    between: "a box 8 cm long" is 8 before "long", "8 apples long" is none."""
+    lower = text.lower()
+    found: list[float] = []
+    for name in _names(lower, label):
+        before = _BEFORE_NAME.search(lower, max(0, name.start() - 24), name.start())
+        if before is None or (before.group(2) and not is_unit(before.group(2))):
+            continue
+        number = _NUMBER.match(text, before.start(1))
+        value = _whole_number(text, number) if number is not None else None
+        if value is not None:
+            found.append(value)
+    return found
 
 
 def two_numbers_after(text: str, label: str) -> tuple[float, float] | None:

@@ -1,8 +1,7 @@
 """Finalizing a reply: an ordered list of passes over the finished text.
 
-``FINALIZE_PASSES`` is the order. Each pass takes the reply so far and returns
-it changed. What an exception in it does follows its kind, unless its own
-``on_error`` says otherwise:
+``FINALIZE_PASSES`` is the order. Each pass takes the reply so far and returns it changed.
+What an exception in it does follows its kind, unless its own ``on_error`` says otherwise:
 
 - A text pass (``kind=TEXT``) goes on: the failure is logged under the pass's
   name (a timeout as a warning, any other failure captured), the turn's trace
@@ -14,14 +13,14 @@ it changed. What an exception in it does follows its kind, unless its own
   committed (ES-03). Either way the safety passes that text has not been through
   then run on it, each failing closed (``FinalizePass.closed``).
 - ``OnError(log_as=step)``: goes on like a text pass, logged as ``step``.
-- ``OnError(log_as=step, rewrite=fn)``: logged the same way; the next pass gets
-  what ``fn`` makes of that input.
+- ``OnError(log_as=step, rewrite=fn)``: logged the same way; the next pass gets what ``fn``
+  makes of that input.
 
-A safety pass that goes on after failing hands on its closed strip of its input,
-never the input itself.
+A safety pass that goes on after failing hands on its closed strip of its input, never the
+input itself.
 
-Then the reminder pass (``finalize_reminders``) runs on whatever text the passes
-leave: it is the one step with an effect outside the reply.
+Then the reminder pass (``finalize_reminders``) runs on whatever text the passes leave: it
+is the one step with an effect outside the reply.
 """
 
 from __future__ import annotations
@@ -37,6 +36,7 @@ from app.core.config import Settings
 from app.modules.chat.chart_turn import attach_chart
 from app.modules.chat.claim_check import cut_unsupported_claims
 from app.modules.chat.control_tokens import drop_control_tokens, strip_control_tokens
+from app.modules.chat.drawing_turn import attach_drawing
 from app.modules.chat.emoji_placement import place_reply_emoji
 from app.modules.chat.figure_turn import attach_figure
 from app.modules.chat.finalize_contracts import (
@@ -285,13 +285,13 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         kind=TEXT,
         after=frozenset({fences_pass(FENCE_FALLBACK)}),
     ),
-    # The pictures drawn beside the reply, each waiting on its model read and committing the
-    # text, a failure keeping it: a maths question's figure, after the passes that strip a
-    # picture no solver wrote, then a chart of the user's numbers in the model's chart's place.
+    # The pictures beside the reply (each commits; a failure keeps the text), after the passes
+    # that strip a picture no solver wrote: the reply's own maths picture, else the read's; a chart.
     *(
         FinalizePass(name, attach, OnError(log_as=name), kind=EFFECT, after=after)
         for name, attach, after in (
-            ("figure", attach_figure, frozenset({"math_fences", "formula_charts"})),
+            ("drawing", attach_drawing, frozenset({"math_fences", "formula_charts"})),
+            ("figure", attach_figure, frozenset({"drawing"})),
             ("data_chart", attach_chart, frozenset({"figure"})),
         )
     ),

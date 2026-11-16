@@ -207,6 +207,20 @@ class ChemistryFigure:
     def without_substitutes(self, text: str) -> str:
         return text
 
+    # A reply describes no chemistry picture (``math/drawing`` is maths' alone): chat asks
+    # only maths' figure for these, and chemistry's answer is none.
+    @property
+    def contract(self) -> str:
+        return ""
+
+    async def described(
+        self, descriptions: Sequence[str], texts: Sequence[str], reply: str, settings: Settings
+    ) -> list[str]:
+        return []
+
+    def without_drawn_substitutes(self, text: str) -> str:
+        return text
+
 
 @dataclass(frozen=True)
 class ChemistrySubject:

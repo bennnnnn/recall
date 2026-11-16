@@ -13,6 +13,7 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
+from app.modules.math.drawing.contract import DRAW_CONTRACT
 from app.modules.math.followup import (
     MATH_FOLLOWUP_HINT,
     answer_claim_problem,
@@ -51,6 +52,8 @@ _HINTS = SubjectHints(
     (MATH_REPLY_POLICY,),
     shared_math_ink=False,
     followup=(MATH_REPLY_POLICY, MATH_FOLLOWUP_HINT),
+    # A turn asking to see a picture gets it beside the message (chat's ``figure_turn``).
+    beside_visuals=(DRAW_CONTRACT,),
 )
 
 
@@ -313,6 +316,29 @@ class MathFigure:
         from app.modules.math.figure.substitutes import without_substitutes
 
         return without_substitutes(text)
+
+    @property
+    def contract(self) -> str:
+        return DRAW_CONTRACT
+
+    async def described(
+        self, descriptions: Sequence[str], texts: Sequence[str], reply: str, settings: Settings
+    ) -> list[str]:
+        from app.core import sympy_executor
+        from app.modules.math.drawing.build import drawn_fences
+
+        return await sympy_executor.run_sympy(
+            drawn_fences,
+            list(descriptions),
+            list(texts),
+            reply,
+            timeout=settings.stem_solve_timeout_seconds,
+        )
+
+    def without_drawn_substitutes(self, text: str) -> str:
+        from app.modules.math.figure.substitutes import without_drawn_substitutes
+
+        return without_drawn_substitutes(text)
 
 
 @dataclass(frozen=True)

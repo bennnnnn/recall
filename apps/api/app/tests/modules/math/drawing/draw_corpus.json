@@ -1,0 +1,1232 @@
+[
+ {
+  "id": "window",
+  "question": "A window is built in the shape of a rectangle with a semicircle on top. If there is 12 m of framing material for the outside edge, what dimensions let in the most light? Draw the window.",
+  "reply": "Let $r$ be the radius and $h$ the height: $2r + 2h + \\pi r = 12$.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"window\", \"width\": \"2r\", \"height\": \"h\", \"radius\": \"r\"}]}",
+  "expect": "draw",
+  "labels": [
+   "2r",
+   "h",
+   "r"
+  ]
+ },
+ {
+  "id": "cone_ratio",
+  "question": "The radius r of a right circular cone is increasing at a rate of 2 cm/min, and its height is always h = 3r. Find the rate of change of the volume when (a) r = 3 cm (b) r = 6 cm. Draw the cone.",
+  "reply": "",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"cone\", \"radius\": \"r\", \"height\": \"3r\"}]}",
+  "expect": "draw",
+  "labels": [
+   "3r",
+   "r",
+   "right"
+  ]
+ },
+ {
+  "id": "can_letters",
+  "question": "A cylindrical can is to be made to hold 10 litres of oil. Find the dimensions of the can that will minimise the cost of the metal. Draw the can with its dimensions.",
+  "reply": "Let $r$ be the radius and $h$ the height.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"cylinder\", \"radius\": \"r\", \"height\": \"h\"}]}",
+  "expect": "draw",
+  "labels": [
+   "h",
+   "r"
+  ]
+ },
+ {
+  "id": "open_box",
+  "question": "A manufacturer wants to design an open box with a square base and a surface area of 48 square units. What dimensions will produce a box with maximum volume? Draw the box.",
+  "reply": "Let the base be $x$ by $x$ and the height $h$.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"box\", \"open\": true, \"length\": \"x\", \"width\": \"x\", \"height\": \"h\"}]}",
+  "expect": "draw",
+  "labels": [
+   "x",
+   "h",
+   "x"
+  ]
+ },
+ {
+  "id": "balloon",
+  "question": "A spherical balloon is inflated at 20 cm³/min. How fast is the radius changing when the radius is 1 cm, 2 cm and 3 cm? Draw the balloon with its radius.",
+  "reply": "$V = \\frac{4}{3}\\pi r^3$",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"sphere\", \"radius\": \"r\"}]}",
+  "expect": "draw",
+  "labels": [
+   "r"
+  ]
+ },
+ {
+  "id": "triangle_at_points",
+  "question": "Find, by integration, the area of the triangle-shaped region whose vertices are (−4, −1), (0, 0) and (5, 4). Draw the three lines and shade the region.",
+  "reply": "",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"polygon\", \"vertices\": [{\"at\": [-4, -1]}, {\"at\": [0, 0]}, {\"at\": [5, 4]}]}]}",
+  "expect": "draw",
+  "labels": []
+ },
+ {
+  "id": "frustum",
+  "question": "Using the volume of revolution, prove that the volume of a frustum of a right circular cone with radii R and r and height h is (π/3)h(R² + rR + r²). Draw the region you rotate and the frustum.",
+  "reply": "",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"frustum\", \"top_radius\": \"r\", \"bottom_radius\": \"R\", \"height\": \"h\"}]}",
+  "expect": "draw",
+  "labels": [
+   "h",
+   "R",
+   "r"
+  ]
+ },
+ {
+  "id": "ladder_stated",
+  "question": "A ladder 10 m long leans against a vertical wall. Its foot slides away at 1 m/s. How fast does the top slide down when the foot is 6 m from the wall? Draw the ladder.",
+  "reply": "Let $x$ be the foot's distance and $y$ the top's height.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"ladder\", \"length\": \"10 m\", \"foot\": \"x\", \"top\": \"y\"}]}",
+  "expect": "draw",
+  "labels": [
+   "y",
+   "x",
+   "10 m",
+   "right"
+  ]
+ },
+ {
+  "id": "tank_cone",
+  "question": "Water pours into a conical tank of radius 2 m and height 5 m at 3 m³/min. How fast is the water rising when the depth is 3 m? Draw the tank.",
+  "reply": "Let $h$ be the depth and $r$ the radius of the surface.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"tank\", \"container\": \"cone\", \"radius\": \"2 m\", \"height\": \"5 m\", \"depth\": \"h\", \"surface\": \"r\"}]}",
+  "expect": "draw",
+  "labels": [
+   "h",
+   "2 m",
+   "r",
+   "5 m"
+  ]
+ },
+ {
+  "id": "sheet",
+  "question": "Equal squares are cut from the corners of a 20 cm by 30 cm sheet of card, which is folded into an open box. Find the cut that gives the largest volume, and draw the sheet and the box.",
+  "reply": "Let $x$ be the side of each square.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"sheet\", \"length\": \"30 cm\", \"width\": \"20 cm\", \"cut\": \"x\"}]}",
+  "expect": "draw",
+  "labels": [
+   "30 cm",
+   "20 cm",
+   "x",
+   "x"
+  ]
+ },
+ {
+  "id": "inscribed_cone",
+  "question": "A cylinder is inscribed in a right circular cone of radius 6 cm and height 10 cm. Find the largest volume of the cylinder, and draw it.",
+  "reply": "Let $r$ and $h$ be the cylinder's radius and height.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"inscribed\", \"container\": \"cone\", \"outer_radius\": \"6 cm\", \"outer_height\": \"10 cm\", \"radius\": \"r\", \"height\": \"h\"}]}",
+  "expect": "draw",
+  "labels": [
+   "h",
+   "r",
+   "6 cm",
+   "10 cm"
+  ]
+ },
+ {
+  "id": "square_and_circle",
+  "question": "A ten metre wire is cut to form a square and a circle. How should it be cut to make the total area smallest? Draw the two shapes.",
+  "reply": "Let $x$ be the square's side and $r$ the circle's radius.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"square\", \"side\": \"x\"}, {\"item\": \"circle\", \"radius\": \"r\"}]}",
+  "expect": "draw",
+  "labels": [
+   "x",
+   "r"
+  ]
+ },
+ {
+  "id": "rate_is_no_radius",
+  "question": "The radius r of a right circular cone is increasing at a rate of 2 cm/min, and its height is always h = 3r. Find the rate of change of the volume when (a) r = 3 cm (b) r = 6 cm. Draw the cone.",
+  "reply": "",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"cone\", \"radius\": \"2 cm\", \"height\": \"h\"}]}",
+  "expect": "draw",
+  "labels": [
+   "h",
+   "r",
+   "right"
+  ]
+ },
+ {
+  "id": "instant_r_is_no_height",
+  "question": "The radius r of a right circular cone is increasing at a rate of 2 cm/min, and its height is always h = 3r. Find the rate of change of the volume when (a) r = 3 cm (b) r = 6 cm. Draw the cone.",
+  "reply": "",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"cone\", \"radius\": \"r\", \"height\": \"3 cm\"}]}",
+  "expect": "draw",
+  "labels": [
+   "r",
+   "right"
+  ]
+ },
+ {
+  "id": "answer_is_no_label",
+  "question": "A manufacturer wants to design an open box with a square base and a surface area of 48 square units. What dimensions will produce a box with maximum volume? Draw the box.",
+  "reply": "x = 4, h = 2",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"box\", \"open\": true, \"length\": \"4\", \"width\": \"4\", \"height\": \"2\"}]}",
+  "expect": "draw",
+  "labels": [
+   "x = 4",
+   "x = 4",
+   "h = 2"
+  ]
+ },
+ {
+  "id": "optimum_is_no_label",
+  "question": "A cylindrical can is to be made to hold 10 litres of oil. Find the dimensions of the can that will minimise the cost of the metal. Draw the can with its dimensions.",
+  "reply": "At the minimum $h = 2r$.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"cylinder\", \"radius\": \"r\", \"height\": \"2r\"}]}",
+  "expect": "draw",
+  "labels": [
+   "r"
+  ]
+ },
+ {
+  "id": "unknown_letter",
+  "question": "A cylindrical can is to be made to hold 10 litres of oil. Find the dimensions of the can that will minimise the cost of the metal. Draw the can with its dimensions.",
+  "reply": "",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"cylinder\", \"radius\": \"q\", \"height\": \"h\"}]}",
+  "expect": "draw",
+  "labels": []
+ },
+ {
+  "id": "frustum_as_cone",
+  "question": "Using the volume of revolution, prove that the volume of a frustum of a right circular cone with radii R and r and height h is (π/3)h(R² + rR + r²). Draw the region you rotate and the frustum.",
+  "reply": "",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"cone\", \"radius\": \"R\", \"height\": \"h\"}]}",
+  "expect": "drop",
+  "labels": null
+ },
+ {
+  "id": "circle_for_sphere",
+  "question": "How far is the point P(3, −1, 2) from the sphere whose equation is (x − 1)² + (y + 2)² + z² = 1? Draw the sphere, the point and the shortest distance.",
+  "reply": "",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"circle\", \"radius\": \"1\"}]}",
+  "expect": "drop",
+  "labels": null
+ },
+ {
+  "id": "window_contradiction",
+  "question": "A window is built in the shape of a rectangle with a semicircle on top. If there is 12 m of framing material for the outside edge, what dimensions let in the most light? Draw the window.",
+  "reply": "Let $r$ and $h$.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"window\", \"width\": \"r\", \"height\": \"h\", \"radius\": \"r\"}]}",
+  "expect": "draw",
+  "labels": [
+   "h",
+   "r"
+  ]
+ },
+ {
+  "id": "unstated_foot_left_off",
+  "question": "A ladder 10 m long leans against a vertical wall. Its foot slides away at 1 m/s. How fast does the top slide down when the foot is 6 m from the wall? Draw the ladder.",
+  "reply": "",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"ladder\", \"length\": \"10 m\", \"foot\": \"12 m\"}]}",
+  "expect": "draw",
+  "labels": [
+   "10 m",
+   "right"
+  ]
+ },
+ {
+  "id": "ladder_cannot_reach",
+  "question": "A 5 m ladder leans on a wall with its foot 6 m from the wall. Draw it.",
+  "reply": "",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"ladder\", \"length\": \"5 m\", \"foot\": \"6 m\"}]}",
+  "expect": "drop",
+  "labels": null
+ },
+ {
+  "id": "radius_at_one_moment",
+  "question": "A spherical balloon is inflated at 20 cm³/min. How fast is the radius changing when the radius is r = 1 cm, r = 2 cm and r = 3 cm? Draw the balloon with its radius.",
+  "reply": "",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"sphere\", \"radius\": \"1 cm\"}]}",
+  "expect": "draw",
+  "labels": []
+ },
+ {
+  "id": "stated_radius_kept",
+  "question": "A sphere has radius r = 4 cm. Find its volume and draw it.",
+  "reply": "",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"sphere\", \"radius\": \"4 cm\"}]}",
+  "expect": "draw",
+  "labels": [
+   "4 cm"
+  ]
+ },
+ {
+  "id": "triangle_not_stated",
+  "question": "Find, by integration, the area of the triangle-shaped region whose vertices are (−4, −1), (0, 0) and (5, 4). Draw the three lines and shade the region.",
+  "reply": "",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"polygon\", \"vertices\": [{\"at\": [0, 0]}, {\"at\": [5, 0]}, {\"at\": [3, 5]}]}]}",
+  "expect": "drop",
+  "labels": null
+ },
+ {
+  "id": "unknown_shape",
+  "question": "A window is built in the shape of a rectangle with a semicircle on top. If there is 12 m of framing material for the outside edge, what dimensions let in the most light? Draw the window.",
+  "reply": "",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"torus\", \"radius\": \"r\"}]}",
+  "expect": "drop",
+  "labels": null
+ },
+ {
+  "id": "one_part_fails",
+  "question": "A ten metre wire is cut to form a square and a circle. How should it be cut to make the total area smallest? Draw the two shapes.",
+  "reply": "Let $x$ and $r$.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"square\", \"side\": \"x\"}, {\"item\": \"cone\", \"radius\": \"r\"}]}",
+  "expect": "drop",
+  "labels": null
+ },
+ {
+  "id": "not_json",
+  "question": "A window is built in the shape of a rectangle with a semicircle on top. If there is 12 m of framing material for the outside edge, what dimensions let in the most light? Draw the window.",
+  "reply": "",
+  "description": "{kind: shape",
+  "expect": "drop",
+  "labels": null
+ },
+ {
+  "id": "tank_not_named",
+  "question": "A window is built in the shape of a rectangle with a semicircle on top. If there is 12 m of framing material for the outside edge, what dimensions let in the most light? Draw the window.",
+  "reply": "",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"tank\", \"container\": \"cone\", \"radius\": \"r\"}]}",
+  "expect": "drop",
+  "labels": null
+ },
+ {
+  "id": "room",
+  "question": "Assume your classroom is a rectangular box with a floor 8 metres long and 6 metres wide, and the height from floor to ceiling is 3 metres. Find the diagonal from a floor corner to the opposite ceiling corner, and the angle with the floor diagonal. Draw the room with both diagonals.",
+  "reply": "Let $O$ be the corner; the angle is $\\theta \\approx 16.70^\\circ$.",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"box\", \"size\": [8, 6, 3], \"corners\": {\"O\": [0, 0, 0], \"F\": [8, 6, 3], \"B\": [8, 6, 0]}, \"diagonals\": [\"OF\", \"OB\"]}, {\"item\": \"angle\", \"at\": \"O\", \"between\": [\"F\", \"B\"], \"label\": \"\\u03b8\"}]}",
+  "expect": "draw",
+  "labels": [
+   "8 m",
+   "6 m",
+   "3 m",
+   "θ ≈ 16.7°"
+  ]
+ },
+ {
+  "id": "point_guides",
+  "question": "Find the distance of the point P(4, −3, 5) from the xz-plane, the yz-plane and each axis. Locate P in space and show these distances.",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"point\", \"name\": \"P\", \"at\": [4, -3, 5], \"guides\": true}]}",
+  "expect": "draw",
+  "labels": []
+ },
+ {
+  "id": "feet_are_no_stated_points",
+  "question": "Find the distance of the point P(4, −3, 5) from the xz-plane, the yz-plane and each axis. Locate P in space and show these distances.",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"point\", \"name\": \"P\", \"at\": [4, -3, 5]}, {\"item\": \"point\", \"name\": \"Z\", \"at\": [0, 0, 5]}, {\"item\": \"segment\", \"from\": \"P\", \"to\": \"Z\", \"label\": \"5\"}]}",
+  "expect": "draw",
+  "labels": []
+ },
+ {
+  "id": "a_foot_is_no_answer_point",
+  "question": "Find the coordinates of the two points on the x-axis which are √12 units from the point P(−1, −1, 2). Show them in space.",
+  "reply": "The points are $(-1 \\pm \\sqrt{7}, 0, 0)$; call them $A$ and $B$.",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"point\", \"name\": \"P\", \"at\": [-1, -1, 2]}, {\"item\": \"point\", \"name\": \"A\", \"at\": [-1, 0, 0]}, {\"item\": \"segment\", \"from\": \"P\", \"to\": \"A\", \"label\": \"\\u221a12\"}]}",
+  "expect": "draw",
+  "labels": []
+ },
+ {
+  "id": "letter_is_the_replys_length",
+  "question": "How far is the point P(3, −1, 2) from the sphere whose equation is (x − 1)² + (y + 2)² + z² = 1? Draw the sphere, the point and the shortest distance.",
+  "reply": "Centre $C(1, -2, 0)$. $PC = 3$, so the shortest distance is $d = 3 - 1$, $d = 2$.",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"sphere\", \"name\": \"C\", \"equation\": \"(x-1)^2+(y+2)^2+z^2=1\"}, {\"item\": \"point\", \"name\": \"P\", \"at\": [3, -1, 2]}, {\"item\": \"segment\", \"from\": \"P\", \"to\": \"C\", \"label\": \"d\"}]}",
+  "expect": "draw",
+  "labels": [
+   "1"
+  ]
+ },
+ {
+  "id": "letter_on_its_length",
+  "question": "Assume your classroom is a rectangular box with a floor 8 metres long and 6 metres wide, and the height from floor to ceiling is 3 metres. Find the diagonal from a floor corner to the opposite ceiling corner, and the angle with the floor diagonal. Draw the room with both diagonals.",
+  "reply": "$d = \\sqrt{109}$, $d = 10.44$ m",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"box\", \"size\": [8, 6, 3], \"corners\": {\"O\": [0, 0, 0], \"G\": [8, 6, 3]}}, {\"item\": \"segment\", \"from\": \"O\", \"to\": \"G\", \"label\": \"d\"}]}",
+  "expect": "draw",
+  "labels": [
+   "8 m",
+   "6 m",
+   "3 m",
+   "d = √109 m"
+  ]
+ },
+ {
+  "id": "a_long_label_is_none",
+  "question": "Assume your classroom is a rectangular box with a floor 8 metres long and 6 metres wide, and the height from floor to ceiling is 3 metres. Find the diagonal from a floor corner to the opposite ceiling corner, and the angle with the floor diagonal. Draw the room with both diagonals.",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"box\", \"size\": [8, 6, 3], \"corners\": {\"O\": [0, 0, 0], \"F\": [8, 6, 0]}}, {\"item\": \"segment\", \"from\": \"O\", \"to\": \"F\", \"label\": \"floor diagonal\"}]}",
+  "expect": "draw",
+  "labels": [
+   "8 m",
+   "6 m",
+   "3 m"
+  ]
+ },
+ {
+  "id": "names_swapped",
+  "question": "Determine the nature of triangle ABC using distances, where A(0, 0, 3), B(2, 8, 1) and C(−9, 6, 18). Draw the triangle in space.",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"point\", \"name\": \"B\", \"at\": [0, 0, 3]}, {\"item\": \"point\", \"name\": \"A\", \"at\": [2, 8, 1]}, {\"item\": \"point\", \"name\": \"C\", \"at\": [-9, 6, 18]}, {\"item\": \"polygon\", \"vertices\": [\"A\", \"B\", \"C\"]}]}",
+  "expect": "draw",
+  "labels": [],
+  "shown": [
+   "C"
+  ]
+ },
+ {
+  "id": "vector_names_swapped",
+  "question": "Make a three-dimensional sketch showing each vector with initial point at the origin: a = 2i + j + 3k, b = −3i + 4j − k, c = −3i + 5j + 5k, d = 4j − 7k.",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"vector\", \"name\": \"b\", \"to\": [2, 1, 3]}, {\"item\": \"vector\", \"name\": \"a\", \"to\": [-3, 4, -1]}]}",
+  "expect": "draw",
+  "labels": []
+ },
+ {
+  "id": "right_triangle_space",
+  "question": "Determine the nature of triangle ABC using distances, where A(0, 0, 3), B(2, 8, 1) and C(−9, 6, 18). Draw the triangle in space.",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"point\", \"name\": \"A\", \"at\": [0, 0, 3]}, {\"item\": \"point\", \"name\": \"B\", \"at\": [2, 8, 1]}, {\"item\": \"point\", \"name\": \"C\", \"at\": [-9, 6, 18]}, {\"item\": \"polygon\", \"vertices\": [\"A\", \"B\", \"C\"]}, {\"item\": \"angle\", \"at\": \"A\", \"between\": [\"B\", \"C\"]}]}",
+  "expect": "draw",
+  "labels": [
+   "right"
+  ]
+ },
+ {
+  "id": "collinear_points",
+  "question": "Determine the nature of triangle ABC using distances, where A(1, 0, −3), B(2, 2, 0) and C(4, 6, 6). Show the points in space.",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"point\", \"name\": \"A\", \"at\": [1, 0, -3]}, {\"item\": \"point\", \"name\": \"B\", \"at\": [2, 2, 0]}, {\"item\": \"point\", \"name\": \"C\", \"at\": [4, 6, 6]}, {\"item\": \"segment\", \"from\": \"A\", \"to\": \"C\"}]}",
+  "expect": "draw",
+  "labels": []
+ },
+ {
+  "id": "vectors_ijk",
+  "question": "Make a three-dimensional sketch showing each vector with initial point at the origin: a = 2i + j + 3k, b = −3i + 4j − k, c = −3i + 5j + 5k, d = 4j − 7k.",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"vector\", \"name\": \"a\", \"to\": [2, 1, 3]}, {\"item\": \"vector\", \"name\": \"b\", \"to\": [-3, 4, -1]}, {\"item\": \"vector\", \"name\": \"c\", \"to\": [-3, 5, 5]}, {\"item\": \"vector\", \"name\": \"d\", \"to\": [0, 4, -7]}]}",
+  "expect": "draw",
+  "labels": [
+   "a",
+   "b",
+   "c",
+   "d"
+  ]
+ },
+ {
+  "id": "sphere_equation",
+  "question": "Decide whether each is the equation of a sphere. If it is, find its centre and radius and draw it: (a) x² + y² + z² − 2y = 4 (b) x² + y² + z² − x + 2y − 3z + 4 = 0",
+  "reply": "The centre is $C(0, 1, 0)$.",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"sphere\", \"name\": \"C\", \"equation\": \"x^2 + y^2 + z^2 - 2y = 4\"}]}",
+  "expect": "draw",
+  "labels": [
+   "√5"
+  ]
+ },
+ {
+  "id": "sphere_centre_from_its_equation",
+  "question": "Decide whether each is the equation of a sphere. If it is, find its centre and radius and draw it: (a) x² + y² + z² − 2y = 4 (b) x² + y² + z² − x + 2y − 3z + 4 = 0",
+  "reply": "The centre is $C(0, 1, 0)$.",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"sphere\", \"name\": \"C\", \"center\": [0, 1, 0], \"radius\": \"\\u221a5\"}]}",
+  "expect": "draw",
+  "labels": [
+   "√5"
+  ]
+ },
+ {
+  "id": "sphere_radius_from_its_equation",
+  "question": "Decide whether each is the equation of a sphere. If it is, find its centre and radius and draw it: (a) x² + y² + z² − 2y = 4 (b) x² + y² + z² − x + 2y − 3z + 4 = 0",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"sphere\", \"center\": [0, 1, 0], \"radius\": 2}]}",
+  "expect": "draw",
+  "labels": [
+   "√5"
+  ]
+ },
+ {
+  "id": "sphere_and_point",
+  "question": "How far is the point P(3, −1, 2) from the sphere whose equation is (x − 1)² + (y + 2)² + z² = 1? Draw the sphere, the point and the shortest distance.",
+  "reply": "The centre is $C(1, -2, 0)$.",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"sphere\", \"name\": \"C\", \"equation\": \"(x-1)^2+(y+2)^2+z^2=1\"}, {\"item\": \"point\", \"name\": \"P\", \"at\": [3, -1, 2]}, {\"item\": \"segment\", \"from\": \"P\", \"to\": \"C\"}]}",
+  "expect": "draw",
+  "labels": [
+   "1"
+  ]
+ },
+ {
+  "id": "points_and_sphere",
+  "question": "If the centre of a sphere is at the origin and its radius is 10 units, determine which of these points lie inside, outside or on the sphere, and show them with the sphere: A(2, 1, 2), B(−3, 2, 4), C(5, 8, 6), D(0, 8, 6), E(−8, −6, 0).",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"sphere\", \"center\": [0, 0, 0], \"radius\": 10}, {\"item\": \"point\", \"name\": \"A\", \"at\": [2, 1, 2]}, {\"item\": \"point\", \"name\": \"B\", \"at\": [-3, 2, 4]}, {\"item\": \"point\", \"name\": \"C\", \"at\": [5, 8, 6]}, {\"item\": \"point\", \"name\": \"D\", \"at\": [0, 8, 6]}, {\"item\": \"point\", \"name\": \"E\", \"at\": [-8, -6, 0]}]}",
+  "expect": "draw",
+  "labels": [
+   "10"
+  ]
+ },
+ {
+  "id": "angle_between",
+  "question": "Find the angle between the vectors (−1, 1, 1) and (2, 2, 2), and draw both vectors from the origin.",
+  "reply": "Let $u$ and $v$ be the vectors: $\\theta \\approx 70.53^\\circ$.",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"vector\", \"name\": \"u\", \"to\": [-1, 1, 1]}, {\"item\": \"vector\", \"name\": \"v\", \"to\": [2, 2, 2]}, {\"item\": \"angle\", \"at\": \"O\", \"between\": [\"u\", \"v\"], \"label\": \"\\u03b8\"}]}",
+  "expect": "draw",
+  "labels": [
+   "u",
+   "v",
+   "θ ≈ 70.53°"
+  ]
+ },
+ {
+  "id": "perpendicular",
+  "question": "Calculate the scalar (dot) product of p = (2, 5, 6) and q = (6, 6, −7), find the cosine of the angle between them, and show both vectors in space.",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"vector\", \"name\": \"p\", \"to\": [2, 5, 6]}, {\"item\": \"vector\", \"name\": \"q\", \"to\": [6, 6, -7]}, {\"item\": \"angle\", \"at\": \"O\", \"between\": [\"p\", \"q\"]}]}",
+  "expect": "draw",
+  "labels": [
+   "p",
+   "q",
+   "right"
+  ]
+ },
+ {
+  "id": "plane_patch",
+  "question": "Find the equation of the plane through A(1, 0, 0), B(0, 2, 0) and C(0, 0, 3), and draw it.",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"point\", \"name\": \"A\", \"at\": [1, 0, 0]}, {\"item\": \"point\", \"name\": \"B\", \"at\": [0, 2, 0]}, {\"item\": \"point\", \"name\": \"C\", \"at\": [0, 0, 3]}, {\"item\": \"plane\", \"through\": [\"A\", \"B\", \"C\"]}]}",
+  "expect": "draw",
+  "labels": []
+ },
+ {
+  "id": "computed_distance_label",
+  "question": "Find the angle between the vectors (−1, 1, 1) and (2, 2, 2), and draw both vectors from the origin.",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"point\", \"name\": \"P\", \"at\": [-1, 1, 1]}, {\"item\": \"point\", \"name\": \"Q\", \"at\": [2, 2, 2]}, {\"item\": \"segment\", \"from\": \"P\", \"to\": \"Q\", \"label\": \"3.32\"}]}",
+  "expect": "draw",
+  "labels": [
+   "√11"
+  ]
+ },
+ {
+  "id": "stated_value_wrong_place",
+  "question": "Find the distance of the point P(4, −3, 5) from the xz-plane, the yz-plane and each axis. Locate P in space and show these distances.",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"point\", \"name\": \"P\", \"at\": [4, -3, 5]}, {\"item\": \"segment\", \"from\": \"O\", \"to\": \"P\", \"label\": \"5\"}]}",
+  "expect": "draw",
+  "labels": []
+ },
+ {
+  "id": "one_vector_unstated",
+  "question": "Make a three-dimensional sketch showing each vector with initial point at the origin: a = 2i + j + 3k, b = −3i + 4j − k, c = −3i + 5j + 5k, d = 4j − 7k.",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"vector\", \"name\": \"a\", \"to\": [2, 1, 3]}, {\"item\": \"vector\", \"name\": \"e\", \"to\": [10, -5, 14]}]}",
+  "expect": "draw",
+  "labels": [
+   "a"
+  ]
+ },
+ {
+  "id": "angle_value_computed",
+  "question": "Find the angle between the vectors (−1, 1, 1) and (2, 2, 2), and draw both vectors from the origin.",
+  "reply": "Let $u$ and $v$.",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"vector\", \"name\": \"u\", \"to\": [-1, 1, 1]}, {\"item\": \"vector\", \"name\": \"v\", \"to\": [2, 2, 2]}, {\"item\": \"angle\", \"at\": \"O\", \"between\": [\"u\", \"v\"], \"label\": \"70.5\\u00b0\"}]}",
+  "expect": "draw",
+  "labels": [
+   "u",
+   "v",
+   "70.53°"
+  ]
+ },
+ {
+  "id": "setup_not_stated",
+  "question": "Two airplanes take off from the same airport. One heads north at 600 km/h and the other east at 700 km/h, at flight levels 10 km and 12 km. What is the distance between them after one hour? Show both planes and the airport in a 3D coordinate system.",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"point\", \"name\": \"A\", \"at\": [0, 600, 10]}, {\"item\": \"point\", \"name\": \"B\", \"at\": [700, 0, 12]}, {\"item\": \"segment\", \"from\": \"A\", \"to\": \"B\"}]}",
+  "expect": "drop",
+  "labels": null
+ },
+ {
+  "id": "box_corner_off_the_box",
+  "question": "Assume your classroom is a rectangular box with a floor 8 metres long and 6 metres wide, and the height from floor to ceiling is 3 metres. Find the diagonal from a floor corner to the opposite ceiling corner, and the angle with the floor diagonal. Draw the room with both diagonals.",
+  "reply": "Let $O$ and $F$.",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"box\", \"size\": [8, 6, 3], \"corners\": {\"O\": [0, 0, 0], \"F\": [8, 6, 4]}, \"diagonals\": [\"OF\"]}]}",
+  "expect": "drop",
+  "labels": null
+ },
+ {
+  "id": "box_size_unstated",
+  "question": "Assume your classroom is a rectangular box with a floor 8 metres long and 6 metres wide, and the height from floor to ceiling is 3 metres. Find the diagonal from a floor corner to the opposite ceiling corner, and the angle with the floor diagonal. Draw the room with both diagonals.",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"box\", \"size\": [8, 6, 4]}]}",
+  "expect": "drop",
+  "labels": null
+ },
+ {
+  "id": "not_a_sphere",
+  "question": "Decide whether each is the equation of a sphere. If it is, find its centre and radius and draw it: (a) x² + y² + z² − 2y = 4 (b) x² + y² + z² − x + 2y − 3z + 4 = 0",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"sphere\", \"equation\": \"x^2 + y^2 + z^2 - x + 2y - 3z + 4 = 0\"}]}",
+  "expect": "drop",
+  "labels": null
+ },
+ {
+  "id": "sphere_not_the_questions",
+  "question": "Decide whether each is the equation of a sphere. If it is, find its centre and radius and draw it: (a) x² + y² + z² − 2y = 4 (b) x² + y² + z² − x + 2y − 3z + 4 = 0",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"sphere\", \"equation\": \"x^2 + y^2 + z^2 = 9\"}]}",
+  "expect": "drop",
+  "labels": null
+ },
+ {
+  "id": "triangle_unstated_corner",
+  "question": "Determine the nature of triangle ABC using distances, where A(0, 0, 3), B(2, 8, 1) and C(−9, 6, 18). Draw the triangle in space.",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"point\", \"name\": \"A\", \"at\": [0, 0, 3]}, {\"item\": \"point\", \"name\": \"B\", \"at\": [2, 8, 1]}, {\"item\": \"point\", \"name\": \"C\", \"at\": [-9, 6, 17]}, {\"item\": \"polygon\", \"vertices\": [\"A\", \"B\", \"C\"]}]}",
+  "expect": "drop",
+  "labels": null
+ },
+ {
+  "id": "collinear_polygon",
+  "question": "Determine the nature of triangle ABC using distances, where A(1, 0, −3), B(2, 2, 0) and C(4, 6, 6). Show the points in space.",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"point\", \"name\": \"A\", \"at\": [1, 0, -3]}, {\"item\": \"point\", \"name\": \"B\", \"at\": [2, 2, 0]}, {\"item\": \"point\", \"name\": \"C\", \"at\": [4, 6, 6]}, {\"item\": \"polygon\", \"vertices\": [\"A\", \"B\", \"C\"]}]}",
+  "expect": "drop",
+  "labels": null
+ },
+ {
+  "id": "main_item_unreadable",
+  "question": "Assume your classroom is a rectangular box with a floor 8 metres long and 6 metres wide, and the height from floor to ceiling is 3 metres. Find the diagonal from a floor corner to the opposite ceiling corner, and the angle with the floor diagonal. Draw the room with both diagonals.",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"box\", \"size\": \"8 by 6\"}, {\"item\": \"axes\"}]}",
+  "expect": "drop",
+  "labels": null
+ },
+ {
+  "id": "items_as_a_map",
+  "question": "A manufacturer wants to design an open box with a square base and a surface area of 48 square units. What dimensions will produce a box with maximum volume? Draw the box.",
+  "reply": "Let the base be $x$ by $x$ and the height $h$.",
+  "description": "{\"kind\": \"shape\", \"items\": {\"box\": {\"open\": true, \"length\": \"x\", \"width\": \"x\", \"height\": \"h\"}}}",
+  "expect": "draw",
+  "labels": [
+   "x",
+   "h",
+   "x"
+  ]
+ },
+ {
+  "id": "only_the_origin",
+  "question": "Two airplanes take off from the same airport. One heads north at 600 km/h and the other east at 700 km/h, at flight levels 10 km and 12 km. What is the distance between them after one hour? Show both planes and the airport in a 3D coordinate system.",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"point\", \"name\": \"A\", \"at\": [0, 0, 0]}, {\"item\": \"point\", \"name\": \"B\", \"at\": [700, 0, 12]}]}",
+  "expect": "drop",
+  "labels": null
+ },
+ {
+  "id": "window_at_its_best",
+  "question": "A window is built in the shape of a rectangle with a semicircle on top. If there is 12 m of framing material for the outside edge, what dimensions let in the most light? Draw the window.",
+  "reply": "Let $r$ be the radius and $h$ the height: $r \\approx 1.68$ m, $h \\approx 1.68$ m.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"window\", \"width\": \"2r\", \"height\": \"h\", \"radius\": \"r\", \"fixed\": {\"perimeter\": \"12 m\"}, \"optimise\": {\"area\": \"max\"}}]}",
+  "expect": "draw",
+  "labels": [
+   "2r ≈ 3.36 m",
+   "h ≈ 1.68 m",
+   "r ≈ 1.68 m"
+  ]
+ },
+ {
+  "id": "can_at_its_best",
+  "question": "A cylindrical can is to be made to hold 10 litres of oil. Find the dimensions of the can that will minimise the cost of the metal. Draw the can with its dimensions.",
+  "reply": "Let $r$ and $h$: $r \\approx 11.68$ cm, $h \\approx 23.35$ cm.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"cylinder\", \"radius\": \"r\", \"height\": \"h\", \"fixed\": {\"volume\": \"10 litres\"}, \"optimise\": {\"surface\": \"min\"}}]}",
+  "expect": "draw",
+  "labels": [
+   "h ≈ 23.35 cm",
+   "r ≈ 11.68 cm"
+  ]
+ },
+ {
+  "id": "can_numbers_checked",
+  "question": "A cylindrical can is to be made to hold 10 litres of oil. Find the dimensions of the can that will minimise the cost of the metal. Draw the can with its dimensions.",
+  "reply": "So $r \\approx 11.68$ cm and $h \\approx 23.35$ cm.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"cylinder\", \"radius\": \"11.68 cm\", \"height\": \"23.35 cm\", \"fixed\": {\"volume\": \"10 litres\"}, \"optimise\": {\"surface\": \"min\"}}]}",
+  "expect": "draw",
+  "labels": [
+   "h ≈ 23.35 cm",
+   "r ≈ 11.68 cm"
+  ]
+ },
+ {
+  "id": "can_wrong_number_left_off",
+  "question": "A cylindrical can is to be made to hold 10 litres of oil. Find the dimensions of the can that will minimise the cost of the metal. Draw the can with its dimensions.",
+  "reply": "So $r \\approx 11.68$ cm and $h \\approx 23.35$ cm.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"cylinder\", \"radius\": \"12 cm\", \"height\": \"23.35 cm\", \"fixed\": {\"volume\": \"10 litres\"}, \"optimise\": {\"surface\": \"min\"}}]}",
+  "expect": "draw",
+  "labels": [
+   "h",
+   "r"
+  ]
+ },
+ {
+  "id": "open_box_at_its_best",
+  "question": "A manufacturer wants to design an open box with a square base and a surface area of 48 square units. What dimensions will produce a box with maximum volume? Draw the box.",
+  "reply": "base $x$ by $x$, height $h$: $x = 4$, $h = 2$",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"box\", \"open\": true, \"length\": \"x\", \"width\": \"x\", \"height\": \"h\", \"fixed\": {\"surface\": \"48 square units\"}, \"optimise\": {\"volume\": \"max\"}}]}",
+  "expect": "draw",
+  "labels": [
+   "x = 4",
+   "x = 4",
+   "h = 2"
+  ]
+ },
+ {
+  "id": "amount_not_stated",
+  "question": "A manufacturer wants to design an open box with a square base and a surface area of 48 square units. What dimensions will produce a box with maximum volume? Draw the box.",
+  "reply": "x and h",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"box\", \"open\": true, \"length\": \"x\", \"width\": \"x\", \"height\": \"h\", \"fixed\": {\"surface\": \"50 square units\"}, \"optimise\": {\"volume\": \"max\"}}]}",
+  "expect": "draw",
+  "labels": [
+   "x",
+   "x",
+   "h"
+  ]
+ },
+ {
+  "id": "ladder_top_worked",
+  "question": "A ladder 10 m long leans against a wall with its foot 6 m from the wall. Draw it.",
+  "reply": "let $y$ be the height",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"ladder\", \"length\": \"10 m\", \"foot\": \"6 m\", \"top\": \"y\"}]}",
+  "expect": "draw",
+  "labels": [
+   "10 m",
+   "6 m",
+   "y = 8 m",
+   "right"
+  ]
+ },
+ {
+  "id": "sphere_radius_rounded",
+  "question": "Decide whether each is the equation of a sphere. If it is, find its centre and radius and draw it: (a) x² + y² + z² − 2y = 4 (b) x² + y² + z² − x + 2y − 3z + 4 = 0",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"sphere\", \"name\": \"C\", \"center\": [0, 1, 0], \"radius\": 2.236}]}",
+  "expect": "draw",
+  "labels": [
+   "√5"
+  ]
+ },
+ {
+  "id": "sphere_radius_wrong_is_the_equations",
+  "question": "Decide whether each is the equation of a sphere. If it is, find its centre and radius and draw it: (a) x² + y² + z² − 2y = 4 (b) x² + y² + z² − x + 2y − 3z + 4 = 0",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"sphere\", \"center\": [0, 1, 0], \"radius\": 2.3}]}",
+  "expect": "draw",
+  "labels": [
+   "√5"
+  ]
+ },
+ {
+  "id": "angle_letter_server_sized",
+  "question": "Find the angle between the vectors (−1, 1, 1) and (2, 2, 2), and draw both vectors from the origin.",
+  "reply": "Let $a$ and $b$; $\\cos\\theta = 1/3$.",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"vector\", \"name\": \"a\", \"to\": [-1, 1, 1]}, {\"item\": \"vector\", \"name\": \"b\", \"to\": [2, 2, 2]}, {\"item\": \"angle\", \"at\": \"O\", \"between\": [\"a\", \"b\"], \"label\": \"\\u03b8\"}]}",
+  "expect": "draw",
+  "labels": [
+   "a",
+   "b",
+   "θ ≈ 70.53°"
+  ]
+ },
+ {
+  "id": "angle_letter_other_size",
+  "question": "Find the angle between the vectors (−1, 1, 1) and (2, 2, 2), and draw both vectors from the origin.",
+  "reply": "Let $a$ and $b$; $\\theta = 30^\\circ$.",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"vector\", \"name\": \"a\", \"to\": [-1, 1, 1]}, {\"item\": \"vector\", \"name\": \"b\", \"to\": [2, 2, 2]}, {\"item\": \"angle\", \"at\": \"O\", \"between\": [\"a\", \"b\"], \"label\": \"\\u03b8\"}]}",
+  "expect": "draw",
+  "labels": [
+   "a",
+   "b",
+   "arc"
+  ]
+ },
+ {
+  "id": "one_letter_one_length",
+  "question": "A window is built in the shape of a rectangle with a semicircle on top. If there is 12 m of framing material for the outside edge, what dimensions let in the most light? Draw the window.",
+  "reply": "Let $r$ be the radius.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"window\", \"width\": \"2r\", \"height\": \"r\", \"radius\": \"r\"}]}",
+  "expect": "draw",
+  "labels": [
+   "2r",
+   "r"
+  ]
+ },
+ {
+  "id": "frustum_R_on_top",
+  "question": "Using the volume of revolution, prove that the volume of a frustum of a right circular cone with radii R and r and height h is (π/3)h(R² + rR + r²). Draw the region you rotate and the frustum.",
+  "reply": "",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"frustum\", \"top_radius\": \"R\", \"bottom_radius\": \"r\", \"height\": \"h\"}]}",
+  "expect": "draw",
+  "labels": [
+   "h",
+   "R",
+   "r"
+  ]
+ },
+ {
+  "id": "only_axes",
+  "question": "Find the distance of the point P(4, −3, 5) from the xz-plane, the yz-plane and each axis. Locate P in space and show these distances.",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}]}",
+  "expect": "drop",
+  "labels": null
+ },
+ {
+  "id": "plot_not_yet",
+  "question": "Find, by integration, the area of the triangle-shaped region whose vertices are (−4, −1), (0, 0) and (5, 4). Draw the three lines and shade the region.",
+  "reply": "",
+  "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"expr\": \"x/4\"}]}",
+  "expect": "drop",
+  "labels": null
+ },
+ {
+  "id": "numbers_found_as_the_best",
+  "question": "A window is built in the shape of a rectangle with a semicircle on top. If there is 12 m of framing material for the outside edge, what dimensions let in the most light (maximum area)? Draw the window.",
+  "reply": "So $w = 3.36$ m, $h = 1.68$ m and $r = 1.68$ m (earlier $h = 6 - 2r$).",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"window\", \"width\": \"3.36 m\", \"height\": \"1.68 m\", \"radius\": \"1.68 m\"}]}",
+  "expect": "draw",
+  "labels": [
+   "w ≈ 3.36 m",
+   "h ≈ 1.68 m",
+   "r ≈ 1.68 m"
+  ]
+ },
+ {
+  "id": "numbers_no_best_keep_letters",
+  "question": "A window is built in the shape of a rectangle with a semicircle on top. If there is 12 m of framing material for the outside edge, what dimensions let in the most light? Draw the window.",
+  "reply": "So $w = 3.4$ m, $h = 1.5$ m and $r = 1.7$ m.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"window\", \"width\": \"3.4 m\", \"height\": \"1.5 m\", \"radius\": \"1.7 m\"}]}",
+  "expect": "draw",
+  "labels": [
+   "w",
+   "h",
+   "r"
+  ]
+ },
+ {
+  "id": "best_without_the_reply_echo",
+  "question": "A window is built in the shape of a rectangle with a semicircle on top. If there is 12 m of framing material for the outside edge, what dimensions let in the most light (maximum area)? Draw the window.",
+  "reply": "Let $r$ be the radius and $h$ the height.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"window\", \"width\": \"2r\", \"height\": \"h\", \"radius\": \"r\", \"fixed\": {\"perimeter\": \"12 m\"}, \"optimise\": {\"area\": \"max\"}}]}",
+  "expect": "draw",
+  "labels": [
+   "2r ≈ 3.36 m",
+   "h ≈ 1.68 m",
+   "r ≈ 1.68 m"
+  ]
+ },
+ {
+  "id": "letters_the_reply_works_out",
+  "question": "A window is built in the shape of a rectangle with a semicircle on top. If there is 12 m of framing material for the outside edge, what dimensions let in the most light (maximum area)? Draw the window.",
+  "reply": "So $w = 3.36$ m, $h = 1.68$ m and $r = 1.68$ m.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"window\", \"width\": \"w\", \"height\": \"h\", \"radius\": \"r\"}]}",
+  "expect": "draw",
+  "labels": [
+   "w ≈ 3.36 m",
+   "h ≈ 1.68 m",
+   "r ≈ 1.68 m"
+  ]
+ },
+ {
+  "id": "letters_the_reply_works_otherwise",
+  "question": "A window is built in the shape of a rectangle with a semicircle on top. If there is 12 m of framing material for the outside edge, what dimensions let in the most light (maximum area)? Draw the window.",
+  "reply": "So $w = 3$ m, $h = 2$ m and $r = 1.5$ m.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"window\", \"width\": \"w\", \"height\": \"h\", \"radius\": \"r\"}]}",
+  "expect": "draw",
+  "labels": [
+   "w",
+   "h",
+   "r"
+  ]
+ },
+ {
+  "id": "best_of_an_amount_not_named_needs_the_echo",
+  "question": "A cylindrical can is to be made to hold 10 litres of oil. Find the dimensions of the can that will minimise the cost of the metal. Draw the can with its dimensions.",
+  "reply": "Let $r$ be the radius and $h$ the height.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"cylinder\", \"radius\": \"r\", \"height\": \"h\", \"fixed\": {\"volume\": \"10 litres\"}, \"optimise\": {\"surface\": \"min\"}}]}",
+  "expect": "draw",
+  "labels": [
+   "h",
+   "r"
+  ]
+ },
+ {
+  "id": "best_the_reply_disputes_keeps_letters",
+  "question": "A cylindrical can is to be made to hold 10 litres of oil. Find the dimensions of the can that will minimise the cost of the metal. Draw the can with its dimensions.",
+  "reply": "So $r = 10$ cm and $h = 31.8$ cm.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"cylinder\", \"radius\": \"r\", \"height\": \"h\", \"fixed\": {\"volume\": \"10 litres\"}, \"optimise\": {\"surface\": \"min\"}}]}",
+  "expect": "draw",
+  "labels": [
+   "h",
+   "r"
+  ]
+ },
+ {
+  "id": "r2_sph_rhs_as_radius",
+  "question": "Does the point (3, 4, 0) lie on the sphere x^2 + y^2 + z^2 = 25? Draw it.",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"sphere\", \"center\": [0, 0, 0], \"radius\": 25}, {\"item\": \"point\", \"name\": \"P\", \"at\": [3, 4, 0]}]}",
+  "expect": "draw",
+  "labels": [
+   "5"
+  ],
+  "shown": []
+ },
+ {
+  "id": "r2_sph_coord_as_radius",
+  "question": "Does the point (3, 4, 0) lie on the sphere x^2 + y^2 + z^2 = 25? Draw it.",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"sphere\", \"center\": [0, 0, 0], \"radius\": 4}, {\"item\": \"point\", \"name\": \"P\", \"at\": [3, 4, 0]}]}",
+  "expect": "draw",
+  "labels": [
+   "5"
+  ],
+  "shown": []
+ },
+ {
+  "id": "r2_sph_centre_through",
+  "question": "Find the equation of the sphere with centre C(1, 2, 3) that passes through P(4, 6, 3). Draw it.",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"sphere\", \"name\": \"C\", \"center\": [1, 2, 3], \"radius\": 4}, {\"item\": \"point\", \"name\": \"P\", \"at\": [4, 6, 3]}]}",
+  "expect": "drop",
+  "labels": null,
+  "shown": null
+ },
+ {
+  "id": "r2_sph_centre_through_ok",
+  "question": "Find the equation of the sphere with centre C(1, 2, 3) that passes through P(4, 6, 3). Draw it.",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"sphere\", \"name\": \"C\", \"center\": [1, 2, 3], \"radius\": 5}, {\"item\": \"point\", \"name\": \"P\", \"at\": [4, 6, 3]}]}",
+  "expect": "draw",
+  "labels": [
+   "5"
+  ],
+  "shown": [
+   "C",
+   "P"
+  ]
+ },
+ {
+  "id": "r2_sph_two_spheres_pick",
+  "question": "Sphere S1: x^2 + y^2 + z^2 = 9 and sphere S2: (x-4)^2 + y^2 + z^2 = 4. Draw S1.",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"sphere\", \"center\": [0, 0, 0], \"radius\": 4}]}",
+  "expect": "draw",
+  "labels": [
+   "3"
+  ],
+  "shown": []
+ },
+ {
+  "id": "r2_sph_radius_diameter",
+  "question": "A sphere has centre (0, 0, 0) and diameter 10. Draw it with the point (3, 0, 4).",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"sphere\", \"center\": [0, 0, 0], \"radius\": 10}, {\"item\": \"point\", \"name\": \"P\", \"at\": [3, 0, 4]}]}",
+  "expect": "drop",
+  "labels": null,
+  "shown": null
+ },
+ {
+  "id": "r2_box_swapped",
+  "question": "A rectangular box has length 8 cm, width 6 cm and height 3 cm. Find the length of its diagonal and draw it.",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"box\", \"size\": [3, 6, 8], \"corners\": {\"O\": [0, 0, 0], \"G\": [3, 6, 8]}, \"diagonals\": [\"OG\"]}]}",
+  "expect": "drop",
+  "labels": null,
+  "shown": null
+ },
+ {
+  "id": "r2_box_diag_as_edge",
+  "question": "A box has a base 12 cm by 4 cm and a space diagonal of 13 cm. Find its height and draw it.",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"box\", \"size\": [12, 4, 13]}]}",
+  "expect": "drop",
+  "labels": null,
+  "shown": null
+ },
+ {
+  "id": "r2_box_letters_conv",
+  "question": "OABCDEFG is a cuboid with OA = 8 along the x-axis, OC = 6 along the y-axis and OD = 3 along the z-axis. Find the angle between OF and OB.",
+  "reply": "$\\theta \\approx 16.70^\\circ$",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"box\", \"size\": [8, 6, 3], \"corners\": {\"O\": [0, 0, 0], \"A\": [8, 0, 0], \"C\": [8, 6, 0], \"B\": [0, 6, 0], \"F\": [8, 6, 3]}, \"diagonals\": [\"OF\", \"OB\"]}, {\"item\": \"angle\", \"at\": \"O\", \"between\": [\"F\", \"B\"], \"label\": \"\\u03b8\"}]}",
+  "expect": "draw",
+  "labels": [
+   "6",
+   "8",
+   "3"
+  ],
+  "shown": []
+ },
+ {
+  "id": "r2_box_corner_named_elsewhere",
+  "question": "A cuboid has vertices O(0, 0, 0) and G(5, 4, 3). Draw it and the diagonal OG.",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"box\", \"size\": [5, 4, 3], \"corners\": {\"O\": [0, 0, 0], \"G\": [5, 0, 3]}, \"diagonals\": [\"OG\"]}]}",
+  "expect": "draw",
+  "labels": [
+   "4",
+   "5",
+   "3"
+  ],
+  "shown": []
+ },
+ {
+  "id": "r2_vec_point_as_comp",
+  "question": "A(1, 2, 3) and B(4, 5, 6). Draw the vector AB.",
+  "reply": "",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"point\", \"name\": \"A\", \"at\": [1, 2, 3]}, {\"item\": \"point\", \"name\": \"B\", \"at\": [4, 5, 6]}, {\"item\": \"vector\", \"name\": \"v\", \"from\": \"A\", \"to\": [4, 5, 6]}]}",
+  "expect": "draw",
+  "labels": [],
+  "shown": [
+   "A",
+   "B"
+  ]
+ },
+ {
+  "id": "r2_vec_angle_diff_tails",
+  "question": "Let a = (1, 2, 2) and b = (2, 0, 1), with b drawn from P(1, 1, 0). Find the angle between a and b.",
+  "reply": "$\\cos\\theta = 4/9$",
+  "description": "{\"kind\": \"space\", \"items\": [{\"item\": \"axes\"}, {\"item\": \"point\", \"name\": \"P\", \"at\": [1, 1, 0]}, {\"item\": \"vector\", \"name\": \"a\", \"to\": [1, 2, 2]}, {\"item\": \"vector\", \"name\": \"b\", \"from\": \"P\", \"to\": [2, 0, 1]}, {\"item\": \"angle\", \"at\": \"O\", \"between\": [\"a\", \"b\"], \"label\": \"\\u03b8\"}]}",
+  "expect": "draw",
+  "labels": [
+   "a",
+   "b"
+  ],
+  "shown": [
+   "P"
+  ]
+ },
+ {
+  "id": "r2_sq_perimeter_side",
+  "question": "A square has a perimeter of 20 cm. Find its area and draw it.",
+  "reply": "",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"square\", \"side\": \"20 cm\"}]}",
+  "expect": "draw",
+  "labels": [],
+  "shown": []
+ },
+ {
+  "id": "r2_circle_circumference_radius",
+  "question": "A circle has circumference 31.4 cm. Find its radius and draw it.",
+  "reply": "",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"circle\", \"radius\": \"31.4 cm\"}]}",
+  "expect": "draw",
+  "labels": [],
+  "shown": []
+ },
+ {
+  "id": "r2_rect_perimeter_width",
+  "question": "A rectangle has perimeter 30 m and is 3 m wide. Find its length and draw it.",
+  "reply": "",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"rectangle\", \"width\": \"3 m\", \"height\": \"30 m\"}]}",
+  "expect": "draw",
+  "labels": [
+   "3 m"
+  ],
+  "shown": []
+ },
+ {
+  "id": "r2_cyl_respectively",
+  "question": "A cylinder has radius and height 3 cm and 10 cm respectively. Find its volume and draw it.",
+  "reply": "",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"cylinder\", \"radius\": \"10 cm\", \"height\": \"3 cm\"}]}",
+  "expect": "draw",
+  "labels": [],
+  "shown": []
+ },
+ {
+  "id": "r2_cone_slant_as_height",
+  "question": "A cone has slant height 13 cm and radius 5 cm. Find its height and draw it.",
+  "reply": "",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"cone\", \"radius\": \"5 cm\", \"height\": \"13 cm\"}]}",
+  "expect": "draw",
+  "labels": [
+   "5 cm",
+   "right"
+  ],
+  "shown": []
+ },
+ {
+  "id": "r2_ladder_top_as_foot",
+  "question": "A 10 m ladder leans against a wall and reaches 8 m up the wall. How far is its foot from the wall? Draw it.",
+  "reply": "",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"ladder\", \"length\": \"10 m\", \"foot\": \"8 m\", \"top\": \"h\"}]}",
+  "expect": "draw",
+  "labels": [
+   "10 m",
+   "right"
+  ],
+  "shown": []
+ },
+ {
+  "id": "r2_tank_depth_height_swap",
+  "question": "Water pours into a conical tank of radius 2 m and height 5 m at 3 m^3/min. How fast is the level rising when the water is 3 m deep? Draw the tank.",
+  "reply": "",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"tank\", \"container\": \"cone\", \"radius\": \"2 m\", \"height\": \"3 m\", \"depth\": \"5 m\"}]}",
+  "expect": "draw",
+  "labels": [
+   "2 m"
+  ],
+  "shown": []
+ },
+ {
+  "id": "r2_polygon_swapped_letters",
+  "question": "Triangle ABC has vertices A(0, 0), B(4, 0) and C(0, 3). Find its area and draw it.",
+  "reply": "",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"polygon\", \"vertices\": [{\"name\": \"A\", \"at\": [4, 0]}, {\"name\": \"B\", \"at\": [0, 0]}, {\"name\": \"C\", \"at\": [0, 3]}]}]}",
+  "expect": "draw",
+  "labels": [],
+  "shown": []
+ },
+ {
+  "id": "r2_polygon_bowtie",
+  "question": "Find the area of the quadrilateral with vertices (0, 0), (5, 0), (5, 2) and (0, 4), and draw it.",
+  "reply": "",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"polygon\", \"vertices\": [{\"at\": [0, 0]}, {\"at\": [5, 2]}, {\"at\": [5, 0]}, {\"at\": [0, 4]}]}]}",
+  "expect": "drop",
+  "labels": null,
+  "shown": null
+ },
+ {
+  "id": "r2_polygon_bowtie_letters",
+  "question": "Quadrilateral PQRS has P(0, 0), Q(5, 0), R(5, 2) and S(0, 4). Draw it.",
+  "reply": "",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"polygon\", \"vertices\": [{\"name\": \"P\", \"at\": [0, 0]}, {\"name\": \"R\", \"at\": [5, 2]}, {\"name\": \"Q\", \"at\": [5, 0]}, {\"name\": \"S\", \"at\": [0, 4]}]}]}",
+  "expect": "drop",
+  "labels": null,
+  "shown": null
+ },
+ {
+  "id": "r2_field_river",
+  "question": "A farmer has 400 m of fencing to enclose a rectangular field beside a river; no fence is needed along the river. Find the largest area and draw the field.",
+  "reply": "Let $x$ and $y$: $2x + y = 400$, so $x = 100$, $y = 200$.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"rectangle\", \"width\": \"x\", \"height\": \"y\", \"fixed\": {\"perimeter\": \"400 m\"}, \"optimise\": {\"area\": \"max\"}}]}",
+  "expect": "draw",
+  "labels": [
+   "x",
+   "y"
+  ],
+  "shown": []
+ },
+ {
+  "id": "r2_pens_divider",
+  "question": "A farmer uses 600 m of fencing to make a rectangular pen divided into two by a fence parallel to one side. Find the largest area and draw it.",
+  "reply": "Let $x$ and $y$: $3x + 2y = 600$, $x = 100$, $y = 150$.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"rectangle\", \"width\": \"x\", \"height\": \"y\", \"fixed\": {\"perimeter\": \"600 m\"}, \"optimise\": {\"area\": \"max\"}}]}",
+  "expect": "draw",
+  "labels": [
+   "x",
+   "y"
+  ],
+  "shown": []
+ },
+ {
+  "id": "r2_can_open_forgot",
+  "question": "An open-top cylindrical tank must hold 500 cm³. Find the radius that uses the least metal and draw the tank.",
+  "reply": "Let $r$ and $h$.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"cylinder\", \"radius\": \"r\", \"height\": \"h\", \"fixed\": {\"volume\": \"500 cm\\u00b3\"}, \"optimise\": {\"surface\": \"min\"}}]}",
+  "expect": "draw",
+  "labels": [
+   "h",
+   "r"
+  ],
+  "shown": []
+ },
+ {
+  "id": "r2_can_closed_open_flag",
+  "question": "A closed cylindrical can must hold 500 cm³. Find the radius that uses the least metal and draw it.",
+  "reply": "Let $r$ and $h$.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"cylinder\", \"radius\": \"r\", \"height\": \"h\", \"open\": true, \"fixed\": {\"volume\": \"500 cm\\u00b3\"}, \"optimise\": {\"surface\": \"min\"}}]}",
+  "expect": "draw",
+  "labels": [
+   "h",
+   "r"
+  ],
+  "shown": []
+ },
+ {
+  "id": "r2_can_cost",
+  "question": "A cylindrical can must hold 500 cm³. The top and bottom cost twice as much per cm² as the side. Find the cheapest radius and draw the can.",
+  "reply": "Let $r$ and $h$.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"cylinder\", \"radius\": \"r\", \"height\": \"h\", \"fixed\": {\"volume\": \"500 cm\\u00b3\"}, \"optimise\": {\"surface\": \"min\"}}]}",
+  "expect": "draw",
+  "labels": [
+   "h",
+   "r"
+  ],
+  "shown": []
+ },
+ {
+  "id": "r2_can_surface_for_volume",
+  "question": "A cylindrical can must hold 500 cm³. Find the radius that uses the least metal and draw it.",
+  "reply": "Let $r$ and $h$.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"cylinder\", \"radius\": \"r\", \"height\": \"h\", \"fixed\": {\"surface\": \"500 cm\\u00b2\"}, \"optimise\": {\"volume\": \"max\"}}]}",
+  "expect": "draw",
+  "labels": [
+   "h",
+   "r"
+  ],
+  "shown": []
+ },
+ {
+  "id": "r2_window_area_for_perimeter",
+  "question": "A window is a rectangle with a semicircle on top. There is 12 m of framing. Find the dimensions that let in the most light and draw the window.",
+  "reply": "Let $r$ and $h$.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"window\", \"width\": \"2r\", \"height\": \"h\", \"radius\": \"r\", \"fixed\": {\"area\": \"12 m\\u00b2\"}, \"optimise\": {\"perimeter\": \"min\"}}]}",
+  "expect": "draw",
+  "labels": [
+   "2r",
+   "h",
+   "r"
+  ],
+  "shown": []
+ },
+ {
+  "id": "r2_box_open_forgot",
+  "question": "An open box with a square base must have a surface area of 48 square units. Find the largest volume and draw the box.",
+  "reply": "Let $x$ and $h$.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"box\", \"length\": \"x\", \"width\": \"x\", \"height\": \"h\", \"fixed\": {\"surface\": \"48 square units\"}, \"optimise\": {\"volume\": \"max\"}}]}",
+  "expect": "draw",
+  "labels": [
+   "x",
+   "x",
+   "h"
+  ],
+  "shown": []
+ },
+ {
+  "id": "r2_can_relation_claim",
+  "question": "A closed cylindrical can must hold 500 cm³ with the least metal. Draw it.",
+  "reply": "Let $r$.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"cylinder\", \"radius\": \"r\", \"height\": \"r\"}]}",
+  "expect": "draw",
+  "labels": [
+   "r"
+  ],
+  "shown": []
+ },
+ {
+  "id": "r2_sheet_min",
+  "question": "Squares are cut from the corners of a 20 cm by 30 cm sheet of card to make an open box. Find the largest volume and draw the sheet.",
+  "reply": "Let $x$.",
+  "description": "{\"kind\": \"shape\", \"items\": [{\"item\": \"sheet\", \"length\": \"30 cm\", \"width\": \"20 cm\", \"cut\": \"x\", \"optimise\": {\"volume\": \"min\"}}]}",
+  "expect": "draw",
+  "labels": [
+   "30 cm",
+   "20 cm",
+   "x",
+   "x"
+  ],
+  "shown": []
+ }
+]

@@ -58,7 +58,7 @@ from app.modules.todos import write_log
 from app.modules.todos.reply_check import KEEP_AS_REMINDER, NEED_A_TIME
 from app.modules.turn_reading.lesson_flow import has_lesson_title
 from app.modules.turn_reading.routing import EMOJI
-from app.services.md_fence_scan import iter_closed_fences, without_fences
+from app.services.md_fence_scan import iter_closed_fences, strip_closed_fences, without_fences
 from app.tests.behavior.cases import Case, Expect
 from app.tests.behavior.harness import (
     USER_TIMEZONE,
@@ -111,6 +111,9 @@ NEAR_USER_AREAS = {"places near user"}
 # study chemistry"), or an acronym beside a weak cue ("the SI base units of the newton"): no
 # chemistry status or prompt (audit 2026-11-13).
 NOT_CHEMISTRY_AREAS = {"chemistry word lookalike"}
+# A reply that wrote a ```draw block on a turn no read asked for a picture on ("how do I draw
+# a cube in Blender?"): the block goes and nothing is drawn.
+DRAW_LOOKALIKE_AREAS = {"draw lookalike"}
 # Messages with separate requests, and look-alikes that are one request.
 MULTI_AREAS = {"multi"}
 SINGLE_PART_AREAS = {"multi lookalike"}
@@ -495,7 +498,9 @@ def _words(text: str) -> set[str]:
 
 
 def _kept(reply: str, final: str) -> bool:
-    """Most of the reply's words survived (layout fixes may move them)."""
+    """Most of the reply's words survived (layout fixes may move them). A ```draw block is
+    no words of the reply: the server draws it or drops it."""
+    reply = strip_closed_fences(reply, "draw")
     if not reply.strip():
         return True
     words = _words(reply)
@@ -524,6 +529,11 @@ def judge(outcome: Outcome) -> list[str]:
         problems.append("not read as places near the user")
     if entry.area in NOT_CHEMISTRY_AREAS and route.subject == "chemistry":
         problems.append("read as a chemistry question")
+    # A reply's picture description is the server's to draw or drop; the user never sees it.
+    if "```draw" in outcome.final:
+        problems.append("a ```draw description reached the reply")
+    if entry.area in DRAW_LOOKALIKE_AREAS and "```geometry" in outcome.final:
+        problems.append("drew a picture no maths question asked to see")
     return problems
 
 

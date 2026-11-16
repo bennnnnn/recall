@@ -12,7 +12,10 @@ that met the question passes; one that fell back on a shape the question did not
 draws nothing.
 
 A solid drawn in oblique projection has edges going back drawn short, so it is held to its
-labels alone; its builder places each size on its own edge.
+labels alone; its builder places each size on its own edge, and so does a scene in space
+(``math.drawing``), whose stated lengths are checked in three dimensions before it is drawn.
+A figure the reply described may name a part by its letter ("r", "2r"): a letter is no
+value, and is neither counted nor measured.
 """
 
 from __future__ import annotations
@@ -24,8 +27,10 @@ from app.modules.math.figure.drawing import Point, angle_at, angle_label, distan
 from app.modules.math.figure.request import FigureRequest, Measure
 from app.modules.math.schemas.figure import FigureSpec
 
-# Solids whose receding edges are drawn at half scale.
-_OBLIQUE = frozenset({"cube", "cuboid", "triangular_prism", "square_pyramid"})
+# Solids whose receding edges are drawn at half scale, and figures drawn in projection.
+_OBLIQUE = frozenset(
+    {"cube", "cuboid", "triangular_prism", "square_pyramid", "space", "box", "open_box", "sheet"}
+)
 # Values a figure honours without a label of their own.
 _UNLABELLED = frozenset({"perimeter"})
 # A solid's height has no edge in its net: the net's faces are sized by it, unlabelled.
@@ -34,6 +39,8 @@ _LENGTH_TOLERANCE = 1e-3
 _ANGLE_WHATS = frozenset({"angle", "apex_angle", "base_angle"})
 _ANGLE_TOLERANCE = 0.05
 _LEADING_NUMBER = re.compile(r"\d+(?:\.\d+)?")
+# A letter naming the value after it: "r ≈ ", "x = ", "2r ≈ ".
+_NAMED = re.compile(r"^[^=\u2248]*[=\u2248]\s*")
 
 
 def measure_label(measure: Measure, unit: str) -> str | None:
@@ -45,8 +52,14 @@ def measure_label(measure: Measure, unit: str) -> str | None:
     return length_label(measure.value, unit)
 
 
+def said(label: str) -> str:
+    """What a label says a part measures: "r ≈ 1.68 m" and "x = 4" say "1.68 m" and "4"
+    (a size the server worked out, named by its letter); any other label is itself."""
+    return _NAMED.sub("", label)
+
+
 def _value(label: str) -> float | None:
-    found = _LEADING_NUMBER.match(label)
+    found = _LEADING_NUMBER.match(said(label))
     return float(found.group()) if found else None
 
 
@@ -54,7 +67,7 @@ def _close(drawn: float, stated: float, tolerance: float) -> bool:
     return abs(drawn - stated) <= tolerance * max(1.0, abs(stated))
 
 
-def _labels_hold(spec: FigureSpec, request: FigureRequest) -> bool:
+def _labels_hold(spec: FigureSpec, request: FigureRequest, letters: frozenset[str]) -> bool:
     folded = _FOLDED.get(spec.shape, frozenset())
     stated = Counter(
         label
@@ -62,7 +75,9 @@ def _labels_hold(spec: FigureSpec, request: FigureRequest) -> bool:
         if (label := measure_label(m, request.unit)) is not None and m.what not in folded
     )
     drawn = Counter(
-        [s.label for s in spec.segments if s.label] + [a.label for a in spec.angles if a.label]
+        said(label)
+        for label in [s.label for s in spec.segments] + [a.label for a in spec.angles]
+        if label and label not in letters
     )
     # A right angle the question states is shown by its box.
     boxed = angle_label(90) if any(mark.right for mark in spec.angles) else None
@@ -71,9 +86,9 @@ def _labels_hold(spec: FigureSpec, request: FigureRequest) -> bool:
     )
 
 
-def _to_scale(spec: FigureSpec, at: dict[str, Point]) -> bool:
+def _to_scale(spec: FigureSpec, at: dict[str, Point], letters: frozenset[str]) -> bool:
     for segment in spec.segments:
-        value = _value(segment.label) if segment.label else None
+        value = _value(segment.label) if segment.label and segment.label not in letters else None
         length = distance(at[segment.a], at[segment.b])
         if value is not None and not _close(length, value, _LENGTH_TOLERANCE):
             return False
@@ -81,7 +96,7 @@ def _to_scale(spec: FigureSpec, at: dict[str, Point]) -> bool:
         size = angle_at(at[mark.at], at[mark.a], at[mark.b])
         if mark.right and abs(size - 90) > _ANGLE_TOLERANCE:
             return False
-        value = _value(mark.label) if mark.label else None
+        value = _value(mark.label) if mark.label and mark.label not in letters else None
         if value is not None and abs(size - value) > _ANGLE_TOLERANCE:
             return False
     for ticks in {s.ticks for s in spec.segments if s.ticks}:
@@ -173,15 +188,18 @@ def _perimeter_holds(spec: FigureSpec, request: FigureRequest, at: dict[str, Poi
     return _close(around, perimeter, _LENGTH_TOLERANCE)
 
 
-def honours(spec: FigureSpec, request: FigureRequest) -> bool:
-    """``spec`` shows every value ``request`` states, true where it sits, and no other."""
-    if not _labels_hold(spec, request):
+def honours(
+    spec: FigureSpec, request: FigureRequest, *, letters: frozenset[str] = frozenset()
+) -> bool:
+    """``spec`` shows every value ``request`` states, true where it sits, and no other;
+    ``letters`` are labels that name a part and measure nothing."""
+    if not _labels_hold(spec, request, letters):
         return False
     if spec.shape in _OBLIQUE:
         return request.first("perimeter") is None
     at = {point.name: (point.x, point.y) for point in spec.points}
     return (
-        _to_scale(spec, at)
+        _to_scale(spec, at, letters)
         and _named_holds(spec, request, at)
         and _ticks_hold(spec, request)
         and _perimeter_holds(spec, request, at)
