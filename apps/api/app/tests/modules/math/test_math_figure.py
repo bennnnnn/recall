@@ -586,3 +586,34 @@ async def test_no_read_past_the_spend_cap_or_in_an_outage(gate: AsyncMock) -> No
     ):
         assert await read.read_figure(Settings(_env_file=None), PARALLELOGRAM, []) is None  # type: ignore[call-arg]
     call.assert_not_awaited()
+
+
+_RANGED = "Draw the graph of y = 2x + 1 for x from -3 to 3."
+
+
+@pytest.mark.asyncio
+async def test_a_range_end_written_as_text_is_read_in_the_pool_not_on_the_loop() -> None:
+    """The read keeps a range end as written (-3 with its minus sign): the reply's JSON is validated on the event loop,
+    and only the build, in the SymPy pool, reads it to a number (the loop guard fails this
+    test on any SymPy call made while validating)."""
+    from app.core.config import Settings
+    from app.gateways import litellm_gateway
+    from app.modules.math.figure import read
+
+    choice = MagicMock()
+    choice.message.content = json.dumps(
+        {"kind": "function", "expr": "2x + 1", "x_min": "−3", "x_max": "3"}
+    )
+    response = MagicMock(choices=[choice], usage=None)
+    settings = Settings(_env_file=None, mock_llm_enabled=False, openrouter_api_key="sk-or-test")  # type: ignore[call-arg]
+    with (
+        patch("app.core.redis.get_redis_client", MagicMock()),
+        patch("app.services.quota.global_spend_exceeded", AsyncMock(return_value=False)),
+        patch.object(litellm_gateway, "acompletion", AsyncMock(return_value=response)),
+    ):
+        request = await read.read_figure(settings, _RANGED, [])
+        fence = await read.draw_figure(_RANGED, [], settings)
+    assert request is not None and request.x_min == "−3"
+    assert fence is not None
+    graph = json.loads(fence.split("\n", 1)[1].rsplit("\n```", 1)[0])
+    assert (graph["points"][0][0], graph["points"][-1][0]) == pytest.approx((-3.0, 3.0))

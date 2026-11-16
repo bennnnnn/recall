@@ -196,9 +196,10 @@ def function_graph(request: FigureRequest, texts: list[str]) -> dict[str, object
     if drawn is None:
         return None
     expr, variable = drawn
-    explicit = request.x_min is not None and request.x_max is not None
-    x_min = request.x_min if request.x_min is not None else -_DEFAULT_RANGE
-    x_max = request.x_max if request.x_max is not None else _DEFAULT_RANGE
+    low, high = request.bounds()
+    explicit = low is not None and high is not None
+    x_min = low if low is not None else -_DEFAULT_RANGE
+    x_max = high if high is not None else _DEFAULT_RANGE
     if x_max <= x_min:
         return None
     settings = get_settings()
