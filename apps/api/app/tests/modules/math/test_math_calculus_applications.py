@@ -206,6 +206,38 @@ def test_a_stated_interval_is_read_whole_or_the_question_is_left(text: str) -> N
     assert _verified_answer(text) is None
 
 
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        # An interval in another sentence is a picture's, never the area's (review,
+        # 2026-11-16: 109/3, 28/3, 44/3 and 4 were checked for these).
+        (
+            "Find the area of the region enclosed by f(x) = 4 − x² and g(x) = 3x. Draw the "
+            "graph from x = −5 to x = 3.",
+            "\\frac{125}{6}",
+        ),
+        ("Find the area between y = x^2 and y = 2x. Plot both on [-1, 4].", "\\frac{4}{3}"),
+        (
+            "Find the area between y = x^2 and y = 2x. Draw the graph for x from x = -1 to x = 4.",
+            "\\frac{4}{3}",
+        ),
+        (
+            "Find the area of the region bounded by y = x^2 and y = 2x. Sketch the graphs for "
+            "-2 ≤ x ≤ 4.",
+            "\\frac{4}{3}",
+        ),
+        (
+            "Find the area bounded by y = x^2 and y = 2x. Graph them between x = -1 and x = 3.",
+            "\\frac{4}{3}",
+        ),
+        # The area's own sentence keeps its interval, the closing lines included.
+        ("Find the area between y = x^2 and y = 2x from x = -1 to x = 3.", "4"),
+    ],
+)
+def test_only_the_areas_own_sentence_states_its_interval(text: str, answer: str) -> None:
+    assert _verified_answer(text) == answer
+
+
 def test_the_area_answer_is_not_the_intersection_points() -> None:
     """The original defect, still pinned now that the question is answered."""
     answer = _verified_answer("area between y=x and y=x^2 from 0 to 1")

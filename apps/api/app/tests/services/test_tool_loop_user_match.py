@@ -132,6 +132,12 @@ _AREA_QUESTION = (
             "Find the area under y = x^2 from x = 0 to x = 3.",
             True,
         ),
+        # A curve below the axis all the way: its integral is negative, no area (-32/3).
+        (
+            {"action": "integrate", "expr": "x**2 - 4", "lower": "-2", "upper": "2"},
+            "Find the area under y = x^2 - 4 from x = -2 to x = 2",
+            False,
+        ),
         # The antiderivative is never held to the area.
         ({"action": "integrate", "expr": "x**2 - 3*x + 2"}, _AREA_QUESTION, True),
     ],

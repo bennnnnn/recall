@@ -491,6 +491,11 @@ def test_a_closing_boxed_value_is_the_replys_answer_card(reply: str) -> None:
         # A boxed step that is not the reply's last statement, or a reply with an Answer.
         "First $\\boxed{u = 2x}$ is the substitution.\n\nThen the integral is $u^2$.",
         "$\\boxed{x = 3}$\n\n**Answer**\n$x = 3$",
+        # Two boxes are two values, and words beside a box would be lost from its card
+        # (review, 2026-11-16).
+        "Two roots.\n\n$$\\boxed{x = 2} \\quad \\text{or} \\quad \\boxed{x = -3}$$",
+        "So $\\boxed{x = 2}$ is one root and $x = -3$ is the other.",
+        "The area is $\\boxed{\\frac{11}{6}}$ square units, not the signed 3/2.",
     ],
 )
 def test_a_boxed_value_that_is_not_the_closing_answer_is_left(reply: str) -> None:

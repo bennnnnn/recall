@@ -4,14 +4,18 @@ The unit-5 round (2026-11-16) showed checked cards in SymPy's own form under wor
 reaches another: csc(2x + π/4)/2 under ½ sec(2x - π/4), ln|2 cos 2t - 2|/2 under
 ln|1 - cos 2t|/2 (a constant apart), one fraction under the partial fractions it came from.
 The card shows the working's value when SymPy finds it the same, and the server's otherwise.
+Only for an antiderivative: a factorisation, an expansion, a simplification or a definite
+value keeps the server's form, whatever equal value the working ends on (review, 2026-11-16).
 """
 
 from __future__ import annotations
 
 import pytest
 
+from app.core.config import Settings
 from app.modules.math.card_form import in_working_form, read_tex
 from app.modules.math.fence import validate_math_fences
+from app.modules.math.tools import _build_verified_block, extract_math_intent
 from app.services.solving import VerifiedMathBlock
 
 _SEC = r"\frac{\csc{\left(2 x + \frac{\pi}{4} \right)}}{2} + C"
@@ -72,8 +76,6 @@ def _reply(*lines: str) -> str:
             _LOG,
             r"\frac{\ln|1 - \cos(2t)|}{2} + C",
         ),
-        # An irrational value in another exact form.
-        (_reply(r"$= \ln 5 - \ln 3$"), r"\ln{\left(\frac{5}{3} \right)}", r"\ln 5 - \ln 3"),
     ],
 )
 def test_the_card_shows_the_form_the_working_reaches(reply: str, server: str, card: str) -> None:
@@ -87,6 +89,22 @@ def test_the_card_shows_the_form_the_working_reaches(reply: str, server: str, ca
         (_reply(r"$\frac{1}{2}\sec\left(2x + \frac{\pi}{4}\right) + C$"), _SEC),
         # Working that never integrates (it stops at a partial-fraction constant).
         (_reply(r"$A = -\dfrac{11}{4}$"), _FRACTIONS),
+        # A definite value keeps the server's form: "ln 5 - ln 3" is ln(5/3) unworked.
+        (_reply(r"$= \ln 5 - \ln 3$"), r"\ln{\left(\frac{5}{3} \right)}"),
+        # A function SymPy would still evaluate is unfinished work, never the card.
+        (_reply(r"$x \arctan 1 + C$"), r"\frac{\pi x}{4} + C"),
+        (_reply(r"$\sqrt{8}\,x + C$"), r"2 \sqrt{2} x + C"),
+        (_reply(r"$e^{\ln x} + C$"), r"x + C"),
+        (_reply(r"$x + \ln 1 + C$"), r"x + C"),
+        # A constant beside the + C is the constant's to carry.
+        (_reply(r"$\frac{x^3}{3} + 5 + C$"), r"\frac{x^{3}}{3} + C"),
+        # The Answer is read first: a wrong Answer keeps the server's form though the working
+        # above it is right.
+        (
+            "**Solution**\n$\\frac{1}{2}\\sec\\left(2x - \\frac{\\pi}{4}\\right) + C$\n\n"
+            "**Answer**\n$\\sec(2x) + C$",
+            _SEC,
+        ),
         # A definite value never gains a constant.
         (_reply(r"$\ln 5 - \ln 3 + C$"), r"\ln{\left(\frac{5}{3} \right)}"),
         # A fraction in lowest terms is its one form: "27/3 - 0" is 9 unworked.
@@ -119,3 +137,36 @@ def test_the_fence_pass_lands_the_working_form_checked() -> None:
         in out
     )
     assert "csc" not in out
+
+
+def _block(question: str) -> VerifiedMathBlock:
+    intent = extract_math_intent(question)
+    assert intent is not None
+    block = _build_verified_block(intent, Settings(math_tools_enabled=True))
+    assert block is not None and block.canonical_answer
+    return block
+
+
+@pytest.mark.parametrize(
+    ("question", "working", "answer"),
+    [
+        # The review's repros (2026-11-16), through the real block: each working ends on a
+        # value equal to the verified one but not its answer.
+        ("Factor x^2 - 5x + 6", "$(x-2)(x-3) = x^2 - 5x + 6$", "$(x-2)(x-3)$"),
+        ("Expand (x+2)(x-3)", "$(x+2)(x-3) = x^2 - 3x + 2x - 6$", "$(x+2)(x-3)$"),
+        ("Simplify (x^2-1)/(x-1)", r"$\frac{x^2-1}{x-1} = \frac{(x-1)(x+1)}{x-1}$", "$x + 1$"),
+        ("Evaluate the integral of 1/x from 1 to 2", r"$= \ln 2 - \ln 1$", r"$\ln 2$"),
+        (
+            "Evaluate the integral of cos x from 0 to pi/4",
+            r"$= \sin\frac{\pi}{4} - \sin 0$",
+            r"$\frac{\sqrt{2}}{2}$",
+        ),
+    ],
+)
+def test_a_card_whose_form_is_its_answer_keeps_the_servers(
+    question: str, working: str, answer: str
+) -> None:
+    block = _block(question)
+    reply = f"**Solution**\n{working}\n\n**Answer**\n\n{answer}"
+    out = validate_math_fences(reply, verified=block)
+    assert f"```answer\nverified: true\n{block.canonical_answer}\n```" in out

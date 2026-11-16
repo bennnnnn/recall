@@ -74,8 +74,9 @@ def _clean(raw: str) -> str | None:
     return math_expr_or_none(_normalize_latex_expr(text))
 
 
-def _bounds(cleaned: str, after: int = 0) -> tuple[str, str, int] | None:
-    """The first interval stated at or after ``after``: its bounds and where it starts.
+def _bounds(cleaned: str, after: int = 0, before: int | None = None) -> tuple[str, str, int] | None:
+    """The first interval stated at or after ``after`` (and ending by ``before``): its bounds
+    and where it starts.
 
     A minus typed as the minus sign (U+2212) or a dash is a minus: "from x = -4 to x = 3"
     is [-4, 3] in any of them (2026-11-16: the sign's form left the question unread, and
@@ -92,7 +93,8 @@ def _bounds(cleaned: str, after: int = 0) -> tuple[str, str, int] | None:
             _CHAIN_BOUNDS_RE,
             _LINES_BOUNDS_RE,
         )
-        if (match := pattern.search(folded, after)) is not None
+        if (match := pattern.search(folded, after, len(folded) if before is None else before))
+        is not None
     ]
     if not found:
         return None
@@ -124,16 +126,24 @@ def _curve(raw: str) -> str | None:
     return _clean(named)
 
 
+def _lead_sentence(cleaned: str, lead: re.Match[str]) -> tuple[int, int]:
+    """Where the sentence that asks the area starts and ends. Its interval is the area's;
+    one in another sentence is a picture's or another question's ("… and g(x) = 3x. Draw
+    the graph from x = -5 to x = 3." integrated over [-5, 3], 109/3 for 125/6)."""
+    start = max(
+        (stop.end() for stop in _SENTENCE_END.finditer(cleaned, 0, lead.start())), default=0
+    )
+    stop = _SENTENCE_END.search(cleaned, lead.end())
+    return start, stop.start() if stop is not None else len(cleaned)
+
+
 def _extract_area_between_intent(cleaned: str) -> MathIntent | None:
     lead = _AREA_BETWEEN_RE.search(cleaned)
     if lead is None:
         return None
-    interval = _bounds(cleaned, lead.end())
-    stop = _SENTENCE_END.search(cleaned, lead.end())
-    end = min(
-        interval[2] if interval is not None else len(cleaned),
-        stop.start() if stop is not None else len(cleaned),
-    )
+    start, stop = _lead_sentence(cleaned, lead)
+    interval = _bounds(cleaned, lead.end(), stop)
+    end = interval[2] if interval is not None else stop
     body = cleaned[lead.end() : end].strip(" ,;.?!")
     halves = re.split(r"\s*,?\s+and\s+", _CURVE_NAME.sub("", body), maxsplit=1, flags=re.I)
     if len(halves) != 2:
@@ -142,9 +152,9 @@ def _extract_area_between_intent(cleaned: str) -> MathIntent | None:
     if first is None or second is None:
         return None
     if interval is None:
-        # The stated interval wins: one written in a form the bounds do not read
-        # ("from x = 1/e² to …") is never replaced by where the curves meet.
-        if _STATED_INTERVAL_RE.search(fold_operator_glyphs(cleaned)):
+        # The stated interval wins: one its sentence writes in a form the bounds do not
+        # read ("from x = 1/e² to …") is never replaced by where the curves meet.
+        if _STATED_INTERVAL_RE.search(fold_operator_glyphs(cleaned), start, stop):
             return None
         # No interval stated: the region the curves enclose runs between where they meet.
         meeting = _meeting_points(first, second)
@@ -208,7 +218,7 @@ def _extract_area_under_intent(cleaned: str) -> MathIntent | None:
     lead = _AREA_UNDER_RE.search(cleaned)
     if lead is None:
         return None
-    interval = _bounds(cleaned, lead.end())
+    interval = _bounds(cleaned, lead.end(), _lead_sentence(cleaned, lead)[1])
     if interval is None:
         return None
     low, high, bounds_at = interval

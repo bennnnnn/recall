@@ -6,11 +6,15 @@ never reaches; ln|1 - cos 2t|/2 + C stood over ln|2 cos 2t - 2|/2 + C, the same
 antiderivative shifted by a constant (live round, Grade 12 unit 5, 2026-11-16). Both are
 right, and a student reading the card cannot tell.
 
-One rule: the card shows the value the reply states (its Answer, or the last line of its
-working) when SymPy finds it the same value as the server's: equal everywhere both are
-defined, or, for an antiderivative (a card ending ``+ C``), equal up to a constant. Any other
-reply, a wrong one or one that never reaches a value, keeps the server's form, and the
-correction line the fence pass writes for a different value stays as it is.
+One rule, for antiderivatives only (a card ending ``+ C``), where a different form is a
+different right answer, not unfinished work: the card shows the reply's own form when SymPy
+finds it the same antiderivative (equal up to a constant where both are defined). The reply's
+Answer line is read first; when it only copies the server's form, the working's last line.
+A form that applies a function SymPy would still evaluate (ln 1, sin(π/4), arctan 1, √8,
+e^(ln x)) is unfinished and never shown. Every other card (a definite value, a factorisation,
+an expansion, a simplification, partial fractions) keeps the server's form: there the form
+is the answer, and an equal value written otherwise (x² - 5x + 6 for (x - 2)(x - 3)) answers
+nothing (review of 2026-11-16).
 """
 
 from __future__ import annotations
@@ -50,7 +54,7 @@ _SAMPLES = (0.37, 0.71, 1.29, 1.83, 2.57, 3.41, -0.43, -1.27, -2.11, 4.73)
 _MIN_SAMPLES = 4
 
 
-def read_tex(tex: str) -> Any | None:
+def read_tex(tex: str, *, evaluate: bool = True) -> Any | None:
     """``tex`` as one SymPy expression, read the way the solver reads typed LaTeX, with the
     spellings SymPy itself writes (a function's braced argument, |…| after ln); None when
     it does not read."""
@@ -65,7 +69,7 @@ def read_tex(tex: str) -> Any | None:
         if unbraced == text:
             break
         text = unbraced
-    return parse_latex_formula(rewrite_abs_bars(text, apart=True))
+    return parse_latex_formula(rewrite_abs_bars(text, apart=True), evaluate=evaluate)
 
 
 def _value(expr: Any, point: dict[Any, float]) -> complex | None:
@@ -120,40 +124,90 @@ def _right_side(value: str) -> str | None:
 
 
 def in_working_form(reply: str, answer_body: str) -> str:
-    """``answer_body``, or the value ``reply`` states in its place when it is the same
-    value (the module's rule): its working's last line, else its Answer's; an
-    antiderivative's line gains the card's + C. Runs in the SymPy pool, as the fence pass
-    does."""
+    """``answer_body``, or the antiderivative ``reply`` states in its place (the module's
+    rule). Runs in the SymPy pool, as the fence pass does."""
     value = answer_fence_value(answer_body)
-    if not value or _NOT_ONE_EXPRESSION.search(_SPACING.sub(" ", value)) is not None:
+    if not value or not _CONSTANT.search(value):
         return answer_body
-    antiderivative = _CONSTANT.search(value) is not None
-    for stated in stated_answers(reply):
-        shown = _right_side(stated) or ""
-        if antiderivative and shown and not _CONSTANT.search(shown):
-            shown += " + C"  # the working's last line before its constant is written
-        if shown and _same_form_as_working(shown, value):
-            return card_maths(shown)
+    if _NOT_ONE_EXPRESSION.search(_SPACING.sub(" ", value)) is not None:
+        return answer_body
+    server = read_tex(_CONSTANT.sub("", value))
+    if server is None:
+        return answer_body
+    answer, working = stated_answers(reply)
+    for stated in (answer, working):
+        shown = _right_side(stated) if stated else None
+        if not shown:
+            continue
+        if not _CONSTANT.search(shown):
+            shown += " + C"  # a line before its constant is written: the card writes it
+        if _copies(shown, value, server):
+            continue  # the Answer copies the server's form: the working says it the reply's way
+        return card_maths(shown) if _same_antiderivative(shown, server) else answer_body
     return answer_body
 
 
-def _same_form_as_working(shown: str, value: str) -> bool:
-    """``shown``, a line the reply states, is ``value`` in another form the card may show."""
-    antiderivative = _CONSTANT.search(value) is not None
-    if antiderivative != (_CONSTANT.search(shown) is not None):
-        return False  # an antiderivative keeps its + C; a value gains none
+def _as_written(shown: str) -> Any | None:
+    """``shown`` read without SymPy evaluating it."""
+    return read_tex(_CONSTANT.sub("", shown), evaluate=False)
+
+
+def _copies(shown: str, value: str, server: Any) -> bool:
+    """``shown`` is the server's own form, however it is spaced or bracketed."""
+    if same_spelling(shown, value):
+        return True
+    mine, theirs = _as_written(shown), read_tex(_CONSTANT.sub("", value), evaluate=False)
+    return mine is not None and theirs is not None and mine == theirs
+
+
+def _same_antiderivative(shown: str, server: Any) -> bool:
+    """``shown`` is ``server`` up to a constant, written as a finished answer."""
     if _NOT_ONE_EXPRESSION.search(_SPACING.sub(" ", shown)) or "\\int" in shown:
         return False
-    if _DECIMAL.search(shown) and not _DECIMAL.search(value):
-        return False  # an exact value is never shown rounded
-    if _LOOSE_SCRIPT.search(shown + value) or same_spelling(shown, value):
-        return False  # a malformed script, or the server's own form spaced otherwise
-    server = read_tex(_CONSTANT.sub("", value))
+    if _DECIMAL.search(shown) or _LOOSE_SCRIPT.search(shown):
+        return False  # a rounded coefficient, or a script TeX reads otherwise
     mine = read_tex(_CONSTANT.sub("", shown))
-    if server is None or mine is None or server.is_Number:
-        return False  # a number is written one way ("27/3 - 0" is 9, "0.15 * 85" is 12.75)
+    written = _as_written(shown)
+    if mine is None or written is None or _unevaluated(written) or _loose_constant(written):
+        return False
     try:
-        return same_value(server, mine, up_to_constant=antiderivative)
+        return same_value(server, mine, up_to_constant=True)
     except Exception:
         logger.info("the working's form was not compared; the card keeps SymPy's", exc_info=True)
         return False
+
+
+def _loose_constant(expr: Any) -> bool:
+    """A constant term beside the + C ("x³/3 + 5 + C"): the constant is C's to carry."""
+    from sympy import Add
+
+    return isinstance(expr, Add) and any(not term.free_symbols for term in expr.args)
+
+
+def _unevaluated(expr: Any) -> bool:
+    """``expr``, as written, holds a step SymPy would still take: a function or root of a
+    number that has a value of its own (ln 1 is 0, sin(π/4) is √2/2, arctan 1 is π/4, √8 is
+    2√2), or a function undone by the one inside it (e^(ln x) is x). ln 2, √2 and a trig
+    function SymPy only shifts (sec(2x - π/4) is csc(2x + π/4)) are finished forms."""
+    from sympy import Function, Pow, preorder_traversal
+
+    def applied(node: Any) -> int:
+        return sum(isinstance(part, Function) for part in preorder_traversal(node))
+
+    for node in preorder_traversal(expr):
+        if isinstance(node, Function):
+            done = node.func(*(arg.doit() for arg in node.args))
+            if node.free_symbols:
+                if applied(done) < applied(node):
+                    return True
+            elif not isinstance(done, node.func):
+                return True
+        elif isinstance(node, Pow) and not node.exp.is_Integer:
+            base, power = node.base.doit(), node.exp.doit()
+            done = Pow(base, power)
+            if node.free_symbols:
+                if applied(done) < applied(node):
+                    return True  # e^(ln x)
+            elif done != Pow(base, power, evaluate=False):
+                return True
+    return False

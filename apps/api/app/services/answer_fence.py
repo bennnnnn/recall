@@ -401,38 +401,41 @@ def _last_answer_heading(lines: list[str], inside: dict[int, str]) -> tuple[int,
     return heading, same_line
 
 
-def stated_answers(text: str) -> tuple[str, ...]:
-    """The values a reply states as its answer: the last line of maths in its working (above
-    its last Answer section, or at its end), then the last line that section holds. None
-    when it already carries a card."""
+def stated_answers(text: str) -> tuple[str | None, str | None]:
+    """What a reply states as its answer: the last line its last Answer section holds, and
+    the last line of maths in its working (above that section, or at its end); None for
+    either it lacks, and for both when the reply already carries a card."""
     lines = text.split("\n")
     _fences, inside = _scan(lines)
     heading, same_line = _last_answer_heading(lines, inside)
-    stated: list[str] = []
-    above = lines[:heading] if heading >= 0 else lines
-    for number in range(len(above) - 1, -1, -1):
-        if number not in inside and above[number].strip():
-            line = above[number]
-            if _opener(line) is None and not _closes(line, "```") and _is_maths(line):
-                stated.append(_value_line(line))
-            break
+    answer: str | None = None
     if heading >= 0:
         if same_line:
             lines[heading] = same_line
         values, _end, landed = _answer_values(lines, heading if same_line else heading + 1)
         if landed:
-            return ()
-        stated += [values[-1][1]] if values else []
-    return tuple(stated)
+            return None, None
+        answer = values[-1][1] if values else None
+    working: str | None = None
+    above = lines[:heading] if heading >= 0 else lines
+    for number in range(len(above) - 1, -1, -1):
+        if number not in inside and above[number].strip():
+            line = above[number]
+            if _opener(line) is None and not _closes(line, "```") and _is_maths(line):
+                working = _value_line(line)
+            break
+    return answer, working
 
 
 _BOXED = re.compile(r"\\boxed\s*\{")
+# What may frame a box: maths delimiters, spacing and closing punctuation.
+_BOX_FRAME = re.compile(r"\$+|\\[\[\]()]|\\[,;:! ]|\\q?quad\b|[\s.,;:]")
 
 
 def _boxed_block(text: str) -> tuple[int, int, str] | None:
     """``(first line, last line, value)`` of a reply's closing ``\\boxed{…}``: the last
-    paragraph outside fences (a picture may follow it) when it boxes a value, and the reply
-    has no Answer heading. None otherwise."""
+    paragraph outside fences (a picture may follow it) when it is one box and nothing else,
+    and the reply has no Answer heading. None otherwise."""
     lines = text.split("\n")
     fences, inside = _scan(lines)
     if _last_answer_heading(lines, inside)[0] >= 0:
@@ -447,11 +450,16 @@ def _boxed_block(text: str) -> tuple[int, int, str] | None:
     while first > 0 and first - 1 not in fenced and lines[first - 1].strip():
         first -= 1
     block = " ".join(line.strip() for line in lines[first : last + 1])
-    opened = _BOXED.search(block)
-    if opened is None:
-        return None
+    boxes = list(_BOXED.finditer(block))
+    if len(boxes) != 1:
+        return None  # two roots boxed apart ("\\boxed{x = 2} or \\boxed{x = -3}") are no one value
+    opened = boxes[0]
     end = closed_group_end(block, opened.end() - 1)
     if end is None:
+        return None
+    # The box alone in its display: words beside it ("square units, not the signed 3/2",
+    # "is one root and x = -3 the other") would be lost from the card.
+    if _BOX_FRAME.sub("", block[: opened.start()] + block[end:]):
         return None
     return first, last, " ".join(block[opened.end() : end - 1].split())
 

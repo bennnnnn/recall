@@ -148,20 +148,20 @@ def _integrate_absolute(expr: Any, variable: Symbol, low: Any, high: Any) -> Any
 
 
 def integral_is_an_area(expr: str, low: str, high: str, variable: str = "x") -> bool:
-    """The integral of ``expr`` from ``low`` to ``high`` is, up to its sign, the area
-    between its graph and the x-axis: ``expr`` keeps one sign on the interval. One that
-    crosses the axis has a signed integral smaller than the area ("∫₀³ (x² - 3x + 2) dx"
-    is 3/2, the area 11/6), so it is no answer to an area question. Any failure reads as
-    no."""
+    """The integral of ``expr`` from ``low`` to ``high`` is the area between its graph and
+    the x-axis: ``expr`` is never below the axis on the interval. One that crosses it has a
+    signed integral smaller than the area ("∫₀³ (x² - 3x + 2) dx" is 3/2, the area 11/6),
+    and one below it all the way a negative one (-32/3 for the area under x² - 4 on
+    [-2, 2]); neither answers an area question. Any failure reads as no."""
     try:
         sym = Symbol(variable, real=True)
         parsed = _expression(expr, variable)
         start, stop = _ordered_bounds(low, high)
         _require_continuous(parsed, sym, start, stop)
-        signs = {sign > 0 for _, _, sign in _signed_pieces(parsed, sym, start, stop) if sign}
+        pieces = _signed_pieces(parsed, sym, start, stop)
     except (SolveServiceError, TypeError, ValueError, OverflowError):
         return False
-    return len(signs) <= 1
+    return all(sign >= 0 for _, _, sign in pieces)
 
 
 def area_between_curves(

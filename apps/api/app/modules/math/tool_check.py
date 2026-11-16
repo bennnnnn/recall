@@ -150,8 +150,9 @@ def _ends_a_word(pieces: list[str], index: int) -> bool:
     )
 
 
-def _parse(text: str) -> Any | None:
-    """``text`` as an expression; a point ``(1, 2)``, ``True`` or a bare SymPy name is none."""
+def _parse(text: str, *, evaluate: bool = True) -> Any | None:
+    """``text`` as an expression; a point ``(1, 2)``, ``True`` or a bare SymPy name is none.
+    ``evaluate=False`` keeps it as written (``ln 1`` stays a logarithm)."""
     from sympy import Expr
 
     from app.modules.math import solve as math_solve
@@ -161,7 +162,7 @@ def _parse(text: str) -> Any | None:
     if not candidate or len(candidate) > 200:
         return None
     with sympy_decline():
-        parsed = math_solve.parse_expression(candidate)
+        parsed = math_solve.parse_expression(candidate, evaluate=evaluate)
         return parsed if isinstance(parsed, Expr) else None
     return None
 
@@ -449,9 +450,10 @@ def parse_formula(text: str) -> Any | None:
     return _parse(text)
 
 
-def parse_latex_formula(text: str) -> Any | None:
-    """``text``, typed LaTeX, as one SymPy expression, or None."""
-    return _parse(_latex_as_typed(text))
+def parse_latex_formula(text: str, *, evaluate: bool = True) -> Any | None:
+    """``text``, typed LaTeX, as one SymPy expression, or None; ``evaluate=False`` keeps it
+    as written."""
+    return _parse(_latex_as_typed(text), evaluate=evaluate)
 
 
 def same_value(a: Any, b: Any) -> bool:
