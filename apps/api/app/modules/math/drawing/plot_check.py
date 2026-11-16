@@ -33,14 +33,22 @@ _NAMED_PLACE = 1e-3
 _REACH, _FARTHEST = 10.0, 500.0
 
 
-def stated_interval(low: Any, high: Any, question: PlotQuestion) -> Interval | None:
+def stated_interval(
+    low: Any, high: Any, question: PlotQuestion, along: str = "x"
+) -> Interval | None:
     """The question's own interval of x equal to [low, high], its ends as it writes them and
     held or left out as it says: one interval it says of x ("[0, 3]", "from x = 0 to
     x = 2", "0 < x ≤ 2"), or two lines it names ("the lines x = -1/2 and x = 3"). Two
-    numbers said of something else ("check that your answer is between 2 and 3") are none."""
+    numbers said of something else ("check that your answer is between 2 and 3") are none.
+    ``along`` "y": an interval it says of y ("from y = 0 to y = 4"), and only that one; an
+    interval of y is none of x."""
     for interval in question.intervals:
+        if (interval.of == "y") != (along == "y"):
+            continue
         if same_number(interval.low, low) and same_number(interval.high, high):
             return interval
+    if along == "y":
+        return None
     a = next((edge for edge in question.edges if same_number(edge, low)), None)
     b = next((edge for edge in question.edges if same_number(edge, high)), None)
     return Interval(a, b) if a is not None and b is not None and float(a) < float(b) else None
@@ -60,7 +68,8 @@ def region_intervals(question: PlotQuestion) -> list[Interval]:
     return [
         interval
         for interval in question.intervals
-        if not any(
+        if interval.of != "y"
+        and not any(
             same_number(interval.low, a) and same_number(interval.high, b) for a, b in domains
         )
     ]
@@ -106,7 +115,7 @@ def stated_end(number: Any, question: PlotQuestion, meet: float) -> Any | None:
     if edge is not None:
         return edge
     for interval in question.intervals:
-        if float(interval.low) <= meet <= float(interval.high):
+        if interval.of != "y" and float(interval.low) <= meet <= float(interval.high):
             ends = (interval.low, interval.high)
             end = next((end for end in ends if same_number(end, number)), None)
             if end is not None:
