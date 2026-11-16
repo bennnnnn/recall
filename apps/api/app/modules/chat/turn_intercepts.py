@@ -17,6 +17,7 @@ from app.core.config import Settings
 from app.exceptions import ChatServiceError, SpendCapReachedError, TurnRefusedError
 from app.models.orm import Message, User
 from app.modules.attachments.markers import strip_attachment_from_content
+from app.modules.chat.drawn_picture import read_asks_for_a_drawing
 from app.modules.chat.figure_turn import read_asks_for_a_figure
 from app.modules.chat.referent_read import Referent, referent_for_turn
 from app.modules.chat.reply_language import line_language
@@ -153,9 +154,9 @@ async def try_image_gen_for_turn(
     )
     if not image_prompt:
         return False
-    if await read_asks_for_a_figure(read):
+    if await read_asks_for_a_drawing(read):
         # "Draw a regular pentagon with sides of 3 cm": a maths figure the app draws from
-        # the question's values, never a painting of one.
+        # the question's values, never a painting of one; a circuit or a structure likewise.
         return False
     await _starting(outcome, on_status, "image_gen", image_prompt)
     try:
@@ -327,13 +328,14 @@ def start_reply_picture(
 
     "Draw a cat wearing a hat and also explain what a black hole is": the intercept
     above declines the whole line, so the model answers the rest while this draws. "Draw
-    the cylinder and find its volume" is a maths figure when the turn's read says so: maths
-    draws it, and no painting (nor a line saying none came) goes with the reply.
+    the cylinder and find its volume" is a maths figure when the turn's read says so, and
+    "find the current and draw the circuit" physics' schematic: the app draws it
+    (``drawn_picture``), and no painting (nor a line saying none came) goes with the reply.
     """
     prompt = reply_picture_prompt(content, settings)
     if not prompt:
         return None
-    figure = asyncio.ensure_future(read_asks_for_a_figure(read)) if read is not None else None
+    figure = asyncio.ensure_future(read_asks_for_a_drawing(read)) if read is not None else None
     # The line saying why not is in the reply's language, which follows the message. The
     # picture part is only recognised in English ("draw …"), so a message no language
     # plainly claims gets an English reply, and an English line under it.
