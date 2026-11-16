@@ -15,7 +15,7 @@ import re
 from collections.abc import Sequence
 from typing import Any
 
-from sympy import FiniteSet, S, Symbol, degree, expand, simplify, solveset
+from sympy import FiniteSet, S, Symbol, degree, expand, simplify, solve, solveset
 
 from app.modules.math.drawing.plot_question import Written, read_plot_question
 from app.modules.math.drawing.plot_reading import plain, same_number
@@ -31,21 +31,41 @@ _ABOUT_AXIS = re.compile(
 )
 
 
-def _distance_and_run(written: Written, axis: tuple[str, Any]) -> tuple[Any, Symbol] | None:
+# A curve the check cannot turn into one distance from the axis (y = x² about the y-axis:
+# x = ±√y): the solid is not checked, so not drawn.
+_UNCHECKED = "unchecked"
+
+
+def _distance_and_run(written: Written, axis: tuple[str, Any]) -> tuple[Any, Symbol] | str | None:
     """A curve or level line the question names as its distance from the axis line, in
-    terms of the run along it: y = f(x) (or f(x) = …, or y = 3) about a line y = c, x = g(y)
-    about a line x = c; None for one written the other way ("x = 3" ends a region turned
-    about the x-axis), or in another letter."""
+    terms of the run along it: about a line y = c, y = f(x) (or f(x) = …, or y = 3) as it is
+    and x = g(y) turned round to y = f(x); about a line x = c, x = g(y) as it is and
+    y = f(x) turned round. A line across the axis ("x = 3" about the x-axis) ends the region:
+    None. One that cannot be turned round to a single curve: ``_UNCHECKED``. One in other
+    letters ("y = rx/h"): None, as no number of it can be checked."""
     letter, at = axis
-    if letter == "y" and written.defines and written.name != "x":
-        run = _X
-    elif letter == "x" and written.name == "x":
-        run = _Y
+    run = _X if letter == "y" else _Y
+    if written.name == "x":
+        own = _Y  # x = g(y)
+    elif written.defines:
+        own = _X  # y = f(x), f(x) = …
     else:
         return None
-    if not written.expr.free_symbols <= {run}:
+    expr = written.expr
+    if not expr.free_symbols <= {own}:
         return None
-    return written.expr - at, run
+    if own != run:  # a level line across the axis, or a curve to turn round
+        if expr.is_number:
+            return None
+        # y = f(x) as x = g(y), or the other way: the curve's own letter in the run's.
+        try:
+            branches = [b for b in solve(expr - run, own) if b.free_symbols <= {run}]
+        except (NotImplementedError, ValueError, TypeError):
+            return _UNCHECKED
+        if len(branches) != 1:
+            return _UNCHECKED
+        expr = branches[0]
+    return expr - at, run
 
 
 def _sweeps(shape: str, distance: Any, run: Symbol, ends: Sequence[Any]) -> bool:
@@ -81,13 +101,29 @@ def _axis_bounds(text: str, axis: tuple[str, Any]) -> bool:
     return any(same_number(line, at) for line in lines)
 
 
+def _ends(text: str, question: Any, axis: tuple[str, Any], run: Symbol) -> list[Any]:
+    """The values of the run the question bounds the region at, along the run's own
+    letter: x = 3 and "from x = 0 to x = 2" about a line y = c; y = 0, y = 2 and "from
+    y = 0 to y = 4" about a line x = c (a y-axis region read with x's ends was a cone)."""
+    if run == _X:
+        stated = [i for i in question.intervals if i.of != "y"]
+        return [*question.edges, *(end for i in stated for end in (i.low, i.high))]
+    stated = [i for i in question.intervals if i.of == "y"]
+    rest = _ABOUT_AXIS.sub(" ", text)
+    lines, _points = named_values(rest, "y", frozenset({"x", "y"}))
+    if re.search(r"\bx-axis\b", rest, re.IGNORECASE):
+        lines.append(0)
+    return [*lines, *(end for i in stated for end in (i.low, i.high))]
+
+
 def revolves_into(shape: str, texts: Sequence[str]) -> bool:
     """``shape`` is the solid the question's own curve sweeps about its axis, when the
     question revolves a region bounded by curves it names. A region between two of them
     (neither the axis) sweeps a hollow solid, which no plain solid is: a washer between
     y = x and y = x² is no cone, nor is one between y = 2x and y = x. When the axis is one
     of the region's edges, the curve's meeting with it ends the region too: y = 2x, y = 0
-    and x = 3 about the x-axis is a cone. True when the question names no curve."""
+    and x = 3 about the x-axis is a cone. A curve it cannot check (y = x² about the y-axis)
+    draws no solid. True when the question names no curve."""
     if shape not in _SOLIDS or not texts:
         return True
     text = plain(texts[0])
@@ -98,15 +134,16 @@ def revolves_into(shape: str, texts: Sequence[str]) -> bool:
     found: dict[str, tuple[Any, Symbol]] = {}
     for written in question.formulas:
         swept = _distance_and_run(written, axis)
-        if swept is not None and swept[0] != 0:
+        if swept == _UNCHECKED:
+            return False
+        if isinstance(swept, tuple) and swept[0] != 0:
             found.setdefault(str(simplify(swept[0])), swept)
     if not found:
         return True
     if len(found) > 1:
         return False  # hollow: a washer, never a cone, cylinder or sphere
     distance, run = next(iter(found.values()))
-    # The region's ends as the question writes them ("from y = 0 to y = 4" too).
-    ends = list(question.x_values)
+    ends = _ends(text, question, axis, run)
     if len(set(ends)) < 2 and _axis_bounds(text, axis) and not distance.is_number:
         # One end stated: the curve's meeting with the axis edge is the other.
         roots = solveset(distance, run, domain=S.Reals)
