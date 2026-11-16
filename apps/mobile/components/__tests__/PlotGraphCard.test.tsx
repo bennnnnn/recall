@@ -8,7 +8,7 @@ import { render, screen } from "@testing-library/react-native";
 
 import { FunctionGraphBlock } from "@/components/rich/FunctionGraphBlock";
 import { plotDrawing } from "@/components/rich/plotDrawing";
-import { plotStroke } from "@/components/rich/plotPaint";
+import { PLOT_NEUTRAL, plotColor, plotStroke } from "@/components/rich/plotPaint";
 import { parsePlotGraph } from "@/lib/math/plotGraph";
 import { lightTheme } from "@/lib/theme";
 
@@ -46,6 +46,11 @@ describe("a plot fence", () => {
 
   it("strokes an asymptote in its curve's colour, so its legend row names that curve's", () => {
     expect(plotStroke(lightTheme, "asymptote", 1)).toEqual({ color: lightTheme.graphSeries[1], width: 1.5 });
+  });
+
+  it("paints the server's neutral colour as no curve's", () => {
+    expect(plotColor(lightTheme, PLOT_NEUTRAL)).toBe(lightTheme.textSecondary);
+    expect(plotStroke(lightTheme, "asymptote", PLOT_NEUTRAL).color).toBe(lightTheme.textSecondary);
   });
 
   it("draws a washer's region, its slice, its turn and the axis", async () => {

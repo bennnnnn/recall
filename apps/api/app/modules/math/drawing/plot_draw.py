@@ -18,7 +18,13 @@ from app.modules.math.drawing.curve_features import bisect
 from app.modules.math.drawing.plot_check import crossings
 from app.modules.math.drawing.plot_pieces import end_value
 from app.modules.math.drawing.plot_reading import same_number
-from app.modules.math.drawing.plot_scene import DrawnCurve, DrawnLine, DrawnPoint, Scene
+from app.modules.math.drawing.plot_scene import (
+    NEUTRAL_COLOR,
+    DrawnCurve,
+    DrawnLine,
+    DrawnPoint,
+    Scene,
+)
 from app.modules.math.drawing.plot_window import (
     Window,
     curve_places,
@@ -264,6 +270,30 @@ def _drawn_line(line: DrawnLine, window: Window) -> PlotLine | None:
     return PlotLine(start=start, end=end, role=line.role, label=line.label, color=line.color)
 
 
+def _line_key(line: DrawnLine) -> tuple[Any, ...]:
+    def near(value: Any) -> Any:
+        return None if value is None else round(float(value), 9)
+
+    ends = None if line.ends is None else tuple(near(v) for end in line.ends for v in end)
+    return (line.role, near(line.vertical), near(line.slope), near(line.offset), ends)
+
+
+def _once(lines: list[DrawnLine]) -> list[DrawnLine]:
+    """Each line drawn once: y = 0, the asymptote of both 1/x and 1/(x - 1), is one line,
+    neutral, as it is neither curve's; a name either gives it is kept."""
+    kept: dict[tuple[Any, ...], DrawnLine] = {}
+    for line in lines:
+        key = _line_key(line)
+        first = kept.get(key)
+        if first is None:
+            kept[key] = line
+            continue
+        if first.color != line.color:
+            first.color = NEUTRAL_COLOR
+        first.label = first.label or line.label
+    return list(kept.values())
+
+
 def _rounded(window: Window) -> Any:
     """Each coordinate to a ten-thousandth of the window's own width or height, far finer
     than a pixel: the fence stays small. One rounding for both drew e^x on [0, 20] (a height
@@ -396,7 +426,7 @@ def draw_plot(scene: Scene) -> PlotGraphSpec | None:
 
     lines = [
         drawn
-        for line in [*scene.lines.values(), *scene.marks]
+        for line in _once([*scene.lines.values(), *scene.marks])
         if (drawn := _drawn_line(line, window))
     ]
     for end in ends:

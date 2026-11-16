@@ -57,6 +57,15 @@ def _names(words: str, shape: str) -> bool:
     return any(_said(words, stem) for stem in NAMES[shape][0])
 
 
+_SOLID_SHAPES = ("cone", "frustum", "cylinder", "sphere", "hemisphere", "box")
+
+
+def names_a_solid(texts: Iterable[str]) -> bool:
+    """The texts name a solid: a cone, a frustum, a cylinder, a sphere or a box (a cube)."""
+    words = " ".join(texts).lower()
+    return any(_names(words, shape) for shape in _SOLID_SHAPES)
+
+
 def names_shape(texts: Iterable[str], shape: str) -> bool:
     """Nothing the texts name says the shape is another one: they name ``shape`` or no
     shape at all, and none of its "unless" words."""

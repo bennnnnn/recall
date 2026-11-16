@@ -18,7 +18,12 @@ export const MIRROR_DASH = [4, 3];
 /** Drawn beside an axis of revolution: the turn the region makes about it. */
 export const PLOT_TURN = "↻";
 
+/** The server's neutral colour: a mark of no one curve when every series colour is a
+ * curve's, or a line two curves share (an asymptote of both). */
+export const PLOT_NEUTRAL = 5;
+
 export function plotColor(theme: Theme, index: number): string {
+  if (index === PLOT_NEUTRAL) return theme.textSecondary;
   return theme.graphSeries[index % theme.graphSeries.length];
 }
 

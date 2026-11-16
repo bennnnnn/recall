@@ -22,6 +22,7 @@ from app.modules.math.figure.grounding import (
     written_numbers,
     written_pairs,
 )
+from app.modules.math.figure.shape_names import names_a_solid
 
 Triple = tuple[Fraction, Fraction, Fraction]
 Point = tuple[Fraction, ...]
@@ -108,9 +109,13 @@ class Question:
 
     @property
     def flat(self) -> bool:
-        """It writes pairs and no triple: its points and vectors lie in the plane, and one
-        described in space as (a, b, 0) is its pair (a, b) (d06's u = (2, 1))."""
-        return bool(self.pairs) and not self.triples
+        """It writes pairs and no triple, and says nothing of space: its points and vectors
+        lie in the plane, and one described in space as (a, b, 0) is its pair (a, b) (d06's
+        u = (2, 1)). A question that names z, space, 3-D or a solid ("on the face z = 0 of a
+        cube … draw them in 3D") is seen in space."""
+        if not self.pairs or self.triples:
+            return False
+        return not _IN_SPACE.search(self.words) and not names_a_solid([self.words])
 
     def states_triple(self, triple: Triple) -> bool:
         """A point the question places, or the origin. A point it does not ((4, 0, 0) below
@@ -219,6 +224,8 @@ def _plane_vectors(text: str) -> set[tuple[Fraction, Fraction]]:
 
 
 _EXACT_PLACES = 9
+# Words that put a question's points in space, whatever pairs it writes.
+_IN_SPACE = re.compile(r"\b(?:3-?d|three[- ]dimension\w*|in space|space\b|z\b|z-axis|xyz)")
 
 
 def _reply_values(reply: str) -> set[tuple[str, float, int]]:

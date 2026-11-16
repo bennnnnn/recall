@@ -24,15 +24,20 @@ from app.modules.math.drawing.plot_labels import equation_text, line_text, numbe
 from app.modules.math.drawing.plot_pieces import end_value
 from app.modules.math.drawing.plot_question import PlotQuestion
 from app.modules.math.drawing.plot_reading import number, same_number
-from app.modules.math.drawing.plot_scene import DrawnCurve, DrawnLine, DrawnPoint, Place, Scene
+from app.modules.math.drawing.plot_scene import (
+    DrawnCurve,
+    DrawnLine,
+    DrawnPoint,
+    Place,
+    Scene,
+)
 from app.modules.math.drawing.real_curve import RealFunction, X, defined_at
 from app.modules.math.solve.graph_sampling import side
 from app.modules.math.tangent_line import touching_line
 
 # A tangent and an asymptote are drawn in their curve's colour, so a legend row names the
 # lines of one curve only (u5-006: three tangents in one colour beside one row, y = 2x); a
-# normal in its own, apart from the tangent at the same point.
-_NORMAL_COLOR = 2
+# normal in one no curve uses, apart from the tangent at the same point.
 
 
 def _exact_y(fn: RealFunction, x: Any) -> Any:
@@ -97,7 +102,7 @@ def touching(item: Touching, question: PlotQuestion, scene: Scene) -> None:
     y0, slope = found
     normal = item.item == "normal"
     line_slope, offset = touching_line(at, y0, slope, normal, radsimp)
-    color = _NORMAL_COLOR if normal else curve.color
+    color = scene.mark_color() if normal else curve.color
     if line_slope is None:
         line = DrawnLine(vertical=at, label=equation_text("x", at), color=color, held=(float(at),))
     else:
@@ -205,7 +210,9 @@ def point(item: Point, question: PlotQuestion, scene: Scene) -> None:
     if item.at is not None:
         a, b = number(item.at[0]), number(item.at[1])
         if a is not None and b is not None and _written_pair(a, b, question):
-            scene.add_point(DrawnPoint(float(a), float(b), point_text(a, b), color=2))
+            scene.add_point(
+                DrawnPoint(float(a), float(b), point_text(a, b), color=scene.mark_color())
+            )
         return
     curve = scene.curves.get(item.on)
     if curve is None or curve.shape is None:
@@ -235,7 +242,7 @@ def nearest(item: Nearest, question: PlotQuestion, scene: Scene) -> None:
     if not lows:
         return
     best = min(distance.at(x) for x in lows)
-    target = DrawnPoint(float(a), float(b), point_text(a, b), color=2)
+    target = DrawnPoint(float(a), float(b), point_text(a, b), color=scene.mark_color())
     scene.add_point(target)
     for x in lows:
         if distance.at(x) > best * (1 + 1e-9) + 1e-12:
@@ -251,5 +258,7 @@ def nearest(item: Nearest, question: PlotQuestion, scene: Scene) -> None:
         )
         ends = ((place.x, place.y), (target.x, target.y))
         held = (math.sqrt(distance.at(x)),)
-        scene.marks.append(DrawnLine(role="segment", ends=ends, label=length, color=2, held=held))
+        scene.marks.append(
+            DrawnLine(role="segment", ends=ends, label=length, color=scene.mark_color(), held=held)
+        )
     scene.equal = True

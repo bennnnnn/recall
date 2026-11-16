@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 
 from app.modules.math.drawing.build import drawn_fence
+from app.modules.math.drawing.plot_scene import NEUTRAL_COLOR
 from app.tests.modules.math.drawing.test_plot_review import _curve, _plot
 
 
@@ -113,3 +114,52 @@ def test_a_plane_vector_from_another_point_only_as_written_as_a_vector() -> None
     other = _space(point, {"item": "point", "name": "A", "at": [1, 1, 0]},
                    _vector("w", [2, 1, 0], **{"from": "A"}))  # fmt: skip
     assert other is None or not any(s.get("label") == "w" for s in other["segments"])
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "On the face z = 0 of a cube, draw the vectors u = (2, 1) and v = (1, 3) in 3D.",
+        "Draw the vectors u = (2, 1) and v = (1, 3) in space.",
+        "A box stands on the floor; draw u = (2, 1) and v = (1, 3) on its base.",
+    ],
+)
+def test_a_question_that_names_space_or_a_solid_is_seen_in_space(question: str) -> None:
+    figure = _space(question, _vector("u", [2, 1, 0]), _vector("v", [1, 3, 0]))
+    # The pairs are no triples it writes: in space, nothing it states is drawn.
+    assert figure is None or "z" in {p["name"] for p in figure["points"] if p.get("show")}
+
+
+def test_normals_and_level_lines_take_a_colour_no_curve_or_line_uses() -> None:
+    graph = _plot(
+        "Sketch y = x^2, y = x^3 and y = x^4, and the tangent and normal to y = x^4 at x = 1.",
+        _curve("f", "x^2"),
+        _curve("g", "x^3"),
+        _curve("h", "x^4"),
+        _tangent("h", "1"),
+        {"item": "normal", "to": "h", "at": "1"},
+    )
+    assert graph is not None
+    assert [c.color for c in graph.curves] == [0, 1, 2]
+    assert [line.color for line in graph.lines] == [2, 3]  # the tangent is x⁴'s; the normal free
+    average = _plot(
+        "Find the average value of f(x) = x^2 on [0, 3] and the normal at x = 1. Sketch.",
+        _curve("f", "x^2"),
+        {"item": "average", "of": "f", "from": "0", "to": "3"},
+        {"item": "normal", "to": "f", "at": "1"},
+    )
+    assert average is not None and len({line.color for line in average.lines}) == 2
+    assert 0 not in {line.color for line in average.lines}
+
+
+def test_a_line_two_curves_share_is_drawn_once_and_neutral() -> None:
+    graph = _plot(
+        "Sketch y = 1/x and y = 1/(x - 1) with their asymptotes.",
+        _curve("f", "1/x"),
+        _curve("g", "1/(x - 1)"),
+        {"item": "asymptotes", "of": "f"},
+        {"item": "asymptotes", "of": "g"},
+    )
+    assert graph is not None
+    level = [line for line in graph.lines if line.start[1] == line.end[1] == 0]
+    assert len(level) == 1 and level[0].color == NEUTRAL_COLOR
