@@ -22,9 +22,10 @@ import pytest
 from app.core import sympy_executor
 from app.core.config import Settings
 from app.gateways import litellm_gateway
+from app.modules.math.intent_check import intent_in_user_text
 from app.modules.math.schemas import MathImageExtract, MathIntent
 from app.modules.math.schemas.word_problem import WordProblemSetup
-from app.modules.math.tool_check import intent_in_user_text, tool_call_matches_user_text
+from app.modules.math.tool_check import tool_call_matches_user_text
 from app.modules.math.tools import prompt as math_prompt
 from app.modules.math.tools.block.word import UNCHECKED_SETUP_RULE
 from app.modules.math.tools.llm_extract import LLMMathExtract
