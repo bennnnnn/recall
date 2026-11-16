@@ -65,9 +65,15 @@ export function formulaMayScroll(latex: string, fontSize: number): boolean {
   return scrolls;
 }
 
-/** Enough for every formula of a long chat; cleared whole when full. */
+/** Enough for every formula of a long chat; cleared whole when full, and at sign-out: its
+ * keys are the account's formulas. */
 const SCROLL_CACHE_SIZE = 500;
 const scrollsByFormula = new Map<string, boolean>();
+
+/** Forget every formula's width (``signOutCleanup``). */
+export function clearFormulaWidthCache(): void {
+  scrollsByFormula.clear();
+}
 
 /** Whether `text` (words and ``$…$`` maths) holds a formula that may scroll. */
 export function holdsWideFormula(text: string, fontSize: number): boolean {
