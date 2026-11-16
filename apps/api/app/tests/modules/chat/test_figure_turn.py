@@ -23,7 +23,7 @@ from app.modules.chat.finalize_passes import FINALIZE_PASSES, FinalizeState
 from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
-from app.services.solving import VerifiedMathBlock
+from app.services.solving import VerifiedMathBlock, VerifiedPhysicsBlock
 from app.tests.modules.chat.chat_test_support import turn_deps
 
 _FENCE = '```geometry\n{"type":"figure","shape":"cube","points":[{"name":"a","x":0,"y":0},{"name":"b","x":1,"y":0}],"segments":[{"a":"a","b":"b"}]}\n```'
@@ -339,6 +339,47 @@ async def test_a_chemistry_request_to_see_a_molecule_is_left_to_its_solve(
     figure: _Figure,
 ) -> None:
     ctx = _ctx("Draw caffeine.", live_read=_read(subject="chemistry", picture="molecule"))
+    ctx.figure = figure_turn.start_figure(_settings(), ctx)
+    assert await figure_turn.attach_figure(_state(ctx, "Here.")) == "Here."
+    assert figure.modes == []
+
+
+def _chemistry_solve(smiles: str = "") -> Any:
+    """A chemistry solve; ``smiles`` set when it drew the compound."""
+    return SimpleNamespace(subject="chemistry", result=SimpleNamespace(structure_smiles=smiles))
+
+
+async def test_a_chemistry_solve_with_no_structure_still_gets_its_compound_s(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A molar-mass question is solved with no picture: its compound's structure is
+    drawn, asked of chemistry's figure alone (maths' took any peer's block as a picture)."""
+    stand_in = _Figure("```smiles\nglucose\nOCC1OC(O)C(O)C(O)C1O\n```")
+    chemistry = figure_turn._figure("chemistry")
+    assert chemistry is not None
+    monkeypatch.setattr(chemistry, "draw", stand_in.draw)
+    line = "What is the molar mass of glucose?"
+    ctx = _ctx(line, live_read=_read(subject="chemistry", picture="none"))
+    ctx.verified_subject = _chemistry_solve()
+    ctx.figure = figure_turn.start_figure(_settings(), ctx)
+    assert ctx.figure is not None
+    text = await figure_turn.attach_figure(_state(ctx, "It is 180.16 g/mol."))
+    assert "```smiles\nglucose" in text and stand_in.modes == [False]
+
+
+@pytest.mark.parametrize(
+    "verified",
+    [_chemistry_solve("CN1C=NC2=C1C(=O)N(C(=O)N2C)C"), VerifiedPhysicsBlock(text="")],
+    ids=["chemistry-drew-the-structure", "physics-scene"],
+)
+async def test_a_solve_that_draws_its_own_picture_reads_none(verified: Any) -> None:
+    ctx = _ctx(live_read=_read(subject="chemistry", picture="none"), verified_subject=verified)
+    assert figure_turn.start_figure(_settings(), ctx) is None
+
+
+async def test_a_chemistry_solve_gets_no_maths_figure(figure: _Figure) -> None:
+    ctx = _ctx(live_read=_read(subject="maths", picture="diagram"))
+    ctx.verified_subject = _chemistry_solve()
     ctx.figure = figure_turn.start_figure(_settings(), ctx)
     assert await figure_turn.attach_figure(_state(ctx, "Here.")) == "Here."
     assert figure.modes == []

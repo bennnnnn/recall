@@ -49,11 +49,13 @@ def _figure(subject: SubjectName = "math") -> SubjectFigure | None:
 
 
 def _shown_already(verified: Any) -> bool:
-    """The turn's solve already draws the whole picture (a graph, a structure)."""
-    return verified is not None and any(
-        (figure := _figure(subject)) is not None and figure.shown(verified)
-        for subject in _FIGURES.values()
-    )
+    """The turn's solve already draws the whole picture (a graph, a structure), asked of
+    the solving subject's own figure; a subject with no figure (physics' scene) draws its
+    own picture, which no other subject's figure adds to."""
+    if verified is None:
+        return False
+    figure = _figure(verified.subject)
+    return figure is None or figure.shown(verified)
 
 
 def earlier_user_lines(recent: Sequence[Any] | None, line: str) -> list[str]:
@@ -85,7 +87,8 @@ def start_figure(settings: Settings, ctx: StreamContext) -> asyncio.Task[str | N
         return None
     line = ctx.user_message_content or ""
     earlier = earlier_user_lines(ctx.recent_messages, line)
-    return asyncio.create_task(_draw(settings, ctx.live_read, line, earlier))
+    solved_by = getattr(ctx.verified_subject, "subject", None)
+    return asyncio.create_task(_draw(settings, ctx.live_read, line, earlier, solved_by))
 
 
 def _figure_wanted(read: asyncio.Task[TurnDecision | None]) -> _Wanted | None:
@@ -129,12 +132,14 @@ async def _draw(
     read: asyncio.Task[TurnDecision | None],
     line: str,
     earlier: list[str],
+    solved_by: SubjectName | None = None,
 ) -> str | None:
     # Waited on, never awaited: the reply may cancel the read when it stops waiting for it.
     await asyncio.wait([read])
     wanted = _figure_wanted(read)
     figure = _figure(wanted[0]) if wanted is not None else None
-    if wanted is None or figure is None:
+    # A solved turn gets only its own subject's figure, never another's over its solve.
+    if wanted is None or figure is None or solved_by not in (None, wanted[0]):
         return None
     return await figure.draw(line, earlier, settings, asked=wanted[1] == "asked")
 
