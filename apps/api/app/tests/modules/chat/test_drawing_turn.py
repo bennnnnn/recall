@@ -349,32 +349,42 @@ async def test_a_drawn_graph_takes_the_place_of_a_graph_of_its_curve_alone() -> 
     assert "```chart" in out
 
 
-@pytest.mark.wall_clock
-async def test_an_instant_reply_never_waits_for_the_read() -> None:
-    """ "Show your steps" waited 1.2 s for a read that had not come (2026-11-15 review)."""
+def _instant(line: str, read: asyncio.Future[TurnDecision | None]) -> StreamContext:
     from app.services.solving import VerifiedMathBlock
 
-    pending: asyncio.Future[TurnDecision | None] = asyncio.get_event_loop().create_future()
-    line = "Find the local maximum of f(x) = x/(1 + x)² and show your steps."
-    ctx = _ctx(
+    return _ctx(
         line,
         instant_reply="The maximum is 1/4.",
         verified_subject=VerifiedMathBlock(text="1/4"),
-        live_read=pending,
+        live_read=read,
     )
+
+
+@pytest.mark.wall_clock
+async def test_an_instant_card_waits_for_the_read_only_when_words_may_ask() -> None:
+    """ "Show your steps" waited 1.2 s for a read that had not come (2026-11-15 review): a
+    message whose words cannot ask to see a picture never waits. One that may waits up to
+    the read's wait, and a read later than that keeps the card."""
+    pending: asyncio.Future[TurnDecision | None] = asyncio.get_event_loop().create_future()
     loop = asyncio.get_running_loop()
+    steps = _instant("Find the local maximum of f(x) = x/(1 + x)² and show your steps.", pending)
     began = loop.time()
-    await drawing_turn.write_for_a_picture(ctx, _settings())
-    assert loop.time() - began < 0.1 and ctx.instant_reply is not None
-    sketch = _ctx(
-        _SKETCH,
-        instant_reply="The maximum is 1/4.",
-        verified_subject=VerifiedMathBlock(text="1/4"),
-        live_read=pending,
+    await drawing_turn.write_for_a_picture(steps, _settings())
+    assert loop.time() - began < 0.1 and steps.instant_reply is not None
+    sketch = _instant(_SKETCH, pending)
+    began = loop.time()
+    await drawing_turn.write_for_a_picture(sketch, _settings(live_read_wait_seconds=0.2))
+    assert 0.15 < loop.time() - began < 0.5 and sketch.instant_reply is not None
+    pending.cancel()
+
+
+async def test_an_instant_card_gives_way_to_a_read_that_comes_within_the_wait() -> None:
+    """The read decides, late or not: one answering within the wait takes the card's place."""
+    sketch = _instant(
+        _SKETCH, asyncio.ensure_future(_late(_decision(subject="maths", picture="graph"), 0.05))
     )
     await drawing_turn.write_for_a_picture(sketch, _settings())
     assert sketch.instant_reply is None
-    pending.cancel()
 
 
 async def test_a_description_in_the_text_is_taken_out_and_drawn() -> None:
@@ -438,49 +448,43 @@ async def test_one_picture_of_each_kind(read_fence: str, both: bool) -> None:
     assert ("```graph" in out) == both
 
 
-@pytest.mark.parametrize(
-    "line",
-    [
-        # "The graph of y = …" names a curve; it asks for no picture (2026-11-15 review).
-        "Find the x-intercepts of the graph of y = x^2 - 4.",
-        "Find the gradient of the graph of y = x^3 at x = 2.",
-        "What is the vertex of the parabola? Don't draw anything, just give the coordinates: "
-        "y = x^2 - 4x + 1",
-    ],
-)
-async def test_an_instant_card_stays_unless_asked_to_draw(line: str) -> None:
-    from app.services.solving import VerifiedMathBlock
+# The 2026-11-15 reviews' look-alikes: a word that may ask to see a picture, and a read
+# that says the message asks for none. The read keeps the card, never a word.
+_NO_PICTURE = [
+    "Find the x-intercepts of the graph of y = x^2 - 4.",
+    "Find the x-intercepts of the graph y = x^2 - 4.",
+    "Find the gradient of the graph of y = x^3 at x = 2.",
+    "Find the point on the graph of y = x^2 where the gradient is 4.",
+    "Find the coordinates of the points on the graph of y = x^3 - 3x where the tangent is horizontal.",
+    "What is the vertex of the parabola? Don't draw anything, just give the coordinates: "
+    "y = x^2 - 4x + 1",
+    "If you draw two cards from a deck of 52, what is the probability both are aces?",
+    "A rectangular plot is 20 m long and 15 m wide. Find its area.",
+    "Find the area of the plot if it measures 12 m by 8 m.",
+    "No need to sketch it, just find the roots of x^2 - 5x + 6 = 0.",
+    "A lamp shade is a frustum with radii 10 cm and 20 cm and height 15 cm. Find its volume.",
+    "Find dy/dx for y = x^2 sin x; I will graph it myself later.",
+]
+# A picture asked for, as the read says it: the card gives way.
+_A_PICTURE = [
+    "Find the area enclosed by f(x) = 4 - x^2 and g(x) = 3x. Show the curves and shade the region.",
+    "Find the area enclosed by f(x) = ln x and the x-axis from x = 1 to x = e. Show it on a graph.",
+    "Find the local maximum of f(x) = x/(1 + x)^2, and sketch its graph.",
+    "Find the area between y = x^2 and y = 2x and shade the region.",
+    "Find the stationary points of y = x^3 - 3x and visualize the curve.",
+    "Find the turning points of y = x^3 - 3x and represent them on a graph.",
+]
 
-    pending: asyncio.Future[TurnDecision | None] = asyncio.get_event_loop().create_future()
-    ctx = _ctx(
-        line,
-        instant_reply="x = ±2",
-        verified_subject=VerifiedMathBlock(text="2"),
-        live_read=pending,
-    )
+
+@pytest.mark.parametrize("line", _NO_PICTURE)
+async def test_an_instant_card_stays_when_the_read_asks_for_no_picture(line: str) -> None:
+    ctx = _instant(line, _read(subject="maths"))
     await drawing_turn.write_for_a_picture(ctx, _settings())
-    pending.cancel()
     assert ctx.instant_reply is not None
 
 
-@pytest.mark.parametrize(
-    "line",
-    [
-        "Find the area enclosed by f(x) = 4 - x^2 and g(x) = 3x. Show the curves and shade the region.",
-        "Find the area enclosed by f(x) = ln x and the x-axis from x = 1 to x = e. Show it on a graph.",
-        "Find the local maximum of f(x) = x/(1 + x)^2, and sketch its graph.",
-    ],
-)
-async def test_an_instant_card_gives_way_to_an_ask_to_draw(line: str) -> None:
-    from app.services.solving import VerifiedMathBlock
-
-    pending: asyncio.Future[TurnDecision | None] = asyncio.get_event_loop().create_future()
-    ctx = _ctx(
-        line,
-        instant_reply="The area is 125/6.",
-        verified_subject=VerifiedMathBlock(text="125/6"),
-        live_read=pending,
-    )
+@pytest.mark.parametrize("line", _A_PICTURE)
+async def test_an_instant_card_gives_way_when_the_read_asks_for_a_picture(line: str) -> None:
+    ctx = _instant(line, _read(subject="maths", picture="graph"))
     await drawing_turn.write_for_a_picture(ctx, _settings())
-    pending.cancel()
     assert ctx.instant_reply is None

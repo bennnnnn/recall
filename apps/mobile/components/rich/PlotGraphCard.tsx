@@ -8,7 +8,7 @@ import { SkiaGraphCanvasLazy, SkiaGraphLayersLazy } from "@/components/rich/skia
 import { useSkiaGraphViewport } from "@/hooks/useSkiaGraphViewport";
 import { type GraphView } from "@/lib/math/graphViewport";
 import { plotDrawing, type PlotDrawing } from "@/components/rich/plotDrawing";
-import { plotAxes, plotBounds, plotDescription, type PlotGraph } from "@/lib/math/plotGraph";
+import { plotAxes, plotDescription, plotHeight, type PlotGraph } from "@/lib/math/plotGraph";
 import { isSkiaAvailable } from "@/lib/skiaAvailability";
 import { Space } from "@/lib/space";
 import { type Theme } from "@/lib/theme";
@@ -19,29 +19,30 @@ type Canvas = {
   drawing: PlotDrawing;
   bounds: GraphView;
   width: number;
+  height: number;
   theme: Theme;
 };
 
 /** The Skia function graph, held still on the server's window: a plot has no pan or zoom. */
-function SkiaPlot({ graph, drawing, bounds, width, theme }: Canvas) {
+function SkiaPlot({ graph, drawing, bounds, width, height, theme }: Canvas) {
   const still = useCallback(() => {}, []);
   const viewport = useSkiaGraphViewport({
     width,
-    height: PLOT_HEIGHT,
+    height,
     pad: GRAPH_AXIS_PAD,
     initialView: bounds,
     onCommit: still,
   });
-  const frame = { bounds: viewport.bounds, width, height: PLOT_HEIGHT, pad: GRAPH_AXIS_PAD };
+  const frame = { bounds: viewport.bounds, width, height, pad: GRAPH_AXIS_PAD };
   return (
-    <View style={{ width, height: PLOT_HEIGHT }}>
+    <View style={{ width, height }}>
       <SkiaGraphCanvasLazy
         drawn={drawing.drawn}
         points={drawing.points}
         xName={graph.xLabel}
         yName={graph.yLabel}
         width={width}
-        height={PLOT_HEIGHT}
+        height={height}
         pad={GRAPH_AXIS_PAD}
         theme={theme}
         viewport={viewport}
@@ -88,7 +89,12 @@ export function PlotGraphCard({ graph, width, theme }: { graph: PlotGraph; width
   // Its labels, or (none written) what it plots against what: never an empty label.
   const label =
     plotDescription(graph) || t("rich.graph_card_a11y", { expr: `${graph.yLabel}(${graph.xLabel})` });
-  const bounds = useMemo(() => plotBounds(graph, width, PLOT_HEIGHT, GRAPH_AXIS_PAD), [graph, width]);
+  // The server's window, never widened; a plot drawn to one scale sets the card's height.
+  const height = plotHeight(graph, width, GRAPH_AXIS_PAD, PLOT_HEIGHT);
+  const bounds = useMemo(
+    () => ({ xMin: graph.xMin, xMax: graph.xMax, yMin: graph.yMin, yMax: graph.yMax }),
+    [graph],
+  );
   const drawing = useMemo(() => plotDrawing(graph, theme.graphSeries), [graph, theme.graphSeries]);
   const axes = useMemo(() => plotAxes(graph), [graph]);
   const svg = (
@@ -97,7 +103,7 @@ export function PlotGraphCard({ graph, width, theme }: { graph: PlotGraph; width
       theme={theme}
       clipId={clipId}
       width={width}
-      height={PLOT_HEIGHT}
+      height={height}
       bounds={bounds}
       drawn={drawing.drawn}
       points={drawing.points}
@@ -109,7 +115,7 @@ export function PlotGraphCard({ graph, width, theme }: { graph: PlotGraph; width
       <View accessible accessibilityRole="image" accessibilityLabel={label}>
         {isSkiaAvailable() ? (
           <Suspense fallback={svg}>
-            <SkiaPlot graph={graph} drawing={drawing} bounds={bounds} width={width} theme={theme} />
+            <SkiaPlot graph={graph} drawing={drawing} bounds={bounds} width={width} height={height} theme={theme} />
           </Suspense>
         ) : (
           svg

@@ -7,7 +7,7 @@
  * refused.
  */
 import { evalGraphExpr, parseGraphExpr, realPower } from "@/lib/math/graphExpr";
-import { parsePlotGraph, plotBounds } from "@/lib/math/plotGraph";
+import { parsePlotGraph, plotHeight } from "@/lib/math/plotGraph";
 
 declare const __dirname: string;
 const { readFileSync } = jest.requireActual<{
@@ -53,13 +53,18 @@ describe("parsePlotGraph", () => {
     expect(graph?.lines).toEqual([]);
   });
 
-  it("grows one axis to one scale when the plot asks for it", () => {
-    const graph = parsePlotGraph(JSON.stringify({ ...base, equal: true }))!;
-    const b = plotBounds(graph, 343, 220, 16);
-    const xPerPx = (b.xMax - b.xMin) / (343 - 32);
-    const yPerPx = (b.yMax - b.yMin) / (220 - 32);
+  it("is as tall as a plot drawn to one scale asks, never widening its window", () => {
+    // The server grew the window to one scale; the card takes its shape at this width.
+    const graph = parsePlotGraph(JSON.stringify({ ...base, x_max: 2.3, equal: true }))!;
+    const height = plotHeight(graph, 343, 16, 220);
+    const xPerPx = (graph.xMax - graph.xMin) / (343 - 32);
+    const yPerPx = (graph.yMax - graph.yMin) / (height - 32);
     expect(xPerPx).toBeCloseTo(yPerPx, 9);
-    expect(b.yMin).toBe(-1);
+    expect([graph.xMin, graph.xMax, graph.yMin, graph.yMax]).toEqual([-1, 2.3, -1, 1]);
+  });
+
+  it("keeps its own height when the plot asks for no one scale", () => {
+    expect(plotHeight(parsePlotGraph(JSON.stringify(base))!, 343, 16, 220)).toBe(220);
   });
 });
 
@@ -88,13 +93,16 @@ describe("one scale on both axes", () => {
     parsePlotGraph(JSON.stringify({ type: "plot", x_min: 0, x_max: xMax, y_min: 0, y_max: 1, equal,
       curves: [{ label: "", segments: [[[0, 0], [1, 1]]] }] }))!;
 
-  it("grows the window by the function graph's own rule", () => {
-    const bounds = plotBounds(graph(true, 1), 330, 220, 10);
-    expect((bounds.xMax - bounds.xMin) / (bounds.yMax - bounds.yMin)).toBeCloseTo(310 / 200, 6);
+  it("never widens the server's window, whatever the card's size", () => {
+    const plot = graph(true, 1);
+    const height = plotHeight(plot, 330, 10, 220);
+    expect([plot.xMin, plot.xMax, plot.yMin, plot.yMax]).toEqual([0, 1, 0, 1]);
+    // A square window asks for a card as tall as it is wide, within its least and most.
+    expect(height).toBe(330);
   });
 
-  it("leaves a window it would squash past eight times over as it is", () => {
-    expect(plotBounds(graph(true, 100), 330, 220, 10)).toEqual({ xMin: 0, xMax: 100, yMin: 0, yMax: 1 });
+  it("keeps a card within its height when the window is a thin strip", () => {
+    expect(plotHeight(graph(true, 100), 330, 10, 220)).toBe(160);
   });
 });
 

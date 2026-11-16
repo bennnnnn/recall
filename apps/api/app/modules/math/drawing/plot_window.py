@@ -4,7 +4,10 @@ It holds every place the picture shows: where each curve crosses an axis, turns 
 every labelled point, region and stated line, where a tangent meets an axis nearby, and
 room either side of an asymptote for the curve to run along it. It is never a fixed ±5 or
 ±10. A picture of an interval (a region, rectangles, a stated domain) shows that interval.
-One scale on both axes (a normal, a distance) is the phone's to set, at the card's size.
+One scale on both axes (a normal looks perpendicular, a distance true) is set here too, the
+window grown on one axis to the card's shape before anything is sampled in it: the phone
+draws the window it is sent, its card as tall as that window's shape asks, and never widens
+it past what the curves were sampled on (``lib/math/plotGraph.plotHeight``).
 """
 
 from __future__ import annotations
@@ -30,8 +33,13 @@ _POLE_SHARE = 0.15
 # A curve may run on past its places by this share of their height before it leaves.
 _RUN_ON = 0.6
 _LEAST_HEIGHT = 0.6
+# A window is at least this wide where a curve runs on.
+_LEAST_WIDTH = 2.0
 # The card is about this much wider than tall (343 by 220, less its margins).
 _CARD_ASPECT = 1.65
+# One scale grows the window at most this many times over, or not at all: past it, the
+# picture would be a thin strip.
+_MOST_STRETCH = 8.0
 Window = tuple[float, float, float, float]
 
 
@@ -66,6 +74,8 @@ def curve_places(curve: DrawnCurve) -> list[tuple[float, float]]:
                     if span.low == -oo or float(span.low) <= x <= float(span.high):
                         places.append((x, span.fn.at(x)))
         places += [(float(x), float(y)) for x, y in curve.shape.dots]
+    # Where its own domain ends, with its value there (ln x/√(x² - 1) starts at (1, 0)).
+    places += [(float(x), float(y)) for x, y in curve.domain_ends if math.isfinite(float(y))]
     for found in curve.breaks:
         for side, direction in ((found.left, -1), (found.right, 1)):
             if side.kind == "finite":
@@ -158,8 +168,26 @@ def _x_window(scene: Scene, places: list[tuple[float, float]]) -> tuple[float, f
     if -1 in scene.asymptote_sides:
         x_lo -= along
     x_lo, x_hi = _padded(x_lo, x_hi, 2.0)
+    x_lo, x_hi = _widened(scene, x_lo, x_hi)
     if any(line.role == "asymptote" and line.vertical is not None for line in scene.marks):
         x_lo, x_hi = max(x_lo, far_lo), min(x_hi, far_hi)
+    return x_lo, x_hi
+
+
+def _widened(scene: Scene, x_lo: float, x_hi: float) -> tuple[float, float]:
+    """A window narrower than ``_LEAST_WIDTH`` grown to it on the sides a curve runs on:
+    x^x's places lie within [0, 0.37], and its window showed nothing of its rise. A picture
+    of an interval (a region, a stated domain) shows that interval as it is."""
+    short = _LEAST_WIDTH - (x_hi - x_lo)
+    about_an_interval = scene.regions or any(c.stated_domain for c in scene.curves.values())
+    if short <= 0 or about_an_interval:
+        return x_lo, x_hi
+    step = 1e-3 * (x_hi - x_lo)
+    left, right = _runs_beside(scene, x_lo - step), _runs_beside(scene, x_hi + step)
+    if left and right:
+        return x_lo - short / 2, x_hi + short / 2
+    if left or right:
+        return (x_lo - short, x_hi) if left else (x_lo, x_hi + short)
     return x_lo, x_hi
 
 
@@ -220,10 +248,28 @@ def span_range(span: Span, x_lo: float, x_hi: float) -> tuple[float, float]:
     return low, high
 
 
+def equal_scaled(window: Window) -> Window | None:
+    """``window`` grown on one axis, about its middle, to one scale on both axes at the
+    card's shape; None when that would grow it past ``_MOST_STRETCH``."""
+    x_lo, x_hi, y_lo, y_hi = window
+    stretch = (x_hi - x_lo) / (y_hi - y_lo) / _CARD_ASPECT
+    if not 1 / _MOST_STRETCH <= stretch <= _MOST_STRETCH:
+        return None
+    if stretch < 1:
+        extra = ((y_hi - y_lo) * _CARD_ASPECT - (x_hi - x_lo)) / 2
+        return x_lo - extra, x_hi + extra, y_lo, y_hi
+    extra = ((x_hi - x_lo) / _CARD_ASPECT - (y_hi - y_lo)) / 2
+    return x_lo, x_hi, y_lo - extra, y_hi + extra
+
+
 def fit_window(scene: Scene, places: list[tuple[float, float]]) -> Window:
-    """The window the picture is about. One scale on both axes, when asked for, is the
-    phone's to set at the card's own size (``lib/math/plotGraph.plotBounds``)."""
+    """The window the picture is about."""
     places = _finite(places) or [(0.0, 0.0)]
     places += _line_crossings(scene, _box(places))
     x_lo, x_hi = _x_window(scene, places)
+    # No wider than where each curve's places were all found: a root shown is a root marked.
+    for curve in scene.curves.values():
+        listed = curve.listed
+        if listed is not None and max(x_lo, listed[0]) < min(x_hi, listed[1]):
+            x_lo, x_hi = max(x_lo, listed[0]), min(x_hi, listed[1])
     return (x_lo, x_hi, *_y_window(scene, places, x_lo, x_hi))

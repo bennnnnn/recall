@@ -29,6 +29,11 @@ _READER_GLYPHS = {
 _OPERATORS = str.maketrans(OPERATOR_GLYPHS)
 # A differential after an integrand: the "dx" of "∫ sin x dx".
 _DIFFERENTIAL = re.compile(r"(?<=\S)\s+d[a-z](?![\w/])")
+# An integral's bounds as scripts: "∫₀²", "\\int_0^2", "∫_{-1}^{3}", read as the words
+# "from 0 to 2 of" that every interval reader reads; LaTeX's thin spaces as spaces.
+_BOUND = r"(?:\{([^{}]{1,12})\}|(-?[\w.]{1,8}))"
+_SCRIPTED_INTEGRAL = re.compile(rf"(?:∫|\\int)\s*_\s*{_BOUND}\s*(?:\^|\*\*)\s*{_BOUND}")
+_THIN_SPACE = re.compile(r"\\[,;:!]")
 # A function defined: "f(x) =", "g(t)=".
 DEFINES = re.compile(r"\b[a-zA-Z]\(\s?[a-z]\s?\)\s?=")
 LOWER, UPPER = frozenset({">", ">="}), frozenset({"<", "<="})
@@ -38,12 +43,20 @@ _FLIPPED = {"<": ">", ">": "<", "<=": ">=", ">=": "<=", "=": "=", "!=": "!="}
 def plain(text: str) -> str:
     """``text`` in the spelling the formula reader reads: the solver's own rewrites of
     operators, superscripts and roots (``solve.unicode_normalize``), |…| as Abs(…) as the
-    solver reads it (``solve.latex_normalize``), and no differential after an integrand."""
+    solver reads it (``solve.latex_normalize``), an integral's scripted bounds in words,
+    and no differential after an integrand."""
     out = text.translate(_OPERATORS)
     for glyph, written in _READER_GLYPHS.items():
         out = out.replace(glyph, written)
     out = rewrite_unicode_sqrts(rewrite_unicode_script_runs(out))
+    out = _SCRIPTED_INTEGRAL.sub(_integral_words, _THIN_SPACE.sub(" ", out))
     return _DIFFERENTIAL.sub("", rewrite_abs_bars(out, apart=True))
+
+
+def _integral_words(match: re.Match[str]) -> str:
+    low = match.group(1) or match.group(2)
+    high = match.group(3) or match.group(4)
+    return f"∫ from {low} to {high} of "
 
 
 def number(text: str) -> Any | None:

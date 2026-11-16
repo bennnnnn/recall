@@ -20,14 +20,21 @@ from app.modules.math.drawing.plot_reading import LOWER, UPPER, conditions, numb
 
 _VALUE = r"[-+]?[\w./()*^]{1,12}"
 # "[1, 2]" or "[-2, 2]": an interval the question writes.
-_BRACKETS = re.compile(r"\[\s*([^\[\],]{1,16}),\s*([^\[\],]{1,16})\]")
+BRACKETS = re.compile(r"\[\s*([^\[\],]{1,16}),\s*([^\[\],]{1,16})\]")
 # An interval in words: "from -π/2 to π/2", "from x = 0 to x = 2", "between x = 1 and x = 2".
 _FROM_TO = re.compile(
     rf"\b(?P<word>from|between)\s(?P<named>[a-z]\s?=\s?)?(?P<low>{_VALUE})\s(?:to|and)\s"
     rf"(?:[a-z]\s?=\s?)?(?P<high>{_VALUE})"
 )
 # Words before "between A and B" that say it of a value, not of x: "is between 2 and 3".
-_SAID_OF_A_VALUE = frozenset("is are answer result value estimate lies be was".split())
+# A region "lying between 1 and 3" lies between values of x.
+_SAID_OF_A_VALUE = frozenset("is are answer result value estimate was".split())
+# A list after "x =": "x = 1 and -2", "x = 1, 2 or 3".
+_NUMBER_VALUE = r"[-+]?(?:\d|pi\b)[\w./()*^]{0,11}"
+_LISTED = rf"\s?(?:,|\band\b|\bor\b)\s?(?:and\s)?{_NUMBER_VALUE}(?=[\s,.;)]|$)"
+_LISTED_VALUE = re.compile(rf"(?:,|\band\b|\bor\b)\s?(?:and\s)?({_NUMBER_VALUE})")
+# What joins two values said alike: "x = 1 and x = -2", "x = 1, x = 2".
+_LIST_JOIN = re.compile(r"\s?(?:,|and|or|,\s?and)?\s?")
 # After these words "x = 2" (or "y = 4") names a point, not a line.
 _POINT_WORDS = frozenset("at when where whenever if for of point then".split())
 _LINE_WORDS = frozenset("the line lines vertical horizontal".split())
@@ -57,7 +64,7 @@ def intervals(text: str, variables: frozenset[str]) -> list[Interval]:
     """The intervals of x ``text`` writes: in brackets, in words, and as a double comparison
     in one clause ("0 ≤ x ≤ 2π", "-5 < x ≤ -2", its strictness kept)."""
     found: list[Interval] = []
-    pairs = [(m.group(1), m.group(2)) for m in _BRACKETS.finditer(text)]
+    pairs = [(m.group(1), m.group(2)) for m in BRACKETS.finditer(text)]
     for match in _FROM_TO.finditer(text):
         before = _words_before(text, match.start())[-3:]
         said_of_value = match.group("word") == "between" and not match.group("named")
@@ -79,19 +86,29 @@ def intervals(text: str, variables: frozenset[str]) -> list[Interval]:
 
 
 def named_values(text: str, letter: str, variables: frozenset[str]) -> tuple[list[Any], list[Any]]:
-    """The values ``text`` gives ``letter`` (x or y), as lines it names and as points it is
-    said of: "the lines x = -1/2 and x = 3" and "x ≥ 0" (outside a piece) and the y-axis are
-    lines; "at x = 3", "where y = 4" are points."""
+    """The values ``text`` gives ``letter`` (x, y, or the variable t a curve is written in),
+    as lines it names and as points it is said of: "the lines x = -1/2 and x = 3" and
+    "x ≥ 0" (outside a piece) and the y-axis are lines; "at x = 3", "where y = 4" are
+    points, and so is each value listed after one ("where x = 1 and x = -2", "at x = 1, -2").
+    """
     lines: list[Any] = []
     points: list[Any] = []
-    for match in re.finditer(rf"\b{letter}\s?=\s?({_VALUE})", text):
+    said: list[Any] | None = None
+    last = 0
+    for match in re.finditer(rf"\b{letter}\s?=\s?({_VALUE})((?:{_LISTED})*)", text):
         if text[match.start() - 1 : match.start()] in {"(", "'"}:
             continue  # f(x = ...) is no line
-        value = number(match.group(1).rstrip(")"))
-        if value is None:
+        values = [match.group(1), *re.findall(_LISTED_VALUE, match.group(2))]
+        found = [v for v in (number(w.rstrip(")")) for w in values) if v is not None]
+        if not found:
             continue
         before = [w for w in _words_before(text, match.start()) if w not in _LINE_WORDS]
-        (points if before and before[-1] in _POINT_WORDS else lines).append(value)
+        if said is not None and _LIST_JOIN.fullmatch(text[last : match.start()]):
+            kind = said  # "where x = 1 and x = -2": the second is said as the first
+        else:
+            kind = points if before and before[-1] in _POINT_WORDS else lines
+        kind += found
+        said, last = kind, match.end()
     if letter == "x":
         for part in parts(text):
             if _PIECE_WORDS.search(part.lower()):

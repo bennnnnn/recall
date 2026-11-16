@@ -20,7 +20,14 @@ from typing import Any, Literal
 from sympy import Expr, Rational, Symbol
 
 from app.modules.math.drawing.plot_check import reach, stated_interval
-from app.modules.math.drawing.plot_items import AxisNames, Curve, Line
+from app.modules.math.drawing.plot_items import (
+    Average,
+    AxisNames,
+    Curve,
+    Line,
+    Rectangles,
+    Shade,
+)
 from app.modules.math.drawing.plot_labels import (
     equation_text,
     formula_text,
@@ -82,7 +89,7 @@ def _own_formula(text: str, question: PlotQuestion) -> _Own | None:
         name = written.name if quantity else "y"
         if not parsed.free_symbols and not _a_level_line(written, question):
             continue  # "a = 3", "where y = 4" name values, never the line y = 3
-        if same_value(written.expr, parsed):
+        if same_value(written.expr, parsed) or _same_on_the_reals(written.expr, parsed, letter):
             return _Own(written.expr.subs(letter, _X), str(letter), name, False, written)
         if not question.antiderivatives:
             continue  # x² is no picture of f(x) = 2x unless antiderivatives are asked for
@@ -98,6 +105,20 @@ def _a_level_line(written: Written, question: PlotQuestion) -> bool:
     if not written.defines:
         return False
     return not any(same_number(point, written.expr) for point in question.y_points)
+
+
+def _same_on_the_reals(written: Any, described: Any, letter: Symbol) -> bool:
+    """The two formulas have the same value wherever either has one on the real line: the
+    reply's x for (x³)^(1/3), whose principal branch SymPy keeps apart from x below 0."""
+    if not written.free_symbols or not described.free_symbols:
+        return False
+    first = RealFunction(as_real(written, letter))
+    second = RealFunction(as_real(described, letter))
+    pairs = [(first.at(x), second.at(x)) for x in (*_SAMPLES, *(-v for v in _SAMPLES))]
+    if any(math.isfinite(a) != math.isfinite(b) for a, b in pairs):
+        return False
+    found = [(a, b) for a, b in pairs if math.isfinite(a)]
+    return len(found) >= 3 and all(abs(a - b) < 1e-9 * (1 + abs(b)) for a, b in found)
 
 
 def _derivative_is(antiderivative: Any, integrand: Any, letter: Symbol) -> bool:
@@ -129,26 +150,57 @@ def _no_constant(antiderivative: Any, integrand: Any, letter: Symbol) -> bool:
 
 
 def _domain(
-    curve: Curve, question: PlotQuestion, split: bool, written: Written | None
+    curve: Curve,
+    question: PlotQuestion,
+    split: bool,
+    written: Written | None,
+    tasks: list[tuple[Any, Any]],
 ) -> list[Condition] | Literal[False] | None:
     """Where the curve is drawn, as conditions on x: the domain the question writes its
     formula with ("defined for 0 ≤ x ≤ 3 only", "for t ≥ 0", "0 < x < 2" with its ends left
-    out), whether or not the description repeats it; else an interval of x the question
-    states that the description gives. None for none: an interval the question does not
-    state is a window the reply chose. False when that interval is a piece: the reply wrote
-    one function as curves of one name (c011's x² + 1 "on [-10, -7]", 15 - 5x "on
-    [-7, 4]"), and a whole parabola would stand for f."""
+    out, "on [0, 2]"), whether or not the description repeats it (``domain_of``). One
+    written beside the formula that a region, rectangles or an average of the description
+    stand on is theirs ("the average value of f(x) = x² on [0, 3]"), unless the question
+    names it a domain or the description draws the curve on it too. None for none: an
+    interval the question says of something else ("is decreasing for -1 < x < 1", "the area
+    under it for 0 ≤ x ≤ 3") is a window the reply chose. False when the description's
+    interval is a piece: the reply wrote one function as curves of one name (c011's x² + 1
+    "on [-10, -7]", 15 - 5x "on [-7, 4]"), and a whole parabola would stand for f."""
     own = question.domain_of(written.expr) if written is not None else None
-    if own:
-        return list(own)
-    if curve.domain is None:
+    start, end = (number(text) for text in curve.domain) if curve.domain else (None, None)
+    described = [(start, end)] if start is not None and end is not None else []
+    if own is not None and (
+        own.named
+        or not _a_task_interval(own.conditions, tasks)
+        or _a_task_interval(own.conditions, described)
+    ):
+        return list(own.conditions)
+    if curve.domain is None or not split:
         return None
-    start, end = (number(text) for text in curve.domain)
-    held = stated_interval(start, end, question) if start is not None and end is not None else None
+    held = stated_interval(start, end, question) if described else None
     if held is not None:
         low = Condition(">=" if held.low_closed else ">", held.low)
         return [low, Condition("<=" if held.high_closed else "<", held.high)]
-    return False if split else None
+    return False
+
+
+def _a_task_interval(domain: tuple[Condition, ...], tasks: list[tuple[Any, Any]]) -> bool:
+    lows = [c.value for c in domain if c.op in {">", ">="}]
+    highs = [c.value for c in domain if c.op in {"<", "<="}]
+    if len(lows) != 1 or len(highs) != 1:
+        return False
+    return any(same_number(lows[0], a) and same_number(highs[0], b) for a, b in tasks)
+
+
+def _task_intervals(items: list[Any]) -> list[tuple[Any, Any]]:
+    """The intervals the description's regions, rectangles and averages stand on."""
+    found: list[tuple[Any, Any]] = []
+    for item in items:
+        if isinstance(item, (Shade, Rectangles, Average)):
+            a, b = number(item.start), number(item.end)
+            if a is not None and b is not None:
+                found.append((a, b))
+    return found
 
 
 def _search(domain: list[Condition] | None, question: PlotQuestion) -> tuple[float, float]:
@@ -176,7 +228,12 @@ def _shift(text: str, question: PlotQuestion) -> Any | None:
 
 
 def _curves(
-    curve: Curve, question: PlotQuestion, color: int, scene: Scene, split: bool
+    curve: Curve,
+    question: PlotQuestion,
+    color: int,
+    scene: Scene,
+    split: bool,
+    tasks: list[tuple[Any, Any]],
 ) -> list[DrawnCurve]:
     search = _search(None, question)
     name = curve.name or f"curve{color}"
@@ -194,7 +251,7 @@ def _curves(
         shape = pieces_shape(curve, question)
         return [] if shape is None else [DrawnCurve(name, "", color, shape, search=search)]
     found = _own_formula(curve.y, question)
-    domain = _domain(curve, question, split, found.written if found else None)
+    domain = _domain(curve, question, split, found.written if found else None, tasks)
     if found is None or domain is False:
         return []
     expr, letter, quantity = found.expr, found.letter, found.name
@@ -330,9 +387,10 @@ def _stated_points_on(line: DrawnLine, question: PlotQuestion) -> list[tuple[flo
 def add_curves(items: list[Any], question: PlotQuestion, scene: Scene) -> None:
     color = 0
     names = Counter(item.name for item in items if isinstance(item, Curve) and item.name)
+    tasks = _task_intervals(items)
     for item in items:
         if isinstance(item, Curve) and len(scene.curves) < _MOST_CURVES:
-            for drawn in _curves(item, question, color, scene, names[item.name] > 1):
+            for drawn in _curves(item, question, color, scene, names[item.name] > 1, tasks):
                 if drawn.name not in scene.curves and len(scene.curves) < _MOST_CURVES:
                     scene.curves[drawn.name] = drawn
                     color += 1

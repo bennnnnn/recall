@@ -38,25 +38,15 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# When the read has not answered by the reply's call: a maths message that asks to see a
-# picture in so many words ("draw the cone", "show P in space"; "show that" is a proof).
+# Words that may ask to see a maths picture. They decide only whether a turn waits for the
+# read (an instant card), or, when the read is late, whether the reply is asked for a
+# description, which finalize keeps only if the read, in by then, agrees. Broad on purpose:
+# "the graph of y = x²" waits, and the read keeps the card. "Show that" is a proof and
+# "show your steps" asks for working: neither waits.
 _ASKS_TO_SEE = re.compile(
-    r"\b(?:draw|sketch|graph|plot|illustrate|show(?!\s+(?:that|how|why|whether)\b))\b",
+    r"\b(?:draw|sketch|graph|plot|illustrate|shade|visuali[sz]e|diagram"
+    r"|show(?!\s+(?:that|how|why|whether|your|all|each|every|(?:the\s+)?(?:steps?|working|work))\b))",
     re.IGNORECASE,
-)
-
-
-# An ask to draw: the verb, never "the graph of" naming a curve or "a plot of" a story;
-# "graph" a verb only before what it graphs ("graph y = x²", "graph the function").
-_ASKS_TO_DRAW = re.compile(
-    r"\b(?:draw|sketch|illustrate|plot|shade)\b(?!\s+of\b)"
-    r"|\bgraph\b(?=\s+(?:[a-z]\s?=|[a-z]\(|the\s+(?:function|curve|equation|line|parabola)|it\b|both\b|them\b))"
-    r"|\bon\s+(?:a|the)\s+(?:graph|diagram|coordinate\s+plane)\b",
-    re.IGNORECASE,
-)
-# An ask made not to: "don't draw anything", "no need to sketch".
-_NOT_ASKED = re.compile(
-    r"\b(?:don'?t|do\s+not|no\s+need\s+to|without|never|not)\W+(?:\w+\W+){0,2}$", re.IGNORECASE
 )
 
 
@@ -118,32 +108,20 @@ async def _read_for_a_picture(ctx: StreamContext, deadline: float) -> TurnDecisi
     return task.result()
 
 
-def _read_in(ctx: StreamContext) -> TurnDecision | None:
-    """The read, when it has answered by now; never waited for."""
-    task = ctx.live_read
-    if task is None or not task.done() or task.cancelled() or task.exception() is not None:
-        return None
-    return task.result()
-
-
-def _asks_to_draw(ctx: StreamContext) -> bool:
-    """The message asks, in so many words, for a picture drawn: "sketch it", "graph y = x²";
-    never "the x-intercepts of the graph of y = x² - 4", and never "don't draw anything"."""
-    line = ctx.user_message_content or ""
-    return any(
-        _NOT_ASKED.search(line[: found.start()][-40:]) is None
-        for found in _ASKS_TO_DRAW.finditer(line)
-    )
+def _wants_a_drawing(read: TurnDecision) -> bool:
+    """The read calls the message a maths question asking to see a picture a description
+    draws: a diagram's figure or a graph."""
+    return read.picture in _DESCRIBED and read_asks_for_a_picture(read)
 
 
 async def write_for_a_picture(ctx: StreamContext, settings: Settings) -> None:
-    """A solver's instant reply gives way to the model's when the message asks to see a
-    maths picture: the instant reply carries the card alone, and no picture can be
+    """A solver's instant reply gives way to the model's when the read says the message asks
+    to see a maths picture: the instant reply carries the card alone, and no picture can be
     described for it (round 3's c031, "find the maximum ... and sketch its graph", got only
     the maximum). The model writes around the same checked card, and describes the graph.
-    An instant reply never waits for the read (the 2026-11-15 review saw "show your steps"
-    wait 1.2 s): the read in by now decides, else a word that asks to draw ("sketch",
-    "graph"; "show" alone asks for no picture)."""
+    The read decides, never a word: a message whose words may ask (``_ASKS_TO_SEE``) waits
+    for it up to ``live_read_wait_seconds``; a read later than that keeps the card, which
+    loses a picture, never the card to a guess; any other message never waits."""
     if ctx.instant_reply is None or not isinstance(ctx.verified_subject, VerifiedMathBlock):
         return
     figure = _figure()
@@ -151,9 +129,11 @@ async def write_for_a_picture(ctx: StreamContext, settings: Settings) -> None:
         return
     if figure.shown(ctx.verified_subject):
         return  # the card already draws the picture ("Graph y = x² and y = 2x")
-    read = _read_in(ctx)
-    asks = read_asks_for_a_picture(read) if read is not None else _asks_to_draw(ctx)
-    if asks:
+    deadline = asyncio.get_running_loop().time() + settings.live_read_wait_seconds
+    read = await _read_for_a_picture(ctx, deadline)
+    if read is None and ctx.live_read is not None and not ctx.live_read.done():
+        note_prompt_rule("subject.instant_read_late")
+    if read is not None and _wants_a_drawing(read):
         ctx.instant_reply = None
         note_prompt_rule("subject.draw_over_instant")
 
@@ -172,9 +152,7 @@ async def ask_for_a_drawing(
         read = await _read_for_a_picture(ctx, deadline)
     asked: Literal["read", "words"] | None = None
     if read is not None and read.subject is not None and read.picture is not None:
-        # A picture the contract draws: a diagram's figure or a graph.
-        wanted = read_asks_for_a_picture(read) and read.picture in _DESCRIBED
-        asked = "read" if wanted else None
+        asked = "read" if _wants_a_drawing(read) else None
     elif _a_maths_turn(ctx) and _asks_in_words(ctx):
         asked = "words"
     if asked is None:

@@ -21,9 +21,18 @@ from sympy import Expr, Symbol, limit, oo
 
 from app.modules.math.drawing.curve_features import GRID, bisect, snapped
 from app.modules.math.drawing.real_curve import RealFunction, X
-from app.modules.math.solve.graph_sampling import Side, pole_flips, side, singular_xs
+from app.modules.math.solve.graph_sampling import (
+    SIDE_STEPS,
+    Side,
+    pole_flips,
+    side,
+    singular_xs,
+)
 
-_FAR = (1e4, 1e5, 1e6)
+# Where a curve is looked at far out, each a little off a whole number: x^x has a value at
+# every negative whole number and at no x between, and settled on 0 at -10⁶ as if it ran
+# along y = 0 there (its window ran to -2.7, where it has no curve).
+FAR = (1e4 + 0.37, 1e5 + 0.37, 1e6 + 0.37)
 _T = Symbol("t", positive=True)
 
 
@@ -69,7 +78,17 @@ def _candidates(fn: RealFunction, low: float, high: float, exact: list[Any]) -> 
 
 
 def breaks(fn: RealFunction, low: float, high: float, exact: list[Any]) -> list[Break]:
+    return breaks_and_ends(fn, low, high, exact)[0]
+
+
+def breaks_and_ends(
+    fn: RealFunction, low: float, high: float, exact: list[Any]
+) -> tuple[list[Break], list[tuple[Any, float]]]:
+    """Where the curve breaks (a pole, a jump, a hole), and where its own domain ends inside
+    [low, high] with the value it settles on there: ln x/√(x² - 1) starts at (1, 0), where
+    it has no value, and the window began at 1.75 without it."""
     found: list[Break] = []
+    ends: list[tuple[Any, float]] = []
     for candidate in _candidates(fn, low, high, exact):
         x0 = float(candidate)
         left, right = side(fn.values, x0, -1), side(fn.values, x0, 1)
@@ -78,15 +97,34 @@ def breaks(fn: RealFunction, low: float, high: float, exact: list[Any]) -> list[
         # Beside a pole the formula's value at a decimal place is only a huge number.
         value = here if math.isfinite(here) and "infinite" not in sides else None
         if "infinite" not in sides and "finite" not in sides:
+            settled = _domain_end(fn, x0)
+            if settled is not None:
+                ends.append((candidate, settled))
             continue
         if left.kind == right.kind == "finite" and value is not None:
             near = 1e-4 * (1.0 + abs(value))
             if abs(left.value - value) < near and abs(right.value - value) < near:
                 continue  # continuous: a corner or a cusp, no break
         if "none" in sides and "infinite" not in sides:
-            continue  # the end of the curve's domain, as √(9 - x²) ends at 3
+            # The end of the curve's domain, as √(9 - x²) ends at 3: no break.
+            ends.append((candidate, left.value if left.kind == "finite" else right.value))
+            continue
         found.append(Break(candidate, left, right, value))
-    return sorted(found, key=lambda b: float(b.x))
+    return sorted(found, key=lambda b: float(b.x)), ends
+
+
+def _domain_end(fn: RealFunction, x0: float) -> float | None:
+    """The value a curve with values on one side of ``x0`` only settles on there, when it
+    settles slower than ``side`` waits for: √(x - 1) and ln x/√(x² - 1) at 1, whose steps
+    toward 0 shrink by √10 each."""
+    scale = max(1.0, abs(x0))
+    near = {d: fn.values(np.array([x0 + d * step * scale for step in SIDE_STEPS])) for d in (-1, 1)}
+    have = [d for d, values in near.items() if np.all(np.isfinite(values))]
+    if len(have) != 1 or np.any(np.isfinite(near[-have[0]])):
+        return None
+    values = near[have[0]]
+    steps = np.abs(np.diff(values))
+    return float(values[-1]) if bool(np.all(steps[1:] <= 0.5 * steps[:-1])) else None
 
 
 def has_pole(fn: RealFunction, low: float, high: float) -> bool:
@@ -105,7 +143,7 @@ def has_pole(fn: RealFunction, low: float, high: float) -> bool:
 def _numeric_line(fn: RealFunction, direction: int) -> tuple[float, float] | None:
     """The line the samples settle on far out, when they settle: secant slopes that agree,
     and offsets from the last of them that agree."""
-    far = [direction * x for x in _FAR]
+    far = [direction * x for x in FAR]
     ys = [fn.at(x) for x in far]
     if not all(math.isfinite(y) for y in ys):
         return None

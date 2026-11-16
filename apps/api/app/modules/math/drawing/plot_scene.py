@@ -14,9 +14,10 @@ from typing import Any, Literal
 
 from sympy import And, Integer, Piecewise, nan, oo
 
-from app.modules.math.drawing.curve_breaks import Break, breaks
+from app.modules.math.drawing.curve_breaks import Break, breaks_and_ends
 from app.modules.math.drawing.curve_features import (
     GRID,
+    MOST_FOUND,
     bends,
     bisect,
     continuous_at,
@@ -77,6 +78,8 @@ class DrawnCurve:
     # A line the server worked out drawn as a curve (a triangle's side through two stated
     # points): its slope and offset, its label shown only when the reply writes that line.
     held: tuple[float, ...] = ()
+    # The kinds of place the picture marks on it: "roots", "turns", "inflections".
+    marked: set[str] = field(default_factory=set)
 
     @property
     def single(self) -> RealFunction | None:
@@ -161,16 +164,49 @@ class DrawnCurve:
                 found.append(Place(span.high, here))
         return found
 
+    @property
+    def listed(self) -> tuple[float, float] | None:
+        """The x's between which every place of each kind the picture marks on the curve was
+        found. A curve with more than ``MOST_FOUND`` of one (sin 5x's roots) keeps those
+        nearest the middle of its search (``curve_features``); a window wider showed roots
+        it did not mark. None when none was left out, or on an interval the question states,
+        which the picture shows whole."""
+        if self.single is None or self.stated_domain:
+            return None
+        middle = sum(self.search) / 2
+        found = {"roots": self.roots, "turns": self.turns}
+        if "inflections" in self.marked:
+            found["inflections"] = self.inflections
+        reach = math.inf
+        for kind, places in found.items():
+            if kind not in self.marked or len(places) < MOST_FOUND:
+                continue
+            # Short of the farthest kept: one of two as far away may be the one left out.
+            reach = min(reach, max(abs(float(p.x) - middle) for p in places) * (1 - 1e-3))
+        return None if reach == math.inf else (middle - reach, middle + reach)
+
     @cached_property
     def inflections(self) -> list[Place]:
         return self._places(lambda s, a, b: bends(s.fn, a, b), 2)
 
     @cached_property
-    def breaks(self) -> list[Break]:
+    def _breaks_and_ends(self) -> tuple[list[Break], list[tuple[Any, float]]]:
         found: list[Break] = []
+        ends: list[tuple[Any, float]] = []
         for span, low, high in self._each():
-            found += breaks(span.fn, low, high, exact_xs(span.fn))
-        return found
+            more, more_ends = breaks_and_ends(span.fn, low, high, exact_xs(span.fn))
+            found += more
+            ends += more_ends
+        return found, ends
+
+    @property
+    def breaks(self) -> list[Break]:
+        return self._breaks_and_ends[0]
+
+    @property
+    def domain_ends(self) -> list[tuple[Any, float]]:
+        """Where its formula's own domain ends, each with the value it settles on there."""
+        return self._breaks_and_ends[1]
 
     @cached_property
     def y_intercept(self) -> Place | None:
@@ -211,6 +247,9 @@ class DrawnPoint:
     held: tuple[float, ...] = ()
     # Where two edges meet: beside a region, only the meets that bound it are marked.
     meet: bool = False
+    # The kind of place it marks on its curve, when the picture marks every one of a kind:
+    # "roots", "turns", "inflections".
+    kind: str = ""
 
 
 @dataclass

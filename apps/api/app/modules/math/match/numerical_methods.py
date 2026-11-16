@@ -180,6 +180,30 @@ def sums_named(text: str) -> set[str]:
     return sides
 
 
+# The side a rectangle's height stands at, named alone or in a list ("left endpoints", "the
+# left and right Riemann sums", "left- and right-hand endpoints"), or in a sum's own notation
+# ("L4 and R4", "M_4"). "Increasing to the right" names no side.
+_SIDE = r"(?:left|right|mid[-\s]?point)(?:[-\s]+hand)?"
+_SIDES_NAMED = re.compile(
+    rf"\b({_SIDE}(?:\s*(?:,|and|or|/|-)\s*{_SIDE})*)[-\s]+(?:riemann\s+)?"
+    r"(?:sums?|rules?|approximations?|estimates?|end[-\s]?points?|sides?|corners?)\b",
+    re.IGNORECASE,
+)
+_SUM_NOTATION = re.compile(r"\b([LRM])_?\{?\d{1,3}\}?(?!\w)")
+_SIDE_RULES = {"left": "left", "right": "right", "mid": "midpoint", "L": "left", "R": "right"}
+
+
+def rectangle_sides(text: str) -> set[str]:
+    """The rules whose rectangles ``text`` names by their side: left, right, midpoint."""
+    found = {
+        _SIDE_RULES[side.lower()]
+        for named in _SIDES_NAMED.finditer(text)
+        for side in re.findall(r"left|right|mid", named.group(1), re.IGNORECASE)
+    }
+    found |= {_SIDE_RULES.get(m.group(1), "midpoint") for m in _SUM_NOTATION.finditer(text)}
+    return found
+
+
 def _rules_asked(text: str) -> set[str]:
     return {rule for rule, pattern in _ESTIMATES if pattern.search(text)}
 

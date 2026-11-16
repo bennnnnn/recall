@@ -143,14 +143,16 @@ def shade(item: Shade, question: PlotQuestion, scene: Scene) -> None:
 
 
 def _rules_named(question: PlotQuestion) -> set[str] | None:
-    """The rules the question allows, as the numerical-method reader reads it
-    (``match.numerical_methods``): the one it names, the lower or upper sums it names, none
-    for another rule (trapezoids, Simpson's) or one it cannot read; None when it names no
-    rule, and the reply's rectangles stand as described."""
+    """The rules the question allows: the one the numerical-method reader reads
+    (``match.numerical_methods``), each side it names ("compare the left and right sums",
+    "heights at the left endpoints") and the lower or upper sums it names; none for another
+    rule (trapezoids, Simpson's) or one it cannot read; None when it names no rule, and the
+    reply's rectangles stand as described."""
     if question.rule in _RECTANGLE_RULES:
         return {question.rule}
-    if question.sums:
-        return set(question.sums)
+    named = set(question.sides) | set(question.sums)
+    if named:
+        return named
     return None if question.rule is None else set()
 
 

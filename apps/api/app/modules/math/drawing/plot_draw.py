@@ -22,6 +22,7 @@ from app.modules.math.drawing.plot_scene import DrawnCurve, DrawnLine, DrawnPoin
 from app.modules.math.drawing.plot_window import (
     Window,
     curve_places,
+    equal_scaled,
     fit_window,
     line_points,
     of_interest,
@@ -323,20 +324,48 @@ def _about_the_regions(scene: Scene) -> None:
     scene.points = [p for p in scene.points if not p.meet or low - room <= p.x <= high + room]
 
 
+# The most points a plot carries (``schemas.plot``).
+_MOST_POINTS = 24
+# Which kind of place goes first when a picture marks more than it can carry.
+_DROPPED_FIRST = ("inflections", "turns", "roots")
+
+
+def _within_the_cap(scene: Scene) -> None:
+    """A kind of place is marked whole or not at all: past the cap, the bends go, then the
+    turns. Cut at the cap, three of sin x + cos 2x's roots went unmarked in view."""
+    for kind in _DROPPED_FIRST:
+        if len(scene.points) <= _MOST_POINTS:
+            return
+        scene.points = [p for p in scene.points if p.kind != kind]
+        for curve in scene.curves.values():
+            curve.marked.discard(kind)
+
+
+def _within(x: float, y: float, window: Window) -> bool:
+    x_lo, x_hi, y_lo, y_hi = window
+    near_x, near_y = 1e-4 * (x_hi - x_lo), 1e-4 * (y_hi - y_lo)
+    return x_lo - near_x <= x <= x_hi + near_x and y_lo - near_y <= y <= y_hi + near_y
+
+
 def draw_plot(scene: Scene) -> PlotGraphSpec | None:
     if not scene.curves:
         return None
     _about_the_regions(scene)
+    _within_the_cap(scene)
     ends = [point for curve in scene.curves.values() for point in _ends(curve)]
     places = [p for curve in scene.curves.values() for p in curve_places(curve)]
-    # Where the curves meet each other: two curves are drawn to be seen together (b01).
-    if len(scene.curves) > 1:
+    # Where the curves meet each other, and the lines the picture draws: two curves, or a
+    # curve and a line, are drawn to be seen together (b01; x³ beside x = 2 was cut at 1).
+    if len(scene.curves) > 1 or scene.lines:
         places += [p.at for curve in scene.curves.values() for p in crossings(curve, scene)]
     places = of_interest(scene, places)
     places += [(p.x, p.y) for p in [*scene.points, *ends]] + scene.focus
     places += [p for region in scene.regions for p in region.points]
     places += [p for line in [*scene.lines.values(), *scene.marks] for p in line_points(line)]
     window = fit_window(scene, places)
+    # One scale on both axes, when asked for, before anything is sampled in the window.
+    grown = equal_scaled(window) if scene.equal else None
+    window = grown or window
     rounded = _rounded(window)
     curves = [
         PlotCurve(label=_curve_label(curve, scene), segments=[rounded(s) for s in segments[:24]],
@@ -362,13 +391,14 @@ def draw_plot(scene: Scene) -> PlotGraphSpec | None:
         PlotPoint(x=x, y=y, open=p.open, label=p.label, color=p.color)
         for p in scene.points
         for x, y in rounded([(p.x, p.y)])
-        if math.isfinite(x) and math.isfinite(y)  # a point with no value is no point
+        # A point with no value is no point, and one outside the window is not shown.
+        if math.isfinite(x) and math.isfinite(y) and _within(x, y, window)
     ]
     regions = [
         PlotRegion(points=rounded(r.points), kind=r.kind, color=r.color) for r in scene.regions
     ]
     return PlotGraphSpec(
-        x_min=window[0], x_max=window[1], y_min=window[2], y_max=window[3], equal=scene.equal,
-        curves=curves, lines=lines[:16], regions=regions[:48], points=points[:24],
+        x_min=window[0], x_max=window[1], y_min=window[2], y_max=window[3], equal=grown is not None,
+        curves=curves, lines=lines[:16], regions=regions[:48], points=points[:_MOST_POINTS],
         x_label=scene.x_label[:16], y_label=scene.y_label[:16],
     )  # fmt: skip

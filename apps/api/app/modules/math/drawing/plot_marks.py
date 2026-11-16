@@ -16,7 +16,7 @@ from typing import Any
 
 from sympy import Expr, Float, oo, radsimp, sqrt
 
-from app.modules.math.drawing.curve_breaks import end_lines
+from app.modules.math.drawing.curve_breaks import FAR, end_lines
 from app.modules.math.drawing.curve_features import snapped, turning_points
 from app.modules.math.drawing.plot_check import crossings, named_place
 from app.modules.math.drawing.plot_items import Asymptotes, KeyPoints, Nearest, Point, Touching
@@ -137,7 +137,7 @@ def asymptotes(item: Asymptotes, scene: Scene) -> None:
 def _sides_approached(fn: RealFunction, slope: Any, offset: Any) -> set[int]:
     sides: set[int] = set()
     for direction in (1, -1):
-        far = direction * 1e6
+        far = direction * FAR[-1]
         y = fn.at(far)
         if math.isfinite(y) and abs(y - (float(slope) * far + float(offset))) < 1e-2:
             sides.add(direction)
@@ -163,21 +163,25 @@ def key_points(item: KeyPoints, scene: Scene) -> None:
     curve = scene.curves.get(item.of)
     if curve is None or curve.shape is None:
         return
-    places: list[Place] = []
+    places: list[tuple[Place, str]] = []
     if "extrema" in item.show:
-        places += curve.turns
+        places += [(p, "turns") for p in curve.turns]
+        curve.marked.add("turns")
     if "inflections" in item.show:
-        places += curve.inflections
+        places += [(p, "inflections") for p in curve.inflections]
+        curve.marked.add("inflections")
     if "intercepts" in item.show:
-        places += curve.roots + ([curve.y_intercept] if curve.y_intercept else [])
+        places += [(p, "roots") for p in curve.roots]
+        places += [(curve.y_intercept, "")] if curve.y_intercept else []
+        curve.marked.add("roots")
     if "ends" in item.show:
-        places += _ends(curve)
+        places += [(p, "") for p in _ends(curve)]
     meets = crossings(curve, scene) if "crossings" in item.show else []
-    for place, meet in [*((p, False) for p in places), *((p, True) for p in meets)]:
+    for place, kind, meet in [*((p, k, False) for p, k in places), *((p, "", True) for p in meets)]:
         span = curve.span_at(float(place.x))
         if span is not None:
             point = point_of(place, span.fn, curve.color)
-            point.meet = meet
+            point.meet, point.kind = meet, kind
             scene.add_point(point)
 
 

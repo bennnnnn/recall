@@ -14,6 +14,8 @@ import math
 import re
 from typing import Any
 
+from sympy import Rational
+
 from app.modules.math.drawing.curve_features import snapped, zeros
 from app.modules.math.drawing.plot_question import PlotQuestion
 from app.modules.math.drawing.plot_reading import number as value
@@ -102,20 +104,35 @@ def crossings(curve: DrawnCurve, scene: Scene) -> list[Place]:
     return [p for p in found if math.isfinite(float(p.y))]
 
 
-# The places a question asks a tangent or a point to stand at, by the words that ask.
+# The places a question asks a tangent or a point to stand at, by the words that ask: whole
+# words, so "minutes", "the square root" and "across" ask for none.
 _ASKED_PLACES = (
-    (re.compile(r"\b(?:max|min|turning|stationary|vertex|extrem|critical)"), "turns"),
-    (re.compile(r"\binflection"), "inflections"),
-    (re.compile(r"\b(?:intercept|root|zero|cross)"), "roots"),
-    (re.compile(r"\b(?:meet|intersect|cross)"), "crossings"),
+    (
+        re.compile(
+            r"\b(?:max(?:imum|ima)?|min(?:imum|ima)?|turning|stationary|vert(?:ex|ices)"
+            r"|extrem(?:um|a|es?)|critical)\b"
+        ),
+        "turns",
+    ),
+    (re.compile(r"\binflections?\b"), "inflections"),
+    (
+        re.compile(
+            r"\b(?:x-)?intercepts?\b|(?<!square )(?<!cube )\broots?\b|\bzeros?\b|\bx-axis\b"
+        ),
+        "roots",
+    ),
+    (re.compile(r"\b(?:meets?|intersect\w*|cross(?:es|ing)?)\b"), "crossings"),
+    (re.compile(r"\by-(?:axis|intercepts?)\b|\bintercepts\b"), "y-axis"),
+    (re.compile(r"\borigin\b"), "origin"),
 )
 
 
 def places_of(curve: DrawnCurve, scene: Scene, question: PlotQuestion) -> list[Any]:
     """The x's a tangent, a normal or a marked point may stand at on ``curve``: the x the
     question asks about ("at x = 1", "at the point (1, 1)"), the server's own places of the
-    kind it names ("at its local maximum", "where it crosses the axis"), and where the slope
-    is one it states ("a slope of -3", "parallel to y = 2x + 1"). An end of the interval it
+    kind it names ("at its local maximum", "where it crosses the x-axis", "where it meets
+    the y-axis", "at the origin", each where the curve has it), and where the slope is one
+    it states ("a slope of -3", "parallel to y = 2x + 1"). An end of the interval it
     sketches on is none (the tangent "at x = 1 ... on [-2, 2]" drew at 2)."""
     xs: list[Any] = [*question.x_points, *(x for x, _y in question.pairs)]
     found = {
@@ -123,6 +140,8 @@ def places_of(curve: DrawnCurve, scene: Scene, question: PlotQuestion) -> list[A
         "inflections": curve.inflections,
         "roots": curve.roots,
         "crossings": crossings(curve, scene),
+        "y-axis": _at_zero(curve, origin=False),
+        "origin": _at_zero(curve, origin=True),
     }
     for pattern, kind in _ASKED_PLACES:
         if pattern.search(question.words):
@@ -134,6 +153,19 @@ def places_of(curve: DrawnCurve, scene: Scene, question: PlotQuestion) -> list[A
             difference = RealFunction(own.derivative(1) - slope)
             xs += [snapped(x, [], difference.expr) for x in zeros(difference.values, low, high)]
     return xs
+
+
+def _at_zero(curve: DrawnCurve, origin: bool) -> list[Place]:
+    """Where ``curve`` meets the y-axis, or passes through the origin, when it does."""
+    own = curve.single
+    low, high = curve.search
+    if own is None or not low <= 0 <= high:
+        return []
+    y = own.at(0.0)
+    if not math.isfinite(y) or (origin and abs(y) > 1e-9):
+        return []
+    exact = own.exact_at(Rational(0))
+    return [Place(Rational(0), exact if exact is not None else y)]
 
 
 def named_place(text: str, curve: DrawnCurve, scene: Scene, question: PlotQuestion) -> Any | None:

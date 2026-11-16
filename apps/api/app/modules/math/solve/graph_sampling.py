@@ -69,7 +69,8 @@ def singular_xs(expr: Any, variable: Any, low: float, high: float) -> list[Any]:
 
 
 # How near a break a side is read: each step a tenth of the one before.
-_STEPS = (1e-3, 1e-4, 1e-5, 1e-6, 1e-7)
+# How far beside a place, as a share of its size, a side is looked at.
+SIDE_STEPS = (1e-3, 1e-4, 1e-5, 1e-6, 1e-7)
 
 
 @dataclass(frozen=True)
@@ -85,7 +86,7 @@ def side(fn: Any, x0: float, direction: int) -> Side:
     infinity (its size grows and the steps do not shrink, as 1/x's and ln x's do not), or
     not at all (no values there). ``fn`` is a numpy function, as ``real_lambdify`` makes."""
     scale = max(1.0, abs(x0))
-    near = np.array([x0 + direction * step * scale for step in _STEPS])
+    near = np.array([x0 + direction * step * scale for step in SIDE_STEPS])
     values = [float(v) for v in sample_at(fn, near)]
     if not all(math.isfinite(v) for v in values):
         return Side("none")

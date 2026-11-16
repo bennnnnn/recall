@@ -41,7 +41,8 @@ _SAME_X = 1e-6
 # A place within this of an exact candidate is that candidate.
 _SNAP = 1e-7
 _HIGHEST_DEGREE = 8
-_MOST_FOUND = 12
+# A picture marks at most this many of one kind of place on a curve.
+MOST_FOUND = 12
 
 Values = Callable[[Any], Any]
 
@@ -91,7 +92,7 @@ def _dedupe(xs: list[float], low: float, high: float) -> list[float]:
         if not out or abs(x - out[-1]) > _SAME_X * max(1.0, abs(x)):
             out.append(x)
     middle = (low + high) / 2
-    return sorted(sorted(out, key=lambda x: abs(x - middle))[:_MOST_FOUND])
+    return sorted(sorted(out, key=lambda x: abs(x - middle))[:MOST_FOUND])
 
 
 def _scale(ys: Any) -> float:

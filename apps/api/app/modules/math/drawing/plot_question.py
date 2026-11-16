@@ -18,6 +18,7 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
+from fractions import Fraction
 from typing import Any
 
 from sympy import Expr, Rational, Symbol
@@ -29,11 +30,18 @@ from app.modules.math.drawing.plot_reading import (
     parts,
     plain,
 )
-from app.modules.math.drawing.plot_x import Interval, intervals, named_values, revolution_axis
+from app.modules.math.drawing.plot_x import (
+    BRACKETS,
+    Interval,
+    intervals,
+    named_values,
+    revolution_axis,
+)
 from app.modules.math.figure.grounding import written_numbers, written_pairs
 from app.modules.math.match.numerical_methods import (
     interval_counts,
     named_numerical_method,
+    rectangle_sides,
     sums_named,
 )
 from app.modules.math.solve.parse import parse_expression
@@ -66,6 +74,19 @@ _AT_A_POINT = re.compile(r"[a-zA-Z]\([^a-zA-Z)]{1,12}\)")
 _WIDTH = re.compile(
     r"(?:\bwidths?|\u0394\s?x|\bdelta\s?x|\bh)\s?(?:of\s|=\s?|is\s)?" + _NUMBER + r"(?![/\w])"
 )
+# What may stand between a formula and the domain it is written with: "for", "when", a
+# comma, "is defined for", "on the interval", "with domain".
+_JOINS = frozenset(
+    "for when if whenever where with on over is are defined domain its the interval "
+    "restricted to".split()
+)
+_COMPARISON = re.compile(r"<=|>=|!=|<|>")
+# A domain the question names one: "defined for", "domain", "restricted to", "… only".
+_NAMED_DOMAIN = re.compile(r"\b(?:defined|domain|restricted|only)\b", re.IGNORECASE)
+# Where a domain's comparisons end: a clause's punctuation, or a word that is no part of one.
+_CONDITION_END = re.compile(r"[,;:]|\s(?!(?:and|or|only|pi)\b)[a-zA-Z]{3,}")
+# "f: [0, 3] → R": a function and the interval it maps.
+_MAPPED = re.compile(r"\b([a-zA-Z])\s?:\s?\[\s*([^\[\],]{1,16}),\s*([^\[\],]{1,16})\]")
 _ANTIDERIVATIVES = re.compile(
     r"\banti-?derivatives?\b|\bprimitives?\b|\bindefinite\s+integrals?\b|\bfamil(?:y|ies)\b"
 )
@@ -86,11 +107,23 @@ class Written:
 
 
 @dataclass(frozen=True)
+class Domain:
+    """The domain a formula is written with, and whether the question names it a domain
+    ("defined for 0 ≤ x ≤ 3 only", "with domain x > 0", "f: [0, 3] → R") or only writes
+    it beside the formula ("f(x) = x² for x ≥ 0", "f(x) = x² on [0, 3]")."""
+
+    formula: Any
+    conditions: tuple[Condition, ...]
+    named: bool = False
+
+
+@dataclass(frozen=True)
 class Clause:
     formulas: tuple[Any, ...]
     conditions: tuple[Condition, ...]
     # "f(1) = 5": (1, 5).
     point_values: tuple[tuple[Any, Any], ...]
+    domains: tuple[Domain, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -120,6 +153,8 @@ class PlotQuestion:
     width: Any | None = None
     rule: str | None = None
     sums: frozenset[str] = frozenset()
+    # The rules whose rectangles it names by their side ("left and right endpoints", "L4").
+    sides: frozenset[str] = frozenset()
     antiderivatives: bool = False
 
     @property
@@ -128,25 +163,25 @@ class PlotQuestion:
         ends = [end for interval in self.intervals for end in (interval.low, interval.high)]
         return (*ends, *self.edges, *self.x_points, *(x for x, _y in self.pairs))
 
-    def domain_of(self, expr: Any) -> tuple[Condition, ...] | None:
-        """The conditions the question writes ``expr`` with in one clause ("defined for
-        0 ≤ x ≤ 3", "for t ≥ 0", one piece's "if x < 1"): its domain, when that is the only
-        clause that writes it and every bound is a number."""
+    def domain_of(self, expr: Any) -> Domain | None:
+        """The domain the question writes ``expr`` with ("defined for 0 ≤ x ≤ 3", "for
+        t ≥ 0", one piece's "if x < 1", "on [0, 2]"), when one clause writes it so. A
+        condition said of something else in its clause is none: "f(x) = x³ - 3x is
+        decreasing for -1 < x < 1", "y < 0 when 2 < x < 3", "the area under it for
+        0 ≤ x ≤ 3" (``_written_with``)."""
         found = [
-            tuple(c for c in clause.conditions if c.op != "=")
+            domain
             for clause in self.clauses
-            if any(same_value(f, expr) for f in clause.formulas)
+            for domain in clause.domains
+            if same_value(domain.formula, expr)
         ]
-        # "x = 0" in its clause is a value it is said at, no domain.
-        found = [conditions for conditions in found if conditions]
-        if len(found) != 1 or not all(c.value.is_number for c in found[0]):
-            return None
-        return found[0]
+        return found[0] if len(found) == 1 else None
 
 
-def _equals_spans(text: str) -> list[tuple[str, str]]:
-    """Each "name = formula" the text writes, the formula cut at a clause's end."""
-    found: list[tuple[str, str]] = []
+def _equals_spans(text: str) -> list[tuple[str, str, int]]:
+    """Each "name = formula" the text writes, the formula cut at a clause's end, with where
+    the formula ends."""
+    found: list[tuple[str, str, int]] = []
     for at in [i for i, ch in enumerate(text) if ch == "="]:
         if text[at - 1 : at] in {"<", ">", "!", "="} or text[at + 1 : at + 2] == "=":
             continue
@@ -164,7 +199,8 @@ def _equals_spans(text: str) -> list[tuple[str, str]]:
                 break
         formula = " ".join(words).strip().rstrip(".,;:")
         if name.strip() and formula:
-            found.append((name.strip(), formula))
+            end = at + 1 + len(" ".join(words))
+            found.append((name.strip(), formula, end))
     return found
 
 
@@ -180,7 +216,7 @@ def _without_unit(formula: str) -> str:
 
 def _formulas(text: str) -> list[Written]:
     found: list[Written] = []
-    for name, formula in _equals_spans(text):
+    for name, formula, _end in _equals_spans(text):
         if _AT_A_POINT.fullmatch(name) or not (name.isalpha() or _DEFINES_NAME.fullmatch(name)):
             continue  # "f(2) = 4" is a value at a point; "f'(x) =" a derivative, not f
         parsed = parse_formula(_without_unit(formula))
@@ -206,6 +242,57 @@ def _as_written(formula: str, parsed: Any) -> Any | None:
     return raw if isinstance(raw, Expr) else None
 
 
+def _written_with(rest: str, letters: frozenset[str]) -> Domain | None:
+    """The domain ``rest``, the text right after a formula, writes it with: comparisons of
+    the variable ("for x ≥ 0", ", 0 < x < 2", "is defined for 0 ≤ x ≤ 3 only") or an
+    interval in brackets ("on [0, 2]"), joined to the formula by nothing but ``_JOINS``.
+    Anything else between ("is decreasing for", "and show that y < 0 when", "and find the
+    area under it for") says it of something else. Its formula is left for the caller."""
+    compared = _COMPARISON.search(rest)
+    bracket = BRACKETS.search(rest)
+    found: tuple[Condition, ...]
+    if bracket is not None and (compared is None or bracket.start() < compared.start()):
+        start, end = bracket.start(), bracket.end()
+        low, high = (number(group) for group in bracket.groups())
+        both = low is not None and high is not None
+        found = (Condition(">=", low), Condition("<=", high)) if both else ()
+    elif compared is not None:
+        head = rest[: compared.start()].rstrip()
+        start = len(head) - len(head.split()[-1]) if head.split() else len(head)
+        stop = _CONDITION_END.search(rest, compared.end())
+        end = stop.start() if stop is not None else len(rest)
+        found = tuple(
+            c for c in conditions(rest[start:end], letters) if c.op != "=" and c.value.is_number
+        )
+    else:
+        return None
+    if not found or not all(w.strip(",()").lower() in _JOINS for w in rest[:start].split()):
+        return None
+    named = _NAMED_DOMAIN.search(rest[: end + len(" only")]) is not None
+    return Domain(None, found, named)
+
+
+def _domains(part: str, letters: frozenset[str]) -> list[Domain]:
+    """The domains ``part`` writes its formulas with: after each one, or before them all
+    ("f: [0, 3] → R, f(x) = x²")."""
+    found: list[Domain] = []
+    mapped = _MAPPED.search(part)
+    for name, formula, end in _equals_spans(part):
+        parsed = parse_formula(_without_unit(formula))
+        if not isinstance(parsed, Expr) or name == "x":
+            continue
+        if mapped is not None and name[0] == mapped.group(1):
+            low, high = number(mapped.group(2)), number(mapped.group(3))
+            if low is not None and high is not None:
+                bounds = (Condition(">=", low), Condition("<=", high))
+                found.append(Domain(parsed, bounds, named=True))
+                continue
+        written = _written_with(part[end:], letters)
+        if written is not None:
+            found.append(Domain(parsed, written.conditions, written.named))
+    return found
+
+
 def _clauses(text: str, letters: frozenset[str]) -> list[Clause]:
     clauses: list[Clause] = []
     for part in parts(text):
@@ -215,18 +302,26 @@ def _clauses(text: str, letters: frozenset[str]) -> list[Clause]:
             if a is not None and b is not None
         ]
         formulas = tuple(w.expr for w in _formulas(part) if w.name != "x")
-        clauses.append(Clause(formulas, tuple(conditions(part, letters)), tuple(points)))
+        clauses.append(
+            Clause(
+                formulas,
+                tuple(conditions(part, letters)),
+                tuple(points),
+                tuple(_domains(part, letters)),
+            )
+        )
     return clauses
+
+
+def _rational(value: Fraction) -> Any:
+    """A written number as SymPy's, which every check compares and draws with."""
+    return Rational(value.numerator, value.denominator)
 
 
 def _values(original: str) -> list[Any]:
     """The values ``original`` writes outside its formulas, with their signs: the 2 of x²
     is no value."""
-    values: list[Any] = [
-        Rational(n.value.numerator, n.value.denominator)
-        for n in written_numbers(original)
-        if not n.in_formula
-    ]
+    values: list[Any] = [_rational(n.value) for n in written_numbers(original) if not n.in_formula]
     return values
 
 
@@ -258,7 +353,15 @@ def read_plot_question(texts: Sequence[str]) -> PlotQuestion:
     letters = frozenset(
         {"x"} | {str(s) for w in formulas if w.name != "x" for s in w.expr.free_symbols}
     )
-    xs = [named_values(text, "x", letters) for text in readable]
+    # The variable each curve is written in ("s(t) = t³ - 6t²": t) is said of as x is.
+    own_letters = {
+        str(symbol)
+        for w in formulas
+        if w.name not in {"x", "y"} and len(w.expr.free_symbols) == 1
+        for symbol in w.expr.free_symbols
+    }
+    variables = sorted(({"x"} | own_letters) - {"y"})
+    xs = [named_values(text, letter, letters) for text in readable for letter in variables]
     ys = [named_values(text, "y", letters) for text in readable]
     return PlotQuestion(
         formulas=formulas,
@@ -267,7 +370,9 @@ def read_plot_question(texts: Sequence[str]) -> PlotQuestion:
             v for text in readable for v in [*_named(_SLOPE, text), *_parallel_slopes(text)]
         ),
         counts=tuple(n for text in readable for n in interval_counts(text) if n > 0),
-        pairs=frozenset(pair for text in own for pair in written_pairs(text)),
+        pairs=frozenset(
+            (_rational(a), _rational(b)) for text in own for a, b in written_pairs(text)
+        ),
         clauses=tuple(clause for text in readable for clause in _clauses(text, letters)),
         words=" ".join(readable).lower(),
         intervals=tuple(i for text in readable for i in intervals(text, letters)),
@@ -280,5 +385,6 @@ def read_plot_question(texts: Sequence[str]) -> PlotQuestion:
         width=next(iter(v for text in readable for v in _named(_WIDTH, text)), None),
         rule=next((named.rule for text in own if (named := named_numerical_method(text))), None),
         sums=frozenset(side for text in own for side in sums_named(text)),
+        sides=frozenset(side for text in own for side in rectangle_sides(text)),
         antiderivatives=any(_ANTIDERIVATIVES.search(text.lower()) for text in readable),
     )
