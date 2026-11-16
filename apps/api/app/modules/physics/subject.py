@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
 from app.modules.physics.extract import needs_physics
+from app.modules.physics.field_lines.contract import FIELD_DRAW_CONTRACT
 from app.modules.physics.followup import (
     PHYSICS_FOLLOWUP_HINT,
     physics_followup_problem,
@@ -50,6 +51,8 @@ _HINTS = SubjectHints(
     (PHYSICS_REPLY_POLICY,),
     shared_math_ink=False,
     followup=(PHYSICS_FOLLOWUP_HINT,),
+    # Its words are rules the leak pass knows: the contract a field picture is described by.
+    beside_visuals=(FIELD_DRAW_CONTRACT,),
 )
 
 
@@ -198,6 +201,58 @@ class PhysicsFormal:
 
 
 @dataclass(frozen=True)
+class PhysicsFigure:
+    """Physics' picture a reply describes: an electric field's lines (``field_lines``).
+
+    Its other pictures come with its solve (a scene, a circuit, rays, a wave), so it draws
+    nothing from a read of its own (``draw``), and a solve's turn already holds its picture
+    (``shown``). On a physics message that asks to see a diagram no solve drew, the reply
+    describes the field in a ```draw block (``contract``) and the server traces it
+    (``described``); the model's own sketch of it then goes (``without_drawn_substitutes``).
+    """
+
+    async def draw(
+        self, question: str, earlier: Sequence[str], settings: Settings, *, asked: bool = True
+    ) -> str | None:
+        return None
+
+    def shown(self, verified: VerifiedSolveBlock | None) -> bool:
+        # A physics solve draws its own picture, which no other figure adds to.
+        return verified is not None
+
+    def whole(self, text: str) -> bool:
+        return True
+
+    def adds_to(self, text: str, fence: str) -> bool:
+        return False
+
+    def without_substitutes(self, text: str) -> str:
+        return text
+
+    @property
+    def contract(self) -> str:
+        return FIELD_DRAW_CONTRACT
+
+    async def described(
+        self, descriptions: Sequence[str], texts: Sequence[str], reply: str, settings: Settings
+    ) -> list[str]:
+        from app.core import sympy_executor
+        from app.modules.physics.field_lines.build import field_fences
+
+        return await sympy_executor.run_sympy(
+            field_fences,
+            list(descriptions),
+            list(texts),
+            timeout=settings.stem_solve_timeout_seconds,
+        )
+
+    def without_drawn_substitutes(self, text: str) -> str:
+        from app.modules.physics.sketches import without_model_drawings
+
+        return without_model_drawings(text)
+
+
+@dataclass(frozen=True)
 class PhysicsSubject:
     name: Literal["physics"] = "physics"
     hints: SubjectHints = _HINTS
@@ -207,8 +262,9 @@ class PhysicsSubject:
     photo: PhysicsPhoto = PhysicsPhoto()
     # No model tool of its own.
     tool: None = None
-    # Its pictures come with its solve (a scene, a molecule), never from a separate read.
-    figure: None = None
+    # Its pictures come with its solve (a scene, a circuit), never from a separate read; a
+    # reply describes a field's lines, which the server traces (``field_lines``).
+    figure: PhysicsFigure = PhysicsFigure()
     # A question its solvers did not read, written down as maths by a model and solved.
     formal: PhysicsFormal = PhysicsFormal()
 

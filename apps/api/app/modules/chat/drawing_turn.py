@@ -10,6 +10,11 @@ in place of the figure read's picture of that kind (``figure_turn``) and of any 
 Mermaid diagram the reply drew for it; one that does not check is left out, with no note. A reply that was not asked for one, or whose read says
 the message asks to see no maths picture, keeps no block and gets no picture. Nothing here
 raises into a turn.
+
+Physics describes its pictures the same way: on a physics message the read says asks to see
+a diagram, and that no solve drew, the reply gets physics' contract (an electric field's
+lines, ``physics.field_lines``) and physics checks and draws what it describes. The field
+questions of a GCSE set came back as ASCII art in tables and code blocks (live, 2026-11-16).
 """
 
 from __future__ import annotations
@@ -29,7 +34,7 @@ from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.turn_intercepts import may_be_a_maths_picture
 from app.modules.chat.turn_trace import note_prompt_rule
 from app.modules.turn_reading.turn import current_turn_reading
-from app.services.solving import VerifiedMathBlock
+from app.services.solving import SubjectName, VerifiedMathBlock
 from app.services.subjects.registry import SubjectFigure, subject_adapter
 
 if TYPE_CHECKING:
@@ -59,9 +64,12 @@ _ASKS_TO_SEE = re.compile(
 )
 
 
-# The pictures the read may ask for that a description draws: a figure, and a graph (kind
-# "plot").
-_DESCRIBED = frozenset({"diagram", "graph"})
+# The pictures the read may ask for that a description draws, by the read's subject: maths'
+# figure and graph (kind "plot"), and physics' diagram (a field's lines).
+_DESCRIBED: dict[str, tuple[SubjectName, frozenset[str]]] = {
+    "maths": ("math", frozenset({"diagram", "graph"})),
+    "physics": ("physics", frozenset({"diagram"})),
+}
 
 
 @dataclass
@@ -71,6 +79,8 @@ class ReplyDrawing:
     # "read": the turn's read says the message asks to see a maths picture; "words": the read
     # had not answered by the reply's call, and the maths message asks to see one.
     asked: Literal["read", "words"]
+    # The subject whose contract the reply was given, and whose figure draws its blocks.
+    subject: SubjectName = "math"
     # The reply's ```draw blocks, as the stream kept them aside.
     descriptions: list[str] = field(default_factory=list)
     # The pictures drawn from them: one of each kind, a figure and a graph.
@@ -81,8 +91,8 @@ class ReplyDrawing:
         return bool(self.fences)
 
 
-def _figure() -> SubjectFigure | None:
-    return subject_adapter("math").figure
+def _figure(subject: SubjectName = "math") -> SubjectFigure | None:
+    return subject_adapter(subject).figure
 
 
 def _a_maths_turn(ctx: StreamContext) -> bool:
@@ -117,10 +127,17 @@ async def _read_for_a_picture(ctx: StreamContext, deadline: float) -> TurnDecisi
     return task.result()
 
 
+def _described_by(read: TurnDecision) -> SubjectName | None:
+    """The subject whose reply describes the picture the read says the message asks to see:
+    a maths question's figure or graph, a physics question's diagram."""
+    entry = _DESCRIBED.get(read.subject or "")
+    return entry[0] if entry is not None and read.picture in entry[1] else None
+
+
 def _wants_a_drawing(read: TurnDecision) -> bool:
     """The read calls the message a maths question asking to see a picture a description
     draws: a diagram's figure or a graph."""
-    return read.picture in _DESCRIBED and read_asks_for_a_picture(read)
+    return _described_by(read) == "math"
 
 
 async def write_for_a_picture(ctx: StreamContext, settings: Settings) -> None:
@@ -150,25 +167,34 @@ async def write_for_a_picture(ctx: StreamContext, settings: Settings) -> None:
 async def ask_for_a_drawing(
     ctx: StreamContext, settings: Settings, read: TurnDecision | None, deadline: float
 ) -> None:
-    """Maths' draw contract beside the message, when it asks to see a maths picture.
-    ``deadline``: the loop time the reply stops waiting for the read."""
-    figure = _figure()
-    if figure is None or not settings.draw_descriptions_enabled or ctx.drawing is not None:
+    """A subject's draw contract beside the message, when it asks to see a picture that
+    subject's reply describes: maths' figure or graph, physics' field. ``deadline``: the
+    loop time the reply stops waiting for the read."""
+    if not settings.draw_descriptions_enabled or ctx.drawing is not None:
         return
     if ctx.instant_reply is not None:
         return
     if read is None:
         read = await _read_for_a_picture(ctx, deadline)
     asked: Literal["read", "words"] | None = None
+    subject: SubjectName | None = "math"
     if read is not None and read.subject is not None and read.picture is not None:
-        asked = "read" if _wants_a_drawing(read) else None
+        subject = _described_by(read)
+        asked = "read" if subject is not None else None
     elif _a_maths_turn(ctx) and _asks_in_words(ctx):
         asked = "words"
-    if asked is None:
+    if asked is None or subject is None:
         return
-    ctx.drawing = ReplyDrawing(asked)
+    # A physics solve draws its own picture (a scene, a circuit, rays), which no
+    # description adds to.
+    if subject == "physics" and ctx.verified_subject is not None:
+        return
+    figure = _figure(subject)
+    if figure is None:
+        return
+    ctx.drawing = ReplyDrawing(asked, subject=subject)
     ctx.prompt_messages = inject_before_last_user(ctx.prompt_messages, figure.contract)
-    note_prompt_rule(f"subject.draw_{asked}")
+    note_prompt_rule(f"subject.draw_{asked}" if subject == "math" else f"{subject}.draw_{asked}")
 
 
 def _still_wanted(ctx: StreamContext, drawing: ReplyDrawing) -> bool:
@@ -191,7 +217,7 @@ async def attach_drawing(state: FinalizeState) -> str:
     text, written = without_draw_blocks(state.text)
     text = text.strip() if written else state.text
     drawing = ctx.drawing
-    figure = _figure()
+    figure = _figure(drawing.subject) if drawing is not None else None
     if drawing is None or figure is None or state.was_cancelled:
         return text
     descriptions = list(dict.fromkeys([*drawing.descriptions, *written]))

@@ -2,6 +2,17 @@
 
 from app.services.workout import PHYSICS_WORKOUT_PROMPT_SHORT
 
+# The app draws its physics pictures, or none: "Draw the pattern of the electric field around
+# a positive charge" came back as slashes in a code block, a table of arrows and a Mermaid
+# flowchart (live, 2026-11-16). Whatever the situation, a picture the app does not draw is
+# said in words; a drawing of the reply's own reads as broken rows of symbols on the phone.
+PHYSICS_NO_SKETCH = (
+    "Never draw a physics situation yourself (a field, a circuit, rays, forces, a wave): no "
+    "sketch in characters or a ```text block, no table of arrows or slashes, no Mermaid, no "
+    "SVG, unless the user asks for that format. When the app draws no picture, say in words "
+    "what one would show: which way the lines or arrows point and where they crowd."
+)
+
 PHYSICS_INTENT_HINT = (
     "Physics answers:\n"
     "  - This is a physics problem. Do not describe the work as math, algebra, "
@@ -71,4 +82,6 @@ PHYSICS_SYMBOLS = (
 
 def physics_prompt_hints(short: bool) -> tuple[str, ...]:
     """The physics pack: the short one in Short style or on a compact turn."""
-    return (PHYSICS_SHORT_HINT,) if short else (PHYSICS_INTENT_HINT, PHYSICS_SYMBOLS)
+    if short:
+        return (PHYSICS_SHORT_HINT, PHYSICS_NO_SKETCH)
+    return (PHYSICS_INTENT_HINT, PHYSICS_SYMBOLS, PHYSICS_NO_SKETCH)

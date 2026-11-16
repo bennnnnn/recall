@@ -1,7 +1,7 @@
 /**
  * The physics scenes with no moving bodies: a circuit schematic, a ray
- * diagram, a wave. `LazyHeavyRich` routes a `simulation` fence of type
- * `circuit`, `rays` or `wave` here; everything else is `SimulationBlock`'s.
+ * diagram, a wave, an electric field. `LazyHeavyRich` routes a `simulation`
+ * fence of type `circuit`, `rays`, `wave` or `field` here; everything else is `SimulationBlock`'s.
  *
  * The phone never does physics. The server sends the network, the traced rays
  * and the sampled wave frames; these renderers only lay them out and draw.
@@ -10,6 +10,7 @@ import { useMemo } from "react";
 
 import { CircuitDiagram } from "@/components/rich/diagrams/CircuitDiagram";
 import { DiagramFallback } from "@/components/rich/diagrams/DiagramFrame";
+import { FieldDiagram } from "@/components/rich/diagrams/FieldDiagram";
 import { RayDiagram } from "@/components/rich/diagrams/RayDiagram";
 import { parsePhysicsDiagram } from "@/components/rich/diagrams/spec";
 import { WaveDiagram } from "@/components/rich/diagrams/WaveDiagram";
@@ -28,5 +29,7 @@ export function PhysicsDiagram({ content, kind }: { content: string; kind: Diagr
       return <RayDiagram spec={spec} />;
     case "wave":
       return <WaveDiagram spec={spec} content={content} />;
+    case "field":
+      return <FieldDiagram spec={spec} />;
   }
 }
