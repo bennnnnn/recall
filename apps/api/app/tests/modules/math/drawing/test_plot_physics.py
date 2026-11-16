@@ -144,3 +144,10 @@ def test_a_force_moved_through_a_displacement_shades_the_work() -> None:
     )
     assert graph is not None and len(graph.regions) == 1
     assert (graph.x_label, graph.y_label) == ("x (m)", "F (N)")
+
+
+def test_a_velocity_described_in_x_is_the_question_s_v_of_t() -> None:
+    # u5-088 live: the reply wrote 1.75x² + 8 for v(t), the graph's across as x.
+    graph = _plot(_U5_088, _curve("v", "1.75*x^2 + 8"))
+    assert graph is not None and [c.label for c in graph.curves] == ["v = 7t²/4 + 8"]
+    assert _plot(_U5_088, _curve("v", "1.75*x^2 + 9")) is None

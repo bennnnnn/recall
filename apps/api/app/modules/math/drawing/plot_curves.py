@@ -84,7 +84,19 @@ def _own_formula(text: str, question: PlotQuestion) -> _Own | None:
     parsed = parse_formula(plain(text))
     if not isinstance(parsed, Expr):
         return None
-    return _own_expr(as_exact(parsed, text, _constants(question)), question)
+    exact = as_exact(parsed, text, _constants(question))
+    found = _own_expr(exact, question)
+    if found is not None or exact.free_symbols != {_X}:
+        return found
+    # In x, the graph's own across, for the question's one letter: u5-088's v = 1.75x² + 8
+    # for its v(t), the same curve.
+    letters = {
+        s for w in question.formulas if len(w.expr.free_symbols) == 1 for s in w.expr.free_symbols
+    }
+    others = letters - {_X}
+    if len(others) != 1 or _X in letters:
+        return None
+    return _own_expr(exact.subs(_X, next(iter(others))), question)
 
 
 def _constants(question: PlotQuestion) -> list[Any]:
