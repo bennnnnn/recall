@@ -94,3 +94,30 @@ async def test_a_physics_message_asking_for_no_diagram_gets_no_contract(picture:
         ctx, _settings(), _decision(subject="physics", picture=picture), _deadline()
     )
     assert ctx.drawing is None
+
+
+async def test_physics_turned_off_asks_for_no_description() -> None:
+    ctx = _ctx(_FIELD)
+    settings = _settings(physics_enabled=False)
+    await ask_for_a_drawing(
+        ctx, settings, _decision(subject="physics", picture="diagram"), _deadline()
+    )
+    assert ctx.drawing is None
+    assert not any(m["content"] == FIELD_DRAW_CONTRACT for m in ctx.prompt_messages)
+
+
+async def test_a_flowchart_the_user_asked_for_stays_beside_the_picture(
+    thread_sympy_executor: None,
+) -> None:
+    line = f"{_FIELD} Also make a flowchart of how to draw field lines."
+    ctx = _ctx(line)
+    await ask_for_a_drawing(
+        ctx, _settings(), _decision(subject="physics", picture="diagram"), _deadline()
+    )
+    flowchart = "```mermaid\ngraph TD\nA[Start on +] --> B[End on -]\n```"
+    reply = (
+        f"Lines point outward.\n\n{flowchart}\n\n"
+        f"{_block({'kind': 'field', 'part': 'a', 'charges': [{'sign': '+'}]})}\n"
+    )
+    text = await attach_drawing(_state(ctx, reply))
+    assert flowchart in text and "```simulation" in text

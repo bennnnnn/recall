@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field, model_serializer, model_validator
 MAX_FIELD_LINES = 64
 MAX_LINE_POINTS = 160
 MAX_FIELD_POINTS = 2400
+MAX_NEUTRAL_POINTS = 4
 
 
 def _finite_pair(point: list[float], name: str) -> None:
@@ -82,8 +83,8 @@ class FieldSpec(BaseModel):
     lines: list[list[list[float]]] = Field(min_length=1, max_length=MAX_FIELD_LINES)
     arrows: list[FieldArrow] = Field(default_factory=list, max_length=MAX_FIELD_LINES)
     # Where the field is zero: between two like charges, or beyond the smaller of two
-    # unlike ones.
-    neutral: list[list[float]] = Field(default_factory=list, max_length=3)
+    # unlike ones. Three charges in a row have at most four on the row.
+    neutral: list[list[float]] = Field(default_factory=list, max_length=MAX_NEUTRAL_POINTS)
     # The part of the question this picture answers: "a" titles it "(a)".
     part: str | None = Field(default=None, pattern=r"^[a-h]$")
 

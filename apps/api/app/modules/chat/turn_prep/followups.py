@@ -104,8 +104,8 @@ def resolve_posed_followup(
     solved whole, as typed. ``changes`` (each the given as the problem writes it, and the
     line's new value: "20 seconds", "10 s") are first read by the subject's follow-up readers,
     as if the user had stated the problem; else the problem's subject puts each new value in
-    place of the one given of its kind, in turn, every other given kept, and the rewrite is
-    solved as typed. "Take the charges as 3.0 pC and 2.0 μC" changes both charges of a
+    place of the one given of its kind, each found in the problem as stated, every other given
+    kept, and the rewrite is solved as typed. "Take the charges as 3.0 pC and 2.0 μC" changes both charges of a
     Coulomb's law problem (live, 2026-11-16). Changes no subject can put in place exactly,
     every one of them, are no solve."""
     if changes is None:
@@ -123,12 +123,13 @@ def resolve_posed_followup(
     subject = subject_of(problem)
     if subject is None:
         return rewritten
-    changed = problem
-    for given, new in changes:
-        put = subject_adapter(subject).followups.changed_problem(changed, given, new or "")
-        if put is None:
-            return rewritten
-        changed = put
+    followups = subject_adapter(subject).followups
+    named = [(given, new) for given, new in changes if new]
+    changed = followups.changed_problem(problem, named)
+    # Every value the line states, not only those the read named, and no question of its own.
+    news = [new for _given, new in named]
+    if changed is None or not followups.takes_every_change(problem, changed, content, news):
+        return rewritten
     return SubjectFollowup(asked=changed)
 
 

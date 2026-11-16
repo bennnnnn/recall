@@ -37,6 +37,7 @@ from app.modules.physics.schemas import SimulationBlockSpec
 from app.modules.physics.schemas.field_lines import (
     MAX_FIELD_LINES,
     MAX_LINE_POINTS,
+    MAX_NEUTRAL_POINTS,
     FieldArrow,
     FieldCharge,
     FieldPlate,
@@ -101,7 +102,7 @@ def _charges_spec(picture: FieldPicture) -> SimulationBlockSpec | None:
             FieldCharge(at=[x, 0.0], sign=1 if c.q > 0 else -1, radius=CHARGE_RADIUS, label=c.label)
             for x, c in zip(xs, picture.charges, strict=True)
         ],
-        neutral=[[_round(x), _round(y)] for x, y in neutral],
+        neutral=[[_round(x), _round(y)] for x, y in neutral][:MAX_NEUTRAL_POINTS],
         part=picture.part,
     )
     return None if field is None else _scene(field, view, _charges_alt(picture, bool(neutral)))

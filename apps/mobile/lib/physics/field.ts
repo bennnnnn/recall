@@ -42,7 +42,7 @@ const MAX_PLATES = 2;
 const MAX_LINES = 64;
 const LINE_POINTS = [2, 160] as const;
 const MAX_POINTS = 2400;
-const MAX_NEUTRAL = 3;
+const MAX_NEUTRAL = 4;
 const MAX_LABEL = 16;
 const PART = /^[a-h]$/;
 

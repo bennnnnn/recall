@@ -629,8 +629,9 @@ the turn's read says asks to see a diagram that no solve drew, the reply gets ph
 contract (`field_lines/contract.py`) and says what to draw in a ```draw block: point charges
 in a row, each with its sign and, when the question states it, its amount ("2q", "3 μC"), or
 two oppositely charged plates. The server checks each block whole (`field_lines/describe.py`:
-an unknown key, a fourth charge or an amount the question does not state, and it draws
-nothing), lays it out and traces it (`field_lines/picture.py`, `trace.py`): each line follows E
+an unknown key, a fourth charge, or an amount or sign the question does not state, each held
+to a charge the question writes with its unit and sign by `field_lines/stated.py`, and it
+draws nothing), lays it out and traces it (`field_lines/picture.py`, `trace.py`): each line follows E
 by fourth-order Runge–Kutta from a charge, as many lines as the charge's size, so lines start
 on + and end on −, crowd where the field is strong, and leave a neutral point between like
 charges (found by bisection and marked); plates are uniform strips whose closed-form field

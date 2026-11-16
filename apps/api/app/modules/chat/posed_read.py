@@ -16,10 +16,13 @@ where it decides the turn: no reader claimed the line, it is no small talk, and 
 read found its problem (``turn_prep.augment``); Stop cancels it with the turn. With no read,
 or none named, the turn is read as before.
 
-A line a subject claims but reads no problem in gets the read too when it states a value:
-"Repeat the calculation but this time take the charges as 3.0 pC and 2.0 μC", after a
-verified Coulomb's law answer, was physics with no problem of its own, and its reply worked
-both charges out with no check (live, 2026-11-16). Such a line may run to a few sentences.
+A line a subject claims gets the read too when, read in the pool, it holds no problem of its
+own and states a value with a unit of a kind the user's problem before it gives: "Repeat the
+calculation but this time take the charges as 3.0 pC and 2.0 μC", after a verified Coulomb's
+law answer, was physics with no problem of its own, and its reply worked both charges out
+with no check (live, 2026-11-16). Such a line may run to a few sentences. "Why is 2.16e9 N
+so large?" states no value of the problem's kinds and is never read; a pool that gives up
+reads nothing, and the turn goes on as typed.
 """
 
 from __future__ import annotations
@@ -36,6 +39,7 @@ from pydantic import BaseModel, Field
 from app.core.config import Settings
 from app.core.readings import keep_for_turn, kept_for_turn, read_aside
 from app.modules.chat.referent_read import ask_read, chat_before
+from app.services.solving import SubjectName
 from app.services.text_normalize import collapse_ws
 
 logger = logging.getLogger(__name__)
@@ -48,6 +52,10 @@ _MAX_RESTATED_WORDS = 80
 _STATES_A_VALUE = re.compile(r"\d")
 # Most values one line changes at once.
 _MAX_CHANGES = 4
+# The longest read fits: a 600-character problem (about 200 tokens, at three characters a
+# token for numbers and units), four changes of 120 and 60 characters (about 240) and the
+# JSON around them. A read cut short is no JSON, and no read.
+_MAX_TOKENS = 512
 _MESSAGE_CHARS = 500
 # A reply short enough to be a posed problem; a longer one is read for its exchange's line.
 _REPLY_CHARS = 600
@@ -167,21 +175,26 @@ def holds_a_problem(asked: str | None, reply: str) -> bool:
     return len(plain) <= _REPLY_CHARS and subject_of(plain) is not None
 
 
-def reads_a_problem(asked: str | None, _reply: str) -> bool:
-    """Whether the user's line before the reply is a problem its subject reads, values and
-    all: a line that changes values changes a problem the user stated, never a request to
-    draw ("Repeat question 2 for two negative charges" after "Draw the field of a charge"
-    is no change). Read in the pool."""
+def restates_a_problem(claimed: SubjectName, asked: str | None, line: str) -> bool:
+    """Whether a line ``claimed`` by a subject may change the problem the user stated before
+    it: that problem is the subject's, values and all (never a request to draw: "Repeat
+    question 2 for two negative charges" after "Draw the field of a charge"), the line holds
+    no problem of its own, and it states a value with a unit of a kind the problem gives.
+    Read in the pool."""
     from app.modules.chat.turn_prep.reading import subject_of
     from app.services.subjects.registry import subject_adapter
 
-    subject = subject_of(asked) if asked else None
-    return subject is not None and subject_adapter(subject).reads(asked or "")
+    if not asked or subject_of(asked) != claimed:
+        return False
+    adapter = subject_adapter(claimed)
+    return (
+        adapter.reads(asked) and not adapter.reads(line) and adapter.followups.restates(asked, line)
+    )
 
 
 async def pick_posed(settings: Settings, line: str, conversation: str) -> PosedPick | None:
     """The model's read of the problem a short line refers to, or None when there is no read."""
-    return await ask_read(settings, _SYSTEM, line, conversation, PosedPick, max_tokens=240)
+    return await ask_read(settings, _SYSTEM, line, conversation, PosedPick, max_tokens=_MAX_TOKENS)
 
 
 def may_refer_to_a_problem(line: str, recent: Sequence[Any], *, claimed: bool = False) -> bool:
@@ -207,7 +220,7 @@ def _key(line: str, recent: Sequence[Any]) -> tuple[str, tuple[tuple[str, str], 
 
 
 async def posed_for_turn(
-    settings: Settings, line: str, recent: Sequence[Any], *, claimed: bool = False
+    settings: Settings, line: str, recent: Sequence[Any], *, claimed: SubjectName | None = None
 ) -> Posed | None:
     """``read_posed`` once a turn, kept as the other reads are (``core.readings``)."""
     key = _key(line, recent)
@@ -221,24 +234,23 @@ async def posed_for_turn(
 
 
 async def read_posed(
-    settings: Settings, line: str, recent: Sequence[Any], *, claimed: bool = False
+    settings: Settings, line: str, recent: Sequence[Any], *, claimed: SubjectName | None = None
 ) -> Posed | None:
     """The problem a short line asks to solve or change, as its message states it; None with
     no read, after an exchange that holds no problem, or when the line answers a question
-    or asks no solve. ``claimed``: as ``may_refer_to_a_problem`` reads it."""
+    or asks no solve. ``claimed``: the subject that claims the line, when one does."""
     if not settings.referent_read_enabled or not may_refer_to_a_problem(
-        line, recent, claimed=claimed
+        line, recent, claimed=claimed is not None
     ):
         return None
     exchanges = chat_before(recent, line)
     asked = exchanges[-2][1] if len(exchanges) > 1 and exchanges[-2][0] == "user" else None
     # A look the turn can do without: a pool that gives up never declines its readings.
-    held = await read_aside(
-        reads_a_problem if claimed else holds_a_problem,
-        asked,
-        exchanges[-1][1],
-        timeout=settings.subject_read_timeout_seconds,
-    )
+    timeout = settings.subject_read_timeout_seconds
+    if claimed is not None:
+        held = await read_aside(restates_a_problem, claimed, asked, line, timeout=timeout)
+    else:
+        held = await read_aside(holds_a_problem, asked, exchanges[-1][1], timeout=timeout)
     if not held:
         return None
     started = time.perf_counter()

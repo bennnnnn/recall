@@ -17,6 +17,7 @@ from typing import Any
 
 from app.modules.math.text_plot import strip_text_plots
 from app.services.md_fence_scan import has_closed_fence, iter_closed_fences, strip_closed_fences
+from app.services.sketches import asks_for_a_diagram
 from app.services.solving import VerifiedMathBlock
 
 # The fences a picture the server drew comes in: maths' figures and graphs, physics' scenes.
@@ -90,14 +91,18 @@ def without_substitutes(text: str) -> str:
     return strip_text_plots(text)
 
 
-def without_drawn_substitutes(text: str) -> str:
+def without_drawn_substitutes(text: str, user_text: str = "") -> str:
     """The reply described its picture (a ```draw block the server drew, in ``text`` now):
     anything else it drew for that picture stands in for it. A Mermaid flowchart standing in
     for two vectors (round 3, c082) goes, with a sketch in characters, and a function graph
     of a curve the checked graph draws (c009 showed both); a flow diagram a question asks for
-    gets no ```draw block, and keeps its Mermaid. A solver's number line, an inequality's
-    region, a graph of points or of another curve stays."""
-    return _without_replaced_graphs(strip_closed_fences(strip_text_plots(text), "mermaid"))
+    gets no ```draw block, and keeps its Mermaid, and so does one ``user_text`` asks for
+    beside the picture. A solver's number line, an inequality's region, a graph of points or
+    of another curve stays."""
+    text = strip_text_plots(text)
+    if not asks_for_a_diagram(user_text):
+        text = strip_closed_fences(text, "mermaid")
+    return _without_replaced_graphs(text)
 
 
 def _graph_body(body: str) -> dict[str, Any] | None:

@@ -189,7 +189,8 @@ async def ask_for_a_drawing(
     # description adds to.
     if subject == "physics" and ctx.verified_subject is not None:
         return
-    figure = _figure(subject)
+    # A subject turned off draws nothing, and its reply is asked for no description.
+    figure = _figure(subject) if subject_adapter(subject).enabled(settings) else None
     if figure is None:
         return
     ctx.drawing = ReplyDrawing(asked, subject=subject)
@@ -239,7 +240,7 @@ async def attach_drawing(state: FinalizeState) -> str:
     # Beside the pictures, what stood in for them goes: a sketch, a Mermaid diagram, a
     # solve's graph of a curve the checked graph draws (round 3's c009 showed both). A
     # solver's number line, inequality or points graph stays (2026-11-15 review).
-    text = figure.without_drawn_substitutes(text)
+    text = figure.without_drawn_substitutes(text, line)
     # Committed, so a later pass that falls back keeps the picture.
     state.committed = fallback_text(text, server_text=state.server_text)
     return text

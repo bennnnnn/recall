@@ -8,10 +8,13 @@ spellings are laid over them (``given_units``). The extractors read them too: a 
 unit pattern takes every prefixed spelling of a base it reads (``with_prefixes``).
 
 Left out, by what they are after a number in a school question: "pm" a clock time, "pH"
-acidity, "pV" the gas law's product, "kT" a thermal energy, "Mg" magnesium, "Ms" a title
-and "us" a word. Peta (P) is left out too: "PC", "PA", "PT" and "PH" are other things, and
-no school question writes a petajoule. Centi goes only on the metre, the gram and the litre,
-as SI writes it.
+acidity, "pV" the gas law's product, "kT" a thermal energy, "Mg" magnesium, "Ms" a title,
+"us" a word, "Gs" g-forces ("pulls 5 Gs"), "GA" a wire gauge ("12 GA copper wire"), "GT" a
+car, "Gm" the gravitational parameter, and "GF", "GH" and "GC", which no question writes
+for a gigafarad, a gigahenry or a gigacoulomb but other words do. Peta (P) is left out too:
+"PC", "PA", "PT" and "PH" are other things, and no school question writes a petajoule. Centi
+goes only on the metre, the gram and the litre, as SI writes it. The G forms that stay are
+those a question writes: GW, GJ, GHz, GeV and GPa (listed), GΩ, GL, Gg, GN and GV.
 """
 
 from __future__ import annotations
@@ -66,7 +69,9 @@ _BASE_WORDS: dict[str, tuple[str, str]] = {
     "weber": ("weber", "webers"),
 }
 _CENTI_ON = frozenset({"m", "g", "L", "meter", "gram", "liter"})
-_LEFT_OUT = frozenset({"pm", "pH", "pV", "kT", "Mg", "Ms", "us"})
+_LEFT_OUT = frozenset(
+    {"pm", "pH", "pV", "kT", "Mg", "Ms", "us", "Gs", "GA", "GT", "Gm", "GF", "GH", "GC"}
+)
 _PETA = "P"
 
 

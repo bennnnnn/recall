@@ -131,7 +131,7 @@ async def test_a_named_change_is_solved_as_the_problem_typed_with_it(
 def test_a_change_no_subject_puts_in_place_exactly_is_none(
     subject: SubjectName, problem: str, given: str, new: str
 ) -> None:
-    assert subject_adapter(subject).followups.changed_problem(problem, given, new) is None
+    assert subject_adapter(subject).followups.changed_problem(problem, [(given, new)]) is None
 
 
 @pytest.mark.asyncio
@@ -241,3 +241,48 @@ async def test_a_textbook_repeat_with_new_charges_is_the_problem_typed_with_them
     assert typed.solved and followed.solved
     assert followed.verified_answer == typed.verified_answer
     assert "2.16" in (followed.verified_answer or "") and "-9" in (followed.verified_answer or "")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("question", "line", "changes"),
+    [
+        # The read named one change of the two the line makes: never a charge the user
+        # did not give (review of feat/field-lines).
+        (_COULOMB, _REPEAT, (("3.0 C", "3.0 pC"),)),
+        # A new question, not a change: its own values and its own ask.
+        (
+            _BALL,
+            "What is the momentum of a 5 kg ball moving at 3 m/s in the same direction?",
+            (("2 kg", "5 kg"),),
+        ),
+    ],
+)
+async def test_a_change_that_does_not_stand_for_the_whole_line_is_no_solve(
+    question: str, line: str, changes: tuple[tuple[str, str], ...], thread_sympy_executor: None
+) -> None:
+    followed = await _route(
+        line,
+        history=(("user", question), ("assistant", "**Answer** worked above.")),
+        posed=question,
+        posed_changes=changes,
+    )
+    earlier = decision_record(await _route(question))["solver"]
+    # Either nothing is verified, or the line's own question is: never the earlier one.
+    assert not followed.solved or decision_record(followed)["solver"] != earlier
+
+
+@pytest.mark.asyncio
+async def test_two_changes_are_found_in_the_problem_as_stated(thread_sympy_executor: None) -> None:
+    """ "Take the charges as 2.0 C and 3.0 C" swaps them: the second change is found in the
+    problem as stated, never in the text the first one already edited."""
+    swapped = _COULOMB.replace("3.0 C", "@").replace("2.0 C", "3.0 C").replace("@", "2.0 C")
+    typed = await _route(swapped)
+    followed = await _route(
+        "Take the charges as 2.0 C and 3.0 C.",
+        history=(("user", _COULOMB), ("assistant", "**Answer** worked above.")),
+        posed=_COULOMB,
+        posed_changes=(("3.0 C", "2.0 C"), ("2.0 C", "3.0 C")),
+    )
+    assert typed.solved and followed.solved
+    assert followed.verified_answer == typed.verified_answer

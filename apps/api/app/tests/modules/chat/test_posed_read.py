@@ -164,7 +164,7 @@ async def test_a_claimed_line_that_restates_values_is_read_with_every_change() -
     )
     model = AsyncMock(return_value=pick)
     with patch.object(posed_read, "pick_posed", model):
-        posed = await read_posed(Settings(), _REPEAT, _rows(typed), claimed=True)
+        posed = await read_posed(Settings(), _REPEAT, _rows(typed), claimed="physics")
         # Not claimed, the line is far too long to only refer to a problem.
         assert await read_posed(Settings(), _REPEAT, _rows(typed)) is None
     model.assert_awaited_once()
@@ -177,8 +177,14 @@ async def test_a_claimed_line_that_states_no_value_is_not_read() -> None:
     typed = [("user", _COULOMB), ("assistant", "**Answer** 2.16 \u00d7 10\u2079 N")]
     model = AsyncMock(return_value=PosedPick(kind="solve", message=1, problem=_COULOMB))
     with patch.object(posed_read, "pick_posed", model):
-        line = "Explain why Coulomb's law gives such an enormous force here"
-        assert await read_posed(Settings(), line, _rows(typed), claimed=True) is None
+        for line in (
+            "Explain why Coulomb's law gives such an enormous force here",
+            # A number, but no value of a kind the problem gives: a force is what it asks.
+            "Why is 2.16e9 N so large?",
+            # Its own problem, values and all.
+            "Two charges of 4.0 nC and 6.0 nC are 2.0 m apart. Find the force between them.",
+        ):
+            assert await read_posed(Settings(), line, _rows(typed), claimed="physics") is None
     model.assert_not_awaited()
 
 
@@ -274,3 +280,21 @@ async def test_a_regenerate_reads_the_chat_without_the_reply_it_redoes() -> None
     assert posed == Posed(problem=_CAR, reply=_POSED_CHAT[1][1])
     assert model.await_args is not None
     assert "6 m/s." not in model.await_args.args[2]
+
+
+@pytest.mark.asyncio
+async def test_a_pool_that_gives_up_reads_nothing_and_keeps_the_turns_readings() -> None:
+    """The structural look for a claimed line runs aside: a pool that gives up never
+    declines the turn's own readings, so its verified solve is kept."""
+    from app.core import readings
+
+    readings.begin_turn()
+    typed = [("user", _COULOMB), ("assistant", "**Answer** 2.16 \u00d7 10\u2079 N")]
+    model = AsyncMock(return_value=PosedPick(kind="solve", message=1, problem=_COULOMB))
+    with (
+        patch("app.core.sympy_executor.run_sympy", AsyncMock(side_effect=TimeoutError)),
+        patch.object(posed_read, "pick_posed", model),
+    ):
+        assert await read_posed(Settings(), _REPEAT, _rows(typed), claimed="physics") is None
+    model.assert_not_awaited()
+    assert not readings.readings_declined()

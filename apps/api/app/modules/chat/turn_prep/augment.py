@@ -45,7 +45,7 @@ from app.modules.web_search.subject import (
 )
 from app.services.solving import VerifiedSolveBlock
 from app.services.subjects.dispatch import SubjectName, read_direct_reply, read_subject
-from app.services.subjects.registry import SUBJECTS, subject_adapter
+from app.services.subjects.registry import SUBJECTS
 
 if TYPE_CHECKING:
     from app.services.subjects.registry import MoneyTurn
@@ -380,10 +380,7 @@ async def _turn_followup(
             has_image_attachment=request.has_image_attachment,
             chemistry_enabled=settings.chemistry_enabled,
         )
-        claimed = subject is not None
-        if claimed and await _reads_a_problem(subject, request.content, timeout):
-            return followup or SubjectFollowup(), referent
-        posed = await posed_for_turn(settings, request.content, recent, claimed=claimed)
+        posed = await posed_for_turn(settings, request.content, recent, claimed=subject)
         if posed is not None:
             followup = await read_off_loop(
                 resolve_posed_followup,
@@ -394,14 +391,6 @@ async def _turn_followup(
                 timeout=timeout,
             )
     return followup or SubjectFollowup(), referent
-
-
-async def _reads_a_problem(subject: SubjectName | None, line: str, wait: float) -> bool:
-    """The subject reads a problem of the line's own; a pool that gives up says it does."""
-    if subject is None:
-        return False
-    read = await read_off_loop(subject_adapter(subject).reads, line, timeout=wait)
-    return read is not False
 
 
 def reads_window(request: TurnRequest) -> list[Any]:

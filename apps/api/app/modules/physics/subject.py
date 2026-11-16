@@ -58,10 +58,24 @@ _HINTS = SubjectHints(
 
 @dataclass(frozen=True)
 class PhysicsFollowups:
-    def changed_problem(self, problem: str, given: str | None, new: str) -> str | None:
+    def changed_problem(
+        self, problem: str, changes: Sequence[tuple[str | None, str]]
+    ) -> str | None:
         from app.modules.physics.followup import changed_physics_problem
 
-        return changed_physics_problem(problem, given, new)
+        return changed_physics_problem(problem, changes)
+
+    def restates(self, problem: str, line: str) -> bool:
+        from app.modules.physics.followup import restates_physics_problem
+
+        return restates_physics_problem(problem, line)
+
+    def takes_every_change(
+        self, problem: str, rewritten: str, line: str, new: Sequence[str]
+    ) -> bool:
+        from app.modules.physics.followup import physics_change_whole
+
+        return physics_change_whole(problem, rewritten, line, new)
 
     def problem(
         self,
@@ -246,10 +260,10 @@ class PhysicsFigure:
             timeout=settings.stem_solve_timeout_seconds,
         )
 
-    def without_drawn_substitutes(self, text: str) -> str:
+    def without_drawn_substitutes(self, text: str, user_text: str = "") -> str:
         from app.modules.physics.sketches import without_model_drawings
 
-        return without_model_drawings(text)
+        return without_model_drawings(text, user_text)
 
 
 @dataclass(frozen=True)

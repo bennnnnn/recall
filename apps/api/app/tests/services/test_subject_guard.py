@@ -85,7 +85,7 @@ async def test_subject_guard_every_member_answers_neutrally(broken: GuardedSubje
     assert followups.borrows_earlier("5") is False
     assert followups.asks_to_see("draw it") is False
     assert followups.shown_problem("draw it", []) is None
-    assert followups.changed_problem("p", None, "10 s") is None
+    assert followups.changed_problem("p", [(None, "10 s")]) is None
     assert broken.photo is not None
     assert await broken.photo.read(
         "caption", image_attachments=[], load_image=_aboom, settings=settings, on_status=None

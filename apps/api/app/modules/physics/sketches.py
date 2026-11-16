@@ -2,9 +2,11 @@
 
 A box in ASCII art reads as broken rows of symbols on the phone, and a Mermaid "circuit"
 above the real schematic is a second, wrong one. Electric fields came as rows of slashes and
-arrows in code blocks, and as tables of slashes (live, 2026-11-16): a sketch is any plain
-block or table drawn in symbols, not one shape of it. A user who asked for a flowchart or a
-Mermaid diagram keeps theirs.
+arrows in code blocks, and as tables of slashes (live, 2026-11-16). A sketch is a plain block
+drawn in slashes, bars and arrows, or a plot in characters (``services.sketches``, the
+rule maths uses), or a table whose cells hold no letter and no digit; a data table, a
+derivation or a LaTeX block stays. A user who asked for a flowchart or a Mermaid diagram
+keeps theirs.
 """
 
 from __future__ import annotations
@@ -12,40 +14,18 @@ from __future__ import annotations
 import re
 
 from app.services.md_fence_scan import iter_fences
-
-# A plain block may hold a sketch; a tagged one (python, math) never does.
-_PLAIN_FENCE_LANGS = frozenset({"", "text", "txt", "plaintext", "ascii"})
-_MODEL_DIAGRAM_LANGS = frozenset({"mermaid"})
-_ASKED_FOR_DIAGRAM = re.compile(
-    r"\b(?:flow[\s-]?charts?|mermaid|sequence diagram|mind[\s-]?maps?|state diagram)\b",
-    re.IGNORECASE,
+from app.services.sketches import (
+    PLAIN_FENCE_TAGS,
+    asks_for_a_diagram,
+    is_arrow_sketch,
+    is_text_plot,
 )
-# Box-drawing lines, arrows and blocks, or a run of slashes, bars and dashes.
-_DRAWN = re.compile(r"[←-⇿─-╿■-◿]|[-_|/\\]{3,}|[/\\]\s*$")
-# Most of a drawn row is symbols: "\  |  /", "->  ^  <-", "( + )", "+ + + +".
-_DRAWN_SHARE = 0.6
+
+_MODEL_DIAGRAM_LANGS = frozenset({"mermaid"})
 
 
-def asks_for_a_diagram(user_text: str) -> bool:
-    """The user asked for a flowchart or a Mermaid diagram of their own."""
-    return _ASKED_FOR_DIAGRAM.search(user_text) is not None
-
-
-def _drawn_row(row: str) -> bool:
-    ink = [char for char in row if not char.isspace()]
-    if not ink:
-        return False
-    if _DRAWN.search(row):
-        return True
-    symbols = sum(not char.isalnum() for char in ink)
-    return len(ink) >= 3 and symbols / len(ink) >= _DRAWN_SHARE
-
-
-def _sketch_rows(rows: list[str]) -> bool:
-    """Two rows or more drawn in symbols, and more of them drawn than written."""
-    inked = [row for row in rows if row.strip()]
-    drawn = sum(_drawn_row(row) for row in inked)
-    return drawn >= 2 and drawn * 2 >= len(inked)
+def _sketch(rows: list[str]) -> bool:
+    return is_arrow_sketch(rows) or is_text_plot([row for row in rows if row.strip()])
 
 
 def without_model_drawings(text: str, user_text: str = "") -> str:
@@ -57,8 +37,8 @@ def without_model_drawings(text: str, user_text: str = "") -> str:
         for fence in iter_fences(text)
         if (fence.lang in _MODEL_DIAGRAM_LANGS and not keep_diagrams)
         or (
-            fence.lang in _PLAIN_FENCE_LANGS
-            and _sketch_rows(text[fence.body_start : fence.body_end].split("\n"))
+            fence.lang in PLAIN_FENCE_TAGS
+            and _sketch(text[fence.body_start : fence.body_end].split("\n"))
         )
     ]
     original = text

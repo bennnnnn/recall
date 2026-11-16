@@ -3,29 +3,28 @@
 The reply says what to draw in a ```draw block (``contract``): point charges in a row, each
 with its sign and, when the question states them, its amount; or two oppositely charged
 plates. Each block is checked whole: a key the vocabulary does not hold, a fourth charge,
-an amount the question does not state, or amounts of different kinds, and the block draws
-nothing. A picture is never drawn from a description it only partly understood: a charge
-"at" a place the row cannot put it would be drawn in the wrong place.
+an amount or a sign the question does not state (``stated``), or amounts of different
+kinds, and the block draws nothing. A picture is never drawn from a description it only
+partly understood: a charge "at" a place the row cannot put it would be drawn in the wrong
+place.
 """
 
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from app.modules.physics.givens import PHYSICS_UNITS, unit_dimension
-
-_CHARGE_DIMENSION = "[current]^1 * [time]^1"
-# "2q", "3 μC", "-1.5 nC": a number, then a multiple of q or a unit of charge.
-_AMOUNT = re.compile(
-    r"^\s*(?P<number>\d+(?:\.\d+)?|\.\d+)?\s*(?P<unit>[qQ]|[^\s\d][^\s]{0,11})\s*$"
+from app.modules.physics.field_lines.stated import (
+    Charge,
+    described_charge,
+    held_to,
+    stated_charges,
 )
-_NUMBER = re.compile(r"\d+(?:[.,]\d+)?")
+
 # The most one charge may be of another and still be drawn with a line count that says so.
 _MOST_RATIO = 6.0
 
@@ -86,65 +85,31 @@ def read_description(body: str, texts: Sequence[str]) -> FieldPicture | None:
 
 
 def _charges(charges: list[_Charge], texts: Sequence[str]) -> tuple[DescribedCharge, ...] | None:
-    amounts = [charge.amount for charge in charges]
-    signs = [-1.0 if charge.sign != "+" else 1.0 for charge in charges]
-    if all(amount is None for amount in amounts):
-        return tuple(DescribedCharge(sign, None) for sign in signs)
-    if any(amount is None for amount in amounts):
-        return None
-    read = [_amount(amount or "", texts) for amount in amounts]
-    if any(item is None for item in read):
-        return None
-    kinds = {kind for kind, _size, _written in (item for item in read if item is not None)}
-    if len(kinds) != 1:
-        return None  # "2q" beside "3 μC": no one scale for both
-    sizes = [size for _kind, size, _written in (item for item in read if item is not None)]
+    """The described charges, each held to a charge the question states with its unit and
+    sign; with none stated, signs alone (no amount may be made up)."""
+    signs: list[Literal[1, -1]] = [-1 if charge.sign != "+" else 1 for charge in charges]
+    stated = stated_charges(texts)
+    if not stated:
+        if any(charge.amount is not None for charge in charges):
+            return None
+        return tuple(DescribedCharge(float(sign), None) for sign in signs)
+    if any(charge.amount is None for charge in charges):
+        return None  # the question sizes its charges: the picture says them
+    described = [
+        described_charge(sign, charge.amount or "")
+        for sign, charge in zip(signs, charges, strict=True)
+    ]
+    held = held_to([c for c in described if c is not None], stated)
+    if held is None or len(held) != len(charges) or len({c.kind for c in held}) != 1:
+        return None  # an amount the question does not state, or "2q" beside "3 μC"
+    sizes = [charge.size for charge in held]
     if min(sizes) <= 0 or max(sizes) / min(sizes) > _MOST_RATIO:
         return None
     top = max(sizes)
     return tuple(
-        DescribedCharge(sign * size / top, _label(sign, written))
-        for sign, (_kind, size, written) in zip(
-            signs, (item for item in read if item is not None), strict=True
-        )
+        DescribedCharge(charge.sign * charge.size / top, _label(charge)) for charge in held
     )
 
 
-def _amount(amount: str, texts: Sequence[str]) -> tuple[str, float, str] | None:
-    """(kind, size, as written) of "2q" or "3 μC", when a message states its number."""
-    match = _AMOUNT.match(amount)
-    if match is None:
-        return None
-    number, unit = match.group("number"), match.group("unit")
-    if number is None:
-        if unit not in ("q", "Q"):
-            return None  # "μC" alone states no amount
-        number = "1"
-    if not _stated(number, texts):
-        return None
-    if unit in ("q", "Q"):
-        return "q", float(number), f"{_plain(number)}{unit}" if _plain(number) != "1" else unit
-    expression = PHYSICS_UNITS.expression(unit)
-    reading = unit_dimension(expression or "")
-    if expression is None or reading is None or reading[0] != _CHARGE_DIMENSION:
-        return None
-    return "unit", float(number) * reading[1], f"{_plain(number)} {unit}"
-
-
-def _stated(number: str, texts: Sequence[str]) -> bool:
-    """A number a message states, as a number of its own: "2" of "2q" or "+2 μC"."""
-    value = float(number)
-    if value == 1:
-        return True  # "q" alone: the unit the others are counted in
-    return any(
-        float(found.replace(",", ".")) == value for text in texts for found in _NUMBER.findall(text)
-    )
-
-
-def _plain(number: str) -> str:
-    value = float(number)
-    return f"{value:g}"
-
-
-def _label(sign: float, written: str) -> str:
-    return ("+" if sign > 0 else "\u2212") + written
+def _label(charge: Charge) -> str:
+    return ("+" if charge.sign > 0 else "\u2212") + charge.written
