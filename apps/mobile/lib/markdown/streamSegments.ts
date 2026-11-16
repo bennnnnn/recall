@@ -83,7 +83,7 @@ const CLEAN_FENCE_RE = /^(`{3,}|~{3,})([^`~]*)$/;
 /** A line that opens with "Answer", or holds an Answer heading a pass may break out of it. */
 const ANSWER_OPENING_RE = /^[\s#*]*answer/i;
 const ANSWER_HEADING_IN_LINE_RE = /#{1,6}[ \t]*(?:\*\*)?answer/i;
-const WORKED_RE = new RegExp(String.raw`^\s*\*\*\s*(?:${OPENING_HEADINGS.join("|")})\b`);
+const WORKED_RE = new RegExp(String.raw`^\s*\*\*\s*(?:${OPENING_HEADINGS.join("|")})(?![\p{L}\p{N}])`, "u");
 const BOLD_LABEL_RE = /^\s*\*\*[^*\n]+\*\*\s*(?:`[^`\n]*`\s*)?$/;
 /** A top-level list item: the passes read it apart from the item above it. */
 const LIST_ITEM_RE = /^(?:[-*+]|\d{1,9}[.)])[ \t]/;

@@ -47,6 +47,8 @@ class StreamAccum:
     # The reply stopped extending what the client was sent (a ```worked block laid out
     # again when a record came out of order, ``worked_stream``): ``done`` carries it.
     rewritten: bool = False
+    # The app language the reply's ```worked block named for its words (``worked_stream``).
+    worked_language: str | None = None
     # The reply's ```draw blocks, kept out of what the client was sent (``draw_stream``),
     # each with how many pieces of text the client had been sent when it closed: finalize
     # draws the picture they describe, and text taken back takes its own blocks with it.

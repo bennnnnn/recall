@@ -125,6 +125,7 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "proper_case",
         "presentation",
         "clock",
+        "worked_language",
     ]
     # Every text pass goes on after a failure (ST-06), and so do the maths pass, the claim
     # check, the lesson shape and the pictures; every other effect falls back to the last

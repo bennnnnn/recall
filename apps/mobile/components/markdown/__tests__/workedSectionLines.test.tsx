@@ -164,3 +164,33 @@ describe("a worked reply's heading while it streams", () => {
     expect(glued).toEqual([]);
   });
 });
+
+// "Un coche acelera de 0 a 25 m/s en 5 s. ¿Cuál es su aceleración?" was worked in English
+// (live, 2026-11-15); the API now writes the layout's headings in the reply's language.
+const SPANISH = [
+  "**Datos**  ",
+  "$v_0 = 0\\,\\mathrm{m/s}$  ",
+  "$v = 25\\,\\mathrm{m/s}$  ",
+  "$t = 5\\,\\mathrm{s}$  ",
+  "donde $v_0$ = velocidad inicial, $v$ = velocidad final, $t$ = tiempo",
+  "",
+  "**Incógnita**  ",
+  "$a$ (aceleración)",
+  "",
+  "**Solución**",
+  "",
+  "**Aceleración**  ",
+  "$a = \\frac{v - v_0}{t}$",
+  "",
+  "**Sustitución**  ",
+  "$a = \\frac{25 - 0}{5}$  ",
+  "$a = 5\\,\\mathrm{m/s^2}$",
+].join("\n");
+
+describe("a worked reply in another language", () => {
+  it.each([false, true])("is laid out by its own headings (streaming: %s)", async (streaming) => {
+    expect(await headings(SPANISH, streaming)).toEqual(
+      expect.arrayContaining(["Datos", "Incógnita", "Solución", "Aceleración", "Sustitución"]),
+    );
+  });
+});

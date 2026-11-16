@@ -139,6 +139,27 @@ class WorkedSolution(_Record):
 RecordModel = Given | Required | Formula | Step | Answer | PartLabel
 
 
+class Language(_Record):
+    """The block's ``language`` record: the app language its words are in, which the
+    layout's headings follow (``worked_language``)."""
+
+    code: Literal["en", "es", "fr", "de", "it", "pt", "ru", "tr", "am"]
+
+
+_LANGUAGE = re.compile(r"^\s*language\s*:\s*(?P<code>[A-Za-z]{2})\s*$", re.IGNORECASE)
+
+
+def read_language(line: str) -> str | None:
+    """The code a ``language: es`` line names, when it is one of the app's languages."""
+    match = _LANGUAGE.match(line)
+    if match is None:
+        return None
+    try:
+        return Language.model_validate({"code": match.group("code").lower()}).code
+    except ValidationError:
+        return None
+
+
 def _unwrapped(value: str) -> str:
     text = value.strip()
     for opener, closer in _DELIMITERS:

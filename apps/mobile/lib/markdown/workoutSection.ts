@@ -1,24 +1,38 @@
 import { fencedLines } from "@/lib/fence/scan";
+import { workedHeadings } from "@/lib/markdown/workedWords";
+
+// Every heading below is read in each app language: the API writes a worked layout's
+// headings in the reply's language (`workedWords.ts`).
+const GIVEN_HEADINGS = workedHeadings("given");
 
 /**
  * What is asked: **Required**, or **Find** in a reply written before November 2026 (and in
  * one a model still heads that way).
  */
-const REQUIRED_HEADINGS: readonly string[] = ["Required", "Find"];
+const REQUIRED_HEADINGS: readonly string[] = [...workedHeadings("required"), "Find"];
 
 /** The headings that open a worked reply, behind a thin rule: what it is given and what is asked. */
-export const OPENING_HEADINGS: readonly string[] = ["Given", ...REQUIRED_HEADINGS];
+export const OPENING_HEADINGS: readonly string[] = [...GIVEN_HEADINGS, ...REQUIRED_HEADINGS];
 
 /**
  * The heading alone between what is asked and the working (November 2026): no lines of its
  * own, the sections below it are its lines.
  */
-export const SOLUTION_HEADING = "Solution";
+export const SOLUTION_HEADINGS = workedHeadings("solution");
 
 /** **Solution** alone on its line, with an optional trailing colon. */
 export function isSolutionHeading(text: string): boolean {
-  return text.trim().replace(/:$/, "") === SOLUTION_HEADING;
+  return SOLUTION_HEADINGS.includes(text.trim().replace(/:$/, ""));
 }
+
+/** **Given**: what the question states. */
+export function isGivenHeading(heading: string): boolean {
+  return GIVEN_HEADINGS.includes(heading);
+}
+
+const ANSWER_HEADINGS = workedHeadings("answer");
+/** One part's answer, "Answer (a)", as a regex alternation's source. */
+export const PART_ANSWER_SOURCE = String.raw`(?:${ANSWER_HEADINGS.join("|")}) \([a-h]\)`;
 
 /**
  * The one worked-solution layout the API writes for every subject:
@@ -34,12 +48,12 @@ export function isSolutionHeading(text: string): boolean {
 export const WORKOUT_HEADINGS: readonly string[] = [
   ...OPENING_HEADINGS,
   "Formula",
-  "Substitution",
-  "Steps",
-  "Answer",
+  ...workedHeadings("substitution"),
+  ...workedHeadings("steps"),
+  ...ANSWER_HEADINGS,
 ];
 
-const PART_ANSWER = /^Answer \([a-h]\)$/;
+const PART_ANSWER = new RegExp(`^${PART_ANSWER_SOURCE}$`);
 
 /** A heading as written, with an optional trailing colon. */
 export function workoutHeading(text: string): string | null {
@@ -49,7 +63,7 @@ export function workoutHeading(text: string): string | null {
 
 /** The answer of the whole question, or of one part ("Answer (a)"). */
 export function isAnswerHeading(heading: string): boolean {
-  return heading === "Answer" || PART_ANSWER.test(heading);
+  return ANSWER_HEADINGS.includes(heading) || PART_ANSWER.test(heading);
 }
 
 /**

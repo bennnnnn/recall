@@ -19,14 +19,14 @@
  */
 
 import { displayMathLines, rewriteFenced } from "@/lib/markdown/markdownRegions";
-import { isWorkedReply, SOLUTION_HEADING, WORKOUT_HEADINGS } from "@/lib/markdown/workoutSection";
+import { isWorkedReply, SOLUTION_HEADINGS, WORKOUT_HEADINGS } from "@/lib/markdown/workoutSection";
 
 /** What may come before the bold lead: emoji, flags, their modifiers and joiners, spaces. */
 const PREFIX = /^[\p{So}\p{Sk}\p{Mn}\p{Cf} ]*$/u;
 const MAX_PREFIX = 16;
 
 const BOLD_HEAD = /^\*\*([^*\n]+)\*\*(.*)$/;
-const SECTIONS = new Set([...WORKOUT_HEADINGS, SOLUTION_HEADING]);
+const SECTIONS = new Set([...WORKOUT_HEADINGS, ...SOLUTION_HEADINGS]);
 /** "Answer (a)", "1. Subtract 4", "2) Divide", "(b) Speed", "Part (c): Time", "d) Distance". */
 const TITLE =
   /^(?:Answer \([a-h]\)|\d+[.)]\s.*|(?:part\s+(?:\([a-h]\)|[a-h])|\([a-h]\)|[a-h]\))\s*[.:]?\s*\S.*)$/i;

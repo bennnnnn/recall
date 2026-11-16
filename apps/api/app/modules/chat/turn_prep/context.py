@@ -155,6 +155,8 @@ class StreamContext:
     money: MoneyTurn | None = None
     # A calculation nothing verified: its ```worked block is laid out as it streams.
     worked: WorkedLayout | None = None
+    # The app language that block named for its words (``worked_language``).
+    worked_language: str | None = None
     # The photo's reader was unsure of its read: nothing is certified (``uncheck_cards``).
     photo_uncertain: bool = False
 

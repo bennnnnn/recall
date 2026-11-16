@@ -50,7 +50,10 @@ PATH = (
 
 
 def _read(subject: str, picture: str) -> TurnDecision:
-    return TurnDecision(live=False, think=False, subject=subject, picture=picture)
+    """A read as the model writes it: the validators take its two answers."""
+    return TurnDecision.model_validate(
+        {"live": False, "think": False, "subject": subject, "picture": picture}
+    )
 
 
 def _done(decision: TurnDecision | None) -> asyncio.Future[TurnDecision | None]:
