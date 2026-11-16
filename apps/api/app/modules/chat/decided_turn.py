@@ -44,6 +44,7 @@ from app.modules.billing import plan as plan_service
 from app.modules.billing.entitlements import has_strong_everyday_model
 from app.modules.chat.decider_read import NO_ANSWER, OTHER_ANSWER, READ_SUBJECTS
 from app.modules.chat.drawing_turn import ask_for_a_drawing
+from app.modules.chat.drawn_picture import asks_for_a_drawing, solve_draws_a_picture
 from app.modules.chat.json_output import is_json_request
 from app.modules.chat.lesson_again import lesson_again
 from app.modules.chat.model_routing.decided import decided_lane, decided_level, math_backups
@@ -69,6 +70,7 @@ from app.modules.turn_reading.lesson_flow import (
 )
 from app.modules.turn_reading.school_question import is_school_exercise
 from app.services.md_fence_scan import line_fences
+from app.services.picture_copy import DRAWN_PICTURE_NOTE
 
 if TYPE_CHECKING:
     from app.modules.chat.turn_prep.context import StreamContext
@@ -111,6 +113,7 @@ async def decide_from_the_read(ctx: StreamContext, settings: Settings) -> None:
     read = await _the_read(ctx, settings)
     # A maths picture the message asks to see: the reply describes it (``drawing_turn``).
     await ask_for_a_drawing(ctx, settings, read, deadline)
+    _leave_the_picture(ctx, read)
     if read is None or read.effort is None:
         note_decision("rules")
         return
@@ -135,6 +138,15 @@ async def decide_from_the_read(ctx: StreamContext, settings: Settings) -> None:
     else:
         _worked_layout(ctx, settings, read)
     _follow_note(ctx, read)
+
+
+def _leave_the_picture(ctx: StreamContext, read: TurnDecision | None) -> None:
+    """A picture the read says the message asks to see, which the subject's solve drew: the
+    reply gives it no section or words and never places it (``drawn_picture``)."""
+    if not (asks_for_a_drawing(read) and solve_draws_a_picture(ctx.verified_subject)):
+        return
+    note_prompt_rule("drawn_picture")
+    ctx.prompt_messages = inject_before_last_user(ctx.prompt_messages, DRAWN_PICTURE_NOTE)
 
 
 async def _the_read(ctx: StreamContext, settings: Settings) -> TurnDecision | None:

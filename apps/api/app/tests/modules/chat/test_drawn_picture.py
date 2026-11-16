@@ -225,3 +225,20 @@ def test_an_everyday_picture_part_keeps_its_painting_note() -> None:
     assert "a picture to draw" in contract
     assert PROBLEM_PICTURE_NOTE not in contract
     assert PICTURE_PLACEMENT_RULE in contract
+
+
+@pytest.mark.parametrize(
+    ("read", "noted"),
+    [(_read("physics", "diagram"), True), (_read("physics", "none"), False), (None, False)],
+)
+def test_a_solves_picture_the_message_asks_for_gets_no_words(
+    read: TurnDecision | None, noted: bool
+) -> None:
+    """ "Draw the ray diagram" got a section saying the picture was "drawn in the app above
+    this answer", under the diagram drawn below it (live, 2026-11-15)."""
+    from app.modules.chat.decided_turn import _leave_the_picture
+    from app.services.picture_copy import DRAWN_PICTURE_NOTE
+
+    state = _state("x", verified_subject=_solved(CIRCUIT))
+    _leave_the_picture(state.ctx, read)
+    assert any(m["content"] == DRAWN_PICTURE_NOTE for m in state.ctx.prompt_messages) is noted
