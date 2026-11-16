@@ -146,14 +146,16 @@ def _rules_named(question: PlotQuestion) -> set[str] | None:
     """The rules the question allows: the one the numerical-method reader reads
     (``match.numerical_methods``), each side it names ("compare the left and right sums",
     "heights at the left endpoints") and the lower or upper sums it names; none for another
-    rule (trapezoids, Simpson's) or one it cannot read; None when it names no rule, and the
-    reply's rectangles stand as described."""
+    rule (trapezoids, Simpson's); None when it names no rule or no side ("a Riemann sum"),
+    and the reply's rectangles stand as described."""
     if question.rule in _RECTANGLE_RULES:
         return {question.rule}
     named = set(question.sides) | set(question.sums)
     if named:
         return named
-    return None if question.rule is None else set()
+    # "A limit of sums of rectangles", "a Riemann sum" with no side: no rule is named.
+    unnamed = question.rule == "unworked" and not question.estimates
+    return None if question.rule is None or unnamed else set()
 
 
 def _heights(fn: RealFunction, low: Any, high: Any, n: int, rule: str) -> Any:

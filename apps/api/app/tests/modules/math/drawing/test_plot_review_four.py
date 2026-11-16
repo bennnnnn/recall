@@ -257,3 +257,40 @@ def test_one_scale_is_the_window_the_curves_are_sampled_on() -> None:
     assert min(xs) == pytest.approx(graph.x_min, abs=1e-3) and max(xs) == pytest.approx(
         graph.x_max, abs=1e-3
     )
+
+
+def test_a_family_is_drawn_on_the_interval_the_question_states() -> None:
+    """u5-008: the antiderivatives "on one graph for 0 ≤ x ≤ 2π" are drawn there."""
+    graph = _plot(
+        "Integrate cos(2x) with respect to x, and show three members of the family of "
+        "antiderivatives (c = −1, 0, 1) on one graph for 0 ≤ x ≤ 2π.",
+        _curve("F", "sin(2x)/2", domain=["0", "6.283"], shifts=["-1", "0", "1"]),
+    )
+    assert graph is not None and len(graph.curves) == 3
+    assert max(_xs(graph)) == pytest.approx(2 * math.pi, abs=1e-3)
+
+
+def test_rectangles_of_a_riemann_sum_with_no_side_named_are_drawn() -> None:
+    """u5-030: "a limit of sums of rectangles ... the rectangles for n = 4" names no side."""
+    graph = _plot(
+        "Using the definition of the definite integral (a limit of sums of rectangles), find "
+        "the area of the region enclosed by the graph of f(x) = x² and the x-axis between "
+        "x = 0 and x = 1. Draw the region with the rectangles for n = 4.",
+        _curve("f", "x^2"),
+        {"item": "rectangles", "under": "f", "from": "0", "to": "1", "n": 4, "rule": "right"},
+    )
+    assert graph is not None and len([r for r in graph.regions if r.kind == "strip"]) == 4
+
+
+def test_a_side_through_two_written_points_described_as_a_curve_draws() -> None:
+    """u5-066: the line through (-4, -1) and (5, 4), described as a curve y = 5x/9 + 11/9."""
+    graph = _plot(
+        "Find, by integration, the area of the triangle-shaped region whose vertices are "
+        "(−4, −1), (0, 0) and (5, 4). It is bounded by the lines y = x/4, y = 4x/5 and the "
+        "line through (−4, −1) and (5, 4). Draw the three lines and shade the region.",
+        _curve("L1", "x/4"),
+        _curve("L2", "4x/5"),
+        _curve("L3", "5x/9 + 11/9"),
+        {"item": "shade", "between": ["L1", "L2", "L3"]},
+    )
+    assert graph is not None and len(graph.curves) == 3 and graph.regions

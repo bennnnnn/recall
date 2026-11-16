@@ -39,6 +39,7 @@ from app.modules.math.drawing.plot_x import (
 )
 from app.modules.math.figure.grounding import written_numbers, written_pairs
 from app.modules.math.match.numerical_methods import (
+    estimates_named,
     interval_counts,
     named_numerical_method,
     rectangle_sides,
@@ -155,6 +156,8 @@ class PlotQuestion:
     sums: frozenset[str] = frozenset()
     # The rules whose rectangles it names by their side ("left and right endpoints", "L4").
     sides: frozenset[str] = frozenset()
+    # Every estimate it names, rectangles or not ("the trapezoidal rule").
+    estimates: frozenset[str] = frozenset()
     antiderivatives: bool = False
 
     @property
@@ -386,5 +389,6 @@ def read_plot_question(texts: Sequence[str]) -> PlotQuestion:
         rule=next((named.rule for text in own if (named := named_numerical_method(text))), None),
         sums=frozenset(side for text in own for side in sums_named(text)),
         sides=frozenset(side for text in own for side in rectangle_sides(text)),
+        estimates=frozenset(rule for text in own for rule in estimates_named(text)),
         antiderivatives=any(_ANTIDERIVATIVES.search(text.lower()) for text in readable),
     )

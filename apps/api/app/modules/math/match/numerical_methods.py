@@ -121,7 +121,7 @@ def named_numerical_method(text: str) -> NamedMethod | None:
     if rule in INTEGRATION_RULES:
         # "the trapezoidal rule and Simpson's rule", "left and right sums": every estimate
         # asked on the card, or none.
-        rule = rule if len(_rules_asked(text)) <= 1 else "unworked"
+        rule = rule if len(estimates_named(text)) <= 1 else "unworked"
         return NamedMethod(rule=rule, count=_interval_count(text))
     if rule == "euler":
         step = _STEP_SIZE.search(text)
@@ -204,7 +204,8 @@ def rectangle_sides(text: str) -> set[str]:
     return found
 
 
-def _rules_asked(text: str) -> set[str]:
+def estimates_named(text: str) -> set[str]:
+    """Every estimate ``text`` names: trapezoid, simpson, midpoint, left, right."""
     return {rule for rule, pattern in _ESTIMATES if pattern.search(text)}
 
 
@@ -221,10 +222,10 @@ def _method_by_parts(text: str) -> NamedMethod | None:
     count = _interval_count(text)
     if count is None or _ESTIMATED_INTEGRAL.search(text) is None:
         return None
-    if not (_ESTIMATE.search(text) or _PIECE_WORDS.search(text) or _rules_asked(text)):
+    if not (_ESTIMATE.search(text) or _PIECE_WORDS.search(text) or estimates_named(text)):
         return None
     rule: NumericRule = "unworked"
-    if len(_rules_asked(text)) > 1:
+    if len(estimates_named(text)) > 1:
         rule = "unworked"
     elif _TRAPEZOID_PIECES.search(text):
         rule = "trapezoid"

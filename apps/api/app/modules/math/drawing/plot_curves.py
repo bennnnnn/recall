@@ -17,7 +17,7 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from sympy import Expr, Rational, Symbol
+from sympy import Expr, Symbol
 
 from app.modules.math.drawing.plot_check import reach, stated_interval
 from app.modules.math.drawing.plot_items import (
@@ -175,13 +175,16 @@ def _domain(
         or _a_task_interval(own.conditions, described)
     ):
         return list(own.conditions)
-    if curve.domain is None or not split:
+    # A curve the question writes no formula for (an antiderivative) is drawn on an interval
+    # of x the question states, as the description gives it (u5-008's family "for
+    # 0 ≤ x ≤ 2π"); a formula it writes, only on the domain written to it.
+    if curve.domain is None or not (split or written is None):
         return None
     held = stated_interval(start, end, question) if described else None
     if held is not None:
         low = Condition(">=" if held.low_closed else ">", held.low)
         return [low, Condition("<=" if held.high_closed else "<", held.high)]
-    return False
+    return False if split else None
 
 
 def _a_task_interval(domain: tuple[Condition, ...], tasks: list[tuple[Any, Any]]) -> bool:
@@ -251,8 +254,11 @@ def _curves(
         shape = pieces_shape(curve, question)
         return [] if shape is None else [DrawnCurve(name, "", color, shape, search=search)]
     found = _own_formula(curve.y, question)
+    if found is None:
+        side = _a_side(curve, question, color, search)
+        return [side] if side is not None else []
     domain = _domain(curve, question, split, found.written if found else None, tasks)
-    if found is None or domain is False:
+    if domain is False:
         return []
     expr, letter, quantity = found.expr, found.letter, found.name
     search = _search(domain, question)
@@ -289,10 +295,7 @@ def _through(line: Line, question: PlotQuestion, color: int) -> DrawnLine | None
     ]
     if len(ends) != 2:
         return None
-    written = {
-        (Rational(p.numerator, p.denominator), Rational(q.numerator, q.denominator))
-        for p, q in question.pairs
-    }
+    written = set(question.pairs)
     (x0, y0), (x1, y1) = ends
     if {(x0, y0), (x1, y1)} - written or (x0, y0) == (x1, y1):
         return None
@@ -349,13 +352,25 @@ def _an_edge(at: Any, question: PlotQuestion) -> bool:
 def _through_two(expr: Any, question: PlotQuestion) -> bool:
     """A line the reply worked out through two points the question writes ("the line
     through (-4, -1) and (5, 4)" written y = 5x/9 + 11/9): every such point checked on it."""
-    on = [
-        (p, q)
-        for p, q in question.pairs
-        if expr.subs(_X, Rational(p.numerator, p.denominator))
-        == Rational(q.numerator, q.denominator)
-    ]
+    on = [(p, q) for p, q in question.pairs if expr.subs(_X, p) == q]
     return len({p for p, _q in on}) >= 2
+
+
+def _a_side(
+    curve: Curve, question: PlotQuestion, color: int, search: tuple[float, float]
+) -> DrawnCurve | None:
+    """A line described as a curve (a triangle's third side, u5-066's L3) through two points
+    the question writes, as a line item through them is (``_through_two``): named only as
+    the reply's working writes it."""
+    expr = formula(curve.y) if curve.y and not curve.pieces else None
+    slope = expr.diff(_X) if expr is not None else None
+    if expr is None or slope is None or not slope.is_number or not _through_two(expr, question):
+        return None
+    offset = expr.subs(_X, 0)
+    label = equation_text("y", expr)
+    shape = formula_shape(expr, None)
+    held = (float(slope), float(offset))
+    return DrawnCurve(curve.name or f"curve{color}", label, color, shape, search=search, held=held)
 
 
 def _axis_name(text: str, letter: str, question: PlotQuestion) -> str | None:
