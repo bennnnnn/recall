@@ -564,6 +564,19 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   ` ```molecule3d ` for the first two valid molecules. Chemically aware 2D layout remains
   smiles-drawer; interactive 3D renders on a native Skia canvas, with an SVG fallback for
   Expo Go or a stale native client. See [docs/chemistry.md](./docs/chemistry.md).
+- ✅ **Pictures without asking** (`teaching_figures_enabled`, on) — a student need not ask to see
+  a picture. A maths question that asks for none still gets the figure that helps teach it: a
+  shape, solid or circle it measures, angles, points, a number line or the line it asks about,
+  read beside the reply by the same figure read (told the user did not ask) and drawn from the
+  question's own numbers, so a number it never wrote draws nothing. Arithmetic, algebra,
+  money, statistics and "just the answer" get none. A chemistry question about one molecular
+  compound ("What is ibuprofen?", "the molar mass of glucose") gets its structure: a read
+  names the compound in the user's own words, PubChem gives the structure and RDKit holds it
+  to one molecule worth drawing (a salt, a mixture or a one-atom molecule draws nothing).
+  Physics already draws its scene with every answer it solves. Measured on
+  `app/tests/behavior/teaching_pictures_corpus.json` (`teaching_pictures_eval.py`): over four
+  runs, maths 59 of 60 figures, chemistry 44 of 44 structures, no picture for any of the 108
+  look-alikes. Each picture waits at most 2 s after the reply's text.
 - ✅ **Geometry diagrams** — ` ```geometry` JSON fences render labeled shapes (rectangle, circle,
   triangle, trapezoid, sector, …) via native SVG (`react-native-svg`; works in Expo Go).
 - ✅ **Function graphs** — ` ```graph` JSON fences plot y=f(x) from server-computed point arrays

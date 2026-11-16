@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import asyncio
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 import pytest
@@ -23,7 +23,7 @@ from app.modules.chat.finalize_passes import FINALIZE_PASSES, FinalizeState
 from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
-from app.services.solving import VerifiedMathBlock
+from app.services.solving import VerifiedMathBlock, VerifiedPhysicsBlock
 from app.tests.modules.chat.chat_test_support import turn_deps
 
 _FENCE = '```geometry\n{"type":"figure","shape":"cube","points":[{"name":"a","x":0,"y":0},{"name":"b","x":1,"y":0}],"segments":[{"a":"a","b":"b"}]}\n```'
@@ -80,9 +80,14 @@ class _Figure:
     def __init__(self, fence: str | None = _FENCE) -> None:
         self.fence = fence
         self.asked: list[tuple[str, list[str]]] = []
+        # Each draw's ``asked``: the message asked to see it (True) or it only helps teach.
+        self.modes: list[bool] = []
 
-    async def draw(self, question: str, earlier: Any, settings: Settings) -> str | None:
+    async def draw(
+        self, question: str, earlier: Any, settings: Settings, *, asked: bool = True
+    ) -> str | None:
         self.asked.append((question, list(earlier)))
+        self.modes.append(asked)
         return self.fence
 
     def shown(self, verified: Any) -> bool:
@@ -109,7 +114,7 @@ class _Figure:
 @pytest.fixture
 def figure(monkeypatch: pytest.MonkeyPatch) -> _Figure:
     stand_in = _Figure()
-    monkeypatch.setattr(figure_turn, "_figure", lambda: stand_in)
+    monkeypatch.setattr(figure_turn, "_figure", lambda *_: stand_in)
     return stand_in
 
 
@@ -120,13 +125,14 @@ async def test_a_maths_picture_request_is_drawn_under_the_reply(figure: _Figure)
     text = await figure_turn.attach_figure(_state(ctx, "**Answer**\n\n$V = 64\\ m^3$"))
     assert text.endswith(_FENCE + "\n")
     assert figure.asked == [(_QUESTION, [])]
+    assert figure.modes == [True]
 
 
 @pytest.mark.parametrize(
     "read",
     [
-        {"subject": "maths", "picture": "none"},
         {"subject": "maths", "picture": "photo"},
+        {"subject": "maths", "picture": "molecule"},
         {"subject": "physics", "picture": "diagram"},
         {"subject": "everyday", "picture": "graph"},
     ],
@@ -201,7 +207,7 @@ async def test_the_model_s_own_sketch_goes_when_the_picture_comes(figure: _Figur
 
 
 async def test_a_slow_picture_is_left_out(figure: _Figure, monkeypatch: pytest.MonkeyPatch) -> None:
-    async def slow(*_args: Any) -> str:
+    async def slow(*_args: Any, **_kwargs: Any) -> str:
         await asyncio.sleep(5)
         return _FENCE
 
@@ -217,7 +223,7 @@ async def test_a_slow_picture_is_left_out(figure: _Figure, monkeypatch: pytest.M
 async def test_a_picture_that_fails_leaves_the_reply(
     figure: _Figure, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    async def broken(*_args: Any) -> str:
+    async def broken(*_args: Any, **_kwargs: Any) -> str:
         raise RuntimeError("no picture")
 
     monkeypatch.setattr(figure, "draw", broken)
@@ -280,3 +286,100 @@ async def test_a_read_still_running_at_finalize_waits_for_no_picture(figure: _Fi
     assert await figure_turn.attach_figure(_state(ctx, "Done.")) == "Done."
     assert asyncio.get_running_loop().time() - started < 0.5
     read.cancel()
+
+
+@pytest.mark.parametrize("picture", ["none", None])
+async def test_a_maths_question_asking_for_no_picture_is_drawn_when_one_teaches(
+    figure: _Figure, picture: str | None
+) -> None:
+    """The owner (2026-11-15): a student need not ask; a figure that helps teach is drawn."""
+    line = "Find the area of a right triangle with legs 9 cm and 12 cm."
+    ctx = _ctx(line, live_read=_read(subject="maths", picture=picture))
+    ctx.figure = figure_turn.start_figure(_settings(), ctx)
+    text = await figure_turn.attach_figure(_state(ctx, "**Answer**\n\n$54\\ cm^2$"))
+    assert text.endswith(_FENCE + "\n")
+    assert figure.modes == [False]
+
+
+async def test_a_question_no_figure_helps_keeps_its_reply(figure: _Figure) -> None:
+    figure.fence = None  # the teaching read said none: 15% of 80 has nothing to draw
+    ctx = _ctx("What is 15% of 80?", live_read=_read(subject="maths", picture="none"))
+    ctx.figure = figure_turn.start_figure(_settings(), ctx)
+    assert await figure_turn.attach_figure(_state(ctx, "It is 12.")) == "It is 12."
+    assert figure.modes == [False]
+
+
+async def test_an_unasked_figure_never_counts_as_a_request_to_draw() -> None:
+    """The photo and painted-picture intercepts ask only whether the message asks."""
+    unasked = cast("asyncio.Task[TurnDecision | None]", _read(subject="maths", picture="none"))
+    asked = cast("asyncio.Task[TurnDecision | None]", _read(subject="maths", picture="diagram"))
+    assert not await figure_turn.read_asks_for_a_figure(unasked)
+    assert await figure_turn.read_asks_for_a_figure(asked)
+
+
+async def test_a_chemistry_question_asking_for_nothing_gets_its_compound_s_structure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stand_in = _Figure("```smiles\nibuprofen\nCC(C)CC1=CC=C(C=C1)C(C)C(=O)O\n```")
+    subjects: list[str] = []
+
+    def chosen(subject: str = "math") -> _Figure:
+        subjects.append(subject)
+        return stand_in
+
+    monkeypatch.setattr(figure_turn, "_figure", chosen)
+    ctx = _ctx("What is ibuprofen?", live_read=_read(subject="chemistry", picture="none"))
+    ctx.figure = figure_turn.start_figure(_settings(), ctx)
+    text = await figure_turn.attach_figure(_state(ctx, "Ibuprofen is a painkiller."))
+    assert text.startswith("Ibuprofen is a painkiller.") and "```smiles\nibuprofen" in text
+    assert stand_in.modes == [False] and "chemistry" in subjects
+
+
+async def test_a_chemistry_request_to_see_a_molecule_is_left_to_its_solve(
+    figure: _Figure,
+) -> None:
+    ctx = _ctx("Draw caffeine.", live_read=_read(subject="chemistry", picture="molecule"))
+    ctx.figure = figure_turn.start_figure(_settings(), ctx)
+    assert await figure_turn.attach_figure(_state(ctx, "Here.")) == "Here."
+    assert figure.modes == []
+
+
+def _chemistry_solve(smiles: str = "") -> Any:
+    """A chemistry solve; ``smiles`` set when it drew the compound."""
+    return SimpleNamespace(subject="chemistry", result=SimpleNamespace(structure_smiles=smiles))
+
+
+async def test_a_chemistry_solve_with_no_structure_still_gets_its_compound_s(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A molar-mass question is solved with no picture: its compound's structure is
+    drawn, asked of chemistry's figure alone (maths' took any peer's block as a picture)."""
+    stand_in = _Figure("```smiles\nglucose\nOCC1OC(O)C(O)C(O)C1O\n```")
+    chemistry = figure_turn._figure("chemistry")
+    assert chemistry is not None
+    monkeypatch.setattr(chemistry, "draw", stand_in.draw)
+    line = "What is the molar mass of glucose?"
+    ctx = _ctx(line, live_read=_read(subject="chemistry", picture="none"))
+    ctx.verified_subject = _chemistry_solve()
+    ctx.figure = figure_turn.start_figure(_settings(), ctx)
+    assert ctx.figure is not None
+    text = await figure_turn.attach_figure(_state(ctx, "It is 180.16 g/mol."))
+    assert "```smiles\nglucose" in text and stand_in.modes == [False]
+
+
+@pytest.mark.parametrize(
+    "verified",
+    [_chemistry_solve("CN1C=NC2=C1C(=O)N(C(=O)N2C)C"), VerifiedPhysicsBlock(text="")],
+    ids=["chemistry-drew-the-structure", "physics-scene"],
+)
+async def test_a_solve_that_draws_its_own_picture_reads_none(verified: Any) -> None:
+    ctx = _ctx(live_read=_read(subject="chemistry", picture="none"), verified_subject=verified)
+    assert figure_turn.start_figure(_settings(), ctx) is None
+
+
+async def test_a_chemistry_solve_gets_no_maths_figure(figure: _Figure) -> None:
+    ctx = _ctx(live_read=_read(subject="maths", picture="diagram"))
+    ctx.verified_subject = _chemistry_solve()
+    ctx.figure = figure_turn.start_figure(_settings(), ctx)
+    assert await figure_turn.attach_figure(_state(ctx, "Here.")) == "Here."
+    assert figure.modes == []
