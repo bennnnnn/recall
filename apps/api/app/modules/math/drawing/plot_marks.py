@@ -184,7 +184,7 @@ def key_points(item: KeyPoints, scene: Scene) -> None:
         # A place the formula has no value at is no point on it (x^x's 1 at 0).
         if span is not None and defined_at(span.fn.expr, place.x):
             point = point_of(place, span.fn, curve.color)
-            point.meet, point.kind = meet, kind
+            point.meet, point.kinds = meet, frozenset({kind} - {""})
             scene.add_point(point)
 
 

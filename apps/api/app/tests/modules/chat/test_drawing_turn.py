@@ -551,3 +551,46 @@ async def test_a_drawing_that_runs_too_long_is_cut_off_and_the_reply_stands(
     out = await attach_drawing(_state(ctx, "Let $u$ and $v$ be the vectors."))
     assert out == "Let $u$ and $v$ be the vectors." and not ctx.drawing.drawn
     assert asked["timeout"] == _settings().stem_solve_timeout_seconds
+
+
+async def test_an_instant_card_that_gives_way_gets_the_draw_contract_in_the_real_order(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The reply path in its own order (``stream_pipeline._produce_reply``): the card gives
+    way, the tool loop runs, the read's decision asks for the drawing, and the reply's model
+    is called with the ```draw contract, the solve's card kept for it to write around (PR
+    #2468 review: the card lost and no contract)."""
+    from app.modules.chat import stream_pipeline
+    from app.services.solving import VerifiedMathBlock
+
+    sent: list[list[dict[str, Any]]] = []
+
+    async def no_tool_loop(*_args: Any, **_kwargs: Any) -> None:
+        return None
+
+    async def reply(*_args: Any, **kwargs: Any) -> Any:
+        ctx_arg = _args[3]
+        sent.append(list(ctx_arg.prompt_messages))
+        yield "The maximum is 1/4."
+
+    monkeypatch.setattr(stream_pipeline, "run_tool_loop_path", no_tool_loop)
+    monkeypatch.setattr(stream_pipeline, "run_llm_token_stream", reply)
+    solved = VerifiedMathBlock(text="1/4")
+    ctx = _ctx(
+        _SKETCH,
+        instant_reply="The maximum is 1/4.",
+        verified_subject=solved,
+        live_read=_read(subject="maths", picture="graph", effort="low"),
+    )
+    settings = _settings(image_search_enabled=False)
+    tokens = [
+        token
+        async for token in stream_pipeline._produce_reply(
+            turn_deps(), None, settings, ctx, usage={}, accum=StreamAccum(),
+            should_cancel=None, outcome=None, on_status=None, on_reasoning=None,
+        )
+    ]  # fmt: skip
+    assert tokens == ["The maximum is 1/4."] and ctx.instant_reply is None
+    assert ctx.drawing is not None and ctx.drawing.asked == "read"
+    assert any(DRAW_CONTRACT in str(message.get("content")) for message in sent[0])
+    assert ctx.verified_subject is solved

@@ -261,9 +261,9 @@ class DrawnPoint:
     held: tuple[float, ...] = ()
     # Where two edges meet: beside a region, only the meets that bound it are marked.
     meet: bool = False
-    # The kind of place it marks on its curve, when the picture marks every one of a kind:
-    # "roots", "turns", "inflections".
-    kind: str = ""
+    # The kinds of place it marks on its curve, when the picture marks every one of a kind:
+    # "roots", "turns", "inflections" (sin 5x's roots are its bends too).
+    kinds: frozenset[str] = frozenset()
 
 
 @dataclass
@@ -314,5 +314,6 @@ class Scene:
             if abs(seen.x - point.x) < near and abs(seen.y - point.y) < near:
                 seen.label = seen.label or point.label
                 seen.meet = seen.meet and point.meet
+                seen.kinds = seen.kinds | point.kinds
                 return
         self.points.append(point)

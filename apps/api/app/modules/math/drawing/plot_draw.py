@@ -336,15 +336,19 @@ _MOST_POINTS = 24
 _DROPPED_FIRST = ("inflections", "turns", "roots")
 
 
-def _within_the_cap(scene: Scene) -> None:
-    """A kind of place is marked whole or not at all: past the cap, the kinds the question
-    does not ask for go first, the bends before the turns. Cut at the cap, three of
-    sin x + cos 2x's roots went unmarked in view; then its asked turns lost to its bends."""
+def _within_the_cap(scene: Scene, room: int) -> None:
+    """A kind of place is marked whole or not at all: past the ``room`` the curves' own
+    circles leave, the kinds the question does not ask for go first, the bends before the
+    turns. Cut at the cap, three of sin x + cos 2x's roots went unmarked in view; then its
+    asked turns lost to its bends."""
     order = sorted(_DROPPED_FIRST, key=lambda kind: kind in scene.asked)
+    dropped: set[str] = set()
     for kind in order:
-        if len(scene.points) <= _MOST_POINTS:
+        if len(scene.points) <= room:
             return
-        scene.points = [p for p in scene.points if p.kind != kind]
+        dropped.add(kind)
+        # A place of two kinds (a root that is a bend) goes only with both.
+        scene.points = [p for p in scene.points if not p.kinds or not p.kinds <= dropped]
         for curve in scene.curves.values():
             curve.marked.discard(kind)
 
@@ -359,8 +363,10 @@ def draw_plot(scene: Scene) -> PlotGraphSpec | None:
     if not scene.curves:
         return None
     _about_the_regions(scene)
-    _within_the_cap(scene)
+    # A curve's circles (a jump's open end, a piece's filled one) are counted first: they
+    # are the curve itself, never cut for a kind of place it marks.
     ends = [point for curve in scene.curves.values() for point in _ends(curve)]
+    _within_the_cap(scene, _MOST_POINTS - len(ends))
     places = [p for curve in scene.curves.values() for p in curve_places(curve)]
     # Where the curves meet each other, and the lines the picture draws: two curves, or a
     # curve and a line, are drawn to be seen together (b01; x³ beside x = 2 was cut at 1).
@@ -395,9 +401,12 @@ def draw_plot(scene: Scene) -> PlotGraphSpec | None:
     ]
     for end in ends:
         scene.add_point(end)
+    # Past the cap, the marks of a kind go last: the circles, the stated and labelled
+    # points and the meets the window was fitted to stay.
+    kept = sorted(scene.points, key=lambda p: bool(p.kinds))
     points = [
         PlotPoint(x=x, y=y, open=p.open, label=p.label, color=p.color)
-        for p in scene.points
+        for p in kept
         for x, y in rounded([(p.x, p.y)])
         # A point with no value is no point, and one outside the window is not shown.
         if math.isfinite(x) and math.isfinite(y) and _within(x, y, window)

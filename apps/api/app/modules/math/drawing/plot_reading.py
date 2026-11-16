@@ -80,6 +80,10 @@ def same_number(a: Any, b: Any, rel: float = 1e-9) -> bool:
         return False
 
 
+# A value left out: "!= 1" (≠ is read as != by ``plain``).
+_EXCLUDED = re.compile(r"!=\s*([-+]?[\w./()^*]{1,12})")
+
+
 @dataclass(frozen=True)
 class Condition:
     """One comparison of the variable a clause writes: (op, the value or a letter)."""
@@ -93,15 +97,15 @@ def conditions(text: str, variables: frozenset[str] = frozenset("x")) -> list[Co
     ("-5 < x <= -2" is x > -5 and x <= -2; "0 ≤ t ≤ 4"; "x ≠ 1"). A value may be a letter
     ("x < a"), which a question leaves to its working."""
     found: list[Condition] = []
-    for lhs, op, rhs in written_relations(text.replace("!=", " neq ")):
+    # Each "≠ value" read on its own and taken out of the chain it sits in, so the bounds
+    # around it stay one chain ("0 ≤ x ≠ 1 < 3" is 0 ≤ x < 3 and x ≠ 1).
+    excluded = [number(match.group(1)) for match in _EXCLUDED.finditer(text)]
+    for lhs, op, rhs in written_relations(_EXCLUDED.sub(" ", text)):
         if isinstance(lhs, Symbol) and str(lhs) in variables and (rhs.is_number or rhs.is_Symbol):
             found.append(Condition(op, rhs))
         elif isinstance(rhs, Symbol) and str(rhs) in variables and (lhs.is_number or lhs.is_Symbol):
             found.append(Condition(_FLIPPED[op], lhs))
-    for part in text.split("!=")[1:]:
-        value = number(part.strip().split(" ")[0])
-        if value is not None:
-            found.append(Condition("!=", value))
+    found += [Condition("!=", value) for value in excluded if value is not None]
     return found
 
 

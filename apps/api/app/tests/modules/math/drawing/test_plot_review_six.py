@@ -121,3 +121,58 @@ def test_an_equation_solved_graphically_draws_its_sides() -> None:
     assert {(round(p.x, 3), round(p.y, 3)) for p in graph.points} == {(-2.0, 4.0), (2.0, 4.0)}
     difference = _plot("Solve x^2 - 4 = 0 graphically.", _curve("f", "x^2 - 4"))
     assert difference is not None and difference.curves
+
+
+def test_a_place_of_two_kinds_stays_while_one_is_asked() -> None:
+    """sin 5x's roots are its bends too: past the cap the bends go, the asked roots stay."""
+    graph = _plot(
+        "f(x) = x^2 if x < 1, and f(x) = x + 3 if x >= 1. Sketch f and y = sin(5x), and "
+        "mark where y = sin(5x) crosses the x-axis.",
+        _curve("f", pieces=[{"y": "x^2", "when": "x < 1"}, {"y": "x + 3", "when": "x >= 1"}]),
+        _curve("g", "sin(5x)"),
+        {"item": "points", "of": "g", "show": ["intercepts", "extrema", "inflections"]},
+    )
+    assert graph is not None
+    marked = {(round(p.x, 3), round(p.y, 3), p.open) for p in graph.points}
+    assert (1.0, 1.0, True) in marked and (1.0, 4.0, False) in marked
+    # The roots asked for stay whole, though each is a bend too.
+    assert {(0.628, 0.0, False), (-0.628, 0.0, False), (3.142, 0.0, False)} <= marked
+
+
+def test_a_jump_s_circles_are_never_cut_by_the_cap() -> None:
+    """24 marked places and a jump: the cap is counted after the curve's own circles, which
+    stay (PR #2468 review: the last slice cut the jump's open circle)."""
+    from app.modules.math.drawing.plot_curves import add_curves
+    from app.modules.math.drawing.plot_draw import draw_plot
+    from app.modules.math.drawing.plot_items import Curve
+    from app.modules.math.drawing.plot_question import read_plot_question
+    from app.modules.math.drawing.plot_scene import DrawnPoint, Scene
+
+    question = read_plot_question(["f(x) = x^2 if x < 1, and f(x) = x + 3 if x >= 1."])
+    scene = Scene(asked=("roots",))
+    pieces = [{"y": "x^2", "when": "x < 1"}, {"y": "x + 3", "when": "x >= 1"}]
+    add_curves(
+        [Curve.model_validate({"item": "curve", "name": "f", "pieces": pieces})], question, scene
+    )
+    for i in range(24):
+        scene.add_point(DrawnPoint(-3 + 0.2 * i, 9.0, kinds=frozenset({"roots"})))
+    graph = draw_plot(scene)
+    assert graph is not None and len(graph.points) <= 24
+    marked = {(round(p.x, 3), round(p.y, 3), p.open) for p in graph.points}
+    assert (1.0, 1.0, True) in marked and (1.0, 4.0, False) in marked
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("0 <= x != 1 < 3", {(">=", 0), ("<", 3), ("!=", 1)}),
+        ("-5 < x != 1", {(">", -5), ("!=", 1)}),
+        ("x != -1/2", {("!=", -0.5)}),
+    ],
+)
+def test_an_excluded_value_keeps_the_bounds_around_it(
+    text: str, expected: set[tuple[str, float]]
+) -> None:
+    from app.modules.math.drawing.plot_reading import conditions
+
+    assert {(c.op, float(c.value)) for c in conditions(text)} == expected
