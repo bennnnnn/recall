@@ -1,9 +1,12 @@
-"""A picture a maths question asks to see: started beside the reply, added under it.
+"""A maths question's picture: started beside the reply, added under it.
 
 The turn's read (``chat.turn_decision``) says what the message asks to see. When it is a
 maths question asking for a graph or a diagram, and no solve drew the whole picture already
 (a graph), maths reads what to draw and draws it from the question's own values
-(``SubjectFigure``), while the reply streams. Finalize waits a little for it once the reply
+(``SubjectFigure``), while the reply streams. A maths question that asks to see nothing is
+read too, told to draw only a figure that helps teach it (a shape it measures, angles,
+points, a number line), so a student need not ask (``teaching_figures_enabled``); a
+chemistry question likewise gets the structure of the one compound it is about. Finalize waits a little for it once the reply
 is done, and adds it under the reply when it shows what the reply's own pictures do not,
 taking the model's own sketch of it out. No read, a read that says no picture, or a picture
 that does not hold: the reply is saved as it is. Nothing here raises into a turn.
@@ -14,11 +17,12 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from app.core.config import Settings
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.turn_decision import TurnDecision
+from app.services.solving import SubjectName
 from app.services.subjects.registry import SubjectFigure, subject_adapter
 from app.services.text_normalize import collapse_ws
 
@@ -30,12 +34,28 @@ logger = logging.getLogger(__name__)
 
 # The pictures a figure draws, as the read names them (a molecule or a photo is not maths').
 _DRAWN = frozenset({"graph", "diagram"})
+# A message that asks to see none of them (or the read left the picture unsaid).
+_UNASKED = frozenset({"none", None})
 # How many earlier user messages "draw it" may point back to.
 _EARLIER = 3
+# The subject whose figure a read's subject gets. A chemistry question that asks to see a
+# molecule gets it from its solve; one that asks for nothing gets its compound's structure.
+_FIGURES: dict[str, SubjectName] = {"maths": "math", "chemistry": "chemistry"}
+_Wanted = tuple[SubjectName, Literal["asked", "teach"]]
 
 
-def _figure() -> SubjectFigure | None:
-    return subject_adapter("math").figure
+def _figure(subject: SubjectName = "math") -> SubjectFigure | None:
+    return subject_adapter(subject).figure
+
+
+def _shown_already(verified: Any) -> bool:
+    """The turn's solve already draws the whole picture (a graph, a structure), asked of
+    the solving subject's own figure; a subject with no figure (physics' scene) draws its
+    own picture, which no other subject's figure adds to."""
+    if verified is None:
+        return False
+    figure = _figure(verified.subject)
+    return figure is None or figure.shown(verified)
 
 
 def earlier_user_lines(recent: Sequence[Any] | None, line: str) -> list[str]:
@@ -58,18 +78,32 @@ def start_figure(settings: Settings, ctx: StreamContext) -> asyncio.Task[str | N
     A reply the server made without a solve (the time in Tokyo, a settings line, a plan's
     limit) answers no maths question, so it never waits at finalize for a read that could
     only say "no picture" (it waited 1.7 s for one, 2026-11-13)."""
-    figure = _figure()
     if (
-        figure is None
-        or ctx.live_read is None
+        ctx.live_read is None
         or not settings.figure_read_enabled
-        or figure.shown(ctx.verified_subject)
+        or _shown_already(ctx.verified_subject)
         or (ctx.instant_reply and ctx.verified_subject is None)
     ):
         return None
     line = ctx.user_message_content or ""
     earlier = earlier_user_lines(ctx.recent_messages, line)
-    return asyncio.create_task(_draw(settings, figure, ctx.live_read, line, earlier))
+    solved_by = getattr(ctx.verified_subject, "subject", None)
+    return asyncio.create_task(_draw(settings, ctx.live_read, line, earlier, solved_by))
+
+
+def _figure_wanted(read: asyncio.Task[TurnDecision | None]) -> _Wanted | None:
+    """The subject whose figure the turn gets, and how: "asked", a maths question asking
+    to see a graph or a diagram; "teach", a maths or chemistry question asking to see
+    nothing, which gets a figure only if one helps teach it."""
+    if not read.done() or read.cancelled() or read.exception() is not None:
+        return None
+    decision = read.result()
+    subject = _FIGURES.get(decision.subject or "") if decision is not None else None
+    if decision is None or subject is None:
+        return None
+    if read_asks_for_a_picture(decision):
+        return subject, "asked"
+    return (subject, "teach") if decision.picture in _UNASKED else None
 
 
 def read_asks_for_a_picture(decision: TurnDecision) -> bool:
@@ -78,10 +112,8 @@ def read_asks_for_a_picture(decision: TurnDecision) -> bool:
 
 
 def _asks_for_a_picture(read: asyncio.Task[TurnDecision | None]) -> bool:
-    if not read.done() or read.cancelled() or read.exception() is not None:
-        return False
-    decision = read.result()
-    return decision is not None and read_asks_for_a_picture(decision)
+    wanted = _figure_wanted(read)
+    return wanted is not None and wanted[1] == "asked"
 
 
 async def read_asks_for_a_figure(read: asyncio.Task[TurnDecision | None] | None) -> bool:
@@ -97,16 +129,19 @@ async def read_asks_for_a_figure(read: asyncio.Task[TurnDecision | None] | None)
 
 async def _draw(
     settings: Settings,
-    figure: SubjectFigure,
     read: asyncio.Task[TurnDecision | None],
     line: str,
     earlier: list[str],
+    solved_by: SubjectName | None = None,
 ) -> str | None:
     # Waited on, never awaited: the reply may cancel the read when it stops waiting for it.
     await asyncio.wait([read])
-    if not _asks_for_a_picture(read):
+    wanted = _figure_wanted(read)
+    figure = _figure(wanted[0]) if wanted is not None else None
+    # A solved turn gets only its own subject's figure, never another's over its solve.
+    if wanted is None or figure is None or solved_by not in (None, wanted[0]):
         return None
-    return await figure.draw(line, earlier, settings)
+    return await figure.draw(line, earlier, settings, asked=wanted[1] == "asked")
 
 
 def _kinds(fences: Sequence[str]) -> set[str]:
@@ -128,15 +163,13 @@ async def attach_figure(state: FinalizeState) -> str:
     """The picture under the reply, the reply's own sketch of it taken out."""
     ctx = state.ctx
     task = ctx.figure
-    figure = _figure()
-    if task is None or figure is None:
+    if task is None:
         return state.text
-    if state.was_cancelled or figure.whole(state.text) or ctx.live_read is None:
-        stop_figure(ctx)
-        return state.text
-    if not _asks_for_a_picture(ctx.live_read):
-        # The read has not said the message asks to see a picture (or said it does not):
-        # a worked, instant or everyday reply waits for nothing (it waited 1.75 s).
+    wanted = _figure_wanted(ctx.live_read) if ctx.live_read is not None else None
+    # No read, or one that has not said the message is a maths or chemistry question (or
+    # said it is not): an everyday reply waits for nothing (it waited 1.75 s).
+    figure = _figure(wanted[0]) if wanted is not None else None
+    if state.was_cancelled or figure is None or figure.whole(state.text):
         stop_figure(ctx)
         return state.text
     # Waited on, never awaited: a picture that failed or was stopped is no picture.

@@ -242,12 +242,14 @@ class GuardedFigure:
         self._inner = inner
         self._subject = subject
 
-    async def draw(self, question: str, earlier: Sequence[str], settings: Settings) -> str | None:
+    async def draw(
+        self, question: str, earlier: Sequence[str], settings: Settings, *, asked: bool = True
+    ) -> str | None:
         return await _neutral_async(
             self._subject,
             "figure.draw",
             None,
-            lambda: self._inner.draw(question, earlier, settings),
+            lambda: self._inner.draw(question, earlier, settings, asked=asked),
         )
 
     def shown(self, verified: VerifiedSolveBlock | None) -> bool:

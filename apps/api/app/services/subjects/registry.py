@@ -266,9 +266,12 @@ class SubjectFigure(Protocol):
     a number line), from the question's own values; started beside the reply and added
     after it when the reply holds no picture of the server's."""
 
-    async def draw(self, question: str, earlier: Sequence[str], settings: Settings) -> str | None:
+    async def draw(
+        self, question: str, earlier: Sequence[str], settings: Settings, *, asked: bool = True
+    ) -> str | None:
         """The picture's fence, or None when nothing is drawn. ``earlier``: the user's
-        earlier messages, newest first, for a request to draw "it"."""
+        earlier messages, newest first, for a request to draw "it". ``asked``: the message
+        asks to see a picture; otherwise only one that helps teach the question is drawn."""
         ...
 
     def shown(self, verified: VerifiedSolveBlock | None) -> bool:

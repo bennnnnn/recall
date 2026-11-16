@@ -71,6 +71,10 @@ class StemSettings(BaseModel):
     figure_read_enabled: bool = True
     figure_read_timeout_seconds: float = 4.0
     figure_wait_seconds: float = 2.0
+    # A maths turn that asks to see nothing still gets the figure when one helps teach it (a
+    # shape it measures, angles, points, a number line, a line's graph): the same read, told
+    # to draw only then, and the same checks. Off: only a question that asks gets one.
+    teaching_figures_enabled: bool = True
     # The same maths turns let the reply describe its picture in a ```draw block (3D scenes,
     # word problems' shapes): the server checks every item against the question and draws
     # the rest (``math/drawing``), and the reply's checked picture stands in for the read's.
