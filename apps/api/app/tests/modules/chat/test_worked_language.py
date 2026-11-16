@@ -115,11 +115,22 @@ def test_the_language_record_is_kept_and_never_drawn() -> None:
     assert layout_language(cast(Any, ctx)) == "es"
 
 
-def test_with_no_record_the_message_or_the_app_decides() -> None:
+@pytest.mark.parametrize(
+    ("message", "locale", "language"),
+    [
+        ("Как найти ускорение автомобиля?", "en", "ru"),
+        # No plain language of its own: the reply's words decide, never the app's alone.
+        ("What voltage drives 2 A through a 15 Ω resistor?", "fr", "en"),
+        ("2x + 3 = 7", "de", "en"),
+    ],
+)
+def test_with_no_record_only_a_plain_message_decides(
+    message: str, locale: str, language: str
+) -> None:
     ctx = SimpleNamespace(
-        worked_language=None, user=SimpleNamespace(locale="de"), user_message_content="2x + 3 = 7"
+        worked_language=None, user=SimpleNamespace(locale=locale), user_message_content=message
     )
-    assert layout_language(cast(Any, ctx)) == "de"
+    assert layout_language(cast(Any, ctx)) == language
 
 
 def test_the_layout_is_written_in_its_language_last() -> None:

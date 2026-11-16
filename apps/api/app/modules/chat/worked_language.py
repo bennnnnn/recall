@@ -9,8 +9,8 @@ named no language, so the model wrote its records in English too.
 
 The layout's language is the reply's, and the model names it: the block's first record is
 ``language: es``, the user's message's language, which every word of the block is in (a
-model reads the message; no word list does). With no such record, it is
-``reply_language.line_language``'s, as the formal reader's line is. The server's words are
+model reads the message; no word list does). With no such record, it is the message's own
+when ``reply_language.line_language`` reads it plainly, and never the app's alone. The server's words are
 written in it as the reply's last step, after every pass that reads them in English. The table
 (``WORKED_WORDS``) and the phone's (``lib/markdown/workedWords.ts``), which lays the
 headings out in any of these languages, are held to ``docs/fixtures/worked_words.json``.
@@ -176,11 +176,13 @@ def localized_working(text: str, language: str) -> str:
 
 def layout_language(ctx: StreamContext) -> str:
     """The language a reply's worked layout is written in: the one its ```worked block
-    named, else the message's own when it is plainly one of the app's, else the app's."""
+    named, else the message's own when it is plainly one of the app's, else English, as
+    written. Never the app's alone: "What voltage drives 2 A through a 15 Ω resistor?" from
+    a French app is no plain language to the word evidence, and its English reply would
+    have got French headings."""
     if ctx.worked_language in WORKED_WORDS:
         return ctx.worked_language
-    locale = ctx.user.locale if ctx.user is not None else None
-    return line_language(ctx.user_message_content or "", locale)
+    return line_language(ctx.user_message_content or "", None)
 
 
 def localize_working_pass(state: FinalizeState) -> str:
