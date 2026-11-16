@@ -93,6 +93,12 @@ describe("graph explorer path builders", () => {
     expect(lines.join("\n")).toMatchSnapshot();
   });
 
+  it("dots no sample of a series that marks its own points (a server plot)", () => {
+    const view = VIEWS[0]!;
+    const plotted = { ...SERIES[0]!, marked: false };
+    expect(ops(buildMarkerPath([plotted], view, 320, 240, 28))).toBe(ops(buildMarkerPath([], view, 320, 240, 28)));
+  });
+
   it.each(VIEWS.map((view, index) => [index, view]))("lays out the grid and ticks in view %i", (_, view) => {
     const font = { measureText: (text: string) => ({ x: 0, y: 0, width: text.length * 6, height: 10 }) };
     for (const withFont of [null, font]) {

@@ -38,6 +38,7 @@ from app.modules.math.solve.extract_eq import (
 from app.modules.math.solve.graph_expr_text import graph_expr_text
 from app.modules.math.solve.graph_sampling import (
     jump_xs,
+    pole_flips,
     pole_xs,
     real_lambdify,
     rounded_points,
@@ -50,37 +51,16 @@ from app.modules.math.solve.parse import parse_expression
 from app.services.solving import SolveServiceError
 
 
-def _split_into_segments(
-    points: list[list[float]], percentile: float = 85.0
-) -> list[list[list[float]]]:
-    """Split a continuous point list wherever a vertical asymptote likely
-    sits between two consecutive samples (e.g. tan(x) near pi/2) — without
-    this, naively connecting every finite sample draws a near-vertical line
-    straight across the discontinuity.
-
-    Numeric heuristic, not full symbolic singularity detection: flag a gap
-    only where consecutive y-values (a) flip sign AND (b) both sit above the
-    given percentile of |y| across the whole sample. A pole is exactly this
-    shape — y diverges to +inf on one side and -inf on the other, so the two
-    samples straddling it are both large AND opposite in sign. An ordinary
-    zero-crossing (e.g. sin(x)) also flips sign but both values are small
-    there, so it's correctly left unsplit; matches empirical validation
-    against tan(x) (isolates all 6 real asymptotes in [-10, 10] with no
-    over-splitting) and sin(x)/x**2 (never splits).
-    """
+def _split_into_segments(points: list[list[float]]) -> list[list[list[float]]]:
+    """Split a point list where a vertical asymptote lies between two samples (tan x at
+    π/2), as ``graph_sampling.pole_flips`` finds it: naively joining every finite sample
+    draws a near-vertical line straight across the discontinuity."""
     if len(points) < 2:
         return [points] if points else []
-    abs_ys = sorted(abs(p[1]) for p in points)
-    idx = min(len(abs_ys) - 1, int(len(abs_ys) * percentile / 100))
-    large_threshold = abs_ys[idx]
-    if large_threshold <= 0:
-        return [points]
+    flips = set(pole_flips([p[1] for p in points]))
     segments: list[list[list[float]]] = [[points[0]]]
     for i in range(1, len(points)):
-        y0, y1 = points[i - 1][1], points[i][1]
-        sign_flip = (y0 > 0) != (y1 > 0)
-        both_large = abs(y0) > large_threshold and abs(y1) > large_threshold
-        if sign_flip and both_large:
+        if i - 1 in flips:
             segments.append([])
         segments[-1].append(points[i])
     return [seg for seg in segments if seg]

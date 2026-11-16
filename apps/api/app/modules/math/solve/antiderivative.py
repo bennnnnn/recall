@@ -66,6 +66,17 @@ def textbook_antiderivative(integrand: Any, sym: Any) -> Any:
     return worked if count_ops(worked) <= count_ops(found) else found
 
 
+def antiderivative_forms(integrand: Any, sym: Any) -> list[Any]:
+    """The antiderivatives an answer may write without + C: the card's textbook form and
+    SymPy's own, which may differ by a constant ((x + 1)³/3 and x³/3 + x² + x). A graph of a
+    family is drawn from either (``math.drawing.plot_curves``), as the card writes it."""
+    forms: list[Any] = []
+    for form in (textbook_antiderivative(integrand, sym), integrate(integrand, sym)):
+        if readable_antiderivative(form, integrand) and all(form != seen for seen in forms):
+            forms.append(form)
+    return forms
+
+
 def readable_antiderivative(result: Any, integrand: Any) -> bool:
     """Whether a school card may show this antiderivative: closed, and real where ``f`` is."""
     if result.has(Integral):

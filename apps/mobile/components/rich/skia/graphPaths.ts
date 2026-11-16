@@ -117,7 +117,7 @@ export function buildMarkerPath(
   const visible = drawn.filter((row) => row.visible);
   if (visible.length !== 1) return path.detach();
   const points = visible[0].points;
-  if (points.length > 20) return path.detach();
+  if (points.length > 20 || visible[0].marked === false) return path.detach();
   for (const [x, y] of points) {
     if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
     if (x < b.xMin || x > b.xMax || y < b.yMin || y > b.yMax) continue;

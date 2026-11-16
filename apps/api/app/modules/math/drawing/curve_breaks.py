@@ -21,12 +21,9 @@ from sympy import Expr, Symbol, limit, oo
 
 from app.modules.math.drawing.curve_features import GRID, bisect, snapped
 from app.modules.math.drawing.real_curve import RealFunction, X
-from app.modules.math.solve.graph_sampling import Side, side, singular_xs
+from app.modules.math.solve.graph_sampling import Side, pole_flips, side, singular_xs
 
-# Samples this large either side of a sign change are a pole's, not a root's.
-_HUGE = 1e5
 _FAR = (1e4, 1e5, 1e6)
-_POLE_SCALE = 50.0
 _T = Symbol("t", positive=True)
 
 
@@ -57,28 +54,17 @@ def _candidates(fn: RealFunction, low: float, high: float, exact: list[Any]) -> 
             continue
     xs = np.linspace(low, high, GRID)
     ys = fn.values(xs)
-    finite = np.abs(ys[np.isfinite(ys)])
-    # Both samples beside a pole dwarf the curve's own size: tan's are a few hundred against
-    # a median of 1, where a fixed size missed them and its turning points ran to 10¹⁶ (n03).
-    huge = min(_HUGE / 100, _POLE_SCALE * (float(np.median(finite)) + 1.0)) if finite.size else 0
-    for i in range(len(xs) - 1):
-        y0, y1 = ys[i], ys[i + 1]
-        gap = np.isfinite(y0) != np.isfinite(y1)
-        pole = (
-            np.isfinite(y0)
-            and np.isfinite(y1)
-            and (y0 > 0) != (y1 > 0)
-            and min(abs(y0), abs(y1)) > huge
-        )
-        if gap or pole:
-            # A pole's own place, where the sign flips: the sides are read right beside it.
-            x = (
-                bisect(fn.values, float(xs[i]), float(xs[i + 1]))
-                if pole
-                else (float((xs[i] + xs[i + 1]) / 2))
-            )
-            if all(abs(float(seen) - x) > (xs[1] - xs[0]) for seen in found):
-                found.append(snapped(x, [], None))
+    gaps = [i for i in range(len(xs) - 1) if np.isfinite(ys[i]) != np.isfinite(ys[i + 1])]
+    # The graph sampler's own poles (``graph_sampling.pole_flips``), each at its own place:
+    # the sign flips there, and its reciprocal is zero there (tan x's π/2, exactly).
+    poles = set(pole_flips(ys))
+    for i in sorted({*gaps, *poles}):
+        if i in poles:
+            x = snapped(bisect(fn.values, float(xs[i]), float(xs[i + 1])), [], 1 / fn.expr)
+        else:
+            x = snapped(float((xs[i] + xs[i + 1]) / 2), [], None)
+        if all(abs(float(seen) - float(x)) > (xs[1] - xs[0]) for seen in found):
+            found.append(x)
     return found
 
 

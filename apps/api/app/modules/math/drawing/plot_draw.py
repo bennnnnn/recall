@@ -11,9 +11,13 @@ from __future__ import annotations
 import math
 from typing import Any
 
+import numpy as np
 from sympy import oo
 
+from app.modules.math.drawing.curve_features import bisect
 from app.modules.math.drawing.plot_check import crossings
+from app.modules.math.drawing.plot_pieces import end_value
+from app.modules.math.drawing.plot_reading import same_number
 from app.modules.math.drawing.plot_scene import DrawnCurve, DrawnLine, DrawnPoint, Scene
 from app.modules.math.drawing.plot_window import (
     Window,
@@ -30,6 +34,8 @@ from app.modules.math.solve.graph_expr_text import graph_expr_text
 from app.modules.math.solve.graph_sampling import sample_places
 
 _SAMPLES = 400
+# A label's value agrees with the reply's to its two places.
+_LABEL_PLACES = 0.006
 # An interval with too many waves for one sampling is halved at most this often.
 _MOST_HALVINGS = 2
 
@@ -50,10 +56,10 @@ def _ends(curve: DrawnCurve) -> list[DrawnPoint]:
         ):
             if end in (-oo, oo):
                 continue
-            x = float(end)
-            y = span.fn.at(x) if closed else span.fn.at(x + inward * 1e-7 * max(1.0, abs(x)))
-            if math.isfinite(y) and abs(y) < 1e6:
-                (events if closed or curve.shape.complete else lone).append((x, y, closed))
+            y = end_value(span, end, closed, inward)
+            if y is not None:
+                closed = closed and math.isfinite(span.fn.at(float(end)))
+                (events if closed or curve.shape.complete else lone).append((float(end), y, closed))
     for x_at, y_at in curve.shape.dots:
         events.append((float(x_at), float(y_at), True))
     for found in curve.breaks:
@@ -174,11 +180,39 @@ def _sampled(curve: DrawnCurve, window: Window) -> list[list[tuple[float, float]
             sampled = _sample(span.expr, low, high)
             if sampled is None:
                 return []
+            places = [float(p.x) for p in [*curve.turns, *curve.roots, *curve.inflections]]
             for xs, ys in sampled:
                 if not _true_to(span.fn, xs, ys, high - low):
                     return []
-                found += _pieces(xs, ys, cuts, limit)
+                found += [
+                    _finished(piece, span.fn, places, (low, high), limit)
+                    for piece in _pieces(xs, ys, cuts, limit)
+                ]
     return found
+
+
+def _finished(
+    piece: list[tuple[float, float]], fn: Any, places: list[float],
+    span: tuple[float, float], limit: tuple[float, float],
+) -> list[tuple[float, float]]:  # fmt: skip
+    """A sampled piece with the curve's own places in it (its turning points, roots and
+    bends, exactly), run on to the end of the curve's domain where it stops short of it:
+    √(9 - x²) ended at (±2.993, 0.208), not at (±3, 0)."""
+    step = piece[1][0] - piece[0][0]
+    xs = [x for x in places if piece[0][0] < x < piece[-1][0]]
+    for x0, outward in ((piece[0][0], -1), (piece[-1][0], 1)):
+        beyond = x0 + outward * step
+        if span[0] <= beyond <= span[1] and not math.isfinite(fn.at(beyond)):
+
+            def has(v: Any) -> Any:
+                return np.where(np.isfinite(fn.values(v)), 1.0, -1.0)
+
+            edge = bisect(has, *sorted((x0, beyond)))
+            edge = edge if math.isfinite(fn.at(edge)) else x0 + outward * 0.999 * abs(edge - x0)
+            xs.append(edge)
+    extra = [(x, fn.at(x)) for x in xs]
+    extra = [(x, min(max(y, limit[0]), limit[1])) for x, y in extra if math.isfinite(y)]
+    return sorted({*piece, *extra})
 
 
 def _true_to(fn: Any, xs: list[float], ys: list[float], width: float) -> bool:
@@ -241,24 +275,40 @@ def _agreed(held: tuple[float, ...], scene: Scene) -> bool:
     the label's two places), or 0: a label never says what the reply does not."""
     return all(
         abs(value) < 1e-9
-        or any(abs(value - own) <= 0.006 * max(1.0, abs(value)) for own in scene.reply_values)
+        or any(same_number(own, value, _LABEL_PLACES) for own in scene.reply_values)
         for value in held
     )
 
 
-def _near(a: float, b: float) -> bool:
-    return abs(a - b) <= 0.006 * max(1.0, abs(a))
+def _named_line(held: tuple[float, ...], scene: Scene) -> bool:
+    """A line the server worked out, (slope, offset) or a vertical one's (x,), is one the
+    reply's working writes (y = 7x - 35, x = 2)."""
+    if len(held) == 1:
+        return any(
+            m is None and same_number(c, held[0], _LABEL_PLACES) for m, c in scene.reply_lines
+        )
+    slope, offset = held
+    return any(
+        m is not None
+        and same_number(m, slope, _LABEL_PLACES)
+        and same_number(c, offset, _LABEL_PLACES)
+        for m, c in scene.reply_lines
+    )
 
 
 def _line_agreed(line: DrawnLine, scene: Scene) -> bool:
-    """A line the server worked out is named only as the reply writes it: its slope and
-    offset one of the reply's lines (y = 7x - 35), or a vertical one's x."""
+    """A line the server worked out is named only as the reply writes it; a value on a
+    segment or a level line across an interval (a distance, an average) only when the reply
+    writes that value; a line the question writes always."""
     if all(abs(value) < 1e-9 for value in line.held) or line.role == "segment" or line.ends:
         return _agreed(line.held, scene)
-    if len(line.held) == 1:
-        return any(m is None and _near(line.held[0], c) for m, c in scene.reply_lines)
-    slope, offset = line.held
-    return any(m is not None and _near(slope, m) and _near(offset, c) for m, c in scene.reply_lines)
+    return _named_line(line.held, scene)
+
+
+def _curve_label(curve: DrawnCurve, scene: Scene) -> str:
+    """A curve's label; one the server worked out (a triangle's side through two stated
+    points) only as the reply's working writes that line."""
+    return curve.label if not curve.held or _named_line(curve.held, scene) else ""
 
 
 def _about_the_regions(scene: Scene) -> None:
@@ -286,21 +336,21 @@ def draw_plot(scene: Scene) -> PlotGraphSpec | None:
     places += [(p.x, p.y) for p in [*scene.points, *ends]] + scene.focus
     places += [p for region in scene.regions for p in region.points]
     places += [p for line in [*scene.lines.values(), *scene.marks] for p in line_points(line)]
-    window, square = fit_window(scene, places)
+    window = fit_window(scene, places)
     rounded = _rounded(window)
     curves = [
-        PlotCurve(
-            label=curve.label, segments=[rounded(s) for s in segments[:24]], color=curve.color
-        )
+        PlotCurve(label=_curve_label(curve, scene), segments=[rounded(s) for s in segments[:24]],
+                  color=curve.color)
         for curve in scene.curves.values()
         if (segments := _sampled(curve, window))
-    ]
+    ]  # fmt: skip
     if not curves:
         return None
     for point in scene.points:
         point.label = point.label if _agreed(point.held, scene) else ""
-    for mark in scene.marks:
-        mark.label = mark.label if _line_agreed(mark, scene) else ""
+    for line in [*scene.lines.values(), *scene.marks]:
+        line.label = line.label if _line_agreed(line, scene) else ""
+
     lines = [
         drawn
         for line in [*scene.lines.values(), *scene.marks]
@@ -312,12 +362,13 @@ def draw_plot(scene: Scene) -> PlotGraphSpec | None:
         PlotPoint(x=x, y=y, open=p.open, label=p.label, color=p.color)
         for p in scene.points
         for x, y in rounded([(p.x, p.y)])
+        if math.isfinite(x) and math.isfinite(y)  # a point with no value is no point
     ]
     regions = [
         PlotRegion(points=rounded(r.points), kind=r.kind, color=r.color) for r in scene.regions
     ]
     return PlotGraphSpec(
-        x_min=window[0], x_max=window[1], y_min=window[2], y_max=window[3], equal=square,
+        x_min=window[0], x_max=window[1], y_min=window[2], y_max=window[3], equal=scene.equal,
         curves=curves, lines=lines[:16], regions=regions[:48], points=points[:24],
         x_label=scene.x_label[:16], y_label=scene.y_label[:16],
     )  # fmt: skip

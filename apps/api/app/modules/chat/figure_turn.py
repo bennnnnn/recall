@@ -109,8 +109,25 @@ async def _draw(
     return await figure.draw(line, earlier, settings)
 
 
+# The figure read's graphs a described plot never draws: its lettered points (A, B) and
+# its number lines stay beside a plot ("Plot A(1, 2) and B(4, 8) and the line through them").
+_GRAPHS_OF_THEIR_OWN = (
+    '"type":"points"',
+    '"type": "points"',
+    '"type":"number_line"',
+    '"type": "number_line"',
+)
+
+
+def _kind(fence: str) -> str:
+    lang = fence.split("\n", 1)[0].removeprefix("```")
+    if lang == "graph" and any(mark in fence for mark in _GRAPHS_OF_THEIR_OWN):
+        return "graph:own"
+    return lang
+
+
 def _kinds(fences: Sequence[str]) -> set[str]:
-    return {fence.split("\n", 1)[0].removeprefix("```") for fence in fences}
+    return {_kind(fence) for fence in fences}
 
 
 def _without(text: str, fences: Sequence[str]) -> str:
@@ -131,7 +148,10 @@ async def attach_figure(state: FinalizeState) -> str:
     figure = _figure()
     if task is None or figure is None:
         return state.text
-    if state.was_cancelled or figure.whole(state.text) or ctx.live_read is None:
+    # The reply's own described pictures, checked and drawn (``drawing_turn``), are no reply
+    # picture this one is judged against: only what they stand for is (below).
+    drawn = ctx.drawing.fences if ctx.drawing is not None else []
+    if state.was_cancelled or figure.whole(_without(state.text, drawn)) or ctx.live_read is None:
         stop_figure(ctx)
         return state.text
     if not _asks_for_a_picture(ctx.live_read):
@@ -150,8 +170,7 @@ async def attach_figure(state: FinalizeState) -> str:
     fence = task.result()
     # The reply's own described picture of that kind, checked and drawn, stands
     # (``drawing_turn``); one of the other kind leaves room for this one.
-    drawn = ctx.drawing.fences if ctx.drawing is not None else []
-    if not fence or fence.split("\n", 1)[0].removeprefix("```") in _kinds(drawn):
+    if not fence or _kind(fence) in _kinds(drawn):
         return state.text
     if not figure.adds_to(_without(state.text, drawn), fence):
         return state.text

@@ -145,3 +145,25 @@ def rounded_points(xs: Any, ys: Any) -> list[list[float]]:
         for x, y in zip(xs, ys, strict=False)
         if np.isfinite(y)
     ]
+
+
+def pole_flips(ys: Any, percentile: float = 85.0) -> list[int]:
+    """The indices i where a pole lies between samples i and i + 1: they flip sign and both
+    are among the curve's largest (above ``percentile`` of its |y|). A pole is exactly this
+    shape, y running to +inf on one side and -inf on the other; an ordinary zero crossing
+    flips sign too but small (sin x is never split, tan x at each of its poles)."""
+    values = np.asarray(ys, dtype=float)
+    finite = np.sort(np.abs(values[np.isfinite(values)]))
+    if finite.size < 2:
+        return []
+    large = finite[min(finite.size - 1, int(finite.size * percentile / 100))]
+    if large <= 0:
+        return []
+    flips: list[int] = []
+    for i in range(len(values) - 1):
+        y0, y1 = values[i], values[i + 1]
+        if not (np.isfinite(y0) and np.isfinite(y1)):
+            continue
+        if (y0 > 0) != (y1 > 0) and abs(y0) > large and abs(y1) > large:
+            flips.append(i)
+    return flips

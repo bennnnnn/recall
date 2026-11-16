@@ -4,8 +4,7 @@ It holds every place the picture shows: where each curve crosses an axis, turns 
 every labelled point, region and stated line, where a tangent meets an axis nearby, and
 room either side of an asymptote for the curve to run along it. It is never a fixed ±5 or
 ±10. A picture of an interval (a region, rectangles, a stated domain) shows that interval.
-Asked for one scale on both axes (a normal, a distance), it grows to it unless that would
-squash it.
+One scale on both axes (a normal, a distance) is the phone's to set, at the card's size.
 """
 
 from __future__ import annotations
@@ -16,7 +15,7 @@ import numpy as np
 from sympy import oo
 
 from app.modules.math.drawing.curve_features import turning_points, zeros
-from app.modules.math.drawing.plot_pieces import Span
+from app.modules.math.drawing.plot_pieces import Span, end_value
 from app.modules.math.drawing.plot_scene import DrawnCurve, DrawnLine, Scene
 
 _PAD = 0.12
@@ -24,12 +23,15 @@ _PAD = 0.12
 _ASYMPTOTE_ROOM = 0.25
 _END_ROOM = 0.6
 _ASYMPTOTE_REACH = 4.0
+# How far beside a pole the curve is shown from.
+_POLE_STEP = 1.0
+# ... and at most this share of a stated domain from its end.
+_POLE_SHARE = 0.15
 # A curve may run on past its places by this share of their height before it leaves.
 _RUN_ON = 0.6
 _LEAST_HEIGHT = 0.6
 # The card is about this much wider than tall (343 by 220, less its margins).
 _CARD_ASPECT = 1.65
-_MOST_STRETCH = 8.0
 Window = tuple[float, float, float, float]
 
 
@@ -48,10 +50,21 @@ def curve_places(curve: DrawnCurve) -> list[tuple[float, float]]:
         places.append(curve.y_intercept.at)
     if curve.shape is not None:
         for span in curve.shape.spans:
-            for end, inward in ((span.low, 1), (span.high, -1)):
-                if end not in (-oo, oo):
-                    x = float(end)
-                    places.append((x, span.fn.at(x + inward * 1e-7 * max(1.0, abs(x)))))
+            for end, closed, inward in (
+                (span.low, span.low_closed, 1),
+                (span.high, span.high_closed, -1),
+            ):
+                y = end_value(span, end, closed, inward) if end not in (-oo, oo) else None
+                if y is not None:
+                    places.append((float(end), y))
+                elif end not in (-oo, oo):
+                    # An end the curve runs off to infinity at: a step in, as beside a pole
+                    # (1/x on [0, 2] set y to 10⁷ there).
+                    finite = span.low not in (-oo, oo) and span.high not in (-oo, oo)
+                    width = float(span.high - span.low) if finite else _POLE_STEP / _POLE_SHARE
+                    x = float(end) + inward * min(_POLE_STEP, _POLE_SHARE * width)
+                    if span.low == -oo or float(span.low) <= x <= float(span.high):
+                        places.append((x, span.fn.at(x)))
         places += [(float(x), float(y)) for x, y in curve.shape.dots]
     for found in curve.breaks:
         for side, direction in ((found.left, -1), (found.right, 1)):
@@ -59,7 +72,7 @@ def curve_places(curve: DrawnCurve) -> list[tuple[float, float]]:
                 places.append((float(found.x), side.value))
             elif side.kind == "infinite":
                 # Each side of a pole a step out: 1/(x - 1) shows both its branches.
-                x = float(found.x) + direction
+                x = float(found.x) + direction * _POLE_STEP
                 beside = curve.span_at(x)
                 if beside is not None:
                     places.append((x, beside.fn.at(x)))
@@ -116,15 +129,27 @@ def _padded(low: float, high: float, minimum: float) -> tuple[float, float]:
 
 
 def _x_window(scene: Scene, places: list[tuple[float, float]]) -> tuple[float, float]:
-    x_lo, x_hi = _with_axis(*_box(places)[:2])
+    x_lo, x_hi = _box(places)[:2]
+    # A curve drawn on a stated domain shows all of it, to the end it runs off at
+    # (1/x on [0, 2] showed only [0.88, 2.12]).
+    for curve in scene.curves.values():
+        if curve.stated_domain and curve.shape is not None:
+            for span in curve.shape.spans:
+                ends = [float(end) for end in (span.low, span.high) if end not in (-oo, oo)]
+                x_lo, x_hi = min([x_lo, *ends]), max([x_hi, *ends])
+    x_lo, x_hi = _with_axis(x_lo, x_hi)
     span = max(x_hi - x_lo, 1.0)
+    # Never past where breaks were looked for: tan x's asymptotes were found to ±10 and the
+    # window ran to ±15.6, poles drawn with no asymptote beside them.
+    searched = [c.search for c in scene.curves.values()] or [(x_lo, x_hi)]
+    far_lo, far_hi = min(lo for lo, _ in searched), max(hi for _, hi in searched)
     for line in scene.marks:
         if line.role == "asymptote" and line.vertical is not None:
             x = float(line.vertical)
             if _runs_beside(scene, x - 0.05 * span):
-                x_lo = min(x_lo, x - _ASYMPTOTE_ROOM * span)
+                x_lo = min(x_lo, max(far_lo, x - _ASYMPTOTE_ROOM * span))
             if _runs_beside(scene, x + 0.05 * span):
-                x_hi = max(x_hi, x + _ASYMPTOTE_ROOM * span)
+                x_hi = max(x_hi, min(far_hi, x + _ASYMPTOTE_ROOM * span))
     # Room to run along a horizontal or oblique asymptote, and to come near it: √(x² + 1)'s
     # places all lie within 1 of 0, where it is nowhere near y = ±x (d05).
     along = _END_ROOM * max(span, _ASYMPTOTE_REACH)
@@ -132,7 +157,10 @@ def _x_window(scene: Scene, places: list[tuple[float, float]]) -> tuple[float, f
         x_hi += along
     if -1 in scene.asymptote_sides:
         x_lo -= along
-    return _padded(x_lo, x_hi, 2.0)
+    x_lo, x_hi = _padded(x_lo, x_hi, 2.0)
+    if any(line.role == "asymptote" and line.vertical is not None for line in scene.marks):
+        x_lo, x_hi = max(x_lo, far_lo), min(x_hi, far_hi)
+    return x_lo, x_hi
 
 
 def _runs_beside(scene: Scene, x: float) -> bool:
@@ -186,31 +214,16 @@ def _y_window(
     return _padded(*_with_axis(y_lo, y_hi), 1.0)
 
 
-def _equal(window: Window) -> Window | None:
-    """The window grown to one scale on both axes, or None when that would squash it."""
-    x_lo, x_hi, y_lo, y_hi = window
-    wide, tall = x_hi - x_lo, y_hi - y_lo
-    stretch = (wide / tall) / _CARD_ASPECT
-    if not 1 / _MOST_STRETCH <= stretch <= _MOST_STRETCH:
-        return None
-    if stretch > 1:
-        grow = (wide / _CARD_ASPECT - tall) / 2
-        return x_lo, x_hi, y_lo - grow, y_hi + grow
-    grow = (tall * _CARD_ASPECT - wide) / 2
-    return x_lo - grow, x_hi + grow, y_lo, y_hi
-
-
 def span_range(span: Span, x_lo: float, x_hi: float) -> tuple[float, float]:
     low = x_lo if span.low == -oo else max(x_lo, float(span.low))
     high = x_hi if span.high == oo else min(x_hi, float(span.high))
     return low, high
 
 
-def fit_window(scene: Scene, places: list[tuple[float, float]]) -> tuple[Window, bool]:
-    """The window, and whether it is at one scale on both axes."""
+def fit_window(scene: Scene, places: list[tuple[float, float]]) -> Window:
+    """The window the picture is about. One scale on both axes, when asked for, is the
+    phone's to set at the card's own size (``lib/math/plotGraph.plotBounds``)."""
     places = _finite(places) or [(0.0, 0.0)]
     places += _line_crossings(scene, _box(places))
     x_lo, x_hi = _x_window(scene, places)
-    window: Window = (x_lo, x_hi, *_y_window(scene, places, x_lo, x_hi))
-    square = _equal(window) if scene.equal else None
-    return square or window, square is not None
+    return (x_lo, x_hi, *_y_window(scene, places, x_lo, x_hi))

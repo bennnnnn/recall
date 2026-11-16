@@ -83,6 +83,21 @@ describe("realPower", () => {
   });
 });
 
+describe("one scale on both axes", () => {
+  const graph = (equal: boolean, xMax: number) =>
+    parsePlotGraph(JSON.stringify({ type: "plot", x_min: 0, x_max: xMax, y_min: 0, y_max: 1, equal,
+      curves: [{ label: "", segments: [[[0, 0], [1, 1]]] }] }))!;
+
+  it("grows the window by the function graph's own rule", () => {
+    const bounds = plotBounds(graph(true, 1), 330, 220, 10);
+    expect((bounds.xMax - bounds.xMin) / (bounds.yMax - bounds.yMin)).toBeCloseTo(310 / 200, 6);
+  });
+
+  it("leaves a window it would squash past eight times over as it is", () => {
+    expect(plotBounds(graph(true, 100), 330, 220, 10)).toEqual({ xMin: 0, xMax: 100, yMin: 0, yMax: 1 });
+  });
+});
+
 describe("the curves a plot keeps", () => {
   it("are the five the server draws", () => {
     const curve = { label: "", segments: [[[0, 0], [1, 1]]] };

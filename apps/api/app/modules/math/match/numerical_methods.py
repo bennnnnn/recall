@@ -162,6 +162,24 @@ _ESTIMATES: tuple[tuple[str, re.Pattern[str]], ...] = (
 )
 
 
+# A lower or an upper sum, by its name or its rectangles ("upper and lower sums",
+# "inscribed (left-endpoint) rectangles"): no rule here works it, and a graph's rectangles
+# stand under (or over) the curve as it says.
+_SUM_SIDES = re.compile(r"\b(lower|upper)\b(?=[^.;?]{0,30}\bsums?\b)", re.IGNORECASE)
+_RECTANGLE_SIDES = re.compile(
+    r"\b(inscribed|circumscribed)\b(?=[^.;?]{0,60}\brectangles?\b)", re.IGNORECASE
+)
+
+
+def sums_named(text: str) -> set[str]:
+    """The sides of the sums ``text`` names: "lower", "upper" ("inscribed rectangles" is a
+    lower sum, "circumscribed rectangles" an upper one)."""
+    sides = {found.group(1).lower() for found in _SUM_SIDES.finditer(text)}
+    for found in _RECTANGLE_SIDES.finditer(text):
+        sides.add("lower" if found.group(1).lower() == "inscribed" else "upper")
+    return sides
+
+
 def _rules_asked(text: str) -> set[str]:
     return {rule for rule, pattern in _ESTIMATES if pattern.search(text)}
 

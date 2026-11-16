@@ -12,21 +12,29 @@ makes the function continuous, as such a question asks.
 from __future__ import annotations
 
 import math
-import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from sympy import Expr, Symbol, nsimplify, oo, simplify
+import numpy as np
+from sympy import Expr, Pow, Symbol, log, nsimplify, oo, preorder_traversal, simplify
 
+from app.modules.math.drawing.curve_features import snapped, zeros
 from app.modules.math.drawing.plot_items import Curve
-from app.modules.math.drawing.plot_question import Clause, Condition, PlotQuestion, plain
+from app.modules.math.drawing.plot_question import Clause, PlotQuestion
+from app.modules.math.drawing.plot_reading import (
+    LOWER,
+    UPPER,
+    Condition,
+    conditions,
+    plain,
+    same_number,
+)
 from app.modules.math.drawing.real_curve import RealFunction, as_real
+from app.modules.math.solve.graph_sampling import side, singular_xs
 from app.modules.math.tool_check import parse_formula, same_value
 
 _X = Symbol("x")
-_OPS = re.compile(r"(<=|>=|!=|<|>|=)")
-_FLIPPED = {"<": ">", ">": "<", "<=": ">=", ">=": "<=", "=": "=", "!=": "!="}
-_LOWER, _UPPER = frozenset({">", ">="}), frozenset({"<", "<="})
 
 
 @dataclass(frozen=True)
@@ -39,6 +47,19 @@ class Span:
     low_closed: bool = False
     high: Any = oo
     high_closed: bool = False
+
+
+def end_value(span: Span, end: Any, closed: bool, inward: int) -> float | None:
+    """The value a span reaches at its end: its own there when it holds the end, else the
+    one it settles on from inside; None where it runs off to infinity (1/x at 0, ln x at 0)
+    or has none, so no circle or window is set at 10⁷ or at NaN."""
+    x = float(end)
+    if closed:
+        y = span.fn.at(x)
+        if math.isfinite(y):
+            return y
+    near = side(span.fn.values, x, inward)
+    return near.value if near.kind == "finite" else None
 
 
 @dataclass
@@ -59,33 +80,11 @@ def formula(text: str, variable: Symbol = _X) -> Any | None:
     return parsed
 
 
-def value(text: str) -> Any | None:
-    parsed = parse_formula(plain(text))
-    return parsed if isinstance(parsed, Expr) and parsed.is_number and parsed.is_real else None
-
-
 def read_condition(text: str) -> list[Condition] | None:
-    """ "-5 < x <= -2" as [(>, -5), (<=, -2)], each comparison with x on the left."""
-    parts = [part.strip() for part in _OPS.split(plain(text))]
-    if len(parts) not in {3, 5} or "x" not in parts[::2]:
-        return None
-    found: list[Condition] = []
-    for i in range(1, len(parts) - 1, 2):
-        left, op, right = parts[i - 1], parts[i], parts[i + 1]
-        if left == "x" and (number := value(right)) is not None:
-            found.append(Condition(op, number))
-        elif right == "x" and (number := value(left)) is not None:
-            found.append(Condition(_FLIPPED[op], number))
-        else:
-            return None
-    return found
-
-
-def _same_number(a: Any, b: Any) -> bool:
-    try:
-        return abs(float(a) - float(b)) < 1e-12 * max(1.0, abs(float(b)))
-    except (TypeError, ValueError):
-        return False
+    """ "-5 < x <= -2" as [(>, -5), (<=, -2)], each comparison with x on the left: the
+    question's own reading (``plot_reading.conditions``), every bound a number."""
+    found = conditions(plain(text))
+    return found if found and all(c.value.is_number for c in found) else None
 
 
 def _bind(mine: list[Condition], clause: Clause, letters: dict[str, Any]) -> bool:
@@ -100,10 +99,10 @@ def _bind(mine: list[Condition], clause: Clause, letters: dict[str, Any]) -> boo
             return False
         if isinstance(written.value, Symbol):
             name = str(written.value)
-            if name in bound and not _same_number(bound[name], own.value):
+            if name in bound and not same_number(bound[name], own.value):
                 return False
             bound[name] = own.value
-        elif not _same_number(own.value, written.value):
+        elif not same_number(own.value, written.value):
             return False
     letters.update(bound)
     return True
@@ -118,7 +117,7 @@ def _written_piece(
                 return True
         if len(mine) == 1 and mine[0].op == "=":
             at = mine[0].value
-            if any(_same_number(a, at) and same_value(b, expr) for a, b in clause.point_values):
+            if any(same_number(a, at) and same_value(b, expr) for a, b in clause.point_values):
                 return True
     return False
 
@@ -128,9 +127,9 @@ def _spans(expr: Any, conditions: list[Condition]) -> list[Span]:
     low, low_closed, high, high_closed = -oo, False, oo, False
     cuts: list[Any] = []
     for c in conditions:
-        if c.op in _LOWER and (low == -oo or c.value > low):
+        if c.op in LOWER and (low == -oo or c.value > low):
             low, low_closed = c.value, c.op == ">="
-        elif c.op in _UPPER and (high == oo or c.value < high):
+        elif c.op in UPPER and (high == oo or c.value < high):
             high, high_closed = c.value, c.op == "<="
         elif c.op == "!=":
             cuts.append(c.value)
@@ -147,8 +146,8 @@ def _spans(expr: Any, conditions: list[Condition]) -> list[Span]:
 def _letters_meet(spans: list[Span], letters: dict[str, Any]) -> bool:
     """Each letter's value is where the pieces on its two sides meet."""
     for at in letters.values():
-        left = [s for s in spans if s.high != oo and _same_number(s.high, at)]
-        right = [s for s in spans if s.low != -oo and _same_number(s.low, at)]
+        left = [s for s in spans if s.high != oo and same_number(s.high, at)]
+        right = [s for s in spans if s.low != -oo and same_number(s.low, at)]
         if not left or not right:
             return False
         exact = nsimplify(at)
@@ -242,8 +241,8 @@ def _describes(curve: Curve, shape: Shape) -> bool:
 
 
 def _inside_points(conditions: list[Condition]) -> list[float]:
-    lows = [float(c.value) for c in conditions if c.op in _LOWER]
-    highs = [float(c.value) for c in conditions if c.op in _UPPER]
+    lows = [float(c.value) for c in conditions if c.op in LOWER]
+    highs = [float(c.value) for c in conditions if c.op in UPPER]
     if lows and highs:
         low, high = max(lows), min(highs)
         return [low + (high - low) * t for t in (0.25, 0.5, 0.75)]
@@ -277,8 +276,81 @@ def pieces_shape(curve: Curve, question: PlotQuestion) -> Shape | None:
     return shape
 
 
-def formula_shape(expr: Any, domain: tuple[Any, Any] | None) -> Shape:
-    fn = RealFunction(as_real(expr, _X))
-    if domain is None:
-        return Shape([Span(fn, expr)])
-    return Shape([Span(fn, expr, domain[0], True, domain[1], True)])
+def formula_shape(expr: Any, domain: Sequence[Condition] | None, raw: Any = None) -> Shape:
+    """One formula on the domain it is drawn on (its ends held or left out as the conditions
+    say: "0 < x < 2" ends in open circles), and only where the formula as written has values
+    (``raw``: e^(ln x) none below 0, x/x none at 0)."""
+    conditions = [*(domain or []), *(_as_written_conditions(expr, raw) if raw is not None else [])]
+    if not conditions:
+        return Shape([Span(RealFunction(as_real(expr, _X)), expr)])
+    return Shape(_spans(expr, conditions))
+
+
+# How far either side of 0 a formula as written is checked for values its simplified form has.
+_WRITTEN_REACH = 50.0
+
+
+def _written_rules(raw: Any) -> list[tuple[str, Any]]:
+    """What the formula as written asks of x, read from its own tree before SymPy
+    simplifies it: a logarithm's argument above 0, an even root's at least 0, a power below
+    0's base not 0 (x/x is x·x⁻¹). Each argument is read on its own, so e^(ln x) keeps its
+    ln x > 0 though SymPy reads the whole as x; an odd root (x^(2/3)) asks nothing."""
+    rules: list[tuple[str, Any]] = []
+    for node in preorder_traversal(raw):
+        if isinstance(node, log):
+            rules.append((">", node.args[0].doit()))
+        elif isinstance(node, Pow):
+            power = node.exp.doit()
+            if not power.is_Rational:
+                continue
+            if power.is_negative:
+                rules.append(("!=", node.base.doit()))
+            if power.q % 2 == 0:
+                rules.append((">=", node.base.doit()))
+    return rules
+
+
+def _as_written_conditions(expr: Any, raw: Any) -> list[Condition]:
+    """Where ``raw``, a formula as the question writes it, has no value though ``expr``, its
+    simplified form, does: where a denominator it writes is 0 (x/x at 0), and beyond a bound
+    it has values only on one side of (e^(ln x) below 0, (√x)² below 0)."""
+    letters = list(raw.free_symbols)
+    if len(letters) != 1:
+        return []
+    found: list[Condition] = []
+    xs = np.linspace(-_WRITTEN_REACH, _WRITTEN_REACH, 2001)
+    has = np.ones(xs.shape, dtype=bool)
+    simple = RealFunction(as_real(expr, _X))
+    # Where the simplified formula breaks itself (1/x at 0), its own breaks say so.
+    own = [float(v) for v in singular_xs(expr, _X, -_WRITTEN_REACH, _WRITTEN_REACH)]
+    bounds: list[tuple[Any, str]] = []
+    for op, arg in _written_rules(raw):
+        part = RealFunction(as_real(arg, letters[0]))
+        edges = [
+            snapped(x, [], part.expr) for x in zeros(part.values, -_WRITTEN_REACH, _WRITTEN_REACH)
+        ]
+        if op == "!=":
+            found += [
+                Condition("!=", at)
+                for at in edges
+                if all(abs(float(at) - x) > 1e-9 for x in own)
+                and math.isfinite(simple.at(float(at)))
+            ]
+            continue
+        values = part.values(xs)
+        has &= (values > 0) if op == ">" else (values >= 0)
+        bounds += [(at, op) for at in edges]
+    real = np.isfinite(simple.values(xs))
+    kept = np.flatnonzero(has & real)
+    if not (real & ~has).any() or not kept.size or not has[kept[0] : kept[-1] + 1].all():
+        return found  # nothing lost, or values lost inside: no one bound says where
+    for edge, op, out in ((kept[0], ">", -1), (kept[-1], "<", 1)):
+        if not 0 <= edge + out < len(xs):
+            continue
+        low, high = sorted((float(xs[edge + out]), float(xs[edge])))
+        near = [(at, rule) for at, rule in bounds if low - 1e-9 <= float(at) <= high + 1e-9]
+        if near:
+            at, rule = near[0]
+            closed = rule == ">=" and math.isfinite(simple.at(float(at)))
+            found.append(Condition(op + "=" if closed else op, at))
+    return found

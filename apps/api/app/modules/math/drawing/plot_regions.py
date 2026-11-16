@@ -23,9 +23,10 @@ from app.modules.math.drawing.plot_check import edge_function, stated_end, state
 from app.modules.math.drawing.plot_enclosed import enclosed
 from app.modules.math.drawing.plot_items import Axis, Rectangles, Shade
 from app.modules.math.drawing.plot_labels import point_text
-from app.modules.math.drawing.plot_pieces import value
-from app.modules.math.drawing.plot_question import PlotQuestion, axis_line
+from app.modules.math.drawing.plot_question import PlotQuestion
+from app.modules.math.drawing.plot_reading import number
 from app.modules.math.drawing.plot_scene import DrawnLine, DrawnPoint, DrawnRegion, Scene, Shaded
+from app.modules.math.drawing.plot_x import axis_line
 from app.modules.math.drawing.real_curve import RealFunction, X
 from app.modules.math.solve.approximation import rule_nodes
 
@@ -33,18 +34,6 @@ _SAMPLES = 120
 _BELOW_COLOR = 2
 _MOST_REGIONS = 8
 _MOST_UNSTATED_RECTANGLES = 12
-# A sum the method reader leaves unworked, by its words (inscribed, circumscribed), and the
-# side a rectangle stands on when the question names it by its rectangles alone ("4 right
-# rectangles").
-_RULE_WORDS = (
-    ("circumscribed", "upper"),
-    ("inscribed", "lower"),
-    ("upper", "upper"),
-    ("lower", "lower"),
-    ("left", "left"),
-    ("right", "right"),
-    ("mid", "midpoint"),
-)
 # Rules a rectangle stands for: any other a question names (trapezoids, Simpson's
 # parabolas) is no picture of rectangles.
 _RECTANGLE_RULES = frozenset({"left", "right", "midpoint"})
@@ -57,9 +46,9 @@ def _sideways_edge(name: str, scene: Scene) -> RealFunction | None:
     return curve.sideways if curve is not None else None
 
 
-def _meet(number: Any, meets: list[float]) -> float | None:
-    near = [m for m in meets if abs(m - float(number)) < 1e-3 * max(1.0, abs(m))]
-    return min(near, key=lambda m: abs(m - float(number))) if near else None
+def _meet(written: Any, meets: list[float]) -> float | None:
+    near = [m for m in meets if abs(m - float(written)) < 1e-3 * max(1.0, abs(m))]
+    return min(near, key=lambda m: abs(m - float(written))) if near else None
 
 
 def _stated_bounds(item: Shade, meets: list[float], question: PlotQuestion) -> list[float] | None:
@@ -67,21 +56,21 @@ def _stated_bounds(item: Shade, meets: list[float], question: PlotQuestion) -> l
     one of them perhaps an edge the question names ("bounded by y = x², the x-axis and
     x = 2"). Any other value the question writes bounds nothing (b01's "the gradient at
     x = 3", b03's "between 2 and 3" said of the answer)."""
-    start, end = value(item.start), value(item.end)
+    start, end = number(item.start), number(item.end)
     if start is None or end is None:
         return None
     low, high = (start, end) if float(start) <= float(end) else (end, start)
     along_x = item.wrt == "x"
     held = stated_interval(low, high, question) if along_x else None
     if held is not None:
-        return [float(held[0]), float(held[1])]
+        return [float(held.low), float(held.high)]
     ends = [_meet(low, meets), _meet(high, meets)]
     if ends == [None, None]:
         return None
     meet = next(end for end in ends if end is not None)
-    for i, number in enumerate((low, high)):
+    for i, written in enumerate((low, high)):
         if ends[i] is None:
-            own = stated_end(number, question, meet) if along_x else None
+            own = stated_end(written, question, meet) if along_x else None
             if own is None:
                 return None
             ends[i] = float(own)
@@ -153,18 +142,16 @@ def shade(item: Shade, question: PlotQuestion, scene: Scene) -> None:
     scene.focus += [(low, 0.0), (high, 0.0)] if item.wrt == "x" else [(0.0, low), (0.0, high)]
 
 
-def _rules_named(question: PlotQuestion) -> set[str]:
-    """The rule the question names: the numerical-method reader's (``match.numerical_methods``),
-    else the words of a sum it leaves unworked."""
+def _rules_named(question: PlotQuestion) -> set[str] | None:
+    """The rules the question allows, as the numerical-method reader reads it
+    (``match.numerical_methods``): the one it names, the lower or upper sums it names, none
+    for another rule (trapezoids, Simpson's) or one it cannot read; None when it names no
+    rule, and the reply's rectangles stand as described."""
     if question.rule in _RECTANGLE_RULES:
         return {question.rule}
-    words = question.words
-    named: set[str] = set()
-    for word, rule in _RULE_WORDS:
-        if word in words:
-            named.add(rule)
-            words = words.replace(word, " ")
-    return named
+    if question.sums:
+        return set(question.sums)
+    return None if question.rule is None else set()
 
 
 def _heights(fn: RealFunction, low: Any, high: Any, n: int, rule: str) -> Any:
@@ -194,29 +181,26 @@ def _count_holds(n: int, low: Any, high: Any, question: PlotQuestion) -> bool:
 def rectangles(item: Rectangles, question: PlotQuestion, scene: Scene) -> None:
     curve = scene.curves.get(item.under)
     fn = curve.whole if curve is not None else None
-    start, end = value(item.start), value(item.end)
+    start, end = number(item.start), number(item.end)
     held = stated_interval(start, end, question) if start is not None and end is not None else None
     if fn is None or held is None or item.rule not in {*_RECTANGLE_RULES, "lower", "upper"}:
+        return  # no stated interval
+    low, high = held.low, held.high
+    if not _count_holds(item.n, low, high, question) or has_pole(fn, float(low), float(high)):
         return
-    if question.rule in {"trapezoid", "simpson"} or not _count_holds(item.n, *held, question):
-        return  # the question's rule is no rectangles, or its count is another
-    if has_pole(fn, float(held[0]), float(held[1])):
-        return
-    heights = _heights(fn, *held, item.n, item.rule)
-    named = _rules_named(question)
-    if (
-        named
-        and item.rule not in named
-        and not any(np.allclose(heights, _heights(fn, *held, item.n, rule)) for rule in named)
+    heights = _heights(fn, low, high, item.n, item.rule)
+    allowed = _rules_named(question)
+    if allowed is not None and not any(
+        np.allclose(heights, _heights(fn, low, high, item.n, rule)) for rule in allowed
     ):
-        return
+        return  # rectangles of a rule the question does not name, by their heights
     if not np.all(np.isfinite(heights)):
         return
-    edges = np.linspace(float(held[0]), float(held[1]), item.n + 1)
+    edges = np.linspace(float(low), float(high), item.n + 1)
     for a, b, h in zip(edges[:-1], edges[1:], heights, strict=True):
         corners = [(float(a), 0.0), (float(a), float(h)), (float(b), float(h)), (float(b), 0.0)]
         scene.regions.append(DrawnRegion(corners, kind="strip", color=curve.color if curve else 0))
-    scene.focus += [(float(held[0]), 0.0), (float(held[1]), 0.0)]
+    scene.focus += [(float(low), 0.0), (float(high), 0.0)]
 
 
 def axis(item: Axis, question: PlotQuestion, scene: Scene) -> None:

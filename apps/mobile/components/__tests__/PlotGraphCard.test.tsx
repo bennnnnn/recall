@@ -84,6 +84,14 @@ describe("plotDrawing", () => {
     expect(points.marks.map((m) => m.label)).toEqual(["(0, \u22122)", "(4, 6)"]);
   });
 
+  it("names a nearest point's distance in the legend, and dots no curve sample", () => {
+    const line = { start: [0, 2], end: [1.2, 1.5], role: "segment", label: "≈ 1.323", color: 2 };
+    const graph = { ...body("c008"), lines: [line] };
+    const { legend, drawn } = plotDrawing(parsePlotGraph(JSON.stringify(graph))!, PALETTE);
+    expect(legend.map((row) => row.label)).toContain("≈ 1.323");
+    expect(drawn.every((series) => series.marked === false)).toBe(true);
+  });
+
   it("draws a washer's region, its slice and the slice turned about the axis", () => {
     const { layers } = drawing("washer");
     expect(layers.regions.map((r) => r.kind).sort()).toEqual(["mirror", "shade", "strip"]);

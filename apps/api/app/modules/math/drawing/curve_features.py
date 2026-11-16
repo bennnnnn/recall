@@ -81,12 +81,17 @@ def _golden(values: Values, low: float, high: float, sense: int) -> float:
     return (a + b) / 2
 
 
-def _dedupe(xs: list[float]) -> list[float]:
+def _dedupe(xs: list[float], low: float, high: float) -> list[float]:
+    """The places found, each once, in order: the ones nearest the middle of the search when
+    there are more than a picture marks. A periodic curve's dozens of roots kept the twelve
+    leftmost, and its window went with them ([-10.9, 1.17] for sin 5x, its root at 0.628
+    left unmarked)."""
     out: list[float] = []
     for x in sorted(xs):
         if not out or abs(x - out[-1]) > _SAME_X * max(1.0, abs(x)):
             out.append(x)
-    return out[:_MOST_FOUND]
+    middle = (low + high) / 2
+    return sorted(sorted(out, key=lambda x: abs(x - middle))[:_MOST_FOUND])
 
 
 def _scale(ys: Any) -> float:
@@ -114,7 +119,7 @@ def zeros(values: Values, low: float, high: float) -> list[float]:
             touch = _golden(lambda v: np.abs(values(v)), float(xs[i - 1]), float(xs[i + 1]), 1)
             if abs(_scalar(values, touch)) < 1e-9 * scale:
                 found.append(touch)
-    return _dedupe(found)
+    return _dedupe(found, low, high)
 
 
 def turning_points(values: Values, low: float, high: float) -> list[float]:
@@ -132,7 +137,7 @@ def turning_points(values: Values, low: float, high: float) -> list[float]:
         x = _golden(values, float(xs[i - 1]), float(xs[i + 1]), sense)
         if math.isfinite(_scalar(values, x)):
             found.append(x)
-    return _dedupe(found)
+    return _dedupe(found, low, high)
 
 
 def bends(fn: RealFunction, low: float, high: float) -> list[float]:
@@ -157,7 +162,7 @@ def bends(fn: RealFunction, low: float, high: float) -> list[float]:
             if continuous_at(fn, x):
                 found.append(x)
         last = i
-    return _dedupe(found)
+    return _dedupe(found, low, high)
 
 
 def continuous_at(fn: RealFunction, x: float) -> bool:

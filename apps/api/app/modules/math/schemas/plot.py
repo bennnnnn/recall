@@ -50,8 +50,9 @@ class PlotRegion(BaseModel):
 
 
 class PlotPoint(BaseModel):
-    x: float
-    y: float
+    # Finite: NaN is no JSON the phone reads, and it refused the whole graph.
+    x: float = Field(allow_inf_nan=False)
+    y: float = Field(allow_inf_nan=False)
     # An open circle: a hole, or the end of a piece that leaves its end out.
     open: bool = False
     label: str = Field(default="", max_length=_LABEL_CHARS)
@@ -60,10 +61,10 @@ class PlotPoint(BaseModel):
 
 class PlotGraphSpec(BaseModel):
     type: Literal["plot"] = "plot"
-    x_min: float
-    x_max: float
-    y_min: float
-    y_max: float
+    x_min: float = Field(allow_inf_nan=False)
+    x_max: float = Field(allow_inf_nan=False)
+    y_min: float = Field(allow_inf_nan=False)
+    y_max: float = Field(allow_inf_nan=False)
     # One unit as long on both axes: a normal looks perpendicular, a distance true.
     equal: bool = False
     x_label: str = Field(default="x", max_length=16)

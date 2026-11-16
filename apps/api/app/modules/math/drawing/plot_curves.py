@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import math
 from collections import Counter
+from dataclasses import dataclass
 from typing import Any, Literal
 
 from sympy import Expr, Rational, Symbol
@@ -26,10 +27,12 @@ from app.modules.math.drawing.plot_labels import (
     line_text,
     number_text,
 )
-from app.modules.math.drawing.plot_pieces import formula, formula_shape, pieces_shape, value
-from app.modules.math.drawing.plot_question import PlotQuestion, plain
+from app.modules.math.drawing.plot_pieces import formula, formula_shape, pieces_shape
+from app.modules.math.drawing.plot_question import PlotQuestion, Written
+from app.modules.math.drawing.plot_reading import Condition, number, plain, same_number
 from app.modules.math.drawing.plot_scene import DrawnCurve, DrawnLine, Scene
-from app.modules.math.drawing.real_curve import RealFunction, as_real, closed_integral
+from app.modules.math.drawing.real_curve import RealFunction, as_real
+from app.modules.math.solve.antiderivative import antiderivative_forms
 from app.modules.math.tool_check import parse_formula, same_value
 
 _X, _Y = Symbol("x"), Symbol("y")
@@ -51,9 +54,22 @@ def _written_sideways(expr: Any, question: PlotQuestion) -> bool:
     )
 
 
-def _own_formula(text: str, question: PlotQuestion) -> tuple[Any, str, str, bool] | None:
-    """The formula in x, the question's letter for x, its name for y, and whether it is an
-    antiderivative of the question's function rather than the function itself."""
+@dataclass(frozen=True)
+class _Own:
+    """A curve's formula in x, the question's letter for x and its name for y, whether it
+    is an antiderivative of the question's function, and the question's own formula."""
+
+    expr: Any
+    letter: str
+    name: str
+    antiderivative: bool
+    written: Written | None
+
+
+def _own_formula(text: str, question: PlotQuestion) -> _Own | None:
+    """The question's own formula the reply's ``text`` is, as the question writes it: its
+    holes and its domain kept ((x² - 1)/(x - 1) described as x + 1 keeps its hole at 1), or
+    an antiderivative of it when antiderivatives are asked."""
     parsed = parse_formula(plain(text))
     if not isinstance(parsed, Expr) or len(parsed.free_symbols) > 1:
         return None
@@ -64,16 +80,24 @@ def _own_formula(text: str, question: PlotQuestion) -> tuple[Any, str, str, bool
         # "v(t)" names what an axis measures; "k(x)" only names a function.
         quantity = letter != _X and written.name not in _FUNCTION_NAMES
         name = written.name if quantity else "y"
-        if not parsed.free_symbols and not written.defines:
-            continue  # "a = 3" names a value, never the line y = 3
+        if not parsed.free_symbols and not _a_level_line(written, question):
+            continue  # "a = 3", "where y = 4" name values, never the line y = 3
         if same_value(written.expr, parsed):
-            return parsed.subs(letter, _X), str(letter), name, False
+            return _Own(written.expr.subs(letter, _X), str(letter), name, False, written)
         if not question.antiderivatives:
             continue  # x² is no picture of f(x) = 2x unless antiderivatives are asked for
         if written.expr.free_symbols and _derivative_is(parsed, written.expr, letter):
             if _no_constant(parsed, written.expr, letter):
-                return parsed.subs(letter, _X), str(letter), "y", True
+                return _Own(parsed.subs(letter, _X), str(letter), "y", True, None)
     return None
+
+
+def _a_level_line(written: Written, question: PlotQuestion) -> bool:
+    """A number the question writes is the line y = c when it names y (or a function of the
+    variable) equal to it and says it of no point ("find the gradient where y = 4")."""
+    if not written.defines:
+        return False
+    return not any(same_number(point, written.expr) for point in question.y_points)
 
 
 def _derivative_is(antiderivative: Any, integrand: Any, letter: Symbol) -> bool:
@@ -87,49 +111,74 @@ def _derivative_is(antiderivative: Any, integrand: Any, letter: Symbol) -> bool:
 
 
 def _no_constant(antiderivative: Any, integrand: Any, letter: Symbol) -> bool:
-    """``antiderivative`` is SymPy's own, with no constant added: a constant the reply chose
-    (an initial value, a C) is no value the server can check. ln|x| is ln x where both are
-    defined; a family's constants are its ``shifts``, labelled."""
-    own = closed_integral(integrand, letter)
-    if own is None:
+    """``antiderivative`` is one an answer writes with no constant added: the card's
+    textbook form or SymPy's (``solve.antiderivative.antiderivative_forms``), as the reals
+    read them (ln|x| is ln x where both are defined). A constant the reply chose (an
+    initial value, a C) is no value the server can check; a family's constants are its
+    ``shifts``, labelled."""
+    try:
+        forms = antiderivative_forms(integrand, letter)
+    except (ValueError, TypeError, NotImplementedError, ZeroDivisionError):
         return False
-    gap = RealFunction(as_real(antiderivative - own, letter))
-    values = [gap.at(x) for x in _SAMPLES]
-    found = [v for v in values if math.isfinite(v)]
-    return bool(found) and all(abs(v) < 1e-9 for v in found)
+    for form in forms:
+        gap = RealFunction(as_real(antiderivative - form, letter))
+        found = [v for v in (gap.at(x) for x in _SAMPLES) if math.isfinite(v)]
+        if found and all(abs(v) < 1e-9 for v in found):
+            return True
+    return False
 
 
 def _domain(
-    curve: Curve, question: PlotQuestion, split: bool
-) -> tuple[Any, Any] | Literal[False] | None:
-    """The stated interval the curve is drawn on; None for none, and for one the question
-    does not state, a window the reply chose (the curve is drawn where the picture shows it).
-    False when that interval is a piece: the reply wrote one function as curves of one name
-    (c011's x² + 1 "on [-10, -7]", 15 - 5x "on [-7, 4]"), and a whole parabola would stand
-    for f."""
+    curve: Curve, question: PlotQuestion, split: bool, written: Written | None
+) -> list[Condition] | Literal[False] | None:
+    """Where the curve is drawn, as conditions on x: the domain the question writes its
+    formula with ("defined for 0 ≤ x ≤ 3 only", "for t ≥ 0", "0 < x < 2" with its ends left
+    out), whether or not the description repeats it; else an interval of x the question
+    states that the description gives. None for none: an interval the question does not
+    state is a window the reply chose. False when that interval is a piece: the reply wrote
+    one function as curves of one name (c011's x² + 1 "on [-10, -7]", 15 - 5x "on
+    [-7, 4]"), and a whole parabola would stand for f."""
+    own = question.domain_of(written.expr) if written is not None else None
+    if own:
+        return list(own)
     if curve.domain is None:
         return None
-    start, end = (value(text) for text in curve.domain)
+    start, end = (number(text) for text in curve.domain)
     held = stated_interval(start, end, question) if start is not None and end is not None else None
     if held is not None:
-        return held
+        low = Condition(">=" if held.low_closed else ">", held.low)
+        return [low, Condition("<=" if held.high_closed else "<", held.high)]
     return False if split else None
+
+
+def _search(domain: list[Condition] | None, question: PlotQuestion) -> tuple[float, float]:
+    """Where places are looked for: the domain, as far out as the question reaches."""
+    far = reach(question)
+    lows = [float(c.value) for c in domain or [] if c.op in {">", ">="}]
+    highs = [float(c.value) for c in domain or [] if c.op in {"<", "<="}]
+    low = max(lows) if lows else -far
+    high = min(highs) if highs else far
+    if not lows and highs:
+        low = min(low, high - far)
+    if lows and not highs:
+        high = max(high, low + far)
+    return low, high
 
 
 def _shift(text: str, question: PlotQuestion) -> Any | None:
     """A family's constant: one the question writes, or a small whole number."""
-    number = value(text)
-    if number is None:
+    constant = number(text)
+    if constant is None:
         return None
-    if any(abs(float(v) - float(number)) < 1e-12 for v in question.values):
-        return number
-    return number if number.is_Integer and abs(number) <= _FAMILY_REACH else None
+    if any(same_number(v, constant) for v in question.values):
+        return constant
+    return constant if constant.is_Integer and abs(constant) <= _FAMILY_REACH else None
 
 
 def _curves(
     curve: Curve, question: PlotQuestion, color: int, scene: Scene, split: bool
 ) -> list[DrawnCurve]:
-    search = (-reach(question), reach(question))
+    search = _search(None, question)
     name = curve.name or f"curve{color}"
     if curve.x and not curve.y and not curve.pieces:
         expr = formula(curve.x, _Y)
@@ -145,16 +194,17 @@ def _curves(
         shape = pieces_shape(curve, question)
         return [] if shape is None else [DrawnCurve(name, "", color, shape, search=search)]
     found = _own_formula(curve.y, question)
-    domain = _domain(curve, question, split)
+    domain = _domain(curve, question, split, found.written if found else None)
     if found is None or domain is False:
         return []
-    expr, letter, quantity, antiderivative = found
-    if isinstance(domain, tuple):
-        search = (float(domain[0]), float(domain[1]))
+    expr, letter, quantity = found.expr, found.letter, found.name
+    search = _search(domain, question)
+    raw = found.written.raw if found.written is not None else None
+    stated = domain is not None
     scene.x_label = letter
     scene.y_label = quantity
     label = f"{quantity} = {formula_text(expr.subs(_X, Symbol(letter)))}"
-    if antiderivative and curve.shifts:
+    if found.antiderivative and curve.shifts:
         constants = [c for text in curve.shifts if (c := _shift(text, question)) is not None]
         return [
             DrawnCurve(
@@ -163,13 +213,13 @@ def _curves(
                 color + i,
                 formula_shape(expr + c, domain),
                 search=search,
-                stated_domain=domain is not None,
+                stated_domain=stated,
             )
             for i, c in enumerate(constants[:_MOST_CURVES])
         ]
     shown = label if len(label) <= _LABEL_CHARS else ""
-    shape = formula_shape(expr, domain)
-    return [DrawnCurve(name, shown, color, shape, search=search, stated_domain=domain is not None)]
+    shape = formula_shape(expr, domain, raw)
+    return [DrawnCurve(name, shown, color, shape, search=search, stated_domain=stated)]
 
 
 def _through(line: Line, question: PlotQuestion, color: int) -> DrawnLine | None:
@@ -177,7 +227,7 @@ def _through(line: Line, question: PlotQuestion, color: int) -> DrawnLine | None
     (5, 4)": its slope and offset worked out exactly."""
     ends: list[tuple[Any, Any]] = [
         (a, b)
-        for a, b in ((value(p), value(q)) for p, q in line.through)
+        for a, b in ((number(p), number(q)) for p, q in line.through)
         if a is not None and b is not None
     ]
     if len(ends) != 2:
@@ -189,18 +239,21 @@ def _through(line: Line, question: PlotQuestion, color: int) -> DrawnLine | None
     (x0, y0), (x1, y1) = ends
     if {(x0, y0), (x1, y1)} - written or (x0, y0) == (x1, y1):
         return None
+    # The server worked the line out: named only as the reply's working writes it.
     if x0 == x1:
-        return DrawnLine(vertical=x0, label=equation_text("x", x0), color=color)
+        label = equation_text("x", x0)
+        return DrawnLine(vertical=x0, label=label, color=color, held=(float(x0),))
     slope = (y1 - y0) / (x1 - x0)
     offset = y0 - slope * x0
-    return DrawnLine(slope, offset, label=line_text(slope, offset), color=color)
+    held = (float(slope), float(offset))
+    return DrawnLine(slope, offset, label=line_text(slope, offset), color=color, held=held)
 
 
 def _line(line: Line, question: PlotQuestion, color: int) -> DrawnLine | None:
     if line.through:
         return _through(line, question, color)
     if line.x and not line.y:
-        at = value(line.x)
+        at = number(line.x)
         # The question's own value, as it writes it (-1/2, never the reply's -0.5).
         own = [
             w.expr
@@ -215,12 +268,19 @@ def _line(line: Line, question: PlotQuestion, color: int) -> DrawnLine | None:
     if expr is None or slope is None or slope.free_symbols:
         return None
     written = any(
-        w.name != "x" and (w.defines or not expr.is_number) and same_value(w.expr, expr)
+        w.name != "x"
+        and (_a_level_line(w, question) or not expr.is_number)
+        and same_value(w.expr, expr)
         for w in question.formulas
     )
-    if not written and not _through_two(expr, question):
+    offset = expr.subs(_X, 0)
+    label = equation_text("y", expr)
+    if written:
+        return DrawnLine(slope, offset, label=label, color=color)
+    if not _through_two(expr, question):
         return None
-    return DrawnLine(slope, expr.subs(_X, 0), label=equation_text("y", expr), color=color)
+    # A line through two stated points the reply worked out: named as its working writes it.
+    return DrawnLine(slope, offset, label=label, color=color, held=(float(slope), float(offset)))
 
 
 def _an_edge(at: Any, question: PlotQuestion) -> bool:
@@ -252,6 +312,21 @@ def _axis_name(text: str, letter: str, question: PlotQuestion) -> str | None:
     return text.strip()
 
 
+def _stated_points_on(line: DrawnLine, question: PlotQuestion) -> list[tuple[float, float]]:
+    """The points the question writes that a line runs through: the picture shows them
+    ("the line through A(1, 2) and B(4, 8)" was drawn on [-2, 2])."""
+    found: list[tuple[float, float]] = []
+    for p, q in question.pairs:
+        x, y = float(p), float(q)
+        if line.vertical is not None:
+            on = abs(float(line.vertical) - x) < 1e-9
+        else:
+            on = abs(float(line.slope) * x + float(line.offset) - y) < 1e-9 * (1 + abs(y))
+        if on:
+            found.append((x, y))
+    return found
+
+
 def add_curves(items: list[Any], question: PlotQuestion, scene: Scene) -> None:
     color = 0
     names = Counter(item.name for item in items if isinstance(item, Curve) and item.name)
@@ -266,6 +341,7 @@ def add_curves(items: list[Any], question: PlotQuestion, scene: Scene) -> None:
             line = _line(item, question, color)
             if line is not None:
                 scene.lines[item.name or f"line{color}"] = line
+                scene.focus += _stated_points_on(line, question)
                 color += 1
     for item in items:
         if isinstance(item, AxisNames):

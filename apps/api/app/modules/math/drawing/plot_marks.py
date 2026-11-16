@@ -14,15 +14,16 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from sympy import Expr, Float, radsimp, sqrt
+from sympy import Expr, Float, oo, radsimp, sqrt
 
 from app.modules.math.drawing.curve_breaks import end_lines
 from app.modules.math.drawing.curve_features import snapped, turning_points
 from app.modules.math.drawing.plot_check import crossings, named_place
 from app.modules.math.drawing.plot_items import Asymptotes, KeyPoints, Nearest, Point, Touching
 from app.modules.math.drawing.plot_labels import equation_text, line_text, number_text, point_text
-from app.modules.math.drawing.plot_pieces import value
+from app.modules.math.drawing.plot_pieces import end_value
 from app.modules.math.drawing.plot_question import PlotQuestion
+from app.modules.math.drawing.plot_reading import number
 from app.modules.math.drawing.plot_scene import DrawnCurve, DrawnLine, DrawnPoint, Place, Scene
 from app.modules.math.drawing.real_curve import RealFunction, X
 from app.modules.math.solve.graph_sampling import side
@@ -39,6 +40,8 @@ def _exact_y(fn: RealFunction, x: Any) -> Any:
 
 def point_of(place: Place, fn: RealFunction | None, color: int, label: bool = True) -> DrawnPoint:
     y = _exact_y(fn, place.x) if fn is not None else place.y
+    if not math.isfinite(float(y)):
+        y = place.y  # the value it settles on at an end it leaves out
     x_shown, y_shown = place.x, y
     text = point_text(x_shown, y_shown) if label else ""
     return DrawnPoint(float(place.x), float(y), text, color=color, held=(float(place.x), float(y)))
@@ -145,10 +148,15 @@ def _ends(curve: DrawnCurve) -> list[Place]:
     if curve.shape is None or not curve.stated_domain:
         return []
     span = curve.shape.spans[0]
-    return [
-        Place(span.low, _exact_y(span.fn, span.low)),
-        Place(span.high, _exact_y(span.fn, span.high)),
-    ]
+    ends = ((span.low, span.low_closed, 1), (span.high, span.high_closed, -1))
+    # An end the curve runs off to infinity at, or has no value at, is no point (ln x at 0).
+    places: list[Place] = []
+    for end, closed, inward in ends:
+        y = end_value(span, end, closed, inward) if end not in (-oo, oo) else None
+        if y is not None:
+            held = closed and math.isfinite(span.fn.at(float(end)))
+            places.append(Place(end, _exact_y(span.fn, end) if held else y))
+    return places
 
 
 def key_points(item: KeyPoints, scene: Scene) -> None:
@@ -182,7 +190,7 @@ def _written_pair(a: Any, b: Any, question: PlotQuestion) -> bool:
 
 def point(item: Point, question: PlotQuestion, scene: Scene) -> None:
     if item.at is not None:
-        a, b = value(item.at[0]), value(item.at[1])
+        a, b = number(item.at[0]), number(item.at[1])
         if a is not None and b is not None and _written_pair(a, b, question):
             scene.add_point(DrawnPoint(float(a), float(b), point_text(a, b), color=2))
         return
@@ -206,7 +214,7 @@ def nearest(item: Nearest, question: PlotQuestion, scene: Scene) -> None:
     labelled: both, when two are equally near."""
     curve = scene.curves.get(item.on)
     fn = curve.single if curve is not None else None
-    a, b = value(item.to[0]), value(item.to[1])
+    a, b = number(item.to[0]), number(item.to[1])
     if curve is None or fn is None or a is None or b is None or not _written_pair(a, b, question):
         return
     distance = RealFunction((X - a) ** 2 + (fn.expr - b) ** 2)

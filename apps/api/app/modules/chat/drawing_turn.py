@@ -46,8 +46,17 @@ _ASKS_TO_SEE = re.compile(
 )
 
 
-# A word that asks for a picture itself: "show" may ask for steps or working.
-_ASKS_TO_DRAW = re.compile(r"\b(?:draw|sketch|graph|plot|illustrate)\b", re.IGNORECASE)
+# An ask to draw: the verb, never "the graph of" naming a curve or "a plot of" a story;
+# "graph" a verb only before what it graphs ("graph y = x²", "graph the function").
+_ASKS_TO_DRAW = re.compile(
+    r"\b(?:draw|sketch|illustrate|plot)\b(?!\s+of\b)"
+    r"|\bgraph\b(?=\s+(?:[a-z]\s?=|[a-z]\(|the\s+(?:function|curve|equation|line|parabola)|it\b|both\b|them\b))",
+    re.IGNORECASE,
+)
+# An ask made not to: "don't draw anything", "no need to sketch".
+_NOT_ASKED = re.compile(
+    r"\b(?:don'?t|do\s+not|no\s+need\s+to|without|never|not)\W+(?:\w+\W+){0,2}$", re.IGNORECASE
+)
 
 
 # The pictures the read may ask for that a description draws: a figure, and a graph (kind
@@ -116,6 +125,16 @@ def _read_in(ctx: StreamContext) -> TurnDecision | None:
     return task.result()
 
 
+def _asks_to_draw(ctx: StreamContext) -> bool:
+    """The message asks, in so many words, for a picture drawn: "sketch it", "graph y = x²";
+    never "the x-intercepts of the graph of y = x² - 4", and never "don't draw anything"."""
+    line = ctx.user_message_content or ""
+    return any(
+        _NOT_ASKED.search(line[: found.start()][-40:]) is None
+        for found in _ASKS_TO_DRAW.finditer(line)
+    )
+
+
 async def write_for_a_picture(ctx: StreamContext, settings: Settings) -> None:
     """A solver's instant reply gives way to the model's when the message asks to see a
     maths picture: the instant reply carries the card alone, and no picture can be
@@ -132,10 +151,7 @@ async def write_for_a_picture(ctx: StreamContext, settings: Settings) -> None:
     if figure.shown(ctx.verified_subject):
         return  # the card already draws the picture ("Graph y = x² and y = 2x")
     read = _read_in(ctx)
-    if read is not None:
-        asks = read_asks_for_a_picture(read)
-    else:
-        asks = _ASKS_TO_DRAW.search(ctx.user_message_content or "") is not None
+    asks = read_asks_for_a_picture(read) if read is not None else _asks_to_draw(ctx)
     if asks:
         ctx.instant_reply = None
         note_prompt_rule("subject.draw_over_instant")

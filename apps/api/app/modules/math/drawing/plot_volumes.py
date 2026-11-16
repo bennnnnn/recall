@@ -17,22 +17,22 @@ from __future__ import annotations
 import math
 from typing import Any, Literal
 
-import numpy as np
-from sympy import Abs, Float, radsimp, sign
+from sympy import Abs, Float, Integral, radsimp, sign, sympify
 
 from app.modules.math.drawing.curve_breaks import has_pole
 from app.modules.math.drawing.plot_check import stated_interval
 from app.modules.math.drawing.plot_items import Average, Slice
 from app.modules.math.drawing.plot_labels import number_text
-from app.modules.math.drawing.plot_pieces import value
 from app.modules.math.drawing.plot_question import PlotQuestion
+from app.modules.math.drawing.plot_reading import number
 from app.modules.math.drawing.plot_scene import DrawnLine, DrawnRegion, Scene
-from app.modules.math.drawing.real_curve import RealFunction, X, closed_integral
+from app.modules.math.drawing.real_curve import RealFunction, X
+from app.modules.math.solve.calculus import definite_integral, quadrature
+from app.services.solving import SolveServiceError
 
 _STRIP = 0.04
 _STRIP_COLOR = 3
 _AVERAGE_COLOR = 2
-_QUADRATURE = 4001
 
 
 def _axis(scene: Scene) -> tuple[str, float] | None:
@@ -83,33 +83,36 @@ def slice_of(item: Slice, scene: Scene) -> None:
 
 
 def _mean(fn: RealFunction, a: Any, b: Any) -> Any | None:
-    """The mean value, exact from SymPy when the formula has no |…| or odd root in it,
-    else to twelve places from the samples (labelled as a decimal)."""
+    """The mean value from the solver's own integral (``solve.calculus.definite_integral``,
+    its closed form held to a quadrature), by SymPy's quick methods; else the quadrature's
+    own value to six places (labelled as a decimal). A formula with |…| or an odd root in it
+    goes to the quadrature at once."""
     if not fn.expr.has(Abs, sign):
-        total = closed_integral(fn.expr, (X, a, b))
-        if total is not None and total.is_finite:
+        try:
+            total = definite_integral(fn.expr, X, a, b, quick=True)
+        except SolveServiceError:
+            return None
+        if not total.has(Integral) and total.is_finite:
             return radsimp(total / (b - a))
-    xs = np.linspace(float(a), float(b), _QUADRATURE)
-    ys = fn.values(xs)
-    if not np.all(np.isfinite(ys)):
+    numeric = quadrature(fn.expr, X, sympify(a), sympify(b))
+    if numeric is None or abs(numeric.imag) > 1e-9:
         return None
-    total = float(np.sum((ys[1:] + ys[:-1]) * np.diff(xs)) / 2)
-    return Float(total / (float(b) - float(a)), 6)
+    return Float(numeric.real / (float(b) - float(a)), 6)
 
 
 def average(item: Average, question: PlotQuestion, scene: Scene) -> None:
     curve = scene.curves.get(item.of)
     fn = curve.whole if curve is not None else None
-    start, end = value(item.start), value(item.end)
+    start, end = number(item.start), number(item.end)
     ends = stated_interval(start, end, question) if start is not None and end is not None else None
-    if fn is None or ends is None or has_pole(fn, float(ends[0]), float(ends[1])):
+    if fn is None or ends is None or has_pole(fn, float(ends.low), float(ends.high)):
         return  # no stated interval, or one across a pole (1/(x - 1) on [0, 3])
-    mean = _mean(fn, ends[0], ends[1])
+    mean = _mean(fn, ends.low, ends.high)
     if mean is None:
         return
     shown = number_text(mean)
     label = f"{scene.y_label[:1] or 'y'} = {shown}" if not mean.is_Float else f"≈ {shown}"
-    line = ((float(ends[0]), float(mean)), (float(ends[1]), float(mean)))
+    line = ((float(ends.low), float(mean)), (float(ends.high), float(mean)))
     scene.marks.append(
         DrawnLine(role="line", ends=line, label=label, color=_AVERAGE_COLOR, held=(float(mean),))
     )

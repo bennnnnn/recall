@@ -197,16 +197,22 @@ def integrate_expression(expr: str, variable: str = "x") -> MathExprResult:
     return MathExprResult(result=str(result), latex=format_verified_latex(result), solved=solved)
 
 
-def definite_integral(integrand: Any, sym: Any, low: Any, high: Any) -> Any:
+def definite_integral(integrand: Any, sym: Any, low: Any, high: Any, *, quick: bool = False) -> Any:
     """``integrate(f, (x, a, b))``, refused when a numeric quadrature contradicts it.
 
     SymPy's route through a definite integral follows the process's string-hash seed: on 1.14
     about one SymPy pool worker in three gives ∫₀¹ (9ˣ - 3ˣ) dx = -76/ln 3, not 2/ln 3. A
     contradicted closed form is rebuilt as F(b) - F(a) and kept only if that agrees.
+    ``quick``: SymPy's quick methods only (the table, substitution, parts), for a picture
+    that does not wait on an integral with no closed form (e^(x²)/(1 + x⁴) took 2.5 s); it
+    then comes back with its ``Integral`` unworked.
     """
     low, high = sympify(low), sympify(high)
-    value = integrate(integrand, (sym, low, high))
-    numeric = _quadrature(integrand, sym, low, high)
+    fast = {"risch": False, "meijerg": False, "heurisch": False} if quick else {}
+    value = integrate(integrand, (sym, low, high), **fast)
+    if quick and value.has(Integral):
+        return value
+    numeric = quadrature(integrand, sym, low, high)
     if numeric is None or _agrees(value, numeric) is not False:
         return value
     antiderivative = integrate(integrand, sym)
@@ -217,7 +223,7 @@ def definite_integral(integrand: Any, sym: Any, low: Any, high: Any) -> Any:
     raise SolveServiceError("the integral's closed form disagrees with a numeric check")
 
 
-def _quadrature(integrand: Any, sym: Any, low: Any, high: Any) -> complex | None:
+def quadrature(integrand: Any, sym: Any, low: Any, high: Any) -> complex | None:
     """mpmath's tanh-sinh value of the integral; None when it cannot judge.
 
     That is another symbol in the integrand or bounds, a point it cannot evaluate, or an error

@@ -70,7 +70,9 @@ def _lines_as_curves(scene: Scene) -> None:
     for name, line in list(scene.lines.items()):
         if line.vertical is None and len(scene.curves) < _MOST_LINE_CURVES:
             expr = line.slope * X + line.offset
-            scene.curves[name] = DrawnCurve(name, line.label, line.color, formula_shape(expr, None))
+            shape = formula_shape(expr, None)
+            curve = DrawnCurve(name, line.label, line.color, shape, held=line.held)
+            scene.curves[name] = curve
             del scene.lines[name]
 
 

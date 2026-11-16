@@ -27,6 +27,8 @@ export function plotDrawing(graph: PlotGraph, palette: readonly string[]): PlotD
     segments: curve.segments,
     invalid: false,
     cmp: "=" as const,
+    // The server's points are its own marks: no dots on a short curve's samples.
+    marked: false,
   }));
   const points: GraphPoints = { holes: [], marks: [] };
   for (const p of graph.points) {
@@ -35,9 +37,8 @@ export function plotDrawing(graph: PlotGraph, palette: readonly string[]): PlotD
   }
   const legend: PlotDrawing["legend"] = [
     ...graph.curves.filter((c) => c.label).map((c) => ({ label: c.label, color: c.color, role: "curve" as const })),
-    ...graph.lines
-      .filter((l) => l.label && l.role !== "segment")
-      .map((l) => ({ label: l.label, color: l.color, role: l.role })),
+    // A segment's label is its length (the nearest point's distance): kept with the rest.
+    ...graph.lines.filter((l) => l.label).map((l) => ({ label: l.label, color: l.color, role: l.role })),
   ];
   return { drawn, points, layers: { lines: graph.lines, regions: graph.regions }, legend };
 }

@@ -6,6 +6,7 @@
  * (`components/rich/plotDrawing`), in Skia or SVG alike, working nothing out. A part that is malformed is left out, never the graph.
  */
 import { parseJsonRecord } from "@/lib/fence/json";
+import { equalScaleGraphBounds } from "@/lib/math/graphBlock";
 import { type GraphSpec } from "@/lib/math/graphSpec";
 
 type Pair = [number, number];
@@ -29,6 +30,8 @@ export type PlotGraph = {
 };
 
 const MAX_CURVES = 5;
+// One scale on both axes grows the window at most this many times over, or not at all.
+const MOST_STRETCH = 8;
 const MAX_SEGMENTS = 24;
 const MAX_SAMPLES = 800;
 const MAX_LINES = 16;
@@ -120,18 +123,16 @@ export function parsePlotGraph(raw: string): PlotGraph | null {
 type PlotBounds = { xMin: number; xMax: number; yMin: number; yMax: number };
 
 /** The server's window, grown on one axis to one scale when the plot asks for it. */
+/** The card's window: the server's, grown to one scale on both axes when it asks for that
+ * (a normal looks perpendicular, a distance true) by the function graph's own rule
+ * (`equalScaleGraphBounds`), unless that would squash it past `MOST_STRETCH`. */
 export function plotBounds(graph: PlotGraph, width: number, height: number, pad: number): PlotBounds {
   const bounds = { xMin: graph.xMin, xMax: graph.xMax, yMin: graph.yMin, yMax: graph.yMax };
   const aspect = (width - pad * 2) / Math.max(1, height - pad * 2);
   if (!graph.equal || !(aspect > 0)) return bounds;
-  const wide = bounds.xMax - bounds.xMin;
-  const tall = bounds.yMax - bounds.yMin;
-  if (wide / tall > aspect) {
-    const grow = (wide / aspect - tall) / 2;
-    return { ...bounds, yMin: bounds.yMin - grow, yMax: bounds.yMax + grow };
-  }
-  const grow = (tall * aspect - wide) / 2;
-  return { ...bounds, xMin: bounds.xMin - grow, xMax: bounds.xMax + grow };
+  const stretch = (bounds.xMax - bounds.xMin) / (bounds.yMax - bounds.yMin) / aspect;
+  if (!(stretch >= 1 / MOST_STRETCH && stretch <= MOST_STRETCH)) return bounds;
+  return equalScaleGraphBounds(bounds, aspect);
 }
 
 /** What a function graph does not draw, a plot adds as layers: lines and regions. */

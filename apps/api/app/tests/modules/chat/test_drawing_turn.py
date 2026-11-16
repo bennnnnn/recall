@@ -417,3 +417,28 @@ async def test_one_picture_of_each_kind(read_fence: str, both: bool) -> None:
     out = await figure_turn.attach_figure(state)
     assert out.count("```geometry") == 1
     assert ("```graph" in out) == both
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        # "The graph of y = …" names a curve; it asks for no picture (2026-11-15 review).
+        "Find the x-intercepts of the graph of y = x^2 - 4.",
+        "Find the gradient of the graph of y = x^3 at x = 2.",
+        "What is the vertex of the parabola? Don't draw anything, just give the coordinates: "
+        "y = x^2 - 4x + 1",
+    ],
+)
+async def test_an_instant_card_stays_unless_asked_to_draw(line: str) -> None:
+    from app.services.solving import VerifiedMathBlock
+
+    pending: asyncio.Future[TurnDecision | None] = asyncio.get_event_loop().create_future()
+    ctx = _ctx(
+        line,
+        instant_reply="x = ±2",
+        verified_subject=VerifiedMathBlock(text="2"),
+        live_read=pending,
+    )
+    await drawing_turn.write_for_a_picture(ctx, _settings())
+    pending.cancel()
+    assert ctx.instant_reply is not None

@@ -280,3 +280,33 @@ async def test_a_read_still_running_at_finalize_waits_for_no_picture(figure: _Fi
     assert await figure_turn.attach_figure(_state(ctx, "Done.")) == "Done."
     assert asyncio.get_running_loop().time() - started < 0.5
     read.cancel()
+
+
+async def test_a_described_plot_keeps_the_figure_read_s_lettered_points(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ "Plot A(1, 2) and B(4, 8) and the line through them": the reply's checked plot draws
+    the line, and the figure read's points graph keeps its letters beside it (2026-11-15
+    review). A function graph of the figure read's still gives way to the plot."""
+    import json
+
+    from app.modules.chat.drawing_turn import ReplyDrawing
+    from app.modules.math.drawing.build import drawn_fence
+    from app.modules.math.figure.build import build_figure_fence
+
+    line = "Plot A(1, 2) and B(4, 8) and the line through them."
+    request = {
+        "kind": "points",
+        "points": [{"name": "A", "x": 1, "y": 2}, {"name": "B", "x": 4, "y": 8}],
+    }
+    points = build_figure_fence(json.dumps(request), [line])
+    through = {"item": "line", "name": "L", "through": [["1", "2"], ["4", "8"]]}
+    plot = drawn_fence(json.dumps({"kind": "plot", "items": [through]}), [line], "")
+    assert points is not None and plot is not None and "A(1, 2)" in points
+    stand_in = _Figure(points)
+    monkeypatch.setattr(figure_turn, "_figure", lambda: stand_in)
+    ctx = _ctx(line, live_read=_read(subject="maths", picture="graph"))
+    ctx.drawing = ReplyDrawing("read", fences=[plot])
+    ctx.figure = figure_turn.start_figure(_settings(), ctx)
+    text = await figure_turn.attach_figure(_state(ctx, f"The slope is 2.\n\n{plot}\n"))
+    assert plot in text and points in text

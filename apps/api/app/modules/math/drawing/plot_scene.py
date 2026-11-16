@@ -19,6 +19,7 @@ from app.modules.math.drawing.curve_features import (
     GRID,
     bends,
     bisect,
+    continuous_at,
     exact_xs,
     snapped,
     turning_points,
@@ -73,6 +74,9 @@ class DrawnCurve:
     sideways: RealFunction | None = None
     search: tuple[float, float] = (-10.0, 10.0)
     stated_domain: bool = False
+    # A line the server worked out drawn as a curve (a triangle's side through two stated
+    # points): its slope and offset, its label shown only when the reply writes that line.
+    held: tuple[float, ...] = ()
 
     @property
     def single(self) -> RealFunction | None:
@@ -127,7 +131,35 @@ class DrawnCurve:
 
     @cached_property
     def turns(self) -> list[Place]:
-        return self._places(lambda s, a, b: turning_points(s.fn.values, a, b), 1)
+        return [
+            *self._places(lambda s, a, b: turning_points(s.fn.values, a, b), 1),
+            *self._corners(),
+        ]
+
+    def _corners(self) -> list[Place]:
+        """Where two pieces meet with no gap and the curve turns there: the peak at (2, 3) of
+        x + 1 then 5 - x, which no piece holds inside it."""
+        whole = self.whole
+        if self.shape is None or whole is None or len(self.shape.spans) < 2:
+            return []
+        found: list[Place] = []
+        for span in self.shape.spans:
+            if (
+                span.high in (-oo, oo)
+                or self.search[0] >= float(span.high)
+                or float(span.high) >= self.search[1]
+            ):
+                continue
+            x = float(span.high)
+            here, step = whole.at(x), 1e-4 * max(1.0, abs(x))
+            left, right = whole.at(x - step), whole.at(x + step)
+            if not (math.isfinite(here) and math.isfinite(left) and math.isfinite(right)):
+                continue
+            if not continuous_at(whole, x):
+                continue
+            if (here > left and here > right) or (here < left and here < right):
+                found.append(Place(span.high, here))
+        return found
 
     @cached_property
     def inflections(self) -> list[Place]:
