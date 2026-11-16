@@ -35,7 +35,6 @@ from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.chat.turn_trace import (
     begin_turn_trace,
-    current_turn_trace,
     emit_turn_trace,
     note_lightweight,
     note_pass,
@@ -182,7 +181,8 @@ def test_a_tool_with_an_odd_name_is_counted_as_unknown() -> None:
 def test_notes_outside_a_turn_go_nowhere() -> None:
     note_route("auto.math")
     note_tool("web_search")
-    assert current_turn_trace() is None
+    # A turn begun afterwards starts with none of them.
+    assert dict(begin_turn_trace("new").tools) == {}
 
 
 def test_the_line_is_logged_once_and_later_notes_are_dropped(

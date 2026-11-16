@@ -44,18 +44,21 @@ final number (1%, any unit of the same kind), not a verified one.
 - **formal**: today's solver when it answers; else the server's answer to the model's
   setup when it agrees with the model's own; else the reply model alone.
 
+Corrected grading (a unit in the question's own script, "35 м/с", is read by its number),
+second run:
+
 | Set | Questions | App's solver reads | Today, Free (Qwen 3.7 Flash) | Formal, Free | Today, paid (smart-chat) | Formal, paid |
 |---|---|---|---|---|---|---|
 | English holdout | 89 | 89 | 89 (100%) | 89 (100%) | 89 (100%) | 89 (100%) |
-| English reworded | 45 | 35 | 45 (100%) | 45 (100%) | 45 (100%) | 45 (100%) |
-| Spanish | 30 | 0 | 26 (87%) | 30 (100%) | 30 (100%) | 30 (100%) |
-| French | 30 | 0 | 25 (83%) | 30 (100%) | 30 (100%) | 30 (100%) |
-| Amharic | 30 | 0 | 26 (87%) | 29 (97%) | 29 (97%) | 29 (97%) |
-| Russian | 30 | 0 | 24 (80%) | 29 (97%) | 20 (67%) | 30 (100%) |
-| **Translated, all** | **120** | **0** | **101 (84%)** | **118 (98%)** | **109 (91%)** | **119 (99%)** |
+| English reworded | 45 | 35 | 44 (98%) | 45 (100%) | 45 (100%) | 45 (100%) |
+| Spanish | 30 | 0 | 27 (90%) | 30 (100%) | 30 (100%) | 30 (100%) |
+| French | 30 | 0 | 26 (87%) | 29 (97%) | 30 (100%) | 30 (100%) |
+| Amharic | 30 | 0 | 24 (80%) | 28 (93%) | 29 (97%) | 29 (97%) |
+| Russian | 30 | 0 | 26 (87%) | 30 (100%) | 30 (100%) | 30 (100%) |
+| **Translated, all** | **120** | **0** | **103 (86%)** | **117 (98%)** | **119 (99%)** | **119 (99%)** |
 
-The setup was written by smart-chat; with GPT-6 Luna writing it, the translated sets reach
-114 (95%) for Free and 116 (97%) for paid.
+The setup was written by smart-chat. The first run (before the grading fix) gave the same
+picture for Free: 101 (84%) today and 118 (98%) with the server's answer.
 
 - **Safety:** across both setup writers and every set, 430 setups agreed with the model's
   own answer, and none of them was wrong.
@@ -71,18 +74,61 @@ target), a symbol no equation gives the kind of, `no real solution`, units of an
 constant outside the table (`n_air`, a spring's `k` taken for Coulomb's), a quote the
 question does not hold, a unit pint does not read.
 
-## What it would take to use it
+## Disagreements: who was right (owner's condition, 2026-11-16)
 
-- **Where:** a STEM turn the app's solver did not answer, which today goes to the model
-  alone. That covers every non-English question.
-- **How, without slowing the reply:** the setup is read beside the reply, as the figure
-  read is. At finalize, the server's answer is compared with the reply's final number. On
-  a disagreement where the setup's own answer agrees with the server, the reply gets the
-  corrected answer card, the way a solved physics answer already corrects a model's
-  other value (`physics/fence.py`, `correction_line`).
-- **Cost:** one structured call (about 1.5–3 s, beside the reply) on those turns.
-- **Next subjects:** maths needs no units and reuses the engine as is; chemistry needs
-  formulas and molar masses as givens (the engine reads them from the chemistry tables).
+On the turns the app's solver did not answer (English rewordings and the four translations),
+the server's answer (setup by smart-chat, its own answer agreeing) against the reply model's,
+over two runs:
+
+| Reply model | Same answer | Rounding only (both right) | Differ | Server right | Reply right |
+|---|---|---|---|---|---|
+| Qwen 3.7 Flash (Free) | 198 | 5 | 36 | **36** | 0 |
+| smart-chat (paid) | 235 | 4 | 0 | – | – |
+
+The 36 are the model's own slips: a projectile's range (28.6, 31.7, 32.4 or 54.7 m for
+31.04 m), a time of flight (2.56 s for 2.638 s), a braking time (4.5 s for 4 s), a tension
+(6,900 N for 6,786 N), a slide of 229.5 m for 22.94 m. A reply in Cyrillic units ("35 м/с")
+is the same answer: the first run's grading counted 14 such replies as different, and they
+are counted as the same here.
+
+So the server is right in every disagreement, and finalize overwrites (below).
+
+## In the app (physics, `formal_reader_enabled`, on)
+
+- **When:** a physics turn (the turn's read says physics) that no solver answered and the
+  server did not write itself (`ctx.verified_subject` and `ctx.instant_reply` both None).
+  A turn a solver answered never asks.
+- **Beside the reply:** the setup read (`physics_setup` lane, smart-chat) and the solve
+  start with the reply (`chat/formal_turn.py`); the reply streams as before.
+- **At finalize** (`formal_answer` pass), waiting at most `formal_wait_seconds` (2 s), and
+  only for an answer whose setup's own answer agreed with the server's:
+  - the reply's final value is the server's, or a rounding of it: the reply stands;
+  - another value: its Answer becomes the server's card;
+  - a value the readers cannot find (an Answer heading in another language): the server's
+    card under the reply, both shown.
+
+  Either way a line in the reply's language (9 app languages) says where the value comes
+  from ("Worked out from the values in the question: 31.07 m."), and the card is marked
+  `verified: false`: the server did the arithmetic, the reading is the model's.
+- **Wait and cost** (130 turns, smart-chat): median 0.99 s, p90 1.5 s, max 3.6 s for the
+  setup read; $0.18 per 1,000 turns. It runs beside a streamed reply that usually takes
+  longer, so finalize rarely waits; the wait it does take is logged (`formal answer: reply
+  …, waited … s`).
+- **The adapter:** `SubjectAdapter.formal` (`SubjectFormal`, guarded), so chat reaches it
+  through the registry; maths and chemistry answer None until they have a reader.
+
+## One model reader
+
+This replaces the MODEL_READER experiment (`docs/MODEL_READER.md`): a model read into one
+of the catalog's laws, run only in shadow. Its code is removed (`modules/model_reader/`,
+`physics/model_read.py`, `chemistry/model_read.py`, the chat shadow and its trace fields and
+settings, `law_binding/model_read.py` but for `excluded`, now in `law_binding/words.py`).
+
+What stays:
+- the catalog readers, the fast path: a question they read is solved with no model call,
+  and the formal reader is never asked. They get no new wording rules;
+- maths' own typed read (`math/tools/llm_extract.py`), the next to go, when maths has a
+  formal reader (after the graph-drawing work merges).
 
 ## Not doing
 

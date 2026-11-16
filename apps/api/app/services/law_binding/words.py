@@ -245,3 +245,10 @@ def implied_value(variable: VariableSpec, lower: str) -> float | None:
         if word_pattern(phrase).search(lower):
             return value
     return None
+
+
+def excluded(binding: Binding | None, lower: str) -> bool:
+    """A word the law's binding excludes is in the message: the binder refuses the law."""
+    return binding is not None and any(
+        word_pattern(word).search(lower) for word in binding.excludes
+    )

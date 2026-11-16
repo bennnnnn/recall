@@ -23,7 +23,7 @@ import re
 import time
 from asyncio import CancelledError
 from collections import Counter
-from collections.abc import AsyncIterator, Callable, Iterable, Mapping
+from collections.abc import AsyncIterator, Callable, Iterable
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, cast
@@ -64,10 +64,6 @@ class TurnTrace:
     tools: Counter[str] = field(default_factory=Counter)
     passes_changed: list[tuple[str, int]] = field(default_factory=list)
     passes_failed: list[str] = field(default_factory=list)
-    # The model reader's shadow read (``turn_prep.model_read_shadow``): its task, and the
-    # ``model_reader.schemas.ModelRead`` it set when it finished.
-    model_read_task: Any = None
-    model_read: Any = None
     # Who decided the lane and the thinking, and what the turn's read said
     # (``chat.decided_turn``): "read" or "rules", then subject, effort, picture, follow.
     decision: dict[str, str | None] | None = None
@@ -108,10 +104,6 @@ def begin_turn_trace(kind: str) -> TurnTrace:
     trace = TurnTrace(kind=kind)
     _TRACE.set(trace)
     return trace
-
-
-def current_turn_trace() -> TurnTrace | None:
-    return _TRACE.get()
 
 
 @_quietly
@@ -213,48 +205,6 @@ def _money(ctx: StreamContext) -> dict[str, Any] | None:
     return {"product": _token(product), "worked": money.worked is not None}
 
 
-def _model_read(trace: TurnTrace, solver: Mapping[str, Any] | None) -> dict[str, Any] | None:
-    """How the model reader's shadow read compares with the patterns' verified read;
-    ``pending`` while it is still reading (its own line follows, ``_log_late_read``), and
-    ``skipped`` when it ended without a read (the spend cap, a timeout, an error)."""
-    if trace.model_read_task is None:
-        return None
-    if trace.model_read is None:
-        return {"verdict": "skipped" if trace.model_read_task.done() else "pending"}
-    return _shadow_fields(trace.model_read, solver)
-
-
-def _shadow_fields(read: Any, solver: Mapping[str, Any] | None) -> dict[str, Any]:
-    from app.modules.model_reader.schemas import verdict
-
-    regex_subject = solver.get("verified") if solver else None
-    regex_op = solver.get("op") if solver else None
-    return {
-        "verdict": verdict(regex_subject, regex_op, read),
-        "subject": _token(read.subject),
-        "op": _token(read.op),
-        "reason": _token(read.reason),
-        "ms": read.ms,
-        "tokens": read.input_tokens + read.output_tokens,
-    }
-
-
-def _log_late_read(trace: TurnTrace, solver: Mapping[str, Any] | None, task: Any) -> None:
-    """A shadow read that finished after the turn's line logs its own, with the same ids
-    (the callback runs in the turn's context). It is bounded by its calls' own timeouts."""
-    if task.cancelled() or task.exception() is not None or trace.model_read is None:
-        return
-    try:
-        fields = _shadow_fields(trace.model_read, solver)
-        logger.info(
-            "turn_model_read %s",
-            json.dumps(fields, separators=(",", ":"), sort_keys=True),
-            extra={"turn_model_read": fields},
-        )
-    except Exception as exc:
-        logger.info("turn model read line failed (%s)", type(exc).__name__)
-
-
 def _completion(outcome: TurnOutcome | None, failure: BaseException | None) -> str:
     """``complete``, ``user_stop``, ``interrupted`` (``stream_accum``), ``cancelled`` or
     ``error``."""
@@ -318,9 +268,6 @@ def turn_record(
             record.update(ctx.timing.milestones())
     if trace.decision is not None:
         record["decision"] = dict(trace.decision)
-    shadow = _model_read(trace, record.get("solver"))
-    if shadow is not None:
-        record["model_read"] = shadow
     return record
 
 
@@ -377,6 +324,3 @@ def emit_turn_trace(
         logger.warning("turn trace could not be built", exc_info=True)
         return
     logger.info("turn_trace %s", line, extra={"turn_trace": record})
-    task = trace.model_read_task
-    if task is not None and not task.done():
-        task.add_done_callback(functools.partial(_log_late_read, trace, record.get("solver")))

@@ -1,5 +1,13 @@
 # Model reader: a model reads the question, the server checks and solves
 
+> **Replaced (2026-11-16) by the formal reader, [FORMAL_READER.md](./FORMAL_READER.md).** This
+> experiment read a question into one of the catalog's laws; it ran only in shadow and never
+> reached a reply. The formal reader has the model write the question down as maths (no
+> catalog law, no phrase), the server solving it, and is what physics uses. The code here
+> (`modules/model_reader/`, the subjects' `model_read.py` menus, the chat shadow) was
+> removed so the app keeps one model reader. Maths' own typed read (`math/tools/llm_extract.py`)
+> stays until maths has a formal reader. The measurements below are kept as history.
+
 The external structure review (2026-10-31, finding 1) found that understanding a student's
 question is thousands of hand-written English patterns, that each new phrasing is new code,
 and that 8 of the app's 9 languages get almost nothing. This document is the plan to test
