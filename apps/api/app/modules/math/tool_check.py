@@ -9,7 +9,7 @@ settings (bounds, the limit point, a radius) appear in the user's text.
 
 The model's other reading, the structured extraction a turn falls back to when no regex
 reader matched (``tools/llm_extract.py``), is held to the same test
-(``intent_in_user_text``): "The polynomial f(x) = A(x - 1)^2 + B(x + 2)^2 is divided by
+(``intent_check.intent_in_user_text``): "The polynomial f(x) = A(x - 1)^2 + B(x + 2)^2 is divided by
 x + 1 and x - 2 …" was read as 9B = 3 and A + 16B = -15, and SymPy's checked card said
 A = -61/3, B = 1/3 for A = 1, B = -1 (2026-11-01).
 
@@ -26,7 +26,9 @@ from collections.abc import Iterable
 from typing import Any
 
 from app.modules.math.figure.shape_names import names_shape
+from app.modules.math.match.derivative_order import derivative_orders
 from app.services.glyphs import OPERATOR_GLYPHS
+from app.services.script_runs import fold_superscript_runs
 
 logger = logging.getLogger(__name__)
 
@@ -34,11 +36,9 @@ _MAX_CANDIDATES = 24
 _MAX_VALUE_RUNS = 400
 _MAX_TEXT = 2000
 
-# The operators are the shared table (services/glyphs.py); the rest are this check's.
+# The operators are the shared table (services/glyphs.py) and raised powers the shared
+# reading (services/script_runs.py); the rest are this check's.
 _UNICODE = {
-    "²": "^2",
-    "³": "^3",
-    "⁴": "^4",
     **OPERATOR_GLYPHS,
     "π": "pi",
     "√": "sqrt",
@@ -82,11 +82,13 @@ _SIGNED = re.compile(r"(?<![A-Za-z0-9).])((?:-|minus\s+|negative\s+)?)\s*(\d+(?:
 _SIGNED_INFINITY = re.compile(
     r"(?<![\w).])((?:-|minus\s+|negative\s+)?)\s*(?:∞|\\infty|infinity|oo|inf)(?![a-z])"
 )
-_ORDER_WORDS = {2: ("second", "2nd", "d^2", "d²", "''"), 3: ("third", "3rd", "d^3", "'''")}
+# A function the message defines: "f(x) = x^2 - x + 3".
+_DEFINED_FUNCTION = re.compile(r"(?<![A-Za-z])([a-zA-Z])\s*\(\s*[a-zA-Z]\s*\)\s*=")
+_FORMULA_ARGS = ("expr", "expr2", "lhs", "rhs")
 
 
 def _normalize(text: str) -> str:
-    out = text[:_MAX_TEXT]
+    out = fold_superscript_runs(text[:_MAX_TEXT])
     for raw, plain in _UNICODE.items():
         out = out.replace(raw, plain)
     return out.replace("$", " ").replace("\\cdot", "*").replace("\\times", "*")
@@ -213,6 +215,7 @@ class _UserMath:
                 self.equations.append(lhs - rhs)
                 self.expressions.extend([lhs, rhs])
         normalized = _normalize(text)
+        self.functions = set(_DEFINED_FUNCTION.findall(normalized))
         self.numbers = {float(match) for match in re.findall(r"\d+(?:\.\d+)?", normalized)}
         # A number with its sign as written: "-1" or "minus 1" is no 1, and "1" no -1.
         signed = [(bool(m.group(1)), float(m.group(2))) for m in _SIGNED.finditer(normalized)]
@@ -322,8 +325,19 @@ def _graph_arg(args: dict[str, Any], key: str, user: _UserMath) -> bool:
     return bool(parsed.free_symbols) or _same_expression(parsed, user.levels)
 
 
+def _applies_a_function(args: dict[str, Any], user: _UserMath) -> bool:
+    """A formula of the call applies a function the user defines, which SymPy reads as a
+    product: lim (f(3 + h) - f(3))/h was a checked "f" for f(x) = x^2 - x + 3 (2026-11-14)."""
+    sides = [args.get(key) for key in _FORMULA_ARGS]
+    sides += [side for pair in args.get("equations") or [] for side in pair]
+    parsed = [_parse(str(side)) for side in sides if side]
+    return any({str(s) for s in p.free_symbols} & user.functions for p in parsed if p is not None)
+
+
 def _matches(args: dict[str, Any], user: _UserMath) -> bool:
     action = str(args.get("action") or "solve").strip().lower()
+    if user.functions and _applies_a_function(args, user):
+        return False
     if action == "solve":
         lhs, rhs = _parse(str(args.get("lhs") or "")), _parse(str(args.get("rhs") or "0"))
         return lhs is not None and rhs is not None and _same_equation(lhs - rhs, user)
@@ -348,8 +362,10 @@ def _matches(args: dict[str, Any], user: _UserMath) -> bool:
         if not _expression_arg(args, "expr", user):
             return False
         if action == "diff":
+            # An order the user named, the first when none: a first derivative for "the 2nd
+            # derivative" answers another question, and "the nth" is no order at all.
             order = int(args.get("order") or 1)
-            return order == 1 or any(word in user.lower for word in _ORDER_WORDS.get(order, ()))
+            return order in (derivative_orders(fold_superscript_runs(user.text)) or (1,))
         settings = {
             "integrate": ("lower", "upper"),
             "limit": ("point",),
@@ -371,39 +387,6 @@ def _matches(args: dict[str, Any], user: _UserMath) -> bool:
     text = str(args.get("text") or args.get("expr") or "")
     compact = re.sub(r"\s+", "", text.lower())
     return bool(compact) and compact in re.sub(r"\s+", "", user.lower)
-
-
-_CALCULUS_ACTIONS = {"differentiate": "diff"}
-# The kinds whose maths this check compares with what the user wrote.
-READ_KINDS = frozenset(
-    {"equation", "system", "inequality", "calculus", "limit", "graph", "complex"}
-)
-
-
-def intent_in_user_text(intent: Any, text: str) -> bool:
-    """Whether a model-extracted ``MathIntent`` is mathematics the user wrote: its equation,
-    system, inequality or expression, compared with SymPy, and its bounds or limit point
-    written in ``text``. A reading the model derived (equations from a story, "x squared"
-    for x²) is not the user's text, and SymPy's answer to it is no checked answer."""
-    args: dict[str, Any]
-    if intent.kind == "equation":
-        args = {"action": "solve", "lhs": intent.lhs, "rhs": intent.rhs}
-    elif intent.kind == "system":
-        args = {"action": "system", "equations": intent.system_equations or []}
-    elif intent.kind == "inequality":
-        args = {"action": "inequality", "lhs": intent.lhs, "rhs": intent.rhs}
-        args["comparator"] = intent.comparator
-    elif intent.kind == "calculus":
-        action = _CALCULUS_ACTIONS.get(intent.operation, intent.operation)
-        args = {"action": action, "expr": intent.expr}
-        args |= {"lower": intent.integral_lower, "upper": intent.integral_upper}
-    elif intent.kind == "limit":
-        args = {"action": "limit", "expr": intent.expr, "point": intent.limit_point}
-    elif intent.kind in {"graph", "complex"}:
-        args = {"action": "graph" if intent.kind == "graph" else "simplify", "expr": intent.expr}
-    else:
-        return False
-    return tool_call_matches_user_text(args, [text])
 
 
 def holds_no_formula(text: str) -> bool:

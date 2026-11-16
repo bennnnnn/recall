@@ -1,13 +1,14 @@
 """Unicode maths glyphs from OCR and homework as ASCII: operators, vulgar fractions,
-superscript and subscript digits, and root signs."""
+superscripts and subscripts, and root signs."""
 
 from __future__ import annotations
 
-from app.services.glyphs import (
-    OPERATOR_GLYPHS,
-    SUBSCRIPT_DIGIT_GLYPHS,
-    SUBSCRIPT_DIGITS,
-    SUPERSCRIPT_DIGIT_GLYPHS,
+from app.services.glyphs import OPERATOR_GLYPHS, SUPERSCRIPT_GLYPHS
+from app.services.script_runs import (
+    fold_subscript_runs,
+    fold_superscript_runs,
+    root_index_at,
+    unclear_root_index,
 )
 
 # OCR / homework unicode operators → ASCII before the allowlist runs.
@@ -39,55 +40,38 @@ _UNICODE_VULGAR: tuple[tuple[str, str], ...] = (
     ("\u215e", "(7)/(8)"),
 )
 
-# An exponent's digits, with its sign and the letters a book writes up there: 10⁻⁹, eˣ, 2ⁿ.
-_SUP_GLYPHS = SUPERSCRIPT_DIGIT_GLYPHS + "\u207b\u207a\u02e3\u02b8\u207f"
-_SUB_GLYPHS = SUBSCRIPT_DIGIT_GLYPHS
-_SUP_TABLE = str.maketrans(_SUP_GLYPHS, "0123456789-+xyn")
-_SUB_TABLE = SUBSCRIPT_DIGITS
-
 
 def rewrite_unicode_script_runs(s: str) -> str:
-    out: list[str] = []
-    i = 0
-    n = len(s)
-    while i < n:
-        ch = s[i]
-        if ch in _SUP_GLYPHS:
-            j = i + 1
-            while j < n and s[j] in _SUP_GLYPHS:
-                j += 1
-            digits = s[i:j].translate(_SUP_TABLE)
-            out.append(f"**{digits}" if len(digits) == 1 else f"**({digits})")
-            i = j
-            continue
-        if ch in _SUB_GLYPHS:
-            j = i + 1
-            while j < n and s[j] in _SUB_GLYPHS:
-                j += 1
-            digits = s[i:j].translate(_SUB_TABLE)
-            out.append(f"_{digits}")
-            i = j
-            continue
-        out.append(ch)
-        i += 1
-    return "".join(out)
+    """``x²`` → ``x**2``, ``eˣ`` → ``e**x``, ``e⁻ˣ`` → ``e**(-x)``, ``x₁`` → ``x_1``: the
+    one reading every reader shares (``services/script_runs.py``)."""
+    return fold_subscript_runs(fold_superscript_runs(s, mark="**", group_numbers=True))
 
 
 _UNICODE_HIGHER_ROOTS = {"\u221b": "3", "\u221c": "4"}  # cube and fourth root signs
 
 
+def _higher_root_at(s: str, i: int) -> tuple[str, int] | None:
+    """The index of a root sign at ``i`` and where the sign ends: ``∛``, ``∜``, or an index
+    raised before ``√`` (``⁵√32``, the shared reading's ``root_index_at``)."""
+    index = _UNICODE_HIGHER_ROOTS.get(s[i])
+    if index is not None:
+        return index, i + 1
+    return root_index_at(s, i)
+
+
 def _rewrite_unicode_higher_roots(s: str) -> str:
-    """``∛(x)`` / ``∛8`` → ``((x))**(1/3)``; a sign with nothing after it is left alone."""
+    """``∛(x)`` / ``∛8`` / ``⁵√32`` → ``((x))**(1/3)``; a sign with nothing after it is left
+    alone."""
     out: list[str] = []
     i = 0
     n = len(s)
     while i < n:
-        index = _UNICODE_HIGHER_ROOTS.get(s[i])
-        if index is None:
+        root = _higher_root_at(s, i)
+        if root is None:
             out.append(s[i])
             i += 1
             continue
-        j = i + 1
+        index, j = root
         while j < n and s[j] in " \t":
             j += 1
         if j < n and s[j] == "(":
@@ -115,6 +99,17 @@ def _rewrite_unicode_higher_roots(s: str) -> str:
     return "".join(out)
 
 
+def _after_unclear_index(s: str, root_at: int) -> bool:
+    """Raised digits glued to what they could raise stand before the root sign at
+    ``root_at``: ``2³√27`` is 2∛27 or 2³·√27 (``services/script_runs.py``)."""
+    start = root_at
+    while (
+        start and s[start - 1] in SUPERSCRIPT_GLYPHS and SUPERSCRIPT_GLYPHS[s[start - 1]].isdigit()
+    ):
+        start -= 1
+    return start < root_at and unclear_root_index(s, start)
+
+
 def rewrite_unicode_sqrts(s: str) -> str:
     """``√9`` / ``√x`` / ``√(x+1)`` → ``sqrt(...)``. Linear scan, leftover ``√`` → ``sqrt``."""
     out: list[str] = []
@@ -124,6 +119,10 @@ def rewrite_unicode_sqrts(s: str) -> str:
     while i < n:
         if s[i] != root:
             out.append(s[i])
+            i += 1
+            continue
+        if _after_unclear_index(s, i):
+            out.append(root)  # left for the parser to refuse: index or power, nothing says
             i += 1
             continue
         i += 1

@@ -102,8 +102,12 @@ def _differentiation_steps(parsed: Any, sym: Any, result_latex: str) -> list[str
     return steps
 
 
+# The highest derivative worked as a trace, its steps named by ordinal.
+MAX_DERIVATIVE_ORDER = 4
+
+
 def differentiate_expression(expr: str, variable: str = "x", order: int = 1) -> MathExprResult:
-    if order < 1 or order > 4:
+    if order < 1 or order > MAX_DERIVATIVE_ORDER:
         raise SolveServiceError("unsupported derivative order")
     sym = Symbol(variable)
     parsed = parse_expression(expr, [variable])
@@ -140,6 +144,11 @@ def differentiate_at_point(expr: str, variable: str, point: str) -> MathExprResu
     sym = Symbol(variable, real=True)
     parsed = parse_expression(expr, [variable], real=True)
     at = parse_expression(point, [variable], real=True)
+    if diff(parsed, sym).subs(sym, at).free_symbols:
+        # A value still in another letter leaves the limits' finiteness unknown: "the
+        # derivative of k x^2 at x = 1" was a checked "undefined" for 2k (2026-11-14). One
+        # the letter drops out of is worked as before: x² + k at x = 2 is 4.
+        raise SolveServiceError("the derivative's value there is in another letter")
     quotient = simplify((parsed - parsed.subs(sym, at)) / (sym - at))
     try:
         left = limit(quotient, sym, at, dir="-")
@@ -168,7 +177,7 @@ def differentiate_at_point(expr: str, variable: str, point: str) -> MathExprResu
     )
 
 
-def _absolute_logs(antiderivative: Any, integrand: Any, sym: Any) -> Any:
+def absolute_logs(antiderivative: Any, integrand: Any, sym: Any) -> Any:
     """``∫ u'/u = ln|u|``: SymPy writes ``log(u)``, true only where ``u > 0``.
 
     A log the integrand already had (``∫ ln x``) keeps its own domain, and an
@@ -188,7 +197,7 @@ def _absolute_logs(antiderivative: Any, integrand: Any, sym: Any) -> Any:
 def integrate_expression(expr: str, variable: str = "x") -> MathExprResult:
     sym = Symbol(variable)
     parsed = parse_expression(expr, [variable])
-    result = _absolute_logs(textbook_antiderivative(parsed, sym), parsed, sym)
+    result = absolute_logs(textbook_antiderivative(parsed, sym), parsed, sym)
     # integrate() can fail to find a closed form and hand back a result that
     # still contains an unevaluated Integral(...) rather than raising, or one only
     # a Piecewise over complex branches says: callers must not treat either as a

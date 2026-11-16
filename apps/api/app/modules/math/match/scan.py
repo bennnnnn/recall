@@ -26,7 +26,7 @@ from app.services.text_match import has_equation, word_index
 _MAX = 1000
 # Math keyboard / Unicode units: m/s² and m/s^{2} must match m/s^2.
 _BARE_COORD = re.compile(r"^\((?P<x>-?\d+(?:\.\d+)?),(?P<y>-?\d+(?:\.\d+)?)\)$")
-_CALC_OP = re.compile(
+CALC_OP = re.compile(
     r"\b(simplify|differentiate|derivative|integrate|integral|factor|expand|dsolve|"
     r"factori[sz]e|deriv[ai]t[ai]ve|derivatve|diriv[ai]tive|intergrate|intergral)\b",
     re.IGNORECASE,

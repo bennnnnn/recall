@@ -42,7 +42,7 @@
       "why": "Exception: The image-intent word lists, one word per line (data); the matchers are gen_intent.py"
     },
     "apps/api/app/modules/math/match/calculus.py": {
-      "lines": 601,
+      "lines": 581,
       "why": "Over 500 before the standards; tracked in ES-40"
     },
     "apps/api/app/modules/math/match/discrete.py": {

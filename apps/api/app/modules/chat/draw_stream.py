@@ -10,22 +10,12 @@ in pieces. A block that never closes is never shown either.
 
 from __future__ import annotations
 
-import re
 from collections.abc import Callable
 
 from app.modules.chat.stream_accum import StreamAccum
-from app.services.md_fence_scan import FenceMarker, read_fence_marker
+from app.services.md_fence_scan import FenceMarker, may_become_fence_line, read_fence_marker
 
 _LANG = "draw"
-# The start of a line that may still become a fence line: up to three spaces, then a run of
-# backticks or tildes.
-_MAY_BE_FENCE = re.compile(r"^ {0,3}(?:`+|~+)")
-
-
-def _may_open(partial: str) -> bool:
-    """Whether a line still being written could become a fence line (a block's opener, or
-    an outer fence's)."""
-    return _MAY_BE_FENCE.match(partial) is not None or partial in {" ", "  ", "   "}
 
 
 class DrawScan:
@@ -50,7 +40,11 @@ class DrawScan:
             line, self._line = self._line.split("\n", 1)
             out.append(self._take(line, "\n"))
             self._mid = False
-        if self._line and self._fence is None and (self._mid or not _may_open(self._line)):
+        if (
+            self._line
+            and self._fence is None
+            and (self._mid or not may_become_fence_line(self._line))
+        ):
             out.append(self._line)
             self._line, self._mid = "", True
         return "".join(out)

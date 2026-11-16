@@ -10,9 +10,11 @@
  * Precedence follows the server's reading (SymPy's, `docs/fixtures/live_answer_cases.json`
  * holds the two together): × ÷ mod and a written-together product share one level and run
  * left to right (`6÷2(1+2)` is 9), `^` binds tighter than a leading minus (`-3^2` is −9)
- * and groups to the right (`2^3^2` is 512).
+ * and groups to the right (`2^3^2` is 512). A power typed with raised digits is its caret,
+ * as the server reads it (`3²`, `2⁻¹`, `2³⁺¹` is 2⁴; `docs/fixtures/script_glyphs.json`).
  */
 import { guard, refuse } from "@/lib/fence/validate";
+import { normalizeUnicodeScripts } from "@/lib/unicodeSupSub";
 
 export type LiveFunction =
   | "sin" | "cos" | "tan" | "cot" | "sec" | "csc"
@@ -322,5 +324,5 @@ export function readCalculation(draft: string): LiveNode | null {
   } else if (!/\d/.test(text)) {
     return null;
   }
-  return guard(() => new Reader(math).read());
+  return guard(() => new Reader(normalizeUnicodeScripts(math)).read());
 }

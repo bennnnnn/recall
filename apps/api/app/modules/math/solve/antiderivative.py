@@ -59,7 +59,7 @@ def textbook_antiderivative(integrand: Any, sym: Any) -> Any:
         worked = manualintegrate(integrand, sym)
     if declined or not _finished(worked) or not readable_antiderivative(worked, integrand):
         return found
-    if not _differentiates_to(worked, integrand, sym):
+    if not differentiates_to(worked, integrand, sym):
         return found
     if not _finished(found) or not readable_antiderivative(found, integrand):
         return worked
@@ -98,7 +98,7 @@ def _finished(result: Any) -> bool:
     return not result.has(Integral) and not result.has(Piecewise)
 
 
-def _differentiates_to(candidate: Any, integrand: Any, sym: Any) -> bool:
+def differentiates_to(candidate: Any, integrand: Any, sym: Any) -> bool:
     """``d/dx F = f`` at a few real points where ``f`` is real, or symbolically without them."""
     gap = diff(candidate, sym) - integrand
     checked = 0

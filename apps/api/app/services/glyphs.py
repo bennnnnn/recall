@@ -1,4 +1,4 @@
-"""Maths glyphs as ASCII, one table for every reader: operators and script digits.
+"""Maths glyphs as ASCII, one table for every reader: operators and scripts.
 
 The solver, the arithmetic gate, the work reader, the tool check, the check of a
 reply's own arithmetic and the number scanners each kept a table of their own (eleven
@@ -24,15 +24,54 @@ OPERATOR_GLYPHS: dict[str, str] = {
 }
 _OPERATORS = str.maketrans(OPERATOR_GLYPHS)
 
+# A derivative's primes as typed: iOS smart punctuation curls them ("\u2019"), a book sets
+# prime, double and triple prime glyphs. Every reader of derivative notation folds these.
+_PRIMES = str.maketrans(
+    {
+        "\u2019": "'",  # right single quotation mark
+        "\u2032": "'",  # prime
+        "\u2035": "'",  # reversed prime
+        "\u2033": "''",  # double prime
+        "\u2034": "'''",  # triple prime
+    }
+)
+
 SUPERSCRIPT_DIGIT_GLYPHS = "⁰¹²³⁴⁵⁶⁷⁸⁹"
 SUBSCRIPT_DIGIT_GLYPHS = "₀₁₂₃₄₅₆₇₈₉"
-# Superscript digits alone, and with the signs an exponent carries ("10⁻⁹").
+# Superscript digits and the signs an exponent carries ("10⁻⁹"), for number readers.
 SUPERSCRIPT_SIGNED = str.maketrans(SUPERSCRIPT_DIGIT_GLYPHS + "⁻⁺", "0123456789-+")
 SUBSCRIPT_DIGITS = str.maketrans(SUBSCRIPT_DIGIT_GLYPHS, "0123456789")
 # An exponent written raised: "x²", "m⁻¹" (a worked block's units, a graph's labels).
 TO_SUPERSCRIPT = str.maketrans("0123456789-", SUPERSCRIPT_DIGIT_GLYPHS + "⁻")
 
+# Every raised and lowered form Unicode has of a digit, a Latin letter, a plus, minus or
+# equals sign and a round bracket (its <super> and <sub> forms), as the character it
+# raises or lowers. Readers that knew only the digits read "eˣ" as e times a symbol ˣ and
+# certified the result (∫ x eˣ dx came back as e·x²·ˣ/2, 2026-11-13). The two ordinal
+# indicators are left out: "1ª" and "nº" are ordinals, and "30º" is a degree typed in the
+# degree sign's place, never a script. ``docs/fixtures/script_glyphs.json`` holds the
+# phone's table (``lib/unicodeSupSub.ts``) to this one.
+SUPERSCRIPT_GLYPHS: dict[str, str] = dict(
+    zip(
+        "⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖ\U000107a5ʳˢᵗᵘᵛʷˣʸᶻᴬᴮꟲᴰᴱꟳᴳᴴᴵᴶᴷᴸᴹᴺᴼᴾꟴᴿᵀᵁⱽᵂ",
+        "0123456789+-=()abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRTUVW",
+        strict=True,
+    )
+)
+SUBSCRIPT_GLYPHS: dict[str, str] = dict(
+    zip(
+        "₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎ₐₑₕᵢⱼₖₗₘₙₒₚᵣₛₜᵤᵥₓ",
+        "0123456789+-=()aehijklmnoprstuvx",
+        strict=True,
+    )
+)
+
 
 def fold_operator_glyphs(text: str) -> str:
     """Every operator glyph a reader meets, as ASCII: times, divide and minus signs."""
     return text.translate(_OPERATORS)
+
+
+def fold_primes(text: str) -> str:
+    """Every prime glyph as ASCII apostrophes: y″ is y''."""
+    return text.translate(_PRIMES)

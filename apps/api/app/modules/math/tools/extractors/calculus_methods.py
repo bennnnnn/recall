@@ -9,31 +9,22 @@ from __future__ import annotations
 
 import re
 
-from app.modules.math.schemas import MathIntent
+from app.modules.math.function_names import variable_letters
+from app.modules.math.match.asked_operations import asked_operations
+from app.modules.math.match.derivative_order import asked_derivative_order
+from app.modules.math.schemas import MathIntent, declined_reading
 from app.modules.math.tools.expr_rewrite import math_expr_or_none
+from app.modules.math.tools.extractors.derivative_givens import derivative_givens
 from app.modules.math.tools.function_def import peel_function_definition
 from app.modules.math.tools.request_text import strip_trailing_filler
 from app.services.number_text import DECIMAL_LITERAL
 
-# "find dy/dx if x^2 + y^2 = 25": an equation in x and y, so implicit, without the word.
-_DY_DX_GIVEN = re.compile(
-    r"\b(?:find|what\s+is|calculate|work\s+out)\s+dy\s*/\s*dx\s+(?:if|for|given|when)\s+"
-    r"(?P<lhs>[^=]+)=(?P<rhs>[^=]+)$",
-    re.IGNORECASE,
-)
+# dy/dx or y': the derivative of y in x, which a relation in both asks implicitly.
+_DY_DX = re.compile(r"(?<![A-Za-z])dy\s*/\s*dx(?![A-Za-z])", re.IGNORECASE)
 
 
-def _dy_dx_given_intent(cleaned: str) -> MathIntent | None:
-    found = _DY_DX_GIVEN.search(cleaned.strip().rstrip("?.!"))
-    if found is None:
-        return None
-    lhs = math_expr_or_none(found["lhs"].strip())
-    rhs = math_expr_or_none(strip_trailing_filler(found["rhs"].strip()))
-    if not lhs or not rhs or lhs.replace(" ", "") == "y":
-        # "find dy/dx if y = x^2" is ordinary differentiation.
-        return None
-    if "y" not in (lhs + rhs).replace(" ", "").lower():
-        return None
+def _implicit_intent(lhs: str, rhs: str) -> MathIntent:
+    """dy/dx of the equation ``lhs = rhs`` in x and y."""
     return MathIntent(
         kind="calculus",
         operation="differentiate",
@@ -43,6 +34,58 @@ def _dy_dx_given_intent(cleaned: str) -> MathIntent | None:
         expr=f"({lhs})-({rhs})",
         variable="x",
     )
+
+
+def implicit_definition_intent(
+    cleaned: str,
+    calc_op: str,
+    evaluation_point: str | None,
+    name: str,
+    right: str,
+    explicit: str | None,
+) -> MathIntent:
+    """``y = x^y`` names y on both sides, so dy/dx is implicit: held constant on the right,
+    y made "Find dy/dx if y = x^y" a checked x^(y-1)·y (2026-11-14). The implicit solver
+    works a first dy/dx; anything else asked of it is declined. ``explicit`` is the
+    variable the question names, if any."""
+    if (
+        calc_op == "differentiate"
+        and name == "y"
+        and evaluation_point is None
+        and asked_derivative_order(cleaned) == 1
+        and explicit in {None, "x"}
+        and "x" in variable_letters(right)
+    ):
+        expr = math_expr_or_none(right)
+        if expr is not None:
+            return _implicit_intent("y", expr)
+    return declined_reading("implicit_definition")
+
+
+def _dy_dx_given_intent(cleaned: str) -> MathIntent | None:
+    """The one relation in x and y, whatever words join it to the ask, without the word
+    "implicit": "find dy/dx if x^2 + y^2 = 25", "x^2 + y^2 = 25, find dy/dx"."""
+    from app.modules.math.match.calculus import y_prime_math_cue
+
+    if _DY_DX.search(cleaned) is None and not y_prime_math_cue(cleaned):
+        return None
+    given = derivative_givens(cleaned, "x")
+    if given is None or given.implicit is None:
+        # "find dy/dx if y = x^2" is ordinary differentiation.
+        return None
+    written = " = ".join(given.implicit)
+    if "'" in written or _DY_DX.search(written):
+        # dy/dx = 2xy and y' = y give the derivative: a differential equation, not a curve.
+        return None
+    lhs = math_expr_or_none(given.implicit[0].strip())
+    rhs = math_expr_or_none(strip_trailing_filler(given.implicit[1].strip()))
+    if not lhs or not rhs or "y" not in (lhs + rhs).replace(" ", "").lower():
+        return None
+    if asked_operations(cleaned).derivative_orders != {1}:
+        # y'' of x^2 + y^2 = 25 is -25/y^3; this reading differentiates once, and its -x/y
+        # was the checked card for it.
+        return declined_reading("implicit_order")
+    return _implicit_intent(lhs, rhs)
 
 
 def extract_implicit_intent(cleaned: str) -> MathIntent | None:
@@ -72,15 +115,7 @@ def extract_implicit_intent(cleaned: str) -> MathIntent | None:
     rhs = math_expr_or_none(strip_trailing_filler(cleaned[eq + 1 :].strip()))
     if not lhs or not rhs:
         return None
-    return MathIntent(
-        kind="calculus",
-        operation="differentiate",
-        school_op="implicit",
-        lhs=lhs,
-        rhs=rhs,
-        expr=f"({lhs})-({rhs})",
-        variable="x",
-    )
+    return _implicit_intent(lhs, rhs)
 
 
 # Each part ends on a mark and each run of space is read once (possessive): lazy parts beside

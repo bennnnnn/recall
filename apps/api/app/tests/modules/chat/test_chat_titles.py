@@ -139,6 +139,9 @@ def test_a_title_about_titles_is_kept(raw: str):
         (f"{SCANNER_CAMERA_PROMPTS['math']}\n\n{_PHOTO}", "Photo"),
         (_FILE, "File"),
         ("ዜና", "ዜና"),
+        # Raised letters stay as typed, never folded into powers.
+        ("Mᵐᵉ Dupont", "Mᵐᵉ Dupont"),
+        ("The nᵗʰ term of 3, 5, 7", "The nᵗʰ term of 3, 5"),
     ],
 )
 def test_fallback_title_is_the_users_first_words(message: str, title: str):
@@ -319,6 +322,13 @@ async def test_generate_title_greeting_skips_model():
         ("f^{\\prime}(x) for $x^{3}$", "f'(x) for x^3"),
         # Money keeps its dollar signs: no LaTeX inside.
         ("Car loan: $25,000 at 6% or $30,000?", "Car loan: $25,000 at 6% or $30,000?"),
+        # A raised or lowered character is the user's own word, prose or maths: read as
+        # maths, "Kʷak̓ʷala" was "K^(w)ak̓ʷala" and "nᵗʰ" "n^(th)" (2026-11-14).
+        ("Tell me about the Kʷak̓ʷala language", "Tell me about the Kʷak̓ʷala language"),
+        ("Is Mᵐᵉ Dupont French?", "Is Mᵐᵉ Dupont French?"),
+        ("Find the nᵗʰ term of 3, 5, 7", "Find the nᵗʰ term of 3, 5, 7"),
+        ("Integrate eˣ cos x", "Integrate eˣ cos x"),
+        ("Solve x² + x₁ = 5", "Solve x² + x₁ = 5"),
     ],
 )
 async def test_generate_title_reads_keypad_maths_as_plain_powers(message: str, model_reads: str):

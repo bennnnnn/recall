@@ -212,6 +212,38 @@ class MathPhoto:
         )
 
 
+def _call_asked(raw_args: Any, user_texts: list[str], matched: str) -> bool:
+    """The call computes what is asked, not a step toward it: f'(x) of the user's f is no
+    answer to "the absolute maximum of f". The newest message asks when it names an
+    operation ("now integrate it"); otherwise the question the call works on does, as the
+    server reads it, and with no reading of its own, as its asking sentences ask."""
+    from app.modules.math.match.asked_operations import (
+        asked_operations,
+        call_answers_reading,
+        call_computes_the_ask,
+    )
+    from app.modules.math.schemas import is_declined
+    from app.modules.math.tools.extract import extract_math_intent
+
+    try:
+        args = json.loads(raw_args) if isinstance(raw_args, str) else dict(raw_args)
+    except (TypeError, ValueError):
+        return False
+    if not isinstance(args, dict):
+        return False
+    reading = extract_math_intent(matched)
+    if is_declined(reading):
+        # A reader recognised that message's question and declined it: a call on a formula
+        # in it (a count's condition) answers another question.
+        return False
+    newest = user_texts[0] if user_texts else matched
+    if newest != matched and asked_operations(newest).named:
+        return call_computes_the_ask(newest, args)
+    if reading is not None:
+        return call_answers_reading(args, reading)
+    return call_computes_the_ask(matched, args)
+
+
 @dataclass(frozen=True)
 class MathTool:
     """The ``sympy`` model tool (``tool.py``), as the tool loop checks its calls."""
@@ -236,14 +268,10 @@ class MathTool:
         )
 
     def call_matches(self, raw_args: Any, user_texts: list[str]) -> str | None:
-        from app.modules.math.schemas import is_declined
         from app.modules.math.tool_check import matched_user_text
-        from app.modules.math.tools.extract import extract_math_intent
 
         matched = matched_user_text(raw_args, user_texts)
-        if matched is not None and is_declined(extract_math_intent(matched)):
-            # A reader recognised that message's question and declined it: a call on
-            # a formula in it (a count's condition) answers another question.
+        if matched is None or not _call_asked(raw_args, user_texts, matched):
             return None
         return matched
 

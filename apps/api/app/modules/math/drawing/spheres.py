@@ -88,7 +88,10 @@ def _sphere_of(item: SpaceSphere, question: Question) -> tuple[Triple, Fraction]
         matches = [s for s in spheres if s[1] == exact(item.center)]
     else:
         return None
-    return (matches[0][1], matches[0][2]) if len(matches) == 1 else None
+    # One sphere written twice ("(a) its centre … (b) sketch it", or pasted again earlier) is
+    # one sphere (review of #2462): two different spheres still leave the item unplaced.
+    found = list(dict.fromkeys((sphere[1], sphere[2]) for sphere in matches))
+    return found[0] if len(found) == 1 else None
 
 
 def _stated_sphere(item: SpaceSphere, question: Question) -> tuple[Triple, Fraction, str] | None:

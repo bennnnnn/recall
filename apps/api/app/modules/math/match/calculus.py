@@ -9,10 +9,10 @@ from typing import Literal
 from app.modules.math.function_names import MATH_FUNCTION_NAMES
 from app.modules.math.match.dimensions import _parse_unsigned_number
 from app.modules.math.match.letter_runs import looks_like_math_expr
-from app.modules.math.match.scan import _CALC_OP, CALC_OP_SPELLINGS, ddx_cue_at
+from app.modules.math.match.scan import CALC_OP, CALC_OP_SPELLINGS, ddx_cue_at
 
 
-def _skip_optional_paren_var(text: str, start: int) -> int:
+def skip_optional_paren_var(text: str, start: int) -> int:
     """Advance past an optional ``(x)`` / ``(t)`` after Lagrange primes."""
     n = len(text)
     k = start
@@ -56,7 +56,7 @@ def _math_prime_base(text: str, prime_at: int) -> bool:
     return base.lower() in _MATH_PRIME_NAMES
 
 
-def _lagrange_prime_run(text: str, prime_at: int) -> tuple[int, int] | None:
+def lagrange_prime_run(text: str, prime_at: int) -> tuple[int, int] | None:
     """Return ``(after_primes, order)`` when ``'`` at ``prime_at`` is a math prime.
 
     Rejects contractions (``y'all``), plural possessives (``teachers'``), and
@@ -72,27 +72,7 @@ def _lagrange_prime_run(text: str, prime_at: int) -> tuple[int, int] | None:
         j += 1
     if j < n and text[j].isalpha():
         return None
-    return j, min(j - prime_at, 3)
-
-
-def lagrange_prime_order(text: str) -> int:
-    """Highest Lagrange prime count (``''`` → 2, ``'''`` → 3). 0 if none."""
-    best = 0
-    i = 0
-    n = len(text)
-    while i < n:
-        if text[i] != "'":
-            i += 1
-            continue
-        run = _lagrange_prime_run(text, i)
-        if run is None:
-            i += 1
-            continue
-        after, order = run
-        if order > best:
-            best = order
-        i = after
-    return best
+    return j, j - prime_at
 
 
 def _lagrange_derivative_cue(text: str) -> bool:
@@ -103,12 +83,12 @@ def _lagrange_derivative_cue(text: str) -> bool:
         if text[i] != "'":
             i += 1
             continue
-        run = _lagrange_prime_run(text, i)
+        run = lagrange_prime_run(text, i)
         if run is None:
             i += 1
             continue
         after, _order = run
-        k = _skip_optional_paren_var(text, after)
+        k = skip_optional_paren_var(text, after)
         while k < n and text[k].isspace():
             k += 1
         if k < n and text[k] == "=":
@@ -125,14 +105,14 @@ def y_prime_math_cue(text: str) -> bool:
         idx = text.find("y'", start)
         if idx == -1:
             return False
-        run = _lagrange_prime_run(text, idx + 1)
+        run = lagrange_prime_run(text, idx + 1)
         if run is not None:
             return True
         start = idx + 2
 
 
 def calc_op(text: str) -> str | None:
-    m = _CALC_OP.search(text)
+    m = CALC_OP.search(text)
     if m:
         word = m.group(1).lower()
         return CALC_OP_SPELLINGS.get(word, word)
@@ -214,7 +194,7 @@ def calc_object(text: str) -> bool:
     """
     if _STRONG_MATH.search(text):
         return True
-    match = _CALC_OP.search(text)
+    match = CALC_OP.search(text)
     if match is None:
         # The integral sign and d/dx matched above; a bare Lagrange prime is notation.
         return True
