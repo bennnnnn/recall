@@ -33,11 +33,11 @@ import {
   askedLine,
   isAnswerHeading,
   isAnswerValue,
+  isGivenHeading,
   isRequiredHeading,
   isSolutionHeading,
   isWorkingHeading,
   lawHeading,
-  SOLUTION_HEADING,
   splitWorkoutNote,
   workoutHeading,
   workoutPart,
@@ -67,11 +67,9 @@ export function workoutSectionParts(
   const rest = kids.slice(1);
   // **Solution** stands alone: the sections after it are its working.
   const restText = rest.map((kid) => astTextWithBreaks(kid)).join("");
-  if (
-    !restText.trim() &&
-    isSolutionHeading(splitStreamCaret(astText(strong)).text)
-  ) {
-    return { heading: SOLUTION_HEADING, lines: [] };
+  const written = splitStreamCaret(astText(strong)).text.trim().replace(/:$/, "");
+  if (!restText.trim() && isSolutionHeading(written)) {
+    return { heading: written, lines: [] };
   }
   if (!rest.length || !rest.every(plainInline)) return null;
   const tail = rest.map((kid) => astTextWithBreaks(kid)).join("");
@@ -89,7 +87,7 @@ export function workoutSectionParts(
   const heading =
     workoutHeading(title) ??
     (isSolutionHeading(title)
-      ? SOLUTION_HEADING
+      ? title.trim().replace(/:$/, "")
       : lawHeading(title, lines[0] ?? "", underSolution));
   return heading ? { heading, lines } : null;
 }
@@ -356,7 +354,7 @@ export function renderWorkoutSection(
     styles.text,
     { ...Type.secondary, color: t.textSecondary },
   ];
-  const given = section.heading === "Given";
+  const given = isGivenHeading(section.heading);
   const asked = isRequiredHeading(section.heading);
   const answer = isAnswerHeading(section.heading);
   const working = isWorkingHeading(section.heading);

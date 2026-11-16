@@ -8,7 +8,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from app.modules.turn_reading.plan import PartKind, TurnPlan
+from app.modules.turn_reading.plan import PartKind, TurnPart, TurnPlan
+from app.services.picture_copy import PICTURE_PLACEMENT_RULE
 
 MULTI_PART_MARKER = "This message asks for more than one thing."
 
@@ -19,8 +20,8 @@ _KIND_NOTES: dict[PartKind, str] = {
         "tapped: do not say it is done, and do not explain how to change it. No section."
     ),
     "image": (
-        "a picture to draw. The app draws it and shows it above your reply, or says it "
-        "could not: do not describe it, promise it, or write a prompt for it. No section."
+        "a picture to draw. The app adds it to your reply, or a line saying it could not: "
+        "do not describe it, promise it, or write a prompt for it. No section."
     ),
     "photo": (
         "a real photo. Open the reply with a ```photo fence holding a short image search "
@@ -32,6 +33,17 @@ _KIND_NOTES: dict[PartKind, str] = {
     ),
 }
 _NO_SECTION_KINDS: frozenset[PartKind] = frozenset({"settings", "image", "photo", "reminder"})
+# The pictures a part may ask for.
+_PICTURE_KINDS: frozenset[PartKind] = frozenset({"image", "photo"})
+# The problem's own picture ("find the current and draw the circuit", "how far does it
+# travel? Show the path."), when the turn's read calls the message a STEM question asking to
+# see a graph, diagram or molecule: the app draws it, so no photo is looked up and nothing is
+# painted (``chat.drawn_picture``). "Draw a cat … and also find the current" keeps its
+# painting, and a photo of Marie Curie beside a molar mass its photo.
+PROBLEM_PICTURE_NOTE = (
+    "a picture of the problem. The app draws it from the worked answer when it can: write "
+    "no fence, prompt or sketch for it, and do not describe it or promise it. No section."
+)
 
 _SECTIONS = (
     "Put each request that needs a written answer under its own `###` heading of a few "
@@ -51,17 +63,30 @@ _RULES = (
 )
 
 
-def multi_part_contract(plan: TurnPlan, shapes: Sequence[Sequence[str]]) -> str:
-    """The contract for ``plan``; ``shapes[i]`` is the layout hints request ``i`` asks for."""
+def multi_part_contract(
+    plan: TurnPlan, shapes: Sequence[Sequence[str]], *, problem_pictures: bool = False
+) -> str:
+    """The contract for ``plan``; ``shapes[i]`` is the layout hints request ``i`` asks for.
+    ``problem_pictures``: the turn's read calls the message a STEM question asking to see a
+    graph, diagram or molecule, so its picture or photo part is the problem's."""
     lines = [f"{MULTI_PART_MARKER} {len(plan.parts)} requests:"]
     for number, part in enumerate(plan.parts, start=1):
-        note = _KIND_NOTES.get(part.kind)
+        note = _note(part, problem_pictures=problem_pictures)
         lines.append(f'{number}. "{part.text}"' + (f": {note}" if note else ""))
     if plan.context:
         lines.append(f'Before asking they said: "{plan.context}".')
     answered = [part for part in plan.parts if part.kind not in _NO_SECTION_KINDS]
     lines.append(_SECTIONS if len(answered) > 1 else _ONE_ANSWER)
     lines.append(_RULES)
+    if plan.of_kind(*_PICTURE_KINDS):
+        lines.append(PICTURE_PLACEMENT_RULE)
     for number, hints in enumerate(shapes, start=1):
         lines.extend(f"For request {number} only: {hint}" for hint in hints)
     return "\n".join(lines)
+
+
+def _note(part: TurnPart, *, problem_pictures: bool) -> str | None:
+    """What the app does with ``part`` itself; the problem's own picture is the app's to draw."""
+    if problem_pictures and part.kind in _PICTURE_KINDS:
+        return PROBLEM_PICTURE_NOTE
+    return _KIND_NOTES.get(part.kind)

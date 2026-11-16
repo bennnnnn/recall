@@ -2,6 +2,7 @@ import { Fragment, ReactNode } from "react";
 import { StyleSheet, Text, type StyleProp, type TextStyle } from "react-native";
 
 import { splitStreamCaret, StreamingCursor } from "@/components/StreamingCursor";
+import { formulaMayScroll } from "@/components/rich/mathColumn";
 import { MathText } from "@/components/rich/MathText";
 import {
   inPlainBlockquote,
@@ -148,7 +149,8 @@ function renderTextWithMath(
   tickColor: string,
 ) {
   const marked = splitStreamCaret(node.content);
-  const segments = segmentTextWithMath(marked.text);
+  const size = mathSizeOf(textRunStyle(parent, styles, inheritedStyles, mdTable, undefined));
+  const segments = segmentTextWithMath(marked.text, (latex) => formulaMayScroll(latex, size));
   const { content, parts } = segments;
   const base = textRunStyle(parent, styles, inheritedStyles, mdTable, segments.runHeight);
   let caretLeft = marked.caret;

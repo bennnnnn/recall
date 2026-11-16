@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from app.modules.chat.finalize_passes import FinalizeState
 
 # Fences that draw something: a repeat of one is a second copy of the same picture.
-_PICTURE_LANGS = frozenset(
+PICTURE_LANGS = frozenset(
     {
         "chart",
         "vega",
@@ -50,7 +50,7 @@ def _own_lines(gap: str) -> str:
 
 def drop_repeated_fences(text: str) -> str:
     fences = [fence for fence in iter_fences(text) if fence.closed]
-    pictures = [fence for fence in fences if fence.lang.lower() in _PICTURE_LANGS]
+    pictures = [fence for fence in fences if fence.lang.lower() in PICTURE_LANGS]
     if len(pictures) < 2:
         return text
     seen: set[tuple[str, str]] = set()
@@ -59,7 +59,7 @@ def drop_repeated_fences(text: str) -> str:
     previous: Fence | None = None
     for fence in fences:
         key = _key(text, fence)
-        if fence.lang.lower() in _PICTURE_LANGS and key in seen:
+        if fence.lang.lower() in PICTURE_LANGS and key in seen:
             twin = previous is not None and _key(text, previous) == key
             repeats.append((fence.start, fence.end, previous.end if twin and previous else None))
         seen.add(key)

@@ -15,6 +15,8 @@ import type {
   StyleMap,
 } from "@/components/markdown/markdownContentStyles";
 import { InlineFlow } from "@/components/markdown/rules/inlineFlow";
+import { mathSizeOf } from "@/components/markdown/rules/textWithMath";
+import { holdsWideFormula } from "@/components/rich/mathColumn";
 import { markdownHasNestedMathView } from "@/lib/markdown/preprocess";
 import { isHeavyInlineMath } from "@/lib/math/fenceRetag";
 import { mathRunLineHeight } from "@/lib/math/text";
@@ -32,7 +34,12 @@ export function wrapInlineChildren(
   textStyle: StyleProp<TextStyle>,
   wrapStyle: StyleProp<ViewStyle>,
 ): React.ReactElement {
-  if (markdownHasNestedMathView(astText(node)) || isHeavyInlineMath(astText(node))) {
+  const text = astText(node);
+  if (
+    markdownHasNestedMathView(text) ||
+    isHeavyInlineMath(text) ||
+    holdsWideFormula(text, mathSizeOf(textStyle))
+  ) {
     return (
       <InlineFlow key={node.key} testID="md-math-inline-wrap" style={wrapStyle}>
         {children}

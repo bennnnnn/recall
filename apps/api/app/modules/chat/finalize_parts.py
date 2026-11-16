@@ -13,6 +13,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
+from app.modules.chat.drawn_picture import app_draws_the_picture
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.turn_prep.reading import plan_of
 from app.modules.images.reply_picture import ReplyPicture
@@ -25,12 +26,15 @@ _SETTINGS_FENCE = "settings_proposal"
 
 
 async def attach_reply_picture(state: FinalizeState) -> str:
-    """The picture above the reply. A stopped reply draws nothing (its slot comes back)."""
+    """The picture above the reply. A stopped reply draws nothing (its slot comes back), and
+    neither does one whose picture the app draws itself (``drawn_picture``): the circuit
+    the solve drew is the circuit asked for, never a painting of one above it."""
     ctx = state.ctx
     picture = ctx.reply_picture
     if not isinstance(picture, ReplyPicture):
         return state.text
-    if state.was_cancelled or (state.should_cancel is not None and state.should_cancel()):
+    stopped = state.should_cancel is not None and state.should_cancel()
+    if state.was_cancelled or stopped or app_draws_the_picture(ctx):
         picture.cancel()
         return state.text
     text, ids = await picture.attach(state.text)

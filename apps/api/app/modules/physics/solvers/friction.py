@@ -269,6 +269,29 @@ _FRICTION_OPS: dict[str, Callable[[_Incline], PhysicsResult]] = {
 # whatever the slope measures. Inventing a number for the answer would be a
 # different thing entirely.
 _INCLINE_LENGTH = 6.0
+# Where a sliding block starts and stops, as shares of the drawn slope. A finished playback
+# rests on its last frame, so that frame is the free-body diagram a student reads: slid to
+# the foot, the block sat past the ramp's end and its weight arrow, cut by the ground line,
+# was not drawn (live, 2026-11-15). Half-way down, the block is on the ramp and every arrow
+# has room under it. The slope's length is a display choice, so where it stops is too.
+_SLIDE_FROM = 0.12
+_SLIDE_TO = 0.5
+_SLIDE_SAMPLES = 60
+
+
+def _slide_distances(accel: float | None) -> list[float]:
+    """How far down the slope the block is at each sample, from where it starts.
+
+    s = ½at², sampled uniformly in *time*, so the block visibly accelerates rather than
+    sliding at a constant rate; the duration is the one that covers the slide, so the block
+    stops half-way down exactly as the animation ends. Held by friction, or an op with no
+    acceleration to show, the block stays where it is and the arrows are the whole picture.
+    """
+    if accel is None or accel <= 0:
+        return [0.0] * _SLIDE_SAMPLES
+    travel = (_SLIDE_TO - _SLIDE_FROM) * _INCLINE_LENGTH
+    dt = math.sqrt(2 * travel / accel) / (_SLIDE_SAMPLES - 1)
+    return [0.5 * accel * (i * dt) ** 2 for i in range(_SLIDE_SAMPLES)]
 
 
 def incline_scene(
@@ -303,27 +326,13 @@ def incline_scene(
     # The box sits on the slope: its centre is half a side off the surface.
     lift_x, lift_y = math.sin(theta) * size, math.cos(theta) * size
 
-    n_points = 60
-    if accel is not None and accel > 0:
-        # s = ½at², sampled uniformly in *time*, so the block visibly
-        # accelerates rather than sliding at a constant rate. The duration is
-        # the one that covers the drawn slope, so the block arrives at the
-        # bottom exactly as the animation ends.
-        duration = math.sqrt(2 * _INCLINE_LENGTH / accel)
-        dt = duration / (n_points - 1)
-        distances = [0.5 * accel * (i * dt) ** 2 for i in range(n_points)]
-    else:
-        # Held by friction, or an op with no acceleration to show: the block
-        # stays where it is and the arrows are the whole picture.
-        distances = [0.0] * n_points
-
-    start = 0.12 * _INCLINE_LENGTH
+    start = _SLIDE_FROM * _INCLINE_LENGTH
     path = [
         [
             round(top_x + (start + s) * down_x + lift_x, 4),
             round(top_y + (start + s) * down_y + lift_y, 4),
         ]
-        for s in distances
+        for s in _slide_distances(accel)
     ]
     arrows: list[ArrowKind] = ["gravity", "normal"]
     # Static friction holds a resting block whether or not μ was stated.

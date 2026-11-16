@@ -4,6 +4,7 @@ import {
   isSolutionHeading,
   isWorkedReply,
   lawHeading,
+  PART_ANSWER_SOURCE,
   WORKOUT_HEADINGS,
 } from "@/lib/markdown/workoutSection";
 import { applyOutsideFences, fencedLines, mapClosedFences, readFenceMarker } from "@/lib/fence/scan";
@@ -54,7 +55,7 @@ function trimBoldLine(line: string): string {
 
 // A bold line alone, then a line of its own (not a blank one). Workout headings stay.
 const STANDALONE_BOLD_LINE = new RegExp(
-  String.raw`^(\s*\*\*(?!\d+[.)]\s)(?!(?:${WORKOUT_HEADINGS.join("|")}|Answer \([a-h]\)):?\*\*)[^*\n]+\*\*(?:[ \t]*` +
+  String.raw`^(\s*\*\*(?!\d+[.)]\s)(?!(?:${WORKOUT_HEADINGS.join("|")}|${PART_ANSWER_SOURCE}):?\*\*)[^*\n]+\*\*(?:[ \t]*` +
     "`[^`\\n]+`" +
     String.raw`)?\s*)\n(?!\n)`,
   "gm",
@@ -62,7 +63,7 @@ const STANDALONE_BOLD_LINE = new RegExp(
 
 // A workout heading alone on its line with a line of its own under it (no blank line).
 const WORKOUT_HEADING_LINE = new RegExp(
-  String.raw`^(\s*\*\*(?:${WORKOUT_HEADINGS.join("|")}|Answer \([a-h]\)):?\*\*)[ \t]*\n(?=\S)`,
+  String.raw`^(\s*\*\*(?:${WORKOUT_HEADINGS.join("|")}|${PART_ANSWER_SOURCE}):?\*\*)[ \t]*\n(?=\S)`,
   "gm",
 );
 

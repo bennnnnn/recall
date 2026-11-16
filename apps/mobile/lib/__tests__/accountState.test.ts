@@ -68,6 +68,7 @@ const CLEARED_AT_SIGN_OUT: Record<string, string> = {
   "lib/lesson/quizAttempts.ts#attempts": "clearQuizAttempts",
   "lib/linkPreview.ts#cache": "clearLinkPreviewCache",
   "lib/money/calculatorPositions.ts#positions": "clearCalculatorPositions",
+  "components/rich/mathColumn.tsx#scrollsByFormula": "clearFormulaWidthCache",
   "lib/math/svgMath.ts#cache": "clearSvgMathCache",
   "lib/math/svgMath.ts#drawings": "clearSvgMathCache",
   "lib/onboarding.ts#onboardedPref": "clearOnboarded",

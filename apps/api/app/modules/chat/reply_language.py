@@ -116,17 +116,26 @@ def _instructions_name_a_language(instructions: Any) -> bool:
     return bool(_names_a_language(instructions) or _LANGUAGE_WORD.search(instructions))
 
 
-def reply_language_hint(
-    query: str, prior: Sequence[tuple[str, str]], locale: Any, instructions: Any
+def message_reply_language(
+    query: str, prior: Sequence[tuple[str, str]], instructions: Any
 ) -> str | None:
-    """'Write this reply in English …' when the message is plainly in the app's language."""
+    """The language the reply to ``query`` follows when the message alone decides it: its
+    own, when it is plainly one of the app's languages and nothing names one (the message, the
+    chat, the custom instructions) or asks for a translation; else None."""
     earlier = [text for role, text in prior if role == "user"]
     if _instructions_name_a_language(instructions) or _TRANSLATE.search(query):
         return None
     if _names_a_language(query, *earlier):
         return None
+    return _plainly(query)
+
+
+def reply_language_hint(
+    query: str, prior: Sequence[tuple[str, str]], locale: Any, instructions: Any
+) -> str | None:
+    """'Write this reply in English …' when the message is plainly in the app's language."""
     app = normalize_locale_code(locale if isinstance(locale, str) else None)
-    if _plainly(query) != app:
+    if message_reply_language(query, prior, instructions) != app:
         return None
     name = LOCALE_NAMES.get(app, "English")
     return (

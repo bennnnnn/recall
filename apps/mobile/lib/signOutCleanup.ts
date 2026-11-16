@@ -46,6 +46,8 @@ export async function clearSignedOutAccount(userId: string | undefined): Promise
     import("@/features/attachments/model/galleryListCache").then(({ invalidateGalleryCache }) => invalidateGalleryCache()),
     import("@/features/chat/model/chatListCache").then(({ invalidateChatListCache }) => invalidateChatListCache()),
     import("@/lib/cache/usageCache").then(({ invalidateUsageCache }) => invalidateUsageCache()),
+    // Each of the account's formulas, by whether it is wider than its line.
+    import("@/components/rich/mathColumn").then(({ clearFormulaWidthCache }) => clearFormulaWidthCache()),
     import("@/features/notifications/model/pushNotifications").then(({ clearPushSyncRecord }) => clearPushSyncRecord()),
     clearCachedModels(),
     // The account's photos and avatar, kept by expo-image in memory and on disk.

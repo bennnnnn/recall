@@ -164,3 +164,66 @@ describe("a worked reply's heading while it streams", () => {
     expect(glued).toEqual([]);
   });
 });
+
+// "Un coche acelera de 0 a 25 m/s en 5 s. ¿Cuál es su aceleración?" was worked in English
+// (live, 2026-11-15); the API now writes the layout's headings in the reply's language once
+// the reply ends (it streams with the English ones), and the card's heading in it too.
+const CARD = "```answer\nverified: false\na = 5\\,\\mathrm{m/s^2}\n```";
+const SPANISH = [
+  "**Datos**  ",
+  "$v_0 = 0\\,\\mathrm{m/s}$  ",
+  "$v = 25\\,\\mathrm{m/s}$  ",
+  "$t = 5\\,\\mathrm{s}$  ",
+  "donde $v_0$ = velocidad inicial, $v$ = velocidad final, $t$ = tiempo",
+  "",
+  "**Incógnita**  ",
+  "$a$ (aceleración)",
+  "",
+  "**Solución**",
+  "",
+  "**Aceleración**  ",
+  "$a = \\frac{v - v_0}{t}$",
+  "",
+  "**Sustitución**  ",
+  "$a = \\frac{25 - 0}{5}$  ",
+  "$a = 5\\,\\mathrm{m/s^2}$",
+  "",
+  "**Respuesta**",
+  "",
+  CARD,
+].join("\n");
+const SPANISH_PARTS = [
+  "**Datos**  ",
+  "$m = 2\\,\\mathrm{kg}$  ",
+  "",
+  "**Solución**",
+  "",
+  "**(a) Fuerza**",
+  "$F = m a$",
+  "",
+  "**Respuesta (a)**",
+  "",
+  CARD,
+].join("\n");
+
+describe("a worked reply in another language", () => {
+  it("is laid out by its own headings, the Answer heading folded into the card", async () => {
+    expect(await headings(SPANISH, false)).toEqual(
+      expect.arrayContaining(["Datos", "Incógnita", "Solución", "Aceleración", "Sustitución"]),
+    );
+    const screen = await render(<MarkdownContent content={SPANISH} />);
+    expect(screen.getByTestId("answer-box")).toBeOnTheScreen();
+    expect(screen.getAllByTestId("answer-label")).toHaveLength(1);
+    expect(seen(screen.toJSON())).not.toMatch(/Respuesta/);
+    await cleanup();
+  });
+
+  it("keeps a part's letter on its card", async () => {
+    const screen = await render(<MarkdownContent content={SPANISH_PARTS} />);
+    expect(screen.getByTestId("workout-part")).toBeOnTheScreen();
+    expect(seen(screen.toJSON())).not.toMatch(/Respuesta/);
+    // The card carries the part's letter: its part label ("Answer (a)" in the app's language).
+    expect(seen(screen.getByTestId("answer-label"))).toMatch(/answer_part_label|\(a\)/);
+    await cleanup();
+  });
+});

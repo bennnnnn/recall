@@ -51,6 +51,7 @@ jest.mock("@/features/memory/model/memoryListCache", () => ({ invalidateMemories
 jest.mock("@/features/attachments/model/galleryListCache", () => ({ invalidateGalleryCache: jest.fn() }));
 jest.mock("@/features/chat/model/chatListCache", () => ({ invalidateChatListCache: jest.fn() }));
 jest.mock("@/lib/cache/usageCache", () => ({ invalidateUsageCache: jest.fn() }));
+jest.mock("@/components/rich/mathColumn", () => ({ clearFormulaWidthCache: jest.fn() }));
 jest.mock("@/features/billing/model/purchases", () => ({ signOutRevenueCat: jest.fn() }));
 jest.mock("@/features/todos/model/reminderSeen", () => ({ clearSeenReminderIds: jest.fn() }));
 jest.mock("@/features/todos/model/homeReminderNudges", () => ({ clearHomeNudgeState: jest.fn() }));
