@@ -147,14 +147,14 @@ def paths_material(targets: list[str]) -> str:
     return f"THE CODE\n{_bundle(files)}"
 
 
-def ask(model: str, material: str) -> dict:
+def ask(model: str, material: str, prompt: str = PROMPT) -> dict:
     key = os.environ.get("OPENROUTER_API_KEY", "")
     if not key:
         raise SystemExit("OPENROUTER_API_KEY is not set")
     body = {
         "model": model,
         "messages": [
-            {"role": "system", "content": PROMPT},
+            {"role": "system", "content": prompt},
             {"role": "user", "content": f"{_rules()}\n\n{material}"},
         ],
         "response_format": {"type": "json_object"},
