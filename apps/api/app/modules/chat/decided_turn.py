@@ -44,7 +44,7 @@ from app.modules.billing import plan as plan_service
 from app.modules.billing.entitlements import has_strong_everyday_model
 from app.modules.chat.decider_read import NO_ANSWER, OTHER_ANSWER, READ_SUBJECTS
 from app.modules.chat.drawing_turn import ask_for_a_drawing
-from app.modules.chat.drawn_picture import asks_for_a_drawing, solve_draws
+from app.modules.chat.drawn_picture import app_draws, solve_draws
 from app.modules.chat.json_output import is_json_request
 from app.modules.chat.lesson_again import lesson_again
 from app.modules.chat.model_routing.decided import decided_lane, decided_level, math_backups
@@ -142,14 +142,14 @@ async def decide_from_the_read(ctx: StreamContext, settings: Settings) -> None:
 
 
 def _leave_the_picture(ctx: StreamContext, settings: Settings, read: TurnDecision | None) -> None:
-    """A picture the read says the message asks to see. A multi-part message's picture part
-    is the problem's, for the app to draw: its contract says so (``with_problem_pictures``).
-    When the solve drew that very kind of picture, the reply gives it no section or words and
-    never places it (``drawn_picture``); a velocity-time graph is no free-body diagram.
+    """A picture the app draws (``drawn_picture.app_draws``): a multi-part message's picture
+    part is the problem's, and its contract says so (``with_problem_pictures``); when the
+    solve drew it, the reply gives it no section or words and never places it. Otherwise the
+    painting or photo asked for stays, and nothing says the app draws it.
 
     What the prompt was told is what finalize does (``ctx.problem_picture``): a photo or a
     painting the prompt still asked for is never taken away because the read came in later."""
-    ctx.problem_picture = read is not None and asks_for_a_drawing(read)
+    ctx.problem_picture = app_draws(read, ctx.verified_subject)
     if read is None or not ctx.problem_picture:
         return
     ctx.prompt_messages = with_problem_pictures(

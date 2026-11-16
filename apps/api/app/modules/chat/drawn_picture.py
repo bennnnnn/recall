@@ -6,13 +6,15 @@ and "How far does it travel before landing? Show the path." looked a photo up fo
 path" (live, 2026-11-15). A multi-part message's picture part was painted unless the read
 called it a *maths* figure, and its photo part searched whatever answered the rest.
 
-A maths, physics or chemistry question asking to see a graph, a diagram or a molecule is
-the app's to draw from the question's own values. The turn's read (``turn_decision``) says
-so, never the words, and never the solve alone: "Draw a cat wearing a hat and also find the
-current …" is a painting beside a solve, and "Show me a photo of Marie Curie and calculate the
-molar mass of NaCl" a photo beside one (review, 2026-11-15). Whether the solve drew the very
-picture asked for is read from its cards (``SubjectFence.cards``) by kind (``solve_draws``):
-a kinematics solve's velocity-time graph is no free-body diagram.
+One rule decides whether the app draws the picture, and the prompt and finalize both ask it
+(``app_draws``): the read calls the message a maths question asking to see a graph or a
+diagram, which maths' figure draws from its values as before; or the read asks a maths,
+physics or chemistry question's graph, diagram or molecule and the subject's solve drew that
+very kind (``solve_draws``, from its cards). Never the words, and never a kind the solve did
+not draw: "Draw a cat wearing a hat and also find the current …" keeps its painting, "Show me
+a photo of Marie Curie and calculate the molar mass of NaCl" its photo, and "find the current
+and draw the circuit" that no solver read its painting (reviews, 2026-11-15). The solve runs
+before the reply's prompt and before a picture is started, so every side can ask.
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ import asyncio
 from typing import TYPE_CHECKING
 
 from app.modules.chat.decider_read import READ_SUBJECTS
+from app.modules.chat.figure_turn import read_asks_for_a_picture
 from app.modules.chat.turn_decision import TurnDecision
 from app.services.md_fence_scan import iter_fences
 from app.services.solving import VerifiedSolveBlock
@@ -50,13 +53,25 @@ def _answered(read: asyncio.Task[TurnDecision | None]) -> TurnDecision | None:
     return read.result()
 
 
-async def read_asks_for_a_drawing(read: asyncio.Task[TurnDecision | None] | None) -> bool:
-    """``asks_for_a_drawing`` once the read ends (its own timeout bounds it). Waited on, never
-    awaited or cancelled: the reply waits for the same read."""
+def app_draws(decision: TurnDecision | None, verified: VerifiedSolveBlock | None) -> bool:
+    """The app draws the picture the read says the message asks to see: maths' figure, or
+    the subject's solve that drew that kind."""
+    if decision is None:
+        return False
+    if read_asks_for_a_picture(decision):
+        return True
+    return asks_for_a_drawing(decision) and solve_draws(verified, decision.picture)
+
+
+async def read_says_the_app_draws(
+    read: asyncio.Task[TurnDecision | None] | None, verified: VerifiedSolveBlock | None
+) -> bool:
+    """``app_draws`` once the read ends (its own timeout bounds it). Waited on, never awaited
+    or cancelled: the reply waits for the same read."""
     if read is None:
         return False
     await asyncio.wait([read])
-    return asks_for_a_drawing(_answered(read))
+    return app_draws(_answered(read), verified)
 
 
 # The kind of picture, as the read names it, each fence a solve writes draws. A scene is a
@@ -86,11 +101,12 @@ def solve_draws(verified: VerifiedSolveBlock | None, kind: str | None) -> bool:
 
 
 def app_draws_the_picture(ctx: StreamContext) -> bool:
-    """At finalize: the read calls the message a STEM question asking to see a graph, a
-    diagram or a molecule, so no photo or painting stands in for it. The answer the reply's
-    prompt was given, when it was given one; else the read, if it is in. Nothing is waited
-    for."""
-    if ctx.problem_picture is not None:
+    """At finalize, whether no photo or painting stands in for the picture: what the reply's
+    prompt was told (``StreamContext.problem_picture``), else ``app_draws`` with the read, if
+    it is in. Nothing is waited for."""
+    if isinstance(ctx.problem_picture, bool):
         return ctx.problem_picture
     read = ctx.live_read
-    return read is not None and asks_for_a_drawing(_answered(read))
+    if not isinstance(read, asyncio.Future):
+        return False
+    return app_draws(_answered(read), ctx.verified_subject)

@@ -265,7 +265,12 @@ async def test_the_turn_tells_its_tool_loop_the_photo_was_not_found() -> None:
 
     search = AsyncMock(side_effect=ImageSearchError("no usable photo", status_code=502))
     prepared = SimpleNamespace(
-        reply_picture=None, instant_reply=None, user_message_content="", recent_messages=[]
+        reply_picture=None,
+        instant_reply=None,
+        user_message_content="",
+        recent_messages=[],
+        verified_subject=None,
+        chat_id=uuid4(),
     )
     streamed: list[Any] = []
 
