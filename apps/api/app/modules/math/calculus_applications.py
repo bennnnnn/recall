@@ -81,15 +81,10 @@ def _closed_form(value, label: str):
     return simplify(value)
 
 
-def _integrate_absolute(expr, variable: Symbol, low, high):
-    """Integrate |expr|, splitting at the crossings inside the interval.
-
-    Integrating the signed difference would let a region below the axis cancel
-    one above it, so "the area between" two curves that cross would come back
-    smaller than it is — and for a symmetric crossing, zero.
-    """
-    if simplify(expr) == 0:
-        return S.Zero
+def _signed_pieces(
+    expr: Any, variable: Symbol, low: Any, high: Any
+) -> list[tuple[Any, Any, float]]:
+    """The interval split at the crossings inside it: each piece's ends and its sign."""
     try:
         roots = solveset(Eq(expr, 0), variable, domain=Interval(low, high))
     except (NotImplementedError, TypeError) as exc:
@@ -120,7 +115,7 @@ def _integrate_absolute(expr, variable: Symbol, low, high):
     inner.sort(key=lambda item: item[0])
 
     points = [low, *(root for _, root in inner), high]
-    total = S.Zero
+    pieces: list[tuple[Any, Any, float]] = []
     for index in range(len(points) - 1):
         left, right = points[index], points[index + 1]
         midpoint = simplify((left + right) / 2)
@@ -130,11 +125,43 @@ def _integrate_absolute(expr, variable: Symbol, low, high):
             raise SolveServiceError("could not determine the sign between crossings") from exc
         if not math.isfinite(sign):
             raise SolveServiceError("the integrand is not finite on that interval")
+        pieces.append((left, right, sign))
+    return pieces
+
+
+def _integrate_absolute(expr: Any, variable: Symbol, low: Any, high: Any) -> Any:
+    """Integrate |expr|, splitting at the crossings inside the interval.
+
+    Integrating the signed difference would let a region below the axis cancel
+    one above it, so "the area between" two curves that cross would come back
+    smaller than it is — and for a symmetric crossing, zero.
+    """
+    if simplify(expr) == 0:
+        return S.Zero
+    total = S.Zero
+    for left, right, sign in _signed_pieces(expr, variable, low, high):
         piece = definite_integral(expr, variable, left, right)
         if piece.has(Integral):
             raise SolveServiceError("no closed form for this area was found")
         total += -piece if sign < 0 else piece
     return simplify(total)
+
+
+def integral_is_an_area(expr: str, low: str, high: str, variable: str = "x") -> bool:
+    """The integral of ``expr`` from ``low`` to ``high`` is, up to its sign, the area
+    between its graph and the x-axis: ``expr`` keeps one sign on the interval. One that
+    crosses the axis has a signed integral smaller than the area ("∫₀³ (x² - 3x + 2) dx"
+    is 3/2, the area 11/6), so it is no answer to an area question. Any failure reads as
+    no."""
+    try:
+        sym = Symbol(variable, real=True)
+        parsed = _expression(expr, variable)
+        start, stop = _ordered_bounds(low, high)
+        _require_continuous(parsed, sym, start, stop)
+        signs = {sign > 0 for _, _, sign in _signed_pieces(parsed, sym, start, stop) if sign}
+    except (SolveServiceError, TypeError, ValueError, OverflowError):
+        return False
+    return len(signs) <= 1
 
 
 def area_between_curves(

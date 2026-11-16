@@ -575,6 +575,9 @@ def graph_expr_pair(text: str) -> tuple[str, str] | None:
     return None
 
 
+_DEFINES_A_FUNCTION = re.compile(r"\b[a-z]\s*\(\s*x\s*\)\s*=")
+
+
 def vertical_line_x(text: str) -> float | None:
     """``x = 4`` after a graph cue — not ``3x=9`` and not when ``y=`` is present.
 
@@ -584,7 +587,9 @@ def vertical_line_x(text: str) -> float | None:
     if not has_viz_command(text):
         return None
     lower = split_glued_viz_runs(strip_inline_math_delims(text).lower())
-    if _standalone_equals(lower, "y") is not None:
+    # A curve named y = … or f(x) = … is the graph; its "x = 2" is a point on it ("the
+    # tangent to f(x) = √(9 - x²) at x = 2 … Draw the curve" is no vertical line).
+    if _standalone_equals(lower, "y") is not None or _DEFINES_A_FUNCTION.search(lower):
         return None
     idx = 0
     while True:

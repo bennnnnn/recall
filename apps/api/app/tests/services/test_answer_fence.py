@@ -12,6 +12,7 @@ from app.services.answer_fence import (
     UNCHECKED_ANSWER_MARKER,
     VERIFIED_ANSWER_MARKER,
     answer_fence_value,
+    boxes_its_answer,
     demote_answer_fences,
     land_answer_card,
     mark_server_answer_fences,
@@ -455,3 +456,42 @@ def test_the_not_checked_line_is_a_header_and_never_survives_a_verified_card() -
     assert verified_answer_fence(body) == f"```answer\n{VERIFIED_ANSWER_MARKER}\nx = 3\n```"
     assert demote_answer_fences(f"```answer\n{body}\n```") == "x = 3\n"
     assert UNCHECKED_ANSWER_MARKER == "verified: false"
+
+
+_BOXED_DISPLAY = (
+    "Back-substitute $u = x^{3/2}$:\n\n\\[\n\\boxed{\\int 5^{x\\sqrt{x}}\\sqrt{x}\\,dx\n=\n"
+    "\\frac{2\\,5^{x^{3/2}}}{3\\ln 5}+C}\n\\]"
+)
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        _BOXED_DISPLAY,
+        "So\n\n$$ \\boxed{\\int x\\ln(nx)\\,dx = \\frac{x^2}{2}\\ln(nx) - \\frac{x^2}{4} + C} $$",
+        # A picture after the boxed value leaves it the reply's last statement.
+        "So\n\n$\\boxed{x = 3}$\n\n```graph\n{}\n```",
+    ],
+)
+def test_a_closing_boxed_value_is_the_replys_answer_card(reply: str) -> None:
+    """The unit-5 round (2026-11-16): replies that boxed their result in \\[…\\] or $$…$$
+    showed no card, unlike every other reply."""
+    assert boxes_its_answer(reply)
+    out = land_answer_card(reply, None)
+    assert "**Answer**\n\n```answer\nverified: false\n" in out
+    assert "\\boxed" not in out
+    checked = land_answer_card(reply, "x = 3")
+    assert "```answer\nverified: true\nx = 3\n```" in checked
+    assert "\\boxed" not in checked
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # A boxed step that is not the reply's last statement, or a reply with an Answer.
+        "First $\\boxed{u = 2x}$ is the substitution.\n\nThen the integral is $u^2$.",
+        "$\\boxed{x = 3}$\n\n**Answer**\n$x = 3$",
+    ],
+)
+def test_a_boxed_value_that_is_not_the_closing_answer_is_left(reply: str) -> None:
+    assert not boxes_its_answer(reply)

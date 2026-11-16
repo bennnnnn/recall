@@ -334,6 +334,24 @@ def _applies_a_function(args: dict[str, Any], user: _UserMath) -> bool:
     return any({str(s) for s in p.free_symbols} & user.functions for p in parsed if p is not None)
 
 
+def _answers_an_area(args: dict[str, Any], user: _UserMath) -> bool:
+    """A definite integral for a question that asks an area is its answer only when the
+    integrand keeps one sign on the interval: "the area bounded by y = x² - 3x + 2 and the
+    x-axis between x = 0 and x = 3" carried the signed ∫₀³ = 3/2 as checked under working
+    that found the area, 11/6 (2026-11-16). An indefinite integral, or a question that asks
+    no area, is not held to it."""
+    from app.modules.math.calculus_applications import integral_is_an_area
+    from app.modules.math.match.asked_quantities import quantity_mentions
+
+    lower, upper = args.get("lower"), args.get("upper")
+    if lower in (None, "") or upper in (None, ""):
+        return True
+    if "area" not in {name for name, _start, _end in quantity_mentions(user.text)}:
+        return True
+    variable = str(args.get("variable") or "x")
+    return integral_is_an_area(str(args.get("expr") or ""), str(lower), str(upper), variable)
+
+
 def _matches(args: dict[str, Any], user: _UserMath) -> bool:
     action = str(args.get("action") or "solve").strip().lower()
     if user.functions and _applies_a_function(args, user):
@@ -371,9 +389,10 @@ def _matches(args: dict[str, Any], user: _UserMath) -> bool:
             "limit": ("point",),
             "series": ("start", "end"),
         }.get(action, ())
-        return all(
+        written = all(
             args.get(key) in (None, "") or _number_written(args.get(key), user) for key in settings
         )
+        return written and (action != "integrate" or _answers_an_area(args, user))
     if action == "graph":
         if not _graph_arg(args, "expr", user):
             return False
@@ -428,6 +447,11 @@ def written_values(text: str) -> list[float]:
 def parse_formula(text: str) -> Any | None:
     """``text`` as one SymPy expression, or None."""
     return _parse(text)
+
+
+def parse_latex_formula(text: str) -> Any | None:
+    """``text``, typed LaTeX, as one SymPy expression, or None."""
+    return _parse(_latex_as_typed(text))
 
 
 def same_value(a: Any, b: Any) -> bool:

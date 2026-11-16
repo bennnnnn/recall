@@ -32,6 +32,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
 
+from app.modules.math.card_form import in_working_form
 from app.modules.math.fence_answer import reply_asks_instead_of_answering
 from app.modules.math.fence_canonical import canonical_replacement
 from app.modules.math.fence_canonical import spec_fence_kind as spec_fence_kind
@@ -242,12 +243,16 @@ def _verified_includes_graph(verified: VerifiedMathBlock) -> bool:
 
 
 def _append_missing_canonical_fences(
-    content: str, verified: VerifiedMathBlock | None, *, correct: bool = True
+    content: str,
+    verified: VerifiedMathBlock | None,
+    correct: bool = True,
+    answer_body: str | None = None,
 ) -> str:
-    """Attach solver-owned fences the model was told not to emit."""
+    """Attach solver-owned fences the model was told not to emit; ``answer_body`` is the
+    card's value when it is not the verified block's own (``card_form``)."""
     if verified is None:
         return content
-    answer_body = canonical_answer_body(verified)
+    answer_body = answer_body or canonical_answer_body(verified)
     # A reply that asks rather than answers has no answer to decorate, so it
     # gets no pill, no diagram and no chart — not one of the three.
     if reply_asks_instead_of_answering(content, answer_body):
@@ -364,6 +369,16 @@ def convert_function_call_text(content: str) -> str:
     return "".join(out)
 
 
+def _working_form(
+    content: str, verified: VerifiedMathBlock | None, answer_body: str | None, correct: bool
+) -> str | None:
+    """The card's value in the form the reply's working reaches (``card_form``); None when
+    the server writes its own text."""
+    if not answer_body or not correct or verified is None:
+        return None
+    return in_working_form(content, answer_body)
+
+
 def validate_math_fences(
     content: str, *, verified: VerifiedMathBlock | None = None, correct: bool = True
 ) -> str:
@@ -397,6 +412,7 @@ def validate_math_fences(
         return verified.direct_reply.rstrip()
     if correct and (left := contradicted_reading(content, verified, answer_body)) is not None:
         return left  # a question in words worked to another value: no check
+    answer_body = (reached := _working_form(content, verified, answer_body, correct)) or answer_body
     if answer_only:
         # “Answer only” means exactly that: do not let a canonical number line,
         # graph, geometry card, or model-authored diagram trail the result.
@@ -462,7 +478,7 @@ def validate_math_fences(
         content = strip_gfm_pipe_tables(content)
         content = strip_hand_sketch_filler(content)
         content = strip_text_plots(content)
-    return _append_missing_canonical_fences(content, scoped_verified, correct=correct)
+    return _append_missing_canonical_fences(content, scoped_verified, correct, reached)
 
 
 _FENCE_VALIDATE_MARKERS = (

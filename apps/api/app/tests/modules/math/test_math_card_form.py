@@ -1,0 +1,121 @@
+"""The verified card in the form the reply's working reaches (``math.card_form``).
+
+The unit-5 round (2026-11-16) showed checked cards in SymPy's own form under working that
+reaches another: csc(2x + π/4)/2 under ½ sec(2x - π/4), ln|2 cos 2t - 2|/2 under
+ln|1 - cos 2t|/2 (a constant apart), one fraction under the partial fractions it came from.
+The card shows the working's value when SymPy finds it the same, and the server's otherwise.
+"""
+
+from __future__ import annotations
+
+import pytest
+
+from app.modules.math.card_form import in_working_form, read_tex
+from app.modules.math.fence import validate_math_fences
+from app.services.solving import VerifiedMathBlock
+
+_SEC = r"\frac{\csc{\left(2 x + \frac{\pi}{4} \right)}}{2} + C"
+_LOG = r"\frac{\ln\left|2 \cos{\left(2 t \right)} - 2\right|}{2} + C"
+_FRACTIONS = (
+    r"\frac{\left(x + 1\right) \left(x + 4 \ln\left|x + 1\right| - 8 \ln\left|x + 2\right|\right)"
+    r" + 1}{x + 1} + C"
+)
+
+
+def _reply(*lines: str) -> str:
+    return "\n".join(["**Solution**", *lines, "", "**Answer**", ""])
+
+
+@pytest.mark.parametrize(
+    ("reply", "server", "card"),
+    [
+        # An equivalent form: the working's.
+        (
+            _reply(r"$\frac{1}{2}\sec\left(2x - \frac{\pi}{4}\right) + C$"),
+            _SEC,
+            r"\frac{1}{2}\sec\left(2x - \frac{\pi}{4}\right) + C",
+        ),
+        # An antiderivative a constant apart (ln 2 / 2): still the working's.
+        (
+            _reply(r"$\frac{\ln|1 - \cos(2t)|}{2} + C$"),
+            _LOG,
+            r"\frac{\ln|1 - \cos(2t)|}{2} + C",
+        ),
+        # The line names what it integrates: the card holds the value.
+        (
+            _reply(r"$= x + 4\ln|x+1| + \frac{1}{x+1} - 8\ln|x+2| + C$"),
+            _FRACTIONS,
+            r"x + 4\ln|x+1| + \frac{1}{x+1} - 8\ln|x+2| + C",
+        ),
+        # The working's last line before its constant: the card writes the + C.
+        (
+            _reply(r"$\frac{1}{2}\sec\left(2x - \frac{\pi}{4}\right)$"),
+            _SEC,
+            r"\frac{1}{2}\sec\left(2x - \frac{\pi}{4}\right) + C",
+        ),
+        # The working stops in u: the Answer's own line is the reply's form.
+        (
+            "**Solution**\n$u = 2x$\n\n**Answer**\n"
+            r"$\int \sec u \tan u\,dx = \frac{1}{2}\sec\left(2x - \frac{\pi}{4}\right) + C$",
+            _SEC,
+            r"\frac{1}{2}\sec\left(2x - \frac{\pi}{4}\right) + C",
+        ),
+        # A braced power in a fraction (e^{2x} is e^(2x), never e^2 x).
+        (
+            _reply(r"$\frac{2e^{2x} - 18e^x - 12}{3\sqrt{e^x}} + C$"),
+            r"\frac{2 \left(\left(e^{x} - 9\right) e^{x} - 6\right)}{3 \sqrt{e^{x}}} + C",
+            r"\frac{2e^{2x} - 18e^x - 12}{3\sqrt{e^x}} + C",
+        ),
+        # The Answer copies the server's form: the working's last line is the reply's own.
+        (
+            "**Solution**\n$= \\frac{\\ln|1 - \\cos(2t)|}{2} + C$\n\n**Answer**\n$" + _LOG + "$",
+            _LOG,
+            r"\frac{\ln|1 - \cos(2t)|}{2} + C",
+        ),
+        # An irrational value in another exact form.
+        (_reply(r"$= \ln 5 - \ln 3$"), r"\ln{\left(\frac{5}{3} \right)}", r"\ln 5 - \ln 3"),
+    ],
+)
+def test_the_card_shows_the_form_the_working_reaches(reply: str, server: str, card: str) -> None:
+    assert in_working_form(reply, server) == card
+
+
+@pytest.mark.parametrize(
+    ("reply", "server"),
+    [
+        # Wrong working keeps the server's value.
+        (_reply(r"$\frac{1}{2}\sec\left(2x + \frac{\pi}{4}\right) + C$"), _SEC),
+        # Working that never integrates (it stops at a partial-fraction constant).
+        (_reply(r"$A = -\dfrac{11}{4}$"), _FRACTIONS),
+        # A definite value never gains a constant.
+        (_reply(r"$\ln 5 - \ln 3 + C$"), r"\ln{\left(\frac{5}{3} \right)}"),
+        # A fraction in lowest terms is its one form: "27/3 - 0" is 9 unworked.
+        (_reply(r"$A = \frac{27}{3} - 0$"), "9"),
+        # A number's working is never its card: "0.15 * 85" is 12.75.
+        (_reply(r"$0.15 \times 85$"), "12.75"),
+        # A rounded decimal never replaces an exact value.
+        (_reply(r"$= 0.5108256237659907$"), r"\ln{\left(\frac{5}{3} \right)}"),
+        # A sentence states no value.
+        (_reply(r"At $x = 1$: $\frac{1}{3}\ln 2$"), r"\frac{\ln 2}{3}"),
+        # A card of several values is the server's.
+        (_reply("$x = 1$, $y = 3$"), "x = 1, y = 3"),
+    ],
+)
+def test_the_card_keeps_the_servers_form_otherwise(reply: str, server: str) -> None:
+    assert in_working_form(reply, server) == server
+
+
+def test_sympys_own_spelling_reads() -> None:
+    assert read_tex(r"\cos^{3}{\left(\frac{x}{3} \right)}") is not None
+    assert read_tex(_LOG.removesuffix(" + C")) is not None
+
+
+def test_the_fence_pass_lands_the_working_form_checked() -> None:
+    verified = VerifiedMathBlock(text="", subject="math", canonical_answer=_SEC)
+    reply = _reply(r"$\frac{1}{2}\sec\left(2x - \frac{\pi}{4}\right) + C$")
+    out = validate_math_fences(reply, verified=verified)
+    assert (
+        "```answer\nverified: true\n\\frac{1}{2}\\sec\\left(2x - \\frac{\\pi}{4}\\right) + C\n```"
+        in out
+    )
+    assert "csc" not in out

@@ -104,6 +104,44 @@ def test_tool_call_matches_only_the_users_problem(
     assert tool_call_matches_user_text(json.dumps(args), [user]) is matches
 
 
+_AREA_QUESTION = (
+    "Find the area of the region bounded by the graph of f(x) = x² − 3x + 2 and the x-axis "
+    "between x = 0 and x = 3. What would happen if you simply calculated ∫ from 0 to 3 of "
+    "(x² − 3x + 2) dx?"
+)
+
+
+@pytest.mark.parametrize(
+    ("args", "user", "matches"),
+    [
+        # The signed integral of a curve that crosses the axis is no area: 3/2, not 11/6.
+        (
+            {"action": "integrate", "expr": "x**2 - 3*x + 2", "lower": "0", "upper": "3"},
+            _AREA_QUESTION,
+            False,
+        ),
+        # The same integral asked as an integral is its own answer.
+        (
+            {"action": "integrate", "expr": "x**2 - 3*x + 2", "lower": "0", "upper": "3"},
+            "Evaluate ∫ from 0 to 3 of (x² − 3x + 2) dx.",
+            True,
+        ),
+        # A curve that keeps one sign: its integral is the area.
+        (
+            {"action": "integrate", "expr": "x**2", "lower": "0", "upper": "3"},
+            "Find the area under y = x^2 from x = 0 to x = 3.",
+            True,
+        ),
+        # The antiderivative is never held to the area.
+        ({"action": "integrate", "expr": "x**2 - 3*x + 2"}, _AREA_QUESTION, True),
+    ],
+)
+def test_an_area_is_never_checked_by_a_signed_integral(
+    args: dict[str, Any], user: str, matches: bool
+) -> None:
+    assert tool_call_matches_user_text(json.dumps(args), [user]) is matches
+
+
 def test_a_follow_up_with_no_math_of_its_own_reads_the_previous_question() -> None:
     args = json.dumps({"action": "graph", "expr": "2*x + 5"})
     assert tool_call_matches_user_text(args, ["now graph it", "solve 2x + 5 = 17"])

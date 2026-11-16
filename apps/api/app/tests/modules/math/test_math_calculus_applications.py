@@ -140,6 +140,72 @@ def test_the_working_prints_its_bounds_in_tex(text: str, shown: str, typed: str)
         assert written not in working
 
 
+# The textbook's own wording (Grade 12 unit 5, live round 2026-11-16): "the area of the
+# region bounded by the graph of …", a minus typed as U+2212, the lines that close the region,
+# bounds such as 7π/4, 1/e and e², and a sentence after the question.
+TEXTBOOK_REGIONS: list[tuple[str, str]] = [
+    (
+        "Find the area of the region enclosed by the graph of f(x) = 12 − 3x² and the x-axis "
+        "from x = −4 to x = 3. Draw the graph and shade the region.",
+        "71",
+    ),
+    (
+        "Find the area of the region bounded by the graph of f(x) = x² − 3x + 2 and the x-axis "
+        "between x = 0 and x = 3.",
+        "\\frac{11}{6}",
+    ),
+    (
+        "Find the area of the region bounded by the graph of f(x) = x/(x + 1), the x-axis and "
+        "the lines x = −1/2 and x = 3. Show it on a graph.",
+        "\\frac{5}{2} - \\ln 2",
+    ),
+    (
+        "Find the area of the region enclosed by f(x) = sin x and the x-axis from x = π/4 to "
+        "x = 7π/4. Sketch the region.",
+        "\\sqrt{2} + 2",
+    ),
+    (
+        "Find the area of the region enclosed by f(x) = ln x and the x-axis from x = 1/e to "
+        "x = e². Show it on a graph.",
+        "- \\frac{2}{e} + 2 + e^{2}",
+    ),
+    (
+        "Find the area of the region enclosed by f(x) = 4 − x² and g(x) = 3x. Show the curves "
+        "and shade the region.",
+        "\\frac{125}{6}",
+    ),
+    (
+        "Find the area of the region enclosed by the graphs of f(x) = x² and g(x) = √x.",
+        "\\frac{1}{3}",
+    ),
+    ("Find the area of the region bounded by y = x² and y = 4.", "\\frac{32}{3}"),
+]
+
+
+@pytest.mark.parametrize(
+    "text,answer", TEXTBOOK_REGIONS, ids=[r[0][24:64] for r in TEXTBOOK_REGIONS]
+)
+def test_textbook_regions_are_read_with_their_stated_interval(text: str, answer: str) -> None:
+    """The asked interval is the one integrated: [-4, 3] gives 71, never the 32 between
+    the roots that the reply answered when no reader claimed the question."""
+    assert _intent(text).school_op == "area_between_curves"
+    assert _verified_answer(text) == answer
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # A stated interval the bounds cannot read is never replaced by the meeting points.
+        "Find the area of the region bounded by y = x² and y = 4 from x = 1/e² to x = 1.",
+        "Find the area of the region bounded by y = x² and y = 4 on [a, 2].",
+        # A partial bound is no bound: 7π of 7π/4, e of e^x.
+        "area between y = sin x and y = 0 from x = 0 to x = 7π/x",
+    ],
+)
+def test_a_stated_interval_is_read_whole_or_the_question_is_left(text: str) -> None:
+    assert _verified_answer(text) is None
+
+
 def test_the_area_answer_is_not_the_intersection_points() -> None:
     """The original defect, still pinned now that the question is answered."""
     answer = _verified_answer("area between y=x and y=x^2 from 0 to 1")

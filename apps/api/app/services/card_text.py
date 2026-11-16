@@ -12,10 +12,12 @@ with its asterisks showing. Before a model's line becomes a card:
 - ``named_value``: a quantity named in words keeps its words as text and puts only its
   value in maths, ``Work input = $1.2\\,\\mathrm{J}$``, the way a card holding words and
   maths is drawn on the phone (``lib/math/answerLayout.ts``);
-- ``card_maths``: a value that is all maths loses its ``$`` marks, as a verified card holds
-  TeX alone, and a unit's power is written after the unit, as the server writes it
+- ``card_maths``: a value that is all maths loses its ``$`` (or ``$$``, ``\\(…\\)``) marks,
+  as a verified card holds TeX alone, a unit in words is text (``\\text{square units}``),
+  and a unit's power is written after the unit, as the server writes it
   (``\\mathrm{cm}^{2}``): a triangle's parts came as ``$A = 54\\,\\mathrm{cm²}$`` beside
-  ``\\mathrm{cm^2}`` (2026-11-06).
+  ``\\mathrm{cm^2}`` (2026-11-06); the unit-5 round's cards held ``$$…$$`` and
+  ``\\mathrm{square units}`` (2026-11-16).
 
 A line in words is no card at all (``wordy``): a paragraph, or more than one sentence
 (``sentence_answer``).
@@ -73,17 +75,29 @@ def named_value(value: str) -> str:
     return f"{name.rstrip()} = ${number}{_unit(match.group('unit') or '')}$"
 
 
-_WHOLE_MATH = re.compile(r"\$(?!\$)([^$\n]+)\$")
+# A value that is all maths on one line, in any of its delimiters: $…$, $$…$$, \(…\),
+# \[…\]. A display block over several lines (cases, aligned) keeps its $$.
+_WHOLE_MATH = re.compile(
+    r"\$(?!\$)([^$\n]+)\$|\$\$([^$\n]+)\$\$"
+    r"|\\\(((?:(?!\\[()])[^\n])+)\\\)|\\\[((?:(?!\\[\[\]])[^\n])+)\\\]"
+)
+# A unit of several words set upright as one, its spaces lost: "\mathrm{square units}".
+_UPRIGHT_WORDS = re.compile(r"\\mathrm\{([A-Za-z]+(?:\s+[A-Za-z]+)+)\}")
 # "\mathrm{cm^2}", "\mathrm{cm^{3}}", "\mathrm{cm²}": a power written inside the unit.
 _POWER_INSIDE = re.compile(r"\\mathrm\{([A-Za-zµΩ/]+)(?:\^\{?([23])\}?|([²³]))\}")
 _SUPERSCRIPT = {"²": "2", "³": "3"}
 
 
 def card_maths(value: str) -> str:
-    """A card's value as the server writes one: no ``$`` around a value that is all maths,
-    and a unit's power after the unit."""
+    """A card's value as the server writes one: TeX alone, with no delimiters around a value
+    that is all maths (``$…$``, ``$$…$$``, ``\\(…\\)``), a unit in words set as text
+    (``\\,\\text{square units}``, never ``\\mathrm``, which runs its words together), and a
+    unit's power after the unit. Words beside the maths ("$5°$ from the normal") keep its
+    marks: the phone draws the line as a sentence."""
     whole = _WHOLE_MATH.fullmatch(value.strip())
-    value = whole.group(1).strip() if whole else value
+    if whole is not None:
+        value = next(group for group in whole.groups() if group is not None).strip()
+    value = _UPRIGHT_WORDS.sub(lambda m: rf"\text{{{' '.join(m.group(1).split())}}}", value)
     return _POWER_INSIDE.sub(
         lambda m: rf"\mathrm{{{m.group(1)}}}^{{{m.group(2) or _SUPERSCRIPT[m.group(3)]}}}", value
     )

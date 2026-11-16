@@ -451,6 +451,14 @@ class TestVerticalLine:
     def test_glued_english_without_viz_is_not_vertical(self):
         assert mtm.vertical_line_x("X=6please") is None
 
+    def test_a_point_on_a_defined_function_is_no_vertical_line(self):
+        # "at x = 2" on f(x) = ... is a point of the curve the message draws (2026-11-16).
+        text = (
+            "Find the line tangent to f(x) = sqrt(9 - x^2) at x = 2 and the normal there. "
+            "Draw the curve, the tangent and the normal."
+        )
+        assert mtm.vertical_line_x(text) is None
+
 
 class TestGluedVizCommands:
     """Unknown 3+ letter tokens are commands or noise, never g*r*a*p*h."""
