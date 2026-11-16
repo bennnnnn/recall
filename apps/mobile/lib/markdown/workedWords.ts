@@ -23,3 +23,10 @@ type HeadingKind = "given" | "required" | "solution" | "substitution" | "steps" 
 export function workedHeadings(kind: HeadingKind): readonly string[] {
   return [...new Set(Object.values(WORKED_WORDS).map((words) => words[kind]))];
 }
+
+/**
+ * The Answer heading in every language, as a regex alternation: the readers that fold it
+ * into the card below it (`attachAnswerHeading.ts`) or hold a stream's part open for that
+ * card (`streamSegments.ts`) read **Respuesta** as they read **Answer**.
+ */
+export const ANSWER_WORDS_SOURCE = workedHeadings("answer").join("|");

@@ -30,7 +30,8 @@
 import { isAnswerLang, isExplicitCodeLang } from "@/lib/copyBlock";
 import { isMathFenceLang, isStructuredFenceLang } from "@/lib/fence/registry";
 import { escapedAt } from "@/lib/markdown/inlineCode";
-import { isWorkedReply, OPENING_HEADINGS } from "@/lib/markdown/workoutSection";
+import { ANSWER_WORDS_SOURCE } from "@/lib/markdown/workedWords";
+import { ENGLISH_OPENING_HEADINGS, isWorkedReply } from "@/lib/markdown/workoutSection";
 
 type OpenFence = { char: "`" | "~"; len: number; durable: boolean };
 
@@ -81,9 +82,9 @@ const ANSWER_LOOKAHEAD_LINES = 12;
 const POISON_RE = /<details|"\$schema"|molecule3d/i;
 const CLEAN_FENCE_RE = /^(`{3,}|~{3,})([^`~]*)$/;
 /** A line that opens with "Answer", or holds an Answer heading a pass may break out of it. */
-const ANSWER_OPENING_RE = /^[\s#*]*answer/i;
-const ANSWER_HEADING_IN_LINE_RE = /#{1,6}[ \t]*(?:\*\*)?answer/i;
-const WORKED_RE = new RegExp(String.raw`^\s*\*\*\s*(?:${OPENING_HEADINGS.join("|")})(?![\p{L}\p{N}])`, "u");
+const ANSWER_OPENING_RE = new RegExp(String.raw`^[\s#*]*(?:${ANSWER_WORDS_SOURCE})`, "iu");
+const ANSWER_HEADING_IN_LINE_RE = new RegExp(String.raw`#{1,6}[ \t]*(?:\*\*)?(?:${ANSWER_WORDS_SOURCE})`, "iu");
+const WORKED_RE = new RegExp(String.raw`^\s*\*\*\s*(?:${ENGLISH_OPENING_HEADINGS.join("|")})\b`);
 const BOLD_LABEL_RE = /^\s*\*\*[^*\n]+\*\*\s*(?:`[^`\n]*`\s*)?$/;
 /** A top-level list item: the passes read it apart from the item above it. */
 const LIST_ITEM_RE = /^(?:[-*+]|\d{1,9}[.)])[ \t]/;
