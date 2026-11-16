@@ -189,6 +189,8 @@ class ChemistrySubject:
     tool: None = None
     # Its pictures come with its solve (a scene, a molecule), never from a separate read.
     figure: None = None
+    # No worked answer of a model's setup yet (docs/FORMAL_READER.md).
+    formal: None = None
 
     def enabled(self, settings: Settings) -> bool:
         return settings.chemistry_enabled

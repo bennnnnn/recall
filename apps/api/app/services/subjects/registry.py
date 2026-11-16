@@ -30,6 +30,8 @@ An adapter has what the dispatcher and chat ask of every subject:
   None;
 - ``figure``: the picture it draws for a question that asks to see one, from the question's
   own values (``SubjectFigure``), or None;
+- ``formal``: its answer to a question its solvers did not read, worked out by the server
+  from a model's setup (``SubjectFormal``), or None;
 - ``followups``: how it reads a line that goes back to its last problem
   (``SubjectFollowups``);
 - ``fence``: which verified blocks it finishes, how it holds a finished reply's fences to
@@ -65,6 +67,7 @@ from app.modules.money.subject import MONEY_PEER
 from app.modules.physics.subject import PHYSICS_SUBJECT
 
 # What a subject read off a photo (``photo``).
+from app.services.formal.answer import FormalAnswer
 from app.services.solving import PhotoReading as PhotoReading
 from app.services.solving import SubjectName as SubjectName
 from app.services.subjects.guard import GuardedSubject
@@ -285,6 +288,13 @@ class SubjectFigure(Protocol):
         ...
 
 
+class SubjectFormal(Protocol):
+    """The subject's answer to a question its solvers did not read: a model writes it down as
+    maths, the server solves it (``services.formal``); None unless the two agree."""
+
+    async def answer(self, question: str, settings: Settings) -> FormalAnswer | None: ...
+
+
 class SubjectAdapter(Protocol):
     """One subject, as the dispatcher and chat ask it."""
 
@@ -339,6 +349,9 @@ class SubjectAdapter(Protocol):
 
     @property
     def figure(self) -> SubjectFigure | None: ...
+
+    @property
+    def formal(self) -> SubjectFormal | None: ...
 
     async def solve(self, request: SubjectRequest, settings: Settings) -> SubjectAugmentation: ...
 

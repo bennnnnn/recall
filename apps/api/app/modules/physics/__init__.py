@@ -62,5 +62,5 @@ def __getattr__(name: str) -> Any:
 # Seams the chat turn uses: question detection.
 # ``subject``: physics as the subject registry (services/subjects/registry) asks it: its
 # verified block, its direct reply, its prompt copy, its follow-ups and its fences.
-# ``model_read``: the laws a model reader chooses from, and the intent its read binds to.
-_MODULE_EXPORTS = ("extract", "model_read", "subject")
+# ``formal_read``: the question written down as maths by a model, solved by the server.
+_MODULE_EXPORTS = ("extract", "formal_read", "subject")

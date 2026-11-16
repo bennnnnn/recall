@@ -91,6 +91,7 @@ from app.modules.chat.finalize_text import (
     settle_clarify,
     strip_recipient_placeholders,
 )
+from app.modules.chat.formal_turn import attach_formal
 from app.modules.chat.generic_closer import strip_generic_closer
 from app.modules.chat.json_output import check_requested_json
 from app.modules.chat.lesson_again import keep_to_lesson_again_pass
@@ -293,6 +294,7 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         for name, attach, after in (
             ("figure", attach_figure, frozenset({"math_fences", "formula_charts"})),
             ("data_chart", attach_chart, frozenset({"figure"})),
+            ("formal_answer", attach_formal, frozenset({"data_chart"})),
         )
     ),
     FinalizePass("server_answer_cards", mark_server_cards, kind=TEXT),

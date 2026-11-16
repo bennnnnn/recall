@@ -71,6 +71,13 @@ class StemSettings(BaseModel):
     figure_read_enabled: bool = True
     figure_read_timeout_seconds: float = 4.0
     figure_wait_seconds: float = 2.0
+    # A physics turn the solvers did not answer: a model writes the question down as maths
+    # beside the reply, the server solves it (``physics.formal_read``, ``services.formal``),
+    # and finalize waits at most ``formal_wait_seconds`` for it. A reply whose final value
+    # differs gets the server's (docs/FORMAL_READER.md). Off: the reply stands as written.
+    formal_reader_enabled: bool = True
+    formal_read_timeout_seconds: float = 6.0
+    formal_wait_seconds: float = 2.0
     # A chart of numbers the user wrote (bar, pie, line, histogram) is drawn by the server
     # from those numbers (``modules/charts``), only when every label and value is the user's,
     # in place of the model's own chart, which no check read. Beside the reply, which waits at

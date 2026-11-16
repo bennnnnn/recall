@@ -99,6 +99,7 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "formula_charts",
         "figure",
         "data_chart",
+        "formal_answer",
         "server_answer_cards",
         "unverified_notes",
         "working_check",
@@ -249,6 +250,7 @@ def test_the_effect_passes_are_the_ones_that_change_the_turn() -> None:
         "lesson_shape",
         "figure",
         "data_chart",
+        "formal_answer",
     }
 
 

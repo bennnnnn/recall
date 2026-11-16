@@ -213,3 +213,28 @@ def test_a_temperature_asked_in_celsius_is_converted_not_scaled() -> None:
     }
     result = _solve(setup, question)
     assert result["solved"] and result["value"] == pytest.approx(45.0)
+
+
+async def _in_process(fn: Any, *args: Any, **_kwargs: Any) -> Any:
+    return fn(*args)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("own", "kept"), [(3.47, True), (4.5, False), (None, False)])
+async def test_the_server_s_answer_is_used_only_when_the_setup_s_own_agrees(
+    own: float | None, kept: bool
+) -> None:
+    """A setup whose own answer is another than the server's is no answer: the reply stands."""
+    from app.core.config import Settings
+    from app.modules.physics import formal_read
+    from app.services.formal.problem import FormalProblem
+
+    setup = FormalProblem.model_validate(_car(answer=own))
+    with (
+        patch.object(formal_read, "read_physics_setup", AsyncMock(return_value=setup)),
+        patch("app.core.sympy_executor.run_sympy", _in_process),
+    ):
+        answer = await formal_read.formal_answer(CAR, Settings(_env_file=None))  # type: ignore[call-arg]
+    assert (answer is not None) is kept
+    if answer is not None:
+        assert answer.value == pytest.approx(3.4722, rel=1e-4) and answer.unit == "m/s^2"

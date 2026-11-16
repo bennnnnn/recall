@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import math
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -59,6 +60,8 @@ class Row:
     today_solved: bool | None = None  # the app's own solver answered (None: not run)
     today_right: bool | None = None
     model: dict[str, bool | None] = field(default_factory=dict)  # None: no number
+    # The reply model's own final answer, as (value, unit), for the disagreement table.
+    model_answer: dict[str, tuple[float | None, str]] = field(default_factory=dict)
     formal: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
@@ -86,7 +89,12 @@ def right(value: float | None, unit: str, want: tuple[float, str]) -> bool | Non
 
     if value is None:
         return None
-    return same_quantity((value, unit), want)[0]
+    ok, detail = same_quantity((value, unit), want)
+    if not ok and "UndefinedUnitError" in detail:
+        # A unit in the question's own script (Cyrillic m/s): judged on its number alone, in the
+        # unit the answer key uses (the eval's grading, not what a reply would be held to).
+        return math.isclose(abs(value), abs(want[0]), rel_tol=0.01)
+    return ok
 
 
 async def today(question: Question) -> tuple[bool, bool | None]:
@@ -108,7 +116,9 @@ async def today(question: Question) -> tuple[bool, bool | None]:
     return True, "wrong" not in kinds
 
 
-async def model_alone(settings: Any, alias: str, question: Question) -> bool | None:
+async def model_alone(
+    settings: Any, alias: str, question: Question, row: Row | None = None
+) -> bool | None:
     from app.gateways.structured_completion import complete_structured
 
     reply = await complete_structured(
@@ -128,17 +138,29 @@ async def model_alone(settings: Any, alias: str, question: Question) -> bool | N
         timeout_seconds=60,
         allow_fallback=False,
     )
+    if row is not None:
+        row.model_answer[alias] = (reply.value, reply.unit) if reply else (None, "")
     return right(reply.value, reply.unit, question.answer) if reply else None
 
 
 async def formal(settings: Any, alias: str, question: Question) -> dict[str, Any]:
+    import time
+
     from app.core.sympy_executor import run_sympy
+    from app.models.model_catalog import estimate_cost_usd
     from app.modules.physics.formal_read import read_physics_setup
     from app.services.formal.solve import solve_formal
 
-    setup = await read_physics_setup(settings, question.prompt, model_alias=alias)
+    usage: dict[str, int] = {}
+    started = time.monotonic()
+    setup = await read_physics_setup(settings, question.prompt, model_alias=alias, usage=usage)
+    seconds = time.monotonic() - started
+    cost = estimate_cost_usd(
+        alias, input_tokens=usage.get("input", 0), output_tokens=usage.get("output", 0)
+    )
+    timing = {"seconds": seconds, "cost": cost or 0.0, "tokens": dict(usage)}
     if setup is None:
-        return {"solved": False, "reason": "no read"}
+        return {"solved": False, "reason": "no read", **timing}
     try:
         result = json.loads(
             await run_sympy(solve_formal, setup.model_dump_json(), question.prompt, timeout=10)
@@ -147,6 +169,7 @@ async def formal(settings: Any, alias: str, question: Question) -> dict[str, Any
         return {"solved": False, "reason": f"solve {type(exc).__name__}"}
     model_right = right(setup.answer, setup.target_unit, question.answer)
     result["model_right"] = model_right
+    result.update(timing)
     if result["solved"]:
         result["right"] = right(result["value"], result["unit"], question.answer)
     return result
@@ -177,7 +200,7 @@ async def run(limit: int, sets: set[str] | None = None) -> None:
     async def fill(row: Row) -> None:
         async with gate:
             for alias in REPLIES:
-                row.model[alias] = await model_alone(settings, alias, row.question)
+                row.model[alias] = await model_alone(settings, alias, row.question, row)
             for alias in READERS:
                 row.formal[alias] = await formal(settings, alias, row.question)
 
@@ -185,6 +208,8 @@ async def run(limit: int, sets: set[str] | None = None) -> None:
         row.today_solved, row.today_right = await today(row.question)
     await asyncio.gather(*(fill(row) for row in rows))
     report(rows)
+    disagreements(rows)
+    costs(rows)
 
 
 def _tally(outcomes: list[bool | None]) -> str:
@@ -232,6 +257,90 @@ def report(rows: list[Row]) -> None:
         f = r.formal.get(READERS[0], {})
         print(
             f"  {r.question.id}: {f.get('reason') or ('agrees' if f.get('agrees') else 'disagrees')} | {r.question.prompt[:70]}"
+        )
+
+
+def _same(value: float, unit: str, other: tuple[float | None, str]) -> bool | None:
+    """Whether the reply model's answer is the server's (1%, any unit of the same kind)."""
+    from app.tests.behavior.stem_sweep import same_quantity
+
+    if other[0] is None:
+        return None
+    ok, detail = same_quantity((other[0], other[1]), (value, unit))
+    if not ok and "UndefinedUnitError" in detail:
+        return math.isclose(abs(other[0]), abs(value), rel_tol=0.01)
+    return ok
+
+
+def disagreements(rows: list[Row]) -> None:
+    """Where the server's answer and the reply model's differ, who was right.
+
+    Only turns the app's own solver did not answer: the rest never ask the server. A server
+    answer counts when its setup's own answer agreed with it (the answer finalize would use);
+    the setups that disagreed with themselves are listed apart."""
+    for reader in READERS:
+        for reply in REPLIES:
+            tally: Counter[str] = Counter()
+            cases: list[str] = []
+            for row in rows:
+                if row.today_solved:
+                    continue
+                formal_result = row.formal.get(reader, {})
+                if not formal_result.get("solved"):
+                    tally["server: no answer"] += 1
+                    continue
+                accepted = "accepted" if formal_result.get("agrees") else "self-disagreeing"
+                same = _same(
+                    formal_result["value"],
+                    formal_result["unit"],
+                    row.model_answer.get(reply, (None, "")),
+                )
+                if same is None:
+                    tally[f"{accepted}: reply gave no number"] += 1
+                    continue
+                if same:
+                    tally[f"{accepted}: same answer"] += 1
+                    continue
+                server_right = bool(formal_result.get("right"))
+                model_right = bool(row.model.get(reply))
+                verdict = (
+                    "server right"
+                    if server_right and not model_right
+                    else "reply right"
+                    if model_right and not server_right
+                    else "both wrong"
+                    if not server_right
+                    else "both right"
+                )
+                tally[f"{accepted}: differ, {verdict}"] += 1
+                cases.append(
+                    f"    {accepted:16} {verdict:12} {row.question.id}: server "
+                    f"{formal_result['value']:.4g} {formal_result['unit']}, reply "
+                    f"{row.model_answer[reply][0]:.4g} {row.model_answer[reply][1]}, "
+                    f"want {row.question.answer[0]:.4g} {row.question.answer[1]}"
+                )
+            print(f"\n== disagreements: setup by {reader}, reply by {reply}")
+            for key, count in sorted(tally.items()):
+                print(f"  {key}: {count}")
+            print("\n".join(cases))
+
+
+def costs(rows: list[Row]) -> None:
+    """The setup read's wait and price, per reader, over the turns that would ask it."""
+    import statistics
+
+    for reader in READERS:
+        asked = [r.formal.get(reader, {}) for r in rows if not r.today_solved]
+        seconds = sorted(x.get("seconds", 0.0) for x in asked if "seconds" in x)
+        prices = [x.get("cost", 0.0) for x in asked if "seconds" in x]
+        if not seconds:
+            continue
+        p90 = seconds[int(0.9 * (len(seconds) - 1))]
+        print(
+            f"\n== cost, setup by {reader} ({len(seconds)} turns): median "
+            f"{statistics.median(seconds):.2f} s, p90 {p90:.2f} s, max {seconds[-1]:.2f} s; "
+            f"mean ${statistics.mean(prices) * 1000:.3f} per 1,000 turns"
+            f" (${statistics.mean(prices):.6f} a turn)"
         )
 
 

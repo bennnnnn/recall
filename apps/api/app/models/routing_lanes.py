@@ -75,6 +75,9 @@ class RoutingLanes:
     # output is only a candidate, held label by label and number by number to the user's
     # words. JSON mode, fast: the reply waits for it at most two seconds.
     chart_read: str
+    # A physics question written down as maths beside the reply (``physics.formal_read``):
+    # JSON mode. smart-chat read faster (median 1.0 s) and better than GPT-6 Luna (1.9 s).
+    physics_setup: str
     # How to handle a message (``chat.turn_decision``): live facts, subject, effort, picture
     # and follow-up. The reply waits on it, so the fastest JSON-mode model (Qwen3.7 Flash
     # read 8 of 8 search questions right in about 0.7s; GPT-6 Luna took over 2s).
@@ -120,6 +123,7 @@ ROUTING = RoutingLanes(
     word_problems="gpt-6-luna",
     math_extract="gpt-6-luna",
     chart_read="gpt-6-luna",
+    physics_setup="smart-chat",
     live_read="title-model",
     live_read_backup="free-chat",
     decider="decider-model",

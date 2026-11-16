@@ -8,10 +8,12 @@ setup (``services.formal.solve``); the model's own final answer comes with it, t
 
 from __future__ import annotations
 
+import json
 import logging
 
 from app.core.config import Settings
 from app.models.routing_lanes import ROUTING
+from app.services.formal.answer import FormalAnswer
 from app.services.formal.problem import FormalProblem
 
 logger = logging.getLogger(__name__)
@@ -55,7 +57,11 @@ PROMPT = (
 
 
 async def read_physics_setup(
-    settings: Settings, question: str, *, model_alias: str | None = None
+    settings: Settings,
+    question: str,
+    *,
+    model_alias: str | None = None,
+    usage: dict[str, int] | None = None,
 ) -> FormalProblem | None:
     """The model's setup of the question, or None when there is no read."""
     from app.core.redis import get_redis_client
@@ -67,17 +73,43 @@ async def read_physics_setup(
             return None
         return await complete_structured(
             settings=settings,
-            model_alias=model_alias or ROUTING.math_extract,
+            model_alias=model_alias or ROUTING.physics_setup,
             messages=[
                 {"role": "system", "content": PROMPT},
                 {"role": "user", "content": question[:_MAX_CHARS]},
             ],
             schema=FormalProblem,
             max_tokens=_MAX_TOKENS,
-            timeout_seconds=settings.stem_solve_timeout_seconds * 3,
+            usage=usage,
+            timeout_seconds=settings.formal_read_timeout_seconds,
             allow_fallback=False,
             quiet_timeout=True,
         )
     except Exception as exc:  # A read is a hint: any failure reads nothing.
         logger.info("physics setup read failed (%s)", type(exc).__name__)
         return None
+
+
+async def formal_answer(question: str, settings: Settings) -> FormalAnswer | None:
+    """The server's answer to the question, worked out from the model's setup, or None: no
+    read, a setup the server refuses, or one whose own answer is not the server's."""
+    from app.core.sympy_executor import run_sympy
+    from app.services.formal.solve import solve_formal
+
+    setup = await read_physics_setup(settings, question)
+    if setup is None:
+        return None
+    try:
+        raw = await run_sympy(
+            solve_formal,
+            setup.model_dump_json(),
+            question,
+            timeout=settings.stem_solve_timeout_seconds,
+        )
+    except Exception as exc:  # the pool timed out or failed: no answer, the reply stands
+        logger.info("physics setup not solved (%s)", type(exc).__name__)
+        return None
+    result = json.loads(raw)
+    if not result.get("solved") or result.get("agrees") is not True:
+        return None
+    return FormalAnswer(value=float(result["value"]), unit=str(result.get("unit") or ""))
