@@ -98,5 +98,5 @@ on one it doesn't know.
 ## Checks
 
 `pnpm typecheck`, `pnpm lint`, `npx jest <paths>`, and from the repo root
-`python3 scripts/check_file_sizes.py mobile` (a file over 500 lines needs a recorded reason
+`python3 scripts/check_file_sizes.py mobile` (a file over 700 lines needs a recorded reason
 and may only shrink).

@@ -10,7 +10,7 @@ correctness, CI gates). Complements the layering in `recall.mdc` / `recall-api.m
 gate in `execution.mdc`. Be concrete, not clever. Optimize real bottlenecks — don't gold-plate.
 
 ## Structure & placement
-- Keep files focused: aim for 300 lines; over 500 needs a reason recorded in
+- Keep files focused: aim for 300 lines; over 700 needs a reason recorded in
   `scripts/file_size_baseline.json` and may not grow (CI checks). Mixing concerns still means
   split even when the file is shorter. Functions stay under ~50 lines and 3 levels of nesting.
   Screens stay thin — logic in hooks, not the screen.
