@@ -36,6 +36,8 @@ from app.modules.math.drawing.plot_scene import DrawnCurve, Scene
 from app.modules.math.drawing.real_curve import X
 from app.modules.math.schemas.plot import PlotGraphSpec
 from app.modules.math.tool_check import written_relations, written_values
+from app.services.card_text import without_emphasis
+from app.services.latex_markup import without_markup
 
 logger = logging.getLogger(__name__)
 _MOST_LINE_CURVES = 4
@@ -94,7 +96,10 @@ def _both_signs(reply: str) -> str:
 def written_lines(reply: str) -> tuple[tuple[float | None, float], ...]:
     """The lines the reply's working writes: y = mx + c as (m, c), x = a as (None, a)."""
     found: list[tuple[float | None, float]] = []
-    relations = [relation for line in reply.splitlines() for relation in written_relations(line)]
+    # Read as text: its markup and emphasis off ("**vertical asymptote at $x = 2$**" read
+    # as no line, and g03's x = 2 went unlabelled).
+    lines = [without_markup(without_emphasis(line)) for line in reply.splitlines()]
+    relations = [relation for line in lines for relation in written_relations(line)]
     for lhs, op, rhs in relations:
         if op != "=" or not isinstance(lhs, Symbol) or not rhs.free_symbols <= {_X}:
             continue

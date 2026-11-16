@@ -4,9 +4,12 @@ question states. Only a reading: every number in it is checked against the quest
 
 from __future__ import annotations
 
+import math
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
+
+from app.modules.math.drawing.plot_reading import number
 
 FigureKind = Literal[
     "none", "polygon", "circle", "lines", "solid", "number_line", "function", "points"
@@ -102,6 +105,22 @@ class FigureRequest(BaseModel):
         return " ".join(str(value or "").strip().lower().replace("-", " ").split()).replace(
             " ", "_"
         )
+
+    @field_validator("x_min", "x_max", mode="before")
+    @classmethod
+    def _bound(cls, value: Any) -> float | None:
+        """A range's end as the question writes it ("-3" with its minus sign, "-1/2", "2π",
+        "1/e", "e²"), read by the drawing check's own number reader; one it cannot read is
+        left out, never the whole reading (12 of 98 Unit 5 turns lost theirs, 2026-11-16)."""
+        if value is None or isinstance(value, bool):
+            return None
+        if isinstance(value, int | float):
+            return float(value) if math.isfinite(value) else None
+        read = number(str(value))
+        if read is None:
+            return None
+        found = float(read)
+        return found if math.isfinite(found) else None
 
     @field_validator("apex", mode="before")
     @classmethod

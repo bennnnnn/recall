@@ -43,6 +43,41 @@ def stated_interval(low: Any, high: Any, question: PlotQuestion) -> Interval | N
     return Interval(a, b) if a is not None and b is not None and float(a) < float(b) else None
 
 
+def region_intervals(question: PlotQuestion) -> list[Interval]:
+    """The intervals of x the question states that a region may stand on: each one it
+    writes, but for a formula's own domain ("f(x) = x² for -3 ≤ x ≤ 3"), which bounds the
+    curve, not an area under it."""
+    domains = [
+        (lows[0], highs[0])
+        for clause in question.clauses
+        for domain in clause.domains
+        if len(lows := [c.value for c in domain.conditions if c.op in {">", ">="}]) == 1
+        and len(highs := [c.value for c in domain.conditions if c.op in {"<", "<="}]) == 1
+    ]
+    return [
+        interval
+        for interval in question.intervals
+        if not any(
+            same_number(interval.low, a) and same_number(interval.high, b) for a, b in domains
+        )
+    ]
+
+
+def on_a_stated_interval(low: float, high: float, question: PlotQuestion) -> bool:
+    """A region along x from ``low`` to ``high`` stands on an interval the question states,
+    when it states one: inside it and reaching at least one of its ends (u5-037's ∫ from -3
+    to 3 shaded as [-3, 0] and [0, 3]). u5-051's "from x = -4 to x = 3" shaded between
+    the roots ±2 alone, a picture of the reply's wrong 32 and not the question's 71."""
+    stated = region_intervals(question)
+    near = 1e-6 * max(1.0, abs(low), abs(high))
+    for interval in stated:
+        a, b = float(interval.low), float(interval.high)
+        inside = a - near <= low and high <= b + near
+        if inside and (abs(low - a) <= near or abs(high - b) <= near):
+            return True
+    return not stated
+
+
 def stated_end(number: Any, question: PlotQuestion, meet: float) -> Any | None:
     """The question's own value equal to ``number`` that ends a region whose other end is
     ``meet``, a place the edges meet: a line it names ("x = 2", "x ≥ 0", the y-axis), or an

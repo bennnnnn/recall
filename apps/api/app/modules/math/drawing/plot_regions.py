@@ -19,7 +19,12 @@ from sympy import nsimplify
 
 from app.modules.math.drawing.curve_breaks import has_pole
 from app.modules.math.drawing.curve_features import snapped, zeros
-from app.modules.math.drawing.plot_check import edge_function, stated_end, stated_interval
+from app.modules.math.drawing.plot_check import (
+    edge_function,
+    on_a_stated_interval,
+    stated_end,
+    stated_interval,
+)
 from app.modules.math.drawing.plot_enclosed import enclosed
 from app.modules.math.drawing.plot_items import Axis, Rectangles, Shade
 from app.modules.math.drawing.plot_labels import point_text
@@ -94,6 +99,8 @@ def _bounds(item: Shade, low_edge: RealFunction, high_edge: RealFunction, scene:
             return None
         found = stated_ends
     low, high = sorted(found)
+    if item.wrt == "x" and not on_a_stated_interval(low, high, question):
+        return None  # the question's own interval, or no region
     if high - low < 1e-9 or has_pole(low_edge, low, high) or has_pole(high_edge, low, high):
         return None  # no area, or one across a pole (1/x² on [-1, 1])
     return low, high, [m for m in meets if low - 1e-9 <= m <= high + 1e-9]
