@@ -7,10 +7,12 @@ path" (live, 2026-11-15). A multi-part message's picture part was painted unless
 called it a *maths* figure, and its photo part searched whatever answered the rest.
 
 A maths, physics or chemistry question asking to see a graph, a diagram or a molecule is
-the app's to draw from the question's own values; so is any turn whose subject solve drew
-its picture (a circuit, rays, a free-body diagram or a moving scene; a figure or a graph; a
-structure). Two answers decide it, never the words: the turn's read (``turn_decision``) and
-the solve's own cards (``SubjectFence.cards``).
+the app's to draw from the question's own values. The turn's read (``turn_decision``) says
+so, never the words, and never the solve alone: "Draw a cat wearing a hat and also find the
+current …" is a painting beside a solve, and "Show me a photo of Marie Curie and calculate the
+molar mass of NaCl" a photo beside one (review, 2026-11-15). Whether the solve drew the very
+picture asked for is read from its cards (``SubjectFence.cards``) by kind (``solve_draws``):
+a kinematics solve's velocity-time graph is no free-body diagram.
 """
 
 from __future__ import annotations
@@ -19,7 +21,6 @@ import asyncio
 from typing import TYPE_CHECKING
 
 from app.modules.chat.decider_read import READ_SUBJECTS
-from app.modules.chat.repeated_fences import PICTURE_LANGS
 from app.modules.chat.turn_decision import TurnDecision
 from app.services.md_fence_scan import iter_fences
 from app.services.solving import VerifiedSolveBlock
@@ -58,19 +59,35 @@ async def read_asks_for_a_drawing(read: asyncio.Task[TurnDecision | None] | None
     return asks_for_a_drawing(_answered(read))
 
 
-def solve_draws_a_picture(verified: VerifiedSolveBlock | None) -> bool:
-    """The subject's solve writes a picture among its cards (a scene, a figure, a graph, a
-    structure)."""
-    if not isinstance(verified, VerifiedSolveBlock):
+# The kind of picture, as the read names it, each fence a solve writes draws. A scene is a
+# diagram (a circuit, rays, forces) and, for motion, the path's curve too.
+_DRAWN_AS: dict[str, frozenset[str]] = {
+    "graph": frozenset({"graph"}),
+    "chart": frozenset({"graph"}),
+    "geometry": frozenset({"diagram"}),
+    "simulation": frozenset({"diagram", "graph"}),
+    "smiles": frozenset({"molecule"}),
+    "molecule": frozenset({"molecule"}),
+    "molecule3d": frozenset({"molecule"}),
+}
+
+
+def solve_draws(verified: VerifiedSolveBlock | None, kind: str | None) -> bool:
+    """The subject's solve writes a picture of ``kind`` (the read's graph, diagram or
+    molecule) among its cards."""
+    if not isinstance(verified, VerifiedSolveBlock) or kind is None:
         return False
     cards = subject_adapter(verified.subject).fence.cards(verified)
-    return any(fence.lang.lower() in PICTURE_LANGS for card in cards for fence in iter_fences(card))
+    return any(
+        kind in _DRAWN_AS.get(fence.lang.lower(), frozenset())
+        for card in cards
+        for fence in iter_fences(card)
+    )
 
 
 def app_draws_the_picture(ctx: StreamContext) -> bool:
-    """At finalize: the turn's solve drew its picture, or the read (if it is in) calls the
-    message a STEM question asking to see one. Nothing is waited for."""
-    if solve_draws_a_picture(ctx.verified_subject):
-        return True
+    """At finalize: the read (if it is in) calls the message a STEM question asking to see a
+    graph, a diagram or a molecule, so no photo or painting stands in for it. Nothing is
+    waited for."""
     read = ctx.live_read
     return read is not None and asks_for_a_drawing(_answered(read))

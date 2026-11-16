@@ -8,9 +8,10 @@ for``, a formula's "… formula" heading) in English only, and the ```worked blo
 named no language, so the model wrote its records in English too.
 
 The layout's language is the reply's, and the model names it: the block's first record is
-``language: es``, the user's message's language, which every word of the block is in (a
-model reads the message; no word list does). With no such record, it is the message's own
-when ``reply_language.line_language`` reads it plainly, and never the app's alone. The server's words are
+``language: es``, the language the model writes the reply in, which every word of the block
+is in (a model reads the message and the chat; no word list does). With no such record, it is
+the one the reply-language note's own rule gives (``reply_language.message_reply_language``),
+and never the app's alone. The server's words are
 written in it as the reply's last step, after every pass that reads them in English. The table
 (``WORKED_WORDS``) and the phone's (``lib/markdown/workedWords.ts``), which lays the
 headings out in any of these languages, are held to ``docs/fixtures/worked_words.json``.
@@ -21,7 +22,8 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from app.modules.chat.reply_language import line_language
+from app.modules.chat.continuation_subject import exchange_pairs
+from app.modules.chat.reply_language import message_reply_language
 from app.services.md_fence_scan import line_fences
 
 if TYPE_CHECKING:
@@ -175,14 +177,21 @@ def localized_working(text: str, language: str) -> str:
 
 
 def layout_language(ctx: StreamContext) -> str:
-    """The language a reply's worked layout is written in: the one its ```worked block
-    named, else the message's own when it is plainly one of the app's, else English, as
-    written. Never the app's alone: "What voltage drives 2 A through a 15 Ω resistor?" from
-    a French app is no plain language to the word evidence, and its English reply would
-    have got French headings."""
+    """The language a reply's worked layout is written in: the one its ```worked block named
+    for the reply, else the one the message alone gives the reply (``message_reply_language``,
+    the reply-language note's own rule: nothing in the custom instructions or the chat names
+    another), else English, as written. Never the app's alone: "What voltage drives 2 A
+    through a 15 Ω resistor?" from a French app is no plain language to the word evidence,
+    and its English reply would have got French headings."""
     if ctx.worked_language in WORKED_WORDS:
         return ctx.worked_language
-    return line_language(ctx.user_message_content or "", None)
+    user = ctx.user
+    stated = message_reply_language(
+        ctx.user_message_content or "",
+        exchange_pairs(ctx.recent_messages or []),
+        user.custom_instructions if user is not None else None,
+    )
+    return stated if stated in WORKED_WORDS else "en"
 
 
 def localize_working_pass(state: FinalizeState) -> str:

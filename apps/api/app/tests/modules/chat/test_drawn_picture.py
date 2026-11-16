@@ -20,7 +20,7 @@ from app.models.orm import User
 from app.modules.chat.drawn_picture import (
     app_draws_the_picture,
     asks_for_a_drawing,
-    solve_draws_a_picture,
+    solve_draws,
 )
 from app.modules.chat.finalize_parts import attach_reply_picture
 from app.modules.chat.finalize_passes import FinalizeState
@@ -29,6 +29,7 @@ from app.modules.chat.prompt_constants.multi_part import (
     PROBLEM_PICTURE_NOTE,
     multi_part_contract,
 )
+from app.modules.chat.prompt_sections import part_shape_hints, with_problem_pictures
 from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.turn_intercepts import start_reply_picture
 from app.modules.chat.turn_outcome import TurnOutcome
@@ -47,6 +48,13 @@ PATH = (
     "A ball is thrown at 20 m/s at 30° above the horizontal. How far does it travel "
     "before landing? Show the path."
 )
+# Look-alikes (review, 2026-11-15): a picture or photo of its own beside a solve.
+CAT = (
+    "Draw a cat wearing a hat and also find the current when a 12 V battery is connected "
+    "to a 4 Ω resistor"
+)
+CURIE = "Show me a photo of Marie Curie and calculate the molar mass of NaCl"
+ACCELERATION = "A car accelerates from 0 to 25 m/s in 5 s. What is its acceleration?"
 
 
 def _read(subject: str, picture: str) -> TurnDecision:
@@ -97,10 +105,17 @@ def test_no_read_is_no_drawing() -> None:
     assert asks_for_a_drawing(None) is False
 
 
-def test_a_solve_that_draws_its_scene_draws_the_picture() -> None:
-    assert solve_draws_a_picture(_solved(CIRCUIT))
-    assert solve_draws_a_picture(_solved(PATH))
-    assert not solve_draws_a_picture(None)
+def test_a_solve_draws_its_own_kind_of_picture() -> None:
+    assert solve_draws(_solved(CIRCUIT), "diagram")
+    assert solve_draws(_solved(PATH), "diagram")
+    # A kinematics solve draws a velocity-time graph: no free-body diagram.
+    acceleration = build_verified_physics_block(
+        extract_physics_intent(ACCELERATION), Settings(math_tools_enabled=True)
+    )
+    assert solve_draws(acceleration, "graph")
+    assert not solve_draws(acceleration, "diagram")
+    assert not solve_draws(None, "diagram")
+    assert not solve_draws(_solved(CIRCUIT), None)
 
 
 def _state(text: str, **ctx_fields: Any) -> FinalizeState:
@@ -133,17 +148,23 @@ async def _painted() -> UUID:
 
 
 @pytest.mark.asyncio
-async def test_a_solved_circuit_gets_no_painting_above_it() -> None:
-    """The read gave no answer in time: the solve's own schematic still stands alone."""
-    task = asyncio.ensure_future(_painted())
+async def test_a_painting_beside_a_solve_still_comes() -> None:
+    """ "Draw a cat … and also find the current": the read calls the picture one to paint,
+    and the solve's schematic is no cat."""
+    picture_id = uuid4()
+
+    async def drawn() -> UUID:
+        return picture_id
+
     state = _state(
-        "**Answer**\n\n2 A",
-        reply_picture=ReplyPicture("the circuit", task=task),
+        "The current is 3 A.",
+        reply_picture=ReplyPicture("a cat wearing a hat", task=asyncio.ensure_future(drawn())),
         verified_subject=_solved(CIRCUIT),
+        live_read=_done(_read("physics", "image")),
     )
-    assert app_draws_the_picture(state.ctx)
-    assert await attach_reply_picture(state) == "**Answer**\n\n2 A"
-    assert state.ctx.answer_photo_ids == []
+    assert not app_draws_the_picture(state.ctx)
+    text = await attach_reply_picture(state)
+    assert text.startswith(f"[Image: /attachments/{picture_id}/file]")
 
 
 @pytest.mark.asyncio
@@ -174,18 +195,26 @@ async def test_an_everyday_picture_is_still_painted_above_the_answer() -> None:
 
 
 @pytest.mark.asyncio
-async def test_a_solved_path_gets_no_photo_and_its_fence_goes() -> None:
+@pytest.mark.parametrize(
+    ("read", "photographed"),
+    [(_read("physics", "diagram"), False), (_read("chemistry", "photo"), True), (None, True)],
+)
+async def test_a_photo_goes_only_when_the_read_calls_it_the_problems_picture(
+    read: TurnDecision | None, photographed: bool
+) -> None:
+    photo_id = uuid4()
     photo = AnswerPhoto(Settings(), MagicMock())
-    with patch("app.modules.images.search.photos_for_answer", AsyncMock(return_value=[uuid4()])):
+    with patch("app.modules.images.search.photos_for_answer", AsyncMock(return_value=[photo_id])):
         state = _state(
-            "```photo\nprojectile arc\n```\n\n**Answer**\n\n35.3 m",
+            "```photo\nphoto query\n```\n\n**Answer**\n\n35.3 m",
             answer_photo=photo,
             verified_subject=_solved(PATH),
+            live_read=_done(read) if read is not None else None,
         )
         text = await attach_answer_photo(state)
     assert "```photo" not in text
-    assert "[Image:" not in text
-    assert state.ctx.answer_photo_ids == []
+    assert ("[Image:" in text) is photographed
+    assert (state.ctx.answer_photo_ids == [photo_id]) is photographed
 
 
 @pytest.mark.asyncio
@@ -208,15 +237,32 @@ async def test_a_physics_diagram_is_never_painted_when_the_read_says_so() -> Non
 
 
 @pytest.mark.parametrize("message", [CIRCUIT, PATH])
-def test_a_problems_picture_is_the_solves_and_never_placed(message: str) -> None:
+def test_a_problems_picture_is_the_apps_once_the_read_says_so(message: str) -> None:
     """The contract asks for no photo fence and names no place for the picture."""
     plan = plan_turn(message)
     assert plan.multi
-    contract = multi_part_contract(plan, [[] for _ in plan.parts])
+    built = multi_part_contract(plan, [part_shape_hints(text) for text in plan.texts()])
+    assert PROBLEM_PICTURE_NOTE not in built
+    assert PICTURE_PLACEMENT_RULE in built
+    messages = [
+        {"role": "system", "content": f"rules\n{built}"},
+        {"role": "user", "content": message},
+    ]
+    drawn = with_problem_pictures(messages, plan)
+    contract = drawn[0]["content"]
     assert PROBLEM_PICTURE_NOTE in contract
     assert "```photo" not in contract
     assert "above your reply" not in contract
-    assert PICTURE_PLACEMENT_RULE in contract
+
+
+@pytest.mark.parametrize("message", [CAT, CURIE])
+def test_a_picture_or_photo_of_its_own_keeps_its_note(message: str) -> None:
+    """A cat painting or a photo of Marie Curie beside a solve is no picture of the problem."""
+    plan = plan_turn(message)
+    assert plan.multi
+    contract = multi_part_contract(plan, [[] for _ in plan.parts])
+    assert PROBLEM_PICTURE_NOTE not in contract
+    assert "a picture to draw" in contract or "```photo" in contract
 
 
 def test_an_everyday_picture_part_keeps_its_painting_note() -> None:
@@ -228,17 +274,30 @@ def test_an_everyday_picture_part_keeps_its_painting_note() -> None:
 
 
 @pytest.mark.parametrize(
-    ("read", "noted"),
-    [(_read("physics", "diagram"), True), (_read("physics", "none"), False), (None, False)],
+    ("message", "read", "noted"),
+    [
+        (CIRCUIT, _read("physics", "diagram"), True),
+        (CIRCUIT, _read("physics", "none"), False),
+        (CIRCUIT, None, False),
+        # "… Draw the free-body diagram." beside a solve that draws only a velocity-time
+        # graph: the drawing is not the one asked for.
+        (ACCELERATION, _read("physics", "diagram"), False),
+    ],
 )
 def test_a_solves_picture_the_message_asks_for_gets_no_words(
-    read: TurnDecision | None, noted: bool
+    message: str, read: TurnDecision | None, noted: bool
 ) -> None:
     """ "Draw the ray diagram" got a section saying the picture was "drawn in the app above
     this answer", under the diagram drawn below it (live, 2026-11-15)."""
     from app.modules.chat.decided_turn import _leave_the_picture
     from app.services.picture_copy import DRAWN_PICTURE_NOTE
 
-    state = _state("x", verified_subject=_solved(CIRCUIT))
-    _leave_the_picture(state.ctx, read)
+    if message == ACCELERATION:
+        verified = build_verified_physics_block(
+            extract_physics_intent(message), Settings(math_tools_enabled=True)
+        )
+    else:
+        verified = _solved(message)
+    state = _state("x", verified_subject=verified)
+    _leave_the_picture(state.ctx, Settings(), read)
     assert any(m["content"] == DRAWN_PICTURE_NOTE for m in state.ctx.prompt_messages) is noted

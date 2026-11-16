@@ -108,12 +108,13 @@ class WorkedFilter:
         if marker is not None and marker.closes(self._fence):
             self._close()
             return
-        self._raw.append(line)
-        self._raw_chars += len(line) + 1
         language = read_language(line)
         if language is not None:
+            # Never drawn, nor shown with the model's lines when the block has no records.
             self.language = language
             return
+        self._raw.append(line)
+        self._raw_chars += len(line) + 1
         record = read_record(line)
         if record is not None:
             self._records.append(record)

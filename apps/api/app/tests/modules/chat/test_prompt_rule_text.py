@@ -80,10 +80,10 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # exception to its never-draw rule (math.drawing.contract.DRAW_CONTRACT, 2026-11-15); then a
 # picture asked beside a solved problem left to the solve, and no reply placing or promising a
 # picture (multi_part.PROBLEM_PICTURE_NOTE, services.picture_copy), and a ```worked block
-# naming the language of its words first (prompt_constants.worked, live 2026-11-15).
+# naming the language of its reply first (prompt_constants.worked, live and review 2026-11-15).
 _RULES = 200
-_RULE_GRAMS = 18006
-_RULE_GRAMS_SHA = "528b61c922bca07a"
+_RULE_GRAMS = 18007
+_RULE_GRAMS_SHA = "bb8be2731d891175"
 
 
 def _rules() -> list[str]:

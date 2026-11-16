@@ -448,6 +448,25 @@ def _multi_part(turn: PromptTurn) -> list[str]:
     return [multi_part_contract(plan, shapes)]
 
 
+def with_problem_pictures(messages: list[dict[str, Any]], plan: TurnPlan) -> list[dict[str, Any]]:
+    """The prompt with ``plan``'s contract saying its picture parts are the problem's: the
+    read, in after the prompt was built, calls the message a STEM question asking to see a
+    graph, diagram or molecule. Unchanged when the plan has one part or no picture part."""
+    if not plan.multi:
+        return messages
+    shapes = [part_shape_hints(part.text) for part in plan.parts]
+    built = multi_part_contract(plan, shapes)
+    drawn = multi_part_contract(plan, shapes, problem_pictures=True)
+    if built == drawn:
+        return messages
+    return [
+        {**message, "content": message["content"].replace(built, drawn)}
+        if isinstance(message.get("content"), str) and built in message["content"]
+        else message
+        for message in messages
+    ]
+
+
 # A message with several requests gets the lesson contracts per request, in its own.
 NEARBY_CONTRACTS: tuple[PromptSection, ...] = (
     PromptSection(

@@ -115,20 +115,36 @@ def test_the_language_record_is_kept_and_never_drawn() -> None:
     assert layout_language(cast(Any, ctx)) == "es"
 
 
+def test_a_block_of_no_records_shows_its_lines_without_the_language() -> None:
+    """With no record read, the block's own lines are shown; the language line is none of
+    them (review, 2026-11-15)."""
+    accum = StreamAccum()
+    reply = ReplyFilter(accum, WorkedLayout())
+    shown = reply.feed("```worked\nlanguage: es\nLa respuesta es 5.\n```\n") + reply.flush()
+    assert "La respuesta es 5." in shown
+    assert "language" not in shown
+
+
 @pytest.mark.parametrize(
-    ("message", "locale", "language"),
+    ("message", "earlier", "instructions", "language"),
     [
-        ("Как найти ускорение автомобиля?", "en", "ru"),
+        ("Как найти ускорение автомобиля?", [], None, "ru"),
         # No plain language of its own: the reply's words decide, never the app's alone.
-        ("What voltage drives 2 A through a 15 Ω resistor?", "fr", "en"),
-        ("2x + 3 = 7", "de", "en"),
+        ("What voltage drives 2 A through a 15 Ω resistor?", [], None, "en"),
+        ("2x + 3 = 7", [], None, "en"),
+        # The reply-language note's own rule: a language named elsewhere is the user's choice.
+        ("Как найти ускорение автомобиля?", [], "Always reply in English.", "en"),
+        ("Как найти ускорение автомобиля?", ["reply in English from now on"], None, "en"),
     ],
 )
-def test_with_no_record_only_a_plain_message_decides(
-    message: str, locale: str, language: str
+def test_with_no_record_the_reply_language_rule_decides(
+    message: str, earlier: list[str], instructions: str | None, language: str
 ) -> None:
     ctx = SimpleNamespace(
-        worked_language=None, user=SimpleNamespace(locale=locale), user_message_content=message
+        worked_language=None,
+        user=SimpleNamespace(locale="fr", custom_instructions=instructions),
+        user_message_content=message,
+        recent_messages=[SimpleNamespace(role="user", content=text) for text in earlier],
     )
     assert layout_language(cast(Any, ctx)) == language
 

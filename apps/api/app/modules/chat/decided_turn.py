@@ -44,7 +44,7 @@ from app.modules.billing import plan as plan_service
 from app.modules.billing.entitlements import has_strong_everyday_model
 from app.modules.chat.decider_read import NO_ANSWER, OTHER_ANSWER, READ_SUBJECTS
 from app.modules.chat.drawing_turn import ask_for_a_drawing
-from app.modules.chat.drawn_picture import asks_for_a_drawing, solve_draws_a_picture
+from app.modules.chat.drawn_picture import asks_for_a_drawing, solve_draws
 from app.modules.chat.json_output import is_json_request
 from app.modules.chat.lesson_again import lesson_again
 from app.modules.chat.model_routing.decided import decided_lane, decided_level, math_backups
@@ -53,6 +53,7 @@ from app.modules.chat.prompt_constants.lesson_flow import LESSON_ASIDE_NOTE, les
 from app.modules.chat.prompt_constants.list_reference import OPTION_PICK_MARK
 from app.modules.chat.prompt_constants.practice import QUIZ_WHICH_NOTE, quiz_verdict_note
 from app.modules.chat.prompt_inject import inject_before_last_user
+from app.modules.chat.prompt_sections import with_problem_pictures
 from app.modules.chat.quiz_cards import PracticeCard, last_reply_cards, option_letter
 from app.modules.chat.turn_decision import TurnDecision, turn_decision_result
 from app.modules.chat.turn_prep.reading import plan_of
@@ -113,7 +114,7 @@ async def decide_from_the_read(ctx: StreamContext, settings: Settings) -> None:
     read = await _the_read(ctx, settings)
     # A maths picture the message asks to see: the reply describes it (``drawing_turn``).
     await ask_for_a_drawing(ctx, settings, read, deadline)
-    _leave_the_picture(ctx, read)
+    _leave_the_picture(ctx, settings, read)
     if read is None or read.effort is None:
         note_decision("rules")
         return
@@ -140,10 +141,17 @@ async def decide_from_the_read(ctx: StreamContext, settings: Settings) -> None:
     _follow_note(ctx, read)
 
 
-def _leave_the_picture(ctx: StreamContext, read: TurnDecision | None) -> None:
-    """A picture the read says the message asks to see, which the subject's solve drew: the
-    reply gives it no section or words and never places it (``drawn_picture``)."""
-    if not (asks_for_a_drawing(read) and solve_draws_a_picture(ctx.verified_subject)):
+def _leave_the_picture(ctx: StreamContext, settings: Settings, read: TurnDecision | None) -> None:
+    """A picture the read says the message asks to see. A multi-part message's picture part
+    is the problem's, for the app to draw: its contract says so (``with_problem_pictures``).
+    When the solve drew that very kind of picture, the reply gives it no section or words and
+    never places it (``drawn_picture``); a velocity-time graph is no free-body diagram."""
+    if read is None or not asks_for_a_drawing(read):
+        return
+    ctx.prompt_messages = with_problem_pictures(
+        ctx.prompt_messages, plan_of(ctx.user_message_content or "", settings)
+    )
+    if not solve_draws(ctx.verified_subject, read.picture):
         return
     note_prompt_rule("drawn_picture")
     ctx.prompt_messages = inject_before_last_user(ctx.prompt_messages, DRAWN_PICTURE_NOTE)
