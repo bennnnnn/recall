@@ -21,7 +21,12 @@ from app.core.config import Settings
 from app.models.orm import User
 from app.modules.chat import drawing_turn, figure_turn
 from app.modules.chat.draw_stream import DrawScan, without_draw_blocks
-from app.modules.chat.drawing_turn import ReplyDrawing, ask_for_a_drawing, attach_drawing
+from app.modules.chat.drawing_turn import (
+    ReplyDrawing,
+    ask_for_a_drawing,
+    attach_drawing,
+    write_for_a_picture,
+)
 from app.modules.chat.finalize_passes import FinalizeState
 from app.modules.chat.stream_accum import StreamAccum
 from app.modules.chat.turn_decision import TurnDecision
@@ -616,3 +621,14 @@ async def test_a_physics_card_with_its_graph_against_time_gets_no_second_graph()
         read = _decision(subject="physics", picture="graph")
         await ask_for_a_drawing(ctx, _settings(), read, _deadline())
         assert (ctx.drawing is not None) is asked
+
+
+async def test_a_physics_instant_card_gives_way_to_an_asked_graph_it_lacks() -> None:
+    from app.services.solving import VerifiedPhysicsBlock
+
+    for fences, kept in (([], False), ([{"type": "trajectory"}], True)):
+        verified = VerifiedPhysicsBlock(text="v", subject="physics", canonical_fences=fences)
+        read = asyncio.ensure_future(_late(_decision(subject="physics", picture="graph"), 0.01))
+        ctx = _ctx(_SKETCH, instant_reply="v = 4 m/s", verified_subject=verified, live_read=read)
+        await write_for_a_picture(ctx, _settings(live_read_wait_seconds=0.5))
+        assert (ctx.instant_reply is not None) is kept

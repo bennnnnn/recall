@@ -72,8 +72,11 @@ _U5_089 = (
     [
         (_U5_088, {"a": "7*t/2", "v": "7*t**2/4 + 8", "s": "7*t**3/12 + 8*t - 32/3"}),
         (_U5_089, {"a": "-3*t**2/2", "v": "4 - t**3/2", "s": "4*t - t**4/8"}),
-        # From rest at the start: v(0) = 0, and its displacement is from where it starts.
+        # From rest at the start: v(0) = 0; where it starts is not said, so no displacement.
         ("A body moves from rest with acceleration (6t - 2) m/s². Draw its v-t graph.",
+         {"a": "6*t - 2", "v": "3*t**2 - 2*t"}),
+        # ... measured from where it starts when the question names the place.
+        ("A body moves from rest at O with acceleration (6t - 2) m/s². Draw its graphs.",
          {"a": "6*t - 2", "v": "3*t**2 - 2*t", "s": "t**3 - t**2"}),
         # No velocity stated: only the acceleration.
         ("A particle moves with acceleration 2t m/s². Sketch a against t.", {"a": "2*t"}),
@@ -178,7 +181,14 @@ def test_a_velocity_described_in_x_is_the_question_s_v_of_t() -> None:
          {"a": "6*t", "v": "3*t**2 + 1"}),
         # A constant acceleration, said at no one time.
         ("A car starts from rest with acceleration 2 m/s². Draw the v-t graph for 5 s.",
-         {"a": "2", "v": "2*t", "s": "t**2"}),
+         {"a": "2", "v": "2*t"}),
+        ("A car starts from rest with acceleration 2 m/s². Sketch its displacement from its "
+         "starting point for 5 s.", {"a": "2", "v": "2*t", "s": "t**2"}),
+        # A velocity the question writes, held to what it states (PR #2486 review).
+        ("At t = 2 s a particle is at rest, and later moves with velocity 2t m/s. Sketch s.", {}),
+        ("A particle moves with velocity 2t m/s and acceleration 3 m/s². Sketch v.", {}),
+        ("A particle moves with velocity (2t + 1) m/s and acceleration 2 m/s². It starts from "
+         "O. Sketch s.", {"a": "2", "v": "2*t + 1", "s": "t**2 + t"}),
         ("When t = 2 s its acceleration is 3 m/s² and its velocity is 4 m/s. Sketch v.", {}),
     ],
 )  # fmt: skip

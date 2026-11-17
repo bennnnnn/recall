@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from sympy import Expr, Symbol, integrate, nsimplify
+from sympy import Expr, Symbol, integrate, nsimplify, simplify
 
 from app.modules.math.tool_check import parse_formula
 from app.services.number_text import count_word_pattern, number_word_value
@@ -47,8 +47,13 @@ _AT_TIME = re.compile(
 _AT_THE_START = re.compile(r"\b(?:starts?|started|starting|initially|from rest)\b")
 _FROM_REST = re.compile(r"\bfrom rest\b|\bat rest\b")
 # Where it starts is where its displacement is measured from: "starts from a point A".
+# The displacement named from the start: "its displacement from its starting point".
+_FROM_THE_START = re.compile(
+    r"\bdisplacement\b[^.;]*?\bfrom\s+(?:its\s+|the\s+)?(?:start(?:ing\s+(?:point|position))?|"
+    r"initial\s+position|t\s*=\s*0)\b"
+)
 _STARTS_FROM = re.compile(
-    r"\bstarts?\s+from\s+(?!rest\b)(?:a\s+point\s+\w+|the\s+origin|\w+)\b|\bat\s+the\s+origin\b"
+    r"\bstarts?\s+from\s+(?!rest\b)(?:a\s+point\s+\w+|the\s+origin|\w+)\b|\b(?:at|from)\s+(?:the\s+origin|o)\b"
 )
 _SENTENCES = re.compile(r"(?<=[.;!?])\s+")
 # A sentence's clauses: each value is said at the time its own clause names, or, naming
@@ -110,10 +115,11 @@ def _stated(text: str) -> tuple[list[tuple[Any, Any]], list[tuple[Any, Any]]]:
             velocities.append((at, 0))
         for match in _POSITION.finditer(clause):
             positions.append((at, nsimplify(match.group("x") or match.group("d"), rational=True)))
-        start = _STARTS_FROM.search(clause) or _AT_THE_START.search(clause)
-        started = started or (at == 0 and start is not None)
-    # Its displacement is measured from where it starts, when no position is stated.
-    if started and not positions:
+        started = started or (at == 0 and _STARTS_FROM.search(clause) is not None)
+    # Its displacement is measured from where it starts, when the question names that place
+    # (O, the origin, a point A) or the displacement from the start, and states no position:
+    # "initially" or "from rest" says nothing of where it is.
+    if (started or _FROM_THE_START.search(text.lower())) and not positions:
         positions.append((0, 0))
     return velocities, positions
 
@@ -141,6 +147,14 @@ def _constant_acceleration(lowered: str) -> Expr | None:
     return None
 
 
+def _holds(velocity: Expr, acceleration: Expr | None, stated: list[tuple[Any, Any]]) -> bool:
+    """A velocity the question writes agrees with every velocity it states at a time, and
+    with its acceleration: "at rest at t = 2 s, then moves with velocity 2t m/s" does not."""
+    if any(simplify(velocity.subs(_T, at) - value) != 0 for at, value in stated):
+        return False
+    return acceleration is None or simplify(velocity.diff(_T) - acceleration) == 0
+
+
 def motion_formulas(text: str) -> list[tuple[str, Expr, str]]:
     """The motion's formulas in t, (name, formula, unit): the acceleration it writes, and
     the velocity and the displacement worked out from the values it states."""
@@ -156,6 +170,8 @@ def motion_formulas(text: str) -> list[tuple[str, Expr, str]]:
     if acceleration is None and velocity is None:
         return []
     velocities, positions = _stated(text)
+    if velocity is not None and not _holds(velocity, acceleration, velocities):
+        return []  # a written v(t) the stated values or a(t) contradict: no motion
     found: list[tuple[str, Expr, str]] = []
     if acceleration is not None:
         found.append(("a", acceleration, "m/s**2"))

@@ -93,6 +93,14 @@ def _a_maths_turn(ctx: StreamContext) -> bool:
     return kept is not None and kept.text == ctx.user_message_content and kept.subject == "math"
 
 
+def _a_physics_turn(ctx: StreamContext) -> bool:
+    """The subject readers read the message as physics, or a physics solve verified it."""
+    if isinstance(ctx.verified_subject, VerifiedPhysicsBlock):
+        return True
+    kept = current_turn_reading()
+    return kept is not None and kept.text == ctx.user_message_content and kept.subject == "physics"
+
+
 def _asks_in_words(ctx: StreamContext) -> bool:
     return _ASKS_TO_SEE.search(ctx.user_message_content or "") is not None
 
@@ -107,7 +115,7 @@ async def _read_for_a_picture(ctx: StreamContext, deadline: float) -> TurnDecisi
     line = ctx.user_message_content or ""
     if task is None or not _asks_in_words(ctx):
         return None
-    if not (_a_maths_turn(ctx) or may_be_a_maths_picture(line)):
+    if not (_a_maths_turn(ctx) or _a_physics_turn(ctx) or may_be_a_maths_picture(line)):
         return None
     left = deadline - asyncio.get_running_loop().time()
     if left > 0:
@@ -141,26 +149,39 @@ def _wants_a_drawing(read: TurnDecision) -> bool:
     return read.picture in _DESCRIBED and read_asks_for_a_picture(read)
 
 
+def _wanted(ctx: StreamContext, read: TurnDecision) -> bool:
+    """The read asks for a picture the reply describes, and no physics card of the turn
+    already draws its graph against time."""
+    if read.subject == "physics" and _solver_graphed(ctx.verified_subject):
+        return False
+    return _wants_a_drawing(read)
+
+
 async def write_for_a_picture(ctx: StreamContext, settings: Settings) -> None:
     """A solver's instant reply gives way to the model's when the read says the message asks
-    to see a maths picture: the instant reply carries the card alone, and no picture can be
+    to see a maths picture, or a graph of a physics question whose card draws none: the instant reply carries the card alone, and no picture can be
     described for it (round 3's c031, "find the maximum ... and sketch its graph", got only
     the maximum). The model writes around the same checked card, and describes the graph.
     The read decides, never a word: a message whose words may ask (``_ASKS_TO_SEE``) waits
     for it up to ``live_read_wait_seconds``; a read later than that keeps the card, which
     loses a picture, never the card to a guess; any other message never waits."""
-    if ctx.instant_reply is None or not isinstance(ctx.verified_subject, VerifiedMathBlock):
+    verified = ctx.verified_subject
+    if ctx.instant_reply is None or not isinstance(
+        verified, VerifiedMathBlock | VerifiedPhysicsBlock
+    ):
         return
     figure = _figure()
     if figure is None or not settings.draw_descriptions_enabled or not _asks_in_words(ctx):
         return
-    if figure.shown(ctx.verified_subject):
+    if isinstance(verified, VerifiedMathBlock) and figure.shown(verified):
         return  # the card already draws the picture ("Graph y = x² and y = 2x")
+    if _solver_graphed(verified):
+        return  # the physics card already draws its graph against time
     deadline = asyncio.get_running_loop().time() + settings.live_read_wait_seconds
     read = await _read_for_a_picture(ctx, deadline)
     if read is None and ctx.live_read is not None and not ctx.live_read.done():
         note_prompt_rule("subject.instant_read_late")
-    if read is not None and _wants_a_drawing(read):
+    if read is not None and _wanted(ctx, read):
         ctx.instant_reply = None
         note_prompt_rule("subject.draw_over_instant")
 
@@ -179,9 +200,7 @@ async def ask_for_a_drawing(
         read = await _read_for_a_picture(ctx, deadline)
     asked: Literal["read", "words"] | None = None
     if read is not None and read.subject is not None and read.picture is not None:
-        asked = "read" if _wants_a_drawing(read) else None
-        if read.subject == "physics" and _solver_graphed(ctx.verified_subject):
-            asked = None  # the physics card already carries its graph against time
+        asked = "read" if _wanted(ctx, read) else None
     elif _a_maths_turn(ctx) and _asks_in_words(ctx):
         asked = "words"
     if asked is None:
@@ -202,7 +221,7 @@ def _still_wanted(ctx: StreamContext, drawing: ReplyDrawing) -> bool:
     decision = read.result()
     if decision is None or decision.subject is None or decision.picture is None:
         return True
-    return read_asks_for_a_picture(decision)
+    return _wanted(ctx, decision)
 
 
 async def attach_drawing(state: FinalizeState) -> str:
