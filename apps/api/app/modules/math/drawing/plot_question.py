@@ -528,7 +528,7 @@ def read_plot_question(texts: Sequence[str]) -> PlotQuestion:
         intervals=tuple(i for text in readable for i in intervals(text, letters)) + motion,
         # The motion's interval is said of the motion itself: of every region on its graph.
         ties=tuple(tie for text in readable for tie in _ties(text, letters))
-        + tuple((interval, ()) for interval in motion),
+        + tuple((interval, (), True) for interval in motion),
         edges=tuple(v for lines, _points in xs for v in lines),
         x_points=tuple(v for _lines, points in xs for v in points),
         y_points=tuple(v for lines, points in ys for v in points if v not in lines),
