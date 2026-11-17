@@ -9,6 +9,7 @@ A question and a description are read the same way: ``plain`` first (x⁵, eˣ, 
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
@@ -68,6 +69,31 @@ def number(text: str) -> Any | None:
     if not isinstance(parsed, Expr) or not parsed.is_number or parsed.is_real is False:
         return None
     return parsed
+
+
+_DECIMAL = re.compile(r"\d+\.(\d+)")
+# A decimal stands for a constant only to two places or more: 3.1 is no π.
+_LEAST_PLACES = 2
+
+
+def as_exact(expr: Any, text: str, constants: Iterable[Any]) -> Any:
+    """``expr`` with each decimal ``text`` writes put back as the exact constant it stands
+    for, among ``constants``, when they agree to the places written: 3.14159 for the
+    question's π (u5-001's k(x) = x² + 3x + π was described with it and left out), 1.4142
+    for its √2, to two places at least. A decimal no constant rounds to stays as it is."""
+    places = {float(found.group(0)): len(found.group(1)) for found in _DECIMAL.finditer(text)}
+    if not places:
+        return expr
+    swaps: dict[Any, Any] = {}
+    for decimal in expr.atoms(Float):
+        written = places.get(abs(float(decimal)))
+        if written is None or written < _LEAST_PLACES:
+            continue
+        for constant in constants:
+            if abs(abs(float(constant)) - abs(float(decimal))) <= 0.5 * 10.0**-written:
+                swaps[decimal] = constant if float(decimal) * float(constant) > 0 else -constant
+                break
+    return expr.xreplace(swaps)
 
 
 def same_number(a: Any, b: Any, rel: float = 1e-9) -> bool:
