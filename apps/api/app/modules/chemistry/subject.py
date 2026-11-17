@@ -56,6 +56,11 @@ class ChemistryFollowups:
     def restates(self, problem: str, line: str) -> bool:
         return False
 
+    def states_new(self, problem: str, line: str) -> bool:
+        from app.modules.chemistry.followup import chemistry_states_new
+
+        return chemistry_states_new(problem, line)
+
     def takes_every_change(
         self, problem: str, rewritten: str, line: str, new: Sequence[str]
     ) -> bool:

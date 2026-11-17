@@ -170,6 +170,11 @@ class SubjectFollowups(Protocol):
         pool."""
         ...
 
+    def states_new(self, problem: str, line: str) -> bool:
+        """``line`` states a value, read with its unit, that ``problem`` does not ("20
+        minutes" after "20 seconds"), never an item number ("Solve 1"). Read in the pool."""
+        ...
+
     def takes_every_change(
         self, problem: str, rewritten: str, line: str, new: Sequence[str]
     ) -> bool:

@@ -430,6 +430,14 @@ class GivenRewriter:
         asked = set(self.asked(line))
         return not asked or asked == set(self.asked(rewritten))
 
+    def states_new(self, prior: str, line: str) -> bool:
+        """``line`` states a value ``prior`` does not, read with its unit: "20 minutes" after
+        "20 seconds" is new, "Solve 1" names an item and states nothing."""
+        stated = self._values(prior)
+        return any(
+            not any(_same_value(given, old) for old in stated) for given in self._values(line)
+        )
+
     def _values(self, text: str) -> list[Given]:
         """The values ``text`` states: each with its unit, and each decimal pure number (an
         index, a coefficient); never a count or a question number."""

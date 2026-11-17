@@ -331,12 +331,12 @@ async def test_a_read_for_no_subject_is_not_the_claimed_subjects() -> None:
     served to the physics caller (Gemini, PR #2482)."""
     from app.core.readings import begin_turn
 
-    typed = [("user", _COULOMB), ("assistant", "**Answer** 2.16 \\u00d7 10\\u2079 N")]
+    typed = [("user", _COULOMB), ("assistant", "**Answer** 2.16 \u00d7 10\u2079 N")]
     pick = PosedPick(
         kind="change",
         message=1,
         problem=_COULOMB,
-        changes=[_change("3.0 C", "3.0 pC"), _change("2.0 C", "2.0 \\u00b5C")],
+        changes=[_change("3.0 C", "3.0 pC"), _change("2.0 C", "2.0 \u00b5C")],
     )
     begin_turn()
     with patch.object(posed_read, "pick_posed", AsyncMock(return_value=pick)):
@@ -345,3 +345,20 @@ async def test_a_read_for_no_subject_is_not_the_claimed_subjects() -> None:
             Settings(), _REPEAT, _rows(typed), claimed="physics"
         )
     assert claimed is not None and claimed.changed
+
+
+@pytest.mark.parametrize(
+    ("line", "new"),
+    [
+        # A value read with its unit: 20 minutes is no 20 seconds.
+        ("What if it took 20 minutes?", True),
+        # An item's number states no value.
+        ("Solve 1", False),
+        ("Do question 2", False),
+        ("What if it took 20 seconds?", False),
+    ],
+)
+def test_a_new_value_is_read_with_its_unit_and_an_item_number_is_none(line: str, new: bool) -> None:
+    """Bare numbers missed "20 minutes" after "20 seconds" (a misread solve gave 6 m/s)
+    and counted "Solve 1" as a value (Gemini, PR #2482)."""
+    assert posed_read.states_new_values(line, _CAR) is new

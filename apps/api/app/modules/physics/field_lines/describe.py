@@ -81,7 +81,8 @@ def read_description(body: str, texts: Sequence[str]) -> FieldPicture | None:
     if (described.charges is None) == (described.plates is None):
         return None
     if described.plates is not None:
-        if not plates_of(texts[0] if texts else "", described.plates.positive):
+        question = texts[0] if texts else ""
+        if not plates_of(question, described.plates.positive, described.part):
             return None  # "a +3 nC charge" is no pair of plates
         return FieldPicture(part=described.part, positive=described.plates.positive)
     charges = _charges(described.charges or [], texts, described.part)

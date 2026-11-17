@@ -360,19 +360,38 @@ _COUNTED = frozenset({"two", "three", "four", "both", "each", "pair", "identical
 
 
 def counted(prior: str, given: Given, kind: Sequence[Given] = ()) -> bool:
-    """True when the value's own phrase holds a count or a sameness word: "two identical
-    4 Ω resistors", "two 5 kg masses", "each of mass 5 kg" state one value for several
-    bodies, which one change cannot put to one of them. The phrase runs from the clause or
-    the value of its kind before it to the value, and on to the next one: "Two point charges,
-    one of 3.0 C and the other of 2.0 C" gives each charge its own value (live, 2026-11-16),
-    and "a 6 Ω resistor" beside two identical ones is its own."""
-    start = max((m.end() for m in re.finditer(r"[.?!]\s|[,;:]", prior[: given.start])), default=0)
-    start = max([start, *(other.end for other in kind if other.end <= given.start)])
-    stop = re.search(r"[.?!,;:](?:\s|$)", prior[given.end :])
-    end = given.end + (stop.start() if stop else len(prior) - given.end)
-    end = min([end, *(other.start for other in kind if other.start > given.end)])
-    phrase = prior[start:end]
-    return any(word in _COUNTED for word in re.findall(r"[a-z]+", phrase.lower()))
+    """True when a count or a sameness word before the value, in its sentence, names a
+    group the value alone sizes: "two identical point charges, with a charge of 3.0 μC"
+    and "two 5 kg masses" state one value for several bodies, which one change cannot put
+    to one of them. Values listed after the count are each their own ("two point charges
+    of 3.0 C and 2.0 C", "one of 3.0 C and the other of 2.0 C"; live, 2026-11-16), and a
+    body the sentence introduces after the group is another ("two identical 4 Ω resistors
+    and a 6 Ω resistor"). ``kind``: the problem's givens of the value's kind."""
+    start = max((m.end() for m in _SENTENCE_END.finditer(prior, 0, given.start)), default=0)
+    stop = _SENTENCE_END.search(prior, given.end)
+    end = stop.start() if stop else len(prior)
+    counts = [
+        m for m in _WORDS.finditer(prior, start, given.start) if m.group().lower() in _COUNTED
+    ]
+    if not counts:
+        # "A 2 kg cart hits a stationary cart of the same mass": a sameness word after the
+        # value shares it, when the sentence states no other value of its kind.
+        after = [m for m in _WORDS.finditer(prior, given.end, end) if m.group().lower() in _COUNTED]
+        alone = not any(other.start != given.start and start <= other.start < end for other in kind)
+        return bool(after) and alone
+    group_start = counts[0].start()
+    another = _ANOTHER_BODY.search(prior, group_start, end)
+    group_end = another.start() if another else end
+    if not group_start <= given.start < group_end:
+        return False
+    group = [other for other in kind if group_start <= other.start < group_end]
+    return len(group) <= 1
+
+
+_SENTENCE_END = re.compile(r"[.?!](?:\s|$)")
+_WORDS = re.compile(r"[a-z]+", re.IGNORECASE)
+# A body the sentence introduces after a counted group: "and a 6 Ω resistor".
+_ANOTHER_BODY = re.compile(r"(?:\band|,)\s+(?:a|an|another)\b", re.IGNORECASE)
 
 
 def thrown_at(prior: str, given: Given, throw: str) -> bool:

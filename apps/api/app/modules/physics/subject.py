@@ -73,6 +73,11 @@ class PhysicsFollowups:
 
         return restates_physics_problem(problem, line)
 
+    def states_new(self, problem: str, line: str) -> bool:
+        from app.modules.physics.followup import physics_states_new
+
+        return physics_states_new(problem, line)
+
     def takes_every_change(
         self, problem: str, rewritten: str, line: str, new: Sequence[str]
     ) -> bool:

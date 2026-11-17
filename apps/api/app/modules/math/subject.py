@@ -78,6 +78,11 @@ class MathFollowups:
     def restates(self, problem: str, line: str) -> bool:
         return False
 
+    # An equation's numbers have no units to tell a new value by: chat reads its bare
+    # numbers (``chat.posed_read``).
+    def states_new(self, problem: str, line: str) -> bool:
+        return False
+
     def takes_every_change(
         self, problem: str, rewritten: str, line: str, new: Sequence[str]
     ) -> bool:
