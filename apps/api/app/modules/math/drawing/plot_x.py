@@ -70,8 +70,7 @@ _BRACKET_LETTER = re.compile(r"(?<![A-Za-z])([a-z])\s*(?:\u2208|\bin\b|\bis\s+in
 
 def _bracket_of(text: str, at: int) -> str:
     found = _BRACKET_LETTER.search(text[:at])
-    letter = found.group(1) if found else ""
-    return "" if letter == "x" else letter
+    return found.group(1) if found else ""
 
 
 def _words_before(text: str, at: int) -> list[str]:
@@ -101,7 +100,7 @@ def intervals(text: str, variables: frozenset[str]) -> list[Interval]:
             found.append(Interval(a, b, of=of))
     for part in parts(text):
         # Each letter's own comparisons, tagged with it: "0 ≤ y ≤ 4" of y (for x = √y, though
-        # y is no letter of its formula), "0 ≤ t ≤ 5" of t; of x untagged.
+        # y is no letter of its formula), "0 ≤ t ≤ 5" of t, "0 ≤ x ≤ 3" of x.
         for letter in sorted(variables | {"y"}):
             sided = [c for c in conditions(part, frozenset({letter})) if c.value.is_number]
             lows = [c for c in sided if c.op in LOWER]
@@ -110,7 +109,8 @@ def intervals(text: str, variables: frozenset[str]) -> list[Interval]:
                 continue
             low, high = lows[0], highs[0]
             if float(low.value) < float(high.value):
-                of = "" if letter == "x" else letter
+                # Of x when x is named ("0 ≤ x ≤ 3"): never read as y for x = g(y).
+                of = letter
                 closed = (low.op == ">=", high.op == "<=")
                 found.append(Interval(low.value, high.value, *closed, of=of))
     return found

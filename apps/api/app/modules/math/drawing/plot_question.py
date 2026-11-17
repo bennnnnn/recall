@@ -88,11 +88,16 @@ _A_CONDITION = re.compile(r"\s*[-+]?[\w.()/]{1,12}\s*(?:<=|>=|<|>|\u2208|in\s+\[
 _CLOSING_WORDS = frozenset("and to only then".split())
 _SENTENCE_END = re.compile(r"[.;!?]")
 # Where one task ends and another begins within a sentence ("..., and the area enclosed by",
-# "... for -3 ≤ x ≤ 3 and shade the region ...").
+# "... for -3 ≤ x ≤ 3 and shade the region ...", "... for -3 ≤ x ≤ 3, shading the region"):
+# a curve's domain is the region's interval only when the area wording shares its clause.
 _TASK_CLAUSES = re.compile(
-    r",\s*(?=and\b|then\b)|;|\s+(?:and|then)\s+(?=(?:shade|find|evaluate|calculate|compute|"
+    # A comma before a word (never inside "[-4, 3]" or "(1, 2)"), a semicolon, "and/then"
+    # before a task, "and" before another area, and a participle that starts one
+    # ("..., shading the region", "... -3 ≤ x ≤ 3 shading ...").
+    r",\s*(?=[A-Za-z]{3,})|;|\s+(?:and|then)\s+(?=(?:shade|find|evaluate|calculate|compute|"
     r"integrate|determine|show|sketch|draw|work out)\b)"
     r"|\s+and\s+(?=(?:the\s+|an?\s+)?(?:area|region|integral|volume|average)\b)"
+    r"|\s+(?=(?:shading|finding|showing|marking|calculating|evaluating)\b)"
 )
 # What asks for a region on an interval: an area, an integral, a volume, a shading.
 _TASK = re.compile(r"\b(?:area|region|integral|integrate|volume|average|shade[sd]?)\b|\u222b")
