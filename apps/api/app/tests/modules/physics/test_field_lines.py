@@ -21,6 +21,7 @@ from app.modules.physics.field_lines.trace import CHARGE_RADIUS
 from app.modules.physics.schemas import SimulationBlockSpec
 
 _QUESTION = "Draw the pattern of the electric field around a positive and a negative charge."
+_PLATES = ("Draw the field between a pair of oppositely charged parallel plates.",)
 
 
 def _spec(description: dict[str, Any], texts: tuple[str, ...] = (_QUESTION,)) -> dict[str, Any]:
@@ -125,7 +126,7 @@ def test_line_counts_follow_the_charges_sizes() -> None:
 
 
 def test_plates_have_parallel_lines_from_plus_to_minus() -> None:
-    spec = _spec({"kind": "field", "part": "c", "plates": {"positive": "top"}})
+    spec = _spec({"kind": "field", "part": "c", "plates": {"positive": "top"}}, _PLATES)
     field = spec["field"]
     top, bottom = field["plates"]
     assert top["sign"] == 1 and bottom["sign"] == -1
@@ -142,7 +143,7 @@ def test_plates_have_parallel_lines_from_plus_to_minus() -> None:
 
 
 def test_a_lower_positive_plate_turns_the_field_up() -> None:
-    spec = _spec({"kind": "field", "plates": {"positive": "bottom"}})
+    spec = _spec({"kind": "field", "plates": {"positive": "bottom"}}, _PLATES)
     assert all(arrow["dy"] > 0.9 for arrow in spec["field"]["arrows"])
 
 

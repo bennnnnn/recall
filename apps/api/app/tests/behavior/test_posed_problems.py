@@ -322,3 +322,27 @@ def test_a_line_with_a_quantity_the_problem_lacks_is_no_rewrite() -> None:
     # The same height alone is a change of the drop.
     alone = "What if it were dropped from 45 m?"
     assert followups.takes_every_change(problem, rewritten, alone, ["45 m"])
+
+
+def test_one_change_never_rewrites_a_value_several_bodies_share() -> None:
+    """ "Two identical 4 Ω resistors and a 6 Ω resistor": a change of 4 Ω would rewrite
+    both resistors (Gemini, PR #2482). The count is read in the value's own phrase, so the
+    6 Ω resistor beside them stays changeable, and "one of 3.0 C and the other of 2.0 C"
+    still gives each charge its own value."""
+    from app.modules.physics.givens import PHYSICS_UNITS
+    from app.services.law_binding.fit import read_givens
+    from app.services.scaled_followup import counted
+
+    problem = (
+        "Two identical 4 Ω resistors and a 6 Ω resistor are connected in series to "
+        "a 14 V battery. What is the current?"
+    )
+    four, six = [g for g in read_givens(problem, PHYSICS_UNITS) if g.unit == "Ω"]
+    assert counted(problem, four, [four, six])
+    assert not counted(problem, six, [four, six])
+    charges = (
+        "Two point charges, one of 3.0 C and the other of 2.0 C, are placed 5.0 m apart. "
+        "Calculate the force."
+    )
+    first, second = [g for g in read_givens(charges, PHYSICS_UNITS) if g.unit == "C"]
+    assert not counted(charges, first, [first, second])

@@ -30,6 +30,9 @@ _IN_Q = re.compile(r"(?<![\w.])([+\-\u2212])?(?:[ \t]?(\d+(?:\.\d+)?))?[ \t]?q(?
 _SIGN_IN_PHRASE = re.compile(r"\b(positive|negative)\b(?![ \t]+test\b)", re.IGNORECASE)
 _SIGN_AFTER = re.compile(r"[ \t]*(?:point[ \t]+)?(positive|negative)\b(?![ \t]+test\b)", re.I)
 _CLAUSE_END = re.compile(r"[.;:?!](?!\d)")
+# A sign word for several charges: "negative charges of 3 nC and 2 nC".
+_SHARED = re.compile(r"[ \t]+(?:point[ \t]+)?charges\b", re.IGNORECASE)
+_TEST_CHARGE_BEFORE = re.compile(r"\btest[ \t]+charge[ \t,]*$", re.IGNORECASE)
 
 Kind = Literal["q", "unit"]
 
@@ -45,24 +48,41 @@ class Charge:
 
 
 def stated_charges(texts: Sequence[str]) -> list[Charge]:
-    """The charges the first message that states any states, the user's last message first:
-    a picture's amounts are that question's, never a number from another message."""
-    for text in texts:
-        found = _in_units(text) + _in_q(text)
-        if found:
-            return found
-    return []
+    """The charges the picture's own question states: the message that asks for it, or the
+    problem a follow-up points to, always the first text. An earlier turn's charges ("3.0 C
+    and 2.0 C" before "draw a positive charge") are never this picture's."""
+    text = texts[0] if texts else ""
+    return _in_units(text) + _in_q(text)
 
 
-def _phrase_sign(text: str, start: int, end: int, floor: int) -> int | None:
+@dataclass(frozen=True)
+class _Named:
+    """The sign a charge's own words name, and whether they name it for several charges
+    ("two negative charges of 3 nC and 2 nC"), so the charges after share it."""
+
+    sign: int | None
+    shared: bool = False
+
+
+def _own_or_shared(named: _Named, carried: _Named | None) -> tuple[int | None, _Named | None]:
+    """A charge's named sign, or the one a plural phrase before it gave the charges it
+    lists; and what the next charge inherits."""
+    if named.sign is not None:
+        return named.sign, named if named.shared else None
+    return (carried.sign if carried else None), carried
+
+
+def _phrase_sign(text: str, start: int, end: int, floor: int) -> _Named:
     """The sign the words of a charge's own phrase name: the last sign word between the
-    charge before it (or its clause's start) and its number, or one straight after it;
-    None when they name none."""
+    charge before it (or its clause's start) and its number, or one straight after it."""
     clause = max((m.end() for m in _CLAUSE_END.finditer(text, floor, start)), default=floor)
-    words = _SIGN_IN_PHRASE.findall(text, clause, start)
+    words = list(_SIGN_IN_PHRASE.finditer(text, clause, start))
     after = _SIGN_AFTER.match(text, end)
-    word = words[-1] if words else after.group(1) if after else None
-    return None if word is None else (1 if word.lower() == "positive" else -1)
+    found = words[-1] if words else after
+    if found is None:
+        return _Named(None)
+    shared = _SHARED.match(text, found.end()) is not None
+    return _Named(1 if found.group(1).lower() == "positive" else -1, shared)
 
 
 def _signed(written: bool, named: int | None) -> Literal[1, -1]:
@@ -77,13 +97,16 @@ def _in_units(text: str) -> list[Charge]:
     plain = fold_scientific(text)
     charges = []
     floor = 0
+    carried: _Named | None = None
     for given in read_givens(plain, PHYSICS_UNITS):
         if given.dimension != _CHARGE_DIMENSION or given.si is None:
             continue
         unit_at = plain.find(given.unit, given.end)
         end = unit_at + len(given.unit) if 0 <= unit_at <= given.end + 2 else given.end
         before = plain[: given.start].rstrip()[-1:] in _MINUS
-        named = _phrase_sign(plain, given.start, end, floor)
+        if _CLAUSE_END.search(plain, floor, given.start):
+            carried = None
+        named, carried = _own_or_shared(_phrase_sign(plain, given.start, end, floor), carried)
         written = f"{abs(given.value):g} {given.unit}"
         charges.append(
             Charge("unit", abs(given.si), _signed(before or given.si < 0, named), written)
@@ -96,9 +119,12 @@ def _in_q(text: str) -> list[Charge]:
     charges = []
     floor = 0
     for match in _IN_Q.finditer(text):
+        # "a positive test charge q" names the probe, never a source.
+        if _TEST_CHARGE_BEFORE.search(text, max(0, match.start() - 16), match.start()):
+            continue
         size = float(match.group(2) or 1)
         written = "q" if size == 1 else f"{size:g}q"
-        named = _phrase_sign(text, match.start(), match.end(), floor)
+        named = _phrase_sign(text, match.start(), match.end(), floor).sign
         charges.append(Charge("q", size, _signed(match.group(1) in _MINUS, named), written))
         floor = match.end()
     return charges
@@ -161,10 +187,10 @@ _PLURAL = re.compile(r"[ \t]+(?:point[ \t]+)?charges\b", re.IGNORECASE)
 
 
 def named_signs(texts: Sequence[str], part: str | None) -> tuple[list[int], bool] | None:
-    """The signs the question names in words, in its part ``part`` when it has one, and
-    whether they are the whole picture (one part, or a question with no parts) or only all
-    the parts' together. None when the question names no sign."""
-    for whole in texts:
+    """The signs the picture's question (the first text) names in words, in its part
+    ``part`` when it has one, and whether they are the whole picture (one part, or a
+    question with no parts) or only all the parts' together. None when it names no sign."""
+    for whole in texts[:1]:
         text = _through_the_request(whole)
         markers = list(_PART.finditer(text))
         if part is not None and markers:
@@ -178,6 +204,35 @@ def named_signs(texts: Sequence[str], part: str | None) -> tuple[list[int], bool
         if signs:
             return signs, not markers
     return None
+
+
+# Which plate a question says is charged how: "the top plate is positive", "a negative
+# lower plate", "the positive plate at the bottom".
+_PLATE_SIDE = re.compile(
+    r"\b(?P<side1>top|upper|bottom|lower)[ \t]+plate\b[^.;?!]{0,30}?"
+    r"\b(?P<sign1>positive|negative)\b"
+    r"|\b(?P<sign2>positive|negative)(?:ly[ \t]+charged)?[ \t]+(?P<side2>top|upper|bottom|lower)"
+    r"[ \t]+plate\b"
+    r"|\b(?P<sign3>positive|negative)[ \t]+plate\b[^.;?!]{0,20}?\b(?P<side3>top|bottom)\b",
+    re.IGNORECASE,
+)
+_PLATES = re.compile(r"\bplates?\b|\bcapacitor\b", re.IGNORECASE)
+_TOP = frozenset({"top", "upper"})
+
+
+def plates_of(text: str, positive: str) -> bool:
+    """``text`` names plates, and its words put the positive one where the description
+    does ("top" or "bottom"), or put it nowhere."""
+    if _PLATES.search(text) is None:
+        return False
+    for match in _PLATE_SIDE.finditer(text):
+        side = next(match.group(f"side{i}") for i in (1, 2, 3) if match.group(f"side{i}"))
+        sign = next(match.group(f"sign{i}") for i in (1, 2, 3) if match.group(f"sign{i}"))
+        top = side.lower() in _TOP
+        top_positive = top == (sign.lower() == "positive")
+        if top_positive != (positive == "top"):
+            return False
+    return True
 
 
 def _through_the_request(text: str) -> str:
