@@ -147,3 +147,37 @@ def test_an_interval_of_y_holds_no_region_along_x() -> None:
         _shade("f", "x-axis", "0", "4"),
     )
     assert graph is not None and not graph.regions
+
+
+def test_parts_on_either_side_over_one_stretch_fold_and_draw_no_solid() -> None:
+    # x² on [-1, 2] about the y-axis: cut at 0 into two parts, each on one side, both from
+    # y = 0 up: the solid folds over itself (PR review).
+    graph = _plot(
+        "The region under y = x^2 from x = -1 to x = 2 is rotated about the y-axis. Sketch "
+        "the solid.",
+        _curve("f", "x^2"),
+        _shade("f", "x-axis", "-1", "2"),
+        {"item": "axis", "line": "y-axis"},
+        _SOLID,
+    )
+    assert graph is not None and graph.regions and not _mirrors(graph)
+
+
+def test_an_end_that_narrows_to_a_point_off_the_axis_has_one_circle() -> None:
+    graph = _plot(
+        "The region under y = 4 - x^2 above the x-axis is rotated about the line x = 3. Sketch "
+        "the solid.",
+        _curve("f", "4 - x^2"),
+        _shade("f", "x-axis"),
+        {"item": "axis", "line": "x = 3"},
+        _SOLID,
+    )
+    _mirror, *ends = _mirrors(graph)
+    tops = [end for end in ends if min(y for _, y in end) > 3]
+    assert len(tops) == 1  # one circle at the top, radius 3 about x = 3: no hole
+    assert (min(x for x, _ in tops[0]), max(x for x, _ in tops[0])) == pytest.approx(
+        (0, 6), abs=0.1
+    )
+    # The base, a washer: radius 5 with a hole of radius 1.
+    bases = sorted(max(x for x, _ in end) - 3 for end in ends if min(y for _, y in end) < 1)
+    assert bases == pytest.approx([1, 5], abs=1e-3)

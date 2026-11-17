@@ -26,6 +26,9 @@ _ELLIPSE_POINTS = 48
 # Points within this share of the region's length of an end are at that end.
 _AT_AN_END = 1e-3
 _SOLID_COLOR = 0
+# Radii at an end within this share of each other are one point of the region, not a
+# washer's two edges.
+_ONE_POINT = 0.1
 
 
 def _axis(scene: Scene) -> tuple[str, float] | None:
@@ -45,6 +48,27 @@ def _ellipse(
     return [(along + half_along * math.cos(t), level + radius * math.sin(t)) for t in turns]
 
 
+def _folds(flat: list[list[tuple[float, float]]], reach: float) -> bool:
+    """Some of the region lies on each side of the axis at the same place along it: one
+    part across it, or two parts on either side over the same stretch (x² on [-1, 2] about
+    the y-axis, cut at 0 into [-1, 0] and [0, 2]). Parts on either side over different
+    stretches (x³ on [-1, 2] about the x-axis) each sweep their own solid."""
+    tol = 1e-6 * reach
+    spans: list[tuple[int, float, float]] = []
+    for part in flat:
+        sides = [d for _, d in part]
+        if min(sides) < -tol and max(sides) > tol:
+            return True
+        alongs = [a for a, _ in part]
+        spans.append((1 if max(sides) > tol else -1, min(alongs), max(alongs)))
+    for i, (side, low, high) in enumerate(spans):
+        for other, low2, high2 in spans[i + 1 :]:
+            overlap = min(high, high2) - max(low, low2)
+            if side != other and overlap > 1e-6 * max(1.0, high - low, high2 - low2):
+                return True
+    return False
+
+
 def solid_of(scene: Scene) -> None:
     """The mirror of each shaded part across the axis, and an ellipse at each end of the
     solid with the radius the region reaches there (a cone's point has none)."""
@@ -62,10 +86,8 @@ def solid_of(scene: Scene) -> None:
     reach = max(abs(d) for d in distances)
     if not reach or not all(math.isfinite(d) for d in distances):
         return
-    for part in flat:
-        sides = [d for _, d in part]
-        if min(sides) < -1e-6 * reach and max(sides) > 1e-6 * reach:
-            return  # one part on both sides of its axis: the solid folds over itself
+    if _folds(flat, reach):
+        return  # the region on both sides of its axis at once: the solid folds over itself
     alongs = [a for part in flat for a, _ in part]
     low, high = min(alongs), max(alongs)
     length = high - low
@@ -83,7 +105,13 @@ def solid_of(scene: Scene) -> None:
         half_along = _SLANT * outer * length / (2 * reach)
         shapes.append(_ellipse(end, 0.0, half_along, outer))
         inner = min(radii, default=0.0)
-        if inner > 1e-6 * reach and outer - inner > 1e-6 * reach:
+        if outer - inner < _ONE_POINT * outer:
+            # The region narrows to one point off the axis there (4 - x² at its top, about
+            # x = 3): one circle, no hole between radii a sample apart.
+            outer = (outer + inner) / 2
+            half_along = _SLANT * outer * length / (2 * reach)
+            shapes[-1] = _ellipse(end, 0.0, half_along, outer)
+        elif inner > 1e-6 * reach:
             shapes.append(_ellipse(end, 0.0, half_along * inner / outer, inner))  # a washer's hole
     for shape in shapes:
         if letter == "y":
