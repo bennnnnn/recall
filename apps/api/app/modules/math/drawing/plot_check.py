@@ -42,9 +42,8 @@ def stated_interval(
     numbers said of something else ("check that your answer is between 2 and 3") are none.
     ``along`` "y": an interval it says of y ("from y = 0 to y = 4"), and only that one; an
     interval of y is none of x."""
-    for interval in question.intervals:
-        if (interval.of == "y") != (along == "y"):
-            continue
+    own = question.x_intervals if along != "y" else [i for i in question.intervals if i.of == "y"]
+    for interval in own:
         if same_number(interval.low, low) and same_number(interval.high, high):
             return interval
     if along == "y":
@@ -69,9 +68,8 @@ def region_intervals(question: PlotQuestion) -> list[Interval]:
     ]
     return [
         interval
-        for interval in question.intervals
-        if interval.of != "y"
-        and (
+        for interval in question.x_intervals
+        if (
             interval in tasked
             or not any(
                 same_number(interval.low, a) and same_number(interval.high, b) for a, b in domains
@@ -121,8 +119,8 @@ def stated_end(number: Any, question: PlotQuestion, meet: float) -> Any | None:
     edge = next((edge for edge in question.edges if same_number(edge, number)), None)
     if edge is not None:
         return edge
-    for interval in question.intervals:
-        if interval.of != "y" and float(interval.low) <= meet <= float(interval.high):
+    for interval in question.x_intervals:
+        if float(interval.low) <= meet <= float(interval.high):
             ends = (interval.low, interval.high)
             end = next((end for end in ends if same_number(end, number)), None)
             if end is not None:
