@@ -202,6 +202,12 @@ _ATAN = r"\operatorname{atan}{\left(x \right)} + C"
         (_reply(r"$\arctan\left(\frac{x+1}{1-x}\right) + C$"), _ATAN),
         # … a form real on one side of a log's zero only, sampled on both sides …
         (_reply(r"$\ln(6 - x) + C$"), r"\ln\left|x - 6\right| + C"),
+        # … wherever the zero lies, outside any window (Gemini on #2481) …
+        (_reply(r"$\ln(x - 25) + C$"), r"\ln\left|x - 25\right| + C"),
+        (
+            _reply(r"$-\arctan\left(\frac{1}{x - 30}\right) + C$"),
+            r"\operatorname{atan}{\left(x - 30 \right)} + C",
+        ),
         # … and one real nowhere.
         (_reply(r"$\frac{1}{2}\ln(-x^2 - 1) + C$"), r"\frac{\ln\left|x^{2} + 1\right|}{2} + C"),
     ],

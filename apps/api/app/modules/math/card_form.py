@@ -225,19 +225,33 @@ def _proved_constant_apart(server: Any, mine: Any) -> bool | None:
 
 
 _MAX_CRITICAL = 24
+# A periodic set of places (the zeros of sin x) is read in this window: the form repeats.
 _WINDOW = 20
 
 
 def _critical_points(exprs: tuple[Any, ...]) -> list[float] | None:
-    """Where an argument of a log, |…| or root, or a denominator, of ``exprs`` is zero,
-    within ±20; None when SymPy cannot list them (the card keeps the server's form)."""
-    from sympy import Abs, FiniteSet, Interval, Pow, S, log, preorder_traversal, solveset
+    """Where an argument of a log, |…|, root or inverse tangent, or a denominator, of
+    ``exprs`` is zero, wherever it lies (∫1/(x - 25) dx stated as ln(x - 25): Gemini on
+    #2481); a periodic set within ±20. None when SymPy cannot list them (the card keeps
+    the server's form)."""
+    from sympy import (
+        Abs,
+        FiniteSet,
+        Interval,
+        Pow,
+        S,
+        acot,
+        atan,
+        log,
+        preorder_traversal,
+        solveset,
+    )
 
     symbol = next(iter(exprs[0].free_symbols))
     places: set[Any] = set()
     for expr in exprs:
         for node in preorder_traversal(expr):
-            if isinstance(node, (log, Abs)):
+            if isinstance(node, (log, Abs, atan, acot)):
                 places.add(node.args[0])
             elif isinstance(node, Pow) and node.free_symbols:
                 # A denominator, or a root: where its base is zero the form may change.
@@ -247,7 +261,9 @@ def _critical_points(exprs: tuple[Any, ...]) -> list[float] | None:
     for place in places:
         if symbol not in place.free_symbols:
             continue
-        zeros = solveset(place, symbol, domain=Interval(-_WINDOW, _WINDOW))
+        zeros = solveset(place, symbol, domain=S.Reals)
+        if not isinstance(zeros, FiniteSet):
+            zeros = zeros.intersect(Interval(-_WINDOW, _WINDOW))
         if zeros is S.EmptySet:
             continue
         if not isinstance(zeros, FiniteSet) or len(zeros) > _MAX_CRITICAL:

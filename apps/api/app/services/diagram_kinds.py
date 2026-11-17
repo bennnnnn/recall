@@ -49,8 +49,9 @@ _GROUP_ENDS = frozenset(
     {"with", "of", "at", "in", "on", "for", "and", "by", "from", "to", "along", "across",
      "around", "over", "under", "that", "which", "where", "while"}
 )  # fmt: skip
-# "The curve y = x^2", "f(x) = sin x": a function's curve is maths', drawn from its formula.
-_FORMULA = re.compile(r"\bf\s*\(\s*x\s*\)|\by\s*=", re.IGNORECASE)
+# "The curve y = x^2", "f(x) = sin x", "g(x) = 4 - x²", "P(t) = …": a function's curve is
+# maths', drawn from its formula, whatever the function's name (Gemini on #2481).
+_FORMULA = re.compile(r"\bf\s*\(\s*x\s*\)|\by\s*=|\b[a-z]\w{0,7}\(\s*[a-z]\s*\)\s*=", re.IGNORECASE)
 
 
 def names_idea_curve(phrase: str, message: str = "") -> bool:
@@ -60,7 +61,8 @@ def names_idea_curve(phrase: str, message: str = "") -> bool:
     mountain road with sharp curves" is a picture), and a formula's curve is maths', the
     phrase's own or one the ``message`` it comes from writes: "Find the area enclosed by
     f(x) = 4 - x² and g(x) = 3x. Show the curves and shade the region" draws those two
-    (2026-11-16: read as a chart, the question was never solved).
+    (2026-11-16: read as a chart, the question was never solved), whatever the
+    functions are called (g and h: Gemini on #2481).
     """
     if _FORMULA.search(phrase) or _FORMULA.search(message):
         return False

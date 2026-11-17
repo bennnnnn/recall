@@ -143,7 +143,22 @@ def _lead_sentence(cleaned: str, lead: re.Match[str]) -> tuple[int, int]:
     return start, stop.start() if stop is not None else len(cleaned)
 
 
-def _extract_area_between_intent(cleaned: str) -> MathIntent | None:
+def area_curves(text: str) -> tuple[str, str] | None:
+    """The two curves an area question names ("the area between y = x² + 1 and y = x":
+    x^2 + 1 and x; the x-axis is 0), read as the area reader reads them; None when it
+    names no two."""
+    from app.modules.math import match as mtm
+
+    cleaned = mtm.prepare(text)
+    found = _area_between(cleaned) if cleaned else None
+    return None if found is None else (found[0], found[1])
+
+
+def _area_between(
+    cleaned: str,
+) -> tuple[str, str, tuple[str, str, int] | None, int, int] | None:
+    """The two curves of the area the text asks, the interval its sentence states, and
+    where that sentence starts and ends."""
     lead = _AREA_BETWEEN_RE.search(cleaned)
     if lead is None:
         return None
@@ -160,6 +175,14 @@ def _extract_area_between_intent(cleaned: str) -> MathIntent | None:
     first, second = _curve(halves[0]), _curve(halves[1])
     if first is None or second is None:
         return None
+    return first, second, interval, start, stop
+
+
+def _extract_area_between_intent(cleaned: str) -> MathIntent | None:
+    found = _area_between(cleaned)
+    if found is None:
+        return None
+    first, second, interval, start, stop = found
     if interval is None:
         # The stated interval wins: one its sentence writes in a form the bounds do not
         # read ("from x = 1/e² to …") is never replaced by where the curves meet.

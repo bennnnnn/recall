@@ -140,6 +140,23 @@ _AREA_QUESTION = (
         ),
         # The antiderivative is never held to the area.
         ({"action": "integrate", "expr": "x**2 - 3*x + 2"}, _AREA_QUESTION, True),
+        # Gemini on #2481: one curve of two is a step of the working, not the area.
+        (
+            {"action": "integrate", "expr": "x**2 + 1", "lower": "0", "upper": "2"},
+            "Find the area between y = x^2 + 1 and y = x from x = 0 to x = 2.",
+            False,
+        ),
+        (
+            {"action": "integrate", "expr": "x**2", "lower": "0", "upper": "1"},
+            "Find the area bounded by y = x^2 and y = 4 between 0 and 1.",
+            False,
+        ),
+        # A curve and the x-axis: the curve is the gap.
+        (
+            {"action": "integrate", "expr": "x**2 + 1", "lower": "0", "upper": "2"},
+            "Find the area between y = x^2 + 1 and the x-axis from x = 0 to x = 2.",
+            True,
+        ),
     ],
 )
 def test_an_area_is_never_checked_by_a_signed_integral(
