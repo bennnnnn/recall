@@ -50,8 +50,10 @@ _ON_INTERVAL_RE = re.compile(
 _BETWEEN_BOUNDS_RE = re.compile(
     rf"\bbetween\s+x\s*=\s*({_BOUND})\s+and\s+x\s*=\s*({_BOUND})\b", re.IGNORECASE
 )
+# A chain starts where a number does, never inside one: tried from every digit of a long
+# run of digits, the search was quadratic (review of #2481, 2026-11-16).
 _CHAIN_BOUNDS_RE = re.compile(
-    rf"({_BOUND})\s*(?:<=|≤|<)\s*x\s*(?:<=|≤|<)\s*({_BOUND})", re.IGNORECASE
+    rf"(?<![\w.^/*])({_BOUND})\s*(?:<=|≤|<)\s*x\s*(?:<=|≤|<)\s*({_BOUND})", re.IGNORECASE
 )
 # "the x-axis and the lines x = -1/2 and x = 3": the vertical lines that close the region.
 _LINES_BOUNDS_RE = re.compile(

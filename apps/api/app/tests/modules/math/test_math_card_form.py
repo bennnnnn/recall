@@ -96,6 +96,9 @@ def test_the_card_shows_the_form_the_working_reaches(reply: str, server: str, ca
         (_reply(r"$\sqrt{8}\,x + C$"), r"2 \sqrt{2} x + C"),
         (_reply(r"$e^{\ln x} + C$"), r"x + C"),
         (_reply(r"$x + \ln 1 + C$"), r"x + C"),
+        # A term that vanishes at whole numbers is no constant (Codex on #2481).
+        (_reply(r"$\frac{x^2}{2} + \sin(\pi x) + C$"), r"\frac{x^{2}}{2} + C"),
+        (_reply(r"$\frac{x^2}{2} + x(x - 1)(x + 1) + C$"), r"\frac{x^{2}}{2} + C"),
         # A constant beside the + C is the constant's to carry.
         (_reply(r"$\frac{x^3}{3} + 5 + C$"), r"\frac{x^{3}}{3} + C"),
         # The Answer is read first: a wrong Answer keeps the server's form though the working

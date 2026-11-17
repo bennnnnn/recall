@@ -50,7 +50,13 @@ _FRACTION = re.compile(r"\\[dt]frac(?![A-Za-z])")
 _BRACED_ARGUMENT = re.compile(
     r"\\(sinh|cosh|tanh|sin|cos|tan|sec|csc|cot|ln|log|exp)(\^\{?-?\d+\}?)?\s*\{"
 )
-_SAMPLES = (0.37, 0.71, 1.29, 1.83, 2.57, 3.41, -0.43, -1.27, -2.11, 4.73)
+# Irrational, unevenly spaced and not symmetric about 0: no polynomial or trig term a
+# reply might add (sin(πx), x(x - 1)) vanishes at all of them.
+_SAMPLES = tuple(
+    math.sqrt(2) * k + math.e / (k + 3) for k in (-3.1, -1.7, -0.6, 0.2, 0.9, 1.4, 2.3, 3.6)
+)
+# A derivative this large is left to the samples: simplify may outrun the fence's budget.
+_MAX_PROOF_OPS = 80
 _MIN_SAMPLES = 4
 
 
@@ -168,13 +174,36 @@ def _same_antiderivative(shown: str, server: Any) -> bool:
         return False  # a rounded coefficient, or a script TeX reads otherwise
     mine = read_tex(_CONSTANT.sub("", shown))
     written = _as_written(shown)
-    if mine is None or written is None or _unevaluated(written) or _loose_constant(written):
+    if mine is None or written is None:
+        return False
+    if _unevaluated(written) or _loose_constant(written):
         return False
     try:
+        proved = _proved_constant_apart(server, mine)
+        if proved is not None:
+            return proved
         return same_value(server, mine, up_to_constant=True)
     except Exception:
         logger.info("the working's form was not compared; the card keeps SymPy's", exc_info=True)
         return False
+
+
+def _proved_constant_apart(server: Any, mine: Any) -> bool | None:
+    """True when SymPy proves ``mine`` and ``server`` a constant apart (their difference
+    simplifies to a zero derivative); False when they are not in the same variables; None
+    when simplify cannot tell (|…| and logs often leave a sign it cannot settle), and the
+    samples decide."""
+    from sympy import count_ops, diff, simplify
+
+    if server.free_symbols != mine.free_symbols:
+        return False
+    slopes = [diff(mine - server, symbol) for symbol in sorted(server.free_symbols, key=str)]
+    if any(count_ops(slope) > _MAX_PROOF_OPS for slope in slopes):
+        return None
+    left = [simplify(slope) for slope in slopes]
+    if all(slope == 0 for slope in left):
+        return True
+    return None
 
 
 def _loose_constant(expr: Any) -> bool:

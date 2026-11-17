@@ -458,6 +458,12 @@ class TestVerticalLine:
             "Draw the curve, the tangent and the normal."
         )
         assert mtm.vertical_line_x(text) is None
+        assert mtm.vertical_line_x("graph f(x)=x^2 when x = 3") is None
+
+    def test_a_vertical_line_asked_beside_a_defined_function_stays(self):
+        # Only an "x = 2" tied to the curve is a point on it (Codex on #2481).
+        assert mtm.vertical_line_x("Plot the curve f(x)=x^2 and the vertical line x=2") == 2.0
+        assert mtm.vertical_line_x("graph f(x) = x^2 and the line x = 2") == 2.0
 
 
 class TestGluedVizCommands:

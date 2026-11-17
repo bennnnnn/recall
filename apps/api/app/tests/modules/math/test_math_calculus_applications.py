@@ -299,3 +299,16 @@ PROSE = [
 @pytest.mark.parametrize("text", PROSE)
 def test_prose_does_not_reach_the_verified_path(text: str) -> None:
     assert _verified_answer(text) is None
+
+
+@pytest.mark.wall_clock
+def test_a_long_run_of_digits_is_read_in_linear_time() -> None:
+    """The chain of bounds was tried from every digit of a run: quadratic (review of #2481)."""
+    import time
+
+    from app.modules.math.tools.extractors import calculus_applications as reader
+
+    text = "area under y = x for " + "1" * 30_000 + "x to x = 2"
+    started = time.perf_counter()
+    reader._bounds(text)
+    assert time.perf_counter() - started < 0.5
