@@ -65,15 +65,6 @@ class Interval:
         return not self.of or self.of in variables
 
 
-def _compared(text: str, letter: str) -> bool:
-    """``text`` compares ``letter`` with something ("0 ≤ y", "y < 4")."""
-    marks = "<>\u2264\u2265"
-    return (
-        re.search(rf"[{marks}]=?\s*{letter}(?![A-Za-z])|(?<![A-Za-z]){letter}\s*[{marks}]", text)
-        is not None
-    )
-
-
 def _words_before(text: str, at: int) -> list[str]:
     return [w.strip(",;:().").lower() for w in text[:at].split()]
 
@@ -97,14 +88,19 @@ def intervals(text: str, variables: frozenset[str]) -> list[Interval]:
             a, b = (a, b) if float(a) < float(b) else (b, a)
             found.append(Interval(a, b, of=of))
     for part in parts(text):
-        sided = [c for c in conditions(part, variables) if c.value.is_number]
-        lows = [c for c in sided if c.op in LOWER]
-        highs = [c for c in sided if c.op in UPPER]
-        if len(lows) == 1 and len(highs) == 1 and float(lows[0].value) < float(highs[0].value):
+        # Each letter's own comparisons, tagged with it: "0 ≤ y ≤ 4" of y (for x = √y, though
+        # y is no letter of its formula), "0 ≤ t ≤ 5" of t; of x untagged.
+        for letter in sorted(variables | {"y"}):
+            sided = [c for c in conditions(part, frozenset({letter})) if c.value.is_number]
+            lows = [c for c in sided if c.op in LOWER]
+            highs = [c for c in sided if c.op in UPPER]
+            if len(lows) != 1 or len(highs) != 1:
+                continue
             low, high = lows[0], highs[0]
-            # Of y only when y alone is compared: "0 ≤ y ≤ 4", not "-2 ≤ y ≤ 2 and 0 ≤ x ≤ 1".
-            of = "y" if _compared(part, "y") and not _compared(part, "x") else ""
-            found.append(Interval(low.value, high.value, low.op == ">=", high.op == "<=", of))
+            if float(low.value) < float(high.value):
+                of = "" if letter == "x" else letter
+                closed = (low.op == ">=", high.op == "<=")
+                found.append(Interval(low.value, high.value, *closed, of=of))
     return found
 
 
