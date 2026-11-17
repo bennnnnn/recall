@@ -26,9 +26,9 @@ _ELLIPSE_POINTS = 48
 # Points within this share of the region's length of an end are at that end.
 _AT_AN_END = 1e-3
 _SOLID_COLOR = 0
-# Radii at an end within this share of each other are one point of the region, not a
-# washer's two edges.
-_ONE_POINT = 0.1
+# An end where the region's width is under this share of its width a little way in (this
+# share of its length) is a point its edges meet at, not a washer's two edges.
+_POINT_WIDTH, _WAY_IN = 0.25, 0.05
 
 
 def _axis(scene: Scene) -> tuple[str, float] | None:
@@ -69,6 +69,18 @@ def _folds(flat: list[list[tuple[float, float]]], reach: float) -> bool:
     return False
 
 
+def _narrows_to_a_point(flat: list[list[tuple[float, float]]], end: float, length: float) -> bool:
+    """The region's two edges meet at ``end``: its width across there is a small share of
+    its width a little way in. A thin washer (y = 10 and y = 9.5) keeps its width all along."""
+
+    def width(reach: float) -> float:
+        across = [d for part in flat for a, d in part if abs(a - end) <= reach]
+        return max(across) - min(across) if across else 0.0
+
+    inside = width(_WAY_IN * length)
+    return inside > 0 and width(_AT_AN_END * length) <= _POINT_WIDTH * inside
+
+
 def solid_of(scene: Scene) -> None:
     """The mirror of each shaded part across the axis, and an ellipse at each end of the
     solid with the radius the region reaches there (a cone's point has none)."""
@@ -105,9 +117,9 @@ def solid_of(scene: Scene) -> None:
         half_along = _SLANT * outer * length / (2 * reach)
         shapes.append(_ellipse(end, 0.0, half_along, outer))
         inner = min(radii, default=0.0)
-        if outer - inner < _ONE_POINT * outer:
-            # The region narrows to one point off the axis there (4 - x² at its top, about
-            # x = 3): one circle, no hole between radii a sample apart.
+        if _narrows_to_a_point(flat, end, length):
+            # The region's edges meet there, off the axis (4 - x² at its top, about x = 3):
+            # one circle, no hole between radii a sample apart.
             outer = (outer + inner) / 2
             half_along = _SLANT * outer * length / (2 * reach)
             shapes[-1] = _ellipse(end, 0.0, half_along, outer)

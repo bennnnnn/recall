@@ -181,3 +181,34 @@ def test_an_end_that_narrows_to_a_point_off_the_axis_has_one_circle() -> None:
     # The base, a washer: radius 5 with a hole of radius 1.
     bases = sorted(max(x for x, _ in end) - 3 for end in ends if min(y for _, y in end) < 1)
     assert bases == pytest.approx([1, 5], abs=1e-3)
+
+
+@pytest.mark.parametrize(
+    ("question", "items", "radii"),
+    [
+        # A thin washer keeps its holes: its edges never meet.
+        (
+            "The region between y = 10 and y = 9.5 from x = 0 to x = 2 is rotated about the "
+            "x-axis. Sketch the solid.",
+            [{"item": "line", "name": "A", "y": "10"}, {"item": "line", "name": "B", "y": "9.5"},
+             _curve("f", "x"), _shade("A", "B", "0", "2")],
+            [9.5, 9.5, 10, 10],
+        ),
+        # x² about y = -10: its edges meet at x = 0 (one circle), not at x = 1 (a washer).
+        (
+            "The region under y = x^2 from x = 0 to x = 1 is rotated about the line y = -10. "
+            "Sketch the solid.",
+            [_curve("f", "x^2"), _shade("f", "x-axis", "0", "1"),
+             {"item": "axis", "line": "y = -10"}],
+            [10, 10, 11],
+        ),
+    ],
+)  # fmt: skip
+def test_a_hole_is_drawn_where_the_region_s_edges_do_not_meet(
+    question: str, items: list[dict[str, Any]], radii: list[float]
+) -> None:
+    axis = [] if any(i.get("item") == "axis" for i in items) else [_AXIS]
+    _mirror, *ends = _mirrors(_plot(question, *items, *axis, _SOLID))
+    level = 0.0 if axis else -10.0
+    found = sorted(round(max(y for _, y in end) - level, 6) for end in ends)
+    assert found == pytest.approx(radii, abs=1e-3)
