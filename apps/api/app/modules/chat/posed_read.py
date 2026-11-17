@@ -50,6 +50,8 @@ _MAX_WORDS = 12
 # "repeat the calculation" question, which says why before what changes.
 _MAX_RESTATED_WORDS = 80
 _STATES_A_VALUE = re.compile(r"\d")
+# A number as written: a line that states one its problem does not is no "solve it again".
+_NUMBER = re.compile(r"\d+(?:\.\d+)?")
 # Most values one line changes at once.
 _MAX_CHANGES = 4
 # The longest read fits: a 600-character problem (about 200 tokens, at three characters a
@@ -157,6 +159,12 @@ def without_cheer(text: str) -> str:
         return text
     last_word = max((index for index, char in enumerate(tail) if char.isalnum()), default=-1)
     return text[: cut + 1] if last_word >= 0 and "!" in tail[last_word:] else text
+
+
+def _states_new_values(line: str, problem: str) -> bool:
+    """``line`` writes a number ``problem`` does not."""
+    stated = set(_NUMBER.findall(_unlatexed(problem)))
+    return any(number not in stated for number in _NUMBER.findall(_unlatexed(line)))
 
 
 def _line_value(line: str, new: str | None) -> str | None:
@@ -269,6 +277,15 @@ async def read_posed(
     problem = _stated(*exchanges[read.message - 1], read.problem)
     if problem is None:
         return None
+    # A line a subject claims, or one that states values its problem does not, changes the
+    # question it follows ("Repeat it with 3.0 pC"): only a change of the asked turn's own
+    # problem stands (the user's message the last reply answered, or that reply when it
+    # posed one), never "solve" the problem as it was: its card would answer a question
+    # the line did not ask.
+    if claimed is not None or _states_new_values(line, problem):
+        last_turn = {len(exchanges)} | ({len(exchanges) - 1} if asked is not None else set())
+        if read.kind != "change" or read.message not in last_turn:
+            return None
     if read.kind == "solve":
         return Posed(problem=problem, reply=exchanges[-1][1])
     return Posed(

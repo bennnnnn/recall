@@ -406,9 +406,16 @@ class GivenRewriter:
             for given in read_givens(value, self.units)
             if given.si is not None
         ]
+        # Every value the line states must be the problem's kind: a quantity the problem
+        # lacks ("thrown downward at 10 m/s" after a drop) is another problem, which no
+        # rewrite of the old one solves.
+        kinds = {given.dimension for given in read_givens(prior, self.units) if given.dimension}
+        stated_all = [given for given in read_givens(line, self.units) if given.dimension]
+        if any(given.dimension not in kinds for given in stated_all):
+            return False
         # One to one: "3.0 pC and 3.0 pC" are two values, which one named change never takes.
         left = list(taken)
-        for stated in self.restated(prior, line):
+        for stated in stated_all:
             match = next(
                 (
                     given
