@@ -106,9 +106,13 @@ def _figure_wanted(read: asyncio.Task[TurnDecision | None]) -> _Wanted | None:
     return (subject, "teach") if decision.picture in _UNASKED else None
 
 
-def read_asks_for_a_picture(decision: TurnDecision) -> bool:
-    """The read calls the message a maths question asking to see a graph or a diagram."""
-    return decision.subject == "maths" and decision.picture in _DRAWN
+def read_asks_for_a_picture(
+    decision: TurnDecision, subjects: frozenset[str] = frozenset({"maths"})
+) -> bool:
+    """The read calls the message a question of ``subjects`` (maths, unless a caller names
+    physics too) asking to see a graph or a diagram: the one check every picture path asks
+    of the read."""
+    return decision.subject in subjects and decision.picture in _DRAWN
 
 
 def _asks_for_a_picture(read: asyncio.Task[TurnDecision | None]) -> bool:

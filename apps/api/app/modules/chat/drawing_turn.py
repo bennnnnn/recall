@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING, Literal
 from app.core.config import Settings
 from app.modules.chat.draw_stream import without_draw_blocks
 from app.modules.chat.drawn_picture import solve_draws
-from app.modules.chat.figure_turn import earlier_user_lines
+from app.modules.chat.figure_turn import earlier_user_lines, read_asks_for_a_picture
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.turn_decision import TurnDecision
@@ -144,7 +144,10 @@ def _described_by(read: TurnDecision) -> SubjectName | None:
     """The subject whose reply describes the picture the read says the message asks to see:
     a maths question's figure or graph, a physics question's diagram."""
     entry = _DESCRIBED.get(read.subject or "")
-    return entry[0] if entry is not None and read.picture in entry[1] else None
+    if entry is None or read.picture not in entry[1]:
+        return None
+    # The read's own say that the message asks to see it, as every picture path asks.
+    return entry[0] if read_asks_for_a_picture(read, frozenset(_DESCRIBED)) else None
 
 
 async def write_for_a_picture(ctx: StreamContext, settings: Settings) -> None:

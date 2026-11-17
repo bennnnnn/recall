@@ -206,3 +206,42 @@ async def test_a_physics_instant_reply_gives_way_to_field_lines_its_solve_did_no
     )
     await drawing_turn.write_for_a_picture(card, _settings())
     assert card.instant_reply == "E = 1.8 N/C"
+
+
+@pytest.mark.parametrize(
+    ("line", "subject", "verified"),
+    [
+        ("No need to sketch it, just find the roots of x^2 - 5x + 6 = 0.", "maths", "math"),
+        (
+            "Find the field 0.20 m from an 8.0 pC charge; don't draw the field lines.",
+            "physics",
+            "physics",
+        ),
+    ],
+)
+async def test_a_message_that_asks_to_see_nothing_keeps_its_card_and_gets_no_contract(
+    line: str, subject: str, verified: str
+) -> None:
+    """A read that says the message asks to see nothing ("no need to sketch it", "don't draw
+    the field lines") keeps the instant card and asks for no description: every picture
+    path goes through the read's one asks check (Gemini, PR #2482)."""
+    import asyncio
+
+    from app.modules.chat import drawing_turn
+    from app.services.solving import VerifiedMathBlock, VerifiedPhysicsBlock
+
+    block = (
+        VerifiedMathBlock(text="x = 2, 3")
+        if verified == "math"
+        else VerifiedPhysicsBlock(text="E = 1.8 N/C")
+    )
+    read: asyncio.Future[Any] = asyncio.get_event_loop().create_future()
+    read.set_result(_decision(subject=subject, picture="none"))
+    ctx = _ctx(line, instant_reply="card", verified_subject=block, live_read=read)
+    await drawing_turn.write_for_a_picture(ctx, _settings())
+    assert ctx.instant_reply == "card"
+    asked = _ctx(line)
+    await ask_for_a_drawing(
+        asked, _settings(), _decision(subject=subject, picture="none"), _deadline()
+    )
+    assert asked.drawing is None
