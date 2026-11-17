@@ -214,8 +214,13 @@ async def ask_for_a_drawing(
     figure = _figure(subject) if subject_adapter(subject).enabled(settings) else None
     if figure is None:
         return
+    # A message the read says asks to see nothing gets only its problem's setup.
+    sees = read is None or read.picture in ("diagram", "graph")
+    contract = figure.contract_for(ctx.user_message_content or "", sees)
+    if not contract:
+        return
     ctx.drawing = ReplyDrawing(asked, subject=subject)
-    ctx.prompt_messages = inject_before_last_user(ctx.prompt_messages, figure.contract)
+    ctx.prompt_messages = inject_before_last_user(ctx.prompt_messages, contract)
     note_prompt_rule(f"subject.draw_{asked}" if subject == "math" else f"{subject}.draw_{asked}")
 
 

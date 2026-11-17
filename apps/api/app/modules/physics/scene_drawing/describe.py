@@ -3,28 +3,32 @@
 The reply names the scene and the question's values it uses, never a coordinate:
 {"kind": "scene", "scene": "projectile", "values": {"speed": "20 m/s", "angle": "30°",
 "height": "45 m"}}. Each value must be one the question states, with its unit and of the
-part's kind, each used once (``values``), and every value the question states of those
-kinds used: a projectile that hits a wall 30 m away, a second lens or a pulley's own mass
-is another situation than the scene draws. A speed belongs to the body whose mass it is
-written beside. A part the scene does not take, a value the question does not state, or
-a claim the scene does not know draws nothing: the scene is never drawn from a description
-it only partly understood.
+part's kind, each used once; every other quantity the question states must be one the
+scene can leave aside (``values``); a speed belongs to the mass in its own clause; and the
+question's words must state nothing the scene cannot carry: a direction, an angle's
+reference, another apparatus (``guards``). When the server cannot confirm the setup, it
+draws nothing: a refusal is always safe, a wrong picture never is.
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import re
 from collections.abc import Sequence
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from app.modules.physics.scene_drawing.guards import GUARDS
 from app.modules.physics.scene_drawing.kinds import SCENES, SceneKind
-from app.modules.physics.scene_drawing.values import Stated, nearer, stated_texts
+from app.modules.physics.scene_drawing.values import Stated, stated_texts
 from app.modules.physics.schemas import SimulationBlockSpec
 from app.services.law_binding.givens import Given
 
 logger = logging.getLogger(__name__)
+
+_HORIZONTALLY = re.compile(r"\bhorizontally\b", re.IGNORECASE)
+_LENGTH_KIND = "[length]^1"
 
 
 class _Scene(BaseModel):
@@ -35,6 +39,7 @@ class _Scene(BaseModel):
     values: dict[str, str] = Field(default_factory=dict, max_length=6)
     sticks: bool | None = None
     elastic: bool | None = None
+    horizontal: bool | None = None
     harmonic: int | None = Field(default=None, ge=1, le=6)
 
 
@@ -65,6 +70,9 @@ def described_scene(body: str, texts: Sequence[str]) -> list[SimulationBlockSpec
     stated = stated_texts(texts)
     values = _values(kind, described, stated)
     flags = _flags(kind, described, stated)
+    if values is not None and GUARDS[described.scene](stated, values):
+        logger.info("described scene %s not drawn: the question says more", described.scene)
+        return []
     if values is None or flags is None:
         logger.info(
             "described scene %s not drawn: %s (parts %s)",
@@ -80,37 +88,68 @@ def described_scene(body: str, texts: Sequence[str]) -> list[SimulationBlockSpec
 def _values(kind: SceneKind, described: _Scene, stated: Stated) -> dict[str, Given] | None:
     if set(described.values) - set(kind.parts):
         return None
-    if any(part.required and name not in described.values for name, part in kind.parts.items()):
-        return None
+    for name, part in kind.parts.items():
+        needed = part.required or (name == "angle" and described.scene == "projectile")
+        if needed and name not in described.values and not described.horizontal:
+            return None
     held: dict[str, Given] = {}
     for name, written in described.values.items():
         given = stated.take(written, kind.parts[name].sample)
         if given is None:
             return None
         held[name] = given
-    # The scene is the question's whole setup: every value it states of these parts' kinds.
-    if stated.leaves_out([part.sample for part in kind.parts.values() if part.whole]):
+    if described.scene == "refraction" and "index_from" not in held:
+        stated.take_air()  # "from air (n = 1.00)": the index a refraction from air needs not
+    # The scene is the question's whole setup: no stated quantity it cannot leave aside.
+    if stated.leaves_out(kind.tolerates):
         return None
-    # Each body's speed is written beside its own mass, never the other body's.
-    masses = [mass for mass, _speed in kind.bodies]
+    # Each speed belongs to the mass in its own clause, never the other body's.
+    masses = [held[mass] for mass, _speed in kind.bodies if mass in held]
     for mass, speed in kind.bodies:
-        others = [held[m] for m in masses if m != mass and m in held]
-        if speed in held and mass in held and others:
-            if not all(nearer(held[mass], other, held[speed]) for other in others):
-                return None
+        if speed in held and (mass not in held or stated.owner(held[speed], masses) != held[mass]):
+            return None
     return held
 
 
+def _harmonic(stated: Stated, described: int | None) -> int | None:
+    """The harmonic the question names ("third harmonic", "n = 3"), or the one its stated
+    wavelength fits on the string (n = 2L/λ, a whole number); the description's own, when it
+    gives one, must be that one."""
+    named = stated.harmonics()
+    if not named:
+        length = next((g for g in stated.taken if g.dimension == _LENGTH_KIND), None)
+        waves = stated.lengths_left()
+        if length is None or len(waves) != 1 or not length.si or not waves[0].si:
+            return None
+        fits = 2 * length.si / waves[0].si
+        if abs(fits - round(fits)) > 1e-6 or not 1 <= round(fits) <= 6:
+            return None
+        named = {round(fits)}
+    if described is not None:
+        return described if described in named else None
+    return min(named) if len(named) == 1 else None
+
+
 def _flags(kind: SceneKind, described: _Scene, stated: Stated) -> dict[str, float] | None:
-    """The claims a scene takes (the bodies stick, or bounce off elastically) as its
-    solver's flags, exactly one when the scene takes any and none when it takes none; a
-    standing wave's harmonic, when the question names it."""
+    """The claims a scene takes, as its solver's flags: a collision's one claim (the bodies
+    stick, or bounce off elastically), a projectile launched horizontally when the question
+    says so, a standing wave's harmonic when the question names it ("third harmonic",
+    "n = 3", "fundamental"); a claim the question does not support draws nothing."""
     claimed = [name for name in ("sticks", "elastic") if getattr(described, name)]
     if len(claimed) != (1 if kind.claims else 0) or set(claimed) - set(kind.claims):
         return None
     flags = {kind.claims[name][0]: kind.claims[name][1] for name in claimed}
-    if described.harmonic is not None:
-        if described.scene != "standing_wave" or not stated.harmonic(described.harmonic):
+    if described.horizontal:
+        if described.scene != "projectile" or "angle" in described.values:
             return None
-        flags["harmonic"] = float(described.harmonic)
+        if _HORIZONTALLY.search(stated.text) is None:
+            return None
+        flags["angle"] = 0.0
+    if described.scene == "standing_wave":
+        harmonic = _harmonic(stated, described.harmonic)
+        if harmonic is None:
+            return None
+        flags["harmonic"] = float(harmonic)
+    elif described.harmonic is not None:
+        return None
     return flags

@@ -22,6 +22,7 @@ from app.modules.physics.followup import (
 from app.modules.physics.prompt import build_physics_augmentation
 from app.modules.physics.reply_policy import PHYSICS_REPLY_POLICY, physics_prompt_hints
 from app.modules.physics.scene_drawing.contract import SCENE_DRAW_CONTRACT
+from app.modules.physics.scene_drawing.values import states_quantities
 from app.modules.turn_reading.see_request import asks_to_see
 from app.services.solving import PhotoReading, SubjectAugmentation, VerifiedPhysicsBlock
 from app.services.subject_hints import SubjectHints
@@ -244,9 +245,16 @@ class PhysicsFigure:
     def without_substitutes(self, text: str) -> str:
         return text
 
-    @property
-    def contract(self) -> str:
-        return f"{SCENE_DRAW_CONTRACT}\n{FIELD_DRAW_CONTRACT}"
+    def contract_for(self, question: str, asked: bool) -> str:
+        """A field's picture only when the message asks to see one; a problem's setup when
+        it asks, or when it states quantities the physics readers read ("what is inertia?"
+        gets neither)."""
+        parts = []
+        if asked or states_quantities(question):
+            parts.append(SCENE_DRAW_CONTRACT)
+        if asked:
+            parts.append(FIELD_DRAW_CONTRACT)
+        return "\n".join(parts)
 
     async def described(
         self, descriptions: Sequence[str], texts: Sequence[str], reply: str, settings: Settings

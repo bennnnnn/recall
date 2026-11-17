@@ -28,8 +28,9 @@ _ATWOOD = (
     "released from rest. Find (a) the acceleration and (b) the tension in the string."
 )
 _BULLET = (
-    "A 10 g bullet moving at 400 m/s embeds itself in a 2 kg wooden block hanging from a "
-    "long string. Find (a) the speed of the block and bullet just after the collision."
+    # A block on a string swings up after (a ballistic pendulum): no scene draws that.
+    "A 10 g bullet moving at 400 m/s embeds itself in a 2 kg wooden block resting on a "
+    "frictionless table. Find (a) the speed of the block and bullet just after the collision."
 )
 _SPRING = (
     "A 0.5 kg mass on a horizontal frictionless surface is attached to a spring with "
@@ -229,8 +230,9 @@ def test_a_harmonic_written_among_the_values_is_the_scenes_claim() -> None:
     assert _types(scene_fences([described], [_STRING])) == ["wave"]
 
 
-def test_a_block_on_a_slope_needs_no_mass_to_be_drawn() -> None:
-    """The block's mass is a label, not the situation: a reply that leaves it out still gets
-    the incline (live round, 2026-11-16)."""
+def test_a_block_whose_stated_mass_the_description_leaves_out_is_not_drawn() -> None:
+    """Every quantity the question states is the scene's or one it can leave aside: a mass
+    left out could be another body (a hanging one), so the scene is refused (review of
+    feat/physics-scenes)."""
     described = _scene(scene="incline", values={"angle": "35 degrees", "friction": "0.25"})
-    assert _types(scene_fences([described], [_INCLINE])) == ["incline"]
+    assert scene_fences([described], [_INCLINE]) == []

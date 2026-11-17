@@ -333,8 +333,7 @@ class MathFigure:
 
         return without_substitutes(text)
 
-    @property
-    def contract(self) -> str:
+    def contract_for(self, question: str, asked: bool) -> str:
         return DRAW_CONTRACT
 
     async def described(

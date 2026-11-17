@@ -296,9 +296,13 @@ class GuardedFigure:
             lambda: self._inner.without_substitutes(text),
         )
 
-    @property
-    def contract(self) -> str:
-        return self._inner.contract
+    def contract_for(self, question: str, asked: bool) -> str:
+        return neutral_on_error(
+            self._subject,
+            "figure.contract_for",
+            "",
+            lambda: self._inner.contract_for(question, asked),
+        )
 
     async def described(
         self, descriptions: Sequence[str], texts: Sequence[str], reply: str, settings: Settings

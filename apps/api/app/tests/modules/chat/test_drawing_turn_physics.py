@@ -185,4 +185,16 @@ async def test_a_physics_problem_asking_to_see_nothing_gets_the_scene_contract()
     await ask_for_a_drawing(
         ctx, _settings(), _decision(subject="physics", picture="none"), _deadline()
     )
-    assert ctx.drawing is not None and ctx.prompt_messages[-2]["content"] == _PHYSICS_CONTRACT
+    # The setup's scene only: a field's picture is for a message that asks to see one.
+    assert ctx.drawing is not None and ctx.prompt_messages[-2]["content"] == SCENE_DRAW_CONTRACT
+
+
+@pytest.mark.parametrize("line", ["What is inertia?", "Why does a ball fall?"])
+async def test_a_physics_message_stating_no_quantity_gets_no_contract(line: str) -> None:
+    """ "what is inertia?" asks to see nothing and states no quantity: no 3 k characters of
+    contract on it (review of feat/physics-scenes)."""
+    ctx = _ctx(line)
+    await ask_for_a_drawing(
+        ctx, _settings(), _decision(subject="physics", picture="none"), _deadline()
+    )
+    assert ctx.drawing is None

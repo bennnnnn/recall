@@ -88,10 +88,11 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # the working stating only numbers the working shows (VERIFIED_SOLVE_SAFETY_HINT; the owner's
 # GCSE set, 2026-11-16); then physics' scene contract, a problem's setup described by the
 # scene and the question's values, never a coordinate (physics.scene_drawing.contract, the
-# owner's round of 30 hard problems, 2026-11-16).
+# owner's round of 30 hard problems, 2026-11-16), naming a horizontal launch, bodies moving
+# the same way and the situations it never draws (its review, 2026-11-16).
 _RULES = 203
-_RULE_GRAMS = 18932
-_RULE_GRAMS_SHA = "b027924bb89dc3a3"
+_RULE_GRAMS = 18976
+_RULE_GRAMS_SHA = "b0cf7b71c01ccefd"
 
 
 def _rules() -> list[str]:

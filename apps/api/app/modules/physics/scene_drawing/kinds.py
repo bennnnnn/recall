@@ -16,6 +16,7 @@ import math
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 
+from app.modules.physics.bodies import BODY_PROPERTIES
 from app.modules.physics.schemas import PhysicsIntent, SimulationBlockSpec
 from app.modules.physics.solver import solve_physics
 from app.modules.physics.solvers.si import to_si
@@ -37,16 +38,15 @@ class Part:
     param: str
     sample: str
     required: bool = True
-    # Every value the question states of this part's kind must be one the scene uses: an
-    # unused one is another body or another situation (a pulley's own mass, a wall). A
-    # label only (a block's mass on a slope) says nothing of the situation.
-    whole: bool = True
 
 
 @dataclass(frozen=True)
 class SceneKind:
     parts: Mapping[str, Part]
     draw: Drawn
+    # The stated quantities the scene may leave aside, one each (a slope's length, a bob's
+    # mass): any other one the parts do not use is another situation, and nothing is drawn.
+    tolerates: tuple[str, ...] = ()
     # Claims only the model can make (the bodies stick together), each a solver flag.
     claims: Mapping[str, tuple[str, float]] = field(default_factory=dict)
     # Parts written by one body: each (mass, speed) pair's speed sits beside its mass.
@@ -113,7 +113,8 @@ SCENES: dict[str, SceneKind] = {
     "projectile": SceneKind(
         {
             "speed": Part("v0", _SPEED),
-            "angle": Part("angle", _ANGLE),
+            # Left out only for a launch the question says is horizontal.
+            "angle": Part("angle", _ANGLE, required=False),
             "height": Part("h0", _LENGTH, required=False),
             "g": Part("g", "m/s^2", required=False),
         },
@@ -123,14 +124,16 @@ SCENES: dict[str, SceneKind] = {
         {
             "angle": Part("angle", _ANGLE),
             "friction": Part("mu", ""),
-            "mass": Part("m", _MASS, required=False, whole=False),
+            "mass": Part("m", _MASS, required=False),
             "g": Part("g", "m/s^2", required=False),
         },
         _solved("friction", "incline_acceleration", {"motion_sign": (1.0, "")}),
+        tolerates=(_LENGTH,),
     ),
     "atwood": SceneKind(
         {"mass1": Part("m1", _MASS), "mass2": Part("m2", _MASS)},
         _solved("force", "atwood"),
+        tolerates=(_LENGTH,),
     ),
     "collision": SceneKind(
         {
@@ -146,15 +149,29 @@ SCENES: dict[str, SceneKind] = {
     "spring": SceneKind(
         {"spring_constant": Part("k", "N/m"), "mass": Part("m", _MASS)},
         _solved("spring", "shm_period"),
+        tolerates=(_LENGTH, _LENGTH),
     ),
-    "pendulum": SceneKind({"length": Part("L", _LENGTH)}, _solved("spring", "pendulum_period")),
+    "pendulum": SceneKind(
+        {"length": Part("L", _LENGTH)},
+        _solved("spring", "pendulum_period"),
+        tolerates=(_MASS, _ANGLE),
+    ),
     "orbit": SceneKind(
         {
             "altitude": Part("altitude", "km"),
             "planet_mass": Part("M", _MASS, required=False),
             "planet_radius": Part("radius_body", "km", required=False),
         },
-        _solved("gravitation", "orbital_velocity"),
+        # Earth's own, when the question names Earth and gives no planet (``guards``).
+        _solved(
+            "gravitation",
+            "orbital_velocity",
+            {
+                "M": (BODY_PROPERTIES["earth"][0], "kg"),
+                "radius_body": (BODY_PROPERTIES["earth"][1], "m"),
+            },
+        ),
+        tolerates=(_MASS,),
     ),
     "refraction": SceneKind(
         {
@@ -163,6 +180,7 @@ SCENES: dict[str, SceneKind] = {
             "index_from": Part("n1", "", required=False),
         },
         _solved("optics", "snell_refraction_angle", {"n1": (1.0, "")}),
+        tolerates=(_LENGTH,),
     ),
     "lens": SceneKind(
         {
@@ -172,6 +190,14 @@ SCENES: dict[str, SceneKind] = {
         },
         _solved("optics", "image_distance"),
     ),
-    "standing_wave": SceneKind({"length": Part("L", _LENGTH)}, _standing),
-    "banked_curve": SceneKind({"angle": Part("angle", _ANGLE)}, _banked),
+    "standing_wave": SceneKind(
+        {"length": Part("L", _LENGTH)},
+        _standing,
+        tolerates=(_MASS, "N", _SPEED, "Hz", _LENGTH),
+    ),
+    "banked_curve": SceneKind(
+        {"angle": Part("angle", _ANGLE)},
+        _banked,
+        tolerates=(_LENGTH, _MASS, _SPEED, ""),
+    ),
 }
