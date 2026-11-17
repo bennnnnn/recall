@@ -170,6 +170,13 @@ class Slice(_Item):
     method: Literal["disc", "washer", "shell"]
 
 
+class Solid(_Item):
+    """The solid the shaded region sweeps about the axis: its mirror and its ends' circles,
+    drawn by the server from the region."""
+
+    item: Literal["solid"]
+
+
 class Axis(_Item):
     """The axis a region turns about: "x-axis", "y-axis", or a line "y = 2" / "x = -1"."""
 
@@ -190,6 +197,7 @@ PlotItem = Annotated[
     | Average
     | AxisNames
     | Slice
+    | Solid
     | Axis,
     Field(discriminator="item"),
 ]
