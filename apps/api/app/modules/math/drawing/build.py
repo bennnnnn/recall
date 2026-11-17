@@ -33,7 +33,7 @@ from app.modules.math.figure.honest import honours, said
 from app.modules.math.figure.request import FigureRequest, Measure
 from app.modules.math.figure.shape_names import lid_said, names_shape
 from app.modules.math.schemas.figure import FigureSpec
-from app.services.graph_facts import GraphFactReader, GraphFacts
+from app.services.graph_facts import GraphFactReader, GraphFacts, first_facts
 
 logger = logging.getLogger(__name__)
 
@@ -395,7 +395,7 @@ def drawn_fences(
     draw, one of each kind (a ```geometry figure, a ```graph), each from the first
     description of that kind that checks (owner decision 2026-11-15: a reply may carry a
     figure and a graph). ``facts``: the turn's subject's reader of the question's words."""
-    known = facts(texts[0]) if facts is not None and texts else None
+    known = first_facts(texts, facts) if facts is not None else None
     drawn: dict[str, str] = {}
     for body in bodies[:_MOST_DESCRIPTIONS]:
         fence = drawn_fence(body, texts, reply, known)

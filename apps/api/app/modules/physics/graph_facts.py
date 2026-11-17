@@ -42,7 +42,8 @@ _SAID = r"\s+(?:is\s+|of\s+)?(?:[av]\s*=\s*)?"
 _ACCELERATION = re.compile(rf"\bacceleration{_SAID}{_IN_T}\s*(?:{_PER_SECOND_SQUARED})")
 # A constant acceleration: "with acceleration 2 m/s²", said at no time.
 _CONSTANT_ACCELERATION = re.compile(
-    rf"\bacceleration{_SAID}(?P<a>{_NUMBER})\s*(?:{_PER_SECOND_SQUARED})"
+    rf"\bacceleration\s+(?:is\s+|of\s+)?(?:an?\s+)?(?:constant\s+|uniform\s+)?(?:a\s*=\s*)?"
+    rf"(?P<a>{_NUMBER})\s*(?:{_PER_SECOND_SQUARED})"
 )
 _VELOCITY_IN_T = re.compile(rf"\bvelocity{_SAID}{_IN_T}\s*(?:{_PER_SECOND})")
 _VELOCITY = re.compile(rf"\bvelocity{_SAID}(?P<v>{_NUMBER})\s*(?:{_PER_SECOND})")
@@ -62,6 +63,13 @@ _AT_TIME = re.compile(
     r"\s*(?:s|secs?|seconds?)\b"
 )
 _AT_THE_START = re.compile(r"\b(?:starts?|started|starting|initial|initially|from rest)\b")
+# Words that make a clause one instant ("initially its acceleration is 3 m/s²", "when at
+# rest"), and those that hold a value over the motion ("a constant acceleration", "for 5 s").
+_AN_INSTANT = re.compile(
+    r"\binitially\b|\binitial\s+acceleration\b|\bwhen\b|\bat\s+the\s+(?:start|instant|moment)\b"
+)
+_OPENS_AN_INSTANT = re.compile(r"\s*(?:when|whenever|initially|at)\b")
+_HELD = re.compile(r"\b(?:constant|uniform|uniformly|steady)\b|\bfor\s+\d")
 # A clause that asks, not states: its time is the one asked about ("find its velocity when
 # t = 3 s"), and gives none to the clauses beside it.
 _ASKED = re.compile(
@@ -201,12 +209,24 @@ def _through(rate: Expr, stated: list[tuple[Any, Any]]) -> Expr | None:
 
 
 def _constant_acceleration(lowered: str) -> Expr | None:
-    """A constant acceleration ("with acceleration 2 m/s²"), said in a clause that names
-    no time: "when t = 2 its acceleration is 3 m/s²" is a value at one time, not a(t)."""
-    for clause in _CLAUSES.split(lowered):
-        found = _CONSTANT_ACCELERATION.search(clause)
-        if found is not None and _AT_TIME.search(clause) is None:
-            return nsimplify(found.group("a"), rational=True)
+    """A constant acceleration ("starts from rest with acceleration 2 m/s²"), said in a
+    clause that names no instant: "when t = 2 its acceleration is 3 m/s²", "initially its
+    acceleration is 3 m/s²" and "when at rest, its acceleration is 2 m/s²" are values at one
+    time, not a(t), unless the clause says it is constant or for how long."""
+    for sentence in _SENTENCES.split(lowered):
+        clauses = [c for c in _CLAUSES.split(sentence) if c.strip()]
+        for i, clause in enumerate(clauses):
+            found = _CONSTANT_ACCELERATION.search(clause)
+            if found is None:
+                continue
+            # A clause opening the sentence says when the next one holds ("When at rest, its
+            # acceleration is 2 m/s²").
+            leading = clauses[i - 1] if i > 0 and _OPENS_AN_INSTANT.match(clauses[i - 1]) else ""
+            instant = any(
+                _AT_TIME.search(part) or _AN_INSTANT.search(part) for part in (clause, leading)
+            )
+            if _HELD.search(clause) is not None or not instant:
+                return nsimplify(found.group("a"), rational=True)
     return None
 
 

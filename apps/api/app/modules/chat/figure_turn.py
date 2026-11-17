@@ -107,7 +107,10 @@ def _figure_wanted(read: asyncio.Task[TurnDecision | None]) -> _Wanted | None:
 
 
 def read_asks_for_a_picture(decision: TurnDecision) -> bool:
-    """The read calls the message a maths question asking to see a graph or a diagram."""
+    """The read calls the message a maths question asking to see a graph or a diagram, or
+    a physics question asking to see a graph (drawn as maths draws one)."""
+    if decision.subject == "physics":
+        return decision.picture == "graph"
     return decision.subject == "maths" and decision.picture in _DRAWN
 
 

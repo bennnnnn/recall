@@ -223,3 +223,34 @@ def test_a_region_where_the_velocity_is_negative_stands_inside_the_motion() -> N
     )
     graph = _plot(question, _curve("v", "t^2 - 4t + 3"), _shade("v", "x-axis", "1", "3"))
     assert graph is not None and len(graph.regions) == 1
+
+
+@pytest.mark.parametrize(
+    ("question", "formulas"),
+    [
+        # A value at one instant is no a(t) = c (PR #2486 review).
+        ("Initially its acceleration is 3 m/s² and its velocity is 4 m/s. Sketch v against t.", {}),
+        ("When at rest, its acceleration is 2 m/s². Sketch v.", {}),
+        # ... unless said to be held.
+        ("Its acceleration is a constant 3 m/s² and initially its velocity is 4 m/s. Sketch v.",
+         {"a": "3", "v": "3*t + 4"}),
+        ("A particle with initial velocity 4 m/s moves with acceleration 2 m/s². Sketch v.",
+         {"a": "2", "v": "2*t + 4"}),
+    ],
+)  # fmt: skip
+def test_an_acceleration_at_an_instant_is_no_constant_one(
+    question: str, formulas: dict[str, str]
+) -> None:
+    test_the_motion_is_worked_out_from_the_values_it_states(question, formulas)
+
+
+def test_a_follow_up_draws_with_the_question_s_motion() -> None:
+    import json
+
+    from app.modules.math.drawing.build import drawn_fences
+
+    body = json.dumps({"kind": "plot", "items": [_curve("v", "1.75t^2 + 8")]})
+    fences = drawn_fences(
+        [body], ["Now draw the velocity-time graph.", _U5_088], "", read_graph_facts
+    )
+    assert fences and "v = 7t²/4 + 8" in fences[0]
