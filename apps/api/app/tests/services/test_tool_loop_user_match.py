@@ -169,6 +169,13 @@ _AREA_QUESTION = (
             "Find the area bounded by y = x^2, y = 4, y = 1 and x = 0.",
             False,
         ),
+        # One piece of a region split where its curve crosses is not the area (Gemini on
+        # #2481: ∫₂³ = 5/6 for the region on [0, 3]).
+        (
+            {"action": "integrate", "expr": "x**2 - 3*x + 2", "lower": "2", "upper": "3"},
+            _AREA_QUESTION,
+            False,
+        ),
         # A curve and the x-axis: the curve is the gap.
         (
             {"action": "integrate", "expr": "x**2 + 1", "lower": "0", "upper": "2"},

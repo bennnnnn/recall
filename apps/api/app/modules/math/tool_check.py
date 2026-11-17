@@ -351,33 +351,40 @@ def _answers_an_area(args: dict[str, Any], user: _UserMath) -> bool:
         return True
     variable = str(args.get("variable") or "x")
     expr = str(args.get("expr") or "")
-    if not _integrates_the_gap(expr, user.text):
+    if not _integrates_the_gap(expr, str(lower), str(upper), user.text):
         return False
     return integral_is_an_area(expr, str(lower), str(upper), variable)
 
 
-def _integrates_the_gap(expr: str, text: str) -> bool:
+def _integrates_the_gap(expr: str, lower: str, upper: str, text: str) -> bool:
     """For an area between two curves, the integrand is the gap between them (either way
-    round; ``integral_is_an_area`` holds it to one sign): ∫(x² + 1) for "the area between
-    y = x² + 1 and y = x" is a step of the working, not the area (Gemini on #2481). The
-    x-axis is the curve 0, so one curve alone is its own gap there."""
+    round; ``integral_is_an_area`` holds it to one sign) over the region's own bounds:
+    ∫(x² + 1) for "the area between y = x² + 1 and y = x" is a step of the working, and so
+    is one piece of a region split where its curves cross (∫₂³ of "between x = 0 and
+    x = 3"), never the area (Gemini on #2481). The x-axis is the curve 0, so one curve
+    alone is its own gap there. A model that sums the pieces gets no check: correctness
+    over the tick."""
     from app.modules.math.match.scan import prepare
     from app.modules.math.tools.extractors.calculus_applications import (
-        area_curves,
+        area_region,
         asks_area_between,
     )
 
     cleaned = prepare(text)
     if not cleaned or not asks_area_between(cleaned):
         return True
-    curves = area_curves(cleaned)
-    if curves is None:
-        return False  # two curves the reader cannot name: no integrand is known to be the gap
-    integrand, first, second = _parse(expr), _parse(curves[0]), _parse(curves[1])
-    if integrand is None or first is None or second is None:
+    region = area_region(cleaned)
+    if region is None:
+        return False  # curves or bounds the reader cannot name: no integral is known the area
+    read = [_parse(part) for part in (*region, expr, lower, upper)]
+    parsed = [part for part in read if part is not None]
+    if len(parsed) != len(read):
         return False
+    first, second, low, high, integrand, start, end = parsed
     gap = first - second
-    return _zero(integrand - gap) or _zero(integrand + gap)
+    if not (_zero(integrand - gap) or _zero(integrand + gap)):
+        return False
+    return _zero(start - low) and _zero(end - high)
 
 
 def _matches(args: dict[str, Any], user: _UserMath) -> bool:

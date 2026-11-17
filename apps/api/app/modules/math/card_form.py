@@ -185,7 +185,7 @@ def _same_antiderivative(shown: str, server: Any) -> bool:
     written = _as_written(shown)
     if mine is None or written is None:
         return False
-    if _unevaluated(written) or _loose_constant(written):
+    if _unevaluated(written) or _uncombined(written) or _loose_constant(written):
         return False
     if len(server.free_symbols) != 1:
         return False  # where a form of several letters is real is not sampled: unsure
@@ -286,6 +286,39 @@ def _loose_constant(expr: Any) -> bool:
     from sympy import Add
 
     return isinstance(expr, Add) and any(not term.free_symbols for term in expr.args)
+
+
+def _uncombined(expr: Any) -> bool:
+    """``expr``, as written, holds numbers still to combine: a sum of numbers
+    (``x^{3+1}``), or a product with more than one number, or a fraction not in lowest
+    terms (``4·x⁴/4``, ``\\frac{2}{4}x^2``): a working step, never the card's answer
+    (Gemini on #2481). ``\\frac{3x^2}{2}`` and ``-\\frac{1}{2}\\cos 2x`` are finished."""
+    from math import gcd
+
+    from sympy import Add, Integer, Mul, Pow, preorder_traversal
+
+    def factors(node: Any) -> list[Any]:
+        if isinstance(node, Mul):
+            return [part for arg in node.args for part in factors(arg)]
+        return [node]
+
+    for node in preorder_traversal(expr):
+        if isinstance(node, Add) and not node.free_symbols:
+            return True
+        if not isinstance(node, Mul):
+            continue
+        parts = factors(node)
+        tops = [abs(int(part)) for part in parts if isinstance(part, Integer) and abs(part) != 1]
+        bottoms = [
+            int(part.base)
+            for part in parts
+            if isinstance(part, Pow) and isinstance(part.base, Integer) and part.exp == -1
+        ]
+        if len(tops) > 1 or len(bottoms) > 1:
+            return True
+        if tops and bottoms and gcd(tops[0], bottoms[0]) != 1:
+            return True
+    return False
 
 
 def _unevaluated(expr: Any) -> bool:

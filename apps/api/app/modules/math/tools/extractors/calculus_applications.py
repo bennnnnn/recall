@@ -38,10 +38,13 @@ _BOUND = (
     r"|pi|π|e"
     r"|\d+(?:\.\d+)?|\.\d+"
     # Reject a partial bound (``3`` from ``3.5``, ``7π`` from ``7π/4``, ``e`` from
-    # ``e^2``), but allow the ordinary sentence-ending period after a complete bound
-    # (``to x=3.``).
-    r")(?![\w*/^]|\.\d)"
+    # ``e^2``, ``1`` from ``1 / e²`` or ``1 + √2``: an operator, root or constant after
+    # spaces too, Gemini on #2481), but allow the ordinary sentence-ending period after a
+    # complete bound (``to x=3.``).
+    r")(?![\w*/^√π]|\.\d|\s*[-+*/^√π·\u00d7]|\s*(?:pi|e)\b)"
 )
+# Where a bound may start: never inside an expression ("e" of "1 + e", "2" of "√2").
+_BOUND_START = r"(?<![\w.^/*+\-√π·\u00d7])(?<![+\-*/^√·\u00d7]\s)"
 _FROM_TO_RE = re.compile(
     rf"\bfrom\s+(?:x\s*=\s*)?({_BOUND})\s+to\s+(?:x\s*=\s*)?({_BOUND})\b", re.IGNORECASE
 )
@@ -55,7 +58,7 @@ _BETWEEN_BOUNDS_RE = re.compile(
 # A chain starts where a number does, never inside one: tried from every digit of a long
 # run of digits, the search was quadratic (review of #2481, 2026-11-16).
 _CHAIN_BOUNDS_RE = re.compile(
-    rf"(?<![\w.^/*])({_BOUND})\s*(?:<=|≤|<)\s*x\s*(?:<=|≤|<)\s*({_BOUND})", re.IGNORECASE
+    rf"{_BOUND_START}({_BOUND})\s*(?:<=|≤|<)\s*x\s*(?:<=|≤|<)\s*({_BOUND})", re.IGNORECASE
 )
 # "the x-axis and the lines x = -1/2 and x = 3": the vertical lines that close the region.
 _LINES_BOUNDS_RE = re.compile(
@@ -80,6 +83,8 @@ _BETWEEN_RE = re.compile(
 _VARIABLE_X = re.compile(r"(?<![a-z])x(?![a-z])", re.IGNORECASE)
 # One edge of a region that is a vertical line ("the line x = 2", "x = 0"): a bound.
 _VERTICAL_LINE = re.compile(r"(?:the\s+)?(?:vertical\s+)?(?:lines?\s+)?x\s*=\s*[^=xy]+", re.I)
+# The word that joins the region to its interval: "y = 4 for 0 <= x <= 1".
+_TRAILING_CONNECTOR = re.compile(r"\s+(?:for|when|where|with)\s*$", re.IGNORECASE)
 # Where one edge of a region ends and the next starts: a comma, "and", or both.
 _EDGE_BREAK = re.compile(r"\s*,\s*(?:and\s+)?|\s+and\s+", re.IGNORECASE)
 
@@ -154,14 +159,6 @@ def _lead_sentence(cleaned: str, lead: re.Match[str]) -> tuple[int, int]:
     return start, stop.start() if stop is not None else len(cleaned)
 
 
-def area_curves(cleaned: str) -> tuple[str, str] | None:
-    """The two curves an area question names ("the area between y = x² + 1 and y = x":
-    x^2 + 1 and x; the x-axis is 0), read from its prepared text (``match.prepare``) as
-    the area reader reads them; None when it names no two."""
-    region = _area_between(cleaned)
-    return None if region is None else (region.first, region.second)
-
-
 def asks_area_between(cleaned: str) -> bool:
     """The text asks the area between, enclosed by or bounded by curves it names."""
     return _AREA_BETWEEN_RE.search(cleaned) is not None
@@ -200,7 +197,9 @@ def _area_between(cleaned: str) -> _Region | None:
     # the area's too (Gemini on #2481: 32/3 from the meeting points for 11/3).
     interval = after or _bounds(cleaned, start, lead.start())
     end = after[2] if after is not None else stop
-    body = _CURVE_NAME.sub("", cleaned[lead.end() : end].strip(" ,;.?!"))
+    body = _CURVE_NAME.sub(
+        "", _TRAILING_CONNECTOR.sub("", cleaned[lead.end() : end]).strip(" ,;.?!")
+    )
     # "y = x^2 + 1, y = x, and the line x = 2": edges listed with commas or "and"; a
     # vertical line among them is a bound, not a curve (Gemini on #2481).
     edges = [edge.strip() for edge in _EDGE_BREAK.split(body) if edge.strip()]
@@ -214,24 +213,37 @@ def _area_between(cleaned: str) -> _Region | None:
     return _Region(first, second, interval, stated)
 
 
+def area_region(cleaned: str) -> tuple[str, str, str, str] | None:
+    """The two curves an area question names and the region's own bounds, from its
+    prepared text (``match.prepare``): the interval it states, or where the curves meet
+    when it states none. None when it names no two curves, or states an interval it does
+    not read."""
+    region = _area_between(cleaned)
+    bounds = None if region is None else _region_bounds(region)
+    if region is None or bounds is None:
+        return None
+    return region.first, region.second, bounds[0], bounds[1]
+
+
+def _region_bounds(region: _Region) -> tuple[str, str] | None:
+    if region.interval is not None:
+        return region.interval[0], region.interval[1]
+    # The stated interval wins: one its sentence writes in a form the bounds do not read
+    # ("from x = 1/e² to …", "between x = √2 and …") is never replaced by where the
+    # curves meet.
+    if region.stated:
+        return None
+    # No interval stated: the region the curves enclose runs between where they meet.
+    return _meeting_points(region.first, region.second)
+
+
 def _extract_area_between_intent(cleaned: str) -> MathIntent | None:
     region = _area_between(cleaned)
-    if region is None:
+    bounds = None if region is None else _region_bounds(region)
+    if region is None or bounds is None:
         return None
     interval = region.interval
-    if interval is None:
-        # The stated interval wins: one its sentence writes in a form the bounds do not
-        # read ("from x = 1/e² to …", "between x = √2 and …") is never replaced by where
-        # the curves meet.
-        if region.stated:
-            return None
-        # No interval stated: the region the curves enclose runs between where they meet.
-        meeting = _meeting_points(region.first, region.second)
-        if meeting is None:
-            return None
-        low, high = meeting
-    else:
-        low, high, _ = interval
+    low, high = bounds
     return MathIntent(
         kind="calculus",
         operation="solve",
@@ -294,7 +306,11 @@ def _extract_area_under_intent(cleaned: str) -> MathIntent | None:
         return None
     low, high, _ = interval
     end = after[2] if after is not None else stop
-    body = _X_AXIS_RE.sub("", cleaned[lead.end() : end]).strip(" ,;.?!")
+    body = _TRAILING_CONNECTOR.sub("", _X_AXIS_RE.sub("", cleaned[lead.end() : end])).strip(
+        " ,;.?!"
+    )
+    if len([edge for edge in _EDGE_BREAK.split(body) if edge.strip()]) > 1:
+        return None  # two curves ("bounded by y = x^2 and y = 4"): the area between them
     curve = _clean(body)
     if curve is None or "=" in curve:
         return None

@@ -146,6 +146,29 @@ def test_a_line_in_any_maths_delimiter_states_its_form(line: str) -> None:
     assert card == r"\frac{1}{2}\sec\left(2x - \frac{\pi}{4}\right) + C"
 
 
+@pytest.mark.parametrize(
+    "line",
+    [
+        r"$\int (4x^3 + 2x)\,dx = 4\cdot\frac{x^4}{4} + 2\cdot\frac{x^2}{2} + C$",
+        r"$\int 4x^3\,dx = \frac{4x^{3+1}}{3+1} + C$",
+        r"$\int x\,dx = \frac{2}{4}x^2 + C$",
+    ],
+)
+def test_a_working_step_with_numbers_to_combine_is_no_card(line: str) -> None:
+    """Gemini on #2481: the last working line can be a step not yet simplified."""
+    server = r"x^{4} + x^{2} + C"
+    assert in_working_form(_reply(line), server, antiderivative=True) == server
+
+
+@pytest.mark.parametrize(
+    "line", [r"$\frac{3x^2}{2} + C$", r"$-\frac{1}{2}\cos(2x) + C$", r"$\frac{x^3}{3} + C$"]
+)
+def test_a_finished_fraction_is_no_step(line: str) -> None:
+    from app.modules.math.card_form import _uncombined
+
+    assert not _uncombined(read_tex(line.strip("$").removesuffix(" + C"), evaluate=False))
+
+
 def test_a_bare_log_is_the_natural_log() -> None:
     """Gemini on #2481: calculus writes ∫1/x dx = \\log|x| + C, and SymPy prints ln as
     \\log; read as base 10, a right form was refused. \\log_{10} keeps its base."""
