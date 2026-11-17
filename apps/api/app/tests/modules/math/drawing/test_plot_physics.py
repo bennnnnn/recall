@@ -73,3 +73,9 @@ def test_a_constant_or_a_function_s_argument_is_no_unit(formula: str) -> None:
     from app.modules.math.drawing.plot_question import _without_unit
 
     assert _without_unit(formula) == formula
+
+
+@pytest.mark.parametrize("formula", ["sinx", "cosx", "lnx"])
+def test_a_function_glued_to_its_argument_is_a_formula(formula: str) -> None:
+    graph = _plot(f"Sketch y = {formula} for 0 ≤ x ≤ 2π.", _curve("f", formula.replace("x", "(x)")))
+    assert graph is not None and graph.curves

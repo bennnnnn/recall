@@ -21,6 +21,7 @@ from typing import Any
 from sympy import Expr, Symbol, integrate, nsimplify, simplify
 from sympy.parsing.sympy_parser import (
     convert_xor,
+    implicit_multiplication,
     implicit_multiplication_application,
     parse_expr,
     standard_transformations,
@@ -107,7 +108,12 @@ _THROUGH = re.compile(rf"\b(?:through|over)\s+a\s+displacement\s+of\s+(?P<d>{_NU
 _X_IS_DISPLACEMENT = re.compile(r"\bx\s+is\s+the\s+displacement\b")
 
 
-_TRANSFORMATIONS = (*standard_transformations, implicit_multiplication_application, convert_xor)
+_TRANSFORMATIONS = (
+    *standard_transformations,
+    implicit_multiplication,
+    implicit_multiplication_application,
+    convert_xor,
+)
 # The question's symbols in the spelling the reader takes: a minus sign, squares and cubes.
 _PLAIN = str.maketrans({"\u2212": "-", "\u00b2": "**2", "\u00b3": "**3", "\u2013": "-"})
 

@@ -33,7 +33,7 @@ from app.modules.math.figure.honest import honours, said
 from app.modules.math.figure.request import FigureRequest, Measure
 from app.modules.math.figure.shape_names import lid_said, names_shape
 from app.modules.math.schemas.figure import FigureSpec
-from app.services.graph_facts import GraphFactReader, GraphFacts, first_facts
+from app.services.graph_facts import GraphFactReader
 
 logger = logging.getLogger(__name__)
 
@@ -345,11 +345,11 @@ def _value(label: str) -> tuple[float | None, str]:
 
 
 def drawn_fence(
-    body: str, texts: list[str], reply: str, facts: GraphFacts | None = None
+    body: str, texts: list[str], reply: str, facts: GraphFactReader | None = None
 ) -> str | None:
     """The checked picture's ```geometry fence, or None. ``texts``: the last user message
     first, then earlier ones; ``reply``: the reply's text, whose working names its letters;
-    ``facts``: what the turn's subject reads in the question's words, for a graph."""
+    ``facts``: the turn's subject's reader of the question's words, for a graph."""
     description = read_description(body)
     if description is None:
         return None
@@ -374,7 +374,7 @@ def drawn_fence(
 
 
 def _graph_fence(
-    items: list[tuple[str, Any | None]], texts: list[str], reply: str, facts: GraphFacts | None
+    items: list[tuple[str, Any | None]], texts: list[str], reply: str, facts: GraphFactReader | None
 ) -> str | None:
     try:
         spec = plot_spec(items, texts, reply, facts)
@@ -395,10 +395,9 @@ def drawn_fences(
     draw, one of each kind (a ```geometry figure, a ```graph), each from the first
     description of that kind that checks (owner decision 2026-11-15: a reply may carry a
     figure and a graph). ``facts``: the turn's subject's reader of the question's words."""
-    known = first_facts(texts, facts) if facts is not None else None
     drawn: dict[str, str] = {}
     for body in bodies[:_MOST_DESCRIPTIONS]:
-        fence = drawn_fence(body, texts, reply, known)
+        fence = drawn_fence(body, texts, reply, facts)
         kind = fence.split("\n", 1)[0].removeprefix("```") if fence else ""
         if fence is not None and kind not in drawn:
             drawn[kind] = fence

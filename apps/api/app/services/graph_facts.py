@@ -9,7 +9,7 @@ subject's and the drawing maths' (``services/subjects`` hands a subject's reader
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from dataclasses import dataclass
 
 
@@ -33,14 +33,3 @@ class GraphFacts:
 
 # A subject's reader of a question's words (picklable: it runs in the SymPy pool).
 GraphFactReader = Callable[[str], GraphFacts]
-
-
-def first_facts(texts: Sequence[str], reader: GraphFactReader) -> GraphFacts | None:
-    """The facts of the first text whose words give any (the last message first): a
-    follow-up ("Now draw the velocity-time graph.") takes the question's, as the plot takes
-    the formulas of the first message that writes one."""
-    for text in texts:
-        found = reader(text)
-        if found.formulas or found.interval is not None:
-            return found
-    return None

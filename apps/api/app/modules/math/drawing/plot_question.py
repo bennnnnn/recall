@@ -53,7 +53,7 @@ from app.modules.math.tool_check import (
     written_expressions,
     written_relations,
 )
-from app.services.graph_facts import GraphFacts
+from app.services.graph_facts import GraphFactReader, GraphFacts
 from app.services.solving import SolveServiceError
 
 # Where a formula written after "=" ends: a clause's punctuation or a word of English.
@@ -248,7 +248,7 @@ def _equals_spans(text: str) -> list[tuple[str, str, int]]:
         words: list[str] = []
         for word in text[at + 1 :].split(" "):
             bare = word.strip().lower().rstrip(".,;:")
-            prose = len(bare) >= 3 and bare.isalpha() and bare not in _MATH_WORDS
+            prose = len(bare) >= 3 and bare.isalpha() and not _maths_word(bare)
             if bare in _ENDS or prose or any(mark in word for mark in ";\n"):
                 if any(mark in word for mark in ";\n"):
                     words.append(re.split(r"[;\n]", word)[0])
@@ -270,6 +270,16 @@ _SMALL_UNITS = frozenset("msg")
 # The words a formula is written with, the parser's own function names: any other word of
 # three letters or more is prose, and ends it ("F = (9 - x/2) N moves a body ...").
 _MATH_WORDS = MATH_FUNCTION_NAMES | frozenset(GREEK_NAMES) | {"pi", "max", "min", "sgn"}
+
+
+def _maths_word(word: str) -> bool:
+    """A function name, or one glued to its argument's letters as the parser reads it
+    ("sinx", "cosx", "lnx", "sinht")."""
+    return word in _MATH_WORDS or any(
+        word.startswith(name) and 0 < len(word) - len(name) <= 2 for name in MATH_FUNCTION_NAMES
+    )
+
+
 # A letter the text gives a value ("where m = 3"): a factor, never a unit.
 _GIVEN = re.compile(r"(?<![A-Za-z])([A-Za-z])\s*=\s*[-+]?\d")
 
@@ -524,16 +534,38 @@ def _subject_interval(facts: GraphFacts | None) -> tuple[Interval, ...]:
     return (Interval(low, high),)
 
 
-def read_plot_question(texts: Sequence[str], facts: GraphFacts | None = None) -> PlotQuestion:
+def _question_texts(
+    texts: Sequence[str], facts: GraphFactReader | None
+) -> tuple[list[str], GraphFacts | None]:
+    """The messages a graph is read from, and the subject's facts read from the same ones:
+    the last message when it writes a formula; else the first, newest first, whose words
+    give the subject's facts ("Now draw the v-t graph." after the motion, never mixed with
+    an older "Sketch y = x²"); else every message ("now draw it")."""
+    if not texts:
+        return [], None
+    if _formulas(plain(texts[0])):
+        return list(texts[:1]), facts(texts[0]) if facts is not None else None
+    if facts is not None:
+        for text in texts:
+            found = facts(text)
+            if found.formulas or found.interval is not None:
+                return [text], found
+            if _formulas(plain(text)):
+                break
+    return list(texts), None
+
+
+def read_plot_question(texts: Sequence[str], facts: GraphFactReader | None = None) -> PlotQuestion:
     """What ``texts`` (the last user message first) state for a graph: the last message's,
-    or the earlier ones' when it writes no formula ("now draw it"). ``facts``: what the
-    turn's subject reads in its words (a particle's v(t) and s(t), physics'), held as
-    formulas it writes, and the stretch it asks about."""
-    own = list(texts[:1]) if texts and _formulas(plain(texts[0])) else list(texts)
+    or the earlier ones' when it writes no formula ("now draw it"). ``facts``: the turn's
+    subject's reader of its words (a particle's v(t) and s(t), physics'), whose formulas are
+    held as ones it writes, and the stretch it asks about; read from the same message as
+    the formulas (``_question_texts``)."""
+    own, known = _question_texts(texts, facts)
     readable = [plain(text) for text in own]
     formulas = tuple(w for text in readable for w in _formulas(text))
-    formulas += _subject_formulas(facts)
-    motion = _subject_interval(facts)
+    formulas += _subject_formulas(known)
+    motion = _subject_interval(known)
     # The letter the question's functions are written in ("v(t) = ...": t) is its x.
     letters = frozenset(
         {"x"} | {str(s) for w in formulas if w.name != "x" for s in w.expr.free_symbols}

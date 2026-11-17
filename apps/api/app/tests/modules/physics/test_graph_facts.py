@@ -25,7 +25,7 @@ def _plot(question: str, *items: dict[str, Any], reply: str = "") -> PlotGraphSp
     import json
 
     body = json.dumps({"kind": "plot", "items": list(items)})
-    fence = drawn_fence(body, [question], reply, read_graph_facts(question))
+    fence = drawn_fence(body, [question], reply, read_graph_facts)
     if fence is None:
         return None
     return PlotGraphSpec.model_validate_json(fence.split("\n", 1)[1].rsplit("\n```", 1)[0])
@@ -254,3 +254,29 @@ def test_a_follow_up_draws_with_the_question_s_motion() -> None:
         [body], ["Now draw the velocity-time graph.", _U5_088], "", read_graph_facts
     )
     assert fences and "v = 7t²/4 + 8" in fences[0]
+
+
+def test_a_factored_acceleration_is_read() -> None:
+    found = {
+        n: e
+        for n, e, _u in motion_formulas(
+            plain("A particle starts from rest with acceleration (t + 1)(t - 1) m/s². Sketch v.")
+        )
+    }
+    assert "a" in found and (found["a"] - (_t() ** 2 - 1)).equals(0)
+
+
+def test_a_follow_up_never_mixes_an_older_curve_with_the_motion() -> None:
+    import json
+
+    from app.modules.math.drawing.build import drawn_fences
+
+    texts = [
+        "Now a particle starts from rest with acceleration 2 m/s^2 for 5 s. Draw the v-t graph.",
+        "Sketch y = x^2.",
+    ]
+    old = json.dumps({"kind": "plot", "items": [_curve("f", "x^2")]})
+    assert drawn_fences([old], texts, "", read_graph_facts) == []
+    motion = json.dumps({"kind": "plot", "items": [_curve("v", "2t")]})
+    fences = drawn_fences([motion], texts, "", read_graph_facts)
+    assert fences and "v = 2t" in fences[0]
