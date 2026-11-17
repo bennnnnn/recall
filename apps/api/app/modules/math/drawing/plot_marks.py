@@ -242,7 +242,9 @@ def nearest(item: Nearest, question: PlotQuestion, scene: Scene) -> None:
     if not lows:
         return
     best = min(distance.at(x) for x in lows)
-    target = DrawnPoint(float(a), float(b), point_text(a, b), color=scene.mark_color())
+    # One colour for the point and every segment to it: equally near ones alike.
+    color = scene.mark_color()
+    target = DrawnPoint(float(a), float(b), point_text(a, b), color=color)
     scene.add_point(target)
     for x in lows:
         if distance.at(x) > best * (1 + 1e-9) + 1e-12:
@@ -259,6 +261,6 @@ def nearest(item: Nearest, question: PlotQuestion, scene: Scene) -> None:
         ends = ((place.x, place.y), (target.x, target.y))
         held = (math.sqrt(distance.at(x)),)
         scene.marks.append(
-            DrawnLine(role="segment", ends=ends, label=length, color=scene.mark_color(), held=held)
+            DrawnLine(role="segment", ends=ends, label=length, color=color, held=held)
         )
     scene.equal = True

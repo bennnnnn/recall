@@ -178,3 +178,55 @@ def test_a_line_two_curves_share_is_drawn_once_and_neutral() -> None:
     assert graph is not None
     level = [line for line in graph.lines if line.start[1] == line.end[1] == 0]
     assert len(level) == 1 and level[0].color == NEUTRAL_COLOR
+
+
+@pytest.mark.parametrize(
+    "items",
+    [
+        [_vector("u", [1, 3, 0]), _vector("v", [2, 1, 0])],
+        [{"item": "point", "name": "A", "at": [1, 3, 0]},
+         {"item": "point", "name": "B", "at": [2, 1, 0]}],
+    ],
+)  # fmt: skip
+def test_a_pair_s_name_is_held_to_it_in_space_too(items: list[dict[str, Any]]) -> None:
+    # u = (2, 1) and A(2, 1): the names swapped are no names (PR #2487 review).
+    figure = _space("Draw u = (2, 1) and v = (1, 3), and plot A(2, 1) and B(1, 3).", *items)
+    assert figure is not None
+    labels = {s.get("label") for s in figure["segments"]} | _shown(figure)
+    assert not labels & {"u", "v", "A", "B"}
+
+
+@pytest.mark.parametrize(
+    ("question", "flat"),
+    [
+        ("The complex number z = 10 + 2i is the vector (10, 2). Draw it.", True),
+        ("z = 3.5 − 2i is the vector (3.5, -2). Draw it.", True),
+        ("On the plane z = −2 plot A(1, 2).", False),
+        ("On the plane z = 0 plot A(1, 2).", False),
+    ],
+)
+def test_a_z_coordinate_is_read_whole(question: str, flat: bool) -> None:
+    from app.modules.math.drawing.question import read_question
+
+    assert read_question([question], "").flat is flat
+
+
+@pytest.mark.parametrize("written", ["⟨2, 1⟩", "<2, 1>"])
+def test_a_vector_in_angle_brackets_is_a_plane_vector(written: str) -> None:
+    figure = _space(
+        f"Let A(1, 1) and u = {written}. Draw u from A.",
+        {"item": "point", "name": "A", "at": [1, 1, 0]},
+        _vector("u", [2, 1, 0], **{"from": "A"}),
+    )
+    assert figure is not None and _at(figure, "u") == pytest.approx((3, 2))
+
+
+def test_equally_near_points_share_one_colour() -> None:
+    graph = _plot(
+        "Find the points on y = x^2 nearest to (0, 2) and draw the distances.",
+        _curve("f", "x^2"),
+        {"item": "nearest", "on": "f", "to": ["0", "2"]},
+    )
+    assert graph is not None
+    segments = [line for line in graph.lines if line.role == "segment"]
+    assert len(segments) == 2 and segments[0].color == segments[1].color

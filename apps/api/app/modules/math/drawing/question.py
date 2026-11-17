@@ -112,7 +112,8 @@ class Question:
         plane (d06's u = (2, 1)). One that writes a z-coordinate or a plane z = c ("on the
         face z = 0 of a cube") is seen in space; "z = 3 + 4i", a complex number, is no
         coordinate, nor is the "space between" two vectors."""
-        return bool(self.pairs) and not self.triples and not _Z_COORDINATE.search(self.words)
+        z = _Z_COORDINATE.search(self.words.replace("\u2212", "-"))
+        return bool(self.pairs) and not self.triples and z is None
 
     def states_pair_at(self, triple: Triple) -> bool:
         """``triple`` is (a, b, 0) for a pair (a, b) the question writes: in the plane, or
@@ -141,9 +142,9 @@ class Question:
     def names_right(self, name: str, at: Point) -> bool:
         """``name`` is no other point's: "A(0, 0, 3)" makes (2, 8, 1) no A, "A(0, 0)" makes
         (4, 0) no A, and "a = 2i + j + 3k" makes (-3, 4, -1) no a."""
-        named = {written for letter, written in self.named if letter == name}
+        named = {_at(written, at) for letter, written in self.named if letter == name}
         named = {written for written in named if len(written) == len(at)}
-        others = {letter for letter, written in self.named if written == at}
+        others = {letter for letter, written in self.named if _at(written, at) == at}
         return (not named or at in named) and (not others or name in others)
 
     def confirms(self, name: str, at: Point) -> bool:
@@ -151,7 +152,10 @@ class Question:
         names it there: "OABCDEFG is a cuboid" puts no B anywhere in particular."""
         if name not in self.stated_letters:
             return self.names_right(name, at)
-        return self.names_right(name, at) and (name, at) in self.named | self.reply_named
+        named = self.named | self.reply_named
+        return self.names_right(name, at) and any(
+            letter == name and _at(written, at) == at for letter, written in named
+        )
 
     def value_of(self, letter: str) -> set[float]:
         """The values the reply works out for ``letter`` ("d = 2", "D = \\sqrt{109}")."""
@@ -217,18 +221,29 @@ def written_vectors(text: str) -> set[Triple]:
     return found
 
 
+_ANGLES_AS_ROUND = str.maketrans({"<": "(", ">": ")", "\u27e8": "(", "\u27e9": ")"})
+
+
+def _at(written: Point, at: Point) -> Point:
+    """A pair the question writes as the point (x, y, 0) when ``at`` is in space."""
+    return (written[0], written[1], Fraction(0)) if len(written) == 2 and len(at) == 3 else written
+
+
 def _plane_vectors(text: str) -> set[tuple[Fraction, Fraction]]:
     """The pairs a text writes as vectors: given a letter with "=" or in angle brackets."""
     lowered = text.replace("\u2212", "-")
-    return {
-        pair for match in _AS_VECTOR.finditer(lowered) for pair in written_pairs(match.group(1))
-    }
+    found: set[tuple[Fraction, Fraction]] = set()
+    for match in _AS_VECTOR.finditer(lowered):
+        # "u = ⟨2, 1⟩" and "<2, 1>" are pairs as "(2, 1)" is.
+        found |= set(written_pairs(match.group(1).translate(_ANGLES_AS_ROUND)))
+    return found
 
 
 _EXACT_PLACES = 9
 # A z-coordinate or a plane z = c the question writes; a complex z = a + bi is none.
 _Z_COORDINATE = re.compile(
-    r"\bz\s*=\s*[-+]?\d+(?:\.\d+)?(?!\s*[-+]\s*\d*\.?\d*\s*i\b)(?![\d.]*\s*i\b)|\bz-coordinate|\bz-axis"
+    r"\bz\s*=\s*[-+]?\d+(?:\.\d+)?(?![\d.])(?!\s*[-+]\s*\d*(?:\.\d+)?\s*i\b)(?!\s*i\b)"
+    r"|\bz-coordinate|\bz-axis"
 )
 
 
