@@ -64,9 +64,15 @@ class _Named:
     shared: bool = False
 
 
-def _own_or_shared(named: _Named, carried: _Named | None) -> tuple[int | None, _Named | None]:
-    """A charge's named sign, or the one a plural phrase before it gave the charges it
-    lists; and what the next charge inherits."""
+def _sign_of(
+    text: str, start: int, end: int, floor: int, carried: _Named | None
+) -> tuple[int | None, _Named | None]:
+    """A charge's named sign, or the one a plural phrase before it in its clause gave the
+    charges it lists ("two negative point charges of 2q and q"); and what the next charge
+    inherits. Both readers, in units and in q, read signs so."""
+    if _CLAUSE_END.search(text, floor, start):
+        carried = None
+    named = _phrase_sign(text, start, end, floor)
     if named.sign is not None:
         return named.sign, named if named.shared else None
     return (carried.sign if carried else None), carried
@@ -104,9 +110,7 @@ def _in_units(text: str) -> list[Charge]:
         unit_at = plain.find(given.unit, given.end)
         end = unit_at + len(given.unit) if 0 <= unit_at <= given.end + 2 else given.end
         before = plain[: given.start].rstrip()[-1:] in _MINUS
-        if _CLAUSE_END.search(plain, floor, given.start):
-            carried = None
-        named, carried = _own_or_shared(_phrase_sign(plain, given.start, end, floor), carried)
+        named, carried = _sign_of(plain, given.start, end, floor, carried)
         written = f"{abs(given.value):g} {given.unit}"
         charges.append(
             Charge("unit", abs(given.si), _signed(before or given.si < 0, named), written)
@@ -118,13 +122,14 @@ def _in_units(text: str) -> list[Charge]:
 def _in_q(text: str) -> list[Charge]:
     charges = []
     floor = 0
+    carried: _Named | None = None
     for match in _IN_Q.finditer(text):
         # "a positive test charge q" names the probe, never a source.
         if _TEST_CHARGE_BEFORE.search(text, max(0, match.start() - 16), match.start()):
             continue
         size = float(match.group(2) or 1)
         written = "q" if size == 1 else f"{size:g}q"
-        named = _phrase_sign(text, match.start(), match.end(), floor).sign
+        named, carried = _sign_of(text, match.start(), match.end(), floor, carried)
         charges.append(Charge("q", size, _signed(match.group(1) in _MINUS, named), written))
         floor = match.end()
     return charges

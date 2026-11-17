@@ -323,3 +323,25 @@ async def test_a_line_with_new_values_read_as_solve_is_none() -> None:
     )
     with patch.object(posed_read, "pick_posed", AsyncMock(return_value=change)):
         assert await read_posed(Settings(), "What if it were 4.0 m?", _rows(earlier)) is None
+
+
+@pytest.mark.asyncio
+async def test_a_read_for_no_subject_is_not_the_claimed_subjects() -> None:
+    """The kept read was keyed by the line and chat only: a None kept for no subject was
+    served to the physics caller (Gemini, PR #2482)."""
+    from app.core.readings import begin_turn
+
+    typed = [("user", _COULOMB), ("assistant", "**Answer** 2.16 \\u00d7 10\\u2079 N")]
+    pick = PosedPick(
+        kind="change",
+        message=1,
+        problem=_COULOMB,
+        changes=[_change("3.0 C", "3.0 pC"), _change("2.0 C", "2.0 \\u00b5C")],
+    )
+    begin_turn()
+    with patch.object(posed_read, "pick_posed", AsyncMock(return_value=pick)):
+        assert await posed_read.posed_for_turn(Settings(), _REPEAT, _rows(typed)) is None
+        claimed = await posed_read.posed_for_turn(
+            Settings(), _REPEAT, _rows(typed), claimed="physics"
+        )
+    assert claimed is not None and claimed.changed
