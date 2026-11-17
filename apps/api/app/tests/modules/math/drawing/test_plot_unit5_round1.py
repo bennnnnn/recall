@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from sympy import pi
 
 from app.modules.math.drawing.plot import written_lines
 from app.modules.math.figure.request import FigureRequest
@@ -138,6 +139,71 @@ def test_a_curve_described_twice_is_drawn_once(items: list[dict[str, Any]]) -> N
             False,
         ),
         ("cylinder", "The line y = 2 from x = 0 to x = 3 is rotated about the line y = 1.", True),
+        # A curve written the other way to its axis is turned round; one that cannot be
+        # (y = x², two branches about the y-axis) draws no solid (PR #2480 review).
+        (
+            "cylinder",
+            "The region between y = x^2 and the y-axis from y = 0 to y = 4 is rotated about "
+            "the y-axis.",
+            False,
+        ),
+        (
+            "cone",
+            "The region bounded by y = 2x, the y-axis and y = 4 is rotated about the y-axis.",
+            True,
+        ),
+        # Its ends from the points it writes; none written, none checked (PR #2485 review).
+        ("frustum", "The line y = 2x from (0, 0) to (3, 6) is rotated about the x-axis.", False),
+        ("cone", "The line y = 2x from (0, 0) to (3, 6) is rotated about the x-axis.", True),
+        ("frustum", "The region under y = x + 1 is rotated about the x-axis.", False),
+        # Two ends or none: a region the axis bounds on one side alone may run on.
+        (
+            "cone",
+            "The region bounded by y = x + 1 and the x-axis is rotated about the x-axis.",
+            False,
+        ),
+        (
+            "cone",
+            "The region bounded by y = 2x, the x-axis and x ≥ 0 is rotated about the x-axis.",
+            False,
+        ),
+        # A curve turned round keeps its own branch: x = √y is y = x² for x ≥ 0; the arc
+        # x = √(4 - y²) sweeps one sphere from either of its branches ±√(4 - x²).
+        # ... and its arc runs x in [0, 2]: half the diameter, a hemisphere (PR #2485 review).
+        (
+            "hemisphere",
+            "The region bounded by x = √(4 - y^2) and the y-axis is rotated about the x-axis.",
+            True,
+        ),
+        (
+            "sphere",
+            "The region bounded by x = √(4 - y^2) and the y-axis is rotated about the x-axis.",
+            False,
+        ),
+        # An interval naming no letter is of y for a curve x = g(y) (PR #2486 review).
+        (
+            "frustum",
+            "The region bounded by x = y + 1 and the y-axis on [0, 2] is rotated about the y-axis.",
+            True,
+        ),
+        (
+            "cone",
+            "The region bounded by x = y + 1 and the y-axis on [0, 2] is rotated about the y-axis.",
+            False,
+        ),
+        # About the y-axis, its ends are the y of the points it writes.
+        ("cone", "The line y = 2x from (0, 0) to (3, 6) is rotated about the y-axis.", True),
+        # About a line x = c, the region's ends are values of y.
+        (
+            "frustum",
+            "The region bounded by x = y + 1, x = 0, y = 0 and y = 2 is rotated about the y-axis.",
+            True,
+        ),
+        (
+            "cone",
+            "The region bounded by x = y + 1, x = 0, y = 0 and y = 2 is rotated about the y-axis.",
+            False,
+        ),
         ("cone", "The line y = x + 1 from x = -1 to x = 2 is rotated about the line y = 0.", True),
         ("cone", "The line y = x + 1 from x = 0 to x = 2 is rotated about the line y = 1.", True),
         ("cone", "The line y = x + 1 from x = 0 to x = 2 is rotated about the line y = -1.", False),
@@ -344,3 +410,205 @@ def test_a_family_drawn_beside_an_unrelated_curve_keeps_every_label(
 ) -> None:
     graph = _plot(_TWO_FUNCTIONS, *items)
     assert graph is not None and [curve.label for curve in graph.curves] == labels
+
+
+_U5_051 = (
+    "Find the area of the region enclosed by the graph of f(x) = 12 − 3x² and the x-axis "
+    "from x = −4 to x = 3. Draw the graph and shade the region."
+)
+_ON_AN_INTERVAL = (
+    "Find the area of the region enclosed by the x-axis and f(x) = 12 − 3x² on [−4, 3]. Shade it."
+)
+
+
+@pytest.mark.parametrize(
+    ("question", "shade", "spans"),
+    [
+        # A region its edges' meeting bounds is held to the interval said of it too.
+        (_U5_051, _shade("f", "x-axis"), []),
+        # A curve's domain stated in an area's clause is the region's interval.
+        (_ON_AN_INTERVAL, _shade("f", "x-axis", "-2", "2"), []),
+        (_ON_AN_INTERVAL, _shade("f", "x-axis"), []),
+        (
+            _ON_AN_INTERVAL,
+            _shade("f", "x-axis", "-4", "3"),
+            [(-4.0, -2.0), (-2.0, 2.0), (2.0, 3.0)],
+        ),
+    ],
+)
+def test_every_region_stands_on_the_interval_its_clause_states(
+    question: str, shade: dict[str, Any], spans: list[tuple[float, float]]
+) -> None:
+    graph = _plot(question, _curve("f", "12 - 3x^2"), shade)
+    assert graph is not None
+    drawn = sorted(
+        (round(min(x for x, _ in r.points), 6), round(max(x for x, _ in r.points), 6))
+        for r in graph.regions
+    )
+    assert drawn == spans
+
+
+@pytest.mark.parametrize(
+    ("question", "low", "high"),
+    [
+        ("Sketch y = sin(x) for 0 ≤ x ≤ 2π.", "0", "2π"),
+        ("Sketch y = sin x from -π/2 to π/2.", "−π/2", "π/2"),
+    ],
+)
+def test_a_bound_written_with_pi_is_grounded_in_the_question(
+    question: str, low: str, high: str
+) -> None:
+    from app.modules.math.figure.grounding import grounded
+
+    request = FigureRequest.model_validate(
+        {"kind": "function", "expr": "sin(x)", "x_min": low, "x_max": high}
+    )
+    from app.modules.math.drawing.plot_question import read_plot_question
+
+    x_values = read_plot_question([question]).x_values
+    assert grounded(request, [question], x_values)
+    wrong = FigureRequest.model_validate(
+        {"kind": "function", "expr": "sin(x)", "x_min": "-π", "x_max": "π"}
+    )
+    texts = ["Sketch y = sin x from -π/2 to π/2."]
+    assert not grounded(wrong, texts, read_plot_question(texts).x_values)
+
+
+@pytest.mark.parametrize(
+    ("question", "x_ends"),
+    [
+        # An interval of y, or of another letter, is no interval of x.
+        ("Sketch y = sin x for 0 ≤ x ≤ π and the region from y = 0 to y = 2π.", [0, pi]),
+        ("Sketch y = sin x from 0 to y = 4.", []),
+        ("Where u runs from u = 1 to u = 4, sketch y = x^2.", []),
+        # A comparison of y is of y, though y is no letter of the formula.
+        ("Sketch y = x^2 for 2 ≤ y ≤ 4 and 0 ≤ x ≤ 1.", [0, 1]),
+        # The question's own variable: v(t)'s t is its across.
+        ("Sketch v(t) = 3t + 1 from t = 0 to t = 4.", [0, 4]),
+    ],
+)
+def test_only_an_interval_of_x_or_its_own_variable_is_of_x(
+    question: str, x_ends: list[Any]
+) -> None:
+    from app.modules.math.drawing.plot_question import read_plot_question
+
+    found = read_plot_question([question]).x_intervals
+    assert [end for i in found for end in (i.low, i.high)] == x_ends
+
+
+def test_a_comparison_of_y_is_an_interval_of_y() -> None:
+    from app.modules.math.drawing.plot_question import read_plot_question
+
+    found = read_plot_question(["Sketch x = √y for 0 ≤ y ≤ 4."]).intervals
+    assert [(i.low, i.high, i.of) for i in found] == [(0, 4, "y")]
+
+
+@pytest.mark.parametrize(
+    ("question", "items", "spans"),
+    [
+        # Level edges alone: an integral of another formula holds no region of theirs.
+        (
+            "Find the area between y = 3, the x-axis, x = 0 and x = 2; then evaluate the "
+            "integral of x^2 from 4 to 5. Shade the region.",
+            [{"item": "line", "name": "L", "y": "3"}, _curve("f", "x^2"),
+             _shade("L", "x-axis", "0", "2")],
+            [(0.0, 2.0)],
+        ),
+        # A curve's domain, then a comma and a participle: the domain is the curve's.
+        (
+            "Sketch y = x^2 - 4 for -3 ≤ x ≤ 3, shading the region between the curve and the "
+            "x-axis.",
+            [_curve("f", "x^2 - 4"), _shade("f", "x-axis")],
+            [(-2.0, 2.0)],
+        ),
+        (
+            "Sketch y = x^2 - 4 for -3 <= x <= 3 and shade the region enclosed by the curve and "
+            "the x-axis.",
+            [_curve("f", "x^2 - 4"), _shade("f", "x-axis")],
+            [(-2.0, 2.0)],
+        ),
+        # A curve's domain, then "and shade": the domain is the curve's, not the region's.
+        (
+            "Sketch y = x^2 − 4 for −3 ≤ x ≤ 3 and shade the region enclosed by the curve and "
+            "the x-axis.",
+            [_curve("f", "x^2 - 4"), _shade("f", "x-axis")],
+            [(-2.0, 2.0)],
+        ),
+    ],
+)  # fmt: skip
+def test_an_interval_holds_only_the_region_its_own_clause_names(
+    question: str, items: list[dict[str, Any]], spans: list[tuple[float, float]]
+) -> None:
+    graph = _plot(question, *items)
+    assert graph is not None
+    drawn = sorted(
+        (round(min(x for x, _ in r.points), 6), round(max(x for x, _ in r.points), 6))
+        for r in graph.regions
+    )
+    assert drawn == spans
+
+
+@pytest.mark.parametrize(
+    "question",
+    ["Sketch x = √y for y ∈ [0, 4].", "Sketch x = √y for y in [0, 4].", "Sketch x = √y on [0, 4]."],
+)
+def test_a_bracket_interval_holds_a_curve_of_y(question: str) -> None:
+    # u5-083's x = √y on its stated y-interval, whichever way the bracket is written.
+    graph = _plot(question, {"item": "curve", "name": "f", "x": "sqrt(y)", "domain": ["0", "4"]})
+    assert graph is not None
+    ys = [y for segment in graph.curves[0].segments for _x, y in segment]
+    assert (min(ys), max(ys)) == pytest.approx((0, 4), abs=1e-3)
+
+
+def test_and_before_another_area_ends_the_clause() -> None:
+    graph = _plot(
+        "Find the area under y = x from x = 2 to x = 5 and the area enclosed by y = x^2 and "
+        "y = x. Shade both.",
+        _curve("f", "x"),
+        _curve("g", "x^2"),
+        _shade("f", "x-axis", "2", "5"),
+        _shade("f", "g"),
+    )
+    assert graph is not None
+    drawn = sorted(round(min(x for x, _ in r.points), 6) for r in graph.regions)
+    assert drawn == [0.0, 2.0]
+
+
+def test_an_interval_said_of_a_curve_in_its_own_letter_holds_it() -> None:
+    # v(t) = t² "from t = 0 to t = 3": the region under it stands on [0, 3], not [1, 2].
+    question = "Find the area under v(t) = t^2 from t = 0 to t = 3. Shade it."
+    held = _plot(question, _curve("v", "t^2"), _shade("v", "x-axis", "1", "2"))
+    assert held is not None and not held.regions
+    whole = _plot(question, _curve("v", "t^2"), _shade("v", "x-axis", "0", "3"))
+    assert whole is not None and len(whole.regions) == 1
+
+
+@pytest.mark.parametrize(
+    ("question", "of"),
+    [
+        ("Sketch x = √y for 0 ≤ x ≤ 2.", "x"),
+        ("Sketch x = √y for x ∈ [0, 2].", "x"),
+        ("Sketch x = √y on [0, 4].", ""),
+    ],
+)
+def test_an_interval_that_names_x_is_never_one_of_y(question: str, of: str) -> None:
+    # A curve x = g(y) takes an interval naming no letter as one of y, never one of x.
+    from app.modules.math.drawing.plot_question import read_plot_question
+
+    assert [i.of for i in read_plot_question([question]).intervals] == [of]
+
+
+def test_a_follow_up_is_checked_with_the_message_that_writes_the_solid() -> None:
+    earlier = "Find the volume generated by revolving x = √y from y = 0 to y = 4 about the y-axis."
+    assert revolves_into("cylinder", ["Now sketch the solid.", earlier]) is False
+    under = "Revolve the region under y = 3 from x = 0 to x = 2 about the x-axis."
+    assert revolves_into("cylinder", ["Now sketch the solid.", under]) is True
+
+
+def test_a_list_of_edges_keeps_its_interval_with_its_curves() -> None:
+    # "y = x², the x-axis, from x = -4 to x = 3": one clause, the interval said of y = x².
+    question = (
+        "Find the area enclosed by y = 12 - 3x^2, the x-axis, from x = -4 to x = 3. Shade it."
+    )
+    roots = _plot(question, _curve("f", "12 - 3x^2"), _shade("f", "x-axis", "-2", "2"))
+    assert roots is not None and not roots.regions

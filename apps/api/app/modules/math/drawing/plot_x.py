@@ -24,7 +24,7 @@ BRACKETS = re.compile(r"\[\s*([^\[\],]{1,16}),\s*([^\[\],]{1,16})\]")
 # An interval in words: "from -π/2 to π/2", "from x = 0 to x = 2", "between x = 1 and x = 2".
 _FROM_TO = re.compile(
     rf"\b(?P<word>from|between)\s(?P<named>[a-z]\s?=\s?)?(?P<low>{_VALUE})\s(?:to|and)\s"
-    rf"(?:[a-z]\s?=\s?)?(?P<high>{_VALUE})"
+    rf"(?P<named_high>[a-z]\s?=\s?)?(?P<high>{_VALUE})"
 )
 # Words before "between A and B" that say it of a value, not of x: "is between 2 and 3".
 # A region "lying between 1 and 3" lies between values of x.
@@ -56,6 +56,21 @@ class Interval:
     high: Any
     low_closed: bool = True
     high_closed: bool = True
+    # The letter it is said of when the question names it ("from y = 0 to y = 4": "y").
+    of: str = ""
+
+    def of_x(self, variables: frozenset[str]) -> bool:
+        """Said of x: of no letter, or of the question's own variable (x, or t for v(t));
+        "where u runs from u = 1 to u = 4" is of no curve's across."""
+        return not self.of or self.of in variables
+
+
+_BRACKET_LETTER = re.compile(r"(?<![A-Za-z])([a-z])\s*(?:\u2208|\bin\b|\bis\s+in\b)\s*$")
+
+
+def _bracket_of(text: str, at: int) -> str:
+    found = _BRACKET_LETTER.search(text[:at])
+    return found.group(1) if found else ""
 
 
 def _words_before(text: str, at: int) -> list[str]:
@@ -66,24 +81,38 @@ def intervals(text: str, variables: frozenset[str]) -> list[Interval]:
     """The intervals of x ``text`` writes: in brackets, in words, and as a double comparison
     in one clause ("0 ≤ x ≤ 2π", "-5 < x ≤ -2", its strictness kept)."""
     found: list[Interval] = []
-    pairs = [(m.group(1), m.group(2)) for m in BRACKETS.finditer(text)]
+    # A bracket is of the letter written right before it: "y ∈ [0, 4]", "for y in [0, 4]".
+    pairs = [
+        (m.group(1), m.group(2), _bracket_of(text, m.start())) for m in BRACKETS.finditer(text)
+    ]
     for match in _FROM_TO.finditer(text):
         before = _words_before(text, match.start())[-3:]
         said_of_value = match.group("word") == "between" and not match.group("named")
         if said_of_value and _SAID_OF_A_VALUE & set(before):
             continue
-        pairs.append((match.group("low"), match.group("high")))
-    for low, high in pairs:
+        # The letter either end names: "from y = 0 to y = 4", "from 0 to y = 4".
+        named = (match.group("named") or match.group("named_high") or "").strip(" =")
+        pairs.append((match.group("low"), match.group("high"), named))
+    for low, high, of in pairs:
         a, b = number(low), number(high)
         if a is not None and b is not None and a != b:
-            found.append(Interval(a, b) if float(a) < float(b) else Interval(b, a))
+            a, b = (a, b) if float(a) < float(b) else (b, a)
+            found.append(Interval(a, b, of=of))
     for part in parts(text):
-        sided = [c for c in conditions(part, variables) if c.value.is_number]
-        lows = [c for c in sided if c.op in LOWER]
-        highs = [c for c in sided if c.op in UPPER]
-        if len(lows) == 1 and len(highs) == 1 and float(lows[0].value) < float(highs[0].value):
+        # Each letter's own comparisons, tagged with it: "0 ≤ y ≤ 4" of y (for x = √y, though
+        # y is no letter of its formula), "0 ≤ t ≤ 5" of t, "0 ≤ x ≤ 3" of x.
+        for letter in sorted(variables | {"y"}):
+            sided = [c for c in conditions(part, frozenset({letter})) if c.value.is_number]
+            lows = [c for c in sided if c.op in LOWER]
+            highs = [c for c in sided if c.op in UPPER]
+            if len(lows) != 1 or len(highs) != 1:
+                continue
             low, high = lows[0], highs[0]
-            found.append(Interval(low.value, high.value, low.op == ">=", high.op == "<="))
+            if float(low.value) < float(high.value):
+                # Of x when x is named ("0 ≤ x ≤ 3"): never read as y for x = g(y).
+                of = letter
+                closed = (low.op == ">=", high.op == "<=")
+                found.append(Interval(low.value, high.value, *closed, of=of))
     return found
 
 
