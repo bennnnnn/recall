@@ -235,7 +235,7 @@ describe("MathText", () => {
   });
 
   // phys30 (2026-11-16): a scrolled formula cut at the edge read as "−31.35 m/". Its scroll
-  // bar shows once when it is wider than its viewport, and stays on Android.
+  // bar shows once when it is wider than its viewport, never as a bar over its last line.
   it("cues that a formula wider than its viewport scrolls", async () => {
     const flash = jest.fn();
     const { ScrollView } = jest.requireActual<typeof import("react-native")>("react-native");
@@ -245,7 +245,7 @@ describe("MathText", () => {
         <MathText latex={String.raw`\frac{1}{2}`} scrollOverflow />,
       );
       const scroll = getByTestId("math-text-scroll");
-      expect(scroll.props.persistentScrollbar).toBe(true);
+      expect(scroll.props.persistentScrollbar).toBeUndefined();
       await fireEvent(scroll, "layout", { nativeEvent: { layout: { width: 200, height: 40, x: 0, y: 0 } } });
       await fireEvent(scroll, "contentSizeChange", 180, 40);
       expect(flash).not.toHaveBeenCalled();

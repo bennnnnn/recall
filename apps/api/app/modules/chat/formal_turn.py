@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -29,6 +30,7 @@ from app.core.config import Settings
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.reply_language import line_language
 from app.modules.chat.turn_decision import TurnDecision
+from app.modules.chat.whole_question import ASKED_SENTENCE
 from app.services.answer_check import stated_verdict
 from app.services.answer_fence import (
     ANSWER_FENCE_LANGS,
@@ -36,7 +38,7 @@ from app.services.answer_fence import (
     land_answer_card,
 )
 from app.services.md_fence_scan import iter_fences
-from app.services.question_parts import labelled_parts
+from app.services.question_parts import labelled_part_texts
 from app.services.subjects.registry import subject_adapter
 
 if TYPE_CHECKING:
@@ -102,7 +104,21 @@ def _in_parts(reply: str, question: str) -> bool:
     cards = sum(
         1 for fence in iter_fences(reply) if fence.closed and fence.lang in ANSWER_FENCE_LANGS
     )
-    return cards >= 2 or labelled_parts(question) >= 2
+    return cards >= 2 or _asks_in_parts(question)
+
+
+def _asks_in_parts(question: str) -> bool:
+    """Each labelled part asks something: each is a question of its own ("(a) How long …?
+    (b) How far …?"), or the sentence before them asks for the list ("Find (a) the time,
+    (b) the range"). A label inside the statement ("blocks (A) and (B)", "(i) 4 Ω and
+    (ii) 6 Ω in parallel") names a thing and asks nothing (review of phys30, 2026-11-16)."""
+    lead, parts = labelled_part_texts(question)
+    if len(parts) < 2:
+        return False
+    if all("?" in part for part in parts):
+        return True
+    last = re.split(r"(?<=[.!?])\s+", lead.strip())[-1] if lead.strip() else ""
+    return bool(last) and ASKED_SENTENCE.fullmatch(last.rstrip(" :")) is not None
 
 
 async def attach_formal(state: FinalizeState) -> str:

@@ -315,6 +315,37 @@ def _step_rows(step: Step) -> list[str]:
     return [_line(step.tex, step.move or None)]
 
 
+_TEXT_SPECIALS = str.maketrans(
+    {
+        "\\": r"\textbackslash{}",
+        "&": r"\&",
+        "%": r"\%",
+        "#": r"\#",
+        "_": r"\_",
+        "{": r"\{",
+        "}": r"\}",
+        "~": r"\textasciitilde{}",
+        "^": r"\textasciicircum{}",
+    }
+)
+_MATH_SPAN = re.compile(r"\$([^$]+)\$")
+
+
+def words_tex(words: str) -> str:
+    """A conclusion in words as card maths: its words upright in ``\\text{}``, TeX's specials
+    escaped ("yes & no" broke the group), and a ``$…$`` it holds drawn as maths."""
+    pieces: list[str] = []
+    at = 0
+    for span in _MATH_SPAN.finditer(words):
+        if words[at : span.start()]:
+            pieces.append(rf"\text{{{words[at : span.start()].translate(_TEXT_SPECIALS)}}}")
+        pieces.append(span.group(1))
+        at = span.end()
+    if words[at:]:
+        pieces.append(rf"\text{{{words[at:].translate(_TEXT_SPECIALS)}}}")
+    return "".join(pieces)
+
+
 def _answer_line(answer: Answer, layout: WorkedLayout) -> str:
     """The value with its unit in maths, and a note after it in brackets: a short label
     ("east") stays on the card, and a remark ("about 1.20√(gh); option A gives …") goes
@@ -323,8 +354,10 @@ def _answer_line(answer: Answer, layout: WorkedLayout) -> str:
         # A conclusion ("yes", "all the ice melts") is words, set upright: in maths its
         # letters were italic variables, under an invented symbol (phys30, 2026-11-16).
         note = prose_maths(answer.note)
-        said = math_line(rf"\text{{{answer.value.strip()}}}")
+        said = math_line(words_tex(answer.value.strip()))
         return f"{said} ({note})" if note else said
+    if layout.law_heading:
+        answer = card_answer(answer)  # a measured quantity rounds once, to 3 figures
     tex = tidy_tex(answer.value)
     value = quantity_tex(tex, "" if in_symbols(tex) else answer.unit)
     # A symbol that only repeats the unit ("cm | 10000 | cm") or is a word names nothing.
@@ -358,9 +391,7 @@ def _part_body(
     )
     if not part.answers or answer_heading is None:
         return body
-    values = _HARD_BREAK.join(
-        _answer_line(card_answer(answer, part), layout) for answer in part.answers
-    )
+    values = _HARD_BREAK.join(_answer_line(answer, layout) for answer in part.answers)
     return f"{body}\n\n{values}"
 
 
@@ -502,9 +533,7 @@ def _render_in_parts(
                 or (solution.required[index].meaning if index < len(solution.required) else "")
             ),
             working=_part_body(part, layout, ((), ()), None),
-            after=_HARD_BREAK.join(
-                _answer_line(card_answer(answer, part), layout) for answer in part.answers
-            ),
+            after=_HARD_BREAK.join(_answer_line(answer, layout) for answer in part.answers),
             # The last part's where-line waits, while it streams, until its givens are in.
             given=_given_rows(own[index], naming=not streaming or index < last or _started(part)),
         )

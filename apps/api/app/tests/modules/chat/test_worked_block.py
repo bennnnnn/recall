@@ -494,20 +494,34 @@ def test_a_bar_inside_the_maths_is_no_field_separator(line: str, record: object)
     assert read_record(line) == record
 
 
-@pytest.mark.parametrize(
-    ("line", "field", "said"),
-    [
-        # The layout letters each part: "(a) $t$ (time in the air (a))" said it twice (phys30).
-        ("required: t | time in the air (a)", "meaning", "time in the air"),
-        ("part: b | Distance along the slope (b)", "title", "Distance along the slope"),
-        # A given's words keep a letter that may name a body.
-        ("given: m | 2 | kg | mass of block (a)", "meaning", "mass of block (a)"),
-        ("required: F | force on block (B)", "meaning", "force on block (B)"),
-    ],
-)
-def test_a_part_s_own_letter_is_not_said_twice(line: str, field: str, said: str) -> None:
-    record = read_record(line)
-    assert getattr(record, field) == said
+def test_a_part_s_own_letter_is_not_said_twice() -> None:
+    """The layout letters each part: "(a) $t$ (time in the air (a))" said it twice (phys30)."""
+    solution = _solution(
+        "required: t | time in the air (a)\nrequired: d | distance along the slope (b)\n"
+        "part: a | Time in the air (a)\nanswer: t | 1.63 | s\n"
+        "part: b | Distance along the slope (b)\nanswer: d | 16.7 | m"
+    )
+    assert [ask.meaning for ask in solution.required] == [
+        "time in the air",
+        "distance along the slope",
+    ]
+    assert [part.title for part in solution.parts] == [
+        "Time in the air",
+        "Distance along the slope",
+    ]
+
+
+def test_another_letter_in_an_ask_is_the_question_s_own() -> None:
+    """Review of phys30: "force on block (a)" lost its block's letter. Only an ask's own
+    part letter goes, and only in a question in parts."""
+    alone = _solution("required: F | force on block (a)\nanswer: F | 3 | N")
+    assert alone.required[0].meaning == "force on block (a)"
+    parts = _solution(
+        "required: F | force on block (b)\nrequired: T | tension (b)\n"
+        "part: a | Force on block (b)\nanswer: F | 3 | N\npart: b | Tension\nanswer: T | 4 | N"
+    )
+    assert [ask.meaning for ask in parts.required] == ["force on block (b)", "tension"]
+    assert parts.parts[0].title == "Force on block (b)"
 
 
 def test_a_conclusion_is_written_in_words_on_its_card() -> None:
@@ -519,3 +533,13 @@ def test_a_conclusion_is_written_in_words_on_its_card() -> None:
     # Asked by its words: no invented symbol in maths for a conclusion.
     assert "whether it slides back" in render_worked(solution, OTHER)
     assert "$s$ (whether it slides back)" not in render_worked(solution, OTHER)
+
+
+def test_a_conclusion_s_tex_specials_are_escaped() -> None:
+    """Review of phys30: "yes & no" in ``\\text{}`` broke the group."""
+    from app.modules.chat.worked_render import words_tex
+
+    assert words_tex("yes & no") == "\\text{yes \\& no}"
+    assert words_tex("yes, since $\\mu_s < \\tan\\theta$") == (
+        "\\text{yes, since }\\mu_s < \\tan\\theta"
+    )

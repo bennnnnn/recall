@@ -252,3 +252,19 @@ async def test_a_reply_in_parts_gets_no_trailing_card(answer: list[str], reply: 
     card repeating part (a) came after part (c), read as the whole question's answer."""
     text = await _finalized(_ctx(_PARTS_QUESTION, live_read=_read()), reply)
     assert text == reply
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        # Labels that name things in the statement ask nothing: one answer, one correction
+        # (review of phys30, 2026-11-16).
+        "Two blocks (A) and (B) are kicked at 18 m/s at 35° above the ground. How far do they land?",
+        "Balls (i) and (ii) are kicked at 18 m/s at 35°. How far does each land?",
+        "Cars a) and b) kick a ball at 18 m/s at 35° above the ground. How far does it land?",
+    ],
+)
+async def test_labels_in_the_statement_are_no_parts(answer: list[str], question: str) -> None:
+    reply = "**Answer**\n\nThe range is $R = 32.4\\ \\text{m}$."
+    text = await _finalized(_ctx(question, live_read=_read()), reply)
+    assert "```answer\nverified: false\n31.07\\ \\mathrm{m}\n```" in text

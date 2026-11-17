@@ -1,58 +1,80 @@
-"""A worked answer's card keeps three figures, rounded once from the working's value.
+"""A physics worked answer's card keeps at most three figures, rounded once.
 
-phys30 (2026-11-16): "3.2 N (to 2 s.f.)" stood under working that reached 3.24 N, and
-"29.008 N" on the next question. The working ends unrounded; the card rounds once.
+phys30 (2026-11-16): "29.008 N" on a card. Review of the first fix: rounding from the
+working rewrote exact values on every worked block ("6185 students" became 6190, "3 groups
+of 40 from 130" became 3.25). Only a physics card's measured decimal is rounded, and only
+to fewer figures; nothing is ever replaced by the working's value.
 """
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from app.modules.chat.worked_figures import card_answer
-from app.modules.chat.worked_solution import Answer, Part, Step
-
-
-def _part(*lines: str) -> Part:
-    return Part(working=tuple(Step(kind="substitution", tex=line) for line in lines))
+from app.modules.chat.worked_render import WorkedLayout, render_worked
+from app.modules.chat.worked_solution import Answer, assemble, read_record
 
 
 @pytest.mark.parametrize(
-    ("value", "note", "working", "card", "kept_note"),
+    ("value", "note", "card", "kept_note"),
     [
-        # Rounded below the working: the card is the working's value to three figures.
-        (
-            "3.2",
-            "to 2 s.f.",
-            ("T = \\frac{0.3 \\times 9.8}{\\cos 25^\\circ}", "T = 3.2439\\,\\mathrm{N}"),
-            "3.24",
-            "",
-        ),
-        ("0.31", "", ("x = 0.31139 m",), "0.311", ""),
-        # More figures than three: rounded once.
-        ("29.008", "", ("N = 29.008\\,\\mathrm{N}",), "29.0", ""),
-        ("5.488", "down", (), "5.49", "down"),
-        # Exact with fewer figures, or three already: as written.
-        (
-            "4.8",
-            "away from the wall",
-            ("J = 4.8\\,\\mathrm{N\\cdot s}",),
-            "4.8",
-            "away from the wall",
-        ),
-        ("96", "", ("F = 96 N",), "96", ""),
-        ("3.24", "", ("T = 3.2439 N",), "3.24", ""),
-        # The working ends on another value: the card is the reply's own.
-        ("7.5", "", ("v = 3.2439 m/s",), "7.5", ""),
+        ("29.008", "", "29.0", ""),
+        ("5.488", "down", "5.49", "down"),
+        ("2.4499", "to 4 s.f.", "2.45", ""),
+        ("1.4142", "", "1.41", ""),
+        # Three figures or fewer, or a whole number: exact as written.
+        ("3.2", "to 2 s.f.", "3.2", "to 2 s.f."),
+        ("3.24", "", "3.24", ""),
+        ("4.8", "away from the wall", "4.8", "away from the wall"),
+        ("96", "", "96", ""),
+        ("4186", "", "4186", ""),
+        ("65536", "", "65536", ""),
+        ("6185", "", "6185", ""),
     ],
 )
-def test_the_card_keeps_three_figures_from_the_working(
-    value: str, note: str, working: tuple[str, ...], card: str, kept_note: str
+def test_a_physics_card_rounds_once_to_three_figures(
+    value: str, note: str, card: str, kept_note: str
 ) -> None:
-    out = card_answer(Answer(symbol="T", value=value, unit="N", note=note), _part(*working))
+    out = card_answer(Answer(symbol="F", value=value, unit="N", note=note))
     assert (out.value, out.note) == (card, kept_note)
 
 
 @pytest.mark.parametrize("value", ["\\frac{1}{2}", "9.79 \\times 10^{5}", "x + 2"])
-def test_a_card_that_is_no_plain_number_stays(value: str) -> None:
+def test_a_card_that_is_no_plain_decimal_stays(value: str) -> None:
     answer = Answer(symbol="v", value=value, unit="m/s")
-    assert card_answer(answer, _part("v = 9.7864 m/s")) == answer
+    assert card_answer(answer) == answer
+
+
+def _rendered(records: list[str], *, physics: bool) -> str:
+    solution = assemble([record for line in records if (record := read_record(line)) is not None])
+    return render_worked(solution, WorkedLayout(law_heading=physics))
+
+
+@pytest.mark.parametrize(
+    ("working", "answer", "shown"),
+    [
+        # The review's repros: exact values, floor and ceiling answers, money, a molar mass.
+        ("n = 1237 \\times 5 = 6185", "n | 6185 | students", "6185"),
+        ("y = 2026 + 5 = 2031", "y | 2031 |", "2031"),
+        ("n = 2^{16} = 65536", "n | 65536 |", "65536"),
+        ("E = 1 \\times 4186 \\times 1 = 4186", "E | 4186 | J", "4186"),
+        ("C = 1234.56", "C | 1234.56 | dollars", "1234.56"),
+        ("M = 180.156", "M | 180.156 | g/mol", "180.156"),
+        ("g = \\frac{130}{40} = 3.25", "g | 3 | groups", "3"),
+        ("p = \\frac{5}{2} = 2.5", "p | 2 | pieces", "2"),
+        ("t = \\frac{20}{3} = 6.67", "t | 7 | trips", "7"),
+    ],
+)
+def test_a_card_outside_physics_is_never_rewritten(working: str, answer: str, shown: str) -> None:
+    text = _rendered([f"substitution: {working}", f"answer: {answer}"], physics=False)
+    card = text.split("**Answer**")[-1]
+    assert re.search(rf"(?<![\d.]){re.escape(shown)}(?![\d.])", card), card
+
+
+def test_a_physics_card_never_takes_the_working_s_value() -> None:
+    text = _rendered(
+        ["substitution: T = 3.2439\\,\\mathrm{N}", "answer: T | 3.2 | N"], physics=True
+    )
+    assert "3.24" not in text.split("**Answer**")[-1]

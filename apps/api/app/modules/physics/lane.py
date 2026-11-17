@@ -86,7 +86,7 @@ def _looks_like_physics_homework(content: str) -> bool:
 @reading(declined=False)
 @lru_cache(maxsize=128)
 def _physics_solves(content: str) -> bool:
-    """Whether the verified solver answers this line, all of it: a question in parts the
+    """Whether the verified solver answers this line: a question in lettered parts the
     template answers one of ("the speed with no friction", then "the maximum speed" with
     it) is the strong model's (2026-11-16).
 
@@ -102,7 +102,13 @@ def _physics_solves(content: str) -> bool:
     except Exception:
         logger.warning("physics routing solve failed", exc_info=True)
         return False
-    return outcome == "verified" and block is not None and not block.partial
+    if outcome != "verified" or block is None:
+        return False
+    from app.services.question_parts import labelled_parts
+
+    # Only a question in lettered parts the solve leaves some of: a message whose other ask
+    # is the weather or a café nearby keeps the fast model for its physics.
+    return not (block.partial and labelled_parts(content) >= 2)
 
 
 def physics_fast_lane(content: str, *, tools_on: bool, claimed: bool = False) -> bool | None:
@@ -111,16 +117,23 @@ def physics_fast_lane(content: str, *, tools_on: bool, claimed: bool = False) ->
 
     The fast tier is only for a template the solver actually finishes, and only while
     math tools are on. Otherwise the strong model answers it. A line the subject order
-    gave physics (``claimed``) is physics whatever its words: "a ball launched at 15 m/s
-    … from the bottom of a hill that slopes at 20°" went to the everyday model, thinking
-    off, when the turn's read was late, and its range came back 26.0 m for 16.7 m
-    (2026-11-16).
+    gave physics (``claimed``) is homework when physics reads a problem in it or it asks in
+    lettered parts: "a ball launched at 15 m/s … from the bottom of a hill that slopes at
+    20°. (a) … (b) …" went to the everyday model, thinking off, when the turn's read was
+    late, and its range came back 26.0 m for 16.7 m (2026-11-16).
     """
-    homework = _looks_like_physics_homework(content) or claimed
     from app.modules.physics import extract_physics_intent, needs_physics
+    from app.services.question_parts import labelled_parts
 
+    intent = extract_physics_intent(content)
+    # A line the order claims is homework when physics reads a problem in it, or it asks
+    # in lettered parts: "a drive to the airport" or "my battery went from 100% to 25%"
+    # stays on the everyday model.
+    homework = _looks_like_physics_homework(content) or (
+        claimed and (intent is not None or labelled_parts(content) >= 2)
+    )
     if not homework and not needs_physics(content):
         return None
-    if extract_physics_intent(content) is None:
+    if intent is None:
         return False if homework else None
     return tools_on and _physics_solves(content)

@@ -230,23 +230,10 @@ def _fields(key: str, rest: str) -> dict[str, str]:
     elif key == "formula" and len(values) == 1:
         values = ["", values[0]]  # the formula alone, no name
     return {
-        name: _unwrapped(value) if name in _TEX_FIELDS else _without_part_tail(key, value)
+        name: _unwrapped(value) if name in _TEX_FIELDS else value
         for name, value in zip(names, values, strict=False)
         if value
     }
-
-
-# A part's letter at the end of what it asks: the layout letters each part itself, and
-# "(a) $t$ (time in the air (a))" said it twice (phys30, 2026-11-16).
-_PART_TAIL = re.compile(r"\s*\(\s*[a-h]\s*\)\s*$")
-
-
-def _without_part_tail(key: str, value: str) -> str:
-    """What a part asks, or its title, without its own letter at the end. A given's words
-    keep theirs: "mass of block (a)" may name a body."""
-    if key not in {"required", "part"}:
-        return value
-    return _PART_TAIL.sub("", value) or value
 
 
 _MODELS: dict[str, type[Given | Required | Formula | Answer | PartLabel]] = {
@@ -479,9 +466,32 @@ def assemble(records: list[RecordModel]) -> WorkedSolution:
         else:
             current = _unlabelled_part(drafts, current, record, len(required))
     parts = tuple(draft.part() for draft in drafts if draft.has_content)
+    in_parts = labelled or len(parts) > 1
     return WorkedSolution(
         given=tuple(given),
-        required=tuple(required),
-        parts=parts,
-        in_parts=labelled or len(parts) > 1,
+        required=tuple(_unlettered_asks(required) if in_parts else required),
+        parts=tuple(
+            part.model_copy(update={"title": _without_letter(part.title, part.letter)})
+            for part in parts
+        ),
+        in_parts=in_parts,
     )
+
+
+def _without_letter(words: str, letter: str) -> str:
+    """``words`` without its own part's letter at the end: the layout letters each part,
+    and "(a) $t$ (time in the air (a))" said it twice (phys30, 2026-11-16). Another letter
+    is the question's own ("force on block (a)" in part (b)) and stays."""
+    if not letter:
+        return words
+    return re.sub(rf"\s*\(\s*{re.escape(letter)}\s*\)\s*$", "", words) or words
+
+
+def _unlettered_asks(required: list[Required]) -> list[Required]:
+    """Each ask, lettered by its place, without that letter at its end."""
+    return [
+        ask.model_copy(update={"meaning": _without_letter(ask.meaning, "abcdefgh"[index])})
+        if index < 8
+        else ask
+        for index, ask in enumerate(required)
+    ]

@@ -490,3 +490,23 @@ def test_physics_the_subject_order_reads_keeps_the_strong_lane(question: str) ->
     routing_physics._physics_solves.cache_clear()
     assert routed_chat_model(question) == ("smart-chat", "physics")
     assert message_needs_thinking(question)
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        # Rate and unit words the order gives physics, read as no problem: the everyday
+        # model, as before (review of phys30, 2026-11-16).
+        "How long does it take to drive 10 km to the airport from my location?",
+        "How far is the nearest gas station? My car does 30 mpg",
+        "my battery went from 100% to 25% in 3 hours, how long until it's empty at that rate?",
+        "a reminder: the tank fills at 3 L/min and holds 240 L. there's already 60 L in it. "
+        "how long until it's full?",
+        # A card payoff is the money card's, never physics' lane.
+        "I have $5,000 on my credit card at 22% APR and pay $200 a month. How long until "
+        "it's paid off?",
+    ],
+)
+def test_a_line_physics_only_claims_by_its_words_keeps_the_everyday_lane(line: str) -> None:
+    routing_physics._physics_solves.cache_clear()
+    assert routed_chat_model(line) == ("qwen-3.7-flash", "everyday")

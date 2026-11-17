@@ -73,6 +73,13 @@ class MoneyPeer:
 
         return await finish_money_reply(turn, text, settings, english=english)
 
+    def reads(self, text: str) -> bool:
+        """``text`` is a money request this peer works (a loan, card payoff or savings):
+        routing leaves it to the money card, never a subject's lane."""
+        from app.modules.money.read import read_money_request
+
+        return read_money_request(text) is not None
+
     def owns(self, value: object) -> TypeGuard[MoneyTurn]:
         from app.modules.money.service import MoneyTurn
 
