@@ -31,7 +31,7 @@ from typing import TYPE_CHECKING, Literal
 from app.core.config import Settings
 from app.modules.chat.draw_stream import without_draw_blocks
 from app.modules.chat.drawn_picture import solve_draws
-from app.modules.chat.figure_turn import earlier_user_lines
+from app.modules.chat.figure_turn import earlier_user_lines, read_asks_for_a_picture
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.turn_decision import TurnDecision
@@ -72,9 +72,8 @@ _ASKS_TO_SEE = re.compile(
 # figure and graph (kind "plot"), and physics' diagram (a field's lines).
 _DESCRIBED: dict[str, tuple[SubjectName, frozenset[str]]] = {
     "maths": ("math", frozenset({"diagram", "graph"})),
-    # Physics' scene is its setup's picture: a problem asking to see nothing gets it too, as
-    # maths' teaching figure does, when no solve drew one.
-    "physics": ("physics", frozenset({"diagram", "graph", "none"})),
+    # A problem asking to see nothing gets its setup's scene too (``_setup_of``).
+    "physics": ("physics", frozenset({"diagram", "graph"})),
 }
 
 
@@ -149,7 +148,17 @@ def _described_by(read: TurnDecision) -> SubjectName | None:
     """The subject whose reply describes the picture the read says the message asks to see:
     a maths question's figure or graph, a physics question's diagram."""
     entry = _DESCRIBED.get(read.subject or "")
-    return entry[0] if entry is not None and read.picture in entry[1] else None
+    if entry is None or read.picture not in entry[1]:
+        return None
+    # The read's own say that the message asks to see it, as every picture path asks.
+    return entry[0] if read_asks_for_a_picture(read, frozenset(_DESCRIBED)) else None
+
+
+def _setup_of(read: TurnDecision) -> SubjectName | None:
+    """Physics' scene is its setup's picture: a problem whose read asks to see nothing gets
+    it too, as maths' teaching figure does, when no solve drew one (never a picture asked
+    for, which ``_described_by`` holds to the read's asks check)."""
+    return "physics" if read.subject == "physics" and read.picture == "none" else None
 
 
 async def write_for_a_picture(ctx: StreamContext, settings: Settings) -> None:
@@ -205,7 +214,7 @@ async def ask_for_a_drawing(
     asked: Literal["read", "words"] | None = None
     subject: SubjectName | None = "math"
     if read is not None and read.subject is not None and read.picture is not None:
-        subject = _described_by(read)
+        subject = _described_by(read) or _setup_of(read)
         asked = "read" if subject is not None else None
     elif _asks_in_words(ctx):
         subject = _words_subject(ctx)
