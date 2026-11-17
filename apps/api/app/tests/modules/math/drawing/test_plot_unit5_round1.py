@@ -508,6 +508,19 @@ def test_a_comparison_of_y_is_an_interval_of_y() -> None:
              _shade("L", "x-axis", "0", "2")],
             [(0.0, 2.0)],
         ),
+        # A curve's domain, then a comma and a participle: the domain is the curve's.
+        (
+            "Sketch y = x^2 - 4 for -3 ≤ x ≤ 3, shading the region between the curve and the "
+            "x-axis.",
+            [_curve("f", "x^2 - 4"), _shade("f", "x-axis")],
+            [(-2.0, 2.0)],
+        ),
+        (
+            "Sketch y = x^2 - 4 for -3 <= x <= 3 and shade the region enclosed by the curve and "
+            "the x-axis.",
+            [_curve("f", "x^2 - 4"), _shade("f", "x-axis")],
+            [(-2.0, 2.0)],
+        ),
         # A curve's domain, then "and shade": the domain is the curve's, not the region's.
         (
             "Sketch y = x^2 − 4 for −3 ≤ x ≤ 3 and shade the region enclosed by the curve and "
@@ -562,3 +575,18 @@ def test_an_interval_said_of_a_curve_in_its_own_letter_holds_it() -> None:
     assert held is not None and not held.regions
     whole = _plot(question, _curve("v", "t^2"), _shade("v", "x-axis", "0", "3"))
     assert whole is not None and len(whole.regions) == 1
+
+
+@pytest.mark.parametrize(
+    ("question", "of"),
+    [
+        ("Sketch x = √y for 0 ≤ x ≤ 2.", "x"),
+        ("Sketch x = √y for x ∈ [0, 2].", "x"),
+        ("Sketch x = √y on [0, 4].", ""),
+    ],
+)
+def test_an_interval_that_names_x_is_never_one_of_y(question: str, of: str) -> None:
+    # A curve x = g(y) takes an interval naming no letter as one of y, never one of x.
+    from app.modules.math.drawing.plot_question import read_plot_question
+
+    assert [i.of for i in read_plot_question([question]).intervals] == [of]
