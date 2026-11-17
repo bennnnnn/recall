@@ -374,7 +374,11 @@ def counted(prior: str, given: Given, kind: Sequence[Given] = ()) -> bool:
         m for m in _WORDS.finditer(prior, start, given.start) if m.group().lower() in _COUNTED
     ]
     if not counts:
-        return False
+        # "A 2 kg cart hits a stationary cart of the same mass": a sameness word after the
+        # value shares it, when the sentence states no other value of its kind.
+        after = [m for m in _WORDS.finditer(prior, given.end, end) if m.group().lower() in _COUNTED]
+        alone = not any(other.start != given.start and start <= other.start < end for other in kind)
+        return bool(after) and alone
     group_start = counts[0].start()
     another = _ANOTHER_BODY.search(prior, group_start, end)
     group_end = another.start() if another else end
