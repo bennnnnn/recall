@@ -79,7 +79,7 @@ def _reply(*lines: str) -> str:
     ],
 )
 def test_the_card_shows_the_form_the_working_reaches(reply: str, server: str, card: str) -> None:
-    assert in_working_form(reply, server) == card
+    assert in_working_form(reply, server, antiderivative=True) == card
 
 
 @pytest.mark.parametrize(
@@ -123,7 +123,7 @@ def test_the_card_shows_the_form_the_working_reaches(reply: str, server: str, ca
     ],
 )
 def test_the_card_keeps_the_servers_form_otherwise(reply: str, server: str) -> None:
-    assert in_working_form(reply, server) == server
+    assert in_working_form(reply, server, antiderivative=True) == server
 
 
 def test_sympys_own_spelling_reads() -> None:
@@ -132,7 +132,9 @@ def test_sympys_own_spelling_reads() -> None:
 
 
 def test_the_fence_pass_lands_the_working_form_checked() -> None:
-    verified = VerifiedMathBlock(text="", subject="math", canonical_answer=_SEC)
+    verified = VerifiedMathBlock(
+        text="", subject="math", canonical_answer=_SEC, antiderivative=True
+    )
     reply = _reply(r"$\frac{1}{2}\sec\left(2x - \frac{\pi}{4}\right) + C$")
     out = validate_math_fences(reply, verified=verified)
     assert (
@@ -173,3 +175,59 @@ def test_a_card_whose_form_is_its_answer_keeps_the_servers(
     reply = f"**Solution**\n{working}\n\n**Answer**\n\n{answer}"
     out = validate_math_fences(reply, verified=block)
     assert f"```answer\nverified: true\n{block.canonical_answer}\n```" in out
+
+
+_ATAN = r"\operatorname{atan}{\left(x \right)} + C"
+
+
+@pytest.mark.parametrize(
+    ("reply", "server"),
+    [
+        # Gemini on #2481: a zero derivative is not enough. A jump at a pole …
+        (_reply(r"$-\arctan\left(\frac{1}{x}\right) + C$"), _ATAN),
+        (_reply(r"$\arctan\left(\frac{x+1}{1-x}\right) + C$"), _ATAN),
+        # … a form real on one side of a log's zero only, sampled on both sides …
+        (_reply(r"$\ln(6 - x) + C$"), r"\ln\left|x - 6\right| + C"),
+        # … and one real nowhere.
+        (_reply(r"$\frac{1}{2}\ln(-x^2 - 1) + C$"), r"\frac{\ln\left|x^{2} + 1\right|}{2} + C"),
+    ],
+)
+def test_a_form_with_a_jump_or_another_domain_keeps_the_servers(reply: str, server: str) -> None:
+    assert in_working_form(reply, server, antiderivative=True) == server
+
+
+def test_a_form_real_on_the_same_domain_takes_the_card() -> None:
+    server = r"\ln\left|x - 6\right| + C"
+    assert in_working_form(_reply(r"$\ln|6 - x| + C$"), server, antiderivative=True) == (
+        r"\ln|6 - x| + C"
+    )
+
+
+def test_only_an_antiderivative_takes_the_reply_s_form() -> None:
+    """Gemini on #2481: "Expand A(A + 2) + C", its C the user's own letter, certified the
+    reply's (A + 1)^2 + C. Whether a card is an antiderivative is its operation's to say."""
+    reply = _reply("$(A + 1)^2 + C$")
+    assert in_working_form(reply, "A^{2} + 2 A + C", antiderivative=False) == "A^{2} + 2 A + C"
+    # Nor is a C in the integrand a constant of integration.
+    assert in_working_form(_reply("$C x + C$"), r"\frac{C x^{2}}{2} + C", antiderivative=True) == (
+        r"\frac{C x^{2}}{2} + C"
+    )
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "**Solution**\n$u = 2x$\n\n\\[\n\\boxed{\\frac{1}{2}\\sec\\left(2x - \\frac{\\pi}{4}\\right) + C}\n\\]",
+        "**Solution**\n$u = 2x$\n\n$\\boxed{\\frac{1}{2}\\sec\\left(2x - \\frac{\\pi}{4}\\right) + C}$",
+    ],
+)
+def test_a_closing_boxed_value_is_the_reply_s_answer(reply: str) -> None:
+    assert in_working_form(reply, _SEC, antiderivative=True) == (
+        r"\frac{1}{2}\sec\left(2x - \frac{\pi}{4}\right) + C"
+    )
+
+
+def test_the_integral_block_says_it_is_an_antiderivative() -> None:
+    assert _block("Integrate sec(2x - pi/4) tan(2x - pi/4) with respect to x").antiderivative
+    assert not _block("Evaluate the integral of 1/x from 1 to 2").antiderivative
+    assert not _block("Expand (x+2)(x-3)").antiderivative

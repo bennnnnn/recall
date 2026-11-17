@@ -194,10 +194,13 @@ class SympyAdapter:
                 name=self.name,
                 content=_verified_content(f"{integral_note}\nResult: {answer}"),
             )
+        data = _fence_data(math_tools._answer_canonical(answer), canonical_answer=answer)
+        if indefinite and data is not None:
+            data["antiderivative"] = True  # its + C is the constant of integration
         return ToolResult(
             name=self.name,
             content=_verified_content(f"Result: {answer}\nVerified result: {answer}"),
-            data=_fence_data(math_tools._answer_canonical(answer), canonical_answer=answer),
+            data=data,
         )
 
     async def _action_inequality(self, args: dict[str, Any]) -> ToolResult:

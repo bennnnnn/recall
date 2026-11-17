@@ -45,10 +45,11 @@ _FROM_TO_RE = re.compile(
     rf"\bfrom\s+(?:x\s*=\s*)?({_BOUND})\s+to\s+(?:x\s*=\s*)?({_BOUND})\b", re.IGNORECASE
 )
 _ON_INTERVAL_RE = re.compile(
-    rf"\b(?:on|over)\s*\[\s*({_BOUND})\s*,\s*({_BOUND})\s*\]", re.IGNORECASE
+    rf"\b(?:on|over|in)\s+(?:the\s+interval\s+)?\[\s*({_BOUND})\s*,\s*({_BOUND})\s*\]",
+    re.IGNORECASE,
 )
 _BETWEEN_BOUNDS_RE = re.compile(
-    rf"\bbetween\s+x\s*=\s*({_BOUND})\s+and\s+x\s*=\s*({_BOUND})\b", re.IGNORECASE
+    rf"\bbetween\s+(?:x\s*=\s*)?({_BOUND})\s+and\s+(?:x\s*=\s*)?({_BOUND})\b", re.IGNORECASE
 )
 # A chain starts where a number does, never inside one: tried from every digit of a long
 # run of digits, the search was quadratic (review of #2481, 2026-11-16).
@@ -61,10 +62,11 @@ _LINES_BOUNDS_RE = re.compile(
     re.IGNORECASE,
 )
 # An interval the question states, whatever its bounds are written in: "from x = 1/e to",
-# "between x = a and", "the lines x = …", "on [": read strictly by ``_bounds`` or not at all.
+# "from 0 to", "between 1 and", "the lines x = …", "on [", "in the interval (": read
+# strictly by ``_bounds`` or not at all, never replaced by where the curves meet.
 _STATED_INTERVAL_RE = re.compile(
-    r"\bfrom\s+x\s*=|\bbetween\s+x\s*=|\blines\s+x\s*=|\b(?:on|over)\s*\[|"
-    r"(?:<=|≤|<)\s*x\s*(?:<=|≤|<)",
+    r"\bfrom\s+(?:x\s*=\s*)?\S+\s+to\b|\bbetween\s+(?:x\s*=\s*)?[-+(\d.πe]|\blines\s+x\s*=|"
+    r"\b(?:on|over|in)\s+(?:the\s+interval\s+)?[\[(]|(?:<=|≤|<)\s*x\s*(?:<=|≤|<)",
     re.IGNORECASE,
 )
 
@@ -144,8 +146,11 @@ def _extract_area_between_intent(cleaned: str) -> MathIntent | None:
     if lead is None:
         return None
     start, stop = _lead_sentence(cleaned, lead)
-    interval = _bounds(cleaned, lead.end(), stop)
-    end = interval[2] if interval is not None else stop
+    after = _bounds(cleaned, lead.end(), stop)
+    # An interval the sentence states before the area ("From 0 to 1, find the area …") is
+    # the area's too (Gemini on #2481: 32/3 from the meeting points for 11/3).
+    interval = after or _bounds(cleaned, start, lead.start())
+    end = after[2] if after is not None else stop
     body = cleaned[lead.end() : end].strip(" ,;.?!")
     halves = re.split(r"\s*,?\s+and\s+", _CURVE_NAME.sub("", body), maxsplit=1, flags=re.I)
     if len(halves) != 2:
@@ -220,11 +225,14 @@ def _extract_area_under_intent(cleaned: str) -> MathIntent | None:
     lead = _AREA_UNDER_RE.search(cleaned)
     if lead is None:
         return None
-    interval = _bounds(cleaned, lead.end(), _lead_sentence(cleaned, lead)[1])
+    start, stop = _lead_sentence(cleaned, lead)
+    after = _bounds(cleaned, lead.end(), stop)
+    interval = after or _bounds(cleaned, start, lead.start())
     if interval is None:
         return None
-    low, high, bounds_at = interval
-    body = _X_AXIS_RE.sub("", cleaned[lead.end() : bounds_at]).strip(" ,;")
+    low, high, _ = interval
+    end = after[2] if after is not None else stop
+    body = _X_AXIS_RE.sub("", cleaned[lead.end() : end]).strip(" ,;.?!")
     curve = _clean(body)
     if curve is None or "=" in curve:
         return None

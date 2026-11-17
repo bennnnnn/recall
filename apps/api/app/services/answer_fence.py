@@ -404,8 +404,9 @@ def _last_answer_heading(lines: list[str], inside: dict[int, str]) -> tuple[int,
 def stated_answers(text: str) -> tuple[str | None, str | None]:
     """What a reply states as its answer: the last line its last Answer section holds, and
     the last line of maths in its working (above that section, or at its end); None for
-    either it lacks, and for both when the reply already carries a card."""
-    lines = text.split("\n")
+    either it lacks, and for both when the reply already carries a card. A closing
+    ``\\boxed{…}`` is read as the Answer it becomes (``land_answer_card``)."""
+    lines = _boxed_as_answer(text).split("\n")
     _fences, inside = _scan(lines)
     heading, same_line = _last_answer_heading(lines, inside)
     answer: str | None = None

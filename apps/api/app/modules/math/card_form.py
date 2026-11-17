@@ -92,15 +92,19 @@ def _real(value: complex | None) -> float | None:
     return value.real
 
 
-def same_value(server: Any, stated: Any, *, up_to_constant: bool) -> bool:
+def same_value(
+    server: Any, stated: Any, *, up_to_constant: bool, points: tuple[float, ...] = ()
+) -> bool:
     """``stated`` is ``server``: equal where both are real, or with ``up_to_constant`` apart
-    by one constant; real at the same sample points, and at enough of them."""
+    by one constant; real at the same sample points (and at ``points``, for one variable),
+    and at enough of them."""
     symbols = sorted(server.free_symbols, key=str)
     if set(symbols) != stated.free_symbols:
         return False
     gaps: list[float] = []
     sizes: list[float] = []
-    for sample in _SAMPLES if symbols else _SAMPLES[:1]:
+    samples = (*_SAMPLES, *points) if len(symbols) == 1 else _SAMPLES
+    for sample in samples if symbols else _SAMPLES[:1]:
         point = {symbol: sample + 0.13 * number for number, symbol in enumerate(symbols)}
         mine, theirs = _real(_value(server, point)), _real(_value(stated, point))
         if (mine is None) != (theirs is None):
@@ -129,17 +133,19 @@ def _right_side(value: str) -> str | None:
     return _STYLE.sub("", side).strip().rstrip(".").strip()
 
 
-def in_working_form(reply: str, answer_body: str) -> str:
+def in_working_form(reply: str, answer_body: str, *, antiderivative: bool) -> str:
     """``answer_body``, or the antiderivative ``reply`` states in its place (the module's
-    rule). Runs in the SymPy pool, as the fence pass does."""
+    rule). ``antiderivative``: the verified block is an indefinite integral's, which only
+    its operation says: a "+ C" of the user's own letter ("Expand A(A + 2) + C") is no
+    constant of integration. Runs in the SymPy pool, as the fence pass does."""
     value = answer_fence_value(answer_body)
-    if not value or not _CONSTANT.search(value):
+    if not antiderivative or not value or not _CONSTANT.search(value):
         return answer_body
     if _NOT_ONE_EXPRESSION.search(_SPACING.sub(" ", value)) is not None:
         return answer_body
     server = read_tex(_CONSTANT.sub("", value))
-    if server is None:
-        return answer_body
+    if server is None or "C" in {str(symbol) for symbol in server.free_symbols}:
+        return answer_body  # C is one of the question's own letters
     answer, working = stated_answers(reply)
     for stated in (answer, working):
         shown = _right_side(stated) if stated else None
@@ -178,11 +184,19 @@ def _same_antiderivative(shown: str, server: Any) -> bool:
         return False
     if _unevaluated(written) or _loose_constant(written):
         return False
+    if len(server.free_symbols) != 1:
+        return False  # where a form of several letters is real is not sampled: unsure
     try:
-        proved = _proved_constant_apart(server, mine)
-        if proved is not None:
-            return proved
-        return same_value(server, mine, up_to_constant=True)
+        if _proved_constant_apart(server, mine) is False:
+            return False
+        # A zero derivative is not enough: -arctan(1/x) jumps at 0 where arctan(x) does
+        # not, and ln(6 - x) is not real past 6 where ln|x - 6| is (Gemini on #2481). The
+        # stated form is held to the server's on both sides of every point where a log,
+        # |…|, root or denominator of either changes.
+        points = _either_side(_critical_points((server, mine)))
+        if points is None:
+            return False
+        return same_value(server, mine, up_to_constant=True, points=points)
     except Exception:
         logger.info("the working's form was not compared; the card keeps SymPy's", exc_info=True)
         return False
@@ -204,6 +218,48 @@ def _proved_constant_apart(server: Any, mine: Any) -> bool | None:
     if all(slope == 0 for slope in left):
         return True
     return None
+
+
+_MAX_CRITICAL = 24
+_WINDOW = 20
+
+
+def _critical_points(exprs: tuple[Any, ...]) -> list[float] | None:
+    """Where an argument of a log, |…| or root, or a denominator, of ``exprs`` is zero,
+    within ±20; None when SymPy cannot list them (the card keeps the server's form)."""
+    from sympy import Abs, FiniteSet, Interval, Pow, S, log, preorder_traversal, solveset
+
+    symbol = next(iter(exprs[0].free_symbols))
+    places: set[Any] = set()
+    for expr in exprs:
+        for node in preorder_traversal(expr):
+            if isinstance(node, (log, Abs)):
+                places.add(node.args[0])
+            elif isinstance(node, Pow) and node.free_symbols:
+                # A denominator, or a root: where its base is zero the form may change.
+                if not node.exp.is_positive or not node.exp.is_Integer:
+                    places.add(node.base)
+    found: list[float] = []
+    for place in places:
+        if symbol not in place.free_symbols:
+            continue
+        zeros = solveset(place, symbol, domain=Interval(-_WINDOW, _WINDOW))
+        if zeros is S.EmptySet:
+            continue
+        if not isinstance(zeros, FiniteSet) or len(zeros) > _MAX_CRITICAL:
+            return None
+        found += [float(zero) for zero in zeros if zero.is_real]
+    return found
+
+
+def _either_side(points: list[float] | None) -> tuple[float, ...] | None:
+    if points is None:
+        return None
+    sides: list[float] = []
+    for point in points:
+        step = 1e-3 * max(1.0, abs(point))
+        sides += [point - step, point + step, point - 0.37 * max(1.0, abs(point)), point + 0.41]
+    return tuple(sides)
 
 
 def _loose_constant(expr: Any) -> bool:

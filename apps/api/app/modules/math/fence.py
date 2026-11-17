@@ -376,7 +376,7 @@ def _working_form(
     the server writes its own text."""
     if not answer_body or not correct or verified is None:
         return None
-    return in_working_form(content, answer_body)
+    return in_working_form(content, answer_body, antiderivative=verified.antiderivative)
 
 
 def validate_math_fences(

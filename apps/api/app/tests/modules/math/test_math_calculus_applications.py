@@ -238,6 +238,24 @@ def test_only_the_areas_own_sentence_states_its_interval(text: str, answer: str)
     assert _verified_answer(text) == answer
 
 
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        # Gemini on #2481: an interval stated before the area, or without "x =", is the
+        # area's; 32/3 from the meeting points was checked for 11/3.
+        ("From 0 to 1, find the area of the region bounded by y = x^2 and y = 4.", "\\frac{11}{3}"),
+        ("On the interval [0, 1], find the area bounded by y = x^2 and y = 4.", "\\frac{11}{3}"),
+        ("Find the area bounded by y = x^2 and y = 4 between 0 and 1.", "\\frac{11}{3}"),
+        ("From 0 to 2, find the area under y = x^2.", "\\frac{8}{3}"),
+        # One the bounds cannot read is never replaced by the meeting points.
+        ("Find the area bounded by y = x^2 and y = 4 in the interval (0, 1).", None),
+        ("From a to 1, find the area bounded by y = x^2 and y = 4.", None),
+    ],
+)
+def test_any_interval_the_sentence_states_wins(text: str, answer: str | None) -> None:
+    assert _verified_answer(text) == answer
+
+
 def test_the_area_answer_is_not_the_intersection_points() -> None:
     """The original defect, still pinned now that the question is answered."""
     answer = _verified_answer("area between y=x and y=x^2 from 0 to 1")
