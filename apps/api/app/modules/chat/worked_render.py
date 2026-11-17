@@ -32,7 +32,8 @@ from app.modules.chat.worked_text import (
     tidy_symbol,
     tidy_tex,
 )
-from app.modules.chat.worked_units import quantity_tex, unit_tex
+from app.modules.chat.worked_units import quantity_tex
+from app.modules.turn_reading.routing import is_short_reply
 from app.services.worked_parts import WorkedPart, lettered_line, part_letter, render_parts
 from app.services.workout import (
     ANSWER,
@@ -96,12 +97,12 @@ def _in_words(value: str) -> bool:
 
 
 def _concludes(answer: Answer) -> bool:
-    """An answer that is a conclusion in words ("yes", "all the ice melts"): words alone,
-    and several of them, or with no unit. "F | mg | N" is a quantity written in symbols,
-    kept in maths with its unit (Claude on #2489)."""
-    return _in_words(answer.value) and (
-        names_nothing(answer.value) or not unit_tex(answer.unit or "")
-    )
+    """An answer that is a conclusion in words: several words ("all the ice melts", as
+    ``names_nothing`` reads them) or a reply on its own ("yes", "no", as the turn reader
+    reads one). A single run of letters is symbols ("F | mg | N", "x | ab |"), kept in
+    maths (Claude and Gemini on #2489)."""
+    value = answer.value.strip()
+    return _in_words(value) and (names_nothing(value) or is_short_reply(value))
 
 
 def _as_its_letter(given: Given) -> bool:
@@ -426,18 +427,25 @@ def _concluded(solution: WorkedSolution) -> set[str]:
     quantity, so they are asked by their words alone; "$slide_{back}$ (whether it slides
     back)" set an invented symbol in maths (phys30, 2026-11-16). Compared tidied:
     s_1 in Find is s_{1} in the answer. A conclusion with no symbol of its own
-    ("answer: | yes, …") concludes the asks no other answer names (Gemini on #2489)."""
+    ("answer: | yes, …") concludes its own ask: its part's, when each part has one, or
+    the ask no other answer names in a solution of one part (Gemini on #2489)."""
     answers = [answer for part in solution.parts for answer in part.answers]
     concluded = {
         _symbol_key(answer.symbol) for answer in answers if answer.symbol and _concludes(answer)
     }
-    if any(not answer.symbol.strip() and _concludes(answer) for answer in answers):
-        named = {_symbol_key(answer.symbol) for answer in answers if answer.symbol.strip()}
-        concluded |= {
-            _symbol_key(item.symbol)
-            for item in solution.required
-            if _symbol_key(item.symbol) not in named
-        }
+    paired = len(solution.parts) == len(solution.required)
+    for at, part in enumerate(solution.parts):
+        if not any(not answer.symbol.strip() and _concludes(answer) for answer in part.answers):
+            continue
+        if paired:
+            concluded.add(_symbol_key(solution.required[at].symbol))
+        elif len(solution.parts) == 1:
+            named = {_symbol_key(answer.symbol) for answer in answers if answer.symbol.strip()}
+            concluded |= {
+                _symbol_key(item.symbol)
+                for item in solution.required
+                if _symbol_key(item.symbol) not in named
+            }
     return concluded
 
 

@@ -570,6 +570,37 @@ def test_an_answer_in_symbols_stays_maths(value: str) -> None:
     assert "$F$ (normal force)" in shown
 
 
+@pytest.mark.parametrize(("symbol", "value"), [("x", "ab"), ("A", "lw"), ("x", "a"), ("F", "mg")])
+def test_an_answer_in_symbols_with_no_unit_stays_maths(symbol: str, value: str) -> None:
+    """Gemini on #2489: a run of letters with no unit is symbols, never a conclusion."""
+    solution = _solution(f"required: {symbol} | the result\nanswer: {symbol} | {value} |")
+    shown = render_worked(solution, OTHER)
+    assert "\\text{" not in shown
+    assert f"${symbol} = {value}$" in shown
+    assert f"${symbol}$ (the result)" in shown
+
+
+@pytest.mark.parametrize("value", ["yes", "all the ice melts"])
+def test_a_conclusion_is_words_with_or_without_its_symbol(value: str) -> None:
+    solution = _solution(f"required: s | whether all the ice melts\nanswer: s | {value} |")
+    shown = render_worked(solution, OTHER)
+    assert f"\\text{{{value}}}" in shown
+    assert "$s$" not in shown
+
+
+def test_an_unnamed_conclusion_concludes_its_own_part_s_ask() -> None:
+    """Gemini on #2489: a yes in part (b) took part (a)'s symbol out of Required."""
+    solution = _solution(
+        "required: Q_{total} | heat needed to melt all the ice\n"
+        "required: s | whether all the ice melts\n"
+        "part: a | Heat needed\nanswer: Q | 5000 | J\n"
+        "part: b | Does it all melt\nanswer: | yes, all the ice melts | |"
+    )
+    shown = render_worked(solution, OTHER)
+    assert "$Q_{total}$ (heat needed to melt all the ice)" in shown
+    assert "$s$" not in shown
+
+
 def test_a_conclusion_s_tex_specials_are_escaped() -> None:
     """Review of phys30: "yes & no" in ``\\text{}`` broke the group."""
     from app.modules.chat.worked_render import words_tex
