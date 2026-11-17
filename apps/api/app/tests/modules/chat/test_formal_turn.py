@@ -282,6 +282,13 @@ async def test_a_reply_in_parts_gets_no_trailing_card(answer: list[str], reply: 
         "and (b) the range.",
         "A ball is kicked at 18 m/s at 35° above the ground. Calculate the following: (a) "
         "the flight time and (b) the range.",
+        # Gemini on #2489: whatever words come before the ask, and an abbreviation before it.
+        "A ball is kicked at 18 m/s at 35° above the ground. Can you work out (a) the flight "
+        "time and (b) the range?",
+        "A ball is kicked at 18 m/s at 35° above the ground. Could you find both (a) the "
+        "flight time and (b) the range?",
+        "A ball (e.g. a football) is kicked at 18 m/s at 35° above the ground, find (a) the "
+        "flight time and (b) the range.",
         # Gemini on #2489: a line break ends the setup as a stop does.
         "A ball is kicked at 18 m/s at 35° above the ground\nFind (a) the flight time and "
         "(b) the range",

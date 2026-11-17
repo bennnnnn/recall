@@ -671,6 +671,33 @@ describe("MathText", () => {
     },
   );
 
+  // Gemini on #2489: a script column inside a fraction or a root is laid out at the width
+  // it is drawn, its last italic letter's ink with it, so the bar over it is as wide.
+  it.each([
+    [String.raw`\frac{v_{2x}^2}{2}`, "frac"],
+    [String.raw`\sqrt{v_{2x}^2 + v_{2y}^2}`, "sqrt"],
+  ] as const)("lays %s out as wide as its script columns", async (latex, kind) => {
+    const { getAllByTestId } = await render(<MathText latex={latex} />);
+    const { layout, problems } = laidOut(latex);
+    expect(problems).toEqual([]);
+    const columns = findLayouts(layout, "script").filter((item) => item.children.length === 2);
+    expect(columns.length).toBeGreaterThan(0);
+    for (const column of columns) {
+      // A whole point, at least as wide as each script and its italic ink.
+      expect(Number.isInteger(column.width)).toBe(true);
+      for (const script of column.children) {
+        expect(column.width).toBeGreaterThanOrEqual(script.width);
+      }
+    }
+    const outer = findLayouts(layout, kind)[0];
+    const widest = Math.max(...columns.map((column) => column.width));
+    expect(outer.width).toBeGreaterThan(widest);
+    for (const drawn of getAllByTestId("math-script-column")) {
+      const style = StyleSheet.flatten(drawn.props.style);
+      expect(columns.map((column) => column.width)).toContain(style.minWidth);
+    }
+  });
+
   it("stretches a wide hat across the letters it covers", async () => {
     const { getByTestId } = await render(<MathText latex={String.raw`\widehat{ABC}`} />);
     const { layout, problems } = laidOut(String.raw`\widehat{ABC}`);

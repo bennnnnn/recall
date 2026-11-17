@@ -30,7 +30,7 @@ from app.core.config import Settings
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.reply_language import line_language
 from app.modules.chat.turn_decision import TurnDecision
-from app.modules.chat.whole_question import ASKED_SENTENCE
+from app.modules.chat.whole_question import ASK_QUESTION_WORDS, ASK_VERBS, ASKED_SENTENCE
 from app.services.answer_check import stated_verdict
 from app.services.answer_fence import (
     ANSWER_FENCE_LANGS,
@@ -107,34 +107,30 @@ def _in_parts(reply: str, question: str) -> bool:
     return cards >= 2 or _asks_in_parts(question)
 
 
-# "find", "work out", "what are": an ask with no object of its own.
-_BARE_ASK_WORDS = 2
+# The text before the first label ends on an ask, the labels its objects: "… find (a)",
+# "Can you work out (a)", "Could you find both (a)", "Calculate the following: (a)", "What
+# are (a)". "… holding blocks (A)" ends on a noun the labels name.
+_ASKS_FOR_LABELS = re.compile(
+    rf"\b(?:(?:{ASK_VERBS})(?:\s+(?:both|the\s+following))?|(?:{ASK_QUESTION_WORDS})(?:\s+\w+)?)"
+    r"\s*:?$",
+    re.IGNORECASE,
+)
 
 
 def _asks_in_parts(question: str) -> bool:
     """Each labelled part asks something: each is a question or an instruction of its own
     ("(a) How long …? (b) How far …?", "(a) Find the flight time; (b) Find the range"), or
-    the clause before them asks for the list and ends where it starts ("Find (a) the time,
-    (b) the range", "… at 35°, find (a) … and (b) …", "Calculate the following: (a) …").
-    A label inside the statement or its question ("blocks (A) and (B)", "Find the tension
-    in the ropes holding blocks (A) of 2 kg and (B) of 3 kg") names a thing and asks
-    nothing (review of phys30, 2026-11-16; Codex, Gemini and Claude on #2489)."""
+    the text before the labels ends on the ask they complete (``_ASKS_FOR_LABELS``),
+    whatever words come before it. A label inside the statement or its question ("blocks
+    (A) and (B)", "Find the tension in the ropes holding blocks (A) of 2 kg and (B) of
+    3 kg") names a thing and asks nothing (review of phys30, 2026-11-16; Codex, Gemini and
+    Claude on #2489)."""
     lead, parts = labelled_part_texts(question)
     if len(parts) < 2:
         return False
     if all("?" in part or ASKED_SENTENCE.match(part.strip()) for part in parts):
         return True
-    # A sentence ends at its stop or at a line break ("… above the ground\nFind (a) …").
-    last = re.split(r"(?<=[.!?])\s+|\s*\n\s*", lead.strip())[-1] if lead.strip() else ""
-    clause = re.split(r"[,;:]\s*", last.rstrip(" :"))[-1].strip()
-    # A word before the ask ("Please find", "Now calculate") leaves it the ask.
-    for ask in (clause, clause.partition(" ")[2]):
-        if ask and ASKED_SENTENCE.fullmatch(ask) is not None:
-            # The ask ends at the labels: a colon after it, or the asking word alone
-            # ("find", "find both", "work out", "what are"), never an object the labels
-            # then name.
-            return last.rstrip().endswith(":") or len(ask.split()) <= _BARE_ASK_WORDS
-    return False
+    return _ASKS_FOR_LABELS.search(lead.rstrip()) is not None
 
 
 async def attach_formal(state: FinalizeState) -> str:
