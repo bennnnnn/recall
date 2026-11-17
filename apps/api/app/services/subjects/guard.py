@@ -159,12 +159,32 @@ class GuardedFollowups:
             lambda: self._inner.shown_problem(line, recent, referent),
         )
 
-    def changed_problem(self, problem: str, given: str | None, new: str) -> str | None:
+    def changed_problem(
+        self, problem: str, changes: Sequence[tuple[str | None, str]]
+    ) -> str | None:
         return neutral_on_error(
             self._subject,
             "followups.changed_problem",
             None,
-            lambda: self._inner.changed_problem(problem, given, new),
+            lambda: self._inner.changed_problem(problem, changes),
+        )
+
+    def restates(self, problem: str, line: str) -> bool:
+        return neutral_on_error(
+            self._subject,
+            "followups.restates",
+            False,
+            lambda: self._inner.restates(problem, line),
+        )
+
+    def takes_every_change(
+        self, problem: str, rewritten: str, line: str, new: Sequence[str]
+    ) -> bool:
+        return neutral_on_error(
+            self._subject,
+            "followups.takes_every_change",
+            False,
+            lambda: self._inner.takes_every_change(problem, rewritten, line, new),
         )
 
 
@@ -290,12 +310,12 @@ class GuardedFigure:
             lambda: self._inner.described(descriptions, texts, reply, settings),
         )
 
-    def without_drawn_substitutes(self, text: str) -> str:
+    def without_drawn_substitutes(self, text: str, user_text: str = "") -> str:
         return neutral_on_error(
             self._subject,
             "figure.without_drawn_substitutes",
             text,
-            lambda: self._inner.without_drawn_substitutes(text),
+            lambda: self._inner.without_drawn_substitutes(text, user_text),
         )
 
 

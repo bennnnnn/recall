@@ -59,13 +59,29 @@ _HINTS = SubjectHints(
 
 @dataclass(frozen=True)
 class MathFollowups:
-    def changed_problem(self, problem: str, given: str | None, new: str) -> str | None:
+    def changed_problem(
+        self, problem: str, changes: Sequence[tuple[str | None, str]]
+    ) -> str | None:
         # An equation or expression has no units to say which part changes: the part the
-        # read names, written once in the problem, gives way to one of its own kind.
+        # read names, written once in the problem, gives way to one of its own kind. One
+        # change only: two parts of one expression may overlap.
+        if len(changes) != 1:
+            return None
+        ((given, new),) = changes
         if not given or problem.count(given) != 1 or ("=" in given) != ("=" in new):
             return None
         rewritten = problem.replace(given, new)
         return rewritten if rewritten != problem and MATH_SUBJECT.reads(rewritten) else None
+
+    # An equation has no units to read a restated value by: a line maths claims is never
+    # read as a change, and a change is the one part the read names.
+    def restates(self, problem: str, line: str) -> bool:
+        return False
+
+    def takes_every_change(
+        self, problem: str, rewritten: str, line: str, new: Sequence[str]
+    ) -> bool:
+        return True
 
     def problem(
         self,
@@ -335,10 +351,10 @@ class MathFigure:
             timeout=settings.stem_solve_timeout_seconds,
         )
 
-    def without_drawn_substitutes(self, text: str) -> str:
+    def without_drawn_substitutes(self, text: str, user_text: str = "") -> str:
         from app.modules.math.figure.substitutes import without_drawn_substitutes
 
-        return without_drawn_substitutes(text)
+        return without_drawn_substitutes(text, user_text)
 
 
 @dataclass(frozen=True)

@@ -10,6 +10,7 @@ phrases and the text rewrites are the same for both and live here.
 
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
@@ -312,27 +313,49 @@ class GivenRewriter:
         matches = [
             g for g in self._of_dimension(prior, new_dim) if plays_role(prior, g, name or "")
         ]
-        if len(matches) != 1 or counted(prior, matches[0]) or self._anothers(prior, matches[0]):
+        kind = self._of_dimension(prior, new_dim)
+        if (
+            len(matches) != 1
+            or counted(prior, matches[0], kind)
+            or self._anothers(prior, matches[0])
+        ):
             return None
         rewritten = replace_given(prior, matches[0], value, written_unit)
         if rewritten == prior:
             return None
         return rewritten if self.verifies(rewritten) else None
 
-    def replaced(self, prior: str, written: str | None, value: str, unit: str) -> str | None:
-        """The given of ``unit``'s kind put to ``value``: the problem's one given of that
-        kind, or of several the one whose number ``written`` quotes ("300 K" of "between
-        500 K and 300 K"). Every other given stays as written, and the rewrite verifies."""
-        new_dim = self.unit_dimension(" ".join(unit.split()))
-        if new_dim is None or not fully_read(prior):
+    def replaced(self, prior: str, changes: Sequence[tuple[str | None, str, str]]) -> str | None:
+        """Each change ``(written, value, unit)`` puts the given of ``unit``'s kind to
+        ``value``: the problem's one given of that kind, or of several the one whose number
+        ``written`` quotes ("300 K" of "between 500 K and 300 K"). Every given is found in
+        the problem as stated, never in a text another change already edited, so "the
+        charges as 2.0 C and 3.0 C" swaps them, and two changes of one given are none.
+        Every other given stays as written, and the rewrite verifies."""
+        if not changes or not fully_read(prior):
             return None
-        matches = self._of_dimension(prior, new_dim)
-        if len(matches) > 1:
-            quoted = _quoted_numbers(written or "")
-            matches = [given for given in matches if given.value in quoted]
-        if len(matches) != 1 or counted(prior, matches[0]) or self._anothers(prior, matches[0]):
+        targets: list[tuple[Given, str, str]] = []
+        for written, value, unit in changes:
+            spelled = " ".join(unit.split())
+            new_dim = self.unit_dimension(spelled)
+            if new_dim is None:
+                return None
+            kind = self._of_dimension(prior, new_dim)
+            matches = kind
+            if len(matches) > 1:
+                quoted = _quoted_numbers(written or "")
+                matches = [given for given in matches if given.value in quoted]
+            if len(matches) != 1 or counted(prior, matches[0], kind):
+                return None
+            if self._anothers(prior, matches[0]):
+                return None
+            targets.append((matches[0], value, spelled))
+        if len({given.start for given, _value, _unit in targets}) != len(targets):
             return None
-        rewritten = replace_given(prior, matches[0], value, " ".join(unit.split()))
+        rewritten = prior
+        # From the last position back, so each earlier given's position still holds.
+        for given, value, unit in sorted(targets, key=lambda t: t[0].start, reverse=True):
+            rewritten = replace_given(rewritten, given, value, unit)
         return rewritten if rewritten != prior and self.verifies(rewritten) else None
 
     def scaled(self, prior: str, scaling: Scaling) -> str | None:
@@ -352,7 +375,9 @@ class GivenRewriter:
         if len(matches) != 1:
             return None
         given = matches[0]
-        if counted(prior, given) or not _scales(prior, given):
+        if counted(prior, given, self._of_dimension(prior, named_dim)):
+            return None
+        if not _scales(prior, given):
             return None
         # "The mass of Earth is 6e24 kg" in a satellite's problem: "the mass" may be either.
         if owner is None and self._anothers(prior, given):
@@ -363,6 +388,46 @@ class GivenRewriter:
             prior, given, scaled_value(given.value, scaling.factor), given.unit
         )
         return rewritten if rewritten != prior and self.verifies(rewritten) else None
+
+    def restated(self, prior: str, line: str) -> list[Given]:
+        """The values ``line`` states of a kind ``prior`` gives: "3.0 pC" after a problem
+        with charges, never "question 8" or a power of ten in a bracket."""
+        kinds = {given.dimension for given in read_givens(prior, self.units) if given.dimension}
+        return [given for given in read_givens(line, self.units) if given.dimension in kinds]
+
+    def takes_every(self, prior: str, rewritten: str, line: str, new: Sequence[str]) -> bool:
+        """Whether a rewrite made of ``new`` values stands for all of ``line``: every value
+        the line states of the problem's kinds is one of them (a read that named one change
+        of two would solve with a charge the user never gave), and the line asks nothing of
+        its own or what the rewrite asks ("What is the momentum of a 5 kg ball?" is a new
+        question, not a change to a kinetic energy problem)."""
+        taken = [
+            given
+            for value in new
+            for given in read_givens(value, self.units)
+            if given.si is not None
+        ]
+        # One to one: "3.0 pC and 3.0 pC" are two values, which one named change never takes.
+        left = list(taken)
+        for stated in self.restated(prior, line):
+            match = next(
+                (
+                    given
+                    for given in left
+                    if stated.si is not None
+                    and given.si is not None
+                    and given.dimension == stated.dimension
+                    and math.isclose(given.si, stated.si, rel_tol=1e-9)
+                ),
+                None,
+            )
+            if match is None:
+                return False
+            left.remove(match)
+        if self.asked is None:
+            return True
+        asked = set(self.asked(line))
+        return not asked or asked == set(self.asked(rewritten))
 
     def _names(self, prior: str, name: str, dimension: str) -> bool:
         """False when ``name`` may not be a given of ``prior``: the problem asks for that

@@ -154,11 +154,28 @@ class SubjectFollowups(Protocol):
         (``chat.referent_read``), when the turn read one."""
         ...
 
-    def changed_problem(self, problem: str, given: str | None, new: str) -> str | None:
-        """``problem`` with one given put to ``new``, the value a line changes it to ("what
-        if it took 10 s?" is ``new`` "10 s"); ``given`` names which, as a model read it
-        (``chat.posed_read``). None when the subject cannot put it in place exactly. Read
-        in the pool."""
+    def changed_problem(
+        self, problem: str, changes: Sequence[tuple[str | None, str]]
+    ) -> str | None:
+        """``problem`` with each change ``(given, new)`` put in place: ``new`` the value a
+        line changes it to ("what if it took 10 s?" is "10 s"), ``given`` which, as a model
+        read it (``chat.posed_read``), each found in the problem as stated. None when the
+        subject cannot put every one in place exactly. Read in the pool."""
+        ...
+
+    def restates(self, problem: str, line: str) -> bool:
+        """A line the subject claims states a value of a kind ``problem`` gives, with its
+        unit, so it may change the problem ("take the charges as 3.0 pC and 2.0 μC"):
+        the cheap structural look before a model reads which changes it makes. Read in the
+        pool."""
+        ...
+
+    def takes_every_change(
+        self, problem: str, rewritten: str, line: str, new: Sequence[str]
+    ) -> bool:
+        """The rewrite made of the ``new`` values stands for all of ``line``: no value the
+        line states is left out, and the line asks nothing of its own or what the rewrite
+        asks. Read in the pool."""
         ...
 
 
@@ -304,9 +321,10 @@ class SubjectFigure(Protocol):
         text, whose working names its letters."""
         ...
 
-    def without_drawn_substitutes(self, text: str) -> str:
+    def without_drawn_substitutes(self, text: str, user_text: str = "") -> str:
         """``text``, its described pictures in it, without what stood in for them: a sketch
-        in characters, a Mermaid diagram, a function graph of a curve a drawn graph draws."""
+        in characters, a Mermaid diagram (unless ``user_text``, the user's message, asks
+        for one), a function graph of a curve a drawn graph draws."""
         ...
 
 

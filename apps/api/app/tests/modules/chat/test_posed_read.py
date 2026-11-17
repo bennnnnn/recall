@@ -11,7 +11,7 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.chat import posed_read
-from app.modules.chat.posed_read import Posed, PosedPick, read_posed
+from app.modules.chat.posed_read import Posed, PosedChange, PosedPick, read_posed
 
 # The read asks the subject of the exchange before it in the SymPy pool.
 pytestmark = pytest.mark.usefixtures("thread_sympy_executor")
@@ -113,19 +113,79 @@ async def test_a_line_after_an_exchange_with_no_problem_is_not_read(
 async def test_a_line_after_a_solved_problem_is_read() -> None:
     """The exchange's problem may be the user's, the reply its answer (a tapped what-if)."""
     typed = [("user", _CAR), ("assistant", "**Given** d = 120 m, t = 20 s ... v = 6 m/s")]
-    pick = PosedPick(kind="change", message=1, problem=_CAR, given="20 seconds", new="10 s")
+    pick = PosedPick(
+        kind="change", message=1, problem=_CAR, changes=[_change("20 seconds", "10 s")]
+    )
     posed, model = await _read("What if it took 10 s?", pick, typed)
     model.assert_awaited_once()
     assert posed == Posed(
-        problem=_CAR, reply=typed[1][1], changed=True, given="20 seconds", new="10 s"
+        problem=_CAR, reply=typed[1][1], changed=True, changes=(("20 seconds", "10 s"),)
     )
+
+
+def _change(given: str, new: str) -> PosedChange:
+    return PosedChange(given=given, new=new)
 
 
 @pytest.mark.asyncio
 async def test_a_new_value_the_line_does_not_give_is_none() -> None:
-    pick = PosedPick(kind="change", message=2, problem=_CAR, given="20 seconds", new="12 s")
+    pick = PosedPick(
+        kind="change", message=2, problem=_CAR, changes=[_change("20 seconds", "12 s")]
+    )
     posed, _model = await _read("What if it took 10 s?", pick)
-    assert posed is not None and posed.new is None
+    assert posed is not None and posed.changes == (("20 seconds", None),)
+
+
+_COULOMB = (
+    "8. Two point charges, one of 3.0 C and the other of 2.0 C, are placed 5.0 m apart. "
+    "Calculate the force which acts between them. (Take 1/(4\u03c0\u03b5\u2080) to be "
+    "9.0 \u00d7 10\u2079 N m\u00b2/C\u00b2.)"
+)
+# The owner's chat (2026-11-16): a textbook's next question, physics with no problem of its
+# own, changes both charges of the one before.
+_REPEAT = (
+    "9. The answer to question 8 is an enormous force \u2013 a coulomb is a huge unit for "
+    "static charge, and we do not normally encounter point charges of anything like that "
+    "size. Repeat the calculation but this time take the charges as 3.0 pC (p = pico- = "
+    "\u00d7 10\u207b\u00b9\u00b2) and 2.0 \u03bcC."
+)
+
+
+@pytest.mark.asyncio
+async def test_a_claimed_line_that_restates_values_is_read_with_every_change() -> None:
+    """A long line a subject claims may change several values; the micro sign and the Greek
+    mu are one prefix when the read's copy is checked against the line."""
+    typed = [("user", _COULOMB), ("assistant", "**Answer** 2.16 \u00d7 10\u2079 N")]
+    pick = PosedPick(
+        kind="change",
+        message=1,
+        problem=_COULOMB,
+        changes=[_change("3.0 C", "3.0 pC"), _change("2.0 C", "2.0 \u00b5C")],
+    )
+    model = AsyncMock(return_value=pick)
+    with patch.object(posed_read, "pick_posed", model):
+        posed = await read_posed(Settings(), _REPEAT, _rows(typed), claimed="physics")
+        # Not claimed, the line is far too long to only refer to a problem.
+        assert await read_posed(Settings(), _REPEAT, _rows(typed)) is None
+    model.assert_awaited_once()
+    assert posed is not None
+    assert posed.changes == (("3.0 C", "3.0 pC"), ("2.0 C", "2.0 \u00b5C"))
+
+
+@pytest.mark.asyncio
+async def test_a_claimed_line_that_states_no_value_is_not_read() -> None:
+    typed = [("user", _COULOMB), ("assistant", "**Answer** 2.16 \u00d7 10\u2079 N")]
+    model = AsyncMock(return_value=PosedPick(kind="solve", message=1, problem=_COULOMB))
+    with patch.object(posed_read, "pick_posed", model):
+        for line in (
+            "Explain why Coulomb's law gives such an enormous force here",
+            # A number, but no value of a kind the problem gives: a force is what it asks.
+            "Why is 2.16e9 N so large?",
+            # Its own problem, values and all.
+            "Two charges of 4.0 nC and 6.0 nC are 2.0 m apart. Find the force between them.",
+        ):
+            assert await read_posed(Settings(), line, _rows(typed), claimed="physics") is None
+    model.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -220,3 +280,21 @@ async def test_a_regenerate_reads_the_chat_without_the_reply_it_redoes() -> None
     assert posed == Posed(problem=_CAR, reply=_POSED_CHAT[1][1])
     assert model.await_args is not None
     assert "6 m/s." not in model.await_args.args[2]
+
+
+@pytest.mark.asyncio
+async def test_a_pool_that_gives_up_reads_nothing_and_keeps_the_turns_readings() -> None:
+    """The structural look for a claimed line runs aside: a pool that gives up never
+    declines the turn's own readings, so its verified solve is kept."""
+    from app.core import readings
+
+    readings.begin_turn()
+    typed = [("user", _COULOMB), ("assistant", "**Answer** 2.16 \u00d7 10\u2079 N")]
+    model = AsyncMock(return_value=PosedPick(kind="solve", message=1, problem=_COULOMB))
+    with (
+        patch("app.core.sympy_executor.run_sympy", AsyncMock(side_effect=TimeoutError)),
+        patch.object(posed_read, "pick_posed", model),
+    ):
+        assert await read_posed(Settings(), _REPEAT, _rows(typed), claimed="physics") is None
+    model.assert_not_awaited()
+    assert not readings.readings_declined()

@@ -1,11 +1,11 @@
 /**
  * Scenes with no moving bodies: the server sends the network, the optical
- * layout or the wave frames, and `components/rich/diagrams/` lays them out.
+ * layout, the wave frames or the traced field lines, and `components/rich/diagrams/` lays them out.
  * Everything else in a `simulation` fence is `SimulationBlock`'s.
  */
 import { isJsonRecord, readJson } from "@/lib/fence/json";
 
-export const DIAGRAM_KINDS = ["circuit", "rays", "wave"] as const;
+export const DIAGRAM_KINDS = ["circuit", "rays", "wave", "field"] as const;
 export type DiagramKind = (typeof DIAGRAM_KINDS)[number];
 
 /** The diagram kind a fence's JSON names, or null for a body scene or bad JSON. */

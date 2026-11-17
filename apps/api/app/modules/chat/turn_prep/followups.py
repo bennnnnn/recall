@@ -94,31 +94,43 @@ def resolve_subject_followup(
     return SubjectFollowup(physics=subject_adapter("physics").followups.problem(content, history))
 
 
+Change = tuple[str | None, str | None]
+
+
 def resolve_posed_followup(
-    content: str, problem: str, reply: str, change: tuple[str | None, str | None] | None
+    content: str, problem: str, reply: str, changes: Sequence[Change] | None
 ) -> SubjectFollowup:
     """The follow-up to a problem a model read the line as referring to (``chat.posed_read``):
-    solved whole, as typed. A ``change`` (the given as the problem writes it, and the line's
-    new value: "20 seconds", "10 s") is first read by the subject's follow-up readers, as if
-    the user had stated the problem; else the problem's subject puts the new value in place
-    of the one given of its kind, every other given kept, and the rewrite is solved as
-    typed. A change no subject can put in place exactly is no solve."""
-    if change is None:
+    solved whole, as typed. ``changes`` (each the given as the problem writes it, and the
+    line's new value: "20 seconds", "10 s") are first read by the subject's follow-up readers,
+    as if the user had stated the problem; else the problem's subject puts each new value in
+    place of the one given of its kind, each found in the problem as stated, every other given
+    kept, and the rewrite is solved as typed. "Take the charges as 3.0 pC and 2.0 μC" changes both charges of a
+    Coulomb's law problem (live, 2026-11-16). Changes no subject can put in place exactly,
+    every one of them, are no solve."""
+    if changes is None:
         return SubjectFollowup(asked=problem)
     stated = [{"role": "user", "content": problem}, {"role": "assistant", "content": reply}]
     rewritten = resolve_subject_followup(content, [*stated, {"role": "user", "content": content}])
-    given, new = change
     # "What if it took 5 s longer?" adds to the time: 25 s, never 5 s. The typed path
     # declines it the same way, and the model answers.
-    if rewritten.found or not new or changes_relatively(content):
+    if rewritten.found or not changes or changes_relatively(content):
+        return rewritten
+    if any(not new for _given, new in changes):
         return rewritten
     from app.modules.chat.turn_prep.reading import subject_of
 
     subject = subject_of(problem)
     if subject is None:
         return rewritten
-    changed = subject_adapter(subject).followups.changed_problem(problem, given, new)
-    return rewritten if changed is None else SubjectFollowup(asked=changed)
+    followups = subject_adapter(subject).followups
+    named = [(given, new) for given, new in changes if new]
+    changed = followups.changed_problem(problem, named)
+    # Every value the line states, not only those the read named, and no question of its own.
+    news = [new for _given, new in named]
+    if changed is None or not followups.takes_every_change(problem, changed, content, news):
+        return rewritten
+    return SubjectFollowup(asked=changed)
 
 
 def _shown(content: str, history: Sequence[Any], referent: str) -> SubjectFollowup:

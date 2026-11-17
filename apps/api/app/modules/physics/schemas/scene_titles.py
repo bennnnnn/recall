@@ -32,4 +32,5 @@ TitleKey = Literal[
     "standing_wave",
     "buoyancy",
     "charges",
+    "electric_field",
 ]

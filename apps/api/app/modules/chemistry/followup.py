@@ -191,11 +191,21 @@ def _dimension_of_phrase(phrase: str) -> str | None:
 _GIVENS = GivenRewriter(CHEMISTRY_UNITS, _dimension_of_unit, _dimension_of_phrase, _verifies)
 
 
-def changed_chemistry_problem(problem: str, given: str | None, new: str) -> str | None:
-    """``problem`` with the given of ``new``'s kind put to ``new`` ("10 s" replaces the time;
-    of two masses, the one whose number ``given`` quotes). The unit decides which kind
-    changes: "10 s" never replaces a distance. The rewrite verifies."""
-    value = written_value(new)
-    if value is None:
+def chemistry_change_whole(problem: str, rewritten: str, line: str, new: Sequence[str]) -> bool:
+    """The rewrite takes every value the line states of the problem's kinds."""
+    return _GIVENS.takes_every(problem, rewritten, line, new)
+
+
+def changed_chemistry_problem(
+    problem: str, changes: Sequence[tuple[str | None, str]]
+) -> str | None:
+    """``problem`` with the given of each new value's kind put to it ("32.0 g" of oxygen;
+    of two masses, the one whose number its ``given`` quotes). The unit decides which kind
+    changes. The rewrite verifies."""
+    values = [written_value(new) for _given, new in changes]
+    if any(value is None for value in values):
         return None
-    return _GIVENS.replaced(problem, given, *value)
+    return _GIVENS.replaced(
+        problem,
+        [(given, *value) for (given, _new), value in zip(changes, values, strict=True) if value],
+    )

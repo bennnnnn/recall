@@ -373,26 +373,21 @@ async def _turn_followup(
     if followup is not None and followup.found:
         return followup, referent
     # "Do it" after a problem the assistant posed: a model reads which problem, when the
-    # line has no subject of its own and is no "thanks".
-    if (
-        not small_talk
-        and referent is None
-        and continued is None
-        and subject_of(
+    # line has no problem of its own and is no "thanks".
+    if not small_talk and referent is None and continued is None:
+        subject = subject_of(
             request.content,
             has_image_attachment=request.has_image_attachment,
             chemistry_enabled=settings.chemistry_enabled,
         )
-        is None
-    ):
-        posed = await posed_for_turn(settings, request.content, recent)
+        posed = await posed_for_turn(settings, request.content, recent, claimed=subject)
         if posed is not None:
             followup = await read_off_loop(
                 resolve_posed_followup,
                 request.content,
                 posed.problem,
                 posed.reply,
-                (posed.given, posed.new) if posed.changed else None,
+                posed.changes if posed.changed else None,
                 timeout=timeout,
             )
     return followup or SubjectFollowup(), referent
