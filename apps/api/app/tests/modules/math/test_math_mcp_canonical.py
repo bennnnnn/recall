@@ -151,3 +151,27 @@ async def test_an_antiderivative_is_flagged_on_every_path(args, antiderivative):
     result = await SympyAdapter(Settings(_env_file=None)).invoke(args, tool_context())
     assert result.data is not None, result.content
     assert result.data.get("antiderivative", False) is antiderivative
+
+
+@pytest.mark.asyncio
+async def test_the_text_path_reads_its_question_off_the_loop():
+    """Review of #2481: the text path read the question with SymPy on the event loop."""
+    import asyncio
+
+    threads: list[bool] = []
+    read = math_tools.extract_math_intent
+
+    def reading(text):
+        try:
+            asyncio.get_running_loop()
+            threads.append(False)
+        except RuntimeError:
+            threads.append(True)
+        return read(text)
+
+    with patch.object(math_tools, "extract_math_intent", side_effect=reading):
+        result = await SympyAdapter(Settings(_env_file=None)).invoke(
+            {"action": "other", "text": "integrate x^2"}, tool_context()
+        )
+    assert threads == [True]
+    assert result.data is not None

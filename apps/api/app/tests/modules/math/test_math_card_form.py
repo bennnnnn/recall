@@ -182,18 +182,18 @@ def test_a_letter_c_inside_the_form_is_no_constant() -> None:
     assert in_working_form(reply, _SEC, antiderivative=True) == _SEC
 
 
-def test_a_bare_log_is_the_natural_log() -> None:
-    """Gemini on #2481: calculus writes ∫1/x dx = \\log|x| + C, and SymPy prints ln as
-    \\log; read as base 10, a right form was refused. \\log_{10} keeps its base."""
-    assert read_tex(r"\log|x|") == read_tex(r"\ln|x|")
-    assert read_tex(r"\log{\left(x \right)}") == read_tex(r"\ln x")
-    assert read_tex(r"\log_{10}(x)") != read_tex(r"\ln(x)")
-    reply = _reply(r"$\frac{1}{2}\log\left|\cos(2t) - 1\right| + C$")
-    assert in_working_form(reply, _LOG, antiderivative=True) == (
-        r"\frac{1}{2}\log\left|\cos(2t) - 1\right| + C"
+def test_a_bare_log_is_base_ten() -> None:
+    """Review of #2481: Recall reads a bare \\log as base 10 (docs/math.md), so a natural-log
+    antiderivative written \\log is no match, and the card keeps the server's \\ln; the
+    form written \\ln takes the card."""
+    assert read_tex(r"\log(x)") == read_tex(r"\log_{10}(x)")
+    assert read_tex(r"\log|x|") != read_tex(r"\ln|x|")
+    server = r"\ln\left|x\right| + C"
+    assert in_working_form(_reply(r"$\log|x| + C$"), server, antiderivative=True) == server
+    assert in_working_form(_reply(r"$\log|2x| + C$"), server, antiderivative=True) == server
+    assert in_working_form(_reply(r"$\ln|2x| + C$"), server, antiderivative=True) == (
+        r"\ln|2x| + C"
     )
-    base_ten = _reply(r"$\frac{1}{2}\log_{10}\left|\cos(2t) - 1\right| + C$")
-    assert in_working_form(base_ten, _LOG, antiderivative=True) == _LOG
 
 
 def test_the_fence_pass_lands_the_working_form_checked() -> None:

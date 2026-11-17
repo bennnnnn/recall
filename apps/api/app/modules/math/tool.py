@@ -617,7 +617,9 @@ class SympyAdapter:
             handler = _ACTION_HANDLERS.get(action)
             if handler is not None:
                 return await handler(self, args)
-            intent = math_tools.extract_math_intent(str(args.get("text") or ""))
+            # Read in the SymPy pool, as every chat-path read is (Golden Rule 7).
+            text = str(args.get("text") or "")
+            intent = await self._run_off_loop(math_tools.extract_math_intent, text)
             if intent:
                 block = await math_tools._build_verified_block_async(intent, self.settings)
                 if block:
