@@ -21,6 +21,7 @@ from app.modules.physics.followup import (
 )
 from app.modules.physics.prompt import build_physics_augmentation
 from app.modules.physics.reply_policy import PHYSICS_REPLY_POLICY, physics_prompt_hints
+from app.modules.physics.scene_drawing.contract import SCENE_DRAW_CONTRACT
 from app.modules.turn_reading.see_request import asks_to_see
 from app.services.solving import PhotoReading, SubjectAugmentation, VerifiedPhysicsBlock
 from app.services.subject_hints import SubjectHints
@@ -52,7 +53,7 @@ _HINTS = SubjectHints(
     shared_math_ink=False,
     followup=(PHYSICS_FOLLOWUP_HINT,),
     # Its words are rules the leak pass knows: the contract a field picture is described by.
-    beside_visuals=(FIELD_DRAW_CONTRACT,),
+    beside_visuals=(FIELD_DRAW_CONTRACT, SCENE_DRAW_CONTRACT),
 )
 
 
@@ -245,16 +246,16 @@ class PhysicsFigure:
 
     @property
     def contract(self) -> str:
-        return FIELD_DRAW_CONTRACT
+        return f"{SCENE_DRAW_CONTRACT}\n{FIELD_DRAW_CONTRACT}"
 
     async def described(
         self, descriptions: Sequence[str], texts: Sequence[str], reply: str, settings: Settings
     ) -> list[str]:
         from app.core import sympy_executor
-        from app.modules.physics.field_lines.build import field_fences
+        from app.modules.physics.scene_drawing.build import physics_fences
 
         return await sympy_executor.run_sympy(
-            field_fences,
+            physics_fences,
             list(descriptions),
             list(texts),
             timeout=settings.stem_solve_timeout_seconds,

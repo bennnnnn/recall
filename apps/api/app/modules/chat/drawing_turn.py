@@ -11,10 +11,12 @@ Mermaid diagram the reply drew for it; one that does not check is left out, with
 the message asks to see no maths picture, keeps no block and gets no picture. Nothing here
 raises into a turn.
 
-Physics describes its pictures the same way: on a physics message the read says asks to see
-a diagram, and that no solve drew, the reply gets physics' contract (an electric field's
-lines, ``physics.field_lines``) and physics checks and draws what it describes. The field
-questions of a GCSE set came back as ASCII art in tables and code blocks (live, 2026-11-16).
+Physics describes its pictures the same way: on a physics message no solve drew a picture
+for, the reply gets physics' contract, its setup's scene (``physics.scene_drawing``: a
+projectile, an incline, an Atwood machine, ...) and an electric field's lines
+(``physics.field_lines``), and physics checks and draws what it describes. The field
+questions of a GCSE set came back as ASCII art (live, 2026-11-16), and 29 of 30 hard
+problems in parts had no picture at all: no solver reads a question in parts.
 """
 
 from __future__ import annotations
@@ -69,7 +71,9 @@ _ASKS_TO_SEE = re.compile(
 # figure and graph (kind "plot"), and physics' diagram (a field's lines).
 _DESCRIBED: dict[str, tuple[SubjectName, frozenset[str]]] = {
     "maths": ("math", frozenset({"diagram", "graph"})),
-    "physics": ("physics", frozenset({"diagram"})),
+    # Physics' scene is its setup's picture: a problem asking to see nothing gets it too, as
+    # maths' teaching figure does, when no solve drew one.
+    "physics": ("physics", frozenset({"diagram", "graph", "none"})),
 }
 
 
@@ -201,7 +205,8 @@ async def ask_for_a_drawing(
     # A physics solve that drew the picture asked for (a scene, a circuit, rays) needs no
     # description; one that drew none ("calculate the field strength and draw its lines")
     # still gets the contract.
-    kind = read.picture if read is not None and read.picture is not None else "diagram"
+    asked_kind = read.picture if read is not None else None
+    kind = asked_kind if asked_kind in ("diagram", "graph") else "diagram"
     if subject == "physics" and solve_draws(ctx.verified_subject, kind):
         return
     # A subject turned off draws nothing, and its reply is asked for no description.
