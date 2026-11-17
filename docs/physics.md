@@ -641,6 +641,15 @@ cannot say is described in words: the physics pack forbids a sketch in character
 of slashes or a Mermaid diagram (`reply_policy.PHYSICS_NO_SKETCH`), and a drawn picture takes
 the place of any the reply drew anyway (`sketches.py`).
 
+A problem no solve drew a picture for (a question in parts, which no solver reads) gets its
+setup's scene the same way: the reply names the scene and the question's values it uses, never a
+coordinate (`scene_drawing/contract.py`), and the server holds each value to one the question
+states, with its unit and kind, each used once, every stated value of those kinds used, a speed
+beside its own body's mass (`scene_drawing/values.py`, `describe.py`), then draws it through the
+kind's own solver or the builder it draws with (`scene_drawing/kinds.py`): projectile, incline
+with friction, Atwood machine, 1-D collision, spring, pendulum, orbit, refraction, lens, standing
+wave and banked curve. A solve's own scene wins; a question gets one picture of its setup.
+
 Where one formula covers different apparatus, a hidden variable that only the picture reads
 says which one it is:
 - `pipe`: an open pipe and a string share n·v/2L, but a pipe's open end is an antinode;
