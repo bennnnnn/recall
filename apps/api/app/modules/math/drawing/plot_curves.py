@@ -339,7 +339,9 @@ def _curves(
         # to y = 4"): u5-083's x = √y was drawn only to y ≈ 1.
         start, end = (number(t) for t in curve.domain) if curve.domain else (None, None)
         held = (
-            stated_interval(start, end, question) if start is not None and end is not None else None
+            stated_interval(start, end, question, "y")
+            if start is not None and end is not None
+            else None
         )
         along = (float(held.low), float(held.high)) if held is not None else search
         fn = RealFunction(as_real(expr, _Y))
