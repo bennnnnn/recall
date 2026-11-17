@@ -10,6 +10,7 @@ has to be explicit or the request falls through unclaimed.
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 
 from app.modules.math.schemas import MathIntent
 from app.modules.math.solve.declines import sympy_decline
@@ -62,15 +63,25 @@ _LINES_BOUNDS_RE = re.compile(
     re.IGNORECASE,
 )
 # An interval the question states, whatever its bounds are written in: "from x = 1/e to",
-# "from 0 to", "between 1 and" (a bound with no x in it: "between 2x and x^2" names two
-# curves), "the lines x = …", "on [", "in the interval (": read
+# "from 0 to", "the lines x = …", "on [", "in the interval (", and "between …" below: read
 # strictly by ``_bounds`` or not at all, never replaced by where the curves meet.
 _STATED_INTERVAL_RE = re.compile(
-    r"\bfrom\s+(?:x\s*=\s*)?\S+\s+to\b|\bbetween\s+(?:x\s*=\s*)?(?![^\sx]*x)[-+(\d.πe]\S*\s+and\b|"
-    r"\blines\s+x\s*=|"
+    r"\bfrom\s+(?:x\s*=\s*)?\S+\s+to\b|\blines?\s+x\s*=|"
     r"\b(?:on|over|in)\s+(?:the\s+interval\s+)?[\[(]|(?:<=|≤|<)\s*x\s*(?:<=|≤|<)",
     re.IGNORECASE,
 )
+# "between x = √2 and", "between ln 2 and", "between 2x and": an interval when its first
+# bound is x = …, or holds no x (2x and sin x are curves: "the area between 2x and x^2").
+_BETWEEN_RE = re.compile(
+    r"\bbetween\s+(?P<named>x\s*=\s*)?"
+    r"(?P<bound>(?:[^,;?!.\s]|\.(?=\d)|\s(?!and\b)){1,30}?)\s+and\b",
+    re.IGNORECASE,
+)
+_VARIABLE_X = re.compile(r"(?<![a-z])x(?![a-z])", re.IGNORECASE)
+# One edge of a region that is a vertical line ("the line x = 2", "x = 0"): a bound.
+_VERTICAL_LINE = re.compile(r"(?:the\s+)?(?:vertical\s+)?(?:lines?\s+)?x\s*=\s*[^=xy]+", re.I)
+# Where one edge of a region ends and the next starts: a comma, "and", or both.
+_EDGE_BREAK = re.compile(r"\s*,\s*(?:and\s+)?|\s+and\s+", re.IGNORECASE)
 
 
 def _clean(raw: str) -> str | None:
@@ -147,15 +158,39 @@ def area_curves(cleaned: str) -> tuple[str, str] | None:
     """The two curves an area question names ("the area between y = x² + 1 and y = x":
     x^2 + 1 and x; the x-axis is 0), read from its prepared text (``match.prepare``) as
     the area reader reads them; None when it names no two."""
-    found = _area_between(cleaned)
-    return None if found is None else (found[0], found[1])
+    region = _area_between(cleaned)
+    return None if region is None else (region.first, region.second)
 
 
-def _area_between(
-    cleaned: str,
-) -> tuple[str, str, tuple[str, str, int] | None, int, int] | None:
-    """The two curves of the area the text asks, the interval its sentence states, and
-    where that sentence starts and ends."""
+def asks_area_between(cleaned: str) -> bool:
+    """The text asks the area between, enclosed by or bounded by curves it names."""
+    return _AREA_BETWEEN_RE.search(cleaned) is not None
+
+
+@dataclass(frozen=True)
+class _Region:
+    """The two curves of an area question, the interval its sentence states, and whether
+    the sentence states one at all (in a form ``_bounds`` may not read, or as a line)."""
+
+    first: str
+    second: str
+    interval: tuple[str, str, int] | None
+    stated: bool
+
+
+def _states_interval(text: str, start: int, stop: int, lead: re.Match[str]) -> bool:
+    """The sentence states an interval outside the area's own "area between"."""
+    folded = fold_operator_glyphs(text)
+    for low, high in ((start, lead.start()), (lead.end(), stop)):
+        if _STATED_INTERVAL_RE.search(folded, low, high):
+            return True
+        for between in _BETWEEN_RE.finditer(folded, low, high):
+            if between.group("named") or not _VARIABLE_X.search(between.group("bound")):
+                return True
+    return False
+
+
+def _area_between(cleaned: str) -> _Region | None:
     lead = _AREA_BETWEEN_RE.search(cleaned)
     if lead is None:
         return None
@@ -165,28 +200,33 @@ def _area_between(
     # the area's too (Gemini on #2481: 32/3 from the meeting points for 11/3).
     interval = after or _bounds(cleaned, start, lead.start())
     end = after[2] if after is not None else stop
-    body = cleaned[lead.end() : end].strip(" ,;.?!")
-    halves = re.split(r"\s*,?\s+and\s+", _CURVE_NAME.sub("", body), maxsplit=1, flags=re.I)
-    if len(halves) != 2:
+    body = _CURVE_NAME.sub("", cleaned[lead.end() : end].strip(" ,;.?!"))
+    # "y = x^2 + 1, y = x, and the line x = 2": edges listed with commas or "and"; a
+    # vertical line among them is a bound, not a curve (Gemini on #2481).
+    edges = [edge.strip() for edge in _EDGE_BREAK.split(body) if edge.strip()]
+    curves = [edge for edge in edges if not _VERTICAL_LINE.fullmatch(edge)]
+    if len(curves) != 2:
         return None
-    first, second = _curve(halves[0]), _curve(halves[1])
+    first, second = _curve(curves[0]), _curve(curves[1])
     if first is None or second is None:
         return None
-    return first, second, interval, start, stop
+    stated = len(curves) != len(edges) or _states_interval(cleaned, start, stop, lead)
+    return _Region(first, second, interval, stated)
 
 
 def _extract_area_between_intent(cleaned: str) -> MathIntent | None:
-    found = _area_between(cleaned)
-    if found is None:
+    region = _area_between(cleaned)
+    if region is None:
         return None
-    first, second, interval, start, stop = found
+    interval = region.interval
     if interval is None:
         # The stated interval wins: one its sentence writes in a form the bounds do not
-        # read ("from x = 1/e² to …") is never replaced by where the curves meet.
-        if _STATED_INTERVAL_RE.search(fold_operator_glyphs(cleaned), start, stop):
+        # read ("from x = 1/e² to …", "between x = √2 and …") is never replaced by where
+        # the curves meet.
+        if region.stated:
             return None
         # No interval stated: the region the curves enclose runs between where they meet.
-        meeting = _meeting_points(first, second)
+        meeting = _meeting_points(region.first, region.second)
         if meeting is None:
             return None
         low, high = meeting
@@ -196,8 +236,8 @@ def _extract_area_between_intent(cleaned: str) -> MathIntent | None:
         kind="calculus",
         operation="solve",
         school_op="area_between_curves",
-        expr=first,
-        expr2=second,
+        expr=region.first,
+        expr2=region.second,
         variable="x",
         integral_lower=low,
         integral_upper=high,

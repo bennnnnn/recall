@@ -23,8 +23,9 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
+from app.modules.math.match.scan import prepare
 from app.modules.math.tools import _build_verified_block, extract_math_intent
-from app.modules.math.tools.extractors.calculus_applications import _STATED_INTERVAL_RE
+from app.modules.math.tools.extractors.calculus_applications import _area_between
 
 
 def _settings() -> Settings:
@@ -282,7 +283,41 @@ def test_between_naming_the_curves_states_no_interval(text: str, answer: str) ->
     ],
 )
 def test_curves_after_between_are_not_a_stated_interval(text: str) -> None:
-    assert _STATED_INTERVAL_RE.search(text) is None
+    cleaned = prepare(text)
+    region = _area_between(cleaned) if cleaned else None
+    assert region is not None and not region.stated
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Gemini on #2481: a stated interval whose bounds the reader does not read is never
+        # replaced by where the curves meet (32/3 was checked for these).
+        "Between x = √2 and x = 2, find the area bounded by y = x^2 and y = 4.",
+        "Between x = sqrt(2) and x = 2, find the area bounded by y = x^2 and y = 4.",
+        "Find the area bounded by y = x^2 and y = 4 between ln 2 and 1.",
+        "Find the area bounded by y = x^2 and y = 4 between x = \\pi/4 and x = 1.",
+        # A vertical line among the edges bounds the region too.
+        "Find the area bounded by y = x^2, y = 4 and the line x = 1.",
+    ],
+)
+def test_an_unread_stated_interval_is_never_the_meeting_points(text: str) -> None:
+    assert _verified_answer(text) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        # Gemini on #2481: edges listed with commas, the textbook's wording.
+        (
+            "Find the area bounded by y = x^2 + 1, y = x, and the lines x = 0 and x = 2.",
+            "\\frac{8}{3}",
+        ),
+        ("Find the area between 4 and x^2.", "\\frac{32}{3}"),
+    ],
+)
+def test_edges_listed_with_commas_are_read(text: str, answer: str) -> None:
+    assert _verified_answer(text) == answer
 
 
 def test_the_area_answer_is_not_the_intersection_points() -> None:

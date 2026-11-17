@@ -29,7 +29,7 @@ from app.modules.math.fence_answer import same_spelling
 from app.modules.math.solve.latex_normalize import rewrite_abs_bars
 from app.modules.math.tool_check import parse_latex_formula
 from app.services.answer_fence import answer_fence_value, stated_answers
-from app.services.card_text import card_maths
+from app.services.card_text import card_maths, whole_maths
 from app.services.latex_groups import map_groups
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,6 @@ logger = logging.getLogger(__name__)
 _NOT_ONE_EXPRESSION = re.compile(r"=|,|;|\\(?:text|mathrm|quad|pm|mp|approx|begin|cup)\b|\n|≈")
 _CONSTANT = re.compile(r"\s*\+\s*C\s*$")
 _DECIMAL = re.compile(r"\d\.\d")
-_WHOLE_MATH = re.compile(r"\$\$?([^$]+)\$\$?")
 # A script TeX reads as one character, written as more: "x^12" is x^1 times 2, "x^-1".
 _LOOSE_SCRIPT = re.compile(r"[\^_](?:-|\d{2})")
 _STYLE = re.compile(r"\\(?:displaystyle|textstyle)\s*")
@@ -128,10 +127,10 @@ def _right_side(value: str) -> str | None:
     """What a stated line of maths gives: after its last ``=`` ("∫ … dx = ½ sec(…) + C").
     None for a sentence ("At $x = 1$: $…$"): only a line that is all maths states a value."""
     plain = value.strip().rstrip(".").strip()
-    whole = _WHOLE_MATH.fullmatch(plain)
-    if whole is not None:
-        plain = whole.group(1)
-    elif "$" in plain:
+    inside = whole_maths(plain)
+    if inside is not None:
+        plain = inside  # $…$, $$…$$, \(…\) or \[…\] (Gemini on #2481)
+    elif "$" in plain or "\\(" in plain or "\\[" in plain:
         return None
     side = plain.rsplit("=", 1)[-1]
     return _STYLE.sub("", side).strip().rstrip(".").strip()

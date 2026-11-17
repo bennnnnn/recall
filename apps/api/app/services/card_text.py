@@ -88,15 +88,24 @@ _POWER_INSIDE = re.compile(r"\\mathrm\{([A-Za-zµΩ/]+)(?:\^\{?([23])\}?|([²³]
 _SUPERSCRIPT = {"²": "2", "³": "3"}
 
 
+def whole_maths(value: str) -> str | None:
+    """The TeX inside ``value`` when it is all maths on one line, in any of its delimiters
+    ($…$, $$…$$, \\(…\\), \\[…\\]); None when it is not."""
+    whole = _WHOLE_MATH.fullmatch(value.strip())
+    if whole is None:
+        return None
+    return next(group for group in whole.groups() if group is not None).strip()
+
+
 def card_maths(value: str) -> str:
     """A card's value as the server writes one: TeX alone, with no delimiters around a value
     that is all maths (``$…$``, ``$$…$$``, ``\\(…\\)``), a unit in words set as text
     (``\\,\\text{square units}``, never ``\\mathrm``, which runs its words together), and a
     unit's power after the unit. Words beside the maths ("$5°$ from the normal") keep its
     marks: the phone draws the line as a sentence."""
-    whole = _WHOLE_MATH.fullmatch(value.strip())
-    if whole is not None:
-        value = next(group for group in whole.groups() if group is not None).strip()
+    inside = whole_maths(value)
+    if inside is not None:
+        value = inside
     value = _UPRIGHT_WORDS.sub(lambda m: rf"\text{{{' '.join(m.group(1).split())}}}", value)
     return _POWER_INSIDE.sub(
         lambda m: rf"\mathrm{{{m.group(1)}}}^{{{m.group(2) or _SUPERSCRIPT[m.group(3)]}}}", value

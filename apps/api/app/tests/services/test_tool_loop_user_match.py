@@ -151,6 +151,24 @@ _AREA_QUESTION = (
             "Find the area bounded by y = x^2 and y = 4 between 0 and 1.",
             False,
         ),
+        # The tool's start/end aliases are its bounds too: the signed 3/2 is no area.
+        (
+            {"action": "integrate", "expr": "x**2 - 3*x + 2", "start": "0", "end": "3"},
+            _AREA_QUESTION,
+            False,
+        ),
+        # Edges listed with commas: one curve alone is still a step.
+        (
+            {"action": "integrate", "expr": "x**2 + 1", "lower": "0", "upper": "2"},
+            "Find the area bounded by y = x^2 + 1, y = x, and the lines x = 0 and x = 2.",
+            False,
+        ),
+        # Curves the reader cannot name: no integrand is known to be the area.
+        (
+            {"action": "integrate", "expr": "x**2", "lower": "0", "upper": "1"},
+            "Find the area bounded by y = x^2, y = 4, y = 1 and x = 0.",
+            False,
+        ),
         # A curve and the x-axis: the curve is the gap.
         (
             {"action": "integrate", "expr": "x**2 + 1", "lower": "0", "upper": "2"},

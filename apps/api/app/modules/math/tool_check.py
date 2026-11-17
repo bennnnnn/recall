@@ -362,12 +362,17 @@ def _integrates_the_gap(expr: str, text: str) -> bool:
     y = x² + 1 and y = x" is a step of the working, not the area (Gemini on #2481). The
     x-axis is the curve 0, so one curve alone is its own gap there."""
     from app.modules.math.match.scan import prepare
-    from app.modules.math.tools.extractors.calculus_applications import area_curves
+    from app.modules.math.tools.extractors.calculus_applications import (
+        area_curves,
+        asks_area_between,
+    )
 
     cleaned = prepare(text)
-    curves = area_curves(cleaned) if cleaned else None
-    if curves is None:
+    if not cleaned or not asks_area_between(cleaned):
         return True
+    curves = area_curves(cleaned)
+    if curves is None:
+        return False  # two curves the reader cannot name: no integrand is known to be the gap
     integrand, first, second = _parse(expr), _parse(curves[0]), _parse(curves[1])
     if integrand is None or first is None or second is None:
         return False
@@ -377,6 +382,14 @@ def _integrates_the_gap(expr: str, text: str) -> bool:
 
 def _matches(args: dict[str, Any], user: _UserMath) -> bool:
     action = str(args.get("action") or "solve").strip().lower()
+    if action == "integrate":
+        # The tool integrates over lower|start to upper|end (``tool.py``): the check reads
+        # the bounds it integrates over, whichever name carries them (Gemini on #2481).
+        args = {
+            **args,
+            "lower": args.get("lower") or args.get("start"),
+            "upper": args.get("upper") or args.get("end"),
+        }
     if user.functions and _applies_a_function(args, user):
         return False
     if action == "solve":

@@ -131,6 +131,21 @@ def test_sympys_own_spelling_reads() -> None:
     assert read_tex(_LOG.removesuffix(" + C")) is not None
 
 
+@pytest.mark.parametrize(
+    "line",
+    [
+        r"\(\frac{1}{2}\sec\left(2x - \frac{\pi}{4}\right) + C\)",
+        r"\[\frac{1}{2}\sec\left(2x - \frac{\pi}{4}\right) + C\]",
+        r"\(\frac{1}{2}\sec\left(2x - \frac{\pi}{4}\right)\)",
+    ],
+)
+def test_a_line_in_any_maths_delimiter_states_its_form(line: str) -> None:
+    """Gemini on #2481: a \\(…\\) line got " + C" outside its delimiter, and a literal \\(
+    reached the verified card."""
+    card = in_working_form(_reply(line), _SEC, antiderivative=True)
+    assert card == r"\frac{1}{2}\sec\left(2x - \frac{\pi}{4}\right) + C"
+
+
 def test_a_bare_log_is_the_natural_log() -> None:
     """Gemini on #2481: calculus writes ∫1/x dx = \\log|x| + C, and SymPy prints ln as
     \\log; read as base 10, a right form was refused. \\log_{10} keeps its base."""
