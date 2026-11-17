@@ -16,6 +16,7 @@ from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from app.services.latex_markup import without_markup
 from app.services.law_binding.fit import read_givens
 from app.services.law_binding.givens import Given
 from app.services.law_binding.units import UnitTable
@@ -279,6 +280,29 @@ def replace_given(text: str, given: Given, value: str, unit: str) -> str:
     return text[: given.start] + f"{value} {unit}" + text[end:]
 
 
+# A number that names an item, not a value: "Solve 1", "question 9", "part 2", "Q3".
+_ITEM = re.compile(
+    r"\b(?:solve|question|problem|part|number|no\.?|item|exercise|example|q)[ \t]*#?[ \t]*$",
+    re.IGNORECASE,
+)
+# A number assigned to a symbol: "n = 2", "μ = 0", "N = 300", "k=4".
+_ASSIGNED = re.compile(r"(?<![\w])[^\W\d_][\w']{0,3}[ \t]*=[ \t]*$")
+
+
+def item_number(text: str, start: int) -> bool:
+    """The number at ``start`` names an item ("Solve 1", "question 9"), not a value."""
+    return _ITEM.search(text, max(0, start - 24), start) is not None
+
+
+def pure_value(text: str, start: int, end: int) -> bool:
+    """The pure number at ``start:end`` is a value of the problem: a decimal ("n = 1.5",
+    "0.25") or one assigned to a symbol ("n = 2", "μ = 0"), never an item's number. The
+    one rule the follow-up readers and chat's new-value read share."""
+    if item_number(text, start):
+        return False
+    return "." in text[start:end] or _ASSIGNED.search(text, max(0, start - 8), start) is not None
+
+
 def _same_value(one: Given, other: Given) -> bool:
     """One value: the same kind and size, a pure number by its number."""
     if one.dimension != other.dimension:
@@ -439,12 +463,14 @@ class GivenRewriter:
         )
 
     def _values(self, text: str) -> list[Given]:
-        """The values ``text`` states: each with its unit, and each decimal pure number (an
-        index, a coefficient); never a count or a question number."""
+        """The values ``text`` states: each with its unit, and each pure number that is a
+        value (``pure_value``: an index, a coefficient, "n = 2"); never a count or an
+        item's number."""
+        plain = without_markup(text)  # "$T_C = 200\\,\\mathrm{K}$" is 200 K
         return [
             given
-            for given in read_givens(text, self.units)
-            if given.dimension is not None or "." in text[given.start : given.end]
+            for given in read_givens(plain, self.units)
+            if given.dimension is not None or pure_value(plain, given.start, given.end)
         ]
 
     def _quoted(self, written: str, kind: list[Given], dimension: str) -> list[Given]:
