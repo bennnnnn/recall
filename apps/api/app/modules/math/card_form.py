@@ -36,7 +36,8 @@ logger = logging.getLogger(__name__)
 
 # A card of one expression: no relation, list, words or several branches.
 _NOT_ONE_EXPRESSION = re.compile(r"=|,|;|\\(?:text|mathrm|quad|pm|mp|approx|begin|cup)\b|\n|≈")
-_CONSTANT = re.compile(r"\s*\+\s*C\s*$")
+# The constant of integration as a reply writes it: "+ C", "- C", "+ c". The card writes "+ C".
+_CONSTANT = re.compile(r"\s*[+-]\s*[Cc]\s*$")
 _DECIMAL = re.compile(r"\d\.\d")
 # A script TeX reads as one character, written as more: "x^12" is x^1 times 2, "x^-1".
 _LOOSE_SCRIPT = re.compile(r"[\^_](?:-|\d{2})")
@@ -154,8 +155,9 @@ def in_working_form(reply: str, answer_body: str, *, antiderivative: bool) -> st
         shown = _right_side(stated) if stated else None
         if not shown:
             continue
-        if not _CONSTANT.search(shown):
-            shown += " + C"  # a line before its constant is written: the card writes it
+        # A line before its constant is written, or one writing "- C" or "+ c": the card
+        # writes " + C" (Gemini on #2481: "- C + C").
+        shown = _CONSTANT.sub("", shown) + " + C"
         if _copies(shown, value, server):
             continue  # the Answer copies the server's form: the working says it the reply's way
         return card_maths(shown) if _same_antiderivative(shown, server) else answer_body

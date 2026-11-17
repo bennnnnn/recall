@@ -357,25 +357,20 @@ def _answers_an_area(args: dict[str, Any], user: _UserMath) -> bool:
 
 
 def _integrates_the_gap(expr: str, lower: str, upper: str, text: str) -> bool:
-    """For an area between two curves, the integrand is the gap between them (either way
-    round; ``integral_is_an_area`` holds it to one sign) over the region's own bounds:
+    """For an area question, the integrand is the gap between the region's curves (either
+    way round; ``integral_is_an_area`` holds it to one sign) over the region's own bounds:
     ∫(x² + 1) for "the area between y = x² + 1 and y = x" is a step of the working, and so
-    is one piece of a region split where its curves cross (∫₂³ of "between x = 0 and
-    x = 3"), never the area (Gemini on #2481). The x-axis is the curve 0, so one curve
-    alone is its own gap there. A model that sums the pieces gets no check: correctness
-    over the tick."""
+    is one piece of a region split where its curves cross, or ∫₁² of "the area under
+    y = x² from 0 to 2" (Gemini on #2481). The x-axis is the curve 0, so one curve alone
+    is its own gap there. A region the area readers do not read whole gets no check, nor
+    does a model that sums pieces: correctness over the tick."""
     from app.modules.math.match.scan import prepare
-    from app.modules.math.tools.extractors.calculus_applications import (
-        area_region,
-        asks_area_between,
-    )
+    from app.modules.math.tools.extractors.calculus_applications import area_question_region
 
     cleaned = prepare(text)
-    if not cleaned or not asks_area_between(cleaned):
-        return True
-    region = area_region(cleaned)
+    region = area_question_region(cleaned) if cleaned else None
     if region is None:
-        return False  # curves or bounds the reader cannot name: no integral is known the area
+        return False
     read = [_parse(part) for part in (*region, expr, lower, upper)]
     parsed = [part for part in read if part is not None]
     if len(parsed) != len(read):

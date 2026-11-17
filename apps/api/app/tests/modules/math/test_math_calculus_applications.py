@@ -305,8 +305,10 @@ def test_curves_after_between_are_not_a_stated_interval(text: str) -> None:
         "Find the area bounded by y = x^2 and y = 4 for 1 + e <= x <= 5.",
         # Two curves are never read as one: "and y = 4" was dropped, 1/3 for 11/3.
         "Find the area under y = x^2 and y = 4 from 0 to 1.",
-        # A vertical line among the edges bounds the region too.
+        # A vertical line with crossings on both sides of it closes no one region, and
+        # one that disagrees with the interval stated is no edge of it (Gemini on #2481).
         "Find the area bounded by y = x^2, y = 4 and the line x = 1.",
+        "Find the area bounded by y = x^2, y = 4, and the line x = 1 from x = 0 to x = 3.",
     ],
 )
 def test_an_unread_stated_interval_is_never_the_meeting_points(text: str) -> None:
@@ -322,6 +324,10 @@ def test_an_unread_stated_interval_is_never_the_meeting_points(text: str) -> Non
             "\\frac{8}{3}",
         ),
         ("Find the area between 4 and x^2.", "\\frac{32}{3}"),
+        # Gemini on #2481: a vertical line bounds the region with the curves' crossing.
+        ("Find the area of the region bounded by y = x^2, y = 0, and x = 2.", "\\frac{8}{3}"),
+        ("Find the area bounded by y = sqrt(x), y = 0 and x = 4.", "\\frac{16}{3}"),
+        ("Find the area bounded by y = x^2, y = x, x = 0 and x = 2.", "1"),
         ("Find the area bounded by y = x^2 and y = 4 for 0 <= x <= 1.", "\\frac{11}{3}"),
     ],
 )

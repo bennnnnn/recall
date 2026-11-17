@@ -169,6 +169,19 @@ def test_a_finished_fraction_is_no_step(line: str) -> None:
     assert not _uncombined(read_tex(line.strip("$").removesuffix(" + C"), evaluate=False))
 
 
+@pytest.mark.parametrize("constant", ["+ C", "- C", "+ c", "-c", ""])
+def test_the_constant_is_written_once_as_plus_c(constant: str) -> None:
+    """Gemini on #2481: "- C" and "+ c" were no constant, and the card read "- C + C"."""
+    reply = _reply(rf"$\frac{{1}}{{2}}\sec\left(2x - \frac{{\pi}}{{4}}\right) {constant}$")
+    card = in_working_form(reply, _SEC, antiderivative=True)
+    assert card == r"\frac{1}{2}\sec\left(2x - \frac{\pi}{4}\right) + C"
+
+
+def test_a_letter_c_inside_the_form_is_no_constant() -> None:
+    reply = _reply(r"$\frac{1}{2}\sec\left(2x - \frac{\pi}{4}\right) + c x + C$")
+    assert in_working_form(reply, _SEC, antiderivative=True) == _SEC
+
+
 def test_a_bare_log_is_the_natural_log() -> None:
     """Gemini on #2481: calculus writes ∫1/x dx = \\log|x| + C, and SymPy prints ln as
     \\log; read as base 10, a right form was refused. \\log_{10} keeps its base."""

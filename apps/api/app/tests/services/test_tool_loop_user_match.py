@@ -176,6 +176,23 @@ _AREA_QUESTION = (
             _AREA_QUESTION,
             False,
         ),
+        # Gemini on #2481: every area question's integral is held to its region, the
+        # region under one curve and above another included, and its full bounds.
+        (
+            {"action": "integrate", "expr": "x**2 + 1", "lower": "0", "upper": "2"},
+            "Find the area under y = x^2 + 1 and above y = x from x = 0 to x = 2.",
+            False,
+        ),
+        (
+            {"action": "integrate", "expr": "x**2", "lower": "1", "upper": "2"},
+            "Find the area under y = x^2 from 0 to 2.",
+            False,
+        ),
+        (
+            {"action": "integrate", "expr": "x**2", "lower": "0", "upper": "2"},
+            "Find the area under y = x^2 from 0 to 2.",
+            True,
+        ),
         # A curve and the x-axis: the curve is the gap.
         (
             {"action": "integrate", "expr": "x**2 + 1", "lower": "0", "upper": "2"},
