@@ -47,12 +47,30 @@ class Charge:
     written: str
 
 
-def stated_charges(texts: Sequence[str]) -> list[Charge]:
+def stated_charges(texts: Sequence[str], part: str | None = None) -> list[Charge]:
     """The charges the picture's own question states: the message that asks for it, or the
     problem a follow-up points to, always the first text. An earlier turn's charges ("3.0 C
-    and 2.0 C" before "draw a positive charge") are never this picture's."""
+    and 2.0 C" before "draw a positive charge") are never this picture's, nor another
+    part's: part a's picture holds only the question's stem and part a ("a) a positive
+    charge b) a +3 nC charge" sizes no charge of part a)."""
     text = texts[0] if texts else ""
+    span = _part_span(text, part)
+    if span is not None:
+        stem, start, end = span
+        text = f"{text[:stem]} {text[start:end]}"
     return _in_units(text) + _in_q(text)
+
+
+def _part_span(text: str, part: str | None) -> tuple[int, int, int] | None:
+    """Where ``text``'s stem ends and part ``part``'s own words start and end, when it has
+    lettered parts and that one; None otherwise. The one slicing both the charges and the
+    named signs of a part read."""
+    markers = list(_PART.finditer(text))
+    for index, marker in enumerate(markers):
+        if part is not None and marker.group(1) == part:
+            end = markers[index + 1].start() if index + 1 < len(markers) else len(text)
+            return markers[0].start(), marker.end(), end
+    return None
 
 
 @dataclass(frozen=True)
@@ -197,17 +215,15 @@ def named_signs(texts: Sequence[str], part: str | None) -> tuple[list[int], bool
     question with no parts) or only all the parts' together. None when it names no sign."""
     for whole in texts[:1]:
         text = _through_the_request(whole)
-        markers = list(_PART.finditer(text))
-        if part is not None and markers:
-            for index, marker in enumerate(markers):
-                if marker.group(1) == part:
-                    end = markers[index + 1].start() if index + 1 < len(markers) else len(text)
-                    signs = _signs(text[marker.end() : end])
-                    if signs:
-                        return signs, True
+        span = _part_span(text, part)
+        if span is not None:
+            _stem, start, end = span
+            signs = _signs(text[start:end])
+            if signs:
+                return signs, True
         signs = _signs(text)
         if signs:
-            return signs, not markers
+            return signs, _PART.search(text) is None
     return None
 
 

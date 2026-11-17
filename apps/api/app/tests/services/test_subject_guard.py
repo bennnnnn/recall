@@ -32,7 +32,7 @@ class _Raising:
     """Every member a subject has, each raising."""
 
     def __getattr__(self, member: str) -> Any:
-        return _aboom if member in {"solve", "read", "draw"} else _boom
+        return _aboom if member in {"solve", "read", "draw", "described", "answer"} else _boom
 
 
 class _BrokenSubject:
@@ -44,6 +44,7 @@ class _BrokenSubject:
     photo = _Raising()
     tool = _Raising()
     figure = _Raising()
+    formal = _Raising()
 
     def __getattr__(self, member: str) -> Any:
         return _aboom if member == "solve" else _boom
@@ -86,6 +87,8 @@ async def test_subject_guard_every_member_answers_neutrally(broken: GuardedSubje
     assert followups.asks_to_see("draw it") is False
     assert followups.shown_problem("draw it", []) is None
     assert followups.changed_problem("p", [(None, "10 s")]) is None
+    assert followups.restates("p", "l") is False
+    assert followups.takes_every_change("p", "r", "l", ["10 s"]) is False
     assert broken.photo is not None
     assert await broken.photo.read(
         "caption", image_attachments=[], load_image=_aboom, settings=settings, on_status=None
@@ -102,6 +105,10 @@ async def test_subject_guard_every_member_answers_neutrally(broken: GuardedSubje
     assert broken.figure.whole("t") is True
     assert broken.figure.adds_to("t", "f") is False
     assert broken.figure.without_substitutes("t") == "t"
+    assert await broken.figure.described(["d"], ["q"], "reply", settings) == []
+    assert broken.figure.without_drawn_substitutes("reply", "q") == "reply"
+    assert broken.formal is not None
+    assert await broken.formal.answer("q", settings) is None
 
 
 def test_subject_guard_logs_each_failing_member_once(

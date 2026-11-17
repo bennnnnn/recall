@@ -188,3 +188,20 @@ def test_a_plural_sign_is_every_listed_q_multiples() -> None:
     """ "two negative point charges of 2q and q": both negative (Gemini, PR #2482)."""
     question = "Draw the field of two negative point charges of 2q and q placed 10 cm apart."
     assert [charge.sign for charge in stated_charges([question])] == [-1, -1]
+
+
+def test_a_parts_picture_takes_only_its_own_charges() -> None:
+    """ "a) a positive charge b) a +3 nC charge": part a states no amount, so its sign-only
+    block stands; part a's block never takes part b's +3 nC (Gemini, PR #2482; Codex, PR
+    #2490)."""
+    question = "Draw the field lines around a) a positive charge b) a +3 nC charge."
+    part_a = json.dumps({"kind": "field", "part": "a", "charges": [{"sign": "+"}]})
+    taken = json.dumps({"kind": "field", "part": "a", "charges": [{"sign": "+", "amount": "3 nC"}]})
+    part_b = json.dumps(
+        {"kind": "field", "part": "b", "charges": [{"sign": "+", "amount": "3 nC"}]}
+    )
+    assert stated_charges([question], "a") == []
+    assert [c.written for c in stated_charges([question], "b")] == ["3 nC"]
+    assert read_description(part_a, [question]) is not None
+    assert read_description(taken, [question]) is None
+    assert read_description(part_b, [question]) is not None

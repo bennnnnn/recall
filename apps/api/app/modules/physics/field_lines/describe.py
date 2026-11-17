@@ -95,7 +95,7 @@ def _charges(
     sign; with none stated, signs alone (no amount may be made up), as many of each as the
     question names in words: one positive charge is no picture of "two negative charges"."""
     signs: list[Literal[1, -1]] = [-1 if charge.sign != "+" else 1 for charge in charges]
-    stated = stated_charges(texts)
+    stated = stated_charges(texts, part)
     if not stated:
         if any(charge.amount is not None for charge in charges):
             return None
