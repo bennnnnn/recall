@@ -24,7 +24,7 @@ BRACKETS = re.compile(r"\[\s*([^\[\],]{1,16}),\s*([^\[\],]{1,16})\]")
 # An interval in words: "from -π/2 to π/2", "from x = 0 to x = 2", "between x = 1 and x = 2".
 _FROM_TO = re.compile(
     rf"\b(?P<word>from|between)\s(?P<named>[a-z]\s?=\s?)?(?P<low>{_VALUE})\s(?:to|and)\s"
-    rf"(?:[a-z]\s?=\s?)?(?P<high>{_VALUE})"
+    rf"(?P<named_high>[a-z]\s?=\s?)?(?P<high>{_VALUE})"
 )
 # Words before "between A and B" that say it of a value, not of x: "is between 2 and 3".
 # A region "lying between 1 and 3" lies between values of x.
@@ -59,6 +59,11 @@ class Interval:
     # The letter it is said of when the question names it ("from y = 0 to y = 4": "y").
     of: str = ""
 
+    def of_x(self, variables: frozenset[str]) -> bool:
+        """Said of x: of no letter, or of the question's own variable (x, or t for v(t));
+        "where u runs from u = 1 to u = 4" is of no curve's across."""
+        return not self.of or self.of in variables
+
 
 def _compared(text: str, letter: str) -> bool:
     """``text`` compares ``letter`` with something ("0 ≤ y", "y < 4")."""
@@ -83,7 +88,8 @@ def intervals(text: str, variables: frozenset[str]) -> list[Interval]:
         said_of_value = match.group("word") == "between" and not match.group("named")
         if said_of_value and _SAID_OF_A_VALUE & set(before):
             continue
-        named = (match.group("named") or "").strip(" =")
+        # The letter either end names: "from y = 0 to y = 4", "from 0 to y = 4".
+        named = (match.group("named") or match.group("named_high") or "").strip(" =")
         pairs.append((match.group("low"), match.group("high"), named))
     for low, high, of in pairs:
         a, b = number(low), number(high)

@@ -193,12 +193,20 @@ class PlotQuestion:
     # Every estimate it names, rectangles or not ("the trapezoidal rule").
     estimates: frozenset[str] = frozenset()
     antiderivatives: bool = False
+    # The letters its curves are written in: x, and t for v(t).
+    variables: frozenset[str] = frozenset({"x"})
 
     @property
     def x_values(self) -> tuple[Any, ...]:
-        """Every value it says of x: its intervals' ends, its lines and its points."""
-        ends = [end for interval in self.intervals for end in (interval.low, interval.high)]
+        """Every value it says of x: its intervals of x's ends, its lines and its points;
+        never an interval of y ("from y = 0 to y = 2π")."""
+        ends = [end for interval in self.x_intervals for end in (interval.low, interval.high)]
         return (*ends, *self.edges, *self.x_points, *(x for x, _y in self.pairs))
+
+    @property
+    def x_intervals(self) -> tuple[Interval, ...]:
+        """The intervals it says of x, or of its own variable (t for v(t))."""
+        return tuple(i for i in self.intervals if i.of_x(self.variables))
 
     def domain_of(self, expr: Any) -> Domain | None:
         """The domain the question writes ``expr`` with ("defined for 0 ≤ x ≤ 3", "for
@@ -529,6 +537,7 @@ def read_plot_question(texts: Sequence[str]) -> PlotQuestion:
         # The motion's interval is said of the motion itself: of every region on its graph.
         ties=tuple(tie for text in readable for tie in _ties(text, letters))
         + tuple((interval, (), True) for interval in motion),
+        variables=frozenset(variables),
         edges=tuple(v for lines, _points in xs for v in lines),
         x_points=tuple(v for _lines, points in xs for v in points),
         y_points=tuple(v for lines, points in ys for v in points if v not in lines),
