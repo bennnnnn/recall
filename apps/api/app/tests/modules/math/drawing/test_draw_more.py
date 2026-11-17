@@ -252,3 +252,31 @@ def test_angle_bracket_vectors_from_the_origin_are_drawn_flat(written: tuple[str
     figure = _space(question, _vector("u", [2, 1, 0]), _vector("v", [1, 3, 0]))
     assert figure is not None and "z" not in _shown(figure)
     assert _at(figure, "u") == pytest.approx((2, 1)) and _at(figure, "v") == pytest.approx((1, 3))
+
+
+def test_an_angle_bracket_vector_with_a_minus_sign_is_read() -> None:
+    question = "Draw the vectors u = ⟨2, −1⟩ and v = ⟨1, 3⟩."
+    figure = _space(question, _vector("u", [2, -1, 0]), _vector("v", [1, 3, 0]))
+    assert figure is not None and _at(figure, "u") == pytest.approx((2, -1))
+
+
+@pytest.mark.parametrize(
+    "question",
+    ["The complex number z = 1/2 + 3/2i is the vector (1/2, 3/2).", "z = 1 + 1/2i is (1, 1/2)."],
+)
+def test_a_complex_number_with_fractions_is_no_z_coordinate(question: str) -> None:
+    from app.modules.math.drawing.question import read_question
+
+    assert read_question([question], "").flat
+
+
+def test_equally_near_segments_name_their_length_once() -> None:
+    graph = _plot(
+        "Find the points on y = x^2 nearest to (0, 2) and draw the distances.",
+        _curve("f", "x^2"),
+        {"item": "nearest", "on": "f", "to": ["0", "2"]},
+        reply="The distance is √7/2 ≈ 1.32.",
+    )
+    assert graph is not None
+    labels = [line.label for line in graph.lines if line.role == "segment"]
+    assert len(labels) == 2 and labels.count("") == 1  # one row names the shared length

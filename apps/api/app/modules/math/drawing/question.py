@@ -230,8 +230,9 @@ _ANGLE_PAIR = re.compile(
 
 
 def round_brackets(text: str) -> str:
-    """``text`` with each angle-bracket vector written in round brackets."""
-    return _ANGLE_PAIR.sub(r"(\1)", text)
+    """``text`` with each angle-bracket vector written in round brackets, its minus signs
+    as hyphens first ("⟨2, -1⟩" written with a minus sign)."""
+    return _ANGLE_PAIR.sub(r"(\1)", text.replace("\u2212", "-"))
 
 
 def _at(written: Point, at: Point) -> Point:
@@ -250,9 +251,11 @@ def _plane_vectors(text: str) -> set[tuple[Fraction, Fraction]]:
 
 
 _EXACT_PLACES = 9
-# A z-coordinate or a plane z = c the question writes; a complex z = a + bi is none.
+# A z-coordinate or a plane z = c the question writes; a complex z = a + bi is none, its
+# parts written as fractions too ("z = 1/2 + 3/2i").
 _Z_COORDINATE = re.compile(
-    r"\bz\s*=\s*[-+]?\d+(?:\.\d+)?(?![\d.])(?!\s*[-+]\s*\d*(?:\.\d+)?\s*i\b)(?!\s*i\b)"
+    r"\bz\s*=\s*[-+]?\d+(?:\.\d+)?(?:/\d+)?(?![\d./])"
+    r"(?!\s*[-+]\s*\d*(?:\.\d+)?(?:/\d+)?\s*i\b)(?!\s*i\b)"
     r"|\bz-coordinate|\bz-axis"
 )
 

@@ -246,6 +246,7 @@ def nearest(item: Nearest, question: PlotQuestion, scene: Scene) -> None:
     color = scene.mark_color()
     target = DrawnPoint(float(a), float(b), point_text(a, b), color=color)
     scene.add_point(target)
+    named = False
     for x in lows:
         if distance.at(x) > best * (1 + 1e-9) + 1e-12:
             continue
@@ -260,7 +261,9 @@ def nearest(item: Nearest, question: PlotQuestion, scene: Scene) -> None:
         )
         ends = ((place.x, place.y), (target.x, target.y))
         held = (math.sqrt(distance.at(x)),)
+        # Equally near points share one length: one legend row names it, on the first.
+        label, named = ("" if named else length), True
         scene.marks.append(
-            DrawnLine(role="segment", ends=ends, label=length, color=color, held=held)
+            DrawnLine(role="segment", ends=ends, label=label, color=color, held=held)
         )
     scene.equal = True
