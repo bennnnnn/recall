@@ -39,7 +39,7 @@ from pydantic import BaseModel, Field
 from app.core.config import Settings
 from app.core.readings import keep_for_turn, kept_for_turn, read_aside
 from app.modules.chat.referent_read import ask_read, chat_before
-from app.services.problem_followup import item_number
+from app.services.problem_followup import stated_numbers
 from app.services.solving import SubjectName
 from app.services.text_normalize import collapse_ws
 
@@ -51,8 +51,6 @@ _MAX_WORDS = 12
 # "repeat the calculation" question, which says why before what changes.
 _MAX_RESTATED_WORDS = 80
 _STATES_A_VALUE = re.compile(r"\d")
-# A number as written: a line that states one its problem does not is no "solve it again".
-_NUMBER = re.compile(r"\d+(?:\.\d+)?")
 
 # Most values one line changes at once.
 _MAX_CHANGES = 4
@@ -171,12 +169,8 @@ def states_new_values(line: str, problem: str) -> bool:
 
     if any(adapter.followups.states_new(problem, line) for adapter in SUBJECTS):
         return True
-    plain = _unlatexed(line)
-    stated = set(_NUMBER.findall(_unlatexed(problem)))
-    return any(
-        match.group() not in stated and not item_number(plain, match.start())
-        for match in _NUMBER.finditer(plain)
-    )
+    # As a multiset: "3x + 3 = 7" after "2x + 3 = 7" writes a second 3, a new number.
+    return bool(stated_numbers(line) - stated_numbers(problem))
 
 
 def _line_value(line: str, new: str | None) -> str | None:

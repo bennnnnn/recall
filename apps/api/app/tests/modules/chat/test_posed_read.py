@@ -362,3 +362,18 @@ def test_a_new_value_is_read_with_its_unit_and_an_item_number_is_none(line: str,
     """Bare numbers missed "20 minutes" after "20 seconds" (a misread solve gave 6 m/s)
     and counted "Solve 1" as a value (Gemini, PR #2482)."""
     assert posed_read.states_new_values(line, _CAR) is new
+
+
+@pytest.mark.parametrize(
+    ("line", "problem", "new"),
+    [
+        # A second 3 is a new number: counted as a multiset.
+        ("What if it were 3x + 3 = 7?", "Solve 2x + 3 = 7", True),
+        ("What if it were 2x + 3 = 7?", "Solve 2x + 3 = 7", False),
+    ],
+)
+def test_a_repeated_number_the_problem_writes_once_is_new(
+    line: str, problem: str, new: bool
+) -> None:
+    """ "3x + 3 = 7" after "2x + 3 = 7" read as no new value (Gemini, PR #2482)."""
+    assert posed_read.states_new_values(line, problem) is new

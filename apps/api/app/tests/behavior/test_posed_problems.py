@@ -413,3 +413,13 @@ def test_an_integer_assigned_to_a_symbol_is_a_value_a_change_must_take(
     assert followups.states_new(problem, line)
     # An item's number is no value: "Solve question 2" states nothing new.
     assert not followups.states_new(problem, "Solve question 2 the same way.")
+
+
+def test_a_maths_change_must_take_every_number_the_line_writes() -> None:
+    """ "What if it were 5x + 3 = 13?" read as only 2x -> 5x was certified as 5x + 3 = 7
+    (Gemini, PR #2482): maths now holds the rewrite to every number the line writes."""
+    followups = subject_adapter("math").followups
+    problem = "Solve 2x + 3 = 7"
+    line = "What if it were 5x + 3 = 13?"
+    assert not followups.takes_every_change(problem, "Solve 5x + 3 = 7", line, ["5x"])
+    assert followups.takes_every_change(problem, "Solve 5x + 3 = 13", line, ["5x", "13"])
