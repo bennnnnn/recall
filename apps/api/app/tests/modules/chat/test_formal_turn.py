@@ -257,6 +257,27 @@ async def test_a_reply_in_parts_gets_no_trailing_card(answer: list[str], reply: 
 @pytest.mark.parametrize(
     "question",
     [
+        # Codex and Gemini on #2489: a part asks by its verb, or the clause before the
+        # labels asks for them.
+        "A ball is kicked at 18 m/s at 35° above the ground. (a) Find the flight time; "
+        "(b) Find the range.",
+        "A ball is kicked at 18 m/s at 35° above the ground, find (a) the flight time and "
+        "(b) the range.",
+        "A ball is kicked at 18 m/s at 35° above the ground. Calculate: (a) the flight time "
+        "(b) the range",
+    ],
+)
+async def test_parts_asked_by_instruction_get_no_trailing_card(
+    answer: list[str], question: str
+) -> None:
+    reply = "**Answer**\n\n(a) The flight time is 2.1 s. (b) The range is 32.4 m."
+    text = await _finalized(_ctx(question, live_read=_read()), reply)
+    assert text == reply
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
         # Labels that name things in the statement ask nothing: one answer, one correction
         # (review of phys30, 2026-11-16).
         "Two blocks (A) and (B) are kicked at 18 m/s at 35° above the ground. How far do they land?",

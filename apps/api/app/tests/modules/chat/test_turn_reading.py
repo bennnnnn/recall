@@ -105,6 +105,33 @@ async def test_a_message_read_once_answers_the_sync_readers() -> None:
     assert detect_subject("A 2 kg ball falls 5 m. Find its speed.") == "physics"
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "My car loan is $20,000 at 6% for 5 years. What is my monthly payment?",
+        "A 2 kg ball falls 5 m. Find its speed.",
+    ],
+)
+async def test_routing_asks_whether_a_line_is_money_in_the_pool(
+    monkeypatch: pytest.MonkeyPatch, text: str
+) -> None:
+    """Gemini on #2489: routing asks the money reader of every line no maths owns; that
+    is word rules over the whole message, so the turn's pool read answers it."""
+    from app.modules.money import subject as money_subject
+    from app.services.subjects.registry import MONEY
+
+    begin_turn()
+    money_subject._reads_money.cache_clear()
+    await read_turn_message(text, [], Settings())
+    money_subject._reads_money.cache_clear()
+
+    def on_the_loop(_: str) -> None:
+        raise AssertionError("the money read ran on the loop")
+
+    monkeypatch.setattr("app.modules.money.read.read_money_request", on_the_loop)
+    assert MONEY.reads(text) is text.startswith("My car loan")
+
+
 class _PicklingExecutor(ThreadSympyExecutor):
     """The thread executor, with the process boundary's pickling on the way in and out."""
 

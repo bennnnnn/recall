@@ -100,7 +100,7 @@ def _as_its_letter(given: Given) -> bool:
     is its own symbol, or none, or words. It is listed by its meaning, ``$M$ (mass of the
     rod)``, never as "M = M kg" (RLC and rod questions, 2026-11-11)."""
     value = _SPACING.sub("", tidy_tex(given.value))
-    own = value == _SPACING.sub("", tidy_symbol(given.symbol))
+    own = value == _symbol_key(given.symbol)
     return not value or own or _in_words(given.value)
 
 
@@ -399,7 +399,7 @@ def _find_rows(solution: WorkedSolution) -> tuple[str, ...]:
     concluded = _concluded(solution)
     return tuple(
         text_line(prose_maths(item.meaning))
-        if item.meaning and item.symbol in concluded
+        if item.meaning and _symbol_key(item.symbol) in concluded
         else text_line(prose_maths(item.symbol), prose_maths(item.meaning) or None)
         if names_nothing(item.symbol)
         else math_line(tidy_symbol(item.symbol), prose_maths(item.meaning) or None)
@@ -407,12 +407,18 @@ def _find_rows(solution: WorkedSolution) -> tuple[str, ...]:
     )
 
 
+def _symbol_key(symbol: str) -> str:
+    """``symbol`` as one key however it is braced or spaced: s1, s_1 and s_{1} alike."""
+    return _SPACING.sub("", tidy_symbol(symbol))
+
+
 def _concluded(solution: WorkedSolution) -> set[str]:
     """The symbols whose answer is a conclusion in words ("yes, all the ice melts"): no
     quantity, so they are asked by their words alone; "$slide_{back}$ (whether it slides
-    back)" set an invented symbol in maths (phys30, 2026-11-16)."""
+    back)" set an invented symbol in maths (phys30, 2026-11-16). Compared tidied:
+    s_1 in Find is s_{1} in the answer (Gemini on #2489)."""
     return {
-        answer.symbol
+        _symbol_key(answer.symbol)
         for part in solution.parts
         for answer in part.answers
         if answer.symbol and _in_words(answer.value)

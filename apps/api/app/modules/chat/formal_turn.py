@@ -108,17 +108,22 @@ def _in_parts(reply: str, question: str) -> bool:
 
 
 def _asks_in_parts(question: str) -> bool:
-    """Each labelled part asks something: each is a question of its own ("(a) How long …?
-    (b) How far …?"), or the sentence before them asks for the list ("Find (a) the time,
-    (b) the range"). A label inside the statement ("blocks (A) and (B)", "(i) 4 Ω and
-    (ii) 6 Ω in parallel") names a thing and asks nothing (review of phys30, 2026-11-16)."""
+    """Each labelled part asks something: each is a question or an instruction of its own
+    ("(a) How long …? (b) How far …?", "(a) Find the flight time; (b) Find the range"), or
+    the sentence or clause before them asks for the list ("Find (a) the time, (b) the
+    range", "… at 35°, find (a) … and (b) …"). A label inside the statement ("blocks (A)
+    and (B)", "(i) 4 Ω and (ii) 6 Ω in parallel") names a thing and asks nothing (review
+    of phys30, 2026-11-16; Codex and Gemini on #2489)."""
     lead, parts = labelled_part_texts(question)
     if len(parts) < 2:
         return False
-    if all("?" in part for part in parts):
+    if all("?" in part or ASKED_SENTENCE.match(part.strip()) for part in parts):
         return True
     last = re.split(r"(?<=[.!?])\s+", lead.strip())[-1] if lead.strip() else ""
-    return bool(last) and ASKED_SENTENCE.fullmatch(last.rstrip(" :")) is not None
+    clause = re.split(r"[,;:]\s*", last.rstrip(" :"))[-1]
+    return any(
+        ASKED_SENTENCE.fullmatch(said.strip()) for said in (last.rstrip(" :"), clause) if said
+    )
 
 
 async def attach_formal(state: FinalizeState) -> str:

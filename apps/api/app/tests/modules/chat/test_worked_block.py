@@ -535,6 +535,16 @@ def test_a_conclusion_is_written_in_words_on_its_card() -> None:
     assert "$s$ (whether it slides back)" not in render_worked(solution, OTHER)
 
 
+def test_a_conclusion_is_asked_by_its_words_however_its_symbol_is_braced() -> None:
+    """Gemini on #2489: s_1 in Find and s_{1} in the answer are one symbol."""
+    solution = _solution(
+        "required: s_1 | whether it slides back\n"
+        "answer: s_{1} | yes | | static friction cannot hold it"
+    )
+    assert "$s_1$ (whether it slides back)" not in render_worked(solution, OTHER)
+    assert "whether it slides back" in render_worked(solution, OTHER)
+
+
 def test_a_conclusion_s_tex_specials_are_escaped() -> None:
     """Review of phys30: "yes & no" in ``\\text{}`` broke the group."""
     from app.modules.chat.worked_render import words_tex
