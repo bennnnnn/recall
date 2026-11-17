@@ -27,7 +27,8 @@ from typing import TYPE_CHECKING, Literal
 
 from app.core.config import Settings
 from app.modules.chat.draw_stream import without_draw_blocks
-from app.modules.chat.figure_turn import earlier_user_lines, read_asks_for_a_picture
+from app.modules.chat.drawn_picture import solve_draws
+from app.modules.chat.figure_turn import earlier_user_lines
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.turn_decision import TurnDecision
@@ -103,6 +104,17 @@ def _a_maths_turn(ctx: StreamContext) -> bool:
     return kept is not None and kept.text == ctx.user_message_content and kept.subject == "math"
 
 
+def _words_subject(ctx: StreamContext) -> SubjectName | None:
+    """The subject whose reply may describe a picture the message asks for in words, when
+    the read is late: maths, or physics, as the subject readers read the message."""
+    if _a_maths_turn(ctx):
+        return "math"
+    kept = current_turn_reading()
+    if kept is not None and kept.text == ctx.user_message_content and kept.subject == "physics":
+        return "physics"
+    return None
+
+
 def _asks_in_words(ctx: StreamContext) -> bool:
     return _ASKS_TO_SEE.search(ctx.user_message_content or "") is not None
 
@@ -117,7 +129,7 @@ async def _read_for_a_picture(ctx: StreamContext, deadline: float) -> TurnDecisi
     line = ctx.user_message_content or ""
     if task is None or not _asks_in_words(ctx):
         return None
-    if not (_a_maths_turn(ctx) or may_be_a_maths_picture(line)):
+    if _words_subject(ctx) is None and not may_be_a_maths_picture(line):
         return None
     left = deadline - asyncio.get_running_loop().time()
     if left > 0:
@@ -181,13 +193,16 @@ async def ask_for_a_drawing(
     if read is not None and read.subject is not None and read.picture is not None:
         subject = _described_by(read)
         asked = "read" if subject is not None else None
-    elif _a_maths_turn(ctx) and _asks_in_words(ctx):
-        asked = "words"
+    elif _asks_in_words(ctx):
+        subject = _words_subject(ctx)
+        asked = "words" if subject is not None else None
     if asked is None or subject is None:
         return
-    # A physics solve draws its own picture (a scene, a circuit, rays), which no
-    # description adds to.
-    if subject == "physics" and ctx.verified_subject is not None:
+    # A physics solve that drew the picture asked for (a scene, a circuit, rays) needs no
+    # description; one that drew none ("calculate the field strength and draw its lines")
+    # still gets the contract.
+    kind = read.picture if read is not None and read.picture is not None else "diagram"
+    if subject == "physics" and solve_draws(ctx.verified_subject, kind):
         return
     # A subject turned off draws nothing, and its reply is asked for no description.
     figure = _figure(subject) if subject_adapter(subject).enabled(settings) else None
@@ -209,7 +224,7 @@ def _still_wanted(ctx: StreamContext, drawing: ReplyDrawing) -> bool:
     decision = read.result()
     if decision is None or decision.subject is None or decision.picture is None:
         return True
-    return read_asks_for_a_picture(decision)
+    return _described_by(decision) == drawing.subject
 
 
 async def attach_drawing(state: FinalizeState) -> str:

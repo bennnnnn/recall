@@ -108,3 +108,41 @@ def held_to(described: Sequence[Charge], stated: Sequence[Charge]) -> list[Charg
         left.remove(match)
         held.append(match)
     return held
+
+
+# "a positive and a negative charge", "two negative charges", "two equal positive charges":
+# the signs a question names in words, each as many times as its count says.
+_SIGN_WORD = re.compile(
+    r"\b(?:(?P<count>two|three|2|3)[ \t]+(?:[a-z]+[ \t]+)?)?(?P<sign>positive|negative)\b",
+    re.IGNORECASE,
+)
+# "a)" or "(a)": where a part of the question starts.
+_PART = re.compile(r"(?<![\w(])\(?([a-h])\)")
+_COUNTS = {"two": 2, "three": 3, "2": 2, "3": 3}
+
+
+def named_signs(texts: Sequence[str], part: str | None) -> tuple[list[int], bool] | None:
+    """The signs the question names in words, in its part ``part`` when it has one, and
+    whether they are the whole picture (one part, or a question with no parts) or only all
+    the parts' together. None when the question names no sign."""
+    for text in texts:
+        markers = list(_PART.finditer(text))
+        if part is not None and markers:
+            for index, marker in enumerate(markers):
+                if marker.group(1) == part:
+                    end = markers[index + 1].start() if index + 1 < len(markers) else len(text)
+                    signs = _signs(text[marker.end() : end])
+                    if signs:
+                        return signs, True
+        signs = _signs(text)
+        if signs:
+            return signs, not markers
+    return None
+
+
+def _signs(text: str) -> list[int]:
+    signs: list[int] = []
+    for match in _SIGN_WORD.finditer(text):
+        count = _COUNTS.get((match.group("count") or "").lower(), 1)
+        signs += [1 if match.group("sign").lower() == "positive" else -1] * count
+    return signs

@@ -250,6 +250,13 @@ async def test_a_textbook_repeat_with_new_charges_is_the_problem_typed_with_them
         # The read named one change of the two the line makes: never a charge the user
         # did not give (review of feat/field-lines).
         (_COULOMB, _REPEAT, (("3.0 C", "3.0 pC"),)),
+        # Two equal new values and one named change: each stated value takes its own change,
+        # one to one, so the 2.0 C is never kept beside them (PR #2482 review).
+        (
+            _COULOMB,
+            "Repeat the calculation taking the charges as 3.0 pC and 3.0 pC.",
+            (("3.0 C", "3.0 pC"),),
+        ),
         # A new question, not a change: its own values and its own ask.
         (
             _BALL,

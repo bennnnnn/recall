@@ -13,6 +13,7 @@ from typing import Any
 
 import pytest
 
+from app.modules.chat import drawing_turn
 from app.modules.chat.drawing_turn import ask_for_a_drawing, attach_drawing
 from app.modules.math.drawing.contract import DRAW_CONTRACT
 from app.modules.physics.field_lines.contract import FIELD_DRAW_CONTRACT
@@ -40,14 +41,45 @@ async def test_a_physics_diagram_gets_physics_contract() -> None:
     assert not any(m["content"] == DRAW_CONTRACT for m in ctx.prompt_messages)
 
 
-async def test_a_physics_solve_draws_its_own_picture() -> None:
+def _verified(question: str) -> VerifiedPhysicsBlock:
+    from app.core.config import Settings
+    from app.modules.physics import build_verified_physics_block, extract_physics_intent
+
+    intent = extract_physics_intent(question)
+    assert intent is not None
+    block = build_verified_physics_block(intent, Settings(math_tools_enabled=True))
+    assert block is not None
+    return block
+
+
+async def test_a_physics_solve_that_drew_the_picture_asks_for_no_description(
+    thread_sympy_executor: None,
+) -> None:
     """A circuit, rays or a scene the solve drew: no description is asked for."""
-    verified = VerifiedPhysicsBlock(text="", subject="physics")
+    verified = _verified(
+        "Two point charges of 3.0 nC and 2.0 nC are 5.0 m apart. Find the force between them."
+    )
     ctx = _ctx(_FIELD, verified_subject=verified)
     await ask_for_a_drawing(
         ctx, _settings(), _decision(subject="physics", picture="diagram"), _deadline()
     )
     assert ctx.drawing is None
+
+
+async def test_a_physics_solve_that_drew_nothing_still_gets_the_contract(
+    thread_sympy_executor: None,
+) -> None:
+    """ "Calculate the field strength ... and draw its lines": the solve verifies the number
+    and draws no picture, so the reply describes the field (PR #2482 review)."""
+    line = (
+        "Calculate the electric field strength 0.20 m from a point charge of 8.0 pC and "
+        "draw its field lines."
+    )
+    ctx = _ctx(line, verified_subject=_verified(line))
+    await ask_for_a_drawing(
+        ctx, _settings(), _decision(subject="physics", picture="diagram"), _deadline()
+    )
+    assert ctx.drawing is not None and ctx.drawing.subject == "physics"
 
 
 async def test_descriptions_are_traced_under_the_reply_and_the_sketch_goes(
@@ -121,3 +153,19 @@ async def test_a_flowchart_the_user_asked_for_stays_beside_the_picture(
     )
     text = await attach_drawing(_state(ctx, reply))
     assert flowchart in text and "```simulation" in text
+
+
+@pytest.mark.parametrize(("subject", "contract"), [("physics", True), (None, False)])
+async def test_a_physics_message_asking_in_words_gets_the_contract_when_the_read_is_late(
+    monkeypatch: pytest.MonkeyPatch, subject: str | None, contract: bool
+) -> None:
+    """The read had not answered by the reply's call: a message the physics reader reads
+    that asks to see something gets physics' contract, as a maths one gets maths' (PR
+    #2482 review); a message no subject reads gets none."""
+    monkeypatch.setattr(drawing_turn, "_words_subject", lambda _ctx: subject)
+    ctx = _ctx(_FIELD)
+    await ask_for_a_drawing(ctx, _settings(), None, _deadline())
+    assert (ctx.drawing is not None) == contract
+    if contract:
+        assert ctx.drawing is not None and ctx.drawing.asked == "words"
+        assert ctx.prompt_messages[-2]["content"] == FIELD_DRAW_CONTRACT

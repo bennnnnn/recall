@@ -30,6 +30,9 @@ def _read(text: str) -> list[tuple[float, str, float | None]]:
         ("a pulse of 5 ps", 5e-12),
         ("a resistance of 2 GΩ", 2e9),
         ("a reservoir of 3 GL", 3e6),
+        # A temperature takes its prefixes too (PR #2482 review).
+        ("cooled to 250 mK", 0.25),
+        ("cooled to 250 millikelvin", 0.25),
     ],
 )
 def test_every_prefix_on_every_base_is_read(text: str, si: float) -> None:

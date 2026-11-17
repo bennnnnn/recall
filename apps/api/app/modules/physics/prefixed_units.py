@@ -43,6 +43,7 @@ _BASE_SYMBOLS: dict[str, str] = {
     "Hz": "hertz",
     "eV": "electron_volt",
     "Wb": "weber",
+    "K": "kelvin",
 }
 # The same bases spelled out, as a question writes them (read without case), each with its
 # plural.
@@ -67,10 +68,13 @@ _BASE_WORDS: dict[str, tuple[str, str]] = {
     "pascal": ("pascal", "pascals"),
     "hertz": ("hertz", "hertz"),
     "weber": ("weber", "webers"),
+    "kelvin": ("kelvin", "kelvins"),
 }
 _CENTI_ON = frozenset({"m", "g", "L", "meter", "gram", "liter"})
 _LEFT_OUT = frozenset(
     {"pm", "pH", "pV", "kT", "Mg", "Ms", "us", "Gs", "GA", "GT", "Gm", "GF", "GH", "GC"}
+    # A temperature takes milli-, micro- and nano- ("250 mK"); "pK" is an acid's constant.
+    | {"pK", "kK", "MK", "GK"}
 )
 _PETA = "P"
 

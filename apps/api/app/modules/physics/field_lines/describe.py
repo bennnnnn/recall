@@ -22,6 +22,7 @@ from app.modules.physics.field_lines.stated import (
     Charge,
     described_charge,
     held_to,
+    named_signs,
     stated_charges,
 )
 
@@ -80,17 +81,22 @@ def read_description(body: str, texts: Sequence[str]) -> FieldPicture | None:
         return None
     if described.plates is not None:
         return FieldPicture(part=described.part, positive=described.plates.positive)
-    charges = _charges(described.charges or [], texts)
+    charges = _charges(described.charges or [], texts, described.part)
     return None if charges is None else FieldPicture(part=described.part, charges=charges)
 
 
-def _charges(charges: list[_Charge], texts: Sequence[str]) -> tuple[DescribedCharge, ...] | None:
+def _charges(
+    charges: list[_Charge], texts: Sequence[str], part: str | None
+) -> tuple[DescribedCharge, ...] | None:
     """The described charges, each held to a charge the question states with its unit and
-    sign; with none stated, signs alone (no amount may be made up)."""
+    sign; with none stated, signs alone (no amount may be made up), as many of each as the
+    question names in words: one positive charge is no picture of "two negative charges"."""
     signs: list[Literal[1, -1]] = [-1 if charge.sign != "+" else 1 for charge in charges]
     stated = stated_charges(texts)
     if not stated:
         if any(charge.amount is not None for charge in charges):
+            return None
+        if not _signs_named(signs, texts, part):
             return None
         return tuple(DescribedCharge(float(sign), None) for sign in signs)
     if any(charge.amount is None for charge in charges):
@@ -113,3 +119,21 @@ def _charges(charges: list[_Charge], texts: Sequence[str]) -> tuple[DescribedCha
 
 def _label(charge: Charge) -> str:
     return ("+" if charge.sign > 0 else "\u2212") + charge.written
+
+
+def _signs_named(signs: list[Literal[1, -1]], texts: Sequence[str], part: str | None) -> bool:
+    """The described signs are the ones the question names: all of them in its part (or a
+    question of one picture), or among all its parts' together. A question that names no
+    sign in words leaves the signs to the description."""
+    named = named_signs(texts, part)
+    if named is None:
+        return True
+    words, whole = named
+    if whole:
+        return sorted(signs) == sorted(words)
+    left = list(words)
+    for sign in signs:
+        if sign not in left:
+            return False
+        left.remove(sign)
+    return True

@@ -233,16 +233,24 @@ def _scene(field: FieldSpec, view: Box, alt: str) -> SimulationBlockSpec:
 
 
 def _charges_alt(picture: FieldPicture, neutral: bool) -> str:
-    """One sentence a screen reader says: what the lines do, from the signs alone."""
-    signs = {charge.q > 0 for charge in picture.charges}
-    if len(picture.charges) == 1:
-        return (
-            "Field lines point straight out from the positive charge, spreading apart."
-            if True in signs
-            else "Field lines point straight in to the negative charge, closing together."
-        )
-    if signs == {True, False}:
+    """One sentence a screen reader says: what the lines do, from the signs alone, for each
+    arrangement: one positive charge, one negative, an unlike pair, a like pair, three."""
+    positive = sum(charge.q > 0 for charge in picture.charges)
+    count = len(picture.charges)
+    still = ", leaving a neutral point where the field is zero" if neutral else ""
+    if count == 1 and positive == 1:
+        return "Field lines point straight out from the positive charge, spreading apart."
+    if count == 1:
+        return "Field lines point straight in to the negative charge, closing together."
+    if count == 2 and positive == 1:
         return "Field lines leave the positive charge and curve round to end on the negative one."
-    way = "away from" if True in signs else "in toward"
-    still = ", leaving a neutral point between them where the field is zero" if neutral else ""
-    return f"Field lines point {way} each charge and bend apart{still}."
+    if count == 2:
+        way = "away from" if positive == 2 else "in toward"
+        return f"Field lines point {way} each charge and bend apart{still}."
+    return (
+        f"Field lines run from the {positive} positive to the {count - positive} negative of "
+        f"three charges in a row, out to the edge where they do not end on one{still}."
+        if 0 < positive < count
+        else f"Field lines point {'away from' if positive else 'in toward'} each of three "
+        f"charges in a row and bend apart{still}."
+    )

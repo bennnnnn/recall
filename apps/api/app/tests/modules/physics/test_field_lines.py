@@ -50,7 +50,7 @@ def _starts_on(spec: dict[str, Any], centre: list[float]) -> int:
 
 
 def test_a_positive_charge_sends_its_lines_straight_out() -> None:
-    spec = _spec(_charges("+", part="a"))
+    spec = _spec(_charges("+", part="a"), ("Draw the field around a positive charge.",))
     field = spec["field"]
     assert field["part"] == "a" and field["charges"][0]["sign"] == 1
     centre = field["charges"][0]["at"]
@@ -61,7 +61,7 @@ def test_a_positive_charge_sends_its_lines_straight_out() -> None:
 
 
 def test_a_negative_charge_takes_its_lines_straight_in() -> None:
-    spec = _spec(_charges("-", part="b"))
+    spec = _spec(_charges("-", part="b"), ("Draw the field around a negative charge.",))
     field = spec["field"]
     centre = field["charges"][0]["at"]
     assert _ends_on(spec, centre) == len(field["lines"]) == 14
@@ -85,7 +85,7 @@ def test_unlike_charges_join_from_plus_to_minus() -> None:
 
 
 def test_two_like_charges_leave_a_neutral_point_between_them() -> None:
-    spec = _spec(_charges("-", "-"))
+    spec = _spec(_charges("-", "-"), ("Draw the field around two negative charges.",))
     (neutral,) = spec["field"]["neutral"]
     assert neutral == pytest.approx([0.0, 0.0], abs=1e-3)
     left, right = (charge["at"] for charge in spec["field"]["charges"])
@@ -187,7 +187,11 @@ def test_several_parts_draw_a_picture_each_and_one_picture_once() -> None:
         json.dumps({"kind": "field", "part": "c", "plates": {"positive": "top"}}),
         json.dumps(_charges("-", "-", part="b")),
     ]
-    fences = field_fences(blocks, [_QUESTION])
+    question = (
+        "Draw the field a) around a positive and a negative charge b) around two negative "
+        "charges c) between two oppositely charged plates."
+    )
+    fences = field_fences(blocks, [question])
     assert [json.loads(fence.split("\n")[1])["field"]["part"] for fence in fences] == [
         "a",
         "b",
@@ -196,9 +200,40 @@ def test_several_parts_draw_a_picture_each_and_one_picture_once() -> None:
 
 
 def test_every_line_stays_in_the_picture_and_within_the_schema() -> None:
-    for description in (_charges("+", "-", "+"), _charges("-", "+", "-"), _charges("+", "+")):
-        spec = _spec(description)
+    for description, question in (
+        (_charges("+", "-", "+"), "a positive, a negative and a positive charge in a row"),
+        (_charges("-", "+", "-"), "a negative, a positive and a negative charge in a row"),
+        (_charges("+", "+"), "two positive charges"),
+    ):
+        spec = _spec(description, (question,))
         for line in spec["field"]["lines"]:
             for x, y in line:
                 assert spec["x_min"] - 1e-6 <= x <= spec["x_max"] + 1e-6
                 assert spec["y_min"] - 1e-6 <= y <= spec["y_max"] + 1e-6
+
+
+@pytest.mark.parametrize(
+    ("description", "question"),
+    [
+        # One positive charge is no picture of "two negative charges" (PR #2482 review).
+        (_charges("+"), "Draw the field around two negative charges."),
+        (_charges("+", "+"), "Draw the field around a positive and a negative charge."),
+        # Part b's charges, never part a's.
+        (
+            _charges("+", "-", part="b"),
+            "Draw the field a) around a positive and a negative charge b) around two "
+            "negative charges.",
+        ),
+    ],
+)
+def test_signs_the_question_names_hold_the_picture(
+    description: dict[str, Any], question: str
+) -> None:
+    assert read_description(json.dumps(description), [question]) is None
+
+
+def test_a_question_of_several_unmarked_pictures_draws_none_of_them() -> None:
+    """With no part letters the signs named are the whole picture's: a part of them is no
+    picture the server can tell is the one asked, so it is left out, never drawn wrong."""
+    question = "Draw the field of a positive charge, then of two negative charges."
+    assert read_description(json.dumps(_charges("-", "-")), [question]) is None

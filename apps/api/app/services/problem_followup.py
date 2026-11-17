@@ -407,14 +407,23 @@ class GivenRewriter:
             for given in read_givens(value, self.units)
             if given.si is not None
         ]
+        # One to one: "3.0 pC and 3.0 pC" are two values, which one named change never takes.
+        left = list(taken)
         for stated in self.restated(prior, line):
-            if stated.si is None or not any(
-                given.dimension == stated.dimension
-                and given.si is not None
-                and math.isclose(given.si, stated.si, rel_tol=1e-9)
-                for given in taken
-            ):
+            match = next(
+                (
+                    given
+                    for given in left
+                    if stated.si is not None
+                    and given.si is not None
+                    and given.dimension == stated.dimension
+                    and math.isclose(given.si, stated.si, rel_tol=1e-9)
+                ),
+                None,
+            )
+            if match is None:
                 return False
+            left.remove(match)
         if self.asked is None:
             return True
         asked = set(self.asked(line))
