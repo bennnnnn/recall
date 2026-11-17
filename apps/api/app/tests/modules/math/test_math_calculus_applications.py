@@ -24,6 +24,7 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.math.tools import _build_verified_block, extract_math_intent
+from app.modules.math.tools.extractors.calculus_applications import _STATED_INTERVAL_RE
 
 
 def _settings() -> Settings:
@@ -254,6 +255,34 @@ def test_only_the_areas_own_sentence_states_its_interval(text: str, answer: str)
 )
 def test_any_interval_the_sentence_states_wins(text: str, answer: str | None) -> None:
     assert _verified_answer(text) == answer
+
+
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        # Claude on #2481: "between" naming the two curves is no interval. Read from the
+        # sentence start, the stated-interval check took "between 2" for one and left
+        # these unanswered.
+        ("Find the area between 2x and x^2", "\\frac{4}{3}"),
+        ("Find the area between (x+1)^2 and 4", "\\frac{32}{3}"),
+        ("Find the area between y = -x and y = x^2 - 2", "\\frac{9}{2}"),
+    ],
+)
+def test_between_naming_the_curves_states_no_interval(text: str, answer: str) -> None:
+    assert _verified_answer(text) == answer
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Find the area between 2x and x^2",
+        "Find the area between e^x and x+1",
+        "Find the area between (x+1)^2 and 4",
+        "Find the area between -x and x^2",
+    ],
+)
+def test_curves_after_between_are_not_a_stated_interval(text: str) -> None:
+    assert _STATED_INTERVAL_RE.search(text) is None
 
 
 def test_the_area_answer_is_not_the_intersection_points() -> None:

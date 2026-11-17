@@ -38,13 +38,17 @@ def _fence_data(
     canonical_fence: dict[str, Any] | None,
     *,
     canonical_answer: str | None = None,
+    antiderivative: bool = False,
 ) -> dict[str, Any] | None:
-    """Attach canonical fence JSON for post-stream validate_math_fences."""
+    """Attach canonical fence JSON for post-stream validate_math_fences. ``antiderivative``:
+    the answer is an indefinite integral's, its + C the constant of integration."""
     data: dict[str, Any] = {}
     if canonical_fence is not None:
         data["canonical_fence"] = canonical_fence
     if canonical_answer:
         data["canonical_answer"] = canonical_answer
+    if data and antiderivative:
+        data["antiderivative"] = True
     return data or None
 
 
@@ -194,9 +198,11 @@ class SympyAdapter:
                 name=self.name,
                 content=_verified_content(f"{integral_note}\nResult: {answer}"),
             )
-        data = _fence_data(math_tools._answer_canonical(answer), canonical_answer=answer)
-        if indefinite and data is not None:
-            data["antiderivative"] = True  # its + C is the constant of integration
+        data = _fence_data(
+            math_tools._answer_canonical(answer),
+            canonical_answer=answer,
+            antiderivative=indefinite,
+        )
         return ToolResult(
             name=self.name,
             content=_verified_content(f"Result: {answer}\nVerified result: {answer}"),
@@ -621,6 +627,7 @@ class SympyAdapter:
                         data=_fence_data(
                             block.canonical_fence,
                             canonical_answer=block.canonical_answer,
+                            antiderivative=block.antiderivative,
                         ),
                     )
             return ToolResult(name=self.name, content="No math result.")

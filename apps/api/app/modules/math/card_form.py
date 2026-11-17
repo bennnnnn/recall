@@ -46,6 +46,9 @@ _STYLE = re.compile(r"\\(?:displaystyle|textstyle)\s*")
 _SIZING = re.compile(r"\\(?:left|right|[bB]igg?[lr]?|displaystyle|textstyle)(?![A-Za-z])")
 _SPACING = re.compile(r"\\[,;:! ]|\\q?quad(?![A-Za-z])")
 _FRACTION = re.compile(r"\\[dt]frac(?![A-Za-z])")
+# A bare \log in an antiderivative is the natural log, as SymPy writes it and calculus
+# texts mean it: ∫1/x dx = \log|x| + C (Gemini on #2481). \log_{10} keeps its base.
+_BARE_LOG = re.compile(r"\\log(?![A-Za-z_])")
 # A function's argument in braces, SymPy's own spelling: \csc{\left(2 x\right)}, \cos^{3}{(x)}.
 _BRACED_ARGUMENT = re.compile(
     r"\\(sinh|cosh|tanh|sin|cos|tan|sec|csc|cot|ln|log|exp)(\^\{?-?\d+\}?)?\s*\{"
@@ -65,6 +68,7 @@ def read_tex(tex: str, *, evaluate: bool = True) -> Any | None:
     spellings SymPy itself writes (a function's braced argument, |…| after ln); None when
     it does not read."""
     text = _FRACTION.sub(r"\\frac", _SPACING.sub(" ", _SIZING.sub("", tex.replace("$", ""))))
+    text = _BARE_LOG.sub(r"\\ln", text)
     for _ in range(4):
         unbraced = map_groups(
             text,

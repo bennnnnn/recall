@@ -131,6 +131,20 @@ def test_sympys_own_spelling_reads() -> None:
     assert read_tex(_LOG.removesuffix(" + C")) is not None
 
 
+def test_a_bare_log_is_the_natural_log() -> None:
+    """Gemini on #2481: calculus writes ∫1/x dx = \\log|x| + C, and SymPy prints ln as
+    \\log; read as base 10, a right form was refused. \\log_{10} keeps its base."""
+    assert read_tex(r"\log|x|") == read_tex(r"\ln|x|")
+    assert read_tex(r"\log{\left(x \right)}") == read_tex(r"\ln x")
+    assert read_tex(r"\log_{10}(x)") != read_tex(r"\ln(x)")
+    reply = _reply(r"$\frac{1}{2}\log\left|\cos(2t) - 1\right| + C$")
+    assert in_working_form(reply, _LOG, antiderivative=True) == (
+        r"\frac{1}{2}\log\left|\cos(2t) - 1\right| + C"
+    )
+    base_ten = _reply(r"$\frac{1}{2}\log_{10}\left|\cos(2t) - 1\right| + C$")
+    assert in_working_form(base_ten, _LOG, antiderivative=True) == _LOG
+
+
 def test_the_fence_pass_lands_the_working_form_checked() -> None:
     verified = VerifiedMathBlock(
         text="", subject="math", canonical_answer=_SEC, antiderivative=True

@@ -62,10 +62,12 @@ _LINES_BOUNDS_RE = re.compile(
     re.IGNORECASE,
 )
 # An interval the question states, whatever its bounds are written in: "from x = 1/e to",
-# "from 0 to", "between 1 and", "the lines x = …", "on [", "in the interval (": read
+# "from 0 to", "between 1 and" (a bound with no x in it: "between 2x and x^2" names two
+# curves), "the lines x = …", "on [", "in the interval (": read
 # strictly by ``_bounds`` or not at all, never replaced by where the curves meet.
 _STATED_INTERVAL_RE = re.compile(
-    r"\bfrom\s+(?:x\s*=\s*)?\S+\s+to\b|\bbetween\s+(?:x\s*=\s*)?[-+(\d.πe]|\blines\s+x\s*=|"
+    r"\bfrom\s+(?:x\s*=\s*)?\S+\s+to\b|\bbetween\s+(?:x\s*=\s*)?(?![^\sx]*x)[-+(\d.πe]\S*\s+and\b|"
+    r"\blines\s+x\s*=|"
     r"\b(?:on|over|in)\s+(?:the\s+interval\s+)?[\[(]|(?:<=|≤|<)\s*x\s*(?:<=|≤|<)",
     re.IGNORECASE,
 )
