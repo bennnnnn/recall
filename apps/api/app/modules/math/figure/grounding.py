@@ -27,6 +27,7 @@ import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from fractions import Fraction
+from typing import Any
 
 from app.modules.math.figure.quads import POLYGON_SIDES
 from app.modules.math.figure.request import FigureRequest
@@ -279,20 +280,18 @@ def _numbers_hold(request: FigureRequest, found: list[Written]) -> bool:
     return True
 
 
-def _says_of_x(value: float, texts: Sequence[str]) -> bool:
-    """``value`` is a value the question says of x, as the drawing check reads it: an
-    interval's end, a line or a point, written with π or e too ("0 ≤ x ≤ 2π", "from -π/2
-    to π/2"), which no digit the question writes is."""
-    # Imported here: the drawing check reads a question's numbers with this module's.
-    from app.modules.math.drawing.plot_question import read_plot_question
-    from app.modules.math.drawing.plot_reading import same_number
-
-    return any(same_number(v, value) for v in read_plot_question(list(texts)).x_values)
+def _said_of_x(value: float, x_values: Sequence[Any]) -> bool:
+    """``value`` is one of the values the question says of x (``x_values``, as the drawing
+    check reads them: an interval's end, a line or a point, written with π or e too, "0 ≤ x
+    ≤ 2π", "from -π/2 to π/2"), which no digit the question writes is."""
+    near = 1e-9 * max(1.0, abs(value))
+    return any(abs(float(x) - value) <= near for x in x_values)
 
 
-def grounded(request: FigureRequest, texts: Sequence[str]) -> bool:
+def grounded(request: FigureRequest, texts: Sequence[str], x_values: Sequence[Any] = ()) -> bool:
     """Every value the reading holds is one the question writes, in its role, sign and
-    unit (a formula's and an inequality's numbers are checked with them)."""
+    unit (a formula's and an inequality's numbers are checked with them). ``x_values``: the
+    values the question says of x, for a range's ends."""
     own = own_texts(texts)
     found = [w for text in own for w in written_numbers(text)]
     if not _measures_hold(request, found) or not _numbers_hold(request, found):
@@ -314,7 +313,7 @@ def grounded(request: FigureRequest, texts: Sequence[str]) -> bool:
     origin = request.kind in {"function", "points"}
     bounds = [v for v in request.bounds() if v is not None]
     if not all(
-        (origin and v == 0) or states_signed(found, v) or _says_of_x(v, texts) for v in bounds
+        (origin and v == 0) or states_signed(found, v) or _said_of_x(v, x_values) for v in bounds
     ):
         return False
     # A point is one the question writes as a pair: C(-3, -2) is no (3, -2), though A(2, 3)
