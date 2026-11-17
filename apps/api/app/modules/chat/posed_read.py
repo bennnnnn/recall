@@ -39,6 +39,7 @@ from pydantic import BaseModel, Field
 from app.core.config import Settings
 from app.core.readings import keep_for_turn, kept_for_turn, read_aside
 from app.modules.chat.referent_read import ask_read, chat_before
+from app.services.problem_followup import item_number
 from app.services.solving import SubjectName
 from app.services.text_normalize import collapse_ws
 
@@ -52,11 +53,7 @@ _MAX_RESTATED_WORDS = 80
 _STATES_A_VALUE = re.compile(r"\d")
 # A number as written: a line that states one its problem does not is no "solve it again".
 _NUMBER = re.compile(r"\d+(?:\.\d+)?")
-# A number that names an item, not a value: "Solve 1", "question 9", "part 2", "Q3".
-_ITEM = re.compile(
-    r"\b(?:solve|question|problem|part|number|no\.?|item|exercise|example|q)[ \t]*#?[ \t]*$",
-    re.IGNORECASE,
-)
+
 # Most values one line changes at once.
 _MAX_CHANGES = 4
 # The longest read fits: a 600-character problem (about 200 tokens, at three characters a
@@ -177,7 +174,7 @@ def states_new_values(line: str, problem: str) -> bool:
     plain = _unlatexed(line)
     stated = set(_NUMBER.findall(_unlatexed(problem)))
     return any(
-        match.group() not in stated and not _ITEM.search(plain, 0, match.start())
+        match.group() not in stated and not item_number(plain, match.start())
         for match in _NUMBER.finditer(plain)
     )
 

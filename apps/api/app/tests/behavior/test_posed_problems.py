@@ -366,3 +366,36 @@ def test_a_group_count_is_shared_only_by_the_one_value_after_it() -> None:
     )
     assert counts(shared, "\u03bcC") == [True]
     assert counts("Two point charges of 3.0 C and 2.0 C are 5.0 m apart.", "C") == [False, False]
+
+
+@pytest.mark.parametrize(
+    ("problem", "line", "changes"),
+    [
+        # An integer index the problem gives, changed with the angle: both must be taken.
+        (
+            "Light passes from air into a medium (n = 2) at an angle of incidence of 30 "
+            "degrees. Find the angle of refraction.",
+            "What if n = 1.5 and the angle is 45 degrees?",
+            ["45 degrees"],
+        ),
+        # An integer index the line gives, after a decimal one.
+        (
+            "Light passes from air into glass (n = 1.5) at an angle of incidence of 30 "
+            "degrees. Find the angle of refraction.",
+            "What if n = 3 and the angle is 45 degrees?",
+            ["45 degrees"],
+        ),
+    ],
+)
+def test_an_integer_assigned_to_a_symbol_is_a_value_a_change_must_take(
+    problem: str, line: str, changes: list[str]
+) -> None:
+    """ "n = 2" and "n = 3" were invisible (only a decimal counted), so a read naming only
+    the angle certified the old index (Gemini, PR #2482)."""
+    followups = subject_adapter("physics").followups
+    rewritten = followups.changed_problem(problem, [("30 degrees", "45 degrees")])
+    assert rewritten is not None
+    assert not followups.takes_every_change(problem, rewritten, line, changes)
+    assert followups.states_new(problem, line)
+    # An item's number is no value: "Solve question 2" states nothing new.
+    assert not followups.states_new(problem, "Solve question 2 the same way.")
