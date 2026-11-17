@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from sympy import pi
 
 from app.modules.math.drawing.plot import written_lines
 from app.modules.math.figure.request import FigureRequest
@@ -151,6 +152,10 @@ def test_a_curve_described_twice_is_drawn_once(items: list[dict[str, Any]]) -> N
             "The region bounded by y = 2x, the y-axis and y = 4 is rotated about the y-axis.",
             True,
         ),
+        # Its ends from the points it writes; none written, none checked (PR #2485 review).
+        ("frustum", "The line y = 2x from (0, 0) to (3, 6) is rotated about the x-axis.", False),
+        ("cone", "The line y = 2x from (0, 0) to (3, 6) is rotated about the x-axis.", True),
+        ("frustum", "The region under y = x + 1 is rotated about the x-axis.", False),
         # About a line x = c, the region's ends are values of y.
         (
             "frustum",
@@ -430,3 +435,23 @@ def test_a_bound_written_with_pi_is_grounded_in_the_question(
     )
     texts = ["Sketch y = sin x from -π/2 to π/2."]
     assert not grounded(wrong, texts, read_plot_question(texts).x_values)
+
+
+@pytest.mark.parametrize(
+    ("question", "x_ends"),
+    [
+        # An interval of y, or of another letter, is no interval of x.
+        ("Sketch y = sin x for 0 ≤ x ≤ π and the region from y = 0 to y = 2π.", [0, pi]),
+        ("Sketch y = sin x from 0 to y = 4.", []),
+        ("Where u runs from u = 1 to u = 4, sketch y = x^2.", []),
+        # The question's own variable: v(t)'s t is its across.
+        ("Sketch v(t) = 3t + 1 from t = 0 to t = 4.", [0, 4]),
+    ],
+)
+def test_only_an_interval_of_x_or_its_own_variable_is_of_x(
+    question: str, x_ends: list[Any]
+) -> None:
+    from app.modules.math.drawing.plot_question import read_plot_question
+
+    found = read_plot_question([question]).x_intervals
+    assert [end for i in found for end in (i.low, i.high)] == x_ends

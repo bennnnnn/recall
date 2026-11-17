@@ -79,7 +79,7 @@ def _sweeps(shape: str, distance: Any, run: Symbol, ends: Sequence[Any]) -> bool
             return False
         meets = -distance.subs(run, 0) / distance.diff(run)
         if not ends:
-            return True  # where the region ends is not said: either may be meant
+            return False  # where the region ends is not said: neither can be checked
         at_an_end = any(same_number(meets, end) for end in ends)
         return bool(at_an_end if shape == "cone" else not at_an_end)
     if shape in {"sphere", "hemisphere"}:
@@ -106,8 +106,8 @@ def _ends(text: str, question: Any, axis: tuple[str, Any], run: Symbol) -> list[
     letter: x = 3 and "from x = 0 to x = 2" about a line y = c; y = 0, y = 2 and "from
     y = 0 to y = 4" about a line x = c (a y-axis region read with x's ends was a cone)."""
     if run == _X:
-        stated = [i for i in question.intervals if i.of != "y"]
-        return [*question.edges, *(end for i in stated for end in (i.low, i.high))]
+        # Its lines, intervals of x, points and coordinates: "from (0, 0) to (3, 6)".
+        return list(question.x_values)
     stated = [i for i in question.intervals if i.of == "y"]
     rest = _ABOUT_AXIS.sub(" ", text)
     lines, _points = named_values(rest, "y", frozenset({"x", "y"}))
