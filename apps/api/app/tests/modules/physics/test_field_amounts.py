@@ -66,11 +66,9 @@ def test_the_stated_charges_are_the_questions_own() -> None:
         _charges({"sign": "+", "amount": "3 nC"}, {"sign": "+", "amount": "2 nC"}), [_NC]
     )
     assert held is not None and [c.label for c in held.charges] == ["+3 nC", "+2 nC"]
-    # The first message that states charges, the user's last first: never another's numbers.
-    assert [c.written for c in stated_charges(["Draw it.", _NC, "charges of 7 nC"])] == [
-        "3 nC",
-        "2 nC",
-    ]
+    # The picture's own question only (the first text): never an earlier turn's numbers.
+    assert [c.written for c in stated_charges([_NC, "charges of 7 nC"])] == ["3 nC", "2 nC"]
+    assert stated_charges(["Draw it.", _NC]) == []
     # Sign only, when the question states no size.
     signs = read_description(
         _charges({"sign": "+"}, {"sign": "-"}), ["a positive and a negative charge"]
@@ -141,3 +139,46 @@ def test_a_test_charge_in_an_explanation_is_no_source() -> None:
     )
     assert read_description(_charges({"sign": "-"}), [question]) is not None
     assert read_description(_charges({"sign": "-"}, {"sign": "+"}), [question]) is None
+
+
+def _plates(positive: str) -> str:
+    return json.dumps({"kind": "field", "plates": {"positive": positive}})
+
+
+def test_plates_are_drawn_only_for_a_question_that_names_them_as_it_charges_them() -> None:
+    """A plates block under "a +3 nC charge" drew two plates (Claude, PR #2482)."""
+    assert read_description(_plates("top"), ["Draw the field around a +3 nC charge."]) is None
+    plates = "Draw the field between two parallel plates."
+    assert read_description(_plates("top"), [plates]) is not None
+    negative_top = "Draw the field between two parallel plates; the top plate is negative."
+    assert read_description(_plates("top"), [negative_top]) is None
+    assert read_description(_plates("bottom"), [negative_top]) is not None
+
+
+def test_one_plural_sign_is_every_listed_charges() -> None:
+    question = "Draw the field lines of two negative charges of 3 nC and 2 nC placed 4 cm apart."
+    assert [charge.sign for charge in stated_charges([question])] == [-1, -1]
+
+
+def test_a_test_charge_q_is_no_source() -> None:
+    question = (
+        "Draw the field lines around a charge +2q. Explain the force on a positive test charge q."
+    )
+    assert [charge.written for charge in stated_charges([question])] == ["2q"]
+
+
+def test_an_earlier_turns_charges_are_not_the_pictures() -> None:
+    """A 3.0 C / 2.0 C force problem, then "draw the pattern around a) a positive charge
+    b) a negative charge": the picture is the line's (Gemini, PR #2482)."""
+    texts = [
+        "Draw the pattern of field lines around a) a positive charge b) a negative charge",
+        "Two point charges of 3.0 C and 2.0 C are 5.0 m apart. Find the force.",
+    ]
+    part_a = json.dumps({"kind": "field", "part": "a", "charges": [{"sign": "+"}]})
+    part_b = json.dumps({"kind": "field", "part": "b", "charges": [{"sign": "-"}]})
+    assert read_description(part_a, texts) is not None
+    assert read_description(part_b, texts) is not None
+    # "draw it" after a setup it does not restate: nothing here can check its signs.
+    after = ["draw it", "Two charges of +3 nC and -2 nC are 4 cm apart. Find the force."]
+    plus = json.dumps({"kind": "field", "charges": [{"sign": "+"}]})
+    assert read_description(plus, after) is None

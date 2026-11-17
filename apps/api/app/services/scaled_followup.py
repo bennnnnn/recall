@@ -360,17 +360,19 @@ _COUNTED = frozenset({"two", "three", "four", "both", "each", "pair", "identical
 
 
 def counted(prior: str, given: Given, kind: Sequence[Given] = ()) -> bool:
-    """True when the value's sentence holds a count or a sameness word, and states no other
-    value of its kind (``kind``: the problem's givens of that kind). "Two point charges, one
-    of 3.0 C and the other of 2.0 C" gives each charge its own value: neither is both
-    bodies' (live, 2026-11-16), where "two 5 kg masses" is."""
-    start = max((m.end() for m in re.finditer(r"[.?!]\s", prior[: given.start])), default=0)
-    stop = re.search(r"[.?!](?:\s|$)", prior[given.end :])
-    end = given.end + (stop.start() if stop else len(prior))
-    sentence = prior[start:end]
-    if not any(word in _COUNTED for word in re.findall(r"[a-z]+", sentence.lower())):
-        return False
-    return not any(other != given and start <= other.start < end for other in kind)
+    """True when the value's own phrase holds a count or a sameness word: "two identical
+    4 Ω resistors", "two 5 kg masses", "each of mass 5 kg" state one value for several
+    bodies, which one change cannot put to one of them. The phrase runs from the clause or
+    the value of its kind before it to the value, and on to the next one: "Two point charges,
+    one of 3.0 C and the other of 2.0 C" gives each charge its own value (live, 2026-11-16),
+    and "a 6 Ω resistor" beside two identical ones is its own."""
+    start = max((m.end() for m in re.finditer(r"[.?!]\s|[,;:]", prior[: given.start])), default=0)
+    start = max([start, *(other.end for other in kind if other.end <= given.start)])
+    stop = re.search(r"[.?!,;:](?:\s|$)", prior[given.end :])
+    end = given.end + (stop.start() if stop else len(prior) - given.end)
+    end = min([end, *(other.start for other in kind if other.start > given.end)])
+    phrase = prior[start:end]
+    return any(word in _COUNTED for word in re.findall(r"[a-z]+", phrase.lower()))
 
 
 def thrown_at(prior: str, given: Given, throw: str) -> bool:

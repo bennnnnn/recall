@@ -23,6 +23,7 @@ from app.modules.physics.field_lines.stated import (
     described_charge,
     held_to,
     named_signs,
+    plates_of,
     stated_charges,
 )
 
@@ -80,6 +81,8 @@ def read_description(body: str, texts: Sequence[str]) -> FieldPicture | None:
     if (described.charges is None) == (described.plates is None):
         return None
     if described.plates is not None:
+        if not plates_of(texts[0] if texts else "", described.plates.positive):
+            return None  # "a +3 nC charge" is no pair of plates
         return FieldPicture(part=described.part, positive=described.plates.positive)
     charges = _charges(described.charges or [], texts, described.part)
     return None if charges is None else FieldPicture(part=described.part, charges=charges)
@@ -129,7 +132,9 @@ def _signs_named(signs: list[Literal[1, -1]], texts: Sequence[str], part: str | 
     sign in words leaves the signs to the description."""
     named = named_signs(texts, part)
     if named is None:
-        return True
+        # The picture's question names no sign: the description's are its own, unless an
+        # earlier turn holds a setup this picture may be of, which nothing here checks.
+        return not any(named_signs([text], None) or stated_charges([text]) for text in texts[1:])
     words, whole = named
     if whole:
         return sorted(signs) == sorted(words)
