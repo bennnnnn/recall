@@ -290,3 +290,26 @@ async def test_a_physics_instant_reply_gives_way_to_field_lines_its_solve_did_no
     )
     await drawing_turn.write_for_a_picture(card, _settings())
     assert card.instant_reply == "E = 1.8 N/C"
+
+
+async def test_a_physics_graph_or_a_drawn_scene_gets_no_scene_contract(
+    thread_sympy_executor: None,
+) -> None:
+    """ "Two masses of 3 kg and 5 kg hang over a frictionless pulley. Find the acceleration
+    and sketch a velocity-time graph" got the Atwood scene twice (Gemini, PR #2490): a
+    physics graph is the plot path's, and a solve that drew its scene gets no second."""
+    line = (
+        "Two masses of 3 kg and 5 kg hang over a frictionless pulley. Find the acceleration "
+        "and sketch a velocity-time graph."
+    )
+    graph = _ctx(line)
+    await ask_for_a_drawing(
+        graph, _settings(), _decision(subject="physics", picture="graph"), _deadline()
+    )
+    assert graph.drawing is None
+    atwood = _verified("In an Atwood machine, m1 = 2 kg and m2 = 3 kg. Find the acceleration.")
+    drawn = _ctx(line, verified_subject=atwood)
+    await ask_for_a_drawing(
+        drawn, _settings(), _decision(subject="physics", picture="none"), _deadline()
+    )
+    assert drawn.drawing is None

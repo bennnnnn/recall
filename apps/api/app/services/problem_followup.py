@@ -348,6 +348,9 @@ class GivenRewriter:
     asked: Callable[[str], Collection[str]] | None = None
     # Whether the problem's words fit a named quantity: a string's 2 m is no "height".
     fits: Callable[[str, str], bool] | None = None
+    # The quantities a problem asks for, by name ("range", "height"): two of one dimension
+    # are told apart by it.
+    asked_names: Callable[[str], Collection[str]] | None = None
 
     def changed(self, prior: str, name: str | None, value: str, unit: str | None) -> str | None:
         """``and after 10 s``, ``what if the mass was 4 kg``: that given replaced."""
@@ -470,7 +473,21 @@ class GivenRewriter:
         if self.asked is None:
             return True
         asked = set(self.asked(line))
-        return not asked or asked == set(self.asked(rewritten))
+        if asked and asked != set(self.asked(rewritten)):
+            return False
+        # A new ask of the same dimension: "find the maximum height" after "find its
+        # range" is no rewrite that still asks for the range.
+        return self._asks_the_same(line, rewritten)
+
+    def _asks_the_same(self, line: str, rewritten: str) -> bool:
+        """Every quantity ``line`` asks for by name is one ``rewritten`` asks for."""
+        if self.asked_names is None:
+            return True
+        theirs = [name.lower() for name in self.asked_names(rewritten)]
+        return all(
+            any(mine in name or name in mine for name in theirs)
+            for mine in (name.lower() for name in self.asked_names(line))
+        )
 
     def states_new(self, prior: str, line: str) -> bool:
         """``line`` states a value ``prior`` does not, read with its unit: "20 minutes" after

@@ -219,6 +219,13 @@ async def ask_for_a_drawing(
     kind = asked_kind if asked_kind in ("diagram", "graph") else "diagram"
     if subject == "physics" and solve_draws(ctx.verified_subject, kind):
         return
+    # A physics graph (a velocity-time sketch) is the plot path's, never a scene: and a
+    # solve that drew its scene gets no second one ("hang over a pulley ... and sketch a
+    # velocity-time graph" drew the Atwood machine twice; Gemini, PR #2490).
+    if subject == "physics" and (
+        asked_kind == "graph" or solve_draws(ctx.verified_subject, "diagram")
+    ):
+        return
     # A subject turned off draws nothing, and its reply is asked for no description.
     figure = _figure(subject) if subject_adapter(subject).enabled(settings) else None
     if figure is None:

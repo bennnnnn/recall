@@ -423,3 +423,20 @@ def test_a_maths_change_must_take_every_number_the_line_writes() -> None:
     line = "What if it were 5x + 3 = 13?"
     assert not followups.takes_every_change(problem, "Solve 5x + 3 = 7", line, ["5x"])
     assert followups.takes_every_change(problem, "Solve 5x + 3 = 13", line, ["5x", "13"])
+
+
+def test_a_new_ask_of_the_same_dimension_is_no_rewrite_that_keeps_the_old_one() -> None:
+    """ "Repeat with a 60 m cliff and 25 m/s, and find the maximum height above the ground"
+    after "find its horizontal range": the rewrite still asked for the range (a length too),
+    and 109.9 m was certified as the height (Gemini, PR #2490)."""
+    followups = subject_adapter("physics").followups
+    problem = (
+        "A stone is thrown from the top of a 45 m high cliff with a speed of 20 m/s at 30 "
+        "degrees above the horizontal. Find its horizontal range."
+    )
+    rewritten = followups.changed_problem(problem, [("45 m", "60 m"), ("20 m/s", "25 m/s")])
+    assert rewritten is not None
+    new_ask = "Repeat with a 60 m cliff and 25 m/s, and find the maximum height above the ground."
+    assert not followups.takes_every_change(problem, rewritten, new_ask, ["60 m", "25 m/s"])
+    same_ask = "Repeat with a 60 m cliff and 25 m/s and find the range."
+    assert followups.takes_every_change(problem, rewritten, same_ask, ["60 m", "25 m/s"])

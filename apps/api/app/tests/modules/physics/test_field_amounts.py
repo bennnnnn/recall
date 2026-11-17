@@ -259,3 +259,14 @@ def test_each_parts_plates_are_charged_as_that_part_says() -> None:
     assert read_description(top, [question]) is not None
     assert read_description(bottom, [question]) is not None
     assert read_description(wrong, [question]) is None
+
+
+def test_stated_charges_held_to_the_question_need_no_named_sign_from_an_earlier_turn() -> None:
+    """Turn 1 "Draw the field around a positive charge.", turn 2 "+2q and -q": the stated
+    charges hold every sign, and turn 1's word is no check on them (Gemini, PR #2490)."""
+    texts = [
+        "Sketch the electric field around a charge of +2q and a charge of -q.",
+        "Draw the field around a positive charge.",
+    ]
+    pair = _charges({"sign": "+", "amount": "+2q"}, {"sign": "-", "amount": "-q"})
+    assert read_description(pair, texts) is not None
