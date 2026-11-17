@@ -204,7 +204,8 @@ def named_points(text: str) -> set[tuple[str, Point]]:
     """The points a text names: "A(0, 0, 3)", "A(0, 0)", "p = (2, 5, 6)", "a = 2i + j + 3k"."""
     found: set[tuple[str, Point]] = set()
     for match in _NAMED.finditer(text.replace("\u2212", "-")):
-        for point in [*written_triples(match.group(2)), *written_pairs(match.group(2))]:
+        written = round_brackets(match.group(2))  # "u = ⟨2, 1⟩" names u as "(2, 1)" does
+        for point in [*written_triples(written), *written_pairs(written)]:
             found.add((match.group(1), point))
     return found
 
@@ -221,7 +222,16 @@ def written_vectors(text: str) -> set[Triple]:
     return found
 
 
-_ANGLES_AS_ROUND = str.maketrans({"<": "(", ">": ")", "\u27e8": "(", "\u27e9": ")"})
+# A vector in angle brackets, "⟨2, 1⟩" or "<2, 1>", read as the pair "(2, 1)" is: one
+# translation every pair reader shares (never a bare "<" of an inequality).
+_ANGLE_PAIR = re.compile(
+    r"[<\u27e8]\s*([-+]?[\d./]+\s*,\s*[-+]?[\d./]+(?:\s*,\s*[-+]?[\d./]+)?)\s*[>\u27e9]"
+)
+
+
+def round_brackets(text: str) -> str:
+    """``text`` with each angle-bracket vector written in round brackets."""
+    return _ANGLE_PAIR.sub(r"(\1)", text)
 
 
 def _at(written: Point, at: Point) -> Point:
@@ -235,7 +245,7 @@ def _plane_vectors(text: str) -> set[tuple[Fraction, Fraction]]:
     found: set[tuple[Fraction, Fraction]] = set()
     for match in _AS_VECTOR.finditer(lowered):
         # "u = ⟨2, 1⟩" and "<2, 1>" are pairs as "(2, 1)" is.
-        found |= set(written_pairs(match.group(1).translate(_ANGLES_AS_ROUND)))
+        found |= set(written_pairs(round_brackets(match.group(1))))
     return found
 
 
@@ -294,8 +304,8 @@ def read_question(texts: Sequence[str], reply: str) -> Question:
     the letters its working names."""
     own = own_texts(list(texts))
     numbers = tuple(number for text in own for number in written_numbers(text))
-    pairs = frozenset(pair for text in own for pair in written_pairs(text))
-    triples = frozenset(triple for text in own for triple in written_triples(text))
+    pairs = frozenset(pair for text in own for pair in written_pairs(round_brackets(text)))
+    triples = frozenset(triple for text in own for triple in written_triples(round_brackets(text)))
     stated_letters = frozenset(set().union(*(_letters(text) | _capitals(text) for text in texts)))
     letters = stated_letters | _letters(reply)
     terms = frozenset(

@@ -230,3 +230,25 @@ def test_equally_near_points_share_one_colour() -> None:
     assert graph is not None
     segments = [line for line in graph.lines if line.role == "segment"]
     assert len(segments) == 2 and segments[0].color == segments[1].color
+
+
+_ANGLED = "Let A(1, 1), u = ⟨2, 1⟩ and v = ⟨1, 3⟩. Draw u and v from A."
+
+
+def test_angle_bracket_names_hold_their_vectors() -> None:
+    # Swapped, u and v are no names (PR #2487 review).
+    a = {"item": "point", "name": "A", "at": [1, 1, 0]}
+    right = _space(_ANGLED, a, _vector("u", [2, 1, 0], **{"from": "A"}),
+                   _vector("v", [1, 3, 0], **{"from": "A"}))  # fmt: skip
+    swapped = _space(_ANGLED, a, _vector("u", [1, 3, 0], **{"from": "A"}),
+                     _vector("v", [2, 1, 0], **{"from": "A"}))  # fmt: skip
+    assert right is not None and {s.get("label") for s in right["segments"]} >= {"u", "v"}
+    assert swapped is not None and not {s.get("label") for s in swapped["segments"]} & {"u", "v"}
+
+
+@pytest.mark.parametrize("written", [("⟨2, 1⟩", "⟨1, 3⟩"), ("<2, 1>", "<1, 3>")])
+def test_angle_bracket_vectors_from_the_origin_are_drawn_flat(written: tuple[str, str]) -> None:
+    question = f"Draw the vectors u = {written[0]} and v = {written[1]} and find the angle."
+    figure = _space(question, _vector("u", [2, 1, 0]), _vector("v", [1, 3, 0]))
+    assert figure is not None and "z" not in _shown(figure)
+    assert _at(figure, "u") == pytest.approx((2, 1)) and _at(figure, "v") == pytest.approx((1, 3))
