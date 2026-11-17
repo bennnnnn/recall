@@ -101,6 +101,8 @@ def _charges(
         return tuple(DescribedCharge(float(sign), None) for sign in signs)
     if any(charge.amount is None for charge in charges):
         return None  # the question sizes its charges: the picture says them
+    if not _signs_named(signs, texts, part):
+        return None  # "a negative charge of 2 nC" is never drawn positive
     described = [
         described_charge(sign, charge.amount or "")
         for sign, charge in zip(signs, charges, strict=True)

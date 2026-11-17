@@ -25,6 +25,12 @@ _MINUS = frozenset({"-", "\u2212"})
 # is at most one character apart, so the scan stays linear.
 _IN_Q = re.compile(r"(?<![\w.])([+\-\u2212])?(?:[ \t]?(\d+(?:\.\d+)?))?[ \t]?q(?!\w)")
 
+# A sign word in a charge's own phrase ("a negative charge of 2 nC", "a 2 nC negative
+# charge"), never a test charge's ("the force on a positive test charge").
+_SIGN_IN_PHRASE = re.compile(r"\b(positive|negative)\b(?![ \t]+test\b)", re.IGNORECASE)
+_SIGN_AFTER = re.compile(r"[ \t]*(?:point[ \t]+)?(positive|negative)\b(?![ \t]+test\b)", re.I)
+_CLAUSE_END = re.compile(r"[.;:?!](?!\d)")
+
 Kind = Literal["q", "unit"]
 
 
@@ -48,27 +54,53 @@ def stated_charges(texts: Sequence[str]) -> list[Charge]:
     return []
 
 
+def _phrase_sign(text: str, start: int, end: int, floor: int) -> int | None:
+    """The sign the words of a charge's own phrase name: the last sign word between the
+    charge before it (or its clause's start) and its number, or one straight after it;
+    None when they name none."""
+    clause = max((m.end() for m in _CLAUSE_END.finditer(text, floor, start)), default=floor)
+    words = _SIGN_IN_PHRASE.findall(text, clause, start)
+    after = _SIGN_AFTER.match(text, end)
+    word = words[-1] if words else after.group(1) if after else None
+    return None if word is None else (1 if word.lower() == "positive" else -1)
+
+
+def _signed(written: bool, named: int | None) -> Literal[1, -1]:
+    """A charge's sign: negative when its minus or its own words say so."""
+    return -1 if written or named == -1 else 1
+
+
 def _in_units(text: str) -> list[Charge]:
     """Charges in units, read as the physics readers read a number: "3 x 10^-9 C" is 3e-9 C.
-    A sign is the one written before the number, or the number's own."""
+    A sign is the one written before the number, the number's own, or the one its own
+    phrase names ("a negative charge of 2 nC")."""
     plain = fold_scientific(text)
     charges = []
+    floor = 0
     for given in read_givens(plain, PHYSICS_UNITS):
         if given.dimension != _CHARGE_DIMENSION or given.si is None:
             continue
+        unit_at = plain.find(given.unit, given.end)
+        end = unit_at + len(given.unit) if 0 <= unit_at <= given.end + 2 else given.end
         before = plain[: given.start].rstrip()[-1:] in _MINUS
-        sign: Literal[1, -1] = -1 if before or given.si < 0 else 1
+        named = _phrase_sign(plain, given.start, end, floor)
         written = f"{abs(given.value):g} {given.unit}"
-        charges.append(Charge("unit", abs(given.si), sign, written))
+        charges.append(
+            Charge("unit", abs(given.si), _signed(before or given.si < 0, named), written)
+        )
+        floor = end
     return charges
 
 
 def _in_q(text: str) -> list[Charge]:
     charges = []
+    floor = 0
     for match in _IN_Q.finditer(text):
         size = float(match.group(2) or 1)
         written = "q" if size == 1 else f"{size:g}q"
-        charges.append(Charge("q", size, -1 if match.group(1) in _MINUS else 1, written))
+        named = _phrase_sign(text, match.start(), match.end(), floor)
+        charges.append(Charge("q", size, _signed(match.group(1) in _MINUS, named), written))
+        floor = match.end()
     return charges
 
 
@@ -114,19 +146,26 @@ def held_to(described: Sequence[Charge], stated: Sequence[Charge]) -> list[Charg
 # "a positive and a negative charge", "two negative charges", "two equal positive charges":
 # the signs a question names in words, each as many times as its count says.
 _SIGN_WORD = re.compile(
-    r"\b(?:(?P<count>two|three|2|3)[ \t]+(?:[a-z]+[ \t]+)?)?(?P<sign>positive|negative)\b",
+    r"\b(?:(?P<count>two|three|2|3)[ \t]+(?:[a-z]+[ \t]+)?)?(?P<sign>positive|negative)\b"
+    r"(?![ \t]+test\b)",
     re.IGNORECASE,
 )
+# The sentence that asks for the picture: the signs it and the sentences before it name are
+# the charges'; an explanation after it ("how the arrows show the force on a positive test
+# charge") names none.
+_ASKS_TO_DRAW = re.compile(r"\b(?:draw|sketch|plot|illustrate)\b", re.IGNORECASE)
 # "a)" or "(a)": where a part of the question starts.
 _PART = re.compile(r"(?<![\w(])\(?([a-h])\)")
 _COUNTS = {"two": 2, "three": 3, "2": 2, "3": 3}
+_PLURAL = re.compile(r"[ \t]+(?:point[ \t]+)?charges\b", re.IGNORECASE)
 
 
 def named_signs(texts: Sequence[str], part: str | None) -> tuple[list[int], bool] | None:
     """The signs the question names in words, in its part ``part`` when it has one, and
     whether they are the whole picture (one part, or a question with no parts) or only all
     the parts' together. None when the question names no sign."""
-    for text in texts:
+    for whole in texts:
+        text = _through_the_request(whole)
         markers = list(_PART.finditer(text))
         if part is not None and markers:
             for index, marker in enumerate(markers):
@@ -141,9 +180,22 @@ def named_signs(texts: Sequence[str], part: str | None) -> tuple[list[int], bool
     return None
 
 
+def _through_the_request(text: str) -> str:
+    """``text`` up to the end of the sentence that asks for the picture, or all of it when
+    no sentence does."""
+    asks = _ASKS_TO_DRAW.search(text)
+    if asks is None:
+        return text
+    end = _CLAUSE_END.search(text, asks.end())
+    return text if end is None else text[: end.end()]
+
+
 def _signs(text: str) -> list[int]:
     signs: list[int] = []
     for match in _SIGN_WORD.finditer(text):
-        count = _COUNTS.get((match.group("count") or "").lower(), 1)
+        # A count names several charges ("two negative charges"); the 2 of "a 2 nC negative
+        # point charge" is its amount.
+        plural = _PLURAL.match(text, match.end()) is not None
+        count = _COUNTS.get((match.group("count") or "").lower(), 1) if plural else 1
         signs += [1 if match.group("sign").lower() == "positive" else -1] * count
     return signs

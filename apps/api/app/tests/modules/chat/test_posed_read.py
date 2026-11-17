@@ -298,3 +298,28 @@ async def test_a_pool_that_gives_up_reads_nothing_and_keeps_the_turns_readings()
         assert await read_posed(Settings(), _REPEAT, _rows(typed), claimed="physics") is None
     model.assert_not_awaited()
     assert not readings.readings_declined()
+
+
+@pytest.mark.asyncio
+async def test_a_line_with_new_values_read_as_solve_is_none() -> None:
+    """Question 9 read as "solve question 8" showed question 8's 2.16e9 N card under it
+    (Gemini, PR #2482): a line that states values its problem does not, or that a subject
+    claims, only changes the asked turn's problem."""
+    typed = [("user", _COULOMB), ("assistant", "**Answer** 2.16 \u00d7 10\u2079 N")]
+    solve = PosedPick(kind="solve", message=1, problem=_COULOMB)
+    model = AsyncMock(return_value=solve)
+    with patch.object(posed_read, "pick_posed", model):
+        assert await read_posed(Settings(), _REPEAT, _rows(typed), claimed="physics") is None
+        assert await read_posed(Settings(), "What if it were 4.0 m?", _rows(typed)) is None
+    # An earlier exchange's problem is no change of the asked turn's.
+    earlier = [
+        ("user", _COULOMB),
+        ("assistant", "**Answer** 2.16 \u00d7 10\u2079 N"),
+        ("user", "Thanks! Why so large?"),
+        ("assistant", "A coulomb is a huge unit."),
+    ]
+    change = PosedPick(
+        kind="change", message=1, problem=_COULOMB, changes=[_change("5.0 m", "4.0 m")]
+    )
+    with patch.object(posed_read, "pick_posed", AsyncMock(return_value=change)):
+        assert await read_posed(Settings(), "What if it were 4.0 m?", _rows(earlier)) is None

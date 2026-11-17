@@ -306,3 +306,19 @@ def test_two_givens_of_one_number_are_told_apart_by_their_size() -> None:
         problem, [("3.0 \u03bcC", "4.0 pC"), ("3.0 nC", "5.0 \u03bcC")]
     )
     assert changed == problem.replace("3.0 \u03bcC", "4.0 pC").replace("3.0 nC", "5.0 \u03bcC")
+
+
+def test_a_line_with_a_quantity_the_problem_lacks_is_no_rewrite() -> None:
+    """ "What if it's thrown downward at 10 m/s from 45 m?" after a drop from 20 m: a read
+    of only 20 m -> 45 m verified 3.03 s for a throw that lands in 2.19 s (Gemini, PR
+    #2482). Every value the line states must be a change, and a speed the drop never had
+    makes it another problem."""
+    followups = subject_adapter("physics").followups
+    problem = "A ball is dropped from 20 m. How long until it hits the ground?"
+    line = "What if it's thrown downward at 10 m/s from 45 m?"
+    rewritten = followups.changed_problem(problem, [("20 m", "45 m")])
+    assert rewritten is not None
+    assert not followups.takes_every_change(problem, rewritten, line, ["45 m"])
+    # The same height alone is a change of the drop.
+    alone = "What if it were dropped from 45 m?"
+    assert followups.takes_every_change(problem, rewritten, alone, ["45 m"])
