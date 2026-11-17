@@ -148,18 +148,6 @@ async def test_incomplete_integral_bounds_do_not_become_indefinite():
     ],
 )
 async def test_an_antiderivative_is_flagged_on_every_path(args, antiderivative):
-    async def compute_locally(fn, *values):
-        return fn(*values)
-
-    adapter = SympyAdapter(Settings(_env_file=None))
-    with (
-        patch.object(adapter, "_run_off_loop", side_effect=compute_locally),
-        patch.object(
-            math_tools,
-            "_build_verified_block_async",
-            side_effect=math_tools._build_verified_block,
-        ),
-    ):
-        result = await adapter.invoke(args, tool_context())
+    result = await SympyAdapter(Settings(_env_file=None)).invoke(args, tool_context())
     assert result.data is not None, result.content
     assert result.data.get("antiderivative", False) is antiderivative
