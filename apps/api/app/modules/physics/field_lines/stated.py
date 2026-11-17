@@ -15,16 +15,15 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Literal
 
-from app.modules.physics.givens import PHYSICS_UNITS, unit_dimension
+from app.modules.physics.givens import PHYSICS_UNITS
 from app.services.law_binding.fit import read_givens
+from app.services.number_text import fold_scientific
 
 _CHARGE_DIMENSION = "[current]^1 * [time]^1"
 _MINUS = frozenset({"-", "\u2212"})
 # "+2q", "-q", "2q", "q": a multiple of q, never the q of "q1" or "quark". Each optional part
 # is at most one character apart, so the scan stays linear.
 _IN_Q = re.compile(r"(?<![\w.])([+\-\u2212])?(?:[ \t]?(\d+(?:\.\d+)?))?[ \t]?q(?!\w)")
-# A described amount: its sign, its number and its unit, each optional but the unit.
-_AMOUNT = re.compile(r"([+\-\u2212])?[ \t]?(\d+(?:\.\d+)?|\.\d+)?[ \t]?(\S{1,12})")
 
 Kind = Literal["q", "unit"]
 
@@ -50,12 +49,17 @@ def stated_charges(texts: Sequence[str]) -> list[Charge]:
 
 
 def _in_units(text: str) -> list[Charge]:
+    """Charges in units, read as the physics readers read a number: "3 x 10^-9 C" is 3e-9 C.
+    A sign is the one written before the number, or the number's own."""
+    plain = fold_scientific(text)
     charges = []
-    for given in read_givens(text, PHYSICS_UNITS):
+    for given in read_givens(plain, PHYSICS_UNITS):
         if given.dimension != _CHARGE_DIMENSION or given.si is None:
             continue
-        sign: Literal[1, -1] = -1 if text[: given.start].rstrip()[-1:] in _MINUS else 1
-        charges.append(Charge("unit", abs(given.si), sign, f"{given.value:g} {given.unit}"))
+        before = plain[: given.start].rstrip()[-1:] in _MINUS
+        sign: Literal[1, -1] = -1 if before or given.si < 0 else 1
+        written = f"{abs(given.value):g} {given.unit}"
+        charges.append(Charge("unit", abs(given.si), sign, written))
     return charges
 
 
@@ -69,22 +73,19 @@ def _in_q(text: str) -> list[Charge]:
 
 
 def described_charge(sign: Literal[1, -1], amount: str) -> Charge | None:
-    """A described charge's amount, read as a stated one is: "+2q", "-q", "3 μC". Its own
-    sign, when it writes one, must be the charge's."""
-    match = _AMOUNT.fullmatch(amount.strip())
-    if match is None:
-        return None
-    written_sign, number, unit = match.groups()
+    """A described charge's amount, read by the readers that read a stated one ("+2q", "-q",
+    "3 μC", "3e-9 C"), so the two never read differently. Its own sign, when it writes one,
+    must be the charge's."""
+    text = amount.strip()
+    written_sign = text[:1] if text[:1] in ("+", *_MINUS) else None
     if written_sign is not None and (-1 if written_sign in _MINUS else 1) != sign:
         return None
-    if unit in ("q", "Q"):
-        size = float(number or 1)
-        return Charge("q", size, sign, "q" if size == 1 else f"{size:g}q")
-    expression = PHYSICS_UNITS.expression(unit)
-    reading = unit_dimension(expression or "")
-    if number is None or reading is None or reading[0] != _CHARGE_DIMENSION:
+    in_q = _in_q(text)
+    found = in_q if in_q and _IN_Q.fullmatch(text) else _in_units(text)
+    if len(found) != 1:
         return None
-    return Charge("unit", float(number) * reading[1], sign, f"{float(number):g} {unit}")
+    (charge,) = found
+    return Charge(charge.kind, charge.size, sign, charge.written)
 
 
 def held_to(described: Sequence[Charge], stated: Sequence[Charge]) -> list[Charge] | None:

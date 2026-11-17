@@ -293,3 +293,16 @@ async def test_two_changes_are_found_in_the_problem_as_stated(thread_sympy_execu
     )
     assert typed.solved and followed.solved
     assert followed.verified_answer == typed.verified_answer
+
+
+def test_two_givens_of_one_number_are_told_apart_by_their_size() -> None:
+    """ "3.0 μC and 3.0 nC" share a number: a change that names "3.0 nC" is the nano one, by
+    its size, never refused for the shared number (PR #2482 re-review)."""
+    problem = (
+        "Two point charges, one of 3.0 \u03bcC and the other of 3.0 nC, are placed 5.0 m "
+        "apart. Calculate the force between them."
+    )
+    changed = subject_adapter("physics").followups.changed_problem(
+        problem, [("3.0 \u03bcC", "4.0 pC"), ("3.0 nC", "5.0 \u03bcC")]
+    )
+    assert changed == problem.replace("3.0 \u03bcC", "4.0 pC").replace("3.0 nC", "5.0 \u03bcC")
