@@ -178,7 +178,9 @@ async def write_for_a_picture(ctx: StreamContext, settings: Settings) -> None:
     read = await _read_for_a_picture(ctx, deadline)
     if read is None and ctx.live_read is not None and not ctx.live_read.done():
         note_prompt_rule("subject.instant_read_late")
-    if read is None or _described_by(read) != subject:
+    # Only a picture the message asks to see: a problem's setup (physics' "none") is drawn
+    # beside its card, never in its place.
+    if read is None or read.picture not in ("diagram", "graph") or _described_by(read) != subject:
         return
     # A physics solve that drew the picture asked for keeps its card ("calculate the field
     # and draw its lines" whose solve drew none gives way, so the reply can describe them).
