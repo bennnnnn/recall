@@ -13,6 +13,7 @@ import logging
 
 from pydantic import ValidationError
 
+from app.modules.math.drawing.plot_question import read_plot_question
 from app.modules.math.figure import circles, coordinate, lines, nets, solids
 from app.modules.math.figure.grounding import grounded, own_texts, with_unit, written_pairs
 from app.modules.math.figure.honest import honours
@@ -72,7 +73,8 @@ def _the_questions_shape(request: FigureRequest, texts: list[str]) -> bool:
 def figure_fence(request: FigureRequest, texts: list[str]) -> str | None:
     """The picture's fence (```geometry or ```graph), or None when nothing is drawn."""
     request = with_unit(request, texts)
-    if request.kind == "none" or not grounded(request, texts):
+    x_values = read_plot_question(texts).x_values if request.bounds() != (None, None) else ()
+    if request.kind == "none" or not grounded(request, texts, x_values):
         return None
     if not _the_questions_shape(request, texts):
         return None
