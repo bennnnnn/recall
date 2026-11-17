@@ -109,7 +109,7 @@ def _same(given: Given, value: float, unit: str, param: str) -> bool:
     try:
         read = to_si(value, unit, expected_key=param)
     except Exception as exc:  # A reading in a unit of another kind agrees with nothing.
-        logger.info("described scene: %s read in %r (%s)", param, unit, type(exc).__name__)
+        logger.info("described scene: %s read in another unit (%s)", param, type(exc).__name__)
         return False
     written = given.si if given.si is not None else given.value
     return math.isclose(written, read, rel_tol=1e-6, abs_tol=1e-12)
