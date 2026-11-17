@@ -86,7 +86,11 @@ class MathFollowups:
     def takes_every_change(
         self, problem: str, rewritten: str, line: str, new: Sequence[str]
     ) -> bool:
-        return True
+        # Every number the line writes is in the rewrite, as often: "What if it were
+        # 5x + 3 = 13?" read as only 2x -> 5x would solve 5x + 3 = 7.
+        from app.services.problem_followup import stated_numbers
+
+        return not stated_numbers(line) - stated_numbers(rewritten)
 
     def problem(
         self,

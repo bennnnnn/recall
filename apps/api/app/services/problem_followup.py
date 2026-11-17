@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import math
 import re
+from collections import Counter
 from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -289,16 +290,33 @@ _ITEM = re.compile(
 _ASSIGNED = re.compile(r"(?<![\w])[^\W\d_][\w']{0,3}[ \t]*=[ \t]*$")
 
 
-def item_number(text: str, start: int) -> bool:
-    """The number at ``start`` names an item ("Solve 1", "question 9"), not a value."""
+def item_number(text: str, start: int, end: int) -> bool:
+    """The number at ``start:end`` names an item ("Solve 1", "question 9"), not a value: a
+    number standing alone after an item word, never a term ("Solve 2x + 3 = 7")."""
+    if text[end : end + 1].isalpha() or text[end : end + 1] in ("(", "^"):
+        return False
     return _ITEM.search(text, max(0, start - 24), start) is not None
+
+
+_NUMBER = re.compile(r"\d+(?:\.\d+)?")
+
+
+def stated_numbers(text: str) -> Counter[str]:
+    """The numbers ``text`` writes, each as often as it writes it, without its markup and
+    never an item's number ("Solve 1"): "3x + 3 = 7" writes 3 twice."""
+    plain = without_markup(text)
+    return Counter(
+        match.group()
+        for match in _NUMBER.finditer(plain)
+        if not item_number(plain, match.start(), match.end())
+    )
 
 
 def pure_value(text: str, start: int, end: int) -> bool:
     """The pure number at ``start:end`` is a value of the problem: a decimal ("n = 1.5",
     "0.25") or one assigned to a symbol ("n = 2", "μ = 0"), never an item's number. The
     one rule the follow-up readers and chat's new-value read share."""
-    if item_number(text, start):
+    if item_number(text, start, end):
         return False
     return "." in text[start:end] or _ASSIGNED.search(text, max(0, start - 8), start) is not None
 
