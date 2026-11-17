@@ -30,9 +30,10 @@ SCENE_DRAW_CONTRACT = (
     "moving or faster body), mass2*, speed2 (left out when it is at rest), and "
     '"sticks": true when they stick together or "elastic": true when the collision is '
     "elastic;\n"
-    "- spring (a mass on a spring): spring_constant*, mass*;\n"
+    "- spring (a mass on a horizontal spring): spring_constant*, mass*;\n"
     "- pendulum: length*;\n"
-    "- orbit (a satellite round a planet): altitude*, planet_mass, planet_radius;\n"
+    "- orbit (a satellite round Earth, or a planet whose mass and radius the question "
+    "states): altitude* (above the surface), planet_mass, planet_radius;\n"
     "- refraction (light entering a material): angle* (of incidence), index* (of the "
     "material it enters), index_from (of the material it comes from, when not air);\n"
     "- lens (one converging lens): focal_length*, object_distance*, object_height;\n"

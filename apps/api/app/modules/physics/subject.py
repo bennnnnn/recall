@@ -300,6 +300,9 @@ class PhysicsSubject:
     def reads(self, text: str) -> bool:
         from app.modules.physics.extract import extract_physics_intent
 
+        # Read here, in the pool with the turn's message, for the figure's contract
+        # (``PhysicsFigure.contract_for``), which asks it on the loop.
+        states_quantities(text)
         return extract_physics_intent(text) is not None
 
     def asks_of(self, setup: str, question: str) -> bool:

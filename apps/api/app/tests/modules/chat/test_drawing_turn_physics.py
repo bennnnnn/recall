@@ -198,3 +198,43 @@ async def test_a_physics_message_stating_no_quantity_gets_no_contract(line: str)
         ctx, _settings(), _decision(subject="physics", picture="none"), _deadline()
     )
     assert ctx.drawing is None
+
+
+async def test_a_physics_message_the_read_says_works_nothing_out_gets_no_contract() -> None:
+    """ "Why does a 1 kg mass fall as fast as a 10 kg mass?" states masses and poses no
+    problem: the read says it works nothing out, so no setup is asked for."""
+    ctx = _ctx("Why does a 1 kg mass fall as fast as a 10 kg mass?")
+    decision = _decision(subject="physics", picture="none", work=False)
+    await ask_for_a_drawing(ctx, _settings(), decision, _deadline())
+    assert ctx.drawing is None
+
+
+async def test_a_follow_up_scene_is_checked_against_the_problem_it_points_to(
+    thread_sympy_executor: None,
+) -> None:
+    """ "now with 25 m/s": the scene is of the problem the follow-up resolution rewrote,
+    not of the line (which states no angle) or the original (20 m/s)."""
+    line = "now with 25 m/s"
+    ctx = _ctx(line)
+    await ask_for_a_drawing(
+        ctx, _settings(), _decision(subject="physics", picture="diagram"), _deadline()
+    )
+    ctx.followup_problem = "A ball is kicked at 25 m/s at 30 degrees above the horizontal."
+    scene = {"kind": "scene", "scene": "projectile", "values": {"speed": "25 m/s", "angle": "30°"}}
+    text = await attach_drawing(_state(ctx, "It goes further.\n\n" + _block(scene)))
+    assert [json.loads(body)["type"] for _s, _e, body in iter_closed_fences(text, "simulation")]
+
+
+async def test_the_contracts_quantity_read_is_made_in_the_pool_with_the_message(
+    thread_sympy_executor: None,
+) -> None:
+    """Golden Rule 7: ``contract_for`` asks on the loop what the pool read with the turn's
+    message (``PhysicsSubject.reads``), never Pint on the loop."""
+    from app.core.readings import begin_turn, kept_reading, read_off_loop
+    from app.modules.physics.scene_drawing.values import states_quantities
+    from app.services.subjects.registry import subject_adapter
+
+    line = "A 2 kg cart moving at 3 m/s hits a 1 kg cart at rest."
+    begin_turn()
+    await read_off_loop(subject_adapter("physics").reads, line, timeout=5.0)
+    assert kept_reading(states_quantities, line) is True

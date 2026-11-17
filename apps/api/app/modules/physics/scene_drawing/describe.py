@@ -19,6 +19,7 @@ from collections.abc import Sequence
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from app.modules.physics.scene_drawing.confirm import CONFIRMS
 from app.modules.physics.scene_drawing.guards import GUARDS
 from app.modules.physics.scene_drawing.kinds import SCENES, SceneKind
 from app.modules.physics.scene_drawing.values import Stated, stated_texts
@@ -70,9 +71,6 @@ def described_scene(body: str, texts: Sequence[str]) -> list[SimulationBlockSpec
     stated = stated_texts(texts)
     values = _values(kind, described, stated)
     flags = _flags(kind, described, stated)
-    if values is not None and GUARDS[described.scene](stated, values):
-        logger.info("described scene %s not drawn: the question says more", described.scene)
-        return []
     if values is None or flags is None:
         logger.info(
             "described scene %s not drawn: %s (parts %s)",
@@ -80,6 +78,12 @@ def described_scene(body: str, texts: Sequence[str]) -> list[SimulationBlockSpec
             "its values" if values is None else "its claims",
             ",".join(sorted(described.values)),
         )
+        return []
+    # The words confirm the setup the scene draws, and say nothing it cannot carry.
+    if not CONFIRMS[described.scene](stated, values, flags) or GUARDS[described.scene](
+        stated, values
+    ):
+        logger.info("described scene %s not drawn: its setup unconfirmed", described.scene)
         return []
     drawn = {kind.parts[name].param: given for name, given in values.items()}
     return kind.draw({param: given for param, given in drawn.items() if param}, flags)
@@ -100,14 +104,13 @@ def _values(kind: SceneKind, described: _Scene, stated: Stated) -> dict[str, Giv
         held[name] = given
     if described.scene == "refraction" and "index_from" not in held:
         stated.take_air()  # "from air (n = 1.00)": the index a refraction from air needs not
+    if "g" in kind.parts and "g" not in held:
+        gravity = stated.take_gravity()  # "Take g = 9.8 m/s²": the scene is drawn under it
+        if gravity is not None:
+            held["g"] = gravity
     # The scene is the question's whole setup: no stated quantity it cannot leave aside.
     if stated.leaves_out(kind.tolerates):
         return None
-    # Each speed belongs to the mass in its own clause, never the other body's.
-    masses = [held[mass] for mass, _speed in kind.bodies if mass in held]
-    for mass, speed in kind.bodies:
-        if speed in held and (mass not in held or stated.owner(held[speed], masses) != held[mass]):
-            return None
     return held
 
 

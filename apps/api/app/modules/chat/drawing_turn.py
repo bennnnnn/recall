@@ -214,8 +214,12 @@ async def ask_for_a_drawing(
     figure = _figure(subject) if subject_adapter(subject).enabled(settings) else None
     if figure is None:
         return
-    # A message the read says asks to see nothing gets only its problem's setup.
+    # A message the read says asks to see nothing gets only its problem's setup, and none
+    # when the read says it works nothing out ("why does a 1 kg mass fall as fast as a
+    # 10 kg one?" states masses but poses no problem).
     sees = read is None or read.picture in ("diagram", "graph")
+    if not sees and read is not None and read.work is False:
+        return
     contract = figure.contract_for(ctx.user_message_content or "", sees)
     if not contract:
         return
@@ -251,7 +255,11 @@ async def attach_drawing(state: FinalizeState) -> str:
     if not descriptions or not _still_wanted(ctx, drawing):
         return text
     line = ctx.user_message_content or ""
-    texts = [line, *earlier_user_lines(ctx.recent_messages, line)]
+    # A physics scene is of the problem a follow-up points back to, when there is one
+    # (maths reads its own follow-ups from the lines).
+    physics = drawing.subject == "physics" and ctx.followup_problem
+    problem = [ctx.followup_problem] if physics and ctx.followup_problem else []
+    texts = [*problem, line, *earlier_user_lines(ctx.recent_messages, line)]
     try:
         fences = await figure.described(descriptions, texts, text, state.settings)
     except Exception as exc:  # A drawing that fails is no drawing: the reply stands.

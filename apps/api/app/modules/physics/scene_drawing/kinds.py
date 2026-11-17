@@ -108,6 +108,7 @@ def _standing(values: Mapping[str, Given], flags: Mapping[str, float]) -> Scenes
 
 
 _SPEED, _ANGLE, _LENGTH, _MASS = "m/s", "°", "m", "kg"
+_G = Part("g", "m/s^2", required=False)
 
 SCENES: dict[str, SceneKind] = {
     "projectile": SceneKind(
@@ -116,22 +117,23 @@ SCENES: dict[str, SceneKind] = {
             # Left out only for a launch the question says is horizontal.
             "angle": Part("angle", _ANGLE, required=False),
             "height": Part("h0", _LENGTH, required=False),
-            "g": Part("g", "m/s^2", required=False),
+            "g": _G,
         },
         _solved("projectile", "time_of_flight"),
+        tolerates=(_MASS,),
     ),
     "incline": SceneKind(
         {
             "angle": Part("angle", _ANGLE),
             "friction": Part("mu", ""),
             "mass": Part("m", _MASS, required=False),
-            "g": Part("g", "m/s^2", required=False),
+            "g": _G,
         },
         _solved("friction", "incline_acceleration", {"motion_sign": (1.0, "")}),
         tolerates=(_LENGTH,),
     ),
     "atwood": SceneKind(
-        {"mass1": Part("m1", _MASS), "mass2": Part("m2", _MASS)},
+        {"mass1": Part("m1", _MASS), "mass2": Part("m2", _MASS), "g": _G},
         _solved("force", "atwood"),
         tolerates=(_LENGTH,),
     ),
@@ -152,7 +154,7 @@ SCENES: dict[str, SceneKind] = {
         tolerates=(_LENGTH, _LENGTH),
     ),
     "pendulum": SceneKind(
-        {"length": Part("L", _LENGTH)},
+        {"length": Part("L", _LENGTH), "g": _G},
         _solved("spring", "pendulum_period"),
         tolerates=(_MASS, _ANGLE),
     ),
@@ -162,7 +164,7 @@ SCENES: dict[str, SceneKind] = {
             "planet_mass": Part("M", _MASS, required=False),
             "planet_radius": Part("radius_body", "km", required=False),
         },
-        # Earth's own, when the question names Earth and gives no planet (``guards``).
+        # Earth's own, only when the orbit's sentence names Earth (``confirm``).
         _solved(
             "gravitation",
             "orbital_velocity",
@@ -196,7 +198,8 @@ SCENES: dict[str, SceneKind] = {
         tolerates=(_MASS, "N", _SPEED, "Hz", _LENGTH),
     ),
     "banked_curve": SceneKind(
-        {"angle": Part("angle", _ANGLE)},
+        # Its picture does not depend on g: a stated one is checked, not drawn.
+        {"angle": Part("angle", _ANGLE), "g": Part("", "m/s^2", required=False)},
         _banked,
         tolerates=(_LENGTH, _MASS, _SPEED, ""),
     ),

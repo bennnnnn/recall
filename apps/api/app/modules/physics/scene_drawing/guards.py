@@ -1,5 +1,8 @@
 """What each scene cannot carry, read off the question: then it is not drawn.
 
+An extra guard behind ``confirm``, which draws a scene only when the words confirm its
+setup: these refuse the phrasings a confirmation might still let through.
+
 A scene draws one setup in one way: a block sliding down its slope, a projectile launched
 above the horizontal, two bodies on a line moving the same way, a converging lens, a spring
 lying flat. The description cannot say otherwise, so when the question's words state a
@@ -48,15 +51,17 @@ _HEAD_ON = re.compile(
     r"\bhead[- ]on\b|\bopposite\s+directions?\b|\btowards?\s+each\s+other\b|-\s*\d", re.IGNORECASE
 )
 _SIDES = re.compile(r"\b(east|west|north|south|left|right)\b", re.IGNORECASE)
-_CONVERGING = re.compile(r"\b(?:converging|convex)\b", re.IGNORECASE)
 _DIVERGING = re.compile(r"\b(?:diverging|concave)\b", re.IGNORECASE)
 _FROM = re.compile(r"\bfrom\b", re.IGNORECASE)
 _INTO = re.compile(r"\b(?:into|enters?|to)\b", re.IGNORECASE)
 _HANGING = re.compile(r"\b(?:hang|hangs|hanging|hung|vertical|vertically|suspended)\b", re.I)
+_BOBS = re.compile(r"\bbob(?:s|bing)?\s+up\b|\bup\s+and\s+down\b", re.IGNORECASE)
+_PIPE = re.compile(r"\b(?:pipe|tube|column|organ|flute|whistle)s?\b", re.IGNORECASE)
+_MIRROR = re.compile(r"\bmirrors?\b", re.IGNORECASE)
+_RESTING = re.compile(r"\b(?:table|incline|slope|ramp|bench|surface)\b", re.IGNORECASE)
 _LAUNCH = re.compile(r"\b(?:launch\w*|fires?|fired|shoots?|projects?)\b", re.IGNORECASE)
 _CIRCLE = re.compile(r"\b(?:circle|circular|conical|cone)\b", re.IGNORECASE)
 _MASSIVE_PULLEY = re.compile(r"\b(?:radius|dis[ck]|inertia|cylinder|wheel)\b", re.IGNORECASE)
-_EARTH = re.compile(r"\bearth\b", re.IGNORECASE)
 
 
 def _projectile(stated: Stated, held: Mapping[str, Given]) -> bool:
@@ -109,12 +114,18 @@ def _refraction(stated: Stated, held: Mapping[str, Given]) -> bool:
 
 def _lens(stated: Stated, held: Mapping[str, Given]) -> bool:
     text = stated.text
-    return _CONVERGING.search(text) is None or _DIVERGING.search(text) is not None
+    return _DIVERGING.search(text) is not None or _MIRROR.search(text) is not None
+
+
+def _standing(stated: Stated, held: Mapping[str, Given]) -> bool:
+    """A string's waves: never a pipe's air column."""
+    return _PIPE.search(stated.text) is not None
 
 
 def _spring(stated: Stated, held: Mapping[str, Given]) -> bool:
     """A mass oscillating on a flat spring: never one hanging from it, never a launch."""
-    return _HANGING.search(stated.text) is not None or _LAUNCH.search(stated.text) is not None
+    text = stated.text
+    return any(p.search(text) is not None for p in (_HANGING, _LAUNCH, _BOBS))
 
 
 def _pendulum(stated: Stated, held: Mapping[str, Given]) -> bool:
@@ -123,13 +134,10 @@ def _pendulum(stated: Stated, held: Mapping[str, Given]) -> bool:
 
 
 def _atwood(stated: Stated, held: Mapping[str, Given]) -> bool:
-    """An ideal pulley: one with a radius, a disk's mass or inertia is another machine."""
-    return _MASSIVE_PULLEY.search(stated.text) is not None
-
-
-def _orbit(stated: Stated, held: Mapping[str, Given]) -> bool:
-    """Round Earth unless the question gives the planet's own mass."""
-    return "planet_mass" not in held and _EARTH.search(stated.text) is None
+    """An ideal pulley with both masses hanging: one with a radius, a disk's mass or
+    inertia, or a mass on a table or a slope, is another machine."""
+    text = stated.text
+    return _MASSIVE_PULLEY.search(text) is not None or _RESTING.search(text) is not None
 
 
 def _none(stated: Stated, held: Mapping[str, Given]) -> bool:
@@ -145,7 +153,7 @@ GUARDS: dict[str, Guard] = {
     "spring": _spring,
     "pendulum": _pendulum,
     "atwood": _atwood,
-    "orbit": _orbit,
-    "standing_wave": _none,
+    "orbit": _none,
+    "standing_wave": _standing,
     "banked_curve": _none,
 }

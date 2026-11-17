@@ -16,20 +16,23 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
+from app.core.readings import reading
 from app.modules.physics.givens import PHYSICS_UNITS
 from app.services.latex_markup import without_markup
 from app.services.law_binding.fit import read_givens
 from app.services.law_binding.givens import Given
 from app.services.number_text import fold_scientific
 
-# Where a clause ends: a speed belongs to a mass in its own clause.
-_CLAUSE_END = re.compile(r"[.;:?!](?!\d)")
 # Where a sentence ends: a full stop not inside a number ("1.5").
 _SENTENCE_END = re.compile(r"[.;?!](?!\d)")
 # "the 5 kg mass": the noun after a value written straight after "the".
 _RESTATED = re.compile(r"\bthe[ \t]+$", re.IGNORECASE)
 _NOUN = re.compile(r"[ \t]*([a-z]{3,})", re.IGNORECASE)
 _WORD = re.compile(r"[a-z]{3,}", re.IGNORECASE)
+# A time the question asks about ("after 3 s", "how far in 2 s"): no part of the setup.
+_ASKED_TIME = re.compile(r"\b(?:after|in|within|during|for)[ \t]+(?:the[ \t]+first[ \t]+)?$", re.I)
+# The values a stated g takes: Earth's, as a school question rounds it.
+_GRAVITY = (9.8, 9.81, 9.807, 9.80665, 10.0)
 # The harmonic a question names: "third harmonic", "3rd harmonic", "n = 3", "fundamental".
 _ORDINAL = {"first": 1, "second": 2, "third": 3, "fourth": 4, "fifth": 5, "sixth": 6}
 _HARMONIC = re.compile(
@@ -95,12 +98,26 @@ class Stated:
                 return given
         return None
 
+    def take_gravity(self) -> Given | None:
+        """A stated g (9.8, 9.81 or 10 m/s²), which every scene drawn under gravity takes."""
+        kind = _dimension("m/s^2")
+        for given in self.left:
+            if given.dimension == kind and any(math.isclose(given.value, g) for g in _GRAVITY):
+                self.left.remove(given)
+                self.taken.append(given)
+                return given
+        return None
+
     def leaves_out(self, tolerated: Sequence[str]) -> bool:
         """A stated quantity no part used, beyond the ones the scene can leave aside (one
-        of each kind ``tolerated`` names: a slope's length, a bob's mass)."""
+        of each kind ``tolerated`` names: a slope's length, a bob's mass) and a time the
+        question asks about ("after 3 s")."""
         spare = [_dimension(sample) for sample in tolerated]
+        time = _dimension("s")
         for given in self.left:
             if self._restated(given):
+                continue
+            if given.dimension == time and _ASKED_TIME.search(self.before(given, 24)):
                 continue
             if given.dimension in spare:
                 spare.remove(given.dimension)
@@ -115,7 +132,7 @@ class Stated:
         and 4 kg" is another body."""
         if not _RESTATED.search(self.text[max(0, given.start - 6) : given.start]):
             return False
-        noun = _NOUN.match(self.text, self._after(given))
+        noun = _NOUN.match(self.text, self.after_at(given))
         if noun is None:
             return False
         name = noun.group(1).lower()
@@ -124,15 +141,24 @@ class Stated:
                 continue
             # The words naming the first statement: just before it, or just after its unit.
             beside = self.text[max(0, used.start - 20) : used.start]
-            beside += " " + self.text[self._after(used) : self._after(used) + 12]
+            beside += " " + self.text[self.after_at(used) : self.after_at(used) + 12]
             if any(_one_noun(word.lower(), name) for word in _WORD.findall(beside)):
                 return True
         return False
 
-    def _after(self, given: Given) -> int:
+    def after_at(self, given: Given) -> int:
         """Where the words after ``given``'s unit start."""
         at = self.text.find(given.unit, given.end) if given.unit else -1
         return given.end if at < 0 or at > given.end + 2 else at + len(given.unit)
+
+    def before(self, given: Given, reach: int = 40) -> str:
+        """The words just before ``given``."""
+        return self.text[max(0, given.start - reach) : given.start]
+
+    def after(self, given: Given, reach: int = 40) -> str:
+        """The words just after ``given``'s unit."""
+        at = self.after_at(given)
+        return self.text[at : at + reach]
 
     def sentence(self, given: Given) -> str:
         """The sentence ``given`` is written in."""
@@ -144,17 +170,6 @@ class Stated:
         """The stated lengths no part used ("a wavelength of 0.8 m")."""
         kind = _dimension("m")
         return [given for given in self.left if given.dimension == kind]
-
-    def owner(self, value: Given, masses: Sequence[Given]) -> Given | None:
-        """The mass whose body ``value`` (a speed) belongs to: the last of ``masses`` written
-        before it in its own clause, with no other mass between; None when no mass is."""
-        before = [m for m in masses if m.start < value.start]
-        if not before:
-            return None
-        nearest = max(before, key=lambda m: m.start)
-        if _CLAUSE_END.search(self.text, nearest.end, value.start):
-            return None
-        return nearest
 
     def harmonics(self) -> set[int]:
         """The harmonics the question names: "third harmonic", "n = 3", "fundamental"."""
@@ -183,15 +198,14 @@ def _same(one: Given, other: Given) -> bool:
 
 
 def stated_texts(texts: Sequence[str]) -> Stated:
-    """The question's quantities: the user's message, or on a follow-up ("draw it") the
-    first earlier message that states any, the last first."""
-    for text in texts:
-        stated = Stated.of(text)
-        if any(given.dimension is not None for given in stated.left):
-            return stated
+    """The quantities of the problem the picture is of: the first text, which is the
+    user's message or, on a follow-up ("draw it", "now with 25 m/s"), the problem the
+    turn's follow-up resolution points to (``StreamContext.followup_problem``)."""
     return Stated.of(texts[0] if texts else "")
 
 
+@reading(declined=False)
 def states_quantities(text: str) -> bool:
-    """The message states a quantity with a unit the physics readers read."""
+    """The message states a quantity with a unit the physics readers read. A reading: the
+    turn reads it in the pool with its message (``PhysicsSubject.reads``)."""
     return any(given.dimension is not None for given in Stated.of(text).left)
