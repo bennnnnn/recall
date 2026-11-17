@@ -65,6 +65,15 @@ class Interval:
         return not self.of or self.of in variables
 
 
+_BRACKET_LETTER = re.compile(r"(?<![A-Za-z])([a-z])\s*(?:\u2208|\bin\b|\bis\s+in\b)\s*$")
+
+
+def _bracket_of(text: str, at: int) -> str:
+    found = _BRACKET_LETTER.search(text[:at])
+    letter = found.group(1) if found else ""
+    return "" if letter == "x" else letter
+
+
 def _words_before(text: str, at: int) -> list[str]:
     return [w.strip(",;:().").lower() for w in text[:at].split()]
 
@@ -73,7 +82,10 @@ def intervals(text: str, variables: frozenset[str]) -> list[Interval]:
     """The intervals of x ``text`` writes: in brackets, in words, and as a double comparison
     in one clause ("0 ≤ x ≤ 2π", "-5 < x ≤ -2", its strictness kept)."""
     found: list[Interval] = []
-    pairs = [(m.group(1), m.group(2), "") for m in BRACKETS.finditer(text)]
+    # A bracket is of the letter written right before it: "y ∈ [0, 4]", "for y in [0, 4]".
+    pairs = [
+        (m.group(1), m.group(2), _bracket_of(text, m.start())) for m in BRACKETS.finditer(text)
+    ]
     for match in _FROM_TO.finditer(text):
         before = _words_before(text, match.start())[-3:]
         said_of_value = match.group("word") == "between" and not match.group("named")

@@ -66,7 +66,8 @@ def _stated_bounds(item: Shade, meets: list[float], question: PlotQuestion) -> l
         return None
     low, high = (start, end) if float(start) <= float(end) else (end, start)
     along_x = item.wrt == "x"
-    held = stated_interval(low, high, question, item.wrt)
+    # Along y, the edges are curves x = g(y): an interval naming no letter may be of y.
+    held = stated_interval(low, high, question, item.wrt, sideways=item.wrt == "y")
     if held is not None:
         return [float(held.low), float(held.high)]
     ends = [_meet(low, meets), _meet(high, meets)]
