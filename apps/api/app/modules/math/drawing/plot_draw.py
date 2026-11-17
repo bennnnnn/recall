@@ -176,6 +176,8 @@ def _sampled(curve: DrawnCurve, window: Window) -> list[list[tuple[float, float]
     height, width = y_hi - y_lo, x_hi - x_lo
     if curve.sideways is not None:
         across = (x_lo - 3 * width, x_hi + 3 * width)
+        if curve.stated_domain:  # x = g(y) on the interval of y the question states
+            y_lo, y_hi = max(y_lo, curve.search[0]), min(y_hi, curve.search[1])
         return [
             [(x, t) for t, x in piece]
             for ts, xs in _sample(curve.sideways.expr, y_lo, y_hi) or []

@@ -301,7 +301,7 @@ def grounded(request: FigureRequest, texts: Sequence[str]) -> bool:
     ):
         return False
     origin = request.kind in {"function", "points"}
-    bounds = [v for v in (request.x_min, request.x_max) if v is not None]
+    bounds = [v for v in request.bounds() if v is not None]
     if not all((origin and v == 0) or states_signed(found, v) for v in bounds):
         return False
     # A point is one the question writes as a pair: C(-3, -2) is no (3, -2), though A(2, 3)
