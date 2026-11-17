@@ -11,16 +11,18 @@ A question that writes no curve ("a sphere of radius r") is left to the figure's
 
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from sympy import FiniteSet, S, Symbol, degree, expand, simplify, solve, solveset
+from sympy import FiniteSet, Interval, S, Symbol, degree, expand, simplify, solve, solveset
+from sympy.calculus.util import continuous_domain, function_range
 
 from app.modules.math.drawing.plot_question import Written, read_plot_question
-from app.modules.math.drawing.plot_reading import plain, same_number
-from app.modules.math.drawing.plot_x import named_values, revolution_axis
+from app.modules.math.drawing.plot_reading import same_number
+from app.modules.math.drawing.plot_x import named_values
 
 _X, _Y = Symbol("x"), Symbol("y")
 _SOLIDS = frozenset({"cylinder", "cone", "frustum", "sphere", "hemisphere"})
@@ -123,8 +125,45 @@ def _sweeps(shape: str, distance: Any, run: Symbol, ends: Sequence[Any]) -> bool
         # An arc of a circle whose centre is on the axis: d² + (run - c)² = R², so d² + run²
         # is a line in the run (the semicircle y = √(4 - (x - 2)²) about the x-axis too).
         swept = expand(simplify(distance**2) + run**2)
-        return bool(swept.is_polynomial(run) and degree(swept, run) <= 1)
+        if not (swept.is_polynomial(run) and degree(swept, run) <= 1):
+            return False
+        return _whole_or_half(shape, swept, run, ends)
     return True
+
+
+def _whole_or_half(shape: str, swept: Any, run: Symbol, ends: Sequence[Any]) -> bool:
+    """A sphere's arc runs the whole diameter along the axis, a hemisphere's half of it, as
+    the region's ends say: x = √(4 - y²) from the y-axis about the x-axis is x in [0, 2], a
+    hemisphere, not a sphere."""
+    centre = float(swept.coeff(run, 1)) / 2
+    squared = float(swept.subs(run, 0)) + centre**2
+    numbers = [float(end) for end in ends]
+    if squared <= 0 or len(set(numbers)) < 2:
+        return False
+    radius, low, high = math.sqrt(squared), min(numbers), max(numbers)
+    near = 1e-6 * max(1.0, radius)
+    if shape == "sphere":
+        return low <= centre - radius + near and high >= centre + radius - near
+    halves = ((centre, centre + radius), (centre - radius, centre))
+    return any(abs(low - a) <= near and abs(high - b) <= near for a, b in halves)
+
+
+def _implied_ends(swept: _Swept, at: Any) -> list[Any]:
+    """Where the curve as written lives along the run, when the question states no ends:
+    y = √(4 - x²) for x in [-2, 2]; x = √(4 - y²) turned round for x in [0, 2] (its values).
+    Unbounded (y = 2x): none."""
+    try:
+        if swept.written is None:
+            curve = swept.branches[0] + at
+            found = continuous_domain(curve, swept.run, S.Reals)
+        else:
+            own, expr = swept.written
+            found = function_range(expr, own, continuous_domain(expr, own, S.Reals))
+    except (NotImplementedError, ValueError, TypeError):
+        return []
+    if not isinstance(found, Interval) or not (found.start.is_finite and found.end.is_finite):
+        return []
+    return [found.start, found.end]
 
 
 def _axis_bounds(text: str, axis: tuple[str, Any]) -> bool:
@@ -167,28 +206,33 @@ def revolves_into(shape: str, texts: Sequence[str]) -> bool:
     draws no solid. True when the question names no curve."""
     if shape not in _SOLIDS or not texts:
         return True
-    text = plain(texts[0])
-    axis = revolution_axis(text)
+    # The question as the drawing reads it: a follow-up ("now sketch the solid") is read
+    # with the message that writes the curve and the axis.
+    question = read_plot_question(texts)
+    axis = question.revolution_axis
     if axis is None:
         return True
-    question = read_plot_question(texts)
+    text = question.words
     run = _X if axis[0] == "y" else _Y
     ends = _ends(text, question, axis, run)
-    found: dict[str, Any] = {}
+    found: dict[str, tuple[Any, list[Any]]] = {}
     for written in question.formulas:
         swept = _distance_and_run(written, axis)
         if swept is None:
             continue
-        distance = _one_branch(swept, axis[1], ends)
+        implied = _implied_ends(swept, axis[1]) if len(set(ends)) < 2 else []
+        distance = _one_branch(swept, axis[1], ends or implied)
         if distance is None:
             return False  # a curve it cannot check: no solid, never a default
         if distance != 0:
-            found.setdefault(str(simplify(distance)), distance)
+            found.setdefault(str(simplify(distance)), (distance, implied))
     if not found:
         return True
     if len(found) > 1:
         return False  # hollow: a washer, never a cone, cylinder or sphere
-    distance = next(iter(found.values()))
+    distance, implied = next(iter(found.values()))
+    if len(set(ends)) < 2 and implied:
+        ends = [*ends, *implied]  # where the curve itself ends (a semicircle's diameter)
     if len(set(ends)) == 1 and _axis_bounds(text, axis) and not distance.is_number:
         # One end stated: the curve's meeting with the axis edge is the other.
         roots = solveset(distance, run, domain=S.Reals)

@@ -91,10 +91,12 @@ _SENTENCE_END = re.compile(r"[.;!?]")
 # "... for -3 ≤ x ≤ 3 and shade the region ...", "... for -3 ≤ x ≤ 3, shading the region"):
 # a curve's domain is the region's interval only when the area wording shares its clause.
 _TASK_CLAUSES = re.compile(
-    # A comma before a word (never inside "[-4, 3]" or "(1, 2)"), a semicolon, "and/then"
-    # before a task, "and" before another area, and a participle that starts one
-    # ("..., shading the region", "... -3 ≤ x ≤ 3 shading ...").
-    r",\s*(?=[A-Za-z]{3,})|;|\s+(?:and|then)\s+(?=(?:shade|find|evaluate|calculate|compute|"
+    # A comma before "and/then" or a task's verb, a semicolon, "and/then" before a task,
+    # "and" before another area, and a participle that starts one ("..., shading the
+    # region", "... -3 ≤ x ≤ 3 shading ..."); never a comma in a list of edges ("y = x², the
+    # x-axis, from x = -4 to x = 3").
+    r",\s*(?=(?:and|then|shade|find|evaluate|calculate|compute|integrate|determine|show|"
+    r"sketch|draw)\b)|;|\s+(?:and|then)\s+(?=(?:shade|find|evaluate|calculate|compute|"
     r"integrate|determine|show|sketch|draw|work out)\b)"
     r"|\s+and\s+(?=(?:the\s+|an?\s+)?(?:area|region|integral|volume|average)\b)"
     r"|\s+(?=(?:shading|finding|showing|marking|calculating|evaluating)\b)"
