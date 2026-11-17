@@ -100,16 +100,6 @@ _PROJECTILE_UNKNOWN_RES: tuple[tuple[str, re.Pattern[str]], ...] = (
 _RANGE_GIVEN_KEYWORDS = ("range", "travel", "reach", "cover", "land", "distance", "far")
 
 # Read right after the angle: "30° below the horizontal", "at 20 degrees downward".
-# An angle measured from the vertical: "at 60° to the vertical", "30 degrees from vertical".
-_FROM_VERTICAL_RE = re.compile(
-    r"\s*(?:degrees?|°|deg)?\s*(?:to|from|with|off)\s+(?:the\s+)?vertical\b", re.IGNORECASE
-)
-# A height the projectile lands on or clears, not one it is launched from.
-_LANDS_HIGH_RE = re.compile(
-    r"\b(?:lands?|landing|hits?|strikes?|onto|clears?|over)\b[^.?!]{0,40}?"
-    r"\d[\d.]*\s*(?:m|metres?|meters?|ft|feet)\s+(?:high|tall)\b",
-    re.IGNORECASE,
-)
 _BELOW_HORIZONTAL_RE = re.compile(
     r"\s*(?:degrees?|deg|°)?\s*(?:below|beneath|under)\s+(?:the\s+)?horizontal\b"
     r"|\s*(?:degrees?|deg|°)?\s*(?:down(?:wards?)?|downward)\b",
@@ -226,10 +216,6 @@ def _extract_projectile_intent(cleaned: str) -> PhysicsIntent | None:
             rf"({DECIMAL})\s*(?:degrees?|°|deg|radians?|rad)(?![A-Za-z0-9])",
             lower,
         )
-    if angle_m and _FROM_VERTICAL_RE.match(lower, angle_m.end()):
-        # "60° to the vertical" is measured from the vertical: read as an elevation it
-        # was answered for the complementary launch. Declined, never guessed.
-        return None
     if angle_m:
         angle = float(angle_m.group(1))
         # "30° below the horizontal" is a launch downward: -30°. Read as 30°
@@ -284,10 +270,6 @@ def _extract_projectile_intent(cleaned: str) -> PhysicsIntent | None:
         require_keyword=True,
     )
     if hu is not None:
-        if _LANDS_HIGH_RE.search(cleaned):
-            # "lands on the roof of a 10 m high building", "over a 10 m tall wall": the
-            # height is where it lands or what it clears, not where it was launched.
-            return None
         h0, h0_unit = hu
 
     params: dict[str, float] = {"v0": v0, "angle": angle, "g": g}
