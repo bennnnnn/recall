@@ -105,3 +105,39 @@ def test_an_amount_in_scientific_notation_is_read_as_the_question_states_it(amou
         _charges({"sign": "+", "amount": amount}, {"sign": "+", "amount": "2e-9 C"}), [question]
     )
     assert picture is not None and len(picture.charges) == 2
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Draw the electric field lines around a negative charge of 2 nC.",
+        "Draw the field lines of a 2 nC negative point charge.",
+    ],
+)
+def test_a_charge_its_own_words_call_negative_is_negative(question: str) -> None:
+    """ "a negative charge of 2 nC" was read +2 nC: a right minus block was refused and a wrong
+    + block drew outward lines (Gemini, PR #2482)."""
+    assert [charge.sign for charge in stated_charges([question])] == [-1]
+    negative = _charges({"sign": "-", "amount": "2 nC"})
+    positive = _charges({"sign": "+", "amount": "2 nC"})
+    assert read_description(negative, [question]) is not None
+    assert read_description(positive, [question]) is None
+
+
+def test_each_charge_takes_the_sign_its_own_phrase_names() -> None:
+    question = (
+        "A positive charge of 3 nC and a negative charge of 2 nC are 4 cm apart. "
+        "Draw the field lines."
+    )
+    assert [charge.sign for charge in stated_charges([question])] == [1, -1]
+
+
+def test_a_test_charge_in_an_explanation_is_no_source() -> None:
+    """ "the force on a positive test charge" after the request names no charge of the
+    picture: one negative charge is drawn, a dipole refused (Gemini, PR #2482)."""
+    question = (
+        "Draw the field lines around a negative charge. Explain how the arrows show the "
+        "force on a positive test charge."
+    )
+    assert read_description(_charges({"sign": "-"}), [question]) is not None
+    assert read_description(_charges({"sign": "-"}, {"sign": "+"}), [question]) is None
