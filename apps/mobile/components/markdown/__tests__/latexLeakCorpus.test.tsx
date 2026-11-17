@@ -181,6 +181,8 @@ const VARIANTS: Record<string, string> = {
   "price colon then a fraction":
     "Rent is $1,200: 3 roommates each pay $\\frac{1200}{3} = 400$. The bill is $90: 3 of us split it as $\\frac{90}{3}$.",
   "price colon then an equation": "Total $60: 3 of us, so $x = 20$. Budget $50: 2 shirts at $s$ each.",
+  // A subscript and a superscript on one base (phys30, 2026-11-16).
+  "sub and sup": "$v_{2f} = \\sqrt{v_{2x}^2 + v_{2y}^2}$ and $T = mg + \\frac{m v_{\\max}^2}{L}$",
   // Known gaps (see KNOWN_GAPS): each is a leak this suite still finds.
   "table abs": "| Expression | Value |\n|---|---|\n| $|x-3|$ | 5 |",
   "bare script": "The area is 25 m^{2}.",

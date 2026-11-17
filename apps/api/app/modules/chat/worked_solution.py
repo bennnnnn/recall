@@ -230,10 +230,23 @@ def _fields(key: str, rest: str) -> dict[str, str]:
     elif key == "formula" and len(values) == 1:
         values = ["", values[0]]  # the formula alone, no name
     return {
-        name: _unwrapped(value) if name in _TEX_FIELDS else value
+        name: _unwrapped(value) if name in _TEX_FIELDS else _without_part_tail(key, value)
         for name, value in zip(names, values, strict=False)
         if value
     }
+
+
+# A part's letter at the end of what it asks: the layout letters each part itself, and
+# "(a) $t$ (time in the air (a))" said it twice (phys30, 2026-11-16).
+_PART_TAIL = re.compile(r"\s*\(\s*[a-h]\s*\)\s*$")
+
+
+def _without_part_tail(key: str, value: str) -> str:
+    """What a part asks, or its title, without its own letter at the end. A given's words
+    keep theirs: "mass of block (a)" may name a body."""
+    if key not in {"required", "part"}:
+        return value
+    return _PART_TAIL.sub("", value) or value
 
 
 _MODELS: dict[str, type[Given | Required | Formula | Answer | PartLabel]] = {

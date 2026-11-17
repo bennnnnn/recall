@@ -1,6 +1,7 @@
 """Tests for chat model routing (``modules/chat/model_routing``): pure functions, no I/O."""
 
 import time
+from typing import Any
 
 import pytest
 
@@ -15,8 +16,6 @@ from app.modules.chat.model_routing.route import (
     routed_chat_model,
 )
 from app.modules.physics import lane as routing_physics
-from app.modules.physics.schemas import PhysicsIntent
-from app.modules.physics.solver import PhysicsResult
 
 # Auto's maths lane, whichever model runs it (``ROUTING.math``).
 _MATH = model_catalog.auto_math_alias()
@@ -427,12 +426,12 @@ def test_physics_route_declines_when_the_solver_raises(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     """A solver bug is a decline to the strong model, never a failed turn."""
-    import app.modules.physics as physics
+    import app.modules.physics.prompt as physics_prompt
 
-    def broken(_intent: object) -> object:
+    def broken(*_args: object) -> object:
         raise ZeroDivisionError("solver bug")
 
-    monkeypatch.setattr(physics, "solve_physics", broken)
+    monkeypatch.setattr(physics_prompt, "solve_physics_request", broken)
     routing_physics._physics_solves.cache_clear()
     try:
         assert route_chat_model(_VERIFIED_PHYSICS) == "smart-chat"
@@ -442,17 +441,17 @@ def test_physics_route_declines_when_the_solver_raises(
 
 
 def test_physics_route_solves_each_line_once(monkeypatch: pytest.MonkeyPatch) -> None:
-    import app.modules.physics as physics
+    import app.modules.physics.prompt as physics_prompt
 
     calls = 0
-    real = physics.solve_physics
+    real = physics_prompt.solve_physics_request
 
-    def counting(intent: PhysicsIntent) -> PhysicsResult:
+    def counting(*args: Any) -> Any:
         nonlocal calls
         calls += 1
-        return real(intent)
+        return real(*args)
 
-    monkeypatch.setattr(physics, "solve_physics", counting)
+    monkeypatch.setattr(physics_prompt, "solve_physics_request", counting)
     routing_physics._physics_solves.cache_clear()
     try:
         for _ in range(3):
@@ -468,3 +467,26 @@ def test_physics_route_solves_each_line_once(monkeypatch: pytest.MonkeyPatch) ->
     finally:
         routing_physics._physics_solves.cache_clear()
     assert calls == 1
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        # The phys30 round (2026-11-16): the read was late and these went to the everyday
+        # model, thinking off; the slope's range came back 26.0 m for 16.7 m.
+        "A ball is launched with speed 15 m/s at 50 degrees above the horizontal from the "
+        "bottom of a hill that slopes upward at 20 degrees to the horizontal. (a) How long is "
+        "the ball in the air? (b) How far up along the slope does it land?",
+        "A 2 kg block is dropped from 0.5 m above a spring of constant 1000 N/m. (a) What is "
+        "its speed when it reaches the spring? (b) What is the maximum compression?",
+        # A question in parts the template answers one of: the strong model answers it.
+        "A curve of radius 80 m is banked at 15 degrees. (a) At what speed can a car take the "
+        "curve with no friction needed? (b) If the coefficient of static friction between the "
+        "tyres and the road is 0.4, what is the maximum speed at which the car can take the "
+        "curve without sliding?",
+    ],
+)
+def test_physics_the_subject_order_reads_keeps_the_strong_lane(question: str) -> None:
+    routing_physics._physics_solves.cache_clear()
+    assert routed_chat_model(question) == ("smart-chat", "physics")
+    assert message_needs_thinking(question)

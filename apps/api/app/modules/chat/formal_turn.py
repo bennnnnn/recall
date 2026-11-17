@@ -9,7 +9,10 @@ setup's own answer agrees with it. Finalize waits at most ``formal_wait_seconds`
 - the reply states another: its Answer becomes the server's card (measured 2026-11-16: in
   every one of 36 such disagreements the server was right and the reply wrong);
 - the reply's final value cannot be read (an Answer heading in another language): the
-  server's card is added under the reply, both shown.
+  server's card is added under the reply, both shown;
+- the question asks in parts, or the reply answers in several cards: the value answers one
+  part, and the setup does not say which, so it is left out (a trailing card repeating
+  part (a)'s value read as the final answer, phys30 2026-11-16).
 
 Either way a line in the reply's language says where the value comes from, and the card is
 marked ``verified: false``: the server did the arithmetic, the reading is the model's.
@@ -27,7 +30,13 @@ from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.reply_language import line_language
 from app.modules.chat.turn_decision import TurnDecision
 from app.services.answer_check import stated_verdict
-from app.services.answer_fence import UNCHECKED_ANSWER_MARKER, land_answer_card
+from app.services.answer_fence import (
+    ANSWER_FENCE_LANGS,
+    UNCHECKED_ANSWER_MARKER,
+    land_answer_card,
+)
+from app.services.md_fence_scan import iter_fences
+from app.services.question_parts import labelled_parts
 from app.services.subjects.registry import subject_adapter
 
 if TYPE_CHECKING:
@@ -88,6 +97,14 @@ def stop_formal(ctx: StreamContext) -> None:
         ctx.formal.cancel()
 
 
+def _in_parts(reply: str, question: str) -> bool:
+    """The question asks in labelled parts, or the reply answers in several cards."""
+    cards = sum(
+        1 for fence in iter_fences(reply) if fence.closed and fence.lang in ANSWER_FENCE_LANGS
+    )
+    return cards >= 2 or labelled_parts(question) >= 2
+
+
 async def attach_formal(state: FinalizeState) -> str:
     """The reply's final value held to the server's, as the module docstring says."""
     ctx = state.ctx
@@ -109,6 +126,12 @@ async def attach_formal(state: FinalizeState) -> str:
         return state.text
     answer = task.result()
     body = answer.card_value
+    if _in_parts(state.text, ctx.user_message_content or ""):
+        # One value answers one part: a card under the last part repeating part (a)'s
+        # value read as the whole question's answer (phys30, 2026-11-16). Which part it
+        # answers the setup does not say, so it is left out.
+        logger.info("formal answer: a reply in parts, left out")
+        return state.text
     verdict = stated_verdict(state.text, body)
     if verdict not in _AGREES and any(
         stated_verdict(state.text, same) in _AGREES for same in answer.same_answers[1:]

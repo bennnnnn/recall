@@ -229,3 +229,26 @@ async def test_finalize_waits_no_longer_than_its_cap(monkeypatch: pytest.MonkeyP
 )
 def test_the_card_draws_the_value_and_its_unit(value: float, unit: str, shown: str) -> None:
     assert FormalAnswer(value=value, unit=unit).card_value == shown
+
+
+_PARTS_QUESTION = (
+    "A ball is kicked at 18 m/s at 35° above the ground. (a) How far does it land? "
+    "(b) How high does it go?"
+)
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # A card per part: the server's value is one part's, never a card after the last.
+        "**Answer (a)**\n\n```answer\nverified: false\n32.4\\,\\mathrm{m}\n```\n\n"
+        "**Answer (b)**\n\n```answer\nverified: false\n5.4\\,\\mathrm{m}\n```",
+        # Parts asked, answered in one paragraph: still which part is not said.
+        "**Answer**\n\n(a) The range is 32.4 m. (b) The height is 5.4 m.",
+    ],
+)
+async def test_a_reply_in_parts_gets_no_trailing_card(answer: list[str], reply: str) -> None:
+    """phys30 (2026-11-16): "Worked out from the values in the question: 3.614 m/s²" and a
+    card repeating part (a) came after part (c), read as the whole question's answer."""
+    text = await _finalized(_ctx(_PARTS_QUESTION, live_read=_read()), reply)
+    assert text == reply

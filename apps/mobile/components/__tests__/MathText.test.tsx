@@ -1,5 +1,5 @@
 import { Dimensions, StyleSheet } from "react-native";
-import { render, screen } from "@testing-library/react-native";
+import { fireEvent, render, screen } from "@testing-library/react-native";
 
 import { MathText } from "@/components/rich/MathText";
 import { FRAC_SIZE_RATIO, layoutMath, SCRIPT_RATIO } from "@/lib/math/layout";
@@ -232,6 +232,29 @@ describe("MathText", () => {
     );
     expect(getByTestId("math-text-scroll").props.accessible).toBe(true);
     expect(getByTestId("math-text-tall").props.accessible).toBe(false);
+  });
+
+  // phys30 (2026-11-16): a scrolled formula cut at the edge read as "−31.35 m/". Its scroll
+  // bar shows once when it is wider than its viewport, and stays on Android.
+  it("cues that a formula wider than its viewport scrolls", async () => {
+    const flash = jest.fn();
+    const { ScrollView } = jest.requireActual<typeof import("react-native")>("react-native");
+    const spy = jest.spyOn(ScrollView.prototype, "flashScrollIndicators").mockImplementation(flash);
+    try {
+      const { getByTestId } = await render(
+        <MathText latex={String.raw`\frac{1}{2}`} scrollOverflow />,
+      );
+      const scroll = getByTestId("math-text-scroll");
+      expect(scroll.props.persistentScrollbar).toBe(true);
+      await fireEvent(scroll, "layout", { nativeEvent: { layout: { width: 200, height: 40, x: 0, y: 0 } } });
+      await fireEvent(scroll, "contentSizeChange", 180, 40);
+      expect(flash).not.toHaveBeenCalled();
+      await fireEvent(scroll, "contentSizeChange", 420, 40);
+      await fireEvent(scroll, "contentSizeChange", 430, 40);
+      expect(flash).toHaveBeenCalledTimes(1);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it("renders nothing for empty latex", async () => {
@@ -630,11 +653,23 @@ describe("MathText", () => {
     const { layout } = laidOut("x_i^2");
     const box = findLayouts(layout, "script").find((item) => item.children.length === 2);
     expect(box).toBeDefined();
-    expect(column).toHaveStyle({ width: box?.width, height: box?.height });
+    expect(column).toHaveStyle({ minWidth: box?.width, height: box?.height });
     expect(getByTestId("math-script-column")).toBeOnTheScreen();
     expect(screen.getByText("i")).toBeOnTheScreen();
     expect(screen.getByText("2")).toBeOnTheScreen();
   });
+
+  // phys30 (2026-11-16): `v_{2x}^2` drew its x under the ² (a fixed width a hair short
+  // wrapped "2x"), and the ² of `v_{\max}^2` floated over the middle of "max".
+  it.each([String.raw`v_{2x}^2`, String.raw`v_{\max}^2`])(
+    "starts both scripts of %s at the base and lets them take their width",
+    async (latex) => {
+      const { getByTestId } = await render(<MathText latex={latex} />);
+      const column = getByTestId("math-script-column");
+      expect(column).toHaveStyle({ alignItems: "flex-start" });
+      expect(column.props.style.width).toBeUndefined();
+    },
+  );
 
   it("stretches a wide hat across the letters it covers", async () => {
     const { getByTestId } = await render(<MathText latex={String.raw`\widehat{ABC}`} />);

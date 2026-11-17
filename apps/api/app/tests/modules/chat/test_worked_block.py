@@ -492,3 +492,30 @@ def test_no_laid_out_block_shows_latex_source(block: str) -> None:
 )  # fmt: skip
 def test_a_bar_inside_the_maths_is_no_field_separator(line: str, record: object) -> None:
     assert read_record(line) == record
+
+
+@pytest.mark.parametrize(
+    ("line", "field", "said"),
+    [
+        # The layout letters each part: "(a) $t$ (time in the air (a))" said it twice (phys30).
+        ("required: t | time in the air (a)", "meaning", "time in the air"),
+        ("part: b | Distance along the slope (b)", "title", "Distance along the slope"),
+        # A given's words keep a letter that may name a body.
+        ("given: m | 2 | kg | mass of block (a)", "meaning", "mass of block (a)"),
+        ("required: F | force on block (B)", "meaning", "force on block (B)"),
+    ],
+)
+def test_a_part_s_own_letter_is_not_said_twice(line: str, field: str, said: str) -> None:
+    record = read_record(line)
+    assert getattr(record, field) == said
+
+
+def test_a_conclusion_is_written_in_words_on_its_card() -> None:
+    """phys30: "yes" in a card drew italic maths letters under an invented symbol."""
+    solution = _solution(
+        "required: s | whether it slides back\nanswer: s | yes | | static friction cannot hold it"
+    )
+    assert "$\\text{yes}$ (static friction cannot hold it)" in render_worked(solution, OTHER)
+    # Asked by its words: no invented symbol in maths for a conclusion.
+    assert "whether it slides back" in render_worked(solution, OTHER)
+    assert "$s$ (whether it slides back)" not in render_worked(solution, OTHER)

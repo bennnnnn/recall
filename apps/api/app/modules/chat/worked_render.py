@@ -22,6 +22,7 @@ from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from app.modules.chat.worked_figures import card_answer
 from app.modules.chat.worked_prose import prose_maths
 from app.modules.chat.worked_solution import Answer, Given, Part, Step, WorkedSolution
 from app.modules.chat.worked_text import (
@@ -318,6 +319,12 @@ def _answer_line(answer: Answer, layout: WorkedLayout) -> str:
     """The value with its unit in maths, and a note after it in brackets: a short label
     ("east") stays on the card, and a remark ("about 1.20√(gh); option A gives …") goes
     in a sentence under it (``services.remark_after_answer``), its maths drawn as maths."""
+    if _in_words(answer.value):
+        # A conclusion ("yes", "all the ice melts") is words, set upright: in maths its
+        # letters were italic variables, under an invented symbol (phys30, 2026-11-16).
+        note = prose_maths(answer.note)
+        said = math_line(rf"\text{{{answer.value.strip()}}}")
+        return f"{said} ({note})" if note else said
     tex = tidy_tex(answer.value)
     value = quantity_tex(tex, "" if in_symbols(tex) else answer.unit)
     # A symbol that only repeats the unit ("cm | 10000 | cm") or is a word names nothing.
@@ -351,17 +358,34 @@ def _part_body(
     )
     if not part.answers or answer_heading is None:
         return body
-    values = _HARD_BREAK.join(_answer_line(answer, layout) for answer in part.answers)
+    values = _HARD_BREAK.join(
+        _answer_line(card_answer(answer, part), layout) for answer in part.answers
+    )
     return f"{body}\n\n{values}"
 
 
 def _find_rows(solution: WorkedSolution) -> tuple[str, ...]:
+    concluded = _concluded(solution)
     return tuple(
-        text_line(prose_maths(item.symbol), prose_maths(item.meaning) or None)
+        text_line(prose_maths(item.meaning))
+        if item.meaning and item.symbol in concluded
+        else text_line(prose_maths(item.symbol), prose_maths(item.meaning) or None)
         if names_nothing(item.symbol)
         else math_line(tidy_symbol(item.symbol), prose_maths(item.meaning) or None)
         for item in solution.required
     )
+
+
+def _concluded(solution: WorkedSolution) -> set[str]:
+    """The symbols whose answer is a conclusion in words ("yes, all the ice melts"): no
+    quantity, so they are asked by their words alone; "$slide_{back}$ (whether it slides
+    back)" set an invented symbol in maths (phys30, 2026-11-16)."""
+    return {
+        answer.symbol
+        for part in solution.parts
+        for answer in part.answers
+        if answer.symbol and _in_words(answer.value)
+    }
 
 
 def _answered_symbols(part: Part) -> str:
@@ -478,7 +502,9 @@ def _render_in_parts(
                 or (solution.required[index].meaning if index < len(solution.required) else "")
             ),
             working=_part_body(part, layout, ((), ()), None),
-            after=_HARD_BREAK.join(_answer_line(answer, layout) for answer in part.answers),
+            after=_HARD_BREAK.join(
+                _answer_line(card_answer(answer, part), layout) for answer in part.answers
+            ),
             # The last part's where-line waits, while it streams, until its givens are in.
             given=_given_rows(own[index], naming=not streaming or index < last or _started(part)),
         )

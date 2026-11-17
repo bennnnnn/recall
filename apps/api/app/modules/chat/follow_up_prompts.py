@@ -26,8 +26,12 @@ SUBJECT_SYSTEM = (
     "one ($v_0$ to 30 and to 40). A what-if moves a value to one this chat has not worked: "
     "never back to the first numbers of the problem, or to a value the reply compares with. "
     "Name the quantity, never restate the whole problem: "
-    '"Why convert km/h to m/s first?", "What if it took 10 s instead?", '
-    '"How far does the car go in 5 s?". '
+    '"Why convert km/h to m/s first?", "What if it took 10 s instead?". '
+    "Every question is about this problem's own objects and quantities: ask nothing of "
+    "a quantity the problem does not have (no distance in a given time for a charge "
+    "circling in a field, no time for a landing). A what-if changes a value to another one "
+    "the situation still allows: never to zero or to a value that removes the situation "
+    "(an orbit at no height). "
     "A what-if names what changes. For an equation write the new one: "
     '"What if $3x + 3 = 5$?", never "What if it was 5?". '
     "Write each equation in $...$ with spaces around =, as in $x^2 = 9$ or "
