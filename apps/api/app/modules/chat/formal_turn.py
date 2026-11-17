@@ -123,9 +123,12 @@ def _in_parts(reply: str, question: str) -> bool:
 
 # The text before the first label ends on an ask, the labels its objects: "… find (a)",
 # "Can you work out (a)", "Could you find both (a)", "Calculate the following: (a)", "What
-# are (a)". "… holding blocks (A)" ends on a noun the labels name.
+# are (a)". "… holding blocks (A)" ends on a noun the labels name, and so do "Which mass
+# (A) …" and "How far do blocks (A) …": a question word asks for the labels only alone or
+# with is, are, was or were (Gemini on #2489).
 _ASKS_FOR_LABELS = re.compile(
-    rf"\b(?:(?:{ASK_VERBS})(?:\s+(?:both|the\s+following))?|(?:{ASK_QUESTION_WORDS})(?:\s+\w+)?)"
+    rf"\b(?:(?:{ASK_VERBS})(?:\s+(?:both|the\s+following))?"
+    rf"|(?:{ASK_QUESTION_WORDS})(?:\s+(?:is|are|was|were))?)"
     r"\s*:?$",
     re.IGNORECASE,
 )

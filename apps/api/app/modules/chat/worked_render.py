@@ -60,6 +60,9 @@ class WorkedLayout:
     value alone, as its verified replies do."""
 
     law_heading: bool = False
+    # The precision the question asks its answer to (significant figures, decimal places,
+    # as ``school_rounding.asked_rounding`` reads them): the card keeps to it.
+    asked: tuple[int, int] = (0, -1)
 
 
 def _line(tex: str, note: str | None = None) -> str:
@@ -367,7 +370,7 @@ def _answer_line(answer: Answer, layout: WorkedLayout) -> str:
         said = math_line(words_tex(answer.value.strip()))
         return f"{said} ({note})" if note else said
     if layout.law_heading:
-        answer = card_answer(answer)  # a measured quantity rounds once, to 3 figures
+        answer = card_answer(answer, layout.asked)  # rounds once: 3 figures, or as asked
     tex = tidy_tex(answer.value)
     value = quantity_tex(tex, "" if in_symbols(tex) else answer.unit)
     # A symbol that only repeats the unit ("cm | 10000 | cm") or is a word names nothing.

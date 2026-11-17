@@ -282,6 +282,8 @@ async def test_a_reply_in_parts_gets_no_trailing_card(answer: list[str], reply: 
         "and (b) the range.",
         "A ball is kicked at 18 m/s at 35° above the ground. Calculate the following: (a) "
         "the flight time and (b) the range.",
+        "A ball is kicked at 18 m/s at 35° above the ground. What are (a) the flight time "
+        "and (b) the range?",
         # Gemini on #2489: whatever words come before the ask, and an abbreviation before it.
         "A ball is kicked at 18 m/s at 35° above the ground. Can you work out (a) the flight "
         "time and (b) the range?",
@@ -332,6 +334,11 @@ async def test_a_worked_reply_in_parts_gets_no_trailing_card(
         "Two blocks (A) and (B) are kicked at 18 m/s at 35° above the ground. How far do they land?",
         "Balls (i) and (ii) are kicked at 18 m/s at 35°. How far does each land?",
         "Cars a) and b) kick a ball at 18 m/s at 35° above the ground. How far does it land?",
+        # Gemini on #2489: a question word with its own noun or verb names the labelled
+        # things, it does not ask for them.
+        "Two masses are dropped from 20 m. Which mass (A) of 2 kg or (B) of 3 kg hits the "
+        "ground first?",
+        "How far do blocks (A) of 2 kg and (B) of 3 kg slide on a 0.3 friction floor at 4 m/s?",
         # Claude on #2489: an ask whose object the labels name asks one thing.
         "Find the tension in the ropes holding blocks (A) of mass 2 kg and (B) of mass 3 kg.",
         "Find how far the balls kicked at 18 m/s at 35° by players (A) on the left and (B) "

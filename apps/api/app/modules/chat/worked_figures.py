@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from app.services.school_rounding import round_figures
+from app.services.school_rounding import format_places, round_figures
 
 if TYPE_CHECKING:
     from app.modules.chat.worked_solution import Answer
@@ -35,17 +35,28 @@ def _figures(text: str) -> int:
     return len(digits) or 1
 
 
-def card_answer(answer: Answer) -> Answer:
-    """A physics ``answer`` with at most three significant figures (the module's rule)."""
+def card_answer(answer: Answer, asked: tuple[int, int] = (0, -1)) -> Answer:
+    """A physics ``answer`` with at most three significant figures (the module's rule), or
+    to the precision the question asks (``asked``: significant figures, decimal places, as
+    ``school_rounding.asked_rounding`` reads them; 0 and -1 for none): "to 4 s.f." keeps
+    12.35, and its note says so (Claude on #2489)."""
     from app.services.subjects.registry import MONEY
 
     shown = answer.value.strip()
-    if not _DECIMAL.fullmatch(shown) or _figures(shown) <= FIGURES:
-        return answer
-    if MONEY.names_currency(answer.unit or ""):
+    if not _DECIMAL.fullmatch(shown) or MONEY.names_currency(answer.unit or ""):
         return answer  # a sum of money is exact to the cent: $12.34 is never $12.3
-    mantissa, exponent = round_figures(shown, FIGURES)
-    places = max(FIGURES - 1 - exponent, 0)
-    value = f"{mantissa.scaleb(exponent):.{places}f}"
+    figures, places = asked
+    if places >= 0:
+        written = len(shown.partition(".")[2])
+        if written <= places:
+            return answer
+        return answer.model_copy(update={"value": format_places(shown, places)})
+    keep = figures if figures > 0 else FIGURES
+    if _figures(shown) <= keep:
+        return answer
+    mantissa, exponent = round_figures(shown, keep)
+    value = f"{mantissa.scaleb(exponent):.{max(keep - 1 - exponent, 0)}f}"
+    if figures > 0:
+        return answer.model_copy(update={"value": value})
     note = "" if _PRECISION_NOTE.match(answer.note or "") else answer.note
     return answer.model_copy(update={"value": value, "note": note})

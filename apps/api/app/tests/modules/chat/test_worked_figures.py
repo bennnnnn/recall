@@ -101,3 +101,26 @@ def test_a_sum_of_money_is_never_rounded(unit: str) -> None:
 def test_a_measured_quantity_still_rounds(value: str, unit: str, card: str) -> None:
     """Claude on #2489: "pounds" is a force or a mass in physics, rounded as one."""
     assert card_answer(Answer(symbol="F", value=value, unit=unit)).value == card
+
+
+@pytest.mark.parametrize(
+    ("question", "value", "card"),
+    [
+        ("Find the force, to 4 s.f.", "12.3456", "12.35"),
+        ("Find the force, to 4 s.f.", "12.35", "12.35"),
+        ("Find the force to 2 d.p.", "12.3456", "12.35"),
+        ("Find the force to 2 decimal places.", "1.5", "1.5"),
+        ("Find the force to the nearest tenth.", "29.008", "29.0"),
+        ("Find the force.", "12.3456", "12.3"),
+    ],
+)
+def test_a_card_keeps_the_precision_the_question_asks(question: str, value: str, card: str) -> None:
+    """Claude on #2489: "to 4 s.f." came back to 3, its note dropped."""
+    from app.services.school_rounding import asked_rounding
+
+    figures, places, _ = asked_rounding(question)
+    answer = Answer(symbol="F", value=value, unit="N", note="to 4 s.f.")
+    out = card_answer(answer, (figures, places))
+    assert out.value == card
+    if figures or places >= 0:
+        assert out.note == "to 4 s.f."

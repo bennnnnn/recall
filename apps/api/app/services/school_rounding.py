@@ -8,8 +8,11 @@ or figures an answer keeps is each subject's own policy; only the rule lives her
 
 from __future__ import annotations
 
+import re
 from decimal import ROUND_HALF_UP, Context, Decimal
 from fractions import Fraction
+
+from app.services.number_text import count_word_pattern, number_word_value
 
 # Decimal's default precision. A wider value gets the digits it needs, since 1e20 to twelve
 # places has 33 and quantize would otherwise refuse it.
@@ -56,3 +59,29 @@ def format_places(value: float | str | Fraction, places: int) -> str:
 def trim_zeros(text: str) -> str:
     """A written decimal without its trailing zeros: ``2.50`` is ``2.5``, ``3.0`` is ``3``."""
     return text.rstrip("0").rstrip(".") if "." in text else text
+
+
+# "to three significant digits", "correct to 2 decimal places", "to the nearest tenth".
+_ROUNDING = re.compile(
+    rf"\b(?:to|in|correct\s+to)\s+(?:(?P<count>\d+|{count_word_pattern(low=1, high=12)})\s+"
+    r"(?:(?P<figures>significant\s+(?:figures?|digits?)|s\.?\s?f\.?)"
+    r"|(?P<places>decimal\s+places?|d\.?\s?p\.?))"
+    r"|the\s+nearest\s+(?P<nearest>whole\s+number|integer|tenth|hundredth|thousandth))(?![a-z])",
+    re.I,
+)
+_NEAREST = {"whole number": 0, "integer": 0, "tenth": 1, "hundredth": 2, "thousandth": 3}
+
+
+def asked_rounding(text: str) -> tuple[int, int, tuple[int, int] | None]:
+    """The precision ``text`` asks an answer to: (significant figures, decimal places, the
+    span that asks), 0 and -1 for neither ("to 4 s.f." is (4, -1), "to the nearest tenth"
+    is (0, 1))."""
+    found = _ROUNDING.search(text)
+    if found is None:
+        return 0, -1, None
+    span = (found.start(), found.end())
+    if found.group("nearest"):
+        return 0, _NEAREST[" ".join(found.group("nearest").lower().split())], span
+    said = found.group("count").lower()
+    count = int(said) if said.isdigit() else number_word_value(said) or 0
+    return (count, -1, span) if found.group("figures") else (0, count, span)
