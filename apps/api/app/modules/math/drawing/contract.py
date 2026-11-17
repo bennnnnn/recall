@@ -60,7 +60,8 @@ DRAW_CONTRACT = (
     '"from":"0","to":"3"} (the average value); {"item":"axes","x":"t (s)","y":"v (m/s)"} '
     '(the question\'s letters and units); {"item":"axis","line":"x-axis"} (the axis a '
     'region turns about, or "y = -1"); {"item":"slice","method":"washer"} (disc, washer or '
-    "shell: one strip of the region and its turn about the axis). The app "
+    'shell: one strip of the region and its turn about the axis); {"item":"solid"} (the '
+    "solid the shaded region sweeps about the axis, when the question asks to see it). The app "
     "finds every crossing, turning point and asymptote itself and labels them; where a "
     "tangent touches or a bound may be a value your working finds, which the app checks.\n"
     'Example: "Find the angle between a = (1, 2, 2) and b = (2, 0, 1) and draw them." -> '
