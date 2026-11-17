@@ -66,12 +66,14 @@ def _solved(kind: str, op: str, fixed: Mapping[str, tuple[float, str]] | None = 
         for name, value in flags.items():
             params[name], units[name] = value, ""
         try:
-            intent = PhysicsIntent(
-                kind=kind,  # type: ignore[arg-type]
-                operation="solve",
-                physics_op=op,
-                physics_params=params,
-                physics_units=units,
+            intent = PhysicsIntent.model_validate(
+                {
+                    "kind": kind,
+                    "operation": "solve",
+                    "physics_op": op,
+                    "physics_params": params,
+                    "physics_units": units,
+                }
             )
             return list(solve_physics(intent).simulation_specs)
         except Exception as exc:  # A scene that cannot be drawn is no picture.
