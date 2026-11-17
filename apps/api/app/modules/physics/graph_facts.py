@@ -100,8 +100,17 @@ _SENTENCES = re.compile(r"(?<=[.;!?])\s+")
 _CLAUSES = re.compile(r",|;|\band\b")
 # A time it names: "t = 5", "after ten seconds", "for 4 s".
 _TIME = re.compile(
-    rf"\bt\s*=\s*(?P<t>{_NUMBER})|\b(?:after|for|in)\s+(?P<n>\d+(?:\.\d+)?|{count_word_pattern(high=100)})"
+    rf"\bt\s*=\s*(?P<t>{_NUMBER})|\bafter\s+(?P<n>\d+(?:\.\d+)?|{count_word_pattern(high=100)})"
     r"\s*(?:s|secs?|seconds?)\b"
+)
+# A duration: "for 4 s", "in ten seconds", from the time the motion starts.
+_DURATION = re.compile(
+    rf"\b(?:for|in)\s+(?P<n>\d+(?:\.\d+)?|{count_word_pattern(high=100)})\s*(?:s|secs?|seconds?)\b"
+)
+# A second phase of the motion: "then moves with acceleration -1 m/s²", "then decelerates".
+_PHASE = re.compile(
+    r"\b(?:then|after\s+which|afterwards|followed\s+by)\b[^.;]*?"
+    r"\b(?:accelerat\w*|decelerat\w*|retard\w*|brakes?|moves?\s+with|constant\s+(?:speed|velocity))"
 )
 # "moved through a displacement of 10 m ..., where x is the displacement": x from 0 to 10.
 _THROUGH = re.compile(rf"\b(?:through|over)\s+a\s+displacement\s+of\s+(?P<d>{_NUMBER})\s*m\b")
@@ -244,6 +253,16 @@ def _holds(velocity: Expr, acceleration: Expr | None, stated: list[tuple[Any, An
     return acceleration is None or simplify(velocity.diff(_T) - acceleration) == 0
 
 
+def _phases(lowered: str) -> bool:
+    """The motion changes: two accelerations it states ("2 m/s² for 3 s, then -1 m/s² for
+    4 s"), or a phase after its first ("then decelerates")."""
+    stated = {e for m in _ACCELERATION.finditer(lowered) if (e := _in_t(m.group("expr")))}
+    stated |= {
+        nsimplify(m.group("a"), rational=True) for m in _CONSTANT_ACCELERATION.finditer(lowered)
+    }
+    return len(stated) > 1 or _PHASE.search(lowered) is not None
+
+
 def motion_formulas(text: str) -> list[tuple[str, Expr, str]]:
     """The motion's formulas in t, (name, formula, unit): the acceleration it writes, and
     the velocity and the displacement worked out from the values it states."""
@@ -258,6 +277,8 @@ def motion_formulas(text: str) -> list[tuple[str, Expr, str]]:
     )
     if acceleration is None and velocity is None:
         return []
+    if _phases(lowered):
+        return []  # a motion in phases is a curve in pieces: none, rather than a wrong one
     velocities, positions = _stated(text)
     if velocity is not None and not _holds(velocity, acceleration, velocities):
         return []  # a written v(t) the stated values or a(t) contradict: no motion
@@ -274,7 +295,7 @@ def motion_formulas(text: str) -> list[tuple[str, Expr, str]]:
 
 
 def _time(match: re.Match[str]) -> Any | None:
-    if match.group("t") is not None:
+    if "t" in match.groupdict() and match.group("t") is not None:
         return nsimplify(match.group("t"), rational=True)
     word = match.group("n")
     value = number_word_value(word) if not word[0].isdigit() else nsimplify(word, rational=True)
@@ -297,8 +318,14 @@ def motion_interval(text: str) -> tuple[str, Any, Any] | None:
     ):
         return None  # no motion stated
     times = [t for m in _TIME.finditer(lowered) if (t := _time(m)) is not None]
-    if _AT_THE_START.search(lowered):
-        times.append(0)
+    # Each clause's own time: a start at the time it names ("starts at t = 5 s"), else 0.
+    clauses = [c for sentence in _SENTENCES.split(lowered) for c in _CLAUSES.split(sentence)]
+    times += [t for clause in clauses if (t := _clause_time(clause)) is not None]
+    # A duration runs from the time the motion starts: "when t = 2 s ... for 4 s" is [2, 6].
+    durations = [d for m in _DURATION.finditer(lowered) if (d := _time(m)) is not None]
+    if durations:
+        start = min(times, default=0)
+        times += [start, start + max(durations)]
     if len(set(times)) < 2:
         return None
     return "t", min(times), max(times)
