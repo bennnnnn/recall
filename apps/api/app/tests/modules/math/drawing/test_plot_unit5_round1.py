@@ -167,6 +167,24 @@ def test_a_curve_described_twice_is_drawn_once(items: list[dict[str, Any]]) -> N
             "The region bounded by y = 2x, the x-axis and x ≥ 0 is rotated about the x-axis.",
             False,
         ),
+        # A curve turned round keeps its own branch: x = √y is y = x² for x ≥ 0; the arc
+        # x = √(4 - y²) sweeps one sphere from either of its branches ±√(4 - x²).
+        (
+            "sphere",
+            "The region bounded by x = √(4 - y^2) and the y-axis is rotated about the x-axis.",
+            True,
+        ),
+        # An interval naming no letter is of y for a curve x = g(y) (PR #2486 review).
+        (
+            "frustum",
+            "The region bounded by x = y + 1 and the y-axis on [0, 2] is rotated about the y-axis.",
+            True,
+        ),
+        (
+            "cone",
+            "The region bounded by x = y + 1 and the y-axis on [0, 2] is rotated about the y-axis.",
+            False,
+        ),
         # About the y-axis, its ends are the y of the points it writes.
         ("cone", "The line y = 2x from (0, 0) to (3, 6) is rotated about the y-axis.", True),
         # About a line x = c, the region's ends are values of y.
@@ -509,3 +527,38 @@ def test_an_interval_holds_only_the_region_its_own_clause_names(
         for r in graph.regions
     )
     assert drawn == spans
+
+
+@pytest.mark.parametrize(
+    "question",
+    ["Sketch x = √y for y ∈ [0, 4].", "Sketch x = √y for y in [0, 4].", "Sketch x = √y on [0, 4]."],
+)
+def test_a_bracket_interval_holds_a_curve_of_y(question: str) -> None:
+    # u5-083's x = √y on its stated y-interval, whichever way the bracket is written.
+    graph = _plot(question, {"item": "curve", "name": "f", "x": "sqrt(y)", "domain": ["0", "4"]})
+    assert graph is not None
+    ys = [y for segment in graph.curves[0].segments for _x, y in segment]
+    assert (min(ys), max(ys)) == pytest.approx((0, 4), abs=1e-3)
+
+
+def test_and_before_another_area_ends_the_clause() -> None:
+    graph = _plot(
+        "Find the area under y = x from x = 2 to x = 5 and the area enclosed by y = x^2 and "
+        "y = x. Shade both.",
+        _curve("f", "x"),
+        _curve("g", "x^2"),
+        _shade("f", "x-axis", "2", "5"),
+        _shade("f", "g"),
+    )
+    assert graph is not None
+    drawn = sorted(round(min(x for x, _ in r.points), 6) for r in graph.regions)
+    assert drawn == [0.0, 2.0]
+
+
+def test_an_interval_said_of_a_curve_in_its_own_letter_holds_it() -> None:
+    # v(t) = t² "from t = 0 to t = 3": the region under it stands on [0, 3], not [1, 2].
+    question = "Find the area under v(t) = t^2 from t = 0 to t = 3. Shade it."
+    held = _plot(question, _curve("v", "t^2"), _shade("v", "x-axis", "1", "2"))
+    assert held is not None and not held.regions
+    whole = _plot(question, _curve("v", "t^2"), _shade("v", "x-axis", "0", "3"))
+    assert whole is not None and len(whole.regions) == 1

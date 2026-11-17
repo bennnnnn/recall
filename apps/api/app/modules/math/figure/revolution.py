@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Any
 
 from sympy import FiniteSet, S, Symbol, degree, expand, simplify, solve, solveset
@@ -31,18 +32,23 @@ _ABOUT_AXIS = re.compile(
 )
 
 
-# A curve the check cannot turn into one distance from the axis (y = x² about the y-axis:
-# x = ±√y): the solid is not checked, so not drawn.
-_UNCHECKED = "unchecked"
+@dataclass(frozen=True)
+class _Swept:
+    """A curve as its distance from the axis line in the run along it: each branch it may
+    be once turned round, and, turned round, the curve as written (its letter and formula)."""
+
+    branches: tuple[Any, ...]
+    run: Symbol
+    written: tuple[Symbol, Any] | None = None
 
 
-def _distance_and_run(written: Written, axis: tuple[str, Any]) -> tuple[Any, Symbol] | str | None:
+def _distance_and_run(written: Written, axis: tuple[str, Any]) -> _Swept | None:
     """A curve or level line the question names as its distance from the axis line, in
     terms of the run along it: about a line y = c, y = f(x) (or f(x) = …, or y = 3) as it is
     and x = g(y) turned round to y = f(x); about a line x = c, x = g(y) as it is and
-    y = f(x) turned round. A line across the axis ("x = 3" about the x-axis) ends the region:
-    None. One that cannot be turned round to a single curve: ``_UNCHECKED``. One in other
-    letters ("y = rx/h"): None, as no number of it can be checked."""
+    y = f(x) turned round, each real branch kept (``_one_branch`` picks). A line across the
+    axis ("x = 3" about the x-axis) ends the region: None; so does one in other letters
+    ("y = rx/h"), as no number of it can be checked."""
     letter, at = axis
     run = _X if letter == "y" else _Y
     if written.name == "x":
@@ -54,18 +60,49 @@ def _distance_and_run(written: Written, axis: tuple[str, Any]) -> tuple[Any, Sym
     expr = written.expr
     if not expr.free_symbols <= {own}:
         return None
-    if own != run:  # a level line across the axis, or a curve to turn round
-        if expr.is_number:
-            return None
-        # y = f(x) as x = g(y), or the other way: the curve's own letter in the run's.
+    if own == run:
+        return _Swept((expr - at,), run)
+    if expr.is_number:
+        return None  # a level line across the axis: an end
+    # y = f(x) as x = g(y), or the other way, over the reals: x = √y is y = x² for x ≥ 0.
+    real_own, real_run = Symbol(str(own), real=True), Symbol(str(run), real=True)
+    try:
+        found = solve(expr.subs(own, real_own) - real_run, real_own)
+    except (NotImplementedError, ValueError, TypeError):
+        found = []
+    branches = tuple(b.subs(real_run, run) - at for b in found if b.free_symbols <= {real_run})
+    return _Swept(branches, run, (own, expr))
+
+
+def _on(branch: Any, swept: _Swept, at: Any, places: Sequence[float]) -> bool:
+    """The branch is the curve as written at each of ``places`` along the run."""
+    if swept.written is None:
+        return True
+    own, expr = swept.written
+    for place in places:
         try:
-            branches = [b for b in solve(expr - run, own) if b.free_symbols <= {run}]
-        except (NotImplementedError, ValueError, TypeError):
-            return _UNCHECKED
-        if len(branches) != 1:
-            return _UNCHECKED
-        expr = branches[0]
-    return expr - at, run
+            value = complex(expr.subs(own, (branch + at).subs(swept.run, place)))
+        except (TypeError, ValueError):
+            return False
+        if abs(value.imag) > 1e-9 or abs(value.real - place) > 1e-9 * max(1.0, abs(place)):
+            return False
+    return True
+
+
+def _one_branch(swept: _Swept, at: Any, ends: Sequence[Any]) -> Any | None:
+    """The one distance a curve turned round is over the region: the branches that are the
+    curve as written between the region's ends; several at one distance either side of the
+    axis (x = √(4 - y²) about the x-axis: ±√(4 - x²)) sweep one solid. None when no single
+    distance is left."""
+    numbers = sorted(float(end) for end in ends)
+    places = [numbers[0] + (numbers[-1] - numbers[0]) * k / 4 for k in range(5)] if numbers else []
+    kept = [b for b in swept.branches if _on(b, swept, at, places)]
+    if not kept:
+        return None
+    first = kept[0]
+    if all(simplify(b - first) == 0 or simplify(b + first) == 0 for b in kept):
+        return first
+    return None
 
 
 def _sweeps(shape: str, distance: Any, run: Symbol, ends: Sequence[Any]) -> bool:
@@ -108,7 +145,10 @@ def _ends(text: str, question: Any, axis: tuple[str, Any], run: Symbol) -> list[
     if run == _X:
         # Its lines, intervals of x, points and coordinates: "from (0, 0) to (3, 6)".
         return list(question.x_values)
-    stated = [i for i in question.intervals if i.of == "y"]
+    # An interval naming no letter is of y for a curve written x = g(y) ("x = y + 1 on [0, 2]").
+    sideways = any(w.name == "x" and w.expr.free_symbols for w in question.formulas)
+    letters = {"y", ""} if sideways else {"y"}
+    stated = [i for i in question.intervals if i.of in letters]
     rest = _ABOUT_AXIS.sub(" ", text)
     lines, _points = named_values(rest, "y", frozenset({"x", "y"}))
     if re.search(r"\bx-axis\b", rest, re.IGNORECASE):
@@ -132,19 +172,23 @@ def revolves_into(shape: str, texts: Sequence[str]) -> bool:
     if axis is None:
         return True
     question = read_plot_question(texts)
-    found: dict[str, tuple[Any, Symbol]] = {}
+    run = _X if axis[0] == "y" else _Y
+    ends = _ends(text, question, axis, run)
+    found: dict[str, Any] = {}
     for written in question.formulas:
         swept = _distance_and_run(written, axis)
-        if swept == _UNCHECKED:
-            return False
-        if isinstance(swept, tuple) and swept[0] != 0:
-            found.setdefault(str(simplify(swept[0])), swept)
+        if swept is None:
+            continue
+        distance = _one_branch(swept, axis[1], ends)
+        if distance is None:
+            return False  # a curve it cannot check: no solid, never a default
+        if distance != 0:
+            found.setdefault(str(simplify(distance)), distance)
     if not found:
         return True
     if len(found) > 1:
         return False  # hollow: a washer, never a cone, cylinder or sphere
-    distance, run = next(iter(found.values()))
-    ends = _ends(text, question, axis, run)
+    distance = next(iter(found.values()))
     if len(set(ends)) == 1 and _axis_bounds(text, axis) and not distance.is_number:
         # One end stated: the curve's meeting with the axis edge is the other.
         roots = solveset(distance, run, domain=S.Reals)
