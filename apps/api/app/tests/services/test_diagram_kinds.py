@@ -50,3 +50,22 @@ def test_names_diagram_kind(text: str, expected: bool) -> None:
 )
 def test_names_idea_curve(phrase: str, expected: bool) -> None:
     assert names_idea_curve(phrase) is expected
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Find the area enclosed by f(x) = 4 - x² and g(x) = 3x. Show the curves and shade the region.",
+        # Gemini on #2481: any function's name, not f alone.
+        "Find the area enclosed by g(x) = 4 - x² and h(x) = 3x. Show the curves and shade the region.",
+        "P(t) = 100e^{0.2t}. Show the curve.",
+    ],
+)
+def test_a_curve_the_message_writes_a_formula_for_is_maths(message: str) -> None:
+    assert not names_idea_curve("the curves and shade the region", message)
+
+
+def test_an_idea_curve_beside_no_formula_is_a_chart() -> None:
+    assert names_idea_curve(
+        "the learning curve", "Draw the learning curve for French (a) and Spanish (b)."
+    )

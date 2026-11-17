@@ -26,6 +26,7 @@ from app.services.answer_fence import (
     UNCHECKED_ANSWER_MARKER,
     VERIFIED_ANSWER_MARKER,
     answer_header_and_value,
+    boxes_its_answer,
     demote_answer_fences,
     land_answer_card,
     mark_server_answer_fences,
@@ -296,7 +297,7 @@ def check_working(state: FinalizeState) -> str:
     text = state.text
     if state.server_text or ctx.verified_subject is not None or state.was_cancelled:
         return text
-    if ctx.solver_unverified is True or is_worked_solution(text):
+    if ctx.solver_unverified is True or is_worked_solution(text) or boxes_its_answer(text):
         note = working_note(text)
         # A reply in parts gets a card under each part's Answer heading.
         text = land_part_answer_cards(text) or land_answer_card(text, None)

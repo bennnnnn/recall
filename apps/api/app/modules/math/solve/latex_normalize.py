@@ -204,6 +204,10 @@ def _implicit_mul_before_sqrt(s: str) -> str:
     return "".join(out)
 
 
+# A power written bare after its caret: a number or one letter, signed or not.
+_BARE_POWER = re.compile(r"-?(?:\d+(?:\.\d+)?|[A-Za-z])")
+
+
 def _rewrite_latex_braced_scripts_once(s: str) -> str:
     """One pass: ``x^{6}`` → ``x^6``; ``^{x}^{2}`` → ``x^{2}``."""
     out: list[str] = []
@@ -227,10 +231,12 @@ def _rewrite_latex_braced_scripts_once(s: str) -> str:
                     out.append("}")
                     i = nxt[1]
                     continue
-            if body and all(ch.isalnum() or ch in ".-" for ch in body):
+            if _BARE_POWER.fullmatch(body):
                 out.append("^")
                 out.append(body)
             else:
+                # A power of more than one atom keeps its group: e^{2x} is e^(2x), never
+                # e^2 times x (a reply's 2e^{2x} read as 2x·e², 2026-11-16).
                 out.append("^(")
                 out.append(body)
                 out.append(")")

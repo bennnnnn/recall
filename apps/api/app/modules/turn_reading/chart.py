@@ -287,7 +287,7 @@ def _asks_for_a_chart(cleaned: str) -> bool:
         return True
     # "Draw the learning curve": an idea's curve, as a chart with sample data.
     asked = _DRAW_VERB.search(cleaned)
-    if asked is not None and names_idea_curve(cleaned[asked.end() :]):
+    if asked is not None and names_idea_curve(cleaned[asked.end() :], cleaned):
         return True
     if not _PLOT_REQUEST.search(cleaned):
         return False
@@ -384,7 +384,7 @@ def chart_of_public_facts(text: str) -> bool:
     if not is_chart_question(cleaned) or _OWN_DATA.search(cleaned) or _SAMPLE.search(cleaned):
         return False
     asked = _DRAW_VERB.search(cleaned)
-    if asked is not None and names_idea_curve(cleaned[asked.end() :]):
+    if asked is not None and names_idea_curve(cleaned[asked.end() :], cleaned):
         return False
     numbers = _NUMBER.findall(_YEAR.sub(" ", cleaned))
     if len(numbers) >= 3 or (numbers and ":" in cleaned):

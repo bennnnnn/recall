@@ -181,6 +181,15 @@ const VARIANTS: Record<string, string> = {
   "price colon then a fraction":
     "Rent is $1,200: 3 roommates each pay $\\frac{1200}{3} = 400$. The bill is $90: 3 of us split it as $\\frac{90}{3}$.",
   "price colon then an equation": "Total $60: 3 of us, so $x = 20$. Budget $50: 2 shirts at $s$ each.",
+  // Answer cards from the unit-5 round (2026-11-16): a unit in words set upright (the server
+  // now writes it as text), a value in \(…\) and one with words beside it.
+  "card unit in words upright": "**Answer**\n\n```answer\nverified: false\nA = \\frac{1}{3}\\,\\mathrm{square units}\n```",
+  "card unit in words as text": "**Answer**\n\n```answer\nverified: false\nV = \\frac{28\\pi}{3}\\,\\text{cubic units}\n```",
+  "card paren delimiters": "**Answer**\n\n```answer\nverified: false\n\\(V=\\frac{4}{3}\\pi r^3\\)\n```",
+  "card maths then words": "**Answer**\n\n```answer\nverified: false\n$A = 32$ square units\n```",
+  // A reply that boxed its result in display maths, as the server cards it (land_answer_card).
+  "boxed display answer":
+    "Back-substitute $u=x^{3/2}$:\n\n**Answer**\n\n```answer\nverified: false\n\\int 5^{x\\sqrt{x}}\\sqrt{x}\\,dx = \\frac{2\\,5^{x^{3/2}}}{3\\ln 5}+C\n```",
   // Known gaps (see KNOWN_GAPS): each is a leak this suite still finds.
   "table abs": "| Expression | Value |\n|---|---|\n| $|x-3|$ | 5 |",
   "bare script": "The area is 25 m^{2}.",
