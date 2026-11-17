@@ -30,7 +30,8 @@ Drawn = Callable[[Mapping[str, Given], Mapping[str, float]], Scenes]
 
 @dataclass(frozen=True)
 class Part:
-    """One value a scene takes: the solver's parameter, a unit of its kind ("" for a pure
+    """One value a scene takes: the solver's parameter ("" for a value the scene is checked
+    with but does not draw, a lens's object height), a unit of its kind ("" for a pure
     number), and whether the scene can do without it."""
 
     param: str
@@ -158,7 +159,11 @@ SCENES: dict[str, SceneKind] = {
         _solved("optics", "snell_refraction_angle", {"n1": (1.0, "")}),
     ),
     "lens": SceneKind(
-        {"focal_length": Part("focal", _LENGTH), "object_distance": Part("d_obj", _LENGTH)},
+        {
+            "focal_length": Part("focal", _LENGTH),
+            "object_distance": Part("d_obj", _LENGTH),
+            "object_height": Part("", _LENGTH, required=False),
+        },
         _solved("optics", "image_distance"),
     ),
     "standing_wave": SceneKind({"length": Part("L", _LENGTH)}, _standing),

@@ -3,7 +3,9 @@
 The reply names the scene and the question's values it uses, never a coordinate:
 {"kind": "scene", "scene": "projectile", "values": {"speed": "20 m/s", "angle": "30°",
 "height": "45 m"}}. Each value must be one the question states, with its unit and of the
-part's kind, each used once (``values``); a speed belongs to the body whose mass it is
+part's kind, each used once (``values``), and every value the question states of those
+kinds used: a projectile that hits a wall 30 m away, a second lens or a pulley's own mass
+is another situation than the scene draws. A speed belongs to the body whose mass it is
 written beside. A part the scene does not take, a value the question does not state, or
 a claim the scene does not know draws nothing: the scene is never drawn from a description
 it only partly understood.
@@ -48,7 +50,8 @@ def described_scene(body: str, texts: Sequence[str]) -> list[SimulationBlockSpec
     flags = _flags(kind, described, stated)
     if values is None or flags is None:
         return []
-    return kind.draw({kind.parts[name].param: given for name, given in values.items()}, flags)
+    drawn = {kind.parts[name].param: given for name, given in values.items()}
+    return kind.draw({param: given for param, given in drawn.items() if param}, flags)
 
 
 def _values(kind: SceneKind, described: _Scene, stated: Stated) -> dict[str, Given] | None:
@@ -62,6 +65,9 @@ def _values(kind: SceneKind, described: _Scene, stated: Stated) -> dict[str, Giv
         if given is None:
             return None
         held[name] = given
+    # The scene is the question's whole setup: every value it states of these parts' kinds.
+    if stated.leaves_out([part.sample for part in kind.parts.values()]):
+        return None
     # Each body's speed is written beside its own mass, never the other body's.
     masses = [mass for mass, _speed in kind.bodies]
     for mass, speed in kind.bodies:

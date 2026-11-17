@@ -64,6 +64,13 @@ class Stated:
                 return given
         return None
 
+    def leaves_out(self, samples: Sequence[str]) -> bool:
+        """A value the question states, of a kind these parts take, that no part used: the
+        30 m to a wall a projectile hits, the second lens's focal length, the pulley's own
+        mass. A scene that leaves one out draws another situation than the question's."""
+        kinds = {_dimension(sample) for sample in samples}
+        return any(given.dimension in kinds for given in self.left)
+
     def harmonic(self, written: int) -> bool:
         """The question names this harmonic: its number, or its word ("third")."""
         lower = self.text.lower()

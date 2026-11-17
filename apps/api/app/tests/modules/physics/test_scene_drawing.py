@@ -117,7 +117,14 @@ def _types(fences: list[str]) -> list[str]:
         ),
         (
             _LENS,
-            _scene(scene="lens", values={"focal_length": "10 cm", "object_distance": "15 cm"}),
+            _scene(
+                scene="lens",
+                values={
+                    "focal_length": "10 cm",
+                    "object_distance": "15 cm",
+                    "object_height": "2 cm",
+                },
+            ),
             "rays",
         ),
         (_STRING, _scene(scene="standing_wave", harmonic=3, values={"length": "1.2 m"}), "wave"),
@@ -165,6 +172,23 @@ def test_a_described_scene_is_drawn_by_its_solvers_builder(
         (_STRING, _scene(scene="standing_wave", harmonic=4, values={"length": "1.2 m"})),
         (_CLIFF, _scene(scene="conical_pendulum", values={"angle": "30°"})),
         ("Not physics at all.", "not json"),
+        # A stated value of the scene's kinds left out: the question is another situation.
+        (
+            "A ball is kicked from the ground at 25 m/s at 40 degrees above the horizontal "
+            "toward a vertical wall 30 m away. At what height does it hit the wall?",
+            _scene(scene="projectile", values={"speed": "25 m/s", "angle": "40 degrees"}),
+        ),
+        (
+            _LENS + " A second converging lens of focal length 20 cm is placed 40 cm behind it.",
+            _scene(
+                scene="lens",
+                values={
+                    "focal_length": "10 cm",
+                    "object_distance": "15 cm",
+                    "object_height": "2 cm",
+                },
+            ),
+        ),
     ],
 )
 def test_a_scene_that_does_not_check_draws_nothing(question: str, description: str) -> None:

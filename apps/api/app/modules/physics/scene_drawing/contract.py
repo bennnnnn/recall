@@ -13,7 +13,9 @@ SCENE_DRAW_CONTRACT = (
     "whole question, also when it has parts); the app checks it and draws the scene. Write "
     'only JSON: {"kind":"scene","scene":"<name>","values":{"<part>":"<value '
     'with its unit, as the question states it>"}}. Give only values the question states, '
-    "never one you worked out, and never a coordinate. Scenes and their parts (* the scene "
+    "never one you worked out, and never a coordinate; the scene uses every value the "
+    "question states for its parts, or it is another situation and gets no block. Scenes "
+    "and their parts (* the scene "
     "needs it):\n"
     "- projectile: speed*, angle* (above the horizontal), height (of the launch above the "
     "landing ground), g;\n"
@@ -28,7 +30,7 @@ SCENE_DRAW_CONTRACT = (
     "- orbit (a satellite round a planet): altitude*, planet_mass, planet_radius;\n"
     "- refraction (light entering a material): angle* (of incidence), index* (of the "
     "material it enters), index_from (when it does not come from air);\n"
-    "- lens (one converging lens): focal_length*, object_distance*;\n"
+    "- lens (one converging lens): focal_length*, object_distance*, object_height;\n"
     '- standing_wave (a string fixed at both ends): length*, and "harmonic": n when the '
     "question names one;\n"
     "- banked_curve (a car on a banked road, seen from behind): angle* (of the bank).\n"
