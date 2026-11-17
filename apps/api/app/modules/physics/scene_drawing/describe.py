@@ -135,7 +135,8 @@ def _flags(kind: SceneKind, described: _Scene, stated: Stated) -> dict[str, floa
     stick, or bounce off elastically), a projectile launched horizontally when the question
     says so, a standing wave's harmonic when the question names it ("third harmonic",
     "n = 3", "fundamental"); a claim the question does not support draws nothing."""
-    claimed = [name for name in ("sticks", "elastic") if getattr(described, name)]
+    claims = {"sticks": described.sticks, "elastic": described.elastic}
+    claimed = [name for name, on in claims.items() if on]
     if len(claimed) != (1 if kind.claims else 0) or set(claimed) - set(kind.claims):
         return None
     flags = {kind.claims[name][0]: kind.claims[name][1] for name in claimed}
