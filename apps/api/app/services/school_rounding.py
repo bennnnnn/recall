@@ -61,14 +61,22 @@ def trim_zeros(text: str) -> str:
     return text.rstrip("0").rstrip(".") if "." in text else text
 
 
-# "to three significant digits", "correct to 2 decimal places", "to the nearest tenth".
+# "to three significant digits", "correct to 2 decimal places", "to the nearest tenth". On
+# one line, its spaces horizontal, and an abbreviation's stop never the sentence's: "from t = 0
+# to 1 s. F(t) = 5t^2 N." is one second, then a force (Gemini on #2489).
+_H = r"[ \t]"
+_STOP = rf"\.(?!{_H}+(?-i:[A-Z]))"
 _ROUNDING = re.compile(
-    rf"\b(?:to|in|correct\s+to)\s+(?:(?P<count>\d+|{count_word_pattern(low=1, high=12)})\s+"
-    r"(?:(?P<figures>significant\s+(?:figures?|digits?)|s\.?\s?f\.?)"
-    r"|(?P<places>decimal\s+places?|d\.?\s?p\.?))"
-    r"|the\s+nearest\s+(?P<nearest>whole\s+number|integer|tenth|hundredth|thousandth))(?![a-z])",
+    rf"\b(?:to|in|correct{_H}+to){_H}+(?:(?P<count>\d+|{count_word_pattern(low=1, high=12)}){_H}+"
+    rf"(?:(?P<figures>significant{_H}+(?:figures?|digits?)|s(?:{_STOP})?{_H}?f\.?)"
+    rf"|(?P<places>decimal{_H}+places?|d(?:{_STOP})?{_H}?p\.?))"
+    rf"|the{_H}+nearest{_H}+(?P<nearest>whole{_H}+number|integer|tenth|hundredth|thousandth))"
+    r"(?![a-z])",
     re.I,
 )
+# The most significant figures or decimal places an answer is worked to; more is no
+# precision a card keeps ("to 30 d.p." would ask Decimal for more digits than it holds).
+MOST_DIGITS = 15
 _NEAREST = {"whole number": 0, "integer": 0, "tenth": 1, "hundredth": 2, "thousandth": 3}
 
 

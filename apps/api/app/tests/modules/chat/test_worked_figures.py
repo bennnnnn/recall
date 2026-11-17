@@ -124,3 +124,29 @@ def test_a_card_keeps_the_precision_the_question_asks(question: str, value: str,
     assert out.value == card
     if figures or places >= 0:
         assert out.note == "to 4 s.f."
+
+
+@pytest.mark.parametrize(
+    ("question", "asked"),
+    [
+        ("Find the force to 3 s.f.", (3, -1)),
+        ("Find the force to 3 sf", (3, -1)),
+        ("Find the force to 3 S.F.", (3, -1)),
+        ("Find the force to 2 d.p.", (0, 2)),
+        # Gemini on #2489: a sentence's stop and a line break are no abbreviation's.
+        ("The force acts from t = 0 to 1 s. F(t) = 5t^2 N. Find the impulse.", (0, -1)),
+        ("The force acts from t = 0 to 1 s\nf = 5 N on the block.", (0, -1)),
+    ],
+)
+def test_the_asked_precision_is_read_on_one_line(question: str, asked: tuple[int, int]) -> None:
+    from app.services.school_rounding import asked_rounding
+
+    figures, places, _ = asked_rounding(question)
+    assert (figures, places) == asked
+
+
+def test_a_precision_beyond_what_a_card_keeps_leaves_the_value() -> None:
+    """Gemini on #2489: "to 30 d.p." asked Decimal for more digits than it holds."""
+    answer = Answer(symbol="F", value="1.23456789", unit="N")
+    assert card_answer(answer, (0, 30)) == answer
+    assert card_answer(answer, (40, -1)) == answer

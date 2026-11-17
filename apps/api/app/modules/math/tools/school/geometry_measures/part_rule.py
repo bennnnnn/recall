@@ -28,7 +28,7 @@ from app.modules.math.match.measure_relations import another_shape_named
 from app.modules.math.match.stated_pi import stated_pi
 from app.modules.math.schemas import MathIntent
 from app.services.number_text import count_word_pattern
-from app.services.school_rounding import asked_rounding
+from app.services.school_rounding import MOST_DIGITS, asked_rounding
 from app.services.unit_text import LENGTH_UNITS
 
 _N = r"(\d+(?:\.\d+)?)"
@@ -65,8 +65,6 @@ _REMAINDER = re.compile(
 _SECTOR = re.compile(r"\bsectors?\b", re.I)
 _DEGREES = re.compile(rf"{_N}\s*(?:\u00b0|\^\s*\\circ|degrees?\b)", re.I)
 _COUNT = count_word_pattern(low=1, high=12)
-# The most significant figures or decimal places a card is worked to; more declines.
-_MOST_DIGITS = 15
 # A count or a number the rule has not read: a second shape, a second part, a total.
 _UNREAD = re.compile(rf"\d|\b(?:{count_word_pattern(low=0, high=90)})\b|\bcircles\b", re.I)
 # A measure the rule did not read to its end: "radius 10π", "radius 3/2", "radius 3 1/2".
@@ -153,7 +151,7 @@ def circle_part_intent(body: str) -> MathIntent | None:
         return None  # a semicircle's "circumference": its curved edge, or all of it?
     size = sizes[0]
     figures, places, asks_rounding = asked_rounding(text)
-    if figures > _MOST_DIGITS or places > _MOST_DIGITS:
+    if figures > MOST_DIGITS or places > MOST_DIGITS:
         return None  # "to 1000000000 decimal places" built a billion-digit context
     read = [(size.start(), size.end()), *((part.start, part.end) for part in parts)]
     read += [span for span in (asks_rounding, sector[2] if sector else None) if span]

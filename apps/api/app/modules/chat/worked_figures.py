@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from app.services.school_rounding import format_places, round_figures
+from app.services.school_rounding import MOST_DIGITS, format_places, round_figures
 
 if TYPE_CHECKING:
     from app.modules.chat.worked_solution import Answer
@@ -46,6 +46,8 @@ def card_answer(answer: Answer, asked: tuple[int, int] = (0, -1)) -> Answer:
     if not _DECIMAL.fullmatch(shown) or MONEY.names_currency(answer.unit or ""):
         return answer  # a sum of money is exact to the cent: $12.34 is never $12.3
     figures, places = asked
+    if figures > MOST_DIGITS or places > MOST_DIGITS:
+        return answer  # "to 30 d.p.": no precision a card keeps, the value as written
     if places >= 0:
         written = len(shown.partition(".")[2])
         if written <= places:
