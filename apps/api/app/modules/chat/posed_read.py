@@ -52,6 +52,11 @@ _MAX_RESTATED_WORDS = 80
 _STATES_A_VALUE = re.compile(r"\d")
 # A number as written: a line that states one its problem does not is no "solve it again".
 _NUMBER = re.compile(r"\d+(?:\.\d+)?")
+# A number that names an item, not a value: "Solve 1", "question 9", "part 2", "Q3".
+_ITEM = re.compile(
+    r"\b(?:solve|question|problem|part|number|no\.?|item|exercise|example|q)[ \t]*#?[ \t]*$",
+    re.IGNORECASE,
+)
 # Most values one line changes at once.
 _MAX_CHANGES = 4
 # The longest read fits: a 600-character problem (about 200 tokens, at three characters a
@@ -161,10 +166,20 @@ def without_cheer(text: str) -> str:
     return text[: cut + 1] if last_word >= 0 and "!" in tail[last_word:] else text
 
 
-def _states_new_values(line: str, problem: str) -> bool:
-    """``line`` writes a number ``problem`` does not."""
+def states_new_values(line: str, problem: str) -> bool:
+    """``line`` states a value ``problem`` does not: a quantity read with its unit by a
+    subject ("20 minutes" after "20 seconds"), or a bare number the problem lacks, never an
+    item's number ("Solve 1", "question 9"). Run in the pool (``read_posed``)."""
+    from app.services.subjects.registry import SUBJECTS
+
+    if any(adapter.followups.states_new(problem, line) for adapter in SUBJECTS):
+        return True
+    plain = _unlatexed(line)
     stated = set(_NUMBER.findall(_unlatexed(problem)))
-    return any(number not in stated for number in _NUMBER.findall(_unlatexed(line)))
+    return any(
+        match.group() not in stated and not _ITEM.search(plain, 0, match.start())
+        for match in _NUMBER.finditer(plain)
+    )
 
 
 def _line_value(line: str, new: str | None) -> str | None:
@@ -285,7 +300,9 @@ async def read_posed(
     # problem stands (the user's message the last reply answered, or that reply when it
     # posed one), never "solve" the problem as it was: its card would answer a question
     # the line did not ask.
-    if claimed is not None or _states_new_values(line, problem):
+    # Read in the pool, with every subject's units; a pool that gives up counts as new.
+    new = await read_aside(states_new_values, line, problem, timeout=timeout)
+    if claimed is not None or new is not False:
         last_turn = {len(exchanges)} | ({len(exchanges) - 1} if asked is not None else set())
         if read.kind != "change" or read.message not in last_turn:
             return None

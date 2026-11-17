@@ -177,6 +177,14 @@ class GuardedFollowups:
             lambda: self._inner.restates(problem, line),
         )
 
+    def states_new(self, problem: str, line: str) -> bool:
+        return neutral_on_error(
+            self._subject,
+            "followups.states_new",
+            False,
+            lambda: self._inner.states_new(problem, line),
+        )
+
     def takes_every_change(
         self, problem: str, rewritten: str, line: str, new: Sequence[str]
     ) -> bool:

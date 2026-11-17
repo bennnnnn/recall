@@ -415,6 +415,11 @@ def restates_physics_problem(problem: str, line: str) -> bool:
     return bool(_GIVENS.restated(problem, line))
 
 
+def physics_states_new(problem: str, line: str) -> bool:
+    """The line states a value, with its unit, the problem does not."""
+    return _GIVENS.states_new(problem, line)
+
+
 def physics_change_whole(problem: str, rewritten: str, line: str, new: Sequence[str]) -> bool:
     """The rewrite takes every value the line states, and asks what the line asks."""
     return _GIVENS.takes_every(problem, rewritten, line, new)

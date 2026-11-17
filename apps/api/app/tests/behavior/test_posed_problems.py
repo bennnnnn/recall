@@ -346,3 +346,23 @@ def test_one_change_never_rewrites_a_value_several_bodies_share() -> None:
     )
     first, second = [g for g in read_givens(charges, PHYSICS_UNITS) if g.unit == "C"]
     assert not counted(charges, first, [first, second])
+
+
+def test_a_group_count_is_shared_only_by_the_one_value_after_it() -> None:
+    """ "Two identical point charges, with a charge of 3.0 μC": the comma split the count
+    from its value, so one change made both 6.0 μC and the force came out 2x wrong; "two
+    point charges of 3.0 C and 2.0 C" counted "two" as sharing 3.0 C (Gemini, PR #2482)."""
+    from app.modules.physics.givens import PHYSICS_UNITS
+    from app.services.law_binding.fit import read_givens
+    from app.services.scaled_followup import counted
+
+    def counts(problem: str, unit: str) -> list[bool]:
+        kind = [g for g in read_givens(problem, PHYSICS_UNITS) if g.unit == unit]
+        return [counted(problem, given, kind) for given in kind]
+
+    shared = (
+        "Two identical point charges, with a charge of 3.0 \u03bcC, are 0.5 m apart. "
+        "Calculate the force."
+    )
+    assert counts(shared, "\u03bcC") == [True]
+    assert counts("Two point charges of 3.0 C and 2.0 C are 5.0 m apart.", "C") == [False, False]

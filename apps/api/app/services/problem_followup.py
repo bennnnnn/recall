@@ -279,6 +279,15 @@ def replace_given(text: str, given: Given, value: str, unit: str) -> str:
     return text[: given.start] + f"{value} {unit}" + text[end:]
 
 
+def _same_value(one: Given, other: Given) -> bool:
+    """One value: the same kind and size, a pure number by its number."""
+    if one.dimension != other.dimension:
+        return False
+    if one.si is not None and other.si is not None:
+        return math.isclose(one.si, other.si, rel_tol=1e-9)
+    return one.si is None and other.si is None and math.isclose(one.value, other.value)
+
+
 @dataclass(frozen=True)
 class GivenRewriter:
     """One subject's way to replace or scale one given of its previous problem.
@@ -400,33 +409,19 @@ class GivenRewriter:
         of two would solve with a charge the user never gave), and the line asks nothing of
         its own or what the rewrite asks ("What is the momentum of a 5 kg ball?" is a new
         question, not a change to a kinetic energy problem)."""
-        taken = [
-            given
-            for value in new
-            for given in read_givens(value, self.units)
-            if given.si is not None
-        ]
+        taken = [given for value in new for given in self._values(value)]
         # Every value the line states must be the problem's kind: a quantity the problem
         # lacks ("thrown downward at 10 m/s" after a drop) is another problem, which no
-        # rewrite of the old one solves.
-        kinds = {given.dimension for given in read_givens(prior, self.units) if given.dimension}
-        stated_all = [given for given in read_givens(line, self.units) if given.dimension]
+        # rewrite of the old one solves. A pure number counts as a decimal one: "diamond
+        # (n = 2.42)" is a change the rewrite must take, never one it drops.
+        kinds = {given.dimension for given in self._values(prior)}
+        stated_all = self._values(line)
         if any(given.dimension not in kinds for given in stated_all):
             return False
         # One to one: "3.0 pC and 3.0 pC" are two values, which one named change never takes.
         left = list(taken)
         for stated in stated_all:
-            match = next(
-                (
-                    given
-                    for given in left
-                    if stated.si is not None
-                    and given.si is not None
-                    and given.dimension == stated.dimension
-                    and math.isclose(given.si, stated.si, rel_tol=1e-9)
-                ),
-                None,
-            )
+            match = next((given for given in left if _same_value(given, stated)), None)
             if match is None:
                 return False
             left.remove(match)
@@ -434,6 +429,23 @@ class GivenRewriter:
             return True
         asked = set(self.asked(line))
         return not asked or asked == set(self.asked(rewritten))
+
+    def states_new(self, prior: str, line: str) -> bool:
+        """``line`` states a value ``prior`` does not, read with its unit: "20 minutes" after
+        "20 seconds" is new, "Solve 1" names an item and states nothing."""
+        stated = self._values(prior)
+        return any(
+            not any(_same_value(given, old) for old in stated) for given in self._values(line)
+        )
+
+    def _values(self, text: str) -> list[Given]:
+        """The values ``text`` states: each with its unit, and each decimal pure number (an
+        index, a coefficient); never a count or a question number."""
+        return [
+            given
+            for given in read_givens(text, self.units)
+            if given.dimension is not None or "." in text[given.start : given.end]
+        ]
 
     def _quoted(self, written: str, kind: list[Given], dimension: str) -> list[Given]:
         """The givens of ``kind`` ``written`` quotes: by size when it carries a unit of that

@@ -205,3 +205,57 @@ def test_a_parts_picture_takes_only_its_own_charges() -> None:
     assert read_description(part_a, [question]) is not None
     assert read_description(taken, [question]) is None
     assert read_description(part_b, [question]) is not None
+
+
+@pytest.mark.parametrize(
+    ("question", "part", "sign"),
+    [
+        (
+            "2. Draw the pattern of the electric field around: a) a positive charge b) a "
+            "negative charge. Explain what the arrows mean and explain at which points the "
+            "strength of the field is greatest.",
+            "b",
+            "-",
+        ),
+        (
+            "2. Draw the pattern of the electric field around: a) a positive charge b) a "
+            "negative charge. Explain what the arrows mean.",
+            "a",
+            "+",
+        ),
+    ],
+)
+def test_a_colon_before_the_parts_keeps_their_signs(question: str, part: str, sign: str) -> None:
+    """The GCSE prompt of field_sketch_replies.json lost its parts at the colon (Gemini,
+    PR #2482)."""
+    right = json.dumps({"kind": "field", "part": part, "charges": [{"sign": sign}]})
+    wrong = json.dumps(
+        {"kind": "field", "part": part, "charges": [{"sign": "+" if sign == "-" else "-"}]}
+    )
+    assert read_description(right, [question]) is not None
+    assert read_description(wrong, [question]) is None
+
+
+def test_parts_split_by_semicolons_keep_their_own_signs() -> None:
+    question = (
+        "Sketch the field lines for (a) two positive charges; (b) a positive and a negative charge."
+    )
+    pair = json.dumps({"kind": "field", "part": "a", "charges": [{"sign": "+"}, {"sign": "+"}]})
+    dipole = json.dumps({"kind": "field", "part": "b", "charges": [{"sign": "+"}, {"sign": "-"}]})
+    assert read_description(pair, [question]) is not None
+    assert read_description(dipole, [question]) is not None
+
+
+def test_each_parts_plates_are_charged_as_that_part_says() -> None:
+    """ "when: a) the top plate is positive b) the top plate is negative" refused both
+    parts, read against the whole prompt (Gemini, PR #2482)."""
+    question = (
+        "Draw the field between two parallel plates when: a) the top plate is positive "
+        "b) the top plate is negative."
+    )
+    top = json.dumps({"kind": "field", "part": "a", "plates": {"positive": "top"}})
+    bottom = json.dumps({"kind": "field", "part": "b", "plates": {"positive": "bottom"}})
+    wrong = json.dumps({"kind": "field", "part": "b", "plates": {"positive": "top"}})
+    assert read_description(top, [question]) is not None
+    assert read_description(bottom, [question]) is not None
+    assert read_description(wrong, [question]) is None

@@ -30,6 +30,7 @@ _IN_Q = re.compile(r"(?<![\w.])([+\-\u2212])?(?:[ \t]?(\d+(?:\.\d+)?))?[ \t]?q(?
 _SIGN_IN_PHRASE = re.compile(r"\b(positive|negative)\b(?![ \t]+test\b)", re.IGNORECASE)
 _SIGN_AFTER = re.compile(r"[ \t]*(?:point[ \t]+)?(positive|negative)\b(?![ \t]+test\b)", re.I)
 _CLAUSE_END = re.compile(r"[.;:?!](?!\d)")
+_SENTENCE_END = re.compile(r"[.?!](?!\d)")
 # A sign word for several charges: "negative charges of 3 nC and 2 nC".
 _SHARED = re.compile(r"[ \t]+(?:point[ \t]+)?charges\b", re.IGNORECASE)
 _TEST_CHARGE_BEFORE = re.compile(r"\btest[ \t]+charge[ \t,]*$", re.IGNORECASE)
@@ -214,13 +215,13 @@ def named_signs(texts: Sequence[str], part: str | None) -> tuple[list[int], bool
     ``part`` when it has one, and whether they are the whole picture (one part, or a
     question with no parts) or only all the parts' together. None when it names no sign."""
     for whole in texts[:1]:
-        text = _through_the_request(whole)
-        span = _part_span(text, part)
+        span = _part_span(whole, part)
         if span is not None:
             _stem, start, end = span
-            signs = _signs(text[start:end])
+            signs = _signs(_through_the_request(whole[start:end]))
             if signs:
                 return signs, True
+        text = _through_the_request(whole)
         signs = _signs(text)
         if signs:
             return signs, _PART.search(text) is None
@@ -241,12 +242,16 @@ _PLATES = re.compile(r"\bplates?\b|\bcapacitor\b", re.IGNORECASE)
 _TOP = frozenset({"top", "upper"})
 
 
-def plates_of(text: str, positive: str) -> bool:
+def plates_of(text: str, positive: str, part: str | None = None) -> bool:
     """``text`` names plates, and its words put the positive one where the description
-    does ("top" or "bottom"), or put it nowhere."""
+    does ("top" or "bottom"), or put it nowhere: in the picture's own part ("when: a) the
+    top plate is positive b) the top plate is negative"), else in the question's stem."""
     if _PLATES.search(text) is None:
         return False
-    for match in _PLATE_SIDE.finditer(text):
+    span = _part_span(text, part)
+    segments = [text] if span is None else [text[span[1] : span[2]], text[: span[0]]]
+    said = next((list(_PLATE_SIDE.finditer(s)) for s in segments if _PLATE_SIDE.search(s)), [])
+    for match in said:
         side = next(match.group(f"side{i}") for i in (1, 2, 3) if match.group(f"side{i}"))
         sign = next(match.group(f"sign{i}") for i in (1, 2, 3) if match.group(f"sign{i}"))
         top = side.lower() in _TOP
@@ -257,13 +262,23 @@ def plates_of(text: str, positive: str) -> bool:
 
 
 def _through_the_request(text: str) -> str:
-    """``text`` up to the end of the sentence that asks for the picture, or all of it when
-    no sentence does."""
-    asks = _ASKS_TO_DRAW.search(text)
-    if asks is None:
+    """``text`` without the sentences after the last one that asks for the picture (an
+    explanation's "the force on a positive test charge"), or after its first sentence when
+    none asks. A colon or a semicolon ends no sentence ("around: a) a positive charge b) a
+    negative charge", "(a) two positive charges; (b) a positive and a negative charge"),
+    and lettered parts after the cut are the request's own."""
+    ends = [match.end() for match in _SENTENCE_END.finditer(text)]
+    asks = [end for end in ends if _ASKS_TO_DRAW.search(text, _start_of(ends, end), end)]
+    cut = asks[-1] if asks else (ends[0] if ends else len(text))
+    if _PART.search(text, cut):
         return text
-    end = _CLAUSE_END.search(text, asks.end())
-    return text if end is None else text[: end.end()]
+    return text[:cut]
+
+
+def _start_of(ends: Sequence[int], end: int) -> int:
+    """Where the sentence ending at ``end`` starts."""
+    before = [other for other in ends if other < end]
+    return before[-1] if before else 0
 
 
 def _signs(text: str) -> list[int]:
