@@ -107,7 +107,9 @@ def on_a_stated_interval(
 def _said_of(said: Sequence[Any], edges: Sequence[Any]) -> bool:
     # An edge is a formula of the real x; the question's are of x as written.
     curves = [edge.xreplace({X: _WRITTEN_X}) for edge in edges if edge.free_symbols]
-    return not said or all(any(same_value(one, edge) for one in said) for edge in curves)
+    # A region edged by level lines alone (y = 3 and the x-axis) is said of by no formula:
+    # only an interval its clause writes no formula with is its own.
+    return not said or (bool(curves) and all(any(same_value(o, e) for o in said) for e in curves))
 
 
 def stated_end(number: Any, question: PlotQuestion, meet: float) -> Any | None:

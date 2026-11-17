@@ -78,8 +78,8 @@ def _sweeps(shape: str, distance: Any, run: Symbol, ends: Sequence[Any]) -> bool
         if distance.is_number or not distance.is_polynomial(run) or degree(distance, run) != 1:
             return False
         meets = -distance.subs(run, 0) / distance.diff(run)
-        if not ends:
-            return False  # where the region ends is not said: neither can be checked
+        if len(set(ends)) < 2:
+            return False  # two ends not said: the region may run on, neither can be checked
         at_an_end = any(same_number(meets, end) for end in ends)
         return bool(at_an_end if shape == "cone" else not at_an_end)
     if shape in {"sphere", "hemisphere"}:
@@ -113,7 +113,8 @@ def _ends(text: str, question: Any, axis: tuple[str, Any], run: Symbol) -> list[
     lines, _points = named_values(rest, "y", frozenset({"x", "y"}))
     if re.search(r"\bx-axis\b", rest, re.IGNORECASE):
         lines.append(0)
-    return [*lines, *(end for i in stated for end in (i.low, i.high))]
+    pairs = [y for _x, y in question.pairs]  # "from (0, 0) to (3, 6)"
+    return [*lines, *pairs, *(end for i in stated for end in (i.low, i.high))]
 
 
 def revolves_into(shape: str, texts: Sequence[str]) -> bool:
@@ -144,7 +145,7 @@ def revolves_into(shape: str, texts: Sequence[str]) -> bool:
         return False  # hollow: a washer, never a cone, cylinder or sphere
     distance, run = next(iter(found.values()))
     ends = _ends(text, question, axis, run)
-    if len(set(ends)) < 2 and _axis_bounds(text, axis) and not distance.is_number:
+    if len(set(ends)) == 1 and _axis_bounds(text, axis) and not distance.is_number:
         # One end stated: the curve's meeting with the axis edge is the other.
         roots = solveset(distance, run, domain=S.Reals)
         ends += list(roots) if isinstance(roots, FiniteSet) else []

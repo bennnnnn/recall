@@ -156,6 +156,19 @@ def test_a_curve_described_twice_is_drawn_once(items: list[dict[str, Any]]) -> N
         ("frustum", "The line y = 2x from (0, 0) to (3, 6) is rotated about the x-axis.", False),
         ("cone", "The line y = 2x from (0, 0) to (3, 6) is rotated about the x-axis.", True),
         ("frustum", "The region under y = x + 1 is rotated about the x-axis.", False),
+        # Two ends or none: a region the axis bounds on one side alone may run on.
+        (
+            "cone",
+            "The region bounded by y = x + 1 and the x-axis is rotated about the x-axis.",
+            False,
+        ),
+        (
+            "cone",
+            "The region bounded by y = 2x, the x-axis and x ≥ 0 is rotated about the x-axis.",
+            False,
+        ),
+        # About the y-axis, its ends are the y of the points it writes.
+        ("cone", "The line y = 2x from (0, 0) to (3, 6) is rotated about the y-axis.", True),
         # About a line x = c, the region's ends are values of y.
         (
             "frustum",
@@ -444,6 +457,8 @@ def test_a_bound_written_with_pi_is_grounded_in_the_question(
         ("Sketch y = sin x for 0 ≤ x ≤ π and the region from y = 0 to y = 2π.", [0, pi]),
         ("Sketch y = sin x from 0 to y = 4.", []),
         ("Where u runs from u = 1 to u = 4, sketch y = x^2.", []),
+        # A comparison of y is of y, though y is no letter of the formula.
+        ("Sketch y = x^2 for 2 ≤ y ≤ 4 and 0 ≤ x ≤ 1.", [0, 1]),
         # The question's own variable: v(t)'s t is its across.
         ("Sketch v(t) = 3t + 1 from t = 0 to t = 4.", [0, 4]),
     ],
@@ -455,3 +470,42 @@ def test_only_an_interval_of_x_or_its_own_variable_is_of_x(
 
     found = read_plot_question([question]).x_intervals
     assert [end for i in found for end in (i.low, i.high)] == x_ends
+
+
+def test_a_comparison_of_y_is_an_interval_of_y() -> None:
+    from app.modules.math.drawing.plot_question import read_plot_question
+
+    found = read_plot_question(["Sketch x = √y for 0 ≤ y ≤ 4."]).intervals
+    assert [(i.low, i.high, i.of) for i in found] == [(0, 4, "y")]
+
+
+@pytest.mark.parametrize(
+    ("question", "items", "spans"),
+    [
+        # Level edges alone: an integral of another formula holds no region of theirs.
+        (
+            "Find the area between y = 3, the x-axis, x = 0 and x = 2; then evaluate the "
+            "integral of x^2 from 4 to 5. Shade the region.",
+            [{"item": "line", "name": "L", "y": "3"}, _curve("f", "x^2"),
+             _shade("L", "x-axis", "0", "2")],
+            [(0.0, 2.0)],
+        ),
+        # A curve's domain, then "and shade": the domain is the curve's, not the region's.
+        (
+            "Sketch y = x^2 − 4 for −3 ≤ x ≤ 3 and shade the region enclosed by the curve and "
+            "the x-axis.",
+            [_curve("f", "x^2 - 4"), _shade("f", "x-axis")],
+            [(-2.0, 2.0)],
+        ),
+    ],
+)  # fmt: skip
+def test_an_interval_holds_only_the_region_its_own_clause_names(
+    question: str, items: list[dict[str, Any]], spans: list[tuple[float, float]]
+) -> None:
+    graph = _plot(question, *items)
+    assert graph is not None
+    drawn = sorted(
+        (round(min(x for x, _ in r.points), 6), round(max(x for x, _ in r.points), 6))
+        for r in graph.regions
+    )
+    assert drawn == spans

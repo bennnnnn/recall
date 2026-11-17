@@ -87,8 +87,12 @@ _A_CONDITION = re.compile(r"\s*[-+]?[\w.()/]{1,12}\s*(?:<=|>=|<|>|\u2208|in\s+\[
 # estimate the root"), "only" ("for 0 ≤ x ≤ 3 only").
 _CLOSING_WORDS = frozenset("and to only then".split())
 _SENTENCE_END = re.compile(r"[.;!?]")
-# Where one task ends and another begins within a sentence ("..., and the area enclosed by").
-_TASK_CLAUSES = re.compile(r",\s*(?=and\b|then\b)|;")
+# Where one task ends and another begins within a sentence ("..., and the area enclosed by",
+# "... for -3 ≤ x ≤ 3 and shade the region ...").
+_TASK_CLAUSES = re.compile(
+    r",\s*(?=and\b|then\b)|;|\s+(?:and|then)\s+(?=(?:shade|find|evaluate|calculate|compute|"
+    r"integrate|determine|show|sketch|draw|work out)\b)"
+)
 # What asks for a region on an interval: an area, an integral, a volume, a shading.
 _TASK = re.compile(r"\b(?:area|region|integral|integrate|volume|average|shade[sd]?)\b|\u222b")
 _SENTENCES = re.compile(r"[;\n]|\\\\|[.?!]\s(?=[A-Z])")
