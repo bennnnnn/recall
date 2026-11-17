@@ -34,15 +34,19 @@ _REACH, _FARTHEST = 10.0, 500.0
 
 
 def stated_interval(
-    low: Any, high: Any, question: PlotQuestion, along: str = "x"
+    low: Any, high: Any, question: PlotQuestion, along: str = "x", sideways: bool = False
 ) -> Interval | None:
     """The question's own interval of x equal to [low, high], its ends as it writes them and
     held or left out as it says: one interval it says of x ("[0, 3]", "from x = 0 to
     x = 2", "0 < x ≤ 2"), or two lines it names ("the lines x = -1/2 and x = 3"). Two
     numbers said of something else ("check that your answer is between 2 and 3") are none.
     ``along`` "y": an interval it says of y ("from y = 0 to y = 4"), and only that one; an
-    interval of y is none of x."""
-    own = question.x_intervals if along != "y" else [i for i in question.intervals if i.of == "y"]
+    interval of y is none of x. ``sideways``: for a curve x = g(y), an interval that names
+    no letter ("x = √y on [0, 4]") is of y too."""
+    letters = {"y", ""} if sideways else {"y"}
+    own = (
+        question.x_intervals if along != "y" else [i for i in question.intervals if i.of in letters]
+    )
     for interval in own:
         if same_number(interval.low, low) and same_number(interval.high, high):
             return interval
@@ -107,9 +111,16 @@ def on_a_stated_interval(
 def _said_of(said: Sequence[Any], edges: Sequence[Any]) -> bool:
     # An edge is a formula of the real x; the question's are of x as written.
     curves = [edge.xreplace({X: _WRITTEN_X}) for edge in edges if edge.free_symbols]
+    # Each written formula in its own letter, read as one of x: v(t) = t² is the curve t².
+    in_x = [_in_written_x(one) for one in said]
     # A region edged by level lines alone (y = 3 and the x-axis) is said of by no formula:
     # only an interval its clause writes no formula with is its own.
-    return not said or (bool(curves) and all(any(same_value(o, e) for o in said) for e in curves))
+    return not said or (bool(curves) and all(any(same_value(o, e) for o in in_x) for e in curves))
+
+
+def _in_written_x(formula: Any) -> Any:
+    letters = formula.free_symbols
+    return formula.subs(next(iter(letters)), _WRITTEN_X) if len(letters) == 1 else formula
 
 
 def stated_end(number: Any, question: PlotQuestion, meet: float) -> Any | None:

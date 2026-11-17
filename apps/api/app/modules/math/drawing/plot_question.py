@@ -92,6 +92,7 @@ _SENTENCE_END = re.compile(r"[.;!?]")
 _TASK_CLAUSES = re.compile(
     r",\s*(?=and\b|then\b)|;|\s+(?:and|then)\s+(?=(?:shade|find|evaluate|calculate|compute|"
     r"integrate|determine|show|sketch|draw|work out)\b)"
+    r"|\s+and\s+(?=(?:the\s+|an?\s+)?(?:area|region|integral|volume|average)\b)"
 )
 # What asks for a region on an interval: an area, an integral, a volume, a shading.
 _TASK = re.compile(r"\b(?:area|region|integral|integrate|volume|average|shade[sd]?)\b|\u222b")
