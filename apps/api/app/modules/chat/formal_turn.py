@@ -127,11 +127,14 @@ def _asks_in_parts(question: str) -> bool:
     # A sentence ends at its stop or at a line break ("… above the ground\nFind (a) …").
     last = re.split(r"(?<=[.!?])\s+|\s*\n\s*", lead.strip())[-1] if lead.strip() else ""
     clause = re.split(r"[,;:]\s*", last.rstrip(" :"))[-1].strip()
-    if not clause or ASKED_SENTENCE.fullmatch(clause) is None:
-        return False
-    # The ask ends at the labels: a colon after it, or the asking word alone ("find",
-    # "work out", "what are"), never an object the labels then name.
-    return last.rstrip().endswith(":") or len(clause.split()) <= _BARE_ASK_WORDS
+    # A word before the ask ("Please find", "Now calculate") leaves it the ask.
+    for ask in (clause, clause.partition(" ")[2]):
+        if ask and ASKED_SENTENCE.fullmatch(ask) is not None:
+            # The ask ends at the labels: a colon after it, or the asking word alone
+            # ("find", "find both", "work out", "what are"), never an object the labels
+            # then name.
+            return last.rstrip().endswith(":") or len(ask.split()) <= _BARE_ASK_WORDS
+    return False
 
 
 async def attach_formal(state: FinalizeState) -> str:

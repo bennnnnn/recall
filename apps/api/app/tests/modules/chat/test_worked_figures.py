@@ -94,5 +94,10 @@ def test_a_sum_of_money_is_never_rounded(unit: str) -> None:
     assert card_answer(answer) == answer
 
 
-def test_a_measured_quantity_still_rounds() -> None:
-    assert card_answer(Answer(symbol="E", value="12.345", unit="kWh")).value == "12.3"
+@pytest.mark.parametrize(
+    ("value", "unit", "card"),
+    [("12.345", "kWh", "12.3"), ("29.008", "pounds", "29.0"), ("29.008", "lb", "29.0")],
+)
+def test_a_measured_quantity_still_rounds(value: str, unit: str, card: str) -> None:
+    """Claude on #2489: "pounds" is a force or a mass in physics, rounded as one."""
+    assert card_answer(Answer(symbol="F", value=value, unit=unit)).value == card

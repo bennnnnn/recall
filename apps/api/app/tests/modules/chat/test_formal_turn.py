@@ -269,6 +269,19 @@ async def test_a_reply_in_parts_gets_no_trailing_card(answer: list[str], reply: 
         "(b) Find the range.",
         "A ball is kicked at 18 m/s at 35° above the ground. Calculate the following: (a) the "
         "flight time (b) the range",
+        # Gemini on #2489: a word before the ask, and compute or evaluate, still ask.
+        "A ball is kicked at 18 m/s at 35° above the ground. Please find (a) the flight time "
+        "and (b) the range.",
+        "A ball is kicked at 18 m/s at 35° above the ground. Now calculate (a) the flight "
+        "time and (b) the range.",
+        "A ball is kicked at 18 m/s at 35° above the ground. Compute (a) the flight time and "
+        "(b) the range.",
+        "A ball is kicked at 18 m/s at 35° above the ground. Evaluate (a) the flight time "
+        "and (b) the range.",
+        "A ball is kicked at 18 m/s at 35° above the ground. Find both (a) the flight time "
+        "and (b) the range.",
+        "A ball is kicked at 18 m/s at 35° above the ground. Calculate the following: (a) "
+        "the flight time and (b) the range.",
         # Gemini on #2489: a line break ends the setup as a stop does.
         "A ball is kicked at 18 m/s at 35° above the ground\nFind (a) the flight time and "
         "(b) the range",

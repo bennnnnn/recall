@@ -125,13 +125,16 @@ def physics_fast_lane(content: str, *, tools_on: bool, claimed: bool = False) ->
     from app.modules.physics import extract_physics_intent, needs_physics
     from app.services.question_parts import labelled_parts
 
+    cues = _looks_like_physics_homework(content)
+    # The guard first: a line no physics cue or claim names is never extracted (Gemini on
+    # #2489; each read is a turn reading, answered in the pool, all the same).
+    if not (cues or claimed or needs_physics(content)):
+        return None
     intent = extract_physics_intent(content)
     # A line the order claims is homework when physics reads a problem in it, or it asks
     # in lettered parts: "a drive to the airport" or "my battery went from 100% to 25%"
     # stays on the everyday model.
-    homework = _looks_like_physics_homework(content) or (
-        claimed and (intent is not None or labelled_parts(content) >= 2)
-    )
+    homework = cues or (claimed and (intent is not None or labelled_parts(content) >= 2))
     if not homework and not needs_physics(content):
         return None
     if intent is None:

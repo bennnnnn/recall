@@ -132,6 +132,50 @@ async def test_routing_asks_whether_a_line_is_money_in_the_pool(
     assert MONEY.reads(text) is text.startswith("My car loan")
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "A 2 kg ball falls 5 m. Find its speed.",
+        "A ball is kicked at 18 m/s at 35°. (a) Find the flight time. (b) Find the range.",
+        "What's a good name for my cat?",
+    ],
+)
+async def test_routing_reads_physics_in_the_pool(
+    monkeypatch: pytest.MonkeyPatch, text: str
+) -> None:
+    """Gemini on #2489: the physics lane's reads are the turn's, answered in its pool
+    read; routing the message again on the loop reads nothing."""
+    from app.modules.chat.model_routing.route import route_chat_model
+    from app.modules.physics import extract as physics_extract
+    from app.modules.physics import lane
+
+    settings = Settings()
+    begin_turn()
+    routed = route_chat_model(text, settings=settings)
+    begin_turn()
+    for cached in (physics_extract._extract_physics_intent, physics_extract.needs_physics):
+        cached.cache_clear()
+    lane._physics_solves.cache_clear()
+    await read_turn_message(text, [], settings)
+    for cached in (physics_extract._extract_physics_intent, physics_extract.needs_physics):
+        cached.cache_clear()
+    lane._physics_solves.cache_clear()
+
+    ran: list[str] = []
+
+    def on_the_loop(*_: object, **__: object) -> None:
+        ran.append("read")  # the subject guard swallows a raise: count the calls
+        raise AssertionError("a physics read ran on the loop")
+
+    monkeypatch.setattr("app.modules.physics.request.complete_physics_intent", on_the_loop)
+    monkeypatch.setattr("app.modules.physics.prompt.solve_physics_request", on_the_loop)
+    monkeypatch.setattr(
+        "app.modules.physics.symbolic.request.is_symbolic_physics_request", on_the_loop
+    )
+    assert route_chat_model(text, settings=settings) == routed
+    assert ran == []
+
+
 class _PicklingExecutor(ThreadSympyExecutor):
     """The thread executor, with the process boundary's pickling on the way in and out."""
 

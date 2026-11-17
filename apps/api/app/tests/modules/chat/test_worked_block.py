@@ -558,6 +558,18 @@ def test_a_conclusion_with_no_symbol_asks_by_its_words() -> None:
     assert "$Q$ (heat supplied)" in shown
 
 
+@pytest.mark.parametrize("value", ["mg", "kx", "ma"])
+def test_an_answer_in_symbols_stays_maths(value: str) -> None:
+    """Claude on #2489: "F | mg | N" was set upright as words and its symbol left
+    Required. It is a formula in symbols, drawn as one (a unit after letters is left off,
+    as for any answer in symbols: "mg N" reads as a product)."""
+    solution = _solution(f"required: F | normal force\nanswer: F | {value} | N")
+    shown = render_worked(solution, OTHER)
+    assert "\\text{" not in shown
+    assert f"$F = {value}$" in shown
+    assert "$F$ (normal force)" in shown
+
+
 def test_a_conclusion_s_tex_specials_are_escaped() -> None:
     """Review of phys30: "yes & no" in ``\\text{}`` broke the group."""
     from app.modules.chat.worked_render import words_tex

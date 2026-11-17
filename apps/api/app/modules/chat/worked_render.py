@@ -32,7 +32,7 @@ from app.modules.chat.worked_text import (
     tidy_symbol,
     tidy_tex,
 )
-from app.modules.chat.worked_units import quantity_tex
+from app.modules.chat.worked_units import quantity_tex, unit_tex
 from app.services.worked_parts import WorkedPart, lettered_line, part_letter, render_parts
 from app.services.workout import (
     ANSWER,
@@ -93,6 +93,15 @@ def _in_words(value: str) -> bool:
     """A value written in words alone ("at rest", "mass of the rod"). One with a digit is a
     quantity, its unit written beside it ("20 km", "45 min"), and keeps its row."""
     return is_prose(value) and not any(char.isdigit() for char in value)
+
+
+def _concludes(answer: Answer) -> bool:
+    """An answer that is a conclusion in words ("yes", "all the ice melts"): words alone,
+    and several of them, or with no unit. "F | mg | N" is a quantity written in symbols,
+    kept in maths with its unit (Claude on #2489)."""
+    return _in_words(answer.value) and (
+        names_nothing(answer.value) or not unit_tex(answer.unit or "")
+    )
 
 
 def _as_its_letter(given: Given) -> bool:
@@ -350,7 +359,7 @@ def _answer_line(answer: Answer, layout: WorkedLayout) -> str:
     """The value with its unit in maths, and a note after it in brackets: a short label
     ("east") stays on the card, and a remark ("about 1.20√(gh); option A gives …") goes
     in a sentence under it (``services.remark_after_answer``), its maths drawn as maths."""
-    if _in_words(answer.value):
+    if _concludes(answer):
         # A conclusion ("yes", "all the ice melts") is words, set upright: in maths its
         # letters were italic variables, under an invented symbol (phys30, 2026-11-16).
         note = prose_maths(answer.note)
@@ -420,11 +429,9 @@ def _concluded(solution: WorkedSolution) -> set[str]:
     ("answer: | yes, …") concludes the asks no other answer names (Gemini on #2489)."""
     answers = [answer for part in solution.parts for answer in part.answers]
     concluded = {
-        _symbol_key(answer.symbol)
-        for answer in answers
-        if answer.symbol and _in_words(answer.value)
+        _symbol_key(answer.symbol) for answer in answers if answer.symbol and _concludes(answer)
     }
-    if any(not answer.symbol.strip() and _in_words(answer.value) for answer in answers):
+    if any(not answer.symbol.strip() and _concludes(answer) for answer in answers):
         named = {_symbol_key(answer.symbol) for answer in answers if answer.symbol.strip()}
         concluded |= {
             _symbol_key(item.symbol)
