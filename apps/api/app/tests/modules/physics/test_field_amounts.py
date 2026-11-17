@@ -206,13 +206,18 @@ def test_a_colon_before_the_parts_keeps_their_signs() -> None:
     assert read_description(wrong_b, [question]) is None
 
 
-def test_a_parts_picture_takes_only_its_own_amounts() -> None:
-    """Part a's block could take part b's +3 μC (Codex, PR #2490)."""
-    question = "Draw the field lines a) around a charge of +2 μC b) around a charge of +3 μC."
-    own = _charges({"sign": "+", "amount": "2 μC"})
-    other = _charges({"sign": "+", "amount": "3 μC"})
-    assert [c.written for c in stated_charges([question], "a")] == ["2 μC"]
-    assert read_description(own.replace('"charges"', '"part": "a", "charges"'), [question])
-    assert (
-        read_description(other.replace('"charges"', '"part": "a", "charges"'), [question]) is None
+def test_a_parts_picture_takes_only_its_own_charges() -> None:
+    """ "a) a positive charge b) a +3 nC charge": part a states no amount, so its sign-only
+    block stands; part a's block never takes part b's +3 nC (Gemini, PR #2482; Codex, PR
+    #2490)."""
+    question = "Draw the field lines around a) a positive charge b) a +3 nC charge."
+    part_a = json.dumps({"kind": "field", "part": "a", "charges": [{"sign": "+"}]})
+    taken = json.dumps({"kind": "field", "part": "a", "charges": [{"sign": "+", "amount": "3 nC"}]})
+    part_b = json.dumps(
+        {"kind": "field", "part": "b", "charges": [{"sign": "+", "amount": "3 nC"}]}
     )
+    assert stated_charges([question], "a") == []
+    assert [c.written for c in stated_charges([question], "b")] == ["3 nC"]
+    assert read_description(part_a, [question]) is not None
+    assert read_description(taken, [question]) is None
+    assert read_description(part_b, [question]) is not None
