@@ -144,6 +144,13 @@ SPECS: tuple[FormulaSpec, ...] = (
                     ("glancing angle", 1.0),
                     ("grazing angle", 1.0),
                 ),
+                # "40 degrees to the normal to the face": the angle is the normal's,
+                # whatever surface follows it (review, 2026-11-16).
+                implied_unless=tuple(
+                    f"{unit} {link} normal"
+                    for unit in ("degrees", "degree", "deg", "\u00b0")
+                    for link in ("to the", "from the", "with the")
+                ),
             ),
             # "Light strikes a glass block (n = 1.5)" comes from air: the one
             # index stated is the medium it enters. Light that starts inside a

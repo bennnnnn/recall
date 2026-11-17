@@ -240,7 +240,10 @@ def _pick(
 
 
 def implied_value(variable: VariableSpec, lower: str) -> float | None:
-    """A value the words state without a number: "from rest", "horizontally"."""
+    """A value the words state without a number: "from rest", "horizontally"; none when a
+    phrase says it is not meant ("40 degrees to the normal to the face")."""
+    if any(word_pattern(phrase).search(lower) for phrase in variable.implied_unless):
+        return None
     for phrase, value in variable.implied:
         if word_pattern(phrase).search(lower):
             return value

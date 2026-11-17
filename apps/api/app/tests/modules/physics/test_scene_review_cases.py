@@ -931,6 +931,203 @@ _CASES: list[tuple[str, dict[str, Any], bool]] = [
         {"scene": "spring", "values": {"spring_constant": "160 N/m", "mass": "0.4 kg"}},
         False,
     ),
+    (
+        "A ball is thrown at 20 m/s at 30 degrees from the top of a 45 m cliff. It lands after 4 s? no: find the time.",
+        {"scene": "projectile", "values": {"speed": "20 m/s", "angle": "30°", "height": "45 m"}},
+        True,
+    ),
+    (
+        "A ball is thrown from the top of a cliff at 15 m/s at 30 degrees above the horizontal. How high is the cliff if it lands after 4 s?",
+        {"scene": "projectile", "values": {"speed": "15 m/s", "angle": "30°"}},
+        False,
+    ),
+    (
+        "A ball is thrown from the top of a cliff at 15 m/s at 30 degrees above the horizontal. Find the height of the cliff if the ball lands 4 s later.",
+        {"scene": "projectile", "values": {"speed": "15 m/s", "angle": "30°"}},
+        False,
+    ),
+    (
+        "A ball is thrown down at an angle of 30 degrees at 15 m/s from the top of a 45 m cliff. Find the time to land.",
+        {"scene": "projectile", "values": {"speed": "15 m/s", "angle": "30°", "height": "45 m"}},
+        False,
+    ),
+    (
+        "A ball is thrown at 20 m/s at 50 degrees and lands on the roof of a 10 m high building. Find the time of flight.",
+        {"scene": "projectile", "values": {"speed": "20 m/s", "angle": "50°"}},
+        False,
+    ),
+    (
+        "A ray of light is incident at 40 degrees to the normal to the plane surface of a glass block (n = 1.5). Find the angle of refraction.",
+        {"scene": "refraction", "values": {"angle": "40°", "index": "1.5"}},
+        False,
+    ),
+    (
+        "A ray in air strikes glass (n = 1.5); the refracted ray makes 30 degrees with the normal. Find the angle of incidence.",
+        {"scene": "refraction", "values": {"angle": "30°", "index": "1.5"}},
+        False,
+    ),
+    (
+        "Light inside water (n = 1.33) is incident on the surface at 45 degrees to the normal. Find the angle of refraction in air.",
+        {"scene": "refraction", "values": {"angle": "45°", "index": "1.33"}},
+        False,
+    ),
+    (
+        "A ray of light in glass (n = 1.5) strikes the surface at an angle of incidence of 30 degrees and passes into air. Find the angle of refraction.",
+        {"scene": "refraction", "values": {"angle": "30°", "index": "1.5"}},
+        False,
+    ),
+    (
+        "An object is placed 15 cm from a lens of focal length 10 cm. Find the image distance.",
+        {"scene": "lens", "values": {"focal_length": "10 cm", "object_distance": "15 cm"}},
+        True,
+    ),
+    (
+        "An object is placed 15 cm from a lens of focal length -10 cm. Find the image distance.",
+        {"scene": "lens", "values": {"focal_length": "-10 cm", "object_distance": "15 cm"}},
+        False,
+    ),
+    (
+        "A 2 kg cart moving at 3 m/s hits a 1 kg cart at rest. They do not stick together. Find the speed of the 1 kg cart if the 2 kg cart moves at 1 m/s afterwards.",
+        {
+            "scene": "collision",
+            "values": {"mass1": "2 kg", "speed1": "3 m/s", "mass2": "1 kg"},
+            "sticks": True,
+        },
+        False,
+    ),
+    (
+        "A 2 kg cart moving east at 3 m/s collides with a 1 kg cart moving west at 4 m/s. They stick together.",
+        {
+            "scene": "collision",
+            "values": {"mass1": "2 kg", "speed1": "3 m/s", "mass2": "1 kg", "speed2": "4 m/s"},
+            "sticks": True,
+        },
+        False,
+    ),
+    (
+        "A block is given a speed of 8 m/s up a 30 degree incline with kinetic friction coefficient 0.2. How far up does it slide?",
+        {"scene": "incline", "values": {"angle": "30°", "friction": "0.2"}},
+        False,
+    ),
+    (
+        "A 5 kg block is pushed down a 30 degree incline; the coefficient of kinetic friction is 0.2. Find the acceleration.",
+        {"scene": "incline", "values": {"angle": "30°", "friction": "0.2", "mass": "5 kg"}},
+        True,
+    ),
+    (
+        "A satellite orbits 300 km above Mars. Find its orbital speed.",
+        {"scene": "orbit", "values": {"altitude": "300 km"}},
+        True,
+    ),
+    (
+        "A satellite orbits at a radius of 7000 km from the centre of the Earth. Find its speed.",
+        {"scene": "orbit", "values": {"altitude": "7000 km"}},
+        False,
+    ),
+    (
+        "On the Moon (g = 1.6 m/s^2) a ball is thrown at 10 m/s at 45 degrees. Find its range.",
+        {"scene": "projectile", "values": {"speed": "10 m/s", "angle": "45°", "g": "1.6 m/s^2"}},
+        True,
+    ),
+    (
+        "A 3 kg block on a table is connected over a pulley to a hanging 2 kg mass.",
+        {"scene": "atwood", "values": {"mass1": "3 kg", "mass2": "2 kg"}},
+        False,
+    ),
+    (
+        "A simple pendulum 2 m long swings in a lift accelerating upward at 2 m/s^2. Find its period.",
+        {"scene": "pendulum", "values": {"length": "2 m"}},
+        False,
+    ),
+    (
+        "A pendulum 1 m long on the Moon (g = 1.6 m/s^2). Find its period.",
+        {"scene": "pendulum", "values": {"length": "1 m", "g": "1.6 m/s^2"}},
+        True,
+    ),
+    (
+        "A conical pendulum has a string 1.2 m long at 25 degrees to the vertical. Find its period.",
+        {"scene": "pendulum", "values": {"length": "1.2 m"}},
+        False,
+    ),
+    (
+        "A curve of radius 80 m is banked at 15 degrees. Find the speed at which no friction is needed.",
+        {"scene": "banked_curve", "values": {"angle": "15°"}},
+        True,
+    ),
+    (
+        "A stone is thrown horizontally from a cliff 45 m high with a speed of 12 m/s. How far from the base does it land?",
+        {
+            "scene": "projectile",
+            "values": {"speed": "12 m/s", "height": "45 m"},
+            "horizontal": True,
+        },
+        True,
+    ),
+    (
+        "A stone is thrown from the top of a 45 m high cliff with a speed of 20 m/s at 30 degrees above the horizontal. Find (a) the time of flight, (b) how far from the base of the cliff it lands, and (c) its speed just before it hits the ground.",
+        {"scene": "projectile", "values": {"speed": "20 m/s", "angle": "30°", "height": "45 m"}},
+        True,
+    ),
+    (
+        "A 5 kg block starts from rest at the top of a 4 m long incline at 35 degrees. The coefficient of kinetic friction is 0.25. Find (a) its acceleration, (b) its speed at the bottom, and (c) the time to reach the bottom.",
+        {"scene": "incline", "values": {"angle": "35°", "friction": "0.25", "mass": "5 kg"}},
+        True,
+    ),
+    (
+        "Two masses of 3 kg and 5 kg hang on either side of a light frictionless pulley and are released from rest. Find (a) the acceleration, (b) the tension in the string, and (c) the speed of the 5 kg mass after it has fallen 1.2 m.",
+        {"scene": "atwood", "values": {"mass1": "3 kg", "mass2": "5 kg"}},
+        True,
+    ),
+    (
+        "A 0.2 kg ball travelling at 5 m/s makes an elastic collision with a stationary 0.3 kg ball. Find the velocities after.",
+        {
+            "scene": "collision",
+            "values": {"mass1": "0.2 kg", "speed1": "5 m/s", "mass2": "0.3 kg"},
+            "elastic": True,
+        },
+        True,
+    ),
+    (
+        "A 10 g bullet moving at 400 m/s embeds itself in a 2 kg wooden block at rest on a frictionless surface. Find the speed of the block.",
+        {
+            "scene": "collision",
+            "values": {"mass1": "10 g", "speed1": "400 m/s", "mass2": "2 kg"},
+            "sticks": True,
+        },
+        True,
+    ),
+    (
+        "A simple pendulum of length 1.5 m with a 0.2 kg bob is pulled aside to 10 degrees from the vertical and released. Find (a) its period, (b) the bob's maximum speed.",
+        {"scene": "pendulum", "values": {"length": "1.5 m"}},
+        True,
+    ),
+    (
+        "A ray of light strikes a block of glass (n = 1.52) at an angle of 40 degrees to the normal. Find the angle of refraction.",
+        {"scene": "refraction", "values": {"angle": "40°", "index": "1.52"}},
+        True,
+    ),
+    (
+        "Light travels from water (n = 1.33) into glass (n = 1.5) at an angle of incidence of 35 degrees. Find the angle of refraction.",
+        {"scene": "refraction", "values": {"angle": "35°", "index": "1.5", "index_from": "1.33"}},
+        True,
+    ),
+    (
+        "A satellite moves in a circular orbit 600 km above the Earth's surface. Take the Earth's mass as 5.97 x 10^24 kg and its radius as 6370 km. Find (a) its orbital speed, (b) its orbital period in minutes.",
+        {
+            "scene": "orbit",
+            "values": {
+                "altitude": "600 km",
+                "planet_mass": "5.97 x 10^24 kg",
+                "planet_radius": "6370 km",
+            },
+        },
+        True,
+    ),
+    (
+        "A curve of radius 80 m is banked at 15 degrees. (a) At what speed can a car take the curve with no friction needed?",
+        {"scene": "banked_curve", "values": {"angle": "15°"}},
+        True,
+    ),
 ]
 
 # (texts, the problem first, as the turn's follow-up resolution gives it; description; drawn)

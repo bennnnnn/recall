@@ -51,12 +51,19 @@ _HEIGHT_WORDS = (
     "top of",
     "from",
 )
+# A launch downward: "thrown down at an angle of 30°" is -30°, below the horizontal. Read
+# as above it, a 45 m cliff's throw landed in 3.89 s instead of 2.36 s (review, 2026-11-16).
+_DOWNWARD = (
+    *("thrown down", "throws down", "down at", "downward", "downwards", "aimed down"),
+    *("directed down", "projected down", "fired down"),
+)
 _LAUNCH = (
     var(
         "angle",
         r"\theta",
         dimensionless=True,
         implied=tuple((phrase, 0.0) for phrase in _LEVEL_LAUNCH),
+        negating=_DOWNWARD,
     ),
     var("g", "g", "meter / second ** 2", fallback="gravity"),
     var("h0", "h_0", "meter", words=_HEIGHT_WORDS, needs_words=True, named_by=_LAUNCH_SITES),
@@ -70,23 +77,25 @@ _FROM_A_HEIGHT = frozenset({"angle", "g", "h0", "v0"})
 _FLIES = ("h0 if h0 > 0 else sin(angle)",)
 # Launched and landing on level ground: no height stated.
 _FROM_THE_GROUND = frozenset({"angle", "g", "v0"})
+# A launch angle measured from the vertical: "60 degrees to the vertical".
+_FROM_THE_VERTICAL = tuple(
+    f"{unit} {link} vertical"
+    for unit in ("degrees", "degree", "deg", "\u00b0")
+    for link in ("to the", "from the", "from", "with the", "off the")
+)
 # Another situation than a free flight from a launch: a slope's motion, a pull, a swing,
 # or a flight toward a wall or a target, whose question is another one.
 _NOT_A_FREE_FLIGHT = (
     *("incline", "inclined", "slope"),
     *("rope", "string", "pendulum", "tension"),
     *("wall", "fence"),
-    # Landing on a raised place, or an angle from the vertical: read as a launch height or
-    # an elevation, the flight was worked for another throw (review, 2026-11-16).
-    *(
-        "lands on a ",
-        "lands on the roof",
-        "lands on top",
-        "landing on a ",
-        "onto a ",
-        "onto the roof",
-    ),
-    *("to the vertical", "from the vertical", "from vertical", "with the vertical"),
+    # Landing on a raised place: read as a launch height, the flight was worked for
+    # another throw. A level green, field, beach or plain is no raised place.
+    *("lands on the roof", "lands on top", "lands on a ledge", "lands on a platform"),
+    *("landing on the roof", "onto the roof", "onto the top", "onto a ledge", "onto a platform"),
+    # A launch angle measured from the vertical, read as an elevation, was worked for the
+    # other angle; the angle a landing velocity "makes with the vertical" is an ask.
+    *_FROM_THE_VERTICAL,
     # A flight lands; a body that comes to a stop moved along a surface ("a cart rolls
     # up a 10° ramp at 6 m/s: how far before stopping").
     *("before stopping", "before it stops", "comes to rest", "comes to a stop"),

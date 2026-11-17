@@ -97,6 +97,24 @@ _PROJECTILE_UNKNOWN_RES: tuple[tuple[str, re.Pattern[str]], ...] = (
     ),
 )
 
+# A launch its sentence says goes down: "thrown down at an angle of 30°", "thrown downward
+# at 15 m/s at 30° to the horizontal".
+_DOWNWARD_LAUNCH_RE = re.compile(
+    r"\b(?:thrown|throws?|aimed|directed|projected|fired|launched|kicked|hit)\s+"
+    r"(?:\w+\s+){0,2}?down(?:wards?)?\b|\bdown(?:wards?)?\s+at\b",
+    re.IGNORECASE,
+)
+# The angle named above the horizontal: no downward word elsewhere makes it negative.
+_ABOVE_HORIZONTAL_RE = re.compile(
+    r"\s*(?:degrees?|deg|°)?\s*(?:above|over)\s+(?:the\s+)?horizontal\b", re.IGNORECASE
+)
+# A launch angle measured from the vertical: read as an elevation it was answered for the
+# complementary launch, so it is declined.
+_FROM_VERTICAL_RE = re.compile(
+    r"\s*(?:degrees?|deg|°)?\s*(?:to|from|with|off)\s+(?:the\s+)?vertical\b", re.IGNORECASE
+)
+_SENTENCE_END_RE = re.compile(r"[.?!;](?!\d)")
+
 _RANGE_GIVEN_KEYWORDS = ("range", "travel", "reach", "cover", "land", "distance", "far")
 
 # Read right after the angle: "30° below the horizontal", "at 20 degrees downward".
@@ -158,6 +176,23 @@ def _is_projectile(law: str) -> bool:
     return spec is not None and spec.kind == "projectile"
 
 
+def _launch_angle(lower: str, match: re.Match[str]) -> float | None:
+    """The launch angle ``match`` reads, negative for a launch downward: "30° below the
+    horizontal", "thrown down at an angle of 30°" (read as 30° above, a 45 m cliff's throw
+    landed in 3.89 s instead of 2.36 s); None for one measured from the vertical."""
+    angle = float(match.group(1))
+    if _FROM_VERTICAL_RE.match(lower, match.end()):
+        return None
+    start = max((m.end() for m in _SENTENCE_END_RE.finditer(lower, 0, match.start())), default=0)
+    end_match = _SENTENCE_END_RE.search(lower, match.end())
+    sentence = lower[start : end_match.start() if end_match else len(lower)]
+    down = _BELOW_HORIZONTAL_RE.match(lower, match.end()) is not None or (
+        _DOWNWARD_LAUNCH_RE.search(sentence) is not None
+        and _ABOVE_HORIZONTAL_RE.match(lower, match.end()) is None
+    )
+    return -angle if angle > 0 and down else angle
+
+
 def _extract_projectile_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not has_cue(lower, _PROJECTILE_CUES, _PROJECTILE_CUE_RES):
@@ -217,11 +252,9 @@ def _extract_projectile_intent(cleaned: str) -> PhysicsIntent | None:
             lower,
         )
     if angle_m:
-        angle = float(angle_m.group(1))
-        # "30° below the horizontal" is a launch downward: -30°. Read as 30°
-        # above, the ball flew 22.4 m from a 20 m building instead of 13.6 m.
-        if angle > 0 and _BELOW_HORIZONTAL_RE.match(lower, angle_m.end()):
-            angle = -angle
+        angle = _launch_angle(lower, angle_m)
+        if angle is None:
+            return None
 
     if v0 is None:
         return None

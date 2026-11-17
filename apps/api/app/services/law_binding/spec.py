@@ -34,6 +34,9 @@ class VariableSpec:
     words: tuple[str, ...] = ()
     # Phrases that state the value without a number: ("from rest", 0.0).
     implied: tuple[tuple[str, float], ...] = ()
+    # Phrases that say the implied value is not meant, whatever else is written: "40
+    # degrees to the normal" measures the angle from the normal, though "to the face" follows.
+    implied_unless: tuple[str, ...] = ()
     # Words before the value that make it negative: "decelerates at 2 m/s²".
     negating: tuple[str, ...] = ()
     # Where an unstated value comes from: "gravity" (9.81, or the named body's),
@@ -158,6 +161,7 @@ def var(
     visible: bool = True,
     words: tuple[str, ...] = (),
     implied: tuple[tuple[str, float], ...] = (),
+    implied_unless: tuple[str, ...] = (),
     negating: tuple[str, ...] = (),
     fallback: str | None = None,
     needs_words: bool = False,
@@ -171,6 +175,7 @@ def var(
         visible=visible,
         words=words,
         implied=implied,
+        implied_unless=implied_unless,
         negating=negating,
         fallback=fallback,
         needs_words=needs_words,

@@ -1,0 +1,133 @@
+[
+ {
+  "id": "rs-down-at-an-angle",
+  "area": "projectile",
+  "prompt": "A ball is thrown down at an angle of 30 degrees at 15 m/s from the top of a 45 m cliff. Find the time to land.",
+  "expect": "answer",
+  "answer": [
+   2.3594,
+   "s"
+  ],
+  "note": "a launch 30° below the horizontal: 4.905t² + 7.5t - 45 = 0 (was read 30° above: 3.89 s; review round 4, 2026-11-16)"
+ },
+ {
+  "id": "rs-downward-to-the-horizontal",
+  "area": "projectile",
+  "prompt": "A ball is thrown downward at 15 m/s at 30 degrees to the horizontal from a 45 m cliff. Find the time to land.",
+  "expect": "answer",
+  "answer": [
+   2.3594,
+   "s"
+  ],
+  "note": "downward before the speed: still 30° below the horizontal"
+ },
+ {
+  "id": "rs-below-the-horizontal",
+  "area": "projectile",
+  "prompt": "A ball is thrown at 15 m/s at 30 degrees below the horizontal from the top of a 45 m cliff. Find the time to land.",
+  "expect": "answer",
+  "answer": [
+   2.3594,
+   "s"
+  ],
+  "note": "the reading that was already right stays right"
+ },
+ {
+  "id": "rs-green-same-level",
+  "area": "projectile",
+  "prompt": "A golf ball is hit at 40 m/s at 35 degrees and lands on a green at the same level. Find its range.",
+  "expect": "answer",
+  "answer": [
+   153.2628,
+   "m"
+  ],
+  "note": "a level green is no raised landing (declined in round 3)"
+ },
+ {
+  "id": "rs-level-field",
+  "area": "projectile",
+  "prompt": "A ball is kicked at 20 m/s at 30 degrees above the horizontal and lands on a level field. How far does it go?",
+  "expect": "answer",
+  "answer": [
+   35.3119,
+   "m"
+  ],
+  "note": "a level field is no raised landing"
+ },
+ {
+  "id": "rs-onto-a-beach",
+  "area": "projectile",
+  "prompt": "A stone is thrown horizontally at 12 m/s from a 45 m cliff onto a beach below. How long is it in the air?",
+  "expect": "answer",
+  "answer": [
+   3.0289,
+   "s"
+  ],
+  "note": "onto a beach below: the cliff is the launch height"
+ },
+ {
+  "id": "rs-angle-with-the-vertical-asked",
+  "area": "projectile",
+  "prompt": "A ball is thrown horizontally at 10 m/s from a 20 m high cliff. Find its speed when it lands, and the angle it makes with the vertical.",
+  "expect": "answer",
+  "answer": [
+   22.1901,
+   "m/s"
+  ],
+  "note": "the angle a landing makes with the vertical is asked, not a launch from the vertical"
+ },
+ {
+  "id": "rs-onto-a-flat-plain",
+  "area": "projectile",
+  "prompt": "A projectile is launched at 25 m/s at 40 degrees above the horizontal onto a flat plain. Find the time of flight.",
+  "expect": "answer",
+  "answer": [
+   3.2762,
+   "s"
+  ],
+  "note": "a flat plain is level ground"
+ },
+ {
+  "id": "rs-launch-to-the-vertical",
+  "area": "projectile",
+  "prompt": "A ball is thrown at 20 m/s at 60 degrees to the vertical. Find its range.",
+  "expect": "decline",
+  "note": "an angle from the vertical, read as an elevation, gave the other angle's flight"
+ },
+ {
+  "id": "rs-lands-on-a-roof",
+  "area": "projectile",
+  "prompt": "A ball is thrown at 20 m/s at 50 degrees and lands on the roof of a 10 m high building. Find the time of flight.",
+  "expect": "decline",
+  "note": "the roof it lands on was read as its launch height"
+ },
+ {
+  "id": "rs-normal-to-the-face",
+  "area": "optics",
+  "prompt": "Light is incident on the face of a prism (n = 1.5) at 40 degrees to the normal to the face. Find the angle of refraction.",
+  "expect": "answer",
+  "answer": [
+   25.374,
+   "deg"
+  ],
+  "note": "an angle to the normal, whatever surface follows (was read from the face: 50°)"
+ },
+ {
+  "id": "rs-to-the-plane-of-the-block",
+  "area": "optics",
+  "prompt": "A light ray strikes a glass block (n = 1.5) at 30 degrees to the plane of the block. Find the angle of refraction.",
+  "expect": "answer",
+  "answer": [
+   35.2644,
+   "deg"
+  ],
+  "note": "30° to the block's face is 60° to its normal"
+ },
+ {
+  "id": "rs-collision-type-asked",
+  "area": "momentum",
+  "prompt": "A 2 kg cart moving at 3 m/s hits a 1 kg cart at rest and bounces back; they move apart. Is the collision elastic?",
+  "expect": "decline",
+  "note": "the type asked about was read as stated"
+ }
+]
