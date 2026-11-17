@@ -107,13 +107,18 @@ def _in_parts(reply: str, question: str) -> bool:
     return cards >= 2 or _asks_in_parts(question)
 
 
+# "find", "work out", "what are": an ask with no object of its own.
+_BARE_ASK_WORDS = 2
+
+
 def _asks_in_parts(question: str) -> bool:
     """Each labelled part asks something: each is a question or an instruction of its own
     ("(a) How long …? (b) How far …?", "(a) Find the flight time; (b) Find the range"), or
-    the sentence or clause before them asks for the list ("Find (a) the time, (b) the
-    range", "… at 35°, find (a) … and (b) …"). A label inside the statement ("blocks (A)
-    and (B)", "(i) 4 Ω and (ii) 6 Ω in parallel") names a thing and asks nothing (review
-    of phys30, 2026-11-16; Codex and Gemini on #2489)."""
+    the clause before them asks for the list and ends where it starts ("Find (a) the time,
+    (b) the range", "… at 35°, find (a) … and (b) …", "Calculate the following: (a) …").
+    A label inside the statement or its question ("blocks (A) and (B)", "Find the tension
+    in the ropes holding blocks (A) of 2 kg and (B) of 3 kg") names a thing and asks
+    nothing (review of phys30, 2026-11-16; Codex, Gemini and Claude on #2489)."""
     lead, parts = labelled_part_texts(question)
     if len(parts) < 2:
         return False
@@ -121,10 +126,12 @@ def _asks_in_parts(question: str) -> bool:
         return True
     # A sentence ends at its stop or at a line break ("… above the ground\nFind (a) …").
     last = re.split(r"(?<=[.!?])\s+|\s*\n\s*", lead.strip())[-1] if lead.strip() else ""
-    clause = re.split(r"[,;:]\s*", last.rstrip(" :"))[-1]
-    return any(
-        ASKED_SENTENCE.fullmatch(said.strip()) for said in (last.rstrip(" :"), clause) if said
-    )
+    clause = re.split(r"[,;:]\s*", last.rstrip(" :"))[-1].strip()
+    if not clause or ASKED_SENTENCE.fullmatch(clause) is None:
+        return False
+    # The ask ends at the labels: a colon after it, or the asking word alone ("find",
+    # "work out", "what are"), never an object the labels then name.
+    return last.rstrip().endswith(":") or len(clause.split()) <= _BARE_ASK_WORDS
 
 
 async def attach_formal(state: FinalizeState) -> str:

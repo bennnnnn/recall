@@ -265,6 +265,10 @@ async def test_a_reply_in_parts_gets_no_trailing_card(answer: list[str], reply: 
         "(b) the range.",
         "A ball is kicked at 18 m/s at 35° above the ground. Calculate: (a) the flight time "
         "(b) the range",
+        "A ball is kicked at 18 m/s at 35° above the ground. (a) Find the flight time. "
+        "(b) Find the range.",
+        "A ball is kicked at 18 m/s at 35° above the ground. Calculate the following: (a) the "
+        "flight time (b) the range",
         # Gemini on #2489: a line break ends the setup as a stop does.
         "A ball is kicked at 18 m/s at 35° above the ground\nFind (a) the flight time and "
         "(b) the range",
@@ -286,6 +290,10 @@ async def test_parts_asked_by_instruction_get_no_trailing_card(
         "Two blocks (A) and (B) are kicked at 18 m/s at 35° above the ground. How far do they land?",
         "Balls (i) and (ii) are kicked at 18 m/s at 35°. How far does each land?",
         "Cars a) and b) kick a ball at 18 m/s at 35° above the ground. How far does it land?",
+        # Claude on #2489: an ask whose object the labels name asks one thing.
+        "Find the tension in the ropes holding blocks (A) of mass 2 kg and (B) of mass 3 kg.",
+        "Find how far the balls kicked at 18 m/s at 35° by players (A) on the left and (B) "
+        "on the right land.",
     ],
 )
 async def test_labels_in_the_statement_are_no_parts(answer: list[str], question: str) -> None:

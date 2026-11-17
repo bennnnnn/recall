@@ -32,6 +32,13 @@ from app.modules.chat.worked_solution import Answer, assemble, read_record
         ("4186", "", "4186", ""),
         ("65536", "", "65536", ""),
         ("6185", "", "6185", ""),
+        # A carry into the next place (Gemini on #2489): the figure count holds.
+        ("9.996", "", "10.0", ""),
+        ("-9.996", "", "-10.0", ""),
+        ("0.09996", "", "0.100", ""),
+        ("0.0009996", "", "0.00100", ""),
+        ("99.96", "", "100", ""),
+        ("999.6", "", "1000", ""),
     ],
 )
 def test_a_physics_card_rounds_once_to_three_figures(
