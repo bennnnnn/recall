@@ -302,6 +302,28 @@ async def test_parts_asked_by_instruction_get_no_trailing_card(
     assert text == reply
 
 
+@pytest.mark.parametrize("answer_word", ["Answer", "Respuesta"])
+@pytest.mark.parametrize(
+    "question",
+    [
+        "A ball is kicked at 18 m/s at 35° above the ground. How long is it in the air, and how "
+        "far does it land?",
+        "A ball is kicked at 18 m/s at 35° above the ground. (a) Time of flight. (b) Horizontal "
+        "range.",
+    ],
+)
+async def test_a_worked_reply_in_parts_gets_no_trailing_card(
+    answer: list[str], question: str, answer_word: str
+) -> None:
+    """Gemini on #2489: a ```worked reply's part headings are there before its cards."""
+    reply = (
+        f"**{answer_word} (a)**\n\n$t = 2.1\\ \\text{{s}}$\n\n"
+        f"**{answer_word} (b)**\n\n$R = 32.4\\ \\text{{m}}$"
+    )
+    text = await _finalized(_ctx(question, live_read=_read()), reply)
+    assert text == reply
+
+
 @pytest.mark.parametrize(
     "question",
     [

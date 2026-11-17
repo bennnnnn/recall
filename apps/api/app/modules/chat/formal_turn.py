@@ -31,6 +31,7 @@ from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.reply_language import line_language
 from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.whole_question import ASK_QUESTION_WORDS, ASK_VERBS, ASKED_SENTENCE
+from app.modules.chat.worked_language import WORKED_WORDS
 from app.services.answer_check import stated_verdict
 from app.services.answer_fence import (
     ANSWER_FENCE_LANGS,
@@ -99,12 +100,25 @@ def stop_formal(ctx: StreamContext) -> None:
         ctx.formal.cancel()
 
 
+# A part's own Answer heading in any language a worked layout is written in: "**Answer (a)**",
+# "**Respuesta (b)**". A ```worked reply in parts has these, and no card yet, when this runs.
+_PART_ANSWER_HEADING = re.compile(
+    r"^[ \t]*(?:#{1,4}[ \t]+)?\*\*(?:"
+    + "|".join(sorted({re.escape(words["answer"]) for words in WORKED_WORDS.values()}))
+    + r") \([a-h]\):?\*\*",
+    re.MULTILINE,
+)
+
+
 def _in_parts(reply: str, question: str) -> bool:
-    """The question asks in labelled parts, or the reply answers in several cards."""
+    """The question asks in labelled parts, or the reply answers in several cards or under
+    several part headings: a ```worked reply's cards land after this pass, so its parts
+    are its headings (Gemini on #2489)."""
     cards = sum(
         1 for fence in iter_fences(reply) if fence.closed and fence.lang in ANSWER_FENCE_LANGS
     )
-    return cards >= 2 or _asks_in_parts(question)
+    headings = len(_PART_ANSWER_HEADING.findall(reply))
+    return cards >= 2 or headings >= 2 or _asks_in_parts(question)
 
 
 # The text before the first label ends on an ask, the labels its objects: "… find (a)",
