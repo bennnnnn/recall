@@ -44,6 +44,13 @@ _REST_BEFORE_MASS = re.compile(
     r"(?:\bat rest\b|\bstationary\b|\binitially still\b)\s*$", re.IGNORECASE
 )
 _ELASTIC = re.compile(r"\belastic(?:ally)?\b", re.IGNORECASE)
+# The collision's type asked about, not stated: "Is the collision elastic?", "whether it
+# was inelastic". Read as stated, the answer was worked for a type nobody gave.
+_ASKED_TYPE = re.compile(
+    r"\b(?:is|was|are|were)\s+(?:the\s+|this\s+|that\s+)?(?:collision|it)\s+"
+    r"(?:\w+\s+)?(?:in)?elastic(?:ally)?\b[^.?]*\?|\bwhether\b[^.?]{0,60}?\b(?:in)?elastic",
+    re.IGNORECASE,
+)
 _STICKING = re.compile(
     r"\b(?:perfectly|completely|totally)\s+inelastic(?:ally)?\b"
     r"|\bsticks? together\b|\bstuck together\b|\bcoupled?\b"
@@ -167,6 +174,8 @@ def _collision_intent(text: str) -> PhysicsIntent | None:
     if _COLLISION_QUALIFIER.search(text[:ask_start] if energy_lost else text):
         return None
     if not _accounted_for(text, [*all_masses, *_SPEED.finditer(text)]):
+        return None
+    if _ASKED_TYPE.search(text):
         return None
     elastic = _ELASTIC.search(text) is not None
     sticking = _STICKING.search(text) is not None

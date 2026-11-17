@@ -136,6 +136,11 @@ SPECS: tuple[FormulaSpec, ...] = (
                     ("to the boundary", 1.0),
                     ("with the boundary", 1.0),
                     ("to the interface", 1.0),
+                    # "30 degrees to the plane of the block": its face, not its normal.
+                    ("to the plane", 1.0),
+                    ("with the plane", 1.0),
+                    ("to the face", 1.0),
+                    ("with the face", 1.0),
                     ("glancing angle", 1.0),
                     ("grazing angle", 1.0),
                 ),

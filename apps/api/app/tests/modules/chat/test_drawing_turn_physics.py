@@ -219,7 +219,9 @@ async def test_a_follow_up_scene_is_checked_against_the_problem_it_points_to(
     await ask_for_a_drawing(
         ctx, _settings(), _decision(subject="physics", picture="diagram"), _deadline()
     )
-    ctx.followup_problem = "A ball is kicked at 25 m/s at 30 degrees above the horizontal."
+    ctx.followup_problem = (
+        "A ball is kicked at 25 m/s at 30 degrees above the horizontal. Find its range."
+    )
     scene = {"kind": "scene", "scene": "projectile", "values": {"speed": "25 m/s", "angle": "30°"}}
     text = await attach_drawing(_state(ctx, "It goes further.\n\n" + _block(scene)))
     assert [json.loads(body)["type"] for _s, _e, body in iter_closed_fences(text, "simulation")]

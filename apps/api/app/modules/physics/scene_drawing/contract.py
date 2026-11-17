@@ -30,18 +30,15 @@ SCENE_DRAW_CONTRACT = (
     "moving or faster body), mass2*, speed2 (left out when it is at rest), and "
     '"sticks": true when they stick together or "elastic": true when the collision is '
     "elastic;\n"
-    "- spring (a mass on a horizontal spring): spring_constant*, mass*;\n"
     "- pendulum: length*;\n"
-    "- orbit (a satellite round Earth, or a planet whose mass and radius the question "
-    "states): altitude* (above the surface), planet_mass, planet_radius;\n"
+    "- orbit (a satellite round a planet): altitude* (above the surface), planet_mass, "
+    "planet_radius;\n"
     "- refraction (light entering a material): angle* (of incidence), index* (of the "
     "material it enters), index_from (of the material it comes from, when not air);\n"
     "- lens (one converging lens): focal_length*, object_distance*, object_height;\n"
-    '- standing_wave (a string fixed at both ends): length*, and "harmonic": n when the '
-    "question names one;\n"
     "- banked_curve (a car on a banked road, seen from behind): angle* (of the bank).\n"
     "Any other situation (two lenses, a diverging lens, a projectile landing on a slope or "
     "launched downward, a block pushed or sliding up, a block at rest, a pulley on a slope "
-    "or with its own mass, a head-on or 2-D collision, a hanging spring, a loop, a conical "
+    "or with its own mass, a head-on or 2-D collision, a spring, a wave, a loop, a conical "
     "pendulum, a charge in a magnetic field) gets no scene block."
 )

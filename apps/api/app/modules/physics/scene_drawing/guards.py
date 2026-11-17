@@ -1,14 +1,14 @@
 """What each scene cannot carry, read off the question: then it is not drawn.
 
-An extra guard behind ``confirm``, which draws a scene only when the words confirm its
-setup: these refuse the phrasings a confirmation might still let through.
+An extra guard only: a scene is drawn from the physics reader's own reading of its setup
+(``setup``), and these refuse, never accept, the phrasings a reading might still let through.
 
 A scene draws one setup in one way: a block sliding down its slope, a projectile launched
-above the horizontal, two bodies on a line moving the same way, a converging lens, a spring
-lying flat. The description cannot say otherwise, so when the question's words state a
+above the horizontal, two bodies on a line moving the same way, a converging lens. The
+description cannot say otherwise, so when the question's words state a
 direction, an angle's reference or an apparatus the scene does not draw, beside its values
 ("8 m/s up a 30° incline", "30° below the horizontal", "60° to the vertical", "30° with the
-surface", "a diverging lens", "hangs on a spring", "head-on"), nothing is drawn. A refusal
+surface", "a diverging lens", "head-on"), nothing is drawn. A refusal
 is always safe; a picture of the opposite motion never is.
 """
 
@@ -55,11 +55,8 @@ _DIVERGING = re.compile(r"\b(?:diverging|concave)\b", re.IGNORECASE)
 _FROM = re.compile(r"\bfrom\b", re.IGNORECASE)
 _INTO = re.compile(r"\b(?:into|enters?|to)\b", re.IGNORECASE)
 _HANGING = re.compile(r"\b(?:hang|hangs|hanging|hung|vertical|vertically|suspended)\b", re.I)
-_BOBS = re.compile(r"\bbob(?:s|bing)?\s+up\b|\bup\s+and\s+down\b", re.IGNORECASE)
-_PIPE = re.compile(r"\b(?:pipe|tube|column|organ|flute|whistle)s?\b", re.IGNORECASE)
 _MIRROR = re.compile(r"\bmirrors?\b", re.IGNORECASE)
 _RESTING = re.compile(r"\b(?:table|incline|slope|ramp|bench|surface)\b", re.IGNORECASE)
-_LAUNCH = re.compile(r"\b(?:launch\w*|fires?|fired|shoots?|projects?)\b", re.IGNORECASE)
 _CIRCLE = re.compile(r"\b(?:circle|circular|conical|cone)\b", re.IGNORECASE)
 _MASSIVE_PULLEY = re.compile(r"\b(?:radius|dis[ck]|inertia|cylinder|wheel)\b", re.IGNORECASE)
 
@@ -117,17 +114,6 @@ def _lens(stated: Stated, held: Mapping[str, Given]) -> bool:
     return _DIVERGING.search(text) is not None or _MIRROR.search(text) is not None
 
 
-def _standing(stated: Stated, held: Mapping[str, Given]) -> bool:
-    """A string's waves: never a pipe's air column."""
-    return _PIPE.search(stated.text) is not None
-
-
-def _spring(stated: Stated, held: Mapping[str, Given]) -> bool:
-    """A mass oscillating on a flat spring: never one hanging from it, never a launch."""
-    text = stated.text
-    return any(p.search(text) is not None for p in (_HANGING, _LAUNCH, _BOBS))
-
-
 def _pendulum(stated: Stated, held: Mapping[str, Given]) -> bool:
     """A bob swinging in a plane: never one going round in a circle."""
     return _CIRCLE.search(stated.text) is not None
@@ -150,10 +136,8 @@ GUARDS: dict[str, Guard] = {
     "collision": _collision,
     "refraction": _refraction,
     "lens": _lens,
-    "spring": _spring,
     "pendulum": _pendulum,
     "atwood": _atwood,
     "orbit": _none,
-    "standing_wave": _standing,
     "banked_curve": _none,
 }

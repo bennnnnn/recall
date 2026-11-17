@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from app.core.readings import reading
 from app.modules.physics.givens import PHYSICS_UNITS
 from app.services.latex_markup import without_markup
+from app.services.law_binding.ask import ASK_VERBS
 from app.services.law_binding.fit import read_givens
 from app.services.law_binding.givens import Given
 from app.services.number_text import fold_scientific
@@ -29,17 +30,8 @@ _SENTENCE_END = re.compile(r"[.;?!](?!\d)")
 _RESTATED = re.compile(r"\bthe[ \t]+$", re.IGNORECASE)
 _NOUN = re.compile(r"[ \t]*([a-z]{3,})", re.IGNORECASE)
 _WORD = re.compile(r"[a-z]{3,}", re.IGNORECASE)
-# A time the question asks about ("after 3 s", "how far in 2 s"): no part of the setup.
-_ASKED_TIME = re.compile(r"\b(?:after|in|within|during|for)[ \t]+(?:the[ \t]+first[ \t]+)?$", re.I)
 # The values a stated g takes: Earth's, as a school question rounds it.
 _GRAVITY = (9.8, 9.81, 9.807, 9.80665, 10.0)
-# The harmonic a question names: "third harmonic", "3rd harmonic", "n = 3", "fundamental".
-_ORDINAL = {"first": 1, "second": 2, "third": 3, "fourth": 4, "fifth": 5, "sixth": 6}
-_HARMONIC = re.compile(
-    r"\b(first|second|third|fourth|fifth|sixth|[1-6](?:st|nd|rd|th))[ \t]+harmonic\b"
-    r"|\bn[ \t]*=[ \t]*([1-6])\b|\b(fundamental)\b",
-    re.IGNORECASE,
-)
 
 
 def _plain(text: str) -> str:
@@ -110,14 +102,14 @@ class Stated:
 
     def leaves_out(self, tolerated: Sequence[str]) -> bool:
         """A stated quantity no part used, beyond the ones the scene can leave aside (one
-        of each kind ``tolerated`` names: a slope's length, a bob's mass) and a time the
-        question asks about ("after 3 s")."""
+        of each kind ``tolerated`` names: a slope's length, a bob's mass) and a time a
+        sentence asks about ("How fast is it after 3 s?")."""
         spare = [_dimension(sample) for sample in tolerated]
         time = _dimension("s")
         for given in self.left:
             if self._restated(given):
                 continue
-            if given.dimension == time and _ASKED_TIME.search(self.before(given, 24)):
+            if given.dimension == time and self._asks(given):
                 continue
             if given.dimension in spare:
                 spare.remove(given.dimension)
@@ -151,6 +143,14 @@ class Stated:
         at = self.text.find(given.unit, given.end) if given.unit else -1
         return given.end if at < 0 or at > given.end + 2 else at + len(given.unit)
 
+    def _asks(self, given: Given) -> bool:
+        """``given`` is in a sentence that asks ("How fast is it after 3 s?"): a time the
+        question asks about, never one it states ("it lands 4 s later")."""
+        start = max((m.end() for m in _SENTENCE_END.finditer(self.text, 0, given.start)), default=0)
+        end_match = _SENTENCE_END.search(self.text, given.end)
+        asked = end_match is not None and end_match.group() == "?"
+        return asked or ASK_VERBS.search(self.text[start : given.start]) is not None
+
     def before(self, given: Given, reach: int = 40) -> str:
         """The words just before ``given``."""
         return self.text[max(0, given.start - reach) : given.start]
@@ -165,25 +165,6 @@ class Stated:
         start = max((m.end() for m in _SENTENCE_END.finditer(self.text, 0, given.start)), default=0)
         end_match = _SENTENCE_END.search(self.text, given.end)
         return self.text[start : end_match.start() if end_match else len(self.text)]
-
-    def lengths_left(self) -> list[Given]:
-        """The stated lengths no part used ("a wavelength of 0.8 m")."""
-        kind = _dimension("m")
-        return [given for given in self.left if given.dimension == kind]
-
-    def harmonics(self) -> set[int]:
-        """The harmonics the question names: "third harmonic", "n = 3", "fundamental"."""
-        named: set[int] = set()
-        for match in _HARMONIC.finditer(self.text):
-            word, number, fundamental = match.groups()
-            if fundamental:
-                named.add(1)
-            elif number:
-                named.add(int(number))
-            elif word:
-                lower = word.lower()
-                named.add(_ORDINAL[lower] if lower in _ORDINAL else int(lower[0]))
-        return named
 
 
 def _one_noun(word: str, name: str) -> bool:

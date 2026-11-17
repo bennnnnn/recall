@@ -76,6 +76,17 @@ _NOT_A_FREE_FLIGHT = (
     *("incline", "inclined", "slope"),
     *("rope", "string", "pendulum", "tension"),
     *("wall", "fence"),
+    # Landing on a raised place, or an angle from the vertical: read as a launch height or
+    # an elevation, the flight was worked for another throw (review, 2026-11-16).
+    *(
+        "lands on a ",
+        "lands on the roof",
+        "lands on top",
+        "landing on a ",
+        "onto a ",
+        "onto the roof",
+    ),
+    *("to the vertical", "from the vertical", "from vertical", "with the vertical"),
     # A flight lands; a body that comes to a stop moved along a surface ("a cart rolls
     # up a 10° ramp at 6 m/s: how far before stopping").
     *("before stopping", "before it stops", "comes to rest", "comes to a stop"),

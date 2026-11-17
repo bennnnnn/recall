@@ -89,11 +89,11 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # GCSE set, 2026-11-16); then physics' scene contract, a problem's setup described by the
 # scene and the question's values, never a coordinate (physics.scene_drawing.contract, the
 # owner's round of 30 hard problems, 2026-11-16), naming a horizontal launch, bodies moving
-# the same way and the situations it never draws, a horizontal spring and an orbit round Earth
-# or a stated planet (its reviews, 2026-11-16).
+# the same way and the situations it never draws; no spring or wave, which no reader confirms
+# (its reviews, 2026-11-16).
 _RULES = 203
-_RULE_GRAMS = 18989
-_RULE_GRAMS_SHA = "06f9fe5b319b0e72"
+_RULE_GRAMS = 18954
+_RULE_GRAMS_SHA = "18872bb06533badb"
 
 
 def _rules() -> list[str]:

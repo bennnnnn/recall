@@ -1,6 +1,7 @@
-"""A physics scene a reply describes: each value held to the question's, drawn by the
-builder its solver draws with (the owner's round of 30 hard problems, 2026-11-16: 29 had no
-picture, as no solver reads a question in parts)."""
+"""A physics scene a reply describes: each value held to the question's and to the physics
+reader's own reading of its setup, drawn by the builder its solver draws with from the
+reader's values (the owner's round of 30 hard problems, 2026-11-16; review round 3: the
+setup is the readers', never a word list's)."""
 
 from __future__ import annotations
 
@@ -29,8 +30,8 @@ _ATWOOD = (
 )
 _BULLET = (
     # A block on a string swings up after (a ballistic pendulum): no scene draws that.
-    "A 10 g bullet moving at 400 m/s embeds itself in a 2 kg wooden block resting on a "
-    "frictionless table. Find (a) the speed of the block and bullet just after the collision."
+    "A 10 g bullet moving at 400 m/s embeds itself in a 2 kg wooden block at rest on a "
+    "frictionless table. Find the speed of the block and bullet just after the collision."
 )
 _SPRING = (
     "A 0.5 kg mass on a horizontal frictionless surface is attached to a spring with "
@@ -39,15 +40,16 @@ _SPRING = (
 _PENDULUM = "A simple pendulum of length 1.5 m is pulled aside and released. Find its period."
 _ORBIT = (
     "A satellite moves in a circular orbit 600 km above the Earth's surface. Take the "
-    "Earth's mass as 5.97 x 10^24 kg and its radius as 6370 km. Find its orbital speed."
+    "Earth's mass as 5.97 x 10^24 kg and its radius as 6370 km. Find (a) its orbital speed "
+    "and (b) its period in minutes."
 )
 _SLAB = (
     "A light ray in air strikes a glass slab of refractive index 1.52 at an angle of "
     "incidence of 40 degrees. Find the angle of refraction."
 )
 _LENS = (
-    "An object 2 cm tall is placed 15 cm in front of a converging lens of focal length "
-    "10 cm. Find the image position."
+    "An object is placed 15 cm in front of a converging lens of focal length 10 cm. Find the "
+    "image position."
 )
 _STRING = (
     "A string 1.2 m long is fixed at both ends under a tension of 80 N. Find (a) the "
@@ -93,11 +95,6 @@ def _types(fences: list[str]) -> list[str]:
             ),
             "collision",
         ),
-        (
-            _SPRING,
-            _scene(scene="spring", values={"spring_constant": "200 N/m", "mass": "0.5 kg"}),
-            "spring",
-        ),
         (_PENDULUM, _scene(scene="pendulum", values={"length": "1.5 m"}), "pendulum"),
         (
             _ORBIT,
@@ -118,17 +115,9 @@ def _types(fences: list[str]) -> list[str]:
         ),
         (
             _LENS,
-            _scene(
-                scene="lens",
-                values={
-                    "focal_length": "10 cm",
-                    "object_distance": "15 cm",
-                    "object_height": "2 cm",
-                },
-            ),
+            _scene(scene="lens", values={"focal_length": "10 cm", "object_distance": "15 cm"}),
             "rays",
         ),
-        (_STRING, _scene(scene="standing_wave", harmonic=3, values={"length": "1.2 m"}), "wave"),
         (_BANKED, _scene(scene="banked_curve", values={"angle": "15 degrees"}), "incline"),
     ],
 )
@@ -169,8 +158,10 @@ def test_a_described_scene_is_drawn_by_its_solvers_builder(
             ),
         ),
         (_ATWOOD, _scene(scene="atwood", sticks=True, values={"mass1": "3 kg", "mass2": "5 kg"})),
-        # A harmonic the question does not name; a scene not in the vocabulary.
-        (_STRING, _scene(scene="standing_wave", harmonic=4, values={"length": "1.2 m"})),
+        # Kinds no reader confirms: a spring (hanging or flat?), a standing wave (a string
+        # or a pipe?); a scene not in the vocabulary.
+        (_SPRING, _scene(scene="spring", values={"spring_constant": "200 N/m", "mass": "0.5 kg"})),
+        (_STRING, _scene(scene="standing_wave", values={"length": "1.2 m"})),
         (_CLIFF, _scene(scene="conical_pendulum", values={"angle": "30°"})),
         ("Not physics at all.", "not json"),
         # A stated value of the scene's kinds left out: the question is another situation.
@@ -181,14 +172,7 @@ def test_a_described_scene_is_drawn_by_its_solvers_builder(
         ),
         (
             _LENS + " A second converging lens of focal length 20 cm is placed 40 cm behind it.",
-            _scene(
-                scene="lens",
-                values={
-                    "focal_length": "10 cm",
-                    "object_distance": "15 cm",
-                    "object_height": "2 cm",
-                },
-            ),
+            _scene(scene="lens", values={"focal_length": "10 cm", "object_distance": "15 cm"}),
         ),
     ],
 )
@@ -223,11 +207,6 @@ def test_a_body_named_again_by_its_value_is_no_new_value() -> None:
     )
     pair = _scene(scene="atwood", values={"mass1": "2 kg", "mass2": "4 kg"})
     assert scene_fences([pair], [disk]) == []
-
-
-def test_a_harmonic_written_among_the_values_is_the_scenes_claim() -> None:
-    described = _scene(scene="standing_wave", values={"length": "1.2 m", "harmonic": "3"})
-    assert _types(scene_fences([described], [_STRING])) == ["wave"]
 
 
 def test_a_block_whose_stated_mass_the_description_leaves_out_is_not_drawn() -> None:

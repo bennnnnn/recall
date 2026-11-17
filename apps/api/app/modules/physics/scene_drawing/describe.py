@@ -3,33 +3,33 @@
 The reply names the scene and the question's values it uses, never a coordinate:
 {"kind": "scene", "scene": "projectile", "values": {"speed": "20 m/s", "angle": "30°",
 "height": "45 m"}}. Each value must be one the question states, with its unit and of the
-part's kind, each used once; every other quantity the question states must be one the
-scene can leave aside (``values``); a speed belongs to the mass in its own clause; and the
-question's words must state nothing the scene cannot carry: a direction, an angle's
-reference, another apparatus (``guards``). When the server cannot confirm the setup, it
-draws nothing: a refusal is always safe, a wrong picture never is.
+part's kind, each used once, and every other quantity the question states one the scene
+can leave aside (``values``). The setup is then the physics readers' own: the question is
+read as its solve reads it (``setup``), and the scene is drawn only from a reading of its
+kind that agrees with every described value and claim, from the reader's values (a launch's
+height and direction, a collision's type, the media's order, the planet). ``guards``
+refuses what the words say the scene cannot carry. When the server cannot confirm the
+setup, it draws nothing: a refusal is always safe, a wrong picture never is.
 """
 
 from __future__ import annotations
 
 import json
 import logging
-import re
+import math
 from collections.abc import Sequence
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from app.modules.physics.scene_drawing.confirm import CONFIRMS
 from app.modules.physics.scene_drawing.guards import GUARDS
-from app.modules.physics.scene_drawing.kinds import SCENES, SceneKind
+from app.modules.physics.scene_drawing.kinds import SCENES, Quantities, SceneKind
+from app.modules.physics.scene_drawing.setup import setup_readings
 from app.modules.physics.scene_drawing.values import Stated, stated_texts
-from app.modules.physics.schemas import SimulationBlockSpec
+from app.modules.physics.schemas import PhysicsIntent, SimulationBlockSpec
+from app.modules.physics.solvers.si import to_si
 from app.services.law_binding.givens import Given
 
 logger = logging.getLogger(__name__)
-
-_HORIZONTALLY = re.compile(r"\bhorizontally\b", re.IGNORECASE)
-_LENGTH_KIND = "[length]^1"
 
 
 class _Scene(BaseModel):
@@ -41,12 +41,11 @@ class _Scene(BaseModel):
     sticks: bool | None = None
     elastic: bool | None = None
     horizontal: bool | None = None
-    harmonic: int | None = Field(default=None, ge=1, le=6)
 
 
 def described_scene(body: str, texts: Sequence[str]) -> list[SimulationBlockSpec]:
     """The scene one ```draw block describes, drawn by its solver's builder; none when the
-    block is no scene or does not check against ``texts`` (the user's message first)."""
+    block is no scene or does not check against ``texts`` (the problem first)."""
     try:
         data = json.loads(body)
     except ValueError:
@@ -54,11 +53,6 @@ def described_scene(body: str, texts: Sequence[str]) -> list[SimulationBlockSpec
         return []
     if not isinstance(data, dict) or data.get("kind") != "scene":
         return []  # a field picture's block, or another kind
-    # A harmonic is the scene's claim, wherever the reply put it.
-    values = data.get("values")
-    if isinstance(values, dict) and "harmonic" in values and "harmonic" not in data:
-        written = values.pop("harmonic")
-        data["harmonic"] = int(written) if str(written).isdigit() else written
     try:
         described = _Scene.model_validate(data)
     except ValidationError as exc:
@@ -69,33 +63,33 @@ def described_scene(body: str, texts: Sequence[str]) -> list[SimulationBlockSpec
         logger.info("described scene %s not drawn: no such scene", described.scene[:40])
         return []
     stated = stated_texts(texts)
-    values = _values(kind, described, stated)
-    flags = _flags(kind, described, stated)
-    if values is None or flags is None:
+    held = _values(kind, described, stated)
+    if held is None:
         logger.info(
-            "described scene %s not drawn: %s (parts %s)",
+            "described scene %s not drawn: its values (parts %s)",
             described.scene,
-            "its values" if values is None else "its claims",
             ",".join(sorted(described.values)),
         )
         return []
-    # The words confirm the setup the scene draws, and say nothing it cannot carry.
-    if not CONFIRMS[described.scene](stated, values, flags) or GUARDS[described.scene](
-        stated, values
-    ):
-        logger.info("described scene %s not drawn: its setup unconfirmed", described.scene)
+    drawn = None
+    if not GUARDS[described.scene](stated, held):
+        readings = [r for r in setup_readings(texts[0]) if r.physics_op in kind.reads]
+        drawn = next(
+            (q for r in readings if (q := _agreed(kind, described, held, r)) is not None), None
+        )
+    if drawn is None:
+        logger.info("described scene %s not drawn: no reading agrees", described.scene)
         return []
-    drawn = {kind.parts[name].param: given for name, given in values.items()}
-    return kind.draw({param: given for param, given in drawn.items() if param}, flags)
+    return kind.draw(drawn)
 
 
 def _values(kind: SceneKind, described: _Scene, stated: Stated) -> dict[str, Given] | None:
+    """Each described value stated once, of its part's kind; every other stated quantity
+    one the scene may leave aside."""
     if set(described.values) - set(kind.parts):
         return None
-    for name, part in kind.parts.items():
-        needed = part.required or (name == "angle" and described.scene == "projectile")
-        if needed and name not in described.values and not described.horizontal:
-            return None
+    if any(part.required and name not in described.values for name, part in kind.parts.items()):
+        return None
     held: dict[str, Given] = {}
     for name, written in described.values.items():
         given = stated.take(written, kind.parts[name].sample)
@@ -105,55 +99,82 @@ def _values(kind: SceneKind, described: _Scene, stated: Stated) -> dict[str, Giv
     if described.scene == "refraction" and "index_from" not in held:
         stated.take_air()  # "from air (n = 1.00)": the index a refraction from air needs not
     if "g" in kind.parts and "g" not in held:
-        gravity = stated.take_gravity()  # "Take g = 9.8 m/s²": the scene is drawn under it
+        gravity = stated.take_gravity()  # "Take g = 9.8 m/s²": the reader must read it too
         if gravity is not None:
             held["g"] = gravity
-    # The scene is the question's whole setup: no stated quantity it cannot leave aside.
-    if stated.leaves_out(kind.tolerates):
-        return None
-    return held
+    return None if stated.leaves_out(kind.tolerates) else held
 
 
-def _harmonic(stated: Stated, described: int | None) -> int | None:
-    """The harmonic the question names ("third harmonic", "n = 3"), or the one its stated
-    wavelength fits on the string (n = 2L/λ, a whole number); the description's own, when it
-    gives one, must be that one."""
-    named = stated.harmonics()
-    if not named:
-        length = next((g for g in stated.taken if g.dimension == _LENGTH_KIND), None)
-        waves = stated.lengths_left()
-        if length is None or len(waves) != 1 or not length.si or not waves[0].si:
+def _same(given: Given, value: float, unit: str, param: str) -> bool:
+    try:
+        read = to_si(value, unit, expected_key=param)
+    except Exception:
+        return False
+    written = given.si if given.si is not None else given.value
+    return math.isclose(written, read, rel_tol=1e-6, abs_tol=1e-12)
+
+
+def _agreed(
+    kind: SceneKind, described: _Scene, held: dict[str, Given], reading: PhysicsIntent
+) -> Quantities | None:
+    """The reader's values to draw from, when its reading agrees with every described
+    value and claim; None when it does not."""
+    params = reading.physics_params or {}
+    units = reading.physics_units or {}
+    for name, given in held.items():
+        param = kind.parts[name].param
+        if not param or name in kind.unordered:
+            continue
+        if param not in params or not _same(given, params[param], units.get(param, ""), param):
             return None
-        fits = 2 * length.si / waves[0].si
-        if abs(fits - round(fits)) > 1e-6 or not 1 <= round(fits) <= 6:
+    if kind.unordered:
+        written = [held[name] for name in kind.unordered if name in held]
+        read = [kind.parts[name].param for name in kind.unordered]
+        if not _same_bodies(written, [(params.get(p), units.get(p, ""), p) for p in read]):
             return None
-        named = {round(fits)}
-    if described is not None:
-        return described if described in named else None
-    return min(named) if len(named) == 1 else None
-
-
-def _flags(kind: SceneKind, described: _Scene, stated: Stated) -> dict[str, float] | None:
-    """The claims a scene takes, as its solver's flags: a collision's one claim (the bodies
-    stick, or bounce off elastically), a projectile launched horizontally when the question
-    says so, a standing wave's harmonic when the question names it ("third harmonic",
-    "n = 3", "fundamental"); a claim the question does not support draws nothing."""
-    claims = {"sticks": described.sticks, "elastic": described.elastic}
-    claimed = [name for name, on in claims.items() if on]
-    if len(claimed) != (1 if kind.claims else 0) or set(claimed) - set(kind.claims):
+    if not _claims_agree(described, held, params, units):
         return None
-    flags = {kind.claims[name][0]: kind.claims[name][1] for name in claimed}
+    return {param: (params[param], units.get(param, "")) for param in kind.setup if param in params}
+
+
+def _same_bodies(written: list[Given], read: list[tuple[float | None, str, str]]) -> bool:
+    """The described masses are the reader's, in either order."""
+    if len(written) != len(read) or any(value is None for value, _unit, _param in read):
+        return False
+    left = list(read)
+    for given in written:
+        match = next(
+            (one for one in left if one[0] is not None and _same(given, one[0], one[1], one[2])),
+            None,
+        )
+        if match is None:
+            return False
+        left.remove(match)
+    return True
+
+
+def _claims_agree(
+    described: _Scene, held: dict[str, Given], params: dict[str, float], units: dict[str, str]
+) -> bool:
+    """A claim the reply makes is the reader's reading: the bodies stick or bounce off
+    elastically as the reader read the collision; a launch is horizontal only when the
+    reader read 0°; a block slides down a slope too steep for its friction to hold it."""
+    scene = described.scene
+    if scene == "collision":
+        if bool(described.sticks) == bool(described.elastic):
+            return False
+        return params.get("elastic") == (1.0 if described.elastic else 0.0)
+    if described.sticks or described.elastic:
+        return False
+    if scene == "projectile":
+        if described.horizontal:
+            return "angle" not in held and params.get("angle") == 0.0
+        return "angle" in held
     if described.horizontal:
-        if described.scene != "projectile" or "angle" in described.values:
-            return None
-        if _HORIZONTALLY.search(stated.text) is None:
-            return None
-        flags["angle"] = 0.0
-    if described.scene == "standing_wave":
-        harmonic = _harmonic(stated, described.harmonic)
-        if harmonic is None:
-            return None
-        flags["harmonic"] = float(harmonic)
-    elif described.harmonic is not None:
-        return None
-    return flags
+        return False
+    if scene == "incline":
+        angle, mu = params.get("angle"), params.get("mu")
+        if params.get("motion_sign", 1.0) != 1.0 or angle is None or mu is None:
+            return False
+        return mu < math.tan(to_si(angle, units.get("angle", "deg"), expected_key="angle"))
+    return True
