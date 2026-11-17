@@ -22,7 +22,9 @@ from app.modules.math.drawing.plot_items import (
     Asymptotes,
     Average,
     Axis,
+    Curve,
     KeyPoints,
+    Line,
     Nearest,
     Point,
     Rectangles,
@@ -30,16 +32,18 @@ from app.modules.math.drawing.plot_items import (
     Slice,
     Touching,
 )
-from app.modules.math.drawing.plot_pieces import formula_shape
+from app.modules.math.drawing.plot_pieces import formula, formula_shape
 from app.modules.math.drawing.plot_question import PlotQuestion, read_plot_question
 from app.modules.math.drawing.plot_scene import DrawnCurve, Scene
 from app.modules.math.drawing.real_curve import X
 from app.modules.math.schemas.plot import PlotGraphSpec
 from app.modules.math.tool_check import written_relations, written_values
+from app.services.card_text import without_emphasis
+from app.services.latex_markup import without_markup
 
 logger = logging.getLogger(__name__)
 _MOST_LINE_CURVES = 4
-_X = Symbol("x")
+_X, _Y = Symbol("x"), Symbol("y")
 
 
 def plot_spec(
@@ -48,7 +52,7 @@ def plot_spec(
     """The checked graph of ``items`` (``vocabulary.read_items``), or None. ``reply``: the
     reply's text, whose working the server's labels are held to."""
     question = read_plot_question(texts)
-    read = [item for _name, item in items if item is not None]
+    read = _axes_by_name([item for _name, item in items if item is not None])
     working = _both_signs(reply)
     scene = Scene(
         reply_values=tuple(written_values(working)),
@@ -67,6 +71,27 @@ def plot_spec(
         except Exception:  # SymPy's and numpy's own errors included: that item is left out.
             logger.info("plot item %s failed", type(item).__name__, exc_info=True)
     return draw_plot(scene)
+
+
+def _axes_by_name(read: list[Any]) -> list[Any]:
+    """A region's edge described as a curve or line y = 0 (or x = 0) is the x-axis (the
+    y-axis), an edge every picture has: u5-071 named y = 0 "g" and shaded between f and g."""
+    axes: dict[str, str] = {}
+    for item in read:
+        if not isinstance(item, Curve | Line) or not item.name or getattr(item, "pieces", None):
+            continue
+        if item.y and not item.x and formula(item.y) == 0:
+            axes[item.name] = "x-axis"
+        elif item.x and not item.y and formula(item.x, _Y) == 0:
+            axes[item.name] = "y-axis"
+    if not axes:
+        return read
+    return [
+        item.model_copy(update={"between": [axes.get(n, n) for n in item.between]})
+        if isinstance(item, Shade)
+        else item
+        for item in read
+    ]
 
 
 def _lines_as_curves(scene: Scene) -> None:
@@ -94,7 +119,10 @@ def _both_signs(reply: str) -> str:
 def written_lines(reply: str) -> tuple[tuple[float | None, float], ...]:
     """The lines the reply's working writes: y = mx + c as (m, c), x = a as (None, a)."""
     found: list[tuple[float | None, float]] = []
-    relations = [relation for line in reply.splitlines() for relation in written_relations(line)]
+    # Read as text: its markup and emphasis off ("**vertical asymptote at $x = 2$**" read
+    # as no line, and g03's x = 2 went unlabelled).
+    lines = [without_markup(without_emphasis(line)) for line in reply.splitlines()]
+    relations = [relation for line in lines for relation in written_relations(line)]
     for lhs, op, rhs in relations:
         if op != "=" or not isinstance(lhs, Symbol) or not rhs.free_symbols <= {_X}:
             continue

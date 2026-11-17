@@ -52,6 +52,8 @@ def curve_places(curve: DrawnCurve) -> list[tuple[float, float]]:
         # x = g(y): where it turns and crosses the y-axis, and where it meets the x-axis.
         g, (low, high) = curve.sideways, curve.search
         ys = [*turning_points(g.values, low, high), *zeros(g.values, low, high), 0.0]
+        if curve.stated_domain:
+            ys += [low, high]  # the ends of the interval of y the question states
         return [(g.at(y), y) for y in ys if math.isfinite(g.at(y))]
     places = [p.at for p in [*curve.roots, *curve.turns]]
     if curve.y_intercept is not None:

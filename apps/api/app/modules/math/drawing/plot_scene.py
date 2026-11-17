@@ -78,6 +78,8 @@ class DrawnCurve:
     # A line the server worked out drawn as a curve (a triangle's side through two stated
     # points): its slope and offset, its label shown only when the reply writes that line.
     held: tuple[float, ...] = ()
+    # An antiderivative drawn as itself, which a family drawn beside it names "C = 0".
+    antiderivative: bool = False
     # The kinds of place the picture marks on it: "roots", "turns", "inflections".
     marked: set[str] = field(default_factory=set)
 

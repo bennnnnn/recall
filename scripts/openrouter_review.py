@@ -7,7 +7,7 @@ Two uses, one prompt:
     openrouter_review.py pr --model deepseek/deepseek-v4-pro --base <sha> --head <sha> \
         --out review.md
   Whole-code audit, run by hand a module at a time:
-    openrouter_review.py paths --model z-ai/glm-5.3 apps/api/app/modules/money --out money.md
+    openrouter_review.py paths --model google/gemini-4-carbon apps/api/app/modules/money --out money.md
 
 The model gets the project's rules (CLAUDE.md, docs/ENGINEERING_STANDARDS.md) and the code,
 and answers with findings in JSON, each one a concrete input or sequence that breaks the
@@ -143,24 +143,36 @@ def paths_material(targets: list[str]) -> str:
     for target in targets:
         root = ROOT / target
         found = [root] if root.is_file() else sorted(root.rglob("*"))
-        files += [p.relative_to(ROOT) for p in found if p.is_file() and _wanted(p)]
+        own = [p.relative_to(ROOT) for p in found if p.is_file() and _wanted(p)]
+        if not own:
+            # A mistyped path is never dropped quietly beside one that has files.
+            raise SystemExit(f"nothing to send: no code file under {target}")
+        files += own
     return f"THE CODE\n{_bundle(files)}"
 
 
-def ask(model: str, material: str) -> dict:
+def ask(
+    model: str,
+    material: str,
+    prompt: str = PROMPT,
+    listed: str = "findings",
+    reasoning: dict[str, object] | None = None,
+) -> dict:
+    """The model's JSON answer, whose ``listed`` field is a list of objects; any other
+    shape is kept as ``unparsed`` text, never read as an empty answer."""
     key = os.environ.get("OPENROUTER_API_KEY", "")
     if not key:
         raise SystemExit("OPENROUTER_API_KEY is not set")
     body = {
         "model": model,
         "messages": [
-            {"role": "system", "content": PROMPT},
+            {"role": "system", "content": prompt},
             {"role": "user", "content": f"{_rules()}\n\n{material}"},
         ],
         "response_format": {"type": "json_object"},
         "temperature": 0,
         "max_tokens": MAX_OUTPUT_TOKENS,
-        "reasoning": REASONING.get(model, DEFAULT_REASONING),
+        "reasoning": reasoning or REASONING.get(model, DEFAULT_REASONING),
     }
     request = urllib.request.Request(
         API,
@@ -186,15 +198,18 @@ def ask(model: str, material: str) -> dict:
     if not text.strip() or choice.get("finish_reason") == "length":
         # Out of output before the answer: say so, never "0 findings".
         return {
-            "findings": [],
+            listed: [],
             "unparsed": f"(no answer: finish_reason {choice.get('finish_reason')})",
             "usage": reply.get("usage", {}),
         }
     start, end = text.find("{"), text.rfind("}")
     try:
-        found = json.loads(text[start : end + 1]) if start >= 0 else {}
+        found = json.loads(text[start : end + 1]) if start >= 0 else None
     except json.JSONDecodeError:
-        found = {"findings": [], "unparsed": text[:4000]}
+        found = None
+    items = found.get(listed) if isinstance(found, dict) else None
+    if not isinstance(items, list) or not all(isinstance(i, dict) for i in items):
+        found = {listed: [], "unparsed": text[:20000]}
     found["usage"] = reply.get("usage", {})
     return found
 

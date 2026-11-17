@@ -17,7 +17,8 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from sympy import Expr, Symbol
+import numpy as np
+from sympy import E, Expr, Symbol, oo, pi, preorder_traversal, simplify
 
 from app.modules.math.drawing.plot_check import reach, stated_interval
 from app.modules.math.drawing.plot_items import (
@@ -36,7 +37,7 @@ from app.modules.math.drawing.plot_labels import (
 )
 from app.modules.math.drawing.plot_pieces import formula, formula_shape, pieces_shape
 from app.modules.math.drawing.plot_question import PlotQuestion, Written
-from app.modules.math.drawing.plot_reading import Condition, number, plain, same_number
+from app.modules.math.drawing.plot_reading import Condition, as_exact, number, plain, same_number
 from app.modules.math.drawing.plot_scene import DrawnCurve, DrawnLine, Scene
 from app.modules.math.drawing.real_curve import RealFunction, as_real
 from app.modules.math.solve.antiderivative import antiderivative_forms
@@ -46,6 +47,9 @@ _X, _Y = Symbol("x"), Symbol("y")
 _MOST_CURVES = 5
 _MOST_LINES = 4
 _LABEL_CHARS = 48
+# Where a curve in pieces is held to a formula the question writes: so many places in each
+# piece, an endless one to this far.
+_PIECE_SAMPLES, _PIECE_REACH = 41, 10.0
 # Constants of a family the question leaves to the reply: a few small whole numbers.
 _FAMILY_REACH = 5
 # Where an antiderivative is compared with SymPy's: a few places most functions are defined.
@@ -78,7 +82,25 @@ def _own_formula(text: str, question: PlotQuestion) -> _Own | None:
     holes and its domain kept ((x² - 1)/(x - 1) described as x + 1 keeps its hole at 1), or
     an antiderivative of it when antiderivatives are asked."""
     parsed = parse_formula(plain(text))
-    if not isinstance(parsed, Expr) or len(parsed.free_symbols) > 1:
+    if not isinstance(parsed, Expr):
+        return None
+    return _own_expr(as_exact(parsed, text, _constants(question)), question)
+
+
+def _constants(question: PlotQuestion) -> list[Any]:
+    """The exact constants the question's formulas write (π, e, √2, 1/3)."""
+    found = {pi, E}
+    for written in question.formulas:
+        found |= {
+            part
+            for part in preorder_traversal(written.expr)
+            if part.is_number and not part.is_Integer and part.is_real
+        }
+    return sorted(found, key=str)
+
+
+def _own_expr(parsed: Expr, question: PlotQuestion) -> _Own | None:
+    if len(parsed.free_symbols) > 1:
         return None
     letter = next(iter(parsed.free_symbols), _X)
     for written in question.formulas:
@@ -119,6 +141,37 @@ def _same_on_the_reals(written: Any, described: Any, letter: Symbol) -> bool:
         return False
     found = [(a, b) for a, b in pairs if math.isfinite(a)]
     return len(found) >= 3 and all(abs(a - b) < 1e-9 * (1 + abs(b)) for a, b in found)
+
+
+def _one_formula_for(drawn: DrawnCurve, question: PlotQuestion) -> str:
+    """The legend of a curve described in pieces: the one formula the question writes that
+    has each piece's value all along it, at its closed ends and at its single points
+    (u5-071's y = |x| as -x and x), else none. f(x) = x² but 1 at 0 is no y = x²."""
+    shape = drawn.shape
+    # Only a whole curve: one whose pieces left out none (a piece's own formula is no
+    # name for a function drawn in part).
+    if shape is None or not shape.spans or not shape.complete:
+        return ""
+    checks: list[tuple[float, float]] = [(float(x), float(y)) for x, y in shape.dots]
+    for span in shape.spans:
+        low = -_PIECE_REACH if span.low == -oo else float(span.low)
+        high = _PIECE_REACH if span.high == oo else float(span.high)
+        if not low < high:
+            return ""
+        inside = np.linspace(low, high, _PIECE_SAMPLES)[1:-1]
+        ends = [x for x, closed in ((low, span.low_closed), (high, span.high_closed)) if closed]
+        for x in [*inside, *ends]:
+            y = span.fn.at(float(x))
+            if math.isfinite(y):
+                checks.append((float(x), y))
+    for written in question.formulas:
+        if not written.defines or written.expr.free_symbols != {_X}:
+            continue
+        fn = RealFunction(as_real(written.expr, _X))
+        if all(abs(fn.at(x) - y) < 1e-9 * (1 + abs(y)) for x, y in checks):
+            label = f"y = {formula_text(written.expr)}"
+            return label if len(label) <= _LABEL_CHARS else ""
+    return ""
 
 
 def _derivative_is(antiderivative: Any, integrand: Any, letter: Symbol) -> bool:
@@ -223,11 +276,28 @@ def _search(domain: list[Condition] | None, question: PlotQuestion) -> tuple[flo
 def _shift(text: str, question: PlotQuestion) -> Any | None:
     """A family's constant: one the question writes, or a small whole number."""
     constant = number(text)
-    if constant is None:
-        return None
+    return _a_family_constant(constant, question) if constant is not None else None
+
+
+def _a_family_constant(constant: Any, question: PlotQuestion) -> Any | None:
     if any(same_number(v, constant) for v in question.values):
         return constant
     return constant if constant.is_Integer and abs(constant) <= _FAMILY_REACH else None
+
+
+def _family_member(text: str, question: PlotQuestion) -> tuple[_Own | None, Any | None]:
+    """A member of a family of antiderivatives the reply wrote as a curve of its own, an
+    antiderivative and a constant ("5ln|x|/2 - 1" for c = -1): the antiderivative checked
+    as any is, the constant one the question writes or a small whole number."""
+    parsed = parse_formula(plain(text))
+    if not isinstance(parsed, Expr) or not parsed.is_Add:
+        return None, None
+    constant, rest = parsed.as_coeff_Add()
+    shift = _a_family_constant(constant, question) if constant != 0 else None
+    found = _own_expr(rest, question) if shift is not None else None
+    if found is None or not found.antiderivative:
+        return None, None
+    return found, shift
 
 
 def _curves(
@@ -247,13 +317,30 @@ def _curves(
         if expr.is_number and not _an_edge(expr, question):
             return []  # "the gradient at x = 3" names a point, no line x = 3
         label = equation_text("x", expr.subs(_Y, Symbol("y")))
+        # On the interval of y the question states and the description gives ("from y = 0
+        # to y = 4"): u5-083's x = √y was drawn only to y ≈ 1.
+        start, end = (number(t) for t in curve.domain) if curve.domain else (None, None)
+        held = (
+            stated_interval(start, end, question) if start is not None and end is not None else None
+        )
+        along = (float(held.low), float(held.high)) if held is not None else search
+        fn = RealFunction(as_real(expr, _Y))
         return [
-            DrawnCurve(name, label, color, sideways=RealFunction(as_real(expr, _Y)), search=search)
+            DrawnCurve(
+                name, label, color, sideways=fn, search=along, stated_domain=held is not None
+            )
         ]
     if curve.pieces:
         shape = pieces_shape(curve, question)
-        return [] if shape is None else [DrawnCurve(name, "", color, shape, search=search)]
+        if shape is None:
+            return []
+        drawn = DrawnCurve(name, "", color, shape, search=search)
+        drawn.label = _one_formula_for(drawn, question)
+        return [drawn]
     found = _own_formula(curve.y, question)
+    shift = None
+    if found is None and question.antiderivatives:
+        found, shift = _family_member(curve.y, question)
     if found is None:
         side = _a_side(curve, question, color, search)
         return [side] if side is not None else []
@@ -280,9 +367,15 @@ def _curves(
             )
             for i, c in enumerate(constants[:_MOST_CURVES])
         ]
+    if shift is not None:
+        # One member of a family the reply wrote as its own curve ("F = 5ln|x|/2 - 1").
+        label, shape = f"C = {number_text(shift)}", formula_shape(expr + shift, domain)
+        return [DrawnCurve(name, label, color, shape, search=search, stated_domain=stated)]
     shown = label if len(label) <= _LABEL_CHARS else ""
     shape = formula_shape(expr, domain, raw)
-    return [DrawnCurve(name, shown, color, shape, search=search, stated_domain=stated)]
+    drawn = DrawnCurve(name, shown, color, shape, search=search, stated_domain=stated)
+    drawn.antiderivative = found.antiderivative
+    return [drawn]
 
 
 def _through(line: Line, question: PlotQuestion, color: int) -> DrawnLine | None:
@@ -399,6 +492,35 @@ def _stated_points_on(line: DrawnLine, question: PlotQuestion) -> list[tuple[flo
     return found
 
 
+def _drawn_as(curve: DrawnCurve) -> tuple[Any, ...]:
+    """What a curve draws: its formula on each piece with the piece's ends, its dots, the
+    way it is written, and the interval it is held to."""
+    shape = curve.shape
+    spans = (
+        [(str(s.expr), s.low, s.low_closed, s.high, s.high_closed) for s in shape.spans]
+        if shape
+        else []
+    )
+    dots = [(x, str(y)) for x, y in shape.dots] if shape else []
+    return (tuple(spans), tuple(dots), curve.sideways, curve.stated_domain and curve.search)
+
+
+def _one_family(curve: DrawnCurve, member: DrawnCurve) -> bool:
+    """``member`` is ``curve`` and a constant: two members of one family."""
+    if curve.shape is None or member.shape is None:
+        return False
+    if len(curve.shape.spans) != 1 or len(member.shape.spans) != 1:
+        return False
+    return bool(simplify(member.shape.spans[0].expr - curve.shape.spans[0].expr).is_number)
+
+
+def _unique(name: str, scene: Scene) -> str:
+    found, k = name, 1
+    while found in scene.curves:
+        found, k = f"{name}~{k}", k + 1
+    return found
+
+
 def add_curves(items: list[Any], question: PlotQuestion, scene: Scene) -> None:
     color = 0
     names = Counter(item.name for item in items if isinstance(item, Curve) and item.name)
@@ -406,9 +528,21 @@ def add_curves(items: list[Any], question: PlotQuestion, scene: Scene) -> None:
     for item in items:
         if isinstance(item, Curve) and len(scene.curves) < _MOST_CURVES:
             for drawn in _curves(item, question, color, scene, names[item.name] > 1, tasks):
-                if drawn.name not in scene.curves and len(scene.curves) < _MOST_CURVES:
+                # The same curve described twice is drawn once (a family's members differ).
+                drawn_already = any(_drawn_as(c) == _drawn_as(drawn) for c in scene.curves.values())
+                if len(scene.curves) < _MOST_CURVES and not drawn_already:
+                    # A name is a label: two curves the reply named alike ("y", "F(x)") are
+                    # two curves, the later one under a name of its own (g04 lost its second
+                    # line, u5-005 two members of its family).
+                    drawn.name = _unique(drawn.name, scene)
                     scene.curves[drawn.name] = drawn
                     color += 1
+    # Beside members of its own family ("C = 1"), the antiderivative itself is "C = 0"; an
+    # antiderivative of another function keeps its formula (x³ beside x² + C).
+    members = [curve for curve in scene.curves.values() if curve.label.startswith("C = ")]
+    for curve in scene.curves.values():
+        if curve.antiderivative and any(_one_family(curve, member) for member in members):
+            curve.label = "C = 0"
     for item in items:
         if isinstance(item, Line) and len(scene.lines) < _MOST_LINES:
             line = _line(item, question, color)
