@@ -12,6 +12,7 @@ listed is not drawn.
 from __future__ import annotations
 
 import logging
+import math
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 
@@ -73,6 +74,17 @@ def _solved(kind: str, op: str, fixed: Mapping[str, tuple[float, str]] | None = 
             return []
 
     return draw
+
+
+def _banked(values: Mapping[str, Given], flags: Mapping[str, float]) -> Scenes:
+    """A car on a banked curve, seen from behind, at the stated bank angle: the rig
+    ``force_pictures`` draws for a request to see its forces."""
+    from app.modules.physics.force_rigs import banked_curve_picture
+
+    angle = values["angle"]
+    deg = to_si(angle.value, angle.unit, expected_key="angle")
+    picture = banked_curve_picture(round(math.degrees(deg), 6)) if 0 < deg < math.pi / 2 else None
+    return [picture[0]] if picture is not None else []
 
 
 def _standing(values: Mapping[str, Given], flags: Mapping[str, float]) -> Scenes:
@@ -150,4 +162,5 @@ SCENES: dict[str, SceneKind] = {
         _solved("optics", "image_distance"),
     ),
     "standing_wave": SceneKind({"length": Part("L", _LENGTH)}, _standing),
+    "banked_curve": SceneKind({"angle": Part("angle", _ANGLE)}, _banked),
 }

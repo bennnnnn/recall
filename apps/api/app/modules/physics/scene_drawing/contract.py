@@ -30,7 +30,9 @@ SCENE_DRAW_CONTRACT = (
     "material it enters), index_from (when it does not come from air);\n"
     "- lens (one converging lens): focal_length*, object_distance*;\n"
     '- standing_wave (a string fixed at both ends): length*, and "harmonic": n when the '
-    "question names one.\n"
-    "Any other situation (two lenses, a slope that is not a plane, a pulley on a slope, a "
-    "2-D collision, a loop, a banked curve) gets no scene block."
+    "question names one;\n"
+    "- banked_curve (a car on a banked road, seen from behind): angle* (of the bank).\n"
+    "Any other situation (two lenses, a projectile landing on a slope, a roof or a wall, a "
+    "pulley on a slope, a 2-D collision, a loop, a conical pendulum, a charge in a magnetic "
+    "field) gets no scene block."
 )

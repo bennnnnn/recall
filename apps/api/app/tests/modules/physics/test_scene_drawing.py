@@ -52,6 +52,10 @@ _STRING = (
     "A string 1.2 m long is fixed at both ends under a tension of 80 N. Find (a) the "
     "fundamental frequency and (b) the third harmonic."
 )
+_BANKED = (
+    "A curve of radius 80 m is banked at 15 degrees. At what speed can a car take the curve "
+    "with no friction needed?"
+)
 
 
 def _scene(**description: Any) -> str:
@@ -117,6 +121,7 @@ def _types(fences: list[str]) -> list[str]:
             "rays",
         ),
         (_STRING, _scene(scene="standing_wave", harmonic=3, values={"length": "1.2 m"}), "wave"),
+        (_BANKED, _scene(scene="banked_curve", values={"angle": "15 degrees"}), "incline"),
     ],
 )
 def test_a_described_scene_is_drawn_by_its_solvers_builder(
@@ -158,7 +163,7 @@ def test_a_described_scene_is_drawn_by_its_solvers_builder(
         (_ATWOOD, _scene(scene="atwood", sticks=True, values={"mass1": "3 kg", "mass2": "5 kg"})),
         # A harmonic the question does not name; a scene not in the vocabulary.
         (_STRING, _scene(scene="standing_wave", harmonic=4, values={"length": "1.2 m"})),
-        (_CLIFF, _scene(scene="banked_curve", values={"angle": "30°"})),
+        (_CLIFF, _scene(scene="conical_pendulum", values={"angle": "30°"})),
         ("Not physics at all.", "not json"),
     ],
 )
