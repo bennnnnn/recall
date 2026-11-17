@@ -272,3 +272,17 @@ it("leaves a photo request out of copy and speech", () => {
   expect(markdownToCopyText(md).trim()).toBe("Ethiopia is in East Africa.");
   expect(markdownToSpeechText(md)).not.toContain("location map");
 });
+
+it("copies a worked reply's symbols as text a reader pastes: m₁, v², primes without dollars", () => {
+  const copy = markdownToCopyText(
+    "Given\n$m_1 = 2\\ \\mathrm{kg}$\n\nSolve for $v'$\n\n$v' = \\frac{m_1 v_1 + m_2 v_2}{m_1 + m_2}$\n\n$E = \\frac{1}{2} m v^2$, $q = 1.6 \\times 10^{-19}$, $v_{max}^2$",
+  );
+  expect(copy).toContain("m₁ = 2");
+  expect(copy).toContain("Solve for v′");
+  expect(copy).not.toContain("$");
+  expect(copy).toContain("v′ = (m₁ v₁ + m₂ v₂)/(m₁ + m₂)");
+  expect(copy).toContain("m v²");
+  expect(copy).toContain("10⁻¹⁹");
+  // A word subscript keeps its plain form: no glyph exists for every letter.
+  expect(copy).toContain("_{max}");
+});

@@ -186,10 +186,30 @@ function stripMarkdownChrome(text: string): string {
   return out;
 }
 
-/** Copy needs explicit grouping; visual fraction bars and radical overbars vanish. */
-function copyMathSegments(segments: MathSegment[], depth = 0): string {
+/** A script of digits and signs as pasted text writes it: m₁, v², 10⁻¹⁹. */
+const SUB_DIGITS: Record<string, string> = {
+  "0": "₀", "1": "₁", "2": "₂", "3": "₃", "4": "₄", "5": "₅", "6": "₆", "7": "₇", "8": "₈", "9": "₉",
+  "+": "₊", "-": "₋", "−": "₋",
+};
+const SUP_DIGITS: Record<string, string> = {
+  "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹",
+  "+": "⁺", "-": "⁻", "−": "⁻",
+};
+
+/** ``value`` in script characters when every one has one; otherwise null (``_{max}`` stays). */
+function scriptGlyphs(value: string, table: Record<string, string>): string | null {
+  if (!/^[+\-−]?\d+$/.test(value)) return null;
+  return [...value].map((ch) => table[ch]).join("");
+}
+
+/**
+ * Copy needs explicit grouping; visual fraction bars and radical overbars vanish. With
+ * ``glyphs`` a digit script reads as pasted text writes it (m₁, v²): prose only, since a card's
+ * copy is pasted back into the math keypad, which reads ``x^2`` and ``x_{12}``.
+ */
+function copyMathSegments(segments: MathSegment[], depth = 0, glyphs = false): string {
   const fractionSide = (side: MathSegment[]): string => {
-    const text = copyMathSegments(side, depth + 1).trim();
+    const text = copyMathSegments(side, depth + 1, glyphs).trim();
     return side.length === 1 && (side[0]?.type === "text" || side[0]?.type === "upright")
       && /^(?:[+-]?\d+(?:\.\d+)?|\p{L})$/u.test(text)
       ? text : `(${text})`;
@@ -203,10 +223,12 @@ function copyMathSegments(segments: MathSegment[], depth = 0): string {
         if (segment.type === "sup" && !segment.body && segment.value === DEGREE_RING) return "°";
         if (segment.type === "sup" && !segment.body && isPrimeScript(segment.value)) return segment.value;
         const value = segment.body
-          ? copyMathSegments(segment.body, depth + 1)
+          ? copyMathSegments(segment.body, depth + 1, glyphs)
           : depth >= 12
             ? segment.value
-            : copyMathSegments(parseSimpleLatex(segment.value), depth + 1);
+            : copyMathSegments(parseSimpleLatex(segment.value), depth + 1, glyphs);
+        const script = glyphs ? scriptGlyphs(value, segment.type === "sup" ? SUP_DIGITS : SUB_DIGITS) : null;
+        if (script) return script;
         return `${segment.type === "sup" ? "^" : "_"}${value.length === 1 ? value : `{${value}}`}`;
       }
       case "frac": {
@@ -216,14 +238,14 @@ function copyMathSegments(segments: MathSegment[], depth = 0): string {
       }
       case "sqrt": {
         const index = segment.index
-          ? `[${copyMathSegments(segment.index, depth + 1)}]`
+          ? `[${copyMathSegments(segment.index, depth + 1, glyphs)}]`
           : segment.degree
-            ? `[${copyMathSegments(parseSimpleLatex(segment.degree), depth + 1)}]`
+            ? `[${copyMathSegments(parseSimpleLatex(segment.degree), depth + 1, glyphs)}]`
             : "";
-        return `√${index}(${copyMathSegments(segment.body, depth + 1)})`;
+        return `√${index}(${copyMathSegments(segment.body, depth + 1, glyphs)})`;
       }
       case "cancel":
-        return copyMathSegments(segment.body, depth + 1);
+        return copyMathSegments(segment.body, depth + 1, glyphs);
       case "accent":
         return segmentsToPlain([segment]);
     }
@@ -250,12 +272,19 @@ function copyMath(latex: string): string {
   return copyMathSegments(parseSimpleLatex(latex)).replace(/\$/g, "").trim();
 }
 
+/** Maths inside prose, as a reader pastes it into a message or a document: m₁, v², 10⁻¹⁹. */
+function copyProseMath(latex: string): string {
+  if (hasStructuredScript(latex)) return latex.trim();
+  return copyMathSegments(parseSimpleLatex(latex), 0, true).replace(/\$/g, "").trim();
+}
+
 function isMathDollarInner(inner: string): boolean {
   const t = inner.trim();
   if (!t) return false;
   if (/\\[a-zA-Z]/.test(t) || /[\^=_]/.test(t)) return true;
   if (/[=<>]/.test(t)) return true;
-  if (/^[A-Za-z]$/.test(t)) return true;
+  // One letter, primed or not: $v'$, $θ$, $x''$.
+  if (/^\p{L}['′″]*$/u.test(t)) return true;
   return /\d/.test(t) && /[+\-*/]/.test(t);
 }
 
@@ -301,7 +330,7 @@ function convertProse(prose: string, mode: "copy" | "speech"): string {
   let text = pipeTablesToPlain(prose);
   text = stripMarkdownChrome(text);
   if (mode === "speech") text = rewriteInlineMath(text, spokenFormula);
-  else text = rewriteInlineMath(text, copyMath);
+  else text = rewriteInlineMath(text, copyProseMath);
   return text;
 }
 
