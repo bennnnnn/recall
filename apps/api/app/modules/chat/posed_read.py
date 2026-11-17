@@ -223,16 +223,19 @@ def may_refer_to_a_problem(line: str, recent: Sequence[Any], *, claimed: bool = 
 _KEPT = "posed"
 
 
-def _key(line: str, recent: Sequence[Any]) -> tuple[str, tuple[tuple[str, str], ...]]:
+def _key(
+    line: str, recent: Sequence[Any], claimed: SubjectName | None
+) -> tuple[str, tuple[tuple[str, str], ...], SubjectName | None]:
     # Keyed by the chat too: a run of turns outside a request (the sweep) shares one memo.
-    return line, tuple(chat_before(recent, line))
+    # And by the claiming subject: a read for no subject (None) is no answer for physics.
+    return line, tuple(chat_before(recent, line)), claimed
 
 
 async def posed_for_turn(
     settings: Settings, line: str, recent: Sequence[Any], *, claimed: SubjectName | None = None
 ) -> Posed | None:
     """``read_posed`` once a turn, kept as the other reads are (``core.readings``)."""
-    key = _key(line, recent)
+    key = _key(line, recent, claimed)
     kept = kept_for_turn(_KEPT)
     if isinstance(kept, tuple) and kept[0] == key:
         posed: Posed | None = kept[1]

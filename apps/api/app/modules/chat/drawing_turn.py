@@ -38,7 +38,7 @@ from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.turn_intercepts import may_be_a_maths_picture
 from app.modules.chat.turn_trace import note_prompt_rule
 from app.modules.turn_reading.turn import current_turn_reading
-from app.services.solving import SubjectName, VerifiedMathBlock
+from app.services.solving import SubjectName, VerifiedMathBlock, VerifiedPhysicsBlock
 from app.services.subjects.registry import SubjectFigure, subject_adapter
 
 if TYPE_CHECKING:
@@ -134,7 +134,8 @@ async def _read_for_a_picture(ctx: StreamContext, deadline: float) -> TurnDecisi
     line = ctx.user_message_content or ""
     if task is None or not _asks_in_words(ctx):
         return None
-    if _words_subject(ctx) is None and not may_be_a_maths_picture(line):
+    physics = isinstance(ctx.verified_subject, VerifiedPhysicsBlock)
+    if not physics and _words_subject(ctx) is None and not may_be_a_maths_picture(line):
         return None
     left = deadline - asyncio.get_running_loop().time()
     if left > 0:
@@ -151,34 +152,40 @@ def _described_by(read: TurnDecision) -> SubjectName | None:
     return entry[0] if entry is not None and read.picture in entry[1] else None
 
 
-def _wants_a_drawing(read: TurnDecision) -> bool:
-    """The read calls the message a maths question asking to see a picture a description
-    draws: a diagram's figure or a graph."""
-    return _described_by(read) == "math"
-
-
 async def write_for_a_picture(ctx: StreamContext, settings: Settings) -> None:
     """A solver's instant reply gives way to the model's when the read says the message asks
-    to see a maths picture: the instant reply carries the card alone, and no picture can be
+    to see a picture its subject's reply describes (maths' figure or graph, physics' field
+    lines its solve did not draw): the instant reply carries the card alone, and no picture can be
     described for it (round 3's c031, "find the maximum ... and sketch its graph", got only
     the maximum). The model writes around the same checked card, and describes the graph.
     The read decides, never a word: a message whose words may ask (``_ASKS_TO_SEE``) waits
     for it up to ``live_read_wait_seconds``; a read later than that keeps the card, which
     loses a picture, never the card to a guess; any other message never waits."""
-    if ctx.instant_reply is None or not isinstance(ctx.verified_subject, VerifiedMathBlock):
+    verified = ctx.verified_subject
+    if ctx.instant_reply is None or not isinstance(
+        verified, VerifiedMathBlock | VerifiedPhysicsBlock
+    ):
         return
-    figure = _figure()
+    subject: SubjectName = "math" if isinstance(verified, VerifiedMathBlock) else "physics"
+    figure = _figure(subject)
     if figure is None or not settings.draw_descriptions_enabled or not _asks_in_words(ctx):
         return
-    if figure.shown(ctx.verified_subject):
+    if subject == "math" and figure.shown(verified):
         return  # the card already draws the picture ("Graph y = x² and y = 2x")
+    if subject == "physics" and not subject_adapter("physics").enabled(settings):
+        return
     deadline = asyncio.get_running_loop().time() + settings.live_read_wait_seconds
     read = await _read_for_a_picture(ctx, deadline)
     if read is None and ctx.live_read is not None and not ctx.live_read.done():
         note_prompt_rule("subject.instant_read_late")
-    if read is not None and _wants_a_drawing(read):
-        ctx.instant_reply = None
-        note_prompt_rule("subject.draw_over_instant")
+    if read is None or _described_by(read) != subject:
+        return
+    # A physics solve that drew the picture asked for keeps its card ("calculate the field
+    # and draw its lines" whose solve drew none gives way, so the reply can describe them).
+    if subject == "physics" and solve_draws(verified, read.picture):
+        return
+    ctx.instant_reply = None
+    note_prompt_rule("subject.draw_over_instant")
 
 
 async def ask_for_a_drawing(

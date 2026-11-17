@@ -182,3 +182,9 @@ def test_an_earlier_turns_charges_are_not_the_pictures() -> None:
     after = ["draw it", "Two charges of +3 nC and -2 nC are 4 cm apart. Find the force."]
     plus = json.dumps({"kind": "field", "charges": [{"sign": "+"}]})
     assert read_description(plus, after) is None
+
+
+def test_a_plural_sign_is_every_listed_q_multiples() -> None:
+    """ "two negative point charges of 2q and q": both negative (Gemini, PR #2482)."""
+    question = "Draw the field of two negative point charges of 2q and q placed 10 cm apart."
+    assert [charge.sign for charge in stated_charges([question])] == [-1, -1]

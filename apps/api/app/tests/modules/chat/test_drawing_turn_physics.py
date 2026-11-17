@@ -240,3 +240,40 @@ async def test_the_contracts_quantity_read_is_made_in_the_pool_with_the_message(
     begin_turn()
     await read_off_loop(subject_adapter("physics").reads, line, timeout=5.0)
     assert kept_reading(states_quantities, line) is True
+
+
+async def test_a_physics_instant_reply_gives_way_to_field_lines_its_solve_did_not_draw() -> None:
+    """ "Calculate the electric field 0.20 m from a point charge of 8.0 pC and draw its
+    field lines": the solve's instant reply carried the field strength alone, and no lines
+    could be described (Gemini, PR #2482). The read asking for a physics picture the solve
+    did not draw lets the model write around the same card."""
+    import asyncio
+
+    from app.modules.chat import drawing_turn
+    from app.services.solving import VerifiedPhysicsBlock
+
+    line = (
+        "Calculate the electric field 0.20 m from a point charge of 8.0 pC and draw its "
+        "field lines."
+    )
+    read: asyncio.Future[Any] = asyncio.get_event_loop().create_future()
+    read.set_result(_decision(subject="physics", picture="diagram"))
+    ctx = _ctx(
+        line,
+        instant_reply="E = 1.8 N/C",
+        verified_subject=VerifiedPhysicsBlock(text="E = 1.8 N/C"),
+        live_read=read,
+    )
+    await drawing_turn.write_for_a_picture(ctx, _settings())
+    assert ctx.instant_reply is None
+    # A read that asks to see nothing keeps the card.
+    keeps: asyncio.Future[Any] = asyncio.get_event_loop().create_future()
+    keeps.set_result(_decision(subject="physics", picture="none"))
+    card = _ctx(
+        line,
+        instant_reply="E = 1.8 N/C",
+        verified_subject=VerifiedPhysicsBlock(text="E = 1.8 N/C"),
+        live_read=keeps,
+    )
+    await drawing_turn.write_for_a_picture(card, _settings())
+    assert card.instant_reply == "E = 1.8 N/C"
