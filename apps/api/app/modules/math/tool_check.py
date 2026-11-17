@@ -361,9 +361,11 @@ def _integrates_the_gap(expr: str, text: str) -> bool:
     round; ``integral_is_an_area`` holds it to one sign): ∫(x² + 1) for "the area between
     y = x² + 1 and y = x" is a step of the working, not the area (Gemini on #2481). The
     x-axis is the curve 0, so one curve alone is its own gap there."""
+    from app.modules.math.match.scan import prepare
     from app.modules.math.tools.extractors.calculus_applications import area_curves
 
-    curves = area_curves(text)
+    cleaned = prepare(text)
+    curves = area_curves(cleaned) if cleaned else None
     if curves is None:
         return True
     integrand, first, second = _parse(expr), _parse(curves[0]), _parse(curves[1])
