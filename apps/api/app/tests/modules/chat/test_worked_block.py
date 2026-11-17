@@ -545,6 +545,19 @@ def test_a_conclusion_is_asked_by_its_words_however_its_symbol_is_braced() -> No
     assert "whether it slides back" in render_worked(solution, OTHER)
 
 
+def test_a_conclusion_with_no_symbol_asks_by_its_words() -> None:
+    """Gemini on #2489: "answer: | yes, …" in the contract's own syntax kept "$s$" in
+    Required; the quantity a part also asks keeps its symbol."""
+    solution = _solution(
+        "required: s | whether all the ice melts\nrequired: Q | heat supplied\n"
+        "answer: Q | 5000 | J\nanswer: | yes, all the ice melts | | the heat is enough"
+    )
+    shown = render_worked(solution, OTHER)
+    assert "$s$" not in shown
+    assert "whether all the ice melts" in shown
+    assert "$Q$ (heat supplied)" in shown
+
+
 def test_a_conclusion_s_tex_specials_are_escaped() -> None:
     """Review of phys30: "yes & no" in ``\\text{}`` broke the group."""
     from app.modules.chat.worked_render import words_tex

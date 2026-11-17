@@ -416,13 +416,22 @@ def _concluded(solution: WorkedSolution) -> set[str]:
     """The symbols whose answer is a conclusion in words ("yes, all the ice melts"): no
     quantity, so they are asked by their words alone; "$slide_{back}$ (whether it slides
     back)" set an invented symbol in maths (phys30, 2026-11-16). Compared tidied:
-    s_1 in Find is s_{1} in the answer (Gemini on #2489)."""
-    return {
+    s_1 in Find is s_{1} in the answer. A conclusion with no symbol of its own
+    ("answer: | yes, …") concludes the asks no other answer names (Gemini on #2489)."""
+    answers = [answer for part in solution.parts for answer in part.answers]
+    concluded = {
         _symbol_key(answer.symbol)
-        for part in solution.parts
-        for answer in part.answers
+        for answer in answers
         if answer.symbol and _in_words(answer.value)
     }
+    if any(not answer.symbol.strip() and _in_words(answer.value) for answer in answers):
+        named = {_symbol_key(answer.symbol) for answer in answers if answer.symbol.strip()}
+        concluded |= {
+            _symbol_key(item.symbol)
+            for item in solution.required
+            if _symbol_key(item.symbol) not in named
+        }
+    return concluded
 
 
 def _answered_symbols(part: Part) -> str:

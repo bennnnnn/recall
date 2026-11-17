@@ -426,6 +426,10 @@ class MoneyPeer(Protocol):
         """``text`` is a money request the peer works: routing leaves it to the money card."""
         ...
 
+    def names_currency(self, unit: str) -> bool:
+        """``unit`` is money: a currency sign ($, €, ₹) or word (dollars, USD, cents)."""
+        ...
+
     def owns(self, value: object) -> TypeGuard[MoneyTurn]:
         """``value`` is a money turn."""
         ...

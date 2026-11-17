@@ -265,6 +265,9 @@ async def test_a_reply_in_parts_gets_no_trailing_card(answer: list[str], reply: 
         "(b) the range.",
         "A ball is kicked at 18 m/s at 35° above the ground. Calculate: (a) the flight time "
         "(b) the range",
+        # Gemini on #2489: a line break ends the setup as a stop does.
+        "A ball is kicked at 18 m/s at 35° above the ground\nFind (a) the flight time and "
+        "(b) the range",
     ],
 )
 async def test_parts_asked_by_instruction_get_no_trailing_card(

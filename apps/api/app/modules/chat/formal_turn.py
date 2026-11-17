@@ -119,7 +119,8 @@ def _asks_in_parts(question: str) -> bool:
         return False
     if all("?" in part or ASKED_SENTENCE.match(part.strip()) for part in parts):
         return True
-    last = re.split(r"(?<=[.!?])\s+", lead.strip())[-1] if lead.strip() else ""
+    # A sentence ends at its stop or at a line break ("… above the ground\nFind (a) …").
+    last = re.split(r"(?<=[.!?])\s+|\s*\n\s*", lead.strip())[-1] if lead.strip() else ""
     clause = re.split(r"[,;:]\s*", last.rstrip(" :"))[-1]
     return any(
         ASKED_SENTENCE.fullmatch(said.strip()) for said in (last.rstrip(" :"), clause) if said

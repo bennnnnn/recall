@@ -78,3 +78,14 @@ def test_a_physics_card_never_takes_the_working_s_value() -> None:
         ["substitution: T = 3.2439\\,\\mathrm{N}", "answer: T | 3.2 | N"], physics=True
     )
     assert "3.24" not in text.split("**Answer**")[-1]
+
+
+@pytest.mark.parametrize("unit", ["$", "dollars", "USD", "€", "£", "cents", "\\$"])
+def test_a_sum_of_money_is_never_rounded(unit: str) -> None:
+    """Gemini on #2489: an electricity bill of $12.34 is exact to the cent."""
+    answer = Answer(symbol="C", value="1234.56", unit=unit)
+    assert card_answer(answer) == answer
+
+
+def test_a_measured_quantity_still_rounds() -> None:
+    assert card_answer(Answer(symbol="E", value="12.345", unit="kWh")).value == "12.3"

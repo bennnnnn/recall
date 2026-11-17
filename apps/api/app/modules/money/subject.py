@@ -81,6 +81,18 @@ class MoneyPeer:
         routing leaves it to the money card, never a subject's lane."""
         return _reads_money(text)
 
+    def names_currency(self, unit: str) -> bool:
+        """``unit`` is money: a currency sign ($, €, ₹) or word (dollars, USD, cents). A
+        sum of money is exact as written, never rounded as a measurement is."""
+        import re
+        import unicodedata
+
+        from app.modules.money.phrases import CURRENCY_WORDS
+
+        if any(unicodedata.category(mark) == "Sc" for mark in unit):
+            return True
+        return re.search(rf"\b(?:{CURRENCY_WORDS}|cents?|pence)\b", unit, re.I) is not None
+
     def owns(self, value: object) -> TypeGuard[MoneyTurn]:
         from app.modules.money.service import MoneyTurn
 
