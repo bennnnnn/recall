@@ -94,3 +94,14 @@ def test_three_charges_keep_every_neutral_point_the_schema_holds() -> None:
         [json.dumps({"kind": "field", "charges": [{"sign": "+"}] * 3})], ["three positive charges"]
     )
     assert len(fences) == 1
+
+
+@pytest.mark.parametrize("amount", ["3e-9 C", "3 × 10⁻⁹ C", "+3e-9 C"])
+def test_an_amount_in_scientific_notation_is_read_as_the_question_states_it(amount: str) -> None:
+    """The amount and the question's charges are read by one reader: "3e-9 C" and
+    "3 x 10^-9 C" are the question's own charge (PR #2482 re-review)."""
+    question = "Draw the field lines of charges +3 × 10⁻⁹ C and +2 × 10⁻⁹ C."
+    picture = read_description(
+        _charges({"sign": "+", "amount": amount}, {"sign": "+", "amount": "2e-9 C"}), [question]
+    )
+    assert picture is not None and len(picture.charges) == 2

@@ -343,8 +343,7 @@ class GivenRewriter:
             kind = self._of_dimension(prior, new_dim)
             matches = kind
             if len(matches) > 1:
-                quoted = _quoted_numbers(written or "")
-                matches = [given for given in matches if given.value in quoted]
+                matches = self._quoted(written or "", kind, new_dim)
             if len(matches) != 1 or counted(prior, matches[0], kind):
                 return None
             if self._anothers(prior, matches[0]):
@@ -428,6 +427,20 @@ class GivenRewriter:
             return True
         asked = set(self.asked(line))
         return not asked or asked == set(self.asked(rewritten))
+
+    def _quoted(self, written: str, kind: list[Given], dimension: str) -> list[Given]:
+        """The givens of ``kind`` ``written`` quotes: by size when it carries a unit of that
+        kind ("3.0 μC" of "3.0 μC and 3.0 nC"), by its number when it carries none."""
+        sized = [g.si for g in read_givens(written, self.units) if g.dimension == dimension]
+        if sized:
+            return [
+                given
+                for given in kind
+                if given.si is not None
+                and any(si is not None and math.isclose(given.si, si) for si in sized)
+            ]
+        quoted = _quoted_numbers(written)
+        return [given for given in kind if given.value in quoted]
 
     def _names(self, prior: str, name: str, dimension: str) -> bool:
         """False when ``name`` may not be a given of ``prior``: the problem asks for that
