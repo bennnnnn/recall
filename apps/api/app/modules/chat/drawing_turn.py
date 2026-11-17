@@ -229,7 +229,8 @@ async def ask_for_a_drawing(
     sees = read is None or read.picture in ("diagram", "graph")
     if not sees and read is not None and read.work is False:
         return
-    contract = figure.contract_for(ctx.user_message_content or "", sees)
+    # The problem a follow-up points to, as the turn's resolution rewrote it, else the line.
+    contract = figure.contract_for(ctx.followup_problem or ctx.user_message_content or "", sees)
     if not contract:
         return
     ctx.drawing = ReplyDrawing(asked, subject=subject)

@@ -97,13 +97,14 @@ _PROJECTILE_UNKNOWN_RES: tuple[tuple[str, re.Pattern[str]], ...] = (
     ),
 )
 
-# A launch its sentence says goes down: "thrown down at an angle of 30°", "thrown downward
-# at 15 m/s at 30° to the horizontal".
-_DOWNWARD_LAUNCH_RE = re.compile(
-    r"\b(?:thrown|throws?|aimed|directed|projected|fired|launched|kicked|hit)\s+"
-    r"(?:\w+\s+){0,2}?down(?:wards?)?\b|\bdown(?:wards?)?\s+at\b",
-    re.IGNORECASE,
+# A launch verb's own direction: "thrown down at an angle of 30°", "projected downward at
+# 15 m/s", "thrown upward". Never another clause's word: "gravity acts downward" says
+# nothing of the throw.
+_LAUNCH_VERB = (
+    r"\b(?:thrown|throws?|aimed|directed|projected|fired|launched|kicked|hit)\s+(?:\w+\s+){0,2}?"
 )
+_DOWNWARD_LAUNCH_RE = re.compile(_LAUNCH_VERB + r"down(?:wards?)?\b", re.IGNORECASE)
+_UPWARD_LAUNCH_RE = re.compile(_LAUNCH_VERB + r"up(?:wards?)?\b", re.IGNORECASE)
 # The angle named above the horizontal: no downward word elsewhere makes it negative.
 _ABOVE_HORIZONTAL_RE = re.compile(
     r"\s*(?:degrees?|deg|°)?\s*(?:above|over)\s+(?:the\s+)?horizontal\b", re.IGNORECASE
@@ -188,6 +189,7 @@ def _launch_angle(lower: str, match: re.Match[str]) -> float | None:
     sentence = lower[start : end_match.start() if end_match else len(lower)]
     down = _BELOW_HORIZONTAL_RE.match(lower, match.end()) is not None or (
         _DOWNWARD_LAUNCH_RE.search(sentence) is not None
+        and _UPWARD_LAUNCH_RE.search(sentence) is None
         and _ABOVE_HORIZONTAL_RE.match(lower, match.end()) is None
     )
     return -angle if angle > 0 and down else angle

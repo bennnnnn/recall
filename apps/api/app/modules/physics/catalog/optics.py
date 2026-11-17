@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from app.modules.physics.optic_elements import LIGHT_INSIDE_MARKER
 from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
+from app.services.law_binding.words import ANGLE_TO
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
@@ -146,11 +147,7 @@ SPECS: tuple[FormulaSpec, ...] = (
                 ),
                 # "40 degrees to the normal to the face": the angle is the normal's,
                 # whatever surface follows it (review, 2026-11-16).
-                implied_unless=tuple(
-                    f"{unit} {link} normal"
-                    for unit in ("degrees", "degree", "deg", "\u00b0")
-                    for link in ("to the", "from the", "with the")
-                ),
+                implied_unless=(f"{ANGLE_TO}normal\\b",),
             ),
             # "Light strikes a glass block (n = 1.5)" comes from air: the one
             # index stated is the medium it enters. Light that starts inside a

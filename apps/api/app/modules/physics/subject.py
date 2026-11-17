@@ -11,6 +11,7 @@ from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
+from app.core.readings import kept_reading
 from app.modules.physics.extract import needs_physics
 from app.modules.physics.field_lines.contract import FIELD_DRAW_CONTRACT
 from app.modules.physics.followup import (
@@ -248,9 +249,11 @@ class PhysicsFigure:
     def contract_for(self, question: str, asked: bool) -> str:
         """A field's picture only when the message asks to see one; a problem's setup when
         it asks, or when it states quantities the physics readers read ("what is inertia?"
-        gets neither)."""
+        gets neither). The quantities are the pool's reading of the turn's message, kept
+        for the turn (``reads``): never read here, on the event loop, and none for a text the
+        pool did not read (a photo with no words)."""
         parts = []
-        if asked or states_quantities(question):
+        if asked or kept_reading(states_quantities, question):
             parts.append(SCENE_DRAW_CONTRACT)
         if asked:
             parts.append(FIELD_DRAW_CONTRACT)

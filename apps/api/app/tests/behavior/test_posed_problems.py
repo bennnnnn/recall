@@ -346,3 +346,17 @@ def test_one_change_never_rewrites_a_value_several_bodies_share() -> None:
     )
     first, second = [g for g in read_givens(charges, PHYSICS_UNITS) if g.unit == "C"]
     assert not counted(charges, first, [first, second])
+
+
+def test_a_pure_number_the_line_states_must_be_a_change_too() -> None:
+    """ "Repeat the calculation for diamond (n = 2.42) at 45°" took a rewrite that kept
+    n = 1.5 (Gemini, PR #2490): a decimal pure number is a value the rewrite must take."""
+    followups = subject_adapter("physics").followups
+    problem = (
+        "Light passes from air into glass (n = 1.5) at an angle of incidence of 30 degrees. "
+        "Find the angle of refraction."
+    )
+    rewritten = followups.changed_problem(problem, [("30 degrees", "45 degrees")])
+    assert rewritten is not None
+    line = "Repeat the calculation for diamond (n = 2.42) at 45 degrees."
+    assert not followups.takes_every_change(problem, rewritten, line, ["45 degrees"])

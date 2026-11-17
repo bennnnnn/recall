@@ -71,10 +71,22 @@ def labels_as(phrases: tuple[str, ...], before: str, after: str) -> bool:
     )
 
 
+_PATTERN = "re:"
+# An angle's own reference, written straight after its number: "60° to", "40 degrees from".
+ANGLE_TO = (
+    r"re:\d(?:\.\d+)?\s*(?:\u00b0|\u00ba|deg\b|degrees?\b)\s*(?:to|from|with|off)\s+(?:the\s+)?"
+)
+
+
 # Every subject's catalog words share it: the physics corpora alone ask 1,222 phrases.
 @lru_cache(maxsize=4096)
 def word_pattern(phrase: str) -> re.Pattern[str]:
-    # A leading word boundary only: "climb" names "climbs", "accelerat" both forms.
+    # A leading word boundary only: "climb" names "climbs", "accelerat" both forms. A
+    # phrase written "re:..." is a pattern, for a phrase tied to a number: "60° to the
+    # vertical" (no space before the degree sign) is an angle's reference, "in degrees from
+    # the normal" in an ask is none.
+    if phrase.startswith(_PATTERN):
+        return re.compile(phrase[len(_PATTERN) :])
     return re.compile(rf"(?<![\w]){re.escape(phrase)}")
 
 

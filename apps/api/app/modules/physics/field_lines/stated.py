@@ -30,6 +30,7 @@ _IN_Q = re.compile(r"(?<![\w.])([+\-\u2212])?(?:[ \t]?(\d+(?:\.\d+)?))?[ \t]?q(?
 _SIGN_IN_PHRASE = re.compile(r"\b(positive|negative)\b(?![ \t]+test\b)", re.IGNORECASE)
 _SIGN_AFTER = re.compile(r"[ \t]*(?:point[ \t]+)?(positive|negative)\b(?![ \t]+test\b)", re.I)
 _CLAUSE_END = re.compile(r"[.;:?!](?!\d)")
+_SENTENCE_END = re.compile(r"[.?!](?!\d)")
 # A sign word for several charges: "negative charges of 3 nC and 2 nC".
 _SHARED = re.compile(r"[ \t]+(?:point[ \t]+)?charges\b", re.IGNORECASE)
 _TEST_CHARGE_BEFORE = re.compile(r"\btest[ \t]+charge[ \t,]*$", re.IGNORECASE)
@@ -47,12 +48,26 @@ class Charge:
     written: str
 
 
-def stated_charges(texts: Sequence[str]) -> list[Charge]:
+def stated_charges(texts: Sequence[str], part: str | None = None) -> list[Charge]:
     """The charges the picture's own question states: the message that asks for it, or the
     problem a follow-up points to, always the first text. An earlier turn's charges ("3.0 C
-    and 2.0 C" before "draw a positive charge") are never this picture's."""
+    and 2.0 C" before "draw a positive charge") are never this picture's, nor another
+    part's: part a's picture holds only the question's stem and part a."""
     text = texts[0] if texts else ""
+    if part is not None:
+        text = part_text(text, part)
     return _in_units(text) + _in_q(text)
+
+
+def part_text(text: str, part: str) -> str:
+    """The stem (before the first part) and part ``part``'s own words, when the question
+    has lettered parts and that one; else the whole text."""
+    markers = list(_PART.finditer(text))
+    for index, marker in enumerate(markers):
+        if marker.group(1) == part:
+            end = markers[index + 1].start() if index + 1 < len(markers) else len(text)
+            return f"{text[: markers[0].start()]} {text[marker.end() : end]}"
+    return text
 
 
 @dataclass(frozen=True)
@@ -242,12 +257,15 @@ def plates_of(text: str, positive: str) -> bool:
 
 def _through_the_request(text: str) -> str:
     """``text`` up to the end of the sentence that asks for the picture, or all of it when
-    no sentence does."""
+    no sentence does. A colon or a semicolon ends no sentence ("around: a) a positive
+    charge b) a negative charge"), and parts after it are the request's own."""
     asks = _ASKS_TO_DRAW.search(text)
     if asks is None:
         return text
-    end = _CLAUSE_END.search(text, asks.end())
-    return text if end is None else text[: end.end()]
+    end = _SENTENCE_END.search(text, asks.end())
+    if end is None or _PART.search(text, end.end()):
+        return text
+    return text[: end.end()]
 
 
 def _signs(text: str) -> list[int]:

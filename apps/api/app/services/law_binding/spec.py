@@ -34,8 +34,9 @@ class VariableSpec:
     words: tuple[str, ...] = ()
     # Phrases that state the value without a number: ("from rest", 0.0).
     implied: tuple[tuple[str, float], ...] = ()
-    # Phrases that say the implied value is not meant, whatever else is written: "40
-    # degrees to the normal" measures the angle from the normal, though "to the face" follows.
+    # Phrases that say the implied value is not meant, whatever else is written: "40° to
+    # the normal" measures the angle from the normal, though "to the face" follows
+    # (``words.word_pattern``: "re:" phrases tie it to the number).
     implied_unless: tuple[str, ...] = ()
     # Words before the value that make it negative: "decelerates at 2 m/s²".
     negating: tuple[str, ...] = ()

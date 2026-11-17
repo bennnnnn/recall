@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
+from app.services.law_binding.words import ANGLE_TO
 
 # A launch "horizontally" from a height states the angle (0°) without a number,
 # and so does anything that rolls, slides or drives off an edge.
@@ -53,9 +54,10 @@ _HEIGHT_WORDS = (
 )
 # A launch downward: "thrown down at an angle of 30°" is -30°, below the horizontal. Read
 # as above it, a 45 m cliff's throw landed in 3.89 s instead of 2.36 s (review, 2026-11-16).
+# Only a launch verb's own "down": "gravity acts downward" says nothing of the throw.
 _DOWNWARD = (
-    *("thrown down", "throws down", "down at", "downward", "downwards", "aimed down"),
-    *("directed down", "projected down", "fired down"),
+    *("thrown down", "throws down", "throw down", "aimed down", "directed down"),
+    *("projected down", "fired down", "launched down", "kicked down", "hit down"),
 )
 _LAUNCH = (
     var(
@@ -77,12 +79,9 @@ _FROM_A_HEIGHT = frozenset({"angle", "g", "h0", "v0"})
 _FLIES = ("h0 if h0 > 0 else sin(angle)",)
 # Launched and landing on level ground: no height stated.
 _FROM_THE_GROUND = frozenset({"angle", "g", "v0"})
-# A launch angle measured from the vertical: "60 degrees to the vertical".
-_FROM_THE_VERTICAL = tuple(
-    f"{unit} {link} vertical"
-    for unit in ("degrees", "degree", "deg", "\u00b0")
-    for link in ("to the", "from the", "from", "with the", "off the")
-)
+# A launch angle measured from the vertical: "60° to the vertical", "60 degrees from
+# vertical"; never "the angle it makes with the vertical", which a landing asks.
+_FROM_THE_VERTICAL = (f"{ANGLE_TO}vertical\\b",)
 # Another situation than a free flight from a launch: a slope's motion, a pull, a swing,
 # or a flight toward a wall or a target, whose question is another one.
 _NOT_A_FREE_FLIGHT = (

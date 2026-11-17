@@ -96,3 +96,41 @@ def test_an_angle_to_the_normal_wins_over_a_face_after_it() -> None:
         "the face. Find the angle of refraction."
     )
     assert intent is not None and "from_surface" not in (intent.physics_params or {})
+
+
+@pytest.mark.parametrize(
+    ("question", "angle"),
+    [
+        # Gravity's "downward" is no downward launch; an upward launch word wins.
+        (
+            "Gravity acts downward at 9.8 m/s^2, a ball is thrown upward at 20 m/s at 30 "
+            "degrees from a 45 m cliff. Find the time of flight.",
+            30.0,
+        ),
+        (
+            "A ball is thrown downward at 15 m s^-1 at 30 degrees from the top of a 45 m "
+            "cliff. Find the time to land.",
+            -30.0,
+        ),
+    ],
+)
+def test_only_the_launch_verbs_own_direction_turns_the_angle(question: str, angle: float) -> None:
+    intent = extract_physics_intent(question)
+    assert intent is not None and (intent.physics_params or {}).get("angle") == angle
+
+
+def test_an_angle_reference_is_read_after_a_degree_sign_with_no_space() -> None:
+    """ "40° to the normal" and "60° to the vertical" (no space, the usual way) missed the
+    guards (Gemini, PR #2490); an ask's "in degrees from the normal" is no angle's."""
+    normal = extract_physics_intent(
+        "Light is incident on the face of a prism (n = 1.5) at 40° to the normal to the "
+        "face. Find the angle of refraction."
+    )
+    assert normal is not None and "from_surface" not in (normal.physics_params or {})
+    vertical = "A ball is thrown at 20 m/s at 60° to the vertical. Find its range."
+    assert extract_physics_intent(vertical) is None
+    surface = extract_physics_intent(
+        "A ray strikes a glass surface (n = 1.5) at 30° to the surface. Find the angle of "
+        "refraction in degrees from the normal."
+    )
+    assert surface is not None and (surface.physics_params or {}).get("from_surface") == 1.0

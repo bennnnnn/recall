@@ -176,11 +176,24 @@ async def test_a_physics_message_asking_in_words_gets_the_contract_when_the_read
         assert ctx.prompt_messages[-2]["content"] == _PHYSICS_CONTRACT
 
 
-async def test_a_physics_problem_asking_to_see_nothing_gets_the_scene_contract() -> None:
+async def test_a_physics_problem_asking_to_see_nothing_gets_the_scene_contract(
+    thread_sympy_executor: None,
+) -> None:
     """29 of 30 hard problems in parts had no picture (2026-11-16): a physics turn no solve
     drew a picture for gets the contract, its setup's scene, as maths gets its teaching
-    figure."""
+    figure. Its quantities are the pool's reading of the message (Golden Rule 7); a text the
+    pool never read (a photo with no words) gets none, and nothing is read on the loop."""
+    from app.core.readings import begin_turn, read_off_loop
+    from app.services.subjects.registry import subject_adapter
+
     line = "Two masses of 3 kg and 5 kg hang over a pulley. Find (a) the acceleration."
+    begin_turn()
+    unread = _ctx(line)
+    await ask_for_a_drawing(
+        unread, _settings(), _decision(subject="physics", picture="none"), _deadline()
+    )
+    assert unread.drawing is None
+    await read_off_loop(subject_adapter("physics").reads, line, timeout=5.0)
     ctx = _ctx(line)
     await ask_for_a_drawing(
         ctx, _settings(), _decision(subject="physics", picture="none"), _deadline()

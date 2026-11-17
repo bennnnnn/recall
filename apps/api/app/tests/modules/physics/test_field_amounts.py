@@ -188,3 +188,31 @@ def test_a_plural_sign_is_every_listed_q_multiples() -> None:
     """ "two negative point charges of 2q and q": both negative (Gemini, PR #2482)."""
     question = "Draw the field of two negative point charges of 2q and q placed 10 cm apart."
     assert [charge.sign for charge in stated_charges([question])] == [-1, -1]
+
+
+def test_a_colon_before_the_parts_keeps_their_signs() -> None:
+    """ "around: a) a positive charge b) a negative charge" (the GCSE prompt of
+    field_sketch_replies.json) lost its parts at the colon (Gemini, PR #2490)."""
+    question = (
+        "2. Draw the pattern of the electric field around: a) a positive charge b) a "
+        "negative charge. Explain what the arrows mean and explain at which points the "
+        "strength of the field is greatest."
+    )
+    part_a = json.dumps({"kind": "field", "part": "a", "charges": [{"sign": "+"}]})
+    part_b = json.dumps({"kind": "field", "part": "b", "charges": [{"sign": "-"}]})
+    wrong_b = json.dumps({"kind": "field", "part": "b", "charges": [{"sign": "+"}]})
+    assert read_description(part_a, [question]) is not None
+    assert read_description(part_b, [question]) is not None
+    assert read_description(wrong_b, [question]) is None
+
+
+def test_a_parts_picture_takes_only_its_own_amounts() -> None:
+    """Part a's block could take part b's +3 μC (Codex, PR #2490)."""
+    question = "Draw the field lines a) around a charge of +2 μC b) around a charge of +3 μC."
+    own = _charges({"sign": "+", "amount": "2 μC"})
+    other = _charges({"sign": "+", "amount": "3 μC"})
+    assert [c.written for c in stated_charges([question], "a")] == ["2 μC"]
+    assert read_description(own.replace('"charges"', '"part": "a", "charges"'), [question])
+    assert (
+        read_description(other.replace('"charges"', '"part": "a", "charges"'), [question]) is None
+    )
