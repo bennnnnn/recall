@@ -40,7 +40,7 @@
   "modules/physics/extractors/kinematics.py::_extract_kinematics_intent": 171,
   "modules/physics/extractors/magnetism.py::_extract_magnetism_intent": 147,
   "modules/physics/extractors/momentum.py::_extract_momentum_intent": 145,
-  "modules/physics/extractors/projectile.py::_extract_projectile_intent": 126,
+  "modules/physics/extractors/projectile.py::_extract_projectile_intent": 124,
   "modules/physics/extractors/rates.py::extract_rate_intent": 129,
   "modules/physics/extractors/school_ac.py::extract_ac": 103,
   "modules/physics/extractors/suvat.py::_extract_suvat_intent": 114,
