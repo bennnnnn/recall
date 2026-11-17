@@ -9,8 +9,11 @@ does not hold, draws nothing.
 
 SCENE_DRAW_CONTRACT = (
     "Picture of the setup: when the question is a problem about one of these situations, "
-    "describe one picture of its setup in one ```draw block after your answer (one for the "
-    "whole question, also when it has parts); the app checks it and draws the scene. Write "
+    "always end your reply with one ```draw block describing its setup (one for the whole "
+    "question, also when it has parts), whether or not it asks for a picture; the app "
+    "checks it and draws the scene. A ```draw block is no drawing of yours: the rule "
+    "against drawing a situation yourself stays, and this block is how the app draws it. "
+    "Write "
     'only JSON: {"kind":"scene","scene":"<name>","values":{"<part>":"<value '
     'with its unit, as the question states it>"}}. Give only values the question states, '
     "never one you worked out, and never a coordinate; the scene uses every value the "

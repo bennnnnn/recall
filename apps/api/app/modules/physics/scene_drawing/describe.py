@@ -14,6 +14,7 @@ it only partly understood.
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Sequence
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -22,6 +23,8 @@ from app.modules.physics.scene_drawing.kinds import SCENES, SceneKind
 from app.modules.physics.scene_drawing.values import Stated, nearer, stated_texts
 from app.modules.physics.schemas import SimulationBlockSpec
 from app.services.law_binding.givens import Given
+
+logger = logging.getLogger(__name__)
 
 
 class _Scene(BaseModel):
@@ -39,16 +42,31 @@ def described_scene(body: str, texts: Sequence[str]) -> list[SimulationBlockSpec
     """The scene one ```draw block describes, drawn by its solver's builder; none when the
     block is no scene or does not check against ``texts`` (the user's message first)."""
     try:
-        described = _Scene.model_validate(json.loads(body))
-    except (ValueError, ValidationError):
+        data = json.loads(body)
+    except ValueError:
+        logger.info("described scene not read: no JSON")
+        return []
+    if not isinstance(data, dict) or data.get("kind") != "scene":
+        return []  # a field picture's block, or another kind
+    try:
+        described = _Scene.model_validate(data)
+    except ValidationError as exc:
+        logger.info("described scene not read: %s", exc.errors()[0].get("loc"))
         return []
     kind = SCENES.get(described.scene)
-    if described.kind != "scene" or kind is None:
+    if kind is None:
+        logger.info("described scene %s not drawn: no such scene", described.scene[:40])
         return []
     stated = stated_texts(texts)
     values = _values(kind, described, stated)
     flags = _flags(kind, described, stated)
     if values is None or flags is None:
+        logger.info(
+            "described scene %s not drawn: %s (parts %s)",
+            described.scene,
+            "its values" if values is None else "its claims",
+            ",".join(sorted(described.values)),
+        )
         return []
     drawn = {kind.parts[name].param: given for name, given in values.items()}
     return kind.draw({param: given for param, given in drawn.items() if param}, flags)

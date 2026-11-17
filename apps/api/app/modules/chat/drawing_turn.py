@@ -251,6 +251,13 @@ async def attach_drawing(state: FinalizeState) -> str:
     except Exception as exc:  # A drawing that fails is no drawing: the reply stands.
         logger.info("described picture failed (%s)", type(exc).__name__)
         return text
+    # What came of the reply's descriptions, so a picture that did not check shows.
+    logger.info(
+        "described pictures subject=%s blocks=%d drawn=%d",
+        drawing.subject,
+        len(descriptions),
+        len(fences),
+    )
     if not fences:
         return text
     drawing.fences = list(fences)
