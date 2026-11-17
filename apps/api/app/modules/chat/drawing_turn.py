@@ -254,8 +254,7 @@ async def attach_drawing(state: FinalizeState) -> str:
         return text
     # What came of the reply's descriptions, so a picture that did not check shows.
     logger.info(
-        "described pictures subject=%s blocks=%d drawn=%d shapes=%s",
-        drawing.subject,
+        "described pictures blocks=%d drawn=%d shapes=%s",
         len(descriptions),
         len(fences),
         [_shape(body) for body in descriptions],

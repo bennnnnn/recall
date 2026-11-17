@@ -90,8 +90,8 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # scene and the question's values, never a coordinate (physics.scene_drawing.contract, the
 # owner's round of 30 hard problems, 2026-11-16).
 _RULES = 203
-_RULE_GRAMS = 18899
-_RULE_GRAMS_SHA = "33dee20c3b76b4e8"
+_RULE_GRAMS = 18932
+_RULE_GRAMS_SHA = "b027924bb89dc3a3"
 
 
 def _rules() -> list[str]:
