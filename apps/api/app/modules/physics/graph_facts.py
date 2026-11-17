@@ -1,4 +1,6 @@
-"""A particle's motion along a line as the question states it, and what follows from it.
+"""A particle's motion along a line as the question states it, and what follows from it:
+physics' reading of a question's words for the graph a reply draws (``services.graph_facts``,
+asked by maths' plot through the subject's adapter).
 
 "With acceleration 3.5t m/s². When t = 2 s, P is 10 m from O and has velocity 15 m/s"
 (u5-088) writes a(t) and the velocity and the position at one time; "starts from a point A
@@ -6,17 +8,25 @@ with velocity 4 m/s ... an acceleration of -1.5t² m/s²" (u5-089) gives them at
 The velocity and the displacement are worked out here, by integrating the acceleration
 from those stated values: a graph may draw them as formulas the question writes, and a
 curve the reply describes is drawn only when it is one of them. A value the question does
-not give (no velocity at any time) leaves its formula out, never guessed.
+not give (no velocity at any time) leaves its formula out, never guessed; so does a
+position whose side of O it does not say ("10 m from O").
 """
 
 from __future__ import annotations
 
 import re
+from tokenize import TokenError
 from typing import Any
 
 from sympy import Expr, Symbol, integrate, nsimplify, simplify
+from sympy.parsing.sympy_parser import (
+    convert_xor,
+    implicit_multiplication_application,
+    parse_expr,
+    standard_transformations,
+)
 
-from app.modules.math.tool_check import parse_formula
+from app.services.graph_facts import GraphFacts, GraphFormula
 from app.services.number_text import count_word_pattern, number_word_value
 
 _T = Symbol("t")
@@ -35,9 +45,15 @@ _CONSTANT_ACCELERATION = re.compile(
 )
 _VELOCITY_IN_T = re.compile(rf"\bvelocity{_SAID}{_IN_T}\s*(?:{_PER_SECOND})")
 _VELOCITY = re.compile(rf"\bvelocity{_SAID}(?P<v>{_NUMBER})\s*(?:{_PER_SECOND})")
+# A position whose sign is said: a displacement (signed), "s = -3 m" / "x = 4 m", or a
+# distance with its side of O ("10 m to the left of O"). "10 m from O" says no side: none.
 _POSITION = re.compile(
-    rf"(?P<x>{_NUMBER})\s*m\s+from\s+\w+|\bdisplacement\s+(?:is\s+|of\s+)?(?P<d>{_NUMBER})\s*m\b"
+    rf"\bdisplacement\s+(?:is\s+|of\s+)?(?P<d>{_NUMBER})\s*m\b"
+    rf"|\b[sx]\s*=\s*(?P<x>{_NUMBER})\s*m\b"
+    rf"|(?P<far>{_NUMBER})\s*m\s+(?:from\s+\w+\s+)?(?P<side>to\s+the\s+(?:right|left)\s+of|"
+    r"on\s+the\s+(?:positive|negative)\s+side\s+of|in\s+the\s+(?:positive|negative)\s+direction)"
 )
+_NEGATIVE_SIDE = re.compile(r"\bleft\b|\bnegative\b")
 # The time a clause says its values at: "t = 2", "after 4 s", "after ten seconds"; the
 # start ("initially", "starts", "from rest") is t = 0.
 _AT_TIME = re.compile(
@@ -52,8 +68,11 @@ _FROM_THE_START = re.compile(
     r"\bdisplacement\b[^.;]*?\bfrom\s+(?:its\s+|the\s+)?(?:start(?:ing\s+(?:point|position))?|"
     r"initial\s+position|t\s*=\s*0)\b"
 )
+# A start verb, and the place it starts at or from: "starts from a point A", "starts from
+# rest at O", "moves off from the origin"; "when t = 2 s it is at O" is no start.
 _STARTS_FROM = re.compile(
-    r"\bstarts?\s+from\s+(?!rest\b)(?:a\s+point\s+\w+|the\s+origin|\w+)\b|\b(?:at|from)\s+(?:the\s+origin|o)\b"
+    r"\b(?:starts?|started|starting|sets?\s+off|moves?|is\s+released|leaves)\b[^.;,]*?"
+    r"\b(?:at|from)\s+(?!rest\b)(?:the\s+origin|a\s+point\s+\w+|[a-z])\b"
 )
 _SENTENCES = re.compile(r"(?<=[.;!?])\s+")
 # A sentence's clauses: each value is said at the time its own clause names, or, naming
@@ -69,8 +88,18 @@ _THROUGH = re.compile(rf"\b(?:through|over)\s+a\s+displacement\s+of\s+(?P<d>{_NU
 _X_IS_DISPLACEMENT = re.compile(r"\bx\s+is\s+the\s+displacement\b")
 
 
+_TRANSFORMATIONS = (*standard_transformations, implicit_multiplication_application, convert_xor)
+# The question's symbols in the spelling the reader takes: a minus sign, squares and cubes.
+_PLAIN = str.maketrans({"\u2212": "-", "\u00b2": "**2", "\u00b3": "**3", "\u2013": "-"})
+
+
 def _in_t(text: str) -> Expr | None:
-    parsed = parse_formula(text.strip())
+    """An expression in t ("3.5t", "-1.5t**2", "(6 - 2t)"): ``_IN_T`` lets through only
+    digits, t, operators and brackets, so nothing else is ever read."""
+    try:
+        parsed = parse_expr(text.strip(), local_dict={"t": _T}, transformations=_TRANSFORMATIONS)
+    except (SyntaxError, TypeError, ValueError, TokenError):
+        return None
     if not isinstance(parsed, Expr) or parsed.free_symbols != {_T}:
         return None
     return nsimplify(parsed, rational=True)
@@ -113,8 +142,11 @@ def _stated(text: str) -> tuple[list[tuple[Any, Any]], list[tuple[Any, Any]]]:
         ]
         if _FROM_REST.search(clause):
             velocities.append((at, 0))
-        for match in _POSITION.finditer(clause):
-            positions.append((at, nsimplify(match.group("x") or match.group("d"), rational=True)))
+        positions += [
+            (at, value)
+            for match in _POSITION.finditer(clause)
+            if (value := _signed(match)) is not None
+        ]
         started = started or (at == 0 and _STARTS_FROM.search(clause) is not None)
     # Its displacement is measured from where it starts, when the question names that place
     # (O, the origin, a point A) or the displacement from the start, and states no position:
@@ -122,6 +154,16 @@ def _stated(text: str) -> tuple[list[tuple[Any, Any]], list[tuple[Any, Any]]]:
     if (started or _FROM_THE_START.search(text.lower())) and not positions:
         positions.append((0, 0))
     return velocities, positions
+
+
+def _signed(match: re.Match[str]) -> Any | None:
+    """A position with its sign: a displacement or "s =" as written, a distance from O
+    negative on its left or negative side."""
+    if match.group("far") is not None:
+        far = nsimplify(match.group("far"), rational=True)
+        return -far if _NEGATIVE_SIDE.search(match.group("side")) else far
+    written = match.group("d") or match.group("x")
+    return None if written is None else nsimplify(written, rational=True)
 
 
 def _through(rate: Expr, stated: list[tuple[Any, Any]]) -> Expr | None:
@@ -213,3 +255,15 @@ def motion_interval(text: str) -> tuple[str, Any, Any] | None:
     if len(set(times)) < 2:
         return None
     return "t", min(times), max(times)
+
+
+def read_graph_facts(text: str) -> GraphFacts:
+    """Physics' reader for maths' plot (``services.graph_facts``): the motion's formulas in
+    t and the interval it is asked about, as SymPy text. Runs in the SymPy pool."""
+    readable = text.translate(_PLAIN)
+    formulas = tuple(
+        GraphFormula(name, str(expr), unit) for name, expr, unit in motion_formulas(readable)
+    )
+    found = motion_interval(readable)
+    interval = (str(found[1]), str(found[2])) if found is not None else None
+    return GraphFacts(formulas, interval)

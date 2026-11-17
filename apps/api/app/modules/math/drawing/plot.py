@@ -39,6 +39,7 @@ from app.modules.math.drawing.real_curve import X
 from app.modules.math.schemas.plot import PlotGraphSpec
 from app.modules.math.tool_check import written_relations, written_values
 from app.services.card_text import without_emphasis
+from app.services.graph_facts import GraphFacts
 from app.services.latex_markup import without_markup
 
 logger = logging.getLogger(__name__)
@@ -47,11 +48,15 @@ _X, _Y = Symbol("x"), Symbol("y")
 
 
 def plot_spec(
-    items: list[tuple[str, Any | None]], texts: Sequence[str], reply: str = ""
+    items: list[tuple[str, Any | None]],
+    texts: Sequence[str],
+    reply: str = "",
+    facts: GraphFacts | None = None,
 ) -> PlotGraphSpec | None:
     """The checked graph of ``items`` (``vocabulary.read_items``), or None. ``reply``: the
-    reply's text, whose working the server's labels are held to."""
-    question = read_plot_question(texts)
+    reply's text, whose working the server's labels are held to; ``facts``: what the turn's
+    subject reads in the question's words (``read_plot_question``)."""
+    question = read_plot_question(texts, facts)
     read = _axes_by_name([item for _name, item in items if item is not None])
     working = _both_signs(reply)
     scene = Scene(

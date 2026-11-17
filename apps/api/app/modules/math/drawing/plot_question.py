@@ -23,7 +23,6 @@ from typing import Any
 
 from sympy import Expr, Rational, Symbol
 
-from app.modules.math.drawing.plot_motion import motion_formulas, motion_interval
 from app.modules.math.drawing.plot_reading import (
     Condition,
     conditions,
@@ -39,6 +38,7 @@ from app.modules.math.drawing.plot_x import (
     revolution_axis,
 )
 from app.modules.math.figure.grounding import written_numbers, written_pairs
+from app.modules.math.function_names import GREEK_NAMES, MATH_FUNCTION_NAMES
 from app.modules.math.match.numerical_methods import (
     estimates_named,
     interval_counts,
@@ -53,6 +53,7 @@ from app.modules.math.tool_check import (
     written_expressions,
     written_relations,
 )
+from app.services.graph_facts import GraphFacts
 from app.services.solving import SolveServiceError
 
 # Where a formula written after "=" ends: a clause's punctuation or a word of English.
@@ -259,12 +260,9 @@ def _equals_spans(text: str) -> list[tuple[str, str, int]]:
 
 
 _SMALL_UNITS = frozenset("msg")
-# The words a formula is written with: any other word of three letters or more is prose,
-# and ends it ("F = (9 - x/2) N moves a body ...").
-_MATH_WORDS = frozenset(
-    "sin cos tan sec csc cot sinh cosh tanh arcsin arccos arctan asin acos atan sqrt exp "
-    "log ln abs pi floor ceil mod".split()
-)
+# The words a formula is written with, the parser's own function names: any other word of
+# three letters or more is prose, and ends it ("F = (9 - x/2) N moves a body ...").
+_MATH_WORDS = MATH_FUNCTION_NAMES | frozenset(GREEK_NAMES) | {"pi", "max", "min", "sgn"}
 # A letter the text gives a value ("where m = 3"): a factor, never a unit.
 _GIVEN = re.compile(r"(?<![A-Za-z])([A-Za-z])\s*=\s*[-+]?\d")
 
@@ -499,19 +497,34 @@ def _parallel_slopes(text: str) -> list[Any]:
     return found
 
 
-def read_plot_question(texts: Sequence[str]) -> PlotQuestion:
+def _subject_formulas(facts: GraphFacts | None) -> tuple[Written, ...]:
+    found: list[Written] = []
+    for fact in facts.formulas if facts is not None else ():
+        parsed = parse_formula(fact.formula)
+        if isinstance(parsed, Expr):
+            found.append(Written(fact.name, parsed, True, None, fact.unit))
+    return tuple(found)
+
+
+def _subject_interval(facts: GraphFacts | None) -> tuple[Interval, ...]:
+    if facts is None or facts.interval is None:
+        return ()
+    low, high = (number(end) for end in facts.interval)
+    if low is None or high is None or not float(low) < float(high):
+        return ()
+    return (Interval(low, high),)
+
+
+def read_plot_question(texts: Sequence[str], facts: GraphFacts | None = None) -> PlotQuestion:
     """What ``texts`` (the last user message first) state for a graph: the last message's,
-    or the earlier ones' when it writes no formula ("now draw it")."""
+    or the earlier ones' when it writes no formula ("now draw it"). ``facts``: what the
+    turn's subject reads in its words (a particle's v(t) and s(t), physics'), held as
+    formulas it writes, and the stretch it asks about."""
     own = list(texts[:1]) if texts and _formulas(plain(texts[0])) else list(texts)
     readable = [plain(text) for text in own]
     formulas = tuple(w for text in readable for w in _formulas(text))
-    # A particle's acceleration, and the velocity and displacement worked out from it.
-    formulas += tuple(
-        Written(name, expr, True, None, unit)
-        for text in readable
-        for name, expr, unit in motion_formulas(text)
-    )
-    motion = tuple(Interval(m[1], m[2]) for m in map(motion_interval, readable) if m is not None)
+    formulas += _subject_formulas(facts)
+    motion = _subject_interval(facts)
     # The letter the question's functions are written in ("v(t) = ...": t) is its x.
     letters = frozenset(
         {"x"} | {str(s) for w in formulas if w.name != "x" for s in w.expr.free_symbols}

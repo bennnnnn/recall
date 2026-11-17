@@ -1526,15 +1526,8 @@
   "id": "u5_088_velocity_from_its_stated_values",
   "question": "A particle P moves along a straight line OX with acceleration 3.5t m/s². When t = 2 s, P is 10 m from O and has velocity 15 m/s. Find the velocity and the displacement when t = 5 s. Draw the velocity–time graph and show the distance covered between t = 2 and t = 5 as an area.",
   "description": "{\"kind\": \"plot\", \"items\": [{\"item\": \"curve\", \"name\": \"v\", \"y\": \"1.75t^2 + 8\"}]}",
-  "note": "v(t) is the integral of the stated a = 3.5t through the stated v(2) = 15: the server works it out and draws it",
-  "expect": "draw",
-  "curves": [
-   "v = 7t²/4 + 8"
-  ],
-  "lines": [],
-  "points": [],
-  "open": 0,
-  "regions": []
+  "note": "maths alone writes no v(t): physics works it out from a = 3.5t and v(2) = 15, handed to the plot on a physics turn (tests/modules/physics/test_graph_facts.py)",
+  "expect": "drop"
  },
  {
   "id": "salary_in_words",

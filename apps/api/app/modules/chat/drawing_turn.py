@@ -101,6 +101,17 @@ def _a_physics_turn(ctx: StreamContext) -> bool:
     return kept is not None and kept.text == ctx.user_message_content and kept.subject == "physics"
 
 
+def _physics_read(ctx: StreamContext) -> bool:
+    """The turn is physics', by its read or its readers: its words' quantities (a
+    particle's v(t)) are physics' to read for the graph (``graph_facts``)."""
+    read = ctx.live_read
+    if read is not None and read.done() and not read.cancelled() and read.exception() is None:
+        decision = read.result()
+        if decision is not None and decision.subject is not None:
+            return decision.subject == "physics"
+    return _a_physics_turn(ctx)
+
+
 def _asks_in_words(ctx: StreamContext) -> bool:
     return _ASKS_TO_SEE.search(ctx.user_message_content or "") is not None
 
@@ -145,6 +156,7 @@ def _wants_a_drawing(read: TurnDecision) -> bool:
     force against displacement or a velocity against time is drawn as any curve is, held
     to the question's own formula (u5-087's F = 9 - x/2)."""
     if read.subject == "physics":
+        # As maths' check reads it: the subject, and a picture the reply describes.
         return read.picture == "graph"
     return read.picture in _DESCRIBED and read_asks_for_a_picture(read)
 
@@ -239,7 +251,8 @@ async def attach_drawing(state: FinalizeState) -> str:
     line = ctx.user_message_content or ""
     texts = [line, *earlier_user_lines(ctx.recent_messages, line)]
     try:
-        fences = await figure.described(descriptions, texts, text, state.settings)
+        facts = subject_adapter("physics").graph_facts if _physics_read(ctx) else None
+        fences = await figure.described(descriptions, texts, text, state.settings, facts)
     except Exception as exc:  # A drawing that fails is no drawing: the reply stands.
         logger.info("described picture failed (%s)", type(exc).__name__)
         return text
