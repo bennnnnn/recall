@@ -33,14 +33,25 @@ _NAMED_PLACE = 1e-3
 _REACH, _FARTHEST = 10.0, 500.0
 
 
-def stated_interval(low: Any, high: Any, question: PlotQuestion) -> Interval | None:
+def stated_interval(
+    low: Any, high: Any, question: PlotQuestion, along: str = "x", sideways: bool = False
+) -> Interval | None:
     """The question's own interval of x equal to [low, high], its ends as it writes them and
     held or left out as it says: one interval it says of x ("[0, 3]", "from x = 0 to
     x = 2", "0 < x ≤ 2"), or two lines it names ("the lines x = -1/2 and x = 3"). Two
-    numbers said of something else ("check that your answer is between 2 and 3") are none."""
-    for interval in question.intervals:
+    numbers said of something else ("check that your answer is between 2 and 3") are none.
+    ``along`` "y": an interval it says of y ("from y = 0 to y = 4"), and only that one; an
+    interval of y is none of x. ``sideways``: for a curve x = g(y), an interval that names
+    no letter ("x = √y on [0, 4]") is of y too."""
+    letters = {"y", ""} if sideways else {"y"}
+    own = (
+        question.x_intervals if along != "y" else [i for i in question.intervals if i.of in letters]
+    )
+    for interval in own:
         if same_number(interval.low, low) and same_number(interval.high, high):
             return interval
+    if along == "y":
+        return None
     a = next((edge for edge in question.edges if same_number(edge, low)), None)
     b = next((edge for edge in question.edges if same_number(edge, high)), None)
     return Interval(a, b) if a is not None and b is not None and float(a) < float(b) else None
@@ -49,7 +60,9 @@ def stated_interval(low: Any, high: Any, question: PlotQuestion) -> Interval | N
 def region_intervals(question: PlotQuestion) -> list[Interval]:
     """The intervals of x the question states that a region may stand on: each one it
     writes, but for a formula's own domain ("f(x) = x² for -3 ≤ x ≤ 3"), which bounds the
-    curve, not an area under it."""
+    curve, not an area under it, unless the clause that states it asks for that area ("the
+    area enclosed by the x-axis and f(x) = 12 - 3x² on [-4, 3]")."""
+    tasked = [interval for interval, _said, task in question.ties if task]
     domains = [
         (lows[0], highs[0])
         for clause in question.clauses
@@ -59,9 +72,12 @@ def region_intervals(question: PlotQuestion) -> list[Interval]:
     ]
     return [
         interval
-        for interval in question.intervals
-        if not any(
-            same_number(interval.low, a) and same_number(interval.high, b) for a, b in domains
+        for interval in question.x_intervals
+        if (
+            interval in tasked
+            or not any(
+                same_number(interval.low, a) and same_number(interval.high, b) for a, b in domains
+            )
         )
     ]
 
@@ -73,13 +89,15 @@ def on_a_stated_interval(
     question states for it, when it states one: inside it and reaching at least one of its
     ends (u5-037's ∫ from -3 to 3 shaded as [-3, 0] and [0, 3]). u5-051's "from x = -4 to
     x = 3" shaded between the roots ±2 alone, a picture of the reply's wrong 32 and not the
-    question's 71. An interval is the region's when its sentence writes one of the edges or
-    no formula at all: "the integral of x³ from 3 to 4" says nothing of the area between x²
-    and 2x."""
+    question's 71. An interval is the region's when its clause writes every curve edging
+    the region, or no formula at all: "the integral of x³ from 3 to 4" says nothing of the
+    area between x² and 2x, nor "the area under y = x from 2 to 5" of the one between y = x
+    and y = x². A region the edges' meeting bounds is held to it too."""
+    own = region_intervals(question)
     stated = [
         interval
-        for interval, said in question.ties
-        if interval in region_intervals(question) and _said_of(said, edges)
+        for interval, said, _task in question.ties
+        if interval in own and _said_of(said, edges)
     ]
     near = 1e-6 * max(1.0, abs(low), abs(high))
     for interval in stated:
@@ -93,7 +111,16 @@ def on_a_stated_interval(
 def _said_of(said: Sequence[Any], edges: Sequence[Any]) -> bool:
     # An edge is a formula of the real x; the question's are of x as written.
     curves = [edge.xreplace({X: _WRITTEN_X}) for edge in edges if edge.free_symbols]
-    return not said or any(same_value(one, edge) for one in said for edge in curves)
+    # Each written formula in its own letter, read as one of x: v(t) = t² is the curve t².
+    in_x = [_in_written_x(one) for one in said]
+    # A region edged by level lines alone (y = 3 and the x-axis) is said of by no formula:
+    # only an interval its clause writes no formula with is its own.
+    return not said or (bool(curves) and all(any(same_value(o, e) for o in in_x) for e in curves))
+
+
+def _in_written_x(formula: Any) -> Any:
+    letters = formula.free_symbols
+    return formula.subs(next(iter(letters)), _WRITTEN_X) if len(letters) == 1 else formula
 
 
 def stated_end(number: Any, question: PlotQuestion, meet: float) -> Any | None:
@@ -105,7 +132,7 @@ def stated_end(number: Any, question: PlotQuestion, meet: float) -> Any | None:
     edge = next((edge for edge in question.edges if same_number(edge, number)), None)
     if edge is not None:
         return edge
-    for interval in question.intervals:
+    for interval in question.x_intervals:
         if float(interval.low) <= meet <= float(interval.high):
             ends = (interval.low, interval.high)
             end = next((end for end in ends if same_number(end, number)), None)

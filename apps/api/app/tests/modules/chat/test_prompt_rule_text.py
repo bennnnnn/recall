@@ -84,9 +84,10 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # ```worked block naming the language of its reply first (prompt_constants.worked, live and
 # review 2026-11-15); then a ```worked measured answer to 3 significant figures and a yes-or-no
 # part answered in words (prompt_constants.worked, phys30 2026-11-16).
+# Then the solid a shaded region sweeps (the "solid" item, 2026-11-16).
 _RULES = 200
-_RULE_GRAMS = 18396
-_RULE_GRAMS_SHA = "4d1dce785f7d85b5"
+_RULE_GRAMS = 18413
+_RULE_GRAMS_SHA = "81743202965a1124"
 
 
 def _rules() -> list[str]:

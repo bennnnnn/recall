@@ -14,7 +14,7 @@ from typing import Any
 
 from sympy import Symbol
 
-from app.modules.math.drawing import plot_marks, plot_regions, plot_volumes
+from app.modules.math.drawing import plot_marks, plot_regions, plot_solid, plot_volumes
 from app.modules.math.drawing.plot_check import asked_places
 from app.modules.math.drawing.plot_curves import add_curves
 from app.modules.math.drawing.plot_draw import draw_plot
@@ -30,6 +30,7 @@ from app.modules.math.drawing.plot_items import (
     Rectangles,
     Shade,
     Slice,
+    Solid,
     Touching,
 )
 from app.modules.math.drawing.plot_pieces import formula, formula_shape
@@ -64,8 +65,8 @@ def plot_spec(
         _lines_as_curves(scene)
     if not scene.curves:
         return None
-    # A slice is cut from a region and turned about an axis: it comes after both.
-    for item in sorted(read, key=lambda found: isinstance(found, Slice)):
+    # A slice and a solid are cut from a region and turned about an axis: they come last.
+    for item in sorted(read, key=lambda found: isinstance(found, Slice | Solid)):
         try:
             _add(item, question, scene)
         except Exception:  # SymPy's and numpy's own errors included: that item is left out.
@@ -153,5 +154,7 @@ def _add(item: Any, question: PlotQuestion, scene: Scene) -> None:
         plot_regions.axis(item, question, scene)
     elif isinstance(item, Average):
         plot_volumes.average(item, question, scene)
+    elif isinstance(item, Solid):
+        plot_solid.solid_of(scene)
     elif isinstance(item, Slice):
         plot_volumes.slice_of(item, scene)
