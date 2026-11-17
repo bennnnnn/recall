@@ -22,6 +22,7 @@ problems in parts had no picture at all: no solver reads a question in parts.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import re
 from dataclasses import dataclass, field
@@ -253,10 +254,11 @@ async def attach_drawing(state: FinalizeState) -> str:
         return text
     # What came of the reply's descriptions, so a picture that did not check shows.
     logger.info(
-        "described pictures subject=%s blocks=%d drawn=%d",
+        "described pictures subject=%s blocks=%d drawn=%d shapes=%s",
         drawing.subject,
         len(descriptions),
         len(fences),
+        [_shape(body) for body in descriptions],
     )
     if not fences:
         return text
@@ -271,3 +273,16 @@ async def attach_drawing(state: FinalizeState) -> str:
     # Committed, so a later pass that falls back keeps the picture.
     state.committed = fallback_text(text, server_text=state.server_text)
     return text
+
+
+def _shape(body: str) -> str:
+    """What a description describes, for the log: its kind, scene and part names, no value."""
+    try:
+        data = json.loads(body)
+    except ValueError:
+        return "not JSON"
+    if not isinstance(data, dict):
+        return "not an object"
+    parts = data.get("values")
+    names = sorted(parts) if isinstance(parts, dict) else []
+    return f"{data.get('kind')}:{data.get('scene', '')}:{','.join(names)}"

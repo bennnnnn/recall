@@ -9,8 +9,9 @@ does not state is never drawn: the model may name a quantity, never invent one.
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from app.modules.physics.givens import PHYSICS_UNITS
 from app.services.latex_markup import without_markup
@@ -18,6 +19,8 @@ from app.services.law_binding.fit import read_givens
 from app.services.law_binding.givens import Given
 from app.services.number_text import fold_scientific
 
+# "the 5 kg mass": a value written straight after "the" names a body already given.
+_THE = re.compile(r"\bthe\s+$", re.IGNORECASE)
 # The words that say which harmonic, where a question writes no number.
 _ORDINALS = {"fundamental": 1, "first": 1, "second": 2, "third": 3, "fourth": 4, "fifth": 5}
 
@@ -33,6 +36,7 @@ class Stated:
 
     text: str
     left: list[Given]
+    taken: list[Given] = field(default_factory=list)
 
     @classmethod
     def of(cls, text: str) -> Stated:
@@ -61,6 +65,7 @@ class Stated:
             )
             if same:
                 self.left.remove(given)
+                self.taken.append(given)
                 return given
         return None
 
@@ -69,7 +74,16 @@ class Stated:
         30 m to a wall a projectile hits, the second lens's focal length, the pulley's own
         mass. A scene that leaves one out draws another situation than the question's."""
         kinds = {_dimension(sample) for sample in samples}
-        return any(given.dimension in kinds for given in self.left)
+        # "the speed of the 5 kg mass" names a body the scene already holds, by the value it
+        # was given: no new value. "a disk of mass 2 kg" beside a 2 kg mass is a new body.
+        return any(
+            given.dimension in kinds
+            and not (
+                _THE.search(self.text[max(0, given.start - 6) : given.start])
+                and any(_same(given, used) for used in self.taken)
+            )
+            for given in self.left
+        )
 
     def harmonic(self, written: int) -> bool:
         """The question names this harmonic: its number, or its word ("third")."""
@@ -77,6 +91,14 @@ class Stated:
         if any(word in lower and n == written for word, n in _ORDINALS.items()):
             return True
         return any(g.dimension is None and g.value == written for g in self.left)
+
+
+def _same(one: Given, other: Given) -> bool:
+    if one.dimension != other.dimension:
+        return False
+    if one.si is None or other.si is None:
+        return math.isclose(one.value, other.value, rel_tol=1e-9)
+    return math.isclose(one.si, other.si, rel_tol=1e-9)
 
 
 def _dimension(sample: str) -> str | None:

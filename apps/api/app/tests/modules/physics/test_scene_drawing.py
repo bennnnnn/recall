@@ -208,3 +208,22 @@ def test_one_setup_gets_one_scene_and_field_blocks_are_the_fields() -> None:
             ],
         )
     ) == ["field"]
+
+
+def test_a_body_named_again_by_its_value_is_no_new_value() -> None:
+    """ "the speed of the 5 kg mass" names the Atwood machine's own 5 kg mass (live round,
+    2026-11-16); a pulley "of mass 2 kg" beside a 2 kg mass is a body the scene leaves out."""
+    again = _ATWOOD + " Find the speed of the 5 kg mass after it has fallen 1.2 m."
+    atwood = _scene(scene="atwood", values={"mass1": "3 kg", "mass2": "5 kg"})
+    assert _types(scene_fences([atwood], [again])) == ["free_body"]
+    disk = (
+        "Masses of 2 kg and 4 kg hang from a string over a pulley that is a uniform solid "
+        "disk of mass 2 kg and radius 0.1 m. Find the acceleration."
+    )
+    pair = _scene(scene="atwood", values={"mass1": "2 kg", "mass2": "4 kg"})
+    assert scene_fences([pair], [disk]) == []
+
+
+def test_a_harmonic_written_among_the_values_is_the_scenes_claim() -> None:
+    described = _scene(scene="standing_wave", values={"length": "1.2 m", "harmonic": "3"})
+    assert _types(scene_fences([described], [_STRING])) == ["wave"]

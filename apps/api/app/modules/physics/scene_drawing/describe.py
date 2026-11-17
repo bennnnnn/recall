@@ -48,6 +48,11 @@ def described_scene(body: str, texts: Sequence[str]) -> list[SimulationBlockSpec
         return []
     if not isinstance(data, dict) or data.get("kind") != "scene":
         return []  # a field picture's block, or another kind
+    # A harmonic is the scene's claim, wherever the reply put it.
+    values = data.get("values")
+    if isinstance(values, dict) and "harmonic" in values and "harmonic" not in data:
+        written = values.pop("harmonic")
+        data["harmonic"] = int(written) if str(written).isdigit() else written
     try:
         described = _Scene.model_validate(data)
     except ValidationError as exc:
