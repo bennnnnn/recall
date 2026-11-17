@@ -37,6 +37,10 @@ class Part:
     param: str
     sample: str
     required: bool = True
+    # Every value the question states of this part's kind must be one the scene uses: an
+    # unused one is another body or another situation (a pulley's own mass, a wall). A
+    # label only (a block's mass on a slope) says nothing of the situation.
+    whole: bool = True
 
 
 @dataclass(frozen=True)
@@ -117,7 +121,7 @@ SCENES: dict[str, SceneKind] = {
         {
             "angle": Part("angle", _ANGLE),
             "friction": Part("mu", ""),
-            "mass": Part("m", _MASS, required=False),
+            "mass": Part("m", _MASS, required=False, whole=False),
             "g": Part("g", "m/s^2", required=False),
         },
         _solved("friction", "incline_acceleration", {"motion_sign": (1.0, "")}),

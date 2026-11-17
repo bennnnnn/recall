@@ -89,7 +89,7 @@ def _values(kind: SceneKind, described: _Scene, stated: Stated) -> dict[str, Giv
             return None
         held[name] = given
     # The scene is the question's whole setup: every value it states of these parts' kinds.
-    if stated.leaves_out([part.sample for part in kind.parts.values()]):
+    if stated.leaves_out([part.sample for part in kind.parts.values() if part.whole]):
         return None
     # Each body's speed is written beside its own mass, never the other body's.
     masses = [mass for mass, _speed in kind.bodies]

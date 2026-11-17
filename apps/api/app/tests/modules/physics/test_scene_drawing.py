@@ -227,3 +227,10 @@ def test_a_body_named_again_by_its_value_is_no_new_value() -> None:
 def test_a_harmonic_written_among_the_values_is_the_scenes_claim() -> None:
     described = _scene(scene="standing_wave", values={"length": "1.2 m", "harmonic": "3"})
     assert _types(scene_fences([described], [_STRING])) == ["wave"]
+
+
+def test_a_block_on_a_slope_needs_no_mass_to_be_drawn() -> None:
+    """The block's mass is a label, not the situation: a reply that leaves it out still gets
+    the incline (live round, 2026-11-16)."""
+    described = _scene(scene="incline", values={"angle": "35 degrees", "friction": "0.25"})
+    assert _types(scene_fences([described], [_INCLINE])) == ["incline"]
