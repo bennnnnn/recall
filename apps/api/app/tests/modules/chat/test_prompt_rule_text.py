@@ -86,10 +86,12 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # picture in a ```draw block (physics.field_lines.contract), physics' pack saying a situation
 # is never drawn in characters, a table or Mermaid (PHYSICS_NO_SKETCH), and a sentence around
 # the working stating only numbers the working shows (VERIFIED_SOLVE_SAFETY_HINT; the owner's
-# GCSE set, 2026-11-16).
-_RULES = 202
-_RULE_GRAMS = 18613
-_RULE_GRAMS_SHA = "44daacc7129f979d"
+# GCSE set, 2026-11-16); then physics' scene contract, a problem's setup described by the
+# scene and the question's values, never a coordinate (physics.scene_drawing.contract, the
+# owner's round of 30 hard problems, 2026-11-16).
+_RULES = 203
+_RULE_GRAMS = 18899
+_RULE_GRAMS_SHA = "33dee20c3b76b4e8"
 
 
 def _rules() -> list[str]:

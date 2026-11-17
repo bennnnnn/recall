@@ -109,8 +109,8 @@ def _state(ctx: StreamContext, text: str, *, cancelled: bool = False) -> Finaliz
         # The contract draws graphs too (kind "plot").
         ("maths", "graph", True),
         ("maths", "none", False),
-        # Physics' own contract (``test_drawing_turn_physics``).
-        ("physics", "graph", False),
+        # Physics' own contract (``test_drawing_turn_physics``); a photo is never drawn.
+        ("physics", "photo", False),
         ("everyday", "diagram", False),
         ("maths", "image", False),
     ],
