@@ -421,8 +421,12 @@ def test_a_bound_written_with_pi_is_grounded_in_the_question(
     request = FigureRequest.model_validate(
         {"kind": "function", "expr": "sin(x)", "x_min": low, "x_max": high}
     )
-    assert grounded(request, [question])
+    from app.modules.math.drawing.plot_question import read_plot_question
+
+    x_values = read_plot_question([question]).x_values
+    assert grounded(request, [question], x_values)
     wrong = FigureRequest.model_validate(
         {"kind": "function", "expr": "sin(x)", "x_min": "-π", "x_max": "π"}
     )
-    assert not grounded(wrong, ["Sketch y = sin x from -π/2 to π/2."])
+    texts = ["Sketch y = sin x from -π/2 to π/2."]
+    assert not grounded(wrong, texts, read_plot_question(texts).x_values)
