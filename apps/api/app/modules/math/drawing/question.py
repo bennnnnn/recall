@@ -22,7 +22,6 @@ from app.modules.math.figure.grounding import (
     written_numbers,
     written_pairs,
 )
-from app.modules.math.figure.shape_names import names_a_solid
 
 Triple = tuple[Fraction, Fraction, Fraction]
 Point = tuple[Fraction, ...]
@@ -109,13 +108,16 @@ class Question:
 
     @property
     def flat(self) -> bool:
-        """It writes pairs and no triple, and says nothing of space: its points and vectors
-        lie in the plane, and one described in space as (a, b, 0) is its pair (a, b) (d06's
-        u = (2, 1)). A question that names z, space, 3-D or a solid ("on the face z = 0 of a
-        cube … draw them in 3D") is seen in space."""
-        if not self.pairs or self.triples:
-            return False
-        return not _IN_SPACE.search(self.words) and not names_a_solid([self.words])
+        """It writes pairs, no triple and no z-coordinate: its points and vectors lie in the
+        plane (d06's u = (2, 1)). One that writes a z-coordinate or a plane z = c ("on the
+        face z = 0 of a cube") is seen in space; "z = 3 + 4i", a complex number, is no
+        coordinate, nor is the "space between" two vectors."""
+        return bool(self.pairs) and not self.triples and not _Z_COORDINATE.search(self.words)
+
+    def states_pair_at(self, triple: Triple) -> bool:
+        """``triple`` is (a, b, 0) for a pair (a, b) the question writes: in the plane, or
+        placed on z = 0 in a scene in space."""
+        return triple[2] == 0 and (triple[0], triple[1]) in self.pairs
 
     def states_triple(self, triple: Triple) -> bool:
         """A point the question places, or the origin. A point it does not ((4, 0, 0) below
@@ -123,7 +125,7 @@ class Question:
         two points √12 from it."""
         if all(value == 0 for value in triple) or triple in self.triples:
             return True
-        return self.flat and triple[2] == 0 and (triple[0], triple[1]) in self.pairs
+        return self.states_pair_at(triple)
 
     def states_vector(self, components: Triple, from_origin: bool) -> bool:
         """A vector the question writes: from the origin, any triple it writes (any pair, in
@@ -131,7 +133,7 @@ class Question:
         writes no arrow from B (round 2's review drew A to A + B)."""
         if (from_origin and components in self.triples) or components in self.vectors:
             return True
-        if not self.flat or components[2] != 0:
+        if components[2] != 0:
             return False
         pair = (components[0], components[1])
         return pair in (self.pairs if from_origin else self.plane_vectors)
@@ -224,8 +226,10 @@ def _plane_vectors(text: str) -> set[tuple[Fraction, Fraction]]:
 
 
 _EXACT_PLACES = 9
-# Words that put a question's points in space, whatever pairs it writes.
-_IN_SPACE = re.compile(r"\b(?:3-?d|three[- ]dimension\w*|in space|space\b|z\b|z-axis|xyz)")
+# A z-coordinate or a plane z = c the question writes; a complex z = a + bi is none.
+_Z_COORDINATE = re.compile(
+    r"\bz\s*=\s*[-+]?\d+(?:\.\d+)?(?!\s*[-+]\s*\d*\.?\d*\s*i\b)(?![\d.]*\s*i\b)|\bz-coordinate|\bz-axis"
+)
 
 
 def _reply_values(reply: str) -> set[tuple[str, float, int]]:

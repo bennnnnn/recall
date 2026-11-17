@@ -76,8 +76,7 @@ describe("a plot fence", () => {
 });
 
 describe("plotDrawing", () => {
-  const PALETTE = ["#111111", "#222222", "#333333", "#444444"];
-  const drawing = (id: string) => plotDrawing(parsePlotGraph(JSON.stringify(body(id)))!, PALETTE);
+  const drawing = (id: string) => plotDrawing(parsePlotGraph(JSON.stringify(body(id)))!, lightTheme);
 
   it("hands a function in pieces to the function graph apart, with its circles (round 3, c008)", () => {
     const { drawn, points } = drawing("c008");
@@ -95,10 +94,16 @@ describe("plotDrawing", () => {
     expect(points.marks.map((m) => m.label)).toEqual(["(0, \u22122)", "(4, 6)"]);
   });
 
+  it("paints a point in the neutral colour as the lines are, not as a curve's", () => {
+    const graph = { ...body("c008"), points: [{ x: 0, y: 0, open: false, label: "", color: PLOT_NEUTRAL }] };
+    const { points } = plotDrawing(parsePlotGraph(JSON.stringify(graph))!, lightTheme);
+    expect(points.marks[0].color).toBe(lightTheme.textSecondary);
+  });
+
   it("names a nearest point's distance in the legend, and dots no curve sample", () => {
     const line = { start: [0, 2], end: [1.2, 1.5], role: "segment", label: "≈ 1.323", color: 2 };
     const graph = { ...body("c008"), lines: [line] };
-    const { legend, drawn } = plotDrawing(parsePlotGraph(JSON.stringify(graph))!, PALETTE);
+    const { legend, drawn } = plotDrawing(parsePlotGraph(JSON.stringify(graph))!, lightTheme);
     expect(legend.map((row) => row.label)).toContain("≈ 1.323");
     expect(drawn.every((series) => series.marked === false)).toBe(true);
   });

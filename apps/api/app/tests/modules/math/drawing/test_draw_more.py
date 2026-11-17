@@ -116,18 +116,33 @@ def test_a_plane_vector_from_another_point_only_as_written_as_a_vector() -> None
     assert other is None or not any(s.get("label") == "w" for s in other["segments"])
 
 
+def _shown(figure: dict[str, Any] | None) -> set[str]:
+    assert figure is not None
+    return {p["name"] for p in figure["points"] if p.get("show")}
+
+
 @pytest.mark.parametrize(
-    "question",
+    ("question", "items", "in_space"),
     [
-        "On the face z = 0 of a cube, draw the vectors u = (2, 1) and v = (1, 3) in 3D.",
-        "Draw the vectors u = (2, 1) and v = (1, 3) in space.",
-        "A box stands on the floor; draw u = (2, 1) and v = (1, 3) on its base.",
+        # A z-coordinate or a plane z = c puts the picture in space, the pairs on z = 0.
+        ("Plot A(1, 2) and B(4, 6) on the face z = 0 of a cube with corner (0, 0, 0). Draw "
+         "them in 3D.", [{"item": "point", "name": "A", "at": [1, 2, 0]},
+                         {"item": "point", "name": "B", "at": [4, 6, 0]}], True),
+        # A pair beside a triple is placed on z = 0, not refused.
+        ("Draw a = (1, 2, 2) and the vector u = (2, 1).", [_vector("a", [1, 2, 2]),
+                                                          _vector("u", [2, 1, 0])], True),
+        # No coordinate: the complex z = 3 + 4i, the everyday "space between them".
+        ("The complex number z = 3 + 4i is the vector (3, 4). Draw it from the origin.",
+         [_vector("z", [3, 4, 0])], False),
+        ("Draw the vectors u = (2, 1) and v = (1, 3) and the space between them.",
+         [_vector("u", [2, 1, 0]), _vector("v", [1, 3, 0])], False),
     ],
-)
-def test_a_question_that_names_space_or_a_solid_is_seen_in_space(question: str) -> None:
-    figure = _space(question, _vector("u", [2, 1, 0]), _vector("v", [1, 3, 0]))
-    # The pairs are no triples it writes: in space, nothing it states is drawn.
-    assert figure is None or "z" in {p["name"] for p in figure["points"] if p.get("show")}
+)  # fmt: skip
+def test_only_a_triple_or_a_z_coordinate_puts_the_picture_in_space(
+    question: str, items: list[dict[str, Any]], in_space: bool
+) -> None:
+    shown = _shown(_space(question, *items))
+    assert ("z" in shown) is in_space and {"x", "y"} <= shown
 
 
 def test_normals_and_level_lines_take_a_colour_no_curve_or_line_uses() -> None:
