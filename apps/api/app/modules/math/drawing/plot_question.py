@@ -278,8 +278,10 @@ def _without_unit(formula: str, given: frozenset[str] = frozenset()) -> str:
         head, _, last = formula.rpartition(" ")
         head = head.rstrip()
         bare = re.sub(r"(?:\^|\*\*)?-?[0-9\u00b2\u00b3]+", "", last.replace("/", ""))
-        if not head or not bare.isalpha() or bare in given:
-            return formula
+        if not head or not bare.isalpha() or bare in given or bare.lower() in _MATH_WORDS:
+            return formula  # "2 pi" and "(x + 1) pi" end in a constant, not a unit
+        if head.rsplit(" ", 1)[-1].lower() in _MATH_WORDS:
+            return formula  # "2 sin s": the last word is the function's argument
         if head[-1:].isdigit() and (len(bare) > 1 or "/" in last):
             formula = head
             continue
@@ -551,10 +553,10 @@ def read_plot_question(texts: Sequence[str], facts: GraphFacts | None = None) ->
         ),
         clauses=tuple(clause for text in readable for clause in _clauses(text, letters)),
         words=" ".join(readable).lower(),
+        # The subject's stretch grounds the curve and a region's ends (``stated_end``), but
+        # ties no region to itself: "shade where the velocity is negative" stands on [1, 3].
         intervals=tuple(i for text in readable for i in intervals(text, letters)) + motion,
-        # The motion's interval is said of the motion itself: of every region on its graph.
-        ties=tuple(tie for text in readable for tie in _ties(text, letters))
-        + tuple((interval, (), True) for interval in motion),
+        ties=tuple(tie for text in readable for tie in _ties(text, letters)),
         variables=frozenset(variables),
         edges=tuple(v for lines, _points in xs for v in lines),
         x_points=tuple(v for _lines, points in xs for v in points),

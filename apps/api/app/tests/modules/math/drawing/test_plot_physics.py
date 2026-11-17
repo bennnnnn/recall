@@ -66,3 +66,10 @@ def test_a_force_the_question_does_not_write_is_not_drawn() -> None:
 )  # fmt: skip
 def test_a_unit_is_read_only_where_it_is_one(question: str, y: str, drawn: bool) -> None:
     assert (_plot(question, _curve("f", y)) is not None) is drawn
+
+
+@pytest.mark.parametrize("formula", ["2 pi", "(x + 1) pi", "2 sin s", "3 cos t"])
+def test_a_constant_or_a_function_s_argument_is_no_unit(formula: str) -> None:
+    from app.modules.math.drawing.plot_question import _without_unit
+
+    assert _without_unit(formula) == formula

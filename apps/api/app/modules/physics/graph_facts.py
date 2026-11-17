@@ -30,7 +30,8 @@ from app.services.graph_facts import GraphFacts, GraphFormula
 from app.services.number_text import count_word_pattern, number_word_value
 
 _T = Symbol("t")
-_NUMBER = r"-?\d+(?:\.\d+)?"
+# A number read from its first digit only (never again from inside a digit run: linear).
+_NUMBER = r"(?<![\d.])-?\d+(?:\.\d+)?"
 # The units of an acceleration and of a velocity, as plain text writes them: "m/s**2",
 # "m s^-2", "ms^-2"; "m/s", "m s^-1", "ms^-1".
 _PER_SECOND_SQUARED = r"m\s*/\s*s(?:\^|\*\*)2|m\s*s(?:\^|\*\*)-2|ms(?:\^|\*\*)-2"
@@ -60,7 +61,13 @@ _AT_TIME = re.compile(
     rf"\bt\s*=\s*(?P<t>{_NUMBER})|\bafter\s+(?P<n>\d+(?:\.\d+)?|{count_word_pattern(high=100)})"
     r"\s*(?:s|secs?|seconds?)\b"
 )
-_AT_THE_START = re.compile(r"\b(?:starts?|started|starting|initially|from rest)\b")
+_AT_THE_START = re.compile(r"\b(?:starts?|started|starting|initial|initially|from rest)\b")
+# A clause that asks, not states: its time is the one asked about ("find its velocity when
+# t = 3 s"), and gives none to the clauses beside it.
+_ASKED = re.compile(
+    r"^\s*(?:find|calculate|determine|work\s+out|show|sketch|draw|plot|what|how|state|"
+    r"hence|deduce|evaluate|give)\b"
+)
 _FROM_REST = re.compile(r"\bfrom rest\b|\bat rest\b")
 # Where it starts is where its displacement is measured from: "starts from a point A".
 # The displacement named from the start: "its displacement from its starting point".
@@ -70,10 +77,14 @@ _FROM_THE_START = re.compile(
 )
 # A start verb, and the place it starts at or from: "starts from a point A", "starts from
 # rest at O", "moves off from the origin"; "when t = 2 s it is at O" is no start.
+# Read in the question's own case: a point is a capital ("from O", "from a point A"), never
+# the article "a"; the span after the verb crosses no number (a distance it states).
 _STARTS_FROM = re.compile(
-    r"\b(?:starts?|started|starting|sets?\s+off|moves?|is\s+released|leaves)\b[^.;,]*?"
-    r"\b(?:at|from)\s+(?!rest\b)(?:the\s+origin|a\s+point\s+\w+|[a-z])\b"
+    r"\b(?:[Ss]tarts?|[Ss]tarted|[Ss]tarting|[Ss]ets?\s+off|[Mm]oves?|is\s+released|leaves)\b"
+    r"[^.;,\d]*?\b(?:at|from)\s+(?!rest\b)(?:the\s+origin|a\s+point\s+[A-Z]\b|[A-Z]\b)"
 )
+# A distance from a place stated with the start: "starts from rest 10 m from O".
+_DISTANCE_FROM = re.compile(rf"{_NUMBER}\s*m\s+from\b")
 _SENTENCES = re.compile(r"(?<=[.;!?])\s+")
 # A sentence's clauses: each value is said at the time its own clause names, or, naming
 # none, at the one the clause before it (else after it) names.
@@ -112,19 +123,25 @@ def _clause_time(clause: str) -> Any | None:
     return 0 if _AT_THE_START.search(clause) else None
 
 
-def _timed_clauses(text: str) -> list[tuple[Any, str]]:
-    """Each clause with the time it says its values at: its own, or the clause before's
-    within the sentence (else the one after); a clause of a sentence naming no time, none."""
-    timed: list[tuple[Any, str]] = []
-    for sentence in _SENTENCES.split(text.lower()):
+def _timed_clauses(text: str) -> list[tuple[Any, str, str]]:
+    """Each stating clause with the time it says its values at, lowered and as written: its
+    own, or the stating clause before's within the sentence (else the one after). A clause
+    that asks ("find its velocity when t = 3 s") states nothing and lends no time; a clause
+    of a sentence naming no time, none."""
+    timed: list[tuple[Any, str, str]] = []
+    for sentence in _SENTENCES.split(text):
         clauses = [c for c in _CLAUSES.split(sentence) if c.strip()]
-        times = [_clause_time(c) for c in clauses]
+        lowered = [c.lower() for c in clauses]
+        asked = [_ASKED.search(c) is not None for c in lowered]
+        times = [None if asks else _clause_time(c) for c, asks in zip(lowered, asked, strict=True)]
         for i, clause in enumerate(clauses):
+            if asked[i]:
+                continue
             before = [t for t in times[: i + 1] if t is not None]
             after = [t for t in times[i + 1 :] if t is not None]
             at = before[-1] if before else (after[0] if after else None)
             if at is not None:
-                timed.append((at, clause))
+                timed.append((at, lowered[i], clause))
     return timed
 
 
@@ -136,7 +153,8 @@ def _stated(text: str) -> tuple[list[tuple[Any, Any]], list[tuple[Any, Any]]]:
     velocities: list[tuple[Any, Any]] = []
     positions: list[tuple[Any, Any]] = []
     started = False
-    for at, clause in _timed_clauses(text):
+    measured_from = False
+    for at, clause, written in _timed_clauses(text):
         velocities += [
             (at, nsimplify(m.group("v"), rational=True)) for m in _VELOCITY.finditer(clause)
         ]
@@ -147,11 +165,14 @@ def _stated(text: str) -> tuple[list[tuple[Any, Any]], list[tuple[Any, Any]]]:
             for match in _POSITION.finditer(clause)
             if (value := _signed(match)) is not None
         ]
-        started = started or (at == 0 and _STARTS_FROM.search(clause) is not None)
+        started = started or (at == 0 and _STARTS_FROM.search(written) is not None)
+        measured_from = measured_from or (at == 0 and _DISTANCE_FROM.search(clause) is not None)
     # Its displacement is measured from where it starts, when the question names that place
     # (O, the origin, a point A) or the displacement from the start, and states no position:
-    # "initially" or "from rest" says nothing of where it is.
-    if (started or _FROM_THE_START.search(text.lower())) and not positions:
+    # "initially" or "from rest" says nothing of where it is, nor does a start some
+    # distance from O ("starts from rest 10 m from O": its side unsaid).
+    starts_at_its_place = started or _FROM_THE_START.search(text.lower()) is not None
+    if starts_at_its_place and not positions and not measured_from:
         positions.append((0, 0))
     return velocities, positions
 
@@ -259,7 +280,8 @@ def motion_interval(text: str) -> tuple[str, Any, Any] | None:
 
 def read_graph_facts(text: str) -> GraphFacts:
     """Physics' reader for maths' plot (``services.graph_facts``): the motion's formulas in
-    t and the interval it is asked about, as SymPy text. Runs in the SymPy pool."""
+    t and the interval it is asked about, as SymPy text. Runs in the SymPy pool. The text
+    keeps its case: a point is a capital letter."""
     readable = text.translate(_PLAIN)
     formulas = tuple(
         GraphFormula(name, str(expr), unit) for name, expr, unit in motion_formulas(readable)

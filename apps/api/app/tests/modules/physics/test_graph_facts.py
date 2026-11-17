@@ -194,3 +194,32 @@ def test_a_position_is_bound_only_where_its_sign_is_said(question: str, s: str |
         assert "s" not in found
     else:
         assert (found["s"] - sympify(s, locals={"t": _t()})).equals(0)
+
+
+@pytest.mark.parametrize(
+    ("question", "formulas"),
+    [
+        # "Initial" is t = 0; the asked clause lends no time (PR #2486 review).
+        ("A particle with initial velocity 4 m/s moves with acceleration 2t m/s², find its "
+         "velocity when t = 3 s and draw the v–t graph.", {"a": "2*t", "v": "t**2 + 4"}),
+        # A start some distance from O fixes no s(0) = 0; "a" is no point.
+        ("A particle starts from rest 10 m from O with acceleration 2 m/s². Sketch s.",
+         {"a": "2", "v": "2*t"}),
+        ("A particle starts from rest at a corner with acceleration 2 m/s². Sketch s.",
+         {"a": "2", "v": "2*t"}),
+        ("A particle starts from rest at O with acceleration 2 m/s². Sketch s.",
+         {"a": "2", "v": "2*t", "s": "t**2"}),
+    ],
+)  # fmt: skip
+def test_review_round_two_cases(question: str, formulas: dict[str, str]) -> None:
+    test_the_motion_is_worked_out_from_the_values_it_states(question, formulas)
+
+
+def test_a_region_where_the_velocity_is_negative_stands_inside_the_motion() -> None:
+    # The motion's [0, 5] grounds the curve but ties no region: [1, 3] is drawn.
+    question = (
+        "A particle has velocity 3 m/s at t = 0 and acceleration (2t - 4) m/s² for 5 s. Draw "
+        "the v-t graph and shade the region where the velocity is negative."
+    )
+    graph = _plot(question, _curve("v", "t^2 - 4t + 3"), _shade("v", "x-axis", "1", "3"))
+    assert graph is not None and len(graph.regions) == 1
