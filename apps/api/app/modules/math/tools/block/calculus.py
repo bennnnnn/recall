@@ -174,12 +174,14 @@ def _integrate(
     if intent.integral_lower is None and _is_log_over_x_integral(expr, intent.variable):
         answer = rf"\ln\left|\ln\left({intent.variable}\right)\right| + C"
         direct = _log_over_x_reply(intent.variable, answer)
-        return replace(finish_with_answer(lines, answer), direct_reply=direct)
+        return replace(finish_with_answer(lines, answer), direct_reply=direct, antiderivative=True)
     if intent.integral_lower is None:
         # The service computes one antiderivative; the user's indefinite
         # integral asks for the family, including on the direct reply path.
         answer += " + C"
     block = _finish_operation(out, lines, answer, trace, given)
+    if intent.integral_lower is None:
+        block = replace(block, antiderivative=True)
     if intent.integral_lower is not None and intent.integral_upper is not None:
         return replace(block, direct_reply=_definite_integral_reply(intent, expr, answer))
     if not trace:

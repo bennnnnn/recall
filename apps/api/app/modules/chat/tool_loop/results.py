@@ -102,6 +102,8 @@ class ToolResults:
     # call produces a graph fence.
     canonical_by_type: dict[str, dict[str, Any]] = field(default_factory=dict)
     canonical_answer: str | None = None
+    # The answer is an indefinite integral's antiderivative (``math.card_form``).
+    antiderivative: bool = False
     terminal_image: TerminalImageResult | None = None
     search_hits: list[WebSearchHit] = field(default_factory=list)
 
@@ -116,6 +118,8 @@ class ToolResults:
                 self.canonical_by_type[fence_type] = fence
         if answer:
             self.canonical_answer = answer
+            data = result.data if result is not None and isinstance(result.data, dict) else {}
+            self.antiderivative = data.get("antiderivative") is True
         image = _terminal_image_from_tool_result(result) if result else None
         if image is not None:
             self.terminal_image = image
@@ -132,4 +136,5 @@ class ToolResults:
             canonical_fence=all_fences[0] if all_fences else None,
             canonical_fences=all_fences,
             canonical_answer=self.canonical_answer,
+            antiderivative=self.antiderivative,
         )

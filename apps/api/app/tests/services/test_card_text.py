@@ -103,3 +103,30 @@ def test_a_single_card_loses_its_bold_too() -> None:
 )
 def test_a_card_holds_tex_with_its_unit_power_after_the_unit(value: str, card: str) -> None:
     assert card_maths(value) == card
+
+
+@pytest.mark.parametrize(
+    ("value", "card"),
+    [
+        # The unit-5 round (2026-11-16): a unit in words set upright ran its words together,
+        # and cards kept the delimiters of the line they came from.
+        ("A = \\frac{1}{3}\\,\\mathrm{square units}", "A = \\frac{1}{3}\\,\\text{square units}"),
+        # Words beside the maths: the phone draws it as a sentence, its maths as maths.
+        ("$A = 32$ square units", "$A = 32$ square units"),
+        (
+            "$V = \\frac{28\\pi}{3}\\,\\mathrm{cubic units}$",
+            "V = \\frac{28\\pi}{3}\\,\\text{cubic units}",
+        ),
+        ("$$A = \\sqrt{2} - 1 \\approx 0.414$$", "A = \\sqrt{2} - 1 \\approx 0.414"),
+        ("\\(V=\\frac{4}{3}\\pi r^3\\)", "V=\\frac{4}{3}\\pi r^3"),
+        ("\\[x = 3\\]", "x = 3"),
+        # A note in words stays beside the maths, which keeps its marks.
+        (
+            "$A = 8.22\\,\\mathrm{square units}$ (to 3 s.f.)",
+            "$A = 8.22\\,\\text{square units}$ (to 3 s.f.)",
+        ),
+        ("Velocity at $t = 5$: 51.75 m/s", "Velocity at $t = 5$: 51.75 m/s"),
+    ],
+)
+def test_a_card_holds_tex_alone_and_a_unit_in_words_as_text(value: str, card: str) -> None:
+    assert card_maths(value) == card

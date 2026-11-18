@@ -575,6 +575,11 @@ def graph_expr_pair(text: str) -> tuple[str, str] | None:
     return None
 
 
+_DEFINES_A_FUNCTION = re.compile(r"\b[a-z]\s*\(\s*x\s*\)\s*=")
+# The words that put "x = 2" on a curve: "at x = 2", "when x = 2", "where x = 2".
+_AT_A_POINT = re.compile(r"\b(?:at|when|where)\s+x\s*$")
+
+
 def vertical_line_x(text: str) -> float | None:
     """``x = 4`` after a graph cue — not ``3x=9`` and not when ``y=`` is present.
 
@@ -586,12 +591,18 @@ def vertical_line_x(text: str) -> float | None:
     lower = split_glued_viz_runs(strip_inline_math_delims(text).lower())
     if _standalone_equals(lower, "y") is not None:
         return None
+    # With f(x) = … defined, an "x = 2" tied to it is a point on its curve ("the tangent to
+    # f(x) = √(9 - x²) at x = 2 … Draw the curve"); "the vertical line x = 2" stays a line.
+    defines = _DEFINES_A_FUNCTION.search(lower) is not None
     idx = 0
     while True:
         hit = _standalone_equals(lower, "x", start=idx)
         if hit is None:
             return None
         eq_at, after_eq = hit
+        if defines and _AT_A_POINT.search(lower, 0, eq_at):
+            idx = eq_at + 1
+            continue
         m = DECIMAL_LITERAL.match(lower, after_eq)
         if m is None:
             idx = eq_at + 1

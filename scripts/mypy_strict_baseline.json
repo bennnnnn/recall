@@ -5,7 +5,7 @@
     "app/modules/chemistry/reactions.py": 1,
     "app/modules/chemistry/solvers/titration.py": 2,
     "app/modules/math/__init__.py": 1,
-    "app/modules/math/calculus_applications.py": 7,
+    "app/modules/math/calculus_applications.py": 5,
     "app/modules/math/formulas.py": 2,
     "app/modules/math/function_analysis.py": 1,
     "app/modules/math/match/__init__.py": 1,
