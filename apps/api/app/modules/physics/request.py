@@ -12,6 +12,7 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from app.modules.physics.extractors.launch_direction import TWO_WAYS, moving_sense
 from app.modules.physics.extractors.momentum import _COLLISION_SUBJECT_RE, _TWO_DIMENSIONAL_RE
 from app.modules.physics.extractors.surface_gravity import detect_gravity, stated_gravity
 from app.modules.physics.extractors.unit_patterns import (
@@ -67,22 +68,6 @@ _COLLISION_QUALIFIER = re.compile(
     r"|\baway from each other\b",
     re.IGNORECASE,
 )
-# A body's direction along the line: "a 0.5 kg puck moving east at 4 m/s", "in the +x
-# direction", "in the negative x-direction". A sign before an axis is its sense; the minus
-# may be typed as the minus sign or a dash.
-_DIRECTION = re.compile(
-    r"\b(east|west|north|south|left|right)(?:wards?)?\b"
-    r"|(?<![\w.])([+\-\u2212\u2013]|\bpositive\s+|\bnegative\s+)([xy])(?:[\s-]*(?:direction|axis))?\b",
-    re.IGNORECASE,
-)
-_AXIS_SIGN = {
-    "east": ("east-west", 1),
-    "west": ("east-west", -1),
-    "north": ("north-south", 1),
-    "south": ("north-south", -1),
-    "right": ("left-right", 1),
-    "left": ("left-right", -1),
-}
 # Any other word that sets a body's sense on the line, read by none of the above: the
 # collision then has a direction it cannot sign, and declines (never both one way).
 _UNREAD_SENSE = re.compile(
@@ -160,26 +145,6 @@ def _body_names(masses: list[re.Match[str]], ask_start: int) -> list[re.Match[st
     return stated
 
 
-# A body said to move two ways at once ("east ... north").
-_TWO_WAYS = ("", 0)
-
-
-def _sense(match: re.Match[str]) -> tuple[str, int]:
-    """The axis and sign one direction names: east is +1 on east-west, "-x" is -1 on x."""
-    if match[1]:
-        return _AXIS_SIGN[match[1].lower()]
-    sign = match[2].strip().lower()
-    return match[3].lower(), -1 if sign in {"-", "\u2212", "\u2013", "negative"} else 1
-
-
-def _direction(clause: str) -> tuple[str, int] | None:
-    """The one direction a body's clause gives; ``_TWO_WAYS`` when it gives two."""
-    found = {_sense(match) for match in _DIRECTION.finditer(clause)}
-    if len(found) > 1:
-        return _TWO_WAYS
-    return next(iter(found), None)
-
-
 def _collision_intent(text: str) -> PhysicsIntent | None:
     """Accept exactly two explicitly specified bodies and a supported model.
 
@@ -210,7 +175,7 @@ def _collision_intent(text: str) -> PhysicsIntent | None:
         # Generic 'inelastic' does not say that the objects stick together, and
         # an elastic collision loses no kinetic energy to be asked about.
         return None
-    if _DIRECTION.search(text[: masses[0].start()]) or _DIRECTION.search(text[ask_start:]):
+    if moving_sense(text, 0, masses[0].start()) or moving_sense(text, ask_start, len(text)):
         return None
     params: dict[str, float] = {"elastic": float(elastic)}
     units: dict[str, str] = {"elastic": ""}
@@ -236,8 +201,8 @@ def _collision_intent(text: str) -> PhysicsIntent | None:
         )
         if at_rest and velocity != 0:
             return None
-        direction = _direction(body_clause)
-        if direction == _TWO_WAYS:
+        direction = moving_sense(body_clause, 0, len(body_clause))
+        if direction == TWO_WAYS:
             return None
         directions.append(direction if velocity != 0 else None)
         consumed_speeds += len(velocities)
