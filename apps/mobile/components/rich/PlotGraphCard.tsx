@@ -95,7 +95,7 @@ export function PlotGraphCard({ graph, width, theme }: { graph: PlotGraph; width
     () => ({ xMin: graph.xMin, xMax: graph.xMax, yMin: graph.yMin, yMax: graph.yMax }),
     [graph],
   );
-  const drawing = useMemo(() => plotDrawing(graph, theme.graphSeries), [graph, theme.graphSeries]);
+  const drawing = useMemo(() => plotDrawing(graph, theme), [graph, theme]);
   const axes = useMemo(() => plotAxes(graph), [graph]);
   const svg = (
     <GraphCanvas
