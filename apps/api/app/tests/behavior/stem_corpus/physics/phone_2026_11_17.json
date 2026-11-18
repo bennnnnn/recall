@@ -391,5 +391,27 @@
    "m/s"
   ],
   "note": "2 × 3/3: the westward words before the 2.0 kg cart are its own (Gemini on #2491)"
+ },
+ {
+  "id": "p17-east-hits-at-rest",
+  "area": "momentum",
+  "prompt": "A 2 kg cart moving 3 m/s east hits a 1 kg cart at rest and they stick together. What is their final velocity?",
+  "expect": "answer",
+  "answer": [
+   2,
+   "m/s"
+  ],
+  "note": "2 × 3/3: east after the speed is the first cart's own, never the cart at rest's (Claude on #2491)"
+ },
+ {
+  "id": "p17-minus-x-directed-cart",
+  "area": "momentum",
+  "prompt": "A 1.0 kg cart at rest collides with a −x-directed 2.0 kg cart at 3.0 m/s and they stick together. What is their final velocity?",
+  "expect": "answer",
+  "answer": [
+   -2,
+   "m/s"
+  ],
+  "note": "2 × (−3)/3: −x-directed modifies the 2.0 kg cart"
  }
 ]

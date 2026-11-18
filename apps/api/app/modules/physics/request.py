@@ -245,9 +245,13 @@ def _collision_intent(text: str) -> PhysicsIntent | None:
     )
 
 
-# The words right before the next body's mass, which describe it: "collides with a
-# westward-moving 2.0 kg cart". At most three, and no value among them.
-_NEXT_BODY_WORDS = re.compile(r"(?:[^\s\d]+\s+){0,2}[^\s\d]+\s*$")
+# The words that modify the next body's noun phrase, between its article and its mass: "with
+# a westward-moving 2.0 kg cart", "a -x-directed 1 kg cart". A direction after a verb or a
+# speed ("moving 3 m/s east hits a 1 kg cart") is its own body's: "a" ends that clause with
+# nothing between it and the mass (Claude on #2491).
+_NEXT_BODY_WORDS = re.compile(
+    r"\b(?:a|an|the|another|second|other)\s+((?:[^\s\d]+\s+){1,2})$", re.IGNORECASE
+)
 # An ask for a size alone: "their final speed", "how fast". A velocity asked keeps its sign.
 _ASKS_SPEED = re.compile(r"\bspeeds?\b|\bhow\s+fast\b", re.IGNORECASE)
 _ASKS_VELOCITY = re.compile(r"\bvelocit", re.IGNORECASE)
@@ -287,16 +291,17 @@ def _signed_pair(
 
 
 def _next_body_words(clause: str) -> tuple[str, tuple[str, int] | None]:
-    """The clause without the words that describe the next body, and the sense they give:
-    "… collides with a westward-moving" carries west to the 2.0 kg cart after it (Gemini
-    on #2491: the westward cart's direction was lost in the cart at rest's clause)."""
+    """The clause without the words that modify the next body's noun phrase, and the sense
+    they give: "… collides with a westward-moving" carries west to the 2.0 kg cart after
+    it (Gemini on #2491: the westward cart's direction was lost in the cart at rest's
+    clause), while "moving 3 m/s east hits a" keeps east for its own body."""
     tail = _NEXT_BODY_WORDS.search(clause)
     if tail is None:
         return clause, None
-    sense = moving_sense(clause, tail.start(), len(clause))
+    sense = moving_sense(clause, tail.start(1), len(clause))
     if sense is None or sense == TWO_WAYS:
         return clause, None
-    return clause[: tail.start()], sense
+    return clause[: tail.start(1)], sense
 
 
 def _as_asked(
