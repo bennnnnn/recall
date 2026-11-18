@@ -25,7 +25,9 @@ _STATED_G = (
         re.IGNORECASE,
     ),
     re.compile(
-        rf"{_NUMBER}[^\n,;.?!]{{0,16}}?\b(?:as|for)\s+(?:the\s+)?(?:g\b|gravity\b"
+        # Started where a number starts, never inside one: tried from every digit of a run,
+        # the search was quadratic.
+        rf"(?<![\d.]){_NUMBER}[^\n,;.?!]{{0,16}}?\b(?:as|for)\s+(?:the\s+)?(?:g\b|gravity\b"
         r"|acceleration\s+due\s+to\s+gravity|gravitational\s+acceleration)",
         re.IGNORECASE,
     ),

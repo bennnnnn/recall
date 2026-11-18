@@ -366,9 +366,9 @@ def _marks_gravity(question: Question, given: Given, previous: int, subject: Sub
     """A stated acceleration fills g only where the words make it gravity's: the g the
     subject's one reader of a stated g reads at the value ("g = 1.62", "take 10 m/s² for
     g"); a body falling, dropped or thrown in the value's own sentence; else, unless the
-    value is a body's own driven acceleration, a fall anywhere or a named world's gravity. "The cruiser accelerates from
-    rest at 3.00 m/s²" is no g: a law with g bound it as one and certified 150 m for 600 m
-    (owner's phone, 2026-11-17)."""
+    value is a body's own driven acceleration, a fall anywhere or a named world's gravity.
+    "The cruiser accelerates from rest at 3.00 m/s²" is no g: a law with g bound it as one
+    and certified 150 m for 600 m (owner's phone, 2026-11-17)."""
     lower = question.lower
     if subject.gravity_at(question.text, given.start, given.end):
         return True
