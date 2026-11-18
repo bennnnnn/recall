@@ -16,7 +16,7 @@ def scene_fences(descriptions: Sequence[str], texts: Sequence[str]) -> list[str]
     for body in descriptions:
         specs = described_scene(body, texts)
         if specs:
-            return [scene_fence(spec.model_dump(mode="json")) for spec in specs]
+            return [scene_fence(spec.model_dump(mode="json", exclude_none=True)) for spec in specs]
     return []
 
 

@@ -65,7 +65,7 @@ def field_fence(picture: FieldPicture) -> str | None:
     spec = _plates_spec(picture) if picture.positive is not None else _charges_spec(picture)
     if spec is None:
         return None
-    return scene_fence(spec.model_dump(mode="json"))
+    return scene_fence(spec.model_dump(mode="json", exclude_none=True))
 
 
 def _charges_spec(picture: FieldPicture) -> SimulationBlockSpec | None:

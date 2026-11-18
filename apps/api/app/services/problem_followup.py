@@ -501,14 +501,13 @@ class GivenRewriter:
         return self._asks_the_same(line, rewritten)
 
     def _asks_the_same(self, line: str, rewritten: str) -> bool:
-        """Every quantity ``line`` asks for by name is one ``rewritten`` asks for."""
+        """A line that asks by name asks exactly what ``rewritten`` asks, whole names both
+        ways: "and find the maximum height" after "its range and maximum height" would
+        certify the range too, and "speed" is no "average speed"."""
         if self.asked_names is None:
             return True
-        theirs = [name.lower() for name in self.asked_names(rewritten)]
-        return all(
-            any(mine in name or name in mine for name in theirs)
-            for mine in (name.lower() for name in self.asked_names(line))
-        )
+        mine = {name.lower() for name in self.asked_names(line)}
+        return not mine or mine == {name.lower() for name in self.asked_names(rewritten)}
 
     def states_new(self, prior: str, line: str) -> bool:
         """``line`` states a value ``prior`` does not, read with its unit: "20 minutes" after

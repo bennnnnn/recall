@@ -9,6 +9,7 @@ from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.cues import (
     has_cue,
 )
+from app.modules.physics.extractors.launch_direction import launched_downward
 from app.modules.physics.extractors.momentum import _COLLISION_SUBJECT_RE
 from app.modules.physics.extractors.stated_values import (
     find_value_with_specific_unit,
@@ -97,33 +98,13 @@ _PROJECTILE_UNKNOWN_RES: tuple[tuple[str, re.Pattern[str]], ...] = (
     ),
 )
 
-# A launch verb's own direction: "thrown down at an angle of 30°", "projected downward at
-# 15 m/s", "thrown upward". Never another clause's word: "gravity acts downward" says
-# nothing of the throw.
-_LAUNCH_VERB = (
-    r"\b(?:thrown|throws?|aimed|directed|projected|fired|launched|kicked|hit)\s+(?:\w+\s+){0,2}?"
-)
-_DOWNWARD_LAUNCH_RE = re.compile(_LAUNCH_VERB + r"down(?:wards?)?\b", re.IGNORECASE)
-_UPWARD_LAUNCH_RE = re.compile(_LAUNCH_VERB + r"up(?:wards?)?\b", re.IGNORECASE)
-# The angle named above the horizontal: no downward word elsewhere makes it negative.
-_ABOVE_HORIZONTAL_RE = re.compile(
-    r"\s*(?:degrees?|deg|°)?\s*(?:above|over)\s+(?:the\s+)?horizontal\b", re.IGNORECASE
-)
 # A launch angle measured from the vertical: read as an elevation it was answered for the
 # complementary launch, so it is declined.
 _FROM_VERTICAL_RE = re.compile(
     r"\s*(?:degrees?|deg|°)?\s*(?:to|from|with|off)\s+(?:the\s+)?vertical\b", re.IGNORECASE
 )
-_SENTENCE_END_RE = re.compile(r"[.?!;](?!\d)")
 
 _RANGE_GIVEN_KEYWORDS = ("range", "travel", "reach", "cover", "land", "distance", "far")
-
-# Read right after the angle: "30° below the horizontal", "at 20 degrees downward".
-_BELOW_HORIZONTAL_RE = re.compile(
-    r"\s*(?:degrees?|deg|°)?\s*(?:below|beneath|under)\s+(?:the\s+)?horizontal\b"
-    r"|\s*(?:degrees?|deg|°)?\s*(?:down(?:wards?)?|downward)\b",
-    re.IGNORECASE,
-)
 
 
 def extract_projectile_intent(cleaned: str) -> PhysicsIntent | None:
@@ -184,14 +165,7 @@ def _launch_angle(lower: str, match: re.Match[str]) -> float | None:
     angle = float(match.group(1))
     if _FROM_VERTICAL_RE.match(lower, match.end()):
         return None
-    start = max((m.end() for m in _SENTENCE_END_RE.finditer(lower, 0, match.start())), default=0)
-    end_match = _SENTENCE_END_RE.search(lower, match.end())
-    sentence = lower[start : end_match.start() if end_match else len(lower)]
-    down = _BELOW_HORIZONTAL_RE.match(lower, match.end()) is not None or (
-        _DOWNWARD_LAUNCH_RE.search(sentence) is not None
-        and _UPWARD_LAUNCH_RE.search(sentence) is None
-        and _ABOVE_HORIZONTAL_RE.match(lower, match.end()) is None
-    )
+    down = launched_downward(lower, match.start(), match.end())
     return -angle if angle > 0 and down else angle
 
 

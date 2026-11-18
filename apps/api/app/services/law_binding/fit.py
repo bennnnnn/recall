@@ -304,7 +304,9 @@ def fit(
         if choice is None or _names_a_filled_input(choice, filled, own):
             return None
         filled.append(choice)
-        negative = last_said(before, choice.negating) >= 0
+        negative = last_said(before, choice.negating) >= 0 or (
+            choice.negated is not None and choice.negated(lower, given.start, given.end)
+        )
         params[choice.name] = -given.value if negative else given.value
         units[choice.name] = given.unit
         previous = value_end(lower, given)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.modules.physics.extractors.launch_direction import launched_downward
 from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
 from app.services.law_binding.words import ANGLE_TO
 
@@ -52,20 +53,15 @@ _HEIGHT_WORDS = (
     "top of",
     "from",
 )
-# A launch downward: "thrown down at an angle of 30°" is -30°, below the horizontal. Read
-# as above it, a 45 m cliff's throw landed in 3.89 s instead of 2.36 s (review, 2026-11-16).
-# Only a launch verb's own "down": "gravity acts downward" says nothing of the throw.
-_DOWNWARD = (
-    *("thrown down", "throws down", "throw down", "aimed down", "directed down"),
-    *("projected down", "fired down", "launched down", "kicked down", "hit down"),
-)
 _LAUNCH = (
     var(
         "angle",
         r"\theta",
         dimensionless=True,
         implied=tuple((phrase, 0.0) for phrase in _LEVEL_LAUNCH),
-        negating=_DOWNWARD,
+        # Its sign is the launch's, read over the whole launch sentence by the reader the
+        # extractor uses: "thrown down at 15 m/s at 30°" is -30°.
+        negated=launched_downward,
     ),
     var("g", "g", "meter / second ** 2", fallback="gravity"),
     var("h0", "h_0", "meter", words=_HEIGHT_WORDS, needs_words=True, named_by=_LAUNCH_SITES),

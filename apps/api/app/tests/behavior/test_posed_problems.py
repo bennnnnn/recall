@@ -621,3 +621,40 @@ def test_a_change_read_in_either_scientific_spelling_is_taken(new: str) -> None:
     rewritten = followups.changed_problem(_COULOMB, [("3.0 C", "3.0 pC"), ("2.0 C", new)])
     assert rewritten is not None
     assert followups.takes_every_change(_COULOMB, rewritten, line, ["3.0 pC", new])
+
+
+_CLIFF = (
+    "A ball is thrown from a 45 m high cliff at 20 m/s at 30 degrees above the horizontal. "
+    "Find its horizontal range{also}."
+)
+
+
+@pytest.mark.parametrize(
+    ("problem", "line"),
+    [
+        # The line asks less than the rewrite: it would certify the range too.
+        (
+            _CLIFF.format(also=" and maximum height"),
+            "Repeat with 25 m/s and find the maximum height.",
+        ),
+        # The line asks more than the rewrite: the height would go unanswered.
+        (
+            _CLIFF.format(also=""),
+            "Repeat with 25 m/s and find the horizontal range and maximum height.",
+        ),
+    ],
+)
+def test_a_line_that_asks_by_name_asks_exactly_what_the_rewrite_asks(
+    problem: str, line: str
+) -> None:
+    """ "Find the maximum height" after "its horizontal range and maximum height" matched
+    by substring and dimension, and the rewrite still asked for the range (Gemini, PR
+    #2490). Whole names are compared both ways; the same asks still pass."""
+    followups = subject_adapter("physics").followups
+    rewritten = followups.changed_problem(problem, [("20 m/s", "25 m/s")])
+    assert rewritten is not None
+    assert not followups.takes_every_change(problem, rewritten, line, ["25 m/s"])
+    same = "Repeat with 25 m/s and find the horizontal range" + (
+        " and maximum height." if "maximum height" in problem else "."
+    )
+    assert followups.takes_every_change(problem, rewritten, same, ["25 m/s"])

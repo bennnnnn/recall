@@ -134,3 +134,28 @@ def test_an_angle_reference_is_read_after_a_degree_sign_with_no_space() -> None:
         "refraction in degrees from the normal."
     )
     assert surface is not None and (surface.physics_params or {}).get("from_surface") == 1.0
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "A stone is kicked down off a 45 m cliff at 15 m/s at 30°. How long is it in the air?",
+        "A ball is thrown downward at 15 m/s at 30 degrees from a 45 m cliff. "
+        "How long is it in the air?",
+    ],
+)
+def test_the_binder_reads_a_downward_launch_over_its_whole_sentence(question: str) -> None:
+    """The binder read a launch's "down" only between the speed and the angle, so a
+    downward verb before the speed bound +30° and certified 3.89 s for a 2.36 s flight
+    (Gemini, PR #2490). It reads the sign with the extractor's own reader; an upward
+    launch stays above the horizontal."""
+    from app.modules.physics.binding import bind_physics_intent
+
+    bound = bind_physics_intent(question)
+    assert bound is not None and bound.physics_params is not None
+    assert bound.physics_params["angle"] == -30.0
+    upward = bind_physics_intent(
+        question.replace("kicked down", "kicked up").replace("downward", "upward")
+    )
+    assert upward is not None and upward.physics_params is not None
+    assert upward.physics_params["angle"] == 30.0

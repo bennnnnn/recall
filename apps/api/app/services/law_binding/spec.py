@@ -11,6 +11,7 @@ each variable says how a question names it. An operation with an
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import lru_cache
 
@@ -40,6 +41,10 @@ class VariableSpec:
     implied_unless: tuple[str, ...] = ()
     # Words before the value that make it negative: "decelerates at 2 m/s²".
     negating: tuple[str, ...] = ()
+    # A subject's reader of the whole lowered question that says the value at
+    # ``start:end`` is negative, for a sign its own clause gives: "kicked down off a cliff
+    # at 15 m/s at 30°" launches below the horizontal, words before the speed and all.
+    negated: Callable[[str, int, int], bool] | None = None
     # Where an unstated value comes from: "gravity" (9.81, or the named body's),
     # "body_mass" or "body_radius" (of the planet or star the question names),
     # "particle_charge" or "particle_mass" (of the particle it names),
@@ -164,6 +169,7 @@ def var(
     implied: tuple[tuple[str, float], ...] = (),
     implied_unless: tuple[str, ...] = (),
     negating: tuple[str, ...] = (),
+    negated: Callable[[str, int, int], bool] | None = None,
     fallback: str | None = None,
     needs_words: bool = False,
     named_by: tuple[str, ...] = (),
@@ -178,6 +184,7 @@ def var(
         implied=implied,
         implied_unless=implied_unless,
         negating=negating,
+        negated=negated,
         fallback=fallback,
         needs_words=needs_words,
         named_by=named_by,
