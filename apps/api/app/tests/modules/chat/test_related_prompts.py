@@ -1398,6 +1398,8 @@ def test_a_reply_that_names_the_users_day_and_the_subject_does_not_work_the_prob
     [
         ("What if v_f was 30 m/s?", "What if $v_f$ was 30 m/s?"),
         ("Why is v_{0} zero for this car?", "Why is $v_{0}$ zero for this car?"),
+        # A subscript of several letters is braced: "v_min" lowered its m alone (phys30).
+        ("What if v_max was 30 m/s?", "What if $v_{max}$ was 30 m/s?"),
         ("Why is $v_f = 20$ m/s here?", "Why is $v_f = 20$ m/s here?"),
         # A name in code is no symbol.
         ("What does x_train hold in this code?", "What does x_train hold in this code?"),

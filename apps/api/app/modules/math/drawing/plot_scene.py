@@ -29,6 +29,13 @@ from app.modules.math.drawing.curve_features import (
 from app.modules.math.drawing.plot_pieces import Shape, Span
 from app.modules.math.drawing.real_curve import RealFunction, X, defined_at
 
+# A mark of no one curve (a normal, an average's level line, a distance, a point the
+# question names) takes a colour no curve, line or other such mark uses
+# (``Scene.mark_color``), or, with every colour of the phone's four taken, the neutral one;
+# a line two curves share is neutral too (``plot_draw``).
+NEUTRAL_COLOR = 5
+PALETTE = 4
+
 
 @dataclass(frozen=True)
 class Place:
@@ -309,6 +316,15 @@ class Scene:
     # What the axes measure: the question's letters ("t", "v"), with units when it gives them.
     x_label: str = "x"
     y_label: str = "y"
+
+    def mark_color(self) -> int:
+        """The first of the phone's colours no curve, line or mark yet uses, else neutral."""
+        used = {c.color for c in self.curves.values()} | {
+            line.color for line in self.lines.values()
+        }
+        used |= {mark.color for mark in self.marks if mark.role in {"line", "segment"}}
+        free = {c % PALETTE for c in used if c != NEUTRAL_COLOR}
+        return next((c for c in range(PALETTE) if c not in free), NEUTRAL_COLOR)
 
     def add_point(self, point: DrawnPoint) -> None:
         for seen in self.points:

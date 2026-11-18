@@ -103,19 +103,48 @@ class Question:
     # The letters the question itself writes, and the points the reply names.
     stated_letters: frozenset[str] = frozenset()
     reply_named: frozenset[tuple[str, Point]] = frozenset()
+    # The pairs it writes as vectors ("u = (2, 1)", "<1, 3>").
+    plane_vectors: frozenset[tuple[Fraction, Fraction]] = frozenset()
+
+    @property
+    def flat(self) -> bool:
+        """It writes pairs, no triple and no z-coordinate: its points and vectors lie in the
+        plane (d06's u = (2, 1)). One that writes a z-coordinate or a plane z = c ("on the
+        face z = 0 of a cube") is seen in space; "z = 3 + 4i", a complex number, is no
+        coordinate, nor is the "space between" two vectors."""
+        z = _Z_COORDINATE.search(self.words.replace("\u2212", "-"))
+        return bool(self.pairs) and not self.triples and z is None
+
+    def states_pair_at(self, triple: Triple) -> bool:
+        """``triple`` is (a, b, 0) for a pair (a, b) the question writes: in the plane, or
+        placed on z = 0 in a scene in space."""
+        return triple[2] == 0 and (triple[0], triple[1]) in self.pairs
 
     def states_triple(self, triple: Triple) -> bool:
         """A point the question places, or the origin. A point it does not ((4, 0, 0) below
         P(4, -3, 5)) is the reply's reading: round 3's c081 drew a foot under P as one of the
         two points √12 from it."""
-        return all(value == 0 for value in triple) or triple in self.triples
+        if all(value == 0 for value in triple) or triple in self.triples:
+            return True
+        return self.states_pair_at(triple)
+
+    def states_vector(self, components: Triple, from_origin: bool) -> bool:
+        """A vector the question writes: from the origin, any triple it writes (any pair, in
+        the plane); from another point, only one it writes as a vector, as "A(1, 2, 3)"
+        writes no arrow from B (round 2's review drew A to A + B)."""
+        if (from_origin and components in self.triples) or components in self.vectors:
+            return True
+        if components[2] != 0:
+            return False
+        pair = (components[0], components[1])
+        return pair in (self.pairs if from_origin else self.plane_vectors)
 
     def names_right(self, name: str, at: Point) -> bool:
         """``name`` is no other point's: "A(0, 0, 3)" makes (2, 8, 1) no A, "A(0, 0)" makes
         (4, 0) no A, and "a = 2i + j + 3k" makes (-3, 4, -1) no a."""
-        named = {written for letter, written in self.named if letter == name}
+        named = {_at(written, at) for letter, written in self.named if letter == name}
         named = {written for written in named if len(written) == len(at)}
-        others = {letter for letter, written in self.named if written == at}
+        others = {letter for letter, written in self.named if _at(written, at) == at}
         return (not named or at in named) and (not others or name in others)
 
     def confirms(self, name: str, at: Point) -> bool:
@@ -123,7 +152,10 @@ class Question:
         names it there: "OABCDEFG is a cuboid" puts no B anywhere in particular."""
         if name not in self.stated_letters:
             return self.names_right(name, at)
-        return self.names_right(name, at) and (name, at) in self.named | self.reply_named
+        named = self.named | self.reply_named
+        return self.names_right(name, at) and any(
+            letter == name and _at(written, at) == at for letter, written in named
+        )
 
     def value_of(self, letter: str) -> set[float]:
         """The values the reply works out for ``letter`` ("d = 2", "D = \\sqrt{109}")."""
@@ -172,7 +204,8 @@ def named_points(text: str) -> set[tuple[str, Point]]:
     """The points a text names: "A(0, 0, 3)", "A(0, 0)", "p = (2, 5, 6)", "a = 2i + j + 3k"."""
     found: set[tuple[str, Point]] = set()
     for match in _NAMED.finditer(text.replace("\u2212", "-")):
-        for point in [*written_triples(match.group(2)), *written_pairs(match.group(2))]:
+        written = round_brackets(match.group(2))  # "u = ⟨2, 1⟩" names u as "(2, 1)" does
+        for point in [*written_triples(written), *written_pairs(written)]:
             found.add((match.group(1), point))
     return found
 
@@ -189,7 +222,42 @@ def written_vectors(text: str) -> set[Triple]:
     return found
 
 
+# A vector in angle brackets, "⟨2, 1⟩" or "<2, 1>", read as the pair "(2, 1)" is: one
+# translation every pair reader shares (never a bare "<" of an inequality).
+_ANGLE_PAIR = re.compile(
+    r"[<\u27e8]\s*([-+]?[\d./]+\s*,\s*[-+]?[\d./]+(?:\s*,\s*[-+]?[\d./]+)?)\s*[>\u27e9]"
+)
+
+
+def round_brackets(text: str) -> str:
+    """``text`` with each angle-bracket vector written in round brackets, its minus signs
+    as hyphens first ("⟨2, -1⟩" written with a minus sign)."""
+    return _ANGLE_PAIR.sub(r"(\1)", text.replace("\u2212", "-"))
+
+
+def _at(written: Point, at: Point) -> Point:
+    """A pair the question writes as the point (x, y, 0) when ``at`` is in space."""
+    return (written[0], written[1], Fraction(0)) if len(written) == 2 and len(at) == 3 else written
+
+
+def _plane_vectors(text: str) -> set[tuple[Fraction, Fraction]]:
+    """The pairs a text writes as vectors: given a letter with "=" or in angle brackets."""
+    lowered = text.replace("\u2212", "-")
+    found: set[tuple[Fraction, Fraction]] = set()
+    for match in _AS_VECTOR.finditer(lowered):
+        # "u = ⟨2, 1⟩" and "<2, 1>" are pairs as "(2, 1)" is.
+        found |= set(written_pairs(round_brackets(match.group(1))))
+    return found
+
+
 _EXACT_PLACES = 9
+# A z-coordinate or a plane z = c the question writes; a complex z = a + bi is none, its
+# parts written as fractions too ("z = 1/2 + 3/2i").
+_Z_COORDINATE = re.compile(
+    r"\bz\s*=\s*[-+]?\d+(?:\.\d+)?(?:/\d+)?(?![\d./])"
+    r"(?!\s*[-+]\s*\d*(?:\.\d+)?(?:/\d+)?\s*i\b)(?!\s*i\b)"
+    r"|\bz-coordinate|\bz-axis"
+)
 
 
 def _reply_values(reply: str) -> set[tuple[str, float, int]]:
@@ -239,8 +307,8 @@ def read_question(texts: Sequence[str], reply: str) -> Question:
     the letters its working names."""
     own = own_texts(list(texts))
     numbers = tuple(number for text in own for number in written_numbers(text))
-    pairs = frozenset(pair for text in own for pair in written_pairs(text))
-    triples = frozenset(triple for text in own for triple in written_triples(text))
+    pairs = frozenset(pair for text in own for pair in written_pairs(round_brackets(text)))
+    triples = frozenset(triple for text in own for triple in written_triples(round_brackets(text)))
     stated_letters = frozenset(set().union(*(_letters(text) | _capitals(text) for text in texts)))
     letters = stated_letters | _letters(reply)
     terms = frozenset(
@@ -269,4 +337,5 @@ def read_question(texts: Sequence[str], reply: str) -> Question:
         frozenset(triple for text in own for triple in written_vectors(text)),
         stated_letters,
         frozenset(named_points(reply)),
+        frozenset(pair for text in own for pair in _plane_vectors(text)),
     )

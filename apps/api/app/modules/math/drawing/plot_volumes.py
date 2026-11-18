@@ -46,7 +46,6 @@ from app.services.solving import SolveServiceError
 
 _STRIP = 0.04
 _STRIP_COLOR = 3
-_AVERAGE_COLOR = 2
 
 
 def _axis(scene: Scene) -> tuple[str, float] | None:
@@ -147,5 +146,7 @@ def average(item: Average, question: PlotQuestion, scene: Scene) -> None:
     label = f"{scene.y_label[:1] or 'y'} = {shown}" if not mean.is_Float else f"≈ {shown}"
     line = ((float(ends.low), float(mean)), (float(ends.high), float(mean)))
     scene.marks.append(
-        DrawnLine(role="line", ends=line, label=label, color=_AVERAGE_COLOR, held=(float(mean),))
+        DrawnLine(
+            role="line", ends=line, label=label, color=scene.mark_color(), held=(float(mean),)
+        )
     )

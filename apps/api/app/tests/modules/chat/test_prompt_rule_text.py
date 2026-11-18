@@ -82,16 +82,18 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # then a picture asked beside a solved problem left to the solve, and no reply placing or
 # promising a picture (multi_part.PROBLEM_PICTURE_NOTE, services.picture_copy), and a
 # ```worked block naming the language of its reply first (prompt_constants.worked, live and
-# review 2026-11-15); then maths' reply policy writing its working once, never a recheck or
-# a second attempt (math.reply_policy, unit-5 round 2026-11-16); the solid a shaded region
-# sweeps (the "solid" item, 2026-11-16); then physics' contract asking a reply to describe an
-# electric field's picture in a ```draw block (physics.field_lines.contract), physics' pack
-# saying a situation is never drawn in characters, a table or Mermaid (PHYSICS_NO_SKETCH),
-# and a sentence around the working stating only numbers the working shows
-# (VERIFIED_SOLVE_SAFETY_HINT; the owner's GCSE set, 2026-11-16).
+# review 2026-11-15); then a ```worked measured answer to 3 significant figures and a yes-or-no
+# part answered in words (prompt_constants.worked, phys30 2026-11-16); then maths' reply
+# policy writing its working once, never a recheck or a second attempt (math.reply_policy,
+# unit-5 round 2026-11-16); the solid a shaded region sweeps (the "solid" item, 2026-11-16);
+# then physics' contract asking a reply to describe an electric field's picture in a
+# ```draw block (physics.field_lines.contract), physics' pack saying a situation is never
+# drawn in characters, a table or Mermaid (PHYSICS_NO_SKETCH), and a sentence around the
+# working stating only numbers the working shows (VERIFIED_SOLVE_SAFETY_HINT; the owner's
+# GCSE set, 2026-11-16).
 _RULES = 202
-_RULE_GRAMS = 18665
-_RULE_GRAMS_SHA = "9e7865be220fe1aa"
+_RULE_GRAMS = 18716
+_RULE_GRAMS_SHA = "ccbcff2bcb7dd403"
 
 
 def _rules() -> list[str]:

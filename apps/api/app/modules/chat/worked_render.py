@@ -22,6 +22,7 @@ from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from app.modules.chat.worked_figures import card_answer
 from app.modules.chat.worked_prose import prose_maths
 from app.modules.chat.worked_solution import Answer, Given, Part, Step, WorkedSolution
 from app.modules.chat.worked_text import (
@@ -32,6 +33,7 @@ from app.modules.chat.worked_text import (
     tidy_tex,
 )
 from app.modules.chat.worked_units import quantity_tex
+from app.modules.turn_reading.routing import is_short_reply
 from app.services.worked_parts import WorkedPart, lettered_line, part_letter, render_parts
 from app.services.workout import (
     ANSWER,
@@ -58,6 +60,9 @@ class WorkedLayout:
     value alone, as its verified replies do."""
 
     law_heading: bool = False
+    # The precision the question asks its answer to (significant figures, decimal places,
+    # as ``school_rounding.asked_rounding`` reads them): the card keeps to it.
+    asked: tuple[int, int] = (0, -1)
 
 
 def _line(tex: str, note: str | None = None) -> str:
@@ -94,12 +99,21 @@ def _in_words(value: str) -> bool:
     return is_prose(value) and not any(char.isdigit() for char in value)
 
 
+def _concludes(answer: Answer) -> bool:
+    """An answer that is a conclusion in words: several words ("all the ice melts", as
+    ``names_nothing`` reads them) or a reply on its own ("yes", "no", as the turn reader
+    reads one). A single run of letters is symbols ("F | mg | N", "x | ab |"), kept in
+    maths (Claude and Gemini on #2489)."""
+    value = answer.value.strip()
+    return _in_words(value) and (names_nothing(value) or is_short_reply(value))
+
+
 def _as_its_letter(given: Given) -> bool:
     """A given the question states as a letter, not a value ("a rod of mass M"): its value
     is its own symbol, or none, or words. It is listed by its meaning, ``$M$ (mass of the
     rod)``, never as "M = M kg" (RLC and rod questions, 2026-11-11)."""
     value = _SPACING.sub("", tidy_tex(given.value))
-    own = value == _SPACING.sub("", tidy_symbol(given.symbol))
+    own = value == _symbol_key(given.symbol)
     return not value or own or _in_words(given.value)
 
 
@@ -314,10 +328,49 @@ def _step_rows(step: Step) -> list[str]:
     return [_line(step.tex, step.move or None)]
 
 
+_TEXT_SPECIALS = str.maketrans(
+    {
+        "\\": r"\textbackslash{}",
+        "&": r"\&",
+        "%": r"\%",
+        "#": r"\#",
+        "_": r"\_",
+        "{": r"\{",
+        "}": r"\}",
+        "~": r"\textasciitilde{}",
+        "^": r"\textasciicircum{}",
+    }
+)
+_MATH_SPAN = re.compile(r"\$([^$]+)\$")
+
+
+def words_tex(words: str) -> str:
+    """A conclusion in words as card maths: its words upright in ``\\text{}``, TeX's specials
+    escaped ("yes & no" broke the group), and a ``$…$`` it holds drawn as maths."""
+    pieces: list[str] = []
+    at = 0
+    for span in _MATH_SPAN.finditer(words):
+        if words[at : span.start()]:
+            pieces.append(rf"\text{{{words[at : span.start()].translate(_TEXT_SPECIALS)}}}")
+        pieces.append(span.group(1))
+        at = span.end()
+    if words[at:]:
+        pieces.append(rf"\text{{{words[at:].translate(_TEXT_SPECIALS)}}}")
+    return "".join(pieces)
+
+
 def _answer_line(answer: Answer, layout: WorkedLayout) -> str:
     """The value with its unit in maths, and a note after it in brackets: a short label
     ("east") stays on the card, and a remark ("about 1.20√(gh); option A gives …") goes
     in a sentence under it (``services.remark_after_answer``), its maths drawn as maths."""
+    if _concludes(answer):
+        # A conclusion ("yes", "all the ice melts") is words, set upright: in maths its
+        # letters were italic variables, under an invented symbol (phys30, 2026-11-16).
+        note = prose_maths(answer.note)
+        said = math_line(words_tex(answer.value.strip()))
+        return f"{said} ({note})" if note else said
+    if layout.law_heading:
+        answer = card_answer(answer, layout.asked)  # rounds once: 3 figures, or as asked
     tex = tidy_tex(answer.value)
     value = quantity_tex(tex, "" if in_symbols(tex) else answer.unit)
     # A symbol that only repeats the unit ("cm | 10000 | cm") or is a word names nothing.
@@ -356,12 +409,47 @@ def _part_body(
 
 
 def _find_rows(solution: WorkedSolution) -> tuple[str, ...]:
+    concluded = _concluded(solution)
     return tuple(
-        text_line(prose_maths(item.symbol), prose_maths(item.meaning) or None)
+        text_line(prose_maths(item.meaning))
+        if item.meaning and _symbol_key(item.symbol) in concluded
+        else text_line(prose_maths(item.symbol), prose_maths(item.meaning) or None)
         if names_nothing(item.symbol)
         else math_line(tidy_symbol(item.symbol), prose_maths(item.meaning) or None)
         for item in solution.required
     )
+
+
+def _symbol_key(symbol: str) -> str:
+    """``symbol`` as one key however it is braced or spaced: s1, s_1 and s_{1} alike."""
+    return _SPACING.sub("", tidy_symbol(symbol))
+
+
+def _concluded(solution: WorkedSolution) -> set[str]:
+    """The symbols whose answer is a conclusion in words ("yes, all the ice melts"): no
+    quantity, so they are asked by their words alone; "$slide_{back}$ (whether it slides
+    back)" set an invented symbol in maths (phys30, 2026-11-16). Compared tidied:
+    s_1 in Find is s_{1} in the answer. A conclusion with no symbol of its own
+    ("answer: | yes, …") concludes its own ask: its part's, when each part has one, or
+    the ask no other answer names in a solution of one part (Gemini on #2489)."""
+    answers = [answer for part in solution.parts for answer in part.answers]
+    concluded = {
+        _symbol_key(answer.symbol) for answer in answers if answer.symbol and _concludes(answer)
+    }
+    paired = len(solution.parts) == len(solution.required)
+    for at, part in enumerate(solution.parts):
+        if not any(not answer.symbol.strip() and _concludes(answer) for answer in part.answers):
+            continue
+        if paired:
+            concluded.add(_symbol_key(solution.required[at].symbol))
+        elif len(solution.parts) == 1:
+            named = {_symbol_key(answer.symbol) for answer in answers if answer.symbol.strip()}
+            concluded |= {
+                _symbol_key(item.symbol)
+                for item in solution.required
+                if _symbol_key(item.symbol) not in named
+            }
+    return concluded
 
 
 def _answered_symbols(part: Part) -> str:
