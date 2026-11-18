@@ -36,3 +36,18 @@ def test_real_content_in_a_plain_block_stays(block: str) -> None:
 )
 def test_a_drawing_in_slashes_bars_and_arrows_is_a_sketch(rows: list[str]) -> None:
     assert is_arrow_sketch(rows)
+
+
+@pytest.mark.parametrize("rows", [["3/4", "1/2"], ["m/s", "m/s"], ["2/3 m/s", "1/4 kg/m"]])
+def test_a_block_of_fractions_or_units_is_no_sketch(rows: list[str]) -> None:
+    """ "3/4" over "1/2", or "m/s" rows, were read as slashes drawn, and the block was taken
+    out of the reply (Claude, PR #2482): a slash in a word or a number is no stroke."""
+    from app.services.sketches import is_arrow_sketch
+
+    assert not is_arrow_sketch(rows)
+
+
+def test_a_sketch_with_a_real_stroke_is_still_one() -> None:
+    from app.services.sketches import is_arrow_sketch
+
+    assert is_arrow_sketch(["  \\  |  /", "  -- (+) --", "  /  |  \\"])

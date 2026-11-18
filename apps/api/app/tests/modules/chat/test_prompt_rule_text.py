@@ -82,20 +82,22 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # then a picture asked beside a solved problem left to the solve, and no reply placing or
 # promising a picture (multi_part.PROBLEM_PICTURE_NOTE, services.picture_copy), and a
 # ```worked block naming the language of its reply first (prompt_constants.worked, live and
-# review 2026-11-15); then maths' reply policy writing its working once, never a recheck or
-# a second attempt (math.reply_policy, unit-5 round 2026-11-16); the solid a shaded region
-# sweeps (the "solid" item, 2026-11-16); then physics' contract asking a reply to describe an
-# electric field's picture in a ```draw block (physics.field_lines.contract), physics' pack
-# saying a situation is never drawn in characters, a table or Mermaid (PHYSICS_NO_SKETCH),
-# and a sentence around the working stating only numbers the working shows
-# (VERIFIED_SOLVE_SAFETY_HINT; the owner's GCSE set, 2026-11-16); then physics' scene
-# contract, a problem's setup described by the scene and the question's values, never a
-# coordinate (physics.scene_drawing.contract, the owner's round of 30 hard problems,
-# 2026-11-16), naming a horizontal launch, bodies moving the same way and the situations it
-# never draws; no spring or wave, which no reader confirms (its reviews, 2026-11-16).
+# review 2026-11-15); then a ```worked measured answer to 3 significant figures and a yes-or-no
+# part answered in words (prompt_constants.worked, phys30 2026-11-16); then maths' reply
+# policy writing its working once, never a recheck or a second attempt (math.reply_policy,
+# unit-5 round 2026-11-16); the solid a shaded region sweeps (the "solid" item, 2026-11-16);
+# then physics' contract asking a reply to describe an electric field's picture in a
+# ```draw block (physics.field_lines.contract), physics' pack saying a situation is never
+# drawn in characters, a table or Mermaid (PHYSICS_NO_SKETCH), and a sentence around the
+# working stating only numbers the working shows (VERIFIED_SOLVE_SAFETY_HINT; the owner's
+# GCSE set, 2026-11-16); then physics' scene contract, a problem's setup described by the
+# scene and the question's values, never a coordinate (physics.scene_drawing.contract, the
+# owner's round of 30 hard problems, 2026-11-16), naming a horizontal launch, bodies moving
+# the same way and the situations it never draws; no spring or wave, which no reader confirms
+# (its reviews, 2026-11-16).
 _RULES = 203
-_RULE_GRAMS = 19006
-_RULE_GRAMS_SHA = "2c3469f2c676883f"
+_RULE_GRAMS = 19057
+_RULE_GRAMS_SHA = "0d59a0d129e95471"
 
 
 def _rules() -> list[str]:

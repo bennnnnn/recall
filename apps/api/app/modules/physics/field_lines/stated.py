@@ -62,6 +62,15 @@ def stated_charges(texts: Sequence[str], part: str | None = None) -> list[Charge
     return _in_units(text) + _in_q(text)
 
 
+def part_named(text: str, part: str | None) -> bool:
+    """A question with lettered parts names the picture's part among them; one with none
+    takes a picture with no part."""
+    letters = {marker.group(1) for marker in _PART.finditer(text)}
+    if len(letters) < 2:
+        return True
+    return part is not None and part in letters
+
+
 def _part_span(text: str, part: str | None) -> tuple[int, int, int] | None:
     """Where ``text``'s stem ends and part ``part``'s own words start and end, when it has
     lettered parts and that one; None otherwise. The one slicing both the charges and the
@@ -200,10 +209,11 @@ _SIGN_WORD = re.compile(
     r"(?![ \t]+test\b)",
     re.IGNORECASE,
 )
-# The sentence that asks for the picture: the signs it and the sentences before it name are
-# the charges'; an explanation after it ("how the arrows show the force on a positive test
-# charge") names none.
-_ASKS_TO_DRAW = re.compile(r"\b(?:draw|sketch|plot|illustrate)\b", re.IGNORECASE)
+# A sentence that asks for an explanation, not the setup: its sign words name no charge.
+_EXPLAINS = re.compile(
+    r"\s*(?:\(?[a-h]\)\s*)?(?:explain|describe|why|how|discuss|compare|state|suggest|justify)\b",
+    re.IGNORECASE,
+)
 # "a)" or "(a)": where a part of the question starts.
 _PART = re.compile(r"(?<![\w(])\(?([a-h])\)")
 _COUNTS = {"two": 2, "three": 3, "2": 2, "3": 3}
@@ -218,10 +228,10 @@ def named_signs(texts: Sequence[str], part: str | None) -> tuple[list[int], bool
         span = _part_span(whole, part)
         if span is not None:
             _stem, start, end = span
-            signs = _signs(_through_the_request(whole[start:end]))
+            signs = _signs(_setup_sentences(whole[start:end]))
             if signs:
                 return signs, True
-        text = _through_the_request(whole)
+        text = _setup_sentences(whole)
         signs = _signs(text)
         if signs:
             return signs, _PART.search(text) is None
@@ -261,24 +271,21 @@ def plates_of(text: str, positive: str, part: str | None = None) -> bool:
     return True
 
 
-def _through_the_request(text: str) -> str:
-    """``text`` without the sentences after the last one that asks for the picture (an
-    explanation's "the force on a positive test charge"), or after its first sentence when
-    none asks. A colon or a semicolon ends no sentence ("around: a) a positive charge b) a
-    negative charge", "(a) two positive charges; (b) a positive and a negative charge"),
-    and lettered parts after the cut are the request's own."""
-    ends = [match.end() for match in _SENTENCE_END.finditer(text)]
-    asks = [end for end in ends if _ASKS_TO_DRAW.search(text, _start_of(ends, end), end)]
-    cut = asks[-1] if asks else (ends[0] if ends else len(text))
-    if _PART.search(text, cut):
-        return text
-    return text[:cut]
-
-
-def _start_of(ends: Sequence[int], end: int) -> int:
-    """Where the sentence ending at ``end`` starts."""
-    before = [other for other in ends if other < end]
-    return before[-1] if before else 0
+def _setup_sentences(text: str) -> str:
+    """``text`` without its explanation sentences ("Explain how the arrows show the force
+    on a positive test charge"), every setup sentence kept wherever it stands ("Draw the
+    electric field pattern. One charge is positive and the other is negative."). A colon or
+    a semicolon ends no sentence, and a test charge's sign is never a source's
+    (``_SIGN_WORD``)."""
+    kept: list[str] = []
+    start = 0
+    for match in [*_SENTENCE_END.finditer(text), None]:
+        end = match.end() if match is not None else len(text)
+        sentence = text[start:end]
+        if sentence.strip() and not _EXPLAINS.match(sentence):
+            kept.append(sentence)
+        start = end
+    return "".join(kept)
 
 
 def _signs(text: str) -> list[int]:

@@ -21,6 +21,7 @@ from app.services.latex_markup import without_markup
 from app.services.law_binding.fit import read_givens
 from app.services.law_binding.givens import Given
 from app.services.law_binding.units import UnitTable
+from app.services.number_text import fold_scientific
 from app.services.scaled_followup import (
     Scaling,
     counted,
@@ -304,7 +305,7 @@ _NUMBER = re.compile(r"\d+(?:\.\d+)?")
 def stated_numbers(text: str) -> Counter[str]:
     """The numbers ``text`` writes, each as often as it writes it, without its markup and
     never an item's number ("Solve 1"): "3x + 3 = 7" writes 3 twice."""
-    plain = without_markup(text)
+    plain = without_markup(fold_scientific(text))
     return Counter(
         match.group()
         for match in _NUMBER.finditer(plain)
@@ -354,6 +355,7 @@ class GivenRewriter:
 
     def changed(self, prior: str, name: str | None, value: str, unit: str | None) -> str | None:
         """``and after 10 s``, ``what if the mass was 4 kg``: that given replaced."""
+        prior = fold_scientific(prior)  # "3.0 x 10^-6 C" is one value, read as one
         if not unit or not unit.strip():
             return None
         written_unit = " ".join(unit.split())
@@ -386,6 +388,7 @@ class GivenRewriter:
         the problem as stated, never in a text another change already edited, so "the
         charges as 2.0 C and 3.0 C" swaps them, and two changes of one given are none.
         Every other given stays as written, and the rewrite verifies."""
+        prior = fold_scientific(prior)
         if not changes or not fully_read(prior):
             return None
         targets: list[tuple[Given, str, str]] = []
@@ -413,6 +416,7 @@ class GivenRewriter:
 
     def scaled(self, prior: str, scaling: Scaling) -> str | None:
         """``what if the mass doubles``: the one given of that kind, times the factor."""
+        prior = fold_scientific(prior)
         reading = scaled_name(prior, scaling, self._is_quantity)
         if reading is None or not fully_read(prior):
             return None
@@ -445,6 +449,7 @@ class GivenRewriter:
     def restated(self, prior: str, line: str) -> list[Given]:
         """The values ``line`` states of a kind ``prior`` gives: "3.0 pC" after a problem
         with charges, never "question 8" or a power of ten in a bracket."""
+        prior, line = fold_scientific(prior), fold_scientific(line)
         kinds = {given.dimension for given in read_givens(prior, self.units) if given.dimension}
         return [given for given in read_givens(line, self.units) if given.dimension in kinds]
 
@@ -501,7 +506,10 @@ class GivenRewriter:
         """The values ``text`` states: each with its unit, and each pure number that is a
         value (``pure_value``: an index, a coefficient, "n = 2"); never a count or an
         item's number."""
-        plain = without_markup(text)  # "$T_C = 200\\,\\mathrm{K}$" is 200 K
+        # Scientific notation folded first, before markup comes off ("$2 \\times 10^{-6}$"
+        # loses its caret and braces), so "2 x 10^-6 C" is one value, in any spelling;
+        # "$T_C = 200\\,\\mathrm{K}$" is 200 K.
+        plain = without_markup(fold_scientific(text))
         return [
             given
             for given in read_givens(plain, self.units)
@@ -511,6 +519,7 @@ class GivenRewriter:
     def _quoted(self, written: str, kind: list[Given], dimension: str) -> list[Given]:
         """The givens of ``kind`` ``written`` quotes: by size when it carries a unit of that
         kind ("3.0 μC" of "3.0 μC and 3.0 nC"), by its number when it carries none."""
+        written = fold_scientific(written)
         sized = [g.si for g in read_givens(written, self.units) if g.dimension == dimension]
         if sized:
             return [

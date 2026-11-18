@@ -9,6 +9,7 @@ the first subject that claims the line owns the turn.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -130,7 +131,23 @@ def resolve_posed_followup(
     news = [new for _given, new in named]
     if changed is None or not followups.takes_every_change(problem, changed, content, news):
         return rewritten
-    return SubjectFollowup(asked=changed)
+    # A line that is only the change ("What if T_C = 200 K?") is the problem, as typed, and
+    # its card answers it. A line that says more ("... Give the answer in nN and explain why
+    # it is so small.") keeps its own words: the change is the subject's follow-up problem,
+    # as a typed what-if's is, and the turn's plan, units and whole-question checks read the
+    # user's line, never the rewrite in its place.
+    if _one_sentence(content):
+        return SubjectFollowup(asked=changed)
+    return SubjectFollowup(**{subject: changed})
+
+
+# A sentence's end: never a decimal point, and never a question's number ("9.").
+_SENTENCE_END = re.compile(r"(?<!^\d)(?<!^\d\d)[.?!](?=\s+\S)")
+
+
+def _one_sentence(line: str) -> bool:
+    """``line`` is one sentence: nothing after its first full stop or question mark."""
+    return _SENTENCE_END.search(line.strip()) is None
 
 
 def _shown(content: str, history: Sequence[Any], referent: str) -> SubjectFollowup:

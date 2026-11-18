@@ -379,9 +379,8 @@ def counted(prior: str, given: Given, kind: Sequence[Given] = ()) -> bool:
         after = [m for m in _WORDS.finditer(prior, given.end, end) if m.group().lower() in _COUNTED]
         alone = not any(other.start != given.start and start <= other.start < end for other in kind)
         return bool(after) and alone
-    group_start = counts[0].start()
-    another = _ANOTHER_BODY.search(prior, group_start, end)
-    group_end = another.start() if another else end
+    group_start = counts[-1].start()
+    group_end = _next_body(prior, group_start, end, kind)
     if not group_start <= given.start < group_end:
         return False
     group = [other for other in kind if group_start <= other.start < group_end]
@@ -390,8 +389,24 @@ def counted(prior: str, given: Given, kind: Sequence[Given] = ()) -> bool:
 
 _SENTENCE_END = re.compile(r"[.?!](?:\s|$)")
 _WORDS = re.compile(r"[a-z]+", re.IGNORECASE)
-# A body the sentence introduces after a counted group: "and a 6 Ω resistor".
-_ANOTHER_BODY = re.compile(r"(?:\band|,)\s+(?:a|an|another)\b", re.IGNORECASE)
+# A body the sentence may introduce after a counted group: "and a 6 Ω resistor", "and two
+# identical 6 Ω resistors"; a clause is one only when it gives a value of the group's kind.
+_ANOTHER_BODY = re.compile(
+    r"(?:\band|,)\s+(?:a|an|another|two|three|four|both|each)\b", re.IGNORECASE
+)
+_CLAUSE_END = re.compile(r",|;|\band\b", re.IGNORECASE)
+
+
+def _next_body(prior: str, start: int, end: int, kind: Sequence[Given]) -> int:
+    """Where a clause after ``start`` introduces another body with a value of the kind
+    ("and a 6 Ω resistor"); ``end`` when none does. ", a distance of 0.5 m apart," gives no
+    charge, so it ends no group of charges."""
+    for match in _ANOTHER_BODY.finditer(prior, start, end):
+        stop = _CLAUSE_END.search(prior, match.end(), end)
+        clause_end = stop.start() if stop else end
+        if any(match.end() <= other.start < clause_end for other in kind):
+            return match.start()
+    return end
 
 
 def thrown_at(prior: str, given: Given, throw: str) -> bool:

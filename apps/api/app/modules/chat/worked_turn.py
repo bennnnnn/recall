@@ -30,6 +30,7 @@ from app.modules.chat.worked_render import WorkedLayout
 from app.modules.turn_reading.question_kinds import is_science_question
 from app.modules.turn_reading.school_question import is_school_exercise
 from app.modules.turn_reading.turn import current_turn_reading, teaching_of
+from app.services.school_rounding import asked_rounding
 from app.services.solving import SubjectName
 from app.services.student_claim import only_checks_stated_results
 
@@ -59,7 +60,8 @@ def worked_layout(
         return None
     if not _calculation(content, subject) or only_checks_stated_results(content):
         return None
-    return WorkedLayout(law_heading=subject == "physics")
+    figures, places, _ = asked_rounding(content)
+    return WorkedLayout(law_heading=subject == "physics", asked=(figures, places))
 
 
 def checks_stated_results(

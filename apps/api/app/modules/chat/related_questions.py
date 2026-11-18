@@ -150,15 +150,24 @@ def _one_short_line(text: str) -> bool:
 _BARE_SUBSCRIPT = re.compile(r"(?<![\w$\\])[A-Za-z]_(?:\{[^{}\n]+\}|[A-Za-z0-9]{1,3}(?!\w))")
 
 
+def _symbol(match: re.Match[str]) -> str:
+    """A bare subscripted symbol in maths, its subscript braced: in TeX "v_min" lowers the
+    m alone ("vₘin" on a chip, phys30 2026-11-16), so it is ``$v_{min}$``."""
+    letter, _, script = match.group().partition("_")
+    if script.startswith("{") or len(script) == 1:
+        return f"${match.group()}$"
+    return f"${letter}_{{{script}}}$"
+
+
 def _typeset_symbols(text: str) -> str:
     """Each bare subscripted symbol outside a maths span, in $...$ for the phone."""
     pieces: list[str] = []
     last = 0
     for span in _MATH_SPAN.finditer(text):
-        pieces.append(_BARE_SUBSCRIPT.sub(lambda m: f"${m.group()}$", text[last : span.start()]))
+        pieces.append(_BARE_SUBSCRIPT.sub(_symbol, text[last : span.start()]))
         pieces.append(span.group())
         last = span.end()
-    pieces.append(_BARE_SUBSCRIPT.sub(lambda m: f"${m.group()}$", text[last:]))
+    pieces.append(_BARE_SUBSCRIPT.sub(_symbol, text[last:]))
     return "".join(pieces)
 
 

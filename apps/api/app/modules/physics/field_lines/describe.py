@@ -23,6 +23,7 @@ from app.modules.physics.field_lines.stated import (
     described_charge,
     held_to,
     named_signs,
+    part_named,
     plates_of,
     stated_charges,
 )
@@ -80,6 +81,10 @@ def read_description(body: str, texts: Sequence[str]) -> FieldPicture | None:
         return None
     if (described.charges is None) == (described.plates is None):
         return None
+    # A lettered question's picture is one of its parts: a block naming none, or a part the
+    # question has not, draws nothing.
+    if not part_named(texts[0] if texts else "", described.part):
+        return None
     if described.plates is not None:
         question = texts[0] if texts else ""
         if not plates_of(question, described.plates.positive, described.part):
@@ -114,6 +119,8 @@ def _charges(
     held = held_to([c for c in described if c is not None], stated)
     if held is None or len(held) != len(charges) or len({c.kind for c in held}) != 1:
         return None  # an amount the question does not state, or "2q" beside "3 μC"
+    if len(held) != len(stated):
+        return None  # "+3 nC and -2 nC" drawn as a lone +3 nC is another picture
     sizes = [charge.size for charge in held]
     if min(sizes) <= 0 or max(sizes) / min(sizes) > _MOST_RATIO:
         return None

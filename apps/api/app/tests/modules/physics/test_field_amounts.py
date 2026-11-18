@@ -270,3 +270,36 @@ def test_stated_charges_held_to_the_question_need_no_named_sign_from_an_earlier_
     ]
     pair = _charges({"sign": "+", "amount": "+2q"}, {"sign": "-", "amount": "-q"})
     assert read_description(pair, texts) is not None
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Draw the electric field pattern. One charge is positive and the other is negative.",
+        "Show the electric field lines. One charge is positive and the other is negative.",
+    ],
+)
+def test_signs_stated_after_the_request_are_held(question: str) -> None:
+    """The cut after the request dropped "One charge is positive and the other is
+    negative", so any signs passed (Gemini, PR #2482)."""
+    dipole = json.dumps({"kind": "field", "charges": [{"sign": "+"}, {"sign": "-"}]})
+    pair = json.dumps({"kind": "field", "charges": [{"sign": "+"}, {"sign": "+"}]})
+    assert read_description(dipole, [question]) is not None
+    assert read_description(pair, [question]) is None
+
+
+def test_every_stated_charge_is_drawn_and_a_part_must_be_the_questions() -> None:
+    """A lone +3 nC for "+3 nC and -2 nC" is another picture; on a lettered prompt a block
+    naming no part, or one the question has not, draws nothing (Gemini, PR #2482)."""
+    pair = "Draw the field lines around charges +3 nC and -2 nC."
+    lone = _charges({"sign": "+", "amount": "3 nC"})
+    both = _charges({"sign": "+", "amount": "3 nC"}, {"sign": "-", "amount": "2 nC"})
+    assert read_description(lone, [pair]) is None
+    assert read_description(both, [pair]) is not None
+    parts = "Draw the field around: a) a positive charge b) a negative charge."
+    no_part = json.dumps({"kind": "field", "charges": [{"sign": "+"}, {"sign": "-"}]})
+    part_c = json.dumps({"kind": "field", "part": "c", "charges": [{"sign": "+"}]})
+    part_a = json.dumps({"kind": "field", "part": "a", "charges": [{"sign": "+"}]})
+    assert read_description(no_part, [parts]) is None
+    assert read_description(part_c, [parts]) is None
+    assert read_description(part_a, [parts]) is not None

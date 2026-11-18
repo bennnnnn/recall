@@ -9,7 +9,10 @@ setup's own answer agrees with it. Finalize waits at most ``formal_wait_seconds`
 - the reply states another: its Answer becomes the server's card (measured 2026-11-16: in
   every one of 36 such disagreements the server was right and the reply wrong);
 - the reply's final value cannot be read (an Answer heading in another language): the
-  server's card is added under the reply, both shown.
+  server's card is added under the reply, both shown;
+- the question asks in parts, or the reply answers in several cards: the value answers one
+  part, and the setup does not say which, so it is left out (a trailing card repeating
+  part (a)'s value read as the final answer, phys30 2026-11-16).
 
 Either way a line in the reply's language says where the value comes from, and the card is
 marked ``verified: false``: the server did the arithmetic, the reading is the model's.
@@ -19,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -26,8 +30,16 @@ from app.core.config import Settings
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.reply_language import line_language
 from app.modules.chat.turn_decision import TurnDecision
+from app.modules.chat.whole_question import ASK_QUESTION_WORDS, ASK_VERBS, ASKED_SENTENCE
+from app.modules.chat.worked_language import WORKED_WORDS
 from app.services.answer_check import stated_verdict
-from app.services.answer_fence import UNCHECKED_ANSWER_MARKER, land_answer_card
+from app.services.answer_fence import (
+    ANSWER_FENCE_LANGS,
+    UNCHECKED_ANSWER_MARKER,
+    land_answer_card,
+)
+from app.services.md_fence_scan import iter_fences
+from app.services.question_parts import labelled_part_texts
 from app.services.subjects.registry import subject_adapter
 
 if TYPE_CHECKING:
@@ -88,6 +100,56 @@ def stop_formal(ctx: StreamContext) -> None:
         ctx.formal.cancel()
 
 
+# A part's own Answer heading in any language a worked layout is written in: "**Answer (a)**",
+# "**Respuesta (b)**". A ```worked reply in parts has these, and no card yet, when this runs.
+_PART_ANSWER_HEADING = re.compile(
+    r"^[ \t]*(?:#{1,4}[ \t]+)?\*\*(?:"
+    + "|".join(sorted({re.escape(words["answer"]) for words in WORKED_WORDS.values()}))
+    + r") \([a-h]\):?\*\*",
+    re.MULTILINE,
+)
+
+
+def _in_parts(reply: str, question: str) -> bool:
+    """The question asks in labelled parts, or the reply answers in several cards or under
+    several part headings: a ```worked reply's cards land after this pass, so its parts
+    are its headings (Gemini on #2489)."""
+    cards = sum(
+        1 for fence in iter_fences(reply) if fence.closed and fence.lang in ANSWER_FENCE_LANGS
+    )
+    headings = len(_PART_ANSWER_HEADING.findall(reply))
+    return cards >= 2 or headings >= 2 or _asks_in_parts(question)
+
+
+# The text before the first label ends on an ask, the labels its objects: "… find (a)",
+# "Can you work out (a)", "Could you find both (a)", "Calculate the following: (a)", "What
+# are (a)". "… holding blocks (A)" ends on a noun the labels name, and so do "Which mass
+# (A) …" and "How far do blocks (A) …": a question word asks for the labels only alone or
+# with is, are, was or were (Gemini on #2489).
+_ASKS_FOR_LABELS = re.compile(
+    rf"\b(?:(?:{ASK_VERBS})(?:\s+(?:both|the\s+following))?"
+    rf"|(?:{ASK_QUESTION_WORDS})(?:\s+(?:is|are|was|were))?)"
+    r"\s*:?$",
+    re.IGNORECASE,
+)
+
+
+def _asks_in_parts(question: str) -> bool:
+    """Each labelled part asks something: each is a question or an instruction of its own
+    ("(a) How long …? (b) How far …?", "(a) Find the flight time; (b) Find the range"), or
+    the text before the labels ends on the ask they complete (``_ASKS_FOR_LABELS``),
+    whatever words come before it. A label inside the statement or its question ("blocks
+    (A) and (B)", "Find the tension in the ropes holding blocks (A) of 2 kg and (B) of
+    3 kg") names a thing and asks nothing (review of phys30, 2026-11-16; Codex, Gemini and
+    Claude on #2489)."""
+    lead, parts = labelled_part_texts(question)
+    if len(parts) < 2:
+        return False
+    if all("?" in part or ASKED_SENTENCE.match(part.strip()) for part in parts):
+        return True
+    return _ASKS_FOR_LABELS.search(lead.rstrip()) is not None
+
+
 async def attach_formal(state: FinalizeState) -> str:
     """The reply's final value held to the server's, as the module docstring says."""
     ctx = state.ctx
@@ -109,6 +171,12 @@ async def attach_formal(state: FinalizeState) -> str:
         return state.text
     answer = task.result()
     body = answer.card_value
+    if _in_parts(state.text, ctx.user_message_content or ""):
+        # One value answers one part: a card under the last part repeating part (a)'s
+        # value read as the whole question's answer (phys30, 2026-11-16). Which part it
+        # answers the setup does not say, so it is left out.
+        logger.info("formal answer: a reply in parts, left out")
+        return state.text
     verdict = stated_verdict(state.text, body)
     if verdict not in _AGREES and any(
         stated_verdict(state.text, same) in _AGREES for same in answer.same_answers[1:]

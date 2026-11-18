@@ -229,3 +229,123 @@ async def test_finalize_waits_no_longer_than_its_cap(monkeypatch: pytest.MonkeyP
 )
 def test_the_card_draws_the_value_and_its_unit(value: float, unit: str, shown: str) -> None:
     assert FormalAnswer(value=value, unit=unit).card_value == shown
+
+
+_PARTS_QUESTION = (
+    "A ball is kicked at 18 m/s at 35° above the ground. (a) How far does it land? "
+    "(b) How high does it go?"
+)
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # A card per part: the server's value is one part's, never a card after the last.
+        "**Answer (a)**\n\n```answer\nverified: false\n32.4\\,\\mathrm{m}\n```\n\n"
+        "**Answer (b)**\n\n```answer\nverified: false\n5.4\\,\\mathrm{m}\n```",
+        # Parts asked, answered in one paragraph: still which part is not said.
+        "**Answer**\n\n(a) The range is 32.4 m. (b) The height is 5.4 m.",
+    ],
+)
+async def test_a_reply_in_parts_gets_no_trailing_card(answer: list[str], reply: str) -> None:
+    """phys30 (2026-11-16): "Worked out from the values in the question: 3.614 m/s²" and a
+    card repeating part (a) came after part (c), read as the whole question's answer."""
+    text = await _finalized(_ctx(_PARTS_QUESTION, live_read=_read()), reply)
+    assert text == reply
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        # Codex and Gemini on #2489: a part asks by its verb, or the clause before the
+        # labels asks for them.
+        "A ball is kicked at 18 m/s at 35° above the ground. (a) Find the flight time; "
+        "(b) Find the range.",
+        "A ball is kicked at 18 m/s at 35° above the ground, find (a) the flight time and "
+        "(b) the range.",
+        "A ball is kicked at 18 m/s at 35° above the ground. Calculate: (a) the flight time "
+        "(b) the range",
+        "A ball is kicked at 18 m/s at 35° above the ground. (a) Find the flight time. "
+        "(b) Find the range.",
+        "A ball is kicked at 18 m/s at 35° above the ground. Calculate the following: (a) the "
+        "flight time (b) the range",
+        # Gemini on #2489: a word before the ask, and compute or evaluate, still ask.
+        "A ball is kicked at 18 m/s at 35° above the ground. Please find (a) the flight time "
+        "and (b) the range.",
+        "A ball is kicked at 18 m/s at 35° above the ground. Now calculate (a) the flight "
+        "time and (b) the range.",
+        "A ball is kicked at 18 m/s at 35° above the ground. Compute (a) the flight time and "
+        "(b) the range.",
+        "A ball is kicked at 18 m/s at 35° above the ground. Evaluate (a) the flight time "
+        "and (b) the range.",
+        "A ball is kicked at 18 m/s at 35° above the ground. Find both (a) the flight time "
+        "and (b) the range.",
+        "A ball is kicked at 18 m/s at 35° above the ground. Calculate the following: (a) "
+        "the flight time and (b) the range.",
+        "A ball is kicked at 18 m/s at 35° above the ground. What are (a) the flight time "
+        "and (b) the range?",
+        # Gemini on #2489: whatever words come before the ask, and an abbreviation before it.
+        "A ball is kicked at 18 m/s at 35° above the ground. Can you work out (a) the flight "
+        "time and (b) the range?",
+        "A ball is kicked at 18 m/s at 35° above the ground. Could you find both (a) the "
+        "flight time and (b) the range?",
+        "A ball (e.g. a football) is kicked at 18 m/s at 35° above the ground, find (a) the "
+        "flight time and (b) the range.",
+        # Gemini on #2489: a line break ends the setup as a stop does.
+        "A ball is kicked at 18 m/s at 35° above the ground\nFind (a) the flight time and "
+        "(b) the range",
+    ],
+)
+async def test_parts_asked_by_instruction_get_no_trailing_card(
+    answer: list[str], question: str
+) -> None:
+    reply = "**Answer**\n\n(a) The flight time is 2.1 s. (b) The range is 32.4 m."
+    text = await _finalized(_ctx(question, live_read=_read()), reply)
+    assert text == reply
+
+
+@pytest.mark.parametrize("answer_word", ["Answer", "Respuesta"])
+@pytest.mark.parametrize(
+    "question",
+    [
+        "A ball is kicked at 18 m/s at 35° above the ground. How long is it in the air, and how "
+        "far does it land?",
+        "A ball is kicked at 18 m/s at 35° above the ground. (a) Time of flight. (b) Horizontal "
+        "range.",
+    ],
+)
+async def test_a_worked_reply_in_parts_gets_no_trailing_card(
+    answer: list[str], question: str, answer_word: str
+) -> None:
+    """Gemini on #2489: a ```worked reply's part headings are there before its cards."""
+    reply = (
+        f"**{answer_word} (a)**\n\n$t = 2.1\\ \\text{{s}}$\n\n"
+        f"**{answer_word} (b)**\n\n$R = 32.4\\ \\text{{m}}$"
+    )
+    text = await _finalized(_ctx(question, live_read=_read()), reply)
+    assert text == reply
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        # Labels that name things in the statement ask nothing: one answer, one correction
+        # (review of phys30, 2026-11-16).
+        "Two blocks (A) and (B) are kicked at 18 m/s at 35° above the ground. How far do they land?",
+        "Balls (i) and (ii) are kicked at 18 m/s at 35°. How far does each land?",
+        "Cars a) and b) kick a ball at 18 m/s at 35° above the ground. How far does it land?",
+        # Gemini on #2489: a question word with its own noun or verb names the labelled
+        # things, it does not ask for them.
+        "Two masses are dropped from 20 m. Which mass (A) of 2 kg or (B) of 3 kg hits the "
+        "ground first?",
+        "How far do blocks (A) of 2 kg and (B) of 3 kg slide on a 0.3 friction floor at 4 m/s?",
+        # Claude on #2489: an ask whose object the labels name asks one thing.
+        "Find the tension in the ropes holding blocks (A) of mass 2 kg and (B) of mass 3 kg.",
+        "Find how far the balls kicked at 18 m/s at 35° by players (A) on the left and (B) "
+        "on the right land.",
+    ],
+)
+async def test_labels_in_the_statement_are_no_parts(answer: list[str], question: str) -> None:
+    reply = "**Answer**\n\nThe range is $R = 32.4\\ \\text{m}$."
+    text = await _finalized(_ctx(question, live_read=_read()), reply)
+    assert "```answer\nverified: false\n31.07\\ \\mathrm{m}\n```" in text
