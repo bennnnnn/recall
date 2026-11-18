@@ -135,8 +135,9 @@ _WRITTEN_VALUE = re.compile(
 
 
 def written_value(text: str) -> tuple[str, str] | None:
-    """``10 s`` → ``("10", "s")``: a value given alone with its unit, as a change names it."""
-    match = _WRITTEN_VALUE.fullmatch(" ".join(text.split()))
+    """``10 s`` → ``("10", "s")``: a value given alone with its unit, as a change names it;
+    scientific notation in any spelling is one number ("2 x 10^-6 C" → ``("2e-6", "C")``)."""
+    match = _WRITTEN_VALUE.fullmatch(" ".join(fold_scientific(text).split()))
     if match is None or match.group("unit").lower() in _CLOCK_UNITS:
         return None
     return match.group("value"), match.group("unit")

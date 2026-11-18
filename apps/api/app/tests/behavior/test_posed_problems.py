@@ -576,3 +576,17 @@ def test_a_word_the_problem_only_shares_a_stem_with_is_a_new_setup(line: str, pr
 
     assert not _only_the_change(line, problem, ["5 m/s"])
     assert _only_the_change("What if it were 5 m/s?", problem, ["5 m/s"])
+
+
+@pytest.mark.parametrize("new", ["2 × 10⁻⁶ C", "2e-6 C"])
+def test_a_change_read_in_either_scientific_spelling_is_taken(new: str) -> None:
+    """A read that copies "2 x 10^-6 C" as the line writes it, or folds it to "2e-6 C", is
+    one change of the 2.0 C (Gemini, PR #2482): both readers fold scientific notation."""
+    from app.modules.chat.posed_read import _line_value
+
+    line = "Repeat the calculation taking the charges as 3.0 pC and 2 × 10⁻⁶ C."
+    assert _line_value(line, new) == new
+    followups = subject_adapter("physics").followups
+    rewritten = followups.changed_problem(_COULOMB, [("3.0 C", "3.0 pC"), ("2.0 C", new)])
+    assert rewritten is not None
+    assert followups.takes_every_change(_COULOMB, rewritten, line, ["3.0 pC", new])

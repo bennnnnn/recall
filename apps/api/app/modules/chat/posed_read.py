@@ -39,6 +39,7 @@ from pydantic import BaseModel, Field
 from app.core.config import Settings
 from app.core.readings import keep_for_turn, kept_for_turn, read_aside
 from app.modules.chat.referent_read import ask_read, chat_before
+from app.services.number_text import fold_scientific
 from app.services.problem_followup import stated_numbers
 from app.services.solving import SubjectName
 from app.services.text_normalize import collapse_ws
@@ -134,8 +135,10 @@ def _plain(text: str) -> str:
 
 
 def _unlatexed(text: str) -> str:
-    # The micro sign and the Greek mu are one prefix: a read may copy "2.0 μC" as "2.0 µC".
-    plain = _LATEX_SPACE.sub(" ", _LATEX_WORD.sub(r"\1", text)).replace("\u00b5", "\u03bc")
+    # The micro sign and the Greek mu are one prefix: a read may copy "2.0 μC" as "2.0 µC";
+    # scientific notation is one spelling, so "2e-6 C" is the line's "2 x 10^-6 C".
+    folded = fold_scientific(text)
+    plain = _LATEX_SPACE.sub(" ", _LATEX_WORD.sub(r"\1", folded)).replace("\u00b5", "\u03bc")
     return collapse_ws(plain).casefold()
 
 

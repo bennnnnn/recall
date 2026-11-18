@@ -236,6 +236,9 @@ _EXPLAINS = re.compile(
     r"\s*(?:\(?[a-h]\)\s*)?(?:explain|describe|why|how|discuss|compare|state|suggest|justify)\b",
     re.IGNORECASE,
 )
+# A sentence that asks for the picture ("Describe and draw the field around a negative
+# charge") is the setup's, whatever verb it opens with.
+_DRAWS = re.compile(r"\b(?:draw|sketch|plot|illustrate)\b", re.IGNORECASE)
 # "a)" or "(a)": where a part of the question starts.
 _PART = re.compile(r"(?<![\w(])\(?([a-h])\)")
 _COUNTS = {"two": 2, "three": 3, "2": 2, "3": 3}
@@ -296,7 +299,8 @@ def plates_of(text: str, positive: str, part: str | None = None) -> bool:
 
 def _setup_sentences(text: str) -> str:
     """``text`` without its explanation sentences ("Explain how the arrows show the force
-    on a positive test charge"), every setup sentence kept wherever it stands ("Draw the
+    on a positive test charge"), every setup sentence kept wherever it stands, one that
+    asks for the picture or states charges included ("Draw the
     electric field pattern. One charge is positive and the other is negative."). A colon or
     a semicolon ends no sentence, and a test charge's sign is never a source's
     (``_SIGN_WORD``)."""
@@ -305,10 +309,17 @@ def _setup_sentences(text: str) -> str:
     for match in [*_SENTENCE_END.finditer(text), None]:
         end = match.end() if match is not None else len(text)
         sentence = text[start:end]
-        if sentence.strip() and not _EXPLAINS.match(sentence):
+        if sentence.strip() and not _explains(sentence):
             kept.append(sentence)
         start = end
     return "".join(kept)
+
+
+def _explains(sentence: str) -> bool:
+    """An explanation sentence, never one that asks for the picture or states charges."""
+    if not _EXPLAINS.match(sentence) or _DRAWS.search(sentence):
+        return False
+    return not (_in_units(sentence) or _in_q(sentence))
 
 
 def _signs(text: str) -> list[int]:
