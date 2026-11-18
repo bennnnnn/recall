@@ -150,8 +150,9 @@ def _ends_a_word(pieces: list[str], index: int) -> bool:
     )
 
 
-def _parse(text: str) -> Any | None:
-    """``text`` as an expression; a point ``(1, 2)``, ``True`` or a bare SymPy name is none."""
+def _parse(text: str, *, evaluate: bool = True) -> Any | None:
+    """``text`` as an expression; a point ``(1, 2)``, ``True`` or a bare SymPy name is none.
+    ``evaluate=False`` keeps it as written (``ln 1`` stays a logarithm)."""
     from sympy import Expr
 
     from app.modules.math import solve as math_solve
@@ -161,7 +162,7 @@ def _parse(text: str) -> Any | None:
     if not candidate or len(candidate) > 200:
         return None
     with sympy_decline():
-        parsed = math_solve.parse_expression(candidate)
+        parsed = math_solve.parse_expression(candidate, evaluate=evaluate)
         return parsed if isinstance(parsed, Expr) else None
     return None
 
@@ -334,8 +335,63 @@ def _applies_a_function(args: dict[str, Any], user: _UserMath) -> bool:
     return any({str(s) for s in p.free_symbols} & user.functions for p in parsed if p is not None)
 
 
+def _answers_an_area(args: dict[str, Any], user: _UserMath) -> bool:
+    """A definite integral for a question that asks an area is its answer only when the
+    integrand keeps one sign on the interval: "the area bounded by y = x² - 3x + 2 and the
+    x-axis between x = 0 and x = 3" carried the signed ∫₀³ = 3/2 as checked under working
+    that found the area, 11/6 (2026-11-16). An indefinite integral, or a question that asks
+    no area, is not held to it."""
+    from app.modules.math.calculus_applications import integral_is_an_area
+    from app.modules.math.match.asked_quantities import quantity_mentions
+
+    lower, upper = args.get("lower"), args.get("upper")
+    if lower in (None, "") or upper in (None, ""):
+        return True
+    if "area" not in {name for name, _start, _end in quantity_mentions(user.text)}:
+        return True
+    variable = str(args.get("variable") or "x")
+    expr = str(args.get("expr") or "")
+    if not _integrates_the_gap(expr, str(lower), str(upper), user.text):
+        return False
+    return integral_is_an_area(expr, str(lower), str(upper), variable)
+
+
+def _integrates_the_gap(expr: str, lower: str, upper: str, text: str) -> bool:
+    """For an area question, the integrand is the gap between the region's curves (either
+    way round; ``integral_is_an_area`` holds it to one sign) over the region's own bounds:
+    ∫(x² + 1) for "the area between y = x² + 1 and y = x" is a step of the working, and so
+    is one piece of a region split where its curves cross, or ∫₁² of "the area under
+    y = x² from 0 to 2" (Gemini on #2481). The x-axis is the curve 0, so one curve alone
+    is its own gap there. A region the area readers do not read whole gets no check, nor
+    does a model that sums pieces: correctness over the tick."""
+    from app.modules.math.match.scan import prepare
+    from app.modules.math.tools.extractors.calculus_applications import area_question_region
+
+    cleaned = prepare(text)
+    region = area_question_region(cleaned) if cleaned else None
+    if region is None:
+        return False
+    read = [_parse(part) for part in (*region, expr, lower, upper)]
+    parsed = [part for part in read if part is not None]
+    if len(parsed) != len(read):
+        return False
+    first, second, low, high, integrand, start, end = parsed
+    gap = first - second
+    if not (_zero(integrand - gap) or _zero(integrand + gap)):
+        return False
+    return _zero(start - low) and _zero(end - high)
+
+
 def _matches(args: dict[str, Any], user: _UserMath) -> bool:
     action = str(args.get("action") or "solve").strip().lower()
+    if action == "integrate":
+        # The tool integrates over lower|start to upper|end (``tool.py``): the check reads
+        # the bounds it integrates over, whichever name carries them (Gemini on #2481).
+        args = {
+            **args,
+            "lower": args.get("lower") or args.get("start"),
+            "upper": args.get("upper") or args.get("end"),
+        }
     if user.functions and _applies_a_function(args, user):
         return False
     if action == "solve":
@@ -371,9 +427,10 @@ def _matches(args: dict[str, Any], user: _UserMath) -> bool:
             "limit": ("point",),
             "series": ("start", "end"),
         }.get(action, ())
-        return all(
+        written = all(
             args.get(key) in (None, "") or _number_written(args.get(key), user) for key in settings
         )
+        return written and (action != "integrate" or _answers_an_area(args, user))
     if action == "graph":
         if not _graph_arg(args, "expr", user):
             return False
@@ -428,6 +485,12 @@ def written_values(text: str) -> list[float]:
 def parse_formula(text: str) -> Any | None:
     """``text`` as one SymPy expression, or None."""
     return _parse(text)
+
+
+def parse_latex_formula(text: str, *, evaluate: bool = True) -> Any | None:
+    """``text``, typed LaTeX, as one SymPy expression, or None; ``evaluate=False`` keeps it
+    as written."""
+    return _parse(_latex_as_typed(text), evaluate=evaluate)
 
 
 def same_value(a: Any, b: Any) -> bool:

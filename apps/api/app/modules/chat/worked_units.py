@@ -63,7 +63,8 @@ def _names_no_unit(text: str) -> bool:
 
 
 def unit_tex(unit: str) -> str:
-    """The unit after a number, upright: ``m/s^2`` → ``\\,\\mathrm{m/s²}``."""
+    """The unit after a number, upright: ``m/s^2`` → ``\\,\\mathrm{m/s²}``; one in words as
+    text, ``\\,\\text{square units}``."""
     text = unit.strip()
     wrapped = _TEXT_WRAP.match(text)
     if wrapped is not None:
@@ -78,7 +79,8 @@ def unit_tex(unit: str) -> str:
     plain = plain.replace("*", "·").replace("{", "").replace("}", "")
     # A bare $ would close the maths around it.
     plain = plain.replace("%", r"\%").replace("$", r"\$")
-    return rf"\,\mathrm{{{plain}}}"
+    # A unit in words ("square units") is text: \mathrm runs its words together.
+    return rf"\,\text{{{plain}}}" if " " in plain else rf"\,\mathrm{{{plain}}}"
 
 
 def _currency(sign: str) -> bool:
