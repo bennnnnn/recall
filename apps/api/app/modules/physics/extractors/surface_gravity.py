@@ -11,9 +11,24 @@ from app.services.text_match import word_index
 
 EARTH_G = SCHOOL_GRAVITY["earth"]
 
+_NUMBER = r"(-?\d+(?:\.\d+)?)"
+# A g the question states, its number the first group: "g = 1.62", "gravity of 3.7", "the
+# acceleration due to gravity is 9.8", "a gravitational acceleration of 3.7", "free-fall
+# acceleration of 9.8", and one named after its value: "take 10 m/s² for g", "Taking 10 m/s²
+# as the acceleration due to gravity" (review of #2491).
 _STATED_G = (
-    re.compile(r"\bg\s*=\s*(-?\d+(?:\.\d+)?)", re.IGNORECASE),
-    re.compile(r"\bgravity\s*(?:of|is|=)?\s*(-?\d+(?:\.\d+)?)", re.IGNORECASE),
+    re.compile(rf"\bg\s*=\s*{_NUMBER}", re.IGNORECASE),
+    re.compile(rf"\bgravity\s*(?:of|is|=)?\s*{_NUMBER}", re.IGNORECASE),
+    re.compile(
+        rf"\b(?:gravitational|free[\s-]?fall)\s+(?:acceleration|field(?:\s+strength)?)"
+        rf"\s*(?:of|is|=)?\s*{_NUMBER}",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        rf"{_NUMBER}[^\n,;.?!]{{0,16}}?\b(?:as|for)\s+(?:the\s+)?(?:g\b|gravity\b"
+        r"|acceleration\s+due\s+to\s+gravity|gravitational\s+acceleration)",
+        re.IGNORECASE,
+    ),
 )
 
 
@@ -24,6 +39,14 @@ def _written_gravity(text: str) -> tuple[float, str] | None:
         if match:
             return float(match.group(1)), written_unit(text, match.end(1), "g")
     return None
+
+
+def gravity_at(text: str, start: int, end: int) -> bool:
+    """The value written at ``start:end`` is the g this reader reads: the one place a stated
+    g is told from any other acceleration, for the binder as for ``detect_gravity``."""
+    return any(
+        start <= match.start(1) < end for pattern in _STATED_G for match in pattern.finditer(text)
+    )
 
 
 def _in_m_per_s2(value: float, unit: str) -> float | None:
@@ -70,8 +93,8 @@ def detect_gravity(text: str) -> float:
 
 def names_a_gravity(text: str) -> bool:
     """The question sets its scene under a gravity of its own: a g it states, the Moon or
-    Mars (``detect_gravity``), or another named planet or star. A stated acceleration
-    there may be its g ("on Jupiter, where the acceleration is 24.8 m/s²")."""
+    Mars (``detect_gravity``), or another named planet or star. A stated acceleration there
+    may be its g ("on Jupiter, where the acceleration is 24.8 m/s²")."""
     from app.modules.physics.bodies import central_body
 
     return detect_gravity(text) != EARTH_G or central_body(text.lower()) is not None

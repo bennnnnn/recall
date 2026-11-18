@@ -68,6 +68,9 @@ class Subject:
     # Whether the text sets the scene somewhere with its own gravity: a named planet or
     # moon ("on Mars"), or a g it states. A stated acceleration there may be g.
     names_gravity: Callable[[str], bool] = lambda _text: False
+    # Whether the value at ``start:end`` is the g the subject's reader reads ("g = 1.62",
+    # "take 10 m/s² for g"): one reader of a stated g, the subject's.
+    gravity_at: Callable[[str, int, int], bool] = lambda _text, _start, _end: False
 
 
 @dataclass(frozen=True, slots=True)
@@ -334,9 +337,6 @@ def _negative(variable: VariableSpec, before: str, lower: str, given: Given) -> 
     return variable.negated is not None and variable.negated(lower, given.start, given.end)
 
 
-# Words that name a value as gravity's: "g = 1.62", "gravity of 3.7", "the acceleration due
-# to gravity", "free-fall acceleration".
-_GRAVITY_LABEL = re.compile(r"\bg\b|\bgravit|\bfree[\s-]?fall", re.IGNORECASE)
 # A body falling, dropped or thrown: its acceleration is gravity's.
 _FALLING = re.compile(
     r"\b(?:drop(?:s|ped|ping)?|falls?|falling|fell|free[\s-]?fall\w*|projectiles?"
@@ -363,19 +363,17 @@ def _may_take(
 
 
 def _marks_gravity(question: Question, given: Given, previous: int, subject: Subject) -> bool:
-    """A stated acceleration fills g only where the words make it gravity's: a g or gravity
-    named at the value, before or after it ("take 10 m/s² for g"); a body falling, dropped
-    or thrown in the value's own sentence; else, unless the value is a body's own driven
-    acceleration, a fall anywhere or a named world's gravity. "The cruiser accelerates from
+    """A stated acceleration fills g only where the words make it gravity's: the g the
+    subject's one reader of a stated g reads at the value ("g = 1.62", "take 10 m/s² for
+    g"); a body falling, dropped or thrown in the value's own sentence; else, unless the
+    value is a body's own driven acceleration, a fall anywhere or a named world's gravity. "The cruiser accelerates from
     rest at 3.00 m/s²" is no g: a law with g bound it as one and certified 150 m for 600 m
     (owner's phone, 2026-11-17)."""
     lower = question.lower
-    later = [other.start for other in question.givens if other.start >= given.end]
-    sentence_end = _SENTENCE_END.search(lower, given.end)
-    stop = min([*later, sentence_end.end() if sentence_end else len(lower)])
-    before, after = lower[previous : given.start], lower[given.end : stop]
-    if _GRAVITY_LABEL.search(before) or _GRAVITY_LABEL.search(after):
+    if subject.gravity_at(question.text, given.start, given.end):
         return True
+    before = lower[previous : given.start]
+    sentence_end = _SENTENCE_END.search(lower, given.end)
     starts = [found.end() for found in _SENTENCE_END.finditer(lower, 0, given.start)]
     sentence = lower[max(starts, default=0) : sentence_end.end() if sentence_end else len(lower)]
     if _FALLING.search(sentence):
