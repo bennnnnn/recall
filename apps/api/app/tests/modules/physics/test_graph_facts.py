@@ -381,3 +381,50 @@ def test_a_follow_up_with_its_own_bounds_draws_with_the_question_s_motion() -> N
     texts = ["Now draw the velocity-time graph from t = 0 to t = 5.", asked]
     fences = drawn_fences([body], texts, "", read_graph_facts)
     assert fences and "v = 7t²/4 + 8" in fences[0]
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "A ball is thrown upward with an initial velocity of 20 m/s. Its acceleration is "
+        "9.8 m/s² downward. Sketch the v-t graph.",
+        "A particle starts from rest and decelerates at 2 m/s² for 5 s. Draw the v-t graph.",
+        "A particle starts from rest and moves with a deceleration of 2 m/s². Draw the v-t graph.",
+        "A particle starts from rest with acceleration of 2 m/s² in the negative direction. "
+        "Draw the v-t graph.",
+    ],
+)
+def test_an_acceleration_with_a_direction_is_never_given_a_sign(question: str) -> None:
+    # Its sign depends on a frame the question does not fix: no curve, never a guessed one
+    # (PR #2486 review).
+    assert read_graph_facts(question).formulas == ()
+
+
+@pytest.mark.parametrize(
+    ("question", "formulas"),
+    [
+        # An asked sentence gives no acceleration and no direction (PR #2486 review).
+        ("A particle starts from rest with acceleration (6 - 2t) m/s². Find when it "
+         "decelerates and draw the velocity-time graph.", {"a": "6 - 2*t", "v": "6*t - t**2"}),
+        ("A particle starts from rest with acceleration (6 - 2t) m/s². Find when the "
+         "acceleration is 0 m/s². Draw the v-t graph.", {"a": "6 - 2*t", "v": "6*t - t**2"}),
+        # A question asked in one sentence still gives its acceleration; "v against t" is
+        # no direction.
+        ("Sketch v against t for a particle that starts from rest with acceleration 2t m/s².",
+         {"a": "2*t"}),
+        # Two stated velocities held to one curve, whatever form SymPy gives each.
+        ("A particle moves with acceleration 3(t + 1)^2 m/s². At t = 0 its velocity is 1 m/s, "
+         "and at t = 1 s its velocity is 8 m/s. Draw the v-t graph.",
+         {"a": "3*(t + 1)**2", "v": "(t + 1)**3"}),
+        # A clause of another state ("before coming to rest", "after it is at rest") states
+        # nothing.
+        ("A particle starts from O with velocity 9 m/s and acceleration (2t - 6) m/s². Before "
+         "coming to rest at t = 3 s, it slows down.",
+         {"a": "2*t - 6", "v": "(t - 3)**2", "s": "t**3/3 - 3*t**2 + 9*t"}),
+        ("A particle starts from O with velocity 8 m/s and acceleration -2t m/s². After it is "
+         "at rest at t = 5 s, it turns back.", {"a": "-2*t", "v": "8 - t**2",
+                                                 "s": "8*t - t**3/3"}),
+    ],
+)  # fmt: skip
+def test_review_round_nine_cases(question: str, formulas: dict[str, str]) -> None:
+    test_the_motion_is_worked_out_from_the_values_it_states(question, formulas)

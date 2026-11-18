@@ -114,11 +114,26 @@ _SENTENCES = re.compile(r"(?<=[.;!?])\s+")
 _CLAUSES = re.compile(r",|;|\band\b")
 # A clause is cut again where a clause of time opens: "has displacement 16 m | when t = 2 s",
 # "with acceleration 2 m/s² | until its velocity is 20 m/s".
-_SUBORDINATE = re.compile(r"(?=\b(?:when|whenever|until|till|up\s+to|while|before)\b)")
+# "after" opens one when no time follows it ("after it is at rest at t = 5 s"; "after 4 s"
+# is a time).
+_AFTER_A_STATE = rf"after\s+(?!\d|(?:{count_word_pattern(high=100)})\b)"
+_SUBORDINATE = re.compile(
+    rf"(?=\b(?:when|whenever|until|till|up\s+to|while|before|{_AFTER_A_STATE})\b)"
+)
 _OPENS_WHEN = re.compile(r"\s*when(?:ever)?\b")
-# A clause of a later state ("until its velocity is 20 m/s", "up to ...", "while ...",
-# "before ..."): said at no time it names, it states nothing and lends no time.
-_BOUND = re.compile(r"\s*(?:until|till|up\s+to|while|before)\b")
+# A clause of another state ("until its velocity is 20 m/s", "up to ...", "while ...",
+# "before coming to rest at t = 3 s", "after it is at rest"): said at no time it names,
+# it states nothing and lends no time.
+_BOUND = re.compile(rf"\s*(?:until|till|up\s+to|while|before|{_AFTER_A_STATE})")
+# Words that give an acceleration a direction: its sign then depends on a frame the
+# question does not fix ("9.8 m/s² downward" for a ball thrown upward, "decelerates at
+# 2 m/s²", "in the negative direction", "against the motion"; "v against t" is no
+# direction), so no acceleration is read, never a guessed sign.
+_DIRECTED = re.compile(
+    r"\b(?:up|down)wards?\b|\bopposite\b|\bagainst\s+(?:the\s+|its\s+)?(?:motion|direction)\b"
+    r"|\bretard\w*|\bdecelerat\w*"
+    r"|\bnegative\s+direction\b"
+)
 # A duration: "for 4 s", "in ten seconds", from the time the motion starts: 0, or the time
 # the question starts it at ("starts at t = 5 s", "from t = 5 s").
 _DURATION = re.compile(
@@ -275,7 +290,7 @@ def _through(rate: Expr, stated: list[tuple[Any, Any]]) -> Expr | None:
     found = integrate(rate, _T)
     at, value = stated[0]
     found = found + value - found.subs(_T, at)
-    if any(found.subs(_T, t) != v for t, v in stated[1:]):
+    if any(simplify(found.subs(_T, t) - v) != 0 for t, v in stated[1:]):
         return None
     return found
 
@@ -320,21 +335,41 @@ def _phases(lowered: str) -> bool:
     return len(stated) > 1 or _PHASE.search(lowered) is not None
 
 
+def _accelerations(lowered: str) -> str:
+    """The sentences an acceleration is read from: those that state, not ask ("Find when
+    it decelerates", "find when the acceleration is 0 m/s²"), when one of them states one;
+    else every sentence ("Sketch the v-t graph of a particle with acceleration 2t m/s²")."""
+    stating = " ".join(
+        sentence for sentence in _SENTENCES.split(lowered) if not _ASKED_SENTENCE.search(sentence)
+    )
+    if _ACCELERATION.search(stating) or _CONSTANT_ACCELERATION.search(stating):
+        return stating
+    return lowered
+
+
+def _signed_acceleration(lowered: str) -> Expr | None:
+    """The acceleration the question writes, a(t) or a constant, unless a word gives it a
+    direction (``_DIRECTED``)."""
+    scanned = _accelerations(lowered)
+    if _DIRECTED.search(scanned):
+        return None
+    found = next(
+        (e for m in _ACCELERATION.finditer(scanned) if (e := _in_t(m.group("expr")))), None
+    )
+    return found if found is not None else _constant_acceleration(scanned)
+
+
 def motion_formulas(text: str) -> list[tuple[str, Expr, str]]:
     """The motion's formulas in t, (name, formula, unit): the acceleration it writes, and
     the velocity and the displacement worked out from the values it states."""
     lowered = text.lower()
-    acceleration = next(
-        (e for m in _ACCELERATION.finditer(lowered) if (e := _in_t(m.group("expr")))), None
-    )
-    if acceleration is None:
-        acceleration = _constant_acceleration(lowered)
+    acceleration = _signed_acceleration(lowered)
     velocity = next(
         (e for m in _VELOCITY_IN_T.finditer(lowered) if (e := _in_t(m.group("expr")))), None
     )
     if acceleration is None and velocity is None:
         return []
-    if _phases(lowered):
+    if _phases(_accelerations(lowered)):
         return []  # a motion in phases is a curve in pieces: none, rather than a wrong one
     velocities, positions = _stated(text)
     if velocity is not None and not _holds(velocity, acceleration, velocities):
@@ -376,7 +411,7 @@ def motion_interval(text: str) -> tuple[str, Any, Any] | None:
         or _constant_acceleration(lowered) is not None
     ):
         return None  # no motion stated
-    if _phases(lowered):
+    if _phases(_accelerations(lowered)):
         return None  # a motion in phases: no formula, so no stretch of one
     times = [t for m in _AT_TIME.finditer(lowered) if (t := _time(m)) is not None]
     # Its start: the time the question starts it at ("starts at t = 5 s"), else 0; a time a
