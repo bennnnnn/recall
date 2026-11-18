@@ -21,10 +21,15 @@ def scene_fences(descriptions: Sequence[str], texts: Sequence[str]) -> list[str]
 
 
 def physics_fences(
-    descriptions: Sequence[str], texts: Sequence[str], problem: str | None = None
+    descriptions: Sequence[str],
+    texts: Sequence[str],
+    problem: str | None = None,
+    asked: bool = True,
 ) -> list[str]:
     """Every picture a physics reply described: its field pictures, read from the user's
     own lines (the parts, plates and charges of "Draw the field lines around: a) ..."),
-    then its scene, of the problem a follow-up points back to when there is one."""
+    only when the message asks to see one; then its scene, of the problem a follow-up
+    points back to when there is one."""
     scene_texts = [problem, *texts] if problem else list(texts)
-    return [*field_fences(descriptions, texts), *scene_fences(descriptions, scene_texts)]
+    fields = field_fences(descriptions, texts) if asked else []
+    return [*fields, *scene_fences(descriptions, scene_texts)]

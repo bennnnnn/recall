@@ -289,14 +289,28 @@ def _still_wanted(ctx: StreamContext, drawing: ReplyDrawing) -> bool:
     not say otherwise."""
     if drawing.asked == "read":
         return True
-    read = ctx.live_read
-    if read is None or not read.done() or read.cancelled() or read.exception() is not None:
-        return True
-    decision = read.result()
+    decision = _read_in(ctx)
     if decision is None or decision.subject is None or decision.picture is None:
         return True
-    # A setup's scene the read would ask for too ("none": a problem's own picture) stands.
-    return drawing.subject in (_described_by(ctx, decision), _setup_of(decision))
+    # A setup's scene the read would ask for too ("none": a problem's own picture) stands,
+    # unless the read says the message works nothing out ("just explain").
+    setup = _setup_of(decision) if decision.work is not False else None
+    return drawing.subject in (_described_by(ctx, decision), setup)
+
+
+def _asks_to_see(ctx: StreamContext) -> bool:
+    """The message asks to see a picture, unless the read, in by now, says it asks for none
+    ("Don't draw the field, just explain"): then only a problem's setup is drawn."""
+    decision = _read_in(ctx)
+    return decision is None or decision.picture != "none"
+
+
+def _read_in(ctx: StreamContext) -> TurnDecision | None:
+    """The turn's read, when it is in by now and answered."""
+    read = ctx.live_read
+    if read is None or not read.done() or read.cancelled() or read.exception() is not None:
+        return None
+    return read.result()
 
 
 async def attach_drawing(state: FinalizeState) -> str:
@@ -318,7 +332,9 @@ async def attach_drawing(state: FinalizeState) -> str:
     problem = ctx.followup_problem if drawing.subject == "physics" else None
     try:
         facts = subject_adapter("physics").graph_facts if _physics_read(ctx) else None
-        fences = await figure.described(descriptions, texts, text, state.settings, facts, problem)
+        fences = await figure.described(
+            descriptions, texts, text, state.settings, facts, problem, _asks_to_see(ctx)
+        )
     except Exception as exc:  # A drawing that fails is no drawing: the reply stands.
         logger.info("described picture failed (%s)", type(exc).__name__)
         return text

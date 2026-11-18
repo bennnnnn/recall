@@ -156,15 +156,6 @@ class Stated:
         asked = end_match is not None and end_match.group() == "?"
         return asked or ASK_VERBS.search(self.text[start : given.start]) is not None
 
-    def before(self, given: Given, reach: int = 40) -> str:
-        """The words just before ``given``."""
-        return self.text[max(0, given.start - reach) : given.start]
-
-    def after(self, given: Given, reach: int = 40) -> str:
-        """The words just after ``given``'s unit."""
-        at = self.after_at(given)
-        return self.text[at : at + reach]
-
     def sentence(self, given: Given) -> str:
         """The sentence ``given`` is written in."""
         start = max((m.end() for m in _SENTENCE_END.finditer(self.text, 0, given.start)), default=0)

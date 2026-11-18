@@ -321,12 +321,15 @@ class GuardedFigure:
         settings: Settings,
         facts: GraphFactReader | None = None,
         problem: str | None = None,
+        asked: bool = True,
     ) -> list[str]:
         return await _neutral_async(
             self._subject,
             "figure.described",
             [],
-            lambda: self._inner.described(descriptions, texts, reply, settings, facts, problem),
+            lambda: self._inner.described(
+                descriptions, texts, reply, settings, facts, problem, asked
+            ),
         )
 
     def without_drawn_substitutes(self, text: str, user_text: str = "") -> str:

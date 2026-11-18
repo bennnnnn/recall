@@ -159,3 +159,75 @@ def test_the_binder_reads_a_downward_launch_over_its_whole_sentence(question: st
     )
     assert upward is not None and upward.physics_params is not None
     assert upward.physics_params["angle"] == 30.0
+
+
+@pytest.mark.parametrize(
+    ("question", "angle"),
+    [
+        ("A golf ball is hit down the fairway at 40 m/s at 30 degrees. Find its range.", 30.0),
+        ("A ball is kicked down the field at 20 m/s at 30 degrees. Find its range.", 30.0),
+        (
+            "A stone is thrown from a 45 m cliff at 15 m/s at 30 degrees to hit the water "
+            "down below. How long is it in the air?",
+            30.0,
+        ),
+        (
+            "A stone is thrown down at 15 m/s at 30° from a 45 m cliff. How long is it in the air?",
+            -30.0,
+        ),
+    ],
+)
+def test_only_a_down_of_the_launch_itself_turns_the_angle(question: str, angle: float) -> None:
+    """ "hit down the fairway" is a place and "to hit the water down below" a target: both
+    were read as a downward launch (Gemini, PR #2490). The extractor and the binder share
+    the reader."""
+    from app.modules.physics.binding import bind_physics_intent
+
+    for read in (extract_physics_intent(question), bind_physics_intent(question)):
+        assert read is not None and read.physics_params is not None
+        assert read.physics_params["angle"] == angle
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "A ball is launched at 20 m/s making a 60° angle with the vertical. How long is it in the air?",
+        "A ball is launched at 20 m/s at an angle to the vertical of 60°. How long is it in the air?",
+    ],
+)
+def test_an_angle_with_the_vertical_in_any_order_is_no_elevation(question: str) -> None:
+    """Read as 60° of elevation, these flew 3.53 s for 2.04 s (Gemini, PR #2490): the
+    catalog's one angle-reference pattern reads them, and the extractor asks it too."""
+    from app.modules.physics.binding import bind_physics_intent
+
+    assert extract_physics_intent(question) is None
+    assert bind_physics_intent(question) is None
+
+
+def test_an_angle_measured_from_the_normal_is_the_normals() -> None:
+    """ "40° measured from the normal to the face" is the normal's angle, though "to the
+    face" follows: read as the surface's, Snell's law gave 30.71° for 25.37° (Gemini, PR
+    #2490)."""
+    question = (
+        "Light in air strikes glass (n = 1.5) at 40° measured from the normal to the face. "
+        "Find the angle of refraction."
+    )
+    read = extract_physics_intent(question)
+    assert read is not None and read.physics_params is not None
+    assert "from_surface" not in read.physics_params
+
+
+@pytest.mark.parametrize(
+    ("ask", "solved"),
+    [
+        ("Determine if the collision is elastic.", False),
+        ("Could the collision be elastic?", False),
+        ("If the collision is elastic, find the final velocities.", True),
+    ],
+)
+def test_a_collision_type_asked_about_is_never_taken_as_stated(ask: str, solved: bool) -> None:
+    """ "Determine if the collision is elastic" and "Could it be elastic?" ask the type:
+    taken as stating it, final velocities were certified for a type nobody gave (Gemini,
+    PR #2490). A condition ("If the collision is elastic, find ...") still states it."""
+    read = extract_physics_intent(f"A 2 kg ball moving at 3 m/s hits a stationary 1 kg ball. {ask}")
+    assert (read is not None) is solved

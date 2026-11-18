@@ -45,10 +45,16 @@ _REST_BEFORE_MASS = re.compile(
 )
 _ELASTIC = re.compile(r"\belastic(?:ally)?\b", re.IGNORECASE)
 # The collision's type asked about, not stated: "Is the collision elastic?", "whether it
-# was inelastic". Read as stated, the answer was worked for a type nobody gave.
+# was inelastic", "Determine if the collision is elastic", "Could the collision be
+# elastic?". Read as stated, the answer was worked for a type nobody gave.
 _ASKED_TYPE = re.compile(
     r"\b(?:is|was|are|were)\s+(?:the\s+|this\s+|that\s+)?(?:collision|it)\s+"
-    r"(?:\w+\s+)?(?:in)?elastic(?:ally)?\b[^.?]*\?|\bwhether\b[^.?]{0,60}?\b(?:in)?elastic",
+    r"(?:\w+\s+)?(?:in)?elastic(?:ally)?\b[^.?]*\?|\bwhether\b[^.?]{0,60}?\b(?:in)?elastic"
+    # "Determine if it is elastic" asks; "If the collision is elastic, find ..." states it.
+    r"|\b(?:determine|decide|check|find\s+out|tell(?:\s+me)?|say|state|see|establish|verify)"
+    r"\s+if\b[^.?]{0,60}?\b(?:in)?elastic"
+    r"|\b(?:can|could|might|may|would)\s+(?:the\s+|this\s+|that\s+)?(?:collision|it)\s+"
+    r"(?:\w+\s+){0,2}?be\s+(?:\w+\s+)?(?:in)?elastic",
     re.IGNORECASE,
 )
 _STICKING = re.compile(

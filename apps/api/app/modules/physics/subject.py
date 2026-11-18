@@ -292,6 +292,7 @@ class PhysicsFigure:
         settings: Settings,
         facts: GraphFactReader | None = None,
         problem: str | None = None,
+        asked: bool = True,
     ) -> list[str]:
         from app.core import sympy_executor
         from app.modules.physics.scene_drawing.build import physics_fences
@@ -301,6 +302,7 @@ class PhysicsFigure:
             list(descriptions),
             list(texts),
             problem,
+            asked,
             timeout=settings.stem_solve_timeout_seconds,
         )
 

@@ -430,3 +430,24 @@ async def test_a_late_read_that_asks_to_see_nothing_keeps_a_setup_scene() -> Non
     assert drawing_turn._still_wanted(setup, scene)
     other = _ctx(line, live_read=_read(subject="maths", picture="none"))
     assert not drawing_turn._still_wanted(other, scene)
+
+
+async def test_a_read_that_asks_for_no_picture_draws_no_field(
+    thread_sympy_executor: None,
+) -> None:
+    """ "Don't draw the field around a positive charge, just explain": a late read that says
+    "none" kept the scene contract, and the field was drawn anyway (Gemini, PR #2490). A
+    picture the read says nobody asked for is never a field's; a read that works nothing
+    out keeps no setup scene either."""
+    from app.tests.modules.chat.test_drawing_turn import _read
+
+    line = "Don't draw the field around a positive charge, just explain what it looks like."
+    ctx = _ctx(line, live_read=_read(subject="physics", picture="none"))
+    ctx.drawing = drawing_turn.ReplyDrawing(asked="words", subject="physics")
+    field = _block({"kind": "field", "charges": [{"sign": "+"}]})
+    text = await attach_drawing(_state(ctx, f"The lines point outward.\n\n{field}"))
+    assert not list(iter_closed_fences(text, "simulation"))
+    idle = _ctx(line, live_read=_read(subject="physics", picture="none", work=False))
+    assert not drawing_turn._still_wanted(
+        idle, drawing_turn.ReplyDrawing(asked="words", subject="physics")
+    )

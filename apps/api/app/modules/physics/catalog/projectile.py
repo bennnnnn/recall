@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from app.modules.physics.extractors.launch_direction import launched_downward
 from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
-from app.services.law_binding.words import ANGLE_TO
+from app.services.law_binding.words import angle_to
 
 # A launch "horizontally" from a height states the angle (0°) without a number,
 # and so does anything that rolls, slides or drives off an edge.
@@ -77,7 +77,7 @@ _FLIES = ("h0 if h0 > 0 else sin(angle)",)
 _FROM_THE_GROUND = frozenset({"angle", "g", "v0"})
 # A launch angle measured from the vertical: "60° to the vertical", "60 degrees from
 # vertical"; never "the angle it makes with the vertical", which a landing asks.
-_FROM_THE_VERTICAL = (f"{ANGLE_TO}vertical\\b",)
+_FROM_THE_VERTICAL = (angle_to(r"vertical\b"),)
 # Another situation than a free flight from a launch: a slope's motion, a pull, a swing,
 # or a flight toward a wall or a target, whose question is another one.
 _NOT_A_FREE_FLIGHT = (
