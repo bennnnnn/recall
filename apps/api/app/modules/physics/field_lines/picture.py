@@ -14,10 +14,10 @@ from the smaller of the two (``_drawn_from_here``).
 from __future__ import annotations
 
 import itertools
-import json
 import math
 from typing import Literal
 
+from app.modules.physics.fence import scene_fence
 from app.modules.physics.field_lines.describe import FieldPicture
 from app.modules.physics.field_lines.trace import (
     CHARGE_RADIUS,
@@ -65,8 +65,7 @@ def field_fence(picture: FieldPicture) -> str | None:
     spec = _plates_spec(picture) if picture.positive is not None else _charges_spec(picture)
     if spec is None:
         return None
-    body = json.dumps(spec.model_dump(mode="json", exclude_none=True), ensure_ascii=False)
-    return f"```simulation\n{body}\n```"
+    return scene_fence(spec.model_dump(mode="json", exclude_none=True))
 
 
 def _charges_spec(picture: FieldPicture) -> SimulationBlockSpec | None:

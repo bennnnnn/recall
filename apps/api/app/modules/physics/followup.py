@@ -13,7 +13,7 @@ import re
 from collections.abc import Sequence
 from typing import Any
 
-from app.modules.physics.ask import ask_clause, asks
+from app.modules.physics.ask import ask_clause, asked_phrases, asks
 from app.modules.physics.ask_words import _DIMENSIONLESS, _MONEY, _QUANTITIES
 from app.modules.physics.extract import extract_physics_intent, needs_physics
 from app.modules.physics.givens import ANGLE, PHYSICS_UNITS
@@ -406,6 +406,7 @@ _GIVENS = GivenRewriter(
     _dimension_of_phrase,
     _verifies,
     asked=_asked_dimensions,
+    asked_names=asked_phrases,
     fits=_fits,
 )
 

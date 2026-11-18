@@ -305,7 +305,7 @@ def fit(
         if choice is None or _names_a_filled_input(choice, filled, own):
             return None
         filled.append(choice)
-        negative = last_said(before, choice.negating) >= 0
+        negative = _negative(choice, before, lower, given)
         params[choice.name] = -given.value if negative else given.value
         units[choice.name] = given.unit
         previous = value_end(lower, given)
@@ -324,6 +324,14 @@ def fit(
     ):
         return None
     return Fit(spec, params, units, strength, stated)
+
+
+def _negative(variable: VariableSpec, before: str, lower: str, given: Given) -> bool:
+    """The value is negative: by the words just before it ("decelerates at"), or by its
+    subject's reader of the whole question ("kicked down ... at 15 m/s at 30°")."""
+    if last_said(before, variable.negating) >= 0:
+        return True
+    return variable.negated is not None and variable.negated(lower, given.start, given.end)
 
 
 # Words that name a value as gravity's: "g = 1.62", "gravity of 3.7", "the acceleration due

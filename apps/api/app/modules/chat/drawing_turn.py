@@ -10,10 +10,12 @@ in place of the figure read's picture of that kind (``figure_turn``) and of any 
 Mermaid diagram the reply drew for it; one that does not check is left out, with no note. A reply that was not asked for one, or whose read says
 the message asks to see no maths picture, keeps no block and gets no picture. Nothing here
 raises into a turn.
-Physics describes its pictures the same way: on a physics message the read says asks to see
-a diagram, and that no solve drew, the reply gets physics' contract (an electric field's
-lines, ``physics.field_lines``) and physics checks and draws what it describes. The field
-questions of a GCSE set came back as ASCII art in tables and code blocks (live, 2026-11-16).
+Physics describes its pictures the same way: on a physics message no solve drew a picture
+for, the reply gets physics' contract, its setup's scene (``physics.scene_drawing``: a
+projectile, an incline, an Atwood machine, ...) and an electric field's lines
+(``physics.field_lines``), and physics checks and draws what it describes. The field
+questions of a GCSE set came back as ASCII art (live, 2026-11-16), and 29 of 30 hard
+problems in parts had no picture at all: no solver reads a question in parts.
 """
 
 from __future__ import annotations
@@ -186,6 +188,13 @@ def _described_by(ctx: StreamContext, read: TurnDecision) -> SubjectName | None:
     return "physics" if read.subject == "physics" and read.picture == "diagram" else "math"
 
 
+def _setup_of(read: TurnDecision) -> SubjectName | None:
+    """Physics' scene is its setup's picture: a problem whose read asks to see nothing gets
+    it too, as maths' teaching figure does, when no solve drew one (never a picture asked
+    for, which ``_described_by`` holds to the read's asks check)."""
+    return "physics" if read.subject == "physics" and read.picture == "none" else None
+
+
 async def write_for_a_picture(ctx: StreamContext, settings: Settings) -> None:
     """A solver's instant reply gives way to the model's when the read says the message asks
     to see a maths picture, or a graph of a physics question whose card draws none: the instant reply carries the card alone, and no picture can be
@@ -238,7 +247,7 @@ async def ask_for_a_drawing(
     asked: Literal["read", "words"] | None = None
     subject: SubjectName | None = None
     if read is not None and read.subject is not None and read.picture is not None:
-        subject = _described_by(ctx, read)
+        subject = _described_by(ctx, read) or _setup_of(read)
         asked = "read" if subject is not None else None
     elif _asks_in_words(ctx):
         subject = _words_subject(ctx)
@@ -251,12 +260,27 @@ async def ask_for_a_drawing(
     kind = read.picture if read is not None and read.picture is not None else "diagram"
     if subject == "physics" and solve_draws(ctx.verified_subject, kind):
         return
+    # A solve that drew its scene gets no second one ("hang over a pulley ... and sketch a
+    # velocity-time graph" drew the Atwood machine twice; Gemini, PR #2490). A physics graph
+    # is maths' to draw (``_described_by``), never a scene.
+    if subject == "physics" and solve_draws(ctx.verified_subject, "diagram"):
+        return
     # A subject turned off draws nothing, and its reply is asked for no description.
     figure = _figure(subject) if subject_adapter(subject).enabled(settings) else None
     if figure is None:
         return
+    # A message the read says asks to see nothing gets only its problem's setup, and none
+    # when the read says it works nothing out ("why does a 1 kg mass fall as fast as a
+    # 10 kg one?" states masses but poses no problem).
+    sees = read is None or read.picture in ("diagram", "graph")
+    if not sees and read is not None and read.work is False:
+        return
+    # The problem a follow-up points to, as the turn's resolution rewrote it, else the line.
+    contract = figure.contract_for(ctx.followup_problem or ctx.user_message_content or "", sees)
+    if not contract:
+        return
     ctx.drawing = ReplyDrawing(asked, subject=subject)
-    ctx.prompt_messages = inject_before_last_user(ctx.prompt_messages, figure.contract)
+    ctx.prompt_messages = inject_before_last_user(ctx.prompt_messages, contract)
     note_prompt_rule(f"subject.draw_{asked}" if subject == "math" else f"{subject}.draw_{asked}")
 
 
@@ -287,7 +311,11 @@ async def attach_drawing(state: FinalizeState) -> str:
     if not descriptions or not _still_wanted(ctx, drawing):
         return text
     line = ctx.user_message_content or ""
-    texts = [line, *earlier_user_lines(ctx.recent_messages, line)]
+    # A physics scene is of the problem a follow-up points back to, when there is one
+    # (maths reads its own follow-ups from the lines).
+    physics = drawing.subject == "physics" and ctx.followup_problem
+    problem = [ctx.followup_problem] if physics and ctx.followup_problem else []
+    texts = [*problem, line, *earlier_user_lines(ctx.recent_messages, line)]
     try:
         facts = subject_adapter("physics").graph_facts if _physics_read(ctx) else None
         fences = await figure.described(descriptions, texts, text, state.settings, facts)

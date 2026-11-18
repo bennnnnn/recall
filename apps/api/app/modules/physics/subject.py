@@ -11,6 +11,7 @@ from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
+from app.core.readings import kept_reading
 from app.modules.physics.extract import needs_physics
 from app.modules.physics.field_lines.contract import FIELD_DRAW_CONTRACT
 from app.modules.physics.followup import (
@@ -21,6 +22,8 @@ from app.modules.physics.followup import (
 )
 from app.modules.physics.prompt import build_physics_augmentation
 from app.modules.physics.reply_policy import PHYSICS_REPLY_POLICY, physics_prompt_hints
+from app.modules.physics.scene_drawing.contract import SCENE_DRAW_CONTRACT
+from app.modules.physics.scene_drawing.values import states_quantities
 from app.modules.turn_reading.see_request import asks_to_see
 from app.services.graph_facts import GraphFactReader, GraphFacts
 from app.services.solving import PhotoReading, SubjectAugmentation, VerifiedPhysicsBlock
@@ -53,8 +56,17 @@ _HINTS = SubjectHints(
     shared_math_ink=False,
     followup=(PHYSICS_FOLLOWUP_HINT,),
     # Its words are rules the leak pass knows: the contract a field picture is described by.
-    beside_visuals=(FIELD_DRAW_CONTRACT,),
+    beside_visuals=(FIELD_DRAW_CONTRACT, SCENE_DRAW_CONTRACT),
 )
+
+
+def _read_quantities(problem: str | None) -> str | None:
+    """A follow-up's problem, its quantities read as it is resolved, in the pool: the setup
+    contract asks the kept reading of the problem on the loop (``PhysicsFigure.contract_for``),
+    and "What if the masses were 4 kg and 6 kg?" was never read there."""
+    if problem is not None:
+        states_quantities(problem)
+    return problem
 
 
 @dataclass(frozen=True)
@@ -64,7 +76,7 @@ class PhysicsFollowups:
     ) -> str | None:
         from app.modules.physics.followup import changed_physics_problem
 
-        return changed_physics_problem(problem, changes)
+        return _read_quantities(changed_physics_problem(problem, changes))
 
     def restates(self, problem: str, line: str) -> bool:
         from app.modules.physics.followup import restates_physics_problem
@@ -90,7 +102,7 @@ class PhysicsFollowups:
         *,
         blocked: Callable[[str], bool] | None = None,
     ) -> str | None:
-        return physics_followup_problem(query, recent)
+        return _read_quantities(physics_followup_problem(query, recent))
 
     def continues(
         self,
@@ -257,9 +269,18 @@ class PhysicsFigure:
     def without_substitutes(self, text: str) -> str:
         return text
 
-    @property
-    def contract(self) -> str:
-        return FIELD_DRAW_CONTRACT
+    def contract_for(self, question: str, asked: bool) -> str:
+        """A field's picture only when the message asks to see one; a problem's setup when
+        it asks, or when it states quantities the physics readers read ("what is inertia?"
+        gets neither). The quantities are the pool's reading of the turn's message, kept
+        for the turn (``reads``): never read here, on the event loop, and none for a text the
+        pool did not read (a photo with no words)."""
+        parts = []
+        if asked or kept_reading(states_quantities, question):
+            parts.append(SCENE_DRAW_CONTRACT)
+        if asked:
+            parts.append(FIELD_DRAW_CONTRACT)
+        return "\n".join(parts)
 
     async def described(
         self,
@@ -270,10 +291,10 @@ class PhysicsFigure:
         facts: GraphFactReader | None = None,
     ) -> list[str]:
         from app.core import sympy_executor
-        from app.modules.physics.field_lines.build import field_fences
+        from app.modules.physics.scene_drawing.build import physics_fences
 
         return await sympy_executor.run_sympy(
-            field_fences,
+            physics_fences,
             list(descriptions),
             list(texts),
             timeout=settings.stem_solve_timeout_seconds,
@@ -311,6 +332,9 @@ class PhysicsSubject:
     def reads(self, text: str) -> bool:
         from app.modules.physics.extract import extract_physics_intent
 
+        # Read here, in the pool with the turn's message, for the figure's contract
+        # (``PhysicsFigure.contract_for``), which asks it on the loop.
+        states_quantities(text)
         return extract_physics_intent(text) is not None
 
     def asks_of(self, setup: str, question: str) -> bool:

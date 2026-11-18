@@ -207,9 +207,15 @@ def _flat_curve(friction: bool, text: str) -> RigPicture | None:
 
 
 def _banked_curve(text: str) -> RigPicture | None:
-    """A car on a banked road seen from behind: weight down, normal tilted to the centre."""
+    """A car on a banked road seen from behind, at the bank angle the text states."""
     match = _ANGLE.search(text)
     deg = float(match[1]) if match and 0 < float(match[1]) < 90 else None
+    return banked_curve_picture(deg)
+
+
+def banked_curve_picture(deg: float | None) -> RigPicture | None:
+    """A car on a road banked at ``deg`` (θ when None) seen from behind: weight down,
+    normal tilted to the centre, its acceleration to the centre."""
     specs = incline_scene(deg or 20.0, mu=0.0)
     if not specs:
         return None

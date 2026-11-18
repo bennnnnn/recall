@@ -315,9 +315,10 @@ class SubjectFigure(Protocol):
         """``text`` without the model's own picture of the figure drawn in characters."""
         ...
 
-    @property
-    def contract(self) -> str:
-        """The prompt rule that asks the reply to describe its picture (a ```draw block)."""
+    def contract_for(self, question: str, asked: bool) -> str:
+        """The prompt rule that asks the reply to describe its picture (a ```draw block)
+        for ``question``, or "" for none. ``asked``: the message asks to see a picture;
+        otherwise only the picture of a problem's setup is described."""
         ...
 
     async def described(

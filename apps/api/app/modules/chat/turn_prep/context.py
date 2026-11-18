@@ -157,6 +157,9 @@ class StreamContext:
     worked: WorkedLayout | None = None
     # The app language that block named for its words (``worked_language``).
     worked_language: str | None = None
+    # The problem a follow-up points back to, as rewritten: a picture's values are checked
+    # against it ("draw it", "now with 25 m/s"; ``augment.Augmentation.followup_problem``).
+    followup_problem: str | None = None
     # What the reply's prompt was told of the message's picture: True, the problem's for the
     # app to draw; False, a photo or painting as asked; None, the read was never applied
     # (``decided_turn._leave_the_picture``, ``drawn_picture.app_draws_the_picture``).
@@ -190,6 +193,7 @@ class TurnPromptBundle:
     # The chat's last messages the prompt was built from (``StreamContext.recent_messages``).
     recent_messages: list[Any] | None = None
     worked: WorkedLayout | None = None
+    followup_problem: str | None = None
 
 
 def _search_location(geo: ClientGeoContext) -> str | None:
@@ -262,6 +266,7 @@ def stream_context_from_bundle(
         money=bundle.money,
         after_card=bundle.after_card,
         worked=bundle.worked,
+        followup_problem=bundle.followup_problem,
         user_message_persist=user_message_persist,
         thinking=thinking,
     )
@@ -384,6 +389,7 @@ def _bundle(
         solve_timed_out=augmented.solve_timed_out,
         after_card=identity.mode.after_card,
         worked=augmented.worked,
+        followup_problem=augmented.followup_problem,
     )
 
 

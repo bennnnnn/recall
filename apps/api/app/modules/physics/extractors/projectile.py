@@ -9,6 +9,7 @@ from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.cues import (
     has_cue,
 )
+from app.modules.physics.extractors.launch_direction import launched_downward
 from app.modules.physics.extractors.momentum import _COLLISION_SUBJECT_RE
 from app.modules.physics.extractors.stated_values import (
     find_value_with_specific_unit,
@@ -97,14 +98,13 @@ _PROJECTILE_UNKNOWN_RES: tuple[tuple[str, re.Pattern[str]], ...] = (
     ),
 )
 
-_RANGE_GIVEN_KEYWORDS = ("range", "travel", "reach", "cover", "land", "distance", "far")
-
-# Read right after the angle: "30° below the horizontal", "at 20 degrees downward".
-_BELOW_HORIZONTAL_RE = re.compile(
-    r"\s*(?:degrees?|deg|°)?\s*(?:below|beneath|under)\s+(?:the\s+)?horizontal\b"
-    r"|\s*(?:degrees?|deg|°)?\s*(?:down(?:wards?)?|downward)\b",
-    re.IGNORECASE,
+# A launch angle measured from the vertical: read as an elevation it was answered for the
+# complementary launch, so it is declined.
+_FROM_VERTICAL_RE = re.compile(
+    r"\s*(?:degrees?|deg|°)?\s*(?:to|from|with|off)\s+(?:the\s+)?vertical\b", re.IGNORECASE
 )
+
+_RANGE_GIVEN_KEYWORDS = ("range", "travel", "reach", "cover", "land", "distance", "far")
 
 
 def extract_projectile_intent(cleaned: str) -> PhysicsIntent | None:
@@ -156,6 +156,17 @@ def _is_projectile(law: str) -> bool:
 
     spec = formula_spec(law)
     return spec is not None and spec.kind == "projectile"
+
+
+def _launch_angle(lower: str, match: re.Match[str]) -> float | None:
+    """The launch angle ``match`` reads, negative for a launch downward: "30° below the
+    horizontal", "thrown down at an angle of 30°" (read as 30° above, a 45 m cliff's throw
+    landed in 3.89 s instead of 2.36 s); None for one measured from the vertical."""
+    angle = float(match.group(1))
+    if _FROM_VERTICAL_RE.match(lower, match.end()):
+        return None
+    down = launched_downward(lower, match.start(), match.end())
+    return -angle if angle > 0 and down else angle
 
 
 def _extract_projectile_intent(cleaned: str) -> PhysicsIntent | None:
@@ -217,11 +228,9 @@ def _extract_projectile_intent(cleaned: str) -> PhysicsIntent | None:
             lower,
         )
     if angle_m:
-        angle = float(angle_m.group(1))
-        # "30° below the horizontal" is a launch downward: -30°. Read as 30°
-        # above, the ball flew 22.4 m from a 20 m building instead of 13.6 m.
-        if angle > 0 and _BELOW_HORIZONTAL_RE.match(lower, angle_m.end()):
-            angle = -angle
+        angle = _launch_angle(lower, angle_m)
+        if angle is None:
+            return None
 
     if v0 is None:
         return None

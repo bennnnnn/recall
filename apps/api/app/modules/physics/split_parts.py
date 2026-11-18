@@ -244,6 +244,18 @@ def _named_apart(names: list[str | None], asks: list[str], first: int, second: i
     )
 
 
+def part_readings(text: str) -> list[str]:
+    """Each part of a lettered or several-question ``text`` as its solve reads it: the
+    question's givens with that part's ask, and the question up to that ask."""
+    parts = _split(normalize_physics_units(text))
+    if parts is None or len(parts.asks) > _MAX_PARTS:
+        return []
+    readings: list[str] = []
+    for ask, through in zip(parts.asks, parts.through, strict=True):
+        readings.extend((f"{parts.givens} {ask}".strip(), through))
+    return list(dict.fromkeys(readings))
+
+
 def reads_in_parts(text: str) -> bool:
     """A lettered question one of whose parts a law reads: physics, though the whole is
     read by none ("What is her weight on: a) the earth, where g = 10 m/s²? b) the moon…")."""
