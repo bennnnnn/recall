@@ -333,3 +333,18 @@ def test_charges_whose_signs_a_later_sentence_names_take_the_pictures() -> None:
     unsigned = "Draw the field of two charges of 3 nC and 2 nC placed 4 cm apart."
     assert read_description(opposite, [unsigned]) is None
     assert read_description(alike, [unsigned]) is not None
+
+
+def test_a_sentence_that_asks_for_the_picture_is_never_an_explanation() -> None:
+    """ "Describe and draw the electric field around a negative charge" opens like an
+    explanation, so it was dropped, no sign was named and a positive picture passed
+    (Gemini, PR #2482). A sentence with a draw verb or a stated charge is the setup's."""
+    question = "Describe and draw the electric field around a negative charge."
+    assert (
+        read_description(json.dumps({"kind": "field", "charges": [{"sign": "+"}]}), [question])
+        is None
+    )
+    assert read_description(json.dumps({"kind": "field", "charges": [{"sign": "-"}]}), [question])
+    stating = "Explain the field of a -2 nC charge. Draw it."
+    negative = _charges({"sign": "-", "amount": "2 nC"})
+    assert read_description(negative, [stating]) is not None
