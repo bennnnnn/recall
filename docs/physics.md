@@ -644,11 +644,14 @@ the place of any the reply drew anyway (`sketches.py`).
 A problem no solve drew a picture for (a question in parts, which no solver reads) gets its
 setup's scene the same way: the reply names the scene and the question's values it uses, never a
 coordinate (`scene_drawing/contract.py`), and the server holds each value to one the question
-states, with its unit and kind, each used once, every stated value of those kinds used, a speed
-beside its own body's mass (`scene_drawing/values.py`, `describe.py`), then draws it through the
-kind's own solver or the builder it draws with (`scene_drawing/kinds.py`): projectile, incline
-with friction, Atwood machine, 1-D collision, spring, pendulum, orbit, refraction, lens, standing
-wave and banked curve. A solve's own scene wins; a question gets one picture of its setup.
+states, with its unit and kind, each used once, and every other stated value one the scene may
+leave aside (`scene_drawing/values.py`, `describe.py`); the setup itself is the physics reader's
+own reading of the question (`scene_drawing/setup.py`), and the scene is drawn from the reader's
+values through the kind's own solver or the builder it draws with (`scene_drawing/kinds.py`):
+projectile, incline with friction, Atwood machine, 1-D collision, pendulum, orbit, refraction,
+lens and banked curve. A spring and a standing wave are not drawn: no reader says whether a
+spring hangs or lies flat, or tells a string from a pipe. A solve's own scene wins; a question
+gets one picture of its setup.
 
 Where one formula covers different apparatus, a hidden variable that only the picture reads
 says which one it is:

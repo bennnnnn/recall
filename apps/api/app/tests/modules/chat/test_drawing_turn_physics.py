@@ -352,3 +352,27 @@ async def test_a_message_that_asks_to_see_nothing_keeps_its_card_and_gets_no_con
         asked, _settings(), _decision(subject=subject, picture="none"), _deadline()
     )
     assert asked.drawing is None
+
+
+async def test_a_follow_ups_problem_is_read_for_its_quantities_in_the_pool(
+    thread_sympy_executor: None,
+) -> None:
+    """ "What if the masses were 4 kg and 6 kg?" after an Atwood question: the rewritten
+    problem was never read in the pool, so the setup contract found no kept reading and the
+    scene was lost (Gemini, PR #2490). Resolving the follow-up reads it there."""
+    from app.core.readings import begin_turn, kept_reading, read_off_loop
+    from app.modules.physics.scene_drawing.values import states_quantities
+    from app.services.subjects.registry import subject_adapter
+
+    problem = (
+        "Two masses of 3 kg and 5 kg hang over a light frictionless pulley. Find the acceleration."
+    )
+    begin_turn()
+    changed = await read_off_loop(
+        subject_adapter("physics").followups.changed_problem,
+        problem,
+        [("2 kg", "4 kg"), ("3 kg", "6 kg")],
+        timeout=5.0,
+    )
+    assert changed is not None
+    assert kept_reading(states_quantities, changed) is True

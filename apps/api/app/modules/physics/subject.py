@@ -59,6 +59,15 @@ _HINTS = SubjectHints(
 )
 
 
+def _read_quantities(problem: str | None) -> str | None:
+    """A follow-up's problem, its quantities read as it is resolved, in the pool: the setup
+    contract asks the kept reading of the problem on the loop (``PhysicsFigure.contract_for``),
+    and "What if the masses were 4 kg and 6 kg?" was never read there."""
+    if problem is not None:
+        states_quantities(problem)
+    return problem
+
+
 @dataclass(frozen=True)
 class PhysicsFollowups:
     def changed_problem(
@@ -66,7 +75,7 @@ class PhysicsFollowups:
     ) -> str | None:
         from app.modules.physics.followup import changed_physics_problem
 
-        return changed_physics_problem(problem, changes)
+        return _read_quantities(changed_physics_problem(problem, changes))
 
     def restates(self, problem: str, line: str) -> bool:
         from app.modules.physics.followup import restates_physics_problem
@@ -92,7 +101,7 @@ class PhysicsFollowups:
         *,
         blocked: Callable[[str], bool] | None = None,
     ) -> str | None:
-        return physics_followup_problem(query, recent)
+        return _read_quantities(physics_followup_problem(query, recent))
 
     def continues(
         self,
