@@ -133,11 +133,15 @@ function renderScriptColumn(
       key={key}
       testID="math-script-column"
       style={{
-        width: scaled(node?.width ?? 0, ctx.fontScale),
+        // At least the laid-out width, and as wide as its scripts are drawn: an estimate
+        // a hair short wrapped `v_{2x}^2`'s "2x" onto two lines, its x under the ².
+        minWidth: scaled(node?.width ?? 0, ctx.fontScale),
         height: scaled(node?.height ?? 0, ctx.fontScale),
         paddingTop: scaled(node?.padTop ?? 0, ctx.fontScale),
         paddingBottom: scaled(node?.padBottom ?? 0, ctx.fontScale),
-        alignItems: "center",
+        // TeX starts both scripts at the base's edge: centred, the ² of `v_{\max}^2`
+        // floated over the middle of "max" (phys30, 2026-11-16).
+        alignItems: "flex-start",
         justifyContent: "space-between",
       }}
     >

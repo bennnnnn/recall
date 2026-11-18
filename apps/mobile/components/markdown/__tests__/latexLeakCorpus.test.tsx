@@ -181,6 +181,8 @@ const VARIANTS: Record<string, string> = {
   "price colon then a fraction":
     "Rent is $1,200: 3 roommates each pay $\\frac{1200}{3} = 400$. The bill is $90: 3 of us split it as $\\frac{90}{3}$.",
   "price colon then an equation": "Total $60: 3 of us, so $x = 20$. Budget $50: 2 shirts at $s$ each.",
+  // A subscript and a superscript on one base (phys30, 2026-11-16).
+  "sub and sup": "$v_{2f} = \\sqrt{v_{2x}^2 + v_{2y}^2}$ and $T = mg + \\frac{m v_{\\max}^2}{L}$",
   // Answer cards from the unit-5 round (2026-11-16): a unit in words set upright (the server
   // now writes it as text), a value in \(…\) and one with words beside it.
   "card unit in words upright": "**Answer**\n\n```answer\nverified: false\nA = \\frac{1}{3}\\,\\mathrm{square units}\n```",

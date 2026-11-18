@@ -27,7 +27,8 @@ from app.modules.math.match.circle_parts import (
 from app.modules.math.match.measure_relations import another_shape_named
 from app.modules.math.match.stated_pi import stated_pi
 from app.modules.math.schemas import MathIntent
-from app.services.number_text import count_word_pattern, number_word_value
+from app.services.number_text import count_word_pattern
+from app.services.school_rounding import MOST_DIGITS, asked_rounding
 from app.services.unit_text import LENGTH_UNITS
 
 _N = r"(\d+(?:\.\d+)?)"
@@ -64,35 +65,12 @@ _REMAINDER = re.compile(
 _SECTOR = re.compile(r"\bsectors?\b", re.I)
 _DEGREES = re.compile(rf"{_N}\s*(?:\u00b0|\^\s*\\circ|degrees?\b)", re.I)
 _COUNT = count_word_pattern(low=1, high=12)
-# "to three significant digits", "correct to 2 decimal places", "to the nearest tenth".
-_ROUNDING = re.compile(
-    rf"\b(?:to|in|correct\s+to)\s+(?:(?P<count>\d+|{_COUNT})\s+(?:(?P<figures>significant"
-    r"\s+(?:figures?|digits?)|s\.?\s?f\.?)|(?P<places>decimal\s+places?|d\.?\s?p\.?))"
-    r"|the\s+nearest\s+(?P<nearest>whole\s+number|integer|tenth|hundredth|thousandth))(?![a-z])",
-    re.I,
-)
-_NEAREST = {"whole number": 0, "integer": 0, "tenth": 1, "hundredth": 2, "thousandth": 3}
-# The most significant figures or decimal places a card is worked to; more declines.
-_MOST_DIGITS = 15
 # A count or a number the rule has not read: a second shape, a second part, a total.
 _UNREAD = re.compile(rf"\d|\b(?:{count_word_pattern(low=0, high=90)})\b|\bcircles\b", re.I)
 # A measure the rule did not read to its end: "radius 10π", "radius 3/2", "radius 3 1/2".
 _MORE_AFTER = re.compile(
     rf"\s*(?:[*/^\u00d7\u00b7\u03c0{VULGAR_FRACTIONS}]|\d|pi\b|sqrt|\u221a)", re.I
 )
-
-
-def _rounding(text: str) -> tuple[int, int, tuple[int, int] | None]:
-    """(significant figures, decimal places, the span that asks) — 0, -1 for neither."""
-    found = _ROUNDING.search(text)
-    if found is None:
-        return 0, -1, None
-    span = (found.start(), found.end())
-    if found.group("nearest"):
-        return 0, _NEAREST[" ".join(found.group("nearest").lower().split())], span
-    said = found.group("count").lower()
-    count = int(said) if said.isdigit() else number_word_value(said) or 0
-    return (count, -1, span) if found.group("figures") else (0, count, span)
 
 
 def _sector_part(text: str, has_pi: bool) -> tuple[Fraction, float, tuple[int, int]] | None:
@@ -172,8 +150,8 @@ def circle_part_intent(body: str) -> MathIntent | None:
     if (quantity == "circumference" and not whole) or (quantity == "arc length" and whole):
         return None  # a semicircle's "circumference": its curved edge, or all of it?
     size = sizes[0]
-    figures, places, asks_rounding = _rounding(text)
-    if figures > _MOST_DIGITS or places > _MOST_DIGITS:
+    figures, places, asks_rounding = asked_rounding(text)
+    if figures > MOST_DIGITS or places > MOST_DIGITS:
         return None  # "to 1000000000 decimal places" built a billion-digit context
     read = [(size.start(), size.end()), *((part.start, part.end) for part in parts)]
     read += [span for span in (asks_rounding, sector[2] if sector else None) if span]

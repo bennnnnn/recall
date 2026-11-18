@@ -10,6 +10,7 @@ import {
 } from "react-native";
 
 import { useInsideAccessibleElement } from "@/components/rich/accessibleElement";
+import { useFlashWhenClipped } from "@/components/rich/clippedScroll";
 import { useMathColumnInset } from "@/components/rich/mathColumn";
 import { inlineMathNeedsScroll, layoutMath } from "@/lib/math/layout";
 import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
@@ -114,8 +115,14 @@ function InlineMathScroll({
   style: StyleProp<ViewStyle>;
   children: ReactNode;
 }) {
+  // A formula cut at the column's edge read as a lost unit ("−31.35 m/" for m/s, phys30
+  // 2026-11-16): when it is wider than its viewport, its scroll bar shows once, so the
+  // reader sees there is more to the right. Never a persistent bar: on Android it sat over
+  // the bottom of a formula whose viewport is its own height.
+  const flash = useFlashWhenClipped();
   return (
     <ScrollView
+      {...flash}
       keyboardShouldPersistTaps="handled"
       testID="math-text-scroll"
       horizontal

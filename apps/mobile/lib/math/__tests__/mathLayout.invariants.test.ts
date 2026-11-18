@@ -175,7 +175,8 @@ const BOXES: [string, number, number, [string, number, number, number][]][] = [
   [String.raw`\widehat{x}`, 8.96, 28.52, [["accent", 8.96, 28.52, 0]]],
   [String.raw`\hat{x}`, 8.32, 28.52, [["accent", 8.32, 28.52, 0]]],
   [String.raw`\cancel{3}x`, 16.32, 25, [["cancel", 8, 25, 0], ["run", 8.32, 25, 0]]],
-  ["x_i^2", 13.92, 34.72, [["run", 8.32, 25, 0], ["script", 5.6, 34.72, 0]]],
+  // The script column to its next whole point, so pixel rounding never wraps its text.
+  ["x_i^2", 14.32, 34.72, [["run", 8.32, 25, 0], ["script", 6, 34.72, 0]]],
   ["x^{1/2}", 17.056, 34.16, [["run", 8.32, 25, 0], ["script", 8.736, 34.16, 0]]],
   [String.raw`x^{\frac{1}{2}}`, 20.556, 36.16, [["run", 8.32, 25, 0], ["script", 12.236, 30.4, 0]]],
   [String.raw`\frac{\sqrt{x}}{\hat{y}}`, 37.08, 48.32, [["frac", 31.08, 48.32, 6]]],
