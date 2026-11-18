@@ -63,11 +63,17 @@ def is_text_plot(rows: list[str]) -> bool:
 # a box-drawing line or block.
 _DIRECTION = re.compile(r"[/\\^\u2190-\u21ff\u2500-\u257f\u25a0-\u25ff]|->|<-")
 _LETTERS = re.compile(r"[^\W\d_]{3,}")
+# A slash between two characters of a word or a number is a fraction or a unit ("3/4",
+# "m/s"), never a stroke.
+_WRITTEN_SLASH = re.compile(r"(?<=\w)/(?=\w)")
+# A stroke only a drawing makes: an arrow, a bar, a caret, a backslash, box-drawing.
+_REAL_STROKE = re.compile(r"[\\|^\u2190-\u21ff\u2500-\u257f\u25a0-\u25ff]|->|<-")
 # A drawn row may carry a short label ("R1", "X"), never a word, a sum or an equation.
 _MOST_LABEL = 2
 
 
 def _drawn_row(row: str) -> bool:
+    row = _WRITTEN_SLASH.sub(" ", row)
     ink = [char for char in row if not char.isspace()]
     if len(ink) < 3 or "=" in row or _LETTERS.search(row):
         return False
@@ -85,7 +91,10 @@ def is_arrow_sketch(rows: list[str]) -> bool:
     and a LaTeX line ending in ``\\\\`` are no drawing."""
     inked = [row for row in rows if row.strip()]
     drawn = sum(_drawn_row(row) for row in inked)
-    return drawn >= 2 and drawn * 2 >= len(inked)
+    # A block of slashes alone ("3/4" over "1/2", "m/s" rows) draws nothing: a drawing has
+    # a stroke only a drawing makes.
+    stroked = any(_REAL_STROKE.search(_WRITTEN_SLASH.sub(" ", row)) for row in inked)
+    return drawn >= 2 and drawn * 2 >= len(inked) and stroked
 
 
 # A flowchart or a Mermaid diagram the user asked for is theirs, never a stand-in to take out.

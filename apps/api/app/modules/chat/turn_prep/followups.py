@@ -130,7 +130,10 @@ def resolve_posed_followup(
     news = [new for _given, new in named]
     if changed is None or not followups.takes_every_change(problem, changed, content, news):
         return rewritten
-    return SubjectFollowup(asked=changed)
+    # The changed problem is the subject's follow-up, as a typed what-if's is: the turn keeps
+    # the user's own line for its plan, a unit it asks for and a question of its own ("Give
+    # the answer in nN and explain why it is so small"), never the rewrite in its place.
+    return SubjectFollowup(**{subject: changed})
 
 
 def _shown(content: str, history: Sequence[Any], referent: str) -> SubjectFollowup:

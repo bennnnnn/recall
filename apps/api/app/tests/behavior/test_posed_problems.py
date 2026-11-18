@@ -409,3 +409,71 @@ def test_a_maths_change_must_take_every_number_the_line_writes() -> None:
     line = "What if it were 5x + 3 = 13?"
     assert not followups.takes_every_change(problem, "Solve 5x + 3 = 7", line, ["5x"])
     assert followups.takes_every_change(problem, "Solve 5x + 3 = 13", line, ["5x", "13"])
+
+
+@pytest.mark.asyncio
+async def test_a_changed_problem_keeps_the_users_own_asks(thread_sympy_executor: None) -> None:
+    """ "...3.0 pC and 2.0 μC. Give the answer in nN and explain why it is so small.": the
+    rewrite took the line's place, so the unit and the question of its own were lost and
+    the instant card answered in newtons (Gemini, PR #2482). The line stays the turn's: the
+    changed problem is solved as the subject's follow-up, and no instant card answers."""
+    line = _REPEAT.replace(
+        "and 2.0 μC.", "and 2.0 μC. Give the answer in nN and explain why it is so small."
+    )
+    followed = await _route(
+        line,
+        history=(("user", _COULOMB), ("assistant", "**Answer** $2.16 \\times 10^{9}$ N")),
+        posed=_COULOMB,
+        posed_changes=(("3.0 C", "3.0 pC"), ("2.0 C", "2.0 µC")),
+    )
+    assert followed.solved
+    assert "-9" in (followed.verified_answer or "")
+    assert not followed.instant_text
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Repeat the calculation taking the charges as 3.0 pC and 2 × 10⁻⁶ C.",
+        "Repeat with charges $3.0\\,\\mathrm{pC}$ and $2 \\times 10^{-6}\\,\\mathrm{C}$.",
+    ],
+)
+def test_a_value_in_scientific_notation_is_one_the_rewrite_must_take(line: str) -> None:
+    """ "2 x 10^-6 C" in superscripts or LaTeX was no value at all, so a read naming only
+    3.0 C -> 3.0 pC kept the 2.0 C and certified a force 10^6 too large (Gemini, PR #2482)."""
+    followups = subject_adapter("physics").followups
+    rewritten = followups.changed_problem(_COULOMB, [("3.0 C", "3.0 pC")])
+    assert rewritten is not None
+    assert not followups.takes_every_change(_COULOMB, rewritten, line, ["3.0 pC"])
+
+
+def test_a_problem_in_scientific_notation_reads_each_of_its_values() -> None:
+    """ "A charge of 3.0 x 10^-6 C ... a charge of 2.0 μC": the prior's first charge was
+    unread, so "the first charge was 5.0 μC" changed the only charge it read, the second."""
+    followups = subject_adapter("physics").followups
+    problem = (
+        "A charge of 3.0 × 10⁻⁶ C is 5.0 m from a charge of 2.0 μC. "
+        "Calculate the force between them."
+    )
+    assert followups.changed_problem(problem, [(None, "5.0 μC")]) is None
+
+
+def test_a_clause_with_no_value_of_the_kind_ends_no_counted_group() -> None:
+    """ "Two identical point charges, a distance of 0.5 m apart, have a charge of 3.0 μC":
+    the clause gives a length, no charge, so the 3.0 μC is still both charges' (Gemini, PR
+    #2482); "and two identical 6 Ω resistors" starts a group of its own."""
+    from app.modules.physics.givens import PHYSICS_UNITS
+    from app.services.law_binding.fit import read_givens
+    from app.services.scaled_followup import counted
+
+    def counts(problem: str, unit: str) -> list[bool]:
+        kind = [g for g in read_givens(problem, PHYSICS_UNITS) if g.unit == unit]
+        return [counted(problem, given, kind) for given in kind]
+
+    apart = (
+        "Two identical point charges, a distance of 0.5 m apart, have a charge of 3.0 μC. "
+        "Calculate the force between them."
+    )
+    assert counts(apart, "μC") == [True]
+    pairs = "Two identical 4 Ω resistors and two identical 6 Ω resistors are in series."
+    assert counts(pairs, "Ω") == [True, True]
