@@ -93,7 +93,8 @@ def _split(text: str) -> _Parts | None:
         return _Parts(" ".join(givens), asks, through)
     sentences = _sentences(text)
     asking = [_asks(sentence) for sentence in sentences]
-    if sum(asking) < 2:
+    # Past the most parts it solves, nothing is split: no quadratic work on many asks.
+    if not 2 <= sum(asking) <= _MAX_PARTS:
         return None
     asks = [sentence for sentence, asks_one in zip(sentences, asking, strict=True) if asks_one]
     through = []

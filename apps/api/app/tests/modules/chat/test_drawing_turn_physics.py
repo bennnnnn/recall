@@ -376,3 +376,78 @@ async def test_a_follow_ups_problem_is_read_for_its_quantities_in_the_pool(
     )
     assert changed is not None
     assert kept_reading(states_quantities, changed) is True
+
+
+async def test_a_shown_problem_is_read_for_its_quantities_in_the_pool(
+    thread_sympy_executor: None,
+) -> None:
+    """ "Draw it" after a physics problem: the problem it shows was never read in the pool,
+    so the setup contract found no kept reading (Gemini, PR #2490). Showing it reads it."""
+    from app.core.readings import begin_turn, kept_reading, read_off_loop
+    from app.modules.physics.scene_drawing.values import states_quantities
+    from app.services.subjects.registry import subject_adapter
+
+    problem = "In an Atwood machine, m1 = 2 kg and m2 = 3 kg. Find the acceleration."
+    begin_turn()
+    shown = await read_off_loop(
+        subject_adapter("physics").followups.shown_problem, "draw it", [], problem, timeout=5.0
+    )
+    assert shown == problem
+    assert kept_reading(states_quantities, shown) is True
+
+
+async def test_a_field_picture_reads_its_own_line_beside_a_follow_ups_problem(
+    thread_sympy_executor: None,
+) -> None:
+    """A force question, then "Draw the electric field lines around: a) a positive charge
+    b) a negative charge" with a follow-up problem set: the field pictures were read from
+    the earlier problem (``texts[0]``) and none was drawn (Gemini, PR #2490). The problem
+    goes to the scene only; the field reads the line."""
+    line = "Draw the electric field lines around: a) a positive charge b) a negative charge"
+    ctx = _ctx(line)
+    await ask_for_a_drawing(
+        ctx, _settings(), _decision(subject="physics", picture="diagram"), _deadline()
+    )
+    ctx.followup_problem = "A 2 kg box is pushed with a force of 10 N. Find its acceleration."
+    reply = (
+        f"{_block({'kind': 'field', 'part': 'a', 'charges': [{'sign': '+'}]})}\n\n"
+        f"{_block({'kind': 'field', 'part': 'b', 'charges': [{'sign': '-'}]})}\n"
+    )
+    text = await attach_drawing(_state(ctx, "Here they are.\n\n" + reply))
+    bodies = [body for _start, _end, body in iter_closed_fences(text, "simulation")]
+    assert [json.loads(body)["field"]["part"] for body in bodies] == ["a", "b"]
+
+
+async def test_a_late_read_that_asks_to_see_nothing_keeps_a_setup_scene() -> None:
+    """A setup scene asked for on the message's words, then a read that says "none": the
+    read would have asked for that scene too (``_setup_of``), so it stands (Gemini, PR
+    #2491)."""
+    from app.tests.modules.chat.test_drawing_turn import _read
+
+    line = "A ball is thrown at 10 m/s at 45°. Find its range."
+    scene = drawing_turn.ReplyDrawing(asked="words", subject="physics")
+    setup = _ctx(line, live_read=_read(subject="physics", picture="none"))
+    assert drawing_turn._still_wanted(setup, scene)
+    other = _ctx(line, live_read=_read(subject="maths", picture="none"))
+    assert not drawing_turn._still_wanted(other, scene)
+
+
+async def test_a_read_that_asks_for_no_picture_draws_no_field(
+    thread_sympy_executor: None,
+) -> None:
+    """ "Don't draw the field around a positive charge, just explain": a late read that says
+    "none" kept the scene contract, and the field was drawn anyway (Gemini, PR #2490). A
+    picture the read says nobody asked for is never a field's; a read that works nothing
+    out keeps no setup scene either."""
+    from app.tests.modules.chat.test_drawing_turn import _read
+
+    line = "Don't draw the field around a positive charge, just explain what it looks like."
+    ctx = _ctx(line, live_read=_read(subject="physics", picture="none"))
+    ctx.drawing = drawing_turn.ReplyDrawing(asked="words", subject="physics")
+    field = _block({"kind": "field", "charges": [{"sign": "+"}]})
+    text = await attach_drawing(_state(ctx, f"The lines point outward.\n\n{field}"))
+    assert not list(iter_closed_fences(text, "simulation"))
+    idle = _ctx(line, live_read=_read(subject="physics", picture="none", work=False))
+    assert not drawing_turn._still_wanted(
+        idle, drawing_turn.ReplyDrawing(asked="words", subject="physics")
+    )

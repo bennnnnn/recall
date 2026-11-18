@@ -353,6 +353,8 @@ class MathFigure:
         reply: str,
         settings: Settings,
         facts: GraphFactReader | None = None,
+        problem: str | None = None,
+        asked: bool = True,
     ) -> list[str]:
         from app.core import sympy_executor
         from app.modules.math.drawing.build import drawn_fences

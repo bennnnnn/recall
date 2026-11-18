@@ -24,6 +24,7 @@ from app.modules.physics.extractors.unit_patterns import (
 )
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.law_binding.fit import named_but_unstated
+from app.services.law_binding.words import angle_to, word_pattern
 from app.services.text_match import has_equation
 
 _PROJECTILE_CUES = (
@@ -98,11 +99,10 @@ _PROJECTILE_UNKNOWN_RES: tuple[tuple[str, re.Pattern[str]], ...] = (
     ),
 )
 
-# A launch angle measured from the vertical: read as an elevation it was answered for the
-# complementary launch, so it is declined.
-_FROM_VERTICAL_RE = re.compile(
-    r"\s*(?:degrees?|deg|°)?\s*(?:to|from|with|off)\s+(?:the\s+)?vertical\b", re.IGNORECASE
-)
+# A launch angle measured from the vertical, as the catalog reads one ("60° to the vertical",
+# "a 60° angle with the vertical", "at an angle to the vertical of 60°"): read as an
+# elevation it was answered for the complementary launch, so it is declined.
+_FROM_VERTICAL = word_pattern(angle_to(r"vertical\b"))
 
 _RANGE_GIVEN_KEYWORDS = ("range", "travel", "reach", "cover", "land", "distance", "far")
 
@@ -163,7 +163,7 @@ def _launch_angle(lower: str, match: re.Match[str]) -> float | None:
     horizontal", "thrown down at an angle of 30°" (read as 30° above, a 45 m cliff's throw
     landed in 3.89 s instead of 2.36 s); None for one measured from the vertical."""
     angle = float(match.group(1))
-    if _FROM_VERTICAL_RE.match(lower, match.end()):
+    if _FROM_VERTICAL.search(lower):
         return None
     down = launched_downward(lower, match.start(), match.end())
     return -angle if angle > 0 and down else angle

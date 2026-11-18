@@ -72,10 +72,19 @@ def labels_as(phrases: tuple[str, ...], before: str, after: str) -> bool:
 
 
 _PATTERN = "re:"
-# An angle's own reference, written straight after its number: "60° to", "40 degrees from".
-ANGLE_TO = (
-    r"re:\d(?:\.\d+)?\s*(?:\u00b0|\u00ba|deg\b|degrees?\b)\s*(?:to|from|with|off)\s+(?:the\s+)?"
-)
+_DEGREES = r"\d(?:\.\d+)?\s*(?:\u00b0|\u00ba|deg\b|degrees?\b)"
+_FROM_REFERENCE = r"(?:to|from|with|off)\s+(?:the\s+)?"
+
+
+def angle_to(reference: str) -> str:
+    """A catalog phrase ("re:"): an angle measured from ``reference`` (a pattern), tied to
+    its number in any of the ways a question writes it: "60° to the vertical", "a 60° angle
+    with the vertical", "60° measured from the normal", "at an angle to the vertical of
+    60°". Never "the angle it makes with the vertical", which asks for one."""
+    return (
+        rf"re:(?:{_DEGREES}\s*,?\s*(?:(?:an?\s+)?angle\s+|measured\s+)?{_FROM_REFERENCE}"
+        rf"{reference}|\bangle\s+{_FROM_REFERENCE}{reference}\s+of\s+\d)"
+    )
 
 
 # Every subject's catalog words share it: the physics corpora alone ask 1,222 phrases.

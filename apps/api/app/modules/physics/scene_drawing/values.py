@@ -17,6 +17,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from app.core.readings import reading
+from app.modules.physics.extractors.surface_gravity import detect_gravity
 from app.modules.physics.givens import PHYSICS_UNITS
 from app.services.latex_markup import without_markup
 from app.services.law_binding.ask import ASK_VERBS
@@ -91,10 +92,14 @@ class Stated:
         return None
 
     def take_gravity(self) -> Given | None:
-        """A stated g (9.8, 9.81 or 10 m/s²), which every scene drawn under gravity takes."""
+        """A stated g, which every scene drawn under gravity takes: Earth's (9.8, 9.81 or
+        10 m/s²), or the one the physics reader reads, by its label or its world ("On the
+        Moon (g = 1.62 m/s²)", ``detect_gravity``)."""
         kind = _dimension("m/s^2")
+        values = (*_GRAVITY, detect_gravity(self.text))
         for given in self.left:
-            if given.dimension == kind and any(math.isclose(given.value, g) for g in _GRAVITY):
+            value = given.si if given.si is not None else given.value
+            if given.dimension == kind and any(math.isclose(value, g) for g in values):
                 self.left.remove(given)
                 self.taken.append(given)
                 return given
@@ -150,15 +155,6 @@ class Stated:
         end_match = _SENTENCE_END.search(self.text, given.end)
         asked = end_match is not None and end_match.group() == "?"
         return asked or ASK_VERBS.search(self.text[start : given.start]) is not None
-
-    def before(self, given: Given, reach: int = 40) -> str:
-        """The words just before ``given``."""
-        return self.text[max(0, given.start - reach) : given.start]
-
-    def after(self, given: Given, reach: int = 40) -> str:
-        """The words just after ``given``'s unit."""
-        at = self.after_at(given)
-        return self.text[at : at + reach]
 
     def sentence(self, given: Given) -> str:
         """The sentence ``given`` is written in."""

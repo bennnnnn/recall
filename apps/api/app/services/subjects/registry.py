@@ -328,12 +328,16 @@ class SubjectFigure(Protocol):
         reply: str,
         settings: Settings,
         facts: GraphFactReader | None = None,
+        problem: str | None = None,
+        asked: bool = True,
     ) -> list[str]:
         """The pictures the reply described, checked against ``texts`` (the user's last
         message first): one of each kind (a figure, a graph), each from the first
         description of its kind that holds; none when none does. ``reply``: the reply's
         text, whose working names its letters; ``facts``: the turn's subject's reader of
-        the question's words (``graph_facts``)."""
+        the question's words (``graph_facts``); ``problem``: the earlier problem a
+        follow-up points back to, whose setup a picture of it shows; ``asked``: whether the
+        message asks to see a picture, without which only a problem's setup is drawn."""
         ...
 
     def without_drawn_substitutes(self, text: str, user_text: str = "") -> str:

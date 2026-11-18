@@ -16,7 +16,14 @@ import re
 _LAUNCH_VERB = (
     r"\b(?:thrown|throws?|aimed|directed|projected|fired|launched|kicked|hit)\s+(?:\w+\s+){0,2}?"
 )
-_DOWNWARD_LAUNCH_RE = re.compile(_LAUNCH_VERB + r"down(?:wards?)?\b", re.IGNORECASE)
+# Only a "down" that is the launch's own: "downward", "down at 15 m/s", "down from", "down
+# off a cliff", "straight down". "hit down the fairway" is a place, and "thrown ... to hit
+# the water down below" a target clause, never the throw's direction.
+_DOWNWARD_LAUNCH_RE = re.compile(
+    r"(?<!\bto\s)" + _LAUNCH_VERB + r"(?:downwards?\b|down(?=\s+(?:at|from|off|with|into|"
+    r"toward|towards|over)\b|\s*(?:[,.;!?]|$)))",
+    re.IGNORECASE,
+)
 _UPWARD_LAUNCH_RE = re.compile(_LAUNCH_VERB + r"up(?:wards?)?\b", re.IGNORECASE)
 # The angle named above the horizontal: no downward word elsewhere makes it negative.
 _ABOVE_HORIZONTAL_RE = re.compile(
