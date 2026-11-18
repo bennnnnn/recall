@@ -60,8 +60,14 @@ _COLLISION_QUALIFIER = re.compile(
     r"|\baway from each other\b",
     re.IGNORECASE,
 )
-# A body's direction along the line: "a 0.5 kg puck moving east at 4 m/s".
-_DIRECTION = re.compile(r"\b(east|west|north|south|left|right)(?:wards?)?\b", re.IGNORECASE)
+# A body's direction along the line: "a 0.5 kg puck moving east at 4 m/s", "in the +x
+# direction", "in the negative x-direction". A sign before an axis is its sense; the minus
+# may be typed as the minus sign or a dash.
+_DIRECTION = re.compile(
+    r"\b(east|west|north|south|left|right)(?:wards?)?\b"
+    r"|(?<![\w.])([+\-\u2212\u2013]|\bpositive\s+|\bnegative\s+)([xy])(?:[\s-]*(?:direction|axis))?\b",
+    re.IGNORECASE,
+)
 _AXIS_SIGN = {
     "east": ("east-west", 1),
     "west": ("east-west", -1),
@@ -70,6 +76,15 @@ _AXIS_SIGN = {
     "right": ("left-right", 1),
     "left": ("left-right", -1),
 }
+# Any other word that sets a body's sense on the line, read by none of the above: the
+# collision then has a direction it cannot sign, and declines (never both one way).
+_UNREAD_SENSE = re.compile(
+    r"\bdirections?\b|\bhead[\s-]+on\b|\btowards?\b|\bopposite\b|\bapproach\w*\b"
+    r"|\b(?:back|backwards?|reverse)\b",
+    re.IGNORECASE,
+)
+# Both moving the one way: "in the same direction".
+_SAME_WAY = re.compile(r"\b(?:in\s+)?the\s+same\s+direction\b", re.IGNORECASE)
 # Both moving, each toward the other: the second speed points back along the line.
 _OPPOSED = re.compile(
     r"\btowards? each other\b|\bin\s+(?:the\s+)?opposite\s+directions?\b|\bhead[- ]on\s+toward",
@@ -138,9 +153,17 @@ def _body_names(masses: list[re.Match[str]], ask_start: int) -> list[re.Match[st
 _TWO_WAYS = ("", 0)
 
 
+def _sense(match: re.Match[str]) -> tuple[str, int]:
+    """The axis and sign one direction names: east is +1 on east-west, "-x" is -1 on x."""
+    if match[1]:
+        return _AXIS_SIGN[match[1].lower()]
+    sign = match[2].strip().lower()
+    return match[3].lower(), -1 if sign in {"-", "\u2212", "\u2013", "negative"} else 1
+
+
 def _direction(clause: str) -> tuple[str, int] | None:
     """The one direction a body's clause gives; ``_TWO_WAYS`` when it gives two."""
-    found = {_AXIS_SIGN[match[1].lower()] for match in _DIRECTION.finditer(clause)}
+    found = {_sense(match) for match in _DIRECTION.finditer(clause)}
     if len(found) > 1:
         return _TWO_WAYS
     return next(iter(found), None)
@@ -224,6 +247,11 @@ def _collision_intent(text: str) -> PhysicsIntent | None:
         if not moving:
             return None
         params["v2"] = -params["v2"]
+    elif moving and not _SAME_WAY.search(text) and _UNREAD_SENSE.search(text[:ask_start]):
+        # A direction the words give but no reader signs ("head-on", "the other way"): never
+        # read as both one way (3.00 kg at +4 and 1.00 kg at -2 lost 1.5 J for 13.5 J, owner's
+        # phone 2026-11-17).
+        return None
     return PhysicsIntent(
         kind="momentum",
         physics_op="collision_energy_lost" if energy_lost else "final_velocity",

@@ -110,5 +110,56 @@
    "s"
   ],
   "note": "the chase reading still answers a meeting it reads: 100 / (30 − 20)"
+ },
+ {
+  "id": "p17-head-on-signed-axes",
+  "area": "momentum",
+  "prompt": "A 3.00 kg object moving in the +x direction at 4.00 m/s collides head-on and sticks together with a 1.00 kg object moving in the −x direction at 2.00 m/s. How much kinetic energy is lost in the collision?",
+  "expect": "answer",
+  "answer": [
+   13.5,
+   "J"
+  ],
+  "note": "v_f = (12 − 2)/4 = 2.5 m/s; KE 26 J before, 12.5 J after. The −x was dropped and both read one way, 1.5 J (owner's phone 2026-11-17)"
+ },
+ {
+  "id": "p17-towards-each-other",
+  "area": "momentum",
+  "prompt": "A 3.00 kg object moving at 4.00 m/s and a 1.00 kg object moving at 2.00 m/s move towards each other, collide and stick together. How much kinetic energy is lost in the collision?",
+  "expect": "answer",
+  "answer": [
+   13.5,
+   "J"
+  ],
+  "note": "the same collision, its directions said as towards each other"
+ },
+ {
+  "id": "p17-same-direction",
+  "area": "momentum",
+  "prompt": "A 3.00 kg object moving at 4.00 m/s collides and sticks together with a 1.00 kg object moving at 2.00 m/s in the same direction. How much kinetic energy is lost in the collision?",
+  "expect": "answer",
+  "answer": [
+   1.5,
+   "J"
+  ],
+  "note": "v_f = 14/4 = 3.5 m/s; 26 − 24.5 = 1.5 J: the same way, said so"
+ },
+ {
+  "id": "p17-negative-x-final-velocity",
+  "area": "momentum",
+  "prompt": "A 2.0 kg cart moving in the positive x direction at 3.0 m/s collides with a 1.0 kg cart moving in the negative x direction at 3.0 m/s, and they stick together. What is their final velocity?",
+  "expect": "answer",
+  "answer": [
+   1,
+   "m/s"
+  ],
+  "note": "(6 − 3)/3 = 1 m/s along +x"
+ },
+ {
+  "id": "p17-head-on-unsigned",
+  "area": "momentum",
+  "prompt": "A 3.00 kg object moving at 4.00 m/s collides head-on and sticks together with a 1.00 kg object moving at 2.00 m/s. How much kinetic energy is lost in the collision?",
+  "expect": "decline",
+  "note": "head-on says the bodies meet, not each one's sense on the line: never read as both one way"
  }
 ]
