@@ -424,9 +424,9 @@ async def test_a_late_read_that_asks_to_see_nothing_keeps_a_setup_scene() -> Non
     #2491)."""
     from app.tests.modules.chat.test_drawing_turn import _read
 
-    ctx = _ctx("A ball is thrown at 10 m/s at 45°. Find its range.")
-    ctx.live_read = _read(subject="physics", picture="none")
+    line = "A ball is thrown at 10 m/s at 45°. Find its range."
     scene = drawing_turn.ReplyDrawing(asked="words", subject="physics")
-    assert drawing_turn._still_wanted(ctx, scene)
-    ctx.live_read = _read(subject="maths", picture="none")
-    assert not drawing_turn._still_wanted(ctx, scene)
+    setup = _ctx(line, live_read=_read(subject="physics", picture="none"))
+    assert drawing_turn._still_wanted(setup, scene)
+    other = _ctx(line, live_read=_read(subject="maths", picture="none"))
+    assert not drawing_turn._still_wanted(other, scene)
