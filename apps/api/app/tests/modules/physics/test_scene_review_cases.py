@@ -366,9 +366,10 @@ _CASES: list[tuple[str, dict[str, Any], bool]] = [
         False,
     ),
     (
+        # 30° to the plane is 60° to the normal: optics reads it so, and so does the guard.
         "A light ray strikes a glass block (n = 1.5) at 30 degrees to the plane of the block. Find the angle of refraction.",
         {"scene": "refraction", "values": {"angle": "30°", "index": "1.5"}},
-        True,
+        False,
     ),
     (
         "A 2 kg block is released on a 30 degree incline with a coefficient of kinetic friction of 0.7.",
@@ -1175,3 +1176,16 @@ def test_a_follow_up_is_checked_against_the_problem_it_points_to(
     only the problem the turn's follow-up resolution names, first."""
     body = json.dumps({"kind": "scene", **described})
     assert bool(described_scene(body, texts)) is drawn
+
+
+def test_a_stated_g_of_another_world_is_the_scenes() -> None:
+    """ "On the Moon (g = 1.62 m/s²)": only Earth's g was taken, so 1.62 was left unused
+    and the scene dropped (Gemini, PR #2491). The g the physics reader reads is taken."""
+    question = (
+        "On the Moon (g = 1.62 m/s²) a ball is thrown at 10 m/s at 45°. "
+        "Find (a) the time of flight, (b) the range."
+    )
+    body = json.dumps(
+        {"kind": "scene", "scene": "projectile", "values": {"speed": "10 m/s", "angle": "45°"}}
+    )
+    assert described_scene(body, [question])

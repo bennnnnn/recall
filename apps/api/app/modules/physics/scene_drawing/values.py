@@ -17,6 +17,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from app.core.readings import reading
+from app.modules.physics.extractors.surface_gravity import detect_gravity
 from app.modules.physics.givens import PHYSICS_UNITS
 from app.services.latex_markup import without_markup
 from app.services.law_binding.ask import ASK_VERBS
@@ -91,10 +92,14 @@ class Stated:
         return None
 
     def take_gravity(self) -> Given | None:
-        """A stated g (9.8, 9.81 or 10 m/s²), which every scene drawn under gravity takes."""
+        """A stated g, which every scene drawn under gravity takes: Earth's (9.8, 9.81 or
+        10 m/s²), or the one the physics reader reads, by its label or its world ("On the
+        Moon (g = 1.62 m/s²)", ``detect_gravity``)."""
         kind = _dimension("m/s^2")
+        values = (*_GRAVITY, detect_gravity(self.text))
         for given in self.left:
-            if given.dimension == kind and any(math.isclose(given.value, g) for g in _GRAVITY):
+            value = given.si if given.si is not None else given.value
+            if given.dimension == kind and any(math.isclose(value, g) for g in values):
                 self.left.remove(given)
                 self.taken.append(given)
                 return given

@@ -73,7 +73,7 @@ def described_scene(body: str, texts: Sequence[str]) -> list[SimulationBlockSpec
         return []
     drawn = None
     if not GUARDS[described.scene](stated, held):
-        readings = [r for r in setup_readings(texts[0]) if r.physics_op in kind.reads]
+        readings = [r for r in setup_readings(stated.text) if r.physics_op in kind.reads]
         drawn = next(
             (q for r in readings if (q := _agreed(kind, described, held, r)) is not None), None
         )

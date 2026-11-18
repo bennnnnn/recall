@@ -17,8 +17,11 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Mapping
 
+from app.modules.physics.catalog import formula_spec
 from app.modules.physics.scene_drawing.values import Stated
 from app.services.law_binding.givens import Given
+from app.services.law_binding.spec import variable_for
+from app.services.law_binding.words import implied_value
 
 Guard = Callable[[Stated, Mapping[str, Given]], bool]
 
@@ -89,12 +92,23 @@ def _collision(stated: Stated, held: Mapping[str, Given]) -> bool:
     return _SAME_WAY.search(stated.text) is None or (first.si or 0.0) <= (second.si or 0.0)
 
 
+def _from_the_surface(sentence: str) -> bool:
+    """The angle is measured from the surface: as Snell's law reads it ("30 degrees to the
+    plane of the block", optics' own ``from_surface``), so the two never differ, or from
+    the horizontal or at a glancing angle."""
+    if _FROM_SURFACE.search(sentence) is not None:
+        return True
+    spec = formula_spec("snell_refraction_angle")
+    variable = variable_for(spec, "from_surface") if spec is not None else None
+    return variable is not None and implied_value(variable, sentence.lower()) is not None
+
+
 def _refraction(stated: Stated, held: Mapping[str, Given]) -> bool:
     """An angle of incidence from the normal, from the medium named first into the one
     named second; one measured from the surface, or media in an order the words do not
     say, is not drawn."""
     angle = held.get("angle")
-    if angle is not None and _FROM_SURFACE.search(stated.sentence(angle)) is not None:
+    if angle is not None and _from_the_surface(stated.sentence(angle)):
         return True
     into, came = held.get("index"), held.get("index_from")
     if into is None:

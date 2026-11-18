@@ -416,3 +416,17 @@ async def test_a_field_picture_reads_its_own_line_beside_a_follow_ups_problem(
     text = await attach_drawing(_state(ctx, "Here they are.\n\n" + reply))
     bodies = [body for _start, _end, body in iter_closed_fences(text, "simulation")]
     assert [json.loads(body)["field"]["part"] for body in bodies] == ["a", "b"]
+
+
+async def test_a_late_read_that_asks_to_see_nothing_keeps_a_setup_scene() -> None:
+    """A setup scene asked for on the message's words, then a read that says "none": the
+    read would have asked for that scene too (``_setup_of``), so it stands (Gemini, PR
+    #2491)."""
+    from app.tests.modules.chat.test_drawing_turn import _read
+
+    ctx = _ctx("A ball is thrown at 10 m/s at 45°. Find its range.")
+    ctx.live_read = _read(subject="physics", picture="none")
+    scene = drawing_turn.ReplyDrawing(asked="words", subject="physics")
+    assert drawing_turn._still_wanted(ctx, scene)
+    ctx.live_read = _read(subject="maths", picture="none")
+    assert not drawing_turn._still_wanted(ctx, scene)

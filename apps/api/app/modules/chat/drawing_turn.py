@@ -295,7 +295,8 @@ def _still_wanted(ctx: StreamContext, drawing: ReplyDrawing) -> bool:
     decision = read.result()
     if decision is None or decision.subject is None or decision.picture is None:
         return True
-    return _described_by(ctx, decision) == drawing.subject
+    # A setup's scene the read would ask for too ("none": a problem's own picture) stands.
+    return drawing.subject in (_described_by(ctx, decision), _setup_of(decision))
 
 
 async def attach_drawing(state: FinalizeState) -> str:
