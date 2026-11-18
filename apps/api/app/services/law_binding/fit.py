@@ -279,12 +279,7 @@ def fit(
             variable
             for variable in variables
             if variable.name not in params
-            and kind is not None
-            and variable_kind(variable) == kind
-            and holds(variable, labels[index])
-            and (
-                variable.fallback != "gravity" or _marks_gravity(question, given, previous, subject)
-            )
+            and _may_take(variable, kind, labels[index], (question, given, previous, subject))
         ]
         if not options:
             if known:
@@ -344,6 +339,19 @@ _FALLING = re.compile(
 _SENTENCE_END = re.compile(r"[.?!](?=\s|$)")
 # A body driven to its acceleration: "the cruiser accelerates at 3 m/s²", "brakes at".
 _DRIVEN = re.compile(r"\b(?:accelerat(?:es|ed|ing)|speeds?\s+up|brak\w*|decelerat\w*)\b", re.I)
+
+
+def _may_take(
+    variable: VariableSpec,
+    kind: str | None,
+    label: str | None,
+    stated: tuple[Question, Given, int, Subject],
+) -> bool:
+    """Whether ``variable`` may take a stated value of ``kind`` named ``label``: one of its
+    kind, a quantity it is, and g only where the words make the value gravity's."""
+    if kind is None or variable_kind(variable) != kind or not holds(variable, label):
+        return False
+    return variable.fallback != "gravity" or _marks_gravity(*stated)
 
 
 def _marks_gravity(question: Question, given: Given, previous: int, subject: Subject) -> bool:

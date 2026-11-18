@@ -156,8 +156,8 @@ def _answers_a_meeting(block: VerifiedPhysicsBlock, user_content: str) -> bool:
     if not asks_where_two_meet(user_content):
         return True
     intent = block.physics_intent
-    ops = [part.op for part in block.physics_parts] or [intent.physics_op if intent else ""]
-    specs = [formula_spec(op or "") for op in ops]
+    ops = [part.op for part in block.physics_parts] or [(intent and intent.physics_op) or ""]
+    specs = [formula_spec(op) for op in ops]
     return all(spec is not None and spec.law_name == RELATIVE_VELOCITY for spec in specs)
 
 
