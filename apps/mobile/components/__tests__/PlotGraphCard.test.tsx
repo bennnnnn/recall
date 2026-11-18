@@ -8,7 +8,9 @@ import { render, screen } from "@testing-library/react-native";
 
 import { FunctionGraphBlock } from "@/components/rich/FunctionGraphBlock";
 import { plotDrawing } from "@/components/rich/plotDrawing";
+import { PLOT_NEUTRAL, plotColor, plotStroke } from "@/components/rich/plotPaint";
 import { parsePlotGraph } from "@/lib/math/plotGraph";
+import { lightTheme } from "@/lib/theme";
 
 jest.mock("@/lib/skiaAvailability", () => ({ isSkiaAvailable: () => false }));
 
@@ -42,6 +44,15 @@ describe("a plot fence", () => {
     expect(screen.getAllByTestId(/^graph-mark-label-/)).toHaveLength(2);
   });
 
+  it("strokes an asymptote in its curve's colour, so its legend row names that curve's", () => {
+    expect(plotStroke(lightTheme, "asymptote", 1)).toEqual({ color: lightTheme.graphSeries[1], width: 1.5 });
+  });
+
+  it("paints the server's neutral colour as no curve's", () => {
+    expect(plotColor(lightTheme, PLOT_NEUTRAL)).toBe(lightTheme.textSecondary);
+    expect(plotStroke(lightTheme, "asymptote", PLOT_NEUTRAL).color).toBe(lightTheme.textSecondary);
+  });
+
   it("draws a washer's region, its slice, its turn and the axis", async () => {
     await render(<FunctionGraphBlock content={content("washer")} />);
     expect(screen.getAllByTestId("plot-region-shade").length).toBeGreaterThan(0);
@@ -65,8 +76,7 @@ describe("a plot fence", () => {
 });
 
 describe("plotDrawing", () => {
-  const PALETTE = ["#111111", "#222222", "#333333", "#444444"];
-  const drawing = (id: string) => plotDrawing(parsePlotGraph(JSON.stringify(body(id)))!, PALETTE);
+  const drawing = (id: string) => plotDrawing(parsePlotGraph(JSON.stringify(body(id)))!, lightTheme);
 
   it("hands a function in pieces to the function graph apart, with its circles (round 3, c008)", () => {
     const { drawn, points } = drawing("c008");
@@ -84,10 +94,16 @@ describe("plotDrawing", () => {
     expect(points.marks.map((m) => m.label)).toEqual(["(0, \u22122)", "(4, 6)"]);
   });
 
+  it("paints a point in the neutral colour as the lines are, not as a curve's", () => {
+    const graph = { ...body("c008"), points: [{ x: 0, y: 0, open: false, label: "", color: PLOT_NEUTRAL }] };
+    const { points } = plotDrawing(parsePlotGraph(JSON.stringify(graph))!, lightTheme);
+    expect(points.marks[0].color).toBe(lightTheme.textSecondary);
+  });
+
   it("names a nearest point's distance in the legend, and dots no curve sample", () => {
     const line = { start: [0, 2], end: [1.2, 1.5], role: "segment", label: "≈ 1.323", color: 2 };
     const graph = { ...body("c008"), lines: [line] };
-    const { legend, drawn } = plotDrawing(parsePlotGraph(JSON.stringify(graph))!, PALETTE);
+    const { legend, drawn } = plotDrawing(parsePlotGraph(JSON.stringify(graph))!, lightTheme);
     expect(legend.map((row) => row.label)).toContain("≈ 1.323");
     expect(drawn.every((series) => series.marked === false)).toBe(true);
   });
