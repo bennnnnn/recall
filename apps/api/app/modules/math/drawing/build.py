@@ -33,6 +33,7 @@ from app.modules.math.figure.honest import honours, said
 from app.modules.math.figure.request import FigureRequest, Measure
 from app.modules.math.figure.shape_names import lid_said, names_shape
 from app.modules.math.schemas.figure import FigureSpec
+from app.services.graph_facts import GraphFactReader
 
 logger = logging.getLogger(__name__)
 
@@ -343,16 +344,19 @@ def _value(label: str) -> tuple[float | None, str]:
         return None, ""
 
 
-def drawn_fence(body: str, texts: list[str], reply: str) -> str | None:
+def drawn_fence(
+    body: str, texts: list[str], reply: str, facts: GraphFactReader | None = None
+) -> str | None:
     """The checked picture's ```geometry fence, or None. ``texts``: the last user message
-    first, then earlier ones; ``reply``: the reply's text, whose working names its letters."""
+    first, then earlier ones; ``reply``: the reply's text, whose working names its letters;
+    ``facts``: the turn's subject's reader of the question's words, for a graph."""
     description = read_description(body)
     if description is None:
         return None
     items = read_items(description)
     kind = description.kind
     if kind == "plot":
-        return _graph_fence(items, texts, reply)
+        return _graph_fence(items, texts, reply, facts)
     question = read_question(texts, reply)
     try:
         if kind == "space":
@@ -369,9 +373,11 @@ def drawn_fence(body: str, texts: list[str], reply: str) -> str | None:
     return f"```geometry\n{json.dumps(body_out, separators=(',', ':'), ensure_ascii=False)}\n```"
 
 
-def _graph_fence(items: list[tuple[str, Any | None]], texts: list[str], reply: str) -> str | None:
+def _graph_fence(
+    items: list[tuple[str, Any | None]], texts: list[str], reply: str, facts: GraphFactReader | None
+) -> str | None:
     try:
-        spec = plot_spec(items, texts, reply)
+        spec = plot_spec(items, texts, reply, facts)
     except Exception:  # SymPy's and numpy's own errors included: it draws nothing.
         logger.info("drawing failed for a plot picture", exc_info=True)
         return None
@@ -382,14 +388,16 @@ def _graph_fence(items: list[tuple[str, Any | None]], texts: list[str], reply: s
     )
 
 
-def drawn_fences(bodies: list[str], texts: list[str], reply: str) -> list[str]:
+def drawn_fences(
+    bodies: list[str], texts: list[str], reply: str, facts: GraphFactReader | None = None
+) -> list[str]:
     """Picklable entry for ``core.sympy_executor.run_sympy``: the pictures the descriptions
     draw, one of each kind (a ```geometry figure, a ```graph), each from the first
     description of that kind that checks (owner decision 2026-11-15: a reply may carry a
-    figure and a graph)."""
+    figure and a graph). ``facts``: the turn's subject's reader of the question's words."""
     drawn: dict[str, str] = {}
     for body in bodies[:_MOST_DESCRIPTIONS]:
-        fence = drawn_fence(body, texts, reply)
+        fence = drawn_fence(body, texts, reply, facts)
         kind = fence.split("\n", 1)[0].removeprefix("```") if fence else ""
         if fence is not None and kind not in drawn:
             drawn[kind] = fence

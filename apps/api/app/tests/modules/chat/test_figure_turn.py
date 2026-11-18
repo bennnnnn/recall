@@ -347,6 +347,15 @@ async def test_an_unasked_figure_never_counts_as_a_request_to_draw() -> None:
     assert await figure_turn.read_asks_for_a_figure(asked)
 
 
+async def test_a_physics_graph_is_no_picture_to_generate() -> None:
+    """ "Draw the velocity-time graph" read as physics' graph is the app's to draw: the image
+    intercept never claims it (PR #2486 review)."""
+    graph = cast("asyncio.Task[TurnDecision | None]", _read(subject="physics", picture="graph"))
+    other = cast("asyncio.Task[TurnDecision | None]", _read(subject="physics", picture="image"))
+    assert await figure_turn.read_asks_for_a_figure(graph)
+    assert not await figure_turn.read_asks_for_a_figure(other)
+
+
 async def test_a_chemistry_question_asking_for_nothing_gets_its_compound_s_structure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
