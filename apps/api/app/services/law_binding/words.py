@@ -71,10 +71,31 @@ def labels_as(phrases: tuple[str, ...], before: str, after: str) -> bool:
     )
 
 
+_PATTERN = "re:"
+_DEGREES = r"\d(?:\.\d+)?\s*(?:\u00b0|\u00ba|deg\b|degrees?\b)"
+_FROM_REFERENCE = r"(?:to|from|with|off)\s+(?:the\s+)?"
+
+
+def angle_to(reference: str) -> str:
+    """A catalog phrase ("re:"): an angle measured from ``reference`` (a pattern), tied to
+    its number in any of the ways a question writes it: "60° to the vertical", "a 60° angle
+    with the vertical", "60° measured from the normal", "at an angle to the vertical of
+    60°". Never "the angle it makes with the vertical", which asks for one."""
+    return (
+        rf"re:(?:{_DEGREES}\s*,?\s*(?:(?:an?\s+)?angle\s+|measured\s+)?{_FROM_REFERENCE}"
+        rf"{reference}|\bangle\s+{_FROM_REFERENCE}{reference}\s+of\s+\d)"
+    )
+
+
 # Every subject's catalog words share it: the physics corpora alone ask 1,222 phrases.
 @lru_cache(maxsize=4096)
 def word_pattern(phrase: str) -> re.Pattern[str]:
-    # A leading word boundary only: "climb" names "climbs", "accelerat" both forms.
+    # A leading word boundary only: "climb" names "climbs", "accelerat" both forms. A
+    # phrase written "re:..." is a pattern, for a phrase tied to a number: "60° to the
+    # vertical" (no space before the degree sign) is an angle's reference, "in degrees from
+    # the normal" in an ask is none.
+    if phrase.startswith(_PATTERN):
+        return re.compile(phrase[len(_PATTERN) :])
     return re.compile(rf"(?<![\w]){re.escape(phrase)}")
 
 
@@ -240,7 +261,10 @@ def _pick(
 
 
 def implied_value(variable: VariableSpec, lower: str) -> float | None:
-    """A value the words state without a number: "from rest", "horizontally"."""
+    """A value the words state without a number: "from rest", "horizontally"; none when a
+    phrase says it is not meant ("40 degrees to the normal to the face")."""
+    if any(word_pattern(phrase).search(lower) for phrase in variable.implied_unless):
+        return None
     for phrase, value in variable.implied:
         if word_pattern(phrase).search(lower):
             return value

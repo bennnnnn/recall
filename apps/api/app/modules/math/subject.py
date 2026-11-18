@@ -343,8 +343,7 @@ class MathFigure:
 
         return without_substitutes(text)
 
-    @property
-    def contract(self) -> str:
+    def contract_for(self, question: str, asked: bool) -> str:
         return DRAW_CONTRACT
 
     async def described(
@@ -354,6 +353,8 @@ class MathFigure:
         reply: str,
         settings: Settings,
         facts: GraphFactReader | None = None,
+        problem: str | None = None,
+        asked: bool = True,
     ) -> list[str]:
         from app.core import sympy_executor
         from app.modules.math.drawing.build import drawn_fences

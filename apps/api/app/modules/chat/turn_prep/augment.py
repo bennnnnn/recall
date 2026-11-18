@@ -68,6 +68,9 @@ class Augmentation:
     solve_timed_out: bool = False
     # The message's subject, as the subject order read it.
     subject: SubjectName | None = None
+    # The problem a follow-up points back to ("draw it", "now with 25 m/s"), as its
+    # subject rewrote it: what a picture of it is checked against (``drawing_turn``).
+    followup_problem: str | None = None
     # A calculation nothing verified: the model writes a ```worked block (``worked_turn``).
     worked: WorkedLayout | None = None
     # The question as written has no answer: the subject's note says why, and nothing is
@@ -339,6 +342,10 @@ async def augment_after_prompt(
         lightweight=lightweight,
         several_requests=plan_of(request.content, settings).multi,
     )
+    owner = followup.subject
+    augmented.followup_problem = (
+        followup.problem_of(owner) if owner is not None else None
+    ) or followup.asked
     if augmented.worked is not None:
         augmented.prompt_messages = with_worked_contract(augmented.prompt_messages)
     elif checks_stated_results(

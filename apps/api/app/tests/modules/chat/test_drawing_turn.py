@@ -116,9 +116,10 @@ def _state(ctx: StreamContext, text: str, *, cancelled: bool = False) -> Finaliz
         ("maths", "none", False),
         # A physics graph (F against x, v against t) is drawn as any curve is (u5-087), and
         # only when the read asks for one; a physics diagram is physics' own contract
-        # (``test_drawing_turn_physics``).
+        # (``test_drawing_turn_physics``); a photo is never drawn.
         ("physics", "graph", True),
         ("physics", "none", False),
+        ("physics", "photo", False),
         ("chemistry", "graph", False),
         ("everyday", "diagram", False),
         ("maths", "image", False),

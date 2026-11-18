@@ -93,7 +93,8 @@ def _split(text: str) -> _Parts | None:
         return _Parts(" ".join(givens), asks, through)
     sentences = _sentences(text)
     asking = [_asks(sentence) for sentence in sentences]
-    if sum(asking) < 2:
+    # Past the most parts it solves, nothing is split: no quadratic work on many asks.
+    if not 2 <= sum(asking) <= _MAX_PARTS:
         return None
     asks = [sentence for sentence, asks_one in zip(sentences, asking, strict=True) if asks_one]
     through = []
@@ -242,6 +243,18 @@ def _named_apart(names: list[str | None], asks: list[str], first: int, second: i
         and one not in asks[second]
         and other not in asks[first]
     )
+
+
+def part_readings(text: str) -> list[str]:
+    """Each part of a lettered or several-question ``text`` as its solve reads it: the
+    question's givens with that part's ask, and the question up to that ask."""
+    parts = _split(normalize_physics_units(text))
+    if parts is None or len(parts.asks) > _MAX_PARTS:
+        return []
+    readings: list[str] = []
+    for ask, through in zip(parts.asks, parts.through, strict=True):
+        readings.extend((f"{parts.givens} {ask}".strip(), through))
+    return list(dict.fromkeys(readings))
 
 
 def reads_in_parts(text: str) -> bool:

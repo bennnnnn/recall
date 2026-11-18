@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from app.modules.physics.extractors.launch_direction import launched_downward
 from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
+from app.services.law_binding.words import angle_to
 
 # A launch "horizontally" from a height states the angle (0°) without a number,
 # and so does anything that rolls, slides or drives off an edge.
@@ -57,6 +59,9 @@ _LAUNCH = (
         r"\theta",
         dimensionless=True,
         implied=tuple((phrase, 0.0) for phrase in _LEVEL_LAUNCH),
+        # Its sign is the launch's, read over the whole launch sentence by the reader the
+        # extractor uses: "thrown down at 15 m/s at 30°" is -30°.
+        negated=launched_downward,
     ),
     var("g", "g", "meter / second ** 2", fallback="gravity"),
     var("h0", "h_0", "meter", words=_HEIGHT_WORDS, needs_words=True, named_by=_LAUNCH_SITES),
@@ -70,12 +75,22 @@ _FROM_A_HEIGHT = frozenset({"angle", "g", "h0", "v0"})
 _FLIES = ("h0 if h0 > 0 else sin(angle)",)
 # Launched and landing on level ground: no height stated.
 _FROM_THE_GROUND = frozenset({"angle", "g", "v0"})
+# A launch angle measured from the vertical: "60° to the vertical", "60 degrees from
+# vertical"; never "the angle it makes with the vertical", which a landing asks.
+_FROM_THE_VERTICAL = (angle_to(r"vertical\b"),)
 # Another situation than a free flight from a launch: a slope's motion, a pull, a swing,
 # or a flight toward a wall or a target, whose question is another one.
 _NOT_A_FREE_FLIGHT = (
     *("incline", "inclined", "slope"),
     *("rope", "string", "pendulum", "tension"),
     *("wall", "fence"),
+    # Landing on a raised place: read as a launch height, the flight was worked for
+    # another throw. A level green, field, beach or plain is no raised place.
+    *("lands on the roof", "lands on top", "lands on a ledge", "lands on a platform"),
+    *("landing on the roof", "onto the roof", "onto the top", "onto a ledge", "onto a platform"),
+    # A launch angle measured from the vertical, read as an elevation, was worked for the
+    # other angle; the angle a landing velocity "makes with the vertical" is an ask.
+    *_FROM_THE_VERTICAL,
     # A flight lands; a body that comes to a stop moved along a surface ("a cart rolls
     # up a 10° ramp at 6 m/s: how far before stopping").
     *("before stopping", "before it stops", "comes to rest", "comes to a stop"),

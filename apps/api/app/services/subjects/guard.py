@@ -305,9 +305,13 @@ class GuardedFigure:
             lambda: self._inner.without_substitutes(text),
         )
 
-    @property
-    def contract(self) -> str:
-        return self._inner.contract
+    def contract_for(self, question: str, asked: bool) -> str:
+        return neutral_on_error(
+            self._subject,
+            "figure.contract_for",
+            "",
+            lambda: self._inner.contract_for(question, asked),
+        )
 
     async def described(
         self,
@@ -316,12 +320,16 @@ class GuardedFigure:
         reply: str,
         settings: Settings,
         facts: GraphFactReader | None = None,
+        problem: str | None = None,
+        asked: bool = True,
     ) -> list[str]:
         return await _neutral_async(
             self._subject,
             "figure.described",
             [],
-            lambda: self._inner.described(descriptions, texts, reply, settings, facts),
+            lambda: self._inner.described(
+                descriptions, texts, reply, settings, facts, problem, asked
+            ),
         )
 
     def without_drawn_substitutes(self, text: str, user_text: str = "") -> str:

@@ -348,6 +348,20 @@ def test_one_change_never_rewrites_a_value_several_bodies_share() -> None:
     assert not counted(charges, first, [first, second])
 
 
+def test_a_pure_number_the_line_states_must_be_a_change_too() -> None:
+    """ "Repeat the calculation for diamond (n = 2.42) at 45°" took a rewrite that kept
+    n = 1.5 (Gemini, PR #2490): a decimal pure number is a value the rewrite must take."""
+    followups = subject_adapter("physics").followups
+    problem = (
+        "Light passes from air into glass (n = 1.5) at an angle of incidence of 30 degrees. "
+        "Find the angle of refraction."
+    )
+    rewritten = followups.changed_problem(problem, [("30 degrees", "45 degrees")])
+    assert rewritten is not None
+    line = "Repeat the calculation for diamond (n = 2.42) at 45 degrees."
+    assert not followups.takes_every_change(problem, rewritten, line, ["45 degrees"])
+
+
 def test_a_group_count_is_shared_only_by_the_one_value_after_it() -> None:
     """ "Two identical point charges, with a charge of 3.0 μC": the comma split the count
     from its value, so one change made both 6.0 μC and the force came out 2x wrong; "two
@@ -409,6 +423,23 @@ def test_a_maths_change_must_take_every_number_the_line_writes() -> None:
     line = "What if it were 5x + 3 = 13?"
     assert not followups.takes_every_change(problem, "Solve 5x + 3 = 7", line, ["5x"])
     assert followups.takes_every_change(problem, "Solve 5x + 3 = 13", line, ["5x", "13"])
+
+
+def test_a_new_ask_of_the_same_dimension_is_no_rewrite_that_keeps_the_old_one() -> None:
+    """ "Repeat with a 60 m cliff and 25 m/s, and find the maximum height above the ground"
+    after "find its horizontal range": the rewrite still asked for the range (a length too),
+    and 109.9 m was certified as the height (Gemini, PR #2490)."""
+    followups = subject_adapter("physics").followups
+    problem = (
+        "A stone is thrown from the top of a 45 m high cliff with a speed of 20 m/s at 30 "
+        "degrees above the horizontal. Find its horizontal range."
+    )
+    rewritten = followups.changed_problem(problem, [("45 m", "60 m"), ("20 m/s", "25 m/s")])
+    assert rewritten is not None
+    new_ask = "Repeat with a 60 m cliff and 25 m/s, and find the maximum height above the ground."
+    assert not followups.takes_every_change(problem, rewritten, new_ask, ["60 m", "25 m/s"])
+    same_ask = "Repeat with a 60 m cliff and 25 m/s and find the range."
+    assert followups.takes_every_change(problem, rewritten, same_ask, ["60 m", "25 m/s"])
 
 
 @pytest.mark.asyncio
@@ -590,3 +621,40 @@ def test_a_change_read_in_either_scientific_spelling_is_taken(new: str) -> None:
     rewritten = followups.changed_problem(_COULOMB, [("3.0 C", "3.0 pC"), ("2.0 C", new)])
     assert rewritten is not None
     assert followups.takes_every_change(_COULOMB, rewritten, line, ["3.0 pC", new])
+
+
+_CLIFF = (
+    "A ball is thrown from a 45 m high cliff at 20 m/s at 30 degrees above the horizontal. "
+    "Find its horizontal range{also}."
+)
+
+
+@pytest.mark.parametrize(
+    ("problem", "line"),
+    [
+        # The line asks less than the rewrite: it would certify the range too.
+        (
+            _CLIFF.format(also=" and maximum height"),
+            "Repeat with 25 m/s and find the maximum height.",
+        ),
+        # The line asks more than the rewrite: the height would go unanswered.
+        (
+            _CLIFF.format(also=""),
+            "Repeat with 25 m/s and find the horizontal range and maximum height.",
+        ),
+    ],
+)
+def test_a_line_that_asks_by_name_asks_exactly_what_the_rewrite_asks(
+    problem: str, line: str
+) -> None:
+    """ "Find the maximum height" after "its horizontal range and maximum height" matched
+    by substring and dimension, and the rewrite still asked for the range (Gemini, PR
+    #2490). Whole names are compared both ways; the same asks still pass."""
+    followups = subject_adapter("physics").followups
+    rewritten = followups.changed_problem(problem, [("20 m/s", "25 m/s")])
+    assert rewritten is not None
+    assert not followups.takes_every_change(problem, rewritten, line, ["25 m/s"])
+    same = "Repeat with 25 m/s and find the horizontal range" + (
+        " and maximum height." if "maximum height" in problem else "."
+    )
+    assert followups.takes_every_change(problem, rewritten, same, ["25 m/s"])

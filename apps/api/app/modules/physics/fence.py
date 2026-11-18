@@ -72,9 +72,15 @@ def _scene_fences(verified: VerifiedPhysicsBlock) -> list[str]:
         spec_type = spec.get("type")
         if spec_type == "answer":
             continue
-        language = "simulation" if spec_type in SIMULATION_SPEC_TYPES else "graph"
-        fences.append(f"```{language}\n{json.dumps(spec, separators=(',', ':'))}\n```")
+        fences.append(scene_fence(spec))
     return fences
+
+
+def scene_fence(spec: dict[str, object]) -> str:
+    """One picture's fence, as every physics picture is written: a scene or a diagram in
+    ```simulation, a sampled curve in ```graph."""
+    language = "simulation" if spec.get("type") in SIMULATION_SPEC_TYPES else "graph"
+    return f"```{language}\n{json.dumps(spec, separators=(',', ':'))}\n```"
 
 
 def scene_reply(verified: VerifiedPhysicsBlock) -> str | None:
