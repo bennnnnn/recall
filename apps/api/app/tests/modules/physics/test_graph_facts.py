@@ -299,8 +299,11 @@ def test_a_motion_in_phases_gives_no_curve(question: str) -> None:
 @pytest.mark.parametrize(
     ("question", "interval"),
     [
-        ("When t = 2 s a particle at rest moves with acceleration 3 m/s² for 4 s. Draw the v-t "
+        ("From t = 2 s a particle at rest moves with acceleration 3 m/s² for 4 s. Draw the v-t "
          "graph.", ("2", "6")),
+        # A time a value is stated at is no start: "for 4 s" is from 0 (PR #2486 review).
+        ("A particle moves with acceleration 6t m/s² for 4 s. When t = 2 s its velocity is "
+         "15 m/s. Draw the v-t graph.", ("0", "4")),
         ("A particle starts at t = 5 s from rest and moves with acceleration 2 m/s² for 4 s. "
          "Draw the v-t graph.", ("5", "9")),
         ("A car starts from rest with acceleration 2 m/s². Draw the v-t graph for 5 s.",
@@ -327,3 +330,54 @@ def test_a_duration_runs_from_the_motion_s_start(question: str, interval: tuple[
 )  # fmt: skip
 def test_a_time_is_lent_only_by_a_header(question: str, formulas: dict[str, str]) -> None:
     test_the_motion_is_worked_out_from_the_values_it_states(question, formulas)
+
+
+@pytest.mark.parametrize(
+    ("question", "formulas"),
+    [
+        # An initial state is at t = 0; the 16 m is said when t = 2 s (PR #2486 review).
+        ("A particle starting from rest has displacement 16 m when t = 2 s. Its acceleration is "
+         "6t m/s². Sketch s against t.", {"a": "6*t", "v": "3*t**2", "s": "t**3 + 8"}),
+        ("A particle with initial velocity 5 m/s has displacement 16 m when t = 2 s. Its "
+         "acceleration is 2 m/s².", {"a": "2", "v": "2*t + 5", "s": "t**2 + 5*t + 2"}),
+        # "until its velocity is 20 m/s" is said at no time: no v(0) = 20.
+        ("A car starts from O with constant acceleration 2 m/s² until its velocity is 20 m/s. "
+         "Sketch the v-t graph.", {"a": "2"}),
+    ],
+)  # fmt: skip
+def test_an_initial_state_is_at_the_start_and_a_later_one_at_no_time(
+    question: str, formulas: dict[str, str]
+) -> None:
+    test_the_motion_is_worked_out_from_the_values_it_states(question, formulas)
+
+
+def test_a_stretch_of_displacement_is_of_x_and_a_motion_in_phases_has_none() -> None:
+    from app.modules.math.drawing.plot_question import read_plot_question
+
+    question = (
+        "A particle moves from rest with constant acceleration 2 m/s² through a displacement "
+        "of 16 m, where x is the displacement. Draw the velocity-time graph."
+    )
+    facts = read_graph_facts(question)
+    assert (facts.letter, facts.interval) == ("x", ("0", "16"))
+    # Its v-t graph is in t: the 16 m grounds no t = 16 (PR #2486 review).
+    read = read_plot_question([question], read_graph_facts)
+    assert all(16 not in (i.low, i.high) for i in read.intervals)
+    phases = (
+        "A car starts from rest with acceleration 2 m/s² for 3 s, then moves with acceleration "
+        "-1 m/s² for 4 s. Draw the v-t graph."
+    )
+    assert read_graph_facts(phases).interval is None
+
+
+def test_a_follow_up_with_its_own_bounds_draws_with_the_question_s_motion() -> None:
+    import json
+
+    from app.modules.math.drawing.build import drawn_fences
+
+    # "from t = 0 to t = 5" bounds the graph; it writes no curve (PR #2486 review).
+    asked = _U5_088.split(" Draw")[0]
+    body = json.dumps({"kind": "plot", "items": [_curve("v", "1.75t^2 + 8", domain=["0", "5"])]})
+    texts = ["Now draw the velocity-time graph from t = 0 to t = 5.", asked]
+    fences = drawn_fences([body], texts, "", read_graph_facts)
+    assert fences and "v = 7t²/4 + 8" in fences[0]

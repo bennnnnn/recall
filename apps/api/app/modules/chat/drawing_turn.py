@@ -104,12 +104,13 @@ def _a_physics_turn(ctx: StreamContext) -> bool:
 def _physics_read(ctx: StreamContext) -> bool:
     """The turn is physics', by its read or its readers: its words' quantities (a
     particle's v(t)) are physics' to read for the graph (``graph_facts``)."""
+    if _a_physics_turn(ctx):
+        return True  # u5-088's kinematics, which the read may call maths
     read = ctx.live_read
-    if read is not None and read.done() and not read.cancelled() and read.exception() is None:
-        decision = read.result()
-        if decision is not None and decision.subject is not None:
-            return decision.subject == "physics"
-    return _a_physics_turn(ctx)
+    if read is None or not read.done() or read.cancelled() or read.exception() is not None:
+        return False
+    decision = read.result()
+    return decision is not None and decision.subject == "physics"
 
 
 def _asks_in_words(ctx: StreamContext) -> bool:
@@ -160,8 +161,8 @@ def _wants_a_drawing(read: TurnDecision) -> bool:
 
 def _wanted(ctx: StreamContext, read: TurnDecision) -> bool:
     """The read asks for a picture the reply describes, and no physics card of the turn
-    already draws its graph against time."""
-    if read.subject == "physics" and _solver_graphed(ctx.verified_subject):
+    already draws its graph against time, whatever subject the read gives it."""
+    if _solver_graphed(ctx.verified_subject):
         return False
     return _wants_a_drawing(read)
 

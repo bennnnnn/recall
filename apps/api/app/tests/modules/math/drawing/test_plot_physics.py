@@ -62,6 +62,12 @@ def test_a_force_the_question_does_not_write_is_not_drawn() -> None:
         ("A force F = (9 - x/2) N moves a body through a displacement of 10 m, where x is the "
          "displacement. Sketch F against x.", "9 - x/2", True),
         ("A particle has velocity v = (4 - t) m s. Sketch v.", "4 - t", True),
+        # A unit's power is a unit beside "s = 0" (PR #2486 review).
+        ("Its initial displacement is s = 0. Its velocity is v = (3t + 2) m s⁻¹. Sketch v "
+         "against t.", "3t + 2", True),
+        # C is a constant, never a unit: y = (x + 1) C is no y = x + 1.
+        ("Find C so that y = (x + 1) C passes through (0, 5), and sketch the line.", "x + 1",
+         False),
     ],
 )  # fmt: skip
 def test_a_unit_is_read_only_where_it_is_one(question: str, y: str, drawn: bool) -> None:
@@ -97,3 +103,23 @@ def test_a_position_in_t_keeps_its_domain_and_its_shading() -> None:
     assert (min(xs), max(xs)) == pytest.approx((0, 4))
     curve_xs = [x for seg in graph.curves[0].segments for x, _ in seg]
     assert (min(curve_xs), max(curve_xs)) == pytest.approx((0, 5))
+
+
+def test_a_word_glued_to_a_function_name_is_prose() -> None:
+    from sympy import Symbol
+
+    from app.modules.math.drawing.plot_question import _formulas
+    from app.modules.math.drawing.plot_reading import plain
+
+    # "since" is "sin" and "ce" to no reader: the formula ends before it (PR #2486 review).
+    found = _formulas(plain("Sketch y = x^2 + 1 since the area under it is asked."))
+    x = Symbol("x")
+    assert {w.expr for w in found if w.name == "y"} == {x**2 + 1}
+
+
+def test_a_curve_on_its_side_is_never_drawn_upright() -> None:
+    # f(y) = 9 - 2y² is x = f(y); described as a curve in x it would put y on both axes.
+    question = (
+        "Given f(y) = 9 - 2y^2, find the area enclosed by x = f(y) and the y-axis, and sketch it."
+    )
+    assert _plot(question, _curve("f", "9 - 2x^2")) is None

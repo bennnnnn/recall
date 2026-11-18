@@ -87,6 +87,11 @@ _ASKED = re.compile(
     r"hence|deduce|evaluate|give)\b"
 )
 _FROM_REST = re.compile(r"\bfrom rest\b|\bat rest\b")
+# An initial state is at t = 0, whatever time the rest of its clause is said at ("starting
+# from rest, it has displacement 16 m when t = 2 s", "its initial velocity is 4 m/s"),
+# unless its clause names its own ("starts at t = 5 s from rest").
+_STARTS_FROM_REST = re.compile(r"\bfrom rest\b")
+_INITIAL = re.compile(r"\binitial\s+$")
 # Where it starts is where its displacement is measured from: "starts from a point A".
 # The displacement named from the start: "its displacement from its starting point".
 _FROM_THE_START = re.compile(
@@ -107,14 +112,21 @@ _SENTENCES = re.compile(r"(?<=[.;!?])\s+")
 # A sentence's clauses: each value is said at the time its own clause names, or, naming
 # none, at the one the clause before it (else after it) names.
 _CLAUSES = re.compile(r",|;|\band\b")
-# A time it names: "t = 5", "after ten seconds", "for 4 s".
-_TIME = re.compile(
-    rf"\bt\s*=\s*(?P<t>{_NUMBER})|\bafter\s+(?P<n>\d+(?:\.\d+)?|{count_word_pattern(high=100)})"
-    r"\s*(?:s|secs?|seconds?)\b"
-)
-# A duration: "for 4 s", "in ten seconds", from the time the motion starts.
+# A clause is cut again where a clause of time opens: "has displacement 16 m | when t = 2 s",
+# "with acceleration 2 m/s² | until its velocity is 20 m/s".
+_SUBORDINATE = re.compile(r"(?=\b(?:when|whenever|until|till|up\s+to|while|before)\b)")
+_OPENS_WHEN = re.compile(r"\s*when(?:ever)?\b")
+# A clause of a later state ("until its velocity is 20 m/s", "up to ...", "while ...",
+# "before ..."): said at no time it names, it states nothing and lends no time.
+_BOUND = re.compile(r"\s*(?:until|till|up\s+to|while|before)\b")
+# A duration: "for 4 s", "in ten seconds", from the time the motion starts: 0, or the time
+# the question starts it at ("starts at t = 5 s", "from t = 5 s").
 _DURATION = re.compile(
     rf"\b(?:for|in)\s+(?P<n>\d+(?:\.\d+)?|{count_word_pattern(high=100)})\s*(?:s|secs?|seconds?)\b"
+)
+_TIMED_START = re.compile(
+    rf"\b(?:starts?|started|starting|sets?\s+off|begins?)\s+at\s+t\s*=\s*(?P<t>{_NUMBER})"
+    rf"|\bfrom\s+t\s*=\s*(?P<at>{_NUMBER})"
 )
 # A second phase of the motion: "then moves with acceleration -1 m/s²", "then decelerates".
 _PHASE = re.compile(
@@ -148,13 +160,6 @@ def _in_t(text: str) -> Expr | None:
     return nsimplify(parsed, rational=True)
 
 
-def _clause_time(clause: str) -> Any | None:
-    found = _AT_TIME.search(clause)
-    if found is not None:
-        return _time(found)
-    return 0 if _AT_THE_START.search(clause) else None
-
-
 def _header_time(clause: str) -> Any | None:
     """The time a clause lends the clauses beside it: one it names ("when t = 2 s", "at 3
     s") or the start it heads ("initially"); never a start verb's ("starts from O")."""
@@ -164,33 +169,54 @@ def _header_time(clause: str) -> Any | None:
     return 0 if _HEADER.search(clause) else None
 
 
+# A sentence's clause: lowered, as written, the comma clause it is part of, and whether
+# that clause asks.
+_Part = tuple[str, str, int, bool]
+
+
+def _parts(sentence: str) -> list[_Part]:
+    """A sentence's clauses, cut at commas, "and" and where a clause of time opens."""
+    found: list[_Part] = []
+    for index, clause in enumerate(c for c in _CLAUSES.split(sentence) if c.strip()):
+        asks = _ASKED.search(clause.lower()) is not None
+        found += [(p.lower(), p, index, asks) for p in _SUBORDINATE.split(clause) if p.strip()]
+    return found
+
+
+def _part_time(i: int, parts: list[_Part], lent: list[Any | None]) -> Any | None:
+    """The time a clause states its values at: the one it names; else the one a "when"
+    clause right after it names ("has displacement 16 m when t = 2 s"); else a start's 0
+    ("starts from O"); else the one a header before (else after) it in its sentence lends."""
+    lowered, _written, clause, _asks = parts[i]
+    own = _AT_TIME.search(lowered)
+    if own is not None:
+        return _time(own)
+    if i + 1 < len(parts):
+        following = parts[i + 1]
+        if following[2] == clause and _OPENS_WHEN.match(following[0]) and lent[i + 1] is not None:
+            return lent[i + 1]
+    if _AT_THE_START.search(lowered):
+        return 0
+    before = [t for t in lent[:i] if t is not None]
+    return before[-1] if before else next((t for t in lent[i + 1 :] if t is not None), None)
+
+
 def _timed_clauses(text: str) -> list[tuple[Any, str, str]]:
-    """Each stating clause with the time it says its values at, lowered and as written: its
-    own, or the one a header clause before it (else after it) in its sentence lends. A
-    sentence that asks ("Find (a) ..., (b) the displacement when t = 2 s") or a clause that
-    asks ("find its velocity when t = 3 s") states nothing and lends no time; a clause of a
-    sentence naming no time, none."""
+    """Each stating clause with the time it says its values at, lowered and as written
+    (``_part_time``). A sentence that asks ("Find (a) ..., (b) the displacement when t = 2
+    s"), a clause that asks ("find its velocity when t = 3 s") and a clause of a later state
+    ("until its velocity is 20 m/s") state nothing and lend no time."""
     timed: list[tuple[Any, str, str]] = []
     for sentence in _SENTENCES.split(text):
         if _ASKED_SENTENCE.search(sentence.lower()):
             continue
-        clauses = [c for c in _CLAUSES.split(sentence) if c.strip()]
-        lowered = [c.lower() for c in clauses]
-        asked = [_ASKED.search(c) is not None for c in lowered]
-        lent = [None if asks else _header_time(c) for c, asks in zip(lowered, asked, strict=True)]
-        for i, clause in enumerate(clauses):
-            if asked[i]:
-                continue
-            own = _clause_time(lowered[i])
-            before = [t for t in lent[:i] if t is not None]
-            after = [t for t in lent[i + 1 :] if t is not None]
-            at = (
-                own
-                if own is not None
-                else (before[-1] if before else (after[0] if after else None))
-            )
+        parts = _parts(sentence)
+        stating = [not asks and not _BOUND.match(lowered) for lowered, _w, _c, asks in parts]
+        lent = [_header_time(p[0]) if ok else None for p, ok in zip(parts, stating, strict=True)]
+        for i, (lowered, written, _clause, _asks) in enumerate(parts):
+            at = _part_time(i, parts, lent) if stating[i] else None
             if at is not None:
-                timed.append((at, lowered[i], clause))
+                timed.append((at, lowered, written))
     return timed
 
 
@@ -204,13 +230,18 @@ def _stated(text: str) -> tuple[list[tuple[Any, Any]], list[tuple[Any, Any]]]:
     started = False
     measured_from = False
     for at, clause, written in _timed_clauses(text):
+        start = at if _AT_TIME.search(clause) else 0
         velocities += [
-            (at, nsimplify(m.group("v"), rational=True)) for m in _VELOCITY.finditer(clause)
+            (
+                start if _INITIAL.search(clause[: m.start()]) else at,
+                nsimplify(m.group("v"), rational=True),
+            )
+            for m in _VELOCITY.finditer(clause)
         ]
         if _FROM_REST.search(clause):
-            velocities.append((at, 0))
+            velocities.append((start if _STARTS_FROM_REST.search(clause) else at, 0))
         positions += [
-            (at, value)
+            (start if _INITIAL.search(clause[: match.start()]) else at, value)
             for match in _POSITION.finditer(clause)
             if (value := _signed(match)) is not None
         ]
@@ -333,8 +364,8 @@ def _time(match: re.Match[str]) -> Any | None:
 def motion_interval(text: str) -> tuple[str, Any, Any] | None:
     """The interval the motion is asked about, (letter, start, end): from its start (or the
     first time it names) to the last time it names, for a particle whose motion it states
-    (u5-089's "after ten seconds" from the start); x from 0 to the displacement a force
-    moves it through ("through a displacement of 10 m", u5-087)."""
+    in one phase (u5-089's "after ten seconds" from the start); x from 0 to the displacement
+    a force moves it through ("through a displacement of 10 m", u5-087)."""
     lowered = text.lower()
     through = _THROUGH.search(lowered)
     if through is not None and _X_IS_DISPLACEMENT.search(lowered):
@@ -345,14 +376,18 @@ def motion_interval(text: str) -> tuple[str, Any, Any] | None:
         or _constant_acceleration(lowered) is not None
     ):
         return None  # no motion stated
-    times = [t for m in _TIME.finditer(lowered) if (t := _time(m)) is not None]
-    # Each clause's own time: a start at the time it names ("starts at t = 5 s"), else 0.
-    clauses = [c for sentence in _SENTENCES.split(lowered) for c in _CLAUSES.split(sentence)]
-    times += [t for clause in clauses if (t := _clause_time(clause)) is not None]
-    # A duration runs from the time the motion starts: "when t = 2 s ... for 4 s" is [2, 6].
+    if _phases(lowered):
+        return None  # a motion in phases: no formula, so no stretch of one
+    times = [t for m in _AT_TIME.finditer(lowered) if (t := _time(m)) is not None]
+    # Its start: the time the question starts it at ("starts at t = 5 s"), else 0; a time a
+    # value is stated at ("when t = 2 s its velocity is 15 m/s") is no start.
+    timed = _TIMED_START.search(lowered)
+    start = _time(timed) if timed is not None else 0
+    if timed is not None or _AT_THE_START.search(lowered):
+        times.append(start)
+    # A duration runs from that start: "for 4 s" is [0, 4], "from t = 2 s ... for 4 s" [2, 6].
     durations = [d for m in _DURATION.finditer(lowered) if (d := _time(m)) is not None]
     if durations:
-        start = min(times, default=0)
         times += [start, start + max(durations)]
     if len(set(times)) < 2:
         return None
@@ -368,5 +403,7 @@ def read_graph_facts(text: str) -> GraphFacts:
         GraphFormula(name, str(expr), unit) for name, expr, unit in motion_formulas(readable)
     )
     found = motion_interval(readable)
-    interval = (str(found[1]), str(found[2])) if found is not None else None
-    return GraphFacts(formulas, interval)
+    if found is None:
+        return GraphFacts(formulas)
+    letter, low, high = found
+    return GraphFacts(formulas, (str(low), str(high)), letter)

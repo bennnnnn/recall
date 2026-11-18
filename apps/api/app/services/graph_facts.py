@@ -25,10 +25,12 @@ class GraphFormula:
 @dataclass(frozen=True)
 class GraphFacts:
     """The formulas a question's words give, and the stretch of the across it asks about
-    (low and high as SymPy text), when it names one."""
+    (low and high as SymPy text), when it names one, with the letter it is of ("t" for a
+    motion's time, "x" for a force's displacement): a stretch of x grounds no v-t graph."""
 
     formulas: tuple[GraphFormula, ...] = ()
     interval: tuple[str, str] | None = None
+    letter: str = ""
 
 
 # A subject's reader of a question's words (picklable: it runs in the SymPy pool).
