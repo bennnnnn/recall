@@ -319,7 +319,8 @@ def _as_asked(
         if all(result <= 0 for result in results):
             params["v1"], params["v2"] = -v1, -v2
             return True
-        return all(result >= 0 for result in results)
+    # A pair moving apart ("an elastic head-on collision with a stationary 4 kg ball": -2 and
+    # 4 m/s) is signed along the first body's motion, unless a compass names the line.
     return not named or all(result >= 0 for result in results)
 
 
