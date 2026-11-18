@@ -12,6 +12,11 @@ from app.services.text_match import word_index
 EARTH_G = SCHOOL_GRAVITY["earth"]
 
 _NUMBER = r"(-?\d+(?:\.\d+)?)"
+# An acceleration's or a field strength's unit, as a g is written: m/s², m s^-2, N/kg, ft/s².
+_G_UNIT = (
+    r"(?:m|cm|ft)\s*/\s*s\s*(?:\^\s*\{?2\}?|\u00b2|2)?|(?:m|ft)\s*s\s*(?:\^\s*\{?-2\}?|\u207b\u00b2)"
+    r"|N\s*/\s*kg|N\s*kg\s*(?:\^\s*\{?-1\}?|\u207b\u00b9)"
+)
 # A g the question states, its number the first group: "g = 1.62", "gravity of 3.7", "the
 # acceleration due to gravity is 9.8", "a gravitational acceleration of 3.7", "free-fall
 # acceleration of 9.8", and one named after its value: "take 10 m/s² for g", "Taking 10 m/s²
@@ -25,9 +30,10 @@ _STATED_G = (
         re.IGNORECASE,
     ),
     re.compile(
-        # Started where a number starts, never inside one: tried from every digit of a run,
-        # the search was quadratic.
-        rf"(?<![\d.]){_NUMBER}[^\n,;.?!]{{0,16}}?\b(?:as|for)\s+(?:the\s+)?(?:g\b|gravity\b"
+        # Started where a number starts, never inside one (tried from every digit of a run,
+        # the search was quadratic), and only its own unit between it and the label: "μ =
+        # 0.5 (10 N/kg for g)" is 10, never the 0.5 before it (Gemini on #2491).
+        rf"(?<![\d.]){_NUMBER}\s*(?:{_G_UNIT})?\s*\b(?:as|for)\s+(?:the\s+)?(?:g\b|gravity\b"
         r"|acceleration\s+due\s+to\s+gravity|gravitational\s+acceleration)",
         re.IGNORECASE,
     ),

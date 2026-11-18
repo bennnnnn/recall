@@ -151,8 +151,35 @@ def _asks_in_parts(question: str) -> bool:
     return _ASKS_FOR_LABELS.search(lead.rstrip()) is not None
 
 
-# A value's other form in brackets after it: "0.840 (84.0 percent)".
-_BRACKETED = re.compile(r"\\?\(|\\?\)")
+def _bare(tex: str) -> str:
+    """TeX without its spacing: "4180\\ \\mathrm{J}" and "4180\\,\\mathrm{J}" alike."""
+    return _TEX_SPACING.sub("", tex)
+
+
+_TEX_SPACING = re.compile(r"\\[ ,;:!]|\s+")
+
+
+def _stated_forms(card: str) -> list[str]:
+    """The card's value and each other form it states in brackets after it, "0.840 (84.0
+    percent)": a bracket opened after a space, outside every brace. A unit's brackets
+    ("\\mathrm{J/(kg\\cdot K)}") and a function's argument ("x(3 m) = 15 m") are the value's
+    own (review of #2491)."""
+    pieces, depth, start, inside = [], 0, 0, False
+    for at, char in enumerate(card):
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+        elif depth == 0 and char == "(" and not inside and card[at - 1 : at] in {" ", "\\"}:
+            pieces.append(card[start:at])
+            start, inside = at + 1, True
+        elif depth == 0 and char == ")" and inside:
+            pieces.append(card[start:at])
+            start, inside = at + 1, False
+    pieces.append(card[start:])
+    return pieces
+
+
 # TeX spacing at a piece's ends ("0.840\ "), which closes no maths on its own.
 _EDGE_SPACE = re.compile(r"^(?:\s|\\[ ,;])+|(?:\s|\\(?:[ ,;]|$))+$")
 
@@ -171,7 +198,7 @@ def _card_states(reply: str, forms: list[str]) -> Verdict:
     ]
     if not cards:
         return "absent"
-    split = [_EDGE_SPACE.sub("", piece) for piece in _BRACKETED.split(cards[-1])]
+    split = [_EDGE_SPACE.sub("", piece) for piece in _stated_forms(cards[-1])]
     verdicts = [_piece_verdict(piece, forms) for piece in split if piece]
     if "conflict" in verdicts:
         return "conflict"
@@ -179,8 +206,11 @@ def _card_states(reply: str, forms: list[str]) -> Verdict:
 
 
 def _piece_verdict(piece: str, forms: list[str]) -> Verdict:
-    """One stated value against the server's: the same in any of its forms, or a conflict
-    with its own form (0.94 against 84 %), else nothing read."""
+    """One stated value against the server's: the same in any of its forms (written as the
+    server writes it, a unit the reader does not read included: 4180 J/(kg·K)), or a
+    conflict with its own form (0.94 against 84 %), else nothing read."""
+    if _bare(piece) in {_bare(form) for form in forms}:
+        return "same"
     said = [stated_verdict(f"**Answer**\n\n${piece}$\n", form) for form in forms]
     if any(verdict in _AGREES for verdict in said):
         return "same"

@@ -345,13 +345,20 @@ _FALLING = re.compile(
 _THROWN = re.compile(r"\b(?:projectiles?|thrown|throws?|tossed|launched|fired)\b", re.IGNORECASE)
 # A sentence's end: a stop, then a space or the end ("3.0 m/s." ends one, "3.00" does not).
 _SENTENCE_END = re.compile(r"[.?!](?=\s|$)")
-# A body driven to its acceleration: "the cruiser accelerates at 3 m/s²", "brakes at", "an
-# acceleration of 1.5 m/s²", a thrust or an engine. A launched rocket that "accelerates
-# upward at 15 m/s²" is driven: 15 is no g (Gemini on #2491).
+# A body slowed or pushed by its own means: braking, decelerating, a thrust or an engine.
+# Never g, even for a falling body: "a falling ball decelerates at 25 m/s² over 0.40 m".
+_RETARDED = re.compile(r"\b(?:brak\w*|decelerat\w*|retard\w*|thrust\w*|engines?)\b", re.I)
+# A body's own acceleration: "accelerates", "speeds up", "has an acceleration of", "the
+# acceleration of the car". "The acceleration is 24.8 m/s²" on Jupiter, or the acceleration
+# due to gravity, is the world's. A launched rocket that "accelerates upward at 15 m/s²" is
+# driven: 15 is no g (Gemini and Claude on #2491).
 _DRIVEN = re.compile(
-    r"\b(?:accelerat(?:es|ed|ing|ion)|speeds?\s+up|brak\w*|decelerat\w*|thrust\w*|engines?)\b",
+    r"\baccelerat(?:es|ed|ing)\b|\bspeeds?\s+up\b|\ban\s+acceleration\s+of\b"
+    r"|\bacceleration\s+of\s+(?:the|a|an|its|his|her|their)\b",
     re.IGNORECASE,
 )
+# An acceleration named right after its value's unit: "a 15 m/s² acceleration".
+_NAMED_AFTER = re.compile(r"^\s*\S{0,12}\s+acceleration\b(?!\s+due\s+to\s+gravity)", re.IGNORECASE)
 
 
 def _may_take(
@@ -368,27 +375,31 @@ def _may_take(
 
 
 def _marks_gravity(question: Question, given: Given, previous: int, subject: Subject) -> bool:
-    """A stated acceleration fills g only where the words make it gravity's: the g the
-    subject's one reader of a stated g reads at the value ("g = 1.62", "take 10 m/s² for
-    g"); a body falling or dropped in the value's own sentence; else, unless the value is a
-    body's own driven acceleration (a launched rocket's too), a fall or a throw anywhere, or
-    a named world's gravity.
-    "The cruiser accelerates from rest at 3.00 m/s²" is no g: a law with g bound it as one
-    and certified 150 m for 600 m (owner's phone, 2026-11-17)."""
+    """A stated acceleration fills g only where the words make it gravity's, read in its
+    own sentence up to the value, values between included (``_driven_by_the_body``): never
+    a braking, a thrust or an engine; the g the subject's one reader of a stated g reads at
+    the value ("g = 1.62", "take 10 m/s² for g"); a body falling or dropped in that
+    sentence; never a body's own acceleration; else a named world's gravity ("on Jupiter,
+    where the acceleration is 24.8 m/s²"), or a fall or a throw anywhere. "The cruiser
+    accelerates from rest at 3.00 m/s²" is no g: a law with g bound it as one and certified
+    150 m for 600 m (owner's phone, 2026-11-17)."""
+    del previous  # the sentence up to the value is read whole
     lower = question.lower
+    starts = [found.end() for found in _SENTENCE_END.finditer(lower, 0, given.start)]
+    sentence_end = _SENTENCE_END.search(lower, given.end)
+    start, end = max(starts, default=0), sentence_end.end() if sentence_end else len(lower)
+    before, after = lower[start : given.start], lower[given.end : end]
+    if _RETARDED.search(before) or _RETARDED.search(after[:30]):
+        return False
     if subject.gravity_at(question.text, given.start, given.end):
         return True
-    before = lower[previous : given.start]
-    sentence_end = _SENTENCE_END.search(lower, given.end)
-    starts = [found.end() for found in _SENTENCE_END.finditer(lower, 0, given.start)]
-    sentence = lower[max(starts, default=0) : sentence_end.end() if sentence_end else len(lower)]
-    if _FALLING.search(sentence):
+    if _FALLING.search(lower[start:end]):
         return True  # "a ball dropped from a tower accelerates at 9.8 m/s²"
-    if _DRIVEN.search(before):
+    if _DRIVEN.search(before) or _NAMED_AFTER.match(after):
         return False
-    if _FALLING.search(lower) or _THROWN.search(lower):
-        return True
-    return subject.names_gravity(question.text)
+    return subject.names_gravity(question.text) or bool(
+        _FALLING.search(lower) or _THROWN.search(lower)
+    )
 
 
 def _next_start(givens: Sequence[Given], index: int, lower: str) -> int:

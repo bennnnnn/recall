@@ -327,5 +327,69 @@
    "deg"
   ],
   "note": "sin r = sin 35.5° / 1.5: the angle to the normal, whatever surface follows"
+ },
+ {
+  "id": "p17-jupiter-the-acceleration-is",
+  "area": "energy",
+  "prompt": "On Jupiter, where the acceleration is 24.8 m/s², a 2 kg box is lifted 3 m. How much potential energy does it gain?",
+  "expect": "answer",
+  "answer": [
+   148.8,
+   "J"
+  ],
+  "note": "mgh = 2 × 24.8 × 3: \"the acceleration is\" under a named world is its g (Claude on #2491)"
+ },
+ {
+  "id": "p17-engine-accelerates-payload",
+  "area": "energy",
+  "prompt": "A rocket engine accelerates a 2.0 kg payload upward at 15 m/s² to a height of 40 m. How much potential energy does the payload gain?",
+  "expect": "answer",
+  "answer": [
+   784.8,
+   "J"
+  ],
+  "note": "mgh = 2 × 9.81 × 40: the engine's 15 m/s² is never g, a payload between it and its verb or not (Gemini on #2491)",
+  "gap": "declines: a driven acceleration given beside an asked PE is left unread"
+ },
+ {
+  "id": "p17-falling-ball-decelerates",
+  "area": "kinematics",
+  "prompt": "A falling ball decelerates at 25 m/s² over 0.40 m after hitting the sand. How fast was it moving when it hit the sand?",
+  "expect": "answer",
+  "answer": [
+   4.47,
+   "m/s"
+  ],
+  "note": "v² = 2 × 25 × 0.40: its braking is never g, though it falls",
+  "gap": "declines: a deceleration to rest is not read as one"
+ },
+ {
+  "id": "p17-west-speed-magnitude",
+  "area": "momentum",
+  "prompt": "A 1500 kg truck moving west at 20 m/s hits the back of a 1000 kg car moving west at 10 m/s and they stick together. What is their final speed?",
+  "expect": "answer",
+  "answer": [
+   16,
+   "m/s"
+  ],
+  "note": "a speed is a size: 16 m/s, never −16 (Gemini on #2491)"
+ },
+ {
+  "id": "p17-west-velocity-unsigned-frame",
+  "area": "momentum",
+  "prompt": "A 1500 kg truck moving west at 20 m/s hits the back of a 1000 kg car moving west at 10 m/s and they stick together. What is their final velocity?",
+  "expect": "decline",
+  "note": "16 m/s west: never a bare −16 with no positive direction named"
+ },
+ {
+  "id": "p17-at-rest-then-westward",
+  "area": "momentum",
+  "prompt": "A 1.0 kg cart at rest collides with a westward-moving 2.0 kg cart at 3.0 m/s and they stick together. What is their final speed?",
+  "expect": "answer",
+  "answer": [
+   2,
+   "m/s"
+  ],
+  "note": "2 × 3/3: the westward words before the 2.0 kg cart are its own (Gemini on #2491)"
  }
 ]

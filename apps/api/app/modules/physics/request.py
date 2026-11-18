@@ -190,6 +190,7 @@ def _collision_intent(text: str) -> PhysicsIntent | None:
     signed_literal = False
     directions: list[tuple[str, int] | None] = []
     leading_rest = _REST_BEFORE_MASS.search(text[: masses[0].start()]) is not None
+    carried: tuple[str, int] | None = None
     for index, mass in enumerate(masses, start=1):
         value = float(mass[1])
         if value <= 0:
@@ -199,6 +200,9 @@ def _collision_intent(text: str) -> PhysicsIntent | None:
         trailing = _REST_BEFORE_MASS.search(body_clause) if index < len(masses) else None
         if trailing is not None:
             body_clause = body_clause[: trailing.start()]
+        own, carried_next = (
+            _next_body_words(body_clause) if index < len(masses) else (body_clause, None)
+        )
         velocities = list(_SPEED.finditer(body_clause))
         at_rest = leading_rest or _REST.search(body_clause) is not None
         leading_rest = trailing is not None
@@ -209,10 +213,14 @@ def _collision_intent(text: str) -> PhysicsIntent | None:
         )
         if at_rest and velocity != 0:
             return None
-        direction = moving_sense(body_clause, 0, len(body_clause))
-        if direction == TWO_WAYS:
+        direction = moving_sense(own, 0, len(own))
+        if direction == TWO_WAYS or (direction is not None and carried is not None):
             return None
-        sense = direction if velocity != 0 else None
+        direction = direction or carried
+        carried = carried_next
+        if velocity == 0 and direction is not None:
+            return None  # a body at rest with a direction: whose it is, the words do not say
+        sense = direction
         if sense is not None:
             if velocity < 0 and sense[1] > 0:
                 return None  # "-2 m/s in the +x direction": the two signs disagree
@@ -225,25 +233,9 @@ def _collision_intent(text: str) -> PhysicsIntent | None:
         units.update({f"m{index}": mass[2], f"v{index}": velocity_unit})
     if consumed_speeds != len(list(_SPEED.finditer(text))):
         return None
-    first, second = directions
-    moving = params["v1"] != 0 and params["v2"] != 0
-    opposed = _OPPOSED.search(text) is not None
-    if first is not None and second is not None:
-        if first[0] != second[0] or opposed:
-            return None
-    elif (first is not None or second is not None) and moving:
-        # One body's direction and the other's unsaid: the line's sense is unknown.
+    if not _signed_pair(params, directions, text[:ask_start], signed_literal):
         return None
-    elif opposed:
-        # "Towards each other", "the other way", "oncoming": the second points back along
-        # the first's line; with a sign written as well, which one it means is unsaid.
-        if not moving or signed_literal:
-            return None
-        params["v2"] = -params["v2"]
-    elif moving and not _SAME_WAY.search(text) and _UNREAD_SENSE.search(text[:ask_start]):
-        # A direction the words give but no reader signs ("head-on", "the other way"): never
-        # read as both one way (3.00 kg at +4 and 1.00 kg at -2 lost 1.5 J for 13.5 J, owner's
-        # phone 2026-11-17).
+    if not energy_lost and not _as_asked(params, directions, clause or ""):
         return None
     return PhysicsIntent(
         kind="momentum",
@@ -251,6 +243,84 @@ def _collision_intent(text: str) -> PhysicsIntent | None:
         physics_params=params,
         physics_units=units,
     )
+
+
+# The words right before the next body's mass, which describe it: "collides with a
+# westward-moving 2.0 kg cart". At most three, and no value among them.
+_NEXT_BODY_WORDS = re.compile(r"(?:[^\s\d]+\s+){0,2}[^\s\d]+\s*$")
+# An ask for a size alone: "their final speed", "how fast". A velocity asked keeps its sign.
+_ASKS_SPEED = re.compile(r"\bspeeds?\b|\bhow\s+fast\b", re.IGNORECASE)
+_ASKS_VELOCITY = re.compile(r"\bvelocit", re.IGNORECASE)
+# The senses a compass or a hand names; a +x or -x is a signed axis of its own.
+_NAMED_SENSES = frozenset({"east-west", "north-south", "left-right"})
+
+
+def _signed_pair(
+    params: dict[str, float],
+    directions: list[tuple[str, int] | None],
+    text: str,
+    signed_literal: bool,
+) -> bool:
+    """The two velocities signed on one line from what ``text`` (the question before its
+    ask) says of the pair, or False when it says too little or too much."""
+    first, second = directions
+    moving = params["v1"] != 0 and params["v2"] != 0
+    opposed = _OPPOSED.search(text) is not None
+    if first is not None and second is not None:
+        if first[0] != second[0] or opposed:
+            return False
+    elif (first is not None or second is not None) and moving:
+        # One body's direction and the other's unsaid: the line's sense is unknown.
+        return False
+    elif opposed:
+        # "Towards each other", "the other way", "oncoming": the second points back along
+        # the first's line; with a sign written as well, which one it means is unsaid.
+        if not moving or signed_literal:
+            return False
+        params["v2"] = -params["v2"]
+    elif moving and not _SAME_WAY.search(text) and _UNREAD_SENSE.search(text):
+        # A direction the words give but no reader signs ("head-on", "the other way"): never
+        # read as both one way (3.00 kg at +4 and 1.00 kg at -2 lost 1.5 J for 13.5 J, owner's
+        # phone 2026-11-17).
+        return False
+    return True
+
+
+def _next_body_words(clause: str) -> tuple[str, tuple[str, int] | None]:
+    """The clause without the words that describe the next body, and the sense they give:
+    "… collides with a westward-moving" carries west to the 2.0 kg cart after it (Gemini
+    on #2491: the westward cart's direction was lost in the cart at rest's clause)."""
+    tail = _NEXT_BODY_WORDS.search(clause)
+    if tail is None:
+        return clause, None
+    sense = moving_sense(clause, tail.start(), len(clause))
+    if sense is None or sense == TWO_WAYS:
+        return clause, None
+    return clause[: tail.start()], sense
+
+
+def _as_asked(
+    params: dict[str, float], directions: list[tuple[str, int] | None], clause: str
+) -> bool:
+    """The velocities set so the answer is what the question asks, or False when it cannot
+    be. A speed asked is a size: the frame is turned so a sticking pair's speed is positive
+    ("moving west at 20 m/s hits the back of … moving west at 10 m/s", 16 m/s, never -16).
+    A velocity along a compass or a hand's direction, with no positive sense the question
+    names, is never a bare negative number; a ±x axis is signed of itself (Gemini on #2491)."""
+    m1, m2, v1, v2 = params["m1"], params["m2"], params["v1"], params["v2"]
+    total = m1 + m2
+    results: tuple[float, ...]
+    if params["elastic"]:
+        results = (((m1 - m2) * v1 + 2 * m2 * v2) / total, ((m2 - m1) * v2 + 2 * m1 * v1) / total)
+    else:
+        results = ((m1 * v1 + m2 * v2) / total,)
+    named = any(sense is not None and sense[0] in _NAMED_SENSES for sense in directions)
+    if _ASKS_SPEED.search(clause) and not _ASKS_VELOCITY.search(clause):
+        if all(result <= 0 for result in results):
+            params["v1"], params["v2"] = -v1, -v2
+            return True
+        return all(result >= 0 for result in results)
+    return not named or all(result >= 0 for result in results)
 
 
 # "(a) what is the max height (b) the range": a question in labelled parts.

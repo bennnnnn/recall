@@ -16,6 +16,12 @@ from app.modules.physics.extractors.surface_gravity import detect_gravity, gravi
         ("Take 9.8 m/s² as the acceleration due to gravity.", "9.8", True),
         ("A gravitational acceleration of 3.7 m/s² acts on it.", "3.7", True),
         ("The acceleration due to gravity is 3.7 m/s².", "3.7", True),
+        # The number right before the label, never an earlier one (Gemini on #2491).
+        ("A block with \u03bc = 0.5 slides (10 N/kg for g).", "10", True),
+        ("A block with \u03bc = 0.5 slides (10 N/kg for g).", "0.5", False),
+        ("A lift accelerates upward at 2 m/s² (10 m/s² as g).", "2", False),
+        ("A 2 kg book is raised 1.5 m (use 10 m/s² for g).", "1.5", False),
+        ("A 2 kg book is raised 1.5 m (use 10 m/s² for g).", "10", True),
         # A body's own acceleration is no g.
         ("The cruiser accelerates from rest at 3.00 m/s² in the same direction.", "3.00", False),
         ("A car accelerates at 3 m/s² for 10 s.", "3", False),

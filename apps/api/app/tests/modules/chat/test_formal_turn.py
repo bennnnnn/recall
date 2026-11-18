@@ -379,6 +379,9 @@ def test_the_reply_s_own_card_states_the_value_in_either_form(card: str, same: b
         ("x(3\\ \\mathrm{m}) = 15\\ \\mathrm{m}", 3.0, "m", "conflict"),
         ("0.840\\ (84.0\\ \\text{percent})", 84.0, "%", "same"),
         ("\\text{see above}", 84.0, "%", "absent"),
+        # A unit's brackets and a function's argument are the value's own (review of #2491).
+        ("x(3\\ \\mathrm{m}) = 15\\ \\mathrm{m}", 15.0, "m", "same"),
+        ("4180\\ \\mathrm{J/(kg\\cdot K)}", 4180.0, "J/(kg*K)", "same"),
     ],
 )
 def test_a_card_is_the_same_a_conflict_or_says_nothing(
