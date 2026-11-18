@@ -342,3 +342,19 @@ def test_yes_to_an_offered_chart_gets_the_chart_hint_and_the_numbers() -> None:
     )
     assert CHART_FORMAT_HINT in hints
     assert f"The numbers to chart are in the user's earlier message: «{_RAIN[1]}»" in hints
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # The unit-5 round (2026-11-16): "the curves" after a draw verb are the message's own
+        # formulas, and the area question was read as a chart and never solved.
+        "Find the area of the region enclosed by f(x) = 4 - x² and g(x) = 3x. Show the curves "
+        "and shade the region.",
+        "Find the area of the region enclosed between the curves y = x³/(x² + 1) and y = x/2. "
+        "Draw the curves and shade the region.",
+    ],
+)
+def test_the_curves_of_the_messages_own_formulas_are_maths(text: str) -> None:
+    assert not is_chart_question(text)
+    assert detect_subject(text) == "math"

@@ -111,6 +111,11 @@ def _normalize_math_answer_expression(text: str) -> str:
     return re.sub(r"\^\{([A-Za-z0-9])\}", r"^\1", compact)
 
 
+def same_spelling(first: str, second: str) -> bool:
+    """Two TeX values that differ only in spacing, sizing or an atom's braces."""
+    return _normalize_math_answer_expression(first) == _normalize_math_answer_expression(second)
+
+
 def prose_already_states_answer(content: str, answer_body: str) -> bool:
     """True when the verified value is already visible in the assistant prose.
 

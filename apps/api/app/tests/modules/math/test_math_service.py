@@ -42,6 +42,23 @@ def test_normalize_latex_frac_and_abs() -> None:
     assert math_solve.normalize_latex_to_sympy("|x-2|<5") == "Abs(x-2)<5"
 
 
+@pytest.mark.parametrize(
+    ("tex", "plain"),
+    [
+        # A power of more than one atom keeps its group (2026-11-16: e^{2x} read as e^2 x).
+        (r"e^{2x}", "e^(2x)"),
+        (r"e^{-2x}", "e^(-2x)"),
+        (r"\frac{2e^{2x} - 1}{3}", "((2e^(2x) - 1)/(3))"),
+        # A number or one letter stays bare.
+        (r"x^{12}", "x^12"),
+        (r"e^{-x}", "e^-x"),
+        (r"10^{-3}", "10^-3"),
+    ],
+)
+def test_normalize_latex_keeps_a_power_whole(tex: str, plain: str) -> None:
+    assert math_solve.normalize_latex_to_sympy(tex) == plain
+
+
 @pytest.mark.wall_clock
 @pytest.mark.parametrize("tail", ["x", r"\frac{1}{x}", "½x"])
 def test_mixed_number_patterns_stay_linear_on_long_digit_runs(tail: str) -> None:

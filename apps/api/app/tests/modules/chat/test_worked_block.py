@@ -180,6 +180,9 @@ def test_render_writes_no_answer_heading_without_an_answer() -> None:
         ("°", r"^\circ"),
         ("%", r"\,\%"),
         (r"\Omega", r"\,\Omega"),
+        # A unit in words is text: \mathrm ran "square units" together (2026-11-16).
+        ("square units", r"\,\text{square units}"),
+        (r"\mathrm{cubic units}", r"\,\text{cubic units}"),
     ],
 )
 def test_unit_tex_writes_units_upright(unit: str, tex: str) -> None:
