@@ -116,7 +116,10 @@ def _charges(
         described_charge(sign, charge.amount or "")
         for sign, charge in zip(signs, charges, strict=True)
     ]
-    held = held_to([c for c in described if c is not None], stated)
+    # A charge the question gives no sign of takes the picture's only when the question's
+    # words name the signs (checked above); with none named, an unsigned amount is positive.
+    unsigned = named_signs(texts, part) is not None
+    held = held_to([c for c in described if c is not None], stated, unsigned=unsigned)
     if held is None or len(held) != len(charges) or len({c.kind for c in held}) != 1:
         return None  # an amount the question does not state, or "2q" beside "3 μC"
     if len(held) != len(stated):

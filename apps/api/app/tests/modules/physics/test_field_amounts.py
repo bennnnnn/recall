@@ -304,3 +304,21 @@ def test_negatively_charged_and_positively_charged_name_their_signs() -> None:
     plates = "Draw the field between two parallel plates; the top plate is negatively charged."
     assert not plates_of(plates, "top")
     assert plates_of(plates, "bottom")
+
+
+def test_charges_whose_signs_a_later_sentence_names_take_the_pictures() -> None:
+    """ "Two charges of 3 nC and 2 nC. One is positive and the other is negative.": each
+    amount was read positive, so the picture's -2 nC was held to nothing and none was drawn
+    (Gemini, PR #2482). An amount with no sign of its own takes the picture's, once the
+    signs the question names are the picture's."""
+    question = (
+        "Draw the field of two charges of 3 nC and 2 nC. One is positive and the other is negative."
+    )
+    opposite = _charges({"sign": "+", "amount": "3 nC"}, {"sign": "-", "amount": "2 nC"})
+    assert read_description(opposite, [question]) is not None
+    alike = _charges({"sign": "+", "amount": "3 nC"}, {"sign": "+", "amount": "2 nC"})
+    assert read_description(alike, [question]) is None
+    # A question that names no sign leaves an unsigned amount positive.
+    unsigned = "Draw the field of two charges of 3 nC and 2 nC placed 4 cm apart."
+    assert read_description(opposite, [unsigned]) is None
+    assert read_description(alike, [unsigned]) is not None

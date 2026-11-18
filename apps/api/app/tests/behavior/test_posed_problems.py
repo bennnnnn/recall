@@ -526,3 +526,53 @@ def test_a_sharing_word_on_the_value_counts_it_whatever_follows() -> None:
     )
     kind = [g for g in read_givens(problem, PHYSICS_UNITS) if g.unit == "Ω"]
     assert [counted(problem, given, kind) for given in kind] == [True, False]
+
+
+_REFRACTION = (
+    "Light passes from air into glass of refractive index n = 1.5 at an angle of incidence "
+    "of 30°. Find the angle of refraction."
+)
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        # "is 2" is no assignment and no decimal, so no value was read for it.
+        "What if the refractive index is 2 and the angle is 45 degrees?",
+        # A relative change the rewrite of the angle never applied.
+        "What if the angle is 45° and the refractive index is doubled?",
+    ],
+)
+def test_a_number_or_relative_change_the_rewrite_lacks_is_no_rewrite(line: str) -> None:
+    """After the n = 1.5 refraction question, a read of only the angle certified the old
+    index (Gemini, PR #2482): every number the line writes must be in the rewrite, and a
+    relative change ("doubled", "halved") declines."""
+    followups = subject_adapter("physics").followups
+    rewritten = followups.changed_problem(_REFRACTION, [("30°", "45°")])
+    assert rewritten is not None
+    assert not followups.takes_every_change(_REFRACTION, rewritten, line, ["45°"])
+    assert followups.takes_every_change(
+        _REFRACTION, rewritten, "What if the angle is 45°?", ["45°"]
+    )
+
+
+@pytest.mark.parametrize(
+    ("line", "problem"),
+    [
+        (
+            "What if it were 5 m/s without air resistance?",
+            "A 2 kg ball is thrown up at 3 m/s with air resistance. Find its height.",
+        ),
+        (
+            "What if it were 5 m/s and frictionless?",
+            "A 2 kg block slides at 3 m/s on a floor with friction. Find its deceleration.",
+        ),
+    ],
+)
+def test_a_word_the_problem_only_shares_a_stem_with_is_a_new_setup(line: str, problem: str) -> None:
+    """ "without" is no "with" and "frictionless" no "friction": a line naming the opposite
+    setup is never served the changed problem's instant card (Gemini, PR #2482)."""
+    from app.modules.chat.turn_prep.followups import _only_the_change
+
+    assert not _only_the_change(line, problem, ["5 m/s"])
+    assert _only_the_change("What if it were 5 m/s?", problem, ["5 m/s"])

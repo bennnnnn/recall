@@ -48,6 +48,10 @@ class Charge:
     sign: Literal[1, -1]
     # As the question writes it, without its sign: "2q", "q", "3 nC".
     written: str
+    # Whether the question gives its sign (a minus, or its own words): a charge it gives
+    # none of ("two charges of 3 nC and 2 nC. One is positive and the other is negative.")
+    # takes the sign a picture gives it, once the signs the question names are checked.
+    named: bool = True
 
 
 def stated_charges(texts: Sequence[str], part: str | None = None) -> list[Charge]:
@@ -139,12 +143,12 @@ def _in_units(text: str) -> list[Charge]:
             continue
         unit_at = plain.find(given.unit, given.end)
         end = unit_at + len(given.unit) if 0 <= unit_at <= given.end + 2 else given.end
-        before = plain[: given.start].rstrip()[-1:] in _MINUS
+        mark = plain[: given.start].rstrip()[-1:] + plain[given.start : given.start + 1]
         named, carried = _sign_of(plain, given.start, end, floor, carried)
         written = f"{abs(given.value):g} {given.unit}"
-        charges.append(
-            Charge("unit", abs(given.si), _signed(before or given.si < 0, named), written)
-        )
+        minus = any(c in _MINUS for c in mark) or given.si < 0
+        signed = minus or "+" in mark or named is not None
+        charges.append(Charge("unit", abs(given.si), _signed(minus, named), written, signed))
         floor = end
     return charges
 
@@ -160,7 +164,16 @@ def _in_q(text: str) -> list[Charge]:
         size = float(match.group(2) or 1)
         written = "q" if size == 1 else f"{size:g}q"
         named, carried = _sign_of(text, match.start(), match.end(), floor, carried)
-        charges.append(Charge("q", size, _signed(match.group(1) in _MINUS, named), written))
+        signed = match.group(1) is not None
+        charges.append(
+            Charge(
+                "q",
+                size,
+                _signed(match.group(1) in _MINUS, named),
+                written,
+                signed or named is not None,
+            )
+        )
         floor = match.end()
     return charges
 
@@ -181,9 +194,12 @@ def described_charge(sign: Literal[1, -1], amount: str) -> Charge | None:
     return Charge(charge.kind, charge.size, sign, charge.written)
 
 
-def held_to(described: Sequence[Charge], stated: Sequence[Charge]) -> list[Charge] | None:
+def held_to(
+    described: Sequence[Charge], stated: Sequence[Charge], *, unsigned: bool = False
+) -> list[Charge] | None:
     """Each described charge matched to its own stated one, same kind, size and sign, in
-    the question's own writing; None when any is not the question's."""
+    the question's own writing; None when any is not the question's. With ``unsigned``, a
+    stated charge the question gives no sign of takes the described one's."""
     left = list(stated)
     held = []
     for charge in described:
@@ -192,7 +208,7 @@ def held_to(described: Sequence[Charge], stated: Sequence[Charge]) -> list[Charg
                 one
                 for one in left
                 if one.kind == charge.kind
-                and one.sign == charge.sign
+                and (one.sign == charge.sign or (unsigned and not one.named))
                 and math.isclose(one.size, charge.size, rel_tol=1e-9)
             ),
             None,
@@ -200,7 +216,11 @@ def held_to(described: Sequence[Charge], stated: Sequence[Charge]) -> list[Charg
         if match is None:
             return None
         left.remove(match)
-        held.append(match)
+        # A charge the question gives no sign of takes the picture's (the named signs, as a
+        # set, are checked against the picture's: ``describe._signs_named``).
+        held.append(
+            match if match.named else Charge(match.kind, match.size, charge.sign, match.written)
+        )
     return held
 
 

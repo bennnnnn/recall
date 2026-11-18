@@ -186,11 +186,6 @@ def _described_by(ctx: StreamContext, read: TurnDecision) -> SubjectName | None:
     return "physics" if read.subject == "physics" and read.picture == "diagram" else "math"
 
 
-def _wanted(ctx: StreamContext, read: TurnDecision) -> bool:
-    """The read asks for a picture the reply describes."""
-    return _described_by(ctx, read) is not None
-
-
 async def write_for_a_picture(ctx: StreamContext, settings: Settings) -> None:
     """A solver's instant reply gives way to the model's when the read says the message asks
     to see a maths picture, or a graph of a physics question whose card draws none: the instant reply carries the card alone, and no picture can be

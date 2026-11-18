@@ -296,6 +296,9 @@ def item_number(text: str, start: int, end: int) -> bool:
     number standing alone after an item word, never a term ("Solve 2x + 3 = 7")."""
     if text[end : end + 1].isalpha() or text[end : end + 1] in ("(", "^"):
         return False
+    # A question's own number, first in the line ("9. Repeat the calculation ...").
+    if not text[:start].strip() and text[end : end + 1] in (".", ")"):
+        return True
     return _ITEM.search(text, max(0, start - 24), start) is not None
 
 
@@ -310,7 +313,13 @@ def stated_numbers(text: str) -> Counter[str]:
         match.group()
         for match in _NUMBER.finditer(plain)
         if not item_number(plain, match.start(), match.end())
+        and not _EXPONENT.search(plain, max(0, match.start() - 3), match.start())
     )
+
+
+# A power of ten's exponent, once scientific notation is folded ("1e-12"): its value's, not a
+# number of its own (a prefix's definition, "(p = pico- = x 10^-12)", states none).
+_EXPONENT = re.compile(r"(?<=\d)[eE][-+]?$")
 
 
 def pure_value(text: str, start: int, end: int) -> bool:
@@ -472,6 +481,12 @@ class GivenRewriter:
             if match is None:
                 return False
             left.remove(match)
+        # Every number the line writes is in the rewrite or the problem, as often ("the
+        # refractive index is 2", read as no value of its own, stays out of no rewrite), and
+        # a relative change ("doubled", "halved") is none a rewrite of written values made.
+        written = stated_numbers(prior) | stated_numbers(rewritten)
+        if stated_numbers(line) - written or changes_relatively(line):
+            return False
         if self.asked is None:
             return True
         asked = set(self.asked(line))
