@@ -25,6 +25,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from contextlib import AbstractContextManager, nullcontext
 from typing import TYPE_CHECKING, Any
 
+from app.services.graph_facts import GraphFactReader
 from app.services.solving import PhotoReading, SubjectAugmentation
 
 if TYPE_CHECKING:
@@ -309,13 +310,18 @@ class GuardedFigure:
         return self._inner.contract
 
     async def described(
-        self, descriptions: Sequence[str], texts: Sequence[str], reply: str, settings: Settings
+        self,
+        descriptions: Sequence[str],
+        texts: Sequence[str],
+        reply: str,
+        settings: Settings,
+        facts: GraphFactReader | None = None,
     ) -> list[str]:
         return await _neutral_async(
             self._subject,
             "figure.described",
             [],
-            lambda: self._inner.described(descriptions, texts, reply, settings),
+            lambda: self._inner.described(descriptions, texts, reply, settings, facts),
         )
 
     def without_drawn_substitutes(self, text: str, user_text: str = "") -> str:
@@ -388,6 +394,11 @@ class GuardedSubject:
     @property
     def formal(self) -> GuardedFormal | None:
         return self._formal
+
+    @property
+    def graph_facts(self) -> GraphFactReader | None:
+        # A reader the drawing runs in the SymPy pool, where a failure draws nothing.
+        return self._inner.graph_facts
 
     def enabled(self, settings: Settings) -> bool:
         # Off: its lines go to the model, as with its switch off.

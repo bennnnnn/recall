@@ -22,6 +22,7 @@ from app.modules.physics.followup import (
 from app.modules.physics.prompt import build_physics_augmentation
 from app.modules.physics.reply_policy import PHYSICS_REPLY_POLICY, physics_prompt_hints
 from app.modules.turn_reading.see_request import asks_to_see
+from app.services.graph_facts import GraphFactReader, GraphFacts
 from app.services.solving import PhotoReading, SubjectAugmentation, VerifiedPhysicsBlock
 from app.services.subject_hints import SubjectHints
 
@@ -219,6 +220,14 @@ class PhysicsFormal:
         return await formal_read.formal_answer(question, settings)
 
 
+def _read_graph_facts(text: str) -> GraphFacts:
+    """Physics' reading of a question's words for maths' plot: its motion's v(t) and s(t)
+    (``physics.graph_facts``). Picklable: maths runs it in the SymPy pool."""
+    from app.modules.physics.graph_facts import read_graph_facts
+
+    return read_graph_facts(text)
+
+
 @dataclass(frozen=True)
 class PhysicsFigure:
     """Physics' picture a reply describes: an electric field's lines (``field_lines``).
@@ -253,7 +262,12 @@ class PhysicsFigure:
         return FIELD_DRAW_CONTRACT
 
     async def described(
-        self, descriptions: Sequence[str], texts: Sequence[str], reply: str, settings: Settings
+        self,
+        descriptions: Sequence[str],
+        texts: Sequence[str],
+        reply: str,
+        settings: Settings,
+        facts: GraphFactReader | None = None,
     ) -> list[str]:
         from app.core import sympy_executor
         from app.modules.physics.field_lines.build import field_fences
@@ -286,6 +300,7 @@ class PhysicsSubject:
     figure: PhysicsFigure = PhysicsFigure()
     # A question its solvers did not read, written down as maths by a model and solved.
     formal: PhysicsFormal = PhysicsFormal()
+    graph_facts: GraphFactReader | None = _read_graph_facts
 
     def enabled(self, settings: Settings) -> bool:
         return settings.physics_enabled

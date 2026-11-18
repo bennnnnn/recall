@@ -32,6 +32,7 @@ from app.modules.math.tools.prompt import (
 )
 from app.modules.turn_reading.continued_problem import adds_to_problem
 from app.modules.turn_reading.see_request import asks_to_see
+from app.services.graph_facts import GraphFactReader
 from app.services.solving import PhotoReading, SubjectAugmentation, VerifiedMathBlock
 from app.services.subject_hints import SubjectHints
 
@@ -347,7 +348,12 @@ class MathFigure:
         return DRAW_CONTRACT
 
     async def described(
-        self, descriptions: Sequence[str], texts: Sequence[str], reply: str, settings: Settings
+        self,
+        descriptions: Sequence[str],
+        texts: Sequence[str],
+        reply: str,
+        settings: Settings,
+        facts: GraphFactReader | None = None,
     ) -> list[str]:
         from app.core import sympy_executor
         from app.modules.math.drawing.build import drawn_fences
@@ -357,6 +363,7 @@ class MathFigure:
             list(descriptions),
             list(texts),
             reply,
+            facts,
             timeout=settings.stem_solve_timeout_seconds,
         )
 
@@ -379,6 +386,7 @@ class MathSubject:
     figure: MathFigure = MathFigure()
     # No worked answer of a model's setup yet (docs/FORMAL_READER.md).
     formal: None = None
+    graph_facts: None = None
 
     def enabled(self, settings: Settings) -> bool:
         return settings.math_tools_enabled

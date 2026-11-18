@@ -38,6 +38,7 @@ from app.modules.math.drawing.plot_x import (
     revolution_axis,
 )
 from app.modules.math.figure.grounding import written_numbers, written_pairs
+from app.modules.math.function_names import GREEK_NAMES, MATH_FUNCTION_NAMES
 from app.modules.math.match.numerical_methods import (
     estimates_named,
     interval_counts,
@@ -52,6 +53,7 @@ from app.modules.math.tool_check import (
     written_expressions,
     written_relations,
 )
+from app.services.graph_facts import GraphFactReader, GraphFacts
 from app.services.solving import SolveServiceError
 
 # Where a formula written after "=" ends: a clause's punctuation or a word of English.
@@ -141,6 +143,8 @@ class Written:
     # The formula as written, unsimplified: e^(ln x) and (√x)² have no value below 0, and
     # x/x none at 0, though SymPy reads each as x or 1 (``plot_pieces.formula_shape``).
     raw: Any = None
+    # The unit written after it ("F = (9 - x/2) N"): a quantity, named on its axis.
+    unit: str = ""
 
 
 @dataclass(frozen=True)
@@ -244,7 +248,8 @@ def _equals_spans(text: str) -> list[tuple[str, str, int]]:
         words: list[str] = []
         for word in text[at + 1 :].split(" "):
             bare = word.strip().lower().rstrip(".,;:")
-            if bare in _ENDS or any(mark in word for mark in ";\n"):
+            prose = len(bare) >= 3 and bare.isalpha() and not _maths_word(bare)
+            if bare in _ENDS or prose or any(mark in word for mark in ";\n"):
                 if any(mark in word for mark in ";\n"):
                     words.append(re.split(r"[;\n]", word)[0])
                 break
@@ -261,25 +266,82 @@ def _equals_spans(text: str) -> list[tuple[str, str, int]]:
     return found
 
 
-def _without_unit(formula: str) -> str:
-    """ "t² - 4t + 3 m/s" without its unit: the last word when it is letters and a slash or
-    two or more letters, after a number."""
-    head, _, last = formula.rpartition(" ")
-    bare = last.replace("/", "").replace("^", "")
-    if head and head.rstrip()[-1:].isdigit() and bare.isalpha() and (len(bare) > 1 or "/" in last):
-        return head.rstrip()
+# The one-letter units a formula is written with ("(9 - x/2) N", "(3t + 2) m"). Not C, the
+# constant of an antiderivative ("y = (x + 1) C"); the unit registry's other letters (c, e,
+# k, F, R, ...) are constants a question writes too, so it is no list of them.
+_LETTER_UNITS = frozenset({"m", "s", "g", "N", "J", "W", "V", "A", "K", "\u03a9"})
+# A unit's power or rate ("s^-1", "m/s"): a unit, never the letter a question gives a value.
+_POWER_OR_RATE = re.compile(r"/|\^|\*\*|[\u00b2\u00b3]")
+# The words a formula is written with, the parser's own function names: any other word of
+# three letters or more is prose, and ends it ("F = (9 - x/2) N moves a body ...").
+_MATH_WORDS = MATH_FUNCTION_NAMES | frozenset(GREEK_NAMES) | {"pi", "max", "min", "sgn"}
+
+
+def _maths_word(word: str) -> bool:
+    """A function name, or one glued to its argument's letters as the parser reads it
+    ("sinx", "cosx", "lnx", "sinht"); "since" is prose."""
+    return word in _MATH_WORDS or any(
+        word.startswith(name) and _an_argument(word[len(name) :]) for name in MATH_FUNCTION_NAMES
+    )
+
+
+def _an_argument(glued: str) -> bool:
+    """What a function name is glued to: one letter or π ("sinx", "cospi"); "since" is
+    prose."""
+    return len(glued) == 1 or glued == "pi"
+
+
+# A letter the text gives a value ("where m = 3"): a factor, never a unit.
+_GIVEN = re.compile(r"(?<![A-Za-z])([A-Za-z])\s*=\s*[-+]?\d")
+
+
+def _without_unit(formula: str, given: frozenset[str] = frozenset()) -> str:
+    """ "t² - 4t + 3 m/s" without its unit: the last word (or two, "m s") when it is a unit,
+    never a letter the text gives a value (``given``: "y = (x + 1) m, where m = 3") unless
+    written as a unit's power or rate ("m s^-1" beside "s = 0"). After a number: letters
+    and a slash, or two or more letters. After a bracket or the formula's variable ("x =
+    t^2 - 4t m"): those, or a one-letter unit (``_LETTER_UNITS``); and never a letter the
+    formula is written in ("(x + 1) x"). Another lone letter is a factor ("(x + 1) k",
+    "(x + 1) C")."""
+    for _ in range(2):
+        head, _, last = formula.rpartition(" ")
+        head = head.rstrip()
+        bare = re.sub(r"(?:\^|\*\*)?\(?-?[0-9\u00b2\u00b3]+\)?", "", last.replace("/", ""))
+        given_value = bare in given and _POWER_OR_RATE.search(last) is None
+        if not head or not bare.isalpha() or given_value or bare.lower() in _MATH_WORDS:
+            return formula  # "2 pi" and "(x + 1) pi" end in a constant, not a unit
+        if head.rsplit(" ", 1)[-1].lower() in _MATH_WORDS:
+            return formula  # "2 sin s": the last word is the function's argument
+        if head[-1:].isdigit() and (len(bare) > 1 or "/" in last):
+            formula = head
+            continue
+        unit_like = len(bare) > 1 or "/" in last or bare in _LETTER_UNITS
+        written_in = re.search(rf"(?<![A-Za-z]){re.escape(bare)}(?![A-Za-z])", head)
+        after = head[-1:] == ")" or head[-1:].isalpha()
+        if not (after and unit_like and not written_in):
+            return formula
+        formula = head
     return formula
+
+
+def sideways(name: str, expr: Any) -> bool:
+    """A formula "x = g(y)" (or "x = 3") is a curve on its side, drawn apart; "x = t² - 4t"
+    names a position in t, a curve as any other. One rule for every reader of the formulas."""
+    return name == "x" and not (expr.free_symbols - {Symbol("x"), Symbol("y")})
 
 
 def _formulas(text: str) -> list[Written]:
     found: list[Written] = []
+    given = frozenset(_GIVEN.findall(text))
     for name, formula, _end in _equals_spans(text):
         if _AT_A_POINT.fullmatch(name) or not (name.isalpha() or _DEFINES_NAME.fullmatch(name)):
             continue  # "f(2) = 4" is a value at a point; "f'(x) =" a derivative, not f
-        parsed = parse_formula(_without_unit(formula))
+        bare = _without_unit(formula, given)
+        parsed = parse_formula(bare)
         if isinstance(parsed, Expr):
             defines = name == "y" or _DEFINES_NAME.fullmatch(name) is not None
-            found.append(Written(name[0], parsed, defines, _as_written(formula, parsed)))
+            unit = formula[len(bare) :].strip()
+            found.append(Written(name[0], parsed, defines, _as_written(bare, parsed), unit))
     for lhs, op, rhs in written_relations(text):
         if op == "=" and isinstance(lhs, Symbol):
             found.append(Written(str(lhs), rhs, str(lhs) == "y"))
@@ -297,7 +359,7 @@ def _as_written(formula: str, parsed: Any) -> Any | None:
     """``formula`` read as it is written, SymPy's simplifications left undone."""
     letters = sorted(str(symbol) for symbol in parsed.free_symbols)
     try:
-        raw = parse_expression(_without_unit(formula), letters, evaluate=False)
+        raw = parse_expression(formula, letters, evaluate=False)
     except (SolveServiceError, SyntaxError, TypeError, ValueError, AttributeError):
         return None
     return raw if isinstance(raw, Expr) else None
@@ -372,7 +434,9 @@ def _ties(text: str, letters: frozenset[str]) -> list[tuple[Interval, tuple[Any,
             stated = intervals(clause, letters)
             if stated:
                 said = tuple(
-                    w.expr for w in _formulas(clause) if w.name != "x" and w.expr.free_symbols
+                    w.expr
+                    for w in _formulas(clause)
+                    if not sideways(w.name, w.expr) and w.expr.free_symbols
                 )
                 task = _TASK.search(clause.lower()) is not None
                 found += [(interval, said, task) for interval in stated]
@@ -392,9 +456,10 @@ def _domains(part: str, letters: frozenset[str]) -> list[Domain]:
     ("f: [0, 3] → R, f(x) = x²")."""
     found: list[Domain] = []
     mapped = _MAPPED.search(part)
+    given = frozenset(_GIVEN.findall(part))
     for name, formula, end in _equals_spans(part):
-        parsed = parse_formula(_without_unit(formula))
-        if not isinstance(parsed, Expr) or name == "x":
+        parsed = parse_formula(_without_unit(formula, given))
+        if not isinstance(parsed, Expr) or sideways(name, parsed):
             continue
         if mapped is not None and name[0] == mapped.group(1):
             low, high = number(mapped.group(2)), number(mapped.group(3))
@@ -416,7 +481,7 @@ def _clauses(text: str, letters: frozenset[str]) -> list[Clause]:
             for a, b in ((number(x), number(y)) for x, y in _POINT_VALUE.findall(part))
             if a is not None and b is not None
         ]
-        formulas = tuple(w.expr for w in _formulas(part) if w.name != "x")
+        formulas = tuple(w.expr for w in _formulas(part) if not sideways(w.name, w.expr))
         clauses.append(
             Clause(
                 formulas,
@@ -472,24 +537,79 @@ def _parallel_slopes(text: str) -> list[Any]:
     return found
 
 
-def read_plot_question(texts: Sequence[str]) -> PlotQuestion:
+def _subject_formulas(facts: GraphFacts | None) -> tuple[Written, ...]:
+    found: list[Written] = []
+    for fact in facts.formulas if facts is not None else ():
+        parsed = parse_formula(fact.formula)
+        if isinstance(parsed, Expr):
+            found.append(Written(fact.name, parsed, True, None, fact.unit))
+    return tuple(found)
+
+
+def _subject_interval(facts: GraphFacts | None, letters: set[str]) -> tuple[Interval, ...]:
+    """The subject's stretch, when it is of a letter the curves are written in: a force's
+    displacement grounds no v-t graph's time."""
+    if facts is None or facts.interval is None:
+        return ()
+    if facts.letter and facts.letter not in letters:
+        return ()
+    low, high = (number(end) for end in facts.interval)
+    if low is None or high is None or not float(low) < float(high):
+        return ()
+    return (Interval(low, high),)
+
+
+def _question_texts(
+    texts: Sequence[str], facts: GraphFactReader | None
+) -> tuple[list[str], GraphFacts | None]:
+    """The messages a graph is read from, and the subject's facts read from the same ones:
+    the last message when it writes a curve; else the first, newest first, whose words give
+    the subject's facts, with the last message's bounds ("Now draw the v-t graph from t = 0
+    to t = 5." after the motion, never mixed with an older "Sketch y = x²"); else every
+    message ("now draw it")."""
+    if not texts:
+        return [], None
+    if _writes_a_curve(texts[0]):
+        return list(texts[:1]), facts(texts[0]) if facts is not None else None
+    if facts is not None:
+        for text in texts:
+            found = facts(text)
+            if found.formulas or found.interval is not None:
+                return list(dict.fromkeys([texts[0], text])), found
+            if _writes_a_curve(text):
+                break
+    return list(texts), None
+
+
+def _writes_a_curve(text: str) -> bool:
+    """A formula of a curve, never a bound alone ("from t = 0 to t = 5")."""
+    return any(w.defines or w.expr.free_symbols for w in _formulas(plain(text)))
+
+
+def read_plot_question(texts: Sequence[str], facts: GraphFactReader | None = None) -> PlotQuestion:
     """What ``texts`` (the last user message first) state for a graph: the last message's,
-    or the earlier ones' when it writes no formula ("now draw it")."""
-    own = list(texts[:1]) if texts and _formulas(plain(texts[0])) else list(texts)
+    or the earlier ones' when it writes no formula ("now draw it"). ``facts``: the turn's
+    subject's reader of its words (a particle's v(t) and s(t), physics'), whose formulas are
+    held as ones it writes, and the stretch it asks about; read from the same message as
+    the formulas (``_question_texts``)."""
+    own, known = _question_texts(texts, facts)
     readable = [plain(text) for text in own]
     formulas = tuple(w for text in readable for w in _formulas(text))
+    formulas += _subject_formulas(known)
     # The letter the question's functions are written in ("v(t) = ...": t) is its x.
     letters = frozenset(
-        {"x"} | {str(s) for w in formulas if w.name != "x" for s in w.expr.free_symbols}
+        {"x"}
+        | {str(s) for w in formulas if not sideways(w.name, w.expr) for s in w.expr.free_symbols}
     )
     # The variable each curve is written in ("s(t) = t³ - 6t²": t) is said of as x is.
     own_letters = {
         str(symbol)
         for w in formulas
-        if w.name not in {"x", "y"} and len(w.expr.free_symbols) == 1
+        if w.name != "y" and not sideways(w.name, w.expr) and len(w.expr.free_symbols) == 1
         for symbol in w.expr.free_symbols
     }
     variables = sorted(({"x"} | own_letters) - {"y"})
+    motion = _subject_interval(known, own_letters)
     xs = [named_values(text, letter, letters) for text in readable for letter in variables]
     ys = [named_values(text, "y", letters) for text in readable]
     return PlotQuestion(
@@ -504,7 +624,9 @@ def read_plot_question(texts: Sequence[str]) -> PlotQuestion:
         ),
         clauses=tuple(clause for text in readable for clause in _clauses(text, letters)),
         words=" ".join(readable).lower(),
-        intervals=tuple(i for text in readable for i in intervals(text, letters)),
+        # The subject's stretch grounds the curve and a region's ends (``stated_end``), but
+        # ties no region to itself: "shade where the velocity is negative" stands on [1, 3].
+        intervals=tuple(i for text in readable for i in intervals(text, letters)) + motion,
         ties=tuple(tie for text in readable for tie in _ties(text, letters)),
         variables=frozenset(variables),
         edges=tuple(v for lines, _points in xs for v in lines),
