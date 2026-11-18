@@ -349,3 +349,22 @@ async def test_labels_in_the_statement_are_no_parts(answer: list[str], question:
     reply = "**Answer**\n\nThe range is $R = 32.4\\ \\text{m}$."
     text = await _finalized(_ctx(question, live_read=_read()), reply)
     assert "```answer\nverified: false\n31.07\\ \\mathrm{m}\n```" in text
+
+
+@pytest.mark.parametrize(
+    ("card", "same"),
+    [
+        ("0.840\\ (84.0\\ \\text{percent})", True),
+        ("\\eta = 0.840", True),
+        ("84.0\\%", True),
+        ("0.79\\ (79\\%)", False),
+    ],
+)
+def test_the_reply_s_own_card_states_the_value_in_either_form(card: str, same: bool) -> None:
+    """Owner's phone, 2026-11-17: an efficiency carded "0.840 (84.0 percent)" got the server's
+    "84 %" under it, the same value twice."""
+    from app.modules.chat.formal_turn import _card_states
+
+    reply = f"**Answer**\n\n```answer\nverified: false\n{card}\n```"
+    forms = FormalAnswer(value=84.0, unit="%").same_answers
+    assert _card_states(reply, forms) is same

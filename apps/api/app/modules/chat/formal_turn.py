@@ -36,6 +36,7 @@ from app.services.answer_check import stated_verdict
 from app.services.answer_fence import (
     ANSWER_FENCE_LANGS,
     UNCHECKED_ANSWER_MARKER,
+    answer_fence_value,
     land_answer_card,
 )
 from app.services.md_fence_scan import iter_fences
@@ -150,6 +151,32 @@ def _asks_in_parts(question: str) -> bool:
     return _ASKS_FOR_LABELS.search(lead.rstrip()) is not None
 
 
+# A value's other form in brackets after it: "0.840 (84.0 percent)".
+_BRACKETED = re.compile(r"\\?\(|\\?\)")
+# TeX spacing at a piece's ends ("0.840\ "), which closes no maths on its own.
+_EDGE_SPACE = re.compile(r"^(?:\s|\\[ ,;])+|(?:\s|\\(?:[ ,;]|$))+$")
+
+
+def _card_states(reply: str, forms: list[str]) -> bool:
+    """The reply's own last answer card states the server's value in one of its ``forms``,
+    read as the Answer it is: "0.840 (84.0 percent)" for an efficiency of 84 % got the
+    server's card under it, the same value twice (owner's phone, 2026-11-17)."""
+    cards = [
+        answer_fence_value(reply[fence.body_start : fence.body_end])
+        for fence in iter_fences(reply)
+        if fence.closed and fence.lang in ANSWER_FENCE_LANGS
+    ]
+    if not cards:
+        return False
+    pieces = [cards[-1], *(_EDGE_SPACE.sub("", piece) for piece in _BRACKETED.split(cards[-1]))]
+    return any(
+        stated_verdict(f"**Answer**\n\n${piece}$\n", form) in _AGREES
+        for piece in pieces
+        if piece
+        for form in forms
+    )
+
+
 async def attach_formal(state: FinalizeState) -> str:
     """The reply's final value held to the server's, as the module docstring says."""
     ctx = state.ctx
@@ -182,6 +209,8 @@ async def attach_formal(state: FinalizeState) -> str:
         stated_verdict(state.text, same) in _AGREES for same in answer.same_answers[1:]
     ):
         # The same answer another way: 90% for 0.9, 7500 N for a braking force of -7500 N.
+        verdict = "same"
+    if verdict == "absent" and _card_states(state.text, answer.same_answers):
         verdict = "same"
     logger.info("formal answer: reply %s, waited %.2f s", verdict, waited)
     if verdict in _AGREES:
