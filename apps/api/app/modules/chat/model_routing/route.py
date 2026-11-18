@@ -303,12 +303,15 @@ def _subject_lane(
     the order gave it first, then any whose cues claim a line no subject did ("a
     pendulum's period" is physics' strong model). Each says whether its answer needs no
     reasoning (True: the fast model), or has no say (None)."""
-    from app.services.subjects.registry import SUBJECTS
+    from app.services.subjects.registry import MONEY, SUBJECTS
 
     asked = sorted(SUBJECTS, key=lambda adapter: adapter.name != subject)
+    # A loan or card payoff is the money card's, whichever subject its rate words read as:
+    # the subject's claim is no reason to escalate it (review of phys30, 2026-11-16).
+    claim = subject if not MONEY.reads(content) else None
     for adapter in asked:
         tools_on = settings is None or adapter.enabled(settings)
-        verdict = adapter.fast_lane(content, tools_on=tools_on, claimed=adapter.name == subject)
+        verdict = adapter.fast_lane(content, tools_on=tools_on, claimed=adapter.name == claim)
         if verdict is not None:
             return adapter.name, verdict
     return None

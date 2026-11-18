@@ -244,7 +244,7 @@ class PhysicsSubject:
         # period" with no numbers still wants the strong model.
         from app.modules.physics.lane import physics_fast_lane
 
-        return physics_fast_lane(text, tools_on=tools_on)
+        return physics_fast_lane(text, tools_on=tools_on, claimed=claimed)
 
     def instant_reply(self, text: str, *, prior_reply: str | None) -> str | None:
         return None

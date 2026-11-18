@@ -165,12 +165,18 @@ def _right_side(answer: str) -> str:
     return re.sub(r"\\[a-zA-Z]+|\{|\}", " ", value)
 
 
+# The words a sentence asks with: an instruction ("find", "work out") or a question word.
+ASK_VERBS = r"find|calculate|compute|evaluate|determine|state|give|work\s+out"
+ASK_QUESTION_WORDS = r"how|what|which|where"
 # The sentences that ask: "… Find its acceleration.", "What is the radius?"
 _ASKED_SENTENCE = re.compile(
-    r"[^.?!\n]*\?|(?:^|(?<=[.!\n]))\s*(?:find|calculate|determine|state|give|work\s+out"
-    r"|how|what|which|where)\b[^.?!\n]*",
+    rf"[^.?!\n]*\?|(?:^|(?<=[.!\n]))\s*(?:{ASK_VERBS}|{ASK_QUESTION_WORDS})\b[^.?!\n]*",
     re.IGNORECASE,
 )
+
+
+# A sentence that asks, for a reader outside this module (``formal_turn``).
+ASKED_SENTENCE = _ASKED_SENTENCE
 
 
 def _asked(question: str) -> str:

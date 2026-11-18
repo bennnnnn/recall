@@ -495,3 +495,120 @@ def test_no_laid_out_block_shows_latex_source(block: str) -> None:
 )  # fmt: skip
 def test_a_bar_inside_the_maths_is_no_field_separator(line: str, record: object) -> None:
     assert read_record(line) == record
+
+
+def test_a_part_s_own_letter_is_not_said_twice() -> None:
+    """The layout letters each part: "(a) $t$ (time in the air (a))" said it twice (phys30)."""
+    solution = _solution(
+        "required: t | time in the air (a)\nrequired: d | distance along the slope (b)\n"
+        "part: a | Time in the air (a)\nanswer: t | 1.63 | s\n"
+        "part: b | Distance along the slope (b)\nanswer: d | 16.7 | m"
+    )
+    assert [ask.meaning for ask in solution.required] == [
+        "time in the air",
+        "distance along the slope",
+    ]
+    assert [part.title for part in solution.parts] == [
+        "Time in the air",
+        "Distance along the slope",
+    ]
+
+
+def test_another_letter_in_an_ask_is_the_question_s_own() -> None:
+    """Review of phys30: "force on block (a)" lost its block's letter. Only an ask's own
+    part letter goes, and only in a question in parts."""
+    alone = _solution("required: F | force on block (a)\nanswer: F | 3 | N")
+    assert alone.required[0].meaning == "force on block (a)"
+    parts = _solution(
+        "required: F | force on block (b)\nrequired: T | tension (b)\n"
+        "part: a | Force on block (b)\nanswer: F | 3 | N\npart: b | Tension\nanswer: T | 4 | N"
+    )
+    assert [ask.meaning for ask in parts.required] == ["force on block (b)", "tension"]
+    assert parts.parts[0].title == "Force on block (b)"
+
+
+def test_a_conclusion_is_written_in_words_on_its_card() -> None:
+    """phys30: "yes" in a card drew italic maths letters under an invented symbol."""
+    solution = _solution(
+        "required: s | whether it slides back\nanswer: s | yes | | static friction cannot hold it"
+    )
+    assert "$\\text{yes}$ (static friction cannot hold it)" in render_worked(solution, OTHER)
+    # Asked by its words: no invented symbol in maths for a conclusion.
+    assert "whether it slides back" in render_worked(solution, OTHER)
+    assert "$s$ (whether it slides back)" not in render_worked(solution, OTHER)
+
+
+def test_a_conclusion_is_asked_by_its_words_however_its_symbol_is_braced() -> None:
+    """Gemini on #2489: s_1 in Find and s_{1} in the answer are one symbol."""
+    solution = _solution(
+        "required: s_1 | whether it slides back\n"
+        "answer: s_{1} | yes | | static friction cannot hold it"
+    )
+    assert "$s_1$ (whether it slides back)" not in render_worked(solution, OTHER)
+    assert "whether it slides back" in render_worked(solution, OTHER)
+
+
+def test_a_conclusion_with_no_symbol_asks_by_its_words() -> None:
+    """Gemini on #2489: "answer: | yes, …" in the contract's own syntax kept "$s$" in
+    Required; the quantity a part also asks keeps its symbol."""
+    solution = _solution(
+        "required: s | whether all the ice melts\nrequired: Q | heat supplied\n"
+        "answer: Q | 5000 | J\nanswer: | yes, all the ice melts | | the heat is enough"
+    )
+    shown = render_worked(solution, OTHER)
+    assert "$s$" not in shown
+    assert "whether all the ice melts" in shown
+    assert "$Q$ (heat supplied)" in shown
+
+
+@pytest.mark.parametrize("value", ["mg", "kx", "ma"])
+def test_an_answer_in_symbols_stays_maths(value: str) -> None:
+    """Claude on #2489: "F | mg | N" was set upright as words and its symbol left
+    Required. It is a formula in symbols, drawn as one (a unit after letters is left off,
+    as for any answer in symbols: "mg N" reads as a product)."""
+    solution = _solution(f"required: F | normal force\nanswer: F | {value} | N")
+    shown = render_worked(solution, OTHER)
+    assert "\\text{" not in shown
+    assert f"$F = {value}$" in shown
+    assert "$F$ (normal force)" in shown
+
+
+@pytest.mark.parametrize(("symbol", "value"), [("x", "ab"), ("A", "lw"), ("x", "a"), ("F", "mg")])
+def test_an_answer_in_symbols_with_no_unit_stays_maths(symbol: str, value: str) -> None:
+    """Gemini on #2489: a run of letters with no unit is symbols, never a conclusion."""
+    solution = _solution(f"required: {symbol} | the result\nanswer: {symbol} | {value} |")
+    shown = render_worked(solution, OTHER)
+    assert "\\text{" not in shown
+    assert f"${symbol} = {value}$" in shown
+    assert f"${symbol}$ (the result)" in shown
+
+
+@pytest.mark.parametrize("value", ["yes", "all the ice melts"])
+def test_a_conclusion_is_words_with_or_without_its_symbol(value: str) -> None:
+    solution = _solution(f"required: s | whether all the ice melts\nanswer: s | {value} |")
+    shown = render_worked(solution, OTHER)
+    assert f"\\text{{{value}}}" in shown
+    assert "$s$" not in shown
+
+
+def test_an_unnamed_conclusion_concludes_its_own_part_s_ask() -> None:
+    """Gemini on #2489: a yes in part (b) took part (a)'s symbol out of Required."""
+    solution = _solution(
+        "required: Q_{total} | heat needed to melt all the ice\n"
+        "required: s | whether all the ice melts\n"
+        "part: a | Heat needed\nanswer: Q | 5000 | J\n"
+        "part: b | Does it all melt\nanswer: | yes, all the ice melts | |"
+    )
+    shown = render_worked(solution, OTHER)
+    assert "$Q_{total}$ (heat needed to melt all the ice)" in shown
+    assert "$s$" not in shown
+
+
+def test_a_conclusion_s_tex_specials_are_escaped() -> None:
+    """Review of phys30: "yes & no" in ``\\text{}`` broke the group."""
+    from app.modules.chat.worked_render import words_tex
+
+    assert words_tex("yes & no") == "\\text{yes \\& no}"
+    assert words_tex("yes, since $\\mu_s < \\tan\\theta$") == (
+        "\\text{yes, since }\\mu_s < \\tan\\theta"
+    )

@@ -86,45 +86,57 @@ def _looks_like_physics_homework(content: str) -> bool:
 @reading(declined=False)
 @lru_cache(maxsize=128)
 def _physics_solves(content: str) -> bool:
-    """Whether the verified solver finishes this line's physics template.
+    """Whether the verified solver answers this line: a question in lettered parts the
+    template answers one of ("the speed with no friction", then "the maximum speed" with
+    it) is the strong model's (2026-11-16).
 
-    Routing asks this of the current line and again of a prior one, every
-    turn; the answer only depends on the text. Any failure is a decline: the
-    strong model answers it, and the turn never fails for a routing hint.
+    Routing asks this of the current line and again of a prior one, every turn; the
+    answer only depends on the text. Any failure is a decline: the strong model answers
+    it, and the turn never fails for a routing hint.
     """
-    from app.modules.physics import extract_physics_intent, solve_physics
-    from app.services.solving import SolveServiceError
+    from app.core.config import get_settings
+    from app.modules.physics.prompt import solve_physics_request
 
-    intent = extract_physics_intent(content)
-    if intent is None:
-        return False
     try:
-        solve_physics(intent)
-    except SolveServiceError:
-        return False
+        outcome, block = solve_physics_request(content, get_settings(), True)
     except Exception:
-        logger.warning(
-            "physics routing solve failed kind=%s op=%s",
-            intent.kind,
-            intent.physics_op,
-            exc_info=True,
-        )
+        logger.warning("physics routing solve failed", exc_info=True)
         return False
-    return True
+    if outcome != "verified" or block is None:
+        return False
+    from app.services.question_parts import labelled_parts
+
+    # Only a question in lettered parts the solve leaves some of: a message whose other ask
+    # is the weather or a café nearby keeps the fast model for its physics.
+    return not (block.partial and labelled_parts(content) >= 2)
 
 
-def physics_fast_lane(content: str, *, tools_on: bool) -> bool | None:
+def physics_fast_lane(content: str, *, tools_on: bool, claimed: bool = False) -> bool | None:
     """Verified physics stays on the fast model (True). Uncovered homework goes to the
     strong one (False). None when the line is no physics.
 
     The fast tier is only for a template the solver actually finishes, and only while
-    math tools are on. Otherwise the strong model answers it.
+    math tools are on. Otherwise the strong model answers it. A line the subject order
+    gave physics (``claimed``) is homework when physics reads a problem in it or it asks in
+    lettered parts: "a ball launched at 15 m/s … from the bottom of a hill that slopes at
+    20°. (a) … (b) …" went to the everyday model, thinking off, when the turn's read was
+    late, and its range came back 26.0 m for 16.7 m (2026-11-16).
     """
-    homework = _looks_like_physics_homework(content)
     from app.modules.physics import extract_physics_intent, needs_physics
+    from app.services.question_parts import labelled_parts
 
+    cues = _looks_like_physics_homework(content)
+    # The guard first: a line no physics cue or claim names is never extracted (Gemini on
+    # #2489; each read is a turn reading, answered in the pool, all the same).
+    if not (cues or claimed or needs_physics(content)):
+        return None
+    intent = extract_physics_intent(content)
+    # A line the order claims is homework when physics reads a problem in it, or it asks
+    # in lettered parts: "a drive to the airport" or "my battery went from 100% to 25%"
+    # stays on the everyday model.
+    homework = cues or (claimed and (intent is not None or labelled_parts(content) >= 2))
     if not homework and not needs_physics(content):
         return None
-    if extract_physics_intent(content) is None:
+    if intent is None:
         return False if homework else None
     return tools_on and _physics_solves(content)

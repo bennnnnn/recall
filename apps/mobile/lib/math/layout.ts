@@ -8,7 +8,7 @@
  * Native applies font scale itself.
  */
 
-import { glyphAdvanceEm } from "@/lib/math/glyphs";
+import { glyphAdvanceEm, italicLeanEm } from "@/lib/math/glyphs";
 import { attachScripts, type MathAccentKind, type MathSegment } from "@/lib/math/text";
 
 export const FRAC_SIZE_RATIO = 14 / 16;
@@ -248,6 +248,17 @@ function measureSupSub(
   return measureScript(seg.value, em, sup);
 }
 
+/** How far a script's last italic letter leans past its advance, at the script's size. */
+function scriptLean(
+  seg: Extract<MathSegment, { type: "sup" }> | Extract<MathSegment, { type: "sub" }>,
+  node: MathLayout,
+  em: number,
+): number {
+  const last = seg.body ? seg.body.at(-1) : undefined;
+  const text = seg.body ? (last?.type === "text" ? last.value : "") : seg.value;
+  return italicLeanEm(text) * (node.fontSize ?? em * SCRIPT_RATIO);
+}
+
 /** Subscript and superscript share one column beside the base. */
 function measureScriptColumn(
   sup: Extract<MathSegment, { type: "sup" }>,
@@ -256,7 +267,18 @@ function measureScriptColumn(
 ): MathLayout {
   const supNode = measureSupSub(sup, em);
   const subNode = measureSupSub(sub, em);
-  const width = Math.max(supNode.width, subNode.width, em * 0.35);
+  // Each script as it is drawn: a box that keeps its last italic letter's ink (\`v_f^2\`'s f),
+  // to the next whole point, which the screen's pixel rounding cannot take below what the
+  // text needs: a hair short, \`v_{2x}^2\`'s "2x" wrapped onto two lines, and a fraction or
+  // root holding the column was laid out narrower than it is drawn (phys30 and Gemini on
+  // #2489).
+  const width = Math.ceil(
+    Math.max(
+      supNode.width + scriptLean(sup, supNode, em),
+      subNode.width + scriptLean(sub, subNode, em),
+      em * 0.35,
+    ),
+  );
   const supBlock = Math.max(supNode.height, supNode.lineHeight ?? 0);
   const subBlock = Math.max(subNode.height, subNode.lineHeight ?? 0);
   const raise = supNode.containedShift ? 0 : (supNode.raise ?? 0);

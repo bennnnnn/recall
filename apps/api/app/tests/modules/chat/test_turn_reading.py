@@ -105,6 +105,77 @@ async def test_a_message_read_once_answers_the_sync_readers() -> None:
     assert detect_subject("A 2 kg ball falls 5 m. Find its speed.") == "physics"
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "My car loan is $20,000 at 6% for 5 years. What is my monthly payment?",
+        "A 2 kg ball falls 5 m. Find its speed.",
+    ],
+)
+async def test_routing_asks_whether_a_line_is_money_in_the_pool(
+    monkeypatch: pytest.MonkeyPatch, text: str
+) -> None:
+    """Gemini on #2489: routing asks the money reader of every line no maths owns; that
+    is word rules over the whole message, so the turn's pool read answers it."""
+    from app.modules.money import subject as money_subject
+    from app.services.subjects.registry import MONEY
+
+    begin_turn()
+    money_subject._reads_money.cache_clear()
+    await read_turn_message(text, [], Settings())
+    money_subject._reads_money.cache_clear()
+
+    def on_the_loop(_: str) -> None:
+        raise AssertionError("the money read ran on the loop")
+
+    monkeypatch.setattr("app.modules.money.read.read_money_request", on_the_loop)
+    assert MONEY.reads(text) is text.startswith("My car loan")
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "A 2 kg ball falls 5 m. Find its speed.",
+        "A ball is kicked at 18 m/s at 35°. (a) Find the flight time. (b) Find the range.",
+        "What's a good name for my cat?",
+    ],
+)
+async def test_routing_reads_physics_in_the_pool(
+    monkeypatch: pytest.MonkeyPatch, text: str
+) -> None:
+    """Gemini on #2489: the physics lane's reads are the turn's, answered in its pool
+    read; routing the message again on the loop reads nothing."""
+    from app.modules.chat.model_routing.route import route_chat_model
+    from app.modules.physics import extract as physics_extract
+    from app.modules.physics import lane
+
+    settings = Settings()
+    begin_turn()
+    routed = route_chat_model(text, settings=settings)
+    begin_turn()
+    for cached in (physics_extract._extract_physics_intent, physics_extract.needs_physics):
+        cached.cache_clear()
+    lane._physics_solves.cache_clear()
+    await read_turn_message(text, [], settings)
+    for cached in (physics_extract._extract_physics_intent, physics_extract.needs_physics):
+        cached.cache_clear()
+    lane._physics_solves.cache_clear()
+
+    ran: list[str] = []
+
+    def on_the_loop(*_: object, **__: object) -> None:
+        ran.append("read")  # the subject guard swallows a raise: count the calls
+        raise AssertionError("a physics read ran on the loop")
+
+    monkeypatch.setattr("app.modules.physics.request.complete_physics_intent", on_the_loop)
+    monkeypatch.setattr("app.modules.physics.prompt.solve_physics_request", on_the_loop)
+    monkeypatch.setattr(
+        "app.modules.physics.symbolic.request.is_symbolic_physics_request", on_the_loop
+    )
+    assert route_chat_model(text, settings=settings) == routed
+    assert ran == []
+
+
 class _PicklingExecutor(ThreadSympyExecutor):
     """The thread executor, with the process boundary's pickling on the way in and out."""
 

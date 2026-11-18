@@ -8,8 +8,11 @@ or figures an answer keeps is each subject's own policy; only the rule lives her
 
 from __future__ import annotations
 
+import re
 from decimal import ROUND_HALF_UP, Context, Decimal
 from fractions import Fraction
+
+from app.services.number_text import count_word_pattern, number_word_value
 
 # Decimal's default precision. A wider value gets the digits it needs, since 1e20 to twelve
 # places has 33 and quantize would otherwise refuse it.
@@ -56,3 +59,37 @@ def format_places(value: float | str | Fraction, places: int) -> str:
 def trim_zeros(text: str) -> str:
     """A written decimal without its trailing zeros: ``2.50`` is ``2.5``, ``3.0`` is ``3``."""
     return text.rstrip("0").rstrip(".") if "." in text else text
+
+
+# "to three significant digits", "correct to 2 decimal places", "to the nearest tenth". On
+# one line, its spaces horizontal, and an abbreviation's stop never the sentence's: "from t = 0
+# to 1 s. F(t) = 5t^2 N." is one second, then a force (Gemini on #2489).
+_H = r"[ \t]"
+_STOP = rf"\.(?!{_H}+(?-i:[A-Z]))"
+_ROUNDING = re.compile(
+    rf"\b(?:to|in|correct{_H}+to){_H}+(?:(?P<count>\d+|{count_word_pattern(low=1, high=12)}){_H}+"
+    rf"(?:(?P<figures>significant{_H}+(?:figures?|digits?)|s(?:{_STOP})?{_H}?f\.?)"
+    rf"|(?P<places>decimal{_H}+places?|d(?:{_STOP})?{_H}?p\.?))"
+    rf"|the{_H}+nearest{_H}+(?P<nearest>whole{_H}+number|integer|tenth|hundredth|thousandth))"
+    r"(?![a-z])",
+    re.I,
+)
+# The most significant figures or decimal places an answer is worked to; more is no
+# precision a card keeps ("to 30 d.p." would ask Decimal for more digits than it holds).
+MOST_DIGITS = 15
+_NEAREST = {"whole number": 0, "integer": 0, "tenth": 1, "hundredth": 2, "thousandth": 3}
+
+
+def asked_rounding(text: str) -> tuple[int, int, tuple[int, int] | None]:
+    """The precision ``text`` asks an answer to: (significant figures, decimal places, the
+    span that asks), 0 and -1 for neither ("to 4 s.f." is (4, -1), "to the nearest tenth"
+    is (0, 1))."""
+    found = _ROUNDING.search(text)
+    if found is None:
+        return 0, -1, None
+    span = (found.start(), found.end())
+    if found.group("nearest"):
+        return 0, _NEAREST[" ".join(found.group("nearest").lower().split())], span
+    said = found.group("count").lower()
+    count = int(said) if said.isdigit() else number_word_value(said) or 0
+    return (count, -1, span) if found.group("figures") else (0, count, span)
