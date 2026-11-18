@@ -10,43 +10,87 @@ has to be explicit or the request falls through unclaimed.
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 
 from app.modules.math.schemas import MathIntent
 from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.tools.expr_rewrite import _normalize_latex_expr, math_expr_or_none
 from app.modules.math.tools.function_def import peel_function_definition
 from app.modules.math.tools.request_text import strip_trailing_filler
+from app.services.glyphs import fold_operator_glyphs
 
 # A bound may be a number, a fraction, pi, or e — the values school questions
-# actually use. Anything else is left unclaimed rather than guessed at.
+# actually use ("7π/4", "1/e", "e^2" included). Anything else is left unclaimed rather
+# than guessed at.
 # Ordered longest-first, and closed with a lookahead, because a *partial* bound
 # match silently shortens the interval instead of failing. "from 0 to 2*pi"
 # matched just the "2" and answered the area on [0, 2] as though it were the
 # area on [0, 2*pi] - a wrong number that looks entirely plausible.
 _BOUND = (
     r"[-+]?(?:"
-    r"\d+(?:\.\d+)?\s*\*\s*(?:pi|π|e)"
+    r"\d+(?:\.\d+)?\s*(?:\*\s*)?(?:pi|π)\s*/\s*\d+(?:\.\d+)?"
+    r"|\d+(?:\.\d+)?\s*\*\s*(?:pi|π|e)"
     r"|\d+(?:\.\d+)?\s*(?:pi|π)"
     r"|(?:pi|π|e)\s*/\s*\d+(?:\.\d+)?"
+    r"|\d+(?:\.\d+)?\s*/\s*(?:pi|π|e)"
+    r"|e\s*\^\s*\d+"
     r"|\d+(?:\.\d+)?\s*/\s*\d+(?:\.\d+)?"
     r"|pi|π|e"
     r"|\d+(?:\.\d+)?|\.\d+"
-    # Reject a partial decimal (``3`` from ``3.5``), but allow the ordinary
-    # sentence-ending period after a complete bound (``to x=3.``).
-    r")(?![\w*]|\.\d)"
+    # Reject a partial bound (``3`` from ``3.5``, ``7π`` from ``7π/4``, ``e`` from
+    # ``e^2``, ``1`` from ``1 / e²`` or ``1 + √2``: an operator, root or constant after
+    # spaces too, Gemini on #2481), but allow the ordinary sentence-ending period after a
+    # complete bound (``to x=3.``).
+    r")(?![\w*/^√π]|\.\d|\s*[-+*/^√π·\u00d7]|\s*(?:pi|e)\b)"
 )
+# Where a bound may start: never inside an expression ("e" of "1 + e", "2" of "√2").
+_BOUND_START = r"(?<![\w.^/*+\-√π·\u00d7])(?<![+\-*/^√·\u00d7]\s)"
 _FROM_TO_RE = re.compile(
     rf"\bfrom\s+(?:x\s*=\s*)?({_BOUND})\s+to\s+(?:x\s*=\s*)?({_BOUND})\b", re.IGNORECASE
 )
 _ON_INTERVAL_RE = re.compile(
-    rf"\b(?:on|over)\s*\[\s*({_BOUND})\s*,\s*({_BOUND})\s*\]", re.IGNORECASE
+    rf"\b(?:on|over|in)\s+(?:the\s+interval\s+)?\[\s*({_BOUND})\s*,\s*({_BOUND})\s*\]",
+    re.IGNORECASE,
 )
 _BETWEEN_BOUNDS_RE = re.compile(
-    rf"\bbetween\s+x\s*=\s*({_BOUND})\s+and\s+x\s*=\s*({_BOUND})\b", re.IGNORECASE
+    rf"\bbetween\s+(?:x\s*=\s*)?({_BOUND})\s+and\s+(?:x\s*=\s*)?({_BOUND})\b", re.IGNORECASE
 )
+# A chain starts where a number does, never inside one: tried from every digit of a long
+# run of digits, the search was quadratic (review of #2481, 2026-11-16).
 _CHAIN_BOUNDS_RE = re.compile(
-    rf"({_BOUND})\s*(?:<=|≤|<)\s*x\s*(?:<=|≤|<)\s*({_BOUND})", re.IGNORECASE
+    rf"{_BOUND_START}({_BOUND})\s*(?:<=|≤|<)\s*x\s*(?:<=|≤|<)\s*({_BOUND})", re.IGNORECASE
 )
+# "the x-axis and the lines x = -1/2 and x = 3": the vertical lines that close the region.
+_LINES_BOUNDS_RE = re.compile(
+    rf"(?:\band\s+)?\bthe\s+lines\s+x\s*=\s*({_BOUND})\s+and\s+x\s*=\s*({_BOUND})\b",
+    re.IGNORECASE,
+)
+# An interval the question states, whatever its bounds are written in: "from x = 1/e to",
+# "from 0 to", "on [", "in the interval (", and "between …" below: read
+# strictly by ``_bounds`` or not at all, never replaced by where the curves meet.
+_STATED_INTERVAL_RE = re.compile(
+    r"\bfrom\s+(?:x\s*=\s*)?\S+\s+to\b|"
+    r"\b(?:on|over|in)\s+(?:the\s+interval\s+)?[\[(]|(?:<=|≤|<)\s*x\s*(?:<=|≤|<)",
+    re.IGNORECASE,
+)
+# "between x = √2 and", "between ln 2 and", "between 2x and": an interval when its first
+# bound is x = …, or holds no x (2x and sin x are curves: "the area between 2x and x^2").
+_BETWEEN_RE = re.compile(
+    r"\bbetween\s+(?P<named>x\s*=\s*)?"
+    r"(?P<bound>(?:[^,;?!.\s]|\.(?=\d)|\s(?!and\b)){1,30}?)\s+and\b",
+    re.IGNORECASE,
+)
+_VARIABLE_X = re.compile(r"(?<![a-z])x(?![a-z])", re.IGNORECASE)
+# One edge of a region that is a vertical line ("the line x = 2", "x = 0"): a bound.
+_VERTICAL_LINE = re.compile(r"(?:the\s+)?(?:vertical\s+)?(?:lines?\s+)?x\s*=\s*[^=xy]+", re.I)
+# Its value, when it is one bound read whole.
+_VERTICAL_VALUE = re.compile(
+    rf"(?:the\s+)?(?:vertical\s+)?(?:lines?\s+)?x\s*=\s*({_BOUND})\s*", re.IGNORECASE
+)
+# The word that joins the region to its interval: "y = 4 for 0 <= x <= 1".
+_TRAILING_CONNECTOR = re.compile(r"\s+(?:for|when|where|with)\s*$", re.IGNORECASE)
+# Where one edge of a region ends and the next starts: a comma, "and", or both.
+_EDGE_BREAK = re.compile(r"\s*,\s*(?:and\s+)?|\s+and\s+", re.IGNORECASE)
 
 
 def _clean(raw: str) -> str | None:
@@ -56,58 +100,240 @@ def _clean(raw: str) -> str | None:
     return math_expr_or_none(_normalize_latex_expr(text))
 
 
-def _bounds(cleaned: str) -> tuple[str, str, int] | None:
-    for pattern in (_FROM_TO_RE, _ON_INTERVAL_RE, _BETWEEN_BOUNDS_RE, _CHAIN_BOUNDS_RE):
-        match = pattern.search(cleaned)
-        if match is not None:
-            return (
-                match.group(1).replace("π", "pi"),
-                match.group(2).replace("π", "pi"),
-                match.start(),
-            )
-    return None
+def _bounds(cleaned: str, after: int = 0, before: int | None = None) -> tuple[str, str, int] | None:
+    """The first interval stated at or after ``after`` (and ending by ``before``): its bounds
+    and where it starts.
+
+    A minus typed as the minus sign (U+2212) or a dash is a minus: "from x = -4 to x = 3"
+    is [-4, 3] in any of them (2026-11-16: the sign's form left the question unread, and
+    the reply answered the area between the roots). The glyph table maps one character to
+    one, so positions stay.
+    """
+    folded = fold_operator_glyphs(cleaned)
+    found = [
+        match
+        for pattern in (
+            _FROM_TO_RE,
+            _ON_INTERVAL_RE,
+            _BETWEEN_BOUNDS_RE,
+            _CHAIN_BOUNDS_RE,
+            _LINES_BOUNDS_RE,
+        )
+        if (match := pattern.search(folded, after, len(folded) if before is None else before))
+        is not None
+    ]
+    if not found:
+        return None
+    match = min(found, key=lambda match: match.start())
+    return (
+        match.group(1).replace("π", "pi"),
+        match.group(2).replace("π", "pi"),
+        match.start(),
+    )
 
 
+# "the area of the region bounded by", "the area enclosed between": the region is the area's.
+_OF_REGION = r"(?:of\s+the\s+region\s+)?"
 _AREA_BETWEEN_RE = re.compile(
-    r"\barea\s+(?:between|enclosed\s+(?:by|between)|bounded\s+by)\s+", re.IGNORECASE
+    rf"\barea\s+{_OF_REGION}(?:between|enclosed\s+(?:by|between)|bounded\s+by)\s+",
+    re.IGNORECASE,
 )
+# What names a curve before its formula: "the graph of", "the curves", "the line".
+_CURVE_NAME = re.compile(r"^(?:the\s+)?(?:graphs?|curves?|lines?)\s+(?:of\s+)?", re.IGNORECASE)
+# A sentence's end: a stop and a space ("… = 3x. Show the curves"), not a decimal point.
+_SENTENCE_END = re.compile(r"[.?!](?=\s|$)")
 
 
-def _extract_area_between_intent(cleaned: str) -> MathIntent | None:
+def _curve(raw: str) -> str | None:
+    """One curve of a region, as an expression in x; the x-axis is y = 0."""
+    named = _CURVE_NAME.sub("", raw.strip())
+    if re.fullmatch(r"(?:the\s+)?x[- ]axis", named.strip(), re.IGNORECASE):
+        return "0"
+    return _clean(named)
+
+
+def _lead_sentence(cleaned: str, lead: re.Match[str]) -> tuple[int, int]:
+    """Where the sentence that asks the area starts and ends. Its interval is the area's;
+    one in another sentence is a picture's or another question's ("… and g(x) = 3x. Draw
+    the graph from x = -5 to x = 3." integrated over [-5, 3], 109/3 for 125/6)."""
+    start = max(
+        (stop.end() for stop in _SENTENCE_END.finditer(cleaned, 0, lead.start())), default=0
+    )
+    stop = _SENTENCE_END.search(cleaned, lead.end())
+    return start, stop.start() if stop is not None else len(cleaned)
+
+
+def area_question_region(cleaned: str) -> tuple[str, str, str, str] | None:
+    """The region an area question asks, as the area readers read it: its two curves (the
+    x-axis is 0) and its own bounds. None when the readers do not read one whole ("the
+    area under y = x^2 + 1 and above y = x": no reader takes both)."""
+    if _AREA_BETWEEN_RE.search(cleaned) is not None:
+        return area_region(cleaned)
+    under = _extract_area_under_intent(cleaned)
+    if under is None or under.expr is None or under.expr2 is None:
+        return None
+    if under.integral_lower is None or under.integral_upper is None:
+        return None
+    return under.expr, under.expr2, under.integral_lower, under.integral_upper
+
+
+@dataclass(frozen=True)
+class _Region:
+    """The two curves of an area question, the interval its sentence states, and whether
+    the sentence states one at all (in a form ``_bounds`` may not read, or as a line)."""
+
+    first: str
+    second: str
+    interval: tuple[str, str, int] | None
+    stated: bool
+    # The vertical lines among its edges ("…, y = 0, and x = 2"), and whether one of them
+    # had a value not read whole.
+    lines: tuple[str, ...] = ()
+    unread_line: bool = False
+
+
+def _states_interval(text: str, start: int, stop: int, lead: re.Match[str]) -> bool:
+    """The sentence states an interval outside the area's own "area between"."""
+    folded = fold_operator_glyphs(text)
+    for low, high in ((start, lead.start()), (lead.end(), stop)):
+        if _STATED_INTERVAL_RE.search(folded, low, high):
+            return True
+        for between in _BETWEEN_RE.finditer(folded, low, high):
+            if between.group("named") or not _VARIABLE_X.search(between.group("bound")):
+                return True
+    return False
+
+
+def _area_between(cleaned: str) -> _Region | None:
     lead = _AREA_BETWEEN_RE.search(cleaned)
     if lead is None:
         return None
-    interval = _bounds(cleaned)
-    if interval is not None and interval[2] <= lead.start():
-        return None
-    end = interval[2] if interval is not None else len(cleaned)
-    body = cleaned[lead.end() : end].strip(" ,;.?!")
-    body = re.sub(r"^(?:the\s+)?curves\s+", "", body, flags=re.IGNORECASE)
-    halves = re.split(r"\s*,?\s+and\s+", body, maxsplit=1, flags=re.IGNORECASE)
-    if len(halves) != 2:
-        return None
-    first = _clean(halves[0])
-    second = (
-        "0"
-        if re.fullmatch(r"(?:the\s+)?x[- ]axis", halves[1].strip(), re.I)
-        else (_clean(halves[1]))
+    start, stop = _lead_sentence(cleaned, lead)
+    after = _bounds(cleaned, lead.end(), stop)
+    # An interval the sentence states before the area ("From 0 to 1, find the area …") is
+    # the area's too (Gemini on #2481: 32/3 from the meeting points for 11/3).
+    interval = after or _bounds(cleaned, start, lead.start())
+    end = after[2] if after is not None else stop
+    body = _CURVE_NAME.sub(
+        "", _TRAILING_CONNECTOR.sub("", cleaned[lead.end() : end]).strip(" ,;.?!")
     )
+    # "y = x^2 + 1, y = x, and the line x = 2": edges listed with commas or "and"; a
+    # vertical line among them is a bound, not a curve (Gemini on #2481).
+    edges = [edge.strip() for edge in _EDGE_BREAK.split(body) if edge.strip()]
+    curves = [edge for edge in edges if not _VERTICAL_LINE.fullmatch(edge)]
+    if len(curves) != 2:
+        return None
+    first, second = _curve(curves[0]), _curve(curves[1])
     if first is None or second is None:
         return None
-    if interval is None:
-        # No interval stated: the region the curves enclose runs between where they meet.
-        meeting = _meeting_points(first, second)
-        if meeting is None:
+    values = [_VERTICAL_VALUE.fullmatch(edge) for edge in edges if edge not in curves]
+    lines = tuple(value.group(1).replace("π", "pi") for value in values if value is not None)
+    stated = _states_interval(cleaned, start, stop, lead)
+    return _Region(first, second, interval, stated, lines, len(lines) != len(values))
+
+
+def area_region(cleaned: str) -> tuple[str, str, str, str] | None:
+    """The two curves an area question names and the region's own bounds, from its
+    prepared text (``match.prepare``): the interval it states, or where the curves meet
+    when it states none. None when it names no two curves, or states an interval it does
+    not read."""
+    region = _area_between(cleaned)
+    bounds = None if region is None else _region_bounds(region)
+    if region is None or bounds is None:
+        return None
+    return region.first, region.second, bounds[0], bounds[1]
+
+
+def _region_bounds(region: _Region) -> tuple[str, str] | None:
+    """Where the region runs: its stated interval, its vertical lines, or where its curves
+    meet. A line that disagrees with the interval, or is left over unread, closes no
+    region the reader knows (Gemini on #2481)."""
+    if region.unread_line:
+        return None
+    if region.interval is not None:
+        low, high, _ = region.interval
+        if not set(region.lines) <= {low, high} and not _same_points(region.lines, (low, high)):
+            return None  # "…, and the line x = 1 from x = 0 to x = 3"
+        return low, high
+    # The stated interval wins: one its sentence writes in a form the bounds do not read
+    # ("from x = 1/e² to …", "between x = √2 and …") is never replaced by where the
+    # curves meet.
+    if region.stated:
+        return None
+    if region.lines:
+        return _bounds_by_lines(region)
+    # No interval stated: the region the curves enclose runs between where they meet.
+    return _meeting_points(region.first, region.second)
+
+
+def _values(points: tuple[str, ...]) -> list[float] | None:
+    from app.modules.math import solve as math_solve
+
+    with sympy_decline() as declined:
+        values = [float(math_solve.parse_expression(point, [], real=True)) for point in points]
+    return None if declined else values
+
+
+def _same_points(lines: tuple[str, ...], ends: tuple[str, str]) -> bool:
+    """Every line is one of the interval's ends, however each is written (π/2, pi/2)."""
+    found, edges = _values(lines), _values(ends)
+    if found is None or edges is None:
+        return False
+    return all(any(abs(line - end) < 1e-9 for end in edges) for line in found)
+
+
+def _bounds_by_lines(region: _Region) -> tuple[str, str] | None:
+    """Two lines bound the region between them; one line and the curves' crossings bound
+    it from the nearest crossing to the line, when every crossing is on one side of it:
+    "bounded by y = x^2, y = 0, and x = 2" runs from 0 to 2."""
+    found = _values(region.lines)
+    if found is None or len(found) > 2:
+        return None
+    if len(found) == 2:
+        if found[0] == found[1]:
             return None
-        low, high = meeting
-    else:
-        low, high, _ = interval
+        ordered = sorted(zip(found, region.lines, strict=True))
+        return ordered[0][1], ordered[1][1]
+    line, value = region.lines[0], found[0]
+    crossings = _crossings(region.first, region.second)
+    if not crossings:
+        return None
+    if all(point < value for point, _ in crossings):
+        return max(crossings)[1], line
+    if all(point > value for point, _ in crossings):
+        return line, min(crossings)[1]
+    return None
+
+
+def _crossings(first: str, second: str) -> list[tuple[float, str]] | None:
+    """Every real point where the curves meet, by value; None when not a finite set."""
+    from sympy import Eq, FiniteSet, S, Symbol, solveset, sstr
+
+    from app.modules.math import solve as math_solve
+
+    x = Symbol("x", real=True)
+    with sympy_decline() as declined:
+        f = math_solve.parse_expression(first, ["x"], real=True)
+        g = math_solve.parse_expression(second, ["x"], real=True)
+        roots = solveset(Eq(f, g), x, domain=S.Reals)
+    if declined or not isinstance(roots, FiniteSet):
+        return None
+    return sorted((float(root), sstr(root)) for root in roots if root.is_real)
+
+
+def _extract_area_between_intent(cleaned: str) -> MathIntent | None:
+    region = _area_between(cleaned)
+    bounds = None if region is None else _region_bounds(region)
+    if region is None or bounds is None:
+        return None
+    interval = region.interval
+    low, high = bounds
     return MathIntent(
         kind="calculus",
         operation="solve",
         school_op="area_between_curves",
-        expr=first,
-        expr2=second,
+        expr=region.first,
+        expr2=region.second,
         variable="x",
         integral_lower=low,
         integral_upper=high,
@@ -142,7 +368,7 @@ def _meeting_points(first: str, second: str) -> tuple[str, str] | None:
 
 _AREA_UNDER_RE = re.compile(
     r"\barea\s+(?:under|below|beneath)\s+(?:the\s+(?:curve|graph)\s+(?:of\s+)?)?"
-    r"|\barea\s+(?:bounded|enclosed)\s+by\s+(?:the\s+(?:curve|graph)\s+(?:of\s+)?)?",
+    rf"|\barea\s+{_OF_REGION}(?:bounded|enclosed)\s+by\s+(?:the\s+(?:curve|graph)\s+(?:of\s+)?)?",
     re.IGNORECASE,
 )
 _X_AXIS_RE = re.compile(r",?\s*(?:and\s+)?the\s+x[- ]axis\b,?", re.IGNORECASE)
@@ -157,13 +383,18 @@ def _extract_area_under_intent(cleaned: str) -> MathIntent | None:
     lead = _AREA_UNDER_RE.search(cleaned)
     if lead is None:
         return None
-    interval = _bounds(cleaned)
+    start, stop = _lead_sentence(cleaned, lead)
+    after = _bounds(cleaned, lead.end(), stop)
+    interval = after or _bounds(cleaned, start, lead.start())
     if interval is None:
         return None
-    low, high, bounds_at = interval
-    if bounds_at <= lead.end():
-        return None
-    body = _X_AXIS_RE.sub("", cleaned[lead.end() : bounds_at]).strip(" ,;")
+    low, high, _ = interval
+    end = after[2] if after is not None else stop
+    body = _TRAILING_CONNECTOR.sub("", _X_AXIS_RE.sub("", cleaned[lead.end() : end])).strip(
+        " ,;.?!"
+    )
+    if len([edge for edge in _EDGE_BREAK.split(body) if edge.strip()]) > 1:
+        return None  # two curves ("bounded by y = x^2 and y = 4"): the area between them
     curve = _clean(body)
     if curve is None or "=" in curve:
         return None

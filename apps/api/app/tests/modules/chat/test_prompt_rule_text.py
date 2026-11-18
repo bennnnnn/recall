@@ -82,10 +82,12 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # then a picture asked beside a solved problem left to the solve, and no reply placing or
 # promising a picture (multi_part.PROBLEM_PICTURE_NOTE, services.picture_copy), and a
 # ```worked block naming the language of its reply first (prompt_constants.worked, live and
-# review 2026-11-15); the solid a shaded region sweeps (the "solid" item, 2026-11-16).
+# review 2026-11-15); then maths' reply policy writing its working once, never a recheck or
+# a second attempt (math.reply_policy, unit-5 round 2026-11-16).
+# Then the solid a shaded region sweeps (the "solid" item, 2026-11-16).
 _RULES = 200
-_RULE_GRAMS = 18362
-_RULE_GRAMS_SHA = "2728953324012253"
+_RULE_GRAMS = 18397
+_RULE_GRAMS_SHA = "a2219d54ed59d113"
 
 
 def _rules() -> list[str]:

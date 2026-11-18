@@ -143,6 +143,9 @@ class VerifiedMathBlock(VerifiedSolveBlock):
     # The asked quantity's symbol and names ("A", "area"): the value a reply writes against
     # them is the one held to the card (``services.asked_value``).
     asked: tuple[str, ...] = ()
+    # The value is an indefinite integral's antiderivative, its + C the constant of
+    # integration: the one card a reply's own equal form may take (``math.card_form``).
+    antiderivative: bool = False
 
 
 @dataclass(frozen=True)

@@ -104,6 +104,109 @@ def test_tool_call_matches_only_the_users_problem(
     assert tool_call_matches_user_text(json.dumps(args), [user]) is matches
 
 
+_AREA_QUESTION = (
+    "Find the area of the region bounded by the graph of f(x) = x² − 3x + 2 and the x-axis "
+    "between x = 0 and x = 3. What would happen if you simply calculated ∫ from 0 to 3 of "
+    "(x² − 3x + 2) dx?"
+)
+
+
+@pytest.mark.parametrize(
+    ("args", "user", "matches"),
+    [
+        # The signed integral of a curve that crosses the axis is no area: 3/2, not 11/6.
+        (
+            {"action": "integrate", "expr": "x**2 - 3*x + 2", "lower": "0", "upper": "3"},
+            _AREA_QUESTION,
+            False,
+        ),
+        # The same integral asked as an integral is its own answer.
+        (
+            {"action": "integrate", "expr": "x**2 - 3*x + 2", "lower": "0", "upper": "3"},
+            "Evaluate ∫ from 0 to 3 of (x² − 3x + 2) dx.",
+            True,
+        ),
+        # A curve that keeps one sign: its integral is the area.
+        (
+            {"action": "integrate", "expr": "x**2", "lower": "0", "upper": "3"},
+            "Find the area under y = x^2 from x = 0 to x = 3.",
+            True,
+        ),
+        # A curve below the axis all the way: its integral is negative, no area (-32/3).
+        (
+            {"action": "integrate", "expr": "x**2 - 4", "lower": "-2", "upper": "2"},
+            "Find the area under y = x^2 - 4 from x = -2 to x = 2",
+            False,
+        ),
+        # The antiderivative is never held to the area.
+        ({"action": "integrate", "expr": "x**2 - 3*x + 2"}, _AREA_QUESTION, True),
+        # Gemini on #2481: one curve of two is a step of the working, not the area.
+        (
+            {"action": "integrate", "expr": "x**2 + 1", "lower": "0", "upper": "2"},
+            "Find the area between y = x^2 + 1 and y = x from x = 0 to x = 2.",
+            False,
+        ),
+        (
+            {"action": "integrate", "expr": "x**2", "lower": "0", "upper": "1"},
+            "Find the area bounded by y = x^2 and y = 4 between 0 and 1.",
+            False,
+        ),
+        # The tool's start/end aliases are its bounds too: the signed 3/2 is no area.
+        (
+            {"action": "integrate", "expr": "x**2 - 3*x + 2", "start": "0", "end": "3"},
+            _AREA_QUESTION,
+            False,
+        ),
+        # Edges listed with commas: one curve alone is still a step.
+        (
+            {"action": "integrate", "expr": "x**2 + 1", "lower": "0", "upper": "2"},
+            "Find the area bounded by y = x^2 + 1, y = x, and the lines x = 0 and x = 2.",
+            False,
+        ),
+        # Curves the reader cannot name: no integrand is known to be the area.
+        (
+            {"action": "integrate", "expr": "x**2", "lower": "0", "upper": "1"},
+            "Find the area bounded by y = x^2, y = 4, y = 1 and x = 0.",
+            False,
+        ),
+        # One piece of a region split where its curve crosses is not the area (Gemini on
+        # #2481: ∫₂³ = 5/6 for the region on [0, 3]).
+        (
+            {"action": "integrate", "expr": "x**2 - 3*x + 2", "lower": "2", "upper": "3"},
+            _AREA_QUESTION,
+            False,
+        ),
+        # Gemini on #2481: every area question's integral is held to its region, the
+        # region under one curve and above another included, and its full bounds.
+        (
+            {"action": "integrate", "expr": "x**2 + 1", "lower": "0", "upper": "2"},
+            "Find the area under y = x^2 + 1 and above y = x from x = 0 to x = 2.",
+            False,
+        ),
+        (
+            {"action": "integrate", "expr": "x**2", "lower": "1", "upper": "2"},
+            "Find the area under y = x^2 from 0 to 2.",
+            False,
+        ),
+        (
+            {"action": "integrate", "expr": "x**2", "lower": "0", "upper": "2"},
+            "Find the area under y = x^2 from 0 to 2.",
+            True,
+        ),
+        # A curve and the x-axis: the curve is the gap.
+        (
+            {"action": "integrate", "expr": "x**2 + 1", "lower": "0", "upper": "2"},
+            "Find the area between y = x^2 + 1 and the x-axis from x = 0 to x = 2.",
+            True,
+        ),
+    ],
+)
+def test_an_area_is_never_checked_by_a_signed_integral(
+    args: dict[str, Any], user: str, matches: bool
+) -> None:
+    assert tool_call_matches_user_text(json.dumps(args), [user]) is matches
+
+
 def test_a_follow_up_with_no_math_of_its_own_reads_the_previous_question() -> None:
     args = json.dumps({"action": "graph", "expr": "2*x + 5"})
     assert tool_call_matches_user_text(args, ["now graph it", "solve 2x + 5 = 17"])

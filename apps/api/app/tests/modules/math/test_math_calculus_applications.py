@@ -23,7 +23,9 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
+from app.modules.math.match.scan import prepare
 from app.modules.math.tools import _build_verified_block, extract_math_intent
+from app.modules.math.tools.extractors.calculus_applications import _area_between
 
 
 def _settings() -> Settings:
@@ -140,6 +142,199 @@ def test_the_working_prints_its_bounds_in_tex(text: str, shown: str, typed: str)
         assert written not in working
 
 
+# The textbook's own wording (Grade 12 unit 5, live round 2026-11-16): "the area of the
+# region bounded by the graph of …", a minus typed as U+2212, the lines that close the region,
+# bounds such as 7π/4, 1/e and e², and a sentence after the question.
+TEXTBOOK_REGIONS: list[tuple[str, str]] = [
+    (
+        "Find the area of the region enclosed by the graph of f(x) = 12 − 3x² and the x-axis "
+        "from x = −4 to x = 3. Draw the graph and shade the region.",
+        "71",
+    ),
+    (
+        "Find the area of the region bounded by the graph of f(x) = x² − 3x + 2 and the x-axis "
+        "between x = 0 and x = 3.",
+        "\\frac{11}{6}",
+    ),
+    (
+        "Find the area of the region bounded by the graph of f(x) = x/(x + 1), the x-axis and "
+        "the lines x = −1/2 and x = 3. Show it on a graph.",
+        "\\frac{5}{2} - \\ln 2",
+    ),
+    (
+        "Find the area of the region enclosed by f(x) = sin x and the x-axis from x = π/4 to "
+        "x = 7π/4. Sketch the region.",
+        "\\sqrt{2} + 2",
+    ),
+    (
+        "Find the area of the region enclosed by f(x) = ln x and the x-axis from x = 1/e to "
+        "x = e². Show it on a graph.",
+        "- \\frac{2}{e} + 2 + e^{2}",
+    ),
+    (
+        "Find the area of the region enclosed by f(x) = 4 − x² and g(x) = 3x. Show the curves "
+        "and shade the region.",
+        "\\frac{125}{6}",
+    ),
+    (
+        "Find the area of the region enclosed by the graphs of f(x) = x² and g(x) = √x.",
+        "\\frac{1}{3}",
+    ),
+    ("Find the area of the region bounded by y = x² and y = 4.", "\\frac{32}{3}"),
+]
+
+
+@pytest.mark.parametrize(
+    "text,answer", TEXTBOOK_REGIONS, ids=[r[0][24:64] for r in TEXTBOOK_REGIONS]
+)
+def test_textbook_regions_are_read_with_their_stated_interval(text: str, answer: str) -> None:
+    """The asked interval is the one integrated: [-4, 3] gives 71, never the 32 between
+    the roots that the reply answered when no reader claimed the question."""
+    assert _intent(text).school_op == "area_between_curves"
+    assert _verified_answer(text) == answer
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # A stated interval the bounds cannot read is never replaced by the meeting points.
+        "Find the area of the region bounded by y = x² and y = 4 from x = 1/e² to x = 1.",
+        "Find the area of the region bounded by y = x² and y = 4 on [a, 2].",
+        # A partial bound is no bound: 7π of 7π/4, e of e^x.
+        "area between y = sin x and y = 0 from x = 0 to x = 7π/x",
+    ],
+)
+def test_a_stated_interval_is_read_whole_or_the_question_is_left(text: str) -> None:
+    assert _verified_answer(text) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        # An interval in another sentence is a picture's, never the area's (review,
+        # 2026-11-16: 109/3, 28/3, 44/3 and 4 were checked for these).
+        (
+            "Find the area of the region enclosed by f(x) = 4 − x² and g(x) = 3x. Draw the "
+            "graph from x = −5 to x = 3.",
+            "\\frac{125}{6}",
+        ),
+        ("Find the area between y = x^2 and y = 2x. Plot both on [-1, 4].", "\\frac{4}{3}"),
+        (
+            "Find the area between y = x^2 and y = 2x. Draw the graph for x from x = -1 to x = 4.",
+            "\\frac{4}{3}",
+        ),
+        (
+            "Find the area of the region bounded by y = x^2 and y = 2x. Sketch the graphs for "
+            "-2 ≤ x ≤ 4.",
+            "\\frac{4}{3}",
+        ),
+        (
+            "Find the area bounded by y = x^2 and y = 2x. Graph them between x = -1 and x = 3.",
+            "\\frac{4}{3}",
+        ),
+        # The area's own sentence keeps its interval, the closing lines included.
+        ("Find the area between y = x^2 and y = 2x from x = -1 to x = 3.", "4"),
+    ],
+)
+def test_only_the_areas_own_sentence_states_its_interval(text: str, answer: str) -> None:
+    assert _verified_answer(text) == answer
+
+
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        # Gemini on #2481: an interval stated before the area, or without "x =", is the
+        # area's; 32/3 from the meeting points was checked for 11/3.
+        ("From 0 to 1, find the area of the region bounded by y = x^2 and y = 4.", "\\frac{11}{3}"),
+        ("On the interval [0, 1], find the area bounded by y = x^2 and y = 4.", "\\frac{11}{3}"),
+        ("Find the area bounded by y = x^2 and y = 4 between 0 and 1.", "\\frac{11}{3}"),
+        ("From 0 to 2, find the area under y = x^2.", "\\frac{8}{3}"),
+        # One the bounds cannot read is never replaced by the meeting points.
+        ("Find the area bounded by y = x^2 and y = 4 in the interval (0, 1).", None),
+        ("From a to 1, find the area bounded by y = x^2 and y = 4.", None),
+    ],
+)
+def test_any_interval_the_sentence_states_wins(text: str, answer: str | None) -> None:
+    assert _verified_answer(text) == answer
+
+
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        # Claude on #2481: "between" naming the two curves is no interval. Read from the
+        # sentence start, the stated-interval check took "between 2" for one and left
+        # these unanswered.
+        ("Find the area between 2x and x^2", "\\frac{4}{3}"),
+        ("Find the area between (x+1)^2 and 4", "\\frac{32}{3}"),
+        ("Find the area between y = -x and y = x^2 - 2", "\\frac{9}{2}"),
+    ],
+)
+def test_between_naming_the_curves_states_no_interval(text: str, answer: str) -> None:
+    assert _verified_answer(text) == answer
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Find the area between 2x and x^2",
+        "Find the area between e^x and x+1",
+        "Find the area between (x+1)^2 and 4",
+        "Find the area between -x and x^2",
+    ],
+)
+def test_curves_after_between_are_not_a_stated_interval(text: str) -> None:
+    cleaned = prepare(text)
+    region = _area_between(cleaned) if cleaned else None
+    assert region is not None and not region.stated
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Gemini on #2481: a stated interval whose bounds the reader does not read is never
+        # replaced by where the curves meet (32/3 was checked for these).
+        "Between x = √2 and x = 2, find the area bounded by y = x^2 and y = 4.",
+        "Between x = sqrt(2) and x = 2, find the area bounded by y = x^2 and y = 4.",
+        "Find the area bounded by y = x^2 and y = 4 between ln 2 and 1.",
+        "Find the area bounded by y = x^2 and y = 4 between x = \\pi/4 and x = 1.",
+        # Gemini on #2481: a bound ends where its expression ends, never at "1" of
+        # "1 / e²", "1 + √2" or "1+e" (11/3 on [0, 1] was checked).
+        "Find the area bounded by y = x^2 and y = 4 from x = 0 to x = 1 / e².",
+        "Find the area bounded by y = x^2 and y = 4 from x = 0 to x = 1 + √2.",
+        "Find the area bounded by y = x^2 and y = 4 for 1+e <= x <= 5.",
+        "Find the area bounded by y = x^2 and y = 4 for 1 + e <= x <= 5.",
+        # Two curves are never read as one: "and y = 4" was dropped, 1/3 for 11/3.
+        "Find the area under y = x^2 and y = 4 from 0 to 1.",
+        # A vertical line with crossings on both sides of it closes no one region, and
+        # one that disagrees with the interval stated is no edge of it (Gemini on #2481).
+        "Find the area bounded by y = x^2, y = 4 and the line x = 1.",
+        "Find the area bounded by y = x^2, y = 4, and the line x = 1 from x = 0 to x = 3.",
+    ],
+)
+def test_an_unread_stated_interval_is_never_the_meeting_points(text: str) -> None:
+    assert _verified_answer(text) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        # Gemini on #2481: edges listed with commas, the textbook's wording.
+        (
+            "Find the area bounded by y = x^2 + 1, y = x, and the lines x = 0 and x = 2.",
+            "\\frac{8}{3}",
+        ),
+        ("Find the area between 4 and x^2.", "\\frac{32}{3}"),
+        # Gemini on #2481: a vertical line bounds the region with the curves' crossing.
+        ("Find the area of the region bounded by y = x^2, y = 0, and x = 2.", "\\frac{8}{3}"),
+        ("Find the area bounded by y = sqrt(x), y = 0 and x = 4.", "\\frac{16}{3}"),
+        ("Find the area bounded by y = x^2, y = x, x = 0 and x = 2.", "1"),
+        ("Find the area bounded by y = x^2 and y = 4 for 0 <= x <= 1.", "\\frac{11}{3}"),
+    ],
+)
+def test_edges_listed_with_commas_are_read(text: str, answer: str) -> None:
+    assert _verified_answer(text) == answer
+
+
 def test_the_area_answer_is_not_the_intersection_points() -> None:
     """The original defect, still pinned now that the question is answered."""
     answer = _verified_answer("area between y=x and y=x^2 from 0 to 1")
@@ -201,3 +396,16 @@ PROSE = [
 @pytest.mark.parametrize("text", PROSE)
 def test_prose_does_not_reach_the_verified_path(text: str) -> None:
     assert _verified_answer(text) is None
+
+
+@pytest.mark.wall_clock
+def test_a_long_run_of_digits_is_read_in_linear_time() -> None:
+    """The chain of bounds was tried from every digit of a run: quadratic (review of #2481)."""
+    import time
+
+    from app.modules.math.tools.extractors import calculus_applications as reader
+
+    text = "area under y = x for " + "1" * 30_000 + "x to x = 2"
+    started = time.perf_counter()
+    reader._bounds(text)
+    assert time.perf_counter() - started < 0.5
