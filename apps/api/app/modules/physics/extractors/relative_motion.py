@@ -32,6 +32,20 @@ _CATCH_ASK_RE = re.compile(
     re.IGNORECASE,
 )
 _TIME_ASKS = {"how long", "time", "time taken"}
+# An ask about two bodies meeting: one catching, overtaking or meeting the other. No
+# single body's law answers it ("How far does the cruiser travel before it catches up to the
+# speeder?" was certified 150 m by v = √(2gh) for 600 m, owner's phone 2026-11-17).
+_MEETS_RE = re.compile(
+    r"\b(?:catch(?:es|ing)?\s+(?:up|it|him|her|them|the)|overtak\w*|meet(?:s|ing)?"
+    r"|pass(?:es)?\s+each\s+other)\b",
+    re.IGNORECASE,
+)
+
+
+def asks_where_two_meet(text: str) -> bool:
+    """The question asks when or where one body catches, overtakes or meets another."""
+    clause = ask_clause(text)
+    return clause is not None and _MEETS_RE.search(clause) is not None
 
 
 def _values(givens: list[Given], dimension: str) -> list[Given]:

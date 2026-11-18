@@ -38,6 +38,7 @@ from app.modules.physics.decay_share import (
     share_markers,
     share_reading,
 )
+from app.modules.physics.extractors.surface_gravity import names_a_gravity
 from app.modules.physics.frames import FRAMES_UNREAD_MARKER, adds_speeds_across_frames
 from app.modules.physics.givens import FRACTION_OF_C, PHYSICS_UNITS, unit_expression
 from app.modules.physics.law_range import holds_its_range
@@ -114,7 +115,9 @@ def drop_unit_request(text: str) -> str:
     return _UNIT_REQUEST.sub(lambda match: match["mark"] or "", text)
 
 
-PHYSICS_SUBJECT = Subject(units=PHYSICS_UNITS, fallback=fallback_value, unit_of=si_unit)
+PHYSICS_SUBJECT = Subject(
+    units=PHYSICS_UNITS, fallback=fallback_value, unit_of=si_unit, names_gravity=names_a_gravity
+)
 _NORTH_SOUTH = re.compile(r"\b(?:north|south)(?:wards?|bound|erly)?\b")
 _EAST_WEST = re.compile(r"\b(?:east|west)(?:wards?|bound|erly)?\b")
 # A direction between the axes, a bearing or a stated angle is not a right angle.

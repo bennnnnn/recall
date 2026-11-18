@@ -68,6 +68,15 @@ def detect_gravity(text: str) -> float:
     return EARTH_G
 
 
+def names_a_gravity(text: str) -> bool:
+    """The question sets its scene under a gravity of its own: a g it states, the Moon or
+    Mars (``detect_gravity``), or another named planet or star. A stated acceleration
+    there may be its g ("on Jupiter, where the acceleration is 24.8 m/s²")."""
+    from app.modules.physics.bodies import central_body
+
+    return detect_gravity(text) != EARTH_G or central_body(text.lower()) is not None
+
+
 def _only_set_aside(lower: str, body: str) -> bool:
     """Every mention of ``body`` owns something the question sets aside: "Ignoring the Moon's
     1.6 m/s², a ball is dropped on Earth" fell under the Moon's g, 5 s for 2.02 s (review

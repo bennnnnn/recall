@@ -1,0 +1,114 @@
+[
+ {
+  "id": "p17-cruiser-catches-speeder",
+  "area": "kinematics",
+  "prompt": "A speeder passes a stationary police cruiser at a constant speed of 30.0 m/s. At the exact moment the speeder passes, the cruiser accelerates from rest at a constant rate of 3.00 m/s² in the same direction. How far does the cruiser travel before it catches up to the speeder?",
+  "expect": "answer",
+  "answer": [
+   600,
+   "m"
+  ],
+  "note": "30t = ½·3t², so t = 20 s and x = 30 × 20 = 600 m. Two bodies meeting: v = √(2gh) bound the cruiser's 3.00 m/s² as g and certified 150 m (owner's phone 2026-11-17)",
+  "gap": "declines: no solver reads a chaser accelerating from rest; the formal reader or the model's working answers it, and no single body's law certifies a meeting of two"
+ },
+ {
+  "id": "p17-cruiser-catch-up-time",
+  "area": "kinematics",
+  "prompt": "A truck passes a parked car at a constant 20 m/s. At that moment the car accelerates from rest at 4.0 m/s² in the same direction. How long does the car take to catch up with the truck?",
+  "expect": "answer",
+  "answer": [
+   10,
+   "s"
+  ],
+  "note": "20t = 2t², t = 10 s: the same meeting asked as a time",
+  "gap": "declines: no solver reads a chaser accelerating from rest"
+ },
+ {
+  "id": "p17-car-from-rest-distance",
+  "area": "kinematics",
+  "prompt": "A car accelerates from rest at 3 m/s² for 10 s. How far does it travel?",
+  "expect": "answer",
+  "answer": [
+   150,
+   "m"
+  ],
+  "note": "s = ½at² = ½ × 3 × 100: one body's own acceleration, kinematics, never a fall"
+ },
+ {
+  "id": "p17-moon-drop-stated-g",
+  "area": "kinematics",
+  "prompt": "A rock is dropped from a height of 5.0 m on the Moon, where g = 1.62 m/s². How fast is it moving when it hits the ground?",
+  "expect": "answer",
+  "answer": [
+   4.02,
+   "m/s"
+  ],
+  "note": "v = √(2gh) = √(2 × 1.62 × 5.0): a g the question states binds as g"
+ },
+ {
+  "id": "p17-moon-drop-g-in-brackets",
+  "area": "kinematics",
+  "prompt": "On the Moon (g = 1.62 m/s²) a rock falls 5.0 m from rest. What is its speed when it lands?",
+  "expect": "answer",
+  "answer": [
+   4.02,
+   "m/s"
+  ],
+  "note": "the same drop, g stated before the fall"
+ },
+ {
+  "id": "p17-dropped-ball-stated-a",
+  "area": "kinematics",
+  "prompt": "A ball is dropped from a height of 20 m with a = 9.8 m/s². How fast is it going when it hits the ground?",
+  "expect": "answer",
+  "answer": [
+   19.8,
+   "m/s"
+  ],
+  "note": "a dropped ball's stated acceleration is gravity's: √(2 × 9.8 × 20)"
+ },
+ {
+  "id": "p17-mars-gravity-named",
+  "area": "kinematics",
+  "prompt": "On Mars, where the acceleration due to gravity is 3.7 m/s², a probe falls 10 m from rest. How fast is it moving when it lands?",
+  "expect": "answer",
+  "answer": [
+   8.6,
+   "m/s"
+  ],
+  "note": "√(2 × 3.7 × 10) = 8.60"
+ },
+ {
+  "id": "p17-pendulum-stated-g",
+  "area": "oscillations",
+  "prompt": "A pendulum of length 2.0 m swings on a planet where g = 3.7 m/s². What is its period?",
+  "expect": "answer",
+  "answer": [
+   4.62,
+   "s"
+  ],
+  "note": "T = 2π√(L/g) = 2π√(2.0/3.7)"
+ },
+ {
+  "id": "p17-work-against-gravity-stated-g",
+  "area": "energy",
+  "prompt": "A 2 kg box is lifted 3 m where g = 9.8 m/s². How much work is done against gravity?",
+  "expect": "answer",
+  "answer": [
+   58.8,
+   "J"
+  ],
+  "note": "W = mgh = 2 × 9.8 × 3"
+ },
+ {
+  "id": "p17-chase-closes-a-gap",
+  "area": "kinematics",
+  "prompt": "A car at 30 m/s is chasing a truck doing 20 m/s that is 100 m ahead. How long does it take to catch up?",
+  "expect": "answer",
+  "answer": [
+   10,
+   "s"
+  ],
+  "note": "the chase reading still answers a meeting it reads: 100 / (30 − 20)"
+ }
+]

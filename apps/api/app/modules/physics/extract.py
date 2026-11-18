@@ -264,6 +264,17 @@ def _extract_physics_intent(text: str) -> PhysicsIntent | None:
         # answers it. One interval's law answered the first stage alone.
         two_stage = extract_two_stage_intent(request.text)
         return None if two_stage is None else complete_physics_intent(two_stage, request)
+    from app.modules.physics.extractors.relative_motion import (
+        asks_where_two_meet,
+        extract_chase_intent,
+    )
+
+    if asks_where_two_meet(request.text):
+        # Two bodies meeting: only the chase reading answers it, never one body's law
+        # (owner's phone, 2026-11-17: the cruiser's catch-up read as a fall). The rest
+        # is the formal reader's or the model's working.
+        chase = extract_chase_intent(request.text)
+        return None if chase is None else complete_physics_intent(chase, request)
     for extractor in PHYSICS_EXTRACTORS:
         intent = extractor(request.text)
         if intent is not None:

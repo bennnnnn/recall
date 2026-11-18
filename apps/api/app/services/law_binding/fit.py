@@ -65,6 +65,9 @@ class Subject:
     fallback: Callable[[VariableSpec, str, str], float | None]
     # The unit an implied or fallback value is written in.
     unit_of: Callable[[VariableSpec], str]
+    # Whether the text sets the scene somewhere with its own gravity: a named planet or
+    # moon ("on Mars"), or a g it states. A stated acceleration there may be g.
+    names_gravity: Callable[[str], bool] = lambda _text: False
 
 
 @dataclass(frozen=True, slots=True)
@@ -279,6 +282,9 @@ def fit(
             and kind is not None
             and variable_kind(variable) == kind
             and holds(variable, labels[index])
+            and (
+                variable.fallback != "gravity" or _marks_gravity(question, given, previous, subject)
+            )
         ]
         if not options:
             if known:
@@ -323,6 +329,32 @@ def fit(
     ):
         return None
     return Fit(spec, params, units, strength, stated)
+
+
+# Words that name a value as gravity's: "g = 1.62", "gravity of 3.7", "the acceleration due
+# to gravity", "free-fall acceleration".
+_GRAVITY_LABEL = re.compile(r"\bg\b|\bgravit|\bfree[\s-]?fall", re.IGNORECASE)
+# A body falling, dropped or thrown: its acceleration is gravity's.
+_FALLING = re.compile(
+    r"\b(?:drop(?:s|ped|ping)?|falls?|falling|fell|free[\s-]?fall\w*|projectiles?"
+    r"|thrown|throws?|tossed|launched|fired)\b",
+    re.IGNORECASE,
+)
+# A body driven to its acceleration: "the cruiser accelerates at 3 m/s²", "brakes at".
+_DRIVEN = re.compile(r"\b(?:accelerat(?:es|ed|ing)|speeds?\s+up|brak\w*|decelerat\w*)\b", re.I)
+
+
+def _marks_gravity(question: Question, given: Given, previous: int, subject: Subject) -> bool:
+    """A stated acceleration fills g only where the words make it gravity's: a g or gravity
+    named at the value, or a body falling or a named world's gravity, the value no body's
+    own driven acceleration. "The cruiser accelerates from rest at 3.00 m/s²" is no g: a
+    law with g bound it as one and certified 150 m for 600 m (owner's phone, 2026-11-17)."""
+    before = question.lower[previous : given.start]
+    if _GRAVITY_LABEL.search(before):
+        return True
+    if _DRIVEN.search(before):
+        return False
+    return bool(_FALLING.search(question.lower)) or subject.names_gravity(question.text)
 
 
 def _next_start(givens: Sequence[Given], index: int, lower: str) -> int:
