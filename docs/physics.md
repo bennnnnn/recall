@@ -592,7 +592,9 @@ the samples and never re-derives motion. Two kinds of picture exist:
     equivalent resistor;
   - `rays`: lenses, mirrors and an interface, with rays traced here;
   - `wave`: frames of displacement over fixed samples, with nodes, antinodes and the ends that
-    hold the wave.
+    hold the wave;
+  - `field`: electric field lines, each the polyline the server traced, with one arrowhead per
+    line, the charges or plates and the neutral points (below).
 
   A diagram draws only measure lines and carries no moving bodies, and the schema refuses
   either.
@@ -620,6 +622,24 @@ string at the top or bottom of a vertical circle. The turn carries that picture 
 no card, no number. A plain-text sketch the model drew beside a server picture is removed. A
 situation neither knows (a pulley on a slope, a cart in a loop of track, two ropes, a spring)
 draws nothing.
+
+An electric field's pattern is the one picture a reply describes ("draw the field around a
+positive and a negative charge" names no number for a solver to read). On a physics message
+the turn's read says asks to see a diagram that no solve drew, the reply gets physics' draw
+contract (`field_lines/contract.py`) and says what to draw in a ```draw block: point charges
+in a row, each with its sign and, when the question states it, its amount ("2q", "3 μC"), or
+two oppositely charged plates. The server checks each block whole (`field_lines/describe.py`:
+an unknown key, a fourth charge, or an amount or sign the question does not state, each held
+to a charge the question writes with its unit and sign by `field_lines/stated.py`, and it
+draws nothing), lays it out and traces it (`field_lines/picture.py`, `trace.py`): each line follows E
+by fourth-order Runge–Kutta from a charge, as many lines as the charge's size, so lines start
+on + and end on −, crowd where the field is strong, and leave a neutral point between like
+charges (found by bisection and marked); plates are uniform strips whose closed-form field
+gives parallel lines that fringe a little at the ends. The phone draws the polylines and
+computes nothing (`components/rich/diagrams/FieldDiagram.tsx`). A picture the vocabulary
+cannot say is described in words: the physics pack forbids a sketch in characters, a table
+of slashes or a Mermaid diagram (`reply_policy.PHYSICS_NO_SKETCH`), and a drawn picture takes
+the place of any the reply drew anyway (`sketches.py`).
 
 Where one formula covers different apparatus, a hidden variable that only the picture reads
 says which one it is:

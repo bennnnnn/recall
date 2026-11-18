@@ -114,9 +114,9 @@ def _state(ctx: StreamContext, text: str, *, cancelled: bool = False) -> Finaliz
         # The contract draws graphs too (kind "plot").
         ("maths", "graph", True),
         ("maths", "none", False),
-        ("physics", "diagram", False),
         # A physics graph (F against x, v against t) is drawn as any curve is (u5-087), and
-        # only when the read asks for one.
+        # only when the read asks for one; a physics diagram is physics' own contract
+        # (``test_drawing_turn_physics``).
         ("physics", "graph", True),
         ("physics", "none", False),
         ("chemistry", "graph", False),

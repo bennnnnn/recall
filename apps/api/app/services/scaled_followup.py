@@ -17,7 +17,7 @@ Which given a reading names, and whether its object owns it, is the rewriter's c
 from __future__ import annotations
 
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from app.services.law_binding.givens import Given
@@ -359,12 +359,60 @@ def subject_of(prior: str, is_quantity: Callable[[str], bool]) -> str | None:
 _COUNTED = frozenset({"two", "three", "four", "both", "each", "pair", "identical", "equal", "same"})
 
 
-def counted(prior: str, given: Given) -> bool:
-    """True when the value's sentence holds a count or a sameness word."""
-    start = max((m.end() for m in re.finditer(r"[.?!]\s", prior[: given.start])), default=0)
-    stop = re.search(r"[.?!](?:\s|$)", prior[given.end :])
-    sentence = prior[start : given.end + (stop.start() if stop else len(prior))]
-    return any(word in _COUNTED for word in re.findall(r"[a-z]+", sentence.lower()))
+def counted(prior: str, given: Given, kind: Sequence[Given] = ()) -> bool:
+    """True when a count or a sameness word before the value, in its sentence, names a
+    group the value alone sizes: "two identical point charges, with a charge of 3.0 μC"
+    and "two 5 kg masses" state one value for several bodies, which one change cannot put
+    to one of them. Values listed after the count are each their own ("two point charges
+    of 3.0 C and 2.0 C", "one of 3.0 C and the other of 2.0 C"; live, 2026-11-16), and a
+    body the sentence introduces after the group is another ("two identical 4 Ω resistors
+    and a 6 Ω resistor"). ``kind``: the problem's givens of the value's kind."""
+    # "two identical 4 Ω resistors ... with a 6 Ω resistor": a sharing word right on the value
+    # marks it as several bodies', whatever the sentence goes on to give.
+    if _SHARED_ON.search(prior, max(0, given.start - 16), given.start):
+        return True
+    start = max((m.end() for m in _SENTENCE_END.finditer(prior, 0, given.start)), default=0)
+    stop = _SENTENCE_END.search(prior, given.end)
+    end = stop.start() if stop else len(prior)
+    counts = [
+        m for m in _WORDS.finditer(prior, start, given.start) if m.group().lower() in _COUNTED
+    ]
+    if not counts:
+        # "A 2 kg cart hits a stationary cart of the same mass": a sameness word after the
+        # value shares it, when the sentence states no other value of its kind.
+        after = [m for m in _WORDS.finditer(prior, given.end, end) if m.group().lower() in _COUNTED]
+        alone = not any(other.start != given.start and start <= other.start < end for other in kind)
+        return bool(after) and alone
+    group_start = counts[-1].start()
+    group_end = _next_body(prior, group_start, end, kind)
+    if not group_start <= given.start < group_end:
+        return False
+    group = [other for other in kind if group_start <= other.start < group_end]
+    return len(group) <= 1
+
+
+_SENTENCE_END = re.compile(r"[.?!](?:\s|$)")
+# A sharing word written straight before a value: "identical 4 Ω", "each 5 kg".
+_SHARED_ON = re.compile(r"\b(?:identical|equal|each|both|same)[ \t]+$", re.IGNORECASE)
+_WORDS = re.compile(r"[a-z]+", re.IGNORECASE)
+# A body the sentence may introduce after a counted group: "and a 6 Ω resistor", "and two
+# identical 6 Ω resistors"; a clause is one only when it gives a value of the group's kind.
+_ANOTHER_BODY = re.compile(
+    r"(?:\band|,)\s+(?:a|an|another|two|three|four|both|each)\b", re.IGNORECASE
+)
+_CLAUSE_END = re.compile(r",|;|\band\b", re.IGNORECASE)
+
+
+def _next_body(prior: str, start: int, end: int, kind: Sequence[Given]) -> int:
+    """Where a clause after ``start`` introduces another body with a value of the kind
+    ("and a 6 Ω resistor"); ``end`` when none does. ", a distance of 0.5 m apart," gives no
+    charge, so it ends no group of charges."""
+    for match in _ANOTHER_BODY.finditer(prior, start, end):
+        stop = _CLAUSE_END.search(prior, match.end(), end)
+        clause_end = stop.start() if stop else end
+        if any(match.end() <= other.start < clause_end for other in kind):
+            return match.start()
+    return end
 
 
 def thrown_at(prior: str, given: Given, throw: str) -> bool:

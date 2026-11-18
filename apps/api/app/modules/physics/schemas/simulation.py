@@ -25,6 +25,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_serializer, model_validator
 
+from app.modules.physics.schemas.field_lines import FieldSpec
 from app.modules.physics.schemas.scene_titles import TitleKey
 
 # Matches GraphBlockSpec.points: the solver never legitimately needs more
@@ -380,10 +381,11 @@ SimulationType = Literal[
     # A bob on its string: the sampled arc, with a tether to the pivot.
     "pendulum",
     # Diagrams with no bodies: the client lays them out from `circuit`,
-    # `optics` or `wave`.
+    # `optics`, `wave` or `field`.
     "circuit",
     "rays",
     "wave",
+    "field",
 ]
 
 # The one place a scene's `type` values are written down. Both the fence layer
@@ -406,10 +408,13 @@ _DEFAULT_TITLES: dict[str, str] = {
     "circuit": "Circuit",
     "rays": "Ray Diagram",
     "wave": "Wave",
+    "field": "Electric Field",
 }
 
 ArrowKind = Literal["gravity", "velocity", "centripetal", "normal", "friction"]
-_BODILESS = frozenset({"circuit", "rays", "wave"})
+_BODILESS = frozenset({"circuit", "rays", "wave", "field"})
+# The object each diagram carries, and only it.
+_DIAGRAM_FIELDS = (("circuit", "circuit"), ("rays", "optics"), ("wave", "wave"), ("field", "field"))
 
 
 class SimulationBlockSpec(BaseModel):
@@ -477,6 +482,7 @@ class SimulationBlockSpec(BaseModel):
     circuit: CircuitSpec | None = None
     optics: OpticsSpec | None = None
     wave: WaveSpec | None = None
+    field: FieldSpec | None = None
 
     @model_validator(mode="after")
     def coherent_scene(self) -> SimulationBlockSpec:
@@ -491,7 +497,7 @@ class SimulationBlockSpec(BaseModel):
         if self.type in _BODILESS and any(v.role != "measure" for v in self.vectors):
             # Only a measure line has meaning on a diagram the phone lays out.
             raise ValueError(f"a {self.type} diagram draws only measure lines")
-        for kind, field_name in (("circuit", "circuit"), ("rays", "optics"), ("wave", "wave")):
+        for kind, field_name in _DIAGRAM_FIELDS:
             if (self.type == kind) != (getattr(self, field_name) is not None):
                 raise ValueError(f"a {kind} scene, and only one, carries `{field_name}`")
         if self.type == "pendulum" and (len(self.bodies) != 1 or not self.tethers):
@@ -573,4 +579,5 @@ class SimulationBlockSpec(BaseModel):
             circuit=None,
             optics=None,
             wave=None,
+            field=None,
         )

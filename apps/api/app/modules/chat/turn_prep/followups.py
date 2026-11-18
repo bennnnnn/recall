@@ -9,6 +9,7 @@ the first subject that claims the line owns the turn.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -20,6 +21,7 @@ from app.modules.chat.continuation_subject import (
     exchange_pairs,
 )
 from app.modules.chat.prompt_inject import conversation_turns
+from app.services.latex_markup import without_markup
 from app.services.problem_followup import changes_relatively, message_role_content
 from app.services.subjects.registry import SUBJECTS, SubjectName, subject_adapter
 
@@ -94,31 +96,80 @@ def resolve_subject_followup(
     return SubjectFollowup(physics=subject_adapter("physics").followups.problem(content, history))
 
 
+Change = tuple[str | None, str | None]
+
+
 def resolve_posed_followup(
-    content: str, problem: str, reply: str, change: tuple[str | None, str | None] | None
+    content: str, problem: str, reply: str, changes: Sequence[Change] | None
 ) -> SubjectFollowup:
     """The follow-up to a problem a model read the line as referring to (``chat.posed_read``):
-    solved whole, as typed. A ``change`` (the given as the problem writes it, and the line's
-    new value: "20 seconds", "10 s") is first read by the subject's follow-up readers, as if
-    the user had stated the problem; else the problem's subject puts the new value in place
-    of the one given of its kind, every other given kept, and the rewrite is solved as
-    typed. A change no subject can put in place exactly is no solve."""
-    if change is None:
+    solved whole, as typed. ``changes`` (each the given as the problem writes it, and the
+    line's new value: "20 seconds", "10 s") are first read by the subject's follow-up readers,
+    as if the user had stated the problem; else the problem's subject puts each new value in
+    place of the one given of its kind, each found in the problem as stated, every other given
+    kept, and the rewrite is solved as typed. "Take the charges as 3.0 pC and 2.0 μC" changes both charges of a
+    Coulomb's law problem (live, 2026-11-16). Changes no subject can put in place exactly,
+    every one of them, are no solve."""
+    if changes is None:
         return SubjectFollowup(asked=problem)
     stated = [{"role": "user", "content": problem}, {"role": "assistant", "content": reply}]
     rewritten = resolve_subject_followup(content, [*stated, {"role": "user", "content": content}])
-    given, new = change
     # "What if it took 5 s longer?" adds to the time: 25 s, never 5 s. The typed path
     # declines it the same way, and the model answers.
-    if rewritten.found or not new or changes_relatively(content):
+    if rewritten.found or not changes or changes_relatively(content):
+        return rewritten
+    if any(not new for _given, new in changes):
         return rewritten
     from app.modules.chat.turn_prep.reading import subject_of
 
     subject = subject_of(problem)
     if subject is None:
         return rewritten
-    changed = subject_adapter(subject).followups.changed_problem(problem, given, new)
-    return rewritten if changed is None else SubjectFollowup(asked=changed)
+    followups = subject_adapter(subject).followups
+    named = [(given, new) for given, new in changes if new]
+    changed = followups.changed_problem(problem, named)
+    # Every value the line states, not only those the read named, and no question of its own.
+    news = [new for _given, new in named]
+    if changed is None or not followups.takes_every_change(problem, changed, content, news):
+        return rewritten
+    # A line that is only the change ("What if T_C = 200 K?") is the problem, as typed, and
+    # its card answers it. A line that says more ("... Give the answer in nN and explain why
+    # it is so small.") keeps its own words: the change is the subject's follow-up problem,
+    # as a typed what-if's is, and the turn's plan, units and whole-question checks read the
+    # user's line, never the rewrite in its place.
+    if _only_the_change(content, problem, news):
+        return SubjectFollowup(asked=changed)
+    return SubjectFollowup(**{subject: changed})
+
+
+# The grammar a what-if is framed in, which says nothing of the problem.
+_FRAME = frozenset(
+    "what if were was would the then instead and now with into for its this that".split()
+)
+_CONTENT_WORD = re.compile(r"[^\W\d_]{3,}")
+
+
+def _only_the_change(line: str, problem: str, news: Sequence[str]) -> bool:
+    """``line`` says nothing besides its changed values: with them taken out, every content
+    word left is the problem's own ("What if T_C = 200 K?"). A medium, a unit or an ask of
+    its own ("in water", "giving the answer in nN", "explaining why") is more than the change,
+    and the line keeps its words."""
+    rest = without_markup(line)
+    for new in news:
+        rest = rest.replace(without_markup(new), " ")
+    known = {_singular(word) for word in _CONTENT_WORD.findall(without_markup(problem))}
+    return all(
+        word.lower() in _FRAME or _singular(word) in known for word in _CONTENT_WORD.findall(rest)
+    )
+
+
+def _singular(word: str) -> str:
+    """A word, whole, plural or singular alike ("charges" is "charge"): never a stem, so
+    "frictionless" is no "friction" and "without" no "with"."""
+    lower = word.lower()
+    if lower.endswith("es") and len(lower) > 4 and lower[-3] in "sxz":
+        return lower[:-2]
+    return lower[:-1] if lower.endswith("s") and not lower.endswith("ss") else lower
 
 
 def _shown(content: str, history: Sequence[Any], referent: str) -> SubjectFollowup:

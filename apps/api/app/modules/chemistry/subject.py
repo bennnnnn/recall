@@ -45,10 +45,29 @@ _HINTS = SubjectHints(
 
 @dataclass(frozen=True)
 class ChemistryFollowups:
-    def changed_problem(self, problem: str, given: str | None, new: str) -> str | None:
+    def changed_problem(
+        self, problem: str, changes: Sequence[tuple[str | None, str]]
+    ) -> str | None:
         from app.modules.chemistry.followup import changed_chemistry_problem
 
-        return changed_chemistry_problem(problem, given, new)
+        return changed_chemistry_problem(problem, changes)
+
+    # Chemistry reads no asked quantity a new question could be told apart by, so a long
+    # line it claims is never read as a change (``chat.posed_read``).
+    def restates(self, problem: str, line: str) -> bool:
+        return False
+
+    def states_new(self, problem: str, line: str) -> bool:
+        from app.modules.chemistry.followup import chemistry_states_new
+
+        return chemistry_states_new(problem, line)
+
+    def takes_every_change(
+        self, problem: str, rewritten: str, line: str, new: Sequence[str]
+    ) -> bool:
+        from app.modules.chemistry.followup import chemistry_change_whole
+
+        return chemistry_change_whole(problem, rewritten, line, new)
 
     def problem(
         self,
@@ -224,7 +243,7 @@ class ChemistryFigure:
     ) -> list[str]:
         return []
 
-    def without_drawn_substitutes(self, text: str) -> str:
+    def without_drawn_substitutes(self, text: str, user_text: str = "") -> str:
         return text
 
 

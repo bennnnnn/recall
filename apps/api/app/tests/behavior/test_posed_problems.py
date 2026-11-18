@@ -108,7 +108,7 @@ async def test_a_named_change_is_solved_as_the_problem_typed_with_it(
         line,
         history=(("user", question), ("assistant", "**Answer** worked above.")),
         posed=question,
-        posed_change=change,
+        posed_changes=(change,),
     )
     assert expected.solved
     assert followed.verified_answer == expected.verified_answer
@@ -131,7 +131,7 @@ async def test_a_named_change_is_solved_as_the_problem_typed_with_it(
 def test_a_change_no_subject_puts_in_place_exactly_is_none(
     subject: SubjectName, problem: str, given: str, new: str
 ) -> None:
-    assert subject_adapter(subject).followups.changed_problem(problem, given, new) is None
+    assert subject_adapter(subject).followups.changed_problem(problem, [(given, new)]) is None
 
 
 @pytest.mark.asyncio
@@ -206,6 +206,387 @@ async def test_a_change_that_adds_to_a_given_is_no_solve(
         line,
         history=(("user", question), ("assistant", "**Answer** worked above.")),
         posed=question,
-        posed_change=change,
+        posed_changes=(change,),
     )
     assert not followed.solved, followed.verified_answer
+
+
+_COULOMB = (
+    "8. Two point charges, one of 3.0 C and the other of 2.0 C, are placed 5.0 m apart. "
+    "Calculate the force which acts between them. (Take 1/(4πε₀) to be "
+    "9.0 × 10⁹ N m²/C².)"
+)
+_REPEAT = (
+    "9. The answer to question 8 is an enormous force – a coulomb is a huge unit for "
+    "static charge, and we do not normally encounter point charges of anything like that "
+    "size. Repeat the calculation but this time take the charges as 3.0 pC (p = pico- = "
+    "× 10⁻¹²) and 2.0 μC."
+)
+
+
+@pytest.mark.asyncio
+async def test_a_textbook_repeat_with_new_charges_is_the_problem_typed_with_them(
+    thread_sympy_executor: None,
+) -> None:
+    """The owner's chat (2026-11-16): question 9 changed both charges of question 8, in pico-
+    and micro-coulombs, and its reply worked them out with no check. The read names both
+    changes; the server puts each in place, keeping the stated constant, and solves it."""
+    typed = await _route(_COULOMB.replace("3.0 C", "3.0 pC").replace("2.0 C", "2.0 μC"))
+    followed = await _route(
+        _REPEAT,
+        history=(("user", _COULOMB), ("assistant", "**Answer** $2.16 \\times 10^{9}$ N")),
+        posed=_COULOMB,
+        posed_changes=(("3.0 C", "3.0 pC"), ("2.0 C", "2.0 µC")),
+    )
+    assert typed.solved and followed.solved
+    assert followed.verified_answer == typed.verified_answer
+    assert "2.16" in (followed.verified_answer or "") and "-9" in (followed.verified_answer or "")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("question", "line", "changes"),
+    [
+        # The read named one change of the two the line makes: never a charge the user
+        # did not give (review of feat/field-lines).
+        (_COULOMB, _REPEAT, (("3.0 C", "3.0 pC"),)),
+        # Two equal new values and one named change: each stated value takes its own change,
+        # one to one, so the 2.0 C is never kept beside them (PR #2482 review).
+        (
+            _COULOMB,
+            "Repeat the calculation taking the charges as 3.0 pC and 3.0 pC.",
+            (("3.0 C", "3.0 pC"),),
+        ),
+        # A new question, not a change: its own values and its own ask.
+        (
+            _BALL,
+            "What is the momentum of a 5 kg ball moving at 3 m/s in the same direction?",
+            (("2 kg", "5 kg"),),
+        ),
+    ],
+)
+async def test_a_change_that_does_not_stand_for_the_whole_line_is_no_solve(
+    question: str, line: str, changes: tuple[tuple[str, str], ...], thread_sympy_executor: None
+) -> None:
+    followed = await _route(
+        line,
+        history=(("user", question), ("assistant", "**Answer** worked above.")),
+        posed=question,
+        posed_changes=changes,
+    )
+    earlier = decision_record(await _route(question))["solver"]
+    # Either nothing is verified, or the line's own question is: never the earlier one.
+    assert not followed.solved or decision_record(followed)["solver"] != earlier
+
+
+@pytest.mark.asyncio
+async def test_two_changes_are_found_in_the_problem_as_stated(thread_sympy_executor: None) -> None:
+    """ "Take the charges as 2.0 C and 3.0 C" swaps them: the second change is found in the
+    problem as stated, never in the text the first one already edited."""
+    swapped = _COULOMB.replace("3.0 C", "@").replace("2.0 C", "3.0 C").replace("@", "2.0 C")
+    typed = await _route(swapped)
+    followed = await _route(
+        "Take the charges as 2.0 C and 3.0 C.",
+        history=(("user", _COULOMB), ("assistant", "**Answer** worked above.")),
+        posed=_COULOMB,
+        posed_changes=(("3.0 C", "2.0 C"), ("2.0 C", "3.0 C")),
+    )
+    assert typed.solved and followed.solved
+    assert followed.verified_answer == typed.verified_answer
+
+
+def test_two_givens_of_one_number_are_told_apart_by_their_size() -> None:
+    """ "3.0 μC and 3.0 nC" share a number: a change that names "3.0 nC" is the nano one, by
+    its size, never refused for the shared number (PR #2482 re-review)."""
+    problem = (
+        "Two point charges, one of 3.0 \u03bcC and the other of 3.0 nC, are placed 5.0 m "
+        "apart. Calculate the force between them."
+    )
+    changed = subject_adapter("physics").followups.changed_problem(
+        problem, [("3.0 \u03bcC", "4.0 pC"), ("3.0 nC", "5.0 \u03bcC")]
+    )
+    assert changed == problem.replace("3.0 \u03bcC", "4.0 pC").replace("3.0 nC", "5.0 \u03bcC")
+
+
+def test_a_line_with_a_quantity_the_problem_lacks_is_no_rewrite() -> None:
+    """ "What if it's thrown downward at 10 m/s from 45 m?" after a drop from 20 m: a read
+    of only 20 m -> 45 m verified 3.03 s for a throw that lands in 2.19 s (Gemini, PR
+    #2482). Every value the line states must be a change, and a speed the drop never had
+    makes it another problem."""
+    followups = subject_adapter("physics").followups
+    problem = "A ball is dropped from 20 m. How long until it hits the ground?"
+    line = "What if it's thrown downward at 10 m/s from 45 m?"
+    rewritten = followups.changed_problem(problem, [("20 m", "45 m")])
+    assert rewritten is not None
+    assert not followups.takes_every_change(problem, rewritten, line, ["45 m"])
+    # The same height alone is a change of the drop.
+    alone = "What if it were dropped from 45 m?"
+    assert followups.takes_every_change(problem, rewritten, alone, ["45 m"])
+
+
+def test_one_change_never_rewrites_a_value_several_bodies_share() -> None:
+    """ "Two identical 4 Ω resistors and a 6 Ω resistor": a change of 4 Ω would rewrite
+    both resistors (Gemini, PR #2482). The count is read in the value's own phrase, so the
+    6 Ω resistor beside them stays changeable, and "one of 3.0 C and the other of 2.0 C"
+    still gives each charge its own value."""
+    from app.modules.physics.givens import PHYSICS_UNITS
+    from app.services.law_binding.fit import read_givens
+    from app.services.scaled_followup import counted
+
+    problem = (
+        "Two identical 4 Ω resistors and a 6 Ω resistor are connected in series to "
+        "a 14 V battery. What is the current?"
+    )
+    four, six = [g for g in read_givens(problem, PHYSICS_UNITS) if g.unit == "Ω"]
+    assert counted(problem, four, [four, six])
+    assert not counted(problem, six, [four, six])
+    charges = (
+        "Two point charges, one of 3.0 C and the other of 2.0 C, are placed 5.0 m apart. "
+        "Calculate the force."
+    )
+    first, second = [g for g in read_givens(charges, PHYSICS_UNITS) if g.unit == "C"]
+    assert not counted(charges, first, [first, second])
+
+
+def test_a_group_count_is_shared_only_by_the_one_value_after_it() -> None:
+    """ "Two identical point charges, with a charge of 3.0 μC": the comma split the count
+    from its value, so one change made both 6.0 μC and the force came out 2x wrong; "two
+    point charges of 3.0 C and 2.0 C" counted "two" as sharing 3.0 C (Gemini, PR #2482)."""
+    from app.modules.physics.givens import PHYSICS_UNITS
+    from app.services.law_binding.fit import read_givens
+    from app.services.scaled_followup import counted
+
+    def counts(problem: str, unit: str) -> list[bool]:
+        kind = [g for g in read_givens(problem, PHYSICS_UNITS) if g.unit == unit]
+        return [counted(problem, given, kind) for given in kind]
+
+    shared = (
+        "Two identical point charges, with a charge of 3.0 \u03bcC, are 0.5 m apart. "
+        "Calculate the force."
+    )
+    assert counts(shared, "\u03bcC") == [True]
+    assert counts("Two point charges of 3.0 C and 2.0 C are 5.0 m apart.", "C") == [False, False]
+
+
+@pytest.mark.parametrize(
+    ("problem", "line", "changes"),
+    [
+        # An integer index the problem gives, changed with the angle: both must be taken.
+        (
+            "Light passes from air into a medium (n = 2) at an angle of incidence of 30 "
+            "degrees. Find the angle of refraction.",
+            "What if n = 1.5 and the angle is 45 degrees?",
+            ["45 degrees"],
+        ),
+        # An integer index the line gives, after a decimal one.
+        (
+            "Light passes from air into glass (n = 1.5) at an angle of incidence of 30 "
+            "degrees. Find the angle of refraction.",
+            "What if n = 3 and the angle is 45 degrees?",
+            ["45 degrees"],
+        ),
+    ],
+)
+def test_an_integer_assigned_to_a_symbol_is_a_value_a_change_must_take(
+    problem: str, line: str, changes: list[str]
+) -> None:
+    """ "n = 2" and "n = 3" were invisible (only a decimal counted), so a read naming only
+    the angle certified the old index (Gemini, PR #2482)."""
+    followups = subject_adapter("physics").followups
+    rewritten = followups.changed_problem(problem, [("30 degrees", "45 degrees")])
+    assert rewritten is not None
+    assert not followups.takes_every_change(problem, rewritten, line, changes)
+    assert followups.states_new(problem, line)
+    # An item's number is no value: "Solve question 2" states nothing new.
+    assert not followups.states_new(problem, "Solve question 2 the same way.")
+
+
+def test_a_maths_change_must_take_every_number_the_line_writes() -> None:
+    """ "What if it were 5x + 3 = 13?" read as only 2x -> 5x was certified as 5x + 3 = 7
+    (Gemini, PR #2482): maths now holds the rewrite to every number the line writes."""
+    followups = subject_adapter("math").followups
+    problem = "Solve 2x + 3 = 7"
+    line = "What if it were 5x + 3 = 13?"
+    assert not followups.takes_every_change(problem, "Solve 5x + 3 = 7", line, ["5x"])
+    assert followups.takes_every_change(problem, "Solve 5x + 3 = 13", line, ["5x", "13"])
+
+
+@pytest.mark.asyncio
+async def test_a_changed_problem_keeps_the_users_own_asks(thread_sympy_executor: None) -> None:
+    """ "...3.0 pC and 2.0 μC. Give the answer in nN and explain why it is so small.": the
+    rewrite took the line's place, so the unit and the question of its own were lost and
+    the instant card answered in newtons (Gemini, PR #2482). The line stays the turn's: the
+    changed problem is solved as the subject's follow-up, and no instant card answers."""
+    line = _REPEAT.replace(
+        "and 2.0 μC.", "and 2.0 μC. Give the answer in nN and explain why it is so small."
+    )
+    followed = await _route(
+        line,
+        history=(("user", _COULOMB), ("assistant", "**Answer** $2.16 \\times 10^{9}$ N")),
+        posed=_COULOMB,
+        posed_changes=(("3.0 C", "3.0 pC"), ("2.0 C", "2.0 µC")),
+    )
+    assert followed.solved
+    assert "-9" in (followed.verified_answer or "")
+    assert not followed.instant_text
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Repeat the calculation taking the charges as 3.0 pC and 2 × 10⁻⁶ C.",
+        "Repeat with charges $3.0\\,\\mathrm{pC}$ and $2 \\times 10^{-6}\\,\\mathrm{C}$.",
+    ],
+)
+def test_a_value_in_scientific_notation_is_one_the_rewrite_must_take(line: str) -> None:
+    """ "2 x 10^-6 C" in superscripts or LaTeX was no value at all, so a read naming only
+    3.0 C -> 3.0 pC kept the 2.0 C and certified a force 10^6 too large (Gemini, PR #2482)."""
+    followups = subject_adapter("physics").followups
+    rewritten = followups.changed_problem(_COULOMB, [("3.0 C", "3.0 pC")])
+    assert rewritten is not None
+    assert not followups.takes_every_change(_COULOMB, rewritten, line, ["3.0 pC"])
+
+
+def test_a_problem_in_scientific_notation_reads_each_of_its_values() -> None:
+    """ "A charge of 3.0 x 10^-6 C ... a charge of 2.0 μC": the prior's first charge was
+    unread, so "the first charge was 5.0 μC" changed the only charge it read, the second."""
+    followups = subject_adapter("physics").followups
+    problem = (
+        "A charge of 3.0 × 10⁻⁶ C is 5.0 m from a charge of 2.0 μC. "
+        "Calculate the force between them."
+    )
+    assert followups.changed_problem(problem, [(None, "5.0 μC")]) is None
+
+
+def test_a_clause_with_no_value_of_the_kind_ends_no_counted_group() -> None:
+    """ "Two identical point charges, a distance of 0.5 m apart, have a charge of 3.0 μC":
+    the clause gives a length, no charge, so the 3.0 μC is still both charges' (Gemini, PR
+    #2482); "and two identical 6 Ω resistors" starts a group of its own."""
+    from app.modules.physics.givens import PHYSICS_UNITS
+    from app.services.law_binding.fit import read_givens
+    from app.services.scaled_followup import counted
+
+    def counts(problem: str, unit: str) -> list[bool]:
+        kind = [g for g in read_givens(problem, PHYSICS_UNITS) if g.unit == unit]
+        return [counted(problem, given, kind) for given in kind]
+
+    apart = (
+        "Two identical point charges, a distance of 0.5 m apart, have a charge of 3.0 μC. "
+        "Calculate the force between them."
+    )
+    assert counts(apart, "μC") == [True]
+    pairs = "Two identical 4 Ω resistors and two identical 6 Ω resistors are in series."
+    assert counts(pairs, "Ω") == [True, True]
+
+
+@pytest.mark.parametrize(
+    ("line", "problem", "news", "only"),
+    [
+        # A medium the problem did not have: the vacuum answer would be 80x off.
+        (
+            "Repeat the calculation in water taking the charges as 3.0 pC and 2.0 μC",
+            _COULOMB,
+            ["3.0 pC", "2.0 μC"],
+            False,
+        ),
+        # A unit and an ask of its own, in one sentence.
+        (
+            "Repeat the calculation taking the charges as 3.0 pC and 2.0 μC, giving the "
+            "answer in nN and explaining why it is so small",
+            _COULOMB,
+            ["3.0 pC", "2.0 μC"],
+            False,
+        ),
+        # Only the change: the problem as typed, and its card (the battery's tapped chip).
+        ("What if $T_C = 200\\,\\mathrm{K}$?", _CARNOT, ["200 K"], True),
+    ],
+)
+def test_a_line_is_the_problem_as_typed_only_when_it_says_nothing_but_the_change(
+    line: str, problem: str, news: list[str], only: bool
+) -> None:
+    """A one-sentence line that said more than the change took the rewrite in its place
+    (Gemini, PR #2482): "in water" certified the vacuum force. The line is the problem as
+    typed only when, its changed values taken out, every content word left is the
+    problem's own."""
+    from app.modules.chat.turn_prep.followups import _only_the_change
+
+    assert _only_the_change(line, problem, news) is only
+
+
+def test_a_sharing_word_on_the_value_counts_it_whatever_follows() -> None:
+    """ "Two identical 4 Ω resistors are connected in series with a 6 Ω resistor": "one of
+    them was 10 Ω" rewrote both 4 Ω and certified 20/26 A (Gemini, PR #2482)."""
+    from app.modules.physics.givens import PHYSICS_UNITS
+    from app.services.law_binding.fit import read_givens
+    from app.services.scaled_followup import counted
+
+    problem = (
+        "Two identical 4 Ω resistors are connected in series with a 6 Ω resistor "
+        "and a 20 V battery. What is the current?"
+    )
+    kind = [g for g in read_givens(problem, PHYSICS_UNITS) if g.unit == "Ω"]
+    assert [counted(problem, given, kind) for given in kind] == [True, False]
+
+
+_REFRACTION = (
+    "Light passes from air into glass of refractive index n = 1.5 at an angle of incidence "
+    "of 30°. Find the angle of refraction."
+)
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        # "is 2" is no assignment and no decimal, so no value was read for it.
+        "What if the refractive index is 2 and the angle is 45 degrees?",
+        # A relative change the rewrite of the angle never applied.
+        "What if the angle is 45° and the refractive index is doubled?",
+    ],
+)
+def test_a_number_or_relative_change_the_rewrite_lacks_is_no_rewrite(line: str) -> None:
+    """After the n = 1.5 refraction question, a read of only the angle certified the old
+    index (Gemini, PR #2482): every number the line writes must be in the rewrite, and a
+    relative change ("doubled", "halved") declines."""
+    followups = subject_adapter("physics").followups
+    rewritten = followups.changed_problem(_REFRACTION, [("30°", "45°")])
+    assert rewritten is not None
+    assert not followups.takes_every_change(_REFRACTION, rewritten, line, ["45°"])
+    assert followups.takes_every_change(
+        _REFRACTION, rewritten, "What if the angle is 45°?", ["45°"]
+    )
+
+
+@pytest.mark.parametrize(
+    ("line", "problem"),
+    [
+        (
+            "What if it were 5 m/s without air resistance?",
+            "A 2 kg ball is thrown up at 3 m/s with air resistance. Find its height.",
+        ),
+        (
+            "What if it were 5 m/s and frictionless?",
+            "A 2 kg block slides at 3 m/s on a floor with friction. Find its deceleration.",
+        ),
+    ],
+)
+def test_a_word_the_problem_only_shares_a_stem_with_is_a_new_setup(line: str, problem: str) -> None:
+    """ "without" is no "with" and "frictionless" no "friction": a line naming the opposite
+    setup is never served the changed problem's instant card (Gemini, PR #2482)."""
+    from app.modules.chat.turn_prep.followups import _only_the_change
+
+    assert not _only_the_change(line, problem, ["5 m/s"])
+    assert _only_the_change("What if it were 5 m/s?", problem, ["5 m/s"])
+
+
+@pytest.mark.parametrize("new", ["2 × 10⁻⁶ C", "2e-6 C"])
+def test_a_change_read_in_either_scientific_spelling_is_taken(new: str) -> None:
+    """A read that copies "2 x 10^-6 C" as the line writes it, or folds it to "2e-6 C", is
+    one change of the 2.0 C (Gemini, PR #2482): both readers fold scientific notation."""
+    from app.modules.chat.posed_read import _line_value
+
+    line = "Repeat the calculation taking the charges as 3.0 pC and 2 × 10⁻⁶ C."
+    assert _line_value(line, new) == new
+    followups = subject_adapter("physics").followups
+    rewritten = followups.changed_problem(_COULOMB, [("3.0 C", "3.0 pC"), ("2.0 C", new)])
+    assert rewritten is not None
+    assert followups.takes_every_change(_COULOMB, rewritten, line, ["3.0 pC", new])

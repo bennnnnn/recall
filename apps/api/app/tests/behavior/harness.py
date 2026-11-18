@@ -40,7 +40,7 @@ from app.modules.chat.finalize_passes import enrich_final_content
 from app.modules.chat.json_output import JSON_OUTPUT_HINT
 from app.modules.chat.model_routing import choice as model_choice
 from app.modules.chat.model_routing.route import last_user_turn
-from app.modules.chat.posed_read import PosedPick
+from app.modules.chat.posed_read import PosedChange, PosedPick
 from app.modules.chat.prompt_constants.clarify import CLARIFY_PICKS_HINT, CLARIFY_UNANSWERED_HINT
 from app.modules.chat.prompt_constants.coding import (
     CODE_DEBUG_HINT,
@@ -635,11 +635,10 @@ def _posed_pick(case: Case, rows: list[Any]) -> AbstractContextManager[Any]:
         plain = [text.replace("**", "") for _role, text in exchanges]
         message = next(i for i, text in enumerate(plain, start=1) if case.posed in text)
         pick = PosedPick(
-            kind="solve" if case.posed_change is None else "change",
+            kind="change" if case.posed_changes else "solve",
             message=message,
             problem=case.posed,
-            given=case.posed_change[0] if case.posed_change else None,
-            new=case.posed_change[1] if case.posed_change else None,
+            changes=[PosedChange(given=given, new=new) for given, new in case.posed_changes],
         )
     return patch.object(posed_read, "pick_posed", AsyncMock(return_value=pick))
 

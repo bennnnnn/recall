@@ -10,14 +10,18 @@ phrases and the text rewrites are the same for both and live here.
 
 from __future__ import annotations
 
+import math
 import re
+from collections import Counter
 from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from app.services.latex_markup import without_markup
 from app.services.law_binding.fit import read_givens
 from app.services.law_binding.givens import Given
 from app.services.law_binding.units import UnitTable
+from app.services.number_text import fold_scientific
 from app.services.scaled_followup import (
     Scaling,
     counted,
@@ -131,8 +135,9 @@ _WRITTEN_VALUE = re.compile(
 
 
 def written_value(text: str) -> tuple[str, str] | None:
-    """``10 s`` → ``("10", "s")``: a value given alone with its unit, as a change names it."""
-    match = _WRITTEN_VALUE.fullmatch(" ".join(text.split()))
+    """``10 s`` → ``("10", "s")``: a value given alone with its unit, as a change names it;
+    scientific notation in any spelling is one number ("2 x 10^-6 C" → ``("2e-6", "C")``)."""
+    match = _WRITTEN_VALUE.fullmatch(" ".join(fold_scientific(text).split()))
     if match is None or match.group("unit").lower() in _CLOCK_UNITS:
         return None
     return match.group("value"), match.group("unit")
@@ -278,6 +283,64 @@ def replace_given(text: str, given: Given, value: str, unit: str) -> str:
     return text[: given.start] + f"{value} {unit}" + text[end:]
 
 
+# A number that names an item, not a value: "Solve 1", "question 9", "part 2", "Q3".
+_ITEM = re.compile(
+    r"\b(?:solve|question|problem|part|number|no\.?|item|exercise|example|q)[ \t]*#?[ \t]*$",
+    re.IGNORECASE,
+)
+# A number assigned to a symbol: "n = 2", "μ = 0", "N = 300", "k=4".
+_ASSIGNED = re.compile(r"(?<![\w])[^\W\d_][\w']{0,3}[ \t]*=[ \t]*$")
+
+
+def item_number(text: str, start: int, end: int) -> bool:
+    """The number at ``start:end`` names an item ("Solve 1", "question 9"), not a value: a
+    number standing alone after an item word, never a term ("Solve 2x + 3 = 7")."""
+    if text[end : end + 1].isalpha() or text[end : end + 1] in ("(", "^"):
+        return False
+    # A question's own number, first in the line ("9. Repeat the calculation ...").
+    if not text[:start].strip() and text[end : end + 1] in (".", ")"):
+        return True
+    return _ITEM.search(text, max(0, start - 24), start) is not None
+
+
+_NUMBER = re.compile(r"\d+(?:\.\d+)?")
+
+
+def stated_numbers(text: str) -> Counter[str]:
+    """The numbers ``text`` writes, each as often as it writes it, without its markup and
+    never an item's number ("Solve 1"): "3x + 3 = 7" writes 3 twice."""
+    plain = without_markup(fold_scientific(text))
+    return Counter(
+        match.group()
+        for match in _NUMBER.finditer(plain)
+        if not item_number(plain, match.start(), match.end())
+        and not _EXPONENT.search(plain, max(0, match.start() - 3), match.start())
+    )
+
+
+# A power of ten's exponent, once scientific notation is folded ("1e-12"): its value's, not a
+# number of its own (a prefix's definition, "(p = pico- = x 10^-12)", states none).
+_EXPONENT = re.compile(r"(?<=\d)[eE][-+]?$")
+
+
+def pure_value(text: str, start: int, end: int) -> bool:
+    """The pure number at ``start:end`` is a value of the problem: a decimal ("n = 1.5",
+    "0.25") or one assigned to a symbol ("n = 2", "μ = 0"), never an item's number. The
+    one rule the follow-up readers and chat's new-value read share."""
+    if item_number(text, start, end):
+        return False
+    return "." in text[start:end] or _ASSIGNED.search(text, max(0, start - 8), start) is not None
+
+
+def _same_value(one: Given, other: Given) -> bool:
+    """One value: the same kind and size, a pure number by its number."""
+    if one.dimension != other.dimension:
+        return False
+    if one.si is not None and other.si is not None:
+        return math.isclose(one.si, other.si, rel_tol=1e-9)
+    return one.si is None and other.si is None and math.isclose(one.value, other.value)
+
+
 @dataclass(frozen=True)
 class GivenRewriter:
     """One subject's way to replace or scale one given of its previous problem.
@@ -299,6 +362,7 @@ class GivenRewriter:
 
     def changed(self, prior: str, name: str | None, value: str, unit: str | None) -> str | None:
         """``and after 10 s``, ``what if the mass was 4 kg``: that given replaced."""
+        prior = fold_scientific(prior)  # "3.0 x 10^-6 C" is one value, read as one
         if not unit or not unit.strip():
             return None
         written_unit = " ".join(unit.split())
@@ -312,31 +376,54 @@ class GivenRewriter:
         matches = [
             g for g in self._of_dimension(prior, new_dim) if plays_role(prior, g, name or "")
         ]
-        if len(matches) != 1 or counted(prior, matches[0]) or self._anothers(prior, matches[0]):
+        kind = self._of_dimension(prior, new_dim)
+        if (
+            len(matches) != 1
+            or counted(prior, matches[0], kind)
+            or self._anothers(prior, matches[0])
+        ):
             return None
         rewritten = replace_given(prior, matches[0], value, written_unit)
         if rewritten == prior:
             return None
         return rewritten if self.verifies(rewritten) else None
 
-    def replaced(self, prior: str, written: str | None, value: str, unit: str) -> str | None:
-        """The given of ``unit``'s kind put to ``value``: the problem's one given of that
-        kind, or of several the one whose number ``written`` quotes ("300 K" of "between
-        500 K and 300 K"). Every other given stays as written, and the rewrite verifies."""
-        new_dim = self.unit_dimension(" ".join(unit.split()))
-        if new_dim is None or not fully_read(prior):
+    def replaced(self, prior: str, changes: Sequence[tuple[str | None, str, str]]) -> str | None:
+        """Each change ``(written, value, unit)`` puts the given of ``unit``'s kind to
+        ``value``: the problem's one given of that kind, or of several the one whose number
+        ``written`` quotes ("300 K" of "between 500 K and 300 K"). Every given is found in
+        the problem as stated, never in a text another change already edited, so "the
+        charges as 2.0 C and 3.0 C" swaps them, and two changes of one given are none.
+        Every other given stays as written, and the rewrite verifies."""
+        prior = fold_scientific(prior)
+        if not changes or not fully_read(prior):
             return None
-        matches = self._of_dimension(prior, new_dim)
-        if len(matches) > 1:
-            quoted = _quoted_numbers(written or "")
-            matches = [given for given in matches if given.value in quoted]
-        if len(matches) != 1 or counted(prior, matches[0]) or self._anothers(prior, matches[0]):
+        targets: list[tuple[Given, str, str]] = []
+        for written, value, unit in changes:
+            spelled = " ".join(unit.split())
+            new_dim = self.unit_dimension(spelled)
+            if new_dim is None:
+                return None
+            kind = self._of_dimension(prior, new_dim)
+            matches = kind
+            if len(matches) > 1:
+                matches = self._quoted(written or "", kind, new_dim)
+            if len(matches) != 1 or counted(prior, matches[0], kind):
+                return None
+            if self._anothers(prior, matches[0]):
+                return None
+            targets.append((matches[0], value, spelled))
+        if len({given.start for given, _value, _unit in targets}) != len(targets):
             return None
-        rewritten = replace_given(prior, matches[0], value, " ".join(unit.split()))
+        rewritten = prior
+        # From the last position back, so each earlier given's position still holds.
+        for given, value, unit in sorted(targets, key=lambda t: t[0].start, reverse=True):
+            rewritten = replace_given(rewritten, given, value, unit)
         return rewritten if rewritten != prior and self.verifies(rewritten) else None
 
     def scaled(self, prior: str, scaling: Scaling) -> str | None:
         """``what if the mass doubles``: the one given of that kind, times the factor."""
+        prior = fold_scientific(prior)
         reading = scaled_name(prior, scaling, self._is_quantity)
         if reading is None or not fully_read(prior):
             return None
@@ -352,7 +439,9 @@ class GivenRewriter:
         if len(matches) != 1:
             return None
         given = matches[0]
-        if counted(prior, given) or not _scales(prior, given):
+        if counted(prior, given, self._of_dimension(prior, named_dim)):
+            return None
+        if not _scales(prior, given):
             return None
         # "The mass of Earth is 6e24 kg" in a satellite's problem: "the mass" may be either.
         if owner is None and self._anothers(prior, given):
@@ -363,6 +452,83 @@ class GivenRewriter:
             prior, given, scaled_value(given.value, scaling.factor), given.unit
         )
         return rewritten if rewritten != prior and self.verifies(rewritten) else None
+
+    def restated(self, prior: str, line: str) -> list[Given]:
+        """The values ``line`` states of a kind ``prior`` gives: "3.0 pC" after a problem
+        with charges, never "question 8" or a power of ten in a bracket."""
+        prior, line = fold_scientific(prior), fold_scientific(line)
+        kinds = {given.dimension for given in read_givens(prior, self.units) if given.dimension}
+        return [given for given in read_givens(line, self.units) if given.dimension in kinds]
+
+    def takes_every(self, prior: str, rewritten: str, line: str, new: Sequence[str]) -> bool:
+        """Whether a rewrite made of ``new`` values stands for all of ``line``: every value
+        the line states of the problem's kinds is one of them (a read that named one change
+        of two would solve with a charge the user never gave), and the line asks nothing of
+        its own or what the rewrite asks ("What is the momentum of a 5 kg ball?" is a new
+        question, not a change to a kinetic energy problem)."""
+        taken = [given for value in new for given in self._values(value)]
+        # Every value the line states must be the problem's kind: a quantity the problem
+        # lacks ("thrown downward at 10 m/s" after a drop) is another problem, which no
+        # rewrite of the old one solves. A pure number counts as a decimal one: "diamond
+        # (n = 2.42)" is a change the rewrite must take, never one it drops.
+        kinds = {given.dimension for given in self._values(prior)}
+        stated_all = self._values(line)
+        if any(given.dimension not in kinds for given in stated_all):
+            return False
+        # One to one: "3.0 pC and 3.0 pC" are two values, which one named change never takes.
+        left = list(taken)
+        for stated in stated_all:
+            match = next((given for given in left if _same_value(given, stated)), None)
+            if match is None:
+                return False
+            left.remove(match)
+        # Every number the line writes is in the rewrite or the problem, as often ("the
+        # refractive index is 2", read as no value of its own, stays out of no rewrite), and
+        # a relative change ("doubled", "halved") is none a rewrite of written values made.
+        written = stated_numbers(prior) | stated_numbers(rewritten)
+        if stated_numbers(line) - written or changes_relatively(line):
+            return False
+        if self.asked is None:
+            return True
+        asked = set(self.asked(line))
+        return not asked or asked == set(self.asked(rewritten))
+
+    def states_new(self, prior: str, line: str) -> bool:
+        """``line`` states a value ``prior`` does not, read with its unit: "20 minutes" after
+        "20 seconds" is new, "Solve 1" names an item and states nothing."""
+        stated = self._values(prior)
+        return any(
+            not any(_same_value(given, old) for old in stated) for given in self._values(line)
+        )
+
+    def _values(self, text: str) -> list[Given]:
+        """The values ``text`` states: each with its unit, and each pure number that is a
+        value (``pure_value``: an index, a coefficient, "n = 2"); never a count or an
+        item's number."""
+        # Scientific notation folded first, before markup comes off ("$2 \\times 10^{-6}$"
+        # loses its caret and braces), so "2 x 10^-6 C" is one value, in any spelling;
+        # "$T_C = 200\\,\\mathrm{K}$" is 200 K.
+        plain = without_markup(fold_scientific(text))
+        return [
+            given
+            for given in read_givens(plain, self.units)
+            if given.dimension is not None or pure_value(plain, given.start, given.end)
+        ]
+
+    def _quoted(self, written: str, kind: list[Given], dimension: str) -> list[Given]:
+        """The givens of ``kind`` ``written`` quotes: by size when it carries a unit of that
+        kind ("3.0 μC" of "3.0 μC and 3.0 nC"), by its number when it carries none."""
+        written = fold_scientific(written)
+        sized = [g.si for g in read_givens(written, self.units) if g.dimension == dimension]
+        if sized:
+            return [
+                given
+                for given in kind
+                if given.si is not None
+                and any(si is not None and math.isclose(given.si, si) for si in sized)
+            ]
+        quoted = _quoted_numbers(written)
+        return [given for given in kind if given.value in quoted]
 
     def _names(self, prior: str, name: str, dimension: str) -> bool:
         """False when ``name`` may not be a given of ``prior``: the problem asks for that

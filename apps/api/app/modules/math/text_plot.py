@@ -13,55 +13,9 @@ import re
 from typing import Any
 
 from app.services.md_fence_scan import line_fences
+from app.services.sketches import PLAIN_FENCE_TAGS, could_be_plot_row, is_text_plot
 
-# A plain block may hold a sketch; a tagged one (graph, math, python) never does.
-_PLAIN_FENCE_TAGS = frozenset({"", "text", "txt", "plaintext", "ascii"})
-_WORD = re.compile(r"[A-Za-z]{3,}")
-# ``12|``, ``  |``, ``0+--``: the y-axis at the start of a row.
-_Y_AXIS = re.compile(r"^\s*[-+]?\d*(?:\.\d+)?\s*[|+](?:\s|$|[-_*•●o/\\])")
-_X_AXIS = re.compile(r"[-_]{5,}")
-_MARK = re.compile(r"(?<![\w*])[*•●](?![\w*])|(?<![\w])o(?![\w])|[/\\]")
-_TABLE_RULE = re.compile(r"^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$")
-# A number line in characters: one row of line (``─``, ``═``, ``-``) carrying a dot or an
-# arrowhead, and rows of numbers under or over it ("-1.2  -3/4  0.5", "9").
-_LINE_CHARS = re.compile(r"[─━═=\-_]")
-_LINE_MARK = re.compile(r"[●○•◦*oO|<>←→↔]")
-_NUMBER_ROW = re.compile("^[\\s\\d.,/+\\-\u2212x]*\\d[\\s\\d.,/+\\-\u2212x]*$")
-_LINE_ROW_CHARS = 8
 _GRAPH_FENCE_TYPES = frozenset({"function", "vertical", "number_line", "trajectory", "inequality"})
-
-
-def _could_be_plot_row(line: str) -> bool:
-    """Axis rows, point rows and tick labels: no math, at most a couple of words."""
-    return bool(line.strip()) and "$" not in line and len(_WORD.findall(line)) <= 2
-
-
-def _is_number_line_sketch(rows: list[str]) -> bool:
-    if len(rows) < 2 or len(rows) > 4:
-        return False
-    lines = [
-        row
-        for row in rows
-        if len(_LINE_CHARS.findall(row)) >= _LINE_ROW_CHARS
-        and _LINE_MARK.search(row)
-        and not _WORD.search(row)
-    ]
-    others = [row for row in rows if row not in lines]
-    return len(lines) == 1 and bool(others) and all(_NUMBER_ROW.match(row) for row in others)
-
-
-def _is_text_plot(rows: list[str]) -> bool:
-    if any(_TABLE_RULE.match(row) for row in rows):
-        return False
-    if _is_number_line_sketch(rows):
-        return True
-    if len(rows) < 3:
-        return False
-    axis = sum(bool(_Y_AXIS.match(row)) for row in rows) >= 3 or any(
-        _X_AXIS.search(row) for row in rows
-    )
-    marked = sum(bool(_MARK.search(row)) for row in rows) >= 2
-    return axis and marked
 
 
 def strip_text_plots(content: str) -> str:
@@ -72,7 +26,7 @@ def strip_text_plots(content: str) -> str:
     run: list[str] = []
 
     def flush_run() -> None:
-        if not _is_text_plot(run):
+        if not is_text_plot(run):
             kept.extend(run)
         run.clear()
 
@@ -87,11 +41,11 @@ def strip_text_plots(content: str) -> str:
                 close += 1
             block = lines[i : close + 1]
             body = [row for row in block[1 : -1 if fence.closed else None] if row.strip()]
-            if not (fence.lang in _PLAIN_FENCE_TAGS and _is_text_plot(body)):
+            if not (fence.lang in PLAIN_FENCE_TAGS and is_text_plot(body)):
                 kept.extend(block)
             i = close + 1
             continue
-        if _could_be_plot_row(line):
+        if could_be_plot_row(line):
             run.append(line)
         else:
             flush_run()

@@ -1,5 +1,5 @@
 /**
- * Reading a circuit, ray or wave fence: the common scene fields every diagram
+ * Reading a circuit, ray, wave or field fence: the common scene fields every diagram
  * shares (title, alt, bounds, measures, angles), then the kind's own object
  * through its parser in `lib/physics/`.
  *
@@ -20,6 +20,7 @@ import {
   type WorldBounds,
 } from "@/lib/physics/optics";
 import { parseWaveSpec, type WaveSpec } from "@/lib/physics/wave";
+import { parseFieldSpec, type FieldSpec } from "@/lib/physics/field";
 import { measureDiagramText } from "@/components/rich/diagrams/textWidth";
 
 type Header = {
@@ -44,7 +45,8 @@ export type WaveDiagramSpec = Header & {
   wave: WaveSpec;
   measures: MeasureVector[];
 };
-export type PhysicsDiagramSpec = CircuitDiagramSpec | RayDiagramSpec | WaveDiagramSpec;
+export type FieldDiagramSpec = Header & { kind: "field"; bounds: WorldBounds; field: FieldSpec };
+export type PhysicsDiagramSpec = CircuitDiagramSpec | RayDiagramSpec | WaveDiagramSpec | FieldDiagramSpec;
 
 const MAX_TITLE = 64;
 const MAX_ALT = 300;
@@ -56,10 +58,11 @@ const MAX_ALT = 300;
 const TITLE_KEY = /^[a-z][a-z0-9_]{0,39}$/;
 
 /** The object each kind carries, and the one only it may carry. */
-const FIELD: Record<DiagramKind, "circuit" | "optics" | "wave"> = {
+const FIELD: Record<DiagramKind, "circuit" | "optics" | "wave" | "field"> = {
   circuit: "circuit",
   rays: "optics",
   wave: "wave",
+  field: "field",
 };
 
 function text(value: unknown, max: number): string | undefined | null {
@@ -117,6 +120,12 @@ export function parsePhysicsDiagram(content: string, kind: DiagramKind): Physics
     case "wave": {
       const wave = parseWaveSpec(row.wave);
       return wave ? { ...header, kind, bounds, wave, measures } : null;
+    }
+    case "field": {
+      // A field diagram draws no measure line and no angle.
+      if (measures.length || angles.length) return null;
+      const field = parseFieldSpec(row.field);
+      return field ? { ...header, kind, bounds, field } : null;
     }
     default:
       return null;

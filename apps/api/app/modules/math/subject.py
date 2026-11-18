@@ -60,13 +60,38 @@ _HINTS = SubjectHints(
 
 @dataclass(frozen=True)
 class MathFollowups:
-    def changed_problem(self, problem: str, given: str | None, new: str) -> str | None:
+    def changed_problem(
+        self, problem: str, changes: Sequence[tuple[str | None, str]]
+    ) -> str | None:
         # An equation or expression has no units to say which part changes: the part the
-        # read names, written once in the problem, gives way to one of its own kind.
+        # read names, written once in the problem, gives way to one of its own kind. One
+        # change only: two parts of one expression may overlap.
+        if len(changes) != 1:
+            return None
+        ((given, new),) = changes
         if not given or problem.count(given) != 1 or ("=" in given) != ("=" in new):
             return None
         rewritten = problem.replace(given, new)
         return rewritten if rewritten != problem and MATH_SUBJECT.reads(rewritten) else None
+
+    # An equation has no units to read a restated value by: a line maths claims is never
+    # read as a change, and a change is the one part the read names.
+    def restates(self, problem: str, line: str) -> bool:
+        return False
+
+    # An equation's numbers have no units to tell a new value by: chat reads its bare
+    # numbers (``chat.posed_read``).
+    def states_new(self, problem: str, line: str) -> bool:
+        return False
+
+    def takes_every_change(
+        self, problem: str, rewritten: str, line: str, new: Sequence[str]
+    ) -> bool:
+        # Every number the line writes is in the rewrite, as often: "What if it were
+        # 5x + 3 = 13?" read as only 2x -> 5x would solve 5x + 3 = 7.
+        from app.services.problem_followup import stated_numbers
+
+        return not stated_numbers(line) - stated_numbers(rewritten)
 
     def problem(
         self,
@@ -342,10 +367,10 @@ class MathFigure:
             timeout=settings.stem_solve_timeout_seconds,
         )
 
-    def without_drawn_substitutes(self, text: str) -> str:
+    def without_drawn_substitutes(self, text: str, user_text: str = "") -> str:
         from app.modules.math.figure.substitutes import without_drawn_substitutes
 
-        return without_drawn_substitutes(text)
+        return without_drawn_substitutes(text, user_text)
 
 
 @dataclass(frozen=True)

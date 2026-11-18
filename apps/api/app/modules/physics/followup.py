@@ -410,14 +410,32 @@ _GIVENS = GivenRewriter(
 )
 
 
-def changed_physics_problem(problem: str, given: str | None, new: str) -> str | None:
-    """``problem`` with the given of ``new``'s kind put to ``new`` ("10 s" replaces the time;
-    of two masses, the one whose number ``given`` quotes). The unit decides which kind
-    changes: "10 s" never replaces a distance. The rewrite verifies."""
-    value = written_value(new)
-    if value is None:
+def restates_physics_problem(problem: str, line: str) -> bool:
+    """The line states a value, with its unit, of a kind the problem gives."""
+    return bool(_GIVENS.restated(problem, line))
+
+
+def physics_states_new(problem: str, line: str) -> bool:
+    """The line states a value, with its unit, the problem does not."""
+    return _GIVENS.states_new(problem, line)
+
+
+def physics_change_whole(problem: str, rewritten: str, line: str, new: Sequence[str]) -> bool:
+    """The rewrite takes every value the line states, and asks what the line asks."""
+    return _GIVENS.takes_every(problem, rewritten, line, new)
+
+
+def changed_physics_problem(problem: str, changes: Sequence[tuple[str | None, str]]) -> str | None:
+    """``problem`` with the given of each new value's kind put to it ("10 s" replaces the
+    time; of two masses, the one whose number its ``given`` quotes). The unit decides which
+    kind changes: "10 s" never replaces a distance. The rewrite verifies."""
+    values = [written_value(new) for _given, new in changes]
+    if any(value is None for value in values):
         return None
-    rewritten = _GIVENS.replaced(problem, given, *value)
+    rewritten = _GIVENS.replaced(
+        problem,
+        [(given, *value) for (given, _new), value in zip(changes, values, strict=True) if value],
+    )
     if rewritten is None:
         return None
     if _held_fixed(problem):
