@@ -115,6 +115,8 @@ def solve_physics_request(
     # ask by its own law, laws chained (``chain_solve``), else each part read alone.
     if block is None or (len(block.physics_parts) < 2 and asks_count(user_content) > 1):
         block = _more_answered(block, user_content, settings)
+    if block is not None and not _answers_a_meeting(block, user_content):
+        block = None
     if block is None:
         return _picture_or(user_content, "note" if intent is None else "failed")
     partial = answers_part_of(user_content, block.physics_intent, len(block.physics_parts))
@@ -140,6 +142,23 @@ def solve_or_say_why(
     if result is not None:
         return outcome, None, NoAnswer(_sign_check_note(result), stated=False)
     return outcome, None, None
+
+
+def _answers_a_meeting(block: VerifiedPhysicsBlock, user_content: str) -> bool:
+    """A question asking when two bodies meet is answered only by a law of their relative
+    velocity, every part of it: one body's law, read alone or chained, answered the
+    cruiser's catch-up as a fall (owner's phone, 2026-11-17). The rest is the formal
+    reader's or the model's working. Any other question is answered as it was."""
+    from app.modules.physics.catalog import formula_spec
+    from app.modules.physics.catalog.kinematics import RELATIVE_VELOCITY
+    from app.modules.physics.extractors.relative_motion import asks_where_two_meet
+
+    if not asks_where_two_meet(user_content):
+        return True
+    intent = block.physics_intent
+    ops = [part.op for part in block.physics_parts] or [intent.physics_op if intent else ""]
+    specs = [formula_spec(op or "") for op in ops]
+    return all(spec is not None and spec.law_name == RELATIVE_VELOCITY for spec in specs)
 
 
 def _more_answered(

@@ -8,6 +8,9 @@ from app.services.law_binding.labels import LABELS
 from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
 from app.services.law_binding.words import COMBINED_RESULT
 
+# The law family of two bodies on one line: only such a law answers when they meet.
+RELATIVE_VELOCITY = "Relative velocity"
+
 # A drop from a height and a sound's trip to a wall and back are not one
 # distance covered at one speed: d = vt read "rolls off a 1.2 m high table at
 # 3 m/s" as 0.4 s, and an echo heard after 0.6 s as a wall 204 m away. Nor are
@@ -298,7 +301,7 @@ SPECS: tuple[FormulaSpec, ...] = (
     formula(
         "catch_up_time",
         "kinematics",
-        "Relative velocity",
+        RELATIVE_VELOCITY,
         "t",
         base_latex=r"t = \frac{d}{v_1 - v_2}",
         assumptions=("both move at constant speed along one line, the same way",),
@@ -368,7 +371,7 @@ SPECS: tuple[FormulaSpec, ...] = (
     formula(
         "meeting_time",
         "kinematics",
-        "Relative velocity",
+        RELATIVE_VELOCITY,
         "t",
         base_latex=r"t = \frac{d}{v_1 + v_2}",
         assumptions=("both move at constant speed along one line, toward each other",),
@@ -411,7 +414,7 @@ SPECS: tuple[FormulaSpec, ...] = (
     formula(
         "perpendicular_velocity_sum",
         "kinematics",
-        "Relative velocity",
+        RELATIVE_VELOCITY,
         "v",
         base_latex=r"v = \sqrt{v_1^2 + v_2^2}",
         assumptions=("the two velocities are at right angles",),

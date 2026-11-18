@@ -83,8 +83,12 @@ _UNREAD_SENSE = re.compile(
     r"|\b(?:back|backwards?|reverse)\b",
     re.IGNORECASE,
 )
-# Both moving the one way: "in the same direction".
-_SAME_WAY = re.compile(r"\b(?:in\s+)?the\s+same\s+direction\b", re.IGNORECASE)
+# Both moving the one way: "in the same direction", "hits the back of", "rear-ends", "from
+# behind".
+_SAME_WAY = re.compile(
+    r"\bsame\s+direction\b|\bback\s+of\b|\brear[\s-]?end\w*|\bfrom\s+behind\b",
+    re.IGNORECASE,
+)
 # Both moving, each toward the other: the second speed points back along the line.
 _OPPOSED = re.compile(
     r"\btowards? each other\b|\bin\s+(?:the\s+)?opposite\s+directions?\b|\bhead[- ]on\s+toward",
