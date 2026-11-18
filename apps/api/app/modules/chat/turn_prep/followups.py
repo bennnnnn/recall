@@ -157,10 +157,19 @@ def _only_the_change(line: str, problem: str, news: Sequence[str]) -> bool:
     rest = without_markup(line)
     for new in news:
         rest = rest.replace(without_markup(new), " ")
-    known = {word.lower()[:4] for word in _CONTENT_WORD.findall(without_markup(problem))}
+    known = {_singular(word) for word in _CONTENT_WORD.findall(without_markup(problem))}
     return all(
-        word.lower() in _FRAME or word.lower()[:4] in known for word in _CONTENT_WORD.findall(rest)
+        word.lower() in _FRAME or _singular(word) in known for word in _CONTENT_WORD.findall(rest)
     )
+
+
+def _singular(word: str) -> str:
+    """A word, whole, plural or singular alike ("charges" is "charge"): never a stem, so
+    "frictionless" is no "friction" and "without" no "with"."""
+    lower = word.lower()
+    if lower.endswith("es") and len(lower) > 4 and lower[-3] in "sxz":
+        return lower[:-2]
+    return lower[:-1] if lower.endswith("s") and not lower.endswith("ss") else lower
 
 
 def _shown(content: str, history: Sequence[Any], referent: str) -> SubjectFollowup:

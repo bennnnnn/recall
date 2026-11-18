@@ -111,12 +111,17 @@ def _charges(
     if any(charge.amount is None for charge in charges):
         return None  # the question sizes its charges: the picture says them
     # Each charge is held to a stated one below, sign and all (its own words read its sign:
-    # "a negative charge of 2 nC"); the named-signs check is for a picture with no amounts.
+    # "a negative charge of 2 nC"); the named-signs check is for a picture with no amounts,
+    # or amounts the question gives no sign of.
     described = [
         described_charge(sign, charge.amount or "")
         for sign, charge in zip(signs, charges, strict=True)
     ]
-    held = held_to([c for c in described if c is not None], stated)
+    # A charge the question gives no sign of takes the picture's only when the question's
+    # words name the signs, as many of each as the picture's; with none named, an unsigned
+    # amount is positive.
+    unsigned = named_signs(texts, part) is not None and _signs_named(signs, texts, part)
+    held = held_to([c for c in described if c is not None], stated, unsigned=unsigned)
     if held is None or len(held) != len(charges) or len({c.kind for c in held}) != 1:
         return None  # an amount the question does not state, or "2q" beside "3 μC"
     if len(held) != len(stated):
