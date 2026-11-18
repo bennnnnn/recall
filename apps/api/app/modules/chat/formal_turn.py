@@ -32,7 +32,7 @@ from app.modules.chat.reply_language import line_language
 from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.whole_question import ASK_QUESTION_WORDS, ASK_VERBS, ASKED_SENTENCE
 from app.modules.chat.worked_language import WORKED_WORDS
-from app.services.answer_check import stated_verdict
+from app.services.answer_check import Verdict, stated_verdict
 from app.services.answer_fence import (
     ANSWER_FENCE_LANGS,
     UNCHECKED_ANSWER_MARKER,
@@ -157,24 +157,34 @@ _BRACKETED = re.compile(r"\\?\(|\\?\)")
 _EDGE_SPACE = re.compile(r"^(?:\s|\\[ ,;])+|(?:\s|\\(?:[ ,;]|$))+$")
 
 
-def _card_states(reply: str, forms: list[str]) -> bool:
-    """The reply's own last answer card states the server's value in one of its ``forms``,
-    read as the Answer it is: "0.840 (84.0 percent)" for an efficiency of 84 % got the
-    server's card under it, the same value twice (owner's phone, 2026-11-17)."""
+def _card_states(reply: str, forms: list[str]) -> Verdict:
+    """What the reply's own last answer card states, read as the Answer it is, against the
+    server's value in its ``forms``: "same" when every value it states agrees, "conflict"
+    when any disagrees, "absent" when it states none the reader reads. "0.840 (84.0
+    percent)" for 84 % is the same value twice and got the server's card under it (owner's
+    phone, 2026-11-17); "0.94 (84.0%)" is no 0.84, and "x(3 m) = 15 m" no 3 m (review of
+    #2491)."""
     cards = [
         answer_fence_value(reply[fence.body_start : fence.body_end])
         for fence in iter_fences(reply)
         if fence.closed and fence.lang in ANSWER_FENCE_LANGS
     ]
     if not cards:
-        return False
-    pieces = [cards[-1], *(_EDGE_SPACE.sub("", piece) for piece in _BRACKETED.split(cards[-1]))]
-    return any(
-        stated_verdict(f"**Answer**\n\n${piece}$\n", form) in _AGREES
-        for piece in pieces
-        if piece
-        for form in forms
-    )
+        return "absent"
+    split = [_EDGE_SPACE.sub("", piece) for piece in _BRACKETED.split(cards[-1])]
+    verdicts = [_piece_verdict(piece, forms) for piece in split if piece]
+    if "conflict" in verdicts:
+        return "conflict"
+    return "same" if "same" in verdicts else "absent"
+
+
+def _piece_verdict(piece: str, forms: list[str]) -> Verdict:
+    """One stated value against the server's: the same in any of its forms, or a conflict
+    with its own form (0.94 against 84 %), else nothing read."""
+    said = [stated_verdict(f"**Answer**\n\n${piece}$\n", form) for form in forms]
+    if any(verdict in _AGREES for verdict in said):
+        return "same"
+    return "conflict" if said and said[0] == "conflict" else "absent"
 
 
 async def attach_formal(state: FinalizeState) -> str:
@@ -210,8 +220,10 @@ async def attach_formal(state: FinalizeState) -> str:
     ):
         # The same answer another way: 90% for 0.9, 7500 N for a braking force of -7500 N.
         verdict = "same"
-    if verdict == "absent" and _card_states(state.text, answer.same_answers):
-        verdict = "same"
+    if verdict == "absent":
+        # The reply's own card, when its prose states nothing the reader reads: the same
+        # value keeps the reply as it is, a different one is replaced (land_answer_card).
+        verdict = _card_states(state.text, answer.same_answers)
     logger.info("formal answer: reply %s, waited %.2f s", verdict, waited)
     if verdict in _AGREES:
         return state.text

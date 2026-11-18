@@ -249,5 +249,83 @@
    "m/s"
   ],
   "note": "hitting the back of the car is the same way: (30000 + 10000)/2500"
+ },
+ {
+  "id": "p17-first-body-negative-x",
+  "area": "momentum",
+  "prompt": "A 1.0 kg cart moving in the negative x direction at 3.0 m/s collides with a 2.0 kg cart moving in the positive x direction at 3.0 m/s, and they stick together. What is their final velocity?",
+  "expect": "answer",
+  "answer": [
+   1,
+   "m/s"
+  ],
+  "note": "(−3 + 6)/3 = +1 m/s along +x: the first body's −x is its own sign (review of #2491)"
+ },
+ {
+  "id": "p17-negative-x-into-stationary",
+  "area": "momentum",
+  "prompt": "A 2.0 kg cart moving in the −x direction at 3.0 m/s collides with a stationary 1.0 kg cart and they stick together. What is their final velocity?",
+  "expect": "answer",
+  "answer": [
+   -2,
+   "m/s"
+  ],
+  "note": "2 × (−3)/3 = −2 m/s"
+ },
+ {
+  "id": "p17-the-other-way",
+  "area": "momentum",
+  "prompt": "A 3.00 kg object moving at 4.00 m/s collides and sticks together with a 1.00 kg object moving at 2.00 m/s the other way. How much kinetic energy is lost in the collision?",
+  "expect": "answer",
+  "answer": [
+   13.5,
+   "J"
+  ],
+  "note": "the other way is opposite: never read as one way"
+ },
+ {
+  "id": "p17-oncoming",
+  "area": "momentum",
+  "prompt": "A 3.00 kg car moving at 4.00 m/s collides and sticks together with an oncoming 1.00 kg car moving at 2.00 m/s. How much kinetic energy is lost in the collision?",
+  "expect": "answer",
+  "answer": [
+   13.5,
+   "J"
+  ],
+  "note": "an oncoming car moves the other way"
+ },
+ {
+  "id": "p17-rocket-driven",
+  "area": "energy",
+  "prompt": "A 2.0 kg rocket is launched from rest and accelerates upward at 15 m/s² to a height of 40 m. How much potential energy does it gain?",
+  "expect": "answer",
+  "answer": [
+   784.8,
+   "J"
+  ],
+  "note": "mgh = 2 × 9.81 × 40: the rocket's 15 m/s² is its engine's, never g (1200 J was certified; review of #2491)",
+  "gap": "declines: a driven acceleration given beside an asked PE is left unread"
+ },
+ {
+  "id": "p17-rover-acceleration",
+  "area": "force",
+  "prompt": "A 300 kg rover on Mars has an acceleration of 1.5 m/s². What net force acts on it?",
+  "expect": "answer",
+  "answer": [
+   450,
+   "N"
+  ],
+  "note": "F = ma = 300 × 1.5: Mars names a world, the acceleration is the rover's"
+ },
+ {
+  "id": "p17-refraction-35-5",
+  "area": "optics",
+  "prompt": "Light in air strikes a glass block (n = 1.5) at 35.5° to the normal to the face. What is the angle of refraction?",
+  "expect": "answer",
+  "answer": [
+   22.8,
+   "deg"
+  ],
+  "note": "sin r = sin 35.5° / 1.5: the angle to the normal, whatever surface follows"
  }
 ]

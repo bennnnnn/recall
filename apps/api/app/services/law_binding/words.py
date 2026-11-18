@@ -72,7 +72,9 @@ def labels_as(phrases: tuple[str, ...], before: str, after: str) -> bool:
 
 
 _PATTERN = "re:"
-_DEGREES = r"\d(?:\.\d+)?\s*(?:\u00b0|\u00ba|deg\b|degrees?\b)"
+# An angle's whole number, from its first digit: "40°", "35.5 degrees" (Codex on #2491: one
+# digit matched only the last of "40").
+_DEGREES = r"(?<![\d.])\d+(?:\.\d+)?\s*(?:\u00b0|\u00ba|deg\b|degrees?\b)"
 _FROM_REFERENCE = r"(?:to|from|with|off)\s+(?:the\s+)?"
 
 

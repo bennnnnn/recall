@@ -89,7 +89,8 @@ _SAME_WAY = re.compile(
 )
 # Both moving, each toward the other: the second speed points back along the line.
 _OPPOSED = re.compile(
-    r"\btowards? each other\b|\bin\s+(?:the\s+)?opposite\s+directions?\b|\bhead[- ]on\s+toward",
+    r"\btowards? each other\b|\bin\s+(?:the\s+)?opposite\s+directions?\b|\bhead[- ]on\s+toward"
+    r"|\b(?:the\s+)?other\s+way\b|\boncoming\b",
     re.IGNORECASE,
 )
 # "How much kinetic energy is lost?": the energy a sticking collision turns to heat.
@@ -186,6 +187,7 @@ def _collision_intent(text: str) -> PhysicsIntent | None:
     params: dict[str, float] = {"elastic": float(elastic)}
     units: dict[str, str] = {"elastic": ""}
     consumed_speeds = 0
+    signed_literal = False
     directions: list[tuple[str, int] | None] = []
     leading_rest = _REST_BEFORE_MASS.search(text[: masses[0].start()]) is not None
     for index, mass in enumerate(masses, start=1):
@@ -210,7 +212,14 @@ def _collision_intent(text: str) -> PhysicsIntent | None:
         direction = moving_sense(body_clause, 0, len(body_clause))
         if direction == TWO_WAYS:
             return None
-        directions.append(direction if velocity != 0 else None)
+        sense = direction if velocity != 0 else None
+        if sense is not None:
+            if velocity < 0 and sense[1] > 0:
+                return None  # "-2 m/s in the +x direction": the two signs disagree
+            # Each body signed by its own sense, the first's too: "-x at 3 m/s" is -3 m/s.
+            velocity = sense[1] * abs(velocity)
+        signed_literal = signed_literal or (velocity < 0 and sense is None)
+        directions.append(sense)
         consumed_speeds += len(velocities)
         params.update({f"m{index}": value, f"v{index}": velocity})
         units.update({f"m{index}": mass[2], f"v{index}": velocity_unit})
@@ -222,13 +231,13 @@ def _collision_intent(text: str) -> PhysicsIntent | None:
     if first is not None and second is not None:
         if first[0] != second[0] or opposed:
             return None
-        if first[1] != second[1]:
-            params["v2"] = -params["v2"]
     elif (first is not None or second is not None) and moving:
         # One body's direction and the other's unsaid: the line's sense is unknown.
         return None
     elif opposed:
-        if not moving:
+        # "Towards each other", "the other way", "oncoming": the second points back along
+        # the first's line; with a sign written as well, which one it means is unsaid.
+        if not moving or signed_literal:
             return None
         params["v2"] = -params["v2"]
     elif moving and not _SAME_WAY.search(text) and _UNREAD_SENSE.search(text[:ask_start]):

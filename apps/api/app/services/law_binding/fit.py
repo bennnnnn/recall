@@ -337,16 +337,21 @@ def _negative(variable: VariableSpec, before: str, lower: str, given: Given) -> 
     return variable.negated is not None and variable.negated(lower, given.start, given.end)
 
 
-# A body falling, dropped or thrown: its acceleration is gravity's.
+# A body falling or dropped: its acceleration is gravity's, however it is said.
 _FALLING = re.compile(
-    r"\b(?:drop(?:s|ped|ping)?|falls?|falling|fell|free[\s-]?fall\w*|projectiles?"
-    r"|thrown|throws?|tossed|launched|fired)\b",
-    re.IGNORECASE,
+    r"\b(?:drop(?:s|ped|ping)?|falls?|falling|fell|free[\s-]?fall\w*)\b", re.IGNORECASE
 )
+# A body thrown or launched: an unpowered projectile, under gravity, unless it is driven.
+_THROWN = re.compile(r"\b(?:projectiles?|thrown|throws?|tossed|launched|fired)\b", re.IGNORECASE)
 # A sentence's end: a stop, then a space or the end ("3.0 m/s." ends one, "3.00" does not).
 _SENTENCE_END = re.compile(r"[.?!](?=\s|$)")
-# A body driven to its acceleration: "the cruiser accelerates at 3 m/s²", "brakes at".
-_DRIVEN = re.compile(r"\b(?:accelerat(?:es|ed|ing)|speeds?\s+up|brak\w*|decelerat\w*)\b", re.I)
+# A body driven to its acceleration: "the cruiser accelerates at 3 m/s²", "brakes at", "an
+# acceleration of 1.5 m/s²", a thrust or an engine. A launched rocket that "accelerates
+# upward at 15 m/s²" is driven: 15 is no g (Gemini on #2491).
+_DRIVEN = re.compile(
+    r"\b(?:accelerat(?:es|ed|ing|ion)|speeds?\s+up|brak\w*|decelerat\w*|thrust\w*|engines?)\b",
+    re.IGNORECASE,
+)
 
 
 def _may_take(
@@ -365,8 +370,9 @@ def _may_take(
 def _marks_gravity(question: Question, given: Given, previous: int, subject: Subject) -> bool:
     """A stated acceleration fills g only where the words make it gravity's: the g the
     subject's one reader of a stated g reads at the value ("g = 1.62", "take 10 m/s² for
-    g"); a body falling, dropped or thrown in the value's own sentence; else, unless the
-    value is a body's own driven acceleration, a fall anywhere or a named world's gravity.
+    g"); a body falling or dropped in the value's own sentence; else, unless the value is a
+    body's own driven acceleration (a launched rocket's too), a fall or a throw anywhere, or
+    a named world's gravity.
     "The cruiser accelerates from rest at 3.00 m/s²" is no g: a law with g bound it as one
     and certified 150 m for 600 m (owner's phone, 2026-11-17)."""
     lower = question.lower
@@ -380,7 +386,9 @@ def _marks_gravity(question: Question, given: Given, previous: int, subject: Sub
         return True  # "a ball dropped from a tower accelerates at 9.8 m/s²"
     if _DRIVEN.search(before):
         return False
-    return bool(_FALLING.search(lower)) or subject.names_gravity(question.text)
+    if _FALLING.search(lower) or _THROWN.search(lower):
+        return True
+    return subject.names_gravity(question.text)
 
 
 def _next_start(givens: Sequence[Given], index: int, lower: str) -> int:

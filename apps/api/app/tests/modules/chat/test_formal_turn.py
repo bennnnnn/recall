@@ -358,6 +358,8 @@ async def test_labels_in_the_statement_are_no_parts(answer: list[str], question:
         ("\\eta = 0.840", True),
         ("84.0\\%", True),
         ("0.79\\ (79\\%)", False),
+        # Review of #2491: every value the card states must agree.
+        ("0.94\\ (84.0\\%)", False),
     ],
 )
 def test_the_reply_s_own_card_states_the_value_in_either_form(card: str, same: bool) -> None:
@@ -367,4 +369,23 @@ def test_the_reply_s_own_card_states_the_value_in_either_form(card: str, same: b
 
     reply = f"**Answer**\n\n```answer\nverified: false\n{card}\n```"
     forms = FormalAnswer(value=84.0, unit="%").same_answers
-    assert _card_states(reply, forms) is same
+    assert (_card_states(reply, forms) == "same") is same
+
+
+@pytest.mark.parametrize(
+    ("card", "value", "unit", "verdict"),
+    [
+        ("0.94\\ (84.0\\%)", 84.0, "%", "conflict"),
+        ("x(3\\ \\mathrm{m}) = 15\\ \\mathrm{m}", 3.0, "m", "conflict"),
+        ("0.840\\ (84.0\\ \\text{percent})", 84.0, "%", "same"),
+        ("\\text{see above}", 84.0, "%", "absent"),
+    ],
+)
+def test_a_card_is_the_same_a_conflict_or_says_nothing(
+    card: str, value: float, unit: str, verdict: str
+) -> None:
+    """A card with a value that disagrees is a conflict, replaced, never a second card."""
+    from app.modules.chat.formal_turn import _card_states
+
+    reply = f"**Answer**\n\n```answer\nverified: false\n{card}\n```"
+    assert _card_states(reply, FormalAnswer(value=value, unit=unit).same_answers) == verdict
