@@ -5,8 +5,10 @@
  * layers, and the legend's rows.
  */
 import { type GraphPoints } from "@/components/rich/graphPoints";
+import { plotColor } from "@/components/rich/plotPaint";
 import { type DrawnSeries } from "@/hooks/useInteractiveGraph";
 import { type GraphLayers, type PlotGraph, type PlotLineRole } from "@/lib/math/plotGraph";
+import { type Theme } from "@/lib/theme";
 
 export type PlotDrawing = {
   drawn: DrawnSeries[];
@@ -15,8 +17,9 @@ export type PlotDrawing = {
   legend: { label: string; color: number; role: PlotLineRole | "curve" }[];
 };
 
-export function plotDrawing(graph: PlotGraph, palette: readonly string[]): PlotDrawing {
-  const color = (index: number) => palette[index % palette.length];
+export function plotDrawing(graph: PlotGraph, theme: Theme): PlotDrawing {
+  // The one mapping of the server's colour indexes, its neutral one included (plotPaint).
+  const color = (index: number) => plotColor(theme, index);
   const drawn = graph.curves.map((curve, i) => ({
     id: String(i),
     expr: curve.label,

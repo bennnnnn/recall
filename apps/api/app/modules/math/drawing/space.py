@@ -23,12 +23,16 @@ _ARROW = 0.04
 # An axis runs past the farthest point by this share, and at least this share of the
 # scene's reach; it starts a little behind the origin.
 _AXES = ("x", "y", "z")
+# A scene in the plane is seen from straight above, x to the right and y up.
+_FROM_ABOVE = View(270.0, math.pi / 2)
 _MINUS = "\u2212"
 
 
 def _axes(drawing: Drawing, scene: Scene, view: View, size: float) -> None:
     taken = set(scene.points)
     for name, (start, end) in zip(_AXES, axis_ends(scene), strict=True):
+        if scene.flat and name == "z":
+            continue  # seen from above, z is a point
         # Dashed: the phone's thinner, muted stroke, so arrows and segments stand off them.
         axis(drawing, view(start), view(end), name if name not in taken else "", size, dashed=True)
 
@@ -111,7 +115,7 @@ def _drawn(drawing: Drawing, a: str, b: str) -> bool:
 
 
 def draw_scene(scene: Scene) -> FigureSpec | None:
-    view = clearest_view(scene)
+    view = _FROM_ABOVE if scene.flat else clearest_view(scene)
     if view is None:
         return None
     drawing = Drawing("space")

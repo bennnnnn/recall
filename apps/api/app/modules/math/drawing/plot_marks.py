@@ -24,13 +24,20 @@ from app.modules.math.drawing.plot_labels import equation_text, line_text, numbe
 from app.modules.math.drawing.plot_pieces import end_value
 from app.modules.math.drawing.plot_question import PlotQuestion
 from app.modules.math.drawing.plot_reading import number, same_number
-from app.modules.math.drawing.plot_scene import DrawnCurve, DrawnLine, DrawnPoint, Place, Scene
+from app.modules.math.drawing.plot_scene import (
+    DrawnCurve,
+    DrawnLine,
+    DrawnPoint,
+    Place,
+    Scene,
+)
 from app.modules.math.drawing.real_curve import RealFunction, X, defined_at
 from app.modules.math.solve.graph_sampling import side
 from app.modules.math.tangent_line import touching_line
 
-_TOUCH_COLOR = 3
-_NORMAL_COLOR = 2
+# A tangent and an asymptote are drawn in their curve's colour, so a legend row names the
+# lines of one curve only (u5-006: three tangents in one colour beside one row, y = 2x); a
+# normal in one no curve uses, apart from the tangent at the same point.
 
 
 def _exact_y(fn: RealFunction, x: Any) -> Any:
@@ -95,7 +102,7 @@ def touching(item: Touching, question: PlotQuestion, scene: Scene) -> None:
     y0, slope = found
     normal = item.item == "normal"
     line_slope, offset = touching_line(at, y0, slope, normal, radsimp)
-    color = _NORMAL_COLOR if normal else _TOUCH_COLOR
+    color = scene.mark_color() if normal else curve.color
     if line_slope is None:
         line = DrawnLine(vertical=at, label=equation_text("x", at), color=color, held=(float(at),))
     else:
@@ -116,7 +123,13 @@ def asymptotes(item: Asymptotes, scene: Scene) -> None:
         if found.asymptote:
             label = equation_text("x", found.x) if not found.x.is_Float else ""
             scene.marks.append(
-                DrawnLine(vertical=found.x, role="asymptote", label=label, held=(float(found.x),))
+                DrawnLine(
+                    vertical=found.x,
+                    role="asymptote",
+                    label=label,
+                    color=curve.color,
+                    held=(float(found.x),),
+                )
             )
     fn = curve.single
     if fn is None or curve.stated_domain:
@@ -128,6 +141,7 @@ def asymptotes(item: Asymptotes, scene: Scene) -> None:
                 offset,
                 role="asymptote",
                 label=line_text(slope, offset),
+                color=curve.color,
                 held=(float(slope), float(offset)),
             )
         )
@@ -196,7 +210,9 @@ def point(item: Point, question: PlotQuestion, scene: Scene) -> None:
     if item.at is not None:
         a, b = number(item.at[0]), number(item.at[1])
         if a is not None and b is not None and _written_pair(a, b, question):
-            scene.add_point(DrawnPoint(float(a), float(b), point_text(a, b), color=2))
+            scene.add_point(
+                DrawnPoint(float(a), float(b), point_text(a, b), color=scene.mark_color())
+            )
         return
     curve = scene.curves.get(item.on)
     if curve is None or curve.shape is None:
@@ -226,8 +242,11 @@ def nearest(item: Nearest, question: PlotQuestion, scene: Scene) -> None:
     if not lows:
         return
     best = min(distance.at(x) for x in lows)
-    target = DrawnPoint(float(a), float(b), point_text(a, b), color=2)
+    # One colour for the point and every segment to it: equally near ones alike.
+    color = scene.mark_color()
+    target = DrawnPoint(float(a), float(b), point_text(a, b), color=color)
     scene.add_point(target)
+    named = False
     for x in lows:
         if distance.at(x) > best * (1 + 1e-9) + 1e-12:
             continue
@@ -242,5 +261,9 @@ def nearest(item: Nearest, question: PlotQuestion, scene: Scene) -> None:
         )
         ends = ((place.x, place.y), (target.x, target.y))
         held = (math.sqrt(distance.at(x)),)
-        scene.marks.append(DrawnLine(role="segment", ends=ends, label=length, color=2, held=held))
+        # Equally near points share one length: one legend row names it, on the first.
+        label, named = ("" if named else length), True
+        scene.marks.append(
+            DrawnLine(role="segment", ends=ends, label=label, color=color, held=held)
+        )
     scene.equal = True

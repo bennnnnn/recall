@@ -94,6 +94,8 @@ class Scene:
     # What a vector's name stands for in an angle: its tip, and the point it starts from.
     tips: dict[str, str] = field(default_factory=dict)
     tails: dict[str, str] = field(default_factory=dict)
+    # Every point in the plane z = 0 of a question in the plane: drawn flat, x and y alone.
+    flat: bool = False
 
     def place(self, xyz: Triple, name: str = "") -> str:
         label = name or f"_{len(self.points)}"
@@ -223,10 +225,7 @@ def _vector(item: SpaceVector, scene: Scene, question: Question) -> bool:
     else:
         components = exact(item.end)
         base = scene.points[start]
-        # From a point the origin is not, only a vector the question writes as one: from A
-        # to "B(4, 5, 6)" is no arrow of (4, 5, 6) (round 2's review drew A to A + B).
-        held = question.vectors if any(base) else question.triples
-        if components not in held:
+        if not question.states_vector(components, from_origin=not any(base)):
             return False
         tip = scene.place(
             (base[0] + components[0], base[1] + components[1], base[2] + components[2])
@@ -393,4 +392,6 @@ def checked_scene(items: list[tuple[str, Any | None]], question: Question) -> Sc
     # Something beside the axes: a point the origin is not, or a solid, an arrow or a face.
     placed = any(any(at) for at in scene.points.values())
     drawn = scene.arrows or scene.boxes or scene.spheres or scene.faces or placed
+    in_plane = all(at[2] == 0 for at in scene.points.values())
+    scene.flat = question.flat and in_plane and not scene.boxes and not scene.spheres
     return scene if drawn else None
