@@ -106,29 +106,30 @@ def _figure_wanted(read: asyncio.Task[TurnDecision | None]) -> _Wanted | None:
     return (subject, "teach") if decision.picture in _UNASKED else None
 
 
-def read_asks_for_a_picture(
-    decision: TurnDecision, subjects: frozenset[str] = frozenset({"maths"})
-) -> bool:
-    """The read calls the message a question of ``subjects`` (maths, unless a caller names
-    physics too) asking to see a graph or a diagram: the one check every picture path asks
-    of the read."""
-    return decision.subject in subjects and decision.picture in _DRAWN
-
-
-def _asks_for_a_picture(read: asyncio.Task[TurnDecision | None]) -> bool:
-    wanted = _figure_wanted(read)
-    return wanted is not None and wanted[1] == "asked"
+def read_asks_for_a_picture(decision: TurnDecision, *, described: bool = False) -> bool:
+    """The read calls the message a maths question asking to see a graph or a diagram, or
+    a physics question asking to see a graph (drawn as maths draws one), or, for a picture
+    the reply ``described`` (``drawing_turn``), a physics diagram (a field's lines): the one
+    check every picture path asks of the read."""
+    if decision.subject == "physics":
+        return decision.picture == "graph" or (described and decision.picture == "diagram")
+    return decision.subject == "maths" and decision.picture in _DRAWN
 
 
 async def read_asks_for_a_figure(read: asyncio.Task[TurnDecision | None] | None) -> bool:
     """The turn's read calls the message a maths question asking to see a graph or a
-    diagram: a figure the app draws, never a photo or a painted picture. Waited for until it
-    ends (its own timeout bounds it: a read later than a fixed wait let "draw the box" be
-    painted), and never cancelled: the reply and the figure wait for the same read."""
+    diagram, or a physics question asking to see a graph: a picture the app draws, never a
+    photo or a painted picture ("Draw the velocity-time graph" is no image to generate).
+    Waited for until it ends (its own timeout bounds it: a read later than a fixed wait let
+    "draw the box" be painted), and never cancelled: the reply and the figure wait for the
+    same read."""
     if read is None:
         return False
     await asyncio.wait([read])
-    return _asks_for_a_picture(read)
+    if read.cancelled() or read.exception() is not None:
+        return False
+    decision = read.result()
+    return decision is not None and read_asks_for_a_picture(decision)
 
 
 async def _draw(

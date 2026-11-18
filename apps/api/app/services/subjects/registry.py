@@ -32,6 +32,8 @@ An adapter has what the dispatcher and chat ask of every subject:
   own values (``SubjectFigure``), or None;
 - ``formal``: its answer to a question its solvers did not read, worked out by the server
   from a model's setup (``SubjectFormal``), or None;
+- ``graph_facts``: its reader of a question's words for the graph a reply draws (a
+  particle's v(t) and s(t), ``services.graph_facts``), handed to maths' plot, or None;
 - ``followups``: how it reads a line that goes back to its last problem
   (``SubjectFollowups``);
 - ``fence``: which verified blocks it finishes, how it holds a finished reply's fences to
@@ -68,6 +70,7 @@ from app.modules.physics.subject import PHYSICS_SUBJECT
 
 # What a subject read off a photo (``photo``).
 from app.services.formal.answer import FormalAnswer
+from app.services.graph_facts import GraphFactReader
 from app.services.solving import PhotoReading as PhotoReading
 from app.services.solving import SubjectName as SubjectName
 from app.services.subjects.guard import GuardedSubject
@@ -319,12 +322,18 @@ class SubjectFigure(Protocol):
         ...
 
     async def described(
-        self, descriptions: Sequence[str], texts: Sequence[str], reply: str, settings: Settings
+        self,
+        descriptions: Sequence[str],
+        texts: Sequence[str],
+        reply: str,
+        settings: Settings,
+        facts: GraphFactReader | None = None,
     ) -> list[str]:
         """The pictures the reply described, checked against ``texts`` (the user's last
         message first): one of each kind (a figure, a graph), each from the first
         description of its kind that holds; none when none does. ``reply``: the reply's
-        text, whose working names its letters."""
+        text, whose working names its letters; ``facts``: the turn's subject's reader of
+        the question's words (``graph_facts``)."""
         ...
 
     def without_drawn_substitutes(self, text: str, user_text: str = "") -> str:
@@ -398,6 +407,9 @@ class SubjectAdapter(Protocol):
 
     @property
     def formal(self) -> SubjectFormal | None: ...
+
+    @property
+    def graph_facts(self) -> GraphFactReader | None: ...
 
     async def solve(self, request: SubjectRequest, settings: Settings) -> SubjectAugmentation: ...
 

@@ -303,3 +303,15 @@ def test_every_stated_charge_is_drawn_and_a_part_must_be_the_questions() -> None
     assert read_description(no_part, [parts]) is None
     assert read_description(part_c, [parts]) is None
     assert read_description(part_a, [parts]) is not None
+
+
+def test_negatively_charged_and_positively_charged_name_their_signs() -> None:
+    """ "a negatively charged 2 nC sphere" was read +2 nC, and "the top plate is negatively
+    charged" took a positive top (Gemini, PR #2482)."""
+    from app.modules.physics.field_lines.stated import plates_of
+
+    sphere = "Draw the electric field lines around a negatively charged 2 nC sphere."
+    assert [charge.sign for charge in stated_charges([sphere])] == [-1]
+    plates = "Draw the field between two parallel plates; the top plate is negatively charged."
+    assert not plates_of(plates, "top")
+    assert plates_of(plates, "bottom")

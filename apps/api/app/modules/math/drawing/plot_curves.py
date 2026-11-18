@@ -36,7 +36,7 @@ from app.modules.math.drawing.plot_labels import (
     number_text,
 )
 from app.modules.math.drawing.plot_pieces import formula, formula_shape, pieces_shape
-from app.modules.math.drawing.plot_question import PlotQuestion, Written
+from app.modules.math.drawing.plot_question import PlotQuestion, Written, sideways
 from app.modules.math.drawing.plot_reading import Condition, as_exact, number, plain, same_number
 from app.modules.math.drawing.plot_scene import DrawnCurve, DrawnLine, Scene
 from app.modules.math.drawing.real_curve import RealFunction, as_real
@@ -84,7 +84,23 @@ def _own_formula(text: str, question: PlotQuestion) -> _Own | None:
     parsed = parse_formula(plain(text))
     if not isinstance(parsed, Expr):
         return None
-    return _own_expr(as_exact(parsed, text, _constants(question)), question)
+    exact = as_exact(parsed, text, _constants(question))
+    found = _own_expr(exact, question)
+    if found is not None or exact.free_symbols != {_X}:
+        return found
+    # In x, the graph's own across, for the question's one letter: u5-088's v = 1.75x² + 8
+    # for its v(t), the same curve. Never y, a curve on its side ("x = f(y)", f(y) = 9 - 2y²
+    # described upright would put y on both axes).
+    letters = {
+        s
+        for w in question.formulas
+        if len(w.expr.free_symbols) == 1 and not sideways(w.name, w.expr)
+        for s in w.expr.free_symbols
+    }
+    others = letters - {_X, _Y}
+    if len(others) != 1 or _X in letters:
+        return None
+    return _own_expr(exact.subs(_X, next(iter(others))), question)
 
 
 def _constants(question: PlotQuestion) -> list[Any]:
@@ -104,10 +120,13 @@ def _own_expr(parsed: Expr, question: PlotQuestion) -> _Own | None:
         return None
     letter = next(iter(parsed.free_symbols), _X)
     for written in question.formulas:
-        if written.name == "x" or not written.expr.free_symbols <= {letter}:
+        # "x = g(y)" is a curve on its side, drawn apart; "x = t² - 4t" is a position in t.
+        if sideways(written.name, written.expr) or not written.expr.free_symbols <= {letter}:
             continue
-        # "v(t)" names what an axis measures; "k(x)" only names a function.
-        quantity = letter != _X and written.name not in _FUNCTION_NAMES
+        # "v(t)" names what an axis measures, as does a formula written with its unit
+        # ("F = (9 - x/2) N"); "k(x)" only names a function.
+        named = written.name not in {"y", ""} and bool(written.unit)
+        quantity = named or (letter != _X and written.name not in _FUNCTION_NAMES)
         name = written.name if quantity else "y"
         if not parsed.free_symbols and not _a_level_line(written, question):
             continue  # "a = 3", "where y = 4" name values, never the line y = 3
@@ -423,7 +442,7 @@ def _line(line: Line, question: PlotQuestion, color: int) -> DrawnLine | None:
     if expr is None or slope is None or slope.free_symbols:
         return None
     written = any(
-        w.name != "x"
+        not sideways(w.name, w.expr)
         and (_a_level_line(w, question) or not expr.is_number)
         and same_value(w.expr, expr)
         for w in question.formulas

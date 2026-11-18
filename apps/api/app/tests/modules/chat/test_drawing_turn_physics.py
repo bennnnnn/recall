@@ -306,7 +306,9 @@ async def test_a_physics_graph_or_a_drawn_scene_gets_no_scene_contract(
     await ask_for_a_drawing(
         graph, _settings(), _decision(subject="physics", picture="graph"), _deadline()
     )
-    assert graph.drawing is None
+    # The plot path's (#2486): maths' contract draws the graph, never physics' scene.
+    assert graph.drawing is not None and graph.drawing.subject == "math"
+    assert not any(m["content"] == SCENE_DRAW_CONTRACT for m in graph.prompt_messages)
     atwood = _verified("In an Atwood machine, m1 = 2 kg and m2 = 3 kg. Find the acceleration.")
     drawn = _ctx(line, verified_subject=atwood)
     await ask_for_a_drawing(

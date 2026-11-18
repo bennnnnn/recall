@@ -21,7 +21,12 @@ from app.core.config import Settings
 from app.models.orm import User
 from app.modules.chat import drawing_turn, figure_turn
 from app.modules.chat.draw_stream import DrawScan, without_draw_blocks
-from app.modules.chat.drawing_turn import ReplyDrawing, ask_for_a_drawing, attach_drawing
+from app.modules.chat.drawing_turn import (
+    ReplyDrawing,
+    ask_for_a_drawing,
+    attach_drawing,
+    write_for_a_picture,
+)
 from app.modules.chat.finalize_passes import FinalizeState
 from app.modules.chat.stream_accum import StreamAccum
 from app.modules.chat.turn_decision import TurnDecision
@@ -109,8 +114,13 @@ def _state(ctx: StreamContext, text: str, *, cancelled: bool = False) -> Finaliz
         # The contract draws graphs too (kind "plot").
         ("maths", "graph", True),
         ("maths", "none", False),
-        # Physics' own contract (``test_drawing_turn_physics``); a photo is never drawn.
+        # A physics graph (F against x, v against t) is drawn as any curve is (u5-087), and
+        # only when the read asks for one; a physics diagram is physics' own contract
+        # (``test_drawing_turn_physics``); a photo is never drawn.
+        ("physics", "graph", True),
+        ("physics", "none", False),
         ("physics", "photo", False),
+        ("chemistry", "graph", False),
         ("everyday", "diagram", False),
         ("maths", "image", False),
     ],
@@ -598,3 +608,62 @@ async def test_an_instant_card_that_gives_way_gets_the_draw_contract_in_the_real
     assert ctx.drawing is not None and ctx.drawing.asked == "read"
     assert any(DRAW_CONTRACT in str(message.get("content")) for message in sent[0])
     assert ctx.verified_subject is solved
+
+
+async def test_a_physics_card_with_its_graph_against_time_gets_no_second_graph() -> None:
+    from app.services.solving import VerifiedPhysicsBlock
+
+    graphed = VerifiedPhysicsBlock(
+        text="v = 4 m/s", subject="physics", canonical_fences=[{"type": "trajectory"}]
+    )
+    for verified, asked in (
+        (graphed, False),
+        (VerifiedPhysicsBlock(text="v", subject="physics"), True),
+    ):
+        ctx = _ctx(verified_subject=verified)
+        read = _decision(subject="physics", picture="graph")
+        await ask_for_a_drawing(ctx, _settings(), read, _deadline())
+        assert (ctx.drawing is not None) is asked
+
+
+async def test_a_physics_instant_card_gives_way_to_an_asked_graph_it_lacks() -> None:
+    from app.services.solving import VerifiedPhysicsBlock
+
+    for fences, kept in (([], False), ([{"type": "trajectory"}], True)):
+        verified = VerifiedPhysicsBlock(text="v", subject="physics", canonical_fences=fences)
+        read = asyncio.ensure_future(_late(_decision(subject="physics", picture="graph"), 0.01))
+        ctx = _ctx(_SKETCH, instant_reply="v = 4 m/s", verified_subject=verified, live_read=read)
+        await write_for_a_picture(ctx, _settings(live_read_wait_seconds=0.5))
+        assert (ctx.instant_reply is not None) is kept
+
+
+_U5_088 = (
+    "A particle P moves along a straight line OX with acceleration 3.5t m/s². When t = 2 s, "
+    "P is 10 m from O and has velocity 15 m/s. Find the velocity and the displacement when "
+    "t = 5 s. Draw the velocity–time graph and show the distance covered between t = 2 and "
+    "t = 5 as an area."
+)
+
+
+async def test_a_physics_turn_the_read_calls_maths_is_drawn_with_its_motion() -> None:
+    """u5-088 on the phone was read "maths": its readers' physics still reads its v(t) (PR
+    #2486 review), and a physics card with its graph against time gets no second graph."""
+    from app.services.solving import VerifiedPhysicsBlock
+
+    plot = {"kind": "plot", "items": [{"item": "curve", "name": "v", "y": "1.75t^2 + 8"}]}
+    ctx = _ctx(
+        _U5_088,
+        live_read=_read(subject="maths", picture="graph"),
+        verified_subject=VerifiedPhysicsBlock(text="v = 51.75 m/s", subject="physics"),
+    )
+    ctx.drawing = ReplyDrawing("read", descriptions=[json.dumps(plot)])
+    out = await attach_drawing(_state(ctx, "v(5) = 51.75 m/s"))
+    assert ctx.drawing.drawn and "v = 7t²/4 + 8" in out
+    graphed = VerifiedPhysicsBlock(
+        text="v", subject="physics", canonical_fences=[{"type": "trajectory"}]
+    )
+    ctx = _ctx(_U5_088, verified_subject=graphed)
+    await ask_for_a_drawing(
+        ctx, _settings(), _decision(subject="maths", picture="graph"), _deadline()
+    )
+    assert ctx.drawing is None

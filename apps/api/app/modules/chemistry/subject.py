@@ -26,6 +26,7 @@ from app.modules.chemistry.shape_followup import (
     last_question_line,
     shape_followup_problem,
 )
+from app.services.graph_facts import GraphFactReader
 from app.services.solving import PhotoReading, SubjectAugmentation
 from app.services.subject_hints import SubjectHints
 
@@ -232,7 +233,12 @@ class ChemistryFigure:
         return ""
 
     async def described(
-        self, descriptions: Sequence[str], texts: Sequence[str], reply: str, settings: Settings
+        self,
+        descriptions: Sequence[str],
+        texts: Sequence[str],
+        reply: str,
+        settings: Settings,
+        facts: GraphFactReader | None = None,
     ) -> list[str]:
         return []
 
@@ -255,6 +261,7 @@ class ChemistrySubject:
     figure: ChemistryFigure = ChemistryFigure()
     # No worked answer of a model's setup yet (docs/FORMAL_READER.md).
     formal: None = None
+    graph_facts: None = None
 
     def enabled(self, settings: Settings) -> bool:
         return settings.chemistry_enabled

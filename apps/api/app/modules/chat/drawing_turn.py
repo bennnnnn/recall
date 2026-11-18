@@ -10,7 +10,6 @@ in place of the figure read's picture of that kind (``figure_turn``) and of any 
 Mermaid diagram the reply drew for it; one that does not check is left out, with no note. A reply that was not asked for one, or whose read says
 the message asks to see no maths picture, keeps no block and gets no picture. Nothing here
 raises into a turn.
-
 Physics describes its pictures the same way: on a physics message no solve drew a picture
 for, the reply gets physics' contract, its setup's scene (``physics.scene_drawing``: a
 projectile, an incline, an Atwood machine, ...) and an electric field's lines
@@ -22,7 +21,6 @@ problems in parts had no picture at all: no solver reads a question in parts.
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import re
 from dataclasses import dataclass, field
@@ -38,7 +36,12 @@ from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.turn_intercepts import may_be_a_maths_picture
 from app.modules.chat.turn_trace import note_prompt_rule
 from app.modules.turn_reading.turn import current_turn_reading
-from app.services.solving import SubjectName, VerifiedMathBlock, VerifiedPhysicsBlock
+from app.services.solving import (
+    SubjectName,
+    VerifiedMathBlock,
+    VerifiedPhysicsBlock,
+    VerifiedSolveBlock,
+)
 from app.services.subjects.registry import SubjectFigure, subject_adapter
 
 if TYPE_CHECKING:
@@ -68,13 +71,9 @@ _ASKS_TO_SEE = re.compile(
 )
 
 
-# The pictures the read may ask for that a description draws, by the read's subject: maths'
-# figure and graph (kind "plot"), and physics' diagram (a field's lines).
-_DESCRIBED: dict[str, tuple[SubjectName, frozenset[str]]] = {
-    "maths": ("math", frozenset({"diagram", "graph"})),
-    # A problem asking to see nothing gets its setup's scene too (``_setup_of``).
-    "physics": ("physics", frozenset({"diagram", "graph"})),
-}
+# The pictures the read may ask for that a description draws: a figure, and a graph (kind
+# "plot").
+_DESCRIBED = frozenset({"diagram", "graph"})
 
 
 @dataclass
@@ -108,6 +107,26 @@ def _a_maths_turn(ctx: StreamContext) -> bool:
     return kept is not None and kept.text == ctx.user_message_content and kept.subject == "math"
 
 
+def _a_physics_turn(ctx: StreamContext) -> bool:
+    """The subject readers read the message as physics, or a physics solve verified it."""
+    if isinstance(ctx.verified_subject, VerifiedPhysicsBlock):
+        return True
+    kept = current_turn_reading()
+    return kept is not None and kept.text == ctx.user_message_content and kept.subject == "physics"
+
+
+def _physics_read(ctx: StreamContext) -> bool:
+    """The turn is physics', by its read or its readers: its words' quantities (a
+    particle's v(t)) are physics' to read for the graph (``graph_facts``)."""
+    if _a_physics_turn(ctx):
+        return True  # u5-088's kinematics, which the read may call maths
+    read = ctx.live_read
+    if read is None or not read.done() or read.cancelled() or read.exception() is not None:
+        return False
+    decision = read.result()
+    return decision is not None and decision.subject == "physics"
+
+
 def _words_subject(ctx: StreamContext) -> SubjectName | None:
     """The subject whose reply may describe a picture the message asks for in words, when
     the read is late: maths, or physics, as the subject readers read the message."""
@@ -133,8 +152,7 @@ async def _read_for_a_picture(ctx: StreamContext, deadline: float) -> TurnDecisi
     line = ctx.user_message_content or ""
     if task is None or not _asks_in_words(ctx):
         return None
-    physics = isinstance(ctx.verified_subject, VerifiedPhysicsBlock)
-    if not physics and _words_subject(ctx) is None and not may_be_a_maths_picture(line):
+    if not (_a_maths_turn(ctx) or _a_physics_turn(ctx) or may_be_a_maths_picture(line)):
         return None
     left = deadline - asyncio.get_running_loop().time()
     if left > 0:
@@ -144,14 +162,30 @@ async def _read_for_a_picture(ctx: StreamContext, deadline: float) -> TurnDecisi
     return task.result()
 
 
-def _described_by(read: TurnDecision) -> SubjectName | None:
-    """The subject whose reply describes the picture the read says the message asks to see:
-    a maths question's figure or graph, a physics question's diagram."""
-    entry = _DESCRIBED.get(read.subject or "")
-    if entry is None or read.picture not in entry[1]:
+# The kind of graph a physics solve draws against time (a v-t or x-t trajectory).
+_TIME_GRAPH = "trajectory"
+
+
+def _solver_graphed(verified: VerifiedSolveBlock | None) -> bool:
+    """A physics solve's card already draws a graph against time: no second graph of the
+    reply's beside it."""
+    if not isinstance(verified, VerifiedPhysicsBlock):
+        return False
+    blocks = [verified, *verified.question_parts]
+    specs = [s for b in blocks for s in (b.canonical_fence, *b.canonical_fences) if s]
+    return any(spec.get("type") == _TIME_GRAPH for spec in specs)
+
+
+def _described_by(ctx: StreamContext, read: TurnDecision) -> SubjectName | None:
+    """The subject whose reply describes the picture the read asks for: maths for its
+    figure or graph and for a physics question's graph (drawn as any curve is), physics for
+    a physics diagram (a field's lines); none when a physics card already draws its graph
+    against time. One check, the read's own (``read_asks_for_a_picture``)."""
+    if _solver_graphed(ctx.verified_subject):
         return None
-    # The read's own say that the message asks to see it, as every picture path asks.
-    return entry[0] if read_asks_for_a_picture(read, frozenset(_DESCRIBED)) else None
+    if not read_asks_for_a_picture(read, described=True) or read.picture not in _DESCRIBED:
+        return None
+    return "physics" if read.subject == "physics" and read.picture == "diagram" else "math"
 
 
 def _setup_of(read: TurnDecision) -> SubjectName | None:
@@ -161,10 +195,14 @@ def _setup_of(read: TurnDecision) -> SubjectName | None:
     return "physics" if read.subject == "physics" and read.picture == "none" else None
 
 
+def _wanted(ctx: StreamContext, read: TurnDecision) -> bool:
+    """The read asks for a picture the reply describes."""
+    return _described_by(ctx, read) is not None
+
+
 async def write_for_a_picture(ctx: StreamContext, settings: Settings) -> None:
     """A solver's instant reply gives way to the model's when the read says the message asks
-    to see a picture its subject's reply describes (maths' figure or graph, physics' field
-    lines its solve did not draw): the instant reply carries the card alone, and no picture can be
+    to see a maths picture, or a graph of a physics question whose card draws none: the instant reply carries the card alone, and no picture can be
     described for it (round 3's c031, "find the maximum ... and sketch its graph", got only
     the maximum). The model writes around the same checked card, and describes the graph.
     The read decides, never a word: a message whose words may ask (``_ASKS_TO_SEE``) waits
@@ -175,25 +213,25 @@ async def write_for_a_picture(ctx: StreamContext, settings: Settings) -> None:
         verified, VerifiedMathBlock | VerifiedPhysicsBlock
     ):
         return
-    subject: SubjectName = "math" if isinstance(verified, VerifiedMathBlock) else "physics"
-    figure = _figure(subject)
+    figure = _figure()
     if figure is None or not settings.draw_descriptions_enabled or not _asks_in_words(ctx):
         return
-    if subject == "math" and figure.shown(verified):
+    if isinstance(verified, VerifiedMathBlock) and figure.shown(verified):
         return  # the card already draws the picture ("Graph y = x² and y = 2x")
-    if subject == "physics" and not subject_adapter("physics").enabled(settings):
-        return
+    if _solver_graphed(verified):
+        return  # the physics card already draws its graph against time
     deadline = asyncio.get_running_loop().time() + settings.live_read_wait_seconds
     read = await _read_for_a_picture(ctx, deadline)
     if read is None and ctx.live_read is not None and not ctx.live_read.done():
         note_prompt_rule("subject.instant_read_late")
-    # Only a picture the message asks to see: a problem's setup (physics' "none") is drawn
-    # beside its card, never in its place.
-    if read is None or read.picture not in ("diagram", "graph") or _described_by(read) != subject:
+    subject = _described_by(ctx, read) if read is not None else None
+    if read is None or subject is None:
         return
-    # A physics solve that drew the picture asked for keeps its card ("calculate the field
-    # and draw its lines" whose solve drew none gives way, so the reply can describe them).
-    if subject == "physics" and solve_draws(verified, read.picture):
+    # Physics' own picture (a field's lines) only when physics is on and its solve drew none
+    # ("calculate the field and draw its lines" gives way, so the reply can describe them).
+    if subject == "physics" and (
+        not subject_adapter("physics").enabled(settings) or solve_draws(verified, read.picture)
+    ):
         return
     ctx.instant_reply = None
     note_prompt_rule("subject.draw_over_instant")
@@ -203,8 +241,8 @@ async def ask_for_a_drawing(
     ctx: StreamContext, settings: Settings, read: TurnDecision | None, deadline: float
 ) -> None:
     """A subject's draw contract beside the message, when it asks to see a picture that
-    subject's reply describes: maths' figure or graph, physics' field. ``deadline``: the
-    loop time the reply stops waiting for the read."""
+    subject's reply describes: maths' figure or graph (a physics graph's too), physics'
+    field. ``deadline``: the loop time the reply stops waiting for the read."""
     if not settings.draw_descriptions_enabled or ctx.drawing is not None:
         return
     if ctx.instant_reply is not None:
@@ -212,9 +250,9 @@ async def ask_for_a_drawing(
     if read is None:
         read = await _read_for_a_picture(ctx, deadline)
     asked: Literal["read", "words"] | None = None
-    subject: SubjectName | None = "math"
+    subject: SubjectName | None = None
     if read is not None and read.subject is not None and read.picture is not None:
-        subject = _described_by(read) or _setup_of(read)
+        subject = _described_by(ctx, read) or _setup_of(read)
         asked = "read" if subject is not None else None
     elif _asks_in_words(ctx):
         subject = _words_subject(ctx)
@@ -224,16 +262,13 @@ async def ask_for_a_drawing(
     # A physics solve that drew the picture asked for (a scene, a circuit, rays) needs no
     # description; one that drew none ("calculate the field strength and draw its lines")
     # still gets the contract.
-    asked_kind = read.picture if read is not None else None
-    kind = asked_kind if asked_kind in ("diagram", "graph") else "diagram"
+    kind = read.picture if read is not None and read.picture is not None else "diagram"
     if subject == "physics" and solve_draws(ctx.verified_subject, kind):
         return
-    # A physics graph (a velocity-time sketch) is the plot path's, never a scene: and a
-    # solve that drew its scene gets no second one ("hang over a pulley ... and sketch a
-    # velocity-time graph" drew the Atwood machine twice; Gemini, PR #2490).
-    if subject == "physics" and (
-        asked_kind == "graph" or solve_draws(ctx.verified_subject, "diagram")
-    ):
+    # A solve that drew its scene gets no second one ("hang over a pulley ... and sketch a
+    # velocity-time graph" drew the Atwood machine twice; Gemini, PR #2490). A physics graph
+    # is maths' to draw (``_described_by``), never a scene.
+    if subject == "physics" and solve_draws(ctx.verified_subject, "diagram"):
         return
     # A subject turned off draws nothing, and its reply is asked for no description.
     figure = _figure(subject) if subject_adapter(subject).enabled(settings) else None
@@ -265,7 +300,7 @@ def _still_wanted(ctx: StreamContext, drawing: ReplyDrawing) -> bool:
     decision = read.result()
     if decision is None or decision.subject is None or decision.picture is None:
         return True
-    return _described_by(decision) == drawing.subject
+    return _described_by(ctx, decision) == drawing.subject
 
 
 async def attach_drawing(state: FinalizeState) -> str:
@@ -287,17 +322,11 @@ async def attach_drawing(state: FinalizeState) -> str:
     problem = [ctx.followup_problem] if physics and ctx.followup_problem else []
     texts = [*problem, line, *earlier_user_lines(ctx.recent_messages, line)]
     try:
-        fences = await figure.described(descriptions, texts, text, state.settings)
+        facts = subject_adapter("physics").graph_facts if _physics_read(ctx) else None
+        fences = await figure.described(descriptions, texts, text, state.settings, facts)
     except Exception as exc:  # A drawing that fails is no drawing: the reply stands.
         logger.info("described picture failed (%s)", type(exc).__name__)
         return text
-    # What came of the reply's descriptions, so a picture that did not check shows.
-    logger.info(
-        "described pictures blocks=%d drawn=%d shapes=%s",
-        len(descriptions),
-        len(fences),
-        [_shape(body) for body in descriptions],
-    )
     if not fences:
         return text
     drawing.fences = list(fences)
@@ -311,16 +340,3 @@ async def attach_drawing(state: FinalizeState) -> str:
     # Committed, so a later pass that falls back keeps the picture.
     state.committed = fallback_text(text, server_text=state.server_text)
     return text
-
-
-def _shape(body: str) -> str:
-    """What a description describes, for the log: its kind, scene and part names, no value."""
-    try:
-        data = json.loads(body)
-    except ValueError:
-        return "not JSON"
-    if not isinstance(data, dict):
-        return "not an object"
-    parts = data.get("values")
-    names = sorted(parts) if isinstance(parts, dict) else []
-    return f"{data.get('kind')}:{data.get('scene', '')}:{','.join(names)}"

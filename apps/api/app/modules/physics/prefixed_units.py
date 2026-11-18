@@ -75,6 +75,9 @@ _LEFT_OUT = frozenset(
     {"pm", "pH", "pV", "kT", "Mg", "Ms", "us", "Gs", "GA", "GT", "Gm", "GF", "GH", "GC"}
     # A temperature takes milli-, micro- and nano- ("250 mK"); "pK" is an acid's constant.
     | {"pK", "kK", "MK", "GK"}
+    # Tera- spelled as an ordinary word or abbreviation: "1 TV draws a current of 2 A" is a
+    # television, never 10^12 V; so a TA, TC, TN, TT, TL, TF, TH, a Tm, a Ts, a Tg.
+    | {"TV", "TA", "TC", "TN", "TT", "TL", "TF", "TH", "Tm", "Ts", "Tg", "TK"}
 )
 _PETA = "P"
 
