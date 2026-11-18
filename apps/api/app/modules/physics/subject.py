@@ -128,7 +128,9 @@ class PhysicsFollowups:
     def shown_problem(
         self, line: str, recent: Sequence[Any], referent: str | None = None
     ) -> str | None:
-        return shown_physics_problem(line, referent)
+        # "Draw it": the problem it shows is read for its quantities here, in the pool, as a
+        # changed one is, so the setup contract finds the reading kept (Gemini, PR #2490).
+        return _read_quantities(shown_physics_problem(line, referent))
 
 
 @dataclass(frozen=True)
@@ -289,6 +291,7 @@ class PhysicsFigure:
         reply: str,
         settings: Settings,
         facts: GraphFactReader | None = None,
+        problem: str | None = None,
     ) -> list[str]:
         from app.core import sympy_executor
         from app.modules.physics.scene_drawing.build import physics_fences
@@ -297,6 +300,7 @@ class PhysicsFigure:
             physics_fences,
             list(descriptions),
             list(texts),
+            problem,
             timeout=settings.stem_solve_timeout_seconds,
         )
 

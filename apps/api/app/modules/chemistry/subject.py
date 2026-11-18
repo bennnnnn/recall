@@ -239,6 +239,7 @@ class ChemistryFigure:
         reply: str,
         settings: Settings,
         facts: GraphFactReader | None = None,
+        problem: str | None = None,
     ) -> list[str]:
         return []
 
