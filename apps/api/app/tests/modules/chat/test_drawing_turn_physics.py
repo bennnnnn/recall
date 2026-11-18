@@ -364,9 +364,7 @@ async def test_a_follow_ups_problem_is_read_for_its_quantities_in_the_pool(
     from app.modules.physics.scene_drawing.values import states_quantities
     from app.services.subjects.registry import subject_adapter
 
-    problem = (
-        "Two masses of 3 kg and 5 kg hang over a light frictionless pulley. Find the acceleration."
-    )
+    problem = "In an Atwood machine, m1 = 2 kg and m2 = 3 kg. Find the acceleration."
     begin_turn()
     changed = await read_off_loop(
         subject_adapter("physics").followups.changed_problem,
