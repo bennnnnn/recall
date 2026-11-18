@@ -309,3 +309,21 @@ def test_a_motion_in_phases_gives_no_curve(question: str) -> None:
 )  # fmt: skip
 def test_a_duration_runs_from_the_motion_s_start(question: str, interval: tuple[str, str]) -> None:
     assert read_graph_facts(question).interval == interval
+
+
+@pytest.mark.parametrize(
+    ("question", "formulas"),
+    [
+        # "at 3 s" is a time; "starts" lends its 0 to no other clause (PR #2486 review).
+        ("A particle starts from O with acceleration 2t m/s², and at 3 s its velocity is "
+         "10 m/s.", {"a": "2*t", "v": "t**2 + 1", "s": "t**3/3 + t"}),
+        # An asked sentence states nothing: its 15 m/s is no v(2).
+        ("A particle starts from rest with acceleration 2t m/s². Find (a) the initial "
+         "acceleration, (b) the displacement when t = 2 s, (c) the time when its velocity is "
+         "15 m/s.", {"a": "2*t", "v": "t**2"}),
+        ("A particle starts from rest with acceleration 2t m/s². What is its velocity when "
+         "t = 2 s if it is 15 m/s at the end?", {"a": "2*t", "v": "t**2"}),
+    ],
+)  # fmt: skip
+def test_a_time_is_lent_only_by_a_header(question: str, formulas: dict[str, str]) -> None:
+    test_the_motion_is_worked_out_from_the_values_it_states(question, formulas)

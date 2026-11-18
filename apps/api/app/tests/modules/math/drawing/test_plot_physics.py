@@ -79,3 +79,21 @@ def test_a_constant_or_a_function_s_argument_is_no_unit(formula: str) -> None:
 def test_a_function_glued_to_its_argument_is_a_formula(formula: str) -> None:
     graph = _plot(f"Sketch y = {formula} for 0 ≤ x ≤ 2π.", _curve("f", formula.replace("x", "(x)")))
     assert graph is not None and graph.curves
+
+
+def test_a_position_in_t_keeps_its_domain_and_its_shading() -> None:
+    # x = t² - 4t names a position in t, a curve like any other (PR #2486 review).
+    question = (
+        "The position of a particle is x = t^2 − 4t m for 0 ≤ t ≤ 5. Sketch x against t and "
+        "shade from t = 0 to t = 4."
+    )
+    graph = _plot(
+        question,
+        _curve("x", "t^2 - 4t", domain=["0", "5"]),
+        {"item": "shade", "between": ["x", "x-axis"], "from": "0", "to": "4"},
+    )
+    assert graph is not None and [c.label for c in graph.curves] == ["x = t² − 4t"]
+    xs = [x for r in graph.regions for x, _ in r.points]
+    assert (min(xs), max(xs)) == pytest.approx((0, 4))
+    curve_xs = [x for seg in graph.curves[0].segments for x, _ in seg]
+    assert (min(curve_xs), max(curve_xs)) == pytest.approx((0, 5))

@@ -114,20 +114,20 @@ def read_asks_for_a_picture(decision: TurnDecision) -> bool:
     return decision.subject == "maths" and decision.picture in _DRAWN
 
 
-def _asks_for_a_picture(read: asyncio.Task[TurnDecision | None]) -> bool:
-    wanted = _figure_wanted(read)
-    return wanted is not None and wanted[1] == "asked"
-
-
 async def read_asks_for_a_figure(read: asyncio.Task[TurnDecision | None] | None) -> bool:
     """The turn's read calls the message a maths question asking to see a graph or a
-    diagram: a figure the app draws, never a photo or a painted picture. Waited for until it
-    ends (its own timeout bounds it: a read later than a fixed wait let "draw the box" be
-    painted), and never cancelled: the reply and the figure wait for the same read."""
+    diagram, or a physics question asking to see a graph: a picture the app draws, never a
+    photo or a painted picture ("Draw the velocity-time graph" is no image to generate).
+    Waited for until it ends (its own timeout bounds it: a read later than a fixed wait let
+    "draw the box" be painted), and never cancelled: the reply and the figure wait for the
+    same read."""
     if read is None:
         return False
     await asyncio.wait([read])
-    return _asks_for_a_picture(read)
+    if read.cancelled() or read.exception() is not None:
+        return False
+    decision = read.result()
+    return decision is not None and read_asks_for_a_picture(decision)
 
 
 async def _draw(

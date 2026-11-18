@@ -311,6 +311,12 @@ def _without_unit(formula: str, given: frozenset[str] = frozenset()) -> str:
     return formula
 
 
+def sideways(name: str, expr: Any) -> bool:
+    """A formula "x = g(y)" (or "x = 3") is a curve on its side, drawn apart; "x = t² - 4t"
+    names a position in t, a curve as any other. One rule for every reader of the formulas."""
+    return name == "x" and not (expr.free_symbols - {Symbol("x"), Symbol("y")})
+
+
 def _formulas(text: str) -> list[Written]:
     found: list[Written] = []
     given = frozenset(_GIVEN.findall(text))
@@ -415,7 +421,9 @@ def _ties(text: str, letters: frozenset[str]) -> list[tuple[Interval, tuple[Any,
             stated = intervals(clause, letters)
             if stated:
                 said = tuple(
-                    w.expr for w in _formulas(clause) if w.name != "x" and w.expr.free_symbols
+                    w.expr
+                    for w in _formulas(clause)
+                    if not sideways(w.name, w.expr) and w.expr.free_symbols
                 )
                 task = _TASK.search(clause.lower()) is not None
                 found += [(interval, said, task) for interval in stated]
@@ -438,7 +446,7 @@ def _domains(part: str, letters: frozenset[str]) -> list[Domain]:
     given = frozenset(_GIVEN.findall(part))
     for name, formula, end in _equals_spans(part):
         parsed = parse_formula(_without_unit(formula, given))
-        if not isinstance(parsed, Expr) or name == "x":
+        if not isinstance(parsed, Expr) or sideways(name, parsed):
             continue
         if mapped is not None and name[0] == mapped.group(1):
             low, high = number(mapped.group(2)), number(mapped.group(3))
@@ -460,7 +468,7 @@ def _clauses(text: str, letters: frozenset[str]) -> list[Clause]:
             for a, b in ((number(x), number(y)) for x, y in _POINT_VALUE.findall(part))
             if a is not None and b is not None
         ]
-        formulas = tuple(w.expr for w in _formulas(part) if w.name != "x")
+        formulas = tuple(w.expr for w in _formulas(part) if not sideways(w.name, w.expr))
         clauses.append(
             Clause(
                 formulas,
@@ -568,13 +576,14 @@ def read_plot_question(texts: Sequence[str], facts: GraphFactReader | None = Non
     motion = _subject_interval(known)
     # The letter the question's functions are written in ("v(t) = ...": t) is its x.
     letters = frozenset(
-        {"x"} | {str(s) for w in formulas if w.name != "x" for s in w.expr.free_symbols}
+        {"x"}
+        | {str(s) for w in formulas if not sideways(w.name, w.expr) for s in w.expr.free_symbols}
     )
     # The variable each curve is written in ("s(t) = t³ - 6t²": t) is said of as x is.
     own_letters = {
         str(symbol)
         for w in formulas
-        if w.name not in {"x", "y"} and len(w.expr.free_symbols) == 1
+        if w.name != "y" and not sideways(w.name, w.expr) and len(w.expr.free_symbols) == 1
         for symbol in w.expr.free_symbols
     }
     variables = sorted(({"x"} | own_letters) - {"y"})

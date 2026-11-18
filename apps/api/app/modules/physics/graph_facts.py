@@ -60,10 +60,19 @@ _NEGATIVE_SIDE = re.compile(r"\bleft\b|\bnegative\b")
 # The time a clause says its values at: "t = 2", "after 4 s", "after ten seconds"; the
 # start ("initially", "starts", "from rest") is t = 0.
 _AT_TIME = re.compile(
-    rf"\bt\s*=\s*(?P<t>{_NUMBER})|\bafter\s+(?P<n>\d+(?:\.\d+)?|{count_word_pattern(high=100)})"
-    r"\s*(?:s|secs?|seconds?)\b"
+    rf"\bt\s*=\s*(?P<t>{_NUMBER})|\bat\s+(?P<at>\d+(?:\.\d+)?)\s*(?:s|secs?|seconds?)\b"
+    rf"|\bafter\s+(?P<n>\d+(?:\.\d+)?|{count_word_pattern(high=100)})\s*(?:s|secs?|seconds?)\b"
 )
 _AT_THE_START = re.compile(r"\b(?:starts?|started|starting|initial|initially|from rest)\b")
+# A time a clause says for the clauses beside it: "when t = 2 s, ...", "at 3 s ...",
+# "initially, ...". A start verb ("starts from O") is its own clause's time alone.
+_HEADER = re.compile(r"\binitially\b|\bat\s+the\s+start\b|\bat\s+first\b")
+# A sentence that asks: it opens with a verb that asks, a lettered part ("(b) the
+# displacement when t = 2 s"), or ends with a question mark. It states nothing.
+_ASKED_SENTENCE = re.compile(
+    r"^\s*(?:\(?[a-h]\)|find|calculate|determine|work\s+out|show|sketch|draw|plot|what|"
+    r"how|state|hence|deduce|evaluate|give)\b|\?\s*$"
+)
 # Words that make a clause one instant ("initially its acceleration is 3 m/s²", "when at
 # rest"), and those that hold a value over the motion ("a constant acceleration", "for 5 s").
 _AN_INSTANT = re.compile(
@@ -146,23 +155,40 @@ def _clause_time(clause: str) -> Any | None:
     return 0 if _AT_THE_START.search(clause) else None
 
 
+def _header_time(clause: str) -> Any | None:
+    """The time a clause lends the clauses beside it: one it names ("when t = 2 s", "at 3
+    s") or the start it heads ("initially"); never a start verb's ("starts from O")."""
+    found = _AT_TIME.search(clause)
+    if found is not None:
+        return _time(found)
+    return 0 if _HEADER.search(clause) else None
+
+
 def _timed_clauses(text: str) -> list[tuple[Any, str, str]]:
     """Each stating clause with the time it says its values at, lowered and as written: its
-    own, or the stating clause before's within the sentence (else the one after). A clause
-    that asks ("find its velocity when t = 3 s") states nothing and lends no time; a clause
-    of a sentence naming no time, none."""
+    own, or the one a header clause before it (else after it) in its sentence lends. A
+    sentence that asks ("Find (a) ..., (b) the displacement when t = 2 s") or a clause that
+    asks ("find its velocity when t = 3 s") states nothing and lends no time; a clause of a
+    sentence naming no time, none."""
     timed: list[tuple[Any, str, str]] = []
     for sentence in _SENTENCES.split(text):
+        if _ASKED_SENTENCE.search(sentence.lower()):
+            continue
         clauses = [c for c in _CLAUSES.split(sentence) if c.strip()]
         lowered = [c.lower() for c in clauses]
         asked = [_ASKED.search(c) is not None for c in lowered]
-        times = [None if asks else _clause_time(c) for c, asks in zip(lowered, asked, strict=True)]
+        lent = [None if asks else _header_time(c) for c, asks in zip(lowered, asked, strict=True)]
         for i, clause in enumerate(clauses):
             if asked[i]:
                 continue
-            before = [t for t in times[: i + 1] if t is not None]
-            after = [t for t in times[i + 1 :] if t is not None]
-            at = before[-1] if before else (after[0] if after else None)
+            own = _clause_time(lowered[i])
+            before = [t for t in lent[:i] if t is not None]
+            after = [t for t in lent[i + 1 :] if t is not None]
+            at = (
+                own
+                if own is not None
+                else (before[-1] if before else (after[0] if after else None))
+            )
             if at is not None:
                 timed.append((at, lowered[i], clause))
     return timed
@@ -295,8 +321,10 @@ def motion_formulas(text: str) -> list[tuple[str, Expr, str]]:
 
 
 def _time(match: re.Match[str]) -> Any | None:
-    if "t" in match.groupdict() and match.group("t") is not None:
-        return nsimplify(match.group("t"), rational=True)
+    groups = match.groupdict()
+    for name in ("t", "at"):
+        if groups.get(name) is not None:
+            return nsimplify(groups[name], rational=True)
     word = match.group("n")
     value = number_word_value(word) if not word[0].isdigit() else nsimplify(word, rational=True)
     return None if value is None else nsimplify(value, rational=True)

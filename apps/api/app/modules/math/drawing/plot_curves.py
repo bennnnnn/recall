@@ -36,7 +36,7 @@ from app.modules.math.drawing.plot_labels import (
     number_text,
 )
 from app.modules.math.drawing.plot_pieces import formula, formula_shape, pieces_shape
-from app.modules.math.drawing.plot_question import PlotQuestion, Written
+from app.modules.math.drawing.plot_question import PlotQuestion, Written, sideways
 from app.modules.math.drawing.plot_reading import Condition, as_exact, number, plain, same_number
 from app.modules.math.drawing.plot_scene import DrawnCurve, DrawnLine, Scene
 from app.modules.math.drawing.real_curve import RealFunction, as_real
@@ -117,10 +117,7 @@ def _own_expr(parsed: Expr, question: PlotQuestion) -> _Own | None:
     letter = next(iter(parsed.free_symbols), _X)
     for written in question.formulas:
         # "x = g(y)" is a curve on its side, drawn apart; "x = t² - 4t" is a position in t.
-        sideways = written.name == "x" and not (
-            written.expr.free_symbols - {_X, _Y} and letter != _X
-        )
-        if sideways or not written.expr.free_symbols <= {letter}:
+        if sideways(written.name, written.expr) or not written.expr.free_symbols <= {letter}:
             continue
         # "v(t)" names what an axis measures, as does a formula written with its unit
         # ("F = (9 - x/2) N"); "k(x)" only names a function.
@@ -441,7 +438,7 @@ def _line(line: Line, question: PlotQuestion, color: int) -> DrawnLine | None:
     if expr is None or slope is None or slope.free_symbols:
         return None
     written = any(
-        w.name != "x"
+        not sideways(w.name, w.expr)
         and (_a_level_line(w, question) or not expr.is_number)
         and same_value(w.expr, expr)
         for w in question.formulas
