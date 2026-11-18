@@ -21,6 +21,7 @@ from app.modules.chat.continuation_subject import (
     exchange_pairs,
 )
 from app.modules.chat.prompt_inject import conversation_turns
+from app.services.latex_markup import without_markup
 from app.services.problem_followup import changes_relatively, message_role_content
 from app.services.subjects.registry import SUBJECTS, SubjectName, subject_adapter
 
@@ -136,18 +137,30 @@ def resolve_posed_followup(
     # it is so small.") keeps its own words: the change is the subject's follow-up problem,
     # as a typed what-if's is, and the turn's plan, units and whole-question checks read the
     # user's line, never the rewrite in its place.
-    if _one_sentence(content):
+    if _only_the_change(content, problem, news):
         return SubjectFollowup(asked=changed)
     return SubjectFollowup(**{subject: changed})
 
 
-# A sentence's end: never a decimal point, and never a question's number ("9.").
-_SENTENCE_END = re.compile(r"(?<!^\d)(?<!^\d\d)[.?!](?=\s+\S)")
+# The grammar a what-if is framed in, which says nothing of the problem.
+_FRAME = frozenset(
+    "what if were was would the then instead and now with into for its this that".split()
+)
+_CONTENT_WORD = re.compile(r"[^\W\d_]{3,}")
 
 
-def _one_sentence(line: str) -> bool:
-    """``line`` is one sentence: nothing after its first full stop or question mark."""
-    return _SENTENCE_END.search(line.strip()) is None
+def _only_the_change(line: str, problem: str, news: Sequence[str]) -> bool:
+    """``line`` says nothing besides its changed values: with them taken out, every content
+    word left is the problem's own ("What if T_C = 200 K?"). A medium, a unit or an ask of
+    its own ("in water", "giving the answer in nN", "explaining why") is more than the change,
+    and the line keeps its words."""
+    rest = without_markup(line)
+    for new in news:
+        rest = rest.replace(without_markup(new), " ")
+    known = {word.lower()[:4] for word in _CONTENT_WORD.findall(without_markup(problem))}
+    return all(
+        word.lower() in _FRAME or word.lower()[:4] in known for word in _CONTENT_WORD.findall(rest)
+    )
 
 
 def _shown(content: str, history: Sequence[Any], referent: str) -> SubjectFollowup:

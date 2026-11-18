@@ -367,6 +367,10 @@ def counted(prior: str, given: Given, kind: Sequence[Given] = ()) -> bool:
     of 3.0 C and 2.0 C", "one of 3.0 C and the other of 2.0 C"; live, 2026-11-16), and a
     body the sentence introduces after the group is another ("two identical 4 Ω resistors
     and a 6 Ω resistor"). ``kind``: the problem's givens of the value's kind."""
+    # "two identical 4 Ω resistors ... with a 6 Ω resistor": a sharing word right on the value
+    # marks it as several bodies', whatever the sentence goes on to give.
+    if _SHARED_ON.search(prior, max(0, given.start - 16), given.start):
+        return True
     start = max((m.end() for m in _SENTENCE_END.finditer(prior, 0, given.start)), default=0)
     stop = _SENTENCE_END.search(prior, given.end)
     end = stop.start() if stop else len(prior)
@@ -388,6 +392,8 @@ def counted(prior: str, given: Given, kind: Sequence[Given] = ()) -> bool:
 
 
 _SENTENCE_END = re.compile(r"[.?!](?:\s|$)")
+# A sharing word written straight before a value: "identical 4 Ω", "each 5 kg".
+_SHARED_ON = re.compile(r"\b(?:identical|equal|each|both|same)[ \t]+$", re.IGNORECASE)
 _WORDS = re.compile(r"[a-z]+", re.IGNORECASE)
 # A body the sentence may introduce after a counted group: "and a 6 Ω resistor", "and two
 # identical 6 Ω resistors"; a clause is one only when it gives a value of the group's kind.

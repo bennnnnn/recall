@@ -27,8 +27,10 @@ _IN_Q = re.compile(r"(?<![\w.])([+\-\u2212])?(?:[ \t]?(\d+(?:\.\d+)?))?[ \t]?q(?
 
 # A sign word in a charge's own phrase ("a negative charge of 2 nC", "a 2 nC negative
 # charge"), never a test charge's ("the force on a positive test charge").
-_SIGN_IN_PHRASE = re.compile(r"\b(positive|negative)\b(?![ \t]+test\b)", re.IGNORECASE)
-_SIGN_AFTER = re.compile(r"[ \t]*(?:point[ \t]+)?(positive|negative)\b(?![ \t]+test\b)", re.I)
+_SIGN_IN_PHRASE = re.compile(r"\b(positive|negative)(?:ly)?\b(?![ \t]+test\b)", re.IGNORECASE)
+_SIGN_AFTER = re.compile(
+    r"[ \t]*(?:point[ \t]+)?(positive|negative)(?:ly)?\b(?![ \t]+test\b)", re.I
+)
 _CLAUSE_END = re.compile(r"[.;:?!](?!\d)")
 _SENTENCE_END = re.compile(r"[.?!](?!\d)")
 # A sign word for several charges: "negative charges of 3 nC and 2 nC".
@@ -205,7 +207,7 @@ def held_to(described: Sequence[Charge], stated: Sequence[Charge]) -> list[Charg
 # "a positive and a negative charge", "two negative charges", "two equal positive charges":
 # the signs a question names in words, each as many times as its count says.
 _SIGN_WORD = re.compile(
-    r"\b(?:(?P<count>two|three|2|3)[ \t]+(?:[a-z]+[ \t]+)?)?(?P<sign>positive|negative)\b"
+    r"\b(?:(?P<count>two|three|2|3)[ \t]+(?:[a-z]+[ \t]+)?)?(?P<sign>positive|negative)(?:ly)?\b"
     r"(?![ \t]+test\b)",
     re.IGNORECASE,
 )
@@ -242,10 +244,11 @@ def named_signs(texts: Sequence[str], part: str | None) -> tuple[list[int], bool
 # lower plate", "the positive plate at the bottom".
 _PLATE_SIDE = re.compile(
     r"\b(?P<side1>top|upper|bottom|lower)[ \t]+plate\b[^.;?!]{0,30}?"
-    r"\b(?P<sign1>positive|negative)\b"
+    r"\b(?P<sign1>positive|negative)(?:ly)?\b"
     r"|\b(?P<sign2>positive|negative)(?:ly[ \t]+charged)?[ \t]+(?P<side2>top|upper|bottom|lower)"
     r"[ \t]+plate\b"
-    r"|\b(?P<sign3>positive|negative)[ \t]+plate\b[^.;?!]{0,20}?\b(?P<side3>top|bottom)\b",
+    r"|\b(?P<sign3>positive|negative)(?:ly[ \t]+charged)?[ \t]+plate\b[^.;?!]{0,20}?"
+    r"\b(?P<side3>top|bottom)\b",
     re.IGNORECASE,
 )
 _PLATES = re.compile(r"\bplates?\b|\bcapacitor\b", re.IGNORECASE)

@@ -477,3 +477,52 @@ def test_a_clause_with_no_value_of_the_kind_ends_no_counted_group() -> None:
     assert counts(apart, "μC") == [True]
     pairs = "Two identical 4 Ω resistors and two identical 6 Ω resistors are in series."
     assert counts(pairs, "Ω") == [True, True]
+
+
+@pytest.mark.parametrize(
+    ("line", "problem", "news", "only"),
+    [
+        # A medium the problem did not have: the vacuum answer would be 80x off.
+        (
+            "Repeat the calculation in water taking the charges as 3.0 pC and 2.0 μC",
+            _COULOMB,
+            ["3.0 pC", "2.0 μC"],
+            False,
+        ),
+        # A unit and an ask of its own, in one sentence.
+        (
+            "Repeat the calculation taking the charges as 3.0 pC and 2.0 μC, giving the "
+            "answer in nN and explaining why it is so small",
+            _COULOMB,
+            ["3.0 pC", "2.0 μC"],
+            False,
+        ),
+        # Only the change: the problem as typed, and its card (the battery's tapped chip).
+        ("What if $T_C = 200\\,\\mathrm{K}$?", _CARNOT, ["200 K"], True),
+    ],
+)
+def test_a_line_is_the_problem_as_typed_only_when_it_says_nothing_but_the_change(
+    line: str, problem: str, news: list[str], only: bool
+) -> None:
+    """A one-sentence line that said more than the change took the rewrite in its place
+    (Gemini, PR #2482): "in water" certified the vacuum force. The line is the problem as
+    typed only when, its changed values taken out, every content word left is the
+    problem's own."""
+    from app.modules.chat.turn_prep.followups import _only_the_change
+
+    assert _only_the_change(line, problem, news) is only
+
+
+def test_a_sharing_word_on_the_value_counts_it_whatever_follows() -> None:
+    """ "Two identical 4 Ω resistors are connected in series with a 6 Ω resistor": "one of
+    them was 10 Ω" rewrote both 4 Ω and certified 20/26 A (Gemini, PR #2482)."""
+    from app.modules.physics.givens import PHYSICS_UNITS
+    from app.services.law_binding.fit import read_givens
+    from app.services.scaled_followup import counted
+
+    problem = (
+        "Two identical 4 Ω resistors are connected in series with a 6 Ω resistor "
+        "and a 20 V battery. What is the current?"
+    )
+    kind = [g for g in read_givens(problem, PHYSICS_UNITS) if g.unit == "Ω"]
+    assert [counted(problem, given, kind) for given in kind] == [True, False]
