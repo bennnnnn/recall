@@ -136,6 +136,17 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Conservation of linear momentum",
         "v_f",
         variants=(
+            # One body asked ("the final speed of the 2 kg ball"): its line alone.
+            FormulaVariant(
+                equals=(("elastic", 1.0), ("asked_body", 1.0)),
+                result_symbol=r"v_1'",
+                lines=(r"v_1' = \frac{(m_1-m_2)v_1 + 2m_2v_2}{m_1+m_2}",),
+            ),
+            FormulaVariant(
+                equals=(("elastic", 1.0), ("asked_body", 2.0)),
+                result_symbol=r"v_2'",
+                lines=(r"v_2' = \frac{(m_2-m_1)v_2 + 2m_1v_1}{m_1+m_2}",),
+            ),
             FormulaVariant(
                 equals=(("elastic", 1.0),),
                 result_symbol=r"v_1',\ v_2'",
@@ -155,6 +166,8 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("elastic", "elastic", dimensionless=True, visible=False),
             # Speeds asked of a pair moving apart: the card gives each body's size.
             var("speeds", "speeds", dimensionless=True, visible=False),
+            # The one body the question asks about, 1 or 2 (0 or unset: both).
+            var("asked_body", "asked_body", dimensionless=True, visible=False),
             var("m1", "m_1", "kilogram"),
             var("m2", "m_2", "kilogram"),
             var("v1", "v_1", "meter / second"),

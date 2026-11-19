@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
 
 from app.modules.physics.bodies import SCHOOL_GRAVITY, names_our_moon
 from app.modules.physics.extractors.written_unit import written_unit
@@ -44,21 +45,62 @@ _STATED_G = (
 )
 
 
+# A number right before a "g": the g is its unit, grams ("a rocket of 500 g is 15 m/s²").
+_AFTER_A_NUMBER = re.compile(r"\d\s*$")
+_LONE_G = re.compile(r"g\b", re.IGNORECASE)
+
+
+def _another_kind(unit: str) -> bool:
+    """``unit`` is one the shared table reads, of a kind no g is: "gravity of 5 kg" is a
+    mass. A unit nothing reads is kept, for ``gravity_unit_unread`` to decline."""
+    from app.modules.physics.solvers.si import to_si
+
+    if not unit:
+        return False
+    try:
+        to_si(1.0, unit)
+    except SolveServiceError:
+        return False
+    return _in_m_per_s2(1.0, unit) is None
+
+
+def _stated_gs(text: str) -> Iterator[tuple[re.Match[str], str]]:
+    """Every g the user wrote, its match and the unit written after its value ("" when none
+    is), in the readers' order. A g is gravity's value: never the gram a mass is written in
+    ("500 g is 15 m/s²" certified g = 15, 300 J for 196.2 J), never a value in a unit of
+    another kind ("gravity of 5 kg") (Gemini on #2491)."""
+    for pattern in _STATED_G:
+        for match in pattern.finditer(text):
+            if _LONE_G.match(match.group()) and _AFTER_A_NUMBER.search(
+                text[max(0, match.start() - 12) : match.start()]
+            ):
+                continue
+            unit = written_unit(text, match.end(1), "g")
+            if not _another_kind(unit):
+                yield match, unit
+
+
 def _written_gravity(text: str) -> tuple[float, str] | None:
     """The g the user wrote and the unit written after it ("" when none is)."""
-    for pattern in _STATED_G:
-        match = pattern.search(text)
-        if match:
-            return float(match.group(1)), written_unit(text, match.end(1), "g")
+    for match, unit in _stated_gs(text):
+        return float(match.group(1)), unit
     return None
 
 
 def gravity_at(text: str, start: int, end: int) -> bool:
     """The value written at ``start:end`` is the g this reader reads: the one place a stated
     g is told from any other acceleration, for the binder as for ``detect_gravity``."""
-    return any(
-        start <= match.start(1) < end for pattern in _STATED_G for match in pattern.finditer(text)
-    )
+    return any(start <= match.start(1) < end for match, _ in _stated_gs(text))
+
+
+def stated_gravity_spans(text: str) -> list[tuple[int, int]]:
+    """Where each stated g is written, its label, value and unit: one per value, for a
+    reader that accounts for every number a question states (``request``)."""
+    spans: dict[int, tuple[int, int]] = {}
+    for match, unit in _stated_gs(text):
+        unit_end = text.find(unit, match.end(1)) + len(unit) if unit else match.end()
+        spans.setdefault(match.start(1), (match.start(), max(match.end(), unit_end)))
+    return list(spans.values())
 
 
 def _in_m_per_s2(value: float, unit: str) -> float | None:

@@ -4,7 +4,13 @@ from __future__ import annotations
 
 import pytest
 
-from app.modules.physics.extractors.surface_gravity import detect_gravity, gravity_at
+from app.modules.physics.extractors.surface_gravity import (
+    detect_gravity,
+    gravity_at,
+    gravity_unit_unread,
+    stated_gravity,
+    stated_gravity_spans,
+)
 
 
 @pytest.mark.parametrize(
@@ -42,3 +48,33 @@ def test_the_stated_g_is_read_at_its_value(text: str, value: str, is_g: bool) ->
 def test_detect_gravity_reads_a_g_named_after_its_value() -> None:
     assert detect_gravity("A 2 kg book is raised 1.5 m (take 10 m/s^2 for g).") == 10.0
     assert detect_gravity("Take g as 10 m/s². Find the weight of a 2 kg mass.") == 10.0
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # A "g" right after a number is grams (Gemini on #2491: g = 15 certified 300 J).
+        "The upward acceleration of a model rocket of 500 g is 15 m/s² as it rises 40 m.",
+        "A ball of mass 500 g is 20 m above the ground.",
+        # A value in a unit of another kind is no g: "gravity of 5 kg" is a mass.
+        "Find the potential energy due to gravity of 5 kg at a height of 2 m.",
+    ],
+)
+def test_a_mass_is_never_a_stated_g(text: str) -> None:
+    assert stated_gravity(text) is None
+    assert not gravity_unit_unread(text)
+    assert detect_gravity(text) == 9.81
+
+
+def test_a_g_beside_a_mass_in_grams_is_still_read() -> None:
+    assert stated_gravity("A 500 g ball is lifted 2 m with g = 10 m/s².") == 10.0
+    assert stated_gravity("A 500 g ball, g = 32 ft/s².") == pytest.approx(9.7536)
+    # A unit nothing reads is still a g, declined as unread.
+    assert gravity_unit_unread("Take g = 10 zorb/s^2.")
+
+
+def test_stated_gravity_spans_cover_label_value_and_unit() -> None:
+    text = "A ball is kicked at 20 m/s at 30°. Use 10 m/s^2 for g. Find the range."
+    assert [text[start:end] for start, end in stated_gravity_spans(text)] == ["10 m/s^2 for g"]
+    text = "Here g = 9.8 m/s^2 and a 500 g ball."
+    assert [text[start:end] for start, end in stated_gravity_spans(text)] == ["g = 9.8 m/s^2"]

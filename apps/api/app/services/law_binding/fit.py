@@ -353,13 +353,17 @@ _SENTENCE_END = re.compile(r"[.?!](?=\s|$)")
 # A body slowed or pushed by its own means: braking, decelerating, a thrust or an engine.
 # Never g, even for a falling body: "a falling ball decelerates at 25 m/s² over 0.40 m".
 _RETARDED = re.compile(r"\b(?:brak\w*|decelerat\w*|retard\w*|thrust\w*|engines?)\b", re.I)
-# A body's own acceleration: "accelerates", "speeds up", "has an acceleration of", "the
-# acceleration of the car". "The acceleration is 24.8 m/s²" on Jupiter, or the acceleration
-# due to gravity, is the world's. A launched rocket that "accelerates upward at 15 m/s²" is
-# driven: 15 is no g (Gemini and Claude on #2491).
+# A body's own acceleration: "accelerates", "speeds up", the acceleration of a body ("the
+# acceleration of the car"), or an acceleration any word but "the" sets before the noun: an
+# article, a modifier or an owner ("an upward acceleration of", "a constant acceleration of",
+# "with acceleration", "the rover's acceleration"). Only "the acceleration" alone, or a
+# gravitational one, is the world's ("on Jupiter, where the acceleration is 24.8 m/s²").
+# A rocket "launched with an upward acceleration of 15 m/s²" certified mgh with g = 15
+# (Gemini and Claude on #2491).
 _DRIVEN = re.compile(
-    r"\baccelerat(?:es|ed|ing)\b|\bspeeds?\s+up\b|\ban\s+acceleration\s+of\b"
-    r"|\bacceleration\s+of\s+(?:the|a|an|its|his|her|their)\b",
+    r"\baccelerat(?:es|ed|ing)\b|\bspeeds?\s+up\b"
+    r"|\bacceleration\s+of\s+(?:the|a|an|its|his|her|their)\b"
+    r"|(?<![\w'\u2019])(?!the\b|gravit)[\w'\u2019]+\s+acceleration\b",
     re.IGNORECASE,
 )
 # An acceleration named right after its value's unit: "a 15 m/s² acceleration".

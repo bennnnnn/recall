@@ -14,7 +14,11 @@ from typing import TYPE_CHECKING
 
 from app.modules.physics.extractors.launch_direction import TWO_WAYS, moving_sense
 from app.modules.physics.extractors.momentum import _COLLISION_SUBJECT_RE, _TWO_DIMENSIONAL_RE
-from app.modules.physics.extractors.surface_gravity import detect_gravity, stated_gravity
+from app.modules.physics.extractors.surface_gravity import (
+    detect_gravity,
+    stated_gravity,
+    stated_gravity_spans,
+)
 from app.modules.physics.extractors.unit_patterns import (
     LENGTH_UNIT_PATTERN,
     MASS_UNITS,
@@ -105,10 +109,6 @@ _QUANTITY = re.compile(
     r"(?:maximum|max|peak) height|(?:horizontal\s+)?range|(?:impact|landing) speed)\b",
     re.IGNORECASE,
 )
-_GRAVITY = re.compile(
-    rf"\b(?:g\s*=|gravity\s*(?:of|is|=)?)\s*{NUMBER}(?:\s*m/s\^?2)?",
-    re.IGNORECASE,
-)
 _ANGLE = re.compile(rf"{NUMBER}\s*(?:degrees?|deg|°|radians?|rad)(?![A-Za-z0-9])", re.IGNORECASE)
 _MATH_POWER_REQUEST = re.compile(
     r"\b(?:raised\s+to|to)\s+(?:the\s+)?"
@@ -129,9 +129,9 @@ class PhysicsRequest:
     projectile_ops: tuple[ProjectileQuantity, ...] = ()
 
 
-def _accounted_for(text: str, quantities: list[re.Match[str]]) -> bool:
+def _accounted_for(text: str, quantities: list[tuple[int, int]]) -> bool:
     return all(
-        any(quantity.start() <= start and end <= quantity.end() for quantity in quantities)
+        any(left <= start and end <= right for left, right in quantities)
         for start, end in numeric_spans(text)
     )
 
@@ -150,6 +150,18 @@ def _body_names(masses: list[re.Match[str]], ask_start: int) -> list[re.Match[st
         ):
             return None
     return stated
+
+
+def _asked_body(all_masses: list[re.Match[str]], bodies: list[re.Match[str]]) -> int:
+    """The one body the ask names by its mass, 1 or 2: "the final speed of the 2 kg ball";
+    0 when it names neither or both."""
+    named = {
+        index
+        for mass in all_masses[len(bodies) :]
+        for index, body in enumerate(bodies, start=1)
+        if float(mass[1]) == float(body[1]) and mass[2].lower() == body[2].lower()
+    }
+    return named.pop() if len(named) == 1 else 0
 
 
 def _collision_intent(text: str) -> PhysicsIntent | None:
@@ -172,7 +184,8 @@ def _collision_intent(text: str) -> PhysicsIntent | None:
     # The energy the ask names is the question, not a condition on the collision.
     if _COLLISION_QUALIFIER.search(text[:ask_start] if energy_lost else text):
         return None
-    if not _accounted_for(text, [*all_masses, *_SPEED.finditer(text)]):
+    stated = (*all_masses, *_SPEED.finditer(text))
+    if not _accounted_for(text, [found.span() for found in stated]):
         return None
     if _ASKED_TYPE.search(text):
         return None
@@ -186,6 +199,9 @@ def _collision_intent(text: str) -> PhysicsIntent | None:
         return None
     params: dict[str, float] = {"elastic": float(elastic)}
     units: dict[str, str] = {"elastic": ""}
+    if elastic and (body := _asked_body(all_masses, masses)):
+        # One body asked: its answer alone, never the other's beside it (Gemini on #2491).
+        params["asked_body"], units["asked_body"] = float(body), ""
     consumed_speeds = 0
     signed_literal = False
     directions: list[tuple[str, int] | None] = []
@@ -256,9 +272,11 @@ def _collision_intent(text: str) -> PhysicsIntent | None:
 _NEXT_BODY_WORDS = re.compile(
     r"\b(?:a|an|the|another|second|other)\s+((?:[^\s\d]+\s+){1,2})$", re.IGNORECASE
 )
-# An ask for a size alone: "their final speed", "how fast". A velocity asked keeps its sign.
+# An ask for a size alone: "their final speed", "how fast", "the magnitude of their final
+# velocity". A velocity asked keeps its sign.
 _ASKS_SPEED = re.compile(r"\bspeeds?\b|\bhow\s+fast\b", re.IGNORECASE)
 _ASKS_VELOCITY = re.compile(r"\bvelocit", re.IGNORECASE)
+_ASKS_MAGNITUDE = re.compile(r"\bmagnitudes?\b", re.IGNORECASE)
 # The senses a compass or a hand names; a +x or -x is a signed axis of its own.
 _NAMED_SENSES = frozenset({"east-west", "north-south", "left-right"})
 
@@ -308,6 +326,14 @@ def _next_body_words(clause: str) -> tuple[str, tuple[str, int] | None]:
     return clause[: tail.start(1)], sense
 
 
+def _asks_a_size(clause: str) -> bool:
+    """The ask is for a size: a speed, or a velocity's magnitude (Gemini on #2491: "the
+    magnitude of their final velocity" was certified as -2 m/s)."""
+    if _ASKS_MAGNITUDE.search(clause):
+        return True
+    return _ASKS_SPEED.search(clause) is not None and not _ASKS_VELOCITY.search(clause)
+
+
 def _as_asked(
     params: dict[str, float], directions: list[tuple[str, int] | None], clause: str
 ) -> bool:
@@ -322,10 +348,12 @@ def _as_asked(
     results: tuple[float, ...]
     if params["elastic"]:
         results = (((m1 - m2) * v1 + 2 * m2 * v2) / total, ((m2 - m1) * v2 + 2 * m1 * v1) / total)
+        if params.get("asked_body"):
+            results = (results[int(params["asked_body"]) - 1],)
     else:
         results = ((m1 * v1 + m2 * v2) / total,)
     named = any(sense is not None and sense[0] in _NAMED_SENSES for sense in directions)
-    if _ASKS_SPEED.search(clause) and not _ASKS_VELOCITY.search(clause):
+    if _asks_a_size(clause):
         if all(result <= 0 for result in results):
             params["v1"], params["v2"] = -v1, -v2
             return True
@@ -437,9 +465,11 @@ def _projectile_parts(text: str) -> tuple[ProjectileQuantity, ...] | None:
         re.IGNORECASE,
     ):
         return None
-    gravities = list(_GRAVITY.finditer(text))
+    # The stated g read by the one reader of a stated g: "use 10 m/s² for g" too.
+    gravities = stated_gravity_spans(text)
+    stated = (*_SPEED.finditer(text), *_ANGLE.finditer(text), *lengths)
     if len(gravities) > 1 or not _accounted_for(
-        text, [*_SPEED.finditer(text), *_ANGLE.finditer(text), *lengths, *gravities]
+        text, [*(found.span() for found in stated), *gravities]
     ):
         return None
     return tuple(ops)
