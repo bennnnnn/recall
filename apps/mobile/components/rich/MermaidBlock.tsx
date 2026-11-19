@@ -40,9 +40,7 @@ export function MermaidBlock({ content }: Props) {
       errorText: t("rich.mermaid_error"),
     });
 
-  const sanitized = useMemo(() => sanitizeMermaidNodeLabels(content.trim()), [content]);
-  // What the card draws: no emoji, and label signs that draw as written (`displayLabels`).
-  const drawn = useMemo(() => mermaidDisplaySource(sanitized), [sanitized]);
+  const { sanitized, drawn } = useMermaidSources(content);
   const config = useMemo(() => mermaidPreviewConfig(drawn, theme), [drawn, theme]);
   const previewWebView = getPreviewWebView();
   const WebView = previewWebView?.Component;
@@ -134,6 +132,13 @@ export function MermaidBlock({ content }: Props) {
       )}
     </VisualCard>
   );
+}
+
+/** The diagram as written (source view, Copy), and as the card draws it (`displayLabels`). */
+function useMermaidSources(content: string): { sanitized: string; drawn: string } {
+  const sanitized = useMemo(() => sanitizeMermaidNodeLabels(content.trim()), [content]);
+  const drawn = useMemo(() => mermaidDisplaySource(sanitized), [sanitized]);
+  return { sanitized, drawn };
 }
 
 /** The card's title, and what a screen reader hears of the drawing (GFX-02): the title and the texts it names. */
