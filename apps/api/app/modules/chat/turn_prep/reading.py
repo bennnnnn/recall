@@ -215,13 +215,14 @@ def _read_money_yield(
 ) -> None:
     """Whether money yields a one-request message to the science it reads as, which the money
     turn asks of it (``money._a_science_problem``)."""
-    from app.services.subjects.order import read_subject_reason
     from app.services.subjects.registry import MONEY
 
     if plan.multi:
         return
-    subject = read_subject_reason(content, has_image_attachment, chemistry)
-    MONEY.yields_to(content, None if subject is None else subject.subject)
+    subject = subject_of(
+        content, has_image_attachment=has_image_attachment, chemistry_enabled=chemistry
+    )
+    MONEY.yields_to(content, subject)
 
 
 def _read_place_requests(
