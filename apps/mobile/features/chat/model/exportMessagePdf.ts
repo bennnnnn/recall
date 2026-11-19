@@ -21,6 +21,8 @@ export async function exportConversationAsPdf(
   const body = conversationMarkdownBody(messages, "print");
   if (!body.trim()) throw new NothingToExportError();
   // The PDF ends as a text share does: where it came from, and where to get the app.
-  const footer = shareFooterLines().map((line) => `*${line}*`).join("\n\n");
+  const footer = shareFooterLines(undefined, (link) => `[${link}](${link})`)
+    .map((line) => `*${line}*`)
+    .join("\n\n");
   await exportMessageAsPdf(heading, `${body}\n\n---\n\n${footer}`, onSharing);
 }

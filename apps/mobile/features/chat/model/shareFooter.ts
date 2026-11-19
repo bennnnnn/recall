@@ -7,26 +7,39 @@
 import i18n from "@/lib/i18n";
 import { config } from "@/lib/config";
 
-/** `url` with `ref=share`, or null when it is no http(s) link. */
+/**
+ * `url` with `ref=share` (any `ref` it had is replaced: the share is what is counted), or
+ * null when it is no https link. A value that is set but unusable ("recall.com/get", with no
+ * scheme) says so in development, where a release would ship without its link.
+ */
 export function shareLink(url: string | null): string | null {
   if (!url) return null;
   try {
     const link = new URL(url);
-    if (link.protocol !== "https:" && link.protocol !== "http:") return null;
+    if (link.protocol !== "https:") throw new Error("not https");
     link.searchParams.set("ref", "share");
     return link.toString();
   } catch {
+    if (typeof __DEV__ !== "undefined" && __DEV__) {
+      console.warn(`EXPO_PUBLIC_SHARE_URL is no https link, so shares carry none: ${url}`);
+    }
     return null;
   }
 }
 
-/** The footer's lines: where the chat came from, and the link when the build has one. */
-export function shareFooterLines(url: string | null = config.shareUrl): string[] {
+/**
+ * The footer's lines: where the chat came from, and the link when the build has one.
+ * `asLink` writes the link for its medium: a PDF's must be a markdown link to be tapped.
+ */
+export function shareFooterLines(
+  url: string | null = config.shareUrl,
+  asLink: (link: string) => string = (link) => link,
+): string[] {
   const app = i18n.t("app.name");
   const link = shareLink(url);
   return [
     i18n.t("share.footer_from", { app }),
-    ...(link ? [i18n.t("share.footer_get", { url: link })] : []),
+    ...(link ? [i18n.t("share.footer_get", { url: asLink(link) })] : []),
   ];
 }
 
