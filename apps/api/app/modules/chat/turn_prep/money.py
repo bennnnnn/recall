@@ -54,6 +54,8 @@ async def money_turn(
         "",
     )
     for text in plan.texts() if plan.multi else (request.content,):
+        if _a_science_problem(text, settings):
+            continue
         turn = await MONEY.prepare(
             text,
             settings,
@@ -65,8 +67,11 @@ async def money_turn(
         )
         if turn is not None:
             return replace(turn, multi=plan.multi)
-    # A reminder or to-do line is the to-do path's, whatever money words it holds.
-    if todos_service.query_implies_todos(request.content):
+    # A reminder or to-do line is the to-do path's, whatever money words it holds; a
+    # science's problem is no follow-up of an earlier loan.
+    if todos_service.query_implies_todos(request.content) or _a_science_problem(
+        request.content, settings
+    ):
         return None
     return await MONEY.prepare_standing(
         request.content,
@@ -77,6 +82,16 @@ async def money_turn(
         earlier=earlier,
         last_reply=last_reply,
     )
+
+
+def _a_science_problem(text: str, settings: Settings) -> bool:
+    """The pool read ``text`` as a physics or chemistry problem, and money yields it
+    (``MoneyPeer.yields_to``). The subject is the turn's own reading of it, never read
+    here, on the loop: a text the pool did not read is not held back."""
+    from app.services.subjects.order import read_subject_reason
+
+    read = kept_reading(read_subject_reason, text, False, settings.chemistry_enabled)
+    return read is not None and MONEY.yields_to(read.subject)
 
 
 def _parts(line: str, chemistry_enabled: bool) -> tuple[str, ...]:
