@@ -320,7 +320,7 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         kind=EFFECT,
         after=frozenset({"working_check", "worked_lead", "data_chart"}),
     ),
-    # Every card written, whoever wrote it: its numbers by the one rule (answer_number).
+    # Every card written, whoever wrote it: its numbers by the one rule (rounding_rule).
     FinalizePass(
         "card_numbers",
         format_card_numbers,

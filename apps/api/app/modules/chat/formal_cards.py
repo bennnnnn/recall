@@ -23,10 +23,10 @@ from typing import Any
 
 from app.services.answer_check import read_verified_value
 from app.services.answer_fence import ANSWER_FENCE_LANGS, UNCHECKED_ANSWER_MARKER
-from app.services.answer_number import RULE, Precision
 from app.services.formal.answer import FormalValue
 from app.services.md_fence_scan import iter_fences
 from app.services.part_answer_cards import PART_ANSWER_HEADING
+from app.services.rounding_rule import RULE, Precision
 
 logger = logging.getLogger(__name__)
 
@@ -150,18 +150,19 @@ def _read_it_so(value: FormalValue, numbers: Sequence[float]) -> bool:
 
 
 def _kind(unit: str) -> Any | None:
-    from app.services.formal.solve import as_quantity
+    from app.services.formal.maths import as_quantity
 
     try:
         return as_quantity(1.0, unit).dimensionality
-    except Exception:  # pint: a unit it cannot read, so no kind to pair by
+    except Exception as exc:  # pint: a unit it cannot read, so no kind to pair by
+        logger.info("formal answer: a card's unit not read (%s)", type(exc).__name__)
         return None
 
 
 def _in_card_unit(server: float, value: FormalValue, card: ReplyCard) -> list[float]:
     """The server's ``server`` (in its asked unit) as the card would write it: in the
     card's unit, or, for a card with no unit, both the bare number and the pure number."""
-    from app.services.formal.solve import as_quantity
+    from app.services.formal.maths import as_quantity
 
     quantity = as_quantity(server, value.unit)
     if not card.unit or quantity.dimensionless:
@@ -205,14 +206,15 @@ def _rounding(card: ReplyCard) -> float:
 
 def _in_unit_if_pure(quantity: Any, unit: str) -> list[float]:
     """A pure number as a card's percent ("0.9" as "90 %"); nothing for any other unit."""
-    from app.services.formal.solve import as_quantity
+    from app.services.formal.maths import as_quantity
 
     try:
         target = as_quantity(1.0, unit)
         if "percent" not in str(target.units):
             return []
         return [float(quantity.to(target.units).magnitude)]
-    except Exception:  # pint: no such unit
+    except Exception as exc:  # pint: no such unit
+        logger.info("formal answer: no percent unit (%s)", type(exc).__name__)
         return []
 
 
@@ -221,7 +223,8 @@ def agrees(card: ReplyCard, value: FormalValue, asked: Precision = RULE) -> bool
     None when the two cannot be compared (kinds that do not convert)."""
     try:
         ends = [_in_card_unit(end, value, card) for end in (value.low, value.high)]
-    except Exception:  # pint: kinds that do not convert
+    except Exception as exc:  # pint: kinds that do not convert
+        logger.info("formal answer: kinds that do not convert (%s)", type(exc).__name__)
         return None
     rounding = max(_rounding(card), _asked_slack(card, asked))
     shown = abs(card.value)
@@ -314,10 +317,10 @@ def held_to_server(
     changes: list[tuple[ReplyCard, FormalValue]] = []
     for card, value in _pairs(reply_cards(text), values):
         if not _read_it_so(value, numbers):
-            logger.info("formal answer: the reply read part %r another way", value.part)
+            logger.info("formal answer: the reply read a part another way")
             continue
         verdict = agrees(card, value, asked)
-        logger.info("formal answer: part %r card %s", value.part, verdict)
+        logger.info("formal answer: a card agrees=%s", verdict is True)
         if verdict is False:
             changes.append((card, value))
     for card, value in sorted(changes, key=lambda change: -change[0].body_start):

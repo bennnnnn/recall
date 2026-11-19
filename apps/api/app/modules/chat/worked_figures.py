@@ -1,7 +1,7 @@
 """How a worked answer's card shows its number: the one rule every card follows.
 
 The working ends on its value unrounded and the card rounds it once (the owner's rule,
-2026-11-13), by ``services.answer_number`` (2026-11-18: two decimal places, whole numbers
+2026-11-13), by ``services.rounding_rule`` (2026-11-18: two decimal places, whole numbers
 whole, a power of ten only past 10⁹ or below 0.001), or to the precision the question asks.
 A sum of money is exact to the cent as written, and a value in symbols or words is no
 number to round.
@@ -12,7 +12,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from app.services.answer_number import Precision, number_latex
+from app.services.rounding_rule import Precision, number_latex
 from app.services.school_rounding import MOST_DIGITS
 
 if TYPE_CHECKING:

@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from app.modules.chat.card_numbers import card_numbers
-from app.services.answer_number import Precision
+from app.services.rounding_rule import Precision
 
 
 def _card(value: str, verified: str = "false") -> str:

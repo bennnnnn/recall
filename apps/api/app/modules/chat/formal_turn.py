@@ -39,8 +39,8 @@ from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.formal_cards import held_to_server
 from app.modules.chat.reply_language import line_language
 from app.modules.chat.turn_decision import TurnDecision
-from app.services.answer_number import asked_precision
 from app.services.formal.answer import FormalAnswer, StatedConflict
+from app.services.rounding_rule import asked_precision
 from app.services.subjects.registry import subject_adapter
 
 if TYPE_CHECKING:

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.answer_number import Precision, asked_precision, number_latex, number_plain
+from app.services.rounding_rule import Precision, asked_precision, number_latex, number_plain
 
 
 @pytest.mark.parametrize(

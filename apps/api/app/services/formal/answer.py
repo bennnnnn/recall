@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from app.services.answer_number import number_latex
+from app.services.rounding_rule import number_latex
 
 
 @dataclass(frozen=True)

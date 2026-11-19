@@ -1,5 +1,5 @@
 # ruff: noqa: RUF001, RUF002, RUF003 -- the module reads × and − as a card writes them.
-"""Every answer card's number shown by the one rule (``services.answer_number``), whoever
+"""Every answer card's number shown by the one rule (``services.rounding_rule``), whoever
 wrote the card: a subject's solver, the worked layout, the formal check or the model.
 
 A card that states plain values (``P = 109324.04\\,\\mathrm{Pa}``, ``x = 2 or x = -3``,
@@ -23,8 +23,8 @@ from app.services.answer_fence import (
     CHEMISTRY_NOTATION_LINE,
     answer_header_and_value,
 )
-from app.services.answer_number import Precision, asked_precision, number_latex
 from app.services.md_fence_scan import iter_fences
+from app.services.rounding_rule import Precision, asked_precision, number_latex
 from app.services.school_rounding import round_places
 
 if TYPE_CHECKING:

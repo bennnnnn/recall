@@ -18,13 +18,11 @@ from __future__ import annotations
 import logging
 import math
 import re
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from app.services.formal.answer import FormalValue, StatedConflict, card_maths_of
+from app.services.formal.maths import Setup, in_unit, kind_of, sympy_tree, unit_registry
 from app.services.formal.problem import Check
-
-if TYPE_CHECKING:
-    from app.services.formal.solve import Setup
 
 logger = logging.getLogger(__name__)
 
@@ -70,8 +68,6 @@ def _one_solution(
         except (TypeError, ValueError):
             continue
     if len(real) > 1 and answers:
-        from app.services.formal.solve import in_unit
-
         first = setup.symbols[answers[0].symbol]
         real = [
             numbers
@@ -87,7 +83,6 @@ def _one_solution(
 
 
 def _broken(check: Check, setup: Setup, values: dict[Any, float]) -> StatedConflict | None:
-    from app.services.formal.solve import sympy_tree
     from app.services.law_binding.expression import parse
 
     relations = _RELATION.findall(check.relation)
@@ -136,7 +131,6 @@ def _breaks(left: float, right: float, relation: str) -> bool:
 def _side(expression: Any, text: str, value: float, setup: Setup) -> str:
     """A side's value as card maths, in the units its symbols are written in: a moment of
     1200 N at 2 m is 2400 N·m, not 2400 kg·m²/s²."""
-    from app.services.formal.solve import kind_of
 
     try:
         kind = kind_of(expression, setup.written_units)
@@ -152,7 +146,6 @@ def _side(expression: Any, text: str, value: float, setup: Setup) -> str:
 def _in_order(units: Any, text: str, setup: Setup) -> str:
     """``units`` with its factors in the order the side names their symbols: a moment
     ``L*d`` is N·m, where pint's own order (by name) wrote m·N."""
-    from app.services.formal.solve import unit_registry
 
     first: dict[str, int] = {}
     for at, name in enumerate(re.findall(r"[A-Za-z_]\w*", text)):

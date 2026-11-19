@@ -390,9 +390,6 @@ def _answer_line(answer: Answer, layout: WorkedLayout) -> str:
         note = prose_maths(answer.note)
         said = math_line(words_tex(answer.value.strip()))
         return f"{said} ({note})" if note else said
-    sentence = _sentence(answer)
-    if sentence is not None:
-        return f"```answer\n{UNCHECKED_ANSWER_MARKER}\n{sentence}\n```"
     if _restates(answer.note, answer.value):
         answer = answer.model_copy(update={"note": ""})
     answer = card_answer(answer, layout.asked)  # rounds once, by the one rule or as asked
@@ -443,10 +440,20 @@ def _said(part: Part) -> str | None:
 
 def answer_lines(answers: Sequence[Answer], layout: WorkedLayout) -> str:
     """The answers' lines, values on one line each and a sentence answer as its own card."""
-    lines = [_answer_line(answer, layout) for answer in answers]
-    values = _HARD_BREAK.join(line for line in lines if not line.startswith("```"))
-    cards = [line for line in lines if line.startswith("```")]
+    sentences = [_sentence(answer) for answer in answers]
+    values = _HARD_BREAK.join(
+        _answer_line(answer, layout)
+        for answer, sentence in zip(answers, sentences, strict=True)
+        if sentence is None
+    )
+    cards = [_sentence_card(sentence) for sentence in sentences if sentence is not None]
     return "\n\n".join(block for block in (values, *cards) if block)
+
+
+def _sentence_card(sentence: str) -> str:
+    """A sentence answer in its own card, words that wrap: no solver checked it."""
+    answer = f"{UNCHECKED_ANSWER_MARKER}\n{sentence}"
+    return render_workout(Workout(), answer, answer_heading=None, solution=False).strip()
 
 
 # A number in a sentence with no maths of its own: "60 W" is "$60$ W".

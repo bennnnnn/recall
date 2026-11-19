@@ -97,7 +97,7 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # (its reviews, 2026-11-16); then a ```worked part asked in words, said in `say` lines and
 # answered in one sentence (prompt_constants.worked, G8 round t42, 2026-11-18), and its answer
 # record's value and its substitution left unrounded, the "3 significant figures" gone: the server rounds every
-# card by one rule (services.answer_number, the owner, 2026-11-18).
+# card by one rule (services.rounding_rule, the owner, 2026-11-18).
 _RULES = 203
 _RULE_GRAMS = 19142
 _RULE_GRAMS_SHA = "a5ed625737f94cbc"
