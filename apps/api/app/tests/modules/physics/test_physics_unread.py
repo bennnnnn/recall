@@ -209,6 +209,7 @@ def test_a_part_left_unread_declines(text: str) -> None:
     assert _answer(text) is None
 
 
+@pytest.mark.wall_clock
 def test_a_run_of_spaces_is_read_once() -> None:
     """Each optional run of spaces leads a token it must reach (Gemini on #2503: the search
     was quadratic in a run of spaces)."""
