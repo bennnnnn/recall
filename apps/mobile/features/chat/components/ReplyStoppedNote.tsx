@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { useClarifyActions } from "@/components/rich/clarifyContext";
 import type { Message } from "@/lib/api";
+import { reportFailure } from "@/lib/sentry";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -49,7 +50,10 @@ export function ReplyStoppedNote({ message, latest = false, after = null }: Prop
       .then((went) => {
         if (!went) setSent(false);
       })
-      .catch(() => setSent(false));
+      .catch((error: unknown) => {
+        reportFailure("reply_continue", error);
+        setSent(false);
+      });
   };
 
   return (
