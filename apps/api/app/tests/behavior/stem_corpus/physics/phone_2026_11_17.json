@@ -427,5 +427,44 @@
   "prompt": "A 2.0 kg cart moving at −3.0 m/s in the −x direction collides with a stationary 1.0 kg cart and they stick together. What is their final velocity?",
   "expect": "decline",
   "note": "a sign written twice is never read twice: −3.0 m/s and −x, which one is meant is unsaid"
+ },
+ {
+  "id": "p17-take-g-as",
+  "area": "force",
+  "prompt": "Take g as 10 m/s². Find the weight of a 2 kg mass.",
+  "expect": "answer",
+  "answer": [
+   20,
+   "N"
+  ],
+  "note": "W = mg = 2 × 10: \"g as 10\" is the g (Claude on #2491: 19.6 N was certified)"
+ },
+ {
+  "id": "p17-falling-probe-accelerates-upward",
+  "area": "force",
+  "prompt": "A falling 2 kg probe accelerates upward at 5 m/s² as its parachute opens. What is the net force on it?",
+  "expect": "answer",
+  "answer": [
+   10,
+   "N"
+  ],
+  "note": "F = ma = 2 × 5: an upward acceleration of a falling body is never g (Gemini on #2491)"
+ },
+ {
+  "id": "p17-elastic-final-speeds",
+  "area": "momentum",
+  "prompt": "A 1 kg ball moving at 3 m/s collides elastically with a stationary 2 kg ball. What are their final speeds?",
+  "expect": "answer",
+  "answers": [
+   [
+    1,
+    "m/s"
+   ],
+   [
+    2,
+    "m/s"
+   ]
+  ],
+  "note": "v₁' = −1, v₂' = 2: speeds are sizes, 1 m/s and 2 m/s (Gemini on #2491)"
  }
 ]

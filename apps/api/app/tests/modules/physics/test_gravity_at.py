@@ -16,6 +16,13 @@ from app.modules.physics.extractors.surface_gravity import detect_gravity, gravi
         ("Take 9.8 m/s² as the acceleration due to gravity.", "9.8", True),
         ("A gravitational acceleration of 3.7 m/s² acts on it.", "3.7", True),
         ("The acceleration due to gravity is 3.7 m/s².", "3.7", True),
+        # Every spelling of a stated g (Claude on #2491).
+        ("Take g as 10 m/s². Find the weight of a 2 kg mass.", "10", True),
+        ("Take g = 10. Find the weight of a 2 kg mass.", "10", True),
+        ("Assume g \u2248 9.8 m/s².", "9.8", True),
+        ("Here g is 9.8 m/s².", "9.8", True),
+        ("g: 9.81 m/s²", "9.81", True),
+        ("Take g to be 10 m/s².", "10", True),
         # The number right before the label, never an earlier one (Gemini on #2491).
         ("A block with \u03bc = 0.5 slides (10 N/kg for g).", "10", True),
         ("A block with \u03bc = 0.5 slides (10 N/kg for g).", "0.5", False),
@@ -34,3 +41,4 @@ def test_the_stated_g_is_read_at_its_value(text: str, value: str, is_g: bool) ->
 
 def test_detect_gravity_reads_a_g_named_after_its_value() -> None:
     assert detect_gravity("A 2 kg book is raised 1.5 m (take 10 m/s^2 for g).") == 10.0
+    assert detect_gravity("Take g as 10 m/s². Find the weight of a 2 kg mass.") == 10.0

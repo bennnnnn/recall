@@ -343,6 +343,8 @@ _FALLING = re.compile(
 )
 # A body thrown or launched: an unpowered projectile, under gravity, unless it is driven.
 _THROWN = re.compile(r"\b(?:projectiles?|thrown|throws?|tossed|launched|fired)\b", re.IGNORECASE)
+# An acceleration against a fall: "accelerates upward at 5 m/s²".
+_UPWARD = re.compile(r"\b(?:upwards?|up)\b", re.IGNORECASE)
 # Gravity named in the value's own sentence, before it, and no body driven there: "Gravity
 # acts downward at 9.8 m/s^2".
 _GRAVITY_WORD = re.compile(r"\bgravit\w*", re.IGNORECASE)
@@ -397,7 +399,9 @@ def _marks_gravity(question: Question, given: Given, previous: int, subject: Sub
     if subject.gravity_at(question.text, given.start, given.end):
         return True
     if _FALLING.search(lower[start:end]):
-        return True  # "a ball dropped from a tower accelerates at 9.8 m/s²"
+        # "a ball dropped from a tower accelerates at 9.8 m/s²" falls under gravity; "a
+        # falling probe accelerates upward at 5 m/s²" is driven against it (Gemini on #2491).
+        return not _UPWARD.search(before)
     if _DRIVEN.search(before) or _NAMED_AFTER.match(after):
         return False
     if _GRAVITY_WORD.search(before):

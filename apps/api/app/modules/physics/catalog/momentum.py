@@ -153,6 +153,8 @@ SPECS: tuple[FormulaSpec, ...] = (
         ),
         variables=(
             var("elastic", "elastic", dimensionless=True, visible=False),
+            # Speeds asked of a pair moving apart: the card gives each body's size.
+            var("speeds", "speeds", dimensionless=True, visible=False),
             var("m1", "m_1", "kilogram"),
             var("m2", "m_2", "kilogram"),
             var("v1", "v_1", "meter / second"),

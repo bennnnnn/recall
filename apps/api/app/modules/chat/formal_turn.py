@@ -156,6 +156,7 @@ def _bare(tex: str) -> str:
     return _TEX_SPACING.sub("", tex)
 
 
+_DIGIT = re.compile(r"\d")
 # A percentage said in words: "84.0 \\text{percent}" is 84.0 %.
 _PERCENT_WORD = re.compile(r"\\text\{\s*per\s*cent\s*\}|\bper\s*cent\b", re.IGNORECASE)
 _TEX_SPACING = re.compile(r"\\[ ,;:!]|\s+")
@@ -201,10 +202,12 @@ def _card_states(reply: str, forms: list[str]) -> Verdict:
     if not cards:
         return "absent"
     split = [_EDGE_SPACE.sub("", piece) for piece in _stated_forms(cards[-1])]
-    verdicts = [_piece_verdict(piece, forms) for piece in split if piece]
+    # Only a piece with a number states a value; each one must agree ("84.0% (0.94 J)" is
+    # no 84 %: its 0.94 J says something else, read or not; Gemini on #2491).
+    verdicts = [_piece_verdict(piece, forms) for piece in split if _DIGIT.search(piece)]
     if "conflict" in verdicts:
         return "conflict"
-    return "same" if "same" in verdicts else "absent"
+    return "same" if verdicts and all(verdict == "same" for verdict in verdicts) else "absent"
 
 
 def _piece_verdict(piece: str, forms: list[str]) -> Verdict:

@@ -22,7 +22,11 @@ _G_UNIT = (
 # acceleration of 9.8", and one named after its value: "take 10 m/s² for g", "Taking 10 m/s²
 # as the acceleration due to gravity" (review of #2491).
 _STATED_G = (
-    re.compile(rf"\bg\s*=\s*{_NUMBER}", re.IGNORECASE),
+    # "g = 10", "g ≈ 9.8", "g: 9.81", "take g as 10 m/s²", "g is 9.8", "g of 1.62", "g to be
+    # 10" (Claude on #2491: "Take g as 10 m/s²" was dropped, 19.6 N for 20 N).
+    re.compile(
+        rf"\bg\s*(?:=|\u2248|~|:|\bas\b|\bis\b|\bof\b|\bto\s+be\b)\s*{_NUMBER}", re.IGNORECASE
+    ),
     re.compile(rf"\bgravity\s*(?:of|is|=)?\s*{_NUMBER}", re.IGNORECASE),
     re.compile(
         rf"\b(?:gravitational|free[\s-]?fall)\s+(?:acceleration|field(?:\s+strength)?)"

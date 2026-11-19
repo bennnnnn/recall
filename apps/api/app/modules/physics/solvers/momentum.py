@@ -124,9 +124,15 @@ def solve_momentum(intent: PhysicsIntent) -> PhysicsResult:
                 r"\text{Elastic: } v_1' = \frac{(m_1-m_2)v_1 + 2 m_2 v_2}{m_1+m_2} "
                 rf"\approx {u1:.2f} \text{{ m/s}}, \quad v_2' \approx {u2:.2f} \text{{ m/s}}"
             )
+            if p.get("speeds", 0.0) >= 0.5:
+                # Speeds asked: each body's size, never a negative speed.
+                answer = (
+                    rf"\text{{Elastic: speeds }} |v_1'| \approx {abs(u1):.2f} \text{{ m/s}}, "
+                    rf"\quad |v_2'| \approx {abs(u2):.2f} \text{{ m/s}}"
+                )
             quantities = (
-                QuantityResult("", u1, "m/s"),
-                QuantityResult("", u2, "m/s"),
+                QuantityResult("", abs(u1) if p.get("speeds", 0.0) >= 0.5 else u1, "m/s"),
+                QuantityResult("", abs(u2) if p.get("speeds", 0.0) >= 0.5 else u2, "m/s"),
             )
             substitutions = _collision_substitutions(intent, elastic=True)
             formulas = (

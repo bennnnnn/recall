@@ -239,6 +239,8 @@ def _collision_intent(text: str) -> PhysicsIntent | None:
         return None
     if not energy_lost and not _as_asked(params, directions, clause or ""):
         return None
+    if "speeds" in params:
+        units["speeds"] = ""
     return PhysicsIntent(
         kind="momentum",
         physics_op="collision_energy_lost" if energy_lost else "final_velocity",
@@ -311,7 +313,8 @@ def _as_asked(
 ) -> bool:
     """The velocities set so the answer is what the question asks, or False when it cannot
     be. A speed asked is a size: the frame is turned so a sticking pair's speed is positive
-    ("moving west at 20 m/s hits the back of … moving west at 10 m/s", 16 m/s, never -16).
+    ("moving west at 20 m/s hits the back of … moving west at 10 m/s", 16 m/s, never -16),
+    and a pair moving apart is answered by its speeds' sizes (the ``speeds`` flag).
     A velocity along a compass or a hand's direction, with no positive sense the question
     names, is never a bare negative number; a ±x axis is signed of itself (Gemini on #2491)."""
     m1, m2, v1, v2 = params["m1"], params["m2"], params["v1"], params["v2"]
@@ -326,6 +329,11 @@ def _as_asked(
         if all(result <= 0 for result in results):
             params["v1"], params["v2"] = -v1, -v2
             return True
+        if any(result < 0 for result in results):
+            # Speeds asked of a pair moving apart: their sizes, never a negative speed
+            # (Gemini on #2491: "final speeds" were -1 m/s and 2 m/s).
+            params["speeds"] = 1.0
+        return True
     # A pair moving apart ("an elastic head-on collision with a stationary 4 kg ball": -2 and
     # 4 m/s) is signed along the first body's motion, unless a compass names the line.
     return not named or all(result >= 0 for result in results)
