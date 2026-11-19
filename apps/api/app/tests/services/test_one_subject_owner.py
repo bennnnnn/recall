@@ -67,6 +67,9 @@ def _on_maths_lane(line: str) -> bool:
     return routed_chat_model(line)[1] in {"math", "inherit_math"}
 
 
+# Every corpus line through every reader: about a minute locally, and three on a loaded CI
+# runner (2026-11-19). The suite's hang limit is for one turn, not the whole corpus.
+@pytest.mark.timeout(600)
 def test_every_reader_agrees_with_detect_subject() -> None:
     disagree: list[str] = []
     for line in _corpus():
