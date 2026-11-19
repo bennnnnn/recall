@@ -89,14 +89,9 @@ class MoneyPeer:
         A screw jack lifting "a car weighing 9000 N" at "40%" efficiency got a car-loan card
         and a rate note (2026-11-18), while "$3,000 at 18% APR ... how long until it is paid
         off?" and "I save 300 a month at 5%", which physics reads too, are the card's.
-        Maths keeps its money lines."""
-        from app.modules.money.read import read_money_request
-        from app.modules.money.sums import NAMES_MONEY
-
-        if subject not in _SCIENCES or NAMES_MONEY.search(text) is not None:
-            return False
-        request = read_money_request(text)
-        return request is None or not _names_its_product(text, request.product)
+        Maths keeps its money lines. The text is read in the turn's pool (``_names_no_money``),
+        never on the event loop (Gemini on #2495)."""
+        return subject in _SCIENCES and _names_no_money(text)
 
     def names_currency(self, unit: str) -> bool:
         """``unit`` is money: a currency sign ($, €, ₹) or word (dollars, USD, cents). A
@@ -124,6 +119,20 @@ def _reads_money(text: str) -> bool:
     from app.modules.money.read import read_money_request
 
     return read_money_request(text) is not None
+
+
+@reading(declined=False)
+@lru_cache(maxsize=128)
+def _names_no_money(text: str) -> bool:
+    """``text`` names no money: no currency, loan or APR, and no product by its own words. A
+    reading, read with the turn's message in the pool (``ask_turn_readings``)."""
+    from app.modules.money.read import read_money_request
+    from app.modules.money.sums import NAMES_MONEY
+
+    if NAMES_MONEY.search(text) is not None:
+        return False
+    request = read_money_request(text)
+    return request is None or not _names_its_product(text, request.product)
 
 
 def _names_its_product(text: str, product: Product) -> bool:

@@ -53,3 +53,23 @@ def test_money_yields_only_to_the_sciences(subject: str | None, yields: bool) ->
 
 def test_a_science_line_that_names_money_stays_money() -> None:
     assert not MONEY.yields_to("A $20,000 car loan at 6%.", "physics")
+
+
+def test_whether_money_yields_is_read_with_the_turns_message_in_the_pool() -> None:
+    """The money turn asks it on the loop: the pool's read of the message answers it, so
+    nothing reads the text there (Gemini on #2495)."""
+    from app.core.config import Settings
+    from app.core.readings import begin_turn, kept_reading
+    from app.modules.chat.turn_prep.reading import ask_turn_readings
+    from app.modules.money.subject import _names_no_money
+
+    begin_turn()
+    ask_turn_readings(
+        _SCREW_JACK,
+        prior_user=None,
+        prior_model=None,
+        lesson_active=False,
+        has_image_attachment=False,
+        settings=Settings.model_validate({}),
+    )
+    assert kept_reading(_names_no_money, _SCREW_JACK) is True

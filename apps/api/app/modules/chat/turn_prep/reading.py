@@ -190,6 +190,7 @@ def ask_turn_readings(
             maths.reads(text)
     maths.reads(content)
     subject_adapter("physics").reads(content)
+    _read_money_yield(content, plan, has_image_attachment, chemistry)
     _read_place_requests(content, plan, has_image_attachment, chemistry)
     # The follow-up readers ask the subject of the user's earlier lines: a physics or
     # chemistry problem is not replayed through maths. Routing asks the line before this
@@ -207,6 +208,20 @@ def ask_turn_readings(
         lesson_active=lesson_active,
         settings=settings,
     )
+
+
+def _read_money_yield(
+    content: str, plan: TurnPlan, has_image_attachment: bool, chemistry: bool
+) -> None:
+    """Whether money yields a one-request message to the science it reads as, which the money
+    turn asks of it (``money._a_science_problem``)."""
+    from app.services.subjects.order import read_subject_reason
+    from app.services.subjects.registry import MONEY
+
+    if plan.multi:
+        return
+    subject = read_subject_reason(content, has_image_attachment, chemistry)
+    MONEY.yields_to(content, None if subject is None else subject.subject)
 
 
 def _read_place_requests(
