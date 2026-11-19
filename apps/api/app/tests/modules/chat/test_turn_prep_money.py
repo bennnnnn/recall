@@ -176,3 +176,25 @@ async def test_a_reminder_line_after_a_loan_gets_no_block(
     line = "my car payment is due friday, remind me"
     turn = await _money_turn(_request(line, history=(_CAR,)), single_plan(line), fake_redis)
     assert turn is None
+
+
+async def test_a_loan_part_beside_a_physics_part_keeps_its_card(
+    fake_redis: Redis, thread_sympy_executor: None
+) -> None:
+    # The whole message reads as physics; its loan part is no physics problem. A part's
+    # subject is not the message's, so a message of several requests yields none.
+    force = "Find the force on a 2 kg mass accelerating at 3 m/s^2"
+    loan = "what is the monthly payment on a 20000 car at 5% for 4 years?"
+    plan = TurnPlan((TurnPart(force), TurnPart(loan)))
+    turn = await _money_turn(_request(f"{force}, and also {loan}"), plan, fake_redis)
+    assert turn is not None and turn.multi and turn.request.values["amount"] == 20000
+
+
+async def test_a_physics_problem_with_a_car_and_a_percent_gets_no_money_turn(
+    fake_redis: Redis, thread_sympy_executor: None
+) -> None:
+    line = (
+        "A screw jack has a pitch of 5 mm and a handle 35 cm long. It's efficiency is 40%. "
+        "What effort at the end of the handle is needed to lift a car weighing 9000 N?"
+    )
+    assert await _money_turn(_request(line), single_plan(line), fake_redis) is None

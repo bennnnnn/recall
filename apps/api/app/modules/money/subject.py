@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
     from app.core.config import Settings
     from app.models.orm import User
+    from app.modules.money.catalog import Product
     from app.modules.money.service import MoneyTurn
 
 
@@ -83,13 +84,19 @@ class MoneyPeer:
 
     def yields_to(self, text: str, subject: str | None) -> bool:
         """``text``, read as ``subject``'s problem, is a science's and never a money request,
-        unless it names money outright (a currency, a loan, an APR): a screw jack lifting "a
-        car weighing 9000 N" at "40%" efficiency got a car-loan card and a rate note
-        (2026-11-18), while "$3,000 at 18% APR ... how long until it is paid off?", which
-        physics reads too, is the card's. Maths keeps its money lines."""
+        unless it names money outright (a currency, a loan, an APR) or names its product by
+        the product's own words ("save", "car loan"), not only by what a loan buys ("a car").
+        A screw jack lifting "a car weighing 9000 N" at "40%" efficiency got a car-loan card
+        and a rate note (2026-11-18), while "$3,000 at 18% APR ... how long until it is paid
+        off?" and "I save 300 a month at 5%", which physics reads too, are the card's.
+        Maths keeps its money lines."""
+        from app.modules.money.read import read_money_request
         from app.modules.money.sums import NAMES_MONEY
 
-        return subject in _SCIENCES and NAMES_MONEY.search(text) is None
+        if subject not in _SCIENCES or NAMES_MONEY.search(text) is not None:
+            return False
+        request = read_money_request(text)
+        return request is None or not _names_its_product(text, request.product)
 
     def names_currency(self, unit: str) -> bool:
         """``unit`` is money: a currency sign ($, €, ₹) or word (dollars, USD, cents). A
@@ -117,6 +124,18 @@ def _reads_money(text: str) -> bool:
     from app.modules.money.read import read_money_request
 
     return read_money_request(text) is not None
+
+
+def _names_its_product(text: str, product: Product) -> bool:
+    """``text`` names ``product`` by its own words ("car loan", "save"), not only by the goods
+    a loan buys ("car", "truck")."""
+    import re
+
+    return any(
+        re.search(rf"(?<!\w){re.escape(word)}(?!\w)", text, re.IGNORECASE)
+        for word in product.words
+        if word not in product.goods
+    )
 
 
 def _names_currency(unit: str) -> bool:

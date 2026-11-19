@@ -32,6 +32,9 @@ _SCREW_JACK = (
             "How long until it is paid off?",
             False,
         ),
+        # A saving names its product by its own word, with no currency: still the card's.
+        ("If I save 200 a month at a rate of 6% per year, how long to reach 50000?", False),
+        ("I save 300 a month at 5% a year. How long until I reach 20000?", False),
     ],
 )
 def test_money_yields_a_sciences_problem_that_names_no_money(text: str, yields: bool) -> None:
