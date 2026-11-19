@@ -37,6 +37,23 @@ describe("mermaid labels as the card draws them", () => {
     expect(mermaidDisplaySource(inch)).toBe(inch);
   });
 
+  it("cleans a label of every shape: flag, parallelogram, trapezoid", () => {
+    const shapes = 'flowchart LR\n    A>"📦 Flag<br/>a > b"] --> B[/"📦 Input<br/>x < y"/]\n    B --> C[\\"⚙️ Step"\\] --> D[/"🔼 Up"\\]';
+    expect(mermaidDisplaySource(shapes)).toBe(
+      'flowchart LR\n    A>"Flag<br/>a ﹥ b"] --> B[/"Input<br/>x ﹤ y"/]\n    B --> C[\\"Step"\\] --> D[/"Up"\\]',
+    );
+  });
+
+  it("cleans an unquoted label of a node or an edge, and leaves the names and arrows around it", () => {
+    const bare =
+      "flowchart LR\n    A[📦 Load] -->|📦 loaded| B(🔥 Hot) --> C{❓ Ok?}\n    C -->|yes| D[[⚙️ Sub]] --> E((🚀 Go)) --> F>📦 Flag]\n    F --> G[/📦 In/] --> H[Step<br/>a > b 📦]";
+    expect(mermaidDisplaySource(bare)).toBe(
+      "flowchart LR\n    A[Load] -->|loaded| B(Hot) --> C{Ok?}\n    C -->|yes| D[[Sub]] --> E((Go)) --> F>Flag]\n    F --> G[/In/] --> H[Step<br/>a ﹥ b]",
+    );
+    const syntax = "erDiagram\n    BOOKS ||--o{ LOANS : has\nclassDiagram\n    Animal <|-- Duck\nstateDiagram-v2\n    [*] --> On";
+    expect(mermaidDisplaySource(syntax)).toBe(syntax);
+  });
+
   it("drops emoji built from joiners, skin tones and keycaps", () => {
     expect(mermaidDisplaySource('A["👩‍🔬 Scientist"] --> B["👍🏽 ok"] --> C["1️⃣ First"]')).toBe(
       'A["Scientist"] --> B["ok"] --> C["First"]',
