@@ -1,4 +1,4 @@
-# ruff: noqa: RUF001, RUF002, RUF003 -- the point of this module is × and superscripts.
+# ruff: noqa: RUF002, RUF003 -- the point of this module is × and superscripts.
 """How an answer card shows its number, for every subject: the one rule (owner, 2026-11-18).
 
 - Two decimal places, zeros kept: 2.453 is 2.45, 2.4 is 2.40, 19394.567 is 19394.57. A whole
@@ -34,7 +34,6 @@ PLACES = 2
 SMALL_FIGURES = 3
 POWER_FROM = 1e9
 POWER_BELOW = 1e-3
-_SUPERSCRIPT = str.maketrans("0123456789-", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻")
 
 
 @dataclass(frozen=True)
@@ -109,11 +108,3 @@ def number_latex(value: float | Fraction, precision: Precision = RULE) -> str:
     """``2.45``, ``6.02 \\times 10^{23}``."""
     mantissa, exponent = number_parts(value, precision)
     return mantissa if exponent is None else rf"{mantissa} \times 10^{{{exponent}}}"
-
-
-def number_plain(value: float | Fraction, precision: Precision = RULE) -> str:
-    """``2.45``, ``6.02 × 10²³``."""
-    mantissa, exponent = number_parts(value, precision)
-    if exponent is None:
-        return mantissa
-    return f"{mantissa} × 10{str(exponent).translate(_SUPERSCRIPT)}"

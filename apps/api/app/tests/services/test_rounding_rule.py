@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.rounding_rule import Precision, asked_precision, number_latex, number_plain
+from app.services.rounding_rule import Precision, asked_precision, number_latex
 
 
 @pytest.mark.parametrize(
@@ -36,10 +36,6 @@ from app.services.rounding_rule import Precision, asked_precision, number_latex,
 )
 def test_the_rule(value: float, shown: str) -> None:
     assert number_latex(value) == shown
-
-
-def test_the_plain_spelling_uses_superscripts() -> None:
-    assert number_plain(6.022e23) == "6.02 × 10²³"
 
 
 @pytest.mark.parametrize(
