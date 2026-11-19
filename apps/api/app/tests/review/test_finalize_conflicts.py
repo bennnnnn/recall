@@ -104,7 +104,9 @@ def _formal_answer(value: float, unit: str, uses: tuple[float, ...] = ()) -> Any
         high=value * 1.003,
         uses=uses,
     )
-    return formal_answer.FormalAnswer(values=(part,))
+    # #2501's FormalAnswer takes per-part values; main's type checker knows only (value, unit).
+    newer: Any = formal_answer.FormalAnswer
+    return newer(values=(part,))
 
 
 def _cards(text: str) -> list[str]:
