@@ -295,7 +295,6 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
             ("drawing", attach_drawing, frozenset({"math_fences", "formula_charts"})),
             ("figure", attach_figure, frozenset({"drawing"})),
             ("data_chart", attach_chart, frozenset({"figure"})),
-            ("formal_answer", attach_formal, frozenset({"data_chart"})),
         )
     ),
     FinalizePass("server_answer_cards", mark_server_cards, kind=TEXT),
@@ -309,6 +308,16 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         lambda s: drop_guessed_lead(s.text),
         kind=TEXT,
         after=frozenset({"working_check"}),
+    ),
+    # Once every answer of the reply's own is a card (working_check lands them): each card
+    # is held to the server's value for its part, card to card, and a question whose
+    # values cannot all hold opens with a line saying so, above the working.
+    FinalizePass(
+        "formal_answer",
+        attach_formal,
+        OnError(log_as="formal_answer"),
+        kind=EFFECT,
+        after=frozenset({"working_check", "worked_lead", "data_chart"}),
     ),
     # Before the source chips: it reads the reply's prose, and a failure keeps it whole.
     FinalizePass(

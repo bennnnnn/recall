@@ -30,8 +30,9 @@ An adapter has what the dispatcher and chat ask of every subject:
   None;
 - ``figure``: the picture it draws for a question that asks to see one, from the question's
   own values (``SubjectFigure``), or None;
-- ``formal``: its answer to a question its solvers did not read, worked out by the server
-  from a model's setup (``SubjectFormal``), or None;
+- ``formal``: its answers to a question its solvers did not read, worked out by the server
+  from a model's setup, and the relations the question's values break (``SubjectFormal``),
+  or None;
 - ``graph_facts``: its reader of a question's words for the graph a reply draws (a
   particle's v(t) and s(t), ``services.graph_facts``), handed to maths' plot, or None;
 - ``followups``: how it reads a line that goes back to its last problem
@@ -349,7 +350,8 @@ class SubjectFigure(Protocol):
 
 class SubjectFormal(Protocol):
     """The subject's answer to a question its solvers did not read: a model writes it down as
-    maths, the server solves it (``services.formal``); None unless the two agree."""
+    maths, the server solves it (``services.formal``): each part whose setup answer agrees
+    with the server's, and the relations its values break; None with neither."""
 
     async def answer(self, question: str, settings: Settings) -> FormalAnswer | None: ...
 

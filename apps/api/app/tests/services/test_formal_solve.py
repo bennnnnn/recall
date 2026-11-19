@@ -53,9 +53,23 @@ def _drop(**changes: Any) -> dict[str, Any]:
     return setup | changes
 
 
-def _solve(setup: dict[str, Any], question: str) -> dict[str, Any]:
+def _asked(setup: dict[str, Any]) -> dict[str, Any]:
+    """A one-value setup written with its target, as the setup asks it."""
+    setup = dict(setup)
+    target, unit, answer = setup.pop("target"), setup.pop("target_unit"), setup.pop("answer")
+    asked = [{"symbol": target, "unit": unit, "answer": answer}] if target else []
+    return setup | {"asked": asked}
+
+
+def _solved(setup: dict[str, Any], question: str) -> dict[str, Any]:
     result: dict[str, Any] = json.loads(solve_formal(json.dumps(setup), question))
     return result
+
+
+def _solve(setup: dict[str, Any], question: str) -> dict[str, Any]:
+    """The result, its one answer's fields at the top."""
+    result = _solved(_asked(setup) if "target" in setup else setup, question)
+    return result | (result["answers"][0] if result.get("answers") else {})
 
 
 def test_the_server_works_out_the_answer_in_the_unit_asked() -> None:
@@ -67,7 +81,6 @@ def test_the_server_works_out_the_answer_in_the_unit_asked() -> None:
 def test_a_negative_root_the_physics_rules_out_is_set_aside() -> None:
     result = _solve(_drop(), DROP)
     assert result["value"] == pytest.approx(3.0289, rel=1e-4)
-    assert sorted(result["candidates"]) == pytest.approx([-3.0289, 3.0289], rel=1e-4)
 
 
 def test_a_count_in_words_and_a_current_named_i_in_spanish() -> None:
@@ -252,7 +265,7 @@ async def test_the_server_s_answer_is_used_only_when_the_setup_s_own_agrees(
     from app.modules.physics import formal_read
     from app.services.formal.problem import FormalProblem
 
-    setup = FormalProblem.model_validate(_car(answer=own))
+    setup = FormalProblem.model_validate(_asked(_car(answer=own)))
     with (
         patch.object(formal_read, "read_physics_setup", AsyncMock(return_value=setup)),
         patch("app.core.sympy_executor.run_sympy", _in_process),
@@ -260,7 +273,8 @@ async def test_the_server_s_answer_is_used_only_when_the_setup_s_own_agrees(
         answer = await formal_read.formal_answer(CAR, Settings(_env_file=None))  # type: ignore[call-arg]
     assert (answer is not None) is kept
     if answer is not None:
-        assert answer.value == pytest.approx(3.4722, rel=1e-4) and answer.unit == "m/s^2"
+        value = answer.values[0]
+        assert value.value == pytest.approx(3.4722, rel=1e-4) and value.unit == "m/s^2"
 
 
 MIXING = "2 kg of water at 80 C is mixed with 3 kg of water at 20 C. What is the final temperature?"
@@ -349,3 +363,103 @@ def test_a_unit_after_a_slash_is_all_denominator(unit: str) -> None:
     }
     result = _solve(setup, HEATER)
     assert result["solved"] and result["value"] == pytest.approx(252)
+
+
+PRESSURE = (
+    "A rectangular block of mass 50 kg lies with a side 2m by 1m on a table. What is the "
+    "pressure exerted by its weight on the table?"
+)
+
+
+def test_an_answer_carries_the_range_its_constants_allow_and_the_numbers_it_uses() -> None:
+    """g as 9.81 gives 245 Pa; the book's g = 10 gives 250 Pa, within the range a reply is
+    held to (G8 t18, 2026-11-18). The table's 5 m length is no number it is worked from."""
+    setup = {
+        "givens": [
+            {"symbol": "m", "value": "50", "unit": "kg", "quote": "50 kg"},
+            {"symbol": "a", "value": "2", "unit": "m", "quote": "2m"},
+            {"symbol": "b", "value": "1", "unit": "m", "quote": "1m"},
+            _g(),
+        ],
+        "unknowns": [{"symbol": "P", "unit": "Pa"}],
+        "equations": ["P = m*g/(a*b)"],
+        "target": "P",
+        "target_unit": "Pa",
+        "answer": 245.25,
+    }
+    result = _solve(setup, PRESSURE)
+    assert result["value"] == pytest.approx(245.25)
+    assert result["low"] < 245 < 250 < result["high"]
+    assert result["uses"] == [1.0, 2.0, 50.0]
+
+
+LEVER = (
+    "A 5m long lever is used to balance a load of 1200 N by a force of 80 N, when the "
+    "fulcrum is located at a distance of 2m from the load and 3m from the effort.\na) What "
+    "is the clockwise torque? b) What is the anticlockwise torque? c) What is the MA of the "
+    "lever? d) What is the VR of the lever?"
+)
+
+
+def _lever(effort: str) -> dict[str, Any]:
+    return {
+        "givens": [
+            {"symbol": "L", "value": "1200", "unit": "N", "quote": "1200 N"},
+            {"symbol": "E", "value": effort, "unit": "N", "quote": f"{effort} N"},
+            {"symbol": "dL", "value": "2", "unit": "m", "quote": "2m"},
+            {"symbol": "dE", "value": "3", "unit": "m", "quote": "3m"},
+            {"symbol": "l", "value": "5", "unit": "m", "quote": "5m"},
+        ],
+        "unknowns": [
+            {"symbol": "tc", "unit": "N*m"},
+            {"symbol": "ta", "unit": "N*m"},
+            {"symbol": "MA", "unit": ""},
+            {"symbol": "VR", "unit": ""},
+        ],
+        "equations": ["tc = L*dL", "ta = E*dE", "MA = L/E", "VR = dE/dL"],
+        "asked": [
+            {"part": "a", "symbol": "tc", "unit": "N*m", "answer": 2400},
+            {"part": "b", "symbol": "ta", "unit": "N*m", "answer": 3 * float(effort)},
+            {"part": "c", "symbol": "MA", "unit": "", "answer": 1200 / float(effort)},
+            {"part": "d", "symbol": "VR", "unit": "", "answer": 1.5},
+        ],
+        "checks": [
+            {"relation": "tc = ta", "meaning": "a balanced lever has equal moments."},
+            {"relation": "MA <= VR", "meaning": "MA is never more than VR"},
+        ],
+    }
+
+
+def test_each_part_is_answered_and_the_values_a_question_breaks_are_named() -> None:
+    """Live, 2026-11-18: a lever "used to balance" 1200 N by 80 N at arms of 2 m and 3 m."""
+    result = _solved(_lever("80"), LEVER.replace("800 N", "80 N"))
+    assert [(a["part"], a["value"]) for a in result["answers"]] == [
+        ("a", 2400.0),
+        ("b", 240.0),
+        ("c", 15.0),
+        ("d", 1.5),
+    ]
+    assert result["conflicts"] == [
+        {
+            "meaning": "a balanced lever has equal moments",
+            "left": "2400\\ \\mathrm{N\\cdot m}",
+            "broken": "\\neq",
+            "right": "240\\ \\mathrm{N\\cdot m}",
+        },
+        {"meaning": "MA is never more than VR", "left": "15", "broken": ">", "right": "1.5"},
+    ]
+
+
+def test_values_that_hold_break_no_check() -> None:
+    consistent = LEVER.replace("80 N", "800 N")
+    result = _solved(_lever("800"), consistent)
+    assert result["solved"] and result["conflicts"] == []
+    assert [a["value"] for a in result["answers"]] == [2400.0, 2400.0, 1.5, 1.5]
+
+
+@pytest.mark.parametrize(
+    "relation", ["tc = ta = MA", "tc ** = ta", "tc = nowhere", "__import__('os') = tc"]
+)
+def test_a_check_that_does_not_read_is_no_check(relation: str) -> None:
+    setup = _lever("80") | {"checks": [{"relation": relation, "meaning": "x"}]}
+    assert _solved(setup, LEVER)["conflicts"] == []

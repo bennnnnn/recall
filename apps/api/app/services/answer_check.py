@@ -62,6 +62,8 @@ _TEX_SPACING = re.compile(r"\\(?:qquad|quad|[,;:! ])")
 _TEX_WORDS = {
     r"\times": "\u00d7", r"\cdot": "·", r"\approx": "≈", r"\simeq": "≈", r"\pm": "±",
     r"\%": "%", r"\left": "", r"\right": "", r"\circ": "°", r"\degree": "°",
+    # A unit's own letter: "50\,\Omega" is 50 Ω, read as a resistance, not as no value.
+    r"\Omega": "Ω", r"\mu": "µ",
 }  # fmt: skip
 
 
