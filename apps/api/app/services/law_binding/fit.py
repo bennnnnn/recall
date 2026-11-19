@@ -343,6 +343,9 @@ _FALLING = re.compile(
 )
 # A body thrown or launched: an unpowered projectile, under gravity, unless it is driven.
 _THROWN = re.compile(r"\b(?:projectiles?|thrown|throws?|tossed|launched|fired)\b", re.IGNORECASE)
+# Gravity named in the value's own sentence, before it, and no body driven there: "Gravity
+# acts downward at 9.8 m/s^2".
+_GRAVITY_WORD = re.compile(r"\bgravit\w*", re.IGNORECASE)
 # A sentence's end: a stop, then a space or the end ("3.0 m/s." ends one, "3.00" does not).
 _SENTENCE_END = re.compile(r"[.?!](?=\s|$)")
 # A body slowed or pushed by its own means: braking, decelerating, a thrust or an engine.
@@ -397,6 +400,8 @@ def _marks_gravity(question: Question, given: Given, previous: int, subject: Sub
         return True  # "a ball dropped from a tower accelerates at 9.8 m/s²"
     if _DRIVEN.search(before) or _NAMED_AFTER.match(after):
         return False
+    if _GRAVITY_WORD.search(before):
+        return True  # "Gravity acts downward at 9.8 m/s^2."
     # A throw in the value's own sentence: "A ball is thrown … A cart's acceleration is 3.0
     # m/s²" is the cart's (Gemini on #2491).
     return subject.names_gravity(question.text) or bool(_THROWN.search(lower, start, end))
