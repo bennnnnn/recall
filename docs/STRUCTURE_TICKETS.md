@@ -567,7 +567,7 @@ printed "no decision changed".
     `math.followup` and `.reply_policy`; `physics.followup`, `PHYSICS_REPLY_POLICY` and
     `physics_prompt_hints`; `chemistry.followup`, `.reply_policy` and `.shape_followup`.
   - `SUBJECT_HINTS` keeps its order (physics, maths, chemistry, then chat's statistics and
-    biology): the leak pass joins its rules in that order. `prompt_rule_text()` hashes the
+    biology; biology's hint left with v1, 2026-11-18): the leak pass joins its rules in that order. `prompt_rule_text()` hashes the
     same before and after.
   - Decision diff over 5,232 turns: no decision changed.
 - **Status, step 2b (chat's finalize passes): done.** Chat files that import a subject:
@@ -628,7 +628,9 @@ printed "no decision changed".
   - The subject-name `Literal`s are the registry's `SubjectName`: chat's status phases
     (`stream_status`) and follow-up subject (`FollowupSubject` is gone), the picture intent's
     `subject` (`images/schemas`, its OpenAPI unchanged) and the scanner's subjects
-    (`ScannerSubject` is `SubjectName` and biology, whose caption the phone sends). The model
+    (`ScannerSubject` is `SubjectName` and biology, whose caption the phone sends; since
+    2026-11-18 biology is out of v1 and `SCANNER_CAMERA_PROMPTS` is keyed by `SubjectName`
+    alone). The model
     reader's `Subject` keeps its own order, part of its measured prompt;
     `test_subject_registry.py` holds its set, and the scanner's, to the registry's.
   - `test_module_direction.py` gains `test_chat_imports_no_subject`: no chat file imports

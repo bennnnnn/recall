@@ -55,10 +55,10 @@ def test_named_lines_have_one_subject(line: str, subject: str) -> None:
     assert on_math_lane == (subject == "math")
 
 
-def test_a_genotype_cross_is_biology_not_a_drawn_square() -> None:
+def test_a_punnett_square_flowchart_names_no_subject() -> None:
     line = "Draw a flowchart of a Punnett square cross for Aa x Aa with 4 offspring"
     assert detect_subject(line) is None
-    assert classify_presentation_subject(line) == "biology"
+    assert classify_presentation_subject(line) is None
 
 
 def _on_maths_lane(line: str) -> bool:

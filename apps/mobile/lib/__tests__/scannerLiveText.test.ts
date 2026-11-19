@@ -13,13 +13,13 @@ describe("live scanner text", () => {
     expect(hasUsefulScannerText("water")).toBe(false);
   });
 
-  it("counts a question in words for physics, chemistry and biology, not for maths", () => {
-    const question = "Explain how enzymes speed up reactions";
-    expect(hasUsefulScannerText(question, "biology")).toBe(true);
+  it("counts a question in words for physics and chemistry, not for maths", () => {
+    const question = "Explain how catalysts speed up reactions";
+    expect(hasUsefulScannerText(question, "chemistry")).toBe(true);
     expect(hasUsefulScannerText("Why is the sky blue", "physics")).toBe(true);
     expect(hasUsefulScannerText("Name this compound please", "chemistry")).toBe(true);
     expect(hasUsefulScannerText(question, "math")).toBe(false);
-    expect(hasUsefulScannerText("Cell biology", "biology")).toBe(false);
+    expect(hasUsefulScannerText("Organic chemistry", "chemistry")).toBe(false);
   });
 });
 

@@ -94,10 +94,11 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # scene and the question's values, never a coordinate (physics.scene_drawing.contract, the
 # owner's round of 30 hard problems, 2026-11-16), naming a horizontal launch, bodies moving
 # the same way and the situations it never draws; no spring or wave, which no reader confirms
-# (its reviews, 2026-11-16).
-_RULES = 203
-_RULE_GRAMS = 19057
-_RULE_GRAMS_SHA = "0d59a0d129e95471"
+# (its reviews, 2026-11-16); then no biology presentation hint, biology being out of v1
+# (2026-11-18).
+_RULES = 202
+_RULE_GRAMS = 19043
+_RULE_GRAMS_SHA = "9ae0fd7ef640a40e"
 
 
 def _rules() -> list[str]:
