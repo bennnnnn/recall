@@ -63,8 +63,8 @@ _SURFACE_ASK_RE = re.compile(
     r"(?:mirror(?:'s)?(?:\s+surface)?|surface)\b"
 )
 _BETWEEN_RAYS_RE = re.compile(
-    r"between\s+the\s+(?:incident|incoming)\s+(?:ray\s+)?and\s+(?:the\s+)?reflected"
-    r"|between\s+the\s+reflected\s+(?:ray\s+)?and\s+(?:the\s+)?(?:incident|incoming)"
+    r"between\s+(?:the\s+)?(?:incident|incoming)\s+(?:ray\s+)?and\s+(?:the\s+)?reflected"
+    r"|between\s+(?:the\s+)?reflected\s+(?:ray\s+)?and\s+(?:the\s+)?(?:incident|incoming)"
 )
 _CLAUSE_END_RE = re.compile(r"[.?!;](?:\s|$)")
 # "If the angle of incidence is 42.5 degrees, what is ...": the comma ends the given.
@@ -121,9 +121,12 @@ def _reflection_intent(cleaned: str) -> PhysicsIntent | None:
         op = "reflection_ray_angle"
     elif _SURFACE_ASK_RE.search(asked) and "normal" not in asked:
         op = "reflection_surface_angle"
-    elif "normal" in asked or "angle of reflection" in asked or "reflected" in asked:
+    elif "normal" in asked or "angle of reflection" in asked:
         op = "reflection_angle"
     else:
+        # The asked angle names no line it is measured from (the normal, the surface, the
+        # other ray): read as the angle of reflection, "the angle between incident ray and
+        # reflected ray" was answered 40° for 80°.
         return None
     return PhysicsIntent(
         kind="optics",

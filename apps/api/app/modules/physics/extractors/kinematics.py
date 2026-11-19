@@ -59,6 +59,13 @@ _GRAVITY_MOTION_CUES = (
     "launched downward",
 )
 
+
+def _gravity_moves_it(lower: str) -> bool:
+    """The question says gravity moves the body (dropped, falling, thrown up or down), so
+    g is its acceleration; otherwise g is a default nobody stated."""
+    return any(cue in lower for cue in _GRAVITY_MOTION_CUES)
+
+
 _KINEMATICS_CUES = (
     *_GRAVITY_MOTION_CUES,
     "how long until",
@@ -177,9 +184,7 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
     # until it hits the ground" was a throw upward, 3.06 s).
     sideways = HORIZONTAL_LAUNCH_RE.search(cleaned) is not None
     asked = asked_phrases(cleaned)
-    if asked in {("acceleration",), ("deceleration",)} and not any(
-        cue in lower for cue in _GRAVITY_MOTION_CUES
-    ):
+    if asked in {("acceleration",), ("deceleration",)} and not _gravity_moves_it(lower):
         # A given velocity cannot turn a request for an unknown acceleration
         # into a free-fall velocity calculation. SUVAT owns that request.
         return None
@@ -242,7 +247,14 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
     # known time are the exception: v = v0 - g*t needs no height, so
     # "how fast is a dropped ball going after 1 s" is answerable. They are let
     # through here and gated below instead, where a missing time returns None.
-    if h0 is None and v0 == 0.0 and not (asks_speed or asks_velocity):
+    # Only a body the question says gravity moves has g for its acceleration: "a car
+    # starts from rest and accelerates. What is its velocity after 10 s?" states none,
+    # and was answered as a fall, -98.1 m/s.
+    if (
+        h0 is None
+        and v0 == 0.0
+        and not ((asks_speed or asks_velocity) and _gravity_moves_it(lower))
+    ):
         return None
 
     # Decide what the user is asking for.
@@ -274,7 +286,7 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
             return None
         op = "vertical_max_height"
     elif _ASKS_ACCELERATION_RE.search(lower) is not None and _ASKS_TIME_RE.search(lower) is None:
-        if not any(cue in lower for cue in _GRAVITY_MOTION_CUES) or _timed_drop(h0, cleaned):
+        if not _gravity_moves_it(lower) or _timed_drop(h0, cleaned):
             return None
         op = "acceleration"
 

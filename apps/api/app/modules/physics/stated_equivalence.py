@@ -18,8 +18,9 @@ _AMOUNT = r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+"
 # "Take 1 liter of water = 1 kg of water.", "1 L of water has a mass of 1 kg."
 _STATED = re.compile(
     rf"(?<![\w.,])(?:take\s+|assume\s+(?:that\s+)?)?1\s*(?P<from>{_UNIT})\s+of\s+"
-    rf"(?P<what>[a-z]+)\s+(?:=|is|equals|has\s+a\s+mass\s+of|weighs)\s*(?P<k>{_NUMBER})\s*"
-    rf"(?P<to>{_UNIT})(?:\s+of\s+(?P=what))?\s*(?:[.;]|$)",
+    rf"(?P<what>[a-z]+)(?:\s*=|\s+(?:is|equals|has\s+a\s+mass\s+of|weighs))\s*"
+    # It may close a bracketed note: "(Note that 1 liter of water= 1 kg of water)".
+    rf"(?P<k>{_NUMBER})\s*(?P<to>{_UNIT})(?:\s+of\s+(?P=what))?\s*(?:[.;)]|$)",
     re.IGNORECASE,
 )
 
@@ -27,6 +28,12 @@ _STATED = re.compile(
 def _plural_of(unit: str) -> str:
     stem = unit.lower().removesuffix("s")
     return rf"{re.escape(stem)}s?"
+
+
+def states_an_equivalence(text: str) -> bool:
+    """Whether ``text`` states an equivalence: left after ``apply_stated_equivalence``, it
+    was not applied, and its 1 and its 1 kg are no givens (``unread``)."""
+    return _STATED.search(text) is not None
 
 
 def apply_stated_equivalence(text: str) -> str:
