@@ -1012,6 +1012,8 @@
   "settings.your_job": "Votre métier",
   "share.copy_failed": "Impossible de copier. Réessayez.",
   "share.default_title": "Discussion",
+  "share.footer_from": "Partagé depuis {{app}}, le chat IA qui se souvient de vous.",
+  "share.footer_get": "Téléchargez l’app : {{url}}",
   "share.role_user": "Vous",
   "share.attachment_photo": "[Image]",
   "share.attachment_pdf": "[PDF]",
