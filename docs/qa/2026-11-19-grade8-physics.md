@@ -210,7 +210,7 @@ g8-026 and g8-035 (pending).
 ### Ranking
 | rank | class | book questions lost | fix |
 |---|---|---|---|
-| 1 | answers with part of the question unread (wrong numbers) | 4 pending (+ g8-027, g8-084 one spelling away) | new, most urgent |
+| 1 | answers with part of the question unread (wrong numbers) | 4 pending (+ g8-027, g8-084 one spelling away; 5 more in Grade 7) | new, most urgent |
 | 2 | missing school laws | 17 | new |
 | 3 | book wording unread | 15 (+1 pending) | new |
 | 4 | mensuration and notation without an owner | 14 | new (maths) |
@@ -261,4 +261,92 @@ g8-026 and g8-035 (pending).
   - `stem_snapshot.json` was recorded with `UPDATE_STEM_SNAPSHOT=1`, and its diff holds
     additions only.
 
-<!-- grade7 -->
+## Also: the Grade 7 Physics book
+
+There was time left for the Grade 7 book. Its PDF is linked as "Grade 7 Physics Textbook" from the
+site's own Grade 7 textbooks page
+(`chilot.wordpress.com/wp-content/uploads/2023/02/83fa6-grade-7-physics-textbook.pdf`, 188
+pages, 8 units). `textbook_grade7.json` grows from 8 entries to 153, built and worked the same
+way, with 6 more in `stem_corpus_pending/physics/textbook_grade7.json`.
+
+| expect | entries | answered right | gap | pending-critical |
+|---|---|---|---|---|
+| answer | 113 (+6 pending) | 60 | 53 | 6 (5 wrong numbers, 1 misread) |
+| explain | 17 | 17 left to the model | – | – |
+| decline | 14 | 14 never given a number | – | – |
+| not_subject | 9 | 9 never read as physics | – | – |
+
+| unit (area) | answer entries | answered | pending |
+|---|---|---|---|
+| measurement | 10 | 1 | – |
+| motion (kinematics) | 23 | 12 | 4 |
+| force and Newton's laws (dynamics) | 18 | 12 | 1 |
+| work, energy, power (energy) | 21 | 14 | 1 |
+| simple machines (machines) | 19 | 10 | – |
+| temperature and heat (heat) | 8 | 3 | – |
+| sound | 8 | 4 | – |
+| electricity and magnetism | 6 | 4 | – |
+
+**Pending, Grade 7.** Five verified wrong numbers and one misread, with the same root cause as
+Grade 8's wrong numbers (part of the question left unread):
+- **g7-034, g7-157:** "average velocity / average speed" after accelerating from rest gets the
+  final speed, 10 m/s for 5. `extractors/suvat.py` maps "velocity"/"speed" to the final velocity
+  and leaves "average" unread.
+- **g7-069:** the pump of 300 L "(Note that 1 liter of water= 1 kg of water)" gets 14.7 W for
+  4414 W. The stated equivalence is read as the mass, 1 kg. The existing g7-08 records the same
+  family, fixed once for a differently placed note.
+- **g7-158:** "2 × 103 N" is read as 103 N (the `fold_scientific` mantissa, as g8-155).
+- **g7-159:** east then west read as magnitudes, 2 m/s² for 6 (as g8-156).
+- **g7-023, misread:** four runners' speeds over one 100 m race are read as maths (class 7).
+
+**Gaps, Grade 7 (53).** Most fall into Grade 8's classes:
+
+| class | entries |
+|---|---|
+| several asks (class 4) | 9 |
+| unit conversion and mensuration without an owner (class 3) | 5 |
+| law vocabulary (class 2) | 5 |
+| missing laws (class 1) | 5 |
+| temperature conversion, which maths owns and does not answer (class 3) | 4 |
+| follow-ups (class 5, **C**) | 4 |
+| spelled numbers (class 2) | 3 |
+| maths' readers (class 3) | 2 |
+| the gate (class 7) | 2 |
+| tables (class 6) | 2 |
+| lost spellings (class 2) | 2 |
+| a missing inverse (class 4) | 1 |
+
+The missing laws are:
+- the velocity ratio from distances moved;
+- cells in series adding;
+- the speed of sound with temperature;
+- a see-saw balanced by masses;
+- charge per second asked in charge words.
+
+Three causes are new:
+- **Compass-direction asks (5).** "What is its displacement / velocity … due East?" maps to no
+  law. The rate laws ask only "distance", "how far" or "speed", and the same question asked "how
+  far" binds. Fix: an ask for a vector quantity is its magnitude's law plus the stated direction.
+- **Friction's forms (3).** μ is read only right beside its value, and a coefficient ask is read
+  only as an incline's slipping angle (`modules/physics/extractors/friction.py:152-156, 206`), so
+  μ = F/N on level ground has no reader. Fix: the friction law gets a binding over F, μ and N
+  like any other (class 4).
+- **The gate and the reader disagree (g7-037).** `extract_physics_intent` completes a suvat
+  acceleration (u = 215 km/h, t = 2.7 s), but `needs_physics` (`extract.py:114`) says no, so the
+  turn has no subject. This is the plainest evidence for class 7: the gate is a cue list, not the
+  readers' own verdict.
+
+One entry, g7-060 ("50 kg lifted 2 m with 1000 J"), agrees only at g = 10. Its decline as
+contradictory at 9.81 is defensible, and the gap line says so.
+
+## The two books together
+
+| | answer entries | answered right | gap | pending wrong numbers | pending misreads |
+|---|---|---|---|---|---|
+| Grade 8 | 100 | 29 | 71 | 4 | 2 |
+| Grade 7 | 113 | 60 | 53 | 5 | 1 |
+
+All nine wrong numbers, verified with a check mark today, come from **a reader answering with
+part of the question unread** ("the", "average", "×", a direction, a stated equivalence, a
+missing fall). That class is the first fix to make. It is a completeness rule at the reader
+boundary, not more phrases.
