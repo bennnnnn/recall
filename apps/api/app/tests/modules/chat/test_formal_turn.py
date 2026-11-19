@@ -376,6 +376,8 @@ def test_the_reply_s_own_card_states_the_value_in_either_form(card: str, same: b
     ("card", "value", "unit", "verdict"),
     [
         ("0.94\\ (84.0\\%)", 84.0, "%", "conflict"),
+        # Gemini on #2491: a form that conflicts conflicts, whichever form it is.
+        ("0.840\\ (94.0\\%)", 0.84, "", "conflict"),
         ("x(3\\ \\mathrm{m}) = 15\\ \\mathrm{m}", 3.0, "m", "conflict"),
         ("0.840\\ (84.0\\ \\text{percent})", 84.0, "%", "same"),
         ("\\text{see above}", 84.0, "%", "absent"),

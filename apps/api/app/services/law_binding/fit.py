@@ -380,7 +380,7 @@ def _marks_gravity(question: Question, given: Given, previous: int, subject: Sub
     a braking, a thrust or an engine; the g the subject's one reader of a stated g reads at
     the value ("g = 1.62", "take 10 m/s² for g"); a body falling or dropped in that
     sentence; never a body's own acceleration; else a named world's gravity ("on Jupiter,
-    where the acceleration is 24.8 m/s²"), or a fall or a throw anywhere. "The cruiser
+    where the acceleration is 24.8 m/s²"), or a throw in that sentence. "The cruiser
     accelerates from rest at 3.00 m/s²" is no g: a law with g bound it as one and certified
     150 m for 600 m (owner's phone, 2026-11-17)."""
     del previous  # the sentence up to the value is read whole
@@ -397,9 +397,9 @@ def _marks_gravity(question: Question, given: Given, previous: int, subject: Sub
         return True  # "a ball dropped from a tower accelerates at 9.8 m/s²"
     if _DRIVEN.search(before) or _NAMED_AFTER.match(after):
         return False
-    return subject.names_gravity(question.text) or bool(
-        _FALLING.search(lower) or _THROWN.search(lower)
-    )
+    # A throw in the value's own sentence: "A ball is thrown … A cart's acceleration is 3.0
+    # m/s²" is the cart's (Gemini on #2491).
+    return subject.names_gravity(question.text) or bool(_THROWN.search(lower, start, end))
 
 
 def _next_start(givens: Sequence[Given], index: int, lower: str) -> int:

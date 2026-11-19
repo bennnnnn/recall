@@ -156,6 +156,8 @@ def _bare(tex: str) -> str:
     return _TEX_SPACING.sub("", tex)
 
 
+# A percentage said in words: "84.0 \\text{percent}" is 84.0 %.
+_PERCENT_WORD = re.compile(r"\\text\{\s*per\s*cent\s*\}|\bper\s*cent\b", re.IGNORECASE)
 _TEX_SPACING = re.compile(r"\\[ ,;:!]|\s+")
 
 
@@ -207,14 +209,16 @@ def _card_states(reply: str, forms: list[str]) -> Verdict:
 
 def _piece_verdict(piece: str, forms: list[str]) -> Verdict:
     """One stated value against the server's: the same in any of its forms (written as the
-    server writes it, a unit the reader does not read included: 4180 J/(kg·K)), or a
-    conflict with its own form (0.94 against 84 %), else nothing read."""
+    server writes it, a unit the reader does not read included: 4180 J/(kg·K)), else a
+    conflict with any of them (0.94 against 84 %), else nothing read."""
     if _bare(piece) in {_bare(form) for form in forms}:
         return "same"
+    piece = _PERCENT_WORD.sub(r"\\%", piece)
     said = [stated_verdict(f"**Answer**\n\n${piece}$\n", form) for form in forms]
     if any(verdict in _AGREES for verdict in said):
         return "same"
-    return "conflict" if said and said[0] == "conflict" else "absent"
+    # No form agrees: a conflict with any of them is one ("0.840 (94.0%)" against 0.84).
+    return "conflict" if "conflict" in said else "absent"
 
 
 async def attach_formal(state: FinalizeState) -> str:

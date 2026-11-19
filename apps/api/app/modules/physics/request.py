@@ -222,8 +222,10 @@ def _collision_intent(text: str) -> PhysicsIntent | None:
             return None  # a body at rest with a direction: whose it is, the words do not say
         sense = direction
         if sense is not None:
-            if velocity < 0 and sense[1] > 0:
-                return None  # "-2 m/s in the +x direction": the two signs disagree
+            if velocity < 0:
+                # "-2 m/s in the +x direction", "-3.0 m/s in the -x direction": a sign
+                # written twice is never read twice (Gemini on #2491).
+                return None
             # Each body signed by its own sense, the first's too: "-x at 3 m/s" is -3 m/s.
             velocity = sense[1] * abs(velocity)
         signed_literal = signed_literal or (velocity < 0 and sense is None)

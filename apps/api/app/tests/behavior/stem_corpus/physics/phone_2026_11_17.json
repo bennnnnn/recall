@@ -413,5 +413,19 @@
    "m/s"
   ],
   "note": "2 × (−3)/3: −x-directed modifies the 2.0 kg cart"
+ },
+ {
+  "id": "p17-throw-elsewhere-cart-acceleration",
+  "area": "energy",
+  "prompt": "A ball is thrown horizontally from a cliff. A cart's acceleration is 3.0 m/s². What is the potential energy of a 2 kg mass at 5 m?",
+  "expect": "decline",
+  "note": "the cart's 3.0 m/s² is no g: a throw in another sentence says nothing of it (Gemini on #2491)"
+ },
+ {
+  "id": "p17-sign-written-twice",
+  "area": "momentum",
+  "prompt": "A 2.0 kg cart moving at −3.0 m/s in the −x direction collides with a stationary 1.0 kg cart and they stick together. What is their final velocity?",
+  "expect": "decline",
+  "note": "a sign written twice is never read twice: −3.0 m/s and −x, which one is meant is unsaid"
  }
 ]
