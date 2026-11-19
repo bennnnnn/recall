@@ -23,6 +23,7 @@ from typing import Any
 
 from app.services.answer_check import read_verified_value
 from app.services.answer_fence import ANSWER_FENCE_LANGS, UNCHECKED_ANSWER_MARKER
+from app.services.answer_number import RULE, Precision
 from app.services.formal.answer import FormalValue
 from app.services.md_fence_scan import iter_fences
 from app.services.part_answer_cards import PART_ANSWER_HEADING
@@ -54,6 +55,8 @@ class ReplyCard:
     value: float
     unit: str
     places: int | None
+    # The card's own name for its value ("T2" from "T_2 = 30 N"), "" for none.
+    label: str = ""
 
 
 def reply_cards(text: str) -> list[ReplyCard]:
@@ -77,6 +80,7 @@ def reply_cards(text: str) -> list[ReplyCard]:
                 value=float(number.value),
                 unit=number.unit,
                 places=number.places,
+                label=read.label or "",
             )
         )
     return cards
@@ -172,12 +176,30 @@ def _in_card_unit(server: float, value: FormalValue, card: ReplyCard) -> list[fl
     return [float(quantity.to(as_quantity(1.0, card.unit).units).magnitude)]
 
 
+def _card_label(body: str) -> str:
+    """The card's own "T_2 = " before its value, kept when the value is replaced."""
+    value = body.rstrip("\n").split("\n")[-1].strip().strip("$")
+    left, equals, _right = value.rpartition("=")
+    return f"{left.strip()} = " if equals and left.strip() else ""
+
+
+def _asked_slack(card: ReplyCard, asked: Precision) -> float:
+    """The rounding the question asked of the card's value."""
+    if asked.places >= 0:
+        return 0.5 * 10.0**-asked.places
+    if asked.figures > 0 and card.value:
+        return 0.5 * 10.0 ** (math.floor(math.log10(abs(card.value))) - asked.figures + 1)
+    return 0.0
+
+
 def _rounding(card: ReplyCard) -> float:
     """Half the card's last digit, when it shows two significant figures or more: 0.27 may
     round 0.2727, but a lone "2" is no rounding of 1.5."""
     if card.places is None:
         return 0.0
-    digits = f"{abs(card.value):.{card.places}f}".replace(".", "").lstrip("0")
+    # A card in powers of ten has places below 0: 1.5 x 10^6 is to the hundred thousand.
+    shown = f"{abs(card.value):.{max(card.places, 0)}f}".replace(".", "")
+    digits = shown.lstrip("0").rstrip("0") if card.places < 0 else shown.lstrip("0")
     return 0.5 * 10.0**-card.places if len(digits) >= 2 else 0.0
 
 
@@ -194,14 +216,14 @@ def _in_unit_if_pure(quantity: Any, unit: str) -> list[float]:
         return []
 
 
-def agrees(card: ReplyCard, value: FormalValue) -> bool | None:
+def agrees(card: ReplyCard, value: FormalValue, asked: Precision = RULE) -> bool | None:
     """The card states the server's value, within its rounding and the constants' range;
     None when the two cannot be compared (kinds that do not convert)."""
     try:
         ends = [_in_card_unit(end, value, card) for end in (value.low, value.high)]
     except Exception:  # pint: kinds that do not convert
         return None
-    rounding = _rounding(card)
+    rounding = max(_rounding(card), _asked_slack(card, asked))
     shown = abs(card.value)
     for low, high in zip(*ends, strict=True):
         lowest, highest = sorted((abs(low), abs(high)))
@@ -228,9 +250,39 @@ def _pairs(
         of_kind = [card for card in cards if card.unit and str(_kind(card.unit)) == kind]
         if not of_kind and len(own) == 1 and len(cards) == 1 and not cards[0].unit:
             of_kind = cards  # the card left its unit off
-        if len(of_kind) == len(own):
-            pairs += list(zip(of_kind, own, strict=True))
+        if len(of_kind) == len(own) == 1:
+            pairs.append((of_kind[0], own[0]))
+        elif len(of_kind) == len(own):
+            pairs += _by_label(of_kind, own)
     return pairs
+
+
+# A Greek letter a card writes, by the name a setup's symbol spells it with.
+_GREEK_NAMES = {
+    "\u0394": "Delta", "\u03b1": "alpha", "\u03b2": "beta", "\u03b3": "gamma",
+    "\u03b8": "theta", "\u03bb": "lambda", "\u03bc": "mu", "\u03c1": "rho",
+    "\u03c3": "sigma", "\u03c4": "tau", "\u03b7": "eta", "\u03c9": "omega",
+    "\u03c6": "phi", "\u03b5": "epsilon",
+}  # fmt: skip
+
+
+def _plain_label(text: str) -> str:
+    """A name as one key: "\\tau_{cw}", "τcw" and "tau_cw" alike."""
+    spelled = "".join(_GREEK_NAMES.get(char, char) for char in text)
+    return re.sub(r"[\s{}_\\]", "", spelled).lower()
+
+
+def _by_label(
+    cards: list[ReplyCard], values: list[FormalValue]
+) -> list[tuple[ReplyCard, FormalValue]]:
+    """Several values of one kind (two tensions): each card with the value its own label
+    names, never by order: "T_2 = 30 N" written first is not the first asked (review)."""
+    named = {_plain_label(value.symbol): value for value in values}
+    return [
+        (card, named[_plain_label(card.label)])
+        for card in cards
+        if card.label and _plain_label(card.label) in named
+    ]
 
 
 def _by_letter(
@@ -251,21 +303,26 @@ def _by_letter(
     return pairs
 
 
-def held_to_server(text: str, values: Sequence[FormalValue], line: str) -> str:
+def held_to_server(
+    text: str, values: Sequence[FormalValue], line: str, asked: Precision = RULE
+) -> str:
     """``text`` with each card that disagrees with the server's value replaced by it, as
-    the module docstring says; ``line`` goes directly above each replaced card."""
+    the module docstring says; ``line`` goes directly above each replaced card. A card the
+    question asked rounded (``asked``) is held to that rounding: "to 1 d.p." makes 0.3 A
+    the server's 0.2727 A, not a slip."""
     numbers = written_numbers(text)
     changes: list[tuple[ReplyCard, FormalValue]] = []
     for card, value in _pairs(reply_cards(text), values):
         if not _read_it_so(value, numbers):
             logger.info("formal answer: the reply read part %r another way", value.part)
             continue
-        verdict = agrees(card, value)
+        verdict = agrees(card, value, asked)
         logger.info("formal answer: part %r card %s", value.part, verdict)
         if verdict is False:
             changes.append((card, value))
     for card, value in sorted(changes, key=lambda change: -change[0].body_start):
         opener = text.rfind("\n", 0, card.body_start - 1) + 1
-        body = f"{UNCHECKED_ANSWER_MARKER}\n{value.card_value}\n"
+        named = f"{_card_label(text[card.body_start : card.body_end])}{value.card_value}"
+        body = f"{UNCHECKED_ANSWER_MARKER}\n{named}\n"
         text = f"{text[:opener]}{line}\n\n{text[opener : card.body_start]}{body}{text[card.body_end :]}"
     return text

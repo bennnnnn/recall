@@ -160,7 +160,7 @@ def test_render_lays_a_question_in_parts_out_part_by_part() -> None:
     )
     assert "**(a) Distance in centimetres**\n\n**Conversion formula**" in laid_out
     assert "**Answer (a)**\n\n$d_{cm} = 10000\\,\\mathrm{cm}$\n\n---\n\n**(b) Distance" in laid_out
-    assert laid_out.endswith("**Answer (b)**\n\n$d_{km} = 0.1\\,\\mathrm{km}$")
+    assert laid_out.endswith("**Answer (b)**\n\n$d_{km} = 0.10\\,\\mathrm{km}$")
 
 
 def test_render_writes_no_answer_heading_without_an_answer() -> None:
@@ -273,7 +273,7 @@ def test_a_block_streams_section_by_section() -> None:
 def test_text_around_a_block_passes_through(size: int) -> None:
     sent, _seen, accum = _stream(POLES + "\nThe poles are far apart.", size, OTHER)
     assert sent.startswith("Here is the conversion.\n\n**Given**")
-    assert sent.rstrip().endswith("$d_{km} = 0.1\\,\\mathrm{km}$\n\n\nThe poles are far apart.")
+    assert sent.rstrip().endswith("$d_{km} = 0.10\\,\\mathrm{km}$\n\n\nThe poles are far apart.")
     assert not accum.rewritten
 
 
@@ -640,7 +640,7 @@ def test_a_part_asked_in_words_is_said_in_words_and_carded_as_a_sentence() -> No
         in (part_a)
     )
     assert "```answer\nverified: false\nIt takes $60$ W when it is run on $220$ V\n```" in part_a
-    assert "**Answer (b)**\n\n$0.273\\,\\mathrm{A}$" in shown
+    assert "**Answer (b)**\n\n$0.27\\,\\mathrm{A}$" in shown
     assert "(a) what the numbers mean" in shown
 
 
@@ -661,3 +661,9 @@ def test_a_note_that_only_restates_the_value_is_dropped() -> None:
     assert "10^{5}" not in shown and "$103000\\,\\mathrm{Pa}$" in shown
     east = _solution("required: v | velocity\nanswer: v | 20 | m/s | east\n")
     assert "(east)" in render_worked(east, PHYSICS)
+
+
+def test_a_ph_keeps_its_decimals() -> None:
+    """Review: a pH's decimals are its concentration's figures, never the card rule's."""
+    shown = render_worked(_solution("required: pH | pH\nanswer: pH | 2.874 |\n"), OTHER)
+    assert "2.874" in shown

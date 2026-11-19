@@ -76,6 +76,8 @@ def _shown(body: str, above: str, precision: Precision) -> str | None:
     numbers = list(read.numbers)
     if any(number.places is None for number in numbers):
         return None  # an exact fraction
+    if any(_money(number.unit) for number in numbers):
+        return None  # a sum of money, to the cent as written
     if len(numbers) == 1:
         numbers = [_unrounded(numbers[0], above) or numbers[0]]
     pieces, at = [], 0
@@ -85,6 +87,12 @@ def _shown(body: str, above: str, precision: Precision) -> str | None:
         at = match.end()
     shown = "".join([*pieces, value[at:]])
     return "\n".join([*headers, shown]) + ("\n" if body.endswith("\n") else "")
+
+
+def _money(unit: str) -> bool:
+    from app.services.subjects.registry import MONEY
+
+    return bool(unit) and MONEY.names_currency(unit)
 
 
 def _unrounded(card: Number, above: str) -> Number | None:
@@ -97,7 +105,10 @@ def _unrounded(card: Number, above: str) -> Number | None:
     if read is None or len(read.numbers) != 1:
         return None
     worked = read.numbers[0]
-    if worked.places is None or worked.unit != card.unit or card.places is None:
+    # A whole card ("3" buses for 2.67, "816" for 816.33) may be a count rounded up or
+    # down as the question needs: only a card with decimals, or in powers of ten, is
+    # known to be a rounding of its working (review).
+    if worked.places is None or worked.unit != card.unit or card.places in (None, 0):
         return None
     if round_places(worked.value, card.places) != round_places(card.value, card.places):
         return None

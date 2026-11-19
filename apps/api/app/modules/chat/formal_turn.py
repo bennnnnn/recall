@@ -39,6 +39,7 @@ from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.formal_cards import held_to_server
 from app.modules.chat.reply_language import line_language
 from app.modules.chat.turn_decision import TurnDecision
+from app.services.answer_number import asked_precision
 from app.services.formal.answer import FormalAnswer, StatedConflict
 from app.services.subjects.registry import subject_adapter
 
@@ -172,7 +173,9 @@ async def attach_formal(state: FinalizeState) -> str:
         logger.info("formal answer: %d stated values conflict", len(answer.conflicts))
         text = stated_conflicts(state.text, answer.conflicts, language)
     else:
-        text = held_to_server(state.text, answer.values, _LINES.get(language, _LINES["en"]))
+        line = _LINES.get(language, _LINES["en"])
+        asked = asked_precision(ctx.user_message_content or "")
+        text = held_to_server(state.text, answer.values, line, asked)
     if text != state.text:
         # Committed, so a later pass that falls back keeps the server's value.
         state.committed = fallback_text(text, server_text=state.server_text)

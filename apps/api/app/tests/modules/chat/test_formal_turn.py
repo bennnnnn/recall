@@ -380,3 +380,57 @@ async def test_parts_the_reply_letters_its_own_way_are_paired_by_kind(
     text = await _finalized(_ctx(live_read=_read()), reply)
     assert _card("0.273\\,\\mathrm{A}") in text and "814.8" not in text
     assert _card("806.67\\ \\Omega") in text
+
+
+async def test_a_card_in_powers_of_ten_is_held_too(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Review: a card's places below 0 (1.5 x 10^6) broke the check and left every card."""
+    _answered(monkeypatch, _answer(_value(1.2e6, "J", uses=(18.0,))))
+    reply = "18 and 35\n\n**Answer**\n\n" + _card("E = 1.5 \\times 10^{6}\\,\\mathrm{J}")
+    text = await _finalized(_ctx(live_read=_read()), reply)
+    assert _card("E = 1200000\\ \\mathrm{J}") in text
+
+
+async def test_two_values_of_one_kind_are_paired_by_their_own_names(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Review: T_2 carded first was paired with the first asked, T_1, and both "corrected"."""
+    _answered(
+        monkeypatch,
+        _answer(
+            FormalValue("", "T1", 20.0, "N", 20.0, 20.0, (5.0,), True),
+            FormalValue("", "T_2", 30.0, "N", 30.0, 30.0, (5.0,), True),
+        ),
+    )
+    reply = "5 kg\n\n" + _card("T_2 = 30\\,\\mathrm{N}") + "\n\n" + _card("T_1 = 20\\,\\mathrm{N}")
+    assert await _finalized(_ctx(live_read=_read()), reply) == reply
+
+
+async def test_a_replaced_card_keeps_its_own_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    _answered(monkeypatch, _answer(_value(806.67, "ohm", uses=(220.0,))))
+    reply = "$R = 220/0.27$\n\n" + _card("R = 814.8\\,\\Omega")
+    assert _card("R = 806.67\\ \\Omega") in await _finalized(_ctx(live_read=_read()), reply)
+
+
+async def test_a_card_to_the_precision_asked_stands(monkeypatch: pytest.MonkeyPatch) -> None:
+    _answered(monkeypatch, _answer(_value(0.2727, "A", uses=(60.0, 220.0))))
+    line = "A 60 W lamp runs on 220 V. Find the current to 1 decimal place."
+    reply = "$I = 60/220$\n\n" + _card("0.3\\,\\mathrm{A}")
+    assert await _finalized(_ctx(line, live_read=_read()), reply) == reply
+
+
+@pytest.mark.parametrize(
+    ("agrees", "said"), [((True, True), True), ((True, False), False), ((), False)]
+)
+def test_a_broken_check_is_said_only_of_a_setup_whose_answers_agree(
+    agrees: tuple[bool, ...], said: bool
+) -> None:
+    """Review: a misread setup (the wrong arms) would open a right reply with a false
+    contradiction and keep every card from being held."""
+    conflict = {"meaning": "m", "left": "1", "broken": ">", "right": "0.5", "relation": ""}
+    answers = [
+        {"part": "", "symbol": "x", "value": 1.0, "unit": "", "low": 1.0, "high": 1.0,
+         "uses": [], "agrees": agree}
+        for agree in agrees
+    ]  # fmt: skip
+    answer = formal_read.answer_of({"solved": True, "answers": answers, "conflicts": [conflict]})
+    assert bool(answer and answer.conflicts) is said

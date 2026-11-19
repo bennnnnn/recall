@@ -136,5 +136,11 @@ def answer_of(result: dict[str, Any]) -> FormalAnswer | None:
         for value in result.get("answers") or []
         if value.get("agrees") is True
     )
-    conflicts = tuple(StatedConflict(**conflict) for conflict in result.get("conflicts") or [])
+    # A broken check is said only of a setup whose own answers all agree with the server's:
+    # a misread setup (the wrong arms) would open a right reply with a false contradiction.
+    agreed = [value.get("agrees") for value in result.get("answers") or []]
+    trusted = bool(agreed) and all(agree is True for agree in agreed)
+    conflicts = tuple(
+        StatedConflict(**conflict) for conflict in (result.get("conflicts") or []) if trusted
+    )
     return FormalAnswer(values=values, conflicts=conflicts) if values or conflicts else None

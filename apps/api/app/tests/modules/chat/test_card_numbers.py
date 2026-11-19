@@ -58,3 +58,15 @@ def test_the_precision_asked_is_the_card_s() -> None:
     assert card_numbers(_card("18.5185\\,\\mathrm{m/s}"), Precision(places=1)) == _card(
         "18.5\\,\\mathrm{m/s}"
     )
+
+
+def test_a_whole_card_is_never_taken_back_to_its_working_s_decimals() -> None:
+    """Review: 120 / 45 = 2.67 buses, carded 3, came back as 2.67."""
+    reply = "$n = 120 \\div 45 = 2.67$, so round up.\n\n" + _card("n = 3")
+    assert card_numbers(reply, Precision()) == reply
+
+
+def test_a_greek_name_is_read_and_its_number_follows_the_rule() -> None:
+    assert card_numbers(_card("\\lambda = 5 \\times 10^{-7}\\,\\mathrm{m}"), Precision()) == _card(
+        "\\lambda = 5.00 \\times 10^{-7}\\,\\mathrm{m}"
+    )

@@ -13,12 +13,15 @@ import re
 from typing import TYPE_CHECKING
 
 from app.services.answer_number import Precision, number_latex
+from app.services.school_rounding import MOST_DIGITS
 
 if TYPE_CHECKING:
     from app.modules.chat.worked_solution import Answer
 
 # A number written plainly: "29.008", "-4", "0.31".
 _NUMBER = re.compile(r"-?\d+(?:\.\d+)?")
+# A pH, pOH or pK: its decimals are the figures of the concentration it came from.
+_LOGARITHM = re.compile(r"^\s*(?:\\mathrm\{)?p(?:H|OH|K[ab]?)\b")
 # A note that only names a precision: "to 2 s.f.", "3 d.p.", "to 3 significant figures".
 _PRECISION_NOTE = re.compile(
     r"^\s*(?:to\s+)?\d+\s*(?:s\.?\s*f\.?|d\.?\s*p\.?|significant\s+figures?|decimal\s+places?)\s*$",
@@ -36,7 +39,9 @@ def card_answer(answer: Answer, asked: tuple[int, int] = (0, -1)) -> Answer:
     shown = answer.value.strip()
     if not _NUMBER.fullmatch(shown) or MONEY.names_currency(answer.unit or ""):
         return answer  # a sum of money is exact to the cent: $12.34 is never $12.3
-    figures, places = asked
+    if _LOGARITHM.match(answer.symbol or ""):
+        return answer  # a pH's decimals are its concentration's figures
+    figures, places = (min(count, MOST_DIGITS) for count in asked)
     value = number_latex(float(shown), Precision(figures=figures, places=places))
     note = "" if _PRECISION_NOTE.match(answer.note or "") else answer.note
     return answer.model_copy(update={"value": value, "note": note})

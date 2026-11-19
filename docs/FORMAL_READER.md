@@ -107,18 +107,29 @@ answer disagreed with the server's: that is why finalize requires them to agree.
   A turn a solver answered never asks.
 - **Beside the reply:** the setup read (`physics_setup` lane, smart-chat) and the solve
   start with the reply (`chat/formal_turn.py`); the reply streams as before.
-- **At finalize** (`formal_answer` pass), waiting at most `formal_wait_seconds` (2 s), and
-  only for an answer whose setup's own answer agreed with the server's:
-  - the reply's final value is the server's, or a rounding of it, or the same answer
-    written another way (90% for 0.9, a braking force's 7500 N for the server's −7500 N, the
-    sign being the reply's convention): the reply stands;
-  - another value: its Answer becomes the server's card;
-  - a value the readers cannot find (an Answer heading in another language): the server's
-    card under the reply, both shown.
-
-  Either way a line in the reply's language (9 app languages) says where the value comes
-  from ("Worked out from the values in the question: 31.07 m."), and the card is marked
-  `verified: false`: the server did the arithmetic, the reading is the model's.
+- **What the setup writes** besides its givens and equations: `asked`, one entry per part
+  ("a" to "h", "" for the whole question) with the model's own answer, and `checks`, the
+  relations the question's values must keep (a stated balance, an equilibrium, MA ≤ VR),
+  each with a few words saying why. A part whose setup answer is not the server's is left
+  out.
+- **At finalize** (`formal_answer` pass, after `working_check` has made the reply's answers
+  cards), waiting at most `formal_wait_seconds` (2 s), one authority for the answer
+  (`chat/formal_cards.py`, G8 round 2026-11-18):
+  - the question's values break a check (a lever "used to balance" 1200 N by 80 N at 2 m
+    and 3 m): the reply opens with one line per broken relation in the reply's language
+    ("These values can't all be right: a balanced lever has equal moments on each side,
+    but here 2400 N·m ≠ 240 N·m."), and no card changes;
+  - otherwise each card is held to the server's value for its part, card to card, in any
+    unit of its kind (100 cm² is 0.01 m², 50 Ω a resistance), paired by the part's letter or,
+    when the reply letters its parts its own way, in order within each kind. A card stands
+    within its own rounding (and 0.5% of drift from a working that rounded on the way), for
+    any standard value of a constant it uses (g as 9.8, 9.81 or 10: the book's g = 10 gave
+    250 Pa, which the old check stamped 245); a card worked from numbers the reply never
+    wrote read the question another way and stands too. Any other card gets the server's
+    value, with "Worked out again from the values in the question:" above it, marked
+    `verified: false`.
+  - A card is never added. The old check added the server's card under a reply whose value
+    it could not read, so "50 Ω" was carded twice.
 - **Wait and cost** (130 turns, smart-chat): median 0.99 s, p90 1.5 s, max 3.6 s for the
   setup read; $0.18 per 1,000 turns. It runs beside a streamed reply that usually takes
   longer, so finalize rarely waits; the wait it does take is logged (`formal answer: reply
