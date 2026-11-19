@@ -280,13 +280,15 @@ class PhysicsFigure:
     def without_substitutes(self, text: str) -> str:
         return text
 
-    def contract_for(self, question: str, asked: bool) -> str:
+    def contract_for(self, question: str, asked: bool, *, graph: bool = False) -> str:
         """A field's picture and a motion's graphs only when the message asks to see one; a
         problem's setup when
         it asks, or when it states quantities the physics readers read ("what is inertia?"
         gets neither). The quantities are the pool's reading of the turn's message, kept
         for the turn (``reads``): never read here, on the event loop, and none for a text the
         pool did not read (a photo with no words)."""
+        if graph:  # a motion's graphs; a scene or a field would be drawn in their place
+            return "\n".join((MOTION_DRAW_CONTRACT, DESCRIBED_PICTURE_SPEECH))
         parts = []
         if asked or kept_reading(states_quantities, question):
             parts.append(SCENE_DRAW_CONTRACT)

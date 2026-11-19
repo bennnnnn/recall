@@ -288,7 +288,10 @@ async def ask_for_a_drawing(
     question = ctx.followup_problem or ctx.user_message_content or ""
     contract = "\n".join(
         part
-        for part in (figure.contract_for(question, sees), _physics_graph(read, question))
+        for part in (
+            figure.contract_for(question, sees),
+            _physics_graph(read, question, settings),
+        )
         if part
     )
     if not contract:
@@ -298,14 +301,16 @@ async def ask_for_a_drawing(
     note_prompt_rule(f"subject.draw_{asked}" if subject == "math" else f"{subject}.draw_{asked}")
 
 
-def _physics_graph(read: TurnDecision | None, question: str) -> str:
+def _physics_graph(read: TurnDecision | None, question: str, settings: Settings) -> str:
     """A physics graph is maths' to draw from a formula the question writes, and physics'
     from a motion in stages ("6 km/h for 5 min, then 2 km/h for 3 min"): its reply gets
     physics' contract beside maths' (``physics.scene_drawing.motion_graph``)."""
-    figure = subject_adapter("physics").figure
-    if read is None or read.subject != "physics" or read.picture != "graph" or figure is None:
+    physics = subject_adapter("physics")
+    if read is None or read.subject != "physics" or read.picture != "graph":
         return ""
-    return figure.contract_for(question, True)
+    if physics.figure is None or not physics.enabled(settings):
+        return ""  # physics turned off draws nothing of its own (review)
+    return physics.figure.contract_for(question, True, graph=True)
 
 
 def _still_wanted(ctx: StreamContext, drawing: ReplyDrawing) -> bool:

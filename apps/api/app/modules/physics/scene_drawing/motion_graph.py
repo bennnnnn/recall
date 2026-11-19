@@ -130,18 +130,28 @@ class _Reading:
     def next_stage(self) -> None:
         self.after = self.reached
 
+    def states_more(self, sample: str) -> bool:
+        """The question states another value of ``sample``'s kind after this stage's."""
+        kind = read_givens(f"1 {sample}", PHYSICS_UNITS)
+        return bool(kind) and any(
+            g.start > self.after and g.dimension == kind[0].dimension for g in self.left
+        )
+
 
 def _checked(motion: _Motion, text: str) -> _Checked | None:
     """Each stage's velocities and duration in SI, and the units the axes take; None when a
-    stage is not the question's. Only the last stage may be left out (a last stretch the
-    question gives no time for, t15): one in the middle would shift every stage after it."""
+    stage is not the question's. Only the last stage may be left out, and only when the
+    question states no time for it (a last stretch with none, t15): one in the middle would
+    shift every stage after it, and a last one the question times is part of the motion."""
     reading = _Reading(text)
     stages: list[tuple[float, float, float]] = []
     speeds: list[Given] = []
     times: list[Given] = []
     for index, stage in enumerate(motion.stages):
-        checked = _stage(stage, reading)
-        if checked is None and index == len(motion.stages) - 1 and stages:
+        # Read before the stage takes its values: a stage that fails may take its time.
+        timed = reading.states_more("s")
+        checked = _stage(stage, reading, stages[-1][1] if stages else None)
+        if checked is None and index == len(motion.stages) - 1 and stages and not timed:
             break
         if checked is None:
             return None
@@ -158,11 +168,15 @@ def _checked(motion: _Motion, text: str) -> _Checked | None:
 _Velocity = tuple[float, Given | None]
 
 
-def _stage(stage: _Stage, reading: _Reading) -> tuple[list[_Velocity], Given] | None:
+def _stage(
+    stage: _Stage, reading: _Reading, carried: float | None
+) -> tuple[list[_Velocity], Given] | None:
+    """One stage's two velocities and its time. Its first velocity may be the one the stage
+    before ended on, stated once ("to 20 m/s in 5 s, then brakes from it to rest in 4 s")."""
     ends = (stage.speed, stage.speed) if stage.speed is not None else (stage.start, stage.end)
     if None in ends or (stage.speed is not None and stage.start is not None):
         return None
-    first = _velocity(str(ends[0]), reading)
+    first = _velocity(str(ends[0]), reading) or _carried_over(str(ends[0]), carried)
     # A steady speed is one value, taken once.
     second = first if stage.speed is not None else _velocity(str(ends[1]), reading)
     duration = reading.take(stage.time, "s")
@@ -190,6 +204,18 @@ def _velocity(written: str, reading: _Reading) -> _Velocity | None:
     if given is None or given.si is None:
         return None
     return (-given.si if backward else given.si), given
+
+
+def _carried_over(written: str, carried: float | None) -> _Velocity | None:
+    """The velocity the stage before ended on, when ``written`` is it (in any unit)."""
+    if carried is None:
+        return None
+    cleaned = written.strip().replace("\u2212", "-")
+    read = read_givens(_units(cleaned.lstrip("-").strip()), PHYSICS_UNITS)
+    if len(read) != 1 or read[0].si is None:
+        return None
+    velocity = -read[0].si if cleaned.startswith("-") else read[0].si
+    return (carried, None) if math.isclose(velocity, carried, rel_tol=1e-9) else None
 
 
 def _two_ways(text: str) -> bool:

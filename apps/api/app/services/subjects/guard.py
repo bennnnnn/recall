@@ -305,12 +305,12 @@ class GuardedFigure:
             lambda: self._inner.without_substitutes(text),
         )
 
-    def contract_for(self, question: str, asked: bool) -> str:
+    def contract_for(self, question: str, asked: bool, *, graph: bool = False) -> str:
         return neutral_on_error(
             self._subject,
             "figure.contract_for",
             "",
-            lambda: self._inner.contract_for(question, asked),
+            lambda: self._inner.contract_for(question, asked, graph=graph),
         )
 
     async def described(

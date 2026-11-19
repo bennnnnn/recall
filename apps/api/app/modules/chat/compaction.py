@@ -1,7 +1,6 @@
 """Chat history compaction workflow."""
 
 import logging
-from collections.abc import Callable
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -21,37 +20,10 @@ from app.modules.chat.context_window import (
 from app.modules.chat.prompt_window import strip_prompt_owned_fences
 from app.modules.chat.summarize import summarize_conversation
 from app.modules.conversation import history as conversation_history
-from app.services.md_fence_scan import map_closed_fences
 
 logger = logging.getLogger(__name__)
 
 _COMPRESS_LOCK_TTL_SECONDS = 120
-
-
-# What the summary is told a reply showed, by the fence the app drew it from. A reply's
-# words claimed "graphs provided" and "diagram drawn" for pictures never drawn, and the
-# summary kept the claims (Grade 8 round, 2026-11-18): it now reads what was drawn, and a
-# picture not drawn says so in the reply itself (``owed_picture``).
-_PICTURE_NAMES = {
-    "graph": "graph",
-    "geometry": "figure",
-    "simulation": "diagram",
-    "chart": "chart",
-    "smiles": "molecule",
-    "molecule3d": "molecule",
-    "mermaid": "flowchart",
-}
-
-
-def _named(name: str) -> Callable[[str], str]:
-    return lambda _body: f"[{name} shown]\n"
-
-
-def pictures_named(content: str) -> str:
-    """The reply with each picture the app drew as one line naming it."""
-    for lang, name in _PICTURE_NAMES.items():
-        content = map_closed_fences(content, lang, _named(name))
-    return content
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,7 +110,7 @@ async def _pending_fold(settings: Settings, chat_id: UUID, user_id: UUID | None)
                 "content": trim_message_for_summary(
                     # The recent window drops these fences too: a reply's search results are
                     # not what was said, and a summary kept their stale figures as facts.
-                    strip_prompt_owned_fences(pictures_named(message.content))
+                    strip_prompt_owned_fences(message.content)
                     if message.role == "assistant"
                     else message.content
                 ),

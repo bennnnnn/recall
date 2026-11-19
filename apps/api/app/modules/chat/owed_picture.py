@@ -17,7 +17,8 @@ passes, the reply is held to what was asked:
   and whose reply carries none of the app's pictures, gets one short line saying so, in the
   reply's language. The reply's text stays; an empty reply is the line alone.
 
-The saved reply then says what was drawn, so the chat's summary does too.
+The saved reply then says what was drawn; the chat's summary reads the pictures it shows
+from their fences (``compaction``).
 """
 
 from __future__ import annotations
@@ -130,13 +131,18 @@ def shows_a_picture(text: str) -> bool:
     return any(fence.closed and fence.lang in APP_PICTURES for fence in iter_fences(text))
 
 
+# A picture by name: a diagram, a chart, a graph, a figure, a sketch, a setup.
+_NAMES_A_PICTURE = re.compile(
+    r"\b(?:diagrams?|flow\s*charts?|charts?|graphs?|plots?|pictures?|figures?|sketch|setup)\b",
+    re.IGNORECASE,
+)
 # A short paragraph beside a flowchart that speaks of it ("That diagram is the simplest way
 # to see it", "Here's the setup:"): it goes with the flowchart.
 _SPEAKS_OF_IT = re.compile(
-    r"\b(?:diagrams?|flow\s*charts?|charts?|pictures?|figures?|sketch|setup|above|below|shown)\b"
-    r"|:\s*$",
-    re.IGNORECASE,
+    rf"{_NAMES_A_PICTURE.pattern}|\b(?:above|below|shown)\b|:\s*$", re.IGNORECASE
 )
+# What a colon may still lead into once the picture is gone: a fence, a list, maths, a table.
+_LEADS_INTO = re.compile(r"```|[-*+]\s|\d+[.)]\s|\$\$|\\\[|\|")
 _SHORT = 240
 
 
@@ -161,9 +167,21 @@ def without_flowcharts(text: str) -> str:
             if not lead and tail and len(tail) < _SHORT and _SPEAKS_OF_IT.search(tail):
                 end += stop if stop >= 0 else len(rest)
         spans.append((start, end))
-    for start, end in reversed(spans):
+    for start, end in reversed(_merged(spans)):
         text = text[:start] + text[end:]
     return re.sub(r"\n{3,}", "\n\n", text) if spans else text
+
+
+def _merged(spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    """Spans that overlap as one: two flowcharts may each take the paragraph between them,
+    and cut one after the other the second cut's end would run past the text (review)."""
+    merged: list[tuple[int, int]] = []
+    for start, end in sorted(spans):
+        if merged and start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+    return merged
 
 
 def held_to_the_ask(text: str, ctx: StreamContext, language: str) -> str:
@@ -173,14 +191,31 @@ def held_to_the_ask(text: str, ctx: StreamContext, language: str) -> str:
     out = text
     if mermaid_stands_in(decision, line) and (dropped := without_flowcharts(out)) != out:
         out = dropped.strip()
-    # A flowchart taken out, or a reply that was only its picture's description, dropped,
-    # says the picture was not drawn: never an empty reply.
-    emptied = not out.strip() and ctx.drawing is not None
-    kind = owed_kind(decision, ctx) or ("diagram" if out != text or emptied else None)
+    # A reply that was only a flowchart taken out, or only its picture's description,
+    # dropped, says the picture was not drawn: never an empty reply. A photo or a painting
+    # asked for is no drawing the app owes: its reply keeps its words with no line (review).
+    emptied = not out.strip() and (out != text or ctx.drawing is not None)
+    kind = owed_kind(decision, ctx) or ("diagram" if emptied else None)
     if kind is None or shows_a_picture(out):
         return out
-    note = not_drawn_line(kind, language)
-    return f"{out.rstrip()}\n\n{note}\n" if out.strip() else f"{note}\n"
+    return with_the_line(out, not_drawn_line(kind, language))
+
+
+def with_the_line(text: str, note: str) -> str:
+    """``text`` with ``note`` in place of the paragraph that presented the picture not drawn
+    (a picture pass took the fence it led into, and its "Here is the graph:" would say one is
+    shown just above the line saying none is), else after the text (review)."""
+    parts = re.split(r"(\n[ \t]*\n)", text.strip())
+    for at in range(0, len(parts), 2):
+        lead = parts[at].strip()
+        following = parts[at + 2].lstrip() if at + 2 < len(parts) else ""
+        # A paragraph that presents a picture ("Here is the v-t graph of the motion:"): it
+        # names one and ends on a colon, leading into what is no longer there.
+        presents = lead.endswith(":") and _NAMES_A_PICTURE.search(lead) is not None
+        if len(lead) < _SHORT and presents and not _LEADS_INTO.match(following):
+            parts[at] = note
+            return "".join(parts).strip() + "\n"
+    return f"{text.rstrip()}\n\n{note}\n" if text.strip() else f"{note}\n"
 
 
 async def settle_owed_picture(state: FinalizeState) -> str:

@@ -162,3 +162,34 @@ def test_a_stage_takes_the_question_s_values_in_order() -> None:
     assert graph.x_max == 13.0  # the stretch with no time is left out
     swapped = [stages[1], stages[0], *stages[2:]]
     assert described_motion(_motion(["speed"], swapped), [ride]) == []
+
+
+_BRAKES = (
+    "A car accelerates from rest to 20 m/s in 5 s, then brakes to rest in 4 s. "
+    "Draw the velocity-time graph."
+)
+
+
+def test_a_stage_may_start_where_the_one_before_ended() -> None:
+    """Review: "to 20 m/s in 5 s, then brakes to rest in 4 s" states 20 m/s once; the braking
+    stage starts from it, and its graph was drawn without that stage."""
+    from app.modules.physics.scene_drawing.motion_graph import described_motion
+
+    stages = [
+        {"from": "0", "to": "20 m/s", "time": "5 s"},
+        {"from": "20 m/s", "to": "0", "time": "4 s"},
+    ]
+    (graph,) = described_motion(_motion(["velocity"], stages), [_BRAKES])
+    assert graph.x_max == 9.0 and graph.points[-1] == [9.0, 0.0]
+    # A last stage the question times is part of the motion: one that does not check
+    # draws nothing rather than a graph without it.
+    wrong = [stages[0], {"from": "25 m/s", "to": "0", "time": "4 s"}]
+    assert described_motion(_motion(["velocity"], wrong), [_BRAKES]) == []
+
+
+def test_a_motion_s_graph_is_drawn_only_when_a_picture_is_asked() -> None:
+    from app.modules.physics.scene_drawing.build import physics_fences
+
+    body = _motion(["velocity"], [{"from": "0", "to": "20 m/s", "time": "5 s"}])
+    assert len(physics_fences([body], [_BRAKES])) == 1
+    assert physics_fences([body], [_BRAKES], asked=False) == []

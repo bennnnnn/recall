@@ -10,7 +10,6 @@ from uuid import uuid4
 import pytest
 
 from app.modules.chat import stream_pipeline
-from app.modules.chat.compaction import pictures_named
 from app.modules.chat.drawing_turn import ReplyDrawing
 from app.modules.chat.owed_picture import held_to_the_ask, mermaid_stands_in, not_drawn_line
 from app.modules.chat.stream_accum import StreamAccum
@@ -123,13 +122,6 @@ def test_a_reply_of_only_its_picture_s_description_is_a_reply() -> None:
     assert not stream_pipeline._describes_its_picture(drawing, StreamAccum())
 
 
-def test_the_summary_reads_what_was_drawn() -> None:
-    reply = f"It speeds up.\n\n{_GRAPH}\n\n{_FLOWCHART}\n\nI couldn't draw this diagram."
-    named = pictures_named(reply)
-    assert "[graph shown]" in named and "[flowchart shown]" in named
-    assert "```" not in named and named.endswith("I couldn't draw this diagram.")
-
-
 def test_every_language_has_every_line() -> None:
     from app.modules.chat.owed_picture import _NOT_DRAWN
 
@@ -157,3 +149,41 @@ def test_a_flowchart_s_own_sentence_goes_with_it(reply: str, kept: str) -> None:
     from app.modules.chat.owed_picture import without_flowcharts
 
     assert without_flowcharts(reply).strip() == kept
+
+
+def test_two_flowcharts_that_share_a_paragraph_cut_only_themselves() -> None:
+    """Review: each card took the paragraph between them, and the second cut ran on into
+    the reply's last words."""
+    from app.modules.chat.owed_picture import without_flowcharts
+
+    reply = (
+        f"{_FLOWCHART}\n\nThat diagram shows part a; below is part b:\n\n{_FLOWCHART}\n\n"
+        "Both follow Ohm's law."
+    )
+    assert without_flowcharts(reply).strip() == "Both follow Ohm's law."
+
+
+@pytest.mark.asyncio
+async def test_the_line_takes_the_place_of_the_sentence_that_presented_the_picture() -> None:
+    """Review: "Here is the v-t graph of the car's motion:" stood over "I couldn't draw this
+    graph." once a picture pass had taken the graph it led into."""
+    ctx = _ctx("Draw the v against t graph.", _decision("physics", "graph"))
+    reply = "Here is the v–t graph of the car's motion:\n\nThe slope is the acceleration."
+    assert held_to_the_ask(reply, ctx, "en") == (
+        "I couldn't draw this graph.\n\nThe slope is the acceleration.\n"
+    )
+    listed = "The graph has two parts:\n\n- a rise\n- a flat stretch"
+    assert held_to_the_ask(listed, ctx, "en") == f"{listed}\n\nI couldn't draw this graph.\n"
+
+
+@pytest.mark.asyncio
+async def test_a_photo_asked_for_keeps_its_words_without_its_flowchart() -> None:
+    """Review: a photo turn's stand-in flowchart goes, and no "couldn't draw this diagram"
+    is said of a photo; a reply that was only the flowchart still says it."""
+    ctx = _ctx(
+        "Explain how a bicycle works and show a photo of one.", _decision("everyday", "photo")
+    )
+    assert held_to_the_ask(f"Pedals turn the chain.\n\n{_FLOWCHART}", ctx, "en") == (
+        "Pedals turn the chain."
+    )
+    assert held_to_the_ask(_FLOWCHART, ctx, "en") == "I couldn't draw this diagram.\n"
