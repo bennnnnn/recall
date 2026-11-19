@@ -173,9 +173,10 @@ def held_to_the_ask(text: str, ctx: StreamContext, language: str) -> str:
     out = text
     if mermaid_stands_in(decision, line) and (dropped := without_flowcharts(out)) != out:
         out = dropped.strip()
-    # A flowchart taken out, or a reply left with nothing (its description dropped), says
-    # the picture was not drawn: never an empty reply.
-    kind = owed_kind(decision, ctx) or ("diagram" if out != text or not out.strip() else None)
+    # A flowchart taken out, or a reply that was only its picture's description, dropped,
+    # says the picture was not drawn: never an empty reply.
+    emptied = not out.strip() and ctx.drawing is not None
+    kind = owed_kind(decision, ctx) or ("diagram" if out != text or emptied else None)
     if kind is None or shows_a_picture(out):
         return out
     note = not_drawn_line(kind, language)

@@ -35,6 +35,7 @@ from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.turn_trace import note_prompt_rule
 from app.modules.turn_reading.turn import current_turn_reading
+from app.services.md_fence_scan import iter_fences
 from app.services.solving import (
     SubjectName,
     VerifiedMathBlock,
@@ -364,7 +365,7 @@ async def _described(
         descriptions, scene_texts, reply, state.settings, None, None, asks
     )
     # The graph asked for, never a scene or a field in its place.
-    return [fence for fence in drawn if fence.startswith("```graph")]
+    return [fence for fence in drawn if any(f.lang == "graph" for f in iter_fences(fence))]
 
 
 async def attach_drawing(state: FinalizeState) -> str:
