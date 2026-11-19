@@ -658,7 +658,6 @@ async def test_the_prompt_dates_snippets_in_the_turn_s_zone_for_its_own_chat() -
     clock reads, and a new chat (no rows yet) passed no chat at all."""
     from app.models.orm import User
     from app.modules.chat.prompt_builder import _history_rag_block
-    from app.modules.chat.prompt_window import PromptWindow
 
     chat_id = uuid4()
     retrieve = AsyncMock(return_value="")
@@ -668,10 +667,9 @@ async def test_the_prompt_dates_snippets_in_the_turn_s_zone_for_its_own_chat() -
             User(id=uuid4(), timezone="UTC"),
             "what did we do earlier today?",
             vector=[0.0],
-            window=PromptWindow(recent=[], gap=[], exchange=[]),
-            omit_message_ids=None,
+            exclude_message_ids=set(),
             chat_id=chat_id,
-            local_tz="America/New_York",
+            client_timezone="America/New_York",
         )
     assert retrieve.await_args is not None
     assert retrieve.await_args.kwargs["timezone"] == "America/New_York"

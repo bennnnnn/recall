@@ -274,10 +274,9 @@ async def _history_rag_block(
     query_text: str | None,
     *,
     vector: list[float] | None,
-    window: PromptWindow,
-    omit_message_ids: set[UUID] | None,
+    exclude_message_ids: set[UUID],
     chat_id: UUID,
-    local_tz: str,
+    client_timezone: str | None,
 ) -> str:
     # The context gather already attempted the history embed. None means no
     # chunks or a failed/timed-out embed; do not repeat that work serially.
@@ -289,9 +288,9 @@ async def _history_rag_block(
         settings,
         user_id=user.id,
         query=query_text or "",
-        exclude_message_ids=window.message_ids | (omit_message_ids or set()),
+        exclude_message_ids=exclude_message_ids,
         query_vec=vector,
-        timezone=local_tz,
+        timezone=time_context_service.effective_timezone(user.timezone, client_timezone),
         chat_id=chat_id,
     )
 
@@ -428,22 +427,11 @@ async def build_prompt_messages(
         prior_count=prior_count if recent_messages is not None else None,
     )
     followup = await _read_prompt_inputs(settings, query_text, window, turn_plan)
-    local_tz = time_context_service.effective_timezone(user.timezone, client_timezone)
-    chat_history_rag_block = await _history_rag_block(
-        settings,
-        user,
-        query_text,
-        vector=blocks.history_rag_query_vec if plan.history_rag else None,
-        window=window,
-        omit_message_ids=omit_message_ids,
-        chat_id=chat_id,
-        local_tz=local_tz,
-    )
     turn = PromptTurn(
         user=user,
         settings=settings,
         query_text=query_text,
-        local_tz=local_tz,
+        local_tz=time_context_service.effective_timezone(user.timezone, client_timezone),
         lightweight=lightweight,
         slim=plan.slim,
         recall_memory=plan.load_memory or plan.recalls_shared_past,
@@ -454,7 +442,15 @@ async def build_prompt_messages(
         memory_block=blocks.memory_block,
         attachment_rag_block=blocks.attachment_rag_block,
         todos_section=blocks.todos_section,
-        chat_history_rag_block=chat_history_rag_block,
+        chat_history_rag_block=await _history_rag_block(
+            settings,
+            user,
+            query_text,
+            vector=blocks.history_rag_query_vec if plan.history_rag else None,
+            exclude_message_ids=window.message_ids | (omit_message_ids or set()),
+            chat_id=chat_id,
+            client_timezone=client_timezone,
+        ),
         exchange=window.exchange,
         followup=followup,
         plan=turn_plan,
