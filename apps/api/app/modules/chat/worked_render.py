@@ -34,6 +34,7 @@ from app.modules.chat.worked_text import (
 )
 from app.modules.chat.worked_units import quantity_tex
 from app.modules.turn_reading.routing import is_short_reply
+from app.services.answer_fence import UNCHECKED_ANSWER_MARKER
 from app.services.worked_parts import WorkedPart, lettered_line, part_letter, render_parts
 from app.services.workout import (
     ANSWER,
@@ -68,7 +69,25 @@ class WorkedLayout:
 def _line(tex: str, note: str | None = None) -> str:
     """One state: maths, or the model's sentence as text; its move's maths drawn as maths."""
     move = prose_maths(note) if note else None
-    return text_line(prose_maths(tex), move) if is_prose(tex) else math_line(tidy_tex(tex), move)
+    if is_prose(tex) or _in_sentences(tex):
+        return text_line(prose_maths(tex), move)
+    return math_line(tidy_tex(tex), move)
+
+
+# A braced group or a command: words in a group are a script's or an argument's
+# (v_{avg}, \frac{distance}{time}, \text{W}), never the sentence's.
+_COMMAND_GROUP = re.compile(r"\{[^{}]*\}|\\[A-Za-z]+")
+_SENTENCE_WORD = re.compile(r"[A-Za-z]{3,}")
+
+
+def _in_sentences(tex: str) -> bool:
+    """A maths field written as words around some maths ("image is as far behind the
+    mirror as the object is in front: D = 2d"): three words or more outside commands. Set as
+    one formula, it was an italic sentence run off the screen (G8 t42, t47, 2026-11-18)."""
+    plain = tex
+    for _ in range(4):  # nested groups, innermost first
+        plain = _COMMAND_GROUP.sub(" ", plain)
+    return len(_SENTENCE_WORD.findall(plain)) >= 3
 
 
 def _plain(tex: str) -> str:
@@ -308,10 +327,12 @@ def _working(part: Part) -> tuple[list[str], list[str], list[str]]:
     """
     formula: list[str] = []
     if part.formula is not None:
-        formula.append(math_line(tidy_tex(part.formula.tex)))
+        formula.append(_line(part.formula.tex))
     substitution: list[str] = []
     steps: list[str] = []
     for step in part.working:
+        if step.kind == "say":
+            continue  # words, said after the working (``_said``)
         # With no formula, moves come first and the lines after them carry them on: one
         # Steps section, never a Substitution above the moves it follows.
         if step.kind == "substitution" and not (steps and part.formula is None):
@@ -369,6 +390,11 @@ def _answer_line(answer: Answer, layout: WorkedLayout) -> str:
         note = prose_maths(answer.note)
         said = math_line(words_tex(answer.value.strip()))
         return f"{said} ({note})" if note else said
+    sentence = _sentence(answer)
+    if sentence is not None:
+        return f"```answer\n{UNCHECKED_ANSWER_MARKER}\n{sentence}\n```"
+    if _restates(answer.note, answer.value):
+        answer = answer.model_copy(update={"note": ""})
     if layout.law_heading:
         answer = card_answer(answer, layout.asked)  # rounds once: 3 figures, or as asked
     tex = tidy_tex(answer.value)
@@ -401,11 +427,61 @@ def _part_body(
             formula_heading=formula_title(part.formula.name) if part.formula else None,
         ),
         answer_heading=answer_heading if part.answers else None,
+        before_answer=_said(part),
     )
     if not part.answers or answer_heading is None:
         return body
-    values = _HARD_BREAK.join(_answer_line(answer, layout) for answer in part.answers)
-    return f"{body}\n\n{values}"
+    return f"{body}\n\n{answer_lines(part.answers, layout)}"
+
+
+def _said(part: Part) -> str | None:
+    """What the part says in words (its ``say`` records), as one paragraph of text with
+    its maths as maths: a part asked in words ("What do these numbers mean?") was set as
+    one italic formula under Substitution, run off the screen (G8 t42, 2026-11-18)."""
+    said = [prose_maths(step.tex) for step in part.working if step.kind == "say"]
+    return " ".join(said) or None
+
+
+def answer_lines(answers: Sequence[Answer], layout: WorkedLayout) -> str:
+    """The answers' lines, values on one line each and a sentence answer as its own card."""
+    lines = [_answer_line(answer, layout) for answer in answers]
+    values = _HARD_BREAK.join(line for line in lines if not line.startswith("```"))
+    cards = [line for line in lines if line.startswith("```")]
+    return "\n\n".join(block for block in (values, *cards) if block)
+
+
+# A number in a sentence with no maths of its own: "60 W" is "$60$ W".
+_BARE_NUMBER = re.compile(r"(?<![\w.$])(\d+(?:\.\d+)?)(?![\w.$])")
+_DOLLAR_SPAN = re.compile(r"\$[^$]+\$")
+_PROSE_WORD = re.compile(r"[A-Za-z\u00C0-\u024F\u0400-\u04FF\u1200-\u137F]{3,}")
+
+
+def _sentence(answer: Answer) -> str | None:
+    """The answer as a sentence, its maths as maths, when it is one: two words or more
+    beside a number ("The lamp uses $60$ W when it runs on $220$ V"). Its card draws it as
+    words that wrap, never as one formula off the card's edge."""
+    if _concludes(answer):
+        return None
+    said = prose_maths(answer.value.strip())
+    words = _PROSE_WORD.findall(_DOLLAR_SPAN.sub(" ", said))
+    if len(words) < 2 or not any(char.isdigit() for char in said):
+        return None
+    if "$" not in said:
+        said = _BARE_NUMBER.sub(r"$\1$", said)
+    return said
+
+
+def _restates(note: str, value: str) -> bool:
+    """A note that only writes the value again ("1.03 \\times 10^5" after 103000): the card
+    says it, and the bracket fell under the card as an orphan number (G8 t28)."""
+    from app.services.formal.solve import parse_number
+
+    def number(text: str) -> float | None:
+        plain = re.sub(r"\\times|\\cdot", "*", text).replace("{", "").replace("}", "")
+        return parse_number(re.sub(r"[$\s]|\\[,; !]", "", plain))
+
+    said, shown = number(note), number(value)
+    return said is not None and shown is not None and abs(said - shown) <= 0.01 * abs(shown)
 
 
 def _find_rows(solution: WorkedSolution) -> tuple[str, ...]:
@@ -434,11 +510,16 @@ def _concluded(solution: WorkedSolution) -> set[str]:
     the ask no other answer names in a solution of one part (Gemini on #2489)."""
     answers = [answer for part in solution.parts for answer in part.answers]
     concluded = {
-        _symbol_key(answer.symbol) for answer in answers if answer.symbol and _concludes(answer)
+        _symbol_key(answer.symbol)
+        for answer in answers
+        if answer.symbol and (_concludes(answer) or _sentence(answer) is not None)
     }
     paired = len(solution.parts) == len(solution.required)
     for at, part in enumerate(solution.parts):
-        if not any(not answer.symbol.strip() and _concludes(answer) for answer in part.answers):
+        if not any(
+            not answer.symbol.strip() and (_concludes(answer) or _sentence(answer) is not None)
+            for answer in part.answers
+        ):
             continue
         if paired:
             concluded.add(_symbol_key(solution.required[at].symbol))
@@ -566,7 +647,7 @@ def _render_in_parts(
                 or (solution.required[index].meaning if index < len(solution.required) else "")
             ),
             working=_part_body(part, layout, ((), ()), None),
-            after=_HARD_BREAK.join(_answer_line(answer, layout) for answer in part.answers),
+            after=answer_lines(part.answers, layout),
             # The last part's where-line waits, while it streams, until its givens are in.
             given=_given_rows(own[index], naming=not streaming or index < last or _started(part)),
         )

@@ -612,3 +612,52 @@ def test_a_conclusion_s_tex_specials_are_escaped() -> None:
     assert words_tex("yes, since $\\mu_s < \\tan\\theta$") == (
         "\\text{yes, since }\\mu_s < \\tan\\theta"
     )
+
+
+_LAMP = (
+    "given: V | 220 | V | rated voltage\n"
+    "given: P | 60 | W | rated power\n"
+    "required: meaning | what the numbers mean\n"
+    "required: I | current\n"
+    "part: a | Meaning of the rated values\n"
+    "say: The lamp uses $60\\,\\mathrm{W}$ of power when it runs on $220\\,\\mathrm{V}$.\n"
+    "answer: | It takes 60 W when it is run on 220 V | |\n"
+    "part: b | Current\n"
+    "formula: Electric power | P = VI\n"
+    "substitution: I = \\frac{60}{220}\n"
+    "answer: I | 0.273 | A\n"
+)
+
+
+def test_a_part_asked_in_words_is_said_in_words_and_carded_as_a_sentence() -> None:
+    """G8 t42, 2026-11-18: "What do these numbers mean?" was set as one italic formula under
+    Substitution, run off the screen, and the parts after it got no cards."""
+    shown = render_worked(_solution(_LAMP), PHYSICS)
+    part_a = shown.split("**(a) Meaning of the rated values**")[1].split("---")[0]
+    assert "**Substitution**" not in part_a
+    assert (
+        "\n\nThe lamp uses $60\\,\\mathrm{W}$ of power when it runs on $220\\,\\mathrm{V}$.\n\n"
+        in (part_a)
+    )
+    assert "```answer\nverified: false\nIt takes $60$ W when it is run on $220$ V\n```" in part_a
+    assert "**Answer (b)**\n\n$0.273\\,\\mathrm{A}$" in shown
+    assert "(a) what the numbers mean" in shown
+
+
+def test_a_say_line_keeps_its_own_maths_marks() -> None:
+    record = read_record("say: $P$ is the power and $V$ the voltage")
+    assert isinstance(record, Step) and record.kind == "say"
+    assert record.tex == "$P$ is the power and $V$ the voltage"
+
+
+def test_a_note_that_only_restates_the_value_is_dropped() -> None:
+    """G8 t28: "1.03 x 10^5." was left alone under each card, with no unit."""
+    solution = _solution(
+        "required: P | pressure\nformula: Liquid pressure | P = \\rho g h\n"
+        "substitution: P = 1030 \\times 10 \\times 10\n"
+        "answer: P | 103000 | Pa | 1.03 \\times 10^{5}\n"
+    )
+    shown = render_worked(solution, PHYSICS)
+    assert "10^{5}" not in shown and "$103000\\,\\mathrm{Pa}$" in shown
+    east = _solution("required: v | velocity\nanswer: v | 20 | m/s | east\n")
+    assert "(east)" in render_worked(east, PHYSICS)

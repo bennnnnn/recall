@@ -156,10 +156,14 @@ def _in_card_unit(server: float, value: FormalValue, card: ReplyCard) -> list[fl
     from app.services.formal.solve import as_quantity
 
     quantity = as_quantity(server, value.unit)
-    if not card.unit:
+    if not card.unit or quantity.dimensionless:
+        # A card with no unit, or a count a card names in words ("4000 turns": pint reads
+        # a turn as an angle): the bare number, and the pure number (90% is 0.9).
         bare = [server]
         if quantity.dimensionless:
             bare.append(float(quantity.to("dimensionless").magnitude))
+            if card.unit:
+                bare += _in_unit_if_pure(quantity, card.unit)
         return bare
     return [float(quantity.to(as_quantity(1.0, card.unit).units).magnitude)]
 
@@ -171,6 +175,19 @@ def _rounding(card: ReplyCard) -> float:
         return 0.0
     digits = f"{abs(card.value):.{card.places}f}".replace(".", "").lstrip("0")
     return 0.5 * 10.0**-card.places if len(digits) >= 2 else 0.0
+
+
+def _in_unit_if_pure(quantity: Any, unit: str) -> list[float]:
+    """A pure number as a card's percent ("0.9" as "90 %"); nothing for any other unit."""
+    from app.services.formal.solve import as_quantity
+
+    try:
+        target = as_quantity(1.0, unit)
+        if "percent" not in str(target.units):
+            return []
+        return [float(quantity.to(target.units).magnitude)]
+    except Exception:  # pint: no such unit
+        return []
 
 
 def agrees(card: ReplyCard, value: FormalValue) -> bool | None:

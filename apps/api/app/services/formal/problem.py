@@ -10,7 +10,9 @@ answer to each part travels with it, so the two can be compared.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from typing import Any
+
+from pydantic import BaseModel, Field, field_validator
 
 # A setup longer than this is not a school problem; the read is refused rather than solved.
 MAX_SYMBOLS = 16
@@ -49,6 +51,15 @@ class Asked(BaseModel):
     # The model's own answer, in ``unit``: compared with the server's.
     answer: float | None = None
 
+    @field_validator("part", mode="before")
+    @classmethod
+    def _letter(cls, part: Any) -> Any:
+        """Part b, however it is written ("(B)", "b)", "B"); one it cannot letter is ""."""
+        if not isinstance(part, str):
+            return part
+        letter = part.strip(" ().:").lower()
+        return letter if len(letter) == 1 and letter in "abcdefgh" else ""
+
 
 class Check(BaseModel):
     """A relation the question's values must keep, "lhs = rhs" or with <=, >=, <, >: a
@@ -59,6 +70,11 @@ class Check(BaseModel):
     # Why it must hold, in a few words in the question's language ("a balanced lever has
     # equal moments on each side"): said to the student when the values break it.
     meaning: str = Field(default="", max_length=160)
+
+    @field_validator("meaning", mode="before")
+    @classmethod
+    def _cut(cls, meaning: Any) -> Any:
+        return meaning[:160] if isinstance(meaning, str) else meaning
 
 
 class FormalProblem(BaseModel):
@@ -74,3 +90,11 @@ class FormalProblem(BaseModel):
     # What the question asks, one entry per part.
     asked: list[Asked] = Field(default_factory=list, max_length=MAX_PARTS)
     checks: list[Check] = Field(default_factory=list, max_length=MAX_CHECKS)
+
+    @field_validator("checks", mode="before")
+    @classmethod
+    def _relations(cls, checks: Any) -> Any:
+        """A check written as its relation alone ("tau_cw = tau_ccw", live 2026-11-18)."""
+        if not isinstance(checks, list):
+            return checks
+        return [{"relation": check} if isinstance(check, str) else check for check in checks]

@@ -335,3 +335,21 @@ async def test_finalize_waits_no_longer_than_its_cap(monkeypatch: pytest.MonkeyP
 )
 def test_the_card_draws_the_value_and_its_unit(value: float, unit: str, shown: str) -> None:
     assert _value(value, unit).card_value == shown
+
+
+async def test_a_count_named_in_words_is_compared_as_a_number(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Live G8 t43: "4000 turns" was read as 4000 angular turns (pint), 636.6 in the
+    server's pure number, and replaced by "4000"."""
+    _answered(monkeypatch, _answer(_value(4000.0, "", uses=(800.0,))))
+    reply = "$N_s = 800 \\times 5$\n\n**Answer**\n\n" + _card("4000\\ \\text{turns}")
+    assert await _finalized(_ctx(live_read=_read()), reply) == reply
+
+
+async def test_a_conflict_with_no_words_of_its_own_is_still_said(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _answered(monkeypatch, _answer(conflicts=(StatedConflict("", "2400", "\\neq", "240"),)))
+    text = await _finalized(_ctx(live_read=_read()), "**Answer**")
+    assert text.startswith("These values can't all be right: here $2400 \\neq 240$.\n\n")

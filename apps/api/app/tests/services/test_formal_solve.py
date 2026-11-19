@@ -463,3 +463,20 @@ def test_values_that_hold_break_no_check() -> None:
 def test_a_check_that_does_not_read_is_no_check(relation: str) -> None:
     setup = _lever("80") | {"checks": [{"relation": relation, "meaning": "x"}]}
     assert _solved(setup, LEVER)["conflicts"] == []
+
+
+def test_a_setup_s_parts_and_checks_are_read_as_a_model_writes_them() -> None:
+    """Live, 2026-11-18: a check written as its relation alone failed the whole read."""
+    from app.services.formal.problem import FormalProblem
+
+    setup = FormalProblem.model_validate(
+        _lever("80")
+        | {
+            "checks": ["tc = ta"],
+            "asked": [{"part": "(A)", "symbol": "tc", "unit": "N*m", "answer": 2400}],
+        }
+    )
+    assert setup.checks[0].relation == "tc = ta" and setup.checks[0].meaning == ""
+    assert setup.asked[0].part == "a"
+    result = _solved(setup.model_dump(), LEVER)
+    assert result["conflicts"][0]["meaning"] == ""

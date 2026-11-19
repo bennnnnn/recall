@@ -72,6 +72,18 @@ _CONFLICTS = {
     "tr": "Bu değerlerin hepsi doğru olamaz: {meaning}, ama burada {sides}.",
     "am": "እነዚህ እሴቶች ሁሉም ትክክል ሊሆኑ አይችሉም፦ {meaning}፣ ግን እዚህ {sides}።",
 }
+# The same, for a relation the setup gave no words for.
+_CONFLICTS_BARE = {
+    "en": "These values can't all be right: here {sides}.",
+    "es": "Estos valores no pueden ser todos correctos: aquí {sides}.",
+    "fr": "Ces valeurs ne peuvent pas être toutes justes : ici {sides}.",
+    "de": "Diese Werte können nicht alle stimmen: hier {sides}.",
+    "it": "Questi valori non possono essere tutti giusti: qui {sides}.",
+    "pt": "Esses valores não podem estar todos certos: aqui {sides}.",
+    "ru": "Эти значения не могут быть верны одновременно: здесь {sides}.",
+    "tr": "Bu değerlerin hepsi doğru olamaz: burada {sides}.",
+    "am": "እነዚህ እሴቶች ሁሉም ትክክል ሊሆኑ አይችሉም፦ እዚህ {sides}።",
+}
 
 
 def start_formal(settings: Settings, ctx: StreamContext) -> asyncio.Task[Any] | None:
@@ -132,14 +144,12 @@ async def _waited(state: FinalizeState) -> FormalAnswer | None:
 
 def stated_conflicts(text: str, conflicts: Sequence[StatedConflict], language: str) -> str:
     """The reply opened by one line for each relation the question's values break."""
-    template = _CONFLICTS.get(language, _CONFLICTS["en"])
-    lines = [
-        template.format(
-            meaning=conflict.meaning, sides=f"${conflict.left} {conflict.broken} {conflict.right}$"
-        )
-        for conflict in conflicts
-        if conflict.meaning
-    ]
+    lines = []
+    for conflict in conflicts:
+        sides = f"${conflict.left} {conflict.broken} {conflict.right}$"
+        templates = _CONFLICTS if conflict.meaning else _CONFLICTS_BARE
+        template = templates.get(language, templates["en"])
+        lines.append(template.format(meaning=conflict.meaning, sides=sides))
     return "\n\n".join([*lines, text]) if lines else text
 
 

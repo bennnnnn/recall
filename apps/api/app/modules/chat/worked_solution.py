@@ -12,6 +12,7 @@ its fields split by ``|`` (``prompt_constants.worked``):
     solve_for: t | t = \\frac{s}{v}
     step: 2x = 8 | subtract 3 from both sides
     substitution: s = 20 \\times 120
+    say: The lamp uses $60\\,\\mathrm{W}$ when it runs on $220\\,\\mathrm{V}$.
     answer: s | 2400 | m | east
     part: a | Distance in centimetres
 
@@ -46,6 +47,7 @@ _FIELDS: dict[str, tuple[str, ...]] = {
     "solve_for": ("symbol", "tex"),
     "step": ("tex", "move"),
     "substitution": ("tex",),
+    "say": ("tex",),
     "answer": ("symbol", "value", "unit", "note"),
     "part": ("letter", "title"),
 }
@@ -93,9 +95,10 @@ class Formula(_Record):
 
 class Step(_Record):
     """One state of the working: a rearrangement for ``symbol`` (``solve_for``), an
-    equation changed by ``move`` (``step``), or a line of substitution."""
+    equation changed by ``move`` (``step``), a line of substitution, or a sentence in
+    words (``say``: what a part asked in words says, its maths in ``$…$``)."""
 
-    kind: Literal["solve_for", "step", "substitution"]
+    kind: Literal["solve_for", "step", "substitution", "say"]
     tex: Tex
     move: Words = ""
     symbol: Short = ""
@@ -229,8 +232,10 @@ def _fields(key: str, rest: str) -> dict[str, str]:
         values = ["", values[0]]  # the value alone, no symbol
     elif key == "formula" and len(values) == 1:
         values = ["", values[0]]  # the formula alone, no name
+    # A sentence keeps its own ``$…$``: "$P$ is the power … $V$" is no one formula.
+    tex_fields = _TEX_FIELDS if key != "say" else frozenset()
     return {
-        name: _unwrapped(value) if name in _TEX_FIELDS else value
+        name: _unwrapped(value) if name in tex_fields else value
         for name, value in zip(names, values, strict=False)
         if value
     }
@@ -246,7 +251,7 @@ _MODELS: dict[str, type[Given | Required | Formula | Answer | PartLabel]] = {
 
 
 def _validated(key: str, fields: dict[str, str]) -> RecordModel:
-    if key in ("solve_for", "step", "substitution"):
+    if key in ("solve_for", "step", "substitution", "say"):
         return Step.model_validate({"kind": key, **fields})
     return _MODELS[key].model_validate(fields)
 
@@ -318,7 +323,9 @@ class _PartDraft:
         """A line of its working gives ``symbol`` a value (``v_1 = \\frac{100}{5}``)."""
         target = _bare(symbol)
         return bool(target) and any(
-            _bare(step.tex.split("=", 1)[0]) == target for step in self.working if "=" in step.tex
+            _bare(step.tex.split("=", 1)[0]) == target
+            for step in self.working
+            if "=" in step.tex and step.kind != "say"
         )
 
     @property

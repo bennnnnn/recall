@@ -94,10 +94,11 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # scene and the question's values, never a coordinate (physics.scene_drawing.contract, the
 # owner's round of 30 hard problems, 2026-11-16), naming a horizontal launch, bodies moving
 # the same way and the situations it never draws; no spring or wave, which no reader confirms
-# (its reviews, 2026-11-16).
+# (its reviews, 2026-11-16); then a ```worked part asked in words, said in `say` lines and
+# answered in one sentence (prompt_constants.worked, G8 round t42, 2026-11-18).
 _RULES = 203
-_RULE_GRAMS = 19057
-_RULE_GRAMS_SHA = "0d59a0d129e95471"
+_RULE_GRAMS = 19133
+_RULE_GRAMS_SHA = "4c96005d2e978601"
 
 
 def _rules() -> list[str]:
