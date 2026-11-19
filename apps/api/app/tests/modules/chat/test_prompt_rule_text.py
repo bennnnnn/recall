@@ -94,10 +94,13 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # scene and the question's values, never a coordinate (physics.scene_drawing.contract, the
 # owner's round of 30 hard problems, 2026-11-16), naming a horizontal launch, bodies moving
 # the same way and the situations it never draws; no spring or wave, which no reader confirms
-# (its reviews, 2026-11-16).
-_RULES = 203
-_RULE_GRAMS = 19057
-_RULE_GRAMS_SHA = "0d59a0d129e95471"
+# (its reviews, 2026-11-16); then a circuit and a plane mirror described in the same way, no
+# flowchart for a thing or a motion, a motion's graphs in stages, and a reply never writing
+# that a picture is shown or mentioning its block (physics.scene_drawing.contract, Grade 8
+# round, 2026-11-18).
+_RULES = 205
+_RULE_GRAMS = 19275
+_RULE_GRAMS_SHA = "aed6aeb034655bb7"
 
 
 def _rules() -> list[str]:

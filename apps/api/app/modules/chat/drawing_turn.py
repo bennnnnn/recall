@@ -33,7 +33,6 @@ from app.modules.chat.figure_turn import earlier_user_lines, read_asks_for_a_pic
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.turn_decision import TurnDecision
-from app.modules.chat.turn_intercepts import may_be_a_maths_picture
 from app.modules.chat.turn_trace import note_prompt_rule
 from app.modules.turn_reading.turn import current_turn_reading
 from app.services.solving import (
@@ -69,6 +68,15 @@ _ASKS_TO_SEE = re.compile(
     r"|show(?!\s+(?:that|how|why|whether|your|all|each|every|(?:the\s+)?(?:steps?|working|work))\b))\b",
     re.IGNORECASE,
 )
+
+
+# A line with a digit or a relation sign ("x ≥ 4 on a number line") may ask for a maths
+# picture: such a line waits for the read before its reply is asked for a description.
+_MATHS_MARK = re.compile("[0-9<>=\u2264\u2265\u2212+/^]")
+
+
+def may_be_a_maths_picture(line: str) -> bool:
+    return _MATHS_MARK.search(line) is not None
 
 
 # The pictures the read may ask for that a description draws: a figure, and a graph (kind
@@ -276,12 +284,27 @@ async def ask_for_a_drawing(
     if not sees and read is not None and read.work is False:
         return
     # The problem a follow-up points to, as the turn's resolution rewrote it, else the line.
-    contract = figure.contract_for(ctx.followup_problem or ctx.user_message_content or "", sees)
+    question = ctx.followup_problem or ctx.user_message_content or ""
+    contract = "\n".join(
+        part
+        for part in (figure.contract_for(question, sees), _physics_graph(read, question))
+        if part
+    )
     if not contract:
         return
     ctx.drawing = ReplyDrawing(asked, subject=subject)
     ctx.prompt_messages = inject_before_last_user(ctx.prompt_messages, contract)
     note_prompt_rule(f"subject.draw_{asked}" if subject == "math" else f"{subject}.draw_{asked}")
+
+
+def _physics_graph(read: TurnDecision | None, question: str) -> str:
+    """A physics graph is maths' to draw from a formula the question writes, and physics'
+    from a motion in stages ("6 km/h for 5 min, then 2 km/h for 3 min"): its reply gets
+    physics' contract beside maths' (``physics.scene_drawing.motion_graph``)."""
+    figure = subject_adapter("physics").figure
+    if read is None or read.subject != "physics" or read.picture != "graph" or figure is None:
+        return ""
+    return figure.contract_for(question, True)
 
 
 def _still_wanted(ctx: StreamContext, drawing: ReplyDrawing) -> bool:
@@ -313,6 +336,37 @@ def _read_in(ctx: StreamContext) -> TurnDecision | None:
     return read.result()
 
 
+async def _described(
+    state: FinalizeState,
+    drawing: ReplyDrawing,
+    figure: SubjectFigure,
+    descriptions: list[str],
+    texts: list[str],
+    reply: str,
+    problem: str | None,
+) -> list[str]:
+    """The pictures the descriptions draw: the drawing subject's, and on a physics turn
+    whose graph maths' figure did not draw, physics' own (a motion in stages)."""
+    ctx = state.ctx
+    physics = _physics_read(ctx)
+    facts = subject_adapter("physics").graph_facts if physics else None
+    asks = _asks_to_see(ctx)
+    fences = await figure.described(
+        descriptions, texts, reply, state.settings, facts, problem, asks
+    )
+    if fences or drawing.subject != "math" or not physics:
+        return list(fences)
+    physics_figure = subject_adapter("physics").figure
+    if physics_figure is None or not subject_adapter("physics").enabled(state.settings):
+        return []
+    scene_texts = [ctx.followup_problem, *texts] if ctx.followup_problem else texts
+    drawn = await physics_figure.described(
+        descriptions, scene_texts, reply, state.settings, None, None, asks
+    )
+    # The graph asked for, never a scene or a field in its place.
+    return [fence for fence in drawn if fence.startswith("```graph")]
+
+
 async def attach_drawing(state: FinalizeState) -> str:
     """The reply's described picture under it, what stood in for it taken out."""
     ctx = state.ctx
@@ -331,10 +385,7 @@ async def attach_drawing(state: FinalizeState) -> str:
     # (maths reads its own follow-ups from the lines); a field picture, of the line.
     problem = ctx.followup_problem if drawing.subject == "physics" else None
     try:
-        facts = subject_adapter("physics").graph_facts if _physics_read(ctx) else None
-        fences = await figure.described(
-            descriptions, texts, text, state.settings, facts, problem, _asks_to_see(ctx)
-        )
+        fences = await _described(state, drawing, figure, descriptions, texts, text, problem)
     except Exception as exc:  # A drawing that fails is no drawing: the reply stands.
         logger.info("described picture failed (%s)", type(exc).__name__)
         return text

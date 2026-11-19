@@ -36,6 +36,7 @@ from app.modules import web_search as web_search_service
 from app.modules.billing import can_use
 from app.modules.chat import posed_read, prompt_memory, referent_read
 from app.modules.chat import prompt_constants as pc
+from app.modules.chat.drawn_picture import read_lets
 from app.modules.chat.finalize_passes import enrich_final_content
 from app.modules.chat.json_output import JSON_OUTPUT_HINT
 from app.modules.chat.model_routing import choice as model_choice
@@ -64,8 +65,9 @@ from app.modules.chat.prompt_context import _PromptContextBlocks
 from app.modules.chat.referent_read import ContinuationPick, ReferentPick, read_referent
 from app.modules.chat.stream_paths import run_tool_loop_path
 from app.modules.chat.tool_loop.reply_calls import offers_search
+from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.turn_deps import default_deps
-from app.modules.chat.turn_intercepts import may_be_a_maths_picture, reply_picture_prompt
+from app.modules.chat.turn_intercepts import reply_picture_prompt
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep.context import (
     build_stream_prompt_context,
@@ -388,6 +390,19 @@ def _hints_in(system: str, case: Case) -> set[str]:
     return found
 
 
+def read_of(case: Case) -> TurnDecision | None:
+    """The turn's read a case stands for: its own, a maths picture for a figure case, or
+    none (no read, as with no model)."""
+    if case.read is not None:
+        subject, picture = case.read
+        return TurnDecision.model_validate(
+            {"live": False, "think": False, "subject": subject, "picture": picture}
+        )
+    if case.figure is not None:
+        return TurnDecision(live=False, think=False, subject="maths", picture="diagram")
+    return None
+
+
 async def route_case(case: Case, settings: Settings | None = None) -> Route:
     settings = settings or battery_settings()
     trace = begin_turn_trace("new")
@@ -434,19 +449,18 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         settings, text, rows, referent.problem if referent is not None else None
     )
     found = extract_image_lookup_query(text) if settings.image_search_enabled else None
-    # A case with a figure reading is one the turn's read calls a maths picture: no photo of
-    # its maths, no painting of it.
-    figure_read = case.figure is not None
-    held = figure_read and found is not None and may_be_a_maths_picture(found)
+    # The turn's read decides a subject turn's picture (``drawn_picture.read_lets``); a case
+    # with a figure reading is one the read calls a maths picture.
+    decision = read_of(case)
     photo = (
         dated_lookup_query(found, datetime.now(UTC).year)
-        if found and not drawn and not held
+        if found and not drawn and read_lets(decision, "photo")
         else ""
     )
     image_gen = bool(
         not photo
         and not drawn
-        and not figure_read
+        and read_lets(decision, "image")
         and settings.image_generation_enabled
         and can_use(user, "image_generation", settings)
         # Read with the thread, as the turn's intercept reads it ("Image" after "Dog").

@@ -110,6 +110,9 @@ class Case:
     # A maths question asking to see a picture: the read's reading of what to draw (its kind
     # and the values it copied, ``math.figure.read``), as JSON. None: no read.
     figure: str | None = None
+    # The turn's read: the subject and the picture it says the message asks to see
+    # (``chat.turn_decision``). None: no read, as with no model.
+    read: tuple[str, str] | None = None
 
 
 NO_PHOTO = ""
