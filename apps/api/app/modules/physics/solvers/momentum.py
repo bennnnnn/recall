@@ -17,6 +17,24 @@ from app.modules.physics.solvers.si import params_in_si
 from app.services.solving import SolveServiceError
 
 
+def _elastic_answer(
+    u1: float, u2: float, *, speeds: bool
+) -> tuple[str, tuple[QuantityResult, ...]]:
+    """The elastic collision's answer line and its two results. Speeds asked: each body's
+    size, never a negative speed."""
+    if speeds:
+        answer = (
+            rf"\text{{Elastic: speeds }} |v_1'| \approx {abs(u1):.2f} \text{{ m/s}}, "
+            rf"\quad |v_2'| \approx {abs(u2):.2f} \text{{ m/s}}"
+        )
+        return answer, (QuantityResult("", abs(u1), "m/s"), QuantityResult("", abs(u2), "m/s"))
+    answer = (
+        r"\text{Elastic: } v_1' = \frac{(m_1-m_2)v_1 + 2 m_2 v_2}{m_1+m_2} "
+        rf"\approx {u1:.2f} \text{{ m/s}}, \quad v_2' \approx {u2:.2f} \text{{ m/s}}"
+    )
+    return answer, (QuantityResult("", u1, "m/s"), QuantityResult("", u2, "m/s"))
+
+
 def _collision_substitutions(intent: PhysicsIntent, *, elastic: bool) -> tuple[str, ...]:
     """Numeric collision rows. The reply reads these; it does not rebuild them."""
     params = params_in_si(intent)
@@ -120,20 +138,7 @@ def solve_momentum(intent: PhysicsIntent) -> PhysicsResult:
         if p.get("elastic", 0.0) >= 0.5:
             u1 = ((m1 - m2) * v1 + 2 * m2 * v2) / total
             u2 = ((m2 - m1) * v2 + 2 * m1 * v1) / total
-            answer = (
-                r"\text{Elastic: } v_1' = \frac{(m_1-m_2)v_1 + 2 m_2 v_2}{m_1+m_2} "
-                rf"\approx {u1:.2f} \text{{ m/s}}, \quad v_2' \approx {u2:.2f} \text{{ m/s}}"
-            )
-            if p.get("speeds", 0.0) >= 0.5:
-                # Speeds asked: each body's size, never a negative speed.
-                answer = (
-                    rf"\text{{Elastic: speeds }} |v_1'| \approx {abs(u1):.2f} \text{{ m/s}}, "
-                    rf"\quad |v_2'| \approx {abs(u2):.2f} \text{{ m/s}}"
-                )
-            quantities = (
-                QuantityResult("", abs(u1) if p.get("speeds", 0.0) >= 0.5 else u1, "m/s"),
-                QuantityResult("", abs(u2) if p.get("speeds", 0.0) >= 0.5 else u2, "m/s"),
-            )
+            answer, quantities = _elastic_answer(u1, u2, speeds=p.get("speeds", 0.0) >= 0.5)
             substitutions = _collision_substitutions(intent, elastic=True)
             formulas = (
                 r"\text{Elastic: } v_1' = \frac{(m_1-m_2)v_1 + 2 m_2 v_2}{m_1+m_2}",
