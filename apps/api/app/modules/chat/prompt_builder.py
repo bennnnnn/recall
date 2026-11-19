@@ -276,19 +276,20 @@ async def _history_rag_block(
     vector: list[float] | None,
     window: PromptWindow,
     omit_message_ids: set[UUID] | None,
-    timezone: str,
 ) -> str:
     # The context gather already attempted the history embed. None means no
     # chunks or a failed/timed-out embed; do not repeat that work serially.
     if vector is None:
         return ""
+    # Each snippet is dated in the user's time zone (``history_rag.snippet_date``).
     return await chat_history_rag_service.retrieve_for_prompt(
         settings,
         user_id=user.id,
         query=query_text or "",
         exclude_message_ids=window.message_ids | (omit_message_ids or set()),
         query_vec=vector,
-        timezone=timezone,
+        timezone=time_context_service.effective_timezone(user.timezone),
+        chat_id=next((row.chat_id for row in window.recent if hasattr(row, "chat_id")), None),
     )
 
 
@@ -334,14 +335,17 @@ async def _read_prompt_inputs(
 
 def _fill_stats(
     stats: PromptStats | None, recalled: int, memory_hints: list[str], chat: Chat | None
-) -> None:
-    """What the prompt drew on, for the turn's ``done``."""
+) -> int:
+    """What the prompt drew on, for the turn's ``done``; returns how many of the chat's first
+    messages its summary stands for (0 with none), which the summary's lead says."""
+    summarized = (chat.summary_message_count or 0) if chat and chat.summary else 0
     if stats is None:
-        return
+        return summarized
     stats.recalled = recalled
     stats.memory_hints = memory_hints
-    if chat and chat.summary and (chat.summary_message_count or 0) > 0:
-        stats.context_summarized = chat.summary_message_count
+    if summarized > 0:
+        stats.context_summarized = summarized
+    return summarized
 
 
 async def _memory_paused(user: User, settings: Settings, query_text: str | None) -> bool:
@@ -421,7 +425,6 @@ async def build_prompt_messages(
         prior_count=prior_count if recent_messages is not None else None,
     )
     followup = await _read_prompt_inputs(settings, query_text, window, turn_plan)
-    local_tz = time_context_service.effective_timezone(user.timezone, client_timezone)
     chat_history_rag_block = await _history_rag_block(
         settings,
         user,
@@ -429,14 +432,12 @@ async def build_prompt_messages(
         vector=blocks.history_rag_query_vec if plan.history_rag else None,
         window=window,
         omit_message_ids=omit_message_ids,
-        timezone=local_tz,
     )
-    _fill_stats(stats, blocks.recalled, blocks.memory_hints, blocks.chat)
     turn = PromptTurn(
         user=user,
         settings=settings,
         query_text=query_text,
-        local_tz=local_tz,
+        local_tz=time_context_service.effective_timezone(user.timezone, client_timezone),
         lightweight=lightweight,
         slim=plan.slim,
         recall_memory=plan.load_memory or plan.recalls_shared_past,
@@ -456,6 +457,6 @@ async def build_prompt_messages(
         recalls_shared_past=plan.recalls_shared_past,
         holds_attachment=holds_attachment,
         asked_practice=asked_practice,
-        summarized=(blocks.chat.summary_message_count or 0) if blocks.chat and summary else 0,
+        summarized=_fill_stats(stats, blocks.recalled, blocks.memory_hints, blocks.chat),
     )
     return _assemble(turn, window, math_followup=followup == "math")

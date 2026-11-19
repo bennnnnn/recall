@@ -25,7 +25,6 @@ chosen as before. Nothing here raises into a turn.
 from __future__ import annotations
 
 import asyncio
-import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -36,17 +35,17 @@ from app.modules.chat.posed_read import PosedPick, picked, posed_started, stated
 from app.modules.chat.prompt_constants.follow_up import follow_up_note
 from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.turn_trace import note_prompt_rule
-from app.services.question_parts import part_named
+from app.modules.turn_reading.lesson_flow import active_lesson_step, outline_awaits_pick
+from app.services.question_parts import named_label, part_named
 from app.services.text_normalize import collapse_ws
 
 if TYPE_CHECKING:
     from app.core.config import Settings
+    from app.modules.chat.turn_decision import TurnDecision
     from app.modules.chat.turn_prep.context import StreamContext
 
 # The kinds that name the message the line follows.
 _FOLLOWS = frozenset({"solve", "change", "explain"})
-# A part's label as a line names it: "b", "(b)", "part b", "(ii)".
-_PART_LABEL = re.compile(r"^(?:part\s+)?\(?([a-h]|i{1,3}|iv|vi{0,3})\)?$", re.IGNORECASE)
 _KEPT = "follow_up"
 
 
@@ -66,11 +65,13 @@ class FollowUp:
     part_text: str | None = None
 
     @property
-    def problem(self) -> str:
-        """The problem the line follows: as the user typed it, or as the assistant posed it."""
+    def problem(self) -> str | None:
+        """The problem the line follows: as the user typed it, as the assistant posed it, or
+        the user's line the reply answered; None for a reply whose question the read was not
+        shown (a whole reply is no problem to ask questions about)."""
         if self.role == "user":
             return self.text
-        return self.posed or self.asked or self.text
+        return self.posed or self.asked
 
 
 def _part(said: str | None, texts: Sequence[str | None]) -> tuple[str | None, str | None]:
@@ -79,13 +80,13 @@ def _part(said: str | None, texts: Sequence[str | None]) -> tuple[str | None, st
     named = collapse_ws(said or "").strip(" .:?")
     if not named:
         return None, None
-    label = _PART_LABEL.match(named)
+    label = named_label(named)
     if label is None:
         return named, None
     for text in texts:
-        words = part_named(text, label.group(1)) if text else None
+        words = part_named(text, label) if text else None
         if words:
-            return label.group(1).lower(), words
+            return label, words
     return None, None
 
 
@@ -122,10 +123,13 @@ async def note_the_follow_up(ctx: StreamContext, settings: Settings, deadline: f
     """Beside the line, the message and part it follows, read by a model and held to the
     chat: "explain step 2" is about the answer just above, "and b?" about part b of the
     problem. Waited for no later than ``deadline`` (the reply's wait for the turn's read)."""
-    if ctx.instant_reply or not settings.referent_read_enabled:
+    if ctx.instant_reply or not settings.referent_read_enabled or _reads_its_own_way(ctx):
         return
     left = deadline - asyncio.get_running_loop().time()
-    follow = await follow_up_for_turn(ctx.user_message_content or "", seconds=left)
+    # Small talk, or a line the turn's read says stands alone, waits for nothing: a read that
+    # is in by now still counts.
+    seconds = 0.0 if ctx.lightweight_turn or _stands_alone(ctx) else left
+    follow = await follow_up_for_turn(ctx.user_message_content or "", seconds=seconds)
     if follow is None:
         return
     note_prompt_rule(f"follow_up.{follow.kind}")
@@ -139,18 +143,31 @@ async def note_the_follow_up(ctx: StreamContext, settings: Settings, deadline: f
     ctx.prompt_messages = inject_before_last_user(ctx.prompt_messages, note)
 
 
+def _reads_its_own_way(ctx: StreamContext) -> bool:
+    """A lesson's step, an outline awaiting a pick and the turn after a clarify card read the
+    reply their own way (``message_notes``), as the turn read's notes leave them."""
+    recent = ctx.recent_messages
+    return bool(ctx.after_card or active_lesson_step(recent) or outline_awaits_pick(recent))
+
+
+def _turn_read(ctx: StreamContext) -> TurnDecision | None:
+    task = ctx.live_read
+    if task is None or not task.done() or task.cancelled() or task.exception() is not None:
+        return None
+    return task.result()
+
+
+def _stands_alone(ctx: StreamContext) -> bool:
+    read = _turn_read(ctx)
+    return read is not None and read.follow == "none"
+
+
 def followed_for_questions(ctx: StreamContext) -> Followed | None:
     """What the follow-up questions under the reply follow: the problem the read named, or
     nothing when the turn's read says the line stands alone; None with neither read, and the
     questions are chosen as before (``follow_up_thread``)."""
     follow = kept_for_turn(_KEPT)
     problem = follow.problem if isinstance(follow, FollowUp) else None
-    task = ctx.live_read
-    read = (
-        task.result()
-        if task is not None and task.done() and not task.cancelled() and not task.exception()
-        else None
-    )
-    if problem is None and (read is None or read.follow != "none"):
+    if problem is None and not _stands_alone(ctx):
         return None
     return Followed(problem)

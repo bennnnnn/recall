@@ -50,6 +50,7 @@ from app.core.readings import keep_for_turn, kept_for_turn, read_aside
 from app.modules.chat.referent_read import ask_read, chat_before
 from app.services.number_text import fold_scientific
 from app.services.problem_followup import stated_numbers
+from app.services.question_parts import named_label, with_only_part
 from app.services.solving import SubjectName
 from app.services.text_normalize import collapse_ws
 
@@ -217,6 +218,14 @@ def _line_value(line: str, new: str | None) -> str | None:
     return collapse_ws(new or "") if value and value in _unlatexed(line) else None
 
 
+def _asked_part(problem: str, part: str | None) -> str:
+    """The problem as the line asks it: "and b?" solves part b alone (the statement and that
+    part's words), never every part again, whose card would answer what the line did not ask."""
+    label = named_label(part or "")
+    only = with_only_part(problem, label) if label is not None else None
+    return only or problem
+
+
 def holds_a_problem(asked: str | None, reply: str) -> bool:
     """Whether the exchange before the line holds a problem a subject reads: the reply's own
     (a practice question it posed) or the user's line it answered. Read in the pool."""
@@ -297,6 +306,14 @@ class _Begun:
 
     def __reduce__(self) -> tuple[Any, ...]:
         return (_Begun, (self.line, self.exchanges, None))
+
+
+def stop_posed_read() -> None:
+    """A turn that ends before its reply (an intercept, a failure, Stop) stops the begun
+    read: nothing will ask it any more."""
+    kept = kept_for_turn(_STARTED)
+    if isinstance(kept, _Begun) and kept.task is not None and not kept.task.done():
+        kept.task.cancel()
 
 
 def posed_started(line: str) -> tuple[tuple[tuple[str, str], ...], asyncio.Task[Any]] | None:
@@ -395,7 +412,7 @@ async def read_posed(
         if read.kind != "change" or read.message not in last_turn:
             return None
     if read.kind == "solve":
-        return Posed(problem=problem, reply=exchanges[-1][1])
+        return Posed(problem=_asked_part(problem, read.part), reply=exchanges[-1][1])
     return Posed(
         problem=problem,
         reply=exchanges[-1][1],

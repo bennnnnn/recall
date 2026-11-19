@@ -98,8 +98,8 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # so the start of the chat is in it (SUMMARY_SPAN), and a short line's note naming the message
 # and part it follows (FOLLOW_UP_NOTE), the Grade 8 chat, 2026-11-18.
 _RULES = 205
-_RULE_GRAMS = 19113
-_RULE_GRAMS_SHA = "302ec6a1f415cb86"
+_RULE_GRAMS = 19129
+_RULE_GRAMS_SHA = "1aee02f013fcaef6"
 
 
 def _rules() -> list[str]:

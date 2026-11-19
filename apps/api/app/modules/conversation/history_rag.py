@@ -255,12 +255,15 @@ async def retrieve_for_prompt(
     exclude_chat_id: UUID | None = None,
     query_vec: list[float] | None = None,
     timezone: str | None = None,
+    chat_id: UUID | None = None,
 ) -> str:
     """Return a system-prompt block of past-turn snippets, or empty.
 
     Best-effort: DB/embed failures degrade to no block and never fail the turn.
     Pass ``query_vec`` when the embed already ran in parallel with other prep.
     ``timezone``: the user's, in which each snippet is dated and "today" begins.
+    ``chat_id``: the chat asking, whose own lines take no seat of today's (its summary holds
+    them).
     """
     if not settings.chat_history_rag_enabled:
         return ""
@@ -282,6 +285,7 @@ async def retrieve_for_prompt(
             query_vec,
             exclude_message_ids=exclude_message_ids,
             exclude_chat_id=exclude_chat_id,
+            asking_chat_id=chat_id,
             today_from=now.replace(hour=0, minute=0, second=0, microsecond=0),
         )
     except Exception:
@@ -302,11 +306,15 @@ async def retrieve_for_prompt(
     )
 
 
-# Of the snippets a search returns, how many are kept for today's chats, the nearest of
-# them, when the nearest overall leave them out. "What physics did we do earlier today?" in a
-# new chat got only the night before's quiz chat, nearer in words than the afternoon's long
-# physics chat (2026-11-18); nothing in the question names a subject the embedding prefers.
+# Of the snippets a search returns, how many are kept for today's chats: the nearest line of
+# each of today's nearest chats the others leave out. "What physics did we do earlier today?"
+# in a new chat got only the night before's quiz chat, nearer in words than the afternoon's
+# long physics chat (2026-11-18); nothing in the question names a subject the embedding
+# prefers. One seat a chat: asked again, the question's own earlier copies (and the answers
+# to them) were today's nearest lines, and took every seat.
 _TODAY_SEATS = 2
+# Today's nearest lines read to find those chats.
+_TODAY_CANDIDATES = 30
 
 
 async def _nearest_with_today(
@@ -316,6 +324,7 @@ async def _nearest_with_today(
     *,
     exclude_message_ids: set[UUID] | None,
     exclude_chat_id: UUID | None,
+    asking_chat_id: UUID | None,
     today_from: datetime,
 ) -> list[MessageChunk]:
     """The nearest snippets, with today's nearest given a seat: they take the places of the
@@ -332,12 +341,31 @@ async def _nearest_with_today(
             query_vec,
             window=settings.chat_history_rag_search_window,
             exclude_message_ids=exclude_message_ids,
-            exclude_chat_id=exclude_chat_id,
             max_distance=max_distance,
         )
-        rows = await search(limit=limit)
-        today = await search(limit=min(_TODAY_SEATS, limit), since=today_from)
-    return with_seats(rows, today, limit)
+        rows = await search(limit=limit, exclude_chat_id=exclude_chat_id)
+        today = await search(
+            limit=_TODAY_CANDIDATES,
+            since=today_from,
+            exclude_chat_id=exclude_chat_id or asking_chat_id,
+        )
+    return with_seats(rows, one_per_chat(today, rows, min(_TODAY_SEATS, limit)), limit)
+
+
+def one_per_chat(
+    candidates: list[MessageChunk], shown: list[MessageChunk], seats: int
+) -> list[MessageChunk]:
+    """The nearest line of each chat among ``candidates`` that ``shown`` holds none of, the
+    nearest chats first, at most ``seats``."""
+    taken = {row.chat_id for row in shown}
+    picked: list[MessageChunk] = []
+    for row in candidates:
+        if len(picked) == seats:
+            break
+        if row.chat_id not in taken:
+            taken.add(row.chat_id)
+            picked.append(row)
+    return picked
 
 
 def with_seats(

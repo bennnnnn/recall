@@ -16,6 +16,7 @@ from app.modules.conversation.history_rag import (
     embed_query_for_prompt,
     index_message,
     index_turn_messages,
+    one_per_chat,
     prepare_message_text,
     retrieve_for_prompt,
     snippet_date,
@@ -609,3 +610,43 @@ def test_todays_nearest_take_the_places_of_the_farthest_others():
         "old3",
         "today0",
     ]
+
+
+@pytest.mark.asyncio
+async def test_todays_seats_go_to_other_chats_than_the_one_asking():
+    """A long chat's own summarized lines are all from today; they are in its summary."""
+    asking = uuid4()
+    search = AsyncMock(return_value=[])
+    with (
+        patch("app.modules.conversation.history_rag.SessionLocal", _session_cm()),
+        patch("app.modules.conversation.history_rag.chunks_repo.search_semantic", search),
+    ):
+        await retrieve_for_prompt(
+            Settings(chat_history_rag_enabled=True, mock_llm_enabled=True),
+            user_id=uuid4(),
+            query="what did we do earlier today",
+            query_vec=[0.1] * 1536,
+            chat_id=asking,
+        )
+    nearest, today = search.await_args_list
+    assert nearest.kwargs["exclude_chat_id"] is None
+    assert today.kwargs["exclude_chat_id"] == asking
+    assert today.kwargs["since"] is not None
+
+
+def test_a_today_seat_is_one_chats_nearest_line_and_none_already_shown():
+    """Asked again, the question's own earlier copies were today's nearest lines and took
+    every seat (live, 2026-11-18)."""
+
+    def line(name: str, chat: str) -> MagicMock:
+        return MagicMock(id=name, chat_id=chat)
+
+    shown = [line("asked_before", "side"), line("quiz", "yesterday")]
+    today = [
+        line("asked_before", "side"),
+        line("answer_before", "side"),
+        line("g8_a", "g8"),
+        line("g8_b", "g8"),
+        line("other", "other"),
+    ]
+    assert [row.id for row in one_per_chat(today, shown, 2)] == ["g8_a", "other"]

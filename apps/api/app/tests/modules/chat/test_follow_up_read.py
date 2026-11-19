@@ -140,8 +140,11 @@ async def test_the_read_begun_as_the_turn_loads_is_the_solves_too() -> None:
         posed = await read_posed(Settings(), "and b?", _rows(pairs))
         follow = await follow_up_for_turn("and b?", seconds=1.0)
     assert model.await_count == 1
-    # The problem as typed, its lines collapsed (``stated_problem``).
-    assert posed is not None and posed.problem == " ".join(_LAMP.split())
+    # Part b alone, never every part again: the statement and b's own words.
+    assert posed is not None and posed.problem == (
+        "A 75Ω lamp and 150Ω heater are connected in parallel across a 150V potential "
+        "difference. Find the currents flowing through the two items."
+    )
     assert follow is not None and follow.part_text == (
         "Find the currents flowing through the two items."
     )
@@ -250,3 +253,46 @@ async def test_a_begun_read_leaves_the_turns_readings_to_the_pool() -> None:
         copied = pickle.loads(pickle.dumps(readings._MEMO.get()))  # noqa: S301 - our own
         assert posed_read.posed_started("and b?") is not None
     assert [value.task for value in copied.values()] == [None]
+
+
+@pytest.mark.asyncio
+async def test_small_talk_waits_for_no_read() -> None:
+    """A light turn takes the read only when it is already in; it never holds the reply."""
+    readings.begin_turn()
+    slow = asyncio.Event()
+
+    async def late(*_args: Any) -> PosedPick:
+        await slow.wait()
+        return PosedPick(kind="explain", message=4)
+
+    with patch.object(posed_read, "pick_posed", late):
+        start_posed_read(isolated_settings(), "ok thanks", _rows(_CHAT))
+        ctx = _turn("ok thanks", None)
+        ctx.lightweight_turn = True
+        loop = asyncio.get_running_loop()
+        started = loop.time()
+        await note_the_follow_up(ctx, isolated_settings(), started + 5.0)
+        assert loop.time() - started < 0.5
+        slow.set()
+        posed_read.stop_posed_read()
+    assert ctx.prompt_messages[-2]["content"] == _WATER_REPLY
+
+
+@pytest.mark.asyncio
+async def test_a_lesson_step_reads_the_reply_its_own_way() -> None:
+    readings.begin_turn()
+    lesson = "## Lesson 1: Pressure\n\nPressure is force per area.\n\nReady for Lesson 2?"
+    model = AsyncMock(return_value=PosedPick(kind="explain", message=2))
+    rows = _rows([("user", "teach me pressure"), ("assistant", lesson)])
+    with patch.object(posed_read, "pick_posed", model):
+        start_posed_read(isolated_settings(), "why?", rows)
+        ctx = _turn("why?", None)
+        ctx.recent_messages = rows
+        before = list(ctx.prompt_messages)
+        await note_the_follow_up(ctx, isolated_settings(), asyncio.get_running_loop().time() + 1)
+    assert ctx.prompt_messages == before
+
+
+def test_a_reply_whose_question_was_not_shown_is_no_problem() -> None:
+    follow = follow_up_from(PosedPick(kind="explain", message=1), [("assistant", _WATER_REPLY)])
+    assert follow is not None and follow.problem is None

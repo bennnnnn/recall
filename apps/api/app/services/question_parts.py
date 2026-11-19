@@ -59,3 +59,23 @@ def part_named(text: str, label: str) -> str | None:
         return None
     labels = [match.group(1).lower() for match in _PART_LABEL.finditer(text)]
     return dict(zip(labels, parts, strict=True)).get(label.strip("()").lower())
+
+
+# A part's label as a line or a read names it: "b", "(b)", "part b", "(ii)".
+_NAMED_LABEL = re.compile(r"^(?:part\s+)?\(?([a-h]|i{1,3}|iv|vi{0,3})\)?$", re.IGNORECASE)
+
+
+def named_label(said: str) -> str | None:
+    """The part label ``said`` names ("part b" is "b"), or None when it names no label."""
+    found = _NAMED_LABEL.match(said.strip(" .:?"))
+    return found.group(1).lower() if found else None
+
+
+def with_only_part(text: str, label: str) -> str | None:
+    """``text`` as one labelled part asks it: the statement before the labels and that part's
+    own words; None when ``text`` has no part ``label``."""
+    words = part_named(text, label)
+    if words is None:
+        return None
+    stem, _parts = labelled_part_texts(text)
+    return f"{stem} {words}".strip()

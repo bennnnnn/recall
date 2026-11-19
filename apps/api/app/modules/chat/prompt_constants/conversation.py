@@ -171,8 +171,9 @@ SUMMARY_LEAD = (
 # cached prefix holds between folds.
 SUMMARY_SPAN = (
     "It stands for the first {count} messages of this chat, and the messages you can see come "
-    "after them: the start of the chat, what was asked first included, is in this summary, "
-    "its topics in the order discussed, never in the first message you can see."
+    "after them. Its topic lines follow the order the user asked them in, so its first topic "
+    "is this chat's first question: the start of the chat is answered from this summary, "
+    "never from the first message you can see or a search of earlier chats."
 )
 
 

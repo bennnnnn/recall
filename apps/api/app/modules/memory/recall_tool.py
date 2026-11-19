@@ -41,7 +41,9 @@ class RecallChatsAdapter:
             "user refers to something said, asked, decided or shared in a past conversation "
             'you cannot see here ("what did I ask you earlier", "the plan we made", '
             '"what was my question before"). Do not call it for general knowledge or for '
-            "what is already in this chat. The query names the topic in the user's words "
+            "anything said in this chat, its start included: this chat's summary holds what "
+            "came before the messages you see, and the search never reads this chat. The "
+            "query names the topic in the user's words "
             "(\"lens question\", \"trip to Rome budget\"), never 'it' or 'that'."
         )
 
@@ -70,7 +72,7 @@ class RecallChatsAdapter:
             user_id=ctx.user.id,
             query=query,
             exclude_chat_id=ctx.chat_id,
-            timezone=ctx.user_timezone or ctx.user.timezone,
+            timezone=ctx.user_timezone or getattr(ctx.user, "timezone", None),
         )
         result = ToolResult(name=self.name, content=block or _NOTHING_FOUND)
         ctx.first_results[self.name] = result

@@ -17,7 +17,7 @@ def test_the_summary_says_it_stands_for_the_start_of_the_chat() -> None:
     lead = summary_lead(75)
     assert lead.startswith(SUMMARY_LEAD)
     assert "the first 75 messages of this chat" in lead
-    assert "never in the first message you can see" in lead
+    assert "its first topic is this chat's first question" in lead
     # Not known: the lead as it was.
     assert summary_lead(0) == SUMMARY_LEAD
 

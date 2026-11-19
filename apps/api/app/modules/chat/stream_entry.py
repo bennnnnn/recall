@@ -28,7 +28,7 @@ from app.modules.chat.chart_turn import start_chart, stop_chart
 from app.modules.chat.figure_turn import start_figure, stop_figure
 from app.modules.chat.formal_turn import start_formal, stop_formal
 from app.modules.chat.model_routing.thinking import thinking_level
-from app.modules.chat.posed_read import start_posed_read
+from app.modules.chat.posed_read import start_posed_read, stop_posed_read
 from app.modules.chat.stream_pipeline import stream_and_finalize
 from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn
 from app.modules.chat.turn_decision import TurnDecision
@@ -116,7 +116,8 @@ def _attach_reads(
 
 
 def _stop_pictures(ctx: StreamContext) -> None:
-    """A turn that ends before its reply saved draws nothing."""
+    """A turn that ends before its reply saved draws nothing, and reads nothing more."""
+    stop_posed_read()
     if ctx.reply_picture is not None:
         ctx.reply_picture.cancel()
     stop_figure(ctx)
@@ -234,6 +235,7 @@ async def stream_chat_response(
             on_status=status,
             read=live_read,
         ):
+            stop_posed_read()
             await res.refund()
             return
         timing.mark_phase("image_gen")
@@ -351,6 +353,7 @@ async def stream_regenerate_response(
             on_status=status,
             read=live_read,
         ):
+            stop_posed_read()
             return
         current_image_ids, model = _regenerate_images(turn, settings, model_alias)
         await res.reserve(

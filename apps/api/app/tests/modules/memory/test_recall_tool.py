@@ -109,7 +109,12 @@ async def test_invoke_returns_the_snippets_and_reuses_them() -> None:
     assert again is first
     # Earlier chats only: this chat's own lines are already in the prompt.
     retrieve.assert_awaited_once_with(
-        _SETTINGS, user_id=user.id, query="lens question", exclude_chat_id=ctx.chat_id
+        _SETTINGS,
+        user_id=user.id,
+        query="lens question",
+        exclude_chat_id=ctx.chat_id,
+        # Dated in the user's time zone (none in this context: the server's default).
+        timezone=None,
     )
 
 
