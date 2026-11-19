@@ -7,9 +7,12 @@ import { fenceAfterLine, type OpenFence } from "@/lib/fence/scan";
 /**
  * What the user sent, as the chat shows it: their words, and each attachment by kind.
  * Never the server's markers (`[File: /attachments/…]`) or a file's extracted text.
+ * For the PDF, a fence their words left open is closed before the attachment labels,
+ * which print as text after it.
  */
-function userTurnText(content: string): string {
+function userTurnText(content: string, target: DocumentTarget): string {
   const parsed = parseUserMessageContent(content);
+  const caption = target === "print" ? withFencesClosed(parsed.caption) : parsed.caption;
   const attached = [
     ...parsed.images.map(() => i18n.t("share.attachment_photo")),
     ...parsed.files.map((file) =>
@@ -21,7 +24,7 @@ function userTurnText(content: string): string {
   if (attached.length === 0 && parsed.hasFileAttachment) {
     attached.push(i18n.t("share.attachment_file"));
   }
-  return [parsed.caption, ...attached].filter((part) => part.trim()).join("\n");
+  return [caption, ...attached].filter((part) => part.trim()).join("\n");
 }
 
 /**
@@ -51,11 +54,7 @@ export function conversationMarkdownBody(
     .filter((m) => m.role !== "system")
     .map((m) => {
       const user = m.role === "user";
-      const text = user
-        ? target === "print"
-          ? withFencesClosed(userTurnText(m.content))
-          : userTurnText(m.content)
-        : markdownToDocumentText(m.content, blockLabel, target);
+      const text = user ? userTurnText(m.content, target) : markdownToDocumentText(m.content, blockLabel, target);
       if (!text) return "";
       const role = user ? i18n.t("share.role_user") : i18n.t("app.name");
       return target === "print" ? `**${role}:**\n${text}` : `${role}:\n${text}`;
