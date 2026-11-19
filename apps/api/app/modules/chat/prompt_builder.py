@@ -276,6 +276,7 @@ async def _history_rag_block(
     vector: list[float] | None,
     window: PromptWindow,
     omit_message_ids: set[UUID] | None,
+    timezone: str,
 ) -> str:
     # The context gather already attempted the history embed. None means no
     # chunks or a failed/timed-out embed; do not repeat that work serially.
@@ -287,6 +288,7 @@ async def _history_rag_block(
         query=query_text or "",
         exclude_message_ids=window.message_ids | (omit_message_ids or set()),
         query_vec=vector,
+        timezone=timezone,
     )
 
 
@@ -419,6 +421,7 @@ async def build_prompt_messages(
         prior_count=prior_count if recent_messages is not None else None,
     )
     followup = await _read_prompt_inputs(settings, query_text, window, turn_plan)
+    local_tz = time_context_service.effective_timezone(user.timezone, client_timezone)
     chat_history_rag_block = await _history_rag_block(
         settings,
         user,
@@ -426,13 +429,14 @@ async def build_prompt_messages(
         vector=blocks.history_rag_query_vec if plan.history_rag else None,
         window=window,
         omit_message_ids=omit_message_ids,
+        timezone=local_tz,
     )
     _fill_stats(stats, blocks.recalled, blocks.memory_hints, blocks.chat)
     turn = PromptTurn(
         user=user,
         settings=settings,
         query_text=query_text,
-        local_tz=time_context_service.effective_timezone(user.timezone, client_timezone),
+        local_tz=local_tz,
         lightweight=lightweight,
         slim=plan.slim,
         recall_memory=plan.load_memory or plan.recalls_shared_past,
@@ -452,5 +456,6 @@ async def build_prompt_messages(
         recalls_shared_past=plan.recalls_shared_past,
         holds_attachment=holds_attachment,
         asked_practice=asked_practice,
+        summarized=(blocks.chat.summary_message_count or 0) if blocks.chat and summary else 0,
     )
     return _assemble(turn, window, math_followup=followup == "math")

@@ -49,3 +49,13 @@ def labelled_part_texts(text: str) -> tuple[str, tuple[str, ...]]:
         for match, end in zip(found, [*starts[1:], len(text)], strict=True)
     )
     return text[: starts[0]].strip(), parts
+
+
+def part_named(text: str, label: str) -> str | None:
+    """The words of ``text``'s part labelled ``label`` ("b", "(ii)"), or None when it has no
+    such part (or no labelled parts)."""
+    _stem, parts = labelled_part_texts(text)
+    if not parts:
+        return None
+    labels = [match.group(1).lower() for match in _PART_LABEL.finditer(text)]
+    return dict(zip(labels, parts, strict=True)).get(label.strip("()").lower())

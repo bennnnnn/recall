@@ -28,6 +28,7 @@ from app.modules.chat.chart_turn import start_chart, stop_chart
 from app.modules.chat.figure_turn import start_figure, stop_figure
 from app.modules.chat.formal_turn import start_formal, stop_formal
 from app.modules.chat.model_routing.thinking import thinking_level
+from app.modules.chat.posed_read import start_posed_read
 from app.modules.chat.stream_pipeline import stream_and_finalize
 from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn
 from app.modules.chat.turn_decision import TurnDecision
@@ -159,8 +160,10 @@ def _turn_settings(
     line, oldest first.
 
     A line answered again is read the same way: left to the reply's model alone, GPT-6
-    Luna with its thinking raised searched a textbook physics problem (2026-11-09)."""
+    Luna with its thinking raised searched a textbook physics problem (2026-11-09). A short
+    line's follow-up read starts here too (``posed_read.start_posed_read``)."""
     settings = profile_service.settings_for_user(settings, user)
+    start_posed_read(settings, content, recent)
     return settings, turn_decision.start_turn_decision(settings, content, recent=recent)
 
 

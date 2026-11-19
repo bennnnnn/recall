@@ -459,10 +459,11 @@ def _follow_turn(content: str, read: TurnDecision, **fields: Any) -> StreamConte
         # A new question, or more on the last answer: nothing to say.
         ("none", "everyday", None),
         ("explain", "everyday", None),
-        # Maths, physics, chemistry and money read their own follow-ups.
-        ("change", "maths", None),
-        ("answer", "physics", None),
-        ("change", "money", None),
+        # Every subject: "and b?" was read as a change in physics and told nothing
+        # (2026-11-18). A calculation laid out or worked by a server path gets none (below).
+        ("change", "maths", FOLLOW_NOTES["change"]),
+        ("answer", "physics", FOLLOW_NOTES["answer"]),
+        ("change", "money", FOLLOW_NOTES["change"]),
     ],
 )
 @pytest.mark.asyncio

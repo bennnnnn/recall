@@ -23,10 +23,19 @@ law answer, was physics with no problem of its own, and its reply worked both ch
 with no check (live, 2026-11-16). Such a line may run to a few sentences. "Why is 2.16e9 N
 so large?" states no value of the problem's kinds and is never read; a pool that gives up
 reads nothing, and the turn goes on as typed.
+
+The same read is the turn's one resolver of a follow-up, whatever the subject: it also
+names the answer a line asks more about ("explain"), and the labelled part or step a line
+names ("and b?", "explain step 2"). It begins as the turn loads (``start_posed_read``),
+beside the prep, for any line that may follow up the reply before it; the solve here, the
+note beside the line and the follow-up questions all take that one answer
+(``follow_up_read``). Its ``null`` for no changes is none: read as a failure, it voided 7
+of 12 reads in a Grade 8 chat (2026-11-18).
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 import time
@@ -34,7 +43,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 from app.core.config import Settings
 from app.core.readings import keep_for_turn, kept_for_turn, read_aside
@@ -60,6 +69,8 @@ _MAX_CHANGES = 4
 # JSON around them. A read cut short is no JSON, and no read.
 _MAX_TOKENS = 512
 _MESSAGE_CHARS = 500
+_PROBLEM_CHARS = 600
+_PART_CHARS = 40
 # A reply short enough to be a posed problem; a longer one is read for its exchange's line.
 _REPLY_CHARS = 600
 # Markdown a stated problem may carry: "A car travels **120 meters**"; a subscript stays.
@@ -75,24 +86,31 @@ _SYSTEM = (
     '- "solve": to solve a problem stated earlier, by the user or posed by the assistant as '
     "a practice question, a quiz or an example, exactly as it stands and asking nothing "
     "else of it: do it, solve it, what's the answer, step by step, show the working, and "
-    'how, even the one word "How" alone, which asks how that problem is solved;\n'
+    'how, even the one word "How" alone, which asks how that problem is solved; or a '
+    'labelled part of it not answered yet ("and b?", "now part c");\n'
     '- "change": the same problem with some of its values changed ("what if it took 10 s?", '
     '"what if the mass was 500 g?", "repeat it with the charges as 3 nC and 5 nC");\n'
+    '- "explain": more on an earlier answer, or on one step or part of it: why a step works, '
+    '"explain step 2", "what does that formula mean?";\n'
     '- "answer": the user answers a question themselves (a quiz answer, a value they were '
     "asked for, yes or no);\n"
     '- "other": anything else: a question that asks something else of the problem (another '
     'quantity, "how do I find the x-intercept?" after a y-intercept, "what is the quotient?" '
-    "after a remainder), why a step works, how one thing affects another, a new problem, "
-    "accepting an offer to do something that is no problem to solve.\n"
+    "after a remainder), how one thing affects another, a new problem, accepting an offer to "
+    "do something that is no problem to solve.\n"
     "For solve and change, message is the number of the message that states the problem, "
     "and problem is the problem as that message states it, copied word for word, without "
-    "greetings, praise or offers. For change, changes lists each value that changes, one "
+    "greetings, praise or offers. For explain, message is the number of the answer it asks "
+    "about. For solve, change and explain, part is the labelled part, step or item of that "
+    'message the line names, as the line names it ("b", "step 2"), or null when it names '
+    "none. For change, changes lists each value that changes, one "
     "entry per value, never two values in one entry: given as the problem writes it (20 "
     "seconds, 16.0 g of oxygen), or in an equation or expression the part it replaces, "
     "copied exactly; and new as the user's line gives it, the value and its unit alone (10 "
-    "s, 32.0 g, 2x), without a note around it. Otherwise null and no changes. Reply "
-    'with JSON only, for example {"kind": "change", "message": 2, "problem": "A ball falls '
-    '20 m. How long does it take?", "changes": [{"given": "20 m", "new": "45 m"}]}.'
+    "s, 32.0 g, 2x), without a note around it. Otherwise message, problem and part are null "
+    'and changes is []. Reply with JSON only, for example {"kind": "change", "message": 2, '
+    '"problem": "A ball falls 20 m. How long does it take?", "part": null, "changes": '
+    '[{"given": "20 m", "new": "45 m"}]}.'
 )
 
 
@@ -116,10 +134,27 @@ class PosedChange(BaseModel):
 
 
 class PosedPick(BaseModel):
-    kind: Literal["solve", "change", "answer", "other"]
+    kind: Literal["solve", "change", "explain", "answer", "other"]
     message: int | None = None
-    problem: str | None = Field(default=None, max_length=600)
+    problem: str | None = Field(default=None, max_length=_PROBLEM_CHARS)
+    # The labelled part, step or item of the message the line names ("b", "step 2").
+    part: str | None = Field(default=None, max_length=_PART_CHARS)
     changes: list[PosedChange] = Field(default_factory=list, max_length=_MAX_CHANGES)
+
+    @field_validator("changes", mode="before")
+    @classmethod
+    def _no_changes(cls, value: Any) -> Any:
+        """``null`` is none: the prompt's "otherwise" case. Read as a failure, it voided 7 of
+        12 reads in a Grade 8 chat, follow-ups included (2026-11-18)."""
+        return [] if value is None else value
+
+    @field_validator("problem", "part", mode="before")
+    @classmethod
+    def _too_long_is_none(cls, value: Any, info: ValidationInfo) -> Any:
+        """A copy past its cap names nothing the server can hold to the message; the rest of
+        the read stands."""
+        cap = _PROBLEM_CHARS if info.field_name == "problem" else _PART_CHARS
+        return None if isinstance(value, str) and len(value) > cap else value
 
 
 def _numbered(exchanges: Sequence[tuple[str, str]]) -> str:
@@ -142,7 +177,7 @@ def _unlatexed(text: str) -> str:
     return collapse_ws(plain).casefold()
 
 
-def _stated(role: str, message: str, quoted: str | None) -> str | None:
+def stated_problem(role: str, message: str, quoted: str | None) -> str | None:
     """The problem as the message states it: the model's copy when it is word for word the
     message's own; else a user's whole message, as typed, and no problem from a reply."""
     whole = _plain(message)
@@ -230,6 +265,65 @@ def may_refer_to_a_problem(line: str, recent: Sequence[Any], *, claimed: bool = 
 
 
 _KEPT = "posed"
+# The read begun as the turn loaded (``start_posed_read``): its line, the chat it read, and
+# the call.
+_STARTED = "posed_started"
+
+
+def start_posed_read(settings: Settings, line: str, recent: Sequence[Any]) -> None:
+    """Begin the read as the turn loads, beside its prep, for a line that may follow up the
+    reply before it: a short one, or one that restates a value. The solve below and the
+    follow-up note (``follow_up_read``) take its answer, so neither waits for a call of its
+    own after the prep; a turn that asks neither leaves it to end on its own timeout."""
+    if not settings.referent_read_enabled or not (
+        may_refer_to_a_problem(line, recent) or may_refer_to_a_problem(line, recent, claimed=True)
+    ):
+        return
+    exchanges = tuple(chat_before(recent, line))
+    task = asyncio.create_task(pick_posed(settings, collapse_ws(line), _numbered(exchanges)))
+    keep_for_turn(_STARTED, _Begun(line, exchanges, task))
+
+
+class _Begun:
+    """The read begun for a line: the line, the chat it read and the call. Kept beside the
+    turn's readings, which go to the SymPy pool with them; a call is no reading and cannot
+    go there (pickled, a task raised a TypeError and declined the turn's readings), so a
+    copy in the pool holds none."""
+
+    def __init__(
+        self, line: str, exchanges: tuple[tuple[str, str], ...], task: asyncio.Task[Any] | None
+    ) -> None:
+        self.line, self.exchanges, self.task = line, exchanges, task
+
+    def __reduce__(self) -> tuple[Any, ...]:
+        return (_Begun, (self.line, self.exchanges, None))
+
+
+def posed_started(line: str) -> tuple[tuple[tuple[str, str], ...], asyncio.Task[Any]] | None:
+    """The read begun for ``line``: the chat it read, numbered from 1, and its call."""
+    kept = kept_for_turn(_STARTED)
+    if isinstance(kept, _Begun) and kept.line == line and kept.task is not None:
+        return kept.exchanges, kept.task
+    return None
+
+
+async def picked(task: asyncio.Task[Any], seconds: float | None = None) -> PosedPick | None:
+    """The begun read's answer, waited for at most ``seconds``; None when it gave none.
+    Waiting never cancels it: another part of the turn may still ask."""
+    await asyncio.wait({task}, timeout=seconds)
+    if not task.done() or task.cancelled() or task.exception() is not None:
+        return None
+    pick: PosedPick | None = task.result()
+    return pick
+
+
+async def _pick(
+    settings: Settings, line: str, exchanges: Sequence[tuple[str, str]]
+) -> PosedPick | None:
+    begun = posed_started(line)
+    if begun is not None and begun[0] == tuple(exchanges):
+        return await picked(begun[1])
+    return await pick_posed(settings, collapse_ws(line), _numbered(exchanges))
 
 
 def _key(
@@ -275,7 +369,7 @@ async def read_posed(
     if not held:
         return None
     started = time.perf_counter()
-    read = await pick_posed(settings, collapse_ws(line), _numbered(exchanges))
+    read = await _pick(settings, line, exchanges)
     logger.info(
         "posed read took %.0f ms kind=%s changes=%d",
         (time.perf_counter() - started) * 1000,
@@ -286,7 +380,7 @@ async def read_posed(
         return None
     if not 1 <= read.message <= len(exchanges):
         return None
-    problem = _stated(*exchanges[read.message - 1], read.problem)
+    problem = stated_problem(*exchanges[read.message - 1], read.problem)
     if problem is None:
         return None
     # A line a subject claims, or one that states values its problem does not, changes the

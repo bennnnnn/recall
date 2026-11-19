@@ -66,7 +66,11 @@ class RecallChatsAdapter:
         # Earlier chats only: this chat is already in the prompt (its window and its
         # summary), and its own lines came back as "earlier chats" and crowded out the rest.
         block = await history_rag.retrieve_for_prompt(
-            self.settings, user_id=ctx.user.id, query=query, exclude_chat_id=ctx.chat_id
+            self.settings,
+            user_id=ctx.user.id,
+            query=query,
+            exclude_chat_id=ctx.chat_id,
+            timezone=ctx.user_timezone or ctx.user.timezone,
         )
         result = ToolResult(name=self.name, content=block or _NOTHING_FOUND)
         ctx.first_results[self.name] = result

@@ -2,6 +2,7 @@
 
 import logging
 from dataclasses import dataclass
+from functools import partial
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,10 +21,48 @@ from app.modules.chat.context_window import (
 from app.modules.chat.prompt_window import strip_prompt_owned_fences
 from app.modules.chat.summarize import summarize_conversation
 from app.modules.conversation import history as conversation_history
+from app.services.md_fence_scan import map_closed_fences
 
 logger = logging.getLogger(__name__)
 
 _COMPRESS_LOCK_TTL_SECONDS = 120
+
+
+# A picture the phone draws from the saved reply, by its fence, and what the summary model is
+# told was shown in its place.
+_SHOWN = {
+    "graph": "graph",
+    "geometry": "figure",
+    "simulation": "diagram",
+    "chart": "chart",
+    "vega": "chart",
+    "vega-lite": "chart",
+    "plot": "chart",
+    "mermaid": "diagram",
+    "chem_scene": "diagram",
+    "smiles": "molecule",
+    "chemistry": "molecule",
+    "molecule": "molecule",
+    "molecule3d": "molecule",
+    "photo": "photo",
+}
+
+
+def summary_text(reply: str) -> str:
+    """A saved reply as the summary model reads it: each picture the phone draws from it
+    marked "[shown: a graph]", and the fences the prompt owns left out (``strip_prompt_owned_
+    fences``: a reply's search results are not what was said, and a summary kept their stale
+    figures as facts). A summary of a 53-turn chat recorded "graphs provided" and "diagram
+    drawn" where the reply only said so and nothing was drawn (2026-11-18): only a marked
+    picture was shown (``SUMMARY_SYSTEM_PROMPT``)."""
+    marked = reply
+    for lang, shown in _SHOWN.items():
+        marked = map_closed_fences(marked, lang, partial(_shown_mark, shown))
+    return strip_prompt_owned_fences(marked)
+
+
+def _shown_mark(shown: str, _body: str) -> str:
+    return f"[shown: a {shown}]"
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,9 +147,7 @@ async def _pending_fold(settings: Settings, chat_id: UUID, user_id: UUID | None)
             {
                 "role": message.role,
                 "content": trim_message_for_summary(
-                    # The recent window drops these fences too: a reply's search results are
-                    # not what was said, and a summary kept their stale figures as facts.
-                    strip_prompt_owned_fences(message.content)
+                    summary_text(message.content)
                     if message.role == "assistant"
                     else message.content
                 ),

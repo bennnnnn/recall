@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Any
 
 from app.modules.chat.continuation_subject import (
@@ -117,23 +118,38 @@ def _continues_thread(text: str) -> bool:
     return cleaned.endswith("?") or (bool(words) and words[0].strip(",.") in _FOLLOW_UP_LEADS)
 
 
+@dataclass(frozen=True)
+class Followed:
+    """What the turn's reads say a line follows (``chat.follow_up_read``): the problem the
+    follow-up read named, or None when the turn's read says the line stands alone."""
+
+    problem: str | None = None
+
+
 def thread_problem(
     question: str,
     prior: Sequence[Any] | None,
     answer: str | None = None,
     shown: Sequence[str] | None = (),
+    followed: Followed | None = None,
 ) -> str | None:
     """The subject problem this line follows up on, or None.
 
     "Why do we divide distance by time?" names no subject itself, so the
     follow-ups would stop after the first tapped "why". It still belongs to
-    the bike problem two lines back. Given the turn's ``answer`` and the
-    follow-ups the chat ``shown`` (None while they are not known), a line on a
-    topic of its own needs a reply that still works the problem: travel tips
-    under a Lisbon question do not, nor does a line after them.
+    the bike problem two lines back. ``followed``, the turn's reads, decides
+    when it has an answer: the problem the line follows, or none for a line that
+    stands alone ("Explain the advantage of scientific notation" after a coins
+    problem kept the coins' questions, 2026-11-18). Without it, given the turn's
+    ``answer`` and the follow-ups the chat ``shown`` (None while they are not
+    known), a line on a topic of its own needs a reply that still works the
+    problem: travel tips under a Lisbon question do not, nor does a line after them.
     """
     if subject_for_related(question) is not None:
         return question
+    if followed is not None:
+        named = followed.problem
+        return named if named is not None and subject_for_related(named) is not None else None
     if not prior or not _continues_thread(question):
         return None
     since: list[tuple[str, str]] = []

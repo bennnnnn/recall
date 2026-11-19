@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
+from functools import partial
 from typing import Any
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
@@ -14,6 +16,7 @@ from sqlalchemy.sql.elements import ColumnElement
 from app.core import presence_cache
 from app.core.config import Settings
 from app.core.db import SessionLocal
+from app.core.timezone import resolve_timezone
 from app.gateways import embedding_gateway
 from app.models.orm import Message, MessageChunk, User
 from app.modules.conversation import chunks_repository as chunks_repo
@@ -251,11 +254,13 @@ async def retrieve_for_prompt(
     exclude_message_ids: set[UUID] | None = None,
     exclude_chat_id: UUID | None = None,
     query_vec: list[float] | None = None,
+    timezone: str | None = None,
 ) -> str:
     """Return a system-prompt block of past-turn snippets, or empty.
 
     Best-effort: DB/embed failures degrade to no block and never fail the turn.
     Pass ``query_vec`` when the embed already ran in parallel with other prep.
+    ``timezone``: the user's, in which each snippet is dated and "today" begins.
     """
     if not settings.chat_history_rag_enabled:
         return ""
@@ -268,22 +273,17 @@ async def retrieve_for_prompt(
     if not query_vec:
         return ""
 
-    max_distance = None
-    if settings.chat_history_rag_min_similarity > 0:
-        max_distance = 1.0 - settings.chat_history_rag_min_similarity
-
+    zone = resolve_timezone(timezone)
+    now = datetime.now(zone)
     try:
-        async with SessionLocal() as search_session:
-            rows = await chunks_repo.search_semantic(
-                search_session,
-                user_id,
-                query_vec,
-                window=settings.chat_history_rag_search_window,
-                exclude_message_ids=exclude_message_ids,
-                exclude_chat_id=exclude_chat_id,
-                limit=settings.chat_history_rag_chunk_limit,
-                max_distance=max_distance,
-            )
+        rows = await _nearest_with_today(
+            settings,
+            user_id,
+            query_vec,
+            exclude_message_ids=exclude_message_ids,
+            exclude_chat_id=exclude_chat_id,
+            today_from=now.replace(hour=0, minute=0, second=0, microsecond=0),
+        )
     except Exception:
         logger.warning("Chat-history RAG retrieval failed user_id=%s", user_id, exc_info=True)
         return ""
@@ -291,17 +291,83 @@ async def retrieve_for_prompt(
     if not rows:
         return ""
 
-    lines = [f"[{i + 1}]{_snippet_date(row)} {row.text}" for i, row in enumerate(rows)]
+    lines = [
+        f"[{i + 1}]{snippet_date(row, zone, now.date())} {row.text}" for i, row in enumerate(rows)
+    ]
     return wrap_earlier_chats(
-        "Relevant snippets from earlier chats (not the full history), with the day each was "
-        "said. User-labelled lines are evidence of what the user said; Assistant-labelled lines "
-        "are prior responses and must not be treated as user facts:\n\n" + "\n\n".join(lines)
+        "Relevant snippets from earlier chats (not the full history), each with when it was "
+        "said in the user's time. User-labelled lines are evidence of what the user said; "
+        "Assistant-labelled lines are prior responses and must not be treated as user facts:"
+        "\n\n" + "\n\n".join(lines)
     )
 
 
-def _snippet_date(row: MessageChunk) -> str:
+# Of the snippets a search returns, how many are kept for today's chats, the nearest of
+# them, when the nearest overall leave them out. "What physics did we do earlier today?" in a
+# new chat got only the night before's quiz chat, nearer in words than the afternoon's long
+# physics chat (2026-11-18); nothing in the question names a subject the embedding prefers.
+_TODAY_SEATS = 2
+
+
+async def _nearest_with_today(
+    settings: Settings,
+    user_id: UUID,
+    query_vec: list[float],
+    *,
+    exclude_message_ids: set[UUID] | None,
+    exclude_chat_id: UUID | None,
+    today_from: datetime,
+) -> list[MessageChunk]:
+    """The nearest snippets, with today's nearest given a seat: they take the places of the
+    farthest others. Both are held to the same similarity floor."""
+    max_distance = None
+    if settings.chat_history_rag_min_similarity > 0:
+        max_distance = 1.0 - settings.chat_history_rag_min_similarity
+    limit = settings.chat_history_rag_chunk_limit
+    async with SessionLocal() as search_session:
+        search = partial(
+            chunks_repo.search_semantic,
+            search_session,
+            user_id,
+            query_vec,
+            window=settings.chat_history_rag_search_window,
+            exclude_message_ids=exclude_message_ids,
+            exclude_chat_id=exclude_chat_id,
+            max_distance=max_distance,
+        )
+        rows = await search(limit=limit)
+        today = await search(limit=min(_TODAY_SEATS, limit), since=today_from)
+    return with_seats(rows, today, limit)
+
+
+def with_seats(
+    rows: list[MessageChunk], seated: list[MessageChunk], limit: int
+) -> list[MessageChunk]:
+    """``rows`` in their order, with each of ``seated`` they lack in place of the last others,
+    at most ``limit`` in all."""
+    have = {row.id for row in rows}
+    missing = [row for row in seated if row.id not in have]
+    if not missing:
+        return rows[:limit]
+    seats = {row.id for row in seated}
+    others = [row for row in rows if row.id not in seats]
+    keep = max(0, limit - len(seated))
+    kept_ids = {row.id for row in others[:keep]} | seats
+    return [*(row for row in rows if row.id in kept_ids), *missing][:limit]
+
+
+def snippet_date(row: MessageChunk, zone: ZoneInfo, today: date) -> str:
+    """When the snippet was said, in the user's time: "today 21:05", "yesterday 23:10", or
+    its date. Dated in UTC, a chat at 9 pm in California read as the next day's (2026-11-18)."""
     created_at = row.created_at
-    return f" ({created_at:%Y-%m-%d})" if isinstance(created_at, datetime) else ""
+    if not isinstance(created_at, datetime):
+        return ""
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=UTC)
+    local = created_at.astimezone(zone)
+    days = (today - local.date()).days
+    day = {0: "today", 1: "yesterday"}.get(days, f"{local:%Y-%m-%d}")
+    return f" ({day} {local:%H:%M})"
 
 
 async def forget_snippets_near(
