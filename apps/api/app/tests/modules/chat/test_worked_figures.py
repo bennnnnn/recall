@@ -42,9 +42,7 @@ from app.modules.chat.worked_solution import Answer, assemble, read_record
         ("999.6", "", "999.60", ""),
     ],
 )
-def test_a_card_rounds_once_by_the_rule(
-    value: str, note: str, card: str, kept_note: str
-) -> None:
+def test_a_card_rounds_once_by_the_rule(value: str, note: str, card: str, kept_note: str) -> None:
     out = card_answer(Answer(symbol="F", value=value, unit="N", note=note))
     assert (out.value, out.note) == (card, kept_note)
 
@@ -75,7 +73,9 @@ def _rendered(records: list[str], *, physics: bool) -> str:
         ("t = \\frac{20}{3} = 6.67", "t | 7 | trips", "7"),
     ],
 )
-def test_a_card_outside_physics_follows_the_rule_and_keeps_its_counts(working: str, answer: str, shown: str) -> None:
+def test_a_card_outside_physics_follows_the_rule_and_keeps_its_counts(
+    working: str, answer: str, shown: str
+) -> None:
     text = _rendered([f"substitution: {working}", f"answer: {answer}"], physics=False)
     card = text.split("**Answer**")[-1]
     assert re.search(rf"(?<![\d.]){re.escape(shown)}(?![\d.])", card), card
