@@ -43,9 +43,11 @@ logger = logging.getLogger(__name__)
 
 # Two numbers joined by an operator: "4 × 100 m", "270 N ÷ 0.00036 m2", "0.039 m − 0.0023 m".
 # A unit may sit on the first ("2 m × 3 m"). The minus is the minus sign: a hyphen between
-# two numbers is a range ("3-4 m"), which the givens scan reads as one unit shared.
+# two numbers is a range ("3-4 m"), which the givens scan reads as one unit shared. Each
+# optional run of spaces leads a token it must reach, so a long run is read once (Gemini on
+# #2503: "1" and 8000 spaces took half a second).
 _JOINED = re.compile(
-    r"(?<![\w.])\d+(?:\.\d+)?(?:[eE][-+]?\d+)?[ \t]*(?:[A-Za-zµμΩ°/^]{1,8}\d?[ \t]*)?\)?[ \t]*"
+    r"(?<![\w.])\d+(?:\.\d+)?(?:[eE][-+]?\d+)?(?:[ \t]*[A-Za-zµμΩ°/^]{1,8}\d?)?(?:[ \t]*\))?[ \t]*"
     r"(?:[×xX*·÷]|(?<=\s)[−+](?=\s))[ \t]*\(?[ \t]*[-−]?\.?\d"
 )
 
@@ -75,7 +77,7 @@ def unread_in_reading(intent: PhysicsIntent, text: str) -> str | None:
     specs = [spec for op in dict.fromkeys(ops) if op and (spec := formula_spec(op)) is not None]
     params = intent.physics_params or {}
     if any(_directions_unread(spec, params, text) for spec in specs):
-        return "opposite directions read as one"
+        return "two directions read as one"
     return None
 
 
@@ -119,33 +121,40 @@ def _way(given: Given, text: str) -> tuple[str, int] | None:
     return None if found is None else _AXES[found.group("way").lower()]
 
 
-def _opposed_kinds(text: str) -> set[str]:
-    """The kinds of which the question states two values in opposite directions."""
+def _directed_kinds(text: str) -> tuple[set[str], set[str]]:
+    """The kinds of which the question states two values in opposite directions on one line,
+    and those it states along two lines ("15 m/s east to 20 m/s north")."""
     directed = [
         (given.dimension, way)
         for given in scan_givens(text)
         if given.dimension is not None and (way := _way(given, text)) is not None
     ]
-    return {
-        kind
+    pairs = [
+        (kind, axis == other_axis, sense != other_sense)
         for (kind, (axis, sense)), (other, (other_axis, other_sense)) in product(directed, repeat=2)
-        if kind == other and axis == other_axis and sense != other_sense
-    }
+        if kind == other
+    ]
+    opposed = {kind for kind, one_line, turned in pairs if one_line and turned}
+    return opposed, {kind for kind, one_line, _ in pairs if not one_line}
 
 
 def _directions_unread(spec: FormulaSpec, params: dict[str, float], text: str) -> bool:
     """The law's start and end values of one kind, stated in opposite directions, read with
-    one sign: "60 km/h north to 80 m/s south" became (80 - 16.7)/20 for (-80 - 16.7)/20."""
-    kinds = _opposed_kinds(text)
-    if not kinds:
+    one sign: "60 km/h north to 80 m/s south" became (80 - 16.7)/20 for (-80 - 16.7)/20.
+    Stated along two lines, no sign reads them: a law of one line took "15 m/s east to 20
+    m/s north in 5 s" as 1 m/s² for 5 m/s² (Gemini on #2503)."""
+    kinds, crossed = _directed_kinds(text)
+    if not kinds and not crossed:
         return False
     ends: dict[tuple[str, str], list[float]] = {}
     for variable in spec.variables:
         role = variable_role(variable)
         kind = dimension_of(variable.dimension or "")
         value = params.get(variable.name)
-        if role is not None and kind in kinds and value:
+        if role is not None and kind in kinds | crossed and value:
             ends.setdefault((kind, role), []).append(value)
+    if any(ends.get((kind, "initial")) and ends.get((kind, "final")) for kind in crossed):
+        return True
     return any(
         (start > 0) == (end > 0)
         for kind in kinds

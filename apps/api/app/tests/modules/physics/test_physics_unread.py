@@ -141,6 +141,27 @@ def test_a_question_read_whole_has_nothing_unread(text: str) -> None:
             "1 liter of water = 1 kg of water. Find the power of the motor.",
             None,
         ),
+        # Review of #2503: an equivalence with what it is of unsaid, or closing a clause; an
+        # average a law names; a release from a place.
+        (
+            "Calculate the power of a pump that can lift 300 liters of water through a "
+            "vertical height of 12 m in 8 s (Note that 1 liter = 1 kg)",
+            "4414.5 W",
+        ),
+        (
+            "Given 1 liter of water = 1 kg, calculate the power of a pump that lifts 300 "
+            "liters of water 12 m in 8 s.",
+            "4414.5 W",
+        ),
+        ("A sprinter runs 100 m in 9.8 s. What is her average speed?", None),
+        (
+            "A 1500 kg car brakes from 20 m/s to rest in 4 s. What is the average braking force?",
+            None,
+        ),
+        (
+            "A 2 kg mass on a spring with k = 50 N/m is pulled 20 cm and released. max acceleration?",
+            None,
+        ),
     ],
 )
 def test_a_question_read_whole_is_answered(text: str, answer: str | None) -> None:
@@ -166,8 +187,37 @@ def test_a_question_read_whole_is_answered(text: str, answer: str | None) -> Non
         "A ball rolls along the floor. What is its velocity after 10 seconds?",
         # A product that is no power of ten.
         "In a 4 × 100 m relay a runner covers his 100 m in 12 s. What is his speed?",
+        # Review of #2503. An average a law does not name: a dropped stone's speed after 2 s
+        # was its average speed (19.6 for 9.81 m/s), F = kx the average force (20 N for 10).
+        "A stone is dropped from rest and falls for 2 seconds. What is its average speed?",
+        "A spring with spring constant 200 N/m is stretched by 0.1 m. What is the average "
+        "force needed to stretch it?",
+        # A body let go is not said to fall (-98.1 m/s, 49.1 m/s, -19.6 m/s).
+        "A ball rolls freely along the floor. What is its velocity after 10 seconds?",
+        "A toy car is released from rest on a horizontal floor. What is its speed after 5 seconds?",
+        "A mass attached to a spring is released from rest on a level track. What is its "
+        "velocity after 2 s?",
+        # Two lines, no sign reads them: 1 m/s² and 0 m/s² for 5 and 5.66 m/s².
+        "A car's velocity changes from 15 m/s east to 20 m/s north in 5 s. What is its "
+        "acceleration?",
+        "A car's velocity changes from 20 m/s north to 20 m/s east in 5 s. What is its "
+        "acceleration?",
     ],
 )
 def test_a_part_left_unread_declines(text: str) -> None:
     assert extract_physics_intent(text) is None
     assert _answer(text) is None
+
+
+def test_a_run_of_spaces_is_read_once() -> None:
+    """Each optional run of spaces leads a token it must reach (Gemini on #2503: the search
+    was quadratic in a run of spaces)."""
+    import time
+
+    from app.modules.physics.unread import _JOINED
+
+    started = time.perf_counter()
+    assert _JOINED.search("1" + " " * 20_000 + "a") is None
+    assert time.perf_counter() - started < 0.5
+    assert _JOINED.search("a 2 m × 3 m plate") is not None
+    assert _JOINED.search("270 N ÷ 0.00036 m2") is not None

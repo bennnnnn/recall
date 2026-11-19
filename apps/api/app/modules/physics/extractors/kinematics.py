@@ -60,9 +60,14 @@ _GRAVITY_MOTION_CUES = (
 )
 
 
-# A body gravity moves, however the fall is said: "falls freely", "an apple drops",
-# "released from rest", "let go".
-_FALLS_RE = re.compile(r"\b(?:fall(?:s|ing)?|fell|freely|drop(?:s|ped|ping)?|released|let\s+go)\b")
+# A body gravity moves, however the fall is said: "falls freely", "an apple drops", or a
+# release from a place ("released from rest from a bridge", "let go from a window"). A
+# release from rest alone says no fall: a toy car "released from rest on a horizontal
+# floor", or a mass on a spring, was given -9.81 m/s² (Codex and Gemini on #2503).
+_FALLS_RE = re.compile(
+    r"\b(?:fall(?:s|ing)?|fell|drop(?:s|ped|ping)?)\b"
+    r"|\b(?:released|let\s+go)\s+(?:from\s+rest\s+)?(?:from|off)\s+(?!rest\b)"
+)
 
 
 def _gravity_moves_it(lower: str) -> bool:
