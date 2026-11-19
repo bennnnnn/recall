@@ -141,8 +141,8 @@ _NAMES_A_PICTURE = re.compile(
 _SPEAKS_OF_IT = re.compile(
     rf"{_NAMES_A_PICTURE.pattern}|\b(?:above|below|shown)\b|:\s*$", re.IGNORECASE
 )
-# What a colon may still lead into once the picture is gone: a fence, a list, maths, a table.
-_LEADS_INTO = re.compile(r"```|[-*+]\s|\d+[.)]\s|\$\$|\\\[|\|")
+# What a colon may still lead into once the picture is gone: a list, maths, a table (or a fence).
+_LEADS_INTO = re.compile(r"[-*+]\s|\d+[.)]\s|\$\$|\\\[|\|")
 _SHORT = 240
 
 
@@ -201,6 +201,12 @@ def held_to_the_ask(text: str, ctx: StreamContext, language: str) -> str:
     return with_the_line(out, not_drawn_line(kind, language))
 
 
+def _leads_into(following: str) -> bool:
+    """The paragraph after a lead is something it leads into: a list, maths, a table, a fence."""
+    fence = next(iter_fences(following), None)
+    return _LEADS_INTO.match(following) is not None or (fence is not None and fence.start == 0)
+
+
 def with_the_line(text: str, note: str) -> str:
     """``text`` with ``note`` in place of the paragraph that presented the picture not drawn
     (a picture pass took the fence it led into, and its "Here is the graph:" would say one is
@@ -212,7 +218,7 @@ def with_the_line(text: str, note: str) -> str:
         # A paragraph that presents a picture ("Here is the v-t graph of the motion:"): it
         # names one and ends on a colon, leading into what is no longer there.
         presents = lead.endswith(":") and _NAMES_A_PICTURE.search(lead) is not None
-        if len(lead) < _SHORT and presents and not _LEADS_INTO.match(following):
+        if len(lead) < _SHORT and presents and not _leads_into(following):
             parts[at] = note
             return "".join(parts).strip() + "\n"
     return f"{text.rstrip()}\n\n{note}\n" if text.strip() else f"{note}\n"
