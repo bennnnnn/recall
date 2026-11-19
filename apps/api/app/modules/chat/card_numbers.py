@@ -135,5 +135,7 @@ def _unrounded(card: Number, above: str) -> Number | None:
         return None
     if round_places(worked.value, card.places) != round_places(card.value, card.places):
         return None
+    if worked.places is not None and worked.places <= card.places:
+        return None  # the working says no more than the card: nothing to take back
     sign = -1 if card.value < 0 else 1
     return Number(abs(worked.value) * sign, worked.places, card.unit)
