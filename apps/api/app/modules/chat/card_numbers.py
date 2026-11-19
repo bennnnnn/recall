@@ -24,7 +24,13 @@ from app.services.answer_fence import (
     answer_header_and_value,
 )
 from app.services.md_fence_scan import iter_fences
-from app.services.rounding_rule import Precision, asked_precision, number_latex
+from app.services.rounding_rule import (
+    RULE,
+    Precision,
+    asked_precision,
+    number_latex,
+    number_parts,
+)
 from app.services.school_rounding import round_places
 
 if TYPE_CHECKING:
@@ -78,15 +84,32 @@ def _shown(body: str, above: str, precision: Precision) -> str | None:
         return None  # an exact fraction
     if any(_money(number.unit) for number in numbers):
         return None  # a sum of money, to the cent as written
-    if len(numbers) == 1:
-        numbers = [_unrounded(numbers[0], above) or numbers[0]]
+    worked = _unrounded(numbers[0], above) if len(numbers) == 1 else None
     pieces, at = [], 0
-    for match, number in zip(written, numbers, strict=True):
+    for match, number in zip(written, [worked] if worked else numbers, strict=True):
+        own = precision if worked is not None else _no_new_figures(match, number, precision)
         # The sign stays where the card wrote it, before the match.
-        pieces += [value[at : match.start()], number_latex(abs(number.value), precision)]
+        pieces += [value[at : match.start()], number_latex(abs(number.value), own)]
         at = match.end()
     shown = "".join([*pieces, value[at:]])
     return "\n".join([*headers, shown]) + ("\n" if body.endswith("\n") else "")
+
+
+def _figures(text: str) -> int:
+    return len(text.replace(",", "").replace(".", "").lstrip("0")) or 1
+
+
+def _no_new_figures(match: re.Match[str], number: Number, precision: Precision) -> Precision:
+    """The card's own value, with no working to take it from: in three figures or in powers
+    of ten the rule shows no more figures than the card wrote. A Kp of 1.2 x 10^-4 (two
+    figures, from 1.242 x 10^-4) as 1.20 x 10^-4 claimed a precision it never had."""
+    if precision != RULE:
+        return precision
+    mantissa, exponent = number_parts(abs(number.value), precision)
+    if exponent is None and abs(number.value) >= 1:
+        return precision  # two places, zeros kept: 2.4 is 2.40
+    written = _figures(match.group("number"))
+    return Precision(figures=written) if _figures(mantissa) > written else precision
 
 
 def _money(unit: str) -> bool:

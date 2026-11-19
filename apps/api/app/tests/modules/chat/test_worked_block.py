@@ -640,7 +640,7 @@ def test_a_part_asked_in_words_is_said_in_words_and_carded_as_a_sentence() -> No
         in (part_a)
     )
     assert "```answer\nverified: false\nIt takes $60$ W when it is run on $220$ V\n```" in part_a
-    assert "**Answer (b)**\n\n$0.27\\,\\mathrm{A}$" in shown
+    assert "**Answer (b)**\n\n$0.273\\,\\mathrm{A}$" in shown
     assert "(a) what the numbers mean" in shown
 
 

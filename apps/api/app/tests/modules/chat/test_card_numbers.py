@@ -32,7 +32,8 @@ def test_a_card_in_another_unit_than_its_working_keeps_its_own_value() -> None:
         ("x = 2 \\text{ or } x = -3.5", "x = 2 \\text{ or } x = -3.50"),
         ("20\\,\\mathrm{m/s}", "20\\,\\mathrm{m/s}"),
         ("6.022 \\times 10^{23}", "6.02 \\times 10^{23}"),
-        ("0.2727\\,\\mathrm{A}", "0.27\\,\\mathrm{A}"),
+        ("0.2727\\,\\mathrm{A}", "0.273\\,\\mathrm{A}"),  # never more than 0.5% off
+        ("K_{p} = 1.2 \\times 10^{-4}", "K_{p} = 1.2 \\times 10^{-4}"),  # no figure added
         ("2400\\,\\mathrm{m^{2}}", "2400\\,\\mathrm{m^{2}}"),  # a unit's power is no number
     ],
 )
@@ -67,6 +68,6 @@ def test_a_whole_card_is_never_taken_back_to_its_working_s_decimals() -> None:
 
 
 def test_a_greek_name_is_read_and_its_number_follows_the_rule() -> None:
-    assert card_numbers(_card("\\lambda = 5 \\times 10^{-7}\\,\\mathrm{m}"), Precision()) == _card(
-        "\\lambda = 5.00 \\times 10^{-7}\\,\\mathrm{m}"
-    )
+    assert card_numbers(
+        _card("\\lambda = 5.876 \\times 10^{-7}\\,\\mathrm{m}"), Precision()
+    ) == _card("\\lambda = 5.88 \\times 10^{-7}\\,\\mathrm{m}")

@@ -1,9 +1,10 @@
-"""A physics worked answer's card keeps at most three figures, rounded once.
+"""A worked answer's card shows its value by the one rule (``services.rounding_rule``).
 
 phys30 (2026-11-16): "29.008 N" on a card. Review of the first fix: rounding from the
 working rewrote exact values on every worked block ("6185 students" became 6190, "3 groups
-of 40 from 130" became 3.25). Only a physics card's measured decimal is rounded, and only
-to fewer figures; nothing is ever replaced by the working's value.
+of 40 from 130" became 3.25): a whole number stays whole, and nothing is ever replaced by the
+working's value. The owner's standard (2026-11-18): two decimal places, zeros kept, at
+least three figures, every subject.
 """
 
 from __future__ import annotations
@@ -20,28 +21,28 @@ from app.modules.chat.worked_solution import Answer, assemble, read_record
 @pytest.mark.parametrize(
     ("value", "note", "card", "kept_note"),
     [
-        ("29.008", "", "29.0", ""),
+        ("29.008", "", "29.01", ""),
         ("5.488", "down", "5.49", "down"),
         ("2.4499", "to 4 s.f.", "2.45", ""),
         ("1.4142", "", "1.41", ""),
-        # Three figures or fewer, or a whole number: exact as written.
-        ("3.2", "to 2 s.f.", "3.2", "to 2 s.f."),
+        # Two places, zeros kept; a whole number exact as written.
+        ("3.2", "to 2 s.f.", "3.20", ""),
         ("3.24", "", "3.24", ""),
-        ("4.8", "away from the wall", "4.8", "away from the wall"),
+        ("4.8", "away from the wall", "4.80", "away from the wall"),
         ("96", "", "96", ""),
         ("4186", "", "4186", ""),
         ("65536", "", "65536", ""),
         ("6185", "", "6185", ""),
         # A carry into the next place (Gemini on #2489): the figure count holds.
-        ("9.996", "", "10.0", ""),
-        ("-9.996", "", "-10.0", ""),
+        ("9.996", "", "10.00", ""),
+        ("-9.996", "", "-10.00", ""),
         ("0.09996", "", "0.100", ""),
-        ("0.0009996", "", "0.00100", ""),
-        ("99.96", "", "100", ""),
-        ("999.6", "", "1000", ""),
+        ("0.0009996", "", "1.00 \\times 10^{-3}", ""),
+        ("99.96", "", "99.96", ""),
+        ("999.6", "", "999.60", ""),
     ],
 )
-def test_a_physics_card_rounds_once_to_three_figures(
+def test_a_card_rounds_once_by_the_rule(
     value: str, note: str, card: str, kept_note: str
 ) -> None:
     out = card_answer(Answer(symbol="F", value=value, unit="N", note=note))
@@ -68,13 +69,13 @@ def _rendered(records: list[str], *, physics: bool) -> str:
         ("n = 2^{16} = 65536", "n | 65536 |", "65536"),
         ("E = 1 \\times 4186 \\times 1 = 4186", "E | 4186 | J", "4186"),
         ("C = 1234.56", "C | 1234.56 | dollars", "1234.56"),
-        ("M = 180.156", "M | 180.156 | g/mol", "180.156"),
+        ("M = 180.156", "M | 180.156 | g/mol", "180.16"),
         ("g = \\frac{130}{40} = 3.25", "g | 3 | groups", "3"),
         ("p = \\frac{5}{2} = 2.5", "p | 2 | pieces", "2"),
         ("t = \\frac{20}{3} = 6.67", "t | 7 | trips", "7"),
     ],
 )
-def test_a_card_outside_physics_is_never_rewritten(working: str, answer: str, shown: str) -> None:
+def test_a_card_outside_physics_follows_the_rule_and_keeps_its_counts(working: str, answer: str, shown: str) -> None:
     text = _rendered([f"substitution: {working}", f"answer: {answer}"], physics=False)
     card = text.split("**Answer**")[-1]
     assert re.search(rf"(?<![\d.]){re.escape(shown)}(?![\d.])", card), card
@@ -96,7 +97,7 @@ def test_a_sum_of_money_is_never_rounded(unit: str) -> None:
 
 @pytest.mark.parametrize(
     ("value", "unit", "card"),
-    [("12.345", "kWh", "12.3"), ("29.008", "pounds", "29.0"), ("29.008", "lb", "29.0")],
+    [("12.345", "kWh", "12.35"), ("29.008", "pounds", "29.01"), ("29.008", "lb", "29.01")],
 )
 def test_a_measured_quantity_still_rounds(value: str, unit: str, card: str) -> None:
     """Claude on #2489: "pounds" is a force or a mass in physics, rounded as one."""
@@ -109,9 +110,9 @@ def test_a_measured_quantity_still_rounds(value: str, unit: str, card: str) -> N
         ("Find the force, to 4 s.f.", "12.3456", "12.35"),
         ("Find the force, to 4 s.f.", "12.35", "12.35"),
         ("Find the force to 2 d.p.", "12.3456", "12.35"),
-        ("Find the force to 2 decimal places.", "1.5", "1.5"),
+        ("Find the force to 2 decimal places.", "1.5", "1.50"),
         ("Find the force to the nearest tenth.", "29.008", "29.0"),
-        ("Find the force.", "12.3456", "12.3"),
+        ("Find the force.", "12.3456", "12.35"),
     ],
 )
 def test_a_card_keeps_the_precision_the_question_asks(question: str, value: str, card: str) -> None:

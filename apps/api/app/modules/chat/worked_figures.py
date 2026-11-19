@@ -32,8 +32,8 @@ _PRECISION_NOTE = re.compile(
 def card_answer(answer: Answer, asked: tuple[int, int] = (0, -1)) -> Answer:
     """``answer`` with its value by the rule, or to the precision the question asks
     (``asked``: significant figures, decimal places, as ``school_rounding.asked_rounding``
-    reads them; 0 and -1 for none). A note that only named a precision goes: the card says
-    the precision it shows."""
+    reads them; 0 and -1 for none). A note that only named a precision the question did not
+    ask goes: the card shows the rule's."""
     from app.services.subjects.registry import MONEY
 
     shown = answer.value.strip()
@@ -41,7 +41,11 @@ def card_answer(answer: Answer, asked: tuple[int, int] = (0, -1)) -> Answer:
         return answer  # a sum of money is exact to the cent: $12.34 is never $12.3
     if _LOGARITHM.match(answer.symbol or ""):
         return answer  # a pH's decimals are its concentration's figures
-    figures, places = (min(count, MOST_DIGITS) for count in asked)
+    figures, places = asked
+    if figures > MOST_DIGITS or places > MOST_DIGITS:
+        return answer  # "to 30 d.p.": no precision a card keeps, the value as written
     value = number_latex(float(shown), Precision(figures=figures, places=places))
-    note = "" if _PRECISION_NOTE.match(answer.note or "") else answer.note
+    # A note naming a precision the question did not ask is no longer true of the card.
+    unasked = figures <= 0 and places < 0
+    note = "" if unasked and _PRECISION_NOTE.match(answer.note or "") else answer.note
     return answer.model_copy(update={"value": value, "note": note})
