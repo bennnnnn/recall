@@ -37,6 +37,10 @@ describe("uprightNotation", () => {
     "W = 3 N d",
     "3 A + 2 A",
     "2min(a,b)",
+    // A text group as a script without braces: its sentence words stay its own.
+    String.raw`t_\text{time to the top}`,
+    String.raw`e^\mathrm{rate per hour}`,
+    String.raw`x_\alpha + y^\infty`,
   ])("leaves %s alone", (source) => {
     expect(uprightNotation(source)).toBe(source);
   });
