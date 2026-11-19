@@ -53,6 +53,8 @@
   "chat.file_index_failed": "Couldn't index this file",
   "chat.file_indexing": "Still indexing…",
   "chat.generation_stopped": "Generation stopped.",
+  "chat.reply_cut_off": "This reply was cut off before it finished.",
+  "chat.continue_reply": "Continue",
   "chat.home.continue": "Pick up where you left off",
   "chat.home.dismiss_reminder": "Dismiss reminder",
   "chat.home.hello": "Hi there",

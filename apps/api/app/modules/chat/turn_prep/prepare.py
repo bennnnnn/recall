@@ -21,7 +21,7 @@ from app.exceptions import ChatNotFoundError
 from app.models.orm import Attachment, Chat, User
 from app.modules.billing import plan as plan_service
 from app.modules.chat.model_routing.route import last_user_turn
-from app.modules.chat.model_routing.thinking import thinking_level
+from app.modules.chat.model_routing.thinking import follows_a_cut_off_reply, thinking_level
 from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.turn_prep.attachments import AttachmentProcessResult, _process_attachments
 from app.modules.chat.turn_prep.context import (
@@ -305,6 +305,7 @@ def _stream_context(
             prior_user=prior_user,
             prior_model=prior_model,
             lesson_active=turn.lesson_active,
+            resumes_cut_off=follows_a_cut_off_reply(turn.recent_messages),
             settings=settings,
         ),
     )

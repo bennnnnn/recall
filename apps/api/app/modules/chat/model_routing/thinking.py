@@ -15,11 +15,14 @@ no thinking (2026-11-09). With no answer, they still decide, here.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
+from typing import Any
 
 from app.core.config import Settings
 from app.gateways.reasoning import EFFORTS, ThinkingLevel, thinking_value
 from app.models import model_catalog
 from app.modules.chat.model_routing.route import message_needs_thinking
+from app.modules.turn_reading.length import MANY_PARTS, asked_parts
 
 # Pushback on the reply just given. Bare "wrong" is not enough: "what's wrong
 # with my code" asks for help, it does not dispute an answer.
@@ -50,6 +53,23 @@ def is_answer_dispute(text: str | None) -> bool:
     return len(cleaned) <= _MAX_DISPUTE_CHARS and _DISPUTE.search(cleaned) is not None
 
 
+def thinks_through_parts(content: str | None) -> bool:
+    """False for a message with more separate asks than one reply holds in full
+    (``turn_reading.length.MANY_PARTS``): its working is the reply, part by part. Thinking
+    on all of them first never ended: a 20-part question took DeepSeek, Qwen and GLM each to
+    the whole output budget (8,192 to 24,576 tokens) with no answer (probes, 2026-11-18)."""
+    return asked_parts(content) < MANY_PARTS
+
+
+def follows_a_cut_off_reply(rows: Sequence[Any] | None) -> bool:
+    """The newest reply ran out of room (saved ``completion`` "interrupted"), with at most
+    this turn's message after it: going on writes the rest, with no thinking pass over the
+    whole problem again (a "Continue" after the 20-part reply thought for 65 s, 2026-11-18)."""
+    tail = list(rows or ())[-2:]
+    reply = next((row for row in reversed(tail) if getattr(row, "role", None) == "assistant"), None)
+    return reply is not None and getattr(reply, "completion", None) == "interrupted"
+
+
 def thinking_level(
     content: str,
     *,
@@ -57,9 +77,14 @@ def thinking_level(
     prior_model: str | None = None,
     lesson_active: bool = False,
     regenerate: bool = False,
+    resumes_cut_off: bool = False,
     settings: Settings | None = None,
 ) -> ThinkingLevel:
-    """The word rules' thinking level for this turn; escalation needs an answer to dispute."""
+    """The word rules' thinking level for this turn; escalation needs an answer to dispute.
+    A message in more parts than a reply holds, or one after a reply cut off, never thinks
+    first, a regenerate included: that thinking is what ran out of room."""
+    if resumes_cut_off or not thinks_through_parts(content):
+        return "off"
     if regenerate or (prior_user and is_answer_dispute(content)):
         return "escalate"
     hard = message_needs_thinking(

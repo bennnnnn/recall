@@ -5,7 +5,9 @@ from __future__ import annotations
 import re
 from typing import Literal
 
+from app.services.md_fence_scan import without_fences
 from app.services.number_text import count_word_pattern
+from app.services.question_parts import labelled_parts
 from app.services.text_normalize import collapse_ws, straighten_apostrophes
 
 ReplyLength = Literal["brief", "balanced", "detailed", "mixed"]
@@ -88,3 +90,30 @@ def reply_length(text: str) -> ReplyLength:
     if brief:
         return "brief"
     return "detailed" if detailed else "balanced"
+
+
+# A numbered line, "1. Derive …", "2) Plot …", "(3) Explain …", "**4.** Find …", "Q5. Show …":
+# one thing asked.
+_NUMBERED_ASK = re.compile(
+    r"^[ \t]{0,3}(?:\*\*)?(?:Q[ \t]?)?(?:\((\d{1,2})\)|(\d{1,2})[.)])(?:\*\*)?[ \t]+\S",
+    re.MULTILINE,
+)
+# This many separate asks or more may not all fit one reply in full: the reply says up front
+# what it covers (``prompt_constants.length.many_parts_hint``). A 20-part question ran out of
+# room at part 6 with no word of the other 14 (2026-11-18).
+MANY_PARTS = 8
+
+
+def asked_parts(text: str | None) -> int:
+    """How many separate things the message asks: its numbered lines counted 1, 2, 3, …
+    without a gap (a date line "12. März" or a stray number is no part), outside fenced
+    blocks, or its labelled parts ("(a)", "(ii)"), whichever is more; 0 for one ask."""
+    if not text:
+        return 0
+    # A fenced block (pasted code, a log): its numbered lines ask nothing.
+    prose = without_fences(text)
+    numbers = {int(first or second) for first, second in _NUMBERED_ASK.findall(prose)}
+    run = 0
+    while run + 1 in numbers:
+        run += 1
+    return max(run if run >= 2 else 0, labelled_parts(prose))

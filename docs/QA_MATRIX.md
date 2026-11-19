@@ -36,6 +36,7 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 |---|------|-----|---------|-------|
 | 2.1 | Send message → tokens stream | ☐ | ☐ | WebSocket primary path |
 | 2.2 | Stop generation mid-stream | ☐ | ☐ | Partial reply kept exactly as it was when you tapped Stop: it does not grow or change when the reply settles, and reopening the chat shows the same text. "Generation stopped." under it. Stop before any text appears: no reply is left (a regenerate keeps the old answer). |
+| 2.2a | A reply that runs out of room | ☐ | ☐ | Send a 20-part question: the reply says up front which parts it answers and what it can't do here. If it is cut off, "This reply was cut off before it finished." and a Continue button sit under it; Continue resumes where it stopped (also in another app language), and the button is gone after a tap. |
 | 2.3 | Regenerate last assistant reply | ☐ | ☐ | |
 | 2.4 | User bubble long-press copies only | ☐ | ☐ | No edit / resend (banned UX) |
 | 2.5 | New chat created on first message | ☐ | ☐ | No empty chat rows |

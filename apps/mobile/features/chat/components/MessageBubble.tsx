@@ -16,6 +16,7 @@ import { ReplyMarkdown } from "@/components/markdown/ReplyMarkdown";
 import { MarkdownErrorBoundary } from "@/features/chat/components/MarkdownErrorBoundary";
 import { RecallTypingIndicator } from "@/features/chat/components/RecallTypingIndicator";
 import { StreamProgressLabel } from "@/features/chat/components/StreamProgressLabel";
+import { ReplyStoppedNote } from "@/features/chat/components/ReplyStoppedNote";
 import { AssistantMessageScope } from "@/features/drafts/context/emailDraftPersist";
 import {
   AssistantActions,
@@ -261,11 +262,7 @@ export const MessageBubble = React.memo(function MessageBubble({
                 style={b.afterTextStatus}
               />
             ) : null}
-            {message.generationStopped || message.completion || message.replyNotSaved ? (
-              <Text style={b.stoppedFooter}>
-                {t(message.replyNotSaved ? "chat.reply_not_saved" : "chat.generation_stopped")}
-              </Text>
-            ) : null}
+            <ReplyStoppedNote key={message.id} message={message} latest={isLastAssistant} after={nextUserText} />
             {showSettingsProposals
               ? settingsProposals.map((proposal, index) => (
                   <SettingsProposalCard
@@ -343,11 +340,6 @@ function makeStyles(t: Theme) {
       color: t.textTertiary,
     },
     afterTextStatus: {
-      marginTop: Space.xs,
-      ...Type.compact,
-      color: t.textTertiary,
-    },
-    stoppedFooter: {
       marginTop: Space.xs,
       ...Type.compact,
       color: t.textTertiary,

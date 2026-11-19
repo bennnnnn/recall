@@ -57,6 +57,11 @@ class ChatModel:
     thinking_on: str | None = None
     # The user said the answer was wrong, or regenerated it: one level up.
     thinking_escalate: str | None = None
+    # Takes OpenRouter's reasoning.max_tokens (its card's ``supports_max_tokens``), so a
+    # turn's thinking is held to ``chat_reasoning_budget_tokens``. Qwen3.8 Flash ignores
+    # an effort and thought one question to 8,192 tokens at "minimal"; a 3,000 cap held
+    # it to 3,000 (probe, 2026-11-18). DeepSeek and GLM list efforts only: a cap is ignored.
+    reasoning_token_cap: bool = False
     # Hold the start of a reply until a stray closing think tag could have
     # arrived: GLM 5.3 has ended untagged reasoning with one when its provider
     # did not split the reasoning off (the hold shortens once reasoning streams).
@@ -89,6 +94,7 @@ def _or(
     thinking_off: str | None = None,
     thinking_on: str | None = None,
     thinking_escalate: str | None = None,
+    reasoning_token_cap: bool = False,
     stray_think_guard: bool = False,
     supports_vision: bool = False,
     supports_tools: bool = False,
@@ -114,6 +120,7 @@ def _or(
         thinking_off=thinking_off,
         thinking_on=thinking_on,
         thinking_escalate=thinking_escalate,
+        reasoning_token_cap=reasoning_token_cap,
         stray_think_guard=stray_think_guard,
         supports_vision=supports_vision,
         supports_tools=supports_tools,
@@ -208,6 +215,7 @@ CATALOG: tuple[ChatModel, ...] = (
         thinking_off="none",
         thinking_on="minimal",
         thinking_escalate="high",
+        reasoning_token_cap=True,
         supports_tools=True,
         json_mode=True,
         context_tokens=128_000,

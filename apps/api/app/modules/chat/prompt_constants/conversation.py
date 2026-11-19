@@ -123,6 +123,16 @@ CONTINUE_HINT = (
     "cut mid-code). Do not restart, recap, or repeat what you already wrote."
 )
 
+# Said on the turn after a reply that ran out of room (saved ``completion`` "interrupted"):
+# "Continue" in any language, or the phone's Continue under it, picks up where it stopped.
+CUT_OFF_REPLY_NOTE = (
+    "Your last reply was cut off before it finished. If this message asks you to go on, in "
+    "any words or language, pick up exactly where it stopped, in the same format, and finish "
+    "what it had not reached; do not restart or repeat what is already there. If it stopped "
+    "inside a code fence, a table or a formula, reopen it, and write a cut formula or table "
+    "row again whole. Otherwise answer this message as usual."
+)
+
 # Said on every short yes (``routing.is_short_confirmation``): conditional, so it needs no
 # reading of the last reply, and a yes to an offer is still that offer's.
 CONFIRMED_HINT = (

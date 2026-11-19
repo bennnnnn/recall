@@ -125,8 +125,16 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   reply's text is all in: at `stream_end` Send works again, and a turn sent then goes out
   once that reply's `done` lands, or once a reload finds the saved reply when no `done`
   comes in 12 s; a reply whose save fails then says “This reply wasn’t saved.”); the partial reply
-  is kept and marked incomplete (same “Generation stopped.” footer as a provider
-  drop or token-limit cut). The kept text never changes after Stop: the cancel frame
+  is kept and marked incomplete (“Generation stopped.”). A reply the server cut off (a
+  provider drop or the token limit) says “This reply was cut off before it finished.”, and
+  the newest one offers **Continue**: a user message through the chat's send path, and the
+  next turn's prompt is told the last reply stopped short, so it picks up where it stopped
+  in any language. A model that thinks without answering (out of its reasoning tokens, or
+  `chat_stream_thought_ceiling_seconds`, 75 s) gives way to the next model with thinking
+  off, or the same one once more when it was the last; one that goes silent mid-thought
+  gives way after `chat_stream_thought_idle_seconds` (10 s), not the 30 s idle wait; a message with eight or more
+  numbered or labelled parts gets no thinking pass and says up front what the reply covers
+  and what it can't do here. The kept text never changes after Stop: the cancel frame
   says how much the phone drew (`shown_chars`), the server saves that text made safe
   and laid out (no verified card, note, sources or reminder card added), and a Stop
   before any text shows saves nothing. Hard WS/SSE disconnect with tokens already

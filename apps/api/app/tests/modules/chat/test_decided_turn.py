@@ -214,6 +214,44 @@ async def test_a_hard_everyday_question_moves_to_the_strong_lane_and_thinks_deep
     assert ctx.fallback_models == ["free-chat", "qwen-3.7-flash"]
 
 
+_TWENTY_PARTS = "A probe orbits a Kerr black hole.\n" + "\n".join(
+    f"{n}. Derive quantity {n} of its orbit." for n in range(1, 21)
+)
+
+
+@pytest.mark.asyncio
+async def test_a_question_in_more_parts_than_a_reply_holds_answers_without_thinking() -> None:
+    """20 parts: thinking on all of them first took three models to the output cap with no
+    answer (2026-11-18). The hard lane stays; the working is the reply."""
+    ctx = _turn(_TWENTY_PARTS, _read("everyday", True, True))
+    await decide_from_the_read(ctx, _SETTINGS)
+    assert (ctx.model, ctx.thinking) == ("smart-chat", "off")
+    assert thinking_level(_TWENTY_PARTS) == "off"
+    # A regenerate would think on all 20 again: it answers without thinking too.
+    assert thinking_level(_TWENTY_PARTS, regenerate=True) == "off"
+
+
+@pytest.mark.asyncio
+async def test_going_on_after_a_cut_off_reply_writes_the_rest_without_thinking() -> None:
+    """ "Continue" after the 20-part reply ran out of room thought 65 s over it again."""
+    from types import SimpleNamespace
+
+    cut = SimpleNamespace(
+        role="assistant", content="**6.** The asymmetry", completion="interrupted"
+    )
+    rows = [SimpleNamespace(role="user", content=_TWENTY_PARTS, completion=None), cut]
+    ctx = _turn("Continue", _read("physics", True, True), recent_messages=rows)
+    await decide_from_the_read(ctx, _SETTINGS)
+    assert ctx.thinking == "off"
+    assert thinking_level("Weiter", resumes_cut_off=True) == "off"
+    # A finished reply leaves the read's level.
+    whole = [rows[0], SimpleNamespace(role="assistant", content="All 20.", completion=None)]
+    ctx = _turn("Should we hire two juniors or one senior?", _read("everyday", True, True))
+    ctx.recent_messages = whole
+    await decide_from_the_read(ctx, _SETTINGS)
+    assert ctx.thinking == "deep"
+
+
 @pytest.mark.asyncio
 async def test_an_easy_question_answers_at_once() -> None:
     """E21, a packing list: the check-up thought 4.5 s on it."""

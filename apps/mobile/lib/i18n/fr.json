@@ -53,6 +53,8 @@
   "chat.file_index_failed": "Impossible d'indexer ce fichier",
   "chat.file_indexing": "Indexation…",
   "chat.generation_stopped": "Génération interrompue.",
+  "chat.reply_cut_off": "Cette réponse a été coupée avant la fin.",
+  "chat.continue_reply": "Continuer",
   "chat.home.continue": "Reprenez là où vous en étiez",
   "chat.home.dismiss_reminder": "Ignorer le rappel",
   "chat.home.hello": "Bonjour",

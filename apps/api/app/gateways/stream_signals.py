@@ -23,7 +23,7 @@ from app.models import model_catalog
 from app.models.model_catalog import ChatModel
 
 # The catalog values that mean the model does not think.
-_NO_THOUGHT = frozenset({"off", "none"})
+NO_THOUGHT = frozenset({"off", "none"})
 # A cap shorter than this would end an attempt before its request is sent.
 _MIN_CAP_SECONDS = 0.1
 # The caps are sized for an ordinary prompt. A provider reads a longer one before
@@ -34,6 +34,9 @@ _PROMPT_CHARS_PER_SECOND = 40_000
 # Why an attempt failed, when that was the request or our setup and not the model:
 # a 4xx the provider answered (bad input, too large, a policy, auth), a missing key.
 REQUEST_FAULT = "request"
+# Why an attempt failed when its thinking ran out of time or tokens before any answer
+# (``stream_thinking``): the question's fault, not the model's.
+THOUGHT_OUT = "thought"
 
 
 def reasoning_delta(delta: Any) -> bool:
@@ -44,7 +47,7 @@ def reasoning_delta(delta: Any) -> bool:
 
 def always_thinks(route: ChatModel) -> bool:
     """The model thinks even when asked not to (its "off" level is an effort)."""
-    return route.thinking_off is not None and route.thinking_off not in _NO_THOUGHT
+    return route.thinking_off is not None and route.thinking_off not in NO_THOUGHT
 
 
 @dataclass(frozen=True)
@@ -95,7 +98,7 @@ def first_reply_cap(
     if always_thinks(route):
         # The free plan's hard and maths lane: its reasoning streams from the start.
         seconds = settings.chat_stream_first_thought_timeout_seconds
-    elif route.tier == "fast" and thinking_value(route, thinking) in _NO_THOUGHT:
+    elif route.tier == "fast" and thinking_value(route, thinking) in NO_THOUGHT:
         # Auto's everyday lane: no thinking, first text in about a second.
         seconds = settings.chat_stream_first_text_timeout_seconds
     elif model_catalog.is_reasoning_alias(alias):
@@ -170,12 +173,14 @@ class StreamAttempt:
     alias: str
     failed: bool = False
     # Why it failed: a provider fault ("timeout", "server", …), "cap" (it showed
-    # nothing in time), "empty" (it answered nothing) or ``REQUEST_FAULT``.
+    # nothing in time), "empty" (it answered nothing), ``THOUGHT_OUT`` or ``REQUEST_FAULT``.
     cause: str | None = None
     # From the request to the provider's first reasoning or text; None if none came.
     first_delta_ms: int | None = None
     # From the request to the end of the try; None while it streams, or after a stop.
     elapsed_ms: int | None = None
+    # The provider's finish_reason ("stop", "length", …), once one came.
+    finish_reason: str | None = None
     _started: float = field(default_factory=time.monotonic, init=False, repr=False)
 
     def _ms(self) -> int:
@@ -183,13 +188,21 @@ class StreamAttempt:
 
     @property
     def model_failed(self) -> bool:
-        """It failed, and not over the request: the failure counts against the model."""
-        return self.failed and self.cause != REQUEST_FAULT
+        """It failed, and not over the request or a question it thought on without end:
+        the failure counts against the model."""
+        return self.failed and self.cause not in (REQUEST_FAULT, THOUGHT_OUT)
 
     def delta(self) -> None:
         """The provider sent reasoning or text."""
         if self.first_delta_ms is None:
             self.first_delta_ms = self._ms()
+
+    def saw(self, *, delta: bool, finish: str | None) -> None:
+        """One chunk: whether it carried reasoning or text, and any finish_reason."""
+        if delta:
+            self.delta()
+        if finish:
+            self.finish_reason = finish
 
     def end(self, *, failed: bool, cause: str | None = None) -> None:
         self.failed = failed

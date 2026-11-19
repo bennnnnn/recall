@@ -159,7 +159,14 @@ type DoneMergeInput = {
    * `final_content` is the text this phone drew, made safe, never longer.
    */
   savedAsStopped?: boolean;
+  /** How the server saved the reply: cut off (`interrupted`) or stopped (`user_stop`). */
+  completion?: Message["completion"];
 };
+
+/** The saved reply's ending, so its bubble can say it was cut off (and offer Continue). */
+function endingOf(input: DoneMergeInput): Pick<Message, "completion"> {
+  return input.completion ? { completion: input.completion } : {};
+}
 
 /** Pure merge for the WebSocket `done` event — used by useChat and unit tests. */
 export function mergeDoneIntoMessages(
@@ -204,6 +211,7 @@ export function mergeDoneIntoMessages(
               parseSearchSources(finalContent ?? draftContent ?? m.content),
             model: model ?? m.model,
             generationStopped: m.generationStopped || generationStopped,
+            ...endingOf(input),
           }
         : m,
     );
@@ -235,6 +243,7 @@ export function mergeDoneIntoMessages(
             search_sources: m.search_sources ?? parseSearchSources(kept),
             model: model ?? m.model,
             generationStopped: m.generationStopped || generationStopped,
+            ...endingOf(input),
           }
         : m,
     );
@@ -255,6 +264,7 @@ export function mergeDoneIntoMessages(
       search_sources: search_sources ?? parseSearchSources(content),
       created_at: new Date().toISOString(),
       generationStopped,
+      ...endingOf(input),
     },
   ];
 }
@@ -334,5 +344,6 @@ export function buildDoneMergeInput(
     stoppedStreamedId,
     generationStopped: completion === "interrupted" || completion === "user_stop",
     savedAsStopped: completion === "user_stop",
+    completion: completion === "interrupted" || completion === "user_stop" ? completion : null,
   };
 }
