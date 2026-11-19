@@ -743,8 +743,6 @@
   "rich.graph_show_series": "Fonksiyonu göster",
   "rich.graph_solution_region": "Taralı çözüm bölgesi",
   "rich.mermaid_dev_build": "Diyagramları satır içi görmek için uygulamayı derleyin.",
-  "rich.mermaid_editor": "Düzenleyiciye kopyala",
-  "rich.mermaid_editor_hint": "Diyagramı kopyalar ve yapıştırabileceğiniz Mermaid Live düzenleyicisini açar.",
   "rich.mermaid_error": "Diyagram oluşturulamadı.",
   "rich.mermaid_a11y": "{{kind}}: {{parts}}",
   "rich.mermaid_kind_class": "Sınıf diyagramı",

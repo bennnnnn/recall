@@ -1,10 +1,9 @@
 /**
  * Mermaid diagram — inline SVG render via WebView (dev build), with source fallback.
  */
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
-import * as WebBrowser from "expo-web-browser";
 import { Icon } from "@/ui/icons/Icon";
 
 import { CopyButton } from "@/components/CopyButton";
@@ -14,18 +13,17 @@ import { useWebPreviewHeight } from "@/components/rich/useWebPreviewHeight";
 import { imageLabelProps } from "@/components/rich/imageLabel";
 import { VisualCard } from "@/components/rich/VisualCard";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
-import { copyToClipboard } from "@/lib/clipboard";
 import { CODE_FACE } from "@/lib/fonts";
 import { mermaidSpokenParts, mermaidTitleKey } from "@/lib/mermaid/kind";
 import { MERMAID_MIN_HEIGHT, MERMAID_PREVIEW_HEIGHT } from "@/lib/mermaid/previewHeight";
 import { MERMAID_PAGE, mermaidPreviewConfig } from "@/lib/mermaid/previewHtml";
+import { mermaidDisplaySource } from "@/lib/mermaid/displayLabels";
 import { sanitizeMermaidNodeLabels } from "@/lib/mermaid/sanitize";
 import { Theme, useTheme } from "@/lib/theme";
 import { getPreviewWebView } from "@/lib/webView";
 import { IconSize } from "@/ui/icons/sizes";
-import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
-import { Type, Weight } from "@/lib/type";
+import { Type } from "@/lib/type";
 
 type Props = { content: string };
 
@@ -43,7 +41,9 @@ export function MermaidBlock({ content }: Props) {
     });
 
   const sanitized = useMemo(() => sanitizeMermaidNodeLabels(content.trim()), [content]);
-  const config = useMemo(() => mermaidPreviewConfig(sanitized, theme), [sanitized, theme]);
+  // What the card draws: no emoji, and label signs that draw as written (`displayLabels`).
+  const drawn = useMemo(() => mermaidDisplaySource(sanitized), [sanitized]);
+  const config = useMemo(() => mermaidPreviewConfig(drawn, theme), [drawn, theme]);
   const previewWebView = getPreviewWebView();
   const WebView = previewWebView?.Component;
   const canRenderInline = previewWebView?.mode === "rnc";
@@ -55,7 +55,7 @@ export function MermaidBlock({ content }: Props) {
     Boolean(WebView) && canRenderInline && preview.status === "ready",
   );
   const previewError = preview.status === "failed" ? t("rich.mermaid_error") : null;
-  const { title, spoken } = useMermaidTitles(sanitized);
+  const { title, spoken } = useMermaidTitles(drawn);
 
   return (
     <VisualCard
@@ -87,7 +87,7 @@ export function MermaidBlock({ content }: Props) {
     >
       <MermaidFullScreen
         visible={fullScreen}
-        source={sanitized}
+        source={drawn}
         title={title}
         onClose={() => setFullScreen(false)}
       />
@@ -144,7 +144,7 @@ function useMermaidTitles(source: string): { title: string; spoken: string } {
   return { title, spoken: parts ? t("rich.mermaid_a11y", { kind: title, parts }) : title };
 }
 
-/** Copy, the card's height toggle, full screen, and the online editor. */
+/** Copy, the card's height toggle and full screen. */
 function MermaidActions({
   source,
   sizeToggle,
@@ -159,12 +159,6 @@ function MermaidActions({
   styles: ReturnType<typeof makeStyles>;
 }) {
   const { t } = useTranslation();
-  // The source goes to the clipboard only; mermaid.live opens empty and the
-  // user pastes it there.
-  const openEditor = useCallback(async () => {
-    await copyToClipboard(source);
-    await WebBrowser.openBrowserAsync("https://mermaid.live/edit");
-  }, [source]);
 
   return (
     <>
@@ -195,19 +189,6 @@ function MermaidActions({
           <Icon name="scan" size={IconSize.sm} color={theme.textSecondary} />
         </Pressable>
       ) : null}
-      <Pressable
-        style={s.openBtn}
-        onPress={openEditor}
-        hitSlop={8}
-        accessibilityRole="button"
-        accessibilityLabel={t("rich.mermaid_editor")}
-        accessibilityHint={t("rich.mermaid_editor_hint")}
-      >
-        <Icon name="external-link" size={IconSize.sm} color={theme.onPrimary} />
-        <Text style={s.openLabel} numberOfLines={1}>
-          {t("rich.mermaid_editor")}
-        </Text>
-      </Pressable>
     </>
   );
 }
@@ -237,16 +218,5 @@ function makeStyles(t: Theme) {
       alignItems: "center",
       justifyContent: "center",
     },
-    openBtn: {
-      flexShrink: 1,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.xs,
-      paddingVertical: Space.sm,
-      paddingHorizontal: Space.md,
-      borderRadius: Radius.sm,
-      backgroundColor: t.primary,
-    },
-    openLabel: { ...Type.label, ...Weight.bold, color: t.onPrimary, flexShrink: 1 },
   });
 }

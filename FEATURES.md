@@ -646,7 +646,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   30 days (`modules/images/photo_cache.py`): no search, no fetch and no charge. Each lookup
   logs one line with every step's milliseconds (`answer_photo_lookup`).
 - ✅ **Mermaid diagrams** — inline SVG render via sandboxed WebView (dev build); source toggle +
-  copy + Mermaid Live link; Expo Go shows source + external editor hint.
+  copy + full screen; Expo Go shows the source. Labels draw without the model's emoji, and a
+  label's `>` and `<` draw as written (`lib/mermaid/displayLabels.ts`). No online-editor button
+  (removed 2026-11-18). A flowchart is for a process or flow; a drawing of a thing is not one.
 - ✅ **PDF attachments** — uploaded PDFs show a file card + inline first-page preview (pdf.js in
   sandboxed WebView, dev build); tap opens full viewer with share/export. Inline extract
   is the first 25 pages / ~12k characters; the model is told when later pages were

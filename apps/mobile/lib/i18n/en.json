@@ -743,8 +743,6 @@
   "rich.graph_show_series": "Show function",
   "rich.graph_solution_region": "Shaded solution region",
   "rich.mermaid_dev_build": "Build the app to preview diagrams inline.",
-  "rich.mermaid_editor": "Copy to editor",
-  "rich.mermaid_editor_hint": "Copies the diagram and opens the Mermaid Live editor, where you can paste it.",
   "rich.mermaid_error": "Could not render that diagram.",
   "rich.mermaid_a11y": "{{kind}} showing {{parts}}",
   "rich.mermaid_kind_class": "Class diagram",

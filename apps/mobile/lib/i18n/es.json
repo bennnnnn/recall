@@ -751,8 +751,6 @@
   "rich.graph_show_series": "Mostrar función",
   "rich.graph_solution_region": "Región de solución sombreada",
   "rich.mermaid_dev_build": "Compila la app para ver diagramas en línea.",
-  "rich.mermaid_editor": "Copiar al editor",
-  "rich.mermaid_editor_hint": "Copia el diagrama y abre el editor Mermaid Live, donde puedes pegarlo.",
   "rich.mermaid_error": "No se pudo renderizar el diagrama.",
   "rich.mermaid_a11y": "{{kind}} con {{parts}}",
   "rich.mermaid_kind_class": "Diagrama de clases",

@@ -743,8 +743,6 @@
   "rich.graph_show_series": "ተግባር አሳይ",
   "rich.graph_solution_region": "የተጠለለ የመፍትሄ ክልል",
   "rich.mermaid_dev_build": "ስዕሎችን በመስመር ለማየት መተግበሪያውን ይገንቡ።",
-  "rich.mermaid_editor": "ወደ አርታኢ ቅዳ",
-  "rich.mermaid_editor_hint": "ንድፉን ይቀዳል እና የMermaid Live አርታኢን ይከፍታል፤ እዚያ መለጠፍ ይችላሉ።",
   "rich.mermaid_error": "ስዕሉን ማሳየት አልተቻለም።",
   "rich.mermaid_a11y": "{{kind}}፣ የሚያሳየው፦ {{parts}}",
   "rich.mermaid_kind_class": "የክፍል ንድፍ",

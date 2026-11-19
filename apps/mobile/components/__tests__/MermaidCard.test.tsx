@@ -1,17 +1,14 @@
 /**
  * The Mermaid card's chrome: a title that names the kind of diagram, a
- * full-screen view that draws a wide diagram at its own size, and an editor
- * button that says what it does.
+ * full-screen view that draws a wide diagram at its own size, labels drawn
+ * without emoji, and no online-editor button (the user, 2026-11-18).
  */
 import { fireEvent, render } from "@testing-library/react-native";
-import * as Clipboard from "expo-clipboard";
-import * as WebBrowser from "expo-web-browser";
 
 import { MermaidBlock } from "@/components/rich/MermaidBlock";
 import { previewPageFile, readyPreviewPageFile } from "@/lib/preview/previewPageFile";
 
 jest.mock("expo-file-system/legacy", () => ({}));
-jest.mock("expo-web-browser", () => ({ openBrowserAsync: jest.fn() }));
 jest.mock("@/lib/preview/previewPageFile", () => ({
   previewPageFile: jest.fn(),
   readyPreviewPageFile: jest.fn(() => null),
@@ -65,13 +62,14 @@ describe("MermaidBlock card", () => {
     expect(queryByTestId("mermaid-full-screen-diagram")).toBeNull();
   });
 
-  it("labels the editor button by what it does: copy, then open the editor", async () => {
-    const { getByLabelText } = await render(<MermaidBlock content={ER} />);
-    const button = getByLabelText("rich.mermaid_editor");
-    expect(button.props.accessibilityHint).toBe("rich.mermaid_editor_hint");
-
-    await fireEvent.press(button);
-    expect(Clipboard.setStringAsync).toHaveBeenCalledWith(ER);
-    expect(WebBrowser.openBrowserAsync).toHaveBeenCalledWith("https://mermaid.live/edit");
+  it("draws the labels without emoji, offers no online editor, and copies the diagram as written", async () => {
+    const press = 'flowchart LR\n  A["🖐️ Small piston<br/>area A₁"] --> C["📦 Large piston<br/>area A₂ > A₁"]';
+    const { getByLabelText, queryByText } = await render(<MermaidBlock content={press} />);
+    const drawn = String(mockWebViews.get("preview-webview")?.injectedJavaScript ?? "");
+    expect(drawn).toContain("Small piston");
+    expect(drawn).toContain("A₂ ﹥ A₁");
+    expect(drawn).not.toMatch(/🖐|📦/u);
+    expect(queryByText("rich.mermaid_editor")).toBeNull();
+    expect(getByLabelText("common.copy")).toBeTruthy();
   });
 });

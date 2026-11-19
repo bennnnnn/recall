@@ -743,8 +743,6 @@
   "rich.graph_show_series": "Funktion einblenden",
   "rich.graph_solution_region": "Schattierter Lösungsbereich",
   "rich.mermaid_dev_build": "App bauen, um Diagramme inline anzuzeigen.",
-  "rich.mermaid_editor": "In Editor kopieren",
-  "rich.mermaid_editor_hint": "Kopiert das Diagramm und öffnet den Editor Mermaid Live, wo du es einfügen kannst.",
   "rich.mermaid_error": "Diagramm konnte nicht gerendert werden.",
   "rich.mermaid_a11y": "{{kind}} mit {{parts}}",
   "rich.mermaid_kind_class": "Klassendiagramm",
