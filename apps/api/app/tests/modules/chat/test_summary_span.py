@@ -10,14 +10,17 @@ from __future__ import annotations
 
 from app.modules.chat.compaction import summary_text
 from app.modules.chat.context_window import SUMMARY_SYSTEM_PROMPT
-from app.modules.chat.prompt_constants.conversation import SUMMARY_LEAD, summary_lead
+from app.modules.chat.prompt_constants.conversation import (
+    SUMMARY_LEAD,
+    SUMMARY_SPAN,
+    summary_lead,
+)
 
 
 def test_the_summary_says_it_stands_for_the_start_of_the_chat() -> None:
     lead = summary_lead(75)
     assert lead.startswith(SUMMARY_LEAD)
-    assert "the first 75 messages of this chat" in lead
-    assert "its first topic is this chat's first question" in lead
+    assert lead.endswith(SUMMARY_SPAN.format(count=75))
     # Not known: the lead as it was.
     assert summary_lead(0) == SUMMARY_LEAD
 

@@ -235,7 +235,6 @@ async def stream_chat_response(
             on_status=status,
             read=live_read,
         ):
-            stop_posed_read()
             await res.refund()
             return
         timing.mark_phase("image_gen")
@@ -353,7 +352,6 @@ async def stream_regenerate_response(
             on_status=status,
             read=live_read,
         ):
-            stop_posed_read()
             return
         current_image_ids, model = _regenerate_images(turn, settings, model_alias)
         await res.reserve(

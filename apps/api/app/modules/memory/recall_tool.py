@@ -72,7 +72,7 @@ class RecallChatsAdapter:
             user_id=ctx.user.id,
             query=query,
             exclude_chat_id=ctx.chat_id,
-            timezone=ctx.user_timezone or getattr(ctx.user, "timezone", None),
+            timezone=ctx.user_timezone or ctx.user.timezone,
         )
         result = ToolResult(name=self.name, content=block or _NOTHING_FOUND)
         ctx.first_results[self.name] = result

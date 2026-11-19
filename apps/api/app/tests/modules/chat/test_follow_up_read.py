@@ -255,6 +255,7 @@ async def test_a_begun_read_leaves_the_turns_readings_to_the_pool() -> None:
     assert [value.task for value in copied.values()] == [None]
 
 
+@pytest.mark.wall_clock
 @pytest.mark.asyncio
 async def test_small_talk_waits_for_no_read() -> None:
     """A light turn takes the read only when it is already in; it never holds the reply."""
