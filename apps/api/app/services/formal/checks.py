@@ -134,8 +134,10 @@ def _side(expression: Any, text: str, value: float, setup: Setup) -> str:
 
     try:
         kind = kind_of(expression, setup.written_units)
-        base = kind.to_base_units()
-        shown = value / float(base.magnitude) if base.magnitude else value
+        # The written units' own factor to base (cm to m), not the side's coefficients:
+        # "2*MA" of an MA of 15 is 30, and "MA/VR*100" a percent, not divided away (review).
+        scale = float(kind.to_base_units().magnitude) / float(kind.magnitude)
+        shown = value / scale if scale else value
         unit = "" if kind.dimensionless else _in_order(kind.units, text, setup)
     except Exception as exc:  # pint: no unit for it; the number alone
         logger.info("formal check side in base units (%s)", type(exc).__name__)

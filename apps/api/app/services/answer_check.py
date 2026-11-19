@@ -63,7 +63,9 @@ _TEX_WORDS = {
     r"\times": "\u00d7", r"\cdot": "·", r"\approx": "≈", r"\simeq": "≈", r"\pm": "±",
     r"\%": "%", r"\left": "", r"\right": "", r"\circ": "°", r"\degree": "°",
     # A unit's own letter: "50\,\Omega" is 50 Ω, read as a resistance, not as no value.
-    r"\Omega": "Ω", r"\mu": "µ",
+    r"\Omega": "Ω",
+    # Greek mu, a name ("\mu_k = 0.25") or the micro prefix ("\mu m", read as um below).
+    r"\mu": "\u03bc",
     # A Greek name for a value: "\lambda = 500 nm", "\Delta T = 2 K".
     r"\Delta": "\u0394", r"\alpha": "\u03b1", r"\beta": "\u03b2", r"\gamma": "\u03b3",
     r"\theta": "\u03b8", r"\lambda": "\u03bb", r"\rho": "\u03c1", r"\sigma": "\u03c3",

@@ -320,13 +320,6 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         kind=EFFECT,
         after=frozenset({"working_check", "worked_lead", "data_chart"}),
     ),
-    # Every card written, whoever wrote it: its numbers by the one rule (rounding_rule).
-    FinalizePass(
-        "card_numbers",
-        format_card_numbers,
-        kind=TEXT,
-        after=frozenset({"formal_answer", "server_answer_cards", "working_check"}),
-    ),
     # Before the source chips: it reads the reply's prose, and a failure keeps it whole.
     FinalizePass(
         "claim_check",
@@ -350,6 +343,14 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass("instant_usage", record_instant_usage, kind=EFFECT),
     # Layout, after the passes that read the model's fences as it wrote them.
     FinalizePass("close_fences", close_open_fences, kind=TEXT, after=FENCE_READERS),
+    # Every card written, whoever wrote it, closed or left open by the model: its numbers
+    # by the one rule (rounding_rule). After the closer, so an open card is one too.
+    FinalizePass(
+        "card_numbers",
+        format_card_numbers,
+        kind=TEXT,
+        after=frozenset({"formal_answer", "server_answer_cards", "working_check", "close_fences"}),
+    ),
     # After the closer, so a card the model left open is whole: a clarify card is read; a
     # practice card the chat's cards already showed goes, or a model call writes a fresh one;
     # a model call when the reply left out a lesson's title and card.

@@ -464,6 +464,13 @@ def test_values_that_hold_break_no_check() -> None:
     assert [a["value"] for a in result["answers"]] == [2400.0, 2400.0, 1.5, 1.5]
 
 
+def test_a_broken_side_keeps_its_own_coefficients() -> None:
+    """Review: "MA/VR*100 <= 100" of an MA of 15 over a VR of 1.5 is 1000, not 10."""
+    checks = [{"relation": "MA/VR*100 <= 100", "meaning": "efficiency is at most 100%"}]
+    result = _solved(_lever("80") | {"checks": checks}, LEVER)
+    assert [(c["left"], c["right"]) for c in result["conflicts"]] == [("1000", "100")]
+
+
 @pytest.mark.parametrize(
     "relation", ["tc = ta = MA", "tc ** = ta", "tc = nowhere", "__import__('os') = tc"]
 )

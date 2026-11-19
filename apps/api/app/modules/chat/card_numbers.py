@@ -36,10 +36,10 @@ from app.services.school_rounding import round_places
 if TYPE_CHECKING:
     from app.modules.chat.finalize_passes import FinalizeState
 
-# A number the card writes, its power of ten with it; never a script's (m^{2}) or a
-# fraction's part (\frac{1}{2}), nor a digit inside a word.
+# A number the card writes, its power of ten with it; never a script's (m^{2}, s^{-2}) or
+# a fraction's part (\frac{1}{2}), nor a digit inside a word.
 _WRITTEN = re.compile(
-    r"(?<![\^_{\w.,])(?P<number>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)"
+    r"(?<![\^_{\w.,])(?<!\^[-−])(?<!\^\{[-−])(?P<number>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)"
     r"(?:\s*(?:\\times|\\cdot|×)\s*10\s*\^\s*(?:\{\s*(?P<braced>[-+−]?\d+)\s*\}|(?P<bare>[-+]?\d)))?"
     r"(?![\w.])"
 )
@@ -89,10 +89,18 @@ def _shown(body: str, above: str, precision: Precision) -> str | None:
     for match, number in zip(written, [worked] if worked else numbers, strict=True):
         own = precision if worked is not None else _no_new_figures(match, number, precision)
         # The sign stays where the card wrote it, before the match.
-        pieces += [value[at : match.start()], number_latex(abs(number.value), own)]
+        pieces += [value[at : match.start()], _number_shown(match, number, own)]
         at = match.end()
     shown = "".join([*pieces, value[at:]])
     return "\n".join([*headers, shown]) + ("\n" if body.endswith("\n") else "")
+
+
+def _number_shown(match: re.Match[str], number: Number, precision: Precision) -> str:
+    """The number by the rule; a whole number with no unit written in full stays whole at
+    any size: 2^40 is 1099511627776, an exact answer, not 1.10 x 10^12 (review)."""
+    if number.places == 0 and not number.unit and match.group("braced", "bare") == (None, None):
+        return str(abs(int(number.value)))
+    return number_latex(abs(number.value), precision)
 
 
 def _figures(text: str) -> int:

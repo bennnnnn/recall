@@ -35,6 +35,13 @@ def test_a_card_in_another_unit_than_its_working_keeps_its_own_value() -> None:
         ("0.2727\\,\\mathrm{A}", "0.273\\,\\mathrm{A}"),  # never more than 0.5% off
         ("K_{p} = 1.2 \\times 10^{-4}", "K_{p} = 1.2 \\times 10^{-4}"),  # no figure added
         ("2400\\,\\mathrm{m^{2}}", "2400\\,\\mathrm{m^{2}}"),  # a unit's power is no number
+        # A negative power in a unit is no number either (review).
+        ("a = 9.8123\\,\\mathrm{m\\,s^{-2}}", "a = 9.81\\,\\mathrm{m\\,s^{-2}}"),
+        ("c = 0.12345\\,\\mathrm{mol\\,L^-1}", "c = 0.123\\,\\mathrm{mol\\,L^-1}"),
+        # An exact whole number stays whole at any size (review): 2^40, 20!.
+        ("x = 1099511627776", "x = 1099511627776"),
+        ("2432902008176640000", "2432902008176640000"),
+        ("E = 6000000000\\,\\mathrm{J}", "E = 6.00 \\times 10^{9}\\,\\mathrm{J}"),
     ],
 )
 def test_each_number_on_a_card_follows_the_rule(value: str, shown: str) -> None:
@@ -71,3 +78,13 @@ def test_a_greek_name_is_read_and_its_number_follows_the_rule() -> None:
     assert card_numbers(
         _card("\\lambda = 5.876 \\times 10^{-7}\\,\\mathrm{m}"), Precision()
     ) == _card("\\lambda = 5.88 \\times 10^{-7}\\,\\mathrm{m}")
+
+
+def test_a_card_the_model_left_open_follows_the_rule_once_closed() -> None:
+    """Review: an open card shipped "13.333333 m/s" where a closed one was 13.33. The pass
+    runs after ``close_fences`` (the pass order test), so the closed card is the one read."""
+    from app.services.md_fence_scan import close_unclosed_fences
+
+    reply = "$v = 160 / 12$\n\n```answer\nv = 13.333333\\,\\mathrm{m/s}"
+    shown = card_numbers(close_unclosed_fences(reply), Precision())
+    assert "v = 13.33\\,\\mathrm{m/s}" in shown and "13.333333" not in shown

@@ -3,7 +3,8 @@
 Each ```answer card the reply ends a part on is read as a quantity (its number and unit,
 in any unit of its kind: 0.01 m² and 100 cm² are one area, 50 Ω is a resistance) and paired
 with the server's value for the part it answers: by the part's letter when both have one,
-otherwise in order within each kind. A card stands when the server's value, in the card's
+otherwise within each kind: the one card of a kind, or each card by the name it gives its
+value. Cards of one kind with no names are never paired by order, so never corrected. A card stands when the server's value, in the card's
 unit and size, is within the card's rounding of it, anywhere in the range the standard
 constants allow (g as 9.8 or 10: the book's g is an assumption, not an error), and when
 the reply never wrote one of the question's numbers the server's value is worked from, it
@@ -218,6 +219,19 @@ def _in_unit_if_pure(quantity: Any, unit: str) -> list[float]:
         return []
 
 
+def _on_a_scale(value: FormalValue, card: ReplyCard) -> bool:
+    """A temperature on a scale (°C, °F) whose sign is its value, not a direction: -10 °C
+    is no +10 °C, where a velocity's sign is the reply's own convention (review)."""
+    from app.services.formal.maths import as_quantity
+
+    try:
+        units = [value.unit, *([card.unit] if card.unit else [])]
+        return any(not as_quantity(1.0, unit)._is_multiplicative for unit in units)
+    except Exception as exc:  # pint: a unit it cannot read is no temperature scale
+        logger.info("formal answer: a unit not read (%s)", type(exc).__name__)
+        return False
+
+
 def agrees(card: ReplyCard, value: FormalValue, asked: Precision = RULE) -> bool | None:
     """The card states the server's value, within its rounding and the constants' range;
     None when the two cannot be compared (kinds that do not convert)."""
@@ -227,10 +241,11 @@ def agrees(card: ReplyCard, value: FormalValue, asked: Precision = RULE) -> bool
         logger.info("formal answer: kinds that do not convert (%s)", type(exc).__name__)
         return None
     rounding = max(_rounding(card), _asked_slack(card, asked))
-    shown = abs(card.value)
+    signed = _on_a_scale(value, card)
+    shown = card.value if signed else abs(card.value)
     for low, high in zip(*ends, strict=True):
-        lowest, highest = sorted((abs(low), abs(high)))
-        slack = max(rounding, _ROUNDING * max(highest, shown))
+        lowest, highest = sorted((low, high) if signed else (abs(low), abs(high)))
+        slack = max(rounding, _ROUNDING * max(abs(lowest), abs(highest), abs(shown)))
         if lowest - slack <= shown <= highest + slack:
             return True
     return False
@@ -240,8 +255,8 @@ def _pairs(
     cards: list[ReplyCard], values: Sequence[FormalValue]
 ) -> list[tuple[ReplyCard, FormalValue]]:
     """Each server value with the card that answers its part: by letter when both name
-    parts and every lettered pair is of one kind, else in order among the cards and values
-    of one kind, when they are as many. A reply that letters its parts its own way (a part
+    parts and every lettered pair is of one kind, else among the cards and values of one
+    kind, when they are as many: one with one, several by the cards' own names. A reply that letters its parts its own way (a part
     asked in words left out, so (b) is the resistance the setup calls (c)) pairs by kind."""
     lettered = _by_letter(cards, values)
     if lettered is not None:

@@ -434,3 +434,26 @@ def test_a_broken_check_is_said_only_of_a_setup_whose_answers_agree(
     ]  # fmt: skip
     answer = formal_read.answer_of({"solved": True, "answers": answers, "conflicts": [conflict]})
     assert bool(answer and answer.conflicts) is said
+
+
+@pytest.mark.parametrize(
+    ("card", "stands"),
+    [
+        ("T = -10\\,^\\circ\\mathrm{C}", True),
+        ("T = 263.15\\,\\mathrm{K}", True),
+        ("T = 10\\,^\\circ\\mathrm{C}", False),  # 283.15 K: another temperature
+    ],
+)
+def test_a_temperature_on_a_scale_is_held_to_its_sign(card: str, stands: bool) -> None:
+    """Review: a velocity's sign is the reply's convention, a temperature's is its value."""
+    from app.modules.chat.formal_cards import agrees, reply_cards
+
+    (read,) = reply_cards(_card(card))
+    assert agrees(read, _value(-10.0, "degC")) is stands
+
+
+def test_a_velocity_s_sign_stays_the_reply_s_convention() -> None:
+    from app.modules.chat.formal_cards import agrees, reply_cards
+
+    (read,) = reply_cards(_card("v = 12\\,\\mathrm{m/s}"))
+    assert agrees(read, _value(-12.0, "m/s")) is True
