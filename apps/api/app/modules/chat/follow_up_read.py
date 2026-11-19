@@ -167,7 +167,22 @@ def followed_for_questions(ctx: StreamContext) -> Followed | None:
     nothing when the turn's read says the line stands alone; None with neither read, and the
     questions are chosen as before (``follow_up_thread``)."""
     follow = kept_for_turn(_KEPT)
-    problem = follow.problem if isinstance(follow, FollowUp) else None
+    if not isinstance(follow, FollowUp):
+        follow = _read_by_now(ctx.user_message_content or "")
+    problem = follow.problem if follow is not None else None
     if problem is None and not _stands_alone(ctx):
         return None
     return Followed(problem)
+
+
+def _read_by_now(line: str) -> FollowUp | None:
+    """The begun read's answer when it is in by now, for a turn that never noted it: an
+    instant reply ("and b?" answered by the solver) asks for no note, and its follow-up
+    questions still follow the problem the read named (review)."""
+    begun = posed_started(line)
+    if begun is None:
+        return None
+    exchanges, task = begun
+    if not task.done() or task.cancelled() or task.exception() is not None:
+        return None
+    return follow_up_from(task.result(), exchanges)

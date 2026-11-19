@@ -650,3 +650,29 @@ def test_a_today_seat_is_one_chats_nearest_line_and_none_already_shown():
         line("other", "other"),
     ]
     assert [row.id for row in one_per_chat(today, shown, 2)] == ["g8_a", "other"]
+
+
+@pytest.mark.asyncio
+async def test_the_prompt_dates_snippets_in_the_turn_s_zone_for_its_own_chat() -> None:
+    """Review: the snippets were dated in the profile's zone, not the phone's the turn's
+    clock reads, and a new chat (no rows yet) passed no chat at all."""
+    from app.models.orm import User
+    from app.modules.chat.prompt_builder import _history_rag_block
+    from app.modules.chat.prompt_window import PromptWindow
+
+    chat_id = uuid4()
+    retrieve = AsyncMock(return_value="")
+    with patch("app.modules.conversation.history_rag.retrieve_for_prompt", retrieve):
+        await _history_rag_block(
+            Settings(_env_file=None),  # type: ignore[call-arg]
+            User(id=uuid4(), timezone="UTC"),
+            "what did we do earlier today?",
+            vector=[0.0],
+            window=PromptWindow(recent=[], gap=[], exchange=[]),
+            omit_message_ids=None,
+            chat_id=chat_id,
+            local_tz="America/New_York",
+        )
+    assert retrieve.await_args is not None
+    assert retrieve.await_args.kwargs["timezone"] == "America/New_York"
+    assert retrieve.await_args.kwargs["chat_id"] == chat_id

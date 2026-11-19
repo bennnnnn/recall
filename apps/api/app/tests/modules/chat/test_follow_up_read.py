@@ -223,6 +223,18 @@ async def test_the_questions_follow_the_named_problem_or_none_for_a_line_alone()
     assert followed_for_questions(_turn("why?", _read("explain"))) == Followed(_WATER)
 
 
+@pytest.mark.asyncio
+async def test_an_instant_reply_s_questions_follow_the_read_it_never_noted() -> None:
+    """Review: an instant reply asks for no follow-up note, so the read begun as the turn
+    loaded was never kept, and the questions under it fell back to the word rules."""
+    readings.begin_turn()
+    model = AsyncMock(return_value=PosedPick(kind="explain", message=4))
+    with patch.object(posed_read, "pick_posed", model):
+        start_posed_read(isolated_settings(), "why?", _rows(_CHAT))
+        await asyncio.sleep(0)
+    assert followed_for_questions(_turn("why?", _read("explain"))) == Followed(_WATER)
+
+
 _COINS = (
     "When 10 similar coins are dropped into a graduated cylinder the level of the water rose "
     "from 75 mL to 100 mL. What is the average volume of each coin?"

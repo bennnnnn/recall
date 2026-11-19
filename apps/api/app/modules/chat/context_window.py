@@ -40,9 +40,9 @@ SUMMARY_SYSTEM_PROMPT = (
     "topic lines are kept as they are, so do not repeat them\n"
     "Open: questions the user left unanswered or next steps they asked for; write None when "
     "there are none, and " + NO_INVENTED_PLAN + "\n\n"
-    "A picture (a graph, chart, figure, diagram, molecule or photo) was shown only where a "
-    "message says [shown: …]; a reply's own words that it drew, plotted or attached one are "
-    "not that, so never record a picture as given without the mark.\n\n"
+    "A picture (a graph, chart, figure, diagram, flowchart, molecule or photo) was shown only "
+    "where a message says [shown: …]; a reply's own words that it drew, plotted or attached one "
+    "are not that, so never record a picture as given without the mark.\n\n"
     "Keep it under 200 words and finish every section. "
     + NEWEST_FIGURE_RULE
     + "Keep durable facts and decisions; drop greetings and filler. Preserve uncertainty: "

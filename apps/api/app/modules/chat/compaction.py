@@ -2,7 +2,6 @@
 
 import logging
 from dataclasses import dataclass
-from functools import partial
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,7 +20,7 @@ from app.modules.chat.context_window import (
 from app.modules.chat.prompt_window import strip_prompt_owned_fences
 from app.modules.chat.summarize import summarize_conversation
 from app.modules.conversation import history as conversation_history
-from app.services.md_fence_scan import map_closed_fences
+from app.services.md_fence_scan import iter_fences
 
 logger = logging.getLogger(__name__)
 
@@ -38,14 +37,21 @@ _SHOWN = {
     "vega": "chart",
     "vega-lite": "chart",
     "plot": "chart",
-    "mermaid": "diagram",
+    "mermaid": "flowchart",
     "chem_scene": "diagram",
     "smiles": "molecule",
     "chemistry": "molecule",
     "molecule": "molecule",
     "molecule3d": "molecule",
+    "mol3d": "molecule",
+    "3dmol": "molecule",
     "photo": "photo",
 }
+# A 3D view the phone folds into the molecule card just above it: one molecule shown, not two.
+_VIEW_OF_THE_CARD_ABOVE = (
+    frozenset({"molecule3d", "mol3d", "3dmol"}),
+    frozenset({"smiles", "chemistry"}),
+)
 
 
 def summary_text(reply: str) -> str:
@@ -55,14 +61,28 @@ def summary_text(reply: str) -> str:
     figures as facts). A summary of a 53-turn chat recorded "graphs provided" and "diagram
     drawn" where the reply only said so and nothing was drawn (2026-11-18): only a marked
     picture was shown (``SUMMARY_SYSTEM_PROMPT``)."""
-    marked = reply
-    for lang, shown in _SHOWN.items():
-        marked = map_closed_fences(marked, lang, partial(_shown_mark, shown))
-    return strip_prompt_owned_fences(marked)
+    return strip_prompt_owned_fences(_marked(reply))
 
 
-def _shown_mark(shown: str, _body: str) -> str:
-    return f"[shown: a {shown}]"
+def _marked(reply: str) -> str:
+    """Each closed picture fence as its mark; a 3D view folded into the card above, none."""
+    views, cards = _VIEW_OF_THE_CARD_ABOVE
+    pieces: list[str] = []
+    at, previous = 0, None
+    for fence in iter_fences(reply):
+        if not fence.closed or fence.lang not in _SHOWN:
+            previous = None
+            continue
+        folded = (
+            fence.lang in views
+            and previous is not None
+            and previous.lang in cards
+            and not reply[previous.end : fence.start].strip()
+        )
+        mark = "" if folded else f"[shown: a {_SHOWN[fence.lang]}]"
+        pieces += [reply[at : fence.start], mark]
+        at, previous = fence.end, fence
+    return "".join([*pieces, reply[at:]])
 
 
 @dataclass(frozen=True, slots=True)

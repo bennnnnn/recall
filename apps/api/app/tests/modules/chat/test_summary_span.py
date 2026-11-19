@@ -37,3 +37,13 @@ def test_a_picture_is_shown_only_where_its_fence_was_saved() -> None:
 def test_the_prompts_own_fences_still_leave_the_summary() -> None:
     reply = "Done.\n\n```sources\n[1] example.com\n```"
     assert "example.com" not in summary_text(reply)
+
+
+def test_a_molecule_card_with_its_3d_view_is_one_molecule_shown() -> None:
+    """Review: the phone folds a 3D view into the 2D card just above it; marked apart, the
+    summary counted two structures where one was shown."""
+    paired = "Ethanol:\n\n```smiles\nCCO\n```\n```molecule3d\n{}\n```\n\nDone."
+    assert summary_text(paired).count("[shown: a molecule]") == 1
+    two = "```smiles\nCCO\n```\n\nand\n\n```smiles\nCO\n```"
+    assert summary_text(two).count("[shown: a molecule]") == 2
+    assert summary_text("```mermaid\nflowchart LR\n  A --> B\n```") == "[shown: a flowchart]"

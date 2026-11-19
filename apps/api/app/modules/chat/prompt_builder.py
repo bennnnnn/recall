@@ -276,20 +276,23 @@ async def _history_rag_block(
     vector: list[float] | None,
     window: PromptWindow,
     omit_message_ids: set[UUID] | None,
+    chat_id: UUID,
+    local_tz: str,
 ) -> str:
     # The context gather already attempted the history embed. None means no
     # chunks or a failed/timed-out embed; do not repeat that work serially.
     if vector is None:
         return ""
-    # Each snippet is dated in the user's time zone (``history_rag.snippet_date``).
+    # Each snippet is dated in the zone the turn's clock reads (the phone's, else the
+    # profile's: ``history_rag.snippet_date``), and the asking chat is the turn's own.
     return await chat_history_rag_service.retrieve_for_prompt(
         settings,
         user_id=user.id,
         query=query_text or "",
         exclude_message_ids=window.message_ids | (omit_message_ids or set()),
         query_vec=vector,
-        timezone=time_context_service.effective_timezone(user.timezone),
-        chat_id=next((row.chat_id for row in window.recent if hasattr(row, "chat_id")), None),
+        timezone=local_tz,
+        chat_id=chat_id,
     )
 
 
@@ -425,6 +428,7 @@ async def build_prompt_messages(
         prior_count=prior_count if recent_messages is not None else None,
     )
     followup = await _read_prompt_inputs(settings, query_text, window, turn_plan)
+    local_tz = time_context_service.effective_timezone(user.timezone, client_timezone)
     chat_history_rag_block = await _history_rag_block(
         settings,
         user,
@@ -432,12 +436,14 @@ async def build_prompt_messages(
         vector=blocks.history_rag_query_vec if plan.history_rag else None,
         window=window,
         omit_message_ids=omit_message_ids,
+        chat_id=chat_id,
+        local_tz=local_tz,
     )
     turn = PromptTurn(
         user=user,
         settings=settings,
         query_text=query_text,
-        local_tz=time_context_service.effective_timezone(user.timezone, client_timezone),
+        local_tz=local_tz,
         lightweight=lightweight,
         slim=plan.slim,
         recall_memory=plan.load_memory or plan.recalls_shared_past,
