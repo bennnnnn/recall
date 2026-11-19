@@ -25,7 +25,8 @@ _IDEAL = ("friction is neglected",)
 
 
 def _load() -> VariableSpec:
-    return var("load", "W", "newton", words=_LOAD, needs_words=True)
+    # The load is the machine's output force, as ``machines`` names it.
+    return var("F_out", "W", "newton", words=_LOAD, needs_words=True)
 
 
 def _efficiency() -> VariableSpec:
@@ -43,7 +44,7 @@ def _effort(
 ) -> FormulaSpec:
     """The effort ``F = W / (eta x VR)`` of one machine, ``VR`` its geometry's ratio; with
     no efficiency stated, the ideal machine's ``F = W / VR``."""
-    names = frozenset({"load", *(variable.name for variable in geometry)})
+    names = frozenset({"F_out", *(variable.name for variable in geometry)})
     return formula(
         op,
         "energy",
@@ -51,13 +52,13 @@ def _effort(
         "F",
         base_latex=rf"F = \frac{{W}}{{{advantage_latex}}}",
         assumptions=_IDEAL,
-        expression=f"load/({advantage})",
+        expression=f"F_out/({advantage})",
         variants=(
             FormulaVariant(
                 latex=rf"F = \frac{{W}}{{\eta \, {advantage_latex}}}",
                 assumptions=(),
                 present=frozenset({"efficiency"}),
-                expression=f"load/(efficiency*({advantage}))",
+                expression=f"F_out/(efficiency*({advantage}))",
             ),
         ),
         variables=(_load(), *geometry, _efficiency()),

@@ -81,12 +81,15 @@ class MoneyPeer:
         routing leaves it to the money card, never a subject's lane."""
         return _reads_money(text)
 
-    def yields_to(self, subject: str | None) -> bool:
-        """A line a science reads as its own problem is never a money request, whatever
-        "car", "rate" or "40%" it holds: a screw jack lifting "a car weighing 9000 N" at
-        "40%" efficiency got a car-loan card and a rate note (2026-11-18). Maths keeps its
-        money lines: a card payoff reads as maths and is still the money card's."""
-        return subject in _SCIENCES
+    def yields_to(self, text: str, subject: str | None) -> bool:
+        """``text``, read as ``subject``'s problem, is a science's and never a money request,
+        unless it names money outright (a currency, a loan, an APR): a screw jack lifting "a
+        car weighing 9000 N" at "40%" efficiency got a car-loan card and a rate note
+        (2026-11-18), while "$3,000 at 18% APR ... how long until it is paid off?", which
+        physics reads too, is the card's. Maths keeps its money lines."""
+        from app.modules.money.sums import NAMES_MONEY
+
+        return subject in _SCIENCES and NAMES_MONEY.search(text) is None
 
     def names_currency(self, unit: str) -> bool:
         """``unit`` is money: a currency sign ($, €, ₹) or word (dollars, USD, cents). A
@@ -110,15 +113,10 @@ MONEY_PEER = MoneyPeer()
 @lru_cache(maxsize=128)
 def _reads_money(text: str) -> bool:
     """Whether ``text`` is a money request: a reading, so routing's ask of it is answered
-    in the turn's pool read, never on the event loop (Gemini on #2489). A science's
-    problem is none (``yields_to``), by the subject order's own read of it."""
+    in the turn's pool read, never on the event loop (Gemini on #2489)."""
     from app.modules.money.read import read_money_request
-    from app.services.subjects.order import read_subject_reason
 
-    if read_money_request(text) is None:
-        return False
-    read = read_subject_reason(text, False, True)
-    return not MONEY_PEER.yields_to(None if read is None else read.subject)
+    return read_money_request(text) is not None
 
 
 def _names_currency(unit: str) -> bool:
