@@ -43,10 +43,13 @@ export function ReplyStoppedNote({ message, latest = false, after = null }: Prop
   const continueReply = () => {
     if (!actions || actions.busy) return;
     setSent(true);
-    // Refused before it went out (offline): the button stays to send again.
-    void actions.send(t("chat.continue_reply")).then((went) => {
-      if (!went) setSent(false);
-    });
+    // Refused before it went out (offline), or failed: the button stays to send again.
+    void actions
+      .send(t("chat.continue_reply"))
+      .then((went) => {
+        if (!went) setSent(false);
+      })
+      .catch(() => setSent(false));
   };
 
   return (

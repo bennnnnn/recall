@@ -243,7 +243,9 @@ export function mergeDoneIntoMessages(
             search_sources: m.search_sources ?? parseSearchSources(kept),
             model: model ?? m.model,
             generationStopped: m.generationStopped || generationStopped,
-            ...endingOf(input),
+            // The user stopped this bubble, and it keeps what they saw: never "cut off",
+            // even when the server reached its length limit before the stop arrived.
+            completion: "user_stop" as const,
           }
         : m,
     );

@@ -468,8 +468,11 @@ describe("MessageBubble footer under a cut-short reply", () => {
     expect(view.queryByTestId("reply-continue")).toBeNull();
   });
 
-  it("keeps Continue when the send was refused (offline)", async () => {
-    const send = jest.fn(async () => false);
+  it.each([
+    ["refused (offline)", async () => false],
+    ["failed", async (): Promise<boolean> => Promise.reject(new Error("socket"))],
+  ])("keeps Continue when the send was %s", async (_label, refuse) => {
+    const send = jest.fn(refuse);
     const view = await render(inChat(<MessageBubble message={cutOff} isLastAssistant />, send));
     await act(async () => {
       fireEvent.press(view.getByTestId("reply-continue"));

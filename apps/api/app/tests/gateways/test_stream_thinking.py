@@ -223,6 +223,28 @@ async def test_silence_while_thinking_gives_way_before_the_idle_timeout() -> Non
     assert _reasoning(provider.calls[1]) == {"max_tokens": _BUDGET}
 
 
+class _SlowFirstChunk(_Stream):
+    """A provider that takes a while to send anything at all (reading a photo)."""
+
+    async def __anext__(self) -> MagicMock:
+        if not getattr(self, "_waited", False):
+            self._waited = True
+            await asyncio.sleep(0.4)
+        return await super().__anext__()
+
+
+@pytest.mark.wall_clock
+@pytest.mark.asyncio
+async def test_a_slow_first_chunk_keeps_the_usual_idle_wait() -> None:
+    """Review: the short silence is for thinking under way; before any chunk (a photo read,
+    a slow lane) the wait stays the usual one, and the model keeps the turn."""
+    provider = _Provider(_SlowFirstChunk(thoughts=1, answer="It is a cat."))
+    settings = _settings(chat_stream_thought_idle_seconds=0.2, chat_stream_timeout_seconds=30)
+    attempts: list[StreamAttempt] = []
+    text = await _reply(settings, provider, "smart-chat", ["qwen-3.8-flash"], attempts=attempts)
+    assert text == "It is a cat." and len(provider.calls) == 1
+
+
 @pytest.mark.asyncio
 async def test_the_last_model_is_tried_once_more_without_thinking() -> None:
     provider = _Provider(_Stream(thoughts=2, answer=None), _Stream(thoughts=0, answer="Answer"))

@@ -27,6 +27,8 @@ logger = logging.getLogger(__name__)
 # DeepSeek streamed 2.6 characters a token, GLM 3.7 and Qwen 2.2 (probes, 2026-11-18). The
 # high end, so a model is cut no sooner than its budget (DeepSeek near 6k tokens).
 _REASONING_CHARS_PER_TOKEN = 4
+# The same text as tokens the provider billed: the low end, so spend never lags the bill.
+_BILLED_CHARS_PER_TOKEN = 2
 # A wait cut to the ceiling may wake a hair before it: still the ceiling, not an idle stall.
 _CEILING_SLACK_SECONDS = 0.05
 
@@ -147,7 +149,7 @@ class StreamClock:
         """An attempt cut off before the provider reported its usage: its reasoning, as
         tokens, is what the provider billed for its output (``llm_spend``)."""
         if usage is not None and "output" not in usage and self.reasoning_chars:
-            usage["output"] = -(-self.reasoning_chars // _REASONING_CHARS_PER_TOKEN)
+            usage["output"] = -(-self.reasoning_chars // _BILLED_CHARS_PER_TOKEN)
 
     def _answer_left(self) -> float | None:
         if self._answer_by is None or self._watch.shown_text:
@@ -169,8 +171,11 @@ class StreamClock:
 
     def _idle(self) -> float:
         """The silence allowed before the next chunk: shorter while it thinks unanswered
-        and another model can take over (``chat_stream_thought_idle_seconds``)."""
-        if self._stall is not None and not self._watch.shown_text:
+        and another model can take over (``chat_stream_thought_idle_seconds``). Only once
+        it is seen thinking: the wait for a first chunk (a photo read, a slow lane) keeps
+        the first-reply cap and the usual idle wait (review)."""
+        thinking = self._watch.shown_thinking and not self._watch.shown_text
+        if self._stall is not None and thinking:
             return min(self.idle, self._stall)
         return self.idle
 

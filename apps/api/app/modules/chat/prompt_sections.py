@@ -30,6 +30,7 @@ from app.modules.chat.json_output import JSON_OUTPUT_HINT, is_json_request
 from app.modules.chat.lesson_layout import lesson_contract, steps_contract
 from app.modules.chat.lesson_progress import resumes_course
 from app.modules.chat.message_notes import message_notes
+from app.modules.chat.model_routing.thinking import follows_a_cut_off_reply
 from app.modules.chat.prompt_constants import (
     ADVICE_PERSONALIZE_HINT,
     ASSISTANT_NAME_RULE,
@@ -270,13 +271,9 @@ def _resumes(turn: PromptTurn) -> bool:
 
 
 def _after_cut_off(turn: PromptTurn) -> bool:
-    """The reply just before this message ran out of room (``stream_accum`` "interrupted")."""
-    last = turn.exchange[-1] if turn.exchange else None
-    return (
-        last is not None
-        and last.role == "assistant"
-        and getattr(last, "completion", None) == "interrupted"
-    )
+    """The reply just before this message ran out of room (``stream_accum`` "interrupted"):
+    the one rule thinking reads too (``follows_a_cut_off_reply``)."""
+    return follows_a_cut_off_reply(turn.exchange)
 
 
 def _many_parts(turn: PromptTurn) -> list[str]:

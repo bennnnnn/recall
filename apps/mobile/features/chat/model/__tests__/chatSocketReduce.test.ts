@@ -308,6 +308,25 @@ describe("chatSocketReduce", () => {
     expect(next[0].completion).toBe("interrupted");
   });
 
+  it("keeps a bubble the user stopped as stopped when the server cut it off first", () => {
+    // Review: Stop crossed the server's length limit; the bubble keeps what the user saw,
+    // and is not "cut off" with a Continue under it.
+    const stopped: Message = {
+      id: "streamed-100", role: "assistant", content: "Part", model: null, created_at: "t",
+      generationStopped: true,
+    };
+    const input = {
+      ...buildDoneMergeInput(
+        { type: "done", message_id: "msg-1", completion: "interrupted" },
+        { content: "Part" },
+      ),
+      stoppedStreamedId: "streamed-100",
+    };
+    const next = mergeDoneIntoMessages([stopped], input);
+    expect(next[0].content).toBe("Part");
+    expect(next[0].completion).toBe("user_stop");
+  });
+
   it("does not mark a complete done as generationStopped", () => {
     const input = buildDoneMergeInput(
       { type: "done", message_id: "abc" },
