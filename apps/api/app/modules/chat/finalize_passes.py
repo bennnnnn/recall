@@ -33,6 +33,7 @@ from dataclasses import dataclass, field
 from redis.asyncio import Redis
 
 from app.core.config import Settings
+from app.modules.chat.card_numbers import format_card_numbers
 from app.modules.chat.chart_turn import attach_chart
 from app.modules.chat.claim_check import cut_unsupported_claims
 from app.modules.chat.control_tokens import drop_control_tokens, strip_control_tokens
@@ -318,6 +319,13 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         OnError(log_as="formal_answer"),
         kind=EFFECT,
         after=frozenset({"working_check", "worked_lead", "data_chart"}),
+    ),
+    # Every card written, whoever wrote it: its numbers by the one rule (answer_number).
+    FinalizePass(
+        "card_numbers",
+        format_card_numbers,
+        kind=TEXT,
+        after=frozenset({"formal_answer", "server_answer_cards", "working_check"}),
     ),
     # Before the source chips: it reads the reply's prose, and a failure keeps it whole.
     FinalizePass(

@@ -445,8 +445,15 @@ def test_each_part_is_answered_and_the_values_a_question_breaks_are_named() -> N
             "left": "2400\\ \\mathrm{N\\cdot m}",
             "broken": "\\neq",
             "right": "240\\ \\mathrm{N\\cdot m}",
+            "relation": "tc = ta",
         },
-        {"meaning": "MA is never more than VR", "left": "15", "broken": ">", "right": "1.5"},
+        {
+            "meaning": "MA is never more than VR",
+            "left": "15",
+            "broken": ">",
+            "right": "1.50",
+            "relation": "MA \\le VR",
+        },
     ]
 
 

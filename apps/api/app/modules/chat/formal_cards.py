@@ -29,8 +29,10 @@ from app.services.part_answer_cards import PART_ANSWER_HEADING
 
 logger = logging.getLogger(__name__)
 
-# Rounding a model may do: a card to 3 significant figures sits within 1% of the value.
-_ROUNDING = 0.01
+# Beyond the card's own rounding (half its last digit), what a working that rounded along
+# the way drifts by: 0.273 A carried into R = 220/0.273 is 805.9 Ω for 806.7. A value
+# rounded too soon (R = 220/0.27 = 814.8 Ω, live G8 t42) is 1% off and no rounding of it.
+_ROUNDING = 0.005
 # "**(b) Current through the lamp**": a part's own heading above its working.
 _PART_HEADING = re.compile(r"^\s*(?:#{1,4}\s+)?\*\*\((?P<letter>[a-h])\)", re.MULTILINE)
 # A number the working writes: "1,200", "0.32", "2.4 \times 10^{3}".
@@ -38,7 +40,7 @@ _POWER = re.compile(
     r"(\d(?:[\d.]*\d)?)\s*(?:\\times|\\cdot|\u00d7|\*)\s*10\s*\^\s*\{?\s*([-+]?\d+)\s*\}?"
 )
 _NUMBER = re.compile(r"(?<![\w.])\d+(?:[.,]\d+)*(?:e[-+]?\d+)?")
-_TIGHT_SPACE = re.compile(r"(?<=\d)(?:\\,|\\ |\{,\}|\s)(?=\d{3}(?!\d))")
+_TIGHT_SPACE = re.compile(r"(?<=\d)(?:\\,|\\ |\{,\}| )(?=\d{3}(?!\d))")
 
 
 @dataclass(frozen=True)
@@ -124,12 +126,14 @@ def written_numbers(text: str) -> list[float]:
     for fence in reversed(list(iter_fences(text))):
         if fence.lang in ANSWER_FENCE_LANGS:
             outside = outside[: fence.start] + "\n" + outside[fence.end :]
-    outside = _TIGHT_SPACE.sub("", outside)
-    numbers = [float(m.group(1)) * 10.0 ** int(m.group(2)) for m in _POWER.finditer(outside)]
-    for match in _NUMBER.finditer(_POWER.sub(" ", outside)):
-        number = parse_number(match.group())
-        if number is not None:
-            numbers.append(number)
+    numbers: list[float] = []
+    # "20\,000" is one number, and "40 120" two: each spelling is read, the union kept.
+    for spelling in {outside, _TIGHT_SPACE.sub("", outside)}:
+        numbers += [float(m.group(1)) * 10.0 ** int(m.group(2)) for m in _POWER.finditer(spelling)]
+        for match in _NUMBER.finditer(_POWER.sub(" ", spelling)):
+            number = parse_number(match.group())
+            if number is not None:
+                numbers.append(number)
     return numbers
 
 
@@ -211,16 +215,12 @@ def _pairs(
     cards: list[ReplyCard], values: Sequence[FormalValue]
 ) -> list[tuple[ReplyCard, FormalValue]]:
     """Each server value with the card that answers its part: by letter when both name
-    parts, else in order among the cards and values of one kind, when they are as many."""
-    if all(value.part for value in values) and any(card.letter for card in cards):
-        by_letter: dict[str, list[ReplyCard]] = {}
-        for card in cards:
-            by_letter.setdefault(card.letter, []).append(card)
-        return [
-            (by_letter[value.part][0], value)
-            for value in values
-            if len(by_letter.get(value.part, [])) == 1
-        ]
+    parts and every lettered pair is of one kind, else in order among the cards and values
+    of one kind, when they are as many. A reply that letters its parts its own way (a part
+    asked in words left out, so (b) is the resistance the setup calls (c)) pairs by kind."""
+    lettered = _by_letter(cards, values)
+    if lettered is not None:
+        return lettered
     pairs: list[tuple[ReplyCard, FormalValue]] = []
     kinds = {str(_kind(value.unit)) for value in values}
     for kind in kinds:
@@ -230,6 +230,24 @@ def _pairs(
             of_kind = cards  # the card left its unit off
         if len(of_kind) == len(own):
             pairs += list(zip(of_kind, own, strict=True))
+    return pairs
+
+
+def _by_letter(
+    cards: list[ReplyCard], values: Sequence[FormalValue]
+) -> list[tuple[ReplyCard, FormalValue]] | None:
+    if not (all(value.part for value in values) and any(card.letter for card in cards)):
+        return None
+    by_letter: dict[str, list[ReplyCard]] = {}
+    for card in cards:
+        by_letter.setdefault(card.letter, []).append(card)
+    pairs = [
+        (by_letter[value.part][0], value)
+        for value in values
+        if len(by_letter.get(value.part, [])) == 1
+    ]
+    if any(_kind(card.unit) != _kind(value.unit) for card, value in pairs if card.unit):
+        return None
     return pairs
 
 

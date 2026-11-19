@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-import math
 import re
 from dataclasses import dataclass
+
+from app.services.answer_number import number_latex
 
 
 @dataclass(frozen=True)
@@ -40,6 +41,9 @@ class StatedConflict:
     left: str
     broken: str
     right: str
+    # The relation itself in the setup's symbols, as maths ("MA \\le VR"), said when the
+    # setup gave it no words.
+    relation: str = ""
 
 
 @dataclass(frozen=True)
@@ -52,22 +56,7 @@ class FormalAnswer:
 
 
 def card_maths_of(value: float, unit: str) -> str:
-    return f"{_number_latex(value)}\\ {unit_latex(unit)}".rstrip("\\ ")
-
-
-def _number_latex(value: float) -> str:
-    """Four significant figures, written out ("12350", "0.001234"); a power of ten for very
-    large or small values. Never Python's exponent form ("5e+04"), which a card shows raw."""
-    rounded = float(f"{value:.4g}")
-    if rounded == 0:
-        return "0"
-    if 1e-3 <= abs(rounded) < 1e6:
-        decimals = max(0, 3 - math.floor(math.log10(abs(rounded))))
-        text = f"{rounded:.{decimals}f}"
-        return text.rstrip("0").rstrip(".") if "." in text else text
-    mantissa, exponent = f"{value:.3e}".split("e")
-    mantissa = mantissa.rstrip("0").rstrip(".")
-    return f"{mantissa}\\times 10^{{{int(exponent)}}}"
+    return f"{number_latex(value)}\\ {unit_latex(unit)}".rstrip("\\ ")
 
 
 # Unit spellings pint reads, as a card draws them.

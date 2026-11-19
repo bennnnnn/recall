@@ -105,6 +105,7 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "working_check",
         "worked_lead",
         "formal_answer",
+        "card_numbers",
         "claim_check",
         "text_plots",
         "solve_markers",

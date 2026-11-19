@@ -395,8 +395,7 @@ def _answer_line(answer: Answer, layout: WorkedLayout) -> str:
         return f"```answer\n{UNCHECKED_ANSWER_MARKER}\n{sentence}\n```"
     if _restates(answer.note, answer.value):
         answer = answer.model_copy(update={"note": ""})
-    if layout.law_heading:
-        answer = card_answer(answer, layout.asked)  # rounds once: 3 figures, or as asked
+    answer = card_answer(answer, layout.asked)  # rounds once, by the one rule or as asked
     tex = tidy_tex(answer.value)
     value = quantity_tex(tex, "" if in_symbols(tex) else answer.unit)
     # A symbol that only repeats the unit ("cm | 10000 | cm") or is a word names nothing.

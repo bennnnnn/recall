@@ -209,7 +209,7 @@ async def test_each_part_s_card_is_held_to_its_own_part(monkeypatch: pytest.Monk
         _ctx(live_read=_read()), _parts_reply("80\\,\\Omega", "2\\,\\mathrm{A}")
     )
     assert _card("80\\,\\Omega") in text
-    assert _card("1.5\\ \\mathrm{A}") in text and "2\\,\\mathrm{A}" not in text
+    assert _card("1.50\\ \\mathrm{A}") in text and "2\\,\\mathrm{A}" not in text
     assert text.count("Worked out again") == 1 and text.count("```answer") == 2
 
 
@@ -314,22 +314,22 @@ async def test_finalize_waits_no_longer_than_its_cap(monkeypatch: pytest.MonkeyP
     ("value", "unit", "shown"),
     [
         (31.07, "m", "31.07\\ \\mathrm{m}"),
-        (3.4722, "m/s^2", "3.472\\ \\mathrm{m/s^{2}}"),
+        (3.4722, "m/s^2", "3.47\\ \\mathrm{m/s^{2}}"),
         (6780.0, "N", "6780\\ \\mathrm{N}"),
         (45.0, "degC", "45\\ ^\\circ\\mathrm{C}"),
-        (2.998e8, "m/s", "2.998\\times 10^{8}\\ \\mathrm{m/s}"),
-        (0.5, "", "0.5"),
+        (2.998e8, "m/s", "299800000\\ \\mathrm{m/s}"),
+        (0.5, "", "0.50"),
         (12.0, "ohm", "12\\ \\Omega"),
         # A product of units is one \cdot, never a line break (review of #2465).
-        (2.5, "N*m", "2.5\\ \\mathrm{N\\cdot m}"),
+        (2.5, "N*m", "2.50\\ \\mathrm{N\\cdot m}"),
         (4180.0, "J/(kg*K)", "4180\\ \\mathrm{J/(kg\\cdot K)}"),
         (12000.0, "m", "12000\\ \\mathrm{m}"),
         (50000.0, "m", "50000\\ \\mathrm{m}"),
-        (12345.6, "J", "12350\\ \\mathrm{J}"),
-        (9999.9, "J", "10000\\ \\mathrm{J}"),
-        (0.0012346, "m", "0.001235\\ \\mathrm{m}"),
+        (12345.6, "J", "12345.60\\ \\mathrm{J}"),
+        (9999.9, "J", "9999.90\\ \\mathrm{J}"),
+        (0.0012346, "m", "0.00123\\ \\mathrm{m}"),
         (-4.0, "m/s^2", "-4\\ \\mathrm{m/s^{2}}"),
-        (5e10, "m", "5\\times 10^{10}\\ \\mathrm{m}"),
+        (5e10, "m", "5.00 \\times 10^{10}\\ \\mathrm{m}"),
         (90.0, "%", "90\\ \\%"),
     ],
 )
@@ -350,6 +350,33 @@ async def test_a_count_named_in_words_is_compared_as_a_number(
 async def test_a_conflict_with_no_words_of_its_own_is_still_said(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _answered(monkeypatch, _answer(conflicts=(StatedConflict("", "2400", "\\neq", "240"),)))
+    conflict = StatedConflict("", "15", ">", "1.50", relation="MA \\le VR")
+    _answered(monkeypatch, _answer(conflicts=(conflict,)))
     text = await _finalized(_ctx(live_read=_read()), "**Answer**")
-    assert text.startswith("These values can't all be right: here $2400 \\neq 240$.\n\n")
+    assert text.startswith(
+        "These values can't all be right: $MA \\le VR$ must hold, but here $15 > 1.50$.\n\n"
+    )
+
+
+async def test_parts_the_reply_letters_its_own_way_are_paired_by_kind(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Live G8 t42: the reply left out the part asked in words, so its (b) was the
+    setup's (c); paired by letter the resistance met the current, and no card was held.
+    By kind, R = 220/0.27 = 814.8 (rounded too soon) gets the server's 806.67."""
+    _answered(
+        monkeypatch,
+        _answer(
+            _value(0.2727, "A", "b", uses=(60.0, 220.0)),
+            _value(806.67, "ohm", "c", uses=(60.0, 220.0)),
+        ),
+    )
+    reply = (
+        "60 W at 220 V\n\n**(a) Current**\n\n$I = 60/220$\n\n**Answer (a)**\n\n"
+        + _card("0.273\\,\\mathrm{A}")
+        + "\n\n**(b) Resistance**\n\n$R = 220/0.27$\n\n**Answer (b)**\n\n"
+        + _card("814.8\\,\\Omega")
+    )
+    text = await _finalized(_ctx(live_read=_read()), reply)
+    assert _card("0.273\\,\\mathrm{A}") in text and "814.8" not in text
+    assert _card("806.67\\ \\Omega") in text

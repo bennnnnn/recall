@@ -72,17 +72,17 @@ _CONFLICTS = {
     "tr": "Bu değerlerin hepsi doğru olamaz: {meaning}, ama burada {sides}.",
     "am": "እነዚህ እሴቶች ሁሉም ትክክል ሊሆኑ አይችሉም፦ {meaning}፣ ግን እዚህ {sides}።",
 }
-# The same, for a relation the setup gave no words for.
+# The same, for a relation the setup gave no words for: the relation itself is said.
 _CONFLICTS_BARE = {
-    "en": "These values can't all be right: here {sides}.",
-    "es": "Estos valores no pueden ser todos correctos: aquí {sides}.",
-    "fr": "Ces valeurs ne peuvent pas être toutes justes : ici {sides}.",
-    "de": "Diese Werte können nicht alle stimmen: hier {sides}.",
-    "it": "Questi valori non possono essere tutti giusti: qui {sides}.",
-    "pt": "Esses valores não podem estar todos certos: aqui {sides}.",
-    "ru": "Эти значения не могут быть верны одновременно: здесь {sides}.",
-    "tr": "Bu değerlerin hepsi doğru olamaz: burada {sides}.",
-    "am": "እነዚህ እሴቶች ሁሉም ትክክል ሊሆኑ አይችሉም፦ እዚህ {sides}።",
+    "en": "These values can't all be right: {relation} must hold, but here {sides}.",
+    "es": "Estos valores no pueden ser todos correctos: debe cumplirse {relation}, pero aquí {sides}.",
+    "fr": "Ces valeurs ne peuvent pas être toutes justes : {relation} doit être vrai, mais ici {sides}.",
+    "de": "Diese Werte können nicht alle stimmen: {relation} muss gelten, aber hier {sides}.",
+    "it": "Questi valori non possono essere tutti giusti: deve valere {relation}, ma qui {sides}.",
+    "pt": "Esses valores não podem estar todos certos: {relation} deve valer, mas aqui {sides}.",
+    "ru": "Эти значения не могут быть верны одновременно: должно выполняться {relation}, но здесь {sides}.",
+    "tr": "Bu değerlerin hepsi doğru olamaz: {relation} olmalı, ama burada {sides}.",
+    "am": "እነዚህ እሴቶች ሁሉም ትክክል ሊሆኑ አይችሉም፦ {relation} መሆን አለበት፣ ግን እዚህ {sides}።",
 }
 
 
@@ -149,7 +149,8 @@ def stated_conflicts(text: str, conflicts: Sequence[StatedConflict], language: s
         sides = f"${conflict.left} {conflict.broken} {conflict.right}$"
         templates = _CONFLICTS if conflict.meaning else _CONFLICTS_BARE
         template = templates.get(language, templates["en"])
-        lines.append(template.format(meaning=conflict.meaning, sides=sides))
+        relation = f"${conflict.relation}$" if conflict.relation else ""
+        lines.append(template.format(meaning=conflict.meaning, relation=relation, sides=sides))
     return "\n\n".join([*lines, text]) if lines else text
 
 

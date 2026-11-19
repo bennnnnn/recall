@@ -104,10 +104,21 @@ def _broken(check: Check, setup: Setup, values: dict[Any, float]) -> StatedConfl
         return None
     return StatedConflict(
         meaning=_meaning(check.meaning),
+        relation=_relation_latex(sides, relation),
         left=_side(sides[0], left_text, left, setup),
         broken=_BROKEN[relation],
         right=_side(sides[1], right_text, right, setup),
     )
+
+
+_HOLDS = {"=": "=", "==": "=", "<=": "\\le", "<": "<", ">=": "\\ge", ">": ">"}
+
+
+def _relation_latex(sides: list[Any], relation: str) -> str:
+    import sympy
+
+    left, right = (sympy.latex(side) for side in sides)
+    return f"{left} {_HOLDS[relation]} {right}"
 
 
 def _breaks(left: float, right: float, relation: str) -> bool:
