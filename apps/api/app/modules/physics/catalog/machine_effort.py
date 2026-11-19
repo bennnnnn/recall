@@ -131,7 +131,7 @@ def _effort(
             cues=cues,
             nonnegative=True,
             # A real machine's efficiency is a share of one: "efficiency of 40" or "140%"
-            # draws nothing, and an effort too small for its load solves to no efficiency.
+            # draws nothing. An ideal machine states none, and has none to check.
             requires=("efficiency", "1.000001 - efficiency"),
         ),
     )
