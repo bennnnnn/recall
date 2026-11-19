@@ -18,11 +18,23 @@ describe("mermaid labels as the card draws them", () => {
     );
   });
 
-  it("leaves arrows, line breaks and plain symbols alone", () => {
-    const sequence = 'sequenceDiagram\n    A->>B: "x < y"\n    C<|--D\n    E["Brand™ © 2026<br/>a ≥ b"] --> F';
-    expect(mermaidDisplaySource(sequence)).toBe(
-      'sequenceDiagram\n    A->>B: "x ﹤ y"\n    C<|--D\n    E["Brand™ © 2026<br/>a ≥ b"] --> F',
-    );
+  it("leaves arrows, names, plain symbols and a one-line comparison alone", () => {
+    const sequence = 'sequenceDiagram\n    A->>B: "x < y"\n    C<|--D\n    E["Brand™ © 2026<br/>a ≥ b"] --> F["Is x < 5?"]';
+    expect(mermaidDisplaySource(sequence)).toBe(sequence);
+  });
+
+  it("keeps a label that is only emoji, and anything outside a label", () => {
+    const only = 'flowchart LR\n    A["✅"] -->|"✅"| B{"❓"}\n    C((🔥)) --> D[✅]';
+    expect(mermaidDisplaySource(only)).toBe(only);
+    const sequence = "sequenceDiagram\n    participant 👤\n    👤->>B: hi 🙂";
+    expect(mermaidDisplaySource(sequence)).toBe(sequence);
+  });
+
+  it("reads a label over several lines as one, so the arrow after it is untouched", () => {
+    const twoLines = 'flowchart LR\n    A["Step one\ncontinues 🔼"] --> B["Next<br/>a > b"]';
+    expect(mermaidDisplaySource(twoLines)).toBe('flowchart LR\n    A["Step one\ncontinues"] --> B["Next<br/>a ﹥ b"]');
+    const inch = 'sequenceDiagram\n    A->>B: a 12" pipe\n    B-->>A: ok';
+    expect(mermaidDisplaySource(inch)).toBe(inch);
   });
 
   it("drops emoji built from joiners, skin tones and keycaps", () => {

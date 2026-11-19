@@ -2,40 +2,47 @@
  * A diagram's labels as the card draws them (the user, 2026-11-18: "stop it showing random
  * stuff in this flow chart"). The model decorates labels with emoji (🖐️ Small piston,
  * 📦 Load), and a label with a line break draws its `>` and `<` as "&gt;" and "&lt;": Mermaid
- * escapes the label's text and SVG text shows the escape. So the card draws:
+ * escapes such a label's text and SVG text shows the escape (Mermaid's own entity codes fix
+ * it in a node label, not in an edge label, and never for `<`). So, in each quoted label
+ * (a quote right after `[`, `(`, `{` or `|`, up to its closing quote before the matching
+ * bracket, across lines too):
  *
  * - no emoji: a pictograph shown as an emoji (its own presentation, or asked for by U+FE0F),
- *   with the joiners and keycap marks that build one. Plain symbols such as © or ™ stay.
- * - the small-form signs ﹥ and ﹤ for a label's own > and <, which draw like them with no
- *   escape, in node and edge labels alike. Only text inside a label's double quotes is
- *   touched: arrows (-->, ->>, <|--) are syntax, and <br/> is a line break.
+ *   with the joiners, skin tones and keycap marks that build one. Plain symbols such as ©,
+ *   ™ or ≥ stay. A label that is nothing but emoji keeps them: an empty label is no diagram.
+ * - in a label with a line break, its own `>` and `<` as the small-form signs ﹥ and ﹤,
+ *   which draw like them with no escape.
  *
- * Display only: Copy keeps the diagram as the model wrote it.
+ * Nothing outside a label changes: arrows, names and identifiers are syntax. Display only:
+ * the source view and Copy keep the diagram as the model wrote it.
  */
 
 const EMOJI =
-  /(?:[0-9#*]\uFE0F?\u20E3|(?:\p{Emoji_Presentation}|\p{Extended_Pictographic}\uFE0F)(?:\uFE0F|\u200D(?:\p{Extended_Pictographic}\uFE0F?)?|\p{Emoji_Modifier})*)/gu;
-const QUOTED = /"[^"\n]*"/g;
-const LINE_BREAK = /<br\s*\/?>/gi;
+  /(?:[0-9#*]️?⃣|(?:\p{Emoji_Presentation}|\p{Extended_Pictographic}️)(?:️|‍(?:\p{Extended_Pictographic}️?)?|\p{Emoji_Modifier})*)/gu;
+/** A quoted label: its opening brackets, its text (any lines), and the bracket after it. */
+const LABEL = /([[({|]+)"([\s\S]*?)"(?=[\])}|])/g;
+const LINE_BREAK = /<br\s*\/?>/i;
 
-/** A label's line breaks, each kept as written, between the parts it splits. */
-function eachLine(label: string, edit: (line: string) => string): string {
-  const breaks = label.match(LINE_BREAK) ?? [];
-  return label
-    .split(LINE_BREAK)
-    .map((line, index) => edit(line) + (breaks[index] ?? ""))
+/** A label's text without emoji and the space they leave; as written when nothing is left. */
+function withoutEmoji(text: string): string {
+  const bare = text.replace(EMOJI, "");
+  if (bare === text) return text;
+  const tidy = bare
+    .split(/(<br\s*\/?>)/i)
+    .map((part) => (LINE_BREAK.test(part) ? part : part.replace(/[ \t]{2,}/g, " ").trim()))
+    .join("");
+  return tidy.replace(/<br\s*\/?>/gi, "").trim() ? tidy : text;
+}
+
+/** A label's own > and < as small forms, when a line break would have them escaped. */
+function withSigns(text: string): string {
+  if (!LINE_BREAK.test(text)) return text;
+  return text
+    .split(/(<br\s*\/?>)/i)
+    .map((part) => (LINE_BREAK.test(part) ? part : part.replace(/>/g, "﹥").replace(/</g, "﹤")))
     .join("");
 }
 
-/** One line of a label: no emoji or the space they leave, and its own > and < as small forms. */
-function drawnLine(line: string): string {
-  const bare = line.replace(EMOJI, "");
-  const tidy = bare === line ? line : bare.replace(/[ \t]{2,}/g, " ").trim();
-  return tidy.replace(/>/g, "﹥").replace(/</g, "﹤");
-}
-
-/** Each quoted label as the card draws it, and any emoji left outside the quotes dropped. */
 export function mermaidDisplaySource(source: string): string {
-  const labelled = source.replace(QUOTED, (quoted) => `"${eachLine(quoted.slice(1, -1), drawnLine)}"`);
-  return labelled.replace(EMOJI, "");
+  return source.replace(LABEL, (_whole, open: string, text: string) => `${open}"${withSigns(withoutEmoji(text))}"`);
 }
