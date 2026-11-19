@@ -119,6 +119,28 @@ def test_a_question_read_whole_has_nothing_unread(text: str) -> None:
             "-2 m/s²",
         ),
         ("A runner does one full lap of a 400 m track in 80 s. What is her average speed?", None),
+        # Review: an average a law's result already is, every way a fall is said, the angle
+        # of the reflected ray, a litre spelt two ways.
+        (
+            "A car's velocity changes from 5 m/s to 25 m/s in 10 s. Calculate the average "
+            "acceleration.",
+            None,
+        ),
+        ("A charge of 120 C passes a point in 1 minute. Find the average current.", None),
+        ("A motor does 6000 J of work in 20 s. What is its average power?", None),
+        ("A stone falls freely from rest. What is its velocity after 3 s?", None),
+        ("An apple drops from a tree. What is its speed after 0.8 s?", None),
+        ("A stone is released from rest from a bridge. What is its speed after 2 s?", None),
+        (
+            "The angle of incidence on a plane mirror is 35°. What is the angle of the "
+            "reflected ray?",
+            "35°",
+        ),
+        (
+            "An electric motor pumps 200 L of water to a reservoir of height 6 m in 2 s. Take "
+            "1 liter of water = 1 kg of water. Find the power of the motor.",
+            None,
+        ),
     ],
 )
 def test_a_question_read_whole_is_answered(text: str, answer: str | None) -> None:
@@ -142,8 +164,6 @@ def test_a_question_read_whole_is_answered(text: str, answer: str | None) -> Non
         # No fall and no acceleration stated: g is nobody's (-98.1 m/s).
         "A car starts from rest and accelerates. What is its velocity after 10 seconds?",
         "A ball rolls along the floor. What is its velocity after 10 seconds?",
-        # The asked angle names no line it is measured from.
-        "A ray hits a plane mirror at 30 degrees to the normal. At what angle is it reflected?",
         # A product that is no power of ten.
         "In a 4 × 100 m relay a runner covers his 100 m in 12 s. What is his speed?",
     ],

@@ -123,10 +123,13 @@ def _reflection_intent(cleaned: str) -> PhysicsIntent | None:
         op = "reflection_surface_angle"
     elif "normal" in asked or "angle of reflection" in asked:
         op = "reflection_angle"
+    elif "reflected" in asked and "between" not in asked:
+        # "the angle of the reflected ray", "at what angle is it reflected": the angle of
+        # reflection, as a school book measures it.
+        op = "reflection_angle"
     else:
-        # The asked angle names no line it is measured from (the normal, the surface, the
-        # other ray): read as the angle of reflection, "the angle between incident ray and
-        # reflected ray" was answered 40° for 80°.
+        # An angle between two lines the reader did not name: read as the angle of
+        # reflection, "the angle between incident ray and reflected ray" was 40° for 80°.
         return None
     return PhysicsIntent(
         kind="optics",

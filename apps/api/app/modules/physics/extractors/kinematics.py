@@ -60,10 +60,17 @@ _GRAVITY_MOTION_CUES = (
 )
 
 
+# A body gravity moves, however the fall is said: "falls freely", "an apple drops",
+# "released from rest", "let go".
+_FALLS_RE = re.compile(r"\b(?:fall(?:s|ing)?|fell|freely|drop(?:s|ped|ping)?|released|let\s+go)\b")
+
+
 def _gravity_moves_it(lower: str) -> bool:
     """The question says gravity moves the body (dropped, falling, thrown up or down), so
-    g is its acceleration; otherwise g is a default nobody stated."""
-    return any(cue in lower for cue in _GRAVITY_MOTION_CUES)
+    g is its acceleration; otherwise g is a default nobody stated. With no height and no
+    speed it is the only motion stated: "a car starts from rest and accelerates. What is
+    its velocity after 10 s?" was answered as a fall, -98.1 m/s."""
+    return any(cue in lower for cue in _GRAVITY_MOTION_CUES) or bool(_FALLS_RE.search(lower))
 
 
 _KINEMATICS_CUES = (
@@ -242,19 +249,11 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
         # each gives a different flight.
         return None
 
-    # If we found no height and no nonzero velocity, this isn't a solvable
-    # kinematics problem — let the next extractor try. Speed and velocity at a
-    # known time are the exception: v = v0 - g*t needs no height, so
-    # "how fast is a dropped ball going after 1 s" is answerable. They are let
-    # through here and gated below instead, where a missing time returns None.
-    # Only a body the question says gravity moves has g for its acceleration: "a car
-    # starts from rest and accelerates. What is its velocity after 10 s?" states none,
-    # and was answered as a fall, -98.1 m/s.
-    if (
-        h0 is None
-        and v0 == 0.0
-        and not ((asks_speed or asks_velocity) and _gravity_moves_it(lower))
-    ):
+    # No height and no nonzero velocity: no solvable kinematics problem, the next extractor
+    # tries. A fall's speed or velocity at a known time is the exception: v = v0 - g*t needs
+    # no height ("how fast is a dropped ball going after 1 s"); a missing time returns None.
+    falls_for_a_time = (asks_speed or asks_velocity) and _gravity_moves_it(lower)
+    if h0 is None and v0 == 0.0 and not falls_for_a_time:
         return None
 
     # Decide what the user is asking for.

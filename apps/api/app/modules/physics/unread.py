@@ -51,7 +51,8 @@ _JOINED = re.compile(
 
 
 def unread_in_request(text: str) -> str | None:
-    """The part of the question no reader reads, before any reader runs; None when none.
+    """What kind of part of the question no reader reads, before any reader runs; None when
+    it reads them all.
 
     ``text`` has its units in the readers' spellings (``normalize_physics_units``), so a
     stated equivalence the reader applied is gone from it.
@@ -60,16 +61,16 @@ def unread_in_request(text: str) -> str | None:
         # "dropped from ten metres onto a 1 m table": the ten metres unread, the 1 m table
         # answered another question.
         return "a quantity in words"
-    joined = _JOINED.search(text)
-    if joined is not None:
-        return joined.group()
+    if _JOINED.search(text) is not None:
+        return "an operator joining two numbers"
     if states_an_equivalence(text):
         return "a stated equivalence"
     return None
 
 
 def unread_in_reading(intent: PhysicsIntent, text: str) -> str | None:
-    """The part of the question this reading left unread; None when it read every part."""
+    """What kind of part of the question this reading left unread; None when it read every
+    part."""
     ops = [intent.physics_op, *(str(op) for op in intent.requested_ops)]
     specs = [spec for op in dict.fromkeys(ops) if op and (spec := formula_spec(op)) is not None]
     params = intent.physics_params or {}
@@ -81,7 +82,7 @@ def unread_in_reading(intent: PhysicsIntent, text: str) -> str | None:
 def logged(unread: str | None, op: str | None) -> bool:
     """Whether a part was left unread, logged when one was."""
     if unread is not None:
-        logger.info("physics solve declined: %r unread by op=%s", unread, op)
+        logger.info("physics solve declined: %s unread by op=%s", unread, op)
     return unread is not None
 
 

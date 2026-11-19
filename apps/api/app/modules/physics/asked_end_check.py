@@ -8,8 +8,8 @@ refused here when:
 
 - its law's result is at the other end from the asked one (``law_binding.roles``), or
 - it fills the asked end's input with a stated value of the asked kind, or
-- the question asks the average over the whole change and the law's result is no average
-  ("its average velocity" of v = u + at is the speed at the end).
+- the question asks the average over the whole change and the law's result is at one end
+  of it ("its average velocity" of v = u + at is the speed at the end).
 
 The binder then reads the question for the law at the asked end, or nothing answers. A
 chained law that answers one asked part is held to that part (``chain_solve``).
@@ -22,7 +22,12 @@ from app.modules.physics.catalog import formula_spec
 from app.modules.physics.law_nouns import result_name
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.law_binding.inverse import same_part, solved_input
-from app.services.law_binding.roles import binds_the_asked, contradicts
+from app.services.law_binding.roles import (
+    binds_the_asked,
+    contradicts,
+    result_role,
+    role_words,
+)
 from app.services.law_binding.spec import FormulaSpec
 from app.services.law_binding.units import dimension_of
 
@@ -60,14 +65,13 @@ def answers_the_other_end(intent: PhysicsIntent, text: str, clause: str | None =
 
 
 def _answers_a_moment(spec: FormulaSpec, averaged: tuple[str | None, ...]) -> bool:
-    """An average asked of a law whose result is no average: v = u + at is the speed at the
-    end, and "its average velocity" was answered with it, 10 m/s for 5 (Grade 7 book,
-    2026-11-19). A law answers an average when its name, its asks or its result's name say
-    so ("Average speed formula", "average force"); one whose result is of another kind
-    answers another asked part."""
-    asks = spec.binding.asks if spec.binding is not None else ()
-    names = (spec.law_name.lower(), *asks, result_name(spec) or "")
-    if any("average" in name for name in names):
+    """An average asked of a law whose result is at one end of the change: v = u + at is the
+    speed at the end, and "its average velocity" was answered with it, 10 m/s for 5 (Grade 7
+    book, 2026-11-19). A law whose result is no end's ((v - u)/t, Q/t, W/t) is the average
+    over the change, and answers it; one whose result is of another kind answers another
+    asked part."""
+    names = (*(spec.binding.asks if spec.binding is not None else ()), result_name(spec) or "")
+    if result_role(spec.binding) is None and not role_words(names):
         return False
     if spec.binding is None:
         return True

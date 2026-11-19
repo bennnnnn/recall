@@ -487,8 +487,7 @@ def complete_physics_intent(
         # "The Moon orbits the Earth. The Moon's mass is 7.35e22 kg": not the mass it orbits.
         return None
     if logged(unread_in_reading(intent, request.text), intent.physics_op):
-        # "from 60 km/h north to 80 m/s south" read as two speeds the same way.
-        return None
+        return None  # "60 km/h north to 80 m/s south" read as two speeds the same way
     if step_of is not None:
         return intent.model_copy(update={"asked": step_of, "asked_unit": None})
     if competing_given(intent, request.text) is not None or time_from_another_event(
@@ -496,8 +495,7 @@ def complete_physics_intent(
     ):
         return None
     if answers_the_other_end(intent, request.text) or asks_a_part_of(intent, request.text):
-        # "Going 30 m/s after accelerating … its starting speed?"; "one lens is 3 D: the other?";
-        # "its average velocity" of v = u + at.
+        # "Going 30 m/s after accelerating … its starting speed?"; "one lens is 3 D: the other?"
         return None
     if not accounts_for_counted_items(intent, request.text):
         # "Two 5 kg blocks", "two resistors, each 10 Ω": one value for several items.

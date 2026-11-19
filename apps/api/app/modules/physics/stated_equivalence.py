@@ -26,6 +26,9 @@ _STATED = re.compile(
 
 
 def _plural_of(unit: str) -> str:
+    """Every spelling of the stated unit: "L", "liter" and "litres" are one unit."""
+    if unit.lower() in _LITRES:
+        return r"(?:l|lit(?:er|re)s?)\b"
     stem = unit.lower().removesuffix("s")
     return rf"{re.escape(stem)}s?"
 
