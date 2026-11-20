@@ -198,6 +198,13 @@ const VARIANTS: Record<string, string> = {
   // A reply that boxed its result in display maths, as the server cards it (land_answer_card).
   "boxed display answer":
     "Back-substitute $u=x^{3/2}$:\n\n**Answer**\n\n```answer\nverified: false\n\\int 5^{x\\sqrt{x}}\\sqrt{x}\\,dx = \\frac{2\\,5^{x^{3/2}}}{3\\ln 5}+C\n```",
+  // Two cars at right angles (the owner's chat, 2026-11-20), as the server lays the worked
+  // block out: a double subscript set on its base, two vectors on one card, a direction on it.
+  "worked vectors and a direction":
+    "**Required**  \n(a) ${v_A}_{vec}, {v_B}_{vec}$ (velocities as vectors)  \n(b) $v_f$ (velocity after the collision)\n\n" +
+    "**Answer (a)**\n\n```answer\nverified: false\n$v_A = (0\\hat{i} + 20\\hat{j})\\ \\mathrm{m/s}$, $v_B = (-16\\hat{i} + 0\\hat{j})\\ \\mathrm{m/s}$ ($\\hat{i}$ east, $\\hat{j}$ north)\n```\n\n" +
+    "**Answer (b)**\n\n```answer\nverified: false\n$v_f = 12.50\\,\\mathrm{m/s}$, 39.8° north of west (bearing 320.2°)\n```",
+  "worked vector by its components": "**Answer**\n\n```answer\nverified: false\n\\vec{v} = (-16\\hat{i} + 20\\hat{j})\\,\\mathrm{m/s}\n```",
   // Known gaps (see KNOWN_GAPS): each is a leak this suite still finds.
   "table abs": "| Expression | Value |\n|---|---|\n| $|x-3|$ | 5 |",
   "bare script": "The area is 25 m^{2}.",

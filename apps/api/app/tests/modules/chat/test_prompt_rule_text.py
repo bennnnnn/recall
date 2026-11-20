@@ -104,10 +104,11 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # words, said in `say` lines and answered in one sentence (prompt_constants.worked, G8 round
 # t42, 2026-11-18), and its answer record's value and its substitution left unrounded, the "3
 # significant figures" gone: the server rounds every card by one rule (services.rounding_rule,
-# the owner, 2026-11-18).
+# the owner, 2026-11-18); then each value its own answer record, a vector by its components
+# or its size and direction (prompt_constants.worked, the owner's chat, 2026-11-20).
 _RULES = 206
-_RULE_GRAMS = 19418
-_RULE_GRAMS_SHA = "a949ff5c2b6a7249"
+_RULE_GRAMS = 19456
+_RULE_GRAMS_SHA = "c1ddfa924d5487ec"
 
 
 def _rules() -> list[str]:

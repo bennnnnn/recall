@@ -30,14 +30,48 @@ import re
 from dataclasses import dataclass, field
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    ValidationError,
+)
+
+from app.modules.chat.tex_form import well_formed
+
+
+def _drawn(tex: str) -> str:
+    """A maths field in the form the phone draws (``chat.tex_form``): an open group
+    closed, a second script set on its base. A brace that closes nothing fails the record:
+    "v_A_{vec}" and an unclosed "\\mathrm{m/s" were shown as source (2026-11-20)."""
+    shown = well_formed(tex)
+    if shown is None:
+        raise ValueError("a brace that closes no group")
+    return shown
+
 
 # Maths in LaTeX: one line, no fence, no $ (the renderer adds them).
-Tex = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=300)]
+Tex = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=300),
+    AfterValidator(_drawn),
+]
 Words = Annotated[str, StringConstraints(strip_whitespace=True, max_length=160)]
-Symbol = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)]
+Symbol = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=40),
+    AfterValidator(_drawn),
+]
 Short = Annotated[str, StringConstraints(strip_whitespace=True, max_length=40)]
-OptionalTex = Annotated[str, StringConstraints(strip_whitespace=True, max_length=300)]
+# A symbol a record may leave out ("answer: | 12 | m"), drawn as maths when it is there.
+OptionalSymbol = Annotated[
+    str, StringConstraints(strip_whitespace=True, max_length=40), AfterValidator(_drawn)
+]
+OptionalTex = Annotated[
+    str, StringConstraints(strip_whitespace=True, max_length=300), AfterValidator(_drawn)
+]
 
 # The fields each record takes, in order; the last one keeps any further "|".
 _FIELDS: dict[str, tuple[str, ...]] = {
@@ -105,7 +139,7 @@ class Step(_Record):
 
 
 class Answer(_Record):
-    symbol: Short = ""
+    symbol: OptionalSymbol = ""
     value: Tex
     unit: Short = ""
     note: Words = ""
@@ -179,15 +213,22 @@ def _separators(text: str) -> list[int]:
     \\ln (2026-11-13). Every other bar splits, "||" an empty field and "v |3.33" included."""
     bars = [at for at, char in enumerate(text) if char == "|"]
     maths = set(_paired_bars(text, bars))
-    depth = 0
-    for at, char in enumerate(text):
-        if char in "([{":
-            depth += 1
-        elif char in ")]}":
-            depth = max(0, depth - 1)
-        elif char == "|" and depth:
-            maths.add(at)
+    maths.update(at for at in bars if _inside_a_closed_bracket(text, at))
     return [at for at in bars if at not in maths]
+
+
+def _inside_a_closed_bracket(text: str, at: int) -> bool:
+    """The bar at ``at`` sits inside a bracket that closes later on the line. One that never
+    closes holds no maths to keep whole: "\\mathrm{m/s | m/s | east" left its brace open, and
+    the unit and the note went into the card's value (the owner's chat, 2026-11-20)."""
+    opened: list[int] = []
+    closes: dict[int, int] = {}
+    for index, char in enumerate(text):
+        if char in "([{":
+            opened.append(index)
+        elif char in ")]}" and opened:
+            closes[opened.pop()] = index
+    return any(start < at < closes.get(start, -1) for start in closes)
 
 
 def _paired_bars(text: str, bars: list[int]) -> list[int]:

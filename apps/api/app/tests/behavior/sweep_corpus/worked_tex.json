@@ -1,0 +1,18 @@
+[
+ {
+  "id": "wt-001",
+  "area": "worked layout",
+  "prompt": "Car A (1000 kg) moves north at 20 m/s and car B (1500 kg) moves west at 16 m/s. They collide at right angles and stick together. (a) Write both velocities as vectors. (b) Find the velocity just after the collision.",
+  "reply": "**Given**  \n$m_A = 1000\\,\\mathrm{kg}$  \n$v_A = 20\\,\\mathrm{m/s}$  \n$m_B = 1500\\,\\mathrm{kg}$  \n$v_B = 16\\,\\mathrm{m/s}$  \nwhere $m_A$ = mass of car, $v_A$ = speed of car A, north, $m_B$ = mass of car B, $v_B$ = speed of car B, west\n\n**Required**  \n(a) ${v_A}_{vec}, {v_B}_{vec}$ (velocities as vectors)  \n(b) $v_f$ (velocity just after the collision)\n\n**Solution**\n\n**(a) Velocities as vectors**\n\n**Answer (a)**\n\n$v_A = (0\\hat{i} + 20\\hat{j})\\ \\mathrm{m/s}$  \n$v_B = (-16\\hat{i} + 0\\hat{j})\\ \\mathrm{m/s}$ ($\\hat{i}$ east, $\\hat{j}$ north)\n\n---\n\n**(b) Velocity after the collision**\n\n**Conservation of momentum formula**  \n$(m_A + m_B)\\vec{v}_f = m_A\\vec{v}_A + m_B\\vec{v}_B$\n\n**Substitution**  \n$\\vec{v}_f = \\frac{1000(20\\hat{j}) + 1500(-16\\hat{i})}{2500}$  \n$v_f = \\sqrt{9.6^2 + 8^2} = 12.4964\\,\\mathrm{m/s}$\n\n**Answer (b)**\n\n$v_f = 12.50\\,\\mathrm{m/s}$, 39.8° north of west (bearing 320.2°)",
+  "expect": "answer",
+  "note": "the owner's chat 2026-11-20: v_A_{vec} and an unclosed \\mathrm{m/s | m/s | ... reached the phone as source; the block as the server lays it out now"
+ },
+ {
+  "id": "wt-002",
+  "area": "worked layout",
+  "prompt": "Car A moves north at 20 m/s. Write its velocity as a vector.",
+  "reply": "**Given**  \n$m_A = 1000\\,\\mathrm{kg}$  \n$v_A = 20\\,\\mathrm{m/s}$  \nwhere $m_A$ = mass of car, $v_A$ = speed of car A, north\n\n**Required**  \n(a) $\\vec{v}_A$ (velocity of car A as a vector)  \n(b) $v_f$ (velocity just after the collision)\n\n**Solution**\n\n**(a) Velocity as a vector**\n\n**Answer (a)**\n\n$\\vec{v}_A = (0\\hat{i} + 20\\hat{j})\\,\\mathrm{m/s}$\n\n---\n\n**(b) Velocity after the collision**\n\n**Conservation of momentum formula**  \n$(m_A + m_B)\\vec{v}_f = m_A\\vec{v}_A + m_B\\vec{v}_B$\n\n**Substitution**  \n$v_f = 12.4964\\,\\mathrm{m/s}$\n\n**Answer (b)**\n\n$v_f = 12.50\\,\\mathrm{m/s}$, 39.8° north of west (bearing 320.2°)",
+  "expect": "answer",
+  "note": "a vector by its components, its unit after them; a direction by its angle on the card"
+ }
+]
