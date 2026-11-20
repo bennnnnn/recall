@@ -211,3 +211,5 @@ async def test_only_a_model_the_user_named_runs_without_its_probe(
         )
         await await_user_message_persist(ctx)
     assert ctx.probe_models == probing
+    # Half-open is no cool-down: a lane may still move onto those models, and probe them.
+    assert ctx.cooling_models == frozenset()

@@ -99,10 +99,14 @@ class StreamContext:
     recent_messages: list[Any] | None = None
     regenerate_backup: RegenerateBackup | None = None
     fallback_models: list[str] = field(default_factory=list)
-    # Half-open models among it and its backups: tried once the turn claims a probe.
+    # Half-open models of the pool: each is tried once the turn claims its probe.
     probe_models: frozenset[str] = frozenset()
-    # Models whose breaker is open or half-open at the load: no lane moves onto one.
-    unsteady_models: frozenset[str] = frozenset()
+    # Models whose breaker is open and inside its cool-down at the load: no lane moves onto
+    # one. A half-open one is routed to like a healthy one, and the turn claims its probe
+    # right before trying it (``probe_models``): one turn at a time tries it, and its sample
+    # closes the breaker. Passed over, it was never tried again, and a chat stayed on the
+    # fallback for 7 to 17 turns after one slow first token (natural-chat replay, 2026-11-19).
+    cooling_models: frozenset[str] = frozenset()
     # Work the turn already did without an answer, which its tool loop does not
     # repeat: SymPy ran out of time on its problem; its photo lookup found none.
     solve_timed_out: bool = False
