@@ -214,11 +214,16 @@ async def _chat_before(
 
 def _fallback_lines(transcript: str) -> PassLines:
     """The job payload's transcript: its ``User:`` lines are what a quote is held to."""
-    said = [
-        line.split(":", 1)[1].strip()
-        for line in transcript.splitlines()
-        if line.casefold().startswith("user:")
-    ]
+    said: list[str] = []
+    speaker = "user"
+    # A line without a label goes on the speaker before it (a message of several lines);
+    # a transcript with no labels at all is the user's own words.
+    for line in transcript.splitlines():
+        role, colon, rest = line.partition(":")
+        if colon and role.strip().casefold() in ("user", "assistant"):
+            speaker, line = role.strip().casefold(), rest
+        if speaker == "user" and line.strip():
+            said.append(line.strip())
     return PassLines(
         transcript=cap_text_head_tail(transcript, _MEMORY_TRANSCRIPT_MAX_CHARS),
         sources=source_lines((None, line) for line in said),

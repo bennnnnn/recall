@@ -41,10 +41,13 @@ class _MemoryModel:
         self.ops: list[MemoryFactOp] = []
         self.earlier: list[str] = []
 
-    async def __call__(self, _settings, _transcript, **kwargs):
+    async def __call__(self, _settings, transcript, **kwargs):
         self.earlier.append(kwargs.get("earlier", ""))
         ops, self.ops = self.ops, []
-        return MemoryFactUpdateResult(ops=ops)
+        # As the model does: each fact quotes the line it read, as the user's own life.
+        said = transcript.splitlines()[-1].removeprefix("User:").strip()
+        quoted = [op.model_copy(update={"quote": said, "stated_as": "own_life"}) for op in ops]
+        return MemoryFactUpdateResult(ops=quoted)
 
 
 @pytest.fixture

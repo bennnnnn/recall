@@ -316,9 +316,11 @@ def test_source_lines_keep_each_message_and_drop_a_bare_when():
 
 
 def test_the_fallback_transcript_is_held_to_its_user_lines():
-    read = _fallback_lines("User: I moved to Lyon\nAssistant: Nice!")
-    assert read.sources == (SourceLine("I moved to Lyon", None),)
+    read = _fallback_lines("User: I moved to Lyon\nlast month\nAssistant: Nice!\nWhere?")
+    assert [line.text for line in read.sources] == ["I moved to Lyon", "last month"]
     assert read.cursor is None
+    unlabelled = _fallback_lines("My favorite color is blue.")
+    assert [line.text for line in unlabelled.sources] == ["My favorite color is blue."]
 
 
 def _saved(text: str, minutes: int = 0) -> SavedFact:

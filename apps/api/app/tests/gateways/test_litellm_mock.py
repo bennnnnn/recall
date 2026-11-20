@@ -77,8 +77,8 @@ async def test_revise_memory_facts_prompt_user_stated_only():
         )
 
     system = captured["messages"][0]["content"]
-    assert "Use only what the User lines state or clearly show about the user" in system
-    assert "never assistant inferences, suggestions, or restatements" in system
+    assert memory_llm.STATED_RULES in system
+    assert "assistant's inferences, suggestions, or restatements" in system
     assert "Each op is ONE fact" in system
     assert "explicitly asks to remember a fact" in system
     assert "explicitly asks to forget a fact" in system
