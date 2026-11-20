@@ -457,6 +457,7 @@
   "memory.muted_label": "Sessizde · sohbetlerde kullanılmıyor",
   "memory.mute_failed": "Değiştirilemedi. Tekrar dene.",
   "memory.source_chat": "“{{title}}” sohbetinden",
+  "memory.source_chat_hint": "Bunun öğrenildiği sohbeti açar",
   "memory.fact_hint": "Düzenle, sessize al veya sil",
   "memory.group.areas": "Alanlar",
   "memory.group.topics": "Konular",

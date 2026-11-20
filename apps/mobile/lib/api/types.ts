@@ -132,7 +132,11 @@ export type Memory = {
   text: string;
   status?: "active" | "muted" | "superseded";
   sensitivity?: string | null;
+  /** The chat the fact was learned in; null once that chat is deleted. */
+  source_chat_id?: string | null;
   source_chat_title?: string | null;
+  /** The user's message that states the fact, when the server knows it. */
+  source_message_id?: string | null;
   created_at: string;
   updated_at: string;
 };

@@ -457,6 +457,7 @@
   "memory.muted_label": "Muted · not used in chats",
   "memory.mute_failed": "Couldn't change that. Try again.",
   "memory.source_chat": "From “{{title}}”",
+  "memory.source_chat_hint": "Opens the chat this was learned in",
   "memory.fact_hint": "Edit, mute or delete",
   "memory.group.areas": "Areas",
   "memory.group.topics": "Topics",

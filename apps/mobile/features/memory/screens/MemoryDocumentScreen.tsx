@@ -21,7 +21,11 @@ import {
   documentTitle,
   parseMemoryDate,
 } from "@/features/memory/model/memoryDocuments";
-import { MEMORY_TEXT_MAX_LENGTH, stripMemoryAsOf } from "@/features/memory/model/memoryFacts";
+import {
+  MEMORY_TEXT_MAX_LENGTH,
+  memorySourceChatHref,
+  stripMemoryAsOf,
+} from "@/features/memory/model/memoryFacts";
 import type { Memory } from "@/features/memory/types";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useReconnectRefresh } from "@/hooks/useReconnectRefresh";
@@ -74,6 +78,13 @@ function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const title = document ? documentTitle(document, t) : "";
   const summary = document ? documentSummary(document, t) : "";
   const updated = parseMemoryDate(document?.updated_at);
+
+  // The chat a fact was learned in, at the message that states it (a deleted chat has no
+  // link: the server clears its id).
+  const openSource = useCallback((fact: Memory) => {
+    const href = memorySourceChatHref(fact);
+    if (href) router.push(href);
+  }, [router]);
 
   const openMenu = useCallback((fact: Memory, event: GestureResponderEvent) => {
     tap();
@@ -223,7 +234,13 @@ function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         <View style={s.block}>
           <Text style={s.label}>{t("memory.details_label")}</Text>
           {document.facts.map((fact) => (
-            <FactRow key={fact.id} fact={fact} s={s} onOpenMenu={openMenu} />
+            <FactRow
+              key={fact.id}
+              fact={fact}
+              s={s}
+              onOpenMenu={openMenu}
+              onOpenSource={openSource}
+            />
           ))}
         </View>
       </ScrollView>
@@ -291,10 +308,11 @@ type Styles = ReturnType<typeof makeStyles>;
  * One fact of the page. Memoized: typing in the edit sheet or opening a fact's
  * menu redrew every fact on the page (150 per keystroke on a full page).
  */
-const FactRow = memo(function FactRow({ fact, s, onOpenMenu }: {
+const FactRow = memo(function FactRow({ fact, s, onOpenMenu, onOpenSource }: {
   fact: Memory;
   s: Styles;
   onOpenMenu: (fact: Memory, event: GestureResponderEvent) => void;
+  onOpenSource: (fact: Memory) => void;
 }) {
   const { t } = useTranslation();
   const muted = fact.status === "muted";
@@ -302,6 +320,7 @@ const FactRow = memo(function FactRow({ fact, s, onOpenMenu }: {
   const source = fact.source_chat_title
     ? t("memory.source_chat", { title: fact.source_chat_title })
     : null;
+  const opensSource = memorySourceChatHref(fact) != null;
   return (
     <Pressable
       style={({ pressed }) => [s.fact, pressed && s.factPressed]}
@@ -320,7 +339,19 @@ const FactRow = memo(function FactRow({ fact, s, onOpenMenu }: {
             {t("memory.muted_label")}
           </Text>
         ) : null}
-        {source ? <Text style={s.factMeta}>{source}</Text> : null}
+        {source && opensSource ? (
+          <Text
+            style={[s.factMeta, s.factSource]}
+            onPress={() => onOpenSource(fact)}
+            accessibilityRole="link"
+            accessibilityHint={t("memory.source_chat_hint")}
+            testID={`memory-fact-source-${fact.id}`}
+          >
+            {source}
+          </Text>
+        ) : source ? (
+          <Text style={s.factMeta}>{source}</Text>
+        ) : null}
       </View>
     </Pressable>
   );
@@ -360,5 +391,6 @@ function makeStyles(theme: Theme) {
     factText: { ...Type.body, color: theme.text },
     factMuted: { color: theme.textSecondary },
     factMeta: { ...Type.label, color: theme.textSecondary },
+    factSource: { color: theme.primary },
   });
 }

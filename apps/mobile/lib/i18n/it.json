@@ -463,6 +463,7 @@
   "memory.muted_label": "Silenziato · non usato nelle chat",
   "memory.mute_failed": "Impossibile modificare. Riprova.",
   "memory.source_chat": "Da «{{title}}»",
+  "memory.source_chat_hint": "Apre la chat da cui è stato appreso",
   "memory.fact_hint": "Modifica, silenzia o elimina",
   "memory.group.areas": "Aree",
   "memory.group.topics": "Argomenti",
