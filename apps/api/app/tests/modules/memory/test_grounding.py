@@ -429,3 +429,14 @@ def test_a_name_from_a_pasted_word_problem_is_not_the_users():
     }
     writes, _ = _compose([problem], [op])
     assert writes == []
+
+
+def test_recheck_keeps_a_fact_only_when_every_read_keeps_it():
+    from app.modules.memory.recheck import both_keep
+
+    fact = _saved("User is creating a book")
+    kept = Verdict(fact, keep=True, reason="stated")
+    muted = Verdict(fact, keep=False, reason="said as question")
+    assert both_keep([kept, kept]) is kept
+    assert both_keep([kept, muted]) is muted
+    assert both_keep([muted, kept]) is muted

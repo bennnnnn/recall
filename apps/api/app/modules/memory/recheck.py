@@ -51,6 +51,8 @@ _AFTER_CONFIRMED = timedelta(minutes=2)
 # line that first said it; the lines the user wrote around the time it was first saved,
 # in any chat, are read too.
 _AROUND_CREATED = timedelta(minutes=10)
+# Reads of each chat; a fact must pass every one.
+_READS = 2
 
 
 @dataclass(frozen=True)
@@ -290,19 +292,36 @@ async def _verdicts_for_chat(
     chat_id: UUID,
     facts: list[SavedFact],
 ) -> list[Verdict]:
+    """Two reads of the chat; a fact stays only when both keep it (when unsure, it is not
+    the user's own life). The same fact flipped between single reads."""
     evidence = await _evidence(session, user.id, chat_id, facts)
-    readings = await _read_again(settings, facts, evidence)
-    if readings is None:
+    english = (user.locale or "en").casefold().startswith("en")
+    reads = [
+        _judged(facts, readings, evidence, english)
+        for readings in [await _read_again(settings, facts, evidence) for _ in range(_READS)]
+        if readings is not None
+    ]
+    if not reads:
         return [
             Verdict(fact, keep=True, reason="model gave no answer; left as it is") for fact in facts
         ]
+    return [both_keep(list(verdicts)) for verdicts in zip(*reads, strict=True)]
+
+
+def _judged(
+    facts: list[SavedFact], readings: _Readings, evidence: _Evidence, english: bool
+) -> list[Verdict]:
     by_number = {reading.fact: reading for reading in readings.facts}
     story = (readings.conversation or "").strip().casefold() == "story"
-    english = (user.locale or "en").casefold().startswith("en")
     return [
         judge(fact, by_number.get(index), story=story, lines=evidence.lines, english=english)
         for index, fact in enumerate(facts, start=1)
     ]
+
+
+def both_keep(verdicts: list[Verdict]) -> Verdict:
+    """One fact's verdicts from each read: the first that mutes it, else the first."""
+    return next((verdict for verdict in verdicts if not verdict.keep), verdicts[0])
 
 
 async def recheck_user(settings: Settings, user_id: UUID) -> list[Verdict]:
