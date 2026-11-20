@@ -180,13 +180,11 @@ def _ordered(
     scanned = scanner_camera_subject(text)
     if scanned is not None:
         # The photo's words, when the turn read them, decide its subject as a typed line's
-        # do; the tab decides only when they name none. No subject reads biology.
+        # do; the tab decides only when they name none.
         words = confirmed_scan_reading(text)
         read = _read(words, False, chemistry_enabled, off) if words else None
         if read is not None and read.subject is not None:
             return SubjectReading(read.subject, "scanned")
-        if scanned == "biology":
-            return SubjectReading(None, "scanned")
     if scanned == "chemistry":
         on = chemistry_enabled and "chemistry" not in off
         return SubjectReading("chemistry" if on else None, "scanned")

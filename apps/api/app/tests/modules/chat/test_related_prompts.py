@@ -32,11 +32,11 @@ PHYSICS_FOLLOWUPS = [
     "What changes if this object is already moving?",
     "How do you find the acceleration from the force and the mass?",
 ]
-PHOTO = "What is photosynthesis?"
-PHOTO_FOLLOWUPS = [
-    "Why does photosynthesis need light?",
-    "What happens to the sugar a plant makes?",
-    "How is cellular respiration tied to this process?",
+CHEMISTRY = "Calculate the molar mass of glucose"
+CHEMISTRY_FOLLOWUPS = [
+    "Why do we add the atomic masses?",
+    "What if it were sucrose instead?",
+    "How many moles are in 90 g of glucose?",
 ]
 
 
@@ -44,7 +44,7 @@ PHOTO_FOLLOWUPS = [
     ("question", "answer", "followups"),
     [
         (PHYSICS, "The force is 30 newtons.", PHYSICS_FOLLOWUPS),
-        (PHOTO, "Plants make sugar from light.", PHOTO_FOLLOWUPS),
+        (CHEMISTRY, "The molar mass of glucose is 180.16 g/mol.", CHEMISTRY_FOLLOWUPS),
     ],
 )
 async def test_subject_question_returns_the_models_questions(

@@ -174,7 +174,8 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("g", "g", "meter / second ** 2", fallback="gravity"),
         ),
         binding=Binding(
-            asks=("power",),
+            # The work over the time: the average power (``asked_end_check``).
+            asks=("power", "average power"),
             result=("watt",),
             inputs=(frozenset({"g", "h", "rho", "t", "volume"}),),
             cues=("pump",),

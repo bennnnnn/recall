@@ -115,7 +115,8 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("v", "v", "meter / second"),
         ),
         binding=Binding(
-            asks=("power",),
+            # W/t is the average power over the time (``asked_end_check``).
+            asks=("power", "average power"),
             result=("watt",),
             inputs=(frozenset({"W", "t"}), frozenset({"F", "v"}), frozenset({"F", "v", "angle"})),
             # A force against the motion gives a negative power: 5 N at -2 m/s is -10 W.

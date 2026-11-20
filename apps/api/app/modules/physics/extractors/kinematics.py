@@ -59,6 +59,25 @@ _GRAVITY_MOTION_CUES = (
     "launched downward",
 )
 
+
+# A body gravity moves, however the fall is said: "falls freely", "an apple drops", or a
+# release from a place ("released from rest from a bridge", "let go from a window"). A
+# release from rest alone says no fall: a toy car "released from rest on a horizontal
+# floor", or a mass on a spring, was given -9.81 m/s² (Codex and Gemini on #2503).
+_FALLS_RE = re.compile(
+    r"\b(?:fall(?:s|ing)?|fell|drop(?:s|ped|ping)?)\b"
+    r"|\b(?:released|let\s+go)\s+(?:from\s+rest\s+)?(?:from|off)\s+(?!rest\b)"
+)
+
+
+def _gravity_moves_it(lower: str) -> bool:
+    """The question says gravity moves the body (dropped, falling, thrown up or down), so
+    g is its acceleration; otherwise g is a default nobody stated. With no height and no
+    speed it is the only motion stated: "a car starts from rest and accelerates. What is
+    its velocity after 10 s?" was answered as a fall, -98.1 m/s."""
+    return any(cue in lower for cue in _GRAVITY_MOTION_CUES) or bool(_FALLS_RE.search(lower))
+
+
 _KINEMATICS_CUES = (
     *_GRAVITY_MOTION_CUES,
     "how long until",
@@ -177,9 +196,7 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
     # until it hits the ground" was a throw upward, 3.06 s).
     sideways = HORIZONTAL_LAUNCH_RE.search(cleaned) is not None
     asked = asked_phrases(cleaned)
-    if asked in {("acceleration",), ("deceleration",)} and not any(
-        cue in lower for cue in _GRAVITY_MOTION_CUES
-    ):
+    if asked in {("acceleration",), ("deceleration",)} and not _gravity_moves_it(lower):
         # A given velocity cannot turn a request for an unknown acceleration
         # into a free-fall velocity calculation. SUVAT owns that request.
         return None
@@ -237,12 +254,11 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
         # each gives a different flight.
         return None
 
-    # If we found no height and no nonzero velocity, this isn't a solvable
-    # kinematics problem — let the next extractor try. Speed and velocity at a
-    # known time are the exception: v = v0 - g*t needs no height, so
-    # "how fast is a dropped ball going after 1 s" is answerable. They are let
-    # through here and gated below instead, where a missing time returns None.
-    if h0 is None and v0 == 0.0 and not (asks_speed or asks_velocity):
+    # No height and no nonzero velocity: no solvable kinematics problem, the next extractor
+    # tries. A fall's speed or velocity at a known time is the exception: v = v0 - g*t needs
+    # no height ("how fast is a dropped ball going after 1 s"); a missing time returns None.
+    falls_for_a_time = (asks_speed or asks_velocity) and _gravity_moves_it(lower)
+    if h0 is None and v0 == 0.0 and not falls_for_a_time:
         return None
 
     # Decide what the user is asking for.
@@ -274,7 +290,7 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
             return None
         op = "vertical_max_height"
     elif _ASKS_ACCELERATION_RE.search(lower) is not None and _ASKS_TIME_RE.search(lower) is None:
-        if not any(cue in lower for cue in _GRAVITY_MOTION_CUES) or _timed_drop(h0, cleaned):
+        if not _gravity_moves_it(lower) or _timed_drop(h0, cleaned):
             return None
         op = "acceleration"
 

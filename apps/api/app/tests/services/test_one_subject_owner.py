@@ -55,10 +55,10 @@ def test_named_lines_have_one_subject(line: str, subject: str) -> None:
     assert on_math_lane == (subject == "math")
 
 
-def test_a_genotype_cross_is_biology_not_a_drawn_square() -> None:
+def test_a_punnett_square_flowchart_names_no_subject() -> None:
     line = "Draw a flowchart of a Punnett square cross for Aa x Aa with 4 offspring"
     assert detect_subject(line) is None
-    assert classify_presentation_subject(line) == "biology"
+    assert classify_presentation_subject(line) is None
 
 
 def _on_maths_lane(line: str) -> bool:
@@ -67,6 +67,9 @@ def _on_maths_lane(line: str) -> bool:
     return routed_chat_model(line)[1] in {"math", "inherit_math"}
 
 
+# Every corpus line through every reader: about a minute locally, and three on a loaded CI
+# runner (2026-11-19). The suite's hang limit is for one turn, not the whole corpus.
+@pytest.mark.timeout(600)
 def test_every_reader_agrees_with_detect_subject() -> None:
     disagree: list[str] = []
     for line in _corpus():
