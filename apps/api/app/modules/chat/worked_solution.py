@@ -259,8 +259,10 @@ def _split(text: str, count: int) -> list[str]:
     for cut in _separators(text)[: max(0, count - 1)]:
         pieces.append(text[start:cut])
         start = cut + 1
-    # The last field keeps any further bar, but not one the record ends on ("north |").
-    pieces.append(_TRAILING_BARS.sub("", text[start:]))
+    # The last field keeps any further bar, but not one the record ends on ("north |"); a
+    # bar that closes an absolute value (``| x_2 - x_1 |``) pairs with one before it.
+    last = text[start:]
+    pieces.append(_TRAILING_BARS.sub("", last) if last.count("|") % 2 else last)
     return [value.strip() if value.strip(" \t|") else "" for value in pieces]
 
 

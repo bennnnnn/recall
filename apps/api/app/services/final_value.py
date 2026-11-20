@@ -24,6 +24,8 @@ _TERM = r"\d+(?:\.\d+)?[ \t]*" + UNIT_VECTOR.pattern
 _COMPONENTS = re.compile(
     rf"\(?(?:[-\u2212][ \t]*)?{_TERM}(?:[ \t]*[-+\u2212][ \t]*{_TERM})+[ \t]*\)?"
 )
+# A sizing command before a bracket: "\\left(0\\hat{i} + 20\\hat{j}\\right)" is "(…)".
+_SIZED = re.compile(r"\\(?:left|right|[bB]igg?[lr]?)[ \t]*(?=[()\[\]])")
 # Arithmetic still to do: a product, quotient, fraction, power, sum, or a minus
 # after a term (a leading minus is the value's sign).
 _ARITHMETIC = re.compile(r"\\(?:times|cdot|div|frac)|[\u00d7\u00b7*/\u00f7+^]|\S\s*[-\u2212]")
@@ -43,6 +45,6 @@ def is_final_value(value: str) -> bool:
     if not equals:
         left, right = "", text
     right = _GROUPED.sub(" 1 ", _EXACT_FRACTION.sub("1", _UNIT_TEXT.sub("", right)))
-    right = _COMPONENTS.sub(" 1 ", right).strip()
+    right = _COMPONENTS.sub(" 1 ", _SIZED.sub("", right)).strip()
     named = not left.strip() or _VALUE_NAME.fullmatch(left.strip()) is not None
     return bool(right) and named and _ARITHMETIC.search(right) is None

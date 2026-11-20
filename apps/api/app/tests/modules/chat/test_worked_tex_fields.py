@@ -123,3 +123,17 @@ def test_a_symbol_braced_twice_by_the_layout_keeps_one_subscript() -> None:
     from app.modules.chat.worked_text import tidy_tex
 
     assert tidy_tex("v_Ai_mag") == "{v_{Ai}}_{mag}"
+
+
+def test_a_closing_absolute_value_bar_stays() -> None:
+    """Claude on #2509: the trailing-bar rule took the bar that closes | x_2 - x_1 |."""
+    record = read_record("substitution: d = | x_2 - x_1 |")
+    assert record is not None and getattr(record, "tex", "") == "d = | x_2 - x_1 |"
+
+
+def test_a_vector_in_sized_brackets_is_one_value() -> None:
+    """Codex on #2509: \\left( … \\right) around the components."""
+    from app.services.final_value import is_final_value
+
+    assert is_final_value(r"v_A = \left(0\hat{i} + 20\hat{j}\right)\,\mathrm{m/s}")
+    assert not is_final_value(r"y = \left(x + 1\right)")
