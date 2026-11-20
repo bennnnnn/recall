@@ -15,6 +15,7 @@ import { flushEmailDrafts } from "@/features/drafts/model/emailDraftFlush";
 import type { ImageGenSubmit } from "@/features/images/hooks/useImageGeneration";
 import { type LocationSwitch, resolveClientGeoForQuery } from "@/features/chat/model/resolveClientGeoForQuery";
 import type { Message, User } from "@/lib/api";
+import type { Translate } from "@/lib/i18n/translate";
 
 /** A send whose bubble, and typing dots when they could go up, are on screen. */
 export type PaintedSend = SendTurn & {
@@ -44,7 +45,7 @@ type Options = {
   updateUser: (patch: Partial<User>) => Promise<void>;
   /** The account's Location switch: on, the turn need not wait for it to save. */
   locationSwitch: LocationSwitch;
-  t: (key: string, options?: Record<string, unknown>) => string;
+  t: Translate;
   pendingAttachmentRef: MutableRefObject<PendingAttachment | null>;
   setPendingAttachment: (value: PendingAttachment | null) => void;
   setPendingOutboundId: (id: string | null) => void;

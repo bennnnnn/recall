@@ -44,6 +44,7 @@ import { trackProductEvent } from "@/lib/productAnalytics";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
+import type { Translate } from "@/lib/i18n/translate";
 
 /** Where the sheet was opened from: "welcome" is the offer after the first sign-in, "nudge"
  * the one now and then after it (`welcomePlans`). */
@@ -62,8 +63,6 @@ type Props = {
   onClose: () => void;
   source?: UpgradeSource;
 };
-
-type Translate = (key: string, options?: Record<string, unknown>) => string;
 
 const NO_OFFER: PlanOffer = { packages: {}, unavailable: false };
 const STORE_NOT_SET_UP: PlanOffer = { packages: {}, unavailable: true };
