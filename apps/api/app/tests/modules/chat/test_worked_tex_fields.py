@@ -58,6 +58,12 @@ def test_a_thousands_comma_is_one_value() -> None:
     )
 
 
+def test_a_thin_space_is_no_second_value() -> None:
+    """Claude on #2509: ``3\\,\\mathrm{m/s}`` split at the comma of its thin space."""
+    reply = _laid_out("required: a | x", r"answer: a, b | 3\,\mathrm{m/s} |")
+    assert reply.endswith(r"$a, b = 3\,\mathrm{m/s}$")
+
+
 def test_a_power_of_ten_and_a_range_take_no_brackets() -> None:
     assert _laid_out("required: I | current", "answer: I | 1.5e-3 | A").endswith(
         r"$I = 1.5e-3\,\mathrm{A}$"

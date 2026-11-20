@@ -15,18 +15,30 @@ _THOUSANDS = re.compile(r"\d,\d{3}(?!\d)")
 
 def top_level(tex: str, mark: str) -> list[str]:
     """``tex`` split at each ``mark`` outside any group or bracket, each piece stripped of a
-    spacing command around it (``,\\ ``)."""
+    spacing command around it (``,\\ ``). A mark a command writes (``\\,``, a thin space) or
+    a thousands comma splits nothing."""
     pieces, depth, start = [], 0, 0
     for at, char in enumerate(tex):
         if char in "({[":
             depth += 1
         elif char in ")}]":
             depth -= 1
-        elif char == mark and depth == 0 and not _THOUSANDS.match(tex, at - 1):
+        elif (
+            char == mark
+            and depth == 0
+            and not _escaped(tex, at)
+            and not _THOUSANDS.match(tex, at - 1)
+        ):
             pieces.append(tex[start:at])
             start = at + 1
     pieces.append(tex[start:])
     return [piece.strip().removeprefix("\\ ").removesuffix("\\").strip() for piece in pieces]
+
+
+def _escaped(tex: str, at: int) -> bool:
+    """The character at ``at`` follows one backslash: ``\\,`` is a command, not a comma."""
+    before = len(tex[:at]) - len(tex[:at].rstrip("\\"))
+    return before % 2 == 1
 
 
 def one_value_each(answer: Answer) -> list[Answer]:
