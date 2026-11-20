@@ -344,6 +344,27 @@ describe("MemoryDocumentScreen", () => {
     expect(ui.queryByTestId("menu-mute")).toBeNull();
   });
 
+  it("offers a screen reader the chat as an action of the fact's row", async () => {
+    mockDocuments[0].facts[0] = {
+      ...mockDocuments[0].facts[0],
+      source_chat_id: "chat-9",
+      source_chat_title: "Building Recall",
+      source_message_id: "message-3",
+    };
+    const ui = await render(<MemoryDocumentScreen />);
+    const row = ui.getByTestId("memory-fact-f1");
+    expect(row.props.accessibilityLabel).toContain("memory.source_chat:Building Recall");
+    expect(row.props.accessibilityActions).toEqual([
+      { name: "openSource", label: "memory.source_chat_hint" },
+    ]);
+    await fireEvent(row, "accessibilityAction", { nativeEvent: { actionName: "openSource" } });
+
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: "/",
+      params: { chatId: "chat-9", returnTo: "memory", highlightMessage: "message-3" },
+    });
+  });
+
   it("sends edits scoped to this page", async () => {
     mockInstruct.mockResolvedValue({ ok: true, reply: "", applied: 1, dropped: 0 });
     const ui = await render(<MemoryDocumentScreen />);

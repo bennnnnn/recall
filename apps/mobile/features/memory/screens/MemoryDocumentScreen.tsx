@@ -310,14 +310,23 @@ const FactRow = memo(function FactRow({ fact, s, onOpenMenu }: {
   // The chat the fact was learned in, at the message that states it; a deleted chat has
   // no link (the server clears its id).
   const sourceHref = memorySourceChatHref(fact);
+  // A screen reader hears the row as one button, so the link inside it is an action of
+  // the row (and its "From" line part of the row's label).
+  const label = [text, muted ? t("memory.muted_label") : null, source].filter(Boolean).join(". ");
   return (
     <Pressable
       style={({ pressed }) => [s.fact, pressed && s.factPressed]}
       onPress={(event) => onOpenMenu(fact, event)}
       onLongPress={(event) => onOpenMenu(fact, event)}
       accessibilityRole="button"
-      accessibilityLabel={muted ? `${text}. ${t("memory.muted_label")}` : text}
+      accessibilityLabel={label}
       accessibilityHint={t("memory.fact_hint")}
+      accessibilityActions={
+        sourceHref ? [{ name: "openSource", label: t("memory.source_chat_hint") }] : undefined
+      }
+      onAccessibilityAction={(event) => {
+        if (event.nativeEvent.actionName === "openSource" && sourceHref) router.push(sourceHref);
+      }}
       testID={`memory-fact-${fact.id}`}
     >
       <Text style={s.bullet}>•</Text>
