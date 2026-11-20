@@ -169,3 +169,22 @@ SUMMARY_LEAD = (
     "a question about what the user said or what you talked about answers from it as well "
     "as from the messages. When two of its facts give different values, the later one holds."
 )
+
+# After the lead, how much of the chat the summary stands for. "What was the first question I
+# asked you?" in a 97-message chat named the oldest message the reply could see, the 76th,
+# though the summary's first topic was the first question (2026-11-18): nothing said that the
+# messages it saw began mid-chat. The count changes only with the summary, so the prompt's
+# cached prefix holds between folds.
+SUMMARY_SPAN = (
+    "It stands for the first {count} messages of this chat, and the messages you can see come "
+    "after them. Its topic lines follow the order the user asked them in, so its first topic "
+    "is this chat's first question: the start of the chat is answered from this summary, "
+    "never from the first message you can see or a search of earlier chats."
+)
+
+
+def summary_lead(summarized: int) -> str:
+    """The lead above the chat's summary, with the span it stands for when that is known."""
+    if summarized <= 0:
+        return SUMMARY_LEAD
+    return f"{SUMMARY_LEAD} {SUMMARY_SPAN.format(count=summarized)}"

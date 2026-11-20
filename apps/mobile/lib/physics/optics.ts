@@ -24,6 +24,7 @@ import {
   requireRecord,
 } from "@/lib/fence/validate";
 import { boxesOverlap, type Box } from "@/lib/physics/boxes";
+import type { Translate } from "@/lib/i18n/translate";
 
 type OpticsElement =
   | "converging_lens"
@@ -581,8 +582,6 @@ export function mediumLabelSide(
   const meanX = inHalf.reduce((sum, p) => sum + p.px, 0) / inHalf.length;
   return meanX < width / 2 ? "right" : "left";
 }
-
-type Translate = (key: string, options?: Record<string, unknown>) => string;
 
 /** What a screen reader says when the fence has no `alt`. */
 export function describeOptics(spec: OpticsSpec, angles: DiagramAngle[], t: Translate): string {

@@ -95,14 +95,17 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # owner's round of 30 hard problems, 2026-11-16), naming a horizontal launch, bodies moving
 # the same way and the situations it never draws; no spring or wave, which no reader confirms
 # (its reviews, 2026-11-16); then no biology presentation hint, biology being out of v1
-# (2026-11-18); then a conversation about the user's own life answered as one (an 80-message
-# chat, 2026-11-19): no offer or list in it, no news read as a yes to an offer, a concern said
-# once, a known day not dated again, emoji that fit their line, a safety check asked once and
-# 911 kept for a stated threat (FORMAT_CONTRACT, READER_NOTE, UNCLEAR_MESSAGE_HINT,
-# NO_RECAP_NOTE, the clock block, EMOJI_HINTS, DISTRESS_RULE, PERSONAL_HELP_RULE).
-_RULES = 202
-_RULE_GRAMS = 19307
-_RULE_GRAMS_SHA = "11d51d3aa9e828bf"
+# (2026-11-18); then the summary saying it stands for the chat's first messages, so the start
+# of the chat is in it (SUMMARY_SPAN), and a short line's note naming the message and part it
+# follows (FOLLOW_UP_NOTE), the Grade 8 chat, 2026-11-18; then a conversation about the user's
+# own life answered as one (an 80-message chat, 2026-11-19): no offer or list in it, no news
+# read as a yes to an offer, a concern said once, a known day not dated again, emoji that fit
+# their line, a safety check asked once and 911 kept for a stated threat (FORMAT_CONTRACT,
+# READER_NOTE, UNCLEAR_MESSAGE_HINT, NO_RECAP_NOTE, the clock block, EMOJI_HINTS,
+# DISTRESS_RULE, PERSONAL_HELP_RULE).
+_RULES = 204
+_RULE_GRAMS = 19379
+_RULE_GRAMS_SHA = "523e699fbc3f6c27"
 
 
 def _rules() -> list[str]:

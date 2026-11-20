@@ -1,7 +1,6 @@
 /** The words for a scene: its title, and what a screen reader hears for it. */
 import { type SimulationSpec } from "@/lib/physics/simulation/spec";
-
-type Translate = (key: string, options?: Record<string, unknown>) => string;
+import type { Translate } from "@/lib/i18n/translate";
 
 /**
  * The scene's title: the translated name when the server sent a key this build
