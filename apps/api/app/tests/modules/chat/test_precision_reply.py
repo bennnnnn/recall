@@ -70,6 +70,8 @@ def test_a_whole_value_the_working_reached_exactly_takes_any_places() -> None:
         ("no rounding", _card("3.13")),
         ("1 digit", "Do you mean one decimal place or one significant figure?"),  # no card
         ("1 digit", None),
+        # A model's unchecked card is never shown again as the server's, checked (Codex).
+        ("1 dp", "$v = 3.13209$\n\n```answer\nverified: false\nv = 3.13\\,\\mathrm{m/s}\n```"),
         ("Explain 2 sig figs", _SPEED),  # asks more than a precision
         ("1 dp", "```answer\nverified: true\n\\$1,234.57\n```"),  # money stays to the cent
         # One place of 0.0456 A shows no figure at all: no 0.0 A (review).
