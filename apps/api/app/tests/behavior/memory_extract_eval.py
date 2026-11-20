@@ -74,9 +74,7 @@ def _load(path: Path) -> list[Case]:
     items = raw["cases"] if isinstance(raw, dict) else raw
     cases: list[Case] = []
     for item in items:
-        lines = [
-            line[1] if isinstance(line, list) else line for line in item.get("lines", [])
-        ]
+        lines = [line[1] if isinstance(line, list) else line for line in item.get("lines", [])]
         cases.append(
             Case(
                 id=item["id"],
@@ -150,9 +148,7 @@ async def saved_facts(settings: Any, case: Case) -> list[str]:
         chat_id=uuid.uuid4(),
         from_history=False,
         min_confidence=settings.memory_min_confidence,
-        sources=extract_backlog.source_lines(
-            [(uuid.uuid4(), text) for text in case.lines]
-        ),
+        sources=extract_backlog.source_lines([(uuid.uuid4(), text) for text in case.lines]),
         earlier=earlier,
     )
     return [write.text for write in writes if write.op in {"add", "update", "supersede"}]

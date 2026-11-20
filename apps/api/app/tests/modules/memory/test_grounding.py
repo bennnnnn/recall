@@ -286,7 +286,7 @@ def test_a_new_answer_retires_every_other_active_fact_in_its_slot():
     new_home = _fact("User lives in Lyon", "home")
     facts = [old_home, older_home, muted_home, job, hobby, new_home]
 
-    _retire_same_slot(facts, new_home)  # type: ignore[arg-type]
+    _retire_same_slot(facts, new_home)
 
     assert [fact.status for fact in facts] == [
         "superseded",
@@ -407,7 +407,7 @@ async def test_a_fact_said_again_is_retired_after_its_vector_is_written(mock, ne
         uuid4(),
         written,
         {fresh},
-        new_wins,  # type: ignore[arg-type]
+        new_wins,
     )
 
     if not called:
