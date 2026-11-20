@@ -32,6 +32,12 @@ class LlmSettings(BaseModel):
     # environment overrides aligned with this 8192 default; lower legacy caps
     # can cut advanced derivations off mid-step.
     max_output_tokens: int = 8192
+    # A turn that thinks gets this many tokens for its thinking on top of the reply's own
+    # cap, so the reply keeps its room: a 20-part question's thinking took all 8,192 and
+    # left no answer (2026-11-18). A model that takes a reasoning cap (catalog
+    # ``reasoning_token_cap``) is held to it; the rest are held by the ceiling below.
+    # Sized from api.log: hard turns think ~3.7k tokens at p95 (DeepSeek), ~3.3k (Qwen).
+    chat_reasoning_budget_tokens: int = 4096
     # Send the chat prompt's stable system message with a cache_control mark to the
     # models that cache only a marked prefix (catalog cache_breakpoints: Claude). Off
     # sends it unmarked; providers that reuse a repeated prefix on their own still do.
@@ -73,6 +79,19 @@ class LlmSettings(BaseModel):
     # its reasoning from the start: one that has sent neither reasoning nor
     # text after this long gives way to the next.
     chat_stream_first_thought_timeout_seconds: float = 4.0
+    # A model thinking with no answer text yet gives up after this long, and the reply
+    # goes on without thinking: the next model, or the same one when it is the last.
+    # Reasoning streaming is progress, so the caps above never fire on a model that
+    # thinks without end (DeepSeek, Qwen and GLM each thought a 20-part question to their
+    # whole budget, 2026-11-18: 143 s of "Thinking" and a cut-off reply). From api.log,
+    # request to first text on hard turns: DeepSeek p95 26 s (max 64), Qwen p95 52 s.
+    chat_stream_thought_ceiling_seconds: float = 75.0
+    # While a model thinks with no answer yet and another can take over, this much silence
+    # (no chunk at all) gives way to it, instead of the idle timeout above. DeepSeek's
+    # reasoning on a 4-part lever question began at 0.9 s, then nothing came: the 30 s idle
+    # wait ran out before Qwen started (first word at 48.7 s, 2026-11-18). Streamed
+    # reasoning comes in a steady run of chunks, a fraction of a second apart.
+    chat_stream_thought_idle_seconds: float = 10.0
     # A model whose breaker opened (services/model_health) is skipped for this
     # long after its last sample; then a turn about to try it claims its probe.
     model_health_cooldown_seconds: int = 30

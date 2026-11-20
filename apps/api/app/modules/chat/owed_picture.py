@@ -227,7 +227,9 @@ def with_the_line(text: str, note: str) -> str:
 async def settle_owed_picture(state: FinalizeState) -> str:
     """Finalize's pass: ``held_to_the_ask`` on the reply, committed when it changed."""
     ctx = state.ctx
-    if state.was_cancelled:
+    # A reply cut off owes no picture: the phone says it was cut off and offers Continue,
+    # and the picture may come with the rest (a length cut is no cancel, ``cut_off``).
+    if state.cut_off:
         return state.text
     locale = ctx.user.locale if ctx.user is not None else None
     text = held_to_the_ask(state.text, ctx, line_language(ctx.user_message_content or "", locale))

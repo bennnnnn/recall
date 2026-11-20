@@ -376,7 +376,9 @@ export type FailureArea =
    * Turning push off could not remove this phone's token from the server. The switch still
    * turns off and the next sync tries again; the call failing on every phone once went unseen.
    */
-  | "push_unregister";
+  | "push_unregister"
+  /** Continue under a cut-off reply could not be sent; the button comes back to try again. */
+  | "reply_continue";
 
 /** A handled failure reports once per area and kind every ten minutes, twenty an hour in all. */
 const failureAllowed = reportLimit(10 * 60_000, 20);

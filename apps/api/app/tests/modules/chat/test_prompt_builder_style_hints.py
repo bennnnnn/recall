@@ -683,6 +683,7 @@ def _turn_prompt(
     *,
     exchange: tuple[tuple[str, str], ...] = (),
     lightweight: bool = False,
+    last_completion: str | None = None,
 ) -> tuple[str, str]:
     """(system prompt, nearby contracts) for one turn, from the real section tables."""
     from types import SimpleNamespace
@@ -722,7 +723,14 @@ def _turn_prompt(
         attachment_rag_block="",
         todos_section=None,
         chat_history_rag_block="",
-        exchange=[SimpleNamespace(role=role, content=text) for role, text in exchange],
+        exchange=[
+            SimpleNamespace(
+                role=role,
+                content=text,
+                completion=last_completion if index == len(exchange) - 1 else None,
+            )
+            for index, (role, text) in enumerate(exchange)
+        ],
         followup=None,
     )
     return (
@@ -814,6 +822,31 @@ def test_continue_resumes_the_last_reply_but_a_lesson_keeps_its_own_next_step():
     assert CONTINUE_HINT not in _turn_prompt("continue", exchange=lesson)[1]
     assert CONTINUE_HINT not in _turn_prompt("continue")[1]
     assert CONTINUE_HINT not in _turn_prompt("another one", exchange=story)[1]
+
+
+def test_the_turn_after_a_cut_off_reply_is_told_it_stopped_short():
+    """ "Weiter" after a reply that ran out of room picks up where it stopped (2026-11-18)."""
+    from app.modules.chat.prompt_constants import CUT_OFF_REPLY_NOTE
+
+    story = (("user", "solve all 20 parts"), ("assistant", "**6.** The asymmetry ($|\\Delta e"))
+    _, nearby = _turn_prompt("Weiter", exchange=story, last_completion="interrupted")
+    assert CUT_OFF_REPLY_NOTE in nearby
+    # A finished reply, or one the user stopped, says nothing of the kind.
+    assert CUT_OFF_REPLY_NOTE not in _turn_prompt("Weiter", exchange=story)[1]
+    stopped = _turn_prompt("Weiter", exchange=story, last_completion="user_stop")[1]
+    assert CUT_OFF_REPLY_NOTE not in stopped
+
+
+def test_a_message_with_many_numbered_parts_is_scoped_up_front():
+    """20 numbered asks, part D numerical: the reply says what it covers before it starts."""
+    from app.modules.chat.prompt_constants import many_parts_hint
+
+    asks = "\n".join(f"{n}. Derive quantity {n} of the orbit." for n in range(1, 21))
+    _, nearby = _turn_prompt(f"A probe orbits a Kerr black hole.\n{asks}")
+    assert many_parts_hint(20, 8192) in nearby
+    # A question in a few parts answers every part, as before.
+    few = "\n".join(f"{n}. Find quantity {n}." for n in range(1, 4))
+    assert "separate things" not in _turn_prompt(f"A ball is thrown.\n{few}")[1]
 
 
 @pytest.mark.parametrize(

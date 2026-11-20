@@ -21,6 +21,25 @@ MIXED_LENGTH_HINT = (
     "one-sentence part stays one sentence."
 )
 
+
+def many_parts_hint(parts: int, max_output_tokens: int) -> str:
+    """Said beside a message with ``turn_reading.length.MANY_PARTS`` asks or more: one reply
+    may not hold them all, so it says up front what it covers and what it can't do here."""
+    # Worked maths costs about 2.5 characters a token, so the cap is ~3/8 of it in words.
+    words = max(500, round(max_output_tokens * 3 / 8, -2))
+    return (
+        f"This message asks {parts} separate things. One reply has room for about "
+        f"{words:,.0f} words, so they may not all fit in full. If they won't, open with one "
+        "or two lines saying which parts this reply answers and which it leaves for a "
+        "follow-up, and name any part you can't do here (running code, a numerical "
+        "simulation or integration, a plot or file this chat can't produce), with what you "
+        "give instead: the method, the equations to integrate, what the result would show. "
+        "Then answer the parts you named fully, in the message's order, never stopping "
+        "partway through one, and end by offering to go on with the rest. If they all fit, "
+        "answer every part."
+    )
+
+
 # The length line of the system prompt: SHORT on a greeting or an ack (the lightweight
 # path), DETAILED when the message asked for depth, otherwise fit to the question.
 STYLE_HINTS = {
