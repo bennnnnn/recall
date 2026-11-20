@@ -15,7 +15,6 @@ from app.modules.chat.continuation_subject import (
 )
 from app.modules.chat.model_routing.route import route_chat_model
 from app.modules.chat.prompt_constants import (
-    BIOLOGY_PRESENTATION_HINT,
     NEW_PROBLEM_HINT,
     STATISTICS_PRESENTATION_HINT,
 )
@@ -30,7 +29,6 @@ from app.services.subjects.dispatch import detect_subject
 CYCLIST = "A cyclist rides 12 km at 20 km/h then 8 km at 10 km/h. Find average speed."
 EQUATION = "Solve 2x + 3 = 11"
 STATS = "The values are 2, 4, 6 and 8. Find the sample mean."
-BIOLOGY = "In a Punnett square, 1 of 4 offspring shows the recessive allele."
 CHEMISTRY = "Balance H2 + O2 -> H2O"
 
 
@@ -78,7 +76,7 @@ def test_physics_continuation_keeps_physics_and_a_new_topic_does_not() -> None:
     assert effective_presentation_subject("Another", france) is None
 
 
-def test_math_chemistry_statistics_and_biology_continuations() -> None:
+def test_math_chemistry_and_statistics_continuations() -> None:
     assert effective_presentation_subject(
         "One more", [("user", EQUATION), ("assistant", "x = 4")]
     ) == ("math")
@@ -88,9 +86,6 @@ def test_math_chemistry_statistics_and_biology_continuations() -> None:
     assert effective_presentation_subject("Another", [("user", STATS), ("assistant", "5")]) == (
         "statistics"
     )
-    assert effective_presentation_subject(
-        "Another", [("user", BIOLOGY), ("assistant", "100 fold")]
-    ) == ("biology")
 
 
 def test_style_hints_follow_the_continuation_subject() -> None:
@@ -139,14 +134,6 @@ def test_style_hints_follow_the_continuation_subject() -> None:
         prior_messages=[("user", STATS), ("assistant", "5")],
     )
     assert STATISTICS_PRESENTATION_HINT in statistics
-
-    biology = _style_format_hints(
-        query_text="Another",
-        is_day_plan=False,
-        minimal_personal_context=False,
-        prior_messages=[("user", BIOLOGY), ("assistant", "100 fold")],
-    )
-    assert BIOLOGY_PRESENTATION_HINT in biology
 
 
 def test_why_is_it_after_physics_keeps_the_physics_contract() -> None:

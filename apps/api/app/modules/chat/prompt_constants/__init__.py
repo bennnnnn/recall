@@ -36,7 +36,6 @@ from app.modules.chat.prompt_constants.diagrams import (
     mermaid_format_hint,
 )
 from app.modules.chat.prompt_constants.format import (
-    BIOLOGY_PRESENTATION_HINT,
     CALLOUT_FORMAT_HINT,
     COMPACT_RESPONSE_FORMAT_HINT,
     COMPARISON_FORMAT_HINT,
@@ -109,7 +108,6 @@ __all__ = [
     "ANSWER_PHOTO_HINT",
     "ASSISTANT_NAME",
     "ASSISTANT_NAME_RULE",
-    "BIOLOGY_PRESENTATION_HINT",
     "BREVITY_REQUEST_HINT",
     "BROAD_SELF_ANSWER_HINT",
     "CALLOUT_FORMAT_HINT",
