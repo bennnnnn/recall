@@ -307,8 +307,11 @@ def _subject_lane(
 
     asked = sorted(SUBJECTS, key=lambda adapter: adapter.name != subject)
     # A loan or card payoff is the money card's, whichever subject its rate words read as:
-    # the subject's claim is no reason to escalate it (review of phys30, 2026-11-16).
-    claim = subject if not MONEY.reads(content) else None
+    # the subject's claim is no reason to escalate it (review of phys30, 2026-11-16). A
+    # science's problem that names no money is the science's ("a screw jack ... a car
+    # weighing 9000 N ... 40%"), money words and all.
+    money = MONEY.reads(content) and not MONEY.yields_to(content, subject)
+    claim = subject if not money else None
     for adapter in asked:
         tools_on = settings is None or adapter.enabled(settings)
         verdict = adapter.fast_lane(content, tools_on=tools_on, claimed=adapter.name == claim)

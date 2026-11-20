@@ -7,6 +7,7 @@ import re
 from dataclasses import replace
 
 from app.modules.physics.ask import result_dimension, result_reading
+from app.modules.physics.catalog import formula_spec
 from app.modules.physics.display import plain_number
 from app.modules.physics.givens import unit_dimension, unit_expression
 from app.modules.physics.schemas import PhysicsIntent
@@ -67,7 +68,7 @@ def _in_context_units(intent: PhysicsIntent, result: PhysicsResult) -> PhysicsRe
     if intent.asked_unit is not None:
         return result
     result = _per_gram_of_givens(intent, _per_time_of_givens(intent, result))
-    result = _readable_time(_kwh_of_givens(intent, result))
+    result = _readable_time(_kwh_of_givens(intent, _celsius_change_of_givens(intent, result)))
     written = {unit.lower() for unit in (intent.physics_units or {}).values()}
     if not written & _CHEMISTRY_GAS or written & _SI_GAS:
         return result
@@ -124,6 +125,28 @@ def _per_gram_of_givens(intent: PhysicsIntent, result: PhysicsResult) -> Physics
         quantities=tuple(
             new if old.unit == _SPECIFIC_HEAT else old
             for old, new in zip(result.quantities, converted.quantities, strict=True)
+        ),
+    )
+
+
+# A given's unit as the question wrote it, in Celsius: "°C", "J/kg °C", "degC".
+_CELSIUS = re.compile(r"°\s*C\b|\bdeg\s*C\b|\u2103|celsius", re.IGNORECASE)
+
+
+def _celsius_change_of_givens(intent: PhysicsIntent, result: PhysicsResult) -> PhysicsResult:
+    """A temperature change in °C when the question writes its temperatures in °C: a rise
+    of 2 K is a rise of 2 °C, and "by how much will the temperature rise? (c is 900 J/kg °C)"
+    was answered "2 K" (G8 t33, 2026-11-18). Only a change: a temperature itself in kelvin
+    is another number in Celsius, and stays as solved."""
+    spec = formula_spec(intent.physics_op or "")
+    if spec is None or not spec.result_symbol.startswith("\\Delta"):
+        return result
+    if not any(_CELSIUS.search(unit) for unit in (intent.physics_units or {}).values()):
+        return result
+    return replace(
+        result,
+        quantities=tuple(
+            replace(item, unit="degC") if item.unit == "K" else item for item in result.quantities
         ),
     )
 

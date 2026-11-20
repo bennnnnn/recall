@@ -10,27 +10,13 @@ CI. A fix turns one red: then delete it, or invert it into the fix's own test.
 
 from __future__ import annotations
 
-import asyncio
 import os
-from dataclasses import replace
-from types import SimpleNamespace
-from typing import Any
-from unittest.mock import AsyncMock
 
 import pytest
 
-from app.modules.chat.finalize_passes import enrich_final_content
-from app.modules.chat.turn_deps import default_deps
-from app.modules.chat.turn_outcome import TurnOutcome
 from app.services.answer_fence import VERIFIED_ANSWER_MARKER
-from app.tests.behavior.cases import Case, Expect
-from app.tests.behavior.harness import (
-    _no_reminders,
-    _no_session,
-    battery_settings,
-    offline_pubchem,
-    route_case,
-)
+from app.tests.behavior.finalize_probe import answer_cards as _cards
+from app.tests.behavior.finalize_probe import finalize_reply as _finalize
 
 pytestmark = [
     pytest.mark.skipif(
@@ -41,107 +27,8 @@ pytestmark = [
 ]
 
 
-def _done(value: Any) -> asyncio.Future[Any]:
-    future: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
-    future.set_result(value)
-    return future
-
-
-async def _finalize(
-    prompt: str,
-    reply: str,
-    *,
-    history: tuple[tuple[str, str], ...] = (),
-    formal: tuple[float, str, tuple[float, ...]] | None = None,
-) -> tuple[Any, str]:
-    """``reply`` as the model wrote it on ``prompt``'s turn, saved through every pass.
-
-    ``formal``: the formal reader's answer (value, unit), as the physics read's task gives it
-    (it needs a model, so it is stubbed here, with the live read saying physics).
-    """
-    route = await route_case(Case("probe", "probe", prompt, Expect(), "", history=history))
-    ctx = route.context
-    ctx.instant_reply = None  # the model wrote this reply
-    if formal is not None:
-        ctx.live_read = _done(SimpleNamespace(subject="physics"))
-        ctx.formal = _done(_formal_answer(*formal))
-    deps = replace(
-        default_deps(),
-        session_factory=_no_session,
-        users=SimpleNamespace(get_by_id=AsyncMock(return_value=None)),
-        todos=SimpleNamespace(materialize_reminder_fences=AsyncMock(side_effect=_no_reminders)),
-    )
-    with offline_pubchem():
-        saved = await enrich_final_content(
-            deps,
-            AsyncMock(),
-            battery_settings(),
-            ctx,
-            assistant_text=reply,
-            usage={},
-            outcome=TurnOutcome(),
-            was_cancelled=False,
-            should_cancel=None,
-        )
-    return route, saved
-
-
-def _formal_answer(value: float, unit: str, uses: tuple[float, ...] = ()) -> Any:
-    """The formal reader's answer in the shape this checkout's ``FormalAnswer`` takes: main's
-    (value, unit), or #2501's per-part values with the range the standard constants allow
-    and the stated numbers the value is worked from."""
-    from app.services.formal import answer as formal_answer
-
-    value_type = getattr(formal_answer, "FormalValue", None)
-    if value_type is None:
-        return formal_answer.FormalAnswer(value, unit)
-    part = value_type(
-        part="",
-        symbol="",
-        value=value,
-        unit=unit,
-        low=value * 0.997,
-        high=value * 1.003,
-        uses=uses,
-    )
-    # #2501's FormalAnswer takes per-part values; main's type checker knows only (value, unit).
-    newer: Any = formal_answer.FormalAnswer
-    return newer(values=(part,))
-
-
-def _cards(text: str) -> list[str]:
-    from app.services.answer_fence import ANSWER_FENCE_LANGS
-    from app.services.md_fence_scan import iter_fences
-
-    return [
-        text[fence.body_start : fence.body_end]
-        for fence in iter_fences(text)
-        if fence.closed and fence.lang in ANSWER_FENCE_LANGS
-    ]
-
-
-# --- 1. formal_answer overrules the reply's own right card -----------------------------------
-
-_BLOCK = (
-    "A rectangular block of mass 50 kg lies with a side 2m by 1m on a table. "
-    "What is the pressure exerted by its weight on the table? (g = 10 m/s2)"
-)
-_BLOCK_REPLY = (
-    "**Given**\n$m = 50\\,\\mathrm{kg}$, $A = 2\\,\\mathrm{m^2}$, $g = 10\\,\\mathrm{m/s^2}$\n\n"
-    "**Required**\nP\n\n**Substitution**\n$W = 50 \\times 10 = 500\\,\\mathrm{N}$\n"
-    "$P = \\frac{500}{2} = 250\\,\\mathrm{Pa}$\n\n**Answer**\n\n```answer\n250 Pa\n```"
-)
-
-
-async def test_conflict_1_formal_answer_replaces_a_right_card() -> None:
-    """The question states g = 10; the reply works with it to 250 Pa. The formal reader's
-    setup took 9.81 (245.25 Pa): ``formal_answer`` lands its card in the reply's place and
-    the working above still ends at 250 Pa. The turn is also dispatched as maths (the maths
-    fence pass demoted the reply's card first) while the live read says physics."""
-    route, saved = await _finalize(_BLOCK, _BLOCK_REPLY, formal=(245.25, "Pa", (50.0, 2.0)))
-    assert route.subject == "math"
-    assert _cards(saved) and "245" in _cards(saved)[0]
-    assert "250\\,\\mathrm{Pa}" in saved  # the working's own value, now contradicted
+# --- 1. formal_answer overruled the reply's own right card: fixed by #2501, held by
+# ``app/tests/behavior/test_finalize_owners.py``.
 
 
 # --- 2. formal_answer's card contradicts the working it sits under ---------------------------
@@ -226,23 +113,8 @@ async def test_conflict_4_stripped_graph_leaves_its_lead() -> None:
     assert "Here is the v–t graph" in saved
 
 
-# --- 5. a money card on a physics question --------------------------------------------------
-
-
-async def test_conflict_5_loan_card_under_a_physics_answer() -> None:
-    """The money reader and the subject dispatch both claim the turn; ``money_card`` attaches
-    whenever money owns its read, whatever the subject: a car-loan calculator under a
-    physics answer."""
-    reply = (
-        "**Given**\n$a = 0.06 \\times 9.81 = 0.5886\\,\\mathrm{m/s^2}$, $t = 5\\,\\mathrm{s}$\n\n"
-        "**Required**\n$v$\n\n**Substitution**\n$v = 0.5886 \\times 5 = 2.943\\,\\mathrm{m/s}$\n\n"
-        "**Answer**\n\n$v = 2.94\\,\\mathrm{m/s}$"
-    )
-    route, saved = await _finalize(
-        "A car accelerates at 6% of g for 5 s from rest. What is its final speed?", reply
-    )
-    assert route.subject == "physics"
-    assert "```calculator" in saved and '"product":"loan"' in saved
+# --- 5. a money card on a physics question: fixed by #2495, held by
+# ``app/tests/behavior/test_finalize_owners.py``.
 
 
 # --- 6. an unclosed card skips every check, then close_fences closes it ----------------------

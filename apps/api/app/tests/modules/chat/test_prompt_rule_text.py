@@ -100,12 +100,15 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # follows (FOLLOW_UP_NOTE), the Grade 8 chat, 2026-11-18; then a circuit and a plane mirror
 # described in the same way, no flowchart for a thing or a motion, a motion's graphs in
 # stages, and a reply never writing that a picture is shown or mentioning its block
-# (physics.scene_drawing.contract, Grade 8 round, 2026-11-18); then the turn after a reply
-# cut off told to go on from where it stopped, in any language (CUT_OFF_REPLY_NOTE, the
-# 20-part question, 2026-11-18).
+# (physics.scene_drawing.contract, Grade 8 round, 2026-11-18); then a ```worked part asked in
+# words, said in `say` lines and answered in one sentence (prompt_constants.worked, G8 round
+# t42, 2026-11-18), and its answer record's value and its substitution left unrounded, the "3
+# significant figures" gone: the server rounds every card by one rule (services.rounding_rule,
+# the owner, 2026-11-18); then the turn after a reply cut off told to go on from where it
+# stopped, in any language (CUT_OFF_REPLY_NOTE, the 20-part question, 2026-11-18).
 _RULES = 207
-_RULE_GRAMS = 19405
-_RULE_GRAMS_SHA = "41fb1923a39aab75"
+_RULE_GRAMS = 19490
+_RULE_GRAMS_SHA = "48d22a8758b76041"
 
 
 def _rules() -> list[str]:

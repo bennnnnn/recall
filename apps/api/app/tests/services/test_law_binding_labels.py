@@ -37,6 +37,9 @@ _RATE = FormulaSpec(
         (" and takes ", " per cycle", "period"),
         ("light of wavelength ", " falls", "wavelength"),
         ("reaches an average speed of ", " over", "average speed"),
+        # A diameter is no radius (Gemini on #2495: a wheel's diameter bound as its radius).
+        ("a wheel and axle has a wheel of diameter ", " and", "diameter"),
+        ("a pipe ", " in diameter", "diameter"),
         # A qualified amplitude is another quantity: peak-to-peak is 2A.
         ("with a peak-to-peak amplitude of ", " and", QUALIFIED),
         ("with a double amplitude of ", " and", QUALIFIED),
@@ -67,6 +70,8 @@ def test_value_label_names_the_quantity_the_words_give(
         (var("delta_t", "dT", "kelvin"), CHANGE, True),
         (var("v", "v", "meter / second"), CHANGE, False),
         (var("d", "d", "meter"), None, True),
+        (var("wheel_radius", "R", "meter", words=("wheel",)), "diameter", False),
+        (var("diameter", "d", "meter", words=("diameter",)), "diameter", True),
     ],
 )
 def test_only_the_named_quantity_holds_a_named_value(

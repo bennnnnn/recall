@@ -23,6 +23,7 @@ from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.turn_prep.instant import settings_card
 from app.modules.chat.turn_prep.intents import plan_turn
 from app.modules.chat.turn_prep.mode import prior_user_texts
+from app.modules.chat.turn_prep.reading import read_turn
 from app.modules.chat.turn_prep.request import TurnIdentity, TurnRequest
 from app.modules.turn_reading.plan import TurnPlan
 from app.services.subjects.registry import MONEY
@@ -54,6 +55,8 @@ async def money_turn(
         "",
     )
     for text in plan.texts() if plan.multi else (request.content,):
+        if not plan.multi and _a_science_problem(text, request, settings):
+            continue
         turn = await MONEY.prepare(
             text,
             settings,
@@ -65,8 +68,11 @@ async def money_turn(
         )
         if turn is not None:
             return replace(turn, multi=plan.multi)
-    # A reminder or to-do line is the to-do path's, whatever money words it holds.
-    if todos_service.query_implies_todos(request.content):
+    # A reminder or to-do line is the to-do path's, whatever money words it holds; a
+    # science's problem is no follow-up of an earlier loan.
+    if todos_service.query_implies_todos(request.content) or (
+        not plan.multi and _a_science_problem(request.content, request, settings)
+    ):
         return None
     return await MONEY.prepare_standing(
         request.content,
@@ -77,6 +83,15 @@ async def money_turn(
         earlier=earlier,
         last_reply=last_reply,
     )
+
+
+def _a_science_problem(text: str, request: TurnRequest, settings: Settings) -> bool:
+    """The turn's message, one request, reads as a physics or chemistry problem and ``text``
+    names no money, so money yields it (``MoneyPeer.yields_to``). The subject is the turn's
+    own reading of its message, built from the pool's: nothing is read here, on the loop. A
+    message of several requests yields none: a part's subject is not the whole message's."""
+    subject = read_turn(request.content, settings).subject
+    return MONEY.yields_to(text, subject)
 
 
 def _parts(line: str, chemistry_enabled: bool) -> tuple[str, ...]:
