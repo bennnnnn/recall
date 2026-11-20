@@ -28,7 +28,7 @@ from app.modules.memory.fact_quality import (
 )
 from app.modules.memory.facts import should_skip_sensitive_persist
 from app.modules.memory.forget_match import names_nothing, phrase_names_fact
-from app.modules.memory.grounding import SourceLine, grounded_source
+from app.modules.memory.grounding import SourceLine, grounded_source, quoted_line
 from app.modules.memory.name_claim import is_unclaimed_user_name
 from app.modules.memory.ops import EXPLICIT_IMPORTANCE, MODEL_IMPORTANCE_MAX, normalize_memory_text
 from app.modules.memory.schemas import MemoryFactOp, MemoryFactUpdateResult
@@ -98,6 +98,7 @@ def compose_writes(
     min_confidence: float,
     sources: Sequence[SourceLine],
     earlier: str = "",
+    told_story: bool = False,
 ) -> tuple[list[MemoryFactWrite], int]:
     """Every write a pass makes, from the model's ops and the user's own words; no IO.
 
@@ -132,7 +133,7 @@ def compose_writes(
         writes.extend(
             named_mute_ops(lines, existing_facts=snapshot.existing_facts, chat_id=chat_id)
         )
-    if not asks.forget:
+    if not asks.forget and not told_story:
         writes.extend(
             stated_fact_writes(
                 lines,
@@ -152,10 +153,15 @@ def compose_writes(
     return writes + _stale_fact_deletes(snapshot, writes), skipped
 
 
+def is_story(result: MemoryFactUpdateResult) -> bool:
+    """Whether the model judged the whole chat a story (role-play, a test, a tale)."""
+    return (result.conversation or "").strip().casefold() == "story"
+
+
 def told_as_story(result: MemoryFactUpdateResult) -> list[MemoryFactOp]:
     """The model's ops, each read as a story when it judged the whole chat one: a fact
     from a told story is never the user's life, whatever the op said."""
-    if (result.conversation or "").strip().casefold() != "story":
+    if not is_story(result):
         return list(result.ops)
     return [
         op if op.op in _MATCH_ONLY_OPS else op.model_copy(update={"stated_as": "story"})
@@ -250,7 +256,7 @@ def writes_from_ops(
         if writes_text and not text:
             skipped += 1
             continue
-        source = _grounding(op, text, sources, explicit_remember, english) if writes_text else None
+        source = _grounding(op, text, sources, english) if writes_text else None
         if writes_text and sources is not None and source is None:
             logger.info("Skipping memory fact not stated by the user op=%s", op.op)
             skipped += 1
@@ -313,18 +319,22 @@ def _grounding(
     op: MemoryFactOp,
     text: str,
     sources: Sequence[SourceLine] | None,
-    explicit_remember: bool,
     english: bool,
 ) -> SourceLine | None:
-    """The line that states the op's fact about the user; None when it has none."""
+    """The line that states the op's fact about the user; None when it has none.
+
+    "Remember …" stands in for own_life only on the line the fact is quoted from: one
+    role-play opener that says "remember" must not keep every story fact of the pass.
+    """
     if sources is None:
         return None
+    line = quoted_line(op.quote, sources)
     return grounded_source(
         quote=op.quote,
         fact=text,
         stated_as=op.stated_as,
         lines=sources,
-        explicit_remember=explicit_remember,
+        explicit_remember=line is not None and is_explicit_memory_command(line.text),
         english=english,
     )
 

@@ -42,8 +42,9 @@ _FILLER = frozenset(
     about into over than too more most some any all each one own
     """.split()
 )
-# Two words are one when they share this long a start ("engineer", "engineering").
-_STEM = 5
+# Two words are one when they share this long a start ("lives" / "live", "engineer" /
+# "engineering"); "lawer" and "lawyer" share three letters, not four.
+_STEM = 4
 
 
 @dataclass(frozen=True)

@@ -66,6 +66,8 @@ def test_a_quote_no_line_holds_grounds_nothing(quote):
         ("7Th grade physics questions", "User is male (7M)", False),
         ("SWE at Uber", "User works as a software engineer at Uber", True),
         ("I'm 34", "User is 34 years old", True),
+        ("I live in Lyon", "User lives in Lyon now", True),
+        ("I live near the lake", "User lives by a lake", True),
         ("I'm a software engineer", "User works in software engineering", True),
         # Another script cannot be compared: the model's translation stands.
         ("ቦሌ አዲስ አበባ ነኝ", "User lives in Addis Ababa", True),
@@ -342,8 +344,10 @@ def test_recheck_keeps_a_fact_the_users_words_state_and_mutes_one_they_do_not():
         lines=lines,
         english=True,
     )
-    unread = judge(_saved("User is 21"), None, story=False, lines=lines, english=True)
-    assert (lawyer.keep, home.keep, unread.keep) == (False, True, False)
+    unquoted = judge(_saved("User is 21"), _Reading(fact=3), story=False, lines=lines, english=True)
+    # A fact the model's answer skipped is left as it is, not muted.
+    skipped = judge(_saved("User is 21"), None, story=False, lines=lines, english=True)
+    assert (lawyer.keep, home.keep, unquoted.keep, skipped.keep) == (False, True, False, True)
     assert (home.source_message_id, home.slot) == (lines[2].message_id, "home")
 
 
@@ -440,3 +444,62 @@ def test_recheck_keeps_a_fact_only_when_every_read_keeps_it():
     assert both_keep([kept, kept]) is kept
     assert both_keep([kept, muted]) is muted
     assert both_keep([muted, kept]) is muted
+
+
+def test_remember_on_one_line_keeps_only_the_fact_quoted_from_it():
+    said = ["Remember that you are my wife in this game", "We have four boys and a house"]
+    ops = [
+        {
+            "op": "add",
+            "type": "fact",
+            "text": "User has four boys",
+            "quote": "We have four boys",
+            "stated_as": "story",
+        },
+        {
+            "op": "add",
+            "type": "fact",
+            "text": "User plays a game where the assistant is his wife",
+            "quote": "you are my wife in this game",
+            "stated_as": "story",
+        },
+    ]
+    writes, _ = _compose(said, ops)
+    assert [w.text for w in writes] == ["User plays a game where the assistant is his wife"]
+
+
+def test_a_chat_judged_a_story_keeps_no_fact_the_server_reads_itself():
+    said = ["I'm building a castle for my 97 year old wife"]
+    lines = f"User: {said[0]}"
+    writes, _ = compose_writes(
+        _snapshot(),
+        lines,
+        Asks.of(lines),
+        [],
+        chat_id=uuid4(),
+        from_history=False,
+        min_confidence=0.5,
+        sources=_lines(*said),
+        told_story=True,
+    )
+    assert writes == []
+    real, _ = compose_writes(
+        _snapshot(),
+        lines,
+        Asks.of(lines),
+        [],
+        chat_id=uuid4(),
+        from_history=False,
+        min_confidence=0.5,
+        sources=_lines(*said),
+    )
+    assert [w.text for w in real] == ["User is building a castle for my 97 year old wife"]
+
+
+def test_recheck_leaves_a_fact_the_user_edited_by_hand():
+    from app.modules.memory.recheck import edited_by_hand
+
+    fact = _saved("User is a paralegal")
+    assert edited_by_hand(fact, fact.confirmed_at + timedelta(seconds=1))
+    assert not edited_by_hand(fact, fact.confirmed_at + timedelta(minutes=5))
+    assert not edited_by_hand(fact, None)

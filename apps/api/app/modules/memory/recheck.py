@@ -157,7 +157,10 @@ def judge(
     english: bool,
 ) -> Verdict:
     """The live pass's checks, on one saved fact and the model's reading of it."""
-    if reading is None or not reading.quote:
+    if reading is None:
+        # Skipped in the model's answer: unread is not refuted.
+        return Verdict(fact, keep=True, reason="the model did not read it; left as it is")
+    if not reading.quote:
         return Verdict(fact, keep=False, reason="no line of the user's states it")
     line = quoted_line(reading.quote, lines)
     grounding = ground_fact(
@@ -177,6 +180,16 @@ def judge(
         source_message_id=grounding.line.message_id,
         slot=reading.slot,
     )
+
+
+# A hand edit stamps the fact and the account together (``crud``), a moment apart.
+_SAME_EDIT = timedelta(seconds=5)
+
+
+def edited_by_hand(fact: SavedFact, edited_at: datetime | None) -> bool:
+    """A fact last written by the user's own edit: its words are theirs, whatever the chat
+    says. Only the newest hand edit is stamped on the account, so older ones are read."""
+    return edited_at is not None and abs(fact.confirmed_at - edited_at) <= _SAME_EDIT
 
 
 def without_older_answers(verdicts: list[Verdict]) -> list[Verdict]:
@@ -336,6 +349,8 @@ async def recheck_user(settings: Settings, user_id: UUID) -> list[Verdict]:
         for fact in facts:
             if is_learning_line(fact.text):
                 verdicts.append(Verdict(fact, keep=True, reason="lesson line (the lesson job's)"))
+            elif edited_by_hand(fact, user.memory_edited_at):
+                verdicts.append(Verdict(fact, keep=True, reason="written by the user's own edit"))
             elif fact.source_chat_id is None:
                 verdicts.append(Verdict(fact, keep=True, reason="no source chat to read"))
             else:

@@ -28,10 +28,11 @@ from app.modules.memory.pass_writes import (
     Asks,
     MemorySnapshot,
     compose_writes,
+    is_story,
     told_as_story,
     without_reset_requests,
 )
-from app.modules.memory.schemas import MemoryFactOp
+from app.modules.memory.schemas import MemoryFactUpdateResult
 from app.modules.memory.switch import memory_switch_on
 from app.modules.memory.text import is_memory_candidate
 from app.modules.memory.topics import (
@@ -214,9 +215,10 @@ async def _locked_pass(
         await _stamp(user_id, chat_id, read.cursor)
         logger.info("memory_extract_yield user_id=%s applied=0 skipped=candidate", user_id)
         return None
-    ops, outcome, advance = await _ask_model(
+    result, outcome, advance = await _ask_model(
         settings, read, user_id=user_id, chat_id=chat_id, from_history=from_history
     )
+    ops = told_as_story(result) if result is not None else []
     writes, skipped = compose_writes(
         read.snapshot,
         read.lines,
@@ -227,6 +229,7 @@ async def _locked_pass(
         min_confidence=settings.memory_min_confidence,
         sources=read.read.sources,
         earlier=read.earlier,
+        told_story=result is not None and is_story(result),
     )
     if writes:
         await apply_memory_facts(
@@ -287,8 +290,9 @@ async def _read_pass_input(
 
 async def _ask_model(
     settings: Settings, read: _PassInput, *, user_id: UUID, chat_id: UUID, from_history: bool
-) -> tuple[list[MemoryFactOp], ExtractOutcome, bool]:
-    """The model's ops, the pass outcome, and whether the cursor may move past these lines."""
+) -> tuple[MemoryFactUpdateResult | None, ExtractOutcome, bool]:
+    """The model's answer, the pass outcome, and whether the cursor may move past these
+    lines."""
     result = await memory_llm.revise_memory_facts(
         settings,
         read.lines,
@@ -302,7 +306,7 @@ async def _ask_model(
     if result is not None:
         if not from_history:
             await clear_failed_extract_passes(user_id, chat_id)
-        return told_as_story(result), None, True
+        return result, None, True
     # Provider error, timeout or unreadable JSON. Keep the cursor so the
     # next turn retries these lines, up to FAILED_PASS_LIMIT times.
     advance = False if from_history else await note_failed_extract_pass(user_id, chat_id)
@@ -312,7 +316,7 @@ async def _ask_model(
         chat_id,
         advance,
     )
-    return [], "model_failed", advance
+    return None, "model_failed", advance
 
 
 async def _stamp(user_id: UUID, chat_id: UUID, cursor: str | None) -> None:

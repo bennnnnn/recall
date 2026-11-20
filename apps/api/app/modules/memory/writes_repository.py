@@ -312,6 +312,7 @@ async def retire_near_duplicates(
             continue
         if gone.importance is not None and (kept.importance or 0) < gone.importance:
             kept.importance = gone.importance
+        kept.slot = kept.slot or gone.slot
         _supersede(gone, kept)
         retired += 1
     return retired
