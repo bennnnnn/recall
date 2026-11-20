@@ -95,10 +95,12 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # owner's round of 30 hard problems, 2026-11-16), naming a horizontal launch, bodies moving
 # the same way and the situations it never draws; no spring or wave, which no reader confirms
 # (its reviews, 2026-11-16); then no biology presentation hint, biology being out of v1
-# (2026-11-18).
-_RULES = 202
-_RULE_GRAMS = 19043
-_RULE_GRAMS_SHA = "9ae0fd7ef640a40e"
+# (2026-11-18); then the summary saying it stands for the chat's first messages, so the start
+# of the chat is in it (SUMMARY_SPAN), and a short line's note naming the message and part it
+# follows (FOLLOW_UP_NOTE), the Grade 8 chat, 2026-11-18.
+_RULES = 204
+_RULE_GRAMS = 19115
+_RULE_GRAMS_SHA = "2df65aed3e29bd40"
 
 
 def _rules() -> list[str]:

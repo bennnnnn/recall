@@ -12,9 +12,11 @@ the rules' (``model_routing.decided``):
   contract, as one the subject readers recognised does, when the readers missed it; a
   message the read says works nothing out loses the contract the readers gave it for its
   number ("Translate the algebraic expression 7x in different word phrases");
-- an everyday message the read calls an answer to the last reply, or a change to what the
-  conversation is about, gets a note beside it saying so (``FOLLOW_NOTES``): "the
-  language" after "Python the language, or the snake?" was asked back on every try without it;
+- a message the read calls an answer to the last reply, or a change to what the
+  conversation is about, gets a note beside it saying so (``FOLLOW_NOTES``), whatever its
+  subject: "the language" after "Python the language, or the snake?" was asked back on
+  every try without it; and a short line the follow-up read ties to an earlier message gets
+  that message, and the part or step it names (``follow_up_read``);
 - an answer to the practice cards the last reply ended on (the option the read says it
   gives) is graded by the server against each card, with no ```worked layout of its own
   (``quiz_verdict_note``); one answer to several cards that says not which is asked about
@@ -45,6 +47,7 @@ from app.modules.billing.entitlements import has_strong_everyday_model
 from app.modules.chat.decider_read import NO_ANSWER, OTHER_ANSWER, READ_SUBJECTS
 from app.modules.chat.drawing_turn import ask_for_a_drawing
 from app.modules.chat.drawn_picture import app_draws, solve_draws
+from app.modules.chat.follow_up_read import note_the_follow_up
 from app.modules.chat.json_output import is_json_request
 from app.modules.chat.lesson_again import lesson_again
 from app.modules.chat.model_routing.decided import decided_lane, decided_level, math_backups
@@ -102,9 +105,6 @@ def _asked_question(reply: str) -> str | None:
 
 # The most of an option's words a verdict quotes (a card is the model's text).
 _OPTION_CHARS = 120
-# The subjects whose follow-ups get the read's note. Maths, physics, chemistry and money
-# read their own ("what if it was 30 m/s?" changes the posed problem, ``chat.posed_read``).
-_NOTED_SUBJECTS = frozenset({"everyday", "code"})
 
 
 async def decide_from_the_read(ctx: StreamContext, settings: Settings) -> None:
@@ -115,6 +115,8 @@ async def decide_from_the_read(ctx: StreamContext, settings: Settings) -> None:
     # A maths picture the message asks to see: the reply describes it (``drawing_turn``).
     await ask_for_a_drawing(ctx, settings, read, deadline)
     _leave_the_picture(ctx, settings, read)
+    # "explain step 2", "and b?": which message, and which part, the line follows.
+    await note_the_follow_up(ctx, settings, deadline)
     if read is None or read.effort is None:
         note_decision("rules")
         return
@@ -430,13 +432,13 @@ def _without_worked_layout(ctx: StreamContext) -> None:
 
 
 def _follow_note(ctx: StreamContext, read: TurnDecision) -> None:
-    """The read's word on how the message leans on the conversation, beside it. A lesson, an
-    outline awaiting a pick and the turn after a clarify card read the reply their own way
-    (``message_notes``); numbers a server path worked are the reply's to present, and a
-    calculation the subject readers gave the ```worked contract is laid out by it, whatever
-    the read calls the subject."""
+    """The read's word on how the message leans on the conversation, beside it, in every
+    subject: "and b?" was read as a change in physics and told nothing (2026-11-18). A
+    lesson, an outline awaiting a pick and the turn after a clarify card read the reply their
+    own way (``message_notes``); numbers a server path worked are the reply's to present, and
+    a calculation the subject readers gave the ```worked contract is laid out by it."""
     note = FOLLOW_NOTES.get(read.follow or "")
-    if note is None or read.subject not in _NOTED_SUBJECTS or ctx.after_card:
+    if note is None or ctx.after_card:
         return
     if _worked(ctx) or ctx.worked is not None:
         return

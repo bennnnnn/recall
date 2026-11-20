@@ -100,7 +100,7 @@ def test_a_prompt_that_already_holds_past_snippets_is_seen() -> None:
 
 
 async def test_invoke_returns_the_snippets_and_reuses_them() -> None:
-    user = SimpleNamespace(id=uuid4(), memory_enabled=True)
+    user = SimpleNamespace(id=uuid4(), memory_enabled=True, timezone=None)
     ctx = _ctx(user)
     with patch(_RETRIEVE, AsyncMock(return_value=_SNIPPETS)) as retrieve:
         first = await RecallChatsAdapter(_SETTINGS).invoke({"query": "lens question"}, ctx)
@@ -109,14 +109,19 @@ async def test_invoke_returns_the_snippets_and_reuses_them() -> None:
     assert again is first
     # Earlier chats only: this chat's own lines are already in the prompt.
     retrieve.assert_awaited_once_with(
-        _SETTINGS, user_id=user.id, query="lens question", exclude_chat_id=ctx.chat_id
+        _SETTINGS,
+        user_id=user.id,
+        query="lens question",
+        exclude_chat_id=ctx.chat_id,
+        # Dated in the user's time zone (none in this context: the server's default).
+        timezone=None,
     )
 
 
 async def test_invoke_says_when_nothing_matches_or_memory_is_off() -> None:
     with patch(_RETRIEVE, AsyncMock(return_value="")):
         none = await RecallChatsAdapter(_SETTINGS).invoke(
-            {"query": "x"}, _ctx(SimpleNamespace(id=uuid4(), memory_enabled=True))
+            {"query": "x"}, _ctx(SimpleNamespace(id=uuid4(), memory_enabled=True, timezone=None))
         )
     off = await RecallChatsAdapter(_SETTINGS).invoke(
         {"query": "x"}, _ctx(SimpleNamespace(id=uuid4(), memory_enabled=False))
@@ -153,7 +158,7 @@ def _stream_ctx(content: str, tools: list[dict[str, Any]]) -> StreamContext:
         reserved_tokens=100,
         max_output_tokens=100,
     )
-    ctx.user = SimpleNamespace(id=ctx.user_id, memory_enabled=True, locale=None)  # type: ignore[assignment]
+    ctx.user = SimpleNamespace(id=ctx.user_id, memory_enabled=True, locale=None, timezone=None)  # type: ignore[assignment]
     ctx.reply_tools = tools
     return ctx
 

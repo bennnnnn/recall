@@ -2,10 +2,11 @@
 
 import asyncio
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -15,8 +16,11 @@ from app.modules.conversation.history_rag import (
     embed_query_for_prompt,
     index_message,
     index_turn_messages,
+    one_per_chat,
     prepare_message_text,
     retrieve_for_prompt,
+    snippet_date,
+    with_seats,
 )
 from app.modules.memory.switch import memory_switch_on
 from app.services.chunking import chunk_text
@@ -364,8 +368,9 @@ async def test_build_prompt_uses_gathered_history_embedding_once(
         search.assert_not_awaited()
         assert row.text not in system_prompt(messages)
     else:
-        search.assert_awaited_once()
-        assert search.await_args.args[2] == query_vec
+        # The nearest snippets, then today's nearest, which keep a seat (``_TODAY_SEATS``).
+        assert search.await_count == 2
+        assert all(call.args[2] == query_vec for call in search.await_args_list)
         assert row.text in system_prompt(messages)
 
 
@@ -546,10 +551,11 @@ async def test_index_turn_messages_indexes_nothing_while_memory_is_off():
 
 
 @pytest.mark.asyncio
-async def test_retrieved_snippets_carry_the_day_they_were_said():
+async def test_retrieved_snippets_carry_when_they_were_said_in_the_users_time():
+    """Dated in UTC, a chat at 9 pm in California read as the next day's (2026-11-18)."""
     row = MagicMock()
     row.text = "User: we picked Neon over Supabase"
-    row.created_at = datetime(2026, 5, 3, tzinfo=UTC)
+    row.created_at = datetime(2026, 5, 3, 4, 30, tzinfo=UTC)
     with (
         patch("app.modules.conversation.history_rag.SessionLocal", _session_cm()),
         patch(
@@ -562,5 +568,109 @@ async def test_retrieved_snippets_carry_the_day_they_were_said():
             user_id=uuid4(),
             query="which database",
             query_vec=[0.1] * 1536,
+            timezone="America/Los_Angeles",
         )
-    assert "[1] (2026-05-03) User: we picked Neon over Supabase" in block
+    assert "[1] (2026-05-02 21:30) User: we picked Neon over Supabase" in block
+
+
+@pytest.mark.parametrize(
+    ("said", "shown"),
+    [
+        (datetime(2026, 11, 19, 5, 5, tzinfo=UTC), " (today 21:05)"),
+        (datetime(2026, 11, 18, 6, 0, tzinfo=UTC), " (yesterday 22:00)"),
+        (datetime(2026, 11, 2, 18, 0, tzinfo=UTC), " (2026-11-02 10:00)"),
+    ],
+)
+def test_a_snippet_is_dated_today_or_yesterday_by_the_users_day(said: datetime, shown: str):
+    row = MagicMock(created_at=said)
+    zone = ZoneInfo("America/Los_Angeles")
+    assert snippet_date(row, zone, date(2026, 11, 18)) == shown
+
+
+def _chunk(name: str) -> MagicMock:
+    return MagicMock(id=name, name=name)
+
+
+def test_todays_nearest_take_the_places_of_the_farthest_others():
+    """ "What physics did we do earlier today?" in a new chat found only the night before's
+    quiz chat, nearer in words than the afternoon's physics chat (2026-11-18)."""
+    old = [_chunk(f"old{i}") for i in range(6)]
+    today = [_chunk("today0"), _chunk("today1")]
+    kept = with_seats(old, today, 6)
+    assert [row.id for row in kept] == ["old0", "old1", "old2", "old3", "today0", "today1"]
+    # Already among the nearest: nothing moves.
+    assert with_seats([*today, *old[:4]], today, 6) == [*today, *old[:4]]
+    # One of today's already in: only the other takes a place.
+    mixed = [old[0], today[1], *old[1:5]]
+    assert [row.id for row in with_seats(mixed, today, 6)] == [
+        "old0",
+        "today1",
+        "old1",
+        "old2",
+        "old3",
+        "today0",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_todays_seats_go_to_other_chats_than_the_one_asking():
+    """A long chat's own summarized lines are all from today; they are in its summary."""
+    asking = uuid4()
+    search = AsyncMock(return_value=[])
+    with (
+        patch("app.modules.conversation.history_rag.SessionLocal", _session_cm()),
+        patch("app.modules.conversation.history_rag.chunks_repo.search_semantic", search),
+    ):
+        await retrieve_for_prompt(
+            Settings(chat_history_rag_enabled=True, mock_llm_enabled=True),
+            user_id=uuid4(),
+            query="what did we do earlier today",
+            query_vec=[0.1] * 1536,
+            chat_id=asking,
+        )
+    nearest, today = search.await_args_list
+    assert nearest.kwargs["exclude_chat_id"] is None
+    assert today.kwargs["exclude_chat_id"] == asking
+    assert today.kwargs["since"] is not None
+
+
+def test_a_today_seat_is_one_chats_nearest_line_and_none_already_shown():
+    """Asked again, the question's own earlier copies were today's nearest lines and took
+    every seat (live, 2026-11-18)."""
+
+    def line(name: str, chat: str) -> MagicMock:
+        return MagicMock(id=name, chat_id=chat)
+
+    shown = [line("asked_before", "side"), line("quiz", "yesterday")]
+    today = [
+        line("asked_before", "side"),
+        line("answer_before", "side"),
+        line("g8_a", "g8"),
+        line("g8_b", "g8"),
+        line("other", "other"),
+    ]
+    assert [row.id for row in one_per_chat(today, shown, 2)] == ["g8_a", "other"]
+
+
+@pytest.mark.asyncio
+async def test_the_prompt_dates_snippets_in_the_turn_s_zone_for_its_own_chat() -> None:
+    """Review: the snippets were dated in the profile's zone, not the phone's the turn's
+    clock reads, and a new chat (no rows yet) passed no chat at all."""
+    from app.models.orm import User
+    from app.modules.chat.prompt_builder import _history_rag_block
+
+    chat_id = uuid4()
+    retrieve = AsyncMock(return_value="")
+    with patch("app.modules.conversation.history_rag.retrieve_for_prompt", retrieve):
+        await _history_rag_block(
+            Settings(_env_file=None),  # type: ignore[call-arg]
+            User(id=uuid4(), timezone="UTC"),
+            "what did we do earlier today?",
+            vector=[0.0],
+            exclude_message_ids=set(),
+            chat_id=chat_id,
+            client_timezone="America/New_York",
+        )
+    assert retrieve.await_args is not None
+    assert retrieve.await_args.kwargs["timezone"] == "America/New_York"
+    assert retrieve.await_args.kwargs["chat_id"] == chat_id
