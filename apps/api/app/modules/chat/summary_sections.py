@@ -32,10 +32,12 @@ _SECTIONS = ("Facts", "Topics", "Open")
 _SHORT_TOPIC = 90
 _BARE_TOPIC = 40
 # A sentence ends at . ! ? or the Ethiopic full stop, before a capital (Latin or Cyrillic),
-# an Ethiopic letter, a digit or a quote; "Dr. Smith" and "e.g. Python" go on.
+# an Ethiopic letter, a digit, a quote or a currency sign; "Dr. Smith" and "e.g. Python" go
+# on. "$500k transfer due Friday." stayed joined to the fact before it, so it was never seen
+# as written again and an 80-message chat's summary held it four times (2026-11-19).
 _FACT_SENTENCE = re.compile(
     r"(?<!\bDr\.)(?<!\bMr\.)(?<!\bMs\.)(?<!\bMrs\.)(?<!\bSt\.)(?<!\bvs\.)(?<!\be\.g\.)(?<!\bi\.e\.)"
-    r"(?<=[.!?።])\s+(?=[A-Z0-9\"'(\u0401\u0410-\u042F\u1200-\u137F])"
+    r"(?<=[.!?።])\s+(?=[A-Z0-9\"'($£€¥₹\u0401\u0410-\u042F\u1200-\u137F])"
 )
 # Facts and Open written by the model are held to these shares of the cap. Facts come
 # first: an old topic line shortens to its subject, a fact is gone when it goes.

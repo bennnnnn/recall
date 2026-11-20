@@ -82,7 +82,15 @@ STEPS_CONTRACT = (
 # options ("Choose lifting techniques at work if…"), and replies about the search itself
 # ("the second search returned the same results", "the results I got").
 READER_NOTE = (
-    "Write it to be scanned on a phone. The answer comes first, and its key part is bold: the "
+    # Written to be scanned, "I love the mom" got three numbered steps and a bold verdict:
+    # 25 lists in an 80-message chat about the user's own life (2026-11-19). Said last, after
+    # "its key part still bold", it lost: the replay still bolded 20 of 80 verdicts
+    # ("**Money moving this quickly is a real reason to slow down.**"), so it comes first.
+    "A message about their own life (news, a feeling, a choice they made) is a "
+    "conversation, not a question to scan: reply the way a friend texts back, in a few "
+    "short plain lines with no list, heading or bold, reacting to what they said and "
+    "usually ending on that, not on a question, and never on an offer. Anything else is "
+    "written to be scanned on a phone. The answer comes first, and its key part is bold: the "
     "number, name or verdict (**206 bones**, **Spain won**). Paragraphs are 1-3 short "
     "sentences. Steps or stages in order (a process, a recipe, how something works) are a "
     "numbered list, one each, or the ```steps card where the layout rules ask for it; three "
@@ -164,9 +172,15 @@ FORMAT_CONTRACT = (
     "  - An everyday example is an ordinary sentence led by *For example,* or a "
     "bullet; a quoted phrase stays inline in “…”. Never a `>`, a callout, or a code "
     "fence for an example that is not code.\n"
-    "  - Ending: at most one short plain line, a question or an offer of one concrete "
-    "next step (under 15 words, never bold, never a list). None when the answer stands "
-    'on its own, and never a generic "Let me know if you have any other questions".\n'
+    # Told "a question or an offer of one concrete next step", a chat about a friend's
+    # wedding ended 65 of 80 replies on one, 36 on "Would you like help …" (2026-11-19).
+    "  - Ending: end on your last point. A closing question only when you need their "
+    "answer to help, and an offer only of one concrete thing you can do now (under 15 "
+    "words, never bold, never a list); never the same offer again after they let it go, "
+    'and never a generic "Let me know if you have any other questions". A reply about '
+    "their own life or feelings ends without an offer, and usually without a question: "
+    "react the way a friend would, and ask only what you really want to know about their "
+    "news.\n"
     "\n"
     "Writing helper (email, message, reply, caption, social post):\n"
     "  - If they named what the email/message should say, put only send-ready text "

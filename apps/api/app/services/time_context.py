@@ -13,6 +13,18 @@ from app.services.text_normalize import collapse_ws, straighten_apostrophes
 __all__ = ["DEFAULT_TIMEZONE", "resolve_timezone"]
 
 # Patterns assume input was passed through ``collapse_ws`` (single spaces only).
+# A day's weekday goes with its full date, which the reply is checked against before saving
+# (``fix_clock``); only for a day new to the chat. Told to write the full date with every
+# weekday, a chat about a wedding "tomorrow" said "tomorrow, Friday, November 20, 2026" in
+# 50 of 80 replies (2026-11-19); replayed, "the weding is tomorrow" still got the full date,
+# so their "tomorrow" names the day too. Asked for the date, they still get it whole.
+KNOWN_DAY_RULE = (
+    "When you name the weekday of a date this chat has not named yet, write the full date "
+    'with it ("Friday, December 25, 2026"). A day the chat already named, as a date or as '
+    '"tomorrow", is just "tomorrow", "today" or its weekday, never its full date again '
+    "unless they ask for it."
+)
+
 _TIME_QUESTION = re.compile(
     r"^(?:"
     r"what(?:'s| is) the time(?: now)?"
@@ -468,14 +480,16 @@ def format_now_awareness(
         "You know them and the dates below: name one only when asked or when it changes "
         'the answer, never as filler or to open a reply ("Next weekend is …"). '
         "Never say you lack a clock. Told today is another day? Give today's date once, no sorry. "
+        # "We got married and it was lit" got "but today is Thursday, November 19, so the
+        # wedding was supposed to be tomorrow" (2026-11-19): their news is not a date to check.
+        "Something they say has happened has happened: never set it against today's date. "
         # A model's memory ends before today: "who won the last world cup" was answered
         # with a final that never happened.
         "What you remember ends well before this date: the latest winner, whether something "
         "is out yet, who holds a post now or what comes next may have changed since: look "
         "it up when you have web_search, and never give a memory as today's fact. "
         # The weekday beside a full date is checked before saving (Christmas 2026 is a Friday).
-        "When you name the weekday of a date, write the full date with it "
-        '("Friday, December 25, 2026"). '
+        f"{KNOWN_DAY_RULE} "
         # Read, not counted: "what is Tuesday" and "Christmas's weekday" were miscounted.
         f"{calendar_lines(now, message)}"
     )
