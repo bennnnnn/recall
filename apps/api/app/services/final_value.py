@@ -16,7 +16,11 @@ _VALUE_NOTE = re.compile(r"\s+\((?=[A-Za-z])[^()]*\)\s*$")
 # A point or an interval (a comma inside) is one value, not a difference: "(1,-2,3)",
 # "(-\infty,-3) \cup (1,\infty)"; "-(-2)" is arithmetic still to do.
 _GROUPED = re.compile(r"[(\[][^()\[\],]*,[^()\[\]]*[)\]]|\\cup")
-_UNIT_TEXT = re.compile(r"\\(?:text|mathrm)\{[^}]*\}|\^\s*\{?\s*\\circ\s*\}?")
+_UNIT_TEXT = re.compile(r"\\(?:text|mathrm)\{[^}]*\}")
+# A degree sign after a number is its unit ("45^\\circ"); after a trig function's angle it is
+# working still to evaluate ("\\sin 30^\\circ", Claude on #2509).
+_DEGREES = re.compile(r"(?<=\d)[ \t]*\^[ \t]*\{?[ \t]*\\circ[ \t]*\}?")
+_TRIG = re.compile(r"\\(?:sin|cos|tan|sec|csc|cot)\b")
 # A unit vector: \hat{i}, \hat{\jmath}, \mathbf{k}. Its letter names a direction, no symbol.
 UNIT_VECTOR = re.compile(r"\\(?:hat|mathbf|boldsymbol)[ \t]*\{[ \t]*\\?[ijk](?:math)?[ \t]*\}")
 # A vector by its components, one value: "(0\hat{i} + 20\hat{j})", "-16\hat{i} + 4\hat{j}".
@@ -45,6 +49,8 @@ def is_final_value(value: str) -> bool:
     if not equals:
         left, right = "", text
     right = _GROUPED.sub(" 1 ", _EXACT_FRACTION.sub("1", _UNIT_TEXT.sub("", right)))
+    if _TRIG.search(right) is None:
+        right = _DEGREES.sub("", right)
     right = _COMPONENTS.sub(" 1 ", _SIZED.sub("", right)).strip()
     named = not left.strip() or _VALUE_NAME.fullmatch(left.strip()) is not None
     return bool(right) and named and _ARITHMETIC.search(right) is None

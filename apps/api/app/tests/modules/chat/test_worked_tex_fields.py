@@ -137,3 +137,12 @@ def test_a_vector_in_sized_brackets_is_one_value() -> None:
 
     assert is_final_value(r"v_A = \left(0\hat{i} + 20\hat{j}\right)\,\mathrm{m/s}")
     assert not is_final_value(r"y = \left(x + 1\right)")
+
+
+def test_a_degree_sign_is_a_unit_after_a_number_only() -> None:
+    """Claude on #2509: \\sin 30^\\circ is working still to evaluate, never a card's value."""
+    from app.services.final_value import is_final_value
+
+    assert is_final_value(r"\theta = 45^\circ")
+    assert not is_final_value(r"x = \sin 30^\circ")
+    assert not is_final_value(r"x = \cos 60^{\circ}")
