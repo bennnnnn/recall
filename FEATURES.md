@@ -53,7 +53,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Share / Export** — share a conversation as a markdown transcript via the **native OS
   share sheet** (Messages, Mail, Files, …); export a chat as PDF from the in-chat `⋯` menu.
   Chat `⋯` + drawer long-press (share/pin/archive/delete);
-  no backend. This is **not** a
+  no backend. Both end with "Shared from Recall, the AI chat that remembers you." and a get-the-app
+  link (`EXPO_PUBLIC_SHARE_URL`, marked `?ref=share`; without it, no link), so a share brings its
+  reader to the app. This is **not** a
   ChatGPT-style public `chatgpt.com/share/…` URL — anyone with that kind of link could
   read the thread without signing in. Public web links are a separate privacy feature
   (not started; do not assume we have them).

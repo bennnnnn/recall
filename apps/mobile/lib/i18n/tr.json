@@ -1001,6 +1001,8 @@
   "settings.your_job": "Mesleğin",
   "share.copy_failed": "Kopyalanamadı. Tekrar deneyin.",
   "share.default_title": "Sohbet",
+  "share.footer_from": "{{app}} üzerinden paylaşıldı: seni hatırlayan yapay zekâ sohbeti.",
+  "share.footer_get": "Uygulamayı indir: {{url}}",
   "share.role_user": "Sen",
   "share.attachment_photo": "[Fotoğraf]",
   "share.attachment_pdf": "[PDF]",

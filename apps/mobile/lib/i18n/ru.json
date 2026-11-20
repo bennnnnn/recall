@@ -1021,6 +1021,8 @@
   "settings.your_job": "Ваша работа",
   "share.copy_failed": "Не удалось скопировать. Попробуйте ещё раз.",
   "share.default_title": "Чат",
+  "share.footer_from": "Отправлено из {{app}} — ИИ-чата, который вас помнит.",
+  "share.footer_get": "Скачать приложение: {{url}}",
   "share.role_user": "Вы",
   "share.attachment_photo": "[Фото]",
   "share.attachment_pdf": "[PDF]",

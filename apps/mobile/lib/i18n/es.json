@@ -1011,6 +1011,8 @@
   "settings.your_job": "Tu trabajo",
   "share.copy_failed": "No se pudo copiar. Inténtalo de nuevo.",
   "share.default_title": "Chat",
+  "share.footer_from": "Compartido desde {{app}}, el chat de IA que te recuerda.",
+  "share.footer_get": "Descarga la app: {{url}}",
   "share.role_user": "Tú",
   "share.attachment_photo": "[Foto]",
   "share.attachment_pdf": "[PDF]",

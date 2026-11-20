@@ -1001,6 +1001,8 @@
   "settings.your_job": "ሥራዎ",
   "share.copy_failed": "መቅዳት አልተቻለም። እንደገና ይሞክሩ።",
   "share.default_title": "ውይይት",
+  "share.footer_from": "ከ{{app}} የተጋራ፣ እርስዎን የሚያስታውስ የAI ውይይት።",
+  "share.footer_get": "መተግበሪያውን ያግኙ፦ {{url}}",
   "share.role_user": "እርስዎ",
   "share.attachment_photo": "[ፎቶ]",
   "share.attachment_pdf": "[PDF]",

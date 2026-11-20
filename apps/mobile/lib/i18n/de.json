@@ -1001,6 +1001,8 @@
   "settings.your_job": "Dein Beruf",
   "share.copy_failed": "Kopieren fehlgeschlagen. Versuche es erneut.",
   "share.default_title": "Chat",
+  "share.footer_from": "Geteilt aus {{app}}, dem KI-Chat, der sich an dich erinnert.",
+  "share.footer_get": "Hol dir die App: {{url}}",
   "share.role_user": "Du",
   "share.attachment_photo": "[Foto]",
   "share.attachment_pdf": "[PDF]",
