@@ -113,7 +113,21 @@ def _known_to(body: str, above: str, precision: Precision) -> bool:
     known = [worked] if worked is not None else list(read.numbers)
     if precision.unrounded:
         return worked is not None
+    if len(known) == 1 and _exactly_whole(known[0], above):
+        return True  # T = 75 N, worked to 75 N: 75.0 N is no figure it lacks
     return all(_holds(number, precision) for number in known)
+
+
+def _exactly_whole(card: Number, above: str) -> bool:
+    """A whole card the working above it reached as the same whole number."""
+    worked = _worked(above)
+    return (
+        card.places == 0
+        and worked is not None
+        and worked.places == 0
+        and worked.unit == card.unit
+        and worked.value == card.value
+    )
 
 
 def _holds(number: Number, precision: Precision) -> bool:
@@ -190,16 +204,22 @@ def _money(unit: str) -> bool:
     return bool(unit) and MONEY.names_currency(unit)
 
 
-def _unrounded(card: Number, above: str) -> Number | None:
-    """The value the working above the card reached, when the card's value is a rounding
-    of it in the same unit: its last line of maths, the side after its last "="."""
+def _worked(above: str) -> Number | None:
+    """The one value the working above a card ends on: its last line of maths, the side
+    after its last "="."""
     lines = _INLINE_MATHS.findall(above)
     if not lines or "=" not in lines[-1]:
         return None
     read = read_verified_value(lines[-1].rsplit("=", 1)[1])
-    if read is None or len(read.numbers) != 1:
+    return None if read is None or len(read.numbers) != 1 else read.numbers[0]
+
+
+def _unrounded(card: Number, above: str) -> Number | None:
+    """The value the working above the card reached, when the card's value is a rounding
+    of it in the same unit."""
+    worked = _worked(above)
+    if worked is None:
         return None
-    worked = read.numbers[0]
     # A whole card ("3" buses for 2.67) may be a count rounded up or down as the question
     # needs (review); a whole card in a unit of measure is a rounding of its working: the
     # tension at the bottom carded 104 N beside the top's 45.57 N (2026-11-20).

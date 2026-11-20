@@ -58,6 +58,11 @@ def test_each_part_s_card_keeps_its_heading() -> None:
     )
 
 
+def test_a_whole_value_the_working_reached_exactly_takes_any_places() -> None:
+    reply = "$T = 75\\,\\mathrm{N}$\n\n```answer\nverified: true\nT = 75\\,\\mathrm{N}\n```"
+    assert rounded_again("1 dp", reply) == "```answer\nverified: true\nT = 75.0\\,\\mathrm{N}\n```"
+
+
 @pytest.mark.parametrize(
     ("said", "prior"),
     [
