@@ -68,9 +68,10 @@ def discarded_attempt_cost_usd(
     connection, a server error) bills nothing without usage. A stop (no cause) did run."""
     input_tokens = _tokens(usage.get("input"))
     output_tokens = _tokens(usage.get("output"))
-    if not input_tokens and not output_tokens:
-        if cause in _UNBILLED_CAUSES:
+    if not input_tokens:
+        if not output_tokens and cause in _UNBILLED_CAUSES:
             return 0.0
+        # An attempt cut off mid-thought has only its reasoning estimated: it read the prompt.
         input_tokens = max(0, prompt_chars) // _CHARS_PER_TOKEN
     cost = estimate_cost_usd(alias, input_tokens=input_tokens, output_tokens=output_tokens)
     return cost or 0.0

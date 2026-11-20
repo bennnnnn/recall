@@ -23,6 +23,7 @@ from app.modules.chat.prompt_constants.conversation import (
     ASSISTANT_NAME_RULE,
     CONTINUE_HINT,
     CORRECTION_HINT,
+    CUT_OFF_REPLY_NOTE,
     NO_RECAP_NOTE,
     NO_SELF_TALK_RULE,
     OWN_MISTAKE_HINT,
@@ -59,6 +60,7 @@ from app.modules.chat.prompt_constants.length import (
     BREVITY_REQUEST_HINT,
     MIXED_LENGTH_HINT,
     STYLE_HINTS,
+    many_parts_hint,
 )
 from app.modules.chat.prompt_constants.math import MATH_FENCE_SAFETY_HINT
 from app.modules.chat.prompt_constants.practice import QUIZ_FORMAT_HINT
@@ -124,6 +126,7 @@ __all__ = [
     "CONTINUE_HINT",
     "COPY_DELIVERABLE_HINT",
     "CORRECTION_HINT",
+    "CUT_OFF_REPLY_NOTE",
     "DAY_PLANNING_ANSWER_HINT",
     "DIAGRAM_KIND_HINT",
     "EXAMPLE_PERSONALIZE_HINT",
@@ -175,6 +178,7 @@ __all__ = [
     "draft_followup_hint",
     "is_bare_writing_line",
     "learning_plan_contract",
+    "many_parts_hint",
     "mermaid_format_hint",
     "programming_lesson_contract",
     "repeated_greeting_hint",

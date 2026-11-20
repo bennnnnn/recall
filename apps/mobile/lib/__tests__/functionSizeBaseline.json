@@ -50,7 +50,7 @@
   "features/chat/components/MathConverterPad.tsx::MathConverterPad": 154,
   "features/chat/components/MathDraftPreview.tsx::makeStyles": 128,
   "features/chat/components/MathKeyboardBar.tsx::MathKeyboardBar": 117,
-  "features/chat/components/MessageBubble.tsx::MessageBubble": 236,
+  "features/chat/components/MessageBubble.tsx::MessageBubble": 232,
   "features/chat/components/UserMessageContent.tsx::UserMessageContent": 103,
   "features/chat/components/chatComposerStyles.ts::makeChatComposerStyles": 152,
   "features/chat/drawer/ConversationList.tsx::ConversationList": 337,
