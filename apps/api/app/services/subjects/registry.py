@@ -316,10 +316,11 @@ class SubjectFigure(Protocol):
         """``text`` without the model's own picture of the figure drawn in characters."""
         ...
 
-    def contract_for(self, question: str, asked: bool) -> str:
+    def contract_for(self, question: str, asked: bool, *, graph: bool = False) -> str:
         """The prompt rule that asks the reply to describe its picture (a ```draw block)
         for ``question``, or "" for none. ``asked``: the message asks to see a picture;
-        otherwise only the picture of a problem's setup is described."""
+        otherwise only the picture of a problem's setup is described. ``graph``: the
+        picture asked is a graph, so only a graph's rule (never a scene's or a field's)."""
         ...
 
     async def described(
@@ -466,6 +467,11 @@ class MoneyPeer(Protocol):
 
     def reads(self, text: str) -> bool:
         """``text`` is a money request the peer works: routing leaves it to the money card."""
+        ...
+
+    def yields_to(self, text: str, subject: str | None) -> bool:
+        """``text``, read as ``subject``'s problem, is never a money request (physics,
+        chemistry: a force, an efficiency or a yield is no loan), unless it names money."""
         ...
 
     def names_currency(self, unit: str) -> bool:

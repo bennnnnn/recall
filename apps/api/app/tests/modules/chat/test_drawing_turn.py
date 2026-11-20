@@ -34,6 +34,7 @@ from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.chat.worked_stream import ReplyFilter
 from app.modules.math.drawing.contract import DRAW_CONTRACT
+from app.modules.physics.scene_drawing.contract import MOTION_DRAW_CONTRACT
 from app.services.md_fence_scan import iter_closed_fences
 from app.tests.modules.chat.chat_test_support import turn_deps
 
@@ -131,11 +132,14 @@ async def test_ask_for_a_drawing_follows_the_read(subject: str, picture: str, as
         ctx, _settings(), _decision(subject=subject, picture=picture), _deadline()
     )
     assert (ctx.drawing is not None) == asked
-    assert any(m["content"] == DRAW_CONTRACT for m in ctx.prompt_messages) == asked
+    assert any(m["content"].startswith(DRAW_CONTRACT) for m in ctx.prompt_messages) == asked
     if asked:
         assert ctx.drawing is not None and ctx.drawing.asked == "read"
-        # Beside the message, before it.
-        assert ctx.prompt_messages[-2]["content"] == DRAW_CONTRACT
+        # Beside the message, before it; a physics graph with physics' motion in stages too
+        # (Grade 8 round, t15: a bicycle ride in four stages).
+        contract = ctx.prompt_messages[-2]["content"]
+        assert contract.startswith(DRAW_CONTRACT)
+        assert (MOTION_DRAW_CONTRACT in contract) == (subject == "physics")
 
 
 @pytest.mark.parametrize(

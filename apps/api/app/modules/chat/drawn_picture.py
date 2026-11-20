@@ -6,21 +6,21 @@ and "How far does it travel before landing? Show the path." looked a photo up fo
 path" (live, 2026-11-15). A multi-part message's picture part was painted unless the read
 called it a *maths* figure, and its photo part searched whatever answered the rest.
 
-One rule decides whether the app draws the picture, and the prompt and finalize both ask it
-(``app_draws``): the read calls the message a maths question asking to see a graph or a
-diagram, which maths' figure draws from its values as before; or the read asks a maths,
-physics or chemistry question's graph, diagram or molecule and the subject's solve drew that
-very kind (``solve_draws``, from its cards). Never the words, and never a kind the solve did
-not draw: "Draw a cat wearing a hat and also find the current …" keeps its painting, "Show me
-a photo of Marie Curie and calculate the molar mass of NaCl" its photo, and "find the current
-and draw the circuit" that no solver read its painting (reviews, 2026-11-15). The solve runs
-before the reply's prompt and before a picture is started, so every side can ask.
+One gate, the turn's read, decides every picture (Grade 8 round, 2026-11-18: seven of seven
+pictures a student asked for failed, four paths each deciding on its own). The read calls the
+message a maths, physics or chemistry question asking to see a graph, a diagram or a
+molecule: the app draws it, from a solve, a figure or a checked description, or says in one
+line that it could not (``owed_picture``), and no photo or painting stands in for it
+(``app_draws``). A photo search or a painting answers such a turn only when the read asks for
+exactly that (``read_lets``). Never the words: "Draw a cat wearing a hat and also find the
+current …" keeps its painting, "Show me a photo of Marie Curie and calculate the molar mass
+of NaCl" its photo. Any other turn, or one whose read has no answer, is left to the words.
 """
 
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from app.modules.chat.decider_read import READ_SUBJECTS
 from app.modules.chat.figure_turn import read_asks_for_a_picture
@@ -47,20 +47,57 @@ def asks_for_a_drawing(decision: TurnDecision | None) -> bool:
     )
 
 
-def _answered(read: asyncio.Task[TurnDecision | None]) -> TurnDecision | None:
+def _answered(read: asyncio.Future[TurnDecision | None]) -> TurnDecision | None:
     if not read.done() or read.cancelled() or read.exception() is not None:
         return None
     return read.result()
 
 
-def app_draws(decision: TurnDecision | None, verified: VerifiedSolveBlock | None) -> bool:
-    """The app draws the picture the read says the message asks to see: maths' figure, or
-    the subject's solve that drew that kind."""
-    if decision is None:
-        return False
-    if read_asks_for_a_picture(decision):
+def answered_read(read: object) -> TurnDecision | None:
+    """The turn's read when it is in and answered; nothing is waited for."""
+    return _answered(read) if isinstance(read, asyncio.Future) else None
+
+
+# What answers a turn in place of the app's own picture: a photo search, or a painting.
+StandIn = Literal["photo", "image"]
+
+
+def read_lets(decision: TurnDecision | None, stand_in: StandIn) -> bool:
+    """Whether a photo search or a painting may answer the turn, as its read says. A maths,
+    physics or chemistry turn gets one only when the read says the message asks for exactly
+    that: "show me an animation of this motion" after a car's acceleration searched stock
+    photos for it (Grade 8 round, 2026-11-18), and no word rule may claim such a turn before
+    its read. Any other turn, and a turn whose read has no answer, is left to the words that
+    found the request ("show me an ear", "what does a koala look like")."""
+    if decision is None or decision.subject not in READ_SUBJECTS or decision.picture is None:
         return True
-    return asks_for_a_drawing(decision) and solve_draws(verified, decision.picture)
+    return decision.picture == stand_in
+
+
+async def read_lets_it(
+    read: asyncio.Task[TurnDecision | None] | None,
+    stand_in: StandIn,
+    wait: float | None = None,
+) -> bool:
+    """``read_lets`` once the read ends (its own timeout bounds it), or after ``wait``
+    seconds, when the words decide. Waited on, never awaited or cancelled: the reply waits
+    for the same read."""
+    if read is None:
+        return True
+    await asyncio.wait([read], timeout=wait)
+    return read_lets(_answered(read), stand_in)
+
+
+def app_draws(decision: TurnDecision | None, verified: VerifiedSolveBlock | None) -> bool:
+    """The app draws the picture the read says the message asks to see: a maths, physics or
+    chemistry graph, diagram or molecule is the app's, drawn by a solve, a figure or a
+    checked description, or said in one line not to be (``owed_picture``); never a painting
+    or a photo in its place, whether or not a solve drew it ("find the current and draw the
+    circuit" that no solver read was painted, Grade 8 round, 2026-11-18). ``verified`` is
+    kept for the callers that pass the turn's solve."""
+    return asks_for_a_drawing(decision) or (
+        decision is not None and read_asks_for_a_picture(decision)
+    )
 
 
 async def read_says_the_app_draws(

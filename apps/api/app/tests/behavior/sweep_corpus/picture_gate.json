@@ -1,0 +1,250 @@
+[
+ {
+  "id": "pic-001",
+  "area": "picture gate",
+  "prompt": "show me an animation of this motion",
+  "history": [
+   [
+    "user",
+    "A car starts from rest and reaches a speed of 20 m/s in 5 seconds. What is the acceleration of the car?"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$v_i = 0\\,\\mathrm{m/s}$  \n$v_f = 20\\,\\mathrm{m/s}$  \n$t = 5\\,\\mathrm{s}$  \nwhere $v_i$ = initial velocity, $v_f$ = final velocity, $t$ = time\n\n**Required**  \n$a$ (acceleration)\n\n**Solution**\n\n**Constant acceleration formula**  \n$v_f = v_i + at$  \nSolve for $a$  \n$a = \\frac{v_f - v_i}{t}$\n\n**Substitution**  \n$a = \\frac{20\\,\\mathrm{m/s} - 0\\,\\mathrm{m/s}}{5\\,\\mathrm{s}}$  \n$a = \\frac{20\\,\\mathrm{m/s}}{5\\,\\mathrm{s}}$  \n$a = 4\\,\\mathrm{m/s²}$\n\n**Answer**\n\n```answer\nverified: true\n4\\,\\mathrm{m/s²}\n```\n\n```graph\n{\"type\":\"trajectory\",\"expr\":\"v(t) = 0 + 4*t\",\"variable\":\"t\",\"x_min\":0.0,\"x_max\":5.0,\"domain_explicit\":false,\"x\":null,\"y_min\":null,\"y_max\":null,\"a\":null,\"b\":null,\"c\":null,\"comparator\":null,\"title\":\"Velocity vs. Time\",\"points\":[[0.0,0.0],[0.0847,0.339],[0.1695,0.678],[0.2542,1.0169],[0.339,1.3559],[0.4237,1.6949],[0.5085,2.0339],[0.5932,2.3729],[0.678,2.7119],[0.7627,3.0508],[0.8475,3.3898],[0.9322,3.7288],[1.0169,4.0678],[1.1017,4.4068],[1.1864,4.7458],[1.2712,5.0847],[1.3559,5.4237],[1.4407,5.7627],[1.5254,6.1017],[1.6102,6.4407],[1.6949,6.7797],[1.7797,7.1186],[1.8644,7.4576],[1.9492,7.7966],[2.0339,8.1356],[2.1186,8.4746],[2.2034,8.8136],[2.2881,9.1525],[2.3729,9.4915],[2.4576,9.8305],[2.5424,10.1695],[2.6271,10.5085],[2.7119,10.8475],[2.7966,11.1864],[2.8814,11.5254],[2.9661,11.8644],[3.0508,12.2034],[3.1356,12.5424],[3.2203,12.8814],[3.3051,13.2203],[3.3898,13.5593],[3.4746,13.8983],[3.5593,14.2373],[3.6441,14.5763],[3.7288,14.9153],[3.8136,15.2542],[3.8983,15.5932],[3.9831,15.9322],[4.0678,16.2712],[4.1525,16.6102],[4.2373,16.9492],[4.322,17.2881],[4.4068,17.6271],[4.4915,17.9661],[4.5763,18.3051],[4.661,18.6441],[4.7458,18.9831],[4.8305,19.322],[4.9153,19.661],[5.0,20.0]],\"segments\":[],\"holes\":[],\"expr2\":null,\"variable2\":null,\"points2\":null,\"segments2\":null,\"holes2\":null,\"label\":null,\"label2\":null,\"intervals\":[],\"x_label\":\"Time (s)\",\"y_label\":\"Velocity (m/s)\",\"trajectory_type\":\"velocity_vs_time\"}\n```"
+   ]
+  ],
+  "read": [
+   "physics",
+   "diagram"
+  ],
+  "reply": "The car speeds up evenly: every second it goes 4 m/s faster, from rest to 20 m/s in 5 s.",
+  "expect": "said_not_drawn",
+  "note": "Grade 8 round t10: a physics follow-up asking to see a motion is never a photo search; no scene fits, so one line says so."
+ },
+ {
+  "id": "pic-002",
+  "area": "picture gate",
+  "prompt": "show me an ear",
+  "read": [
+   "everyday",
+   "photo"
+  ],
+  "reply": "Here's an ear.",
+  "expect": "photo",
+  "note": "An everyday photo stays a photo when the read says so.",
+  "history": []
+ },
+ {
+  "id": "pic-003",
+  "area": "picture gate",
+  "prompt": "what does a koala look like",
+  "read": [
+   "everyday",
+   "photo"
+  ],
+  "reply": "A koala is a grey, round-eared marsupial.",
+  "expect": "photo",
+  "note": "An everyday photo stays a photo.",
+  "history": []
+ },
+ {
+  "id": "pic-004",
+  "area": "picture gate",
+  "prompt": "show me a photo of a real hydraulic press",
+  "read": [
+   "physics",
+   "photo"
+  ],
+  "reply": "Here is one.",
+  "expect": "photo",
+  "note": "A photo the read says a physics message asks for is still searched.",
+  "history": []
+ },
+ {
+  "id": "pic-005",
+  "area": "picture gate",
+  "prompt": "Draw a hydraulic press diagram and describe how it functions.",
+  "read": [
+   "physics",
+   "diagram"
+  ],
+  "reply": "```mermaid\nflowchart LR\n    A[\"🖐️ Small piston<br/>force F₁, area A₁\"] -->|\"push down\"| B[\"Oil-filled chamber<br/>(incompressible liquid)\"]\n    B -->|\"pressure spreads equally\"| C[\"🔼 Large piston<br/>area A₂ > A₁\"]\n    C -->|\"lift\"| D[\"📦 Load F₂\"]\n```\n\n**It multiplies force** using nothing but an incompressible liquid and two pistons of different sizes. 🛠️\n\n1. 🖐️ **Push the small piston** — a modest force $F_1$ on the small area $A_1$ creates a pressure $P = \\frac{F_1}{A_1}$ in the oil.\n2. 🌊 **Pressure travels undiminished** — Pascal's law says pressure applied to a confined fluid is transmitted equally to every part of it, so the oil pushes on the large piston with that same $P$.\n3. 📦 **The large piston lifts the load** — since $P$ is the same but its area $A_2$ is bigger, the force it delivers is $F_2 = P A_2$, so $\\frac{F_1}{A_1} = \\frac{F_2}{A_2}$.\n4. 🔁 **But the work stays equal** — the large piston moves a shorter distance than the small one, so $F_1 d_1 = F_2 d_2$. You gain force, never free energy.\n5. 🚗 **That's the whole idea** behind car jacks, car brakes and excavator arms: multiply a small input force into a big lifting force.\n\nYour earlier example is a textbook case — 200 N on 1 cm² lifts 20,000 N on 100 cm², a force boost of 100×, paid for by pushing the small piston 100 times farther.",
+  "expect": "said_not_drawn",
+  "note": "Grade 8 round t30: no Mermaid flowchart stands in for a physical diagram (owner, 2026-11-18); no renderer draws a press, so one line says so.",
+  "history": []
+ },
+ {
+  "id": "pic-006",
+  "area": "picture gate",
+  "prompt": "draw the circuit diagram for this",
+  "history": [
+   [
+    "user",
+    "Two resistors of 40Ω each are connected in series across a 120V supply.\na) What is the total resistance of the circuit?\nb) What is the current through the circuit?\nc) What is the potential difference across each resistor?"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$R_1 = 40\\,\\mathrm{Ω}$  \n$R_2 = 40\\,\\mathrm{Ω}$  \n$V = 120\\,\\mathrm{V}$  \nwhere $R_1$ = resistance of the first resistor, $R_2$ = resistance of the second resistor, $V$ = supply voltage\n\n**Required**  \n(a) $R$ (total resistance)  \n(b) $I$ (current through the circuit)  \n(c) $V_1$ (potential difference across each resistor)\n\n**Solution**\n\n**(a) Total resistance**\n\n**Series resistance formula**  \n$R = R_1 + R_2$\n\n**Substitution**  \n$R = 40 + 40$  \n$R = 80\\,\\mathrm{\\Omega}$\n\n**Answer (a)**\n\n```answer\nverified: false\n80\\,\\mathrm{Ω}\n```\n\n---\n\n**(b) Current through the circuit**\n\n**Ohm's law**  \n$V = IR$  \nSolve for $I$  \n$I = \\frac{V}{R}$\n\n**Substitution**  \n$I = \\frac{120}{80}$  \n$I = 1.5\\,\\mathrm{A}$\n\n**Answer (b)**\n\n```answer\nverified: false\n1.5\\,\\mathrm{A}\n```\n\n---\n\n**(c) Potential difference across each resistor**\n\n**Ohm's law**  \n$V_1 = I R_1$\n\n**Substitution**  \n$V_1 = 1.5 \\times 40$  \n$V_1 = 60\\,\\mathrm{V}$\n\n**Answer (c)**\n\n```answer\nverified: false\n60\\,\\mathrm{V}\n```\n\nThe two resistors are equal, so the 120 V splits evenly into 60 V each, and 60 + 60 = 120 V checks out."
+   ]
+  ],
+  "read": [
+   "physics",
+   "diagram"
+  ],
+  "reply": "```mermaid\nflowchart LR\n    A[\"➕ 120 V supply\"] --> B[\"R₁ = 40 Ω\"]\n    B --> C[\"R₂ = 40 Ω\"]\n    C --> D[\"➖ back to supply\"]\n```\n\nThe two resistors sit one after the other on a single path, so the same **1.5 A** passes through both. 🔁\n\nSince the current has only one route, the resistances add (**80 Ω** total), and each 40 Ω resistor takes half the supply — **60 V apiece** — which sums back to 120 V. ⚡\n\n```draw\n{\"kind\":\"circuit\",\"arrangement\":\"series\",\"supply\":\"120 V\",\"resistors\":[\"40 Ω\",\"40 Ω\"]}\n```",
+  "expect": "drawn",
+  "note": "Grade 8 round t39: the follow-up draws the server's schematic of the earlier circuit (120 V, two 40 Ω in series, 1.5 A), never the reply's flowchart."
+ },
+ {
+  "id": "pic-007",
+  "area": "picture gate",
+  "prompt": "draw the circuit diagram for this",
+  "history": [
+   [
+    "user",
+    "Two resistors of 40Ω each are connected in series across a 120V supply.\na) What is the total resistance of the circuit?\nb) What is the current through the circuit?\nc) What is the potential difference across each resistor?"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$R_1 = 40\\,\\mathrm{Ω}$  \n$R_2 = 40\\,\\mathrm{Ω}$  \n$V = 120\\,\\mathrm{V}$  \nwhere $R_1$ = resistance of the first resistor, $R_2$ = resistance of the second resistor, $V$ = supply voltage\n\n**Required**  \n(a) $R$ (total resistance)  \n(b) $I$ (current through the circuit)  \n(c) $V_1$ (potential difference across each resistor)\n\n**Solution**\n\n**(a) Total resistance**\n\n**Series resistance formula**  \n$R = R_1 + R_2$\n\n**Substitution**  \n$R = 40 + 40$  \n$R = 80\\,\\mathrm{\\Omega}$\n\n**Answer (a)**\n\n```answer\nverified: false\n80\\,\\mathrm{Ω}\n```\n\n---\n\n**(b) Current through the circuit**\n\n**Ohm's law**  \n$V = IR$  \nSolve for $I$  \n$I = \\frac{V}{R}$\n\n**Substitution**  \n$I = \\frac{120}{80}$  \n$I = 1.5\\,\\mathrm{A}$\n\n**Answer (b)**\n\n```answer\nverified: false\n1.5\\,\\mathrm{A}\n```\n\n---\n\n**(c) Potential difference across each resistor**\n\n**Ohm's law**  \n$V_1 = I R_1$\n\n**Substitution**  \n$V_1 = 1.5 \\times 40$  \n$V_1 = 60\\,\\mathrm{V}$\n\n**Answer (c)**\n\n```answer\nverified: false\n60\\,\\mathrm{V}\n```\n\nThe two resistors are equal, so the 120 V splits evenly into 60 V each, and 60 + 60 = 120 V checks out."
+   ]
+  ],
+  "read": [
+   "physics",
+   "diagram"
+  ],
+  "reply": "```mermaid\nflowchart LR\n    A[\"➕ 120 V supply\"] --> B[\"R₁ = 40 Ω\"]\n    B --> C[\"R₂ = 40 Ω\"]\n    C --> D[\"➖ back to supply\"]\n```\n\nThe two resistors sit one after the other on a single path, so the same **1.5 A** passes through both. 🔁\n\nSince the current has only one route, the resistances add (**80 Ω** total), and each 40 Ω resistor takes half the supply — **60 V apiece** — which sums back to 120 V. ⚡",
+  "expect": "said_not_drawn",
+  "note": "The same follow-up with no description: the flowchart goes and one line says the diagram was not drawn."
+ },
+ {
+  "id": "pic-008",
+  "area": "picture gate",
+  "prompt": "Construct a ray diagram to find the image of a burning candle in front of a plane mirror.",
+  "read": [
+   "physics",
+   "diagram"
+  ],
+  "reply": "The image is as far behind the mirror as the candle is in front of it, upright and the same size.\n\n```draw\n{\"kind\":\"plane_mirror\"}\n```",
+  "expect": "drawn",
+  "note": "Grade 8 round t49: a plane mirror's ray diagram is the server's.",
+  "history": []
+ },
+ {
+  "id": "pic-009",
+  "area": "picture gate",
+  "prompt": "Draw a flowchart of how a bill becomes a law",
+  "read": [
+   "everyday",
+   "diagram"
+  ],
+  "reply": "```mermaid\nflowchart TD\n  A[Bill introduced] --> B[Committee]\n  B --> C[Floor vote]\n  C --> D[Other chamber]\n  D --> E[President signs]\n```\n\nA bill passes both chambers before it is signed.",
+  "expect": "flowchart",
+  "note": "A flowchart the user asks for is still drawn.",
+  "history": []
+ },
+ {
+  "id": "pic-010",
+  "area": "picture gate",
+  "prompt": "Draw a flowchart of the steps to solve a projectile problem",
+  "read": [
+   "physics",
+   "diagram"
+  ],
+  "reply": "```mermaid\nflowchart TD\n  A[Split the velocity] --> B[Time of flight]\n  B --> C[Range]\n```\n\nSplit the launch velocity first, then use the vertical motion for time.",
+  "expect": "flowchart",
+  "note": "A physics flowchart the user names is still a flowchart.",
+  "history": []
+ },
+ {
+  "id": "pic-011",
+  "area": "picture gate",
+  "prompt": "Show the steps of mitosis as a flow",
+  "read": [
+   "everyday",
+   "diagram"
+  ],
+  "reply": "```mermaid\nflowchart LR\n  A[Prophase] --> B[Metaphase] --> C[Anaphase] --> D[Telophase]\n```\n\nThe chromosomes condense, line up, separate and end in two nuclei.",
+  "expect": "flowchart",
+  "note": "Steps asked to be seen as a flow keep their flowchart.",
+  "history": []
+ },
+ {
+  "id": "pic-012",
+  "area": "picture gate",
+  "prompt": "Draw a diagram of how our web app talks to the database",
+  "read": [
+   "code",
+   "diagram"
+  ],
+  "reply": "```mermaid\nflowchart LR\n  App[Web app] --> API[API server] --> DB[(Postgres)]\n```\n\nThe app never talks to the database directly; the API does.",
+  "expect": "flowchart",
+  "note": "An architecture diagram stays the model's boxes and arrows.",
+  "history": []
+ },
+ {
+  "id": "pic-013",
+  "area": "picture gate",
+  "prompt": "Show x ≥ 4 on a number line.",
+  "read": [
+   "maths",
+   "graph"
+  ],
+  "reply": "Every number from 4 upwards, with 4 included.",
+  "expect": "said_not_drawn",
+  "note": "A maths picture is never a photo search, and says so when it is not drawn.",
+  "history": []
+ },
+ {
+  "id": "pic-014",
+  "area": "picture gate",
+  "prompt": "I rode my bicycle to grandmother's house at 6 km/h in a flat road for 5 min before reach a hill. I went at 2 km/h up the hill for 3minutes. I met a friend and stopped to talk for 5 minutes. I went on at 2 km/h to my grandmother's house. Draw (plot) the v against t graph for this motion.",
+  "read": [
+   "physics",
+   "graph"
+  ],
+  "reply": "```draw\n{\"kind\":\"plot\",\"items\":[{\"item\":\"curve\",\"name\":\"v\",\"y\":\"unknown(t)\"}]}\n```",
+  "expect": "said_not_drawn",
+  "note": "Grade 8 round t15: a reply that is only a description that does not check is one line, never an error or an empty reply.",
+  "history": []
+ },
+ {
+  "id": "pic-015",
+  "area": "picture gate",
+  "prompt": "Explain how a hydraulic press works",
+  "read": [
+   "physics",
+   "none"
+  ],
+  "reply": "```mermaid\nflowchart LR\n  A[Small piston] --> B[Oil] --> C[Large piston]\n```\n\nPressure on the small piston passes through the oil to the large one.",
+  "expect": "flowchart",
+  "note": "A message that asks to see nothing keeps what the model chose.",
+  "history": []
+ },
+ {
+  "id": "pic-016",
+  "area": "picture gate",
+  "prompt": "I rode my bicycle to grandmother's house at 6 km/h in a flat road for 5 min before reach a hill. I went at 2 km/h up the hill for 3minutes. I met a friend and stopped to talk for 5 minutes. I went on at 2 km/h to my grandmother's house. Draw (plot) the v against t graph for this motion.",
+  "read": [
+   "physics",
+   "graph"
+  ],
+  "reply": "The ride has four stages; the last one has no time given, so the graph ends when the talk does.\n\n```draw\n{\"kind\":\"motion\",\"graphs\":[\"velocity\"],\"stages\":[{\"speed\":\"6 km/h\",\"time\":\"5 min\"},{\"speed\":\"2 km/h\",\"time\":\"3 min\"},{\"speed\":\"0\",\"time\":\"5 min\"}]}\n```",
+  "expect": "drawn",
+  "history": [],
+  "note": "Grade 8 round t15: a ride in stages is drawn by the server from the stated speeds and times."
+ },
+ {
+  "id": "pic-017",
+  "area": "picture gate",
+  "prompt": "A car traveling due north at 60 km/hr increased its velocity to 80 m/s due south in 20 seconds.\nDraw\ni) speed against time graph,\nii) acceleration against time graph.",
+  "read": [
+   "physics",
+   "graph"
+  ],
+  "reply": "The car slows, turns at 3.45 s and speeds up southwards; its acceleration is 4.83 m/s² south throughout.\n\n```draw\n{\"kind\":\"motion\",\"graphs\":[\"speed\",\"acceleration\"],\"stages\":[{\"from\":\"60 km/h\",\"to\":\"-80 m/s\",\"time\":\"20 s\"}]}\n```",
+  "expect": "drawn",
+  "history": [],
+  "note": "Grade 8 round t16: both graphs, the turn through zero and the one acceleration, from the server."
+ }
+]

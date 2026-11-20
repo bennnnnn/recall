@@ -91,6 +91,9 @@ _NEXT_FOLDS = ("memory", "compress", "message_index")
 # A first reply's topic job leaves the title it applied where the turn's socket and the
 # phone's one read wait for it (one SET, ``chat/title_event.py``): the phone read the chat
 # every 2 s for it before.
+# A short line after a reply gets the follow-up read as the turn loads (one model call and
+# its spend check, ``posed_read.start_posed_read``): which message and part it follows, for
+# the reply's note and the questions under it (the Grade 8 chat, 2026-11-18).
 CEILINGS: dict[str, Ceiling] = {
     "greeting": Ceiling(
         Counts(sql=5, checkouts=3, transactions=3, redis=21, models=1),
@@ -103,12 +106,12 @@ CEILINGS: dict[str, Ceiling] = {
         _FIRST,
     ),
     "follow-up, short chat": Ceiling(
-        Counts(sql=5, checkouts=3, transactions=3, redis=25, models=2),
+        Counts(sql=5, checkouts=3, transactions=3, redis=27, models=3),
         Counts(sql=11, checkouts=3, transactions=3, redis=16, models=1, embeds=1),
         _NEXT,
     ),
     "follow-up, long chat": Ceiling(
-        Counts(sql=8, checkouts=5, transactions=5, redis=27, models=2),
+        Counts(sql=8, checkouts=5, transactions=5, redis=29, models=3),
         Counts(sql=17, checkouts=5, transactions=5, redis=23, models=2, embeds=1),
         _NEXT_FOLDS,
     ),
@@ -147,7 +150,7 @@ CEILINGS: dict[str, Ceiling] = {
         ("attachment_index", *_FIRST),
     ),
     "regenerate": Ceiling(
-        Counts(sql=10, checkouts=3, transactions=3, redis=28, models=2),
+        Counts(sql=10, checkouts=3, transactions=3, redis=30, models=3),
         Counts(sql=14, checkouts=4, transactions=4, redis=21, models=1, embeds=1),
         _NEXT_FOLDS,
     ),

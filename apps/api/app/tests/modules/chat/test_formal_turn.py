@@ -479,3 +479,38 @@ def test_a_velocity_s_sign_stays_the_reply_s_convention() -> None:
 
     (read,) = reply_cards(_card("v = 12\\,\\mathrm{m/s}"))
     assert agrees(read, _value(-12.0, "m/s")) is True
+
+
+@pytest.mark.parametrize(
+    ("card", "read", "stands"),
+    [
+        # Owner's phone, 2026-11-17: an efficiency carded in two forms is one value.
+        ("0.840\\ (84.0\\ \\text{percent})", 0.84, True),
+        ("\\eta = 0.840", 0.84, True),
+        ("84.0\\%", 84.0, True),
+        # The same value twice, and wrong: held to the server's 84 %.
+        ("0.79\\ (79\\%)", 0.79, False),
+    ],
+)
+def test_a_card_in_two_forms_of_one_value_is_read_once(
+    card: str, read: float, stands: bool
+) -> None:
+    from app.modules.chat.formal_cards import agrees, reply_cards
+
+    (found,) = reply_cards(_card(card))
+    assert found.value == pytest.approx(read)
+    assert agrees(found, _value(84.0, "%")) is stands
+
+
+def test_a_card_whose_two_forms_disagree_is_not_read() -> None:
+    """ "0.94 (84.0%)" says two things: no value is read, and nothing is replaced."""
+    from app.modules.chat.formal_cards import reply_cards
+
+    assert reply_cards(_card("0.94\\ (84.0\\%)")) == []
+
+
+async def test_a_card_in_two_forms_gets_no_second_card(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Owner's phone, 2026-11-17: "0.840 (84.0 percent)" then the server's "84 %" again."""
+    _answered(monkeypatch, _answer(_value(84.0, "%", uses=(18.0,))))
+    reply = "18 and 35\n\n**Answer**\n\n" + _card("0.840\\ (84.0\\ \\text{percent})")
+    assert await _finalized(_ctx(live_read=_read()), reply) == reply

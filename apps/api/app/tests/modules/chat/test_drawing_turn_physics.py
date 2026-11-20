@@ -17,13 +17,19 @@ from app.modules.chat import drawing_turn
 from app.modules.chat.drawing_turn import ask_for_a_drawing, attach_drawing
 from app.modules.math.drawing.contract import DRAW_CONTRACT
 from app.modules.physics.field_lines.contract import FIELD_DRAW_CONTRACT
-from app.modules.physics.scene_drawing.contract import SCENE_DRAW_CONTRACT
+from app.modules.physics.scene_drawing.contract import (
+    DESCRIBED_PICTURE_SPEECH,
+    MOTION_DRAW_CONTRACT,
+    SCENE_DRAW_CONTRACT,
+)
 from app.services.md_fence_scan import iter_closed_fences
 from app.services.solving import VerifiedPhysicsBlock
 from app.tests.modules.chat.test_drawing_turn import _ctx, _deadline, _decision, _settings, _state
 
 # Physics' contract: its setup's scene, then an electric field's lines.
-_PHYSICS_CONTRACT = f"{SCENE_DRAW_CONTRACT}\n{FIELD_DRAW_CONTRACT}"
+_PHYSICS_CONTRACT = "\n".join(
+    (SCENE_DRAW_CONTRACT, FIELD_DRAW_CONTRACT, MOTION_DRAW_CONTRACT, DESCRIBED_PICTURE_SPEECH)
+)
 _FIELD = (
     "Draw the pattern of the electric field around: a) a positive charge b) a negative "
     "charge. Explain what the arrows mean."
@@ -199,7 +205,8 @@ async def test_a_physics_problem_asking_to_see_nothing_gets_the_scene_contract(
         ctx, _settings(), _decision(subject="physics", picture="none"), _deadline()
     )
     # The setup's scene only: a field's picture is for a message that asks to see one.
-    assert ctx.drawing is not None and ctx.prompt_messages[-2]["content"] == SCENE_DRAW_CONTRACT
+    setup = f"{SCENE_DRAW_CONTRACT}\n{DESCRIBED_PICTURE_SPEECH}"
+    assert ctx.drawing is not None and ctx.prompt_messages[-2]["content"] == setup
 
 
 @pytest.mark.parametrize("line", ["What is inertia?", "Why does a ball fall?"])
@@ -308,7 +315,19 @@ async def test_a_physics_graph_or_a_drawn_scene_gets_no_scene_contract(
     )
     # The plot path's (#2486): maths' contract draws the graph, never physics' scene.
     assert graph.drawing is not None and graph.drawing.subject == "math"
-    assert not any(m["content"] == SCENE_DRAW_CONTRACT for m in graph.prompt_messages)
+    # Only a motion's graph is asked of physics: a scene or a field described in its place
+    # would be dropped at finalize, the graph never drawn (review).
+    asked = "\n".join(str(m["content"]) for m in graph.prompt_messages)
+    assert MOTION_DRAW_CONTRACT in asked
+    assert SCENE_DRAW_CONTRACT not in asked and FIELD_DRAW_CONTRACT not in asked
+    off = _ctx(line)
+    await ask_for_a_drawing(
+        off,
+        _settings(physics_enabled=False),
+        _decision(subject="physics", picture="graph"),
+        _deadline(),
+    )
+    assert MOTION_DRAW_CONTRACT not in "\n".join(str(m["content"]) for m in off.prompt_messages)
     atwood = _verified("In an Atwood machine, m1 = 2 kg and m2 = 3 kg. Find the acceleration.")
     drawn = _ctx(line, verified_subject=atwood)
     await ask_for_a_drawing(
