@@ -15,6 +15,15 @@ _VERTICAL_CIRCLE = (
     "loop",
 )
 
+# Level with the centre of a vertical circle, where the string is horizontal.
+_SIDE = (
+    "halfway",
+    "level with the centre",
+    "level with the center",
+    "string is horizontal",
+    "rope is horizontal",
+)
+
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
@@ -257,7 +266,8 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("newton",),
             inputs=(frozenset({"m", "v", "r", "g"}),),
             cues=("at the bottom", "lowest point"),
-            excludes=("at the top", "highest point", "horizontal"),
+            # Each place's law rules the others' places out (``place_parts``).
+            excludes=("at the top", "highest point", "horizontal", *_SIDE),
             nonnegative=True,
         ),
     ),
@@ -282,7 +292,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("newton",),
             inputs=(frozenset({"m", "v", "r", "g"}),),
             cues=("at the top", "highest point"),
-            excludes=("at the bottom", "lowest point", "horizontal", "hump", "hill"),
+            excludes=("at the bottom", "lowest point", "horizontal", "hump", "hill", *_SIDE),
             nonnegative=True,
         ),
     ),
@@ -305,13 +315,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             asks=("tension",),
             result=("newton",),
             inputs=(frozenset({"m", "v", "r"}),),
-            cues=(
-                "halfway",
-                "level with the centre",
-                "level with the center",
-                "string is horizontal",
-                "rope is horizontal",
-            ),
+            cues=_SIDE,
             excludes=("at the top", "at the bottom", "highest point", "lowest point"),
             nonnegative=True,
         ),

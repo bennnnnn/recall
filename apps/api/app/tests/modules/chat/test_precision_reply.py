@@ -47,6 +47,17 @@ def test_every_card_of_a_reply_in_parts() -> None:
     )
 
 
+def test_each_part_s_card_keeps_its_heading() -> None:
+    reply = (
+        "**Answer (a)**\n\n```answer\nverified: true\nT = 104.43\\,\\mathrm{N}\n```\n\n"
+        "**Answer (b)**\n\n```answer\nverified: true\nT = 45.57\\,\\mathrm{N}\n```"
+    )
+    assert rounded_again("ok 1 dp", reply) == (
+        "**Answer (a)**\n\n```answer\nverified: true\nT = 104.4\\,\\mathrm{N}\n```\n\n"
+        "**Answer (b)**\n\n```answer\nverified: true\nT = 45.6\\,\\mathrm{N}\n```"
+    )
+
+
 @pytest.mark.parametrize(
     ("said", "prior"),
     [
@@ -56,6 +67,13 @@ def test_every_card_of_a_reply_in_parts() -> None:
         ("1 digit", None),
         ("Explain 2 sig figs", _SPEED),  # asks more than a precision
         ("1 dp", "```answer\nverified: true\n\\$1,234.57\n```"),  # money stays to the cent
+        # One place of 0.0456 A shows no figure at all: no 0.0 A (review).
+        (
+            "1 dp",
+            "$I = 0.045632\\,\\mathrm{A}$\n\n```answer\nverified: true\nI = 0.0456\\,\\mathrm{A}\n```",
+        ),
+        # "The exact answer" is √2, no decimal the server rounds (review).
+        ("exact answer", "$x = \\sqrt{2} = 1.414214$\n\n```answer\nverified: false\nx = 1.41\n```"),
     ],
 )
 def test_nothing_rounded_again(said: str, prior: str | None) -> None:

@@ -22,4 +22,9 @@ def rounded_again(content: str, prior_reply: str | None) -> str | None:
     if precision is None or not prior_reply:
         return None
     cards = cards_again(prior_reply, precision)
-    return None if cards is None else "\n\n".join(card.strip() for card in cards)
+    if cards is None:
+        return None
+    if len(cards) == 1:
+        return cards[0][1]
+    # Each part's card under its own heading: three bare tensions name no place.
+    return "\n\n".join(f"{heading}\n\n{card}" if heading else card for heading, card in cards)

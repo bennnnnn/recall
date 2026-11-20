@@ -74,6 +74,16 @@ def test_a_whole_card_is_never_taken_back_to_its_working_s_decimals() -> None:
     assert card_numbers(reply, Precision()) == reply
 
 
+def test_a_whole_card_in_a_unit_of_measure_shows_its_working_s_value() -> None:
+    """The owner's chat (2026-11-20): the tension at the bottom carded 104 N, three figures,
+    beside the top's 45.57 N; its working reached 104.43 N."""
+    reply = "$T = 104.43\\,\\mathrm{N}$\n\n" + _card("104\\,\\mathrm{N}")
+    assert card_numbers(reply, Precision()).endswith(_card("104.43\\,\\mathrm{N}"))
+    # A count stays the whole number the question needs.
+    counted = "$n = 2.67$\n\n" + _card("n = 3 buses")
+    assert card_numbers(counted, Precision()) == counted
+
+
 def test_a_greek_name_is_read_and_its_number_follows_the_rule() -> None:
     assert card_numbers(
         _card("\\lambda = 5.876 \\times 10^{-7}\\,\\mathrm{m}"), Precision()

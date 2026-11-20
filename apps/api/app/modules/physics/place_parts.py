@@ -22,13 +22,14 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, replace
-from functools import lru_cache
 
 from app.core.config import Settings
 from app.modules.physics.ask import QUANTITY, SENTENCE
 from app.modules.physics.block import build_verified_physics_block
 from app.modules.physics.extract import extract_physics_intent
 from app.modules.physics.numbers import normalize_physics_units
+from app.modules.physics.place_laws import LEAD as _LEAD
+from app.modules.physics.place_laws import place_cues
 from app.modules.physics.split_parts import joined_parts, part_working
 from app.services.law_binding.ask import ASK_VERBS
 from app.services.law_binding.words import word_pattern
@@ -36,19 +37,20 @@ from app.services.solving import PhysicsPartWorking, VerifiedPhysicsBlock
 
 logger = logging.getLogger(__name__)
 
-# Where a place is said: "at the bottom", "on its highest point", "in the middle".
-_LEAD = re.compile(r"\b(?P<at>at|on|in)[ \t]+(?:(?:the|its)[ \t]+)?", re.IGNORECASE)
 _DETERMINER = re.compile(r"(?:the|its)[ \t]", re.IGNORECASE)
-# Between two places of one list: a comma, a last "and" or "or" (with or without one).
+# Between two places of one list: a comma, a last "and", "or" or "&" (with or without a
+# comma), or a slash between two words ("at the top/bottom").
 _SEPARATOR = re.compile(
-    r"[ \t]*,[ \t]*(?:(?P<comma_last>and|or)[ \t]+)?|[ \t]+(?P<last>and|or)[ \t]+",
+    r"[ \t]*,[ \t]*(?:(?P<comma_last>and|or|&)[ \t]+)?|[ \t]+(?P<last>and|or|&)[ \t]+"
+    r"|(?<=\w)(?P<slash>/)(?=[A-Za-z])",
     re.IGNORECASE,
 )
-# Where one place of a list ends: its comma, or the "and" or "or" after it.
-_PLACE_END = re.compile(r",|[ \t](?:and|or)[ \t]", re.IGNORECASE)
+# Where one place of a list ends: its comma, the "and", "or" or "&" after it, or a slash.
+_PLACE_END = re.compile(r",|[ \t](?:and|or|&)[ \t]|(?<=\w)/(?=[A-Za-z])", re.IGNORECASE)
 _MAX_PLACES = 4
-# A place is a few words; a longer run is a clause, not a place.
+# A place is a few words; a longer run is a clause, not a place, and is never scanned on.
 _MAX_PLACE_WORDS = 10
+_MAX_PLACE_CHARS = 120
 
 
 @dataclass(frozen=True)
@@ -65,24 +67,11 @@ def _asking(sentence: str) -> bool:
     return sentence.rstrip().endswith("?") or ASK_VERBS.search(sentence) is not None
 
 
-@lru_cache(maxsize=1)
-def _place_cues() -> tuple[re.Pattern[str], ...]:
-    """Every cue a catalog law is written for a situation with."""
-    from app.modules.physics.catalog import CATALOG
-
-    cues = {
-        cue
-        for spec in CATALOG.values()
-        if spec.binding is not None
-        for cue in spec.binding.cues
-        if not cue.startswith("re:")
-    }
-    return tuple(word_pattern(cue) for cue in sorted(cues))
-
-
 def _cued(place: str) -> bool:
+    """A place a place law is cued by (``place_laws``): never a condition such as
+    "frictionless" that another law's cue names."""
     lower = place.lower()
-    return any(cue.search(lower) for cue in _place_cues())
+    return any(cue.search(lower) for cue in place_cues())
 
 
 def _placed(found: _PlaceList, place: str) -> str:
@@ -98,20 +87,22 @@ def _read_list(sentence: str, lead: re.Match[str]) -> _PlaceList | None:
     places: list[str] = []
     at = lead.end()
     while len(places) <= _MAX_PLACES:
-        end = _PLACE_END.search(sentence, at)
-        place_end = len(sentence) if end is None else end.start()
-        places.append(sentence[at:place_end].strip())
-        separator = _SEPARATOR.match(sentence, place_end)
+        end = _PLACE_END.search(sentence, at, at + _MAX_PLACE_CHARS)
+        if end is None:
+            return None  # one place and no list after it, or a clause too long to be one
+        places.append(sentence[at : end.start()].strip())
+        separator = _SEPARATOR.match(sentence, end.start())
         if separator is None:
-            return None  # no "and" or "or": a clause after a comma, not a list
+            return None
         at = separator.end()
-        if separator.group("comma_last") or separator.group("last"):
+        if separator.group("comma_last") or separator.group("last") or separator.group("slash"):
             break
     else:
         return None
     # The last place runs to the next comma or the sentence's end, its stop left out.
-    comma = sentence.find(",", at)
-    last = sentence[at : len(sentence) if comma < 0 else comma].rstrip(" \t\n.?!;:")
+    stop = min(len(sentence), at + _MAX_PLACE_CHARS)
+    comma = sentence.find(",", at, stop)
+    last = sentence[at : stop if comma < 0 else comma].rstrip(" \t\n.?!;:")
     places.append(last.strip())
     last_end = at + len(last)
     return _PlaceList(lead.start(), last_end, lead.group(0), lead.group("at"), tuple(places))
@@ -175,6 +166,12 @@ def _solved_at(place: str, reading: str, settings: Settings) -> VerifiedPhysicsB
     return block if block is not None and _law_of_the_place(block, place) else None
 
 
+def _titled(found: _PlaceList, written: str) -> str:
+    """The place as a part's heading says it: a bare noun with the list's "at the" ("at the
+    top"), any other place as written ("halfway between the bottom and top of the circle")."""
+    return _placed(found, written) if len(written.split()) == 1 else written
+
+
 def _asked_noun(working: PhysicsPartWorking) -> str:
     """What the part's law finds, as a heading: "Tension"."""
     from app.modules.physics.catalog import formula_spec
@@ -195,14 +192,15 @@ def solve_at_places(text: str, settings: Settings) -> VerifiedPhysicsBlock | Non
     start, end = offset + found.start, offset + found.end
     blocks: list[VerifiedPhysicsBlock] = []
     workings: list[PhysicsPartWorking] = []
-    for place in (_placed(found, place) for place in found.places):
+    for written in found.places:
+        place = _placed(found, written)
         reading = f"{question[:start]}{place}{question[end:]}"
         block = _solved_at(place, reading, settings)
         working = None if block is None else part_working(block, place, reading)
         if block is None or working is None:
             return None
         blocks.append(block)
-        workings.append(replace(working, title=f"{_asked_noun(working)} {place}"))
+        workings.append(replace(working, title=f"{_asked_noun(working)} {_titled(found, written)}"))
     if len({working.op for working in workings}) < len(workings):
         return None  # one law for two places: no place changed the answer it read
     return joined_parts(blocks, workings)
