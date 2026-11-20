@@ -146,13 +146,22 @@ def detect_gravity(text: str) -> float:
     return EARTH_G
 
 
+# A world the question names without its g: "on planet X", "an unknown planet", "an asteroid".
+_A_WORLD = re.compile(r"\b(?:planet|asteroid)s?\b", re.IGNORECASE)
+
+
 def names_a_gravity(text: str) -> bool:
     """The question sets its scene under a gravity of its own: a g it states, the Moon or
-    Mars (``detect_gravity``), or another named planet or star. A stated acceleration there
-    may be its g ("on Jupiter, where the acceleration is 24.8 m/s²")."""
+    Mars (``detect_gravity``), another named planet or star, or a world it names without its
+    g ("on planet X"). A stated acceleration there may be its g ("on Jupiter, where the
+    acceleration is 24.8 m/s²")."""
     from app.modules.physics.bodies import central_body
 
-    return detect_gravity(text) != EARTH_G or central_body(text.lower()) is not None
+    return (
+        detect_gravity(text) != EARTH_G
+        or central_body(text.lower()) is not None
+        or _A_WORLD.search(text) is not None
+    )
 
 
 def _only_set_aside(lower: str, body: str) -> bool:

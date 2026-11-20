@@ -595,5 +595,17 @@
    ]
   ],
   "note": "H = (20 sin 30°)²/20, R = 400 sin 60°/10: the parts read a stated g with the one reader of a stated g (Gemini on #2491: it declined)"
+ },
+ {
+  "id": "p17-skier-drops-accelerates",
+  "area": "energy",
+  "prompt": "A 60 kg skier drops into the run and accelerates at 3.00 m/s² down the slope. What is her potential energy loss after descending 20 m?",
+  "expect": "answer",
+  "answer": [
+   11772.0,
+   "J"
+  ],
+  "gap": "the skier's own 3.00 m/s² is no g and stays unread, so the PE law declines; mgh with g = 9.81 would answer",
+  "note": "mgh = 60 × 9.81 × 20 = 11,772 J; the skier's 3.00 m/s² is her own (down the slope), never g: it certified 3600 J (Claude on #2491)"
  }
 ]

@@ -381,10 +381,12 @@ def _may_take(
     kind, a quantity it is, and g only where the words make the value gravity's."""
     if kind is None or variable_kind(variable) != kind or not holds(variable, label):
         return False
-    return variable.fallback != "gravity" or _marks_gravity(*stated)
+    return variable.fallback != "gravity" or _marks_gravity(variable, *stated)
 
 
-def _marks_gravity(question: Question, given: Given, previous: int, subject: Subject) -> bool:
+def _marks_gravity(
+    variable: VariableSpec, question: Question, given: Given, previous: int, subject: Subject
+) -> bool:
     """A stated acceleration fills g only where the words make it gravity's, read in its
     own sentence up to the value, values between included (``_driven_by_the_body``): never
     a braking, a thrust or an engine; the g the subject's one reader of a stated g reads at
@@ -406,7 +408,9 @@ def _marks_gravity(question: Question, given: Given, previous: int, subject: Sub
     if _FALLING.search(lower[start:end]):
         # "a ball dropped from a tower accelerates at 9.8 m/s²" falls under gravity; "a
         # falling probe accelerates upward at 5 m/s²" is driven against it (Gemini on #2491).
-        return not _UPWARD.search(before)
+        if _UPWARD.search(before):
+            return False
+        return not _DRIVEN.search(before) or _a_worlds_g(variable, question, given, subject)
     if _DRIVEN.search(before) or _NAMED_AFTER.match(after):
         return False
     if _GRAVITY_WORD.search(before):
@@ -414,6 +418,23 @@ def _marks_gravity(question: Question, given: Given, previous: int, subject: Sub
     # A throw in the value's own sentence: "A ball is thrown … A cart's acceleration is 3.0
     # m/s²" is the cart's (Gemini on #2491).
     return subject.names_gravity(question.text) or bool(_THROWN.search(lower, start, end))
+
+
+# How far a stated value may sit from the scene's g and be it: 9.8 and 10 are Earth's 9.81.
+_G_TOLERANCE = 0.03
+
+
+def _a_worlds_g(variable: VariableSpec, question: Question, given: Given, subject: Subject) -> bool:
+    """A falling body's own acceleration ("accelerates at") is g only on a world the question
+    names ("on planet X, a dropped rock accelerates at 4.0 m/s²") or at the scene's own g
+    ("a ball dropped from a tower accelerates at 9.8 m/s²"). "A skier drops into the run and
+    accelerates at 3.00 m/s² down a slope" is the skier's (Claude on #2491)."""
+    if subject.names_gravity(question.text):
+        return True
+    scene = subject.fallback(variable, question.text, question.lower)
+    return (
+        scene is not None and given.si is not None and abs(given.si - scene) <= _G_TOLERANCE * scene
+    )
 
 
 def _next_start(givens: Sequence[Given], index: int, lower: str) -> int:

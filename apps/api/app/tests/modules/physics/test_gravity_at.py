@@ -85,7 +85,7 @@ def test_stated_gravity_spans_cover_label_value_and_unit() -> None:
     assert [text[start:end] for start, end in stated_gravity_spans(text)] == ["g = 9.8 m/s^2"]
 
 
-def _weight(text: str) -> str | None:
+def _verified(text: str) -> str | None:
     from app.core.config import Settings
     from app.modules.physics import build_verified_physics_block, extract_physics_intent
 
@@ -113,4 +113,32 @@ def _weight(text: str) -> str | None:
     ],
 )
 def test_a_worlds_acceleration_due_to_gravity_is_its_g(text: str, answer: str) -> None:
-    assert _weight(text) == answer
+    assert _verified(text) == answer
+
+
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        # A falling body's own acceleration is no g (Claude on #2491: 3600 J for 11,772 J).
+        (
+            "A 60 kg skier drops into the run and accelerates at 3.00 m/s² down the slope. "
+            "What is her potential energy loss after descending 20 m?",
+            None,
+        ),
+        # At the scene's g, or on a world the question names, it is g.
+        (
+            "A ball dropped from a 45 m tower accelerates at 9.8 m/s². How long does it take "
+            "to reach the ground?",
+            "3.03 s",
+        ),
+        (
+            "On planet X, a dropped rock accelerates at 4.0 m/s². How long does it take to "
+            "fall 10 m?",
+            "2.24 s",
+        ),
+    ],
+)
+def test_a_falling_bodys_own_acceleration_is_g_only_at_its_worlds_g(
+    text: str, answer: str | None
+) -> None:
+    assert _verified(text) == answer
