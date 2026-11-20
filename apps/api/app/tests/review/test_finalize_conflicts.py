@@ -28,7 +28,7 @@ pytestmark = [
 
 
 # --- 1. formal_answer overruled the reply's own right card: fixed by #2501, held by
-# ``app/tests/behavior/test_formal_authority.py``.
+# ``app/tests/behavior/test_finalize_owners.py``.
 
 
 # --- 2. formal_answer's card contradicts the working it sits under ---------------------------
@@ -113,23 +113,8 @@ async def test_conflict_4_stripped_graph_leaves_its_lead() -> None:
     assert "Here is the v–t graph" in saved
 
 
-# --- 5. a money card on a physics question --------------------------------------------------
-
-
-async def test_conflict_5_loan_card_under_a_physics_answer() -> None:
-    """The money reader and the subject dispatch both claim the turn; ``money_card`` attaches
-    whenever money owns its read, whatever the subject: a car-loan calculator under a
-    physics answer."""
-    reply = (
-        "**Given**\n$a = 0.06 \\times 9.81 = 0.5886\\,\\mathrm{m/s^2}$, $t = 5\\,\\mathrm{s}$\n\n"
-        "**Required**\n$v$\n\n**Substitution**\n$v = 0.5886 \\times 5 = 2.943\\,\\mathrm{m/s}$\n\n"
-        "**Answer**\n\n$v = 2.94\\,\\mathrm{m/s}$"
-    )
-    route, saved = await _finalize(
-        "A car accelerates at 6% of g for 5 s from rest. What is its final speed?", reply
-    )
-    assert route.subject == "physics"
-    assert "```calculator" in saved and '"product":"loan"' in saved
+# --- 5. a money card on a physics question: fixed by #2495, held by
+# ``app/tests/behavior/test_finalize_owners.py``.
 
 
 # --- 6. an unclosed card skips every check, then close_fences closes it ----------------------

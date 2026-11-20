@@ -1,7 +1,10 @@
-"""A launch's direction, read once for the projectile extractor and the law binder: "thrown
-down at an angle of 30°" and "kicked down off a 45 m cliff at 15 m/s at 30°" launch 30°
-below the horizontal. Read as above it, a 45 m cliff's throw landed in 3.89 s instead of
-2.36 s (review, 2026-11-16 and PR #2490)."""
+"""A quantity's direction from the words, read once for every physics reader that signs one.
+
+A launch's (``launched_downward``), for the projectile extractor and the law binder:
+"thrown down at an angle of 30°" and "kicked down off a 45 m cliff at 15 m/s at 30°" launch
+30° below the horizontal. Read as above it, a 45 m cliff's throw landed in 3.89 s instead of
+2.36 s (review, 2026-11-16 and PR #2490). A body's along a line (``moving_sense``), for a
+collision's two velocities: east or west, left or right, +x or -x."""
 
 from __future__ import annotations
 
@@ -49,3 +52,43 @@ def launched_downward(lower: str, start: int, end: int) -> bool:
         and _UPWARD_LAUNCH_RE.search(sentence) is None
         and _ABOVE_HORIZONTAL_RE.match(lower, end) is None
     )
+
+
+# A body's direction along a line: "a 0.5 kg puck moving east at 4 m/s", "in the +x
+# direction", "in the negative x-direction". A sign before an axis is its sense; the minus
+# may be typed as the minus sign or a dash. Read once, for a collision's two bodies.
+_LINE_DIRECTION_RE = re.compile(
+    r"\b(east|west|north|south|left|right)(?:wards?)?\b"
+    r"|(?<![\w.])([+\-\u2212\u2013]|\bpositive\s+|\bnegative\s+)([xy])(?:[\s-]*(?:direction|axis))?\b",
+    re.IGNORECASE,
+)
+_AXIS_SIGN = {
+    "east": ("east-west", 1),
+    "west": ("east-west", -1),
+    "north": ("north-south", 1),
+    "south": ("north-south", -1),
+    "right": ("left-right", 1),
+    "left": ("left-right", -1),
+}
+_NEGATIVE_SIGNS = frozenset({"-", "\u2212", "\u2013", "negative"})
+# A body said to move two ways at once ("east ... north").
+TWO_WAYS = ("", 0)
+
+
+def _sense(match: re.Match[str]) -> tuple[str, int]:
+    """The axis and sign one direction names: east is +1 on east-west, "-x" is -1 on x."""
+    if match[1]:
+        return _AXIS_SIGN[match[1].lower()]
+    return match[3].lower(), -1 if match[2].strip().lower() in _NEGATIVE_SIGNS else 1
+
+
+def moving_sense(text: str, start: int, end: int) -> tuple[str, int] | None:
+    """The one direction a body moves along a line, as the words at ``start:end`` give it:
+    its axis and sign (east is +1 on east-west, "-x" -1 on x); ``TWO_WAYS`` when they give
+    two, None when none. The launch's sense above is ``launched_downward``'s; a collision
+    signs each body's velocity by this one (owner's phone, 2026-11-17: a 1.00 kg object
+    "in the -x direction" read as moving the first one's way, 1.5 J lost for 13.5 J)."""
+    found = {_sense(match) for match in _LINE_DIRECTION_RE.finditer(text, start, end)}
+    if len(found) > 1:
+        return TWO_WAYS
+    return next(iter(found), None)

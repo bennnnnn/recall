@@ -25,6 +25,7 @@ from app.modules.physics.solvers.si import (
     solves_backwards_in_si,
     stated_on_an_offset_scale,
 )
+from app.services.law_binding.expression import names
 from app.services.law_binding.inverse import (
     forward_expression,
     inverse_of,
@@ -144,8 +145,14 @@ def _evaluated(spec: FormulaSpec, expression: str, params: dict[str, float]) -> 
 
 
 def _holds(spec: FormulaSpec, values: dict[str, float]) -> bool:
+    """Every ``requires`` condition is positive. A condition on one of the law's inputs the
+    question did not state has nothing to hold: an ideal machine states no efficiency, and
+    "an efficiency of at most one" is no reason to decline it."""
     requires = spec.binding.requires if spec.binding is not None else ()
-    return all(evaluate(condition, values) > 0 for condition in requires)
+    unstated = {variable.name for variable in spec.variables} - values.keys()
+    return all(
+        evaluate(condition, values) > 0 for condition in requires if not names(condition) & unstated
+    )
 
 
 def _solve_for_input(

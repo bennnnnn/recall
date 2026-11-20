@@ -29,6 +29,7 @@ from app.modules.physics.catalog.inductance_ac import SPECS as INDUCTANCE_AC
 from app.modules.physics.catalog.kinematics import SPECS as KINEMATICS
 from app.modules.physics.catalog.lens import SPECS as LENS
 from app.modules.physics.catalog.lift import SPECS as LIFT
+from app.modules.physics.catalog.machine_effort import SPECS as MACHINE_EFFORT
 from app.modules.physics.catalog.machine_ratios import SPECS as MACHINE_RATIOS
 from app.modules.physics.catalog.machines import SPECS as MACHINES
 from app.modules.physics.catalog.magnetism import SPECS as MAGNETISM
@@ -100,6 +101,7 @@ CATALOG: dict[str, FormulaSpec] = _register(
     ENERGY,
     MACHINES,
     MACHINE_RATIOS,
+    MACHINE_EFFORT,
     MOMENTUM,
     FRICTION,
     CIRCULAR,

@@ -69,7 +69,8 @@ def reply_cards(text: str) -> list[ReplyCard]:
             continue
         above = text[previous : fence.start]
         previous = fence.end
-        read = read_verified_value(_plain_value(text[fence.body_start : fence.body_end]))
+        body = text[fence.body_start : fence.body_end]
+        read = read_verified_value(_plain_value(_one_form(body)))
         if read is None or len(read.numbers) != 1:
             continue
         number = read.numbers[0]
@@ -85,6 +86,44 @@ def reply_cards(text: str) -> list[ReplyCard]:
             )
         )
     return cards
+
+
+# A value's other form in brackets after it, opened after a space: "0.840 (84.0 percent)".
+_OTHER_FORM = re.compile(r"^(?P<first>.*\d.*?)(?:\s|\\[ ,;])+\((?P<other>[^()]*\d[^()]*)\)\s*$")
+_PERCENT_WORD = re.compile(r"\\text\{\s*per\s*cent\s*\}|\bper\s*cent\b", re.IGNORECASE)
+
+
+def _one_form(body: str) -> str:
+    """The card with a second form of its value dropped, when the bracket states the same
+    value another way: "0.840 (84.0 percent)" is 0.840 once, so a wrong "0.79 (79%)" is
+    still held to the server's 84 % (the review of #2491's merge, owner's phone 2026-11-17).
+    A bracket that states another value leaves the card unread: it says two things."""
+    lines = body.rstrip("\n").split("\n")
+    match = _OTHER_FORM.match(lines[-1])
+    if match is None:
+        return body
+    first, other = (
+        read_verified_value(_plain_value(_PERCENT_WORD.sub(r"\\%", part)))
+        for part in (match["first"], match["other"])
+    )
+    if first is None or other is None or len(first.numbers) != 1 or len(other.numbers) != 1:
+        return body
+    if not _same_value(first.numbers[0], other.numbers[0]):
+        return body
+    return "\n".join([*lines[:-1], match["first"]])
+
+
+def _same_value(one: Any, two: Any) -> bool:
+    """Two written values are one quantity: 0.84 and 84 %, 1.5 kJ and 1500 J."""
+    from app.services.formal.maths import as_quantity
+
+    try:
+        left = as_quantity(float(one.value), one.unit or "dimensionless")
+        right = as_quantity(float(two.value), two.unit or "dimensionless").to(left.units)
+    except Exception as exc:  # pint: kinds that do not convert are two values
+        logger.info("formal answer: a card's two forms not compared (%s)", type(exc).__name__)
+        return False
+    return math.isclose(left.magnitude, right.magnitude, rel_tol=_ROUNDING * 2)
 
 
 # A note in brackets after the value, "(clockwise)", "(ratio)", brackets inside it too.

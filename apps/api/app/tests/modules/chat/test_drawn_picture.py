@@ -175,10 +175,10 @@ async def test_a_painting_beside_a_solve_still_comes() -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("solved", [True, False])
-async def test_a_diagram_the_solve_drew_is_never_painted(solved: bool) -> None:
-    """The read asks for the circuit. Drawn by the solve, it is not painted; with no solve
-    that read the problem ("find the current and draw the circuit" the solvers miss), the
-    painting comes as before (Claude review, PR #2467)."""
+async def test_a_diagram_the_read_asks_for_is_never_painted(solved: bool) -> None:
+    """The read asks for the circuit: it is the app's, drawn by the solve or described by
+    the reply, or said not to be drawn; never painted, solve or not (Grade 8 round,
+    2026-11-18, where "draw the circuit diagram for this" got a flowchart)."""
     picture_id = uuid4()
 
     async def drawn() -> UUID:
@@ -191,7 +191,7 @@ async def test_a_diagram_the_solve_drew_is_never_painted(solved: bool) -> None:
         verified_subject=_solved(CIRCUIT) if solved else None,
     )
     text = await attach_reply_picture(state)
-    assert text.startswith("[Image:") is not solved
+    assert not text.startswith("[Image:")
 
 
 @pytest.mark.asyncio
@@ -235,7 +235,7 @@ async def test_a_photo_goes_only_when_the_read_calls_it_the_problems_picture(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("solved", [True, False])
-async def test_a_physics_diagram_is_painted_only_when_no_solve_drew_it(solved: bool) -> None:
+async def test_a_physics_diagram_is_never_painted(solved: bool) -> None:
     painted = AsyncMock(return_value=uuid4())
     deps = MagicMock()
     deps.plan.can_use = MagicMock(return_value=True)
@@ -251,15 +251,16 @@ async def test_a_physics_diagram_is_painted_only_when_no_solve_drew_it(solved: b
         )
         assert picture is not None
         _text, ids = await picture.attach("The current is 2 A.")
-    assert bool(ids) is not solved
-    assert painted.await_count == (0 if solved else 1)
+    assert not ids
+    assert painted.await_count == 0
 
 
 @pytest.mark.parametrize(
     ("read", "verified", "drawn"),
     [
         (_read("physics", "diagram"), "circuit", True),
-        (_read("physics", "diagram"), None, False),
+        # No solve drew it: the app still owes it (a description, or one line), never paints.
+        (_read("physics", "diagram"), None, True),
         # A maths figure is maths' own to draw, solve or not, as before this change.
         (_read("maths", "diagram"), None, True),
         (_read("physics", "image"), "circuit", False),

@@ -100,6 +100,7 @@ from app.modules.chat.lesson_shape import hold_lesson_shape
 from app.modules.chat.meta_notes import unwrap_meta_notes
 from app.modules.chat.name_use import spare_name_pass
 from app.modules.chat.option_letters import plain_options_pass
+from app.modules.chat.owed_picture import settle_owed_picture
 from app.modules.chat.practice_asked import hold_new_practice
 from app.modules.chat.praise_opener import strip_praise_opener
 from app.modules.chat.prompt_leaks import drop_prompt_leaks_pass, drop_prompt_lines
@@ -350,6 +351,15 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         format_card_numbers,
         kind=TEXT,
         after=frozenset({"formal_answer", "server_answer_cards", "working_check", "close_fences"}),
+    ),
+    # Once every picture pass is done and every fence closed (a molecule's enrichment too):
+    # what was asked and not drawn is said in one line, never stood in for (``owed_picture``).
+    FinalizePass(
+        "owed_picture",
+        settle_owed_picture,
+        OnError(log_as="owed_picture"),
+        kind=EFFECT,
+        after=frozenset({"close_fences", "formal_answer", CHEMISTRY_ENRICH}),
     ),
     # After the closer, so a card the model left open is whole: a clarify card is read; a
     # practice card the chat's cards already showed goes, or a model call writes a fresh one;

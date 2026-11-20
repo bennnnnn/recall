@@ -97,15 +97,18 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # (its reviews, 2026-11-16); then no biology presentation hint, biology being out of v1
 # (2026-11-18); then the summary saying it stands for the chat's first messages, so the start
 # of the chat is in it (SUMMARY_SPAN), and a short line's note naming the message and part it
-# follows (FOLLOW_UP_NOTE), the Grade 8 chat, 2026-11-18; then a ```worked part asked in
+# follows (FOLLOW_UP_NOTE), the Grade 8 chat, 2026-11-18; then a circuit and a plane mirror
+# described in the same way, no flowchart for a thing or a motion, a motion's graphs in
+# stages, and a reply never writing that a picture is shown or mentioning its block
+# (physics.scene_drawing.contract, Grade 8 round, 2026-11-18); then a ```worked part asked in
 # words, said in `say` lines and answered in one sentence (prompt_constants.worked, G8 round
 # t42, 2026-11-18), and its answer record's value and its substitution left unrounded, the "3
 # significant figures" gone: the server rounds every card by one rule (services.rounding_rule,
 # the owner, 2026-11-18); then a physics hint saying a change is final minus initial and a
 # result keeps its formula's sign (PHYSICS_SIGNS, the owner, 2026-11-20).
-_RULES = 205
-_RULE_GRAMS = 19271
-_RULE_GRAMS_SHA = "c02ac08683ee90ae"
+_RULES = 207
+_RULE_GRAMS = 19489
+_RULE_GRAMS_SHA = "90e0fd768d7311e4"
 
 
 def _rules() -> list[str]:

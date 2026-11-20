@@ -1,5 +1,6 @@
-"""The formal reader's value never overrules the reply's own right card (review probe 1 of
-``docs/review/2026-11-19-finalize-pipeline.md``, fixed by #2501)."""
+"""Finalize passes that once overruled each other, held fixed: the review probes of
+``docs/review/2026-11-19-finalize-pipeline.md`` a fix turned red (probe 1 by #2501, probe 5
+by #2495)."""
 
 from __future__ import annotations
 
@@ -27,3 +28,18 @@ async def test_a_right_card_on_the_questions_own_g_stands_over_the_formal_value(
     _route, saved = await finalize_reply(_BLOCK, _BLOCK_REPLY, formal=(245.25, "Pa", (50.0, 2.0)))
     assert "245" not in saved
     assert saved.rstrip().endswith("250 Pa")
+
+
+async def test_a_physics_answer_with_a_percent_of_g_gets_no_loan_card() -> None:
+    """Probe 5: "6% of g" read as a car loan's rate put a loan calculator under a physics
+    answer (fixed by #2495)."""
+    reply = (
+        "**Given**\n$a = 0.06 \\times 9.81 = 0.5886\\,\\mathrm{m/s^2}$, $t = 5\\,\\mathrm{s}$\n\n"
+        "**Required**\n$v$\n\n**Substitution**\n$v = 0.5886 \\times 5 = 2.943\\,\\mathrm{m/s}$\n\n"
+        "**Answer**\n\n$v = 2.94\\,\\mathrm{m/s}$"
+    )
+    route, saved = await finalize_reply(
+        "A car accelerates at 6% of g for 5 s from rest. What is its final speed?", reply
+    )
+    assert route.subject == "physics"
+    assert "```calculator" not in saved
