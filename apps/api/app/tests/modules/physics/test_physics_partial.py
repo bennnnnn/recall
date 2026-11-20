@@ -40,6 +40,21 @@ def test_a_place_asked_counts_as_an_ask() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        # The owner's chat (2026-11-20): a stated c with a stray "?" asks nothing.
+        "How much heat is lost by a copper bar weighing 2000g when it cools from 100 °C to "
+        "40 °C? c = 385 J/kg °C?",
+        "A 2 kg ball is dropped from 20 m. How fast does it land? g = 9.8 m/s2?",
+    ],
+)
+def test_a_sentence_of_only_given_values_is_no_ask(text: str) -> None:
+    assert asks_count(text) == 1
+    outcome, block = solve_physics_request(text, _SETTINGS, None)
+    assert outcome == "verified" and block is not None and not block.partial
+
+
 def test_a_result_for_one_of_two_asks_is_partial() -> None:
     outcome, block = solve_physics_request(_KICK, _SETTINGS, None)
     assert outcome == "verified" and block is not None

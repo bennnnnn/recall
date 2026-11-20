@@ -101,6 +101,9 @@ class Entry:
     gap: str | None = None
     # The asker's app language, which reads their numbers ("1.200" is 1200 in Spanish).
     locale: str = "en"
+    # The answer's sign is its definition's (Q = mcΔT for a cooling body is negative): a card
+    # of the other sign is wrong. Elsewhere a sign marks a direction and sizes match.
+    signed: bool = False
 
     @property
     def checked(self) -> bool:
@@ -157,6 +160,7 @@ def load(subject: str) -> list[Entry]:
                     note=raw.get("note"),
                     gap=raw.get("gap"),
                     locale=raw.get("locale", "en"),
+                    signed=raw.get("signed", False),
                 )
             )
     return entries
@@ -277,14 +281,18 @@ def same_quantity(
     shown: str | None = None,
     abs_tol: float | None = None,
     chemistry: bool = False,
+    signed: bool = False,
 ) -> tuple[bool, str]:
     """Whether a card value is the worked answer, in any unit of the same kind.
 
     ``shown`` is the value's digits on the card: a result rounded to the
-    inputs' significant figures matches within half its last place.
+    inputs' significant figures matches within half its last place. ``signed``: the
+    answer's sign is its definition's, and a card of the other sign is wrong.
     """
     value, unit = got
     want_value, want_unit = want
+    if signed and (value < 0) != (want_value < 0):
+        return False, f"{value:g} {unit} has the wrong sign: want {want_value:g} {want_unit}"
     if want_unit == "dB" or unit == "dB":
         converted = value if unit == want_unit else math.nan
     else:
@@ -360,6 +368,7 @@ def check_answer(
                     shown=shown if subject in ROUNDED else None,
                     abs_tol=entry.abs_tol,
                     chemistry=subject == "chemistry",
+                    signed=entry.signed,
                 )
                 for value, unit, shown in values
             ]

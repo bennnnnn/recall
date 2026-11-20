@@ -271,6 +271,19 @@ def _on_a_scale(value: FormalValue, card: ReplyCard) -> bool:
         return False
 
 
+def _signed_by_definition(value: FormalValue, card: ReplyCard) -> bool:
+    """An energy the setup's own formula made negative (heat given out, Q = mcΔT with ΔT =
+    final - initial), carded as that same quantity: unlabelled or under the setup's own
+    symbol. Its sign is its definition's, so a card that flips it to a size is no
+    agreement: "7700 J (heat lost)" against the setup's -7700 J (owner, 2026-11-20). A card
+    that names another quantity ("Q_{lost} = 7700 J", "E_{photon} = 1.89 eV" for a setup's
+    ΔE) states a size, and a positive setup value may have named the heat released, so
+    both compare sizes."""
+    if value.value >= 0 or _kind(value.unit) != _kind("J"):
+        return False
+    return not card.label or _plain_label(card.label) == _plain_label(value.symbol)
+
+
 def agrees(card: ReplyCard, value: FormalValue, asked: Precision = RULE) -> bool | None:
     """The card states the server's value, within its rounding and the constants' range;
     None when the two cannot be compared (kinds that do not convert)."""
@@ -280,7 +293,7 @@ def agrees(card: ReplyCard, value: FormalValue, asked: Precision = RULE) -> bool
         logger.info("formal answer: kinds that do not convert (%s)", type(exc).__name__)
         return None
     rounding = max(_rounding(card), _asked_slack(card, asked))
-    signed = _on_a_scale(value, card)
+    signed = _on_a_scale(value, card) or _signed_by_definition(value, card)
     shown = card.value if signed else abs(card.value)
     for low, high in zip(*ends, strict=True):
         lowest, highest = sorted((low, high) if signed else (abs(low), abs(high)))

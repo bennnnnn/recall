@@ -90,7 +90,7 @@ def test_heat_uses_both_readings_and_the_stated_capacity() -> None:
 
 def test_cooling_releases_heat() -> None:
     assert _answer("How much heat is released when 3 kg of water cools from 90 °C to 40 °C?") == (
-        "627900 J (released)"
+        "-627900 J (released)"
     )
 
 

@@ -354,7 +354,7 @@ THERMAL_FLUIDS_MODERN: tuple[Case, ...] = (
         "The specific heat capacity is 4200 J/kg°C.",
         (504000, "J"),
     ),
-    _q("How much heat is released when 3 kg of water cools from 90 °C to 40 °C?", (627900, "J")),
+    _q("How much heat is released when 3 kg of water cools from 90 °C to 40 °C?", (-627900, "J")),
     _q(
         "Find the energy to raise 0.5 kg of copper by 10 K. Its specific heat is 0.385 kJ/kg/K.",
         (1925, "J"),
