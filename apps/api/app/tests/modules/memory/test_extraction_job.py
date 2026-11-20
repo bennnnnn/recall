@@ -10,7 +10,9 @@ import pytest
 from app.core.config import Settings
 from app.models.orm import Memory
 from app.models.schemas.common import MemoryType
+from app.modules.memory.extract_backlog import PassLines
 from app.modules.memory.extraction_workflow import extract_and_store_memories, extract_history_chat
+from app.modules.memory.grounding import SourceLine
 from app.modules.memory.schemas import MemoryFactOp, MemoryFactUpdateResult
 from app.modules.memory.text import embedding_text_hash
 from app.modules.memory.writes_repository import MemoryFactWrite
@@ -18,6 +20,9 @@ from app.tests.fakes import FakeSessionCM, redis_mock
 from app.tests.modules.memory.embedding_support import EMBED_MANY, embed_each
 
 _CANDIDATE = "I like using Vim every day at work."
+
+# Mocked ops stand for a model that quoted the user (conftest.quoting_model).
+pytestmark = pytest.mark.usefixtures("quoting_model")
 
 
 def _extraction_sessions(*, count: int = 1) -> tuple[AsyncMock, list[FakeSessionCM]]:
@@ -105,7 +110,10 @@ def _extract_patches(
             )
         )
         # A saved fact row has every column the snapshot reads.
-        rows = [SimpleNamespace(**{"last_confirmed_at": None, **vars(row)}) for row in listed or []]
+        rows = [
+            SimpleNamespace(**{"last_confirmed_at": None, "slot": None, **vars(row)})
+            for row in listed or []
+        ]
         stack.enter_context(
             patch(
                 "app.modules.memory.extraction_workflow.memories_repo.list_for_user",
@@ -191,7 +199,7 @@ async def test_extract_skips_non_candidate_small_talk():
         ),
         patch(
             "app.modules.memory.extraction_workflow.expand_memory_extract_transcript",
-            AsyncMock(return_value=("hey there", "cursor-1")),
+            AsyncMock(return_value=PassLines("hey there", cursor="cursor-1")),
         ),
         patch("app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts", revise),
         patch("app.modules.memory.extraction_workflow.apply_memory_facts", apply),
@@ -227,7 +235,13 @@ def _cursor_patches(*, revise: AsyncMock, give_up: bool = False):
         ),
         patch(
             "app.modules.memory.extraction_workflow.expand_memory_extract_transcript",
-            AsyncMock(return_value=("User: I build mobile apps with Expo", "cursor-2")),
+            AsyncMock(
+                return_value=PassLines(
+                    "User: I build mobile apps with Expo",
+                    sources=(SourceLine("I build mobile apps with Expo"),),
+                    cursor="cursor-2",
+                )
+            ),
         ),
         patch("app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts", revise),
         patch("app.modules.memory.extraction_workflow.apply_memory_facts", AsyncMock()),
@@ -548,7 +562,7 @@ async def test_extract_forget_does_not_clear_unrelated_nonempty_sections():
             settings,
             user_id=uuid4(),
             chat_id=uuid4(),
-            transcript="User: Please forget that I live in Boston",
+            transcript="User: Please forget that I live in Boston. I drink tea now.",
         )
 
     apply.assert_awaited_once()
@@ -678,9 +692,9 @@ async def test_extract_persists_highly_sensitive_on_explicit_remember():
 @pytest.mark.asyncio
 async def test_extract_and_store_stores_embedding_for_new_memory(embedding_write):
     settings = Settings(memory_min_confidence=0.4)
-    extraction = _ops(_add("fact", "Owns a bicycle."))
+    extraction = _ops(_add("fact", "Uses Vim at work."))
     memory_id = uuid4()
-    listed = SimpleNamespace(id=memory_id, text="Owns a bicycle")
+    listed = SimpleNamespace(id=memory_id, text="Uses Vim at work")
     vector = [0.4, 0.5, 0.6]
     apply_writes = AsyncMock(return_value=[memory_id])
     _session, session_locals = _extraction_sessions(count=3)
@@ -734,6 +748,7 @@ async def test_extraction_and_consolidation_do_not_race_the_same_user(fake_redis
         status="active",
         last_confirmed_at=None,
         updated_at=0,
+        slot=None,
         embedding=[0.1, 0.2, 0.3],
         embedding_json="[0.1,0.2,0.3]",
         embedding_text_hash=embedding_text_hash(text),
@@ -748,6 +763,7 @@ async def test_extraction_and_consolidation_do_not_race_the_same_user(fake_redis
         embedding=[0.1, 0.2, 0.3],
         embedding_json="[0.1,0.2,0.3]",
         embedding_text_hash=embedding_text_hash(text),
+        slot=None,
     )
     extraction_result = _ops(_add("fact", "Uses Vim daily."))
 
@@ -832,9 +848,13 @@ async def test_extract_files_facts_into_documents():
     )
     apply = AsyncMock()
     _, session_locals = _extraction_sessions()
+    said = (
+        "User: I'm building Recall, a personal AI chat app, with FastAPI for backends. "
+        "I prefer short answers."
+    )
     with _extract_patches(session_locals=session_locals, extraction=extraction, apply=apply):
         await extract_and_store_memories(
-            Settings(), user_id=uuid4(), chat_id=uuid4(), transcript=_CANDIDATE
+            Settings(), user_id=uuid4(), chat_id=uuid4(), transcript=said
         )
 
     writes: list[MemoryFactWrite] = apply.await_args.kwargs["writes"]
@@ -890,7 +910,9 @@ def _history_patches(stack: ExitStack, *, lines: list[str], revise: AsyncMock, a
     user = MagicMock(
         memory_enabled=True, memory_include_sensitive=False, memory_edited_at=edited_at
     )
-    read_lines = AsyncMock(return_value=[SimpleNamespace(content=line) for line in lines])
+    read_lines = AsyncMock(
+        return_value=[SimpleNamespace(id=uuid4(), content=line) for line in lines]
+    )
     _, session_locals = _extraction_sessions()
     stack.enter_context(
         patch("app.modules.memory.extraction_workflow.SessionLocal", side_effect=session_locals)

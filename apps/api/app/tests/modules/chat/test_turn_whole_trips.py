@@ -94,30 +94,33 @@ _NEXT_FOLDS = ("memory", "compress", "message_index")
 # A short line after a reply gets the follow-up read as the turn loads (one model call and
 # its spend check, ``posed_read.start_posed_read``): which message and part it follows, for
 # the reply's note and the questions under it (the Grade 8 chat, 2026-11-18).
+# The memory job reads the chat before its unread lines (one SELECT,
+# ``extract_backlog._chat_before``): what a one-word answer replies to, and whether the
+# lines go on with a story (the owner's memory, 2026-11-20).
 CEILINGS: dict[str, Ceiling] = {
     "greeting": Ceiling(
         Counts(sql=5, checkouts=3, transactions=3, redis=21, models=1),
-        Counts(sql=10, checkouts=4, transactions=4, redis=19, embeds=1),
+        Counts(sql=11, checkouts=4, transactions=4, redis=19, embeds=1),
         _FIRST,
     ),
     "question": Ceiling(
         Counts(sql=5, checkouts=3, transactions=3, redis=25, models=2),
-        Counts(sql=12, checkouts=4, transactions=4, redis=22, models=2, embeds=1),
+        Counts(sql=13, checkouts=4, transactions=4, redis=22, models=2, embeds=1),
         _FIRST,
     ),
     "follow-up, short chat": Ceiling(
         Counts(sql=5, checkouts=3, transactions=3, redis=27, models=3),
-        Counts(sql=11, checkouts=3, transactions=3, redis=16, models=1, embeds=1),
+        Counts(sql=12, checkouts=3, transactions=3, redis=16, models=1, embeds=1),
         _NEXT,
     ),
     "follow-up, long chat": Ceiling(
         Counts(sql=8, checkouts=5, transactions=5, redis=29, models=3),
-        Counts(sql=17, checkouts=5, transactions=5, redis=23, models=2, embeds=1),
+        Counts(sql=18, checkouts=5, transactions=5, redis=23, models=2, embeds=1),
         _NEXT_FOLDS,
     ),
     "maths": Ceiling(
         Counts(sql=5, checkouts=3, transactions=3, redis=22, models=2),
-        Counts(sql=12, checkouts=4, transactions=4, redis=22, models=2, embeds=1),
+        Counts(sql=13, checkouts=4, transactions=4, redis=22, models=2, embeds=1),
         _FIRST,
     ),
     # "Who won …?" is about now: a dated news search runs beside the general one, with
@@ -126,37 +129,37 @@ CEILINGS: dict[str, Ceiling] = {
     # model call and its spend write) before it saves, so a claim no source made is cut.
     "web search": Ceiling(
         Counts(sql=5, checkouts=3, transactions=3, redis=35, models=4, searches=2),
-        Counts(sql=12, checkouts=4, transactions=4, redis=22, models=2, embeds=1),
+        Counts(sql=13, checkouts=4, transactions=4, redis=22, models=2, embeds=1),
         _FIRST,
     ),
     "reminder": Ceiling(
         Counts(sql=10, checkouts=8, transactions=8, redis=31, models=1, embeds=1),
-        Counts(sql=12, checkouts=4, transactions=4, redis=22, models=2, embeds=1),
+        Counts(sql=13, checkouts=4, transactions=4, redis=22, models=2, embeds=1),
         _FIRST,
     ),
     "photo lookup": Ceiling(
         Counts(sql=6, checkouts=4, transactions=4, redis=28, models=2, searches=1),
-        Counts(sql=12, checkouts=4, transactions=4, redis=22, models=2, embeds=1),
+        Counts(sql=13, checkouts=4, transactions=4, redis=22, models=2, embeds=1),
         _FIRST,
     ),
     "picture": Ceiling(
         Counts(sql=8, checkouts=3, transactions=3, redis=13, models=1),
-        Counts(sql=15, checkouts=5, transactions=5, redis=28, models=2, embeds=1),
+        Counts(sql=16, checkouts=5, transactions=5, redis=28, models=2, embeds=1),
         _FIRST_UNTOLD,
     ),
     "attachment question": Ceiling(
         Counts(sql=13, checkouts=8, transactions=8, redis=36, models=2, embeds=1),
-        Counts(sql=13, checkouts=5, transactions=5, redis=26, models=2, embeds=1),
+        Counts(sql=14, checkouts=5, transactions=5, redis=26, models=2, embeds=1),
         ("attachment_index", *_FIRST),
     ),
     "regenerate": Ceiling(
         Counts(sql=10, checkouts=3, transactions=3, redis=30, models=3),
-        Counts(sql=14, checkouts=4, transactions=4, redis=21, models=1, embeds=1),
+        Counts(sql=15, checkouts=4, transactions=4, redis=21, models=1, embeds=1),
         _NEXT_FOLDS,
     ),
     "clarify picks": Ceiling(
         Counts(sql=9, checkouts=7, transactions=7, redis=34, models=2, embeds=1),
-        Counts(sql=11, checkouts=3, transactions=3, redis=16, models=1, embeds=1),
+        Counts(sql=12, checkouts=3, transactions=3, redis=16, models=1, embeds=1),
         _NEXT,
     ),
 }

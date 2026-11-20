@@ -50,15 +50,83 @@ def _documents_guide() -> str:
     return "\n".join(lines)
 
 
-_OP_SHAPE = (
-    '{"ops": [{"op": "add|update|supersede|delete|mute", '
+_OP_FIELDS = (
+    '"op": "add|update|supersede|delete|mute", '
     '"topic": "profile|preferences|interests|tech-stack|schedule|recent-work|goals|'
     'side-projects|notes|area:<slug>", '
     '"topic_title": "new area name, else omit", "topic_summary": "new area line, else omit", '
     '"type": "profile|preference|project|fact|focus", '
-    '"text": "one sentence in third person", "confidence": 0.0-1.0, '
+    '"text": "one sentence in third person", '
+)
+# The fields a model may leave out come last: one left out before "confidence" took it
+# along (the memory model dropped it on most ops).
+_OP_TAIL = (
+    '"confidence": 0.0-1.0, '
     '"sensitivity": "normal|health|finance|legal|relationship|identity|highly_sensitive", '
-    '"importance": 0.0-1.0, "match_text": "existing fact text if updating"}]}'
+    '"importance": 0.0-1.0, "slot": "the one thing a single-valued fact sets, else omit", '
+    '"match_text": "existing fact text if updating"'
+)
+_OP_SHAPE = '{"ops": [{' + _OP_FIELDS + _OP_TAIL + "}]}"
+# Extraction also quotes the user and says how they said it (``grounding``).
+_EXTRACT_OP_SHAPE = (
+    '{"conversation": "real_life|story", "ops": [{'
+    + _OP_FIELDS
+    + '"quote": "the user\'s words that state it, copied exactly from one User line", '
+    '"stated_as": "own_life|story|question|request|someone_else", ' + _OP_TAIL + "}]}"
+)
+
+# What a fact is, and how the user said it. The server keeps only own_life facts whose
+# quote is in a line it read (``grounding``): the owner's memory held a lawyer from
+# "Lawer", a 97-year-old wife from a provocative story and a study of Kerr black holes
+# from one pasted problem (2026-11-20).
+STATED_RULES = (
+    "What a fact is:\n"
+    "- conversation: first judge the whole chat, the earlier part included. story when the "
+    "user is telling a story, role-playing, joking, or testing or provoking the assistant, "
+    "or when what they claim about their life cannot all be true together: events no life "
+    "holds in the time the chat spans (meeting, marrying and raising children within one "
+    "chat), ages, sums or years that do not fit, a life that changes completely from one "
+    "message to the next. In a story every fact is stated_as story. Otherwise real_life.\n"
+    "- A fact is something the user states about themselves that will still be true and "
+    "useful in a later chat. Facts come only from the User lines of the new conversation; "
+    "the earlier chat is context.\n"
+    "- quote: the user's own words that state the fact, copied exactly from one User line "
+    "(the shortest part that says it). Every op that writes text has one.\n"
+    "- stated_as: how the user said it.\n"
+    "  own_life: they plainly state it about their own real life ('I'm a nurse', 'I moved "
+    "to Lyon', 'call me Sam'), say how the assistant should work for them from now on "
+    "('keep answers short', 'always explain step by step'), or answer the assistant's "
+    "question about themselves ('Toronto' to 'Where are you based?'). A request can state "
+    "one on the way: 'As a teacher, how do I grade faster?' and 'I'm in 7th grade and need "
+    "help with fractions' state their job and school year.\n"
+    "  question: the words are part of a question, a short answer that picks an option, a "
+    "level, a language or a topic for the assistant, a bare word or fragment that does not "
+    "answer a question about them, or a typo or its correction. 'Lawer' after 'What "
+    "layer?' corrects a word and says nothing about their job; '7th grade' when asked for "
+    "a problem's level is not their school year; 'Amharic' when asked which language to "
+    "write in is not a language they speak.\n"
+    "  request: what they ask the assistant to do, solve, write or explain, or the subject "
+    "of one question or task. A pasted problem about black holes is not studying "
+    "relativity; 'how do I install SonarQube' is not using it.\n"
+    "  story: a story, joke, role-play, test or hypothetical, or a claim about their life "
+    "the conversation does not settle as true. Signs: it moves faster than a life does "
+    "(met, married, children and years go by within one chat), it contradicts what they "
+    "said before or the saved facts, it is told to shock or provoke, or it is about a "
+    "character.\n"
+    "  someone_else: it is about another person ('he identifies as them').\n"
+    "  Only own_life facts are kept. When unsure, it is not own_life.\n"
+    "- The fact says only what the quote says, in the user's own key words where they are "
+    "in English ('keep it brief' is 'User wants brief replies', 'I'm vegan' is 'User is "
+    "vegan'): the server checks the fact against the quote. Never guess a gender, age, "
+    "religion, job, place or relationship from a word, a name, a topic or a story.\n"
+    "- slot: when a fact answers one of these questions about the user, name it, so a "
+    "newer answer replaces the old one: name, age, gender, home (where they live now), "
+    "hometown, school (their current school or year), job (current job and employer), "
+    "relationship_status, religion, or favorite_<thing> (favorite_color). Omit it for "
+    "anything else, and for facts that add up: interests, tools, projects, goals, "
+    "preferences, family members.\n"
+    "- Never add a fact an existing fact already says in other words: update that fact, "
+    "or add nothing."
 )
 
 # "Reply in Spanish from now on" was saved as a preference and answered an English app in
@@ -148,8 +216,9 @@ def _extract_input(
 ) -> str:
     """The saved facts, then the lines to read; ``earlier`` is the exchange before them."""
     before = (
-        "Just before (already read; only says what 'that' or 'this' points at, "
-        f"never a source of facts):\n{wrap_untrusted('earlier exchange', earlier)}\n\n"
+        "Earlier in this chat (already read; context only: what a short line answers or "
+        "'that' points at, and whether the new lines go on with a story; never a source of "
+        f"facts):\n{wrap_untrusted('earlier exchange', earlier)}\n\n"
         if earlier
         else ""
     )
@@ -186,8 +255,9 @@ async def revise_memory_facts(
             "content": (
                 "You maintain long-term memory about the user as individual facts, "
                 "grouped into documents the user can read. "
-                f"Return ONLY JSON (no markdown): {_OP_SHAPE} .\n"
+                f"Return ONLY JSON (no markdown): {_EXTRACT_OP_SHAPE} .\n"
                 f"{_documents_guide()}\n\n"
+                f"{STATED_RULES}\n\n"
                 "Type meanings (the topic usually decides it):\n"
                 "- profile: who the user is. "
                 "A name is theirs only when they claim it ('my name is', 'I'm', "
@@ -198,15 +268,13 @@ async def revise_memory_facts(
                 "- fact: stable misc facts\n"
                 "- focus: current priorities\n\n"
                 "Rules:\n"
-                "- Use only what the User lines state or clearly show about the user; "
-                "never assistant inferences, suggestions, or restatements.\n"
+                "- Never take a fact from the assistant's inferences, suggestions, or "
+                "restatements.\n"
                 "- Capture durable context the user reveals while asking for help, not only "
                 "in introductions: the projects they build (with their names), the stack "
                 "they build with, their job and role, goals, routines, and interests they "
                 "come back to. 'Fix the drawer in my Expo app Garden Planner' says the user "
                 "builds Garden Planner with Expo.\n"
-                "- A one-off question is not a fact about the user: asking the capital of "
-                "France is not an interest in France.\n"
                 "- Natural phrasing still counts: 'As a software engineer at Uber' is an "
                 "explicit job/employer fact even without 'I am'.\n"
                 "- Store durable reply-style feedback as a preference when the user describes "
@@ -219,7 +287,8 @@ async def revise_memory_facts(
                 "- Each op is ONE fact — never a paragraph of unrelated ideas.\n"
                 "- Return ONLY ops for facts that changed or are new this turn.\n"
                 "- On conflicting facts (e.g. moved cities), op=supersede with match_text "
-                "of the old fact and text of the new one. Two current places cannot "
+                "of the old fact and text of the new one, in the same slot. Two current "
+                "places cannot "
                 "both stay. Current schooling cannot stay next to an earlier stage "
                 "(12th grade and a university). A correction is the same: 'that's wrong, "
                 "I'm at Stripe now' or 'actually I switched from FastAPI to Django' "
@@ -243,9 +312,8 @@ async def revise_memory_facts(
                 "- When the user says what they are working on, building, or focusing on, "
                 "add that project or focus fact. Do not drop it and do not treat it as "
                 "the Learning projects feature.\n"
-                "- Skip small talk. Return empty ops only when the user stated nothing "
-                "durable about themselves.\n"
-                "- Do not invent facts.\n"
+                "- Skip small talk. Return empty ops when the user stated nothing durable "
+                "about themselves.\n"
                 f"{_dates_rule(today)}"
                 "- A clock hour keeps its part of day. Morning is AM. Afternoon, evening, "
                 "and night are not the morning: 4 in the evening is 16:00, never 04:00. "

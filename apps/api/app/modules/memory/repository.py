@@ -14,6 +14,9 @@ from app.modules.memory.writes_repository import MemoryFactWrite as MemoryFactWr
 from app.modules.memory.writes_repository import apply_fact_ops as apply_fact_ops
 from app.modules.memory.writes_repository import lock_memory_enabled as lock_memory_enabled
 from app.modules.memory.writes_repository import (
+    retire_near_duplicates as retire_near_duplicates,
+)
+from app.modules.memory.writes_repository import (
     update_embedding_if_current as update_embedding_if_current,
 )
 

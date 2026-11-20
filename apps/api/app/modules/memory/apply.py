@@ -29,10 +29,13 @@ async def apply_memory_facts(
     expected_facts: dict[UUID, str] | None = None,
     manual_edit: bool = False,
     applied: list[str] | None = None,
+    new_wins: bool = True,
 ) -> None:
     """Persist fact ops, (re)embed stale rows, then invalidate caches.
 
-    ``applied`` collects the op of every write that took effect.
+    ``applied`` collects the op of every write that took effect. A new fact that says an
+    active one again in other words replaces it; with ``new_wins`` False (the history
+    scan, whose lines are older) the active one stays and the new one goes.
 
     ``manual_edit`` marks writes the user asked for (a plain-words edit, a
     "forget ..."). When they change or remove saved facts, the edit is stamped
@@ -101,12 +104,42 @@ async def apply_memory_facts(
                     await memories.update_embedding_if_current(
                         session, user_id, memory_id, text, vec, text_hash, commit=False
                     )
+                await _retire_said_again(
+                    settings, session, memories, user_id, to_write, touched_set, new_wins
+                )
                 await session.commit()
             except Exception:
                 await session.rollback()
                 raise
 
     await _invalidate_memory_caches(user_id)
+
+
+async def _retire_said_again(
+    settings: Settings,
+    session: AsyncSession,
+    memories: Any,
+    user_id: UUID,
+    written: list[tuple[UUID, str, list[float], str]],
+    touched: set[UUID],
+    new_wins: bool,
+) -> None:
+    """An older fact a new or rewritten one says again in other words leaves active memory.
+
+    Mock vectors are all the same, so they never stand for meaning here.
+    """
+    from app.gateways import mock_llm
+
+    fresh = [memory_id for memory_id, *_ in written if memory_id in touched]
+    if not fresh or mock_llm.should_mock_llm(settings):
+        return
+    await memories.retire_near_duplicates(
+        session,
+        user_id,
+        fresh,
+        min_similarity=settings.memory_near_duplicate_similarity,
+        new_wins=new_wins,
+    )
 
 
 async def _invalidate_memory_caches(user_id: UUID) -> None:

@@ -13,6 +13,9 @@ from app.modules.memory.text import embedding_text_hash
 from app.tests.fakes import FakeSessionCM, fake_session, redis_mock
 from app.tests.modules.memory.embedding_support import EMBED_MANY, embed_each
 
+# Mocked ops stand for a model that quoted the user (conftest.quoting_model).
+pytestmark = pytest.mark.usefixtures("quoting_model")
+
 
 def _memory_extraction_sessions(*, count: int = 1) -> tuple[AsyncMock, list[FakeSessionCM]]:
     session = fake_session()
@@ -109,7 +112,12 @@ async def test_the_extraction_prompt_lists_each_saved_fact_without_its_id(
 
     rows = [
         SimpleNamespace(
-            id=uuid4(), type="fact", topic="notes", text=f"User fact {i}", last_confirmed_at=None
+            id=uuid4(),
+            type="fact",
+            topic="notes",
+            text=f"User fact {i}",
+            last_confirmed_at=None,
+            slot=None,
         )
         for i in range(40)
     ]

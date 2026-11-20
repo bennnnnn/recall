@@ -188,7 +188,14 @@ def test_a_stale_fact_is_dropped_as_housekeeping_not_as_the_users_removal():
     lines = "User: forget my favorite drink"
 
     writes, _ = compose_writes(
-        snapshot, lines, Asks.of(lines), [], chat_id=uuid4(), from_history=False, min_confidence=0.5
+        snapshot,
+        lines,
+        Asks.of(lines),
+        [],
+        chat_id=uuid4(),
+        from_history=False,
+        min_confidence=0.5,
+        sources=(),
     )
 
     stale = [write for write in writes if write.match_text == "User is in Avon"]
@@ -213,16 +220,22 @@ def _snapshot(*texts):
 
 
 def _compose(lines, ops, *texts):
+    """A pass over ``lines`` whose ops quote the user's first line as their own life, so
+    each test reaches the rule it is about (grounding has its own tests)."""
+    from app.modules.memory.extract_backlog import source_lines
     from app.modules.memory.pass_writes import Asks, compose_writes
 
+    said = [line.removeprefix("User:").strip() for line in lines.splitlines()]
+    grounded = [{"quote": said[0], "stated_as": "own_life", **op} for op in ops]
     return compose_writes(
         _snapshot(*texts),
         lines,
         Asks.of(lines),
-        [MemoryFactOp.model_validate(op) for op in ops],
+        [MemoryFactOp.model_validate(op) for op in grounded],
         chat_id=uuid4(),
         from_history=False,
         min_confidence=0.5,
+        sources=source_lines((None, line) for line in said),
     )
 
 

@@ -18,6 +18,9 @@ from app.modules.memory.selection import format_memory_block
 from app.modules.memory.text import is_memory_candidate, memory_extract_user_text
 from app.tests.fakes import redis_mock
 
+# Mocked ops stand for a model that quoted the user (conftest.quoting_model).
+pytestmark = pytest.mark.usefixtures("quoting_model")
+
 
 def _row(text: str, *, memory_type: str = "fact", status: str = "active") -> SimpleNamespace:
     return SimpleNamespace(
@@ -30,6 +33,7 @@ def _row(text: str, *, memory_type: str = "fact", status: str = "active") -> Sim
         confidence=0.9,
         last_confirmed_at=None,
         updated_at=0,
+        slot=None,
     )
 
 

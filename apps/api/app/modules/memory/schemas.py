@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import datetime
 from typing import Literal, Self, get_args
 from uuid import UUID
@@ -70,6 +71,51 @@ def _op_type(raw: object, topic: object) -> str:
     return _TYPE_WORDS.get(word) or (topic_memory_type(as_topic) if as_topic else "fact")
 
 
+MEMORY_QUOTE_MAX_LENGTH = 600
+MEMORY_SLOT_MAX_LENGTH = 40
+_STATED_AS = frozenset(("own_life", "story", "question", "request", "someone_else"))
+_SLOT_CHARS = re.compile(r"[^a-z0-9]+")
+
+
+def _stated_as(raw: object) -> str | None:
+    """A label the model wrote, or None for an unknown one (the fact is then not kept)."""
+    word = raw.strip().casefold().replace(" ", "_") if isinstance(raw, str) else ""
+    return word if word in _STATED_AS else None
+
+
+# The questions about the user that have one answer at a time; a "favorite_<thing>"
+# key is one too. Anything else the model names ("project") is no slot: facts that add
+# up must not replace each other.
+MEMORY_SLOTS = frozenset(
+    (
+        "name",
+        "age",
+        "gender",
+        "home",
+        "hometown",
+        "school",
+        "job",
+        "relationship_status",
+        "religion",
+    )
+)
+
+
+def memory_slot(raw: object) -> str | None:
+    """A slot key as stored (``MEMORY_SLOTS`` or ``favorite_<thing>``), else None."""
+    if not isinstance(raw, str):
+        return None
+    key = _SLOT_CHARS.sub("_", raw.strip().casefold()).strip("_")[:MEMORY_SLOT_MAX_LENGTH]
+    if key in MEMORY_SLOTS or (key.startswith("favorite_") and len(key) > len("favorite_")):
+        return key
+    return None
+
+
+def _quote(raw: object) -> str | None:
+    """The quote, cut to the column's room rather than failing the whole op."""
+    return raw.strip()[:MEMORY_QUOTE_MAX_LENGTH] if isinstance(raw, str) else None
+
+
 class MemoryFactOp(BaseModel):
     op: MemoryOpKind
     # Missing or unknown ("goal") follows the topic, so the fact is not dropped.
@@ -84,12 +130,23 @@ class MemoryFactOp(BaseModel):
     topic: str | None = None
     topic_title: str | None = None
     topic_summary: str | None = None
+    # The user's own words that state the fact, and how they said them (``grounding``).
+    quote: str | None = Field(default=None, max_length=MEMORY_QUOTE_MAX_LENGTH)
+    stated_as: str | None = None
+    # The one thing a single-valued fact sets ("home", "job"): a newer one replaces it.
+    slot: str | None = None
 
     @model_validator(mode="before")
     @classmethod
     def _typed(cls, data: object) -> object:
         if isinstance(data, dict):
-            return {**data, "type": _op_type(data.get("type"), data.get("topic"))}
+            return {
+                **data,
+                "type": _op_type(data.get("type"), data.get("topic")),
+                "stated_as": _stated_as(data.get("stated_as")),
+                "slot": memory_slot(data.get("slot")),
+                "quote": _quote(data.get("quote")),
+            }
         return data
 
 
@@ -97,6 +154,9 @@ MEMORY_REPLY_MAX_LENGTH = 400
 
 
 class MemoryFactUpdateResult(BaseModel):
+    # The extraction model's read of the whole chat: "story" when the user tells a story,
+    # role-plays or tests rather than telling their life (``told_as_story``).
+    conversation: str | None = None
     ops: list[MemoryFactOp] = Field(default_factory=list)
     # A direct memory edit also says, in a sentence, what changed.
     reply: str = Field(default="", max_length=MEMORY_REPLY_MAX_LENGTH)
@@ -128,7 +188,12 @@ class MemoryFactUpdateResult(BaseModel):
         reply = raw_reply.strip()[:MEMORY_REPLY_MAX_LENGTH] if isinstance(raw_reply, str) else ""
         if not valid and not reply:
             return None
-        result = cls(ops=valid, reply=reply)
+        conversation = data.get("conversation")
+        result = cls(
+            ops=valid,
+            reply=reply,
+            conversation=conversation if isinstance(conversation, str) else None,
+        )
         result._dropped = len(raw_ops) - len(valid)
         return result
 

@@ -8,6 +8,10 @@ class MemorySettings(BaseModel):
     memory_min_confidence: float = 0.4
     memory_inject_limit: int = 15
     memory_active_fact_cap: int = 150
+    # A new fact this close (cosine) to an active one says the same thing in other words
+    # and replaces it. Measured 2026-11-20: true paraphrases scored 0.89-0.91, distinct
+    # look-alikes ("plays guitar" / "plays piano", "lives in Paris" / "in Lyon") 0.52-0.86.
+    memory_near_duplicate_similarity: float = 0.88
     # Untouched stale vectors embedded per apply pass. Touched rows always
     # embed; leftover NULLs wait for a later pass instead of bursting 150
     # HTTP calls on the first write after migration.

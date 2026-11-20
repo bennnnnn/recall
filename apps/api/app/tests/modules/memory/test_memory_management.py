@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings
 from app.models.orm import Memory
 from app.modules.memory import cache, crud, extraction_workflow, locks
+from app.modules.memory.extract_backlog import PassLines
 from app.modules.memory.schemas import MemoryFactOp, MemoryFactUpdateResult
 from app.tests.fakes import make_user
 from app.tests.modules.memory.embedding_support import EMBED_MANY, embed_each
@@ -182,7 +183,7 @@ async def test_extraction_cannot_restore_memory_after_manual_change(
         patch.object(
             extraction_workflow,
             "expand_memory_extract_transcript",
-            AsyncMock(return_value=("I like camping", None)),
+            AsyncMock(return_value=PassLines("I like camping")),
         ),
         patch.object(
             extraction_workflow.memory_llm, "revise_memory_facts", AsyncMock(side_effect=revise)

@@ -6,11 +6,12 @@ statements are still saved here, without storing story characters.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from uuid import UUID
 
 from app.modules.memory.fact_quality import is_one_off_schedule_fact
 from app.modules.memory.facts import should_skip_sensitive_persist
+from app.modules.memory.grounding import SourceLine, line_saying
 from app.modules.memory.ops import normalize_memory_text
 from app.modules.memory.text import classify_memory_sensitivity
 from app.modules.memory.writes_repository import MemoryFactWrite
@@ -210,7 +211,9 @@ def stated_fact_writes(
     include_sensitive: bool,
     explicit_remember: bool = False,
     model_ops: Iterable[object] = (),
+    sources: Sequence[SourceLine] = (),
 ) -> list[MemoryFactWrite]:
+    """Adds for the work the user said they do; each points at the line it was read off."""
     known = [
         (kind, normalize_memory_text(text).casefold()) for kind, text in existing_facts if text
     ]
@@ -244,10 +247,16 @@ def stated_fact_writes(
                 sensitivity=sensitivity,
                 importance=0.7,
                 source_chat_id=chat_id,
+                source_message_id=_message_saying(obj, sources),
             )
         )
         known.append((kind, sentence))
     return writes
+
+
+def _message_saying(obj: str, sources: Sequence[SourceLine]) -> UUID | None:
+    line = line_saying(obj, sources)
+    return line.message_id if line else None
 
 
 def _is_direct_assertion(folded: str, index: int) -> bool:
