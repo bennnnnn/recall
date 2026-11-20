@@ -264,7 +264,7 @@ def _follow_the_lane(ctx: StreamContext, settings: Settings, read: TurnDecision)
         read.subject,
         read.effort or "none",
         pool,
-        unsteady=ctx.unsteady_models,
+        cooling=ctx.cooling_models,
         strong_everyday=has_strong_everyday_model(ctx.user, settings),
         math_lane=plan_service.math_lane_for(ctx.user, settings),
     )
@@ -272,7 +272,7 @@ def _follow_the_lane(ctx: StreamContext, settings: Settings, read: TurnDecision)
         return
     note_route(f"read.{read.subject}.{read.effort}")
     # A STEM lane's own backup first (GLM), then the rules' model, then the pool's order.
-    first = [*math_backups(read.subject, lane, pool, ctx.unsteady_models), ctx.model]
+    first = [*math_backups(read.subject, lane, pool, ctx.cooling_models), ctx.model]
     backups = [alias for alias in dict.fromkeys([*first, *ctx.fallback_models]) if alias != lane]
     ctx.model, ctx.fallback_models = lane, backups
 

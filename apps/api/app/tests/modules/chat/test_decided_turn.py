@@ -162,8 +162,8 @@ def test_a_stem_lane_falls_back_to_its_backup(pool: list[str], chain: tuple[str,
     lane, backup = chain
     assert decided_lane("physics", "none", pool, math_lane=chain) == lane
     assert math_backups("physics", lane, pool) == [backup]
-    unsteady = frozenset({lane})
-    assert decided_lane("maths", "high", pool, unsteady=unsteady, math_lane=chain) == backup
+    cooling = frozenset({lane})
+    assert decided_lane("maths", "high", pool, cooling=cooling, math_lane=chain) == backup
     switched_off = [alias for alias in pool if alias != lane]
     assert decided_lane("chemistry", "low", switched_off, math_lane=chain) == backup
     assert math_backups("maths", lane, pool, frozenset({backup})) == []
@@ -187,8 +187,31 @@ async def test_a_stem_turn_tries_its_backup_before_the_rules_model() -> None:
 
 
 def test_a_lane_never_goes_to_a_model_whose_breaker_is_open() -> None:
-    lane = decided_lane("everyday", "high", _POOL, unsteady=frozenset({"smart-chat"}))
+    lane = decided_lane("everyday", "high", _POOL, cooling=frozenset({"smart-chat"}))
     assert lane is not None and lane != "smart-chat"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("cooling", "model"),
+    [
+        # Half-open, past its cool-down: the turn stays on it and claims its probe.
+        (frozenset(), "free-chat"),
+        # Still cooling: the read's lane passes it over.
+        (frozenset({"free-chat"}), "qwen-3.7-flash"),
+    ],
+)
+async def test_a_recovering_model_is_tried_again_by_the_read_s_lane(
+    cooling: frozenset[str], model: str
+) -> None:
+    """Natural-chat replay, 2026-11-19: one slow first token from Pro's everyday model opened
+    its breaker, and the read's lane passed the half-open model over too, so no turn tried
+    it again and the chat stayed on the fallback for 7 to 17 turns."""
+    ctx = _turn("She is my gf", _read("everyday", False), cooling_models=cooling)
+    ctx.probe_models = frozenset({"free-chat"})
+    ctx.fallback_models = ["qwen-3.7-flash", "smart-chat"]
+    await decide_from_the_read(ctx, _SETTINGS)
+    assert ctx.model == model
 
 
 def test_with_no_read_the_word_rules_decide() -> None:

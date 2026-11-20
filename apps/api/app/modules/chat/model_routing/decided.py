@@ -44,21 +44,21 @@ def decided_lane(
     effort: Effort,
     pool: list[str],
     *,
-    unsteady: frozenset[str] = frozenset(),
+    cooling: frozenset[str] = frozenset(),
     strong_everyday: bool = False,
     math_lane: tuple[str, str] | None = None,
 ) -> str | None:
     """Auto's model for the read's subject and effort, from the user's ``pool``; None keeps
     the word rules' lane (a subject the table leaves out, money). A model whose breaker is
-    open or half-open (``unsteady``) is passed over while another is left: the turn would
-    wait out its timeout. ``strong_everyday``: the plan's everyday lane is the stronger
+    open and cooling (``cooling``) is passed over while another is left: the turn would
+    wait out its timeout. A half-open one is not: the turn that claims its probe tries it. ``strong_everyday``: the plan's everyday lane is the stronger
     model (Pro, ``entitlements.has_strong_everyday_model``). ``math_lane``: the plan's maths
     lane and its backup (billing's ``math_lane_for``)."""
     lanes = ROUTING.decided.get(subject)
     if lanes is None or not pool:
         return None
     lane = lanes[_EFFORTS.index(effort)]
-    usable = [alias for alias in pool if alias not in unsteady] or pool
+    usable = [alias for alias in pool if alias not in cooling] or pool
     if lane == "everyday" and strong_everyday and ROUTING.everyday_strong in usable:
         return ROUTING.everyday_strong
     if lane == "math":
@@ -68,12 +68,12 @@ def decided_lane(
 
 
 def math_backups(
-    subject: str, lane: str, pool: list[str], unsteady: frozenset[str] = frozenset()
+    subject: str, lane: str, pool: list[str], cooling: frozenset[str] = frozenset()
 ) -> list[str]:
     """The model a STEM turn falls back to first when its maths lane fails: Qwen3.8 Flash
     behind DeepSeek and GLM 5.3 Flash behind Qwen3.7 Flash (``ROUTING.math_backups``), when
     the pool has it and its breaker is closed. Other subjects keep the pool's order."""
     backup = ROUTING.math_backups.get(lane)
-    if subject not in _STEM or backup is None or backup not in pool or backup in unsteady:
+    if subject not in _STEM or backup is None or backup not in pool or backup in cooling:
         return []
     return [backup]
