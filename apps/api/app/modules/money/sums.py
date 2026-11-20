@@ -175,13 +175,15 @@ MEASUREMENT = re.compile(
     r"(?<![\w.])\d+(?:\.\d+)?(?:\s?(?:kg|mg|g|m/s(?:\^?2|²)?|km/h|kmh|mph|kN|N|kJ|J|kW|W|Pa|Hz|"
     r"cm|mm|km)|\s+m)(?![\w/])"
 )
-# Money named outright: a currency, a percent, or a word only money uses. "Rate" and
-# "payment" are physics words too.
-SAYS_MONEY = re.compile(
-    rf"[$€£¥₹₦%]|\b(?:{CURRENCY_WORDS}|percent|apr|loans?|mortgages?|borrow\w*|owe[sd]?|"
+# Money named outright: a currency, or a word only money uses. "Rate" and "payment" are
+# physics words too, and a percent is an efficiency's or a yield's as often.
+NAMES_MONEY = re.compile(
+    rf"[$€£¥₹₦]|\b(?:{CURRENCY_WORDS}|apr|loans?|mortgages?|borrow\w*|owe[sd]?|"
     r"balance|credit\s+card|deposit\w*|invest\w*)\b",
     re.I,
 )
+# Money named, or a percent.
+SAYS_MONEY = re.compile(rf"%|\bpercent\b|{NAMES_MONEY.pattern}", re.I)
 
 
 def amounts(text: str) -> list[Sum] | None:

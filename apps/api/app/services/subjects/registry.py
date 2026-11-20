@@ -467,6 +467,11 @@ class MoneyPeer(Protocol):
         """``text`` is a money request the peer works: routing leaves it to the money card."""
         ...
 
+    def yields_to(self, text: str, subject: str | None) -> bool:
+        """``text``, read as ``subject``'s problem, is never a money request (physics,
+        chemistry: a force, an efficiency or a yield is no loan), unless it names money."""
+        ...
+
     def names_currency(self, unit: str) -> bool:
         """``unit`` is money: a currency sign ($, €, ₹) or word (dollars, USD, cents)."""
         ...
