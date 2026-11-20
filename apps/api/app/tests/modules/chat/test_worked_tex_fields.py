@@ -41,8 +41,28 @@ def test_a_double_subscript_is_set_on_its_base() -> None:
     )
 
 
-def test_a_brace_that_closes_nothing_leaves_the_record_out() -> None:
-    assert read_record(r"substitution: v = \frac{20}}{2}") is None
+def test_a_stray_closing_brace_keeps_the_record() -> None:
+    """Review: refused for it, ``\\frac{1}{2}}`` lost the reply's card."""
+    record = read_record(r"answer: x | \frac{1}{2}} |")
+    assert isinstance(record, Answer) and record.value == r"\frac{1}{2}"
+
+
+def test_an_evaluation_bar_is_the_maths() -> None:
+    record = read_record(r"step: \left. x^2 \right|_0^1 = 1 | evaluate")
+    assert record is not None and getattr(record, "move", "") == "evaluate"
+
+
+def test_a_thousands_comma_is_one_value() -> None:
+    assert _laid_out("required: a | x", "answer: a, b | 1,000 | m").endswith(
+        r"$a, b = 1,000\,\mathrm{m}$"
+    )
+
+
+def test_a_power_of_ten_and_a_range_take_no_brackets() -> None:
+    assert _laid_out("required: I | current", "answer: I | 1.5e-3 | A").endswith(
+        r"$I = 1.5e-3\,\mathrm{A}$"
+    )
+    assert "(20 - 25)" not in _laid_out("required: T | range", "answer: T | 20 - 25 | °C")
 
 
 def test_two_values_in_one_record_are_two_answers() -> None:
@@ -65,7 +85,10 @@ def test_a_direction_by_its_angle_stays_on_the_card() -> None:
         "answer: v_f | 12.4964 | m/s | 39.8° north of west (bearing 320.2°)",
     )
     assert reply.endswith(r"$v_f = 12.50\,\mathrm{m/s}$, 39.8° north of west (bearing 320.2°)")
-    # A short label keeps its brackets.
+    # A short label keeps its brackets, one that only starts with a number too.
     assert _laid_out("required: s | displacement", "answer: s | 2400 | m | east").endswith(
         r"$s = 2400\,\mathrm{m}$ (east)"
+    )
+    assert _laid_out("required: k | stiffness", "answer: k | 2.5 | N/m | 1st spring").endswith(
+        r"$k = 2.50\,\mathrm{N/m}$ (1st spring)"
     )

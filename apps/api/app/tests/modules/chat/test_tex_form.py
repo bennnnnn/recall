@@ -32,6 +32,9 @@ def test_well_formed(tex: str, shown: str) -> None:
     assert well_formed(tex) == shown
 
 
-@pytest.mark.parametrize("tex", ["a}", r"\frac{1}}{2}", "}x{"])
-def test_a_brace_that_closes_nothing_is_refused(tex: str) -> None:
-    assert well_formed(tex) is None
+@pytest.mark.parametrize(
+    ("tex", "shown"),
+    [("a}", "a"), (r"\frac{1}{2}}", r"\frac{1}{2}"), ("}x{", "x{}")],
+)
+def test_a_brace_that_closes_nothing_is_left_out(tex: str, shown: str) -> None:
+    assert well_formed(tex) == shown

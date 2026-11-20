@@ -43,13 +43,10 @@ from app.modules.chat.tex_form import well_formed
 
 
 def _drawn(tex: str) -> str:
-    """A maths field in the form the phone draws (``chat.tex_form``): an open group
-    closed, a second script set on its base. A brace that closes nothing fails the record:
-    "v_A_{vec}" and an unclosed "\\mathrm{m/s" were shown as source (2026-11-20)."""
-    shown = well_formed(tex)
-    if shown is None:
-        raise ValueError("a brace that closes no group")
-    return shown
+    """A maths field in the form the phone draws (``chat.tex_form``): an open group closed,
+    a stray closer left out, a second script set on its base. "v_A_{vec}" and an unclosed
+    "\\mathrm{m/s" were shown as source (2026-11-20)."""
+    return well_formed(tex)
 
 
 # Maths in LaTeX: one line, no fence, no $ (the renderer adds them).
@@ -96,6 +93,9 @@ _RECORD = re.compile(
 # A given only some parts use carries its part's letter: "given (a): t | 1 | s", or the
 # letter before the symbol, "given: (a) t | 1 | s".
 _LETTERED_SYMBOL = re.compile(r"^\(\s*(?P<part>[A-Ha-h])\s*\)\s+(?P<symbol>\S.*)$")
+# A bar a sizing command draws: \\right| of an evaluation, \\Big|, \\vert.
+_SIZED_BAR = re.compile(r"\\(?:right|left|middle|[bB]igg?[lrm]?)[ \t]*\|$")
+_SIZED_REACH = 12
 _DELIMITERS = (("$$", "$$"), ("$", "$"), ("\\(", "\\)"), ("\\[", "\\]"))
 MAX_PARTS = 8
 
@@ -214,6 +214,7 @@ def _separators(text: str) -> list[int]:
     bars = [at for at, char in enumerate(text) if char == "|"]
     maths = set(_paired_bars(text, bars))
     maths.update(at for at in bars if _inside_a_closed_bracket(text, at))
+    maths.update(at for at in bars if _SIZED_BAR.search(text[max(0, at - _SIZED_REACH) : at + 1]))
     return [at for at in bars if at not in maths]
 
 

@@ -8,38 +8,40 @@ mistakes of form with one reading:
 
 - a group left open is closed at the field's end, as the writer stopped;
 - a second script on one base belongs to the base with its first, ``{v_A}_{vec}``, as TeX
-  reads ``{x^2}^3``.
-
-A closing brace with no group open has no reading: the field is refused, and the record
-holding it goes (``worked_solution``).
+  reads ``{x^2}^3``;
+- a closing brace with no group open is a stray, left out: ``\\frac{1}{2}}`` lost its card
+  when the record was refused for it (review, 2026-11-20).
 """
 
 from __future__ import annotations
 
 
-def well_formed(tex: str) -> str | None:
-    """``tex`` with its groups closed and its scripts one per base; None when a brace closes
-    a group that never opened."""
-    closed = _groups_closed(tex)
-    return None if closed is None else _one_script_each(closed)
+def well_formed(tex: str) -> str:
+    """``tex`` with its groups closed, a stray closing brace left out, and its scripts one
+    per base."""
+    return _one_script_each(_groups_closed(tex))
 
 
-def _groups_closed(tex: str) -> str | None:
+def _groups_closed(tex: str) -> str:
+    out: list[str] = []
     depth = 0
     at = 0
     while at < len(tex):
         char = tex[at]
         if char == "\\":
-            at += 2  # an escaped brace (\{, \}) or a command's first letter
+            out.append(tex[at : at + 2])  # an escaped brace (\{, \}) or a command's letter
+            at += 2
             continue
         if char == "{":
             depth += 1
         elif char == "}":
             if depth == 0:
-                return None
+                at += 1
+                continue
             depth -= 1
+        out.append(char)
         at += 1
-    return tex + "}" * depth
+    return "".join(out) + "}" * depth
 
 
 def _token_end(tex: str, at: int) -> int:

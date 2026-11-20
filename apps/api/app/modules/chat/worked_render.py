@@ -96,6 +96,10 @@ def _plain(tex: str) -> str:
 
 
 _UPRIGHT_GROUP = re.compile(r"\\(?:mathrm|text)\s*\{[^{}]*\}")
+# A thousands comma, never two values: "1,000".
+_THOUSANDS = re.compile(r"\d,\d{3}(?!\d)")
+# A direction by its angle: "39.8° north of west".
+_ANGLE = re.compile(r"\d+(?:\.\d+)?[ \t]*°")
 # A power of ten in a calculator's spelling: "1.5e-3", "6.022E23".
 _E_NOTATION = re.compile(r"(?<=\d)[eE](?=[-+]?\d)")
 # Euler's number raised to a power: "20e^{-0.5}" is a number; the exponent's own letters
@@ -404,7 +408,7 @@ def _answer_line(answer: Answer, layout: WorkedLayout) -> str:
     symbol = tidy_symbol(answer.symbol) if named else ""
     shown = value if layout.law_heading or not symbol else f"{symbol} = {value}"
     note = prose_maths(answer.note)
-    if note and note[0].isdigit():
+    if _ANGLE.match(note):
         # A direction by its angle stays on the card after a comma, as a card writes one
         # ("12.50 m/s, 39.8° north of west"): in brackets, past three words, it went
         # under the card as a sentence of its own (the owner's chat, 2026-11-20).
@@ -421,7 +425,7 @@ def _top_level(tex: str, mark: str) -> list[str]:
             depth += 1
         elif char in ")}]":
             depth -= 1
-        elif char == mark and depth == 0:
+        elif char == mark and depth == 0 and not _THOUSANDS.match(tex, at - 1):
             pieces.append(tex[start:at])
             start = at + 1
     pieces.append(tex[start:])
@@ -451,7 +455,10 @@ def _writes_its_unit(tex: str, unit: str) -> bool:
 
 
 def _a_sum(tex: str) -> bool:
-    """Terms joined by a plus or a minus outside any group: ``3\\hat{i} + 4\\hat{j}``."""
+    """A vector's components, terms on unit vectors joined by a plus or a minus outside any
+    group: ``3\\hat{i} + 4\\hat{j}``. A power of ten (``1.5e-3``) or a range is no sum."""
+    if UNIT_VECTOR.search(tex) is None:
+        return False
     depth = 0
     for at, char in enumerate(tex):
         if char in "({[":
