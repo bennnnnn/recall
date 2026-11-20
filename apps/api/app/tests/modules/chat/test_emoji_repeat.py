@@ -1,0 +1,76 @@
+"""The same sign-off emoji reply after reply goes; every other emoji stays.
+
+The 80-message "Friend getting married" chat at "Lots" (2026-11-19): 💛 closed the opening
+line of 58 replies, and replayed with the prompt asking for an emoji that fits, one run still
+had it in 40.
+"""
+
+from __future__ import annotations
+
+from types import SimpleNamespace
+
+import pytest
+
+from app.modules.chat.emoji_repeat import closing_emoji, repeated_emoji_pass, without_closing
+
+
+def _state(text: str, *replies: str, instant: str | None = None) -> SimpleNamespace:
+    recent = []
+    for reply in replies:
+        recent += [
+            SimpleNamespace(role="user", content="and then?"),
+            SimpleNamespace(role="assistant", content=reply),
+        ]
+    ctx = SimpleNamespace(recent_messages=recent, instant_reply=instant)
+    return SimpleNamespace(text=text, ctx=ctx, server_text=instant is not None)
+
+
+@pytest.mark.parametrize(
+    ("text", "closing"),
+    [
+        ("That's a big step. 💛 Her mom is 62.", {"💛"}),
+        ("Congrats! 🎉", {"🎉"}),
+        ("That's exciting 💍 Do you know when?", {"💍"}),
+        # Leading a heading, a list item or a label is where "Lots" puts one: not a sign-off.
+        ("## 💛 Heading\n1. 💧 **Drink water** — every day.\n**💛 Label:** text", set()),
+        ("😂 Ha, okay.", set()),
+        # Inside a sentence, in a table row, in code or a fence: not closing anything.
+        ("I love 💛 you all.", set()),
+        ("| a 💛 |\n`x 💛`\n```\nok 💛\n```", set()),
+    ],
+)
+def test_closing_emoji_reads_only_sentence_ends(text: str, closing: set[str]) -> None:
+    assert closing_emoji(text) == closing
+
+
+def test_without_closing_drops_only_the_repeated_one() -> None:
+    text = "That's a big step. 💛 Her mom is 62. 🎉\n\n1. 💛 **Ask her** — today."
+    assert without_closing(text, {"💛"}) == (
+        "That's a big step. Her mom is 62. 🎉\n\n1. 💛 **Ask her** — today."
+    )
+
+
+def test_a_sign_off_both_last_replies_used_goes() -> None:
+    state = _state("Wow, that's big. 💛 Enjoy it.", "Okay. 💛 Take care.", "I hear you. 💛")
+    assert repeated_emoji_pass(state) == "Wow, that's big. Enjoy it."  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    "replies",
+    [
+        # Only one of the last two signed off on it.
+        ("Okay. 💛 Take care.", "I hear you."),
+        # Another emoji each time.
+        ("Okay. 🎉", "I hear you. 💍"),
+        # Too few replies to call it a habit.
+        ("Okay. 💛",),
+    ],
+)
+def test_an_emoji_not_repeated_stays(replies: tuple[str, ...]) -> None:
+    state = _state("Wow, that's big. 💛", *replies)
+    assert repeated_emoji_pass(state) == "Wow, that's big. 💛"  # type: ignore[arg-type]
+
+
+def test_server_text_is_never_touched() -> None:
+    state = _state("Done. 💛", "Okay. 💛", "Sure. 💛", instant="Done. 💛")
+    assert repeated_emoji_pass(state) == "Done. 💛"  # type: ignore[arg-type]

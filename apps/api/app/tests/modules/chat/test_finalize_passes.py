@@ -91,6 +91,7 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "option_letters",
         "name_use",
         "emoji_use",
+        "emoji_repeat",
         "answer_photo",
         "reply_picture",
         "chemistry_fences",

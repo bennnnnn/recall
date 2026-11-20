@@ -48,8 +48,10 @@ NO_RECAP_NOTE = (
     "date, the place, who is coming, the budget), and do not say that you are not "
     "repeating them; a known day is just its weekday. Say a concern, a warning or a piece "
     "of advice once: when they have heard it or pushed back, do not raise it again unless "
-    "something new changes it. When they ask you to drop a topic, drop it, unless someone's "
-    "safety depends on it."
+    "something new changes it. Once one of your earlier replies has said it, it is said: "
+    "a new detail gets your reaction to that detail, not the same advice tied to it, and "
+    "never a question about whether they followed it. When they ask you to drop a topic, "
+    "drop it, unless someone's safety depends on it."
 )
 
 # The assistant's own name: a reply never signs its own writing with it
@@ -119,8 +121,9 @@ OWN_MISTAKE_HINT = (
     "4.0), and keep it unless the question itself was read wrong. "
     "When they sound frustrated or worried, answer the feeling in one sentence "
     "first, as a person would, then help. When they add a fact (a date, an amount, a "
-    "limit), check it against what this chat already worked out before you agree or "
-    "reassure, and say plainly what it changes."
+    "limit) to something this chat worked out (a plan, a budget, a sum), check it against "
+    "that before you agree or reassure, and say plainly what it changes; news about their "
+    "own life is answered as news."
 )
 
 CONTINUE_HINT = (
@@ -167,5 +170,8 @@ FOLLOW_NOTES = {
 SUMMARY_LEAD = (
     "Summary of this chat before the messages you can see. It is part of the conversation: "
     "a question about what the user said or what you talked about answers from it as well "
-    "as from the messages. When two of its facts give different values, the later one holds."
+    "as from the messages. When two of its facts give different values, the later one holds. "
+    # The summary model writes "Assistant advises getting a lawyer" despite its rules
+    # (2026-11-19); read as a fact above every turn, it came back in reply after reply.
+    "Advice or a warning it says you gave was said already: do not give it again."
 )

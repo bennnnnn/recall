@@ -9,8 +9,13 @@ a turn is; these rules say what it does then, and each sits where the model read
 
 from __future__ import annotations
 
+from app.modules.chat.context_window import ASSISTANT_CONCERNS_RULE, SUMMARY_SYSTEM_PROMPT
 from app.modules.chat.prompt_constants.care import DISTRESS_RULE, PERSONAL_HELP_RULE
-from app.modules.chat.prompt_constants.conversation import NO_RECAP_NOTE
+from app.modules.chat.prompt_constants.conversation import (
+    NO_RECAP_NOTE,
+    OWN_MISTAKE_HINT,
+    SUMMARY_LEAD,
+)
 from app.modules.chat.prompt_constants.unclear import UNCLEAR_MESSAGE_HINT
 from app.modules.chat.response_tone import EMOJI_HINTS, emoji_note
 
@@ -36,8 +41,18 @@ def test_a_concern_is_said_once_and_a_topic_dropped_when_asked() -> None:
 def test_a_hard_situation_gets_one_safety_check_and_911_only_for_a_threat() -> None:
     assert "is not an emergency by itself" in DISTRESS_RULE
     assert "ask once whether they're okay and feel safe" in DISTRESS_RULE
-    assert "Telling them to leave or to call 911 is for a stated threat" in DISTRESS_RULE
+    # Main replayed (2026-11-19) gave 988 in 54 of 80 replies, with no word of self-harm.
+    assert "to call 911 or to call a crisis line is for a stated threat" in DISTRESS_RULE
+    assert "or talk of suicide or self-harm" in DISTRESS_RULE
     assert "once they have answered that they're okay, do not ask again" in DISTRESS_RULE
+    # The replay (2026-11-19): after "Are you safe right now?", "She is asking me to get on
+    # bad" and "No it feels good" got "call 911 if the threats get worse" nine times, and
+    # "the threats you mentioned", which he never had.
+    # "Is the friend or family member you mentioned with you right now?" eleven turns running.
+    assert "Asked once, it is asked, in any words" in DISTRESS_RULE
+    assert "enjoying it or carrying on is their answer" in DISTRESS_RULE
+    assert 'or a crisis line, not even as an "if", until they say one of those' in DISTRESS_RULE
+    assert "Never speak of a threat, a danger or a fear they did not state" in DISTRESS_RULE
     # Self-harm keeps its own rule: never dropped, the crisis line given again.
     assert "Talk of suicide or self-harm is never dropped" in DISTRESS_RULE
     assert "988" in DISTRESS_RULE
@@ -59,3 +74,28 @@ def test_lots_of_emoji_still_fit_their_line() -> None:
     assert note is not None and rule in note
     # "A few" already allows none in a sentence; its line is unchanged.
     assert rule not in EMOJI_HINTS["some"]
+
+
+def test_advice_once_said_is_not_tied_to_each_new_detail() -> None:
+    # The replay of the 80 messages (2026-11-19): "a lawyer" in 46 replies, each tied to the
+    # new detail ("it makes the lawyer step even more important"), and "Did you book a lawyer
+    # yet?" five turns running.
+    assert "Once one of your earlier replies has said it, it is said" in NO_RECAP_NOTE
+    assert "not the same advice tied to it" in NO_RECAP_NOTE
+    assert "never a question about whether they followed it" in NO_RECAP_NOTE
+
+
+def test_news_about_their_life_is_not_checked_like_a_sum() -> None:
+    # "When they add a fact (a date, an amount) … say plainly what it changes" made every
+    # gift and transfer "That makes this more serious, not less".
+    assert "to something this chat worked out (a plan, a budget, a sum)" in OWN_MISTAKE_HINT
+    assert "news about their own life is answered as news" in OWN_MISTAKE_HINT
+
+
+def test_the_summary_keeps_the_users_facts_not_the_assistants_warnings() -> None:
+    # Every fold wrote "Assistant advises getting a lawyer" again, and the summary sits above
+    # every later turn.
+    assert ASSISTANT_CONCERNS_RULE in SUMMARY_SYSTEM_PROMPT
+    assert SUMMARY_SYSTEM_PROMPT.count(ASSISTANT_CONCERNS_RULE) == 2
+    assert "never written again because a new message repeats it" in SUMMARY_SYSTEM_PROMPT
+    assert "do not give it again" in SUMMARY_LEAD

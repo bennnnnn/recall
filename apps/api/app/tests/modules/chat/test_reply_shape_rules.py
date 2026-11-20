@@ -21,6 +21,9 @@ def test_a_reply_ends_on_its_point_and_offers_only_a_concrete_next_step() -> Non
     assert "A closing question only when you need their answer" in FORMAT_CONTRACT
     assert "never the same offer again after they let it go" in FORMAT_CONTRACT
     assert "A reply about their own life or feelings ends without an offer" in FORMAT_CONTRACT
+    # Told only "a question when you need their answer", the replay still ended 48 of 80
+    # replies on one ("Did you get a chance to book a lawyer?").
+    assert "and usually without a question" in FORMAT_CONTRACT
     assert "never bold" in FORMAT_CONTRACT
     assert "Let me know if you have any other questions" in FORMAT_CONTRACT
     assert "a question or an offer of one concrete next step" not in FORMAT_CONTRACT
@@ -30,6 +33,11 @@ def test_a_message_about_their_own_life_is_answered_as_a_conversation() -> None:
     # "I love the mom" got three numbered steps and a bold verdict (2026-11-19).
     assert "is a conversation, not a question to scan" in READER_NOTE
     assert "no list, heading or bold" in READER_NOTE
+    # Said after "its key part still bold", it lost (20 of 80 replies bolded a verdict):
+    # it opens the note, and the scanned layout is for anything else.
+    assert READER_NOTE.startswith("A message about their own life")
+    assert "Anything else is written to be scanned on a phone" in READER_NOTE
+    assert "usually ending on that, not on a question, and never on an offer" in READER_NOTE
 
 
 def test_headings_rule_does_not_contradict_the_short_how_to() -> None:

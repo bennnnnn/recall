@@ -168,9 +168,18 @@ def test_format_now_awareness_asks_for_the_full_date_with_a_weekday():
 
 
 def test_format_now_awareness_never_dates_a_known_day_again():
-    # "tomorrow, Friday, November 20, 2026" in 50 of 80 replies (2026-11-19).
+    # "tomorrow, Friday, November 20, 2026" in 50 of 80 replies (2026-11-19); on the replay,
+    # "the weding is tomorrow" still got the full date: their "tomorrow" names the day.
     text = format_now_awareness("Africa/Nairobi", "en")
-    assert 'A day the chat already named is just "tomorrow", "today" or its weekday' in text
+    assert 'A day the chat already named, as a date or as "tomorrow", is just' in text
+    assert "never its full date again" in text
+
+
+def test_format_now_awareness_never_checks_their_news_against_the_date():
+    # "We got married and it was lit" got "but today is Thursday, November 19, so the wedding
+    # was supposed to be tomorrow" (2026-11-19).
+    text = format_now_awareness("Africa/Nairobi", "en")
+    assert "Something they say has happened has happened" in text
 
 
 def test_format_now_awareness_lists_the_coming_week():

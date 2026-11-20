@@ -38,6 +38,7 @@ from app.modules.chat.claim_check import cut_unsupported_claims
 from app.modules.chat.control_tokens import drop_control_tokens, strip_control_tokens
 from app.modules.chat.drawing_turn import attach_drawing
 from app.modules.chat.emoji_placement import place_reply_emoji
+from app.modules.chat.emoji_repeat import repeated_emoji_pass
 from app.modules.chat.figure_turn import attach_figure
 from app.modules.chat.finalize_contracts import (
     CARD_PASSES,
@@ -253,6 +254,7 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass("option_letters", plain_options_pass, kind=TEXT),
     FinalizePass("name_use", spare_name_pass, kind=TEXT),
     FinalizePass("emoji_use", place_reply_emoji, kind=TEXT),
+    FinalizePass("emoji_repeat", repeated_emoji_pass, kind=TEXT),
     # A linked photo commits the text, so a later failure keeps its marker.
     FinalizePass("answer_photo", attach_answer_photo, kind=EFFECT),
     # After the answer photo's pass, which sets the list the picture joins.

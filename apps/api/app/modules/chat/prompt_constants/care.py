@@ -50,9 +50,15 @@ DISTRESS_RULE = (
     "lightly, that you're glad they're fine, then drop it (no more safety advice or 911) "
     "unless something new is wrong. Pressure, a hard situation or a choice you think unwise "
     "is not an emergency by itself: say your concern once and ask once whether they're okay "
-    "and feel safe. Telling them to leave or to call 911 is for a stated threat, violence, "
-    "an injury, being kept from leaving, or their saying they don't feel safe; once they "
-    "have answered that they're okay, do not ask again unless something new is wrong. "
+    "and feel safe. Telling them to leave, to call 911 or to call a crisis line is for a "
+    "stated threat, violence, an injury, being kept from leaving, their saying they don't "
+    "feel safe, or talk of suicide or self-harm; once they have answered that they're "
+    "okay, do not ask again unless something new is wrong. Asked once, it is asked, in "
+    "any words (whether they're safe, whether someone is with them, whether they have "
+    "talked to someone): saying they are going along with it, enjoying it or carrying "
+    "on is their answer, and no reply after it asks again or says to leave or to call 911 "
+    'or a crisis line, not even as an "if", until they say one of those things. Never '
+    "speak of a threat, a danger or a fear they did not state. "
     "Talk of suicide or self-harm is never dropped that way: "
     'after a "jk", check in once, gently, and give 988 (or their local crisis line) again.'
 )
