@@ -479,3 +479,25 @@ def test_a_velocity_s_sign_stays_the_reply_s_convention() -> None:
 
     (read,) = reply_cards(_card("v = 12\\,\\mathrm{m/s}"))
     assert agrees(read, _value(-12.0, "m/s")) is True
+
+
+@pytest.mark.parametrize(
+    ("card", "server", "stands"),
+    [
+        # The owner's chat (2026-11-20): the setup's Q = mcΔT is -7700 J; a card that
+        # flips it to a size is held to the sign.
+        ("Q = 7700\\,\\mathrm{J}", -7700.0, False),
+        ("Q = -7700\\,\\mathrm{J}", -7700.0, True),
+        ("Q = -7.7\\,\\mathrm{kJ}", -7700.0, True),
+        # A setup that named the heat released (+7700 J) holds no sign: sizes compare.
+        ("Q = -7700\\,\\mathrm{J}", 7700.0, True),
+        ("Q = 7700\\,\\mathrm{J}", 7700.0, True),
+    ],
+)
+def test_an_energy_the_setup_made_negative_is_held_to_its_sign(
+    card: str, server: float, stands: bool
+) -> None:
+    from app.modules.chat.formal_cards import agrees, reply_cards
+
+    (read,) = reply_cards(_card(card))
+    assert agrees(read, _value(server, "J")) is stands
