@@ -12,8 +12,13 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from app.modules.physics.extractors.launch_direction import TWO_WAYS, moving_sense
 from app.modules.physics.extractors.momentum import _COLLISION_SUBJECT_RE, _TWO_DIMENSIONAL_RE
-from app.modules.physics.extractors.surface_gravity import detect_gravity, stated_gravity
+from app.modules.physics.extractors.surface_gravity import (
+    detect_gravity,
+    stated_gravity,
+    stated_gravity_spans,
+)
 from app.modules.physics.extractors.unit_patterns import (
     LENGTH_UNIT_PATTERN,
     MASS_UNITS,
@@ -72,19 +77,23 @@ _COLLISION_QUALIFIER = re.compile(
     r"|\baway from each other\b",
     re.IGNORECASE,
 )
-# A body's direction along the line: "a 0.5 kg puck moving east at 4 m/s".
-_DIRECTION = re.compile(r"\b(east|west|north|south|left|right)(?:wards?)?\b", re.IGNORECASE)
-_AXIS_SIGN = {
-    "east": ("east-west", 1),
-    "west": ("east-west", -1),
-    "north": ("north-south", 1),
-    "south": ("north-south", -1),
-    "right": ("left-right", 1),
-    "left": ("left-right", -1),
-}
+# Any other word that sets a body's sense on the line, read by none of the above: the
+# collision then has a direction it cannot sign, and declines (never both one way).
+_UNREAD_SENSE = re.compile(
+    r"\bdirections?\b|\bhead[\s-]+on\b|\btowards?\b|\bopposite\b|\bapproach\w*\b"
+    r"|\b(?:back|backwards?|reverse)\b",
+    re.IGNORECASE,
+)
+# Both moving the one way: "in the same direction", "hits the back of", "rear-ends", "from
+# behind".
+_SAME_WAY = re.compile(
+    r"\bsame\s+direction\b|\bback\s+of\b|\brear[\s-]?end\w*|\bfrom\s+behind\b",
+    re.IGNORECASE,
+)
 # Both moving, each toward the other: the second speed points back along the line.
 _OPPOSED = re.compile(
-    r"\btowards? each other\b|\bin\s+(?:the\s+)?opposite\s+directions?\b|\bhead[- ]on\s+toward",
+    r"\btowards? each other\b|\bin\s+(?:the\s+)?opposite\s+directions?\b|\bhead[- ]on\s+toward"
+    r"|\b(?:the\s+)?other\s+way\b|\boncoming\b",
     re.IGNORECASE,
 )
 # "How much kinetic energy is lost?": the energy a sticking collision turns to heat.
@@ -97,10 +106,6 @@ _ASK = re.compile(r"\b(?:find|calculate|compute|determine|what\s+are)\s+", re.IG
 _QUANTITY = re.compile(
     r"\b(?:(?:total\s+)?(?:time of flight|flight time)|"
     r"(?:maximum|max|peak) height|(?:horizontal\s+)?range|(?:impact|landing) speed)\b",
-    re.IGNORECASE,
-)
-_GRAVITY = re.compile(
-    rf"\b(?:g\s*=|gravity\s*(?:of|is|=)?)\s*{NUMBER}(?:\s*m/s\^?2)?",
     re.IGNORECASE,
 )
 _ANGLE = re.compile(rf"{NUMBER}\s*(?:degrees?|deg|°|radians?|rad)(?![A-Za-z0-9])", re.IGNORECASE)
@@ -123,9 +128,9 @@ class PhysicsRequest:
     projectile_ops: tuple[ProjectileQuantity, ...] = ()
 
 
-def _accounted_for(text: str, quantities: list[re.Match[str]]) -> bool:
+def _accounted_for(text: str, quantities: list[tuple[int, int]]) -> bool:
     return all(
-        any(quantity.start() <= start and end <= quantity.end() for quantity in quantities)
+        any(left <= start and end <= right for left, right in quantities)
         for start, end in numeric_spans(text)
     )
 
@@ -146,16 +151,16 @@ def _body_names(masses: list[re.Match[str]], ask_start: int) -> list[re.Match[st
     return stated
 
 
-# A body said to move two ways at once ("east ... north").
-_TWO_WAYS = ("", 0)
-
-
-def _direction(clause: str) -> tuple[str, int] | None:
-    """The one direction a body's clause gives; ``_TWO_WAYS`` when it gives two."""
-    found = {_AXIS_SIGN[match[1].lower()] for match in _DIRECTION.finditer(clause)}
-    if len(found) > 1:
-        return _TWO_WAYS
-    return next(iter(found), None)
+def _asked_body(all_masses: list[re.Match[str]], bodies: list[re.Match[str]]) -> int:
+    """The one body the ask names by its mass, 1 or 2: "the final speed of the 2 kg ball";
+    0 when it names neither or both."""
+    named = {
+        index
+        for mass in all_masses[len(bodies) :]
+        for index, body in enumerate(bodies, start=1)
+        if float(mass[1]) == float(body[1]) and mass[2].lower() == body[2].lower()
+    }
+    return named.pop() if len(named) == 1 else 0
 
 
 def _collision_intent(text: str) -> PhysicsIntent | None:
@@ -178,7 +183,8 @@ def _collision_intent(text: str) -> PhysicsIntent | None:
     # The energy the ask names is the question, not a condition on the collision.
     if _COLLISION_QUALIFIER.search(text[:ask_start] if energy_lost else text):
         return None
-    if not _accounted_for(text, [*all_masses, *_SPEED.finditer(text)]):
+    stated = (*all_masses, *_SPEED.finditer(text))
+    if not _accounted_for(text, [found.span() for found in stated]):
         return None
     if _ASKED_TYPE.search(text):
         return None
@@ -188,13 +194,18 @@ def _collision_intent(text: str) -> PhysicsIntent | None:
         # Generic 'inelastic' does not say that the objects stick together, and
         # an elastic collision loses no kinetic energy to be asked about.
         return None
-    if _DIRECTION.search(text[: masses[0].start()]) or _DIRECTION.search(text[ask_start:]):
+    if moving_sense(text, 0, masses[0].start()) or moving_sense(text, ask_start, len(text)):
         return None
     params: dict[str, float] = {"elastic": float(elastic)}
     units: dict[str, str] = {"elastic": ""}
+    if elastic and (body := _asked_body(all_masses, masses)):
+        # One body asked: its answer alone, never the other's beside it (Gemini on #2491).
+        params["asked_body"], units["asked_body"] = float(body), ""
     consumed_speeds = 0
+    signed_literal = False
     directions: list[tuple[str, int] | None] = []
     leading_rest = _REST_BEFORE_MASS.search(text[: masses[0].start()]) is not None
+    carried: tuple[str, int] | None = None
     for index, mass in enumerate(masses, start=1):
         value = float(mass[1])
         if value <= 0:
@@ -204,6 +215,9 @@ def _collision_intent(text: str) -> PhysicsIntent | None:
         trailing = _REST_BEFORE_MASS.search(body_clause) if index < len(masses) else None
         if trailing is not None:
             body_clause = body_clause[: trailing.start()]
+        own, carried_next = (
+            _next_body_words(body_clause) if index < len(masses) else (body_clause, None)
+        )
         velocities = list(_SPEED.finditer(body_clause))
         at_rest = leading_rest or _REST.search(body_clause) is not None
         leading_rest = trailing is not None
@@ -214,36 +228,142 @@ def _collision_intent(text: str) -> PhysicsIntent | None:
         )
         if at_rest and velocity != 0:
             return None
-        direction = _direction(body_clause)
-        if direction == _TWO_WAYS:
+        direction = moving_sense(own, 0, len(own))
+        if direction == TWO_WAYS or (direction is not None and carried is not None):
             return None
-        directions.append(direction if velocity != 0 else None)
+        direction = direction or carried
+        carried = carried_next
+        if velocity == 0 and direction is not None:
+            return None  # a body at rest with a direction: whose it is, the words do not say
+        sense = direction
+        if sense is not None:
+            if velocity < 0:
+                # "-2 m/s in the +x direction", "-3.0 m/s in the -x direction": a sign
+                # written twice is never read twice (Gemini on #2491).
+                return None
+            # Each body signed by its own sense, the first's too: "-x at 3 m/s" is -3 m/s.
+            velocity = sense[1] * abs(velocity)
+        signed_literal = signed_literal or (velocity < 0 and sense is None)
+        directions.append(sense)
         consumed_speeds += len(velocities)
         params.update({f"m{index}": value, f"v{index}": velocity})
         units.update({f"m{index}": mass[2], f"v{index}": velocity_unit})
     if consumed_speeds != len(list(_SPEED.finditer(text))):
         return None
-    first, second = directions
-    moving = params["v1"] != 0 and params["v2"] != 0
-    opposed = _OPPOSED.search(text) is not None
-    if first is not None and second is not None:
-        if first[0] != second[0] or opposed:
-            return None
-        if first[1] != second[1]:
-            params["v2"] = -params["v2"]
-    elif (first is not None or second is not None) and moving:
-        # One body's direction and the other's unsaid: the line's sense is unknown.
+    if not _signed_pair(params, directions, text[:ask_start], signed_literal):
         return None
-    elif opposed:
-        if not moving:
-            return None
-        params["v2"] = -params["v2"]
+    if not energy_lost and not _as_asked(params, directions, clause or ""):
+        return None
+    if "speeds" in params:
+        units["speeds"] = ""
     return PhysicsIntent(
         kind="momentum",
         physics_op="collision_energy_lost" if energy_lost else "final_velocity",
         physics_params=params,
         physics_units=units,
     )
+
+
+# The words that modify the next body's noun phrase, between its article and its mass: "with
+# a westward-moving 2.0 kg cart", "a -x-directed 1 kg cart". A direction after a verb or a
+# speed ("moving 3 m/s east hits a 1 kg cart") is its own body's: "a" ends that clause with
+# nothing between it and the mass (Claude on #2491).
+_NEXT_BODY_WORDS = re.compile(
+    r"\b(?:a|an|the|another|second|other)\s+((?:[^\s\d]+\s+){1,2})$", re.IGNORECASE
+)
+# An ask for a size alone: "their final speed", "how fast", "the magnitude of their final
+# velocity". A velocity asked keeps its sign.
+_ASKS_SPEED = re.compile(r"\bspeeds?\b|\bhow\s+fast\b", re.IGNORECASE)
+_ASKS_VELOCITY = re.compile(r"\bvelocit", re.IGNORECASE)
+_ASKS_MAGNITUDE = re.compile(r"\bmagnitudes?\b", re.IGNORECASE)
+# The senses a compass or a hand names; a +x or -x is a signed axis of its own.
+_NAMED_SENSES = frozenset({"east-west", "north-south", "left-right"})
+
+
+def _signed_pair(
+    params: dict[str, float],
+    directions: list[tuple[str, int] | None],
+    text: str,
+    signed_literal: bool,
+) -> bool:
+    """The two velocities signed on one line from what ``text`` (the question before its
+    ask) says of the pair, or False when it says too little or too much."""
+    first, second = directions
+    moving = params["v1"] != 0 and params["v2"] != 0
+    opposed = _OPPOSED.search(text) is not None
+    if first is not None and second is not None:
+        if first[0] != second[0] or opposed:
+            return False
+    elif (first is not None or second is not None) and moving:
+        # One body's direction and the other's unsaid: the line's sense is unknown.
+        return False
+    elif opposed:
+        # "Towards each other", "the other way", "oncoming": the second points back along
+        # the first's line; with a sign written as well, which one it means is unsaid.
+        if not moving or signed_literal:
+            return False
+        params["v2"] = -params["v2"]
+    elif moving and not _SAME_WAY.search(text) and _UNREAD_SENSE.search(text):
+        # A direction the words give but no reader signs ("head-on", "the other way"): never
+        # read as both one way (3.00 kg at +4 and 1.00 kg at -2 lost 1.5 J for 13.5 J, owner's
+        # phone 2026-11-17).
+        return False
+    return True
+
+
+def _next_body_words(clause: str) -> tuple[str, tuple[str, int] | None]:
+    """The clause without the words that modify the next body's noun phrase, and the sense
+    they give: "… collides with a westward-moving" carries west to the 2.0 kg cart after
+    it (Gemini on #2491: the westward cart's direction was lost in the cart at rest's
+    clause), while "moving 3 m/s east hits a" keeps east for its own body."""
+    tail = _NEXT_BODY_WORDS.search(clause)
+    if tail is None:
+        return clause, None
+    sense = moving_sense(clause, tail.start(1), len(clause))
+    if sense is None or sense == TWO_WAYS:
+        return clause, None
+    return clause[: tail.start(1)], sense
+
+
+def _asks_a_size(clause: str) -> bool:
+    """The ask is for a size: a speed, or a velocity's magnitude (Gemini on #2491: "the
+    magnitude of their final velocity" was certified as -2 m/s)."""
+    if _ASKS_MAGNITUDE.search(clause):
+        return True
+    return _ASKS_SPEED.search(clause) is not None and not _ASKS_VELOCITY.search(clause)
+
+
+def _as_asked(
+    params: dict[str, float], directions: list[tuple[str, int] | None], clause: str
+) -> bool:
+    """The velocities set so the answer is what the question asks, or False when it cannot
+    be. A speed asked is a size: the frame is turned so a sticking pair's speed is positive
+    ("moving west at 20 m/s hits the back of … moving west at 10 m/s", 16 m/s, never -16),
+    and a pair moving apart is answered by its speeds' sizes (the ``speeds`` flag).
+    A velocity along a compass or a hand's direction, with no positive sense the question
+    names, is never a bare negative number; a ±x axis is signed of itself (Gemini on #2491)."""
+    m1, m2, v1, v2 = params["m1"], params["m2"], params["v1"], params["v2"]
+    total = m1 + m2
+    results: tuple[float, ...]
+    if params["elastic"]:
+        results = (((m1 - m2) * v1 + 2 * m2 * v2) / total, ((m2 - m1) * v2 + 2 * m1 * v1) / total)
+        if params.get("asked_body"):
+            results = (results[int(params["asked_body"]) - 1],)
+    else:
+        results = ((m1 * v1 + m2 * v2) / total,)
+    named = any(sense is not None and sense[0] in _NAMED_SENSES for sense in directions)
+    if _asks_a_size(clause):
+        if all(result <= 0 for result in results):
+            params["v1"], params["v2"] = -v1, -v2
+            return True
+        if any(result < 0 for result in results):
+            # Speeds asked of a pair moving apart: their sizes, never a negative speed
+            # (Gemini on #2491: "final speeds" were -1 m/s and 2 m/s).
+            params["speeds"] = 1.0
+        return True
+    # A pair moving apart ("an elastic head-on collision with a stationary 4 kg ball": -2 and
+    # 4 m/s) is signed along the first body's motion, unless a compass names the line.
+    return not named or all(result >= 0 for result in results)
 
 
 # "(a) what is the max height (b) the range": a question in labelled parts.
@@ -344,9 +464,11 @@ def _projectile_parts(text: str) -> tuple[ProjectileQuantity, ...] | None:
         re.IGNORECASE,
     ):
         return None
-    gravities = list(_GRAVITY.finditer(text))
+    # The stated g read by the one reader of a stated g: "use 10 m/s² for g" too.
+    gravities = stated_gravity_spans(text)
+    stated = (*_SPEED.finditer(text), *_ANGLE.finditer(text), *lengths)
     if len(gravities) > 1 or not _accounted_for(
-        text, [*_SPEED.finditer(text), *_ANGLE.finditer(text), *lengths, *gravities]
+        text, [*(found.span() for found in stated), *gravities]
     ):
         return None
     return tuple(ops)

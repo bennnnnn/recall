@@ -16,6 +16,58 @@ from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
 from app.modules.physics.solvers.si import params_in_si
 from app.services.solving import SolveServiceError
 
+_ELASTIC_LINES = (
+    r"v_1' = \frac{(m_1-m_2)v_1 + 2 m_2 v_2}{m_1+m_2}",
+    r"v_2' = \frac{(m_2-m_1)v_2 + 2 m_1 v_1}{m_1+m_2}",
+)
+
+
+def _one_body_answer(u: float, body: int, *, speeds: bool) -> tuple[str, QuantityResult]:
+    """The answer for the one body the question asks about ("the final speed of the 2 kg
+    ball"): its velocity, or its speed's size."""
+    if speeds:
+        answer = rf"\text{{Elastic: speed }} |v_{body}'| \approx {abs(u):.2f} \text{{ m/s}}"
+        return answer, QuantityResult("", abs(u), "m/s")
+    answer = rf"\text{{Elastic: }} {_ELASTIC_LINES[body - 1]} \approx {u:.2f} \text{{ m/s}}"
+    return answer, QuantityResult("", u, "m/s")
+
+
+def _elastic_answer(
+    u1: float, u2: float, *, speeds: bool, body: int = 0
+) -> tuple[str, tuple[QuantityResult, ...]]:
+    """The elastic collision's answer line and its results: the asked body's alone when the
+    question names one (``body``), else both. Speeds asked: each body's size, never a
+    negative speed."""
+    if body:
+        answer, result = _one_body_answer((u1, u2)[body - 1], body, speeds=speeds)
+        return answer, (result,)
+    if speeds:
+        answer = (
+            rf"\text{{Elastic: speeds }} |v_1'| \approx {abs(u1):.2f} \text{{ m/s}}, "
+            rf"\quad |v_2'| \approx {abs(u2):.2f} \text{{ m/s}}"
+        )
+        return answer, (QuantityResult("", abs(u1), "m/s"), QuantityResult("", abs(u2), "m/s"))
+    answer = (
+        r"\text{Elastic: } v_1' = \frac{(m_1-m_2)v_1 + 2 m_2 v_2}{m_1+m_2} "
+        rf"\approx {u1:.2f} \text{{ m/s}}, \quad v_2' \approx {u2:.2f} \text{{ m/s}}"
+    )
+    return answer, (QuantityResult("", u1, "m/s"), QuantityResult("", u2, "m/s"))
+
+
+def _elastic_parts(
+    intent: PhysicsIntent, p: dict[str, float], u1: float, u2: float
+) -> tuple[str, tuple[QuantityResult, ...], tuple[str, ...], tuple[str, ...]]:
+    """An elastic collision's answer, results, substitutions and formulas: the asked body's
+    alone when the question names one."""
+    body = int(p.get("asked_body", 0.0))
+    answer, quantities = _elastic_answer(u1, u2, speeds=p.get("speeds", 0.0) >= 0.5, body=body)
+    substitutions = _collision_substitutions(intent, elastic=True)
+    formulas: tuple[str, ...] = (rf"\text{{Elastic: }} {_ELASTIC_LINES[0]}", _ELASTIC_LINES[1])
+    if body:
+        substitutions = (substitutions[body - 1],)
+        formulas = (rf"\text{{Elastic: }} {_ELASTIC_LINES[body - 1]}",)
+    return answer, quantities, substitutions, formulas
+
 
 def _collision_substitutions(intent: PhysicsIntent, *, elastic: bool) -> tuple[str, ...]:
     """Numeric collision rows. The reply reads these; it does not rebuild them."""
@@ -120,19 +172,7 @@ def solve_momentum(intent: PhysicsIntent) -> PhysicsResult:
         if p.get("elastic", 0.0) >= 0.5:
             u1 = ((m1 - m2) * v1 + 2 * m2 * v2) / total
             u2 = ((m2 - m1) * v2 + 2 * m1 * v1) / total
-            answer = (
-                r"\text{Elastic: } v_1' = \frac{(m_1-m_2)v_1 + 2 m_2 v_2}{m_1+m_2} "
-                rf"\approx {u1:.2f} \text{{ m/s}}, \quad v_2' \approx {u2:.2f} \text{{ m/s}}"
-            )
-            quantities = (
-                QuantityResult("", u1, "m/s"),
-                QuantityResult("", u2, "m/s"),
-            )
-            substitutions = _collision_substitutions(intent, elastic=True)
-            formulas = (
-                r"\text{Elastic: } v_1' = \frac{(m_1-m_2)v_1 + 2 m_2 v_2}{m_1+m_2}",
-                r"v_2' = \frac{(m_2-m_1)v_2 + 2 m_1 v_1}{m_1+m_2}",
-            )
+            answer, quantities, substitutions, formulas = _elastic_parts(intent, p, u1, u2)
         else:
             u1 = u2 = (m1 * v1 + m2 * v2) / total
             answer = (
