@@ -29,11 +29,19 @@ def thinking_value(route: ChatModel, thinking: bool | str | None) -> str | None:
     return route.thinking_on
 
 
-def reasoning_body(route: ChatModel, thinking: bool | str | None) -> dict[str, Any] | None:
-    """``{"effort": ...}`` or ``{"enabled": false}``; None sends nothing."""
+def reasoning_body(
+    route: ChatModel, thinking: bool | str | None, *, budget: int = 0
+) -> dict[str, Any] | None:
+    """``{"effort": ...}`` or ``{"enabled": false}``; None sends nothing. A ``budget`` caps
+    the thinking in tokens instead, on a model that takes one (``reasoning_token_cap``):
+    OpenRouter takes an effort or a cap, never both."""
     value = thinking_value(route, thinking)
     if value == "off":
         return {"enabled": False}
     if value in EFFORTS:
+        # Every thinking level gets the one cap: Qwen3.8 thought to 8,192 tokens at
+        # "minimal" and at "high" alike, so its efforts were never a level.
+        if budget > 0 and route.reasoning_token_cap and value != "none":
+            return {"max_tokens": budget}
         return {"effort": value}
     return None

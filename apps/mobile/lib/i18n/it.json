@@ -53,6 +53,8 @@
   "chat.file_index_failed": "Impossibile indicizzare questo file",
   "chat.file_indexing": "Indicizzazione…",
   "chat.generation_stopped": "Generazione interrotta.",
+  "chat.reply_cut_off": "Questa risposta si è interrotta prima di finire.",
+  "chat.continue_reply": "Continua",
   "chat.home.continue": "Riprendi da dove avevi lasciato",
   "chat.home.dismiss_reminder": "Ignora promemoria",
   "chat.home.hello": "Ciao",

@@ -150,6 +150,15 @@ class FinalizeState:
     sources_used: list[int] | None = None
 
     @property
+    def cut_off(self) -> bool:
+        """The reply ended before its end: stopped, or cut by its provider at the length limit
+        or a filter. That cut is no cancel (``StreamAccum.mark_truncated``): it shows only in
+        ``completion``, which the phone reads to say the reply was cut off."""
+        return self.was_cancelled or (
+            self.outcome is not None and self.outcome.completion is not None
+        )
+
+    @property
     def server_text(self) -> bool:
         """An instant reply is wholly server text: every card in it is the server's."""
         return self.ctx.instant_reply is not None

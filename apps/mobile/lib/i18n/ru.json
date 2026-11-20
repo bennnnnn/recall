@@ -53,6 +53,8 @@
   "chat.file_index_failed": "Не удалось проиндексировать файл",
   "chat.file_indexing": "Ещё индексируется…",
   "chat.generation_stopped": "Генерация остановлена.",
+  "chat.reply_cut_off": "Этот ответ оборвался, не дойдя до конца.",
+  "chat.continue_reply": "Продолжить",
   "chat.home.continue": "Продолжить с того места",
   "chat.home.dismiss_reminder": "Скрыть напоминание",
   "chat.home.hello": "Здравствуйте",
