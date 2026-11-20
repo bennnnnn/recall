@@ -235,7 +235,8 @@ class PhysicsPhoto:
 @dataclass(frozen=True)
 class PhysicsFormal:
     """A physics question its solvers did not read: a model writes it down as maths and the
-    server solves it (``physics.formal_read``); None unless the two answers agree."""
+    server solves it (``physics.formal_read``): each part whose setup answer agrees with the
+    server's, and the relations its values break; None with neither."""
 
     async def answer(self, question: str, settings: Settings) -> FormalAnswer | None:
         from app.modules.physics import formal_read

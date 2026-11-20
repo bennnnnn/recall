@@ -175,10 +175,6 @@ _ASKED_SENTENCE = re.compile(
 )
 
 
-# A sentence that asks, for a reader outside this module (``formal_turn``).
-ASKED_SENTENCE = _ASKED_SENTENCE
-
-
 def _asked(question: str) -> str:
     """The sentences of ``question`` that ask, or the whole of it when none does."""
     asked = " ".join(match.group(0) for match in _ASKED_SENTENCE.finditer(question))
