@@ -123,8 +123,14 @@ class Binding:
     result_labels: tuple[str, ...] = ()
     # A negative result is not an answer (a time, a height, a power).
     nonnegative: bool = False
-    # A negative result is reported as its size with this note: cooling "releases" heat.
+    # What a negative result means, said beside it: cooling "releases" heat, a force
+    # "opposing the motion". An axis gives a force's sign, so it is reported as its size
+    # with the note; a result whose own definition gives its sign (``keeps_sign``) keeps it.
     negative_detail: str | None = None
+    # The result's own formula defines its sign (Q = mcΔT with ΔT = final - initial, the
+    # work on or by a gas, friction's work, a magnification): a negative result keeps its
+    # minus sign, with ``negative_detail``: "Q = -7700 J (released)" (owner, 2026-11-20).
+    keeps_sign: bool = False
     # A result above this is not an answer: a floating fraction above 1 sinks.
     at_most: float | None = None
     # Expressions in the variable names that must come out positive for the

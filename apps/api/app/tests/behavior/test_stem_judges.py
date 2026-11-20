@@ -119,6 +119,17 @@ def test_a_tiny_physics_value_is_still_compared() -> None:
     assert same_quantity((1.6e-17, "J"), (1.602e-17, "J"))[0]
 
 
+def test_a_signed_answer_holds_the_card_to_its_sign() -> None:
+    """Heat a cooling body gives out is negative by Q = mcΔT (owner, 2026-11-20): a signed
+    entry fails a card of the other sign; an unsigned one compares sizes (a direction)."""
+    assert same_quantity((-7700.0, "J"), (-7700.0, "J"), signed=True)[0]
+    assert not same_quantity((7700.0, "J"), (-7700.0, "J"), signed=True)[0]
+    assert same_quantity((7700.0, "J"), (-7700.0, "J"))[0]
+    reply = "```answer\nverified: true\nQ = -7700 J (released)\n```"
+    entry = Entry("t", "t", "t", "answer", answers=((-7700.0, "J"),), signed=True)
+    assert check_answer(entry, "physics", reply)[1] == []
+
+
 def test_card_values_skip_marker_lines() -> None:
     reply = "```answer\nverified: true\nnotation: chemistry\nn = 0.500 mol\n```"
     assert card_values(reply) == [(0.5, "mol", "0.500")]
