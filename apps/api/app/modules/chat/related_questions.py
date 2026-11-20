@@ -16,7 +16,7 @@ from typing import Any
 from app.modules.chat.clarify_card import CLARIFY_FENCE
 from app.modules.chat.follow_up_latex import plain_follow_up
 from app.modules.chat.follow_up_repeats import changes_a_kept_symbol, repeats_earlier
-from app.modules.chat.follow_up_thread import subject_for_related, thread_problem
+from app.modules.chat.follow_up_thread import Followed, subject_for_related, thread_problem
 from app.modules.chat.follow_up_words import LATIN, STOP_WORDS, TOPIC_WORD, topic_words
 from app.modules.turn_reading.personal import is_personal_disclosure_turn
 from app.modules.turn_reading.routing import is_lightweight_chat_turn
@@ -413,6 +413,7 @@ def follow_up_topic(
     *,
     allow_general: bool,
     shown: Sequence[str] | None = (),
+    followed: Followed | None = None,
 ) -> tuple[str, str | None] | None:
     """("subject", problem) or ("general", None); None makes no call.
 
@@ -427,7 +428,7 @@ def follow_up_topic(
     if _reads_own_list(question):
         # Nothing to dig into, and no follow-up of the problem before it.
         return None
-    problem = thread_problem(question, prior, answer, shown)
+    problem = thread_problem(question, prior, answer, shown, followed)
     if problem is not None and (_has_quantity(problem) or not _asks(problem)):
         return "subject", problem
     if problem is not None and problem == question:

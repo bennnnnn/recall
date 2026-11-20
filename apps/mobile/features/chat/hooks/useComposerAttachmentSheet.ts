@@ -17,6 +17,7 @@ import {
 } from "@/features/attachments/model/attachments";
 import { getSessionGeneration } from "@/lib/auth";
 import { offerSettings } from "@/ui/overlay/dialogs";
+import type { Translate } from "@/lib/i18n/translate";
 
 type Options = {
   token: string | null;
@@ -30,7 +31,7 @@ type Options = {
   /** Puts the pick in the composer, freeing the file it replaces. */
   replacePendingAttachment: (next: PendingAttachment | null) => void;
   feedback: ActionFeedbackApi | null;
-  t: (key: string, options?: Record<string, unknown>) => string;
+  t: Translate;
 };
 
 function pickFrom(source: Exclude<AttachmentSource, "solve_math_camera" | "math_keyboard">) {

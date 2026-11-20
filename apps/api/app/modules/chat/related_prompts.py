@@ -27,6 +27,7 @@ from app.gateways.litellm_gateway import complete_structured
 from app.models.routing_lanes import ROUTING
 from app.modules.chat.follow_up_prompts import GENERAL_SYSTEM as _GENERAL_SYSTEM
 from app.modules.chat.follow_up_prompts import SUBJECT_SYSTEM as _SYSTEM
+from app.modules.chat.follow_up_thread import Followed
 from app.modules.chat.related_questions import (
     MAX_QUESTIONS,
     accepted_questions,
@@ -72,11 +73,13 @@ async def generate_related_questions(
     *,
     allow_general: bool = True,
     shown: Sequence[str] = (),
+    followed: Followed | None = None,
 ) -> list[str]:
     """Up to three short follow-up questions about what the user asked.
 
     None repeats what the chat already asked: the user's earlier lines, or the questions
     ``shown`` under earlier replies. A tapped one of those stays on its problem.
+    ``followed``: what the turn's reads say the line follows (``chat.follow_up_read``).
     """
     # The subject readers parse with SymPy: read them in the pool, never on the loop.
     topic = await read_off_loop(
@@ -86,6 +89,7 @@ async def generate_related_questions(
         role_content_dicts(prior or []),
         allow_general=allow_general,
         shown=tuple(shown),
+        followed=followed,
         timeout=settings.subject_read_timeout_seconds,
     )
     if topic is None:
@@ -255,12 +259,19 @@ async def _related_prompts_event(
     prior: Sequence[Any] | None = None,
     allow_general: bool = True,
     chat: tuple[str, str] | None = None,
+    followed: Followed | None = None,
 ) -> dict[str, Any] | None:
     if await global_spend_exceeded(redis, settings):
         return None
     shown = await shown_in_chat(redis, *chat) if chat is not None else []
     prompts = await generate_related_questions(
-        settings, question, answer, prior, allow_general=allow_general, shown=shown
+        settings,
+        question,
+        answer,
+        prior,
+        allow_general=allow_general,
+        shown=shown,
+        followed=followed,
     )
     if not prompts:
         return None
@@ -281,17 +292,22 @@ async def _related_prompts_event(
     return build_related_prompts_event(message_id, prompts)
 
 
-def _read_by_the_turn(question: str, prior: Sequence[Any] | None) -> bool:
+def _read_by_the_turn(
+    question: str, prior: Sequence[Any] | None, followed: Followed | None = None
+) -> bool:
     """Whether ``follow_up_topic`` can run on the loop: the subjects it asks are readings
     the turn already made in the pool. It asks them of each line with its blanks
     collapsed, and the turn read the lines as written, so a line with a break or a run of
     blanks would be read again here (38 ms for a 4,000-character problem pasted over
-    many lines). Such a turn's topic is read with its questions, in the pool."""
+    many lines). Such a turn's topic is read with its questions, in the pool, as is one
+    whose followed problem is no user line (a problem the assistant posed)."""
     lines = [question]
     for message in prior or ():
         role, content = message_role_content(message)
         if role == "user" and content:
             lines.append(content)
+    if followed is not None and followed.problem is not None and followed.problem not in lines:
+        return False
     return all(collapse_ws(line) == line for line in lines)
 
 
@@ -306,6 +322,7 @@ def schedule_related_prompts(
     allow_general: bool = True,
     completion: Completion | None = None,
     chat: tuple[str, str] | None = None,
+    followed: Followed | None = None,
 ) -> asyncio.Task[dict[str, Any] | None] | None:
     """Start the model call without waiting. The transport sends the event after done.
 
@@ -313,14 +330,18 @@ def schedule_related_prompts(
     ``chat`` (user id, chat id) keeps the questions shown in it, so none comes back.
     ``allow_general`` is off for a turn that was never a question (a greeting,
     an instant reply); subject follow-ups do not depend on it. A reply that was
-    stopped or cut off (``completion``) gets none.
+    stopped or cut off (``completion``) gets none. ``followed``: what the turn's reads say
+    the line follows (``chat.follow_up_read``), which decides the questions' problem.
     """
     if completion not in (None, "complete") or not collapse_ws(answer):
         return None
     # The questions the chat showed are read with the questions: until then any line may
     # be a tapped one, so a line on a topic of its own is not judged here.
-    if _read_by_the_turn(question, prior) and (
-        follow_up_topic(question, answer, prior, allow_general=allow_general, shown=None) is None
+    if _read_by_the_turn(question, prior, followed) and (
+        follow_up_topic(
+            question, answer, prior, allow_general=allow_general, shown=None, followed=followed
+        )
+        is None
     ):
         return None
     return create_background_task(
@@ -333,6 +354,7 @@ def schedule_related_prompts(
             prior=prior,
             allow_general=allow_general,
             chat=chat,
+            followed=followed,
         ),
         name="related_prompts",
     )

@@ -5,12 +5,11 @@ import { isAmbiguousLocalPlacesQuery, isGeoQuery } from "@/lib/places/localPlace
 import { recentSyncAt, recordSync } from "@/lib/syncRecords";
 import { tokenSubject } from "@/lib/tokenSubject";
 import { alertDialog, offerSettings } from "@/ui/overlay/dialogs";
+import type { Translate } from "@/lib/i18n/translate";
 
 type ClientGeoResolveResult =
   | { ok: true; clientGeo: ClientGeo | null }
   | { ok: false };
-
-type Translate = (key: string, options?: Record<string, unknown>) => string;
 
 type LocationPatch = { location?: string; location_enabled?: true };
 

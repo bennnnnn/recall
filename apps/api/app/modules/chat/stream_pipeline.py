@@ -23,6 +23,7 @@ from app.modules.chat.decided_turn import decide_from_the_read
 from app.modules.chat.drawing_turn import write_for_a_picture
 from app.modules.chat.finalize_passes import enrich_final_content
 from app.modules.chat.finalize_registry import mark_pending_finalize, register_pending_finalize
+from app.modules.chat.follow_up_read import followed_for_questions
 from app.modules.chat.late_photo import follow_late_photo
 from app.modules.chat.post_turn import enqueue_post_turn_jobs
 from app.modules.chat.prompt_inject import conversation_turns
@@ -110,6 +111,7 @@ async def register_and_enqueue_finalize(
                 allow_general=not ctx.lightweight_turn and ctx.instant_reply is None,
                 completion=outcome.completion,
                 chat=(str(ctx.user_id), str(ctx.chat_id)),
+                followed=followed_for_questions(ctx),
             )
         )
     await mark_pending_finalize(redis, ctx.chat_id)
