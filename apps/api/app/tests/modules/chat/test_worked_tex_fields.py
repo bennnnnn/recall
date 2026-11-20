@@ -92,3 +92,28 @@ def test_a_direction_by_its_angle_stays_on_the_card() -> None:
     assert _laid_out("required: k | stiffness", "answer: k | 2.5 | N/m | 1st spring").endswith(
         r"$k = 2.50\,\mathrm{N/m}$ (1st spring)"
     )
+
+
+def test_a_speed_and_its_angle_share_one_card() -> None:
+    """Live (2026-11-20): the speed stayed above Answer (b) as working, and the angle's card
+    ended "North of west |"."""
+    from app.services.answer_fence import land_answer_card
+
+    reply = land_answer_card(
+        _laid_out(
+            "required: v_f, \\theta | speed and direction",
+            "substitution: v_f = \\sqrt{158.06}",
+            "answer: v_f | 12.6 | m/s",
+            "answer: \\theta | 45^\\circ | | North of west |",
+        ),
+        None,
+    )
+    assert reply.endswith(
+        "verified: false\n$v_f = 12.60\\,\\mathrm{m/s}$, $\\theta = 45^\\circ$ (North of west)\n```"
+    )
+
+
+def test_a_symbol_braced_twice_by_the_layout_keeps_one_subscript() -> None:
+    from app.modules.chat.worked_text import tidy_tex
+
+    assert tidy_tex("v_Ai_mag") == "{v_{Ai}}_{mag}"

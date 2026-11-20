@@ -16,7 +16,7 @@ _VALUE_NOTE = re.compile(r"\s+\((?=[A-Za-z])[^()]*\)\s*$")
 # A point or an interval (a comma inside) is one value, not a difference: "(1,-2,3)",
 # "(-\infty,-3) \cup (1,\infty)"; "-(-2)" is arithmetic still to do.
 _GROUPED = re.compile(r"[(\[][^()\[\],]*,[^()\[\]]*[)\]]|\\cup")
-_UNIT_TEXT = re.compile(r"\\(?:text|mathrm)\{[^}]*\}")
+_UNIT_TEXT = re.compile(r"\\(?:text|mathrm)\{[^}]*\}|\^\s*\{?\s*\\circ\s*\}?")
 # A unit vector: \hat{i}, \hat{\jmath}, \mathbf{k}. Its letter names a direction, no symbol.
 UNIT_VECTOR = re.compile(r"\\(?:hat|mathbf|boldsymbol)[ \t]*\{[ \t]*\\?[ijk](?:math)?[ \t]*\}")
 # A vector by its components, one value: "(0\hat{i} + 20\hat{j})", "-16\hat{i} + 4\hat{j}".
@@ -36,7 +36,8 @@ def is_final_value(value: str) -> bool:
     a value, named or not, with no arithmetic left, unlike the working line ``v = 9.8 \\times
     2`` or ``2x = 4``. A part asking several values (a maximum and a minimum, a centre and a
     radius) carded the last alone, the others left above it as working (g12 S2, 2026-11-13).
-    A vector by its components, ``v_A = (0\\hat{i} + 20\\hat{j})``, is one value too."""
+    A vector by its components, ``v_A = (0\\hat{i} + 20\\hat{j})``, is one value too, and a
+    degree sign (``45^\\circ``) is a unit, no power."""
     text = _VALUE_NOTE.sub("", value.replace("$", "").strip())
     left, equals, right = text.partition("=")
     if not equals:

@@ -96,6 +96,7 @@ _LETTERED_SYMBOL = re.compile(r"^\(\s*(?P<part>[A-Ha-h])\s*\)\s+(?P<symbol>\S.*)
 # A bar a sizing command draws: \\right| of an evaluation, \\Big|, \\vert.
 _SIZED_BAR = re.compile(r"\\(?:right|left|middle|[bB]igg?[lrm]?)[ \t]*\|$")
 _SIZED_REACH = 12
+_TRAILING_BARS = re.compile(r"(?:[ \t]+\|)+[ \t]*$")
 _DELIMITERS = (("$$", "$$"), ("$", "$"), ("\\(", "\\)"), ("\\[", "\\]"))
 MAX_PARTS = 8
 
@@ -258,7 +259,8 @@ def _split(text: str, count: int) -> list[str]:
     for cut in _separators(text)[: max(0, count - 1)]:
         pieces.append(text[start:cut])
         start = cut + 1
-    pieces.append(text[start:])
+    # The last field keeps any further bar, but not one the record ends on ("north |").
+    pieces.append(_TRAILING_BARS.sub("", text[start:]))
     return [value.strip() if value.strip(" \t|") else "" for value in pieces]
 
 
