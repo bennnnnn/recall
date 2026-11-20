@@ -15,6 +15,7 @@ import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { useLatestRef } from "@/lib/latestRef";
 import type { EditThread } from "@/features/chat/model/threadEdit";
+import type { Translate } from "@/lib/i18n/translate";
 
 type Options = {
   token: string | null;
@@ -27,7 +28,7 @@ type Options = {
   setArchived: React.Dispatch<React.SetStateAction<boolean>>;
   setChatTitle: React.Dispatch<React.SetStateAction<string | null>>;
   editThread: EditThread;
-  t: (key: string, options?: Record<string, unknown>) => string;
+  t: Translate;
 };
 
 export function useChatActions({
