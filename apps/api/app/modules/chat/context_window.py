@@ -24,6 +24,16 @@ NEWEST_FIGURE_RULE = (
     "When two figures for the same thing differ, keep the most recent one with its date. "
 )
 
+# An 80-message chat about a girlfriend's mother (2026-11-19): every fold wrote "Assistant
+# advises getting a lawyer" again as a fact, "Assistant reiterates caution" as a topic, and
+# "Wedding is tomorrow, Friday, November 20, 2026" five times, because each reply had said
+# them again. The summary sat above every later turn, so the reply kept saying them: "a
+# lawyer" came up in 46 of 80 replies. A warning is the assistant's, never the user's fact,
+# and a reply that repeats a fact adds nothing new to fold.
+ASSISTANT_CONCERNS_RULE = (
+    "never the assistant's own warnings, cautions, concerns or reminders (to be careful, slow "
+    "down or see someone), said once or again"
+)
 SUMMARY_SYSTEM_PROMPT = (
     "You keep a running summary of a conversation so an assistant can continue it later. "
     "You get the existing summary and the new messages to fold in.\n\n"
@@ -32,11 +42,14 @@ SUMMARY_SYSTEM_PROMPT = (
     "keep, one sentence of at most 15 words each: their things (a device or a car with its "
     "model and year), people, places, numbers they gave (income, rent, prices, dates), "
     "decisions, and figures or lists the assistant gave them to use later (a savings amount, "
-    "a product or grade, the items it taught). Never what was asked, explained or advised: "
-    "that is a topic. The existing facts are kept as they are; when a new message changes "
-    "one, write it again with its new value\n"
+    "a product or grade, the items it taught); " + ASSISTANT_CONCERNS_RULE + ". Never what "
+    "was asked or explained: that is a topic. The existing facts are kept as they are; when "
+    "a new message changes one, write it again with its new value, and a fact they already "
+    "hold is never written again because a new message repeats it\n"
     "Topics: one short line per topic of the NEW messages only, in the order discussed, "
-    "each naming its subject (the place, person or thing) and its outcome; the existing "
+    "each naming its subject (the place, person or thing) and its outcome for the user, "
+    + ASSISTANT_CONCERNS_RULE
+    + "; the existing "
     "topic lines are kept as they are, so do not repeat them\n"
     "Open: questions the user left unanswered or next steps they asked for; write None when "
     "there are none, and " + NO_INVENTED_PLAN + "\n\n"

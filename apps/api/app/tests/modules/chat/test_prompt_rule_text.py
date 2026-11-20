@@ -95,20 +95,27 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # owner's round of 30 hard problems, 2026-11-16), naming a horizontal launch, bodies moving
 # the same way and the situations it never draws; no spring or wave, which no reader confirms
 # (its reviews, 2026-11-16); then no biology presentation hint, biology being out of v1
-# (2026-11-18); then the summary saying it stands for the chat's first messages, so the start
-# of the chat is in it (SUMMARY_SPAN), and a short line's note naming the message and part it
-# follows (FOLLOW_UP_NOTE), the Grade 8 chat, 2026-11-18; then a circuit and a plane mirror
-# described in the same way, no flowchart for a thing or a motion, a motion's graphs in
-# stages, and a reply never writing that a picture is shown or mentioning its block
-# (physics.scene_drawing.contract, Grade 8 round, 2026-11-18); then a ```worked part asked in
-# words, said in `say` lines and answered in one sentence (prompt_constants.worked, G8 round
-# t42, 2026-11-18), and its answer record's value and its substitution left unrounded, the "3
-# significant figures" gone: the server rounds every card by one rule (services.rounding_rule,
-# the owner, 2026-11-18); then each value its own answer record, a vector by its components
-# or its size and direction (prompt_constants.worked, the owner's chat, 2026-11-20).
+# (2026-11-18); then the summary saying it stands for the chat's first messages, so the start of the
+# chat is in it (SUMMARY_SPAN), and a short line's note naming the message and part it follows
+# (FOLLOW_UP_NOTE), the Grade 8 chat, 2026-11-18; then a circuit and a plane mirror described in the
+# same way, no flowchart for a thing or a motion, a motion's graphs in stages, and a reply never
+# writing that a picture is shown or mentioning its block (physics.scene_drawing.contract, Grade 8
+# round, 2026-11-18); then a ```worked part asked in words, said in `say` lines and answered in one
+# sentence (prompt_constants.worked, G8 round t42, 2026-11-18), and its answer record's value and
+# its substitution left unrounded, the "3 significant figures" gone: the server rounds every card by
+# one rule (services.rounding_rule, the owner, 2026-11-18); then a conversation about the user's own
+# life answered as one (an 80-message chat, 2026-11-19): no offer or list in it, no news read as a
+# yes to an offer, a concern said once, a known day not dated again, emoji that fit their line, a
+# safety check asked once and 911 kept for a stated threat (FORMAT_CONTRACT, READER_NOTE,
+# UNCLEAR_MESSAGE_HINT, NO_RECAP_NOTE, the clock block, EMOJI_HINTS, DISTRESS_RULE,
+# PERSONAL_HELP_RULE); then, from its replay, the summary keeping no advice of the assistant's
+# (ASSISTANT_CONCERNS_RULE, SUMMARY_LEAD), advice not tied to each new detail, the safety check
+# asked once in any words and a crisis line kept to its cases, and news never set against the date;
+# then each value its own answer record, a vector by its components or its size and direction
+# (prompt_constants.worked, the owner's chat, 2026-11-20).
 _RULES = 206
-_RULE_GRAMS = 19456
-_RULE_GRAMS_SHA = "c1ddfa924d5487ec"
+_RULE_GRAMS = 19951
+_RULE_GRAMS_SHA = "a3d8a8ce7668c79f"
 
 
 def _rules() -> list[str]:
