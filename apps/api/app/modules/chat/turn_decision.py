@@ -36,7 +36,8 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.core.config import Settings
 from app.models.routing_lanes import ROUTING
-from app.modules.chat.decider_read import NEAR_LIVE_AT, lesson_questions
+from app.modules.chat.decider_read import NEAR_LIVE_AT, RESUME_QUESTION, lesson_questions
+from app.modules.chat.model_routing.thinking import follows_a_cut_off_reply
 from app.modules.chat.quiz_cards import (
     block_end_of_cards,
     last_reply_cards,
@@ -199,6 +200,9 @@ class TurnDecision(BaseModel):
     answers: bool | None = None
     unplaced: bool | None = None
     goes_on: bool | None = None
+    # After a reply cut off before its end, whether the message asks it to go on
+    # (``decider_read.RESUME_QUESTION``). The Decider's alone, asked only then.
+    resumes: bool | None = None
 
     @field_validator("subject", mode="before")
     @classmethod
@@ -469,14 +473,18 @@ def start_turn_decision(
 
 
 def _lesson_questions(recent: list[Any] | None) -> dict[str, dict[str, Any]] | None:
-    """The questions about the last reply's cards and lesson, when it ended on either."""
+    """The questions about the last reply: its cards and lesson, when it ended on either,
+    and whether the message goes on with it, when it was cut off before its end."""
     try:
         cards = last_reply_cards(recent)
         lesson = active_lesson_step(list(recent or [])) is not None
     except Exception as exc:  # A read is a hint: a reply it cannot read asks nothing of it.
         logger.info("lesson questions not built (%s)", type(exc).__name__)
         return None
-    return lesson_questions(cards, lesson=lesson) or None
+    questions = lesson_questions(cards, lesson=lesson)
+    if follows_a_cut_off_reply(recent):
+        questions = {**questions, **RESUME_QUESTION}
+    return questions or None
 
 
 def drop_read(task: asyncio.Task[TurnDecision | None] | None) -> None:

@@ -30,6 +30,7 @@ from app.modules.chat.json_output import JSON_OUTPUT_HINT, is_json_request
 from app.modules.chat.lesson_layout import lesson_contract, steps_contract
 from app.modules.chat.lesson_progress import resumes_course
 from app.modules.chat.message_notes import message_notes
+from app.modules.chat.model_routing.thinking import follows_a_cut_off_reply
 from app.modules.chat.prompt_constants import (
     ADVICE_PERSONALIZE_HINT,
     ASSISTANT_NAME_RULE,
@@ -38,6 +39,7 @@ from app.modules.chat.prompt_constants import (
     CODE_INK_REMINDER,
     CONTINUE_HINT,
     CORRECTION_HINT,
+    CUT_OFF_REPLY_NOTE,
     EXAMPLE_PERSONALIZE_HINT,
     FACT_GROUNDING_HINT,
     LIGHTWEIGHT_REPLY_HINT,
@@ -53,6 +55,7 @@ from app.modules.chat.prompt_constants import (
     UNCLEAR_MESSAGE_HINT,
     is_bare_writing_line,
     learning_plan_contract,
+    many_parts_hint,
     programming_lesson_contract,
     repeated_greeting_hint,
     writing_format_hint,
@@ -84,7 +87,12 @@ from app.modules.chat.prompt_subjects import SUBJECT_HINTS
 from app.modules.chat.turn_prep.saved_place import profile_place
 from app.modules.turn_reading.capabilities import is_capabilities_question, names_a_setting
 from app.modules.turn_reading.conversation import greeting_run, is_correction, is_social_opener
-from app.modules.turn_reading.length import is_brevity_request, reply_length
+from app.modules.turn_reading.length import (
+    MANY_PARTS,
+    asked_parts,
+    is_brevity_request,
+    reply_length,
+)
 from app.modules.turn_reading.lesson_flow import (
     active_lesson_step,
     lesson_after_gap,
@@ -262,6 +270,19 @@ def _resumes(turn: PromptTurn) -> bool:
     if not is_resume_request(turn.query_text) or not _replied(turn):
         return False
     return not (active_lesson_step(turn.exchange) or outline_awaits_pick(turn.exchange))
+
+
+def _after_cut_off(turn: PromptTurn) -> bool:
+    """The reply just before this message ran out of room (``stream_accum`` "interrupted"):
+    the one rule thinking reads too (``follows_a_cut_off_reply``)."""
+    return follows_a_cut_off_reply(turn.exchange)
+
+
+def _many_parts(turn: PromptTurn) -> list[str]:
+    parts = 0 if turn.lightweight else asked_parts(turn.query_text)
+    if parts < MANY_PARTS:
+        return []
+    return [many_parts_hint(parts, turn.settings.max_output_tokens)]
 
 
 def _card_reply(turn: PromptTurn) -> str | None:
@@ -502,6 +523,8 @@ NEARBY_CONTRACTS: tuple[PromptSection, ...] = (
     PromptSection(_after_card, lambda t: _present(_card_reply(t)), name="card_reply"),
     # "continue" resumes the last reply; it does not start over or recap.
     PromptSection(_resumes, lambda _t: [CONTINUE_HINT], name="continue"),
+    # The last reply ran out of room: going on, in any language, picks up where it stopped.
+    PromptSection(_after_cut_off, lambda _t: [CUT_OFF_REPLY_NOTE], name="cut_off_reply"),
     # "no, I said I'm vegetarian": the correction wins over what the last reply assumed.
     PromptSection(
         lambda t: bool(t.query) and _replied(t) and is_correction(t.query),
@@ -518,6 +541,8 @@ NEARBY_CONTRACTS: tuple[PromptSection, ...] = (
     PromptSection(
         lambda t: is_json_request(t.query_text), lambda _t: [JSON_OUTPUT_HINT], name="json_output"
     ),
+    # More asks than one reply holds in full: it says up front which it answers.
+    PromptSection(_always, _many_parts, name="many_parts"),
     # Last, closest to the user turn: what the reply must hold.
     PromptSection(lambda t: t.multi, _multi_part, name="multi_part"),
 )

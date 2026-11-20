@@ -230,10 +230,11 @@
   "prompt": "The temperature of 3 kg of water decreases by 10 °C. c = 4200 J/kg°C. How much heat is released?",
   "expect": "answer",
   "answer": [
-   126000,
+   -126000,
    "J"
   ],
-  "note": "ΔT, look-alike"
+  "note": "ΔT, look-alike; signed: Q = mcΔT with ΔT = final − initial is negative for heat given out (owner, 2026-11-20)",
+  "signed": true
  },
  {
   "id": "r13-peak-to-peak",

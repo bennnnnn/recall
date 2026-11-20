@@ -41,6 +41,16 @@ PHYSICS_SHORT_HINT = (
     "do not claim verification."
 )
 
+# A change is final - initial, and a result keeps the sign its own formula gives: the owner
+# saw a working end at Q = -7700 J under a card of 7700 J (2026-11-20).
+PHYSICS_SIGNS = (
+    "A change is final minus initial ($\\Delta T = T_2 - T_1$), so heat a body gives out "
+    "comes out negative from $Q = mc\\Delta T$. Keep the sign a result's formula gives on "
+    "the Answer, with a word for what it means ($Q = -7700\\,\\mathrm{J}$, released); never "
+    "reorder a formula to make a result positive. A quantity named for its direction (a "
+    "deceleration, how far a body falls) is still a size."
+)
+
 PHYSICS_REPLY_POLICY = (
     "Physics reply policy for this request: For a concrete calculation: "
     f"{PHYSICS_WORKOUT_PROMPT_SHORT} Put each value "
@@ -84,4 +94,4 @@ def physics_prompt_hints(short: bool) -> tuple[str, ...]:
     """The physics pack: the short one in Short style or on a compact turn."""
     if short:
         return (PHYSICS_SHORT_HINT, PHYSICS_NO_SKETCH)
-    return (PHYSICS_INTENT_HINT, PHYSICS_SYMBOLS, PHYSICS_NO_SKETCH)
+    return (PHYSICS_INTENT_HINT, PHYSICS_SYMBOLS, PHYSICS_SIGNS, PHYSICS_NO_SKETCH)

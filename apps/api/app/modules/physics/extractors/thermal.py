@@ -10,6 +10,7 @@ from app.modules.physics.extractors.cues import (
 )
 from app.modules.physics.extractors.school_extensions import blocks_thermal
 from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
+from app.modules.physics.extractors.temperature_fall import falls_by
 from app.modules.physics.extractors.thermal_laws import NAMED_THERMAL_LAWS
 from app.modules.physics.extractors.thermal_readings import (
     _CELSIUS_PATTERN,
@@ -20,6 +21,7 @@ from app.modules.physics.extractors.thermal_readings import (
     _temperature_change,
     _temperature_value,
     reading_scale,
+    temperature_readings,
     temperature_span,
 )
 from app.modules.physics.extractors.unit_patterns import DEGREE_WORD, MASS_UNITS, NUMBER
@@ -186,7 +188,7 @@ def _heat_energy(cleaned: str) -> PhysicsIntent | None:
     elif rise is not None:
         # A temperature *difference* is the same number in kelvin and celsius,
         # so this one does not need the scale an absolute reading does.
-        params["delta_temp"] = rise[0]
+        params["delta_temp"] = _signed_change(cleaned, rise[0])
         units["delta_temp"] = "K"
     return PhysicsIntent(
         kind="thermal",
@@ -195,6 +197,32 @@ def _heat_energy(cleaned: str) -> PhysicsIntent | None:
         physics_units=units,
         operation="solve",
     )
+
+
+# A change in bare degrees: "cools by 10 degrees", "10°" (the bare branch of _heat_energy).
+_BARE_DEGREES = re.compile(rf"({NUMBER})\s*{DEGREE_WORD}(?![A-Za-z0-9])", re.IGNORECASE)
+
+
+def _changes_written(cleaned: str) -> list[tuple[int, int, float]]:
+    """Every value written as a temperature or in bare degrees: its span and its number."""
+    bare = [
+        (match.start(1), match.end(1), float(match.group(1)))
+        for match in _BARE_DEGREES.finditer(cleaned)
+    ]
+    return [*temperature_readings(cleaned), *bare]
+
+
+def _signed_change(cleaned: str, size: float) -> float:
+    """A stated temperature change, final - initial: a fall is negative, so the heat Q =
+    mcΔT it gives out is too, and keeps its sign with "released" (owner, 2026-11-20: "The
+    temperature of 3 kg of water decreases by 10 °C" was +126000 J, read as a rise)."""
+    lower = cleaned.lower()
+    # Only a value written as a temperature: "drops by 10 m and its temperature rises by
+    # 10 °C" is a rise (Codex on #2507).
+    for start, end, value in _changes_written(cleaned):
+        if value == size and falls_by(lower, start, end):
+            return -size
+    return size
 
 
 def _capacity_unit(spelled: str) -> str:

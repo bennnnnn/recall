@@ -53,6 +53,8 @@
   "chat.file_index_failed": "ይህን ፋይል ማውጫ ማድረግ አልተቻለም",
   "chat.file_indexing": "እየተዘጋጀ ነው…",
   "chat.generation_stopped": "መፍጠር ቆሟል።",
+  "chat.reply_cut_off": "ይህ ምላሽ ሳይጨርስ ተቋርጧል።",
+  "chat.continue_reply": "ቀጥል",
   "chat.home.continue": "ካቆሙበት ይቀጥሉ",
   "chat.home.dismiss_reminder": "ማስታወሻ አጥፋ",
   "chat.home.hello": "ሰላም",

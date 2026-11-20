@@ -72,6 +72,14 @@ _TEMPERATURE_READING = re.compile(
 _CHANGE_REACH = 30
 
 
+def temperature_readings(cleaned: str) -> list[tuple[int, int, float]]:
+    """Each value written as a temperature ("10 °C", "300 K"): its span and its number."""
+    return [
+        (match.start(1), match.end(1), float(match.group(1)))
+        for match in _TEMPERATURE_READING.finditer(cleaned)
+    ]
+
+
 def _temperature_change(cleaned: str, keywords: tuple[str, ...]) -> tuple[float, str] | None:
     """A temperature change the words name ("heated by 10 °C"), in kelvin.
 
