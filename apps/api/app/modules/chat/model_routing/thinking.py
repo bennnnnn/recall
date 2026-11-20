@@ -70,6 +70,23 @@ def follows_a_cut_off_reply(rows: Sequence[Any] | None) -> bool:
     return reply is not None and getattr(reply, "completion", None) == "interrupted"
 
 
+def resumes_a_cut_off_reply(
+    content: str | None, rows: Sequence[Any] | None, *, asked: bool | None = None
+) -> bool:
+    """The message goes on with a reply cut off before its end: only that one skips the
+    thinking pass. A new question after a cut (a dropped connection, then "Prove that √2 is
+    irrational") thinks as any turn would (review). ``asked``: the read's answer, in any words
+    or language (``TurnDecision.resumes``); with none, the resume phrases decide
+    (``is_resume_request``: the phone's Continue button sends "Continue")."""
+    if not follows_a_cut_off_reply(rows):
+        return False
+    if asked is not None:
+        return asked
+    from app.modules.chat.continuation_subject import is_resume_request
+
+    return is_resume_request(content)
+
+
 def thinking_level(
     content: str,
     *,
@@ -81,7 +98,7 @@ def thinking_level(
     settings: Settings | None = None,
 ) -> ThinkingLevel:
     """The word rules' thinking level for this turn; escalation needs an answer to dispute.
-    A message in more parts than a reply holds, or one after a reply cut off, never thinks
+    A message in more parts than a reply holds, or one going on with a reply cut off, never thinks
     first, a regenerate included: that thinking is what ran out of room."""
     if resumes_cut_off or not thinks_through_parts(content):
         return "off"

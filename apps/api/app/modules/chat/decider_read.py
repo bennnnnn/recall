@@ -51,6 +51,8 @@ _ASKED_AT = 0.5
 _WORK_AT = 0.5
 # Going on to the next lesson: the yes of a plain yes or no.
 _GOES_ON_AT = 0.5
+# Going on with a reply cut off before its end: the yes of a plain yes or no.
+_RESUMES_AT = 0.5
 # How long the turn's read waits for the work question's call once its own is in: both
 # start together and answer in about 0.33 s. The cards' call is waited for as long as the
 # read's own budget allows (and the reply waits no longer than ``live_read_wait_seconds``
@@ -285,6 +287,23 @@ def lesson_questions(cards: Sequence[PracticeCard], *, lesson: bool) -> dict[str
     return questions
 
 
+# Asked when the last reply was cut off before its end (``model_routing.thinking``): going
+# on writes the rest with no thinking pass, and anything else is a turn of its own.
+RESUME_QUESTION: Mapping[str, dict[str, Any]] = MappingProxyType(
+    {
+        "resumes": {
+            "type": "noul",
+            "instructions": (
+                "The assistant's last reply was cut off before it finished. Does the user's "
+                "last message ask it to go on with that reply, in any words or language "
+                "(continue, go on, keep going, finish it, and the rest?)? Not a new question "
+                "or request, a question about what the reply said, or a correction of it."
+            ),
+        }
+    }
+)
+
+
 def _picks(answers: dict[str, Any]) -> list[str] | None:
     """Each card's chosen option ("a", "other", "none"), in order; None when not asked."""
     picks = [
@@ -348,6 +367,7 @@ def decision_fields(answers: dict[str, Any], *, has_earlier: bool) -> dict[str, 
         "answers": _yes(get("answers", "noul"), _ANSWERS_AT),
         "unplaced": _yes(get("unplaced", "noul"), _UNPLACED_AT),
         "goes_on": _yes(get("goes_on", "noul"), _GOES_ON_AT),
+        "resumes": _yes(get("resumes", "noul"), _RESUMES_AT),
     }
 
 

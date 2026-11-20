@@ -252,6 +252,62 @@ async def test_going_on_after_a_cut_off_reply_writes_the_rest_without_thinking()
     assert ctx.thinking == "deep"
 
 
+def _cut_off_rows() -> list[Any]:
+    cut = SimpleNamespace(
+        role="assistant", content="**6.** The asymmetry", completion="interrupted"
+    )
+    return [SimpleNamespace(role="user", content=_TWENTY_PARTS, completion=None), cut]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "line, resumes, thinking",
+    [
+        # A new question after a cut (a dropped connection) thinks as any turn would.
+        ("Should we hire two juniors or one senior?", None, "deep"),
+        ("Should we hire two juniors or one senior?", False, "deep"),
+        # Going on, in any words or language, as the read says; with no answer, the phrases.
+        ("Weiter bitte", True, "off"),
+        ("Continue", None, "off"),
+        # The read decides over the phrases.
+        ("Continue", False, "deep"),
+    ],
+)
+async def test_only_going_on_with_a_cut_off_reply_skips_thinking(
+    line: str, resumes: bool | None, thinking: str
+) -> None:
+    """Claude on #2496: any message after a cut-off reply lost its thinking pass."""
+    read = _read("everyday", True, True).model_copy(update={"resumes": resumes})
+    ctx = _turn(line, read, recent_messages=_cut_off_rows())
+    await decide_from_the_read(ctx, _SETTINGS)
+    assert ctx.thinking == thinking
+
+
+def test_the_word_rules_skip_thinking_only_for_a_resume_after_a_cut() -> None:
+    from app.modules.chat.model_routing.thinking import resumes_a_cut_off_reply
+
+    rows = _cut_off_rows()
+    assert resumes_a_cut_off_reply("Continue", rows)
+    assert resumes_a_cut_off_reply("keep going", rows)
+    assert not resumes_a_cut_off_reply("Prove that the square root of 2 is irrational", rows)
+    assert not resumes_a_cut_off_reply("Continue", rows[:1])
+
+
+def test_the_read_asks_whether_the_message_goes_on_only_after_a_cut() -> None:
+    from app.modules.chat.decider_read import decision_fields
+    from app.modules.chat.turn_decision import _lesson_questions
+
+    assert "resumes" in (_lesson_questions(_cut_off_rows()) or {})
+    assert _lesson_questions(_cut_off_rows()[:1]) is None
+    base = {
+        "subject": {"choice": "everyday"},
+        **{name: {"noul": 0.0} for name in ("think", "hard", "live", "asked")},
+    }
+    assert (decision_fields(base, has_earlier=True) or {})["resumes"] is None
+    asked = {**base, "resumes": {"noul": 0.9}}
+    assert (decision_fields(asked, has_earlier=True) or {})["resumes"] is True
+
+
 @pytest.mark.asyncio
 async def test_an_easy_question_answers_at_once() -> None:
     """E21, a packing list: the check-up thought 4.5 s on it."""
