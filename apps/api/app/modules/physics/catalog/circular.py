@@ -15,6 +15,15 @@ _VERTICAL_CIRCLE = (
     "loop",
 )
 
+# Level with the centre of a vertical circle, where the string is horizontal.
+_SIDE = (
+    "halfway",
+    "level with the centre",
+    "level with the center",
+    "string is horizontal",
+    "rope is horizontal",
+)
+
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
@@ -257,7 +266,57 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("newton",),
             inputs=(frozenset({"m", "v", "r", "g"}),),
             cues=("at the bottom", "lowest point"),
-            excludes=("at the top", "highest point", "horizontal"),
+            # Each place's law rules the others' places out (``place_parts``).
+            excludes=("at the top", "highest point", "horizontal", *_SIDE),
+            nonnegative=True,
+        ),
+    ),
+    # At the top the weight does part of the turning, so the string pulls less. A speed
+    # below √(rg) leaves the string slack: no tension of a negative size is any answer.
+    formula(
+        "vertical_circle_tension_top",
+        "circular",
+        "Circular motion in a vertical circle",
+        "T",
+        base_latex=r"T = m\left(\frac{v^2}{r} - g\right)",
+        assumptions=("at the highest point, where the centre is straight below",),
+        expression="m*(v**2/r - g)",
+        variables=(
+            var("m", "m", "kilogram"),
+            var("v", "v", "meter / second"),
+            var("r", "r", "meter"),
+            _G,
+        ),
+        binding=Binding(
+            asks=("tension",),
+            result=("newton",),
+            inputs=(frozenset({"m", "v", "r", "g"}),),
+            cues=("at the top", "highest point"),
+            excludes=("at the bottom", "lowest point", "horizontal", "hump", "hill", *_SIDE),
+            nonnegative=True,
+        ),
+    ),
+    # Level with the centre the string is horizontal: the weight is along the path, so the
+    # string alone turns the body, T = mv²/r, however fast it goes.
+    formula(
+        "vertical_circle_tension_side",
+        "circular",
+        "Circular motion in a vertical circle",
+        "T",
+        base_latex=r"T = \frac{m v^2}{r}",
+        assumptions=("level with the centre, where the string is horizontal",),
+        expression="m*v**2/r",
+        variables=(
+            var("m", "m", "kilogram"),
+            var("v", "v", "meter / second"),
+            var("r", "r", "meter"),
+        ),
+        binding=Binding(
+            asks=("tension",),
+            result=("newton",),
+            inputs=(frozenset({"m", "v", "r"}),),
+            cues=_SIDE,
+            excludes=("at the top", "at the bottom", "highest point", "lowest point"),
             nonnegative=True,
         ),
     ),

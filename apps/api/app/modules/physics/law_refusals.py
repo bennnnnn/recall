@@ -20,6 +20,8 @@ Each is a question the law does not describe, whichever reader filled it:
   amplitude;
 - a diverging lens's law for a lens not called diverging, or an ask that is not its own
   ("the power of the lens" was 16.7 cm, review 2026-11-13);
+- a law of one place of a vertical circle, in a question that names another place and
+  never says the speed is steady: the speed is the other place's (``place_laws``);
 - a clause that scales a stated value: "amplitude 0.1 m and period 2 s. If the amplitude is
   doubled, what is its maximum speed?" answered for 0.1 m, 0.314 m/s for 0.628.
 """
@@ -33,6 +35,7 @@ from app.modules.physics.catalog.lens import DIVERGING_LENS_LAWS
 from app.modules.physics.decay_share import ASKED_GONE_MARKER, asked_share
 from app.modules.physics.givens import PHYSICS_UNITS
 from app.modules.physics.motion import read_motion
+from app.modules.physics.place_laws import names_another_place
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.si import params_in_si
 from app.services.law_binding.domains import outside_domain
@@ -90,6 +93,7 @@ def refuses(spec: FormulaSpec, intent: PhysicsIntent, text: str, *, chained: boo
         or _starts_where_it_gets_to(spec, intent, text)
         or (spec.kind in _MOTION_KINDS and _uses_gravity(spec) and air_resistance_acts(lower))
         or (spec.kind == "suvat" and holds_its_speed(lower))
+        or (names_another_place(spec, lower) and not holds_its_speed(lower))
         or (_gives_what_is_left(spec) and asked_share(text) in ("gone", "unsaid"))
         or _scales_a_given(lower)
         or (_a_wave_speed(spec) and _asks_of_the_medium(text))

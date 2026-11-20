@@ -11,6 +11,7 @@ from app.modules.physics.block import _build_physics_block
 from app.modules.physics.chain_solve import solve_chain
 from app.modules.physics.extract import extract_physics_intent, needs_physics
 from app.modules.physics.parts import answers_part_of, asks_count
+from app.modules.physics.place_parts import solve_at_places
 from app.modules.physics.reply_policy import PHYSICS_PARTIAL_POLICY, PHYSICS_REPLY_POLICY
 from app.modules.physics.split_parts import solve_in_parts
 from app.services.latex_markup import without_markup
@@ -164,11 +165,11 @@ def _answers_a_meeting(block: VerifiedPhysicsBlock, user_content: str) -> bool:
 def _more_answered(
     block: VerifiedPhysicsBlock | None, user_content: str, settings: Settings
 ) -> VerifiedPhysicsBlock | None:
-    """The first of the chain and the part-by-part solve that answers more of the question
-    than ``block``: any answer where there was none, else more parts. The same question
-    answered again by another law keeps the first answer."""
+    """The first of the chain, the part-by-part and the place-by-place solve that answers
+    more of the question than ``block``: any answer where there was none, else more parts.
+    The same question answered again by another law keeps the first answer."""
     answered = 0 if block is None else max(len(block.physics_parts), 1)
-    for solve in (solve_chain, solve_in_parts):
+    for solve in (solve_chain, solve_in_parts, solve_at_places):
         found = solve(user_content, settings)
         if found is not None and max(len(found.physics_parts), 1) > answered:
             return found

@@ -56,3 +56,47 @@ def test_the_precision_the_question_asks_wins(asked: str, value: float, shown: s
 
 def test_no_ask_is_the_rule() -> None:
     assert asked_precision("How far does it go?") == Precision()
+
+
+@pytest.mark.parametrize(
+    ("said", "precision"),
+    [
+        ("1 digit", Precision(places=1)),  # the owner's chat: after 3.13 m/s, 3.1 m/s
+        ("one digit", Precision(places=1)),
+        ("2 sig figs", Precision(figures=2)),
+        ("round it to 1 dp", Precision(places=1)),
+        ("to 3 decimal places please", Precision(places=3)),
+        ("what about 2 digits?", Precision(places=2)),
+        ("make it 1 decimal", Precision(places=1)),
+        ("and to 3 s.f.?", Precision(figures=3)),
+        ("no rounding", Precision(unrounded=True)),
+        ("ok 2 dp", Precision(places=2)),
+        ("can you do 3 sig figs", Precision(figures=3)),
+        ("to the nearest whole number", Precision(places=0)),
+    ],
+)
+def test_a_precision_said_alone(said: str, precision: Precision) -> None:
+    from app.services.rounding_rule import precision_only
+
+    assert precision_only(said) == precision
+    assert asked_precision(said) == precision
+
+
+@pytest.mark.parametrize(
+    "said",
+    [
+        "Explain 2 sig figs",
+        "why 1 digit?",
+        "what does 2 dp mean?",
+        "give me a 3 digit number",
+        "Round 3.456 to 1 dp",
+        "is 2 sig figs enough?",
+        "A 2 digit number has digits that add up to 9. Find it.",
+        "How far does it go?",
+        "exact answer",  # √2, never its decimal
+    ],
+)
+def test_a_message_that_asks_more_than_a_precision(said: str) -> None:
+    from app.services.rounding_rule import precision_only
+
+    assert precision_only(said) is None
