@@ -101,9 +101,13 @@ def _joined_asks(text: str) -> int:
 
 def asks_count(text: str) -> int:
     """How many things the text asks for: labelled parts, questions, joined quantities,
-    joined questions, or the quantities every asked clause names (``ask.asks``)."""
+    joined questions, the quantities every asked clause names (``ask.asks``), or the places
+    one quantity is asked at (``place_parts``)."""
+    from app.modules.physics.place_parts import asked_places
+
     return max(
         labelled_parts(text),
+        asked_places(text),
         _question_sentences(text),
         _joined_quantities(text),
         _joined_asks(text),

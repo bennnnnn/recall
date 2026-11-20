@@ -46,6 +46,8 @@ _WRITTEN = re.compile(
 # Left as written: money, a decimal comma, a pH, pOH or pK.
 _KEPT = re.compile(r"\\\$|[€£¥]|\{,\}|\bp(?:H|OH|K[ab]?)\b")
 _INLINE_MATHS = re.compile(r"\$([^$\n]+)\$")
+# A line that is a bold heading alone, in any language: "**Answer (b)**".
+_BOLD_LINE = re.compile(r"\*\*[^*\n]+\*\*")
 
 
 def format_card_numbers(state: FinalizeState) -> str:
@@ -68,6 +70,74 @@ def card_numbers(text: str, precision: Precision) -> str:
     for start, end, body in reversed(changes):
         text = text[:start] + body + text[end:]
     return text
+
+
+def cards_again(text: str, precision: Precision) -> list[tuple[str, str]] | None:
+    """Every answer card of ``text`` again, its numbers in ``precision``, each with the Answer
+    heading above it ("**Answer (b)**", "" for none): a precision-only follow-up ("1 digit")
+    shows the cards of the reply before it once more, rounded as asked.
+
+    None when a card cannot show it honestly: a number known to fewer places or figures than
+    asked (a card of 3.13 with no working above it is no 3.130), one the precision would show
+    as no figure at all (0.0456 A to one place is no 0.0 A), or one the rule leaves as
+    written (an expression, a fraction, a sum of money, a pH).
+    """
+    cards: list[tuple[str, str]] = []
+    previous = 0
+    for fence in iter_fences(text):
+        if not fence.closed or fence.lang not in ANSWER_FENCE_LANGS:
+            continue
+        above, previous = text[previous : fence.start], fence.end
+        body = text[fence.body_start : fence.body_end]
+        shown = _shown(body, above, precision)
+        if shown is None or not _known_to(body, above, precision):
+            return None
+        card = text[fence.start : fence.body_start] + shown + text[fence.body_end : fence.end]
+        cards.append((_heading_above(above), card.strip()))
+    return cards or None
+
+
+def _heading_above(above: str) -> str:
+    """The heading right above a card, as written: "**Answer (b)**", "**Respuesta**"."""
+    lines = [line for line in above.strip().split("\n") if line.strip()]
+    return lines[-1].strip() if lines and _BOLD_LINE.fullmatch(lines[-1].strip()) else ""
+
+
+def _known_to(body: str, above: str, precision: Precision) -> bool:
+    """Each number the card shows is known to the precision asked: the working's value
+    unrounded, or the card's own, has as many places or figures."""
+    read = read_verified_value(body)
+    if read is None:
+        return False
+    worked = _unrounded(read.numbers[0], above) if len(read.numbers) == 1 else None
+    known = [worked] if worked is not None else list(read.numbers)
+    if precision.unrounded:
+        return worked is not None
+    if len(known) == 1 and _exactly_whole(known[0], above):
+        return True  # T = 75 N, worked to 75 N: 75.0 N is no figure it lacks
+    return all(_holds(number, precision) for number in known)
+
+
+def _exactly_whole(card: Number, above: str) -> bool:
+    """A whole card the working above it reached as the same whole number."""
+    worked = _worked(above)
+    return (
+        card.places == 0
+        and worked is not None
+        and worked.places == 0
+        and worked.unit == card.unit
+        and worked.value == card.value
+    )
+
+
+def _holds(number: Number, precision: Precision) -> bool:
+    if number.places is None:
+        return False
+    if precision.places >= 0:
+        shown = round_places(number.value, precision.places)
+        return number.places >= precision.places and (shown != 0 or number.value == 0)
+    written = format(round_places(number.value, number.places), "f")
+    return _figures(written.lstrip("-")) >= precision.figures
 
 
 def _shown(body: str, above: str, precision: Precision) -> str | None:
@@ -120,26 +190,42 @@ def _no_new_figures(match: re.Match[str], number: Number, precision: Precision) 
     return Precision(figures=written) if _figures(mantissa) > written else precision
 
 
+def _measured(unit: str) -> bool:
+    """A unit of measure (N, m/s, g, kPa): a value in it is no count of things."""
+    from app.services.law_binding.units import dimension_of
+
+    kind = dimension_of(unit) if unit else None
+    return kind is not None and kind != "dimensionless"
+
+
 def _money(unit: str) -> bool:
     from app.services.subjects.registry import MONEY
 
     return bool(unit) and MONEY.names_currency(unit)
 
 
-def _unrounded(card: Number, above: str) -> Number | None:
-    """The value the working above the card reached, when the card's value is a rounding
-    of it in the same unit: its last line of maths, the side after its last "="."""
+def _worked(above: str) -> Number | None:
+    """The one value the working above a card ends on: its last line of maths, the side
+    after its last "="."""
     lines = _INLINE_MATHS.findall(above)
     if not lines or "=" not in lines[-1]:
         return None
     read = read_verified_value(lines[-1].rsplit("=", 1)[1])
-    if read is None or len(read.numbers) != 1:
+    return None if read is None or len(read.numbers) != 1 else read.numbers[0]
+
+
+def _unrounded(card: Number, above: str) -> Number | None:
+    """The value the working above the card reached, when the card's value is a rounding
+    of it in the same unit."""
+    worked = _worked(above)
+    if worked is None:
         return None
-    worked = read.numbers[0]
-    # A whole card ("3" buses for 2.67, "816" for 816.33) may be a count rounded up or
-    # down as the question needs: only a card with decimals, or in powers of ten, is
-    # known to be a rounding of its working (review).
-    if worked.places is None or worked.unit != card.unit or card.places in (None, 0):
+    # A whole card ("3" buses for 2.67) may be a count rounded up or down as the question
+    # needs (review); a whole card in a unit of measure is a rounding of its working: the
+    # tension at the bottom carded 104 N beside the top's 45.57 N (2026-11-20).
+    if worked.places is None or worked.unit != card.unit or card.places is None:
+        return None
+    if card.places == 0 and not _measured(card.unit):
         return None
     if round_places(worked.value, card.places) != round_places(card.value, card.places):
         return None
