@@ -239,6 +239,10 @@ _PLAIN_ANSWER = re.compile(
 )
 
 
+# A negative answer with its sign's word after it: "-7700 J (released)".
+_WORDED_SIGN = re.compile(r"\([A-Za-z][^()]*\)\s*$")
+
+
 def _claim_line(verified: VerifiedPhysicsBlock, user_text: str) -> str | None:
     """Whether the student's stated result matches the verified one, in one line."""
     match = _PLAIN_ANSWER.match(verified.canonical_answer or "")
@@ -247,7 +251,8 @@ def _claim_line(verified: VerifiedPhysicsBlock, user_text: str) -> str | None:
     value = float(match.group("number"))
     if match.group("power"):
         value *= 10.0 ** int(match.group("power").translate(_SUPERSCRIPT_DIGITS))
-    return claim_verdict(user_text, value, match.group("unit"))
+    worded = value < 0 and _WORDED_SIGN.search(verified.canonical_answer or "") is not None
+    return claim_verdict(user_text, value, match.group("unit"), worded_sign=worded)
 
 
 def _solver_fences(verified: VerifiedPhysicsBlock) -> list[dict[str, Any]]:

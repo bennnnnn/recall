@@ -110,10 +110,12 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # UNCLEAR_MESSAGE_HINT, NO_RECAP_NOTE, the clock block, EMOJI_HINTS, DISTRESS_RULE,
 # PERSONAL_HELP_RULE); then, from its replay, the summary keeping no advice of the assistant's
 # (ASSISTANT_CONCERNS_RULE, SUMMARY_LEAD), advice not tied to each new detail, the safety check
-# asked once in any words and a crisis line kept to its cases, and news never set against the date.
-_RULES = 206
-_RULE_GRAMS = 19913
-_RULE_GRAMS_SHA = "5d8337d52c2a92bd"
+# asked once in any words and a crisis line kept to its cases, and news never set against the date;
+# then a physics hint saying a change is final minus initial and a result keeps its formula's sign
+# (PHYSICS_SIGNS, the owner, 2026-11-20).
+_RULES = 207
+_RULE_GRAMS = 19984
+_RULE_GRAMS_SHA = "8649e8c9a04863ed"
 
 
 def _rules() -> list[str]:

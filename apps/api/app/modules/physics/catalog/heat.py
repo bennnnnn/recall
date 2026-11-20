@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.modules.physics.extractors.temperature_fall import falls_by
 from app.services.law_binding.spec import (
     Binding,
     FormulaSpec,
@@ -12,11 +13,24 @@ from app.services.law_binding.spec import (
 )
 
 _LAW = "Specific-heat equation"
+
+
 _RISE = ("by", "rise", "change", "increase", "raised", "heated", "cooled", "difference")
 _HEAT = var("heat", "Q", "joule")
 _MASS = var("m", "m", "kilogram")
 _C = var("c_heat", "c", "joule / kilogram / kelvin", fallback="water_specific_heat")
 _DELTA_TEMP = var("delta_temp", r"\Delta T", "kelvin", words=_RISE, needs_words=True)
+# A change is final - initial: a temperature that falls by 10 °C changes by -10 °C, so the heat
+# Q = mcΔT is negative, released (owner, 2026-11-20). Only Q = mcΔT reads the sign; c or m
+# worked from a stated heat and change are sizes.
+_SIGNED_DELTA_TEMP = var(
+    "delta_temp",
+    r"\Delta T",
+    "kelvin",
+    words=_RISE,
+    needs_words=True,
+    negated=falls_by,
+)
 _LATENT = var("latent_heat", "L", "joule / kilogram")
 _T1 = var("temp_initial", "T_1", "kelvin", words=("from", "initially", "starting at"))
 _T2 = var("temp_final", "T_2", "kelvin", words=("to", "until", "reaches", "final"))
@@ -150,7 +164,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         ),
         variables=(
             _C,
-            _DELTA_TEMP,
+            _SIGNED_DELTA_TEMP,
             _MASS,
             _T1,
             _T2,
@@ -164,6 +178,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             ),
             excludes=("melt", "boil", "freez", "evaporat", "condens", "latent"),
             negative_detail="released",
+            keeps_sign=True,
         ),
     ),
     _heat_law(
