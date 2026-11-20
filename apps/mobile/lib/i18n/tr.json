@@ -53,6 +53,8 @@
   "chat.file_index_failed": "Bu dosya dizinlenemedi",
   "chat.file_indexing": "Dizinleniyor…",
   "chat.generation_stopped": "Üretim durduruldu.",
+  "chat.reply_cut_off": "Bu yanıt bitmeden kesildi.",
+  "chat.continue_reply": "Devam et",
   "chat.home.continue": "Kaldığın yerden devam et",
   "chat.home.dismiss_reminder": "Hatırlatmayı kapat",
   "chat.home.hello": "Merhaba",

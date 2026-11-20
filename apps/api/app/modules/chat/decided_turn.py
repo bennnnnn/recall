@@ -51,6 +51,10 @@ from app.modules.chat.follow_up_read import note_the_follow_up
 from app.modules.chat.json_output import is_json_request
 from app.modules.chat.lesson_again import lesson_again
 from app.modules.chat.model_routing.decided import decided_lane, decided_level, math_backups
+from app.modules.chat.model_routing.thinking import (
+    resumes_a_cut_off_reply,
+    thinks_through_parts,
+)
 from app.modules.chat.prompt_constants.conversation import FOLLOW_NOTES
 from app.modules.chat.prompt_constants.lesson_flow import LESSON_ASIDE_NOTE, lesson_next_contract
 from app.modules.chat.prompt_constants.list_reference import OPTION_PICK_MARK
@@ -251,6 +255,10 @@ def _level(ctx: StreamContext, read: TurnDecision) -> bool | str:
         return ctx.thinking
     if active_lesson_step(ctx.recent_messages) is not None:
         # A lesson under way keeps its steps quick (``route``'s "lesson").
+        return "off"
+    if not thinks_through_parts(ctx.user_message_content) or resumes_a_cut_off_reply(
+        ctx.user_message_content, ctx.recent_messages, asked=read.resumes
+    ):
         return "off"
     return decided_level(read.subject, read.effort or "none")
 

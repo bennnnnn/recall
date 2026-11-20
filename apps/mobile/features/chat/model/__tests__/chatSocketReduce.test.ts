@@ -304,6 +304,27 @@ describe("chatSocketReduce", () => {
     ];
     const next = mergeDoneIntoMessages(prev, input);
     expect(next[0].generationStopped).toBe(true);
+    // The saved ending stays on the reply: its note says it was cut off, and offers Continue.
+    expect(next[0].completion).toBe("interrupted");
+  });
+
+  it("keeps a bubble the user stopped as stopped when the server cut it off first", () => {
+    // Review: Stop crossed the server's length limit; the bubble keeps what the user saw,
+    // and is not "cut off" with a Continue under it.
+    const stopped: Message = {
+      id: "streamed-100", role: "assistant", content: "Part", model: null, created_at: "t",
+      generationStopped: true,
+    };
+    const input = {
+      ...buildDoneMergeInput(
+        { type: "done", message_id: "msg-1", completion: "interrupted" },
+        { content: "Part" },
+      ),
+      stoppedStreamedId: "streamed-100",
+    };
+    const next = mergeDoneIntoMessages([stopped], input);
+    expect(next[0].content).toBe("Part");
+    expect(next[0].completion).toBe("user_stop");
   });
 
   it("does not mark a complete done as generationStopped", () => {
@@ -312,6 +333,10 @@ describe("chatSocketReduce", () => {
       { content: "Full" },
     );
     expect(input.generationStopped).toBe(false);
+    const prev: Message[] = [
+      { id: "streaming", role: "assistant", content: "Full", model: null, created_at: "" },
+    ];
+    expect(mergeDoneIntoMessages(prev, input)[0].completion).toBeUndefined();
   });
 
   it("mergeDoneIntoMessages stores resolved model on assistant message", () => {

@@ -2,6 +2,7 @@ import React from "react";
 import * as Clipboard from "expo-clipboard";
 import { act, fireEvent, render } from "@testing-library/react-native";
 
+import { ClarifyActionsProvider } from "@/components/rich/clarifyContext";
 import { MessageBubble } from "@/features/chat/components/MessageBubble";
 import { readReplyAloud, stopReadingAloud } from "@/features/speech/model/pronunciation";
 import { endReadAloud } from "@/features/speech/model/readAloudSession";
@@ -441,11 +442,67 @@ describe("MessageBubble footer under a cut-short reply", () => {
     [{ generationStopped: true }, "chat.generation_stopped"],
     // Saved with the reply, so a reopened chat still says it was stopped.
     [{ completion: "user_stop" as const }, "chat.generation_stopped"],
-    [{ completion: "interrupted" as const }, "chat.generation_stopped"],
+    // The server cut it off (out of room, or the model failed partway): not the user's Stop.
+    [{ completion: "interrupted" as const }, "chat.reply_cut_off"],
+    [{ generationStopped: true, completion: "interrupted" as const }, "chat.reply_cut_off"],
     [{ replyNotSaved: true }, "chat.reply_not_saved"],
   ])("says what happened to a reply marked %o", async (mark, label) => {
     const view = await render(<MessageBubble message={{ ...assistantMessage, ...mark }} />);
     expect(view.getByText(label)).toBeTruthy();
+  });
+
+  const cutOff = { ...assistantMessage, completion: "interrupted" as const };
+
+  function inChat(ui: React.ReactElement, send: (text: string) => Promise<boolean>, busy = false) {
+    return <ClarifyActionsProvider send={send} busy={busy}>{ui}</ClarifyActionsProvider>;
+  }
+
+  it("offers Continue under the newest cut-off reply, sent as the user's message", async () => {
+    const send = jest.fn(async () => true);
+    const view = await render(inChat(<MessageBubble message={cutOff} isLastAssistant />, send));
+    await act(async () => {
+      fireEvent.press(view.getByTestId("reply-continue"));
+    });
+    expect(send).toHaveBeenCalledWith("chat.continue_reply");
+    // Sent once: the button goes.
+    expect(view.queryByTestId("reply-continue")).toBeNull();
+  });
+
+  it.each([
+    ["refused (offline)", async () => false],
+    ["failed", async (): Promise<boolean> => Promise.reject(new Error("socket"))],
+  ])("keeps Continue when the send was %s", async (_label, refuse) => {
+    const send = jest.fn(refuse);
+    const view = await render(inChat(<MessageBubble message={cutOff} isLastAssistant />, send));
+    await act(async () => {
+      fireEvent.press(view.getByTestId("reply-continue"));
+    });
+    expect(view.getByTestId("reply-continue")).toBeTruthy();
+  });
+
+  it.each([
+    ["an older reply", cutOff, false],
+    ["a reply the user stopped", { ...assistantMessage, completion: "user_stop" as const }, true],
+  ])("offers no Continue under %s", async (_label, message, latest) => {
+    const send = jest.fn(async () => true);
+    const view = await render(
+      inChat(<MessageBubble message={message} isLastAssistant={latest} />, send),
+    );
+    expect(view.queryByTestId("reply-continue")).toBeNull();
+  });
+
+  it("offers no Continue once a message was sent after the reply", async () => {
+    const send = jest.fn(async () => true);
+    const view = await render(
+      inChat(<MessageBubble message={cutOff} isLastAssistant nextUserText="Continue" />, send),
+    );
+    expect(view.queryByTestId("reply-continue")).toBeNull();
+    expect(view.getByText("chat.reply_cut_off")).toBeTruthy();
+  });
+
+  it("offers no Continue outside a chat (no send path)", async () => {
+    const view = await render(<MessageBubble message={cutOff} isLastAssistant />);
+    expect(view.queryByTestId("reply-continue")).toBeNull();
   });
 
   it("says nothing under a whole, saved reply", async () => {
