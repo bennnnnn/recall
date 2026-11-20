@@ -18,6 +18,9 @@ _G_UNIT = (
     r"(?:m|cm|ft)\s*/\s*s\s*(?:\^\s*\{?2\}?|\u00b2|2)?|(?:m|ft)\s*s\s*(?:\^\s*\{?-2\}?|\u207b\u00b2)"
     r"|N\s*/\s*kg|N\s*kg\s*(?:\^\s*\{?-1\}?|\u207b\u00b9)"
 )
+# How a stated g is joined to its value: "is", "equals", "is equal to", "of", "=". "the
+# acceleration due to gravity is equal to 1.63 m/s2" was read as no g (g7-047, #2491).
+_IS = r"(?:of|=|equals?|equal\s+to|(?:is|was)(?:\s+equal\s+to)?)"
 # A g the question states, its number the first group: "g = 1.62", "gravity of 3.7", "the
 # acceleration due to gravity is 9.8", "a gravitational acceleration of 3.7", "free-fall
 # acceleration of 9.8", and one named after its value: "take 10 m/s² for g", "Taking 10 m/s²
@@ -25,13 +28,11 @@ _G_UNIT = (
 _STATED_G = (
     # "g = 10", "g ≈ 9.8", "g: 9.81", "take g as 10 m/s²", "g is 9.8", "g of 1.62", "g to be
     # 10" (Claude on #2491: "Take g as 10 m/s²" was dropped, 19.6 N for 20 N).
-    re.compile(
-        rf"\bg\s*(?:=|\u2248|~|:|\bas\b|\bis\b|\bof\b|\bto\s+be\b)\s*{_NUMBER}", re.IGNORECASE
-    ),
-    re.compile(rf"\bgravity\s*(?:of|is|=)?\s*{_NUMBER}", re.IGNORECASE),
+    re.compile(rf"\bg\s*(?:{_IS}|\u2248|~|:|\bas\b|\bto\s+be\b)\s*{_NUMBER}", re.IGNORECASE),
+    re.compile(rf"\bgravity\s*{_IS}?\s*{_NUMBER}", re.IGNORECASE),
     re.compile(
         rf"\b(?:gravitational|free[\s-]?fall)\s+(?:acceleration|field(?:\s+strength)?)"
-        rf"\s*(?:of|is|=)?\s*{_NUMBER}",
+        rf"\s*{_IS}?\s*{_NUMBER}",
         re.IGNORECASE,
     ),
     re.compile(

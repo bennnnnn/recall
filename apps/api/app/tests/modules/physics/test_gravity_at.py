@@ -29,6 +29,11 @@ from app.modules.physics.extractors.surface_gravity import (
         ("Here g is 9.8 m/s².", "9.8", True),
         ("g: 9.81 m/s²", "9.81", True),
         ("Take g to be 10 m/s².", "10", True),
+        # Joined by "is equal to" or "equals" (g7-047: no g, the weight declined).
+        ("On the moon, whose acceleration due to gravity is equal to 1.63 m/s2.", "1.63", True),
+        ("The acceleration due to gravity equals 3.7 m/s².", "3.7", True),
+        ("Here g is equal to 9.8 m/s².", "9.8", True),
+        ("A gravitational acceleration equal to 4 m/s².", "4", True),
         # The number right before the label, never an earlier one (Gemini on #2491).
         ("A block with \u03bc = 0.5 slides (10 N/kg for g).", "10", True),
         ("A block with \u03bc = 0.5 slides (10 N/kg for g).", "0.5", False),
@@ -78,3 +83,34 @@ def test_stated_gravity_spans_cover_label_value_and_unit() -> None:
     assert [text[start:end] for start, end in stated_gravity_spans(text)] == ["10 m/s^2 for g"]
     text = "Here g = 9.8 m/s^2 and a 500 g ball."
     assert [text[start:end] for start, end in stated_gravity_spans(text)] == ["g = 9.8 m/s^2"]
+
+
+def _weight(text: str) -> str | None:
+    from app.core.config import Settings
+    from app.modules.physics import build_verified_physics_block, extract_physics_intent
+
+    intent = extract_physics_intent(text)
+    if intent is None:
+        return None
+    block = build_verified_physics_block(intent, Settings(math_tools_enabled=True))
+    return None if block is None else block.canonical_answer
+
+
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        # A world's "acceleration due to gravity" is its g, whatever owns it (g7-047).
+        (
+            "How much does a 100 kg body weight on the surface of the moon whose acceleration "
+            "due to gravity is equal to 1.63 m/s2?",
+            "163 N",
+        ),
+        (
+            "What is the weight of a 100 kg body on Mars whose acceleration due to gravity "
+            "is 3.7 m/s2?",
+            "370 N",
+        ),
+    ],
+)
+def test_a_worlds_acceleration_due_to_gravity_is_its_g(text: str, answer: str) -> None:
+    assert _weight(text) == answer

@@ -359,11 +359,12 @@ _RETARDED = re.compile(r"\b(?:brak\w*|decelerat\w*|retard\w*|thrust\w*|engines?)
 # "with acceleration", "the rover's acceleration"). Only "the acceleration" alone, or a
 # gravitational one, is the world's ("on Jupiter, where the acceleration is 24.8 m/s²").
 # A rocket "launched with an upward acceleration of 15 m/s²" certified mgh with g = 15
-# (Gemini and Claude on #2491).
+# (Gemini and Claude on #2491). A world's "acceleration due to gravity" is never a body's own,
+# whatever owns it: "the moon whose acceleration due to gravity is 1.63 m/s2" (g7-047).
 _DRIVEN = re.compile(
     r"\baccelerat(?:es|ed|ing)\b|\bspeeds?\s+up\b"
     r"|\bacceleration\s+of\s+(?:the|a|an|its|his|her|their)\b"
-    r"|(?<![\w'\u2019])(?!the\b|gravit)[\w'\u2019]+\s+acceleration\b",
+    r"|(?<![\w'\u2019])(?!the\b|gravit)[\w'\u2019]+\s+acceleration\b(?!\s+due\s+to\s+gravit)",
     re.IGNORECASE,
 )
 # An acceleration named right after its value's unit: "a 15 m/s² acceleration".
