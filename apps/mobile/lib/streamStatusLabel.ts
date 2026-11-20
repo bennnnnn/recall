@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { TFunction } from "i18next";
+import type { Translate } from "@/lib/i18n/translate";
 
 const MAX_VARIANTS = 6;
 const STREAM_STATUS_ROTATE_MS = 3200;
@@ -52,7 +52,7 @@ export function phaseStartedAt(
  * "Checking the answer…". Null while a progress phase is under a second old, and
  * for the theater phases; any other phase reads as its own label.
  */
-export function progressStreamLabel(t: TFunction, phase: string, elapsedMs: number): string | null {
+export function progressStreamLabel(t: Translate, phase: string, elapsedMs: number): string | null {
   if (!PROGRESS_STREAM_PHASES.has(phase)) {
     return streamStatusLabels(t, phase)[0] ?? null;
   }
@@ -78,7 +78,7 @@ export function clipStreamStatusDetail(detail: string): string {
  * `<phase>_detail` template exists, that label leads the rotation.
  */
 export function streamStatusLabels(
-  t: TFunction,
+  t: Translate,
   phase: string,
   detail?: string,
 ): string[] {
@@ -145,7 +145,7 @@ export function initialStreamStatusTick(
 export function useRotatingStreamStatus(
   phase: string | undefined,
   enabled: boolean,
-  t: TFunction,
+  t: Translate,
   detail?: string,
 ): string | null {
   const labels = useMemo(

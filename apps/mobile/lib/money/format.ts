@@ -4,8 +4,7 @@
  */
 
 import type { ValueFormat } from "@/lib/money/calculator";
-
-type Translate = (key: string, options?: Record<string, unknown>) => string;
+import type { Translate } from "@/lib/i18n/translate";
 
 type FormatContext = {
   /** The app's language ("en", "de"); Intl falls back to English when it has no data. */

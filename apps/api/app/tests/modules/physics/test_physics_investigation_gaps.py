@@ -494,13 +494,14 @@ def test_meeting_time_reads_when_do_they_meet() -> None:
 @pytest.mark.parametrize(
     ("text", "operation", "value", "unit"),
     [
-        # The asked body's mass names it; it is not a third mass.
+        # The asked body's mass names it; it is not a third mass. Its answer alone, never
+        # the 2 kg ball's -2 m/s beside it (Gemini on #2491).
         (
             "a 2 kg ball moving at 6 m/s hits a stationary 4 kg ball head-on in a perfectly "
             "elastic collision. what is the velocity of the 4 kg ball after?",
             "final_velocity",
-            -2.0,
-            "m/s and 4 m/s",
+            4.0,
+            "m/s",
         ),
         (
             "A 1500 kg car going 20 m/s rear-ends a 1000 kg car going 10 m/s in the same "

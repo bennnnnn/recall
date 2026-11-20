@@ -60,7 +60,7 @@ from app.modules.chat.prompt_constants import (
     repeated_greeting_hint,
     writing_format_hint,
 )
-from app.modules.chat.prompt_constants.conversation import SUMMARY_LEAD
+from app.modules.chat.prompt_constants.conversation import summary_lead
 from app.modules.chat.prompt_constants.multi_part import multi_part_contract
 from app.modules.chat.prompt_constants.practice import practice_asked_notes
 from app.modules.chat.prompt_constants.reactions import clock_is_relevant
@@ -155,6 +155,8 @@ class PromptTurn:
     # The message carries its own file or photo: "the pdf I attached" names it, not the past.
     holds_attachment: bool = False
     asked_practice: tuple[str, ...] = ()  # what the chat's practice cards already asked
+    # How many of the chat's first messages ``summary`` stands for.
+    summarized: int = 0
 
     @property
     def query(self) -> str:
@@ -395,7 +397,9 @@ TURN_SECTIONS: tuple[PromptSection, ...] = (
     # "Summarize today" once listed only the last 6 of a 100-turn chat's topics (2026-11-07).
     PromptSection(
         lambda t: bool(t.summary),
-        lambda t: [wrap_untrusted("conversation summary", f"{SUMMARY_LEAD}\n{t.summary}")],
+        lambda t: [
+            wrap_untrusted("conversation summary", f"{summary_lead(t.summarized)}\n{t.summary}")
+        ],
         name="summary",
     ),
 )

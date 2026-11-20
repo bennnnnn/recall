@@ -1,4 +1,4 @@
-import type { TFunction } from "i18next";
+import type { Translate } from "@/lib/i18n/translate";
 
 import {
   clipStreamStatusDetail,
@@ -32,7 +32,7 @@ const t = ((key: string, options?: { detail?: string; seconds?: number }) => {
   return raw
     .replace("{{detail}}", options?.detail ?? "{{detail}}")
     .replace("{{seconds}}", String(options?.seconds ?? "{{seconds}}"));
-}) as TFunction;
+}) as Translate;
 
 describe("streamStatusLabels", () => {
   it("collects base and numbered variants", () => {

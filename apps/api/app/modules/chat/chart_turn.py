@@ -19,6 +19,7 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from app.core.config import Settings
+from app.modules.charts.answers import answer_values, chart_of_answers
 from app.modules.charts.model_chart import model_chart_kind, model_chart_request
 from app.modules.charts.read import MAX_DATA_CHARS, chart_from_request, draw_chart
 from app.modules.chat.chart_bodies import parse_chart_body
@@ -85,12 +86,13 @@ async def _drawn(task: asyncio.Task[str | None], settings: Settings) -> str | No
     return task.result()
 
 
-def placed_charts(text: str, drawn: str | None, data: str) -> str:
+def placed_charts(text: str, drawn: str | None, data: str, answers: Sequence[float] = ()) -> str:
     """The reply with its charts of the four kinds settled. With the server's chart, it takes
     the first one's place and the others go. Without it, a model chart read here (a temporal
     axis and a Chart.js body are read) is rebuilt from its numbers when they hold and taken
     out when they do not; one of several series is not read, so not judged, and stays, as
-    a chart of another kind (a scatter, a box plot) does."""
+    a chart of another kind (a scatter, a box plot) does. A model chart of exactly the
+    reply before's ``answers`` (its cards' numbers) holds too (``charts.answers``)."""
     pieces: list[str] = []
     cursor = 0
     placed = False
@@ -109,7 +111,9 @@ def placed_charts(text: str, drawn: str | None, data: str) -> str:
         elif request is None:
             continue  # several series: not read here, so not judged (as a scatter is not)
         else:
-            replacement = chart_from_request(request, data) or ""
+            replacement = (
+                chart_from_request(request, data) or chart_of_answers(request, data, answers) or ""
+            )
         pieces.append(text[cursor : fence.start])
         pieces.append(replacement)
         cursor = fence.end
@@ -118,6 +122,13 @@ def placed_charts(text: str, drawn: str | None, data: str) -> str:
     if drawn is not None and not placed:
         out = f"{out.rstrip()}\n\n{drawn}\n" if out.strip() else f"{drawn}\n"
     return out
+
+
+def _answers_before(ctx: StreamContext) -> list[float]:
+    """The numbers on the answer cards of the reply before this turn."""
+    pairs = exchange_pairs(ctx.recent_messages or [])
+    replies = [text for role, text in pairs if role == "assistant"]
+    return answer_values(replies[-1]) if replies else []
 
 
 async def attach_chart(state: FinalizeState) -> str:
@@ -130,7 +141,7 @@ async def attach_chart(state: FinalizeState) -> str:
         stop_chart(state.ctx)
         return state.text
     drawn = await _drawn(task, state.settings)
-    text = placed_charts(state.text, drawn, turn[0])
+    text = placed_charts(state.text, drawn, turn[0], _answers_before(state.ctx))
     if text == state.text:
         return text
     # Committed, so a later pass that falls back keeps the checked chart.

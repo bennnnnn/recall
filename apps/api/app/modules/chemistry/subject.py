@@ -229,7 +229,7 @@ class ChemistryFigure:
 
     # A reply describes no chemistry picture (``math/drawing`` is maths' alone): chat asks
     # only maths' figure for these, and chemistry's answer is none.
-    def contract_for(self, question: str, asked: bool) -> str:
+    def contract_for(self, question: str, asked: bool, *, graph: bool = False) -> str:
         return ""
 
     async def described(

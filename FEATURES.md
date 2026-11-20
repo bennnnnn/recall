@@ -857,13 +857,19 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   `message_chunks` (pgvector). Turn start retrieves a small top-k, excluding the recent
   window. Golden Rule 3 still holds — never the full transcript. First index also
   backfills the user's recent 40 messages so older chats are searchable after one turn.
+  Each snippet is dated in the user's time zone ("today 21:05", "yesterday", a date), and the
+  nearest two from today keep a seat among them, so "what did we do earlier today?" finds
+  today's chat.
 
 ## 7. Context management & performance
 - ✅ **Token-budget window** — recent turns are kept verbatim up to a token budget
   (`context_token_budget`, with a hard message cap), never the whole transcript.
 - ✅ **History compression** — turns that fall outside the token budget are folded into a rolling
   per-chat **summary** (batched, runs on the durable job queue), so long chats keep context
-  without bloating the prompt.
+  without bloating the prompt. The reply is told how many of the chat's first messages the
+  summary stands for, so the start of the chat ("what was the first question I asked?") is
+  read from it, not from the first message it can see; a picture counts as shown in the
+  summary only where its fence was saved (`[shown: a graph]`), never because a reply said so.
 - ✅ **Memory caching** — the assembled memory block is cached in Redis per user (with
   invalidation on new/deleted memories) instead of rebuilt every turn.
 - ✅ **Provider context caching** — OpenRouter/provider prompt-prefix caching when the upstream
@@ -1187,7 +1193,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   before due). With push on, the server owns due-at (`server_todo_push_enabled` defaults
   true) and local scheduling is skipped so both do not fire. Turning push off cancels
   leftover local alerts then re-schedules them on-device.
-- ✅ **Follow-up questions** — up to three short questions (one line each, about 3–9 words) under the latest reply, about what the user just asked: a why, a what-if and a next step for a maths, physics or chemistry problem, and the next things a person would ask for any other real question with a full answer. Small talk, drafts, personal updates, reminders and settings get none. One `memory-model` call per eligible turn after `done` (`modules/chat/related_prompts.py`), cached per message for reopen; rows in `features/suggestions/components/RelatedPromptLines.tsx`. The old proactive chips built from other chats are gone from the app, and the `suggestions` job, its generator and the `/suggestions` routes are removed; stored rows stay in the data export until a later release drops the table.
+- ✅ **Follow-up questions** — up to three short questions (one line each, about 3–9 words) under the latest reply, about what the user just asked: a why, a what-if and a next step for a maths, physics or chemistry problem, and the next things a person would ask for any other real question with a full answer. Small talk, drafts, personal updates, reminders and settings get none. What a short line follows is the turn's one follow-up read (`modules/chat/follow_up_read.py`, the posed read begun as the turn loads): the reply is told beside the line which message it follows and the labelled part or step it names ("explain step 2", "and b?"), in every subject, and the questions stay on the problem it names, or on none when the turn's read says the line stands alone; word rules decide only with no read. One `memory-model` call per eligible turn after `done` (`modules/chat/related_prompts.py`), cached per message for reopen; rows in `features/suggestions/components/RelatedPromptLines.tsx`. The old proactive chips built from other chats are gone from the app, and the `suggestions` job, its generator and the `/suggestions` routes are removed; stored rows stay in the data export until a later release drops the table.
 - 🔜 1-hour-early **email/push** nudges beyond the local lead picker.
 
 ## 15. Code execution policy
