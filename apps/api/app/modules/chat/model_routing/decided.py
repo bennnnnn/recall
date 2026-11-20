@@ -51,8 +51,9 @@ def decided_lane(
     """Auto's model for the read's subject and effort, from the user's ``pool``; None keeps
     the word rules' lane (a subject the table leaves out, money). A model whose breaker is
     open and cooling (``cooling``) is passed over while another is left: the turn would
-    wait out its timeout. A half-open one is not: the turn that claims its probe tries it. ``strong_everyday``: the plan's everyday lane is the stronger
-    model (Pro, ``entitlements.has_strong_everyday_model``). ``math_lane``: the plan's maths
+    wait out its timeout. A half-open one is not: the turn that claims its probe tries it.
+    ``strong_everyday``: the plan's everyday lane is the stronger model (Pro,
+    ``entitlements.has_strong_everyday_model``). ``math_lane``: the plan's maths
     lane and its backup (billing's ``math_lane_for``)."""
     lanes = ROUTING.decided.get(subject)
     if lanes is None or not pool:

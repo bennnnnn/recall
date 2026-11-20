@@ -99,7 +99,7 @@ class StreamContext:
     recent_messages: list[Any] | None = None
     regenerate_backup: RegenerateBackup | None = None
     fallback_models: list[str] = field(default_factory=list)
-    # Half-open models among it and its backups: tried once the turn claims a probe.
+    # Half-open models of the pool: each is tried once the turn claims its probe.
     probe_models: frozenset[str] = frozenset()
     # Models whose breaker is open and inside its cool-down at the load: no lane moves onto
     # one. A half-open one is routed to like a healthy one, and the turn claims its probe
