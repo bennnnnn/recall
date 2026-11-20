@@ -200,10 +200,15 @@ async def formal(settings: Any, alias: str, question: Question) -> dict[str, Any
         )
     except Exception as exc:
         return {"solved": False, "reason": f"solve {type(exc).__name__}"}
-    model_right = right(setup.answer, setup.target_unit, question.answer)
+    asked = setup.asked[0] if setup.asked else None
+    model_right = right(asked.answer, asked.unit, question.answer) if asked else None
     result["model_right"] = model_right
     result.update(timing)
+    answers = result.get("answers") or []
+    result["solved"] = bool(result["solved"] and answers)
     if result["solved"]:
+        # The question's one value: the first part the server answered.
+        result |= {k: answers[0][k] for k in ("value", "unit", "agrees")}
         result["right"] = right(result["value"], result["unit"], question.answer)
     return result
 

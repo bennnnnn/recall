@@ -131,6 +131,14 @@ def test_read_verified_value_keeps_the_label_case() -> None:
     assert value is not None and value.label == "M(H2O)"
 
 
+def test_greek_mu_is_a_name_and_a_micro_prefix() -> None:
+    """Review: "\\mu_k" read as the micro sign was no name, so the card was never read."""
+    friction = read_verified_value("\\mu_k = 0.25")
+    assert friction is not None and friction.label == "\u03bck"
+    length = read_verified_value("\\lambda = 500\\,\\mu\\mathrm{m}")
+    assert length is not None and length.numbers[0].unit == "um"
+
+
 def test_an_approximate_verified_answer_is_read_as_its_value() -> None:
     """Newton's card says x ≈ 1.41421: a wrong value still gets the correction line."""
     value = read_verified_value("x \\approx 1.41421")
