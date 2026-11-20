@@ -8,7 +8,11 @@ name, this one does not: the name goes from where it addresses them, and only th
 
 - opening the reply: "Bini, call 911 now";
 - after a greeting or a short reaction: "Hey bini!", "Sorry, bini, that's fair";
-- closing a sentence after a comma: "Great question, bini!".
+- closing a sentence after a comma: "Great question, bini!";
+- set off by commas inside a sentence, after a lowercase word: "That's a lot to take in,
+  Bini, and it makes sense". Replayed, the 80-message "Friend getting married" chat
+  (2026-11-19) still had the name in 49 replies, nearly all this way; "Invite Anna, Bini,
+  and Carl" names a list, after a capital, and stays.
 
 The name is matched as the profile spells it or capitalised, never in another case: "Use 8
 GB, max." keeps its "max" for a user named Max. A sentence about them ("Call Bini.",
@@ -59,6 +63,11 @@ def _patterns(name: str) -> tuple[re.Pattern[str], ...]:
         re.compile(rf"(?P<g>{greet})[ \t]+{n}(?=[.!?])"),
         # "Great question, bini!": closing its sentence.
         re.compile(rf"(?<=\S),[ \t]+{n}(?=[.!?](?:\*\*)?(?:\s|$))"),
+        # "That's a lot to take in, Bini, and …": between commas after a lowercase word.
+        # "I told my sister, Bini, and Carl" names a list: kept.
+        re.compile(
+            rf"(?P<w>\b[a-z][\w']*),[ \t]+{n},(?=[ \t])(?![ \t]+(?:and|or)[ \t]+(?!I\b)[A-Z])"
+        ),
     )
 
 
@@ -95,14 +104,14 @@ def _outside_code(text: str, change: Callable[[str], str]) -> str:
 
 def without_name(text: str, name: str) -> str:
     """``text`` with ``name`` gone from where it addresses the reader."""
-    opening, after_greeting, greeting, closing = _patterns(name)
+    opening, after_greeting, greeting, closing, inside = _patterns(name)
     text = opening.sub(lambda m: f"{m['lead']}{m['next'].upper()}", text, count=1)
 
     def line_without(line: str) -> str:
         if _KEPT_LINE.match(line):
             return line
         line = greeting.sub(r"\g<g>", after_greeting.sub(r"\g<g>", line))
-        return closing.sub("", line)
+        return inside.sub(r"\g<w>,", closing.sub("", line))
 
     def rewrite(prose: str) -> str:
         return "\n".join(_outside_code(line, line_without) for line in prose.split("\n"))

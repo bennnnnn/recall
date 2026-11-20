@@ -25,8 +25,9 @@ _PLACEHOLDER = re.compile(r"(?<!\{)\{[A-Za-z_0-9!:.]*\}(?!\})")
 # guard reads templates too (2026-11-10): nine asserts on template copy were already there;
 # 105 once the maths fence tests stopped pinning the dropped "could not render" note; 104 once
 # the privacy test stopped pinning the scanner's old "Recall does not keep that photo"; 103
-# once the lesson shape's parts became constants of their own (2026-11-14).
-_PINNED = 103
+# once the lesson shape's parts became constants of their own (2026-11-14); 102 once the old
+# ending rule ("a question or an offer") was replaced and its pin with it (2026-11-20).
+_PINNED = 102
 
 
 def _as_sent(text: str) -> str:

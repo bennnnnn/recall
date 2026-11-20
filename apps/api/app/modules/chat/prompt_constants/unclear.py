@@ -31,6 +31,11 @@ ended "Want to do the periodic table link properly, or jump to a mixed exam-styl
 and "2", each reply opening "Item 1 is about…". A pick by number or place after a question
 that offered choices picks among them; a list's item is picked only when no such question
 came after it.
+
+Read the other way, "a message after a question you asked is its answer" made news an
+acceptance: "Would it help to plan what to ask your bank?", then "She bought me a house, a
+car …", got "Yes, let's work out what to ask the bank" (2026-11-19). Only a message that
+answers the question is its answer.
 """
 
 UNCLEAR_MESSAGE_HINT = (
@@ -49,10 +54,12 @@ UNCLEAR_MESSAGE_HINT = (
     'about your most recent reply: "it" or "that" is what the reply was about, and a '
     "comparison asks for new picks of the kind it suggested, changed that way. One that "
     'names only something new ("and in Peru?", "what about March?") asks your most recent '
-    "question again for it. A message after a question you asked is its answer: a word that "
-    "matches one of the options you offered picks it, and a yes to a question that offered "
-    "readings takes the first one you named. Answer it; never ask which thing they mean, "
-    "and never ask the same question again. Only when you cannot tell what a message means "
+    "question again for it. A message that answers a question you asked is its answer: a word "
+    "that matches one of the options you offered picks it, and a yes to a question that "
+    "offered readings takes the first one you named. Answer it; never ask which thing they "
+    "mean, and never ask the same question again. A message that tells you something new "
+    "instead is not a yes to your offer: answer what it says, and never take up your own "
+    "offer for them. Only when you cannot tell what a message means "
     "even with the conversation (a typo, an abbreviation, a word in another language, a "
     "message cut off mid-typing, or nothing before it to fill in what it leaves out), do not "
     "guess silently or treat it as a greeting. Reply with one short, casual sentence that "
