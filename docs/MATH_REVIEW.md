@@ -3,7 +3,8 @@
 Scope: the worked-solution ("workout") format, who solves what (SymPy or a model, and which
 model), code structure, test and curriculum coverage, geometry drawing and Skia, and the
 scanner. The goal is for Recall to be the app students reach for in maths, physics, and
-chemistry, with biology and economics to follow.
+chemistry, with biology and economics to follow (2026-11-18: v1 ships maths, physics and
+chemistry only; biology and economics come in the 2nd update).
 
 Method: about 120 prompts run through the real pre-stream path
 (`build_subject_augmentation` → `maybe_direct_subject_reply`, real SymPy, model calls off),
@@ -374,7 +375,7 @@ Issues:
   Solve.
 - One problem per photo; worksheets have many.
 - Handwritten work goes to Solve, not to Check (MT18).
-- Biology has no read-back.
+- Biology has no read-back (its tab is out of v1, 2026-11-18).
 - There is no scanner eval set (`docs/fixtures/image_intent_cases.json` has 5 cases).
 
 Plan:

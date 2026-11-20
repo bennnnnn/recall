@@ -143,20 +143,6 @@ _STATISTICS_CUES = (
     "sample mean",
     "variance",
 )
-# Biology has no solver: these name a biology line, for its presentation hint and its
-# follow-up questions.
-BIOLOGY_CUES = (
-    "dilution",
-    "punnett",
-    "hardy-weinberg",
-    "hardy weinberg",
-    "allele",
-    "enzyme kinetics",
-    "michaelis",
-    "population growth",
-    "photosynthesis",
-    "mitosis",
-)
 
 
 def is_pure_continuation(text: str | None) -> bool:
@@ -207,8 +193,7 @@ def classify_presentation_subject(text: str | None) -> str | None:
     Which STEM subject a line is, is ``detect_subject``'s alone: the prompt pack follows
     the subject whose solver answers it. "h = 20t - 5t^2, find the maximum height" is
     solved by maths and got physics' pack when this asked physics first (code-health
-    audit DUP-05). Statistics and biology have no solver: their cues name only a line no
-    solver claimed.
+    audit DUP-05). Statistics has no solver: its cues name only a line no solver claimed.
     """
     if not text or not text.strip():
         return None
@@ -221,8 +206,6 @@ def classify_presentation_subject(text: str | None) -> str | None:
         return subject
     if _has_phrase(text, _STATISTICS_CUES):
         return "statistics"
-    if _has_digit(text) and _has_phrase(text, BIOLOGY_CUES):
-        return "biology"
     return None
 
 

@@ -244,7 +244,8 @@ SPECS: tuple[FormulaSpec, ...] = (
         ),
         variables=_with(_D, _T, _U, _V),
         binding=Binding(
-            asks=("acceleration", "deceleration", "retardation"),
+            # Uniform: the acceleration is the average over the change (``asked_end_check``).
+            asks=("acceleration", "deceleration", "retardation", "average acceleration"),
             result=(_ACCELERATION,),
             excludes=_NOT_ONE_LINE,
             inputs=_inputs("uvt", "uvd", "udt"),

@@ -11,6 +11,12 @@ export const config = {
   devAuthEnabled: process.env.EXPO_PUBLIC_DEV_AUTH_ENABLED === "true",
   /** Settings → Help emails it; without one the help rows are hidden. */
   supportEmail: process.env.EXPO_PUBLIC_SUPPORT_EMAIL?.trim() || null,
+  /**
+   * Where a shared chat sends its reader to get the app: one link on our own domain that
+   * sends an iPhone to the App Store and Android to Play. Without one a share still names
+   * the app, with no link.
+   */
+  shareUrl: process.env.EXPO_PUBLIC_SHARE_URL?.trim() || null,
 } as const;
 
 /** True when the Google OAuth web client ID is set (required on all platforms). */
