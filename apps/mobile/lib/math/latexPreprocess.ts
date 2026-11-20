@@ -327,7 +327,47 @@ function normalizeScriptsOutsideUpright(source: string): string {
   return out;
 }
 
+/*
+ * An upright run is final once it is marked. A part of `\frac`, `\sqrt`, a script or a brace
+ * group is read again by its own nested parse, which preprocesses that slice of this output:
+ * every step below then read the run's words as maths a second time. In
+ * `\frac{\text{distance moved by effort}}{…}` "moved" became `\mathrm{moved}`, a run inside the
+ * run whose start marker iOS draws as a 👕 emoji, and "by" `\text{ by }` set in maths italics
+ * (phone, 2026-11-18). Each run is held as one private-use character until the steps are done.
+ */
+const HELD_RUN_FIRST = 0xe100;
+const HELD_RUN_LAST = 0xefff;
+const HELD_RUN_CHAR = /[-]/g;
+const MARKED_RUN = new RegExp(
+  `${NATIVE_UPRIGHT_START_MARKER}[^${NATIVE_UPRIGHT_START_MARKER}${NATIVE_UPRIGHT_END_MARKER}]*${NATIVE_UPRIGHT_END_MARKER}`,
+  "g",
+);
+
+function holdUprightRuns(source: string): { text: string; runs: string[] } {
+  const runs: string[] = [];
+  // A source with a character of the held range already in it is read as before.
+  if (!source.includes(NATIVE_UPRIGHT_START_MARKER) || /[-]/.test(source)) {
+    return { text: source, runs };
+  }
+  const text = source.replace(MARKED_RUN, (run) => {
+    if (HELD_RUN_FIRST + runs.length > HELD_RUN_LAST) return run;
+    runs.push(run);
+    return String.fromCharCode(HELD_RUN_FIRST + runs.length - 1);
+  });
+  return { text, runs };
+}
+
+function releaseUprightRuns(text: string, runs: readonly string[]): string {
+  if (runs.length === 0) return text;
+  return text.replace(HELD_RUN_CHAR, (held) => runs[held.charCodeAt(0) - HELD_RUN_FIRST] ?? held);
+}
+
 export function preprocessLatex(latex: string): string {
+  const held = holdUprightRuns(latex);
+  return releaseUprightRuns(preprocessUnmarkedLatex(held.text), held.runs);
+}
+
+function preprocessUnmarkedLatex(latex: string): string {
   // Package dialects (`\bm`, `\SI`, `\abs`) and mhchem become plain TeX first,
   // so their units and formulas reach the upright-run step below.
   // Units, sentence words and formulas a writer left in the maths font go upright

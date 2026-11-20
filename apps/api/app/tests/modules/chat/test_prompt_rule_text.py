@@ -94,12 +94,13 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # scene and the question's values, never a coordinate (physics.scene_drawing.contract, the
 # owner's round of 30 hard problems, 2026-11-16), naming a horizontal launch, bodies moving
 # the same way and the situations it never draws; no spring or wave, which no reader confirms
-# (its reviews, 2026-11-16); then the summary saying it stands for the chat's first messages,
-# so the start of the chat is in it (SUMMARY_SPAN), and a short line's note naming the message
-# and part it follows (FOLLOW_UP_NOTE), the Grade 8 chat, 2026-11-18.
-_RULES = 205
-_RULE_GRAMS = 19129
-_RULE_GRAMS_SHA = "1aee02f013fcaef6"
+# (its reviews, 2026-11-16); then no biology presentation hint, biology being out of v1
+# (2026-11-18); then the summary saying it stands for the chat's first messages, so the start
+# of the chat is in it (SUMMARY_SPAN), and a short line's note naming the message and part it
+# follows (FOLLOW_UP_NOTE), the Grade 8 chat, 2026-11-18.
+_RULES = 204
+_RULE_GRAMS = 19115
+_RULE_GRAMS_SHA = "2df65aed3e29bd40"
 
 
 def _rules() -> list[str]:

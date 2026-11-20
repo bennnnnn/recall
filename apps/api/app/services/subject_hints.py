@@ -1,8 +1,8 @@
 """A subject's prompt copy, and where the prompt states it.
 
 Each subject's adapter (``services/subjects/registry``) carries one; chat states it (its
-``prompt_subjects`` and ``prompt_sections``) and holds two of its own for the presentation
-subjects no module owns yet (statistics, biology).
+``prompt_subjects`` and ``prompt_sections``) and holds one of its own for the presentation
+subject no module owns yet (statistics).
 """
 
 from __future__ import annotations

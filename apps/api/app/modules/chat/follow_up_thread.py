@@ -20,11 +20,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from app.modules.chat.continuation_subject import (
-    BIOLOGY_CUES,
-    is_new_problem_request,
-    is_pure_continuation,
-)
+from app.modules.chat.continuation_subject import is_new_problem_request, is_pure_continuation
 from app.modules.chat.follow_up_ground import works_the_problem
 from app.modules.chat.follow_up_words import topic_words
 from app.modules.turn_reading.routing import is_lightweight_chat_turn
@@ -94,17 +90,9 @@ _ENGLISH = re.compile(
 
 
 def subject_for_related(text: str) -> str | None:
-    """Math, physics, chemistry, or biology. Anything else is skipped."""
+    """Math, physics or chemistry: the subject that solves it. Anything else is skipped."""
     cleaned = collapse_ws(text)
-    if not cleaned:
-        return None
-    detected = detect_subject(cleaned)
-    if detected is not None:
-        return detected
-    lowered = cleaned.casefold()
-    if any(cue in lowered for cue in BIOLOGY_CUES):
-        return "biology"
-    return None
+    return detect_subject(cleaned) if cleaned else None
 
 
 def _continues_thread(text: str) -> bool:

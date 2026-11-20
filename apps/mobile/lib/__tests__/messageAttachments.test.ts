@@ -8,13 +8,13 @@ import {
   stripLookupSourceCaption,
 } from "@/lib/messageAttachments";
 import { MATH_CAMERA_PROMPT } from "@/lib/math/cameraPrompt";
-import { BIOLOGY_CAMERA_PROMPT, PHYSICS_CAMERA_PROMPT } from "@/lib/scanner/subjects";
+import { CHEMISTRY_CAMERA_PROMPT, PHYSICS_CAMERA_PROMPT } from "@/lib/scanner/subjects";
 
 describe("messageAttachments", () => {
   it("hides every scanner protocol caption from the user bubble", () => {
     expect(isAttachmentBoilerplate(MATH_CAMERA_PROMPT)).toBe(true);
     expect(isAttachmentBoilerplate(PHYSICS_CAMERA_PROMPT)).toBe(true);
-    expect(isAttachmentBoilerplate(BIOLOGY_CAMERA_PROMPT)).toBe(true);
+    expect(isAttachmentBoilerplate(CHEMISTRY_CAMERA_PROMPT)).toBe(true);
   });
 
   it("keeps a custom caption but hides its scanner routing prefix", () => {

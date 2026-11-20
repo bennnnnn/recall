@@ -12,6 +12,7 @@ import { shareOneAtATime } from "@/lib/share/file";
 import { shareFailureKey } from "@/lib/share/unavailable";
 import { NothingToExportError } from "@/features/chat/model/nothingToExport";
 import { conversationTranscript } from "@/features/chat/model/transcript";
+import { withShareFooter } from "@/features/chat/model/shareFooter";
 
 /** The i18n key of what went wrong, for the caller's own feedback. */
 type Fail = (key: string) => void;
@@ -22,7 +23,7 @@ type Load = () => Promise<Message[]>;
 /** A very long chat goes to Android's sheet as a file (`presentShareSheet`): one share at a time. */
 export async function shareChatAsText(title: string | null, load: Load, fail: Fail): Promise<void> {
   try {
-    const message = conversationTranscript(title, await load());
+    const message = withShareFooter(conversationTranscript(title, await load()));
     await shareOneAtATime(() => presentShareSheet({ message, title: title?.trim() || i18n.t("share.default_title") }));
   } catch (error) {
     if (!isShareCancelled(error)) fail(shareFailureKey(error, "chat.share_failed"));
