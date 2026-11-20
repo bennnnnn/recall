@@ -150,6 +150,15 @@ def test_a_fact_written_again_is_kept_once() -> None:
     assert sections(merged(prior, fresh, 6000))["Facts"][0].count("Honda Civic") == 1
 
 
+def test_a_fact_that_starts_with_a_currency_sign_is_kept_once() -> None:
+    # Joined to the fact before it, "$500k transfer due Friday." was held four times.
+    prior = "Facts: User feels calm. $500k transfer due Friday.\n\nTopics:\nA.\n\nOpen: None"
+    fresh = "Facts: User is happy. $500k transfer due Friday.\nTopics: B.\nOpen: None"
+    facts = sections(merged(prior, fresh, 6000))["Facts"][0]
+    assert facts.count("$500k transfer due Friday.") == 1
+    assert "User feels calm." in facts and "User is happy." in facts
+
+
 def test_over_their_share_narrations_go_before_short_facts() -> None:
     # The longest earlier fact goes first: a narration before a short durable fact.
     narration = (

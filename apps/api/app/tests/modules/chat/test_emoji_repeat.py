@@ -2,7 +2,7 @@
 
 The 80-message "Friend getting married" chat at "Lots" (2026-11-19): 💛 closed the opening
 line of 58 replies, and replayed with the prompt asking for an emoji that fits, one run still
-had it in 40.
+had it in 40, and dropped only when both of the last two had it, in 24, alternating.
 """
 
 from __future__ import annotations
@@ -50,25 +50,42 @@ def test_without_closing_drops_only_the_repeated_one() -> None:
     )
 
 
-def test_a_sign_off_both_last_replies_used_goes() -> None:
-    state = _state("Wow, that's big. 💛 Enjoy it.", "Okay. 💛 Take care.", "I hear you. 💛")
+@pytest.mark.parametrize(
+    "replies",
+    [
+        ("Okay. 💛 Take care.", "I hear you. 💛"),
+        # One of the last two is enough: the replay alternated it.
+        ("Okay. 💛 Take care.", "I hear you."),
+        ("I hear you.", "Okay. 💛"),
+    ],
+)
+def test_a_sign_off_one_of_the_last_two_replies_used_goes(replies: tuple[str, ...]) -> None:
+    state = _state("Wow, that's big. 💛 Enjoy it.", *replies)
     assert repeated_emoji_pass(state) == "Wow, that's big. Enjoy it."  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize(
     "replies",
     [
-        # Only one of the last two signed off on it.
-        ("Okay. 💛 Take care.", "I hear you."),
         # Another emoji each time.
         ("Okay. 🎉", "I hear you. 💍"),
-        # Too few replies to call it a habit.
-        ("Okay. 💛",),
+        # Three replies back is long enough ago.
+        ("Fine. 💛", "Okay.", "I hear you."),
+        # One leading a label or heading is not a sign-off.
+        ("1. 💛 **Ask her** — today.", "## 💛 Plans"),
+        # No reply yet.
+        (),
     ],
 )
 def test_an_emoji_not_repeated_stays(replies: tuple[str, ...]) -> None:
     state = _state("Wow, that's big. 💛", *replies)
     assert repeated_emoji_pass(state) == "Wow, that's big. 💛"  # type: ignore[arg-type]
+
+
+def test_a_lesson_keeps_its_own_emoji() -> None:
+    lesson = "### Lesson 2: Loops\n\nNice work, that's loops. 🎉"
+    state = _state(lesson, "### Lesson 1: Names\n\nWell done. 🎉", "Ready? 🎉")
+    assert repeated_emoji_pass(state) == lesson  # type: ignore[arg-type]
 
 
 def test_server_text_is_never_touched() -> None:

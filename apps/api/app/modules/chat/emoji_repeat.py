@@ -1,11 +1,12 @@
-"""An emoji fits its line: the same one ending sentence after sentence, reply after reply, goes.
+"""An emoji fits its line: the same one closing a sentence reply after reply goes.
 
 At "Lots" an 80-message chat about a girlfriend's mother (2026-11-19) ended the opening line
 of 58 replies on 💛, whatever the line said. The prompt now says each emoji fits its line and
 is never the same one reply after reply as a sign-off, and replayed, one run of the chat still
-put 💛 in 40 of 80: once two replies ended a sentence on it, the next copied them. So when
-each of the last two replies ended a sentence on an emoji, this one does not end a sentence on
-that same emoji. Every other emoji stays, and so does this one where it leads a heading, a list
+put 💛 in 40 of 80: once a reply ended a sentence on it, the next ones copied it. Dropped only
+when both of the last two replies had it, one run kept it in 24, alternating. So, as the name
+pass spares the user's name (``name_use``), when one of the last two replies ended a sentence
+on an emoji, this one does not end a sentence on that same emoji. Every other emoji stays, and so does this one where it leads a heading, a list
 item or a label (where "Lots" asks for one), or sits in a fence, inline code or a table row.
 """
 
@@ -21,12 +22,14 @@ from app.modules.turn_reading.routing import EMOJI
 if TYPE_CHECKING:
     from app.modules.chat.finalize_passes import FinalizeState
 
-# The replies looked back on: a sign-off copied from both of them.
+# The replies looked back on: a sign-off at most once in three replies.
 _LOOK_BACK = 2
 # An emoji closing a sentence or a line: after a word or punctuation, before a line end or
 # the next sentence. One that leads a line (a heading's or a list item's) is never matched.
 _CLOSING = re.compile(rf"(?<=\S)(?P<gap>[ \t]*)(?P<emoji>{EMOJI.pattern})(?=[ \t]*(?:\n|$|[A-Z*]))")
 _KEPT_LINE = re.compile(r"^\s*\|")
+# "### Lesson 2: Loops": a lesson keeps the emoji its own rules give it (``emoji_placement``).
+_LESSON = re.compile(r"^#{1,6}\s.*\bLesson\s+\d", re.MULTILINE)
 _CODE = re.compile(r"(`+)[^`]*?\1")
 # What may stand before an emoji that leads its line: a heading or list marker, bold.
 _LABEL_LEAD = re.compile(r"\s*(?:#{1,6}\s+|(?:[-*+]|\d{1,3}[.)])\s+)?(?:\*\*|__)?\s*")
@@ -80,13 +83,11 @@ def without_closing(text: str, repeated: set[str]) -> str:
 
 
 def repeated_emoji_pass(state: FinalizeState) -> str:
-    """The finalize pass: no sign-off emoji that each of the last two replies also signed off on."""
-    if state.server_text:
+    """The finalize pass: no sign-off emoji that one of the last two replies signed off on."""
+    if state.server_text or _LESSON.search(state.text):
         return state.text
     replies = _recent_replies(state.ctx.recent_messages or [])
-    if len(replies) < _LOOK_BACK:
-        return state.text
-    repeated = set.intersection(*(closing_emoji(reply) for reply in replies))
+    repeated = set().union(*(closing_emoji(reply) for reply in replies))
     if not repeated:
         return state.text
     return without_closing(state.text, repeated)
