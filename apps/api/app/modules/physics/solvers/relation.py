@@ -66,7 +66,9 @@ def solve_expression(intent: PhysicsIntent) -> PhysicsResult:
         raise SolveServiceError(f"{spec.id} has no binding")
     detail = None
     if binding.negative_detail and value < 0:
-        value = abs(value)
+        # A sign an axis gives is a direction, said in words; a sign the result's own
+        # definition gives stays on the number (``Binding.keeps_sign``).
+        value = value if binding.keeps_sign else abs(value)
         detail = binding.negative_detail
     elif binding.nonnegative and value < 0:
         raise SolveServiceError(f"{spec.id} gives a negative {symbol} for these givens")

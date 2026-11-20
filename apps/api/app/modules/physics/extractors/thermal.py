@@ -186,7 +186,7 @@ def _heat_energy(cleaned: str) -> PhysicsIntent | None:
     elif rise is not None:
         # A temperature *difference* is the same number in kelvin and celsius,
         # so this one does not need the scale an absolute reading does.
-        params["delta_temp"] = rise[0]
+        params["delta_temp"] = _signed_change(cleaned, rise[0])
         units["delta_temp"] = "K"
     return PhysicsIntent(
         kind="thermal",
@@ -195,6 +195,22 @@ def _heat_energy(cleaned: str) -> PhysicsIntent | None:
         physics_units=units,
         operation="solve",
     )
+
+
+# A change the words say is a fall: "decreases by 10 °C", "cools by 20 degrees".
+_FALLS_BY = re.compile(
+    r"\b(?:decreas(?:e|es|ed|ing)|drop(?:s|ped|ping)?|fall(?:s|ing)?|fell|cool(?:s|ed|ing)?"
+    rf"|lower(?:s|ed|ing)?|reduc(?:e|es|ed|ing))\s+(?:down\s+)?by\s+({NUMBER})",
+    re.IGNORECASE,
+)
+
+
+def _signed_change(cleaned: str, size: float) -> float:
+    """A stated temperature change, final - initial: a fall is negative, so the heat Q =
+    mcΔT it gives out is too, and keeps its sign with "released" (owner, 2026-11-20: "The
+    temperature of 3 kg of water decreases by 10 °C" was +126000 J, read as a rise)."""
+    falls = any(float(found.group(1)) == size for found in _FALLS_BY.finditer(cleaned))
+    return -size if falls else size
 
 
 def _capacity_unit(spelled: str) -> str:

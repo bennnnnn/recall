@@ -97,10 +97,12 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # (its reviews, 2026-11-16); then no biology presentation hint, biology being out of v1
 # (2026-11-18); then the summary saying it stands for the chat's first messages, so the start
 # of the chat is in it (SUMMARY_SPAN), and a short line's note naming the message and part it
-# follows (FOLLOW_UP_NOTE), the Grade 8 chat, 2026-11-18.
-_RULES = 204
-_RULE_GRAMS = 19115
-_RULE_GRAMS_SHA = "2df65aed3e29bd40"
+# follows (FOLLOW_UP_NOTE), the Grade 8 chat, 2026-11-18; then a physics hint saying a
+# change is final minus initial and a result keeps its formula's sign (PHYSICS_SIGNS, the
+# owner, 2026-11-20).
+_RULES = 205
+_RULE_GRAMS = 19186
+_RULE_GRAMS_SHA = "61aa95390441f96d"
 
 
 def _rules() -> list[str]:
