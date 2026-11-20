@@ -124,7 +124,7 @@ def escalation_model(
     model: str,
     plan_lane: tuple[str, ...],
     pool: list[str],
-    unsteady: frozenset[str] = frozenset(),
+    cooling: frozenset[str] = frozenset(),
 ) -> str:
     """The model a regenerate runs on: ``model`` when it thinks at the escalate level (Pro's
     everyday model, the maths lane on a paid plan), else the plan's model that does. A
@@ -134,11 +134,11 @@ def escalation_model(
     The plan's thinking model is the first of its maths lane and that lane's backup
     (billing's ``math_lane_for``) that thinks: DeepSeek on a plan that has it, GLM 5.3
     Flash behind Qwen3.7 Flash on Free. With neither usable (switched off, or its breaker
-    open or half-open: ``unsteady``), the cheapest of the pool that thinks; with none,
+    open and cooling: ``cooling``), the cheapest of the pool that thinks; with none,
     ``model``."""
     if model not in model_catalog.known_ids() or thinks_on_escalate(model):
         return model
-    usable = [alias for alias in pool if alias not in unsteady]
+    usable = [alias for alias in pool if alias not in cooling]
     thinking = [alias for alias in usable if thinks_on_escalate(alias)]
     chosen = next((alias for alias in plan_lane if alias in thinking), None)
     if chosen is None and thinking:
