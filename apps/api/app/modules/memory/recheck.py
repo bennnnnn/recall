@@ -73,6 +73,9 @@ class Verdict:
     reason: str
     source_message_id: UUID | None = None
     slot: str | None = None
+    # Read against its chat and found stated; lesson lines, hand edits and facts with no
+    # chat are kept as they are and never muted for another fact either.
+    read: bool = False
 
 
 @dataclass
@@ -181,6 +184,7 @@ def judge(
         reason=f"stated: {reading.quote!r}",
         source_message_id=grounding.line.message_id,
         slot=reading.slot,
+        read=True,
     )
 
 
@@ -274,7 +278,7 @@ async def _said_again(
     session: AsyncSession, verdicts: list[Verdict], min_similarity: float
 ) -> list[Verdict]:
     """Of two kept facts that say the same thing in other words, the newer stays."""
-    kept = {verdict.fact.id: verdict for verdict in verdicts if verdict.keep}
+    kept = {verdict.fact.id: verdict for verdict in verdicts if verdict.keep and verdict.read}
     if len(kept) < 2:
         return verdicts
     left, right = aliased(Memory), aliased(Memory)
