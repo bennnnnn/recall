@@ -9,9 +9,11 @@ from uuid import UUID
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 import app.modules.memory.erase as erase
 from app.models.orm import Memory, MemoryArea, User
+from app.modules.memory.fact_quality import is_learning_line
 from app.modules.memory.ops import (
     ACTIVE_STATUS,
     MUTED_STATUS,
@@ -43,6 +45,8 @@ class MemoryFactWrite:
     source_message_id: UUID | None = None
     # Memory document; None keeps a matched fact's topic, or the type's default.
     topic: str | None = None
+    # The one thing a single-valued fact sets; other active facts in it are retired.
+    slot: str | None = None
     # Title and summary for a new area document (``area:<slug>`` topic).
     area_title: str | None = None
     area_summary: str | None = None
@@ -101,25 +105,15 @@ async def apply_fact_ops(
                     continue
                 # A muted fact said again stays muted: only the user unmutes it.
                 _apply_update(existing, write, clean)
+                _retire_same_slot(facts, existing)
                 touched.append(existing.id)
                 _note(applied, op)
                 continue
-            row = Memory(
-                user_id=user_id,
-                type=write.type,
-                topic=_write_topic(write),
-                text=clean,
-                confidence=write.confidence,
-                status=ACTIVE_STATUS,
-                sensitivity=write.sensitivity,
-                importance=write.importance,
-                last_confirmed_at=datetime.now(UTC),
-                source_chat_id=write.source_chat_id,
-                source_message_id=write.source_message_id,
-            )
+            row = _new_fact(user_id, write, clean, _write_topic(write))
             session.add(row)
             await session.flush()
             facts.append(row)
+            _retire_same_slot(facts, row)
             touched.append(row.id)
             _note(applied, op)
             continue
@@ -140,33 +134,23 @@ async def apply_fact_ops(
             if not clean:
                 continue
             _apply_update(matched, write, clean)
+            _retire_same_slot(facts, matched)
             touched.append(matched.id)
             _note(applied, op)
             continue
         if op == "supersede":
             if not clean:
                 continue
-            replacement = Memory(
-                user_id=user_id,
-                type=write.type,
-                # Keep the old fact's document unless the type changed with it.
-                topic=write.topic
-                or (matched.topic if matched.type == write.type else _write_topic(write)),
-                text=clean,
-                confidence=write.confidence,
-                status=ACTIVE_STATUS,
-                sensitivity=write.sensitivity,
-                importance=write.importance,
-                last_confirmed_at=datetime.now(UTC),
-                source_chat_id=write.source_chat_id,
-                source_message_id=write.source_message_id,
+            # Keep the old fact's document unless the type changed with it.
+            topic = write.topic or (
+                matched.topic if matched.type == write.type else _write_topic(write)
             )
+            replacement = _new_fact(user_id, write, clean, topic)
             session.add(replacement)
             await session.flush()
-            matched.status = SUPERSEDED_STATUS
-            matched.superseded_at = datetime.now(UTC)
-            matched.superseded_by_id = replacement.id
+            _supersede(matched, replacement)
             facts.append(replacement)
+            _retire_same_slot(facts, replacement)
             touched.append(replacement.id)
             _note(applied, op)
 
@@ -192,6 +176,39 @@ async def _remove_fact(
     if purge:
         await erase.purge_fact_chunks(session, user_id, [fact])
     return set()
+
+
+def _new_fact(user_id: UUID, write: MemoryFactWrite, clean: str, topic: str) -> Memory:
+    return Memory(
+        user_id=user_id,
+        type=write.type,
+        topic=topic,
+        text=clean,
+        confidence=write.confidence,
+        status=ACTIVE_STATUS,
+        sensitivity=write.sensitivity,
+        importance=write.importance,
+        last_confirmed_at=datetime.now(UTC),
+        source_chat_id=write.source_chat_id,
+        source_message_id=write.source_message_id,
+        slot=write.slot,
+    )
+
+
+def _supersede(old: Memory, new: Memory) -> None:
+    old.status = SUPERSEDED_STATUS
+    old.superseded_at = datetime.now(UTC)
+    old.superseded_by_id = new.id
+
+
+def _retire_same_slot(facts: list[Memory], fact: Memory) -> None:
+    """A single-valued fact replaces every other active one in its slot: a second home,
+    school year or marriage never stays beside it. A muted fact stays muted."""
+    if not fact.slot or fact.status != ACTIVE_STATUS:
+        return
+    for other in facts:
+        if other.id != fact.id and other.slot == fact.slot and other.status == ACTIVE_STATUS:
+            _supersede(other, fact)
 
 
 def _note(applied: list[str] | None, op: str) -> None:
@@ -241,7 +258,63 @@ def _apply_update(fact: Memory, write: MemoryFactWrite, clean: str) -> None:
         fact.source_chat_id = write.source_chat_id
     if write.source_message_id is not None:
         fact.source_message_id = write.source_message_id
+    if write.slot is not None:
+        fact.slot = write.slot
     fact.updated_at = datetime.now(UTC)
+
+
+async def retire_near_duplicates(
+    session: AsyncSession,
+    user_id: UUID,
+    fact_ids: list[UUID],
+    *,
+    min_similarity: float,
+    new_wins: bool = True,
+) -> int:
+    """Of a new fact (``fact_ids``) and an active one it says again in other words, one
+    is superseded by the other, which keeps the higher importance: the older one, or with
+    ``new_wins`` False (an earlier chat's lines only fill gaps) the new one. Returns how
+    many were retired.
+
+    The caller owns the commit. Lesson lines are the lesson job's and never retired.
+    """
+    if not fact_ids:
+        return 0
+    new, old = aliased(Memory), aliased(Memory)
+    result = await session.execute(
+        select(new.id, old.id)
+        .join(old, old.user_id == new.user_id)
+        .where(
+            new.user_id == user_id,
+            new.id.in_(fact_ids),
+            new.status == ACTIVE_STATUS,
+            new.embedding.isnot(None),
+            old.id.notin_(fact_ids),
+            old.status == ACTIVE_STATUS,
+            old.embedding.isnot(None),
+            new.embedding.cosine_distance(old.embedding) <= 1 - min_similarity,
+        )
+    )
+    retired = 0
+    for new_id, old_id in result.all():
+        kept, gone = await session.get(Memory, new_id), await session.get(Memory, old_id)
+        if not new_wins:
+            kept, gone = gone, kept
+        # A pair met again (one fact near two others) after one of them went is skipped.
+        if (
+            kept is None
+            or gone is None
+            or ACTIVE_STATUS != kept.status
+            or ACTIVE_STATUS != gone.status
+        ):
+            continue
+        if is_learning_line(gone.text) or is_learning_line(kept.text):
+            continue
+        if gone.importance is not None and (kept.importance or 0) < gone.importance:
+            kept.importance = gone.importance
+        _supersede(gone, kept)
+        retired += 1
+    return retired
 
 
 async def update_embedding_if_current(

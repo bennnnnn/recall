@@ -94,6 +94,9 @@ class Memory(Base):
         server_default="notes",
     )
     text: Mapped[str] = mapped_column(Text, nullable=False)
+    # The one thing a single-valued fact sets ("home", "job"); a newer fact in the same
+    # slot replaces it (``writes_repository``). None for facts that add up.
+    slot: Mapped[str | None] = mapped_column(String(40), nullable=True)
     confidence: Mapped[float | None] = mapped_column(Numeric(3, 2))
     status: Mapped[str] = mapped_column(
         String, nullable=False, default="active", server_default="active"

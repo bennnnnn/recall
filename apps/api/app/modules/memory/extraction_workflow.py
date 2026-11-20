@@ -1,7 +1,7 @@
 """Extract and persist atomic memory facts from a chat transcript."""
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Literal
 from uuid import UUID
 
@@ -13,11 +13,11 @@ from app.models.orm import User
 from app.modules.memory import llm as memory_llm
 from app.modules.memory import repository as memories_repo
 from app.modules.memory.apply import apply_memory_facts
-from app.modules.memory.commands import is_explicit_forget_command
 from app.modules.memory.extract_backlog import (
+    PassLines,
     clear_failed_extract_passes,
-    exchange_before_unread,
     expand_memory_extract_transcript,
+    format_context,
     history_chat_transcript,
     note_failed_extract_pass,
     stamp_extract_cursor,
@@ -28,6 +28,7 @@ from app.modules.memory.pass_writes import (
     Asks,
     MemorySnapshot,
     compose_writes,
+    told_as_story,
     without_reset_requests,
 )
 from app.modules.memory.schemas import MemoryFactOp
@@ -83,6 +84,8 @@ async def _snapshot(session: AsyncSession, user: User, *, facts: bool = True) ->
                 "type": memory.type,
                 "topic": fact_topic(memory),
                 "text": memory.text,
+                # Only a fact that has one: the model reuses it for a newer answer.
+                **({"slot": memory.slot} if memory.slot else {}),
             }
             for memory in existing
         ],
@@ -99,6 +102,7 @@ async def _snapshot(session: AsyncSession, user: User, *, facts: bool = True) ->
             for memory in existing
         ),
         user_timezone=user.timezone,
+        locale=user.locale,
     )
 
 
@@ -166,11 +170,26 @@ class _PassInput:
     """What a pass reads under the write lock: the snapshot and the unread user lines."""
 
     snapshot: MemorySnapshot
-    lines: str
-    # Where the live cursor moves once these lines are read; None for the history scan.
-    cursor: str | None
-    # The exchange before these lines, read for a "forget that"; else empty.
-    earlier: str = ""
+    read: PassLines
+
+    @property
+    def lines(self) -> str:
+        return self.read.transcript
+
+    @property
+    def cursor(self) -> str | None:
+        """Where the live cursor moves once these lines are read; None for the history scan."""
+        return self.read.cursor
+
+    @property
+    def context(self) -> str:
+        """The chat before these lines, for the model: context, never a source of facts."""
+        return format_context(self.read.context)
+
+    @property
+    def earlier(self) -> str:
+        """The last exchange before these lines: what a lone "forget that" points at."""
+        return format_context(self.read.context[-2:])
 
 
 async def _locked_pass(
@@ -206,6 +225,7 @@ async def _locked_pass(
         chat_id=chat_id,
         from_history=from_history,
         min_confidence=settings.memory_min_confidence,
+        sources=read.read.sources,
         earlier=read.earlier,
     )
     if writes:
@@ -218,6 +238,7 @@ async def _locked_pass(
             # A history add that matches a saved fact leaves it as it is.
             expected_facts={} if from_history else read.snapshot.existing_facts,
             manual_edit=(asks.forget or asks.mute or asks.correction) and not from_history,
+            new_wins=not from_history,
         )
         logger.info(
             "memory_extract_yield user_id=%s applied=%s skipped=%s", user_id, len(writes), skipped
@@ -246,27 +267,22 @@ async def _read_pass_input(
         user = await users_repo.get_by_id(session, user_id)
         if user is None or not memory_switch_on(user):
             return None
-        cursor: str | None = None
-        earlier = ""
         if from_history:
             # Read under the write lock, so a hand edit cannot land
             # between this cut-off and the writes below.
-            lines = await history_chat_transcript(
-                session, chat_id, newer_than=user.memory_edited_at
-            )
+            read = await history_chat_transcript(session, chat_id, newer_than=user.memory_edited_at)
         else:
-            lines, cursor = await expand_memory_extract_transcript(
+            read = await expand_memory_extract_transcript(
                 session,
                 user_id=user_id,
                 chat_id=chat_id,
                 fallback_transcript=transcript,
             )
-            if is_explicit_forget_command(lines):
-                earlier = await exchange_before_unread(session, user_id=user_id, chat_id=chat_id)
-        lines = without_reset_requests(lines)
+        lines = without_reset_requests(read.transcript)
+        read = replace(read, transcript=lines)
         facts = bool(lines.strip()) and not _small_talk(lines, Asks.of(lines))
         snapshot = await _snapshot(session, user, facts=facts)
-    return _PassInput(snapshot=snapshot, lines=lines, cursor=cursor, earlier=earlier)
+    return _PassInput(snapshot=snapshot, read=read)
 
 
 async def _ask_model(
@@ -279,14 +295,14 @@ async def _ask_model(
         existing_facts=read.snapshot.prompt_facts,
         existing_areas=read.snapshot.prompt_areas,
         from_history=from_history,
-        earlier=read.earlier,
+        earlier=read.context,
         # An earlier chat's "next Friday" was said on another day: no date places it.
         today=None if from_history else memory_llm.local_today(read.snapshot.user_timezone),
     )
     if result is not None:
         if not from_history:
             await clear_failed_extract_passes(user_id, chat_id)
-        return result.ops, None, True
+        return told_as_story(result), None, True
     # Provider error, timeout or unreadable JSON. Keep the cursor so the
     # next turn retries these lines, up to FAILED_PASS_LIMIT times.
     advance = False if from_history else await note_failed_extract_pass(user_id, chat_id)

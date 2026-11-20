@@ -10,7 +10,9 @@ import pytest
 from app.core.config import Settings
 from app.models.orm import Memory
 from app.models.schemas.common import MemoryType
+from app.modules.memory.extract_backlog import PassLines
 from app.modules.memory.extraction_workflow import extract_and_store_memories, extract_history_chat
+from app.modules.memory.grounding import SourceLine
 from app.modules.memory.schemas import MemoryFactOp, MemoryFactUpdateResult
 from app.modules.memory.text import embedding_text_hash
 from app.modules.memory.writes_repository import MemoryFactWrite
@@ -191,7 +193,7 @@ async def test_extract_skips_non_candidate_small_talk():
         ),
         patch(
             "app.modules.memory.extraction_workflow.expand_memory_extract_transcript",
-            AsyncMock(return_value=("hey there", "cursor-1")),
+            AsyncMock(return_value=PassLines("hey there", cursor="cursor-1")),
         ),
         patch("app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts", revise),
         patch("app.modules.memory.extraction_workflow.apply_memory_facts", apply),
@@ -227,7 +229,13 @@ def _cursor_patches(*, revise: AsyncMock, give_up: bool = False):
         ),
         patch(
             "app.modules.memory.extraction_workflow.expand_memory_extract_transcript",
-            AsyncMock(return_value=("User: I build mobile apps with Expo", "cursor-2")),
+            AsyncMock(
+                return_value=PassLines(
+                    "User: I build mobile apps with Expo",
+                    sources=(SourceLine("I build mobile apps with Expo"),),
+                    cursor="cursor-2",
+                )
+            ),
         ),
         patch("app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts", revise),
         patch("app.modules.memory.extraction_workflow.apply_memory_facts", AsyncMock()),

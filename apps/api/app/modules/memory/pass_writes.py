@@ -5,7 +5,7 @@ lock, asks the model, and applies what ``compose_writes`` returns.
 """
 
 import logging
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
@@ -28,9 +28,10 @@ from app.modules.memory.fact_quality import (
 )
 from app.modules.memory.facts import should_skip_sensitive_persist
 from app.modules.memory.forget_match import names_nothing, phrase_names_fact
+from app.modules.memory.grounding import SourceLine, grounded_source
 from app.modules.memory.name_claim import is_unclaimed_user_name
 from app.modules.memory.ops import EXPLICIT_IMPORTANCE, MODEL_IMPORTANCE_MAX, normalize_memory_text
-from app.modules.memory.schemas import MemoryFactOp
+from app.modules.memory.schemas import MemoryFactOp, MemoryFactUpdateResult
 from app.modules.memory.self_facts import stated_fact_writes
 from app.modules.memory.task_lines import drop_task_facts
 from app.modules.memory.text import classify_memory_sensitivity
@@ -57,6 +58,12 @@ class MemorySnapshot:
     user_timezone: str | None = None
     # The account name: a name they give that differs is saved as the one they go by.
     profile_name: str | None = None
+    # The app's language: in English a Latin-script quote is held to the fact's words.
+    locale: str | None = None
+
+    @property
+    def english(self) -> bool:
+        return (self.locale or "en").casefold().startswith("en")
 
 
 @dataclass(frozen=True)
@@ -89,12 +96,14 @@ def compose_writes(
     chat_id: UUID,
     from_history: bool,
     min_confidence: float,
+    sources: Sequence[SourceLine],
     earlier: str = "",
 ) -> tuple[list[MemoryFactWrite], int]:
     """Every write a pass makes, from the model's ops and the user's own words; no IO.
 
-    ``earlier`` is the exchange before ``lines``: a lone "forget that" drops what the
-    line before it asked to remember.
+    ``sources`` are the lines read with their messages: every fact the model writes is
+    held to one of them (``grounding``). ``earlier`` is the exchange before ``lines``: a
+    lone "forget that" drops what the line before it asked to remember.
     """
     writes, skipped = writes_from_ops(
         ops,
@@ -105,6 +114,8 @@ def compose_writes(
         transcript=lines,
         existing_texts=snapshot.existing_facts.values(),
         profile_name=snapshot.profile_name,
+        sources=sources,
+        english=snapshot.english,
     )
     writes, owned = _without_learning_lines(writes)
     skipped += owned
@@ -133,11 +144,30 @@ def compose_writes(
                 include_sensitive=snapshot.include_sensitive,
                 explicit_remember=asks.remember,
                 model_ops=ops,
+                sources=sources,
             )
         )
     if from_history:
-        return [write for write in writes if write.op == "add"], skipped
+        return _filling_gaps(writes, snapshot), skipped
     return writes + _stale_fact_deletes(snapshot, writes), skipped
+
+
+def told_as_story(result: MemoryFactUpdateResult) -> list[MemoryFactOp]:
+    """The model's ops, each read as a story when it judged the whole chat one: a fact
+    from a told story is never the user's life, whatever the op said."""
+    if (result.conversation or "").strip().casefold() != "story":
+        return list(result.ops)
+    return [
+        op if op.op in _MATCH_ONLY_OPS else op.model_copy(update={"stated_as": "story"})
+        for op in result.ops
+    ]
+
+
+def _filling_gaps(writes: list[MemoryFactWrite], snapshot: MemorySnapshot) -> list[MemoryFactWrite]:
+    """An earlier chat's lines only add: no change to a saved fact, and no answer to a
+    question a saved fact already answers (its slot is held)."""
+    held = {fact.get("slot") for fact in snapshot.prompt_facts if fact.get("slot")}
+    return [write for write in writes if write.op == "add" and write.slot not in held]
 
 
 def _without_learning_lines(
@@ -188,7 +218,11 @@ def writes_from_ops(
     transcript: str,
     existing_texts: Iterable[str] = (),
     profile_name: str | None = None,
+    sources: Sequence[SourceLine] | None = None,
+    english: bool = True,
 ) -> tuple[list[MemoryFactWrite], int]:
+    """Writes for the model's ops. With ``sources`` (an extraction pass, not a hand edit)
+    a fact that writes text is kept only when grounded in one of those lines."""
     writes: list[MemoryFactWrite] = []
     skipped = 0
     for op in result_ops:
@@ -216,7 +250,16 @@ def writes_from_ops(
         if writes_text and not text:
             skipped += 1
             continue
-        if writes_text and is_unclaimed_user_name(text, transcript, existing_texts=existing_texts):
+        source = _grounding(op, text, sources, explicit_remember, english) if writes_text else None
+        if writes_text and sources is not None and source is None:
+            logger.info("Skipping memory fact not stated by the user op=%s", op.op)
+            skipped += 1
+            continue
+        if (
+            writes_text
+            and not _short_reply(source)
+            and is_unclaimed_user_name(text, transcript, existing_texts=existing_texts)
+        ):
             logger.info("Skipping memory name the user did not claim")
             skipped += 1
             continue
@@ -245,12 +288,45 @@ def writes_from_ops(
                 else min(float(op.importance), MODEL_IMPORTANCE_MAX),
                 match_text=op.match_text,
                 source_chat_id=chat_id,
+                source_message_id=source.message_id if source else None,
+                slot=op.slot if writes_text else None,
                 topic=topic,
                 area_title=op.topic_title if topic and is_area(topic) else None,
                 area_summary=op.topic_summary if topic and is_area(topic) else None,
             )
         )
     return writes, skipped
+
+
+# A line this short is the user answering for themselves ("Biniam" to "What should I call
+# you?", "ስሜ ሳራ ነው"), not a pasted problem whose names are other people's.
+_SHORT_REPLY_WORDS = 8
+
+
+def _short_reply(source: SourceLine | None) -> bool:
+    """A name read off a short line of the user's stands on the quote alone; any other
+    (a hand edit's, or one from a pasted word problem) must be claimed in their words."""
+    return source is not None and len(source.text.split()) <= _SHORT_REPLY_WORDS
+
+
+def _grounding(
+    op: MemoryFactOp,
+    text: str,
+    sources: Sequence[SourceLine] | None,
+    explicit_remember: bool,
+    english: bool,
+) -> SourceLine | None:
+    """The line that states the op's fact about the user; None when it has none."""
+    if sources is None:
+        return None
+    return grounded_source(
+        quote=op.quote,
+        fact=text,
+        stated_as=op.stated_as,
+        lines=sources,
+        explicit_remember=explicit_remember,
+        english=english,
+    )
 
 
 def named_forget_deletes(

@@ -73,16 +73,27 @@ async def test_expand_includes_unprocessed_user_lines():
             "app.modules.memory.extract_backlog.get_redis_client",
             MagicMock(return_value=redis),
         ),
+        patch(
+            "app.modules.memory.extract_backlog.chat_history.messages_before",
+            AsyncMock(return_value=[SimpleNamespace(role="assistant", content="What can I make?")]),
+        ),
     ):
-        transcript, cursor = await expand_memory_extract_transcript(
+        read = await expand_memory_extract_transcript(
             session,
             user_id=uuid4(),
             chat_id=uuid4(),
             fallback_transcript="User: Keep the meals simple.",
         )
-    assert "I'm allergic to peanuts." in transcript
-    assert "Keep the meals simple." in transcript
-    assert cursor == format_extract_cursor(newer.created_at, newer.id)
+    assert "I'm allergic to peanuts." in read.transcript
+    assert "Keep the meals simple." in read.transcript
+    assert read.cursor == format_extract_cursor(newer.created_at, newer.id)
+    # Each line keeps its message: a fact's "From" link opens the chat there.
+    assert [(line.text, line.message_id) for line in read.sources] == [
+        ("I'm allergic to peanuts.", older.id),
+        ("Keep the meals simple.", newer.id),
+    ]
+    # The chat before the first unread line is read as context.
+    assert read.context == (("assistant", "What can I make?"),)
 
 
 @pytest.mark.asyncio

@@ -17,15 +17,19 @@ async def offline_memory_facts(
     del existing_facts
     if len(user_message.strip()) < 10:
         return None
+    # The newest line, quoted as said, so the server's grounding check holds it.
+    said = user_message.strip().splitlines()[-1].removeprefix("User:").strip()
     return MemoryFactUpdateResult(
         ops=[
             MemoryFactOp(
                 op="add",
                 type="focus",
-                text=f"Recently discussed: {user_message[:200]}",
+                text=f"Recently discussed: {said[:200]}",
                 confidence=0.6,
                 sensitivity="normal",
                 importance=0.4,
+                quote=said,
+                stated_as="own_life",
             )
         ]
     )

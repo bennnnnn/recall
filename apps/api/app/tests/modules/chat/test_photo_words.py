@@ -21,7 +21,7 @@ from app.modules.chat.finalize_reminders import own_words
 from app.modules.chat.turn_prep.context import StreamContext
 from app.modules.chat.turn_prep.instant import resolve_instant_reply
 from app.modules.chat.turn_prep.request import TurnRequest
-from app.modules.memory.extract_backlog import format_user_memory_transcript
+from app.modules.memory.extract_backlog import format_user_memory_transcript, source_lines
 from app.modules.memory.pass_writes import Asks, MemorySnapshot, compose_writes
 from app.modules.memory.text import memory_extract_user_text, memory_extraction_due
 from app.services.prompt_safety import frame_photo_reading, wrap_persisted_attachment_excerpts
@@ -71,7 +71,14 @@ def test_photo_words_memory_reads_none_of_the_photo(caption: str, reading: str) 
         prompt_areas=[],
     )
     writes, _ = compose_writes(
-        snapshot, lines, asks, [], chat_id=uuid.uuid4(), from_history=False, min_confidence=0.6
+        snapshot,
+        lines,
+        asks,
+        [],
+        chat_id=uuid.uuid4(),
+        from_history=False,
+        min_confidence=0.6,
+        sources=source_lines([(None, stored)]),
     )
     assert writes == []
 
