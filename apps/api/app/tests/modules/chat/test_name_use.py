@@ -26,11 +26,18 @@ from app.modules.chat.prompt_sections import STABLE_SECTIONS
         ('Bini, "To eat" is a plot twist.', '"To eat" is a plot twist.'),
         ("Alright, Bini — round two.", "Alright — round two."),
         ("Great question, bini!", "Great question!"),
+        # Between commas inside a sentence (the 80-message replay, 2026-11-19).
+        (
+            "That's a lot to take in, Bini, and it makes sense.",
+            "That's a lot to take in, and it makes sense.",
+        ),
+        ("I hear you, Bini, and I won't bring it up.", "I hear you, and I won't bring it up."),
         # Not where it addresses them (review, 2026-11-15): kept.
         ("I'm glad. Bini, rest well.", None),
         ("Bini is a lovely name.", None),
         ("Bini, Anna and Carl are on the team.", None),
         ("Invite Anna, Bini, and Carl.", None),
+        ("I told my sister, Bini, and Carl.", None),
         ("Call Bini.", None),
         ("Head down Bini Street, then turn left.", None),
         ("Here's your email:\n\nDear Bini,\n\nThanks for the invite.", None),
