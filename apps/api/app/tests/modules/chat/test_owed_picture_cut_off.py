@@ -7,7 +7,8 @@ from __future__ import annotations
 
 from contextlib import ExitStack
 from typing import Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
 import pytest
 
@@ -33,19 +34,16 @@ async def _saved(fake_redis: Any, finish_reason: str) -> tuple[str, TurnOutcome]
             meta["finish_reason"] = finish_reason
         yield _REPLY
 
-    finalize = AsyncMock()
+    create = AsyncMock(return_value=MagicMock(id=uuid4()))
     outcome = TurnOutcome()
     ctx = _ctx(_LINE, _decision("physics", "graph"), skip_memory_jobs=True)
     with ExitStack() as stack:
         stack.enter_context(
             patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
         )
-        stack.enter_context(
-            patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", finalize)
-        )
         stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
         async for _ in stream_and_finalize(
-            offline_deps(),
+            offline_deps(messages={"create": create}),
             fake_redis,
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             ctx,
@@ -55,7 +53,8 @@ async def _saved(fake_redis: Any, finish_reason: str) -> tuple[str, TurnOutcome]
             pass
         if outcome.finalize_db_task is not None:
             await outcome.finalize_db_task
-    return finalize.await_args.kwargs["assistant_text"], outcome
+    assert create.await_args is not None
+    return create.await_args.kwargs["content"], outcome
 
 
 @pytest.mark.asyncio
