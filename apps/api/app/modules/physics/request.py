@@ -24,12 +24,11 @@ from app.modules.physics.motion import read_motion
 from app.modules.physics.numbers import (
     normalize_physics_numbers,
     normalize_physics_units,
-    quantity_unit_at,
 )
 from app.modules.physics.registry import has_supported_physics_cue
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.schemas.intent import ProjectileQuantity
-from app.modules.physics.spelled import has_unread_quantity
+from app.modules.physics.unread import logged, unread_in_request
 from app.services.number_text import numeric_spans
 
 if TYPE_CHECKING:
@@ -356,9 +355,9 @@ def _projectile_parts(text: str) -> tuple[ProjectileQuantity, ...] | None:
 def prepare_physics_request(text: str) -> PhysicsRequest:
     """Preflight at the dispatch boundary so refusals cannot fall into algebra."""
     unit_normalized = normalize_physics_units(text)
-    if has_unread_quantity(unit_normalized, quantity_unit_at):
-        # "dropped from ten metres onto a 1 m table": the ten metres unread, the 1 m table
-        # answered another question.
+    if logged(unread_in_request(unit_normalized), None):
+        # "dropped from ten metres onto a 1 m table", ""4 x 100 m"": a part no reader
+        # reads (``unread``).
         return PhysicsRequest(text, rejected=True)
     if not has_supported_physics_cue(unit_normalized):
         return PhysicsRequest(unit_normalized)
@@ -443,6 +442,7 @@ def complete_physics_intent(
     from app.modules.physics.extractors.surface_gravity import gravity_unit_unread
     from app.modules.physics.law_refusals import refuses
     from app.modules.physics.set_aside import uses_set_aside_part
+    from app.modules.physics.unread import unread_in_reading
 
     params = intent.physics_params or {}
     if intent.kind == "suvat":
@@ -486,6 +486,8 @@ def complete_physics_intent(
     if intent.kind == "gravitation" and orbiting_mass_fills(params, request.text):
         # "The Moon orbits the Earth. The Moon's mass is 7.35e22 kg": not the mass it orbits.
         return None
+    if logged(unread_in_reading(intent, request.text), intent.physics_op):
+        return None  # "60 km/h north to 80 m/s south" read as two speeds the same way
     if step_of is not None:
         return intent.model_copy(update={"asked": step_of, "asked_unit": None})
     if competing_given(intent, request.text) is not None or time_from_another_event(

@@ -14,6 +14,7 @@ import {
 import type { Chat } from "@/lib/api";
 import type { IconName } from "@/ui/icons/names";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
+import type { Translate } from "@/lib/i18n/translate";
 
 type Options = {
   token: string | null;
@@ -27,7 +28,7 @@ type Options = {
   closeMenu: () => void;
   dismissActionBanner: () => void;
   showActionBanner: (message: string, icon?: IconName) => void;
-  t: (key: string, options?: Record<string, unknown>) => string;
+  t: Translate;
 };
 
 const DRAWER_LIST = { patch: patchChatGlobal, insert: insertChatGlobal, remove: removeChatGlobal };

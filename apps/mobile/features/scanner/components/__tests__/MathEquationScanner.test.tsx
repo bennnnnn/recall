@@ -467,15 +467,15 @@ describe("MathEquationScanner", () => {
     );
   });
 
-  it("shows biology's mark in the shutter when biology is selected", async () => {
+  it("shows chemistry's mark in the shutter when chemistry is selected", async () => {
     const { getByTestId } = await render(
       <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,
     );
     await act(async () => {
-      fireEvent.press(getByTestId("scanner-subject-biology"));
+      fireEvent.press(getByTestId("scanner-subject-chemistry"));
     });
-    expect(within(getByTestId("math-scanner-shutter")).getByTestId("scanner-subject-mark-biology")).toBeTruthy();
-    expect(getByTestId("scanner-subject-biology").props.accessibilityState).toEqual({ selected: true });
+    expect(within(getByTestId("math-scanner-shutter")).getByTestId("scanner-subject-mark-chemistry")).toBeTruthy();
+    expect(getByTestId("scanner-subject-chemistry").props.accessibilityState).toEqual({ selected: true });
   });
 
   it("does not take hidden camera photos while the scanner is idle", async () => {
@@ -796,7 +796,7 @@ describe("imported math scanner photos", () => {
     );
   });
 
-  it.each(["math", "physics", "chemistry", "biology"])(
+  it.each(["math", "physics", "chemistry"])(
     "sends a picked %s photo with its tab's subject on Solve",
     async (subject) => {
       const onCaptured = jest.fn();
@@ -886,7 +886,7 @@ describe("scanner sessions and scan files", () => {
     return { all, element };
   }
 
-  it.each(["biology", "math"])("drops a %s capture that lands after the scanner closed", async (subject) => {
+  it.each(["chemistry", "math"])("drops a %s capture that lands after the scanner closed", async (subject) => {
     const finish = deferredPhoto();
     const { all, element } = scanner();
     const view = await render(element());

@@ -284,15 +284,10 @@ CALCULATION_LAYOUT_CONTRACT = (
     "Do not force a line break with HTML."
 )
 
-# Statistics and biology have no module yet: chat's continuation_subject names them, so
-# their presentation hints stay here until a subject module owns them.
+# Statistics has no module yet: chat's continuation_subject names it, so its presentation
+# hint stays here until a subject module owns it.
 STATISTICS_PRESENTATION_HINT = (
     "This is a statistics answer. Name the statistic and the values that enter it. "
-    "When you calculate, follow the calculation layout: one reasoning state per row."
-)
-
-BIOLOGY_PRESENTATION_HINT = (
-    "This is a quantitative biology answer. Keep the biological quantity and its units visible. "
     "When you calculate, follow the calculation layout: one reasoning state per row."
 )
 

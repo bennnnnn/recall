@@ -580,6 +580,11 @@ background, and runs the new code from the next launch.
 - [ ] `EXPO_PUBLIC_SUPPORT_EMAIL` (EAS environment variable) set to `support@recall.com` too.
       Settings → Help's Contact support, Report a problem and Send feedback email it; a build
       without it hides those rows and says support is not set up
+- [ ] `EXPO_PUBLIC_SHARE_URL` (EAS environment variable) set to the app's get link on our own
+      domain (for example `https://recall.com/get`), and that path redirecting an iPhone to the
+      App Store listing and anything else to Google Play. Every shared chat and PDF ends with
+      "Shared from Recall …" and this link, with `?ref=share` added so installs from shares can
+      be counted; a build without it names the app with no link
 - [ ] Privacy policy + terms URLs for both stores: `https://<api-host>/legal/privacy` and
       `https://<api-host>/legal/terms`
 - [ ] Play Console → App content → Data safety → **Delete account URL**:

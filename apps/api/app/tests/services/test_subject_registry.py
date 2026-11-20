@@ -26,12 +26,10 @@ def test_the_registry_holds_one_adapter_per_subject_name() -> None:
         assert subject_adapter(name).name == name
 
 
-def test_the_subject_literals_are_the_registrys_names() -> None:
-    from app.services.subject_scan import ScannerSubject
+def test_the_scanner_has_one_caption_per_registered_subject() -> None:
+    from app.services.subject_scan import SCANNER_CAMERA_PROMPTS
 
-    names = set(typing.get_args(SubjectName))
-    scanned = {arg for part in typing.get_args(ScannerSubject) for arg in typing.get_args(part)}
-    assert scanned == {*names, "biology"}
+    assert set(SCANNER_CAMERA_PROMPTS) == set(typing.get_args(SubjectName))
 
 
 def test_image_extract_is_math_before_any_peer() -> None:
@@ -65,13 +63,10 @@ def test_disabled_chemistry_does_not_claim_a_lookup() -> None:
 
 
 # A scanner photo's subject is what its words are, as a typed line's is; its tab decides only
-# when the words name none, and no subject reads biology (audit ARCH-02/SCAN-04, 2026-11-13).
+# when the words name none (audit ARCH-02/SCAN-04, 2026-11-13).
 @pytest.mark.parametrize(
     ("tab", "words", "subject"),
     [
-        ("biology", None, None),
-        ("biology", "Name the parts of a plant cell.", None),
-        ("biology", "Solve 2x + 3 = 7", "math"),
         ("math", None, "math"),
         ("math", "A car accelerates from 0 to 30 m/s in 6 s. Find its acceleration.", "physics"),
         ("math", "Find the molar mass of H2SO4", "chemistry"),

@@ -3,7 +3,6 @@ from pathlib import Path
 import pytest
 
 from app.services.subject_scan import (
-    BIOLOGY_CAMERA_PROMPT,
     CHEMISTRY_CAMERA_PROMPT,
     MATH_CAMERA_PROMPT,
     PHYSICS_CAMERA_PROMPT,
@@ -34,7 +33,6 @@ def test_subject_scan_prompts_match_mobile_protocol() -> None:
     assert MATH_CAMERA_PROMPT == _ts_exported_string(math_source, "MATH_CAMERA_PROMPT")
     assert PHYSICS_CAMERA_PROMPT == _ts_exported_string(subject_source, "PHYSICS_CAMERA_PROMPT")
     assert CHEMISTRY_CAMERA_PROMPT == _ts_exported_string(subject_source, "CHEMISTRY_CAMERA_PROMPT")
-    assert BIOLOGY_CAMERA_PROMPT == _ts_exported_string(subject_source, "BIOLOGY_CAMERA_PROMPT")
 
 
 def test_scanner_camera_subject_matches_only_protocol_prefixes() -> None:
@@ -44,7 +42,6 @@ def test_scanner_camera_subject_matches_only_protocol_prefixes() -> None:
     )
     assert scanner_camera_subject(PHYSICS_CAMERA_PROMPT.upper()) == "physics"
     assert scanner_camera_subject(CHEMISTRY_CAMERA_PROMPT) == "chemistry"
-    assert scanner_camera_subject(BIOLOGY_CAMERA_PROMPT) == "biology"
     assert is_scanner_camera_prompt(f"{PHYSICS_CAMERA_PROMPT}\n\nextra")
     assert scanner_camera_subject("What's in this image?") is None
 
@@ -92,12 +89,6 @@ def test_a_physics_camera_caption_is_physics_not_math(caption: str) -> None:
 
     assert needs_symbolic(caption, has_image_attachment=True) is False
     assert detect_subject(caption, has_image_attachment=True) == "physics"
-
-
-def test_a_biology_camera_caption_is_not_math() -> None:
-    from app.modules.math.match.needs import needs_symbolic
-
-    assert needs_symbolic(BIOLOGY_CAMERA_PROMPT, has_image_attachment=True) is False
 
 
 def test_with_confirmed_reading_states_the_reading_under_the_caption() -> None:

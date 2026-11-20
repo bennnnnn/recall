@@ -35,6 +35,7 @@ import {
   subscribeComposerAttachmentQueue,
   takeQueuedComposerAttachment,
 } from "@/features/attachments/model/pendingComposerAttachment";
+import type { Translate } from "@/lib/i18n/translate";
 
 type Router = ReturnType<typeof useRouter>;
 type DraftChat = ReturnType<typeof useDraftChat>;
@@ -83,7 +84,7 @@ type Options = {
   updateUser: (patch: Partial<import("@/lib/api").User>) => Promise<void>;
   /** The account's Location switch: a location question need not wait for an on one to save. */
   locationSwitch?: LocationSwitch;
-  t: (key: string, options?: Record<string, unknown>) => string;
+  t: Translate;
   onStreamBusy?: () => void;
   /** Soft offline cue (toast) — prefer over a blocking Alert; draft stays in the composer. */
   onOfflineBlocked?: () => void;

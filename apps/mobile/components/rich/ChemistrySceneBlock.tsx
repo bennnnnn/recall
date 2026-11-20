@@ -8,10 +8,10 @@ import { CHEMISTRY_SCENE_KINDS, parseChemistryScene, type ChemistryScene } from 
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { Space } from "@/lib/space";
+import type { Translate } from "@/lib/i18n/translate";
 
 type Props = { content: string };
 type Styles = ReturnType<typeof makeStyles>;
-type Translate = (key: string, options?: Record<string, unknown>) => string;
 
 /** Card title per scene kind. A vsepr card is titled by its formula, which the server sends. */
 const SCENE_LABEL = {

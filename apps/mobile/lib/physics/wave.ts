@@ -12,6 +12,7 @@
  */
 
 import { finiteNumber } from "@/lib/fence/validate";
+import type { Translate } from "@/lib/i18n/translate";
 
 type WaveEnd = "none" | "fixed" | "open" | "closed";
 
@@ -136,8 +137,6 @@ export function sampleAt(xs: readonly number[], values: readonly number[], x: nu
 export function waveHasPipe(spec: WaveSpec): boolean {
   return spec.ends.some((end) => end === "open" || end === "closed");
 }
-
-type Translate = (key: string, options?: Record<string, unknown>) => string;
 
 /** What a screen reader says when the fence has no `alt`. */
 export function describeWave(spec: WaveSpec, measureLabels: string[], t: Translate): string {
