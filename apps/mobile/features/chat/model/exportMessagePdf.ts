@@ -4,6 +4,7 @@ import i18n from "@/lib/i18n";
 import { markdownToStructuredPrintHtml } from "@/features/chat/model/printDocument";
 import { NothingToExportError } from "@/features/chat/model/nothingToExport";
 import { conversationMarkdownBody } from "@/features/chat/model/transcript";
+import { shareFooterLines } from "@/features/chat/model/shareFooter";
 
 async function exportMessageAsPdf(title: string, markdown: string, onSharing: () => void): Promise<void> {
   const html = await markdownToStructuredPrintHtml(title, markdown);
@@ -19,5 +20,9 @@ export async function exportConversationAsPdf(
   const heading = title?.trim() || i18n.t("chat.export_pdf_default_title");
   const body = conversationMarkdownBody(messages, "print");
   if (!body.trim()) throw new NothingToExportError();
-  await exportMessageAsPdf(heading, body, onSharing);
+  // The PDF ends as a text share does: where it came from, and where to get the app.
+  const footer = shareFooterLines(undefined, (link) => `[${link}](${link})`)
+    .map((line) => `*${line}*`)
+    .join("\n\n");
+  await exportMessageAsPdf(heading, `${body}\n\n---\n\n${footer}`, onSharing);
 }

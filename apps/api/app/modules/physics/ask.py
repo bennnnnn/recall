@@ -32,6 +32,7 @@ __all__ = [
     "asked_unit",
     "asks",
     "asks_for_a_part",
+    "averaged_asks",
     "has_ask",
     "result_dimension",
     "result_reading",
@@ -401,6 +402,28 @@ def asked_dimensions(text: str) -> tuple[str, ...]:
     if None in dimensions:
         return ()
     return tuple(dict.fromkeys(dimension for dimension in dimensions if dimension is not None))
+
+
+# An asked quantity over the whole change, not at one moment of it: "its average velocity".
+_AVERAGE = re.compile(r"\baverage\b", re.IGNORECASE)
+# The asked noun's adjectives: the words just before it ("the average braking force").
+_ADJECTIVE_REACH = 3
+
+
+def averaged_asks(text: str, clause: str | None = None) -> tuple[str | None, ...]:
+    """The kinds of the asked quantities the question names an average (None for a kind
+    not certain), in order; empty when it asks for none.
+
+    ``clause`` is one asked part (a chain's ask); by default the last question's.
+    """
+    clause = ask_clause(text) if clause is None else clause
+    if clause is None:
+        return ()
+    return tuple(
+        _dimension(phrase, text)
+        for phrase, noun in _asked_nouns(clause, text)
+        if _AVERAGE.search(" ".join(clause[: noun.start()].split()[-_ADJECTIVE_REACH:]))
+    )
 
 
 @dataclass(frozen=True, slots=True)

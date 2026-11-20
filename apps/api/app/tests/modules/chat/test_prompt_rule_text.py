@@ -94,13 +94,14 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # scene and the question's values, never a coordinate (physics.scene_drawing.contract, the
 # owner's round of 30 hard problems, 2026-11-16), naming a horizontal launch, bodies moving
 # the same way and the situations it never draws; no spring or wave, which no reader confirms
-# (its reviews, 2026-11-16); then a ```worked part asked in words, said in `say` lines and
-# answered in one sentence (prompt_constants.worked, G8 round t42, 2026-11-18), and its answer
-# record's value and its substitution left unrounded, the "3 significant figures" gone: the server rounds every
-# card by one rule (services.rounding_rule, the owner, 2026-11-18).
-_RULES = 203
-_RULE_GRAMS = 19142
-_RULE_GRAMS_SHA = "a5ed625737f94cbc"
+# (its reviews, 2026-11-16); then no biology presentation hint, biology being out of v1
+# (2026-11-18); then a ```worked part asked in words, said in `say` lines and answered in
+# one sentence (prompt_constants.worked, G8 round t42, 2026-11-18), and its answer record's
+# value and its substitution left unrounded, the "3 significant figures" gone: the server
+# rounds every card by one rule (services.rounding_rule, the owner, 2026-11-18).
+_RULES = 202
+_RULE_GRAMS = 19128
+_RULE_GRAMS_SHA = "7a87c35f6e4cc21f"
 
 
 def _rules() -> list[str]:

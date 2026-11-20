@@ -445,16 +445,16 @@ wheels = [
 
 [[package]]
 name = "ddgs"
-version = "9.16.0"
+version = "9.16.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
     { name = "lxml" },
     { name = "primp" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/68/30/dd2ff7d817573e30836fb99bdc04e167ce03ac5b878072b3e9e892aa810b/ddgs-9.16.0.tar.gz", hash = "sha256:161ca8e78ea08d40cd3f83fb12279b49322ffb342d981368bfa39bed9847d874", size = 38018, upload-time = "2026-08-26T21:52:33.604Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ec/c4/165b9b1581813063847349421c014a8ccc346222a58b3233ba168bf257c1/ddgs-9.16.1.tar.gz", hash = "sha256:0cde5682e5801b838915bcb1d12ade8f2e1ec11763b88d0035a1faa0662b517a", size = 38033, upload-time = "2026-10-23T21:16:42.709Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f9/0c/b43a87e81e45caf2c30fea9a5914dfd17b83a9f3c2c59ae22b6257bcf083/ddgs-9.16.0-py3-none-any.whl", hash = "sha256:175d9198c958a263f51a06a54368ba0b41294942c0cd29f4aa71be03dbcd5f4a", size = 47580, upload-time = "2026-08-26T21:52:32.001Z" },
+    { url = "https://files.pythonhosted.org/packages/60/5f/9388344fe821102459a73d2d49ab5e6769b3bab3f17ecf79fb1f736cf1d6/ddgs-9.16.1-py3-none-any.whl", hash = "sha256:9ac0b3c19d865a9bfbf7bc7cc8090bd43d1e7adfb083a017bbece360a22e21b6", size = 47695, upload-time = "2026-10-23T21:16:41.413Z" },
 ]
 
 [[package]]
@@ -1683,11 +1683,11 @@ wheels = [
 
 [[package]]
 name = "pypdf"
-version = "7.0.1"
+version = "7.1.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/00/c2/4c34b3229abae3e2fcc7809e6cf80fdea159771a37142f475fbf1009c809/pypdf-7.0.1.tar.gz", hash = "sha256:0a78bb99efb41e9088260e9a8e5da134a5cbb9a322014744177bf29b5267ea6d", size = 7206748, upload-time = "2026-11-10T11:47:22.582Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/60/d3/367aa9baefaededd3321cde46bbcb9f008bb51cef3a6b745608352a99534/pypdf-7.1.0.tar.gz", hash = "sha256:ca3fa902369e98a6d2cb7b56396de902b72ef9bb3c1e8706c1bfc7d8bd0cf0d7", size = 7215190, upload-time = "2026-11-13T12:23:18.629Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d5/a9/ae11deef21eaac5113f8c3848da1c42423b7abeca0abc349bfec7abf4c4e/pypdf-7.0.1-py3-none-any.whl", hash = "sha256:6131b764b046282357037309e7ef2a1b7679d4a5c53eed3db2bfbf7c673ddc2b", size = 416136, upload-time = "2026-11-10T11:47:20.716Z" },
+    { url = "https://files.pythonhosted.org/packages/ed/4c/d19f91b743c8579b67e3d8b001e095745dec5bb13a9b4b9eadc235a85d9e/pypdf-7.1.0-py3-none-any.whl", hash = "sha256:47cca6b24bdcf4c4d65b5f7b8b972535c61710a061261e737688777cfd9a7bfb", size = 418698, upload-time = "2026-11-13T12:23:16.777Z" },
 ]
 
 [[package]]
@@ -1876,21 +1876,21 @@ wheels = [
 
 [[package]]
 name = "rdkit"
-version = "2026.9.1"
+version = "2026.9.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
     { name = "pillow" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a8/b4/f6a5ff0166fbf40214d56fafe550f6f91297743c0fe4c3ff64188c0365d5/rdkit-2026.9.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:8d9862403a1ca853c951e22d3c92e8449c8894b0dfebe397115ef67144134b14", size = 25586981, upload-time = "2026-10-09T15:46:59.227Z" },
-    { url = "https://files.pythonhosted.org/packages/d2/5d/eb99b6bd651ffd8f35c0d45aafe83cdc21f07d81e93b5c2db881bbd506c2/rdkit-2026.9.1-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:fb8e9196def0d5015b331398f6e64eaad2f18ff5518119d58f83e387274a5022", size = 30182530, upload-time = "2026-10-09T15:47:02.56Z" },
-    { url = "https://files.pythonhosted.org/packages/6b/a0/e82df4fbfdd26d239acc173ddcf98b11f530138ffcf64490cd80f3416514/rdkit-2026.9.1-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:c700cb37954d84bb864d8e02a55cff8b0f5ee6daff6d79a53a1cfe12459fa8c0", size = 31760219, upload-time = "2026-10-09T15:47:06.421Z" },
-    { url = "https://files.pythonhosted.org/packages/78/e3/2ea71cd3369c308a4d6384d26eed1943039bf76d50876eb55889cbbc31af/rdkit-2026.9.1-cp312-cp312-win_amd64.whl", hash = "sha256:fa4f8bed07bd6a49f71f49a579b99dc07cd45b9c66af8d5f133adb0a0876361e", size = 25379844, upload-time = "2026-10-09T15:47:09.734Z" },
-    { url = "https://files.pythonhosted.org/packages/29/53/4277a2f4708e0c0a61917cf7075cc66ccfc66acb21c8ce043612a5850a56/rdkit-2026.9.1-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:29b6176ace255989abde23d40d2187b5ed5effdb2f00dadaced24f181ab27046", size = 25586154, upload-time = "2026-10-09T15:47:12.896Z" },
-    { url = "https://files.pythonhosted.org/packages/7b/9e/26b843647dfd373bd26e2f527804185f3e7a5c14763352416250a82a92c1/rdkit-2026.9.1-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:0a88d68482d5a3ef2a6faf0b036345bb1f4cca56667076e6aea8655adc5f73d9", size = 30181318, upload-time = "2026-10-09T15:47:16.362Z" },
-    { url = "https://files.pythonhosted.org/packages/4a/80/726c7e0dc2a1bf980a3475002addcb9b8bd0e9ced705a49b4ed13616c8dd/rdkit-2026.9.1-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:6b4b8b814d2190744c812c1f0b0d7fe4f029ade02ca444ed584261a254624ae9", size = 31759590, upload-time = "2026-10-09T15:47:20.641Z" },
-    { url = "https://files.pythonhosted.org/packages/65/61/7c967fb8684ada5c4d727051cda44ed561a863f8e354cadaf82cfea00a75/rdkit-2026.9.1-cp313-cp313-win_amd64.whl", hash = "sha256:df99d496b7dad86bc5c1de4939bac4eb9996b20092778f467a53d9f0689a028a", size = 25378871, upload-time = "2026-10-09T15:47:23.835Z" },
+    { url = "https://files.pythonhosted.org/packages/87/67/9a52d6a8ffb615733ea2d44cfa0b014b701bb29bbb86951f692a0bb9a924/rdkit-2026.9.2-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:1278e04754104f5ddcf52d1de599380917e1e958699ae0bb4c0500fba74aef4f", size = 24610997, upload-time = "2026-11-11T14:34:54.876Z" },
+    { url = "https://files.pythonhosted.org/packages/19/36/f2b5c1db21380fe8c59d5d6eba6b10134a7c9e0c0f415cd47d99b32f8d70/rdkit-2026.9.2-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:a45f8d62b127af11895131eb4a0739dfcb5457e902dc374c9b611cf2721688e8", size = 28065505, upload-time = "2026-11-11T14:34:58.279Z" },
+    { url = "https://files.pythonhosted.org/packages/4a/9d/b16df09ec2ba2be7bd2156b4e3beae425a6f9ee7de7c8453c831181e850d/rdkit-2026.9.2-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:88a601d6627ca197e8cba0a1aae492f100e114b5eda739b27322514c39c39b92", size = 29550781, upload-time = "2026-11-11T14:35:02.143Z" },
+    { url = "https://files.pythonhosted.org/packages/61/3d/1ebab5edad1078e0a182f18c6bb66d1e102ff825d7d509c764ab766c0e35/rdkit-2026.9.2-cp312-cp312-win_amd64.whl", hash = "sha256:3814340275371b8fed18948ecbf4c45e0c7ce03fee6b609b76b27743fe9dd567", size = 25410207, upload-time = "2026-11-11T14:35:05.47Z" },
+    { url = "https://files.pythonhosted.org/packages/2d/6e/d5c9cc318d419207972a8af051d0a5d21a59fb7dc1901be7874fa0d2504b/rdkit-2026.9.2-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:3860ba53505f27cb24d05383027f78e3f82aefd6caf193c217a94d876d91b023", size = 24609979, upload-time = "2026-11-11T14:35:08.62Z" },
+    { url = "https://files.pythonhosted.org/packages/83/cb/359fe0890586b8dea90b6861b64691682989171fc400f099efacd1d37cc7/rdkit-2026.9.2-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:c5ed62e0525c618e7cfaba4d490d0e914051c274ac8d97b5fff2f2ad90fab62c", size = 28064136, upload-time = "2026-11-11T14:35:11.852Z" },
+    { url = "https://files.pythonhosted.org/packages/43/d2/848c140ad3cc4228b9a9fb06bc38c9ad74152b876dd67be5b6a1b64f6ed5/rdkit-2026.9.2-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:d01598fffdcd48088661c57f97ba333d45ac5fd57ef69f649fd46eb5cb2453db", size = 29549981, upload-time = "2026-11-11T14:35:15.568Z" },
+    { url = "https://files.pythonhosted.org/packages/2f/ca/a0bd48b18df43d22203cb1d411eb480321dbee477b2df420da20a81fd379/rdkit-2026.9.2-cp313-cp313-win_amd64.whl", hash = "sha256:d114991beef6322042d5c2f4dfe8aafe57ff74215f0cc0b11216d449266dc087", size = 25409500, upload-time = "2026-11-11T14:35:18.977Z" },
 ]
 
 [[package]]
@@ -1963,14 +1963,14 @@ requires-dist = [
     { name = "pint", specifier = ">=0.24,<0.27" },
     { name = "pydantic-settings", specifier = ">=2.6.0,<2.17" },
     { name = "pyjwt", specifier = ">=2.14.0,<2.16" },
-    { name = "pypdf", specifier = ">=5.1.0,<7.1" },
+    { name = "pypdf", specifier = ">=5.1.0,<7.2" },
     { name = "pypdfium2", specifier = ">=4.30.0,<6" },
     { name = "python-docx", specifier = ">=1.1.0,<1.3" },
     { name = "python-multipart", specifier = ">=0.0.20,<0.0.33" },
     { name = "python-pptx", specifier = ">=1.0.2,<1.1" },
     { name = "rdkit", specifier = ">=2024.3.6,<2027" },
     { name = "redis", specifier = ">=5.2.0,<8.2" },
-    { name = "sentry-sdk", extras = ["fastapi"], specifier = ">=2.66.0,<2.74" },
+    { name = "sentry-sdk", extras = ["fastapi"], specifier = ">=2.66.0,<2.76" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.52,<2.2" },
     { name = "sympy", specifier = ">=1.13.0,<1.15" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.51.0,<0.55" },
@@ -2190,15 +2190,15 @@ wheels = [
 
 [[package]]
 name = "sentry-sdk"
-version = "2.73.0"
+version = "2.75.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "certifi" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c5/3b/1e47acf2456781c26e12007379ecc154bf310b8f64d40390d78b791d55c3/sentry_sdk-2.73.0.tar.gz", hash = "sha256:4a2ab97b16e4693c325ab361c7bbbb346dbc7d0bc0150922d795a25bac8d5280", size = 1079078, upload-time = "2026-10-22T09:08:49.63Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d2/95/121b20d75e738d249a0e26e6476a2acb178673e8228002748fc0cd85ce55/sentry_sdk-2.75.0.tar.gz", hash = "sha256:c38ac2d4b2435c11da821e173bb9d9088c98f41ae92f559ce0e424170a8e1a29", size = 1092308, upload-time = "2026-11-12T13:24:13.977Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b2/88/cabf98d017d7b940720e514e5f8ee02e3e6f7495caf93c30735a38387ec4/sentry_sdk-2.73.0-py3-none-any.whl", hash = "sha256:0bcfa6928ea5adbb89591858b514d27adac27c7a3cccc31b20ed10e0b09eda9e", size = 549011, upload-time = "2026-10-22T09:08:47.88Z" },
+    { url = "https://files.pythonhosted.org/packages/ec/ee/fbfe67386d64a7218013c8346b88b89d72f279b4ddb434ed5e94bea3d389/sentry_sdk-2.75.0-py3-none-any.whl", hash = "sha256:9a10e97de2cbd42ad7e4a6e02a0d5af19de9811eb02445077d41ba14c08e170c", size = 555165, upload-time = "2026-11-12T13:24:11.923Z" },
 ]
 
 [package.optional-dependencies]

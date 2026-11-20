@@ -57,7 +57,7 @@ export function ShutterSubjectDisc({ subject }: { subject: ScannerSubject }) {
 
 type MarkProps = { subject: ScannerSubject; size: number; primary: string; ink: string };
 
-/** A subject's line drawing: Σ for maths, an atom, a flask, a double helix. */
+/** A subject's line drawing: Σ for maths, an atom, a flask. */
 function SubjectMark({ subject, size, primary, ink }: MarkProps) {
   if (subject === "physics") {
     return (
@@ -103,31 +103,6 @@ function SubjectMark({ subject, size, primary, ink }: MarkProps) {
           strokeLinejoin="round"
         />
         <Path d="M20 42h24" stroke={primary} strokeWidth={3} strokeLinecap="round" />
-      </Svg>
-    );
-  }
-
-  if (subject === "biology") {
-    return (
-      <Svg width={size} height={size} viewBox="0 0 64 64">
-        <Path
-          d="M18 7c0 12 28 12 28 25S18 45 18 57"
-          fill="none"
-          stroke={ink}
-          strokeWidth={3}
-          strokeLinecap="round"
-        />
-        <Path
-          d="M46 7c0 12-28 12-28 25s28 13 28 25"
-          fill="none"
-          stroke={primary}
-          strokeWidth={3}
-          strokeLinecap="round"
-        />
-        <Line x1={21} y1={14} x2={43} y2={14} stroke={ink} strokeWidth={2} />
-        <Line x1={18} y1={25} x2={46} y2={25} stroke={ink} strokeWidth={2} />
-        <Line x1={18} y1={39} x2={46} y2={39} stroke={ink} strokeWidth={2} />
-        <Line x1={21} y1={50} x2={43} y2={50} stroke={ink} strokeWidth={2} />
       </Svg>
     );
   }

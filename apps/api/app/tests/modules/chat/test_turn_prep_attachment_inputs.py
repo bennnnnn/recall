@@ -21,7 +21,6 @@ from app.modules.math.image_extract import camera_math_user_suffix
 from app.modules.math.ocr import MathOcrResult
 from app.modules.math.schemas import MathImageExtract
 from app.services.subject_scan import (
-    BIOLOGY_CAMERA_PROMPT,
     CHEMISTRY_CAMERA_PROMPT,
     MATH_CAMERA_PROMPT,
     PHYSICS_CAMERA_PROMPT,
@@ -360,14 +359,6 @@ async def test_a_reading_the_student_confirmed_is_not_read_again() -> None:
     result, mocks, _ = await _run([_row("image/png")], content=confirmed)
     mocks["physics_read"].assert_not_awaited()
     assert result.content == confirmed
-
-
-@pytest.mark.asyncio
-async def test_a_biology_scan_has_no_reader() -> None:
-    result, mocks, _ = await _run([_row("image/png")], content=BIOLOGY_CAMERA_PROMPT)
-    for name in ("physics_read", "chemistry_read", "extract"):
-        mocks[name].assert_not_awaited()
-    assert result.content == BIOLOGY_CAMERA_PROMPT
 
 
 @pytest.mark.asyncio
