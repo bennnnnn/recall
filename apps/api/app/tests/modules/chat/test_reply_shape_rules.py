@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-from app.modules.chat.prompt_constants.format import (
-    FORMAT_CONTRACT,
-    READER_NOTE,
-    TONE_FORMAT_GUARD,
-)
+from app.modules.chat.prompt_constants.format import FORMAT_CONTRACT, READER_NOTE, TONE_FORMAT_GUARD
 from app.modules.chat.prompt_constants.routing import LIGHTWEIGHT_REPLY_HINT
 
 
