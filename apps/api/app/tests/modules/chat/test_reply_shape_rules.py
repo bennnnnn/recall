@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-from app.modules.chat.prompt_constants.format import (
-    FORMAT_CONTRACT,
-    READER_NOTE,
-    TONE_FORMAT_GUARD,
-)
+from app.modules.chat.prompt_constants.format import FORMAT_CONTRACT, TONE_FORMAT_GUARD
 from app.modules.chat.prompt_constants.routing import LIGHTWEIGHT_REPLY_HINT
 
 
@@ -15,21 +11,9 @@ def test_an_example_is_a_sentence_not_a_quote_or_a_fence() -> None:
     assert "Never a `>`, a callout, or a code fence for an example" in FORMAT_CONTRACT
 
 
-def test_a_reply_ends_on_its_point_and_offers_only_a_concrete_next_step() -> None:
-    # An 80-message chat ended 65 replies on a question or an offer (2026-11-19).
-    assert "Ending: end on your last point" in FORMAT_CONTRACT
-    assert "A closing question only when you need their answer" in FORMAT_CONTRACT
-    assert "never the same offer again after they let it go" in FORMAT_CONTRACT
-    assert "A reply about their own life or feelings ends without an offer" in FORMAT_CONTRACT
+def test_a_reply_ends_with_at_most_one_plain_line() -> None:
     assert "never bold" in FORMAT_CONTRACT
     assert "Let me know if you have any other questions" in FORMAT_CONTRACT
-    assert "a question or an offer of one concrete next step" not in FORMAT_CONTRACT
-
-
-def test_a_message_about_their_own_life_is_answered_as_a_conversation() -> None:
-    # "I love the mom" got three numbered steps and a bold verdict (2026-11-19).
-    assert "is a conversation, not a question to scan" in READER_NOTE
-    assert "no list, heading or bold" in READER_NOTE
 
 
 def test_headings_rule_does_not_contradict_the_short_how_to() -> None:

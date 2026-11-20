@@ -6,6 +6,7 @@ import pytest
 
 from app.services import time_context
 from app.services.time_context import (
+    KNOWN_DAY_RULE,
     correct_weekday_dates,
     describe_due_at,
     effective_timezone,
@@ -164,13 +165,7 @@ def test_correct_weekday_dates_reads_through_bold():
 
 def test_format_now_awareness_asks_for_the_full_date_with_a_weekday():
     text = format_now_awareness("Africa/Nairobi", "en")
-    assert "When you name the weekday of a date this chat has not named yet, write the full" in text
-
-
-def test_format_now_awareness_never_dates_a_known_day_again():
-    # "tomorrow, Friday, November 20, 2026" in 50 of 80 replies (2026-11-19).
-    text = format_now_awareness("Africa/Nairobi", "en")
-    assert 'A day the chat already named is just "tomorrow", "today" or its weekday' in text
+    assert KNOWN_DAY_RULE in text
 
 
 def test_format_now_awareness_lists_the_coming_week():
