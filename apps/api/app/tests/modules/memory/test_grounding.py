@@ -505,3 +505,12 @@ def test_recheck_leaves_a_fact_the_user_edited_by_hand():
     assert edited_by_hand(fact, fact.confirmed_at + timedelta(seconds=1))
     assert not edited_by_hand(fact, fact.confirmed_at + timedelta(minutes=5))
     assert not edited_by_hand(fact, None)
+
+
+def test_recheck_mutes_only_what_is_near_the_fact_that_stays():
+    from app.modules.memory.recheck import older_of_pairs
+
+    a, b, c = _saved("A", 0), _saved("B", 1), _saved("C", 2)
+    # A is near B, B is near C, A is not near C: B goes for C, and A stays.
+    assert older_of_pairs([(a, b), (c, b)]) == {b.id}
+    assert older_of_pairs([(b, a)]) == {a.id}

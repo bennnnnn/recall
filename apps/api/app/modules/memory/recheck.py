@@ -53,6 +53,8 @@ _AFTER_CONFIRMED = timedelta(minutes=2)
 _AROUND_CREATED = timedelta(minutes=10)
 # Reads of each chat; a fact must pass every one.
 _READS = 2
+# Facts read in one call.
+_BATCH = 20
 
 
 @dataclass(frozen=True)
@@ -286,16 +288,29 @@ async def _said_again(
             left.embedding.cosine_distance(right.embedding) <= 1 - min_similarity,
         )
     )
-    older: set[UUID] = set()
-    for one, other in pairs.all():
-        first, second = kept[one].fact, kept[other].fact
-        older.add(first.id if first.confirmed_at <= second.confirmed_at else second.id)
+    older = older_of_pairs([(kept[one].fact, kept[other].fact) for one, other in pairs.all()])
     return [
         Verdict(verdict.fact, keep=False, reason="a newer fact says it again")
         if verdict.fact.id in older
         else verdict
         for verdict in verdicts
     ]
+
+
+def older_of_pairs(pairs: list[tuple[SavedFact, SavedFact]]) -> set[UUID]:
+    """The older fact of each near-duplicate pair, newest pairs first. A pair whose newer
+    fact is already muted is skipped: in a chain A~B~C, A is muted only if it is near the
+    fact that stays."""
+    ordered = sorted(
+        (sorted(pair, key=lambda fact: fact.confirmed_at) for pair in pairs),
+        key=lambda pair: pair[1].confirmed_at,
+        reverse=True,
+    )
+    muted: set[UUID] = set()
+    for old, new in ordered:
+        if new.id not in muted:
+            muted.add(old.id)
+    return muted
 
 
 async def _verdicts_for_chat(
@@ -356,7 +371,10 @@ async def recheck_user(settings: Settings, user_id: UUID) -> list[Verdict]:
             else:
                 by_chat.setdefault(fact.source_chat_id, []).append(fact)
         for chat_id, chat_facts in by_chat.items():
-            verdicts.extend(await _verdicts_for_chat(settings, session, user, chat_id, chat_facts))
+            # A batch's answer fits the model's output room (a quote and labels each).
+            for start in range(0, len(chat_facts), _BATCH):
+                batch = chat_facts[start : start + _BATCH]
+                verdicts.extend(await _verdicts_for_chat(settings, session, user, chat_id, batch))
         verdicts = without_older_answers(verdicts)
         return await _said_again(session, verdicts, settings.memory_near_duplicate_similarity)
 
