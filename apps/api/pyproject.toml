@@ -156,6 +156,9 @@ ignore = ["PERF401", "C408"]
 "app/modules/chat/formal_turn.py" = ["RUF001", "RUF002", "RUF003"]
 # Writes the scanner reading in the glyphs students use (ℤ, ×, √).
 "app/modules/math/reading.py" = ["RUF001", "RUF002", "RUF003"]
+# Read a printed page's "1.36 × 104" and "4 × 100 m" as written.
+"app/modules/physics/numbers.py" = ["RUF001", "RUF002", "RUF003"]
+"app/modules/physics/unread.py" = ["RUF001", "RUF002", "RUF003"]
 "app/modules/todos/**" = ["E501", "S101"]
 "app/modules/web_search/*.py" = ["E501", "RUF002"]
 "app/core/deps.py" = ["B008"]

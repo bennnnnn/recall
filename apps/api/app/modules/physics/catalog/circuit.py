@@ -279,7 +279,8 @@ SPECS: tuple[FormulaSpec, ...] = (
         base_latex="Q = It",
         expression="Q/t",
         variables=(var("Q", "Q", "coulomb"), var("t", "t", "second")),
-        binding=bind(("current",), "ampere", "Q", "t"),
+        # Q/t is the average current over the time (``asked_end_check``).
+        binding=bind(("current", "average current"), "ampere", "Q", "t"),
     ),
     formula(
         "resistivity_resistance",

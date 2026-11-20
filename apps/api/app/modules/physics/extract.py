@@ -7,6 +7,7 @@ from functools import lru_cache
 from typing import TYPE_CHECKING
 
 from app.core.readings import reading
+from app.modules.physics.numbers import fold_lost_powers
 from app.modules.physics.registry import (
     PHYSICS_CUE_RES,
     PHYSICS_CUES,
@@ -128,7 +129,9 @@ def needs_physics(text: str) -> bool:
         return True
     if _named_symbol_request(text) is not None:
         return True
-    normalized = normalize_symbolic_request(fold_scientific(text), limit=_MAX_SUBJECT_TEXT)
+    normalized = normalize_symbolic_request(
+        fold_lost_powers(fold_scientific(text)), limit=_MAX_SUBJECT_TEXT
+    )
     if not normalized:
         return False
     from app.modules.physics.numbers import normalize_physics_units
@@ -224,7 +227,9 @@ def read_physics_request(text: str) -> PhysicsRequest | None:
     named = _named_symbol_request(text)
     if named is not None:
         text = named
-    cleaned = normalize_symbolic_request(fold_scientific(text), limit=_MAX_PHYSICS_REQUEST)
+    cleaned = normalize_symbolic_request(
+        fold_lost_powers(fold_scientific(text)), limit=_MAX_PHYSICS_REQUEST
+    )
     if not cleaned:
         return None
     request = prepare_physics_request(question_without_claims(main_question(cleaned)))

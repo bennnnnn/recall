@@ -126,6 +126,25 @@ _LENGTH_BEFORE_PLANK = re.compile(
 )
 
 
+# A power of ten that lost its superscript on the way from a printed page: "1.36 × 104 kg/m3"
+# is 1.36 × 10⁴ and "1.6 × 10-19 C" 1.6 × 10⁻¹⁹. Notation, not a guess: a value is never
+# stated as a product of two numbers, and the printed exponent is the run right after the
+# "10", one or two digits whose first is not 0, a minus sign before them. A product with no
+# such run ("4 × 100 m", "2 × 10 m") is no power of ten and stays for ``unread`` to decline.
+_LOST_POWER = re.compile(
+    r"(?<![\w.,^])(?P<mantissa>[-\u2212]?\d+(?:\.\d+)?)[ \t]*[×xX*·][ \t]*"
+    r"10(?P<exponent>[-\u2212]?[1-9]\d?)(?![\d.,^])"
+)
+
+
+def fold_lost_powers(text: str) -> str:
+    """Every ``a × 10n`` whose superscript was lost, as one number: "2 × 103 N" is 2e3 N."""
+    return _LOST_POWER.sub(
+        lambda match: f"{match.group('mantissa')}e{match.group('exponent')}".replace("\u2212", "-"),
+        text,
+    )
+
+
 def quantity_unit_at(text: str, end: int) -> tuple[str, str] | None:
     """A unit of a quantity at ``end``: "one turn every 2 s" counts, it measures nothing."""
     unit = unit_at(text, end)
