@@ -31,6 +31,12 @@ type Props = {
   menuAnchorRef?: RefObject<HostInstance | null>;
 };
 
+/** Opened over another page (Library's "Open chat", a memory fact's "From" line): the
+ *  leading button goes back to it instead of opening the drawer. */
+function opensOverAPage(returnTo: string | undefined): boolean {
+  return returnTo === "gallery" || returnTo === "memory";
+}
+
 export const ChatHeader = memo(function ChatHeader({
   paddingTop,
   minimumHeight,
@@ -50,9 +56,7 @@ export const ChatHeader = memo(function ChatHeader({
   const s = useMemo(() => makeStyles(theme), [theme]);
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const router = useRouter();
-  // Opened over another page (Library's "Open chat", a memory fact's "From" line): the
-  // leading button goes back to it instead of opening the drawer.
-  const openedOver = returnTo === "gallery" || returnTo === "memory";
+  const openedOver = opensOverAPage(returnTo);
   const lastReportedHeight = useRef(0);
   const handleLayout = useCallback(
     (event: LayoutChangeEvent) => {

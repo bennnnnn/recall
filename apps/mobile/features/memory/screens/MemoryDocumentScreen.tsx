@@ -79,13 +79,6 @@ function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const summary = document ? documentSummary(document, t) : "";
   const updated = parseMemoryDate(document?.updated_at);
 
-  // The chat a fact was learned in, at the message that states it (a deleted chat has no
-  // link: the server clears its id).
-  const openSource = useCallback((fact: Memory) => {
-    const href = memorySourceChatHref(fact);
-    if (href) router.push(href);
-  }, [router]);
-
   const openMenu = useCallback((fact: Memory, event: GestureResponderEvent) => {
     tap();
     setMenu({ fact, point: { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY } });
@@ -234,13 +227,7 @@ function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         <View style={s.block}>
           <Text style={s.label}>{t("memory.details_label")}</Text>
           {document.facts.map((fact) => (
-            <FactRow
-              key={fact.id}
-              fact={fact}
-              s={s}
-              onOpenMenu={openMenu}
-              onOpenSource={openSource}
-            />
+            <FactRow key={fact.id} fact={fact} s={s} onOpenMenu={openMenu} />
           ))}
         </View>
       </ScrollView>
@@ -308,19 +295,21 @@ type Styles = ReturnType<typeof makeStyles>;
  * One fact of the page. Memoized: typing in the edit sheet or opening a fact's
  * menu redrew every fact on the page (150 per keystroke on a full page).
  */
-const FactRow = memo(function FactRow({ fact, s, onOpenMenu, onOpenSource }: {
+const FactRow = memo(function FactRow({ fact, s, onOpenMenu }: {
   fact: Memory;
   s: Styles;
   onOpenMenu: (fact: Memory, event: GestureResponderEvent) => void;
-  onOpenSource: (fact: Memory) => void;
 }) {
   const { t } = useTranslation();
+  const router = useRouter();
   const muted = fact.status === "muted";
   const text = stripMemoryAsOf(fact.text);
   const source = fact.source_chat_title
     ? t("memory.source_chat", { title: fact.source_chat_title })
     : null;
-  const opensSource = memorySourceChatHref(fact) != null;
+  // The chat the fact was learned in, at the message that states it; a deleted chat has
+  // no link (the server clears its id).
+  const sourceHref = memorySourceChatHref(fact);
   return (
     <Pressable
       style={({ pressed }) => [s.fact, pressed && s.factPressed]}
@@ -339,10 +328,10 @@ const FactRow = memo(function FactRow({ fact, s, onOpenMenu, onOpenSource }: {
             {t("memory.muted_label")}
           </Text>
         ) : null}
-        {source && opensSource ? (
+        {source && sourceHref ? (
           <Text
             style={[s.factMeta, s.factSource]}
-            onPress={() => onOpenSource(fact)}
+            onPress={() => router.push(sourceHref)}
             accessibilityRole="link"
             accessibilityHint={t("memory.source_chat_hint")}
             testID={`memory-fact-source-${fact.id}`}
