@@ -14,6 +14,10 @@ from app.modules.chat.tex_form import well_formed
         ("v_A_{vec}, v_B_{vec}", "{v_A}_{vec}, {v_B}_{vec}"),
         ("x^2^3", "{x^2}^3"),
         ("x_a^b_c", "{x_a^b}_c"),
+        # Inside a group as well (Claude on #2509).
+        (r"\frac{v_A_{vec}}{2}", r"\frac{{v_A}_{vec}}{2}"),
+        (r"\sqrt{x_1_2}", r"\sqrt{{x_1}_2}"),
+        ("e^{x^2^3}", "e^{{x^2}^3}"),
         (r"(-16\hat{i} + 0\hat{j})\ \mathrm{m/s", r"(-16\hat{i} + 0\hat{j})\ \mathrm{m/s}"),
         (r"\frac{1}{2", r"\frac{1}{2}"),
         # Already drawn as written.

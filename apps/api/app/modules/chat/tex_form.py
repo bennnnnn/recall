@@ -71,7 +71,8 @@ def _skip_spaces(tex: str, at: int) -> int:
 
 
 def _one_script_each(tex: str) -> str:
-    """Each base's second subscript or superscript set on the base with its first."""
+    """Each base's second subscript or superscript set on the base with its first, inside
+    every group too: ``\\frac{v_A_{vec}}{2}`` holds one (Claude on #2509)."""
     out: list[str] = []
     at = 0
     while at < len(tex):
@@ -80,7 +81,7 @@ def _one_script_each(tex: str) -> str:
             at += 1
             continue
         start, at = at, _token_end(tex, at)
-        base = tex[start:at]
+        base = _within(tex[start:at])
         seen: set[str] = set()
         while (mark := _skip_spaces(tex, at)) < len(tex) and tex[mark] in "_^":
             script = _skip_spaces(tex, mark + 1)
@@ -88,7 +89,14 @@ def _one_script_each(tex: str) -> str:
             if tex[mark] in seen:
                 base, seen = f"{{{base}}}", set()
             seen.add(tex[mark])
-            base += tex[at:end]
+            base += tex[at:script] + _within(tex[script:end])
             at = end
         out.append(base)
     return "".join(out)
+
+
+def _within(token: str) -> str:
+    """A group's contents with one script each; any other token as it is."""
+    if len(token) >= 2 and token[0] == "{" and token[-1] == "}":
+        return "{" + _one_script_each(token[1:-1]) + "}"
+    return token
