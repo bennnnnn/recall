@@ -190,6 +190,25 @@ async def test_a_loan_part_beside_a_physics_part_keeps_its_card(
     assert turn is not None and turn.multi and turn.request.values["amount"] == 20000
 
 
+async def test_routings_money_check_of_a_multi_part_message_is_read_in_the_pool(
+    fake_redis: Redis, thread_sympy_executor: None
+) -> None:
+    """Claude on #2495: the money turn pre-reads nothing for a message of several requests
+    (``_read_money_yield``), so routing's ``MONEY.yields_to`` might read it on the loop. The
+    pool routes the message itself (``ask_turn_readings`` ends with ``route_chat_model``),
+    so the loop's routing of the same message asks a kept reading."""
+    from app.core.readings import kept_reading
+    from app.modules.money.subject import _names_no_money
+
+    force = "Find the force on a 2 kg mass accelerating at 3 m/s^2"
+    loan = "what is the monthly payment on a 20000 car at 5% for 4 years?"
+    content = f"{force}, and also {loan}"
+    plan = TurnPlan((TurnPart(force), TurnPart(loan)))
+    assert await _money_turn(_request(content), plan, fake_redis) is not None
+    assert kept_reading(_names_no_money, content) is True
+    assert loop_guard.found == []
+
+
 async def test_a_physics_problem_with_a_car_and_a_percent_gets_no_money_turn(
     fake_redis: Redis, thread_sympy_executor: None
 ) -> None:
