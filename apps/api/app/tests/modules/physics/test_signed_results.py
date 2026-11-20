@@ -108,3 +108,23 @@ def test_the_size_of_heat_given_off_is_a_right_claim() -> None:
     assert _claim_line(block, text) == "Your 7700 J is right."
     wrong = text.replace("7700 J", "7000 J")
     assert _claim_line(block, wrong) == "Your 7000 J is not right; the verified answer is below."
+
+
+@pytest.mark.parametrize(
+    ("text", "size", "signed"),
+    [
+        # Codex on #2507: a drop of the same number in metres is not the temperature's.
+        (
+            "A 2 kg block drops by 10 m and its temperature rises by 10 °C. How much heat "
+            "does it absorb?",
+            10.0,
+            10.0,
+        ),
+        ("The temperature of 3 kg of water decreases by 10 °C.", 10.0, -10.0),
+        ("Heat released by 2 kg of water for a 10 °C drop in temperature.", 10.0, -10.0),
+    ],
+)
+def test_only_the_temperature_s_own_value_is_signed(text: str, size: float, signed: float) -> None:
+    from app.modules.physics.extractors.thermal import _signed_change
+
+    assert _signed_change(text, size) == signed

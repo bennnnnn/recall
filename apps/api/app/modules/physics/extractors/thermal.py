@@ -21,6 +21,7 @@ from app.modules.physics.extractors.thermal_readings import (
     _temperature_change,
     _temperature_value,
     reading_scale,
+    temperature_readings,
     temperature_span,
 )
 from app.modules.physics.extractors.unit_patterns import DEGREE_WORD, MASS_UNITS, NUMBER
@@ -203,8 +204,10 @@ def _signed_change(cleaned: str, size: float) -> float:
     mcΔT it gives out is too, and keeps its sign with "released" (owner, 2026-11-20: "The
     temperature of 3 kg of water decreases by 10 °C" was +126000 J, read as a rise)."""
     lower = cleaned.lower()
-    for found in re.finditer(r"-?\d+(?:\.\d+)?", lower):
-        if float(found.group()) == size and falls_by(lower, found.start(), found.end()):
+    # Only a value written as a temperature: "drops by 10 m and its temperature rises by
+    # 10 °C" is a rise (Codex on #2507).
+    for start, end, value in temperature_readings(cleaned):
+        if value == size and falls_by(lower, start, end):
             return -size
     return size
 
