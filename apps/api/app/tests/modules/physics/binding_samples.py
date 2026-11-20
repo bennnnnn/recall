@@ -330,4 +330,6 @@ SAMPLES: dict[str, float] = {
 BY_LAW: dict[tuple[str, str], float] = {
     ("shm_max_speed", "freq"): 2.0,
     ("shm_max_acceleration", "freq"): 2.0,
+    # The radius sample is an orbit's: at the top of a 1 m circle 20 m/s keeps the rope taut.
+    ("vertical_circle_tension_top", "r"): 1.0,
 }

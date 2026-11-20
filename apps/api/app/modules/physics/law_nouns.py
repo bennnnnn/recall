@@ -368,6 +368,8 @@ _NAMES: dict[str, str] = {
     "tunnel_probability": "tunneling probability",
     "upthrust_from_volume": "upthrust",
     "vertical_circle_tension_bottom": "tension",
+    "vertical_circle_tension_side": "tension",
+    "vertical_circle_tension_top": "tension",
     "vertical_max_height": "maximum height",
     "virial_kinetic_energy": "kinetic energy",
     "virial_potential_energy": "potential energy",

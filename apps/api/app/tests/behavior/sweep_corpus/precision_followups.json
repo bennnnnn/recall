@@ -1,0 +1,276 @@
+[
+ {
+  "id": "pf-001",
+  "area": "precision follow-up",
+  "prompt": "1 digit",
+  "history": [
+   [
+    "user",
+    "An object moves in a vertical circle of radius 1 m on a rope. What is the minimum speed at the top for the rope to stay taut?"
+   ],
+   [
+    "assistant",
+    "**Substitution**  \n$v = \\sqrt{1\\,\\mathrm{m} \\times 9.81\\,\\mathrm{m/s²}}$  \n$v = 3.13209\\,\\mathrm{m/s}$\n\n**Answer**\n\n```answer\nverified: true\nv = 3.13\\,\\mathrm{m/s}\n```"
+   ]
+  ],
+  "reply": "",
+  "expect": "instant",
+  "note": "owner's chat 2026-11-20: the server shows the card again in this precision"
+ },
+ {
+  "id": "pf-002",
+  "area": "precision follow-up",
+  "prompt": "one digit",
+  "history": [
+   [
+    "user",
+    "An object moves in a vertical circle of radius 1 m on a rope. What is the minimum speed at the top for the rope to stay taut?"
+   ],
+   [
+    "assistant",
+    "**Substitution**  \n$v = \\sqrt{1\\,\\mathrm{m} \\times 9.81\\,\\mathrm{m/s²}}$  \n$v = 3.13209\\,\\mathrm{m/s}$\n\n**Answer**\n\n```answer\nverified: true\nv = 3.13\\,\\mathrm{m/s}\n```"
+   ]
+  ],
+  "reply": "",
+  "expect": "instant"
+ },
+ {
+  "id": "pf-003",
+  "area": "precision follow-up",
+  "prompt": "2 sig figs",
+  "history": [
+   [
+    "user",
+    "An object moves in a vertical circle of radius 1 m on a rope. What is the minimum speed at the top for the rope to stay taut?"
+   ],
+   [
+    "assistant",
+    "**Substitution**  \n$v = \\sqrt{1\\,\\mathrm{m} \\times 9.81\\,\\mathrm{m/s²}}$  \n$v = 3.13209\\,\\mathrm{m/s}$\n\n**Answer**\n\n```answer\nverified: true\nv = 3.13\\,\\mathrm{m/s}\n```"
+   ]
+  ],
+  "reply": "",
+  "expect": "instant"
+ },
+ {
+  "id": "pf-004",
+  "area": "precision follow-up",
+  "prompt": "round it to 1 dp",
+  "history": [
+   [
+    "user",
+    "An object moves in a vertical circle of radius 1 m on a rope. What is the minimum speed at the top for the rope to stay taut?"
+   ],
+   [
+    "assistant",
+    "**Substitution**  \n$v = \\sqrt{1\\,\\mathrm{m} \\times 9.81\\,\\mathrm{m/s²}}$  \n$v = 3.13209\\,\\mathrm{m/s}$\n\n**Answer**\n\n```answer\nverified: true\nv = 3.13\\,\\mathrm{m/s}\n```"
+   ]
+  ],
+  "reply": "",
+  "expect": "instant"
+ },
+ {
+  "id": "pf-005",
+  "area": "precision follow-up",
+  "prompt": "to 3 decimal places please",
+  "history": [
+   [
+    "user",
+    "An object moves in a vertical circle of radius 1 m on a rope. What is the minimum speed at the top for the rope to stay taut?"
+   ],
+   [
+    "assistant",
+    "**Substitution**  \n$v = \\sqrt{1\\,\\mathrm{m} \\times 9.81\\,\\mathrm{m/s²}}$  \n$v = 3.13209\\,\\mathrm{m/s}$\n\n**Answer**\n\n```answer\nverified: true\nv = 3.13\\,\\mathrm{m/s}\n```"
+   ]
+  ],
+  "reply": "",
+  "expect": "instant"
+ },
+ {
+  "id": "pf-006",
+  "area": "precision follow-up",
+  "prompt": "what about 2 digits?",
+  "history": [
+   [
+    "user",
+    "An object moves in a vertical circle of radius 1 m on a rope. What is the minimum speed at the top for the rope to stay taut?"
+   ],
+   [
+    "assistant",
+    "**Substitution**  \n$v = \\sqrt{1\\,\\mathrm{m} \\times 9.81\\,\\mathrm{m/s²}}$  \n$v = 3.13209\\,\\mathrm{m/s}$\n\n**Answer**\n\n```answer\nverified: true\nv = 3.13\\,\\mathrm{m/s}\n```"
+   ]
+  ],
+  "reply": "",
+  "expect": "instant"
+ },
+ {
+  "id": "pf-007",
+  "area": "precision follow-up",
+  "prompt": "make it 1 decimal",
+  "history": [
+   [
+    "user",
+    "An object moves in a vertical circle of radius 1 m on a rope. What is the minimum speed at the top for the rope to stay taut?"
+   ],
+   [
+    "assistant",
+    "**Substitution**  \n$v = \\sqrt{1\\,\\mathrm{m} \\times 9.81\\,\\mathrm{m/s²}}$  \n$v = 3.13209\\,\\mathrm{m/s}$\n\n**Answer**\n\n```answer\nverified: true\nv = 3.13\\,\\mathrm{m/s}\n```"
+   ]
+  ],
+  "reply": "",
+  "expect": "instant"
+ },
+ {
+  "id": "pf-008",
+  "area": "precision follow-up",
+  "prompt": "no rounding",
+  "history": [
+   [
+    "user",
+    "An object moves in a vertical circle of radius 1 m on a rope. What is the minimum speed at the top for the rope to stay taut?"
+   ],
+   [
+    "assistant",
+    "**Substitution**  \n$v = \\sqrt{1\\,\\mathrm{m} \\times 9.81\\,\\mathrm{m/s²}}$  \n$v = 3.13209\\,\\mathrm{m/s}$\n\n**Answer**\n\n```answer\nverified: true\nv = 3.13\\,\\mathrm{m/s}\n```"
+   ]
+  ],
+  "reply": "",
+  "expect": "instant"
+ },
+ {
+  "id": "pf-009",
+  "area": "precision lookalike",
+  "prompt": "Explain 2 sig figs",
+  "history": [
+   [
+    "user",
+    "An object moves in a vertical circle of radius 1 m on a rope. What is the minimum speed at the top for the rope to stay taut?"
+   ],
+   [
+    "assistant",
+    "**Substitution**  \n$v = \\sqrt{1\\,\\mathrm{m} \\times 9.81\\,\\mathrm{m/s²}}$  \n$v = 3.13209\\,\\mathrm{m/s}$\n\n**Answer**\n\n```answer\nverified: true\nv = 3.13\\,\\mathrm{m/s}\n```"
+   ]
+  ],
+  "reply": "Two significant figures means keeping the first two digits that carry meaning: 3.13 becomes 3.1.",
+  "expect": "answer"
+ },
+ {
+  "id": "pf-010",
+  "area": "precision lookalike",
+  "prompt": "why 1 digit?",
+  "history": [
+   [
+    "user",
+    "An object moves in a vertical circle of radius 1 m on a rope. What is the minimum speed at the top for the rope to stay taut?"
+   ],
+   [
+    "assistant",
+    "**Substitution**  \n$v = \\sqrt{1\\,\\mathrm{m} \\times 9.81\\,\\mathrm{m/s²}}$  \n$v = 3.13209\\,\\mathrm{m/s}$\n\n**Answer**\n\n```answer\nverified: true\nv = 3.13\\,\\mathrm{m/s}\n```"
+   ]
+  ],
+  "reply": "One decimal place is often enough when the inputs are given to two figures.",
+  "expect": "answer"
+ },
+ {
+  "id": "pf-011",
+  "area": "precision lookalike",
+  "prompt": "what does 2 dp mean?",
+  "history": [
+   [
+    "user",
+    "An object moves in a vertical circle of radius 1 m on a rope. What is the minimum speed at the top for the rope to stay taut?"
+   ],
+   [
+    "assistant",
+    "**Substitution**  \n$v = \\sqrt{1\\,\\mathrm{m} \\times 9.81\\,\\mathrm{m/s²}}$  \n$v = 3.13209\\,\\mathrm{m/s}$\n\n**Answer**\n\n```answer\nverified: true\nv = 3.13\\,\\mathrm{m/s}\n```"
+   ]
+  ],
+  "reply": "2 dp means two decimal places: two digits after the point.",
+  "expect": "answer"
+ },
+ {
+  "id": "pf-012",
+  "area": "precision lookalike",
+  "prompt": "give me a 3 digit number",
+  "history": [
+   [
+    "user",
+    "An object moves in a vertical circle of radius 1 m on a rope. What is the minimum speed at the top for the rope to stay taut?"
+   ],
+   [
+    "assistant",
+    "**Substitution**  \n$v = \\sqrt{1\\,\\mathrm{m} \\times 9.81\\,\\mathrm{m/s²}}$  \n$v = 3.13209\\,\\mathrm{m/s}$\n\n**Answer**\n\n```answer\nverified: true\nv = 3.13\\,\\mathrm{m/s}\n```"
+   ]
+  ],
+  "reply": "Here is one: 482.",
+  "expect": "answer"
+ },
+ {
+  "id": "pf-013",
+  "area": "precision lookalike",
+  "prompt": "Round 3.456 to 1 dp",
+  "history": [
+   [
+    "user",
+    "An object moves in a vertical circle of radius 1 m on a rope. What is the minimum speed at the top for the rope to stay taut?"
+   ],
+   [
+    "assistant",
+    "**Substitution**  \n$v = \\sqrt{1\\,\\mathrm{m} \\times 9.81\\,\\mathrm{m/s²}}$  \n$v = 3.13209\\,\\mathrm{m/s}$\n\n**Answer**\n\n```answer\nverified: true\nv = 3.13\\,\\mathrm{m/s}\n```"
+   ]
+  ],
+  "reply": "3.456 to one decimal place is 3.5.",
+  "expect": "answer"
+ },
+ {
+  "id": "pf-014",
+  "area": "precision lookalike",
+  "prompt": "is 2 sig figs enough?",
+  "history": [
+   [
+    "user",
+    "An object moves in a vertical circle of radius 1 m on a rope. What is the minimum speed at the top for the rope to stay taut?"
+   ],
+   [
+    "assistant",
+    "**Substitution**  \n$v = \\sqrt{1\\,\\mathrm{m} \\times 9.81\\,\\mathrm{m/s²}}$  \n$v = 3.13209\\,\\mathrm{m/s}$\n\n**Answer**\n\n```answer\nverified: true\nv = 3.13\\,\\mathrm{m/s}\n```"
+   ]
+  ],
+  "reply": "For a radius given as 1 m, two significant figures is plenty.",
+  "expect": "answer"
+ },
+ {
+  "id": "pf-015",
+  "area": "precision lookalike",
+  "prompt": "how do I round to 2 dp?",
+  "history": [
+   [
+    "user",
+    "An object moves in a vertical circle of radius 1 m on a rope. What is the minimum speed at the top for the rope to stay taut?"
+   ],
+   [
+    "assistant",
+    "**Substitution**  \n$v = \\sqrt{1\\,\\mathrm{m} \\times 9.81\\,\\mathrm{m/s²}}$  \n$v = 3.13209\\,\\mathrm{m/s}$\n\n**Answer**\n\n```answer\nverified: true\nv = 3.13\\,\\mathrm{m/s}\n```"
+   ]
+  ],
+  "reply": "Look at the third decimal: 5 or more rounds the second up.",
+  "expect": "answer"
+ },
+ {
+  "id": "pf-016",
+  "area": "precision lookalike",
+  "prompt": "1 digit",
+  "history": [
+   [
+    "user",
+    "what is a significant figure?"
+   ],
+   [
+    "assistant",
+    "A significant figure is a digit that carries meaning about a number's precision."
+   ]
+  ],
+  "reply": "Do you mean one decimal place or one significant figure?",
+  "expect": "answer",
+  "note": "no card before it: nothing to round again"
+ }
+]

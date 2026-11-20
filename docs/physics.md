@@ -357,6 +357,18 @@ flowchart LR
    doubles") declines, and the chain must answer as many asks as the question has. It
    replaces a one-law block only when it answers more parts. One verified part per ask;
    a value a part needed first is worked out inside that part.
+
+   **One quantity at several places** (`place_parts.py`). "The tension at the bottom, top
+   and halfway between the bottom and top of the circle" asks one quantity three times: the
+   asking sentence's list of places (after "at", "on" or "in", joined by commas and a last
+   "and" or "or", one of them a place a catalog law is cued by) counts as that many asks
+   (`parts.asks_count`). Each place is the question again at that place alone, solved by a
+   law written for it (a vertical circle's bottom, top and side), each a different law, as
+   one question in parts. A place no law answers (the slack rope at the top below √(rg))
+   leaves the whole question to the model, so the bottom's card never stands for all three.
+   Each place's law takes the speed at its own place (`place_laws.py`): a question that
+   names another place ("it passes the bottom at 8 m/s … the tension at the top") and never
+   says the speed is steady is the model's, never m(v²/r − g) with the bottom's speed.
 8. **Finalize** (`fence.py`). The model's answer and visual fences are dropped, and the
    solver's are appended; the card carries the server's `verified: true` line, the only
    thing the phone draws a green check for. A reply that answers and then offers more
