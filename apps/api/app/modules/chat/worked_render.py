@@ -33,8 +33,10 @@ from app.modules.chat.worked_text import (
     tidy_tex,
 )
 from app.modules.chat.worked_units import quantity_tex
+from app.modules.chat.worked_values import a_sum, one_value_each, writes_its_unit
 from app.modules.turn_reading.routing import is_short_reply
 from app.services.answer_fence import UNCHECKED_ANSWER_MARKER
+from app.services.final_value import UNIT_VECTOR
 from app.services.worked_parts import WorkedPart, lettered_line, part_letter, render_parts
 from app.services.workout import (
     ANSWER,
@@ -95,6 +97,8 @@ def _plain(tex: str) -> str:
 
 
 _UPRIGHT_GROUP = re.compile(r"\\(?:mathrm|text)\s*\{[^{}]*\}")
+# A direction by its angle: "39.8° north of west".
+_ANGLE = re.compile(r"\d+(?:\.\d+)?[ \t]*°")
 # A power of ten in a calculator's spelling: "1.5e-3", "6.022E23".
 _E_NOTATION = re.compile(r"(?<=\d)[eE](?=[-+]?\d)")
 # Euler's number raised to a power: "20e^{-0.5}" is a number; the exponent's own letters
@@ -105,9 +109,10 @@ _EULER = re.compile(r"(?<![A-Za-z\\])e(?=\s*\^)")
 def in_symbols(tex: str) -> bool:
     """A value written in letters ("C V_0", "\\frac{1}{2}MR^2"): its units are its
     symbols', so none is written after it. A command (\\pi, \\times), a unit set upright,
-    a calculator's power of ten or Euler's e is no symbol: "\\pi/3", "2400\\,\\mathrm{s}",
-    "1.5e-3" and "20e^{-0.5}" are numbers."""
-    plain = _E_NOTATION.sub(" ", _COMMAND.sub("", _UPRIGHT_GROUP.sub("", tex)))
+    a calculator's power of ten, Euler's e or a unit vector is no symbol: "\\pi/3",
+    "2400\\,\\mathrm{s}", "1.5e-3", "20e^{-0.5}" and "-16\\hat{i} + 20\\hat{j}" are numbers."""
+    plain = UNIT_VECTOR.sub(" ", _UPRIGHT_GROUP.sub("", tex))
+    plain = _E_NOTATION.sub(" ", _COMMAND.sub("", plain))
     plain = _EULER.sub(" ", plain)
     return _LETTER.search(plain) is not None
 
@@ -394,12 +399,19 @@ def _answer_line(answer: Answer, layout: WorkedLayout) -> str:
         answer = answer.model_copy(update={"note": ""})
     answer = card_answer(answer, layout.asked)  # rounds once, by the one rule or as asked
     tex = tidy_tex(answer.value)
-    value = quantity_tex(tex, "" if in_symbols(tex) else answer.unit)
+    unit = "" if in_symbols(tex) or writes_its_unit(tex, answer.unit) else answer.unit
+    # A vector's components share its unit: (-16\hat{i} + 20\hat{j}) m/s.
+    value = quantity_tex(f"({tex})" if unit and a_sum(tex) else tex, unit)
     # A symbol that only repeats the unit ("cm | 10000 | cm") or is a word names nothing.
     named = answer.symbol and answer.symbol != answer.unit and not names_nothing(answer.symbol)
     symbol = tidy_symbol(answer.symbol) if named else ""
     shown = value if layout.law_heading or not symbol else f"{symbol} = {value}"
     note = prose_maths(answer.note)
+    if _ANGLE.match(note):
+        # A direction by its angle stays on the card after a comma, as a card writes one
+        # ("12.50 m/s, 39.8° north of west"): in brackets, past three words, it went
+        # under the card as a sentence of its own (the owner's chat, 2026-11-20).
+        return f"{math_line(shown)}, {note}"
     return f"{math_line(shown)} ({note})" if note else math_line(shown)
 
 
@@ -440,6 +452,7 @@ def _said(part: Part) -> str | None:
 
 def answer_lines(answers: Sequence[Answer], layout: WorkedLayout) -> str:
     """The answers' lines, values on one line each and a sentence answer as its own card."""
+    answers = [one for answer in answers for one in one_value_each(answer)]
     sentences = [_sentence(answer) for answer in answers]
     values = _HARD_BREAK.join(
         _answer_line(answer, layout)

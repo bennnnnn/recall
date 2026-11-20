@@ -165,7 +165,7 @@ def test_no_line_of_these_blocks_shows_latex_source(name: str, block: str) -> No
         (r"v_{max} = 3", r"v_{max} = 3"),
         (r"x_1 + x_2", r"x_1 + x_2"),
         (r"t_{\text{top}}", r"t_{\text{top}}"),
-        (r"\text{abc", r"\text{abc"),
+        (r"\text{abc", r"\text{abc}"),  # a group left open is closed (tex_form)
     ],
 )
 def test_a_word_symbols_escaped_subscript_is_a_subscript(tex: str, tidy: str) -> None:

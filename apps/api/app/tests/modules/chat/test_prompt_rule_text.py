@@ -113,10 +113,12 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # asked once in any words and a crisis line kept to its cases, and news never set against the date;
 # then a physics hint saying a change is final minus initial and a result keeps its formula's sign
 # (PHYSICS_SIGNS, the owner, 2026-11-20); then the turn after a reply cut off told to go on from
-# where it stopped, in any language (CUT_OFF_REPLY_NOTE, the 20-part question, 2026-11-18).
+# where it stopped, in any language (CUT_OFF_REPLY_NOTE, the 20-part question, 2026-11-18); then
+# each value its own answer record, a vector by its components or its size and direction
+# (prompt_constants.worked, the owner's chat, 2026-11-20).
 _RULES = 208
-_RULE_GRAMS = 20056
-_RULE_GRAMS_SHA = "af4f6cd5fd515914"
+_RULE_GRAMS = 20094
+_RULE_GRAMS_SHA = "97b6e454a7d9b54f"
 
 
 def _rules() -> list[str]:

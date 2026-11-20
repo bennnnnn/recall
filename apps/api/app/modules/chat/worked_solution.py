@@ -30,14 +30,45 @@ import re
 from dataclasses import dataclass, field
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    ValidationError,
+)
+
+from app.modules.chat.tex_form import well_formed
+
+
+def _drawn(tex: str) -> str:
+    """A maths field in the form the phone draws (``chat.tex_form``): an open group closed,
+    a stray closer left out, a second script set on its base. "v_A_{vec}" and an unclosed
+    "\\mathrm{m/s" were shown as source (2026-11-20)."""
+    return well_formed(tex)
+
 
 # Maths in LaTeX: one line, no fence, no $ (the renderer adds them).
-Tex = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=300)]
+Tex = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=300),
+    AfterValidator(_drawn),
+]
 Words = Annotated[str, StringConstraints(strip_whitespace=True, max_length=160)]
-Symbol = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)]
+Symbol = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=40),
+    AfterValidator(_drawn),
+]
 Short = Annotated[str, StringConstraints(strip_whitespace=True, max_length=40)]
-OptionalTex = Annotated[str, StringConstraints(strip_whitespace=True, max_length=300)]
+# A symbol a record may leave out ("answer: | 12 | m"), drawn as maths when it is there.
+OptionalSymbol = Annotated[
+    str, StringConstraints(strip_whitespace=True, max_length=40), AfterValidator(_drawn)
+]
+OptionalTex = Annotated[
+    str, StringConstraints(strip_whitespace=True, max_length=300), AfterValidator(_drawn)
+]
 
 # The fields each record takes, in order; the last one keeps any further "|".
 _FIELDS: dict[str, tuple[str, ...]] = {
@@ -62,6 +93,10 @@ _RECORD = re.compile(
 # A given only some parts use carries its part's letter: "given (a): t | 1 | s", or the
 # letter before the symbol, "given: (a) t | 1 | s".
 _LETTERED_SYMBOL = re.compile(r"^\(\s*(?P<part>[A-Ha-h])\s*\)\s+(?P<symbol>\S.*)$")
+# A bar a sizing command draws: \\right| of an evaluation, \\Big|, \\vert.
+_SIZED_BAR = re.compile(r"\\(?:right|left|middle|[bB]igg?[lrm]?)[ \t]*\|$")
+_SIZED_REACH = 12
+_TRAILING_BARS = re.compile(r"(?:[ \t]+\|)+[ \t]*$")
 _DELIMITERS = (("$$", "$$"), ("$", "$"), ("\\(", "\\)"), ("\\[", "\\]"))
 MAX_PARTS = 8
 
@@ -105,7 +140,7 @@ class Step(_Record):
 
 
 class Answer(_Record):
-    symbol: Short = ""
+    symbol: OptionalSymbol = ""
     value: Tex
     unit: Short = ""
     note: Words = ""
@@ -179,15 +214,23 @@ def _separators(text: str) -> list[int]:
     \\ln (2026-11-13). Every other bar splits, "||" an empty field and "v |3.33" included."""
     bars = [at for at, char in enumerate(text) if char == "|"]
     maths = set(_paired_bars(text, bars))
-    depth = 0
-    for at, char in enumerate(text):
-        if char in "([{":
-            depth += 1
-        elif char in ")]}":
-            depth = max(0, depth - 1)
-        elif char == "|" and depth:
-            maths.add(at)
+    maths.update(at for at in bars if _inside_a_closed_bracket(text, at))
+    maths.update(at for at in bars if _SIZED_BAR.search(text[max(0, at - _SIZED_REACH) : at + 1]))
     return [at for at in bars if at not in maths]
+
+
+def _inside_a_closed_bracket(text: str, at: int) -> bool:
+    """The bar at ``at`` sits inside a bracket that closes later on the line. One that never
+    closes holds no maths to keep whole: "\\mathrm{m/s | m/s | east" left its brace open, and
+    the unit and the note went into the card's value (the owner's chat, 2026-11-20)."""
+    opened: list[int] = []
+    closes: dict[int, int] = {}
+    for index, char in enumerate(text):
+        if char in "([{":
+            opened.append(index)
+        elif char in ")]}" and opened:
+            closes[opened.pop()] = index
+    return any(start < at < closes.get(start, -1) for start in closes)
 
 
 def _paired_bars(text: str, bars: list[int]) -> list[int]:
@@ -216,7 +259,10 @@ def _split(text: str, count: int) -> list[str]:
     for cut in _separators(text)[: max(0, count - 1)]:
         pieces.append(text[start:cut])
         start = cut + 1
-    pieces.append(text[start:])
+    # The last field keeps any further bar, but not one the record ends on ("north |"); a
+    # bar that closes an absolute value (``| x_2 - x_1 |``) pairs with one before it.
+    last = text[start:]
+    pieces.append(_TRAILING_BARS.sub("", last) if last.count("|") % 2 else last)
     return [value.strip() if value.strip(" \t|") else "" for value in pieces]
 
 
