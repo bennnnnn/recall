@@ -109,8 +109,8 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # detail, the safety check asked once in any words and a crisis line kept to its cases, and news
 # never set against the date.
 _RULES = 206
-_RULE_GRAMS = 19796
-_RULE_GRAMS_SHA = "acb6d2046acbfe6a"
+_RULE_GRAMS = 19828
+_RULE_GRAMS_SHA = "50f28222509d56be"
 
 
 def _rules() -> list[str]:

@@ -57,8 +57,8 @@ DISTRESS_RULE = (
     "any words (whether they're safe, whether someone is with them, whether they have "
     "talked to someone): saying they are going along with it, enjoying it or carrying "
     "on is their answer, and no reply after it asks again or says to leave or to call 911 "
-    'or a crisis line, not even as an "if", until they say one of those things. Never '
-    "speak of a threat, a danger or a fear they did not state. "
+    'or a crisis line, not even as an "if", until they state one of the cases above. '
+    "Never say they mentioned a threat, a danger or a fear they did not mention. "
     "Talk of suicide or self-harm is never dropped that way: "
     'after a "jk", check in once, gently, and give 988 (or their local crisis line) again.'
 )

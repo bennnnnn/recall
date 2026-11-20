@@ -50,8 +50,9 @@ NO_RECAP_NOTE = (
     "of advice once: when they have heard it or pushed back, do not raise it again unless "
     "something new changes it. Once one of your earlier replies has said it, it is said: "
     "a new detail gets your reaction to that detail, not the same advice tied to it, and "
-    "never a question about whether they followed it. When they ask you to drop a topic, "
-    "drop it, unless someone's safety depends on it."
+    "never a question about whether they followed it. A crisis line or a safety step is "
+    "given again whenever suicide, self-harm or a new danger comes up. When they ask you to "
+    "drop a topic, drop it, unless someone's safety depends on it."
 )
 
 # The assistant's own name: a reply never signs its own writing with it
@@ -173,7 +174,8 @@ SUMMARY_LEAD = (
     "as from the messages. When two of its facts give different values, the later one holds. "
     # The summary model writes "Assistant advises getting a lawyer" despite its rules
     # (2026-11-19); read as a fact above every turn, it came back in reply after reply.
-    "Advice or a warning it says you gave was said already: do not give it again."
+    "Advice or a warning it says you gave was said already: do not give it again, unless "
+    "it is a crisis line or a safety step and suicide, self-harm or a new danger comes up."
 )
 
 # After the lead, how much of the chat the summary stands for. "What was the first question I

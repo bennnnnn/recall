@@ -37,6 +37,7 @@ from app.modules.chat.prompt_sections import STABLE_SECTIONS
         ("Bini is a lovely name.", None),
         ("Bini, Anna and Carl are on the team.", None),
         ("Invite Anna, Bini, and Carl.", None),
+        ("I told my sister, Bini, and Carl.", None),
         ("Call Bini.", None),
         ("Head down Bini Street, then turn left.", None),
         ("Here's your email:\n\nDear Bini,\n\nThanks for the invite.", None),

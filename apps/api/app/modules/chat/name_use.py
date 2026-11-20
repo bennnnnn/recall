@@ -64,7 +64,10 @@ def _patterns(name: str) -> tuple[re.Pattern[str], ...]:
         # "Great question, bini!": closing its sentence.
         re.compile(rf"(?<=\S),[ \t]+{n}(?=[.!?](?:\*\*)?(?:\s|$))"),
         # "That's a lot to take in, Bini, and …": between commas after a lowercase word.
-        re.compile(rf"(?P<w>\b[a-z][\w']*),[ \t]+{n},(?=[ \t])"),
+        # "I told my sister, Bini, and Carl" names a list: kept.
+        re.compile(
+            rf"(?P<w>\b[a-z][\w']*),[ \t]+{n},(?=[ \t])(?![ \t]+(?:and|or)[ \t]+(?!I\b)[A-Z])"
+        ),
     )
 
 

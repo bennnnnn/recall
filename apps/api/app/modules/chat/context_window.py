@@ -31,7 +31,8 @@ NEWEST_FIGURE_RULE = (
 # lawyer" came up in 46 of 80 replies. A warning is the assistant's, never the user's fact,
 # and a reply that repeats a fact adds nothing new to fold.
 ASSISTANT_CONCERNS_RULE = (
-    "never the assistant's own advice, warnings, concerns or reminders, said once or again"
+    "never the assistant's own warnings, cautions, concerns or reminders (to be careful, slow "
+    "down or see someone), said once or again"
 )
 SUMMARY_SYSTEM_PROMPT = (
     "You keep a running summary of a conversation so an assistant can continue it later. "

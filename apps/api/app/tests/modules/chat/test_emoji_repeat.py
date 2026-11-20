@@ -37,6 +37,9 @@ def _state(text: str, *replies: str, instant: str | None = None) -> SimpleNamesp
         # Inside a sentence, in a table row, in code or a fence: not closing anything.
         ("I love 💛 you all.", set()),
         ("| a 💛 |\n`x 💛`\n```\nok 💛\n```", set()),
+        # A list item, a quote, and a mark that grades or compares (review, 2026-11-19).
+        ("- Battery: 20 hours ✅\n- Price: $999 ❌\n> Nice. 💛", set()),
+        ("Step one is right. ✓ Step two is not. ✗", set()),
     ],
 )
 def test_closing_emoji_reads_only_sentence_ends(text: str, closing: set[str]) -> None:
@@ -80,6 +83,10 @@ def test_a_sign_off_one_of_the_last_two_replies_used_goes(replies: tuple[str, ..
 def test_an_emoji_not_repeated_stays(replies: tuple[str, ...]) -> None:
     state = _state("Wow, that's big. 💛", *replies)
     assert repeated_emoji_pass(state) == "Wow, that's big. 💛"  # type: ignore[arg-type]
+
+
+def test_two_words_an_emoji_joined_keep_a_space() -> None:
+    assert without_closing("Wow💛Enjoy it.", {"💛"}) == "Wow Enjoy it."
 
 
 def test_a_lesson_keeps_its_own_emoji() -> None:

@@ -51,8 +51,8 @@ def test_a_hard_situation_gets_one_safety_check_and_911_only_for_a_threat() -> N
     # "Is the friend or family member you mentioned with you right now?" eleven turns running.
     assert "Asked once, it is asked, in any words" in DISTRESS_RULE
     assert "enjoying it or carrying on is their answer" in DISTRESS_RULE
-    assert 'or a crisis line, not even as an "if", until they say one of those' in DISTRESS_RULE
-    assert "Never speak of a threat, a danger or a fear they did not state" in DISTRESS_RULE
+    assert 'or a crisis line, not even as an "if", until they state one of the' in DISTRESS_RULE
+    assert "Never say they mentioned a threat, a danger or a fear they did not" in DISTRESS_RULE
     # Self-harm keeps its own rule: never dropped, the crisis line given again.
     assert "Talk of suicide or self-harm is never dropped" in DISTRESS_RULE
     assert "988" in DISTRESS_RULE
@@ -99,3 +99,10 @@ def test_the_summary_keeps_the_users_facts_not_the_assistants_warnings() -> None
     assert SUMMARY_SYSTEM_PROMPT.count(ASSISTANT_CONCERNS_RULE) == 2
     assert "never written again because a new message repeats it" in SUMMARY_SYSTEM_PROMPT
     assert "do not give it again" in SUMMARY_LEAD
+    # Never at the cost of the crisis line: self-harm talk gets 988 again (review).
+    assert "unless it is a crisis line or a safety step" in SUMMARY_LEAD
+    assert "A crisis line or a safety step is given again whenever suicide" in NO_RECAP_NOTE
+    # A pick the assistant gave (a laptop, a savings amount) is still a fact to keep.
+    assert "never the assistant's own warnings, cautions, concerns or reminders" in (
+        SUMMARY_SYSTEM_PROMPT
+    )
