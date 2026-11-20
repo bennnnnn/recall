@@ -70,6 +70,52 @@ def card_numbers(text: str, precision: Precision) -> str:
     return text
 
 
+def cards_again(text: str, precision: Precision) -> list[str] | None:
+    """Every answer card of ``text`` again, its numbers in ``precision``: a precision-only
+    follow-up ("1 digit") shows the cards of the reply before it once more, rounded as asked.
+
+    None when a card cannot show it honestly: a number known to fewer places or figures than
+    asked (a card of 3.13 with no working above it is no 3.130), or one the rule leaves as
+    written (an expression, a fraction, a sum of money, a pH).
+    """
+    cards: list[str] = []
+    previous = 0
+    for fence in iter_fences(text):
+        if not fence.closed or fence.lang not in ANSWER_FENCE_LANGS:
+            continue
+        above, previous = text[previous : fence.start], fence.end
+        body = text[fence.body_start : fence.body_end]
+        shown = _shown(body, above, precision)
+        if shown is None or not _known_to(body, above, precision):
+            return None
+        cards.append(
+            text[fence.start : fence.body_start] + shown + text[fence.body_end : fence.end]
+        )
+    return cards or None
+
+
+def _known_to(body: str, above: str, precision: Precision) -> bool:
+    """Each number the card shows is known to the precision asked: the working's value
+    unrounded, or the card's own, has as many places or figures."""
+    read = read_verified_value(body)
+    if read is None:
+        return False
+    worked = _unrounded(read.numbers[0], above) if len(read.numbers) == 1 else None
+    known = [worked] if worked is not None else list(read.numbers)
+    if precision.unrounded:
+        return worked is not None
+    return all(_holds(number, precision) for number in known)
+
+
+def _holds(number: Number, precision: Precision) -> bool:
+    if number.places is None:
+        return False
+    if precision.places >= 0:
+        return number.places >= precision.places
+    written = format(round_places(number.value, number.places), "f")
+    return _figures(written.lstrip("-")) >= precision.figures
+
+
 def _shown(body: str, above: str, precision: Precision) -> str | None:
     """The card's body with its numbers by the rule, or None to leave it as written."""
     headers, value = answer_header_and_value(body)

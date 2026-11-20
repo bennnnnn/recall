@@ -21,6 +21,7 @@ from app.modules import web_search as web_search_service
 from app.modules.account import settings_proposal as settings_proposal_service
 from app.modules.account.settings_intent import extract_settings_changes
 from app.modules.chat import recurring_pay as recurring_pay_service
+from app.modules.chat.precision_reply import rounded_again
 from app.modules.chat.turn_prep.clauses import request_body
 from app.modules.chat.turn_prep.followups import SubjectFollowup
 from app.modules.chat.turn_prep.request import ClientGeoContext, TurnIdentity, TurnRequest
@@ -81,6 +82,11 @@ async def resolve_instant_reply(
     )
     if todo_screen is not None:
         return todo_screen
+    # "1 digit" after a card of 3.13 m/s: that card again, 3.1 m/s, rounded by the server.
+    prior_reply = _last_recent_assistant_content(request.recent_messages)
+    again = None if request.has_image_attachment else rounded_again(content, prior_reply)
+    if again is not None:
+        return again
     # "3x" alone was answered "3 times 3 is 9": what it means, an example, what to ask next.
     if not request.has_image_attachment:
         expression = subject_adapter("math").instant_reply(
