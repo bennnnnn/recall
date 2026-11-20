@@ -7,7 +7,6 @@ the same words. Either one stores the reply itself and fills the turn's outcome.
 
 import asyncio
 import functools
-import re
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Any
@@ -17,8 +16,7 @@ from app.core.config import Settings
 from app.exceptions import ChatServiceError, SpendCapReachedError, TurnRefusedError
 from app.models.orm import Message, User
 from app.modules.attachments.markers import strip_attachment_from_content
-from app.modules.chat.drawn_picture import read_says_the_app_draws
-from app.modules.chat.figure_turn import read_asks_for_a_figure
+from app.modules.chat.drawn_picture import read_lets_it, read_says_the_app_draws
 from app.modules.chat.referent_read import Referent, referent_for_turn
 from app.modules.chat.reply_language import line_language
 from app.modules.chat.stream_status import StreamStatusFn, StreamStatusPhase, clip_status_detail
@@ -48,9 +46,6 @@ from app.services.solving import VerifiedSolveBlock
 from app.services.subjects.dispatch import asks_a_subject_to_show, subject_shows_it
 
 _IMAGE_GEN_MODEL = "image-gen-model"
-# A photo query with a digit or a relation sign ("x ≥ 4 on a number line") may be a maths
-# picture: only such a query waits for the turn's read before a photo is searched.
-_MATHS_MARK = re.compile("[0-9<>=\u2264\u2265\u2212+/^]")
 
 
 async def _replace_old_assistant(
@@ -155,9 +150,9 @@ async def try_image_gen_for_turn(
     )
     if not image_prompt:
         return False
-    if await read_asks_for_a_figure(read):
-        # "Draw a regular pentagon with sides of 3 cm": a maths figure the app draws from
-        # the question's values, never a painting of one.
+    if not await read_lets_it(read, "image"):
+        # "Draw a regular pentagon with sides of 3 cm": a subject's picture the app draws
+        # from the question's values (or says it could not), never a painting of one.
         return False
     await _starting(outcome, on_status, "image_gen", image_prompt)
     try:
@@ -242,7 +237,8 @@ async def try_image_lookup_for_turn(
     on_status: StreamStatusFn | None = None,
     read: asyncio.Task[TurnDecision | None] | None = None,
 ) -> bool:
-    """Deterministic reference-photo lookup intercept ("show me an ear").
+    """Reference-photo lookup intercept ("show me an ear"): the words find the request, and
+    the turn's read may still say a subject draws the picture (``drawn_picture.read_lets``).
 
     Failures that aren't quota-related fall through to a normal model answer
     instead of erroring the turn (a missing photo is not worth breaking chat).
@@ -253,6 +249,14 @@ async def try_image_lookup_for_turn(
         return False
     query = extract_image_lookup_query(content)
     if not query:
+        return False
+    # Waited for as long as the reply waits for it (the Decider answers in 0.33 s, p95
+    # 0.71 s); a read later than that leaves the turn to the words.
+    if not await read_lets_it(read, "photo", settings.live_read_wait_seconds):
+        # The read decides a subject turn's picture, never these words: "show me an
+        # animation of this motion" and "show x ≥ 4 on a number line" are the app's to draw.
+        if misses is not None:
+            misses.add("photo")
         return False
     if is_reference_subject(query):
         recent = await _recent_rows(
@@ -271,11 +275,6 @@ async def try_image_lookup_for_turn(
             return False
         if not query:
             return False
-    if may_be_a_maths_picture(query) and await read_asks_for_a_figure(read):
-        # "Show x ≥ 4 on a number line" is the app's number line, not a photo of one.
-        if misses is not None:
-            misses.add("photo")
-        return False
     query = dated_lookup_query(query, datetime.now(UTC).year)
     await _starting(outcome, on_status, "finding_photo", query)
     try:
@@ -300,11 +299,6 @@ async def try_image_lookup_for_turn(
     )
     _record(outcome, asst_msg, _IMAGE_SEARCH_MODEL)
     return True
-
-
-def may_be_a_maths_picture(query: str) -> bool:
-    """A photo query that waits for the turn's read: one with a digit or a relation sign."""
-    return _MATHS_MARK.search(query) is not None
 
 
 def reply_picture_prompt(content: str, settings: Settings) -> str | None:

@@ -115,6 +115,7 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "search_sources",
         "instant_usage",
         "close_fences",
+        "owed_picture",
         "clarify_card",
         "new_practice",
         "lesson_shape",
@@ -254,6 +255,7 @@ def test_the_effect_passes_are_the_ones_that_change_the_turn() -> None:
         "figure",
         "data_chart",
         "formal_answer",
+        "owed_picture",
     }
 
 

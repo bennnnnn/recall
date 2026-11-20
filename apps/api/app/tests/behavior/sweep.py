@@ -48,7 +48,10 @@ from uuid import uuid4
 from app.models.orm import User
 from app.modules.account.settings_intent import extract_settings_changes
 from app.modules.chat.chart_sanitize import chart_is_drawable
+from app.modules.chat.drawing_turn import ask_for_a_drawing
 from app.modules.chat.finalize_passes import enrich_final_content
+from app.modules.chat.owed_picture import Kind, not_drawn_line, shows_a_picture
+from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.turn_deps import default_deps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
@@ -64,6 +67,7 @@ from app.tests.behavior.harness import (
     USER_TIMEZONE,
     battery_settings,
     offline_pubchem,
+    read_of,
     route_case,
 )
 from app.tests.fakes import fake_session
@@ -85,6 +89,9 @@ CANNED = (
     "No reminders",
 )
 TODO_EXPECTS = {"save", "ask_time", "change", "read", "todo"}
+# What a turn's picture must come to: a flowchart the user asked for, a picture of the app's,
+# or one line saying none could be drawn (``owed_picture``).
+PICTURE_EXPECTS = frozenset({"flowchart", "drawn", "said_not_drawn"})
 EXPECTS = {
     "answer",
     "instant",
@@ -95,6 +102,7 @@ EXPECTS = {
     "memory",
     "todo_screen",
     *TODO_EXPECTS,
+    *PICTURE_EXPECTS,
 }
 # Areas whose turns never need the live web.
 NO_SEARCH_AREAS = {
@@ -222,6 +230,9 @@ class Entry:
     gap: str | None = None
     # More outcomes the same turn must also have (``"expect": ["search", "answer"]``).
     also: tuple[str, ...] = ()
+    # The turn's read, as [subject, picture] (``"read": ["physics", "diagram"]``): what the
+    # model's read says the message is about and asks to see. None: no read.
+    read: tuple[str, str] | None = None
 
     @property
     def expects(self) -> tuple[str, ...]:
@@ -263,6 +274,7 @@ def load(paths: list[Path] | None = None) -> list[Entry]:
                     location=raw.get("location"),
                     gap=raw.get("gap"),
                     also=tuple(str(item) for item in also),
+                    read=(str(raw["read"][0]), str(raw["read"][1])) if raw.get("read") else None,
                 )
             )
     return entries
@@ -424,6 +436,7 @@ async def _run_entry(entry: Entry) -> Outcome:
             history=entry.history,
             pro=entry.pro,
             location=entry.location,
+            read=entry.read,
         ),
         settings,
     )
@@ -458,6 +471,7 @@ async def _run_entry(entry: Entry) -> Outcome:
         settings_card=outcome.route.settings_card or None,
         after_card=outcome.route.after_card,
     )
+    await _apply_the_read(ctx, entry, settings)
     with (
         _stores(outcome, user),
         offline_pubchem(),
@@ -485,9 +499,50 @@ async def _run_entry(entry: Entry) -> Outcome:
             should_cancel=None,
         )
     outcome.problems = (
-        judge(outcome) + claims_above_a_pending_card(outcome.final) + undrawn_charts(outcome.final)
+        judge(outcome)
+        + claims_above_a_pending_card(outcome.final)
+        + undrawn_charts(outcome.final)
+        + picture_problems(outcome)
     )
     return outcome
+
+
+async def _apply_the_read(ctx: StreamContext, entry: Entry, settings: Any) -> None:
+    """An entry's read, as the turn holds it: done before finalize, and what the reply's
+    prompt was asked for by it (a picture's ```draw contract, ``drawing_turn``)."""
+    decision = read_of(Case(entry.id, entry.area, entry.prompt, Expect(), "", read=entry.read))
+    if decision is None:
+        return
+    read: asyncio.Future[TurnDecision | None] = asyncio.get_running_loop().create_future()
+    read.set_result(decision)
+    ctx.live_read = read  # type: ignore[assignment]
+    ctx.recent_messages = [
+        *(SimpleNamespace(role=role, content=text) for role, text in entry.history),
+        SimpleNamespace(role="user", content=entry.prompt),
+    ]
+    await ask_for_a_drawing(ctx, settings, decision, asyncio.get_running_loop().time())
+
+
+_KINDS: tuple[Kind, ...] = ("graph", "diagram", "molecule")
+
+
+def picture_problems(outcome: Outcome) -> list[str]:
+    """How the turn's picture missed what the entry expects of it."""
+    final, problems = outcome.final, []
+    expects = set(outcome.entry.expects) & PICTURE_EXPECTS
+    has_mermaid = any(True for _ in iter_closed_fences(final, "mermaid"))
+    if "flowchart" in expects and not has_mermaid:
+        problems.append("the flowchart asked for was taken out")
+    if expects & {"drawn", "said_not_drawn"} and has_mermaid:
+        problems.append("a flowchart stood in for the picture")
+    if "drawn" in expects and not shows_a_picture(final):
+        problems.append("no picture of the app's drawn")
+    said = any(final.rstrip().endswith(not_drawn_line(kind, "en")) for kind in _KINDS)
+    if "said_not_drawn" in expects and not said:
+        problems.append(f"no line saying the picture was not drawn (reply: {final[-70:]!r})")
+    if expects and outcome.route.photo:
+        problems.append(f"photo lookup took the turn ({outcome.route.photo!r})")
+    return problems
 
 
 _WS = re.compile(r"\s+")

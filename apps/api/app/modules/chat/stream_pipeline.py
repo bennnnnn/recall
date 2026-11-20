@@ -297,6 +297,14 @@ async def _finish_terminal_image_turn(
     await finalize_terminal_image_turn(deps, redis, settings, ctx, outcome, usage)
 
 
+def _describes_its_picture(ctx: StreamContext, accum: StreamAccum) -> bool:
+    """A reply that is only its picture's ```draw blocks (held back from the phone) is a
+    reply: finalize draws the picture, or says in one line that it could not. "Draw the v-t
+    graph" answered with a block alone ended in "That model isn't responding" (Grade 8
+    round, t15)."""
+    return ctx.drawing is not None and bool(accum.drawings)
+
+
 async def _settle_reply(
     deps: ChatTurnDeps,
     redis: Redis,
@@ -327,7 +335,7 @@ async def _settle_reply(
             outcome.completion = accum.completion
         await _refund_turn(deps, redis, ctx, resources)
         return
-    if not assistant_text:
+    if not assistant_text and not _describes_its_picture(ctx, accum):
         raise ModelUnavailableError.for_alias(ctx.model)
     if outcome is not None and accum.completion != "complete":
         outcome.completion = accum.completion

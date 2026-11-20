@@ -7,5 +7,6 @@ user's own words, and ``build`` writes one of the shapes the phone draws. A read
 does not hold draws nothing: a wrong picture is never acceptable.
 """
 
-# What chat asks: the read and its check, and a model's chart read back for the same check.
-_MODULE_EXPORTS = ("read", "model_chart")
+# What chat asks: the read and its check, a model's chart read back for the same check, and
+# a chart of the reply before's answer cards.
+_MODULE_EXPORTS = ("read", "model_chart", "answers")

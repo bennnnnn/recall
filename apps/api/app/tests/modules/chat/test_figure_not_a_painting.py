@@ -98,7 +98,7 @@ async def _looks_up(content: str, read: asyncio.Task[TurnDecision | None] | None
     misses: set[str] = set()
     handled = await try_image_lookup_for_turn(
         deps,
-        Settings(image_search_enabled=True),
+        Settings(image_search_enabled=True, live_read_wait_seconds=0.5),
         user=_user(),
         chat_id=uuid4(),
         content=content,
@@ -119,13 +119,34 @@ async def test_a_number_line_is_not_a_photo() -> None:
 
 
 @pytest.mark.asyncio
-async def test_a_photo_with_no_maths_in_its_query_never_waits_for_the_read() -> None:
+async def test_a_photo_waits_for_the_read_no_longer_than_the_reply_does() -> None:
+    """A read later than the reply's own wait (``live_read_wait_seconds``) leaves the turn
+    to the words: "show me an ear" is still a photo."""
+
     async def never() -> TurnDecision | None:
         await asyncio.sleep(30)
         return None
 
     read = asyncio.ensure_future(never())
     try:
-        assert await asyncio.wait_for(_looks_up("show me an ear", read), timeout=2)
+        assert await asyncio.wait_for(_looks_up("show me an ear", read), timeout=3)
     finally:
         read.cancel()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "content, subject, picture, photo",
+    [
+        # Grade 8 round, t10: after a car's acceleration, stock photos of "this motion".
+        ("show me an animation of this motion", "physics", "diagram", False),
+        ("show me the forces on the block", "physics", "diagram", False),
+        ("show me a photo of a real hydraulic press", "physics", "photo", True),
+        ("show me an ear", "everyday", "photo", True),
+        ("what does a koala look like", "everyday", "photo", True),
+    ],
+)
+async def test_a_subject_turn_s_picture_is_the_read_s_never_the_words(
+    content: str, subject: str, picture: str, photo: bool
+) -> None:
+    assert await _looks_up(content, _read(subject, picture)) is photo

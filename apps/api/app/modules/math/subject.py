@@ -343,7 +343,7 @@ class MathFigure:
 
         return without_substitutes(text)
 
-    def contract_for(self, question: str, asked: bool) -> str:
+    def contract_for(self, question: str, asked: bool, *, graph: bool = False) -> str:
         return DRAW_CONTRACT
 
     async def described(
