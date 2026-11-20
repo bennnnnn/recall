@@ -181,6 +181,12 @@ const VARIANTS: Record<string, string> = {
   "price colon then a fraction":
     "Rent is $1,200: 3 roommates each pay $\\frac{1200}{3} = 400$. The bill is $90: 3 of us split it as $\\frac{90}{3}$.",
   "price colon then an equation": "Total $60: 3 of us, so $x = 20$. Budget $50: 2 shirts at $s$ each.",
+  // Words in a text group inside a fraction, a root or a script: a nested parse read them as
+  // maths again and painted a run marker as a 👕 emoji (phone, 2026-11-18).
+  "text words in a fraction":
+    "The velocity ratio is\n\n$VR = \\frac{\\text{distance moved by effort}}{\\text{distance moved by load}}$\n\n" +
+    "so $VR = \\frac{8\\,\\mathrm{m}}{2\\,\\mathrm{m}} = 4$, $\\sqrt{\\text{area of the square}}$, " +
+    "$v_{\\text{speed of the car}}$ and $\\frac{\\mathrm{mass\\ of\\ the\\ load}}{\\operatorname{vol}(B)}$.",
   // A subscript and a superscript on one base (phys30, 2026-11-16).
   "sub and sup": "$v_{2f} = \\sqrt{v_{2x}^2 + v_{2y}^2}$ and $T = mg + \\frac{m v_{\\max}^2}{L}$",
   // Answer cards from the unit-5 round (2026-11-16): a unit in words set upright (the server

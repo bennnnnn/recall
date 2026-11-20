@@ -1217,7 +1217,6 @@ describe("useChatSend math scans", () => {
     ["math", "Solve the math problem in this image step by step."],
     ["physics", "Solve the physics problem in this image step by step."],
     ["chemistry", "Solve the chemistry problem in this image step by step."],
-    ["biology", "Solve the biology problem in this image step by step."],
   ] as const)("sends a %s scan at once: the photo, with its subject's caption", async (subject, caption) => {
     uploadAttachment.mockResolvedValue("att-1");
     const sendMessage = sent();

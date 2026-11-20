@@ -15,7 +15,7 @@ function normalizeLiveText(text: string): string {
 
 /**
  * Live framing is ready for maths ink or a formula, even when the formula has no digit.
- * Physics, chemistry and biology questions are often words alone, so a sentence counts
+ * Physics and chemistry questions are often words alone, so a sentence counts
  * there; in maths it is more often a heading than the problem.
  */
 export function hasUsefulScannerText(text: string, subject: ScannerSubject = "math"): boolean {

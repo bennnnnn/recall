@@ -160,7 +160,9 @@ export function uprightNotation(source: string): string {
     }
     if (char === "^" || char === "_") {
       const group = source[i + 1] === "{" ? readGroup(source, i + 1) : null;
-      const next = group ? group.next : i + 2;
+      // A command as the script (`t_\text{time to the top}`) is read as a command next: taken
+      // as one character, its backslash went and the text group's "to" was set as a word.
+      const next = group ? group.next : source[i + 1] === "\\" ? i + 1 : i + 2;
       out += source.slice(i, next);
       i = next;
       // A power of ten ends a number too: `6.022 \times 10^{23} mol^{-1}`.

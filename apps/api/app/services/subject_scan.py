@@ -11,33 +11,28 @@ from __future__ import annotations
 import logging
 import re
 from collections.abc import Awaitable, Callable
-from typing import Literal
 
 from app.services.solving import SubjectName
 
 logger = logging.getLogger(__name__)
 
-# The registry's subjects, and biology, whose camera caption the phone already sends.
-ScannerSubject = SubjectName | Literal["biology"]
-
 MATH_CAMERA_PROMPT = "Solve the math problem in this image step by step."
 PHYSICS_CAMERA_PROMPT = "Solve the physics problem in this image step by step."
 CHEMISTRY_CAMERA_PROMPT = "Solve the chemistry problem in this image step by step."
-BIOLOGY_CAMERA_PROMPT = "Solve the biology problem in this image step by step."
 
 # The line a photo carries after the student confirmed what the scanner read.
 SCAN_CONFIRMED_PREFIX = "I read this as:"
 _BLANK_LINE = re.compile(r"\n[ \t]*\n")
 
-SCANNER_CAMERA_PROMPTS: dict[ScannerSubject, str] = {
+# One caption per registered subject: the scanner's tabs.
+SCANNER_CAMERA_PROMPTS: dict[SubjectName, str] = {
     "math": MATH_CAMERA_PROMPT,
     "physics": PHYSICS_CAMERA_PROMPT,
     "chemistry": CHEMISTRY_CAMERA_PROMPT,
-    "biology": BIOLOGY_CAMERA_PROMPT,
 }
 
 
-def scanner_camera_subject(text: str) -> ScannerSubject | None:
+def scanner_camera_subject(text: str) -> SubjectName | None:
     """Return the explicit scanner subject without classifying arbitrary chat."""
     folded = text.strip().casefold()
     for subject, prompt in SCANNER_CAMERA_PROMPTS.items():
@@ -148,7 +143,7 @@ def with_confirmed_reading(content: str, reading: str) -> str:
 async def read_scanned_problem(
     content: str,
     *,
-    subject: ScannerSubject,
+    subject: SubjectName,
     image_attachments: list[tuple[str, str]],
     load_image: Callable[[str], Awaitable[tuple[str, bytes] | None]],
     read: Callable[[str, bytes], Awaitable[str]],

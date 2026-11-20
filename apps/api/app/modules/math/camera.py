@@ -52,7 +52,7 @@ async def read_camera_maths(
     caption = content.strip()
     scan_subject = scanner_camera_subject(content)
     photo_alone = not caption
-    looks_like_math_caption = scan_subject not in {"physics", "biology", "chemistry"} and (
+    looks_like_math_caption = scan_subject not in {"physics", "chemistry"} and (
         photo_alone or math_match.has_math_keyword(caption.lower())
     )
     # A physics or chemistry photo carries its confirmed reading too, but that

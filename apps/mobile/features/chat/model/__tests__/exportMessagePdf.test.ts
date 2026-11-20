@@ -5,6 +5,7 @@ import { printHtmlToSharedPdf } from "@/features/chat/model/exportPdf";
 import { markdownToStructuredPrintHtml } from "@/features/chat/model/printDocument";
 
 jest.mock("@/lib/i18n", () => ({ __esModule: true, default: { t: (key: string) => key } }));
+jest.mock("@/lib/config", () => ({ config: { shareUrl: "https://example.com/get" } }));
 jest.mock("@/features/chat/model/exportPdf", () => ({ printHtmlToSharedPdf: jest.fn(async () => undefined) }));
 jest.mock("@/features/chat/model/printDocument", () => ({
   markdownToStructuredPrintHtml: jest.fn(async (_title: string, md: string) => `<p>${md}</p>`),
@@ -35,4 +36,11 @@ it("prints a chat with text under its title", async () => {
     expect.any(Function),
     expect.any(Function),
   );
+});
+
+it("ends the PDF as a text share ends: where it came from, and where to get the app", async () => {
+  const reply = [{ id: "a1", role: "assistant", content: "Paris is the capital of France." }] as Message[];
+  await exportConversationAsPdf("Capitals", reply);
+  const markdown = jest.mocked(markdownToStructuredPrintHtml).mock.calls.at(-1)?.[1] ?? "";
+  expect(markdown).toMatch(/Paris is the capital of France\.\n\n---\n\n\*share\.footer_from\*\n\n\*share\.footer_get\*$/);
 });
