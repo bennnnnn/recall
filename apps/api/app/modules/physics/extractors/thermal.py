@@ -199,6 +199,19 @@ def _heat_energy(cleaned: str) -> PhysicsIntent | None:
     )
 
 
+# A change in bare degrees: "cools by 10 degrees", "10°" (the bare branch of _heat_energy).
+_BARE_DEGREES = re.compile(rf"({NUMBER})\s*{DEGREE_WORD}(?![A-Za-z0-9])", re.IGNORECASE)
+
+
+def _changes_written(cleaned: str) -> list[tuple[int, int, float]]:
+    """Every value written as a temperature or in bare degrees: its span and its number."""
+    bare = [
+        (match.start(1), match.end(1), float(match.group(1)))
+        for match in _BARE_DEGREES.finditer(cleaned)
+    ]
+    return [*temperature_readings(cleaned), *bare]
+
+
 def _signed_change(cleaned: str, size: float) -> float:
     """A stated temperature change, final - initial: a fall is negative, so the heat Q =
     mcΔT it gives out is too, and keeps its sign with "released" (owner, 2026-11-20: "The
@@ -206,7 +219,7 @@ def _signed_change(cleaned: str, size: float) -> float:
     lower = cleaned.lower()
     # Only a value written as a temperature: "drops by 10 m and its temperature rises by
     # 10 °C" is a rise (Codex on #2507).
-    for start, end, value in temperature_readings(cleaned):
+    for start, end, value in _changes_written(cleaned):
         if value == size and falls_by(lower, start, end):
             return -size
     return size

@@ -122,6 +122,9 @@ def test_the_size_of_heat_given_off_is_a_right_claim() -> None:
         ),
         ("The temperature of 3 kg of water decreases by 10 °C.", 10.0, -10.0),
         ("Heat released by 2 kg of water for a 10 °C drop in temperature.", 10.0, -10.0),
+        # Claude on #2507: a change in bare degrees is a temperature's too.
+        ("A 2 kg copper block cools by 10 degrees. How much heat is lost?", 10.0, -10.0),
+        ("A 2 kg copper block cools by 10°. How much heat is lost?", 10.0, -10.0),
     ],
 )
 def test_only_the_temperature_s_own_value_is_signed(text: str, size: float, signed: float) -> None:
