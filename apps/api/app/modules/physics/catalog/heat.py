@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.modules.physics.extractors.temperature_fall import falls_by
 from app.services.law_binding.spec import (
     Binding,
     FormulaSpec,
@@ -12,12 +13,6 @@ from app.services.law_binding.spec import (
 )
 
 _LAW = "Specific-heat equation"
-
-
-def _falls_by(lower: str, start: int, end: int) -> bool:
-    from app.modules.physics.extractors.thermal import falls_by
-
-    return falls_by(lower, start, end)
 
 
 _RISE = ("by", "rise", "change", "increase", "raised", "heated", "cooled", "difference")
@@ -34,7 +29,7 @@ _SIGNED_DELTA_TEMP = var(
     "kelvin",
     words=_RISE,
     needs_words=True,
-    negated=_falls_by,
+    negated=falls_by,
 )
 _LATENT = var("latent_heat", "L", "joule / kilogram")
 _T1 = var("temp_initial", "T_1", "kelvin", words=("from", "initially", "starting at"))
