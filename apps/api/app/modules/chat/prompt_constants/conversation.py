@@ -40,10 +40,16 @@ NO_SELF_TALK_RULE = (
 # A trip chat opened every reply on "Saturday, November 7" (2026-11-06); told so only in the
 # system prompt, far from the message, the free plan's model kept it. Beside every message
 # that follows a reply (``message_notes``).
+# A concern said once and then in every reply: across 80 messages about a friend's wedding
+# the bank or a lawyer came up in 37 replies and the $500,000 in 40, the daughter in nearly
+# all, and "Can u forget about the wedding!" got "I can't just forget about it" (2026-11-19).
 NO_RECAP_NOTE = (
     "Add only what is new. Do not repeat details from earlier in this chat (a day and its "
     "date, the place, who is coming, the budget), and do not say that you are not "
-    "repeating them; a known day is just its weekday."
+    "repeating them; a known day is just its weekday. Say a concern, a warning or a piece "
+    "of advice once: when they have heard it or pushed back, do not raise it again unless "
+    "something new changes it. When they ask you to drop a topic, drop it, unless someone's "
+    "safety depends on it."
 )
 
 # The assistant's own name: a reply never signs its own writing with it

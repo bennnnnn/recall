@@ -474,8 +474,12 @@ def format_now_awareness(
         "is out yet, who holds a post now or what comes next may have changed since: look "
         "it up when you have web_search, and never give a memory as today's fact. "
         # The weekday beside a full date is checked before saving (Christmas 2026 is a Friday).
-        "When you name the weekday of a date, write the full date with it "
-        '("Friday, December 25, 2026"). '
+        # Only for a day new to the chat: told to write the full date with every weekday, a
+        # chat about a wedding "tomorrow" said "tomorrow, Friday, November 20, 2026" in 50 of
+        # 80 replies (2026-11-19).
+        "When you name the weekday of a date this chat has not named yet, write the full "
+        'date with it ("Friday, December 25, 2026"). A day the chat already named is just '
+        '"tomorrow", "today" or its weekday, never its full date again. '
         # Read, not counted: "what is Tuesday" and "Christmas's weekday" were miscounted.
         f"{calendar_lines(now, message)}"
     )

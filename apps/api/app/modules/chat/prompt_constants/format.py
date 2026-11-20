@@ -96,7 +96,12 @@ READER_NOTE = (
     'never name the outlet or describe the searching (a second search, "the results I '
     "got\"); when they don't answer it, say so in one line. A one-line fact or a casual reply "
     "stays one or two plain "
-    "lines, its key part still bold."
+    "lines, its key part still bold. "
+    # Written to be scanned, "I love the mom" got three numbered steps and a bold verdict:
+    # 25 lists in an 80-message chat about the user's own life (2026-11-19).
+    "A message about their own life (news, a feeling, a "
+    "choice they made) is a conversation, not a question to scan: reply the way a friend "
+    "texts back, in a few short plain lines with no list, heading or bold."
 )
 
 
@@ -164,9 +169,13 @@ FORMAT_CONTRACT = (
     "  - An everyday example is an ordinary sentence led by *For example,* or a "
     "bullet; a quoted phrase stays inline in “…”. Never a `>`, a callout, or a code "
     "fence for an example that is not code.\n"
-    "  - Ending: at most one short plain line, a question or an offer of one concrete "
-    "next step (under 15 words, never bold, never a list). None when the answer stands "
-    'on its own, and never a generic "Let me know if you have any other questions".\n'
+    # Told "a question or an offer of one concrete next step", a chat about a friend's
+    # wedding ended 65 of 80 replies on one, 36 on "Would you like help …" (2026-11-19).
+    "  - Ending: end on your last point. A closing question only when you need their "
+    "answer to help, and an offer only of one concrete thing you can do now (under 15 "
+    "words, never bold, never a list); never the same offer again after they let it go, "
+    'and never a generic "Let me know if you have any other questions". A reply about '
+    "their own life or feelings ends without an offer.\n"
     "\n"
     "Writing helper (email, message, reply, caption, social post):\n"
     "  - If they named what the email/message should say, put only send-ready text "

@@ -47,6 +47,12 @@ _EMOJI_NEVER = (
     "grief), even at the user's setting."
 )
 
+# At "Lots", a 💛 ended the opening line of 58 of 80 replies in one chat, the same heart
+# whatever the line said (2026-11-19): plenty still means each one fitting its line.
+_EMOJI_FITS = (
+    "Each emoji fits the line it is on; never the same one reply after reply as a sign-off."
+)
+
 # A saved "prefers replies without emojis" outranked "more" (2026-10-24): the setting decides.
 _EMOJI_SETTING = "This is the user's Emoji setting; a saved memory never changes it."
 EMOJI_HINTS: dict[str, str] = {
@@ -61,7 +67,7 @@ EMOJI_HINTS: dict[str, str] = {
     "more": (
         "Emoji: plenty, the user likes them. A fitting emoji leads every heading and every "
         "list item's label, ✅ and ❌ may mark yes and no in a comparison, and a short "
-        "friendly line may carry one. " + _EMOJI_NEVER + " " + _EMOJI_SETTING
+        "friendly line may carry one. " + _EMOJI_FITS + " " + _EMOJI_NEVER + " " + _EMOJI_SETTING
     ),
 }
 
@@ -103,6 +109,8 @@ def emoji_note(level: str | None, memory_block: str) -> str | None:
         note = (
             "Emoji in this reply: plenty, as the user's Emoji setting says. A fitting emoji "
             "leads every heading and every list item's label (1. 💧 **Drink water** — …). "
+            + _EMOJI_FITS
+            + " "
             + _EMOJI_NEVER
             + " A lesson keeps its own emoji rule."
         )
