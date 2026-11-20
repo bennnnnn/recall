@@ -117,7 +117,7 @@
   {"id": "t06", "area": "thermal", "prompt": "A sealed container of gas at 220 kPa and 15 °C is heated to 45 °C. what's the new pressure?", "expect": "answer", "answer": [242.905, "kPa"]},
   {"id": "t07", "area": "thermal", "prompt": "300 g of water at 90°C is mixed with 200 g of water at 20°C. what's the final temp?", "expect": "answer", "answer": [62.0, "degC"]},
   {"id": "t08", "area": "thermal", "prompt": "how much energy does it take to heat 1.5 kg of water from 68°F to 212°F", "expect": "answer", "answer": [502320.0, "J"]},
-  {"id": "t09", "area": "thermal", "prompt": "a 2 kg iron block (c = 450 J/kg K) cools from 300 °C to 50 °C. how much heat does it give out in kJ?", "expect": "answer", "answer": [225.0, "kJ"]},
+  {"id": "t09", "area": "thermal", "prompt": "a 2 kg iron block (c = 450 J/kg K) cools from 300 °C to 50 °C. how much heat does it give out in kJ?", "expect": "answer", "answer": [-225.0, "kJ"], "signed": true},
   {"id": "t10", "area": "thermal", "prompt": "a gas expands at a constant pressure of 2 atm from 3 L to 8 L. how much work does it do?", "expect": "answer", "answer": [1013.25, "J"]},
   {"id": "t11", "area": "thermal", "prompt": "An aluminium rod 1.5 m long is heated from 20 °C to 120 °C. how much does it lengthen? α = 23×10^-6 /K", "expect": "answer", "answer": [0.00345, "m"]},
   {"id": "t12", "area": "thermal", "prompt": "a refrigerator removes 300 J of heat from inside while using 100 J of work. coefficient of performance?", "expect": "answer", "answer": [3.0, ""]},

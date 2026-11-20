@@ -49,6 +49,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             inputs=(frozenset({"m", "v1", "v2"}),),
             cues=("brake", "brakes", "braking", "to a stop", "to rest", "to a halt"),
             negative_detail="taken from the motion",
+            keeps_sign=True,
         ),
     ),
     formula(

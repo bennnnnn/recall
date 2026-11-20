@@ -49,11 +49,31 @@ def _question_sentences(text: str) -> int:
     count = 0
     for sentence in SENTENCE.finditer(text):
         body = sentence.group()
-        if CHECK_ONLY.match(body):
+        if CHECK_ONLY.match(body) or _states_only_values(body):
             continue
         if body.rstrip().endswith("?") or ASK_VERBS.search(body):
             count += 1
     return count
+
+
+_A_WORD = re.compile(r"[^\W\d_]")
+
+
+def _states_only_values(sentence: str) -> bool:
+    """The sentence is only given values, labels and units: "c = 385 J/kg °C?" asks nothing,
+    whatever mark ends it. The owner's "How much heat is lost by a copper bar … 40 °C? c =
+    385 J/kg °C?" read as two asks, so the model wrote it and carded 46200 J for the
+    verified -46200 J (2026-11-20)."""
+    from app.modules.physics.extractors.assignments import strip_param_assignments
+    from app.modules.physics.extractors.written_unit import written_unit
+    from app.modules.physics.givens import scan_givens
+
+    text = strip_param_assignments(sentence)
+    for given in sorted(scan_givens(text), key=lambda given: -given.start):
+        unit = written_unit(text, given.end)
+        end = text.find(unit, given.end) + len(unit) if unit else given.end
+        text = text[: given.start] + text[end:]
+    return _A_WORD.search(text) is None
 
 
 def _joined_quantities(text: str) -> int:

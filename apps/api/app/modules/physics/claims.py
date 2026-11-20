@@ -217,11 +217,13 @@ def _plain_value(value: float) -> str:
     return f"{value:g}"
 
 
-def claim_verdict(text: str, value: float, unit: str) -> str | None:
+def claim_verdict(text: str, value: float, unit: str, *, worded_sign: bool = False) -> str | None:
     """One line saying whether the student's stated result is the verified one.
 
     Only for a stated result ("I got 19.8 m/s") whose kind is the answer's.
-    None when there is no such claim, or it cannot be compared.
+    None when there is no such claim, or it cannot be compared. ``worded_sign``: the
+    answer's minus sign has its word ("-7700 J (released)"), so the size the student gives
+    for the heat given off is right too.
     """
     expression = unit_expression(unit)
     answer = None if expression is None else unit_dimension(expression)
@@ -238,7 +240,9 @@ def claim_verdict(text: str, value: float, unit: str) -> str | None:
         verified_si = value * answer[1] + answer[2]
         shown = f"{_plain_value(claim.value)} {claim.unit}"
         whose = "Your" if claim.own else "The"
-        if _matches(claim.value, claimed_si, verified_si, reading[1]):
+        if _matches(claim.value, claimed_si, verified_si, reading[1]) or (
+            worded_sign and _matches(claim.value, abs(claimed_si), abs(verified_si), reading[1])
+        ):
             return f"{whose} {shown} is right."
         return f"{whose} {shown} is not right; the verified answer is below."
     return None
