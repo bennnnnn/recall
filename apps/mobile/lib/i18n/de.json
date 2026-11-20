@@ -459,6 +459,7 @@
   "memory.muted_label": "Stumm · wird in Chats nicht verwendet",
   "memory.mute_failed": "Änderung fehlgeschlagen. Versuch es noch einmal.",
   "memory.source_chat": "Aus „{{title}}“",
+  "memory.source_chat_hint": "Öffnet den Chat, aus dem das stammt",
   "memory.fact_hint": "Bearbeiten, stummschalten oder löschen",
   "memory.group.areas": "Bereiche",
   "memory.group.topics": "Themen",

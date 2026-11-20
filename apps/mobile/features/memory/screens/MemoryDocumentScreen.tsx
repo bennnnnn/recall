@@ -21,7 +21,11 @@ import {
   documentTitle,
   parseMemoryDate,
 } from "@/features/memory/model/memoryDocuments";
-import { MEMORY_TEXT_MAX_LENGTH, stripMemoryAsOf } from "@/features/memory/model/memoryFacts";
+import {
+  MEMORY_TEXT_MAX_LENGTH,
+  memorySourceChatHref,
+  stripMemoryAsOf,
+} from "@/features/memory/model/memoryFacts";
 import type { Memory } from "@/features/memory/types";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useReconnectRefresh } from "@/hooks/useReconnectRefresh";
@@ -297,19 +301,32 @@ const FactRow = memo(function FactRow({ fact, s, onOpenMenu }: {
   onOpenMenu: (fact: Memory, event: GestureResponderEvent) => void;
 }) {
   const { t } = useTranslation();
+  const router = useRouter();
   const muted = fact.status === "muted";
   const text = stripMemoryAsOf(fact.text);
   const source = fact.source_chat_title
     ? t("memory.source_chat", { title: fact.source_chat_title })
     : null;
+  // The chat the fact was learned in, at the message that states it; a deleted chat has
+  // no link (the server clears its id).
+  const sourceHref = memorySourceChatHref(fact);
+  // A screen reader hears the row as one button, so the link inside it is an action of
+  // the row (and its "From" line part of the row's label).
+  const label = [text, muted ? t("memory.muted_label") : null, source].filter(Boolean).join(". ");
   return (
     <Pressable
       style={({ pressed }) => [s.fact, pressed && s.factPressed]}
       onPress={(event) => onOpenMenu(fact, event)}
       onLongPress={(event) => onOpenMenu(fact, event)}
       accessibilityRole="button"
-      accessibilityLabel={muted ? `${text}. ${t("memory.muted_label")}` : text}
+      accessibilityLabel={label}
       accessibilityHint={t("memory.fact_hint")}
+      accessibilityActions={
+        sourceHref ? [{ name: "openSource", label: t("memory.source_chat_hint") }] : undefined
+      }
+      onAccessibilityAction={(event) => {
+        if (event.nativeEvent.actionName === "openSource" && sourceHref) router.push(sourceHref);
+      }}
       testID={`memory-fact-${fact.id}`}
     >
       <Text style={s.bullet}>•</Text>
@@ -320,7 +337,19 @@ const FactRow = memo(function FactRow({ fact, s, onOpenMenu }: {
             {t("memory.muted_label")}
           </Text>
         ) : null}
-        {source ? <Text style={s.factMeta}>{source}</Text> : null}
+        {source && sourceHref ? (
+          <Text
+            style={[s.factMeta, s.factSource]}
+            onPress={() => router.push(sourceHref)}
+            accessibilityRole="link"
+            accessibilityHint={t("memory.source_chat_hint")}
+            testID={`memory-fact-source-${fact.id}`}
+          >
+            {source}
+          </Text>
+        ) : source ? (
+          <Text style={s.factMeta}>{source}</Text>
+        ) : null}
       </View>
     </Pressable>
   );
@@ -360,5 +389,6 @@ function makeStyles(theme: Theme) {
     factText: { ...Type.body, color: theme.text },
     factMuted: { color: theme.textSecondary },
     factMeta: { ...Type.label, color: theme.textSecondary },
+    factSource: { color: theme.primary },
   });
 }

@@ -459,6 +459,7 @@
   "memory.muted_label": "ተዘግቷል · በውይይቶች ውስጥ አይጠቀምም",
   "memory.mute_failed": "መቀየር አልተቻለም። እንደገና ይሞክሩ።",
   "memory.source_chat": "ከ“{{title}}”",
+  "memory.source_chat_hint": "ይህ የተማረበትን ውይይት ይከፍታል",
   "memory.fact_hint": "አርትዕ፣ አትጠቀምበት ወይም ሰርዝ",
   "memory.group.areas": "ዘርፎች",
   "memory.group.topics": "ርዕሶች",

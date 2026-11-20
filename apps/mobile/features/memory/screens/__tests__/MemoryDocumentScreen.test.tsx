@@ -321,6 +321,48 @@ describe("MemoryDocumentScreen", () => {
     };
     const ui = await render(<MemoryDocumentScreen />);
     expect(ui.getByText("memory.source_chat:Building Recall")).toBeTruthy();
+    // No chat id (the chat was deleted): the line names it but opens nothing.
+    expect(ui.queryByTestId("memory-fact-source-f1")).toBeNull();
+  });
+
+  it("opens the chat a fact was learned in at its message, without opening the fact menu", async () => {
+    mockDocuments[0].facts[0] = {
+      ...mockDocuments[0].facts[0],
+      source_chat_id: "chat-9",
+      source_chat_title: "Building Recall",
+      source_message_id: "message-3",
+    };
+    const ui = await render(<MemoryDocumentScreen />);
+    const link = ui.getByTestId("memory-fact-source-f1");
+    expect(link.props.accessibilityRole).toBe("link");
+    await fireEvent.press(link);
+
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: "/",
+      params: { chatId: "chat-9", returnTo: "memory", highlightMessage: "message-3" },
+    });
+    expect(ui.queryByTestId("menu-mute")).toBeNull();
+  });
+
+  it("offers a screen reader the chat as an action of the fact's row", async () => {
+    mockDocuments[0].facts[0] = {
+      ...mockDocuments[0].facts[0],
+      source_chat_id: "chat-9",
+      source_chat_title: "Building Recall",
+      source_message_id: "message-3",
+    };
+    const ui = await render(<MemoryDocumentScreen />);
+    const row = ui.getByTestId("memory-fact-f1");
+    expect(row.props.accessibilityLabel).toContain("memory.source_chat:Building Recall");
+    expect(row.props.accessibilityActions).toEqual([
+      { name: "openSource", label: "memory.source_chat_hint" },
+    ]);
+    await fireEvent(row, "accessibilityAction", { nativeEvent: { actionName: "openSource" } });
+
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: "/",
+      params: { chatId: "chat-9", returnTo: "memory", highlightMessage: "message-3" },
+    });
   });
 
   it("sends edits scoped to this page", async () => {

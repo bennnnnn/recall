@@ -31,6 +31,12 @@ type Props = {
   menuAnchorRef?: RefObject<HostInstance | null>;
 };
 
+/** Opened over another page (Library's "Open chat", a memory fact's "From" line): the
+ *  leading button goes back to it instead of opening the drawer. */
+function opensOverAPage(returnTo: string | undefined): boolean {
+  return returnTo === "gallery" || returnTo === "memory";
+}
+
 export const ChatHeader = memo(function ChatHeader({
   paddingTop,
   minimumHeight,
@@ -50,7 +56,7 @@ export const ChatHeader = memo(function ChatHeader({
   const s = useMemo(() => makeStyles(theme), [theme]);
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const router = useRouter();
-  const fromLibrary = returnTo === "gallery";
+  const openedOver = opensOverAPage(returnTo);
   const lastReportedHeight = useRef(0);
   const handleLayout = useCallback(
     (event: LayoutChangeEvent) => {
@@ -85,17 +91,17 @@ export const ChatHeader = memo(function ChatHeader({
         pointerEvents="box-none"
       >
         <HeaderButton
-          icon={fromLibrary ? "arrow-left" : "menu"}
-          variant={fromLibrary ? "plain" : "plate"}
+          icon={openedOver ? "arrow-left" : "menu"}
+          variant={openedOver ? "plain" : "plate"}
           onPress={() => {
-            if (fromLibrary) {
+            if (openedOver) {
               if (router.canGoBack()) router.back();
               else router.replace("/");
               return;
             }
             onOpenDrawer();
           }}
-          accessibilityLabel={fromLibrary ? t("common.back") : t("chat.open_drawer_a11y")}
+          accessibilityLabel={openedOver ? t("common.back") : t("chat.open_drawer_a11y")}
           testID="chat-header-leading"
         />
         {headerTitleLabel ? (

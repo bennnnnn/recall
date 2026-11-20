@@ -465,6 +465,7 @@
   "memory.muted_label": "En sourdine · pas utilisé dans les discussions",
   "memory.mute_failed": "Impossible de modifier. Réessayez.",
   "memory.source_chat": "De « {{title}} »",
+  "memory.source_chat_hint": "Ouvre la discussion d’où cela vient",
   "memory.fact_hint": "Modifier, mettre en sourdine ou supprimer",
   "memory.group.areas": "Domaines",
   "memory.group.topics": "Sujets",

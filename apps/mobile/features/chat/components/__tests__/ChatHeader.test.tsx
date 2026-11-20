@@ -72,8 +72,8 @@ describe("ChatHeader", () => {
     expect(queryByLabelText("reminders.badge_accessibility")).toBeNull();
   });
 
-  it("goes back to Library when pushed with returnTo=gallery", async () => {
-    mockReturnTo = "gallery";
+  it.each(["gallery", "memory"])("goes back to the page it was pushed from: returnTo=%s", async (from) => {
+    mockReturnTo = from;
     const onOpenDrawer = jest.fn();
     const { getByLabelText, queryByLabelText } = await render(
       <ChatHeader {...props} onOpenDrawer={onOpenDrawer} />,

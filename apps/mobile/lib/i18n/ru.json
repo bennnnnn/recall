@@ -471,6 +471,7 @@
   "memory.muted_label": "Отключено · не используется в чатах",
   "memory.mute_failed": "Не удалось изменить. Попробуйте ещё раз.",
   "memory.source_chat": "Из «{{title}}»",
+  "memory.source_chat_hint": "Открывает чат, из которого это узнано",
   "memory.fact_hint": "Изменить, отключить или удалить",
   "memory.group.areas": "Сферы",
   "memory.group.topics": "Темы",
