@@ -19,6 +19,7 @@ import {
 import { useTheme } from "@/lib/theme";
 import { addFabClearance } from "@/ui/controls/addFabLayout";
 import { Button } from "@/ui/controls/Button";
+import type { Translate } from "@/lib/i18n/translate";
 
 type Props = {
   rows: TodoListRow[];
@@ -123,7 +124,7 @@ function joinNames(names: string[], locale: string): string {
   }
 }
 
-function clashLines(clusters: ClashCluster[], locale: string, t: (key: string, options?: Record<string, string>) => string): string[] {
+function clashLines(clusters: ClashCluster[], locale: string, t: Translate): string[] {
   return clusters.map((cluster) => {
     const time = formatDate(new Date(cluster.at), "time");
     if (cluster.names.length === 2) {

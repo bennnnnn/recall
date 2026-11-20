@@ -39,6 +39,10 @@ LABELS: dict[str, tuple[str, ...]] = {
     "wavelength": ("wavelength",),
     # An average speed is no speed at either end of a change.
     "average speed": ("average speed", "average velocity", "mean speed", "mean velocity"),
+    # A diameter is no radius, nor any other length: "a wheel of diameter 40 cm" (or "40 cm
+    # in diameter") bound as the wheel's radius gave a verified effort off by two (Gemini on
+    # #2495).
+    "diameter": ("diameter", "in diameter"),
 }
 # The kind of value each quantity is (``fit.given_labels``).
 LABEL_UNITS: dict[str, str] = {
@@ -46,6 +50,7 @@ LABEL_UNITS: dict[str, str] = {
     "period": "second",
     "wavelength": "meter",
     "average speed": "meter / second",
+    "diameter": "meter",
 }
 # A stretch of time said as "a period" is a duration, not an oscillation's period: "over a
 # period of 5 s", "for a short period of 10 s", "a time period of 5 s".

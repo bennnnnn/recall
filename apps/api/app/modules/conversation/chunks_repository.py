@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -100,8 +101,10 @@ async def search_semantic(
     exclude_chat_id: UUID | None = None,
     limit: int = 6,
     max_distance: float | None = None,
+    since: datetime | None = None,
 ) -> list[MessageChunk]:
-    """The ``limit`` chunks nearest ``query_embedding`` among the user's newest ``window``.
+    """The ``limit`` chunks nearest ``query_embedding`` among the user's newest ``window``
+    (those said at or after ``since``, when given).
 
     Chunks are kept as long as their chat, but a search ranks only the newest: an exact
     distance over a bounded set, read through ``(user_id, created_at)``. A global vector
@@ -110,6 +113,8 @@ async def search_semantic(
     if len(query_embedding) != EMBEDDING_DIM:
         return []
     filters = [MessageChunk.user_id == user_id, MessageChunk.embedding.isnot(None)]
+    if since is not None:
+        filters.append(MessageChunk.created_at >= since)
     if exclude_message_ids:
         filters.append(MessageChunk.message_id.notin_(exclude_message_ids))
     if exclude_chat_id is not None:

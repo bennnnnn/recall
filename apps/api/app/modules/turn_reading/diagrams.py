@@ -11,8 +11,11 @@ from app.services.diagram_kinds import names_diagram_kind
 _SEQUENCE_CUE = re.compile(r"\bsequence\s+diagram\b", re.IGNORECASE)
 
 
+# A flowchart by name, a flow or tree diagram ("a tree diagram for tossing two coins"), or
+# steps asked to be seen "as a flow" ("the steps of mitosis as a flow"): the boxes-and-arrows
+# picture a Mermaid card is (``chat.owed_picture``).
 _FLOWCHART_CUE = re.compile(
-    r"(?:\bflow[\s-]?chart\b|```mermaid\b)",
+    r"(?:\bflow[\s-]?charts?\b|\b(?:flow|tree)\s+diagrams?\b|\bas\s+a\s+flow\b|```mermaid\b)",
     re.IGNORECASE,
 )
 

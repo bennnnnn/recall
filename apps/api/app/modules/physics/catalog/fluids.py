@@ -75,8 +75,9 @@ SPECS: tuple[FormulaSpec, ...] = (
         variables=(
             var("A1", "A_1", "meter ** 2"),
             var("A2", "A_2", "meter ** 2"),
-            var("d1", "d_1", "meter"),
-            var("d2", "d_2", "meter"),
+            # Diameters: a value named a diameter fills them (``labels``).
+            var("d1", "d_1", "meter", words=("diameter",)),
+            var("d2", "d_2", "meter", words=("diameter",)),
             var("v", "v", "meter / second"),
         ),
     ),
@@ -106,8 +107,9 @@ SPECS: tuple[FormulaSpec, ...] = (
         variables=(
             var("A1", "A_1", "meter ** 2"),
             var("A2", "A_2", "meter ** 2"),
-            var("d1", "d_1", "meter"),
-            var("d2", "d_2", "meter"),
+            # Diameters: a value named a diameter fills them (``labels``).
+            var("d1", "d_1", "meter", words=("diameter",)),
+            var("d2", "d_2", "meter", words=("diameter",)),
             var("F1", "F_1", "newton"),
         ),
     ),

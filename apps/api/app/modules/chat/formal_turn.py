@@ -32,10 +32,11 @@ from app.modules.chat.reply_language import line_language
 from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.whole_question import ASK_QUESTION_WORDS, ASK_VERBS, ASKED_SENTENCE
 from app.modules.chat.worked_language import WORKED_WORDS
-from app.services.answer_check import stated_verdict
+from app.services.answer_check import Verdict, stated_verdict
 from app.services.answer_fence import (
     ANSWER_FENCE_LANGS,
     UNCHECKED_ANSWER_MARKER,
+    answer_fence_value,
     land_answer_card,
 )
 from app.services.md_fence_scan import iter_fences
@@ -150,6 +151,79 @@ def _asks_in_parts(question: str) -> bool:
     return _ASKS_FOR_LABELS.search(lead.rstrip()) is not None
 
 
+def _bare(tex: str) -> str:
+    """TeX without its spacing: "4180\\ \\mathrm{J}" and "4180\\,\\mathrm{J}" alike."""
+    return _TEX_SPACING.sub("", tex)
+
+
+_DIGIT = re.compile(r"\d")
+# A percentage said in words: "84.0 \\text{percent}" is 84.0 %.
+_PERCENT_WORD = re.compile(r"\\text\{\s*per\s*cent\s*\}|\bper\s*cent\b", re.IGNORECASE)
+_TEX_SPACING = re.compile(r"\\[ ,;:!]|\s+")
+
+
+def _stated_forms(card: str) -> list[str]:
+    """The card's value and each other form it states in brackets after it, "0.840 (84.0
+    percent)": a bracket opened after a space, outside every brace. A unit's brackets
+    ("\\mathrm{J/(kg\\cdot K)}") and a function's argument ("x(3 m) = 15 m") are the value's
+    own (review of #2491)."""
+    pieces, depth, start, inside = [], 0, 0, False
+    for at, char in enumerate(card):
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+        elif depth == 0 and char == "(" and not inside and card[at - 1 : at] in {" ", "\\"}:
+            pieces.append(card[start:at])
+            start, inside = at + 1, True
+        elif depth == 0 and char == ")" and inside:
+            pieces.append(card[start:at])
+            start, inside = at + 1, False
+    pieces.append(card[start:])
+    return pieces
+
+
+# TeX spacing at a piece's ends ("0.840\ "), which closes no maths on its own.
+_EDGE_SPACE = re.compile(r"^(?:\s|\\[ ,;])+|(?:\s|\\(?:[ ,;]|$))+$")
+
+
+def _card_states(reply: str, forms: list[str]) -> Verdict:
+    """What the reply's own last answer card states, read as the Answer it is, against the
+    server's value in its ``forms``: "same" when every value it states agrees, "conflict"
+    when any disagrees, "absent" when it states none the reader reads. "0.840 (84.0
+    percent)" for 84 % is the same value twice and got the server's card under it (owner's
+    phone, 2026-11-17); "0.94 (84.0%)" is no 0.84, and "x(3 m) = 15 m" no 3 m (review of
+    #2491)."""
+    cards = [
+        answer_fence_value(reply[fence.body_start : fence.body_end])
+        for fence in iter_fences(reply)
+        if fence.closed and fence.lang in ANSWER_FENCE_LANGS
+    ]
+    if not cards:
+        return "absent"
+    split = [_EDGE_SPACE.sub("", piece) for piece in _stated_forms(cards[-1])]
+    # Only a piece with a number states a value; each one must agree ("84.0% (0.94 J)" is
+    # no 84 %: its 0.94 J says something else, read or not; Gemini on #2491).
+    verdicts = [_piece_verdict(piece, forms) for piece in split if _DIGIT.search(piece)]
+    if "conflict" in verdicts:
+        return "conflict"
+    return "same" if verdicts and all(verdict == "same" for verdict in verdicts) else "absent"
+
+
+def _piece_verdict(piece: str, forms: list[str]) -> Verdict:
+    """One stated value against the server's: the same in any of its forms (written as the
+    server writes it, a unit the reader does not read included: 4180 J/(kg·K)), else a
+    conflict with any of them (0.94 against 84 %), else nothing read."""
+    if _bare(piece) in {_bare(form) for form in forms}:
+        return "same"
+    piece = _PERCENT_WORD.sub(r"\\%", piece)
+    said = [stated_verdict(f"**Answer**\n\n${piece}$\n", form) for form in forms]
+    if any(verdict in _AGREES for verdict in said):
+        return "same"
+    # No form agrees: a conflict with any of them is one ("0.840 (94.0%)" against 0.84).
+    return "conflict" if "conflict" in said else "absent"
+
+
 async def attach_formal(state: FinalizeState) -> str:
     """The reply's final value held to the server's, as the module docstring says."""
     ctx = state.ctx
@@ -183,6 +257,10 @@ async def attach_formal(state: FinalizeState) -> str:
     ):
         # The same answer another way: 90% for 0.9, 7500 N for a braking force of -7500 N.
         verdict = "same"
+    if verdict == "absent":
+        # The reply's own card, when its prose states nothing the reader reads: the same
+        # value keeps the reply as it is, a different one is replaced (land_answer_card).
+        verdict = _card_states(state.text, answer.same_answers)
     logger.info("formal answer: reply %s, waited %.2f s", verdict, waited)
     if verdict in _AGREES:
         return state.text

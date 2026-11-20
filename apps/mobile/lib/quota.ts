@@ -1,4 +1,5 @@
 import type { Usage } from "@/lib/api";
+import type { Translate } from "@/lib/i18n/translate";
 
 /** The day's count as GET /usage/today gives it, or a turn's `done` (which has no `remaining`). */
 type DayCount = Pick<Usage, "daily_limit" | "used_tokens" | "messages_used" | "daily_messages"> &
@@ -35,7 +36,7 @@ export function dayUsedPercent(usage: DayCount): number {
 export function formatUsageSummary(
   usage: Usage,
   isPaid: boolean,
-  t: (key: string, opts?: Record<string, unknown>) => string,
+  t: Translate,
 ): string {
   const messages = usageMessages(usage);
   if (messages) {

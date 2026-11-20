@@ -239,3 +239,61 @@ async def test_draw_chart_refuses_data_too_long_to_read_whole() -> None:
     with patch("app.gateways.structured_completion.complete_structured", ask):
         assert await chart_read.draw_chart("graph it", _scores(600), _settings()) is None
     ask.assert_not_awaited()
+
+
+_DEPTHS = (
+    "find the pressure at a depth of 10m, 100m, 1000 m and at the bottom of the ocean "
+    "(2000 m.) Consider density of ocean water 1030kg/m3 and g = 10m/s2."
+)
+_CARDS = [103000.0, 1030000.0, 10300000.0, 20600000.0]
+
+
+def _line_chart(points: list[tuple[str, float]]) -> str:
+    import json
+
+    values = [{"depth": label, "p": value} for label, value in points]
+    spec = {
+        "data": {"values": values},
+        "mark": "line",
+        "encoding": {
+            "x": {"field": "depth", "type": "ordinal"},
+            "y": {"field": "p", "type": "quantitative"},
+        },
+    }
+    return f"Pressure climbs.\n\n```chart\n{json.dumps(spec)}\n```\n"
+
+
+def test_a_chart_of_the_reply_before_s_answer_cards_is_kept() -> None:
+    """Grade 8 round, t29: "can you show this on a graph?" charted the four pressures the
+    reply before gave, and the chart was taken out (not the user's numbers)."""
+    labels = ["10 m", "100 m", "1000 m", "2000 m"]
+    kept = chart_turn.placed_charts(
+        _line_chart(list(zip(labels, _CARDS, strict=True))), None, _DEPTHS, _CARDS
+    )
+    assert '"label":"2000 m","value":20600000' in kept
+
+
+@pytest.mark.parametrize(
+    "points",
+    [
+        # A value that is no card's, the cards out of order, a card left out, a label the
+        # question never wrote.
+        [("10 m", 103000.0), ("100 m", 999.0), ("1000 m", 1.03e7), ("2000 m", 2.06e7)],
+        [("10 m", 1030000.0), ("100 m", 103000.0), ("1000 m", 1.03e7), ("2000 m", 2.06e7)],
+        [("10 m", 103000.0), ("100 m", 1030000.0), ("1000 m", 1.03e7)],
+        [("5 m", 103000.0), ("100 m", 1030000.0), ("1000 m", 1.03e7), ("2000 m", 2.06e7)],
+    ],
+)
+def test_a_chart_that_is_not_exactly_the_cards_goes(points: list[tuple[str, float]]) -> None:
+    assert "```chart" not in chart_turn.placed_charts(_line_chart(points), None, _DEPTHS, _CARDS)
+
+
+def test_the_cards_numbers_are_read_in_order() -> None:
+    from app.modules.charts.answers import answer_values
+
+    reply = (
+        "```answer\nverified: false\n103000\\,\\mathrm{Pa}\n```\n\n"
+        "```answer\n1.03 \\times 10^{6}\\,\\mathrm{Pa}\n```\n"
+    )
+    assert answer_values(reply) == [103000.0, 1030000.0]
+    assert answer_values(reply + "```answer\nThe graph is a straight line.\n```") == []

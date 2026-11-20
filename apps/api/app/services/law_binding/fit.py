@@ -65,6 +65,12 @@ class Subject:
     fallback: Callable[[VariableSpec, str, str], float | None]
     # The unit an implied or fallback value is written in.
     unit_of: Callable[[VariableSpec], str]
+    # Whether the text sets the scene somewhere with its own gravity: a named planet or
+    # moon ("on Mars"), or a g it states. A stated acceleration there may be g.
+    names_gravity: Callable[[str], bool] = lambda _text: False
+    # Whether the value at ``start:end`` is the g the subject's reader reads ("g = 1.62",
+    # "take 10 m/s² for g"): one reader of a stated g, the subject's.
+    gravity_at: Callable[[str, int, int], bool] = lambda _text, _start, _end: False
 
 
 @dataclass(frozen=True, slots=True)
@@ -276,9 +282,7 @@ def fit(
             variable
             for variable in variables
             if variable.name not in params
-            and kind is not None
-            and variable_kind(variable) == kind
-            and holds(variable, labels[index])
+            and _may_take(variable, kind, labels[index], (question, given, previous, subject))
         ]
         if not options:
             if known:
@@ -331,6 +335,106 @@ def _negative(variable: VariableSpec, before: str, lower: str, given: Given) -> 
     if last_said(before, variable.negating) >= 0:
         return True
     return variable.negated is not None and variable.negated(lower, given.start, given.end)
+
+
+# A body falling or dropped: its acceleration is gravity's, however it is said.
+_FALLING = re.compile(
+    r"\b(?:drop(?:s|ped|ping)?|falls?|falling|fell|free[\s-]?fall\w*)\b", re.IGNORECASE
+)
+# A body thrown or launched: an unpowered projectile, under gravity, unless it is driven.
+_THROWN = re.compile(r"\b(?:projectiles?|thrown|throws?|tossed|launched|fired)\b", re.IGNORECASE)
+# An acceleration against a fall: "accelerates upward at 5 m/s²".
+_UPWARD = re.compile(r"\b(?:upwards?|up)\b", re.IGNORECASE)
+# Gravity named in the value's own sentence, before it, and no body driven there: "Gravity
+# acts downward at 9.8 m/s^2".
+_GRAVITY_WORD = re.compile(r"\bgravit\w*", re.IGNORECASE)
+# A sentence's end: a stop, then a space or the end ("3.0 m/s." ends one, "3.00" does not).
+_SENTENCE_END = re.compile(r"[.?!](?=\s|$)")
+# A body slowed or pushed by its own means: braking, decelerating, a thrust or an engine.
+# Never g, even for a falling body: "a falling ball decelerates at 25 m/s² over 0.40 m".
+_RETARDED = re.compile(r"\b(?:brak\w*|decelerat\w*|retard\w*|thrust\w*|engines?)\b", re.I)
+# A body's own acceleration: "accelerates", "speeds up", the acceleration of a body ("the
+# acceleration of the car"), or an acceleration any word but "the" sets before the noun: an
+# article, a modifier or an owner ("an upward acceleration of", "a constant acceleration of",
+# "with acceleration", "the rover's acceleration"). Only "the acceleration" alone, or a
+# gravitational one, is the world's ("on Jupiter, where the acceleration is 24.8 m/s²").
+# A rocket "launched with an upward acceleration of 15 m/s²" certified mgh with g = 15
+# (Gemini and Claude on #2491). A world's "acceleration due to gravity" is never a body's own,
+# whatever owns it: "the moon whose acceleration due to gravity is 1.63 m/s2" (g7-047).
+_DRIVEN = re.compile(
+    r"\baccelerat(?:es|ed|ing)\b|\bspeeds?\s+up\b"
+    r"|\bacceleration\s+of\s+(?:the|a|an|its|his|her|their)\b"
+    r"|(?<![\w'\u2019])(?!the\b|gravit)[\w'\u2019]+\s+acceleration\b(?!\s+due\s+to\s+gravit)",
+    re.IGNORECASE,
+)
+# An acceleration named right after its value's unit: "a 15 m/s² acceleration".
+_NAMED_AFTER = re.compile(r"^\s*\S{0,12}\s+acceleration\b(?!\s+due\s+to\s+gravity)", re.IGNORECASE)
+
+
+def _may_take(
+    variable: VariableSpec,
+    kind: str | None,
+    label: str | None,
+    stated: tuple[Question, Given, int, Subject],
+) -> bool:
+    """Whether ``variable`` may take a stated value of ``kind`` named ``label``: one of its
+    kind, a quantity it is, and g only where the words make the value gravity's."""
+    if kind is None or variable_kind(variable) != kind or not holds(variable, label):
+        return False
+    return variable.fallback != "gravity" or _marks_gravity(variable, *stated)
+
+
+def _marks_gravity(
+    variable: VariableSpec, question: Question, given: Given, previous: int, subject: Subject
+) -> bool:
+    """A stated acceleration fills g only where the words make it gravity's, read in its
+    own sentence up to the value, values between included (``_driven_by_the_body``): never
+    a braking, a thrust or an engine; the g the subject's one reader of a stated g reads at
+    the value ("g = 1.62", "take 10 m/s² for g"); a body falling or dropped in that
+    sentence; never a body's own acceleration; else a named world's gravity ("on Jupiter,
+    where the acceleration is 24.8 m/s²"), or a throw in that sentence. "The cruiser
+    accelerates from rest at 3.00 m/s²" is no g: a law with g bound it as one and certified
+    150 m for 600 m (owner's phone, 2026-11-17)."""
+    del previous  # the sentence up to the value is read whole
+    lower = question.lower
+    starts = [found.end() for found in _SENTENCE_END.finditer(lower, 0, given.start)]
+    sentence_end = _SENTENCE_END.search(lower, given.end)
+    start, end = max(starts, default=0), sentence_end.end() if sentence_end else len(lower)
+    before, after = lower[start : given.start], lower[given.end : end]
+    if _RETARDED.search(before) or _RETARDED.search(after[:30]):
+        return False
+    if subject.gravity_at(question.text, given.start, given.end):
+        return True
+    if _FALLING.search(lower[start:end]):
+        # "a ball dropped from a tower accelerates at 9.8 m/s²" falls under gravity; "a
+        # falling probe accelerates upward at 5 m/s²" is driven against it (Gemini on #2491).
+        if _UPWARD.search(before):
+            return False
+        return not _DRIVEN.search(before) or _a_worlds_g(variable, question, given, subject)
+    if _DRIVEN.search(before) or _NAMED_AFTER.match(after):
+        return False
+    if _GRAVITY_WORD.search(before):
+        return True  # "Gravity acts downward at 9.8 m/s^2."
+    # A throw in the value's own sentence: "A ball is thrown … A cart's acceleration is 3.0
+    # m/s²" is the cart's (Gemini on #2491).
+    return subject.names_gravity(question.text) or bool(_THROWN.search(lower, start, end))
+
+
+# How far a stated value may sit from the scene's g and be it: 9.8 and 10 are Earth's 9.81.
+_G_TOLERANCE = 0.03
+
+
+def _a_worlds_g(variable: VariableSpec, question: Question, given: Given, subject: Subject) -> bool:
+    """A falling body's own acceleration ("accelerates at") is g only on a world the question
+    names ("on planet X, a dropped rock accelerates at 4.0 m/s²") or at the scene's own g
+    ("a ball dropped from a tower accelerates at 9.8 m/s²"). "A skier drops into the run and
+    accelerates at 3.00 m/s² down a slope" is the skier's (Claude on #2491)."""
+    if subject.names_gravity(question.text):
+        return True
+    scene = subject.fallback(variable, question.text, question.lower)
+    return (
+        scene is not None and given.si is not None and abs(given.si - scene) <= _G_TOLERANCE * scene
+    )
 
 
 def _next_start(givens: Sequence[Given], index: int, lower: str) -> int:

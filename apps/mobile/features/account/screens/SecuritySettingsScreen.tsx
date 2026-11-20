@@ -17,9 +17,10 @@ import { api, type AuthSession } from "@/lib/api";
 import { formatDate } from "@/lib/datetime/format";
 import { notifyDestructive } from "@/lib/haptics";
 import { useTheme } from "@/lib/theme";
+import type { Translate } from "@/lib/i18n/translate";
 
 /** "Last active Tue, Oct 21 · 3:04 PM" in the app's own date format; a missing time says so. */
-function formatSeen(iso: string | null, t: (key: string, options?: Record<string, unknown>) => string): string {
+function formatSeen(iso: string | null, t: Translate): string {
   const date = iso ? new Date(iso) : null;
   if (!date || Number.isNaN(date.getTime())) return t("settings.last_active_unknown");
   return t("settings.last_active", { when: `${formatDate(date, "weekdayDate")} · ${formatDate(date, "time")}` });

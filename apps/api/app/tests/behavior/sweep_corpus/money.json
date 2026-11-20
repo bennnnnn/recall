@@ -3749,5 +3749,61 @@
   "history": [],
   "reply": "It is $1,798.65 a month over 30 years.",
   "expect": "answer"
+ },
+ {
+  "id": "mo-305",
+  "area": "money lookalike",
+  "prompt": "A screw jack has a pitch of 5 mm and a handle 35 cm long. It's efficiency is 40%. What effort at the end of the handle is needed to lift a car weighing 9000 N?",
+  "history": [],
+  "reply": "Effort = 9000 / (0.4 x 2pi(0.35)/0.005) = about 51.2 N.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-306",
+  "area": "money lookalike",
+  "prompt": "A 1200 kg car accelerates from rest to 25 m/s in 10 s. What is the net force on it?",
+  "history": [],
+  "reply": "a = 2.5 m/s^2, so F = 1200 x 2.5 = 3000 N.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-307",
+  "area": "money lookalike",
+  "prompt": "A car engine is 30% efficient. If it takes in 50 kJ of fuel energy, how much useful work does it do?",
+  "history": [],
+  "reply": "Useful work = 0.30 x 50 kJ = 15 kJ.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-308",
+  "area": "money lookalike",
+  "prompt": "The percentage yield of the reaction is 40%. What mass of product forms from 10 g of reactant if the theoretical yield is 8 g?",
+  "history": [],
+  "reply": "Actual yield = 0.40 x 8 g = 3.2 g.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-309",
+  "area": "money lookalike",
+  "prompt": "A car of mass 1500 kg is pulled up a slope by a winch that is 40% efficient. How much energy does the winch use to raise it 10 m?",
+  "history": [],
+  "reply": "Useful work = 1500 x 9.81 x 10 = 147 kJ, so it uses 147 / 0.4 = 368 kJ.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-310",
+  "area": "money",
+  "prompt": "A $20,000 car loan at 6% for 60 months. What is the monthly payment?",
+  "history": [],
+  "reply": "About $386.66 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-311",
+  "area": "money",
+  "prompt": "car loan of 25000 at 7% for 5 years, what is the monthly payment?",
+  "history": [],
+  "reply": "About $495.03 a month.",
+  "expect": "answer"
  }
 ]

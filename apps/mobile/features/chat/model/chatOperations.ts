@@ -16,6 +16,7 @@ import { emitAppEvent } from "@/lib/appEvents";
 import { notifyDestructive } from "@/lib/haptics";
 import type { IconName } from "@/ui/icons/names";
 import { confirmDialog } from "@/ui/overlay/dialogs";
+import type { Translate } from "@/lib/i18n/translate";
 
 /** What an operation needs to know about the chat as the person sees it now. */
 type ChatRef = Pick<Chat, "id" | "title" | "pinned" | "archived">;
@@ -38,7 +39,7 @@ export type ChatOperationContext = {
   mirror?: (patch: Partial<Chat>) => void;
   banner: (message: string, icon: IconName) => void;
   failure: (message: string) => void;
-  t: (key: string, options?: Record<string, unknown>) => string;
+  t: Translate;
 };
 
 function apply(ctx: ChatOperationContext, chatId: string, patch: Partial<Chat>): void {

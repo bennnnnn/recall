@@ -20,10 +20,69 @@ from app.modules.chat.context_window import (
 from app.modules.chat.prompt_window import strip_prompt_owned_fences
 from app.modules.chat.summarize import summarize_conversation
 from app.modules.conversation import history as conversation_history
+from app.services.md_fence_scan import iter_fences
 
 logger = logging.getLogger(__name__)
 
 _COMPRESS_LOCK_TTL_SECONDS = 120
+
+
+# A picture the phone draws from the saved reply, by its fence, and what the summary model is
+# told was shown in its place.
+_SHOWN = {
+    "graph": "graph",
+    "geometry": "figure",
+    "simulation": "diagram",
+    "chart": "chart",
+    "vega": "chart",
+    "vega-lite": "chart",
+    "plot": "chart",
+    "mermaid": "flowchart",
+    "chem_scene": "diagram",
+    "smiles": "molecule",
+    "chemistry": "molecule",
+    "molecule": "molecule",
+    "molecule3d": "molecule",
+    "mol3d": "molecule",
+    "3dmol": "molecule",
+    "photo": "photo",
+}
+# A 3D view the phone folds into the molecule card just above it: one molecule shown, not two.
+_VIEW_OF_THE_CARD_ABOVE = (
+    frozenset({"molecule3d", "mol3d", "3dmol"}),
+    frozenset({"smiles", "chemistry"}),
+)
+
+
+def summary_text(reply: str) -> str:
+    """A saved reply as the summary model reads it: each picture the phone draws from it
+    marked "[shown: a graph]", and the fences the prompt owns left out (``strip_prompt_owned_
+    fences``: a reply's search results are not what was said, and a summary kept their stale
+    figures as facts). A summary of a 53-turn chat recorded "graphs provided" and "diagram
+    drawn" where the reply only said so and nothing was drawn (2026-11-18): only a marked
+    picture was shown (``SUMMARY_SYSTEM_PROMPT``)."""
+    return strip_prompt_owned_fences(_marked(reply))
+
+
+def _marked(reply: str) -> str:
+    """Each closed picture fence as its mark; a 3D view folded into the card above, none."""
+    views, cards = _VIEW_OF_THE_CARD_ABOVE
+    pieces: list[str] = []
+    at, previous = 0, None
+    for fence in iter_fences(reply):
+        if not fence.closed or fence.lang not in _SHOWN:
+            previous = None
+            continue
+        folded = (
+            fence.lang in views
+            and previous is not None
+            and previous.lang in cards
+            and not reply[previous.end : fence.start].strip()
+        )
+        mark = "" if folded else f"[shown: a {_SHOWN[fence.lang]}]"
+        pieces += [reply[at : fence.start], mark]
+        at, previous = fence.end, fence
+    return "".join([*pieces, reply[at:]])
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,9 +167,7 @@ async def _pending_fold(settings: Settings, chat_id: UUID, user_id: UUID | None)
             {
                 "role": message.role,
                 "content": trim_message_for_summary(
-                    # The recent window drops these fences too: a reply's search results are
-                    # not what was said, and a summary kept their stale figures as facts.
-                    strip_prompt_owned_fences(message.content)
+                    summary_text(message.content)
                     if message.role == "assistant"
                     else message.content
                 ),

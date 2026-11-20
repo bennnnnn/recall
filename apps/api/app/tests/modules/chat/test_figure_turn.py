@@ -339,21 +339,24 @@ async def test_a_question_no_figure_helps_keeps_its_reply(figure: _Figure) -> No
     assert figure.modes == [False]
 
 
-async def test_an_unasked_figure_never_counts_as_a_request_to_draw() -> None:
-    """The photo and painted-picture intercepts ask only whether the message asks."""
-    unasked = cast("asyncio.Task[TurnDecision | None]", _read(subject="maths", picture="none"))
-    asked = cast("asyncio.Task[TurnDecision | None]", _read(subject="maths", picture="diagram"))
-    assert not await figure_turn.read_asks_for_a_figure(unasked)
-    assert await figure_turn.read_asks_for_a_figure(asked)
+async def test_a_subject_turn_is_painted_or_photographed_only_when_its_read_asks() -> None:
+    """The photo and painted-picture intercepts ask the read (``drawn_picture.read_lets_it``):
+    a maths or physics turn gets a painting or a photo only when the read asks for exactly
+    that; "Draw the velocity-time graph" read as physics' graph is the app's to draw (PR #2486
+    review), and "show me an animation of this motion" is no photo search (Grade 8 round)."""
+    from app.modules.chat.drawn_picture import read_lets_it
 
+    def read(**fields: str) -> asyncio.Task[TurnDecision | None]:
+        return cast("asyncio.Task[TurnDecision | None]", _read(**fields))
 
-async def test_a_physics_graph_is_no_picture_to_generate() -> None:
-    """ "Draw the velocity-time graph" read as physics' graph is the app's to draw: the image
-    intercept never claims it (PR #2486 review)."""
-    graph = cast("asyncio.Task[TurnDecision | None]", _read(subject="physics", picture="graph"))
-    other = cast("asyncio.Task[TurnDecision | None]", _read(subject="physics", picture="image"))
-    assert await figure_turn.read_asks_for_a_figure(graph)
-    assert not await figure_turn.read_asks_for_a_figure(other)
+    assert not await read_lets_it(read(subject="maths", picture="diagram"), "image")
+    assert not await read_lets_it(read(subject="physics", picture="graph"), "image")
+    assert not await read_lets_it(read(subject="physics", picture="diagram"), "photo")
+    assert await read_lets_it(read(subject="physics", picture="image"), "image")
+    assert await read_lets_it(read(subject="chemistry", picture="photo"), "photo")
+    assert await read_lets_it(read(subject="everyday", picture="photo"), "photo")
+    assert await read_lets_it(read(subject="everyday", picture="none"), "photo")
+    assert await read_lets_it(None, "photo")
 
 
 async def test_a_chemistry_question_asking_for_nothing_gets_its_compound_s_structure(

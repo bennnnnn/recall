@@ -4,7 +4,7 @@
  */
 import { act, render } from "@testing-library/react-native";
 import { Text } from "react-native";
-import type { TFunction } from "i18next";
+import type { Translate } from "@/lib/i18n/translate";
 
 import { useRotatingStreamStatus } from "@/lib/streamStatusLabel";
 
@@ -15,7 +15,7 @@ const COPY: Record<string, string> = {
   "chat.status.searching": "Searching the web…",
   "chat.status.searching_1": "Checking sources…",
 };
-const t = ((key: string) => COPY[key] ?? key) as unknown as TFunction;
+const t = ((key: string) => COPY[key] ?? key) as unknown as Translate;
 
 let drawn: (string | null)[] = [];
 function Status({ phase }: { phase: string }) {

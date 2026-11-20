@@ -23,6 +23,7 @@ from app.modules.chat.decided_turn import decide_from_the_read
 from app.modules.chat.drawing_turn import write_for_a_picture
 from app.modules.chat.finalize_passes import enrich_final_content
 from app.modules.chat.finalize_registry import mark_pending_finalize, register_pending_finalize
+from app.modules.chat.follow_up_read import followed_for_questions
 from app.modules.chat.late_photo import follow_late_photo
 from app.modules.chat.post_turn import enqueue_post_turn_jobs
 from app.modules.chat.prompt_inject import conversation_turns
@@ -110,6 +111,7 @@ async def register_and_enqueue_finalize(
                 allow_general=not ctx.lightweight_turn and ctx.instant_reply is None,
                 completion=outcome.completion,
                 chat=(str(ctx.user_id), str(ctx.chat_id)),
+                followed=followed_for_questions(ctx),
             )
         )
     await mark_pending_finalize(redis, ctx.chat_id)
@@ -295,6 +297,14 @@ async def _finish_terminal_image_turn(
     await finalize_terminal_image_turn(deps, redis, settings, ctx, outcome, usage)
 
 
+def _describes_its_picture(ctx: StreamContext, accum: StreamAccum) -> bool:
+    """A reply that is only its picture's ```draw blocks (held back from the phone) is a
+    reply: finalize draws the picture, or says in one line that it could not. "Draw the v-t
+    graph" answered with a block alone ended in "That model isn't responding" (Grade 8
+    round, t15)."""
+    return ctx.drawing is not None and bool(accum.drawings)
+
+
 async def _settle_reply(
     deps: ChatTurnDeps,
     redis: Redis,
@@ -325,7 +335,7 @@ async def _settle_reply(
             outcome.completion = accum.completion
         await _refund_turn(deps, redis, ctx, resources)
         return
-    if not assistant_text:
+    if not assistant_text and not _describes_its_picture(ctx, accum):
         raise ModelUnavailableError.for_alias(ctx.model)
     if outcome is not None and accum.completion != "complete":
         outcome.completion = accum.completion
