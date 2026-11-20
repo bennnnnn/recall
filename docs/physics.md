@@ -366,6 +366,9 @@ flowchart LR
    law written for it (a vertical circle's bottom, top and side), each a different law, as
    one question in parts. A place no law answers (the slack rope at the top below √(rg))
    leaves the whole question to the model, so the bottom's card never stands for all three.
+   Each place's law takes the speed at its own place (`place_laws.py`): a question that
+   names another place ("it passes the bottom at 8 m/s … the tension at the top") and never
+   says the speed is steady is the model's, never m(v²/r − g) with the bottom's speed.
 8. **Finalize** (`fence.py`). The model's answer and visual fences are dropped, and the
    solver's are appended; the card carries the server's `verified: true` line, the only
    thing the phone draws a green check for. A reply that answers and then offers more
