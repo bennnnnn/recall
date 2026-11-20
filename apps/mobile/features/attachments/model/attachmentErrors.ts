@@ -2,6 +2,7 @@ import { ApiRequestError, isServiceUnavailable } from "@/lib/api/errorBody";
 import { isServerUnreachable } from "@/lib/api/deadline";
 import { MAX_ATTACHMENT_MEGABYTES } from "@/features/attachments/model/attachmentLimits";
 import { shareFailureKey } from "@/lib/share/unavailable";
+import type { Translate } from "@/lib/i18n/translate";
 
 /** Why an attachment could not be picked or uploaded. Each reason has one message. */
 export type AttachmentFailure =
@@ -33,8 +34,6 @@ const MESSAGE_KEYS: Record<AttachmentFailure, string> = {
   storage_full: "chat.attach_storage_full",
   camera_permission: "chat.camera_permission",
 };
-
-type Translate = (key: string, options?: Record<string, unknown>) => string;
 
 /**
  * The toast for a failed pick or upload. No answer from Recall (offline at the presign)

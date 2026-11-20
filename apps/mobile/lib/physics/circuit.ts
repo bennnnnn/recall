@@ -15,6 +15,7 @@
  */
 
 import { guard, optionalText, refuse, requireRecord } from "@/lib/fence/validate";
+import type { Translate } from "@/lib/i18n/translate";
 
 export type CircuitPartKind =
   | "resistor"
@@ -450,8 +451,6 @@ export function layoutCircuit(spec: CircuitSpec, width: number, measure: Measure
     current,
   };
 }
-
-type Translate = (key: string, options?: Record<string, unknown>) => string;
 
 function describeNode(node: CircuitNode, t: Translate, nested: boolean): string {
   if (node.kind === "part") {
