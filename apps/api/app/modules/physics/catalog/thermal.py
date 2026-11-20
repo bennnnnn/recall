@@ -168,7 +168,6 @@ SPECS: tuple[FormulaSpec, ...] = (
             # "from 0.01 m^3 to 0.03 m^3": the first volume is the start.
             interchangeable=("vol1", "vol2"),
             negative_detail="done on the gas",
-            keeps_sign=True,
         ),
     ),
     formula(
@@ -562,7 +561,6 @@ SPECS: tuple[FormulaSpec, ...] = (
             inputs=(frozenset({"moles", "temp", "vol_final", "vol_initial"}),),
             cues=("isothermal", "isothermally"),
             negative_detail="done on the gas",
-            keeps_sign=True,
         ),
     ),
     formula(

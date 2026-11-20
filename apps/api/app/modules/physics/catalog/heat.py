@@ -12,6 +12,14 @@ from app.services.law_binding.spec import (
 )
 
 _LAW = "Specific-heat equation"
+
+
+def _falls_by(lower: str, start: int, end: int) -> bool:
+    from app.modules.physics.extractors.thermal import falls_by
+
+    return falls_by(lower, start, end)
+
+
 _RISE = ("by", "rise", "change", "increase", "raised", "heated", "cooled", "difference")
 _HEAT = var("heat", "Q", "joule")
 _MASS = var("m", "m", "kilogram")
@@ -20,14 +28,13 @@ _DELTA_TEMP = var("delta_temp", r"\Delta T", "kelvin", words=_RISE, needs_words=
 # A change is final - initial: a temperature that falls by 10 °C changes by -10 °C, so the heat
 # Q = mcΔT is negative, released (owner, 2026-11-20). Only Q = mcΔT reads the sign; c or m
 # worked from a stated heat and change are sizes.
-_FALLS = ("decrease", "decreases", "decreased", "drop", "drops", "dropped", "fall", "falls")
 _SIGNED_DELTA_TEMP = var(
     "delta_temp",
     r"\Delta T",
     "kelvin",
     words=_RISE,
     needs_words=True,
-    negating=(*_FALLS, "fell", "cools", "cooled", "lowered", "reduced"),
+    negated=_falls_by,
 )
 _LATENT = var("latent_heat", "L", "joule / kilogram")
 _T1 = var("temp_initial", "T_1", "kelvin", words=("from", "initially", "starting at"))

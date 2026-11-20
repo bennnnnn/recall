@@ -484,14 +484,19 @@ def test_a_velocity_s_sign_stays_the_reply_s_convention() -> None:
 @pytest.mark.parametrize(
     ("card", "server", "stands"),
     [
-        # The owner's chat (2026-11-20): the setup's Q = mcΔT is -7700 J; a card that
-        # flips it to a size is held to the sign.
-        ("Q = 7700\\,\\mathrm{J}", -7700.0, False),
-        ("Q = -7700\\,\\mathrm{J}", -7700.0, True),
-        ("Q = -7.7\\,\\mathrm{kJ}", -7700.0, True),
+        # The owner's chat (2026-11-20): the setup's Q = mcΔT is -7700 J; a card of that
+        # quantity (unlabelled, or under the setup's symbol) that flips it to a size is held
+        # to the sign.
+        ("7700\\,\\mathrm{J}", -7700.0, False),
+        ("x = 7700\\,\\mathrm{J}", -7700.0, False),
+        ("-7700\\,\\mathrm{J}", -7700.0, True),
+        ("-7.7\\,\\mathrm{kJ}", -7700.0, True),
+        # A card naming another quantity states a size (review: "Q_{lost} = 7700 J",
+        # "E_{photon} = 1.89 eV" for a setup's ΔE).
+        ("Q_{lost} = 7700\\,\\mathrm{J}", -7700.0, True),
         # A setup that named the heat released (+7700 J) holds no sign: sizes compare.
-        ("Q = -7700\\,\\mathrm{J}", 7700.0, True),
-        ("Q = 7700\\,\\mathrm{J}", 7700.0, True),
+        ("-7700\\,\\mathrm{J}", 7700.0, True),
+        ("7700\\,\\mathrm{J}", 7700.0, True),
     ],
 )
 def test_an_energy_the_setup_made_negative_is_held_to_its_sign(

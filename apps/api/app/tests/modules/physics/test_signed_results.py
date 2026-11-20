@@ -52,3 +52,59 @@ def test_a_braking_force_stays_a_size_with_its_direction() -> None:
         "A 1000 kg car slows from 20 m/s to rest in 5 s. What is the average braking force?"
     )
     assert answer is not None and not answer.startswith("-"), answer
+
+
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        # The fall word governs the value, however far the sample's words put it.
+        (
+            "A fridge cools 2 kg of water by 15 °C. How much heat is removed from the water?",
+            "-125580 J (released)",
+        ),
+        (
+            "How much heat must be removed to lower the temperature of 2 kg of water by 30 °C?",
+            "-251160 J (released)",
+        ),
+        (
+            "How much heat is released by 2 kg of water for a 10 °C drop in temperature?",
+            "-83720 J (released)",
+        ),
+        # Work on or by a gas stays a size with its word: which it is, is the ask's choice.
+        (
+            "2 mol of an ideal gas is compressed isothermally at 300 K from 0.04 m^3 to "
+            "0.01 m^3. How much work is done on the gas?",
+            "6916 J (done on the gas)",
+        ),
+    ],
+)
+def test_a_fall_is_read_where_its_word_governs_the_value(text: str, answer: str) -> None:
+    assert _answer(text) == answer
+
+
+def test_a_rise_after_a_falling_body_stays_a_rise() -> None:
+    """Review: "dropped from 20 m and its temperature rises by 3 °C" was -780 J (released)."""
+    from app.modules.physics.prompt import solve_physics_request
+
+    text = (
+        "A 2 kg lead ball is dropped from 20 m and its temperature rises by 3 °C on impact. "
+        "c = 130 J/kg°C. (a) How fast does it hit the ground? (b) How much heat does it absorb?"
+    )
+    _outcome, block = solve_physics_request(text, Settings(math_tools_enabled=True), None)
+    assert block is not None and block.canonical_answer == "19.8 m/s; 780 J"
+
+
+def test_the_size_of_heat_given_off_is_a_right_claim() -> None:
+    """Review: "I got 7700 J for the heat given off" is the textbook answer, not wrong."""
+    from app.modules.physics.direct import _claim_line
+    from app.modules.physics.prompt import solve_physics_request
+
+    text = (
+        "A 200 g copper block cools from 100 °C to 0 °C (c = 385 J/kg °C). I got 7700 J for "
+        "the heat given off. Am I right?"
+    )
+    _outcome, block = solve_physics_request(text, Settings(math_tools_enabled=True), None)
+    assert block is not None
+    assert _claim_line(block, text) == "Your 7700 J is right."
+    wrong = text.replace("7700 J", "7000 J")
+    assert _claim_line(block, wrong) == "Your 7000 J is not right; the verified answer is below."
