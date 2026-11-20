@@ -11,7 +11,13 @@ import pytest
 
 from app.modules.chat import stream_pipeline
 from app.modules.chat.drawing_turn import ReplyDrawing
-from app.modules.chat.owed_picture import held_to_the_ask, mermaid_stands_in, not_drawn_line
+from app.modules.chat.owed_picture import (
+    APP_PICTURES,
+    held_to_the_ask,
+    mermaid_stands_in,
+    not_drawn_line,
+    shows_a_picture,
+)
 from app.modules.chat.stream_accum import StreamAccum
 from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.turn_prep import StreamContext
@@ -120,6 +126,17 @@ def test_a_reply_of_only_its_picture_s_description_is_a_reply() -> None:
     assert stream_pipeline._describes_its_picture(drawing, accum)
     assert not stream_pipeline._describes_its_picture(_ctx("Draw the graph."), accum)
     assert not stream_pipeline._describes_its_picture(drawing, StreamAccum())
+
+
+def test_the_summary_records_as_shown_every_picture_the_app_draws() -> None:
+    """One picture record (#2499): a reply this pass counts as drawn is one the chat's
+    summary marks "[shown: …]", and the summary also marks the two pictures this pass never
+    counts as the drawing owed, a flowchart (Mermaid) and a photo."""
+    from app.modules.chat.compaction import _SHOWN, summary_text
+
+    assert set(_SHOWN) == APP_PICTURES | {"mermaid", "photo"}
+    assert summary_text(_FLOWCHART) == "[shown: a flowchart]"
+    assert shows_a_picture(_GRAPH) and summary_text(_GRAPH) == "[shown: a graph]"
 
 
 def test_every_language_has_every_line() -> None:
