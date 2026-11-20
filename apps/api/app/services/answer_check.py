@@ -62,6 +62,15 @@ _TEX_SPACING = re.compile(r"\\(?:qquad|quad|[,;:! ])")
 _TEX_WORDS = {
     r"\times": "\u00d7", r"\cdot": "·", r"\approx": "≈", r"\simeq": "≈", r"\pm": "±",
     r"\%": "%", r"\left": "", r"\right": "", r"\circ": "°", r"\degree": "°",
+    # A unit's own letter: "50\,\Omega" is 50 Ω, read as a resistance, not as no value.
+    r"\Omega": "Ω",
+    # Greek mu, a name ("\mu_k = 0.25") or the micro prefix ("\mu m", read as um below).
+    r"\mu": "\u03bc",
+    # A Greek name for a value: "\lambda = 500 nm", "\Delta T = 2 K".
+    r"\Delta": "\u0394", r"\alpha": "\u03b1", r"\beta": "\u03b2", r"\gamma": "\u03b3",
+    r"\theta": "\u03b8", r"\lambda": "\u03bb", r"\rho": "\u03c1", r"\sigma": "\u03c3",
+    r"\tau": "\u03c4", r"\eta": "\u03b7", r"\omega": "\u03c9", r"\phi": "\u03c6",
+    r"\varepsilon": "\u03b5", r"\epsilon": "\u03b5",
 }  # fmt: skip
 
 
@@ -174,7 +183,7 @@ def _unit(rest: str) -> str:
 # --- The verified answer -------------------------------------------------------------------
 
 # A name for the value: x, pH, M(H2O), or one of a few Greek letters.
-_GREEK = "\u0394\u03b8\u03bb\u03bc\u03c1\u03c3\u03c9\u03b1"
+_GREEK = "\u0394\u03b8\u03bb\u03bc\u03c1\u03c3\u03c9\u03b1\u03b2\u03b3\u03c4\u03b7\u03c6\u03b5"
 _LABEL = re.compile(rf"[A-Za-z{_GREEK}][A-Za-z0-9_{{}}()\[\]+\-]*")
 
 

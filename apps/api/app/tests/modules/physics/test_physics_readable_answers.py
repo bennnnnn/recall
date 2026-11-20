@@ -57,3 +57,27 @@ async def test_physics_has_its_own_switch() -> None:
     on = Settings(math_tools_enabled=False, physics_enabled=True)
     _prompt, verified, _failed, _ = await build_physics_augmentation(text, on)
     assert verified is not None
+
+
+@pytest.mark.parametrize(
+    ("question", "answer"),
+    [
+        # G8 t33, 2026-11-18: the question writes c in J/kg °C; a rise of 2 K is 2 °C.
+        (
+            "If 5400 J of energy is supplied to 3 kg of aluminum, by how much will the "
+            "temperature rise? ( c of aluminum is 900 J/kg °C)",
+            "2 °C",
+        ),
+        # A question in kelvin keeps kelvin.
+        (
+            "A 3 kg block of aluminium (c = 900 J/kg·K) absorbs 54 kJ. What is its temperature rise?",
+            "20 K",
+        ),
+    ],
+)
+def test_a_temperature_change_reads_in_the_question_s_degrees(question: str, answer: str) -> None:
+    from app.modules.physics.prompt import solve_physics_request
+
+    outcome, block = solve_physics_request(question, Settings(), True)
+    assert outcome == "verified" and block is not None
+    assert block.canonical_answer == answer

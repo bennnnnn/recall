@@ -95,16 +95,19 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # owner's round of 30 hard problems, 2026-11-16), naming a horizontal launch, bodies moving
 # the same way and the situations it never draws; no spring or wave, which no reader confirms
 # (its reviews, 2026-11-16); then no biology presentation hint, biology being out of v1
-# (its reviews, 2026-11-16); then no biology presentation hint, biology being out of v1
 # (2026-11-18); then the summary saying it stands for the chat's first messages, so the start
 # of the chat is in it (SUMMARY_SPAN), and a short line's note naming the message and part it
 # follows (FOLLOW_UP_NOTE), the Grade 8 chat, 2026-11-18; then a circuit and a plane mirror
 # described in the same way, no flowchart for a thing or a motion, a motion's graphs in
 # stages, and a reply never writing that a picture is shown or mentioning its block
-# (physics.scene_drawing.contract, Grade 8 round, 2026-11-18).
+# (physics.scene_drawing.contract, Grade 8 round, 2026-11-18); then a ```worked part asked in
+# words, said in `say` lines and answered in one sentence (prompt_constants.worked, G8 round
+# t42, 2026-11-18), and its answer record's value and its substitution left unrounded, the "3
+# significant figures" gone: the server rounds every card by one rule (services.rounding_rule,
+# the owner, 2026-11-18).
 _RULES = 206
-_RULE_GRAMS = 19333
-_RULE_GRAMS_SHA = "e08a70cad5f1a449"
+_RULE_GRAMS = 19418
+_RULE_GRAMS_SHA = "a949ff5c2b6a7249"
 
 
 def _rules() -> list[str]:

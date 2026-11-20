@@ -1,46 +1,46 @@
-"""A physics answer the server works out from the model's own setup, checked at finalize.
+"""The one authority for a physics answer the solvers did not check: the server, held to
+the reply's own reading.
 
 On a physics turn the solvers did not answer (the reply is the model's alone), a model
-writes the question down as maths beside the reply, in any wording and any language, and
-the server solves it (``physics.formal_read``). The server's answer is used only when the
-setup's own answer agrees with it. Finalize waits at most ``formal_wait_seconds`` for it:
+writes the question down as maths beside the reply, in any wording and any language: its
+givens, what each part asks, the equations, and the relations the values must keep. The
+server solves it (``physics.formal_read``); a part whose setup answer is not the server's
+is left out. Finalize waits at most ``formal_wait_seconds`` for it, once the reply's own
+answers are its cards, and then:
 
-- the reply states the same value, or a rounding of it: the reply stands;
-- the reply states another: its Answer becomes the server's card (measured 2026-11-16: in
-  every one of 36 such disagreements the server was right and the reply wrong);
-- the reply's final value cannot be read (an Answer heading in another language): the
-  server's card is added under the reply, both shown;
-- the question asks in parts, or the reply answers in several cards: the value answers one
-  part, and the setup does not say which, so it is left out (a trailing card repeating
-  part (a)'s value read as the final answer, phys30 2026-11-16).
+- the question's values break a relation they must keep (a lever said to balance whose
+  moments differ, a mechanical advantage above the velocity ratio): the reply opens with
+  one plain line per broken relation, its two sides in numbers, and no card changes, as no
+  value answers a question that contradicts itself (live, 2026-11-18);
+- otherwise each card is held to the server's value for its part, card to card, in any
+  unit of its kind (``formal_cards``). A card within its rounding of the server's value,
+  for any standard value of a constant it uses (g as 9.8, 9.81 or 10), stands: the book's
+  g is an assumption, not an error (245 Pa stamped over a working of 250 Pa at g = 10,
+  G8 round, 2026-11-18). A card worked from numbers the reply never wrote read the question
+  another way and stands too. Any other card gets the server's value, with a line in the
+  reply's language saying where it comes from: an arithmetic or law slip (in 36 of 36
+  disagreements measured 2026-11-16 the server was right). A card is never added: a
+  second "Answer" card under an identical first one (50 Ω twice, G8 round) is gone.
 
-Either way a line in the reply's language says where the value comes from, and the card is
-marked ``verified: false``: the server did the arithmetic, the reading is the model's.
+A replaced card is marked ``verified: false``: the server did the arithmetic, the reading
+is the model's.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
-import re
 import time
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
 from app.core.config import Settings
 from app.modules.chat.finalize_subjects import fallback_text
+from app.modules.chat.formal_cards import held_to_server
 from app.modules.chat.reply_language import line_language
 from app.modules.chat.turn_decision import TurnDecision
-from app.modules.chat.whole_question import ASK_QUESTION_WORDS, ASK_VERBS, ASKED_SENTENCE
-from app.modules.chat.worked_language import WORKED_WORDS
-from app.services.answer_check import Verdict, stated_verdict
-from app.services.answer_fence import (
-    ANSWER_FENCE_LANGS,
-    UNCHECKED_ANSWER_MARKER,
-    answer_fence_value,
-    land_answer_card,
-)
-from app.services.md_fence_scan import iter_fences
-from app.services.question_parts import labelled_part_texts
+from app.services.formal.answer import FormalAnswer, StatedConflict
+from app.services.rounding_rule import asked_precision
 from app.services.subjects.registry import subject_adapter
 
 if TYPE_CHECKING:
@@ -49,20 +49,42 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Where the value comes from, in the language of the reply ({value} is card maths).
+# Above a card the server's value replaced, in the language of the reply.
 _LINES = {
-    "en": "Worked out from the values in the question: {value}.",
-    "es": "Calculado con los valores de la pregunta: {value}.",
-    "fr": "Calculé à partir des valeurs de la question : {value}.",
-    "de": "Aus den Werten der Frage berechnet: {value}.",
-    "it": "Calcolato dai valori della domanda: {value}.",
-    "pt": "Calculado a partir dos valores da pergunta: {value}.",
-    "ru": "Рассчитано по данным задачи: {value}.",
-    "tr": "Sorudaki değerlerden hesaplandı: {value}.",
-    "am": "ከጥያቄው እሴቶች የተሰላ ውጤት፦ {value}።",
+    "en": "Worked out again from the values in the question:",
+    "es": "Calculado de nuevo con los valores de la pregunta:",
+    "fr": "Recalculé à partir des valeurs de la question :",
+    "de": "Aus den Werten der Frage neu berechnet:",
+    "it": "Ricalcolato dai valori della domanda:",
+    "pt": "Recalculado a partir dos valores da pergunta:",
+    "ru": "Пересчитано по данным задачи:",
+    "tr": "Sorudaki değerlerden yeniden hesaplandı:",
+    "am": "ከጥያቄው እሴቶች እንደገና የተሰላ፦",
 }
-# The reply already says the server's value: nothing to add.
-_AGREES = frozenset({"same", "rounded"})
+# A relation the question's values break ({meaning} is the setup's words, {sides} maths).
+_CONFLICTS = {
+    "en": "These values can't all be right: {meaning}, but here {sides}.",
+    "es": "Estos valores no pueden ser todos correctos: {meaning}, pero aquí {sides}.",
+    "fr": "Ces valeurs ne peuvent pas être toutes justes : {meaning}, mais ici {sides}.",
+    "de": "Diese Werte können nicht alle stimmen: {meaning}, aber hier {sides}.",
+    "it": "Questi valori non possono essere tutti giusti: {meaning}, ma qui {sides}.",
+    "pt": "Esses valores não podem estar todos certos: {meaning}, mas aqui {sides}.",
+    "ru": "Эти значения не могут быть верны одновременно: {meaning}, но здесь {sides}.",
+    "tr": "Bu değerlerin hepsi doğru olamaz: {meaning}, ama burada {sides}.",
+    "am": "እነዚህ እሴቶች ሁሉም ትክክል ሊሆኑ አይችሉም፦ {meaning}፣ ግን እዚህ {sides}።",
+}
+# The same, for a relation the setup gave no words for: the relation itself is said.
+_CONFLICTS_BARE = {
+    "en": "These values can't all be right: {relation} must hold, but here {sides}.",
+    "es": "Estos valores no pueden ser todos correctos: debe cumplirse {relation}, pero aquí {sides}.",
+    "fr": "Ces valeurs ne peuvent pas être toutes justes : {relation} doit être vrai, mais ici {sides}.",
+    "de": "Diese Werte können nicht alle stimmen: {relation} muss gelten, aber hier {sides}.",
+    "it": "Questi valori non possono essere tutti giusti: deve valere {relation}, ma qui {sides}.",
+    "pt": "Esses valores não podem estar todos certos: {relation} deve valer, mas aqui {sides}.",
+    "ru": "Эти значения не могут быть верны одновременно: должно выполняться {relation}, но здесь {sides}.",
+    "tr": "Bu değerlerin hepsi doğru olamaz: {relation} olmalı, ama burada {sides}.",
+    "am": "እነዚህ እሴቶች ሁሉም ትክክል ሊሆኑ አይችሉም፦ {relation} መሆን አለበት፣ ግን እዚህ {sides}።",
+}
 
 
 def start_formal(settings: Settings, ctx: StreamContext) -> asyncio.Task[Any] | None:
@@ -101,179 +123,60 @@ def stop_formal(ctx: StreamContext) -> None:
         ctx.formal.cancel()
 
 
-# A part's own Answer heading in any language a worked layout is written in: "**Answer (a)**",
-# "**Respuesta (b)**". A ```worked reply in parts has these, and no card yet, when this runs.
-_PART_ANSWER_HEADING = re.compile(
-    r"^[ \t]*(?:#{1,4}[ \t]+)?\*\*(?:"
-    + "|".join(sorted({re.escape(words["answer"]) for words in WORKED_WORDS.values()}))
-    + r") \([a-h]\):?\*\*",
-    re.MULTILINE,
-)
+async def _waited(state: FinalizeState) -> FormalAnswer | None:
+    """The server's answer, if it is in within ``formal_wait_seconds``."""
+    task = state.ctx.formal
+    if task is None:
+        return None
+    started = time.monotonic()
+    # Waited on, never awaited: a stopped or failed task is no answer.
+    await asyncio.wait([task], timeout=state.settings.formal_wait_seconds)
+    if not task.done():
+        stop_formal(state.ctx)
+        logger.info(
+            "formal answer: not in after %.2f s, the reply stands", time.monotonic() - started
+        )
+        return None
+    if task.cancelled() or task.exception() is not None:
+        return None
+    answer: FormalAnswer | None = task.result()
+    return answer
 
 
-def _in_parts(reply: str, question: str) -> bool:
-    """The question asks in labelled parts, or the reply answers in several cards or under
-    several part headings: a ```worked reply's cards land after this pass, so its parts
-    are its headings (Gemini on #2489)."""
-    cards = sum(
-        1 for fence in iter_fences(reply) if fence.closed and fence.lang in ANSWER_FENCE_LANGS
-    )
-    headings = len(_PART_ANSWER_HEADING.findall(reply))
-    return cards >= 2 or headings >= 2 or _asks_in_parts(question)
-
-
-# The text before the first label ends on an ask, the labels its objects: "… find (a)",
-# "Can you work out (a)", "Could you find both (a)", "Calculate the following: (a)", "What
-# are (a)". "… holding blocks (A)" ends on a noun the labels name, and so do "Which mass
-# (A) …" and "How far do blocks (A) …": a question word asks for the labels only alone or
-# with is, are, was or were (Gemini on #2489).
-_ASKS_FOR_LABELS = re.compile(
-    rf"\b(?:(?:{ASK_VERBS})(?:\s+(?:both|the\s+following))?"
-    rf"|(?:{ASK_QUESTION_WORDS})(?:\s+(?:is|are|was|were))?)"
-    r"\s*:?$",
-    re.IGNORECASE,
-)
-
-
-def _asks_in_parts(question: str) -> bool:
-    """Each labelled part asks something: each is a question or an instruction of its own
-    ("(a) How long …? (b) How far …?", "(a) Find the flight time; (b) Find the range"), or
-    the text before the labels ends on the ask they complete (``_ASKS_FOR_LABELS``),
-    whatever words come before it. A label inside the statement or its question ("blocks
-    (A) and (B)", "Find the tension in the ropes holding blocks (A) of 2 kg and (B) of
-    3 kg") names a thing and asks nothing (review of phys30, 2026-11-16; Codex, Gemini and
-    Claude on #2489)."""
-    lead, parts = labelled_part_texts(question)
-    if len(parts) < 2:
-        return False
-    if all("?" in part or ASKED_SENTENCE.match(part.strip()) for part in parts):
-        return True
-    return _ASKS_FOR_LABELS.search(lead.rstrip()) is not None
-
-
-def _bare(tex: str) -> str:
-    """TeX without its spacing: "4180\\ \\mathrm{J}" and "4180\\,\\mathrm{J}" alike."""
-    return _TEX_SPACING.sub("", tex)
-
-
-_DIGIT = re.compile(r"\d")
-# A percentage said in words: "84.0 \\text{percent}" is 84.0 %.
-_PERCENT_WORD = re.compile(r"\\text\{\s*per\s*cent\s*\}|\bper\s*cent\b", re.IGNORECASE)
-_TEX_SPACING = re.compile(r"\\[ ,;:!]|\s+")
-
-
-def _stated_forms(card: str) -> list[str]:
-    """The card's value and each other form it states in brackets after it, "0.840 (84.0
-    percent)": a bracket opened after a space, outside every brace. A unit's brackets
-    ("\\mathrm{J/(kg\\cdot K)}") and a function's argument ("x(3 m) = 15 m") are the value's
-    own (review of #2491)."""
-    pieces, depth, start, inside = [], 0, 0, False
-    for at, char in enumerate(card):
-        if char == "{":
-            depth += 1
-        elif char == "}":
-            depth -= 1
-        elif depth == 0 and char == "(" and not inside and card[at - 1 : at] in {" ", "\\"}:
-            pieces.append(card[start:at])
-            start, inside = at + 1, True
-        elif depth == 0 and char == ")" and inside:
-            pieces.append(card[start:at])
-            start, inside = at + 1, False
-    pieces.append(card[start:])
-    return pieces
-
-
-# TeX spacing at a piece's ends ("0.840\ "), which closes no maths on its own.
-_EDGE_SPACE = re.compile(r"^(?:\s|\\[ ,;])+|(?:\s|\\(?:[ ,;]|$))+$")
-
-
-def _card_states(reply: str, forms: list[str]) -> Verdict:
-    """What the reply's own last answer card states, read as the Answer it is, against the
-    server's value in its ``forms``: "same" when every value it states agrees, "conflict"
-    when any disagrees, "absent" when it states none the reader reads. "0.840 (84.0
-    percent)" for 84 % is the same value twice and got the server's card under it (owner's
-    phone, 2026-11-17); "0.94 (84.0%)" is no 0.84, and "x(3 m) = 15 m" no 3 m (review of
-    #2491)."""
-    cards = [
-        answer_fence_value(reply[fence.body_start : fence.body_end])
-        for fence in iter_fences(reply)
-        if fence.closed and fence.lang in ANSWER_FENCE_LANGS
-    ]
-    if not cards:
-        return "absent"
-    split = [_EDGE_SPACE.sub("", piece) for piece in _stated_forms(cards[-1])]
-    # Only a piece with a number states a value; each one must agree ("84.0% (0.94 J)" is
-    # no 84 %: its 0.94 J says something else, read or not; Gemini on #2491).
-    verdicts = [_piece_verdict(piece, forms) for piece in split if _DIGIT.search(piece)]
-    if "conflict" in verdicts:
-        return "conflict"
-    return "same" if verdicts and all(verdict == "same" for verdict in verdicts) else "absent"
-
-
-def _piece_verdict(piece: str, forms: list[str]) -> Verdict:
-    """One stated value against the server's: the same in any of its forms (written as the
-    server writes it, a unit the reader does not read included: 4180 J/(kg·K)), else a
-    conflict with any of them (0.94 against 84 %), else nothing read."""
-    if _bare(piece) in {_bare(form) for form in forms}:
-        return "same"
-    piece = _PERCENT_WORD.sub(r"\\%", piece)
-    said = [stated_verdict(f"**Answer**\n\n${piece}$\n", form) for form in forms]
-    if any(verdict in _AGREES for verdict in said):
-        return "same"
-    # No form agrees: a conflict with any of them is one ("0.840 (94.0%)" against 0.84).
-    return "conflict" if "conflict" in said else "absent"
+def stated_conflicts(text: str, conflicts: Sequence[StatedConflict], language: str) -> str:
+    """The reply opened by one line for each relation the question's values break."""
+    lines = []
+    for conflict in conflicts:
+        sides = f"${conflict.left} {conflict.broken} {conflict.right}$"
+        templates = _CONFLICTS if conflict.meaning else _CONFLICTS_BARE
+        template = templates.get(language, templates["en"])
+        relation = f"${conflict.relation}$" if conflict.relation else ""
+        lines.append(template.format(meaning=conflict.meaning, relation=relation, sides=sides))
+    return "\n\n".join([*lines, text]) if lines else text
 
 
 async def attach_formal(state: FinalizeState) -> str:
-    """The reply's final value held to the server's, as the module docstring says."""
+    """The reply held to the server's answer, as the module docstring says."""
     ctx = state.ctx
-    task = ctx.formal
-    if task is None:
+    if ctx.formal is None:
         return state.text
     if state.was_cancelled or ctx.live_read is None or not _physics(ctx.live_read):
         stop_formal(ctx)
         return state.text
-    started = time.monotonic()
-    # Waited on, never awaited: a stopped or failed task is no answer.
-    await asyncio.wait([task], timeout=state.settings.formal_wait_seconds)
-    waited = time.monotonic() - started
-    if not task.done():
-        stop_formal(ctx)
-        logger.info("formal answer: not in after %.2f s, the reply stands", waited)
-        return state.text
-    if task.cancelled() or task.exception() is not None or task.result() is None:
-        return state.text
-    answer = task.result()
-    body = answer.card_value
-    if _in_parts(state.text, ctx.user_message_content or ""):
-        # One value answers one part: a card under the last part repeating part (a)'s
-        # value read as the whole question's answer (phys30, 2026-11-16). Which part it
-        # answers the setup does not say, so it is left out.
-        logger.info("formal answer: a reply in parts, left out")
-        return state.text
-    verdict = stated_verdict(state.text, body)
-    if verdict not in _AGREES and any(
-        stated_verdict(state.text, same) in _AGREES for same in answer.same_answers[1:]
-    ):
-        # The same answer another way: 90% for 0.9, 7500 N for a braking force of -7500 N.
-        verdict = "same"
-    if verdict == "absent":
-        # The reply's own card, when its prose states nothing the reader reads: the same
-        # value keeps the reply as it is, a different one is replaced (land_answer_card).
-        verdict = _card_states(state.text, answer.same_answers)
-    logger.info("formal answer: reply %s, waited %.2f s", verdict, waited)
-    if verdict in _AGREES:
+    answer = await _waited(state)
+    if answer is None:
         return state.text
     locale = ctx.user.locale if ctx.user is not None else None
     language = line_language(ctx.user_message_content or "", locale)
-    said = _LINES.get(language, _LINES["en"]).format(value=f"${body}$")
-    if verdict == "conflict":
-        text = land_answer_card(state.text, body, above=said, verified=False)
+    if answer.conflicts:
+        # The question's values cannot all hold: no value is the answer, so no card changes.
+        logger.info("formal answer: %d stated values conflict", len(answer.conflicts))
+        text = stated_conflicts(state.text, answer.conflicts, language)
     else:
-        # A final value the readers cannot find (an Answer heading in another language):
-        # both shown, the server's under the reply, with no heading of the server's words.
-        card = f"```answer\n{UNCHECKED_ANSWER_MARKER}\n{body}\n```"
-        text = f"{state.text.rstrip()}\n\n{said}\n\n{card}\n"
-    # Committed, so a later pass that falls back keeps the server's value.
-    state.committed = fallback_text(text, server_text=state.server_text)
+        line = _LINES.get(language, _LINES["en"])
+        asked = asked_precision(ctx.user_message_content or "")
+        text = held_to_server(state.text, answer.values, line, asked)
+    if text != state.text:
+        # Committed, so a later pass that falls back keeps the server's value.
+        state.committed = fallback_text(text, server_text=state.server_text)
     return text

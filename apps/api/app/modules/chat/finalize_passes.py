@@ -33,6 +33,7 @@ from dataclasses import dataclass, field
 from redis.asyncio import Redis
 
 from app.core.config import Settings
+from app.modules.chat.card_numbers import format_card_numbers
 from app.modules.chat.chart_turn import attach_chart
 from app.modules.chat.claim_check import cut_unsupported_claims
 from app.modules.chat.control_tokens import drop_control_tokens, strip_control_tokens
@@ -296,7 +297,6 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
             ("drawing", attach_drawing, frozenset({"math_fences", "formula_charts"})),
             ("figure", attach_figure, frozenset({"drawing"})),
             ("data_chart", attach_chart, frozenset({"figure"})),
-            ("formal_answer", attach_formal, frozenset({"data_chart"})),
         )
     ),
     FinalizePass("server_answer_cards", mark_server_cards, kind=TEXT),
@@ -310,6 +310,16 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         lambda s: drop_guessed_lead(s.text),
         kind=TEXT,
         after=frozenset({"working_check"}),
+    ),
+    # Once every answer of the reply's own is a card (working_check lands them): each card
+    # is held to the server's value for its part, card to card, and a question whose
+    # values cannot all hold opens with a line saying so, above the working.
+    FinalizePass(
+        "formal_answer",
+        attach_formal,
+        OnError(log_as="formal_answer"),
+        kind=EFFECT,
+        after=frozenset({"working_check", "worked_lead", "data_chart"}),
     ),
     # Before the source chips: it reads the reply's prose, and a failure keeps it whole.
     FinalizePass(
@@ -334,6 +344,14 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass("instant_usage", record_instant_usage, kind=EFFECT),
     # Layout, after the passes that read the model's fences as it wrote them.
     FinalizePass("close_fences", close_open_fences, kind=TEXT, after=FENCE_READERS),
+    # Every card written, whoever wrote it, closed or left open by the model: its numbers
+    # by the one rule (rounding_rule). After the closer, so an open card is one too.
+    FinalizePass(
+        "card_numbers",
+        format_card_numbers,
+        kind=TEXT,
+        after=frozenset({"formal_answer", "server_answer_cards", "working_check", "close_fences"}),
+    ),
     # Once every picture pass is done and every fence closed (a molecule's enrichment too):
     # what was asked and not drawn is said in one line, never stood in for (``owed_picture``).
     FinalizePass(
