@@ -255,12 +255,25 @@ def _pairs(
     cards: list[ReplyCard], values: Sequence[FormalValue]
 ) -> list[tuple[ReplyCard, FormalValue]]:
     """Each server value with the card that answers its part: by letter when both name
-    parts and every lettered pair is of one kind, else among the cards and values of one
-    kind, when they are as many: one with one, several by the cards' own names. A reply that letters its parts its own way (a part
-    asked in words left out, so (b) is the resistance the setup calls (c)) pairs by kind."""
-    lettered = _by_letter(cards, values)
-    if lettered is not None:
+    parts and every lettered pair is of one kind, then the values no letter paired among
+    the cards left, by kind, when they are as many: one with one, several by the cards' own
+    names. A reply that letters its parts its own way (a part asked in words left out, so
+    (b) is the resistance the setup calls (c)) pairs that part by kind (Claude on #2501)."""
+    lettered = _by_letter(cards, values) or []
+    paired_cards = {id(card) for card, _ in lettered}
+    paired_values = {id(value) for _, value in lettered}
+    rest = [value for value in values if id(value) not in paired_values]
+    if not rest:
         return lettered
+    left = [card for card in cards if id(card) not in paired_cards]
+    return lettered + _by_kind(left, rest)
+
+
+def _by_kind(
+    cards: list[ReplyCard], values: Sequence[FormalValue]
+) -> list[tuple[ReplyCard, FormalValue]]:
+    """The cards and values of each kind, when they are as many: one with one, several by
+    the cards' own names (``_by_label``)."""
     pairs: list[tuple[ReplyCard, FormalValue]] = []
     kinds = {str(_kind(value.unit)) for value in values}
     for kind in kinds:

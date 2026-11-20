@@ -382,6 +382,28 @@ async def test_parts_the_reply_letters_its_own_way_are_paired_by_kind(
     assert _card("806.67\\ \\Omega") in text
 
 
+async def test_a_part_no_card_letters_is_paired_by_kind(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Claude on #2501: the setup's parts are (a) and (c), the reply letters (a) and (b).
+    (a) pairs by letter; the setup's (c) has no card of its letter, so it pairs by kind
+    with the card left, (b), and a resistance rounded too soon is held to the server's."""
+    _answered(
+        monkeypatch,
+        _answer(
+            _value(0.2727, "A", "a", uses=(60.0, 220.0)),
+            _value(806.67, "ohm", "c", uses=(60.0, 220.0)),
+        ),
+    )
+    reply = (
+        "60 W at 220 V\n\n**(a) Current**\n\n$I = 60/220$\n\n**Answer (a)**\n\n"
+        + _card("0.273\\,\\mathrm{A}")
+        + "\n\n**(b) Resistance**\n\n$R = 220/0.27$\n\n**Answer (b)**\n\n"
+        + _card("814.8\\,\\Omega")
+    )
+    text = await _finalized(_ctx(live_read=_read()), reply)
+    assert _card("0.273\\,\\mathrm{A}") in text and "814.8" not in text
+    assert _card("806.67\\ \\Omega") in text
+
+
 async def test_a_card_in_powers_of_ten_is_held_too(monkeypatch: pytest.MonkeyPatch) -> None:
     """Review: a card's places below 0 (1.5 x 10^6) broke the check and left every card."""
     _answered(monkeypatch, _answer(_value(1.2e6, "J", uses=(18.0,))))
