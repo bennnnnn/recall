@@ -758,8 +758,6 @@
   "rich.graph_show_series": "Показать функцию",
   "rich.graph_solution_region": "Заштрихованная область решений",
   "rich.mermaid_dev_build": "Соберите приложение для предпросмотра диаграмм.",
-  "rich.mermaid_editor": "Скопировать в редактор",
-  "rich.mermaid_editor_hint": "Копирует диаграмму и открывает редактор Mermaid Live, куда её можно вставить.",
   "rich.mermaid_error": "Не удалось построить диаграмму.",
   "rich.mermaid_a11y": "{{kind}}: {{parts}}",
   "rich.mermaid_kind_class": "Диаграмма классов",
