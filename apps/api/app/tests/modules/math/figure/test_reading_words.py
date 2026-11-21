@@ -69,3 +69,36 @@ def test_reading_an_exterior_angle_read_twice_is_drawn_once() -> None:
         ],
     }
     assert labels(figure(question, reading)) == ["115°", "45°"]
+
+
+def test_reading_a_rectangle_with_a_semicircles_measure_has_it_attached() -> None:
+    question = "A semicircle of diameter 6 cm is cut out of one end of a rectangle 10 cm by 6 cm."
+    reading = {
+        "kind": "polygon",
+        "shape": "rectangle",
+        "measures": [
+            {"what": "length", "value": 10},
+            {"what": "width", "value": 6},
+            {"what": "diameter", "value": 6, "of": "semicircle"},
+        ],
+        "parts": ["cut"],
+        "unit": "cm",
+    }
+    spec = figure(question, reading)
+    assert len(spec.arcs) == 1 and spec.shape == "rectangle_semicircle_cut"
+
+
+def test_reading_a_triangle_lettered_with_six_letters_is_two_similar_ones() -> None:
+    question = "Triangle PQR is similar to triangle XYZ, with PQ = 6 cm, QR = 8 cm and XY = 9 cm."
+    reading = {
+        "kind": "polygon",
+        "shape": "triangle",
+        "vertices": "PQRXYZ",
+        "measures": [
+            {"what": "side", "name": "PQ", "value": 6},
+            {"what": "side", "name": "QR", "value": 8},
+            {"what": "side", "name": "XY", "value": 9},
+        ],
+        "unit": "cm",
+    }
+    assert figure(question, reading).shape == "similar_triangles"

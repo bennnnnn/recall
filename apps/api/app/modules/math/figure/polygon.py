@@ -45,6 +45,20 @@ _PLACED: dict[str, Callable[[FigureRequest], FigureSpec | None]] = {
 }
 
 
+def read_whole(request: FigureRequest) -> FigureRequest:
+    """A reading whose own values say it is a figure of two: a rectangle with a measure of
+    its semicircle is a rectangle with a semicircle attached; a triangle lettered with six
+    letters is two triangles, similar."""
+    if not request.attached and request.shape in {"rectangle", "square"}:
+        parts = {m.of for m in request.measures} & composite.ATTACHED
+        if len(parts) == 1:
+            return request.model_copy(update={"attached": parts.pop()})
+    letters = request.vertices.strip()
+    if request.shape in triangles.TRIANGLES and len(letters) == 6:
+        return request.model_copy(update={"shape": "similar_triangles"})
+    return request
+
+
 def build_polygon(request: FigureRequest) -> FigureSpec | None:
     shape = request.shape
     if request.given("shadow"):

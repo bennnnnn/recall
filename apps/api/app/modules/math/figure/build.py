@@ -27,7 +27,7 @@ from app.modules.math.figure import (
 from app.modules.math.figure.angle_terms import term_labels, terms_written
 from app.modules.math.figure.grounding import grounded, own_texts, with_unit, written_pairs
 from app.modules.math.figure.honest import honours
-from app.modules.math.figure.polygon import build_polygon
+from app.modules.math.figure.polygon import build_polygon, read_whole
 from app.modules.math.figure.request import FigureRequest
 from app.modules.math.figure.revolution import revolves_into
 from app.modules.math.figure.shape_names import names_shape
@@ -114,6 +114,8 @@ def _names_attached(request: FigureRequest, texts: list[str]) -> bool:
 def figure_fence(request: FigureRequest, texts: list[str]) -> str | None:
     """The picture's fence (```geometry or ```graph), or None when nothing is drawn."""
     request = with_unit(request, texts)
+    if request.kind == "polygon":
+        request = read_whole(request)
     x_values = read_plot_question(texts).x_values if request.bounds() != (None, None) else ()
     if request.kind == "none" or not grounded(request, texts, x_values):
         return None
