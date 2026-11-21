@@ -14,10 +14,17 @@ import {
   type FigureSegment,
   type FigureSpec,
 } from "@/lib/math/geometryTypes";
+import {
+  LABEL_ASCENT,
+  LABEL_CHAR,
+  labelStart,
+  placeLabels,
+  strokesOf,
+  type FigureLabel,
+  type Px,
+  type Stroke,
+} from "@/lib/math/figurePlacement";
 
-type Px = { x: number; y: number };
-
-type FigureLabel = Px & { text: string; anchor: "start" | "middle" | "end" };
 type FigureLine = { from: Px; to: Px; dashed: boolean };
 type FigureLayout = {
   width: number;
@@ -36,11 +43,8 @@ const MAX_POINTS = 80;
 const MAX_LABEL = 24;
 /** Room around the drawing for its labels. */
 const PAD = 24;
-/** The card's own margin a label keeps, and a label character's width and height above
- * its baseline, at the label size. */
+/** The card's own margin a label keeps. */
 const EDGE = 2;
-const LABEL_CHAR = 7;
-const LABEL_ASCENT = 11;
 /** A figure is at most this tall against its width, so a tall solid stays in the card. */
 const MAX_HEIGHT_SHARE = 0.85;
 const ARC_STEP_DEG = 4;
@@ -48,6 +52,11 @@ const ANGLE_RADIUS = 16;
 const ANGLE_LABEL_GAP = 14;
 const RIGHT_SIDE = 11;
 const LABEL_GAP = 10;
+/** A label kept off what it would cross moves this much further out, this far along its side
+ * (as shares of the side) and this far round its vertex (radians). */
+const GAP_STEP = 8;
+const ALONG_SHIFTS = [0, -0.15, 0.15, -0.3, 0.3];
+const TURNS = [0, -0.5, 0.5, -1, 1, -1.5, 1.5];
 const NAME_GAP = 12;
 const TICK = 5;
 const TICK_SPACING = 4;
@@ -207,7 +216,7 @@ function overflow(labels: FigureLabel[], width: number, height: number): Pads {
   const out = { left: 0, right: 0, top: 0, bottom: 0 };
   for (const label of labels) {
     const w = label.text.length * LABEL_CHAR;
-    const start = label.anchor === "start" ? label.x : label.anchor === "end" ? label.x - w : label.x - w / 2;
+    const start = labelStart(label);
     out.left = Math.max(out.left, EDGE - start);
     out.right = Math.max(out.right, start + w - (width - EDGE));
     out.top = Math.max(out.top, EDGE + LABEL_ASCENT - label.y);
@@ -228,28 +237,52 @@ function segmentMarks(from: Px, to: Px, segment: FigureSegment): [Px, Px][] {
     marks.push([{ x: c.x - across.x * TICK, y: c.y - across.y * TICK }, { x: c.x + across.x * TICK, y: c.y + across.y * TICK }]);
   }
   const arrows = segment.arrows ?? 0;
+  // Arrowheads say "parallel", so parallel sides' arrows point one way whichever end each
+  // side was drawn from: rightwards, or up on an upright side.
+  const ahead = along.x > 1e-6 || (Math.abs(along.x) <= 1e-6 && along.y < 0) ? along : { x: -along.x, y: -along.y };
   for (let i = 0; i < arrows; i += 1) {
-    const tip = { x: mid.x + along.x * (i * ARROW), y: mid.y + along.y * (i * ARROW) };
+    const tip = { x: mid.x + ahead.x * (i * ARROW), y: mid.y + ahead.y * (i * ARROW) };
     for (const side of [1, -1]) {
-      marks.push([tip, { x: tip.x - along.x * ARROW + across.x * side * ARROW * 0.7, y: tip.y - along.y * ARROW + across.y * side * ARROW * 0.7 }]);
+      marks.push([tip, { x: tip.x - ahead.x * ARROW + across.x * side * ARROW * 0.7, y: tip.y - ahead.y * ARROW + across.y * side * ARROW * 0.7 }]);
     }
   }
   return marks;
 }
 
-/** Where a side's label goes: beside its middle, outside the face that holds it (else away
- * from the figure's middle). */
-function segmentLabel(from: Px, to: Px, middle: Px, text: string, share = 0.5): FigureLabel {
+/** Where a side's label may go, best first: beside its middle, outside the face that holds
+ * it (else away from the figure's middle), then inside, then along the side, then further out. */
+function segmentPlaces(from: Px, to: Px, middle: Px, text: string, share = 0.5): FigureLabel[] {
   const along = unit(to.x - from.x, to.y - from.y);
   let normal = { x: -along.y, y: along.x };
-  const mid = { x: from.x + (to.x - from.x) * share, y: from.y + (to.y - from.y) * share };
-  const away = normal.x * (mid.x - middle.x) + normal.y * (mid.y - middle.y);
+  const centre = { x: from.x + (to.x - from.x) * share, y: from.y + (to.y - from.y) * share };
+  const away = normal.x * (centre.x - middle.x) + normal.y * (centre.y - middle.y);
   if (away < -1e-6 || (Math.abs(away) <= 1e-6 && normal.y > 0)) normal = { x: -normal.x, y: -normal.y };
-  return placed(mid, normal, LABEL_GAP, text);
+  const places: FigureLabel[] = [];
+  for (const gap of [0, 1, 2, 3].map((step) => LABEL_GAP + step * GAP_STEP)) {
+    for (const shift of ALONG_SHIFTS) {
+      const t = Math.min(0.9, Math.max(0.1, share + shift));
+      const at = { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t };
+      places.push(placed(at, normal, gap, text), placed(at, { x: -normal.x, y: -normal.y }, gap, text));
+    }
+  }
+  return places;
+}
+
+/** The places round `at` in `direction`, turned a little either way and pushed further out. */
+function placesRound(at: Px, direction: Px, gap: number, text: string): FigureLabel[] {
+  const places: FigureLabel[] = [];
+  for (const extra of [0, GAP_STEP]) {
+    for (const turn of TURNS) {
+      const c = Math.cos(turn);
+      const s = Math.sin(turn);
+      places.push(placed(at, { x: direction.x * c - direction.y * s, y: direction.x * s + direction.y * c }, gap + extra, text));
+    }
+  }
+  return places;
 }
 
 /** The angle mark from the ray to `a` round to the ray to `b`, the short way, in screen space. */
-function angleMark(at: Px, a: Px, b: Px, angle: FigureAngle): { path: Px[]; label?: FigureLabel } {
+function angleMark(at: Px, a: Px, b: Px, angle: FigureAngle): { path: Px[]; label?: FigureLabel[] } {
   const ua = unit(a.x - at.x, a.y - at.y);
   const ub = unit(b.x - at.x, b.y - at.y);
   if (angle.right) {
@@ -274,8 +307,16 @@ function angleMark(at: Px, a: Px, b: Px, angle: FigureAngle): { path: Px[]; labe
   }
   if (!angle.label) return { path };
   const half = from + sweep / 2;
-  const direction = { x: Math.cos(half), y: Math.sin(half) };
-  return { path, label: placed(at, direction, ANGLE_RADIUS + ANGLE_LABEL_GAP, angle.label) };
+  // Along the bisector, further out where the arms are too close, and turned at most a
+  // little: an angle's size stays between its two arms.
+  const label: FigureLabel[] = [];
+  for (let step = 0; step < 5; step += 1) {
+    for (const turn of [0, -0.12, 0.12, -0.25, 0.25, -0.35, 0.35]) {
+      const a = half + turn * sweep;
+      label.push(placed(at, { x: Math.cos(a), y: Math.sin(a) }, ANGLE_RADIUS + ANGLE_LABEL_GAP + step * GAP_STEP, angle.label));
+    }
+  }
+  return { path, label };
 }
 
 function centroid(points: Px[]): Px {
@@ -292,6 +333,7 @@ function build(spec: FigureSpec, width: number, pads: Pads): FigureLayout {
   const middle = centroid([...px.values()]);
   const byName = new Map(spec.points.map((point) => [point.name, point]));
   const layout: FigureLayout = { width, height, faces: [], lines: [], marks: [], arcs: [], angleArcs: [], dots: [], labels: [] };
+  const options: FigureLabel[][] = [];
   layout.faces = spec.faces.map((face) => face.map(at));
   for (const segment of spec.segments) {
     const from = at(segment.a);
@@ -301,7 +343,7 @@ function build(spec: FigureSpec, width: number, pads: Pads): FigureLayout {
     if (!segment.label) continue;
     const face = spec.faces.find((names) => names.includes(segment.a) && names.includes(segment.b));
     const outside = face ? centroid(face.map(at)) : middle;
-    layout.labels.push(segmentLabel(from, to, outside, segment.label, segment.label_at));
+    options.push(segmentPlaces(from, to, outside, segment.label, segment.label_at));
   }
   for (const arc of spec.arcs) {
     const center = byName.get(arc.center);
@@ -310,7 +352,7 @@ function build(spec: FigureSpec, width: number, pads: Pads): FigureLayout {
   for (const angle of spec.angles) {
     const mark = angleMark(at(angle.at), at(angle.a), at(angle.b), angle);
     layout.angleArcs.push(mark.path);
-    if (mark.label) layout.labels.push(mark.label);
+    if (mark.label) options.push(mark.label);
   }
   for (const point of spec.points) {
     const p = at(point.name);
@@ -319,8 +361,16 @@ function build(spec: FigureSpec, width: number, pads: Pads): FigureLayout {
     const away = unit(p.x - middle.x, p.y - middle.y);
     // A letter at the figure's middle (a circle's centre) sits up and to its left.
     const direction = away.x === 0 && away.y === 0 ? { x: -0.7, y: -0.7 } : away;
-    layout.labels.push(placed(p, direction, NAME_GAP, point.name));
+    options.push(placesRound(p, direction, NAME_GAP, point.name));
   }
+  const strokes: Stroke[] = [
+    ...layout.lines.map((line): Stroke => [line.from, line.to]),
+    ...layout.marks,
+    ...layout.arcs.flatMap((arc) => strokesOf(arc.points)),
+    ...layout.angleArcs.flatMap(strokesOf),
+    ...layout.dots.map((dot): Stroke => [dot, dot]),
+  ];
+  layout.labels = placeLabels(options, strokes);
   return layout;
 }
 

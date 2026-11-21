@@ -59,13 +59,14 @@ export function QuadrilateralDimensionLabels({
       >
         {bottom}
       </SvgText>
+      {/* Inside, right of the dashed height: on its left runs a slanted side. */}
       <SvgText
-        x={topLeft.x - 8}
-        y={(topLeft.y + bottomLeft.y) / 2}
+        x={topLeft.x + 6}
+        y={(topLeft.y + bottomLeft.y) / 2 + 4}
         fill={theme.accent}
         fontSize={12}
         {...Weight.semibold}
-        textAnchor="end"
+        textAnchor="start"
       >
         {height}
       </SvgText>
