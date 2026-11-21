@@ -697,7 +697,13 @@
    "id": "coord-midpoint",
    "cat": "coordinate",
    "prompt": "Find the midpoint of the segment joining P(-3, 4) and Q(5, -2).",
-   "draw": true
+   "draw": true,
+   "at": {
+    "M": [
+     1,
+     1
+    ]
+   }
   },
   {
    "id": "coord-tri-area",
@@ -726,7 +732,12 @@
    "id": "coord-circle-eq",
    "cat": "coordinate",
    "prompt": "Find the centre and radius of the circle x^2 + y^2 - 6x + 4y - 12 = 0.",
-   "draw": true
+   "draw": true,
+   "circle": [
+    3,
+    -2,
+    5
+   ]
   },
   {
    "id": "coord-parallelogram",
@@ -744,7 +755,16 @@
    "id": "coord-perp-bisector",
    "cat": "coordinate",
    "prompt": "Find the equation of the perpendicular bisector of A(2, 4) and B(6, 8).",
-   "draw": true
+   "draw": true,
+   "at": {
+    "M": [
+     4,
+     6
+    ]
+   },
+   "needs": {
+    "right_angles": 1
+   }
   },
   {
    "id": "trans-reflect",
@@ -755,25 +775,77 @@
     "A",
     "B",
     "C"
+   ],
+   "image": [
+    [
+     1,
+     -2
+    ],
+    [
+     4,
+     -2
+    ],
+    [
+     1,
+     -5
+    ]
    ]
   },
   {
    "id": "trans-rotate",
    "cat": "transformation",
    "prompt": "The point P(3, 1) is rotated 90° anticlockwise about the origin. Find its image.",
-   "draw": true
+   "draw": true,
+   "image": [
+    [
+     -1,
+     3
+    ]
+   ]
   },
   {
    "id": "trans-translate",
    "cat": "transformation",
    "prompt": "Triangle PQR with P(0, 0), Q(2, 0) and R(0, 3) is translated by the vector (4, 1). Find the new vertices.",
-   "draw": true
+   "draw": true,
+   "image": [
+    [
+     4,
+     1
+    ],
+    [
+     6,
+     1
+    ],
+    [
+     4,
+     4
+    ]
+   ]
   },
   {
    "id": "trans-enlarge",
    "cat": "transformation",
    "prompt": "A square with vertices (1, 1), (2, 1), (2, 2) and (1, 2) is enlarged by scale factor 3 about the origin. Find the new vertices.",
-   "draw": true
+   "draw": true,
+   "image": [
+    [
+     3,
+     3
+    ],
+    [
+     6,
+     3
+    ],
+    [
+     6,
+     6
+    ],
+    [
+     3,
+     6
+    ]
+   ]
   },
   {
    "id": "sim-triangles",
@@ -1265,6 +1337,472 @@
    "id": "none-factor",
    "cat": "none",
    "prompt": "Factorise x^2 - 5x + 6.",
+   "draw": false
+  },
+  {
+   "id": "coord2-right-tri",
+   "cat": "coordinate",
+   "prompt": "Show that the triangle with vertices P(-2, 1), Q(2, 3) and R(4, -1) is right-angled.",
+   "draw": true,
+   "labels": [
+    "P",
+    "Q",
+    "R"
+   ],
+   "needs": {
+    "polygons": 1,
+    "right_angles": 1
+   }
+  },
+  {
+   "id": "coord2-isosceles",
+   "cat": "coordinate",
+   "prompt": "Show that triangle ABC with A(1, 1), B(5, 1) and C(3, 5) is isosceles.",
+   "draw": true,
+   "labels": [
+    "A(1, 1)",
+    "B(5, 1)",
+    "C(3, 5)"
+   ],
+   "needs": {
+    "polygons": 1
+   }
+  },
+  {
+   "id": "coord2-rhombus-diag",
+   "cat": "coordinate",
+   "prompt": "The points A(0, 0), B(3, 4), C(8, 4) and D(5, 0) are the vertices of a rhombus. Show that its diagonals cross at right angles.",
+   "draw": true,
+   "labels": [
+    "A",
+    "B",
+    "C",
+    "D"
+   ],
+   "needs": {
+    "polygons": 1,
+    "segments": 6
+   }
+  },
+  {
+   "id": "coord2-quad-area",
+   "cat": "coordinate",
+   "prompt": "Find the area of the quadrilateral with vertices (-2, -1), (4, -2), (5, 3) and (-1, 4).",
+   "draw": true,
+   "labels": [
+    "(−2, −1)",
+    "(4, −2)",
+    "(5, 3)",
+    "(−1, 4)"
+   ],
+   "needs": {
+    "polygons": 1
+   }
+  },
+  {
+   "id": "coord2-midpoint-letter",
+   "cat": "coordinate",
+   "prompt": "M is the midpoint of the segment from A(-4, 7) to B(6, -3). Find the coordinates of M.",
+   "draw": true,
+   "labels": [
+    "A(−4, 7)",
+    "B(6, −3)"
+   ],
+   "at": {
+    "M": [
+     1,
+     2
+    ]
+   }
+  },
+  {
+   "id": "coord2-distance-neg",
+   "cat": "coordinate",
+   "prompt": "Calculate the distance between C(-1, -3) and D(5, 5).",
+   "draw": true,
+   "labels": [
+    "C(−1, −3)",
+    "D(5, 5)"
+   ],
+   "needs": {
+    "segments": 1
+   }
+  },
+  {
+   "id": "coord2-gradient-neg",
+   "cat": "coordinate",
+   "prompt": "What is the gradient of the line segment joining E(-2, 5) and F(4, -7)?",
+   "draw": true,
+   "labels": [
+    "E",
+    "F"
+   ],
+   "needs": {
+    "segments": 1
+   }
+  },
+  {
+   "id": "coord2-perp-bisector",
+   "cat": "coordinate",
+   "prompt": "Find the perpendicular bisector of the line segment joining P(-1, 2) and Q(5, -4).",
+   "draw": true,
+   "labels": [
+    "P",
+    "Q"
+   ],
+   "at": {
+    "M": [
+     2,
+     -1
+    ]
+   },
+   "needs": {
+    "right_angles": 1
+   }
+  },
+  {
+   "id": "coord2-circle-std",
+   "cat": "coordinate",
+   "prompt": "Write down the centre and the radius of the circle (x - 2)^2 + (y + 5)^2 = 49.",
+   "draw": true,
+   "circle": [
+    2,
+    -5,
+    7
+   ]
+  },
+  {
+   "id": "coord2-circle-general",
+   "cat": "coordinate",
+   "prompt": "Find the centre and radius of x^2 + y^2 + 8x - 2y - 8 = 0.",
+   "draw": true,
+   "circle": [
+    -4,
+    1,
+    5
+   ]
+  },
+  {
+   "id": "coord2-circle-centre",
+   "cat": "coordinate",
+   "prompt": "Find the equation of the circle with centre (3, -2) and radius 4.",
+   "draw": true,
+   "labels": [
+    "(3, −2)"
+   ],
+   "circle": [
+    3,
+    -2,
+    4
+   ]
+  },
+  {
+   "id": "coord2-circle-through",
+   "cat": "coordinate",
+   "prompt": "A circle has centre C(1, 2) and passes through P(4, 6). Find its equation.",
+   "draw": true,
+   "labels": [
+    "C(1, 2)",
+    "P(4, 6)"
+   ],
+   "circle": [
+    1,
+    2,
+    5
+   ]
+  },
+  {
+   "id": "coord2-parallelogram-diag",
+   "cat": "coordinate",
+   "prompt": "ABCD is a parallelogram with A(-3, -1), B(2, -1), C(4, 3) and D(-1, 3). Show that its diagonals bisect each other.",
+   "draw": true,
+   "labels": [
+    "A",
+    "B",
+    "C",
+    "D"
+   ],
+   "needs": {
+    "polygons": 1,
+    "segments": 6
+   }
+  },
+  {
+   "id": "coord2-collinear",
+   "cat": "coordinate",
+   "prompt": "Show that the points A(1, 2), B(3, 6) and C(5, 10) are collinear.",
+   "draw": true,
+   "labels": [
+    "A(1, 2)",
+    "B(3, 6)",
+    "C(5, 10)"
+   ],
+   "needs": {
+    "segments": 1
+   }
+  },
+  {
+   "id": "coord2-none-substitute",
+   "cat": "coordinate",
+   "prompt": "Work out the value of 3x + 2y when x = 4 and y = -1.",
+   "draw": false
+  },
+  {
+   "id": "trans2-reflect-yx",
+   "cat": "transformation",
+   "prompt": "Triangle ABC has vertices A(1, 3), B(4, 1) and C(5, 4). Find the coordinates of its image after a reflection in the line y = x.",
+   "draw": true,
+   "labels": [
+    "A(1, 3)",
+    "B(4, 1)",
+    "C(5, 4)"
+   ],
+   "image": [
+    [
+     3,
+     1
+    ],
+    [
+     1,
+     4
+    ],
+    [
+     4,
+     5
+    ]
+   ]
+  },
+  {
+   "id": "trans2-reflect-neg-x",
+   "cat": "transformation",
+   "prompt": "The point P(4, -1) is reflected in the line y = -x. Write down the coordinates of its image.",
+   "draw": true,
+   "labels": [
+    "P(4, −1)"
+   ],
+   "image": [
+    [
+     1,
+     -4
+    ]
+   ]
+  },
+  {
+   "id": "trans2-reflect-x-line",
+   "cat": "transformation",
+   "prompt": "Triangle PQR has P(1, 1), Q(3, 1) and R(3, 4). Find the image of the triangle after reflection in the line x = -1.",
+   "draw": true,
+   "labels": [
+    "P(1, 1)",
+    "Q(3, 1)",
+    "R(3, 4)"
+   ],
+   "image": [
+    [
+     -3,
+     1
+    ],
+    [
+     -5,
+     1
+    ],
+    [
+     -5,
+     4
+    ]
+   ]
+  },
+  {
+   "id": "trans2-rotate-cw-point",
+   "cat": "transformation",
+   "prompt": "Triangle ABC with A(2, 1), B(5, 1) and C(5, 3) is rotated 90° clockwise about the point (1, 0). Find the coordinates of A′, B′ and C′.",
+   "draw": true,
+   "labels": [
+    "A(2, 1)",
+    "B(5, 1)",
+    "C(5, 3)"
+   ],
+   "image": [
+    [
+     2,
+     -1
+    ],
+    [
+     2,
+     -4
+    ],
+    [
+     4,
+     -4
+    ]
+   ]
+  },
+  {
+   "id": "trans2-rotate-180",
+   "cat": "transformation",
+   "prompt": "Find the image of the quadrilateral A(1, 1), B(4, 1), C(4, 3), D(1, 2) under a rotation of 180° about the origin.",
+   "draw": true,
+   "labels": [
+    "A(1, 1)",
+    "D(1, 2)"
+   ],
+   "image": [
+    [
+     -1,
+     -1
+    ],
+    [
+     -4,
+     -1
+    ],
+    [
+     -4,
+     -3
+    ],
+    [
+     -1,
+     -2
+    ]
+   ]
+  },
+  {
+   "id": "trans2-translate-words",
+   "cat": "transformation",
+   "prompt": "The triangle with vertices L(-2, 1), M(0, 4) and N(1, 0) is translated 5 units to the right and 3 units down. Find the new coordinates.",
+   "draw": true,
+   "labels": [
+    "L(−2, 1)",
+    "M(0, 4)",
+    "N(1, 0)"
+   ],
+   "image": [
+    [
+     3,
+     -2
+    ],
+    [
+     5,
+     1
+    ],
+    [
+     6,
+     -3
+    ]
+   ]
+  },
+  {
+   "id": "trans2-enlarge-centre",
+   "cat": "transformation",
+   "prompt": "Triangle XYZ with X(2, 2), Y(4, 2) and Z(2, 5) is enlarged with scale factor 2 about the centre (1, 1). Find the coordinates of the image.",
+   "draw": true,
+   "labels": [
+    "X(2, 2)",
+    "Y(4, 2)",
+    "Z(2, 5)"
+   ],
+   "image": [
+    [
+     3,
+     3
+    ],
+    [
+     7,
+     3
+    ],
+    [
+     3,
+     9
+    ]
+   ]
+  },
+  {
+   "id": "trans2-enlarge-half",
+   "cat": "transformation",
+   "prompt": "A triangle has vertices A(4, 6), B(8, 2) and C(2, 2). It is enlarged by a scale factor of 1/2 with centre the origin. Find the vertices of the image.",
+   "draw": true,
+   "labels": [
+    "A(4, 6)",
+    "B(8, 2)",
+    "C(2, 2)"
+   ],
+   "image": [
+    [
+     2,
+     3
+    ],
+    [
+     4,
+     1
+    ],
+    [
+     1,
+     1
+    ]
+   ]
+  },
+  {
+   "id": "trans2-rotate-270",
+   "cat": "transformation",
+   "prompt": "Rotate the point Q(-3, 2) through 270° anticlockwise about the origin and give the coordinates of its image.",
+   "draw": true,
+   "labels": [
+    "Q(−3, 2)"
+   ],
+   "image": [
+    [
+     2,
+     3
+    ]
+   ]
+  },
+  {
+   "id": "trans2-composite",
+   "cat": "transformation",
+   "prompt": "The point A(2, 3) is reflected in the x-axis and then rotated 90° anticlockwise about the origin. Find the final image.",
+   "draw": true,
+   "labels": [
+    "A(2, 3)"
+   ],
+   "image": [
+    [
+     2,
+     -3
+    ],
+    [
+     3,
+     2
+    ]
+   ]
+  },
+  {
+   "id": "trans2-enlarge-negative",
+   "cat": "transformation",
+   "prompt": "Enlarge triangle PQR with P(1, 1), Q(3, 1) and R(1, 2) by scale factor -2 about the origin. Write down the coordinates of P′, Q′ and R′.",
+   "draw": true,
+   "labels": [
+    "P(1, 1)",
+    "Q(3, 1)",
+    "R(1, 2)"
+   ],
+   "image": [
+    [
+     -2,
+     -2
+    ],
+    [
+     -6,
+     -2
+    ],
+    [
+     -2,
+     -4
+    ]
+   ]
+  },
+  {
+   "id": "trans2-none-map-scale",
+   "cat": "transformation",
+   "prompt": "A map has a scale of 1 : 50 000. What real distance does 4 cm on the map represent?",
    "draw": false
   }
  ]

@@ -22,6 +22,7 @@ from app.modules.math.figure import (
     frustums,
     lines,
     nets,
+    plane,
     solids,
     stacked_solids,
 )
@@ -113,6 +114,16 @@ def _names_attached(request: FigureRequest, texts: list[str]) -> bool:
     )
 
 
+def _plane_fence(request: FigureRequest, texts: list[str]) -> str | None:
+    """Coordinate geometry and transformations, drawn where the question puts them."""
+    try:
+        graph = plane.plane_graph(request, texts)
+    except (SolveServiceError, ValidationError, ValueError, ZeroDivisionError):
+        logger.info("plane figure build failed", exc_info=True)
+        return None
+    return None if graph is None else _fence("graph", graph)
+
+
 def figure_fence(request: FigureRequest, texts: list[str]) -> str | None:
     """The picture's fence (```geometry or ```graph), or None when nothing is drawn."""
     request = with_unit(request, texts)
@@ -123,6 +134,8 @@ def figure_fence(request: FigureRequest, texts: list[str]) -> str | None:
         return None
     if not terms_written(request, own_texts(texts)):
         return None
+    if plane.is_plane(request, texts):
+        return _plane_fence(request, texts)
     if not _the_questions_shape(request, texts):
         return None
     if request.kind in {"number_line", "points"} and coordinate.writes_a_formula(own_texts(texts)):

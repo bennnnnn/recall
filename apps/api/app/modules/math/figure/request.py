@@ -129,6 +129,74 @@ class NamedPoint(BaseModel):
 _BOUND_CHARS = 24
 
 
+# Coordinate geometry and transformations (``plane``, ``transforms``) ---------------------
+TransformKind = Literal["reflection", "rotation", "translation", "enlargement"]
+_TRANSFORM_KINDS = {
+    "reflect": "reflection",
+    "reflection": "reflection",
+    "rotate": "rotation",
+    "rotation": "rotation",
+    "translate": "translation",
+    "translation": "translation",
+    "enlarge": "enlargement",
+    "enlargement": "enlargement",
+    "dilation": "enlargement",
+    "dilate": "enlargement",
+}
+
+
+class Pair(BaseModel):
+    x: float = Field(ge=-1_000_000, le=1_000_000)
+    y: float = Field(ge=-1_000_000, le=1_000_000)
+
+
+class Transform(BaseModel):
+    """A transformation the question applies to its points, as it states it: never the
+    image, which the server works out (``transforms``)."""
+
+    kind: TransformKind
+    # A reflection's mirror line as written: "x-axis", "y-axis", "y = x", "x = 2".
+    mirror: str = Field(default="", max_length=40)
+    # A rotation's angle in degrees, and its direction as the question says it.
+    angle: float | None = Field(default=None, ge=-360, le=360)
+    direction: Literal["", "clockwise", "anticlockwise"] = ""
+    # The centre of a rotation or an enlargement; None is the origin.
+    centre: Pair | None = None
+    # A translation's vector.
+    vector: Pair | None = None
+    # An enlargement's scale factor as written ("3", "1/2", "-2").
+    factor: str = Field(default="", max_length=12)
+
+    @field_validator("kind", mode="before")
+    @classmethod
+    def _kind(cls, value: Any) -> str:
+        text = str(value or "").strip().lower()
+        return _TRANSFORM_KINDS.get(text, text)
+
+    @field_validator("direction", mode="before")
+    @classmethod
+    def _direction(cls, value: Any) -> str:
+        text = str(value or "").strip().lower().replace("-", "").replace(" ", "")
+        if text in {"anticlockwise", "counterclockwise", "ccw"}:
+            return "anticlockwise"
+        return "clockwise" if text in {"clockwise", "cw"} else ""
+
+    @field_validator("factor", mode="before")
+    @classmethod
+    def _factor(cls, value: Any) -> str:
+        return "" if value is None or isinstance(value, bool) else str(value).strip()[:12]
+
+
+def _transforms(value: Any) -> list[Transform]:
+    """The transformations a reader gave, in order; a malformed one drops them all, as a
+    composite missing a step is no picture of the question."""
+    items = value if isinstance(value, list) else [value] if isinstance(value, dict) else []
+    try:
+        return [Transform.model_validate(item) for item in items[:2]]
+    except ValueError:
+        return []
+
+
 class FigureRequest(BaseModel):
     kind: FigureKind = "none"
     # The shape by its plain name ("parallelogram", "right_triangle", "cylinder",
@@ -184,6 +252,31 @@ class FigureRequest(BaseModel):
     # Angles written with a letter ("x", "2x", "x + 20"): the server solves the letter
     # where the angles' sum decides it and draws their sizes, labelled as written.
     angle_terms: list[AngleTerm] = Field(default_factory=list, max_length=6)
+    # Coordinate geometry: how the points are joined ("segment", "polygon" or "" for
+    # points alone), a circle's equation as written, and the transformations applied to
+    # the points, in order (the server works the image out).
+    join: Literal["", "segment", "polygon"] = ""
+    equation: str = Field(default="", max_length=120)
+    transforms: list[Transform] = Field(default_factory=list, max_length=2)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _one_transform(cls, data: Any) -> Any:
+        """A reader that wrote one ``transform`` meant the list of one."""
+        if isinstance(data, dict) and "transform" in data and "transforms" not in data:
+            return {**data, "transforms": data["transform"]}
+        return data
+
+    @field_validator("join", mode="before")
+    @classmethod
+    def _join(cls, value: Any) -> str:
+        text = str(value or "").strip().lower()
+        return text if text in {"segment", "polygon"} else ""
+
+    @field_validator("transforms", mode="before")
+    @classmethod
+    def _transform_list(cls, value: Any) -> list[Transform]:
+        return _transforms(value)
 
     @field_validator("kind", mode="before")
     @classmethod
