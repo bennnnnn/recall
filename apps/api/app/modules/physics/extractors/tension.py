@@ -169,12 +169,12 @@ _RESOLVE_RE = re.compile(r"\bresolv\w*\b|\bcomponents?\b", re.IGNORECASE)
 # never read as metres and "N/C" never as newtons. The unit is kept as written: a component
 # of 1900 km is in km.
 _VECTOR_SIZE_RE = re.compile(
-    rf"({DECIMAL})\s*(N\s*/\s*C|V\s*/\s*m|m\s*/\s*s\s*(?:\^\s*2|²)|(?:k?m|cm)\s*/\s*[sh]"
+    rf"({DECIMAL})\s*(N\s*/\s*C|V\s*/\s*m|m\s*/\s*s\s*(?:\^\s*2|²)|m\s*/\s*s2(?!\d)|(?:k?m|cm)\s*/\s*[sh]"
     r"|kg\s*m\s*/\s*s|N\s*s|km|cm|mm|m|N)(?![A-Za-z0-9/^²])"
 )
 _VECTOR_PARAMS = (
     (re.compile(r"N\s*/\s*C|V\s*/\s*m"), "E"),
-    (re.compile(r"m\s*/\s*s\s*(?:\^\s*2|²)"), "a"),
+    (re.compile(r"m\s*/\s*s\s*(?:\^\s*2|²)|m/s2"), "a"),
     (re.compile(r"(?:k?m|cm)\s*/\s*[sh]"), "v"),
     (re.compile(r"kg\s*m\s*/\s*s|N\s*s"), "p"),
     (re.compile(r"km|cm|mm|m"), "d"),
@@ -186,7 +186,9 @@ _VECTOR_PARAMS = (
 # like any: a mass and a length beside it make two values, never one (``_stated_values``).
 _NOT_AXES_RE = re.compile(
     r"\b(?:incline[ds]?|slope|ramp|along|parallel|normal|magnetic|wire|current|charge[ds]?"
-    r"|proton|electron|ray|light|refract\w*|thermometer|temperature)\b",
+    r"|proton|electron|ray|light|refract\w*|thermometer|temperature"
+    # A component against a lever, a rod or a surface is not across and up (review).
+    r"|perpendicular\s+to|lever|rod|beam|surface|hill|wall)\b",
     re.IGNORECASE,
 )
 # The angle's reference, written right after it: "40° from the vertical", "30 degrees to the
@@ -195,6 +197,15 @@ _AFTER_ANGLE_VERTICAL_RE = re.compile(
     r"\s*(?:from|to|with|of)\s+the\s+(?:vertical|y[- ]?axis|upward\s+vertical)\b", re.IGNORECASE
 )
 _BELOW_RE = re.compile(r"\bbelow\s+the\s+(?:horizontal|x[- ]?axis)\b", re.IGNORECASE)
+# A side or a sense this reader does not model: "to the left of the vertical", "from the
+# negative x-axis", "N 30° W", "clockwise". Such a question is declined, never read as from
+# the horizontal with both components positive (review, 2026-11-20).
+_UNREAD_SIDE_RE = re.compile(
+    r"\b(?:left|right|negative|downwards?|downward|upwards?|upward|clockwise"
+    r"|anti-?clockwise|counter-?clockwise)\b|\b[NS]\s*\d[\d.]*\s*(?:°|deg\w*)?\s*[EW]\b",
+    re.IGNORECASE,
+)
+_COMPASS_RE = re.compile(r"\b(?:north|south|east|west)\b", re.IGNORECASE)
 # A bearing: "30° north of east" is measured from east; "40° east of north" from north.
 _BEARING_RE = re.compile(
     r"\b(north|south|east|west)\s+of\s+(north|south|east|west)\b", re.IGNORECASE
@@ -233,6 +244,8 @@ def _resolve_intent(cleaned: str) -> PhysicsIntent | None:
     problem a component is only a step of (review, 2026-11-20)."""
     if _NOT_AXES_RE.search(cleaned) or _MORE_ASKED_RE.search(cleaned):
         return None
+    if _UNREAD_SIDE_RE.search(cleaned):
+        return None
     size = _VECTOR_SIZE_RE.search(cleaned)
     if size is None or _stated_values(cleaned) != 1:
         return None
@@ -241,6 +254,7 @@ def _resolve_intent(cleaned: str) -> PhysicsIntent | None:
     if angle is None:
         return None
     unit = " ".join(re.sub(r"\s*/\s*", "/", size.group(2)).split()).replace("²", "^2")
+    unit = re.sub(r"/s2$", "/s^2", unit)
     name = next(param for pattern, param in _VECTOR_PARAMS if pattern.fullmatch(unit))
     params = {name: float(size.group(1)), "angle": float(angle.group(1))}
     bearing = _BEARING_RE.search(cleaned)
@@ -255,6 +269,13 @@ def _resolve_intent(cleaned: str) -> PhysicsIntent | None:
         params["from_vertical"] = 1.0 if base in ("north", "south") else 0.0
         params["x_sign"] = -1.0 if "west" in sides else 1.0
         params["y_sign"] = -1.0 if "south" in sides else 1.0
+    elif _COMPASS_RE.search(cleaned) and not re.search(
+        r"\b(?:north|south|east|west)\s+(?:and|or)\s+(?:north|south|east|west)\s+components?\b",
+        cleaned,
+        re.IGNORECASE,
+    ):
+        # A compass side not written as a bearing ("heading west at 30°") is not read.
+        return None
     else:
         vertical = _AFTER_ANGLE_VERTICAL_RE.match(cleaned, angle.end()) is not None
         params["from_vertical"] = 1.0 if vertical else 0.0

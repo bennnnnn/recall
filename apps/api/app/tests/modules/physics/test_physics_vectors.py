@@ -153,7 +153,25 @@ VERIFIED: list[tuple[str, str, str]] = [
         "resolve_vector",
         "-12.5 m/s horizontally and 21.7 m/s vertically",
     ),
+    # "m/s2" as students write it (Codex review).
+    (
+        "Resolve 3 m/s2 at 20° below the horizontal into components.",
+        "resolve_vector",
+        "2.82 m/s² horizontally and -1.03 m/s² vertically",
+    ),
 ]
+
+
+def test_a_large_vector_s_working_has_no_calculator_notation() -> None:
+    """Gemini review: 2e+06 in a LaTeX row reads as 2e plus 06."""
+    intent = extract_physics_intent(
+        "Resolve an electric field of 2 × 10^6 N/C at 30° from the horizontal into components."
+    )
+    assert intent is not None and intent.physics_op == "resolve_vector"
+    block = build_verified_physics_block(intent, _settings())
+    assert block is not None
+    rows = " ".join(block.physics_substitutions)
+    assert "e+" not in rows and r"2 \times 10^{6}" in rows
 
 
 @pytest.mark.parametrize(
@@ -172,6 +190,16 @@ VERIFIED: list[tuple[str, str, str]] = [
         "A ray travels 5 cm in glass at 30° to the normal. Find its components.",
         "A ball is thrown at 20 m/s at 30° above the horizontal. Find the horizontal and "
         "vertical components of velocity and the range.",
+        # A side or an axis this reader does not model is declined, never read as from the
+        # horizontal with both components positive (Gemini review, 2026-11-20).
+        "Resolve 20 N at 30° to the left of the vertical into horizontal and vertical components.",
+        "Resolve 25 m/s at 60° from the negative x-axis into components.",
+        "A plane flies at 200 km/h on a bearing of N 30° W. Find the components of its velocity.",
+        # A component against a lever or a surface is not across and up.
+        "A 50 N force acts at 30° to a lever. Find the component of the force perpendicular "
+        "to the lever.",
+        "A 50 N weight rests on a 30° hill. Find the component of the weight perpendicular "
+        "to the hill.",
     ],
 )
 def test_a_component_along_a_slope_is_not_resolved_across_and_up(text: str) -> None:

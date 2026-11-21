@@ -5,7 +5,14 @@ from __future__ import annotations
 import math
 from collections.abc import Callable
 
-from app.modules.physics.display import GIVEN_FIGURES, latex_unit, plain_number, plain_unit
+from app.modules.physics.display import (
+    GIVEN_FIGURES,
+    latex_given,
+    latex_number,
+    latex_unit,
+    plain_number,
+    plain_unit,
+)
 from app.modules.physics.schemas import PhysicsIntent, SimulationVector
 from app.modules.physics.solvers.arithmetic import latex_num
 from app.modules.physics.solvers.force_scenes import (
@@ -174,7 +181,7 @@ def _resolve_vector(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult
     x_value = x_sign * size * (math.sin(theta) if vertical else math.cos(theta))
     y_value = y_sign * size * (math.cos(theta) if vertical else math.sin(theta))
     shown = latex_unit(unit) if unit else ""
-    given = f"{size:g}"
+    given = latex_given(size)
 
     def row(axis: str, trig: str, sign: float) -> tuple[str, str]:
         minus = "-" if sign < 0 else ""
@@ -185,7 +192,8 @@ def _resolve_vector(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult
     text_unit = f" {plain_unit(unit)}" if unit else ""
     return PhysicsResult(
         answer=(
-            rf"{x_row} \approx {x_value:.2f}{shown}, \quad {y_row} \approx {y_value:.2f}{shown}"
+            rf"{x_row} \approx {latex_number(x_value)}{shown}, \quad "
+            rf"{y_row} \approx {latex_number(y_value)}{shown}"
         ),
         formulas=(x_formula, y_formula),
         substitutions=(x_row, y_row),

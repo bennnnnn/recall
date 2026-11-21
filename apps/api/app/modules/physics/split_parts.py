@@ -119,7 +119,19 @@ def _own_values(asks: list[str], givens: str = "") -> bool:
     stem that states none ("Resolve each into two components. a) 60 N at 30° … b) 45 m/s at
     80° …": read with the others, the second part was the first part's 60 N, 2026-11-20)."""
     kinds = [frozenset(unit.lower() for unit in _VALUE_UNIT.findall(ask)) for ask in asks]
-    return all(kinds) and (len(set(kinds)) == 1 or _VALUE_UNIT.search(givens) is None)
+    if not all(kinds):
+        return False
+    if len(set(kinds)) == 1:
+        return True
+    # Items under one instruction: the stem states no values and the parts ask nothing, each
+    # only a setup ("a) 60 N at 30° from the horizontal."). A part that asks ("What is its
+    # speed after 2 s, taking g = 10 m/s²?") may hold a value a later one needs, so such
+    # parts are read together (review, 2026-11-20).
+    return (
+        bool(givens)
+        and _VALUE_UNIT.search(givens) is None
+        and not any(_asks(ask) for ask in asks)
+    )
 
 
 def _solved(text: str, settings: Settings) -> VerifiedPhysicsBlock | None:
