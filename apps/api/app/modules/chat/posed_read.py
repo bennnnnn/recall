@@ -168,7 +168,9 @@ class PosedPick(BaseModel):
     def _too_long_is_none(cls, value: Any, info: ValidationInfo) -> Any:
         """A copy past its cap names nothing the server can hold to the message; the rest of
         the read stands."""
-        cap = {"problem": _PROBLEM_CHARS, "part": _PART_CHARS}.get(info.field_name, _ASKS_CHARS)
+        cap = {"problem": _PROBLEM_CHARS, "part": _PART_CHARS}.get(
+            info.field_name or "", _ASKS_CHARS
+        )
         return None if isinstance(value, str) and len(value) > cap else value
 
 
