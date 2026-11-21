@@ -286,7 +286,7 @@ def _vector(transform: Transform, texts: Sequence[str]) -> Exact | None:
         if not (states_signed(found, abs(value)) and word.search(lowered)):
             return None
     exact = (Fraction(dx).limit_denominator(1000), Fraction(dy).limit_denominator(1000))
-    return exact if exact != (0, 0) else None
+    return exact if any(exact) else None
 
 
 def _factor(transform: Transform, texts: Sequence[str]) -> Fraction | None:
