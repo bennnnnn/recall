@@ -1,16 +1,16 @@
 # ruff: noqa: RUF001, RUF003 - Turkish dotless i, Cyrillic and maths signs are the words matched
-"""One picture request in the app's eight other languages: only the unmistakable shapes.
+"""One picture request in the app's seven other languages: only the unmistakable shapes.
 
-"Dibújame un dragón", "¿Me dibujas un dragón?", "Zeichne mir einen Drachen", "Mi disegni
-un panda?", "Bana bir panda çizer misin?", "Crea una imagen de un león" draw. "Dibuja un
-gato", "Illustra il problema" and "Mal den Teufel nicht an die Wand" are answered in
-words, as on main: a picture there could be homework, an idiom or a plan. The shapes are
+"Dibújame un dragón", "¿Me dibujas un dragón?", "Dessine-moi un mouton", "Bana bir panda
+çizer misin?", "Crea una imagen de un león", "मेरे लिए एक बिल्ली ड्रा करो" draw. "Dibuja un
+gato", "Ilustra el problema" and "फूल का चित्र बनाइए" are answered in words, as on main: a
+picture there could be homework, an idiom or a plan. The shapes are
 ``gen_intent_languages.py``; what a subject may hold is ``gen_intent_drawable.py``.
 
 The subject must be short and plain: at most six words, no digits, units or maths signs,
 every word a listed drawable noun, plain descriptor or function word ("un gato negro en
 la playa", not "un gato en ASCII" or "un árbol binario"), and nothing pointing back
-("eso", "das nochmal": no revisions here). When in doubt, nothing is drawn. Matching is
+("eso", "इसे फिर से": no revisions here). When in doubt, nothing is drawn. Matching is
 linear token scans, as in ``gen_intent``: no ``\\s+`` / ``.+`` regex on user chat text.
 """
 
@@ -20,6 +20,7 @@ import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 
+from app.core.validation import unify_devanagari
 from app.modules.chemistry.request import extract_compound_name
 from app.modules.images.gen_intent_drawable import is_entry, names_drawable
 from app.modules.images.gen_intent_languages import ALSO, ARTICLES, LANGUAGES, Language, Shape
@@ -120,7 +121,7 @@ def _span(lang: Language, words: list[str]) -> tuple[int, int, Shape] | None:
         lead, tail = _lead_at(shape, words, start), _tail_at(shape, words, end)
         if lead is not None and tail is not None and (lead or tail):
             i = start + lead
-            # "zeichne mir bitte …", "… und zeichne mir auch eine Katze".
+            # "dibújame por favor …", "… y dibújame también un gato".
             while i < end - tail and (
                 words[i] in lang.fillers or words[i] in ALSO or _phrase_at(lang.polite, words, i)
             ):
@@ -155,7 +156,7 @@ def _read(lang: Language, text: str, tokens: list[_Token]) -> str | None:
     if span is None:
         return None
     i, end, shape = span
-    if i >= end:
+    if i >= end or (shape.new_thing and shape.new_thing.isdisjoint(words[:end])):
         return ""
     start, checked = tokens[i].start, words[i:end]
     typed = [text[t.start : t.end].strip(_EDGES) for t in tokens[i:end]]
@@ -184,7 +185,7 @@ def _read_picture(text: str, tokens: list[_Token]) -> str | None:
             found.append(subject)
     if not found:
         return None
-    # "Zeichne mir Ethanol": a compound the chemistry card draws, as for "draw ethanol".
+    # A compound ("Dibújame ethanol") is the chemistry card's to draw, as "draw ethanol" is.
     return None if extract_compound_name(f"draw {found[0]}") is not None else found[0]
 
 
@@ -206,7 +207,7 @@ def extract_other_language_prompt(text: str) -> str | None:
     beside a draw-me line is often about it ("¿Cómo se dice en inglés? Dibújame un gato").
     A quoted line ("«Dibújame un cordero»: ¿quién lo dijo?") is no request at all.
     """
-    trimmed = straighten_apostrophes(text.strip())
+    trimmed = unify_devanagari(straighten_apostrophes(text.strip()))
     if not trimmed or len(trimmed) > _MAX_CHARS or _quoted(trimmed):
         return None
     return _read_picture(trimmed, _tokens_of(trimmed))

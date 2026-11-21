@@ -6,11 +6,12 @@ and Hindi:
 
 - "draw me": a draw verb addressed to the assistant with "me" ("dibújame", "¿me
   dibujas …?", "dessine-moi", "me desenhe", "нарисуй мне", "bana … çiz", "… ሳልልኝ",
-  "मेरे लिए … बनाओ");
+  "मेरे लिए … ड्रा करो", "मेरे लिए … का चित्र बनाओ");
 - "create a picture of": create or generate, a picture noun, then "of" ("crea una
-  imagen de", "… resmi oluştur", "создай картинку …", "… का चित्र बनाओ").
+  imagen de", "… resmi oluştur", "создай картинку …", "… की तस्वीर बनाओ").
 
-Everything else ("Dibuja un gato", "बिल्ली बनाओ") is answered in words, as on main.
+Everything else ("Dibuja un gato", "बिल्ली बनाओ", "फूल का चित्र बनाइए") is answered in
+words, as on main.
 
 A shape is written as slots: "a|b ?c d" is "a" or "b", then an optional "c", then "d";
 "_" joins the words of one choice ("peux_tu").
@@ -51,13 +52,18 @@ class Shape:
     # Their lengths, longest first: a set lookup per length, not a scan of every phrase.
     lead_sizes: tuple[int, ...] = ()
     tail_sizes: tuple[int, ...] = ()
+    # The subject must name a new thing with one of these: Hindi has no article, so a bare
+    # "फूल का चित्र बनाइए" is the textbook's figure of the flower, and "एक फूल" a new one.
+    new_thing: frozenset[str] = frozenset()
 
 
-def _shape(lead: str = "", tail: str = "", of_prefix: str = "") -> Shape:
+def _shape(lead: str = "", tail: str = "", of_prefix: str = "", new_thing: str = "") -> Shape:
     leads = _expand(lead) if lead else frozenset({()})
     tails = _expand(tail) if tail else frozenset({()})
-    sizes = [tuple(sorted({len(seq) for seq in seqs}, reverse=True)) for seqs in (leads, tails)]
-    return Shape(leads, tails, of_prefix, *sizes)
+    lead_sizes, tail_sizes = (
+        tuple(sorted({len(seq) for seq in seqs}, reverse=True)) for seqs in (leads, tails)
+    )
+    return Shape(leads, tails, of_prefix, lead_sizes, tail_sizes, _w(new_thing))
 
 
 @dataclass(frozen=True)
@@ -212,21 +218,31 @@ AMHARIC = Language(
     again=_phrases("እንደገና"),
 )
 
-# Hindi: "बिल्ली का चित्र बनाओ" (make a picture of a cat), "मेरे लिए एक बिल्ली ड्रा करो" (draw
-# me a cat). "बनाओ" without a picture word draws nothing: it also cooks ("मेरे लिए चाय
-# बनाओ"), builds and makes plans.
+# Hindi has no article, and "चित्र बनाइए" (draw the figure) is how a textbook asks for a
+# diagram, as "Dibuja" is in Spanish. So, as there, only the unmistakable shapes draw:
+# - addressed, "for me": "मेरे लिए एक काली बिल्ली ड्रा करो", "मेरे लिए शेर का चित्र बना दो";
+# - "create an image of", a picture noun no textbook asks for: "ड्रैगन की तस्वीर बनाइए",
+#   "पहाड़ों की पेंटिंग बनाइए";
+# - the figure noun or the draw verb with a new thing, "एक": "एक बिल्ली का चित्र बनाओ".
+# A bare "फूल का चित्र बनाइए" or "बिल्ली ड्रा करो" is answered in words. "बनाओ" without a
+# picture word draws nothing: it also cooks ("मेरे लिए चाय बनाओ"), builds and makes plans.
 _HI_MAKE = (
     "बनाओ|बनाइए|बनाइये|बनाएँ|बनाएं|बना_दो|बना_दीजिए|बना_दीजिये|बना_दें|बना_देना|बनाकर_दो|बनाकर_दिखाओ"
 )
 _HI_DRAW = "ड्रा_करो|ड्रा_कीजिए|ड्रा_कीजिये|ड्रा_करें|ड्रा_कर_दो|स्केच_करो|स्केच_कीजिए"
-_HI_PICTURE = "चित्र|तस्वीर|तसवीर|इमेज|छवि|पेंटिंग|ड्राइंग"
+_HI_IMAGE = "तस्वीर|तसवीर|इमेज|छवि|पेंटिंग"
+_HI_FIGURE = "चित्र|ड्राइंग"
 _HI_FOR_ME = "मेरे_लिए|मेरे_लिये|हमारे_लिए|मुझे"
+_HI_OF = "का|की|के"
 
 HINDI = Language(
     "hi",
     shapes=(
-        _shape(f"?{_HI_FOR_ME}", f"का|की|के {_HI_PICTURE} {_HI_MAKE}|{_HI_DRAW}"),
-        _shape(f"?{_HI_FOR_ME}", _HI_DRAW),
+        _shape(_HI_FOR_ME, f"{_HI_OF} {_HI_IMAGE}|{_HI_FIGURE} {_HI_MAKE}|{_HI_DRAW}"),
+        _shape(_HI_FOR_ME, _HI_DRAW),
+        _shape(tail=f"{_HI_OF} {_HI_IMAGE} {_HI_MAKE}|{_HI_DRAW}"),
+        _shape(tail=f"{_HI_OF} {_HI_FIGURE} {_HI_MAKE}|{_HI_DRAW}", new_thing="एक"),
+        _shape(tail=_HI_DRAW, new_thing="एक"),
     ),
     polite=_phrases("कृपया प्लीज़ प्लीज जरा ज़रा"),
     pronouns=_w("इसे उसे इन्हें उन्हें यह वह ये वो इसको उसको इसका उसका"),

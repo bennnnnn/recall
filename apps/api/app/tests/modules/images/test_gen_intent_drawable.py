@@ -64,9 +64,9 @@ def test_an_everyday_picture_still_draws(lang: str, text: str) -> None:
         ("ቀይ መኪና ሳልልኝ", "ቀይ መኪና"),
         # Hindi closes with the noun; an adjective agrees with it ("काला" → काली, काले).
         ("मेरे लिए एक काली बिल्ली ड्रा करो", "काली बिल्ली"),
-        ("काले घोड़े का चित्र बनाओ", "काले घोड़े"),
+        ("मेरे लिए काले घोड़े का चित्र बनाओ", "काले घोड़े"),
         ("लाल टोपी वाली बिल्ली की तस्वीर बनाइए", "लाल टोपी वाली बिल्ली"),
-        ("समुद्र तट पर सूर्यास्त का चित्र बनाओ", "समुद्र तट पर सूर्यास्त"),
+        ("मेरे लिए समुद्र तट पर सूर्यास्त का चित्र बनाओ", "समुद्र तट पर सूर्यास्त"),
         ("एक बिल्ली और एक कुत्ते का चित्र बनाओ", "बिल्ली और एक कुत्ते"),
     ],
 )
@@ -92,10 +92,10 @@ def test_a_subject_of_listed_words_draws(text: str, subject: str) -> None:
         # Something more than a picture said with a verb: answered, not drawn.
         "ኮፍያ ያደረገች ድመት ሳልልኝ",
         # Hindi: a map, a plan, a family tree, a flower's parts.
-        "भारत के नक्शे का चित्र बनाओ",
-        "मेरे घर के नक्शे का चित्र बनाओ",
-        "परिवार के पेड़ का चित्र बनाओ",
-        "फूल के भागों का चित्र बनाओ",
+        "मेरे लिए भारत के नक्शे का चित्र बनाओ",
+        "मेरे लिए मेरे घर के नक्शे का चित्र बनाओ",
+        "मेरे लिए परिवार के पेड़ का चित्र बनाओ",
+        "मेरे लिए फूल के भागों का चित्र बनाओ",
     ],
 )
 def test_a_subject_with_an_unlisted_noun_is_answered(text: str) -> None:
@@ -113,7 +113,7 @@ def test_a_subject_with_an_unlisted_noun_is_answered(text: str) -> None:
         "Нарисуй мне кота символами",
         "Bana ASCII ile bir kedi çiz",
         "በASCII ድመት ሳልልኝ",
-        "ASCII में बिल्ली का चित्र बनाओ",
+        "मेरे लिए ASCII में बिल्ली का चित्र बनाओ",
         # Data structures and circuits on a listed tree, forest or bridge.
         "Dibújame un árbol binario",
         "Dessine-moi une forêt aléatoire",
@@ -146,7 +146,7 @@ def test_a_listed_noun_with_an_unlisted_word_is_answered(text: str) -> None:
         "Нарисуй мне собаку и придумай ей имя",
         "Bana bir köpek çiz ve isim öner",
         "ውሻ ሳልልኝና ስም ጠቁመኝ",
-        "कुत्ते का चित्र बनाओ और उसका नाम सुझाओ",
+        "मेरे लिए कुत्ते का चित्र बनाओ और उसका नाम सुझाओ",
     ],
 )
 def test_a_second_request_after_the_picture_is_answered(text: str) -> None:

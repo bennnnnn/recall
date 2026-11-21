@@ -6040,7 +6040,7 @@
   {
     "id": "pl-hi-01",
     "area": "picture languages",
-    "prompt": "बिल्ली का चित्र बनाओ",
+    "prompt": "मेरे लिए बिल्ली का चित्र बनाओ",
     "history": [],
     "reply": "यह रहा आपका चित्र। क्या आप कोई और शैली चाहेंगे?",
     "expect": "image_gen"
@@ -6260,5 +6260,68 @@
     "reply": "ज़रूर, मैं इसे शब्दों में समझाता हूँ।",
     "expect": "answer",
     "note": "a graph, maths' to draw"
+  },
+  {
+    "id": "pl-hi-27",
+    "area": "picture languages",
+    "prompt": "बिल्ली का चित्र बनाओ",
+    "history": [],
+    "reply": "ज़रूर, मैं इसे शब्दों में समझाता हूँ।",
+    "expect": "answer",
+    "note": "bare figure noun: neither addressed nor a new thing (एक)"
+  },
+  {
+    "id": "pl-hi-28",
+    "area": "picture languages",
+    "prompt": "फूल का चित्र बनाइए",
+    "history": [],
+    "reply": "ज़रूर, मैं इसे शब्दों में समझाता हूँ।",
+    "expect": "answer",
+    "note": "the textbook's figure of a flower"
+  },
+  {
+    "id": "pl-hi-29",
+    "area": "picture languages",
+    "prompt": "ज्वालामुखी का चित्र बनाइए",
+    "history": [],
+    "reply": "ज़रूर, मैं इसे शब्दों में समझाता हूँ।",
+    "expect": "answer",
+    "note": "a school diagram of a volcano"
+  },
+  {
+    "id": "pl-hi-30",
+    "area": "picture languages",
+    "prompt": "इंद्रधनुष का चित्र बनाइए",
+    "history": [],
+    "reply": "ज़रूर, मैं इसे शब्दों में समझाता हूँ।",
+    "expect": "answer",
+    "note": "a school figure"
+  },
+  {
+    "id": "pl-hi-31",
+    "area": "picture languages",
+    "prompt": "बिल्ली ड्रा करो",
+    "history": [],
+    "reply": "ज़रूर, मैं इसे शब्दों में समझाता हूँ।",
+    "expect": "answer",
+    "note": "a bare draw verb, as Spanish \"Dibuja un gato\""
+  },
+  {
+    "id": "pl-hi-32",
+    "area": "picture languages",
+    "prompt": "एक बिल्ली का चित्र बनाओ",
+    "history": [],
+    "reply": "यह रहा आपका चित्र। क्या आप कोई और शैली चाहेंगे?",
+    "expect": "image_gen",
+    "note": "a new thing, एक"
+  },
+  {
+    "id": "pl-hi-33",
+    "area": "picture languages",
+    "prompt": "मेरे लिए एक घोड़ा ड्रा करो",
+    "history": [],
+    "reply": "यह रहा आपका चित्र। क्या आप कोई और शैली चाहेंगे?",
+    "expect": "image_gen",
+    "note": "ड़ typed as one sign (U+095C)"
   }
 ]

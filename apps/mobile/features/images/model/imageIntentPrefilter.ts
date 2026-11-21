@@ -52,8 +52,9 @@ const SHORT_REQUEST = 80;
 /**
  * The same in the app's other languages (gen_intent_languages.py): the server draws there
  * only "draw me" ("dibújame", "bana … çiz", "ድመት ሳልልኝ", "मेरे लिए … ड्रा करो") and "create
- * a picture of" ("crea una ilustración de", "… का चित्र बनाओ"), so these are its draw verbs
- * and picture nouns.
+ * a picture of" ("crea una ilustración de", "… की तस्वीर बनाओ"), so these are its draw verbs
+ * and picture nouns. They ask more than it draws: the server answers a bare "फूल का चित्र
+ * बनाइए" (a textbook's figure) in words.
  */
 const OTHER_LANGUAGE_WORDS = new RegExp(
   "(?:^|[^a-z0-9_])(?:" +

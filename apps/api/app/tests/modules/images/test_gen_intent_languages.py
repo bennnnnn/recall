@@ -3,7 +3,7 @@
 "Dibújame un gato con sombrero" drew nothing on main: every rule read English words.
 Now a draw verb addressed with "me" ("dibújame", "¿me dibujas …?", "нарисуй мне", "bana …
 çiz", "… ሳልልኝ", "मेरे लिए … ड्रा करो") and "create a picture of" ("crea una imagen de",
-"… का चित्र बनाओ") draw a short, plain subject whose every word is
+"… की तस्वीर बनाओ", "एक … का चित्र बनाओ") draw a short, plain subject whose every word is
 listed (``test_gen_intent_drawable``), when that request is the whole message. Everything
 else in those languages is answered in words, as on main.
 """
@@ -85,7 +85,8 @@ DRAWN: dict[str, list[tuple[str, str]]] = {
         ("ፈረስ ሳልልኝ", "ፈረስ"),
     ],
     "hi": [
-        ("बिल्ली का चित्र बनाओ", "बिल्ली"),
+        ("मेरे लिए बिल्ली का चित्र बनाओ", "बिल्ली"),
+        ("एक बिल्ली का चित्र बनाओ", "बिल्ली"),
         ("मेरे लिए एक काली बिल्ली ड्रा करो", "काली बिल्ली"),
         ("कृपया एक ड्रैगन की तस्वीर बनाइए", "ड्रैगन"),
         ("मेरे लिए एक शेर का चित्र बना दो", "शेर"),
@@ -126,7 +127,18 @@ ANSWERED = [
     "Dibújame y = x^2",
     "Zeichne mir Ethanol",
     # Hindi: "बनाओ" without a picture word also cooks, builds and plans; a school figure.
+    # A bare "<noun> का चित्र बनाइए" is how a textbook asks for its figure, and a bare draw
+    # verb is "Dibuja un gato": neither is addressed nor names a new thing with "एक".
     "बिल्ली बनाओ",
+    "बिल्ली का चित्र बनाओ",
+    "बिल्ली ड्रा करो",
+    "फूल का चित्र बनाइए",
+    "ज्वालामुखी का चित्र बनाइए",
+    "पत्ते का चित्र बनाइए",
+    "ग्रह का चित्र बनाइए",
+    "इंद्रधनुष का चित्र बनाइए",
+    "बादल का चित्र बनाइए",
+    "नदी का चित्र बनाइए",
     "मेरे लिए चाय बनाओ",
     "मेरे लिए एक योजना बनाओ",
     "इसका चित्र बनाओ",
@@ -293,3 +305,17 @@ def test_english_draw_me_with_a_second_request_draws_only_the_picture_part(text:
     assert extract_image_gen_prompt(text) is None
     plan = plan_turn(text)
     assert plan.parts[0].kind == "image" and plan.parts[0].text.startswith("draw me a cat")
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # ड़ and ज़ typed as one sign (U+095C, U+095B) or as the letter and its dot.
+        "मेरे लिए एक घोड़ा ड्रा करो",
+        "मेरे लिए एक घोड़ा ड्रा करो",
+        "प्लीज़ मेरे लिए एक घोड़ा ड्रा करो",
+        "प्लीज़ मेरे लिए एक घोड़ा ड्रा करो",
+    ],
+)
+def test_a_dotted_hindi_letter_reads_either_way(text: str) -> None:
+    assert extract_image_gen_prompt(text) == "घोड़ा"
