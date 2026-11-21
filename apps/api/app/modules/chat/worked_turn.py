@@ -23,13 +23,19 @@ import re
 from typing import Any, get_args
 
 from app.core.config import Settings
-from app.modules.chat.prompt_constants.worked import RESULT_CHECK_CONTRACT, WORKED_BLOCK_CONTRACT
+from app.modules.chat.prompt_constants.worked import (
+    RESULT_CHECK_CONTRACT,
+    WORKED_BLOCK_CONTRACT,
+    WORKED_PARTS_NOTE,
+    worked_parts_note,
+)
 from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.turn_trace import note_prompt_rule
 from app.modules.chat.worked_render import WorkedLayout
 from app.modules.turn_reading.question_kinds import is_science_question
 from app.modules.turn_reading.school_question import is_school_exercise
 from app.modules.turn_reading.turn import current_turn_reading, teaching_of
+from app.services.question_parts import labelled_part_texts
 from app.services.school_rounding import asked_rounding
 from app.services.solving import SubjectName
 from app.services.student_claim import only_checks_stated_results
@@ -61,7 +67,10 @@ def worked_layout(
     if not _calculation(content, subject) or only_checks_stated_results(content):
         return None
     figures, places, _ = asked_rounding(content)
-    return WorkedLayout(law_heading=subject == "physics", asked=(figures, places))
+    _stem, parts = labelled_part_texts(content)
+    return WorkedLayout(
+        law_heading=subject == "physics", asked=(figures, places), question_parts=parts
+    )
 
 
 def checks_stated_results(
@@ -106,10 +115,16 @@ def states_a_quantity(content: str) -> bool:
     return _QUANTITY.search(content) is not None
 
 
-def with_worked_contract(messages: list[dict[str, str]]) -> list[dict[str, str]]:
-    """The prompt with the block's contract beside the user's message."""
+def with_worked_contract(
+    messages: list[dict[str, str]], layout: WorkedLayout | None = None
+) -> list[dict[str, str]]:
+    """The prompt with the block's contract beside the user's message, and, for a question
+    in lettered parts, the note naming them (``WORKED_PARTS_NOTE``)."""
     note_prompt_rule("subject.worked")
-    return inject_before_last_user(messages, WORKED_BLOCK_CONTRACT)
+    messages = inject_before_last_user(messages, WORKED_BLOCK_CONTRACT)
+    if layout is not None and layout.question_parts:
+        messages = inject_before_last_user(messages, worked_parts_note(layout.question_parts))
+    return messages
 
 
 def with_result_check_contract(messages: list[dict[str, str]]) -> list[dict[str, str]]:
@@ -119,5 +134,11 @@ def with_result_check_contract(messages: list[dict[str, str]]) -> list[dict[str,
 
 
 def without_worked_contract(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """The prompt without it: a tool verified the turn after it was built."""
-    return [message for message in messages if message.get("content") != WORKED_BLOCK_CONTRACT]
+    """The prompt without it (and its parts note): a tool verified the turn after it was
+    built."""
+    return [
+        message
+        for message in messages
+        if message.get("content") != WORKED_BLOCK_CONTRACT
+        and not str(message.get("content") or "").startswith(WORKED_PARTS_NOTE)
+    ]
