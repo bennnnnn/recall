@@ -1,6 +1,6 @@
 import fixture from "../../../../docs/fixtures/server_figures.json";
 
-import { labelClashes, strokesOf, type Stroke } from "@/lib/math/figurePlacement";
+import { labelTouches, strokesOf, type Stroke } from "@/lib/math/figurePlacement";
 import { figureLayout, parseFigure } from "@/lib/math/geometryFigure";
 
 type Case = { id: string; figure: Record<string, unknown> };
@@ -19,7 +19,10 @@ function clashes(raw: Record<string, unknown>, width: number): string[] {
     ...layout.angleArcs.flatMap(strokesOf),
     ...layout.dots.map((dot): Stroke => [dot, dot]),
   ];
-  return labelClashes(layout.labels, strokes);
+  return layout.labels.flatMap((label, i) => {
+    const count = labelTouches(label, strokes, layout.labels.slice(0, i));
+    return count ? [`"${label.text}" touches ${count} line(s) or label(s)`] : [];
+  });
 }
 
 describe("the server's figures for the geometry corpus", () => {

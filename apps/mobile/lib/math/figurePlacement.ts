@@ -62,45 +62,29 @@ function overlaps(a: Box, b: Box): boolean {
   return a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
 }
 
-/** How many strokes and placed labels the label's text would touch. */
-function hits(label: FigureLabel, strokes: Stroke[], taken: Box[]): number {
+/** How many strokes and other labels the label's text touches: what a reader would see
+ * written over the drawing. */
+export function labelTouches(label: FigureLabel, strokes: Stroke[], others: FigureLabel[]): number {
   const r = box(label);
-  return strokes.filter((stroke) => crosses(stroke, r)).length + taken.filter((other) => overlaps(r, other)).length;
+  return strokes.filter((stroke) => crosses(stroke, r)).length + others.filter((other) => overlaps(r, box(other))).length;
 }
 
 /** Places each label in turn at its first clear spot; `options` lists each one's places, best first. */
 export function placeLabels(options: FigureLabel[][], strokes: Stroke[]): FigureLabel[] {
-  const taken: Box[] = [];
   const out: FigureLabel[] = [];
   for (const places of options) {
     let best: FigureLabel | undefined;
     let fewest = Infinity;
     for (const place of places) {
-      const count = hits(place, strokes, taken);
+      const count = labelTouches(place, strokes, out);
       if (count < fewest) {
         best = place;
         fewest = count;
       }
       if (count === 0) break;
     }
-    if (!best) continue;
-    taken.push(box(best));
-    out.push(best);
+    if (best) out.push(best);
   }
-  return out;
-}
-
-/** Each label's clashes with the strokes and with the labels before it: what a reader would
- * see written over the drawing. */
-export function labelClashes(labels: FigureLabel[], strokes: Stroke[]): string[] {
-  const out: string[] = [];
-  labels.forEach((label, i) => {
-    const r = box(label);
-    const lines = strokes.filter((stroke) => crosses(stroke, r)).length;
-    const others = labels.slice(0, i).filter((other) => overlaps(r, box(other))).map((other) => other.text);
-    if (lines) out.push(`"${label.text}" crosses ${lines} stroke(s)`);
-    if (others.length) out.push(`"${label.text}" overlaps ${others.map((t) => `"${t}"`).join(", ")}`);
-  });
   return out;
 }
 
