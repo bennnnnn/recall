@@ -394,6 +394,14 @@ describe("a vector resolved into components", () => {
     expect(centre(vertical!.label!.box).py).toBeCloseTo((vertical!.from.py + vertical!.tip.py) / 2, 6);
   });
 
+  it("puts the angle's label beside its arc, never across the next side", () => {
+    const { scene } = layout(parse(STEEP));
+    const [, horizontal] = scene.vectors;
+    const box = scene.angles[0]!.label!.box;
+    // Left of the vertical side: the 80° no longer reads as that side's label.
+    expect(box.x + box.width).toBeLessThanOrEqual(horizontal!.tip.px);
+  });
+
   it("keeps the angle's arc inside the shorter side it sits on", () => {
     const { scene } = layout(parse(STEEP));
     const [, horizontal] = scene.vectors;

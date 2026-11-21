@@ -85,7 +85,8 @@ export type DerivedArrow = {
 };
 
 /** An angle before its label is placed. */
-export type AngleShape = Omit<AngleLayout, "label">;
+/** An angle's layout before its label is placed; `cramped` when its arc shrank to fit a short side. */
+export type AngleShape = Omit<AngleLayout, "label"> & { cramped: boolean };
 
 /** Every line a label might sit on, at each frame. */
 export type SceneLines = {
@@ -325,7 +326,7 @@ export function layoutAngles(scene: SceneFrames): {
         arc = angleArcPoints(vertex, angle.startDeg, angle.startDeg + sweep - short, radius);
       }
     }
-    return { angle, vertex, radius, arc, head };
+    return { angle, vertex, radius, arc, head, cramped: radius < wanted };
   });
   const arcLines = angleShapes.map(({ arc, head }) => [
     ...polylineSegments(arc),

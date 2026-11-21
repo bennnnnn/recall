@@ -166,7 +166,46 @@ export function angleLabelBox(
   labelWidth: number,
   fontSize: number,
 ): LabelBox {
-  const mid = ((startDeg + angleSweep(startDeg, endDeg) / 2) * Math.PI) / 180;
+  return angleLabelBoxToward(
+    vertex,
+    startDeg + angleSweep(startDeg, endDeg) / 2,
+    radius,
+    labelWidth,
+    fontSize,
+  );
+}
+
+/** How far past an arc's edge its label may sit when the angle is too thin to hold it. */
+const BEYOND_EDGE_DEG = 22;
+
+/**
+ * Where else an angle's label may go: just outside its arc, past either edge. A steep
+ * 80° beside a short side has no room inside its wedge, and nudged out it landed across
+ * the next side, reading as that side's label (owner, 2026-11-20).
+ */
+export function angleLabelBoxesBeyond(
+  vertex: ScreenPoint,
+  startDeg: number,
+  endDeg: number,
+  radius: number,
+  labelWidth: number,
+  fontSize: number,
+): LabelBox[] {
+  const sense = angleSweep(startDeg, endDeg) >= 0 ? 1 : -1;
+  return [endDeg + sense * BEYOND_EDGE_DEG, startDeg - sense * BEYOND_EDGE_DEG].map((deg) =>
+    angleLabelBoxToward(vertex, deg, radius, labelWidth, fontSize),
+  );
+}
+
+/** A label box just past an arc of `radius`, in the direction `deg` from its vertex. */
+function angleLabelBoxToward(
+  vertex: ScreenPoint,
+  deg: number,
+  radius: number,
+  labelWidth: number,
+  fontSize: number,
+): LabelBox {
+  const mid = (deg * Math.PI) / 180;
   const ux = Math.cos(mid);
   const uy = -Math.sin(mid);
   const reach = LABEL_GAP + (Math.abs(ux) * labelWidth) / 2 + (Math.abs(uy) * fontSize) / 2;

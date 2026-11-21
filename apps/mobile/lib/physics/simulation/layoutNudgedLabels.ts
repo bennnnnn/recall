@@ -20,7 +20,7 @@ import {
   type SceneLines,
   type Shaft,
 } from "@/lib/physics/simulation/layoutShapes";
-import { angleLabelBox } from "@/lib/physics/simulation/parts";
+import { angleLabelBox, angleLabelBoxesBeyond } from "@/lib/physics/simulation/parts";
 import { type SimulationArrow, type SimulationVector } from "@/lib/physics/simulation/spec";
 import { type ScreenPoint } from "@/lib/physics/simulation/viewport";
 
@@ -174,9 +174,17 @@ export function wantedAngleLabels(
 ): Wanted[] {
   const { measureText, fontSize, progresses } = scene;
   const wanted: Wanted[] = [];
-  angleShapes.forEach(({ angle, vertex, radius }, index) => {
+  angleShapes.forEach(({ angle, vertex, radius, cramped }, index) => {
     if (!angle.label) return;
     const box = angleLabelBox(
+      vertex,
+      angle.startDeg,
+      angle.endDeg,
+      radius,
+      measureText(angle.label),
+      fontSize,
+    );
+    const beyond = angleLabelBoxesBeyond(
       vertex,
       angle.startDeg,
       angle.endDeg,
@@ -189,7 +197,15 @@ export function wantedAngleLabels(
       index,
       result: angle.role === "result",
       label: {
-        homes: [progresses.map(() => box)],
+        // Inside the angle first. In a vector diagram, whose angles sit between drawn sides,
+        // also past either edge, and those first when the arc had to shrink to fit a short
+        // side: there is no room inside, and nudged out the label crossed the next side.
+        homes: (scene.spec.type !== "vector_sum"
+          ? [box]
+          : cramped
+            ? [...beyond, box]
+            : [box, ...beyond]
+        ).map((home) => progresses.map(() => home)),
         each: false,
         avoid: progresses.map((_, frame) => linesAt(lines, frame, { angle: index })),
       },
@@ -291,8 +307,9 @@ export function placeVectorLabels(
 export function placeAngleLabels(angleShapes: AngleShape[], outcome: Outcome): AngleLayout[] {
   return angleShapes.map((shape, index): AngleLayout => {
     const box = outcome.get(`angle:${index}`)?.boxes[0];
+    const { cramped: _cramped, ...layout } = shape;
     return {
-      ...shape,
+      ...layout,
       label: box && shape.angle.label ? placedLabel(shape.angle.label, box) : null,
     };
   });
