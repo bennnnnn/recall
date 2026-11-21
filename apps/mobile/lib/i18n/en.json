@@ -523,7 +523,7 @@
   "notifications.todo_reminder_body": "{{content}} — due at {{time}}",
   "notifications.todo_reminder_title": "To-do",
   "onboarding.consent_agree": "Agree and continue",
-  "onboarding.consent_chats_body": "Your messages, recent chat history, relevant saved memory and profile details go to AI model providers such as Anthropic, OpenAI, DeepSeek, Qwen and Z.ai, through OpenRouter.",
+  "onboarding.consent_chats_body": "Your messages, recent chat history, relevant saved memory and profile details go to AI model providers such as Anthropic, OpenAI, DeepSeek, Qwen, Z.ai and Tencent, through OpenRouter.",
   "onboarding.consent_chats_title": "Chats and memory",
   "onboarding.consent_decline": "Not now, sign out",
   "onboarding.consent_delete": "Delete my account",

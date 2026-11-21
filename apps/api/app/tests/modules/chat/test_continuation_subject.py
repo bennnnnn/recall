@@ -189,7 +189,7 @@ def test_another_inherits_the_strong_model_after_a_hard_turn() -> None:
         "Write me an email"
     )
     assert route_chat_model("explain photosynthesis", prior_user="debug this algorithm") == (
-        "qwen-3.7-flash"
+        "hy4-flash"
     )
 
 
