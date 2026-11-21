@@ -14,7 +14,16 @@ from unittest.mock import patch
 import pytest
 
 from app.core import readings
-from app.core.readings import begin_turn, first_read, kept_per_turn, read_off_loop, reading
+from app.core.readings import (
+    begin_turn,
+    first_read,
+    keep_for_turn,
+    kept_for_turn,
+    kept_per_turn,
+    read_off_loop,
+    reading,
+    readings_declined,
+)
 
 CALLS: list[str] = []
 
@@ -172,3 +181,17 @@ async def test_a_declined_turn_still_runs_its_kept_readers() -> None:
     assert counted("ab") == 2
     assert counted("ab") == 2
     assert CALLS == ["ab"]
+
+
+async def test_what_the_turn_keeps_for_itself_is_never_sent_to_the_pool() -> None:
+    # The turn's live read is a running task, which no worker process can take: kept in
+    # the seed, it failed every live turn's read (2026-11-21). The tests' pool pickles
+    # its arguments as production's does.
+    begin_turn()
+    task = asyncio.create_task(asyncio.sleep(0))
+    keep_for_turn("live_read", task)
+
+    assert await read_off_loop(read_both, "a", "b", timeout=5) == "done"
+    assert not readings_declined()
+    assert kept_for_turn("live_read") is task
+    await task
