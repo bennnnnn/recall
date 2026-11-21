@@ -47,6 +47,8 @@ _PLACED: dict[str, Callable[[FigureRequest], FigureSpec | None]] = {
 
 def build_polygon(request: FigureRequest) -> FigureSpec | None:
     shape = request.shape
+    if request.given("shadow"):
+        return similar.build_shadows(request)
     if request.attached:
         return composite.build_composite(request)
     if shape in _PLACED:
@@ -54,9 +56,7 @@ def build_polygon(request: FigureRequest) -> FigureSpec | None:
     if shape in triangles.TRIANGLES and any(m.what in heights.ROLES for m in request.measures):
         # A right triangle read by a scene's roles (a wire's length, a distance along the
         # ground): the scene's triangle, upright.
-        return heights.build_scene(request.model_copy(update={"shape": "elevation"}))
-    if shape in triangles.TRIANGLES and request.given("shadow"):
-        return similar.build_shadows(request)
+        return heights.build_scene(heights.as_scene(request))
     if request.given("exterior_angle") and shape in triangles.TRIANGLES:
         return exterior.build_exterior(request)
     if request.angle_terms and shape in triangles.TRIANGLES:

@@ -51,9 +51,12 @@ def _opposite(
     a, b, c = names
     found: dict[str, float] = {}
     unnamed: list[float] = []
+    outside = request.given("exterior_angle")[0]
     for m in request.given("angle"):
         name = m.name.strip()
         vertex = name[1] if len(name) == 3 else name[:1]
+        if name and name == outside.name.strip() and m.value == outside.value:
+            continue  # the exterior angle read twice, once as a plain angle
         if vertex == c:
             if abs(m.value + exterior - 180) > _TOLERANCE:
                 return None

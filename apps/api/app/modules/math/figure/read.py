@@ -143,8 +143,9 @@ _BODY = (
     'beside name): an object\'s ("pole", "tree"); in a shape made of two, the attached '
     "part's name "
     '("semicircle", "cone", "triangle"), "second" for a second rectangle, "" for the first '
-    "shape; the side a semicircle stands on is its diameter too. A whole solid's height "
-    'has of "total". A regular polygon\'s perimeter is perimeter, never its side; '
+    "shape; the side a semicircle stands on is its diameter too. In a solid made of two, "
+    'a height is of its own part ("cone", "cylinder"). A regular polygon\'s perimeter is '
+    "perimeter, never its side; "
     "interior_angle and exterior_angle are each angle of a regular polygon, and "
     'exterior_angle a triangle\'s exterior angle (its name "ACD" or "C"); sides only '
     "when the question states the number.\n"

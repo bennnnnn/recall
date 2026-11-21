@@ -120,3 +120,10 @@ def test_heights_values_that_cannot_hold_draw_nothing(
 def test_heights_an_unknown_scene_draws_nothing() -> None:
     request = FigureRequest.model_validate(_scene("balloon", ("height", 3)))
     assert build_scene(request) is None
+
+
+def test_heights_a_triangles_base_is_the_scenes_ground() -> None:
+    reading = _scene("right_triangle", ("length", 10), ("base", 6))
+    spec = figure(LADDER, reading)
+    assert labels(spec) == ["10 m", "6 m"]
+    assert _top(spec) == pytest.approx(8)

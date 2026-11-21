@@ -5,9 +5,10 @@ question states. Only a reading: every number in it is checked against the quest
 from __future__ import annotations
 
 import math
+import re
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.modules.math.drawing.plot_reading import number
 
@@ -61,6 +62,11 @@ ANGLE_WHATS = frozenset(
 _KINDS = ("none", "polygon", "circle", "lines", "solid", "number_line", "function", "points")
 
 
+# A word naming an object rather than points is this long at least ("cone", "ship").
+_WORD = 3
+_LEADING = re.compile(r"\s*\d+(?:\.\d+)?")
+
+
 class Measure(BaseModel):
     """One value the question states: what it measures, the letters naming it ("AB",
     "A"), and the number as written."""
@@ -72,12 +78,29 @@ class Measure(BaseModel):
     # the attached shape's name, an object's, or "second"; "" for the main shape.
     of: str = Field(default="", max_length=16)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _named_object(cls, data: Any) -> Any:
+        """A measure named by a word ("lighthouse", "cone") names no points: the word says
+        what the value is of. A value written with its unit ("50 m", "35°") is its number.
+        Either read otherwise lost the measure, and the picture a stated value."""
+        if not isinstance(data, dict):
+            return data
+        data = dict(data)
+        name = str(data.get("name") or "").strip()
+        if len(name) >= _WORD and name.isalpha() and name.islower():
+            data["name"] = ""
+            data["of"] = data.get("of") or name
+        value = data.get("value")
+        if isinstance(value, str) and (found := _LEADING.match(value)):
+            data["value"] = found.group()
+        return data
+
     @field_validator("of", mode="before")
     @classmethod
     def _of(cls, value: Any) -> str:
-        return " ".join(str(value or "").strip().lower().replace("-", " ").split()).replace(
-            " ", "_"
-        )
+        text = " ".join(str(value or "").strip().lower().replace("-", " ").split())
+        return text.replace(" ", "_")[:16]
 
 
 class AngleTerm(BaseModel):

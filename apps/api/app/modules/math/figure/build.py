@@ -100,7 +100,9 @@ def _names_attached(request: FigureRequest, texts: list[str]) -> bool:
     """A shape made of two is one the question names both parts of: a semicircle, a
     triangle or a second rectangle it writes, a cone or a hemisphere it names."""
     if request.kind == "polygon":
-        return composite.names_part(texts, request.attached)
+        # A second shape no composite draws ("shadows") is drawn by its own builder or not.
+        attached = request.attached
+        return attached not in composite.ATTACHED or composite.names_part(texts, attached)
     solid = request.attached.removeprefix("two_").removesuffix("s")
     return (
         solid in _NAMED

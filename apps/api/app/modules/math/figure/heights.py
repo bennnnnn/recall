@@ -108,6 +108,19 @@ def _solve(
     return found if holds else None
 
 
+# A triangle's roles, as a scene's: its base runs along the ground, its hypotenuse slants.
+_AS_SCENE = {"base": "distance", "hypotenuse": "length"}
+
+
+def as_scene(request: FigureRequest) -> FigureRequest:
+    """A right triangle read partly by a scene's roles ("a 15 m wire", "9 m from the foot"),
+    read wholly as the upright scene."""
+    measures = [
+        m.model_copy(update={"what": _AS_SCENE.get(m.what, m.what)}) for m in request.measures
+    ]
+    return request.model_copy(update={"shape": "elevation", "measures": measures})
+
+
 def build_scene(request: FigureRequest) -> FigureSpec | None:
     scene = SCENES.get(request.shape)
     if scene is None:
