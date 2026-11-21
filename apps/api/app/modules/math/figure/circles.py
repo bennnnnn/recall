@@ -46,14 +46,25 @@ _THEOREMS: dict[str, Builder] = {
     "angle_at_center": circle_angles.build_angle_at_centre,
     "inscribed_angle": circle_angles.build_angle_at_centre,
     "angle_in_semicircle": circle_angles.build_angle_in_semicircle,
-    "semicircle": circle_angles.build_angle_in_semicircle,
     "cyclic_quadrilateral": circle_angles.build_cyclic_quadrilateral,
 }
+
+
+def _semicircle(request: FigureRequest) -> Builder:
+    """A semicircle with a point on its arc (a third letter, an angle there, a side to it) is
+    the angle in a semicircle; one by itself (its radius or diameter, its perimeter or area
+    asked) is drawn as itself, never a whole circle with a triangle in it."""
+    point_on_it = len(request.vertices.strip()) >= 3 or any(
+        m.what not in circle_arcs.SIZES or len(m.name.strip()) == 2 for m in request.measures
+    )
+    return circle_angles.build_angle_in_semicircle if point_on_it else circle_arcs.build_semicircle
 
 
 def _theorem(request: FigureRequest) -> Builder | None:
     """The theorem's builder: by the shape the read names, else by what it measures (a read
     that says "circle" with an angle at the centre is a sector)."""
+    if request.shape in {"semicircle", "semi_circle", "half_circle"}:
+        return _semicircle(request)
     if request.shape in _THEOREMS:
         return _THEOREMS[request.shape]
     if request.inscribed or request.circumscribed:
