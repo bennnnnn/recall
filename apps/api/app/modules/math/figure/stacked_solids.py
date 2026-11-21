@@ -5,15 +5,21 @@ hemisphere at each end (a capsule), a cylinder standing in a hemisphere.
 The reading's ``shape`` is the part named first and ``attached`` the part joined to it; each
 measure says which part it is ``of``. Every part shares one radius (the circle where they
 meet): two radii stated must agree. A part's height is its own: a cone's along its axis, a
-cylinder's along its side; a hemisphere's is its radius. A height the reading does not tie
-to a part is the one part's that has a height of its own, or nothing is drawn. The solid is
-drawn upright as the round solids are (``solids``), each stated size on its own part, true
-to scale; one left open is drawn in proportion, unlabelled.
+cylinder's along its side; a hemisphere's is its radius. The whole solid's height (``of``
+"total", or the question's "total height", "15.5 cm tall altogether") is all the parts'
+together: the one part with a height left open takes what the rest leave, drawn
+unlabelled beside the whole's, labelled. A height the reading ties to no part is the one
+the question writes it with ("a cone of height 8 cm"), or nothing is drawn: "the total
+height of the toy is 15.5 cm" was drawn as a 15.5 cm cone on its hemisphere (2026-11-21).
+The solid is drawn upright as the round solids are (``solids``), each stated size on its
+own part, true to scale; one left open is drawn in proportion, unlabelled.
 """
 
 from __future__ import annotations
 
 import math
+import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from app.modules.math.figure.drawing import Drawing, length_label
@@ -39,6 +45,21 @@ _TOLERANCE = 1e-4
 _RADIUS = 2.0
 # What a part leaves open, against the radius: a cone's height, a cylinder's.
 _CONE, _CYLINDER = 1.6, 1.5
+# What a reading names the whole solid's height ``of``.
+WHOLE = frozenset({"total", "overall", "whole", "entire", "combined"})
+# The whole's height drawn beside the solid, this far out against the radius.
+_BESIDE = 1.4
+# Where a written height is the whole solid's: "the total height ... is 15.5 cm", "a toy of
+# overall height 15.5 cm", "15.5 cm tall altogether".
+_TOTAL_BEFORE = re.compile(
+    r"\b(?:total|overall|whole|entire|combined|complete)\s+(?:height|length)\b[^\d.;]*$"
+    r"|\b(?:height|length)\s+of\s+the\s+(?:whole|entire|complete)\b[^\d.;]*$"
+)
+_TOTAL_AFTER = re.compile(
+    r"^\s*[a-z]*\s*(?:tall|high|long|in height|in length)?\s*"
+    r"(?:altogether|in all|overall|in total)\b"
+)
+_SOLID_WORDS = re.compile(r"\b(cones?|cylinders?|hemispheres?)\b")
 
 
 def stacks(request: FigureRequest) -> bool:
@@ -52,42 +73,85 @@ class _Part:
     slant: float | None = None
 
 
+def heights_as_said(request: FigureRequest, texts: Sequence[str]) -> FigureRequest | None:
+    """The reading with each height tied to what the question writes it of: the whole solid
+    where it says "total height" (``of`` "total"), else the part named before it in its
+    sentence ("a cone of height 8 cm": the cone's) when the read tied it to none. None when
+    the read gives a part the height the question calls the whole's."""
+    if request.kind != "solid" or not stacks(request):
+        return request
+    words = " ".join(texts).lower()
+    measures: list[Measure] = []
+    for m in request.measures:
+        said = _written_of(words, m.value) if m.what == "height" else None
+        if said == "total" and m.of not in WHOLE:
+            if m.of:
+                return None  # the question's whole height read as one part's
+            m = m.model_copy(update={"of": "total"})
+        elif said and not m.of:
+            m = m.model_copy(update={"of": said})
+        measures.append(m)
+    return request.model_copy(update={"measures": measures})
+
+
+def _written_of(words: str, value: float) -> str | None:
+    """What the question writes a height of: "total" (the whole solid's), the solid named
+    last before it in its sentence ("cone"), or None when it is not found or names none."""
+    found = re.search(rf"(?<![\d.]){re.escape(f'{value:g}')}(?![\d]|\.\d)", words)
+    if found is None:
+        return None
+    sentence = re.split(r"[.;?!](?:\s|$)", words[: found.start()])[-1]
+    if _TOTAL_BEFORE.search(sentence) or _TOTAL_AFTER.match(_unit_rest(words, found.end())):
+        return "total"
+    named = _SOLID_WORDS.findall(sentence)
+    return named[-1].removesuffix("s") if named else None
+
+
+def _unit_rest(words: str, end: int) -> str:
+    """The words after a number, its unit skipped ("15.5 cm tall": " tall")."""
+    rest = words[end:]
+    unit = re.match(r"\s*(?:mm|cm|m|km|in|ft|millimetres?|centimetres?|metres?)\b", rest)
+    return rest[unit.end() :] if unit else rest
+
+
 def _owner(m: Measure, parts: list[_Part]) -> list[_Part]:
     solid = m.of.removesuffix("s")
     return [p for p in parts if _SOLID_OF.get(p.kind, p.kind) == solid]
 
 
-def _read(request: FigureRequest, parts: list[_Part]) -> float | bool | None:
-    """The shared radius (None when none is stated), each part's height and slant set;
-    False when the values do not fit the parts."""
+@dataclass
+class _Read:
+    """The shared radius (None when none is stated) and the whole solid's height."""
+
+    radius: float | None
+    total: float | None
+
+
+def _read(request: FigureRequest, parts: list[_Part]) -> _Read | None:
+    """The shared radius and the whole's height, each part's height and slant set; None
+    when the values do not fit the parts. A height tied to no part draws nothing: the
+    whole's and a part's are both written "height"."""
     radii: list[float] = []
-    loose: list[Measure] = []
+    totals: list[float] = []
     for m in request.measures:
         if m.what == "radius":
             radii.append(m.value)
         elif m.what == "diameter":
             radii.append(m.value / 2)
+        elif m.what in {"height", "length"} and m.of in WHOLE:
+            totals.append(m.value)
         elif m.what in {"height", "slant_height"}:
             owners = [p for p in _owner(m, parts) if p.kind not in {"bowl", "dome"}]
-            if m.of and not owners:
-                return False
-            if not m.of:
-                loose.append(m)
-                continue
-            if not _set(owners[0], m):
-                return False
+            loose_slant = not m.of and m.what == "slant_height"
+            if loose_slant:
+                owners = [p for p in parts if p.kind.startswith("cone")]
+            if len(owners) != 1 or not _set(owners[0], m):
+                return None
         else:
-            return False
-    for m in loose:
-        tall = [p for p in parts if p.kind not in {"bowl", "dome"}]
-        open_parts = [p for p in tall if (p.height if m.what == "height" else p.slant) is None]
-        if len(tall) != 1 and len(open_parts) != 1:
-            return False
-        if not _set((open_parts or tall)[0], m):
-            return False
-    if any(abs(r - radii[0]) > _TOLERANCE * radii[0] for r in radii):
-        return False
-    return radii[0] if radii else None
+            return None
+    if len(totals) > 1 or any(abs(r - radii[0]) > _TOLERANCE * radii[0] for r in radii):
+        return None
+    return _Read(radii[0] if radii else None, totals[0] if totals else None)
 
 
 def _set(part: _Part, m: Measure) -> bool:
@@ -102,9 +166,10 @@ def _set(part: _Part, m: Measure) -> bool:
     return True
 
 
-def _sizes(parts: list[_Part], r: float) -> list[float] | None:
-    """Each part's height along the axis; a cone's from its slant when only that is given."""
-    found: list[float] = []
+def _sizes(parts: list[_Part], r: float, total: float | None) -> list[float] | None:
+    """Each part's height along the axis; a cone's from its slant when only that is given,
+    and the one part left open takes what the whole's height leaves (the rest must fit)."""
+    found: list[float | None] = []
     for part in parts:
         if part.kind in {"bowl", "dome"}:
             found.append(r)
@@ -117,8 +182,21 @@ def _sizes(parts: list[_Part], r: float) -> list[float] | None:
             if h is not None and abs(rise - h) > _TOLERANCE * h:
                 return None
             h = rise
-        found.append(h if h is not None else r * (_CYLINDER if part.kind == "cylinder" else _CONE))
-    return found
+        found.append(h)
+    open_parts = [i for i, size in enumerate(found) if size is None]
+    if total is not None:
+        known = sum(size for size in found if size is not None)
+        if not open_parts:
+            if abs(known - total) > _TOLERANCE * total:
+                return None
+        elif len(open_parts) > 1 or total - known <= _TOLERANCE * total:
+            return None
+        else:
+            found[open_parts[0]] = total - known
+    return [
+        size if size is not None else r * (_CYLINDER if part.kind == "cylinder" else _CONE)
+        for part, size in zip(parts, found, strict=True)
+    ]
 
 
 def build_stacked(request: FigureRequest) -> FigureSpec | None:
@@ -126,11 +204,14 @@ def build_stacked(request: FigureRequest) -> FigureSpec | None:
     if kinds is None:
         return None
     parts = [_Part(kind) for kind in kinds]
-    radius = _read(request, parts)
-    if radius is False:
+    read = _read(request, parts)
+    if read is None:
         return None
-    r = float(radius) if isinstance(radius, float) else _RADIUS
-    sizes = _sizes(parts, r)
+    radius = read.radius
+    # Unstated, the radius is the picture's choice: small enough to leave the whole's
+    # height room for its open part.
+    r = radius if radius is not None else min(_RADIUS, (read.total or 4 * _RADIUS) / 4)
+    sizes = _sizes(parts, r, read.total)
     if sizes is None:
         return None
     unit = request.unit
@@ -145,8 +226,13 @@ def build_stacked(request: FigureRequest) -> FigureSpec | None:
     joint = next(p for p in drawing.points if p.name == tops[0])
     joint.dot = True
     edge = drawing.point((r, joint.y))
-    label = length_label(radius, unit) if isinstance(radius, float) else None
+    label = length_label(radius, unit) if radius is not None else None
     drawing.line(joint.name, edge, label, dashed=True)
+    if read.total is not None:
+        # The whole's height beside the solid, from its lowest point to its highest.
+        side = -_BESIDE * r
+        bottom, top = drawing.point((side, 0.0)), drawing.point((side, y))
+        drawing.line(bottom, top, length_label(read.total, unit), dashed=True)
     return drawing.spec()
 
 

@@ -114,6 +114,13 @@ def _names_attached(request: FigureRequest, texts: list[str]) -> bool:
     )
 
 
+def _as_said(request: FigureRequest, texts: list[str]) -> FigureRequest | None:
+    """The reading held to the question's words where a builder alone cannot tell: the side
+    a shape made of two stands on, what a solid made of two gives a height of."""
+    said = composite.side_as_said(request, texts)
+    return None if said is None else stacked_solids.heights_as_said(said, texts)
+
+
 def _plane_fence(request: FigureRequest, texts: list[str]) -> str | None:
     """Coordinate geometry and transformations, drawn where the question puts them."""
     try:
@@ -138,7 +145,7 @@ def figure_fence(request: FigureRequest, texts: list[str]) -> str | None:
         return _plane_fence(request, texts)
     if not _the_questions_shape(request, texts):
         return None
-    said = composite.side_as_said(request, own_texts(texts))
+    said = _as_said(request, own_texts(texts))
     if said is None:
         return None
     request = said

@@ -147,8 +147,10 @@ def test_stacked_cone_slant_height_sets_its_height() -> None:
     [
         # Radii that disagree.
         [("radius", 6, "hemisphere"), ("radius", 5, "cone"), ("height", 8, "cone")],
-        # The whole toy's height is no part's.
-        [("radius", 6, ""), ("height", 14, "total")],
+        # The whole toy's height, no taller than its hemisphere.
+        [("radius", 6, ""), ("height", 5, "total")],
+        # A height tied to nothing: the cone's or the whole's.
+        [("radius", 6, ""), ("height", 8, "")],
         # A slant no longer than the radius.
         [("radius", 6, ""), ("slant_height", 5, "cone")],
     ],
@@ -156,8 +158,57 @@ def test_stacked_cone_slant_height_sets_its_height() -> None:
 def test_stacked_values_that_do_not_fit_draw_nothing(
     measures: list[tuple[str, float, str]],
 ) -> None:
-    question = "A cone on a hemisphere: radii 6 cm and 5 cm, height 8 cm, 14 cm tall, slant 5 cm."
+    question = "A cone on a hemisphere: radii 6 cm and 5 cm, height 8 cm, 5 cm tall, slant 5 cm."
     assert draw(question, _solid("hemisphere", *measures, attached="cone")) is None
+
+
+TOTAL = (
+    "A toy is a cone on a hemisphere of radius 3.5 cm. The total height of the toy is 15.5 cm. "
+    "Find its volume."
+)
+
+
+@pytest.mark.parametrize("of", ["", "total"])
+def test_stacked_total_height_is_the_whole_solid_s(of: str) -> None:
+    reading = _solid("hemisphere", ("radius", 3.5, ""), ("height", 15.5, of), attached="cone")
+    spec = figure(TOTAL, reading)
+    assert labels(spec) == ["15.5 cm", "3.5 cm"]
+    assert labelled_length(spec, "15.5 cm") == pytest.approx(15.5)
+    # The cone takes what the hemisphere leaves: 15.5 - 3.5 = 12 cm, drawn unlabelled.
+    tip = max(spec.points, key=lambda p: (p.y, -abs(p.x)))
+    assert (tip.x, tip.y) == pytest.approx((0, 15.5))
+    bowl = next(arc for arc in spec.arcs if arc.rx == arc.ry)
+    assert at(spec, bowl.center) == pytest.approx((0, 3.5))
+
+
+def test_stacked_total_height_read_as_the_cone_s_draws_nothing() -> None:
+    reading = _solid("hemisphere", ("radius", 3.5, ""), ("height", 15.5, "cone"), attached="cone")
+    assert draw(TOTAL, reading) is None
+
+
+def test_stacked_total_height_altogether_after_the_number() -> None:
+    question = "A cone stands on a hemisphere of radius 3 cm. The toy is 10 cm tall altogether."
+    reading = _solid("hemisphere", ("radius", 3, ""), ("height", 10, ""), attached="cone")
+    spec = figure(question, reading)
+    assert labelled_length(spec, "10 cm") == pytest.approx(10)
+    assert max(p.y for p in spec.points) == pytest.approx(10)
+
+
+def test_stacked_loose_height_belongs_to_the_part_written_before_it() -> None:
+    reading = _solid("hemisphere", ("height", 8, ""), ("radius", 6, ""), attached="cone")
+    spec = figure(TOY, reading)
+    assert max(p.y for p in spec.points) == pytest.approx(6 + 8)
+    assert labelled_length(spec, "8 cm") == pytest.approx(8)
+
+
+def test_stacked_part_and_total_heights_must_add_up() -> None:
+    question = (
+        "A toy is a cone of height 8 cm on a hemisphere of radius 6 cm. Its total height is 15 cm."
+    )
+    reading = _solid(
+        "hemisphere", ("height", 8, "cone"), ("radius", 6, ""), ("height", 15, ""), attached="cone"
+    )
+    assert draw(question, reading) is None
 
 
 CUBOID = "Find the length of the longest diagonal of a cuboid measuring 3 cm by 4 cm by 12 cm."
