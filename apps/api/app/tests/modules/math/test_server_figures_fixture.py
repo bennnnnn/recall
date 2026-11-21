@@ -47,6 +47,18 @@ def test_server_figures_fixture_is_current() -> None:
     assert len(data["cases"]) >= 100
 
 
+def _rounded(node: Any) -> Any:
+    """Every number to nine places: a builder's trigonometry differs in its last bits from
+    machine to machine (-1.6e-15 here, 0.0 there), and the drawing does not."""
+    if isinstance(node, float):
+        return round(node, 9) + 0.0
+    if isinstance(node, dict):
+        return {key: _rounded(value) for key, value in node.items()}
+    if isinstance(node, list):
+        return [_rounded(value) for value in node]
+    return node
+
+
 @pytest.mark.parametrize("case", _cases(), ids=lambda case: case["id"])
 def test_server_figures_fixture_matches_the_builder(case: dict[str, Any]) -> None:
-    assert _built(case) == case["figure"]
+    assert _rounded(_built(case)) == _rounded(case["figure"])
