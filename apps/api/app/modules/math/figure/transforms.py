@@ -37,6 +37,10 @@ _AXIS_WORDS = {
     _X_AXIS: re.compile(r"\bx[\s-]?axis\b"),
     _Y_AXIS: re.compile(r"\by[\s-]?axis\b"),
 }
+# "about (0, 0)", "centre (0,0)", "around the point (0, 0)": the origin named as the centre.
+_CENTRE_ZERO = re.compile(
+    r"\b(?:about|around|centre|center)\s+(?:of\s+)?(?:the\s+point\s+)?\(\s*0\s*,\s*0\s*\)"
+)
 _ORIGIN = re.compile(r"\borigin\b")
 _ANTI = re.compile(r"\b(?:anti|counter)[\s-]?clockwise\b")
 _CLOCKWISE = re.compile(r"\bclockwise\b")
@@ -205,7 +209,9 @@ def _centre(transform: Transform, texts: Sequence[str]) -> tuple[Exact, bool] | 
     origin = (Fraction(0), Fraction(0))
     at = transform.centre
     if at is None or (at.x == 0 and at.y == 0):
-        stated = _ORIGIN.search(lowered) or origin in _pairs(texts)
+        # "(0, 0)" is the centre only where the question says so ("about (0, 0)"): a vertex
+        # at A(0, 0) states no centre (a review, 2026-11-21).
+        stated = _ORIGIN.search(lowered) or _CENTRE_ZERO.search(lowered)
         return (origin, False) if stated else None
     pair = exact_pair(at.x, at.y, texts)
     return None if pair is None else (pair, True)

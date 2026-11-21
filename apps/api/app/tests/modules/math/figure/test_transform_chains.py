@@ -7,6 +7,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
+import pytest
+
 from app.modules.math.figure.build import build_figure_fence, figure_fence
 from app.modules.math.figure.request import TRANSFORMS_READ, FigureRequest
 from app.modules.math.schemas.figure import PointsGraphSpec
@@ -60,3 +62,24 @@ def test_transform_chains_a_longer_list_than_kept_still_refuses() -> None:
     request = FigureRequest.model_validate(_reading(*steps))
     assert len(request.transforms) == TRANSFORMS_READ
     assert build_figure_fence(request.model_dump_json(), [THREE]) is None
+
+
+@pytest.mark.parametrize(
+    ("ending", "drawn"),
+    [(".", False), (" about (0, 0).", True), (" about the origin.", True)],
+)
+def test_a_vertex_at_the_origin_states_no_centre(ending: str, drawn: bool) -> None:
+    """A review (2026-11-21): a triangle with a vertex A(0, 0) and no centre stated was
+    rotated about the origin, as if the question had named it."""
+    reading = {
+        "kind": "points",
+        "points": [
+            {"name": "A", "x": 0, "y": 0},
+            {"name": "B", "x": 4, "y": 0},
+            {"name": "C", "x": 0, "y": 3},
+        ],
+        "join": "polygon",
+        "transforms": [{"kind": "rotation", "angle": 90}],
+    }
+    question = f"Rotate the triangle A(0, 0), B(4, 0), C(0, 3) through 90° anticlockwise{ending}"
+    assert (build_figure_fence(json.dumps(reading), [question]) is not None) is drawn
