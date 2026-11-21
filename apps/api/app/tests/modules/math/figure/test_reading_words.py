@@ -102,3 +102,8 @@ def test_reading_a_triangle_lettered_with_six_letters_is_two_similar_ones() -> N
         "unit": "cm",
     }
     assert figure(question, reading).shape == "similar_triangles"
+
+
+def test_reading_no_number_of_sides_keeps_the_reading() -> None:
+    request = FigureRequest.model_validate({"kind": "polygon", "shape": "slope", "sides": 0})
+    assert request.sides is None

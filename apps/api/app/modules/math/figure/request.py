@@ -226,6 +226,13 @@ class FigureRequest(BaseModel):
                 continue
         return kept
 
+    @field_validator("sides", mode="before")
+    @classmethod
+    def _sides(cls, value: Any) -> Any:
+        """No number of sides (0, a blank) is none, never the whole reading lost: a reader
+        filling every field wrote "sides": 0 for a ramp."""
+        return None if value in (0, "", "0") else value
+
     @field_validator("angle_terms", mode="before")
     @classmethod
     def _terms(cls, value: Any) -> list[Any]:
