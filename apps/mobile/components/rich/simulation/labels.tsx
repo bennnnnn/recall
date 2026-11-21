@@ -1,4 +1,5 @@
 /** The scene's labels, drawn last, each following what it names. */
+import { type ReactNode } from "react";
 import { Group, type SkFont } from "@shopify/react-native-skia";
 import { useDerivedValue, type SharedValue } from "react-native-reanimated";
 
@@ -12,6 +13,7 @@ import {
   type BodyLabelLayout,
   type PlacedLabel,
   type SceneLayout,
+  type SceneStages,
   type ScreenPoint,
   type SimulationSpec,
   type VectorLayout,
@@ -19,6 +21,7 @@ import {
 import { trajectoryPointAt } from "@/lib/math/trajectory";
 import { Theme, withAlpha } from "@/lib/theme";
 import { HaloText } from "@/components/rich/skia/HaloText";
+import { onItsTurn } from "@/components/rich/simulation/sceneArrows";
 import {
   arrowNow,
   ridingNow,
@@ -158,6 +161,7 @@ export function SceneLabels({
   wheel,
   theme,
   progress,
+  stages,
   centre,
   slope,
   canvasWidth,
@@ -170,6 +174,8 @@ export function SceneLabels({
   wheel: Wheel;
   theme: Theme;
   progress: SharedValue<number>;
+  /** A scene built in stages: each label of an arrow or arc shows once it is drawn. */
+  stages: SceneStages | null;
   centre: ScreenPoint | null;
   slope: Slope | null;
   canvasWidth: number;
@@ -207,34 +213,18 @@ export function SceneLabels({
             planetInside ? planetFill(theme) : theme.bg,
           )
         : null}
-      {layout.angles.map((angle, index) =>
-        angle.label
-          ? fixedLabel(
-              angle.label,
-              `angle-label-${index}`,
-              angle.angle.role === "result" ? theme.primary : theme.textSecondary,
-            )
-          : null,
-      )}
-      {layout.vectors.map((vector, index) => {
-        if (!vector.label) return null;
-        return vector.body !== null ? (
-          <RidingVectorLabel
-            key={`vector-label-${index}`}
-            layout={vector}
-            track={layout.tracks[vector.body]}
-            progress={progress}
-            wheel={wheel}
-            font={font}
-            fallbacks={fallbacks}
-            theme={theme}
-            canvasWidth={canvasWidth}
-            canvasHeight={canvasHeight}
-          />
-        ) : (
-          fixedLabel(vector.label, `vector-label-${index}`, vectorColor(vector.vector.role, theme))
-        );
-      })}
+      <StatedLabels
+        layout={layout}
+        stages={stages}
+        progress={progress}
+        fixedLabel={fixedLabel}
+        font={font}
+        fallbacks={fallbacks}
+        wheel={wheel}
+        theme={theme}
+        canvasWidth={canvasWidth}
+        canvasHeight={canvasHeight}
+      />
       {layout.arrowLabels.map((label, index) => (
         <DerivedArrowLabel
           key={`arrow-label-${index}`}
@@ -275,6 +265,72 @@ export function SceneLabels({
             canvasHeight={canvasHeight}
           />
         ) : null;
+      })}
+    </>
+  );
+}
+
+type FixedLabel = (label: PlacedLabel, key: string, color: string) => ReactNode;
+
+/** The angles' and stated vectors' labels, each on its turn in a staged scene. */
+function StatedLabels({
+  layout,
+  stages,
+  progress,
+  fixedLabel,
+  font,
+  fallbacks,
+  wheel,
+  theme,
+  canvasWidth,
+  canvasHeight,
+}: {
+  layout: SceneLayout;
+  stages: SceneStages | null;
+  progress: SharedValue<number>;
+  fixedLabel: FixedLabel;
+  font: SkFont | null;
+  fallbacks: readonly (SkFont | null)[];
+  wheel: Wheel;
+  theme: Theme;
+  canvasWidth: number;
+  canvasHeight: number;
+}) {
+  return (
+    <>
+      {layout.angles.map((angle, index) => {
+        if (!angle.label) return null;
+        const key = `angle-label-${index}`;
+        const color = angle.angle.role === "result" ? theme.primary : theme.textSecondary;
+        return onItsTurn(
+          fixedLabel(angle.label, key, color),
+          key,
+          progress,
+          stages,
+          stages?.angles[index],
+        );
+      })}
+      {layout.vectors.map((vector, index) => {
+        if (!vector.label) return null;
+        const key = `vector-label-${index}`;
+        const label =
+          vector.body !== null ? (
+            <RidingVectorLabel
+              key={key}
+              layout={vector}
+              track={layout.tracks[vector.body]}
+              progress={progress}
+              wheel={wheel}
+              font={font}
+              fallbacks={fallbacks}
+              theme={theme}
+              canvasWidth={canvasWidth}
+              canvasHeight={canvasHeight}
+            />
+          ) : (
+            fixedLabel(vector.label, key, vectorColor(vector.vector.role, theme))
+          );
+        return onItsTurn(label, key, progress, stages, stages?.vectors[index]);
       })}
     </>
   );

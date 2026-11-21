@@ -1,17 +1,25 @@
-"""Force solvers: F = ma, rope tension, resultant and resolved forces, and the Atwood machine."""
+"""Force solvers: F = ma, rope tension, resultants, a vector resolved, and the Atwood machine."""
 
 from __future__ import annotations
 
 import math
 from collections.abc import Callable
 
-from app.modules.physics.display import GIVEN_FIGURES, plain_number
+from app.modules.physics.display import (
+    GIVEN_FIGURES,
+    latex_given,
+    latex_number,
+    latex_unit,
+    plain_number,
+    plain_unit,
+)
 from app.modules.physics.schemas import PhysicsIntent, SimulationVector
 from app.modules.physics.solvers.arithmetic import latex_num
 from app.modules.physics.solvers.force_scenes import (
     _atwood_scene,
     _vector_sum_scene,
     free_body_scene,
+    resolution_scene,
 )
 from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
 from app.modules.physics.solvers.si import gravity_of, params_in_si
@@ -144,42 +152,104 @@ def _resultant_force(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResul
     )
 
 
-def _resolve_force(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
-    f = p["F"]
+# The size a resolved vector is given as, and the symbol its components are named by:
+# F_x for a force, v_x for a velocity, s_x for a displacement (the catalog's ``resolve_vector``).
+_RESOLVED_SYMBOLS = (("F", "F"), ("v", "v"), ("a", "a"), ("d", "s"), ("p", "p"), ("E", "E"))
+
+
+def _resolve_vector(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
+    """One vector's horizontal and vertical components, in the unit its size was given in.
+
+    Measured from the horizontal, A_x = A cos θ and A_y = A sin θ; from the vertical the two
+    trade places, A_x = A sin θ and A_y = A cos θ. A side stated against an axis ("below the
+    horizontal", "west of north") is the component's sign, kept on the answer.
+    """
+    raw = intent.physics_params or {}
+    units = intent.physics_units or {}
+    name, symbol = next((pair for pair in _RESOLVED_SYMBOLS if pair[0] in raw), (None, None))
+    if name is None or symbol is None:
+        raise SolveServiceError("resolve_vector needs one vector's size")
+    size, unit = raw[name], units.get(name, "")
+    if size <= 0:
+        raise SolveServiceError("a vector's size must be positive")
     theta = p["angle"]  # radians
-    fx = f * math.cos(theta)
-    fy = f * math.sin(theta)
+    degrees = plain_number(math.degrees(theta), GIVEN_FIGURES)
+    vertical = raw.get("from_vertical", 0.0) == 1.0
+    x_sign = -1.0 if raw.get("x_sign", 1.0) < 0 else 1.0
+    y_sign = -1.0 if raw.get("y_sign", 1.0) < 0 else 1.0
+    x_trig, y_trig = (r"\sin", r"\cos") if vertical else (r"\cos", r"\sin")
+    x_value = x_sign * size * (math.sin(theta) if vertical else math.cos(theta))
+    y_value = y_sign * size * (math.cos(theta) if vertical else math.sin(theta))
+    # Float noise is no component: 60 N at 90° has none across (Claude review).
+    x_value = 0.0 if abs(x_value) < 1e-9 * size else x_value
+    y_value = 0.0 if abs(y_value) < 1e-9 * size else y_value
+    shown = latex_unit(unit) if unit else ""
+    given = latex_given(size)
+
+    def row(axis: str, trig: str, sign: float) -> tuple[str, str]:
+        minus = "-" if sign < 0 else ""
+        formula = rf"{symbol}_{axis} = {minus}{symbol}{trig}\theta"
+        return formula, rf"{symbol}_{axis} = {minus}{given}{trig}({degrees}^\circ)"
+
+    (x_formula, x_row), (y_formula, y_row) = row("x", x_trig, x_sign), row("y", y_trig, y_sign)
+    text_unit = f" {plain_unit(unit)}" if unit else ""
+    # The values the working and card show; the picture keeps the signed ones.
+    x_shown, y_shown = x_value, y_value
+    if raw.get("compass", 0.0) == 1.0:
+        # A bearing is worked as a textbook works it: its acute angle from the north-south
+        # line, each component a size along the direction it points ("s_W = 25 sin 60° =
+        # 21.7 km west"), so the working and the card say the same thing; a signed working
+        # beside a card that names the side read "-12.5 km south" (review, 2026-11-20).
+        east, north = x_value >= 0, y_value >= 0
+        phi = math.degrees(math.atan2(abs(x_value), abs(y_value)))
+        acute = plain_number(phi, GIVEN_FIGURES)
+        ew, ns = ("E" if east else "W"), ("N" if north else "S")
+        x_formula = rf"{symbol}_{{{ew}}} = {symbol}\sin\phi"
+        y_formula = rf"{symbol}_{{{ns}}} = {symbol}\cos\phi"
+        x_row = rf"{symbol}_{{{ew}}} = {given}\sin({acute}^\circ)"
+        y_row = rf"{symbol}_{{{ns}}} = {given}\cos({acute}^\circ)"
+        x_shown, y_shown = abs(x_value), abs(y_value)
+        x_quantity = QuantityResult(
+            "", x_shown, unit, detail="east" if east else "west", detail_style="suffix"
+        )
+        y_quantity = QuantityResult(
+            "", y_shown, unit, detail="north" if north else "south", detail_style="suffix"
+        )
+    else:
+        x_quantity = QuantityResult("", x_value, unit, detail="horizontally", detail_style="suffix")
+        y_quantity = QuantityResult("", y_value, unit, detail="vertically", detail_style="suffix")
+    rows = [
+        (x_formula, x_row, x_shown, x_quantity),
+        (y_formula, y_row, y_shown, y_quantity),
+    ]
+    # One component asked ("the vertical component"): the answer is that one; the picture
+    # still shows both, as resolving it does.
+    only = int(raw.get("only", 0.0))
+    if only in (1, 2):
+        rows = [rows[only - 1]]
     return PhysicsResult(
-        answer=(
-            rf"F_x = F\cos\theta = {f:g}\cos({math.degrees(theta):g}^\circ) "
-            rf"\approx {fx:.2f} \text{{ N}}, \quad "
-            rf"F_y = F\sin\theta = {f:g}\sin({math.degrees(theta):g}^\circ) "
-            rf"\approx {fy:.2f} \text{{ N}}"
+        answer=r", \quad ".join(
+            rf"{sub} \approx {latex_number(value)}{shown}" for _, sub, value, _ in rows
         ),
-        formulas=(r"F_x = F\cos\theta", r"F_y = F\sin\theta"),
-        substitutions=(
-            rf"F_x = {f:g}\cos({math.degrees(theta):g}^\circ)",
-            rf"F_y = {f:g}\sin({math.degrees(theta):g}^\circ)",
-        ),
-        quantities=(
-            QuantityResult("", fx, "N", detail="horizontally", detail_style="suffix"),
-            QuantityResult("", fy, "N", detail="vertically", detail_style="suffix"),
-        ),
-        simulation_specs=_vector_sum_scene(
-            [
-                SimulationVector(anchor=[0.0, 0.0], dx=fx, dy=0.0, label=f"{plain_number(fx)} N"),
-                SimulationVector(anchor=[fx, 0.0], dx=0.0, dy=fy, label=f"{plain_number(fy)} N"),
-            ],
-            SimulationVector(
-                anchor=[0.0, 0.0],
-                dx=fx,
-                dy=fy,
-                label=f"{plain_number(f, GIVEN_FIGURES)} N",
-                role="result",
-            ),
+        formulas=tuple(formula for formula, _, _, _ in rows),
+        substitutions=tuple(sub for _, sub, _, _ in rows),
+        quantities=tuple(quantity for _, _, _, quantity in rows),
+        simulation_specs=resolution_scene(
+            size=size,
+            x_value=x_value,
+            y_value=y_value,
+            unit=text_unit,
+            # The axis the angle was measured from: up or down for a vertical reference, else
+            # the side the horizontal component points to (a bearing "of west" is from west).
+            base_deg=(90.0 if y_sign > 0 else -90.0)
+            if vertical
+            else (0.0 if x_sign > 0 else 180.0),
+            angle_deg=math.degrees(theta),
+            bearing=raw.get("compass", 0.0) == 1.0,
             alt=(
-                f"A {plain_number(f, GIVEN_FIGURES)} N force split into "
-                f"{plain_number(fx)} N across and {plain_number(fy)} N up."
+                f"A {plain_number(size, GIVEN_FIGURES)}{text_unit} vector split into "
+                f"{plain_number(x_value)}{text_unit} horizontally and "
+                f"{plain_number(y_value)}{text_unit} vertically."
             ),
         ),
     )
@@ -307,7 +377,7 @@ def _newton_second_law(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsRes
 _OPERATIONS: dict[str, Callable[[PhysicsIntent, dict[str, float]], PhysicsResult]] = {
     "tension": _tension,
     "resultant_force": _resultant_force,
-    "resolve_force": _resolve_force,
+    "resolve_vector": _resolve_vector,
     "atwood": _atwood,
     "table_pulley": _table_pulley,
 }

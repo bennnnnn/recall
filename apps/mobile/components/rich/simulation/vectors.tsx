@@ -36,7 +36,7 @@ export function vectorColor(role: VectorLayout["vector"]["role"], theme: Theme):
 }
 
 /** How a stated vector is painted for its role: its stroke kind, colour and width. */
-function vectorPaint(role: VectorLayout["vector"]["role"], theme: Theme) {
+export function vectorPaint(role: VectorLayout["vector"]["role"], theme: Theme) {
   return {
     stroke: vectorStroke(role),
     color: vectorColor(role, theme),
@@ -51,7 +51,7 @@ type PathProp = ComponentProps<typeof Path>["path"];
  * holds the whole arrow); motion and a measure are a dashed shaft with a
  * solid `head`, since dashing the head would break it up.
  */
-function VectorMarks({
+export function VectorMarks({
   stroke,
   color,
   strokeWidth,

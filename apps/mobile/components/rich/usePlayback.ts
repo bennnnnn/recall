@@ -42,6 +42,12 @@ type Options = {
    * while showing a different figure, so a new key rewinds and stops.
    */
   resetKey: string;
+  /**
+   * Where the clock rests when it does not start by itself: at the start (the
+   * default, a moving scene's first frame) or, for a figure that builds itself
+   * (a staged scene), at the end, so Reduce Motion shows the finished picture.
+   */
+  restAtEnd?: boolean;
 };
 
 type Playback = {
@@ -53,7 +59,14 @@ type Playback = {
   reduceMotion: boolean | null;
 };
 
-export function usePlayback({ duration, animated, autoplay, loop, resetKey }: Options): Playback {
+export function usePlayback({
+  duration,
+  animated,
+  autoplay,
+  loop,
+  resetKey,
+  restAtEnd = false,
+}: Options): Playback {
   const progress = useSharedValue(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const reduceMotion = useReduceMotionSetting();
@@ -98,10 +111,16 @@ export function usePlayback({ duration, animated, autoplay, loop, resetKey }: Op
     setIsPlaying(false);
     // `null` is "not known yet": starting on a guess and stopping a few frames
     // later is exactly the motion a Reduce Motion user asked not to see.
-    if (!animated || !autoplay || reduceMotion !== false) return;
+    const startsItself = animated && autoplay;
+    if (!startsItself || reduceMotion !== false) {
+      // While the setting is unknown a built figure waits empty, rather than
+      // show finished and then take itself apart to build again.
+      if (restAtEnd && !(startsItself && reduceMotion === null)) progress.value = 1;
+      return;
+    }
     play();
     return () => cancelAnimation(progress);
-  }, [animated, autoplay, play, progress, reduceMotion, resetKey]);
+  }, [animated, autoplay, play, progress, reduceMotion, resetKey, restAtEnd]);
 
   return { progress, isPlaying, play, pause, reduceMotion };
 }

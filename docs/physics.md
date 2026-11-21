@@ -581,7 +581,7 @@ The binder reads these laws, beside the extractors' own:
 
 ## Pictures
 
-A verified answer carries at most one picture, a `simulation` fence (schema v2,
+A verified answer carries at most one picture (a question in parts, one per part), a `simulation` fence (schema v2,
 `schemas/simulation.py`). The server samples every position and every frame. The phone walks
 the samples and never re-derives motion. Two kinds of picture exist:
 
@@ -596,7 +596,14 @@ the samples and never re-derives motion. Two kinds of picture exist:
   - solids and fluids;
   - labels on the derived arrows (`mg = 49.1 N`);
   - strobe ghosts;
-  - vectors that ride on a body.
+  - vectors that ride on a body;
+  - stages: a still scene whose arrows and arcs carry a `stage` (0–5) is built in that order
+    when it appears, each arrow growing from its tail, its labels and arcs fading in once it
+    is whole, with Play to build it again (Reduce Motion shows it finished). A vector resolved
+    into components (`resolve_vector`: a force, velocity, acceleration, displacement, momentum
+    or field, its angle from the horizontal, the vertical or a bearing) is drawn as the vector
+    with its angle, then its horizontal component, then its vertical one. The server numbers
+    the stages; the phone never orders a picture itself.
 - **Diagrams** have no bodies. The phone lays them out from the spec:
   - `circuit`: a source and a load of parts, series or parallel groups. A network is drawn
     as the question states it: every resistor, its group's total as the group's label and,

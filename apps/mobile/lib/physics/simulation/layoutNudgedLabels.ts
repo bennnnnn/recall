@@ -20,7 +20,7 @@ import {
   type SceneLines,
   type Shaft,
 } from "@/lib/physics/simulation/layoutShapes";
-import { angleLabelBox } from "@/lib/physics/simulation/parts";
+import { angleLabelBox, angleLabelBoxesBeyond } from "@/lib/physics/simulation/parts";
 import { type SimulationArrow, type SimulationVector } from "@/lib/physics/simulation/spec";
 import { type ScreenPoint } from "@/lib/physics/simulation/viewport";
 
@@ -101,11 +101,16 @@ export function planVectorLabels(scene: SceneFrames, shafts: Shaft[]): VectorLab
   }
   const centroid =
     count > 0 ? { px: sumX / count, py: sumY / count } : { px: width / 2, py: height / 2 };
+  const results = spec.vectors.filter((vector) => vector.role === "result").length;
   return shafts.map(({ vector, from, ux, uy, desired, frames }) => {
     if (!vector.label) return null;
     const labelWidth = measureText(vector.label);
+    // A vector diagram's sides carry their sizes at their middles. Its one result, a
+    // resultant, is labelled past its tip; several results are components, each a side of
+    // the triangle (owner, 2026-11-20: "44.3 m/s" sat on its arrowhead).
     const mid =
-      vector.role === "measure" || (spec.type === "vector_sum" && vector.role !== "result");
+      vector.role === "measure" ||
+      (spec.type === "vector_sum" && (vector.role !== "result" || results > 1));
     const tip = frames[0]?.tip ?? { px: from.px + ux * desired, py: from.py + uy * desired };
     let side: 1 | -1 = 1;
     if (mid) {
@@ -169,9 +174,17 @@ export function wantedAngleLabels(
 ): Wanted[] {
   const { measureText, fontSize, progresses } = scene;
   const wanted: Wanted[] = [];
-  angleShapes.forEach(({ angle, vertex, radius }, index) => {
+  angleShapes.forEach(({ angle, vertex, radius, cramped }, index) => {
     if (!angle.label) return;
     const box = angleLabelBox(
+      vertex,
+      angle.startDeg,
+      angle.endDeg,
+      radius,
+      measureText(angle.label),
+      fontSize,
+    );
+    const beyond = angleLabelBoxesBeyond(
       vertex,
       angle.startDeg,
       angle.endDeg,
@@ -184,7 +197,15 @@ export function wantedAngleLabels(
       index,
       result: angle.role === "result",
       label: {
-        homes: [progresses.map(() => box)],
+        // Inside the angle first. In a vector diagram, whose angles sit between drawn sides,
+        // also past either edge, and those first when the arc had to shrink to fit a short
+        // side: there is no room inside, and nudged out the label crossed the next side.
+        homes: (scene.spec.type !== "vector_sum"
+          ? [box]
+          : cramped
+            ? [...beyond, box]
+            : [box, ...beyond]
+        ).map((home) => progresses.map(() => home)),
         each: false,
         avoid: progresses.map((_, frame) => linesAt(lines, frame, { angle: index })),
       },
@@ -286,8 +307,9 @@ export function placeVectorLabels(
 export function placeAngleLabels(angleShapes: AngleShape[], outcome: Outcome): AngleLayout[] {
   return angleShapes.map((shape, index): AngleLayout => {
     const box = outcome.get(`angle:${index}`)?.boxes[0];
+    const { cramped: _cramped, ...layout } = shape;
     return {
-      ...shape,
+      ...layout,
       label: box && shape.angle.label ? placedLabel(shape.angle.label, box) : null,
     };
   });

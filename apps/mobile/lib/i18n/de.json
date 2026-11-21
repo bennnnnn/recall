@@ -783,6 +783,7 @@
   "rich.scene_title_height": "Höhe über dem Boden",
   "rich.scene_title_atwood": "Atwoodsche Fallmaschine",
   "rich.scene_title_forces": "Kräfte",
+  "rich.scene_title_components": "Komponenten",
   "rich.scene_title_spring": "Feder",
   "rich.scene_title_pendulum": "Pendel",
   "rich.scene_title_circuit": "Stromkreis",

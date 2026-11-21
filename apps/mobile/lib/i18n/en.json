@@ -783,6 +783,7 @@
   "rich.scene_title_height": "Height Above the Ground",
   "rich.scene_title_atwood": "Atwood Machine",
   "rich.scene_title_forces": "Forces",
+  "rich.scene_title_components": "Components",
   "rich.scene_title_spring": "Spring",
   "rich.scene_title_pendulum": "Pendulum",
   "rich.scene_title_circuit": "Circuit",

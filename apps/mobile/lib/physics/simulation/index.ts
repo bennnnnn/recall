@@ -50,3 +50,10 @@ export { layoutSimulationScene, type SceneLayout } from "@/lib/physics/simulatio
 export { type AngleLayout } from "@/lib/physics/simulation/layoutShapes";
 export { type BodyLabelLayout, type SolidLayout } from "@/lib/physics/simulation/layoutLabels";
 export { type ArrowLabelLayout, type VectorLayout } from "@/lib/physics/simulation/layoutNudgedLabels";
+export {
+  sceneStages,
+  stagedDuration,
+  stageGrowth,
+  stageReveal,
+  type SceneStages,
+} from "@/lib/physics/simulation/stages";

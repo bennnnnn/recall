@@ -7,6 +7,7 @@ import math
 from app.modules.physics.display import GIVEN_FIGURES, plain_number
 from app.modules.physics.schemas import (
     SimulationAngle,
+    SimulationAxes,
     SimulationBlockSpec,
     SimulationBody,
     SimulationPulley,
@@ -203,6 +204,115 @@ def _vector_sum_scene(
             title_key="forces",
             vectors=vectors,
             angles=angles,
+            x_min=min(xs) - margin,
+            x_max=max(xs) + margin,
+            y_min=min(ys) - margin,
+            y_max=max(ys) + margin,
+            alt=alt,
+        )
+    ]
+
+
+def _components(
+    x_value: float, y_value: float, unit: str, *, from_vertical: bool
+) -> list[SimulationVector]:
+    """The two components as drawn: the one along the angle's own axis from the tail first,
+    then the other from its end to the vector's tip. Measured from the vertical, the
+    vertical side rises from the tail first, so the angle sits between the vector and a
+    drawn line (owner, 2026-11-20: a 40° arc from the vertical hung beside no line)."""
+    if x_value == 0.0 or y_value == 0.0:
+        return []
+    across = f"{plain_number(x_value)}{unit}"[:24]
+    up = f"{plain_number(y_value)}{unit}"[:24]
+    if from_vertical:
+        return [
+            SimulationVector(
+                anchor=[0.0, 0.0], dx=0.0, dy=y_value, label=up, role="result", stage=1
+            ),
+            SimulationVector(
+                anchor=[0.0, y_value], dx=x_value, dy=0.0, label=across, role="result", stage=2
+            ),
+        ]
+    return [
+        SimulationVector(
+            anchor=[0.0, 0.0], dx=x_value, dy=0.0, label=across, role="result", stage=1
+        ),
+        SimulationVector(
+            anchor=[x_value, 0.0], dx=0.0, dy=y_value, label=up, role="result", stage=2
+        ),
+    ]
+
+
+def resolution_scene(
+    *,
+    size: float,
+    x_value: float,
+    y_value: float,
+    unit: str,
+    base_deg: float,
+    angle_deg: float,
+    alt: str,
+    bearing: bool = False,
+) -> list[SimulationBlockSpec]:
+    """A vector and its two components, drawn in that order (``SimulationVector.stage``).
+
+    The vector comes first, from the origin, with its angle marked from the axis the question
+    measured it from (``base_deg``: east 0, north 90, west 180, south -90) and labelled as
+    the question gave it; then the component along that axis grows from the same tail, and
+    last the other runs from its end to the vector's tip, closing the triangle. A vector
+    along an axis has one component, itself, so none is drawn over it.
+    """
+    vector = SimulationVector(
+        anchor=[0.0, 0.0],
+        dx=x_value,
+        dy=y_value,
+        label=f"{plain_number(size, GIVEN_FIGURES)}{unit}"[:24],
+        role="force",
+        stage=0,
+    )
+    parts = _components(x_value, y_value, unit, from_vertical=abs(base_deg) == 90.0)
+    # A vector along an axis has one component, itself: none is drawn over it.
+    if abs(x_value) <= 1e-9 * size or abs(y_value) <= 1e-9 * size:
+        parts = []
+    direction = math.degrees(math.atan2(y_value, x_value))
+    # The short way from the axis to the vector, unless the question's angle is the long way
+    # (a bearing of 300°): the arc sweeps what the question measured.
+    sweep = (direction - base_deg + 180.0) % 360.0 - 180.0
+    if abs(abs(sweep) - angle_deg % 360.0) > 0.5 and sweep != 0.0:
+        sweep -= math.copysign(360.0, sweep)
+    angles = (
+        [
+            SimulationAngle(
+                vertex=[0.0, 0.0],
+                start_deg=base_deg,
+                end_deg=base_deg + sweep,
+                label=f"{plain_number(angle_deg, GIVEN_FIGURES)}°",
+                stage=0,
+            )
+        ]
+        if abs(sweep) >= 1.0
+        else []
+    )
+    margin = size * 0.25
+    xs, ys = (0.0, x_value), (0.0, y_value)
+    # The axes through the tail, a little past the triangle on every side, so the angle's
+    # reference and each component's axis are drawn (owner, 2026-11-20).
+    reach = size * 0.15
+    axes = SimulationAxes(
+        origin=[0.0, 0.0],
+        x=[min(xs) - reach, max(xs) + reach],
+        y=[min(ys) - reach, max(ys) + reach],
+        x_label="E" if bearing else "x",
+        y_label="N" if bearing else "y",
+    )
+    return [
+        SimulationBlockSpec(
+            type="vector_sum",
+            title="Components",
+            title_key="components",
+            vectors=[vector, *parts],
+            angles=angles,
+            axes=axes,
             x_min=min(xs) - margin,
             x_max=max(xs) + margin,
             y_min=min(ys) - margin,

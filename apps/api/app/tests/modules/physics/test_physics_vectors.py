@@ -82,20 +82,206 @@ VERIFIED: list[tuple[str, str, str]] = [
     ),
     (
         "resolve a 10 N force at 30 degrees into components",
-        "resolve_force",
+        "resolve_vector",
         "8.66 N horizontally and 5 N vertically",
     ),
     (
         "find the components of a 10 N force acting at 30 degrees",
-        "resolve_force",
+        "resolve_vector",
         "8.66 N horizontally and 5 N vertically",
     ),
     (
         "resolve a 10 N force acting at 30 degrees into horizontal and vertical components",
-        "resolve_force",
+        "resolve_vector",
         "8.66 N horizontally and 5 N vertically",
     ),
+    # Any vector, in the unit it is given in (owner's chat, 2026-11-20).
+    (
+        "Resolve 45 m/s at an angle of 80° from the horizontal into two components.",
+        "resolve_vector",
+        "7.81 m/s horizontally and 44.3 m/s vertically",
+    ),
+    # Measured from the vertical: the sine is across, the cosine up.
+    (
+        "Resolve 1900 km at an angle of 40° from the vertical into two components.",
+        "resolve_vector",
+        "1221 km horizontally and 1455 km vertically",
+    ),
+    # A bearing: west of north is from the vertical, and west is the negative side.
+    (
+        "A hiker walks 5 km 40° west of north. Find the components of the displacement.",
+        "resolve_vector",
+        "3.21 km west and 3.83 km north",
+    ),
+    (
+        "Resolve an acceleration of 3 m/s^2 at 20° below the horizontal into components.",
+        "resolve_vector",
+        "2.82 m/s² horizontally and -1.03 m/s² vertically",
+    ),
+    # A plane is an aircraft here, not an inclined plane.
+    (
+        "A plane flies at 250 km/h, 30° north of east. Find the components of its velocity.",
+        "resolve_vector",
+        "217 km/h east and 125 km/h north",
+    ),
+    (
+        "Find the horizontal and vertical components of a momentum of 12 kg m/s at 60° to "
+        "the horizontal.",
+        "resolve_vector",
+        "6 kg·m/s horizontally and 10.4 kg·m/s vertically",
+    ),
+    # "the vertical component" names what is asked, and alone: the angle is still from the
+    # horizontal, and the card holds that one component.
+    (
+        "A force of 60 N acts at 30° above the horizontal. Find the magnitude of the vertical "
+        "component.",
+        "resolve_vector",
+        "30 N vertically",
+    ),
+    # A three-figure bearing is clockwise from north: the sine is east, the cosine north.
+    (
+        "A plane flies 300 km/h on a bearing of 40°. Find the north and east components.",
+        "resolve_vector",
+        "193 km/h east and 230 km/h north",
+    ),
+    (
+        "A ship sails 25 km on a bearing of 120°. Find the east and north components.",
+        "resolve_vector",
+        "21.7 km east and 12.5 km south",
+    ),
+    (
+        "Resolve 25 m/s at 120° from the positive x-axis into components.",
+        "resolve_vector",
+        "-12.5 m/s horizontally and 21.7 m/s vertically",
+    ),
+    # The vertical named right after the angle, with "angle" or "axis" around it.
+    (
+        "Find the horizontal and vertical components of a 60 N force making a 30° angle with "
+        "the vertical.",
+        "resolve_vector",
+        "30 N horizontally and 52 N vertically",
+    ),
+    (
+        "Resolve a 10 m/s velocity directed at 30° to the vertical axis into components.",
+        "resolve_vector",
+        "5 m/s horizontally and 8.66 m/s vertically",
+    ),
+    # "below horizontal" without "the" still points down.
+    (
+        "Resolve a velocity of 15 m/s at 20° below horizontal into horizontal and vertical "
+        "components.",
+        "resolve_vector",
+        "14.1 m/s horizontally and -5.13 m/s vertically",
+    ),
+    # A bearing past 180°: west and south.
+    (
+        "A ship sails 25 km on a bearing of 240°. Find the east and north components.",
+        "resolve_vector",
+        "21.7 km west and 12.5 km south",
+    ),
+    # A list marker or a word after a number is no second value (Claude review).
+    (
+        "1. Resolve a 60 N force at 30° above the horizontal into components.",
+        "resolve_vector",
+        "52 N horizontally and 30 N vertically",
+    ),
+    (
+        "Resolve a 60 N force at 30° above the horizontal into components. Give 2 decimal places.",
+        "resolve_vector",
+        "52 N horizontally and 30 N vertically",
+    ),
+    # "on a bearing of 30° north of east" is a quadrant bearing, not 030° (Gemini review).
+    (
+        "A hiker walks 5 km on a bearing of 40° west of south. Find the components of the "
+        "displacement.",
+        "resolve_vector",
+        "3.21 km west and 3.83 km south",
+    ),
+    # The vertical without "the", or as the positive y-axis.
+    (
+        "Resolve 25 m/s at 30° from the positive y-axis into components.",
+        "resolve_vector",
+        "12.5 m/s horizontally and 21.7 m/s vertically",
+    ),
+    (
+        "Resolve a velocity of 15 m/s at 20° from vertical into horizontal and vertical "
+        "components.",
+        "resolve_vector",
+        "5.13 m/s horizontally and 14.1 m/s vertically",
+    ),
+    # A westward component asked alone is that component, by its side (Gemini review).
+    (
+        "A hiker walks 5 km 40° west of north. Find the westward component.",
+        "resolve_vector",
+        "3.21 km west",
+    ),
+    (
+        "Resolve a 60 N force at 30° above the horizontal into components in 2 steps.",
+        "resolve_vector",
+        "52 N horizontally and 30 N vertically",
+    ),
+    # "m/s2" as students write it (Codex review).
+    (
+        "Resolve 3 m/s2 at 20° below the horizontal into components.",
+        "resolve_vector",
+        "2.82 m/s² horizontally and -1.03 m/s² vertically",
+    ),
 ]
+
+
+def test_a_large_vector_s_working_has_no_calculator_notation() -> None:
+    """Gemini review: 2e+06 in a LaTeX row reads as 2e plus 06."""
+    intent = extract_physics_intent(
+        "Resolve an electric field of 2 × 10^6 N/C at 30° from the horizontal into components."
+    )
+    assert intent is not None and intent.physics_op == "resolve_vector"
+    block = build_verified_physics_block(intent, _settings())
+    assert block is not None
+    rows = " ".join(block.physics_substitutions)
+    assert "e+" not in rows and r"2 \times 10^{6}" in rows
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Along a slope is the incline's own law, never across and up.
+        "a 50 N weight rests on a 30° incline; find its component along the slope",
+        "find the component of a 20 N force parallel to a ramp at 25°",
+        # A component inside another law, or one value of a bigger problem (review, 2026-11-20).
+        "A wire 0.5 m long carries 2 A at 30° to a 0.3 T field. Find the force on the wire "
+        "using the component of the field perpendicular to it.",
+        "A proton moves at 2e6 m/s at 30° to a magnetic field of 0.5 T. Find the radius of its "
+        "path using the velocity component perpendicular to the field.",
+        "A 2 kg mass is at the end of a 1.5 m string at 30° from the vertical. Find the "
+        "components of tension.",
+        "A ray travels 5 cm in glass at 30° to the normal. Find its components.",
+        "A ball is thrown at 20 m/s at 30° above the horizontal. Find the horizontal and "
+        "vertical components of velocity and the range.",
+        # A side or an axis this reader does not model is declined, never read as from the
+        # horizontal with both components positive (Gemini review, 2026-11-20).
+        "Resolve 20 N at 30° to the left of the vertical into horizontal and vertical components.",
+        "Resolve 25 m/s at 60° from the negative x-axis into components.",
+        "A plane flies at 200 km/h on a bearing of N 30° W. Find the components of its velocity.",
+        # A component against a lever or a surface is not across and up.
+        "A 50 N force acts at 30° to a lever. Find the component of the force perpendicular "
+        "to the lever.",
+        "A 50 N weight rests on a 30° hill. Find the component of the weight perpendicular "
+        "to the hill.",
+        # A negative angle, and a quadrant bearing past a right angle, are not read.
+        "Resolve 10 N at -30° from the horizontal into components.",
+        "A hiker walks 5 km 120° west of north. Find the components of the displacement.",
+        # A negative axis or a named quadrant is not modelled; a torque is no vector here.
+        "Resolve 25 m/s at 60° from the -x-axis into components.",
+        "A 50 N force in the third quadrant makes an angle of 30° with the x-axis. Find its x "
+        "and y components.",
+        "Resolve 20 N·m at 30° from the horizontal into two components.",
+        # A compass side on the vector itself, not a bearing (Gemini review).
+        "A boat travels 10 m/s west at 30° to the shoreline. Find the north and east components.",
+    ],
+)
+def test_a_component_along_a_slope_is_not_resolved_across_and_up(text: str) -> None:
+    intent = extract_physics_intent(text)
+    assert intent is None or intent.physics_op != "resolve_vector"
 
 
 @pytest.mark.parametrize("text,op,answer", VERIFIED, ids=[row[0][:44] for row in VERIFIED])
@@ -113,7 +299,7 @@ def test_both_ops_have_at_least_three_phrasings() -> None:
 
     covered = Counter(op for _, op, _ in VERIFIED)
 
-    assert set(covered) == {"resultant_force", "resolve_force"}
+    assert set(covered) == {"resultant_force", "resolve_vector"}
     assert {op: n for op, n in covered.items() if n < 3} == {}
 
 
@@ -257,3 +443,24 @@ def test_missing_geometry_is_refused_not_assumed(text: str) -> None:
     guess wearing a verified block.
     """
     assert _verified_answer(text) is None
+
+
+def test_a_bearing_is_worked_as_sizes_along_its_directions() -> None:
+    """Gemini review: the working ended "s_y = -12.5 km south", a double negative beside a
+    card naming the side. A bearing is worked from its acute angle to the north-south line,
+    each component a size along the way it points."""
+    intent = extract_physics_intent(
+        "A ship sails 25 km on a bearing of 240°. Find the east and north components."
+    )
+    assert intent is not None
+    block = build_verified_physics_block(intent, _settings())
+    assert block is not None
+    assert block.physics_substitutions == (r"s_{W} = 25\sin(60^\circ)", r"s_{S} = 25\cos(60^\circ)")
+    assert block.canonical_answer == "21.7 km west and 12.5 km south"
+    assert "-" not in (block.physics_working or "").split("Verified substitution:")[-1]
+
+
+def test_a_vector_along_an_axis_has_a_zero_component_not_float_noise() -> None:
+    """Claude review: 60 N at 90° printed 3.67 x 10^-15 N across."""
+    answer = _verified_answer("Resolve 60 N at 90° from the horizontal into components.")
+    assert answer is not None and "10^" not in answer and "×" not in answer

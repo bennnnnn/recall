@@ -12,6 +12,7 @@ import {
   SIMULATION_HEIGHT,
   SIMULATION_MIN_HEIGHT,
   SIMULATION_PAD,
+  sceneStages,
   simulationIsAnimated,
   simulationViewportHeight,
 } from "@/lib/physics/simulation";
@@ -19,7 +20,7 @@ import { Space } from "@/lib/space";
 
 /**
  * The height the scene will take once loaded — title, canvas sized to the
- * scene's aspect, and the play button when something moves. Unreadable
+ * scene's aspect, and the play button when something moves or is built in stages. Unreadable
  * content keeps the old fixed guess; the block shows a one-line fallback for
  * it anyway.
  */
@@ -36,7 +37,9 @@ export function simulationPlaceholderHeight(
     SIMULATION_MIN_HEIGHT,
     SIMULATION_HEIGHT,
   );
-  const control = simulationIsAnimated(spec) ? Space.xxs + Space.minTouch : 0;
+  // A scene drawn in stages has the play button too, to build it again.
+  const played = simulationIsAnimated(spec) || sceneStages(spec) !== null;
+  const control = played ? Space.xxs + Space.minTouch : 0;
   return Space.xs * 2 + FIGURE_TITLE_HEIGHT + canvas + control;
 }
 
