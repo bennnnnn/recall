@@ -43,8 +43,8 @@ _GABLE = 0.45
 # A radius drawn from the centre of a semicircle, at this angle from its diameter.
 _RADIUS_TURN = 60.0
 _CUT = frozenset({"cut", "cut_out", "removed", "hole"})
-# The side an attached part stands on, as the read names it in ``parts`` and as the
-# question writes it ("on one of its longer sides", "on a short side").
+# The side an attached part stands on, as the question writes it ("on one of its longer
+# sides", "on a short side"), kept in ``parts`` for the builder.
 SIDE_PARTS = {"longer": "longer_side", "shorter": "shorter_side"}
 _SIDE_WORDS = {
     "longer": re.compile(r"\b(?:longer|longest|long)\s+(?:sides?|edges?)\b"),
@@ -140,9 +140,9 @@ def _which_side(request: FigureRequest) -> str | None:
 
 def side_as_said(request: FigureRequest, texts: Iterable[str]) -> FigureRequest | None:
     """The reading with the side its attached part stands on as the question names it
-    ("on one of its longer sides": parts "longer_side"); None when the read names another
-    side, or one the question does not (a read is held to the question's words), or the
-    question names both. A question that names none leaves the reading as it is."""
+    ("on one of its longer sides", "on its 10 cm side": parts "longer_side"), whatever
+    side parts the read gave; None when the question names both sides, or names one the
+    part cannot stand on. A question that names none leaves the convention."""
     if request.kind != "polygon" or request.attached not in {"semicircle", *_TRIANGLES}:
         return request
     words = " ".join(texts).lower()
@@ -155,13 +155,12 @@ def side_as_said(request: FigureRequest, texts: Iterable[str]) -> FigureRequest 
         if sized is None:
             return None
         said |= {sized} - {""}
-    read = {which for which, part in SIDE_PARTS.items() if request.has_part(part)}
-    if len(said) > 1 or (read and read != said):
+    if len(said) > 1:
         return None
-    if not said:
-        return request
+    # The question's words decide: a read naming the 6 cm side "longer" (2026-11-21) does not.
     parts = [p for p in request.parts if p not in SIDE_PARTS.values()]
-    return request.model_copy(update={"parts": [*parts, SIDE_PARTS[said.pop()]]})
+    parts += [SIDE_PARTS[which] for which in said]
+    return request.model_copy(update={"parts": parts})
 
 
 def _sized_side(request: FigureRequest, size: float) -> str | None:
@@ -242,11 +241,14 @@ def _semicircle(
 ) -> FigureSpec | None:
     """The semicircle stands on the side as long as its diameter, drawn as the top; one cut
     out of the shape bites into it instead."""
-    if len(part) > 1:
-        return None
+    # Every size read of the semicircle says how wide it is: its diameter, the side it
+    # stands on (read "of" it), twice its radius. They must agree.
     radius = next((m.value for m in part if m.what == "radius"), None)
     diameter = next((m.value for m in part if m.what == "diameter"), None)
-    across = diameter if diameter is not None else 2 * radius if radius is not None else None
+    widths = {m.value * (2 if m.what == "radius" else 1) for m in part}
+    if len(part) > 2 or (widths and max(widths) - min(widths) > _TOLERANCE):
+        return None
+    across = min(widths) if widths else None
     sides = _semicircle_sides(box, across, stands)
     if sides is None:
         return None

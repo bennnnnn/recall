@@ -224,16 +224,14 @@ def test_composite_semicircle_on_a_shorter_side_stands_on_the_shorter_side() -> 
 @pytest.mark.parametrize(
     ("question", "measures", "parts"),
     [
-        # The read names the shorter side where the question says the longer.
-        (LONGER, [("length", 10, ""), ("width", 6, "")], ["shorter_side"]),
         # A diameter as long as the shorter side, on a side the question calls longer.
         (LONGER, [("length", 10, ""), ("width", 6, ""), ("diameter", 6, "semicircle")], []),
         # One side stated: which one is the longer is not known.
         ("A rectangle 10 cm long has a semicircle on one of its longer sides.",
          [("length", 10, "")], []),
-        # The read names a side the question does not.
-        ("A rectangle 10 cm by 6 cm with a semicircle on one side.",
-         [("length", 10, ""), ("width", 6, "")], ["longer_side"]),
+        # The question names both sides.
+        ("A rectangle 10 cm by 6 cm has a semicircle on a longer side and a shorter side.",
+         [("length", 10, ""), ("width", 6, "")], []),
         # A side named by a length the rectangle has not.
         ("A rectangle 10 cm by 6 cm has a semicircle on its 8 cm side.",
          [("length", 10, ""), ("width", 6, "")], []),
@@ -243,6 +241,35 @@ def test_composite_semicircle_on_a_side_the_reading_cannot_place_draws_nothing(
     question: str, measures: list[tuple[str, float, str]], parts: list[str]
 ) -> None:
     assert draw(question, _two("rectangle", "semicircle", *measures, parts=parts)) is None
+
+
+@pytest.mark.parametrize(
+    ("question", "parts", "across"),
+    [
+        (LONGER, ["shorter_side"], 10),
+        ("A rectangle 10 cm by 6 cm with a semicircle on one side.", ["longer_side"], 6),
+        (SEMICIRCLE, ["longer_side"], 6),
+    ],
+)
+def test_composite_the_questions_words_name_the_side_never_the_read(
+    question: str, parts: list[str], across: float
+) -> None:
+    reading = _two("rectangle", "semicircle", ("length", 10, ""), ("width", 6, ""), parts=parts)
+    assert _semicircle_on(figure(question, reading)) == pytest.approx(across)
+
+
+def test_composite_semicircle_s_diameter_read_twice_as_its_side() -> None:
+    reading = _two(
+        "rectangle",
+        "semicircle",
+        ("length", 10, ""),
+        ("width", 6, ""),
+        ("diameter", 6, "semicircle"),
+        ("side", 6, "semicircle"),
+    )
+    spec = figure(SEMICIRCLE, reading)
+    assert _semicircle_on(spec) == pytest.approx(6)
+    assert labels(spec) == ["10 cm", "6 cm"]
 
 
 def test_composite_semicircle_on_the_side_named_by_its_length() -> None:

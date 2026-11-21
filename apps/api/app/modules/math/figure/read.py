@@ -80,7 +80,8 @@ _CIRCLES = (
     "a hemisphere is kind solid, never circle.\n"
     "- shape: circle (a circle with its radius, diameter or a chord and its distance from "
     "the centre); sector (a sector or an arc: two radii and the angle between them at the "
-    "centre); segment (the part cut off by a chord, with its angle at the centre); annulus "
+    "centre); semicircle (half a circle by itself, by its radius or diameter); segment "
+    "(the part cut off by a chord, with its angle at the centre); annulus "
     "(a ring: two circles with one centre); tangent (a tangent from a point outside); "
     "two_tangents (two tangents from one point); angle_at_centre (an arc's angle at the "
     "centre and at the circumference, or two angles at the circumference on the same arc, "
@@ -173,8 +174,7 @@ _BODY = (
     "semicircle, triangle, equilateral_triangle, rectangle (an L-shape) or square; for a "
     "round solid, the solid on it: cone, hemisphere, cylinder, or hemispheres (one at each "
     'end). shape is the first part ("a cone on a hemisphere": shape hemisphere, attached '
-    'cone), else "". A semicircle cut out of the shape adds "cut" to parts; a part on a '
-    'longer or a shorter side adds "longer_side" or "shorter_side".\n'
+    'cone), else "". A semicircle cut out of the shape adds "cut" to parts.\n'
     '- vertices: the letters naming the corners in order ("ABCD"), or "".\n'
     "- center: the letter naming a circle's centre or the point where diagonals meet "
     '("O"), or "".\n'
