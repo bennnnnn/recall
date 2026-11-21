@@ -194,9 +194,19 @@ _NOT_AXES_RE = re.compile(
 # The angle's reference, written right after it: "40° from the vertical", "30 degrees to the
 # y-axis". Read only there: "the vertical component" elsewhere names a component asked for.
 _AFTER_ANGLE_VERTICAL_RE = re.compile(
-    r"\s*(?:from|to|with|of)\s+the\s+(?:vertical|y[- ]?axis|upward\s+vertical)\b", re.IGNORECASE
+    r"\s*(?:angle\s+)?(?:from|to|with|of)\s+the\s+(?:vertical|y[- ]?axis)\b", re.IGNORECASE
 )
-_BELOW_RE = re.compile(r"\bbelow\s+the\s+(?:horizontal|x[- ]?axis)\b", re.IGNORECASE)
+# The vertical named as a reference anywhere else ("making a 30° angle, measured to the
+# vertical"): read only right after the angle, so a sentence that places it elsewhere is
+# declined, never read as from the horizontal (review, 2026-11-20).
+_VERTICAL_REFERENCE_RE = re.compile(
+    r"\b(?:from|to|with)\s+the\s+(?:vertical|y[- ]?axis)\b(?!\s+components?)", re.IGNORECASE
+)
+_BELOW_RE = re.compile(r"\bbelow\s+(?:the\s+)?(?:horizontal|x[- ]?axis)\b", re.IGNORECASE)
+# One component asked, by its axis: "the vertical component", "its x-component".
+_ONE_COMPONENT_RE = re.compile(
+    r"\b(horizontal|vertical|x|y|east(?:ward)?|north(?:ward)?)[- ]component\b(?!s)", re.IGNORECASE
+)
 # A side or a sense this reader does not model: "to the left of the vertical", "from the
 # negative x-axis", "N 30° W", "clockwise". Such a question is declined, never read as from
 # the horizontal with both components positive (review, 2026-11-20).
@@ -246,6 +256,8 @@ def _resolve_intent(cleaned: str) -> PhysicsIntent | None:
         return None
     if _UNREAD_SIDE_RE.search(cleaned):
         return None
+    if re.search(r"\bbelow\b", cleaned, re.IGNORECASE) and not _BELOW_RE.search(cleaned):
+        return None
     size = _VECTOR_SIZE_RE.search(cleaned)
     if size is None or _stated_values(cleaned) != 1:
         return None
@@ -257,15 +269,21 @@ def _resolve_intent(cleaned: str) -> PhysicsIntent | None:
     unit = re.sub(r"/s2$", "/s^2", unit)
     name = next(param for pattern, param in _VECTOR_PARAMS if pattern.fullmatch(unit))
     params = {name: float(size.group(1)), "angle": float(angle.group(1))}
+    # A negative size or angle is a reading this does not make ("-30°"): declined.
+    if params[name] <= 0 or params["angle"] < 0:
+        return None
     bearing = _BEARING_RE.search(cleaned)
     if numbered is not None:
         # Clockwise from north: the sine is east, the cosine north, each signed by itself.
-        params.update(from_vertical=1.0, x_sign=1.0, y_sign=1.0)
+        params.update(from_vertical=1.0, x_sign=1.0, y_sign=1.0, compass=1.0)
     elif bearing is not None:
         toward, base = bearing.group(1).lower(), bearing.group(2).lower()
         sides = {toward, base}
-        if sides in ({"north", "south"}, {"east", "west"}):
+        # "30° north of east" turns less than a right angle from its base; "120° west of north"
+        # is no quadrant bearing.
+        if sides in ({"north", "south"}, {"east", "west"}) or not 0 < params["angle"] < 90:
             return None
+        params["compass"] = 1.0
         params["from_vertical"] = 1.0 if base in ("north", "south") else 0.0
         params["x_sign"] = -1.0 if "west" in sides else 1.0
         params["y_sign"] = -1.0 if "south" in sides else 1.0
@@ -278,9 +296,14 @@ def _resolve_intent(cleaned: str) -> PhysicsIntent | None:
         return None
     else:
         vertical = _AFTER_ANGLE_VERTICAL_RE.match(cleaned, angle.end()) is not None
+        if not vertical and _VERTICAL_REFERENCE_RE.search(cleaned):
+            return None
         params["from_vertical"] = 1.0 if vertical else 0.0
         params["x_sign"] = 1.0
         params["y_sign"] = -1.0 if _BELOW_RE.search(cleaned) else 1.0
+    asked = {match.group(1).lower()[0] for match in _ONE_COMPONENT_RE.finditer(cleaned)}
+    if len(asked) == 1 and not re.search(r"\bcomponents\b", cleaned, re.IGNORECASE):
+        params["only"] = 1.0 if asked <= {"h", "x", "e"} else 2.0
     return PhysicsIntent(
         kind="force",
         physics_op="resolve_vector",

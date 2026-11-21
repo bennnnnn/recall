@@ -190,17 +190,38 @@ def _resolve_vector(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult
 
     (x_formula, x_row), (y_formula, y_row) = row("x", x_trig, x_sign), row("y", y_trig, y_sign)
     text_unit = f" {plain_unit(unit)}" if unit else ""
+    # A bearing's components are a distance east or west and north or south, said by their
+    # side; across and up keep their sign (review, 2026-11-20).
+    if raw.get("compass", 0.0) == 1.0:
+        x_quantity = QuantityResult(
+            "", abs(x_value), unit, detail="west" if x_value < 0 else "east", detail_style="suffix"
+        )
+        y_quantity = QuantityResult(
+            "",
+            abs(y_value),
+            unit,
+            detail="south" if y_value < 0 else "north",
+            detail_style="suffix",
+        )
+    else:
+        x_quantity = QuantityResult("", x_value, unit, detail="horizontally", detail_style="suffix")
+        y_quantity = QuantityResult("", y_value, unit, detail="vertically", detail_style="suffix")
+    rows = [
+        (x_formula, x_row, x_value, x_quantity),
+        (y_formula, y_row, y_value, y_quantity),
+    ]
+    # One component asked ("the vertical component"): the answer is that one; the picture
+    # still shows both, as resolving it does.
+    only = int(raw.get("only", 0.0))
+    if only in (1, 2):
+        rows = [rows[only - 1]]
     return PhysicsResult(
-        answer=(
-            rf"{x_row} \approx {latex_number(x_value)}{shown}, \quad "
-            rf"{y_row} \approx {latex_number(y_value)}{shown}"
+        answer=r", \quad ".join(
+            rf"{sub} \approx {latex_number(value)}{shown}" for _, sub, value, _ in rows
         ),
-        formulas=(x_formula, y_formula),
-        substitutions=(x_row, y_row),
-        quantities=(
-            QuantityResult("", x_value, unit, detail="horizontally", detail_style="suffix"),
-            QuantityResult("", y_value, unit, detail="vertically", detail_style="suffix"),
-        ),
+        formulas=tuple(formula for formula, _, _, _ in rows),
+        substitutions=tuple(sub for _, sub, _, _ in rows),
+        quantities=tuple(quantity for _, _, _, quantity in rows),
         simulation_specs=resolution_scene(
             size=size,
             x_value=x_value,

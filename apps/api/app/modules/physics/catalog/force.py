@@ -135,6 +135,10 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("from_vertical", "from_vertical", dimensionless=True, visible=False),
             var("x_sign", "x_sign", dimensionless=True, visible=False),
             var("y_sign", "y_sign", dimensionless=True, visible=False),
+            # A bearing's components are east and north, not horizontal and vertical.
+            var("compass", "compass", dimensionless=True, visible=False),
+            # One component asked ("the vertical component"): 1 across, 2 up; else both.
+            var("only", "only", dimensionless=True, visible=False),
         ),
     ),
     formula(

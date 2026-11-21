@@ -111,7 +111,7 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "A hiker walks 5 km 40° west of north. Find the components of the displacement.",
         "resolve_vector",
-        "-3.21 km horizontally and 3.83 km vertically",
+        "3.21 km west and 3.83 km north",
     ),
     (
         "Resolve an acceleration of 3 m/s^2 at 20° below the horizontal into components.",
@@ -122,7 +122,7 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "A plane flies at 250 km/h, 30° north of east. Find the components of its velocity.",
         "resolve_vector",
-        "217 km/h horizontally and 125 km/h vertically",
+        "217 km/h east and 125 km/h north",
     ),
     (
         "Find the horizontal and vertical components of a momentum of 12 kg m/s at 60° to "
@@ -130,28 +130,54 @@ VERIFIED: list[tuple[str, str, str]] = [
         "resolve_vector",
         "6 kg·m/s horizontally and 10.4 kg·m/s vertically",
     ),
-    # "the vertical component" names what is asked; the angle is still from the horizontal.
+    # "the vertical component" names what is asked, and alone: the angle is still from the
+    # horizontal, and the card holds that one component.
     (
         "A force of 60 N acts at 30° above the horizontal. Find the magnitude of the vertical "
         "component.",
         "resolve_vector",
-        "52 N horizontally and 30 N vertically",
+        "30 N vertically",
     ),
     # A three-figure bearing is clockwise from north: the sine is east, the cosine north.
     (
         "A plane flies 300 km/h on a bearing of 40°. Find the north and east components.",
         "resolve_vector",
-        "193 km/h horizontally and 230 km/h vertically",
+        "193 km/h east and 230 km/h north",
     ),
     (
         "A ship sails 25 km on a bearing of 120°. Find the east and north components.",
         "resolve_vector",
-        "21.7 km horizontally and -12.5 km vertically",
+        "21.7 km east and 12.5 km south",
     ),
     (
         "Resolve 25 m/s at 120° from the positive x-axis into components.",
         "resolve_vector",
         "-12.5 m/s horizontally and 21.7 m/s vertically",
+    ),
+    # The vertical named right after the angle, with "angle" or "axis" around it.
+    (
+        "Find the horizontal and vertical components of a 60 N force making a 30° angle with "
+        "the vertical.",
+        "resolve_vector",
+        "30 N horizontally and 52 N vertically",
+    ),
+    (
+        "Resolve a 10 m/s velocity directed at 30° to the vertical axis into components.",
+        "resolve_vector",
+        "5 m/s horizontally and 8.66 m/s vertically",
+    ),
+    # "below horizontal" without "the" still points down.
+    (
+        "Resolve a velocity of 15 m/s at 20° below horizontal into horizontal and vertical "
+        "components.",
+        "resolve_vector",
+        "14.1 m/s horizontally and -5.13 m/s vertically",
+    ),
+    # A bearing past 180°: west and south.
+    (
+        "A ship sails 25 km on a bearing of 240°. Find the east and north components.",
+        "resolve_vector",
+        "21.7 km west and 12.5 km south",
     ),
     # "m/s2" as students write it (Codex review).
     (
@@ -200,6 +226,9 @@ def test_a_large_vector_s_working_has_no_calculator_notation() -> None:
         "to the lever.",
         "A 50 N weight rests on a 30° hill. Find the component of the weight perpendicular "
         "to the hill.",
+        # A negative angle, and a quadrant bearing past a right angle, are not read.
+        "Resolve 10 N at -30° from the horizontal into components.",
+        "A hiker walks 5 km 120° west of north. Find the components of the displacement.",
     ],
 )
 def test_a_component_along_a_slope_is_not_resolved_across_and_up(text: str) -> None:

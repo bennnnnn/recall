@@ -202,7 +202,7 @@ def answer_card(reply: str) -> str:
 
 
 # The side a card's value is on, written after its unit (a resolved vector's components).
-_SIDE_AFTER_UNIT = re.compile(r"\s+(?:horizontally|vertically)$")
+_SIDE_AFTER_UNIT = re.compile(r"\s+(?:horizontally|vertically|east|west|north|south)$")
 
 
 def card_values(reply: str) -> list[tuple[float, str, str]]:
