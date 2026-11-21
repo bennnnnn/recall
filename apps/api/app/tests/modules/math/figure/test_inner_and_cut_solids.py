@@ -167,6 +167,19 @@ def test_cut_cone_draws_the_frustum_and_the_cone_cut_off_true_to_scale() -> None
             5,
         ),
         (
+            # The cut's distance from the top read as a length: the cut-off cone's height.
+            "A cone of height 30 cm and base radius 15 cm is cut by a plane parallel to its "
+            "base, 10 cm from its top. Find the volume of the frustum.",
+            _solid(
+                "frustum",
+                ("height", 30, "original"),
+                ("radius", 15, "original"),
+                ("length", 10, "removed"),
+            ),
+            20,
+            5,
+        ),
+        (
             "The original cone has base radius 9 cm and height 12 cm. The small cone cut off "
             "has radius 3 cm.",
             _solid("cone", ("radius", 9, ""), ("height", 12, ""), ("radius", 3, "")),

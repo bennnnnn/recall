@@ -172,7 +172,8 @@ _BODY = (
     "calls similar are this one figure, never one triangle); quadrilateral (any four-sided "
     "shape that is none of the named ones). More lines: supplementary_angles. More "
     "solids: frustum (of a cone, and a cone cut parallel to its base: each measure's of "
-    'says whose it is, "original" cone, "removed" cone or "frustum"), '
+    'says whose it is, "original" cone, "removed" cone or "frustum"; only the sizes the '
+    "question writes, never the frustum's own worked out), "
     "square_frustum (of a square pyramid), tetrahedron.\n"
     "- attached: a second shape joined to the first: for a rectangle or square, "
     "semicircle, triangle, equilateral_triangle, rectangle (an L-shape) or square; for a "

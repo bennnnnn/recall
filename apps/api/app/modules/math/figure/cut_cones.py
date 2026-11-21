@@ -55,6 +55,9 @@ _OF_STEMS = {
     CUT: ("small", "remov", "cut"),
     FRUSTUM: ("frustum",),
 }
+# A length along the axis is a height: "cut 10 cm from its top" read as a length or a
+# distance is the cut-off cone's height (2026-11-21).
+_ALONG = frozenset({"height", "length", "distance"})
 _TOLERANCE = 1e-4
 _HEIGHT = 2.0  # the whole cone's height against its radius, when the question leaves it
 _BESIDE = 1.3
@@ -170,7 +173,7 @@ def _tables(measures: Sequence[tuple[Measure, str]]) -> tuple[dict[str, float], 
     heights: dict[str, float] = {}
     radii: dict[str, float] = {}
     for m, role in measures:
-        if m.what == "height":
+        if m.what in _ALONG:
             table, value = heights, m.value
         elif m.what in {"radius", "diameter"} and role != FRUSTUM:
             table, value = radii, _radius(m)
@@ -216,7 +219,7 @@ def _solve(request: FigureRequest) -> tuple[float, float, float, list[tuple[Meas
     whichever holds (the two ends of a frustum are the whole cone's base and the cut)."""
     found: list[tuple[float, float, float, list[tuple[Measure, str]]]] = []
     choices = [
-        (WHOLE, CUT) if m.of == FRUSTUM and m.what != "height" else (m.of,)
+        (WHOLE, CUT) if m.of == FRUSTUM and m.what not in _ALONG else (m.of,)
         for m in request.measures
     ]
     for roles in product(*choices):
@@ -274,5 +277,6 @@ def _labels(
             continue
         if m.what == "radius" and ("diameter", role) in labels:
             continue
-        labels.setdefault((m.what, role), length_label(m.value, request.unit))
+        what = "height" if m.what in _ALONG else m.what
+        labels.setdefault((what, role), length_label(m.value, request.unit))
     return labels
