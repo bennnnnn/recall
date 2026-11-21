@@ -3,10 +3,10 @@
 The exterior angle at C (between CA and BC drawn on to D) is the sum of the two interior
 angles opposite it, A and B. The question states the exterior angle and one or both of
 those: what it leaves open is worked out (the other opposite angle, C itself) and drawn to
-size, unlabelled; a stated angle at C must be 180° less the exterior one. Opposite angles
-that add up to more than it, or to another sum when both are stated, draw nothing. Angles
-written with a letter ("x", "2x + 10") are solved where the exterior angle decides them,
-and labelled as written.
+size, unlabelled; a stated angle at C must be 180° less the exterior one, and is labelled
+there. Opposite angles that add up to more than it, or to another sum when both are
+stated, draw nothing. Angles written with a letter ("x", "2x + 10") are solved where the
+exterior angle decides them, and labelled as written.
 """
 
 from __future__ import annotations
@@ -45,9 +45,9 @@ def _letters(request: FigureRequest) -> tuple[str, str, str, str, bool]:
 def _opposite(
     request: FigureRequest, names: tuple[str, str, str], exterior: float
 ) -> dict[str, float] | None:
-    """The interior angles stated opposite the exterior one, at A and B: each where its
-    letter puts it, an unnamed one at A first. None when one at C disagrees with the
-    exterior angle, or more are stated than fit."""
+    """The interior angles stated, at A and B opposite the exterior one (each where its
+    letter puts it, an unnamed one at A first) and at C. None when the one at C disagrees
+    with the exterior angle, or more are stated than fit."""
     a, b, c = names
     found: dict[str, float] = {}
     unnamed: list[float] = []
@@ -58,8 +58,9 @@ def _opposite(
         if name and name == outside.name.strip() and m.value == outside.value:
             continue  # the exterior angle read twice, once as a plain angle
         if vertex == c:
-            if abs(m.value + exterior - 180) > _TOLERANCE:
+            if abs(m.value + exterior - 180) > _TOLERANCE or c in found:
                 return None
+            found[c] = m.value
         elif vertex in {a, b} and vertex not in found:
             found[vertex] = m.value
         elif vertex:
@@ -97,6 +98,9 @@ def build_exterior(request: FigureRequest) -> FigureSpec | None:
         opposite = _opposite(request, (a, b, c), exterior)
         if opposite is None:
             return None
+        # The stated angle at C is labelled where it is; it decides nothing more.
+        if c in opposite:
+            labels[c] = angle_label(opposite.pop(c))
         if len(opposite) == 2 and abs(sum(opposite.values()) - exterior) > _TOLERANCE:
             return None
         if any(value >= exterior for value in opposite.values()):
@@ -105,7 +109,7 @@ def build_exterior(request: FigureRequest) -> FigureSpec | None:
         if at_a is None:
             at_a = exterior - opposite[b] if b in opposite else exterior * _SHARE
         sizes = [at_a, exterior - at_a]
-        labels = {letter: angle_label(value) for letter, value in opposite.items()}
+        labels |= {letter: angle_label(value) for letter, value in opposite.items()}
     return _draw(request, (a, b, c, d), shown, sizes, exterior, labels)
 
 
@@ -131,4 +135,6 @@ def _draw(
     drawing.angle(c, a, d, angle_label(exterior))
     drawing.angle(a, b, c, labels.get(a))
     drawing.angle(b, c, a, labels.get(b))
+    if c in labels:
+        drawing.angle(c, a, b, labels[c])
     return drawing.spec()

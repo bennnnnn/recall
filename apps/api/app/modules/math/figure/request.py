@@ -187,12 +187,19 @@ class Transform(BaseModel):
         return "" if value is None or isinstance(value, bool) else str(value).strip()[:12]
 
 
+# The most transformations a reading keeps: more than a picture draws (``transforms``
+# draws two at most), so a chain longer than that is kept whole and refused there, never
+# cut to two that draw an image the question does not ask for.
+TRANSFORMS_READ = 6
+
+
 def _transforms(value: Any) -> list[Transform]:
     """The transformations a reader gave, in order; a malformed one drops them all, as a
-    composite missing a step is no picture of the question."""
+    composite missing a step is no picture of the question. A list longer than a reading
+    keeps stays longer than a picture draws."""
     items = value if isinstance(value, list) else [value] if isinstance(value, dict) else []
     try:
-        return [Transform.model_validate(item) for item in items[:2]]
+        return [Transform.model_validate(item) for item in items[:TRANSFORMS_READ]]
     except ValueError:
         return []
 
@@ -257,7 +264,7 @@ class FigureRequest(BaseModel):
     # the points, in order (the server works the image out).
     join: Literal["", "segment", "polygon"] = ""
     equation: str = Field(default="", max_length=120)
-    transforms: list[Transform] = Field(default_factory=list, max_length=2)
+    transforms: list[Transform] = Field(default_factory=list, max_length=TRANSFORMS_READ)
 
     @model_validator(mode="before")
     @classmethod

@@ -3,8 +3,9 @@
 A sector (or an arc) is drawn as its two radii and the arc between them, the rest of the
 circle dashed, the angle at the centre marked and labelled; a segment adds the chord across
 the sector. An annulus is two circles about one centre, each with its stated radius (or
-diameter) drawn and labelled. An angle mark shows an angle under 180°, so a larger sector
-draws nothing rather than a mark that would say the wrong angle.
+diameter) drawn and labelled. A semicircle by itself is its arc on its diameter. An angle
+mark shows an angle under 180°, so a larger sector draws nothing rather than a mark that
+would say the wrong angle.
 """
 
 from __future__ import annotations
@@ -16,6 +17,9 @@ from app.modules.math.schemas.figure import FigureSpec
 
 # Where an annulus's two radii point: apart, so their labels never meet.
 _INNER_TURN, _OUTER_TURN = 135.0, 20.0
+# Where a semicircle's radius points, clear of its diameter's label.
+_SEMICIRCLE_TURN = 60.0
+SIZES = frozenset({"radius", "diameter"})
 
 
 def _centre_angle(request: FigureRequest) -> float | None:
@@ -95,4 +99,25 @@ def build_annulus(request: FigureRequest) -> FigureSpec | None:
         else:
             ends = drawing.point(polar(r, turn + 180)), drawing.point(polar(r, turn))
             drawing.line(*ends, figure.length(value), label_at=0.75)
+    return drawing.spec()
+
+
+def build_semicircle(request: FigureRequest) -> FigureSpec | None:
+    """A semicircle by itself: its arc standing on its diameter (lettered as the question
+    letters its ends), the stated diameter labelled along it, the stated radius (or one the
+    question asks for, unlabelled) from the centre. Any other value is none of its figure."""
+    holds, size = stated_size(request)
+    if not holds or any(m.what not in SIZES for m in request.measures):
+        return None
+    r = size or DEFAULT_RADIUS
+    figure = start(request, "semicircle", r)
+    drawing = figure.drawing
+    names = letters(request, 2) or ["", ""]
+    a, b = figure.named((-r, 0.0), names[0]), figure.named((r, 0.0), names[1])
+    drawing.arc(figure.centre, r, start=0.0, end=180.0)
+    drawing.line(a, b, figure.length(request.first("diameter")), label_at=0.75)
+    radius = request.first("radius")
+    if radius is not None or request.has_part("radius"):
+        end = drawing.point(polar(r, _SEMICIRCLE_TURN))
+        drawing.line(figure.centre, end, figure.length(radius))
     return drawing.spec()

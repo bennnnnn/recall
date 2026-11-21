@@ -12,7 +12,10 @@ user did not ask (``math.figure.read``), the figure is built and checked against
 question, and then held to the case: its named sides in proportion, its named angles true,
 every value in ``labels`` shown, and at least ``needs`` of each part (arcs, angles). A case
 is right, wrong (drawn but failing a check), missed (not drawn) or unwanted (drawn for a
-question labelled none). A coordinate plane (a ```graph ``points`` fence) is held to its
+question labelled none). ``extent`` holds the drawn points' width and height to the
+case's (a scene's ground and tower, a stacked solid's whole height), ``radii`` the arcs
+drawn (a semicircle on its stated side), ``at_most`` caps a part (no triangle in a plain
+semicircle). A coordinate plane (a ```graph ``points`` fence) is held to its
 case too: ``image`` the exact corners of a transformation's image, ``at`` a lettered
 point's coordinates, ``circle`` a circle's centre and radius. The owner (2026-11-20): every kind of geometry, the complex too,
 drawn by itself as part of the tutorial.
@@ -146,6 +149,27 @@ def _plane_problems(case: dict[str, Any], fig: dict[str, Any]) -> list[str]:
     return problems
 
 
+def _shape_problems(case: dict[str, Any], fig: dict[str, Any], pts: dict[str, Point]) -> list[str]:
+    """The figure's size and parts held to the case: its points' ``extent`` (width,
+    height), the ``radii`` of its arcs and the ``at_most`` of each part."""
+    problems: list[str] = []
+    extent = case.get("extent") or {}
+    if extent and pts:
+        xs, ys = [x for x, _ in pts.values()], [y for _, y in pts.values()]
+        drawn = {"width": max(xs) - min(xs), "height": max(ys) - min(ys)}
+        for key, want in extent.items():
+            if abs(drawn[key] - want) > _SCALE_TOLERANCE * want:
+                problems.append(f"{key} is {drawn[key]:.3g}, not {want}")
+    arcs = sorted(arc.get("rx", 0) for arc in fig.get("arcs") or [])
+    for radius in case.get("radii") or []:
+        if not any(abs(rx - radius) <= _SCALE_TOLERANCE * radius for rx in arcs):
+            problems.append(f"no arc of radius {radius} (arcs {arcs})")
+    for key, most in (case.get("at_most") or {}).items():
+        if len(fig.get(key) or []) > most:
+            problems.append(f"at most {most} {key}, has {len(fig.get(key) or [])}")
+    return problems
+
+
 def check(case: dict[str, Any], fence: str) -> list[str]:
     """What the drawn figure gets wrong against the case: proportions, angles, labels, parts."""
     fig = _fence_json(fence)
@@ -154,6 +178,7 @@ def check(case: dict[str, Any], fence: str) -> list[str]:
     pts = _points(fig)
     problems = _side_problems(case, pts) if pts else []
     problems += _plane_problems(case, fig)
+    problems += _shape_problems(case, fig, pts)
     shown = _shown(fig)
     problems += [
         f"label {label!r} not shown" for label in case.get("labels") or [] if label not in shown

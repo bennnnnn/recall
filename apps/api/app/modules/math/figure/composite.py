@@ -15,6 +15,7 @@ from __future__ import annotations
 import math
 import re
 from collections.abc import Iterable
+from dataclasses import dataclass
 
 from app.modules.math.figure.drawing import Drawing, length_label, polar
 from app.modules.math.figure.request import FigureRequest, Measure
@@ -42,6 +43,18 @@ _GABLE = 0.45
 # A radius drawn from the centre of a semicircle, at this angle from its diameter.
 _RADIUS_TURN = 60.0
 _CUT = frozenset({"cut", "cut_out", "removed", "hole"})
+# The side an attached part stands on, as the question writes it ("on one of its longer
+# sides", "on a short side"), kept in ``parts`` for the builder.
+SIDE_PARTS = {"longer": "longer_side", "shorter": "shorter_side"}
+_SIDE_WORDS = {
+    "longer": re.compile(r"\b(?:longer|longest|long)\s+(?:sides?|edges?)\b"),
+    "shorter": re.compile(r"\b(?:shorter|shortest|short)\s+(?:sides?|edges?)\b"),
+}
+# A side named by its length: "on one of its 6 cm sides", "out of the 10 cm side".
+_SIDE_BY_SIZE = re.compile(
+    r"\b(?:on|along|of|to)\s+(?:one of\s+|each of\s+|both of\s+)?(?:its|the|a|an)\s+"
+    r"(\d+(?:\.\d+)?)\s*[a-z]*\s+(?:sides?|edges?|ends?)\b"
+)
 
 
 def names_part(texts: Iterable[str], attached: str) -> bool:
@@ -70,13 +83,16 @@ def _split(request: FigureRequest) -> tuple[list[Measure], list[Measure]]:
 
 def _box(measures: list[Measure], square: bool) -> tuple[float | None, float | None] | None:
     """A rectangle's stated length (along its base) and width, or a square's side twice."""
-    by: dict[str, float] = {m.what: m.value for m in measures}
-    if len(by) != len(measures):
+    # Plain sides ("10 cm by 6 cm" read as two sides) are kept apart: a part named twice
+    # ("length" and "length") is no rectangle's.
+    plain = [m.value for m in measures if m.what == "side"]
+    named = [m for m in measures if m.what != "side"]
+    by: dict[str, float] = {m.what: m.value for m in named}
+    if len(by) != len(named):
         return None
     if square:
-        side = by.get("side", by.get("length", by.get("edge")))
+        side = plain[0] if plain else by.get("length", by.get("edge"))
         return (side, side) if len(measures) <= 1 else None
-    plain = [m.value for m in measures if m.what == "side"]
     if "height" in by:
         # "8 m wide and 4 m high": the width (or length) runs along, the height up.
         across = [by[what] for what in ("length", "base", "width", "breadth") if what in by]
@@ -99,46 +115,141 @@ def build_composite(request: FigureRequest) -> FigureSpec | None:
     box = _box(main, request.shape == "square")
     if box is None:
         return None
+    # Read with a height, the shape stands: its width (or length) is its top.
+    stands = _Stands(_which_side(request), any(m.what == "height" for m in main))
     if request.attached == "semicircle":
-        return _semicircle(request, box, part)
+        return _semicircle(request, box, part, stands)
     if request.attached in _TRIANGLES:
-        return _gable(request, box, part)
+        return _gable(request, box, part, stands)
     other = _box(part, request.attached == "square")
     return None if other is None else _second_box(request, box, other)
 
 
+@dataclass(frozen=True)
+class _Stands:
+    """Where the attached part stands: on the side the question names ("longer",
+    "shorter" or None), and whether the shape was read standing (a width and a height)."""
+
+    which: str | None
+    upright: bool
+
+
+def _which_side(request: FigureRequest) -> str | None:
+    return next((which for which, part in SIDE_PARTS.items() if request.has_part(part)), None)
+
+
+def side_as_said(request: FigureRequest, texts: Iterable[str]) -> FigureRequest | None:
+    """The reading with the side its attached part stands on as the question names it
+    ("on one of its longer sides", "on its 10 cm side": parts "longer_side"), whatever
+    side parts the read gave; None when the question names both sides, or names one the
+    part cannot stand on. A question that names none leaves the convention."""
+    if request.kind != "polygon" or request.attached not in {"semicircle", *_TRIANGLES}:
+        return request
+    words = " ".join(texts).lower()
+    said = {which for which, named in _SIDE_WORDS.items() if named.search(words)}
+    sizes = {float(size) for size in _SIDE_BY_SIZE.findall(words)}
+    if len(sizes) > 1:
+        return None
+    if sizes:
+        sized = _sized_side(request, sizes.pop())
+        if sized is None:
+            return None
+        said |= {sized} - {""}
+    if len(said) > 1:
+        return None
+    # The question's words decide: a read naming the 6 cm side "longer" (2026-11-21) does not.
+    parts = [p for p in request.parts if p not in SIDE_PARTS.values()]
+    parts += [SIDE_PARTS[which] for which in said]
+    return request.model_copy(update={"parts": parts})
+
+
+def _sized_side(request: FigureRequest, size: float) -> str | None:
+    """Which side "on its 10 cm side" names: "longer" or "shorter" when both sides are
+    stated, "" when that leaves the drawing as the reading has it (the one stated side, a
+    square's, the semicircle's own diameter), None when the part cannot stand on it."""
+    main, part = _split(request)
+    box = _box(main, request.shape == "square")
+    if box is None or request.shape == "square":
+        return ""
+    length, width = box
+    if length is not None and width is not None:
+        if abs(length - width) < _TOLERANCE:
+            return "" if abs(size - length) < _TOLERANCE else None
+        low, high = sorted((length, width))
+        if abs(size - high) < _TOLERANCE:
+            return "longer"
+        return "shorter" if abs(size - low) < _TOLERANCE else None
+    if request.attached in _TRIANGLES:
+        # A gable stands on the length: one stated as the width is none of its top.
+        return "" if length is not None and abs(size - length) < _TOLERANCE else None
+    known = length if length is not None else width
+    across = {m.value * (2 if m.what == "radius" else 1) for m in part}
+    if (known is not None and abs(size - known) < _TOLERANCE) or size in across:
+        return ""
+    return None
+
+
+def _named_side(
+    top: float, other: float | None, top_stated: float | None, stands: _Stands
+) -> tuple[float, float | None, float | None, float | None] | None:
+    """The side found, held to the side the question names: the longer one is at least as
+    long as the other, the shorter one at most."""
+    if stands.which is not None and other is not None:
+        longer = top >= other - _TOLERANCE
+        shorter = top <= other + _TOLERANCE
+        if not (longer if stands.which == "longer" else shorter):
+            return None
+    return top, other, top_stated, other
+
+
 def _semicircle_sides(
-    box: tuple[float | None, float | None], across: float | None
+    box: tuple[float | None, float | None], across: float | None, stands: _Stands
 ) -> tuple[float, float | None, float | None, float | None] | None:
     """The side the semicircle stands on and the other one, and the stated value of each
-    (None where the question states none): a stated diameter picks the side as long."""
+    (None where the question states none): a stated diameter picks the side as long, the
+    question's "longer" or "shorter" side picks by size, a standing shape's is its top, and
+    a question that says none of these puts it on the shorter side."""
     length, width = box
     if across is None:
         sides = sorted(size for size in box if size is not None)
+        if stands.which is not None:
+            if len(sides) != 2:
+                return None  # one side stated: which is the longer is not known
+            top, beside = sides[::-1] if stands.which == "longer" else sides
+            return top, beside, top, beside
+        if stands.upright and length is not None:
+            return length, width, length, width
         if not sides:
             return 4.0, None, None, None
         rest = sides[1] if len(sides) == 2 else None
         return sides[0], rest, sides[0], rest
     for side, other in ((length, width), (width, length)):
         if side is not None and abs(side - across) < _TOLERANCE:
-            return side, other, side, other
+            return _named_side(side, other, side, stands)
     if length is not None and width is not None:
         return None  # the semicircle fits neither side
     rest = length if length is not None else width
-    return across, rest, None, rest
+    found = _named_side(across, rest, None, stands)
+    return None if found is None else (across, rest, None, rest)
 
 
 def _semicircle(
-    request: FigureRequest, box: tuple[float | None, float | None], part: list[Measure]
+    request: FigureRequest,
+    box: tuple[float | None, float | None],
+    part: list[Measure],
+    stands: _Stands,
 ) -> FigureSpec | None:
     """The semicircle stands on the side as long as its diameter, drawn as the top; one cut
     out of the shape bites into it instead."""
-    if len(part) > 1:
-        return None
+    # Every size read of the semicircle says how wide it is: its diameter, the side it
+    # stands on (read "of" it), twice its radius. They must agree.
     radius = next((m.value for m in part if m.what == "radius"), None)
     diameter = next((m.value for m in part if m.what == "diameter"), None)
-    across = diameter if diameter is not None else 2 * radius if radius is not None else None
-    sides = _semicircle_sides(box, across)
+    widths = {m.value * (2 if m.what == "radius" else 1) for m in part}
+    if len(part) > 2 or (widths and max(widths) - min(widths) > _TOLERANCE):
+        return None
+    across = min(widths) if widths else None
+    sides = _semicircle_sides(box, across, stands)
     if sides is None:
         return None
     top, up, top_stated, up_stated = sides
@@ -174,11 +285,20 @@ def _semicircle(
 
 
 def _gable(
-    request: FigureRequest, box: tuple[float | None, float | None], part: list[Measure]
+    request: FigureRequest,
+    box: tuple[float | None, float | None],
+    part: list[Measure],
+    stands: _Stands,
 ) -> FigureSpec | None:
     """A triangle on the rectangle's top, its apex over the top's middle: its height, its
-    slanting sides or (equilateral) the top itself decide where."""
+    slanting sides or (equilateral) the top itself decide where. The top is the side the
+    question names (longer or shorter), else the length (a standing shape's width)."""
     length, width = box
+    if stands.which is not None and request.shape != "square":
+        if length is None or width is None:
+            return None  # one side stated: which is the longer is not known
+        low, high = sorted((length, width))
+        length, width = (high, low) if stands.which == "longer" else (low, high)
     base = length or 6.0
     height = width or base * 0.6
     gable_height = next((m.value for m in part if m.what == "height"), None)

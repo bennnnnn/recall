@@ -53,6 +53,8 @@ _NAMED = {
     "translation": re.compile(r"\btranslat|\bshift|\bslid|\bmoved?\b"),
     "enlargement": re.compile(r"\benlarg|\bdilat|\bscale factor\b"),
 }
+# The most transformations one picture draws: the shape, its image and the image's image.
+MOST_DRAWN = 2
 # One transformation after another ("reflected in the x-axis and then in the y-axis"): a read
 # of only one draws the wrong image. "Its image after a reflection" is one.
 _COMPOSITE = re.compile(
@@ -335,11 +337,16 @@ def mapping(transform: Transform, texts: Sequence[str]) -> Mapping | None:
 
 
 def mappings(transforms: Sequence[Transform], texts: Sequence[str]) -> list[Mapping] | None:
-    """Every transformation the read gives, each the question's; None when one is not, or
-    when the question chains one after another and the read gives only one."""
+    """Every transformation the read gives, each the question's; None when one is not, when
+    the question chains one after another and the read gives only one, or when it chains
+    more than a picture draws (an image after the second would be left out)."""
     lowered = _lowered(texts)
     named = [kind for kind, words in _NAMED.items() if words.search(lowered)]
-    if len(transforms) < 2 and (_COMPOSITE.search(lowered) or len(named) > 1):
+    # Each "then" chains one more step after the first: a read of fewer leaves one out.
+    chained = len(_COMPOSITE.findall(lowered))
+    if len(transforms) > MOST_DRAWN or chained + 1 > MOST_DRAWN:
+        return None
+    if len(transforms) < 2 and (chained or len(named) > 1):
         return None
     found = [mapping(transform, texts) for transform in transforms]
     return None if any(item is None for item in found) else [m for m in found if m is not None]

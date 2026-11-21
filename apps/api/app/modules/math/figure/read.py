@@ -80,7 +80,8 @@ _CIRCLES = (
     "a hemisphere is kind solid, never circle.\n"
     "- shape: circle (a circle with its radius, diameter or a chord and its distance from "
     "the centre); sector (a sector or an arc: two radii and the angle between them at the "
-    "centre); segment (the part cut off by a chord, with its angle at the centre); annulus "
+    "centre); semicircle (half a circle by itself, by its radius or diameter); segment "
+    "(the part cut off by a chord, with its angle at the centre); annulus "
     "(a ring: two circles with one centre); tangent (a tangent from a point outside); "
     "two_tangents (two tangents from one point); angle_at_centre (an arc's angle at the "
     "centre and at the circumference, or two angles at the circumference on the same arc, "
@@ -196,7 +197,8 @@ _BODY = (
     "with the wall or the vertical, gap the distance between two points the angles are "
     "seen from (two angles of elevation from two points: both angles and the gap); "
     "shadow is a shadow's length. Every measure may say what it is of (a field "
-    'beside name): an object\'s ("pole", "tree"); in a shape made of two, the attached '
+    'beside name): an object\'s ("pole", "tree"), "observer" for the height of the person '
+    "the angle is seen by (his eye level); in a shape made of two, the attached "
     "part's name "
     '("semicircle", "cone", "triangle"), "second" for a second rectangle, "" for the first '
     "shape; the side a semicircle stands on is its diameter too. In a solid made of two, "

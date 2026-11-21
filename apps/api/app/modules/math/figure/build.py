@@ -20,6 +20,7 @@ from app.modules.math.figure import (
     composite,
     coordinate,
     frustums,
+    heights,
     lines,
     nets,
     plane,
@@ -114,6 +115,15 @@ def _names_attached(request: FigureRequest, texts: list[str]) -> bool:
     )
 
 
+def _as_said(request: FigureRequest, texts: list[str]) -> FigureRequest | None:
+    """The reading held to the question's words where a builder alone cannot tell: the side
+    a shape made of two stands on, the side a scene's two points are on, what a solid made
+    of two gives a height of."""
+    said = composite.side_as_said(request, texts)
+    said = None if said is None else heights.as_said(said, texts)
+    return None if said is None else stacked_solids.heights_as_said(said, texts)
+
+
 def _plane_fence(request: FigureRequest, texts: list[str]) -> str | None:
     """Coordinate geometry and transformations, drawn where the question puts them."""
     try:
@@ -138,6 +148,10 @@ def figure_fence(request: FigureRequest, texts: list[str]) -> str | None:
         return _plane_fence(request, texts)
     if not _the_questions_shape(request, texts):
         return None
+    said = _as_said(request, own_texts(texts))
+    if said is None:
+        return None
+    request = said
     if request.kind in {"number_line", "points"} and coordinate.writes_a_formula(own_texts(texts)):
         return None  # the formula beside them would be left out
     try:
