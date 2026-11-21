@@ -18,11 +18,12 @@ from __future__ import annotations
 import ast
 import math
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import InvalidOperation
 
 from app.services.glyphs import fold_operator_glyphs
-from app.services.md_fence_scan import map_fence_blocks
+from app.services.md_fence_scan import iter_fences, map_fence_blocks
 from app.services.school_rounding import round_places
 
 _INLINE_CODE = re.compile(r"`[^`\n]*`")
@@ -90,7 +91,12 @@ _UNIT_WORDS = frozenset(
 # A result in a prefixed unit the working did not use (7200 m = 7.2 km, 4.52e6 J = 4.5 MJ)
 # is a conversion, not arithmetic to check.
 _PREFIXED_UNIT = re.compile(r"\\(?:text|mathrm)\s*\{\s*([kMGmµμnpc][A-Za-z]+)")
-_OPERATOR = re.compile(r"[-+*/]|sqrt")
+_OPERATOR = re.compile(r"[-+*/]|sqrt|pi|sind|cosd|tand")
+# sin 75°, \sin(60^\circ): a sine of degrees, the one function of an angle working writes.
+_TRIG_DEGREES = re.compile(
+    r"\\(sin|cos|tan)\s*\(?\s*(-?\d+(?:\.\d+)?)\s*(?:°|\^\s*\{?\s*\\circ\s*\}?)\s*\)?"
+)
+_FUNCTIONS = r"sqrt|pi|sind|cosd|tand"
 _UNIT_GROUP = re.compile(
     r"\\(?:text|mathrm|textrm|rm|operatorname)\s*\{[^{}]*\}(?:\s*\^\s*(?:\{[^{}]*\}|-?\d))?"
 )
@@ -115,6 +121,8 @@ def _plain(tex: str) -> str | None:
     """A LaTeX side as a Python arithmetic expression, or None when it is not numbers."""
     text = tex.replace("\\left", "").replace("\\right", "")
     text = _SCIENTIFIC.sub(r"(\1e\2)", text)
+    text = _TRIG_DEGREES.sub(r" \1d(\2)", text)
+    text = re.sub(r"\\pi(?![A-Za-z])", " pi ", text)
     text = _TEXT_WORD.sub(lambda m: m.group(0) if _is_unit(m.group(0)) else "#", text)
     text = _UNIT_GROUP.sub(" ", text)
     for _ in range(4):
@@ -137,11 +145,13 @@ def _plain(tex: str) -> str | None:
     text = re.sub(r"\s+", "", text)
     # 1,500 is a number; a comma anywhere else is a list.
     text = re.sub(r"(?<=\d),(?=\d{3}(?!\d))", "", text)
-    letters = re.sub(r"sqrt|(?<=\d)e(?=[-+]?\d)", "", text)
+    letters = re.sub(rf"{_FUNCTIONS}|(?<=\d)e(?=[-+]?\d)", "", text)
     if not text or re.search(r"[A-Za-z\\%°',#]", letters):
         return None
-    # 2(3) and (2)(3): a product written without a sign.
-    text = re.sub(r"(?<=[\d)])(?=\()|(?<=\))(?=\d)", "*", text)
+    # 2(3), (2)(3), 25sqrt(73), 2pi, pi(3): a product written without a sign.
+    text = re.sub(
+        rf"(?<=[\d)])(?=\(|{_FUNCTIONS})|(?<=\))(?=\d)|(?<=pi)(?=[\d(]|{_FUNCTIONS})", "*", text
+    )
     return text
 
 
@@ -193,16 +203,40 @@ def _walk(node: ast.AST) -> float | None:
                 return None
             return float(left**right)
         return None
+    if isinstance(node, ast.Name) and node.id == "pi":
+        return math.pi
     if (
         isinstance(node, ast.Call)
         and isinstance(node.func, ast.Name)
-        and node.func.id == "sqrt"
+        and node.func.id in _CALLS
         and len(node.args) == 1
         and not node.keywords
     ):
         inner = _walk(node.args[0])
-        return None if inner is None or inner < 0 else math.sqrt(inner)
+        if inner is None or (node.func.id == "sqrt" and inner < 0):
+            return None
+        return _CALLS[node.func.id](inner)
     return None
+
+
+def _sind(degrees: float) -> float:
+    return math.sin(math.radians(degrees))
+
+
+def _cosd(degrees: float) -> float:
+    return math.cos(math.radians(degrees))
+
+
+def _tand(degrees: float) -> float:
+    return math.tan(math.radians(degrees))
+
+
+_CALLS: dict[str, Callable[[float], float]] = {
+    "sqrt": math.sqrt,
+    "sind": _sind,
+    "cosd": _cosd,
+    "tand": _tand,
+}
 
 
 def _shown_number(plain: str) -> tuple[float, float] | None:
@@ -302,6 +336,8 @@ def wrong_steps(reply: str) -> list[WrongStep]:
     rounded: dict[str, float] = {}
     worked: dict[str, float] = {}
     last = ""
+    # The line before: the name it worked out and its last expression ("L", "√(6·14·28·48)/21").
+    before: tuple[str, str, str] | None = None
     prose = _INLINE_CODE.sub(" ", map_fence_blocks(reply, lambda _fence, _body: "\n"))
     for match in _INLINE_MATH.finditer(prose):
         segment = match.group(1)
@@ -317,21 +353,85 @@ def wrong_steps(reply: str) -> list[WrongStep]:
             _note_rounded(left_tex, left, right, rounded, worked)
             if left is None or right is None or left == right:
                 continue
-            # Arithmetic only: "7200 m = 7.2 km" restates a value in another unit.
-            if _OPERATOR.search(left.lstrip("-+")) is None or _converts_unit(left_tex, right_tex):
-                continue
-            # The right side must be one written result; "15 = 3 * 5" is not checked.
-            shown = _shown_number(right)
-            value = _evaluate(left)
-            if shown is None or value is None:
-                continue
-            approximate = relations[index] != "="
-            carried = _evaluate(_exact_side(left, {k: v for k, v in rounded.items() if k != right}))
-            if _is_wrong(value, shown[0], shown[1], approximate) and (
-                carried is None or _is_wrong(carried, shown[0], shown[1], approximate)
-            ):
-                found.append(WrongStep(left_tex, right_tex, value))
+            step = _slip(left_tex, right_tex, left, right, relations[index] != "=", rounded)
+            if step is not None:
+                found.append(step)
+        before = _chain(parts, relations, before, found)
     return found
+
+
+def _slip(
+    left_tex: str,
+    right_tex: str,
+    left: str,
+    right: str,
+    approximate: bool,
+    rounded: dict[str, float],
+) -> WrongStep | None:
+    """``left = right`` when it does not hold: a worked side (an operation or a function) and
+    what it is said to equal, a written result or another exact form (√11375 = 25√73)."""
+    if _OPERATOR.search(left.lstrip("-+")) is None:
+        return None
+    value = _evaluate(left)
+    if value is None:
+        return None
+    shown = _shown_number(right)
+    # Arithmetic only: "7200 m = 7.2 km" restates a value in another unit.
+    if shown is not None and _converts_unit(left_tex, right_tex):
+        return None
+    if shown is None:
+        # Another exact form ("25√73"), or a product of rounded values ("32.61 * 0.9659").
+        other = _evaluate(right)
+        if other is None or (_DECIMAL.search(right) is not None and _DECIMAL.search(left) is None):
+            return None
+        exact = _DECIMAL.search(left) is None and _DECIMAL.search(right) is None
+        if exact and not math.isclose(value, other, rel_tol=1e-6, abs_tol=1e-9):
+            return WrongStep(left_tex, right_tex, value)
+        if not exact and _is_wrong(value, other, 0.0, approximate):
+            return WrongStep(left_tex, right_tex, value)
+        return None
+    # A side of exact numbers (√65/8, 10 sin 45°/sin 75°) is held to the shown value's own
+    # rounding: "≈ 0.999" for 1.0078 is a slip, though under 1%.
+    if _DECIMAL.search(left) is None:
+        if _is_off(value, shown[0], shown[1]):
+            return WrongStep(left_tex, right_tex, value)
+        return None
+    carried = _evaluate(_exact_side(left, {k: v for k, v in rounded.items() if k != right}))
+    if _is_wrong(value, shown[0], shown[1], approximate) and (
+        carried is None or _is_wrong(carried, shown[0], shown[1], approximate)
+    ):
+        return WrongStep(left_tex, right_tex, value)
+    return None
+
+
+def _is_off(value: float, shown: float, rounding: float) -> bool:
+    """``shown`` is not ``value`` written to its own places."""
+    return not _prefix_shift(value, shown) and abs(value - shown) > rounding * (1 + 1e-6) + 1e-12
+
+
+def _chain(
+    parts: list[str],
+    relations: list[str],
+    before: tuple[str, str, str] | None,
+    found: list[WrongStep],
+) -> tuple[str, str, str] | None:
+    """The same name worked out on two lines in a row must keep its value: "L = √(6·14·28·48)/21"
+    then "L = √279552/21" (live, 2026-11-21: the chord came out 25.19 cm, not 16). Only a line
+    worked from an expression is held: "x = 1" then "x = 3" are two roots."""
+    name = parts[0].strip()
+    if len(parts) < 2 or not name or _plain(name) is not None:
+        return None
+    if before is not None and before[0] == name:
+        first_tex = parts[1].strip()
+        first = _plain(first_tex)
+        earlier = _plain(before[1])
+        if first is not None and earlier is not None:
+            step = _slip(before[1], first_tex, earlier, first, relations[0] != "=", {})
+            if step is not None:
+                found.append(step)
+    worked = [part.strip() for part in parts[1:] if _plain(part.strip()) is not None]
+    exprs = [part for part in worked if _OPERATOR.search((_plain(part) or "").lstrip("-+"))]
+    return (name, exprs[-1], worked[-1]) if exprs else None
 
 
 def _shown_like(value: float, shown: str) -> str:
@@ -381,3 +481,45 @@ def working_note(reply: str) -> str | None:
         f"Check this step: ${step.left} = {right}$, not ${step.shown}$. "
         "The lines after it depend on it."
     )
+
+
+# "$\frac{\sqrt{65}}{8}$ cm (approximately 0.999 cm)", "**$2\sqrt{30}$ cm** (approx. $10.95$ cm)":
+# an exact value and the decimal a reply gives for it, a few words apart.
+_APPROXIMATED = re.compile(
+    r"\$(?P<exact>[^$\n]{1,200})\$(?P<gap>[^$\n()~≈]{0,30}?)\(?"
+    r"(?:approx(?:imately|\.)?|≈|~)[\s*$]*(?P<number>-?\d+(?:\.\d+)?)"
+)
+
+
+def corrected_approximations(reply: str) -> str:
+    """``reply`` with each decimal given for an exact value it misstates written correctly, to
+    the same places: "√65/8 cm (approximately 0.999 cm)" is 1.008 (live, 2026-11-21), and
+    "2(√10 + √13 + √17) (approximately 19.13)" is 21.78. Only an exact value of plain numbers
+    is held, never a side that carries a rounded decimal itself."""
+
+    def fix(match: re.Match[str]) -> str:
+        exact_tex = _RELATION.split(match.group("exact"))[-1].strip()
+        plain = _plain(exact_tex)
+        if plain is None or _DECIMAL.search(plain) is not None:
+            return match.group(0)
+        value = _evaluate(plain)
+        shown = _shown_number(match.group("number"))
+        if value is None or shown is None or not _is_off(value, shown[0], shown[1]):
+            return match.group(0)
+        start = match.start("number") - match.start()
+        end = match.end("number") - match.start()
+        whole = match.group(0)
+        return whole[:start] + _shown_like(value, match.group("number")) + whole[end:]
+
+    return _outside_fences(reply, lambda text: _APPROXIMATED.sub(fix, text))
+
+
+def _outside_fences(text: str, change: Callable[[str], str]) -> str:
+    """``change`` applied to the text between fences, every fence as written."""
+    pieces: list[str] = []
+    cursor = 0
+    for fence in iter_fences(text):
+        pieces.extend([change(text[cursor : fence.start]), text[fence.start : fence.end]])
+        cursor = fence.end
+    pieces.append(change(text[cursor:]))
+    return "".join(pieces)

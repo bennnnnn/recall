@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from app.modules.chat.working_check import is_worked_solution, working_note, wrong_steps
+from app.modules.chat.working_check import (
+    corrected_approximations,
+    is_worked_solution,
+    working_note,
+    wrong_steps,
+)
 
 
 @pytest.mark.parametrize(
@@ -174,3 +179,79 @@ def test_a_slip_on_a_rounded_result_is_still_one(reply: str) -> None:
 )
 def test_a_carried_value_stays_with_its_own_result(reply: str) -> None:
     assert wrong_steps(reply)
+
+
+# Live, 2026-11-21: hard geometry replies whose working slipped where the old check could
+# not see (a root, a function of degrees, a name worked out on two lines, an exact form).
+@pytest.mark.parametrize(
+    ("reply", "left", "value"),
+    [
+        (
+            "**Substitution**\n$L = \\frac{1}{21} \\sqrt{(6)(14)(28)(48)}$\n"
+            "$L = \\frac{1}{21} \\sqrt{279552}$\n$L = \\frac{1}{21} \\times 528.915$",
+            "\\frac{1}{21} \\sqrt{(6)(14)(28)(48)}",
+            16.0,
+        ),
+        (
+            "$\\text{Area}(ABC) = \\sqrt{11375}$\n$\\text{Area}(ABC) = 25\\sqrt{73}\\ \\text{cm}^2$",
+            "\\sqrt{11375}",
+            106.6536,
+        ),
+        ("$a = 10 \\sin 30° \\times 2 = 12$", "10 \\sin 30° \\times 2", 10.0),
+        ("$A = \\pi (6)^2 = 112$", "\\pi (6)^2", 113.0973),
+    ],
+)
+def test_a_slip_through_a_root_a_sine_or_a_name_s_next_line_is_found(
+    reply: str, left: str, value: float
+) -> None:
+    steps = wrong_steps(reply)
+    assert steps and steps[0].left == left and steps[0].value == pytest.approx(value, rel=1e-4)
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "$x = \\frac{4 + 2}{2}$\n$x = 3$\n$x = \\frac{4 - 2}{2}$\n$x = 1$",
+        "$x = 1$\n$x = 3$",
+        "$m_b = \\frac{1}{2}\\sqrt{592}$\n$m_b = \\frac{1}{2}\\sqrt{16 \\times 37}$\n$m_b = 2\\sqrt{37}$",
+        "$h = 40 \\tan 35° = 28.01$ m",
+        "$A = 36\\pi$\n$A \\approx 113.10$",
+        "$R = \\frac{17 \\times 25 \\times 28}{4 \\times 210} = \\frac{85}{6}$",
+    ],
+)
+def test_working_that_adds_up_is_never_flagged(reply: str) -> None:
+    assert wrong_steps(reply) == []
+
+
+@pytest.mark.parametrize(
+    ("reply", "fixed"),
+    [
+        (
+            "is **$\\frac{\\sqrt{65}}{8}\\ \\text{cm}$** (approximately **0.999 cm**).",
+            "is **$\\frac{\\sqrt{65}}{8}\\ \\text{cm}$** (approximately **1.008 cm**).",
+        ),
+        (
+            "**$2(\\sqrt{10} + \\sqrt{13} + \\sqrt{17})$ units** (approximately **19.13 units**)",
+            "**$2(\\sqrt{10} + \\sqrt{13} + \\sqrt{17})$ units** (approximately **21.78 units**)",
+        ),
+        (
+            "**$2\\sqrt{37}\\ \\text{cm}$** (approx. $12.16\\ \\text{cm}$)",
+            "**$2\\sqrt{37}\\ \\text{cm}$** (approx. $12.17\\ \\text{cm}$)",
+        ),
+    ],
+)
+def test_a_decimal_given_for_an_exact_value_is_written_right(reply: str, fixed: str) -> None:
+    assert corrected_approximations(reply) == fixed
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "**$2\\sqrt{30}$ cm** (approx. **10.95 cm**)",
+        "$84 - 16\\pi$ cm² (approximately $33.73$ cm²)",
+        "$x = 7.32$ (approximately 7.3)",
+        "```text\n$\\sqrt{2}$ (approximately 9.9)\n```",
+    ],
+)
+def test_a_right_decimal_or_one_of_a_rounded_value_stays(reply: str) -> None:
+    assert corrected_approximations(reply) == reply
