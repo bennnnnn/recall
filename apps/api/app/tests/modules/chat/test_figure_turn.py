@@ -544,3 +544,19 @@ def test_a_picture_names_something_by_a_label_or_a_lettered_point() -> None:
     # A triangle's vertices kept unlettered name nothing (a review, 2026-11-21).
     hidden = _BARE_CIRCLE.replace('"name":"_0"', '"name":"A"')
     assert not figure_turn._names_anything(hidden)
+
+
+def test_a_named_problem_four_messages_back_keeps_its_follow_ups() -> None:
+    """A review (2026-11-21): the earlier lines stopped at three, so "draw it" after a
+    rectangle and three follow-ups found no start and lost "the diagonal" and the rest."""
+    lines = [
+        "A rectangle is 8 cm by 6 cm. Find its area.",
+        "Find the diagonal",
+        "and its perimeter",
+        "and its angles",
+    ]
+    recent = [SimpleNamespace(role="user", content=text) for text in [*lines, "draw it"]]
+    newest_first = figure_turn.earlier_user_lines(recent, "draw it", most=6)
+    assert len(figure_turn.earlier_user_lines(recent, "draw it")) == 3
+    users = list(reversed(newest_first))
+    assert figure_turn.topic_lines(users, lines[0]) == lines

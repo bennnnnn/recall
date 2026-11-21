@@ -64,8 +64,8 @@ def _shown_already(verified: Any) -> bool:
     return figure is None or figure.shown(verified)
 
 
-def earlier_user_lines(recent: Sequence[Any] | None, line: str) -> list[str]:
-    """The user's earlier messages, newest first, without the turn's own line."""
+def earlier_user_lines(recent: Sequence[Any] | None, line: str, most: int = _EARLIER) -> list[str]:
+    """The user's earlier messages, newest first, without the turn's own line: ``most``."""
     texts = [
         content
         for message in recent or []
@@ -75,7 +75,7 @@ def earlier_user_lines(recent: Sequence[Any] | None, line: str) -> list[str]:
     ]
     if texts and collapse_ws(texts[-1]) == collapse_ws(line):
         texts.pop()
-    return list(reversed(texts))[:_EARLIER]
+    return list(reversed(texts))[:most]
 
 
 def start_figure(settings: Settings, ctx: StreamContext) -> asyncio.Task[str | None] | None:
@@ -183,10 +183,11 @@ async def _topic(
         problem = referent.problem if referent is not None else None
     elif adds_to_problem(line):
         problem = await continuation_for_turn(settings, line, recent)
-    users = list(reversed(earlier_user_lines(recent, line)))
-    if not problem:
-        return users[-_EARLIER:]
-    return topic_lines(users, problem)
+    # A named problem is looked for further back than the plain window: "Draw it" after the
+    # problem and three follow-ups found no start in the last three and lost the follow-ups
+    # (a review, 2026-11-21); ``topic_lines`` keeps the problem and at most ``_TOPIC`` lines.
+    users = list(reversed(earlier_user_lines(recent, line, _TOPIC if problem else _EARLIER)))
+    return topic_lines(users, problem) if problem else users
 
 
 def topic_lines(users: Sequence[str], problem: str) -> list[str]:
