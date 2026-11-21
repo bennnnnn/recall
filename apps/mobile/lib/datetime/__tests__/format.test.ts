@@ -39,10 +39,10 @@ describe("the user's zone, the phone's hour cycle, the app's language", () => {
     ["en", "America/New_York", "Sun, Oct 25", "7:30 PM", "19:30"],
     ["en", "Asia/Kathmandu", "Mon, Oct 26", "5:15 AM", "05:15"],
     ["en", "Pacific/Kiritimati", "Mon, Oct 26", "1:30 PM", "13:30"],
-    ["de", "UTC", "So., 25. Okt.", "11:30 PM", "23:30"],
-    ["de", "America/New_York", "So., 25. Okt.", "7:30 PM", "19:30"],
-    ["de", "Asia/Kathmandu", "Mo., 26. Okt.", "5:15 AM", "5:15"],
-    ["de", "Pacific/Kiritimati", "Mo., 26. Okt.", "1:30 PM", "13:30"],
+    ["fr", "UTC", "dim. 25 oct.", "11:30 PM", "23:30"],
+    ["fr", "America/New_York", "dim. 25 oct.", "7:30 PM", "19:30"],
+    ["fr", "Asia/Kathmandu", "lun. 26 oct.", "5:15 AM", "5:15"],
+    ["fr", "Pacific/Kiritimati", "lun. 26 oct.", "1:30 PM", "13:30"],
   ])("%s in %s: %s, %s on a 12-hour phone, %s on a 24-hour one", async (language, zone, day, twelve, twentyFour) => {
     await setClock({ timeZone: zone, hourCycle: "h12" }, language);
     expect(formatDate(at, "weekdayDate")).toBe(day);
@@ -53,11 +53,11 @@ describe("the user's zone, the phone's hour cycle, the app's language", () => {
   });
 
   it("writes the phone's hour cycle even where the language's default is the other one", async () => {
-    // English defaults to 12 hours and German to 24; the phone's switch wins in both.
+    // English defaults to 12 hours and French to 24; the phone's switch wins in both.
     await setClock({ timeZone: "UTC", hourCycle: "h23" }, "en");
     expect(formatDate(at, "time")).toBe("23:30");
     expect(userUses24HourClock()).toBe(true);
-    await setClock({ timeZone: "UTC", hourCycle: "h12" }, "de");
+    await setClock({ timeZone: "UTC", hourCycle: "h12" }, "fr");
     expect(plain(formatDate(at, "time"))).toBe("11:30 PM");
     expect(userUses24HourClock()).toBe(false);
     // Midnight is 12 (h12) and 0 (h23): never "0:05 AM" (h11) or "24:05" (h24).
@@ -89,7 +89,8 @@ describe("formatter cache", () => {
   const at = new Date(Date.UTC(2026, 9, 25, 15, 5));
 
   it("builds one formatter per language, zone, hour cycle and style, however many dates", async () => {
-    await setClock({ timeZone: "Asia/Kathmandu", hourCycle: "h12" }, "fr");
+    // A language no test above formats in, so its formatters are built here.
+    await setClock({ timeZone: "Asia/Kathmandu", hourCycle: "h12" }, "hi");
     const built = jest.spyOn(Intl, "DateTimeFormat");
     for (let i = 0; i < 500; i++) formatDate(new Date(at.getTime() + i * 60_000), "time");
     expect(built).toHaveBeenCalledTimes(1);
@@ -190,7 +191,7 @@ describe("formatMinuteOfDay", () => {
   );
 
   it("follows the phone's hour cycle unless a dial holds another", async () => {
-    await setClock({ timeZone: "Pacific/Kiritimati", hourCycle: "h23" }, "de");
+    await setClock({ timeZone: "Pacific/Kiritimati", hourCycle: "h23" }, "fr");
     expect(formatMinuteOfDay(1290)).toBe("21:30");
     expect(plain(formatMinuteOfDay(1290, "h12"))).toBe("9:30 PM");
   });

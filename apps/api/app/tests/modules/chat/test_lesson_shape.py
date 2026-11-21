@@ -15,8 +15,14 @@ from pydantic import ValidationError
 from app.core.config import Settings
 from app.modules.chat import lesson_calls
 from app.modules.chat.lesson_calls import LessonPractice, QuizCard
+from app.modules.chat.lesson_copy import _COPY
 from app.modules.chat.lesson_layout import lesson_contract, lesson_layout_of, prompt_lesson_layout
-from app.modules.chat.lesson_shape import hold_lesson_shape, next_lesson_number, teaches
+from app.modules.chat.lesson_shape import (
+    _is_practice_heading,
+    hold_lesson_shape,
+    next_lesson_number,
+    teaches,
+)
 from app.modules.chat.prompt_constants.lesson_flow import (
     lesson_continue_hint,
     lesson_next_contract,
@@ -472,3 +478,13 @@ async def test_a_reply_after_a_lesson_that_is_no_lesson_stays(calls: _Calls, rep
     state = _state(reply, "make me a cheat sheet", contract=lesson_next_contract(2))
     assert await hold_lesson_shape(state) == reply
     assert calls.asked == []
+
+
+@pytest.mark.parametrize("locale", sorted(_COPY))
+def test_lesson_copy_reads_back(locale):
+    """Every app language's lesson words read back: the title the server writes is a lesson
+    step, and its practice heading is the practice's (Hindi's पाठ was neither, 2026-11-20)."""
+    copy = _COPY[locale]
+    assert lesson_step(f"### {copy.lesson} 2: X\n\n?") == 2
+    assert _is_practice_heading(f"### {copy.your_turn}")
+    assert _is_practice_heading(f"### 6. {copy.your_turn}")

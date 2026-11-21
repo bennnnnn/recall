@@ -74,13 +74,13 @@ LESSON_ONE = (
         "a crash course in git",
         "Enséñame los diccionarios de Python",
         "apprends-moi les boucles en Python",
-        "Bring mir Python bei",
-        "Ich möchte Python lernen",
-        "insegnami le frazioni",
         "me ensina a usar listas",
         "научи меня python",
         "bana python sözlükleri öğret",
         "ፓይተን አስተምረኝ",
+        "मुझे पायथन सिखाओ",
+        "मुझे भिन्न सिखाइए",
+        "मैं गिटार सीखना चाहता हूँ",
         # Learning a skill, not doing a task.
         "teach me how to code in python",
         "teach me how to use python dictionaries",
@@ -115,6 +115,8 @@ def test_teaching_request_detected(text):
         "Walk me through changing a tire",
         "Walk me through baking bread",
         "Walk me through filing my taxes",
+        # Asking how to teach is no ask to be taught.
+        "बच्चों को सिखाने का तरीका क्या है?",
         "",
     ],
 )
@@ -136,6 +138,7 @@ def test_teaching_request_declines(text):
         "learning plan for SQL",
         "roadmap to master FastAPI",
         "Dame un plan de 4 semanas para aprender español",
+        "पायथन सीखने के लिए 30 दिन का प्लान बनाओ",
         "Give me a 30 day plan to learn Spanish",
         "6 week study plan for the SAT",
         "I want to learn guitar in 3 months, make me a plan",
@@ -200,6 +203,9 @@ def test_learning_plan_request_declines_non_plans(text):
         ("### Lección 2: Valores\n\n¿Qué imprime?", 2),
         ("### Leçon 2 — Accès\n\nQue affiche-t-il ?", 2),
         ("### Урок 4: Итог\n\nЧто выведет код?", 4),
+        ("### पाठ 3: लूप\n\nयह क्या छापेगा?", 3),
+        # German and Italian are no app language: no lesson is written in them.
+        ("### Lektion 2: Werte\n\nWas gibt es aus?", None),
         ("### Lesson 1: A\n\ntext\n\n### Lesson 2: B\n\nWhich one?", 2),
         ('### Lesson 5: Sets\n\n```quiz\n{"question": "Pick one", "options": ["a", "b"]}\n```', 5),
         # An emoji or bold marks before the word: the owner's chat (2026-11-14) wrote

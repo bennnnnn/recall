@@ -6,9 +6,10 @@ from __future__ import annotations
 import re
 from typing import Literal
 
+from app.core.validation import unify_devanagari
 from app.services.text_normalize import collapse_ws, straighten_apostrophes
 
-# Asking to be taught, in the shipped UI languages. A task ("teach me how to
+# Asking to be taught, in the app's languages. A task ("teach me how to
 # install Docker") keeps its how-to steps; see ``PROCEDURE``.
 _TEACH_TURN = re.compile(
     r"(?:"
@@ -33,17 +34,16 @@ _TEACH_TURN = re.compile(
     r"\bme\s+ensin[ae]\b|\bensina[- ]me\b|\bquero\s+aprender\b|"
     # fr
     r"\bapprends[- ]moi\b|\benseigne[- ]moi\b|\bje\s+(?:veux|voudrais)\s+apprendre\b|"
-    # de
-    r"\bbring\s+mir\b[^.?!]{0,60}\bbei\b|"
-    r"\bich\s+(?:möchte|will|würde\s+gerne?)\b[^.?!]{0,60}\blernen\b|"
-    # it
-    r"\binsegnami\b|\b(?:voglio|vorrei)\s+imparare\b|"
     # ru
     r"\bнаучи\s+меня\b|\bобучи\s+меня\b|\bхочу\s+(?:научиться|выучить|изучить)\b|"
     # tr
     r"\böğret(?:ir\s+misin|ebilir\s+misin)?\b|\böğrenmek\s+istiyorum\b|"
     # am
-    r"አስተምረኝ|መማር\s*እፈልጋለሁ"
+    r"አስተምረኝ|መማር\s*እፈልጋለሁ|"
+    # hi: "मुझे पायथन सिखाओ", "मैं गिटार सीखना चाहता हूँ"; its vowel signs are no \w, so the
+    # word ends at the next letter that is not Devanagari, not at \b.
+    r"सिखा(?:ओ|इए|इये|एं|एँ|\s+दो|\s+दें|\s+दीजिए|\s+दीजिये)(?![\u0900-\u097f])|"
+    r"सीखना\s+चाहत[ाीे]\s+(?:हूँ|हूं|हैं)"
     r")",
     re.IGNORECASE,
 )
@@ -185,7 +185,11 @@ _INTERNATIONAL_LEARNING_PLAN = re.compile(
     r"(?:"
     r"\bplan\s+de\s+\d{1,3}[\s-]?(?:d[ií]as|dias|semanas|meses|semaines|mois)\b"
     r"[^.?!]{0,80}\b(?:aprender|apprendre|estudiar|étudier|estudar)\b|"
-    r"\b\d{1,3}[\s-]?(?:tage|wochen|monate)\b[^.?!]{0,80}\blernplan\b"
+    # hi: "पायथन सीखने के लिए 30 दिन का प्लान बनाओ", "30 दिन में पायथन सीखने की योजना".
+    r"(?:सीखने|पढ़ाई)[^.?!।]{0,60}\d{1,3}\s*(?:दिन|हफ़्ते|हफ्ते|सप्ताह|महीने)[^.?!।]{0,20}"
+    r"(?:प्लान|योजना)|"
+    r"\d{1,3}\s*(?:दिन|हफ़्ते|हफ्ते|सप्ताह|महीने)[^.?!।]{0,60}(?:सीखने|पढ़ाई)[^.?!।]{0,30}"
+    r"(?:प्लान|योजना)"
     r")",
     re.IGNORECASE,
 )
@@ -222,7 +226,7 @@ def programming_tag(text: str) -> str | None:
 
 def is_learning_plan_request(text: str) -> bool:
     """True for bounded roadmaps/courses that should be delivered in full."""
-    cleaned = straighten_apostrophes(collapse_ws(text))
+    cleaned = unify_devanagari(straighten_apostrophes(collapse_ws(text)))
     if not cleaned or len(cleaned) > 800:
         return False
     if _INTERNATIONAL_LEARNING_PLAN.search(cleaned):
@@ -249,7 +253,7 @@ TeachingReason = Literal["teach", "no_cue", "too_long", "learning_plan", "prefer
 
 def teaching_reason(text: str) -> TeachingReason:
     """Why ``text`` asks for interactive tutoring (``teach``) or not."""
-    cleaned = straighten_apostrophes(collapse_ws(text))
+    cleaned = unify_devanagari(straighten_apostrophes(collapse_ws(text)))
     if not cleaned:
         return "no_cue"
     if len(cleaned) > 400:

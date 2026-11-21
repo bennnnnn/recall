@@ -6,7 +6,7 @@ const en = { locale: "en", currency: "USD", translate };
 describe("numberFormat", () => {
   it("formats in the app's language, and in English for a tag Intl rejects", () => {
     // Settings → Voice built its own formatter, which threw on such a tag.
-    expect(numberFormat("de").format(1.25)).toBe("1,25");
+    expect(numberFormat("fr").format(1.25)).toBe("1,25");
     expect(() => new Intl.NumberFormat("not a tag")).toThrow(RangeError);
     expect(numberFormat("not a tag").format(1.25)).toBe("1.25");
   });
@@ -21,8 +21,8 @@ describe("formatCalculatorValue", () => {
   });
 
   it("uses the app's language and the fence's currency", () => {
-    const euros = formatCalculatorValue(1851.06, "money", { ...en, locale: "de", currency: "EUR" });
-    expect(euros.replace(/\s/g, " ")).toBe("1.851,06 €");
+    const euros = formatCalculatorValue(1851.06, "money", { ...en, locale: "fr", currency: "EUR" });
+    expect(euros.replace(/\s/g, " ")).toBe("1 851,06 €");
   });
 
   it("prints a plain number when the fence names no currency", () => {

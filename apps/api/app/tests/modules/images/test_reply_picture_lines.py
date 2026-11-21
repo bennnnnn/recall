@@ -135,11 +135,12 @@ def test_the_content_rules_line_is_generations_own_english() -> None:
         ("PT", "Desta vez não consegui"),
         ("es", "Esta vez no pude"),
         ("fr", "Je n'ai pas pu"),
-        ("it", "Questa volta non sono riuscito"),
+        ("it", "I couldn't draw"),
+        ("hi-IN", "इस बार मैं चित्र"),
         ("tr", "Bu sefer resmi"),
         ("ru", "В этот раз"),
         ("am", "ምስሉን"),
-        ("de-CH", "Das Bild"),
+        ("de-CH", "I couldn't draw"),
     ],
 )
 def test_locale_codes(locale: str | None, start: str) -> None:

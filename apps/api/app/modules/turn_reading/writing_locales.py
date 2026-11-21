@@ -1,23 +1,25 @@
 # ruff: noqa: RUF001, RUF002, RUF003 - Turkish ı and Cyrillic letters are the words matched
-"""Draft requests and draft changes in the app's eight other languages.
+"""Draft requests and draft changes in the app's seven other languages.
 
 English has its own patterns in ``writing_kind`` and ``writing``. Here a draft
 request is a writing verb and a draft noun: the verb first in Spanish, French,
-German, Italian, Portuguese and Russian ("escribe un correo a mi jefe…"), last
-in Turkish and Amharic ("patronuma bir e-posta yaz", "ለአለቃዬ ኢሜይል ጻፍልኝ"). A
-change to the draft before ("más corto", "auf Englisch", "daha kısa yap") is
-one of a short list of edits.
+Portuguese and Russian ("escribe un correo a mi jefe…"), last in Turkish, Amharic
+and Hindi ("patronuma bir e-posta yaz", "ለአለቃዬ ኢሜይል ጻፍልኝ", "मेरे बॉस को एक ईमेल
+लिखो"). A change to the draft before ("más corto", "en inglés", "daha kısa yap",
+"और छोटा करो") is one of a short list of edits. Language names stay in every language
+the user may say them in ("en alemán"), whether or not the app offers it.
 """
 
 from __future__ import annotations
 
 import re
 
+from app.core.validation import unify_devanagari
 from app.services.text_normalize import collapse_ws
 
 _POLITE_WORD = (
-    r"(?:por favor|s'il (?:te|vous) pla[iî]t|stp|bitte|per favore|пожалуйста|lütfen|"
-    r"እባክ(?:ህ|ሽ|ዎ))"
+    r"(?:por favor|s'il (?:te|vous) pla[iî]t|stp|пожалуйста|lütfen|"
+    r"እባክ(?:ህ|ሽ|ዎ)|कृपया|प्लीज़?)"
 )
 _POLITE = rf"(?:{_POLITE_WORD}[,\s]+)?"
 
@@ -32,11 +34,6 @@ _VERB_FIRST = (
     r"[ée]cris(?:-moi|-lui|-leur)?|r[ée]dige(?:-moi|-lui)?|envoie(?:-moi|-lui)?|"
     r"(?:peux-tu|tu peux|pourrais-tu|pouvez-vous) (?:m'|lui )?(?:[ée]crire|r[ée]diger|envoyer)|"
     r"aide-moi [àa] (?:[ée]crire|r[ée]diger)|"
-    # German
-    r"schreib(?:e)?(?: mir)?|verfass(?:e)?|formulier(?:e)?|entwirf|schick(?:e)?(?: mir)?|"
-    # Italian
-    r"scrivi(?:mi|gli|le)?|redigi|manda(?:mi|gli|le)?|invia(?:mi|gli|le)?|"
-    r"(?:puoi|potresti) (?:scrivere|scrivermi|mandare)|aiutami a scrivere|"
     # Portuguese
     r"escrev(?:e|a)(?:-me)?|redija|mand(?:a|e)|envi(?:a|e)|"
     r"(?:voc[eê] )?(?:pode|podes) (?:escrever|redigir|mandar|enviar)|"
@@ -45,9 +42,6 @@ _VERB_FIRST = (
     r"напиши(?:те)?(?: мне)?|составь(?:те)?|отправь(?:те)?|(?:можешь|можете|помоги) написать"
     r")"
 )
-# German puts the verb last after "kannst du": "Kannst du meinem Chef eine E-Mail schreiben?"
-_GERMAN_MODAL = r"(?:kannst|könntest|koenntest) du(?: mir)?"
-_GERMAN_VERB_LAST = r"(?:schreiben|verfassen|formulieren|schicken)"
 # Turkish and Amharic close the request with the verb.
 _VERB_LAST = (
     r"(?:"
@@ -62,47 +56,62 @@ _VERB_LAST = (
 _NOUNS = {
     "email": (
         r"(?:correo(?: electr[oó]nico)?|e-?mail|mail|courriel|письмо|имейл|мейл|"
-        r"e-?posta(?:y[ıi]|lar[ıi]?)?|ኢ-?ሜይ?ል(?:ሉን|ን)?|ደብዳቤ(?:ውን|ን)?)"
+        r"e-?posta(?:y[ıi]|lar[ıi]?)?|ኢ-?ሜይ?ል(?:ሉን|ን)?|ደብዳቤ(?:ውን|ን)?|ईमेल|ई-मेल|मेल)"
     ),
     "message": (
-        r"(?:mensaje(?: de texto)?|message|sms|whatsapp|texto|nachricht|textnachricht|messaggio|"
-        r"mensagem|сообщение|смс|mesaj(?:[ıi]|lar[ıi]?)?|መል[እዕ]ክት(?:ቱን|ን)?)"
+        r"(?:mensaje(?: de texto)?|message|sms|whatsapp|texto|"
+        r"mensagem|сообщение|смс|mesaj(?:[ıi]|lar[ıi]?)?|መል[እዕ]ክት(?:ቱን|ን)?|मैसेज|मेसेज|संदेश)"
     ),
     "social": (
-        r"(?:publicaci[oó]n|publication|publica[çc][ãa]o|pubblicazione|beitrag|post|tuit|"
-        r"tweet|pie de foto|l[ée]gende|didascalia|legenda|bildunterschrift|пост|твит|"
-        r"g[öo]nderi(?:yi|si)?|payla[şs][ıi]m(?:[ıi])?|ፖስት(?:ን)?|"
+        r"(?:publicaci[oó]n|publication|publica[çc][ãa]o|post|tuit|"
+        r"tweet|pie de foto|l[ée]gende|legenda|пост|твит|"
+        r"g[öo]nderi(?:yi|si)?|payla[şs][ıi]m(?:[ıi])?|ፖስት(?:ን)?|पोस्ट|ट्वीट|कैप्शन|"
         r"linkedin|instagram|facebook|tiktok)"
     ),
 }
 _SPANISH_PORTUGUESE_TEXT = re.compile(r"^(?:escr[ií]b|red[aá]ct|m[aá]nd|env[ií]|escrev|redij)")
 
 _ANY_NOUN = "|".join(f"(?P<{kind}>{noun})" for kind, noun in _NOUNS.items())
-_ARTICLE = r"(?:(?:un|una|uno|une|um|uma|ein|eine|einen)\s+|un')?"
-# Up to three words between the verb and the noun (a recipient: "schreib meinem
-# Vermieter eine Nachricht"), never "of": "escribe un resumen de este correo".
-_GAP = r"(?:\s+(?!(?:de|del|du|des|di|do|da|della|von|vom|о|об|про)\b)\S+){0,3}?"
+_ARTICLE = r"(?:(?:un|una|uno|une|um|uma)\s+|un')?"
+# Up to three words between the verb and the noun (a recipient: "escribe a mi casero
+# un mensaje"), never "of": "escribe un resumen de este correo".
+_GAP = r"(?:\s+(?!(?:de|del|du|des|do|da|о|об|про)\b)\S+){0,3}?"
 _VERB_THEN_NOUN = re.compile(rf"^{_POLITE}{_VERB_FIRST}\b{_GAP}\s+{_ARTICLE}(?:{_ANY_NOUN})(?!\w)")
-_GERMAN_MODAL_REQUEST = re.compile(
-    rf"^{_POLITE}{_GERMAN_MODAL}\b.*?\b(?:{_ANY_NOUN})(?!\w).*\b{_GERMAN_VERB_LAST}\b"
-)
 _NOUN_THEN_VERB = re.compile(
     rf"(?:^|\s)(?:{_ANY_NOUN})(?:\s+\S+){{0,2}}?\s+{_VERB_LAST}(?:\s+{_POLITE_WORD})?"
     r"[\s.!?።]*$"
+)
+# Hindi closes on its verb too ("मेरे बॉस को एक ईमेल लिखो"), and its "of" (का, की, के) or "in"
+# between them makes the noun something else's: "इस ईमेल का सारांश लिखो" is a summary.
+_HI_WRITE = (
+    r"(?:लिखो|लिखिए|लिखिये|लिखें|लिख\s+दो|लिख\s+दें|लिख\s+दीजिए|लिखकर\s+दो|तैयार\s+करो|"
+    r"तैयार\s+कीजिए|ड्राफ़्ट\s+करो|भेजो)"
+)
+_HI_NOT_BETWEEN = r"(?:का|की|के|में|पर|से|को)(?!\S)"
+_HINDI_REQUEST = re.compile(
+    rf"(?:^|\s)(?:{_ANY_NOUN})(?!\S)(?:\s+(?!{_HI_NOT_BETWEEN})\S+){{0,2}}?\s+{_HI_WRITE}"
+    # What it says may follow the verb: "… ईमेल लिखो कि मैं कल नहीं आऊँगा".
+    r"(?=[\s.!?।]*$|\s+(?:कि|जिसमें|जिसमे|जो)\s)"
 )
 # A request with nothing past the verb, the noun and a short recipient
 # ("escribe un correo a mi jefe", "напиши письмо начальнику") asks what to say.
 _BARE_EXTRA_WORDS = 3
 
 
+# Hindi's article and postpositions around a recipient: "मेरे बॉस के लिए एक ईमेल लिखो" names
+# only the boss.
+_BARE_FILLERS = frozenset({"एक", "को", "के", "लिए"})
+
+
 def _folded(text: str) -> str:
     # Turkish İ lowercases to i and a combining dot; the dot breaks "ingilizce".
-    return collapse_ws(text).lower().replace("\u0307", "").lstrip("¿¡")
+    folded = collapse_ws(unify_devanagari(text)).lower().replace("\u0307", "")
+    return folded.lstrip("¿¡")
 
 
 def _draft_match(text: str) -> re.Match[str] | None:
     folded = _folded(text)
-    for pattern in (_VERB_THEN_NOUN, _GERMAN_MODAL_REQUEST, _NOUN_THEN_VERB):
+    for pattern in (_VERB_THEN_NOUN, _NOUN_THEN_VERB, _HINDI_REQUEST):
         match = pattern.search(folded)
         if match is not None:
             return match
@@ -128,7 +137,8 @@ def is_bare_locale_draft(text: str) -> bool:
         return False
     folded = _folded(text)
     rest = f"{folded[: match.start()]} {folded[match.end() :]}"
-    return len(rest.strip(" .!?¿¡,።").split()) <= _BARE_EXTRA_WORDS
+    words = [word for word in rest.strip(" .!?¿¡,።।").split() if word not in _BARE_FILLERS]
+    return len(words) <= _BARE_EXTRA_WORDS
 
 
 # Short edits to the draft before: shorter, longer, a tone, a language, add or remove.
@@ -145,17 +155,17 @@ _TONES = (
     r"simple|c[aá]lid[oa]|profesional|casual|direct[oa]|"
     r"court(?:e)?|long(?:ue)?|formel(?:le)?|poli(?:e)?|amical(?:e)?|chaleureu(?:x|se)|"
     r"professionnel(?:le)?|d[ée]contract[ée]|bref|br[eè]ve|"
-    r"lung[oa]|formale|gentile|semplice|professionale|cald[oa]|"
     r"curt[oa]|long[oa]|gentil|simples|profissional|calorosa?)"
 )
 # "Ok", "now", "perfect," and "can you (make it)" before the edit.
 _CHANGE_LEAD = (
-    r"(?:(?:ahora|ok|vale|bien|perfecto|gracias|maintenant|parfait|merci|d'accord|jetzt|gut|"
-    r"danke|ora|perfetto|grazie|agora|perfeito|obrigad[oa]|теперь|хорошо|спасибо|şimdi|tamam|"
-    r"teşekkürler|አሁን|y|et|und|e|и)[,!.]?\s+)*" + _POLITE + r"(?:(?:me )?(?:puedes|podr[ií]as)\s+|"
+    r"(?:(?:ahora|ok|vale|bien|perfecto|gracias|maintenant|parfait|merci|d'accord|"
+    r"agora|perfeito|obrigad[oa]|теперь|хорошо|спасибо|şimdi|tamam|"
+    r"teşekkürler|አሁን|अब|ठीक है|बढ़िया|धन्यवाद|और|y|et|e|и)[,!.]?\s+)*"
+    + _POLITE
+    + r"(?:(?:me )?(?:puedes|podr[ií]as)\s+|"
     r"(?:peux-tu|tu peux|pourrais-tu|pouvez-vous)\s+(?:le |la )?(?:rendre\s+|faire\s+)?|"
-    r"(?:kannst|könntest) du\s+(?:es |sie |das )?|"
-    r"(?:puoi|potresti)\s+(?:farlo\s+|renderlo\s+)?|"
+    r"(?:इसे|इसको)\s+|"
     r"(?:voc[eê] )?(?:pode|podes)\s+(?:deixar\s+|fazer\s+)?|"
     r"(?:можешь|можете)\s+(?:сделать\s+)?)?"
 )
@@ -174,24 +184,14 @@ _LOCALE_DRAFT_CHANGE = re.compile(
     r"(?:-le|-la)?\b|"
     r"(?:ajoute|enl[eè]ve|retire|supprime|change|mets|pr[ée]cise|mentionne)\b|"
     r"une autre version|"
-    # German
-    r"(?:etwas |viel |noch )?(?:k[üu]rzer|kuerzer|l[äa]nger|laenger|f[öo]rmlicher|formeller|"
-    r"h[öo]flicher|freundlicher|lockerer|einfacher|professioneller|pers[öo]nlicher|w[äa]rmer)\b|"
-    r"(?:k[üu]rze|[üu]bersetze?)(?: es| sie| das)?\b|"
-    r"(?:f[üu]ge?|nimm|streiche?|[äa]ndere|erg[äa]nze|erw[äa]hne)\b|"
-    r"(?:eine |noch eine )?andere version|"
-    # Italian
-    r"(?:un po' |molto )?(?:pi[uù]|meno) " + _TONES + r"\b|"
-    r"(?:accorcia|allunga|riscrivi|riformula|semplifica|rifai)(?:lo|la)?\b|traduci(?:lo|la)?\b|"
-    r"(?:aggiungi|togli|rimuovi|metti|menziona|includi)\b|un'altra versione|"
     # Portuguese
     r"(?:um pouco |bem )?mais " + _TONES + r"\b|"
     r"(?:encurt[ae]|resum[ae]|reescrev[ae]|refa[zç]a?|simplifi(?:ca|que))(?:-o|-a)?\b|"
     r"traduz(?:a|ir)?(?:-o|-a)?\b|"
     r"(?:adicion[ae]|acrescent[ae]|tir[ae]|remov[ae]|mud[ae]|coloc[ae]|p[õo]e|ponha|"
     r"inclu[ia]|mencion[ae])\b|outra vers[ãa]o|"
-    # In another language: "en inglés", "auf Englisch", "in inglese", "на английском".
-    r"(?:en|auf|in|em|на) " + _LANGUAGES + r"\b|"
+    # In another language: "en inglés", "em inglês", "на английском".
+    r"(?:en|em|на) " + _LANGUAGES + r"\b|"
     # Russian
     r"(?:сделай|напиши|перепиши)(?: (?:его|её|ее|это))? (?:покороче|короче|подлиннее|длиннее|"
     r"формальнее|официальнее|вежливее|дружелюбнее|проще|теплее|мягче)\b|"
@@ -207,21 +207,34 @@ _LOCALE_DRAFT_CHANGE = re.compile(
     r"ba[şs]ka bir (?:versiyon|s[üu]r[üu]m)|"
     # Amharic
     r"አሳጥረው|አሳጥሪው|አጠር አድ\w*|ረዘም አድ\w*|ተርጉ\w*|በእንግሊዝኛ|በአማርኛ|ወደ \S+ ተርጉ\w*|"
-    r"ጨምር\w*|ጨምሪ\w*|ቀይረው|ቀይሪው|አስተካክለው|አስተካክይው"
+    r"ጨምር\w*|ጨምሪ\w*|ቀይረው|ቀይሪው|አስተካክለው|አስተካክይው|"
+    # Hindi: "और छोटा करो", "थोड़ा औपचारिक बना दो", "अंग्रेज़ी में लिखो", "अनुवाद करो". Its vowel
+    # signs are no ``\w``, so a word ends at a space or a stop, not at ``\b``.
+    r"(?:(?:थोड़ा|थोड़ी|और|ज़्यादा|बहुत)\s+)*(?:छोटा|छोटी|लंबा|लंबी|औपचारिक|अनौपचारिक|विनम्र|"
+    r"सरल|आसान|दोस्ताना|पेशेवर|प्रोफ़ेशनल|सीधा|गर्मजोशी\s+भरा)\s+"
+    r"(?:करो|कर\s+दो|कीजिए|करें|बनाओ|बना\s+दो|बनाइए)(?![^\s.!?।,])|"
+    r"(?:अंग्रेज़ी|अंग्रेजी|हिंदी|हिन्दी|स्पेनिश|फ्रेंच|फ़्रेंच|जर्मन|रूसी|पुर्तगाली)\s+में"
+    r"(?:\s+(?:लिखो|लिखिए|लिख\s+दो|करो|कर\s+दो|अनुवाद\s+करो))?(?![^\s.!?।,])|"
+    r"(?:इसका\s+)?अनुवाद\s+(?:करो|कीजिए|कर\s+दो)(?![^\s.!?।,])|"
+    r"(?:दोबारा|फिर\s+से)\s+लिखो(?![^\s.!?।,])|दूसरा\s+(?:वर्ज़न|विकल्प)(?![^\s.!?।,])"
     r")"
 )
 # Turkish and Amharic end on the edit: "pazartesi döneceğimi de ekle", "ስሜን ጨምርበት".
 _VERB_FINAL_CHANGE = re.compile(
     r"(?:^|\s)(?:(?:ekle|[çc][ıi]kar|sil|de[ğg]i[şs]tir|k[ıi]salt|uzat|[çc]evir|yeniden yaz)"
     r"(?:ir misin|[ıi]r m[ıi]s[ıi]n|abilir misin|[ıi]n)?"
-    r"|(?:ጨምር|ጨምሪ|አሳጥር|አሳጥሪ|ቀይር|ቀይሪ|አስተካክል|አስተካክይ|ተርጉም|ተርጉሚ)\w*)"
-    r"[\s.!?።]*$"
+    r"|(?:ጨምር|ጨምሪ|አሳጥር|አሳጥሪ|ቀይር|ቀይሪ|አስተካክል|አስተካክይ|ተርጉም|ተርጉሚ)\w*"
+    # Hindi: "कि मैं सोमवार को लौटूँगा, यह भी जोड़ो", "आख़िरी लाइन हटा दो".
+    r"|(?:जोड़ो|जोड़ें|जोड़िए|जोड़\s+दो|जोड़\s+दें|हटाओ|हटाएं|हटाइए|हटा\s+दो|बदलो|बदलें|बदलिए|"
+    r"बदल\s+दो))"
+    r"[\s.!?።।]*$"
 )
 # "¿Qué es más largo, el Nilo o el Amazonas?" is a question, not an edit.
 _QUESTION_LEAD = re.compile(
     r"^[¿¡]?(?:qu[ée]|cu[aá]l|c[oó]mo|por qu[ée]|quoi|qu'est|quel(?:le)?|comment|pourquoi|"
-    r"was|wie|warum|welche[rs]?|cosa|che|come|perch[ée]|qual|o que|por que|"
+    r"qual|o que|por que|"
     r"что|как|почему|какой|ne|nas[ıi]l|neden|hangi|ምን|እንዴት|ለምን)\b"
+    r"|^(?:क्या|कैसे|क्यों|कौन\S*)(?!\S)"
 )
 _CHANGE_MAX_WORDS = 10
 

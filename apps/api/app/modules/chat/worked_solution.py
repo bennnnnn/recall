@@ -181,7 +181,7 @@ class Language(_Record):
     """The block's ``language`` record: the app language its words are in, which the
     layout's headings follow (``worked_language``)."""
 
-    code: Literal["en", "es", "fr", "de", "it", "pt", "ru", "tr", "am"]
+    code: Literal["en", "es", "fr", "pt", "ru", "tr", "am", "hi"]
 
 
 _LANGUAGE = re.compile(r"^\s*language\s*:\s*(?P<code>[A-Za-z]{2})\s*$", re.IGNORECASE)

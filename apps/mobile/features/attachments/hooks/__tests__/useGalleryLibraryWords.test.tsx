@@ -1,6 +1,6 @@
 /**
  * A Library action that failed on this phone or got no answer, in the phone's language. Its
- * English showed as it came in a German Library: "Could not reach the Recall server…",
+ * English showed as it came in a Hindi Library: "Could not reach the Recall server…",
  * "Network request failed", "Could not attach", "Could not open this attachment.".
  */
 import React from "react";
@@ -14,7 +14,7 @@ import { api, type AttachmentListItem } from "@/lib/api";
 import { serverUnreachableError } from "@/lib/api/deadline";
 import { SharingUnavailableError } from "@/lib/share/unavailable";
 import { ensureLocale } from "@/lib/i18n";
-import de from "@/lib/i18n/de.json";
+import hi from "@/lib/i18n/hi.json";
 
 jest.unmock("react-i18next");
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
@@ -45,7 +45,7 @@ function Probe() {
   return <Text>Library</Text>;
 }
 
-beforeAll(async () => { await ensureLocale("de"); });
+beforeAll(async () => { await ensureLocale("hi"); });
 afterAll(async () => { await ensureLocale("en"); });
 beforeEach(() => { jest.clearAllMocks(); });
 
@@ -54,25 +54,25 @@ const NO_ANSWER: [string, Error][] = [
   ["no connection", new TypeError("Network request failed")],
 ];
 
-it.each(NO_ANSWER)("says a delete got no answer (%s) in German", async (_label, failure) => {
+it.each(NO_ANSWER)("says a delete got no answer (%s) in Hindi", async (_label, failure) => {
   jest.mocked(api.deleteAttachment).mockRejectedValueOnce(failure);
   await render(<Probe />);
   await act(async () => { library.confirmDelete(item); });
   await act(async () => { await Promise.resolve(); });
-  expect(mockFeedback.error).toHaveBeenCalledWith(de["chat.error_unreachable"]);
+  expect(mockFeedback.error).toHaveBeenCalledWith(hi["chat.error_unreachable"]);
 });
 
-it.each(NO_ANSWER)("says a share got no answer (%s) in German", async (_label, failure) => {
+it.each(NO_ANSWER)("says a share got no answer (%s) in Hindi", async (_label, failure) => {
   jest.mocked(shareChatAttachment).mockRejectedValueOnce(failure);
   await render(<Probe />);
   await act(async () => { await library.shareFile(item); });
-  expect(mockFeedback.error).toHaveBeenCalledWith(de["chat.error_unreachable"]);
+  expect(mockFeedback.error).toHaveBeenCalledWith(hi["chat.error_unreachable"]);
 });
 
 it.each([
   ["an attach", "Could not attach", "chat.attach_failed"],
   ["a share", "Could not open this attachment.", "common.share_failed"],
-] as const)("words %s that failed on the phone in German", async (action, english, key) => {
+] as const)("words %s that failed on the phone in Hindi", async (action, english, key) => {
   if (action === "an attach") jest.mocked(pendingFromLibraryItem).mockRejectedValueOnce(new Error(english));
   else jest.mocked(shareChatAttachment).mockRejectedValueOnce(new Error(english));
   await render(<Probe />);
@@ -80,14 +80,14 @@ it.each([
     if (action === "an attach") await library.attachToComposer(item);
     else await library.shareFile(item);
   });
-  expect(mockFeedback.error).toHaveBeenCalledWith(de[key]);
+  expect(mockFeedback.error).toHaveBeenCalledWith(hi[key]);
   expect(mockFeedback.error).not.toHaveBeenCalledWith(english);
 });
 
 // Android without expo-sharing (lib/share/file.ts): since #2081 it read as the generic "Share failed".
-it("says to update the app when this build cannot share files, in German", async () => {
+it("says to update the app when this build cannot share files, in Hindi", async () => {
   jest.mocked(shareChatAttachment).mockRejectedValueOnce(new SharingUnavailableError());
   await render(<Probe />);
   await act(async () => { await library.shareFile(item); });
-  expect(mockFeedback.error).toHaveBeenCalledWith(de["common.share_needs_update"]);
+  expect(mockFeedback.error).toHaveBeenCalledWith(hi["common.share_needs_update"]);
 });

@@ -37,16 +37,6 @@ _COPY: dict[str, LessonCopy] = {
         "À toi",
         "Exercice 1",
     ),
-    "de": LessonCopy(
-        "Lektion",
-        "Du bist dran",
-        "Übung 1",
-    ),
-    "it": LessonCopy(
-        "Lezione",
-        "Tocca a te",
-        "Esercizio 1",
-    ),
     "pt": LessonCopy(
         "Lição",
         "Sua vez",
@@ -66,6 +56,11 @@ _COPY: dict[str, LessonCopy] = {
         "ትምህርት",
         "የእርስዎ ተራ",
         "መልመጃ 1",
+    ),
+    "hi": LessonCopy(
+        "पाठ",
+        "आपकी बारी",
+        "अभ्यास 1",
     ),
 }
 

@@ -447,7 +447,7 @@ def extract_image_gen_prompt(text: str) -> str | None:
         if matched:
             return matched
 
-    # "Zeichne mir eine Katze", "нарисуй мне кошку": draw-me requests in other languages.
+    # "Dibújame un gato", "нарисуй мне кошку": draw-me requests in other languages.
     return extract_other_language_prompt(trimmed)
 
 

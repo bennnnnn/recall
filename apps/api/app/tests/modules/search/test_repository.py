@@ -6,6 +6,7 @@ import pytest
 
 from app.modules.search import repository as search_repo
 from app.repositories.keyset import encode_cursor
+from app.tests.fakes import fake_session
 
 
 def _title_row(*, chat_id, title: str, created_at: datetime):
@@ -135,3 +136,41 @@ def test_search_snippet_truncation():
     assert "needle" in result
     # Expect at most: 40 (prefix) + len(query) + 80 (suffix) + 2 (… markers) ≈ 128
     assert len(result) <= 130
+
+
+_ONE_SIGN = "अंग्रेज़ी"  # ज़ typed as one sign
+_LETTER_AND_DOT = "अंग्रेज़ी"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("typed", [_ONE_SIGN, _LETTER_AND_DOT])
+async def test_a_dotted_hindi_letter_is_searched_either_way(typed: str) -> None:
+    """Saved text keeps whichever form the keyboard sent: the query looks for both, and the
+    snippet is cut around the form the message holds."""
+    from sqlalchemy.dialects import postgresql
+
+    message_id, chat_id = uuid4(), uuid4()
+    saved = f"मुझे {_ONE_SIGN} सीखनी है"
+    page = MagicMock()
+    page.all.return_value = [
+        _message_row(
+            message_id=message_id,
+            chat_id=chat_id,
+            title="t",
+            content="",
+            created_at=datetime.now(UTC),
+        )
+    ]
+    words = MagicMock()
+    words.all.return_value = [MagicMock(id=message_id, search_text=saved)]
+    session = fake_session(execute=AsyncMock(side_effect=[page, words]))
+
+    results, _ = await search_repo.search_conversations(session, uuid4(), typed)
+
+    sql = str(
+        session.execute.await_args_list[0]
+        .args[0]
+        .compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
+    )
+    assert f"%{_ONE_SIGN}%" in sql and f"%{_LETTER_AND_DOT}%" in sql
+    assert _ONE_SIGN in results[0]["content"]

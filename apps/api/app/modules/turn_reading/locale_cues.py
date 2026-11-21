@@ -2,7 +2,7 @@
 """Personal-data cue phrases for shipped locales (not user.locale-gated).
 
 English classifiers already cover en. These phrases catch code-switching and
-the other eight UI locales so projects / todos / calendar / email / memory
+the app's seven other languages so projects / todos / calendar / email / memory
 still opt into rich context.
 
 Match with substring scans (no regex) on casefolded text.
@@ -11,6 +11,8 @@ Match with substring scans (no regex) on casefolded text.
 from __future__ import annotations
 
 from typing import Literal
+
+from app.core.validation import unify_devanagari
 
 CueGroup = Literal[
     "projects",
@@ -29,10 +31,6 @@ _CUES: dict[CueGroup, tuple[str, ...]] = {
         "mi proyecto",
         "mes projets",
         "mon projet",
-        "meine projekte",
-        "mein projekt",
-        "i miei progetti",
-        "il mio progetto",
         "meus projetos",
         "meu projeto",
         "os meus projetos",
@@ -42,6 +40,9 @@ _CUES: dict[CueGroup, tuple[str, ...]] = {
         "projelerimi",
         "የእኔ ፕሮጀክት",
         "ፕሮጀክቶች",
+        "मेरे प्रोजेक्ट",
+        "मेरा प्रोजेक्ट",
+        "मेरी परियोजना",
     ),
     "todos": (
         "mis tareas",
@@ -53,13 +54,6 @@ _CUES: dict[CueGroup, tuple[str, ...]] = {
         "mes taches",
         "ma liste",
         "mes rappels",
-        "meine aufgaben",
-        "meine liste",
-        "meine erinnerungen",
-        "le mie attività",
-        "le mie attivita",
-        "la mia lista",
-        "i miei promemoria",
         "minhas tarefas",
         "minha lista",
         "meus lembretes",
@@ -92,19 +86,6 @@ _CUES: dict[CueGroup, tuple[str, ...]] = {
         "de ma liste",
         "qu'est-ce que j'ai aujourd'hui",
         "qu'est-ce que j'ai demain",
-        "erinnere mich",
-        "erinnerung",
-        "auf meine liste",
-        "von meiner liste",
-        "was habe ich heute",
-        "was habe ich morgen",
-        "ricordami",
-        "promemoria",
-        "alla mia lista",
-        "dalla mia lista",
-        "cose da fare",
-        "cosa ho oggi",
-        "cosa ho domani",
         "lembra-me",
         "lembre-me",
         "me lembra",
@@ -133,6 +114,18 @@ _CUES: dict[CueGroup, tuple[str, ...]] = {
         "አስታውሽኝ",
         "ማስታወሻ",
         "የሚደረጉ",
+        "टू-डू",
+        "मेरी सूची",
+        "मेरी लिस्ट",
+        "रिमाइंडर",
+        "याद दिलाओ",
+        "याद दिलाइए",
+        "याद दिलाना",
+        "याद दिला दो",
+        "याद दिला देना",
+        "आज मेरे पास क्या है",
+        "कल मेरे पास क्या है",
+        "आज मुझे क्या करना है",
     ),
     "calendar": (
         "mi calendario",
@@ -141,9 +134,6 @@ _CUES: dict[CueGroup, tuple[str, ...]] = {
         "que hay en mi calendario",
         "mon calendrier",
         "mon agenda",
-        "mein kalender",
-        "meinen kalender",
-        "il mio calendario",
         "meu calendário",
         "meu calendario",
         "minha agenda",
@@ -153,6 +143,8 @@ _CUES: dict[CueGroup, tuple[str, ...]] = {
         "takvimimde",
         "ቀን መቁጠሪያ",
         "የእኔ ካላንደር",
+        "मेरा कैलेंडर",
+        "मेरे कैलेंडर",
     ),
     "email": (
         "mi correo",
@@ -162,10 +154,6 @@ _CUES: dict[CueGroup, tuple[str, ...]] = {
         "mes emails",
         "ma boîte mail",
         "ma boite mail",
-        "meine emails",
-        "meinen posteingang",
-        "la mia casella",
-        "la mia email",
         "minha caixa de entrada",
         "meu e-mail",
         "моя почта",
@@ -174,6 +162,9 @@ _CUES: dict[CueGroup, tuple[str, ...]] = {
         "e-postam",
         "የእኔ ኢሜይል",
         "የገቢ መልእክት",
+        "मेरा ईमेल",
+        "मेरे ईमेल",
+        "मेरा इनबॉक्स",
     ),
     "memory": (
         "qué recuerdas",
@@ -184,9 +175,6 @@ _CUES: dict[CueGroup, tuple[str, ...]] = {
         "tu te souviens",
         "que sais-tu de moi",
         "que sais tu de moi",
-        "was weißt du über mich",
-        "was weisst du uber mich",
-        "cosa sai di me",
         "o que você sabe sobre mim",
         "o que voce sabe sobre mim",
         "что ты помнишь",
@@ -195,6 +183,9 @@ _CUES: dict[CueGroup, tuple[str, ...]] = {
         "benim hakkimda ne biliyorsun",
         "ምን ታስታውሳለህ",
         "ስለ እኔ ምን ታውቃለህ",
+        "तुम्हें क्या याद है",
+        "आपको क्या याद है",
+        "मेरे बारे में क्या जानते",
     ),
     "advice": (
         "qué debería comer",
@@ -205,10 +196,6 @@ _CUES: dict[CueGroup, tuple[str, ...]] = {
         "que me recomiendas para cenar",
         "que dois-je manger",
         "quoi manger ce soir",
-        "was soll ich essen",
-        "was soll ich anziehen",
-        "cosa dovrei mangiare",
-        "cosa mangiare stasera",
         "o que eu deveria comer",
         "o que deveria comer",
         "o que comer hoje",
@@ -218,6 +205,11 @@ _CUES: dict[CueGroup, tuple[str, ...]] = {
         "ne yemeliyim",
         "ምን ልብላ",
         "ምን ልልበስ",
+        "मुझे क्या खाना चाहिए",
+        "आज क्या खाऊँ",
+        "आज क्या खाऊं",
+        "क्या पहनूँ",
+        "क्या पहनूं",
     ),
 }
 
@@ -232,7 +224,7 @@ _ALL_GROUPS: tuple[CueGroup, ...] = (
 
 def has_locale_cue(text: str, group: CueGroup) -> bool:
     """True when ``text`` contains a phrase from ``group`` (any shipped locale)."""
-    folded = text.casefold()
+    folded = unify_devanagari(text).casefold()
     if not folded:
         return False
     return any(cue in folded for cue in _CUES[group])
@@ -240,7 +232,7 @@ def has_locale_cue(text: str, group: CueGroup) -> bool:
 
 def has_any_personal_locale_cue(text: str) -> bool:
     """True when any personal-data locale cue matches (code-switching OK)."""
-    folded = text.casefold()
+    folded = unify_devanagari(text).casefold()
     if not folded:
         return False
     return any(cue in folded for group in _ALL_GROUPS for cue in _CUES[group])

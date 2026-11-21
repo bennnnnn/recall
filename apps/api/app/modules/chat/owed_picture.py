@@ -64,16 +64,6 @@ _NOT_DRAWN: dict[str, dict[Kind, str]] = {
         "diagram": "Je n'ai pas pu dessiner ce schéma.",
         "molecule": "Je n'ai pas pu dessiner cette molécule.",
     },
-    "de": {
-        "graph": "Diesen Graphen konnte ich nicht zeichnen.",
-        "diagram": "Dieses Diagramm konnte ich nicht zeichnen.",
-        "molecule": "Dieses Molekül konnte ich nicht zeichnen.",
-    },
-    "it": {
-        "graph": "Non sono riuscito a disegnare questo grafico.",
-        "diagram": "Non sono riuscito a disegnare questo diagramma.",
-        "molecule": "Non sono riuscito a disegnare questa molecola.",
-    },
     "pt": {
         "graph": "Não consegui desenhar este gráfico.",
         "diagram": "Não consegui desenhar este diagrama.",
@@ -93,6 +83,11 @@ _NOT_DRAWN: dict[str, dict[Kind, str]] = {
         "graph": "ይህን ግራፍ መሳል አልቻልኩም።",
         "diagram": "ይህን ሥዕላዊ መግለጫ መሳል አልቻልኩም።",
         "molecule": "ይህን ሞለኪውል መሳል አልቻልኩም።",
+    },
+    "hi": {
+        "graph": "मैं यह ग्राफ़ नहीं बना पाया।",
+        "diagram": "मैं यह आरेख नहीं बना पाया।",
+        "molecule": "मैं यह अणु नहीं बना पाया।",
     },
 }
 
