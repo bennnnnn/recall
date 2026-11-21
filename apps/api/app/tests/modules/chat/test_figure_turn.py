@@ -506,3 +506,38 @@ async def test_a_chemistry_solve_gets_no_maths_figure(figure: _Figure) -> None:
     ctx.figure = figure_turn.start_figure(_settings(), ctx)
     assert await figure_turn.attach_figure(_state(ctx, "Here.")) == "Here."
     assert figure.modes == []
+
+
+_BARE_RECTANGLE = (
+    "```geometry\n"
+    '{"type":"figure","shape":"rectangle","points":[{"name":"_0","x":0,"y":0},'
+    '{"name":"_1","x":3,"y":0}],"segments":[{"a":"_0","b":"_1"}]}\n```'
+)
+_LABELLED_RECTANGLE = (
+    "```geometry\n"
+    '{"type":"figure","shape":"rectangle","points":[{"name":"A","x":0,"y":0},'
+    '{"name":"B","x":8,"y":0}],"segments":[{"a":"A","b":"B","label":"8 cm"}]}\n```'
+)
+_BARE_CIRCLE = (
+    "```geometry\n"
+    '{"type":"figure","shape":"circle_parts","points":[{"name":"_0","x":0,"y":0}],'
+    '"arcs":[{"center":"_0","rx":3,"ry":3}]}\n```'
+)
+
+
+def test_a_picture_shows_a_value_only_when_a_label_holds_a_number() -> None:
+    """A reply's described picture with no value gives way to the figure with them (live,
+    2026-11-21: a bare 3-by-2 rectangle stood over the 8 by 6 with its diagonals)."""
+    assert not figure_turn._shows_a_value(_BARE_RECTANGLE)
+    assert figure_turn._shows_a_value(_LABELLED_RECTANGLE)
+    old = '```geometry\n{"type":"rectangle","labels":{"width":"6 cm"}}\n```'
+    assert figure_turn._shows_a_value(old)
+
+
+def test_a_picture_names_something_by_a_label_or_a_lettered_point() -> None:
+    """An unasked picture that names nothing is left out (live, 2026-11-21: "What is the
+    formula for the area of a circle?" got a bare circle)."""
+    assert not figure_turn._names_anything(_BARE_CIRCLE)
+    assert figure_turn._names_anything(_LABELLED_RECTANGLE)
+    lettered = _BARE_CIRCLE.replace('"name":"_0"', '"name":"O"')
+    assert figure_turn._names_anything(lettered)

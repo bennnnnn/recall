@@ -377,3 +377,24 @@ def test_a_repeated_number_the_problem_writes_once_is_new(
 ) -> None:
     """ "3x + 3 = 7" after "2x + 3 = 7" read as no new value (Gemini, PR #2482)."""
     assert posed_read.states_new_values(line, problem) is new
+
+
+@pytest.mark.parametrize(
+    ("asks", "beyond"),
+    [
+        ("the length of its diagonal", True),
+        ("its perimeter", True),
+        ("its area", False),
+        ("the area step by step", False),
+        ("the answer", False),
+        ("the working", False),
+        (None, False),
+    ],
+)
+def test_a_solve_that_names_what_the_problem_does_not_ask_is_no_solve(
+    asks: str | None, beyond: bool
+) -> None:
+    """Live (2026-11-20): "Now find the length of its diagonal" after a rectangle's area was
+    read as "solve" and answered the area again, verified."""
+    problem = "A rectangle is 8 cm long and 6 cm wide. Find its area."
+    assert posed_read.asks_beyond(asks, problem) is beyond

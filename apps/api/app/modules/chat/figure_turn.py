@@ -138,6 +138,11 @@ async def _draw(
         return None
     topic = await _topic(settings, read, line, recent)
     fence = await figure.draw(line, topic, settings, asked=wanted[1] == "asked")
+    # A picture no one asked for teaches only what it names: "What is the formula for the
+    # area of a circle?" got a bare circle, nothing on it (live, 2026-11-21).
+    if fence and wanted[1] != "asked" and _kind(fence) == "geometry" and not _names_anything(fence):
+        logger.info("figure left out: it names nothing")
+        return None
     logger.info(
         "figure %s: %s (%d earlier lines)",
         wanted[1],
@@ -215,14 +220,32 @@ def _kind(fence: str) -> str:
     return lang
 
 
-def _shows_a_value(fence: str) -> bool:
-    """Whether a picture labels any number: a side's "8 cm", an angle's "35°"."""
+def _spec(fence: str) -> Any:
     body = fence.split("\n", 1)[1] if "\n" in fence else ""
     try:
-        spec = json.loads(body.rsplit("```", 1)[0])
+        return json.loads(body.rsplit("```", 1)[0])
     except ValueError:
-        return False
-    return any(_DIGIT.search(label) for label in _labels(spec))
+        return None
+
+
+def _shows_a_value(fence: str) -> bool:
+    """Whether a picture labels any number: a side's "8 cm", an angle's "35°"."""
+    return any(_DIGIT.search(label) for label in _labels(_spec(fence)))
+
+
+def _names_anything(fence: str) -> bool:
+    """Whether a picture labels or letters anything: a value, a letter ("x", "r"), a
+    point's name ("O", "A"); a point the server named for itself ("_0") is none."""
+    spec = _spec(fence)
+    if any(label.strip() for label in _labels(spec)):
+        return True
+    points = spec.get("points", []) if isinstance(spec, dict) else []
+    return any(
+        isinstance(point, dict)
+        and isinstance(point.get("name") or point.get("label"), str)
+        and not str(point.get("name") or point.get("label")).startswith("_")
+        for point in points
+    )
 
 
 def _labels(value: Any, *, inside: bool = False) -> Iterator[str]:
