@@ -15,8 +15,10 @@ that does not hold: the reply is saved as it is. Nothing here raises into a turn
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
-from collections.abc import Sequence
+import re
+from collections.abc import Iterator, Sequence
 from typing import TYPE_CHECKING, Any, Literal
 
 from app.core.config import Settings
@@ -38,6 +40,8 @@ _DRAWN = frozenset({"graph", "diagram"})
 _UNASKED = frozenset({"none", None})
 # How many earlier user messages "draw it" may point back to, with no read to name them.
 _EARLIER = 3
+_DIGIT = re.compile(r"\d")
+_LABEL_KEYS = frozenset({"label", "labels"})
 # The most messages of one problem the figure reads: the problem and its follow-ups.
 _TOPIC = 6
 # The subject whose figure a read's subject gets. A chemistry question that asks to see a
@@ -211,6 +215,29 @@ def _kind(fence: str) -> str:
     return lang
 
 
+def _shows_a_value(fence: str) -> bool:
+    """Whether a picture labels any number: a side's "8 cm", an angle's "35°"."""
+    body = fence.split("\n", 1)[1] if "\n" in fence else ""
+    try:
+        spec = json.loads(body.rsplit("```", 1)[0])
+    except ValueError:
+        return False
+    return any(_DIGIT.search(label) for label in _labels(spec))
+
+
+def _labels(value: Any, *, inside: bool = False) -> Iterator[str]:
+    """Every label's text: a part's "label", and the strings of a "labels" table."""
+    if isinstance(value, str):
+        if inside:
+            yield value
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            yield from _labels(item, inside=inside or key in _LABEL_KEYS)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _labels(item, inside=inside)
+
+
 def _kinds(fences: Sequence[str]) -> set[str]:
     return {_kind(fence) for fence in fences}
 
@@ -253,13 +280,23 @@ async def attach_figure(state: FinalizeState) -> str:
         return state.text
     fence = task.result()
     # The reply's own described picture of that kind, checked and drawn, stands
-    # (``drawing_turn``); one of the other kind leaves room for this one.
-    if not fence or _kind(fence) in _kinds(drawn):
+    # (``drawing_turn``); one of the other kind leaves room for this one. One that shows
+    # none of the question's values gives way to the figure that does: "Draw it" after a
+    # rectangle's 8 cm, 6 cm and diagonal got the reply's bare 3-by-2 rectangle, and this
+    # figure, the 8 by 6 with its diagonals, was dropped (live, 2026-11-21).
+    if not fence:
         return state.text
-    if not figure.adds_to(_without(state.text, drawn), fence):
+    reply = state.text
+    same = [drawn_fence for drawn_fence in drawn if _kind(drawn_fence) == _kind(fence)]
+    if same:
+        bare = [drawn_fence for drawn_fence in same if not _shows_a_value(drawn_fence)]
+        if len(bare) < len(same) or not _shows_a_value(fence):
+            return state.text
+        reply, drawn = _without(reply, bare), [f for f in drawn if f not in bare]
+    if not figure.adds_to(_without(reply, drawn), fence):
         logger.info("figure left out: the reply already shows it")
         return state.text
-    text = figure.without_substitutes(state.text).rstrip()
+    text = figure.without_substitutes(reply).rstrip()
     text = f"{text}\n\n{fence}\n" if text else f"{fence}\n"
     # Committed, so a later pass that falls back keeps the picture.
     state.committed = fallback_text(text, server_text=state.server_text)
