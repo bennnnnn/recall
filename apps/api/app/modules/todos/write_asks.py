@@ -9,9 +9,13 @@ A request is a reminder phrase ("recuérdame", "напомни"), or an add or d
 verb beside a to-do target ("añade … a mis tareas"). Words with an everyday
 meaning stay out: Spanish "tarea" (also homework), "todo" (all), "pon" (play) and
 "marca" (brand), French "note" (a grade), Russian "задача" (a maths problem),
-Amharic "ዝርዝር" (also details), German "ich erinnere mich" (I remember). After the
-button, a reply with a time or a yes ("a las 5", "sí") asks the same thing again;
-a question is a new one.
+Amharic "ዝርዝር" (also details), Hindi "काम" (work) and a bare "सूची" (any list),
+German "ich erinnere mich" (I remember). After the button, a reply with a time or a yes
+("a las 5", "sí", "हाँ") asks the same thing again; a question is a new one.
+
+German and Italian are no app language, but a message in either still asks for a to-do
+change chat must not make (``chat_language``), so their words stay: they read the request,
+they write nothing in those languages.
 """
 
 from __future__ import annotations
@@ -19,12 +23,14 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 
+from app.core.validation import unify_devanagari
 from app.modules.todos.chat_language import (
     TODO_LINK_FENCE,
     message_language,
     todo_screen_answer,
     writes_todos_in_todo_screen,
 )
+from app.modules.todos.write_asks_hindi import asks_in_hindi
 
 # A phrase ending in "*" matches the start of a word (Turkish and Amharic add endings).
 _REMIND = (
@@ -77,15 +83,22 @@ _YES_OR_DAY = (
     "sí", "si", "oui", "ja", "sì", "sim", "evet", "да", "አዎ",
     "mañana", "manana", "demain", "morgen", "domani", "amanhã", "amanha", "yarın", "yarin",
     "завтра", "ነገ", "hoy", "aujourd'hui", "heute", "oggi", "hoje", "bugün", "сегодня", "ዛሬ",
+    "हाँ", "हां", "जी हाँ", "जी हां", "ठीक है", "कल", "आज", "परसों", "सोमवार", "मंगलवार",
+    "बुधवार", "गुरुवार", "बृहस्पतिवार", "शुक्रवार", "शनिवार", "रविवार",
 )  # fmt: skip
+
+
+# A word's letters: ``\w`` and Devanagari's vowel signs, which ``\w`` leaves out, so "कल"
+# (tomorrow) is not the start of "कला" (art). Not the danda, a full stop.
+_IN_WORD = r"[\w'\-\u0900-\u0963\u0966-\u097f]"
 
 
 def _pattern(phrases: Iterable[str]) -> re.Pattern[str]:
     parts = [
-        re.escape(phrase[:-1]) if phrase.endswith("*") else re.escape(phrase) + r"(?![\w'-])"
+        re.escape(phrase[:-1]) if phrase.endswith("*") else re.escape(phrase) + f"(?!{_IN_WORD})"
         for phrase in phrases
     ]
-    return re.compile(r"(?<![\w'-])(?:" + "|".join(parts) + ")")
+    return re.compile(f"(?<!{_IN_WORD})(?:" + "|".join(parts) + ")")
 
 
 _REMIND_RE = _pattern(_REMIND)
@@ -100,10 +113,12 @@ def asks_to_change_todos(text: str | None, *, prior_assistant: str | None = None
     ``prior_assistant`` is the reply before it: after the To-do button, a time or a
     yes is the same request again.
     """
-    folded = " ".join((text or "").casefold().split())
+    folded = " ".join(unify_devanagari(text or "").casefold().split())
     if not folded:
         return False
     if _REMIND_RE.search(folded) or _GERMAN_REMIND_RE.search(folded):
+        return True
+    if asks_in_hindi(folded):
         return True
     if _ADD_OR_CHANGE_RE.search(folded) and _TODO_TARGET_RE.search(folded):
         return True

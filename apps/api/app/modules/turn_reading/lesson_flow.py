@@ -17,8 +17,9 @@ from app.services.text_normalize import collapse_ws, straighten_apostrophes
 
 # "### Lesson 2: Dictionaries": a heading with the word Lesson in an app
 # language and the lesson's number. "Day 1", "Part 2" and "Step 3" are plans,
-# parts and how-tos, not lessons.
-_LESSON_WORDS = r"lesson|lecci[oó]n|le[cç]on|lektion|lezione|li[cç][aã]o|aula|урок|ders|ትምህርት"
+# parts and how-tos, not lessons. Every word ``chat.lesson_copy`` writes is one of these
+# (``test_lesson_copy_reads_back``).
+_LESSON_WORDS = r"lesson|lecci[oó]n|le[cç]on|li[cç][aã]o|aula|урок|ders|ትምህርት|पाठ"
 
 
 # An emoji or bold marks may open it: "### 🧪 Lesson 3: Moles" was read as no lesson, and the

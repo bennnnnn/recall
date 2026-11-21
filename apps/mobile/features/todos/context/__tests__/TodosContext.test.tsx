@@ -187,7 +187,7 @@ it("writes the device alerts again when the app's language or the phone's 12/24-
     // What lib/i18n's bound events do: the provider renders again, nothing else changed.
     await ui.rerender(<Screen />);
     expect(syncs()).toBe(before);
-    i18n.language = "de";
+    i18n.language = "fr";
     await ui.rerender(<Screen />);
     await waitFor(() => expect(syncs()).toBe(before + 1));
     mockHourCycle = "h23";

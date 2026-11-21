@@ -97,8 +97,8 @@ async def test_a_drawn_picture_needs_no_line() -> None:
 
 @pytest.mark.asyncio
 async def test_an_empty_reply_is_the_line_alone_in_the_reply_s_language() -> None:
-    ctx = _ctx("Zeichne den Graphen.", _decision("maths", "graph"))
-    assert held_to_the_ask("", ctx, "de") == f"{not_drawn_line('graph', 'de')}\n"
+    ctx = _ctx("ग्राफ़ बनाओ।", _decision("maths", "graph"))
+    assert held_to_the_ask("", ctx, "hi") == f"{not_drawn_line('graph', 'hi')}\n"
 
 
 @pytest.mark.asyncio

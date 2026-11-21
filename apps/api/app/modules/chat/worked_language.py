@@ -62,26 +62,6 @@ WORKED_WORDS: dict[str, dict[str, str]] = {
         "where": "où",
         "solve_for": "On isole {symbol}",
     },
-    "de": {
-        "given": "Gegeben",
-        "required": "Gesucht",
-        "solution": "Lösung",
-        "substitution": "Einsetzen",
-        "steps": "Schritte",
-        "answer": "Antwort",
-        "where": "wobei",
-        "solve_for": "Umstellen nach {symbol}",
-    },
-    "it": {
-        "given": "Dati",
-        "required": "Incognita",
-        "solution": "Soluzione",
-        "substitution": "Sostituzione",
-        "steps": "Passaggi",
-        "answer": "Risposta",
-        "where": "dove",
-        "solve_for": "Ricaviamo {symbol}",
-    },
     "pt": {
         "given": "Dados",
         "required": "Incógnita",
@@ -121,6 +101,16 @@ WORKED_WORDS: dict[str, dict[str, str]] = {
         "answer": "መልስ",
         "where": "እዚህ",
         "solve_for": "{symbol}ን ለብቻው ማውጣት",
+    },
+    "hi": {
+        "given": "दिया गया",
+        "required": "ज्ञात करना है",
+        "solution": "हल",
+        "substitution": "मान रखने पर",
+        "steps": "चरण",
+        "answer": "उत्तर",
+        "where": "जहाँ",
+        "solve_for": "{symbol} को अलग करते हैं",
     },
 }
 

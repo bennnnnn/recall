@@ -67,7 +67,7 @@ it("writes the alert again in a new language, 12/24-hour clock or zone, and only
   mockHourCycle = "h23";
   refreshPhoneClock();
   await sync();
-  mockLanguage = "de";
+  mockLanguage = "fr";
   await sync();
   await sync();
   mockZone = "Asia/Kathmandu";
@@ -76,8 +76,8 @@ it("writes the alert again in a new language, 12/24-hour clock or zone, and only
   expect(written()).toEqual([
     "en:notifications.todo_reminder_title | en:notifications.todo_reminder_body:11:30 PM",
     "en:notifications.todo_reminder_title | en:notifications.todo_reminder_body:23:30",
-    "de:notifications.todo_reminder_title | de:notifications.todo_reminder_body:23:30",
-    "de:notifications.todo_reminder_title | de:notifications.todo_reminder_body:05:15",
+    "fr:notifications.todo_reminder_title | fr:notifications.todo_reminder_body:23:30",
+    "fr:notifications.todo_reminder_title | fr:notifications.todo_reminder_body:05:15",
   ]);
   // One alert, replaced each time, still at the server's notify_at.
   expect([...scheduled.entries()]).toEqual([

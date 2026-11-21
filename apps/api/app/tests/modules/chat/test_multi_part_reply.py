@@ -101,43 +101,41 @@ async def test_the_picture_goes_above_the_answer_and_is_linked() -> None:
 
 
 _EN = "I couldn't draw the picture (a fox) this time: "
-_DE = "Das Bild (a fox) konnte ich diesmal nicht zeichnen: "
-# Each reason the line can give, how a picture comes to it, and its German and English.
+_HI = "इस बार मैं चित्र (a fox) नहीं बना पाया: "
+# Each reason the line can give, how a picture comes to it, and its Hindi and English.
 _NOT_DRAWN = {
     "not_in_plan": (
-        "Die Bilderstellung ist in deinem Tarif nicht enthalten. Mit einem Upgrade bekommst du sie.",
+        "चित्र बनाना आपके प्लान में शामिल नहीं है। इसके लिए अपग्रेड करें।",
         "Image generation isn't part of your plan. Upgrade for it.",
     ),
     "daily_limit_free": (
-        "Du hast das heutige Limit für Bilderstellung erreicht. Upgrade für mehr, "
-        "oder versuche es nach Mitternacht UTC erneut.",
+        "आज की चित्र बनाने की सीमा पूरी हो गई है। ज़्यादा के लिए अपग्रेड करें, "
+        "या UTC आधी रात के बाद फिर कोशिश करें।",
         "You've reached today's image generation limit. "
         "Upgrade for more — or try again after midnight UTC.",
     ),
     "daily_limit_paid": (
-        "Du hast das heutige Limit für Bilderstellung erreicht. "
-        "Versuche es nach Mitternacht UTC erneut.",
+        "आज की चित्र बनाने की सीमा पूरी हो गई है। UTC आधी रात के बाद फिर कोशिश करें।",
         "You've reached today's image generation limit. Try again after midnight UTC.",
     ),
     "content_blocked": (
-        "Dieses Bild kann nicht erstellt werden: "
-        "Es verstößt gegen die Inhaltsregeln des Bilddienstes.",
+        "यह चित्र नहीं बन सकता: यह चित्र सेवा के सामग्री नियमों के ख़िलाफ़ है।",
         "That picture can't be made: it breaks the image service's content rules.",
     ),
     "too_slow": (
-        "Das Bild hat zu lange gedauert. Bitte frag in einer eigenen Nachricht noch einmal danach.",
+        "चित्र बनने में बहुत समय लगा। इसे एक अलग संदेश में फिर से माँगें।",
         "the picture took too long. Ask for it again on its own.",
     ),
     "failed": (
-        "Etwas ist schiefgelaufen. Bitte frag in einer eigenen Nachricht noch einmal danach.",
+        "कुछ गड़बड़ हो गई। इसे एक अलग संदेश में फिर से माँगें।",
         "something went wrong. Ask for it again on its own.",
     ),
     "upstream_failed": (
-        "Etwas ist schiefgelaufen. Bitte frag in einer eigenen Nachricht noch einmal danach.",
+        "कुछ गड़बड़ हो गई। इसे एक अलग संदेश में फिर से माँगें।",
         "something went wrong. Ask for it again on its own.",
     ),
     "unknown_code": (
-        "Etwas ist schiefgelaufen. Bitte frag in einer eigenen Nachricht noch einmal danach.",
+        "कुछ गड़बड़ हो गई। इसे एक अलग संदेश में फिर से माँगें।",
         "something went wrong. Ask for it again on its own.",
     ),
 }
@@ -177,13 +175,13 @@ def _picture(case: str, locale: str | None) -> ReplyPicture:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("case", list(_NOT_DRAWN))
-@pytest.mark.parametrize("locale", ["de", "de-AT", "en", None, ""])
+@pytest.mark.parametrize("locale", ["hi", "hi-IN", "en", None, ""])
 async def test_a_picture_not_drawn_says_why_in_the_apps_language(
     case: str, locale: str | None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Only the spend cap's line was in the app's language; the rest showed English."""
-    german, english = _NOT_DRAWN[case]
-    line = _DE + german if locale and locale.startswith("de") else _EN + english
+    hindi, english = _NOT_DRAWN[case]
+    line = _HI + hindi if locale and locale.startswith("hi") else _EN + english
     picture = _picture(case, locale)
     monkeypatch.setattr(reply_picture, "_WAIT_SECONDS", 0.01)
     text = await attach_reply_picture(_state_with(picture))
@@ -201,9 +199,9 @@ def _state_with(picture: ReplyPicture) -> FinalizeState:
     ("locale", "line"),
     [
         (
-            "de",
-            "Das Bild (a fox) konnte ich diesmal nicht zeichnen: Die Bilderstellung ist "
-            "vorübergehend nicht verfügbar. Versuche es später erneut.",
+            "hi",
+            "इस बार मैं चित्र (a fox) नहीं बना पाया: चित्र बनाना अभी उपलब्ध नहीं है। "
+            "थोड़ी देर बाद फिर कोशिश करें।",
         ),
         (
             "en",
@@ -220,7 +218,7 @@ def _state_with(picture: ReplyPicture) -> FinalizeState:
 async def test_a_picture_the_spend_cap_stopped_says_so_in_the_apps_language(
     locale: str | None, line: str
 ) -> None:
-    """The cap's English showed under a German reply."""
+    """The cap's English showed under a reply in another language."""
 
     async def capped() -> UUID:
         raise ImageGenerationError("Image generation is paused.", status_code=429, code="spend_cap")
@@ -233,12 +231,12 @@ async def test_a_picture_the_spend_cap_stopped_says_so_in_the_apps_language(
 
 
 def test_a_picture_with_drawing_off_says_the_caps_line_in_the_replys_language() -> None:
-    """A German app asked in English gets an English reply, so the line is English too;
-    it was German under the English answer."""
+    """A Hindi app asked in English gets an English reply, so the line is English too;
+    it was in the app's language under the English answer."""
     picture = start_reply_picture(
         _deps(can_use=True),
         Settings(image_generation_enabled=False),
-        user=User(id=uuid4(), plan="pro", locale="de"),
+        user=User(id=uuid4(), plan="pro", locale="hi"),
         chat_id=uuid4(),
         content="draw a cat wearing a hat and also explain what a black hole is",
     )
@@ -254,11 +252,11 @@ def test_a_picture_with_drawing_off_says_the_caps_line_in_the_replys_language() 
 @pytest.mark.parametrize(
     ("message", "locale", "language"),
     [
-        ("Draw a cat and also explain what a black hole is", "de", "en"),
-        ("Zeichne eine Katze und erkläre mir bitte, was ein schwarzes Loch ist", "en", "de"),
+        ("Draw a cat and also explain what a black hole is", "hi", "en"),
+        ("एक बिल्ली का चित्र बनाओ और ब्लैक होल क्या है समझाओ", "en", "hi"),
         ("Нарисуй кошку и объясни чёрную дыру", "en", "ru"),
         # Nothing plainly one language: the app's.
-        ("cat + black hole", "de", "de"),
+        ("cat + black hole", "hi", "hi"),
         ("cat + black hole", "pt-BR", "pt"),
         ("cat + black hole", None, "en"),
     ],
@@ -307,7 +305,7 @@ def test_start_reply_picture_refuses_without_the_plan() -> None:
     picture = start_reply_picture(
         _deps(can_use=False),
         Settings(),
-        user=User(id=uuid4(), plan="pro", locale="de"),
+        user=User(id=uuid4(), plan="pro", locale="hi"),
         chat_id=uuid4(),
         content="draw a cat wearing a hat and also explain what a black hole is",
     )

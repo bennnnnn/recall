@@ -7,7 +7,7 @@ import type { ValueFormat } from "@/lib/money/calculator";
 import type { Translate } from "@/lib/i18n/translate";
 
 type FormatContext = {
-  /** The app's language ("en", "de"); Intl falls back to English when it has no data. */
+  /** The app's language ("en", "hi"); Intl falls back to English when it has no data. */
   locale: string;
   /** ISO 4217 code, or null to print a plain number. */
   currency: string | null;

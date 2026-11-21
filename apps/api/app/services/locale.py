@@ -5,6 +5,27 @@ from __future__ import annotations
 from app.core.validation import LOCALE_NAMES as LOCALE_NAMES
 from app.core.validation import normalize_locale_code as normalize_locale_code
 
+# Languages a user may name, in English, whether or not the app offers them: "put that in
+# German" asks for the reply in German though German is no app language (2026-11-20: once
+# German left the app's languages, it read as a to-do list called "German"). The app's own
+# languages are among them (``test_language_names_hold_the_apps``).
+LANGUAGE_NAMES = frozenset(
+    {
+        "afrikaans", "albanian", "amharic", "arabic", "armenian", "azerbaijani", "basque",
+        "belarusian", "bengali", "bosnian", "bulgarian", "burmese", "cantonese", "catalan",
+        "chinese", "croatian", "czech", "danish", "dutch", "english", "estonian", "farsi",
+        "filipino", "finnish", "french", "georgian", "german", "greek", "gujarati", "hausa",
+        "hebrew", "hindi", "hungarian", "icelandic", "igbo", "indonesian", "irish", "italian",
+        "japanese", "kannada", "kazakh", "khmer", "korean", "kurdish", "lao", "latin",
+        "latvian", "lithuanian", "macedonian", "malay", "malayalam", "mandarin", "marathi",
+        "mongolian", "nepali", "norwegian", "oromo", "pashto", "persian", "polish",
+        "portuguese", "punjabi", "romanian", "russian", "serbian", "sinhala", "slovak",
+        "slovenian", "somali", "spanish", "swahili", "swedish", "tagalog", "tamil", "telugu",
+        "thai", "tigrinya", "turkish", "ukrainian", "urdu", "uzbek", "vietnamese", "welsh",
+        "xhosa", "yiddish", "yoruba", "zulu",
+    }
+)  # fmt: skip
+
 
 def locale_display_name(locale: str | None) -> str:
     code = normalize_locale_code(locale)

@@ -145,7 +145,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Link preview | `modules/link_preview/` (HTTP `/link-preview`; SSRF-safe fetch in `gateways/safe_fetch.py`) | `components/LinkPreviewCard.tsx`, `lib/linkPreview.ts` |
 | Admin / legal / health | `routers/admin.py`, `legal.py`, `health.py` | `features/account/screens/HelpScreen.tsx`, `AboutScreen.tsx`, `DataControlsScreen.tsx` |
 | Rich fences | prompt constants + post-stream fence rewrite | `lib/fence/registry.ts`, `components/rich/` |
-| i18n | locale on user + prompt | `lib/i18n/*.json` (9 locales; tests hold key parity, placeholders and translation: a value equals English only if `lib/__tests__/i18nTranslated.test.ts` allows it) |
+| i18n | locale on user + prompt | `lib/i18n/*.json` (8 locales; tests hold key parity, placeholders and translation: a value equals English only if `lib/__tests__/i18nTranslated.test.ts` allows it) |
 
 **HTTP surfaces registered in** `main.py`: the module-owned Math, Physics, Chemistry, Memory, To-do, Search, Chat history, Attachments, Images, Speech, Account (`/auth`), Billing webhooks, Notifications push-token (`/users`), Analytics, and Link preview APIs plus the legacy health, legal, admin, and models routers. Chat history (`/chats`) and the chat stream (`/ws/chat`, SSE) are both `modules/chat/`.
 
@@ -204,7 +204,7 @@ Expo Router (`apps/mobile/app/`): Login, Onboarding, Chat (`index`), Memory, Tod
 - Messages: FlashList; markdown + `components/rich/*` + `components/markdown/*`
 - Fences: `lib/fence/registry.ts` is the lang/id table; `RichFence` renders
 - UI kit: `ui/` — controls (Button, Chip, SegmentedControl, TextField, HeaderButton), `list/` ListRow, `overlay/` (Menu, SelectMenu, `confirmDialog`/`alertDialog`, Sheet), `pickers/` (clock time, calendar date), `share/` ShareSheet, `icons/` (Lucide line icons + BrandMark). Catalog: `ui/README.md`. Lint bans raw `Alert`/`Modal`/`Switch`, `@expo/vector-icons` and the native datetimepicker outside it.
-- i18n: `lib/i18n` (9 locales; key parity, placeholders and translation enforced by tests)
+- i18n: `lib/i18n` (8 locales; key parity, placeholders and translation enforced by tests)
 
 ## Build / Run Commands
 

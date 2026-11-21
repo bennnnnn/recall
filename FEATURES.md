@@ -978,7 +978,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Account deletion** — permanently deletes the account and all its data (`DELETE /auth/me`),
   then signs out: rows, stored files, and (in the worker's `storage_sweep`) every Redis key
   that names the user.
-- ✅ **Language / i18n** — `react-i18next` with English, Spanish, French, Amharic, German, Italian, Portuguese, Russian, and Turkish.
+- ✅ **Language / i18n** — `react-i18next` with English, Spanish, French, Amharic, Hindi, Portuguese, Russian, and Turkish (German and Italian were removed 2026-11-20; their users moved to English).
 - ✅ **Dark / light theme** — screens use `useTheme()` with system or manual appearance in
   Settings → Appearance.
 - ✅ **Local todo reminders** — on a device the server holds no push token for, on-device
@@ -1403,7 +1403,7 @@ Infra + store steps live in Lists → **Launch** (local Dev User) and
   renders in the header (bounded/structured, not row-virtualized). Verify
   scroll/layout on-device.
 - ✅ **i18n extraction (reminders / share / urgent)** — keys wired in `todoReminders`,
-  `homeUrgentTodos`, `share/text.ts`, and push channel names; translated in all 9 locales.
+  `homeUrgentTodos`, `share/text.ts`, and push channel names; translated in all 8 locales.
 - 🔜 **Locale prose translations** — **future.** Key-set parity is enforced (**960** keys);
   ~350 non-en values are still English. Structural i18n is complete.
 - 🔜 **Legal page bodies** — **future.** `/legal/privacy`, `/legal/terms` and

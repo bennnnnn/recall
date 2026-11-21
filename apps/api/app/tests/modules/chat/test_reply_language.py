@@ -24,6 +24,8 @@ from app.modules.chat.reply_language import reply_language_hint
         ("Explain `for i in range(10)` to me please", "en", "English"),
         ("¿Qué es la fotosíntesis? ¿Y cómo funciona en las plantas?", "es", "Spanish"),
         ("Привет, как дела?", "ru", "Russian"),
+        ("मुझे पायथन के बारे में बताओ", "hi", "Hindi"),
+        ("जर्मनी में मौसम कैसा है?", "hi", "Hindi"),  # in Germany, no language named
     ],
 )
 def test_a_message_plainly_in_the_apps_language_is_answered_in_it(
@@ -81,10 +83,16 @@ def test_a_message_not_plainly_in_the_apps_language_gets_no_note(query: str, loc
         "Answer in French: what is a verb?",
         "translate good morning to Spanish",
         "Reply in Spanish from now on",
+        "जर्मन में जवाब दो",
+        "इसका अनुवाद करो",
+        # "English" with the dotted ज़ as a letter and its dot, and as one sign (U+095B).
+        "अंग्रेज\u093cी में जवाब दो",
+        "अंग्रे\u095bी में जवाब दो",
     ],
 )
 def test_a_message_that_names_a_language_chooses_it(query: str) -> None:
     assert reply_language_hint(query, [], "en", None) is None
+    assert reply_language_hint(query, [], "hi", None) is None
 
 
 @pytest.mark.parametrize(

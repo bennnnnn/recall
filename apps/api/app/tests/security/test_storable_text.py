@@ -154,3 +154,26 @@ def test_chat_stream_rejects_nul_with_422_before_any_turn() -> None:
 
     assert response.status_code == 422
     assert NUL_REJECTED_MESSAGE in response.text
+
+
+def test_a_dotted_devanagari_letter_is_stored_as_typed() -> None:
+    """Saved text keeps the form the keyboard sent, so a title at the phone's cap of 80 is
+    80 characters still (ज़ as one sign grew to two code points and was refused, 2026-11-20).
+    Readers and search read both forms (``unify_devanagari``, ``devanagari_spellings``)."""
+    one_sign = "\u095b" * 80
+    assert ChatRename(title=one_sign).title == one_sign
+    with pytest.raises(ValidationError):
+        ChatRename(title=one_sign + "\u095b")
+
+
+def test_search_spells_each_dotted_letter_either_way() -> None:
+    """A text that mixes the forms (ज़ as one sign, ड़ as letter and dot) is searched in
+    every mix, not only all split or all joined (a review, 2026-11-21)."""
+    from app.core.validation import devanagari_spellings
+
+    mixed = "ज़रा ड़"
+    spellings = devanagari_spellings(mixed)
+    assert mixed in spellings
+    assert "ज़रा ड़" in spellings  # the other mix
+    assert len(spellings) == 4
+    assert devanagari_spellings("plain text") == ("plain text",)

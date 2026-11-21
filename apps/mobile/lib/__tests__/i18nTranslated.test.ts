@@ -3,7 +3,7 @@
  *
  * Key parity passed while about 47 strings per locale (75 in Amharic) were still English:
  * permission prompts, delete confirmations and error toasts showed in English inside a
- * German or Amharic app, and new keys arrived in English in every file at once. A value
+ * Spanish or Amharic app, and new keys arrived in English in every file at once. A value
  * may equal English only when it is a name or a symbol every language keeps, or a word
  * the language spells the same; both lists are below. Every value also keeps English's
  * `{{placeholders}}`, which a translation that drops one would break.
@@ -11,15 +11,14 @@
 
 import en from "@/lib/i18n/en.json";
 import am from "@/lib/i18n/am.json";
-import de from "@/lib/i18n/de.json";
 import es from "@/lib/i18n/es.json";
 import fr from "@/lib/i18n/fr.json";
-import itLocale from "@/lib/i18n/it.json";
+import hi from "@/lib/i18n/hi.json";
 import pt from "@/lib/i18n/pt.json";
 import ru from "@/lib/i18n/ru.json";
 import tr from "@/lib/i18n/tr.json";
 
-const LOCALES = { am, de, es, fr, it: itLocale, pt, ru, tr } as const;
+const LOCALES = { am, es, fr, hi, pt, ru, tr } as const;
 type Locale = keyof typeof LOCALES;
 type Bundle = Record<string, string>;
 const EN = en as Bundle;
@@ -43,27 +42,6 @@ const KEPT_EVERYWHERE = new Set([
 /** Words each language spells as English does: a match is the translation. */
 const SAME_WORD: Record<Locale, readonly string[]> = {
   am: [],
-  de: [
-    "chat.quota_nudge_cta", // Upgrade
-    "memory.details_label",
-    "picker.minute",
-    "preview.code_tab",
-    "rich.array_index",
-    "rich.callout_info",
-    "rich.chemistry_anchor_start",
-    "rich.chemistry_anode",
-    "rich.chemistry_element",
-    "rich.chemistry_ideal_angle",
-    "rich.chemistry_scene_titration",
-    "rich.simulation_title",
-    "settings.about_version",
-    "settings.accent_indigo",
-    "settings.appearance_system",
-    "settings.chat",
-    "settings.chats_group",
-    "settings.name_label",
-    "share.default_title",
-  ],
   es: [
     "chat.math_converter_cat_amount", // Moles
     "rich.callout_info",
@@ -111,20 +89,7 @@ const SAME_WORD: Record<Locale, readonly string[]> = {
     "settings.notifications",
     "todos.date_label",
   ],
-  it: [
-    "chat.attach_file",
-    "chat.title_file",
-    "chat.math_converter_cat_area",
-    "chat.math_converter_cat_volume",
-    "login.privacy",
-    "rich.area",
-    "rich.callout_info",
-    "settings.account",
-    "settings.chat",
-    "settings.email",
-    "settings.emoji",
-    "share.default_title",
-  ],
+  hi: [],
   pt: [
     "chat.math_converter_cat_volume",
     "rich.callout_info",
@@ -167,7 +132,7 @@ function untranslated(code: Locale, bundle: Bundle): string[] {
 
 describe("i18n translations", () => {
   it("sees an English value and a dropped placeholder", () => {
-    expect(untranslated("de", { "chat.stop": "Stop", "app.name": "Recall" })).toEqual(["chat.stop"]);
+    expect(untranslated("hi", { "chat.stop": "Stop", "app.name": "Recall" })).toEqual(["chat.stop"]);
     expect(placeholders("Open PDF {{fileName}}")).toEqual(["fileName"]);
     expect(placeholders("{{left, number}} of {{total, number}}")).toEqual(["left", "total"]);
     expect(hasWords("{{status}}, {{percent}}")).toBe(false);

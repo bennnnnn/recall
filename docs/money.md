@@ -388,7 +388,7 @@ The server appends it after the reply; the model never writes one. JSON, one obj
 
 ## Label keys
 
-The fence names text by key, and the phone translates it in all nine languages. Every key starts
+The fence names text by key, and the phone translates it in all eight languages. Every key starts
 with `money.`; the phone refuses a fence whose `title_key` or `label_key` doesn't, and shows a
 fallback (the title "Loan", an empty label, a dash) for a `money.` key it has no text for, never
 the raw key. Keys the phone has (a server test, `test_money_label_keys.py`, holds the catalog to them):

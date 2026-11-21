@@ -138,8 +138,8 @@ describe("locale week", () => {
     expect(labels.map((label) => label.narrow)).toEqual(["M", "T", "W", "T", "F", "S", "S"]);
     expect(labels[0].long).toBe("Monday");
     expect(weekdayLabels(0)[0].long).toBe("Sunday");
-    await ensureLocale("de");
-    expect(weekdayLabels(1)[0].long).toBe("Montag");
+    await ensureLocale("fr");
+    expect(weekdayLabels(1)[0].long).toBe("lundi");
   });
 
   it("names the month and year in the app's language", async () => {

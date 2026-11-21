@@ -12,9 +12,10 @@ are none of these. An unusual subject is simply answered.
   people, creatures, objects, vehicles, buildings and places, nature, food, plants, sky,
   toys, instruments. Russian and Turkish forms are made from the listed one.
 - Descriptors and function words: ``gen_intent_drawable_words``. Their forms are made
-  here: "rojo" → roja, rojos, rojas; "rot" → rote, roten; "красный" → красного, красную.
+  here: "rojo" → roja, rojos, rojas; "красный" → красного, красную.
 - "and" joins two drawable nouns only ("un gato y un perro", not "un gato y negro").
-- Turkish and Amharic close the subject with its noun ("şapkalı bir kedi", "ቀይ ድመት").
+- Turkish, Amharic and Hindi close the subject with its noun ("şapkalı bir kedi", "ቀይ ድመት",
+  "लाल टोपी वाली काली बिल्ली").
 """
 
 from __future__ import annotations
@@ -28,12 +29,8 @@ from app.modules.images import gen_intent_drawable_other as other
 from app.modules.images import gen_intent_drawable_romance as romance
 from app.modules.images import gen_intent_drawable_words as plain
 
-_HEAD_LAST = frozenset({"tr", "am"})
+_HEAD_LAST = frozenset({"tr", "am", "hi"})
 _LONGEST_NAME = 4
-# A German compound's first part has at least this many letters ("Feuerdrache").
-_MIN_COMPOUND_LEAD = 3
-# Between a German compound's parts: "Weihnacht-s-baum", "Piraten-schiff".
-_DE_LINKS = ("s", "es", "n", "en", "e", "er")
 
 _RU_ENDINGS = {
     "а": "а у ы и е ой ам ами ах -",
@@ -57,11 +54,14 @@ _TR_HARD_ENDS = frozenset("fsthçşkp")
 
 def fold(word: str) -> str:
     """Lowercase, no accents, so "leon" is "león" and "kopek" is "köpek"; Cyrillic keeps its
-    letters (only "ё" is "е"), Ethiopic is as typed."""
+    letters (only "ё" is "е"), Ethiopic is as typed, and Devanagari keeps every mark, a
+    dotted letter one way whichever way it was typed ("ड़" as one sign or as ड and its dot)."""
     out: list[str] = []
     for char in word.lower():
         if "Ѐ" <= char <= "ӿ" or "ሀ" <= char <= "፿":
             out.append("е" if char == "ё" else char)
+        elif "\u0900" <= char <= "\u097f":
+            out.append(unicodedata.normalize("NFD", char))
         else:
             out.append(unicodedata.normalize("NFD", char)[0])
     return "".join(out).replace("ı", "i").replace("ß", "ss")
@@ -118,19 +118,18 @@ def _romance(word: str, code: str) -> list[str]:
         return [word, word + "e", word + "s", word + "es"]
     if word.endswith("o"):
         stem = word[:-1]
-        return [stem + end for end in ("o", "a", "i", "e") if code == "it" or end in "oa"] + (
-            [] if code == "it" else [stem + "os", stem + "as"]
-        )
+        return [stem + "o", stem + "a", stem + "os", stem + "as"]
     if word.endswith("e"):
-        return [word, word[:-1] + "i"] if code == "it" else [word, word + "s"]
+        return [word, word + "s"]
     return [word, word + "s", word + "es", word + "a", word + "as"]
 
 
 def _describing(code: str, word: str) -> list[str]:
-    if code in ("es", "fr", "it", "pt"):
+    if code in ("es", "fr", "pt"):
         return _romance(word, code)
-    if code == "de":
-        return [word + end for end in ("", "e", "en", "er", "es", "em")]
+    if code == "hi" and word.endswith("ा"):
+        # A Hindi adjective agrees: "काला" → काली, काले.
+        return [word, word[:-1] + "ी", word[:-1] + "े"]
     if code == "ru" and word.endswith(("ый", "ий", "ой")):
         return [word[:-2] + end for end in _RU_ADJECTIVE.split()]
     return [word]
@@ -149,8 +148,6 @@ def _describers(code: str, text: str) -> frozenset[str]:
 class Nouns:
     words: frozenset[str]
     names: frozenset[tuple[str, ...]]
-    # German compounds end with these ("Feuerdrache").
-    compounds: tuple[str, ...] = ()
     # Each entry as written: Turkish "ayı" (a bear) is no definite "-yı" object.
     entries: frozenset[str] = frozenset()
 
@@ -169,11 +166,9 @@ def _nouns(text: str, forms: Callable[[str], list[str]] | None = None) -> Nouns:
     """The language's nouns; ``forms`` makes the inflected forms of each entry's first."""
     words: set[str] = set()
     names: set[tuple[str, ...]] = set()
-    compounds: set[str] = set()
     entries: set[str] = set()
     for entry in text.split():
-        marked = entry.startswith("*")
-        for index, form in enumerate(_listed(entry.lstrip("*"))):
+        for index, form in enumerate(_listed(entry)):
             *lead, last = form.split("_")
             made = {fold(word) for word in _forms_of(last, index, forms)}
             entries.add(fold(form))
@@ -181,30 +176,21 @@ def _nouns(text: str, forms: Callable[[str], list[str]] | None = None) -> Nouns:
                 names.update((*map(fold, lead), made_word) for made_word in made)
             else:
                 words.update(made)
-            if marked:
-                compounds.update(made)
-    return Nouns(
-        frozenset(words),
-        frozenset(names),
-        tuple(sorted(compounds)),
-        frozenset(entries),
-    )
+    return Nouns(frozenset(words), frozenset(names), frozenset(entries))
 
 
 NOUNS: dict[str, Nouns] = {
     "es": _nouns(romance.SPANISH),
     "fr": _nouns(romance.FRENCH),
-    "it": _nouns(romance.ITALIAN),
     "pt": _nouns(romance.PORTUGUESE),
-    "de": _nouns(other.GERMAN),
     "ru": _nouns(other.RUSSIAN, forms=_russian),
     "tr": _nouns(other.TURKISH, forms=_turkish),
     "am": _nouns(other.AMHARIC),
+    "hi": _nouns(other.HINDI),
 }
 DESCRIBE = {code: _describers(code, text) for code, text in plain.DESCRIBE.items()}
 GLUE = {code: frozenset(fold(word) for word in text.split()) for code, text in plain.GLUE.items()}
 AND = {code: frozenset(text.split()) for code, text in plain.AND.items()}
-_DE_LEADS = frozenset(plain.GERMAN_LEADS.split())
 _AM_PREFIXES = tuple(plain.AMHARIC_PREFIXES.split())
 
 
@@ -213,15 +199,6 @@ class Kind(Enum):
     DESCRIBE = "describe"
     GLUE = "glue"
     AND = "and"
-
-
-def _german_lead(lead: str) -> bool:
-    """The first part of a German compound: a listed noun or descriptor ("Piraten-",
-    "Rot-"), or a few festive leads ("Weihnachts-"), with or without a linking letter."""
-    known = NOUNS["de"].words | DESCRIBE["de"] | _DE_LEADS
-    return lead in known or any(
-        lead.endswith(link) and lead[: -len(link)] in known for link in _DE_LINKS
-    )
 
 
 def _is_noun(code: str, word: str) -> bool:
@@ -237,14 +214,7 @@ def _is_noun(code: str, word: str) -> bool:
             word.startswith(prefix) and word[len(prefix) :] in nouns.words
             for prefix in _AM_PREFIXES
         )
-    if code != "de":
-        return False
-    return any(
-        word.endswith(end)
-        and len(word) - len(end) >= _MIN_COMPOUND_LEAD
-        and _german_lead(word[: -len(end)])
-        for end in nouns.compounds
-    )
+    return False
 
 
 def _kinds(code: str, words: list[str]) -> list[Kind] | None:
@@ -282,8 +252,8 @@ def _kinds(code: str, words: list[str]) -> list[Kind] | None:
 
 
 def _well_formed(code: str, kinds: list[Kind]) -> bool:
-    """A noun in every stretch "and" joins; no "and" or function word at the end; Turkish and
-    Amharic end on their noun."""
+    """A noun in every stretch "and" joins; no "and" or function word at the end; Turkish,
+    Amharic and Hindi end on their noun."""
     if kinds[-1] in (Kind.AND, Kind.GLUE) or (code in _HEAD_LAST and kinds[-1] is not Kind.NOUN):
         return False
     stretch_has_noun = False

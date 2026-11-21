@@ -54,36 +54,33 @@ _LINES = {
     "en": "Worked out again from the values in the question:",
     "es": "Calculado de nuevo con los valores de la pregunta:",
     "fr": "Recalculé à partir des valeurs de la question :",
-    "de": "Aus den Werten der Frage neu berechnet:",
-    "it": "Ricalcolato dai valori della domanda:",
     "pt": "Recalculado a partir dos valores da pergunta:",
     "ru": "Пересчитано по данным задачи:",
     "tr": "Sorudaki değerlerden yeniden hesaplandı:",
     "am": "ከጥያቄው እሴቶች እንደገና የተሰላ፦",
+    "hi": "प्रश्न के मानों से फिर से गणना की गई:",
 }
 # A relation the question's values break ({meaning} is the setup's words, {sides} maths).
 _CONFLICTS = {
     "en": "These values can't all be right: {meaning}, but here {sides}.",
     "es": "Estos valores no pueden ser todos correctos: {meaning}, pero aquí {sides}.",
     "fr": "Ces valeurs ne peuvent pas être toutes justes : {meaning}, mais ici {sides}.",
-    "de": "Diese Werte können nicht alle stimmen: {meaning}, aber hier {sides}.",
-    "it": "Questi valori non possono essere tutti giusti: {meaning}, ma qui {sides}.",
     "pt": "Esses valores não podem estar todos certos: {meaning}, mas aqui {sides}.",
     "ru": "Эти значения не могут быть верны одновременно: {meaning}, но здесь {sides}.",
     "tr": "Bu değerlerin hepsi doğru olamaz: {meaning}, ama burada {sides}.",
     "am": "እነዚህ እሴቶች ሁሉም ትክክል ሊሆኑ አይችሉም፦ {meaning}፣ ግን እዚህ {sides}።",
+    "hi": "ये सभी मान एक साथ सही नहीं हो सकते: {meaning}, पर यहाँ {sides}।",
 }
 # The same, for a relation the setup gave no words for: the relation itself is said.
 _CONFLICTS_BARE = {
     "en": "These values can't all be right: {relation} must hold, but here {sides}.",
     "es": "Estos valores no pueden ser todos correctos: debe cumplirse {relation}, pero aquí {sides}.",
     "fr": "Ces valeurs ne peuvent pas être toutes justes : {relation} doit être vrai, mais ici {sides}.",
-    "de": "Diese Werte können nicht alle stimmen: {relation} muss gelten, aber hier {sides}.",
-    "it": "Questi valori non possono essere tutti giusti: deve valere {relation}, ma qui {sides}.",
     "pt": "Esses valores não podem estar todos certos: {relation} deve valer, mas aqui {sides}.",
     "ru": "Эти значения не могут быть верны одновременно: должно выполняться {relation}, но здесь {sides}.",
     "tr": "Bu değerlerin hepsi doğru olamaz: {relation} olmalı, ama burada {sides}.",
     "am": "እነዚህ እሴቶች ሁሉም ትክክል ሊሆኑ አይችሉም፦ {relation} መሆን አለበት፣ ግን እዚህ {sides}።",
+    "hi": "ये सभी मान एक साथ सही नहीं हो सकते: {relation} होना चाहिए, पर यहाँ {sides}।",
 }
 
 
