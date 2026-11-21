@@ -47,7 +47,8 @@ _STEPS = 2000
 _TOLERANCE = 1e-4
 # Under the hypotenuse, this far against it: where its whole length is labelled.
 _BELOW = 0.12
-_WORDS = re.compile(r"\b(?:altitude|perpendicular|height)\b")
+# "height" alone is a leg ("base 6, height 8 and hypotenuse 10"): only the altitude words.
+_WORDS = re.compile(r"\b(?:altitude|perpendicular)\b")
 _HYPOTENUSE = re.compile(r"\bhypotenuse\b")
 
 

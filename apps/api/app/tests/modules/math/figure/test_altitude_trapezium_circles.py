@@ -280,3 +280,13 @@ def test_a_ring_is_still_two_circles_about_one_centre() -> None:
     question = "Find the area of the ring between two circles with the same centre and radii 5 cm and 8 cm."
     spec = figure(question, _reading("circle", "annulus", ("radius", 5), ("radius", 8)))
     assert spec.shape == "annulus"
+
+
+def test_a_plain_right_triangle_with_a_height_is_no_altitude_figure() -> None:
+    """Review (#2522): "height" is a leg here, and the plain right triangle is drawn."""
+    question = "A right triangle has base 6, height 8 and hypotenuse 10. Find its area."
+    reading = _reading("polygon", "right_triangle", ("base", 6), ("height", 8), ("hypotenuse", 10))
+    spec = draw(question, reading)
+    # Never the altitude figure (two right angles, a dashed altitude): main draws this
+    # reading as nothing, and so does the branch.
+    assert spec is None or sum(mark.right for mark in spec.angles) == 1
