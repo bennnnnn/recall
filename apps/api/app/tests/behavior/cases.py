@@ -426,7 +426,9 @@ CASES: tuple[Case, ...] = (
         "math",
         "Draw it",
         Expect(solved=True, instant="solver", drawn="geometry", search="no"),
-        "The 3-4-5 triangle. Never the curve sin(x²)cos(x²) from the start of the chat.",
+        "The 3-4-5 triangle. Never the curve sin(x²)cos(x²) from the start of the chat. With no "
+        "read (offline), maths draws it; a turn whose read wants a figure leaves it to the "
+        "figure read (``figure_turn.will_draw``).",
         history=(*_TRIANGLE_AREA, ("user", "Do it properly"), ("assistant", "Area = 6.")),
         # The model's read names the line the triangle started on; its pieces complete it.
         referent="Triangle are with sides 5, 4,",
@@ -1245,17 +1247,9 @@ CASES: tuple[Case, ...] = (
         pro=True,
     ),
     Case(
-        "image-gen-draw-me-it",
+        "image-gen-draw-me-hi",
         "photos and maps",
-        "Mi disegni un panda?",
-        Expect(image_gen=True, photo=NO_PHOTO),
-        "A generated picture: a draw verb addressed with 'me', as 'draw me a dragon'.",
-        pro=True,
-    ),
-    Case(
-        "image-gen-draw-me-de",
-        "photos and maps",
-        "Zeichne mir einen Drachen",
+        "मेरे लिए एक पांडा ड्रा करो",
         Expect(image_gen=True, photo=NO_PHOTO),
         "A generated picture: a draw verb addressed with 'me', as 'draw me a dragon'.",
         pro=True,
@@ -1741,7 +1735,7 @@ CASES: tuple[Case, ...] = (
         "format-json-planets",
         "format",
         "give me the list of the planets as valid JSON",
-        Expect(search="ask", hints=("json_output",), model="qwen-3.7-flash"),
+        Expect(search="ask", hints=("json_output",), model="hy4-flash"),
         "One ```json fence holding a valid array of the eight planets, at most a line "
         "around it; the server checks that it parses.",
     ),
@@ -2312,7 +2306,7 @@ CASES: tuple[Case, ...] = (
         "tone-hi",
         "tone and emoji",
         "hi",
-        Expect(lightweight=True, search="no", photo=NO_PHOTO, model="qwen-3.7-flash"),
+        Expect(lightweight=True, search="no", photo=NO_PHOTO, model="hy4-flash"),
         "A short greeting back.",
     ),
     Case(
@@ -2333,7 +2327,7 @@ CASES: tuple[Case, ...] = (
         "tone-plain",
         "tone and emoji",
         "what are the benefits of drinking water",
-        Expect(hints=("emoji_rule",), search="ask", model="qwen-3.7-flash"),
+        Expect(hints=("emoji_rule",), search="ask", model="hy4-flash"),
         "A clear answer; at most a fitting emoji beside a heading or a list label.",
     ),
     Case(

@@ -47,3 +47,69 @@ describe("points on a coordinate plane", () => {
     expect(graph && pointsChartHeight(graph, 330, 16)).toBeCloseTo(330);
   });
 });
+
+// Triangle ABC reflected in y = x, as the server draws it (`math/figure/plane`).
+const REFLECTED = {
+  type: "points",
+  points: [
+    { x: 1, y: 3, label: "A(1, 3)", side: "nw" },
+    { x: 3, y: 1, label: "A′", role: "image", side: "se" },
+  ],
+  x_min: -2,
+  x_max: 6,
+  y_min: -2,
+  y_max: 6,
+  segments: [
+    { start: [1, 3], end: [4, 1], ticks: 1 },
+    { start: [3, 1], end: [1, 4], role: "image", dashed: true },
+    { start: [-2, -2], end: [6, 6], role: "guide", label: "y = x" },
+    { start: [0, 0], end: [4, 1], role: "guide", dashed: true, arrow: true },
+  ],
+  polygons: [{ points: [[1, 3], [4, 1], [5, 4]] }, { points: [[3, 1], [1, 4], [4, 5]], role: "image" }],
+  circles: [{ center: [0, 0], radius: 2 }],
+  right_angles: [{ at: [0, 0], a: [1, 0], b: [0, 1] }],
+};
+
+describe("coordinate geometry on the plane", () => {
+  it("reads the server's segments, shapes, circles, marks and the image's roles", () => {
+    const graph = parsePointsGraph(JSON.stringify(REFLECTED));
+    expect(graph?.points.map((p) => [p.label, p.role, p.side])).toEqual([
+      ["A(1, 3)", "shape", "nw"],
+      ["A′", "image", "se"],
+    ]);
+    expect(graph?.segments.map((s) => [s.role, s.dashed, s.arrow, s.ticks, s.label])).toEqual([
+      ["shape", false, false, 1, ""],
+      ["image", true, false, 0, ""],
+      ["guide", false, false, 0, "y = x"],
+      ["guide", true, true, 0, ""],
+    ]);
+    expect(graph?.polygons.map((p) => p.role)).toEqual(["shape", "image"]);
+    expect(graph?.circles).toEqual([{ center: [0, 0], radius: 2, role: "shape" }]);
+    expect(graph?.rightAngles).toHaveLength(1);
+  });
+
+  it("leaves out a malformed part, never the plane", () => {
+    const graph = parsePointsGraph(
+      JSON.stringify({
+        ...REFLECTED,
+        segments: [{ start: [1, "x"], end: [2, 2] }, { start: [0, 0], end: [1, 1], role: "paint", ticks: 9 }],
+        polygons: [{ points: [[0, 0], [1, 1]] }],
+        circles: [{ center: [0, 0], radius: -1 }],
+        right_angles: [{ at: [0, 0], a: [1, 0] }],
+      }),
+    );
+    expect(graph?.points).toHaveLength(2);
+    expect(graph?.segments).toEqual([
+      { start: [0, 0], end: [1, 1], label: "", role: "shape", dashed: false, arrow: false, ticks: 3 },
+    ]);
+    expect(graph?.polygons).toEqual([]);
+    expect(graph?.circles).toEqual([]);
+    expect(graph?.rightAngles).toEqual([]);
+  });
+
+  it("reads an older plane with no parts as points alone", () => {
+    const graph = parsePointsGraph(JSON.stringify(G16));
+    expect(graph && [graph.segments, graph.polygons, graph.circles, graph.rightAngles]).toEqual([[], [], [], []]);
+    expect(graph?.points.every((p) => p.role === "shape" && p.side === "ne")).toBe(true);
+  });
+});

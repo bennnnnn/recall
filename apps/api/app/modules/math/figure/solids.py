@@ -18,6 +18,8 @@ from app.modules.math.figure.request import FigureRequest
 from app.modules.math.figure.triangles import determined
 from app.modules.math.schemas.figure import FigureSpec
 
+# A box's corner nearest the reader (bottom, x and y at their ends), and the one opposite.
+BOX_NEAR, BOX_FAR = 1, 7
 # Sizes for what a question leaves open.
 _EDGE, _LENGTH, _WIDTH, _HEIGHT, _RADIUS = 4.0, 6.0, 3.0, 4.0, 2.0
 
@@ -36,11 +38,37 @@ def box_sizes(request: FigureRequest) -> tuple[float | None, ...] | None:
     return tuple(named)
 
 
+def _space_diagonal(
+    request: FigureRequest, sizes: tuple[float | None, ...]
+) -> tuple[tuple[float | None, ...], float | None] | None:
+    """A box's sizes with the one a stated space diagonal decides filled in, and that
+    diagonal; None when the diagonal is no longer than the sizes allow or disagrees."""
+    diagonal = request.first("diagonal")
+    if diagonal is None:
+        return sizes, None
+    known = [size for size in sizes if size is not None]
+    if request.shape == "cube" and known:
+        known = known[:1] * 3
+    squares = sum(size * size for size in known)
+    if len(known) == 3:
+        holds = abs(math.sqrt(squares) - diagonal) <= 1e-4 * diagonal
+        return (sizes, diagonal) if holds else None
+    if len(known) != 2 or diagonal * diagonal <= squares:
+        return None
+    rest = math.sqrt(diagonal * diagonal - squares)
+    return tuple(rest if size is None else size for size in sizes), diagonal
+
+
 def _box(request: FigureRequest) -> FigureSpec | None:
     cube = request.shape == "cube"
     sizes = box_sizes(request)
     if sizes is None:
         return None
+    stated = sizes
+    found = _space_diagonal(request, sizes)
+    if found is None:
+        return None
+    sizes, diagonal = found
     length, width, height = sizes
     edge = length or _EDGE
     long, w, h = (
@@ -49,13 +77,19 @@ def _box(request: FigureRequest) -> FigureSpec | None:
     unit = request.unit
     # Its width going back (x), its length across (y), its height up (z).
     labels: dict[int, str] = {}
-    if length is not None:
-        labels[1] = length_label(length, unit)
-    if height is not None and not cube:
-        labels[2] = length_label(height, unit)
-    if width is not None and not cube:
-        labels[0] = length_label(width, unit)
-    return box_drawing("cube" if cube else "cuboid", (w, long, h), labels).spec()
+    if stated[0] is not None:
+        labels[1] = length_label(stated[0], unit)
+    if stated[2] is not None and not cube:
+        labels[2] = length_label(stated[2], unit)
+    if stated[1] is not None and not cube:
+        labels[0] = length_label(stated[1], unit)
+    drawing = box_drawing("cube" if cube else "cuboid", (w, long, h), labels)
+    if diagonal is not None or request.has_part("diagonal"):
+        # The space diagonal, through the inside from the corner nearest to the farthest.
+        near, far = drawing.points[BOX_NEAR].name, drawing.points[BOX_FAR].name
+        label = length_label(diagonal, unit) if diagonal is not None else None
+        drawing.line(near, far, label, dashed=True)
+    return drawing.spec()
 
 
 _END_ROLES = frozenset({"side", "leg", "hypotenuse", "base", "equal_side", "angle"})

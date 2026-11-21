@@ -46,9 +46,9 @@ async def test_the_read_is_told_whether_the_user_asked(asked: bool) -> None:
         assert await read.read_figure(_settings(), _TRIANGLE, [], asked=asked) == reading
     assert call.await_args is not None
     system = call.await_args.kwargs["messages"][0]["content"]
-    assert system == (read._ASKED if asked else read._TEACH) + read._BODY
+    assert system == (read._ASKED if asked else read._TEACH) + read._BODY + read._COORDINATES
     # The rules that hold every number to the question are the same either way.
-    assert system.endswith(read._BODY)
+    assert system.endswith(read._BODY + read._COORDINATES)
 
 
 @pytest.mark.asyncio

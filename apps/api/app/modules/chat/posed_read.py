@@ -109,9 +109,13 @@ _SYSTEM = (
     "seconds, 16.0 g of oxygen), or in an equation or expression the part it replaces, "
     "copied exactly; and new as the user's line gives it, the value and its unit alone (10 "
     "s, 32.0 g, 2x), without a note around it. Otherwise message, problem and part are null "
-    'and changes is []. Reply with JSON only, for example {"kind": "change", "message": 2, '
-    '"problem": "A ball falls 20 m. How long does it take?", "part": null, "changes": '
-    '[{"given": "20 m", "new": "45 m"}]}.'
+    "and changes is []. new_ask is true when the line names a quantity or thing to find "
+    "that the problem's own question does not ask (its diagonal after its area, its speed "
+    "after its distance), and false when it asks only for that question's answer, in any "
+    "words or language (the answer, the final answer, the value of x, the roots, the "
+    'working, step by step, la respuesta). Reply with JSON only, for example {"kind": '
+    '"change", "message": 2, "problem": "A ball falls 20 m. How long does it take?", '
+    '"part": null, "changes": [{"given": "20 m", "new": "45 m"}], "new_ask": false}.'
 )
 
 
@@ -141,6 +145,9 @@ class PosedPick(BaseModel):
     # The labelled part, step or item of the message the line names ("b", "step 2").
     part: str | None = Field(default=None, max_length=_PART_CHARS)
     changes: list[PosedChange] = Field(default_factory=list, max_length=_MAX_CHANGES)
+    # The line names something to find its problem's question does not ask ("the diagonal"
+    # after the area): never a solve of that problem as it stands.
+    new_ask: bool = False
 
     @field_validator("changes", mode="before")
     @classmethod
@@ -412,6 +419,10 @@ async def read_posed(
         if read.kind != "change" or read.message not in last_turn:
             return None
     if read.kind == "solve":
+        # "Now find the length of its diagonal" after a rectangle's area was read as a solve
+        # and answered the area again, verified (live, 2026-11-20).
+        if read.new_ask and read.part is None:
+            return None
         return Posed(problem=_asked_part(problem, read.part), reply=exchanges[-1][1])
     return Posed(
         problem=problem,

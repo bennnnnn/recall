@@ -18,6 +18,7 @@ from redis.asyncio import Redis
 
 from app.core import readings
 from app.core.config import Settings
+from app.core.readings import keep_for_turn
 from app.exceptions import ChatNotFoundError
 from app.models.orm import Attachment, Chat, User
 from app.modules.account import profile as profile_service
@@ -25,7 +26,7 @@ from app.modules.attachments.markers import image_attachment_ids_from_text
 from app.modules.billing import plan as plan_service
 from app.modules.chat import turn_decision
 from app.modules.chat.chart_turn import start_chart, stop_chart
-from app.modules.chat.figure_turn import start_figure, stop_figure
+from app.modules.chat.figure_turn import LIVE_READ, start_figure, stop_figure
 from app.modules.chat.formal_turn import start_formal, stop_formal
 from app.modules.chat.model_routing.thinking import thinking_level
 from app.modules.chat.posed_read import start_posed_read, stop_posed_read
@@ -165,7 +166,10 @@ def _turn_settings(
     line's follow-up read starts here too (``posed_read.start_posed_read``)."""
     settings = profile_service.settings_for_user(settings, user)
     start_posed_read(settings, content, recent)
-    return settings, turn_decision.start_turn_decision(settings, content, recent=recent)
+    read = turn_decision.start_turn_decision(settings, content, recent=recent)
+    # The prep asks it whether this turn's figure will be drawn (``figure_turn.will_draw``).
+    keep_for_turn(LIVE_READ, read)
+    return settings, read
 
 
 @traced_turn("new")

@@ -13,14 +13,15 @@ are answered in words, because "ASCII", "binario", "dividida" and "sugiéreme" a
   ("snowy", "Christmas", "birthday"). Not "pixel art", "ASCII" or any other format.
   Each is written once, in the masculine singular; its other forms are made from it
   (``gen_intent_drawable``):
-  "rojo" → roja, rojos, rojas; "rot" → rote, roten …; "красный" → красная, красного …
+  "rojo" → roja, rojos, rojas; "красный" → красная, красного …; "काला" → काली, काले
   Irregular forms follow "/" ("beau/bel/belle/beaux").
 - ``GLUE``: articles, "of", "with", "on", "in", "under", "next to", "near", "behind",
   "between", "my", numbers up to ten, "very". Places are built from these and listed nouns ("en la
-  playa", "unter dem Baum", "на луне").
+  playa", "на луне", "पेड़ के नीचे").
 - ``AND``: "and", allowed only between two drawable nouns ("un gato y un perro").
 
-Amharic is kept small on purpose (a few colours and sizes) and wants a native review.
+Amharic and Hindi are kept small on purpose (colours, sizes, a few looks) and want a native
+review.
 """
 
 from __future__ import annotations
@@ -49,18 +50,6 @@ gentil/gentille/gentils/gentilles sympa amical/amicale/amicaux heureux/heureuse
 joyeux/joyeuse triste fâché souriant endormi assis enneigé ailé futuriste réaliste automne
 hiver printemps été aquarelle noël anniversaire dort joue vole nage court saute danse sourit
 """,
-    "it": """
-rosso nero bianco/bianchi/bianche azzurro blu verde giallo viola grigio/grigi marrone dorato
-argentato rosa arancione colorato piccolo grande/grandi gran enorme/enormi
-gigantesco/giganteschi/gigantesche minuscolo mini grosso vecchio/vecchi
-antico/antichi/antiche giovane/giovani nuovo bello/bel/bei/begli carino adorabile/adorabili
-simpatico/simpatici/simpatiche magnifico/magnifici/magnifiche splendido strano misterioso
-maestoso coraggioso feroce/feroci selvaggio/selvaggi buffo divertente peloso soffice morbido
-luminoso scuro magico/magici/magiche incantato felice/felici allegro triste arrabbiato
-sorridente addormentato innevato futurista autunno inverno primavera estate seduto alato
-tenero realistico/realistici acquerello natale compleanno dorme gioca vola nuota corre salta
-balla sorride surfa suona dormendo volando nuotando correndo
-""",
     "pt": """
 vermelho preto negro branco azul/azuis verde amarelo roxo violeta cinza cinzento marrom
 castanho dourado prateado rosa laranja colorido pequeno pequenino grande/grandes enorme
@@ -70,14 +59,6 @@ feroz/ferozes selvagem engraçado divertido peludo macio brilhante escuro mágic
 feliz/felizes alegre triste zangado sorridente sentado adormecido nevado alado futurista
 realista aquarela outono inverno primavera verão natal aniversário dormindo pulando saltando
 voando nadando correndo dançando brincando sorrindo surfando tocando
-""",
-    "de": """
-rot schwarz weiß blau grün gelb lila rosa orange braun grau golden silbern bunt klein groß
-riesig winzig mini dick alt jung neu süß niedlich hübsch schön lieb freundlich hässlich
-flauschig weich glänzend dunkel/dunkle/dunklen/dunkler/dunkles/dunklem magisch verzaubert
-geheimnisvoll majestätisch mutig wild lustig fröhlich glücklich traurig wütend lächelnd
-schlafend fliegend tanzend springend schwimmend sitzend verschneit verspielt futuristisch
-realistisch Herbst Winter Frühling Sommer Aquarell
 """,
     "ru": """
 красный чёрный белый синий голубой зелёный жёлтый фиолетовый серый коричневый золотой
@@ -97,6 +78,11 @@ kızgın gülümseyen uyuyan uçan koşan yüzen oturan karlı fütüristik sonb
 ilkbaharda yazın gerçekçi suluboya yılbaşı noel doğum günü kardan
 """,
     "am": "ቀይ ጥቁር ነጭ ሰማያዊ አረንጓዴ ቢጫ ትንሽ ትልቅ ቆንጆ",
+    "hi": """
+लाल काला सफ़ेद/सफेद नीला पीला हरा भूरा गुलाबी बैंगनी नारंगी सुनहरा चाँदी/चांदी स्लेटी
+छोटा बड़ा/बडा प्यारा सुंदर/सुन्दर खुश उदास मोटा पतला लंबा/लम्बा पुराना नया/नई/नए/नयी
+जादुई उड़ता/उड़ती/उड़ते सोता/सोती/सोते रंगीन चमकीला
+""",
 }
 
 GLUE = {
@@ -110,21 +96,10 @@ un une des de du d' l' le la les au aux à dans sur sous avec près côté devan
 en qui mon ma mes très super deux trois quatre cinq six sept huit neuf dix plusieurs
 quelques
 """,
-    "it": """
-un uno una un' il lo la l' i gli le di del dello della dell' dei degli delle a al allo alla
-all' ai agli alle da dal dalla in nel nello nella nell' nei negli nelle su sul sullo sulla
-sull' sui sugli sulle con col sotto sopra accanto vicino tra fra dietro davanti che mio mia
-miei mie molto super due tre quattro cinque sei sette otto nove dieci alcuni alcune
-""",
     "pt": """
 um uma uns umas o a os as de do da dos das em no na nos nas num numa com sob sobre ao à aos
 lado perto entre atrás frente meu minha meus minhas muito super dois duas três quatro cinco
 seis sete oito nove dez alguns algumas
-""",
-    "de": """
-ein eine einen einem einer eines der die das den dem des mit auf in im am an unter neben
-zwischen bei beim vor hinter von vom mein meine meinen meinem meiner sehr super ganz zwei
-drei vier fünf sechs sieben acht neun zehn paar viele einige
 """,
     "ru": """
 в во на с со под над у около рядом возле среди между за перед мой моя моё мои моего моей
@@ -136,22 +111,21 @@ bir iki üç dört beş altı yedi sekiz dokuz on çok süper ile üstünde üze
 yanında içinde önünde arkasında kenarında
 """,
     "am": "ላይ ውስጥ ጋር",
+    "hi": """
+एक दो तीन चार पाँच पांच का की के में पर से साथ नीचे ऊपर पास बीच पीछे सामने अंदर बाहर
+वाला वाली वाले मेरा मेरी मेरे बहुत
+""",
 }
 
 AND = {
     "es": "y e",
     "fr": "et",
-    "it": "e ed",
     "pt": "e",
-    "de": "und",
     "ru": "и",
     "tr": "ve",
     "am": "እና",
+    "hi": "और तथा",
 }
-
-# German compounds may start with these besides a listed noun or descriptor
-# ("Weihnachtsbaum", "Feuerdrache", "Zauberwald").
-GERMAN_LEADS = "weihnacht geburtstag feuer zauber märchen riesen"
 
 # Amharic writes "of", "in" and "from" as a noun's first letter ("የድመት", "በጫካ").
 AMHARIC_PREFIXES = "የ በ ከ"

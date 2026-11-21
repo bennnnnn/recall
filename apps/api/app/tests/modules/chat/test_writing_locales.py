@@ -1,4 +1,4 @@
-"""Draft asks and draft changes in the app's other eight languages get the draft contract.
+"""Draft asks and draft changes in the app's other seven languages get the draft contract.
 
 Before, only "escribe un correo", "escreva um e-mail" and "напиши письмо" were read,
 and only as an email: a French, German, Italian, Turkish or Amharic email, any message
@@ -50,19 +50,6 @@ def _hints(text: str, prior: list[tuple[str, str]] | None = None) -> list[str]:
             False,
         ),
         ("écris un post LinkedIn sur ma promotion", "social", False),
-        # German
-        ("Schreib eine E-Mail an meinen Chef, dass ich Freitag frei brauche", "email", False),
-        ("Kannst du meinem Chef eine E-Mail schreiben?", "email", True),
-        ("schreib meinem Vermieter eine Nachricht, dass die Heizung kaputt ist", "message", False),
-        ("schreib mir einen LinkedIn-Beitrag über meine Beförderung", "social", False),
-        # Italian
-        ("scrivi un'email al mio capo per chiedere venerdì libero", "email", False),
-        ("scrivi una mail al mio capo", "email", True),
-        (
-            "scrivi un messaggio al mio padrone di casa che il riscaldamento è rotto",
-            "message",
-            False,
-        ),
         # Portuguese
         ("escreva um e-mail para meu chefe pedindo sexta de folga", "email", False),
         (
@@ -83,6 +70,12 @@ def _hints(text: str, prior: list[tuple[str, str]] | None = None) -> list[str]:
         ("ለአለቃዬ ኢሜይል ጻፍ", "email", True),
         ("ለአለቃዬ ዓርብ እረፍት የሚጠይቅ ኢሜይል ጻፍልኝ", "email", False),
         ("ለእናቴ መልእክት ጻፍልኝ", "message", True),
+        # Hindi ends on the verb too; what the draft says may follow it.
+        ("मेरे बॉस को एक ईमेल लिखो", "email", True),
+        ("मेरे बॉस के लिए एक ईमेल लिखो जिसमें शुक्रवार की छुट्टी माँगी हो", "email", False),
+        ("बॉस को ईमेल लिखो कि मैं कल नहीं आऊँगा", "email", False),
+        ("माँ को एक मैसेज लिख दो", "message", True),
+        ("लिंक्डइन के लिए एक पोस्ट लिखो", "social", True),
     ],
 )
 def test_a_draft_ask_in_another_language_is_that_draft(text: str, kind: str, bare: bool) -> None:
@@ -105,6 +98,8 @@ def test_a_draft_ask_in_another_language_is_that_draft(text: str, kind: str, bar
         "explica qué es un correo electrónico",
         "mi correo no funciona",
         "manda saludos a tu madre",
+        "इस ईमेल का सारांश लिखो",
+        "मेरा ईमेल काम नहीं कर रहा",
     ],
 )
 def test_other_lines_with_a_draft_word_are_not_drafts(text: str) -> None:
@@ -127,11 +122,6 @@ _TEXT = "```message\nHola Sam, llego 15 minutos tarde. ¡Perdón!\n```"
         "plus court",
         "peux-tu le rendre plus formel",
         "en anglais",
-        "kürzer bitte",
-        "auf Englisch",
-        "füge hinzu, dass ich Montag zurück bin",
-        "più corto",
-        "in inglese",
         "mais curto",
         "em inglês",
         "короче",
@@ -142,6 +132,13 @@ _TEXT = "```message\nHola Sam, llego 15 minutos tarde. ¡Perdón!\n```"
         "pazartesi döneceğimi de ekle",
         "አሳጥረው",
         "በእንግሊዝኛ",
+        "और छोटा करो",
+        "इसे थोड़ा औपचारिक बना दो",
+        "अंग्रेज़ी में लिखो",
+        "इसका अनुवाद करो",
+        "कि मैं सोमवार को लौटूँगा, यह भी जोड़ो",
+        # Spanish names German, a language a user may ask for though the app has none.
+        "en alemán",
     ],
 )
 def test_a_change_in_another_language_revises_the_draft(text: str) -> None:
@@ -161,7 +158,8 @@ def test_a_change_in_another_language_revises_the_draft(text: str) -> None:
         "¿qué es más largo, el Nilo o el Amazonas?",
         "muchas gracias, perfecto",
         "cuál es la capital de Francia?",
-        "was ist kürzer?",
+        "क्या यह छोटा है?",
+        "धन्यवाद, बढ़िया",
     ],
 )
 def test_a_question_or_thanks_after_a_draft_is_not_a_change(text: str) -> None:

@@ -453,7 +453,7 @@ describe("launch restore", () => {
 describe("a cache that is not this sign-in's", () => {
   it("is cleared, and its language with it, when nobody is signed in", async () => {
     (getToken as jest.Mock).mockResolvedValueOnce(null);
-    (readCachedUser as jest.Mock).mockResolvedValue({ ...userA, locale: "de" });
+    (readCachedUser as jest.Mock).mockResolvedValue({ ...userA, locale: "fr" });
     await mount();
     expect(clearCachedUser).toHaveBeenCalled();
     expect(ensureLocale).toHaveBeenCalledWith("en");
@@ -462,7 +462,7 @@ describe("a cache that is not this sign-in's", () => {
 
   it("is cleared when it belongs to another account than the stored token", async () => {
     (cachedUserMatchesToken as jest.Mock).mockReturnValueOnce(false);
-    (readCachedUser as jest.Mock).mockResolvedValue({ ...userB, locale: "de" });
+    (readCachedUser as jest.Mock).mockResolvedValue({ ...userB, locale: "fr" });
     await mount();
     expect(clearCachedUser).toHaveBeenCalled();
     expect(ensureLocale).toHaveBeenCalledWith("en");
@@ -470,9 +470,9 @@ describe("a cache that is not this sign-in's", () => {
   });
 
   it("is kept for the signed-in account", async () => {
-    const german = { ...userA, locale: "de" };
-    (readCachedUser as jest.Mock).mockResolvedValue(german);
-    (api.me as jest.Mock).mockResolvedValue(german);
+    const french = { ...userA, locale: "fr" };
+    (readCachedUser as jest.Mock).mockResolvedValue(french);
+    (api.me as jest.Mock).mockResolvedValue(french);
     await mount();
     expect(clearCachedUser).not.toHaveBeenCalled();
     expect(ensureLocale).not.toHaveBeenCalledWith("en");

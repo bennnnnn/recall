@@ -1,21 +1,20 @@
 /**
  * One string, one key. 49 strings sat under two or more keys (common.cancel and
  * settings.cancel, common.close and preview.close, chat.new_chat and drawer.new_chat, …):
- * each copy is translated nine times and can drift. Keys whose text is the same in every
+ * each copy is translated eight times and can drift. Keys whose text is the same in every
  * language are one string unless listed here with why they must be able to differ. Keys a
  * language already words differently are apart by that language's choice.
  */
 import en from "@/lib/i18n/en.json";
 import am from "@/lib/i18n/am.json";
-import de from "@/lib/i18n/de.json";
 import es from "@/lib/i18n/es.json";
 import fr from "@/lib/i18n/fr.json";
-import itLocale from "@/lib/i18n/it.json";
+import hi from "@/lib/i18n/hi.json";
 import pt from "@/lib/i18n/pt.json";
 import ru from "@/lib/i18n/ru.json";
 import tr from "@/lib/i18n/tr.json";
 
-const BUNDLES: Record<string, string>[] = [en, am, de, es, fr, itLocale, pt, ru, tr];
+const BUNDLES: Record<string, string>[] = [en, am, es, fr, hi, pt, ru, tr];
 
 /** Keys with one text in every language that stay apart, and why. */
 const KEPT_APART: Record<string, string> = {

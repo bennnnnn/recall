@@ -59,7 +59,8 @@ _NOTATION_SCRIPTS = (
 )  # fmt: skip
 
 # Words Spanish, French, German, Italian, Portuguese and Turkish write in a question and
-# English never does: articles, pronouns, prepositions, question words, numbers, the verbs
+# English never does (German and Italian are no app language, but a question in either is
+# still no English one to read): articles, pronouns, prepositions, question words, numbers, the verbs
 # that set an exercise, and the words that restrict its answers ("positiva", "entero",
 # "raíz": "Raíz positiva: x^2 = 4" was a checked ±2, read as English). Words English writes too stay out: "a", "e", "o", "y", "i",
 # "in", "en", "no", "do", "die", "son", "per", "pour", "sin", "tan", "del" (∇), "du" (du/dx),
@@ -228,9 +229,8 @@ def _unit(text: str, start: int, word: str) -> bool:
 _MARKS: dict[str, tuple[str, str]] = {
     "en": (",", "."),
     "am": (",", "."),
+    "hi": (",", "."),
     "es": (".", ","),
-    "de": (".", ","),
-    "it": (".", ","),
     "pt": (".", ","),
     "tr": (".", ","),
     "fr": (" ", ","),
@@ -288,8 +288,8 @@ def misread_number(text: str, locale: str | None) -> bool:
 # in another language and one equation ("Resuelve 2x + 5 = 17", "Résous x^2 - 5x + 6 = 0",
 # "Решите 2x + 5 = 17") is read the same as an English line of bare maths: one relation in
 # one unknown, to solve (2026-11-13 audit, COV-01). Any other word is never read, so it is
-# never guessed at: "Löse x^2 = 9 positiv", "Resuelve x^2 = 9 entero" and "Factoriza x^2 - 5x +
-# 6 = 0" restrict or change the task, and were checked as the bare solve (2026-11-14 review).
+# never guessed at: "Resolva x^2 = 9 positivo", "Resuelve x^2 = 9 entero" and "Factoriza x^2 - 5x
+# + 6 = 0" restrict or change the task, and were checked as the bare solve (2026-11-14 review).
 # A word problem in another language stays declined.
 _MATHS_TOKEN = re.compile(r"^(?:[A-Za-z]|.*[\d+\-*/^=<>≤≥()\[\]√²³$\\].*)$")
 _RELATIONS = re.compile(r"<=|>=|[=<>≤≥]")
@@ -301,24 +301,47 @@ _SOLVE_VERBS = frozenset(
     """
     resuelve resuelva resolvé
     résous résolvez
-    löse löst lösen
-    risolvi risolva risolvete
     resolva resolve resolvam
     çöz çözün çözünüz
     реши решите
     ፍታ ፍቱ ይፍቱ
     """.split()
 )
-_WORD_MARKS = ".,:;!?¿¡፡።"
+# Hindi's "solve" and "find" are two words, first or last: "हल कीजिए: 2x + 5 = 17", "3x - 7 =
+# 11 को हल करो" ("को" marks the equation as the object).
+_SOLVE_PHRASES = tuple(
+    tuple(phrase.split("_"))
+    for phrase in """
+    हल_करो हल_करें हल_कीजिए हल_कीजिये ज्ञात_करो ज्ञात_करें ज्ञात_कीजिए ज्ञात_कीजिये
+    """.split()
+)
+_OBJECT_MARK = "को"
+_WORD_MARKS = ".,:;!?¿¡፡።।"
+
+
+def _beside_solve(tokens: list[str]) -> list[str] | None:
+    """The tokens of a line beside its "solve" (first, or Hindi's first or last), or None."""
+    words = [token.strip(_WORD_MARKS).casefold() for token in tokens]
+    if words[0] in _SOLVE_VERBS:
+        return tokens[1:]
+    for phrase in _SOLVE_PHRASES:
+        n = len(phrase)
+        if tuple(words[:n]) == phrase:
+            return tokens[n:]
+        if tuple(words[-n:]) == phrase:
+            rest = len(tokens) - n
+            return tokens[: rest - 1] if words[rest - 1 : rest] == [_OBJECT_MARK] else tokens[:rest]
+    return None
 
 
 def equation_beside_instruction(text: str) -> str | None:
     """The equation of a message that is another language's "solve" and an equation in
     symbols, nothing else, or None."""
     tokens = _without_code(text).split()
-    if len(tokens) < 2 or tokens[0].strip(_WORD_MARKS).casefold() not in _SOLVE_VERBS:
+    rest = _beside_solve(tokens) if len(tokens) >= 2 else None
+    if not rest:
         return None
-    equation = " ".join(tokens[1:]).strip(_WORD_MARKS + " ")
+    equation = " ".join(rest).strip(_WORD_MARKS + " ")
     if not all(_MATHS_TOKEN.match(token) for token in equation.split()):
         return None
     letters = {run for run in _LETTERS.findall(equation) if run.casefold() not in _FUNCTIONS}

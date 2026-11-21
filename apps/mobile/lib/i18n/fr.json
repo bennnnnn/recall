@@ -531,7 +531,7 @@
   "notifications.todo_reminder_body": "{{content}} — dû à {{time}}",
   "notifications.todo_reminder_title": "Tâches",
   "onboarding.consent_agree": "Accepter et continuer",
-  "onboarding.consent_chats_body": "Vos messages, l'historique récent du chat, la mémoire enregistrée utile et les informations de votre profil sont envoyés via OpenRouter à des fournisseurs de modèles d'IA comme Anthropic, OpenAI, DeepSeek, Qwen et Z.ai.",
+  "onboarding.consent_chats_body": "Vos messages, l'historique récent du chat, la mémoire enregistrée utile et les informations de votre profil sont envoyés via OpenRouter à des fournisseurs de modèles d'IA comme Anthropic, OpenAI, DeepSeek, Qwen, Z.ai et Tencent.",
   "onboarding.consent_chats_title": "Chats et mémoire",
   "onboarding.consent_decline": "Pas maintenant, se déconnecter",
   "onboarding.consent_delete": "Supprimer mon compte",

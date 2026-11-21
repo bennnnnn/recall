@@ -7,9 +7,11 @@ another language reads its to-dos in chat; adding or changing one happens in the
 To-do screen, which the reply offers as a button (a ```todo_link fence).
 
 A message counts as another language on positive evidence: letters of another
-script (Cyrillic, Ethiopic, …), or at least two words that only the app's other
-Latin-script languages use. Any English to-do word keeps it English, so "remind me
-to call Getachew ነገ at 10am" still saves. A message with no language of its own
+script (Cyrillic, Ethiopic, Devanagari, …), or at least two words that only the app's
+other Latin-script languages use. An English to-do word keeps it English, so "remind me
+to call Getachew ነገ at 10am" and "remind me to buy молоко хлеб сыр яйца" still save. Only
+an English verb with no English grammar around it, in a message mostly of another script,
+is that language: "कल सुबह 9 बजे remind करना" is Hindi. A message with no language of its own
 ("a las 5", "17:00", "sí") follows the chat: the user's previous message, then their
 app language. An answer to "¿cuándo?" never writes either.
 """
@@ -52,8 +54,9 @@ _ENGLISH_TODO = frozenset(
         "every",
     }
 )
-# Words of Spanish, French, German, Italian, Portuguese and Turkish that English
-# does not use: articles, pronouns, days, and the to-do and time words.
+# Words of Spanish, French, Portuguese and Turkish, and of German and Italian (no app
+# language, but still written to it), that English does not use: articles, pronouns,
+# days, and the to-do and time words.
 _OTHER_LATIN_BY_LANGUAGE: dict[str, frozenset[str]] = {
     "es": frozenset({
         "el", "los", "las", "del", "que", "qué", "mañana", "manana", "hoy", "recuérdame",
@@ -98,6 +101,38 @@ def _other_script(text: str) -> bool:
     return any(char.isalpha() and not _is_latin(char) for char in text)
 
 
+# English words that build a request around its object: "remind me to …", "add … to my list".
+_ENGLISH_GRAMMAR = frozenset(
+    "to my me the at on for a an in and from with of it this that please i".split()
+)
+
+
+def _mostly_other_script(text: str) -> bool:
+    """More letters of another script than Latin ones: with no English grammar around its
+    English to-do word, the message is in that language. A script's vowel signs count as
+    its letters: "मुझे remind करना" is 8 Devanagari letters and signs to 6 Latin letters
+    (a review, 2026-11-21: counting letters alone made it 5 to 6, and English)."""
+    other = latin = 0
+    for char in text:
+        if char.isalpha():
+            if _is_latin(char):
+                latin += 1
+            else:
+                other += 1
+        elif _script_sign(char):
+            other += 1
+    return other > latin
+
+
+def _script_sign(char: str) -> bool:
+    """A vowel sign or mark of a script's own (Devanagari, Ethiopic …): never an accent
+    over a Latin letter or an emoji's variation selector."""
+    if not unicodedata.category(char).startswith("M"):
+        return False
+    name = unicodedata.name(char, "")
+    return not name.startswith(("COMBINING", "VARIATION SELECTOR"))
+
+
 def _is_latin(char: str) -> bool:
     try:
         return unicodedata.name(char).startswith("LATIN")
@@ -128,7 +163,12 @@ def _is_other_language(text: str | None) -> bool | None:
         return None
     words = [word.casefold() for word in _WORD.findall(text)]
     if any(word in _ENGLISH_TODO for word in words):
-        return False
+        # English grammar around the request keeps it English whatever script its object
+        # is in ("remind me to buy молоко хлеб сыр"); an English verb alone in another
+        # script's sentence does not ("कल सुबह 9 बजे remind करना").
+        if any(word in _ENGLISH_GRAMMAR for word in words) or not _mostly_other_script(text):
+            return False
+        return True
     if _other_script(text):
         return True
     if len({word for word in words if word in _OTHER_LATIN}) >= _OTHER_LATIN_WORDS:
@@ -137,19 +177,18 @@ def _is_other_language(text: str | None) -> bool | None:
 
 
 # The app's languages written in another script, by the Unicode name of their letters.
-_SCRIPT_LANGUAGE = (("CYRILLIC", "ru"), ("ETHIOPIC", "am"))
+_SCRIPT_LANGUAGE = (("CYRILLIC", "ru"), ("ETHIOPIC", "am"), ("DEVANAGARI", "hi"))
 # The line above the To-do button when a reply wrote none of its own. The screen is
 # named as the app names it in that language (mobile i18n ``todos.open_from_chat``).
 _TODO_SCREEN_LINE = {
     "en": "You can add or change it in **To-do**.",
     "es": "Puedes añadirlo o cambiarlo en **Tareas**.",
     "fr": "Vous pouvez l'ajouter ou le modifier dans **Tâches**.",
-    "de": "Du kannst das unter **Aufgaben** hinzufügen oder ändern.",
-    "it": "Puoi aggiungerlo o modificarlo in **Attività**.",
     "pt": "Você pode adicionar ou alterar isso em **Tarefas**.",
     "tr": "**Yapılacaklar** bölümünden ekleyebilir veya değiştirebilirsiniz.",
     "ru": "Добавить или изменить это можно в разделе **Задачи**.",
     "am": "በ**የሚደረጉ** ውስጥ ማከል ወይም መቀየር ይችላሉ።",
+    "hi": "आप इसे **टू-डू** में जोड़ या बदल सकते हैं।",
 }
 
 

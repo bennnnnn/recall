@@ -1,6 +1,6 @@
 """A message that lists numbers: "Monthly rainfall in Addis Ababa: Jan 15, Feb 30, …".
 
-Qwen3.7 Flash, the free plan's everyday model, answered that message "Hey bini! How's it
+Qwen3.7 Flash, then the free plan's everyday model, answered that message "Hey bini! How's it
 going?" four times in four (2026-10-24): a list with no question read to it as an opener.
 Told what the message is, it answered about the numbers, but named November (6 mm) the
 driest month once in five and summed the year wrong when asked for a total. So the highest

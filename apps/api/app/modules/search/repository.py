@@ -17,6 +17,7 @@ from sqlalchemy import cast as sql_cast
 from sqlalchemy.engine import Row
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.validation import devanagari_spellings
 from app.models.orm import Attachment, Chat, Message
 from app.modules.search.snippet import snippet
 from app.repositories.keyset import decode_cursor, encode_cursor, page_of
@@ -70,8 +71,10 @@ async def search_conversations(
     if not q:
         return [], None
 
-    escaped = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-    pattern = f"%{escaped}%"
+    # A dotted Devanagari letter is saved as one sign or as its letter and dot, whichever the
+    # keyboard sent: each spelling is looked for. Any other query has one.
+    spellings = devanagari_spellings(q)
+    patterns = [f"%{_escaped(spelling)}%" for spelling in spellings]
     title_stmt = select(
         *_branch(
             "title",
@@ -85,7 +88,10 @@ async def search_conversations(
         Chat.user_id == user_id,
         Chat.title.isnot(None),
         Chat.title != "",
-        or_(_trgm_match(Chat.title, q), Chat.title.ilike(pattern, escape="\\")),
+        or_(
+            *(_trgm_match(Chat.title, spelling) for spelling in spellings),
+            *(Chat.title.ilike(pattern, escape="\\") for pattern in patterns),
+        ),
     )
     file_stmt = (
         select(
@@ -104,7 +110,7 @@ async def search_conversations(
             Attachment.user_id == user_id,
             Chat.user_id == user_id,
             Attachment.source == "upload",
-            Attachment.original_filename.ilike(pattern, escape="\\"),
+            or_(*(Attachment.original_filename.ilike(p, escape="\\") for p in patterns)),
         )
     )
     msg_stmt = (
@@ -115,7 +121,7 @@ async def search_conversations(
         .where(
             Message.user_id == user_id,
             Chat.user_id == user_id,
-            Message.search_text.ilike(pattern, escape="\\"),
+            or_(*(Message.search_text.ilike(p, escape="\\") for p in patterns)),
         )
     )
     combined = union_all(title_stmt, file_stmt, msg_stmt).subquery("search_hits")
@@ -138,12 +144,19 @@ async def search_conversations(
     )
 
     words = await _message_words(session, user_id, page)
-    return [_result(row, words, q) for row in page], next_cursor
+    return [_result(row, words, spellings) for row in page], next_cursor
 
 
-def _result(row: Row[Any], words: dict[UUID, str], query: str) -> dict[str, Any]:
+def _escaped(query: str) -> str:
+    return query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _result(row: Row[Any], words: dict[UUID, str], spellings: tuple[str, ...]) -> dict[str, Any]:
     if row.match_type == "message":
-        content = snippet(words.get(row.row_id, ""), query, 120)
+        text = words.get(row.row_id, "")
+        folded = text.casefold()
+        query = next((s for s in spellings if s.casefold() in folded), spellings[0])
+        content = snippet(text, query, 120)
     elif row.match_type == "file":
         content = row.label or ""
     else:

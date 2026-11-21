@@ -148,11 +148,10 @@ _REMINDER_TITLES: dict[str, dict[str, str]] = {
     "en": {"reminder": "Reminder", "overdue": "Overdue reminder"},
     "es": {"reminder": "Recordatorio", "overdue": "Recordatorio atrasado"},
     "fr": {"reminder": "Rappel", "overdue": "Rappel en retard"},
-    "de": {"reminder": "Erinnerung", "overdue": "Überfällige Erinnerung"},
-    "it": {"reminder": "Promemoria", "overdue": "Promemoria in ritardo"},
     "pt": {"reminder": "Lembrete", "overdue": "Lembrete atrasado"},
     "ru": {"reminder": "Напоминание", "overdue": "Просроченное напоминание"},
     "tr": {"reminder": "Hatırlatma", "overdue": "Gecikmiş hatırlatma"},
+    "hi": {"reminder": "रिमाइंडर", "overdue": "समय निकल चुका रिमाइंडर"},
 }
 
 

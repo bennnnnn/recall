@@ -8,7 +8,7 @@ import { serverUnreachableError } from "@/lib/api/deadline";
 import { AttachmentError } from "@/features/attachments/model/attachmentErrors";
 import { uploadChatAttachment } from "@/features/attachments/model/attachments";
 import i18n, { ensureLocale } from "@/lib/i18n";
-import de from "@/lib/i18n/de.json";
+import hi from "@/lib/i18n/hi.json";
 import fixture from "../../../../../../docs/fixtures/error_codes.json";
 
 jest.mock("@/lib/api", () => ({ api: { generateImage: jest.fn() } }));
@@ -84,11 +84,11 @@ it("words a provider failure in the phone's language", async () => {
 // No answer from Recall, or a reference photo the phone could not upload: the card showed the
 // English as it came, in every language ("Could not reach the Recall server…",
 // "ATTACHMENT_TOO_LARGE").
-describe("a picture that failed before the API answered, on a German phone", () => {
-  let german: Translate;
+describe("a picture that failed before the API answered, on a Hindi phone", () => {
+  let hindi: Translate;
   beforeAll(async () => {
-    await ensureLocale("de");
-    german = i18n.getFixedT("de");
+    await ensureLocale("hi");
+    hindi = i18n.getFixedT("hi");
   });
   afterAll(async () => { await ensureLocale("en"); });
   afterEach(() => { jest.mocked(api.generateImage).mockReset(); });
@@ -96,22 +96,22 @@ describe("a picture that failed before the API answered, on a German phone", () 
   it.each([
     ["a refresh past its deadline", serverUnreachableError()],
     ["no connection", new TypeError("Network request failed")],
-  ])("says it got no answer (%s) in German, with Retry", async (_label, error) => {
-    const row = await failedRow(false, error, german);
-    expect(row).toMatchObject({ image_gen_error: de["chat.error_unreachable"], image_gen_refused: undefined });
+  ])("says it got no answer (%s) in Hindi, with Retry", async (_label, error) => {
+    const row = await failedRow(false, error, hindi);
+    expect(row).toMatchObject({ image_gen_error: hi["chat.error_unreachable"], image_gen_refused: undefined });
   });
 
   // The day's spend cap (modules/images/generation.py): its English showed on the card.
-  it("says the picture's spend cap in German, with Retry", async () => {
+  it("says the picture's spend cap in Hindi, with Retry", async () => {
     const capped = fixture.image_spend_cap;
-    const row = await failedRow(false, refusal(capped.status, capped.detail.code, capped.detail.message), german);
-    expect(row).toMatchObject({ image_gen_error: de["chat.image_spend_cap"], image_gen_refused: undefined });
+    const row = await failedRow(false, refusal(capped.status, capped.detail.code, capped.detail.message), hindi);
+    expect(row).toMatchObject({ image_gen_error: hi["chat.image_spend_cap"], image_gen_refused: undefined });
   });
 
-  it("names a reference photo that was too large in German", async () => {
+  it("names a reference photo that was too large in Hindi", async () => {
     jest.mocked(uploadChatAttachment).mockRejectedValueOnce(new AttachmentError("too_large"));
     const photo = { localUri: "file://ref.jpg", contentType: "image/jpeg", fileName: "ref.jpg", kind: "image" as const };
-    const row = await failedRow(false, new Error("unused"), german, photo);
-    expect(row).toMatchObject({ image_gen_error: de["chat.attach_too_large"].replace("{{limit}}", "10") });
+    const row = await failedRow(false, new Error("unused"), hindi, photo);
+    expect(row).toMatchObject({ image_gen_error: hi["chat.attach_too_large"].replace("{{limit}}", "10") });
   });
 });

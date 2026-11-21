@@ -504,6 +504,37 @@ describe("the expanded graph on Android, edge to edge", () => {
     expect(queryByText("rich.graph_error")).toBeNull();
   });
 
+  it("draws a shape and its image where the server put them, the image in its own colour", async () => {
+    const content = JSON.stringify({
+      type: "points",
+      points: [
+        { x: 1, y: 2, label: "A(1, 2)", side: "nw" },
+        { x: 4, y: 2, label: "B(4, 2)", side: "ne" },
+        { x: 1, y: 5, label: "C(1, 5)", side: "nw" },
+        { x: 1, y: -2, label: "A′", role: "image", side: "sw" },
+      ],
+      x_min: -5,
+      x_max: 8,
+      y_min: -7,
+      y_max: 6,
+      segments: [
+        { start: [1, 2], end: [4, 2], ticks: 1 },
+        { start: [1, -2], end: [4, -2], role: "image", dashed: true },
+        { start: [0, 0], end: [4, 1], role: "guide", dashed: true, arrow: true, label: "(4, 1)" },
+      ],
+      polygons: [{ points: [[1, 2], [4, 2], [1, 5]] }],
+      circles: [{ center: [0, 0], radius: 2 }],
+      right_angles: [{ at: [1, 2], a: [1, 5], b: [4, 2] }],
+    });
+    const { toJSON, getByTestId, queryByText } = await render(<FunctionGraphBlock content={content} />);
+    const tree = JSON.stringify(toJSON());
+    expect(getByTestId("points-graph")).toBeOnTheScreen();
+    for (const label of ["A(1, 2)", "B(4, 2)", "C(1, 5)", "A′", "(4, 1)"]) expect(tree).toContain(label);
+    expect(tree).toContain("strokeDasharray");
+    expect(tree).toContain("RNSVGEllipse");
+    expect(queryByText("rich.graph_error")).toBeNull();
+  });
+
   it("labels the numbers a number line shows as the question writes them", async () => {
     const content = JSON.stringify({
       type: "number_line",

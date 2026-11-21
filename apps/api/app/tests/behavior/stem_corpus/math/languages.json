@@ -1,6 +1,8 @@
 [
   {"id": "num-es-dot", "area": "number marks", "prompt": "1.200 + 800", "expect": "decline", "locale": "es", "note": "was 801.2: in Spanish 1.200 is 1200 (right: 2000); a number the asker's locale reads otherwise gets no card"},
-  {"id": "num-de-dot", "area": "number marks", "prompt": "1.200 + 800", "expect": "decline", "locale": "de"},
+  {"id": "num-pt-dot", "area": "number marks", "prompt": "1.200 + 800", "expect": "decline", "locale": "pt", "note": "in Portuguese 1.200 is 1200"},
+  {"id": "num-hi-comma", "area": "number marks", "prompt": "1,200 + 800", "expect": "answer", "locale": "hi", "check": ["num", "2000"], "note": "Hindi groups thousands with a comma, as English does: no misread"},
+  {"id": "num-hi-dot", "area": "number marks", "prompt": "1.200 + 800", "expect": "answer", "locale": "hi", "check": ["num", "801.2"], "note": "the dot is Hindi's decimal mark"},
   {"id": "num-fr-comma", "area": "number marks", "prompt": "1,200 + 800", "expect": "decline", "locale": "fr", "note": "in French 1,200 is 1.2"},
   {"id": "num-am-comma", "area": "number marks", "prompt": "1,200 + 800", "expect": "answer", "locale": "am", "check": ["num", "2000"], "note": "Amharic groups thousands with a comma, as English does"},
   {"id": "num-en-dot", "area": "number marks", "prompt": "1.200 + 800", "expect": "answer", "check": ["num", "801.2"]},

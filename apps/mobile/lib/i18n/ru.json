@@ -539,7 +539,7 @@
   "notifications.todo_reminder_body": "{{content}} — к {{time}}",
   "notifications.todo_reminder_title": "Задачи",
   "onboarding.consent_agree": "Принять и продолжить",
-  "onboarding.consent_chats_body": "Ваши сообщения, недавняя история чата, нужные сведения из памяти и данные профиля передаются через OpenRouter поставщикам моделей ИИ, таким как Anthropic, OpenAI, DeepSeek, Qwen и Z.ai.",
+  "onboarding.consent_chats_body": "Ваши сообщения, недавняя история чата, нужные сведения из памяти и данные профиля передаются через OpenRouter поставщикам моделей ИИ, таким как Anthropic, OpenAI, DeepSeek, Qwen, Z.ai и Tencent.",
   "onboarding.consent_chats_title": "Чаты и память",
   "onboarding.consent_decline": "Не сейчас, выйти",
   "onboarding.consent_delete": "Удалить мой аккаунт",

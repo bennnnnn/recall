@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from itertools import product
 from uuid import UUID
 
 # ISO 639-1 codes supported by the mobile app (see apps/mobile/lib/i18n/languages.ts).
@@ -11,12 +12,11 @@ LOCALE_NAMES: dict[str, str] = {
     "en": "English",
     "es": "Spanish",
     "fr": "French",
-    "de": "German",
-    "it": "Italian",
     "pt": "Portuguese",
     "ru": "Russian",
     "tr": "Turkish",
     "am": "Amharic",
+    "hi": "Hindi",
 }
 
 BORING_CHAT_TITLES = frozenset(
@@ -39,6 +39,57 @@ BORING_CHAT_TITLES = frozenset(
         "conversation name",
     }
 )
+
+
+# Devanagari's dotted letters (क़ ख़ ग़ ज़ ड़ ढ़ फ़ य़ ऩ ऱ ऴ) are typed either as one sign or as
+# the letter and its dot (U+093C). NFC joins ऩ ऱ ऴ but keeps U+0958 to U+095F apart, so neither
+# NFC nor NFD of the whole text gives one form without touching other scripts' accents.
+_DOTTED_LETTER = re.compile("[\u0929\u0931\u0934\u0958-\u095f]")
+_DOTTED_SPLIT = {
+    chr(cp): unicodedata.normalize("NFD", chr(cp))
+    for cp in (0x929, 0x931, 0x934, *range(0x958, 0x960))
+}
+
+
+def unify_devanagari(text: str) -> str:
+    """Every dotted Devanagari letter as its letter and dot, the one form the app's Hindi
+    word lists are written in (``test_devanagari_sources``): "अंग्रेज़ी" typed with ज़ as one
+    sign reads as the listed word. Text without those signs comes back as it is.
+    """
+    if text.isascii() or not _DOTTED_LETTER.search(text):
+        return text
+    return _DOTTED_LETTER.sub(lambda m: _DOTTED_SPLIT[m.group()], text)
+
+
+# The same pairs the other way: a letter and its dot as one sign.
+_DOTTED_JOIN = {split: sign for sign, split in _DOTTED_SPLIT.items()}
+# Dotted letters past this many are searched written one way or the other, not mixed.
+_MOST_MIXED = 4
+_DOTTED_PAIR = re.compile("|".join(map(re.escape, _DOTTED_JOIN)))
+
+
+def devanagari_spellings(text: str) -> tuple[str, ...]:
+    """``text`` as typed, and with each dotted Devanagari letter written the other ways
+    (letter and dot, one sign): saved text keeps whichever the keyboard sent, so a search
+    looks for each. Text without dotted letters has one spelling, itself."""
+    split = unify_devanagari(text)
+    if "\u093c" not in split:
+        return (text,)
+    joined = _DOTTED_PAIR.sub(lambda m: _DOTTED_JOIN[m.group()], split)
+    pairs = list(_DOTTED_PAIR.finditer(split))
+    if len(pairs) > _MOST_MIXED:
+        return tuple(dict.fromkeys((text, split, joined)))
+    # Each dotted letter either way, so a text that mixes them ("ज़" as one sign, "ड़" as
+    # letter and dot) is found too: at most 2**_MOST_MIXED spellings.
+    spellings = [text, split, joined]
+    for choice in product((False, True), repeat=len(pairs)):
+        pieces, last = [], 0
+        for joined_here, match in zip(choice, pairs, strict=True):
+            pieces += [split[last : match.start()]]
+            pieces += [_DOTTED_JOIN[match.group()] if joined_here else match.group()]
+            last = match.end()
+        spellings.append("".join([*pieces, split[last:]]))
+    return tuple(dict.fromkeys(spellings))
 
 
 def normalize_display_name(raw: str | None) -> str | None:

@@ -162,7 +162,7 @@ async def test_a_message_in_another_language_gets_the_todo_button_not_a_card(
         ("напомни завтра в 9 позвонить маме", "en", "Добавить или изменить это можно в разделе **Задачи**."),
         ("ነገ 9 ሰዓት እናቴን እንድደውል አስታውሰኝ", "en", "በ**የሚደረጉ** ውስጥ ማከል ወይም መቀየር ይችላሉ።"),
         ("rappelle-moi demain à 9h d'appeler maman", "en", "Vous pouvez l'ajouter ou le modifier dans **Tâches**."),
-        ("erinnere mich morgen um 9 Uhr, Mama anzurufen", "es", "Du kannst das unter **Aufgaben** hinzufügen oder ändern."),
+        ("कल सुबह 9 बजे माँ को फ़ोन करने की याद दिलाना", "es", "आप इसे **टू-डू** में जोड़ या बदल सकते हैं।"),
         # A language the app has no line for: the user's own app language, then English.
         ("ذكرني غدا الساعة 9 بالاتصال بأمي", "es", _ES_LINE),
         ("ذكرني غدا الساعة 9 بالاتصال بأمي", "en", "You can add or change it in **To-do**."),

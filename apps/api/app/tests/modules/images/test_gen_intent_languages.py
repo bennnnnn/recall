@@ -1,9 +1,9 @@
 """Picture requests in the app's other languages: only the unmistakable shapes draw.
 
-"Zeichne mir eine Katze mit Hut" drew nothing on main: every rule read English words.
-Now a draw verb addressed with "me" ("dibújame", "¿me dibujas …?", "zeichne mir", "mi
-disegni …?", "нарисуй мне", "bana … çiz", "… ሳልልኝ") and "create a picture of" ("crea una
-imagen de", "erstelle ein Bild von") draw a short, plain subject whose every word is
+"Dibújame un gato con sombrero" drew nothing on main: every rule read English words.
+Now a draw verb addressed with "me" ("dibújame", "¿me dibujas …?", "нарисуй мне", "bana …
+çiz", "… ሳልልኝ", "मेरे लिए … ड्रा करो") and "create a picture of" ("crea una imagen de",
+"… की तस्वीर बनाओ", "एक … का चित्र बनाओ") draw a short, plain subject whose every word is
 listed (``test_gen_intent_drawable``), when that request is the whole message. Everything
 else in those languages is answered in words, as on main.
 """
@@ -49,24 +49,6 @@ DRAWN: dict[str, list[tuple[str, str]]] = {
         ("Génère une image d'un lion", "lion"),
         ("Crée une illustration d'une forêt magique", "forêt magique"),
     ],
-    "de": [
-        ("Zeichne mir einen Drachen", "Drachen"),
-        ("Male mir eine Katze mit Hut", "Katze mit Hut"),
-        ("Mal mir einen Drachen", "Drachen"),
-        ("Kannst du mir einen Panda malen?", "Panda"),
-        ("Kannst du mir bitte eine Katze zeichnen?", "Katze"),
-        ("Zeichne mir bitte ein Einhorn", "Einhorn"),
-        ("Erstelle ein Bild von einem Löwen", "Löwen"),
-    ],
-    "it": [
-        ("Disegnami un drago", "drago"),
-        ("Mi disegni un panda?", "panda"),
-        ("Puoi disegnarmi un gatto?", "gatto"),
-        ("Mi puoi disegnare un castello?", "castello"),
-        ("Dipingimi un tramonto sul mare", "tramonto sul mare"),
-        ("Crea un'immagine di un leone", "leone"),
-        ("Genera un'illustrazione di una foresta magica", "foresta magica"),
-    ],
     "pt": [
         ("Desenha-me um gato", "gato"),
         ("Me desenhe um cachorro", "cachorro"),
@@ -102,12 +84,21 @@ DRAWN: dict[str, list[tuple[str, str]]] = {
         ("የአበባ ምስል ፍጠርልኝ", "አበባ"),
         ("ፈረስ ሳልልኝ", "ፈረስ"),
     ],
+    "hi": [
+        ("मेरे लिए बिल्ली का चित्र बनाओ", "बिल्ली"),
+        ("एक बिल्ली का चित्र बनाओ", "बिल्ली"),
+        ("मेरे लिए एक काली बिल्ली ड्रा करो", "काली बिल्ली"),
+        ("कृपया एक ड्रैगन की तस्वीर बनाइए", "ड्रैगन"),
+        ("मेरे लिए एक शेर का चित्र बना दो", "शेर"),
+        ("एक घोड़ा ड्रा करो", "घोड़ा"),
+        ("जंगल में एक हाथी की पेंटिंग बनाइए", "जंगल में एक हाथी"),
+    ],
 }
 DRAWN_CASES = [(lang, text, subject) for lang, cases in DRAWN.items() for text, subject in cases]
 
 # On main and now, answered in words: no "me", no picture noun with "of", a definite or
 # pointing-back subject, a long or numeric one, the "illustrate" verbs, Turkish and
-# Amharic without "bana" / "ልኝ", German "mal" without "mir", a photo.
+# Amharic without "bana" / "ልኝ", lines in German and Italian (no app language), a photo.
 ANSWERED = [
     "Dibuja un gato",
     "Dibuja un gato con sombrero",
@@ -135,6 +126,25 @@ ANSWERED = [
     "Dibújame un gato grande negro con un sombrero rojo enorme",
     "Dibújame y = x^2",
     "Zeichne mir Ethanol",
+    # Hindi: "बनाओ" without a picture word also cooks, builds and plans; a school figure.
+    # A bare "<noun> का चित्र बनाइए" is how a textbook asks for its figure, and a bare draw
+    # verb is "Dibuja un gato": neither is addressed nor names a new thing with "एक".
+    "बिल्ली बनाओ",
+    "बिल्ली का चित्र बनाओ",
+    "बिल्ली ड्रा करो",
+    "फूल का चित्र बनाइए",
+    "ज्वालामुखी का चित्र बनाइए",
+    "पत्ते का चित्र बनाइए",
+    "ग्रह का चित्र बनाइए",
+    "इंद्रधनुष का चित्र बनाइए",
+    "बादल का चित्र बनाइए",
+    "नदी का चित्र बनाइए",
+    "मेरे लिए चाय बनाओ",
+    "मेरे लिए एक योजना बनाओ",
+    "इसका चित्र बनाओ",
+    "त्रिभुज का चित्र बनाओ",
+    "प्रकाश संश्लेषण का चित्र बनाओ",
+    "फिर से बिल्ली का चित्र बनाओ",
 ]
 
 
@@ -207,7 +217,7 @@ def test_a_broad_picture_clause_beside_a_question_is_one_answer(text: str) -> No
     [
         "Dibújame un gato y un perro",
         "Dessine-moi un chat qui danse",
-        "Zeichne mir eine Katze und einen Hund",
+        "एक बिल्ली और एक कुत्ते का चित्र बनाओ",
     ],
 )
 def test_a_longer_picture_is_still_one_picture(text: str) -> None:
@@ -239,7 +249,6 @@ def test_a_quoted_line_is_no_request(text: str) -> None:
     [
         ("Crée une image d'un dragon rouge", "dragon rouge"),
         ("Crée une image d\u2019un dragon rouge", "dragon rouge"),
-        ("Crea un'immagine di un castello incantato", "castello incantato"),
         ("Dessine-moi un gâteau d'anniversaire", "gâteau d'anniversaire"),
     ],
 )
@@ -296,3 +305,17 @@ def test_english_draw_me_with_a_second_request_draws_only_the_picture_part(text:
     assert extract_image_gen_prompt(text) is None
     plan = plan_turn(text)
     assert plan.parts[0].kind == "image" and plan.parts[0].text.startswith("draw me a cat")
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # ड़ and ज़ typed as one sign (U+095C, U+095B) or as the letter and its dot.
+        "मेरे लिए एक घोड़ा ड्रा करो",
+        "मेरे लिए एक घोड़ा ड्रा करो",
+        "प्लीज़ मेरे लिए एक घोड़ा ड्रा करो",
+        "प्लीज़ मेरे लिए एक घोड़ा ड्रा करो",
+    ],
+)
+def test_a_dotted_hindi_letter_reads_either_way(text: str) -> None:
+    assert extract_image_gen_prompt(text) == "घोड़ा"

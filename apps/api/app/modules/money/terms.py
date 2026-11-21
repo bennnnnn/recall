@@ -124,12 +124,16 @@ _CLAUSE_BREAK = re.compile(
     r"[.?!;](?=\s|$)|\n|,\s|\b(?:and|but|so|or|yet|then|because|while|although|though)\b",
     re.I,
 )
-# A length in another of the app's languages ("25 Jahre", "5 años", "10 ans", "3 anni"): one
-# the reader cannot read, so no term is (2026-11-14: "25 Jahre" was left to an assumed 30).
+# A length in another language ("25 Jahre", "5 años", "10 ans", "3 anni", "20 साल"): one the
+# reader cannot read, so no term is (2026-11-14: "25 Jahre" was left to an assumed 30). German
+# and Italian are no app language, but a length written in them is still none the reader reads.
 _FOREIGN_LENGTH = re.compile(
     r"(?<![\w.,])\d{1,3}\s?-?\s?(?:jahre?n?|monate?n?|años?|anos?|mes|meses|mês|ans|années?|mois"
     r"|anni|anno|mesi|mese|\u0433\u043e\u0434\u0430?|\u043b\u0435\u0442"
-    r"|\u043c\u0435\u0441\u044f\u0446(?:\u0430|\u0435\u0432)?|y\u0131l|ay|ዓመት|ወር)(?![\w-])",
+    r"|\u043c\u0435\u0441\u044f\u0446(?:\u0430|\u0435\u0432)?|y\u0131l|ay|ዓመት|ወር"
+    r"|साल|सालों|वर्ष|वर्षों|बरस|महीना|महीने|महीनों|माह)"
+    # Devanagari's vowel signs are no \w: "12 सालाना किस्तें" (12 yearly instalments) is none.
+    r"(?![\w\-\u0900-\u0963\u0966-\u097f])",
     re.I,
 )
 # A length still to run ("3 years left", "2 years remaining"): the loan is part-paid, and
