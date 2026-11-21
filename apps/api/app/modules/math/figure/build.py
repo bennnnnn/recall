@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 
 from pydantic import ValidationError
 
@@ -21,6 +22,7 @@ from app.modules.math.figure.polygon import build_polygon
 from app.modules.math.figure.request import FigureRequest
 from app.modules.math.figure.revolution import revolves_into
 from app.modules.math.figure.shape_names import names_shape
+from app.modules.math.reading import student_reading
 from app.modules.math.schemas.figure import FigureSpec
 from app.services.solving import SolveServiceError
 
@@ -100,10 +102,22 @@ def figure_fence(request: FigureRequest, texts: list[str]) -> str | None:
     return _fence("geometry", {"type": spec.type, **spec.model_dump(exclude_defaults=True)})
 
 
+# A question pasted as LaTeX (a worksheet's "\\(6\\text{ cm}\\)", "\\(45^{\\circ}\\)").
+_LATEX = re.compile(r"\\[()\[\]]|\\[A-Za-z]+|\^\s*\{")
+
+
+def as_written(text: str) -> str:
+    """The question as a student reads it: LaTeX pasted from a worksheet becomes its plain
+    text ("6 cm", "45°"), so its numbers are found with their units. Read raw, "45^{\\circ}"
+    was a power and "6\\text{ cm}" had no unit, and no figure was drawn for any of three
+    pasted questions (2026-11-20). Plain text is left as it is."""
+    return student_reading(text) if _LATEX.search(text) else text
+
+
 def build_figure_fence(request_json: str, texts: list[str]) -> str | None:
     """Picklable entry for ``core.sympy_executor.run_sympy``."""
     try:
         request = FigureRequest.model_validate_json(request_json)
     except ValidationError:
         return None
-    return figure_fence(request, texts)
+    return figure_fence(request, [as_written(text) for text in texts])

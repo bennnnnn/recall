@@ -12,6 +12,7 @@ from __future__ import annotations
 import re
 
 _DELIMITERS = re.compile(r"\\[()\[\]]|\$+")
+_DEGREE = re.compile(r"\^\s*(?:\{\s*\\circ\s*\}|\\circ(?![A-Za-z]))")
 # "1." numbers a question; the "1." of 1.5 is a decimal, not a label.
 _LABEL = re.compile(
     r"^\s*(?:(?:Q|question\s*)?\d+\s*(?:[):]|\.(?!\d))\s*)?(?:\(?[a-hivx]{1,3}\)\s*)?", re.I
@@ -138,7 +139,9 @@ def student_reading(source: str) -> str:
     text = _TEXT.sub(r"\1", text)
     text = _MATHBB.sub(lambda m: _BLACKBOARD[m.group(1)], text)
     text = _OVERLINE.sub(lambda m: "".join(f"{c}\u0305" for c in m.group(1).strip()), text)
-    # Symbols first: a degree sign is written as a superscript (``^{\circ}``).
+    # Symbols first: a degree sign is written as a superscript (``^{\circ}``), spaced as a
+    # worksheet spaces it (``45^{\circ }``, ``45^ \circ``: pasted on the phone, 2026-11-20).
+    text = _DEGREE.sub("°", text)
     for latex, glyph in _SYMBOLS:
         text = re.sub(re.escape(latex) + r"(?![A-Za-z])", glyph, text)
     # Innermost groups first: the power in ``\frac{x^{2}-1}{x-1}`` is read before

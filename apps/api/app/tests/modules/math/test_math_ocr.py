@@ -255,6 +255,9 @@ async def test_read_back_keeps_the_printed_condition() -> None:
         (r"\( \sum_{n=1}^{10} n^{2} \)", "∑_(n=1)^10 n^2"),
         (r"Write \( 0.\overline{3} \) as a fraction", "Write 0.3\u0305 as a fraction"),
         (r"\( \angle A B C=90^{\circ} \)", "∠ A B C=90°"),
+        # A degree spaced as a worksheet spaces it (pasted on the phone, 2026-11-20).
+        (r"\(\angle A\) is \(45^{\circ }\)", "∠ A is 45°"),
+        (r"\(30^ \circ\)", "30°"),
     ],
 )
 def test_student_reading_is_the_whole_problem_in_written_notation(
