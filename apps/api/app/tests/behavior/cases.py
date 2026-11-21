@@ -1741,7 +1741,7 @@ CASES: tuple[Case, ...] = (
         "format-json-planets",
         "format",
         "give me the list of the planets as valid JSON",
-        Expect(search="ask", hints=("json_output",), model="qwen-3.7-flash"),
+        Expect(search="ask", hints=("json_output",), model="hy4-flash"),
         "One ```json fence holding a valid array of the eight planets, at most a line "
         "around it; the server checks that it parses.",
     ),
@@ -2312,7 +2312,7 @@ CASES: tuple[Case, ...] = (
         "tone-hi",
         "tone and emoji",
         "hi",
-        Expect(lightweight=True, search="no", photo=NO_PHOTO, model="qwen-3.7-flash"),
+        Expect(lightweight=True, search="no", photo=NO_PHOTO, model="hy4-flash"),
         "A short greeting back.",
     ),
     Case(
@@ -2333,7 +2333,7 @@ CASES: tuple[Case, ...] = (
         "tone-plain",
         "tone and emoji",
         "what are the benefits of drinking water",
-        Expect(hints=("emoji_rule",), search="ask", model="qwen-3.7-flash"),
+        Expect(hints=("emoji_rule",), search="ask", model="hy4-flash"),
         "A clear answer; at most a fitting emoji beside a heading or a list label.",
     ),
     Case(

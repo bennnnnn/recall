@@ -531,7 +531,7 @@
   "notifications.todo_reminder_body": "{{content}} — scadenza alle {{time}}",
   "notifications.todo_reminder_title": "Attività",
   "onboarding.consent_agree": "Accetta e continua",
-  "onboarding.consent_chats_body": "I tuoi messaggi, la cronologia recente della chat, la memoria salvata pertinente e i dati del profilo vanno tramite OpenRouter a fornitori di modelli di IA come Anthropic, OpenAI, DeepSeek, Qwen e Z.ai.",
+  "onboarding.consent_chats_body": "I tuoi messaggi, la cronologia recente della chat, la memoria salvata pertinente e i dati del profilo vanno tramite OpenRouter a fornitori di modelli di IA come Anthropic, OpenAI, DeepSeek, Qwen, Z.ai e Tencent.",
   "onboarding.consent_chats_title": "Chat e memoria",
   "onboarding.consent_decline": "Non ora, esci",
   "onboarding.consent_delete": "Elimina il mio account",

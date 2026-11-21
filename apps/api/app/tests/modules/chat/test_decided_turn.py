@@ -60,7 +60,7 @@ _POOL = [
     "gpt-6-luna",
     "qwen-3.7-flash",
 ]
-_FREE_POOL = ["qwen-3.7-flash", "free-chat", "glm-5.3-flash"]
+_FREE_POOL = ["hy4-flash", "qwen-3.7-flash", "free-chat", "glm-5.3-flash"]
 _FREE_MATHS = (ROUTING.math_free, "glm-5.3-flash")
 _PAID_MATHS = (ROUTING.math, "qwen-3.8-flash")
 
@@ -198,7 +198,7 @@ def test_a_lane_never_goes_to_a_model_whose_breaker_is_open() -> None:
         # Half-open, past its cool-down: the turn stays on it and claims its probe.
         (frozenset(), "free-chat"),
         # Still cooling: the read's lane passes it over.
-        (frozenset({"free-chat"}), "qwen-3.7-flash"),
+        (frozenset({"free-chat"}), ROUTING.everyday),
     ],
 )
 async def test_a_recovering_model_is_tried_again_by_the_read_s_lane(

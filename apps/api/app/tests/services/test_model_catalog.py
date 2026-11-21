@@ -10,8 +10,9 @@ from app.services import model_health
 def test_selectable_models_count():
     models = model_catalog.selectable_models()
     ids = {m.id for m in models}
-    # Six chat models: three on the free plan, the rest paid.
+    # Seven chat models: four on the free plan, the rest paid.
     assert ids == {
+        "hy4-flash",
         "qwen-3.7-flash",
         "free-chat",
         "glm-5.3-flash",
@@ -20,6 +21,7 @@ def test_selectable_models_count():
         "gpt-6-luna",
     }
     assert {m.id for m in models if m.plan_access == "free"} == {
+        "hy4-flash",
         "qwen-3.7-flash",
         "free-chat",
         "glm-5.3-flash",
@@ -48,7 +50,7 @@ def test_selectable_models_count():
     assert qwen.plan_access == "free"
     assert qwen.model == "openrouter/qwen/qwen3.7-flash"
     assert qwen.thinking_off == "off"
-    assert model_catalog.auto_fast_alias() == "qwen-3.7-flash"
+    assert model_catalog.auto_fast_alias() == "hy4-flash"
     # Recall is not a coding assistant: the coding and frontier models are gone.
     for removed in ("gpt-6-sol", "kimi-k3", "qwen-3.8-max", "minimax-m3", "glm-5.3", "llama-70b"):
         assert removed not in ids
@@ -59,6 +61,7 @@ def test_selectable_models_count():
     "alias, slug, input_price, output_price, tier, plan",
     [
         ("qwen-3.7-flash", "qwen/qwen3.7-flash", 0.03, 0.13, "fast", "free"),
+        ("hy4-flash", "tencent/hy4-flash", 0.035, 0.1405, "fast", "free"),
         ("smart-chat", "deepseek/deepseek-v4.1-flash-1017", 0.15, 0.60, "smart", "pro"),
         ("qwen-3.8-flash", "qwen/qwen3.8-flash", 0.15, 0.47, "smart", "pro"),
         ("gpt-6-luna", "openai/gpt-6-luna", 0.10, 0.50, "fast", "pro"),
@@ -281,6 +284,8 @@ def test_capability_flags_are_honest_about_what_is_known() -> None:
         assert model_catalog.reads_images(alias), alias
     # Text-only models.
     assert not model_catalog.reads_images("smart-chat")
+    # It reads photos, but none was measured: photo turns stay on vision-chat (2026-11-20).
+    assert not model_catalog.reads_images("hy4-flash")
     # It reads photos, but slower than the readers photo turns use (2026-11-11).
     assert not model_catalog.reads_images("qwen-3.8-flash")
     assert not model_catalog.reads_images("no-such-model")

@@ -19,7 +19,7 @@ from app.modules.billing.plan import (
     pick_cheapest_from_pool,
 )
 from app.modules.chat.model_routing.route import resolve_alias_in_pool
-from app.modules.chat.model_routing.thinking import escalation_model
+from app.modules.chat.model_routing.thinking import escalation_model, thinks_on_escalate
 from app.modules.chat.turn_trace import note_route
 
 if TYPE_CHECKING:
@@ -61,6 +61,16 @@ def resolve_user_model(
     return pick_cheapest_from_pool(pool, settings)
 
 
+def _is_everyday_tier(alias: str) -> bool:
+    """Auto's everyday lane, by what it is: a fast model that sends no reasoning, as the
+    everyday alias is. GPT-6 Luna is fast too but paid and thinking: a turn that fell to it
+    (a hard one with the smart models off) or a reply it wrote keeps it (review, 2026-11-20)."""
+    if alias not in model_catalog.known_ids():
+        return False
+    everyday = model_catalog.get(model_catalog.auto_fast_alias())
+    return model_catalog.get(alias).tier == everyday.tier and not thinks_on_escalate(alias)
+
+
 def _everyday_for_plan(
     user: User, settings: Settings, routed: str, pool: list[str], unhealthy: frozenset[str]
 ) -> str:
@@ -69,8 +79,12 @@ def _everyday_for_plan(
     Only the everyday lane changes: hard and maths turns keep their lanes. The
     stronger model must be in the user's pool (they can switch it off) and healthy;
     otherwise the everyday model answers.
+
+    The everyday lane is told by its tier, not by the alias: a pool saved before the
+    lane's model changed picks another fast model for it, and a reply from the lane's
+    earlier model (Qwen3.7 Flash, before 2026-11-20) is still an everyday reply.
     """
-    if routed != model_catalog.auto_fast_alias() or not has_strong_everyday_model(user, settings):
+    if not has_strong_everyday_model(user, settings) or not _is_everyday_tier(routed):
         return routed
     strong = ROUTING.everyday_strong
     return strong if strong in pool and strong not in unhealthy else routed

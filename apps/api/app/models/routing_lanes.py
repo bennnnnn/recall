@@ -17,9 +17,10 @@ from types import MappingProxyType
 class RoutingLanes:
     """One product alias per job (Auto's three lanes, photos, tools, background calls)."""
 
-    # Qwen3.7 Flash answers an everyday turn as fast as GPT-6 Luna (about 0.8s to
-    # first text with thinking off) for about a third of the price. Auto's
-    # everyday lane carries most turns; hard and maths turns route stronger.
+    # HY4 Flash (2026-11-20): judged blind on 54 battery prompts it wrote better everyday
+    # replies than Qwen3.7 Flash (6.6 of 10 against 5.3) at about 1.4x its cost a reply,
+    # its first word about 1.2s in with thinking off. Auto's everyday lane carries most
+    # turns; hard and maths turns route stronger.
     everyday: str
     # Auto's everyday lane on a plan that includes the stronger one (Pro:
     # ``entitlements.has_strong_everyday_model``). A 60-turn live chat on Qwen3.7 Flash
@@ -104,13 +105,13 @@ class RoutingLanes:
     # rules' lane. Only a hard question goes to the strong lane on a plan that has it (the
     # owner's call, 2026-11-10): a low one, code too, stays on the everyday lane (a git how-to
     # read as low code waited 7.8 s on DeepSeek), which thinks only where its model can: Pro's
-    # does, Qwen3.7 Flash on Free and Plus sends no reasoning. STEM nothing verified goes to
+    # does, HY4 Flash on Free and Plus sends no reasoning. STEM nothing verified goes to
     # the maths lane, hard or not (the owner's call, 2026-11-11).
     decided: Mapping[str, tuple[str, str, str]]
 
 
 ROUTING = RoutingLanes(
-    everyday="qwen-3.7-flash",
+    everyday="hy4-flash",
     everyday_strong="free-chat",
     hard="smart-chat",
     math="smart-chat",
