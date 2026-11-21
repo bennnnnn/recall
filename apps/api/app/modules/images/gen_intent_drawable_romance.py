@@ -1,4 +1,4 @@
-"""What a picture asked in Spanish, French, Italian or Portuguese may be of.
+"""What a picture asked in Spanish, French or Portuguese may be of.
 
 ``gen_intent_drawable`` reads these. A subject draws only when each of its nouns ("un
 gato con sombrero en la playa") is one of these concrete things: animals, people and
@@ -8,8 +8,8 @@ plants, sky, toys and instruments. Its other words are ``gen_intent_drawable_wor
 Left out on purpose, even where they could be drawn: tables, plans, maps, charts,
 diagrams, stories, letters, cells, hearts, skeletons, pyramids, systems, cycles, the
 future, life; words with a homework or figurative sense ("planta" is also a floor plan,
-"piano" a plan or a plane, "rayo" a ray of light, "hoja" a sheet, "batería" a battery,
-"lentes" lenses, "espejo" an optics mirror, "tour" an overview, "champ" a field).
+"rayo" a ray of light, "hoja" a sheet, "batería" a battery, "lentes" lenses, "espejo" an
+optics mirror, "tour" an overview, "champ" a field).
 
 Notation: "gato+s" is "gato" and "gatos"; "león/leones" lists forms; "_" joins the
 words of one name ("caballito_de_mar"). Accents are optional when matched.
@@ -129,84 +129,6 @@ guitare+s piano+s violon+s violoncelle+s tambour+s trompette+s flûte+s harpe+s 
 accordéon+s ukulélé+s xylophone+s tambourin+s
 branche+s espace coucher_du_soleil
 aile+s tempête+s
-"""
-
-ITALIAN = """
-gatto/gatti gattino/gattini gatta/gatte cane/cani cagnolino/cagnolini cucciolo/cuccioli
-cavallo/cavalli puledro/puledri pony mucca/mucche toro/tori maiale/maiali maialino/maialini
-pecora/pecore agnello/agnelli capra/capre gallina/galline gallo/galli pulcino/pulcini
-anatra/anatre papera/papere oca/oche tacchino/tacchini coniglio/conigli coniglietto/coniglietti
-lepre/lepri topo/topi topolino/topolini criceto/criceti scoiattolo/scoiattoli volpe/volpi
-lupo/lupi orso/orsi orsetto/orsetti panda koala leone/leoni leonessa/leonesse tigre/tigri
-leopardo/leopardi ghepardo/ghepardi giaguaro/giaguari pantera/pantere elefante/elefanti
-giraffa/giraffe zebra/zebre scimmia/scimmie gorilla scimpanzé ippopotamo/ippopotami
-rinoceronte/rinoceronti cammello/cammelli lama alpaca canguro/canguri cervo/cervi renna/renne
-alce/alci asino/asini asinello gufo/gufi civetta/civette aquila/aquile falco/falchi
-pappagallo/pappagalli pinguino/pinguini fenicottero/fenicotteri cigno/cigni pavone/pavoni
-uccello/uccelli uccellino/uccellini corvo/corvi colomba/colombe piccione/piccioni
-passerotto/passerotti tucano/tucani colibrì gabbiano/gabbiani farfalla/farfalle ape/api
-coccinella/coccinelle libellula/libellule ragno/ragni formica/formiche lumaca/lumache
-bruco/bruchi rana/rane rospo/rospi tartaruga/tartarughe serpente/serpenti
-coccodrillo/coccodrilli lucertola/lucertole camaleonte/camaleonti iguana/iguane pesce/pesci
-pesciolino/pesciolini squalo/squali balena/balene delfino/delfini polpo/polpi piovra
-calamaro/calamari medusa/meduse granchio/granchi aragosta/aragoste cavalluccio_marino
-stella_marina foca/foche lontra/lontre castoro/castori riccio/ricci pipistrello/pipistrelli
-procione/procioni bradipo/bradipi animale/animali dinosauro/dinosauri
-drago/draghi draghetto unicorno/unicorni fata/fate sirena/sirene elfo/elfi nano/nani
-gnomo/gnomi gigante/giganti folletto/folletti orco/orchi mago/maghi strega/streghe
-stregone/stregoni fantasma/fantasmi vampiro/vampiri lupo_mannaro zombie zombi mummia/mummie
-mostro/mostri mostriciattolo alieno/alieni extraterrestre/extraterrestri marziano/marziani
-robot fenice grifone/grifoni centauro/centauri angelo/angeli supereroe/supereroi supereroina
-ninja pirata/pirati cavaliere/cavalieri samurai vichingo/vichinghi cowboy
-bambina/bambine bambino/bambini ragazza/ragazze ragazzo/ragazzi neonato/neonata bebè
-donna/donne uomo/uomini signora anziano/anziana nonna/nonne nonno/nonni re regina/regine
-principe/principi principessa/principesse imperatore guerriero/guerrieri guerriera
-soldato/soldati astronauta/astronauti pilota/piloti marinaio/marinai capitano/capitani
-pompiere/pompieri poliziotto/poliziotti poliziotta medico/medici dottore dottoressa
-infermiera/infermiere infermiere cuoco/cuochi cuoca contadino/contadini contadina
-pescatore/pescatori scienziato/scienziati scienziata pittore/pittori pittrice
-musicista/musicisti cantante/cantanti ballerino/ballerini ballerina/ballerine
-pagliaccio/pagliacci clown detective esploratore/esploratori esploratrice
-calciatore/calciatori personaggio/personaggi pupazzo_di_neve babbo_natale spaventapasseri
-bambola/bambole
-cappello/cappelli berretto/berretti corona/corone ombrello/ombrelli sedia/sedie
-poltrona/poltrone divano/divani letto/letti lampada/lampade candela/candele lanterna/lanterne
-tazza/tazze teiera/teiere bottiglia/bottiglie cesto/cesti cestino regalo/regali
-palloncino/palloncini aquilone/aquiloni palla/palle pallone/palloni giocattolo/giocattoli
-spada/spade scudo/scudi collana/collane scarpa/scarpe stivale/stivali vestito/vestiti
-sciarpa/sciarpe occhiali zaino/zaini valigia/valigie bandiera/bandiere trofeo/trofei
-medaglia/medaglie diamante/diamanti gioiello/gioielli maschera/maschere bacchetta_magica
-scopa/scope calderone campana/campane piuma/piume conchiglia/conchiglie peluche
-orsacchiotto/orsacchiotti marionetta/marionette burattino/burattini trottola/trottole
-auto automobile/automobili macchinina camion autobus pullman treno/treni tram taxi aereo/aerei
-aeroplano/aeroplani elicottero/elicotteri barca/barche nave/navi veliero/velieri yacht
-canoa/canoe sottomarino/sottomarini razzo/razzi astronave/astronavi navicella_spaziale ufo
-disco_volante bicicletta/biciclette bici moto motocicletta motorino monopattino skateboard
-trattore/trattori ambulanza/ambulanze carrozza/carrozze slitta/slitte mongolfiera/mongolfiere
-casa/case casetta/casette capanna/capanne baita/baite castello/castelli palazzo/palazzi
-torre/torri faro/fari ponte/ponti chiesa/chiese cattedrale/cattedrali tempio/templi
-moschea/moschee mulino/mulini fienile/fienili fattoria/fattorie igloo tenda/tende
-grattacielo/grattacieli città villaggio/villaggi spiaggia/spiagge foresta/foreste bosco/boschi
-giungla/giungle deserto/deserti isola/isole lago/laghi fiume/fiumi cascata/cascate
-oceano/oceani mare/mari montagna/montagne vulcano/vulcani valle/valli grotta/grotte
-caverna/caverne prato/prati giardino/giardini parco/parchi paesaggio/paesaggi canyon
-scogliera/scogliere porto/porti rovine zoo acquario circo stadio piscina/piscine
-tramonto/tramonti alba/albe arcobaleno/arcobaleni nuvola/nuvole pioggia neve
-temporale/temporali tempesta/tempeste fulmine/fulmini tornado uragano/uragani cielo/cieli
-aurora albero/alberi alberello palma/palme pino/pini quercia/querce fiore/fiori rosa/rose
-girasole/girasoli tulipano/tulipani margherita/margherite giglio/gigli loto orchidea/orchidee
-cactus fungo/funghi luna/lune sole/soli stella/stelle pianeta/pianeti cometa/comete
-galassia/galassie nebulosa fiocco_di_neve fiocchi_di_neve iceberg
-pizza/pizze hamburger panino/panini sushi taco torta/torte dolce/dolci cupcake
-biscotto/biscotti ciambella/ciambelle gelato/gelati cioccolato cioccolatino/cioccolatini
-caramella/caramelle lecca-lecca cornetto/cornetti croissant pane crostata/crostate mela/mele
-banana/banane arancia/arance fragola/fragole ciliegia/ciliegie uva anguria/angurie ananas
-limone/limoni pera/pere pesca/pesche avocado carota/carote pomodoro/pomodori zucca/zucche
-formaggio/formaggi frutta caffè
-chitarra/chitarre pianoforte violino/violini violoncello tamburo/tamburi tromba/trombe
-flauto/flauti arpa/arpe sassofono/sassofoni fisarmonica/fisarmoniche ukulele xilofono
-ramo/rami spazio orso_polare/orsi_polari
-ala/ali barca_a_vela
 """
 
 PORTUGUESE = """

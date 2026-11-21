@@ -58,9 +58,9 @@ describe("firstReplyTitlePlan", () => {
   it("titles an attachment-only first turn in the app's language", async () => {
     const created = chat("new", null);
     try {
-      await ensureLocale("de");
-      expect(firstReplyTitlePlan(created, undefined, "[Image: local]").insert?.title).toBe("Bild");
-      expect(firstReplyTitlePlan(created, undefined, "[File: notes.pdf]").insert?.title).toBe("Datei");
+      await ensureLocale("hi");
+      expect(firstReplyTitlePlan(created, undefined, "[Image: local]").insert?.title).toBe("इमेज");
+      expect(firstReplyTitlePlan(created, undefined, "[File: notes.pdf]").insert?.title).toBe("फ़ाइल");
     } finally {
       await ensureLocale("en");
     }

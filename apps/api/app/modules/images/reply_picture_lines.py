@@ -32,17 +32,16 @@ REASON_BY_CODE: dict[str, Reason] = {
     "upstream_failed": "failed",
 }
 
-# The whole line, with the reason after the colon (German starts a sentence there).
+# The whole line, with the reason after the colon.
 _NOT_DRAWN = {
     "en": "I couldn't draw the picture ({subject}) this time: {reason}",
     "es": "Esta vez no pude dibujar la imagen ({subject}): {reason}",
     "fr": "Je n'ai pas pu dessiner l'image ({subject}) cette fois : {reason}",
-    "de": "Das Bild ({subject}) konnte ich diesmal nicht zeichnen: {reason}",
-    "it": "Questa volta non sono riuscito a disegnare l'immagine ({subject}): {reason}",
     "pt": "Desta vez não consegui desenhar a imagem ({subject}): {reason}",
     "tr": "Bu sefer resmi ({subject}) çizemedim: {reason}",
     "ru": "В этот раз не удалось нарисовать картинку ({subject}): {reason}",
     "am": "ምስሉን ({subject}) በዚህ ጊዜ መሳል አልቻልኩም፦ {reason}",
+    "hi": "इस बार मैं चित्र ({subject}) नहीं बना पाया: {reason}",
 }
 
 # The English is the server's own (``services.quota.messages``, ``generation``), unchanged.
@@ -51,27 +50,23 @@ _REASONS: dict[str, dict[str, str]] = {
         "en": "Image generation is temporarily unavailable. Try again later.",
         "es": "la generación de imágenes no está disponible temporalmente. Inténtalo más tarde.",
         "fr": "la génération d'images est temporairement indisponible. Réessayez plus tard.",
-        "de": "Die Bilderstellung ist vorübergehend nicht verfügbar. Versuche es später erneut.",
-        "it": "la generazione di immagini non è temporaneamente disponibile. Riprova più tardi.",
         "pt": "a geração de imagens está temporariamente indisponível. Tente novamente mais tarde.",
         "tr": "görsel oluşturma geçici olarak kullanılamıyor. Daha sonra tekrar deneyin.",
         "ru": "создание изображений временно недоступно. Попробуйте позже.",
         "am": "ምስል መፍጠር ለጊዜው አይገኝም። ቆይተው እንደገና ይሞክሩ።",
+        "hi": "चित्र बनाना अभी उपलब्ध नहीं है। थोड़ी देर बाद फिर कोशिश करें।",
     },
     "not_in_plan": {
         "en": "Image generation isn't part of your plan. Upgrade for it.",
         "es": "la generación de imágenes no está incluida en tu plan. Mejora tu plan para usarla.",
         "fr": "la génération d'images n'est pas incluse dans votre offre. "
         "Passez à une offre supérieure pour l'utiliser.",
-        "de": "Die Bilderstellung ist in deinem Tarif nicht enthalten. "
-        "Mit einem Upgrade bekommst du sie.",
-        "it": "la generazione di immagini non è inclusa nel tuo piano. "
-        "Passa a un piano superiore per usarla.",
         "pt": "a geração de imagens não faz parte do seu plano. Faça upgrade para usá-la.",
         "tr": "görsel oluşturma planınıza dahil değil. Kullanmak için planınızı yükseltin.",
         "ru": "создание изображений не входит в ваш тариф. "
         "Перейдите на тариф выше, чтобы им пользоваться.",
         "am": "ምስል መፍጠር በእቅድዎ ውስጥ አልተካተተም። ለማግኘት ያሻሽሉ።",
+        "hi": "चित्र बनाना आपके प्लान में शामिल नहीं है। इसके लिए अपग्रेड करें।",
     },
     "daily_limit_free": {
         "en": "You've reached today's image generation limit. "
@@ -80,10 +75,6 @@ _REASONS: dict[str, dict[str, str]] = {
         "o inténtalo de nuevo después de la medianoche UTC.",
         "fr": "vous avez atteint la limite de génération d'images du jour. Passez à une offre "
         "supérieure pour en avoir plus, ou réessayez après minuit UTC.",
-        "de": "Du hast das heutige Limit für Bilderstellung erreicht. Upgrade für mehr, "
-        "oder versuche es nach Mitternacht UTC erneut.",
-        "it": "hai raggiunto il limite di generazione di immagini di oggi. Passa a un piano "
-        "superiore per averne altre, o riprova dopo la mezzanotte UTC.",
         "pt": "você atingiu o limite de geração de imagens de hoje. Faça upgrade para mais, "
         "ou tente novamente depois da meia-noite UTC.",
         "tr": "bugünkü görsel oluşturma sınırına ulaştınız. Daha fazlası için planınızı "
@@ -91,6 +82,10 @@ _REASONS: dict[str, dict[str, str]] = {
         "ru": "вы достигли дневного лимита на создание изображений. Перейдите на платный "
         "план, чтобы получить больше, или попробуйте после полуночи по UTC.",
         "am": "የዛሬን የምስል መፍጠር ገደብ ደርሰዋል። ለተጨማሪ ያሻሽሉ፣ ወይም ከUTC እኩለ ሌሊት በኋላ እንደገና ይሞክሩ።",
+        "hi": (
+            "आज की चित्र बनाने की सीमा पूरी हो गई है। ज़्यादा के लिए अपग्रेड करें, "
+            "या UTC आधी रात के बाद फिर कोशिश करें।"
+        ),
     },
     "daily_limit_paid": {
         "en": "You've reached today's image generation limit. Try again after midnight UTC.",
@@ -98,10 +93,6 @@ _REASONS: dict[str, dict[str, str]] = {
         "Inténtalo de nuevo después de la medianoche UTC.",
         "fr": "vous avez atteint la limite de génération d'images du jour. "
         "Réessayez après minuit UTC.",
-        "de": "Du hast das heutige Limit für Bilderstellung erreicht. "
-        "Versuche es nach Mitternacht UTC erneut.",
-        "it": "hai raggiunto il limite di generazione di immagini di oggi. "
-        "Riprova dopo la mezzanotte UTC.",
         "pt": "você atingiu o limite de geração de imagens de hoje. "
         "Tente novamente depois da meia-noite UTC.",
         "tr": "bugünkü görsel oluşturma sınırına ulaştınız. "
@@ -109,6 +100,7 @@ _REASONS: dict[str, dict[str, str]] = {
         "ru": "вы достигли дневного лимита на создание изображений. "
         "Попробуйте после полуночи по UTC.",
         "am": "የዛሬን የምስል መፍጠር ገደብ ደርሰዋል። ከUTC እኩለ ሌሊት በኋላ እንደገና ይሞክሩ።",
+        "hi": "आज की चित्र बनाने की सीमा पूरी हो गई है। UTC आधी रात के बाद फिर कोशिश करें।",
     },
     "content_blocked": {
         "en": "That picture can't be made: it breaks the image service's content rules.",
@@ -116,38 +108,32 @@ _REASONS: dict[str, dict[str, str]] = {
         "del servicio de imágenes.",
         "fr": "impossible de créer cette image : elle enfreint les règles de contenu "
         "du service d'images.",
-        "de": "Dieses Bild kann nicht erstellt werden: "
-        "Es verstößt gegen die Inhaltsregeln des Bilddienstes.",
-        "it": "non è possibile creare questa immagine: va contro le regole sui contenuti "
-        "del servizio di immagini.",
         "pt": "não é possível criar essa imagem: ela vai contra as regras de conteúdo "
         "do serviço de imagens.",
         "tr": "bu görsel oluşturulamıyor: görsel hizmetinin içerik kurallarına aykırı.",
         "ru": "это изображение нельзя создать: оно нарушает правила контента сервиса изображений.",
         "am": "ያ ምስል ሊሠራ አይችልም፤ የምስል አገልግሎቱን የይዘት ደንቦች ይቃረናል።",
+        "hi": "यह चित्र नहीं बन सकता: यह चित्र सेवा के सामग्री नियमों के ख़िलाफ़ है।",
     },
     "too_slow": {
         "en": "the picture took too long. Ask for it again on its own.",
         "es": "la imagen tardó demasiado. Pídela de nuevo en un mensaje aparte.",
         "fr": "l'image a pris trop de temps. Redemandez-la dans un message à part.",
-        "de": "Das Bild hat zu lange gedauert. "
-        "Bitte frag in einer eigenen Nachricht noch einmal danach.",
-        "it": "l'immagine ha richiesto troppo tempo. Chiedila di nuovo in un messaggio a parte.",
         "pt": "a imagem demorou demais. Peça de novo em uma mensagem separada.",
         "tr": "resim çok uzun sürdü. Ayrı bir mesajla tekrar isteyin.",
         "ru": "картинка рисовалась слишком долго. Попросите её снова отдельным сообщением.",
         "am": "ምስሉ በጣም ረጅም ጊዜ ወሰደ። ለብቻው እንደገና ይጠይቁ።",
+        "hi": "चित्र बनने में बहुत समय लगा। इसे एक अलग संदेश में फिर से माँगें।",
     },
     "failed": {
         "en": "something went wrong. Ask for it again on its own.",
         "es": "algo salió mal. Pídela de nuevo en un mensaje aparte.",
         "fr": "une erreur s'est produite. Redemandez-la dans un message à part.",
-        "de": "Etwas ist schiefgelaufen. Bitte frag in einer eigenen Nachricht noch einmal danach.",
-        "it": "qualcosa è andato storto. Chiedila di nuovo in un messaggio a parte.",
         "pt": "algo deu errado. Peça de novo em uma mensagem separada.",
         "tr": "bir şeyler ters gitti. Ayrı bir mesajla tekrar isteyin.",
         "ru": "что-то пошло не так. Попросите её снова отдельным сообщением.",
         "am": "የሆነ ችግር ተፈጥሯል። ለብቻው እንደገና ይጠይቁ።",
+        "hi": "कुछ गड़बड़ हो गई। इसे एक अलग संदेश में फिर से माँगें।",
     },
 }
 

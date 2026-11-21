@@ -4,11 +4,10 @@ import { fireEvent, render } from "@testing-library/react-native";
 import { DrawerHeader } from "@/features/chat/drawer/DrawerHeader";
 import { makeConversationListStyles } from "@/features/chat/drawer/conversationListStyles";
 import am from "@/lib/i18n/am.json";
-import de from "@/lib/i18n/de.json";
 import en from "@/lib/i18n/en.json";
 import es from "@/lib/i18n/es.json";
 import fr from "@/lib/i18n/fr.json";
-import itLocale from "@/lib/i18n/it.json";
+import hi from "@/lib/i18n/hi.json";
 import pt from "@/lib/i18n/pt.json";
 import ru from "@/lib/i18n/ru.json";
 import tr from "@/lib/i18n/tr.json";
@@ -56,7 +55,7 @@ it("lets the titles show through, under the fade", async () => {
 });
 
 // The bar showed "Search messages..." and VoiceOver said "Search conversations".
-it.each(Object.entries({ en, am, de, es, fr, it: itLocale, pt, ru, tr }))(
+it.each(Object.entries({ en, am, es, fr, hi, pt, ru, tr }))(
   "is labelled with the words it shows in %s",
   (_code, bundle) => {
     expect(bundle["search.placeholder"]).toBe(`${bundle["search.open_accessibility"]}…`);

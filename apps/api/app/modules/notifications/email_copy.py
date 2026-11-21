@@ -77,52 +77,6 @@ TEMPLATES: dict[str, dict[str, dict[str, str]]] = {
                 "<p>Cordialement,<br/>L'équipe Recall</p>"
             ),
         },
-        "de": {
-            "subject": "Willkommen bei Recall",
-            "text": (
-                "Hallo {name},\n\n"
-                "Willkommen bei Recall — deinem persönlichen KI-Chat, der sich an das "
-                "erinnert, was dir wichtig ist. Frag alles, notiere Erinnerungen oder "
-                "starte ein Lernprojekt.\n\n"
-                "Ein paar Tipps zum Start:\n"
-                "  - Erzähl Recall über dich, damit das Gedächtnis nützlich wird.\n"
-                "  - Stelle Sprache, Ton und Antwortlänge in den Einstellungen ein.\n\n"
-                "Viele Grüße,\nDas Recall-Team"
-            ),
-            "html": (
-                "<p>Hallo {name},</p>"
-                "<p>Willkommen bei <strong>Recall</strong> — deinem persönlichen KI-Chat.</p>"
-                "<p>Zum Start:</p>"
-                "<ul>"
-                "<li>Erzähl Recall über dich.</li>"
-                "<li>Stelle Sprache, Ton und Antwortlänge ein.</li>"
-                "</ul>"
-                "<p>Viele Grüße,<br/>Das Recall-Team</p>"
-            ),
-        },
-        "it": {
-            "subject": "Benvenuto in Recall",
-            "text": (
-                "Ciao {name},\n\n"
-                "Benvenuto in Recall — la tua chat IA personale che ricorda ciò che "
-                "ti importa. Chiedi qualsiasi cosa, annota promemoria o inizia un "
-                "progetto di apprendimento.\n\n"
-                "Qualche idea per iniziare:\n"
-                "  - Racconta a Recall di te per arricchire la sua memoria.\n"
-                "  - Imposta lingua, tono e lunghezza delle risposte.\n\n"
-                "Saluti,\nIl team di Recall"
-            ),
-            "html": (
-                "<p>Ciao {name},</p>"
-                "<p>Benvenuto in <strong>Recall</strong> — la tua chat IA personale.</p>"
-                "<p>Per iniziare:</p>"
-                "<ul>"
-                "<li>Racconta a Recall di te.</li>"
-                "<li>Imposta lingua, tono e lunghezza.</li>"
-                "</ul>"
-                "<p>Saluti,<br/>Il team di Recall</p>"
-            ),
-        },
         "pt": {
             "subject": "Bem-vindo ao Recall",
             "text": (
@@ -192,6 +146,52 @@ TEMPLATES: dict[str, dict[str, dict[str, str]]] = {
                 "<p>Sevgiler,<br/>Recall ekibi</p>"
             ),
         },
+        "am": {
+            "subject": "ወደ Recall እንኳን በደህና መጡ",
+            "text": (
+                "ሰላም {name}፣\n\n"
+                "ወደ Recall እንኳን በደህና መጡ — ለእርስዎ አስፈላጊ የሆነውን የሚያስታውስ የግል AI "
+                "ውይይትዎ። ማንኛውንም ነገር ይጠይቁ፣ ወይም አስታዋሾችን ይመዝግቡ።\n\n"
+                "ለመጀመር ጥቂት ነገሮች፦\n"
+                "  - ትውስታው በፍጥነት እንዲጠቅምዎ ስለራስዎ ለRecall ይንገሩት።\n"
+                "  - በቅንብሮች ውስጥ ቋንቋዎን፣ የአነጋገር ቃናውን እና የመልሱን ርዝመት ይምረጡ።\n\n"
+                "ከሰላምታ ጋር፣\nየRecall ቡድን"
+            ),
+            "html": (
+                "<p>ሰላም {name}፣</p>"
+                "<p>ወደ <strong>Recall</strong> እንኳን በደህና መጡ — ለእርስዎ አስፈላጊ የሆነውን "
+                "የሚያስታውስ የግል AI ውይይትዎ።</p>"
+                "<p>ለመጀመር፦</p>"
+                "<ul>"
+                "<li>ስለራስዎ ለRecall ይንገሩት።</li>"
+                "<li>በቅንብሮች ውስጥ ቋንቋ፣ ቃና እና ርዝመት ይምረጡ።</li>"
+                "</ul>"
+                "<p>ከሰላምታ ጋር፣<br/>የRecall ቡድን</p>"
+            ),
+        },
+        "hi": {
+            "subject": "Recall में आपका स्वागत है",
+            "text": (
+                "नमस्ते {name},\n\n"
+                "Recall में आपका स्वागत है — आपकी निजी AI चैट, जो याद रखती है कि आपके लिए "
+                "क्या मायने रखता है। कुछ भी पूछिए, या रिमाइंडर लिख लीजिए।\n\n"
+                "शुरुआत के लिए कुछ बातें:\n"
+                "  - Recall को अपने बारे में बताइए, ताकि उसकी याददाश्त जल्दी काम आए।\n"
+                "  - सेटिंग्स में अपनी भाषा, लहजा और जवाब की लंबाई चुनिए।\n\n"
+                "शुभकामनाएँ,\nRecall टीम"
+            ),
+            "html": (
+                "<p>नमस्ते {name},</p>"
+                "<p><strong>Recall</strong> में आपका स्वागत है — आपकी निजी AI चैट, जो याद रखती "
+                "है कि आपके लिए क्या मायने रखता है।</p>"
+                "<p>शुरुआत के लिए:</p>"
+                "<ul>"
+                "<li>Recall को अपने बारे में बताइए।</li>"
+                "<li>सेटिंग्स में भाषा, लहजा और जवाब की लंबाई चुनिए।</li>"
+                "</ul>"
+                "<p>शुभकामनाएँ,<br/>Recall टीम</p>"
+            ),
+        },
     },
     "receipt": {
         "en": {
@@ -253,42 +253,6 @@ TEMPLATES: dict[str, dict[str, dict[str, str]]] = {
                 "<p>Cordialement,<br/>L'équipe Recall</p>"
             ),
         },
-        "de": {
-            "subject": "Deine Recall-Quittung",
-            "text": (
-                "Hallo {name},\n\n"
-                "Danke für dein Recall-Abo!\n\n"
-                "{event_line}"
-                "{expiration_line}"
-                "\nVerwalte dein Abo jederzeit in den Einstellungen.\n\n"
-                "Viele Grüße,\nDas Recall-Team"
-            ),
-            "html": (
-                "<p>Hallo {name},</p>"
-                "<p>Danke für dein <strong>Recall</strong>-Abo!</p>"
-                "<p>{event_line_html}{expiration_line_html}</p>"
-                "<p>Verwalte dein Abo in den Einstellungen.</p>"
-                "<p>Viele Grüße,<br/>Das Recall-Team</p>"
-            ),
-        },
-        "it": {
-            "subject": "La tua ricevuta di Recall",
-            "text": (
-                "Ciao {name},\n\n"
-                "Grazie per l'abbonamento a Recall!\n\n"
-                "{event_line}"
-                "{expiration_line}"
-                "\nGestisci il tuo abbonamento dalle Impostazioni.\n\n"
-                "Saluti,\nIl team di Recall"
-            ),
-            "html": (
-                "<p>Ciao {name},</p>"
-                "<p>Grazie per l'abbonamento a <strong>Recall</strong>!</p>"
-                "<p>{event_line_html}{expiration_line_html}</p>"
-                "<p>Gestisci l'abbonamento dalle Impostazioni.</p>"
-                "<p>Saluti,<br/>Il team di Recall</p>"
-            ),
-        },
         "pt": {
             "subject": "Seu recibo do Recall",
             "text": (
@@ -341,6 +305,43 @@ TEMPLATES: dict[str, dict[str, dict[str, str]]] = {
                 "<p>{event_line_html}{expiration_line_html}</p>"
                 "<p>Aboneliğinizi Ayarlar'dan yönetin.</p>"
                 "<p>Sevgiler,<br/>Recall ekibi</p>"
+            ),
+        },
+        "am": {
+            "subject": "የRecall ደረሰኝዎ",
+            "text": (
+                "ሰላም {name}፣\n\n"
+                "ለRecall ስለተመዘገቡ እናመሰግናለን!\n\n"
+                "{event_line}"
+                "{expiration_line}"
+                "\nምዝገባዎን በመተግበሪያው ቅንብሮች ውስጥ በማንኛውም ጊዜ ማየት ወይም ማስተዳደር "
+                "ይችላሉ።\n\n"
+                "ከሰላምታ ጋር፣\nየRecall ቡድን"
+            ),
+            "html": (
+                "<p>ሰላም {name}፣</p>"
+                "<p>ለ<strong>Recall</strong> ስለተመዘገቡ እናመሰግናለን!</p>"
+                "<p>{event_line_html}{expiration_line_html}</p>"
+                "<p>ምዝገባዎን በመተግበሪያው ቅንብሮች ውስጥ ያስተዳድሩ።</p>"
+                "<p>ከሰላምታ ጋር፣<br/>የRecall ቡድን</p>"
+            ),
+        },
+        "hi": {
+            "subject": "आपकी Recall रसीद",
+            "text": (
+                "नमस्ते {name},\n\n"
+                "Recall की सदस्यता लेने के लिए धन्यवाद!\n\n"
+                "{event_line}"
+                "{expiration_line}"
+                "\nआप ऐप की सेटिंग्स में अपनी सदस्यता कभी भी देख या बदल सकते हैं।\n\n"
+                "शुभकामनाएँ,\nRecall टीम"
+            ),
+            "html": (
+                "<p>नमस्ते {name},</p>"
+                "<p><strong>Recall</strong> की सदस्यता लेने के लिए धन्यवाद!</p>"
+                "<p>{event_line_html}{expiration_line_html}</p>"
+                "<p>अपनी सदस्यता ऐप की सेटिंग्स में संभालिए।</p>"
+                "<p>शुभकामनाएँ,<br/>Recall टीम</p>"
             ),
         },
     },

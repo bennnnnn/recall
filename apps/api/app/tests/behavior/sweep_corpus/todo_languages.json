@@ -258,5 +258,50 @@
   "prompt": "mañana a las 5",
   "reply": "Actualizado: leche mañana a las 17:00.",
   "expect": "todo_screen"
+ },
+ {
+  "id": "tl-031",
+  "area": "todo language",
+  "prompt": "मुझे कल सुबह 9 बजे दवाई लेने की याद दिलाना",
+  "reply": "```reminder\n{\"title\": \"दवाई लेना\", \"due_at\": \"2026-10-24T09:00:00\"}\n```",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "tl-032",
+  "area": "todo language",
+  "prompt": "दूध मेरी सूची में जोड़ो",
+  "reply": "ठीक है, मैंने दूध जोड़ दिया।",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "tl-033",
+  "area": "todo language",
+  "prompt": "यह गाना मुझे बचपन की याद दिलाता है",
+  "reply": "संगीत यादों को बहुत गहराई से जगाता है।",
+  "expect": "answer"
+ },
+ {
+  "id": "tl-034",
+  "area": "todo language",
+  "prompt": "इस कोड में एक फ़ंक्शन जोड़ो जो काम करे",
+  "reply": "यह रहा एक फ़ंक्शन जो दो संख्याएँ जोड़ता है।",
+  "expect": "answer"
+ },
+ {
+  "id": "tl-035",
+  "area": "todo language",
+  "history": [
+   [
+    "user",
+    "दूध मेरी सूची में जोड़ो"
+   ],
+   [
+    "assistant",
+    "आप इसे **टू-डू** में जोड़ या बदल सकते हैं।\n\n```todo_link\n```"
+   ]
+  ],
+  "prompt": "हाँ, कल शाम 5 बजे",
+  "reply": "अपडेट किया: दूध कल शाम 5 बजे।",
+  "expect": "todo_screen"
  }
 ]

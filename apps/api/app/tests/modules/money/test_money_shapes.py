@@ -133,6 +133,8 @@ def test_a_rate_the_card_does_not_charge_works_no_numbers(text: str) -> None:
         "I'm borrowing $20,000 for a car and $5,000 for a motorbike at 7% for 4 years",
         "How much should I invest now at 5% to have $20,000 in 10 years?",
         "Mortgage: 300 000 €, 3,2 %, 25 Jahre",
+        "Home loan of $300,000 at 8.5% for 20 साल",
+        "Car loan of $20,000 at 9%, 60 महीने",
     ],
 )
 def test_numbers_that_are_not_certainly_this_requests_work_none(text: str) -> None:
@@ -221,3 +223,19 @@ def test_a_savings_yield_grows_by_itself_each_year(text: str) -> None:
 def test_a_savings_plan_is_not_held_to_a_loans_deferral(text: str, balance: float) -> None:
     _, outputs = _worked(text)
     assert round(outputs["balance"] or 0.0, 2) == balance
+
+
+@pytest.mark.parametrize(
+    ("text", "foreign"),
+    [
+        ("for 20 साल", True),
+        ("60 महीने।", True),
+        ("5 सालों", True),
+        # "yearly", not "years": the vowel sign continues the word.
+        ("12 सालाना किस्तें", False),
+    ],
+)
+def test_a_hindi_length_is_read_as_a_whole_word(text: str, foreign: bool) -> None:
+    from app.modules.money.terms import _FOREIGN_LENGTH
+
+    assert bool(_FOREIGN_LENGTH.search(text)) is foreign

@@ -1,6 +1,6 @@
 import { refusalCode, resolveChatError } from "@/features/chat/model/errorMessage";
 import i18n, { ensureLocale } from "@/lib/i18n";
-import de from "@/lib/i18n/de.json";
+import hi from "@/lib/i18n/hi.json";
 
 describe("chatErrorMessage", () => {
   const t = (key: string) => key;
@@ -94,17 +94,17 @@ describe("chatErrorMessage", () => {
     expect(resolveChatError({ message: english, code, isPaid: false, t })).toEqual({ kind: "generic", message: key });
   });
 
-  describe("on a German phone", () => {
-    beforeAll(async () => { await ensureLocale("de"); });
+  describe("on a Hindi phone", () => {
+    beforeAll(async () => { await ensureLocale("hi"); });
     afterAll(async () => { await ensureLocale("en"); });
 
     it.each([
       ["spend_cap", undefined, "Recall is at capacity for today, so new messages are paused for everyone.", "chat.spend_cap"],
       ["spend_cap", "image_generation", "Image generation is temporarily unavailable. Try again later.", "chat.image_spend_cap"],
-    ] as const)("says the %s frame (feature %s) in German", (code, feature, english, key) => {
-      const german = i18n.getFixedT("de");
-      const resolved = resolveChatError({ message: english, code: refusalCode(code, feature), isPaid: false, t: german });
-      expect(resolved.message).toBe(de[key]);
+    ] as const)("says the %s frame (feature %s) in Hindi", (code, feature, english, key) => {
+      const hindi = i18n.getFixedT("hi");
+      const resolved = resolveChatError({ message: english, code: refusalCode(code, feature), isPaid: false, t: hindi });
+      expect(resolved.message).toBe(hi[key]);
       expect(resolved.message).not.toBe(english);
     });
   });

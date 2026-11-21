@@ -23,7 +23,7 @@ from app.modules.todos.spoken_change import (
     names_reminders,
 )
 from app.modules.todos.spoken_target import match_from_context, resolve_spoken_target
-from app.services.locale import LOCALE_NAMES
+from app.services.locale import LANGUAGE_NAMES
 
 _HIDDEN_TOPICS = frozenset({"", "General", "Reminders"})
 _READ_LIMIT = 30
@@ -137,8 +137,9 @@ async def apply_spoken_change(
     return line, (1 if ok else 0)
 
 
-# "Put that in Spanish" asks for the reply in another language Recall speaks.
-_LANGUAGES = frozenset(name.lower() for name in LOCALE_NAMES.values())
+# "Put that in Spanish" or "put that in German" asks for the reply in another language,
+# whichever languages the app itself offers.
+_LANGUAGES = LANGUAGE_NAMES
 
 
 def _a_list(spoken: SpokenReminderChange, prior_assistant: str | None, named: bool) -> bool:
@@ -149,7 +150,9 @@ def _a_list(spoken: SpokenReminderChange, prior_assistant: str | None, named: bo
     from app.modules.todos.reply_check import opens_on_saved_reminders
 
     wanted = (spoken.topic or "").strip().lower()
-    if wanted.startswith(("a ", "an ")) or wanted in _LANGUAGES:
+    # A language is the reply's unless the line names its reminder: "Move the vocab reminder
+    # to Japanese" files it under a list called Japanese.
+    if wanted.startswith(("a ", "an ")) or (wanted in _LANGUAGES and not named):
         return False
     return (
         not spoken.use_latest

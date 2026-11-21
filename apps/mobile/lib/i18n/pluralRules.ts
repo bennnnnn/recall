@@ -6,7 +6,7 @@
  * `Intl.PluralRules`. Hermes may not ship it, and i18next then falls back to
  * English's one/other for every language, so Russian would say
  * "2 источников". `installPluralRules` fills in the CLDR cardinal rules for
- * these nine languages only where the runtime has none; a runtime that has
+ * these eight languages only where the runtime has none; a runtime that has
  * them keeps its own. The test checks these rules against Node's ICU.
  */
 
@@ -16,11 +16,10 @@ type PluralCategory = "one" | "few" | "many" | "other";
 export const PLURAL_CATEGORIES: Record<string, readonly PluralCategory[]> = {
   en: ["one", "other"],
   am: ["one", "other"],
-  de: ["one", "other"],
+  hi: ["one", "other"],
   tr: ["one", "other"],
   es: ["one", "many", "other"],
   fr: ["one", "many", "other"],
-  it: ["one", "many", "other"],
   pt: ["one", "many", "other"],
   ru: ["one", "few", "many", "other"],
 };
@@ -52,15 +51,14 @@ export function pluralCategory(language: string, count: number): PluralCategory 
     case "es":
       if (n === 1) return "one";
       return isMillions(i, v) ? "many" : "other";
-    case "it":
-      if (i === 1 && v === 0) return "one";
-      return isMillions(i, v) ? "many" : "other";
     case "am":
+    case "hi":
+      // Amharic and Hindi: one for 0 and 1.
       return i === 0 || n === 1 ? "one" : "other";
     case "tr":
       return n === 1 ? "one" : "other";
     default:
-      // English and German: one only for an integer 1.
+      // English: one only for an integer 1.
       return i === 1 && v === 0 ? "one" : "other";
   }
 }

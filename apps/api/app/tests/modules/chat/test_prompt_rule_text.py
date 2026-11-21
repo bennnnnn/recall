@@ -115,10 +115,12 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # (PHYSICS_SIGNS, the owner, 2026-11-20); then the turn after a reply cut off told to go on from
 # where it stopped, in any language (CUT_OFF_REPLY_NOTE, the 20-part question, 2026-11-18); then
 # each value its own answer record, a vector by its components or its size and direction
-# (prompt_constants.worked, the owner's chat, 2026-11-20).
-_RULES = 208
-_RULE_GRAMS = 20094
-_RULE_GRAMS_SHA = "97b6e454a7d9b54f"
+# (prompt_constants.worked, the owner's chat, 2026-11-20); then Hindi in place of German and
+# Italian: the worked block's language codes, the To-do screen's names, and the readers' German
+# and Italian home-chip and capability phrases gone (the owner, 2026-11-20).
+_RULES = 205
+_RULE_GRAMS = 19995
+_RULE_GRAMS_SHA = "df122a34a9afab25"
 
 
 def _rules() -> list[str]:
