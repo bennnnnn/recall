@@ -955,3 +955,16 @@ def test_a_resolved_angle_is_marked_from_the_axis_it_was_measured_from() -> None
     bearing = _scene("A ship sails 25 km on a bearing of 120°. Find the east and north components.")
     (arc,) = bearing.angles
     assert (arc.start_deg, round(arc.end_deg), arc.label) == (90.0, -30, "120°")
+
+
+def test_an_angle_from_the_vertical_sits_between_the_vector_and_the_vertical_side() -> None:
+    """Owner, 2026-11-20: the 40° from the vertical hung beside no line, the vertical side
+    drawn at the far end. Measured from the vertical, the vertical side rises from the tail
+    first and the horizontal one runs from its top to the tip."""
+    scene = _scene("Resolve 1900 km at an angle of 40° from the vertical into two components.")
+    original, vertical, horizontal = scene.vectors
+    assert (vertical.anchor, vertical.dx, vertical.stage) == ([0.0, 0.0], 0.0, 1)
+    assert horizontal.anchor == [0.0, pytest.approx(vertical.dy)] and horizontal.stage == 2
+    assert horizontal.dx == pytest.approx(original.dx)
+    (arc,) = scene.angles
+    assert arc.start_deg == 90.0

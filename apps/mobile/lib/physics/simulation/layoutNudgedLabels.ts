@@ -101,11 +101,16 @@ export function planVectorLabels(scene: SceneFrames, shafts: Shaft[]): VectorLab
   }
   const centroid =
     count > 0 ? { px: sumX / count, py: sumY / count } : { px: width / 2, py: height / 2 };
+  const results = spec.vectors.filter((vector) => vector.role === "result").length;
   return shafts.map(({ vector, from, ux, uy, desired, frames }) => {
     if (!vector.label) return null;
     const labelWidth = measureText(vector.label);
+    // A vector diagram's sides carry their sizes at their middles. Its one result, a
+    // resultant, is labelled past its tip; several results are components, each a side of
+    // the triangle (owner, 2026-11-20: "44.3 m/s" sat on its arrowhead).
     const mid =
-      vector.role === "measure" || (spec.type === "vector_sum" && vector.role !== "result");
+      vector.role === "measure" ||
+      (spec.type === "vector_sum" && (vector.role !== "result" || results > 1));
     const tip = frames[0]?.tip ?? { px: from.px + ux * desired, py: from.py + uy * desired };
     let side: 1 | -1 = 1;
     if (mid) {

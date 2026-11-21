@@ -226,9 +226,9 @@ def resolution_scene(
 
     The vector comes first, from the origin, with its angle marked from the axis the question
     measured it from (``base_deg``: east 0, north 90, west 180, south -90) and labelled as
-    the question gave it; then its horizontal component grows along the x-axis from the same
-    tail, and last its vertical component rises from there to the vector's tip, closing the
-    triangle. A vector along an axis has one component, itself, so none is drawn over it.
+    the question gave it; then the component along that axis grows from the same tail, and
+    last the other runs from its end to the vector's tip, closing the triangle. A vector
+    along an axis has one component, itself, so none is drawn over it.
     """
     vector = SimulationVector(
         anchor=[0.0, 0.0],
@@ -239,28 +239,33 @@ def resolution_scene(
         stage=0,
     )
     across, up = abs(x_value) > 1e-9 * size, abs(y_value) > 1e-9 * size
-    parts = (
-        [
-            SimulationVector(
-                anchor=[0.0, 0.0],
-                dx=x_value,
-                dy=0.0,
-                label=f"{plain_number(x_value)}{unit}"[:24],
-                role="result",
-                stage=1,
-            ),
-            SimulationVector(
-                anchor=[x_value, 0.0],
-                dx=0.0,
-                dy=y_value,
-                label=f"{plain_number(y_value)}{unit}"[:24],
-                role="result",
-                stage=2,
-            ),
-        ]
-        if across and up
-        else []
+    horizontal = SimulationVector(
+        anchor=[0.0, 0.0],
+        dx=x_value,
+        dy=0.0,
+        label=f"{plain_number(x_value)}{unit}"[:24],
+        role="result",
+        stage=1,
     )
+    vertical = SimulationVector(
+        anchor=[x_value, 0.0],
+        dx=0.0,
+        dy=y_value,
+        label=f"{plain_number(y_value)}{unit}"[:24],
+        role="result",
+        stage=2,
+    )
+    if abs(base_deg) == 90.0:
+        # Measured from the vertical: the vertical side rises from the tail first, so the
+        # angle sits between two drawn lines, then the horizontal side runs to the tip
+        # (owner, 2026-11-20: a 40° arc from the vertical hung beside no line).
+        vertical = vertical.model_copy(update={"anchor": [0.0, 0.0], "stage": 1})
+        horizontal = horizontal.model_copy(update={"anchor": [0.0, y_value], "stage": 2})
+        parts = [vertical, horizontal]
+    else:
+        parts = [horizontal, vertical]
+    if not (across and up):
+        parts = []
     direction = math.degrees(math.atan2(y_value, x_value))
     # The short way from the axis to the vector, unless the question's angle is the long way
     # (a bearing of 300°): the arc sweeps what the question measured.

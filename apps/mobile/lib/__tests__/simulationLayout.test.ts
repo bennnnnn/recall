@@ -367,6 +367,42 @@ describe("body labels", () => {
   });
 });
 
+describe("a vector resolved into components", () => {
+  // Owner, 2026-11-20: "44.3 m/s" sat on its arrowhead, and the 80° arc ran past the short
+  // 7.81 m/s side into the vertical one.
+  const STEEP = {
+    type: "vector_sum",
+    bodies: [],
+    vectors: [
+      { anchor: [0, 0], dx: 7.81, dy: 44.32, label: "45 m/s", role: "force", stage: 0 },
+      { anchor: [0, 0], dx: 7.81, dy: 0, label: "7.81 m/s", role: "result", stage: 1 },
+      { anchor: [7.81, 0], dx: 0, dy: 44.32, label: "44.3 m/s", role: "result", stage: 2 },
+    ],
+    angles: [{ vertex: [0, 0], start_deg: 0, end_deg: 80, label: "80°", stage: 0 }],
+    x_min: -11.25,
+    x_max: 19.06,
+    y_min: -11.25,
+    y_max: 55.57,
+    arrows: [],
+  };
+
+  it("labels each component beside its middle, not at its tip", () => {
+    const { scene } = layout(parse(STEEP));
+    const [, horizontal, vertical] = scene.vectors;
+    const centre = (box: LabelBox) => ({ px: box.x + box.width / 2, py: box.y + box.height / 2 });
+    expect(centre(horizontal!.label!.box).px).toBeCloseTo((horizontal!.from.px + horizontal!.tip.px) / 2, 6);
+    expect(centre(vertical!.label!.box).py).toBeCloseTo((vertical!.from.py + vertical!.tip.py) / 2, 6);
+  });
+
+  it("keeps the angle's arc inside the shorter side it sits on", () => {
+    const { scene } = layout(parse(STEEP));
+    const [, horizontal] = scene.vectors;
+    const side = Math.abs(horizontal!.tip.px - horizontal!.from.px);
+    // At most 45% of the side (never under 10 px), so the arc stays clear of the next side.
+    expect(scene.angles[0]!.radius).toBeLessThanOrEqual(Math.max(10, side * 0.45) + 1e-6);
+  });
+});
+
 describe("vector labels", () => {
   it("labels components beside their middles and the result at its tip", () => {
     const { scene } = layout(parse(RESOLVE));
