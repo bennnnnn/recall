@@ -420,10 +420,11 @@ def _values(node: object) -> list[str]:
 
 
 def _squeezed(text: str) -> str:
-    """Maths as one string whatever its spacing and signs: "x^2 - 4x" is "x^2-4x"."""
+    """Maths as one string whatever its spacing and signs: "x^2 - 4*x" is "x^2-4x"."""
     text = (
         text.replace("\u2212", "-")
         .replace("**", "^")
+        .replace("*", "")
         .replace("\u00b2", "^2")
         .replace("\u00b3", "^3")
     )

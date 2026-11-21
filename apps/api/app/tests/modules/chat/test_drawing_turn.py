@@ -718,7 +718,7 @@ async def test_a_description_naming_no_part_goes_after_the_part_that_writes_its_
     lettered part of the question whose own words hold the curve is its part."""
     ctx = _ctx(_TWO_SKETCHES, live_read=_read(subject="maths", picture="graph"))
     ctx.drawing = ReplyDrawing(
-        "read", descriptions=[_plot(None, "x^2 - 4x + 3"), _plot(None, "2x + 1")]
+        "read", descriptions=[_plot(None, "x^2 - 4*x + 3"), _plot(None, "2*x + 1")]
     )
     out = await attach_drawing(_state(ctx, _parts_reply()))
     plots = [fence for fence in iter_fences(out) if fence.lang == "graph"]
