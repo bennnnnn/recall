@@ -401,6 +401,7 @@ async def _by_part(
     None when no description names a part the reply has, so the pictures go under it."""
     descriptions = descriptions[:_MOST_PARTS]
     parts = [_part_of(body) for body in descriptions]
+    logger.info("described pictures: %d, parts %s", len(descriptions), parts)
     if not any(key is not None and place_after_part(text, key, "") for key in parts):
         return None
     fences: list[str] = []
