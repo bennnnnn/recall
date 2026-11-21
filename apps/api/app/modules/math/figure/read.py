@@ -75,8 +75,8 @@ _BODY = (
     '- "points": points plotted on a coordinate plane\n'
     '- "none": data to chart (a bar graph, pie chart, line graph of recorded values, '
     "pictograph, histogram, tally), a photo, nothing to draw, or a shape the shape lists "
-    "below do not name (a frustum, points or vectors in space, a polygon at given "
-    "coordinates, a window or a ladder): never a listed shape in its place\n"
+    "below do not name (a frustum, points or vectors in space, a window or a "
+    "ladder): never a listed shape in its place\n"
     "\n"
     "Fields, only those the picture needs:\n"
     "- shape: for a polygon one of triangle, right_triangle, isosceles_triangle, "
@@ -122,6 +122,44 @@ _BODY = (
     '"ABCD", "measures": [{"what": "angle", "name": "A", "value": 70}]}'
 )
 
+# Coordinate geometry and transformations (``plane``, ``transforms``): kept apart from the
+# shapes above, as the server draws them where the question puts them.
+_COORDINATES = (
+    "\n\n"
+    "Coordinate geometry and transformations are kind points (never polygon or circle): "
+    "points the question writes as coordinates and the segments, shapes, circles and "
+    "transformations made of them. Not asked, these are drawn too: the distance, midpoint, "
+    "gradient or perpendicular bisector of two points, a shape at given vertices (its "
+    "area, showing it is a parallelogram or right-angled), a circle's equation, and a "
+    "reflection, rotation, translation or enlargement.\n"
+    '- points: every point the question writes as a pair, with its letter ("" when it '
+    "names none), never one it asks for (a midpoint, an image, a centre worked out) nor a "
+    "transformation's vector or centre.\n"
+    '- join: "segment" for the segment or line through two points, "polygon" for a shape '
+    'whose corners are the points in the question\'s order, "" for points alone.\n'
+    '- parts: asked of a segment, "midpoint", "gradient", "distance", '
+    '"perpendicular_bisector"; of a four-sided shape, "diagonals".\n'
+    '- equation: a circle\'s equation copied exactly ("x^2 + y^2 - 6x + 4y - 12 = 0"). '
+    "A circle given by its centre and its radius or a point on it: the centre (and "
+    "that point) in points, the radius in measures.\n"
+    "- transforms: each transformation of the points, in order: "
+    '{"kind": "reflection", "mirror": the line as written ("x-axis", "y-axis", "y = x", '
+    '"y = -x", "x = 2")}; {"kind": "rotation", "angle": 90, "direction": "clockwise", '
+    '"anticlockwise" or "", "centre": {"x": 1, "y": 2}, or null for the origin}; '
+    '{"kind": "translation", "vector": {"x": 4, "y": -1}}; {"kind": "enlargement", '
+    '"factor": "3" as written, "centre": as for a rotation}. Never the image\'s '
+    "coordinates: the app works them out.\n"
+    'Not asked, drawn: "Find the gradient of the line through (1, 4) and (3, 10)." -> '
+    '{"kind": "points", "join": "segment", "parts": ["gradient"], "points": [{"name": "", '
+    '"x": 1, "y": 4}, {"name": "", "x": 3, "y": 10}]}; "Find the centre and radius of the '
+    'circle x^2 + y^2 + 4x - 6y - 3 = 0." -> {"kind": "points", "equation": "x^2 + y^2 + '
+    '4x - 6y - 3 = 0"}.\n'
+    'Example: "Triangle ABC has vertices A(1, 2), B(4, 2) and C(1, 5). Find its image '
+    'after a reflection in the line y = x." -> {"kind": "points", "join": "polygon", '
+    '"points": [{"name": "A", "x": 1, "y": 2}, {"name": "B", "x": 4, "y": 2}, {"name": '
+    '"C", "x": 1, "y": 5}], "transforms": [{"kind": "reflection", "mirror": "y = x"}]}'
+)
+
 
 def _message(question: str, earlier: Sequence[str]) -> str:
     before = [text[:_EARLIER_CHARS] for text in earlier if text.strip()]
@@ -147,7 +185,7 @@ async def read_figure(
             settings=settings,
             model_alias=ROUTING.math_extract,
             messages=[
-                {"role": "system", "content": (_ASKED if asked else _TEACH) + _BODY},
+                {"role": "system", "content": (_ASKED if asked else _TEACH) + _BODY + _COORDINATES},
                 {"role": "user", "content": _message(question, earlier)},
             ],
             schema=FigureRequest,

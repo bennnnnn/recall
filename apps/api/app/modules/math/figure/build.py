@@ -14,7 +14,7 @@ import logging
 from pydantic import ValidationError
 
 from app.modules.math.drawing.plot_question import read_plot_question
-from app.modules.math.figure import circles, coordinate, lines, nets, solids
+from app.modules.math.figure import circles, coordinate, lines, nets, plane, solids
 from app.modules.math.figure.grounding import grounded, own_texts, with_unit, written_pairs
 from app.modules.math.figure.honest import honours
 from app.modules.math.figure.polygon import build_polygon
@@ -70,12 +70,24 @@ def _the_questions_shape(request: FigureRequest, texts: list[str]) -> bool:
     return True
 
 
+def _plane_fence(request: FigureRequest, texts: list[str]) -> str | None:
+    """Coordinate geometry and transformations, drawn where the question puts them."""
+    try:
+        graph = plane.plane_graph(request, texts)
+    except (SolveServiceError, ValidationError, ValueError, ZeroDivisionError):
+        logger.info("plane figure build failed", exc_info=True)
+        return None
+    return None if graph is None else _fence("graph", graph)
+
+
 def figure_fence(request: FigureRequest, texts: list[str]) -> str | None:
     """The picture's fence (```geometry or ```graph), or None when nothing is drawn."""
     request = with_unit(request, texts)
     x_values = read_plot_question(texts).x_values if request.bounds() != (None, None) else ()
     if request.kind == "none" or not grounded(request, texts, x_values):
         return None
+    if plane.is_plane(request, texts):
+        return _plane_fence(request, texts)
     if not _the_questions_shape(request, texts):
         return None
     if request.kind in {"number_line", "points"} and coordinate.writes_a_formula(own_texts(texts)):
