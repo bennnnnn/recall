@@ -156,23 +156,26 @@ def pictures_follow_parts(text: str, parts: dict[str, str]) -> str:
     label."""
     if len(parts) < 2:
         return text
-    for fence in reversed(list(iter_fences(text))):
-        if not fence.closed or fence.lang not in _PICTURE_LANGS:
-            continue
-        key = _part_of_picture(text[fence.body_start : fence.body_end], parts)
-        if key is None:
-            continue
-        # Already inside its own part: where it would go is where it is.
-        if _section_holds(text, key, fence.start):
-            continue
-        before, picture, after = (
-            text[: fence.start],
-            text[fence.start : fence.end],
-            text[fence.end :],
-        )
-        rest = f"{before.rstrip()}\n\n{after.lstrip()}" if after.strip() else before.rstrip()
-        if (moved := place_after_part(rest, key, picture)) is not None:
-            text = moved
+    done: set[str] = set()
+    moved = True
+    # Each move shifts the fences after it, so they are read again after every move.
+    while moved:
+        moved = False
+        for fence in iter_fences(text):
+            picture = text[fence.start : fence.end]
+            if not fence.closed or fence.lang not in _PICTURE_LANGS or picture in done:
+                continue
+            done.add(picture)
+            key = _part_of_picture(text[fence.body_start : fence.body_end], parts)
+            # Already inside its own part: where it would go is where it is.
+            if key is None or _section_holds(text, key, fence.start):
+                continue
+            before, after = text[: fence.start], text[fence.end :]
+            rest = f"{before.rstrip()}\n\n{after.lstrip()}" if after.strip() else before.rstrip()
+            placed = place_after_part(rest, key, picture)
+            if placed is not None:
+                text, moved = placed, True
+                break
     return text
 
 

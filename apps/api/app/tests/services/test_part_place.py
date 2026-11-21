@@ -102,3 +102,21 @@ def test_a_picture_every_part_shares_or_none_holds_stays() -> None:
 def test_a_question_without_parts_is_left_alone() -> None:
     reply = _two_part_reply(_INCLINE)
     assert pictures_follow_parts(reply, {}) == reply
+
+
+def test_two_pictures_at_the_end_each_go_to_their_own_part() -> None:
+    """Review (#2521): moving one picture shifted the other's offsets, so it stayed put."""
+    parts = {
+        "a": "Sketch y = x^2 - 9 and find its roots.",
+        "b": "Sketch y = 5x + 7 and its intercept.",
+    }
+    graph_a = '```graph\n{"type":"plot","label":"y = x^2 - 9"}\n```'
+    graph_b = '```graph\n{"type":"plot","label":"y = 5x + 7"}\n```'
+    reply = (
+        "**(a) Roots**\n\n$x = \\pm 3$\n\n**(b) Intercept**\n\n$y = 7$\n\nBoth done.\n\n"
+        f"{graph_a}\n\n{graph_b}"
+    )
+    out = pictures_follow_parts(reply, parts)
+    assert out.index("x = \\pm 3") < out.index("x^2 - 9") < out.index("**(b) Intercept**")
+    # (b)'s picture is inside (b)'s own section already (it runs to the reply's end).
+    assert out.index("**(b) Intercept**") < out.index("5x + 7")
