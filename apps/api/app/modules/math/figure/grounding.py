@@ -248,13 +248,18 @@ def states_signed(found: list[Written], value: float) -> bool:
     return any(not w.in_formula and w.unit != "area" and _same(w.value, value) for w in found)
 
 
+# Circle theorems that give a right angle: in a semicircle, where a tangent touches.
+_RIGHT_THEOREMS = frozenset({"angle_in_semicircle", "tangent", "two_tangents"})
+
+
 def _implied_right(request: FigureRequest) -> bool:
     """A right angle a picture's kind states without digits: a right triangle's, a square's,
-    a rectangle's, two perpendicular lines'."""
-    return request.shape.startswith(("right", "perpendicular")) or request.shape in {
-        "square",
-        "rectangle",
-    }
+    a rectangle's, two perpendicular lines', a circle theorem's."""
+    return (
+        request.shape.startswith(("right", "perpendicular"))
+        or request.shape in {"square", "rectangle"}
+        or (request.kind == "circle" and request.shape in _RIGHT_THEOREMS)
+    )
 
 
 def _measures_hold(request: FigureRequest, found: list[Written]) -> bool:

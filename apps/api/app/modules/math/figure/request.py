@@ -40,6 +40,7 @@ MeasureWhat = Literal[
     # A scene of heights and distances: the distance along the ground (or the water) from
     # the foot of what stands up, the distance between two points the angles are seen from,
     # an object's shadow, and an angle measured from the vertical (a ladder's with its wall).
+    # In a circle, "distance" is from the centre (to a chord, or to a point outside).
     "distance",
     "gap",
     "shadow",
@@ -47,6 +48,11 @@ MeasureWhat = Literal[
     # A polygon's angle inside at a corner, and outside it (one side drawn on past it).
     "interior_angle",
     "exterior_angle",
+    # A circle's theorems: the angle an arc makes at the centre and at the circumference, a
+    # tangent's length.
+    "central_angle",
+    "inscribed_angle",
+    "tangent",
 ]
 # The measures that are angles, in degrees; every other one is a length.
 ANGLE_WHATS = frozenset(
@@ -57,6 +63,8 @@ ANGLE_WHATS = frozenset(
         "angle_from_vertical",
         "interior_angle",
         "exterior_angle",
+        "central_angle",
+        "inscribed_angle",
     }
 )
 _KINDS = ("none", "polygon", "circle", "lines", "solid", "number_line", "function", "points")
@@ -133,6 +141,9 @@ class FigureRequest(BaseModel):
     center: str = Field(default="", max_length=4)
     # The letter where an isosceles triangle's equal sides meet ("AB = AC": "A").
     apex: str = Field(default="", max_length=1)
+    # A circle's point off the circle: where tangents are drawn from ("P"), or where two
+    # chords cross ("E").
+    point: str = Field(default="", max_length=1)
     measures: list[Measure] = Field(default_factory=list, max_length=12)
     # A regular polygon's number of sides.
     sides: int | None = Field(default=None, ge=3, le=12)
@@ -141,6 +152,12 @@ class FigureRequest(BaseModel):
     # A shape drawn inside a circle with its corners on it, or around it.
     inscribed: str = Field(default="", max_length=32)
     circumscribed: str = Field(default="", max_length=32)
+    # The same shapes as the read names them, by where the circle is: one the circle passes
+    # through the corners of (inscribed in it), one it sits inside touching the sides of
+    # (circumscribed about it). "The circle inscribed in a triangle" read as an inscribed
+    # triangle drew its circumcircle (2026-11-20): these names say which is which.
+    circle_through: str = Field(default="", max_length=32)
+    circle_within: str = Field(default="", max_length=32)
     unit: str = Field(default="", max_length=12)
     # A number line: the numbers as written ("-5/2", "1.5"), or an inequality copied.
     numbers: list[str] = Field(default_factory=list, max_length=10)
@@ -174,7 +191,15 @@ class FigureRequest(BaseModel):
         text = str(value or "").strip().lower()
         return text if text in _KINDS else "none"
 
-    @field_validator("shape", "inscribed", "circumscribed", "attached", mode="before")
+    @field_validator(
+        "shape",
+        "inscribed",
+        "circumscribed",
+        "attached",
+        "circle_through",
+        "circle_within",
+        mode="before",
+    )
     @classmethod
     def _name(cls, value: Any) -> str:
         return " ".join(str(value or "").strip().lower().replace("-", " ").split()).replace(
@@ -199,7 +224,7 @@ class FigureRequest(BaseModel):
         (SymPy: call it in the SymPy pool only); one it cannot read is None."""
         return _read_bound(self.x_min), _read_bound(self.x_max)
 
-    @field_validator("apex", mode="before")
+    @field_validator("apex", "point", mode="before")
     @classmethod
     def _letter(cls, value: Any) -> str:
         letter = str(value or "").strip()[:1]
@@ -246,6 +271,13 @@ class FigureRequest(BaseModel):
             except ValueError:
                 continue
         return kept
+
+    @model_validator(mode="after")
+    def _circle_with_shape(self) -> FigureRequest:
+        """A shape the read names by where the circle is, as the builders read it."""
+        if self.circle_through or self.circle_within:
+            self.inscribed, self.circumscribed = self.circle_through, self.circle_within
+        return self
 
     def given(self, what: str) -> list[Measure]:
         return [measure for measure in self.measures if measure.what == what]

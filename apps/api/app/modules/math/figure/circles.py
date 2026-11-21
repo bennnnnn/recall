@@ -1,11 +1,24 @@
 """A circle and its parts from the values a question states: a radius or diameter drawn and
-labelled, a chord at its true distance from the centre, a polygon drawn as stated with the
-circle through its corners (inscribed in the circle) or touching its sides (around it)."""
+labelled, a chord at its true distance from the centre (the radius it asks for drawn to its
+true length, unlabelled), a polygon drawn as stated with the circle through its corners
+(inscribed in the circle) or touching its sides (around it), and each circle theorem's
+figure by its own builder (``circle_arcs``, ``circle_angles``, ``circle_lines``)."""
 
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 
+from app.modules.math.figure import circle_angles, circle_arcs, circle_lines
+from app.modules.math.figure.circle_frame import (
+    CIRCLE_ANGLES,
+    CIRCLE_LENGTHS,
+    CircleFigure,
+    close,
+    letters,
+    start,
+    stated_size,
+)
 from app.modules.math.figure.drawing import Drawing, Point, length_label, polar
 from app.modules.math.figure.polygon import build_polygon
 from app.modules.math.figure.request import FigureRequest
@@ -15,50 +28,100 @@ _RADIUS = 3.0
 # Where a drawn radius points when nothing else places it.
 _RADIUS_TURN = 35.0
 _TOLERANCE = 1e-6
-_CIRCLE_PARTS = frozenset({"radius", "diameter", "chord"})
+_CIRCLE_PARTS = CIRCLE_LENGTHS | CIRCLE_ANGLES
+
+Builder = Callable[[FigureRequest], FigureSpec | None]
+# Each circle theorem's figure by the shape the read names it.
+_THEOREMS: dict[str, Builder] = {
+    "sector": circle_arcs.build_sector,
+    "arc": circle_arcs.build_sector,
+    "segment": circle_arcs.build_segment,
+    "annulus": circle_arcs.build_annulus,
+    "concentric_circles": circle_arcs.build_annulus,
+    "tangent": circle_lines.build_tangent,
+    "two_tangents": circle_lines.build_two_tangents,
+    "tangents": circle_lines.build_two_tangents,
+    "intersecting_chords": circle_lines.build_intersecting_chords,
+    "angle_at_centre": circle_angles.build_angle_at_centre,
+    "angle_at_center": circle_angles.build_angle_at_centre,
+    "inscribed_angle": circle_angles.build_angle_at_centre,
+    "angle_in_semicircle": circle_angles.build_angle_in_semicircle,
+    "semicircle": circle_angles.build_angle_in_semicircle,
+    "cyclic_quadrilateral": circle_angles.build_cyclic_quadrilateral,
+}
 
 
-def _letters(request: FigureRequest, count: int) -> list[str]:
-    letters = request.vertices.strip()
-    if len(letters) == count and len(set(letters)) == count and letters.isalpha():
-        return list(letters)
-    return []
+def _theorem(request: FigureRequest) -> Builder | None:
+    """The theorem's builder: by the shape the read names, else by what it measures (a read
+    that says "circle" with an angle at the centre is a sector)."""
+    if request.shape in _THEOREMS:
+        return _THEOREMS[request.shape]
+    if request.inscribed or request.circumscribed:
+        return None
+    if request.given("inscribed_angle"):
+        return circle_angles.build_angle_at_centre
+    if request.given("central_angle"):
+        return circle_arcs.build_sector
+    if request.given("tangent"):
+        return circle_lines.build_tangent
+    sizes = {m.value / (2 if m.what == "diameter" else 1) for m in request.measures
+             if m.what in {"radius", "diameter"}}  # fmt: skip
+    return circle_arcs.build_annulus if len(sizes) == 2 else None
 
 
 def build_circle(request: FigureRequest) -> FigureSpec | None:
-    radius = request.first("radius")
-    diameter = request.first("diameter")
-    chord = request.first("chord")
-    if radius is not None and diameter is not None and abs(2 * radius - diameter) > _TOLERANCE:
+    theorem = _theorem(request)
+    if theorem is not None:
+        return theorem(request)
+    holds, size = stated_size(request)
+    if not holds:
         return None
-    size = radius or (diameter / 2 if diameter is not None else None)
-    shape = request.inscribed or request.circumscribed
-    if shape:
-        if chord is not None or (request.inscribed and request.circumscribed):
+    radius, diameter = request.first("radius"), request.first("diameter")
+    chord, gap = request.first("chord"), request.first("distance")
+    if request.inscribed or request.circumscribed:
+        if chord is not None or gap is not None or (request.inscribed and request.circumscribed):
             return None
         return _with_polygon(request, size)
+    if gap is not None:
+        return _chord_at(request, size, chord, gap)
     if chord is not None and size is not None and chord > 2 * size + _TOLERANCE:
         return None
     r = size or (max(_RADIUS, chord * 0.75) if chord is not None else _RADIUS)
-    drawing = Drawing("circle_chord" if chord else "circle_parts")
-    center = _centre(drawing, request, set())
-    drawing.arc(center, r)
-    unit = request.unit
-    radius_label = length_label(radius, unit) if radius is not None else None
+    figure = start(request, "circle_chord" if chord else "circle_parts", r)
+    figure.drawing.arc(figure.centre, r)
     if chord is not None:
-        _chord(drawing, center, r, chord, radius_label, unit, request)
+        _chord(figure, chord, chord, None, request)
     elif radius is not None or request.has_part("radius"):
-        end = drawing.point(polar(r, _RADIUS_TURN))
-        drawing.line(center, end, radius_label)
+        end = figure.drawing.point(polar(r, _RADIUS_TURN))
+        figure.drawing.line(figure.centre, end, figure.length(radius))
     if diameter is not None or request.has_part("diameter"):
-        _diameter(drawing, r, length_label(diameter, unit) if diameter is not None else None)
-    return drawing.spec()
+        _diameter(figure.drawing, r, figure.length(diameter))
+    return figure.drawing.spec()
 
 
-def _centre(drawing: Drawing, request: FigureRequest, taken: set[str]) -> str:
-    letter = request.center.strip()[:1]
-    named = letter.isalpha() and letter not in taken
-    return drawing.point((0.0, 0.0), letter if named else "", show=named, dot=True)
+def _chord_at(
+    request: FigureRequest, size: float | None, chord: float | None, gap: float
+) -> FigureSpec | None:
+    """A chord at its stated distance from the centre: the radius, the half chord and the
+    distance make a right triangle, so any two of them draw the third."""
+    if size is None and chord is None:
+        return None
+    if size is None:
+        size_drawn = math.hypot(chord / 2, gap) if chord is not None else 0.0
+    else:
+        size_drawn = size
+    if gap >= size_drawn - _TOLERANCE:
+        return None
+    width = 2 * math.sqrt(size_drawn**2 - gap**2)
+    if chord is not None and not close(width, chord):
+        return None
+    figure = start(request, "circle_chord", size_drawn)
+    figure.drawing.arc(figure.centre, size_drawn)
+    _chord(figure, width, chord, gap, request)
+    diameter = request.first("diameter")
+    if diameter is not None:
+        _diameter(figure.drawing, size_drawn, figure.length(diameter))
+    return figure.drawing.spec()
 
 
 def _diameter(drawing: Drawing, r: float, label: str | None) -> None:
@@ -68,27 +131,35 @@ def _diameter(drawing: Drawing, r: float, label: str | None) -> None:
 
 
 def _chord(
-    drawing: Drawing,
-    center: str,
-    r: float,
-    chord: float,
-    radius_label: str | None,
-    unit: str,
+    figure: CircleFigure,
+    width: float,
+    chord: float | None,
+    gap: float | None,
     request: FigureRequest,
 ) -> None:
     """The chord below the centre at its distance, the radius to its end, and the dashed
-    perpendicular from the centre that halves it."""
-    half = chord / 2
+    perpendicular from the centre that halves it, labelled with the distance stated."""
+    drawing, r, half = figure.drawing, figure.r, width / 2
     depth = math.sqrt(max(0.0, r * r - half * half))
-    names = _letters(request, 2)
-    left = drawing.point((-half, -depth), names[0] if names else "", show=bool(names))
-    right = drawing.point((half, -depth), names[1] if names else "", show=bool(names))
-    drawing.line(left, right, length_label(chord, unit))
-    drawing.line(center, right, radius_label)
+    names = letters(request, 2) or ["", ""]
+    left = figure.named((-half, -depth), names[0])
+    right = figure.named((half, -depth), names[1])
+    drawing.line(left, right, figure.length(chord))
+    drawing.line(figure.centre, right, figure.length(request.first("radius")))
     if depth > _TOLERANCE:
-        foot = drawing.point((0.0, -depth))
-        drawing.line(center, foot, dashed=True)
-        drawing.angle(foot, right, center, right=True)
+        foot = figure.named((0.0, -depth), _foot_letter(request))
+        drawing.line(figure.centre, foot, figure.length(gap), dashed=True)
+        drawing.angle(foot, right, figure.centre, right=True)
+
+
+def _foot_letter(request: FigureRequest) -> str:
+    """The chord's midpoint as the distance's name letters it ("OM": M), or none."""
+    centre = request.center.strip()[:1]
+    for measure in request.given("distance"):
+        name = measure.name.strip()
+        if len(name) == 2 and centre and centre in name:
+            return name.replace(centre, "", 1)
+    return ""
 
 
 def _with_polygon(request: FigureRequest, size: float | None) -> FigureSpec | None:
@@ -108,6 +179,8 @@ def _with_polygon(request: FigureRequest, size: float | None) -> FigureSpec | No
                 "measures": [m for m in request.measures if m.what not in _CIRCLE_PARTS],
                 "inscribed": "",
                 "circumscribed": "",
+                "circle_through": "",
+                "circle_within": "",
             }
         )
     )
@@ -143,22 +216,40 @@ def _composed(
     drawing.segments, drawing.angles = list(polygon.segments), list(polygon.angles)
     drawing.faces = [list(face) for face in polygon.faces]
     # An unnamed point is named by its place in the list, so no name repeats.
-    centre_name = _centre(drawing, request, {p.name for p in polygon.points})
+    taken = {p.name for p in polygon.points}
+    name = request.center.strip()[:1]
+    named = name.isalpha() and name not in taken
+    centre_name = drawing.point((0.0, 0.0), name if named else "", show=named, dot=True)
     drawing.arc(centre_name, r)
     radius, diameter = request.first("radius"), request.first("diameter")
-    if radius is not None:
+    # The radius is drawn when stated, and unlabelled when it is what the question asks.
+    if radius is not None or (request.has_part("radius") and diameter is None):
         if request.inscribed:
             target = drawing.at(polygon.faces[0][0])
         else:
+            side = _quiet_side(polygon)
             (ax, ay), (bx, by) = (
-                ((x - centre[0]) * scale, (y - centre[1]) * scale) for x, y in corners[:2]
+                ((x - centre[0]) * scale, (y - centre[1]) * scale)
+                for x, y in (corners[side], corners[(side + 1) % len(corners)])
             )
             t = -(ax * (bx - ax) + ay * (by - ay)) / ((bx - ax) ** 2 + (by - ay) ** 2)
             target = (ax + t * (bx - ax), ay + t * (by - ay))
-        drawing.line(centre_name, drawing.point(target), length_label(radius, request.unit))
+        label = length_label(radius, request.unit) if radius is not None else None
+        drawing.line(centre_name, drawing.point(target), label)
     if diameter is not None:
         _diameter(drawing, r, length_label(diameter, request.unit))
     return drawing.spec()
+
+
+def _quiet_side(polygon: FigureSpec) -> int:
+    """The first side with no label: the radius to it keeps clear of the side's number."""
+    face = polygon.faces[0]
+    for i, name in enumerate(face):
+        other = face[(i + 1) % len(face)]
+        side = next((s for s in polygon.segments if {s.a, s.b} == {name, other}), None)
+        if side is not None and side.label is None:
+            return i
+    return 0
 
 
 def circumcircle(corners: list[Point]) -> tuple[Point, float] | None:
