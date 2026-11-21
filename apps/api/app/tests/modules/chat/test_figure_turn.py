@@ -560,3 +560,28 @@ def test_a_named_problem_four_messages_back_keeps_its_follow_ups() -> None:
     assert len(figure_turn.earlier_user_lines(recent, "draw it")) == 3
     users = list(reversed(newest_first))
     assert figure_turn.topic_lines(users, lines[0]) == lines
+
+
+@pytest.mark.asyncio
+async def test_the_prep_leaves_a_shape_to_the_figure_only_when_the_read_wants_one() -> None:
+    """A review (2026-11-21): a read that came back empty still took "draw it" of a shape
+    from maths, and neither drew it. No read, an empty one or a late one: maths keeps it."""
+    from app.core import readings
+
+    settings = Settings(live_read_wait_seconds=0.05)
+    readings.begin_turn()
+    assert not await figure_turn.will_draw(settings)
+
+    async def empty() -> None:
+        return None
+
+    readings.keep_for_turn(figure_turn.LIVE_READ, asyncio.ensure_future(empty()))
+    assert not await figure_turn.will_draw(settings)
+
+    async def late() -> None:
+        await asyncio.sleep(5)
+
+    task = asyncio.ensure_future(late())
+    readings.keep_for_turn(figure_turn.LIVE_READ, task)
+    assert not await figure_turn.will_draw(settings)
+    task.cancel()

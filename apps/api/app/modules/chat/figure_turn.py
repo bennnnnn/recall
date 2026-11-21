@@ -78,6 +78,24 @@ def earlier_user_lines(recent: Sequence[Any] | None, line: str, most: int = _EAR
     return list(reversed(texts))[:most]
 
 
+# The turn's read, kept for the turn (``core.readings.keep_for_turn``) by the stream.
+LIVE_READ = "live_read"
+
+
+async def will_draw(settings: Settings) -> bool:
+    """Whether this turn's figure path will draw, as the prep must know before it leaves a
+    shape to it: the turn's read, waited on for at most its usual wait, names a subject
+    with a figure and wants one. No read, a late one or an empty one: no (a review,
+    2026-11-21: "draw it" lost maths' drawing to a read that came back empty)."""
+    from app.core.readings import kept_for_turn
+
+    read = kept_for_turn(LIVE_READ)
+    if not settings.figure_read_enabled or not isinstance(read, asyncio.Task):
+        return False
+    await asyncio.wait([read], timeout=settings.live_read_wait_seconds)
+    return _figure_wanted(read) is not None
+
+
 def start_figure(settings: Settings, ctx: StreamContext) -> asyncio.Task[str | None] | None:
     """The picture's task, when the turn has a read to wait for and no picture of its own.
 
