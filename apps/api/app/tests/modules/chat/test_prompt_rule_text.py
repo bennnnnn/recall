@@ -117,10 +117,12 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # each value its own answer record, a vector by its components or its size and direction
 # (prompt_constants.worked, the owner's chat, 2026-11-20); then Hindi in place of German and
 # Italian: the worked block's language codes, the To-do screen's names, and the readers' German
-# and Italian home-chip and capability phrases gone (the owner, 2026-11-20).
+# and Italian home-chip and capability phrases gone (the owner, 2026-11-20); then a question in
+# parts drawn one ```draw block per part, each naming its part (math.drawing.contract, the
+# owner, 2026-11-21: each part's picture right after that part is answered).
 _RULES = 205
-_RULE_GRAMS = 19995
-_RULE_GRAMS_SHA = "df122a34a9afab25"
+_RULE_GRAMS = 20025
+_RULE_GRAMS_SHA = "836917f2994dd5b4"
 
 
 def _rules() -> list[str]:

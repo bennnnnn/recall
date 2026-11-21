@@ -29,8 +29,8 @@ from app.services.md_fence_scan import (
     iter_fences,
     strip_closed_fences,
 )
-from app.services.part_answer_cards import land_part_answer_cards, own_line_part_answers
-from app.services.part_place import place_after_part
+from app.services.part.answer_cards import land_part_answer_cards, own_line_part_answers
+from app.services.part.place import place_after_part
 from app.services.solving import VerifiedPhysicsBlock
 from app.services.subject_scan import scanner_camera_subject
 from app.services.workout import as_formula_heading

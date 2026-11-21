@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.part_place import part_key, place_after_part
+from app.services.part.place import part_key, pictures_follow_parts, place_after_part
 
 _PIC = '```graph\n{"type":"plot"}\n```'
 
@@ -65,3 +65,40 @@ def test_a_heading_inside_a_fence_is_no_part() -> None:
 def test_a_part_the_reply_does_not_have_places_nothing() -> None:
     assert place_after_part(_LAID_OUT, "c", _PIC) is None
     assert place_after_part("One answer, no parts.", "a", _PIC) is None
+
+
+_TWO_PROBLEMS = {
+    "a": "Draw the free-body diagram of a 5 kg block on a frictionless 30° incline and find its acceleration.",
+    "b": "Draw the circuit for a 12 V battery connected to 4 Ω and 6 Ω resistors in series and find the current.",
+}
+_INCLINE = '```simulation\n{"type":"incline","mass":5,"angle_deg":30,"path":[[0,0],[1,1],[2,2],[3,3],[4,4]]}\n```'
+_CIRCUIT = '```simulation\n{"type":"circuit","emf":12,"resistors":[4,6]}\n```'
+
+
+def _two_part_reply(*pictures: str) -> str:
+    return (
+        "📐 **Part a: Incline Physics**\n\n$a = 4.9\\,\\mathrm{m/s^2}$\n\n***\n\n"
+        "⚡ **Part b: Series Circuit**\n\n$I = 1.2\\,\\mathrm{A}$\n\n" + "\n\n".join(pictures)
+    )
+
+
+def test_a_picture_one_part_holds_the_values_of_goes_after_that_part() -> None:
+    """Live (2026-11-21): the incline of part a sat under part b's circuit."""
+    out = pictures_follow_parts(_two_part_reply(_INCLINE, _CIRCUIT), _TWO_PROBLEMS)
+    assert out.index("4.9") < out.index('"incline"') < out.index("Part b: Series")
+    assert out.index("1.2") < out.index('"circuit"')
+
+
+def test_a_picture_every_part_shares_or_none_holds_stays() -> None:
+    shared = '```graph\n{"type":"plot","label":"launch at 25 m/s"}\n```'
+    parts = {"a": "Find its time of flight at 25 m/s.", "b": "Find its range at 25 m/s."}
+    reply = "**(a) Time**\n\n$t = 3.3$\n\n**(b) Range**\n\n$R = 63$\n\n" + shared
+    assert pictures_follow_parts(reply, parts) == reply
+    assert pictures_follow_parts(
+        _two_part_reply(_CIRCUIT), {"a": "x", "b": "y"}
+    ) == _two_part_reply(_CIRCUIT)
+
+
+def test_a_question_without_parts_is_left_alone() -> None:
+    reply = _two_part_reply(_INCLINE)
+    assert pictures_follow_parts(reply, {}) == reply

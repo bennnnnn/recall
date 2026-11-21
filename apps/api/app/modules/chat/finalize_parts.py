@@ -18,6 +18,8 @@ from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.turn_prep.reading import plan_of
 from app.modules.images.reply_picture import ReplyPicture
 from app.services.md_fence_scan import line_fences, strip_closed_fences
+from app.services.part.place import pictures_follow_parts
+from app.services.question_parts import labelled_parts_by_label
 
 if TYPE_CHECKING:
     from app.modules.chat.finalize_passes import FinalizeState
@@ -80,3 +82,14 @@ def divide_sections(text: str) -> str:
             seen = True
         out.append(line)
     return "\n".join(out)
+
+
+def place_pictures_by_part(state: FinalizeState) -> str:
+    """A question in lettered parts: each picture that one part's values belong to, right
+    after that part is answered rather than with the others under the reply (owner,
+    2026-11-21). Every picture is attached and every card landed by now."""
+    parts = labelled_parts_by_label(state.ctx.user_message_content or "")
+    text = pictures_follow_parts(state.text, parts)
+    if text != state.text:
+        state.committed = fallback_text(text, server_text=state.server_text)
+    return text

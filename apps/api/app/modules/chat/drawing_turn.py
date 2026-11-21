@@ -37,7 +37,7 @@ from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.turn_trace import note_prompt_rule
 from app.modules.turn_reading.turn import current_turn_reading
 from app.services.md_fence_scan import iter_fences
-from app.services.part_place import part_key, place_after_part
+from app.services.part.place import part_key, place_after_part
 from app.services.question_parts import labelled_parts_by_label
 from app.services.solving import (
     SubjectName,
