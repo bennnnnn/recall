@@ -13,7 +13,7 @@ a wrong one. It is left out when the reading is unsure (one stray word: "Los Ang
 weather"; a Cyrillic name in an English line), and whenever a language is named — in the
 message ("write an email in Spanish", "translate …"), earlier in the chat ("reply in
 Spanish from now on", "Teach me Spanish") or in their custom instructions, in any of the
-app's languages ("responde en inglés", "auf Englisch"): that choice is theirs.
+app's languages ("responde en inglés", "अंग्रेज़ी में जवाब दो"): that choice is theirs.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ import re
 from collections.abc import Sequence
 from typing import Any
 
-from app.core.validation import LOCALE_NAMES, normalize_locale_code
+from app.core.validation import LOCALE_NAMES, normalize_locale_code, unify_devanagari
 from app.modules.todos import language_evidence
 from app.services.md_fence_scan import without_fences
 from app.services.text_normalize import straighten_apostrophes
@@ -53,6 +53,12 @@ _SHORT_WORDS = 3
 _MARKS = "ñçäöüãõàâêîôûèìòùáéíóúşğœæøåłśźżćńęąčřžšěůő"
 _NOT_ENGLISH_MARK = re.compile(f"[¿¡ßıİ{_MARKS}{_MARKS.upper()}]")
 _INLINE_CODE = re.compile(r"`[^`\n]*`")
+# Language names in Hindi, before "में" (in): "अंग्रेज़ी में", "जर्मन में" (not "जर्मनी में",
+# in Germany). Written with the dotted letter as a letter and its dot (``unify_devanagari``).
+_HI_NAMES = (
+    "हिन्दी|हिंदी|अंग्रेज़ी|अंग्रेजी|स्पेनिश|स्पैनिश|फ्रेंच|फ़्रेंच|फ्रांसीसी|पुर्तगाली|रूसी|तुर्की भाषा|"
+    "अम्हारिक|जर्मन|इतालवी|इटालियन|जापानी|चीनी|अरबी|उर्दू|बंगाली|तमिल|तेलुगु|मराठी|गुजराती|पंजाबी"
+)
 _NAMES = (
     r"(?:english|ingl[eé]s|anglais|englisch|inglese|ingil[iı]zce|spanish|espa[nñ]ol|"
     r"espagnol|spanisch|spagnolo|espanhol|[iı]spanyolca|french|fran[cç]ais|franc[eé]s|"
@@ -62,7 +68,7 @@ _NAMES = (
     r"russo|rus[cç]a|turkish|t[uü]rk[cç]e|turco|turc|t[uü]rkisch|amharic|am[aá]rico|"
     r"amharique|amharisch|amarico|английск\w*|русск\w*|испанск\w*|французск\w*|немецк\w*|"
     r"итальянск\w*|португальск\w*|турецк\w*|амхарск\w*|хинди|እንግሊዝኛ|አማርኛ|hindi|"
-    r"हिन्दी|हिंदी|अंग्रेज़ी|अंग्रेजी)"
+    rf"{_HI_NAMES})"
 )
 # A language named as a language, in any app language: "in Spanish", "en inglés", "auf
 # Englisch", "на английском", "по-английски", "teach me Spanish", "Spanish lessons". Not
@@ -70,15 +76,17 @@ _NAMES = (
 _LANGUAGE_NAME = re.compile(
     rf"\b(?:in|into|to|en|auf|em|al|à|ins|в|на|da)\s+(?:the\s+)?{_NAMES}(?![\w-])"
     rf"|по-(?:английски|русски|испански|французски|немецки|итальянски|португальски|турецки)"
-    rf"|(?:हिन्दी|हिंदी|अंग्रेज़ी|अंग्रेजी)\s+में"
+    rf"|(?<![\u0900-\u097f])(?:{_HI_NAMES})\s+(?:में|भाषा)"
     rf"|\b(?:speak\w*|learn\w*|teach(?:\s+me)?|stud\w*|practi[cs]\w*|reply|answer|respond|"
     rf"write|talk)\s+{_NAMES}(?![\w-])"
     rf"|{_NAMES}\s+(?:please|only|from now on|lessons?|class(?:es)?|words?|grammar|vocabulary)\b",
     re.IGNORECASE,
 )
 # "Use my language", "responde en mi idioma": custom instructions about the reply language.
-_LANGUAGE_WORD = re.compile(r"\b(?:language|idioma|langue|sprache|lingua|língua|dil)\b|язык", re.I)
-_TRANSLATE = re.compile(r"\b(?:translat|tradu|[uü]bersetz|[cç]evir)\w*|перев[её]\w*", re.I)
+_LANGUAGE_WORD = re.compile(
+    r"\b(?:language|idioma|langue|sprache|lingua|língua|dil)\b|язык|भाषा", re.I
+)
+_TRANSLATE = re.compile(r"\b(?:translat|tradu|[uü]bersetz|[cç]evir)\w*|перев[её]\w*|अनुवाद", re.I)
 
 
 def _english(text: str, words: list[str], evidence: dict[str, int]) -> bool:
@@ -109,7 +117,9 @@ def _plainly(text: str) -> str | None:
 
 
 def _names_a_language(*texts: str | None) -> bool:
-    return any(isinstance(text, str) and _LANGUAGE_NAME.search(text) for text in texts)
+    return any(
+        isinstance(text, str) and _LANGUAGE_NAME.search(unify_devanagari(text)) for text in texts
+    )
 
 
 def _instructions_name_a_language(instructions: Any) -> bool:
@@ -125,7 +135,7 @@ def message_reply_language(
     own, when it is plainly one of the app's languages and nothing names one (the message, the
     chat, the custom instructions) or asks for a translation; else None."""
     earlier = [text for role, text in prior if role == "user"]
-    if _instructions_name_a_language(instructions) or _TRANSLATE.search(query):
+    if _instructions_name_a_language(instructions) or _TRANSLATE.search(unify_devanagari(query)):
         return None
     if _names_a_language(query, *earlier):
         return None
@@ -150,6 +160,6 @@ def line_language(text: str, locale: Any) -> str:
     """The language of a line the server adds to the reply to ``text``: the message's own
     when it is plainly one of the app's languages (the reply follows it), else the app's.
 
-    A German app asked in English got an English answer with a German line under it.
+    A Spanish app asked in English got an English answer with a Spanish line under it.
     """
     return _plainly(text) or normalize_locale_code(locale if isinstance(locale, str) else None)

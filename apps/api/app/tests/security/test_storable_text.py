@@ -154,3 +154,10 @@ def test_chat_stream_rejects_nul_with_422_before_any_turn() -> None:
 
     assert response.status_code == 422
     assert NUL_REJECTED_MESSAGE in response.text
+
+
+def test_a_dotted_devanagari_letter_is_stored_one_way() -> None:
+    """ज़ typed as one sign is saved as its letter and dot, the form every reader lists."""
+    typed = ChatMessageRequest(content="अंग्रेज़ी में जवाब दो")
+    assert typed.content == "अंग्रेज़ी में जवाब दो"
+    assert storable_text("plain") == "plain"

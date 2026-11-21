@@ -40,6 +40,26 @@ BORING_CHAT_TITLES = frozenset(
 )
 
 
+# Devanagari's dotted letters (क़ ख़ ग़ ज़ ड़ ढ़ फ़ य़ ऩ ऱ ऴ) are typed either as one sign or as
+# the letter and its dot (U+093C). NFC joins ऩ ऱ ऴ but keeps U+0958 to U+095F apart, so neither
+# NFC nor NFD of the whole text gives one form without touching other scripts' accents.
+_DOTTED_LETTER = re.compile("[\u0929\u0931\u0934\u0958-\u095f]")
+_DOTTED_SPLIT = {
+    chr(cp): unicodedata.normalize("NFD", chr(cp))
+    for cp in (0x929, 0x931, 0x934, *range(0x958, 0x960))
+}
+
+
+def unify_devanagari(text: str) -> str:
+    """Every dotted Devanagari letter as its letter and dot, the one form the app's Hindi
+    word lists are written in (``test_devanagari_sources``): "अंग्रेज़ी" typed with ज़ as one
+    sign reads as the listed word. Text without those signs comes back as it is.
+    """
+    if text.isascii() or not _DOTTED_LETTER.search(text):
+        return text
+    return _DOTTED_LETTER.sub(lambda m: _DOTTED_SPLIT[m.group()], text)
+
+
 def normalize_display_name(raw: str | None) -> str | None:
     """Trim, collapse whitespace, and enforce length for user-visible names."""
     if raw is None:
