@@ -1,4 +1,4 @@
-"""Tension and vector extractors: Atwood, a vertical rope, resultants and components."""
+"""Tension and vector extractors: Atwood, a vertical rope, resultants, any vector's components."""
 
 from __future__ import annotations
 
@@ -142,8 +142,9 @@ def _extract_tension_intent(cleaned: str) -> PhysicsIntent | None:
 _VECTOR_FORCE_CUE_RES: tuple[re.Pattern[str], ...] = (
     re.compile(r"\bresultant\b.{0,80}?\d\s*N\b", re.IGNORECASE),
     re.compile(r"\d\s*N\b.{0,80}?\bresultant\b", re.IGNORECASE),
+    # Any vector resolved: its size in any of ``_VECTOR_SIZE_RE``'s units, and an angle.
     re.compile(
-        rf"\A(?=.*\b(?:resolv\w*|components?)\b)(?=.*\d\s*N\b)(?=.*\d\s*{DEGREE_WORD})",
+        rf"\A(?=.*\b(?:resolv\w*|components?)\b)(?=.*\d\s*{DEGREE_WORD})",
         re.IGNORECASE | re.DOTALL,
     ),
 )
@@ -162,6 +163,68 @@ _ANGLE_BETWEEN_RE = re.compile(
 )
 
 _RESOLVE_RE = re.compile(r"\bresolv\w*\b|\bcomponents?\b", re.IGNORECASE)
+
+# A vector's size, by the unit it is written in, and the parameter it is: a force, a field, an
+# acceleration, a velocity, a momentum, a displacement. Longer spellings first, so "m/s" is
+# never read as metres and "N/C" never as newtons. The unit is kept as written: a component
+# of 1900 km is in km.
+_VECTOR_SIZE_RE = re.compile(
+    rf"({DECIMAL})\s*(N\s*/\s*C|V\s*/\s*m|m\s*/\s*s\s*(?:\^\s*2|²)|(?:k?m|cm)\s*/\s*[sh]"
+    r"|kg\s*m\s*/\s*s|N\s*s|km|cm|mm|m|N)(?![A-Za-z0-9/^²])"
+)
+_VECTOR_PARAMS = (
+    (re.compile(r"N\s*/\s*C|V\s*/\s*m"), "E"),
+    (re.compile(r"m\s*/\s*s\s*(?:\^\s*2|²)"), "a"),
+    (re.compile(r"(?:k?m|cm)\s*/\s*[sh]"), "v"),
+    (re.compile(r"kg\s*m\s*/\s*s|N\s*s"), "p"),
+    (re.compile(r"km|cm|mm|m"), "d"),
+    (re.compile(r"N"), "F"),
+)
+# Components along a slope or a line, not across and up: weight on an incline is its own law.
+_NOT_AXES_RE = re.compile(r"\b(?:incline[ds]?|slope|ramp|along|parallel)\b", re.IGNORECASE)
+# An angle measured from the vertical: "40° from the vertical", "with the y-axis".
+_FROM_VERTICAL_RE = re.compile(
+    r"\b(?:from|to|with|of)\s+the\s+(?:vertical|y[- ]?axis)\b", re.IGNORECASE
+)
+_BELOW_RE = re.compile(r"\bbelow\s+the\s+(?:horizontal|x[- ]?axis)\b", re.IGNORECASE)
+# A bearing: "30° north of east" is measured from east; "40° east of north" from north.
+_BEARING_RE = re.compile(
+    r"\b(north|south|east|west)\s+of\s+(north|south|east|west)\b", re.IGNORECASE
+)
+
+
+def _resolve_intent(cleaned: str) -> PhysicsIntent | None:
+    """One vector of any kind split into horizontal and vertical components, its angle from
+    the horizontal, the vertical or a compass bearing, each component signed by its side."""
+    if _NOT_AXES_RE.search(cleaned):
+        return None
+    size = _VECTOR_SIZE_RE.search(cleaned)
+    angle = INCLINE_ANGLE_RE.search(cleaned)
+    if size is None or angle is None:
+        return None
+    unit = " ".join(re.sub(r"\s*/\s*", "/", size.group(2)).split()).replace("²", "^2")
+    name = next(param for pattern, param in _VECTOR_PARAMS if pattern.fullmatch(unit))
+    params = {name: float(size.group(1)), "angle": float(angle.group(1))}
+    bearing = _BEARING_RE.search(cleaned)
+    if bearing is not None:
+        toward, base = bearing.group(1).lower(), bearing.group(2).lower()
+        sides = {toward, base}
+        if sides in ({"north", "south"}, {"east", "west"}):
+            return None
+        params["from_vertical"] = 1.0 if base in ("north", "south") else 0.0
+        params["x_sign"] = -1.0 if "west" in sides else 1.0
+        params["y_sign"] = -1.0 if "south" in sides else 1.0
+    else:
+        params["from_vertical"] = 1.0 if _FROM_VERTICAL_RE.search(cleaned) else 0.0
+        params["x_sign"] = 1.0
+        params["y_sign"] = -1.0 if _BELOW_RE.search(cleaned) else 1.0
+    return PhysicsIntent(
+        kind="force",
+        physics_op="resolve_vector",
+        physics_params=params,
+        physics_units={name: unit, "angle": "deg"},
+        operation="solve",
+    )
 
 
 def _extract_vector_force_intent(cleaned: str) -> PhysicsIntent | None:
@@ -191,17 +254,8 @@ def _extract_vector_force_intent(cleaned: str) -> PhysicsIntent | None:
             operation="solve",
         )
 
-    # --- one force split into components ------------------------------------
-    if _RESOLVE_RE.search(cleaned) and forces:
-        angle = INCLINE_ANGLE_RE.search(cleaned)
-        if angle is None:
-            return None
-        return PhysicsIntent(
-            kind="force",
-            physics_op="resolve_force",
-            physics_params={"F": forces[0][0], "angle": float(angle.group(1))},
-            physics_units={"F": forces[0][1] or "N", "angle": "deg"},
-            operation="solve",
-        )
+    # --- one vector split into components ------------------------------------
+    if _RESOLVE_RE.search(cleaned):
+        return _resolve_intent(cleaned)
 
     return None

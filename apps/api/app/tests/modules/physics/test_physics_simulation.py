@@ -756,12 +756,23 @@ def test_the_resolved_components_form_a_right_triangle_with_their_force() -> Non
     """Tip of the horizontal component is where the vertical one starts, so the
     three arrows close — which is what resolving *means*."""
     scene = _scene(RESOLVE_Q)
-    horizontal, vertical, original = scene.vectors
+    original, horizontal, vertical = scene.vectors
 
     assert vertical.anchor[0] == pytest.approx(horizontal.dx)
     assert vertical.anchor[1] == pytest.approx(0.0)
     assert original.dx == pytest.approx(horizontal.dx)
     assert original.dy == pytest.approx(vertical.dy)
+
+
+def test_a_resolved_vector_is_drawn_then_across_then_up() -> None:
+    """The owner's ask (2026-11-20): the vector first, then one side, then the other, so the
+    reader watches it split; the phone walks these stages and picks none of its own."""
+    scene = _scene(RESOLVE_Q)
+    assert [vector.stage for vector in scene.vectors] == [0, 1, 2]
+    assert [vector.role for vector in scene.vectors] == ["force", "result", "result"]
+    # Its angle is a given of the vector: shown with it.
+    assert [angle.stage for angle in scene.angles] == [0]
+    assert scene.title_key == "components"
 
 
 def test_a_still_figure_needs_no_bodies() -> None:

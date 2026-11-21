@@ -93,6 +93,11 @@ class SimulationVector(BaseModel):
     # Rides on a moving body: `anchor` is then an offset from that body's
     # current position, so the tension on an Atwood mass goes where it goes.
     body: int | None = Field(default=None, ge=0)
+    # Drawn in stages: every arrow of stage 0 first, growing from its anchor to its tip, then
+    # stage 1, and so on; an arrow with none is there from the start. A vector resolved into
+    # its components is drawn, then its horizontal part, then its vertical one (owner,
+    # 2026-11-20). The phone walks the order it is given; it never picks one.
+    stage: int | None = Field(default=None, ge=0, le=5)
 
     @model_validator(mode="after")
     def finite_and_directed(self) -> SimulationVector:
@@ -105,7 +110,7 @@ class SimulationVector(BaseModel):
 
     @model_serializer(mode="wrap")
     def omit_unattached(self, handler: Any) -> Any:
-        return _omit(handler(self), body=None)
+        return _omit(handler(self), body=None, stage=None)
 
 
 def _check_point(point: list[float] | None, name: str) -> None:
@@ -166,6 +171,10 @@ class SimulationAngle(BaseModel):
     label: str | None = Field(default=None, max_length=24)
     arrow: bool = False
     role: Literal["given", "result"] = "given"
+    # Shown with the arrows of this stage (``SimulationVector.stage``): a resolved vector's
+    # angle comes with the vector. With none the phone shows it once the arrows along both
+    # its edges are drawn.
+    stage: int | None = Field(default=None, ge=0, le=5)
 
     @model_validator(mode="after")
     def finite_arc(self) -> SimulationAngle:
@@ -175,6 +184,10 @@ class SimulationAngle(BaseModel):
         if self.start_deg == self.end_deg:
             raise ValueError("an angle needs a sweep")
         return self
+
+    @model_serializer(mode="wrap")
+    def omit_unstaged(self, handler: Any) -> Any:
+        return _omit(handler(self), stage=None)
 
 
 class SimulationSolid(BaseModel):

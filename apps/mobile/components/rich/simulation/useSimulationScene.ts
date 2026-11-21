@@ -14,7 +14,9 @@ import {
   SIMULATION_HEIGHT,
   SIMULATION_MIN_HEIGHT,
   SIMULATION_PAD,
+  sceneStages,
   simulationAccessibilityLabel,
+  stagedDuration,
   simulationIsAnimated,
   simulationTransform,
   simulationViewportHeight,
@@ -75,7 +77,12 @@ export function useSimulationScene(content: string) {
     () => (spec ? simulationTransform(spec, width, height, SIMULATION_PAD) : null),
     [height, spec, width],
   );
-  const animated = useMemo(() => (spec ? simulationIsAnimated(spec) : false), [spec]);
+  // A still scene whose arrows the server numbered builds itself on the same clock.
+  const stages = useMemo(() => (spec ? sceneStages(spec) : null), [spec]);
+  const animated = useMemo(
+    () => (spec ? simulationIsAnimated(spec) || stages !== null : false),
+    [spec, stages],
+  );
   const measure = useCallback(
     (text: string) => measureRuns(text, [font, ...fallbacks]),
     [fallbacks, font],
@@ -96,13 +103,16 @@ export function useSimulationScene(content: string) {
   const description = useMemo(() => (spec ? simulationAccessibilityLabel(spec, t) : ""), [spec, t]);
   const title = useMemo(() => (spec ? sceneTitle(spec, t) : ""), [spec, t]);
   const playback = usePlayback({
-    duration: Motion.duration.simulation,
+    duration: stages ? stagedDuration(stages.count) : Motion.duration.simulation,
     animated,
     autoplay: true,
-    loop: spec !== null && PERIODIC.includes(spec.type),
+    loop: stages === null && spec !== null && PERIODIC.includes(spec.type),
     resetKey: content,
+    // Under Reduce Motion, a built scene is the finished diagram.
+    restAtEnd: stages !== null,
   });
   return {
+    stages,
     theme,
     t,
     font,

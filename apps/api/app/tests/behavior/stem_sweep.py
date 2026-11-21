@@ -201,6 +201,10 @@ def answer_card(reply: str) -> str:
     return answer_fence_value(card)
 
 
+# The side a card's value is on, written after its unit (a resolved vector's components).
+_SIDE_AFTER_UNIT = re.compile(r"\s+(?:horizontally|vertically)$")
+
+
 def card_values(reply: str) -> list[tuple[float, str, str]]:
     """Each value, unit and shown digits on the reply's answer card.
 
@@ -222,6 +226,8 @@ def card_values(reply: str) -> list[tuple[float, str, str]]:
                 shown, power, rest = match.groups()
                 # "0.4 (40%)": the bracket restates the value; "J/(kg·K)" keeps its own.
                 unit = "" if rest.startswith("(") else re.split(r"\s\(|,", rest)[0].strip()
+                # "65.5 N horizontally": a component's side follows its unit (``detail``).
+                unit = _SIDE_AFTER_UNIT.sub("", unit)
                 found.append((float(shown + (f"e{power}" if power else "")), unit, shown))
     return found
 

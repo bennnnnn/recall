@@ -791,6 +791,7 @@
   "rich.scene_title_height": "Hauteur au-dessus du sol",
   "rich.scene_title_atwood": "Machine d’Atwood",
   "rich.scene_title_forces": "Forces",
+  "rich.scene_title_components": "Composantes",
   "rich.scene_title_spring": "Ressort",
   "rich.scene_title_pendulum": "Pendule",
   "rich.scene_title_circuit": "Circuit électrique",

@@ -51,6 +51,8 @@ export const SCENE_KINDS: readonly SimulationKind[] = [
   "pendulum",
 ];
 const MAX_VECTORS = 6;
+/** The latest stage a vector or an arc may be drawn at, as the server caps it. */
+const MAX_STAGE = 5;
 /** Each of tethers, angles and solids, as the server caps them. */
 const MAX_PARTS = 4;
 const MAX_SHORT_LABEL = 24;
@@ -68,6 +70,12 @@ function isIndex(raw: unknown): raw is number {
   return typeof raw === "number" && Number.isInteger(raw) && raw >= 0;
 }
 
+/** A vector's or an arc's `stage`: absent, or a whole number up to the server's cap. */
+function parseStage(raw: unknown): number | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  return isIndex(raw) && raw <= MAX_STAGE ? raw : refuse();
+}
+
 function parseVector(raw: unknown): SimulationVector | null {
   if (!raw || typeof raw !== "object") return null;
   const row = raw as Record<string, unknown>;
@@ -83,6 +91,7 @@ function parseVector(raw: unknown): SimulationVector | null {
       : isIndex(row.body)
         ? row.body
         : refuse();
+  const stage = parseStage(row.stage);
   return {
     anchor,
     dx,
@@ -94,6 +103,7 @@ function parseVector(raw: unknown): SimulationVector | null {
       ? (row.role as SimulationVectorRole)
       : "force",
     ...(body !== undefined ? { body } : {}),
+    ...(stage !== undefined ? { stage } : {}),
   };
 }
 
@@ -170,6 +180,7 @@ function parseAngle(raw: unknown): SimulationAngle {
         ? raw.role
         : refuse();
   const label = optionalText(raw.label, MAX_SHORT_LABEL);
+  const stage = parseStage(raw.stage);
   return {
     vertex: requirePoint(raw.vertex),
     startDeg,
@@ -177,6 +188,7 @@ function parseAngle(raw: unknown): SimulationAngle {
     arrow,
     role,
     ...(label ? { label } : {}),
+    ...(stage !== undefined ? { stage } : {}),
   };
 }
 

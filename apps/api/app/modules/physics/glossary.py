@@ -408,7 +408,12 @@ _BY_OPERATION: dict[tuple[str, str], str] = {
     ("pendulum_bottom_speed", "angle"): "angle from the vertical",
     ("power", "angle"): "angle between the force and the motion",
     ("work", "angle"): "angle between the force and the motion",
-    ("resolve_force", "angle"): "angle of the force",
+    ("resolve_vector", "angle"): "angle of the vector",
+    # A resolved vector is named as one: a velocity, not a speed; a displacement, not a distance.
+    ("resolve_vector", "v"): "velocity",
+    ("resolve_vector", "d"): "displacement",
+    ("resolve_vector", "p"): "momentum",
+    ("resolve_vector", "E"): "electric field",
     ("resultant_force", "angle"): "angle between the forces",
     ("torque", "angle"): "angle between the force and the arm",
     ("weight_along_slope", "angle"): "angle of the incline",

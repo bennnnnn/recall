@@ -115,14 +115,26 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("angle", r"\theta", dimensionless=True),
         ),
     ),
+    # Any vector split into two components: a force, a velocity, an acceleration, a
+    # displacement, a momentum or a field, its angle measured from the horizontal or the
+    # vertical (``from_vertical``), each component's sign from its stated side (``x_sign``,
+    # ``y_sign``: "below the horizontal", "west of north"). Exactly one size is given.
     formula(
-        "resolve_force",
+        "resolve_vector",
         "force",
-        "Vector addition and components",
-        "F_x,\\ F_y",
+        "Vector components",
+        "A_x,\\ A_y",
         variables=(
             var("F", "F", "newton"),
+            var("v", "v", "meter / second"),
+            var("a", "a", "meter / second ** 2"),
+            var("d", "s", "meter"),
+            var("p", "p", "kilogram * meter / second"),
+            var("E", "E", "newton / coulomb"),
             var("angle", r"\theta", dimensionless=True),
+            var("from_vertical", "from_vertical", dimensionless=True, visible=False),
+            var("x_sign", "x_sign", dimensionless=True, visible=False),
+            var("y_sign", "y_sign", dimensionless=True, visible=False),
         ),
     ),
     formula(

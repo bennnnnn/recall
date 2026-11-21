@@ -9,7 +9,6 @@ import { linePath } from "@/components/rich/skia/paths";
 import { planetFill, SceneLabels } from "@/components/rich/simulation/labels";
 import { RENDER_TEST_MARKERS, SceneMarkers } from "@/components/rich/simulation/markers";
 import {
-  AngleArc,
   BodyMarks,
   BodyShape,
   PulleyWheel,
@@ -20,7 +19,8 @@ import {
 } from "@/components/rich/simulation/parts";
 import { pivotPath, polygonPath, wallPath } from "@/components/rich/simulation/paths";
 import { sceneAnchors, useSimulationScene } from "@/components/rich/simulation/useSimulationScene";
-import { ARROW_STROKE, RidingVector, StatedVector } from "@/components/rich/simulation/vectors";
+import { SceneArrows } from "@/components/rich/simulation/sceneArrows";
+import { ARROW_STROKE } from "@/components/rich/simulation/vectors";
 
 const CENTRE_DOT_RADIUS = 3;
 /** How strongly a strobe copy shows: enough to read the spacing, never a second body. */
@@ -49,6 +49,7 @@ export function SimulationBlock({ content }: Props) {
     play,
     pause,
     reduceMotion,
+    stages,
   } = useSimulationScene(content);
 
   if (!spec || !transform || !layout) {
@@ -171,25 +172,15 @@ export function SimulationBlock({ content }: Props) {
               <Support key={`support-${index}`} layout={tether.support} theme={theme} />
             ) : null,
           )}
-          {layout.angles.map((angle, index) => (
-            <AngleArc key={`angle-${index}`} layout={angle} theme={theme} />
-          ))}
-          {layout.vectors.map((vector, index) =>
-            vector.body !== null ? (
-              <RidingVector
-                key={`vector-${index}`}
-                layout={vector}
-                track={tracks[vector.body]}
-                progress={progress}
-                wheel={wheel}
-                theme={theme}
-                canvasWidth={width}
-                canvasHeight={height}
-              />
-            ) : (
-              <StatedVector key={`vector-${index}`} layout={vector} theme={theme} />
-            ),
-          )}
+          <SceneArrows
+            layout={layout}
+            stages={stages}
+            progress={progress}
+            wheel={wheel}
+            theme={theme}
+            canvasWidth={width}
+            canvasHeight={height}
+          />
           {centre && !layout.planet ? (
             <Circle cx={centre.px} cy={centre.py} r={CENTRE_DOT_RADIUS} color={theme.textSecondary} />
           ) : null}
@@ -256,6 +247,7 @@ export function SimulationBlock({ content }: Props) {
             wheel={wheel}
             theme={theme}
             progress={progress}
+            stages={stages}
             centre={centre}
             slope={slope}
             canvasWidth={width}
@@ -272,6 +264,7 @@ export function SimulationBlock({ content }: Props) {
             pivot={pivot !== null}
             spring={anchor !== null}
             reduceMotion={reduceMotion === true}
+            stages={stages}
           />
         ) : null}
       </View>

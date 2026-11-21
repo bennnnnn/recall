@@ -22,6 +22,7 @@ TitleKey = Literal[
     "height",
     "atwood",
     "forces",
+    "components",
     "spring",
     "pendulum",
     "circuit",

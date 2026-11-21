@@ -210,3 +210,78 @@ def _vector_sum_scene(
             alt=alt,
         )
     ]
+
+
+def resolution_scene(
+    *,
+    size: float,
+    x_value: float,
+    y_value: float,
+    unit: str,
+    from_vertical: bool,
+    alt: str,
+) -> list[SimulationBlockSpec]:
+    """A vector and its two components, drawn in that order (``SimulationVector.stage``).
+
+    The vector comes first, from the origin, with its angle marked from the axis the question
+    measured it from; then its horizontal component grows along that axis from the same tail,
+    and last its vertical component rises from there to the vector's tip, closing the
+    triangle. A component of zero length (a vector along an axis) is not drawn.
+    """
+    vector = SimulationVector(
+        anchor=[0.0, 0.0],
+        dx=x_value,
+        dy=y_value,
+        label=f"{plain_number(size, GIVEN_FIGURES)}{unit}"[:24],
+        role="force",
+        stage=0,
+    )
+    parts = [
+        SimulationVector(
+            anchor=anchor,
+            dx=dx,
+            dy=dy,
+            label=f"{plain_number(value)}{unit}"[:24],
+            role="result",
+            stage=stage,
+        )
+        for anchor, dx, dy, value, stage in (
+            ([0.0, 0.0], x_value, 0.0, x_value, 1),
+            ([x_value, 0.0], 0.0, y_value, y_value, 2),
+        )
+        if abs(value) > 1e-9 * size
+    ]
+    direction = math.degrees(math.atan2(y_value, x_value))
+    if from_vertical:
+        axis = 90.0 if y_value >= 0 else -90.0
+    else:
+        axis = 0.0 if x_value >= 0 else (180.0 if y_value >= 0 else -180.0)
+    angles = (
+        [
+            SimulationAngle(
+                vertex=[0.0, 0.0],
+                start_deg=axis,
+                end_deg=direction,
+                label=f"{plain_number(abs(direction - axis), GIVEN_FIGURES)}°",
+                stage=0,
+            )
+        ]
+        if abs(direction - axis) >= 1.0
+        else []
+    )
+    margin = size * 0.25
+    xs, ys = (0.0, x_value), (0.0, y_value)
+    return [
+        SimulationBlockSpec(
+            type="vector_sum",
+            title="Components",
+            title_key="components",
+            vectors=[vector, *parts],
+            angles=angles,
+            x_min=min(xs) - margin,
+            x_max=max(xs) + margin,
+            y_min=min(ys) - margin,
+            y_max=max(ys) + margin,
+            alt=alt,
+        )
+    ]

@@ -113,11 +113,13 @@ def changes_the_situation(ask: str) -> bool:
     return _RELATIVE.search(ask) is not None
 
 
-def _own_values(asks: list[str]) -> bool:
-    """Every part states its own values, of the same kinds ("the earth, where g = 10
-    m/s²", "the moon, where g = 1.6 m/s²"), so no part needs another's."""
+def _own_values(asks: list[str], givens: str = "") -> bool:
+    """Every part states its own values, so no part needs another's: values of the same kinds
+    ("the earth, where g = 10 m/s²", "the moon, where g = 1.6 m/s²"), or of any kinds under a
+    stem that states none ("Resolve each into two components. a) 60 N at 30° … b) 45 m/s at
+    80° …": read with the others, the second part was the first part's 60 N, 2026-11-20)."""
     kinds = [frozenset(unit.lower() for unit in _VALUE_UNIT.findall(ask)) for ask in asks]
-    return all(kinds) and len(set(kinds)) == 1
+    return all(kinds) and (len(set(kinds)) == 1 or _VALUE_UNIT.search(givens) is None)
 
 
 def _solved(text: str, settings: Settings) -> VerifiedPhysicsBlock | None:
@@ -190,7 +192,7 @@ def solve_in_parts(text: str, settings: Settings) -> VerifiedPhysicsBlock | None
         return None
     if any(changes_the_situation(ask) for ask in parts.asks):
         return None
-    own = _own_values(parts.asks)
+    own = _own_values(parts.asks, parts.givens)
     blocks: list[VerifiedPhysicsBlock] = []
     workings: list[PhysicsPartWorking] = []
     for number, ask in enumerate(parts.asks):
@@ -285,7 +287,8 @@ def joined_parts(
     ]
     for letter, block in zip("abcdefgh", blocks, strict=False):
         lines.extend([f"Part ({letter}):", block.text])
-    pictures = next((spec for spec in map(_pictures, blocks) if spec), [])
+    # Each part's own pictures, in the parts' order: a diagram per part asked for one.
+    pictures = [spec for block in blocks for spec in _pictures(block)]
     card = r";\quad ".join(working.display_answer for working in workings)
     first = blocks[0]
     return replace(

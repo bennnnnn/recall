@@ -82,20 +82,68 @@ VERIFIED: list[tuple[str, str, str]] = [
     ),
     (
         "resolve a 10 N force at 30 degrees into components",
-        "resolve_force",
+        "resolve_vector",
         "8.66 N horizontally and 5 N vertically",
     ),
     (
         "find the components of a 10 N force acting at 30 degrees",
-        "resolve_force",
+        "resolve_vector",
         "8.66 N horizontally and 5 N vertically",
     ),
     (
         "resolve a 10 N force acting at 30 degrees into horizontal and vertical components",
-        "resolve_force",
+        "resolve_vector",
         "8.66 N horizontally and 5 N vertically",
     ),
+    # Any vector, in the unit it is given in (owner's chat, 2026-11-20).
+    (
+        "Resolve 45 m/s at an angle of 80° from the horizontal into two components.",
+        "resolve_vector",
+        "7.81 m/s horizontally and 44.3 m/s vertically",
+    ),
+    # Measured from the vertical: the sine is across, the cosine up.
+    (
+        "Resolve 1900 km at an angle of 40° from the vertical into two components.",
+        "resolve_vector",
+        "1221 km horizontally and 1455 km vertically",
+    ),
+    # A bearing: west of north is from the vertical, and west is the negative side.
+    (
+        "A hiker walks 5 km 40° west of north. Find the components of the displacement.",
+        "resolve_vector",
+        "-3.21 km horizontally and 3.83 km vertically",
+    ),
+    (
+        "Resolve an acceleration of 3 m/s^2 at 20° below the horizontal into components.",
+        "resolve_vector",
+        "2.82 m/s² horizontally and -1.03 m/s² vertically",
+    ),
+    # A plane is an aircraft here, not an inclined plane.
+    (
+        "A plane flies at 250 km/h, 30° north of east. Find the components of its velocity.",
+        "resolve_vector",
+        "217 km/h horizontally and 125 km/h vertically",
+    ),
+    (
+        "Find the horizontal and vertical components of a momentum of 12 kg m/s at 60° to "
+        "the horizontal.",
+        "resolve_vector",
+        "6 kg·m/s horizontally and 10.4 kg·m/s vertically",
+    ),
 ]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Along a slope is the incline's own law, never across and up.
+        "a 50 N weight rests on a 30° incline; find its component along the slope",
+        "find the component of a 20 N force parallel to a ramp at 25°",
+    ],
+)
+def test_a_component_along_a_slope_is_not_resolved_across_and_up(text: str) -> None:
+    intent = extract_physics_intent(text)
+    assert intent is None or intent.physics_op != "resolve_vector"
 
 
 @pytest.mark.parametrize("text,op,answer", VERIFIED, ids=[row[0][:44] for row in VERIFIED])
@@ -113,7 +161,7 @@ def test_both_ops_have_at_least_three_phrasings() -> None:
 
     covered = Counter(op for _, op, _ in VERIFIED)
 
-    assert set(covered) == {"resultant_force", "resolve_force"}
+    assert set(covered) == {"resultant_force", "resolve_vector"}
     assert {op: n for op, n in covered.items() if n < 3} == {}
 
 

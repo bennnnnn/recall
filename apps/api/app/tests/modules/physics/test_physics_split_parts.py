@@ -180,3 +180,26 @@ def test_a_part_stating_another_value_gets_no_card() -> None:
     reply = "**Answer (a)**\n$h = 11.5\\ \\text{m}$\n\n**Answer (b)**\n$t = 3.62\\ \\text{s}$\n"
     assert parts_conflict(reply, [r"21.5\,\mathrm{m}", r"3.62\,\mathrm{s}"])
     assert not parts_conflict(reply, [r"11.5\,\mathrm{m}", r"3.62\,\mathrm{s}"])
+
+
+def test_a_stem_with_no_values_reads_each_lettered_vector_alone() -> None:
+    """The owner's chat (2026-11-20): one instruction, three vectors of different kinds. Read
+    with the parts before it, (b) was (a)'s 60 N again, so nothing was solved or drawn."""
+    question = (
+        "Draw simple vector diagrams and resolve them into two\ncomponents.\n"
+        "a) 60 N at an angle of 30° from the horizontal.\n"
+        "b) 45 m/s at an angle of 80° from the horizontal.\n"
+        "c) 1900 km at an angle of 40° from the vertical."
+    )
+    outcome, block = solve_physics_request(question, _SETTINGS, None)
+    assert outcome == "verified" and block is not None
+    assert [part.display_answer.split(r"\,")[0] for part in block.physics_parts] == [
+        "52",
+        "7.81",
+        "1221",
+    ]
+    scenes = [spec for spec in block.canonical_fences if spec.get("type") == "vector_sum"]
+    # A diagram for every part, each drawn vector first, then across, then up.
+    assert [scene["title_key"] for scene in scenes] == ["components"] * 3
+    for scene in scenes:
+        assert [vector["stage"] for vector in scene["vectors"]] == [0, 1, 2]
