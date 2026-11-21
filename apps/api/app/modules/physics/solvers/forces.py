@@ -233,6 +233,7 @@ def _resolve_vector(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult
             if vertical
             else (0.0 if x_sign > 0 else 180.0),
             angle_deg=math.degrees(theta),
+            bearing=raw.get("compass", 0.0) == 1.0,
             alt=(
                 f"A {plain_number(size, GIVEN_FIGURES)}{text_unit} vector split into "
                 f"{plain_number(x_value)}{text_unit} horizontally and "

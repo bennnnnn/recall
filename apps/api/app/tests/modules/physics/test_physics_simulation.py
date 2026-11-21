@@ -968,3 +968,21 @@ def test_an_angle_from_the_vertical_sits_between_the_vector_and_the_vertical_sid
     assert horizontal.dx == pytest.approx(original.dx)
     (arc,) = scene.angles
     assert arc.start_deg == 90.0
+
+
+def test_a_resolved_vector_stands_on_axes_through_its_tail() -> None:
+    """Owner, 2026-11-20: "doesn't it need the x and y axis?" The axes cross at the tail and
+    reach past the triangle; a bearing's are named E and N."""
+    scene = _scene("Resolve 45 m/s at an angle of 80° from the horizontal into two components.")
+    assert scene.axes is not None
+    assert scene.axes.origin == [0.0, 0.0]
+    assert scene.axes.x[0] < 0.0 < scene.axes.x[1] and scene.axes.y[0] < 0.0 < scene.axes.y[1]
+    assert (scene.axes.x_label, scene.axes.y_label) == ("x", "y")
+    hiker = _scene("A hiker walks 5 km 40° west of north. Find the components of the displacement.")
+    assert hiker.axes is not None and (hiker.axes.x_label, hiker.axes.y_label) == ("E", "N")
+    # A west component reaches the negative side: the x-axis runs past it.
+    assert hiker.axes.x[0] < min(v.anchor[0] + v.dx for v in hiker.vectors)
+
+
+def test_a_scene_without_axes_leaves_them_out_of_its_fence() -> None:
+    assert "axes" not in _scene(RESULTANT_Q).model_dump()

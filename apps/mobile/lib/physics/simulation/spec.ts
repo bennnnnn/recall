@@ -167,4 +167,18 @@ export type SimulationSpec = {
   /** One sentence a screen reader says for the picture, instead of the generated one. */
   alt?: string;
   titleKey?: SceneTitleKey;
+  /** The x and y axes a vector diagram stands on, as the server set them. */
+  axes?: SimulationAxes;
+};
+
+/**
+ * Two thin lines through `origin`, each from its low end to its high end, an arrowhead
+ * and its name ("x", "y"; "E", "N" for a bearing) at the high end. World coords.
+ */
+export type SimulationAxes = {
+  origin: { x: number; y: number };
+  x: [number, number];
+  y: [number, number];
+  xLabel: string;
+  yLabel: string;
 };

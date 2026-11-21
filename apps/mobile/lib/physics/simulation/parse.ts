@@ -4,6 +4,7 @@ import {
   type SceneTitleKey,
   type SimulationAngle,
   type SimulationArrow,
+  type SimulationAxes,
   type SimulationBody,
   type SimulationBodyShape,
   type SimulationKind,
@@ -56,6 +57,8 @@ const MAX_STAGE = 5;
 /** Each of tethers, angles and solids, as the server caps them. */
 const MAX_PARTS = 4;
 const MAX_SHORT_LABEL = 24;
+/** An axis is named in a letter or two: x, y, E, N. */
+const MAX_AXIS_LABEL = 4;
 const MAX_ALT = 300;
 const MIN_STROBE = 2;
 const MAX_STROBE = 12;
@@ -189,6 +192,28 @@ function parseAngle(raw: unknown): SimulationAngle {
     role,
     ...(label ? { label } : {}),
     ...(stage !== undefined ? { stage } : {}),
+  };
+}
+
+/** A vector diagram's axes; a pair out of order or not through its origin refuses the scene. */
+function parseAxes(raw: unknown): SimulationAxes | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  if (!isJsonRecord(raw)) refuse();
+  const origin = requirePoint(raw.origin);
+  const span = (value: unknown, at: number): [number, number] => {
+    if (!Array.isArray(value) || value.length !== 2) refuse();
+    const [low, high] = value.map(finiteNumber);
+    if (low === null || high === null || low >= high || at < low || at > high) refuse();
+    return [low, high];
+  };
+  const label = (value: unknown, fallback: string) =>
+    value === undefined ? fallback : (optionalText(value, MAX_AXIS_LABEL) ?? refuse());
+  return {
+    origin,
+    x: span(raw.x, origin.x),
+    y: span(raw.y, origin.y),
+    xLabel: label(raw.x_label, "x"),
+    yLabel: label(raw.y_label, "y"),
   };
 }
 
@@ -374,6 +399,7 @@ function readParts(
   const strobe = parseStrobe(row.strobe);
   const alt = optionalText(row.alt, MAX_ALT);
   const titleKey = parseTitleKey(row.title_key);
+  const axes = parseAxes(row.axes);
 
   // A string or an arrow riding on a body the scene does not have would be
   // drawn from nowhere.
@@ -386,7 +412,18 @@ function readParts(
   if (centralBody && !centre) return null;
   // A pendulum is its bob and its string, or it is a ball floating in space.
   if (row.type === "pendulum" && (bodies.length !== 1 || tethers.length === 0)) return null;
-  return { tethers, pulley, centralBody, angles, solids, arrowLabels, strobe, alt, titleKey };
+  return {
+    tethers,
+    pulley,
+    centralBody,
+    angles,
+    solids,
+    arrowLabels,
+    strobe,
+    alt,
+    titleKey,
+    ...(axes ? { axes } : {}),
+  };
 }
 
 /**

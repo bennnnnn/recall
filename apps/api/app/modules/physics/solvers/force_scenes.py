@@ -7,6 +7,7 @@ import math
 from app.modules.physics.display import GIVEN_FIGURES, plain_number
 from app.modules.physics.schemas import (
     SimulationAngle,
+    SimulationAxes,
     SimulationBlockSpec,
     SimulationBody,
     SimulationPulley,
@@ -221,6 +222,7 @@ def resolution_scene(
     base_deg: float,
     angle_deg: float,
     alt: str,
+    bearing: bool = False,
 ) -> list[SimulationBlockSpec]:
     """A vector and its two components, drawn in that order (``SimulationVector.stage``).
 
@@ -287,6 +289,16 @@ def resolution_scene(
     )
     margin = size * 0.25
     xs, ys = (0.0, x_value), (0.0, y_value)
+    # The axes through the tail, a little past the triangle on every side, so the angle's
+    # reference and each component's axis are drawn (owner, 2026-11-20).
+    reach = size * 0.15
+    axes = SimulationAxes(
+        origin=[0.0, 0.0],
+        x=[min(xs) - reach, max(xs) + reach],
+        y=[min(ys) - reach, max(ys) + reach],
+        x_label="E" if bearing else "x",
+        y_label="N" if bearing else "y",
+    )
     return [
         SimulationBlockSpec(
             type="vector_sum",
@@ -294,6 +306,7 @@ def resolution_scene(
             title_key="components",
             vectors=[vector, *parts],
             angles=angles,
+            axes=axes,
             x_min=min(xs) - margin,
             x_max=max(xs) + margin,
             y_min=min(ys) - margin,

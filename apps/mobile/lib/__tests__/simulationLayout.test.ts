@@ -402,6 +402,25 @@ describe("a vector resolved into components", () => {
     expect(box.x + box.width).toBeLessThanOrEqual(horizontal!.tip.px);
   });
 
+  it("stands on x and y axes through the tail, named past their arrowheads", () => {
+    const withAxes = { ...STEEP, axes: { origin: [0, 0], x: [-6.75, 14.56], y: [-6.75, 51.07] } };
+    const { scene, t } = layout(parse(withAxes));
+    const tail = worldToScreen(0, 0, t);
+    const axes = scene.axes!;
+    expect(axes.x.line.y1).toBeCloseTo(tail.py, 6);
+    expect(axes.y.line.x1).toBeCloseTo(tail.px, 6);
+    expect([axes.x.label.text, axes.y.label.text]).toEqual(["x", "y"]);
+    // "x" past the right-hand end, "y" above the top one.
+    expect(axes.x.label.box.x).toBeGreaterThanOrEqual(Math.min(axes.x.line.x2, 312 - axes.x.label.box.width));
+    expect(axes.y.label.box.y + axes.y.label.box.height).toBeLessThanOrEqual(axes.y.line.y2);
+  });
+
+  it("refuses axes that do not pass through their origin", () => {
+    const crooked = { ...STEEP, axes: { origin: [0, 0], x: [1, 14], y: [-6, 51] } };
+    expect(parseSimulationSpec(JSON.stringify(crooked))).toBeNull();
+    expect(parse(STEEP).axes).toBeUndefined();
+  });
+
   it("keeps the angle's arc inside the shorter side it sits on", () => {
     const { scene } = layout(parse(STEEP));
     const [, horizontal] = scene.vectors;

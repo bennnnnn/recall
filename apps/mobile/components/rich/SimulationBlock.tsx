@@ -19,6 +19,7 @@ import {
 } from "@/components/rich/simulation/parts";
 import { pivotPath, polygonPath, wallPath } from "@/components/rich/simulation/paths";
 import { sceneAnchors, useSimulationScene } from "@/components/rich/simulation/useSimulationScene";
+import { SceneAxes } from "@/components/rich/simulation/axes";
 import { SceneArrows } from "@/components/rich/simulation/sceneArrows";
 import { ARROW_STROKE } from "@/components/rich/simulation/vectors";
 
@@ -172,6 +173,7 @@ export function SimulationBlock({ content }: Props) {
               <Support key={`support-${index}`} layout={tether.support} theme={theme} />
             ) : null,
           )}
+          <SceneAxes axes={layout.axes} font={font} fallbacks={fallbacks} theme={theme} />
           <SceneArrows
             layout={layout}
             stages={stages}

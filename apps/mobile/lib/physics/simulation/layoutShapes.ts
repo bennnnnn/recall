@@ -95,6 +95,8 @@ export type SceneLines = {
   tetherLines: (Segment | null)[][];
   restLines: Segment[];
   arcLines: Segment[][];
+  /** A vector diagram's x and y axes; labels keep off them as off any line. */
+  axisLines?: Segment[];
 };
 
 function unit(dx: number, dy: number): { ux: number; uy: number } {
@@ -341,7 +343,7 @@ export function linesAt(
   frame: number,
   skip: { vector?: number; derived?: number; angle?: number },
 ): Segment[] {
-  const { vectorLines, derivedLines, tetherLines, restLines, arcLines } = sceneLines;
+  const { vectorLines, derivedLines, tetherLines, restLines, arcLines, axisLines } = sceneLines;
   const lines: Segment[] = [];
   vectorLines.forEach((frames, i) => {
     const line = frames[frame];
@@ -355,7 +357,7 @@ export function linesAt(
     const line = frames[frame];
     if (line) lines.push(line);
   }
-  lines.push(...restLines);
+  lines.push(...restLines, ...(axisLines ?? []));
   arcLines.forEach((segments, i) => {
     if (i !== skip.angle) lines.push(...segments);
   });

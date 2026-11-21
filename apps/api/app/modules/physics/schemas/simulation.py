@@ -190,6 +190,35 @@ class SimulationAngle(BaseModel):
         return _omit(handler(self), stage=None)
 
 
+class SimulationAxes(BaseModel):
+    """The x and y axes a vector diagram is drawn on: two thin lines through ``origin``,
+    each from its low end to its high end, an arrowhead and its name at the high end.
+
+    A resolved vector starts at the origin and each component lies along an axis, so the
+    reader sees what the angle is measured from (owner, 2026-11-20: "doesn't it need the x
+    and y axis?"). A bearing's axes are named E and N. The server sets every extent; the
+    phone draws exactly these.
+    """
+
+    origin: list[float]
+    x: list[float] = Field(min_length=2, max_length=2)
+    y: list[float] = Field(min_length=2, max_length=2)
+    x_label: str = Field(default="x", max_length=4)
+    y_label: str = Field(default="y", max_length=4)
+
+    @model_validator(mode="after")
+    def axes_through_origin(self) -> SimulationAxes:
+        _check_point(self.origin, "axes origin")
+        for name, (low, high) in (("x", self.x), ("y", self.y)):
+            if not (math.isfinite(low) and math.isfinite(high)) or low >= high:
+                raise ValueError(f"the {name}-axis needs a low end below its high end")
+        if not (
+            self.x[0] <= self.origin[0] <= self.x[1] and self.y[0] <= self.origin[1] <= self.y[1]
+        ):
+            raise ValueError("the axes cross at their origin")
+        return self
+
+
 class SimulationSolid(BaseModel):
     """A static rectangle: the table a ball rolls off, a cliff, a tank of water."""
 
@@ -496,6 +525,8 @@ class SimulationBlockSpec(BaseModel):
     optics: OpticsSpec | None = None
     wave: WaveSpec | None = None
     field: FieldSpec | None = None
+    # The x and y axes a vector diagram stands on (``SimulationAxes``).
+    axes: SimulationAxes | None = None
 
     @model_validator(mode="after")
     def coherent_scene(self) -> SimulationBlockSpec:
@@ -593,4 +624,5 @@ class SimulationBlockSpec(BaseModel):
             optics=None,
             wave=None,
             field=None,
+            axes=None,
         )
