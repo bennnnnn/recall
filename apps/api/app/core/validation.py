@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from itertools import product
 from uuid import UUID
 
 # ISO 639-1 codes supported by the mobile app (see apps/mobile/lib/i18n/languages.ts).
@@ -62,6 +63,8 @@ def unify_devanagari(text: str) -> str:
 
 # The same pairs the other way: a letter and its dot as one sign.
 _DOTTED_JOIN = {split: sign for sign, split in _DOTTED_SPLIT.items()}
+# Dotted letters past this many are searched written one way or the other, not mixed.
+_MOST_MIXED = 4
 _DOTTED_PAIR = re.compile("|".join(map(re.escape, _DOTTED_JOIN)))
 
 
@@ -73,7 +76,20 @@ def devanagari_spellings(text: str) -> tuple[str, ...]:
     if "\u093c" not in split:
         return (text,)
     joined = _DOTTED_PAIR.sub(lambda m: _DOTTED_JOIN[m.group()], split)
-    return tuple(dict.fromkeys((text, split, joined)))
+    pairs = list(_DOTTED_PAIR.finditer(split))
+    if len(pairs) > _MOST_MIXED:
+        return tuple(dict.fromkeys((text, split, joined)))
+    # Each dotted letter either way, so a text that mixes them ("ज़" as one sign, "ड़" as
+    # letter and dot) is found too: at most 2**_MOST_MIXED spellings.
+    spellings = [text, split, joined]
+    for choice in product((False, True), repeat=len(pairs)):
+        pieces, last = [], 0
+        for joined_here, match in zip(choice, pairs, strict=True):
+            pieces += [split[last : match.start()]]
+            pieces += [_DOTTED_JOIN[match.group()] if joined_here else match.group()]
+            last = match.end()
+        spellings.append("".join([*pieces, split[last:]]))
+    return tuple(dict.fromkeys(spellings))
 
 
 def normalize_display_name(raw: str | None) -> str | None:

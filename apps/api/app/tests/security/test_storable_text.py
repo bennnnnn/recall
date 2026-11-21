@@ -164,3 +164,16 @@ def test_a_dotted_devanagari_letter_is_stored_as_typed() -> None:
     assert ChatRename(title=one_sign).title == one_sign
     with pytest.raises(ValidationError):
         ChatRename(title=one_sign + "\u095b")
+
+
+def test_search_spells_each_dotted_letter_either_way() -> None:
+    """A text that mixes the forms (ज़ as one sign, ड़ as letter and dot) is searched in
+    every mix, not only all split or all joined (a review, 2026-11-21)."""
+    from app.core.validation import devanagari_spellings
+
+    mixed = "ज़रा ड़"
+    spellings = devanagari_spellings(mixed)
+    assert mixed in spellings
+    assert "ज़रा ड़" in spellings  # the other mix
+    assert len(spellings) == 4
+    assert devanagari_spellings("plain text") == ("plain text",)

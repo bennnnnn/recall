@@ -109,7 +109,9 @@ _ENGLISH_GRAMMAR = frozenset(
 
 def _mostly_other_script(text: str) -> bool:
     """More letters of another script than Latin ones: with no English grammar around its
-    English to-do word, the message is in that language."""
+    English to-do word, the message is in that language. A script's vowel signs count as
+    its letters: "मुझे remind करना" is 8 Devanagari letters and signs to 6 Latin letters
+    (a review, 2026-11-21: counting letters alone made it 5 to 6, and English)."""
     other = latin = 0
     for char in text:
         if char.isalpha():
@@ -117,7 +119,18 @@ def _mostly_other_script(text: str) -> bool:
                 latin += 1
             else:
                 other += 1
+        elif _script_sign(char):
+            other += 1
     return other > latin
+
+
+def _script_sign(char: str) -> bool:
+    """A vowel sign or mark of a script's own (Devanagari, Ethiopic …): never an accent
+    over a Latin letter or an emoji's variation selector."""
+    if not unicodedata.category(char).startswith("M"):
+        return False
+    name = unicodedata.name(char, "")
+    return not name.startswith(("COMBINING", "VARIATION SELECTOR"))
 
 
 def _is_latin(char: str) -> bool:

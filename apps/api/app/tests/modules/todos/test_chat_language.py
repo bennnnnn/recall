@@ -147,3 +147,10 @@ def test_a_message_with_no_language_of_its_own_follows_the_chat(
     text: str, prior: str | None, locale: str, read_only: bool
 ) -> None:
     assert writes_todos_in_todo_screen(text, prior_user=prior, locale=locale) is read_only
+
+
+@pytest.mark.parametrize("text", ["मुझे remind करना", "मुझे कल remind करना"])
+def test_a_short_hindi_request_with_an_english_verb_is_hindi(text: str) -> None:
+    """A review (2026-11-21): Hindi vowel signs are no letters to ``isalpha``, so "मुझे
+    remind करना" counted 5 Devanagari letters to 6 Latin ones and wrote a reminder."""
+    assert writes_todos_in_todo_screen(text, locale="en")
