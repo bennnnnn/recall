@@ -25,6 +25,10 @@ from app.modules.todos.chat_language import (
         "yarın saat 9'da annemi aramayı hatırlat",
         "напомни завтра в 9 позвонить маме",
         "ነገ 9 ሰዓት እናቴን እንድደውል አስታውሰኝ",
+        "मुझे कल सुबह 9 बजे दवाई लेने की याद दिलाना",
+        # Another script's letters outnumber the Latin ones: an English word borrowed.
+        "कल सुबह 9 बजे remind करना",
+        "напомни завтра в 9 позвонить маме, remind",
     ],
 )
 def test_a_message_in_another_language_changes_to_dos_in_the_todo_screen(text: str) -> None:
@@ -39,6 +43,8 @@ def test_a_message_in_another_language_changes_to_dos_in_the_todo_screen(text: s
         "mark the dentist done",
         # An English to-do word keeps a mixed message English.
         "remind me to call Getachew ነገ at 10am",
+        "remind me to call Дмитрий tomorrow",
+        "add दूध to my list",
         "remind me to fly to Los Angeles on Friday",
         "remind me tonight at 9 to text selam happy birthday 🎂",
         "done ✅ just talked to her",
@@ -59,12 +65,12 @@ def test_an_english_message_still_changes_to_dos_in_chat(text: str | None) -> No
         "recuérdame mañana a las 9 llamar a mamá",
         "¿qué tengo hoy?",
         "rappelle-moi demain d'appeler ma mère",
-        "erinnere mich morgen an den Zahnarzt",
-        "ricordami domani di chiamare la mamma",
         "lembra-me amanhã de ligar para a minha mãe",
         "напомни завтра позвонить маме",
         "yarın annemi aramayı hatırlat",
         "ነገ እናቴን እንድደውል አስታውሰኝ",
+        "कल मुझे माँ को फ़ोन करने की याद दिलाना",
+        "आज मेरे पास क्या है?",
     ],
 )
 def test_a_to_do_message_in_any_app_language_loads_the_list(text: str) -> None:

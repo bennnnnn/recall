@@ -33,6 +33,14 @@ _BUTTON = "Puedes añadirlo o cambiarlo en **Tareas**.\n\n```todo_link\n```"
         "добавь молоко в список",
         "ነገ 9 ሰዓት እናቴን እንድደውል አስታውሰኝ",
         "ወተት ወደ ዝርዝሬ ጨምር",
+        "मुझे कल सुबह 9 बजे दवाई लेने की याद दिलाना",
+        "कल माँ को फ़ोन करने की याद दिलाओ",
+        "दूध मेरी सूची में जोड़ो",
+        "मेरे टू-डू से डेंटिस्ट हटा दो",
+        "शुक्रवार के लिए रिमाइंडर लगा दो",
+        "कल सुबह 9 बजे remind करना",
+        # Dotted letters typed as one sign (ड़ U+095C): the same request.
+        "दूध मेरी सूची में जो\u095cो",
     ],
 )
 def test_a_to_do_change_in_another_language_is_read_as_one(text: str) -> None:
@@ -73,6 +81,12 @@ def test_a_to_do_change_in_another_language_is_read_as_one(text: str) -> None:
         "добавь условие в задачу",
         "реши задачу про поезд",
         "ዝርዝር መረጃ ጨምር",
+        # Hindi: reading the list, "it reminds me of", work, any list, a word inside another.
+        "आज मेरे पास क्या है?",
+        "यह गाना मुझे बचपन की याद दिलाता है",
+        "इस कोड में एक फ़ंक्शन जोड़ो जो काम करे",
+        "इस सूची में दूध जोड़ो",
+        "कला के बारे में बताओ",
         "",
         None,
     ],
@@ -93,6 +107,11 @@ def test_reading_or_an_everyday_ask_is_not_a_to_do_change(text: str | None) -> N
         ("¿a qué hora es mi cita?", True, False),
         ("a las 5", False, False),
         ("gracias", True, False),
+        ("हाँ, कल", True, True),
+        ("ठीक है", True, True),
+        ("शुक्रवार", True, True),
+        ("कला", True, False),
+        ("धन्यवाद", True, False),
     ],
 )
 def test_a_time_after_the_button_asks_again(text: str, after_button: bool, asks: bool) -> None:
@@ -103,6 +122,11 @@ def test_a_time_after_the_button_asks_again(text: str, after_button: bool, asks:
 def test_the_server_answers_a_spanish_ask_with_the_button() -> None:
     assert todo_screen_reply("añade comprar leche a mis tareas") == _BUTTON
     assert todo_screen_reply("напомни позвонить маме") == todo_screen_answer("ru")
+
+
+def test_the_server_answers_a_hindi_ask_with_the_button() -> None:
+    reply = todo_screen_reply("मुझे कल सुबह 9 बजे दवाई लेने की याद दिलाना", locale="hi")
+    assert reply == todo_screen_answer("hi")
 
 
 @pytest.mark.parametrize(

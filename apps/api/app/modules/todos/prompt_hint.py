@@ -67,8 +67,8 @@ _TODO_WRITE_HINT = (
     "A message in another language that asks to add, change, complete or delete a to-do "
     "gets no reminder fence and no question about when or what: one short line in their "
     "language saying they can do it themselves in "
-    "their To-do list (in the app: Tareas, Tâches, Aufgaben, Attività, Tarefas, Задачи, "
-    "Yapılacaklar, የሚደረጉ), then an empty ```todo_link fence last, which the app shows as "  # noqa: RUF001 - the Turkish name for To-do has a dotless i
+    "their To-do list (in the app: Tareas, Tâches, Tarefas, Задачи, Yapılacaklar, የሚደረጉ, "  # noqa: RUF001 - the Turkish name for To-do has a dotless i
+    "टू-डू), then an empty ```todo_link fence last, which the app shows as "
     "a button that opens the list. Never say it was added or changed. Questions about "
     "their to-dos are answered from **To-do** in every language.\n"
 )
@@ -86,8 +86,8 @@ TODO_READ_ONLY_TURN = (
     "change, complete or delete one, and nothing you write saves one. When they ask to, "
     "do not ask when, for a time or for any detail, and do not offer to do it: write one "
     "short line in their language saying they can do it themselves in their To-do list "
-    "(in the app: Tareas, Tâches, Aufgaben, Attività, Tarefas, Задачи, Yapılacaklar, "  # noqa: RUF001 - the Turkish name for To-do has a dotless i
-    "የሚደረጉ), then an empty ```todo_link fence last, which the app shows as a button "
+    "(in the app: Tareas, Tâches, Tarefas, Задачи, Yapılacaklar, የሚደረጉ, टू-डू), then an "  # noqa: RUF001 - the Turkish name for To-do has a dotless i
+    "empty ```todo_link fence last, which the app shows as a button "
     "that opens the list. Never say a to-do was added, changed, set or updated.\n"
 )
 TODO_READ_ONLY_HINT = TODO_READ_HINT + TODO_READ_ONLY_TURN + _TODO_DATES_HINT

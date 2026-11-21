@@ -1560,6 +1560,57 @@
     ]
   },
   {
+    "id": "rl-shape-language-german",
+    "area": "todo",
+    "prompt": "put that in German",
+    "reply": "Montag: Fitnessstudio",
+    "expect": "answer",
+    "history": [
+      [
+        "user",
+        "make me a plan for next week. i work sun mon tue wed nights. i want to study A+, go to gym 3 times, fix the car brakes and her birthday is friday"
+      ],
+      [
+        "assistant",
+        "Here's a week that fits your Sunday to Wednesday night shifts, with study and gym on the days you're off and the brakes and birthday slotted in around them.\n\n1. **Thursday, November 12 — Study and gym** — Do a **25-minute** A+ study block in the morning, then a full-body gym session in the afternoon since you're off the night before.\n2. **Friday, November 13 — Birthday day** — Keep it light: a short study block before you get ready, then the birthday plans. Leave the gym for another day.\n3. **Saturday, November 14 — Brakes and gym** — Call the Honda shop first thing about the brakes, then go to the gym after you've had a rest.\n4. **Sunday, November 8 — Study, before your shift** — Use a **25-minute** study block right after you wake up, since your energy is better early.\n5. **Monday, November 9 — Gym and call the shop** — Make the call to the Honda shop at **9:00 AM** as you set in your reminder, then do a gym session.\n6. **Tuesday, November 10 — Study and rest** — Do one more A+ block and keep the night light so you're rested for the shift.\n\n**Choose the Saturday brakes plan if** the shop is open and you can drop the car off then, and **the Monday call plan if** you need to book the repair earlier in the week."
+      ]
+    ]
+  },
+  {
+    "id": "rl-shape-language-italian",
+    "area": "todo",
+    "prompt": "put that in Italian",
+    "reply": "Lunedì: palestra",
+    "expect": "answer",
+    "history": [
+      [
+        "user",
+        "make me a plan for next week. i work sun mon tue wed nights. i want to study A+, go to gym 3 times, fix the car brakes and her birthday is friday"
+      ],
+      [
+        "assistant",
+        "Here's a week that fits your Sunday to Wednesday night shifts, with study and gym on the days you're off and the brakes and birthday slotted in around them.\n\n1. **Thursday, November 12 — Study and gym** — Do a **25-minute** A+ study block in the morning, then a full-body gym session in the afternoon since you're off the night before.\n2. **Friday, November 13 — Birthday day** — Keep it light: a short study block before you get ready, then the birthday plans. Leave the gym for another day.\n3. **Saturday, November 14 — Brakes and gym** — Call the Honda shop first thing about the brakes, then go to the gym after you've had a rest.\n4. **Sunday, November 8 — Study, before your shift** — Use a **25-minute** study block right after you wake up, since your energy is better early.\n5. **Monday, November 9 — Gym and call the shop** — Make the call to the Honda shop at **9:00 AM** as you set in your reminder, then do a gym session.\n6. **Tuesday, November 10 — Study and rest** — Do one more A+ block and keep the night light so you're rested for the shift.\n\n**Choose the Saturday brakes plan if** the shop is open and you can drop the car off then, and **the Monday call plan if** you need to book the repair earlier in the week."
+      ]
+    ]
+  },
+  {
+    "id": "rl-shape-language-hindi",
+    "area": "todo",
+    "prompt": "put that in Hindi",
+    "reply": "सोमवार: जिम",
+    "expect": "answer",
+    "history": [
+      [
+        "user",
+        "make me a plan for next week. i work sun mon tue wed nights. i want to study A+, go to gym 3 times, fix the car brakes and her birthday is friday"
+      ],
+      [
+        "assistant",
+        "Here's a week that fits your Sunday to Wednesday night shifts, with study and gym on the days you're off and the brakes and birthday slotted in around them.\n\n1. **Thursday, November 12 — Study and gym** — Do a **25-minute** A+ study block in the morning, then a full-body gym session in the afternoon since you're off the night before.\n2. **Friday, November 13 — Birthday day** — Keep it light: a short study block before you get ready, then the birthday plans. Leave the gym for another day.\n3. **Saturday, November 14 — Brakes and gym** — Call the Honda shop first thing about the brakes, then go to the gym after you've had a rest.\n4. **Sunday, November 8 — Study, before your shift** — Use a **25-minute** study block right after you wake up, since your energy is better early.\n5. **Monday, November 9 — Gym and call the shop** — Make the call to the Honda shop at **9:00 AM** as you set in your reminder, then do a gym session.\n6. **Tuesday, November 10 — Study and rest** — Do one more A+ block and keep the night light so you're rested for the shift.\n\n**Choose the Saturday brakes plan if** the shop is open and you can drop the car off then, and **the Monday call plan if** you need to book the repair earlier in the week."
+      ]
+    ]
+  },
+  {
     "id": "rl-shape-email",
     "area": "todo",
     "prompt": "put it in an email to my boss",

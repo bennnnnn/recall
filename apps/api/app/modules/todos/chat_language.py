@@ -7,9 +7,10 @@ another language reads its to-dos in chat; adding or changing one happens in the
 To-do screen, which the reply offers as a button (a ```todo_link fence).
 
 A message counts as another language on positive evidence: letters of another
-script (Cyrillic, Ethiopic, …), or at least two words that only the app's other
-Latin-script languages use. Any English to-do word keeps it English, so "remind me
-to call Getachew ነገ at 10am" still saves. A message with no language of its own
+script (Cyrillic, Ethiopic, Devanagari, …), or at least two words that only the app's
+other Latin-script languages use. An English to-do word keeps it English, so "remind me
+to call Getachew ነገ at 10am" still saves, unless the other script's letters outnumber the
+Latin ones: "कल सुबह 9 बजे remind करना" is Hindi with one English word in it. A message with no language of its own
 ("a las 5", "17:00", "sí") follows the chat: the user's previous message, then their
 app language. An answer to "¿cuándo?" never writes either.
 """
@@ -99,6 +100,19 @@ def _other_script(text: str) -> bool:
     return any(char.isalpha() and not _is_latin(char) for char in text)
 
 
+def _mostly_other_script(text: str) -> bool:
+    """More letters of another script than Latin ones: the message is in that language
+    whatever English word it borrows. A stray name ("Getachew ነገ") is not."""
+    other = latin = 0
+    for char in text:
+        if char.isalpha():
+            if _is_latin(char):
+                latin += 1
+            else:
+                other += 1
+    return other > latin
+
+
 def _is_latin(char: str) -> bool:
     try:
         return unicodedata.name(char).startswith("LATIN")
@@ -128,6 +142,8 @@ def _is_other_language(text: str | None) -> bool | None:
     if not text or not text.strip():
         return None
     words = [word.casefold() for word in _WORD.findall(text)]
+    if _mostly_other_script(text):
+        return True
     if any(word in _ENGLISH_TODO for word in words):
         return False
     if _other_script(text):
