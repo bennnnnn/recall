@@ -105,6 +105,7 @@ _SQRT = re.compile(r"\\sqrt\s*\{([^{}]*)\}")
 _POWER = re.compile(r"\^\s*\{([^{}]*)\}")
 _RELATION = re.compile(r"\\approx|≈|=")
 _MAX_EXPONENT = 64
+# Models round as they go: a step within 1% of its value is not called a slip.
 _RELATIVE_SLACK = 0.01
 
 
