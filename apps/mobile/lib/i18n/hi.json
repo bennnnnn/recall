@@ -523,7 +523,7 @@
   "notifications.todo_reminder_body": "{{content}} — {{time}} तक करना है",
   "notifications.todo_reminder_title": "टू-डू",
   "onboarding.consent_agree": "सहमत हूँ, जारी रखें",
-  "onboarding.consent_chats_body": "आपके मैसेज, हाल की चैट हिस्ट्री, काम की सेव की गई मेमोरी और प्रोफ़ाइल की जानकारी OpenRouter के ज़रिए Anthropic, OpenAI, DeepSeek, Qwen और Z.ai जैसे AI मॉडल प्रोवाइडर तक जाती है।",
+  "onboarding.consent_chats_body": "आपके मैसेज, हाल की चैट हिस्ट्री, काम की सेव की गई मेमोरी और प्रोफ़ाइल की जानकारी OpenRouter के ज़रिए Anthropic, OpenAI, DeepSeek, Qwen, Z.ai और Tencent जैसे AI मॉडल प्रोवाइडर तक जाती है।",
   "onboarding.consent_chats_title": "चैट और मेमोरी",
   "onboarding.consent_decline": "अभी नहीं, साइन आउट करें",
   "onboarding.consent_delete": "मेरा अकाउंट डिलीट करें",

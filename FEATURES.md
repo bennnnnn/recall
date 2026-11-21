@@ -676,8 +676,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - 🔜 **Collaborative cursors / shared docs** — multi-user editing not in scope for v1 personal app.
 
 ## 5. Models & routing
-- ✅ **Multiple tiers** — six chat models, none of them coding models. Free: Qwen3.7 Flash
-  (everyday, Auto's fast lane, and since 2026-11-11 Free's maths lane, `ROUTING.math_free`),
+- ✅ **Multiple tiers** — seven chat models, none of them coding models. Free: HY4 Flash
+  (Tencent; everyday, Auto's fast lane on Free and Plus since 2026-11-20, `ROUTING.everyday`),
+  Qwen3.7 Flash (since 2026-11-11 Free's maths lane, `ROUTING.math_free`),
   Claude Haiku 5.5 (`free-chat`, backup) and GLM 5.3 Flash (hard everyday turns, and the maths
   lane's first backup). Paid adds DeepSeek V4.1 Flash (`smart-chat`, its October 17 version `deepseek-v4.1-flash-1017`
   since 2026-11-11, the owner's call; the hard lane and, since
@@ -943,8 +944,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   automatic (`modules/chat/model_routing/thinking.py`): the turn's live read says whether the
   answer must be reasoned out first (`think`), the word rules decide when it gives no answer
   in time, and a regenerate or a disputed answer thinks one level more. Thinking needs a
-  model that can: Free's and Plus's everyday model (Qwen3.7 Flash, also Free's maths lane)
-  sends no reasoning at any level, so their first replies never think, by the owner's call.
+  model that can: Free's and Plus's everyday model (HY4 Flash) and Free's maths lane (Qwen3.7
+  Flash) send no reasoning at any level, so their first replies never think, by the owner's call.
   On Auto a regenerate moves off a model like that to the plan's maths lane or its backup,
   whichever thinks (DeepSeek on Plus, GLM 5.3 Flash on Free), at its escalate level
   (`model_routing/thinking.escalation_model`); Pro's everyday model thinks there itself. A

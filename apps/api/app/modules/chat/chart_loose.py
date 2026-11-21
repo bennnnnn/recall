@@ -1,6 +1,6 @@
 """A ```chart body written as loose text, read into JSON the phone draws.
 
-Qwen3.7 Flash, the free plan's everyday model, does not keep to the chart format it is
+Qwen3.7 Flash, then the free plan's everyday model, did not keep to the chart format it was
 given. Six replies to "make that a bar chart" after a month-by-month rainfall list
 (2026-10-24) wrote Chart.js JSON, YAML with a ``data`` list of label/value pairs, YAML
 with an ``xAxis`` list and ``series``, a mermaid-like block (``bar``, ``title "…"``, then
