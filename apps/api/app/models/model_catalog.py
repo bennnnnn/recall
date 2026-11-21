@@ -242,9 +242,10 @@ CATALOG: tuple[ChatModel, ...] = (
     # reasoning (Qwen3.7 Flash 5.3, GLM 5.3 Flash 6.5), every STEM corpus answer right, memory
     # recall 100%, and it called web_search on all 16 live-fact questions and none of 8 others;
     # about 1.4x Qwen3.7 Flash's cost a reply. Its first word comes later (1.2 s p50 against
-    # 0.6 s), and with reasoning on later still (3.6 s p50, 11 s p90), so it thinks only on a
-    # hard turn. "Try again" still moves to the plan's thinking model (DeepSeek on Plus, GLM
-    # 5.3 Flash on Free: ``thinking.escalation_model``), so escalate sends no reasoning here.
+    # 0.6 s). It sends no reasoning at any level, as Qwen3.7 Flash did: with low effort it
+    # wrote better replies but waited 11 s at p90, and on the live battery three hard turns
+    # thought past their budget without a word. "Try again" moves to the plan's thinking
+    # model (DeepSeek on Plus, GLM 5.3 Flash on Free: ``thinking.escalation_model``).
     # Photos are left to vision-chat: unmeasured on real photos.
     _or(
         id="hy4-flash",
@@ -257,7 +258,7 @@ CATALOG: tuple[ChatModel, ...] = (
         tier="fast",
         plan_access="free",
         thinking_off="off",
-        thinking_on="low",
+        thinking_on="off",
         thinking_escalate="off",
         supports_tools=True,
         json_mode=True,

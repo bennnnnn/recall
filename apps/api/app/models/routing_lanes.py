@@ -105,7 +105,7 @@ class RoutingLanes:
     # rules' lane. Only a hard question goes to the strong lane on a plan that has it (the
     # owner's call, 2026-11-10): a low one, code too, stays on the everyday lane (a git how-to
     # read as low code waited 7.8 s on DeepSeek), which thinks only where its model can: Pro's
-    # does, and HY4 Flash on Free and Plus thinks at low effort. STEM nothing verified goes to
+    # does, HY4 Flash on Free and Plus sends no reasoning. STEM nothing verified goes to
     # the maths lane, hard or not (the owner's call, 2026-11-11).
     decided: Mapping[str, tuple[str, str, str]]
 
