@@ -305,6 +305,26 @@ def test_auto_everyday_lane_follows_the_plan(plan: str, everyday: str) -> None:
     assert model_choice.resolve_user_model(_plan(plan), _EVERYDAY, settings) == everyday
 
 
+def test_pro_everyday_lane_holds_for_a_pool_saved_before_the_lane_changed() -> None:
+    """Review, 2026-11-20: a Pro user who saved Settings → Models before HY4 Flash existed has
+    no hy4-flash in the pool; their everyday turn picked Qwen3.7 Flash and, no longer the
+    everyday alias, skipped Pro's stronger model. A lightweight "hi" did the same."""
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    saved = ["qwen-3.7-flash", "free-chat", "smart-chat", "qwen-3.8-flash"]
+    user = _plan("pro", ["auto", *saved])
+    for content in (_EVERYDAY, "hi"):
+        assert model_choice.resolve_user_model(user, content, settings) == ROUTING.everyday_strong
+
+
+def test_pro_try_again_on_an_earlier_everyday_reply_gets_pro_s_everyday_model() -> None:
+    """A Qwen3.7 Flash reply from before 2026-11-20 (or a fallback) is an everyday reply."""
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    resolved = model_choice.resolve_regenerate_model(
+        _plan("pro"), None, _EVERYDAY, "qwen-3.7-flash", settings
+    )
+    assert resolved == ROUTING.everyday_strong
+
+
 def test_pro_hard_and_maths_turns_keep_their_lanes() -> None:
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
     user = _plan("pro")

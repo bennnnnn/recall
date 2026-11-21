@@ -62,7 +62,9 @@ def test_every_thinking_level_is_one_the_model_lists(model: model_catalog.ChatMo
 
 def test_qwen_never_thinks_on_any_level() -> None:
     # Its thinking took 500-1500 tokens and 11 s to first text in live calls.
-    for alias in ("qwen-3.7-flash", "title-model", "memory-model", "vision-chat"):
+    # HY4 Flash too (2026-11-20): at low effort three live hard turns thought past their
+    # budget without a word.
+    for alias in ("qwen-3.7-flash", "hy4-flash", "title-model", "memory-model", "vision-chat"):
         model = model_catalog.get(alias)
         for level in ("off", "hard", "escalate"):
             body = reasoning_body(model, level)

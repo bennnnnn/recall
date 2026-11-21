@@ -523,7 +523,7 @@
   "notifications.todo_reminder_body": "{{content}} — በ {{time}}",
   "notifications.todo_reminder_title": "የሚደረጉ",
   "onboarding.consent_agree": "እስማማለሁ፣ ቀጥል",
-  "onboarding.consent_chats_body": "መልዕክቶችዎ፣ የቅርብ ጊዜ የውይይት ታሪክ፣ ተዛማጅ የተቀመጠ ማህደረ ትውስታ እና የመገለጫ ዝርዝሮች በOpenRouter በኩል እንደ Anthropic፣ OpenAI፣ DeepSeek፣ Qwen, Z.ai እና Tencent ላሉ የAI ሞዴል አቅራቢዎች ይላካሉ።",
+  "onboarding.consent_chats_body": "መልዕክቶችዎ፣ የቅርብ ጊዜ የውይይት ታሪክ፣ ተዛማጅ የተቀመጠ ማህደረ ትውስታ እና የመገለጫ ዝርዝሮች በOpenRouter በኩል እንደ Anthropic፣ OpenAI፣ DeepSeek፣ Qwen፣ Z.ai እና Tencent ላሉ የAI ሞዴል አቅራቢዎች ይላካሉ።",
   "onboarding.consent_chats_title": "ውይይቶች እና ማህደረ ትውስታ",
   "onboarding.consent_decline": "አሁን አይደለም፣ ውጣ",
   "onboarding.consent_delete": "መለያዬን ሰርዝ",

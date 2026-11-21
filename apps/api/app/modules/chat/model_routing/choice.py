@@ -61,6 +61,16 @@ def resolve_user_model(
     return pick_cheapest_from_pool(pool, settings)
 
 
+def _is_everyday_tier(alias: str) -> bool:
+    """Auto's everyday lane, by tier: on a plan with the stronger everyday model the maths
+    and hard lanes are its smart models, so a fast one routed or replied is everyday."""
+    known = model_catalog.known_ids()
+    return (
+        alias in known
+        and model_catalog.get(alias).tier == model_catalog.get(model_catalog.auto_fast_alias()).tier
+    )
+
+
 def _everyday_for_plan(
     user: User, settings: Settings, routed: str, pool: list[str], unhealthy: frozenset[str]
 ) -> str:
@@ -69,8 +79,12 @@ def _everyday_for_plan(
     Only the everyday lane changes: hard and maths turns keep their lanes. The
     stronger model must be in the user's pool (they can switch it off) and healthy;
     otherwise the everyday model answers.
+
+    The everyday lane is told by its tier, not by the alias: a pool saved before the
+    lane's model changed picks another fast model for it, and a reply from the lane's
+    earlier model (Qwen3.7 Flash, before 2026-11-20) is still an everyday reply.
     """
-    if routed != model_catalog.auto_fast_alias() or not has_strong_everyday_model(user, settings):
+    if not has_strong_everyday_model(user, settings) or not _is_everyday_tier(routed):
         return routed
     strong = ROUTING.everyday_strong
     return strong if strong in pool and strong not in unhealthy else routed
