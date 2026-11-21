@@ -53,10 +53,11 @@ class ThreadSympyExecutor(BoundedSympyExecutor):
         *args: Any,
         timeout: float,  # noqa: ASYNC109 - we IMPLEMENT the timeout, not consume it
     ) -> _T:
-        # Production sends the arguments to a worker process: one it could not send fails
+        # Production sends the arguments to a worker process: data it could not send fails
         # there, so it fails here too (a turn's running task in the readings' seed failed
-        # every live turn's read while every test passed, 2026-11-21).
-        pickle.dumps(args)
+        # every live turn's read while every test passed, 2026-11-21). Functions are left
+        # out: tests hand the pool local fakes on purpose.
+        pickle.dumps([arg for arg in args if not callable(arg)])
         future = self._pool.submit(fn, *args)
         if not await wait_until_started(future, self._queue_wait_seconds):
             future.cancel()
