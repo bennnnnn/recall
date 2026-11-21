@@ -5,9 +5,10 @@ question states. Only a reading: every number in it is checked against the quest
 from __future__ import annotations
 
 import math
+import re
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.modules.math.drawing.plot_reading import number
 
@@ -36,8 +37,42 @@ MeasureWhat = Literal[
     "width",
     "edge",
     "slant_height",
+    # A scene of heights and distances: the distance along the ground (or the water) from
+    # the foot of what stands up, the distance between two points the angles are seen from,
+    # an object's shadow, and an angle measured from the vertical (a ladder's with its wall).
+    # In a circle, "distance" is from the centre (to a chord, or to a point outside).
+    "distance",
+    "gap",
+    "shadow",
+    "angle_from_vertical",
+    # A polygon's angle inside at a corner, and outside it (one side drawn on past it).
+    "interior_angle",
+    "exterior_angle",
+    # A circle's theorems: the angle an arc makes at the centre and at the circumference, a
+    # tangent's length.
+    "central_angle",
+    "inscribed_angle",
+    "tangent",
 ]
+# The measures that are angles, in degrees; every other one is a length.
+ANGLE_WHATS = frozenset(
+    {
+        "angle",
+        "apex_angle",
+        "base_angle",
+        "angle_from_vertical",
+        "interior_angle",
+        "exterior_angle",
+        "central_angle",
+        "inscribed_angle",
+    }
+)
 _KINDS = ("none", "polygon", "circle", "lines", "solid", "number_line", "function", "points")
+
+
+# A word naming an object rather than points is this long at least ("cone", "ship").
+_WORD = 3
+_LEADING = re.compile(r"\s*\d+(?:\.\d+)?")
 
 
 class Measure(BaseModel):
@@ -47,6 +82,41 @@ class Measure(BaseModel):
     what: MeasureWhat
     name: str = Field(default="", max_length=8)
     value: float = Field(gt=0, le=1_000_000)
+    # Which part of a figure of two the value belongs to ("cone", "semicircle", "tree"):
+    # the attached shape's name, an object's, or "second"; "" for the main shape.
+    of: str = Field(default="", max_length=16)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _named_object(cls, data: Any) -> Any:
+        """A measure named by a word ("lighthouse", "cone") names no points: the word says
+        what the value is of. A value written with its unit ("50 m", "35°") is its number.
+        Either read otherwise lost the measure, and the picture a stated value."""
+        if not isinstance(data, dict):
+            return data
+        data = dict(data)
+        name = str(data.get("name") or "").strip()
+        if len(name) >= _WORD and name.isalpha() and name.islower():
+            data["name"] = ""
+            data["of"] = data.get("of") or name
+        value = data.get("value")
+        if isinstance(value, str) and (found := _LEADING.match(value)):
+            data["value"] = found.group()
+        return data
+
+    @field_validator("of", mode="before")
+    @classmethod
+    def _of(cls, value: Any) -> str:
+        text = " ".join(str(value or "").strip().lower().replace("-", " ").split())
+        return text.replace(" ", "_")[:16]
+
+
+class AngleTerm(BaseModel):
+    """An angle the question writes with a letter, copied as written ("2x", "x + 20"), and
+    the letters naming it ("B", "AOC") or ""."""
+
+    term: str = Field(min_length=1, max_length=16)
+    name: str = Field(default="", max_length=4)
 
 
 class NamedPoint(BaseModel):
@@ -57,6 +127,81 @@ class NamedPoint(BaseModel):
 
 # The longest range end kept as written ("-π/2", "2*pi", "e^2"): a longer one is no end.
 _BOUND_CHARS = 24
+
+
+# Coordinate geometry and transformations (``plane``, ``transforms``) ---------------------
+TransformKind = Literal["reflection", "rotation", "translation", "enlargement"]
+_TRANSFORM_KINDS = {
+    "reflect": "reflection",
+    "reflection": "reflection",
+    "rotate": "rotation",
+    "rotation": "rotation",
+    "translate": "translation",
+    "translation": "translation",
+    "enlarge": "enlargement",
+    "enlargement": "enlargement",
+    "dilation": "enlargement",
+    "dilate": "enlargement",
+}
+
+
+class Pair(BaseModel):
+    x: float = Field(ge=-1_000_000, le=1_000_000)
+    y: float = Field(ge=-1_000_000, le=1_000_000)
+
+
+class Transform(BaseModel):
+    """A transformation the question applies to its points, as it states it: never the
+    image, which the server works out (``transforms``)."""
+
+    kind: TransformKind
+    # A reflection's mirror line as written: "x-axis", "y-axis", "y = x", "x = 2".
+    mirror: str = Field(default="", max_length=40)
+    # A rotation's angle in degrees, and its direction as the question says it.
+    angle: float | None = Field(default=None, ge=-360, le=360)
+    direction: Literal["", "clockwise", "anticlockwise"] = ""
+    # The centre of a rotation or an enlargement; None is the origin.
+    centre: Pair | None = None
+    # A translation's vector.
+    vector: Pair | None = None
+    # An enlargement's scale factor as written ("3", "1/2", "-2").
+    factor: str = Field(default="", max_length=12)
+
+    @field_validator("kind", mode="before")
+    @classmethod
+    def _kind(cls, value: Any) -> str:
+        text = str(value or "").strip().lower()
+        return _TRANSFORM_KINDS.get(text, text)
+
+    @field_validator("direction", mode="before")
+    @classmethod
+    def _direction(cls, value: Any) -> str:
+        text = str(value or "").strip().lower().replace("-", "").replace(" ", "")
+        if text in {"anticlockwise", "counterclockwise", "ccw"}:
+            return "anticlockwise"
+        return "clockwise" if text in {"clockwise", "cw"} else ""
+
+    @field_validator("factor", mode="before")
+    @classmethod
+    def _factor(cls, value: Any) -> str:
+        return "" if value is None or isinstance(value, bool) else str(value).strip()[:12]
+
+
+# The most transformations a reading keeps: more than a picture draws (``transforms``
+# draws two at most), so a chain longer than that is kept whole and refused there, never
+# cut to two that draw an image the question does not ask for.
+TRANSFORMS_READ = 6
+
+
+def _transforms(value: Any) -> list[Transform]:
+    """The transformations a reader gave, in order; a malformed one drops them all, as a
+    composite missing a step is no picture of the question. A list longer than a reading
+    keeps stays longer than a picture draws."""
+    items = value if isinstance(value, list) else [value] if isinstance(value, dict) else []
+    try:
+        return [Transform.model_validate(item) for item in items[:TRANSFORMS_READ]]
+    except ValueError:
+        return []
 
 
 class FigureRequest(BaseModel):
@@ -71,6 +216,9 @@ class FigureRequest(BaseModel):
     center: str = Field(default="", max_length=4)
     # The letter where an isosceles triangle's equal sides meet ("AB = AC": "A").
     apex: str = Field(default="", max_length=1)
+    # A circle's point off the circle: where tangents are drawn from ("P"), or where two
+    # chords cross ("E").
+    point: str = Field(default="", max_length=1)
     measures: list[Measure] = Field(default_factory=list, max_length=12)
     # A regular polygon's number of sides.
     sides: int | None = Field(default=None, ge=3, le=12)
@@ -79,6 +227,12 @@ class FigureRequest(BaseModel):
     # A shape drawn inside a circle with its corners on it, or around it.
     inscribed: str = Field(default="", max_length=32)
     circumscribed: str = Field(default="", max_length=32)
+    # The same shapes as the read names them, by where the circle is: one the circle passes
+    # through the corners of (inscribed in it), one it sits inside touching the sides of
+    # (circumscribed about it). "The circle inscribed in a triangle" read as an inscribed
+    # triangle drew its circumcircle (2026-11-20): these names say which is which.
+    circle_through: str = Field(default="", max_length=32)
+    circle_within: str = Field(default="", max_length=32)
     unit: str = Field(default="", max_length=12)
     # A number line: the numbers as written ("-5/2", "1.5"), or an inequality copied.
     numbers: list[str] = Field(default_factory=list, max_length=10)
@@ -98,6 +252,38 @@ class FigureRequest(BaseModel):
     # Points on a coordinate plane.
     points: list[NamedPoint] = Field(default_factory=list, max_length=12)
     quadrants: bool = False
+    # A second shape joined to the first ("semicircle" on a rectangle's side, "triangle" on
+    # its top, "rectangle" for an L-shape, "cone" on a hemisphere, "hemisphere" on a
+    # cylinder): ``shape`` is the main one, and each measure says which it is ``of``.
+    attached: str = Field(default="", max_length=32)
+    # Angles written with a letter ("x", "2x", "x + 20"): the server solves the letter
+    # where the angles' sum decides it and draws their sizes, labelled as written.
+    angle_terms: list[AngleTerm] = Field(default_factory=list, max_length=6)
+    # Coordinate geometry: how the points are joined ("segment", "polygon" or "" for
+    # points alone), a circle's equation as written, and the transformations applied to
+    # the points, in order (the server works the image out).
+    join: Literal["", "segment", "polygon"] = ""
+    equation: str = Field(default="", max_length=120)
+    transforms: list[Transform] = Field(default_factory=list, max_length=TRANSFORMS_READ)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _one_transform(cls, data: Any) -> Any:
+        """A reader that wrote one ``transform`` meant the list of one."""
+        if isinstance(data, dict) and "transform" in data and "transforms" not in data:
+            return {**data, "transforms": data["transform"]}
+        return data
+
+    @field_validator("join", mode="before")
+    @classmethod
+    def _join(cls, value: Any) -> str:
+        text = str(value or "").strip().lower()
+        return text if text in {"segment", "polygon"} else ""
+
+    @field_validator("transforms", mode="before")
+    @classmethod
+    def _transform_list(cls, value: Any) -> list[Transform]:
+        return _transforms(value)
 
     @field_validator("kind", mode="before")
     @classmethod
@@ -105,7 +291,15 @@ class FigureRequest(BaseModel):
         text = str(value or "").strip().lower()
         return text if text in _KINDS else "none"
 
-    @field_validator("shape", "inscribed", "circumscribed", mode="before")
+    @field_validator(
+        "shape",
+        "inscribed",
+        "circumscribed",
+        "attached",
+        "circle_through",
+        "circle_within",
+        mode="before",
+    )
     @classmethod
     def _name(cls, value: Any) -> str:
         return " ".join(str(value or "").strip().lower().replace("-", " ").split()).replace(
@@ -130,7 +324,7 @@ class FigureRequest(BaseModel):
         (SymPy: call it in the SymPy pool only); one it cannot read is None."""
         return _read_bound(self.x_min), _read_bound(self.x_max)
 
-    @field_validator("apex", mode="before")
+    @field_validator("apex", "point", mode="before")
     @classmethod
     def _letter(cls, value: Any) -> str:
         letter = str(value or "").strip()[:1]
@@ -156,6 +350,34 @@ class FigureRequest(BaseModel):
             except ValueError:
                 continue
         return kept
+
+    @field_validator("sides", mode="before")
+    @classmethod
+    def _sides(cls, value: Any) -> Any:
+        """No number of sides (0, a blank) is none, never the whole reading lost: a reader
+        filling every field wrote "sides": 0 for a ramp."""
+        return None if value in (0, "", "0") else value
+
+    @field_validator("angle_terms", mode="before")
+    @classmethod
+    def _terms(cls, value: Any) -> list[Any]:
+        """A term the reader wrote oddly is left out, never the whole reading."""
+        if not isinstance(value, list):
+            return []
+        kept: list[Any] = []
+        for item in value:
+            try:
+                kept.append(AngleTerm.model_validate(item))
+            except ValueError:
+                continue
+        return kept
+
+    @model_validator(mode="after")
+    def _circle_with_shape(self) -> FigureRequest:
+        """A shape the read names by where the circle is, as the builders read it."""
+        if self.circle_through or self.circle_within:
+            self.inscribed, self.circumscribed = self.circle_through, self.circle_within
+        return self
 
     def given(self, what: str) -> list[Measure]:
         return [measure for measure in self.measures if measure.what == what]

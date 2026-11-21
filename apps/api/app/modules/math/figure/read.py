@@ -47,17 +47,94 @@ _TEACH = (
     "statistics, probability, a definition or a proof in words, and a request for only the "
     "answer. A question that names a shape, a solid, a circle, an angle or points is drawn: "
     "when in doubt, draw it. Say what to draw, as JSON, from what the question states.\n"
+    # Heights and distances, similar triangles, shapes made of two, angles with a letter.
+    "Drawn too: heights and distances (an angle of elevation or depression, a ladder "
+    "against a wall, a kite string, a ramp), shadows and similar triangles, a shape made of "
+    "two (a rectangle with a semicircle or a triangle on it, an L-shape), a triangle's "
+    "exterior angle, a quadrilateral by its angles, a regular polygon by its perimeter or "
+    "its angle, complementary or supplementary angles and angles at a point or on a line, "
+    "even written with x, a frustum, a tetrahedron, a solid made of two (a cone on a "
+    "hemisphere) and a sphere (a solid, never a circle). A word problem about one of "
+    'these is drawn: "Two angles are supplementary and one is 65°. Find the other." -> '
+    'lines; "A 1.5 m post casts a 2 m shadow when a building casts a 24 m shadow. How tall '
+    'is the building?" -> polygon, shadows; "A garden is an L-shape made of a 10 m by 5 m '
+    'rectangle and a 4 m by 3 m rectangle. Find its area." -> polygon, rectangle with '
+    'attached rectangle; "Triangle KLM is similar to triangle RST, KL = 3 cm and RS = 4.5 '
+    'cm." -> polygon, similar_triangles, vertices "KLMRST", both sides; "From two points '
+    '25 m apart, the angles of elevation of a mast are 20° and 40°." -> polygon, '
+    "elevation, two angle measures and the gap.\n"
     'Not asked, drawn: "A triangle has sides 3, 4 and 5. Is it right-angled?" -> polygon; '
     '"A circle has diameter 10 cm. Find its area." -> circle; "Two angles at a point are '
     '150° and 90°. Find the third." -> lines; "Find the volume of a box 2 m by 3 m by 4 m." '
     '-> solid. Not asked, none: "Solve 3x - 4 = 8.", "What is 3/5 of 40?".\n'
 )
+
+# Circles and their theorems (kind circle): each shape names the theorem's figure, and the
+# measures and letters say what the question states of it.
+_CIRCLES = (
+    "\n\n"
+    "Circles (kind circle). A question about a circle's parts or one of its theorems is "
+    "drawn: a sector or an arc, a chord, a tangent, angles in a circle, a cyclic "
+    "quadrilateral, chords that cross, a ring between two circles, a circle with a shape "
+    "inside or around it. A cyclic quadrilateral is kind circle, never polygon. A sphere or "
+    "a hemisphere is kind solid, never circle.\n"
+    "- shape: circle (a circle with its radius, diameter or a chord and its distance from "
+    "the centre); sector (a sector or an arc: two radii and the angle between them at the "
+    "centre); semicircle (half a circle by itself, by its radius or diameter); segment "
+    "(the part cut off by a chord, with its angle at the centre); annulus "
+    "(a ring: two circles with one centre); tangent (a tangent from a point outside); "
+    "two_tangents (two tangents from one point); angle_at_centre (an arc's angle at the "
+    "centre and at the circumference, or two angles at the circumference on the same arc, "
+    "angles in the same segment: never cyclic_quadrilateral); angle_in_semicircle "
+    "(a diameter AB and a point C on the circle); cyclic_quadrilateral (four corners on the "
+    "circle); intersecting_chords (two chords crossing inside). A polygon with a circle "
+    "inside or around it is shape circle with circle_through or circle_within.\n"
+    "- measures, besides radius, diameter and chord: central_angle (an angle at the centre: "
+    "a sector's or an arc's angle, angle AOB); inscribed_angle (an angle with its corner on "
+    "the circle, angle ACB); distance (from the centre to a chord, or to the outside "
+    "point: OP); tangent (a tangent's length, from the outside point to where it touches); "
+    "angle (the angle between two tangents, named by their point; a cyclic "
+    "quadrilateral's corner); length (a part of a chord, named by its ends: AE). A right "
+    "angle a theorem gives (in a semicircle, where a tangent touches) is not stated: leave "
+    "it out.\n"
+    "- point: the letter of the outside point the tangents are drawn from (T in "
+    '"tangents TA and TB"), or of where two chords cross ("E"), or "".\n'
+    "- vertices: every letter the question names on the circle, the asked ones too, in "
+    'this order: where a tangent touches ("T"; "AB" for two), the diameter\'s ends then the '
+    'point on the circle ("ABC"), an arc\'s ends then each point its angles stand at '
+    '("ABCD" for angles ACB and ADB), a cyclic quadrilateral\'s corners ("ABCD"), the first '
+    "chord's ends then the second's (\"ABCD\").\n"
+    "- circle_through: the shape whose corners the circle passes through, the circle "
+    "around it (a square inscribed in a circle, a triangle's circumcircle, the circle "
+    "through a rectangle's corners). circle_within: the shape whose sides the circle "
+    "touches, the circle inside it (the circle inscribed in a triangle, its incircle, a "
+    "circle that sits inside a square). Name the shape as for a polygon "
+    "(equilateral_triangle, right_triangle, rectangle, regular_hexagon); its own sizes are "
+    "measures too (side, length, width, leg, hypotenuse), and parts "
+    '"radius" marks a radius the question asks for.\n'
+    'Examples: "A chord 10 cm long is 12 cm from the centre of a circle. How long is the '
+    'radius?" -> {"kind": "circle", "shape": "circle", "unit": "cm", "measures": [{"what": '
+    '"chord", "value": 10}, {"what": "distance", "value": 12}]}; "Angle ACB at the '
+    'circumference is 35°. Find angle AOB." -> {"kind": "circle", "shape": '
+    '"angle_at_centre", "center": "O", "vertices": "ABC", "measures": [{"what": '
+    '"inscribed_angle", "name": "ACB", "value": 35}]}; "Find the radius of the circle '
+    'inscribed in a square of side 6 m." -> {"kind": "circle", "shape": "circle", '
+    '"circle_within": "square", "unit": "m", "measures": [{"what": "side", "value": 6}], '
+    '"parts": ["radius"]}; "Tangents from P touch a circle with centre O at A and B. '
+    'Angle APB = 50°. Find angle AOB." -> {"kind": "circle", "shape": "two_tangents", '
+    '"center": "O", "point": "P", "vertices": "AB", "measures": [{"what": "angle", "name": '
+    '"APB", "value": 50}]}'
+)
+
 _BODY = (
     "\n"
     "Copy every number exactly as the question writes it. Never work a number out, round "
     "it or make one up: leave out any value the question does not state, and the app "
     'works out the rest. When the last message only asks to draw or show "it", the '
-    "picture is what the earlier user message states. A rate (2 cm/min) or a size at one "
+    "picture is what the earlier user messages state. The earlier messages are one problem "
+    "and its follow-ups, oldest first: draw the problem's figure with what the follow-ups "
+    'and the last message ask about marked ("find the diagonal": parts diagonals; "the '
+    'radius": parts radius). A rate (2 cm/min) or a size at one '
     'moment of a changing shape ("when r = 3 cm") is not the figure\'s size: leave it out.\n'
     "\n"
     "kind:\n"
@@ -72,8 +149,7 @@ _BODY = (
     '- "points": points plotted on a coordinate plane\n'
     '- "none": data to chart (a bar graph, pie chart, line graph of recorded values, '
     "pictograph, histogram, tally), a photo, nothing to draw, or a shape the shape lists "
-    "below do not name (a frustum, points or vectors in space, a polygon at given "
-    "coordinates, a window or a ladder): never a listed shape in its place\n"
+    "below do not name (points or vectors in space): never a listed shape in its place\n"
     "\n"
     "Fields, only those the picture needs:\n"
     "- shape: for a polygon one of triangle, right_triangle, isosceles_triangle, "
@@ -82,7 +158,23 @@ _BODY = (
     "for lines one of parallel_lines, intersecting_lines, angle, angles_on_line, "
     "angles_at_point, complementary_angles, perpendicular_lines; for a solid one of cube, "
     "cuboid, triangular_prism, cylinder, cone, square_pyramid, sphere, hemisphere; for a "
-    'circle "circle".\n'
+    "circle one of the circle shapes below.\n"
+    # Heights and distances, similar triangles, composite shapes, other polygons and solids.
+    "- shape, more polygons: elevation (something standing up seen from the ground), "
+    "depression (looking down from the top of a cliff, tower or lighthouse), leaning (a "
+    "ladder, plank or wire from the ground to a wall or pole), slope (a kite string, a "
+    "ramp, a slide: nothing stands up); shadows (objects and their shadows at one time); "
+    "similar_triangles (vertices: both triangles' six letters, corresponding in order, "
+    '"ABCDEF" for ABC ~ DEF, and every side named in either: two triangles the question '
+    "calls similar are this one figure, never one triangle); quadrilateral (any four-sided "
+    "shape that is none of the named ones). More lines: supplementary_angles. More "
+    "solids: frustum (of a cone), "
+    "square_frustum (of a square pyramid), tetrahedron.\n"
+    "- attached: a second shape joined to the first: for a rectangle or square, "
+    "semicircle, triangle, equilateral_triangle, rectangle (an L-shape) or square; for a "
+    "round solid, the solid on it: cone, hemisphere, cylinder, or hemispheres (one at each "
+    'end). shape is the first part ("a cone on a hemisphere": shape hemisphere, attached '
+    'cone), else "". A semicircle cut out of the shape adds "cut" to parts.\n'
     '- vertices: the letters naming the corners in order ("ABCD"), or "".\n'
     "- center: the letter naming a circle's centre or the point where diagonals meet "
     '("O"), or "".\n'
@@ -97,11 +189,32 @@ _BODY = (
     '"value": 90}. For a prism, length is the prism\'s own length (its height or '
     "altitude), and the sides of its end triangle are side, leg or hypotenuse. For a "
     "pyramid, edge is a slanting edge beside the base.\n"
+    # Measures of the scenes, the shapes made of two and the polygons by their angles.
+    "  More measures: in a heights scene, height is what stands up (tower, cliff, the "
+    "height up the wall), distance the ground (or the water) from its foot, length the "
+    "slanting line (ladder, string, ramp, line of sight), angle the angle with the ground "
+    "or the horizontal (an angle of elevation or depression), angle_from_vertical one "
+    "with the wall or the vertical, gap the distance between two points the angles are "
+    "seen from (two angles of elevation from two points: both angles and the gap); "
+    "shadow is a shadow's length. Every measure may say what it is of (a field "
+    'beside name): an object\'s ("pole", "tree"), "observer" for the height of the person '
+    "the angle is seen by (his eye level); in a shape made of two, the attached "
+    "part's name "
+    '("semicircle", "cone", "triangle"), "second" for a second rectangle, "" for the first '
+    "shape; the side a semicircle stands on is its diameter too. In a solid made of two, "
+    'a height is of its own part ("cone", "cylinder"). A regular polygon\'s perimeter is '
+    "perimeter, never its side; "
+    "interior_angle and exterior_angle are each angle of a regular polygon, and "
+    'exterior_angle a triangle\'s exterior angle (its name "ACD" or "C"); sides only '
+    "when the question states the number.\n"
+    '- angle_terms: angles written with a letter, [{"term": "2x", "name": ""}], term '
+    'copied exactly ("x + 20"), name its letters or ""; the angles stated in degrees stay '
+    "measures.\n"
     "- sides: a regular polygon's number of sides.\n"
     '- parts: extra parts to draw: "diagonals", "radius", "diameter", "net" (the solid\'s '
     "net).\n"
-    '- inscribed: a shape drawn inside the circle with its corners on it ("square"); '
-    "circumscribed: a shape drawn around the circle.\n"
+    '- circle_through: a shape drawn inside the circle with its corners on it ("square"); '
+    "circle_within: a shape drawn around the circle, its sides touching it.\n"
     '- unit: the unit of length ("cm"), or "".\n'
     '- numbers: the numbers to mark on a number line, as written ("-5/2", "1.5"); '
     'inequality: the inequality to show, copied exactly ("-2 < x <= 3"); integers: true '
@@ -117,6 +230,44 @@ _BODY = (
     'Example: "In parallelogram ABCD, angle A = 70°. Find angle B and draw the '
     'parallelogram." -> {"kind": "polygon", "shape": "parallelogram", "vertices": '
     '"ABCD", "measures": [{"what": "angle", "name": "A", "value": 70}]}'
+) + _CIRCLES
+
+# Coordinate geometry and transformations (``plane``, ``transforms``): kept apart from the
+# shapes above, as the server draws them where the question puts them.
+_COORDINATES = (
+    "\n\n"
+    "Coordinate geometry and transformations are kind points (never polygon or circle): "
+    "points the question writes as coordinates and the segments, shapes, circles and "
+    "transformations made of them. Not asked, these are drawn too: the distance, midpoint, "
+    "gradient or perpendicular bisector of two points, a shape at given vertices (its "
+    "area, showing it is a parallelogram or right-angled), a circle's equation, and a "
+    "reflection, rotation, translation or enlargement.\n"
+    '- points: every point the question writes as a pair, with its letter ("" when it '
+    "names none), never one it asks for (a midpoint, an image, a centre worked out) nor a "
+    "transformation's vector or centre.\n"
+    '- join: "segment" for the segment or line through two points, "polygon" for a shape '
+    'whose corners are the points in the question\'s order, "" for points alone.\n'
+    '- parts: asked of a segment, "midpoint", "gradient", "distance", '
+    '"perpendicular_bisector"; of a four-sided shape, "diagonals".\n'
+    '- equation: a circle\'s equation copied exactly ("x^2 + y^2 - 6x + 4y - 12 = 0"). '
+    "A circle given by its centre and its radius or a point on it: the centre (and "
+    "that point) in points, the radius in measures.\n"
+    "- transforms: each transformation of the points, in order: "
+    '{"kind": "reflection", "mirror": the line as written ("x-axis", "y-axis", "y = x", '
+    '"y = -x", "x = 2")}; {"kind": "rotation", "angle": 90, "direction": "clockwise", '
+    '"anticlockwise" or "", "centre": {"x": 1, "y": 2}, or null for the origin}; '
+    '{"kind": "translation", "vector": {"x": 4, "y": -1}}; {"kind": "enlargement", '
+    '"factor": "3" as written, "centre": as for a rotation}. Never the image\'s '
+    "coordinates: the app works them out.\n"
+    'Not asked, drawn: "Find the gradient of the line through (1, 4) and (3, 10)." -> '
+    '{"kind": "points", "join": "segment", "parts": ["gradient"], "points": [{"name": "", '
+    '"x": 1, "y": 4}, {"name": "", "x": 3, "y": 10}]}; "Find the centre and radius of the '
+    'circle x^2 + y^2 + 4x - 6y - 3 = 0." -> {"kind": "points", "equation": "x^2 + y^2 + '
+    '4x - 6y - 3 = 0"}.\n'
+    'Example: "Triangle ABC has vertices A(1, 2), B(4, 2) and C(1, 5). Find its image '
+    'after a reflection in the line y = x." -> {"kind": "points", "join": "polygon", '
+    '"points": [{"name": "A", "x": 1, "y": 2}, {"name": "B", "x": 4, "y": 2}, {"name": '
+    '"C", "x": 1, "y": 5}], "transforms": [{"kind": "reflection", "mirror": "y = x"}]}'
 )
 
 
@@ -144,7 +295,7 @@ async def read_figure(
             settings=settings,
             model_alias=ROUTING.math_extract,
             messages=[
-                {"role": "system", "content": (_ASKED if asked else _TEACH) + _BODY},
+                {"role": "system", "content": (_ASKED if asked else _TEACH) + _BODY + _COORDINATES},
                 {"role": "user", "content": _message(question, earlier)},
             ],
             schema=FigureRequest,

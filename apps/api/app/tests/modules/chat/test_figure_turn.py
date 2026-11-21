@@ -26,7 +26,7 @@ from app.modules.chat.turn_prep import StreamContext
 from app.services.solving import VerifiedMathBlock, VerifiedPhysicsBlock
 from app.tests.modules.chat.chat_test_support import turn_deps
 
-_FENCE = '```geometry\n{"type":"figure","shape":"cube","points":[{"name":"a","x":0,"y":0},{"name":"b","x":1,"y":0}],"segments":[{"a":"a","b":"b"}]}\n```'
+_FENCE = '```geometry\n{"type":"figure","shape":"cube","points":[{"name":"a","x":0,"y":0},{"name":"b","x":1,"y":0}],"segments":[{"a":"a","b":"b","label":"3 cm"}]}\n```'
 _QUESTION = "Find the volume of a cube with sides of 4 m, and draw the cube."
 
 
@@ -246,6 +246,87 @@ async def test_draw_it_reads_the_earlier_question(figure: _Figure) -> None:
     assert figure.asked == [("draw it", ["A rhombus has diagonals 10 cm and 24 cm."])]
 
 
+async def test_a_question_that_stands_alone_is_read_without_the_earlier_ones(
+    figure: _Figure,
+) -> None:
+    """The owner's chat (2026-11-20): a rectangle's area and perimeter after a question about
+    vectors drew nothing; read beside the vectors, the figure read said "no picture". A
+    message the read calls standalone (follow none) is read by itself."""
+    earlier = SimpleNamespace(role="user", content="Resolve 60 N at 30° into two components.")
+    reply = SimpleNamespace(role="assistant", content="52 N and 30 N.")
+    question = "If the length of a rectangle is 4 and the width 5, what is the area?"
+    line = SimpleNamespace(role="user", content=question)
+    ctx = _ctx(
+        question,
+        live_read=_read(subject="maths", picture="none", follow="none"),
+        recent_messages=[earlier, reply, line],
+    )
+    ctx.figure = figure_turn.start_figure(_settings(), ctx)
+    await figure_turn.attach_figure(_state(ctx, "**Answer**\n\n$A = 20$"))
+    assert figure.asked == [(question, [])]
+
+
+_VECTORS = "Resolve 60 N at 30° from the horizontal into two components."
+_RECTANGLE = "If the length of a rectangle is 4 and the width 5, what is the area?"
+
+
+def _chat(*lines: str) -> list[SimpleNamespace]:
+    out = []
+    for text in lines:
+        out += [
+            SimpleNamespace(role="user", content=text),
+            SimpleNamespace(role="assistant", content="…"),
+        ]
+    return out[:-1]
+
+
+async def test_draw_it_reads_the_problem_and_its_follow_ups_not_the_older_chat(
+    figure: _Figure, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The owner's chat (2026-11-20): vectors, then a rectangle, "Find the diagonal", "Draw
+    it". Read beside the vectors, "Draw it" drew nothing and the reply said it could not.
+    The referent read names the rectangle; the figure reads it and the follow-up since."""
+    from app.modules.chat import referent_read
+
+    async def named(*_: Any) -> referent_read.Referent:
+        return referent_read.Referent(_RECTANGLE)
+
+    monkeypatch.setattr(referent_read, "referent_for_turn", named)
+    ctx = _ctx(
+        "Draw it",
+        live_read=_read(subject="maths", picture="diagram", follow="draw"),
+        recent_messages=_chat(_VECTORS, _RECTANGLE, "Find the diagonal", "Draw it"),
+    )
+    ctx.figure = figure_turn.start_figure(_settings(), ctx)
+    await figure_turn.attach_figure(_state(ctx, "Here it is."))
+    assert figure.asked == [("Draw it", [_RECTANGLE, "Find the diagonal"])]
+
+
+async def test_a_follow_up_reads_the_problem_it_continues(
+    figure: _Figure, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.modules.chat import referent_read
+
+    async def continued(*_: Any) -> str:
+        return f"{_RECTANGLE} Find the diagonal"
+
+    monkeypatch.setattr(referent_read, "continuation_for_turn", continued)
+    ctx = _ctx(
+        "Find the diagonal",
+        live_read=_read(subject="maths", picture="none", follow="change"),
+        recent_messages=_chat(_VECTORS, _RECTANGLE, "Find the diagonal"),
+    )
+    ctx.figure = figure_turn.start_figure(_settings(), ctx)
+    await figure_turn.attach_figure(_state(ctx, "$d = 6.4$"))
+    assert figure.asked == [("Find the diagonal", [_RECTANGLE])]
+
+
+def test_a_short_earlier_line_is_not_taken_for_the_problem_s_start() -> None:
+    users = ["5", _RECTANGLE, "Find the diagonal"]
+    assert figure_turn.topic_lines(users, _RECTANGLE) == [_RECTANGLE, "Find the diagonal"]
+    assert figure_turn.topic_lines(["hello"], "A square of side 3") == ["A square of side 3"]
+
+
 async def test_a_solid_joins_the_plane_part_a_solve_drew(figure: _Figure) -> None:
     """The textbook's prism (b27): the solve drew the base triangle; the prism joins it."""
     figure.fence = _FENCE  # a cube
@@ -425,3 +506,82 @@ async def test_a_chemistry_solve_gets_no_maths_figure(figure: _Figure) -> None:
     ctx.figure = figure_turn.start_figure(_settings(), ctx)
     assert await figure_turn.attach_figure(_state(ctx, "Here.")) == "Here."
     assert figure.modes == []
+
+
+_BARE_RECTANGLE = (
+    "```geometry\n"
+    '{"type":"figure","shape":"rectangle","points":[{"name":"_0","x":0,"y":0},'
+    '{"name":"_1","x":3,"y":0}],"segments":[{"a":"_0","b":"_1"}]}\n```'
+)
+_LABELLED_RECTANGLE = (
+    "```geometry\n"
+    '{"type":"figure","shape":"rectangle","points":[{"name":"A","x":0,"y":0},'
+    '{"name":"B","x":8,"y":0}],"segments":[{"a":"A","b":"B","label":"8 cm"}]}\n```'
+)
+_BARE_CIRCLE = (
+    "```geometry\n"
+    '{"type":"figure","shape":"circle_parts","points":[{"name":"_0","x":0,"y":0}],'
+    '"arcs":[{"center":"_0","rx":3,"ry":3}]}\n```'
+)
+
+
+def test_a_picture_shows_a_value_only_when_a_label_holds_a_number() -> None:
+    """A reply's described picture with no value gives way to the figure with them (live,
+    2026-11-21: a bare 3-by-2 rectangle stood over the 8 by 6 with its diagonals)."""
+    assert not figure_turn._shows_a_value(_BARE_RECTANGLE)
+    assert figure_turn._shows_a_value(_LABELLED_RECTANGLE)
+    old = '```geometry\n{"type":"rectangle","labels":{"width":"6 cm"}}\n```'
+    assert figure_turn._shows_a_value(old)
+
+
+def test_a_picture_names_something_by_a_label_or_a_lettered_point() -> None:
+    """An unasked picture that names nothing is left out (live, 2026-11-21: "What is the
+    formula for the area of a circle?" got a bare circle)."""
+    assert not figure_turn._names_anything(_BARE_CIRCLE)
+    assert figure_turn._names_anything(_LABELLED_RECTANGLE)
+    lettered = _BARE_CIRCLE.replace('"name":"_0"', '"name":"O","show":true')
+    assert figure_turn._names_anything(lettered)
+    # A triangle's vertices kept unlettered name nothing (a review, 2026-11-21).
+    hidden = _BARE_CIRCLE.replace('"name":"_0"', '"name":"A"')
+    assert not figure_turn._names_anything(hidden)
+
+
+def test_a_named_problem_four_messages_back_keeps_its_follow_ups() -> None:
+    """A review (2026-11-21): the earlier lines stopped at three, so "draw it" after a
+    rectangle and three follow-ups found no start and lost "the diagonal" and the rest."""
+    lines = [
+        "A rectangle is 8 cm by 6 cm. Find its area.",
+        "Find the diagonal",
+        "and its perimeter",
+        "and its angles",
+    ]
+    recent = [SimpleNamespace(role="user", content=text) for text in [*lines, "draw it"]]
+    newest_first = figure_turn.earlier_user_lines(recent, "draw it", most=6)
+    assert len(figure_turn.earlier_user_lines(recent, "draw it")) == 3
+    users = list(reversed(newest_first))
+    assert figure_turn.topic_lines(users, lines[0]) == lines
+
+
+@pytest.mark.asyncio
+async def test_the_prep_leaves_a_shape_to_the_figure_only_when_the_read_wants_one() -> None:
+    """A review (2026-11-21): a read that came back empty still took "draw it" of a shape
+    from maths, and neither drew it. No read, an empty one or a late one: maths keeps it."""
+    from app.core import readings
+
+    settings = Settings(live_read_wait_seconds=0.05)
+    readings.begin_turn()
+    assert not await figure_turn.will_draw(settings)
+
+    async def empty() -> None:
+        return None
+
+    readings.keep_for_turn(figure_turn.LIVE_READ, asyncio.ensure_future(empty()))
+    assert not await figure_turn.will_draw(settings)
+
+    async def late() -> None:
+        await asyncio.sleep(5)
+
+    task = asyncio.ensure_future(late())
+    readings.keep_for_turn(figure_turn.LIVE_READ, task)
+    assert not await figure_turn.will_draw(settings)
+    task.cancel()

@@ -14,6 +14,7 @@ from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.core.readings import read_off_loop
+from app.modules.chat.figure_turn import will_draw
 from app.modules.chat.posed_read import posed_for_turn
 from app.modules.chat.prompt_builder import SubjectFetch, fetch_subject, inject_subject_block
 from app.modules.chat.referent_read import Referent, continuation_for_turn, referent_for_turn
@@ -369,12 +370,15 @@ async def _turn_followup(
     referent = await referent_for_turn(settings, request.content, recent)
     continued = await continuation_for_turn(settings, request.content, recent)
     timeout = settings.subject_read_timeout_seconds
+    # A shape the line asks to see is the figure's only when the figure will be drawn.
+    figures = referent is not None and await will_draw(settings)
     followup = await read_off_loop(
         resolve_subject_followup,
         request.content,
         role_content_dicts(prompt_messages),
         referent.problem if referent is not None else None,
         continued,
+        figures,
         timeout=timeout,
     )
     if followup is not None and followup.found:
