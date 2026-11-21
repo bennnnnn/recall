@@ -20,6 +20,7 @@ from app.core.readings import (
     keep_for_turn,
     kept_for_turn,
     kept_per_turn,
+    read_aside,
     read_off_loop,
     reading,
     readings_declined,
@@ -193,5 +194,17 @@ async def test_what_the_turn_keeps_for_itself_is_never_sent_to_the_pool() -> Non
 
     assert await read_off_loop(read_both, "a", "b", timeout=5) == "done"
     assert not readings_declined()
+    assert kept_for_turn("live_read") is task
+    await task
+
+
+async def test_an_aside_read_never_sends_what_the_turn_keeps_either() -> None:
+    """Review (#2519): ``read_aside`` sent the whole memo, so every aside read on a live-read
+    turn failed to pickle and returned None."""
+    begin_turn()
+    task = asyncio.create_task(asyncio.sleep(0))
+    keep_for_turn("live_read", task)
+
+    assert await read_aside(read_both, "a", "b", timeout=5) == "done"
     assert kept_for_turn("live_read") is task
     await task

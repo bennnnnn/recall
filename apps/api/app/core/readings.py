@@ -142,7 +142,7 @@ async def read_aside[T](
     try:
         result: T
         result, recorded = await run_sympy(
-            _record, fn, args, kwargs, dict(memo), timeout=timeout, lane="reading"
+            _record, fn, args, kwargs, _pool_seed(memo), timeout=timeout, lane="reading"
         )
     except Exception as exc:
         logger.info(
@@ -151,6 +151,12 @@ async def read_aside[T](
         return None
     memo.update(recorded)
     return result
+
+
+def _pool_seed(memo: dict[tuple[Any, ...], Any]) -> dict[tuple[Any, ...], Any]:
+    """The readings so far, for the worker; what the turn keeps for itself stays here: one
+    unpicklable kept value (the live read's task) failed every turn's read (2026-11-21)."""
+    return {key: value for key, value in memo.items() if not (key and key[0] == _TURN)}
 
 
 def kept_reading[T](fn: Callable[..., T], *args: Any, **kwargs: Any) -> T | None:
@@ -194,13 +200,10 @@ async def read_off_loop[T](
     if key is not None and key in memo:
         kept: T = memo[key]
         return _fresh(kept)
-    # The readings so far go to the worker; what the turn keeps for itself stays here: one
-    # unpicklable kept value (the live read's task) failed every turn's read (2026-11-21).
-    seed = {key: value for key, value in memo.items() if not (key and key[0] == _TURN)}
     try:
         result: T
         result, recorded = await run_sympy(
-            _record, fn, args, kwargs, seed, timeout=timeout, lane="reading"
+            _record, fn, args, kwargs, _pool_seed(memo), timeout=timeout, lane="reading"
         )
     except Exception as exc:
         logger.warning(
