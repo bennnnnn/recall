@@ -160,7 +160,9 @@ _STEM_MAX_START = 40
 
 
 def _is_mark(char: str) -> bool:
-    return unicodedata.category(char).startswith("M")
+    """A Devanagari vowel sign or virama. Not an emoji's variation selector or keycap
+    ("❤️", "1️⃣"), which are marks too and would stand as words of their own."""
+    return "\u0900" <= char <= "\u097f" and unicodedata.category(char).startswith("M")
 
 
 def _fold_capabilities_text(text: str) -> str:
@@ -169,8 +171,8 @@ def _fold_capabilities_text(text: str) -> str:
 
 
 def _letters_and_spaces(text: str) -> str:
-    """Replace punctuation with spaces in one pass (no regex). A vowel sign or a virama
-    (Devanagari's marks) is part of its word, not punctuation."""
+    """Replace punctuation with spaces in one pass (no regex). A Devanagari vowel sign or
+    virama is part of its word, not punctuation."""
     chars: list[str] = []
     for char in text:
         if char.isalnum() or char.isspace() or char in {"'", "-"} or _is_mark(char):

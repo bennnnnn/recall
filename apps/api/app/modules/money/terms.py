@@ -131,7 +131,9 @@ _FOREIGN_LENGTH = re.compile(
     r"(?<![\w.,])\d{1,3}\s?-?\s?(?:jahre?n?|monate?n?|años?|anos?|mes|meses|mês|ans|années?|mois"
     r"|anni|anno|mesi|mese|\u0433\u043e\u0434\u0430?|\u043b\u0435\u0442"
     r"|\u043c\u0435\u0441\u044f\u0446(?:\u0430|\u0435\u0432)?|y\u0131l|ay|ዓመት|ወር"
-    r"|साल|सालों|वर्ष|वर्षों|बरस|महीना|महीने|महीनों|माह)(?![\w-])",
+    r"|साल|सालों|वर्ष|वर्षों|बरस|महीना|महीने|महीनों|माह)"
+    # Devanagari's vowel signs are no \w: "12 सालाना किस्तें" (12 yearly instalments) is none.
+    r"(?![\w\-\u0900-\u0963\u0966-\u097f])",
     re.I,
 )
 # A length still to run ("3 years left", "2 years remaining"): the loan is part-paid, and

@@ -575,6 +575,9 @@ def test_compact_quote_turn_uses_blockquote_not_plain_prose():
         ("आप किन चीज़ों में मेरी मदद कर सकते हैं? कुछ ठोस उदाहरण दीजिए।", True),
         ("आप क्या कर सकते हैं?", True),
         ("आप क्या कर सकते हैं इस बग में?", False),
+        # An emoji's variation selector is no word.
+        ("what can you do? \u2764\ufe0f", True),
+        ("que peux-tu faire ? \u263a\ufe0f", True),
         ("What can you help me with on this FastAPI bug?", False),
         ("Can you help me with Python?", False),
         ("Write me an email about taking Friday off", False),

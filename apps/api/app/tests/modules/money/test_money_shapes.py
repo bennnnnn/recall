@@ -223,3 +223,19 @@ def test_a_savings_yield_grows_by_itself_each_year(text: str) -> None:
 def test_a_savings_plan_is_not_held_to_a_loans_deferral(text: str, balance: float) -> None:
     _, outputs = _worked(text)
     assert round(outputs["balance"] or 0.0, 2) == balance
+
+
+@pytest.mark.parametrize(
+    ("text", "foreign"),
+    [
+        ("for 20 साल", True),
+        ("60 महीने।", True),
+        ("5 सालों", True),
+        # "yearly", not "years": the vowel sign continues the word.
+        ("12 सालाना किस्तें", False),
+    ],
+)
+def test_a_hindi_length_is_read_as_a_whole_word(text: str, foreign: bool) -> None:
+    from app.modules.money.terms import _FOREIGN_LENGTH
+
+    assert bool(_FOREIGN_LENGTH.search(text)) is foreign

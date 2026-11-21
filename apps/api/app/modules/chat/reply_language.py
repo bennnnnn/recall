@@ -57,7 +57,7 @@ _INLINE_CODE = re.compile(r"`[^`\n]*`")
 # in Germany). Written with the dotted letter as a letter and its dot (``unify_devanagari``).
 _HI_NAMES = (
     "हिन्दी|हिंदी|अंग्रेज़ी|अंग्रेजी|स्पेनिश|स्पैनिश|फ्रेंच|फ़्रेंच|फ्रांसीसी|पुर्तगाली|रूसी|तुर्की भाषा|"
-    "अम्हारिक|जर्मन|इतालवी|इटालियन|जापानी|चीनी|अरबी|उर्दू|बंगाली|तमिल|तेलुगु|मराठी|गुजराती|पंजाबी"
+    "अम्हारिक|जर्मन|इतालवी|इटालियन|जापानी|अरबी|उर्दू|बंगाली|तमिल|तेलुगु|मराठी|गुजराती|पंजाबी"
 )
 _NAMES = (
     r"(?:english|ingl[eé]s|anglais|englisch|inglese|ingil[iı]zce|spanish|espa[nñ]ol|"
