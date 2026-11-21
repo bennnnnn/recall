@@ -1,0 +1,675 @@
+{
+ "_doc": "Geometry questions that ask to see no picture, as a tutorial asks them. draw: a figure helps teach it. sides: named lengths the figure must keep in proportion; angles: named angles (degrees) the figure must show at that vertex.",
+ "cases": [
+  {
+   "id": "tri-sss",
+   "cat": "triangle",
+   "prompt": "Triangle ABC has sides AB = 7 cm, BC = 8 cm and CA = 9 cm. Find its largest angle.",
+   "draw": true,
+   "sides": {
+    "AB": 7,
+    "BC": 8,
+    "CA": 9
+   }
+  },
+  {
+   "id": "tri-sas",
+   "cat": "triangle",
+   "prompt": "In triangle ABC, AB = 6 cm, AC = 9 cm and angle A = 50°. Find BC.",
+   "draw": true,
+   "sides": {
+    "AB": 6,
+    "AC": 9
+   },
+   "angles": {
+    "A": 50
+   }
+  },
+  {
+   "id": "tri-asa",
+   "cat": "triangle",
+   "prompt": "In triangle PQR, angle P = 40°, angle Q = 75° and PQ = 10 cm. Find QR.",
+   "draw": true,
+   "angles": {
+    "P": 40,
+    "Q": 75
+   }
+  },
+  {
+   "id": "tri-obtuse",
+   "cat": "triangle",
+   "prompt": "Triangle ABC has AB = 5, BC = 12 and angle B = 120°. Find AC.",
+   "draw": true,
+   "sides": {
+    "AB": 5,
+    "BC": 12
+   },
+   "angles": {
+    "B": 120
+   }
+  },
+  {
+   "id": "tri-heron",
+   "cat": "triangle",
+   "prompt": "Find the area of a triangle with sides 13 cm, 14 cm and 15 cm.",
+   "draw": true
+  },
+  {
+   "id": "tri-equi-height",
+   "cat": "triangle",
+   "prompt": "Find the height of an equilateral triangle with side 10 cm.",
+   "draw": true
+  },
+  {
+   "id": "tri-iso-apex",
+   "cat": "triangle",
+   "prompt": "An isosceles triangle has an apex angle of 40° and equal sides of 8 cm. Find the length of its base.",
+   "draw": true
+  },
+  {
+   "id": "tri-right-trig",
+   "cat": "triangle",
+   "prompt": "In right triangle ABC, angle C = 90°, AB = 13 and BC = 5. Find angle A.",
+   "draw": true,
+   "sides": {
+    "AB": 13,
+    "BC": 5
+   },
+   "angles": {
+    "C": 90
+   }
+  },
+  {
+   "id": "tri-306090",
+   "cat": "triangle",
+   "prompt": "A 30-60-90 triangle has a hypotenuse of 12 cm. Find the lengths of the other two sides.",
+   "draw": true
+  },
+  {
+   "id": "tri-median",
+   "cat": "triangle",
+   "prompt": "In triangle ABC, AB = AC = 10 cm and BC = 12 cm. Find the length of the median from A to BC.",
+   "draw": true,
+   "sides": {
+    "AB": 10,
+    "AC": 10,
+    "BC": 12
+   }
+  },
+  {
+   "id": "tri-exterior",
+   "cat": "angles",
+   "prompt": "An exterior angle of a triangle is 120° and one of the interior opposite angles is 50°. Find the other interior opposite angle.",
+   "draw": true,
+   "labels": [
+    "120°",
+    "50°"
+   ]
+  },
+  {
+   "id": "tri-angle-sum-x",
+   "cat": "triangle",
+   "prompt": "The angles of a triangle are x, 2x and 3x. Find each angle.",
+   "draw": true
+  },
+  {
+   "id": "tri-pyth-word",
+   "cat": "triangle",
+   "prompt": "A right triangle has one leg of 9 cm and a hypotenuse of 15 cm. Find the other leg and the area.",
+   "draw": true
+  },
+  {
+   "id": "quad-para-area",
+   "cat": "quadrilateral",
+   "prompt": "A parallelogram has sides of 8 cm and 5 cm with an angle of 60° between them. Find its area.",
+   "draw": true
+  },
+  {
+   "id": "quad-rhombus-angle",
+   "cat": "quadrilateral",
+   "prompt": "A rhombus has sides of 6 cm and one angle of 120°. Find the lengths of its diagonals.",
+   "draw": true
+  },
+  {
+   "id": "quad-kite",
+   "cat": "quadrilateral",
+   "prompt": "A kite has diagonals of 10 cm and 16 cm. Find its area.",
+   "draw": true
+  },
+  {
+   "id": "quad-iso-trap",
+   "cat": "quadrilateral",
+   "prompt": "An isosceles trapezium has parallel sides of 10 cm and 16 cm and slanting sides of 5 cm. Find its height and area.",
+   "draw": true
+  },
+  {
+   "id": "quad-rect-diag",
+   "cat": "quadrilateral",
+   "prompt": "A rectangle is 12 cm long and 5 cm wide. Find the length of its diagonal.",
+   "draw": true
+  },
+  {
+   "id": "quad-square-diag",
+   "cat": "quadrilateral",
+   "prompt": "The diagonal of a square is 10 cm. Find its side and area.",
+   "draw": true
+  },
+  {
+   "id": "quad-angles",
+   "cat": "quadrilateral",
+   "prompt": "In quadrilateral ABCD, angle A = 80°, angle B = 95° and angle C = 110°. Find angle D.",
+   "draw": true,
+   "labels": [
+    "80°",
+    "95°",
+    "110°"
+   ]
+  },
+  {
+   "id": "poly-hex-area",
+   "cat": "polygon",
+   "prompt": "Find the area of a regular hexagon with side 6 cm.",
+   "draw": true
+  },
+  {
+   "id": "poly-octagon-angle",
+   "cat": "polygon",
+   "prompt": "Find the size of each interior angle of a regular octagon.",
+   "draw": true
+  },
+  {
+   "id": "poly-pentagon",
+   "cat": "polygon",
+   "prompt": "A regular pentagon has a perimeter of 45 cm. Find the length of one side and each exterior angle.",
+   "draw": true
+  },
+  {
+   "id": "poly-sides-from-angle",
+   "cat": "polygon",
+   "prompt": "Each interior angle of a regular polygon is 140°. How many sides does it have?",
+   "draw": true
+  },
+  {
+   "id": "circ-chord-dist",
+   "cat": "circle",
+   "prompt": "A chord of length 16 cm is 6 cm from the centre of a circle. Find the radius of the circle.",
+   "draw": true,
+   "labels": [
+    "16",
+    "6"
+   ],
+   "needs": {
+    "arcs": 1
+   }
+  },
+  {
+   "id": "circ-sector",
+   "cat": "circle",
+   "prompt": "Find the area of a sector of a circle with radius 9 cm and angle 120°.",
+   "draw": true,
+   "labels": [
+    "9",
+    "120°"
+   ],
+   "needs": {
+    "arcs": 1
+   }
+  },
+  {
+   "id": "circ-arc",
+   "cat": "circle",
+   "prompt": "Find the length of an arc that subtends an angle of 72° at the centre of a circle of radius 10 cm.",
+   "draw": true,
+   "labels": [
+    "10",
+    "72°"
+   ],
+   "needs": {
+    "arcs": 1
+   }
+  },
+  {
+   "id": "circ-tangent",
+   "cat": "circle",
+   "prompt": "A point P is 13 cm from the centre O of a circle of radius 5 cm. Find the length of the tangent from P to the circle.",
+   "draw": true,
+   "labels": [
+    "5",
+    "13"
+   ],
+   "needs": {
+    "arcs": 1,
+    "angles": 1
+   }
+  },
+  {
+   "id": "circ-inscribed-angle",
+   "cat": "circle",
+   "prompt": "The angle at the centre of a circle subtended by an arc is 110°. Find the angle at the circumference subtended by the same arc.",
+   "draw": true,
+   "labels": [
+    "110°"
+   ],
+   "needs": {
+    "arcs": 1,
+    "angles": 2
+   }
+  },
+  {
+   "id": "circ-cyclic-quad",
+   "cat": "circle",
+   "prompt": "ABCD is a cyclic quadrilateral with angle A = 85° and angle B = 70°. Find angles C and D.",
+   "draw": true,
+   "labels": [
+    "85°",
+    "70°"
+   ],
+   "needs": {
+    "arcs": 1
+   }
+  },
+  {
+   "id": "circ-chords-intersect",
+   "cat": "circle",
+   "prompt": "Two chords AB and CD of a circle meet at E inside the circle. AE = 4 cm, EB = 6 cm and CE = 3 cm. Find ED.",
+   "draw": true,
+   "labels": [
+    "4",
+    "6",
+    "3"
+   ],
+   "needs": {
+    "arcs": 1
+   }
+  },
+  {
+   "id": "circ-semicircle",
+   "cat": "circle",
+   "prompt": "AB is a diameter of a circle and C is a point on the circle. AC = 6 cm and BC = 8 cm. Find the radius of the circle.",
+   "draw": true,
+   "labels": [
+    "6",
+    "8"
+   ],
+   "needs": {
+    "arcs": 1,
+    "angles": 1
+   }
+  },
+  {
+   "id": "circ-incircle",
+   "cat": "circle",
+   "prompt": "Find the radius of the circle inscribed in a right triangle with sides 3 cm, 4 cm and 5 cm.",
+   "draw": true,
+   "labels": [
+    "3",
+    "4",
+    "5"
+   ],
+   "needs": {
+    "arcs": 1
+   }
+  },
+  {
+   "id": "circ-annulus",
+   "cat": "circle",
+   "prompt": "Find the area of the ring between two circles with the same centre and radii 5 cm and 8 cm.",
+   "draw": true,
+   "labels": [
+    "5",
+    "8"
+   ],
+   "needs": {
+    "arcs": 2
+   }
+  },
+  {
+   "id": "circ-two-tangents",
+   "cat": "circle",
+   "prompt": "Two tangents are drawn from a point T to a circle with centre O and radius 6 cm. The angle between the tangents is 60°. Find the distance OT.",
+   "draw": true,
+   "labels": [
+    "6",
+    "60°"
+   ],
+   "needs": {
+    "arcs": 1
+   }
+  },
+  {
+   "id": "lines-cointerior",
+   "cat": "angles",
+   "prompt": "Two parallel lines are cut by a transversal. One of the co-interior angles is 72°. Find the other.",
+   "draw": true
+  },
+  {
+   "id": "lines-vertical",
+   "cat": "angles",
+   "prompt": "Two straight lines cross. One of the angles formed is 35°. Find the other three angles.",
+   "draw": true
+  },
+  {
+   "id": "lines-point-x",
+   "cat": "angles",
+   "prompt": "Three angles at a point are x, 2x and 150°. Find x.",
+   "draw": true
+  },
+  {
+   "id": "lines-bisector",
+   "cat": "angles",
+   "prompt": "Angle AOB is 84° and OC bisects it. Find angle AOC.",
+   "draw": true
+  },
+  {
+   "id": "lines-complement",
+   "cat": "angles",
+   "prompt": "Two angles are complementary and one of them is 28°. Find the other.",
+   "draw": true,
+   "labels": [
+    "28°"
+   ]
+  },
+  {
+   "id": "coord-distance",
+   "cat": "coordinate",
+   "prompt": "Find the distance between the points A(1, 2) and B(7, 10).",
+   "draw": true
+  },
+  {
+   "id": "coord-midpoint",
+   "cat": "coordinate",
+   "prompt": "Find the midpoint of the segment joining P(-3, 4) and Q(5, -2).",
+   "draw": true
+  },
+  {
+   "id": "coord-tri-area",
+   "cat": "coordinate",
+   "prompt": "Find the area of the triangle with vertices A(0, 0), B(6, 0) and C(2, 5).",
+   "draw": true,
+   "labels": [
+    "A",
+    "B",
+    "C"
+   ]
+  },
+  {
+   "id": "coord-slope",
+   "cat": "coordinate",
+   "prompt": "Find the gradient of the line through (2, 3) and (6, 11).",
+   "draw": true
+  },
+  {
+   "id": "coord-line-graph",
+   "cat": "coordinate",
+   "prompt": "Find where the line y = 3x - 6 crosses the x-axis and the y-axis.",
+   "draw": true
+  },
+  {
+   "id": "coord-circle-eq",
+   "cat": "coordinate",
+   "prompt": "Find the centre and radius of the circle x^2 + y^2 - 6x + 4y - 12 = 0.",
+   "draw": true
+  },
+  {
+   "id": "coord-parallelogram",
+   "cat": "coordinate",
+   "prompt": "Show that A(1, 1), B(5, 2), C(6, 6) and D(2, 5) form a parallelogram.",
+   "draw": true,
+   "labels": [
+    "A",
+    "B",
+    "C",
+    "D"
+   ]
+  },
+  {
+   "id": "coord-perp-bisector",
+   "cat": "coordinate",
+   "prompt": "Find the equation of the perpendicular bisector of A(2, 4) and B(6, 8).",
+   "draw": true
+  },
+  {
+   "id": "trans-reflect",
+   "cat": "transformation",
+   "prompt": "Triangle ABC has vertices A(1, 2), B(4, 2) and C(1, 5). Find the vertices of its reflection in the x-axis.",
+   "draw": true,
+   "labels": [
+    "A",
+    "B",
+    "C"
+   ]
+  },
+  {
+   "id": "trans-rotate",
+   "cat": "transformation",
+   "prompt": "The point P(3, 1) is rotated 90° anticlockwise about the origin. Find its image.",
+   "draw": true
+  },
+  {
+   "id": "trans-translate",
+   "cat": "transformation",
+   "prompt": "Triangle PQR with P(0, 0), Q(2, 0) and R(0, 3) is translated by the vector (4, 1). Find the new vertices.",
+   "draw": true
+  },
+  {
+   "id": "trans-enlarge",
+   "cat": "transformation",
+   "prompt": "A square with vertices (1, 1), (2, 1), (2, 2) and (1, 2) is enlarged by scale factor 3 about the origin. Find the new vertices.",
+   "draw": true
+  },
+  {
+   "id": "sim-triangles",
+   "cat": "similarity",
+   "prompt": "Triangles ABC and DEF are similar with AB = 4 cm, BC = 5 cm and DE = 6 cm. Find EF.",
+   "draw": true
+  },
+  {
+   "id": "sim-shadow",
+   "cat": "similarity",
+   "prompt": "A 2 m pole casts a shadow of 3 m. At the same time a tree casts a shadow of 18 m. How tall is the tree?",
+   "draw": true,
+   "labels": [
+    "2",
+    "3",
+    "18"
+   ]
+  },
+  {
+   "id": "trig-elevation",
+   "cat": "heights",
+   "prompt": "From a point 50 m from the foot of a tower, the angle of elevation of the top of the tower is 35°. Find the height of the tower.",
+   "draw": true,
+   "labels": [
+    "50",
+    "35°"
+   ]
+  },
+  {
+   "id": "trig-ladder",
+   "cat": "heights",
+   "prompt": "A 10 m ladder leans against a vertical wall with its foot 6 m from the wall. How high up the wall does it reach?",
+   "draw": true,
+   "labels": [
+    "10",
+    "6"
+   ]
+  },
+  {
+   "id": "trig-depression",
+   "cat": "heights",
+   "prompt": "From the top of an 80 m cliff, the angle of depression of a boat is 25°. How far is the boat from the foot of the cliff?",
+   "draw": true,
+   "labels": [
+    "80",
+    "25°"
+   ]
+  },
+  {
+   "id": "trig-kite-string",
+   "cat": "heights",
+   "prompt": "A kite is flying on a 60 m string that makes an angle of 50° with the ground. How high is the kite?",
+   "draw": true,
+   "labels": [
+    "60",
+    "50°"
+   ]
+  },
+  {
+   "id": "pyth-3d",
+   "cat": "solid",
+   "prompt": "Find the length of the longest diagonal of a cuboid measuring 3 cm by 4 cm by 12 cm.",
+   "draw": true
+  },
+  {
+   "id": "solid-cone",
+   "cat": "solid",
+   "prompt": "A cone has a radius of 6 cm and a height of 8 cm. Find its slant height and volume.",
+   "draw": true
+  },
+  {
+   "id": "solid-sphere",
+   "cat": "solid",
+   "prompt": "Find the surface area of a sphere with radius 7 cm.",
+   "draw": true
+  },
+  {
+   "id": "solid-hemisphere",
+   "cat": "solid",
+   "prompt": "Find the volume of a hemisphere with a diameter of 12 cm.",
+   "draw": true
+  },
+  {
+   "id": "solid-tri-prism",
+   "cat": "solid",
+   "prompt": "A triangular prism has a right-angled triangle end with legs 3 cm and 4 cm, and a length of 10 cm. Find its volume and surface area.",
+   "draw": true
+  },
+  {
+   "id": "solid-pyramid",
+   "cat": "solid",
+   "prompt": "A square pyramid has a base of side 10 cm and a slant height of 13 cm. Find its vertical height and volume.",
+   "draw": true
+  },
+  {
+   "id": "solid-frustum",
+   "cat": "solid",
+   "prompt": "A frustum of a cone has end radii 3 cm and 6 cm and a height of 4 cm. Find its volume.",
+   "draw": true,
+   "labels": [
+    "3",
+    "6",
+    "4"
+   ]
+  },
+  {
+   "id": "solid-cylinder-sa",
+   "cat": "solid",
+   "prompt": "Find the total surface area of a closed cylinder with radius 4 cm and height 9 cm.",
+   "draw": true
+  },
+  {
+   "id": "solid-tetrahedron",
+   "cat": "solid",
+   "prompt": "Find the surface area of a regular tetrahedron with edges of 6 cm.",
+   "draw": true
+  },
+  {
+   "id": "solid-composite",
+   "cat": "solid",
+   "prompt": "A toy is a cone of height 8 cm standing on a hemisphere of radius 6 cm. Find its total volume.",
+   "draw": true
+  },
+  {
+   "id": "solid-cube-net",
+   "cat": "solid",
+   "prompt": "A cube has edges of 5 cm. Find the total area of its net.",
+   "draw": true
+  },
+  {
+   "id": "comp-rect-semi",
+   "cat": "composite",
+   "prompt": "A shape is made of a rectangle 10 cm by 6 cm with a semicircle on one of its 6 cm sides. Find its perimeter.",
+   "draw": true,
+   "labels": [
+    "10",
+    "6"
+   ],
+   "needs": {
+    "arcs": 1
+   }
+  },
+  {
+   "id": "comp-square-circle",
+   "cat": "composite",
+   "prompt": "A circle of radius 5 cm sits inside a square of side 10 cm. Find the area of the square outside the circle.",
+   "draw": true,
+   "labels": [
+    "10"
+   ],
+   "needs": {
+    "arcs": 1
+   }
+  },
+  {
+   "id": "comp-l-shape",
+   "cat": "composite",
+   "prompt": "An L-shaped room is made of a 6 m by 4 m rectangle joined to a 3 m by 2 m rectangle. Find its area.",
+   "draw": true,
+   "labels": [
+    "6",
+    "4",
+    "3",
+    "2"
+   ]
+  },
+  {
+   "id": "construct-tri",
+   "cat": "construction",
+   "prompt": "Construct triangle ABC with AB = 7 cm, BC = 5 cm and angle B = 60°, then measure AC.",
+   "draw": true,
+   "sides": {
+    "AB": 7,
+    "BC": 5
+   },
+   "angles": {
+    "B": 60
+   }
+  },
+  {
+   "id": "none-percent",
+   "cat": "none",
+   "prompt": "What is 15% of 80?",
+   "draw": false
+  },
+  {
+   "id": "none-linear",
+   "cat": "none",
+   "prompt": "Solve 3x - 4 = 11.",
+   "draw": false
+  },
+  {
+   "id": "none-probability",
+   "cat": "none",
+   "prompt": "A bag has 3 red and 5 blue balls. What is the probability of picking a red ball?",
+   "draw": false
+  },
+  {
+   "id": "none-mean",
+   "cat": "none",
+   "prompt": "Find the mean of 4, 8, 15, 16 and 23.",
+   "draw": false
+  },
+  {
+   "id": "none-convert",
+   "cat": "none",
+   "prompt": "Convert 3.5 m to centimetres.",
+   "draw": false
+  },
+  {
+   "id": "none-factor",
+   "cat": "none",
+   "prompt": "Factorise x^2 - 5x + 6.",
+   "draw": false
+  }
+ ]
+}
