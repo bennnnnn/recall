@@ -87,12 +87,15 @@ _CIRCLES = (
     "centre and at the circumference, or two angles at the circumference on the same arc, "
     "angles in the same segment: never cyclic_quadrilateral); angle_in_semicircle "
     "(a diameter AB and a point C on the circle); cyclic_quadrilateral (four corners on the "
-    "circle); intersecting_chords (two chords crossing inside). A polygon with a circle "
-    "inside or around it is shape circle with circle_through or circle_within.\n"
+    "circle); intersecting_chords (two chords crossing inside one circle); two_circles "
+    "(two circles with different centres: both radii, the distance between the centres, "
+    "their common chord). A polygon with a circle inside or around it is shape circle with "
+    "circle_through or circle_within.\n"
     "- measures, besides radius, diameter and chord: central_angle (an angle at the centre: "
     "a sector's or an arc's angle, angle AOB); inscribed_angle (an angle with its corner on "
     "the circle, angle ACB); distance (from the centre to a chord, or to the outside "
-    "point: OP); tangent (a tangent's length, from the outside point to where it touches); "
+    "point: OP, or between two circles' centres); tangent (a tangent's length, from the "
+    "outside point to where it touches); "
     "angle (the angle between two tangents, named by their point; a cyclic "
     "quadrilateral's corner); length (a part of a chord, named by its ends: AE). A right "
     "angle a theorem gives (in a semicircle, where a tangent touches) is not stated: leave "
@@ -168,13 +171,16 @@ _BODY = (
     '"ABCDEF" for ABC ~ DEF, and every side named in either: two triangles the question '
     "calls similar are this one figure, never one triangle); quadrilateral (any four-sided "
     "shape that is none of the named ones). More lines: supplementary_angles. More "
-    "solids: frustum (of a cone), "
+    "solids: frustum (of a cone, and a cone cut parallel to its base: each measure's of "
+    'says whose it is, "original" cone, "removed" cone or "frustum"), '
     "square_frustum (of a square pyramid), tetrahedron.\n"
     "- attached: a second shape joined to the first: for a rectangle or square, "
     "semicircle, triangle, equilateral_triangle, rectangle (an L-shape) or square; for a "
     "round solid, the solid on it: cone, hemisphere, cylinder, or hemispheres (one at each "
     'end). shape is the first part ("a cone on a hemisphere": shape hemisphere, attached '
     'cone), else "". A semicircle cut out of the shape adds "cut" to parts.\n'
+    '- inscribed: for a cylinder or a cube, a sphere that fits inside it ("sphere"); '
+    "shape is the cylinder or the cube.\n"
     '- vertices: the letters naming the corners in order ("ABCD"), or "".\n'
     "- center: the letter naming a circle's centre or the point where diagonals meet "
     '("O"), or "".\n'
@@ -212,7 +218,9 @@ _BODY = (
     "measures.\n"
     "- sides: a regular polygon's number of sides.\n"
     '- parts: extra parts to draw: "diagonals", "radius", "diameter", "net" (the solid\'s '
-    "net).\n"
+    'net), "altitude" (a right triangle\'s altitude from its right angle to the '
+    "hypotenuse: each part it cuts the hypotenuse into is a length, the altitude a "
+    "height).\n"
     '- circle_through: a shape drawn inside the circle with its corners on it ("square"); '
     "circle_within: a shape drawn around the circle, its sides touching it.\n"
     '- unit: the unit of length ("cm"), or "".\n'

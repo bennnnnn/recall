@@ -1934,6 +1934,177 @@
      4
     ]
    ]
+  },
+  {
+   "id": "hard-right-altitude-split",
+   "cat": "triangle",
+   "prompt": "A right-angled triangle has a hypotenuse of 25 cm. The altitude from the right angle divides the hypotenuse into two segments of 9 cm and 16 cm.\n\nFind:\na) The altitude.\nb) The lengths of both legs.\nc) The area of the triangle.",
+   "draw": true,
+   "sides": {
+    "AB": 25,
+    "CD": 12
+   },
+   "labels": [
+    "25",
+    "9",
+    "16"
+   ],
+   "needs": {
+    "angles": 2
+   }
+  },
+  {
+   "id": "hard-right-altitude-legs",
+   "cat": "triangle",
+   "prompt": "The two shorter sides of a right-angled triangle are 6 cm and 8 cm. Find the length of the altitude drawn from the right angle to the hypotenuse.",
+   "draw": true,
+   "labels": [
+    "6",
+    "8"
+   ],
+   "needs": {
+    "angles": 2
+   },
+   "extent": {
+    "width": 10,
+    "height": 4.8
+   }
+  },
+  {
+   "id": "hard-iso-trap-equal-sides",
+   "cat": "quadrilateral",
+   "prompt": "An isosceles trapezoid has parallel sides of 20 cm and 12 cm, and equal non-parallel sides of 5 cm.\n\nFind:\na) Its height.\nb) Its area.\nc) Its perimeter.",
+   "draw": true,
+   "sides": {
+    "AB": 20,
+    "CD": 12,
+    "DA": 5,
+    "BC": 5
+   },
+   "labels": [
+    "20",
+    "12",
+    "5"
+   ],
+   "extent": {
+    "width": 20,
+    "height": 3
+   }
+  },
+  {
+   "id": "hard-iso-trap-legs-first",
+   "cat": "quadrilateral",
+   "prompt": "The non-parallel sides of an isosceles trapezium are each 10 cm long and its parallel sides are 8 cm and 20 cm. Find its area.",
+   "draw": true,
+   "labels": [
+    "10",
+    "8",
+    "20"
+   ],
+   "extent": {
+    "width": 20,
+    "height": 8
+   }
+  },
+  {
+   "id": "hard-sphere-in-cylinder",
+   "cat": "solid",
+   "prompt": "A sphere of radius 5 cm fits exactly inside a right circular cylinder.\n\nFind:\na) The cylinder's radius and height.\nb) The volume of the cylinder.\nc) The volume of the sphere.\nd) The percentage of the cylinder's volume occupied by the sphere.",
+   "draw": true,
+   "labels": [
+    "5"
+   ],
+   "radii": [
+    5
+   ],
+   "extent": {
+    "width": 10,
+    "height": 10
+   }
+  },
+  {
+   "id": "hard-ball-in-cube",
+   "cat": "solid",
+   "prompt": "A ball fits exactly inside a cubical box of edge 10 cm. Find the volume of the ball and the space left in the box.",
+   "draw": true,
+   "labels": [
+    "10"
+   ],
+   "radii": [
+    5
+   ]
+  },
+  {
+   "id": "hard-cut-cone-heights",
+   "cat": "solid",
+   "prompt": "A cone is cut parallel to its base, creating a frustum.\n\nThe original cone has height 24 cm and base radius 12 cm. The smaller cone removed has height 8 cm.\n\nFind:\na) The radius of the smaller cone.\nb) The radius of the frustum's upper base.\nc) The volume of the frustum.",
+   "draw": true,
+   "labels": [
+    "24",
+    "12",
+    "8"
+   ],
+   "radii": [
+    12,
+    4
+   ],
+   "extent": {
+    "height": 24
+   }
+  },
+  {
+   "id": "hard-cut-cone-from-top",
+   "cat": "solid",
+   "prompt": "A cone of height 30 cm and base radius 15 cm is cut by a plane parallel to its base, 10 cm from its top. Find the volume of the frustum.",
+   "draw": true,
+   "labels": [
+    "30",
+    "15",
+    "10"
+   ],
+   "radii": [
+    15,
+    5
+   ],
+   "extent": {
+    "height": 30
+   }
+  },
+  {
+   "id": "hard-two-circles-chord",
+   "cat": "circle",
+   "prompt": "Two circles have radii 13 cm and 15 cm. The distance between their centers is 14 cm.\n\nFind the length of their common chord.",
+   "draw": true,
+   "labels": [
+    "13",
+    "15",
+    "14"
+   ],
+   "radii": [
+    13,
+    15
+   ],
+   "extent": {
+    "width": 14,
+    "height": 24
+   }
+  },
+  {
+   "id": "hard-two-circles-touching",
+   "cat": "circle",
+   "prompt": "Two circles of radii 4 cm and 6 cm touch each other externally. Find the distance between their centres.",
+   "draw": true,
+   "labels": [
+    "4",
+    "6"
+   ],
+   "radii": [
+    4,
+    6
+   ],
+   "extent": {
+    "width": 10
+   }
   }
  ]
 }
