@@ -6,6 +6,7 @@ import re
 
 from app.modules.math.match.circle_parts import circle_parts
 from app.modules.math.match.geometry import pi_value_set
+from app.modules.math.match.shape_words import unread_words
 from app.modules.math.response_intent import strip_ask_frame
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.school._parse import _SIDE_ASKED
@@ -210,6 +211,40 @@ _RULES: tuple[tuple[str, re.Pattern[str]], ...] = (
     ),
 )
 
+# The words each shape rule reads (``match/shape_words``): a rule claims a question only
+# when every other word is glue. "A triangle has sides 13, 14 and 15. Find the length of the
+# angle bisector from the largest angle." had the largest angle as its checked card.
+_PI_WORDS = frozenset({"pi", "\u03c0"})
+_RULE_WORDS: dict[str, frozenset[str]] = {
+    op: frozenset(words.split()) | extra
+    for op, words, extra in (
+        ("hemisphere", "hemisphere volume surface area curved total radius diameter", frozenset()),
+        ("circle_from_circumference", "circle circumference radius diameter area", _PI_WORDS),
+        ("circle_from_area", "circle area radius diameter circumference", _PI_WORDS),
+        ("square_from_diagonal", "square diagonal area side perimeter length", frozenset()),
+        ("rhombus", "rhombus kite diagonal area length", frozenset()),
+        (
+            "equilateral",
+            "equilateral triangle area height altitude perimeter side length",
+            frozenset(),
+        ),
+        ("cube_diagonal", "cube diagonal side edge length space long", frozenset()),
+        (
+            "cuboid_diagonal",
+            "cuboid box rectangular prism solid diagonal space by dimensions length long",
+            frozenset(),
+        ),
+        (
+            "extreme_angle",
+            "triangle side length largest biggest greatest smallest angle",
+            frozenset(),
+        ),
+        ("third_angle", "triangle angle third remaining missing other interior", frozenset()),
+        ("isosceles", "isosceles triangle base apex vertex top angle", frozenset()),
+        ("polygon_sides", "regular polygon many side interior exterior angle", frozenset()),
+    )
+}
+
 # Two angles and a side, a side asked: "A = 40 degrees, B = 60 degrees, a = 10, find b".
 _ANGLE_GIVEN = re.compile(rf"\b([A-C])\s*=\s*{_N}{_DEG}")
 _SIDE_GIVEN = re.compile(rf"\b([a-c])\s*=\s*{_N}")
@@ -247,6 +282,8 @@ def extract_geometry_measure_intent(cleaned: str) -> MathIntent | None:
         if found is None:
             continue
         if op == "reflection_line" and not _reflection_read_whole(body):
+            return None
+        if op in _RULE_WORDS and unread_words(body, _RULE_WORDS[op]):
             return None
         tail = body[found.end() :]
         pi = _PI_AFTER.match(tail)

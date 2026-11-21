@@ -104,7 +104,7 @@ async def test_subject_guard_every_member_answers_neutrally(broken: GuardedSubje
     assert broken.figure.shown(None) is True
     assert broken.figure.whole("t") is True
     assert broken.figure.adds_to("t", "f") is False
-    assert broken.figure.without_substitutes("t") == "t"
+    assert broken.figure.without_substitutes("t", "f") == "t"
     assert await broken.figure.described(["d"], ["q"], "reply", settings) == []
     assert broken.figure.without_drawn_substitutes("reply", "q") == "reply"
     assert broken.formal is not None

@@ -278,7 +278,7 @@ class PhysicsFigure:
     def adds_to(self, text: str, fence: str) -> bool:
         return False
 
-    def without_substitutes(self, text: str) -> str:
+    def without_substitutes(self, text: str, fence: str) -> str:
         return text
 
     def contract_for(self, question: str, asked: bool, *, graph: bool = False) -> str:

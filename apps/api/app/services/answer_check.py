@@ -198,22 +198,25 @@ def read_verified_value(answer_body: str) -> VerifiedValue | None:
     if not value or "\n" in value:
         return None
     text = _clean(value).replace("\u2248", "=")  # x ≈ 1.41421 is Newton's x = 1.41421
-    parts = [part for part in re.split(r"\s+or\s+|\s+and\s+|;|,\s*(?=[A-Za-z]\s*=)", text) if part]
+    # "≈ 53.1°, ≈ 59.5°": a value set to nothing is that value, rounded.
+    parts = [
+        part for part in re.split(r"\s+or\s+|\s+and\s+|;|,\s*(?=[A-Za-z]\s*=|=)", text) if part
+    ]
     label: str | None = None
     numbers: list[Number] = []
     for part in parts:
+        right = part
         if "=" in part:
             left, _sep, right = part.partition("=")
             right = right.rsplit("=", 1)[-1]
             left = left.strip()
-            if not left or not _LABEL.fullmatch(left.replace(" ", "")):
+        if "=" in part and left:
+            if not _LABEL.fullmatch(left.replace(" ", "")):
                 return None
             this_label = _normalize_label(left)
             if label is not None and this_label != label:
                 return None  # x = 2, y = 3: a system, not one value
             label = this_label
-        else:
-            right = part
         read = read_value(right)
         if read is None:
             return None
@@ -572,6 +575,55 @@ def stated_verdict(prose: str, answer_body: str) -> Verdict:
         if overall in {"same", "rounded"}:
             return overall
     return "conflict"
+
+
+# What a value measures, by its unit: an angle, a length, an area or a volume.
+_LENGTHS = r"(?:mm|cm|km|m|in|ft|yd|units?)"
+_MEASURED = re.compile(
+    rf"(?<![\w.])\d+(?:\.\d+)?\s*(?:(?P<angle>°|degrees?\b)|(?P<unit>{_LENGTHS})\b(?:\^(?P<power>[23]))?)"
+)
+
+
+def _kinds(text: str) -> set[str]:
+    """The kinds of measure ``text`` states values of; a temperature (°C) is none of them."""
+    cleaned = _clean(text)
+    found: set[str] = set()
+    for match in _MEASURED.finditer(cleaned):
+        if match["unit"]:
+            found.add({"2": "area", "3": "volume"}.get(match["power"] or "", "length"))
+        elif cleaned[match.end() : match.end() + 1] not in {"C", "F"}:
+            found.add("angle")
+    return found
+
+
+def _outside_inputs(prose: str) -> str:
+    """The reply's lines outside its Given, Required and Formula sections: its working and
+    every Answer, a reply in parts' earlier ones too."""
+    kept: list[str] = []
+    skipping = False
+    for line in _without_fences(prose).split("\n"):
+        heading = _heading(line)
+        if heading is not None:
+            skipping = heading[0] in _INPUT_TITLES or names_a_formula(heading[0])
+            if not skipping and heading[1]:
+                kept.append(heading[1])
+        elif not skipping:
+            kept.append(line)
+    return "\n".join(kept)
+
+
+def answer_of_another_kind(prose: str, answer_body: str) -> bool:
+    """The reply's Answer states values of a kind of measure the card holds none of, and the
+    reply states none of the card's kind: a length under a card of angles. A card of the
+    triangle's angles stood under an Answer that worked the angle bisector's length to
+    3√65/2 cm (2026-11-21, Q7). A reply in parts with an Answer for each states the card's
+    kind in one of them."""
+    _headers, value = answer_header_and_value(answer_body)
+    card = _kinds(value)
+    _body, region = answer_sections(prose)
+    answered = _kinds(statement_text(region)) if region is not None else set()
+    stated = _kinds(statement_text(_outside_inputs(prose)))
+    return bool(card) and bool(answered) and card.isdisjoint(answered | stated)
 
 
 def asks_without_answering(prose: str, answer_body: str | None) -> bool | None:

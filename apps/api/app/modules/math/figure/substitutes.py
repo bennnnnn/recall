@@ -2,16 +2,20 @@
 the model's own picture of it in rows of characters taken out once it comes.
 
 A solve's own picture is the whole picture when it is a graph, a scene or a teaching
-picture. A plane shape it drew may be only a part of what the question asks to see: the
-textbook's "right triangular prism whose base is a right-angled triangle with sides 6, 8
-and 10" drew the base triangle and no prism (2026-11-13). So a solid or its net, and a
-circle with a chord or a shape inside or around it, join a reply whose only pictures are
-plane shapes; any other picture the reply already holds stands alone.
+picture. A plane shape it drew (a circle, a rectangle, a triangle by its sides) is at most a
+part of what the question asks to see: the textbook's "right triangular prism whose base is a
+right-angled triangle with sides 6, 8 and 10" drew the base triangle and no prism
+(2026-11-13), and a chord's question drew a bare circle (2026-11-21). So a figure takes the
+place of the solve's plain shape: one geometry picture a turn, labelled with the question's
+own values. A solid or its net, and a circle with a chord or a shape inside or around it,
+also join a reply whose other pictures are the model's plane shapes; any other picture the
+reply already holds stands alone.
 """
 
 from __future__ import annotations
 
 import json
+import re
 from itertools import pairwise
 from typing import Any
 
@@ -22,6 +26,11 @@ from app.services.solving import VerifiedMathBlock
 
 # The fences a picture the server drew comes in: maths' figures and graphs, physics' scenes.
 _PICTURE_FENCES = ("geometry", "graph", "simulation")
+# A solve's plain shape pictures (``schemas/geometry``), each one shape at its measures.
+SOLVER_SHAPES = frozenset(
+    {"triangle", "right_triangle", "triangle_sides", "trapezoid", "parallelogram", "sector",
+     "circle", "rectangle", "rect", "square"}
+)  # fmt: skip
 # Points of a function graph checked on a drawn curve before it counts as that curve.
 _COMPARED = 5
 # A solve's pictures that are the whole picture: a graph or a teaching picture.
@@ -73,7 +82,10 @@ def _draws_more_than_one_shape(fence: str) -> bool:
 
 def adds_to(text: str, fence: str) -> bool:
     """``fence`` shows what the reply's own pictures do not: the reply holds none, or only
-    plane shapes that are parts of the figure it draws."""
+    plane shapes that are parts of the figure it draws. A solve's plain shape never stands
+    in a figure's way: the figure takes its place (``without_substitutes``)."""
+    if _is_figure(fence):
+        text = _without_solver_shapes(text)
     if not any(has_closed_fence(text, lang) for lang in _PICTURE_FENCES):
         return True
     if holds_whole_picture(text) or not _draws_more_than_one_shape(fence):
@@ -84,11 +96,45 @@ def adds_to(text: str, fence: str) -> bool:
     )
 
 
-def without_substitutes(text: str) -> str:
-    """The prompt asks for no picture in characters (``GRAPH_NO_SUBSTITUTE_CLAUSE``); a reply
-    that still drew its number line or graph in characters loses it beside the real one. A
-    Mermaid diagram is never taken out: "show the steps as a flow diagram" asked for one."""
-    return strip_text_plots(text)
+def without_substitutes(text: str, fence: str) -> str:
+    """The pictures ``fence`` stands in for, taken out of the reply. The prompt asks for no
+    picture in characters (``GRAPH_NO_SUBSTITUTE_CLAUSE``); a reply that still drew its number
+    line or graph in characters loses it beside the real one. A Mermaid diagram is never
+    taken out: "show the steps as a flow diagram" asked for one.
+
+    A figure is the turn's one picture of its shape: the solve's plain shape of the same
+    question goes. A bare circle stood beside the chord's figure, and a 13-14-15 triangle
+    labelled with its worked angles and area beside the question's own values (2026-11-21);
+    a figure labels only the question's values."""
+    text = strip_text_plots(text)
+    return _without_solver_shapes(text) if _is_figure(fence) else text
+
+
+def _fence_type(body: str) -> str | None:
+    try:
+        spec = json.loads(body)
+    except ValueError:
+        return None
+    kind = spec.get("type") if isinstance(spec, dict) else None
+    return kind if isinstance(kind, str) else None
+
+
+def _is_figure(fence: str) -> bool:
+    """``fence`` is a figure the server drew (```geometry of type "figure")."""
+    lang, _newline, rest = fence.partition("\n")
+    return lang.strip() == "```geometry" and _fence_type(rest.rsplit("```", 1)[0]) == "figure"
+
+
+def _without_solver_shapes(text: str) -> str:
+    """``text`` without a solve's plain shape (a circle, a rectangle, a triangle by its sides)."""
+    pieces: list[str] = []
+    cursor = 0
+    for start, end, body in iter_closed_fences(text, "geometry"):
+        if _fence_type(body) in SOLVER_SHAPES:
+            pieces.append(text[cursor:start])
+            cursor = end
+    pieces.append(text[cursor:])
+    return re.sub(r"\n{3,}", "\n\n", "".join(pieces)) if cursor else text
 
 
 def without_drawn_substitutes(text: str, user_text: str = "") -> str:

@@ -224,7 +224,7 @@ class ChemistryFigure:
     def adds_to(self, text: str, fence: str) -> bool:
         return not self.whole(text)
 
-    def without_substitutes(self, text: str) -> str:
+    def without_substitutes(self, text: str, fence: str) -> str:
         return text
 
     # A reply describes no chemistry picture (``math/drawing`` is maths' alone): chat asks

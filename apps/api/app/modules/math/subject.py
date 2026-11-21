@@ -338,10 +338,10 @@ class MathFigure:
 
         return adds_to(text, fence)
 
-    def without_substitutes(self, text: str) -> str:
+    def without_substitutes(self, text: str, fence: str) -> str:
         from app.modules.math.figure.substitutes import without_substitutes
 
-        return without_substitutes(text)
+        return without_substitutes(text, fence)
 
     def contract_for(self, question: str, asked: bool, *, graph: bool = False) -> str:
         return DRAW_CONTRACT
