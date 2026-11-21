@@ -214,6 +214,8 @@ def test_a_slip_through_a_root_a_sine_or_a_name_s_next_line_is_found(
     [
         "$x = \\frac{4 + 2}{2}$\n$x = 3$\n$x = \\frac{4 - 2}{2}$\n$x = 1$",
         "$x = 1$\n$x = 3$",
+        # Two statements in one line, then each alone (live, 2026-11-21: "√36 = 6, not 10").
+        "$l_{maj} = 2(10) = 20, l_{min} = 2(6) = 12$\n$l_{maj} = 20$\n$l_{min} = 12$",
         # Two roots as expressions on consecutive lines (review, #2520).
         "$x = \\frac{4 + 2}{2}$\n$x = \\frac{4 - 2}{2}$",
         "$x = \\frac{-b \\pm \\sqrt{16}}{2}$\n$x = \\frac{6 + 4}{2}$",

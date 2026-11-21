@@ -104,6 +104,9 @@ _FRAC = re.compile(r"\\[dt]?frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}")
 _SQRT = re.compile(r"\\sqrt\s*\{([^{}]*)\}")
 _POWER = re.compile(r"\^\s*\{([^{}]*)\}")
 _RELATION = re.compile(r"\\approx|≈|=")
+# "l_{maj} = 2(10) = 20, l_{min} = 2(6) = 12": two statements in one line, each its own chain.
+# A real comma (never "\\," or 1,500) or a \\quad, then a name and its "=".
+_STATEMENTS = re.compile(r"(?:(?<!\\),\s+|;\s*|\\q?quad\s*)(?=[A-Za-z\\][^,;=]{0,40}=)")
 _MAX_EXPONENT = 64
 # Models round as they go: a step within 1% of its value is not called a slip.
 _RELATIVE_SLACK = 0.01
@@ -340,8 +343,11 @@ def wrong_steps(reply: str) -> list[WrongStep]:
     # The line before: the name it worked out and its last expression ("L", "√(6·14·28·48)/21").
     before: tuple[str, str, str] | None = None
     prose = _INLINE_CODE.sub(" ", map_fence_blocks(reply, lambda _fence, _body: "\n"))
-    for match in _INLINE_MATH.finditer(prose):
-        segment = match.group(1)
+    for segment in (
+        statement
+        for match in _INLINE_MATH.finditer(prose)
+        for statement in _STATEMENTS.split(match.group(1))
+    ):
         parts = _RELATION.split(segment)
         relations = _RELATION.findall(segment)
         if len(parts) > 1 and not parts[0].strip():
