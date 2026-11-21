@@ -165,7 +165,12 @@ def _turn_settings(
     line's follow-up read starts here too (``posed_read.start_posed_read``)."""
     settings = profile_service.settings_for_user(settings, user)
     start_posed_read(settings, content, recent)
-    return settings, turn_decision.start_turn_decision(settings, content, recent=recent)
+    read = turn_decision.start_turn_decision(settings, content, recent=recent)
+    if read is None and settings.figure_read_enabled:
+        # A turn with no read draws no figure (``figure_turn``): its "draw it" of a shape
+        # keeps maths' own drawing (``turn_prep.followups``).
+        settings = settings.model_copy(update={"figure_read_enabled": False})
+    return settings, read
 
 
 @traced_turn("new")

@@ -379,22 +379,16 @@ def test_a_repeated_number_the_problem_writes_once_is_new(
     assert posed_read.states_new_values(line, problem) is new
 
 
-@pytest.mark.parametrize(
-    ("asks", "beyond"),
-    [
-        ("the length of its diagonal", True),
-        ("its perimeter", True),
-        ("its area", False),
-        ("the area step by step", False),
-        ("the answer", False),
-        ("the working", False),
-        (None, False),
-    ],
-)
-def test_a_solve_that_names_what_the_problem_does_not_ask_is_no_solve(
-    asks: str | None, beyond: bool
-) -> None:
+@pytest.mark.asyncio
+async def test_a_solve_that_asks_something_new_is_no_solve() -> None:
     """Live (2026-11-20): "Now find the length of its diagonal" after a rectangle's area was
-    read as "solve" and answered the area again, verified."""
+    read as "solve" and answered the area again, verified. A solve the read says names a
+    new thing to find is none; the same solve asking only for the answer stands."""
     problem = "A rectangle is 8 cm long and 6 cm wide. Find its area."
-    assert posed_read.asks_beyond(asks, problem) is beyond
+    chat = [("user", problem), ("assistant", "A = 8 × 6 = 48 cm²")]
+    line = "Now find the length of its diagonal."
+    new = PosedPick(kind="solve", message=1, problem=problem, new_ask=True)
+    assert (await _read(line, new, chat))[0] is None
+    same = PosedPick(kind="solve", message=1, problem=problem, new_ask=False)
+    posed = (await _read("Now give me the final answer.", same, chat))[0]
+    assert posed is not None and posed.problem == problem

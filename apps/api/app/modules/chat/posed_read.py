@@ -72,15 +72,6 @@ _MAX_TOKENS = 512
 _MESSAGE_CHARS = 500
 _PROBLEM_CHARS = 600
 _PART_CHARS = 40
-_ASKS_CHARS = 80
-# What any solve is asked for: naming one asks nothing of the problem beyond solving it.
-_SOLVING_WORDS = frozenset(
-    "answer answers solution solutions working workings work steps step result method".split()
-)
-# A word of what a line asks for, and the letters of it a problem's word must begin with
-# ("diagonals" is the problem's "diagonal"): its first five, or the whole of a shorter one.
-_ASKED_WORD = re.compile(r"[^\W\d_]{4,}")
-_STEM = 5
 # A reply short enough to be a posed problem; a longer one is read for its exchange's line.
 _REPLY_CHARS = 600
 # Markdown a stated problem may carry: "A car travels **120 meters**"; a subscript stays.
@@ -118,12 +109,13 @@ _SYSTEM = (
     "seconds, 16.0 g of oxygen), or in an equation or expression the part it replaces, "
     "copied exactly; and new as the user's line gives it, the value and its unit alone (10 "
     "s, 32.0 g, 2x), without a note around it. Otherwise message, problem and part are null "
-    "and changes is []. asks is what the line itself names as wanted, in the line's words "
-    '("the diagonal", "its perimeter", "the speed"), or null when it names nothing beyond '
-    "solving or explaining what is there (do it, how, the answer, step by step). Reply with "
-    'JSON only, for example {"kind": "change", "message": 2, "problem": "A ball falls 20 m. '
-    'How long does it take?", "part": null, "changes": [{"given": "20 m", "new": "45 m"}], '
-    '"asks": null}.'
+    "and changes is []. new_ask is true when the line names a quantity or thing to find "
+    "that the problem's own question does not ask (its diagonal after its area, its speed "
+    "after its distance), and false when it asks only for that question's answer, in any "
+    "words or language (the answer, the final answer, the value of x, the roots, the "
+    'working, step by step, la respuesta). Reply with JSON only, for example {"kind": '
+    '"change", "message": 2, "problem": "A ball falls 20 m. How long does it take?", '
+    '"part": null, "changes": [{"given": "20 m", "new": "45 m"}], "new_ask": false}.'
 )
 
 
@@ -153,8 +145,9 @@ class PosedPick(BaseModel):
     # The labelled part, step or item of the message the line names ("b", "step 2").
     part: str | None = Field(default=None, max_length=_PART_CHARS)
     changes: list[PosedChange] = Field(default_factory=list, max_length=_MAX_CHANGES)
-    # What the line names as wanted ("the diagonal"), or None for "do it", "how".
-    asks: str | None = Field(default=None, max_length=_ASKS_CHARS)
+    # The line names something to find its problem's question does not ask ("the diagonal"
+    # after the area): never a solve of that problem as it stands.
+    new_ask: bool = False
 
     @field_validator("changes", mode="before")
     @classmethod
@@ -163,14 +156,12 @@ class PosedPick(BaseModel):
         12 reads in a Grade 8 chat, follow-ups included (2026-11-18)."""
         return [] if value is None else value
 
-    @field_validator("problem", "part", "asks", mode="before")
+    @field_validator("problem", "part", mode="before")
     @classmethod
     def _too_long_is_none(cls, value: Any, info: ValidationInfo) -> Any:
         """A copy past its cap names nothing the server can hold to the message; the rest of
         the read stands."""
-        cap = {"problem": _PROBLEM_CHARS, "part": _PART_CHARS}.get(
-            info.field_name or "", _ASKS_CHARS
-        )
+        cap = _PROBLEM_CHARS if info.field_name == "problem" else _PART_CHARS
         return None if isinstance(value, str) and len(value) > cap else value
 
 
@@ -232,21 +223,6 @@ def _line_value(line: str, new: str | None) -> str | None:
     """The new value as the line gives it: the read's copy only when the line holds it."""
     value = _unlatexed(new or "")
     return collapse_ws(new or "") if value and value in _unlatexed(line) else None
-
-
-def asks_beyond(asks: str | None, problem: str) -> bool:
-    """Whether what the line names as wanted is something its problem does not ask: "Now find
-    the length of its diagonal" after "A rectangle is 8 cm by 6 cm. Find its area." names the
-    diagonal, which solving the problem as it stands (the area again) never answers (live,
-    2026-11-20). A word of it the problem writes ("the rectangle", "its speed" after a speed
-    question) or a solve's own ("the answer", "the working") asks nothing more."""
-    words = {
-        word.casefold()
-        for word in _ASKED_WORD.findall(_unlatexed(asks or ""))
-        if word.casefold() not in _SOLVING_WORDS
-    }
-    written = {word.casefold()[:_STEM] for word in _ASKED_WORD.findall(_unlatexed(problem))}
-    return any(word[:_STEM] not in written for word in words)
 
 
 def _asked_part(problem: str, part: str | None) -> str:
@@ -443,7 +419,9 @@ async def read_posed(
         if read.kind != "change" or read.message not in last_turn:
             return None
     if read.kind == "solve":
-        if read.part is None and asks_beyond(read.asks, problem):
+        # "Now find the length of its diagonal" after a rectangle's area was read as a solve
+        # and answered the area again, verified (live, 2026-11-20).
+        if read.new_ask and read.part is None:
             return None
         return Posed(problem=_asked_part(problem, read.part), reply=exchanges[-1][1])
     return Posed(

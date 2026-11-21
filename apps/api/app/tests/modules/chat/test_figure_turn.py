@@ -26,7 +26,7 @@ from app.modules.chat.turn_prep import StreamContext
 from app.services.solving import VerifiedMathBlock, VerifiedPhysicsBlock
 from app.tests.modules.chat.chat_test_support import turn_deps
 
-_FENCE = '```geometry\n{"type":"figure","shape":"cube","points":[{"name":"a","x":0,"y":0},{"name":"b","x":1,"y":0}],"segments":[{"a":"a","b":"b"}]}\n```'
+_FENCE = '```geometry\n{"type":"figure","shape":"cube","points":[{"name":"a","x":0,"y":0},{"name":"b","x":1,"y":0}],"segments":[{"a":"a","b":"b","label":"3 cm"}]}\n```'
 _QUESTION = "Find the volume of a cube with sides of 4 m, and draw the cube."
 
 
@@ -539,5 +539,8 @@ def test_a_picture_names_something_by_a_label_or_a_lettered_point() -> None:
     formula for the area of a circle?" got a bare circle)."""
     assert not figure_turn._names_anything(_BARE_CIRCLE)
     assert figure_turn._names_anything(_LABELLED_RECTANGLE)
-    lettered = _BARE_CIRCLE.replace('"name":"_0"', '"name":"O"')
+    lettered = _BARE_CIRCLE.replace('"name":"_0"', '"name":"O","show":true')
     assert figure_turn._names_anything(lettered)
+    # A triangle's vertices kept unlettered name nothing (a review, 2026-11-21).
+    hidden = _BARE_CIRCLE.replace('"name":"_0"', '"name":"A"')
+    assert not figure_turn._names_anything(hidden)

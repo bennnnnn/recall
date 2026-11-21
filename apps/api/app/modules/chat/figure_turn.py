@@ -185,7 +185,7 @@ async def _topic(
         problem = await continuation_for_turn(settings, line, recent)
     users = list(reversed(earlier_user_lines(recent, line)))
     if not problem:
-        return list(reversed(users[-_EARLIER:]))
+        return users[-_EARLIER:]
     return topic_lines(users, problem)
 
 
@@ -235,17 +235,12 @@ def _shows_a_value(fence: str) -> bool:
 
 def _names_anything(fence: str) -> bool:
     """Whether a picture labels or letters anything: a value, a letter ("x", "r"), a
-    point's name ("O", "A"); a point the server named for itself ("_0") is none."""
+    point's name drawn beside it ("O", "A": ``show``); a vertex kept unlettered is none."""
     spec = _spec(fence)
     if any(label.strip() for label in _labels(spec)):
         return True
     points = spec.get("points", []) if isinstance(spec, dict) else []
-    return any(
-        isinstance(point, dict)
-        and isinstance(point.get("name") or point.get("label"), str)
-        and not str(point.get("name") or point.get("label")).startswith("_")
-        for point in points
-    )
+    return any(isinstance(point, dict) and point.get("show") is True for point in points)
 
 
 def _labels(value: Any, *, inside: bool = False) -> Iterator[str]:
