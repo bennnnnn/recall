@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 
 from app.modules.physics.extractors.angles import INCLINE_ANGLE_RE
 from app.modules.physics.extractors.assignments import strip_param_assignments
@@ -170,7 +171,7 @@ _RESOLVE_RE = re.compile(r"\bresolv\w*\b|\bcomponents?\b", re.IGNORECASE)
 # of 1900 km is in km.
 _VECTOR_SIZE_RE = re.compile(
     rf"({DECIMAL})\s*(N\s*/\s*C|V\s*/\s*m|m\s*/\s*s\s*(?:\^\s*2|²)|m\s*/\s*s2(?!\d)|(?:k?m|cm)\s*/\s*[sh]"
-    r"|kg\s*m\s*/\s*s|N\s*s|km|cm|mm|m|N)(?![A-Za-z0-9/^²])"
+    r"|kg\s*m\s*/\s*s|N\s*s|km|cm|mm|m|N)(?![A-Za-z0-9/^²³·*⁻])"
 )
 _VECTOR_PARAMS = (
     (re.compile(r"N\s*/\s*C|V\s*/\s*m"), "E"),
@@ -194,13 +195,15 @@ _NOT_AXES_RE = re.compile(
 # The angle's reference, written right after it: "40° from the vertical", "30 degrees to the
 # y-axis". Read only there: "the vertical component" elsewhere names a component asked for.
 _AFTER_ANGLE_VERTICAL_RE = re.compile(
-    r"\s*(?:angle\s+)?(?:from|to|with|of)\s+the\s+(?:vertical|y[- ]?axis)\b", re.IGNORECASE
+    r"\s*(?:angle\s+)?(?:from|to|with|of)\s+(?:the\s+)?(?:positive\s+)?(?:vertical|y[- ]?axis)\b",
+    re.IGNORECASE,
 )
 # The vertical named as a reference anywhere else ("making a 30° angle, measured to the
 # vertical"): read only right after the angle, so a sentence that places it elsewhere is
 # declined, never read as from the horizontal (review, 2026-11-20).
 _VERTICAL_REFERENCE_RE = re.compile(
-    r"\b(?:from|to|with)\s+the\s+(?:vertical|y[- ]?axis)\b(?!\s+components?)", re.IGNORECASE
+    r"\b(?:from|to|with)\s+(?:the\s+)?(?:positive\s+)?(?:vertical|y[- ]?axis)\b(?!\s+components?)",
+    re.IGNORECASE,
 )
 _BELOW_RE = re.compile(r"\bbelow\s+(?:the\s+)?(?:horizontal|x[- ]?axis)\b", re.IGNORECASE)
 # One component asked, by its axis: "the vertical component", "its x-component".
@@ -212,7 +215,8 @@ _ONE_COMPONENT_RE = re.compile(
 # the horizontal with both components positive (review, 2026-11-20).
 _UNREAD_SIDE_RE = re.compile(
     r"\b(?:left|right|negative|downwards?|downward|upwards?|upward|clockwise"
-    r"|anti-?clockwise|counter-?clockwise)\b|\b[NS]\s*\d[\d.]*\s*(?:°|deg\w*)?\s*[EW]\b",
+    r"|anti-?clockwise|counter-?clockwise|quadrant)\b|\b[NS]\s*\d[\d.]*\s*(?:°|deg\w*)?\s*[EW]\b"
+    r"|[-\u2212]\s*[xy][- ]?axis",
     re.IGNORECASE,
 )
 _COMPASS_RE = re.compile(r"\b(?:north|south|east|west)\b", re.IGNORECASE)
@@ -236,12 +240,30 @@ _MORE_ASKED_RE = re.compile(
 )
 
 
+@lru_cache(maxsize=512)
+def _is_unit(token: str) -> bool:
+    """A token a measurement is in ("kg", "T", "m/s"), not a word ("Resolve", "decimal")."""
+    from app.services.units import get_unit_registry
+
+    # Powers as Pint writes them: "m/s2", "m/s²" and "m/s^2" are m/s**2.
+    spelled = re.sub(r"([A-Za-z])\^?([23])\b", r"\1**\2", token.replace("²", "2").replace("³", "3"))
+    try:
+        get_unit_registry()(spelled)
+    except Exception:
+        return False
+    return True
+
+
 def _stated_values(cleaned: str) -> int:
-    """How many measured values the question states, angles and counts left out."""
+    """How many measured values the question states: a number with a unit. Angles, counts,
+    a list marker ("1. Resolve …") and a number before a word ("2 decimal places") are not
+    values (review, 2026-11-20)."""
     return sum(
         1
         for match in _STATED_VALUE_RE.finditer(cleaned)
         if not _ANGLE_OR_COUNT_RE.match(match.group(1))
+        and not match.group(0).split()[0].endswith(".")
+        and _is_unit(match.group(1).rstrip(".,;:"))
     )
 
 
@@ -261,7 +283,8 @@ def _resolve_intent(cleaned: str) -> PhysicsIntent | None:
     size = _VECTOR_SIZE_RE.search(cleaned)
     if size is None or _stated_values(cleaned) != 1:
         return None
-    numbered = _NUMBER_BEARING_RE.search(cleaned)
+    # "on a bearing of 30° north of east" is a quadrant bearing, not 030°.
+    numbered = None if _BEARING_RE.search(cleaned) else _NUMBER_BEARING_RE.search(cleaned)
     angle = INCLINE_ANGLE_RE.search(cleaned) if numbered is None else numbered
     if angle is None:
         return None

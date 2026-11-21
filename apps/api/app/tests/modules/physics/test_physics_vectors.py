@@ -179,6 +179,36 @@ VERIFIED: list[tuple[str, str, str]] = [
         "resolve_vector",
         "21.7 km west and 12.5 km south",
     ),
+    # A list marker or a word after a number is no second value (Claude review).
+    (
+        "1. Resolve a 60 N force at 30° above the horizontal into components.",
+        "resolve_vector",
+        "52 N horizontally and 30 N vertically",
+    ),
+    (
+        "Resolve a 60 N force at 30° above the horizontal into components. Give 2 decimal places.",
+        "resolve_vector",
+        "52 N horizontally and 30 N vertically",
+    ),
+    # "on a bearing of 30° north of east" is a quadrant bearing, not 030° (Gemini review).
+    (
+        "A hiker walks 5 km on a bearing of 40° west of south. Find the components of the "
+        "displacement.",
+        "resolve_vector",
+        "3.21 km west and 3.83 km south",
+    ),
+    # The vertical without "the", or as the positive y-axis.
+    (
+        "Resolve 25 m/s at 30° from the positive y-axis into components.",
+        "resolve_vector",
+        "12.5 m/s horizontally and 21.7 m/s vertically",
+    ),
+    (
+        "Resolve a velocity of 15 m/s at 20° from vertical into horizontal and vertical "
+        "components.",
+        "resolve_vector",
+        "5.13 m/s horizontally and 14.1 m/s vertically",
+    ),
     # "m/s2" as students write it (Codex review).
     (
         "Resolve 3 m/s2 at 20° below the horizontal into components.",
@@ -229,6 +259,11 @@ def test_a_large_vector_s_working_has_no_calculator_notation() -> None:
         # A negative angle, and a quadrant bearing past a right angle, are not read.
         "Resolve 10 N at -30° from the horizontal into components.",
         "A hiker walks 5 km 120° west of north. Find the components of the displacement.",
+        # A negative axis or a named quadrant is not modelled; a torque is no vector here.
+        "Resolve 25 m/s at 60° from the -x-axis into components.",
+        "A 50 N force in the third quadrant makes an angle of 30° with the x-axis. Find its x "
+        "and y components.",
+        "Resolve 20 N·m at 30° from the horizontal into two components.",
     ],
 )
 def test_a_component_along_a_slope_is_not_resolved_across_and_up(text: str) -> None:
