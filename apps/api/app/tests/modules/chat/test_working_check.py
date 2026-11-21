@@ -290,6 +290,9 @@ def test_values_that_do_not_satisfy_the_reply_s_own_equations_are_named() -> Non
         "$8I_1 + 6I_2 = 10$\n$6I_1 + 10I_2 = 6$\n$I_1 = \\frac{16}{11}$\n$I_2 = -\\frac{3}{11}$",
         # A formula with units, and a value given in its unit.
         "$V_1 = 7.2\\,\\mathrm{V}$\n$V = 12$\n$V_1 + V_2 = V$\n$V_2 = 4.8\\,\\mathrm{V}$",
+        # Values in different units (live, 2026-11-21: r in m, h in km).
+        "$r = R_E + h$\n$r = 6770000\\,\\mathrm{m}$\n$R_E = 6370000\\,\\mathrm{m}$\n"
+        "$h = 400\\,\\mathrm{km}$",
         # One unknown: a plain step, not a system.
         "$2x + 3 = 7$\n$x = 2$",
         # A name given two values (two roots) is no single value to hold.

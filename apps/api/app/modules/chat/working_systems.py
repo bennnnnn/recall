@@ -40,6 +40,8 @@ def unheld_equations(reply: str) -> list[UnheldEquation]:
 
     equations: list[tuple[str, str, str, list[str]]] = []
     values: dict[str, set[float]] = {}
+    # Each value's unit as written: 6770000 m and 400 km are no terms of one sum.
+    units: dict[str, set[str]] = {}
     for match in _INLINE_MATH.finditer(reply):
         segment = match.group(1)
         if segment.count("=") != 1 or "\\approx" in segment:
@@ -54,6 +56,7 @@ def unheld_equations(reply: str) -> list[UnheldEquation]:
                 f"_{unknown_left.group(2)}" if unknown_left.group(2) else ""
             )
             values.setdefault(key, set()).add(round(value, 9))
+            units.setdefault(key, set()).add(_unit_of(right, bare))
             continue
         # An equation with a unit or a word in it is a formula, not a system to hold.
         if _UNIT_MARK.search(segment):
@@ -65,6 +68,8 @@ def unheld_equations(reply: str) -> list[UnheldEquation]:
     for segment, left, right, unknowns in equations:
         if len(set(unknowns)) < 2 or any(len(values.get(name, ())) != 1 for name in unknowns):
             continue
+        if len({unit for name in unknowns for unit in units.get(name, set())}) > 1:
+            continue
         given = {name: next(iter(values[name])) for name in unknowns}
         held_left = _evaluate(_put(left, given))
         held_right = _evaluate(_put(right, given))
@@ -74,6 +79,18 @@ def unheld_equations(reply: str) -> list[UnheldEquation]:
         if not math.isclose(held_left, held_right, rel_tol=_TOLERANCE, abs_tol=_TOLERANCE * scale):
             out.append(UnheldEquation(segment, given))
     return out
+
+
+_UNIT_WORD = re.compile(r"\\(?:mathrm|text)\s*\{([^{}]*)\}")
+
+
+def _unit_of(right: str, bare: str) -> str:
+    """The unit a value is written in: its \\mathrm/\\text words and a bare unit after it."""
+    words = _UNIT_WORD.findall(right)
+    tail = right[len(bare) :].strip()
+    if tail and not tail.startswith("\\"):
+        words.append(tail)
+    return " ".join(sorted("".join(word.split()) for word in words))
 
 
 def _template(left: str, right: str) -> tuple[str, str, list[str]] | None:
