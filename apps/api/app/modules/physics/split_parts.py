@@ -128,9 +128,7 @@ def _own_values(asks: list[str], givens: str = "") -> bool:
     # speed after 2 s, taking g = 10 m/s²?") may hold a value a later one needs, so such
     # parts are read together (review, 2026-11-20).
     return (
-        bool(givens)
-        and _VALUE_UNIT.search(givens) is None
-        and not any(_asks(ask) for ask in asks)
+        bool(givens) and _VALUE_UNIT.search(givens) is None and not any(_asks(ask) for ask in asks)
     )
 
 
