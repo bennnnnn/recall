@@ -27,21 +27,19 @@ from app.services.text_normalize import straighten_apostrophes
 
 _MAX_CHARS = 500
 _WORDS = re.compile(r"\S+")
-# Punctuation around a word: Spanish "¿¡", Ethiopic stops. Not quote marks: a quoted line
-# is no request, and a word kept in its quotes matches nothing.
-_EDGES = ".,!?;:()[]{}¿¡…።፣፤፥፦፧፨"
+# Punctuation around a word: Spanish "¿¡", Ethiopic stops, the Devanagari danda. Not quote
+# marks: a quoted line is no request, and a word kept in its quotes matches nothing.
+_EDGES = ".,!?;:()[]{}¿¡…።፣፤፥፦፧፨।॥"
 # Inside a subject they join two sentences or a request and its content: "ቀይ? ድመት".
-_STOPS = frozenset(".!?;:።፧፥፦")
-# Any of these makes the line a quotation: «Dibújame un cordero», „Zeichne mir …“, "…".
+_STOPS = frozenset(".!?;:።፧፥፦।॥")
+# Any of these makes the line a quotation: «Dibújame un cordero», „…“, "…".
 _QUOTE_MARKS = frozenset('"«»‹›„“”‟「」『』〝〞＂')
 # A single quote opens a quotation at the start of a word ("'Dibújame un gato': …"); inside
-# a word it is an apostrophe ("d'un", "un'immagine", "Fransa'nın").
+# a word it is an apostrophe ("d'un", "Fransa'nın").
 _SINGLE_QUOTES = ("'", "\u2018", "\u2019", "\u201a", "\u201b")
 _BEFORE_QUOTE = "¿¡([{—–-"
-# "d'un", "l'image", "un'immagine", "s'il": the elided word is its own token.
-_ELISIONS = frozenset(
-    "d' l' m' t' s' j' n' c' qu' un' dell' all' dall' nell' sull' quest' cos'".split()
-)
+# "d'un", "l'image", "s'il": the elided word is its own token.
+_ELISIONS = frozenset("d' l' m' t' s' j' n' c' qu'".split())
 # "dessine-moi", "peux-tu", "desenha-me": the pronoun after the hyphen is its own token.
 _HYPHEN_CLITICS = frozenset({"moi", "toi", "nous", "vous", "tu", "me", "te", "lo", "la", "il"})
 # Maths, units and formulas: "45°", "y=x²", "20 m/s", "H2O" are the subjects' to draw.
@@ -144,8 +142,6 @@ def _plain(lang: Language, words: list[str], typed: list[str]) -> bool:
     definite_end = last.endswith(lang.definite_endings) and not is_entry(lang.code, last)
     if first in lang.pronouns or first in lang.definite or definite_end:
         return False
-    if first in lang.particles or last in lang.particles:
-        return False
     if any(_phrase_at(lang.again, words, i) for i in range(len(words))):
         return False
     return names_drawable(lang.code, words)
@@ -200,8 +196,8 @@ def _quoted(text: str) -> bool:
 
 
 def extract_other_language_prompt(text: str) -> str | None:
-    """The picture ``text`` asks for in Spanish, French, German, Italian, Portuguese,
-    Russian, Turkish or Amharic, in the user's words, when the whole message is that one
+    """The picture ``text`` asks for in Spanish, French, Portuguese, Russian, Turkish,
+    Amharic or Hindi, in the user's words, when the whole message is that one
     request; None otherwise.
 
     A message that asks for anything beside the picture ("Dibújame un gato y explica qué

@@ -130,41 +130,36 @@ describe("image intent prefilter", () => {
   });
 
   it.each([
-    "Zeichne mir eine Katze mit Hut und erkläre auch, was ein schwarzes Loch ist",
     "Dibújame un dragón",
     "¿Me dibujas un dragón?",
     "Píntame un atardecer",
-    "Mi disegni un panda?",
     "Tu me dessines un panda ?",
     "Нарисуешь мне кота?",
     "Bana bir panda çizer misin?",
     "ድመት ሳልልኝ",
     "የአንበሳ ምስል ፍጠር",
-    "Mal mir eine Katze mit Hut",
     "Explica qué es un agujero negro y dibújame un gato",
     "Peux-tu me peindre un chat ?",
-    "Malen Sie mir eine Katze",
-    "Male uns einen Drachen",
     "Crea una ilustracion de un leon",
     "Crie uma ilustração de um leão",
-    "Erstelle ein Bild von einem Löwen",
+    "बिल्ली का चित्र बनाओ",
+    "मेरे लिए एक काली बिल्ली ड्रा करो",
+    "कृपया एक ड्रैगन की तस्वीर बनाइए",
   ])("asks the server about a picture asked in another language: %j", (text) => {
     expect(mightBeImageTurn(text, [], false)).toBe(true);
   });
 
   it.each([
     "Hola, ¿qué tal?",
-    "Wie spät ist es in Berlin?",
     "Привет, как дела?",
     "Bugün hava nasıl?",
-    // Everyday words that once started a picture word: "mal" (bad, once), "peine", "Bildung".
+    "आज मौसम कैसा है?",
+    "मेरे लिए चाय बनाओ",
+    // Everyday words that once started a picture word: "mal" (bad), "peine".
     "Me siento mal hoy",
     "Estou mal",
-    "Erklär mal die Steuer",
     "Ce n'est pas la peine",
-    "Bildung in Deutschland",
     "Is my cat male or female?",
-    "Ho tre valigie, male?",
   ])("sends %j in another language straight to chat", (text) => {
     expect(mightBeImageTurn(text, [], false)).toBe(false);
   });

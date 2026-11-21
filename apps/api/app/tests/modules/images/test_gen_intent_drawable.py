@@ -44,17 +44,9 @@ def test_an_everyday_picture_still_draws(lang: str, text: str) -> None:
         ("Dibújame un perro y un gato", "perro y un gato"),
         ("Dessine-moi un petit chat", "petit chat"),
         ("Dessine-moi un chat qui joue du piano", "chat qui joue du piano"),
-        ("Disegnami un bel tramonto", "bel tramonto"),
-        ("Genera un'immagine di un castello tra le nuvole", "castello tra le nuvole"),
         ("Me desenhe um pôr do sol", "pôr do sol"),
         ("Me desenhe um cachorro de óculos", "cachorro de óculos"),
         ("Dibujame un leon", "leon"),
-        # German: adjective endings, compounds of listed parts.
-        ("Zeichne mir einen süßen Hund mit Hut", "süßen Hund mit Hut"),
-        ("zeichne mir einen süßen hund", "süßen hund"),
-        ("Zeichne mir einen Feuerdrachen", "Feuerdrachen"),
-        ("Zeichne mir ein Piratenschiff", "Piratenschiff"),
-        ("Erstelle ein Bild von einem Leuchtturm im Sturm", "Leuchtturm im Sturm"),
         # Russian: adjective and noun cases made from the listed forms.
         ("Нарисуй мне белого медведя", "белого медведя"),
         ("Нарисуй мне божью коровку", "божью коровку"),
@@ -70,6 +62,12 @@ def test_an_everyday_picture_still_draws(lang: str, text: str) -> None:
         ("Bulutlarda bir kale resmi oluştur", "Bulutlarda bir kale"),
         ("Gün batımında bir aslan resmi oluştur", "Gün batımında bir aslan"),
         ("ቀይ መኪና ሳልልኝ", "ቀይ መኪና"),
+        # Hindi closes with the noun; an adjective agrees with it ("काला" → काली, काले).
+        ("मेरे लिए एक काली बिल्ली ड्रा करो", "काली बिल्ली"),
+        ("काले घोड़े का चित्र बनाओ", "काले घोड़े"),
+        ("लाल टोपी वाली बिल्ली की तस्वीर बनाइए", "लाल टोपी वाली बिल्ली"),
+        ("समुद्र तट पर सूर्यास्त का चित्र बनाओ", "समुद्र तट पर सूर्यास्त"),
+        ("एक बिल्ली और एक कुत्ते का चित्र बनाओ", "बिल्ली और एक कुत्ते"),
     ],
 )
 def test_a_subject_of_listed_words_draws(text: str, subject: str) -> None:
@@ -81,28 +79,23 @@ def test_a_subject_of_listed_words_draws(text: str, subject: str) -> None:
     [
         # Not on any list: a table, a plan, a story, a portrait, a map, the future.
         "Dibújame un cuadro comparativo entre iPhone y Android",
-        "Zeichne mir einen Grundriss meiner Wohnung",
         "Нарисуй мне сказку на ночь",
         "Bana bir uyku masalı çiz",
         "Dibújame un retrato de mi gato",
         "Dibújame un mapa del tesoro",
         "Dessine-moi un avenir meilleur",
         "Dibújame una ciudad del futuro",
-        # A German compound: its last part ends no compound, or its first is no listed word.
-        "Zeichne mir einen Muskelkater",
-        "Zeichne mir eine Eselsbrücke",
-        "Zeichne mir einen Stammbaum",
-        "Zeichne mir eine Glühlampe",
-        "Zeichne mir einen Zufallswald",
-        "Zeichne mir einen Binärbaum",
-        "Zeichne mir eine Wheatstone-Brücke",
-        "Zeichne mir eine Tabelle mit Katzen",
         "Нарисуй мне строение цветка",
         # Definite in Turkish: the bear, the lion.
         "Bana ayıyı çiz",
         "Bana aslanı çiz",
         # Something more than a picture said with a verb: answered, not drawn.
         "ኮፍያ ያደረገች ድመት ሳልልኝ",
+        # Hindi: a map, a plan, a family tree, a flower's parts.
+        "भारत के नक्शे का चित्र बनाओ",
+        "मेरे घर के नक्शे का चित्र बनाओ",
+        "परिवार के पेड़ का चित्र बनाओ",
+        "फूल के भागों का चित्र बनाओ",
     ],
 )
 def test_a_subject_with_an_unlisted_noun_is_answered(text: str) -> None:
@@ -116,27 +109,23 @@ def test_a_subject_with_an_unlisted_noun_is_answered(text: str) -> None:
         # Text or code asked for as a drawing.
         "Dibújame un gato en ASCII",
         "Dessine-moi un chat en SVG",
-        "Zeichne mir einen Roboter in Python",
-        "Disegnami un gatto con le emoji",
         "Desenha-me um gato em LaTeX",
         "Нарисуй мне кота символами",
         "Bana ASCII ile bir kedi çiz",
         "በASCII ድመት ሳልልኝ",
+        "ASCII में बिल्ली का चित्र बनाओ",
         # Data structures and circuits on a listed tree, forest or bridge.
         "Dibújame un árbol binario",
         "Dessine-moi une forêt aléatoire",
-        "Disegnami un albero rosso e nero",
         "Нарисуй мне красно-чёрное дерево",
         "Нарисуй мне диодный мост",
         "Bana bir ikili ağaç çiz",
         "Dibújame un puente de Wheatstone",
         # Maths and physics on an everyday noun; figures of speech.
         "Dibújame una pizza dividida en fracciones",
-        "Zeichne mir einen Kuchen mit den Prozenten der Wahl",
         "Dessine-moi une étoile dans un repère orthonormé",
         "Dibújame un gato con una tabla de multiplicar",
         "Dibújame un volcán con sus partes",
-        "Zeichne mir eine Blume mit ihren Teilen",
         "Нарисуй мне дерево вероятностей",
         "Dibújame una montaña de deudas",
         "Bana bir soy ağacı çiz",
@@ -153,12 +142,11 @@ def test_a_listed_noun_with_an_unlisted_word_is_answered(text: str) -> None:
     [
         "Dibújame un perro y sugiéreme nombres",
         "Dessine-moi un chien et propose-moi des noms",
-        "Zeichne mir einen Hund und gib ihm Namen",
-        "Disegnami un cane e suggeriscimi nomi",
         "Desenha-me um cachorro e sugira nomes",
         "Нарисуй мне собаку и придумай ей имя",
         "Bana bir köpek çiz ve isim öner",
         "ውሻ ሳልልኝና ስም ጠቁመኝ",
+        "कुत्ते का चित्र बनाओ और उसका नाम सुझाओ",
     ],
 )
 def test_a_second_request_after_the_picture_is_answered(text: str) -> None:
@@ -176,10 +164,11 @@ def test_a_second_request_after_the_picture_is_answered(text: str) -> None:
         # A subject ends on a noun or a describing word, never on "of" or "with".
         ("es", ["gato", "con"]),
         ("fr", ["chat", "de"]),
-        # A noun is needed: describing words alone draw nothing.
-        ("de", ["kleine", "rote"]),
-        # Turkish and Amharic close with the noun.
+        # Turkish, Amharic and Hindi close with the noun.
         ("tr", ["kedi", "kırmızı"]),
+        ("hi", ["बिल्ली", "काली"]),
+        # A noun is needed: describing words alone draw nothing.
+        ("hi", ["छोटी", "लाल"]),
     ],
 )
 def test_a_subject_needs_its_nouns_in_place(code: str, words: list[str]) -> None:
@@ -188,8 +177,8 @@ def test_a_subject_needs_its_nouns_in_place(code: str, words: list[str]) -> None
 
 @pytest.mark.parametrize("code", sorted(NOUNS))
 def test_every_language_lists_its_common_things(code: str) -> None:
-    """About 300 to 450 entries a language (Amharic fewer: only the sure words)."""
-    assert len(NOUNS[code].entries) >= (120 if code == "am" else 350)
+    """About 300 to 450 entries a language (Amharic and Hindi fewer: only the sure words)."""
+    assert len(NOUNS[code].entries) >= {"am": 120, "hi": 300}.get(code, 350)
     assert DESCRIBE[code] and GLUE[code]
 
 
@@ -199,12 +188,12 @@ def test_every_language_lists_its_common_things(code: str) -> None:
         ("es", "mapa"),
         ("es", "planta"),
         ("fr", "tableau"),
-        ("de", "Herz"),
-        ("it", "piano"),
         ("pt", "planta"),
         ("ru", "схему"),
         ("tr", "harita"),
         ("am", "ካርታ"),
+        ("hi", "नक्शा"),
+        ("hi", "योजना"),
     ],
 )
 def test_task_nouns_are_not_listed(code: str, word: str) -> None:
@@ -217,7 +206,6 @@ def test_task_nouns_are_not_listed(code: str, word: str) -> None:
         ("es", "Dibújame un árbol binario", ["árbol", "binario"]),
         ("es", "Dibújame un gato en ASCII", ["gato", "en", "ascii"]),
         ("fr", "Dessine-moi un chat en ASCII", ["chat", "en", "ascii"]),
-        ("de", "Zeichne mir einen binären Baum", ["binären", "baum"]),
     ],
 )
 def test_format_and_data_structure_words_are_not_listed(

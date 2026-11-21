@@ -52,8 +52,9 @@ _ENGLISH_TODO = frozenset(
         "every",
     }
 )
-# Words of Spanish, French, German, Italian, Portuguese and Turkish that English
-# does not use: articles, pronouns, days, and the to-do and time words.
+# Words of Spanish, French, Portuguese and Turkish, and of German and Italian (no app
+# language, but still written to it), that English does not use: articles, pronouns,
+# days, and the to-do and time words.
 _OTHER_LATIN_BY_LANGUAGE: dict[str, frozenset[str]] = {
     "es": frozenset({
         "el", "los", "las", "del", "que", "qué", "mañana", "manana", "hoy", "recuérdame",
@@ -137,19 +138,18 @@ def _is_other_language(text: str | None) -> bool | None:
 
 
 # The app's languages written in another script, by the Unicode name of their letters.
-_SCRIPT_LANGUAGE = (("CYRILLIC", "ru"), ("ETHIOPIC", "am"))
+_SCRIPT_LANGUAGE = (("CYRILLIC", "ru"), ("ETHIOPIC", "am"), ("DEVANAGARI", "hi"))
 # The line above the To-do button when a reply wrote none of its own. The screen is
 # named as the app names it in that language (mobile i18n ``todos.open_from_chat``).
 _TODO_SCREEN_LINE = {
     "en": "You can add or change it in **To-do**.",
     "es": "Puedes añadirlo o cambiarlo en **Tareas**.",
     "fr": "Vous pouvez l'ajouter ou le modifier dans **Tâches**.",
-    "de": "Du kannst das unter **Aufgaben** hinzufügen oder ändern.",
-    "it": "Puoi aggiungerlo o modificarlo in **Attività**.",
     "pt": "Você pode adicionar ou alterar isso em **Tarefas**.",
     "tr": "**Yapılacaklar** bölümünden ekleyebilir veya değiştirebilirsiniz.",
     "ru": "Добавить или изменить это можно в разделе **Задачи**.",
     "am": "በ**የሚደረጉ** ውስጥ ማከል ወይም መቀየር ይችላሉ።",
+    "hi": "आप इसे **टू-डू** में जोड़ या बदल सकते हैं।",
 }
 
 

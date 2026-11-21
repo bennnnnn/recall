@@ -19,12 +19,11 @@ export const LANGUAGES: LanguageMeta[] = [
   { code: "en", label: "English", speechLocale: "en-US" },
   { code: "es", label: "Español", speechLocale: "es-ES" },
   { code: "fr", label: "Français", speechLocale: "fr-FR" },
-  { code: "de", label: "Deutsch", speechLocale: "de-DE" },
-  { code: "it", label: "Italiano", speechLocale: "it-IT" },
   { code: "pt", label: "Português", speechLocale: "pt-PT" },
   { code: "ru", label: "Русский", speechLocale: "ru-RU" },
   { code: "tr", label: "Türkçe", speechLocale: "tr-TR" },
   { code: "am", label: "አማርኛ", speechLocale: "am-ET" },
+  { code: "hi", label: "हिन्दी", speechLocale: "hi-IN" },
 ];
 
 export function speechLocale(code?: string | null): string {

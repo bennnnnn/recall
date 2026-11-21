@@ -28,8 +28,8 @@ from app.services.md_fence_scan import without_fences
 from app.services.text_normalize import straighten_apostrophes
 
 _WORD = re.compile(r"[^\W\d_]+(?:'[^\W\d_]+)?")
-# English words the app's other languages do not write ("was" and "will" are German, "i"
-# Italian, "has" Spanish, "for" Portuguese, "me", "no", "a", "in" several).
+# English words the app's other languages do not write ("has" is Spanish, "for"
+# Portuguese, "me", "no", "a", "in" several).
 _ENGLISH = frozenset(
     {
         "the", "is", "are", "were", "to", "of", "and", "with", "what", "how", "why", "when",
@@ -40,7 +40,7 @@ _ENGLISH = frozenset(
         "mean", "understand",
     }
 )  # fmt: skip
-_SCRIPTS = ("ru", "am")
+_SCRIPTS = ("ru", "am", "hi")
 _LATIN_WORDS = 2
 # English words are at least this share of a message's words before it is English: "the" in
 # "Quiero aprender sobre The Beatles" is a title, not the language.
@@ -61,7 +61,8 @@ _NAMES = (
     r"portugu[eêé]s|portugais|portugiesisch|portoghese|portekizce|russian|ruso|russe|russisch|"
     r"russo|rus[cç]a|turkish|t[uü]rk[cç]e|turco|turc|t[uü]rkisch|amharic|am[aá]rico|"
     r"amharique|amharisch|amarico|английск\w*|русск\w*|испанск\w*|французск\w*|немецк\w*|"
-    r"итальянск\w*|португальск\w*|турецк\w*|амхарск\w*|እንግሊዝኛ|አማርኛ)"
+    r"итальянск\w*|португальск\w*|турецк\w*|амхарск\w*|хинди|እንግሊዝኛ|አማርኛ|hindi|"
+    r"हिन्दी|हिंदी|अंग्रेज़ी|अंग्रेजी)"
 )
 # A language named as a language, in any app language: "in Spanish", "en inglés", "auf
 # Englisch", "на английском", "по-английски", "teach me Spanish", "Spanish lessons". Not
@@ -69,6 +70,7 @@ _NAMES = (
 _LANGUAGE_NAME = re.compile(
     rf"\b(?:in|into|to|en|auf|em|al|à|ins|в|на|da)\s+(?:the\s+)?{_NAMES}(?![\w-])"
     rf"|по-(?:английски|русски|испански|французски|немецки|итальянски|португальски|турецки)"
+    rf"|(?:हिन्दी|हिंदी|अंग्रेज़ी|अंग्रेजी)\s+में"
     rf"|\b(?:speak\w*|learn\w*|teach(?:\s+me)?|stud\w*|practi[cs]\w*|reply|answer|respond|"
     rf"write|talk)\s+{_NAMES}(?![\w-])"
     rf"|{_NAMES}\s+(?:please|only|from now on|lessons?|class(?:es)?|words?|grammar|vocabulary)\b",

@@ -2,10 +2,9 @@
   "en": {"given": "Given", "required": "Required", "solution": "Solution", "substitution": "Substitution", "steps": "Steps", "answer": "Answer", "where": "where", "solve_for": "Solve for {symbol}"},
   "es": {"given": "Datos", "required": "Incógnita", "solution": "Solución", "substitution": "Sustitución", "steps": "Pasos", "answer": "Respuesta", "where": "donde", "solve_for": "Despejamos {symbol}"},
   "fr": {"given": "Données", "required": "Inconnue", "solution": "Solution", "substitution": "Application numérique", "steps": "Étapes", "answer": "Réponse", "where": "où", "solve_for": "On isole {symbol}"},
-  "de": {"given": "Gegeben", "required": "Gesucht", "solution": "Lösung", "substitution": "Einsetzen", "steps": "Schritte", "answer": "Antwort", "where": "wobei", "solve_for": "Umstellen nach {symbol}"},
-  "it": {"given": "Dati", "required": "Incognita", "solution": "Soluzione", "substitution": "Sostituzione", "steps": "Passaggi", "answer": "Risposta", "where": "dove", "solve_for": "Ricaviamo {symbol}"},
   "pt": {"given": "Dados", "required": "Incógnita", "solution": "Solução", "substitution": "Substituição", "steps": "Passos", "answer": "Resposta", "where": "onde", "solve_for": "Isolamos {symbol}"},
   "ru": {"given": "Дано", "required": "Найти", "solution": "Решение", "substitution": "Подстановка", "steps": "Шаги", "answer": "Ответ", "where": "где", "solve_for": "Выразим {symbol}"},
   "tr": {"given": "Verilenler", "required": "İstenen", "solution": "Çözüm", "substitution": "Yerine koyma", "steps": "Adımlar", "answer": "Yanıt", "where": "burada", "solve_for": "{symbol} yalnız bırakılır"},
-  "am": {"given": "የተሰጠ", "required": "የሚፈለገው", "solution": "መፍትሄ", "substitution": "እሴቶቹን መተካት", "steps": "ደረጃዎች", "answer": "መልስ", "where": "እዚህ", "solve_for": "{symbol}ን ለብቻው ማውጣት"}
+  "am": {"given": "የተሰጠ", "required": "የሚፈለገው", "solution": "መፍትሄ", "substitution": "እሴቶቹን መተካት", "steps": "ደረጃዎች", "answer": "መልስ", "where": "እዚህ", "solve_for": "{symbol}ን ለብቻው ማውጣት"},
+  "hi": {"given": "दिया गया", "required": "ज्ञात करना है", "solution": "हल", "substitution": "मान रखने पर", "steps": "चरण", "answer": "उत्तर", "where": "जहाँ", "solve_for": "{symbol} को अलग करते हैं"}
 }

@@ -77,52 +77,6 @@ TEMPLATES: dict[str, dict[str, dict[str, str]]] = {
                 "<p>Cordialement,<br/>L'équipe Recall</p>"
             ),
         },
-        "de": {
-            "subject": "Willkommen bei Recall",
-            "text": (
-                "Hallo {name},\n\n"
-                "Willkommen bei Recall — deinem persönlichen KI-Chat, der sich an das "
-                "erinnert, was dir wichtig ist. Frag alles, notiere Erinnerungen oder "
-                "starte ein Lernprojekt.\n\n"
-                "Ein paar Tipps zum Start:\n"
-                "  - Erzähl Recall über dich, damit das Gedächtnis nützlich wird.\n"
-                "  - Stelle Sprache, Ton und Antwortlänge in den Einstellungen ein.\n\n"
-                "Viele Grüße,\nDas Recall-Team"
-            ),
-            "html": (
-                "<p>Hallo {name},</p>"
-                "<p>Willkommen bei <strong>Recall</strong> — deinem persönlichen KI-Chat.</p>"
-                "<p>Zum Start:</p>"
-                "<ul>"
-                "<li>Erzähl Recall über dich.</li>"
-                "<li>Stelle Sprache, Ton und Antwortlänge ein.</li>"
-                "</ul>"
-                "<p>Viele Grüße,<br/>Das Recall-Team</p>"
-            ),
-        },
-        "it": {
-            "subject": "Benvenuto in Recall",
-            "text": (
-                "Ciao {name},\n\n"
-                "Benvenuto in Recall — la tua chat IA personale che ricorda ciò che "
-                "ti importa. Chiedi qualsiasi cosa, annota promemoria o inizia un "
-                "progetto di apprendimento.\n\n"
-                "Qualche idea per iniziare:\n"
-                "  - Racconta a Recall di te per arricchire la sua memoria.\n"
-                "  - Imposta lingua, tono e lunghezza delle risposte.\n\n"
-                "Saluti,\nIl team di Recall"
-            ),
-            "html": (
-                "<p>Ciao {name},</p>"
-                "<p>Benvenuto in <strong>Recall</strong> — la tua chat IA personale.</p>"
-                "<p>Per iniziare:</p>"
-                "<ul>"
-                "<li>Racconta a Recall di te.</li>"
-                "<li>Imposta lingua, tono e lunghezza.</li>"
-                "</ul>"
-                "<p>Saluti,<br/>Il team di Recall</p>"
-            ),
-        },
         "pt": {
             "subject": "Bem-vindo ao Recall",
             "text": (
@@ -251,42 +205,6 @@ TEMPLATES: dict[str, dict[str, dict[str, str]]] = {
                 "<p>{event_line_html}{expiration_line_html}</p>"
                 "<p>Gérez votre abonnement depuis les Réglages.</p>"
                 "<p>Cordialement,<br/>L'équipe Recall</p>"
-            ),
-        },
-        "de": {
-            "subject": "Deine Recall-Quittung",
-            "text": (
-                "Hallo {name},\n\n"
-                "Danke für dein Recall-Abo!\n\n"
-                "{event_line}"
-                "{expiration_line}"
-                "\nVerwalte dein Abo jederzeit in den Einstellungen.\n\n"
-                "Viele Grüße,\nDas Recall-Team"
-            ),
-            "html": (
-                "<p>Hallo {name},</p>"
-                "<p>Danke für dein <strong>Recall</strong>-Abo!</p>"
-                "<p>{event_line_html}{expiration_line_html}</p>"
-                "<p>Verwalte dein Abo in den Einstellungen.</p>"
-                "<p>Viele Grüße,<br/>Das Recall-Team</p>"
-            ),
-        },
-        "it": {
-            "subject": "La tua ricevuta di Recall",
-            "text": (
-                "Ciao {name},\n\n"
-                "Grazie per l'abbonamento a Recall!\n\n"
-                "{event_line}"
-                "{expiration_line}"
-                "\nGestisci il tuo abbonamento dalle Impostazioni.\n\n"
-                "Saluti,\nIl team di Recall"
-            ),
-            "html": (
-                "<p>Ciao {name},</p>"
-                "<p>Grazie per l'abbonamento a <strong>Recall</strong>!</p>"
-                "<p>{event_line_html}{expiration_line_html}</p>"
-                "<p>Gestisci l'abbonamento dalle Impostazioni.</p>"
-                "<p>Saluti,<br/>Il team di Recall</p>"
             ),
         },
         "pt": {

@@ -42,7 +42,7 @@ describe("memory documents", () => {
         doc("preferences", "you"),
       ],
       t,
-      "de",
+      "fr",
     );
     expect(sections.map((section) => [section.group, section.documents.map((d) => d.key)])).toEqual([
       ["you", ["profile", "preferences"]],

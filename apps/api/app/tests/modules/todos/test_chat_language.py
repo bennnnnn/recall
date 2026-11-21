@@ -80,12 +80,14 @@ def test_a_to_do_message_in_any_app_language_loads_the_list(text: str) -> None:
     [
         ("recuérdame mañana a las 9 llamar a mamá", "es"),
         ("rappelle-moi demain d'appeler ma mère", "fr"),
+        # German and Italian are no app language, but are still read as not English.
         ("erinnere mich morgen um 9 Uhr an den Zahnarzt", "de"),
         ("ricordami domani alle 9 di chiamare la mamma", "it"),
         ("lembra-me amanhã às 9 de ligar para a minha mãe", "pt"),
         ("yarın saat 9'da annemi aramayı hatırlat", "tr"),
         ("напомни завтра в 9 позвонить маме", "ru"),
         ("ነገ 9 ሰዓት እናቴን እንድደውል አስታውሰኝ", "am"),
+        ("कल सुबह 9 बजे माँ को फ़ोन करने की याद दिलाना", "hi"),
         # Another script the app has no language for, and plain English.
         ("ذكرني غدا بالاتصال بأمي", None),
         ("remind me to call mom", None),
@@ -99,7 +101,7 @@ def test_message_language_names_the_app_language_a_message_is_in(
     assert message_language(text) == language
 
 
-@pytest.mark.parametrize("language", ["es", "fr", "de", "it", "pt", "tr", "ru", "am"])
+@pytest.mark.parametrize("language", ["es", "fr", "pt", "tr", "ru", "am", "hi"])
 def test_every_app_language_has_its_own_to_do_line(language: str) -> None:
     line = todo_screen_line(language)
     assert line != todo_screen_line("en")

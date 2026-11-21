@@ -44,8 +44,8 @@ describe("describeDueAt", () => {
   it.each([
     ["en", "h12", "Today 5:30 PM"],
     ["en", "h23", "Today 17:30"],
-    ["de", "h12", "Heute 5:30 PM"],
-    ["de", "h23", "Heute 17:30"],
+    ["fr", "h12", "Aujourd'hui 5:30 PM"],
+    ["fr", "h23", "Aujourd'hui 17:30"],
   ] as const)("labels a later time today in %s on a %s phone", async (language, hourCycle, label) => {
     mockPhone = { timeZone: undefined, hourCycle };
     refreshPhoneClock();
@@ -60,11 +60,11 @@ describe("describeDueAt", () => {
   });
 
   it("writes a date later this week and later on in the app's language", async () => {
-    await ensureLocale("de");
+    await ensureLocale("fr");
     try {
       freezeAt(new Date(2026, 8, 8, 12, 0, 0));
-      expect(describeDueAt(toDueAtIso(new Date(2026, 8, 11, 10, 0, 0)))?.label).toBe("Fr., 11. Sept.");
-      expect(describeDueAt(toDueAtIso(new Date(2026, 9, 20, 10, 0, 0)))?.label).toBe("20. Okt. 2026");
+      expect(describeDueAt(toDueAtIso(new Date(2026, 8, 11, 10, 0, 0)))?.label).toBe("ven. 11 sept.");
+      expect(describeDueAt(toDueAtIso(new Date(2026, 9, 20, 10, 0, 0)))?.label).toBe("20 oct. 2026");
     } finally {
       await ensureLocale("en");
     }

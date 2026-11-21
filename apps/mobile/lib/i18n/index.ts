@@ -13,12 +13,11 @@ type LocaleBundle = typeof en;
 const LOCALE_BUNDLES: Record<string, () => LocaleBundle> = {
   es: () => require("./es.json") as LocaleBundle,
   fr: () => require("./fr.json") as LocaleBundle,
-  de: () => require("./de.json") as LocaleBundle,
-  it: () => require("./it.json") as LocaleBundle,
   pt: () => require("./pt.json") as LocaleBundle,
   ru: () => require("./ru.json") as LocaleBundle,
   tr: () => require("./tr.json") as LocaleBundle,
   am: () => require("./am.json") as LocaleBundle,
+  hi: () => require("./hi.json") as LocaleBundle,
 };
 
 const loadedLocales = new Set<string>(["en"]);
@@ -60,14 +59,13 @@ i18n.use(initReactI18next).init({
   resources: { en: { translation: en } },
   lng: "en",
   fallbackLng: {
-    de: ["en"],
     es: ["en"],
     fr: ["en"],
-    it: ["en"],
     pt: ["en"],
     ru: ["en"],
     tr: ["en"],
     am: ["en"],
+    hi: ["en"],
     default: ["en"],
   },
   interpolation: { escapeValue: false },

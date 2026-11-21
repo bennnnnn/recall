@@ -15,7 +15,7 @@ import { ensureLocale } from "@/lib/i18n";
 declare const setTestTimeZone: (zone: string) => void;
 
 // The row read the language through this hook and the editor read the phone's locale:
-// with the app in German on an English phone they wrote one time two ways.
+// with the app in French on an English phone they wrote one time two ways.
 let mockLanguage = "en";
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key, i18n: { language: mockLanguage } }),
@@ -62,27 +62,27 @@ const spaced = (text: string) => new RegExp(`^${text.replace(/ /g, "\\s")}$`);
 
 type Expected = { heading: string; date: string; twelve: string; twentyFour: string };
 
-const EXPECTED: Record<string, Record<"en" | "de", Expected>> = {
+const EXPECTED: Record<string, Record<"en" | "fr", Expected>> = {
   UTC: {
     en: { heading: "Sunday, Oct 25", date: "Oct 25, 2026", twelve: "11:30 PM", twentyFour: "23:30" },
-    de: { heading: "Sonntag, 25. Okt.", date: "25. Okt. 2026", twelve: "11:30 PM", twentyFour: "23:30" },
+    fr: { heading: "dimanche 25 oct.", date: "25 oct. 2026", twelve: "11:30 PM", twentyFour: "23:30" },
   },
   "America/New_York": {
     en: { heading: "Sunday, Oct 25", date: "Oct 25, 2026", twelve: "7:30 PM", twentyFour: "19:30" },
-    de: { heading: "Sonntag, 25. Okt.", date: "25. Okt. 2026", twelve: "7:30 PM", twentyFour: "19:30" },
+    fr: { heading: "dimanche 25 oct.", date: "25 oct. 2026", twelve: "7:30 PM", twentyFour: "19:30" },
   },
   "Asia/Kathmandu": {
     en: { heading: "Monday, Oct 26", date: "Oct 26, 2026", twelve: "5:15 AM", twentyFour: "05:15" },
-    de: { heading: "Montag, 26. Okt.", date: "26. Okt. 2026", twelve: "5:15 AM", twentyFour: "5:15" },
+    fr: { heading: "lundi 26 oct.", date: "26 oct. 2026", twelve: "5:15 AM", twentyFour: "5:15" },
   },
   "Pacific/Kiritimati": {
     en: { heading: "Monday, Oct 26", date: "Oct 26, 2026", twelve: "1:30 PM", twentyFour: "13:30" },
-    de: { heading: "Montag, 26. Okt.", date: "26. Okt. 2026", twelve: "1:30 PM", twentyFour: "13:30" },
+    fr: { heading: "lundi 26 oct.", date: "26 oct. 2026", twelve: "1:30 PM", twentyFour: "13:30" },
   },
 };
 
 const CASES = Object.keys(EXPECTED).flatMap((zone) =>
-  (["en", "de"] as const).flatMap((language) =>
+  (["en", "fr"] as const).flatMap((language) =>
     (["h12", "h23"] as const).map((hourCycle) => [zone, language, hourCycle] as const)));
 
 afterAll(() => ensureLocale("en"));
@@ -128,8 +128,8 @@ describe.each(CASES)("in %s, the app in %s, a %s phone", (zone, language, hourCy
       // Half an hour before it falls due in UTC: the day and time the row shows.
       const today = new Date("2026-10-25T23:00:00Z").getDate() === new Date(DUE).getDate();
       const label = plain(describeDueAt(DUE)?.label ?? "");
-      if (today) expect(label).toBe(`${language === "de" ? "Heute" : "Today"} ${time}`);
-      else expect(label).toBe(language === "de" ? "Morgen" : "Tomorrow");
+      if (today) expect(label).toBe(`${language === "fr" ? "Aujourd'hui" : "Today"} ${time}`);
+      else expect(label).toBe(language === "fr" ? "Morgen" : "Tomorrow");
     } finally {
       jest.useRealTimers();
     }

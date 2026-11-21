@@ -1,18 +1,19 @@
 # ruff: noqa: RUF001 - Turkish dotless i and Cyrillic are the words matched
 """Picture requests in the app's other languages: the few shapes ``gen_intent_local`` reads.
 
-Only two unmistakable shapes draw in Spanish, French, German, Italian, Portuguese,
-Russian, Turkish and Amharic:
+Only two unmistakable shapes draw in Spanish, French, Portuguese, Russian, Turkish, Amharic
+and Hindi:
 
 - "draw me": a draw verb addressed to the assistant with "me" ("dibújame", "¿me
-  dibujas …?", "dessine-moi", "zeichne mir", "kannst du mir … zeichnen?", "mi disegni
-  …?", "me desenhe", "нарисуй мне", "bana … çiz", "… ሳልልኝ");
+  dibujas …?", "dessine-moi", "me desenhe", "нарисуй мне", "bana … çiz", "… ሳልልኝ",
+  "मेरे लिए … बनाओ");
 - "create a picture of": create or generate, a picture noun, then "of" ("crea una
-  imagen de", "erstelle ein Bild von", "… resmi oluştur", "создай картинку …").
+  imagen de", "… resmi oluştur", "создай картинку …", "… का चित्र बनाओ").
 
-Everything else ("Dibuja un gato", "Illustra il problema", "Mal den Teufel nicht an die
-Wand") is answered in words, as on main. A shape is written as slots: "a|b ?c d" is "a"
-or "b", then an optional "c", then "d"; "_" joins the words of one choice ("peux_tu").
+Everything else ("Dibuja un gato", "बिल्ली बनाओ") is answered in words, as on main.
+
+A shape is written as slots: "a|b ?c d" is "a" or "b", then an optional "c", then "d";
+"_" joins the words of one choice ("peux_tu").
 """
 
 from __future__ import annotations
@@ -64,19 +65,16 @@ class Language:
     code: str
     shapes: tuple[Shape, ...]
     polite: tuple[tuple[str, ...], ...] = ()
-    # Said between the lead and the subject: "zeichne mir bitte …", "zeichne mir mal …".
+    # Said between the lead and the subject: "dibújame por favor …".
     fillers: frozenset[str] = frozenset()
     # A subject that points back ("eso", "das"): only the chat could name it.
     pronouns: frozenset[str] = frozenset()
-    # A definite subject ("la pirámide alimenticia", "das Verdauungssystem", "l'anatomie
-    # de l'œil") is a school figure or a known thing far more often than a picture to
-    # invent: "un dragón", "einen Drachen" draw.
+    # A definite subject ("la pirámide alimenticia", "l'anatomie de l'œil") is a school
+    # figure or a known thing far more often than a picture to invent: "un dragón" draws.
     definite: frozenset[str] = frozenset()
     # Turkish marks a definite object by its ending ("sistemini", "kediyi"): "bir kedi".
     definite_endings: tuple[str, ...] = ()
     again: tuple[tuple[str, ...], ...] = ()
-    # German separable verbs: "zeichne mir das auf" writes it down, "male mir aus" imagines.
-    particles: frozenset[str] = frozenset()
 
 
 # Spanish.
@@ -128,52 +126,6 @@ FRENCH = Language(
     pronouns=_w("ça ca cela ceci ce cet cette ces moi"),
     definite=_w("le la les l' du des au aux"),
     again=_phrases("encore à_nouveau a_nouveau de_nouveau"),
-)
-
-# German: "kannst du mir eine Katze zeichnen?" closes with its verb.
-_DE_DRAW = "zeichne|zeichnet|male|mal|zeichnen_sie|malen_sie"
-_DE_CAN = "kannst_du|könntest_du|koenntest_du|können_sie|könnten_sie"
-_DE_CREATE = "erstelle|erstell|generiere|generier|erzeuge|erzeug"
-_DE_PICTURE = "ein|eine bild|zeichnung|illustration von"
-
-GERMAN = Language(
-    "de",
-    shapes=(
-        _shape(f"{_DE_DRAW} mir|uns"),
-        _shape(f"{_DE_CAN} mir|uns", "zeichnen|malen"),
-        _shape(f"{_DE_CREATE} ?mir|uns {_DE_PICTURE}"),
-        _shape(f"{_DE_CAN} ?mir|uns {_DE_PICTURE}", "erstellen|generieren|erzeugen"),
-    ),
-    polite=_phrases("bitte"),
-    fillers=_w("bitte mal doch einfach schnell"),
-    pronouns=_w("es dies dieses diese diesen ihn mir mich davon dazu darüber"),
-    definite=_w("das die den der dem des vom zum zur"),
-    again=_phrases("nochmal noch_mal noch_einmal erneut wieder"),
-    particles=_w("auf ab aus an ein vor"),
-)
-
-# Italian.
-_IT_ME = "disegnami|dipingimi"
-_IT_YOU = "disegni|dipingi|disegneresti|dipingeresti"
-_IT_CAN = "puoi|potresti|può|potrebbe"
-_IT_CREATE = "crea|genera|creami|generami"
-_IT_TO_CREATE = "creare|generare|crearmi|generarmi"
-_IT_PICTURE = "un'|una|un immagine|illustrazione|disegno di|d'"
-
-ITALIAN = Language(
-    "it",
-    shapes=(
-        _shape(_IT_ME),
-        _shape(f"mi {_IT_YOU}"),
-        _shape(f"{_IT_CAN} disegnarmi|dipingermi"),
-        _shape(f"mi {_IT_CAN} disegnare|dipingere"),
-        _shape(f"{_IT_CREATE} {_IT_PICTURE}"),
-        _shape(f"?mi {_IT_CAN} {_IT_TO_CREATE} {_IT_PICTURE}"),
-    ),
-    polite=_phrases("per_favore per_piacere perfavore"),
-    pronouns=_w("questo questa quello quella questi queste quelli ciò cio me"),
-    definite=_w("il lo la i gli le l' del della dello dei degli delle"),
-    again=_phrases("di_nuovo ancora"),
 )
 
 # Portuguese: "desenha-me" is "desenha" then "me".
@@ -260,22 +212,42 @@ AMHARIC = Language(
     again=_phrases("እንደገና"),
 )
 
+# Hindi: "बिल्ली का चित्र बनाओ" (make a picture of a cat), "मेरे लिए एक बिल्ली ड्रा करो" (draw
+# me a cat). "बनाओ" without a picture word draws nothing: it also cooks ("मेरे लिए चाय
+# बनाओ"), builds and makes plans.
+_HI_MAKE = (
+    "बनाओ|बनाइए|बनाइये|बनाएँ|बनाएं|बना_दो|बना_दीजिए|बना_दीजिये|बना_दें|बना_देना|बनाकर_दो|बनाकर_दिखाओ"
+)
+_HI_DRAW = "ड्रा_करो|ड्रा_कीजिए|ड्रा_कीजिये|ड्रा_करें|ड्रा_कर_दो|स्केच_करो|स्केच_कीजिए"
+_HI_PICTURE = "चित्र|तस्वीर|तसवीर|इमेज|छवि|पेंटिंग|ड्राइंग"
+_HI_FOR_ME = "मेरे_लिए|मेरे_लिये|हमारे_लिए|मुझे"
+
+HINDI = Language(
+    "hi",
+    shapes=(
+        _shape(f"?{_HI_FOR_ME}", f"का|की|के {_HI_PICTURE} {_HI_MAKE}|{_HI_DRAW}"),
+        _shape(f"?{_HI_FOR_ME}", _HI_DRAW),
+    ),
+    polite=_phrases("कृपया प्लीज़ प्लीज जरा ज़रा"),
+    pronouns=_w("इसे उसे इन्हें उन्हें यह वह ये वो इसको उसको इसका उसका"),
+    again=_phrases("फिर_से दोबारा एक_बार_फिर फिर"),
+)
+
 LANGUAGES: tuple[Language, ...] = (
     SPANISH,
     FRENCH,
-    GERMAN,
-    ITALIAN,
     PORTUGUESE,
     RUSSIAN,
     TURKISH,
     AMHARIC,
+    HINDI,
 )
 
 # Dropped before the subject ("dibújame un gato" draws "gato").
-ARTICLES = _w("un una uno un' une ein eine einen einem einer um uma bir")
+ARTICLES = _w("un una une um uma bir एक")
 
-# "Zeichne mir auch eine Katze", "dibújame también un gato": "also" after the lead.
+# "Dibújame también un gato", "मेरे लिए भी …": "also" after the lead.
 ALSO = _w(
-    "also también además aussi également auch außerdem ausserdem zudem anche inoltre pure "
-    "também tambem além disso ayrıca также тоже ещё еще እንዲሁም ደግሞ ደግሞም"
+    "also también además aussi également também tambem além disso ayrıca также тоже ещё еще "
+    "እንዲሁም ደግሞ ደግሞም भी"
 )

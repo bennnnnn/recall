@@ -11,12 +11,11 @@ LOCALE_NAMES: dict[str, str] = {
     "en": "English",
     "es": "Spanish",
     "fr": "French",
-    "de": "German",
-    "it": "Italian",
     "pt": "Portuguese",
     "ru": "Russian",
     "tr": "Turkish",
     "am": "Amharic",
+    "hi": "Hindi",
 }
 
 BORING_CHAT_TITLES = frozenset(

@@ -156,162 +156,6 @@
     "expect": "answer"
   },
   {
-    "id": "pl-de-01",
-    "area": "picture languages",
-    "prompt": "Zeichne eine Katze mit Hut",
-    "history": [],
-    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
-  },
-  {
-    "id": "pl-de-02",
-    "area": "picture languages",
-    "prompt": "Erstelle ein Bild von einem Löwen",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl-de-03",
-    "area": "picture languages",
-    "prompt": "Kannst du mir einen Drachen zeichnen?",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl-de-10",
-    "area": "picture languages",
-    "prompt": "Zeichne eine Katze mit Hut und erkläre auch, was ein schwarzes Loch ist",
-    "history": [],
-    "reply": "Ein schwarzes Loch ist ein Bereich im All, in dem die Schwerkraft so stark ist, dass nichts entkommt, nicht einmal Licht.",
-    "expect": "answer",
-    "note": "One answer, no picture part: the picture clause is no draw-me or create-a-picture-of form (round 5)."
-  },
-  {
-    "id": "pl-de-20",
-    "area": "picture languages",
-    "prompt": "Zeichne mir eine Tabelle der Ergebnisse",
-    "history": [],
-    "reply": "| Team | Punkte |\n|---|---|\n| A | 12 |\n| B | 9 |",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-de-21",
-    "area": "picture languages",
-    "prompt": "Zeichne den Graphen von y = x^2",
-    "history": [],
-    "reply": "Der Graph von y = x² ist eine nach oben geöffnete Parabel mit dem Scheitel im Ursprung.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-de-22",
-    "area": "picture languages",
-    "prompt": "Zeichne ein Dreieck mit den Seiten 3, 4 und 5",
-    "history": [],
-    "reply": "Ein Dreieck mit den Seiten 3, 4 und 5 ist rechtwinklig, denn 3² + 4² = 5².",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-de-23",
-    "area": "picture languages",
-    "prompt": "Zeichne das Gespräch auf",
-    "history": [],
-    "reply": "Ich kann keine Gespräche aufnehmen. Auf dem Handy geht das mit der Sprachmemo-App.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-de-24",
-    "area": "picture languages",
-    "prompt": "Mach dir ein Bild davon, wie groß der Garten ist: 12 mal 8 Meter",
-    "history": [],
-    "reply": "12 mal 8 Meter sind 96 Quadratmeter, etwa so groß wie eine Dreizimmerwohnung.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-de-25",
-    "area": "picture languages",
-    "prompt": "Erstelle einen Plan für meine Woche",
-    "history": [],
-    "reply": "Montag: Sport. Dienstag: Einkauf. Mittwoch: Lernen. Donnerstag: Freunde. Freitag: frei.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-de-26",
-    "area": "picture languages",
-    "prompt": "Zeichne Ethanol",
-    "history": [],
-    "reply": "Ethanol (C₂H₅OH): zwei Kohlenstoffatome, an einem hängt die OH-Gruppe.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-it-01",
-    "area": "picture languages",
-    "prompt": "Disegna un gatto con il cappello",
-    "history": [],
-    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
-  },
-  {
-    "id": "pl-it-02",
-    "area": "picture languages",
-    "prompt": "Genera un'immagine di un leone",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl-it-03",
-    "area": "picture languages",
-    "prompt": "Disegnami un drago",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl-it-10",
-    "area": "picture languages",
-    "prompt": "Disegna un gatto con il cappello e spiega anche cos'è un buco nero",
-    "history": [],
-    "reply": "Un buco nero è una regione dello spazio in cui la gravità è così forte che niente, nemmeno la luce, può sfuggire.",
-    "expect": "answer",
-    "note": "One answer, no picture part: the picture clause is no draw-me or create-a-picture-of form (round 5)."
-  },
-  {
-    "id": "pl-it-20",
-    "area": "picture languages",
-    "prompt": "Disegna una tabella dei risultati",
-    "history": [],
-    "reply": "| Squadra | Punti |\n|---|---|\n| A | 12 |\n| B | 9 |",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-it-21",
-    "area": "picture languages",
-    "prompt": "Disegna il grafico di y = x^2",
-    "history": [],
-    "reply": "Il grafico di y = x² è una parabola con il vertice nell'origine, rivolta verso l'alto.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-it-22",
-    "area": "picture languages",
-    "prompt": "Disegni animati per bambini di tre anni, quali consigli?",
-    "history": [],
-    "reply": "Peppa Pig, Bluey e Masha e Orso sono adatti ai tre anni, in piccole dosi.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-it-23",
-    "area": "picture languages",
-    "prompt": "Fammi una lista della spesa per la carbonara",
-    "history": [],
-    "reply": "Spaghetti, guanciale, uova, pecorino romano e pepe nero.",
-    "expect": "answer"
-  },
-  {
     "id": "pl-pt-01",
     "area": "picture languages",
     "prompt": "Desenhe um gato com chapéu",
@@ -745,102 +589,6 @@
     "expect": "answer"
   },
   {
-    "id": "pl-de-40",
-    "area": "picture languages",
-    "prompt": "Illustriere die Lösung",
-    "history": [],
-    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-de-41",
-    "area": "picture languages",
-    "prompt": "Zeichne ein Beispiel",
-    "history": [],
-    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-de-42",
-    "area": "picture languages",
-    "prompt": "Zeichne meine Matheaufgabe",
-    "history": [],
-    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-de-43",
-    "area": "picture languages",
-    "prompt": "Zeichne Koffein",
-    "history": [],
-    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-de-44",
-    "area": "picture languages",
-    "prompt": "Zeichne die Kräfte auf einen Block auf einer schiefen Ebene",
-    "history": [],
-    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-de-45",
-    "area": "picture languages",
-    "prompt": "Male mir aus, wie es wäre",
-    "history": [],
-    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-de-46",
-    "area": "picture languages",
-    "prompt": "Zeichne mir auf, wie das geht",
-    "history": [],
-    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-it-40",
-    "area": "picture languages",
-    "prompt": "Illustra con un esempio",
-    "history": [],
-    "reply": "Certo. Ecco la spiegazione passo per passo, con un esempio semplice alla fine.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-it-41",
-    "area": "picture languages",
-    "prompt": "Illustra la tua risposta con un esempio",
-    "history": [],
-    "reply": "Certo. Ecco la spiegazione passo per passo, con un esempio semplice alla fine.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-it-42",
-    "area": "picture languages",
-    "prompt": "Illustra il problema",
-    "history": [],
-    "reply": "Certo. Ecco la spiegazione passo per passo, con un esempio semplice alla fine.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-it-43",
-    "area": "picture languages",
-    "prompt": "Disegna un progetto per la mia startup",
-    "history": [],
-    "reply": "Certo. Ecco la spiegazione passo per passo, con un esempio semplice alla fine.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-it-44",
-    "area": "picture languages",
-    "prompt": "Disegna la caffeina",
-    "history": [],
-    "reply": "Certo. Ecco la spiegazione passo per passo, con un esempio semplice alla fine.",
-    "expect": "answer"
-  },
-  {
     "id": "pl-pt-40",
     "area": "picture languages",
     "prompt": "Ilustre com um exemplo",
@@ -970,29 +718,11 @@
     "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
   },
   {
-    "id": "pl-it-70",
-    "area": "picture languages",
-    "prompt": "Disegna un gatto. Come un leone, però.",
-    "history": [],
-    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
-  },
-  {
     "id": "pl-es-70",
     "area": "picture languages",
     "prompt": "Dibuja un gato y escribe su nombre debajo",
     "history": [],
     "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
-  },
-  {
-    "id": "pl-de-70",
-    "area": "picture languages",
-    "prompt": "Zeichne eine Katze und gib ihr einen Hut",
-    "history": [],
-    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
     "expect": "answer",
     "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
   },
@@ -1038,24 +768,6 @@
     "prompt": "Explique ce qu'est un trou noir et dessine un chat",
     "history": [],
     "reply": "Un trou noir est une région de l'espace où la gravité est si forte que rien, pas même la lumière, ne peut s'en échapper.",
-    "expect": "answer",
-    "note": "One answer, no picture part: the picture clause is no draw-me or create-a-picture-of form (round 5)."
-  },
-  {
-    "id": "pl-de-11",
-    "area": "picture languages",
-    "prompt": "Erkläre, was ein schwarzes Loch ist, und zeichne auch eine Katze",
-    "history": [],
-    "reply": "Ein schwarzes Loch ist ein Bereich im All, in dem die Schwerkraft so stark ist, dass nichts entkommt, nicht einmal Licht.",
-    "expect": "answer",
-    "note": "One answer, no picture part: the picture clause is no draw-me or create-a-picture-of form (round 5)."
-  },
-  {
-    "id": "pl-it-11",
-    "area": "picture languages",
-    "prompt": "Spiegami cos'è un buco nero e disegna un gatto",
-    "history": [],
-    "reply": "Un buco nero è una regione dello spazio in cui la gravità è così forte che niente, nemmeno la luce, può sfuggire.",
     "expect": "answer",
     "note": "One answer, no picture part: the picture clause is no draw-me or create-a-picture-of form (round 5)."
   },
@@ -1260,60 +972,6 @@
     "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
   },
   {
-    "id": "pl-de-80",
-    "area": "picture languages",
-    "prompt": "Zeichne eine Katze, die gerade schläft",
-    "history": [],
-    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
-  },
-  {
-    "id": "pl-de-81",
-    "area": "picture languages",
-    "prompt": "Zeichne einen Musiker mit Gitarre",
-    "history": [],
-    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
-  },
-  {
-    "id": "pl-de-82",
-    "area": "picture languages",
-    "prompt": "Zeichne das Meer mit großen Wellen",
-    "history": [],
-    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
-  },
-  {
-    "id": "pl-de-83",
-    "area": "picture languages",
-    "prompt": "Zeichne einen Ritter voller Kraft",
-    "history": [],
-    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
-  },
-  {
-    "id": "pl-de-84",
-    "area": "picture languages",
-    "prompt": "Zeichne den Strahlengang einer Sammellinse",
-    "history": [],
-    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
-  },
-  {
-    "id": "pl-de-85",
-    "area": "picture languages",
-    "prompt": "Male eine Katze",
-    "history": [],
-    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
-  },
-  {
     "id": "pl-fr-80",
     "area": "picture languages",
     "prompt": "Dessine une voiture à grande vitesse",
@@ -1355,51 +1013,6 @@
     "prompt": "Dessine une cellule végétale",
     "history": [],
     "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
-  },
-  {
-    "id": "pl-it-80",
-    "area": "picture languages",
-    "prompt": "Disegna un gatto a tema natalizio",
-    "history": [],
-    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
-  },
-  {
-    "id": "pl-it-81",
-    "area": "picture languages",
-    "prompt": "Disegna le onde del mare",
-    "history": [],
-    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
-  },
-  {
-    "id": "pl-it-82",
-    "area": "picture languages",
-    "prompt": "Disegna un gatto sotto i raggi del sole",
-    "history": [],
-    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
-  },
-  {
-    "id": "pl-it-83",
-    "area": "picture languages",
-    "prompt": "Disegna un gatto nell'angolo della stanza",
-    "history": [],
-    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
-  },
-  {
-    "id": "pl-it-84",
-    "area": "picture languages",
-    "prompt": "Disegna un atomo",
-    "history": [],
-    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
     "expect": "answer",
     "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
   },
@@ -1492,40 +1105,6 @@
     "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
     "expect": "answer",
     "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
-  },
-  {
-    "id": "pl-de-95",
-    "area": "picture languages",
-    "prompt": "Zeichne das größer",
-    "history": [
-      [
-        "user",
-        "Generate image: black cat"
-      ],
-      [
-        "assistant",
-        "[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]"
-      ]
-    ],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl-de-96",
-    "area": "picture languages",
-    "prompt": "Zeichne die noch größer",
-    "history": [
-      [
-        "user",
-        "Generate image: black cat"
-      ],
-      [
-        "assistant",
-        "[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]"
-      ]
-    ],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
   },
   {
     "id": "pl-fr-95",
@@ -1621,62 +1200,6 @@
     "expect": "image_gen"
   },
   {
-    "id": "pl-de-100",
-    "area": "picture languages",
-    "prompt": "Mal den Teufel nicht an die Wand",
-    "history": [],
-    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-de-101",
-    "area": "picture languages",
-    "prompt": "Mal die Situation nicht so schwarz",
-    "history": [],
-    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-de-102",
-    "area": "picture languages",
-    "prompt": "Mal die Hand aufs Herz, wer war das?",
-    "history": [],
-    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-de-103",
-    "area": "picture languages",
-    "prompt": "Mal einen Kaffee trinken?",
-    "history": [],
-    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-de-104",
-    "area": "picture languages",
-    "prompt": "Mal ein Gedanke: sollten wir umziehen?",
-    "history": [],
-    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-de-105",
-    "area": "picture languages",
-    "prompt": "Mal ein Kompliment an dich: du bist toll",
-    "history": [],
-    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-de-106",
-    "area": "picture languages",
-    "prompt": "Mal ein anderes Thema: was kochen wir heute?",
-    "history": [],
-    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
-    "expect": "answer"
-  },
-  {
     "id": "pl-es-100",
     "area": "picture languages",
     "prompt": "Dibuja una lista de las capitales de Europa",
@@ -1690,22 +1213,6 @@
     "prompt": "Dessine une liste des capitales européennes",
     "history": [],
     "reply": "Bien sûr. Voici l'explication étape par étape, avec un exemple simple à la fin.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-de-107",
-    "area": "picture languages",
-    "prompt": "Zeichne mir eine Liste der Hauptstädte",
-    "history": [],
-    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-it-100",
-    "area": "picture languages",
-    "prompt": "Disegna un elenco delle capitali europee",
-    "history": [],
-    "reply": "Certo. Ecco la spiegazione passo per passo, con un esempio semplice alla fine.",
     "expect": "answer"
   },
   {
@@ -1741,51 +1248,11 @@
     "expect": "answer"
   },
   {
-    "id": "pl-de-108",
-    "area": "picture languages",
-    "prompt": "Zeichne die Grenze zwischen Deutschland und Polen",
-    "history": [],
-    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
-    "expect": "answer"
-  },
-  {
     "id": "pl-es-102",
     "area": "picture languages",
     "prompt": "Dibuja la base de datos de mi tienda",
     "history": [],
     "reply": "Claro. Aquí va la explicación paso a paso, con un ejemplo sencillo al final.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-de-109",
-    "area": "picture languages",
-    "prompt": "Zeichne die Datenbank meines Shops",
-    "history": [],
-    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-de-110",
-    "area": "picture languages",
-    "prompt": "Zeichne ein Säulendiagramm",
-    "history": [],
-    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-de-111",
-    "area": "picture languages",
-    "prompt": "Zeichne ein Kreisdiagramm meiner Ausgaben",
-    "history": [],
-    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-de-112",
-    "area": "picture languages",
-    "prompt": "Zeichne den Funktionsgraphen",
-    "history": [],
-    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
     "expect": "answer"
   },
   {
@@ -1837,55 +1304,12 @@
     "expect": "answer"
   },
   {
-    "id": "pl-de-113",
-    "area": "picture languages",
-    "prompt": "Zeichne die Kräfte auf einen Block auf einer geneigten Ebene",
-    "history": [],
-    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
-    "expect": "answer"
-  },
-  {
     "id": "pl-fr-101",
     "area": "picture languages",
     "prompt": "Dessine un tableau des résultats",
     "history": [],
     "reply": "Bien sûr. Voici l'explication étape par étape, avec un exemple simple à la fin.",
     "expect": "answer"
-  },
-  {
-    "id": "pl-de-114",
-    "area": "picture languages",
-    "prompt": "Mal mir einen Drachen",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl-de-115",
-    "area": "picture languages",
-    "prompt": "Male eine Katze mit Hut",
-    "history": [],
-    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
-  },
-  {
-    "id": "pl-it-101",
-    "area": "picture languages",
-    "prompt": "Genera una foto di un gatto",
-    "history": [],
-    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
-  },
-  {
-    "id": "pl-it-102",
-    "area": "picture languages",
-    "prompt": "Crea una foto di un gatto",
-    "history": [],
-    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
   },
   {
     "id": "pl-pt-101",
@@ -1983,69 +1407,6 @@
     "prompt": "Dibuja lo más bonito que se te ocurra",
     "history": [],
     "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
-  },
-  {
-    "id": "pl-de-116",
-    "area": "picture languages",
-    "prompt": "Zeichne die vier Jahreszeiten",
-    "history": [],
-    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
-  },
-  {
-    "id": "pl-de-117",
-    "area": "picture languages",
-    "prompt": "Zeichne die super süße Katze",
-    "history": [],
-    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
-  },
-  {
-    "id": "pl-de-118",
-    "area": "picture languages",
-    "prompt": "Zeichne die unter dem Baum schlafende Katze",
-    "history": [],
-    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
-  },
-  {
-    "id": "pl-de-119",
-    "area": "picture languages",
-    "prompt": "Zeichne die immer größer werdende Welle",
-    "history": [],
-    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
-  },
-  {
-    "id": "pl-de-120",
-    "area": "picture languages",
-    "prompt": "Zeichne die mit Blumen bedeckte Wiese",
-    "history": [],
-    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
-  },
-  {
-    "id": "pl-de-121",
-    "area": "picture languages",
-    "prompt": "Zeichne das in der Nacht leuchtende Schloss",
-    "history": [],
-    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
-  },
-  {
-    "id": "pl-de-122",
-    "area": "picture languages",
-    "prompt": "Zeichne die noch nie gesehene Kreatur",
-    "history": [],
-    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
     "expect": "answer",
     "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
   },
@@ -2154,33 +1515,6 @@
     "prompt": "Нарисуй совет директоров из котов",
     "history": [],
     "reply": "Конечно, объясню словами на простом примере.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
-  },
-  {
-    "id": "pl-it-103",
-    "area": "picture languages",
-    "prompt": "Disegna una coppia in una relazione felice",
-    "history": [],
-    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
-  },
-  {
-    "id": "pl-it-104",
-    "area": "picture languages",
-    "prompt": "Disegna file di alberi lungo un viale",
-    "history": [],
-    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
-  },
-  {
-    "id": "pl-it-105",
-    "area": "picture languages",
-    "prompt": "Disegna una macchina in curva",
-    "history": [],
-    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
     "expect": "answer",
     "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
   },
@@ -2307,15 +1641,6 @@
     "prompt": "Dessine un conte de fées",
     "history": [],
     "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
-  },
-  {
-    "id": "pl-de-123",
-    "area": "picture languages",
-    "prompt": "Zeichne eine Katze in einem Satz über den Zaun",
-    "history": [],
-    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
     "expect": "answer",
     "note": "Answered in words, as on main: only draw-me and create-a-picture-of forms draw in other languages (round 5)."
   },
@@ -2469,118 +1794,6 @@
     "prompt": "Crée une illustration d'une forêt magique",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl5-de-draw-01",
-    "area": "picture languages",
-    "prompt": "Zeichne mir einen Drachen",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl5-de-draw-02",
-    "area": "picture languages",
-    "prompt": "Male mir eine Katze mit Hut",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl5-de-draw-03",
-    "area": "picture languages",
-    "prompt": "Mal mir einen Drachen",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl5-de-draw-04",
-    "area": "picture languages",
-    "prompt": "Kannst du mir einen Panda malen?",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl5-de-draw-05",
-    "area": "picture languages",
-    "prompt": "Kannst du mir bitte eine Katze zeichnen?",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl5-de-draw-06",
-    "area": "picture languages",
-    "prompt": "Zeichne mir bitte ein Einhorn",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl5-de-draw-07",
-    "area": "picture languages",
-    "prompt": "Erstelle ein Bild von einem Löwen",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl5-it-draw-01",
-    "area": "picture languages",
-    "prompt": "Disegnami un drago",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl5-it-draw-02",
-    "area": "picture languages",
-    "prompt": "Mi disegni un panda?",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl5-it-draw-03",
-    "area": "picture languages",
-    "prompt": "Puoi disegnarmi un gatto?",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl5-it-draw-04",
-    "area": "picture languages",
-    "prompt": "Mi puoi disegnare un castello?",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl5-it-draw-05",
-    "area": "picture languages",
-    "prompt": "Dipingimi un tramonto sul mare",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl5-it-draw-06",
-    "area": "picture languages",
-    "prompt": "Crea un'immagine di un leone",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl5-it-draw-07",
-    "area": "picture languages",
-    "prompt": "Genera un'illustrazione di una foresta magica",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
     "expect": "image_gen"
   },
   {
@@ -2832,42 +2045,6 @@
     "prompt": "Explique ce qu'est un trou noir et dessine-moi un chat",
     "history": [],
     "reply": "Un trou noir est une région de l'espace où la gravité est si forte que rien, pas même la lumière, ne peut s'en échapper.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9)."
-  },
-  {
-    "id": "pl5-de-multi-1",
-    "area": "picture languages",
-    "prompt": "Zeichne mir eine Katze mit Hut und erkläre auch, was ein schwarzes Loch ist",
-    "history": [],
-    "reply": "Ein schwarzes Loch ist ein Bereich im Weltraum, in dem die Schwerkraft so stark ist, dass nicht einmal Licht entkommen kann.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9)."
-  },
-  {
-    "id": "pl5-de-multi-2",
-    "area": "picture languages",
-    "prompt": "Erkläre, was ein schwarzes Loch ist, und zeichne mir auch eine Katze",
-    "history": [],
-    "reply": "Ein schwarzes Loch ist ein Bereich im Weltraum, in dem die Schwerkraft so stark ist, dass nicht einmal Licht entkommen kann.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9)."
-  },
-  {
-    "id": "pl5-it-multi-1",
-    "area": "picture languages",
-    "prompt": "Disegnami un gatto con il cappello e spiega anche cos'è un buco nero",
-    "history": [],
-    "reply": "Un buco nero è una regione dello spazio in cui la gravità è così forte che nemmeno la luce può sfuggire.",
-    "expect": "answer",
-    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9)."
-  },
-  {
-    "id": "pl5-it-multi-2",
-    "area": "picture languages",
-    "prompt": "Spiegami cos'è un buco nero e disegnami un gatto",
-    "history": [],
-    "reply": "Un buco nero è una regione dello spazio in cui la gravità è così forte che nemmeno la luce può sfuggire.",
     "expect": "answer",
     "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9)."
   },
@@ -4203,294 +3380,6 @@
     "expect": "image_gen"
   },
   {
-    "id": "pl6-de-draw-01",
-    "area": "picture languages",
-    "prompt": "Zeichne mir einen Hund mit Sonnenbrille",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-de-draw-02",
-    "area": "picture languages",
-    "prompt": "Male mir einen Regenbogen",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-de-draw-03",
-    "area": "picture languages",
-    "prompt": "Erstelle ein Bild von einer Katze im Weltraum",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-de-draw-04",
-    "area": "picture languages",
-    "prompt": "Generiere ein Bild von einem Leuchtturm im Sturm",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-de-draw-05",
-    "area": "picture languages",
-    "prompt": "Zeichne mir einen Feuerdrachen",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-de-draw-06",
-    "area": "picture languages",
-    "prompt": "Male mir ein Einhorn auf einer Wiese",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-de-draw-07",
-    "area": "picture languages",
-    "prompt": "Erstelle ein Bild von einem Leuchtturm im Sturm",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-de-draw-08",
-    "area": "picture languages",
-    "prompt": "Kannst du mir einen Pinguin malen?",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-de-draw-09",
-    "area": "picture languages",
-    "prompt": "Zeichne mir ein Piratenschiff",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-de-draw-10",
-    "area": "picture languages",
-    "prompt": "Zeichne mir einen süßen Hund mit Hut",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-de-draw-11",
-    "area": "picture languages",
-    "prompt": "Zeichne mir einen Weihnachtsbaum",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-de-draw-12",
-    "area": "picture languages",
-    "prompt": "Zeichne mir eine Geburtstagstorte",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-de-draw-13",
-    "area": "picture languages",
-    "prompt": "Male mir ein Mädchen mit einem Luftballon",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-de-draw-14",
-    "area": "picture languages",
-    "prompt": "Erstelle ein Bild von einem Tiger im Dschungel",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-de-draw-15",
-    "area": "picture languages",
-    "prompt": "Zeichne mir ein weißes Pferd",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-de-draw-16",
-    "area": "picture languages",
-    "prompt": "Zeichne mir eine Prinzessin in einem Schloss",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-de-draw-17",
-    "area": "picture languages",
-    "prompt": "Zeichne mir einen Schneemann",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-de-draw-18",
-    "area": "picture languages",
-    "prompt": "Zeichne mir einen Hund",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-it-draw-01",
-    "area": "picture languages",
-    "prompt": "Disegnami un gatto con il cappello",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-it-draw-02",
-    "area": "picture languages",
-    "prompt": "Mi disegni un unicorno?",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-it-draw-03",
-    "area": "picture languages",
-    "prompt": "Crea un'immagine di un cane che surfa",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-it-draw-04",
-    "area": "picture languages",
-    "prompt": "Puoi disegnarmi un robot simpatico?",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-it-draw-05",
-    "area": "picture languages",
-    "prompt": "Genera un'immagine di un castello incantato",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-it-draw-06",
-    "area": "picture languages",
-    "prompt": "Disegnami un gattino che dorme",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-it-draw-07",
-    "area": "picture languages",
-    "prompt": "Crea un'immagine di un castello sulla montagna",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-it-draw-08",
-    "area": "picture languages",
-    "prompt": "Mi disegni un drago?",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-it-draw-09",
-    "area": "picture languages",
-    "prompt": "Disegnami una sirena",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-it-draw-10",
-    "area": "picture languages",
-    "prompt": "Disegnami un razzo nello spazio",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-it-draw-11",
-    "area": "picture languages",
-    "prompt": "Disegnami un orso polare",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-it-draw-12",
-    "area": "picture languages",
-    "prompt": "Disegnami un albero di Natale",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-it-draw-13",
-    "area": "picture languages",
-    "prompt": "Disegnami una torta di compleanno",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-it-draw-14",
-    "area": "picture languages",
-    "prompt": "Disegnami una bambina con un palloncino",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-it-draw-15",
-    "area": "picture languages",
-    "prompt": "Crea un'immagine di una tigre nella giungla",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-it-draw-16",
-    "area": "picture languages",
-    "prompt": "Disegnami un cavallo bianco",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-it-draw-17",
-    "area": "picture languages",
-    "prompt": "Disegnami una principessa in un castello",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl6-it-draw-18",
-    "area": "picture languages",
-    "prompt": "Disegnami un pupazzo di neve",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
-    "expect": "image_gen"
-  },
-  {
     "id": "pl6-pt-draw-01",
     "area": "picture languages",
     "prompt": "Me desenhe um gato de chapéu",
@@ -5627,94 +4516,6 @@
     "prompt": "Dessine-moi un coucher de soleil sur la mer",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl7-de-draw-021",
-    "area": "picture languages",
-    "prompt": "Zeichne mir eine Katze mit Hut",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl7-de-draw-022",
-    "area": "picture languages",
-    "prompt": "Zeichne mir einen süßen Hund",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl7-de-draw-023",
-    "area": "picture languages",
-    "prompt": "Male mir einen Sonnenuntergang am Meer",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl7-de-draw-024",
-    "area": "picture languages",
-    "prompt": "Zeichne mir ein Einhorn",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl7-de-draw-025",
-    "area": "picture languages",
-    "prompt": "Zeichne mir einen Roboter im Wald",
-    "history": [],
-    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl7-it-draw-020",
-    "area": "picture languages",
-    "prompt": "Crea un'immagine di un faro nella tempesta",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl7-it-draw-021",
-    "area": "picture languages",
-    "prompt": "Disegnami un unicorno",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl7-it-draw-022",
-    "area": "picture languages",
-    "prompt": "Disegnami un tramonto sul mare",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl7-it-draw-023",
-    "area": "picture languages",
-    "prompt": "Disegnami un cane astronauta",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl7-it-draw-024",
-    "area": "picture languages",
-    "prompt": "Puoi disegnarmi un castello?",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
-    "expect": "image_gen"
-  },
-  {
-    "id": "pl7-it-draw-025",
-    "area": "picture languages",
-    "prompt": "Disegnami una balena",
-    "history": [],
-    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
     "expect": "image_gen"
   },
   {
@@ -7235,5 +6036,229 @@
     "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
     "expect": "answer",
     "note": "A real second request beside a draw-me line, answered in words as on main: other-language messages are never cut (review 8's two-request set, round 9)."
+  },
+  {
+    "id": "pl-hi-01",
+    "area": "picture languages",
+    "prompt": "बिल्ली का चित्र बनाओ",
+    "history": [],
+    "reply": "यह रहा आपका चित्र। क्या आप कोई और शैली चाहेंगे?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-hi-02",
+    "area": "picture languages",
+    "prompt": "मेरे लिए एक काली बिल्ली ड्रा करो",
+    "history": [],
+    "reply": "यह रहा आपका चित्र। क्या आप कोई और शैली चाहेंगे?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-hi-03",
+    "area": "picture languages",
+    "prompt": "कृपया एक लाल टोपी वाली बिल्ली की तस्वीर बनाइए",
+    "history": [],
+    "reply": "यह रहा आपका चित्र। क्या आप कोई और शैली चाहेंगे?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-hi-04",
+    "area": "picture languages",
+    "prompt": "समुद्र तट पर एक घोड़े की तस्वीर बना दो",
+    "history": [],
+    "reply": "यह रहा आपका चित्र। क्या आप कोई और शैली चाहेंगे?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-hi-05",
+    "area": "picture languages",
+    "prompt": "मेरे लिए एक नीला ड्रैगन ड्रा कीजिए",
+    "history": [],
+    "reply": "यह रहा आपका चित्र। क्या आप कोई और शैली चाहेंगे?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-hi-06",
+    "area": "picture languages",
+    "prompt": "चाँद पर एक रोबोट का चित्र बनाओ",
+    "history": [],
+    "reply": "यह रहा आपका चित्र। क्या आप कोई और शैली चाहेंगे?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-hi-07",
+    "area": "picture languages",
+    "prompt": "एक बड़े पेड़ के नीचे एक शेर की तस्वीर बनाओ",
+    "history": [],
+    "reply": "यह रहा आपका चित्र। क्या आप कोई और शैली चाहेंगे?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-hi-08",
+    "area": "picture languages",
+    "prompt": "पहाड़ों और नदी की पेंटिंग बनाइए",
+    "history": [],
+    "reply": "यह रहा आपका चित्र। क्या आप कोई और शैली चाहेंगे?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-hi-09",
+    "area": "picture languages",
+    "prompt": "एक प्यारे पिल्ले का चित्र बनाओ",
+    "history": [],
+    "reply": "यह रहा आपका चित्र। क्या आप कोई और शैली चाहेंगे?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-hi-10",
+    "area": "picture languages",
+    "prompt": "मेरे लिए एक गुलाबी तितली ड्रा करो।",
+    "history": [],
+    "reply": "यह रहा आपका चित्र। क्या आप कोई और शैली चाहेंगे?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-hi-11",
+    "area": "picture languages",
+    "prompt": "बिल्ली बनाओ",
+    "history": [],
+    "reply": "ज़रूर, मैं इसे शब्दों में समझाता हूँ।",
+    "expect": "answer",
+    "note": "bare बनाओ: also cooks, builds, makes"
+  },
+  {
+    "id": "pl-hi-12",
+    "area": "picture languages",
+    "prompt": "मेरे लिए चाय बनाओ",
+    "history": [],
+    "reply": "ज़रूर, मैं इसे शब्दों में समझाता हूँ।",
+    "expect": "answer",
+    "note": "make me tea"
+  },
+  {
+    "id": "pl-hi-13",
+    "area": "picture languages",
+    "prompt": "मेरे लिए एक योजना बनाओ",
+    "history": [],
+    "reply": "ज़रूर, मैं इसे शब्दों में समझाता हूँ।",
+    "expect": "answer",
+    "note": "a plan"
+  },
+  {
+    "id": "pl-hi-14",
+    "area": "picture languages",
+    "prompt": "मेरे लिए पढ़ाई का टाइम टेबल बनाओ",
+    "history": [],
+    "reply": "ज़रूर, मैं इसे शब्दों में समझाता हूँ।",
+    "expect": "answer",
+    "note": "a timetable"
+  },
+  {
+    "id": "pl-hi-15",
+    "area": "picture languages",
+    "prompt": "इसका चित्र बनाओ",
+    "history": [],
+    "reply": "ज़रूर, मैं इसे शब्दों में समझाता हूँ।",
+    "expect": "answer",
+    "note": "points back: only the chat could name it"
+  },
+  {
+    "id": "pl-hi-16",
+    "area": "picture languages",
+    "prompt": "त्रिभुज का चित्र बनाओ",
+    "history": [],
+    "reply": "ज़रूर, मैं इसे शब्दों में समझाता हूँ।",
+    "expect": "answer",
+    "note": "a maths figure, the subject's to draw"
+  },
+  {
+    "id": "pl-hi-17",
+    "area": "picture languages",
+    "prompt": "प्रकाश संश्लेषण का चित्र बनाओ",
+    "history": [],
+    "reply": "ज़रूर, मैं इसे शब्दों में समझाता हूँ।",
+    "expect": "answer",
+    "note": "a school diagram"
+  },
+  {
+    "id": "pl-hi-18",
+    "area": "picture languages",
+    "prompt": "भारत के नक्शे का चित्र बनाओ",
+    "history": [],
+    "reply": "ज़रूर, मैं इसे शब्दों में समझाता हूँ।",
+    "expect": "answer",
+    "note": "a map"
+  },
+  {
+    "id": "pl-hi-19",
+    "area": "picture languages",
+    "prompt": "परिवार के पेड़ का चित्र बनाओ",
+    "history": [],
+    "reply": "ज़रूर, मैं इसे शब्दों में समझाता हूँ।",
+    "expect": "answer",
+    "note": "a family tree"
+  },
+  {
+    "id": "pl-hi-20",
+    "area": "picture languages",
+    "prompt": "फूल के भागों का चित्र बनाओ",
+    "history": [],
+    "reply": "ज़रूर, मैं इसे शब्दों में समझाता हूँ।",
+    "expect": "answer",
+    "note": "parts of a flower: a school figure"
+  },
+  {
+    "id": "pl-hi-21",
+    "area": "picture languages",
+    "prompt": "ASCII में बिल्ली का चित्र बनाओ",
+    "history": [],
+    "reply": "ज़रूर, मैं इसे शब्दों में समझाता हूँ।",
+    "expect": "answer",
+    "note": "text art"
+  },
+  {
+    "id": "pl-hi-22",
+    "area": "picture languages",
+    "prompt": "कुत्ते का चित्र बनाओ और उसका नाम सुझाओ",
+    "history": [],
+    "reply": "ज़रूर, मैं इसे शब्दों में समझाता हूँ।",
+    "expect": "answer",
+    "note": "a second request"
+  },
+  {
+    "id": "pl-hi-23",
+    "area": "picture languages",
+    "prompt": "फिर से बिल्ली का चित्र बनाओ",
+    "history": [],
+    "reply": "ज़रूर, मैं इसे शब्दों में समझाता हूँ।",
+    "expect": "answer",
+    "note": "again: the earlier picture"
+  },
+  {
+    "id": "pl-hi-24",
+    "area": "picture languages",
+    "prompt": "बिल्ली कैसे बनाते हैं?",
+    "history": [],
+    "reply": "ज़रूर, मैं इसे शब्दों में समझाता हूँ।",
+    "expect": "answer",
+    "note": "how to draw: a question"
+  },
+  {
+    "id": "pl-hi-25",
+    "area": "picture languages",
+    "prompt": "मुझे बिल्ली का चित्र बनाना सिखाओ",
+    "history": [],
+    "reply": "ज़रूर, मैं इसे शब्दों में समझाता हूँ।",
+    "expect": "answer",
+    "note": "teach me to draw"
+  },
+  {
+    "id": "pl-hi-26",
+    "area": "picture languages",
+    "prompt": "y = x^2 का ग्राफ़ बनाओ",
+    "history": [],
+    "reply": "ज़रूर, मैं इसे शब्दों में समझाता हूँ।",
+    "expect": "answer",
+    "note": "a graph, maths' to draw"
   }
 ]

@@ -51,7 +51,7 @@ describe("restoreLaunchPrefs", () => {
   it("applies the appearance, accent and the last account's language before anything renders", async () => {
     mockSyncFiles.set("file:///docs/recall.appearance-preference.txt", "dark");
     mockSyncFiles.set("file:///docs/recall.accent-preference.txt", "ocean");
-    mockSyncFiles.set("file:///cache/cached-user.json", JSON.stringify({ id: "u1", plan: "free", locale: "de" }));
+    mockSyncFiles.set("file:///cache/cached-user.json", JSON.stringify({ id: "u1", plan: "free", locale: "fr" }));
     const setAccent = jest.spyOn(accentRuntime, "setAccentSnapshot");
 
     const ready = restoreLaunchPrefs();
@@ -59,7 +59,7 @@ describe("restoreLaunchPrefs", () => {
     // All in place synchronously: the first frame is drawn in them.
     expect(getAppearancePreferenceSnapshot()).toBe("dark");
     expect(setAccent).toHaveBeenCalledWith("ocean");
-    expect(i18n.language).toBe("de");
+    expect(i18n.language).toBe("fr");
     await expect(ready).resolves.toBeUndefined();
     expect(SecureStore.getItemAsync).not.toHaveBeenCalled();
   });

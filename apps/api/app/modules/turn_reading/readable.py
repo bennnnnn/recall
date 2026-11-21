@@ -228,9 +228,8 @@ def _unit(text: str, start: int, word: str) -> bool:
 _MARKS: dict[str, tuple[str, str]] = {
     "en": (",", "."),
     "am": (",", "."),
+    "hi": (",", "."),
     "es": (".", ","),
-    "de": (".", ","),
-    "it": (".", ","),
     "pt": (".", ","),
     "tr": (".", ","),
     "fr": (" ", ","),

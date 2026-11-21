@@ -51,18 +51,17 @@ const REVISION_PRONOUNS = new Set(["it", "them", "this", "that"]);
 const SHORT_REQUEST = 80;
 /**
  * The same in the app's other languages (gen_intent_languages.py): the server draws there
- * only "draw me" ("dibújame", "zeichne mir", "bana … çiz", "ድመት ሳልልኝ") and "create a
- * picture of" ("erstelle ein Bild von", "crea una ilustración de"), so these are its draw
- * verbs and picture nouns. German "mal"/"male" count only before "mir"/"uns": alone they
- * are "once" and "bad" ("Erklär mal …", "Me siento mal").
+ * only "draw me" ("dibújame", "bana … çiz", "ድመት ሳልልኝ", "मेरे लिए … ड्रा करो") and "create
+ * a picture of" ("crea una ilustración de", "… का चित्र बनाओ"), so these are its draw verbs
+ * and picture nouns.
  */
 const OTHER_LANGUAGE_WORDS = new RegExp(
   "(?:^|[^a-z0-9_])(?:" +
     "dibuj|dibúj|pínt|pintame|pintas|pintar|ilustrac|ilustraç|imagen|imagem|dessin|peins|peignez|peindre|illustr|" +
-    "zeichn|male?\\s+(?:mir|uns)(?![a-zäöüß])|malen|bild(?![a-zäöüß])|" +
-    "disegn|dipin|immagin|desenh|çiz|resm|görsel|" +
+    "desenh|çiz|resm|görsel|" +
     "нарис|изобра|картинк|рисун|иллюстр|" +
-    "ሳልልኝ|ሣልልኝ|ሳይልኝ|ሣይልኝ|ሳሉልኝ|ሣሉልኝ|ምስል|ስዕል|ሥዕል|ስእል)",
+    "ሳልልኝ|ሣልልኝ|ሳይልኝ|ሣይልኝ|ሳሉልኝ|ሣሉልኝ|ምስል|ስዕል|ሥዕል|ስእል|" +
+    "चित्र|तस्वीर|तसवीर|इमेज|छवि|पेंटिंग|ड्राइंग|ड्रा|स्केच)",
 );
 /** With an image attached, these start an edit of it ("crop it", "turn it into…", "make it blue"). */
 const EDIT_WORDS = /(?:^|[^a-z0-9_])(?:edit|change|remove|replace|recolor|crop|transform|turn|make)/;

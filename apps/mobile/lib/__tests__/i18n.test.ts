@@ -6,15 +6,14 @@ import i18n, { ensureLocale, startLocale } from "@/lib/i18n";
 import { PLURAL_CATEGORIES } from "@/lib/i18n/pluralRules";
 import en from "@/lib/i18n/en.json";
 import am from "@/lib/i18n/am.json";
-import de from "@/lib/i18n/de.json";
 import es from "@/lib/i18n/es.json";
 import fr from "@/lib/i18n/fr.json";
-import itLocale from "@/lib/i18n/it.json";
+import hi from "@/lib/i18n/hi.json";
 import pt from "@/lib/i18n/pt.json";
 import ru from "@/lib/i18n/ru.json";
 import tr from "@/lib/i18n/tr.json";
 
-const LOCALES = { am, de, es, fr, it: itLocale, pt, ru, tr } as const;
+const LOCALES = { am, es, fr, hi, pt, ru, tr } as const;
 const PLURAL_SUFFIX = /_(one|few|many|other)$/;
 
 /**
@@ -173,8 +172,9 @@ describe("i18n runtime", () => {
     expect(i18n.t("upgrade.feature_messages", { count: 1000 })).toBe("1,000 messages a day");
     expect(i18n.t("upgrade.feature_messages", { count: 1 })).toBe("1 message a day");
     expect(i18n.t("upgrade.free_has", { count: 1000 })).toBe("Free: 1,000");
-    await ensureLocale("de");
-    expect(i18n.t("upgrade.feature_messages", { count: 1000 })).toBe("1.000 Nachrichten pro Tag");
+    await ensureLocale("hi");
+    // Indian grouping: lakhs after the thousands.
+    expect(i18n.t("upgrade.feature_messages", { count: 100000 })).toBe("रोज़ 1,00,000 मैसेज");
     await ensureLocale("ru");
     expect(i18n.t("upgrade.feature_images", { count: 2 })).toBe("2 ИИ-изображения в день");
     expect(i18n.t("upgrade.feature_images", { count: 5 })).toBe("5 ИИ-изображений в день");
@@ -186,8 +186,8 @@ describe("i18n runtime", () => {
     i18n.on("languageChanged", changed);
     await ensureLocale("en");
     expect(changed).not.toHaveBeenCalled();
-    await ensureLocale("de");
-    expect(changed).toHaveBeenCalledWith("de");
+    await ensureLocale("hi");
+    expect(changed).toHaveBeenCalledWith("hi");
     i18n.off("languageChanged", changed);
     await ensureLocale("en");
   });
