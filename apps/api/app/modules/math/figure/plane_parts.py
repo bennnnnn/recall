@@ -62,10 +62,6 @@ def simple(corners: Sequence[Exact]) -> bool:
     return True
 
 
-def _dot(at: Exact, a: Exact, b: Exact) -> Fraction:
-    return (a[0] - at[0]) * (b[0] - at[0]) + (a[1] - at[1]) * (b[1] - at[1])
-
-
 def _squared(a: Exact, b: Exact) -> Fraction:
     return (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2
 
