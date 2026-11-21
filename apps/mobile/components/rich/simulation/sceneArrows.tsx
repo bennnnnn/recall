@@ -128,7 +128,8 @@ export function SceneArrows({
         ),
       )}
       {layout.vectors.map((vector, index) =>
-        stages ? (
+        // A vector riding a body keeps its body's place; only a stated one grows in stages.
+        stages && vector.body === null ? (
           <StagedVector
             key={`vector-${index}`}
             layout={vector}

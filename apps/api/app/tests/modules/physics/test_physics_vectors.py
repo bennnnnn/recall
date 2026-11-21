@@ -209,6 +209,17 @@ VERIFIED: list[tuple[str, str, str]] = [
         "resolve_vector",
         "5.13 m/s horizontally and 14.1 m/s vertically",
     ),
+    # A westward component asked alone is that component, by its side (Gemini review).
+    (
+        "A hiker walks 5 km 40° west of north. Find the westward component.",
+        "resolve_vector",
+        "3.21 km west",
+    ),
+    (
+        "Resolve a 60 N force at 30° above the horizontal into components in 2 steps.",
+        "resolve_vector",
+        "52 N horizontally and 30 N vertically",
+    ),
     # "m/s2" as students write it (Codex review).
     (
         "Resolve 3 m/s2 at 20° below the horizontal into components.",

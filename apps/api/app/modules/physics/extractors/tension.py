@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from functools import lru_cache
+from tokenize import TokenError
 
 from app.modules.physics.extractors.angles import INCLINE_ANGLE_RE
 from app.modules.physics.extractors.assignments import strip_param_assignments
@@ -208,7 +209,8 @@ _VERTICAL_REFERENCE_RE = re.compile(
 _BELOW_RE = re.compile(r"\bbelow\s+(?:the\s+)?(?:horizontal|x[- ]?axis)\b", re.IGNORECASE)
 # One component asked, by its axis: "the vertical component", "its x-component".
 _ONE_COMPONENT_RE = re.compile(
-    r"\b(horizontal|vertical|x|y|east(?:ward)?|north(?:ward)?)[- ]component\b(?!s)", re.IGNORECASE
+    r"\b(horizontal|vertical|x|y|(?:east|west|north|south)(?:ward)?)[- ]component\b(?!s)",
+    re.IGNORECASE,
 )
 # A side or a sense this reader does not model: "to the left of the vertical", "from the
 # negative x-axis", "N 30° W", "clockwise". Such a question is declined, never read as from
@@ -230,7 +232,12 @@ _NUMBER_BEARING_RE = re.compile(
 )
 # Any value with a unit. A resolving question states one, the vector's size, besides its angle.
 _STATED_VALUE_RE = re.compile(r"(?<![\w.])\d[\d.,]*\s*([A-Za-zµμΩ°][\w/^²³*·]*)")
-_ANGLE_OR_COUNT_RE = re.compile(r"°|deg\w*|rad\w*|components?$|parts?$|times$", re.IGNORECASE)
+# Angles, counts and the English words Pint also reads as units ("in 3 steps", "at 1 point").
+_ANGLE_OR_COUNT_RE = re.compile(
+    r"°|deg\w*|rad\w*|components?$|parts?$|times$|steps?$|ways?$|points?$|turns?$|counts?$"
+    r"|in$|at$|sig\w*|significant$|decimal$|figures?$|places?$",
+    re.IGNORECASE,
+)
 # A question that asks for more than the components (a range, a time, a height) is a bigger
 # problem, answered by its own law or the model: "the components of velocity and the range".
 _MORE_ASKED_RE = re.compile(
@@ -243,13 +250,15 @@ _MORE_ASKED_RE = re.compile(
 @lru_cache(maxsize=512)
 def _is_unit(token: str) -> bool:
     """A token a measurement is in ("kg", "T", "m/s"), not a word ("Resolve", "decimal")."""
+    from pint.errors import PintError
+
     from app.services.units import get_unit_registry
 
     # Powers as Pint writes them: "m/s2", "m/s²" and "m/s^2" are m/s**2.
     spelled = re.sub(r"([A-Za-z])\^?([23])\b", r"\1**\2", token.replace("²", "2").replace("³", "3"))
     try:
         get_unit_registry()(spelled)
-    except Exception:
+    except (PintError, TokenError):
         return False
     return True
 
@@ -326,7 +335,7 @@ def _resolve_intent(cleaned: str) -> PhysicsIntent | None:
         params["y_sign"] = -1.0 if _BELOW_RE.search(cleaned) else 1.0
     asked = {match.group(1).lower()[0] for match in _ONE_COMPONENT_RE.finditer(cleaned)}
     if len(asked) == 1 and not re.search(r"\bcomponents\b", cleaned, re.IGNORECASE):
-        params["only"] = 1.0 if asked <= {"h", "x", "e"} else 2.0
+        params["only"] = 1.0 if asked <= {"h", "x", "e", "w"} else 2.0
     return PhysicsIntent(
         kind="force",
         physics_op="resolve_vector",
