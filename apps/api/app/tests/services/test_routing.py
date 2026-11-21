@@ -25,12 +25,12 @@ _MATH = model_catalog.auto_math_alias()
     "content,expected",
     [
         # Simple messages → the fast auto alias (Gemini Flash).
-        ("hi", "qwen-3.7-flash"),
-        ("hello world", "qwen-3.7-flash"),
-        ("what's for lunch", "qwen-3.7-flash"),
-        ("explain quantum computing", "qwen-3.7-flash"),
-        ("why is the sky blue", "qwen-3.7-flash"),
-        ("compare two options", "qwen-3.7-flash"),
+        ("hi", "hy4-flash"),
+        ("hello world", "hy4-flash"),
+        ("what's for lunch", "hy4-flash"),
+        ("explain quantum computing", "hy4-flash"),
+        ("why is the sky blue", "hy4-flash"),
+        ("compare two options", "hy4-flash"),
         # Smart triggers → smart-chat
         ("prove p = np", "smart-chat"),
         ("debug the memory leak", "smart-chat"),
@@ -44,23 +44,23 @@ _MATH = model_catalog.auto_math_alias()
         ("what is the complexity of this", "smart-chat"),
         # Tutoring has a strict format/state contract and uses the low-latency
         # teaching lane; live QA showed the reasoning tier added 10-20s TTFT.
-        ("Teach me python dictionaries", "qwen-3.7-flash"),
-        ("Teach me python dictionaries step by step", "qwen-3.7-flash"),
-        ("Help me learn SQL joins", "qwen-3.7-flash"),
-        ("Give me a 70-day Python mastery plan", "qwen-3.7-flash"),
-        ("70 days mastering python from beginner to senior level plan", "qwen-3.7-flash"),
-        ("Create a 70-day Python plan", "qwen-3.7-flash"),
-        ("70-day roadmap for Python", "qwen-3.7-flash"),
-        ("Give me a daily Python curriculum for 70 days", "qwen-3.7-flash"),
-        ("Teach me Python over the next 70 days", "qwen-3.7-flash"),
+        ("Teach me python dictionaries", "hy4-flash"),
+        ("Teach me python dictionaries step by step", "hy4-flash"),
+        ("Help me learn SQL joins", "hy4-flash"),
+        ("Give me a 70-day Python mastery plan", "hy4-flash"),
+        ("70 days mastering python from beginner to senior level plan", "hy4-flash"),
+        ("Create a 70-day Python plan", "hy4-flash"),
+        ("70-day roadmap for Python", "hy4-flash"),
+        ("Give me a daily Python curriculum for 70 days", "hy4-flash"),
+        ("Teach me Python over the next 70 days", "hy4-flash"),
         # Ordinary non-learning plans stay fast.
-        ("Give me a 30-day workout plan", "qwen-3.7-flash"),
-        ("Create a 12-week business plan", "qwen-3.7-flash"),
+        ("Give me a 30-day workout plan", "hy4-flash"),
+        ("Create a 12-week business plan", "hy4-flash"),
         (
             "Create a 4-column markdown table with a Main tradeoff column, then show a code block",
-            "qwen-3.7-flash",
+            "hy4-flash",
         ),
-        ("I studied Python for 70 days and now plan to apply for jobs", "qwen-3.7-flash"),
+        ("I studied Python for 70 days and now plan to apply for jobs", "hy4-flash"),
         # Comparison cues → smart-chat (previously classifier-only web search
         # with no model upgrade; a weak model answered "X vs Y" questions).
         ("kenya vs ethiopia", "smart-chat"),
@@ -74,7 +74,7 @@ _MATH = model_catalog.auto_math_alias()
         ("solve this leetcode problem", "smart-chat"),
         # Long message (>=800 chars → smart-chat)
         ("a" * 801, "smart-chat"),
-        ("a" * 799, "qwen-3.7-flash"),
+        ("a" * 799, "hy4-flash"),
         # Any code fence → smart-chat, regardless of language tag (or lack of
         # one). BUG FIX: this used to only match a fixed language allowlist,
         # so a bare fence or an unlisted language (bash, shell, C, HTML, ...)
@@ -93,34 +93,34 @@ _MATH = model_catalog.auto_math_alias()
         ("standard deviation of 1, 2, 3, 4, 5", _MATH),
         # Verified closed-form arithmetic stays free-chat — R1 used to dump a
         # live Reasoning essay ("the user just wrote 4!") on these.
-        ("4!", "qwen-3.7-flash"),
-        ("what is 1+1", "qwen-3.7-flash"),
-        ("3+0", "qwen-3.7-flash"),
-        ("3 + 0", "qwen-3.7-flash"),
-        ("7*8", "qwen-3.7-flash"),
-        ("8-8*2", "qwen-3.7-flash"),
+        ("4!", "hy4-flash"),
+        ("what is 1+1", "hy4-flash"),
+        ("3+0", "hy4-flash"),
+        ("3 + 0", "hy4-flash"),
+        ("7*8", "hy4-flash"),
+        ("8-8*2", "hy4-flash"),
         # Arithmetic next to a hard question is not a fast-path whole message.
         ("what is 1+1 and also graph y = x^2", _MATH),
         # A recognized physics template stays on the fast model; the verifier
         # owns the number. Homework the templates miss still goes to smart-chat.
         (
             "a 2kg block slides down a 30° frictionless incline, find its acceleration",
-            "qwen-3.7-flash",
+            "hy4-flash",
         ),
-        ("calculate the momentum of a 5kg object moving at 12 m/s", "qwen-3.7-flash"),
-        ("what is the escape velocity of earth", "qwen-3.7-flash"),
-        ("a ball is dropped from 20 m, how long to hit the ground", "qwen-3.7-flash"),
+        ("calculate the momentum of a 5kg object moving at 12 m/s", "hy4-flash"),
+        ("what is the escape velocity of earth", "hy4-flash"),
+        ("a ball is dropped from 20 m, how long to hit the ground", "hy4-flash"),
         ("equations of motion for a pendulum", "smart-chat"),
         (
             "a block slides down a 90° frictionless incline, find its acceleration",
             "smart-chat",
         ),
-        ("physics", "qwen-3.7-flash"),
-        ("the project has momentum now", "qwen-3.7-flash"),
+        ("physics", "hy4-flash"),
+        ("the project has momentum now", "hy4-flash"),
         # Plain prose with no math cue stays on the fast alias.
-        ("what's for dinner tonight", "qwen-3.7-flash"),
-        ("What is a Python list?", "qwen-3.7-flash"),
-        ("thanks, that helped", "qwen-3.7-flash"),
+        ("what's for dinner tonight", "hy4-flash"),
+        ("What is a Python list?", "hy4-flash"),
+        ("thanks, that helped", "hy4-flash"),
         # Hard reasoning with no trigger word (R4.3).
         (
             "plan a zero-downtime migration of a monolith Postgres schema to sharded tables",
@@ -131,16 +131,16 @@ _MATH = model_catalog.auto_math_alias()
             "are black? Explain carefully.",
             "smart-chat",
         ),
-        ("plan my week", "qwen-3.7-flash"),
-        ("drive carefully, it's icy", "qwen-3.7-flash"),
+        ("plan my week", "hy4-flash"),
+        ("drive carefully, it's icy", "hy4-flash"),
         # Code review and code writing with no fence (R4.6).
         (
             "can you review my function that reverses a linked list, it keeps looping forever",
             "smart-chat",
         ),
         ("write a python function to reverse a string", "smart-chat"),
-        ("can you review my cover letter", "qwen-3.7-flash"),
-        ("my promo code doesn't work", "qwen-3.7-flash"),
+        ("can you review my cover letter", "hy4-flash"),
+        ("my promo code doesn't work", "hy4-flash"),
         # Pasted data under 800 characters (R4.8).
         (
             'find the duplicate ids: [{"id": 4, "name": "Ana"}, {"id": 9, "name": "Ben"}, '
@@ -148,13 +148,13 @@ _MATH = model_catalog.auto_math_alias()
             '{"id": 15, "name": "Flo"}, {"id": 21, "name": "Gus"}, {"id": 15, "name": "Hal"}]',
             "smart-chat",
         ),
-        ("my scores were [90, 85, 77], is that good?", "qwen-3.7-flash"),
+        ("my scores were [90, 85, 77], is that good?", "hy4-flash"),
         # A matrix stays on the maths lane; writing about a migration stays everyday.
         ("determinant of [[1,2,3],[0,1,4],[5,6,0]]", _MATH),
         (
             "write a tweet announcing that we finished migrating our whole backend to "
             "postgres, zero downtime",
-            "qwen-3.7-flash",
+            "hy4-flash",
         ),
     ],
 )
@@ -194,20 +194,20 @@ def test_verified_physics_stays_smart_when_physics_is_off() -> None:
 @pytest.mark.parametrize(
     "content,prior_user,expected",
     [
-        ("Now fix it", None, "qwen-3.7-flash"),
+        ("Now fix it", None, "hy4-flash"),
         ("Now fix it", "debug this algorithm", "smart-chat"),
         ("add tests", "debug this algorithm", "smart-chat"),
         ("check if it is fixed", "debug this algorithm", "smart-chat"),
         ("Handle the edge cases", "debug this algorithm", "smart-chat"),
         ("Can you verify the patch?", "debug this algorithm", "smart-chat"),
         ("please review this", "debug this algorithm", "smart-chat"),
-        ("check the weather", "debug this algorithm", "qwen-3.7-flash"),
-        ("handle dinner tonight", "debug this algorithm", "qwen-3.7-flash"),
-        ("thanks", "debug this algorithm", "qwen-3.7-flash"),
-        ("what's for dinner tonight", "debug this algorithm", "qwen-3.7-flash"),
-        ("explain photosynthesis", "debug this algorithm", "qwen-3.7-flash"),
-        ("fix dinner", "debug this algorithm", "qwen-3.7-flash"),
-        ("add milk to my grocery list", "debug this algorithm", "qwen-3.7-flash"),
+        ("check the weather", "debug this algorithm", "hy4-flash"),
+        ("handle dinner tonight", "debug this algorithm", "hy4-flash"),
+        ("thanks", "debug this algorithm", "hy4-flash"),
+        ("what's for dinner tonight", "debug this algorithm", "hy4-flash"),
+        ("explain photosynthesis", "debug this algorithm", "hy4-flash"),
+        ("fix dinner", "debug this algorithm", "hy4-flash"),
+        ("add milk to my grocery list", "debug this algorithm", "hy4-flash"),
     ],
 )
 def test_route_chat_model_inherits_smart_on_short_followup(
@@ -225,7 +225,7 @@ def test_route_chat_model_inherits_smart_from_prior_turn_model() -> None:
     assert (
         route_chat_model("fix it", prior_user="add tests", prior_model="smart-chat") == "smart-chat"
     )
-    assert route_chat_model("fix it", prior_user="add tests") == "qwen-3.7-flash"
+    assert route_chat_model("fix it", prior_user="add tests") == "hy4-flash"
 
 
 def test_route_chat_model_keeps_math_followup_on_low_latency_strong_model() -> None:
@@ -254,11 +254,11 @@ def test_a_follow_up_of_a_hard_turn_on_the_strong_model_is_no_maths() -> None:
     ["A", "red", "I'm confused", "why?", "next", "Bad bdbd head hdjjd jdjdd"],
 )
 def test_route_chat_model_keeps_active_tutor_turns_on_low_latency_lane(reaction: str) -> None:
-    assert route_chat_model(reaction, lesson_active=True) == "qwen-3.7-flash"
+    assert route_chat_model(reaction, lesson_active=True) == "hy4-flash"
 
 
 def test_route_chat_model_does_not_treat_short_text_as_a_lesson_without_state() -> None:
-    assert route_chat_model("red") == "qwen-3.7-flash"
+    assert route_chat_model("red") == "hy4-flash"
 
 
 def test_last_user_turn_returns_newest_user_line() -> None:
@@ -366,8 +366,8 @@ def test_prompt_weighted_reserve_tokens_uses_full_prompt() -> None:
     "alias,content,expected",
     [
         # auto resolves via route_chat_model
-        ("auto", "hello", "qwen-3.7-flash"),
-        ("auto", "explain gravity", "qwen-3.7-flash"),
+        ("auto", "hello", "hy4-flash"),
+        ("auto", "explain gravity", "hy4-flash"),
         ("auto", "debug this crash", "smart-chat"),
         # explicit aliases pass through
         ("free-chat", "explain gravity", "free-chat"),
@@ -455,7 +455,7 @@ def test_physics_route_solves_each_line_once(monkeypatch: pytest.MonkeyPatch) ->
     routing_physics._physics_solves.cache_clear()
     try:
         for _ in range(3):
-            assert route_chat_model(_VERIFIED_PHYSICS) == "qwen-3.7-flash"
+            assert route_chat_model(_VERIFIED_PHYSICS) == "hy4-flash"
             assert (
                 route_chat_model(
                     "and its kinetic energy?",
@@ -509,4 +509,4 @@ def test_physics_the_subject_order_reads_keeps_the_strong_lane(question: str) ->
 )
 def test_a_line_physics_only_claims_by_its_words_keeps_the_everyday_lane(line: str) -> None:
     routing_physics._physics_solves.cache_clear()
-    assert routed_chat_model(line) == ("qwen-3.7-flash", "everyday")
+    assert routed_chat_model(line) == ("hy4-flash", "everyday")

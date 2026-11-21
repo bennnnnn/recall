@@ -22,6 +22,8 @@ SUPPORTED: dict[str, frozenset[str]] = {
     "qwen/qwen3.8-flash": frozenset({"xhigh", "high", "medium", "low", "minimal", "none"}),
     "openai/gpt-6-luna": frozenset({"max", "xhigh", "high", "medium", "low", "none"}),
     "qwen/qwen3.7-flash": frozenset(),
+    # Probed 2026-11-20: each answered, none through max (low and high thought alike).
+    "tencent/hy4-flash": frozenset({"max", "xhigh", "high", "medium", "low", "minimal", "none"}),
 }
 MANDATORY = frozenset({"z-ai/glm-5.3-flash"})
 

@@ -10,8 +10,9 @@ from app.services import model_health
 def test_selectable_models_count():
     models = model_catalog.selectable_models()
     ids = {m.id for m in models}
-    # Six chat models: three on the free plan, the rest paid.
+    # Seven chat models: four on the free plan, the rest paid.
     assert ids == {
+        "hy4-flash",
         "qwen-3.7-flash",
         "free-chat",
         "glm-5.3-flash",
@@ -20,6 +21,7 @@ def test_selectable_models_count():
         "gpt-6-luna",
     }
     assert {m.id for m in models if m.plan_access == "free"} == {
+        "hy4-flash",
         "qwen-3.7-flash",
         "free-chat",
         "glm-5.3-flash",
@@ -48,7 +50,7 @@ def test_selectable_models_count():
     assert qwen.plan_access == "free"
     assert qwen.model == "openrouter/qwen/qwen3.7-flash"
     assert qwen.thinking_off == "off"
-    assert model_catalog.auto_fast_alias() == "qwen-3.7-flash"
+    assert model_catalog.auto_fast_alias() == "hy4-flash"
     # Recall is not a coding assistant: the coding and frontier models are gone.
     for removed in ("gpt-6-sol", "kimi-k3", "qwen-3.8-max", "minimax-m3", "glm-5.3", "llama-70b"):
         assert removed not in ids
