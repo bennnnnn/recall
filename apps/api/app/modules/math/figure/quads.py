@@ -440,20 +440,47 @@ def build_kite(request: FigureRequest) -> FigureSpec | None:
     return drawing.spec()
 
 
+# A regular polygon whose number of sides the server works out (from its angle) may have
+# this many; one the question names has at most 12.
+_MOST_SIDES = 20
+
+
+def _count_from_angle(request: FigureRequest) -> int | None:
+    """n from each interior angle (180 - 360/n) or each exterior one (360/n), only when
+    it is a whole number: 140° inside makes 9 sides, 100° none."""
+    interior, exterior = request.first("interior_angle"), request.first("exterior_angle")
+    counts = []
+    if interior is not None and 0 < interior < 180:
+        counts.append(360 / (180 - interior))
+    if exterior is not None and 0 < exterior < 180:
+        counts.append(360 / exterior)
+    if not counts or any(abs(count - round(count)) > 1e-9 for count in counts):
+        return None
+    whole = {round(count) for count in counts}
+    if len(whole) != 1:
+        return None
+    count = whole.pop()
+    return count if 3 <= count <= _MOST_SIDES else None
+
+
 def build_regular_polygon(request: FigureRequest) -> FigureSpec | None:
     """A regular polygon: its name and its number of sides agree, and a polygon the question
-    does not call regular is not drawn as one."""
+    does not call regular is not drawn as one. Its side is stated, or its perimeter over
+    the number of sides; its number of sides stated, named, or worked out from its angle."""
     named = POLYGON_SIDES.get(request.shape.removeprefix("regular_"))
     if not request.shape.startswith("regular"):
         return None
     if named is not None and request.sides is not None and named != request.sides:
         return None
-    count = request.sides or named
-    if count is None or not 3 <= count <= 12:
+    from_angle = _count_from_angle(request)
+    count = request.sides or named or from_angle
+    angled = request.first("interior_angle", "exterior_angle") is not None
+    if count is None or (angled and from_angle != count) or not 3 <= count <= _MOST_SIDES:
         return None
     names, lettered = _letters(request, count)
     side = request.first("side", "edge", "length")
-    size = side or _REGULAR_SIDE
+    perimeter = request.first("perimeter")
+    size = side or (perimeter / count if perimeter is not None else _REGULAR_SIDE)
     radius = size / (2 * math.sin(math.pi / count))
     corners = [polar(radius, 270 - 180 / count + i * 360 / count) for i in range(count)]
     drawing = _drawing(request, corners, names, lettered)
@@ -464,4 +491,21 @@ def build_regular_polygon(request: FigureRequest) -> FigureSpec | None:
     values = _Values(request, names)
     unnamed = values.unnamed_angles[:1]
     _mark_angles(drawing, names, values.angles or dict(zip([1], unnamed, strict=False)))
+    _regular_angles(drawing, request, names, corners)
     return drawing.spec()
+
+
+def _regular_angles(
+    drawing: Drawing, request: FigureRequest, names: list[str], corners: list[Point]
+) -> None:
+    """Each interior angle marked inside at the second corner; each exterior one outside
+    it, the first side drawn on past that corner."""
+    interior = request.first("interior_angle")
+    if interior is not None:
+        drawing.angle(names[1], names[2], names[0], angle_label(interior))
+    exterior = request.first("exterior_angle")
+    if exterior is not None:
+        (ax, ay), (bx, by) = corners[0], corners[1]
+        past = drawing.point((bx + (bx - ax) * 0.6, by + (by - ay) * 0.6))
+        drawing.line(names[1], past, dashed=True)
+        drawing.angle(names[1], past, names[2], angle_label(exterior))

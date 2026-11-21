@@ -636,6 +636,284 @@
    }
   },
   {
+   "id": "rest2-elev-two-points",
+   "cat": "heights",
+   "prompt": "The angles of elevation of the top of a tower from two points 30 m apart on level ground, on the same side of the tower, are 30° and 45°. Find the height of the tower.",
+   "draw": true,
+   "labels": [
+    "30 m",
+    "30°",
+    "45°"
+   ],
+   "needs": {
+    "angles": 2
+   }
+  },
+  {
+   "id": "rest2-depression-lighthouse",
+   "cat": "heights",
+   "prompt": "A lighthouse is 60 m tall. From its top, the angle of depression of a ship is 18°. How far is the ship from the base of the lighthouse?",
+   "draw": true,
+   "labels": [
+    "60",
+    "18°"
+   ]
+  },
+  {
+   "id": "rest2-ladder-angle",
+   "cat": "heights",
+   "prompt": "An 8 m ladder rests against a wall and makes an angle of 70° with the ground. How far is the foot of the ladder from the wall?",
+   "draw": true,
+   "labels": [
+    "8",
+    "70°"
+   ]
+  },
+  {
+   "id": "rest2-ramp",
+   "cat": "heights",
+   "prompt": "A ramp rises 1.2 m over a horizontal distance of 5 m. Find the angle the ramp makes with the ground.",
+   "draw": true,
+   "labels": [
+    "1.2",
+    "5"
+   ]
+  },
+  {
+   "id": "rest2-wire-pole",
+   "cat": "heights",
+   "prompt": "A 15 m wire runs from the top of a vertical pole to a peg in the ground 9 m from the foot of the pole. Find the height of the pole.",
+   "draw": true,
+   "labels": [
+    "15",
+    "9"
+   ]
+  },
+  {
+   "id": "rest2-shadow-building",
+   "cat": "similarity",
+   "prompt": "A building casts a shadow 36 m long at the same time as a 1.8 m tall man casts a shadow 2.4 m long. Find the height of the building.",
+   "draw": true,
+   "labels": [
+    "36",
+    "1.8",
+    "2.4"
+   ]
+  },
+  {
+   "id": "rest2-sim-sides",
+   "cat": "similarity",
+   "prompt": "Triangle PQR is similar to triangle XYZ, with PQ = 6 cm, QR = 8 cm, PR = 10 cm and XY = 9 cm. Find YZ and XZ.",
+   "draw": true,
+   "sides": {
+    "PQ": 6,
+    "QR": 8,
+    "PR": 10
+   },
+   "labels": [
+    "6",
+    "8",
+    "10",
+    "9"
+   ]
+  },
+  {
+   "id": "rest2-comp-house",
+   "cat": "composite",
+   "prompt": "The front of a shed is a rectangle 8 m wide and 4 m high with an isosceles triangle on top whose sloping sides are 5 m long. Find the area of the front.",
+   "draw": true,
+   "labels": [
+    "8",
+    "4",
+    "5"
+   ]
+  },
+  {
+   "id": "rest2-comp-window",
+   "cat": "composite",
+   "prompt": "A window is a rectangle 1.2 m wide and 1.5 m tall with a semicircle on top. Find the area of glass.",
+   "draw": true,
+   "labels": [
+    "1.2",
+    "1.5"
+   ],
+   "needs": {
+    "arcs": 1
+   }
+  },
+  {
+   "id": "rest2-comp-cut",
+   "cat": "composite",
+   "prompt": "A semicircle of diameter 6 cm is cut out of one end of a rectangle 10 cm by 6 cm. Find the area that is left.",
+   "draw": true,
+   "labels": [
+    "10",
+    "6"
+   ],
+   "needs": {
+    "arcs": 1
+   }
+  },
+  {
+   "id": "rest2-quad-x",
+   "cat": "quadrilateral",
+   "prompt": "The angles of a quadrilateral are x, 2x, 3x and 4x. Find the size of the largest angle.",
+   "draw": true,
+   "needs": {
+    "angles": 4
+   }
+  },
+  {
+   "id": "rest2-quad-pqrs",
+   "cat": "quadrilateral",
+   "prompt": "In quadrilateral PQRS, angle P = 70°, angle Q = 110° and angle R = 85°. Find angle S.",
+   "draw": true,
+   "labels": [
+    "70°",
+    "110°",
+    "85°"
+   ],
+   "angles": {
+    "P": 70,
+    "Q": 110,
+    "R": 85,
+    "S": 95
+   }
+  },
+  {
+   "id": "rest2-poly-exterior",
+   "cat": "polygon",
+   "prompt": "Each exterior angle of a regular polygon is 30°. How many sides does it have, and what is each interior angle?",
+   "draw": true,
+   "labels": [
+    "30°"
+   ]
+  },
+  {
+   "id": "rest2-poly-hex-perimeter",
+   "cat": "polygon",
+   "prompt": "A regular hexagon has a perimeter of 42 cm. Find its area.",
+   "draw": true
+  },
+  {
+   "id": "rest2-tri-exterior-named",
+   "cat": "angles",
+   "prompt": "In triangle ABC, side BC is produced to D. Angle ACD = 115° and angle BAC = 45°. Find angle ABC.",
+   "draw": true,
+   "labels": [
+    "115°",
+    "45°"
+   ],
+   "angles": {
+    "A": 45
+   }
+  },
+  {
+   "id": "rest2-supplementary-x",
+   "cat": "angles",
+   "prompt": "Two supplementary angles are 3x + 10 and 2x - 5. Find x and both angles.",
+   "draw": true,
+   "needs": {
+    "angles": 2
+   }
+  },
+  {
+   "id": "rest2-line-x",
+   "cat": "angles",
+   "prompt": "Angles on a straight line are 2x, 3x and 40°. Find x.",
+   "draw": true,
+   "labels": [
+    "40°"
+   ],
+   "needs": {
+    "angles": 3
+   }
+  },
+  {
+   "id": "rest2-frustum-bucket",
+   "cat": "solid",
+   "prompt": "A bucket is a frustum of a cone with top radius 15 cm, bottom radius 10 cm and slant height 13 cm. Find its depth and capacity.",
+   "draw": true,
+   "labels": [
+    "15",
+    "10",
+    "13"
+   ]
+  },
+  {
+   "id": "rest2-pyramid-frustum",
+   "cat": "solid",
+   "prompt": "A frustum of a square pyramid has a base of side 12 cm, a top of side 6 cm and a height of 4 cm. Find its volume.",
+   "draw": true,
+   "labels": [
+    "12",
+    "6",
+    "4"
+   ]
+  },
+  {
+   "id": "rest2-cylinder-cone",
+   "cat": "solid",
+   "prompt": "A solid is made of a cylinder of radius 3 cm and height 10 cm with a cone of height 4 cm on top. Find its volume.",
+   "draw": true,
+   "labels": [
+    "3",
+    "10",
+    "4"
+   ]
+  },
+  {
+   "id": "rest2-ice-cream",
+   "cat": "solid",
+   "prompt": "An ice-cream cone is a cone of radius 3 cm and height 12 cm with a hemisphere of ice cream on top. Find the total volume.",
+   "draw": true,
+   "labels": [
+    "3",
+    "12"
+   ]
+  },
+  {
+   "id": "rest2-ball",
+   "cat": "solid",
+   "prompt": "A ball has a diameter of 22 cm. Find its volume.",
+   "draw": true,
+   "labels": [
+    "22"
+   ]
+  },
+  {
+   "id": "rest2-box-rod",
+   "cat": "solid",
+   "prompt": "A box is 6 cm long, 4 cm wide and 3 cm high. How long is the longest straight rod that fits inside it?",
+   "draw": true,
+   "labels": [
+    "6",
+    "4",
+    "3"
+   ]
+  },
+  {
+   "id": "rest2-tetra-height",
+   "cat": "solid",
+   "prompt": "A regular tetrahedron has edges of 10 cm. Find its height.",
+   "draw": true,
+   "labels": [
+    "10"
+   ]
+  },
+  {
+   "id": "rest2-none-lift",
+   "cat": "none",
+   "prompt": "A lift rises 45 m in 15 seconds. What is its average speed?",
+   "draw": false
+  },
+  {
+   "id": "rest2-none-similar-ratio",
+   "cat": "none",
+   "prompt": "Two similar solids have volumes in the ratio 8 : 27. What is the ratio of their surface areas?",
+   "draw": false
+  },
+  {
    "id": "none-percent",
    "cat": "none",
    "prompt": "What is 15% of 80?",

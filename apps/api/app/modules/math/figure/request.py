@@ -5,9 +5,10 @@ question states. Only a reading: every number in it is checked against the quest
 from __future__ import annotations
 
 import math
+import re
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.modules.math.drawing.plot_reading import number
 
@@ -36,8 +37,34 @@ MeasureWhat = Literal[
     "width",
     "edge",
     "slant_height",
+    # A scene of heights and distances: the distance along the ground (or the water) from
+    # the foot of what stands up, the distance between two points the angles are seen from,
+    # an object's shadow, and an angle measured from the vertical (a ladder's with its wall).
+    "distance",
+    "gap",
+    "shadow",
+    "angle_from_vertical",
+    # A polygon's angle inside at a corner, and outside it (one side drawn on past it).
+    "interior_angle",
+    "exterior_angle",
 ]
+# The measures that are angles, in degrees; every other one is a length.
+ANGLE_WHATS = frozenset(
+    {
+        "angle",
+        "apex_angle",
+        "base_angle",
+        "angle_from_vertical",
+        "interior_angle",
+        "exterior_angle",
+    }
+)
 _KINDS = ("none", "polygon", "circle", "lines", "solid", "number_line", "function", "points")
+
+
+# A word naming an object rather than points is this long at least ("cone", "ship").
+_WORD = 3
+_LEADING = re.compile(r"\s*\d+(?:\.\d+)?")
 
 
 class Measure(BaseModel):
@@ -47,6 +74,41 @@ class Measure(BaseModel):
     what: MeasureWhat
     name: str = Field(default="", max_length=8)
     value: float = Field(gt=0, le=1_000_000)
+    # Which part of a figure of two the value belongs to ("cone", "semicircle", "tree"):
+    # the attached shape's name, an object's, or "second"; "" for the main shape.
+    of: str = Field(default="", max_length=16)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _named_object(cls, data: Any) -> Any:
+        """A measure named by a word ("lighthouse", "cone") names no points: the word says
+        what the value is of. A value written with its unit ("50 m", "35°") is its number.
+        Either read otherwise lost the measure, and the picture a stated value."""
+        if not isinstance(data, dict):
+            return data
+        data = dict(data)
+        name = str(data.get("name") or "").strip()
+        if len(name) >= _WORD and name.isalpha() and name.islower():
+            data["name"] = ""
+            data["of"] = data.get("of") or name
+        value = data.get("value")
+        if isinstance(value, str) and (found := _LEADING.match(value)):
+            data["value"] = found.group()
+        return data
+
+    @field_validator("of", mode="before")
+    @classmethod
+    def _of(cls, value: Any) -> str:
+        text = " ".join(str(value or "").strip().lower().replace("-", " ").split())
+        return text.replace(" ", "_")[:16]
+
+
+class AngleTerm(BaseModel):
+    """An angle the question writes with a letter, copied as written ("2x", "x + 20"), and
+    the letters naming it ("B", "AOC") or ""."""
+
+    term: str = Field(min_length=1, max_length=16)
+    name: str = Field(default="", max_length=4)
 
 
 class NamedPoint(BaseModel):
@@ -98,6 +160,13 @@ class FigureRequest(BaseModel):
     # Points on a coordinate plane.
     points: list[NamedPoint] = Field(default_factory=list, max_length=12)
     quadrants: bool = False
+    # A second shape joined to the first ("semicircle" on a rectangle's side, "triangle" on
+    # its top, "rectangle" for an L-shape, "cone" on a hemisphere, "hemisphere" on a
+    # cylinder): ``shape`` is the main one, and each measure says which it is ``of``.
+    attached: str = Field(default="", max_length=32)
+    # Angles written with a letter ("x", "2x", "x + 20"): the server solves the letter
+    # where the angles' sum decides it and draws their sizes, labelled as written.
+    angle_terms: list[AngleTerm] = Field(default_factory=list, max_length=6)
 
     @field_validator("kind", mode="before")
     @classmethod
@@ -105,7 +174,7 @@ class FigureRequest(BaseModel):
         text = str(value or "").strip().lower()
         return text if text in _KINDS else "none"
 
-    @field_validator("shape", "inscribed", "circumscribed", mode="before")
+    @field_validator("shape", "inscribed", "circumscribed", "attached", mode="before")
     @classmethod
     def _name(cls, value: Any) -> str:
         return " ".join(str(value or "").strip().lower().replace("-", " ").split()).replace(
@@ -153,6 +222,27 @@ class FigureRequest(BaseModel):
         for item in value:
             try:
                 kept.append(Measure.model_validate(item))
+            except ValueError:
+                continue
+        return kept
+
+    @field_validator("sides", mode="before")
+    @classmethod
+    def _sides(cls, value: Any) -> Any:
+        """No number of sides (0, a blank) is none, never the whole reading lost: a reader
+        filling every field wrote "sides": 0 for a ramp."""
+        return None if value in (0, "", "0") else value
+
+    @field_validator("angle_terms", mode="before")
+    @classmethod
+    def _terms(cls, value: Any) -> list[Any]:
+        """A term the reader wrote oddly is left out, never the whole reading."""
+        if not isinstance(value, list):
+            return []
+        kept: list[Any] = []
+        for item in value:
+            try:
+                kept.append(AngleTerm.model_validate(item))
             except ValueError:
                 continue
         return kept
