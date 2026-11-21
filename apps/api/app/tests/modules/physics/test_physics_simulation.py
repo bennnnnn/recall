@@ -945,3 +945,13 @@ def test_a_pendulum_is_never_drawn_as_a_spring() -> None:
 
     (scene,) = solve_physics(swinging).simulation_specs
     assert scene.type == "pendulum"
+
+
+def test_a_resolved_angle_is_marked_from_the_axis_it_was_measured_from() -> None:
+    """Review, 2026-11-20: 120° from the x-axis was drawn from 180° and labelled 60°."""
+    scene = _scene("Resolve 25 m/s at 120° from the positive x-axis into components.")
+    (arc,) = scene.angles
+    assert (arc.start_deg, round(arc.end_deg), arc.label) == (0.0, 120, "120°")
+    bearing = _scene("A ship sails 25 km on a bearing of 120°. Find the east and north components.")
+    (arc,) = bearing.angles
+    assert (arc.start_deg, round(arc.end_deg), arc.label) == (90.0, -30, "120°")

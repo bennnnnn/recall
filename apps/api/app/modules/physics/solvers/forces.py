@@ -198,7 +198,12 @@ def _resolve_vector(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult
             x_value=x_value,
             y_value=y_value,
             unit=text_unit,
-            from_vertical=vertical,
+            # The axis the angle was measured from: up or down for a vertical reference, else
+            # the side the horizontal component points to (a bearing "of west" is from west).
+            base_deg=(90.0 if y_sign > 0 else -90.0)
+            if vertical
+            else (0.0 if x_sign > 0 else 180.0),
+            angle_deg=math.degrees(theta),
             alt=(
                 f"A {plain_number(size, GIVEN_FIGURES)}{text_unit} vector split into "
                 f"{plain_number(x_value)}{text_unit} horizontally and "

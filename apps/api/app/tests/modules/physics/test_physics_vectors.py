@@ -130,6 +130,29 @@ VERIFIED: list[tuple[str, str, str]] = [
         "resolve_vector",
         "6 kg·m/s horizontally and 10.4 kg·m/s vertically",
     ),
+    # "the vertical component" names what is asked; the angle is still from the horizontal.
+    (
+        "A force of 60 N acts at 30° above the horizontal. Find the magnitude of the vertical "
+        "component.",
+        "resolve_vector",
+        "52 N horizontally and 30 N vertically",
+    ),
+    # A three-figure bearing is clockwise from north: the sine is east, the cosine north.
+    (
+        "A plane flies 300 km/h on a bearing of 40°. Find the north and east components.",
+        "resolve_vector",
+        "193 km/h horizontally and 230 km/h vertically",
+    ),
+    (
+        "A ship sails 25 km on a bearing of 120°. Find the east and north components.",
+        "resolve_vector",
+        "21.7 km horizontally and -12.5 km vertically",
+    ),
+    (
+        "Resolve 25 m/s at 120° from the positive x-axis into components.",
+        "resolve_vector",
+        "-12.5 m/s horizontally and 21.7 m/s vertically",
+    ),
 ]
 
 
@@ -139,6 +162,16 @@ VERIFIED: list[tuple[str, str, str]] = [
         # Along a slope is the incline's own law, never across and up.
         "a 50 N weight rests on a 30° incline; find its component along the slope",
         "find the component of a 20 N force parallel to a ramp at 25°",
+        # A component inside another law, or one value of a bigger problem (review, 2026-11-20).
+        "A wire 0.5 m long carries 2 A at 30° to a 0.3 T field. Find the force on the wire "
+        "using the component of the field perpendicular to it.",
+        "A proton moves at 2e6 m/s at 30° to a magnetic field of 0.5 T. Find the radius of its "
+        "path using the velocity component perpendicular to the field.",
+        "A 2 kg mass is at the end of a 1.5 m string at 30° from the vertical. Find the "
+        "components of tension.",
+        "A ray travels 5 cm in glass at 30° to the normal. Find its components.",
+        "A ball is thrown at 20 m/s at 30° above the horizontal. Find the horizontal and "
+        "vertical components of velocity and the range.",
     ],
 )
 def test_a_component_along_a_slope_is_not_resolved_across_and_up(text: str) -> None:

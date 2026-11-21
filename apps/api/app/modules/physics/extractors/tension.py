@@ -181,32 +181,73 @@ _VECTOR_PARAMS = (
     (re.compile(r"N"), "F"),
 )
 # Components along a slope or a line, not across and up: weight on an incline is its own law.
-_NOT_AXES_RE = re.compile(r"\b(?:incline[ds]?|slope|ramp|along|parallel)\b", re.IGNORECASE)
-# An angle measured from the vertical: "40° from the vertical", "with the y-axis".
-_FROM_VERTICAL_RE = re.compile(
-    r"\b(?:from|to|with|of)\s+the\s+(?:vertical|y[- ]?axis)\b", re.IGNORECASE
+# An angle from the normal is a ray's or a surface's, and a field, a wire or a charge has its
+# own law that uses a component inside it (review, 2026-11-20). A rope's pull is a vector
+# like any: a mass and a length beside it make two values, never one (``_stated_values``).
+_NOT_AXES_RE = re.compile(
+    r"\b(?:incline[ds]?|slope|ramp|along|parallel|normal|magnetic|wire|current|charge[ds]?"
+    r"|proton|electron|ray|light|refract\w*|thermometer|temperature)\b",
+    re.IGNORECASE,
+)
+# The angle's reference, written right after it: "40° from the vertical", "30 degrees to the
+# y-axis". Read only there: "the vertical component" elsewhere names a component asked for.
+_AFTER_ANGLE_VERTICAL_RE = re.compile(
+    r"\s*(?:from|to|with|of)\s+the\s+(?:vertical|y[- ]?axis|upward\s+vertical)\b", re.IGNORECASE
 )
 _BELOW_RE = re.compile(r"\bbelow\s+the\s+(?:horizontal|x[- ]?axis)\b", re.IGNORECASE)
 # A bearing: "30° north of east" is measured from east; "40° east of north" from north.
 _BEARING_RE = re.compile(
     r"\b(north|south|east|west)\s+of\s+(north|south|east|west)\b", re.IGNORECASE
 )
+# A three-figure bearing, clockwise from north: "on a bearing of 040°", "bearing 120°".
+_NUMBER_BEARING_RE = re.compile(
+    rf"\bbearing\s+(?:of\s+)?({DECIMAL})\s*{DEGREE_WORD}?", re.IGNORECASE
+)
+# Any value with a unit. A resolving question states one, the vector's size, besides its angle.
+_STATED_VALUE_RE = re.compile(r"(?<![\w.])\d[\d.,]*\s*([A-Za-zµμΩ°][\w/^²³*·]*)")
+_ANGLE_OR_COUNT_RE = re.compile(r"°|deg\w*|rad\w*|components?$|parts?$|times$", re.IGNORECASE)
+# A question that asks for more than the components (a range, a time, a height) is a bigger
+# problem, answered by its own law or the model: "the components of velocity and the range".
+_MORE_ASKED_RE = re.compile(
+    r"\b(?:range|how\s+(?:far|long|high)|maximum|max\.?|time\s+of\s+flight|height|"
+    r"resultant|net|magnitude\s+and\s+direction)\b",
+    re.IGNORECASE,
+)
+
+
+def _stated_values(cleaned: str) -> int:
+    """How many measured values the question states, angles and counts left out."""
+    return sum(
+        1
+        for match in _STATED_VALUE_RE.finditer(cleaned)
+        if not _ANGLE_OR_COUNT_RE.match(match.group(1))
+    )
 
 
 def _resolve_intent(cleaned: str) -> PhysicsIntent | None:
     """One vector of any kind split into horizontal and vertical components, its angle from
-    the horizontal, the vertical or a compass bearing, each component signed by its side."""
-    if _NOT_AXES_RE.search(cleaned):
+    the horizontal, the vertical or a compass bearing, each component signed by its side.
+
+    A resolving question states one measured value, the vector, and asks for nothing more;
+    anything else (a mass beside a rope, a field beside a wire, the range of a throw) is a
+    problem a component is only a step of (review, 2026-11-20)."""
+    if _NOT_AXES_RE.search(cleaned) or _MORE_ASKED_RE.search(cleaned):
         return None
     size = _VECTOR_SIZE_RE.search(cleaned)
-    angle = INCLINE_ANGLE_RE.search(cleaned)
-    if size is None or angle is None:
+    if size is None or _stated_values(cleaned) != 1:
+        return None
+    numbered = _NUMBER_BEARING_RE.search(cleaned)
+    angle = INCLINE_ANGLE_RE.search(cleaned) if numbered is None else numbered
+    if angle is None:
         return None
     unit = " ".join(re.sub(r"\s*/\s*", "/", size.group(2)).split()).replace("²", "^2")
     name = next(param for pattern, param in _VECTOR_PARAMS if pattern.fullmatch(unit))
     params = {name: float(size.group(1)), "angle": float(angle.group(1))}
     bearing = _BEARING_RE.search(cleaned)
-    if bearing is not None:
+    if numbered is not None:
+        # Clockwise from north: the sine is east, the cosine north, each signed by itself.
+        params.update(from_vertical=1.0, x_sign=1.0, y_sign=1.0)
+    elif bearing is not None:
         toward, base = bearing.group(1).lower(), bearing.group(2).lower()
         sides = {toward, base}
         if sides in ({"north", "south"}, {"east", "west"}):
@@ -215,7 +256,8 @@ def _resolve_intent(cleaned: str) -> PhysicsIntent | None:
         params["x_sign"] = -1.0 if "west" in sides else 1.0
         params["y_sign"] = -1.0 if "south" in sides else 1.0
     else:
-        params["from_vertical"] = 1.0 if _FROM_VERTICAL_RE.search(cleaned) else 0.0
+        vertical = _AFTER_ANGLE_VERTICAL_RE.match(cleaned, angle.end()) is not None
+        params["from_vertical"] = 1.0 if vertical else 0.0
         params["x_sign"] = 1.0
         params["y_sign"] = -1.0 if _BELOW_RE.search(cleaned) else 1.0
     return PhysicsIntent(

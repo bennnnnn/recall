@@ -218,15 +218,17 @@ def resolution_scene(
     x_value: float,
     y_value: float,
     unit: str,
-    from_vertical: bool,
+    base_deg: float,
+    angle_deg: float,
     alt: str,
 ) -> list[SimulationBlockSpec]:
     """A vector and its two components, drawn in that order (``SimulationVector.stage``).
 
     The vector comes first, from the origin, with its angle marked from the axis the question
-    measured it from; then its horizontal component grows along that axis from the same tail,
-    and last its vertical component rises from there to the vector's tip, closing the
-    triangle. A component of zero length (a vector along an axis) is not drawn.
+    measured it from (``base_deg``: east 0, north 90, west 180, south -90) and labelled as
+    the question gave it; then its horizontal component grows along the x-axis from the same
+    tail, and last its vertical component rises from there to the vector's tip, closing the
+    triangle. A vector along an axis has one component, itself, so none is drawn over it.
     """
     vector = SimulationVector(
         anchor=[0.0, 0.0],
@@ -236,37 +238,46 @@ def resolution_scene(
         role="force",
         stage=0,
     )
-    parts = [
-        SimulationVector(
-            anchor=anchor,
-            dx=dx,
-            dy=dy,
-            label=f"{plain_number(value)}{unit}"[:24],
-            role="result",
-            stage=stage,
-        )
-        for anchor, dx, dy, value, stage in (
-            ([0.0, 0.0], x_value, 0.0, x_value, 1),
-            ([x_value, 0.0], 0.0, y_value, y_value, 2),
-        )
-        if abs(value) > 1e-9 * size
-    ]
+    across, up = abs(x_value) > 1e-9 * size, abs(y_value) > 1e-9 * size
+    parts = (
+        [
+            SimulationVector(
+                anchor=[0.0, 0.0],
+                dx=x_value,
+                dy=0.0,
+                label=f"{plain_number(x_value)}{unit}"[:24],
+                role="result",
+                stage=1,
+            ),
+            SimulationVector(
+                anchor=[x_value, 0.0],
+                dx=0.0,
+                dy=y_value,
+                label=f"{plain_number(y_value)}{unit}"[:24],
+                role="result",
+                stage=2,
+            ),
+        ]
+        if across and up
+        else []
+    )
     direction = math.degrees(math.atan2(y_value, x_value))
-    if from_vertical:
-        axis = 90.0 if y_value >= 0 else -90.0
-    else:
-        axis = 0.0 if x_value >= 0 else (180.0 if y_value >= 0 else -180.0)
+    # The short way from the axis to the vector, unless the question's angle is the long way
+    # (a bearing of 300°): the arc sweeps what the question measured.
+    sweep = (direction - base_deg + 180.0) % 360.0 - 180.0
+    if abs(abs(sweep) - angle_deg % 360.0) > 0.5 and sweep != 0.0:
+        sweep -= math.copysign(360.0, sweep)
     angles = (
         [
             SimulationAngle(
                 vertex=[0.0, 0.0],
-                start_deg=axis,
-                end_deg=direction,
-                label=f"{plain_number(abs(direction - axis), GIVEN_FIGURES)}°",
+                start_deg=base_deg,
+                end_deg=base_deg + sweep,
+                label=f"{plain_number(angle_deg, GIVEN_FIGURES)}°",
                 stage=0,
             )
         ]
-        if abs(direction - axis) >= 1.0
+        if abs(sweep) >= 1.0
         else []
     )
     margin = size * 0.25
