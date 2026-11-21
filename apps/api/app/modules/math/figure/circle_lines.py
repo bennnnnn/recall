@@ -179,9 +179,15 @@ def build_intersecting_chords(request: FigureRequest) -> FigureSpec | None:
     holds, size = stated_size(request)
     if not holds or size is not None:
         return None  # a stated radius fixes the angle the chords cross at: not drawn
-    parts, wholes, angle = _chord_values(request.measures, names, cross)
+    parts, wholes, stated_angle = _chord_values(request.measures, names, cross)
     if parts is None:
         return None
+    # The angle BED the chords cross at, and the stated one with the ends it is between.
+    angle, value, rays = None, None, (1, 3)
+    if stated_angle is not None:
+        value, rays = stated_angle
+        # AED and BEC are BED's neighbours; AEC is its vertical angle.
+        angle = 180 - value if set(rays) in ({0, 3}, {1, 2}) else value
     stated = dict(parts)
     if not _solve_parts(parts, wholes, names):
         return None
@@ -206,24 +212,31 @@ def build_intersecting_chords(request: FigureRequest) -> FigureSpec | None:
     for index, whole in wholes.items():
         # A whole chord stated is labelled along its full length, its parts beside it.
         figure.drawing.line(ends[2 * index], ends[2 * index + 1], figure.length(whole))
-    if angle is not None:
-        figure.drawing.angle(e, ends[1], ends[3], angle_label(angle))
+    if value is not None:
+        figure.drawing.angle(e, ends[rays[0]], ends[rays[1]], angle_label(value))
     return figure.drawing.spec()
+
+
+# A stated angle at the crossing: its value and the ends (by index) it is between.
+_StatedAngle = tuple[float, tuple[int, int]]
 
 
 def _chord_values(
     measures: list[Measure], names: list[str], cross: str
-) -> tuple[dict[str, float] | None, dict[int, float], float | None]:
-    """Each stated part by its end ("AE": A), each whole chord by its index, the angle."""
+) -> tuple[dict[str, float] | None, dict[int, float], _StatedAngle | None]:
+    """Each stated part by its end ("AE": A), each whole chord by its index, the angle and
+    where it is: an angle named AED is marked between A and D, never as BED at 180° less."""
     parts: dict[str, float] = {}
     wholes: dict[int, float] = {}
-    angle = None
+    angle: _StatedAngle | None = None
     for m in measures:
         name = m.name.strip()
         if m.what == "angle" and corner_of(name) in {cross, ""}:
-            ends = {name[0], name[2]} if len(name) == 3 else set()
-            flipped = ends in ({names[0], names[3]}, {names[1], names[2]})
-            angle = 180 - m.value if flipped else m.value
+            ends = (name[0], name[2]) if len(name) == 3 else (names[1], names[3])
+            rays = [names.index(end) for end in ends if end in names]
+            if len(rays) != 2 or {rays[0] // 2, rays[1] // 2} != {0, 1}:
+                return None, {}, None  # not between the two chords
+            angle = (m.value, (rays[0], rays[1]))
         elif m.what in _PARTS and len(name) == 2 and cross in name:
             end = name.replace(cross, "", 1)
             if end not in names or end in parts:

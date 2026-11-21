@@ -60,3 +60,38 @@ def test_circle_figures_a_semicircle_with_a_point_on_it_is_the_theorem() -> None
 def test_circle_figures_a_semicircle_with_another_value_draws_nothing() -> None:
     question = "A semicircle has radius 7 cm and perimeter 36 cm."
     assert draw(question, _semicircle(("radius", 7), ("perimeter", 36))) is None
+
+
+def _chords(angle_name: str, value: float) -> dict[str, Any]:
+    return {
+        "kind": "circle",
+        "shape": "intersecting_chords",
+        "point": "E",
+        "vertices": "ABCD",
+        "unit": "cm",
+        "measures": [
+            {"what": "length", "name": "AE", "value": 4},
+            {"what": "length", "name": "EB", "value": 6},
+            {"what": "length", "name": "CE", "value": 3},
+            {"what": "angle", "name": angle_name, "value": value},
+        ],
+    }
+
+
+@pytest.mark.parametrize("name", ["AED", "BEC", "BED", "AEC"])
+def test_circle_figures_crossing_chords_mark_the_stated_angle_where_it_is(name: str) -> None:
+    question = (
+        f"Chords AB and CD of a circle meet at E. AE = 4 cm, EB = 6 cm, CE = 3 cm and angle "
+        f"{name} = 70°. Find ED."
+    )
+    spec = figure(question, _chords(name, 70))
+    (mark,) = spec.angles
+    assert (mark.at, {mark.a, mark.b}, mark.label) == ("E", {name[0], name[2]}, "70°")
+    assert angle(spec, "E", name[0], name[2]) == pytest.approx(70)
+    # The chords' parts true: AE·EB = CE·ED.
+    assert length(spec, "E", "D") == pytest.approx(8)
+
+
+def test_circle_figures_an_angle_along_one_chord_draws_nothing() -> None:
+    question = "Chords AB and CD meet at E. AE = 4 cm, EB = 6 cm, CE = 3 cm, angle AEB = 70°."
+    assert draw(question, _chords("AEB", 70)) is None

@@ -246,3 +246,20 @@ def test_sized_angles_solve_exactly() -> None:
     sized = sized_angles(request, 180.0)
     assert sized is not None
     assert [a.size for a in sized] == [100, 80]
+
+
+def test_exterior_angle_with_its_interior_neighbour_stated_labels_both() -> None:
+    question = (
+        "In triangle ABC, BC is produced to D. Angle ACD = 110°, angle ACB = 70° and angle "
+        "A = 50°. Find angle B."
+    )
+    reading = _angles(
+        "triangle",
+        vertices="ABC",
+        measures=[("exterior_angle", "ACD", 110), ("angle", "ACB", 70), ("angle", "A", 50)],
+    )
+    spec = figure(question, reading)
+    assert labels(spec) == ["110°", "50°", "70°"]
+    assert labelled_angle(spec, "70°") == pytest.approx(70)
+    assert angle(spec, "C", "A", "B") == pytest.approx(70)
+    assert angle(spec, "B", "A", "C") == pytest.approx(60)
