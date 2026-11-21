@@ -181,24 +181,32 @@ def test_heights_opposite_sides_of_a_lighthouse_seen_down_from_its_top() -> None
 
 
 @pytest.mark.parametrize(
-    ("question", "parts"),
+    ("question", "parts", "shape"),
     [
-        # The read says opposite sides; the question says none.
+        # The read says opposite sides; the question says none: one side.
         ("From two points 20 m apart, the angles of elevation of a tower are 30° and 60°.",
-         ["opposite_sides"]),
+         ["opposite_sides"], "elevation_two_points"),
+        # The read says opposite sides; the question says the same side.
+        ("From two points 20 m apart on the same side of a tower, the angles of elevation are "
+         "30° and 60°.", ["opposite_sides"], "elevation_two_points"),
         # The read says one side; the question says opposite sides.
         ("From two points 20 m apart on opposite sides of a tower, the angles of elevation "
-         "are 30° and 60°.", ["same_side"]),
-        # The question says both.
-        ("From two points 20 m apart, on the same side or on opposite sides of a tower, the "
-         "angles of elevation are 30° and 60°.", []),
+         "are 30° and 60°.", ["same_side"], "elevation_opposite_sides"),
     ],
 )  # fmt: skip
-def test_heights_two_points_on_a_side_the_question_does_not_say_draw_nothing(
-    question: str, parts: list[str]
+def test_heights_two_points_stand_on_the_side_the_question_says_never_the_read(
+    question: str, parts: list[str], shape: str
 ) -> None:
     reading = _scene("elevation", ("angle", 30), ("angle", 60), ("gap", 20))
-    assert draw(question, {**reading, "parts": parts}) is None
+    assert figure(question, {**reading, "parts": parts}).shape == shape
+
+
+def test_heights_two_points_on_both_sides_said_draw_nothing() -> None:
+    question = (
+        "From two points 20 m apart, on the same side or on opposite sides of a tower, the "
+        "angles of elevation are 30° and 60°."
+    )
+    assert draw(question, _scene("elevation", ("angle", 30), ("angle", 60), ("gap", 20))) is None
 
 
 MAN = (

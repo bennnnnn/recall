@@ -201,6 +201,34 @@ def test_stacked_loose_height_belongs_to_the_part_written_before_it() -> None:
     assert labelled_length(spec, "8 cm") == pytest.approx(8)
 
 
+@pytest.mark.parametrize("of", ["toy", "solid"])
+def test_stacked_total_height_read_of_the_object_is_the_whole_s(of: str) -> None:
+    reading = _solid("hemisphere", ("radius", 3.5, ""), ("height", 15.5, of), attached="cone")
+    assert max(p.y for p in figure(TOTAL, reading).points) == pytest.approx(15.5)
+
+
+def test_stacked_a_cone_s_height_read_twice_as_the_total_is_read_once() -> None:
+    reading = _solid(
+        "hemisphere",
+        ("height", 8, "cone"),
+        ("radius", 6, "hemisphere"),
+        ("height", 8, "total"),
+        attached="cone",
+    )
+    spec = figure(TOY, reading)
+    assert max(p.y for p in spec.points) == pytest.approx(6 + 8)
+    assert labels(spec) == ["6 cm", "8 cm"]
+
+
+def test_stacked_a_height_the_read_and_the_question_give_different_parts_draws_nothing() -> None:
+    question = "A cylinder of radius 3 cm and height 10 cm has a cone of height 4 cm on top."
+    reading = _solid(
+        "cylinder", ("radius", 3, ""), ("height", 10, "cone"), ("height", 4, "cylinder"),
+        attached="cone",
+    )  # fmt: skip
+    assert draw(question, reading) is None
+
+
 def test_stacked_part_and_total_heights_must_add_up() -> None:
     question = (
         "A toy is a cone of height 8 cm on a hemisphere of radius 6 cm. Its total height is 15 cm."

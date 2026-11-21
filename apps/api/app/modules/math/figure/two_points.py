@@ -4,8 +4,9 @@ On one side of what stands up, the smaller angle is seen from the farther point 
 points are ``gap`` = h(cot far - cot near) apart; on opposite sides of it ("from two points
 on opposite sides of the tower") each point is h cot of its angle from the foot, and the gap
 is h(cot a + cot b) across it. The height or the gap decides the other; a question that
-states both must agree. Which side is what the question says (``sides_as_said``): a read
-that names a side the question does not, or a question that names both, draws nothing.
+states both must agree. Which side is what the question says (``sides_as_said``), never a
+read's guess: a read flag for it was set on "on the same side of the tower" (2026-11-21).
+A question that names both sides draws nothing.
 Angles of elevation of the bottom and the top of one thing standing on another (a
 flagstaff on a building) are seen from one point, never two: nothing is drawn for them.
 """
@@ -37,20 +38,17 @@ _TWO_TOPS = re.compile(
 
 def sides_as_said(request: FigureRequest, texts: Iterable[str]) -> FigureRequest | None:
     """The reading with the side its two points are on as the question says it (parts
-    "opposite_sides" or "same_side"); None when the read says a side the question does
-    not, the question says both, or the two angles are of two tops seen from one point.
-    A question that says no side leaves the reading as it is: one side, as textbooks mean."""
+    "opposite_sides" or "same_side"), whatever side parts the read gave; None when the
+    question says both, or the two angles are of two tops seen from one point. A question
+    that says no side is drawn on one side, as textbooks mean."""
     if request.kind != "polygon" or len(request.given("angle")) != 2:
         return request
     words = " ".join(texts).lower()
     if _TWO_TOPS.search(words):
         return None
     said = {part for part, named in _SIDE_WORDS.items() if named.search(words)}
-    read = {part for part in _SIDE_WORDS if part in request.parts}
-    if len(said) > 1 or (read and read != said):
+    if len(said) > 1:
         return None
-    if not said:
-        return request
     parts = [part for part in request.parts if part not in _SIDE_WORDS]
     return request.model_copy(update={"parts": [*parts, *said]})
 

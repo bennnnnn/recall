@@ -76,22 +76,38 @@ class _Part:
 def heights_as_said(request: FigureRequest, texts: Sequence[str]) -> FigureRequest | None:
     """The reading with each height tied to what the question writes it of: the whole solid
     where it says "total height" (``of`` "total"), else the part named before it in its
-    sentence ("a cone of height 8 cm": the cone's) when the read tied it to none. None when
-    the read gives a part the height the question calls the whole's."""
+    sentence ("a cone of height 8 cm": the cone's). The words win over a read that tied it
+    to nothing or to no part ("toy"); a read "total" the question writes as a part's height
+    is dropped when that part's is read too (one number read twice), and any other
+    disagreement draws nothing."""
     if request.kind != "solid" or not stacks(request):
         return request
     words = " ".join(texts).lower()
+    parts = {_SOLID_OF.get(kind, kind) for kind in _STACKS[(request.shape, request.attached)]}
     measures: list[Measure] = []
     for m in request.measures:
         said = _written_of(words, m.value) if m.what == "height" else None
-        if said == "total" and m.of not in WHOLE:
-            if m.of:
-                return None  # the question's whole height read as one part's
-            m = m.model_copy(update={"of": "total"})
-        elif said and not m.of:
-            m = m.model_copy(update={"of": said})
-        measures.append(m)
+        own = m.of.removesuffix("s") in parts
+        if said is None or said == m.of.removesuffix("s"):
+            measures.append(m)
+        elif said == "total" and not own:
+            measures.append(m.model_copy(update={"of": "total"}))
+        elif said != "total" and m.of in WHOLE and _read_twice(request, m, said):
+            continue
+        elif said != "total" and not own and m.of not in WHOLE:
+            measures.append(m.model_copy(update={"of": said}))
+        else:
+            return None  # the read and the question give the height to different parts
     return request.model_copy(update={"measures": measures})
+
+
+def _read_twice(request: FigureRequest, m: Measure, part: str) -> bool:
+    """The read gives this value to ``part`` as well: the question's one number read twice."""
+    return any(
+        other is not m and other.what == m.what and other.value == m.value
+        and other.of.removesuffix("s") == part
+        for other in request.measures
+    )  # fmt: skip
 
 
 def _written_of(words: str, value: float) -> str | None:
