@@ -24,7 +24,7 @@ import re
 from collections import Counter
 
 from app.modules.math.figure.drawing import Point, angle_at, angle_label, distance, length_label
-from app.modules.math.figure.request import FigureRequest, Measure
+from app.modules.math.figure.request import ANGLE_WHATS, FigureRequest, Measure
 from app.modules.math.schemas.figure import FigureSpec
 
 # Solids whose receding edges are drawn at half scale, and figures drawn in projection.
@@ -36,7 +36,7 @@ _UNLABELLED = frozenset({"perimeter"})
 # A solid's height has no edge in its net: the net's faces are sized by it, unlabelled.
 _FOLDED = {"square_pyramid_net": frozenset({"height"}), "cone_net": frozenset({"height"})}
 _LENGTH_TOLERANCE = 1e-3
-_ANGLE_WHATS = frozenset({"angle", "apex_angle", "base_angle"})
+_ANGLE_WHATS = ANGLE_WHATS
 _ANGLE_TOLERANCE = 0.05
 _LEADING_NUMBER = re.compile(r"\d+(?:\.\d+)?")
 # A letter naming the value after it: "r ≈ ", "x = ", "2r ≈ ".
@@ -47,7 +47,7 @@ def measure_label(measure: Measure, unit: str) -> str | None:
     """The label a stated value is drawn with, or None for one drawn without a label."""
     if measure.what in _UNLABELLED:
         return None
-    if measure.what in {"angle", "apex_angle", "base_angle"}:
+    if measure.what in _ANGLE_WHATS:
         return angle_label(measure.value)
     return length_label(measure.value, unit)
 
@@ -114,7 +114,7 @@ def _named_holds(spec: FigureSpec, request: FigureRequest, at: dict[str, Point])
         label = measure_label(measure, request.unit)
         if label is None or not name or not set(name) <= shown:
             continue
-        if measure.what in {"angle", "apex_angle", "base_angle"}:
+        if measure.what in _ANGLE_WHATS:
             if not _angle_named(spec, name, measure.value, at):
                 return False
         elif len(name) == 2 and not _side_named(spec, set(name), label):

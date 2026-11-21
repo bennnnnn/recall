@@ -337,6 +337,324 @@
    }
   },
   {
+   "id": "circ2-chord-from-radius",
+   "cat": "circle",
+   "prompt": "A circle has radius 13 cm. A chord is 5 cm from the centre. Find the length of the chord.",
+   "draw": true,
+   "labels": [
+    "13",
+    "5"
+   ],
+   "needs": {
+    "arcs": 1,
+    "angles": 1
+   }
+  },
+  {
+   "id": "circ2-chord-distance",
+   "cat": "circle",
+   "prompt": "The radius of a circle is 10 cm and a chord is 16 cm long. How far is the chord from the centre?",
+   "draw": true,
+   "labels": [
+    "10",
+    "16"
+   ],
+   "needs": {
+    "arcs": 1,
+    "angles": 1
+   }
+  },
+  {
+   "id": "circ2-segment",
+   "cat": "circle",
+   "prompt": "A chord subtends an angle of 90° at the centre of a circle of radius 8 cm. Find the area of the minor segment.",
+   "draw": true,
+   "labels": [
+    "8",
+    "90°"
+   ],
+   "needs": {
+    "arcs": 1
+   }
+  },
+  {
+   "id": "circ2-wheel-arc",
+   "cat": "circle",
+   "prompt": "A wheel of diameter 70 cm turns through an angle of 60°. How far does a point on its rim travel?",
+   "draw": true,
+   "labels": [
+    "70",
+    "60°"
+   ],
+   "needs": {
+    "arcs": 1
+   }
+  },
+  {
+   "id": "circ2-tangent-length",
+   "cat": "circle",
+   "prompt": "The tangent from a point P to a circle of radius 7 cm is 24 cm long. How far is P from the centre of the circle?",
+   "draw": true,
+   "labels": [
+    "7",
+    "24"
+   ],
+   "needs": {
+    "arcs": 1,
+    "angles": 1
+   }
+  },
+  {
+   "id": "circ2-tangent-angle",
+   "cat": "circle",
+   "prompt": "PT is a tangent to a circle with centre O, touching it at T. OT = 5 cm and angle TPO = 30°. Find OP.",
+   "draw": true,
+   "labels": [
+    "5",
+    "30°"
+   ],
+   "needs": {
+    "arcs": 1
+   },
+   "angles": {
+    "P": 30,
+    "T": 90
+   }
+  },
+  {
+   "id": "circ2-two-tangents-length",
+   "cat": "circle",
+   "prompt": "From an external point P, tangents PA and PB are drawn to a circle with centre O. PA = 12 cm and the radius is 5 cm. Find OP.",
+   "draw": true,
+   "labels": [
+    "12",
+    "5"
+   ],
+   "needs": {
+    "arcs": 1
+   },
+   "angles": {
+    "A": 90,
+    "B": 90
+   }
+  },
+  {
+   "id": "circ2-two-tangents-centre",
+   "cat": "circle",
+   "prompt": "Tangents TA and TB touch a circle with centre O at A and B. Angle AOB = 130°. Find angle ATB.",
+   "draw": true,
+   "labels": [
+    "130°"
+   ],
+   "needs": {
+    "arcs": 1
+   },
+   "angles": {
+    "O": 130,
+    "T": 50,
+    "A": 90
+   }
+  },
+  {
+   "id": "circ2-centre-twice",
+   "cat": "circle",
+   "prompt": "Points A, B and C lie on a circle with centre O. Angle ACB = 48°. Find angle AOB.",
+   "draw": true,
+   "labels": [
+    "48°"
+   ],
+   "needs": {
+    "arcs": 1,
+    "angles": 2
+   },
+   "angles": {
+    "C": 48,
+    "O": 96
+   }
+  },
+  {
+   "id": "circ2-same-segment",
+   "cat": "circle",
+   "prompt": "A, B, C and D are points on a circle, with C and D on the same side of chord AB. Angle ACB = 37°. Find angle ADB.",
+   "draw": true,
+   "labels": [
+    "37°"
+   ],
+   "needs": {
+    "arcs": 1,
+    "angles": 2
+   },
+   "angles": {
+    "C": 37,
+    "D": 37
+   }
+  },
+  {
+   "id": "circ2-reflex-centre",
+   "cat": "circle",
+   "prompt": "An arc subtends an angle of 115° at the circumference of a circle. Find the reflex angle it subtends at the centre.",
+   "draw": true,
+   "labels": [
+    "115°"
+   ],
+   "needs": {
+    "arcs": 1,
+    "angles": 1
+   }
+  },
+  {
+   "id": "circ2-semicircle-angle",
+   "cat": "circle",
+   "prompt": "AB is a diameter of a circle and C is a point on the circle. Angle CAB = 35°. Find angle CBA.",
+   "draw": true,
+   "labels": [
+    "35°"
+   ],
+   "needs": {
+    "arcs": 1
+   },
+   "angles": {
+    "A": 35,
+    "B": 55,
+    "C": 90
+   }
+  },
+  {
+   "id": "circ2-semicircle-radius",
+   "cat": "circle",
+   "prompt": "AB is a diameter of a circle of radius 6.5 cm, and C is a point on the circle with AC = 5 cm. Find BC.",
+   "draw": true,
+   "labels": [
+    "6.5",
+    "5"
+   ],
+   "needs": {
+    "arcs": 1
+   },
+   "sides": {
+    "AC": 5,
+    "BC": 12
+   },
+   "angles": {
+    "C": 90
+   }
+  },
+  {
+   "id": "circ2-cyclic-pq",
+   "cat": "circle",
+   "prompt": "PQRS is a cyclic quadrilateral. Angle P = 110° and angle Q = 75°. Find angles R and S.",
+   "draw": true,
+   "labels": [
+    "110°",
+    "75°"
+   ],
+   "needs": {
+    "arcs": 1
+   },
+   "angles": {
+    "R": 70,
+    "S": 105
+   }
+  },
+  {
+   "id": "circ2-cyclic-one",
+   "cat": "circle",
+   "prompt": "In a cyclic quadrilateral ABCD, angle ABC = 98°. Find angle ADC.",
+   "draw": true,
+   "labels": [
+    "98°"
+   ],
+   "needs": {
+    "arcs": 1
+   },
+   "angles": {
+    "B": 98,
+    "D": 82
+   }
+  },
+  {
+   "id": "circ2-chords-x",
+   "cat": "circle",
+   "prompt": "Chords PQ and RS of a circle intersect at X. PX = 8 cm, XQ = 3 cm and RX = 4 cm. Find XS.",
+   "draw": true,
+   "labels": [
+    "8",
+    "3",
+    "4"
+   ],
+   "needs": {
+    "arcs": 1
+   },
+   "sides": {
+    "PX": 8,
+    "XQ": 3,
+    "RX": 4,
+    "XS": 6
+   }
+  },
+  {
+   "id": "circ2-path-ring",
+   "cat": "circle",
+   "prompt": "A circular path surrounds a circular garden of diameter 20 m. The outer edge of the path has diameter 26 m. Find the area of the path.",
+   "draw": true,
+   "labels": [
+    "20",
+    "26"
+   ],
+   "needs": {
+    "arcs": 2
+   }
+  },
+  {
+   "id": "circ2-rectangle-circumcircle",
+   "cat": "circle",
+   "prompt": "Find the radius of the circle that passes through all four corners of a rectangle 6 cm by 8 cm.",
+   "draw": true,
+   "labels": [
+    "6",
+    "8"
+   ],
+   "needs": {
+    "arcs": 1
+   }
+  },
+  {
+   "id": "circ2-equilateral-incircle",
+   "cat": "circle",
+   "prompt": "Find the radius of the circle inscribed in an equilateral triangle of side 12 cm.",
+   "draw": true,
+   "labels": [
+    "12"
+   ],
+   "needs": {
+    "arcs": 1
+   }
+  },
+  {
+   "id": "circ2-square-in-circle",
+   "cat": "circle",
+   "prompt": "A square is inscribed in a circle of radius 5 cm. Find the area of the square.",
+   "draw": true,
+   "labels": [
+    "5"
+   ],
+   "needs": {
+    "arcs": 1
+   }
+  },
+  {
+   "id": "circ2-area-formula",
+   "cat": "circle",
+   "prompt": "What is the formula for the area of a circle?",
+   "draw": false
+  },
+  {
+   "id": "circ2-pi-same",
+   "cat": "circle",
+   "prompt": "Why is pi the same for every circle, however big it is?",
+   "draw": false
+  },
+  {
    "id": "lines-cointerior",
    "cat": "angles",
    "prompt": "Two parallel lines are cut by a transversal. One of the co-interior angles is 72°. Find the other.",
