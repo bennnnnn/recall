@@ -10,6 +10,7 @@ from app.modules.chat.working_check import (
     working_note,
     wrong_steps,
 )
+from app.modules.chat.working_systems import unheld_equations
 
 
 @pytest.mark.parametrize(
@@ -259,3 +260,36 @@ def test_a_decimal_given_for_an_exact_value_is_written_right(reply: str, fixed: 
 )
 def test_a_right_decimal_or_one_of_a_rounded_value_stays(reply: str) -> None:
     assert corrected_approximations(reply) == reply
+
+
+_KIRCHHOFF = (
+    "**Substitution**\n$10 - 2I_1 - 6(I_1 + I_2) = 0$\n$8I_1 + 6I_2 = 10$\n"
+    "$6 - 4I_2 - 6(I_1 + I_2) = 0$\n$6I_1 + 10I_2 = 6$\n"
+    "$I_1 = \\frac{15}{13} A$\n$I_2 = \\frac{1}{13} A$\n**Answer**\n"
+)
+
+
+def test_values_that_do_not_satisfy_the_reply_s_own_equations_are_named() -> None:
+    """Live (2026-11-21): two batteries in parallel, the equations right and the values
+    15/13 A and 1/13 A satisfying neither (they are 1.45 A and -0.27 A)."""
+    unheld = unheld_equations(_KIRCHHOFF)
+    assert unheld and unheld[0].values == pytest.approx({"I_1": 15 / 13, "I_2": 1 / 13})
+    note = working_note(_KIRCHHOFF)
+    assert note is not None and "do not satisfy" in note and "I_1 = 1.15" in note
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # The same system, solved right.
+        "$8I_1 + 6I_2 = 10$\n$6I_1 + 10I_2 = 6$\n$I_1 = \\frac{16}{11}$\n$I_2 = -\\frac{3}{11}$",
+        # A formula with units, and a value given in its unit.
+        "$V_1 = 7.2\\,\\mathrm{V}$\n$V = 12$\n$V_1 + V_2 = V$\n$V_2 = 4.8\\,\\mathrm{V}$",
+        # One unknown: a plain step, not a system.
+        "$2x + 3 = 7$\n$x = 2$",
+        # A name given two values (two roots) is no single value to hold.
+        "$x + y = 5$\n$x = 1$\n$x = 3$\n$y = 4$",
+    ],
+)
+def test_values_that_hold_or_cannot_be_held_say_nothing(reply: str) -> None:
+    assert unheld_equations(reply) == []

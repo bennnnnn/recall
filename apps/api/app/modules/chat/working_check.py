@@ -489,7 +489,18 @@ def working_note(reply: str) -> str | None:
     """One line naming the first slip, or None when the working adds up."""
     steps = wrong_steps(reply)
     if not steps:
-        return None
+        from app.modules.chat.working_systems import unheld_equations
+
+        unheld = unheld_equations(reply)
+        if not unheld:
+            return None
+        values = ", ".join(
+            f"{name} = {_shown_like(value, '0.00')}" for name, value in unheld[0].values.items()
+        )
+        return (
+            f"Check these values: ${values}$ do not satisfy ${unheld[0].equation}$. "
+            "The answer depends on them."
+        )
     step = steps[0]
     right = _shown_like(step.value, step.shown)
     return (
