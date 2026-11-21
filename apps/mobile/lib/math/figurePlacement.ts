@@ -12,7 +12,7 @@ export type Stroke = [Px, Px];
 /** A label character's width and its height above and below the baseline, at the label size. */
 export const LABEL_CHAR = 7;
 export const LABEL_ASCENT = 11;
-const LABEL_DESCENT = 3;
+export const LABEL_DESCENT = 3;
 /** The clear space a label keeps from every stroke and every other label. */
 const CLEAR = 2;
 
