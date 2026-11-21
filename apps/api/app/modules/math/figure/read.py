@@ -57,7 +57,10 @@ _BODY = (
     "Copy every number exactly as the question writes it. Never work a number out, round "
     "it or make one up: leave out any value the question does not state, and the app "
     'works out the rest. When the last message only asks to draw or show "it", the '
-    "picture is what the earlier user message states. A rate (2 cm/min) or a size at one "
+    "picture is what the earlier user messages state. The earlier messages are one problem "
+    "and its follow-ups, oldest first: draw the problem's figure with what the follow-ups "
+    'and the last message ask about marked ("find the diagonal": parts diagonals; "the '
+    'radius": parts radius). A rate (2 cm/min) or a size at one '
     'moment of a changing shape ("when r = 3 cm") is not the figure\'s size: leave it out.\n'
     "\n"
     "kind:\n"

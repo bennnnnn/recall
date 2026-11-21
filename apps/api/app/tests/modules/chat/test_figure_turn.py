@@ -266,6 +266,67 @@ async def test_a_question_that_stands_alone_is_read_without_the_earlier_ones(
     assert figure.asked == [(question, [])]
 
 
+_VECTORS = "Resolve 60 N at 30° from the horizontal into two components."
+_RECTANGLE = "If the length of a rectangle is 4 and the width 5, what is the area?"
+
+
+def _chat(*lines: str) -> list[SimpleNamespace]:
+    out = []
+    for text in lines:
+        out += [
+            SimpleNamespace(role="user", content=text),
+            SimpleNamespace(role="assistant", content="…"),
+        ]
+    return out[:-1]
+
+
+async def test_draw_it_reads_the_problem_and_its_follow_ups_not_the_older_chat(
+    figure: _Figure, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The owner's chat (2026-11-20): vectors, then a rectangle, "Find the diagonal", "Draw
+    it". Read beside the vectors, "Draw it" drew nothing and the reply said it could not.
+    The referent read names the rectangle; the figure reads it and the follow-up since."""
+    from app.modules.chat import referent_read
+
+    async def named(*_: Any) -> referent_read.Referent:
+        return referent_read.Referent(_RECTANGLE)
+
+    monkeypatch.setattr(referent_read, "referent_for_turn", named)
+    ctx = _ctx(
+        "Draw it",
+        live_read=_read(subject="maths", picture="diagram", follow="draw"),
+        recent_messages=_chat(_VECTORS, _RECTANGLE, "Find the diagonal", "Draw it"),
+    )
+    ctx.figure = figure_turn.start_figure(_settings(), ctx)
+    await figure_turn.attach_figure(_state(ctx, "Here it is."))
+    assert figure.asked == [("Draw it", [_RECTANGLE, "Find the diagonal"])]
+
+
+async def test_a_follow_up_reads_the_problem_it_continues(
+    figure: _Figure, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.modules.chat import referent_read
+
+    async def continued(*_: Any) -> str:
+        return f"{_RECTANGLE} Find the diagonal"
+
+    monkeypatch.setattr(referent_read, "continuation_for_turn", continued)
+    ctx = _ctx(
+        "Find the diagonal",
+        live_read=_read(subject="maths", picture="none", follow="change"),
+        recent_messages=_chat(_VECTORS, _RECTANGLE, "Find the diagonal"),
+    )
+    ctx.figure = figure_turn.start_figure(_settings(), ctx)
+    await figure_turn.attach_figure(_state(ctx, "$d = 6.4$"))
+    assert figure.asked == [("Find the diagonal", [_RECTANGLE])]
+
+
+def test_a_short_earlier_line_is_not_taken_for_the_problem_s_start() -> None:
+    users = ["5", _RECTANGLE, "Find the diagonal"]
+    assert figure_turn.topic_lines(users, _RECTANGLE) == [_RECTANGLE, "Find the diagonal"]
+    assert figure_turn.topic_lines(["hello"], "A square of side 3") == ["A square of side 3"]
+
+
 async def test_a_solid_joins_the_plane_part_a_solve_drew(figure: _Figure) -> None:
     """The textbook's prism (b27): the solve drew the base triangle; the prism joins it."""
     figure.fence = _FENCE  # a cube

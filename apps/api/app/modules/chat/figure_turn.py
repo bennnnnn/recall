@@ -36,8 +36,10 @@ logger = logging.getLogger(__name__)
 _DRAWN = frozenset({"graph", "diagram"})
 # A message that asks to see none of them (or the read left the picture unsaid).
 _UNASKED = frozenset({"none", None})
-# How many earlier user messages "draw it" may point back to.
+# How many earlier user messages "draw it" may point back to, with no read to name them.
 _EARLIER = 3
+# The most messages of one problem the figure reads: the problem and its follow-ups.
+_TOPIC = 6
 # The subject whose figure a read's subject gets. A chemistry question that asks to see a
 # molecule gets it from its solve; one that asks for nothing gets its compound's structure.
 _FIGURES: dict[str, SubjectName] = {"maths": "math", "chemistry": "chemistry"}
@@ -86,9 +88,9 @@ def start_figure(settings: Settings, ctx: StreamContext) -> asyncio.Task[str | N
     ):
         return None
     line = ctx.user_message_content or ""
-    earlier = earlier_user_lines(ctx.recent_messages, line)
+    recent = list(ctx.recent_messages or [])
     solved_by = getattr(ctx.verified_subject, "subject", None)
-    return asyncio.create_task(_draw(settings, ctx.live_read, line, earlier, solved_by))
+    return asyncio.create_task(_draw(settings, ctx.live_read, line, recent, solved_by))
 
 
 def _figure_wanted(read: asyncio.Task[TurnDecision | None]) -> _Wanted | None:
@@ -120,7 +122,7 @@ async def _draw(
     settings: Settings,
     read: asyncio.Task[TurnDecision | None],
     line: str,
-    earlier: list[str],
+    recent: Sequence[Any],
     solved_by: SubjectName | None = None,
 ) -> str | None:
     # Waited on, never awaited: the reply may cancel the read when it stops waiting for it.
@@ -130,18 +132,66 @@ async def _draw(
     # A solved turn gets only its own subject's figure, never another's over its solve.
     if wanted is None or figure is None or solved_by not in (None, wanted[0]):
         return None
-    return await figure.draw(
-        line, _earlier_for(read, earlier), settings, asked=wanted[1] == "asked"
+    topic = await _topic(settings, read, line, recent)
+    fence = await figure.draw(line, topic, settings, asked=wanted[1] == "asked")
+    logger.info(
+        "figure %s: %s (%d earlier lines)",
+        wanted[1],
+        _kind(fence) if fence else "none drawn",
+        len(topic),
     )
+    return fence
 
 
-def _earlier_for(read: asyncio.Task[TurnDecision | None], earlier: list[str]) -> list[str]:
-    """The earlier messages the figure reads with the line: none when the read says the
-    message stands alone. "If a rectangle is 4 by 5, what is its area?" after a question
-    about vectors drew nothing: read beside it, the figure read answered "no picture" three
-    times in four (owner, 2026-11-20). "Draw it", "what if it were 6 by 8" still get them."""
+async def _topic(
+    settings: Settings,
+    read: asyncio.Task[TurnDecision | None],
+    line: str,
+    recent: Sequence[Any],
+) -> list[str]:
+    """The earlier messages the figure reads with the line: the conversation's current
+    problem, from the message that set it to the follow-ups since, oldest first.
+
+    A message that stands alone (follow none) gets none: a rectangle's area after a
+    question about vectors drew nothing, read beside the vectors (owner, 2026-11-20). One
+    that follows on gets the problem it follows, named by the chat's referent read ("draw
+    it") or continuation read ("find the diagonal"): "Draw it" after "If a rectangle is 4 by
+    5 …" and "Find the diagonal" read the three last messages, vectors among them, and drew
+    nothing. With neither read, the last few user messages, as before."""
+    from app.modules.chat.referent_read import (
+        asks_for_a_referent,
+        continuation_for_turn,
+        referent_for_turn,
+    )
+    from app.modules.turn_reading.continued_problem import adds_to_problem
+
     decision = read.result() if read.done() and not read.cancelled() else None
-    return [] if decision is not None and decision.follow == "none" else earlier
+    if decision is not None and decision.follow == "none":
+        return []
+    problem: str | None = None
+    if asks_for_a_referent(line):
+        referent = await referent_for_turn(settings, line, recent)
+        problem = referent.problem if referent is not None else None
+    elif adds_to_problem(line):
+        problem = await continuation_for_turn(settings, line, recent)
+    users = list(reversed(earlier_user_lines(recent, line)))
+    if not problem:
+        return list(reversed(users[-_EARLIER:]))
+    return topic_lines(users, problem)
+
+
+def topic_lines(users: Sequence[str], problem: str) -> list[str]:
+    """The user's messages from the one that set ``problem`` to the latest, oldest first:
+    the problem and every follow-up since ("Find the diagonal", then "Draw it"). A problem
+    that names no message of these is given whole."""
+    whole = collapse_ws(problem)
+    # The problem's text begins with the message that set it (later pieces are added after):
+    # the latest message it begins with, so a short "5" inside it is never taken for its start.
+    for index in range(len(users) - 1, -1, -1):
+        text = collapse_ws(users[index])
+        if text and whole.startswith(text):
+            return list(users[index:])[-_TOPIC:]
+    return [problem]
 
 
 # The figure read's graphs a described plot never draws: its lettered points (A, B) and
@@ -195,6 +245,7 @@ async def attach_figure(state: FinalizeState) -> str:
     # Waited on, never awaited: a picture that failed or was stopped is no picture.
     await asyncio.wait([task], timeout=state.settings.figure_wait_seconds)
     if not task.done():
+        logger.info("figure late: not drawn within %.1f s", state.settings.figure_wait_seconds)
         stop_figure(ctx)
         return state.text
     if task.cancelled() or task.exception() is not None:
@@ -206,6 +257,7 @@ async def attach_figure(state: FinalizeState) -> str:
     if not fence or _kind(fence) in _kinds(drawn):
         return state.text
     if not figure.adds_to(_without(state.text, drawn), fence):
+        logger.info("figure left out: the reply already shows it")
         return state.text
     text = figure.without_substitutes(state.text).rstrip()
     text = f"{text}\n\n{fence}\n" if text else f"{fence}\n"
