@@ -12,7 +12,9 @@ user did not ask (``math.figure.read``), the figure is built and checked against
 question, and then held to the case: its named sides in proportion, its named angles true,
 every value in ``labels`` shown, and at least ``needs`` of each part (arcs, angles). A case
 is right, wrong (drawn but failing a check), missed (not drawn) or unwanted (drawn for a
-question labelled none). The owner (2026-11-20): every kind of geometry, the complex too,
+question labelled none). A coordinate plane (a ```graph ``points`` fence) is held to its
+case too: ``image`` the exact corners of a transformation's image, ``at`` a lettered
+point's coordinates, ``circle`` a circle's centre and radius. The owner (2026-11-20): every kind of geometry, the complex too,
 drawn by itself as part of the tutorial.
 """
 
@@ -102,6 +104,48 @@ def _side_problems(case: dict[str, Any], pts: dict[str, Point]) -> list[str]:
     return problems
 
 
+def _near(one: Any, other: Any) -> bool:
+    return all(abs(a - b) <= 1e-6 for a, b in zip(one, other, strict=True))
+
+
+def _image_coordinates(fig: dict[str, Any]) -> set[Point]:
+    """Every corner a coordinate plane draws as a transformation's image: its points, its
+    polygons' corners and its segments' ends."""
+    found = [(p["x"], p["y"]) for p in fig.get("points", []) if p.get("role") == "image"]
+    for polygon in fig.get("polygons", []):
+        if polygon.get("role") == "image":
+            found += [tuple(corner) for corner in polygon["points"]]
+    for seg in fig.get("segments", []):
+        if seg.get("role") == "image" and "start" in seg:
+            found += [tuple(seg["start"]), tuple(seg["end"])]
+    return {(round(x, 6), round(y, 6)) for x, y in found}
+
+
+def _plane_problems(case: dict[str, Any], fig: dict[str, Any]) -> list[str]:
+    """A coordinate plane held to the case: the image's corners exactly where the stated
+    transformation puts them (``image``), a lettered point where it is (``at``), and a
+    circle's centre and radius (``circle``)."""
+    problems: list[str] = []
+    if "image" in case:
+        want = {(round(x, 6), round(y, 6)) for x, y in case["image"]}
+        got = _image_coordinates(fig)
+        if got != want:
+            problems.append(f"image at {sorted(got)}, not {sorted(want)}")
+    for label, where in (case.get("at") or {}).items():
+        spots = [
+            (p["x"], p["y"])
+            for p in fig.get("points", [])
+            if p.get("label") == label or str(p.get("label", "")).startswith(label + "(")
+        ]
+        if not any(_near(spot, where) for spot in spots):
+            problems.append(f"point {label} not at {where}")
+    if "circle" in case:
+        circles = fig.get("circles") or []
+        if not any(_near([*c["center"], c["radius"]], case["circle"]) for c in circles):
+            problems.append(f"no circle {case['circle']}")
+    return problems
+
+
 def check(case: dict[str, Any], fence: str) -> list[str]:
     """What the drawn figure gets wrong against the case: proportions, angles, labels, parts."""
     fig = _fence_json(fence)
@@ -109,6 +153,7 @@ def check(case: dict[str, Any], fence: str) -> list[str]:
         return ["fence is not JSON"]
     pts = _points(fig)
     problems = _side_problems(case, pts) if pts else []
+    problems += _plane_problems(case, fig)
     shown = _shown(fig)
     problems += [
         f"label {label!r} not shown" for label in case.get("labels") or [] if label not in shown
