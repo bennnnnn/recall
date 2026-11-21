@@ -30,7 +30,7 @@ from fractions import Fraction
 from typing import Any
 
 from app.modules.math.figure.quads import POLYGON_SIDES
-from app.modules.math.figure.request import FigureRequest
+from app.modules.math.figure.request import ANGLE_WHATS, FigureRequest
 from app.services.number_text import number_word_value
 
 _NUMBER = re.compile(
@@ -64,7 +64,6 @@ _OTHER_UNITS = frozenset(
 )  # fmt: skip
 _SQUARE_WORDS = frozenset({"square", "sq", "cubic", "cu"})
 _ORDINAL_ENDS = frozenset({"st", "nd", "rd", "th"})
-_ANGLE_WHATS = frozenset({"angle", "apex_angle", "base_angle"})
 _TOLERANCE = 1e-9
 # "1,200" is twelve hundred; a comma between coordinates stays.
 _PAIR = re.compile(r"\(([^()]*[,;][^()]*)\)")
@@ -262,7 +261,7 @@ def _measures_hold(request: FigureRequest, found: list[Written]) -> bool:
     # A unit this knows no length of ("units") is matched as none.
     unit = unit_name(request.unit)
     for measure in request.measures:
-        if measure.what in _ANGLE_WHATS:
+        if measure.what in ANGLE_WHATS:
             if abs(measure.value - 90) < _TOLERANCE and _implied_right(request):
                 continue
             if not states_angle(found, measure.value):
@@ -337,7 +336,7 @@ def written_pairs(text: str) -> list[tuple[Fraction, Fraction]]:
 def with_unit(request: FigureRequest, texts: Sequence[str]) -> FigureRequest:
     """A reading that left out the unit takes the one every stated length is written with
     ("PQ = 6 cm, PR = 10 cm": cm); lengths in two units, or none, leave it out."""
-    lengths = [m.value for m in request.measures if m.what not in _ANGLE_WHATS]
+    lengths = [m.value for m in request.measures if m.what not in ANGLE_WHATS]
     if request.unit.strip() or not lengths:
         return request
     found = [w for text in own_texts(texts) for w in written_numbers(text)]
