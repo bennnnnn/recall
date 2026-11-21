@@ -10,7 +10,6 @@ import { planetFill, SceneLabels } from "@/components/rich/simulation/labels";
 import { RENDER_TEST_MARKERS, SceneMarkers } from "@/components/rich/simulation/markers";
 import {
   BodyMarks,
-  BodyShape,
   PulleyWheel,
   SolidShape,
   SpringCoil,
@@ -21,11 +20,10 @@ import { pivotPath, polygonPath, wallPath } from "@/components/rich/simulation/p
 import { sceneAnchors, useSimulationScene } from "@/components/rich/simulation/useSimulationScene";
 import { SceneAxes } from "@/components/rich/simulation/axes";
 import { SceneArrows } from "@/components/rich/simulation/sceneArrows";
+import { StrobeCopies } from "@/components/rich/simulation/strobes";
 import { ARROW_STROKE } from "@/components/rich/simulation/vectors";
 
 const CENTRE_DOT_RADIUS = 3;
-/** How strongly a strobe copy shows: enough to read the spacing, never a second body. */
-const STROBE_OPACITY = 0.28;
 
 type Props = { content: string };
 
@@ -186,18 +184,7 @@ export function SimulationBlock({ content }: Props) {
           {centre && !layout.planet ? (
             <Circle cx={centre.px} cy={centre.py} r={CENTRE_DOT_RADIUS} color={theme.textSecondary} />
           ) : null}
-          {spec.bodies.map((body, index) =>
-            layout.strobes[index].map((point, copy) => (
-              <BodyShape
-                key={`strobe-${index}-${copy}`}
-                at={point}
-                radius={layout.radii[index]}
-                boxAngle={layout.boxAngles[index]}
-                color={bodyColor(body.role)}
-                opacity={STROBE_OPACITY}
-              />
-            )),
-          )}
+          <StrobeCopies spec={spec} layout={layout} bodyColor={bodyColor} />
           {layout.restLines.map((line, index) => (
             <Path
               key={`rest-${index}`}

@@ -222,6 +222,13 @@ _UNREAD_SIDE_RE = re.compile(
     re.IGNORECASE,
 )
 _COMPASS_RE = re.compile(r"\b(?:north|south|east|west)\b", re.IGNORECASE)
+# Components asked by their compass names: "the north and east components", "its eastward
+# component".
+_COMPASS_ASK_RE = re.compile(
+    r"\b(?:north|south|east|west)(?:ward)?(?:\s+(?:and|or)\s+(?:north|south|east|west)(?:ward)?)?"
+    r"[- ]components?\b",
+    re.IGNORECASE,
+)
 # A bearing: "30° north of east" is measured from east; "40° east of north" from north.
 _BEARING_RE = re.compile(
     r"\b(north|south|east|west)\s+of\s+(north|south|east|west)\b", re.IGNORECASE
@@ -319,12 +326,10 @@ def _resolve_intent(cleaned: str) -> PhysicsIntent | None:
         params["from_vertical"] = 1.0 if base in ("north", "south") else 0.0
         params["x_sign"] = -1.0 if "west" in sides else 1.0
         params["y_sign"] = -1.0 if "south" in sides else 1.0
-    elif _COMPASS_RE.search(cleaned) and not re.search(
-        r"\b(?:north|south|east|west)\s+(?:and|or)\s+(?:north|south|east|west)\s+components?\b",
-        cleaned,
-        re.IGNORECASE,
-    ):
-        # A compass side not written as a bearing ("heading west at 30°") is not read.
+    elif _COMPASS_RE.search(_COMPASS_ASK_RE.sub(" ", cleaned)):
+        # A compass side not written as a bearing ("10 m/s west at 30° to the shoreline") is
+        # not read; the components asked by name ("the north and east components") are no
+        # side of the vector (review, 2026-11-20).
         return None
     else:
         vertical = _AFTER_ANGLE_VERTICAL_RE.match(cleaned, angle.end()) is not None

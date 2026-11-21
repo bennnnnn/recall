@@ -275,6 +275,8 @@ def test_a_large_vector_s_working_has_no_calculator_notation() -> None:
         "A 50 N force in the third quadrant makes an angle of 30° with the x-axis. Find its x "
         "and y components.",
         "Resolve 20 N·m at 30° from the horizontal into two components.",
+        # A compass side on the vector itself, not a bearing (Gemini review).
+        "A boat travels 10 m/s west at 30° to the shoreline. Find the north and east components.",
     ],
 )
 def test_a_component_along_a_slope_is_not_resolved_across_and_up(text: str) -> None:
@@ -441,3 +443,24 @@ def test_missing_geometry_is_refused_not_assumed(text: str) -> None:
     guess wearing a verified block.
     """
     assert _verified_answer(text) is None
+
+
+def test_a_bearing_is_worked_as_sizes_along_its_directions() -> None:
+    """Gemini review: the working ended "s_y = -12.5 km south", a double negative beside a
+    card naming the side. A bearing is worked from its acute angle to the north-south line,
+    each component a size along the way it points."""
+    intent = extract_physics_intent(
+        "A ship sails 25 km on a bearing of 240°. Find the east and north components."
+    )
+    assert intent is not None
+    block = build_verified_physics_block(intent, _settings())
+    assert block is not None
+    assert block.physics_substitutions == (r"s_{W} = 25\sin(60^\circ)", r"s_{S} = 25\cos(60^\circ)")
+    assert block.canonical_answer == "21.7 km west and 12.5 km south"
+    assert "-" not in (block.physics_working or "").split("Verified substitution:")[-1]
+
+
+def test_a_vector_along_an_axis_has_a_zero_component_not_float_noise() -> None:
+    """Claude review: 60 N at 90° printed 3.67 x 10^-15 N across."""
+    answer = _verified_answer("Resolve 60 N at 90° from the horizontal into components.")
+    assert answer is not None and "10^" not in answer and "×" not in answer

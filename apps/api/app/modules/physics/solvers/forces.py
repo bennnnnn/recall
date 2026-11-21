@@ -180,6 +180,9 @@ def _resolve_vector(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult
     x_trig, y_trig = (r"\sin", r"\cos") if vertical else (r"\cos", r"\sin")
     x_value = x_sign * size * (math.sin(theta) if vertical else math.cos(theta))
     y_value = y_sign * size * (math.cos(theta) if vertical else math.sin(theta))
+    # Float noise is no component: 60 N at 90° has none across (Claude review).
+    x_value = 0.0 if abs(x_value) < 1e-9 * size else x_value
+    y_value = 0.0 if abs(y_value) < 1e-9 * size else y_value
     shown = latex_unit(unit) if unit else ""
     given = latex_given(size)
 
@@ -190,25 +193,34 @@ def _resolve_vector(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult
 
     (x_formula, x_row), (y_formula, y_row) = row("x", x_trig, x_sign), row("y", y_trig, y_sign)
     text_unit = f" {plain_unit(unit)}" if unit else ""
-    # A bearing's components are a distance east or west and north or south, said by their
-    # side; across and up keep their sign (review, 2026-11-20).
+    # The values the working and card show; the picture keeps the signed ones.
+    x_shown, y_shown = x_value, y_value
     if raw.get("compass", 0.0) == 1.0:
+        # A bearing is worked as a textbook works it: its acute angle from the north-south
+        # line, each component a size along the direction it points ("s_W = 25 sin 60° =
+        # 21.7 km west"), so the working and the card say the same thing; a signed working
+        # beside a card that names the side read "-12.5 km south" (review, 2026-11-20).
+        east, north = x_value >= 0, y_value >= 0
+        phi = math.degrees(math.atan2(abs(x_value), abs(y_value)))
+        acute = plain_number(phi, GIVEN_FIGURES)
+        ew, ns = ("E" if east else "W"), ("N" if north else "S")
+        x_formula = rf"{symbol}_{{{ew}}} = {symbol}\sin\phi"
+        y_formula = rf"{symbol}_{{{ns}}} = {symbol}\cos\phi"
+        x_row = rf"{symbol}_{{{ew}}} = {given}\sin({acute}^\circ)"
+        y_row = rf"{symbol}_{{{ns}}} = {given}\cos({acute}^\circ)"
+        x_shown, y_shown = abs(x_value), abs(y_value)
         x_quantity = QuantityResult(
-            "", abs(x_value), unit, detail="west" if x_value < 0 else "east", detail_style="suffix"
+            "", x_shown, unit, detail="east" if east else "west", detail_style="suffix"
         )
         y_quantity = QuantityResult(
-            "",
-            abs(y_value),
-            unit,
-            detail="south" if y_value < 0 else "north",
-            detail_style="suffix",
+            "", y_shown, unit, detail="north" if north else "south", detail_style="suffix"
         )
     else:
         x_quantity = QuantityResult("", x_value, unit, detail="horizontally", detail_style="suffix")
         y_quantity = QuantityResult("", y_value, unit, detail="vertically", detail_style="suffix")
     rows = [
-        (x_formula, x_row, x_value, x_quantity),
-        (y_formula, y_row, y_value, y_quantity),
+        (x_formula, x_row, x_shown, x_quantity),
+        (y_formula, y_row, y_shown, y_quantity),
     ]
     # One component asked ("the vertical component"): the answer is that one; the picture
     # still shows both, as resolving it does.

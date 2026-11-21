@@ -213,6 +213,36 @@ def _vector_sum_scene(
     ]
 
 
+def _components(
+    x_value: float, y_value: float, unit: str, *, from_vertical: bool
+) -> list[SimulationVector]:
+    """The two components as drawn: the one along the angle's own axis from the tail first,
+    then the other from its end to the vector's tip. Measured from the vertical, the
+    vertical side rises from the tail first, so the angle sits between the vector and a
+    drawn line (owner, 2026-11-20: a 40° arc from the vertical hung beside no line)."""
+    if x_value == 0.0 or y_value == 0.0:
+        return []
+    across = f"{plain_number(x_value)}{unit}"[:24]
+    up = f"{plain_number(y_value)}{unit}"[:24]
+    if from_vertical:
+        return [
+            SimulationVector(
+                anchor=[0.0, 0.0], dx=0.0, dy=y_value, label=up, role="result", stage=1
+            ),
+            SimulationVector(
+                anchor=[0.0, y_value], dx=x_value, dy=0.0, label=across, role="result", stage=2
+            ),
+        ]
+    return [
+        SimulationVector(
+            anchor=[0.0, 0.0], dx=x_value, dy=0.0, label=across, role="result", stage=1
+        ),
+        SimulationVector(
+            anchor=[x_value, 0.0], dx=0.0, dy=y_value, label=up, role="result", stage=2
+        ),
+    ]
+
+
 def resolution_scene(
     *,
     size: float,
@@ -240,33 +270,9 @@ def resolution_scene(
         role="force",
         stage=0,
     )
-    across, up = abs(x_value) > 1e-9 * size, abs(y_value) > 1e-9 * size
-    horizontal = SimulationVector(
-        anchor=[0.0, 0.0],
-        dx=x_value,
-        dy=0.0,
-        label=f"{plain_number(x_value)}{unit}"[:24],
-        role="result",
-        stage=1,
-    )
-    vertical = SimulationVector(
-        anchor=[x_value, 0.0],
-        dx=0.0,
-        dy=y_value,
-        label=f"{plain_number(y_value)}{unit}"[:24],
-        role="result",
-        stage=2,
-    )
-    if abs(base_deg) == 90.0:
-        # Measured from the vertical: the vertical side rises from the tail first, so the
-        # angle sits between two drawn lines, then the horizontal side runs to the tip
-        # (owner, 2026-11-20: a 40° arc from the vertical hung beside no line).
-        vertical = vertical.model_copy(update={"anchor": [0.0, 0.0], "stage": 1})
-        horizontal = horizontal.model_copy(update={"anchor": [0.0, y_value], "stage": 2})
-        parts = [vertical, horizontal]
-    else:
-        parts = [horizontal, vertical]
-    if not (across and up):
+    parts = _components(x_value, y_value, unit, from_vertical=abs(base_deg) == 90.0)
+    # A vector along an axis has one component, itself: none is drawn over it.
+    if abs(x_value) <= 1e-9 * size or abs(y_value) <= 1e-9 * size:
         parts = []
     direction = math.degrees(math.atan2(y_value, x_value))
     # The short way from the axis to the vector, unless the question's angle is the long way
