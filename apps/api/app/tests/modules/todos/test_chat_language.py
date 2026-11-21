@@ -45,6 +45,11 @@ def test_a_message_in_another_language_changes_to_dos_in_the_todo_screen(text: s
         "remind me to call Getachew ነገ at 10am",
         "remind me to call Дмитрий tomorrow",
         "add दूध to my list",
+        # English grammar around the request, whatever script its object is in.
+        "remind me to call Сергей Владимирович Петров",
+        "remind me to buy молоко хлеб сыр яйца",
+        'remind me to send "С днём рождения, дорогая бабушка!" to grandma',
+        "add ጤፍ ዱቄት ቅቤ ሽንኩርት ቲማቲም to my list",
         "remind me to fly to Los Angeles on Friday",
         "remind me tonight at 9 to text selam happy birthday 🎂",
         "done ✅ just talked to her",

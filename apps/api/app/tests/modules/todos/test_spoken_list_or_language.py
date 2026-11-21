@@ -20,3 +20,9 @@ def test_a_list_name_is_still_a_list() -> None:
     spoken = parse_spoken_reminder_change("put that in Groceries")
     assert spoken is not None
     assert _a_list(spoken, None, False)
+
+
+def test_a_language_is_a_list_when_the_line_names_its_reminder() -> None:
+    spoken = parse_spoken_reminder_change("Move the vocab reminder to Japanese")
+    assert spoken is not None and spoken.topic == "Japanese"
+    assert _a_list(spoken, None, True)

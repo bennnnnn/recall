@@ -6,17 +6,12 @@ model had already answered (a chat turn's user row is saved in the background
 while the prompt builds). A NUL is refused with a clear message; nobody types
 one. A lone surrogate is half of an emoji pair a client cut in two, so it is
 replaced with U+FFFD instead of failing the user's send.
-
-Devanagari's dotted letters are kept in one form (``unify_devanagari``), so every reader
-of a saved message sees "ज़" one way, however the keyboard typed it.
 """
 
 import re
 from typing import Annotated
 
 from pydantic import BeforeValidator
-
-from app.core.validation import unify_devanagari
 
 NUL_REJECTED_MESSAGE = "Text can't contain a null character (U+0000)."
 
@@ -29,7 +24,7 @@ def storable_text(value: str) -> str:
     """``value`` as Postgres can store it; raises ``ValueError`` on a NUL."""
     if "\x00" in value:
         raise ValueError(NUL_REJECTED_MESSAGE)
-    return unify_devanagari(_LONE_SURROGATE.sub("�", value))
+    return _LONE_SURROGATE.sub("�", value)
 
 
 def _storable_input(value: object) -> object:

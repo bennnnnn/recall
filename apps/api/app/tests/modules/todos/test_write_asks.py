@@ -39,6 +39,9 @@ _BUTTON = "Puedes añadirlo o cambiarlo en **Tareas**.\n\n```todo_link\n```"
         "मेरे टू-डू से डेंटिस्ट हटा दो",
         "शुक्रवार के लिए रिमाइंडर लगा दो",
         "कल सुबह 9 बजे remind करना",
+        "कल 5 बजे याद दिलाइएगा",
+        "शुक्रवार के लिए रिमाइंडर लगा देना",
+        "मुझे कल याद दिला देना।",
         # Dotted letters typed as one sign (ड़ U+095C): the same request.
         "दूध मेरी सूची में जो\u095cो",
     ],
@@ -87,6 +90,13 @@ def test_a_to_do_change_in_another_language_is_read_as_one(text: str) -> None:
         "इस कोड में एक फ़ंक्शन जोड़ो जो काम करे",
         "इस सूची में दूध जोड़ो",
         "कला के बारे में बताओ",
+        # An infinitive inside a statement, a question, a word that only starts like one.
+        "माँ को दवा याद दिलाना मेरी ज़िम्मेदारी है",
+        "मैं उसे remind करना भूल गया",
+        "मुझे हर बार उसे याद दिलाना पड़ता है",
+        "आईफ़ोन पर रिमाइंडर कैसे हटाएं?",
+        "क्या मेरी सूची में दूध जोड़ें",
+        "मेरी लिस्टिंग का टाइटल बदलो",
         "",
         None,
     ],

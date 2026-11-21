@@ -30,6 +30,7 @@ from app.modules.todos.chat_language import (
     todo_screen_answer,
     writes_todos_in_todo_screen,
 )
+from app.modules.todos.write_asks_hindi import asks_in_hindi
 
 # A phrase ending in "*" matches the start of a word (Turkish and Amharic add endings).
 _REMIND = (
@@ -47,14 +48,6 @@ _REMIND = (
     "напомни", "напомните",
     # Amharic
     "አስታውሰኝ", "አስታውሺኝ", "አስታውሱኝ",
-    # Hindi: the asking forms only, never "याद दिलाता है" (it reminds me of).
-    "याद दिलाना", "याद दिलाओ", "याद दिलाइए", "याद दिलाइये", "याद दिलाएं", "याद दिलाएँ",
-    "याद दिला दो", "याद दिला देना", "याद दिला दीजिए", "याद दिला दीजिये", "याद करा देना",
-    "रिमाइंडर लगाओ", "रिमाइंडर लगा दो", "रिमाइंडर लगाइए", "रिमाइंडर सेट करो",
-    "रिमाइंडर सेट कर दो", "रिमाइंडर सेट कीजिए",
-    # Hindi with the English verb: "कल 9 बजे remind करना".
-    "remind करना", "remind करो", "remind कर देना", "remind कर दो", "रिमाइंड करना", "रिमाइंड करो",
-    "रिमाइंड कर देना", "रिमाइंड कर दो",
 )  # fmt: skip
 _ADD_OR_CHANGE = (
     "añade", "anade", "añadir", "agrega", "agregar", "apunta", "anota", "borra", "borrar",
@@ -68,9 +61,6 @@ _ADD_OR_CHANGE = (
     "ekle", "sil", "kaldır", "kaldir",
     "добавь", "добавьте", "запиши", "запишите", "удали", "удалите", "убери",
     "ጨምር", "ጨምሪ", "ጨምሩ", "ሰርዝ", "ሰርዢ", "አስገባ",
-    "जोड़ो", "जोड़ें", "जोड़िए", "जोड़िये", "जोड़ दो", "जोड़ दें", "जोड़ दीजिए", "डालो",
-    "डाल दो", "हटाओ", "हटाएं", "हटाइए", "हटा दो", "हटा दें", "हटा दीजिए", "मिटाओ",
-    "मिटा दो", "बदलो", "बदलें", "बदलिए", "बदल दो", "बदल दें", "बदल दीजिए", "लिख लो",
 )  # fmt: skip
 _TODO_TARGET = (
     "mis tareas", "a tareas", "en tareas", "mi lista", "lista de tareas", "mis pendientes",
@@ -83,8 +73,6 @@ _TODO_TARGET = (
     "мой список", "в список", "список дел", "мои задачи", "в задачи", "напоминание",
     "напоминания",
     "ዝርዝሬ*", "ተግባሮቼ*", "የሚደረጉ*",
-    "टू-डू*", "टूडू*", "रिमाइंडर*", "मेरी सूची*", "मेरी लिस्ट*", "काम की सूची",
-    "कामों की सूची",
     "to-do",
 )  # fmt: skip
 # German "erinnere mich" (remind me), never "ich erinnere mich" (I remember).
@@ -129,6 +117,8 @@ def asks_to_change_todos(text: str | None, *, prior_assistant: str | None = None
     if not folded:
         return False
     if _REMIND_RE.search(folded) or _GERMAN_REMIND_RE.search(folded):
+        return True
+    if asks_in_hindi(folded):
         return True
     if _ADD_OR_CHANGE_RE.search(folded) and _TODO_TARGET_RE.search(folded):
         return True

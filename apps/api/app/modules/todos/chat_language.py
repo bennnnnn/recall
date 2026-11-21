@@ -9,8 +9,9 @@ To-do screen, which the reply offers as a button (a ```todo_link fence).
 A message counts as another language on positive evidence: letters of another
 script (Cyrillic, Ethiopic, Devanagari, …), or at least two words that only the app's
 other Latin-script languages use. An English to-do word keeps it English, so "remind me
-to call Getachew ነገ at 10am" still saves, unless the other script's letters outnumber the
-Latin ones: "कल सुबह 9 बजे remind करना" is Hindi with one English word in it. A message with no language of its own
+to call Getachew ነገ at 10am" and "remind me to buy молоко хлеб сыр яйца" still save. Only
+an English verb with no English grammar around it, in a message mostly of another script,
+is that language: "कल सुबह 9 बजे remind करना" is Hindi. A message with no language of its own
 ("a las 5", "17:00", "sí") follows the chat: the user's previous message, then their
 app language. An answer to "¿cuándo?" never writes either.
 """
@@ -100,9 +101,15 @@ def _other_script(text: str) -> bool:
     return any(char.isalpha() and not _is_latin(char) for char in text)
 
 
+# English words that build a request around its object: "remind me to …", "add … to my list".
+_ENGLISH_GRAMMAR = frozenset(
+    "to my me the at on for a an in and from with of it this that please i".split()
+)
+
+
 def _mostly_other_script(text: str) -> bool:
-    """More letters of another script than Latin ones: the message is in that language
-    whatever English word it borrows. A stray name ("Getachew ነገ") is not."""
+    """More letters of another script than Latin ones: with no English grammar around its
+    English to-do word, the message is in that language."""
     other = latin = 0
     for char in text:
         if char.isalpha():
@@ -142,10 +149,13 @@ def _is_other_language(text: str | None) -> bool | None:
     if not text or not text.strip():
         return None
     words = [word.casefold() for word in _WORD.findall(text)]
-    if _mostly_other_script(text):
-        return True
     if any(word in _ENGLISH_TODO for word in words):
-        return False
+        # English grammar around the request keeps it English whatever script its object
+        # is in ("remind me to buy молоко хлеб сыр"); an English verb alone in another
+        # script's sentence does not ("कल सुबह 9 बजे remind करना").
+        if any(word in _ENGLISH_GRAMMAR for word in words) or not _mostly_other_script(text):
+            return False
+        return True
     if _other_script(text):
         return True
     if len({word for word in words if word in _OTHER_LATIN}) >= _OTHER_LATIN_WORDS:

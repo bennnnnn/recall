@@ -150,7 +150,9 @@ def _a_list(spoken: SpokenReminderChange, prior_assistant: str | None, named: bo
     from app.modules.todos.reply_check import opens_on_saved_reminders
 
     wanted = (spoken.topic or "").strip().lower()
-    if wanted.startswith(("a ", "an ")) or wanted in _LANGUAGES:
+    # A language is the reply's unless the line names its reminder: "Move the vocab reminder
+    # to Japanese" files it under a list called Japanese.
+    if wanted.startswith(("a ", "an ")) or (wanted in _LANGUAGES and not named):
         return False
     return (
         not spoken.use_latest
