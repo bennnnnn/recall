@@ -12,7 +12,9 @@ DRAW_CONTRACT = (
     "box, a sphere), a word problem's shape, or a graph (a sketch, a tangent, an area, a "
     "volume), describe the picture in one ```draw block, after your answer (a figure and a "
     "graph: one block each); the app checks it against the question and draws it under "
-    "your reply. This replaces the rule against drawing for that picture only.\n"
+    "your reply. A question in parts whose parts each ask to see their own picture: one "
+    'block per part, each naming its part ("part": "b"); the app draws each right after '
+    "that part's answer. This replaces the rule against drawing for that picture only.\n"
     "- Write only JSON. Copy coordinates and sizes exactly as the question states them: the "
     "app works out where everything goes, and every value it shows.\n"
     '- Label a part with a value the question states, with its unit ("12 m"), or with a '

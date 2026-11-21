@@ -160,6 +160,8 @@ class PhysicsPartWorking:
     # Its own card: the value alone, as plain text and as LaTeX.
     answer: str
     display_answer: str
+    # Its own pictures (a scene, a diagram, a graph): placed right after its card.
+    pictures: tuple[dict[str, Any], ...] = ()
 
 
 @dataclass(frozen=True)

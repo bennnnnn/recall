@@ -21,6 +21,7 @@ problems in parts had no picture at all: no solver reads a question in parts.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import re
 from dataclasses import dataclass, field
@@ -36,6 +37,7 @@ from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.turn_trace import note_prompt_rule
 from app.modules.turn_reading.turn import current_turn_reading
 from app.services.md_fence_scan import iter_fences
+from app.services.part_place import part_key, place_after_part
 from app.services.solving import (
     SubjectName,
     VerifiedMathBlock,
@@ -49,6 +51,9 @@ if TYPE_CHECKING:
     from app.modules.chat.turn_prep.context import StreamContext
 
 logger = logging.getLogger(__name__)
+
+# A reply in parts draws at most this many pictures, one per part.
+_MOST_PARTS = 4
 
 # Words that may ask to see a maths picture. They decide only whether a turn waits for the
 # read (an instant card), or, when the read is late, whether the reply is asked for a
@@ -373,8 +378,53 @@ async def _described(
     return [fence for fence in drawn if any(f.lang == "graph" for f in iter_fences(fence))]
 
 
+def _part_of(body: str) -> str | None:
+    """The part a description says it draws ("part": "b"), or None."""
+    try:
+        data = json.loads(body)
+    except ValueError:
+        return None
+    return part_key(data.get("part")) if isinstance(data, dict) else None
+
+
+async def _by_part(
+    state: FinalizeState,
+    drawing: ReplyDrawing,
+    figure: SubjectFigure,
+    descriptions: list[str],
+    texts: list[str],
+    text: str,
+    problem: str | None,
+) -> tuple[str, list[str]] | None:
+    """A reply in parts whose descriptions name their parts: each picture drawn on its own and
+    placed right after its part is answered (owner, 2026-11-21: never all of them at the end).
+    None when no description names a part the reply has, so the pictures go under it."""
+    descriptions = descriptions[:_MOST_PARTS]
+    parts = [_part_of(body) for body in descriptions]
+    if not any(key is not None and place_after_part(text, key, "") for key in parts):
+        return None
+    fences: list[str] = []
+    under: list[str] = []
+    for key, body in zip(parts, descriptions, strict=True):
+        drawn = await _described(state, drawing, figure, [body], texts, text, problem)
+        fence = drawn[0] if drawn else None
+        if fence is None or fence in fences:
+            continue
+        fences.append(fence)
+        placed = place_after_part(text, key, fence) if key is not None else None
+        if placed is None:
+            under.append(fence)
+        else:
+            text = placed
+    text = text.rstrip()
+    if under:
+        text = "\n\n".join([text, *under]) if text else "\n\n".join(under)
+    return (f"{text}\n", fences) if fences else None
+
+
 async def attach_drawing(state: FinalizeState) -> str:
-    """The reply's described picture under it, what stood in for it taken out."""
+    """The reply's described picture under it, what stood in for it taken out; in a reply in
+    parts, each part's picture right after that part's answer."""
     ctx = state.ctx
     text, written = without_draw_blocks(state.text)
     text = text.strip() if written else state.text
@@ -391,16 +441,24 @@ async def attach_drawing(state: FinalizeState) -> str:
     # (maths reads its own follow-ups from the lines); a field picture, of the line.
     problem = ctx.followup_problem if drawing.subject == "physics" else None
     try:
-        fences = await _described(state, drawing, figure, descriptions, texts, text, problem)
+        parted = await _by_part(state, drawing, figure, descriptions, texts, text, problem)
+        fences = (
+            parted[1]
+            if parted is not None
+            else await _described(state, drawing, figure, descriptions, texts, text, problem)
+        )
     except Exception as exc:  # A drawing that fails is no drawing: the reply stands.
         logger.info("described picture failed (%s)", type(exc).__name__)
         return text
     if not fences:
         return text
     drawing.fences = list(fences)
-    text = text.rstrip()
-    pictures = "\n\n".join(fences)
-    text = f"{text}\n\n{pictures}\n" if text else f"{pictures}\n"
+    if parted is not None:
+        text = parted[0]
+    else:
+        text = text.rstrip()
+        pictures = "\n\n".join(fences)
+        text = f"{text}\n\n{pictures}\n" if text else f"{pictures}\n"
     # Beside the pictures, what stood in for them goes: a sketch, a Mermaid diagram, a
     # solve's graph of a curve the checked graph draws (round 3's c009 showed both). A
     # solver's number line, inequality or points graph stays (2026-11-15 review).

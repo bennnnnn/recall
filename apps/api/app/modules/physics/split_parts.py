@@ -286,6 +286,11 @@ def joined_parts(
     for letter, block in zip("abcdefgh", blocks, strict=False):
         lines.extend([f"Part ({letter}):", block.text])
     pictures = next((spec for spec in map(_pictures, blocks) if spec), [])
+    # Each part keeps its own pictures, so finalize places them right after its card.
+    workings = [
+        replace(working, pictures=tuple(_pictures(block)))
+        for working, block in zip(workings, blocks, strict=False)
+    ]
     card = r";\quad ".join(working.display_answer for working in workings)
     first = blocks[0]
     return replace(
