@@ -138,6 +138,10 @@ def figure_fence(request: FigureRequest, texts: list[str]) -> str | None:
         return _plane_fence(request, texts)
     if not _the_questions_shape(request, texts):
         return None
+    said = composite.side_as_said(request, own_texts(texts))
+    if said is None:
+        return None
+    request = said
     if request.kind in {"number_line", "points"} and coordinate.writes_a_formula(own_texts(texts)):
         return None  # the formula beside them would be left out
     try:

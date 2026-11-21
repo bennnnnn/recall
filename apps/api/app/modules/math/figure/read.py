@@ -173,7 +173,8 @@ _BODY = (
     "semicircle, triangle, equilateral_triangle, rectangle (an L-shape) or square; for a "
     "round solid, the solid on it: cone, hemisphere, cylinder, or hemispheres (one at each "
     'end). shape is the first part ("a cone on a hemisphere": shape hemisphere, attached '
-    'cone), else "". A semicircle cut out of the shape adds "cut" to parts.\n'
+    'cone), else "". A semicircle cut out of the shape adds "cut" to parts; a part on a '
+    'longer or a shorter side adds "longer_side" or "shorter_side".\n'
     '- vertices: the letters naming the corners in order ("ABCD"), or "".\n'
     "- center: the letter naming a circle's centre or the point where diagonals meet "
     '("O"), or "".\n'
