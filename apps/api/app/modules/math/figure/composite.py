@@ -146,15 +146,17 @@ def side_as_said(request: FigureRequest, texts: Iterable[str]) -> FigureRequest 
     if request.kind != "polygon" or request.attached not in {"semicircle", *_TRIANGLES}:
         return request
     words = " ".join(texts).lower()
-    said: set[str | None] = {which for which, named in _SIDE_WORDS.items() if named.search(words)}
+    said = {which for which, named in _SIDE_WORDS.items() if named.search(words)}
     sizes = {float(size) for size in _SIDE_BY_SIZE.findall(words)}
     if len(sizes) > 1:
         return None
     if sizes:
-        said.add(_sized_side(request, sizes.pop()))
-    said.discard("")
+        sized = _sized_side(request, sizes.pop())
+        if sized is None:
+            return None
+        said |= {sized} - {""}
     read = {which for which, part in SIDE_PARTS.items() if request.has_part(part)}
-    if None in said or len(said) > 1 or (read and read != said):
+    if len(said) > 1 or (read and read != said):
         return None
     if not said:
         return request
@@ -214,8 +216,8 @@ def _semicircle_sides(
         if stands.which is not None:
             if len(sides) != 2:
                 return None  # one side stated: which is the longer is not known
-            top, rest = sides[::-1] if stands.which == "longer" else sides
-            return top, rest, top, rest
+            top, beside = sides[::-1] if stands.which == "longer" else sides
+            return top, beside, top, beside
         if stands.upright and length is not None:
             return length, width, length, width
         if not sides:
