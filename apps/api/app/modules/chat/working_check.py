@@ -424,6 +424,15 @@ def _is_off(value: float, shown: float, rounding: float) -> bool:
     return not _prefix_shift(value, shown) and abs(value - shown) > rounding * (1 + 1e-6) + 1e-12
 
 
+def _branches(earlier: str, later: str) -> bool:
+    """Two values of one name, not one value written twice: the ± roots ("(4 + 2)/2" then
+    "(4 - 2)/2"), the same expression with one sign turned, or a line after a ±."""
+    if "\\pm" in earlier or "±" in earlier or "\\mp" in earlier:
+        return True
+    signs = str.maketrans({"+": "±", "-": "±", "\u2212": "±"})
+    return earlier.translate(signs).replace(" ", "") == later.translate(signs).replace(" ", "")
+
+
 def _chain(
     parts: list[str],
     relations: list[str],
@@ -436,7 +445,7 @@ def _chain(
     name = parts[0].strip()
     if len(parts) < 2 or not name or _plain(name) is not None:
         return None
-    if before is not None and before[0] == name:
+    if before is not None and before[0] == name and not _branches(before[1], parts[1].strip()):
         first_tex = parts[1].strip()
         first = _plain(first_tex)
         earlier = _plain(before[1])

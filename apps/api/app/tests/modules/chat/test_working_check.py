@@ -214,6 +214,9 @@ def test_a_slip_through_a_root_a_sine_or_a_name_s_next_line_is_found(
     [
         "$x = \\frac{4 + 2}{2}$\n$x = 3$\n$x = \\frac{4 - 2}{2}$\n$x = 1$",
         "$x = 1$\n$x = 3$",
+        # Two roots as expressions on consecutive lines (review, #2520).
+        "$x = \\frac{4 + 2}{2}$\n$x = \\frac{4 - 2}{2}$",
+        "$x = \\frac{-b \\pm \\sqrt{16}}{2}$\n$x = \\frac{6 + 4}{2}$",
         "$m_b = \\frac{1}{2}\\sqrt{592}$\n$m_b = \\frac{1}{2}\\sqrt{16 \\times 37}$\n$m_b = 2\\sqrt{37}$",
         "$h = 40 \\tan 35° = 28.01$ m",
         "$A = 36\\pi$\n$A \\approx 113.10$",
