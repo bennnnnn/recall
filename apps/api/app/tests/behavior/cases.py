@@ -425,8 +425,10 @@ CASES: tuple[Case, ...] = (
         "math-draw-it-latest-subject",
         "math",
         "Draw it",
-        Expect(solved=True, instant="solver", drawn="geometry", search="no"),
-        "The 3-4-5 triangle. Never the curve sin(x²)cos(x²) from the start of the chat.",
+        Expect(solved=False, drawn=""),
+        "The 3-4-5 triangle, drawn by the figure read (``chat.figure_turn``), never its area "
+        "solved again (live, 2026-11-21: a rectangle's area card came back after its diagonal). "
+        "Never the curve sin(x²)cos(x²) from the start of the chat.",
         history=(*_TRIANGLE_AREA, ("user", "Do it properly"), ("assistant", "Area = 6.")),
         # The model's read names the line the triangle started on; its pieces complete it.
         referent="Triangle are with sides 5, 4,",
@@ -1032,8 +1034,8 @@ CASES: tuple[Case, ...] = (
         "photo-picture-of-it-after-a-shape",
         "photos and maps",
         "a picture of it",
-        Expect(photo=NO_PHOTO, image_gen=False, solved=True, instant="solver", drawn="geometry"),
-        "The 3-4-5 triangle, never a generated picture.",
+        Expect(photo=NO_PHOTO, image_gen=False, solved=False, drawn=""),
+        "The 3-4-5 triangle, drawn by the figure read, never a generated picture.",
         history=(
             ("user", "area of a triangle with sides 5, 4 and 3"),
             ("assistant", "6 square units."),
