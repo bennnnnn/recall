@@ -68,7 +68,9 @@ def test_a_question_in_another_language_is_read_as_one(question: str) -> None:
         ("résous 3x + 7 = 22", "3x + 7 = 22"),
         ("resuelve 2x + 3 = 7", "2x + 3 = 7"),
         ("Resuelve: 2x + 3 = 7.", "2x + 3 = 7"),
-        ("Löse 3x - 7 = 11", "3x - 7 = 11"),
+        ("हल कीजिए: 3x - 7 = 11", "3x - 7 = 11"),
+        ("3x - 7 = 11 को हल करो।", "3x - 7 = 11"),
+        ("2x + 5 = 17 ज्ञात कीजिए", "2x + 5 = 17"),
         ("Решите 2x + 5 = 17", "2x + 5 = 17"),
         ("Résous x^2 - 5x + 6 > 0", "x^2 - 5x + 6 > 0"),
         ("Çöz 3x = 12", "3x = 12"),
@@ -97,6 +99,9 @@ def test_another_languages_instruction_beside_an_equation_reads_as_the_equation(
         ("Résous dans \u2115 : x^2 = 9", "fr"),
         ("Resuelve la ecuación x^2 - 5x + 6 = 0", "es"),
         ("Решите уравнение 3x - 7 = 11", "ru"),
+        ("x^2 = 9 का धनात्मक हल ज्ञात कीजिए", "hi"),
+        # German is no app language: its "solve" is no instruction the readers know.
+        ("Löse 3x - 7 = 11", "en"),
         # A number in words, two unknowns, no relation, a story.
         ("Resuelve dos veces 2x = 4", "es"),
         ("Resuelve 2x + 3y = 7", "es"),

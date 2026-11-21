@@ -3,6 +3,9 @@
 
 from __future__ import annotations
 
+import unicodedata
+
+from app.core.validation import unify_devanagari
 from app.modules.turn_reading.writing_kind import writing_request_kind
 from app.services.text_normalize import collapse_ws
 
@@ -30,7 +33,7 @@ def names_a_setting(text: str | None) -> bool:
     return bool(words & _SETTING_WORDS)
 
 
-# Home-chip prompts (all shipped locales) plus short paraphrases.
+# Home-chip prompts (the app's languages) plus short paraphrases.
 _CAPABILITIES_EXACT = (
     "what can you help me with? give a few concrete examples.",
     "what can you do?",
@@ -39,10 +42,6 @@ _CAPABILITIES_EXACT = (
     "qué puedes hacer?",
     "en quoi peux-tu m'aider ? donne quelques exemples concrets.",
     "que peux-tu faire ?",
-    "wobei kannst du mir helfen? nenn ein paar konkrete beispiele.",
-    "was kannst du?",
-    "in cosa puoi aiutarmi? fammi qualche esempio concreto.",
-    "cosa puoi fare?",
     "no que você pode me ajudar? dê alguns exemplos concretos.",
     "o que você pode fazer?",
     "чем ты можешь помочь? приведи несколько конкретных примеров.",
@@ -51,6 +50,8 @@ _CAPABILITIES_EXACT = (
     "ne yapabilirsin?",
     "በምን ልረዳኝ ትችላለህ? ጥቂት ተጨባጭ ምሳሌዎችን ንገረኝ።",
     "ምን ማድረግ ትችላለህ?",
+    "आप किन चीज़ों में मेरी मदद कर सकते हैं? कुछ ठोस उदाहरण दीजिए।",
+    "आप क्या कर सकते हैं?",
 )
 
 
@@ -72,10 +73,6 @@ _CAPABILITIES_STEMS = (
     "que puedes hacer",
     "en quoi peux-tu m'aider",
     "que peux-tu faire",
-    "wobei kannst du mir helfen",
-    "was kannst du",
-    "in cosa puoi aiutarmi",
-    "cosa puoi fare",
     "no que você pode me ajudar",
     "no que voce pode me ajudar",
     "o que você pode fazer",
@@ -87,6 +84,13 @@ _CAPABILITIES_STEMS = (
     "ne yapabilirsin",
     "በምን ልረዳኝ ትችላለህ",
     "ምን ማድረግ ትችላለህ",
+    "आप किन चीज़ों में मेरी मदद कर सकते हैं",
+    "आप मेरी क्या मदद कर सकते हैं",
+    "आप मेरी कैसे मदद कर सकते हैं",
+    "आप क्या कर सकते हैं",
+    "आप क्या कर सकते हो",
+    "तुम क्या कर सकते हो",
+    "तुम क्या कर सकती हो",
 )
 
 
@@ -99,10 +103,6 @@ _EXAMPLE_TAILS = (
     "dame algunos ejemplos",
     "donne quelques exemples concrets",
     "donne quelques exemples",
-    "nenn ein paar konkrete beispiele",
-    "nenn ein paar beispiele",
-    "fammi qualche esempio concreto",
-    "fammi qualche esempio",
     "dê alguns exemplos concretos",
     "de alguns exemplos concretos",
     "dê alguns exemplos",
@@ -112,6 +112,9 @@ _EXAMPLE_TAILS = (
     "birkac somut ornek ver",
     "birkaç örnek ver",
     "ጥቂት ተጨባጭ ምሳሌዎችን ንገረኝ",
+    "कुछ ठोस उदाहरण दीजिए",
+    "कुछ उदाहरण दीजिए",
+    "कुछ उदाहरण दो",
 )
 
 
@@ -140,11 +143,12 @@ _FILLER_WORDS = frozenset(
         "s'il",
         "vous",
         "plait",
-        "bitte",
-        "per",
-        "favore",
         "lütfen",
         "lutfen",
+        "कृपया",
+        "प्लीज़",
+        "आज",
+        "अभी",
     }
 )
 
@@ -155,16 +159,21 @@ _MAX_CAPABILITIES_CHARS = 240
 _STEM_MAX_START = 40
 
 
+def _is_mark(char: str) -> bool:
+    return unicodedata.category(char).startswith("M")
+
+
 def _fold_capabilities_text(text: str) -> str:
-    cleaned = collapse_ws(text).replace("\u2019", "'").replace("¿", "")
+    cleaned = collapse_ws(unify_devanagari(text)).replace("\u2019", "'").replace("¿", "")
     return cleaned.casefold()
 
 
 def _letters_and_spaces(text: str) -> str:
-    """Replace punctuation with spaces in one pass (no regex)."""
+    """Replace punctuation with spaces in one pass (no regex). A vowel sign or a virama
+    (Devanagari's marks) is part of its word, not punctuation."""
     chars: list[str] = []
     for char in text:
-        if char.isalnum() or char.isspace() or char in {"'", "-"}:
+        if char.isalnum() or char.isspace() or char in {"'", "-"} or _is_mark(char):
             chars.append(char)
         else:
             chars.append(" ")

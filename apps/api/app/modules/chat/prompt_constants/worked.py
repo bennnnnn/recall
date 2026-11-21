@@ -22,8 +22,8 @@ WORKED_BLOCK_CONTRACT = (
     'Inside the block, one record per line, its fields split by " | ", maths in LaTeX '
     "without $, units as plain text (m/s, km/h, kg, °C), one symbol for each quantity in "
     "every record, and words in the language of your reply:\n"
-    "language: the code of the language you write this reply in (en, es, fr, de, it, pt, ru, "
-    "tr or am), the first record: every word of the block is in it, and the app writes the "
+    "language: the code of the language you write this reply in (en, es, fr, pt, ru, tr, am "
+    "or hi), the first record: every word of the block is in it, and the app writes the "
     "layout's headings in it\n"
     "given: symbol | value | unit (empty for a pure number) | what it is | the value in the "
     "unit the formula needs, only when that differs (LaTeX with its unit)\n"
