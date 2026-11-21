@@ -37,6 +37,9 @@ export function QuadrilateralDimensionLabels({
   theme: Theme;
 }) {
   const [topLeft, topRight, bottomRight, bottomLeft] = vertices;
+  // The height drops from the top left corner; the left side leans right of it when the
+  // bottom left corner is further right (a parallelogram, a trapezium with the longer top).
+  const slantRight = bottomLeft.x > topLeft.x + 1;
   return (
     <>
       <SvgText
@@ -59,14 +62,14 @@ export function QuadrilateralDimensionLabels({
       >
         {bottom}
       </SvgText>
-      {/* Inside, right of the dashed height: on its left runs a slanted side. */}
+      {/* Beside the dashed height, on the side the slanted left side does not run. */}
       <SvgText
-        x={topLeft.x + 6}
+        x={slantRight ? topLeft.x - 8 : topLeft.x + 6}
         y={(topLeft.y + bottomLeft.y) / 2 + 4}
         fill={theme.accent}
         fontSize={12}
         {...Weight.semibold}
-        textAnchor="start"
+        textAnchor={slantRight ? "end" : "start"}
       >
         {height}
       </SvgText>

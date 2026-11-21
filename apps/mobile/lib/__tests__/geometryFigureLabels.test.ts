@@ -1,12 +1,12 @@
 import fixture from "../../../../docs/fixtures/server_figures.json";
 
-import { labelTouches, strokesOf, type Stroke } from "@/lib/math/figurePlacement";
+import { LABEL_ASCENT, LABEL_CHAR, labelStart, labelTouches, strokesOf, type Stroke } from "@/lib/math/figurePlacement";
 import { figureLayout, parseFigure } from "@/lib/math/geometryFigure";
 
 type Case = { id: string; figure: Record<string, unknown> };
 
-/** The card widths of a small phone, an iPhone and a tablet. */
-const WIDTHS = [300, 360, 560];
+/** Card widths from the smallest phone's (screen less 48) to a tablet's, every 8px. */
+const WIDTHS = Array.from({ length: 38 }, (_, i) => 272 + i * 8);
 
 function clashes(raw: Record<string, unknown>, width: number): string[] {
   const spec = parseFigure(raw);
@@ -21,7 +21,13 @@ function clashes(raw: Record<string, unknown>, width: number): string[] {
   ];
   return layout.labels.flatMap((label, i) => {
     const count = labelTouches(label, strokes, layout.labels.slice(0, i));
-    return count ? [`"${label.text}" touches ${count} line(s) or label(s)`] : [];
+    const start = labelStart(label);
+    const off =
+      start < 0 || start + label.text.length * LABEL_CHAR > layout.width || label.y - LABEL_ASCENT < 0 || label.y > layout.height;
+    return [
+      ...(count ? [`"${label.text}" touches ${count} line(s) or label(s)`] : []),
+      ...(off ? [`"${label.text}" runs off the card`] : []),
+    ];
   });
 }
 
@@ -29,7 +35,7 @@ describe("the server's figures for the geometry corpus", () => {
   const cases = (fixture as { cases: Case[] }).cases;
 
   it.each(cases.flatMap((c) => WIDTHS.map((w) => [c.id, w, c.figure] as const)))(
-    "%s at %ipx writes no label over a line or another label",
+    "%s at %ipx writes no label over a line, another label or the card's edge",
     (_id, width, figure) => {
       expect(clashes(figure, width)).toEqual([]);
     },

@@ -47,6 +47,7 @@ const PAD = 24;
 const EDGE = 2;
 /** A figure is at most this tall against its width, so a tall solid stays in the card. */
 const MAX_HEIGHT_SHARE = 0.85;
+const FIT_PASSES = 4;
 const ARC_STEP_DEG = 4;
 const ANGLE_RADIUS = 16;
 const ANGLE_LABEL_GAP = 14;
@@ -374,18 +375,21 @@ function build(spec: FigureSpec, width: number, pads: Pads): FigureLayout {
   return layout;
 }
 
-/** The figure fitted to ``width``, its padding grown once so no label runs off the card. */
+/** The figure fitted to ``width``, its padding grown until no label runs off the card (a few
+ * passes: a figure its height limits is centred, so extra padding moves it only half as far). */
 export function figureLayout(spec: FigureSpec, width: number): FigureLayout {
   const pads = { left: PAD, right: PAD, top: PAD, bottom: PAD };
-  const first = build(spec, width, pads);
-  const over = overflow(first.labels, first.width, first.height);
-  if (over.left <= 0 && over.right <= 0 && over.top <= 0 && over.bottom <= 0) return first;
-  return build(spec, width, {
-    left: pads.left + Math.max(0, over.left),
-    right: pads.right + Math.max(0, over.right),
-    top: pads.top + Math.max(0, over.top),
-    bottom: pads.bottom + Math.max(0, over.bottom),
-  });
+  let layout = build(spec, width, pads);
+  for (let pass = 0; pass < FIT_PASSES; pass += 1) {
+    const over = overflow(layout.labels, layout.width, layout.height);
+    if (over.left <= 0 && over.right <= 0 && over.top <= 0 && over.bottom <= 0) break;
+    pads.left += Math.max(0, over.left);
+    pads.right += Math.max(0, over.right);
+    pads.top += Math.max(0, over.top);
+    pads.bottom += Math.max(0, over.bottom);
+    layout = build(spec, width, pads);
+  }
+  return layout;
 }
 
 /** What a screen reader hears: the figure's letters and its stated values, in order. */
