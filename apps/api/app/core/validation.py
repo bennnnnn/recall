@@ -60,6 +60,22 @@ def unify_devanagari(text: str) -> str:
     return _DOTTED_LETTER.sub(lambda m: _DOTTED_SPLIT[m.group()], text)
 
 
+# The same pairs the other way: a letter and its dot as one sign.
+_DOTTED_JOIN = {split: sign for sign, split in _DOTTED_SPLIT.items()}
+_DOTTED_PAIR = re.compile("|".join(map(re.escape, _DOTTED_JOIN)))
+
+
+def devanagari_spellings(text: str) -> tuple[str, ...]:
+    """``text`` as typed, and with each dotted Devanagari letter written the other ways
+    (letter and dot, one sign): saved text keeps whichever the keyboard sent, so a search
+    looks for each. Text without dotted letters has one spelling, itself."""
+    split = unify_devanagari(text)
+    if "\u093c" not in split:
+        return (text,)
+    joined = _DOTTED_PAIR.sub(lambda m: _DOTTED_JOIN[m.group()], split)
+    return tuple(dict.fromkeys((text, split, joined)))
+
+
 def normalize_display_name(raw: str | None) -> str | None:
     """Trim, collapse whitespace, and enforce length for user-visible names."""
     if raw is None:

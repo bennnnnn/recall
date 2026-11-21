@@ -156,8 +156,11 @@ def test_chat_stream_rejects_nul_with_422_before_any_turn() -> None:
     assert NUL_REJECTED_MESSAGE in response.text
 
 
-def test_a_dotted_devanagari_letter_is_stored_one_way() -> None:
-    """ज़ typed as one sign is saved as its letter and dot, the form every reader lists."""
-    typed = ChatMessageRequest(content="अंग्रेज़ी में जवाब दो")
-    assert typed.content == "अंग्रेज़ी में जवाब दो"
-    assert storable_text("plain") == "plain"
+def test_a_dotted_devanagari_letter_is_stored_as_typed() -> None:
+    """Saved text keeps the form the keyboard sent, so a title at the phone's cap of 80 is
+    80 characters still (ज़ as one sign grew to two code points and was refused, 2026-11-20).
+    Readers and search read both forms (``unify_devanagari``, ``devanagari_spellings``)."""
+    one_sign = "\u095b" * 80
+    assert ChatRename(title=one_sign).title == one_sign
+    with pytest.raises(ValidationError):
+        ChatRename(title=one_sign + "\u095b")

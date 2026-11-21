@@ -1,10 +1,9 @@
 """Hindi words in the server's code are written one way: a dotted letter as its letter and
 its dot (U+093C), never as one sign (U+0958 to U+095F, ऩ ऱ ऴ).
 
-Messages reach the readers in that form (``core.validation.unify_devanagari``, applied to
-every request text and by each reader of Hindi words), so a word listed with ज़ as one sign
-would never match: "अंग्रेज़ी में जवाब दो" typed that way was not seen naming English
-(2026-11-20).
+Each reader of Hindi words writes the message that way first
+(``core.validation.unify_devanagari``), so a word listed with ज़ as one sign would never
+match: "अंग्रेज़ी में जवाब दो" typed with one sign was not seen naming English (2026-11-20).
 """
 
 from __future__ import annotations
