@@ -19,7 +19,7 @@ from app.modules.billing.plan import (
     pick_cheapest_from_pool,
 )
 from app.modules.chat.model_routing.route import resolve_alias_in_pool
-from app.modules.chat.model_routing.thinking import escalation_model
+from app.modules.chat.model_routing.thinking import escalation_model, thinks_on_escalate
 from app.modules.chat.turn_trace import note_route
 
 if TYPE_CHECKING:
@@ -62,13 +62,13 @@ def resolve_user_model(
 
 
 def _is_everyday_tier(alias: str) -> bool:
-    """Auto's everyday lane, by tier: on a plan with the stronger everyday model the maths
-    and hard lanes are its smart models, so a fast one routed or replied is everyday."""
-    known = model_catalog.known_ids()
-    return (
-        alias in known
-        and model_catalog.get(alias).tier == model_catalog.get(model_catalog.auto_fast_alias()).tier
-    )
+    """Auto's everyday lane, by what it is: a fast model that sends no reasoning, as the
+    everyday alias is. GPT-6 Luna is fast too but paid and thinking: a turn that fell to it
+    (a hard one with the smart models off) or a reply it wrote keeps it (review, 2026-11-20)."""
+    if alias not in model_catalog.known_ids():
+        return False
+    everyday = model_catalog.get(model_catalog.auto_fast_alias())
+    return model_catalog.get(alias).tier == everyday.tier and not thinks_on_escalate(alias)
 
 
 def _everyday_for_plan(

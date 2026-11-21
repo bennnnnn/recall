@@ -325,6 +325,16 @@ def test_pro_try_again_on_an_earlier_everyday_reply_gets_pro_s_everyday_model() 
     assert resolved == ROUTING.everyday_strong
 
 
+def test_pro_keeps_a_thinking_fast_model_it_replied_with() -> None:
+    """Review, 2026-11-20: GPT-6 Luna is fast but paid and thinking, never the everyday lane:
+    a regenerate of its reply is not moved to Haiku."""
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    resolved = model_choice.resolve_regenerate_model(
+        _plan("pro"), None, "debug this crash", "gpt-6-luna", settings
+    )
+    assert resolved == "gpt-6-luna"
+
+
 def test_pro_hard_and_maths_turns_keep_their_lanes() -> None:
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
     user = _plan("pro")
