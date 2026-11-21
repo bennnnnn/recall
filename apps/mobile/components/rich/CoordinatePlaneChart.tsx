@@ -3,8 +3,10 @@ import { Text, View } from "react-native";
 import Svg, { Circle, G, Text as SvgText } from "react-native-svg";
 
 import { CartesianAxes } from "@/components/rich/CartesianAxes";
+import { CoordinatePlaneShapes, planeColor } from "@/components/rich/CoordinatePlaneShapes";
 import { GRAPH_AXIS_PAD } from "@/components/rich/GraphCanvas";
 import { mapGraphPoint } from "@/lib/math/graphBlock";
+import { pointLabelAt } from "@/lib/math/planeMarks";
 import { pointsChartHeight, quadrantNumerals, type PointsGraph } from "@/lib/math/pointsGraph";
 import { type Theme } from "@/lib/theme";
 import { Weight } from "@/lib/type";
@@ -14,7 +16,21 @@ const LABEL_FONT = 12;
 /** A label's width estimate, for flipping it left near the right edge. */
 const CHAR_EM = 0.6;
 
-/** Lettered points on a coordinate plane, one unit as wide as it is tall where that fits. */
+/** The middle of what the plane draws, in its own units: segment labels sit away from it. */
+function figureMiddle(graph: PointsGraph): [number, number] {
+  const spots: [number, number][] = [
+    ...graph.points.map((p): [number, number] => [p.x, p.y]),
+    ...graph.polygons.flatMap((polygon) => polygon.points),
+  ];
+  if (!spots.length) return [0, 0];
+  const sum = spots.reduce((acc, [x, y]) => [acc[0] + x, acc[1] + y], [0, 0]);
+  return [sum[0] / spots.length, sum[1] / spots.length];
+}
+
+/**
+ * Lettered points on a coordinate plane, one unit as wide as it is tall where that fits,
+ * with the segments, shapes, circles and a transformation's image the server drew there.
+ */
 export function CoordinatePlaneChart({
   graph,
   width,
@@ -30,6 +46,12 @@ export function CoordinatePlaneChart({
   const bounds = { xMin: graph.xMin, xMax: graph.xMax, yMin: graph.yMin, yMax: graph.yMax };
   const height = pointsChartHeight(graph, width, GRAPH_AXIS_PAD);
   const at = (x: number, y: number) => mapGraphPoint(x, y, bounds, width, height, GRAPH_AXIS_PAD);
+  const unitPx = {
+    x: (width - GRAPH_AXIS_PAD * 2) / (graph.xMax - graph.xMin),
+    y: (height - GRAPH_AXIS_PAD * 2) / (graph.yMax - graph.yMin),
+  };
+  const [middleX, middleY] = figureMiddle(graph);
+  const frame = { width, height, pad: GRAPH_AXIS_PAD };
   return (
     <View style={styles.wrap}>
       {graph.title ? <Text style={styles.title}>{graph.title}</Text> : null}
@@ -71,20 +93,27 @@ export function CoordinatePlaneChart({
               );
             })
           : null}
-        {graph.points.map((point) => {
-          const { px, py } = at(point.x, point.y);
-          const room = width - GRAPH_AXIS_PAD - px;
-          const left = room < point.label.length * LABEL_FONT * CHAR_EM + 8;
+        <CoordinatePlaneShapes
+          graph={graph}
+          at={at}
+          unitPx={unitPx}
+          middle={at(middleX, middleY)}
+          clipId={clipId}
+          theme={theme}
+        />
+        {graph.points.map((point, i) => {
+          const spot = at(point.x, point.y);
+          const label = pointLabelAt(spot, point.side, point.label.length * LABEL_FONT * CHAR_EM, frame);
           return (
-            <G key={point.label}>
-              <Circle cx={px} cy={py} r={DOT} fill={theme.primary} />
+            <G key={`${point.label}-${i}`}>
+              <Circle cx={spot.px} cy={spot.py} r={DOT} fill={planeColor(theme, point.role)} />
               <SvgText
-                x={left ? px - 6 : px + 6}
-                y={py - 6}
-                fill={theme.text}
+                x={label.x}
+                y={label.y}
+                fill={point.role === "image" ? planeColor(theme, "image") : theme.text}
                 fontSize={LABEL_FONT}
                 {...Weight.semibold}
-                textAnchor={left ? "end" : "start"}
+                textAnchor={label.anchor}
               >
                 {point.label}
               </SvgText>
