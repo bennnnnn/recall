@@ -217,6 +217,10 @@ def test_a_slip_through_a_root_a_sine_or_a_name_s_next_line_is_found(
         "$h = 40 \\tan 35° = 28.01$ m",
         "$A = 36\\pi$\n$A \\approx 113.10$",
         "$R = \\frac{17 \\times 25 \\times 28}{4 \\times 210} = \\frac{85}{6}$",
+        # A unit converted, and a constant substituted (physics, live 2026-11-21).
+        "$7.35981 \\times 10^{-20}\\,\\mathrm{J} = 0.459363\\,\\mathrm{eV}$",
+        "$d = 0.98\\,\\mathrm{c} \\times 11.056\\,\\mathrm{\\mu s} = 0.98 \\times 299,792,458\\,"
+        "\\mathrm{m/s} \\times 11.056 \\times 10^{-6}\\,\\mathrm{s}$",
     ],
 )
 def test_working_that_adds_up_is_never_flagged(reply: str) -> None:

@@ -370,7 +370,8 @@ def _slip(
 ) -> WrongStep | None:
     """``left = right`` when it does not hold: a worked side (an operation or a function) and
     what it is said to equal, a written result or another exact form (√11375 = 25√73)."""
-    if _OPERATOR.search(left.lstrip("-+")) is None:
+    # A number in powers of ten is one number: "7.36 * 10^-20 J = 0.459 eV" converts a unit.
+    if _OPERATOR.search(_SCIENTIFIC_PLAIN.sub("1", left).lstrip("-+")) is None:
         return None
     value = _evaluate(left)
     if value is None:
@@ -380,6 +381,11 @@ def _slip(
     if shown is not None and _converts_unit(left_tex, right_tex):
         return None
     if shown is None:
+        # Two sides in different units substitute or convert ("0.98c * 11 μs = 0.98 *
+        # 299,792,458 m/s * 11 * 10^-6 s"): no arithmetic to hold them to.
+        units = (_units(left_tex), _units(right_tex))
+        if all(units) and units[0] != units[1]:
+            return None
         # Another exact form ("25√73"), or a product of rounded values ("32.61 * 0.9659").
         other = _evaluate(right)
         if other is None or (_DECIMAL.search(right) is not None and _DECIMAL.search(left) is None):
@@ -402,6 +408,14 @@ def _slip(
     ):
         return WrongStep(left_tex, right_tex, value)
     return None
+
+
+_SCIENTIFIC_PLAIN = re.compile(r"\(?-?\d+(?:\.\d+)?e[-+]?\d+\)?")
+
+
+def _units(tex: str) -> tuple[str, ...]:
+    """The unit groups a side writes, in order ("\\mathrm{m/s}", "\\text{cm}^2")."""
+    return tuple(sorted("".join(group.split()) for group in _UNIT_GROUP.findall(tex)))
 
 
 def _is_off(value: float, shown: float, rounding: float) -> bool:
