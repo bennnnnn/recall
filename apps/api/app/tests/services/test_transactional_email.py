@@ -1,11 +1,14 @@
+from string import Formatter
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
 
 from app.core.config import Settings
+from app.core.validation import LOCALE_NAMES
 from app.gateways import email_gateway
 from app.modules.notifications import transactional_email as tx_email
+from app.modules.notifications.email_copy import TEMPLATES
 from app.tests.fakes import redis_mock
 
 
@@ -40,11 +43,27 @@ def test_build_welcome_uses_locale_template():
     assert "Hola" in text
 
 
-def test_build_welcome_falls_back_to_en_for_amharic():
-    """Amharic has no template yet — falls back to English (honest gap)."""
-    user = _user(name="Ada", locale="am")
-    subject, _, _ = tx_email.build_welcome(user)
-    assert subject == "Welcome to Recall"
+@pytest.mark.parametrize("kind", ["welcome", "receipt"])
+@pytest.mark.parametrize("locale", sorted(LOCALE_NAMES))
+def test_every_app_language_has_its_own_email(kind: str, locale: str) -> None:
+    """Each app language writes its own welcome and receipt, with English's placeholders
+    (Hindi and Amharic fell back to English, 2026-11-20)."""
+    copy = TEMPLATES[kind][locale]
+    english = TEMPLATES[kind]["en"]
+    for part in ("subject", "text", "html"):
+        assert _placeholders(copy[part]) == _placeholders(english[part]), (locale, part)
+    if locale != "en":
+        assert copy["subject"] != english["subject"]
+
+
+def _placeholders(template: str) -> set[str]:
+    return {name for _, name, _, _ in Formatter().parse(template) if name}
+
+
+def test_build_welcome_uses_the_hindi_template():
+    subject, _, text = tx_email.build_welcome(_user(name="Ada", locale="hi"))
+    assert subject == "Recall में आपका स्वागत है"
+    assert "नमस्ते Ada" in text
 
 
 def test_build_receipt_uses_locale_template():
