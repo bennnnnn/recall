@@ -67,6 +67,7 @@ _MAKERS = {
     "deepseek": "DeepSeek",
     "qwen": "Qwen",
     "z-ai": "Z.ai",
+    "tencent": "Tencent",
     "perplexity": "Perplexity",
     "black-forest-labs": "Black Forest Labs",
 }

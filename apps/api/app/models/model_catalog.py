@@ -237,9 +237,33 @@ CATALOG: tuple[ChatModel, ...] = (
         json_mode=True,
         context_tokens=128_000,
     ),
-    # The free plan's everyday model: a third of Luna's price per turn, as fast and as right on
-    # everyday turns, and it reads photos. Free's maths lane too (``ROUTING.math_free``); it
-    # sends no reasoning at any level, and GLM 5.3 Flash is that lane's backup.
+    # The everyday lane on Free and Plus (``ROUTING.everyday``). Measured 2026-11-20 against
+    # Qwen3.7 Flash and GLM 5.3 Flash on 54 battery prompts judged blind: 6.6 of 10 with no
+    # reasoning (Qwen3.7 Flash 5.3, GLM 5.3 Flash 6.5), every STEM corpus answer right, memory
+    # recall 100%, and it called web_search on all 16 live-fact questions and none of 8 others;
+    # about 1.4x Qwen3.7 Flash's cost a reply. Its first word comes later (1.2 s p50 against
+    # 0.6 s), and with reasoning on later still (3.6 s p50, 11 s p90), so it thinks only on a
+    # hard turn. Photos are left to vision-chat: unmeasured on real photos.
+    _or(
+        id="hy4-flash",
+        label="HY4 Flash",
+        model="tencent/hy4-flash",
+        provider="tencent",
+        input_price_per_m=0.035,
+        output_price_per_m=0.1405,
+        description="Fast, well-written everyday answers.",
+        tier="fast",
+        plan_access="free",
+        thinking_off="off",
+        thinking_on="low",
+        thinking_escalate="low",
+        supports_tools=True,
+        json_mode=True,
+        # One provider (Tencent) serves it, at 1,048,576 tokens.
+        context_tokens=1_048_576,
+    ),
+    # Free's maths lane (``ROUTING.math_free``), and the cheapest model on every plan: it
+    # reads photos and sends no reasoning at any level; GLM 5.3 Flash is that lane's backup.
     _or(
         id="qwen-3.7-flash",
         label="Qwen3.7 Flash",
