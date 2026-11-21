@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import AbstractContextManager, nullcontext
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, Literal
 
 from app.core.readings import kept_reading
@@ -418,6 +418,20 @@ class PhysicsSubject:
             solved_text(user_text, verified_request_text),
             has_image_attachment=has_image_attachment,
         )
+
+    def answers_part(
+        self, verified: VerifiedSolveBlock, asked: int
+    ) -> tuple[VerifiedSolveBlock, str] | None:
+        from app.modules.physics.parts import answers_count
+        from app.modules.physics.reply_policy import PHYSICS_PARTIAL_POLICY
+
+        if not isinstance(verified, VerifiedPhysicsBlock) or verified.partial:
+            return None
+        intent = verified.physics_intent
+        answered = max(len(verified.physics_parts), answers_count(intent) if intent else 1)
+        if asked <= answered:
+            return None
+        return replace(verified, partial=True), PHYSICS_PARTIAL_POLICY
 
 
 def solved_text(user_text: str, followup_problem: str | None) -> str:

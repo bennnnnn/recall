@@ -33,6 +33,7 @@ from app.modules.physics.extractors.stated_values import (
 from app.modules.physics.extractors.surface_gravity import detect_gravity
 from app.modules.physics.extractors.unit_patterns import LENGTH_UNIT_PATTERN, VELOCITY_UNIT_PATTERN
 from app.modules.physics.schemas import PhysicsIntent
+from app.modules.physics.stated_peak import without_stated_peaks
 from app.services.text_match import has_equation
 
 _TIME_UNITS = r"milliseconds?|ms|seconds?|secs?|sec|s|minutes?|mins?|min|hours?|hrs?|hr|h"
@@ -220,8 +221,9 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
     # so a wall ``15 m away`` is not a launch height.
     h0: float | None = None
     h0_unit = "m"
+    # A top the throw is said to reach is never where it starts (``stated_peak``).
     hu = find_value_with_specific_unit(
-        cleaned,
+        without_stated_peaks(cleaned),
         LENGTH_UNIT_PATTERN,
         _H0_KEYWORDS,
         require_keyword=False,

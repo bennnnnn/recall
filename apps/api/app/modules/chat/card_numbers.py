@@ -154,12 +154,12 @@ def _shown(body: str, above: str, precision: Precision) -> str | None:
         return None  # an exact fraction
     if any(_money(number.unit) for number in numbers):
         return None  # a sum of money, to the cent as written
-    worked = _unrounded(numbers[0], above) if len(numbers) == 1 else None
+    each = _unrounded_each(numbers, above)
     pieces, at = [], 0
-    for match, number in zip(written, [worked] if worked else numbers, strict=True):
+    for match, number, worked in zip(written, numbers, each, strict=True):
         own = precision if worked is not None else _no_new_figures(match, number, precision)
         # The sign stays where the card wrote it, before the match.
-        pieces += [value[at : match.start()], _number_shown(match, number, own)]
+        pieces += [value[at : match.start()], _number_shown(match, worked or number, own)]
         at = match.end()
     shown = "".join([*pieces, value[at:]])
     return "\n".join([*headers, shown]) + ("\n" if body.endswith("\n") else "")
@@ -208,28 +208,60 @@ def _worked(above: str) -> Number | None:
     """The one value the working above a card ends on: its last line of maths, the side
     after its last "="."""
     lines = _INLINE_MATHS.findall(above)
-    if not lines or "=" not in lines[-1]:
+    return _line_value(lines[-1]) if lines else None
+
+
+def _line_value(line: str) -> Number | None:
+    """The one value a line of maths reaches: the side after its last "="."""
+    if "=" not in line:
         return None
-    read = read_verified_value(lines[-1].rsplit("=", 1)[1])
+    read = read_verified_value(line.rsplit("=", 1)[1])
     return None if read is None or len(read.numbers) != 1 else read.numbers[0]
+
+
+def _unrounded_each(numbers: list[Number], above: str) -> list[Number | None]:
+    """Each card number's value as the working above reached it, unrounded, or None.
+
+    One number: the working's last line (``_unrounded``). Several ("2.34 s; 6.71 m; 38.3
+    m"): each the nearest line above that reached it, each line once. A card of three
+    values padded 38.3 to 38.30 where its working had reached 38.3157 (2026-11-21)."""
+    if len(numbers) == 1:
+        return [_unrounded(numbers[0], above)]
+    lines = [value for line in _INLINE_MATHS.findall(above) if (value := _line_value(line))]
+    found: list[Number | None] = []
+    for number in numbers:
+        match = next(
+            (at for at in range(len(lines) - 1, -1, -1) if _rounding_of(number, lines[at])),
+            None,
+        )
+        found.append(None if match is None else _signed_as(number, lines.pop(match)))
+    return found
 
 
 def _unrounded(card: Number, above: str) -> Number | None:
     """The value the working above the card reached, when the card's value is a rounding
     of it in the same unit."""
     worked = _worked(above)
-    if worked is None:
+    if worked is None or not _rounding_of(card, worked):
         return None
+    return _signed_as(card, worked)
+
+
+def _signed_as(card: Number, worked: Number) -> Number:
+    sign = -1 if card.value < 0 else 1
+    return Number(abs(worked.value) * sign, worked.places, card.unit)
+
+
+def _rounding_of(card: Number, worked: Number) -> bool:
+    """The card's value is a rounding of the working's, in the same unit."""
     # A whole card ("3" buses for 2.67) may be a count rounded up or down as the question
     # needs (review); a whole card in a unit of measure is a rounding of its working: the
     # tension at the bottom carded 104 N beside the top's 45.57 N (2026-11-20).
     if worked.places is None or worked.unit != card.unit or card.places is None:
-        return None
+        return False
     if card.places == 0 and not _measured(card.unit):
-        return None
+        return False
     if round_places(worked.value, card.places) != round_places(card.value, card.places):
-        return None
-    if worked.places is not None and worked.places <= card.places:
-        return None  # the working says no more than the card: nothing to take back
-    sign = -1 if card.value < 0 else 1
-    return Number(abs(worked.value) * sign, worked.places, card.unit)
+        return False
+    # The working says no more than the card: nothing to take back.
+    return worked.places > card.places

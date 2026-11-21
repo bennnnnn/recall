@@ -217,7 +217,8 @@ def read_physics_request(text: str) -> PhysicsRequest | None:
 
     A side question about another body is not the main question's setting ("Would it be
     different on Mars?"), and a student's own result is never a given ("I got 19.8
-    m/s"). Both are read out before anything binds a value.
+    m/s"). Both are read out before anything binds a value, and so is a top the motion is
+    said to reach beside the launch that decides it (``stated_peak``): a check, no given.
     """
     from app.modules.physics.bodies import main_question
     from app.modules.physics.claims import question_without_claims
@@ -232,7 +233,10 @@ def read_physics_request(text: str) -> PhysicsRequest | None:
     )
     if not cleaned:
         return None
-    request = prepare_physics_request(question_without_claims(main_question(cleaned)))
+    from app.modules.physics.stated_peak import without_redundant_peaks
+
+    question = without_redundant_peaks(question_without_claims(main_question(cleaned)))
+    request = prepare_physics_request(question)
     return None if request.rejected else request
 
 

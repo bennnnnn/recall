@@ -506,5 +506,13 @@ class MathSubject:
             verified_request_text=verified_request_text,
         )
 
+    def answers_part(
+        self, verified: VerifiedSolveBlock, asked: int
+    ) -> tuple[VerifiedSolveBlock, str] | None:
+        # Maths replies instantly only to a request its whole-request grammar reads end to
+        # end (``math.tools.direct``): an ask beside the solved one already goes to the model.
+        del verified, asked
+        return None
+
 
 MATH_SUBJECT = MathSubject()

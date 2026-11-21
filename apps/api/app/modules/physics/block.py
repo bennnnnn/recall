@@ -129,6 +129,7 @@ def _part_workings(result: PhysicsResult) -> tuple[PhysicsPartWorking, ...]:
             substitutions=part.result.substitutions,
             answer=render_quantity(replace(part.quantity, symbol="")),
             display_answer=render_quantity_latex(replace(part.quantity, symbol="")),
+            answer_values=(part.quantity.value,),
         )
         for part in result.parts
     )
@@ -231,7 +232,10 @@ def _build_physics_block(
     answer, card = result.answer_value, result.answer_latex
     # The model sees the same rows the direct reply formats. The combined
     # solver chain stays on result.answer for internal checks.
-    worked = carried_to_answer(result.substitutions, card, result_units(intent, result, card))
+    values = tuple(item.value for item in result.quantities)
+    worked = carried_to_answer(
+        result.substitutions, card, result_units(intent, result, card), values
+    )
     parts = _part_workings(result)
     verified_lines = [
         *([f"Verified law: {law}"] if law else []),
@@ -262,6 +266,7 @@ def _build_physics_block(
             physics_formulas=result.formulas,
             physics_substitutions=result.substitutions,
             physics_parts=parts,
+            answer_values=values,
         )
 
     if result.graph_specs:
@@ -278,6 +283,7 @@ def _build_physics_block(
             physics_formulas=result.formulas,
             physics_substitutions=result.substitutions,
             physics_parts=parts,
+            answer_values=values,
         )
     else:
         # A scene attached to a scalar answer is decoration, not a second
@@ -296,6 +302,7 @@ def _build_physics_block(
             physics_formulas=result.formulas,
             physics_substitutions=result.substitutions,
             physics_parts=parts,
+            answer_values=values,
         )
 
     # Extras only. Every reader of `canonical_fences` already prepends

@@ -78,6 +78,7 @@ async def test_subject_guard_every_member_answers_neutrally(broken: GuardedSubje
         )
         is None
     )
+    assert broken.answers_part(object(), 2) is None  # type: ignore[arg-type]
     followups = broken.followups
     assert followups.problem("q", []) is None
     assert followups.continues("q", []) is False
