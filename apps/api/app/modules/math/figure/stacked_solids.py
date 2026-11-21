@@ -56,7 +56,7 @@ _TOTAL_BEFORE = re.compile(
     r"|\b(?:height|length)\s+of\s+the\s+(?:whole|entire|complete)\b[^\d.;]*$"
 )
 _TOTAL_AFTER = re.compile(
-    r"^\s*[a-z]*\s*(?:tall|high|long|in height|in length)?\s*"
+    r"^\s*(?:[a-z]+\s+)?(?:(?:tall|high|long|in height|in length)\s+)?"
     r"(?:altogether|in all|overall|in total)\b"
 )
 _SOLID_WORDS = re.compile(r"\b(cones?|cylinders?|hemispheres?)\b")
