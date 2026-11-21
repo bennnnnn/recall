@@ -713,9 +713,27 @@ async def test_each_part_s_picture_goes_right_after_that_part_is_answered() -> N
     assert ctx.drawing.fences and len(ctx.drawing.fences) == 2
 
 
-async def test_descriptions_that_name_no_part_go_under_the_reply_as_before() -> None:
+async def test_a_description_naming_no_part_goes_after_the_part_that_writes_its_curve() -> None:
+    """The model often leaves "part" out (live, 2026-11-21: two blocks, neither named): the
+    lettered part of the question whose own words hold the curve is its part."""
     ctx = _ctx(_TWO_SKETCHES, live_read=_read(subject="maths", picture="graph"))
-    ctx.drawing = ReplyDrawing("read", descriptions=[_plot(None, "x^2 - 4x + 3")])
+    ctx.drawing = ReplyDrawing(
+        "read", descriptions=[_plot(None, "x^2 - 4x + 3"), _plot(None, "2x + 1")]
+    )
     out = await attach_drawing(_state(ctx, _parts_reply()))
+    plots = [fence for fence in iter_fences(out) if fence.lang == "graph"]
+    assert len(plots) == 2
+    assert out.index("x = 1, x = 3\n```") < plots[0].start < out.index("**(b) Where")
+    assert out.index("(0, 1)\n```") < plots[1].start < out.index("The roots are 1 and 3")
+
+
+async def test_a_description_no_one_part_holds_goes_under_the_reply_as_before() -> None:
+    question = "Let f(x) = x^2 - 1.\na) Sketch f.\nb) Find its roots."
+    ctx = _ctx(question, live_read=_read(subject="maths", picture="graph"))
+    ctx.drawing = ReplyDrawing("read", descriptions=[_plot(None, "x^2 - 1")])
+    reply = (
+        "**(a) Sketch**\n\nA parabola.\n\n**(b) Roots**\n\n$x = \\pm 1$\n\nThe roots are -1 and 1."
+    )
+    out = await attach_drawing(_state(ctx, reply))
     plot = next(fence for fence in iter_fences(out) if fence.lang == "graph")
-    assert plot.start > out.index("The roots are 1 and 3")
+    assert plot.start > out.index("The roots are -1 and 1")

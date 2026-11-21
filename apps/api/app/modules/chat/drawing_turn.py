@@ -38,6 +38,7 @@ from app.modules.chat.turn_trace import note_prompt_rule
 from app.modules.turn_reading.turn import current_turn_reading
 from app.services.md_fence_scan import iter_fences
 from app.services.part_place import part_key, place_after_part
+from app.services.question_parts import labelled_parts_by_label
 from app.services.solving import (
     SubjectName,
     VerifiedMathBlock,
@@ -378,13 +379,55 @@ async def _described(
     return [fence for fence in drawn if any(f.lang == "graph" for f in iter_fences(fence))]
 
 
-def _part_of(body: str) -> str | None:
-    """The part a description says it draws ("part": "b"), or None."""
+def _part_of(body: str, question: str) -> str | None:
+    """The part a description draws: the one it names ("part": "b"), else the one lettered
+    part of the question whose own words hold what it draws ("y": "2x + 1" is part b's when
+    only part b writes 2x + 1); None when neither says. Words of the question before its
+    parts belong to every part and decide nothing."""
     try:
         data = json.loads(body)
     except ValueError:
         return None
-    return part_key(data.get("part")) if isinstance(data, dict) else None
+    if not isinstance(data, dict):
+        return None
+    named = part_key(data.get("part"))
+    if named is not None:
+        return named
+    parts = labelled_parts_by_label(question)
+    said = [
+        _squeezed(value) for value in _values(data.get("items")) if any(c.isdigit() for c in value)
+    ]
+    if len(parts) < 2 or not said:
+        return None
+    holding = {
+        label: sum(1 for value in said if value and value in _squeezed(words))
+        for label, words in parts.items()
+    }
+    best = max(holding.values())
+    winners = [label for label, count in holding.items() if count == best]
+    return part_key(winners[0]) if best and len(winners) == 1 else None
+
+
+def _values(node: object) -> list[str]:
+    """Every string a description's items hold (a curve's formula, a stated size)."""
+    if isinstance(node, str):
+        return [node]
+    if isinstance(node, dict):
+        return [value for child in node.values() for value in _values(child)]
+    if isinstance(node, list):
+        return [value for child in node for value in _values(child)]
+    return []
+
+
+def _squeezed(text: str) -> str:
+    """Maths as one string whatever its spacing and signs: "x^2 - 4x" is "x^2-4x"."""
+    text = (
+        text.replace("\u2212", "-")
+        .replace("**", "^")
+        .replace("\u00b2", "^2")
+        .replace("\u00b3", "^3")
+    )
+    return "".join(text.split()).lower()
 
 
 async def _by_part(
@@ -400,7 +443,8 @@ async def _by_part(
     placed right after its part is answered (owner, 2026-11-21: never all of them at the end).
     None when no description names a part the reply has, so the pictures go under it."""
     descriptions = descriptions[:_MOST_PARTS]
-    parts = [_part_of(body) for body in descriptions]
+    question = state.ctx.user_message_content or ""
+    parts = [_part_of(body, question) for body in descriptions]
     logger.info("described pictures: %d, parts %s", len(descriptions), parts)
     if not any(key is not None and place_after_part(text, key, "") for key in parts):
         return None
