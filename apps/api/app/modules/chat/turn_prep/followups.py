@@ -66,10 +66,13 @@ def resolve_subject_followup(
     prompt_messages: list[dict[str, str]],
     referent: str | None = None,
     continued: str | None = None,
+    figures: bool = False,
 ) -> SubjectFollowup:
     """``referent``: the earlier problem a model read as the "it" of "draw it" or "show it"
     (``chat.referent_read``). A curve or a shape is drawn by maths, a scene by physics; a
     maths follow-up of the line's own (the working of the solve before it) comes first.
+    ``figures``: the server's figure read draws what a line asks to see of a shape
+    (``chat.figure_turn``), so the shape's problem is not solved again for its picture.
     ``continued``: the problem a model read "3" or "the area" as continuing, whole."""
     # build_prompt_messages has already loaded and adjacency-checked the recent
     # exchange; drop the current user row before reading that pair. The turn's own
@@ -82,7 +85,7 @@ def resolve_subject_followup(
         # "Show me that" after a solve is its working, as before: before any drawing.
         return SubjectFollowup(math=math)
     if referent is not None:
-        shown = _shown(content, history, referent)
+        shown = _shown(content, history, referent, figures=figures)
         if shown.found:
             return shown
     if continued is not None and not blocks_math_followup(continued):
@@ -143,6 +146,8 @@ def resolve_posed_followup(
 
 
 # The grammar a what-if is framed in, which says nothing of the problem.
+# What maths' "draw it" of a curve begins with (``graph_followup.drawing_of``).
+_GRAPH = "graph "
 _FRAME = frozenset(
     "what if were was would the then instead and now with into for its this that".split()
 )
@@ -172,11 +177,16 @@ def _singular(word: str) -> str:
     return lower[:-1] if lower.endswith("s") and not lower.endswith("ss") else lower
 
 
-def _shown(content: str, history: Sequence[Any], referent: str) -> SubjectFollowup:
-    """What the subject of the earlier problem a line asks to see draws it as."""
+def _shown(
+    content: str, history: Sequence[Any], referent: str, *, figures: bool = False
+) -> SubjectFollowup:
+    """What the subject of the earlier problem a line asks to see draws it as. With the
+    figure read on, a shape is its figure, never its problem solved again: "Draw it" after
+    a rectangle's area and then its diagonal repeated the area's card and drew the area's
+    rectangle beside the figure (live, 2026-11-20). A curve is still maths' graph."""
     if not blocks_math_followup(referent):
         drawn = subject_adapter("math").followups.shown_problem(content, history, referent)
-        if drawn is not None:
+        if drawn is not None and not (figures and not drawn.startswith(_GRAPH)):
             return SubjectFollowup(math=drawn)
     return SubjectFollowup(
         physics=subject_adapter("physics").followups.shown_problem(content, history, referent)

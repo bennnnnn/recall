@@ -120,7 +120,7 @@ _SYSTEM = (
     "s, 32.0 g, 2x), without a note around it. Otherwise message, problem and part are null "
     "and changes is []. asks is what the line itself names as wanted, in the line's words "
     '("the diagonal", "its perimeter", "the speed"), or null when it names nothing beyond '
-    'solving or explaining what is there (do it, how, the answer, step by step). Reply with '
+    "solving or explaining what is there (do it, how, the answer, step by step). Reply with "
     'JSON only, for example {"kind": "change", "message": 2, "problem": "A ball falls 20 m. '
     'How long does it take?", "part": null, "changes": [{"given": "20 m", "new": "45 m"}], '
     '"asks": null}.'

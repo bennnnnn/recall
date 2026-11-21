@@ -375,6 +375,7 @@ async def _turn_followup(
         role_content_dicts(prompt_messages),
         referent.problem if referent is not None else None,
         continued,
+        settings.figure_read_enabled,
         timeout=timeout,
     )
     if followup is not None and followup.found:

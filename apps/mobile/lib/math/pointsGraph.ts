@@ -15,7 +15,7 @@ export type LabelSide = "ne" | "nw" | "se" | "sw";
 type Pair = [number, number];
 
 type PlanePoint = { x: number; y: number; label: string; role: PlaneRole; side: LabelSide };
-export type PlaneSegment = {
+type PlaneSegment = {
   start: Pair;
   end: Pair;
   label: string;
@@ -24,9 +24,9 @@ export type PlaneSegment = {
   arrow: boolean;
   ticks: number;
 };
-export type PlanePolygon = { points: Pair[]; role: PlaneRole };
-export type PlaneCircle = { center: Pair; radius: number; role: PlaneRole };
-export type PlaneRightAngle = { at: Pair; a: Pair; b: Pair };
+type PlanePolygon = { points: Pair[]; role: PlaneRole };
+type PlaneCircle = { center: Pair; radius: number; role: PlaneRole };
+type PlaneRightAngle = { at: Pair; a: Pair; b: Pair };
 
 export type PointsGraph = {
   type: "points";
