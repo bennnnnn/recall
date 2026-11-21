@@ -15,14 +15,19 @@ powers are capped, so a reply cannot make the server compute a huge number.
 
 from __future__ import annotations
 
-import ast
 import math
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import InvalidOperation
 
-from app.services.glyphs import fold_operator_glyphs
+from app.modules.chat.tex_arithmetic import (
+    INLINE_MATH,
+    MAX_EXPONENT,
+    UNIT_GROUP,
+    evaluate,
+    plain_arithmetic,
+)
 from app.services.md_fence_scan import iter_fences, map_fence_blocks
 from app.services.school_rounding import round_places
 
@@ -32,82 +37,10 @@ _SHOWN = re.compile(
     r"\(?(?P<mantissa>-?\d+(?:\.(?P<decimals>\d+))?)"
     r"(?:(?:\*10\*\*\(?|e)(?P<power>[-+]?\d+)\)?)?\)?"
 )
-_INLINE_MATH = re.compile(r"(?<![\\$])\$(?!\$)([^$\n]+?)(?<!\\)\$(?!\$)")
-# 3.98 \times 10^{-19} is one number: "a * 10^-19 / b * 10^-19" divides two of them.
-_SCIENTIFIC = re.compile(
-    r"(\d+(?:\.\d+)?)\s*(?:\\times|\\cdot|\u00d7|\*)\s*10\s*\^\s*\{?\s*([-+]?\d+)\s*\}?"
-)
-# A word inside \text{} ("and", "for x = 3") joins two statements; it is not a unit.
-_TEXT_WORD = re.compile(r"\\text\s*\{\s*[A-Za-z]{2,}(?:\s+[A-Za-z]+)*\s*\}")
-_UNIT_WORDS = frozenset(
-    {
-        "kg",
-        "mol",
-        "cm",
-        "mm",
-        "km",
-        "ms",
-        "min",
-        "hr",
-        "Hz",
-        "kHz",
-        "MHz",
-        "Pa",
-        "kPa",
-        "atm",
-        "mL",
-        "kJ",
-        "MJ",
-        "kW",
-        "MW",
-        "kWh",
-        "eV",
-        "keV",
-        "MeV",
-        "nm",
-        "rad",
-        "deg",
-        "mph",
-        "ft",
-        "in",
-        "lb",
-        "lbs",
-        "psi",
-        "mmHg",
-        "torr",
-        "cal",
-        "kcal",
-        "Wh",
-        "mA",
-        "kV",
-        "mV",
-        "kN",
-        "GW",
-        "GJ",
-        "mg",
-        "ug",
-    }
-)
-# A result in a prefixed unit the working did not use (7200 m = 7.2 km, 4.52e6 J = 4.5 MJ)
-# is a conversion, not arithmetic to check.
 _PREFIXED_UNIT = re.compile(r"\\(?:text|mathrm)\s*\{\s*([kMGmµμnpc][A-Za-z]+)")
 _OPERATOR = re.compile(r"[-+*/]|sqrt|pi|sind|cosd|tand")
-# sin 75°, \sin(60^\circ): a sine of degrees, the one function of an angle working writes.
-_TRIG_DEGREES = re.compile(
-    r"\\(sin|cos|tan)\s*\(?\s*(-?\d+(?:\.\d+)?)\s*(?:°|\^\s*\{?\s*\\circ\s*\}?)\s*\)?"
-)
-_FUNCTIONS = r"sqrt|pi|sind|cosd|tand"
-_UNIT_GROUP = re.compile(
-    r"\\(?:text|mathrm|textrm|rm|operatorname)\s*\{[^{}]*\}(?:\s*\^\s*(?:\{[^{}]*\}|-?\d))?"
-)
-_FRAC = re.compile(r"\\[dt]?frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}")
-_SQRT = re.compile(r"\\sqrt\s*\{([^{}]*)\}")
-_POWER = re.compile(r"\^\s*\{([^{}]*)\}")
 _RELATION = re.compile(r"\\approx|≈|=")
-# "l_{maj} = 2(10) = 20, l_{min} = 2(6) = 12": two statements in one line, each its own chain.
-# A real comma (never "\\," or 1,500) or a \\quad, then a name and its "=".
 _STATEMENTS = re.compile(r"(?:(?<!\\),\s+|;\s*|\\q?quad\s*)(?=[A-Za-z\\][^,;=]{0,40}=)")
-_MAX_EXPONENT = 64
 # Models round as they go: a step within 1% of its value is not called a slip.
 _RELATIVE_SLACK = 0.01
 
@@ -121,126 +54,10 @@ class WrongStep:
     value: float
 
 
-def _plain(tex: str) -> str | None:
-    """A LaTeX side as a Python arithmetic expression, or None when it is not numbers."""
-    text = tex.replace("\\left", "").replace("\\right", "")
-    text = _SCIENTIFIC.sub(r"(\1e\2)", text)
-    text = _TRIG_DEGREES.sub(r" \1d(\2)", text)
-    text = re.sub(r"\\pi(?![A-Za-z])", " pi ", text)
-    text = _TEXT_WORD.sub(lambda m: m.group(0) if _is_unit(m.group(0)) else "#", text)
-    text = _UNIT_GROUP.sub(" ", text)
-    for _ in range(4):
-        text = _FRAC.sub(r"((\1)/(\2))", text)
-        text = _SQRT.sub(r"sqrt(\1)", text)
-        text = _POWER.sub(r"**(\1)", text)
-    text = fold_operator_glyphs(text)
-    for latex, plain in (
-        ("\\times", "*"),
-        ("\\cdot", "*"),
-        ("\\div", "/"),
-        ("\\,", ""),
-        ("\\;", ""),
-        ("\\!", ""),
-        ("\\ ", ""),
-        ("{,}", ""),
-    ):
-        text = text.replace(latex, plain)
-    text = text.replace("^", "**").replace("{", "(").replace("}", ")")
-    text = re.sub(r"\s+", "", text)
-    # 1,500 is a number; a comma anywhere else is a list.
-    text = re.sub(r"(?<=\d),(?=\d{3}(?!\d))", "", text)
-    letters = re.sub(rf"{_FUNCTIONS}|(?<=\d)e(?=[-+]?\d)", "", text)
-    if not text or re.search(r"[A-Za-z\\%°',#]", letters):
-        return None
-    # 2(3), (2)(3), 25sqrt(73), 2pi, pi(3): a product written without a sign.
-    text = re.sub(
-        rf"(?<=[\d)])(?=\(|{_FUNCTIONS})|(?<=\))(?=\d)|(?<=pi)(?=[\d(]|{_FUNCTIONS})", "*", text
-    )
-    return text
-
-
-def _is_unit(text_group: str) -> bool:
-    inner = text_group[text_group.index("{") + 1 : -1].strip()
-    return inner in _UNIT_WORDS
-
-
 def _converts_unit(left_tex: str, right_tex: str) -> bool:
     """The result is in a prefixed unit the working never wrote."""
     left_units = set(_PREFIXED_UNIT.findall(left_tex))
     return any(unit not in left_units for unit in _PREFIXED_UNIT.findall(right_tex))
-
-
-def _evaluate(expression: str) -> float | None:
-    try:
-        tree = ast.parse(expression, mode="eval")
-    except SyntaxError:
-        return None
-    try:
-        value = _walk(tree.body)
-    except (ArithmeticError, ValueError):
-        return None
-    return value if value is not None and math.isfinite(value) else None
-
-
-def _walk(node: ast.AST) -> float | None:
-    if isinstance(node, ast.Constant) and isinstance(node.value, int | float):
-        return float(node.value)
-    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub | ast.UAdd):
-        operand = _walk(node.operand)
-        if operand is None:
-            return None
-        return -operand if isinstance(node.op, ast.USub) else operand
-    if isinstance(node, ast.BinOp):
-        left, right = _walk(node.left), _walk(node.right)
-        if left is None or right is None:
-            return None
-        if isinstance(node.op, ast.Add):
-            return left + right
-        if isinstance(node.op, ast.Sub):
-            return left - right
-        if isinstance(node.op, ast.Mult):
-            return left * right
-        if isinstance(node.op, ast.Div):
-            return left / right
-        if isinstance(node.op, ast.Pow):
-            if abs(right) > _MAX_EXPONENT or (left < 0 and not float(right).is_integer()):
-                return None
-            return float(left**right)
-        return None
-    if isinstance(node, ast.Name) and node.id == "pi":
-        return math.pi
-    if (
-        isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Name)
-        and node.func.id in _CALLS
-        and len(node.args) == 1
-        and not node.keywords
-    ):
-        inner = _walk(node.args[0])
-        if inner is None or (node.func.id == "sqrt" and inner < 0):
-            return None
-        return _CALLS[node.func.id](inner)
-    return None
-
-
-def _sind(degrees: float) -> float:
-    return math.sin(math.radians(degrees))
-
-
-def _cosd(degrees: float) -> float:
-    return math.cos(math.radians(degrees))
-
-
-def _tand(degrees: float) -> float:
-    return math.tan(math.radians(degrees))
-
-
-_CALLS: dict[str, Callable[[float], float]] = {
-    "sqrt": math.sqrt,
-    "sind": _sind,
-    "cosd": _cosd,
-    "tand": _tand,
-}
 
 
 def _shown_number(plain: str) -> tuple[float, float] | None:
@@ -249,7 +66,7 @@ def _shown_number(plain: str) -> tuple[float, float] | None:
     if match is None:
         return None
     power = int(match.group("power") or 0)
-    if abs(power) > _MAX_EXPONENT:
+    if abs(power) > MAX_EXPONENT:
         return None
     places = len(match.group("decimals") or "")
     value = float(match.group("mantissa")) * 10.0**power
@@ -314,10 +131,10 @@ def _note_rounded(
     shown = _shown_number(right)
     exact: float | None = None
     if left is not None:
-        exact = _evaluate(_exact_side(left, rounded))
+        exact = evaluate(_exact_side(left, rounded))
     elif _NAME.fullmatch(name := left_tex.replace(" ", "")):
         if shown is None:
-            if (value := _evaluate(_exact_side(right, rounded))) is not None:
+            if (value := evaluate(_exact_side(right, rounded))) is not None:
                 worked[name] = value
             return
         if name not in worked:
@@ -345,7 +162,7 @@ def wrong_steps(reply: str) -> list[WrongStep]:
     prose = _INLINE_CODE.sub(" ", map_fence_blocks(reply, lambda _fence, _body: "\n"))
     for segment in (
         statement
-        for match in _INLINE_MATH.finditer(prose)
+        for match in INLINE_MATH.finditer(prose)
         for statement in _STATEMENTS.split(match.group(1))
     ):
         parts = _RELATION.split(segment)
@@ -356,7 +173,7 @@ def wrong_steps(reply: str) -> list[WrongStep]:
         last = parts[-1]
         for index in range(len(parts) - 1):
             left_tex, right_tex = parts[index].strip(), parts[index + 1].strip()
-            left, right = _plain(left_tex), _plain(right_tex)
+            left, right = plain_arithmetic(left_tex), plain_arithmetic(right_tex)
             _note_rounded(left_tex, left, right, rounded, worked)
             if left is None or right is None or left == right:
                 continue
@@ -380,7 +197,7 @@ def _slip(
     # A number in powers of ten is one number: "7.36 * 10^-20 J = 0.459 eV" converts a unit.
     if _OPERATOR.search(_SCIENTIFIC_PLAIN.sub("1", left).lstrip("-+")) is None:
         return None
-    value = _evaluate(left)
+    value = evaluate(left)
     if value is None:
         return None
     shown = _shown_number(right)
@@ -394,7 +211,7 @@ def _slip(
         if all(units) and units[0] != units[1]:
             return None
         # Another exact form ("25√73"), or a product of rounded values ("32.61 * 0.9659").
-        other = _evaluate(right)
+        other = evaluate(right)
         if other is None or (_DECIMAL.search(right) is not None and _DECIMAL.search(left) is None):
             return None
         exact = _DECIMAL.search(left) is None and _DECIMAL.search(right) is None
@@ -409,7 +226,7 @@ def _slip(
         if _is_off(value, shown[0], shown[1]):
             return WrongStep(left_tex, right_tex, value)
         return None
-    carried = _evaluate(_exact_side(left, {k: v for k, v in rounded.items() if k != right}))
+    carried = evaluate(_exact_side(left, {k: v for k, v in rounded.items() if k != right}))
     if _is_wrong(value, shown[0], shown[1], approximate) and (
         carried is None or _is_wrong(carried, shown[0], shown[1], approximate)
     ):
@@ -422,7 +239,7 @@ _SCIENTIFIC_PLAIN = re.compile(r"\(?-?\d+(?:\.\d+)?e[-+]?\d+\)?")
 
 def _units(tex: str) -> tuple[str, ...]:
     """The unit groups a side writes, in order ("\\mathrm{m/s}", "\\text{cm}^2")."""
-    return tuple(sorted("".join(group.split()) for group in _UNIT_GROUP.findall(tex)))
+    return tuple(sorted("".join(group.split()) for group in UNIT_GROUP.findall(tex)))
 
 
 def _is_off(value: float, shown: float, rounding: float) -> bool:
@@ -449,24 +266,26 @@ def _chain(
     then "L = √279552/21" (live, 2026-11-21: the chord came out 25.19 cm, not 16). Only a line
     worked from an expression is held: "x = 1" then "x = 3" are two roots."""
     name = parts[0].strip()
-    if len(parts) < 2 or not name or _plain(name) is not None:
+    if len(parts) < 2 or not name or plain_arithmetic(name) is not None:
         return None
     if before is not None and before[0] == name and not _branches(before[1], parts[1].strip()):
         first_tex = parts[1].strip()
-        first = _plain(first_tex)
-        earlier = _plain(before[1])
+        first = plain_arithmetic(first_tex)
+        earlier = plain_arithmetic(before[1])
         if first is not None and earlier is not None:
             step = _slip(before[1], first_tex, earlier, first, relations[0] != "=", {})
             if step is not None:
                 found.append(step)
-    worked = [part.strip() for part in parts[1:] if _plain(part.strip()) is not None]
-    exprs = [part for part in worked if _OPERATOR.search((_plain(part) or "").lstrip("-+"))]
+    worked = [part.strip() for part in parts[1:] if plain_arithmetic(part.strip()) is not None]
+    exprs = [
+        part for part in worked if _OPERATOR.search((plain_arithmetic(part) or "").lstrip("-+"))
+    ]
     return (name, exprs[-1], worked[-1]) if exprs else None
 
 
 def _shown_like(value: float, shown: str) -> str:
     """``value`` written the way ``shown`` was: same places, or the same power of ten."""
-    plain = _plain(shown) or ""
+    plain = plain_arithmetic(shown) or ""
     match = _SHOWN.fullmatch(plain)
     places = len(match.group("decimals") or "") if match else 0
     if match and match.group("power") is not None:
@@ -540,10 +359,10 @@ def corrected_approximations(reply: str) -> str:
 
     def fix(match: re.Match[str]) -> str:
         exact_tex = _RELATION.split(match.group("exact"))[-1].strip()
-        plain = _plain(exact_tex)
+        plain = plain_arithmetic(exact_tex)
         if plain is None or _DECIMAL.search(plain) is not None:
             return match.group(0)
-        value = _evaluate(plain)
+        value = evaluate(plain)
         shown = _shown_number(match.group("number"))
         if value is None or shown is None or not _is_off(value, shown[0], shown[1]):
             return match.group(0)

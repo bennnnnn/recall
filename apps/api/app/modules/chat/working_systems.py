@@ -17,6 +17,8 @@ import math
 import re
 from dataclasses import dataclass
 
+from app.modules.chat.tex_arithmetic import INLINE_MATH, evaluate, plain_arithmetic
+
 # An unknown: one letter, with a subscript ("I_1", "T_{2}", "x").
 _UNKNOWN = re.compile(r"(?<![\\A-Za-z])([A-Za-z])(?:_\{?([A-Za-z0-9]{1,3})\}?)?(?![A-Za-z{])")
 _TOLERANCE = 0.005
@@ -36,13 +38,12 @@ class UnheldEquation:
 
 def unheld_equations(reply: str) -> list[UnheldEquation]:
     """Each equation in two or more unknowns that the values the reply gives them break."""
-    from app.modules.chat.working_check import _INLINE_MATH, _evaluate, _plain
 
     equations: list[tuple[str, str, str, list[str]]] = []
     values: dict[str, set[float]] = {}
     # Each value's unit as written: 6770000 m and 400 km are no terms of one sum.
     units: dict[str, set[str]] = {}
-    for match in _INLINE_MATH.finditer(reply):
+    for match in INLINE_MATH.finditer(reply):
         segment = match.group(1)
         if segment.count("=") != 1 or "\\approx" in segment:
             continue
@@ -50,7 +51,7 @@ def unheld_equations(reply: str) -> list[UnheldEquation]:
         unknown_left = _UNKNOWN.fullmatch(left)
         # A value may end in its unit ("I_1 = \\frac{15}{13} A", "7.2\\,\\mathrm{V}").
         bare = _TRAILING_UNIT.sub("", right)
-        value = _evaluate(plain) if (plain := _plain(bare)) is not None else None
+        value = evaluate(plain) if (plain := plain_arithmetic(bare)) is not None else None
         if unknown_left is not None and value is not None:
             key = unknown_left.group(1) + (
                 f"_{unknown_left.group(2)}" if unknown_left.group(2) else ""
@@ -71,8 +72,8 @@ def unheld_equations(reply: str) -> list[UnheldEquation]:
         if len({unit for name in unknowns for unit in units.get(name, set())}) > 1:
             continue
         given = {name: next(iter(values[name])) for name in unknowns}
-        held_left = _evaluate(_put(left, given))
-        held_right = _evaluate(_put(right, given))
+        held_left = evaluate(_put(left, given))
+        held_right = evaluate(_put(right, given))
         if held_left is None or held_right is None:
             continue
         scale = max(abs(held_left), abs(held_right), 1.0)
@@ -95,7 +96,6 @@ def _unit_of(right: str, bare: str) -> str:
 
 def _template(left: str, right: str) -> tuple[str, str, list[str]] | None:
     """Both sides with each unknown as ``{name}``, when they are numbers and unknowns only."""
-    from app.modules.chat.working_check import _plain
 
     unknowns: list[str] = []
     sides: list[str] = []
@@ -108,7 +108,7 @@ def _template(left: str, right: str) -> tuple[str, str, list[str]] | None:
             parts += [side[at : match.start()], " (1) "]
             at = match.end()
         parts.append(side[at:])
-        probe = _plain("".join(parts))
+        probe = plain_arithmetic("".join(parts))
         if probe is None:
             return None
         sides.append(side)
@@ -117,10 +117,9 @@ def _template(left: str, right: str) -> tuple[str, str, list[str]] | None:
 
 def _put(side: str, given: dict[str, float]) -> str:
     """``side`` as plain arithmetic, each unknown replaced by its value."""
-    from app.modules.chat.working_check import _plain
 
     def value(match: re.Match[str]) -> str:
         key = match.group(1) + (f"_{match.group(2)}" if match.group(2) else "")
         return f" ({given[key]!r}) "
 
-    return _plain(_UNKNOWN.sub(value, side)) or ""
+    return plain_arithmetic(_UNKNOWN.sub(value, side)) or ""
