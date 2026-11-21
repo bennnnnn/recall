@@ -233,18 +233,8 @@ def _build_physics_block(
     # The model sees the same rows the direct reply formats. The combined
     # solver chain stays on result.answer for internal checks.
     values = tuple(item.value for item in result.quantities)
-    worked = carried_to_answer(
-        result.substitutions, card, result_units(intent, result, card), values
-    )
+    verified_lines = _verified_lines(intent, result, card, law, values)
     parts = _part_workings(result)
-    verified_lines = [
-        *([f"Verified law: {law}"] if law else []),
-        "Verified formula:",
-        *(f"${row}$" for row in result.formulas),
-        "Verified substitution:",
-        *(f"${row}$" for row in worked),
-        f"Verified result: ${card}$",
-    ]
     lines.extend(verified_lines)
     structured_working = "\n".join(verified_lines)
 
@@ -311,6 +301,27 @@ def _build_physics_block(
     # *is* the authorisation for a direct reply.
     extras = [spec for spec in specs if spec is not block.canonical_fence]
     return replace(block, canonical_fences=extras)
+
+
+def _verified_lines(
+    intent: PhysicsIntent,
+    result: PhysicsResult,
+    card: str,
+    law: str | None,
+    values: tuple[float, ...],
+) -> list[str]:
+    """The verified law, formulas and substitution rows, worked down to the unrounded values."""
+    worked = carried_to_answer(
+        result.substitutions, card, result_units(intent, result, card), values
+    )
+    return [
+        *([f"Verified law: {law}"] if law else []),
+        "Verified formula:",
+        *(f"${row}$" for row in result.formulas),
+        "Verified substitution:",
+        *(f"${row}$" for row in worked),
+        f"Verified result: ${card}$",
+    ]
 
 
 def build_verified_physics_block(

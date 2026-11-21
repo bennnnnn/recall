@@ -22,13 +22,10 @@ from app.core.config import Settings
 from app.modules.chat.card_numbers import card_numbers
 from app.modules.physics.direct import maybe_direct_physics_reply
 from app.modules.physics.extract import extract_physics_intent
+from app.modules.physics.peak_conflict import stated_peak_conflict
 from app.modules.physics.prompt import solve_or_say_why, solve_physics_request
 from app.modules.physics.reply_policy import PHYSICS_PARTIAL_POLICY
-from app.modules.physics.stated_peak import (
-    stated_peak_conflict,
-    without_redundant_peaks,
-    without_stated_peaks,
-)
+from app.modules.physics.stated_peak import without_redundant_peaks, without_stated_peaks
 from app.modules.physics.subject import PHYSICS_SUBJECT
 from app.modules.physics.working_steps import carried_to_answer
 from app.services.law_binding.reduction import reduce_substitution

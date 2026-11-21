@@ -273,7 +273,6 @@ def _extract_projectile_intent(cleaned: str) -> PhysicsIntent | None:
 
     h0: float | None = None
     h0_unit = "m"
-    # A top the launch is said to reach is never where it starts (``stated_peak``).
     hu = find_value_with_specific_unit(
         without_stated_peaks(cleaned),
         LENGTH_UNIT_PATTERN,

@@ -221,7 +221,6 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
     # so a wall ``15 m away`` is not a launch height.
     h0: float | None = None
     h0_unit = "m"
-    # A top the throw is said to reach is never where it starts (``stated_peak``).
     hu = find_value_with_specific_unit(
         without_stated_peaks(cleaned),
         LENGTH_UNIT_PATTERN,

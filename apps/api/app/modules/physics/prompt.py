@@ -133,7 +133,7 @@ def solve_or_say_why(
     answer as written when its values say so (``out_of_range``), in the same pool call."""
     outcome, block = solve_physics_request(user_content, settings, needs_subject)
     if outcome in ("verified", "note", "failed"):
-        from app.modules.physics.stated_peak import stated_peak_conflict
+        from app.modules.physics.peak_conflict import stated_peak_conflict
 
         # Values that contradict each other have no answer as written, whichever one a
         # solve read: the reply says so, and no card certifies one reading of them.
