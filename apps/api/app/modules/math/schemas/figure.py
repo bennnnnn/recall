@@ -3,8 +3,9 @@
 A ```geometry ``figure`` is a plane drawing in the question's units: named points, the
 segments between them, circle and ellipse arcs, angle marks and lightly filled faces. The
 server works out every coordinate; the phone only fits the drawing to the card and places
-the labels. A ```graph ``points`` plot is lettered points on a coordinate plane, and a
-number line may carry labelled marks for the numbers it shows.
+the labels. A ```graph ``points`` plot is lettered points on a coordinate plane, with the
+segments, polygons and circles of coordinate geometry and a transformation's image where the
+server worked them out, and a number line may carry labelled marks for the numbers it shows.
 """
 
 from __future__ import annotations
@@ -100,14 +101,61 @@ class FigureSpec(BaseModel):
         return self
 
 
+# What a part of a coordinate plane is: the question's own shape, the image a
+# transformation makes of it (dashed, a second colour), or a guide (a mirror line, a
+# rise and run, a bisector, a centre's rays).
+PlaneRole = Literal["shape", "image", "guide"]
+# Where a point's label sits beside it: away from the rest of its shape.
+LabelSide = Literal["ne", "nw", "se", "sw"]
+Coordinate = tuple[float, float]
+
+
 class PlotPoint(BaseModel):
     x: float
     y: float
     label: str = Field(min_length=1, max_length=_LABEL_CHARS)
+    role: PlaneRole = "shape"
+    side: LabelSide = "ne"
+
+
+class PlaneSegment(BaseModel):
+    """A segment on the plane, between two points the server worked out."""
+
+    start: Coordinate
+    end: Coordinate
+    label: str | None = Field(default=None, max_length=_LABEL_CHARS)
+    role: PlaneRole = "shape"
+    dashed: bool = False
+    # An arrowhead at ``end``: a translation's vector.
+    arrow: bool = False
+    # Marks on sides of equal length.
+    ticks: int = Field(default=0, ge=0, le=3)
+
+
+class PlanePolygon(BaseModel):
+    """A polygon at its vertices, lightly filled."""
+
+    points: list[Coordinate] = Field(min_length=3, max_length=12)
+    role: PlaneRole = "shape"
+
+
+class PlaneCircle(BaseModel):
+    center: Coordinate
+    radius: float = Field(gt=0, le=_MAX_COORDINATE)
+    role: PlaneRole = "shape"
+
+
+class PlaneRightAngle(BaseModel):
+    """A right angle's mark at ``at``, between the arms towards ``a`` and ``b``."""
+
+    at: Coordinate
+    a: Coordinate
+    b: Coordinate
 
 
 class PointsGraphSpec(BaseModel):
-    """Points plotted on a coordinate plane, each with its letter and coordinates."""
+    """Points plotted on a coordinate plane, each with its letter and coordinates, and the
+    segments, polygons and circles of coordinate geometry drawn where they are."""
 
     type: Literal["points"] = "points"
     title: str = Field(default="", max_length=64)
@@ -118,6 +166,18 @@ class PointsGraphSpec(BaseModel):
     y_max: float
     # The quadrants' numerals (I to IV), when the question asks which quadrant.
     quadrants: bool = False
+    segments: list[PlaneSegment] = Field(default_factory=list, max_length=24)
+    polygons: list[PlanePolygon] = Field(default_factory=list, max_length=4)
+    circles: list[PlaneCircle] = Field(default_factory=list, max_length=2)
+    right_angles: list[PlaneRightAngle] = Field(default_factory=list, max_length=6)
+
+    def _inside(self, x: float, y: float) -> bool:
+        near = 1e-9 * max(1.0, self.x_max - self.x_min, self.y_max - self.y_min)
+        return (
+            _finite(x, y)
+            and self.x_min - near <= x <= self.x_max + near
+            and self.y_min - near <= y <= self.y_max + near
+        )
 
     @model_validator(mode="after")
     def in_view(self) -> PointsGraphSpec:
@@ -125,10 +185,21 @@ class PointsGraphSpec(BaseModel):
             raise ValueError("points graph needs finite bounds")
         if self.x_max <= self.x_min or self.y_max <= self.y_min:
             raise ValueError("points graph needs ordered bounds")
-        for point in self.points:
-            inside = self.x_min <= point.x <= self.x_max and self.y_min <= point.y <= self.y_max
-            if not (_finite(point.x, point.y) and inside):
-                raise ValueError("every plotted point is in view")
+        corners: list[Coordinate] = [(point.x, point.y) for point in self.points]
+        corners += [end for seg in self.segments for end in (seg.start, seg.end)]
+        corners += [corner for polygon in self.polygons for corner in polygon.points]
+        corners += [
+            (c.center[0] + dx, c.center[1] + dy)
+            for c in self.circles
+            for dx, dy in ((c.radius, 0), (-c.radius, 0), (0, c.radius), (0, -c.radius))
+        ]
+        # A right angle's arms give only directions: its corner is what must be in view.
+        corners += [mark.at for mark in self.right_angles]
+        arms = [p for mark in self.right_angles for p in (mark.a, mark.b)]
+        if not all(self._inside(x, y) for x, y in corners) or not all(
+            _finite(x, y) for x, y in arms
+        ):
+            raise ValueError("every plotted point is in view")
         return self
 
 

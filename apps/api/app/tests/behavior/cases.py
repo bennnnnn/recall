@@ -426,7 +426,9 @@ CASES: tuple[Case, ...] = (
         "math",
         "Draw it",
         Expect(solved=True, instant="solver", drawn="geometry", search="no"),
-        "The 3-4-5 triangle. Never the curve sin(x²)cos(x²) from the start of the chat.",
+        "The 3-4-5 triangle. Never the curve sin(x²)cos(x²) from the start of the chat. With no "
+        "read (offline), maths draws it; a turn whose read wants a figure leaves it to the "
+        "figure read (``figure_turn.will_draw``).",
         history=(*_TRIANGLE_AREA, ("user", "Do it properly"), ("assistant", "Area = 6.")),
         # The model's read names the line the triangle started on; its pieces complete it.
         referent="Triangle are with sides 5, 4,",

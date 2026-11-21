@@ -377,3 +377,18 @@ def test_a_repeated_number_the_problem_writes_once_is_new(
 ) -> None:
     """ "3x + 3 = 7" after "2x + 3 = 7" read as no new value (Gemini, PR #2482)."""
     assert posed_read.states_new_values(line, problem) is new
+
+
+@pytest.mark.asyncio
+async def test_a_solve_that_asks_something_new_is_no_solve() -> None:
+    """Live (2026-11-20): "Now find the length of its diagonal" after a rectangle's area was
+    read as "solve" and answered the area again, verified. A solve the read says names a
+    new thing to find is none; the same solve asking only for the answer stands."""
+    problem = "A rectangle is 8 cm long and 6 cm wide. Find its area."
+    chat = [("user", problem), ("assistant", "A = 8 × 6 = 48 cm²")]
+    line = "Now find the length of its diagonal."
+    new = PosedPick(kind="solve", message=1, problem=problem, new_ask=True)
+    assert (await _read(line, new, chat))[0] is None
+    same = PosedPick(kind="solve", message=1, problem=problem, new_ask=False)
+    posed = (await _read("Now give me the final answer.", same, chat))[0]
+    assert posed is not None and posed.problem == problem

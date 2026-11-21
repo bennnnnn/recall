@@ -169,3 +169,23 @@ def test_a_free_users_picture_of_it_keeps_the_composers_upgrade_prompt() -> None
     rows = _rows(("Generate an image of a red sports car", "Here it is."))
     assert composer_image_intent("a picture of it", rows, can_generate=False).request is not None
     assert composer_image_intent("a picture of it", rows, can_generate=True).request is None
+
+
+_RECTANGLE = (
+    "A rectangle is 8 cm long and 6 cm wide. Find its area.",
+    "A = 8 × 6 = 48 cm²",
+)
+
+
+def test_draw_it_of_a_shape_is_its_figure_when_the_figure_read_draws() -> None:
+    """Live (2026-11-21): "Draw it" after a rectangle's area and its diagonal solved the area
+    again, its card and its rectangle beside the figure. With figures on, a shape is the
+    figure's to draw; a curve is still maths' graph."""
+    history = _history(_RECTANGLE, ("Now find the length of its diagonal.", "d = 10 cm"))
+    shape = _RECTANGLE[0]
+    assert resolve_subject_followup("Draw it", history, shape).math == shape
+    assert resolve_subject_followup("Draw it", history, shape, None, True).math is None
+    curve = _history(_CURVE, ("what is the domain?", "All real numbers."))
+    assert resolve_subject_followup("show it", curve, "sin(x)", None, True) == SubjectFollowup(
+        math="graph sin(x)"
+    )

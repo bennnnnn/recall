@@ -617,3 +617,44 @@ async def test_a_range_end_written_as_text_is_read_in_the_pool_not_on_the_loop()
     assert fence is not None
     graph = json.loads(fence.split("\n", 1)[1].rsplit("\n```", 1)[0])
     assert (graph["points"][0][0], graph["points"][-1][0]) == pytest.approx((-3.0, 3.0))
+
+
+@pytest.mark.parametrize(
+    ("question", "reading"),
+    [
+        (
+            r"In \(\triangle ABC\), the measure of \(\angle A\) is \(45^{\circ }\) and the "
+            r"measure of \(\angle B\) is \(65^{\circ }\). What is the measure of \(\angle C\)?",
+            {
+                "kind": "polygon",
+                "shape": "triangle",
+                "vertices": "ABC",
+                "measures": [
+                    {"what": "angle", "name": "A", "value": 45},
+                    {"what": "angle", "name": "B", "value": 65},
+                ],
+            },
+        ),
+        (
+            r"A right-angled triangle has legs of length \(6\text{ cm}\) and \(8\text{ cm}\). "
+            "What is the length of the hypotenuse?",
+            {
+                "kind": "polygon",
+                "shape": "right_triangle",
+                "measures": [{"what": "leg", "value": 6}, {"what": "leg", "value": 8}],
+                "unit": "cm",
+            },
+        ),
+        (
+            r"What is the circumference of a circle with a radius of \(7\text{ cm}\)?",
+            {"kind": "circle", "shape": "circle", "measures": [{"what": "radius", "value": 7}]},
+        ),
+    ],
+)
+def test_a_question_pasted_as_latex_is_drawn(question: str, reading: dict[str, Any]) -> None:
+    """The owner's phone (2026-11-20): three worksheet questions pasted as LaTeX drew nothing;
+    read raw, "45^{\\circ }" was a power and "6\\text{ cm}" had no unit."""
+    from app.modules.math.figure.build import build_figure_fence
+
+    fence = build_figure_fence(json.dumps(reading), [question])
+    assert fence is not None and fence.startswith("```geometry")
