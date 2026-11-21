@@ -130,7 +130,18 @@ async def _draw(
     # A solved turn gets only its own subject's figure, never another's over its solve.
     if wanted is None or figure is None or solved_by not in (None, wanted[0]):
         return None
-    return await figure.draw(line, earlier, settings, asked=wanted[1] == "asked")
+    return await figure.draw(
+        line, _earlier_for(read, earlier), settings, asked=wanted[1] == "asked"
+    )
+
+
+def _earlier_for(read: asyncio.Task[TurnDecision | None], earlier: list[str]) -> list[str]:
+    """The earlier messages the figure reads with the line: none when the read says the
+    message stands alone. "If a rectangle is 4 by 5, what is its area?" after a question
+    about vectors drew nothing: read beside it, the figure read answered "no picture" three
+    times in four (owner, 2026-11-20). "Draw it", "what if it were 6 by 8" still get them."""
+    decision = read.result() if read.done() and not read.cancelled() else None
+    return [] if decision is not None and decision.follow == "none" else earlier
 
 
 # The figure read's graphs a described plot never draws: its lettered points (A, B) and

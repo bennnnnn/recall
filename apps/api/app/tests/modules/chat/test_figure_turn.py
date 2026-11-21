@@ -246,6 +246,26 @@ async def test_draw_it_reads_the_earlier_question(figure: _Figure) -> None:
     assert figure.asked == [("draw it", ["A rhombus has diagonals 10 cm and 24 cm."])]
 
 
+async def test_a_question_that_stands_alone_is_read_without_the_earlier_ones(
+    figure: _Figure,
+) -> None:
+    """The owner's chat (2026-11-20): a rectangle's area and perimeter after a question about
+    vectors drew nothing; read beside the vectors, the figure read said "no picture". A
+    message the read calls standalone (follow none) is read by itself."""
+    earlier = SimpleNamespace(role="user", content="Resolve 60 N at 30° into two components.")
+    reply = SimpleNamespace(role="assistant", content="52 N and 30 N.")
+    question = "If the length of a rectangle is 4 and the width 5, what is the area?"
+    line = SimpleNamespace(role="user", content=question)
+    ctx = _ctx(
+        question,
+        live_read=_read(subject="maths", picture="none", follow="none"),
+        recent_messages=[earlier, reply, line],
+    )
+    ctx.figure = figure_turn.start_figure(_settings(), ctx)
+    await figure_turn.attach_figure(_state(ctx, "**Answer**\n\n$A = 20$"))
+    assert figure.asked == [(question, [])]
+
+
 async def test_a_solid_joins_the_plane_part_a_solve_drew(figure: _Figure) -> None:
     """The textbook's prism (b27): the solve drew the base triangle; the prism joins it."""
     figure.fence = _FENCE  # a cube
