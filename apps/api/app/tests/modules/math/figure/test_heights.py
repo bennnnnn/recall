@@ -127,3 +127,130 @@ def test_heights_a_triangles_base_is_the_scenes_ground() -> None:
     spec = figure(LADDER, reading)
     assert labels(spec) == ["10 m", "6 m"]
     assert _top(spec) == pytest.approx(8)
+
+
+def _measured(shape: str, *measures: tuple[str, float, str], **more: Any) -> dict[str, Any]:
+    reading = _scene(shape, **more)
+    reading["measures"] = [{"what": w, "value": v, "of": of} for w, v, of in measures]
+    return reading
+
+
+OPPOSITE = (
+    "The angles of elevation of the top of a tower from two points on opposite sides of it "
+    "are 30° and 60°. The tower is 50 m high. Find the distance between the points."
+)
+
+
+@pytest.mark.parametrize("parts", [[], ["opposite_sides"]])
+def test_heights_two_points_on_opposite_sides_stand_either_side_of_the_foot(
+    parts: list[str],
+) -> None:
+    reading = _scene("elevation", ("angle", 30), ("angle", 60), ("height", 50))
+    spec = figure(OPPOSITE, {**reading, "parts": parts})
+    assert spec.shape == "elevation_opposite_sides"
+    assert labels(spec) == ["30°", "50 m", "60°"]
+    assert labelled_length(spec, "50 m") == pytest.approx(50)
+    assert labelled_angle(spec, "30°") == pytest.approx(30)
+    assert labelled_angle(spec, "60°") == pytest.approx(60)
+    ground = sorted(p.x for p in spec.points if p.y == 0 and p.x != 0)
+    assert ground == pytest.approx([-50 * math.sqrt(3), 50 / math.sqrt(3)])
+
+
+def test_heights_opposite_sides_gap_decides_the_height_by_the_sum_of_cotangents() -> None:
+    question = (
+        "Two points on opposite sides of a tower are 100 m apart. The angles of elevation of "
+        "its top from them are 30° and 60°. Find the height of the tower."
+    )
+    spec = figure(question, _scene("elevation", ("angle", 30), ("angle", 60), ("gap", 100)))
+    assert labelled_length(spec, "100 m") == pytest.approx(100)
+    # h (cot 30° + cot 60°) = 100.
+    assert _top(spec) == pytest.approx(100 / (math.sqrt(3) + 1 / math.sqrt(3)))
+    assert labels(spec) == ["100 m", "30°", "60°"]
+
+
+def test_heights_opposite_sides_of_a_lighthouse_seen_down_from_its_top() -> None:
+    question = (
+        "From the top of a 75 m lighthouse, the angles of depression of two ships on opposite "
+        "sides of it are 30° and 45°."
+    )
+    spec = figure(question, _scene("depression", ("angle", 30), ("angle", 45), ("height", 75)))
+    assert labelled_angle(spec, "30°") == pytest.approx(30)
+    assert labelled_angle(spec, "45°") == pytest.approx(45)
+    ground = sorted(p.x for p in spec.points if p.y == 0 and p.x != 0)
+    assert ground == pytest.approx([-75 * math.sqrt(3), 75])
+
+
+@pytest.mark.parametrize(
+    ("question", "parts"),
+    [
+        # The read says opposite sides; the question says none.
+        ("From two points 20 m apart, the angles of elevation of a tower are 30° and 60°.",
+         ["opposite_sides"]),
+        # The read says one side; the question says opposite sides.
+        ("From two points 20 m apart on opposite sides of a tower, the angles of elevation "
+         "are 30° and 60°.", ["same_side"]),
+        # The question says both.
+        ("From two points 20 m apart, on the same side or on opposite sides of a tower, the "
+         "angles of elevation are 30° and 60°.", []),
+    ],
+)  # fmt: skip
+def test_heights_two_points_on_a_side_the_question_does_not_say_draw_nothing(
+    question: str, parts: list[str]
+) -> None:
+    reading = _scene("elevation", ("angle", 30), ("angle", 60), ("gap", 20))
+    assert draw(question, {**reading, "parts": parts}) is None
+
+
+MAN = (
+    "A man 1.6 m tall stands 20 m from a tower. The angle of elevation of the top of the "
+    "tower from his eyes is 30°. Find the height of the tower."
+)
+
+
+@pytest.mark.parametrize("of", ["man", "observer"])
+def test_heights_an_observers_eye_height_is_his_not_the_towers(of: str) -> None:
+    reading = _measured("elevation", ("height", 1.6, of), ("distance", 20, ""), ("angle", 30, ""))
+    spec = figure(MAN, reading)
+    assert spec.shape == "elevation_observer"
+    assert labels(spec) == ["1.6 m", "20 m", "30°"]
+    assert labelled_length(spec, "1.6 m") == pytest.approx(1.6)
+    assert labelled_length(spec, "20 m") == pytest.approx(20)
+    assert labelled_angle(spec, "30°") == pytest.approx(30)
+    # The tower: his eye height and the rise above it, 20 tan 30°.
+    assert _top(spec) == pytest.approx(1.6 + 20 * math.tan(math.radians(30)))
+    mark = next(a for a in spec.angles if a.label == "30°")
+    assert at(spec, mark.at) == pytest.approx((20, 1.6))
+
+
+def test_heights_an_observer_and_an_angle_alone_never_label_the_tower() -> None:
+    question = "A 1.6 m tall man sees the top of a tower at an angle of elevation of 30°."
+    spec = figure(question, _measured("elevation", ("height", 1.6, "man"), ("angle", 30, "")))
+    assert labelled_length(spec, "1.6 m") == pytest.approx(1.6)
+    assert _top(spec) > 1.6
+
+
+def test_heights_an_observer_taller_than_the_tower_draws_nothing() -> None:
+    question = "A man 1.8 m tall sees the top of a 1.5 m wall at 30° from 2 m away."
+    reading = _measured(
+        "elevation", ("height", 1.8, "man"), ("height", 1.5, "wall"), ("angle", 30, "")
+    )
+    assert draw(question, reading) is None
+
+
+@pytest.mark.parametrize(
+    "measures",
+    [
+        # A flagstaff on a building: two things standing up.
+        [("height", 20, "building"), ("height", 5, "flagstaff"), ("angle", 45, "")],
+        # Seen from one point: the bottom and the top of the flagstaff.
+        [("height", 20, "building"), ("angle", 45, ""), ("angle", 60, "")],
+    ],
+)
+def test_heights_two_tops_seen_from_one_point_draw_nothing(
+    measures: list[tuple[str, float, str]],
+) -> None:
+    question = (
+        "From a point on the ground, the angles of elevation of the bottom and the top of a "
+        "5 m flagstaff on a 20 m building are 45° and 60°."
+    )
+    assert draw(question, _measured("elevation", *measures)) is None

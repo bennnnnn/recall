@@ -195,9 +195,11 @@ _BODY = (
     "slanting line (ladder, string, ramp, line of sight), angle the angle with the ground "
     "or the horizontal (an angle of elevation or depression), angle_from_vertical one "
     "with the wall or the vertical, gap the distance between two points the angles are "
-    "seen from (two angles of elevation from two points: both angles and the gap); "
+    "seen from (two angles of elevation from two points: both angles and the gap, and "
+    'parts "opposite_sides" when the points are on opposite sides of it); '
     "shadow is a shadow's length. Every measure may say what it is of (a field "
-    'beside name): an object\'s ("pole", "tree"); in a shape made of two, the attached '
+    'beside name): an object\'s ("pole", "tree"), "observer" for the height of the person '
+    "the angle is seen by (his eye level); in a shape made of two, the attached "
     "part's name "
     '("semicircle", "cone", "triangle"), "second" for a second rectangle, "" for the first '
     "shape; the side a semicircle stands on is its diameter too. In a solid made of two, "

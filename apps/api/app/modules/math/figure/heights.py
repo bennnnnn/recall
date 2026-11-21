@@ -8,17 +8,23 @@ up: the vertical (``height``), the ground (``distance``), the slanting line (``l
 the ladder, the string, the line of sight) and the angle at the ground (``angle``, or
 ``angle_from_vertical`` at the top). Any two of them, one a length, decide it; a third the
 question states must agree, or nothing is drawn. Two angles seen from two points ``gap``
-apart on one side decide the height too. Only stated values are labelled; the right angle
-is boxed.
+apart decide the height too (``two_points``). A man's eye height (``of`` "observer", or a
+person the read names) is the observer's, never the tower's: the angle is drawn at his
+eye, from the level through it, and the tower is his eye height and the rise above it. A
+1.6 m "man" read beside a 30° angle was drawn as a 1.6 m tower (2026-11-21). Two heights
+of two things (a flagstaff on a building) are no one triangle: nothing is drawn. Only
+stated values are labelled; the right angle is boxed.
 """
 
 from __future__ import annotations
 
 import math
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 from app.modules.math.figure.drawing import Drawing, angle_label, length_label
-from app.modules.math.figure.request import FigureRequest
+from app.modules.math.figure.request import FigureRequest, Measure
+from app.modules.math.figure.two_points import build_two_points, sides_as_said
 from app.modules.math.schemas.figure import FigureSpec
 
 SCENES = {
@@ -40,6 +46,13 @@ _DEFAULT_DISTANCE = 5.0
 _DEFAULT_ANGLE = 55.0
 # How far the ground and a wall run on past the triangle, as a share of its size.
 _RUN_ON = 0.15
+# Whose height is an observer's, by the words a read names it ``of`` with.
+_OBSERVERS = frozenset(
+    {
+        "observer", "man", "woman", "boy", "girl", "person", "child", "student", "eye",
+        "eyes", "eye_level", "eye_height", "he", "she", "his", "her", "viewer", "surveyor",
+    }
+)  # fmt: skip
 
 
 @dataclass(frozen=True)
@@ -121,42 +134,68 @@ def as_scene(request: FigureRequest) -> FigureRequest:
     return request.model_copy(update={"shape": "elevation", "measures": measures})
 
 
+def as_said(request: FigureRequest, texts: Iterable[str]) -> FigureRequest | None:
+    """A scene's reading held to the question's words: the side its two points are on."""
+    return sides_as_said(request, texts) if request.shape in SCENES else request
+
+
+def _observer(m: Measure) -> bool:
+    return bool(m.of) and (m.of in _OBSERVERS or bool(set(m.of.split("_")) & _OBSERVERS))
+
+
+def _heights(request: FigureRequest) -> tuple[float | None, float | None] | None:
+    """(what stands up, the observer's eye height), each None when not stated; None when
+    the heights are of more than one thing standing up, or of two observers."""
+    heights = request.given("height")
+    eyes = [m for m in heights if _observer(m)]
+    standing = [m for m in heights if not _observer(m)]
+    if len(eyes) > 1 or len(standing) > 1:
+        return None
+    return (
+        standing[0].value if standing else None,
+        eyes[0].value if eyes else None,
+    )
+
+
 def build_scene(request: FigureRequest) -> FigureSpec | None:
     scene = SCENES.get(request.shape)
-    if scene is None:
+    heights = _heights(request)
+    if scene is None or heights is None:
         return None
+    height, eye = heights
     angles = [m.value for m in request.given("angle")]
-    if len(angles) == 2 and scene in {"elevation", "depression"}:
-        return _two_points(request, scene, sorted(angles))
+    if len(angles) == 2 and scene in {"elevation", "depression"} and eye is None:
+        return build_two_points(request, scene, angles, height)
     if len(angles) > 1 or request.given("gap"):
         return None
     angle = _ground_angle(request)
     if angle is not None and angle < 0:
         return None
-    right = _solve(
-        request.first("height"), request.first("distance"), request.first("length"), angle
-    )
+    if eye is not None:
+        return _observed(request, scene, (height, eye), angle)
+    right = _solve(height, request.first("distance"), request.first("length"), angle)
     if right is None:
         return None
-    return _draw(request, scene, right)
+    return _draw(request, scene, right, height)
 
 
-def _labels(request: FigureRequest) -> dict[str, str | None]:
+def _labels(request: FigureRequest, height: float | None) -> dict[str, str | None]:
     unit = request.unit
     found: dict[str, str | None] = {}
-    for what in ("height", "distance", "length", "gap"):
+    for what in ("distance", "length"):
         value = request.first(what)
         found[what] = length_label(value, unit) if value is not None else None
+    found["height"] = length_label(height, unit) if height is not None else None
     for what in ("angle", "angle_from_vertical"):
         value = request.first(what)
         found[what] = angle_label(value) if value is not None else None
     return found
 
 
-def _draw(request: FigureRequest, scene: str, right: _Right) -> FigureSpec:
+def _draw(request: FigureRequest, scene: str, right: _Right, height: float | None) -> FigureSpec:
     """The triangle with its right angle at the origin, the vertical up the y-axis, the
     ground along the x-axis; the depression's horizontal across the top."""
-    labels = _labels(request)
+    labels = _labels(request, height)
     h, d = right.height, right.distance
     run = _RUN_ON * max(h, d)
     drawing = Drawing(scene)
@@ -181,40 +220,40 @@ def _draw(request: FigureRequest, scene: str, right: _Right) -> FigureSpec:
     return drawing.spec()
 
 
-def _two_points(request: FigureRequest, scene: str, angles: list[float]) -> FigureSpec | None:
-    """Two angles of elevation (or depression) seen from two points on one side, ``gap``
-    apart: the smaller from the farther. The height is what makes both true."""
-    far, near = angles
-    if not 0 < far < near < 90 or request.first("distance", "length") is not None:
+def _observed(
+    request: FigureRequest,
+    scene: str,
+    heights: tuple[float | None, float],
+    angle: float | None,
+) -> FigureSpec | None:
+    """An angle of elevation seen from a man's eye: the right triangle above his eye level
+    (its rise the tower less his eye height), the level dashed from his eye to the tower,
+    the angle at his eye. A tower no taller than his eye, a depression, an angle from the
+    vertical or a line of sight stated draws nothing."""
+    height, eye = heights
+    if scene != "elevation" or request.first("angle_from_vertical", "length") is not None:
         return None
-    cot_far, cot_near = (1 / math.tan(math.radians(a)) for a in (far, near))
-    gap, height = request.first("gap"), request.first("height")
-    if gap is not None:
-        found = gap / (cot_far - cot_near)
-        if height is not None and not _close(found, height):
-            return None
-        height = found
-    if height is None:
+    if height is not None and height <= eye + _TOLERANCE:
         return None
-    gap_size = height * (cot_far - cot_near)
-    labels = _labels(request)
-    drawing = Drawing(f"{scene}_two_points")
+    rise = height - eye if height is not None else None
+    above = _solve(rise, request.first("distance"), None, angle)
+    if above is None:
+        return None
+    labels = _labels(request, height)
+    d, top_y = above.distance, eye + above.height
+    drawing = Drawing("elevation_observer")
     foot = drawing.point((0.0, 0.0))
-    top = drawing.point((0.0, height))
-    near_at = drawing.point((height * cot_near, 0.0))
-    far_at = drawing.point((height * cot_near + gap_size, 0.0))
-    drawing.line(foot, near_at)
-    drawing.line(near_at, far_at, labels["gap"])
+    top = drawing.point((0.0, top_y))
+    level = drawing.point((0.0, eye))
+    stands = drawing.point((d, 0.0))
+    at_eye = drawing.point((d, eye))
+    drawing.line(foot, stands, labels["distance"])
+    drawing.line(stands, drawing.point((d + _RUN_ON * max(top_y, d), 0.0)))
     drawing.line(foot, top, labels["height"])
-    drawing.line(near_at, top)
-    drawing.line(far_at, top)
-    drawing.angle(foot, near_at, top, right=True)
-    if scene == "depression":
-        level = drawing.point((height * cot_near + gap_size, height))
-        drawing.line(top, level, dashed=True)
-        drawing.angle(top, level, far_at, angle_label(far))
-        drawing.angle(top, level, near_at, angle_label(near))
-    else:
-        drawing.angle(far_at, foot, top, angle_label(far))
-        drawing.angle(near_at, foot, top, angle_label(near))
+    drawing.line(stands, at_eye, length_label(eye, request.unit))
+    drawing.line(at_eye, level, dashed=True)
+    drawing.line(at_eye, top)
+    drawing.angle(foot, stands, top, right=True)
+    drawing.angle(level, at_eye, top, right=True)
+    drawing.angle(at_eye, level, top, labels["angle"])
     return drawing.spec()
