@@ -42,7 +42,7 @@ class Readout(BaseModel):
 
 class CalculatorSpec(BaseModel):
     v: Literal[1] = 1
-    product: Literal["loan", "card_payoff", "savings"]
+    product: Literal["loan", "card_payoff", "savings", "afford"]
     title_key: str
     # ISO 4217, or "" when the request named none (the phone shows its own currency).
     currency: str
