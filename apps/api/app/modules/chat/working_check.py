@@ -444,11 +444,12 @@ def corrected_approximations(reply: str) -> str:
 
 
 # What follows an approximated number: a unit ("70.7 cm", "$10.95$ \\text{cm}"), or a mark that
-# makes it another number than its digits ("1.67 \\times 10^{-4}", "8%", "30°", "1,224.74").
+# makes it another number than its digits ("1.67 \\times 10^{-4}", "8%", "30°", "1,224.74"), or a
+# fraction, ratio or range of which it is only the start ("22/7", "3:1", "2-3", "2 to 3").
 _UNIT_AFTER = re.compile(
     r"[ \t$]*(?:\\[,; ][ \t]*)?"
     r"(?:\\(?:text|mathrm)\s*\{\s*([^{}\s]{1,12})\s*\}|([A-Za-zµμΩ]+)|(\\times|\u00d7|\*\s*10\b|e[-+]?\d|"
-    r"\\?%|°|\^|\\circ|\\deg|,\d))"
+    r"\\?%|°|\^|\\circ|\\deg|,\d|[ \t]*[/:\u2013-][ \t]*\d|[ \t]+to[ \t]+\d))"
 )
 _WORD = re.compile(r"[A-Za-zµμΩ°]+")
 

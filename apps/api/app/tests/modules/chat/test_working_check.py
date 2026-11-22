@@ -457,3 +457,18 @@ def test_a_spaced_unknown_is_no_unit() -> None:
     """Review (#2520): "x = 7 - 2 y" read y as a unit, so x was 5 and the system "broke"."""
     reply = "**Steps**\n\n$x + y = 5$\n$x - y = 1$\n$x = 7 - 2 y$\n$y = 2$\n$x = 3$"
     assert working_note(reply) is None
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "So $\\pi$ (approximately 22/7).",
+        "So $\\frac{6}{8}$ (approximately 3/4).",
+        "The odds are $\\frac{3}{1}$ (approximately 3:1).",
+        "It takes $\\sqrt{6}$ hours (approximately 2-3 hours).",
+        "It takes $\\sqrt{6}$ hours (approximately 2 to 3 hours).",
+    ],
+)
+def test_a_fraction_ratio_or_range_is_never_rewritten(reply: str) -> None:
+    """Review (#2520): "approximately 22/7" read 22 and became "3/7"."""
+    assert corrected_approximations(reply) == reply
