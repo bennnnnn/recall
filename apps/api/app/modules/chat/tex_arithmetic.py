@@ -19,6 +19,7 @@ from app.services.glyphs import fold_operator_glyphs
 from app.services.md_fence_scan import map_fence_blocks
 
 _INLINE_CODE = re.compile(r"`[^`\n]*`")
+_MIXED_NUMBER = re.compile(r"\d\s*\\[dt]?frac\b")
 INLINE_MATH = re.compile(r"(?<![\\$])\$(?!\$)([^$\n]+?)(?<!\\)\$(?!\$)")
 # 3.98 \times 10^{-19} is one number: "a * 10^-19 / b * 10^-19" divides two of them.
 _SCIENTIFIC = re.compile(
@@ -94,6 +95,10 @@ MAX_EXPONENT = 64
 
 def plain_arithmetic(tex: str) -> str | None:
     """A LaTeX side as a Python arithmetic expression, or None when it is not numbers."""
+    # "1\\frac{1}{2}" is a mixed number, one and a half, never one times a half: no
+    # arithmetic is read for it (review, #2520).
+    if _MIXED_NUMBER.search(tex):
+        return None
     text = tex.replace("\\left", "").replace("\\right", "")
     text = _SCIENTIFIC.sub(r"(\1e\2)", text)
     text = _TRIG_DEGREES.sub(r" \1d(\2)", text)

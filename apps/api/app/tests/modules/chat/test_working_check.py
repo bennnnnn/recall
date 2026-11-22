@@ -444,3 +444,10 @@ def test_a_coarse_approximation_is_left_as_said(exact: str) -> None:
     reply = f"So ${exact}$ (approximately {shown})."
     assert corrected_approximations(reply) == reply
     assert working_note(f"**Steps**\n\n${exact} \\approx {shown}$") is None
+
+
+def test_a_mixed_number_is_never_read_as_a_product() -> None:
+    """Review (#2520): "1\\frac{1}{2}" was read as 1 * 1/2."""
+    assert working_note("**Steps**\n\n$1\\frac{1}{2} \\times 4 = 6$") is None
+    reply = "That is $1\\frac{1}{2}$ (approximately 1.5)."
+    assert corrected_approximations(reply) == reply
