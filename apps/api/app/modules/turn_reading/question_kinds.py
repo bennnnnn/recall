@@ -211,3 +211,16 @@ def is_science_question(query: str) -> bool:
         and _SCIENCE.search(text) is not None
         and not names_or_news(text)
     )
+
+
+# A question that asks for reasoning beside its values: a proof, a reason, a check.
+_REASONING = re.compile(
+    r"\b(?:prove|proof|show\s+that|explain|justify|why|verify|derive|deduce)\b", re.IGNORECASE
+)
+
+
+def asks_reasoning(text: str) -> bool:
+    """The question asks for a proof or an explanation as well as its values ("Prove that
+    your answer gives the maximum", "Explain."): words after a worked answer may be what
+    it asked, never only the working said again."""
+    return _REASONING.search(text) is not None

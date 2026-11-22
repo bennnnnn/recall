@@ -160,6 +160,9 @@ class PhysicsPartWorking:
     # Its own card: the value alone, as plain text and as LaTeX.
     answer: str
     display_answer: str
+    # The card's values as the solve reached them, unrounded, in its units: the working
+    # ends on them, and only the card rounds (``physics.working_steps``).
+    answer_values: tuple[float, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -173,6 +176,8 @@ class VerifiedPhysicsBlock(VerifiedSolveBlock):
     physics_substitutions: tuple[str, ...] = ()
     # A question in parts: each part's working and card, in the order asked.
     physics_parts: tuple[PhysicsPartWorking, ...] = ()
+    # The card's values as the solve reached them, unrounded, in its units (``PhysicsPartWorking``).
+    answer_values: tuple[float, ...] = ()
     symbolic_request: SymbolicPhysicsRequest | None = None
     # The question asks for more than this result answers: the model answers the rest.
     partial: bool = False

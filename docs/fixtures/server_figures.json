@@ -1,0 +1,10298 @@
+{
+ "_doc": "Figures the server builds for the geometry corpus (app/tests/behavior/geometry_figures_corpus.json), each from a saved figure read. test_server_figures_fixture.py rebuilds every one from its reading (UPDATE_SERVER_FIGURES=1 rewrites them); the phone lays each out and holds every label clear of every stroke and other label (geometryFigureLabels.test.ts).",
+ "cases": [
+  {
+   "id": "tri-sss",
+   "prompt": "Triangle ABC has sides AB = 7 cm, BC = 8 cm and CA = 9 cm. Find its largest angle.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "triangle",
+    "vertices": "ABC",
+    "measures": [
+     {
+      "what": "side",
+      "name": "AB",
+      "value": 7.0
+     },
+     {
+      "what": "side",
+      "name": "BC",
+      "value": 8.0
+     },
+     {
+      "what": "side",
+      "name": "CA",
+      "value": 9.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "triangle",
+    "points": [
+     {
+      "name": "A",
+      "x": 0.0,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "B",
+      "x": 7.0,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "C",
+      "x": 4.714285714285714,
+      "y": 7.666518779999278,
+      "show": true
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B",
+      "label": "7 cm"
+     },
+     {
+      "a": "B",
+      "b": "C",
+      "label": "8 cm"
+     },
+     {
+      "a": "C",
+      "b": "A",
+      "label": "9 cm"
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "tri-sas",
+   "prompt": "In triangle ABC, AB = 6 cm, AC = 9 cm and angle A = 50°. Find BC.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "triangle",
+    "vertices": "ABC",
+    "measures": [
+     {
+      "what": "side",
+      "name": "AB",
+      "value": 6.0
+     },
+     {
+      "what": "side",
+      "name": "AC",
+      "value": 9.0
+     },
+     {
+      "what": "angle",
+      "name": "A",
+      "value": 50.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "triangle",
+    "points": [
+     {
+      "name": "A",
+      "x": 0.0,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "B",
+      "x": 6.0,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "C",
+      "x": 5.785088487178854,
+      "y": 6.894399988070803,
+      "show": true
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B",
+      "label": "6 cm"
+     },
+     {
+      "a": "B",
+      "b": "C"
+     },
+     {
+      "a": "C",
+      "b": "A",
+      "label": "9 cm"
+     }
+    ],
+    "angles": [
+     {
+      "at": "A",
+      "a": "B",
+      "b": "C",
+      "label": "50°"
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "tri-asa",
+   "prompt": "In triangle PQR, angle P = 40°, angle Q = 75° and PQ = 10 cm. Find QR.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "triangle",
+    "vertices": "PQR",
+    "measures": [
+     {
+      "what": "angle",
+      "name": "P",
+      "value": 40.0
+     },
+     {
+      "what": "angle",
+      "name": "Q",
+      "value": 75.0
+     },
+     {
+      "what": "side",
+      "name": "PQ",
+      "value": 10.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "triangle",
+    "points": [
+     {
+      "name": "P",
+      "x": 0.0,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "Q",
+      "x": 10.0,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "R",
+      "x": 8.1643578735347,
+      "y": 6.850709680482285,
+      "show": true
+     }
+    ],
+    "segments": [
+     {
+      "a": "P",
+      "b": "Q",
+      "label": "10 cm"
+     },
+     {
+      "a": "Q",
+      "b": "R"
+     },
+     {
+      "a": "R",
+      "b": "P"
+     }
+    ],
+    "angles": [
+     {
+      "at": "P",
+      "a": "Q",
+      "b": "R",
+      "label": "40°"
+     },
+     {
+      "at": "Q",
+      "a": "R",
+      "b": "P",
+      "label": "75°"
+     }
+    ],
+    "faces": [
+     [
+      "P",
+      "Q",
+      "R"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "tri-obtuse",
+   "prompt": "Triangle ABC has AB = 5, BC = 12 and angle B = 120°. Find AC.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "triangle",
+    "vertices": "ABC",
+    "measures": [
+     {
+      "what": "side",
+      "name": "AB",
+      "value": 5.0
+     },
+     {
+      "what": "side",
+      "name": "BC",
+      "value": 12.0
+     },
+     {
+      "what": "angle",
+      "name": "B",
+      "value": 120.0
+     }
+    ]
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "triangle",
+    "points": [
+     {
+      "name": "A",
+      "x": 0.0,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "B",
+      "x": 5.0,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "C",
+      "x": 10.999999999999996,
+      "y": 10.392304845413266,
+      "show": true
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B",
+      "label": "5"
+     },
+     {
+      "a": "B",
+      "b": "C",
+      "label": "12"
+     },
+     {
+      "a": "C",
+      "b": "A"
+     }
+    ],
+    "angles": [
+     {
+      "at": "B",
+      "a": "C",
+      "b": "A",
+      "label": "120°"
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "tri-heron",
+   "prompt": "Find the area of a triangle with sides 13 cm, 14 cm and 15 cm.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "triangle",
+    "measures": [
+     {
+      "what": "side",
+      "value": 13.0
+     },
+     {
+      "what": "side",
+      "value": 14.0
+     },
+     {
+      "what": "side",
+      "value": 15.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "triangle",
+    "points": [
+     {
+      "name": "A",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "B",
+      "x": 13.0,
+      "y": 0.0
+     },
+     {
+      "name": "C",
+      "x": 7.615384615384615,
+      "y": 12.923076923076923
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B",
+      "label": "13 cm"
+     },
+     {
+      "a": "B",
+      "b": "C",
+      "label": "14 cm"
+     },
+     {
+      "a": "C",
+      "b": "A",
+      "label": "15 cm"
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "tri-equi-height",
+   "prompt": "Find the height of an equilateral triangle with side 10 cm.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "equilateral_triangle",
+    "measures": [
+     {
+      "what": "side",
+      "value": 10.0
+     }
+    ],
+    "parts": [
+     "height"
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "equilateral_triangle",
+    "points": [
+     {
+      "name": "A",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "B",
+      "x": 10.0,
+      "y": 0.0
+     },
+     {
+      "name": "C",
+      "x": 5.0,
+      "y": 8.660254037844387
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B",
+      "label": "10 cm",
+      "ticks": 1
+     },
+     {
+      "a": "B",
+      "b": "C",
+      "ticks": 1
+     },
+     {
+      "a": "C",
+      "b": "A",
+      "ticks": 1
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "tri-iso-apex",
+   "prompt": "An isosceles triangle has an apex angle of 40° and equal sides of 8 cm. Find the length of its base.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "isosceles_triangle",
+    "measures": [
+     {
+      "what": "apex_angle",
+      "value": 40.0
+     },
+     {
+      "what": "equal_side",
+      "value": 8.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "isosceles_triangle",
+    "points": [
+     {
+      "name": "A",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "B",
+      "x": 5.4723222932107,
+      "y": 0.0
+     },
+     {
+      "name": "C",
+      "x": 2.7361611466053497,
+      "y": 7.517540966287267
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B"
+     },
+     {
+      "a": "B",
+      "b": "C",
+      "ticks": 1
+     },
+     {
+      "a": "C",
+      "b": "A",
+      "label": "8 cm",
+      "ticks": 1
+     }
+    ],
+    "angles": [
+     {
+      "at": "C",
+      "a": "A",
+      "b": "B",
+      "label": "40°"
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "tri-right-trig",
+   "prompt": "In right triangle ABC, angle C = 90°, AB = 13 and BC = 5. Find angle A.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "right_triangle",
+    "vertices": "ABC",
+    "measures": [
+     {
+      "what": "angle",
+      "name": "C",
+      "value": 90.0
+     },
+     {
+      "what": "hypotenuse",
+      "name": "AB",
+      "value": 13.0
+     },
+     {
+      "what": "side",
+      "name": "BC",
+      "value": 5.0
+     }
+    ]
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "right_triangle",
+    "points": [
+     {
+      "name": "C",
+      "x": 0.0,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "A",
+      "x": 12.0,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "B",
+      "x": 0.0,
+      "y": 5.0,
+      "show": true
+     }
+    ],
+    "segments": [
+     {
+      "a": "C",
+      "b": "A"
+     },
+     {
+      "a": "A",
+      "b": "B",
+      "label": "13"
+     },
+     {
+      "a": "B",
+      "b": "C",
+      "label": "5"
+     }
+    ],
+    "angles": [
+     {
+      "at": "C",
+      "a": "A",
+      "b": "B",
+      "right": true
+     }
+    ],
+    "faces": [
+     [
+      "C",
+      "A",
+      "B"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "tri-306090",
+   "prompt": "A 30-60-90 triangle has a hypotenuse of 12 cm. Find the lengths of the other two sides.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "right_triangle",
+    "measures": [
+     {
+      "what": "hypotenuse",
+      "value": 12.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "right_triangle",
+    "points": [
+     {
+      "name": "A",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "B",
+      "x": 7.793376579962204,
+      "y": 0.0
+     },
+     {
+      "name": "C",
+      "x": 1.823452847349887e-15,
+      "y": 9.124871587200373
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B"
+     },
+     {
+      "a": "B",
+      "b": "C",
+      "label": "12 cm"
+     },
+     {
+      "a": "C",
+      "b": "A"
+     }
+    ],
+    "angles": [
+     {
+      "at": "A",
+      "a": "B",
+      "b": "C",
+      "right": true
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "tri-median",
+   "prompt": "In triangle ABC, AB = AC = 10 cm and BC = 12 cm. Find the length of the median from A to BC.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "isosceles_triangle",
+    "vertices": "ABC",
+    "apex": "A",
+    "measures": [
+     {
+      "what": "equal_side",
+      "name": "AB",
+      "value": 10.0
+     },
+     {
+      "what": "equal_side",
+      "name": "AC",
+      "value": 10.0
+     },
+     {
+      "what": "base",
+      "name": "BC",
+      "value": 12.0
+     }
+    ],
+    "parts": [
+     "median"
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "isosceles_triangle",
+    "points": [
+     {
+      "name": "B",
+      "x": 0.0,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "C",
+      "x": 12.0,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "A",
+      "x": 6.0,
+      "y": 8.0,
+      "show": true
+     }
+    ],
+    "segments": [
+     {
+      "a": "B",
+      "b": "C",
+      "label": "12 cm"
+     },
+     {
+      "a": "C",
+      "b": "A",
+      "label": "10 cm",
+      "ticks": 1
+     },
+     {
+      "a": "A",
+      "b": "B",
+      "label": "10 cm",
+      "ticks": 1
+     }
+    ],
+    "faces": [
+     [
+      "B",
+      "C",
+      "A"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "tri-exterior",
+   "prompt": "An exterior angle of a triangle is 120° and one of the interior opposite angles is 50°. Find the other interior opposite angle.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "triangle",
+    "measures": [
+     {
+      "what": "exterior_angle",
+      "value": 120.0
+     },
+     {
+      "what": "angle",
+      "value": 50.0
+     }
+    ]
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "triangle_exterior_angle",
+    "points": [
+     {
+      "name": "A",
+      "x": 1.9332960077358066,
+      "y": 5.311687126375896
+     },
+     {
+      "name": "B",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "C",
+      "x": 5.0,
+      "y": 0.0
+     },
+     {
+      "name": "D",
+      "x": 7.5,
+      "y": 0.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B"
+     },
+     {
+      "a": "B",
+      "b": "C"
+     },
+     {
+      "a": "C",
+      "b": "A"
+     },
+     {
+      "a": "C",
+      "b": "D"
+     }
+    ],
+    "angles": [
+     {
+      "at": "C",
+      "a": "A",
+      "b": "D",
+      "label": "120°"
+     },
+     {
+      "at": "A",
+      "a": "B",
+      "b": "C",
+      "label": "50°"
+     },
+     {
+      "at": "B",
+      "a": "C",
+      "b": "A"
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "tri-angle-sum-x",
+   "prompt": "The angles of a triangle are x, 2x and 3x. Find each angle.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "triangle",
+    "angle_terms": [
+     {
+      "term": "x"
+     },
+     {
+      "term": "2x"
+     },
+     {
+      "term": "3x"
+     }
+    ]
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "triangle",
+    "points": [
+     {
+      "name": "C",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "A",
+      "x": 5.0,
+      "y": 0.0
+     },
+     {
+      "name": "B",
+      "x": -7.105427357601002e-16,
+      "y": 2.886751345948129
+     }
+    ],
+    "segments": [
+     {
+      "a": "C",
+      "b": "A"
+     },
+     {
+      "a": "A",
+      "b": "B"
+     },
+     {
+      "a": "B",
+      "b": "C"
+     }
+    ],
+    "angles": [
+     {
+      "at": "C",
+      "a": "A",
+      "b": "B",
+      "label": "3x",
+      "right": true
+     },
+     {
+      "at": "A",
+      "a": "B",
+      "b": "C",
+      "label": "x"
+     },
+     {
+      "at": "B",
+      "a": "C",
+      "b": "A",
+      "label": "2x"
+     }
+    ],
+    "faces": [
+     [
+      "C",
+      "A",
+      "B"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "tri-pyth-word",
+   "prompt": "A right triangle has one leg of 9 cm and a hypotenuse of 15 cm. Find the other leg and the area.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "right_triangle",
+    "measures": [
+     {
+      "what": "leg",
+      "value": 9.0
+     },
+     {
+      "what": "hypotenuse",
+      "value": 15.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "right_triangle",
+    "points": [
+     {
+      "name": "A",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "B",
+      "x": 9.0,
+      "y": 0.0
+     },
+     {
+      "name": "C",
+      "x": 0.0,
+      "y": 12.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B",
+      "label": "9 cm"
+     },
+     {
+      "a": "B",
+      "b": "C",
+      "label": "15 cm"
+     },
+     {
+      "a": "C",
+      "b": "A"
+     }
+    ],
+    "angles": [
+     {
+      "at": "A",
+      "a": "B",
+      "b": "C",
+      "right": true
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "quad-para-area",
+   "prompt": "A parallelogram has sides of 8 cm and 5 cm with an angle of 60° between them. Find its area.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "parallelogram",
+    "measures": [
+     {
+      "what": "side",
+      "value": 8.0
+     },
+     {
+      "what": "side",
+      "value": 5.0
+     },
+     {
+      "what": "angle",
+      "value": 60.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "parallelogram",
+    "points": [
+     {
+      "name": "A",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "B",
+      "x": 8.0,
+      "y": 0.0
+     },
+     {
+      "name": "C",
+      "x": 10.5,
+      "y": 4.330127018922193
+     },
+     {
+      "name": "D",
+      "x": 2.5000000000000004,
+      "y": 4.330127018922193
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B",
+      "label": "8 cm",
+      "arrows": 1
+     },
+     {
+      "a": "B",
+      "b": "C",
+      "arrows": 2
+     },
+     {
+      "a": "C",
+      "b": "D",
+      "arrows": 1
+     },
+     {
+      "a": "D",
+      "b": "A",
+      "label": "5 cm",
+      "arrows": 2
+     }
+    ],
+    "angles": [
+     {
+      "at": "A",
+      "a": "B",
+      "b": "D",
+      "label": "60°"
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C",
+      "D"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "quad-rhombus-angle",
+   "prompt": "A rhombus has sides of 6 cm and one angle of 120°. Find the lengths of its diagonals.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "rhombus",
+    "measures": [
+     {
+      "what": "side",
+      "value": 6.0
+     },
+     {
+      "what": "angle",
+      "value": 120.0
+     }
+    ],
+    "parts": [
+     "diagonals"
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "rhombus",
+    "points": [
+     {
+      "name": "A",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "B",
+      "x": 6.0,
+      "y": 0.0
+     },
+     {
+      "name": "C",
+      "x": 3.000000000000001,
+      "y": 5.196152422706632
+     },
+     {
+      "name": "D",
+      "x": -2.999999999999999,
+      "y": 5.196152422706632
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B",
+      "label": "6 cm",
+      "ticks": 1,
+      "arrows": 1
+     },
+     {
+      "a": "B",
+      "b": "C",
+      "ticks": 1,
+      "arrows": 2
+     },
+     {
+      "a": "C",
+      "b": "D",
+      "ticks": 1,
+      "arrows": 1
+     },
+     {
+      "a": "D",
+      "b": "A",
+      "ticks": 1,
+      "arrows": 2
+     }
+    ],
+    "angles": [
+     {
+      "at": "A",
+      "a": "B",
+      "b": "D",
+      "label": "120°"
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C",
+      "D"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "quad-kite",
+   "prompt": "A kite has diagonals of 10 cm and 16 cm. Find its area.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "kite",
+    "measures": [
+     {
+      "what": "diagonal",
+      "value": 10.0
+     },
+     {
+      "what": "diagonal",
+      "value": 16.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "kite",
+    "points": [
+     {
+      "name": "A",
+      "x": 0.0,
+      "y": -10.4
+     },
+     {
+      "name": "B",
+      "x": 5.0,
+      "y": 0.0
+     },
+     {
+      "name": "C",
+      "x": 0.0,
+      "y": 5.6
+     },
+     {
+      "name": "D",
+      "x": -5.0,
+      "y": 0.0
+     },
+     {
+      "name": "_4",
+      "x": 0.0,
+      "y": 0.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B",
+      "ticks": 2
+     },
+     {
+      "a": "B",
+      "b": "C",
+      "ticks": 1
+     },
+     {
+      "a": "C",
+      "b": "D",
+      "ticks": 1
+     },
+     {
+      "a": "D",
+      "b": "A",
+      "ticks": 2
+     },
+     {
+      "a": "A",
+      "b": "C",
+      "label": "16 cm",
+      "dashed": true,
+      "label_at": 0.75
+     },
+     {
+      "a": "B",
+      "b": "D",
+      "label": "10 cm",
+      "dashed": true,
+      "label_at": 0.75
+     }
+    ],
+    "angles": [
+     {
+      "at": "_4",
+      "a": "B",
+      "b": "C",
+      "right": true
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C",
+      "D"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "quad-iso-trap",
+   "prompt": "An isosceles trapezium has parallel sides of 10 cm and 16 cm and slanting sides of 5 cm. Find its height and area.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "trapezium",
+    "measures": [
+     {
+      "what": "parallel_side",
+      "value": 10.0
+     },
+     {
+      "what": "parallel_side",
+      "value": 16.0
+     },
+     {
+      "what": "side",
+      "value": 5.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "trapezium",
+    "points": [
+     {
+      "name": "A",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "B",
+      "x": 16.0,
+      "y": 0.0
+     },
+     {
+      "name": "C",
+      "x": 11.710100716628343,
+      "y": 4.698463103929542
+     },
+     {
+      "name": "D",
+      "x": 1.710100716628344,
+      "y": 4.698463103929542
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B",
+      "label": "16 cm",
+      "arrows": 1
+     },
+     {
+      "a": "B",
+      "b": "C"
+     },
+     {
+      "a": "C",
+      "b": "D",
+      "label": "10 cm",
+      "arrows": 1
+     },
+     {
+      "a": "D",
+      "b": "A",
+      "label": "5 cm"
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C",
+      "D"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "quad-rect-diag",
+   "prompt": "A rectangle is 12 cm long and 5 cm wide. Find the length of its diagonal.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "rectangle",
+    "measures": [
+     {
+      "what": "length",
+      "value": 12.0
+     },
+     {
+      "what": "width",
+      "value": 5.0
+     }
+    ],
+    "parts": [
+     "diagonals"
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "rectangle",
+    "points": [
+     {
+      "name": "A",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "B",
+      "x": 12.0,
+      "y": 0.0
+     },
+     {
+      "name": "C",
+      "x": 12.0,
+      "y": 5.0
+     },
+     {
+      "name": "D",
+      "x": 0.0,
+      "y": 5.0
+     },
+     {
+      "name": "_4",
+      "x": 6.0,
+      "y": 2.5
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B",
+      "label": "12 cm"
+     },
+     {
+      "a": "B",
+      "b": "C",
+      "label": "5 cm"
+     },
+     {
+      "a": "C",
+      "b": "D"
+     },
+     {
+      "a": "D",
+      "b": "A"
+     },
+     {
+      "a": "A",
+      "b": "C",
+      "dashed": true
+     },
+     {
+      "a": "B",
+      "b": "D",
+      "dashed": true
+     }
+    ],
+    "angles": [
+     {
+      "at": "A",
+      "a": "B",
+      "b": "D",
+      "right": true
+     },
+     {
+      "at": "B",
+      "a": "C",
+      "b": "A",
+      "right": true
+     },
+     {
+      "at": "C",
+      "a": "D",
+      "b": "B",
+      "right": true
+     },
+     {
+      "at": "D",
+      "a": "A",
+      "b": "C",
+      "right": true
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C",
+      "D"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "quad-square-diag",
+   "prompt": "The diagonal of a square is 10 cm. Find its side and area.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "square",
+    "measures": [
+     {
+      "what": "diagonal",
+      "value": 10.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "square",
+    "points": [
+     {
+      "name": "A",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "B",
+      "x": 7.071067811865475,
+      "y": 0.0
+     },
+     {
+      "name": "C",
+      "x": 7.071067811865475,
+      "y": 7.071067811865475
+     },
+     {
+      "name": "D",
+      "x": 0.0,
+      "y": 7.071067811865475
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B",
+      "ticks": 1
+     },
+     {
+      "a": "B",
+      "b": "C",
+      "ticks": 1
+     },
+     {
+      "a": "C",
+      "b": "D",
+      "ticks": 1
+     },
+     {
+      "a": "D",
+      "b": "A",
+      "ticks": 1
+     },
+     {
+      "a": "A",
+      "b": "C",
+      "label": "10 cm"
+     }
+    ],
+    "angles": [
+     {
+      "at": "A",
+      "a": "B",
+      "b": "D",
+      "right": true
+     },
+     {
+      "at": "B",
+      "a": "C",
+      "b": "A",
+      "right": true
+     },
+     {
+      "at": "C",
+      "a": "D",
+      "b": "B",
+      "right": true
+     },
+     {
+      "at": "D",
+      "a": "A",
+      "b": "C",
+      "right": true
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C",
+      "D"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "quad-angles",
+   "prompt": "In quadrilateral ABCD, angle A = 80°, angle B = 95° and angle C = 110°. Find angle D.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "quadrilateral",
+    "vertices": "ABCD",
+    "measures": [
+     {
+      "what": "angle",
+      "name": "A",
+      "value": 80.0
+     },
+     {
+      "what": "angle",
+      "name": "B",
+      "value": 95.0
+     },
+     {
+      "what": "angle",
+      "name": "C",
+      "value": 110.0
+     }
+    ]
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "quadrilateral",
+    "points": [
+     {
+      "name": "A",
+      "x": 0.0,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "B",
+      "x": 6.184624544783501,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "C",
+      "x": 6.479735788221482,
+      "y": 3.373136947629051,
+      "show": true
+     },
+     {
+      "name": "D",
+      "x": 1.0418890660015823,
+      "y": 5.908846518073248,
+      "show": true
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B"
+     },
+     {
+      "a": "B",
+      "b": "C"
+     },
+     {
+      "a": "C",
+      "b": "D"
+     },
+     {
+      "a": "D",
+      "b": "A"
+     }
+    ],
+    "angles": [
+     {
+      "at": "A",
+      "a": "B",
+      "b": "D",
+      "label": "80°"
+     },
+     {
+      "at": "B",
+      "a": "C",
+      "b": "A",
+      "label": "95°"
+     },
+     {
+      "at": "C",
+      "a": "D",
+      "b": "B",
+      "label": "110°"
+     },
+     {
+      "at": "D",
+      "a": "A",
+      "b": "C"
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C",
+      "D"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "poly-hex-area",
+   "prompt": "Find the area of a regular hexagon with side 6 cm.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "regular_hexagon",
+    "measures": [
+     {
+      "what": "side",
+      "value": 6.0
+     }
+    ],
+    "sides": 6,
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "regular_polygon_6",
+    "points": [
+     {
+      "name": "A",
+      "x": -3.000000000000003,
+      "y": -5.196152422706631
+     },
+     {
+      "name": "B",
+      "x": 3.0000000000000013,
+      "y": -5.196152422706632
+     },
+     {
+      "name": "C",
+      "x": 6.000000000000001,
+      "y": -1.4695761589768241e-15
+     },
+     {
+      "name": "D",
+      "x": 2.9999999999999987,
+      "y": 5.196152422706634
+     },
+     {
+      "name": "E",
+      "x": -2.9999999999999956,
+      "y": 5.196152422706636
+     },
+     {
+      "name": "F",
+      "x": -6.000000000000001,
+      "y": 2.204364238465236e-15
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B",
+      "label": "6 cm",
+      "ticks": 1
+     },
+     {
+      "a": "B",
+      "b": "C",
+      "ticks": 1
+     },
+     {
+      "a": "C",
+      "b": "D",
+      "ticks": 1
+     },
+     {
+      "a": "D",
+      "b": "E",
+      "ticks": 1
+     },
+     {
+      "a": "E",
+      "b": "F",
+      "ticks": 1
+     },
+     {
+      "a": "F",
+      "b": "A",
+      "ticks": 1
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "poly-octagon-angle",
+   "prompt": "Find the size of each interior angle of a regular octagon.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "regular_polygon",
+    "sides": 8
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "regular_polygon_8",
+    "points": [
+     {
+      "name": "A",
+      "x": -1.499999999999999,
+      "y": -3.621320343559643
+     },
+     {
+      "name": "B",
+      "x": 1.5000000000000009,
+      "y": -3.621320343559642
+     },
+     {
+      "name": "C",
+      "x": 3.621320343559643,
+      "y": -1.4999999999999991
+     },
+     {
+      "name": "D",
+      "x": 3.621320343559642,
+      "y": 1.5000000000000007
+     },
+     {
+      "name": "E",
+      "x": 1.4999999999999993,
+      "y": 3.621320343559643
+     },
+     {
+      "name": "F",
+      "x": -1.5000000000000004,
+      "y": 3.6213203435596424
+     },
+     {
+      "name": "G",
+      "x": -3.621320343559641,
+      "y": 1.5000000000000027
+     },
+     {
+      "name": "H",
+      "x": -3.6213203435596424,
+      "y": -1.5000000000000002
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B",
+      "ticks": 1
+     },
+     {
+      "a": "B",
+      "b": "C",
+      "ticks": 1
+     },
+     {
+      "a": "C",
+      "b": "D",
+      "ticks": 1
+     },
+     {
+      "a": "D",
+      "b": "E",
+      "ticks": 1
+     },
+     {
+      "a": "E",
+      "b": "F",
+      "ticks": 1
+     },
+     {
+      "a": "F",
+      "b": "G",
+      "ticks": 1
+     },
+     {
+      "a": "G",
+      "b": "H",
+      "ticks": 1
+     },
+     {
+      "a": "H",
+      "b": "A",
+      "ticks": 1
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "H"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "poly-pentagon",
+   "prompt": "A regular pentagon has a perimeter of 45 cm. Find the length of one side and each exterior angle.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "regular_polygon",
+    "measures": [
+     {
+      "what": "perimeter",
+      "value": 45.0
+     }
+    ],
+    "sides": 5,
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "regular_polygon_5",
+    "points": [
+     {
+      "name": "A",
+      "x": -4.500000000000001,
+      "y": -6.19371864212028
+     },
+     {
+      "name": "B",
+      "x": 4.499999999999998,
+      "y": -6.193718642120282
+     },
+     {
+      "name": "C",
+      "x": 7.281152949374527,
+      "y": 2.365790004536099
+     },
+     {
+      "name": "D",
+      "x": 2.343930276690977e-15,
+      "y": 7.655857275168359
+     },
+     {
+      "name": "E",
+      "x": -7.281152949374525,
+      "y": 2.365790004536104
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B",
+      "ticks": 1
+     },
+     {
+      "a": "B",
+      "b": "C",
+      "ticks": 1
+     },
+     {
+      "a": "C",
+      "b": "D",
+      "ticks": 1
+     },
+     {
+      "a": "D",
+      "b": "E",
+      "ticks": 1
+     },
+     {
+      "a": "E",
+      "b": "A",
+      "ticks": 1
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "poly-sides-from-angle",
+   "prompt": "Each interior angle of a regular polygon is 140°. How many sides does it have?",
+   "reading": {
+    "kind": "polygon",
+    "shape": "regular_polygon",
+    "measures": [
+     {
+      "what": "interior_angle",
+      "value": 140.0
+     }
+    ]
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "regular_polygon_9",
+    "points": [
+     {
+      "name": "A",
+      "x": -1.4999999999999991,
+      "y": -4.121216129181933
+     },
+     {
+      "name": "B",
+      "x": 1.500000000000001,
+      "y": -4.121216129181933
+     },
+     {
+      "name": "C",
+      "x": 3.798133329356933,
+      "y": -2.192853300122317
+     },
+     {
+      "name": "D",
+      "x": 4.319077862357726,
+      "y": 0.7615699589143068
+     },
+     {
+      "name": "E",
+      "x": 2.819077862357726,
+      "y": 3.3596461702676237
+     },
+     {
+      "name": "F",
+      "x": 1.342735387497252e-15,
+      "y": 4.385706600244631
+     },
+     {
+      "name": "G",
+      "x": -2.819077862357727,
+      "y": 3.3596461702676224
+     },
+     {
+      "name": "H",
+      "x": -4.319077862357725,
+      "y": 0.7615699589143093
+     },
+     {
+      "name": "I",
+      "x": -3.7981333293569364,
+      "y": -2.192853300122312
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B",
+      "ticks": 1
+     },
+     {
+      "a": "B",
+      "b": "C",
+      "ticks": 1
+     },
+     {
+      "a": "C",
+      "b": "D",
+      "ticks": 1
+     },
+     {
+      "a": "D",
+      "b": "E",
+      "ticks": 1
+     },
+     {
+      "a": "E",
+      "b": "F",
+      "ticks": 1
+     },
+     {
+      "a": "F",
+      "b": "G",
+      "ticks": 1
+     },
+     {
+      "a": "G",
+      "b": "H",
+      "ticks": 1
+     },
+     {
+      "a": "H",
+      "b": "I",
+      "ticks": 1
+     },
+     {
+      "a": "I",
+      "b": "A",
+      "ticks": 1
+     }
+    ],
+    "angles": [
+     {
+      "at": "B",
+      "a": "C",
+      "b": "A",
+      "label": "140°"
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "H",
+      "I"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "circ-chord-dist",
+   "prompt": "A chord of length 16 cm is 6 cm from the centre of a circle. Find the radius of the circle.",
+   "reading": {
+    "kind": "circle",
+    "shape": "circle",
+    "measures": [
+     {
+      "what": "chord",
+      "value": 16.0
+     },
+     {
+      "what": "distance",
+      "value": 6.0
+     }
+    ],
+    "parts": [
+     "radius"
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "circle_chord",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "_1",
+      "x": -8.0,
+      "y": -6.0
+     },
+     {
+      "name": "_2",
+      "x": 8.0,
+      "y": -6.0
+     },
+     {
+      "name": "_3",
+      "x": 0.0,
+      "y": -6.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "_1",
+      "b": "_2",
+      "label": "16 cm"
+     },
+     {
+      "a": "_0",
+      "b": "_2"
+     },
+     {
+      "a": "_0",
+      "b": "_3",
+      "label": "6 cm",
+      "dashed": true
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_0",
+      "rx": 10.0,
+      "ry": 10.0
+     }
+    ],
+    "angles": [
+     {
+      "at": "_3",
+      "a": "_2",
+      "b": "_0",
+      "right": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "circ-sector",
+   "prompt": "Find the area of a sector of a circle with radius 9 cm and angle 120°.",
+   "reading": {
+    "kind": "circle",
+    "shape": "sector",
+    "measures": [
+     {
+      "what": "radius",
+      "value": 9.0
+     },
+     {
+      "what": "central_angle",
+      "value": 120.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "circle_sector",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "_1",
+      "x": 7.794228634059948,
+      "y": 4.499999999999999
+     },
+     {
+      "name": "_2",
+      "x": -7.794228634059948,
+      "y": 4.499999999999999
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_1",
+      "label": "9 cm"
+     },
+     {
+      "a": "_0",
+      "b": "_2"
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_0",
+      "rx": 9.0,
+      "ry": 9.0,
+      "start": 30.0,
+      "end": 150.0
+     },
+     {
+      "center": "_0",
+      "rx": 9.0,
+      "ry": 9.0,
+      "start": 150.0,
+      "end": 390.0,
+      "dashed": true
+     }
+    ],
+    "angles": [
+     {
+      "at": "_0",
+      "a": "_1",
+      "b": "_2",
+      "label": "120°"
+     }
+    ]
+   }
+  },
+  {
+   "id": "circ-arc",
+   "prompt": "Find the length of an arc that subtends an angle of 72° at the centre of a circle of radius 10 cm.",
+   "reading": {
+    "kind": "circle",
+    "shape": "sector",
+    "measures": [
+     {
+      "what": "central_angle",
+      "value": 72.0
+     },
+     {
+      "what": "radius",
+      "value": 10.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "circle_sector",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "_1",
+      "x": 5.877852522924732,
+      "y": 8.090169943749475
+     },
+     {
+      "name": "_2",
+      "x": -5.87785252292473,
+      "y": 8.090169943749475
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_1",
+      "label": "10 cm"
+     },
+     {
+      "a": "_0",
+      "b": "_2"
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_0",
+      "rx": 10.0,
+      "ry": 10.0,
+      "start": 54.0,
+      "end": 126.0
+     },
+     {
+      "center": "_0",
+      "rx": 10.0,
+      "ry": 10.0,
+      "start": 126.0,
+      "end": 414.0,
+      "dashed": true
+     }
+    ],
+    "angles": [
+     {
+      "at": "_0",
+      "a": "_1",
+      "b": "_2",
+      "label": "72°"
+     }
+    ]
+   }
+  },
+  {
+   "id": "circ-tangent",
+   "prompt": "A point P is 13 cm from the centre O of a circle of radius 5 cm. Find the length of the tangent from P to the circle.",
+   "reading": {
+    "kind": "circle",
+    "shape": "tangent",
+    "center": "O",
+    "point": "P",
+    "measures": [
+     {
+      "what": "radius",
+      "value": 5.0
+     },
+     {
+      "what": "distance",
+      "name": "OP",
+      "value": 13.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "circle_tangent",
+    "points": [
+     {
+      "name": "O",
+      "x": 0.0,
+      "y": 0.0,
+      "show": true,
+      "dot": true
+     },
+     {
+      "name": "P",
+      "x": 13.0,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "_2",
+      "x": 1.9230769230769234,
+      "y": 4.615384615384615
+     }
+    ],
+    "segments": [
+     {
+      "a": "O",
+      "b": "_2",
+      "label": "5 cm"
+     },
+     {
+      "a": "_2",
+      "b": "P"
+     },
+     {
+      "a": "O",
+      "b": "P",
+      "label": "13 cm"
+     }
+    ],
+    "arcs": [
+     {
+      "center": "O",
+      "rx": 5.0,
+      "ry": 5.0
+     }
+    ],
+    "angles": [
+     {
+      "at": "_2",
+      "a": "O",
+      "b": "P",
+      "right": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "circ-inscribed-angle",
+   "prompt": "The angle at the centre of a circle subtended by an arc is 110°. Find the angle at the circumference subtended by the same arc.",
+   "reading": {
+    "kind": "circle",
+    "shape": "angle_at_centre",
+    "measures": [
+     {
+      "what": "central_angle",
+      "value": 110.0
+     }
+    ]
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "circle_angle_at_centre",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "_1",
+      "x": -2.4574561328669757,
+      "y": -1.7207293090531377
+     },
+     {
+      "name": "_2",
+      "x": 2.4574561328669753,
+      "y": -1.7207293090531381
+     },
+     {
+      "name": "_3",
+      "x": -0.9643183959094848,
+      "y": 2.840790388485317
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_1"
+     },
+     {
+      "a": "_0",
+      "b": "_2"
+     },
+     {
+      "a": "_3",
+      "b": "_1"
+     },
+     {
+      "a": "_3",
+      "b": "_2"
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_0",
+      "rx": 3.0,
+      "ry": 3.0
+     }
+    ],
+    "angles": [
+     {
+      "at": "_3",
+      "a": "_1",
+      "b": "_2"
+     },
+     {
+      "at": "_0",
+      "a": "_1",
+      "b": "_2",
+      "label": "110°"
+     }
+    ]
+   }
+  },
+  {
+   "id": "circ-cyclic-quad",
+   "prompt": "ABCD is a cyclic quadrilateral with angle A = 85° and angle B = 70°. Find angles C and D.",
+   "reading": {
+    "kind": "circle",
+    "shape": "cyclic_quadrilateral",
+    "vertices": "ABCD",
+    "measures": [
+     {
+      "what": "angle",
+      "name": "A",
+      "value": 85.0
+     },
+     {
+      "what": "angle",
+      "name": "B",
+      "value": 70.0
+     }
+    ]
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "cyclic_quadrilateral",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "A",
+      "x": -2.121320343559643,
+      "y": -2.1213203435596424,
+      "show": true
+     },
+     {
+      "name": "B",
+      "x": 2.897777478867205,
+      "y": -0.776457135307562,
+      "show": true
+     },
+     {
+      "name": "C",
+      "x": 0.26146722824297514,
+      "y": 2.988584094275237,
+      "show": true
+     },
+     {
+      "name": "D",
+      "x": -2.71892336110995,
+      "y": 1.267854785222098,
+      "show": true
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B"
+     },
+     {
+      "a": "B",
+      "b": "C"
+     },
+     {
+      "a": "C",
+      "b": "D"
+     },
+     {
+      "a": "D",
+      "b": "A"
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_0",
+      "rx": 3.0,
+      "ry": 3.0
+     }
+    ],
+    "angles": [
+     {
+      "at": "A",
+      "a": "D",
+      "b": "B",
+      "label": "85°"
+     },
+     {
+      "at": "B",
+      "a": "A",
+      "b": "C",
+      "label": "70°"
+     },
+     {
+      "at": "C",
+      "a": "B",
+      "b": "D"
+     },
+     {
+      "at": "D",
+      "a": "C",
+      "b": "A"
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C",
+      "D"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "circ-chords-intersect",
+   "prompt": "Two chords AB and CD of a circle meet at E inside the circle. AE = 4 cm, EB = 6 cm and CE = 3 cm. Find ED.",
+   "reading": {
+    "kind": "circle",
+    "shape": "intersecting_chords",
+    "vertices": "ABCD",
+    "point": "E",
+    "measures": [
+     {
+      "what": "length",
+      "name": "AE",
+      "value": 4.0
+     },
+     {
+      "what": "length",
+      "name": "EB",
+      "value": 6.0
+     },
+     {
+      "what": "length",
+      "name": "CE",
+      "value": 3.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "circle_intersecting_chords",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "A",
+      "x": -5.0,
+      "y": -2.2921371392512313,
+      "show": true
+     },
+     {
+      "name": "B",
+      "x": 5.0,
+      "y": -2.2921371392512313,
+      "show": true
+     },
+     {
+      "name": "C",
+      "x": -2.2678547852220987,
+      "y": -5.011060500361181,
+      "show": true
+     },
+     {
+      "name": "D",
+      "x": 2.380946093925595,
+      "y": 4.958325157041968,
+      "show": true
+     },
+     {
+      "name": "E",
+      "x": -1.0000000000000002,
+      "y": -2.2921371392512313,
+      "show": true
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "E",
+      "label": "4 cm"
+     },
+     {
+      "a": "B",
+      "b": "E",
+      "label": "6 cm"
+     },
+     {
+      "a": "C",
+      "b": "E",
+      "label": "3 cm"
+     },
+     {
+      "a": "D",
+      "b": "E"
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_0",
+      "rx": 5.500353867264798,
+      "ry": 5.500353867264798
+     }
+    ]
+   }
+  },
+  {
+   "id": "circ-semicircle",
+   "prompt": "AB is a diameter of a circle and C is a point on the circle. AC = 6 cm and BC = 8 cm. Find the radius of the circle.",
+   "reading": {
+    "kind": "circle",
+    "shape": "angle_in_semicircle",
+    "vertices": "ABC",
+    "measures": [
+     {
+      "what": "length",
+      "name": "AC",
+      "value": 6.0
+     },
+     {
+      "what": "length",
+      "name": "BC",
+      "value": 8.0
+     }
+    ],
+    "parts": [
+     "radius"
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "circle_semicircle_angle",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "A",
+      "x": -5.0,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "B",
+      "x": 5.0,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "C",
+      "x": -1.4000000000000004,
+      "y": 4.800000000000001,
+      "show": true
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B",
+      "label_at": 0.75
+     },
+     {
+      "a": "A",
+      "b": "C",
+      "label": "6 cm"
+     },
+     {
+      "a": "B",
+      "b": "C",
+      "label": "8 cm"
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_0",
+      "rx": 5.0,
+      "ry": 5.0
+     }
+    ],
+    "angles": [
+     {
+      "at": "C",
+      "a": "A",
+      "b": "B",
+      "right": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "circ-incircle",
+   "prompt": "Find the radius of the circle inscribed in a right triangle with sides 3 cm, 4 cm and 5 cm.",
+   "reading": {
+    "kind": "circle",
+    "shape": "circle",
+    "measures": [
+     {
+      "what": "side",
+      "value": 3.0
+     },
+     {
+      "what": "side",
+      "value": 4.0
+     },
+     {
+      "what": "side",
+      "value": 5.0
+     }
+    ],
+    "parts": [
+     "radius"
+    ],
+    "circumscribed": "right_triangle",
+    "circle_within": "right_triangle",
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "circle_right_triangle",
+    "points": [
+     {
+      "name": "A",
+      "x": -1.0,
+      "y": -1.0
+     },
+     {
+      "name": "B",
+      "x": 3.0,
+      "y": -1.0
+     },
+     {
+      "name": "C",
+      "x": -1.0,
+      "y": 2.0
+     },
+     {
+      "name": "_3",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "_4",
+      "x": 0.0,
+      "y": -1.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B",
+      "label": "4 cm"
+     },
+     {
+      "a": "B",
+      "b": "C",
+      "label": "5 cm"
+     },
+     {
+      "a": "C",
+      "b": "A",
+      "label": "3 cm"
+     },
+     {
+      "a": "_3",
+      "b": "_4"
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_3",
+      "rx": 1.0,
+      "ry": 1.0
+     }
+    ],
+    "angles": [
+     {
+      "at": "A",
+      "a": "B",
+      "b": "C",
+      "right": true
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "circ-annulus",
+   "prompt": "Find the area of the ring between two circles with the same centre and radii 5 cm and 8 cm.",
+   "reading": {
+    "kind": "circle",
+    "shape": "annulus",
+    "measures": [
+     {
+      "what": "radius",
+      "value": 5.0
+     },
+     {
+      "what": "radius",
+      "value": 8.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "annulus",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "_1",
+      "x": -3.5355339059327373,
+      "y": 3.5355339059327378
+     },
+     {
+      "name": "_2",
+      "x": 7.517540966287267,
+      "y": 2.7361611466053497
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_1",
+      "label": "5 cm"
+     },
+     {
+      "a": "_0",
+      "b": "_2",
+      "label": "8 cm",
+      "label_at": 0.8125
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_0",
+      "rx": 5.0,
+      "ry": 5.0
+     },
+     {
+      "center": "_0",
+      "rx": 8.0,
+      "ry": 8.0
+     }
+    ]
+   }
+  },
+  {
+   "id": "circ-two-tangents",
+   "prompt": "Two tangents are drawn from a point T to a circle with centre O and radius 6 cm. The angle between the tangents is 60°. Find the distance OT.",
+   "reading": {
+    "kind": "circle",
+    "shape": "two_tangents",
+    "center": "O",
+    "point": "T",
+    "measures": [
+     {
+      "what": "radius",
+      "value": 6.0
+     },
+     {
+      "what": "angle",
+      "value": 60.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "circle_two_tangents",
+    "points": [
+     {
+      "name": "O",
+      "x": 0.0,
+      "y": 0.0,
+      "show": true,
+      "dot": true
+     },
+     {
+      "name": "T",
+      "x": 12.000000000000002,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "_2",
+      "x": 2.999999999999999,
+      "y": 5.196152422706632
+     },
+     {
+      "name": "_3",
+      "x": 2.999999999999999,
+      "y": -5.196152422706632
+     }
+    ],
+    "segments": [
+     {
+      "a": "O",
+      "b": "_2",
+      "label": "6 cm"
+     },
+     {
+      "a": "O",
+      "b": "_3"
+     },
+     {
+      "a": "_2",
+      "b": "T",
+      "ticks": 1
+     },
+     {
+      "a": "_3",
+      "b": "T",
+      "ticks": 1
+     },
+     {
+      "a": "O",
+      "b": "T",
+      "dashed": true
+     }
+    ],
+    "arcs": [
+     {
+      "center": "O",
+      "rx": 6.0,
+      "ry": 6.0
+     }
+    ],
+    "angles": [
+     {
+      "at": "_2",
+      "a": "O",
+      "b": "T",
+      "right": true
+     },
+     {
+      "at": "_3",
+      "a": "O",
+      "b": "T",
+      "right": true
+     },
+     {
+      "at": "T",
+      "a": "_2",
+      "b": "_3",
+      "label": "60°"
+     },
+     {
+      "at": "O",
+      "a": "_2",
+      "b": "_3"
+     }
+    ]
+   }
+  },
+  {
+   "id": "circ2-chord-from-radius",
+   "prompt": "A circle has radius 13 cm. A chord is 5 cm from the centre. Find the length of the chord.",
+   "reading": {
+    "kind": "circle",
+    "shape": "circle",
+    "measures": [
+     {
+      "what": "radius",
+      "value": 13.0
+     },
+     {
+      "what": "distance",
+      "value": 5.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "circle_chord",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "_1",
+      "x": -12.0,
+      "y": -5.0
+     },
+     {
+      "name": "_2",
+      "x": 12.0,
+      "y": -5.0
+     },
+     {
+      "name": "_3",
+      "x": 0.0,
+      "y": -5.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "_1",
+      "b": "_2"
+     },
+     {
+      "a": "_0",
+      "b": "_2",
+      "label": "13 cm"
+     },
+     {
+      "a": "_0",
+      "b": "_3",
+      "label": "5 cm",
+      "dashed": true
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_0",
+      "rx": 13.0,
+      "ry": 13.0
+     }
+    ],
+    "angles": [
+     {
+      "at": "_3",
+      "a": "_2",
+      "b": "_0",
+      "right": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "circ2-chord-distance",
+   "prompt": "The radius of a circle is 10 cm and a chord is 16 cm long. How far is the chord from the centre?",
+   "reading": {
+    "kind": "circle",
+    "shape": "circle",
+    "measures": [
+     {
+      "what": "radius",
+      "value": 10.0
+     },
+     {
+      "what": "chord",
+      "value": 16.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "circle_chord",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "_1",
+      "x": -8.0,
+      "y": -6.0
+     },
+     {
+      "name": "_2",
+      "x": 8.0,
+      "y": -6.0
+     },
+     {
+      "name": "_3",
+      "x": 0.0,
+      "y": -6.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "_1",
+      "b": "_2",
+      "label": "16 cm"
+     },
+     {
+      "a": "_0",
+      "b": "_2",
+      "label": "10 cm"
+     },
+     {
+      "a": "_0",
+      "b": "_3",
+      "dashed": true
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_0",
+      "rx": 10.0,
+      "ry": 10.0
+     }
+    ],
+    "angles": [
+     {
+      "at": "_3",
+      "a": "_2",
+      "b": "_0",
+      "right": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "circ2-segment",
+   "prompt": "A chord subtends an angle of 90° at the centre of a circle of radius 8 cm. Find the area of the minor segment.",
+   "reading": {
+    "kind": "circle",
+    "shape": "segment",
+    "measures": [
+     {
+      "what": "radius",
+      "value": 8.0
+     },
+     {
+      "what": "central_angle",
+      "value": 90.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "circle_segment",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "_1",
+      "x": 5.656854249492381,
+      "y": 5.65685424949238
+     },
+     {
+      "name": "_2",
+      "x": -5.65685424949238,
+      "y": 5.656854249492381
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_1",
+      "label": "8 cm"
+     },
+     {
+      "a": "_0",
+      "b": "_2"
+     },
+     {
+      "a": "_1",
+      "b": "_2"
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_0",
+      "rx": 8.0,
+      "ry": 8.0,
+      "start": 45.0,
+      "end": 135.0
+     },
+     {
+      "center": "_0",
+      "rx": 8.0,
+      "ry": 8.0,
+      "start": 135.0,
+      "end": 405.0,
+      "dashed": true
+     }
+    ],
+    "angles": [
+     {
+      "at": "_0",
+      "a": "_1",
+      "b": "_2",
+      "label": "90°"
+     }
+    ]
+   }
+  },
+  {
+   "id": "circ2-wheel-arc",
+   "prompt": "A wheel of diameter 70 cm turns through an angle of 60°. How far does a point on its rim travel?",
+   "reading": {
+    "kind": "circle",
+    "shape": "sector",
+    "measures": [
+     {
+      "what": "diameter",
+      "value": 70.0
+     },
+     {
+      "what": "central_angle",
+      "value": 60.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "circle_sector",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "_1",
+      "x": 17.500000000000004,
+      "y": 30.31088913245535
+     },
+     {
+      "name": "_2",
+      "x": -17.499999999999993,
+      "y": 30.310889132455355
+     },
+     {
+      "name": "_3",
+      "x": -35.0,
+      "y": 4.2862637970157365e-15
+     },
+     {
+      "name": "_4",
+      "x": 35.0,
+      "y": 0.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_1"
+     },
+     {
+      "a": "_0",
+      "b": "_2"
+     },
+     {
+      "a": "_3",
+      "b": "_4",
+      "label": "70 cm",
+      "label_at": 0.75
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_0",
+      "rx": 35.0,
+      "ry": 35.0,
+      "start": 60.0,
+      "end": 120.0
+     },
+     {
+      "center": "_0",
+      "rx": 35.0,
+      "ry": 35.0,
+      "start": 120.0,
+      "end": 420.0,
+      "dashed": true
+     }
+    ],
+    "angles": [
+     {
+      "at": "_0",
+      "a": "_1",
+      "b": "_2",
+      "label": "60°"
+     }
+    ]
+   }
+  },
+  {
+   "id": "circ2-tangent-length",
+   "prompt": "The tangent from a point P to a circle of radius 7 cm is 24 cm long. How far is P from the centre of the circle?",
+   "reading": {
+    "kind": "circle",
+    "shape": "tangent",
+    "point": "P",
+    "measures": [
+     {
+      "what": "radius",
+      "value": 7.0
+     },
+     {
+      "what": "tangent",
+      "value": 24.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "circle_tangent",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "P",
+      "x": 25.0,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "_2",
+      "x": 1.9600000000000002,
+      "y": 6.72
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_2",
+      "label": "7 cm"
+     },
+     {
+      "a": "_2",
+      "b": "P",
+      "label": "24 cm"
+     },
+     {
+      "a": "_0",
+      "b": "P"
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_0",
+      "rx": 7.0,
+      "ry": 7.0
+     }
+    ],
+    "angles": [
+     {
+      "at": "_2",
+      "a": "_0",
+      "b": "P",
+      "right": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "circ2-tangent-angle",
+   "prompt": "PT is a tangent to a circle with centre O, touching it at T. OT = 5 cm and angle TPO = 30°. Find OP.",
+   "reading": {
+    "kind": "circle",
+    "shape": "tangent",
+    "vertices": "T",
+    "center": "O",
+    "point": "P",
+    "measures": [
+     {
+      "what": "radius",
+      "name": "OT",
+      "value": 5.0
+     },
+     {
+      "what": "angle",
+      "name": "TPO",
+      "value": 30.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "circle_tangent",
+    "points": [
+     {
+      "name": "O",
+      "x": 0.0,
+      "y": 0.0,
+      "show": true,
+      "dot": true
+     },
+     {
+      "name": "P",
+      "x": 10.000000000000002,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "T",
+      "x": 2.4999999999999996,
+      "y": 4.330127018922194,
+      "show": true
+     }
+    ],
+    "segments": [
+     {
+      "a": "O",
+      "b": "T",
+      "label": "5 cm"
+     },
+     {
+      "a": "T",
+      "b": "P"
+     },
+     {
+      "a": "O",
+      "b": "P"
+     }
+    ],
+    "arcs": [
+     {
+      "center": "O",
+      "rx": 5.0,
+      "ry": 5.0
+     }
+    ],
+    "angles": [
+     {
+      "at": "T",
+      "a": "O",
+      "b": "P",
+      "right": true
+     },
+     {
+      "at": "P",
+      "a": "T",
+      "b": "O",
+      "label": "30°"
+     }
+    ]
+   }
+  },
+  {
+   "id": "circ2-two-tangents-length",
+   "prompt": "From an external point P, tangents PA and PB are drawn to a circle with centre O. PA = 12 cm and the radius is 5 cm. Find OP.",
+   "reading": {
+    "kind": "circle",
+    "shape": "two_tangents",
+    "vertices": "AB",
+    "center": "O",
+    "point": "P",
+    "measures": [
+     {
+      "what": "tangent",
+      "name": "PA",
+      "value": 12.0
+     },
+     {
+      "what": "radius",
+      "value": 5.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "circle_two_tangents",
+    "points": [
+     {
+      "name": "O",
+      "x": 0.0,
+      "y": 0.0,
+      "show": true,
+      "dot": true
+     },
+     {
+      "name": "P",
+      "x": 13.0,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "A",
+      "x": 1.9230769230769234,
+      "y": 4.615384615384615,
+      "show": true
+     },
+     {
+      "name": "B",
+      "x": 1.9230769230769234,
+      "y": -4.615384615384615,
+      "show": true
+     }
+    ],
+    "segments": [
+     {
+      "a": "O",
+      "b": "A",
+      "label": "5 cm"
+     },
+     {
+      "a": "O",
+      "b": "B"
+     },
+     {
+      "a": "A",
+      "b": "P",
+      "label": "12 cm",
+      "ticks": 1
+     },
+     {
+      "a": "B",
+      "b": "P",
+      "ticks": 1
+     },
+     {
+      "a": "O",
+      "b": "P",
+      "dashed": true
+     }
+    ],
+    "arcs": [
+     {
+      "center": "O",
+      "rx": 5.0,
+      "ry": 5.0
+     }
+    ],
+    "angles": [
+     {
+      "at": "A",
+      "a": "O",
+      "b": "P",
+      "right": true
+     },
+     {
+      "at": "B",
+      "a": "O",
+      "b": "P",
+      "right": true
+     },
+     {
+      "at": "P",
+      "a": "A",
+      "b": "B"
+     },
+     {
+      "at": "O",
+      "a": "A",
+      "b": "B"
+     }
+    ]
+   }
+  },
+  {
+   "id": "circ2-two-tangents-centre",
+   "prompt": "Tangents TA and TB touch a circle with centre O at A and B. Angle AOB = 130°. Find angle ATB.",
+   "reading": {
+    "kind": "circle",
+    "shape": "two_tangents",
+    "vertices": "AB",
+    "center": "O",
+    "point": "T",
+    "measures": [
+     {
+      "what": "central_angle",
+      "name": "AOB",
+      "value": 130.0
+     }
+    ]
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "circle_two_tangents",
+    "points": [
+     {
+      "name": "O",
+      "x": 0.0,
+      "y": 0.0,
+      "show": true,
+      "dot": true
+     },
+     {
+      "name": "T",
+      "x": 6.0,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "A",
+      "x": 1.071637170940382,
+      "y": 2.298133329356934,
+      "show": true
+     },
+     {
+      "name": "B",
+      "x": 1.071637170940382,
+      "y": -2.298133329356934,
+      "show": true
+     }
+    ],
+    "segments": [
+     {
+      "a": "O",
+      "b": "A"
+     },
+     {
+      "a": "O",
+      "b": "B"
+     },
+     {
+      "a": "A",
+      "b": "T",
+      "ticks": 1
+     },
+     {
+      "a": "B",
+      "b": "T",
+      "ticks": 1
+     },
+     {
+      "a": "O",
+      "b": "T",
+      "dashed": true
+     }
+    ],
+    "arcs": [
+     {
+      "center": "O",
+      "rx": 2.5357095704441965,
+      "ry": 2.5357095704441965
+     }
+    ],
+    "angles": [
+     {
+      "at": "A",
+      "a": "O",
+      "b": "T",
+      "right": true
+     },
+     {
+      "at": "B",
+      "a": "O",
+      "b": "T",
+      "right": true
+     },
+     {
+      "at": "O",
+      "a": "A",
+      "b": "B",
+      "label": "130°"
+     },
+     {
+      "at": "T",
+      "a": "A",
+      "b": "B"
+     }
+    ]
+   }
+  },
+  {
+   "id": "circ2-centre-twice",
+   "prompt": "Points A, B and C lie on a circle with centre O. Angle ACB = 48°. Find angle AOB.",
+   "reading": {
+    "kind": "circle",
+    "shape": "angle_at_centre",
+    "vertices": "ABC",
+    "center": "O",
+    "measures": [
+     {
+      "what": "inscribed_angle",
+      "name": "ACB",
+      "value": 48.0
+     }
+    ]
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "circle_angle_at_centre",
+    "points": [
+     {
+      "name": "O",
+      "x": 0.0,
+      "y": 0.0,
+      "show": true,
+      "dot": true
+     },
+     {
+      "name": "A",
+      "x": -2.229434476432182,
+      "y": -2.0073918190765756,
+      "show": true
+     },
+     {
+      "name": "B",
+      "x": 2.229434476432183,
+      "y": -2.0073918190765747,
+      "show": true
+     },
+     {
+      "name": "C",
+      "x": -1.016213760735874,
+      "y": 2.8226423068626763,
+      "show": true
+     }
+    ],
+    "segments": [
+     {
+      "a": "O",
+      "b": "A"
+     },
+     {
+      "a": "O",
+      "b": "B"
+     },
+     {
+      "a": "C",
+      "b": "A"
+     },
+     {
+      "a": "C",
+      "b": "B"
+     }
+    ],
+    "arcs": [
+     {
+      "center": "O",
+      "rx": 3.0,
+      "ry": 3.0
+     }
+    ],
+    "angles": [
+     {
+      "at": "C",
+      "a": "A",
+      "b": "B",
+      "label": "48°"
+     },
+     {
+      "at": "O",
+      "a": "A",
+      "b": "B"
+     }
+    ]
+   }
+  },
+  {
+   "id": "circ2-same-segment",
+   "prompt": "A, B, C and D are points on a circle, with C and D on the same side of chord AB. Angle ACB = 37°. Find angle ADB.",
+   "reading": {
+    "kind": "circle",
+    "shape": "angle_at_centre",
+    "vertices": "ABCD",
+    "measures": [
+     {
+      "what": "inscribed_angle",
+      "name": "ACB",
+      "value": 37.0
+     }
+    ]
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "circle_angle_at_centre",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "A",
+      "x": -1.805445069456145,
+      "y": -2.395906530141878,
+      "show": true
+     },
+     {
+      "name": "B",
+      "x": 1.8054450694561448,
+      "y": -2.3959065301418785,
+      "show": true
+     },
+     {
+      "name": "C",
+      "x": -2.844970965618598,
+      "y": 0.9519139692152765,
+      "show": true
+     },
+     {
+      "name": "D",
+      "x": 2.844970965618598,
+      "y": 0.9519139692152765,
+      "show": true
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "A"
+     },
+     {
+      "a": "_0",
+      "b": "B"
+     },
+     {
+      "a": "C",
+      "b": "A"
+     },
+     {
+      "a": "C",
+      "b": "B"
+     },
+     {
+      "a": "D",
+      "b": "A"
+     },
+     {
+      "a": "D",
+      "b": "B"
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_0",
+      "rx": 3.0,
+      "ry": 3.0
+     }
+    ],
+    "angles": [
+     {
+      "at": "C",
+      "a": "A",
+      "b": "B",
+      "label": "37°"
+     },
+     {
+      "at": "D",
+      "a": "A",
+      "b": "B"
+     },
+     {
+      "at": "_0",
+      "a": "A",
+      "b": "B"
+     }
+    ]
+   }
+  },
+  {
+   "id": "circ2-reflex-centre",
+   "prompt": "An arc subtends an angle of 115° at the circumference of a circle. Find the reflex angle it subtends at the centre.",
+   "reading": {
+    "kind": "circle",
+    "shape": "angle_at_centre",
+    "measures": [
+     {
+      "what": "inscribed_angle",
+      "value": 115.0
+     }
+    ]
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "circle_angle_at_centre",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "_1",
+      "x": -2.71892336110995,
+      "y": 1.2678547852220978
+     },
+     {
+      "name": "_2",
+      "x": 2.7189233611099497,
+      "y": 1.2678547852220983
+     },
+     {
+      "name": "_3",
+      "x": -0.5080485115470739,
+      "y": 2.956668177174233
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_1"
+     },
+     {
+      "a": "_0",
+      "b": "_2"
+     },
+     {
+      "a": "_3",
+      "b": "_1"
+     },
+     {
+      "a": "_3",
+      "b": "_2"
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_0",
+      "rx": 3.0,
+      "ry": 3.0
+     }
+    ],
+    "angles": [
+     {
+      "at": "_3",
+      "a": "_1",
+      "b": "_2",
+      "label": "115°"
+     }
+    ]
+   }
+  },
+  {
+   "id": "circ2-semicircle-angle",
+   "prompt": "AB is a diameter of a circle and C is a point on the circle. Angle CAB = 35°. Find angle CBA.",
+   "reading": {
+    "kind": "circle",
+    "shape": "angle_in_semicircle",
+    "vertices": "ABC",
+    "measures": [
+     {
+      "what": "angle",
+      "name": "CAB",
+      "value": 35.0
+     }
+    ]
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "circle_semicircle_angle",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "A",
+      "x": -3.0,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "B",
+      "x": 3.0,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "C",
+      "x": 1.0260604299770062,
+      "y": 2.819077862357725,
+      "show": true
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B",
+      "label_at": 0.75
+     },
+     {
+      "a": "A",
+      "b": "C"
+     },
+     {
+      "a": "B",
+      "b": "C"
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_0",
+      "rx": 3.0,
+      "ry": 3.0
+     }
+    ],
+    "angles": [
+     {
+      "at": "C",
+      "a": "A",
+      "b": "B",
+      "right": true
+     },
+     {
+      "at": "A",
+      "a": "B",
+      "b": "C",
+      "label": "35°"
+     }
+    ]
+   }
+  },
+  {
+   "id": "circ2-semicircle-radius",
+   "prompt": "AB is a diameter of a circle of radius 6.5 cm, and C is a point on the circle with AC = 5 cm. Find BC.",
+   "reading": {
+    "kind": "circle",
+    "shape": "angle_in_semicircle",
+    "vertices": "ABC",
+    "measures": [
+     {
+      "what": "radius",
+      "value": 6.5
+     },
+     {
+      "what": "length",
+      "name": "AC",
+      "value": 5.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "circle_semicircle_angle",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "A",
+      "x": -6.5,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "B",
+      "x": 6.5,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "C",
+      "x": -4.576923076923077,
+      "y": 4.615384615384615,
+      "show": true
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B",
+      "label_at": 0.75
+     },
+     {
+      "a": "A",
+      "b": "C",
+      "label": "5 cm"
+     },
+     {
+      "a": "B",
+      "b": "C"
+     },
+     {
+      "a": "_0",
+      "b": "C",
+      "label": "6.5 cm"
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_0",
+      "rx": 6.5,
+      "ry": 6.5
+     }
+    ],
+    "angles": [
+     {
+      "at": "C",
+      "a": "A",
+      "b": "B",
+      "right": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "circ2-cyclic-pq",
+   "prompt": "PQRS is a cyclic quadrilateral. Angle P = 110° and angle Q = 75°. Find angles R and S.",
+   "reading": {
+    "kind": "circle",
+    "shape": "cyclic_quadrilateral",
+    "vertices": "PQRS",
+    "measures": [
+     {
+      "what": "angle",
+      "name": "P",
+      "value": 110.0
+     },
+     {
+      "what": "angle",
+      "name": "Q",
+      "value": 75.0
+     }
+    ]
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "cyclic_quadrilateral",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "P",
+      "x": -2.121320343559643,
+      "y": -2.1213203435596424,
+      "show": true
+     },
+     {
+      "name": "Q",
+      "x": 1.2678547852220987,
+      "y": -2.7189233611099493,
+      "show": true
+     },
+     {
+      "name": "R",
+      "x": 0.7764571353075622,
+      "y": 2.897777478867205,
+      "show": true
+     },
+     {
+      "name": "S",
+      "x": -2.71892336110995,
+      "y": 1.267854785222098,
+      "show": true
+     }
+    ],
+    "segments": [
+     {
+      "a": "P",
+      "b": "Q"
+     },
+     {
+      "a": "Q",
+      "b": "R"
+     },
+     {
+      "a": "R",
+      "b": "S"
+     },
+     {
+      "a": "S",
+      "b": "P"
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_0",
+      "rx": 3.0,
+      "ry": 3.0
+     }
+    ],
+    "angles": [
+     {
+      "at": "P",
+      "a": "S",
+      "b": "Q",
+      "label": "110°"
+     },
+     {
+      "at": "Q",
+      "a": "P",
+      "b": "R",
+      "label": "75°"
+     },
+     {
+      "at": "R",
+      "a": "Q",
+      "b": "S"
+     },
+     {
+      "at": "S",
+      "a": "R",
+      "b": "P"
+     }
+    ],
+    "faces": [
+     [
+      "P",
+      "Q",
+      "R",
+      "S"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "circ2-cyclic-one",
+   "prompt": "In a cyclic quadrilateral ABCD, angle ABC = 98°. Find angle ADC.",
+   "reading": {
+    "kind": "circle",
+    "shape": "cyclic_quadrilateral",
+    "vertices": "ABCD",
+    "measures": [
+     {
+      "what": "angle",
+      "name": "ABC",
+      "value": 98.0
+     }
+    ]
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "cyclic_quadrilateral",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "A",
+      "x": -2.121320343559643,
+      "y": -2.1213203435596424,
+      "show": true
+     },
+     {
+      "name": "B",
+      "x": 1.7207293090531381,
+      "y": -2.4574561328669753,
+      "show": true
+     },
+     {
+      "name": "C",
+      "x": 2.623859121418187,
+      "y": 1.4544288607390117,
+      "show": true
+     },
+     {
+      "name": "D",
+      "x": -2.457456132866976,
+      "y": 1.7207293090531375,
+      "show": true
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B"
+     },
+     {
+      "a": "B",
+      "b": "C"
+     },
+     {
+      "a": "C",
+      "b": "D"
+     },
+     {
+      "a": "D",
+      "b": "A"
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_0",
+      "rx": 3.0,
+      "ry": 3.0
+     }
+    ],
+    "angles": [
+     {
+      "at": "A",
+      "a": "D",
+      "b": "B"
+     },
+     {
+      "at": "B",
+      "a": "A",
+      "b": "C",
+      "label": "98°"
+     },
+     {
+      "at": "C",
+      "a": "B",
+      "b": "D"
+     },
+     {
+      "at": "D",
+      "a": "C",
+      "b": "A"
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C",
+      "D"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "circ2-chords-x",
+   "prompt": "Chords PQ and RS of a circle intersect at X. PX = 8 cm, XQ = 3 cm and RX = 4 cm. Find XS.",
+   "reading": {
+    "kind": "circle",
+    "shape": "intersecting_chords",
+    "vertices": "PQRS",
+    "point": "X",
+    "measures": [
+     {
+      "what": "length",
+      "name": "PX",
+      "value": 8.0
+     },
+     {
+      "what": "length",
+      "name": "XQ",
+      "value": 3.0
+     },
+     {
+      "what": "length",
+      "name": "RX",
+      "value": 4.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "circle_intersecting_chords",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "P",
+      "x": -5.5,
+      "y": -2.2691470643499883,
+      "show": true
+     },
+     {
+      "name": "Q",
+      "x": 5.5,
+      "y": -2.2691470643499883,
+      "show": true
+     },
+     {
+      "name": "R",
+      "x": 0.8095269530372018,
+      "y": -5.894378212496588,
+      "show": true
+     },
+     {
+      "name": "S",
+      "x": 5.035709570444196,
+      "y": 3.168699657869911,
+      "show": true
+     },
+     {
+      "name": "X",
+      "x": 2.4999999999999996,
+      "y": -2.2691470643499883,
+      "show": true
+     }
+    ],
+    "segments": [
+     {
+      "a": "P",
+      "b": "X",
+      "label": "8 cm"
+     },
+     {
+      "a": "Q",
+      "b": "X",
+      "label": "3 cm"
+     },
+     {
+      "a": "R",
+      "b": "X",
+      "label": "4 cm"
+     },
+     {
+      "a": "S",
+      "b": "X"
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_0",
+      "rx": 5.949708261725794,
+      "ry": 5.949708261725794
+     }
+    ]
+   }
+  },
+  {
+   "id": "circ2-path-ring",
+   "prompt": "A circular path surrounds a circular garden of diameter 20 m. The outer edge of the path has diameter 26 m. Find the area of the path.",
+   "reading": {
+    "kind": "circle",
+    "shape": "annulus",
+    "measures": [
+     {
+      "what": "diameter",
+      "value": 20.0
+     },
+     {
+      "what": "diameter",
+      "value": 26.0
+     }
+    ],
+    "unit": "m"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "annulus",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "_1",
+      "x": 7.071067811865474,
+      "y": -7.071067811865477
+     },
+     {
+      "name": "_2",
+      "x": -7.071067811865475,
+      "y": 7.0710678118654755
+     },
+     {
+      "name": "_3",
+      "x": -12.21600407021681,
+      "y": -4.446261863233692
+     },
+     {
+      "name": "_4",
+      "x": 12.21600407021681,
+      "y": 4.446261863233693
+     }
+    ],
+    "segments": [
+     {
+      "a": "_1",
+      "b": "_2",
+      "label": "20 m",
+      "label_at": 0.75
+     },
+     {
+      "a": "_3",
+      "b": "_4",
+      "label": "26 m",
+      "label_at": 0.75
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_0",
+      "rx": 10.0,
+      "ry": 10.0
+     },
+     {
+      "center": "_0",
+      "rx": 13.0,
+      "ry": 13.0
+     }
+    ]
+   }
+  },
+  {
+   "id": "circ2-rectangle-circumcircle",
+   "prompt": "Find the radius of the circle that passes through all four corners of a rectangle 6 cm by 8 cm.",
+   "reading": {
+    "kind": "circle",
+    "shape": "circle",
+    "measures": [
+     {
+      "what": "length",
+      "value": 8.0
+     },
+     {
+      "what": "width",
+      "value": 6.0
+     }
+    ],
+    "parts": [
+     "radius"
+    ],
+    "inscribed": "rectangle",
+    "circle_through": "rectangle",
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "circle_rectangle",
+    "points": [
+     {
+      "name": "A",
+      "x": -4.0,
+      "y": -3.0
+     },
+     {
+      "name": "B",
+      "x": 4.0,
+      "y": -3.0
+     },
+     {
+      "name": "C",
+      "x": 4.0,
+      "y": 3.0
+     },
+     {
+      "name": "D",
+      "x": -4.0,
+      "y": 3.0
+     },
+     {
+      "name": "_4",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "_5",
+      "x": -4.0,
+      "y": -3.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B",
+      "label": "8 cm"
+     },
+     {
+      "a": "B",
+      "b": "C",
+      "label": "6 cm"
+     },
+     {
+      "a": "C",
+      "b": "D"
+     },
+     {
+      "a": "D",
+      "b": "A"
+     },
+     {
+      "a": "_4",
+      "b": "_5"
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_4",
+      "rx": 5.0,
+      "ry": 5.0
+     }
+    ],
+    "angles": [
+     {
+      "at": "A",
+      "a": "B",
+      "b": "D",
+      "right": true
+     },
+     {
+      "at": "B",
+      "a": "C",
+      "b": "A",
+      "right": true
+     },
+     {
+      "at": "C",
+      "a": "D",
+      "b": "B",
+      "right": true
+     },
+     {
+      "at": "D",
+      "a": "A",
+      "b": "C",
+      "right": true
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C",
+      "D"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "circ2-equilateral-incircle",
+   "prompt": "Find the radius of the circle inscribed in an equilateral triangle of side 12 cm.",
+   "reading": {
+    "kind": "circle",
+    "shape": "circle",
+    "measures": [
+     {
+      "what": "side",
+      "value": 12.0
+     }
+    ],
+    "parts": [
+     "radius"
+    ],
+    "circumscribed": "equilateral_triangle",
+    "circle_within": "equilateral_triangle",
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "circle_equilateral_triangle",
+    "points": [
+     {
+      "name": "A",
+      "x": -6.0,
+      "y": -3.464101615137755
+     },
+     {
+      "name": "B",
+      "x": 6.0,
+      "y": -3.464101615137755
+     },
+     {
+      "name": "C",
+      "x": 0.0,
+      "y": 6.928203230275509
+     },
+     {
+      "name": "_3",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "_4",
+      "x": 3.0,
+      "y": 1.7320508075688772
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B",
+      "label": "12 cm",
+      "ticks": 1
+     },
+     {
+      "a": "B",
+      "b": "C",
+      "ticks": 1
+     },
+     {
+      "a": "C",
+      "b": "A",
+      "ticks": 1
+     },
+     {
+      "a": "_3",
+      "b": "_4"
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_3",
+      "rx": 3.464101615137755,
+      "ry": 3.464101615137755
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "circ2-square-in-circle",
+   "prompt": "A square is inscribed in a circle of radius 5 cm. Find the area of the square.",
+   "reading": {
+    "kind": "circle",
+    "shape": "circle",
+    "measures": [
+     {
+      "what": "radius",
+      "value": 5.0
+     }
+    ],
+    "inscribed": "square",
+    "circle_through": "square",
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "circle_square",
+    "points": [
+     {
+      "name": "A",
+      "x": -3.5355339059327373,
+      "y": -3.5355339059327373
+     },
+     {
+      "name": "B",
+      "x": 3.5355339059327373,
+      "y": -3.5355339059327373
+     },
+     {
+      "name": "C",
+      "x": 3.5355339059327373,
+      "y": 3.5355339059327373
+     },
+     {
+      "name": "D",
+      "x": -3.5355339059327373,
+      "y": 3.5355339059327373
+     },
+     {
+      "name": "_4",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "_5",
+      "x": -3.5355339059327373,
+      "y": -3.5355339059327373
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B",
+      "ticks": 1
+     },
+     {
+      "a": "B",
+      "b": "C",
+      "ticks": 1
+     },
+     {
+      "a": "C",
+      "b": "D",
+      "ticks": 1
+     },
+     {
+      "a": "D",
+      "b": "A",
+      "ticks": 1
+     },
+     {
+      "a": "_4",
+      "b": "_5",
+      "label": "5 cm"
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_4",
+      "rx": 5.0,
+      "ry": 5.0
+     }
+    ],
+    "angles": [
+     {
+      "at": "A",
+      "a": "B",
+      "b": "D",
+      "right": true
+     },
+     {
+      "at": "B",
+      "a": "C",
+      "b": "A",
+      "right": true
+     },
+     {
+      "at": "C",
+      "a": "D",
+      "b": "B",
+      "right": true
+     },
+     {
+      "at": "D",
+      "a": "A",
+      "b": "C",
+      "right": true
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C",
+      "D"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "circ2-pi-same",
+   "prompt": "Why is pi the same for every circle, however big it is?",
+   "reading": {
+    "kind": "circle",
+    "shape": "circle"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "circle_parts",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_0",
+      "rx": 3.0,
+      "ry": 3.0
+     }
+    ]
+   }
+  },
+  {
+   "id": "lines-cointerior",
+   "prompt": "Two parallel lines are cut by a transversal. One of the co-interior angles is 72°. Find the other.",
+   "reading": {
+    "kind": "lines",
+    "shape": "parallel_lines",
+    "measures": [
+     {
+      "what": "angle",
+      "value": 72.0
+     }
+    ]
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "parallel_lines",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "_1",
+      "x": -5.0,
+      "y": 0.0
+     },
+     {
+      "name": "_2",
+      "x": 5.0,
+      "y": 0.0
+     },
+     {
+      "name": "_3",
+      "x": -5.0,
+      "y": -3.0
+     },
+     {
+      "name": "_4",
+      "x": 5.0,
+      "y": -3.0
+     },
+     {
+      "name": "_5",
+      "x": 0.6180339887498949,
+      "y": 1.902113032590307
+     },
+     {
+      "name": "_6",
+      "x": -1.592793077448614,
+      "y": -4.902113032590307
+     }
+    ],
+    "segments": [
+     {
+      "a": "_1",
+      "b": "_2",
+      "arrows": 1
+     },
+     {
+      "a": "_3",
+      "b": "_4",
+      "arrows": 1
+     },
+     {
+      "a": "_5",
+      "b": "_6"
+     }
+    ],
+    "angles": [
+     {
+      "at": "_0",
+      "a": "_2",
+      "b": "_5",
+      "label": "72°"
+     }
+    ]
+   }
+  },
+  {
+   "id": "lines-vertical",
+   "prompt": "Two straight lines cross. One of the angles formed is 35°. Find the other three angles.",
+   "reading": {
+    "kind": "lines",
+    "shape": "intersecting_lines",
+    "measures": [
+     {
+      "what": "angle",
+      "value": 35.0
+     }
+    ]
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "intersecting_lines",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "_1",
+      "x": 5.0,
+      "y": 0.0
+     },
+     {
+      "name": "_2",
+      "x": -5.0,
+      "y": 0.0
+     },
+     {
+      "name": "_3",
+      "x": 4.095760221444959,
+      "y": 2.8678821817552302
+     },
+     {
+      "name": "_4",
+      "x": -4.095760221444959,
+      "y": -2.8678821817552307
+     }
+    ],
+    "segments": [
+     {
+      "a": "_2",
+      "b": "_1"
+     },
+     {
+      "a": "_4",
+      "b": "_3"
+     }
+    ],
+    "angles": [
+     {
+      "at": "_0",
+      "a": "_1",
+      "b": "_3",
+      "label": "35°"
+     }
+    ]
+   }
+  },
+  {
+   "id": "lines-point-x",
+   "prompt": "Three angles at a point are x, 2x and 150°. Find x.",
+   "reading": {
+    "kind": "lines",
+    "shape": "angles_at_point",
+    "measures": [
+     {
+      "what": "angle",
+      "value": 150.0
+     }
+    ],
+    "angle_terms": [
+     {
+      "term": "x"
+     },
+     {
+      "term": "2x"
+     }
+    ]
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "angles_at_point",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "_1",
+      "x": 5.0,
+      "y": 0.0
+     },
+     {
+      "name": "_2",
+      "x": 1.7101007166283442,
+      "y": 4.698463103929542
+     },
+     {
+      "name": "_3",
+      "x": -4.330127018922193,
+      "y": -2.5000000000000004
+     },
+     {
+      "name": "_4",
+      "x": 5.0,
+      "y": -1.2246467991473533e-15
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_1"
+     },
+     {
+      "a": "_0",
+      "b": "_2"
+     },
+     {
+      "a": "_0",
+      "b": "_3"
+     }
+    ],
+    "angles": [
+     {
+      "at": "_0",
+      "a": "_1",
+      "b": "_2",
+      "label": "x"
+     },
+     {
+      "at": "_0",
+      "a": "_2",
+      "b": "_3",
+      "label": "2x"
+     },
+     {
+      "at": "_0",
+      "a": "_3",
+      "b": "_4",
+      "label": "150°"
+     }
+    ]
+   }
+  },
+  {
+   "id": "lines-bisector",
+   "prompt": "Angle AOB is 84° and OC bisects it. Find angle AOC.",
+   "reading": {
+    "kind": "lines",
+    "shape": "angle",
+    "vertices": "AOC",
+    "measures": [
+     {
+      "what": "angle",
+      "name": "AOB",
+      "value": 84.0
+     }
+    ]
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "angle",
+    "points": [
+     {
+      "name": "O",
+      "x": 0.0,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "A",
+      "x": 5.0,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "C",
+      "x": 0.5226423163382673,
+      "y": 4.972609476841367,
+      "show": true
+     }
+    ],
+    "segments": [
+     {
+      "a": "O",
+      "b": "A"
+     },
+     {
+      "a": "O",
+      "b": "C"
+     }
+    ],
+    "angles": [
+     {
+      "at": "O",
+      "a": "A",
+      "b": "C",
+      "label": "84°"
+     }
+    ]
+   }
+  },
+  {
+   "id": "lines-complement",
+   "prompt": "Two angles are complementary and one of them is 28°. Find the other.",
+   "reading": {
+    "kind": "lines",
+    "shape": "complementary_angles",
+    "measures": [
+     {
+      "what": "angle",
+      "value": 28.0
+     }
+    ]
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "complementary_angles",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "_1",
+      "x": 5.0,
+      "y": 0.0
+     },
+     {
+      "name": "_2",
+      "x": 0.0,
+      "y": 5.0
+     },
+     {
+      "name": "_3",
+      "x": 4.414737964294635,
+      "y": 2.347357813929454
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_1"
+     },
+     {
+      "a": "_0",
+      "b": "_2"
+     },
+     {
+      "a": "_0",
+      "b": "_3"
+     }
+    ],
+    "angles": [
+     {
+      "at": "_0",
+      "a": "_1",
+      "b": "_3",
+      "label": "28°"
+     },
+     {
+      "at": "_0",
+      "a": "_3",
+      "b": "_2"
+     }
+    ]
+   }
+  },
+  {
+   "id": "sim-triangles",
+   "prompt": "Triangles ABC and DEF are similar with AB = 4 cm, BC = 5 cm and DE = 6 cm. Find EF.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "similar_triangles",
+    "vertices": "ABCDEF",
+    "measures": [
+     {
+      "what": "side",
+      "name": "AB",
+      "value": 4.0
+     },
+     {
+      "what": "side",
+      "name": "BC",
+      "value": 5.0
+     },
+     {
+      "what": "side",
+      "name": "DE",
+      "value": 6.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "similar_triangles",
+    "points": [
+     {
+      "name": "A",
+      "x": 0.0,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "B",
+      "x": 4.0,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "C",
+      "x": 1.8869086912965027,
+      "y": 4.531538935183249,
+      "show": true
+     },
+     {
+      "name": "D",
+      "x": 6.1,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "E",
+      "x": 12.1,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "F",
+      "x": 8.930363036944755,
+      "y": 6.797308402774874,
+      "show": true
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B",
+      "label": "4 cm"
+     },
+     {
+      "a": "B",
+      "b": "C",
+      "label": "5 cm"
+     },
+     {
+      "a": "C",
+      "b": "A"
+     },
+     {
+      "a": "D",
+      "b": "E",
+      "label": "6 cm"
+     },
+     {
+      "a": "E",
+      "b": "F"
+     },
+     {
+      "a": "F",
+      "b": "D"
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C"
+     ],
+     [
+      "D",
+      "E",
+      "F"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "sim-shadow",
+   "prompt": "A 2 m pole casts a shadow of 3 m. At the same time a tree casts a shadow of 18 m. How tall is the tree?",
+   "reading": {
+    "kind": "polygon",
+    "shape": "shadows",
+    "measures": [
+     {
+      "what": "height",
+      "value": 2.0,
+      "of": "pole"
+     },
+     {
+      "what": "shadow",
+      "value": 3.0,
+      "of": "pole"
+     },
+     {
+      "what": "shadow",
+      "value": 18.0,
+      "of": "tree"
+     }
+    ]
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "shadows",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "_1",
+      "x": 0.0,
+      "y": 2.0
+     },
+     {
+      "name": "_2",
+      "x": 3.0,
+      "y": 0.0
+     },
+     {
+      "name": "_3",
+      "x": 9.3,
+      "y": 0.0
+     },
+     {
+      "name": "_4",
+      "x": 9.3,
+      "y": 12.0
+     },
+     {
+      "name": "_5",
+      "x": 27.3,
+      "y": 0.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_1",
+      "label": "2 m"
+     },
+     {
+      "a": "_0",
+      "b": "_2",
+      "label": "3 m"
+     },
+     {
+      "a": "_1",
+      "b": "_2",
+      "dashed": true
+     },
+     {
+      "a": "_3",
+      "b": "_4"
+     },
+     {
+      "a": "_3",
+      "b": "_5",
+      "label": "18 m"
+     },
+     {
+      "a": "_4",
+      "b": "_5",
+      "dashed": true
+     }
+    ],
+    "angles": [
+     {
+      "at": "_0",
+      "a": "_2",
+      "b": "_1",
+      "right": true
+     },
+     {
+      "at": "_2",
+      "a": "_0",
+      "b": "_1"
+     },
+     {
+      "at": "_3",
+      "a": "_5",
+      "b": "_4",
+      "right": true
+     },
+     {
+      "at": "_5",
+      "a": "_3",
+      "b": "_4"
+     }
+    ]
+   }
+  },
+  {
+   "id": "trig-elevation",
+   "prompt": "From a point 50 m from the foot of a tower, the angle of elevation of the top of the tower is 35°. Find the height of the tower.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "elevation",
+    "measures": [
+     {
+      "what": "distance",
+      "value": 50.0
+     },
+     {
+      "what": "angle",
+      "value": 35.0
+     }
+    ]
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "elevation",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "_1",
+      "x": 0.0,
+      "y": 35.01037691048548
+     },
+     {
+      "name": "_2",
+      "x": 50.0,
+      "y": 0.0
+     },
+     {
+      "name": "_3",
+      "x": 57.5,
+      "y": 0.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_2",
+      "label": "50 m"
+     },
+     {
+      "a": "_2",
+      "b": "_3"
+     },
+     {
+      "a": "_0",
+      "b": "_1"
+     },
+     {
+      "a": "_2",
+      "b": "_1"
+     }
+    ],
+    "angles": [
+     {
+      "at": "_0",
+      "a": "_2",
+      "b": "_1",
+      "right": true
+     },
+     {
+      "at": "_2",
+      "a": "_0",
+      "b": "_1",
+      "label": "35°"
+     }
+    ]
+   }
+  },
+  {
+   "id": "trig-ladder",
+   "prompt": "A 10 m ladder leans against a vertical wall with its foot 6 m from the wall. How high up the wall does it reach?",
+   "reading": {
+    "kind": "polygon",
+    "shape": "right_triangle",
+    "measures": [
+     {
+      "what": "length",
+      "value": 10.0,
+      "of": "ladder"
+     },
+     {
+      "what": "distance",
+      "value": 6.0,
+      "of": "foot"
+     }
+    ],
+    "unit": "m"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "elevation",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "_1",
+      "x": 0.0,
+      "y": 8.0
+     },
+     {
+      "name": "_2",
+      "x": 6.0,
+      "y": 0.0
+     },
+     {
+      "name": "_3",
+      "x": 7.2,
+      "y": 0.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_2",
+      "label": "6 m"
+     },
+     {
+      "a": "_2",
+      "b": "_3"
+     },
+     {
+      "a": "_0",
+      "b": "_1"
+     },
+     {
+      "a": "_2",
+      "b": "_1",
+      "label": "10 m"
+     }
+    ],
+    "angles": [
+     {
+      "at": "_0",
+      "a": "_2",
+      "b": "_1",
+      "right": true
+     },
+     {
+      "at": "_2",
+      "a": "_0",
+      "b": "_1"
+     }
+    ]
+   }
+  },
+  {
+   "id": "trig-depression",
+   "prompt": "From the top of an 80 m cliff, the angle of depression of a boat is 25°. How far is the boat from the foot of the cliff?",
+   "reading": {
+    "kind": "polygon",
+    "shape": "depression",
+    "measures": [
+     {
+      "what": "height",
+      "value": 80.0
+     },
+     {
+      "what": "angle",
+      "value": 25.0
+     }
+    ]
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "depression",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "_1",
+      "x": 0.0,
+      "y": 80.0
+     },
+     {
+      "name": "_2",
+      "x": 171.56055364076468,
+      "y": 0.0
+     },
+     {
+      "name": "_3",
+      "x": 197.2946366868794,
+      "y": 0.0
+     },
+     {
+      "name": "_4",
+      "x": 197.2946366868794,
+      "y": 80.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_2"
+     },
+     {
+      "a": "_2",
+      "b": "_3"
+     },
+     {
+      "a": "_0",
+      "b": "_1",
+      "label": "80 m"
+     },
+     {
+      "a": "_2",
+      "b": "_1"
+     },
+     {
+      "a": "_1",
+      "b": "_4",
+      "dashed": true
+     }
+    ],
+    "angles": [
+     {
+      "at": "_0",
+      "a": "_2",
+      "b": "_1",
+      "right": true
+     },
+     {
+      "at": "_1",
+      "a": "_4",
+      "b": "_2",
+      "label": "25°"
+     }
+    ]
+   }
+  },
+  {
+   "id": "trig-kite-string",
+   "prompt": "A kite is flying on a 60 m string that makes an angle of 50° with the ground. How high is the kite?",
+   "reading": {
+    "kind": "polygon",
+    "shape": "slope",
+    "measures": [
+     {
+      "what": "length",
+      "value": 60.0
+     },
+     {
+      "what": "angle",
+      "value": 50.0
+     }
+    ],
+    "unit": "m"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "slope",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "_1",
+      "x": 0.0,
+      "y": 45.96266658713868
+     },
+     {
+      "name": "_2",
+      "x": 38.56725658119236,
+      "y": 0.0
+     },
+     {
+      "name": "_3",
+      "x": 45.46165656926316,
+      "y": 0.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_2"
+     },
+     {
+      "a": "_2",
+      "b": "_3"
+     },
+     {
+      "a": "_0",
+      "b": "_1",
+      "dashed": true
+     },
+     {
+      "a": "_2",
+      "b": "_1",
+      "label": "60 m"
+     }
+    ],
+    "angles": [
+     {
+      "at": "_0",
+      "a": "_2",
+      "b": "_1",
+      "right": true
+     },
+     {
+      "at": "_2",
+      "a": "_0",
+      "b": "_1",
+      "label": "50°"
+     }
+    ]
+   }
+  },
+  {
+   "id": "pyth-3d",
+   "prompt": "Find the length of the longest diagonal of a cuboid measuring 3 cm by 4 cm by 12 cm.",
+   "reading": {
+    "kind": "solid",
+    "shape": "cuboid",
+    "measures": [
+     {
+      "what": "length",
+      "value": 12.0
+     },
+     {
+      "what": "width",
+      "value": 4.0
+     },
+     {
+      "what": "height",
+      "value": 3.0
+     }
+    ],
+    "parts": [
+     "diagonals"
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "cuboid",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "_1",
+      "x": -1.9999999999999998,
+      "y": -1.0392304845413265
+     },
+     {
+      "name": "_2",
+      "x": 8.392304845413264,
+      "y": -2.839230484541326
+     },
+     {
+      "name": "_3",
+      "x": 10.392304845413264,
+      "y": -1.7999999999999996
+     },
+     {
+      "name": "_4",
+      "x": 0.0,
+      "y": 2.861817604250837
+     },
+     {
+      "name": "_5",
+      "x": -1.9999999999999998,
+      "y": 1.8225871197095107
+     },
+     {
+      "name": "_6",
+      "x": 8.392304845413264,
+      "y": 0.022587119709511327
+     },
+     {
+      "name": "_7",
+      "x": 10.392304845413264,
+      "y": 1.0618176042508376
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_1",
+      "dashed": true
+     },
+     {
+      "a": "_1",
+      "b": "_2",
+      "label": "12 cm"
+     },
+     {
+      "a": "_2",
+      "b": "_3",
+      "label": "4 cm"
+     },
+     {
+      "a": "_0",
+      "b": "_3",
+      "dashed": true
+     },
+     {
+      "a": "_4",
+      "b": "_5"
+     },
+     {
+      "a": "_5",
+      "b": "_6"
+     },
+     {
+      "a": "_6",
+      "b": "_7"
+     },
+     {
+      "a": "_4",
+      "b": "_7"
+     },
+     {
+      "a": "_1",
+      "b": "_5"
+     },
+     {
+      "a": "_0",
+      "b": "_4",
+      "dashed": true
+     },
+     {
+      "a": "_2",
+      "b": "_6"
+     },
+     {
+      "a": "_3",
+      "b": "_7",
+      "label": "3 cm"
+     },
+     {
+      "a": "_1",
+      "b": "_7",
+      "dashed": true
+     }
+    ],
+    "faces": [
+     [
+      "_4",
+      "_5",
+      "_6",
+      "_7"
+     ],
+     [
+      "_3",
+      "_2",
+      "_6",
+      "_7"
+     ],
+     [
+      "_1",
+      "_2",
+      "_6",
+      "_5"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "solid-cone",
+   "prompt": "A cone has a radius of 6 cm and a height of 8 cm. Find its slant height and volume.",
+   "reading": {
+    "kind": "solid",
+    "shape": "cone",
+    "measures": [
+     {
+      "what": "radius",
+      "value": 6.0
+     },
+     {
+      "what": "height",
+      "value": 8.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "cone",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "_1",
+      "x": 0.0,
+      "y": 8.0
+     },
+     {
+      "name": "_2",
+      "x": -6.0,
+      "y": 0.0
+     },
+     {
+      "name": "_3",
+      "x": 6.0,
+      "y": 0.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "_2",
+      "b": "_1"
+     },
+     {
+      "a": "_3",
+      "b": "_1"
+     },
+     {
+      "a": "_1",
+      "b": "_0",
+      "label": "8 cm",
+      "dashed": true
+     },
+     {
+      "a": "_0",
+      "b": "_3",
+      "label": "6 cm",
+      "dashed": true
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_0",
+      "rx": 6.0,
+      "ry": 1.7999999999999998,
+      "start": 180.0
+     },
+     {
+      "center": "_0",
+      "rx": 6.0,
+      "ry": 1.7999999999999998,
+      "end": 180.0,
+      "dashed": true
+     }
+    ],
+    "angles": [
+     {
+      "at": "_0",
+      "a": "_3",
+      "b": "_1",
+      "right": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "solid-sphere",
+   "prompt": "Find the surface area of a sphere with radius 7 cm.",
+   "reading": {
+    "kind": "solid",
+    "shape": "sphere",
+    "measures": [
+     {
+      "what": "radius",
+      "value": 7.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "sphere",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "_1",
+      "x": 7.0,
+      "y": 0.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_1",
+      "label": "7 cm"
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_0",
+      "rx": 7.0,
+      "ry": 7.0
+     },
+     {
+      "center": "_0",
+      "rx": 7.0,
+      "ry": 2.1,
+      "start": 180.0
+     },
+     {
+      "center": "_0",
+      "rx": 7.0,
+      "ry": 2.1,
+      "end": 180.0,
+      "dashed": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "solid-hemisphere",
+   "prompt": "Find the volume of a hemisphere with a diameter of 12 cm.",
+   "reading": {
+    "kind": "solid",
+    "shape": "hemisphere",
+    "measures": [
+     {
+      "what": "diameter",
+      "value": 12.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "hemisphere",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "_1",
+      "x": 6.0,
+      "y": 0.0
+     },
+     {
+      "name": "_2",
+      "x": -6.0,
+      "y": 0.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "_2",
+      "b": "_1",
+      "label": "12 cm",
+      "dashed": true,
+      "label_at": 0.75
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_0",
+      "rx": 6.0,
+      "ry": 6.0,
+      "start": 180.0
+     },
+     {
+      "center": "_0",
+      "rx": 6.0,
+      "ry": 1.7999999999999998
+     }
+    ]
+   }
+  },
+  {
+   "id": "solid-tri-prism",
+   "prompt": "A triangular prism has a right-angled triangle end with legs 3 cm and 4 cm, and a length of 10 cm. Find its volume and surface area.",
+   "reading": {
+    "kind": "solid",
+    "shape": "triangular_prism",
+    "measures": [
+     {
+      "what": "leg",
+      "value": 3.0
+     },
+     {
+      "what": "leg",
+      "value": 4.0
+     },
+     {
+      "what": "length",
+      "value": 10.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "triangular_prism",
+    "points": [
+     {
+      "name": "_0",
+      "x": -4.999999999999999,
+      "y": -2.598076211353316
+     },
+     {
+      "name": "_1",
+      "x": -2.401923788646683,
+      "y": -3.048076211353316
+     },
+     {
+      "name": "_2",
+      "x": -4.999999999999999,
+      "y": 1.2176805943144666
+     },
+     {
+      "name": "_3",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "_4",
+      "x": 2.598076211353316,
+      "y": -0.4499999999999999
+     },
+     {
+      "name": "_5",
+      "x": 0.0,
+      "y": 3.8157568056677826
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_1",
+      "label": "3 cm"
+     },
+     {
+      "a": "_1",
+      "b": "_2"
+     },
+     {
+      "a": "_0",
+      "b": "_2",
+      "label": "4 cm"
+     },
+     {
+      "a": "_3",
+      "b": "_4",
+      "dashed": true
+     },
+     {
+      "a": "_4",
+      "b": "_5"
+     },
+     {
+      "a": "_3",
+      "b": "_5",
+      "dashed": true
+     },
+     {
+      "a": "_1",
+      "b": "_4",
+      "label": "10 cm"
+     },
+     {
+      "a": "_0",
+      "b": "_3",
+      "dashed": true
+     },
+     {
+      "a": "_2",
+      "b": "_5"
+     }
+    ],
+    "faces": [
+     [
+      "_0",
+      "_1",
+      "_2"
+     ],
+     [
+      "_1",
+      "_2",
+      "_5",
+      "_4"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "solid-pyramid",
+   "prompt": "A square pyramid has a base of side 10 cm and a slant height of 13 cm. Find its vertical height and volume.",
+   "reading": {
+    "kind": "solid",
+    "shape": "square_pyramid",
+    "measures": [
+     {
+      "what": "side",
+      "value": 10.0
+     },
+     {
+      "what": "slant_height",
+      "value": 13.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "square_pyramid",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "_1",
+      "x": -4.999999999999999,
+      "y": -2.598076211353316
+     },
+     {
+      "name": "_2",
+      "x": 3.660254037844388,
+      "y": -4.098076211353315
+     },
+     {
+      "name": "_3",
+      "x": 8.660254037844387,
+      "y": -1.4999999999999998
+     },
+     {
+      "name": "_4",
+      "x": 1.830127018922194,
+      "y": 9.39823231132669
+     },
+     {
+      "name": "_5",
+      "x": -0.6698729810778055,
+      "y": -3.348076211353316
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_1",
+      "dashed": true
+     },
+     {
+      "a": "_1",
+      "b": "_2"
+     },
+     {
+      "a": "_2",
+      "b": "_3",
+      "label": "10 cm"
+     },
+     {
+      "a": "_0",
+      "b": "_3",
+      "dashed": true
+     },
+     {
+      "a": "_1",
+      "b": "_4"
+     },
+     {
+      "a": "_0",
+      "b": "_4",
+      "dashed": true
+     },
+     {
+      "a": "_2",
+      "b": "_4"
+     },
+     {
+      "a": "_3",
+      "b": "_4"
+     },
+     {
+      "a": "_4",
+      "b": "_5",
+      "label": "13 cm"
+     }
+    ],
+    "faces": [
+     [
+      "_1",
+      "_2",
+      "_4"
+     ],
+     [
+      "_2",
+      "_3",
+      "_4"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "solid-frustum",
+   "prompt": "A frustum of a cone has end radii 3 cm and 6 cm and a height of 4 cm. Find its volume.",
+   "reading": {
+    "kind": "solid",
+    "shape": "frustum",
+    "measures": [
+     {
+      "what": "radius",
+      "value": 3.0
+     },
+     {
+      "what": "radius",
+      "value": 6.0
+     },
+     {
+      "what": "height",
+      "value": 4.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "frustum",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "_1",
+      "x": 0.0,
+      "y": 4.0,
+      "dot": true
+     },
+     {
+      "name": "_2",
+      "x": -6.0,
+      "y": 0.0
+     },
+     {
+      "name": "_3",
+      "x": -3.0,
+      "y": 4.0
+     },
+     {
+      "name": "_4",
+      "x": 6.0,
+      "y": 0.0
+     },
+     {
+      "name": "_5",
+      "x": 3.0,
+      "y": 4.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "_2",
+      "b": "_3"
+     },
+     {
+      "a": "_4",
+      "b": "_5"
+     },
+     {
+      "a": "_0",
+      "b": "_4",
+      "label": "6 cm",
+      "dashed": true
+     },
+     {
+      "a": "_1",
+      "b": "_5",
+      "label": "3 cm"
+     },
+     {
+      "a": "_1",
+      "b": "_0",
+      "label": "4 cm",
+      "dashed": true
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_0",
+      "rx": 6.0,
+      "ry": 1.7999999999999998,
+      "start": 180.0
+     },
+     {
+      "center": "_0",
+      "rx": 6.0,
+      "ry": 1.7999999999999998,
+      "end": 180.0,
+      "dashed": true
+     },
+     {
+      "center": "_1",
+      "rx": 3.0,
+      "ry": 0.8999999999999999
+     }
+    ]
+   }
+  },
+  {
+   "id": "solid-cylinder-sa",
+   "prompt": "Find the total surface area of a closed cylinder with radius 4 cm and height 9 cm.",
+   "reading": {
+    "kind": "solid",
+    "shape": "cylinder",
+    "measures": [
+     {
+      "what": "radius",
+      "value": 4.0
+     },
+     {
+      "what": "height",
+      "value": 9.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "cylinder",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "_1",
+      "x": 0.0,
+      "y": 9.0,
+      "dot": true
+     },
+     {
+      "name": "_2",
+      "x": -4.0,
+      "y": 0.0
+     },
+     {
+      "name": "_3",
+      "x": -4.0,
+      "y": 9.0
+     },
+     {
+      "name": "_4",
+      "x": 4.0,
+      "y": 0.0
+     },
+     {
+      "name": "_5",
+      "x": 4.0,
+      "y": 9.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "_2",
+      "b": "_3"
+     },
+     {
+      "a": "_4",
+      "b": "_5",
+      "label": "9 cm"
+     },
+     {
+      "a": "_1",
+      "b": "_5",
+      "label": "4 cm"
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_0",
+      "rx": 4.0,
+      "ry": 1.2,
+      "start": 180.0
+     },
+     {
+      "center": "_0",
+      "rx": 4.0,
+      "ry": 1.2,
+      "end": 180.0,
+      "dashed": true
+     },
+     {
+      "center": "_1",
+      "rx": 4.0,
+      "ry": 1.2
+     }
+    ]
+   }
+  },
+  {
+   "id": "solid-tetrahedron",
+   "prompt": "Find the surface area of a regular tetrahedron with edges of 6 cm.",
+   "reading": {
+    "kind": "solid",
+    "shape": "tetrahedron",
+    "measures": [
+     {
+      "what": "edge",
+      "value": 6.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "tetrahedron",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "_1",
+      "x": -2.9999999999999996,
+      "y": -1.5588457268119895
+     },
+     {
+      "name": "_2",
+      "x": 3.0,
+      "y": -1.5588457268119895
+     },
+     {
+      "name": "_3",
+      "x": 4.440892098500626e-16,
+      "y": 3.634098093677842
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_1",
+      "dashed": true
+     },
+     {
+      "a": "_1",
+      "b": "_2",
+      "label": "6 cm"
+     },
+     {
+      "a": "_0",
+      "b": "_2",
+      "dashed": true
+     },
+     {
+      "a": "_1",
+      "b": "_3"
+     },
+     {
+      "a": "_0",
+      "b": "_3",
+      "dashed": true
+     },
+     {
+      "a": "_2",
+      "b": "_3"
+     }
+    ],
+    "faces": [
+     [
+      "_1",
+      "_2",
+      "_3"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "solid-composite",
+   "prompt": "A toy is a cone of height 8 cm standing on a hemisphere of radius 6 cm. Find its total volume.",
+   "reading": {
+    "kind": "solid",
+    "shape": "hemisphere",
+    "measures": [
+     {
+      "what": "height",
+      "value": 8.0,
+      "of": "cone"
+     },
+     {
+      "what": "radius",
+      "value": 6.0,
+      "of": "hemisphere"
+     }
+    ],
+    "unit": "cm",
+    "attached": "cone"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "hemisphere_cone",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "_1",
+      "x": 0.0,
+      "y": 6.0,
+      "dot": true
+     },
+     {
+      "name": "_2",
+      "x": 0.0,
+      "y": 6.0
+     },
+     {
+      "name": "_3",
+      "x": 0.0,
+      "y": 14.0
+     },
+     {
+      "name": "_4",
+      "x": -6.0,
+      "y": 6.0
+     },
+     {
+      "name": "_5",
+      "x": 6.0,
+      "y": 6.0
+     },
+     {
+      "name": "_6",
+      "x": 6.0,
+      "y": 6.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "_4",
+      "b": "_3"
+     },
+     {
+      "a": "_5",
+      "b": "_3"
+     },
+     {
+      "a": "_3",
+      "b": "_2",
+      "label": "8 cm",
+      "dashed": true
+     },
+     {
+      "a": "_1",
+      "b": "_6",
+      "label": "6 cm",
+      "dashed": true
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_1",
+      "rx": 6.0,
+      "ry": 6.0,
+      "start": 180.0
+     },
+     {
+      "center": "_1",
+      "rx": 6.0,
+      "ry": 1.7999999999999998,
+      "start": 180.0
+     },
+     {
+      "center": "_1",
+      "rx": 6.0,
+      "ry": 1.7999999999999998,
+      "end": 180.0,
+      "dashed": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "solid-cube-net",
+   "prompt": "A cube has edges of 5 cm. Find the total area of its net.",
+   "reading": {
+    "kind": "solid",
+    "shape": "cube",
+    "measures": [
+     {
+      "what": "edge",
+      "value": 5.0
+     }
+    ],
+    "parts": [
+     "net"
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "cube_net",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "_1",
+      "x": 5.0,
+      "y": 0.0
+     },
+     {
+      "name": "_2",
+      "x": 5.0,
+      "y": 5.0
+     },
+     {
+      "name": "_3",
+      "x": 0.0,
+      "y": 5.0
+     },
+     {
+      "name": "_4",
+      "x": 10.0,
+      "y": 0.0
+     },
+     {
+      "name": "_5",
+      "x": 10.0,
+      "y": 5.0
+     },
+     {
+      "name": "_6",
+      "x": 15.0,
+      "y": 0.0
+     },
+     {
+      "name": "_7",
+      "x": 15.0,
+      "y": 5.0
+     },
+     {
+      "name": "_8",
+      "x": 20.0,
+      "y": 0.0
+     },
+     {
+      "name": "_9",
+      "x": 20.0,
+      "y": 5.0
+     },
+     {
+      "name": "_10",
+      "x": 10.0,
+      "y": 10.0
+     },
+     {
+      "name": "_11",
+      "x": 5.0,
+      "y": 10.0
+     },
+     {
+      "name": "_12",
+      "x": 5.0,
+      "y": -5.0
+     },
+     {
+      "name": "_13",
+      "x": 10.0,
+      "y": -5.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_1"
+     },
+     {
+      "a": "_1",
+      "b": "_2"
+     },
+     {
+      "a": "_2",
+      "b": "_3"
+     },
+     {
+      "a": "_3",
+      "b": "_0"
+     },
+     {
+      "a": "_1",
+      "b": "_4"
+     },
+     {
+      "a": "_4",
+      "b": "_5"
+     },
+     {
+      "a": "_5",
+      "b": "_2"
+     },
+     {
+      "a": "_4",
+      "b": "_6"
+     },
+     {
+      "a": "_6",
+      "b": "_7"
+     },
+     {
+      "a": "_7",
+      "b": "_5"
+     },
+     {
+      "a": "_6",
+      "b": "_8"
+     },
+     {
+      "a": "_8",
+      "b": "_9"
+     },
+     {
+      "a": "_9",
+      "b": "_7"
+     },
+     {
+      "a": "_5",
+      "b": "_10"
+     },
+     {
+      "a": "_10",
+      "b": "_11"
+     },
+     {
+      "a": "_11",
+      "b": "_2"
+     },
+     {
+      "a": "_12",
+      "b": "_13",
+      "label": "5 cm"
+     },
+     {
+      "a": "_13",
+      "b": "_4"
+     },
+     {
+      "a": "_1",
+      "b": "_12"
+     }
+    ],
+    "faces": [
+     [
+      "_0",
+      "_1",
+      "_2",
+      "_3"
+     ],
+     [
+      "_1",
+      "_4",
+      "_5",
+      "_2"
+     ],
+     [
+      "_4",
+      "_6",
+      "_7",
+      "_5"
+     ],
+     [
+      "_6",
+      "_8",
+      "_9",
+      "_7"
+     ],
+     [
+      "_2",
+      "_5",
+      "_10",
+      "_11"
+     ],
+     [
+      "_12",
+      "_13",
+      "_4",
+      "_1"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "comp-rect-semi",
+   "prompt": "A shape is made of a rectangle 10 cm by 6 cm with a semicircle on one of its 6 cm sides. Find its perimeter.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "rectangle",
+    "measures": [
+     {
+      "what": "length",
+      "value": 10.0
+     },
+     {
+      "what": "width",
+      "value": 6.0
+     },
+     {
+      "what": "diameter",
+      "value": 6.0,
+      "of": "semicircle"
+     }
+    ],
+    "unit": "cm",
+    "attached": "semicircle"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "rectangle_semicircle",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "_1",
+      "x": 6.0,
+      "y": 0.0
+     },
+     {
+      "name": "_2",
+      "x": 6.0,
+      "y": 10.0
+     },
+     {
+      "name": "_3",
+      "x": 0.0,
+      "y": 10.0
+     },
+     {
+      "name": "_4",
+      "x": 3.0,
+      "y": 10.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_1",
+      "label": "6 cm"
+     },
+     {
+      "a": "_1",
+      "b": "_2"
+     },
+     {
+      "a": "_3",
+      "b": "_0",
+      "label": "10 cm"
+     },
+     {
+      "a": "_2",
+      "b": "_3",
+      "dashed": true
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_4",
+      "rx": 3.0,
+      "ry": 3.0,
+      "end": 180.0
+     }
+    ],
+    "angles": [
+     {
+      "at": "_0",
+      "a": "_1",
+      "b": "_3",
+      "right": true
+     },
+     {
+      "at": "_1",
+      "a": "_2",
+      "b": "_0",
+      "right": true
+     }
+    ],
+    "faces": [
+     [
+      "_0",
+      "_1",
+      "_2",
+      "_3"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "comp-square-circle",
+   "prompt": "A circle of radius 5 cm sits inside a square of side 10 cm. Find the area of the square outside the circle.",
+   "reading": {
+    "kind": "circle",
+    "shape": "circle",
+    "measures": [
+     {
+      "what": "radius",
+      "value": 5.0
+     },
+     {
+      "what": "side",
+      "value": 10.0
+     }
+    ],
+    "circumscribed": "square",
+    "circle_within": "square",
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "circle_square",
+    "points": [
+     {
+      "name": "A",
+      "x": -5.0,
+      "y": -5.0
+     },
+     {
+      "name": "B",
+      "x": 5.0,
+      "y": -5.0
+     },
+     {
+      "name": "C",
+      "x": 5.0,
+      "y": 5.0
+     },
+     {
+      "name": "D",
+      "x": -5.0,
+      "y": 5.0
+     },
+     {
+      "name": "_4",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "_5",
+      "x": 5.0,
+      "y": 0.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B",
+      "label": "10 cm",
+      "ticks": 1
+     },
+     {
+      "a": "B",
+      "b": "C",
+      "ticks": 1
+     },
+     {
+      "a": "C",
+      "b": "D",
+      "ticks": 1
+     },
+     {
+      "a": "D",
+      "b": "A",
+      "ticks": 1
+     },
+     {
+      "a": "_4",
+      "b": "_5",
+      "label": "5 cm"
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_4",
+      "rx": 5.0,
+      "ry": 5.0
+     }
+    ],
+    "angles": [
+     {
+      "at": "A",
+      "a": "B",
+      "b": "D",
+      "right": true
+     },
+     {
+      "at": "B",
+      "a": "C",
+      "b": "A",
+      "right": true
+     },
+     {
+      "at": "C",
+      "a": "D",
+      "b": "B",
+      "right": true
+     },
+     {
+      "at": "D",
+      "a": "A",
+      "b": "C",
+      "right": true
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C",
+      "D"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "comp-l-shape",
+   "prompt": "An L-shaped room is made of a 6 m by 4 m rectangle joined to a 3 m by 2 m rectangle. Find its area.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "rectangle",
+    "measures": [
+     {
+      "what": "length",
+      "value": 6.0
+     },
+     {
+      "what": "width",
+      "value": 4.0
+     },
+     {
+      "what": "length",
+      "value": 3.0,
+      "of": "second"
+     },
+     {
+      "what": "width",
+      "value": 2.0,
+      "of": "second"
+     }
+    ],
+    "unit": "m",
+    "attached": "rectangle"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "l_shape",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "_1",
+      "x": 6.0,
+      "y": 0.0
+     },
+     {
+      "name": "_2",
+      "x": 6.0,
+      "y": 4.0
+     },
+     {
+      "name": "_3",
+      "x": 3.0,
+      "y": 4.0
+     },
+     {
+      "name": "_4",
+      "x": 3.0,
+      "y": 6.0
+     },
+     {
+      "name": "_5",
+      "x": 0.0,
+      "y": 6.0
+     },
+     {
+      "name": "_6",
+      "x": 0.0,
+      "y": 4.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_1",
+      "label": "6 m"
+     },
+     {
+      "a": "_1",
+      "b": "_2",
+      "label": "4 m"
+     },
+     {
+      "a": "_2",
+      "b": "_3"
+     },
+     {
+      "a": "_3",
+      "b": "_4",
+      "label": "2 m"
+     },
+     {
+      "a": "_4",
+      "b": "_5",
+      "label": "3 m"
+     },
+     {
+      "a": "_5",
+      "b": "_6"
+     },
+     {
+      "a": "_6",
+      "b": "_0"
+     },
+     {
+      "a": "_6",
+      "b": "_3",
+      "dashed": true
+     }
+    ],
+    "faces": [
+     [
+      "_0",
+      "_1",
+      "_2",
+      "_3",
+      "_4",
+      "_5"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "construct-tri",
+   "prompt": "Construct triangle ABC with AB = 7 cm, BC = 5 cm and angle B = 60°, then measure AC.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "triangle",
+    "vertices": "ABC",
+    "measures": [
+     {
+      "what": "side",
+      "name": "AB",
+      "value": 7.0
+     },
+     {
+      "what": "side",
+      "name": "BC",
+      "value": 5.0
+     },
+     {
+      "what": "angle",
+      "name": "B",
+      "value": 60.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "triangle",
+    "points": [
+     {
+      "name": "A",
+      "x": 0.0,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "B",
+      "x": 7.0,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "C",
+      "x": 4.5,
+      "y": 4.330127018922193,
+      "show": true
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B",
+      "label": "7 cm"
+     },
+     {
+      "a": "B",
+      "b": "C",
+      "label": "5 cm"
+     },
+     {
+      "a": "C",
+      "b": "A"
+     }
+    ],
+    "angles": [
+     {
+      "at": "B",
+      "a": "C",
+      "b": "A",
+      "label": "60°"
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "rest2-elev-two-points",
+   "prompt": "The angles of elevation of the top of a tower from two points 30 m apart on level ground, on the same side of the tower, are 30° and 45°. Find the height of the tower.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "elevation",
+    "measures": [
+     {
+      "what": "gap",
+      "value": 30.0
+     },
+     {
+      "what": "angle",
+      "value": 30.0
+     },
+     {
+      "what": "angle",
+      "value": 45.0
+     }
+    ]
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "elevation_two_points",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "_1",
+      "x": 0.0,
+      "y": 40.98076211353315
+     },
+     {
+      "name": "_2",
+      "x": 40.98076211353316,
+      "y": 0.0
+     },
+     {
+      "name": "_3",
+      "x": 70.98076211353316,
+      "y": 0.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_2"
+     },
+     {
+      "a": "_2",
+      "b": "_3",
+      "label": "30 m"
+     },
+     {
+      "a": "_0",
+      "b": "_1"
+     },
+     {
+      "a": "_2",
+      "b": "_1"
+     },
+     {
+      "a": "_3",
+      "b": "_1"
+     }
+    ],
+    "angles": [
+     {
+      "at": "_0",
+      "a": "_2",
+      "b": "_1",
+      "right": true
+     },
+     {
+      "at": "_3",
+      "a": "_0",
+      "b": "_1",
+      "label": "30°"
+     },
+     {
+      "at": "_2",
+      "a": "_0",
+      "b": "_1",
+      "label": "45°"
+     }
+    ]
+   }
+  },
+  {
+   "id": "rest2-depression-lighthouse",
+   "prompt": "A lighthouse is 60 m tall. From its top, the angle of depression of a ship is 18°. How far is the ship from the base of the lighthouse?",
+   "reading": {
+    "kind": "polygon",
+    "shape": "depression",
+    "measures": [
+     {
+      "what": "height",
+      "value": 60.0
+     },
+     {
+      "what": "angle",
+      "value": 18.0
+     }
+    ]
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "depression",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "_1",
+      "x": 0.0,
+      "y": 60.0
+     },
+     {
+      "name": "_2",
+      "x": 184.66101223051524,
+      "y": 0.0
+     },
+     {
+      "name": "_3",
+      "x": 212.36016406509253,
+      "y": 0.0
+     },
+     {
+      "name": "_4",
+      "x": 212.36016406509253,
+      "y": 60.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_2"
+     },
+     {
+      "a": "_2",
+      "b": "_3"
+     },
+     {
+      "a": "_0",
+      "b": "_1",
+      "label": "60 m"
+     },
+     {
+      "a": "_2",
+      "b": "_1"
+     },
+     {
+      "a": "_1",
+      "b": "_4",
+      "dashed": true
+     }
+    ],
+    "angles": [
+     {
+      "at": "_0",
+      "a": "_2",
+      "b": "_1",
+      "right": true
+     },
+     {
+      "at": "_1",
+      "a": "_4",
+      "b": "_2",
+      "label": "18°"
+     }
+    ]
+   }
+  },
+  {
+   "id": "rest2-ladder-angle",
+   "prompt": "An 8 m ladder rests against a wall and makes an angle of 70° with the ground. How far is the foot of the ladder from the wall?",
+   "reading": {
+    "kind": "polygon",
+    "shape": "leaning",
+    "measures": [
+     {
+      "what": "length",
+      "value": 8.0
+     },
+     {
+      "what": "angle",
+      "value": 70.0
+     }
+    ],
+    "unit": "m"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "leaning",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "_1",
+      "x": 0.0,
+      "y": 7.5175409662872665
+     },
+     {
+      "name": "_2",
+      "x": 2.7361611466053506,
+      "y": 0.0
+     },
+     {
+      "name": "_3",
+      "x": 3.8637922915484406,
+      "y": 0.0
+     },
+     {
+      "name": "_4",
+      "x": 0.0,
+      "y": 8.645172111230357
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_2"
+     },
+     {
+      "a": "_2",
+      "b": "_3"
+     },
+     {
+      "a": "_0",
+      "b": "_1"
+     },
+     {
+      "a": "_2",
+      "b": "_1",
+      "label": "8 m"
+     },
+     {
+      "a": "_1",
+      "b": "_4"
+     }
+    ],
+    "angles": [
+     {
+      "at": "_0",
+      "a": "_2",
+      "b": "_1",
+      "right": true
+     },
+     {
+      "at": "_2",
+      "a": "_0",
+      "b": "_1",
+      "label": "70°"
+     }
+    ]
+   }
+  },
+  {
+   "id": "rest2-ramp",
+   "prompt": "A ramp rises 1.2 m over a horizontal distance of 5 m. Find the angle the ramp makes with the ground.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "slope",
+    "measures": [
+     {
+      "what": "height",
+      "value": 1.2
+     },
+     {
+      "what": "distance",
+      "value": 5.0
+     }
+    ]
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "slope",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "_1",
+      "x": 0.0,
+      "y": 1.2
+     },
+     {
+      "name": "_2",
+      "x": 5.0,
+      "y": 0.0
+     },
+     {
+      "name": "_3",
+      "x": 5.75,
+      "y": 0.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_2",
+      "label": "5 m"
+     },
+     {
+      "a": "_2",
+      "b": "_3"
+     },
+     {
+      "a": "_0",
+      "b": "_1",
+      "label": "1.2 m",
+      "dashed": true
+     },
+     {
+      "a": "_2",
+      "b": "_1"
+     }
+    ],
+    "angles": [
+     {
+      "at": "_0",
+      "a": "_2",
+      "b": "_1",
+      "right": true
+     },
+     {
+      "at": "_2",
+      "a": "_0",
+      "b": "_1"
+     }
+    ]
+   }
+  },
+  {
+   "id": "rest2-wire-pole",
+   "prompt": "A 15 m wire runs from the top of a vertical pole to a peg in the ground 9 m from the foot of the pole. Find the height of the pole.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "right_triangle",
+    "measures": [
+     {
+      "what": "length",
+      "value": 15.0,
+      "of": "wire"
+     },
+     {
+      "what": "distance",
+      "value": 9.0,
+      "of": "ground"
+     }
+    ],
+    "unit": "m"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "elevation",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "_1",
+      "x": 0.0,
+      "y": 12.0
+     },
+     {
+      "name": "_2",
+      "x": 9.0,
+      "y": 0.0
+     },
+     {
+      "name": "_3",
+      "x": 10.8,
+      "y": 0.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_2",
+      "label": "9 m"
+     },
+     {
+      "a": "_2",
+      "b": "_3"
+     },
+     {
+      "a": "_0",
+      "b": "_1"
+     },
+     {
+      "a": "_2",
+      "b": "_1",
+      "label": "15 m"
+     }
+    ],
+    "angles": [
+     {
+      "at": "_0",
+      "a": "_2",
+      "b": "_1",
+      "right": true
+     },
+     {
+      "at": "_2",
+      "a": "_0",
+      "b": "_1"
+     }
+    ]
+   }
+  },
+  {
+   "id": "rest2-shadow-building",
+   "prompt": "A building casts a shadow 36 m long at the same time as a 1.8 m tall man casts a shadow 2.4 m long. Find the height of the building.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "shadows",
+    "measures": [
+     {
+      "what": "shadow",
+      "value": 36.0,
+      "of": "building"
+     },
+     {
+      "what": "height",
+      "value": 1.8,
+      "of": "man"
+     },
+     {
+      "what": "shadow",
+      "value": 2.4,
+      "of": "man"
+     }
+    ],
+    "unit": "m"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "shadows",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "_1",
+      "x": 0.0,
+      "y": 27.0
+     },
+     {
+      "name": "_2",
+      "x": 36.0,
+      "y": 0.0
+     },
+     {
+      "name": "_3",
+      "x": 48.6,
+      "y": 0.0
+     },
+     {
+      "name": "_4",
+      "x": 48.6,
+      "y": 1.8
+     },
+     {
+      "name": "_5",
+      "x": 51.0,
+      "y": 0.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_1"
+     },
+     {
+      "a": "_0",
+      "b": "_2",
+      "label": "36 m"
+     },
+     {
+      "a": "_1",
+      "b": "_2",
+      "dashed": true
+     },
+     {
+      "a": "_3",
+      "b": "_4",
+      "label": "1.8 m"
+     },
+     {
+      "a": "_3",
+      "b": "_5",
+      "label": "2.4 m"
+     },
+     {
+      "a": "_4",
+      "b": "_5",
+      "dashed": true
+     }
+    ],
+    "angles": [
+     {
+      "at": "_0",
+      "a": "_2",
+      "b": "_1",
+      "right": true
+     },
+     {
+      "at": "_2",
+      "a": "_0",
+      "b": "_1"
+     },
+     {
+      "at": "_3",
+      "a": "_5",
+      "b": "_4",
+      "right": true
+     },
+     {
+      "at": "_5",
+      "a": "_3",
+      "b": "_4"
+     }
+    ]
+   }
+  },
+  {
+   "id": "rest2-sim-sides",
+   "prompt": "Triangle PQR is similar to triangle XYZ, with PQ = 6 cm, QR = 8 cm, PR = 10 cm and XY = 9 cm. Find YZ and XZ.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "similar_triangles",
+    "vertices": "PQRXYZ",
+    "measures": [
+     {
+      "what": "side",
+      "name": "PQ",
+      "value": 6.0
+     },
+     {
+      "what": "side",
+      "name": "QR",
+      "value": 8.0
+     },
+     {
+      "what": "side",
+      "name": "PR",
+      "value": 10.0
+     },
+     {
+      "what": "side",
+      "name": "XY",
+      "value": 9.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "similar_triangles",
+    "points": [
+     {
+      "name": "P",
+      "x": 0.0,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "Q",
+      "x": 6.0,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "R",
+      "x": 6.0,
+      "y": 8.0,
+      "show": true
+     },
+     {
+      "name": "X",
+      "x": 9.149999999999999,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "Y",
+      "x": 18.15,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "Z",
+      "x": 18.15,
+      "y": 12.0,
+      "show": true
+     }
+    ],
+    "segments": [
+     {
+      "a": "P",
+      "b": "Q",
+      "label": "6 cm"
+     },
+     {
+      "a": "Q",
+      "b": "R",
+      "label": "8 cm"
+     },
+     {
+      "a": "R",
+      "b": "P",
+      "label": "10 cm"
+     },
+     {
+      "a": "X",
+      "b": "Y",
+      "label": "9 cm"
+     },
+     {
+      "a": "Y",
+      "b": "Z"
+     },
+     {
+      "a": "Z",
+      "b": "X"
+     }
+    ],
+    "faces": [
+     [
+      "P",
+      "Q",
+      "R"
+     ],
+     [
+      "X",
+      "Y",
+      "Z"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "rest2-comp-house",
+   "prompt": "The front of a shed is a rectangle 8 m wide and 4 m high with an isosceles triangle on top whose sloping sides are 5 m long. Find the area of the front.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "rectangle",
+    "measures": [
+     {
+      "what": "width",
+      "value": 8.0
+     },
+     {
+      "what": "height",
+      "value": 4.0
+     },
+     {
+      "what": "equal_side",
+      "value": 5.0,
+      "of": "triangle"
+     }
+    ],
+    "unit": "m",
+    "attached": "triangle"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "rectangle_triangle",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "_1",
+      "x": 8.0,
+      "y": 0.0
+     },
+     {
+      "name": "_2",
+      "x": 8.0,
+      "y": 4.0
+     },
+     {
+      "name": "_3",
+      "x": 0.0,
+      "y": 4.0
+     },
+     {
+      "name": "_4",
+      "x": 4.0,
+      "y": 7.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_1",
+      "label": "8 m"
+     },
+     {
+      "a": "_1",
+      "b": "_2",
+      "label": "4 m"
+     },
+     {
+      "a": "_3",
+      "b": "_0"
+     },
+     {
+      "a": "_2",
+      "b": "_3",
+      "dashed": true
+     },
+     {
+      "a": "_2",
+      "b": "_4",
+      "label": "5 m",
+      "ticks": 1
+     },
+     {
+      "a": "_4",
+      "b": "_3",
+      "ticks": 1
+     }
+    ],
+    "angles": [
+     {
+      "at": "_0",
+      "a": "_1",
+      "b": "_3",
+      "right": true
+     },
+     {
+      "at": "_1",
+      "a": "_2",
+      "b": "_0",
+      "right": true
+     }
+    ],
+    "faces": [
+     [
+      "_0",
+      "_1",
+      "_2",
+      "_4",
+      "_3"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "rest2-comp-window",
+   "prompt": "A window is a rectangle 1.2 m wide and 1.5 m tall with a semicircle on top. Find the area of glass.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "rectangle",
+    "measures": [
+     {
+      "what": "width",
+      "value": 1.2
+     },
+     {
+      "what": "height",
+      "value": 1.5
+     }
+    ],
+    "unit": "m",
+    "attached": "semicircle"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "rectangle_semicircle",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "_1",
+      "x": 1.2,
+      "y": 0.0
+     },
+     {
+      "name": "_2",
+      "x": 1.2,
+      "y": 1.5
+     },
+     {
+      "name": "_3",
+      "x": 0.0,
+      "y": 1.5
+     },
+     {
+      "name": "_4",
+      "x": 0.6,
+      "y": 1.5
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_1",
+      "label": "1.2 m"
+     },
+     {
+      "a": "_1",
+      "b": "_2"
+     },
+     {
+      "a": "_3",
+      "b": "_0",
+      "label": "1.5 m"
+     },
+     {
+      "a": "_2",
+      "b": "_3",
+      "dashed": true
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_4",
+      "rx": 0.6,
+      "ry": 0.6,
+      "end": 180.0
+     }
+    ],
+    "angles": [
+     {
+      "at": "_0",
+      "a": "_1",
+      "b": "_3",
+      "right": true
+     },
+     {
+      "at": "_1",
+      "a": "_2",
+      "b": "_0",
+      "right": true
+     }
+    ],
+    "faces": [
+     [
+      "_0",
+      "_1",
+      "_2",
+      "_3"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "rest2-comp-cut",
+   "prompt": "A semicircle of diameter 6 cm is cut out of one end of a rectangle 10 cm by 6 cm. Find the area that is left.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "rectangle",
+    "measures": [
+     {
+      "what": "length",
+      "value": 10.0
+     },
+     {
+      "what": "width",
+      "value": 6.0
+     },
+     {
+      "what": "diameter",
+      "value": 6.0,
+      "of": "semicircle"
+     }
+    ],
+    "parts": [
+     "cut"
+    ],
+    "unit": "cm",
+    "attached": "semicircle"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "rectangle_semicircle_cut",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "_1",
+      "x": 6.0,
+      "y": 0.0
+     },
+     {
+      "name": "_2",
+      "x": 6.0,
+      "y": 10.0
+     },
+     {
+      "name": "_3",
+      "x": 0.0,
+      "y": 10.0
+     },
+     {
+      "name": "_4",
+      "x": 3.0,
+      "y": 10.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_1",
+      "label": "6 cm"
+     },
+     {
+      "a": "_1",
+      "b": "_2"
+     },
+     {
+      "a": "_3",
+      "b": "_0",
+      "label": "10 cm"
+     },
+     {
+      "a": "_2",
+      "b": "_3",
+      "dashed": true
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_4",
+      "rx": 3.0,
+      "ry": 3.0,
+      "start": 180.0
+     }
+    ],
+    "angles": [
+     {
+      "at": "_0",
+      "a": "_1",
+      "b": "_3",
+      "right": true
+     },
+     {
+      "at": "_1",
+      "a": "_2",
+      "b": "_0",
+      "right": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "rest2-quad-x",
+   "prompt": "The angles of a quadrilateral are x, 2x, 3x and 4x. Find the size of the largest angle.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "quadrilateral",
+    "angle_terms": [
+     {
+      "term": "x"
+     },
+     {
+      "term": "2x"
+     },
+     {
+      "term": "3x"
+     },
+     {
+      "term": "4x"
+     }
+    ]
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "quadrilateral",
+    "points": [
+     {
+      "name": "A",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "B",
+      "x": 12.0,
+      "y": 0.0
+     },
+     {
+      "name": "C",
+      "x": 10.854101966249685,
+      "y": 3.5267115137548375
+     },
+     {
+      "name": "D",
+      "x": 4.854101966249685,
+      "y": 3.5267115137548384
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B"
+     },
+     {
+      "a": "B",
+      "b": "C"
+     },
+     {
+      "a": "C",
+      "b": "D"
+     },
+     {
+      "a": "D",
+      "b": "A"
+     }
+    ],
+    "angles": [
+     {
+      "at": "A",
+      "a": "B",
+      "b": "D",
+      "label": "x"
+     },
+     {
+      "at": "B",
+      "a": "C",
+      "b": "A",
+      "label": "2x"
+     },
+     {
+      "at": "C",
+      "a": "D",
+      "b": "B",
+      "label": "3x"
+     },
+     {
+      "at": "D",
+      "a": "A",
+      "b": "C",
+      "label": "4x"
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C",
+      "D"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "rest2-quad-pqrs",
+   "prompt": "In quadrilateral PQRS, angle P = 70°, angle Q = 110° and angle R = 85°. Find angle S.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "quadrilateral",
+    "vertices": "PQRS",
+    "measures": [
+     {
+      "what": "angle",
+      "name": "P",
+      "value": 70.0
+     },
+     {
+      "what": "angle",
+      "name": "Q",
+      "value": 110.0
+     },
+     {
+      "what": "angle",
+      "name": "R",
+      "value": 85.0
+     }
+    ]
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "quadrilateral",
+    "points": [
+     {
+      "name": "P",
+      "x": 0.0,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "Q",
+      "x": 6.360769528605524,
+      "y": 0.0,
+      "show": true
+     },
+     {
+      "name": "R",
+      "x": 7.847675817688421,
+      "y": 4.085241454100324,
+      "show": true
+     },
+     {
+      "name": "S",
+      "x": 2.0521208599540115,
+      "y": 5.638155724715451,
+      "show": true
+     }
+    ],
+    "segments": [
+     {
+      "a": "P",
+      "b": "Q"
+     },
+     {
+      "a": "Q",
+      "b": "R"
+     },
+     {
+      "a": "R",
+      "b": "S"
+     },
+     {
+      "a": "S",
+      "b": "P"
+     }
+    ],
+    "angles": [
+     {
+      "at": "P",
+      "a": "Q",
+      "b": "S",
+      "label": "70°"
+     },
+     {
+      "at": "Q",
+      "a": "R",
+      "b": "P",
+      "label": "110°"
+     },
+     {
+      "at": "R",
+      "a": "S",
+      "b": "Q",
+      "label": "85°"
+     },
+     {
+      "at": "S",
+      "a": "P",
+      "b": "R"
+     }
+    ],
+    "faces": [
+     [
+      "P",
+      "Q",
+      "R",
+      "S"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "rest2-poly-exterior",
+   "prompt": "Each exterior angle of a regular polygon is 30°. How many sides does it have, and what is each interior angle?",
+   "reading": {
+    "kind": "polygon",
+    "shape": "regular_polygon",
+    "measures": [
+     {
+      "what": "exterior_angle",
+      "value": 30.0
+     }
+    ]
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "regular_polygon_12",
+    "points": [
+     {
+      "name": "A",
+      "x": -1.4999999999999993,
+      "y": -5.598076211353316
+     },
+     {
+      "name": "B",
+      "x": 1.4999999999999973,
+      "y": -5.598076211353317
+     },
+     {
+      "name": "C",
+      "x": 4.098076211353315,
+      "y": -4.098076211353317
+     },
+     {
+      "name": "D",
+      "x": 5.598076211353316,
+      "y": -1.4999999999999996
+     },
+     {
+      "name": "E",
+      "x": 5.598076211353317,
+      "y": 1.4999999999999971
+     },
+     {
+      "name": "F",
+      "x": 4.098076211353317,
+      "y": 4.098076211353315
+     },
+     {
+      "name": "G",
+      "x": 1.5,
+      "y": 5.598076211353316
+     },
+     {
+      "name": "H",
+      "x": -1.4999999999999967,
+      "y": 5.598076211353317
+     },
+     {
+      "name": "I",
+      "x": -4.098076211353319,
+      "y": 4.098076211353314
+     },
+     {
+      "name": "J",
+      "x": -5.598076211353316,
+      "y": 1.5000000000000002
+     },
+     {
+      "name": "K",
+      "x": -5.598076211353317,
+      "y": -1.4999999999999964
+     },
+     {
+      "name": "L",
+      "x": -4.098076211353314,
+      "y": -4.098076211353319
+     },
+     {
+      "name": "_12",
+      "x": 3.2999999999999954,
+      "y": -5.598076211353318
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B",
+      "ticks": 1
+     },
+     {
+      "a": "B",
+      "b": "C",
+      "ticks": 1
+     },
+     {
+      "a": "C",
+      "b": "D",
+      "ticks": 1
+     },
+     {
+      "a": "D",
+      "b": "E",
+      "ticks": 1
+     },
+     {
+      "a": "E",
+      "b": "F",
+      "ticks": 1
+     },
+     {
+      "a": "F",
+      "b": "G",
+      "ticks": 1
+     },
+     {
+      "a": "G",
+      "b": "H",
+      "ticks": 1
+     },
+     {
+      "a": "H",
+      "b": "I",
+      "ticks": 1
+     },
+     {
+      "a": "I",
+      "b": "J",
+      "ticks": 1
+     },
+     {
+      "a": "J",
+      "b": "K",
+      "ticks": 1
+     },
+     {
+      "a": "K",
+      "b": "L",
+      "ticks": 1
+     },
+     {
+      "a": "L",
+      "b": "A",
+      "ticks": 1
+     },
+     {
+      "a": "B",
+      "b": "_12",
+      "dashed": true
+     }
+    ],
+    "angles": [
+     {
+      "at": "B",
+      "a": "_12",
+      "b": "C",
+      "label": "30°"
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "H",
+      "I",
+      "J",
+      "K",
+      "L"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "rest2-poly-hex-perimeter",
+   "prompt": "A regular hexagon has a perimeter of 42 cm. Find its area.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "regular_hexagon",
+    "measures": [
+     {
+      "what": "perimeter",
+      "value": 42.0
+     }
+    ],
+    "sides": 6,
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "regular_polygon_6",
+    "points": [
+     {
+      "name": "A",
+      "x": -3.5000000000000036,
+      "y": -6.0621778264910695
+     },
+     {
+      "name": "B",
+      "x": 3.5000000000000013,
+      "y": -6.062177826491071
+     },
+     {
+      "name": "C",
+      "x": 7.000000000000001,
+      "y": -1.7145055188062946e-15
+     },
+     {
+      "name": "D",
+      "x": 3.4999999999999987,
+      "y": 6.062177826491072
+     },
+     {
+      "name": "E",
+      "x": -3.499999999999995,
+      "y": 6.062177826491075
+     },
+     {
+      "name": "F",
+      "x": -7.000000000000001,
+      "y": 2.571758278209442e-15
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B",
+      "ticks": 1
+     },
+     {
+      "a": "B",
+      "b": "C",
+      "ticks": 1
+     },
+     {
+      "a": "C",
+      "b": "D",
+      "ticks": 1
+     },
+     {
+      "a": "D",
+      "b": "E",
+      "ticks": 1
+     },
+     {
+      "a": "E",
+      "b": "F",
+      "ticks": 1
+     },
+     {
+      "a": "F",
+      "b": "A",
+      "ticks": 1
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "rest2-tri-exterior-named",
+   "prompt": "In triangle ABC, side BC is produced to D. Angle ACD = 115° and angle BAC = 45°. Find angle ABC.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "triangle",
+    "vertices": "ABCD",
+    "measures": [
+     {
+      "what": "exterior_angle",
+      "name": "ACD",
+      "value": 115.0
+     },
+     {
+      "what": "angle",
+      "name": "BAC",
+      "value": 45.0
+     }
+    ]
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "triangle_exterior_angle",
+    "points": [
+     {
+      "name": "A",
+      "x": 2.191857916418904,
+      "y": 6.022080132013793
+     },
+     {
+      "name": "B",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "C",
+      "x": 5.0,
+      "y": 0.0
+     },
+     {
+      "name": "D",
+      "x": 7.5,
+      "y": 0.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B"
+     },
+     {
+      "a": "B",
+      "b": "C"
+     },
+     {
+      "a": "C",
+      "b": "A"
+     },
+     {
+      "a": "C",
+      "b": "D"
+     }
+    ],
+    "angles": [
+     {
+      "at": "C",
+      "a": "A",
+      "b": "D",
+      "label": "115°"
+     },
+     {
+      "at": "A",
+      "a": "B",
+      "b": "C",
+      "label": "45°"
+     },
+     {
+      "at": "B",
+      "a": "C",
+      "b": "A"
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "rest2-supplementary-x",
+   "prompt": "Two supplementary angles are 3x + 10 and 2x - 5. Find x and both angles.",
+   "reading": {
+    "kind": "lines",
+    "shape": "supplementary_angles",
+    "angle_terms": [
+     {
+      "term": "3x + 10"
+     },
+     {
+      "term": "2x - 5"
+     }
+    ]
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "supplementary_angles",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "_1",
+      "x": 5.0,
+      "y": 0.0
+     },
+     {
+      "name": "_2",
+      "x": -5.0,
+      "y": 0.0
+     },
+     {
+      "name": "_3",
+      "x": -2.113091308703497,
+      "y": 4.53153893518325
+     },
+     {
+      "name": "_4",
+      "x": -5.0,
+      "y": 6.123233995736766e-16
+     }
+    ],
+    "segments": [
+     {
+      "a": "_2",
+      "b": "_1"
+     },
+     {
+      "a": "_0",
+      "b": "_3"
+     }
+    ],
+    "angles": [
+     {
+      "at": "_0",
+      "a": "_1",
+      "b": "_3",
+      "label": "3x + 10"
+     },
+     {
+      "at": "_0",
+      "a": "_3",
+      "b": "_4",
+      "label": "2x - 5"
+     }
+    ]
+   }
+  },
+  {
+   "id": "rest2-line-x",
+   "prompt": "Angles on a straight line are 2x, 3x and 40°. Find x.",
+   "reading": {
+    "kind": "lines",
+    "shape": "angles_on_line",
+    "measures": [
+     {
+      "what": "angle",
+      "value": 40.0
+     }
+    ],
+    "angle_terms": [
+     {
+      "term": "2x"
+     },
+     {
+      "term": "3x"
+     }
+    ]
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "angles_on_line",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "_1",
+      "x": 5.0,
+      "y": 0.0
+     },
+     {
+      "name": "_2",
+      "x": -5.0,
+      "y": 0.0
+     },
+     {
+      "name": "_3",
+      "x": 2.7959645173537337,
+      "y": 4.145187862775209
+     },
+     {
+      "name": "_4",
+      "x": -3.8302222155948895,
+      "y": 3.2139380484326976
+     },
+     {
+      "name": "_5",
+      "x": -5.0,
+      "y": 6.123233995736766e-16
+     }
+    ],
+    "segments": [
+     {
+      "a": "_2",
+      "b": "_1"
+     },
+     {
+      "a": "_0",
+      "b": "_3"
+     },
+     {
+      "a": "_0",
+      "b": "_4"
+     }
+    ],
+    "angles": [
+     {
+      "at": "_0",
+      "a": "_1",
+      "b": "_3",
+      "label": "2x"
+     },
+     {
+      "at": "_0",
+      "a": "_3",
+      "b": "_4",
+      "label": "3x"
+     },
+     {
+      "at": "_0",
+      "a": "_4",
+      "b": "_5",
+      "label": "40°"
+     }
+    ]
+   }
+  },
+  {
+   "id": "rest2-frustum-bucket",
+   "prompt": "A bucket is a frustum of a cone with top radius 15 cm, bottom radius 10 cm and slant height 13 cm. Find its depth and capacity.",
+   "reading": {
+    "kind": "solid",
+    "shape": "frustum",
+    "measures": [
+     {
+      "what": "radius",
+      "value": 15.0
+     },
+     {
+      "what": "radius",
+      "value": 10.0,
+      "of": "bottom"
+     },
+     {
+      "what": "slant_height",
+      "value": 13.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "frustum",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "_1",
+      "x": 0.0,
+      "y": 12.0,
+      "dot": true
+     },
+     {
+      "name": "_2",
+      "x": -15.0,
+      "y": 0.0
+     },
+     {
+      "name": "_3",
+      "x": -10.0,
+      "y": 12.0
+     },
+     {
+      "name": "_4",
+      "x": 15.0,
+      "y": 0.0
+     },
+     {
+      "name": "_5",
+      "x": 10.0,
+      "y": 12.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "_2",
+      "b": "_3"
+     },
+     {
+      "a": "_4",
+      "b": "_5",
+      "label": "13 cm"
+     },
+     {
+      "a": "_0",
+      "b": "_4",
+      "label": "15 cm",
+      "dashed": true
+     },
+     {
+      "a": "_1",
+      "b": "_5",
+      "label": "10 cm"
+     },
+     {
+      "a": "_1",
+      "b": "_0",
+      "dashed": true
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_0",
+      "rx": 15.0,
+      "ry": 4.5,
+      "start": 180.0
+     },
+     {
+      "center": "_0",
+      "rx": 15.0,
+      "ry": 4.5,
+      "end": 180.0,
+      "dashed": true
+     },
+     {
+      "center": "_1",
+      "rx": 10.0,
+      "ry": 3.0
+     }
+    ]
+   }
+  },
+  {
+   "id": "rest2-pyramid-frustum",
+   "prompt": "A frustum of a square pyramid has a base of side 12 cm, a top of side 6 cm and a height of 4 cm. Find its volume.",
+   "reading": {
+    "kind": "solid",
+    "shape": "square_frustum",
+    "measures": [
+     {
+      "what": "side",
+      "value": 12.0
+     },
+     {
+      "what": "side",
+      "value": 6.0,
+      "of": "top"
+     },
+     {
+      "what": "height",
+      "value": 4.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "square_frustum",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "_1",
+      "x": -5.999999999999999,
+      "y": -3.117691453623979
+     },
+     {
+      "name": "_2",
+      "x": 4.392304845413265,
+      "y": -4.917691453623979
+     },
+     {
+      "name": "_3",
+      "x": 10.392304845413264,
+      "y": -1.7999999999999996
+     },
+     {
+      "name": "_4",
+      "x": 1.0980762113533162,
+      "y": 2.586333942261788
+     },
+     {
+      "name": "_5",
+      "x": -1.901923788646683,
+      "y": 1.0274882154497984
+     },
+     {
+      "name": "_6",
+      "x": 3.294228634059949,
+      "y": 0.1274882154497985
+     },
+     {
+      "name": "_7",
+      "x": 6.294228634059948,
+      "y": 1.686333942261788
+     },
+     {
+      "name": "_8",
+      "x": 2.1961524227066325,
+      "y": -2.4588457268119894,
+      "dot": true
+     },
+     {
+      "name": "_9",
+      "x": 2.1961524227066325,
+      "y": 1.3569110788557932,
+      "dot": true
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_1",
+      "dashed": true
+     },
+     {
+      "a": "_1",
+      "b": "_2"
+     },
+     {
+      "a": "_2",
+      "b": "_3",
+      "label": "12 cm"
+     },
+     {
+      "a": "_0",
+      "b": "_3",
+      "dashed": true
+     },
+     {
+      "a": "_4",
+      "b": "_5",
+      "label": "6 cm"
+     },
+     {
+      "a": "_5",
+      "b": "_6"
+     },
+     {
+      "a": "_6",
+      "b": "_7"
+     },
+     {
+      "a": "_4",
+      "b": "_7"
+     },
+     {
+      "a": "_1",
+      "b": "_5"
+     },
+     {
+      "a": "_0",
+      "b": "_4",
+      "dashed": true
+     },
+     {
+      "a": "_2",
+      "b": "_6"
+     },
+     {
+      "a": "_3",
+      "b": "_7"
+     },
+     {
+      "a": "_9",
+      "b": "_8",
+      "label": "4 cm",
+      "dashed": true
+     }
+    ],
+    "faces": [
+     [
+      "_4",
+      "_5",
+      "_6",
+      "_7"
+     ],
+     [
+      "_1",
+      "_2",
+      "_6",
+      "_5"
+     ],
+     [
+      "_2",
+      "_3",
+      "_7",
+      "_6"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "rest2-cylinder-cone",
+   "prompt": "A solid is made of a cylinder of radius 3 cm and height 10 cm with a cone of height 4 cm on top. Find its volume.",
+   "reading": {
+    "kind": "solid",
+    "shape": "cylinder",
+    "measures": [
+     {
+      "what": "radius",
+      "value": 3.0
+     },
+     {
+      "what": "height",
+      "value": 10.0
+     },
+     {
+      "what": "height",
+      "value": 4.0,
+      "of": "cone"
+     }
+    ],
+    "unit": "cm",
+    "attached": "cone"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "cylinder_cone",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "_1",
+      "x": 0.0,
+      "y": 10.0,
+      "dot": true
+     },
+     {
+      "name": "_2",
+      "x": -3.0,
+      "y": 0.0
+     },
+     {
+      "name": "_3",
+      "x": -3.0,
+      "y": 10.0
+     },
+     {
+      "name": "_4",
+      "x": 3.0,
+      "y": 0.0
+     },
+     {
+      "name": "_5",
+      "x": 3.0,
+      "y": 10.0
+     },
+     {
+      "name": "_6",
+      "x": 0.0,
+      "y": 10.0
+     },
+     {
+      "name": "_7",
+      "x": 0.0,
+      "y": 14.0
+     },
+     {
+      "name": "_8",
+      "x": -3.0,
+      "y": 10.0
+     },
+     {
+      "name": "_9",
+      "x": 3.0,
+      "y": 10.0
+     },
+     {
+      "name": "_10",
+      "x": 3.0,
+      "y": 10.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "_2",
+      "b": "_3"
+     },
+     {
+      "a": "_4",
+      "b": "_5",
+      "label": "10 cm"
+     },
+     {
+      "a": "_8",
+      "b": "_7"
+     },
+     {
+      "a": "_9",
+      "b": "_7"
+     },
+     {
+      "a": "_7",
+      "b": "_6",
+      "label": "4 cm",
+      "dashed": true
+     },
+     {
+      "a": "_1",
+      "b": "_10",
+      "label": "3 cm",
+      "dashed": true
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_0",
+      "rx": 3.0,
+      "ry": 0.8999999999999999,
+      "start": 180.0
+     },
+     {
+      "center": "_0",
+      "rx": 3.0,
+      "ry": 0.8999999999999999,
+      "end": 180.0,
+      "dashed": true
+     },
+     {
+      "center": "_1",
+      "rx": 3.0,
+      "ry": 0.8999999999999999,
+      "start": 180.0
+     },
+     {
+      "center": "_1",
+      "rx": 3.0,
+      "ry": 0.8999999999999999,
+      "end": 180.0,
+      "dashed": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "rest2-ice-cream",
+   "prompt": "An ice-cream cone is a cone of radius 3 cm and height 12 cm with a hemisphere of ice cream on top. Find the total volume.",
+   "reading": {
+    "kind": "solid",
+    "shape": "cone",
+    "measures": [
+     {
+      "what": "radius",
+      "value": 3.0
+     },
+     {
+      "what": "height",
+      "value": 12.0
+     }
+    ],
+    "unit": "cm",
+    "attached": "hemisphere"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "cone_hemisphere",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "_1",
+      "x": 0.0,
+      "y": 12.0,
+      "dot": true
+     },
+     {
+      "name": "_2",
+      "x": -3.0,
+      "y": 12.0
+     },
+     {
+      "name": "_3",
+      "x": 3.0,
+      "y": 12.0
+     },
+     {
+      "name": "_4",
+      "x": 0.0,
+      "y": 12.0
+     },
+     {
+      "name": "_5",
+      "x": 0.0,
+      "y": 15.0
+     },
+     {
+      "name": "_6",
+      "x": 3.0,
+      "y": 12.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_2"
+     },
+     {
+      "a": "_0",
+      "b": "_3"
+     },
+     {
+      "a": "_1",
+      "b": "_0",
+      "label": "12 cm",
+      "dashed": true
+     },
+     {
+      "a": "_1",
+      "b": "_6",
+      "label": "3 cm",
+      "dashed": true
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_1",
+      "rx": 3.0,
+      "ry": 0.8999999999999999,
+      "start": 180.0
+     },
+     {
+      "center": "_1",
+      "rx": 3.0,
+      "ry": 0.8999999999999999,
+      "end": 180.0,
+      "dashed": true
+     },
+     {
+      "center": "_4",
+      "rx": 3.0,
+      "ry": 3.0,
+      "end": 180.0
+     }
+    ]
+   }
+  },
+  {
+   "id": "rest2-ball",
+   "prompt": "A ball has a diameter of 22 cm. Find its volume.",
+   "reading": {
+    "kind": "solid",
+    "shape": "sphere",
+    "measures": [
+     {
+      "what": "diameter",
+      "value": 22.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "sphere",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0,
+      "dot": true
+     },
+     {
+      "name": "_1",
+      "x": 11.0,
+      "y": 0.0
+     },
+     {
+      "name": "_2",
+      "x": -11.0,
+      "y": 0.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "_2",
+      "b": "_1",
+      "label": "22 cm",
+      "dashed": true,
+      "label_at": 0.75
+     }
+    ],
+    "arcs": [
+     {
+      "center": "_0",
+      "rx": 11.0,
+      "ry": 11.0
+     },
+     {
+      "center": "_0",
+      "rx": 11.0,
+      "ry": 3.3,
+      "start": 180.0
+     },
+     {
+      "center": "_0",
+      "rx": 11.0,
+      "ry": 3.3,
+      "end": 180.0,
+      "dashed": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "rest2-box-rod",
+   "prompt": "A box is 6 cm long, 4 cm wide and 3 cm high. How long is the longest straight rod that fits inside it?",
+   "reading": {
+    "kind": "solid",
+    "shape": "cuboid",
+    "measures": [
+     {
+      "what": "length",
+      "value": 6.0
+     },
+     {
+      "what": "width",
+      "value": 4.0
+     },
+     {
+      "what": "height",
+      "value": 3.0
+     }
+    ],
+    "parts": [
+     "diagonal"
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "cuboid",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "_1",
+      "x": -1.9999999999999998,
+      "y": -1.0392304845413265
+     },
+     {
+      "name": "_2",
+      "x": 3.196152422706632,
+      "y": -1.9392304845413262
+     },
+     {
+      "name": "_3",
+      "x": 5.196152422706632,
+      "y": -0.8999999999999998
+     },
+     {
+      "name": "_4",
+      "x": 0.0,
+      "y": 2.861817604250837
+     },
+     {
+      "name": "_5",
+      "x": -1.9999999999999998,
+      "y": 1.8225871197095107
+     },
+     {
+      "name": "_6",
+      "x": 3.196152422706632,
+      "y": 0.922587119709511
+     },
+     {
+      "name": "_7",
+      "x": 5.196152422706632,
+      "y": 1.9618176042508373
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_1",
+      "dashed": true
+     },
+     {
+      "a": "_1",
+      "b": "_2",
+      "label": "6 cm"
+     },
+     {
+      "a": "_2",
+      "b": "_3",
+      "label": "4 cm"
+     },
+     {
+      "a": "_0",
+      "b": "_3",
+      "dashed": true
+     },
+     {
+      "a": "_4",
+      "b": "_5"
+     },
+     {
+      "a": "_5",
+      "b": "_6"
+     },
+     {
+      "a": "_6",
+      "b": "_7"
+     },
+     {
+      "a": "_4",
+      "b": "_7"
+     },
+     {
+      "a": "_1",
+      "b": "_5"
+     },
+     {
+      "a": "_0",
+      "b": "_4",
+      "dashed": true
+     },
+     {
+      "a": "_2",
+      "b": "_6"
+     },
+     {
+      "a": "_3",
+      "b": "_7",
+      "label": "3 cm"
+     },
+     {
+      "a": "_1",
+      "b": "_7",
+      "dashed": true
+     }
+    ],
+    "faces": [
+     [
+      "_4",
+      "_5",
+      "_6",
+      "_7"
+     ],
+     [
+      "_3",
+      "_2",
+      "_6",
+      "_7"
+     ],
+     [
+      "_1",
+      "_2",
+      "_6",
+      "_5"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "rest2-tetra-height",
+   "prompt": "A regular tetrahedron has edges of 10 cm. Find its height.",
+   "reading": {
+    "kind": "solid",
+    "shape": "tetrahedron",
+    "measures": [
+     {
+      "what": "edge",
+      "value": 10.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "tetrahedron",
+    "points": [
+     {
+      "name": "_0",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "_1",
+      "x": -4.999999999999999,
+      "y": -2.598076211353316
+     },
+     {
+      "name": "_2",
+      "x": 5.0,
+      "y": -2.5980762113533156
+     },
+     {
+      "name": "_3",
+      "x": 4.440892098500626e-16,
+      "y": 6.056830156129738
+     }
+    ],
+    "segments": [
+     {
+      "a": "_0",
+      "b": "_1",
+      "dashed": true
+     },
+     {
+      "a": "_1",
+      "b": "_2",
+      "label": "10 cm"
+     },
+     {
+      "a": "_0",
+      "b": "_2",
+      "dashed": true
+     },
+     {
+      "a": "_1",
+      "b": "_3"
+     },
+     {
+      "a": "_0",
+      "b": "_3",
+      "dashed": true
+     },
+     {
+      "a": "_2",
+      "b": "_3"
+     }
+    ],
+    "faces": [
+     [
+      "_1",
+      "_2",
+      "_3"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "tri-base-height",
+   "prompt": "A triangle has a base of 14 cm and a height of 8 cm. Find its area.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "triangle",
+    "measures": [
+     {
+      "what": "base",
+      "value": 14.0
+     },
+     {
+      "what": "height",
+      "value": 8.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "triangle",
+    "points": [
+     {
+      "name": "A",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "B",
+      "x": 14.0,
+      "y": 0.0
+     },
+     {
+      "name": "C",
+      "x": 4.899999999999999,
+      "y": 8.0
+     },
+     {
+      "name": "_3",
+      "x": 4.899999999999999,
+      "y": 0.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B",
+      "label": "14 cm"
+     },
+     {
+      "a": "B",
+      "b": "C"
+     },
+     {
+      "a": "C",
+      "b": "A"
+     },
+     {
+      "a": "C",
+      "b": "_3",
+      "label": "8 cm",
+      "dashed": true
+     }
+    ],
+    "angles": [
+     {
+      "at": "_3",
+      "a": "B",
+      "b": "C",
+      "right": true
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "para-base-height",
+   "prompt": "A parallelogram has a base of 15 cm and a perpendicular height of 9 cm. Find its area.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "parallelogram",
+    "measures": [
+     {
+      "what": "base",
+      "value": 15.0
+     },
+     {
+      "what": "height",
+      "value": 9.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "parallelogram",
+    "points": [
+     {
+      "name": "A",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "B",
+      "x": 15.0,
+      "y": 0.0
+     },
+     {
+      "name": "C",
+      "x": 19.196768923394988,
+      "y": 9.0
+     },
+     {
+      "name": "D",
+      "x": 4.196768923394988,
+      "y": 9.0
+     },
+     {
+      "name": "_4",
+      "x": 4.196768923394988,
+      "y": 0.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B",
+      "label": "15 cm",
+      "arrows": 1
+     },
+     {
+      "a": "B",
+      "b": "C",
+      "arrows": 2
+     },
+     {
+      "a": "C",
+      "b": "D",
+      "arrows": 1
+     },
+     {
+      "a": "D",
+      "b": "A",
+      "arrows": 2
+     },
+     {
+      "a": "D",
+      "b": "_4",
+      "label": "9 cm",
+      "dashed": true
+     }
+    ],
+    "angles": [
+     {
+      "at": "_4",
+      "a": "B",
+      "b": "D",
+      "right": true
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C",
+      "D"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "trap-height",
+   "prompt": "A trapezium has parallel sides of 8 cm and 14 cm and a height of 6 cm. Find its area.",
+   "reading": {
+    "kind": "polygon",
+    "shape": "trapezium",
+    "measures": [
+     {
+      "what": "parallel_side",
+      "value": 8.0
+     },
+     {
+      "what": "parallel_side",
+      "value": 14.0
+     },
+     {
+      "what": "height",
+      "value": 6.0
+     }
+    ],
+    "unit": "cm"
+   },
+   "figure": {
+    "type": "figure",
+    "shape": "trapezium",
+    "points": [
+     {
+      "name": "A",
+      "x": 0.0,
+      "y": 0.0
+     },
+     {
+      "name": "B",
+      "x": 14.0,
+      "y": 0.0
+     },
+     {
+      "name": "C",
+      "x": 10.0,
+      "y": 6.0
+     },
+     {
+      "name": "D",
+      "x": 2.0,
+      "y": 6.0
+     },
+     {
+      "name": "_4",
+      "x": 2.0,
+      "y": 0.0
+     }
+    ],
+    "segments": [
+     {
+      "a": "A",
+      "b": "B",
+      "label": "14 cm",
+      "arrows": 1
+     },
+     {
+      "a": "B",
+      "b": "C"
+     },
+     {
+      "a": "C",
+      "b": "D",
+      "label": "8 cm",
+      "arrows": 1
+     },
+     {
+      "a": "D",
+      "b": "A"
+     },
+     {
+      "a": "D",
+      "b": "_4",
+      "label": "6 cm",
+      "dashed": true
+     }
+    ],
+    "angles": [
+     {
+      "at": "_4",
+      "a": "B",
+      "b": "D",
+      "right": true
+     }
+    ],
+    "faces": [
+     [
+      "A",
+      "B",
+      "C",
+      "D"
+     ]
+    ]
+   }
+  }
+ ]
+}

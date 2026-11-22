@@ -188,12 +188,17 @@ def _worked_rows(rows: Sequence[str]) -> list[int]:
 
 
 def carried_to_answer(
-    rows: Sequence[str], latex_answer: str | None, units: RowUnits | None = None
+    rows: Sequence[str],
+    latex_answer: str | None,
+    units: RowUnits | None = None,
+    values: Sequence[float] = (),
 ) -> list[str]:
     """The solver's rows, each substitution that gives a verified value worked down to it.
 
     With ``units`` (``working_units``) each number carries the unit of the law symbol it
-    stands for, and each worked number the unit it reduces to.
+    stands for, and each worked number the unit it reduces to. ``values``: the answer's
+    values as the solve reached them, unrounded, in its order: a row past reading closes on
+    the one value, never on the card's rounding of it ("v = 17.8" carded 17.80 for 17.76).
     """
     parts = answer_parts(latex_answer)
     worked = _worked_rows(rows)
@@ -224,7 +229,10 @@ def carried_to_answer(
                 # Past reading, but the one law gives the one answer (R_p, not 1/R_p).
                 reciprocal = _RECIPROCAL.fullmatch(lhs)
                 named = lhs if reciprocal is None else reciprocal.group("of")
-                after[at] = [f"{named} = {parts[0][0]}"]
+                shown = parts[0][0]
+                if len(values) == 1 and _same(values[0], parts[0][1]):
+                    shown = _unrounded(values[0], shown)
+                after[at] = [f"{named} = {shown}"]
     out: list[str] = []
     for at, row in enumerate(shown_rows):
         out.append(row)

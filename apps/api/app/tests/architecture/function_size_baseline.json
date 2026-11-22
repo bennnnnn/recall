@@ -31,7 +31,7 @@
   "modules/math/tools/school/trig.py::_extract_trig_intent": 176,
   "modules/math/tools/school/trig_equations.py::bounded_equation_block": 101,
   "modules/memory/llm.py::revise_memory_facts": 111,
-  "modules/physics/block.py::_build_physics_block": 135,
+  "modules/physics/block.py::_build_physics_block": 131,
   "modules/physics/extractors/circuits.py::_extract_circuit_intent": 175,
   "modules/physics/extractors/friction.py::_extract_friction_intent": 150,
   "modules/physics/extractors/gravitation.py::_extract_gravitation_intent": 103,
@@ -46,7 +46,6 @@
   "modules/physics/extractors/waves.py::_extract_waves_intent": 173,
   "modules/physics/solvers/circular.py::solve_circular": 134,
   "modules/physics/solvers/friction.py::incline_scene": 107,
-  "modules/physics/solvers/momentum.py::solve_momentum": 97,
   "modules/physics/solvers/oscillations.py::solve_spring": 117,
   "modules/physics/solvers/projectile.py::solve_projectile": 158,
   "modules/todos/spoken_apply.py::apply_spoken_change": 105

@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import re
 
+from app.modules.turn_reading.question_kinds import asks_reasoning
 from app.services.answer_fence import (
     ANSWER_FENCE_LANGS,
     UNCHECKED_ANSWER_MARKER,
@@ -183,9 +184,35 @@ def _states_a_result(
     return any(_says_whole(flat, statement) for statement in said)
 
 
-def drop_guessed_lead(text: str) -> str:
+def _states_a_card(
+    paragraph: str, fenced: list[tuple[int, int]], span: tuple[int, int], rest: str
+) -> bool:
+    """A lead paragraph, a list of the parts' results included, whose numbers are all the
+    reply's below it and one of them a card's: the results said before they are worked."""
+    if any(span[0] < end and start < span[1] for start, end in fenced):
+        return False
+    numbers = _plain_numbers(paragraph)
+    return (
+        bool(numbers)
+        and numbers <= _plain_numbers(rest)
+        and bool(numbers & _plain_numbers(_cards_text(rest)))
+    )
+
+
+def _cards_text(text: str) -> str:
+    return "\n".join(
+        text[fence.body_start : fence.body_end].replace(UNCHECKED_ANSWER_MARKER, "")
+        for fence in iter_fences(text)
+        if fence.lang in ANSWER_FENCE_LANGS
+    )
+
+
+def drop_guessed_lead(text: str, *, laid_out: bool = False) -> str:
     """``text`` without a short lead above its working that states a result: a number the
-    working and its card never reach, or one a card shows."""
+    working and its card never reach, or one a card shows. ``laid_out``: the turn asked for
+    a ```worked block, whose contract allows no sentence before it, so a lead of any length
+    goes where it states the results, parts' lettered lines too ("a) The height is **3
+    cm**." over the parts' cards, 2026-11-21)."""
     given = _GIVEN.search(text)
     if given is None:
         return text
@@ -197,14 +224,24 @@ def drop_guessed_lead(text: str) -> str:
     if line_fences(text)[text.count("\n", 0, given.start())] is not None:
         return text
     lead = text[: given.start()]
-    if len(lead.split()) > _MOST_WORDS or not lead.strip():
+    if (len(lead.split()) > _MOST_WORDS and not laid_out) or not lead.strip():
         return text
     fenced = [(fence.start, fence.end) for fence in iter_fences(lead)]
     spans = _paragraphs(lead)
     rest = text[given.start() :]
     worked = _numbers(rest) | {number.replace(",", "") for number in _NUMBER.findall(rest)}
     said = _card_statements(rest)
-    kept = [span for span in spans if not _states_a_result(lead, span, fenced, worked, said)]
+    dropped = [
+        _states_a_result(lead, span, fenced, worked, said)
+        or (laid_out and _states_a_card(lead[span[0] : span[1]], fenced, span, rest))
+        for span in spans
+    ]
+    # A line that introduced what went ("… legs of 5 cm:") goes with it.
+    dropped = [
+        gone or (lead[span[0] : span[1]].rstrip().endswith(":") and nxt)
+        for span, gone, nxt in zip(spans, dropped, [*dropped[1:], False], strict=True)
+    ]
+    kept = [span for span, gone in zip(spans, dropped, strict=True) if not gone]
     if len(kept) == len(spans):
         return text
     head = "\n\n".join(lead[begin:end].strip("\n") for begin, end in kept)
@@ -285,4 +322,51 @@ def drop_restated_tail(text: str, question: str = "") -> str:
     kept = [piece for piece, prose in pieces if not (prose and _restates(piece, shown, known))]
     if len(kept) == len(pieces):
         return text
+    return "\n\n".join([head, *kept]) + ("\n" if text.endswith("\n") else "")
+
+
+# A one-line closing summary after the cards, which stays: a sentence or two, short.
+_SUMMARY_MOST_WORDS = 40
+# A piece that opens with a part's label, a heading or a list item is no summary.
+_LABELLED = re.compile(r"^\s*(?:\*\*\s*)?\(?[a-h][).]|^\s*(?:#|[-*+]\s|\d+[.)]\s)")
+
+
+def _one_line_summary(piece: str) -> bool:
+    text = piece.strip()
+    return (
+        "\n" not in text
+        and "$$" not in text
+        and len(text.split()) <= _SUMMARY_MOST_WORDS
+        and len(_SENTENCE_END.findall(text)) <= 2
+        and not _LABELLED.match(text)
+    )
+
+
+def _plain_numbers(text: str) -> set[str]:
+    """Every number ``text`` writes, each on its own (a fraction's two as two)."""
+    return {number.replace(",", "") for number in _NUMBER.findall(text)}
+
+
+def drop_recap_tail(text: str, question: str = "") -> str:
+    """``text`` without the working said again after its last card: asked to write nothing
+    after its ```worked block, a model still worked every part again below the cards ("**a)
+    BD and DC** … $$BD = 6.5$$ …", the parts' values as labelled lines, the derivation of n
+    and its sum once more; hard geometry round, 2026-11-21). Prose after the last card that
+    states no number the reply above it or the question lacks is that recap, and goes,
+    save a closing sentence that sums it up in one line, which the owner wants
+    (2026-11-12); a picture stays. A question asking for a proof or an explanation keeps
+    what follows (``asks_reasoning``): it may be what was asked."""
+    cards = [fence for fence in iter_fences(text) if fence.lang in ANSWER_FENCE_LANGS]
+    if not cards or not cards[-1].closed or asks_reasoning(question):
+        return text
+    head, tail = text[: cards[-1].end].rstrip(), text[cards[-1].end :]
+    pieces = _tail_pieces(tail)
+    prose = [piece for piece, is_prose in pieces if is_prose]
+    if not prose or (len(prose) == 1 and _one_line_summary(prose[0])):
+        return text
+    said = set().union(*(_plain_numbers(piece) for piece in prose))
+    if said - (_plain_numbers(head) | _plain_numbers(question)):
+        return text
+    summary = prose[-1] if _one_line_summary(prose[-1]) else None
+    kept = [piece for piece, is_prose in pieces if not is_prose or piece is summary]
     return "\n\n".join([head, *kept]) + ("\n" if text.endswith("\n") else "")

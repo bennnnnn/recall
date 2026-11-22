@@ -7,8 +7,9 @@ double subscript and a group that never ends, so the phone drew them as source. 
 mistakes of form with one reading:
 
 - a group left open is closed at the field's end, as the writer stopped;
-- a second script on one base belongs to the base with its first, ``{v_A}_{vec}``, as TeX
-  reads ``{x^2}^3``;
+- a second superscript on one base belongs to the base with its first, as TeX reads
+  ``{x^2}^3``; a second subscript is more of the first, ``v_{A,vec}``: one subscript that
+  names both, never a script of a script (``{{V_{small}}_{cone}}_{volume}``, 2026-11-21);
 - a closing brace with no group open is a stray, left out: ``\\frac{1}{2}}`` lost its card
   when the record was refused for it (review, 2026-11-20).
 """
@@ -83,16 +84,32 @@ def _one_script_each(tex: str) -> str:
         start, at = at, _token_end(tex, at)
         base = _within(tex[start:at])
         seen: set[str] = set()
+        # The base and the words of its one subscript, while it has no superscript: a
+        # second subscript joins them.
+        subscript: tuple[str, str] | None = None
         while (mark := _skip_spaces(tex, at)) < len(tex) and tex[mark] in "_^":
             script = _skip_spaces(tex, mark + 1)
             end = _token_end(tex, script) if script < len(tex) else script
+            words = _within(tex[script:end])
+            if tex[mark] == "_" and subscript is not None:
+                # "r_{frustum}_{top}" is one subscript of both, r_{frustum,top}: set on its
+                # base, {r_{frustum}}_{top} read as a script of a script (2026-11-21).
+                joined = f"{subscript[1]},{_inner(words)}"
+                base, subscript, at = f"{subscript[0]}_{{{joined}}}", (subscript[0], joined), end
+                continue
             if tex[mark] in seen:
                 base, seen = f"{{{base}}}", set()
             seen.add(tex[mark])
-            base += tex[at:script] + _within(tex[script:end])
+            subscript = (base, _inner(words)) if tex[mark] == "_" and seen == {"_"} else None
+            base += tex[at:script] + words
             at = end
         out.append(base)
     return "".join(out)
+
+
+def _inner(token: str) -> str:
+    """A script's words without its braces."""
+    return token[1:-1] if len(token) >= 2 and token[0] == "{" and token[-1] == "}" else token
 
 
 def _within(token: str) -> str:
