@@ -26,9 +26,10 @@ _LETTERED = re.compile(
 )
 
 
-# "**Answer (a):** $20.4\,\mathrm{m}$": a part's heading with its value on the same line.
+# "**Answer (a):** $20.4\,\mathrm{m}$", "**Answer (a)** $8.7\,\mathrm{A}$": a part's heading
+# with its value on the same line, a colon or none (live, 2026-11-21).
 _HEADED_VALUE = re.compile(
-    r"^\s*(?P<head>(?:#{1,4}\s+)?\*\*Answer \([a-h]\))(?::\*\*|\*\*:)[ \t]*(?P<value>\S.*)$"
+    r"^\s*(?P<head>(?:#{1,4}\s+)?\*\*Answer \([a-h]\))(?::\*\*|\*\*:?)[ \t]*(?P<value>\S.*)$"
 )
 
 

@@ -1,0 +1,32 @@
+[
+ {
+  "id": "hr-helium-binding-energy",
+  "area": "hard round",
+  "prompt": "A helium-4 nucleus has a mass of 4.001506 u. The proton mass is 1.007276 u and the neutron mass is 1.008665 u. Find the mass defect, the binding energy in MeV (1 u = 931.5 MeV) and the binding energy per nucleon.",
+  "expect": "answer",
+  "answers": [
+   [
+    0.030375999999999515,
+    "u"
+   ]
+  ],
+  "parts": [
+   [
+    0.030375999999999515,
+    "u"
+   ],
+   [
+    28.29524399999955,
+    "MeV"
+   ]
+  ],
+  "note": "live 2026-11-21 (P57, physics round): the atom-particles reader read 'proton mass' and 'neutron mass' as asks and carded 'Protons = 2, Neutrons = 2', verified; the card's third line, 7.074 MeV/nucleon, is in a unit the judge cannot read, so the parts hold the first two"
+ },
+ {
+  "id": "hr-particles-beside-an-energy",
+  "area": "hard round",
+  "prompt": "An atom of He-4 has 2 protons. Find its neutrons and its binding energy.",
+  "expect": "decline",
+  "note": "the binding energy is no count of particles, and no mass is given: no reader answers the whole ask"
+ }
+]

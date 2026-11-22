@@ -129,6 +129,7 @@ def _part_workings(result: PhysicsResult) -> tuple[PhysicsPartWorking, ...]:
             substitutions=part.result.substitutions,
             answer=render_quantity(replace(part.quantity, symbol="")),
             display_answer=render_quantity_latex(replace(part.quantity, symbol="")),
+            answer_values=(part.quantity.value,),
         )
         for part in result.parts
     )
@@ -231,16 +232,9 @@ def _build_physics_block(
     answer, card = result.answer_value, result.answer_latex
     # The model sees the same rows the direct reply formats. The combined
     # solver chain stays on result.answer for internal checks.
-    worked = carried_to_answer(result.substitutions, card, result_units(intent, result, card))
+    values = tuple(item.value for item in result.quantities)
+    verified_lines = _verified_lines(intent, result, card, law, values)
     parts = _part_workings(result)
-    verified_lines = [
-        *([f"Verified law: {law}"] if law else []),
-        "Verified formula:",
-        *(f"${row}$" for row in result.formulas),
-        "Verified substitution:",
-        *(f"${row}$" for row in worked),
-        f"Verified result: ${card}$",
-    ]
     lines.extend(verified_lines)
     structured_working = "\n".join(verified_lines)
 
@@ -262,6 +256,7 @@ def _build_physics_block(
             physics_formulas=result.formulas,
             physics_substitutions=result.substitutions,
             physics_parts=parts,
+            answer_values=values,
         )
 
     if result.graph_specs:
@@ -278,6 +273,7 @@ def _build_physics_block(
             physics_formulas=result.formulas,
             physics_substitutions=result.substitutions,
             physics_parts=parts,
+            answer_values=values,
         )
     else:
         # A scene attached to a scalar answer is decoration, not a second
@@ -296,6 +292,7 @@ def _build_physics_block(
             physics_formulas=result.formulas,
             physics_substitutions=result.substitutions,
             physics_parts=parts,
+            answer_values=values,
         )
 
     # Extras only. Every reader of `canonical_fences` already prepends
@@ -304,6 +301,27 @@ def _build_physics_block(
     # *is* the authorisation for a direct reply.
     extras = [spec for spec in specs if spec is not block.canonical_fence]
     return replace(block, canonical_fences=extras)
+
+
+def _verified_lines(
+    intent: PhysicsIntent,
+    result: PhysicsResult,
+    card: str,
+    law: str | None,
+    values: tuple[float, ...],
+) -> list[str]:
+    """The verified law, formulas and substitution rows, worked down to the unrounded values."""
+    worked = carried_to_answer(
+        result.substitutions, card, result_units(intent, result, card), values
+    )
+    return [
+        *([f"Verified law: {law}"] if law else []),
+        "Verified formula:",
+        *(f"${row}$" for row in result.formulas),
+        "Verified substitution:",
+        *(f"${row}$" for row in worked),
+        f"Verified result: ${card}$",
+    ]
 
 
 def build_verified_physics_block(

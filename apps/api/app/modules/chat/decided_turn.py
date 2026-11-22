@@ -325,7 +325,7 @@ def _worked_layout(ctx: StreamContext, settings: Settings, read: TurnDecision) -
     )
     if layout is not None:
         ctx.worked = layout
-        ctx.prompt_messages = with_worked_contract(ctx.prompt_messages)
+        ctx.prompt_messages = with_worked_contract(ctx.prompt_messages, layout)
 
 
 def _goes_on_with_the_lesson(

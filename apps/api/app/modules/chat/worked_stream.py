@@ -20,6 +20,7 @@ import logging
 from app.modules.chat.draw_stream import DrawFilter
 from app.modules.chat.stream_accum import StreamAccum
 from app.modules.chat.stream_scaffold import ScaffoldFilter
+from app.modules.chat.worked_asks import fitted, plain_notes, worked_givens
 from app.modules.chat.worked_render import WorkedLayout, render_worked
 from app.modules.chat.worked_solution import RecordModel, assemble, read_language, read_record
 from app.modules.chat.worked_text import units_in_working
@@ -126,7 +127,12 @@ class WorkedFilter:
             return "" if streaming else "\n".join(self._raw).strip()
         try:
             records = units_in_working(self._records)
-            return render_worked(assemble(records), self._layout, streaming=streaming)
+            if streaming:
+                solution = worked_givens(assemble(plain_notes(records)))
+                return render_worked(solution, self._layout, streaming=True)
+            # Whole, its parts are fitted to the question's own (``worked_asks``).
+            solution = fitted(records, self._layout.question_parts)
+            return render_worked(solution, self._layout)
         except Exception:
             logger.exception("worked block failed to render; showing its lines")
             return "" if streaming else "\n".join(self._raw).strip()

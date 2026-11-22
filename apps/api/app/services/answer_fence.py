@@ -30,7 +30,7 @@ import unicodedata
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from app.services.card_text import card_maths, named_value, without_emphasis, wordy
+from app.services.card_text import card_maths, named_value, whole_maths, without_emphasis, wordy
 from app.services.card_value import final_answer_only
 from app.services.final_value import is_final_value
 from app.services.latex_groups import closed_group_end
@@ -529,8 +529,14 @@ def land_answer_card(
             value, said = split_tail(named_value(answer_header_and_value(parts[0])[1]))
         else:
             # Both roots, or each value a part asks for, on one line: a card draws one line
-            # of maths, each value with its own note ("$f_{max} = 15$ (at x = 3)").
-            value = ", ".join(" ".join(part.split()) for part in parts)
+            # of maths, each value with its own note ("$f_{max} = 15$ (at x = 3)"). Values
+            # that are all maths are one formula, set apart by a space: "$r = 7$, $R = 32.5$"
+            # was drawn as a sentence of maths pieces (hard geometry round, 2026-11-21).
+            wholes = [whole_maths(part) for part in parts]
+            if all(wholes):
+                value = ",\\quad ".join(" ".join(str(tex).split()) for tex in wholes)
+            else:
+                value = ", ".join(" ".join(part.split()) for part in parts)
         if value.startswith("\\[") and value.endswith("\\]"):
             value = f"$${value[2:-2]}$$"  # the card reads $$ display maths
         # A card draws maths; "Paris" under a quiz's Answer, a paragraph or a sentence stays.

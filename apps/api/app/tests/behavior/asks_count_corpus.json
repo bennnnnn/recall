@@ -1,0 +1,512 @@
+[
+ {
+  "id": "h60-01",
+  "asks": 3,
+  "prompt": "A ball is kicked from level ground at 20 m/s at 35° above the horizontal. Find:\na) its time of flight\nb) its maximum height\nc) its horizontal range."
+ },
+ {
+  "id": "h60-02",
+  "asks": 4,
+  "prompt": "A stone is thrown horizontally at 15 m/s from the top of an 80 m cliff. Find how long it takes to land, how far from the base it lands, and its speed and direction just before impact."
+ },
+ {
+  "id": "h60-03",
+  "asks": 2,
+  "prompt": "A 5 kg block is released from rest on a 30° incline. The coefficient of kinetic friction is 0.2. Find its acceleration and its speed after sliding 4 m down the incline."
+ },
+ {
+  "id": "h60-04",
+  "asks": 2,
+  "prompt": "Masses of 3 kg and 5 kg hang on either side of a light frictionless pulley (an Atwood machine). Find the acceleration of the masses and the tension in the string."
+ },
+ {
+  "id": "h60-05",
+  "asks": 2,
+  "prompt": "a) Draw the free-body diagram of a 5 kg block on a frictionless 30° incline and find its acceleration.\nb) Draw the circuit for a 12 V battery connected to 4 Ω and 6 Ω resistors in series and find the current."
+ },
+ {
+  "id": "h60-06",
+  "asks": 3,
+  "prompt": "A 10 kg crate is pulled across a floor by a rope with a force of 50 N at 30° above the horizontal. The coefficient of kinetic friction is 0.3. Find the normal force, the friction force and the acceleration of the crate."
+ },
+ {
+  "id": "h60-07",
+  "asks": 1,
+  "prompt": "What is the maximum speed at which a car can round an unbanked curve of radius 50 m if the coefficient of static friction between the tyres and the road is 0.6?"
+ },
+ {
+  "id": "h60-08",
+  "asks": 1,
+  "prompt": "A road curve of radius 120 m is banked at 15°. At what speed can a car take the curve with no friction needed?"
+ },
+ {
+  "id": "h60-09",
+  "asks": 2,
+  "prompt": "A 0.5 kg ball on a 1.2 m string is swung in a vertical circle. At the top of the circle its speed is 4 m/s. Find the tension in the string at the top, and the minimum speed at the top for the string to stay taut."
+ },
+ {
+  "id": "h60-10",
+  "asks": 2,
+  "prompt": "A satellite orbits 400 km above the Earth's surface. Using G = 6.674×10^-11 N m²/kg², Earth's mass 5.97×10^24 kg and radius 6.37×10^6 m, find its orbital speed and its period in minutes."
+ },
+ {
+  "id": "h60-11",
+  "asks": 1,
+  "prompt": "A planet has mass 6.4×10^23 kg and radius 3.4×10^6 m. Calculate the escape velocity from its surface."
+ },
+ {
+  "id": "h60-12",
+  "asks": 2,
+  "prompt": "A 500 kg roller-coaster car starts from rest at a height of 40 m. a) Ignoring friction, find its speed at a height of 15 m. b) If 20 kJ of energy is lost to friction on the way down to 15 m, what is its speed there?"
+ },
+ {
+  "id": "h60-13",
+  "asks": 2,
+  "prompt": "A 0.2 kg block compresses a spring of stiffness 800 N/m by 0.1 m on a frictionless surface. When released, how fast does the block leave the spring, and how high up a frictionless ramp will it rise?"
+ },
+ {
+  "id": "h60-14",
+  "asks": 2,
+  "prompt": "A 1500 kg car travelling at 20 m/s crashes into a stationary 1000 kg car and the two lock together. Find their common speed just after the collision and the kinetic energy lost."
+ },
+ {
+  "id": "h60-15",
+  "asks": 2,
+  "prompt": "A 2 kg ball moving at 6 m/s makes a head-on elastic collision with a 4 kg ball at rest. Find the velocities of both balls after the collision."
+ },
+ {
+  "id": "h60-16",
+  "asks": 1,
+  "prompt": "A 10 g bullet is fired into a 2 kg wooden block hanging as a pendulum. The block and bullet swing up to a height of 0.2 m. Find the speed of the bullet before impact."
+ },
+ {
+  "id": "h60-17",
+  "asks": 4,
+  "prompt": "A solid disc of mass 4 kg and radius 0.3 m, initially at rest, is acted on by a constant torque of 6 N m about its axis. Find its moment of inertia, angular acceleration, angular velocity after 2 s, and rotational kinetic energy at that time."
+ },
+ {
+  "id": "h60-18",
+  "asks": 1,
+  "prompt": "A solid sphere rolls without slipping from rest down an incline, dropping a vertical height of 2 m. Find its speed at the bottom."
+ },
+ {
+  "id": "h60-19",
+  "asks": 3,
+  "prompt": "A 0.5 kg mass on a spring of stiffness 200 N/m oscillates with an amplitude of 5 cm. Find the period, the maximum speed and the maximum acceleration."
+ },
+ {
+  "id": "h60-20",
+  "asks": 1,
+  "prompt": "What is the period of a simple pendulum of length 1.0 m on the Moon, where g = 1.62 m/s²?"
+ },
+ {
+  "id": "h60-21",
+  "asks": 2,
+  "prompt": "A wooden block measuring 0.5 m × 0.4 m × 0.2 m (0.2 m tall) with density 600 kg/m³ floats in water. Find the buoyant force on it and how deep it sits in the water."
+ },
+ {
+  "id": "h60-22",
+  "asks": 2,
+  "prompt": "Water flows at 2 m/s through a horizontal pipe of diameter 0.2 m, which narrows to a diameter of 0.1 m. Find the speed in the narrow section and the drop in pressure."
+ },
+ {
+  "id": "h60-23",
+  "asks": 2,
+  "prompt": "Find the gauge pressure and the absolute pressure at a depth of 25 m in seawater of density 1025 kg/m³. Take atmospheric pressure as 101325 Pa."
+ },
+ {
+  "id": "h60-24",
+  "asks": 1,
+  "prompt": "How much heat is needed to turn 0.5 kg of ice at −10 °C into steam at 100 °C? Use c(ice) = 2100 J/kg K, L(fusion) = 3.34×10^5 J/kg, c(water) = 4186 J/kg K, L(vaporisation) = 2.26×10^6 J/kg."
+ },
+ {
+  "id": "h60-25",
+  "asks": 1,
+  "prompt": "A 200 g piece of metal at 150 °C is dropped into 500 g of water at 20 °C. The final temperature is 25 °C. Find the specific heat capacity of the metal (c water = 4186 J/kg K), ignoring heat losses."
+ },
+ {
+  "id": "h60-26",
+  "asks": 3,
+  "prompt": "2 mol of an ideal gas at 300 K occupies 0.05 m³. a) Find its pressure. b) It is compressed isothermally to 0.02 m³: find the new pressure and the work done on the gas."
+ },
+ {
+  "id": "h60-27",
+  "asks": 3,
+  "prompt": "A Carnot engine works between 500 K and 300 K and absorbs 2000 J of heat per cycle. Find its efficiency, the work done per cycle and the heat rejected."
+ },
+ {
+  "id": "h60-28",
+  "asks": 1,
+  "prompt": "A steel rail is 25 m long at 10 °C. How much longer is it at 50 °C? (α for steel = 12×10^-6 per K)"
+ },
+ {
+  "id": "h60-29",
+  "asks": 3,
+  "prompt": "A string 1.5 m long is fixed at both ends and the wave speed on it is 120 m/s. Find the fundamental frequency, the frequency of the third harmonic and the wavelength of the third harmonic."
+ },
+ {
+  "id": "h60-30",
+  "asks": 2,
+  "prompt": "An ambulance siren emits 700 Hz. The ambulance moves at 30 m/s and the speed of sound is 343 m/s. What frequency does a stationary listener hear as it approaches, and as it moves away?"
+ },
+ {
+  "id": "h60-31",
+  "asks": 2,
+  "prompt": "A pipe closed at one end is 0.85 m long and the speed of sound is 340 m/s. Find its fundamental frequency and the frequency of the next harmonic it can produce."
+ },
+ {
+  "id": "h60-32",
+  "asks": 2,
+  "prompt": "A machine produces a sound intensity level of 80 dB at a point. Find the intensity there, and the intensity level if 10 identical machines run together."
+ },
+ {
+  "id": "h60-33",
+  "asks": 4,
+  "prompt": "A 4 cm tall object stands 25 cm from a converging lens of focal length 15 cm. Find the image distance, the magnification and the image height, and describe the image."
+ },
+ {
+  "id": "h60-34",
+  "asks": 3,
+  "prompt": "An object is placed 30 cm from a diverging lens of focal length 20 cm. Find the image position and magnification, and describe the image."
+ },
+ {
+  "id": "h60-35",
+  "asks": 3,
+  "prompt": "An object is 6 cm in front of a concave mirror of focal length 10 cm. Find the image position and magnification, and describe the image."
+ },
+ {
+  "id": "h60-36",
+  "asks": 2,
+  "prompt": "Light passes from water (n = 1.33) into air. Find the critical angle, and the angle of refraction for a ray hitting the surface at 30° to the normal."
+ },
+ {
+  "id": "h60-37",
+  "asks": 2,
+  "prompt": "Light of wavelength 550 nm falls on a diffraction grating with 600 lines per mm. Find the angle of the first-order maximum and the highest order that can be seen."
+ },
+ {
+  "id": "h60-38",
+  "asks": 1,
+  "prompt": "In a double-slit experiment the slits are 0.25 mm apart, the screen is 1.5 m away and the wavelength is 600 nm. Find the fringe spacing."
+ },
+ {
+  "id": "h60-39",
+  "asks": 2,
+  "prompt": "Charges of +3 μC and −5 μC are 20 cm apart. Find the force between them, and the point on the line through them where the electric field is zero."
+ },
+ {
+  "id": "h60-40",
+  "asks": 2,
+  "prompt": "Find the electric field strength and the electric potential at a distance of 0.3 m from a 2 nC point charge."
+ },
+ {
+  "id": "h60-41",
+  "asks": 4,
+  "prompt": "Capacitors of 4 μF and 6 μF are connected in series to a 12 V supply. Find the total capacitance, the charge on each capacitor, the voltage across each, and the total energy stored."
+ },
+ {
+  "id": "h60-42",
+  "asks": 2,
+  "prompt": "A parallel-plate capacitor has plates of area 0.02 m² separated by 1 mm of air. Find its capacitance, and its capacitance when the gap is filled with a dielectric of relative permittivity 4."
+ },
+ {
+  "id": "h60-43",
+  "asks": 4,
+  "prompt": "A 12 V battery with internal resistance 0.5 Ω is connected to a 4 Ω and a 6 Ω resistor in parallel. Find the current from the battery, the terminal voltage, and the current in each resistor."
+ },
+ {
+  "id": "h60-44",
+  "asks": 3,
+  "prompt": "Two batteries are connected in parallel across a 6 Ω resistor, positive terminals joined: one has emf 10 V and internal resistance 2 Ω, the other emf 6 V and internal resistance 4 Ω. Find the current through each battery and through the 6 Ω resistor."
+ },
+ {
+  "id": "h60-45",
+  "asks": 3,
+  "prompt": "A 50 μF capacitor is charged through a 100 kΩ resistor from a 9 V supply. Find the time constant, the capacitor voltage after 5 s, and how long it takes to reach 90% of 9 V."
+ },
+ {
+  "id": "h60-46",
+  "asks": 3,
+  "prompt": "A 2 kW electric kettle runs on 230 V. Find the current and its resistance, and how long it takes to heat 1.5 kg of water from 20 °C to 100 °C, assuming no heat losses."
+ },
+ {
+  "id": "h60-47",
+  "asks": 1,
+  "prompt": "A 0.5 m wire carrying 8 A lies at 60° to a uniform magnetic field of 0.3 T. Find the force on the wire."
+ },
+ {
+  "id": "h60-48",
+  "asks": 2,
+  "prompt": "A proton moves at 2×10^6 m/s perpendicular to a 0.5 T magnetic field. Find the radius of its circular path and its period."
+ },
+ {
+  "id": "h60-49",
+  "asks": 1,
+  "prompt": "A coil of 200 turns and area 0.01 m² is in a magnetic field of 0.5 T perpendicular to it. The field falls to zero in 0.1 s. Find the average induced emf."
+ },
+ {
+  "id": "h60-50",
+  "asks": 4,
+  "prompt": "A 0.4 m metal rod slides at 5 m/s along rails in a 0.8 T field perpendicular to the rails. The rails are joined by a 2 Ω resistor. Find the induced emf, the current, the force needed to keep the rod moving, and the power dissipated."
+ },
+ {
+  "id": "h60-51",
+  "asks": 2,
+  "prompt": "An ideal transformer has 1200 primary turns and 60 secondary turns, and its primary is connected to 240 V. Find the secondary voltage, and the primary current when the secondary current is 5 A."
+ },
+ {
+  "id": "h60-52",
+  "asks": 2,
+  "prompt": "The mains supply is 230 V rms. Find the peak voltage, and the average power in a 50 Ω resistor connected to it."
+ },
+ {
+  "id": "h60-53",
+  "asks": 4,
+  "prompt": "Light of wavelength 250 nm falls on a metal with a work function of 4.5 eV. Find the photon energy, the maximum kinetic energy of the emitted electrons, the stopping potential and the threshold wavelength."
+ },
+ {
+  "id": "h60-54",
+  "asks": 1,
+  "prompt": "An electron is accelerated from rest through a potential difference of 150 V. Find its de Broglie wavelength."
+ },
+ {
+  "id": "h60-55",
+  "asks": 2,
+  "prompt": "Find the energy and the wavelength of the photon emitted when a hydrogen atom's electron falls from n = 3 to n = 2."
+ },
+ {
+  "id": "h60-56",
+  "asks": 3,
+  "prompt": "A radioactive isotope has a half-life of 5 years. Starting with 80 g, how much remains after 20 years? What is the decay constant, and when will 10 g remain?"
+ },
+ {
+  "id": "h60-57",
+  "asks": 3,
+  "prompt": "A helium-4 nucleus has a mass of 4.001506 u. The proton mass is 1.007276 u and the neutron mass is 1.008665 u. Find the mass defect, the binding energy in MeV (1 u = 931.5 MeV) and the binding energy per nucleon."
+ },
+ {
+  "id": "h60-58",
+  "asks": 2,
+  "prompt": "A muon has a lifetime of 2.2 μs at rest and travels at 0.98c. Find its lifetime as measured in the lab and how far it travels in that time."
+ },
+ {
+  "id": "h60-59",
+  "asks": 1,
+  "prompt": "A ball thrown straight up at 10 m/s reaches a maximum height of 20 m. How long does it take to reach the top?"
+ },
+ {
+  "id": "h60-60",
+  "asks": 4,
+  "prompt": "A 0.15 kg ball is thrown from the ground at 30 m/s at 50° above the horizontal (no air resistance). Find:\na) its maximum height\nb) its speed at the maximum height\nc) its kinetic energy at the maximum height\nd) the work done by gravity from launch to the maximum height."
+ },
+ {
+  "id": "ho-01",
+  "asks": 1,
+  "prompt": "A 2 kg ball and a 3 kg ball are tied together and dropped from 45 m. How long do they take to hit the ground?",
+  "holdout": true
+ },
+ {
+  "id": "ho-02",
+  "asks": 2,
+  "prompt": "A car speeds up from 10 m/s to 30 m/s in 5 s. What is its acceleration, and how far does it travel meanwhile?",
+  "holdout": true
+ },
+ {
+  "id": "ho-03",
+  "asks": 1,
+  "prompt": "A spring with k = 400 N/m is stretched 5 cm. How much energy does it store?",
+  "holdout": true
+ },
+ {
+  "id": "ho-04",
+  "asks": 2,
+  "prompt": "A train whistle of 500 Hz is heard by a person on the platform. The train moves at 25 m/s and sound travels at 340 m/s. What does the person hear before the train passes and after it passes?",
+  "holdout": true
+ },
+ {
+  "id": "ho-05",
+  "asks": 2,
+  "prompt": "A ball on a 0.8 m string swings in a vertical circle at 5 m/s at the bottom. Find the tension at the bottom and at the top if its mass is 0.3 kg.",
+  "holdout": true
+ },
+ {
+  "id": "ho-06",
+  "asks": 1,
+  "prompt": "What current flows through a 12 Ω resistor connected to a 6 V battery?",
+  "holdout": true
+ },
+ {
+  "id": "ho-07",
+  "asks": 2,
+  "prompt": "Un coche acelera de 0 a 20 m/s en 4 s. ¿Cuál es su aceleración y qué distancia recorre?",
+  "holdout": true
+ },
+ {
+  "id": "ho-08",
+  "asks": 1,
+  "prompt": "Une pierre tombe d'une falaise de 80 m. Combien de temps met-elle pour atteindre le sol ?",
+  "holdout": true
+ },
+ {
+  "id": "ho-09",
+  "asks": 3,
+  "prompt": "For a 5 kg mass moving at 4 m/s, find its momentum, its kinetic energy and the force needed to stop it in 2 s.",
+  "holdout": true
+ },
+ {
+  "id": "ho-10",
+  "asks": 1,
+  "prompt": "A 60 kg person climbs stairs 3 m high in 4 s. What is their power output?",
+  "holdout": true
+ },
+ {
+  "id": "ho-11",
+  "asks": 2,
+  "prompt": "Solve 2x + 3 = 11 and then find 3x - 1.",
+  "holdout": true
+ },
+ {
+  "id": "ho-12",
+  "asks": 1,
+  "prompt": "Find the derivative of x^3 + 2x.",
+  "holdout": true
+ },
+ {
+  "id": "ho-13",
+  "asks": 2,
+  "prompt": "What is the pH of 0.01 M HCl, and what is its pOH?",
+  "holdout": true
+ },
+ {
+  "id": "ho-14",
+  "asks": 1,
+  "prompt": "How many moles are in 36 g of water?",
+  "holdout": true
+ },
+ {
+  "id": "ho-15",
+  "asks": 2,
+  "prompt": "A lens of focal length 10 cm forms an image of an object 15 cm away. Where is the image and is it real or virtual?",
+  "holdout": true
+ },
+ {
+  "id": "ho-16",
+  "asks": 1,
+  "prompt": "A wave has a frequency of 50 Hz and a wavelength of 2 m. What is its speed?",
+  "holdout": true
+ },
+ {
+  "id": "ho-17",
+  "asks": 2,
+  "prompt": "A 1000 kg car moving at 20 m/s brakes to rest in 40 m. Find the braking force and the time it takes to stop.",
+  "holdout": true
+ },
+ {
+  "id": "ho-18",
+  "asks": 1,
+  "prompt": "Two resistors of 4 Ω and 6 Ω are connected in parallel. What is their combined resistance?",
+  "holdout": true
+ },
+ {
+  "id": "ho-19",
+  "asks": 3,
+  "prompt": "A projectile is launched at 30 m/s at 60°. Find the time of flight, maximum height and range.",
+  "holdout": true
+ },
+ {
+  "id": "ho-20",
+  "asks": 1,
+  "prompt": "A ball is thrown horizontally from a 20 m high cliff at 10 m/s. How far from the base does it land?",
+  "holdout": true
+ },
+ {
+  "id": "ho-21",
+  "asks": 2,
+  "prompt": "Calculate the gravitational force between two 1000 kg masses 2 m apart, and the acceleration it gives each.",
+  "holdout": true
+ },
+ {
+  "id": "ho-22",
+  "asks": 1,
+  "prompt": "An electric heater rated 2 kW runs for 3 hours. How much energy does it use in kWh?",
+  "holdout": true
+ },
+ {
+  "id": "ho-23",
+  "asks": 2,
+  "prompt": "Find the speed of a satellite in a circular orbit 300 km above Earth, and its period.",
+  "holdout": true
+ },
+ {
+  "id": "ho-24",
+  "asks": 1,
+  "prompt": "What is the wavelength of a 100 MHz radio wave?",
+  "holdout": true
+ },
+ {
+  "id": "ho-25",
+  "asks": 2,
+  "prompt": "A 3 kg block slides down a frictionless 40° slope. What is its acceleration? And what is the normal force?",
+  "holdout": true
+ },
+ {
+  "id": "ho-26",
+  "asks": 1,
+  "prompt": "How long does light take to travel from the Sun to the Earth, 1.5 x 10^11 m away?",
+  "holdout": true
+ },
+ {
+  "id": "ho-27",
+  "asks": 2,
+  "prompt": "A gas at 2 atm and 300 K is heated to 450 K at constant volume. What is the new pressure? What would it be at 600 K?",
+  "holdout": true
+ },
+ {
+  "id": "ho-28",
+  "asks": 1,
+  "prompt": "A 500 W motor lifts a 50 kg load. How fast can it lift it?",
+  "holdout": true
+ },
+ {
+  "id": "ho-29",
+  "asks": 2,
+  "prompt": "Find the image distance and magnification for an object 20 cm from a concave mirror of focal length 15 cm.",
+  "holdout": true
+ },
+ {
+  "id": "ho-30",
+  "asks": 1,
+  "prompt": "Explain why a ball thrown at 20 m/s at 45 degrees goes furthest, and find its range.",
+  "holdout": true
+ },
+ {
+  "id": "ho-31",
+  "asks": 1,
+  "prompt": "A 0.5 kg ball hits a wall at 10 m/s and rebounds at 8 m/s. What impulse does the wall give it?",
+  "holdout": true
+ },
+ {
+  "id": "ho-32",
+  "asks": 2,
+  "prompt": "Find the kinetic energy of a 2 kg ball at 3 m/s and at 6 m/s.",
+  "holdout": true
+ },
+ {
+  "id": "ho-33",
+  "asks": 3,
+  "prompt": "A 9 V battery drives current through 3 Ω and 6 Ω in series. Find the total resistance, the current and the voltage across the 6 Ω.",
+  "holdout": true
+ },
+ {
+  "id": "ho-34",
+  "asks": 1,
+  "prompt": "I got 19.8 m/s for the impact speed of a ball dropped from 20 m. Am I right?",
+  "holdout": true
+ },
+ {
+  "id": "ho-35",
+  "asks": 1,
+  "prompt": "A car travels 120 km in 1.5 hours. Draw a distance-time graph and find its average speed.",
+  "holdout": true
+ }
+]

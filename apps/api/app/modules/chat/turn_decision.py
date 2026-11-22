@@ -191,6 +191,10 @@ class TurnDecision(BaseModel):
     # Whether the reply works a result out, laid out as working (``chat.decided_turn``). The
     # Decider's alone: None from the text read, and the rules decide.
     work: bool | None = None
+    # How many separate results the message asks for, four standing for four or more
+    # (``decider_read.ASKS_QUESTION``). The Decider's alone: None from the text read, and the
+    # word rules count them (``chat.asks_turn``).
+    asks: int | None = Field(default=None, ge=1, le=4)
     # After practice cards: the option the message names for each card in order ("b",
     # "other" for none of them, "none" for no answer), whether it gives that as its answer
     # ("why is 18 wrong?" names one and answers nothing), whether its one answer leaves

@@ -71,9 +71,15 @@ _TOKEN = re.compile(
     r"|\\(?P<command>[A-Za-z]+|[!,;: ])"
     r"|(?P<symbol>[-+\u2212*/^(){}\[\]|]))"
 )
-_SCIENTIFIC = re.compile(r"\s*\\times\s*10\^\{?(?P<power>[-\u2212]?\d+)\}?")
+# Its braces paired too, so a root's ``}`` after the power is the root's.
+_SCIENTIFIC = re.compile(
+    r"\s*\\times\s*10\^(?:\{(?P<power>[-\u2212]?\d+)\}|(?P<bare>[-\u2212]?\d+))"
+)
 _MINUS = "\u2212"
-_DEGREE = re.compile(r"\s*\^\s*\{?\s*\\circ\s*\}?")
+# ``^\circ`` or ``^{\circ}``, its braces paired: unpaired, the ``}`` closing a root after the
+# angle (``\sqrt{120 \times 9.81 \times \tan 15^\circ}``) was read as the degree's, and the
+# row was past reading, so the working closed on the card's rounded value (2026-11-21).
+_DEGREE = re.compile(r"\s*\^\s*(?:\{\s*\\circ\s*\}|\\circ)")
 
 
 class _Unreadable(ValueError):
@@ -289,7 +295,9 @@ class _Parser:
         value = float(digits)
         scientific = _SCIENTIFIC.match(self.tex, self.at)
         if scientific is not None:
-            power = int(scientific.group("power").replace(_MINUS, "-"))
+            power = int(
+                (scientific.group("power") or scientific.group("bare")).replace(_MINUS, "-")
+            )
             value *= 10.0**power
             spelled = rf"{digits} \times 10^{{{power}}}"
             self.at = scientific.end()

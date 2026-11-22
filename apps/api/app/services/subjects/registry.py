@@ -429,6 +429,16 @@ class SubjectAdapter(Protocol):
         verified_request_text: str | None,
     ) -> str | None: ...
 
+    def answers_part(
+        self, verified: VerifiedSolveBlock, asked: int
+    ) -> tuple[VerifiedSolveBlock, str] | None:
+        """The message asks for ``asked`` separate results (the turn's read counts them, four
+        standing for four or more): when ``verified`` answers fewer, the block as answering
+        part of the question and the prompt rule its reply answers the rest by, the model then
+        writing around the same card (``chat.asks_turn``). None when it answers them all, or
+        the subject's instant reply already answers whole questions only."""
+        ...
+
 
 class MoneyPeer(Protocol):
     """Money as chat asks it: worked before the prompt, carded after the reply."""

@@ -121,8 +121,8 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # parts drawn one ```draw block per part, each naming its part (math.drawing.contract, the
 # owner, 2026-11-21: each part's picture right after that part is answered).
 _RULES = 205
-_RULE_GRAMS = 20025
-_RULE_GRAMS_SHA = "836917f2994dd5b4"
+_RULE_GRAMS = 20131
+_RULE_GRAMS_SHA = "bc1222658ad20431"
 
 
 def _rules() -> list[str]:
