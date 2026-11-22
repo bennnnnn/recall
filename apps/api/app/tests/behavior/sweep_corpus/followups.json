@@ -1289,7 +1289,8 @@
    ]
   ],
   "reply": "Here are some photos of geladas in the Simien Mountains 🐒\n\nLook for the **hourglass-shaped red patch** on the chest — it's brighter on males, and the long golden-brown mane makes the males look like small lions.",
-  "expect": "photo"
+  "expect": "photo",
+  "read": ["everyday", "photo"]
  },
  {
   "id": "hf-076",
@@ -1306,7 +1307,8 @@
    ]
   ],
   "reply": "Here are photos of **Bete Giyorgis** (Church of St. George) ⛪\n\nIt's carved straight down into the rock in the shape of a **Greek cross**, so from above you see a perfect cross sitting in a deep pit about 12 m deep. You reach it through a trench and tunnel cut into the surrounding rock.",
-  "expect": "photo"
+  "expect": "photo",
+  "read": ["everyday", "photo"]
  },
  {
   "id": "hf-077",
@@ -1340,7 +1342,8 @@
    ]
   ],
   "reply": "Here's a generated logo concept for **Buna Time** — a **jebena** whose round base doubles as a clock face, with the spout pointing like an hour hand. Warm coffee browns with gold accents, on a cream background.\n\nWant me to try a version with the shop name integrated into the design, or a simpler flat style for signage?",
-  "expect": "image_gen"
+  "expect": "image_gen",
+  "read": ["everyday", "image"]
  },
  {
   "id": "hf-079",
@@ -1357,7 +1360,8 @@
    ]
   ],
   "reply": "Here are photos of a **cheetah** and a **leopard** side by side 🐆\n\nWhat to compare:\n- **Spots:** the cheetah's are solid dots; the leopard's are rosettes with a lighter center.\n- **Face:** the cheetah has the dark **tear lines** running down from its eyes.\n- **Body:** the cheetah looks lean and long-legged, like a greyhound; the leopard looks heavier and more powerful.",
-  "expect": "photo"
+  "expect": "photo",
+  "read": ["everyday", "photo"]
  },
  {
   "id": "hf-080",

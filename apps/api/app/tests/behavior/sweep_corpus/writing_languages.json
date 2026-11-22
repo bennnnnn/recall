@@ -434,7 +434,8 @@
   "prompt": "show me a real photo of a habesha kemis with a tilet border, i want to describe it right in my caption",
   "history": [],
   "reply": "Here are some real photos of habesha kemis with tilet borders 👗\n\nWhat to notice for your caption:\n- **The kemis** is usually white or off-white handwoven cotton (*shemma*), ankle-length and flowing.\n- **The tilet** is the colorful woven band — down the front, along the hem, and often at the cuffs and neckline. The patterns are geometric (crosses, diamonds, zigzags), in gold, green, red, or soft pastel threads.\n- It's often worn with a matching **netela** (a light shawl) with the same tilet edge.\n\nCaption idea: *\"White shemma, gold tilet, and a whole lot of culture ✨\"*",
-  "expect": "photo"
+  "expect": "photo",
+  "read": ["everyday", "photo"]
  },
  {
   "id": "w2-050",
@@ -475,7 +476,8 @@
   "prompt": "generate an image for my coffee shop's opening post: a jebena pouring coffee into small cups, warm morning light, minimal style",
   "history": [],
   "reply": "Here's your image: a clay jebena pouring coffee into small white sini cups on a wooden tray, soft warm morning light from the side, with a clean, minimal cream background ☕\n\nWant a square version for the feed or a vertical one for stories?",
-  "expect": "image_gen"
+  "expect": "image_gen",
+  "read": ["everyday", "image"]
  },
  {
   "id": "w2-054",

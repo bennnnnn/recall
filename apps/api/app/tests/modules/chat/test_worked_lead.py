@@ -204,15 +204,20 @@ _CAR_AND_TRAIN_ASKED = (
             _CAR_AND_TRAIN_ASKED,
             "The car's speed is **20 m/s**, and the train's speed is **30 m/s**.",
         ),
-        (
-            _CAR_AND_TRAIN,
-            _CAR_AND_TRAIN_ASKED,
-            "The speed of the car is 20 m/s.\n\nThe speed of the train is 30 m/s.",
-        ),
     ],
 )
-def test_a_tail_restating_the_cards_goes(worked: str, asked: str, tail: str) -> None:
-    assert drop_restated_tail(f"{worked}\n\n{tail}\n", asked) == f"{worked}\n"
+def test_a_one_line_summary_after_the_cards_stays(worked: str, asked: str, tail: str) -> None:
+    """The owner (2026-11-12, and 2026-11-22: "yes"): one line gathering the cards stays, even
+    when it only repeats their numbers."""
+    text = f"{worked}\n\n{tail}\n"
+    assert drop_restated_tail(text, asked) == text
+
+
+def test_restatements_before_the_summary_go() -> None:
+    """Two paragraphs saying the cards again: the first goes, the closing line stays."""
+    tail = "The speed of the car is 20 m/s.\n\nThe speed of the train is 30 m/s."
+    out = drop_restated_tail(f"{_CAR_AND_TRAIN}\n\n{tail}\n", _CAR_AND_TRAIN_ASKED)
+    assert out == f"{_CAR_AND_TRAIN}\n\nThe speed of the train is 30 m/s.\n"
 
 
 @pytest.mark.parametrize(
@@ -236,10 +241,10 @@ def test_a_tail_saying_something_new_stays(worked: str, asked: str, tail: str) -
     assert drop_restated_tail(text, asked) == text
 
 
-def test_a_picture_after_a_restatement_stays() -> None:
+def test_a_picture_after_a_summary_stays_and_so_does_the_summary() -> None:
     graph = '```graph\n{"type": "function", "expr": "20*t"}\n```'
     text = f"{_DISPLACEMENT}\n\nThe displacement is 2400 m east.\n\n{graph}\n"
-    assert drop_restated_tail(text, _DISPLACEMENT_ASKED) == f"{_DISPLACEMENT}\n\n{graph}\n"
+    assert drop_restated_tail(text, _DISPLACEMENT_ASKED) == text
 
 
 def test_a_reply_without_a_card_is_unchanged() -> None:
@@ -326,7 +331,9 @@ def test_prose_saying_the_cards_value_again_is_still_flagged() -> None:
 def test_a_heading_whose_lines_went_goes_with_them() -> None:
     """A reply in parts (2026-11-22): its closing "**Answer**" summary was a restatement and
     went, and the bare heading was left last."""
-    text = f"{_CAR_AND_TRAIN}\n\n**Answer**\n\nThe car's speed is **20 m/s**, and the train's speed is **30 m/s**.\n"
+    # Two lines saying the cards again: no one-line summary, so it goes.
+    recap = "The speed of the car is 20 m/s.\nThe speed of the train is 30 m/s."
+    text = f"{_CAR_AND_TRAIN}\n\n**Answer**\n\n{recap}\n"
     assert drop_restated_tail(text, _CAR_AND_TRAIN_ASKED) == f"{_CAR_AND_TRAIN}\n"
     # A heading with something of its own under it stays.
     kept = f"{_CAR_AND_TRAIN}\n\n**Answer**\n\nThe train is faster by 10 m/s.\n"

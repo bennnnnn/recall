@@ -67,6 +67,8 @@ _EXPORTS = {
 }
 _MODULE_EXPORTS = (
     "compaction",
+    # The composer asks the turn's read whether a send asks for a picture (``images.intent``).
+    "picture_ask",
     "service",
     "stream_entry",
     "stream_pipeline",
