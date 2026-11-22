@@ -22,25 +22,26 @@ from dataclasses import dataclass
 from decimal import InvalidOperation
 
 from app.modules.chat.tex_arithmetic import (
-    INLINE_MATH,
     MAX_EXPONENT,
     UNIT_GROUP,
     evaluate,
+    math_statements,
     plain_arithmetic,
 )
-from app.services.md_fence_scan import iter_fences, map_fence_blocks
+from app.modules.chat.working_systems import unheld_equations
+from app.services.md_fence_scan import iter_fences
 from app.services.school_rounding import round_places
 
-_INLINE_CODE = re.compile(r"`[^`\n]*`")
 # A written result: 14.8, -3, or 1.204 * 10^24 once it is plain text.
 _SHOWN = re.compile(
     r"\(?(?P<mantissa>-?\d+(?:\.(?P<decimals>\d+))?)"
     r"(?:(?:\*10\*\*\(?|e)(?P<power>[-+]?\d+)\)?)?\)?"
 )
+# A result in a prefixed unit the working did not use (7200 m = 7.2 km, 4.52e6 J = 4.5 MJ)
+# is a conversion, not arithmetic to check.
 _PREFIXED_UNIT = re.compile(r"\\(?:text|mathrm)\s*\{\s*([kMGmµμnpc][A-Za-z]+)")
 _OPERATOR = re.compile(r"[-+*/]|sqrt|pi|sind|cosd|tand")
 _RELATION = re.compile(r"\\approx|≈|=")
-_STATEMENTS = re.compile(r"(?:(?<!\\),\s+|;\s*|\\q?quad\s*)(?=[A-Za-z\\][^,;=]{0,40}=)")
 # Models round as they go: a step within 1% of its value is not called a slip.
 _RELATIVE_SLACK = 0.01
 
@@ -159,12 +160,7 @@ def wrong_steps(reply: str) -> list[WrongStep]:
     last = ""
     # The line before: the name it worked out and its last expression ("L", "√(6·14·28·48)/21").
     before: tuple[str, str, str] | None = None
-    prose = _INLINE_CODE.sub(" ", map_fence_blocks(reply, lambda _fence, _body: "\n"))
-    for segment in (
-        statement
-        for match in INLINE_MATH.finditer(prose)
-        for statement in _STATEMENTS.split(match.group(1))
-    ):
+    for segment in math_statements(reply):
         parts = _RELATION.split(segment)
         relations = _RELATION.findall(segment)
         if len(parts) > 1 and not parts[0].strip():
@@ -287,7 +283,9 @@ def _shown_like(value: float, shown: str) -> str:
     """``value`` written the way ``shown`` was: same places, or the same power of ten."""
     plain = plain_arithmetic(shown) or ""
     match = _SHOWN.fullmatch(plain)
-    places = len(match.group("decimals") or "") if match else 0
+    # An exact value shown ("\\frac{\\sqrt{3}}{2}") has no places of its own: two, or three
+    # figures for a small one, never a whole number (review, #2520).
+    places = len(match.group("decimals") or "") if match else _places_for(value)
     if match and match.group("power") is not None:
         power = math.floor(math.log10(abs(value))) if value else 0
         mantissa = value / 10.0**power
@@ -307,6 +305,13 @@ def _shown_like(value: float, shown: str) -> str:
     return number + unit
 
 
+def _places_for(value: float) -> int:
+    """Two decimal places, or three significant figures for a value under 0.01."""
+    if value == 0 or abs(value) >= 0.01:
+        return 2
+    return 2 - math.floor(math.log10(abs(value)))
+
+
 # A worked solution: its equalities are claims, not a quiz ("is 3 * 4 = 13?"). The
 # indent is ``[^\S\n]*``, not ``\s*``: from each line start ``\s*`` ran over every blank
 # line below it, quadratic in a run of them, and found no heading the next start misses.
@@ -323,8 +328,6 @@ def working_note(reply: str) -> str | None:
     """One line naming the first slip, or None when the working adds up."""
     steps = wrong_steps(reply)
     if not steps:
-        from app.modules.chat.working_systems import unheld_equations
-
         unheld = unheld_equations(reply)
         if not unheld:
             return None
@@ -362,6 +365,8 @@ def corrected_approximations(reply: str) -> str:
         plain = plain_arithmetic(exact_tex)
         if plain is None or _DECIMAL.search(plain) is not None:
             return match.group(0)
+        if _another_unit(match):
+            return match.group(0)
         value = evaluate(plain)
         shown = _shown_number(match.group("number"))
         if value is None or shown is None or not _is_off(value, shown[0], shown[1]):
@@ -372,6 +377,24 @@ def corrected_approximations(reply: str) -> str:
         return whole[:start] + _shown_like(value, match.group("number")) + whole[end:]
 
     return _outside_fences(reply, lambda text: _APPROXIMATED.sub(fix, text))
+
+
+# The unit written right after an approximated number: "70.7 cm", "$10.95$ \\text{cm}".
+_UNIT_AFTER = re.compile(
+    r"[ \t$]*(?:\\[,; ][ \t]*)?"
+    r"(?:\\(?:text|mathrm)\s*\{\s*([^{}\s]{1,12})\s*\}|([A-Za-zµμΩ°]{1,5})\b)"
+)
+_WORD = re.compile(r"[A-Za-zµμΩ°]+")
+
+
+def _another_unit(match: re.Match[str]) -> bool:
+    """The decimal is given in a unit the exact value is not written in: "√2/2 m (approximately
+    70.7 cm)" converts, it does not misstate (review, #2520)."""
+    after = _UNIT_AFTER.match(match.string, match.end())
+    unit = (after.group(1) or after.group(2)) if after else None
+    if unit is None:
+        return False
+    return unit not in _WORD.findall(match.group("exact") + match.group("gap"))
 
 
 def _outside_fences(text: str, change: Callable[[str], str]) -> str:

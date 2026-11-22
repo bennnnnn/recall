@@ -17,7 +17,7 @@ import math
 import re
 from dataclasses import dataclass
 
-from app.modules.chat.tex_arithmetic import INLINE_MATH, evaluate, plain_arithmetic
+from app.modules.chat.tex_arithmetic import evaluate, math_statements, plain_arithmetic
 
 # An unknown: one letter, with a subscript ("I_1", "T_{2}", "x").
 _UNKNOWN = re.compile(r"(?<![\\A-Za-z])([A-Za-z])(?:_\{?([A-Za-z0-9]{1,3})\}?)?(?![A-Za-z{])")
@@ -43,8 +43,7 @@ def unheld_equations(reply: str) -> list[UnheldEquation]:
     values: dict[str, set[float]] = {}
     # Each value's unit as written: 6770000 m and 400 km are no terms of one sum.
     units: dict[str, set[str]] = {}
-    for match in INLINE_MATH.finditer(reply):
-        segment = match.group(1)
+    for segment in math_statements(reply):
         if segment.count("=") != 1 or "\\approx" in segment:
             continue
         left, right = (side.strip() for side in segment.split("="))

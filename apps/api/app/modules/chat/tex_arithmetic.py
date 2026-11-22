@@ -12,10 +12,12 @@ from __future__ import annotations
 import ast
 import math
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 
 from app.services.glyphs import fold_operator_glyphs
+from app.services.md_fence_scan import map_fence_blocks
 
+_INLINE_CODE = re.compile(r"`[^`\n]*`")
 INLINE_MATH = re.compile(r"(?<![\\$])\$(?!\$)([^$\n]+?)(?<!\\)\$(?!\$)")
 # 3.98 \times 10^{-19} is one number: "a * 10^-19 / b * 10^-19" divides two of them.
 _SCIENTIFIC = re.compile(
@@ -72,8 +74,6 @@ _UNIT_WORDS = frozenset(
         "ug",
     }
 )
-# A result in a prefixed unit the working did not use (7200 m = 7.2 km, 4.52e6 J = 4.5 MJ)
-# is a conversion, not arithmetic to check.
 # sin 75°, \sin(60^\circ): a sine of degrees, the one function of an angle working writes.
 _TRIG_DEGREES = re.compile(
     r"\\(sin|cos|tan)\s*\(?\s*(-?\d+(?:\.\d+)?)\s*(?:°|\^\s*\{?\s*\\circ\s*\}?)\s*\)?"
@@ -87,6 +87,7 @@ _SQRT = re.compile(r"\\sqrt\s*\{([^{}]*)\}")
 _POWER = re.compile(r"\^\s*\{([^{}]*)\}")
 # "l_{maj} = 2(10) = 20, l_{min} = 2(6) = 12": two statements in one line, each its own chain.
 # A real comma (never "\\," or 1,500) or a \\quad, then a name and its "=".
+_STATEMENTS = re.compile(r"(?:(?<!\\),\s+|;\s*|\\q?quad\s*)(?=[A-Za-z\\][^,;=]{0,40}=)")
 MAX_EXPONENT = 64
 
 
@@ -204,3 +205,11 @@ _CALLS: dict[str, Callable[[float], float]] = {
     "cosd": _cosd,
     "tand": _tand,
 }
+
+
+def math_statements(reply: str) -> Iterator[str]:
+    """Each statement of the reply's inline maths, in reading order: never one in a code fence
+    or inline code, and a line of two ("I_1 = 2, I_2 = 3") read as two."""
+    prose = _INLINE_CODE.sub(" ", map_fence_blocks(reply, lambda _fence, _body: "\n"))
+    for match in INLINE_MATH.finditer(prose):
+        yield from _STATEMENTS.split(match.group(1))

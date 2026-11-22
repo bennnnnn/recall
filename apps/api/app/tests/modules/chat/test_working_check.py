@@ -301,3 +301,39 @@ def test_values_that_do_not_satisfy_the_reply_s_own_equations_are_named() -> Non
 )
 def test_values_that_hold_or_cannot_be_held_say_nothing(reply: str) -> None:
     assert unheld_equations(reply) == []
+
+
+def test_a_decimal_in_another_unit_is_a_conversion_never_corrected() -> None:
+    """Review (#2520): "√2/2 m (approximately 70.7 cm)" converts; 0.71 cm would be wrong."""
+    reply = "**Answer**\n\nThe side is $\\frac{\\sqrt{2}}{2}\\ \\text{m}$ (approximately 70.7 cm)."
+    assert corrected_approximations(reply) == reply
+    hours = "It takes $\\frac{1}{3}\\ \\text{hr}$ (approximately 20 min)."
+    assert corrected_approximations(hours) == hours
+    # The same unit both sides is still held: √65/8 cm is 1.008 cm.
+    same = "The radius is $\\frac{\\sqrt{65}}{8}$ cm (approximately 0.999 cm)."
+    assert "1.008 cm" in corrected_approximations(same)
+
+
+def test_values_in_code_are_no_values_of_the_working() -> None:
+    """Review (#2520): a code fence or inline code naming an unknown is not the reply's value."""
+    reply = (
+        "$x + y = 5$ and $x - y = 1$, so $x = 3$ and $y = 2$.\n\n"
+        "```python\n# $x = 99$\n```\n\nIn code, `$y = 7$`."
+    )
+    assert unheld_equations(reply) == []
+
+
+def test_two_values_on_one_line_are_both_read() -> None:
+    """Review (#2520): "$I_1 = 15/13, I_2 = 1/13$" gives both unknowns their values."""
+    reply = (
+        "$8I_1 + 6I_2 = 10$ and $6I_1 + 10I_2 = 6$, so "
+        "$I_1 = \\frac{15}{13}, I_2 = \\frac{1}{13}$."
+    )
+    unheld = unheld_equations(reply)
+    assert unheld and set(unheld[0].values) == {"I_1", "I_2"}
+
+
+def test_a_slip_between_exact_values_is_noted_to_two_places() -> None:
+    """Review (#2520): an exact right side has no places of its own; never "= 0"."""
+    note = working_note("**Solution**\n\n$\\frac{\\sqrt{3}}{4} = \\frac{\\sqrt{3}}{2}$")
+    assert note is not None and "= 0.43" in note
