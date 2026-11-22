@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING, Any
 
 from app.models.orm import User
 from app.modules.chat.markdown_regions import map_prose_outside_fences
+from app.modules.turn_reading.conversation import is_social_opener
 
 if TYPE_CHECKING:
     from app.modules.chat.finalize_passes import FinalizeState
@@ -102,14 +103,32 @@ def _outside_code(text: str, change: Callable[[str], str]) -> str:
     return "".join([*parts, change(text[last:])])
 
 
-def without_name(text: str, name: str) -> str:
-    """``text`` with ``name`` gone from where it addresses the reader."""
+def _short_closing(name: str) -> re.Pattern[str]:
+    """In a few words back: the name closing a sentence with an emoji or nothing after it,
+    after a lowercase word or the sentence's first ("Got it, Sam 👍", "Night, Sam 🌙",
+    "Anytime, Sam"). A name after a capital stays: "Just Anna, Sam" names two people
+    (review, #2526)."""
+    n = rf"(?:{_spellings(name)})\b"
+    return re.compile(
+        rf"(?P<w>(?:^|(?<=[.!?][ \t]))[A-Z][\w']*|\b[a-z][\w']*),[ \t]+{n}"
+        rf"(?=[ \t]*$|[ \t]+[^\w\s*,;:'\"(\[&+-])",
+        re.MULTILINE,
+    )
+
+
+def without_name(text: str, name: str, *, short: bool = False) -> str:
+    """``text`` with ``name`` gone from where it addresses the reader; ``short``: a few words
+    answering a few words, where it closes a sentence with no stop too."""
     opening, after_greeting, greeting, closing, inside = _patterns(name)
+    short_closing = _short_closing(name) if short else None
     text = opening.sub(lambda m: f"{m['lead']}{m['next'].upper()}", text, count=1)
 
     def line_without(line: str) -> str:
         if _KEPT_LINE.match(line):
             return line
+        if short_closing is not None:
+            # Inside prose only: a fence's "id, Sam" is data (review, #2526).
+            line = short_closing.sub(r"\g<w>", line)
         line = greeting.sub(r"\g<g>", after_greeting.sub(r"\g<g>", line))
         return inside.sub(r"\g<w>,", closing.sub("", line))
 
@@ -137,11 +156,29 @@ def first_name(user: User | None) -> str | None:
 
 
 def spare_name_pass(state: FinalizeState) -> str:
-    """The finalize pass: no name in a reply when one of the last two used it."""
+    """The finalize pass: no name in a reply when one of the last two used it, nor in a few
+    words answering a few words."""
     name = first_name(state.ctx.user)
     asked = state.ctx.user_message_content or ""
     if state.server_text or name is None or _ABOUT_THE_NAME.search(asked) or name in asked:
         return state.text
-    if not named_lately(name, state.ctx.recent_messages or []):
+    short = _a_short_exchange(asked, state.text)
+    if not short and not named_lately(name, state.ctx.recent_messages or []):
         return state.text
-    return without_name(state.text, name)
+    return without_name(state.text, name, short=short)
+
+
+# "ok" answered "Got it, Sam 👍", "thanks" "Anytime, Sam!", "night" "Night, Sam 🌙": in 100
+# texted chats (2026-11-21) a few words back named the user in most of them. A friend says
+# "anytime 😊"; a greeting may still answer with the name ("Hey Sam!").
+_SHORT_MESSAGE_WORDS = 4
+_SHORT_REPLY_WORDS = 30
+
+
+def _a_short_exchange(asked: str, reply: str) -> bool:
+    """A few words answered in a few words, the message no greeting."""
+    return (
+        len(asked.split()) <= _SHORT_MESSAGE_WORDS
+        and len(reply.split()) <= _SHORT_REPLY_WORDS
+        and not is_social_opener(asked)
+    )

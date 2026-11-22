@@ -2,12 +2,15 @@
 lone card under the part it answers (2026-10-29, a grade 7 physics book: the crane's
 power and the car's time were never on a card)."""
 
+from typing import Any
+
 import pytest
 
 from app.core.config import Settings
 from app.modules.physics.fence import validate_physics_fences
 from app.modules.physics.part_answers import land_one_part_card
 from app.modules.physics.prompt import solve_physics_request
+from app.services.solving import VerifiedPhysicsBlock
 
 _SETTINGS = Settings(math_tools_enabled=True)
 
@@ -214,3 +217,69 @@ def test_asking_parts_under_a_numberless_stem_are_not_read_alone() -> None:
     _, block = solve_physics_request(question, _SETTINGS, None)
     answers = [] if block is None else [part.display_answer for part in block.physics_parts]
     assert not any(answer.startswith("19.6") for answer in answers)
+
+
+_CRANE = (
+    "A crane lifts a 450 kg concrete to the top of a 50 m building in 5 s. Assuming "
+    "g = 10 m/s^2, calculate: a) The potential energy of the concrete. b) The power "
+    "developed by the crane"
+)
+_CRANE_REPLY = """**(a) Potential energy**
+
+$E_p = mgh = 450 \\times 10 \\times 50$
+
+**Answer (a)**
+
+$E_p = 2.25 \\times 10^{5}$ J
+
+---
+
+**(b) Power**
+
+$P = E_p / t = 225000 / 5$
+
+**Answer (b)**
+
+$P = 45000$ W
+
+The concrete gains 225 kJ and the crane develops 45 kW."""
+
+
+def _with_pictures(*pictures: tuple[dict[str, Any], ...]) -> VerifiedPhysicsBlock:
+    from dataclasses import replace
+
+    _outcome, block = solve_physics_request(_CRANE, _SETTINGS, None)
+    assert block is not None and len(block.physics_parts) == 2
+    parts = tuple(
+        replace(part, pictures=own) for part, own in zip(block.physics_parts, pictures, strict=True)
+    )
+    return replace(block, physics_parts=parts, canonical_fences=[])
+
+
+def test_each_part_s_picture_goes_right_after_its_card() -> None:
+    """Owner (2026-11-21): a picture per part, each right after its part is answered."""
+    block = _with_pictures(
+        ({"type": "plot", "title": "energy"},), ({"type": "plot", "title": "power"},)
+    )
+    out = validate_physics_fences(_CRANE_REPLY, verified=block, user_text=_CRANE)
+    energy, power = out.index('"title":"energy"'), out.index('"title":"power"')
+    assert out.index("**Answer (a)**") < energy < out.index("**(b) Power**")
+    assert out.index("**Answer (b)**") < power < out.index("The concrete gains")
+
+
+def test_a_picture_both_parts_share_stays_under_them_all() -> None:
+    shared = {"type": "plot", "title": "lift"}
+    block = _with_pictures((shared,), (shared,))
+    out = validate_physics_fences(_CRANE_REPLY, verified=block, user_text=_CRANE)
+    assert out.count('"title":"lift"') == 1
+    assert out.index('"title":"lift"') > out.index("The concrete gains")
+
+
+def test_each_part_s_own_picture_is_one_of_the_solver_s_cards() -> None:
+    """Review (#2521): ``solver_cards`` read only the joined block's pictures, so the parts'
+    check dropped part (b)'s own picture as a stranger."""
+    from app.modules.physics.fence import scene_fence, solver_cards
+
+    power: dict[str, object] = {"type": "plot", "title": "power"}
+    block = _with_pictures(({"type": "plot", "title": "energy"},), (power,))
+    assert scene_fence(power) in solver_cards(block)

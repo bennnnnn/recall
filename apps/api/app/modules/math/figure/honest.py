@@ -40,6 +40,7 @@ _OBLIQUE = frozenset(
         "sheet",
         "square_frustum",
         "tetrahedron",
+        "sphere_in_cube",
     }
 )
 # Values a figure honours without a label of their own.

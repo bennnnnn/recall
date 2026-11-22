@@ -234,7 +234,7 @@ def test_each_value_of_the_card_is_held_to_its_own_name(
         ),
         (
             "$\\gcd = 18$\n\n$\\operatorname{lcm} = 2772$",
-            "$\\gcd = 18$, $\\operatorname{lcm} = 2772$",
+            "\\gcd = 18,\\quad \\operatorname{lcm} = 2772",
         ),
         # Working above the value stays working.
         ("$v = 9.8 \\times 2$  \n$v = 19.6$ m/s", "$v = 19.6$ m/s"),

@@ -16,7 +16,7 @@ from app.modules.physics.ask import ask_clause, asked_phrases, has_ask
 from app.modules.physics.extract import extract_physics_intent
 from app.modules.physics.fence import validate_physics_fences
 from app.modules.physics.solvers.motion_scenes import vertical_scene
-from app.services.part_answer_cards import own_line_part_answers
+from app.services.part.answer_cards import own_line_part_answers
 from app.services.solving import VerifiedPhysicsBlock
 from app.services.subjects.dispatch import build_subject_augmentation
 
@@ -89,6 +89,15 @@ def test_a_part_answer_on_its_heading_line_moves_under_it() -> None:
     text = "**Answer (a):** $20.4\\,\\mathrm{m}$\n\n```\n**Answer (b):** in code\n```"
     assert own_line_part_answers(text) == (
         "**Answer (a)**\n\n$20.4\\,\\mathrm{m}$\n\n```\n**Answer (b):** in code\n```"
+    )
+
+
+def test_a_part_answer_after_a_heading_with_no_colon_moves_under_it_too() -> None:
+    """Live (2026-11-21): "**Answer (a)** $8.7\\,\\mathrm{A}$" kept its value, so no part card
+    landed and one joined card said every part again at three figures."""
+    text = "**Answer (a)** $8.7\\,\\mathrm{A}$\n\n**Answer (b)** $26.5\\,\\Omega$"
+    assert own_line_part_answers(text) == (
+        "**Answer (a)**\n\n$8.7\\,\\mathrm{A}$\n\n**Answer (b)**\n\n$26.5\\,\\Omega$"
     )
 
 

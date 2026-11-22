@@ -24,7 +24,7 @@ from app.modules.chat.stream_pipeline import stream_and_finalize
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.services.answer_fence import VERIFIED_ANSWER_MARKER
 from app.services.md_fence_scan import iter_fences
-from app.services.part_fences import keep_part_fences
+from app.services.part.fences import keep_part_fences
 from app.services.subjects.registry import subject_adapter
 from app.tests.behavior.cases import Case, Expect
 from app.tests.behavior.harness import route_case

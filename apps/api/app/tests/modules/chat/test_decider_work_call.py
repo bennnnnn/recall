@@ -35,9 +35,15 @@ class _Decider:
     """A fake Decider: the turn's call and the work call, each with its own delay."""
 
     def __init__(
-        self, *, work_delay: float = 0.0, turn_delay: float = 0.0, work_fails: bool = False
+        self,
+        *,
+        work_delay: float = 0.0,
+        turn_delay: float = 0.0,
+        work_fails: bool = False,
+        asks_delay: float = 0.0,
     ):
         self.work_delay, self.turn_delay, self.work_fails = work_delay, turn_delay, work_fails
+        self.asks_delay = asks_delay
         self.asked: list[set[str]] = []
         self.work_cancelled = False
 
@@ -45,6 +51,12 @@ class _Decider:
         self, _settings: Any, *, questions: dict[str, Any], **_: Any
     ) -> DeciderReply:
         self.asked.append(set(questions))
+        if "asks" in questions:
+            # The asks question's call (``chat.asks_turn``).
+            await asyncio.sleep(self.asks_delay)
+            return DeciderReply.model_validate(
+                {"answers": {"asks": {"type": "choice", "choice": "two"}}, "usage": {"cost": 0.0}}
+            )
         if "work" not in questions:
             await asyncio.sleep(self.turn_delay)
             return DeciderReply.model_validate({"answers": _TURN, "usage": {"cost": 0.001}})
@@ -89,8 +101,11 @@ async def test_the_work_question_is_its_own_call_and_both_are_metered(
     assert fields is not None and (fields["subject"], fields["work"]) == ("maths", False)
     assert {"work"} in decider.asked and set(decider_read.QUESTIONS) in decider.asked
     assert "work" not in decider_read.QUESTIONS
+    # The asks question is a call of its own too, asked with the work question.
+    assert {"asks"} in decider.asked and "asks" not in decider_read.QUESTIONS
+    assert fields["asks"] == 2
     await asyncio.sleep(0)
-    assert sorted(metered) == [0.001, 0.002]
+    assert sorted(metered) == [0.0, 0.001, 0.002]
 
 
 @pytest.mark.asyncio
@@ -99,7 +114,7 @@ async def test_a_message_with_no_number_asks_no_work_question(
 ) -> None:
     decider = _Decider()
     fields = await _read(monkeypatch, decider, ask_work=False)
-    assert fields is not None and fields["work"] is None
+    assert fields is not None and fields["work"] is None and fields["asks"] is None
     assert decider.asked == [set(decider_read.QUESTIONS)]
 
 
@@ -113,7 +128,7 @@ async def test_a_late_or_failed_work_call_leaves_the_layout_to_the_rules(
     assert fields is not None and fields["subject"] == "maths" and fields["work"] is None
     await asyncio.sleep(0)
     assert decider.work_cancelled is (not fails)
-    assert metered == [0.001]
+    assert sorted(metered) == [0.0, 0.001]
 
 
 @pytest.mark.asyncio
@@ -121,7 +136,7 @@ async def test_a_read_cancelled_ends_its_work_call(
     monkeypatch: pytest.MonkeyPatch, metered: list[float]
 ) -> None:
     """The reply's wait ran out, or the user tapped Stop: nothing keeps calling or billing."""
-    decider = _Decider(work_delay=5.0, turn_delay=5.0)
+    decider = _Decider(work_delay=5.0, turn_delay=5.0, asks_delay=5.0)
     task = asyncio.create_task(_read(monkeypatch, decider))
     await asyncio.sleep(0.05)
     task.cancel()

@@ -27,6 +27,7 @@ from typing import Any
 
 from app.modules.math.figure.shape_names import names_shape
 from app.modules.math.match.derivative_order import derivative_orders
+from app.modules.math.match.shape_words import shape_call_answers
 from app.services.glyphs import OPERATOR_GLYPHS
 from app.services.script_runs import fold_superscript_runs
 
@@ -439,7 +440,11 @@ def _matches(args: dict[str, Any], user: _UserMath) -> bool:
         keys = [key for key in ("width", "height", "side", "radius") if args.get(key) is not None]
         # A circle card answers a circle, never a sphere's equation (round 3, c079).
         named = action != "circle" or names_shape([user.lower], "circle")
-        return named and bool(keys) and all(_number_written(args[key], user) for key in keys)
+        # It asks nothing else, of no other shape (``match/shape_words``).
+        whole = shape_call_answers(action, user.text)
+        return (
+            named and whole and bool(keys) and all(_number_written(args[key], user) for key in keys)
+        )
     # dsolve, or the free-text fallback: the text must be the user's own words.
     text = str(args.get("text") or args.get("expr") or "")
     compact = re.sub(r"\s+", "", text.lower())

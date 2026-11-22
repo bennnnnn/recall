@@ -113,7 +113,13 @@ flowchart LR
      nothing out and gets no ```worked block (told only that nothing verified, the model
      answered −2 A, live round 2026-11-14); a result outside it depends on the signs as
      read (a braking force given as a size beside a deceleration written negative), so its
-     note asks the reply to check them. An oscillation's amplitude is its own input (A,
+     note asks the reply to check them. A top the motion is said to reach ("reaches a
+     maximum height of 20 m") is a result of it, never a launch height (`stated_peak.py`):
+     beside a stated launch speed it is read out of the question and checked against the
+     top that launch gives, and values that contradict each other ("thrown straight up at
+     10 m/s reaches a maximum height of 20 m": 10 m/s rises 5.10 m) have no answer as
+     written, so the reply says so and no card certifies one reading of them (P59, live
+     round 2026-11-21, verified t = v₀/g from a 20 m ledge). An oscillation's amplitude is its own input (A,
      "amplitude"), never a spring's extension;
    - **a share of a decaying sample** is what is left ("25% remains", "decayed to 25%") or
      what went ("75% … to decay", "loses 75%", "has decomposed"), which leaves 1 − p
@@ -338,7 +344,15 @@ flowchart LR
    (b) how fast …"), a second joined quantity ("the deceleration and the braking force"),
    a side question on another body, a yes or no about a value, and a statement with no
    question. The model writes those around the verified block, so no part is dropped.
-   An instant reply that answered (b) alone left (a) unanswered. A SUVAT question in parts
+   An instant reply that answered (b) alone left (a) unanswered. The word rules miss asks
+   they have no pattern for ("the frequency heard as it approaches, and as it moves away",
+   "the angle of the first-order maximum and the highest order", live round 2026-11-21), so
+   the turn's read counts the separate results a message asks for (`decider_read.ASKS_QUESTION`,
+   measured by `tests/behavior/asks_count_eval.py`): when it counts more than the verified
+   block answers, the instant reply gives way, the block is marked partial and the model
+   writes the rest around the same card (`chat/asks_turn.py`, the adapter's `answers_part`).
+   Only a message whose asking sentences join more than one thing waits for the read, at
+   most `live_read_wait_seconds`; a late read keeps the instant reply. A SUVAT question in parts
    ("find (a) its final speed and (b) the distance") is answered whole.
 
    **Every ask, laws chained** (`chain_solve.py`, on the shared `services/law_binding/chain`).
@@ -515,7 +529,10 @@ The binder reads these laws, beside the extractors' own:
   over a card of `4.9 m/s²`, `R = 31.0357 m` over `31 m`, `R_p = 1.78723 Ω` over `1.79 Ω`;
   `working_steps._unrounded`), or the card's own value when nothing rounds (`v = 15 km/h`
   over `15 km/h`), as a textbook closes its working before the boxed answer: only the card
-  rounds (the owner's rule, 2026-11-11, as in maths and chemistry). A value the working
+  rounds (the owner's rule, 2026-11-11, as in maths and chemistry). A row no reader can work
+  closes on the solve's own value, unrounded (`answer_values`), never on the card's: "v =
+  17.8" over a card padded to 17.80 for 17.76 (P8, 2026-11-21). A card of several values
+  takes each from the working line that reached it (`chat/card_numbers.py`). A value the working
   reaches on the way is whole when it ends within six figures (8372, 0.0025) and four
   figures otherwise (sin 70° = 0.9397, 2π = 6.283; `display.latex_working`); until
   November 2026 those printed six figures (`0.939693`). One formatter does

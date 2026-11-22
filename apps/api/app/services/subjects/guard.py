@@ -297,12 +297,12 @@ class GuardedFigure:
             self._subject, "figure.adds_to", False, lambda: self._inner.adds_to(text, fence)
         )
 
-    def without_substitutes(self, text: str) -> str:
+    def without_substitutes(self, text: str, fence: str) -> str:
         return neutral_on_error(
             self._subject,
             "figure.without_substitutes",
             text,
-            lambda: self._inner.without_substitutes(text),
+            lambda: self._inner.without_substitutes(text, fence),
         )
 
     def contract_for(self, question: str, asked: bool, *, graph: bool = False) -> str:
@@ -480,4 +480,12 @@ class GuardedSubject:
                 has_image_attachment=has_image_attachment,
                 verified_request_text=verified_request_text,
             ),
+        )
+
+    def answers_part(
+        self, verified: VerifiedSolveBlock, asked: int
+    ) -> tuple[VerifiedSolveBlock, str] | None:
+        # Answers whole: the instant reply stands.
+        return neutral_on_error(
+            self.name, "answers_part", None, lambda: self._inner.answers_part(verified, asked)
         )

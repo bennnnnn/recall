@@ -1,7 +1,8 @@
 """A polygon by its name: the builder for its shape, its letters placed where the
 question's named values put them. A circle drawn around or inside one asks for it here, and
 so do the figures built on a polygon: a right triangle in its scene, similar triangles,
-shadows, a shape with a second one joined to it, an exterior angle."""
+shadows, a shape with a second one joined to it, an exterior angle, a right triangle with
+the altitude to its hypotenuse."""
 
 from __future__ import annotations
 
@@ -14,6 +15,7 @@ from app.modules.math.figure import (
     heights,
     quadrilateral,
     quads,
+    right_altitude,
     similar,
     triangles,
 )
@@ -67,6 +69,8 @@ def build_polygon(request: FigureRequest) -> FigureSpec | None:
         return composite.build_composite(request)
     if shape in _PLACED:
         return _PLACED[shape](request)
+    if shape in triangles.TRIANGLES and right_altitude.wanted(request):
+        return right_altitude.build_right_altitude(request)
     if shape in triangles.TRIANGLES and any(m.what in heights.ROLES for m in request.measures):
         # A right triangle read by a scene's roles (a wire's length, a distance along the
         # ground): the scene's triangle, upright.

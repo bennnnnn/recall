@@ -24,7 +24,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from app.services.answer_check import Verdict, stated_verdict
+from app.services.answer_check import Verdict, answer_of_another_kind, stated_verdict
 from app.services.answer_fence import (
     ANSWER_FENCE_LANGS,
     UNCHECKED_ANSWER_MARKER,
@@ -70,7 +70,11 @@ def contradicted_reading(
     )
     # A card no plain value (a ratio) may still face an Answer that is an expression in letters.
     letters = verdict == "unknown" and _letters_for_a_number(worked, answer_body)
-    if verdict != "conflict" and not letters:
+    # An Answer that measures another kind of thing (a length under a card of angles), asked
+    # only where no stated value was compared to the card: a reply whose value matched it
+    # ("same", "rounded") is never demoted, and a "conflict" is demoted already.
+    other = verdict in {"absent", "unknown"} and answer_of_another_kind(worked, answer_body)
+    if verdict != "conflict" and not letters and not other:
         return None
     text = normalize_owned_fences(reply, ANSWER_FENCE_LANGS)
     for lang in ANSWER_FENCE_LANGS:

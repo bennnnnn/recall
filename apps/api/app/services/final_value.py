@@ -6,6 +6,7 @@ heading and the final values just before it; a line with arithmetic left is work
 
 from __future__ import annotations
 
+import math
 import re
 
 # The name a final value is set to: a symbol (``x_1``, ``f_{max}``), a word (``type``) or a
@@ -35,6 +36,9 @@ _SIZED = re.compile(r"\\(?:left|right|[bB]igg?[lr]?)[ \t]*(?=[()\[\]])")
 _ARITHMETIC = re.compile(r"\\(?:times|cdot|div|frac)|[\u00d7\u00b7*/\u00f7+^]|\S\s*[-\u2212]")
 # An exact fraction is a value, not a division still to do: x = \frac{1}{2}.
 _EXACT_FRACTION = re.compile(r"\\d?frac\{-?\d+\}\{-?\d+\}")
+# A fraction on a line, "5/7": a value in its lowest terms, a division still to do otherwise
+# ("100/5").
+_SLASHED = re.compile(r"(-?\d+)\s*/\s*(\d+)")
 
 
 def is_final_value(value: str) -> bool:
@@ -52,5 +56,10 @@ def is_final_value(value: str) -> bool:
     if _TRIG.search(right) is None:
         right = _DEGREES.sub("", right)
     right = _COMPONENTS.sub(" 1 ", _SIZED.sub("", right)).strip()
+    slashed = _SLASHED.fullmatch(right)
+    if slashed is not None:
+        top, bottom = abs(int(slashed.group(1))), int(slashed.group(2))
+        # A ratio is its pair in lowest terms: "S = 5/7" (2026-11-21).
+        right = "1" if bottom > 1 and math.gcd(top, bottom) == 1 else right
     named = not left.strip() or _VALUE_NAME.fullmatch(left.strip()) is not None
     return bool(right) and named and _ARITHMETIC.search(right) is None

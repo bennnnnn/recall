@@ -2,14 +2,15 @@
 labelled, a chord at its true distance from the centre (the radius it asks for drawn to its
 true length, unlabelled), a polygon drawn as stated with the circle through its corners
 (inscribed in the circle) or touching its sides (around it), and each circle theorem's
-figure by its own builder (``circle_arcs``, ``circle_angles``, ``circle_lines``)."""
+figure by its own builder (``circle_arcs``, ``circle_angles``, ``circle_lines``), and two
+circles with different centres (``two_circles``)."""
 
 from __future__ import annotations
 
 import math
 from collections.abc import Callable
 
-from app.modules.math.figure import circle_angles, circle_arcs, circle_lines
+from app.modules.math.figure import circle_angles, circle_arcs, circle_lines, two_circles
 from app.modules.math.figure.circle_frame import (
     CIRCLE_ANGLES,
     CIRCLE_LENGTHS,
@@ -65,6 +66,8 @@ def _theorem(request: FigureRequest) -> Builder | None:
     that says "circle" with an angle at the centre is a sector)."""
     if request.shape in {"semicircle", "semi_circle", "half_circle"}:
         return _semicircle(request)
+    if two_circles.reads_two(request):
+        return two_circles.build_two_circles
     if request.shape in _THEOREMS:
         return _THEOREMS[request.shape]
     if request.inscribed or request.circumscribed:
