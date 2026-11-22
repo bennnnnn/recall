@@ -22,7 +22,7 @@ from app.modules.chat.turn_prep.followups import SubjectFollowup, resolve_subjec
 from app.modules.images.gen_intent_thread import extract_image_gen_prompt_from_thread
 from app.modules.images.intent import composer_candidates
 from app.tests.fakes import make_user
-from app.tests.modules.chat.chat_test_support import turn_deps
+from app.tests.modules.chat.chat_test_support import picture_read, turn_deps
 
 
 def _rows(*pairs: tuple[str, str]) -> list[SimpleNamespace]:
@@ -49,9 +49,14 @@ def _found() -> AsyncMock:
 
 
 async def _new_turn(
-    rows: list[SimpleNamespace], content: str, pick: ReferentPick | None, resolved: str | None
+    rows: list[SimpleNamespace],
+    content: str,
+    pick: ReferentPick | None,
+    resolved: str | None,
+    picture: str = "photo",
 ) -> tuple[bool, AsyncMock, AsyncMock, set[str]]:
-    """The turn's intercept, with the model's read of "it" (None: no read)."""
+    """The turn's intercept, with the model's read of "it" (None: no read), and the turn's
+    read saying the message asks for a photo."""
     from app.modules.chat.turn_intercepts import intercept_new_turn
 
     search, resolve = _found(), AsyncMock(return_value=resolved)
@@ -71,6 +76,7 @@ async def _new_turn(
             recent_messages=list(rows),
             prior_count=len(rows),
             misses=misses,
+            read=picture_read(picture),
         )
     return handled, resolve, search, misses
 

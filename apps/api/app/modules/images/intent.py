@@ -22,10 +22,8 @@ from app.core.db import SessionLocal
 from app.modules.conversation import history as chat_history
 from app.modules.images.gen_intent import (
     clean_prompt,
-    has_non_image_subject,
     is_image_gen_generate_now,
     join_subject,
-    names_a_diagram,
     stem_subject,
     strip_polite,
 )
@@ -53,16 +51,9 @@ if TYPE_CHECKING:
 _IMAGE_MARKER_ID = re.compile(
     r"\[Image: /attachments/([0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12})/file\]"
 )
-# Only explicit changes to an attached picture, not questions about it. Anchored, and
-# the verb ends at an ASCII word edge: "make it blue" edits, "makeover ideas" does not.
-_ATTACHED_EDIT = re.compile(
-    r"(?:please\s+)?(?:(?:can|could) you\s+)?"
-    r"(?:edit|change|remove|replace|recolor|crop|transform|turn|make)(?![0-9A-Za-z_])",
-    re.IGNORECASE,
-)
-_MAX_ATTACHED_EDIT = 2000
 # A change to the last generated picture is a short line ("make it blue", "now at night").
 _MAX_REVISION_CHARS = 120
+_MAX_ATTACHED_EDIT = 2000
 _EDGE_PUNCTUATION = ".,!?;:'\"()"
 
 
@@ -118,20 +109,6 @@ class ComposerImageIntent:
 def image_reference_ids(content: str) -> list[UUID]:
     """The attachment ids of a message's ``[Image: …]`` markers, at most two."""
     return list(dict.fromkeys(UUID(value) for value in _IMAGE_MARKER_ID.findall(content)))[:2]
-
-
-def extract_attached_image_edit_prompt(text: str) -> str | None:
-    """``make it blue`` over an attached picture edits it; a question about it does not.
-
-    Nor does text made from it: "turn this into a table", "make flashcards from this"
-    and "make a caption for this photo" read the photo and answer in words.
-    """
-    cleaned = text.strip()
-    if len(cleaned) > _MAX_ATTACHED_EDIT or _ATTACHED_EDIT.match(cleaned) is None:
-        return None
-    if has_non_image_subject(cleaned) or names_a_diagram(cleaned):
-        return None
-    return cleaned
 
 
 def _last_reply_image_ids(recent: Sequence[Any]) -> tuple[UUID, ...]:
@@ -289,11 +266,12 @@ def composer_candidates(
     """What a composer send's words could ask of images, before the read decides.
 
     A maths, physics or chemistry turn goes to chat. With an image attached the chat turn
-    never draws, so an edit of that image ("make it blue") is the composer's to draw, with
-    the attachment as its reference. A picture of "it" goes to chat too when the user can
-    generate one: what "it" is, a model reads there (``chat.referent_read``), and a curve
-    or a shape is drawn, never generated. A user who cannot (``can_generate``) keeps the
-    composer's picture and its upgrade prompt.
+    never draws, so a change to that image ("make it blue") is the composer's to draw, with
+    the attachment as its reference: any line is a candidate, and the read says whether it
+    asks for one ("turn this into a table" and "what's in this photo?" do not). A picture
+    of "it" goes to chat too when the user can generate one: what "it" is, a model reads
+    there (``chat.referent_read``), and a curve or a shape is drawn, never generated. A
+    user who cannot (``can_generate``) keeps the composer's picture and its upgrade prompt.
     """
     subject = stem_subject(text, chemistry_enabled=chemistry_enabled)
     request: ImageGenRequest | None
@@ -305,7 +283,9 @@ def composer_candidates(
         prompt = extract_image_gen_prompt_from_thread(
             text, prior_user_contents_for_image_gen(rows, text)
         )
-        edit = None if prompt else extract_attached_image_edit_prompt(text)
+        # Any other line may change the attached picture ("make it blue"): the read says
+        # whether it does ("what's in this photo?" does not), and the line is the prompt.
+        edit = None if prompt else clean_prompt(text.strip()[:_MAX_ATTACHED_EDIT])
         if prompt:
             request = ImageGenRequest(prompt)
         else:

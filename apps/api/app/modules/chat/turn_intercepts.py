@@ -369,10 +369,11 @@ def start_reply_picture(
     saying none came) goes with the reply.
     """
     prompt = reply_picture_prompt(content, settings)
-    if not prompt:
+    if not prompt or read is None:
+        # No read, no painting: the words only found the picture part.
         return None
     # No painting unless the read says the message asks for one, and the app does not
-    # draw the picture itself: the words only found the picture part.
+    # draw the picture itself.
     figure = asyncio.ensure_future(read_paints_none(read, verified))
     # The line saying why not is in the reply's language, which follows the message. The
     # picture part is only recognised in English ("draw …"), so a message no language

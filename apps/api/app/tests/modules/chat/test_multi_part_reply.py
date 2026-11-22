@@ -28,6 +28,7 @@ from app.modules.chat.turn_prep.intents import plan_turn
 from app.modules.images import reply_picture
 from app.modules.images.generation import ImageGenerationError
 from app.modules.images.reply_picture import ReplyPicture
+from app.tests.modules.chat.chat_test_support import picture_read
 
 _CARD = 'I can switch that for you: Appearance → Dark.\n\n```settings_proposal\n{"proposal_id": "p"}\n```'
 
@@ -230,7 +231,8 @@ async def test_a_picture_the_spend_cap_stopped_says_so_in_the_apps_language(
     assert state.ctx.answer_photo_ids == []
 
 
-def test_a_picture_with_drawing_off_says_the_caps_line_in_the_replys_language() -> None:
+@pytest.mark.asyncio
+async def test_a_picture_with_drawing_off_says_the_caps_line_in_the_replys_language() -> None:
     """A Hindi app asked in English gets an English reply, so the line is English too;
     it was in the app's language under the English answer."""
     picture = start_reply_picture(
@@ -239,9 +241,10 @@ def test_a_picture_with_drawing_off_says_the_caps_line_in_the_replys_language() 
         user=User(id=uuid4(), plan="pro", locale="hi"),
         chat_id=uuid4(),
         content="draw a cat wearing a hat and also explain what a black hole is",
+        read=picture_read("image"),
     )
     assert picture is not None
-    text, ids = asyncio.run(picture.attach("Answer."))
+    text, ids = await picture.attach("Answer.")
     assert text == (
         "Answer.\n\nI couldn't draw the picture (cat wearing a hat) this time: "
         "Image generation is temporarily unavailable. Try again later."
@@ -301,16 +304,18 @@ def test_start_reply_picture_only_for_a_picture_part() -> None:
         )
 
 
-def test_start_reply_picture_refuses_without_the_plan() -> None:
+@pytest.mark.asyncio
+async def test_start_reply_picture_refuses_without_the_plan() -> None:
     picture = start_reply_picture(
         _deps(can_use=False),
         Settings(),
         user=User(id=uuid4(), plan="pro", locale="hi"),
         chat_id=uuid4(),
         content="draw a cat wearing a hat and also explain what a black hole is",
+        read=picture_read("image"),
     )
     assert picture is not None and picture.subject == "cat wearing a hat"
-    text, ids = asyncio.run(picture.attach("Answer."))
+    text, ids = await picture.attach("Answer.")
     assert text == (
         "Answer.\n\nI couldn't draw the picture (cat wearing a hat) this time: "
         "Image generation isn't part of your plan. Upgrade for it."
@@ -347,12 +352,34 @@ async def test_start_reply_picture_draws_the_picture_part() -> None:
             user=User(id=uuid4(), plan="pro"),
             chat_id=uuid4(),
             content="draw a cat wearing a hat and also explain what a black hole is",
+            read=picture_read("image"),
         )
         assert picture is not None
         text, ids = await picture.attach("A black hole...")
     call = drawn.await_args
     assert call is not None and call.kwargs["prompt"] == "cat wearing a hat"
     assert len(ids) == 1 and text.startswith("[Image:")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("picture", ["none", "photo", None])
+async def test_a_picture_part_the_read_does_not_ask_for_is_not_painted(
+    picture: str | None,
+) -> None:
+    """The words found "draw a cat wearing a hat"; only the read paints it."""
+    drawn = AsyncMock(return_value=uuid4())
+    with patch("app.modules.images.reply_picture.draw_unlinked", drawn):
+        started = start_reply_picture(
+            _deps(can_use=True),
+            Settings(),
+            user=User(id=uuid4(), plan="pro"),
+            chat_id=uuid4(),
+            content="draw a cat wearing a hat and also explain what a black hole is",
+            read=picture_read(picture) if picture is not None else None,
+        )
+        if started is not None:
+            assert await started.attach("A black hole...") == ("A black hole...", [])
+    drawn.assert_not_awaited()
 
 
 def _identity() -> Any:

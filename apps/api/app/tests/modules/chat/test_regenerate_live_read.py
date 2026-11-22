@@ -152,7 +152,7 @@ async def test_a_regenerate_an_intercept_answers_stops_the_read() -> None:
     with (
         patch(f"{entry}.turn_resources", resources),
         patch.object(turn_load, "wait_for_pending_finalize", AsyncMock()),
-        patch(f"{intercepts}.try_image_gen_for_turn", AsyncMock(return_value=True)),
+        patch(f"{intercepts}._answer_by_read", AsyncMock(return_value=True)),
         patch.object(turn_decision, "start_turn_decision", MagicMock(return_value=read)),
     ):
         tokens = [
