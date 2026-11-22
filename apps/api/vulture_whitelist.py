@@ -156,3 +156,6 @@ _.should_exit  # unused attribute (app/worker_main.py)
 auto_close_connection_pool  # redis-py reads it when the client closes (app/core/redis.py)
 get_nowait  # the slot pool keeps asyncio.Queue's interface (app/core/sympy_slots.py)
 noul  # the Decider's yes probability, read by name (app/modules/chat/decider_read.py)
+# The model writes each number beside its quote; the server reads its own number from the quote.
+in_minutes  # unused variable (app/modules/todos/model_read.py)
+before_minutes  # unused variable (app/modules/todos/model_read.py)
