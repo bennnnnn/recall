@@ -135,11 +135,11 @@ class PhysicsFollowups:
         return asks_to_see(line) and (recent is None or any(recent))
 
     def shown_problem(
-        self, line: str, recent: Sequence[Any], referent: str | None = None
+        self, line: str, recent: Sequence[Any], referent: str | None = None, *, asked: bool = False
     ) -> str | None:
         # "Draw it": the problem it shows is read for its quantities here, in the pool, as a
         # changed one is, so the setup contract finds the reading kept (Gemini, PR #2490).
-        return _read_quantities(shown_physics_problem(line, referent))
+        return _read_quantities(shown_physics_problem(line, referent, asked=asked))
 
 
 @dataclass(frozen=True)

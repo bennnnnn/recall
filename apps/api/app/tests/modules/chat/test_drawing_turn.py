@@ -737,3 +737,33 @@ async def test_a_description_no_one_part_holds_goes_under_the_reply_as_before() 
     out = await attach_drawing(_state(ctx, reply))
     plot = next(fence for fence in iter_fences(out) if fence.lang == "graph")
     assert plot.start > out.index("The roots are -1 and 1")
+
+
+_BARE = (
+    '```geometry\n{"type":"figure","shape":"rectangle","points":[{"name":"_0","x":0,"y":0},'
+    '{"name":"_1","x":3,"y":0}],"segments":[{"a":"_0","b":"_1"}]}\n```'
+)
+_NAMED = _BARE.replace('{"a":"_0","b":"_1"}', '{"a":"_0","b":"_1","label":"8 cm"}')
+
+
+@pytest.mark.parametrize(
+    ("follow", "fence", "kept"),
+    [("draw", _BARE, False), ("draw", _NAMED, True), ("none", _BARE, True)],
+)
+async def test_a_described_picture_of_the_chat_s_problem_must_name_something(
+    monkeypatch: pytest.MonkeyPatch, follow: str, fence: str, kept: bool
+) -> None:
+    """ "can u show me a picture" after 40 tickets at $8 and $5 got a bare rectangle (QA
+    round, 2026-11-22); a picture asked for in the message's own words keeps its figure."""
+
+    async def described(*_args: Any) -> list[str]:
+        return [fence]
+
+    monkeypatch.setattr(drawing_turn, "_described", described)
+    ctx = _ctx(
+        "can u show me a picture",
+        live_read=_read(subject="maths", picture="diagram", follow=follow),
+    )
+    ctx.drawing = ReplyDrawing("read", descriptions=['{"kind":"figure"}'])
+    out = await attach_drawing(_state(ctx, "Forty tickets at $8 and $5."))
+    assert (fence in out) is kept

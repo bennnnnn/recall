@@ -69,6 +69,10 @@ _MAX_TOKENS = 120
 _BACKUP_MIN_SECONDS = 0.8
 
 Subject = Literal["everyday", "maths", "physics", "chemistry", "money", "code"]
+# The school subjects, whose pictures the app draws itself (``decider_read.READ_SUBJECTS``).
+_STEM = frozenset({"maths", "physics", "chemistry"})
+# The pictures the app draws itself (``drawn_picture.DRAWN_PICTURES``).
+_DRAWN = frozenset({"graph", "diagram", "molecule"})
 Effort = Literal["none", "low", "high"]
 Picture = Literal["none", "graph", "diagram", "molecule", "photo", "image"]
 # How the message leans on the last reply. A texted reply is most of a chat ("yap", "nah",
@@ -123,7 +127,8 @@ _SYSTEM = (
     "Earlier turns, when given, show what the last message refers to; decide for the last "
     "message.\n\n"
     "subject is what the message is about, a follow-up taking the subject of what it "
-    'follows ("draw it" after a circuit is physics):\n'
+    'follows ("draw it" after a circuit is physics, "can u show me a picture" after a '
+    "percentage problem is maths):\n"
     "- maths, physics or chemistry: that school subject: a problem to work out, a concept, "
     "a practice question, a molecule to draw; gas laws and heat are physics\n"
     "- money: the user's own money worked out with amounts: a loan, mortgage or card "
@@ -155,7 +160,10 @@ _SYSTEM = (
     "mind map; molecule: a molecule's structure, flat or 3D; photo: a real thing, place, "
     "animal or person; image: an imagined picture to paint (a scene, an animal doing "
     'something, a logo, a poster). A map is none. "Draw it" shows what the conversation '
-    "is about: a circuit is a diagram, a compound a molecule, a curve a graph. A change to "
+    "is about: a circuit is a diagram, a compound a molecule, a curve a graph. So does a "
+    "request for a picture or an image that names nothing, after a maths, physics or "
+    "chemistry problem: that problem's graph, diagram or molecule (a word problem's is a "
+    "diagram), never a photo or a painting. A change to "
     'a picture just shown ("make it blue", "now at night") asks for that picture again; a '
     'remark, complaint or question about a picture already shown ("I can\'t see it", '
     '"why did you send that", "what is it") is none.\n\n'
@@ -269,6 +277,16 @@ class TurnDecision(BaseModel):
     def nearly_live(self) -> bool:
         """Settled, but by the Decider's odds close to live (``decider_read.NEAR_LIVE_AT``)."""
         return not self.searches and (self.live_odds or 0.0) >= NEAR_LIVE_AT
+
+    @model_validator(mode="after")
+    def _problem_picture(self) -> TurnDecision:
+        """A request to see what the conversation is about, after a maths, physics or
+        chemistry problem, is that problem's picture, the app's to draw: never a painting.
+        "can u show me a picture" after 7 notebooks at $2 each, read as an image to paint,
+        was answered "Sure — here's a picture of a cute puppy" (QA round, 2026-11-22)."""
+        if self.follow == "draw" and self.subject in _STEM and self.picture == "image":
+            self.picture = "diagram"
+        return self
 
     @model_validator(mode="after")
     def _effort(self) -> TurnDecision:
@@ -432,7 +450,10 @@ async def _join(
         # The Decider gave no answer (refused at once, at busy hours): the text read decides.
         return _followed(await text_read, earlier)
     if not (decided["live"] or decided["asked"]):
-        return TurnDecision(**decided)
+        decision = TurnDecision(**decided)
+        if not _unsure_whose_picture(decision):
+            return decision
+        return _the_problem_s_picture(decision, await _within(settings, text_read, started))
     # The search query is text the Decider cannot write: the text read's, begun beside it.
     # It waits no longer than the reply waits for the read, which starts later, so a slow
     # query never costs the Decider's subject and effort: the read comes back without it
@@ -444,6 +465,42 @@ async def _join(
     except TimeoutError:
         read = None
     return TurnDecision(**decided, query=read.query if read is not None else "")
+
+
+def _unsure_whose_picture(read: TurnDecision) -> bool:
+    """The Decider says the message asks to see what the conversation is about, but names
+    no school subject, or no picture the app draws of it (a photo, a painting, none). "can u show me a picture" after 7
+    notebooks at $2 each read "everyday" and a painting, after a sequence and a ticket
+    problem too: 36 of the 45 picture requests of a QA round (2026-11-22) were read as a
+    school problem's picture, against 45 of 45 by the text read, whose instructions say so
+    (``picture_followup_eval``). Told the same in its own questions, the Decider searched
+    more turns that need no search (``search_need_eval``: 0.9% to 2.4-3.7%), so it is left
+    as it is and the text read, begun beside it, is asked about these alone."""
+    return read.follow == "draw" and (read.subject not in _STEM or read.picture not in _DRAWN)
+
+
+async def _within(
+    settings: Settings, text_read: asyncio.Task[TurnDecision | None], started: float
+) -> TurnDecision | None:
+    """The text read, within the read's own budget: a picture's turn waits on the read
+    that long (``drawn_picture.read_picture``), and at the reply's shorter wait the text
+    read was in on 40 of the 51 (p50 1.1 s)."""
+    left = settings.live_read_timeout_seconds - (time.monotonic() - started)
+    try:
+        read = await asyncio.wait_for(text_read, max(0.0, left))
+    except TimeoutError:
+        return None
+    return read
+
+
+def _the_problem_s_picture(read: TurnDecision, text: TurnDecision | None) -> TurnDecision:
+    """The Decider's read with the text read's subject and picture, when the text read
+    says the message asks to see a school problem's picture; else the Decider's alone."""
+    if text is None or text.follow != "draw" or text.subject not in _STEM:
+        return read
+    return TurnDecision.model_validate(
+        {**read.model_dump(), "subject": text.subject, "picture": text.picture}
+    )
 
 
 async def _unsteady_readers(redis: Any, settings: Settings) -> frozenset[str]:

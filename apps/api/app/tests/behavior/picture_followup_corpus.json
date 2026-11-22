@@ -1,0 +1,1074 @@
+[
+ {
+  "id": "math-17",
+  "subject": "math",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "ok so need help w this one lol. evaluate the integral from -1 to 1 of x^2 dx. like what do i even do w this"
+   ],
+   [
+    "assistant",
+    "The value of the integral is **2/3**.\n\nHere is the step-by-step evaluation:\n\n**Given**\nEvaluate $\\int_{-1}^{1} x^2 \\, dx$\n\n**Required**\nFind the definite integral value\n\n**Solution**\nPower rule for integration formula:\n$\\int x^n \\, dx = \\frac{x^{n+1}}{n+1}$\n\nApply the rule to $x^2$:\n$\\int x^2 \\, dx = \\frac{x^3}{3}$\n\n**Substitution**\nEvaluate from $-1$ to $1$:\n$\\left[ \\frac{x^3}{3} \\right]_{-1}^{1}$\n\nUpper limit ($1$):\n$\\frac{1^3}{3} = \\frac{1}{3}$\n\nLower limit ($-1$):\n$\\frac{(-1)^3}{3} = -\\frac{1}{3}$\n\nCalculate the difference:\n$\\frac{1}{3} - \\left( -\\frac{1}{3} \\right) = \\frac{1}{3} + \\frac{1}{3}$  \n$\\frac{1}{3} - \\left( -\\frac{1}{3} \\right) = \\frac{2}{3}$\n\n**Answer**\n\n```answer\nverified: true\n\\frac{2}{3}\n```"
+   ]
+  ]
+ },
+ {
+  "id": "math-26",
+  "subject": "math",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "hi can u help me with this math problem? i need to solve |x + 2| = 5 for my homework. i dont really get the bars thing. thank u"
+   ],
+   [
+    "assistant",
+    "The bars are absolute value signs, which mean the distance from zero. $|x + 2| = 5$ means the expression inside is either **5** or **-5**.\n\n### Lesson 1: The bars thing\n\n### Given\n\n$\\left|{x + 2}\\right| = 5$\n\n### Solution\n\nTo solve, split the equation into two cases: one where the inside is positive and one where it is negative.\n\n$x + 2 = 5 \\quad\\text{or}\\quad x + 2 = -5$\n\nSubtract 2 from both sides for each case to isolate $x$:\n\n$x = 5 - 2$\n$x = 3$\n\n$x = -5 - 2$\n$x = -7$\n\nBoth solutions are valid because the distance of both 3 and -7 from -2 is exactly 5.\n\n**Answer**\n\n```answer\nverified: true\nx = -7 \\text{ or } x = 3\n```\n\n### Your turn\n\n```quiz\n{\"label\": \"Exercise 1\", \"question\": \"What are the solutions to the equation |x - 4| = 7?\", \"code\": \"\", \"options\": [\"x = 3 or x = -11\", \"x = 11 or x = -3\", \"x = 11 or x = 3\", \"x = -11 or x = -3\"], \"answer\": 1, \"explanation\": \"Split into two cases: x - 4 = 7 gives x = 11, and x - 4 = -7 gives x = -3.\"}\n```"
+   ]
+  ]
+ },
+ {
+  "id": "math-28",
+  "subject": "math",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "need help w this one 17 mod 5 what is it"
+   ],
+   [
+    "assistant",
+    "**17 mod 5 = 2**\n\nThe modulo operation finds the remainder when one number is divided by another. Here is the step-by-step breakdown:\n\n**Given**\n*   Dividend: $17$\n*   Divisor: $5$\n\n**Required**\n*   Find $17 \\pmod 5$\n\n**Solution**\nDivide $17$ by $5$:\n$17 \\div 5 = 3$ with a remainder of $2$\n\nAlternatively, using the formula $a \\pmod n = a - (n \\times \\lfloor a/n \\rfloor)$:\n$17 - (5 \\times 3) = 17 - 15 = 2$\n\n**Answer**\n\n```answer\nverified: true\n2\n```"
+   ]
+  ]
+ },
+ {
+  "id": "math-32",
+  "subject": "math",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "hey can u help w this, its for my trig hw. what is tan 45 degrees"
+   ],
+   [
+    "assistant",
+    "```answer\nverified: true\n1\n```\n\n```arithmetic\n{\"type\":\"unit_circle\",\"degrees\":45,\"radians\":\"\\\\frac{\\\\pi}{4}\",\"cosine\":\"\\\\frac{\\\\sqrt{2}}{2}\",\"sine\":\"\\\\frac{\\\\sqrt{2}}{2}\",\"tangent\":\"1\",\"plot_x\":0.707107,\"plot_y\":0.707107,\"answer\":\"1\",\"speech\":\"45 degrees is the point with cosine \\\\frac{\\\\sqrt{2}}{2} and sine \\\\frac{\\\\sqrt{2}}{2} on the unit circle.\"}\n```"
+   ]
+  ]
+ },
+ {
+  "id": "math-40",
+  "subject": "math",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "ugh ok so like what percent of 80 is 12? need to figure this out for my stats hw lol"
+   ],
+   [
+    "assistant",
+    "**Given**\nThe part is 12 and the whole is 80.\n\n**Required**\nFind what percent of 80 is 12.\n\n**Solution**\n\n**Percentage formula**\n$\\text{Percent} = \\frac{\\text{Part}}{\\text{Whole}} \\times 100\\%$\n\n**Substitution**\n$\\text{Percent} = \\frac{12}{80} \\times 100\\%$\n\n$\\text{Percent} = 0.15 \\times 100\\%$\n\n**Answer**\n\n```answer\nverified: true\n15\n```"
+   ]
+  ]
+ },
+ {
+  "id": "math-42",
+  "subject": "math",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "solve x^3 - 6x^2 + 11x - 6 = 0 pls"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$x^{3} - 6 x^{2} + 11 x - 6 = 0$\n\n**Solution**\n\n**1. Factor the left side** — Factoring  \n$\\left(x - 1\\right) \\left(x - 2\\right) \\left(x - 3\\right) = 0$\n\n**2. Set each factor equal to zero** — Zero product property: $ab = 0 \\Rightarrow a = 0$ or $b = 0$  \n$x - 1 = 0 \\quad\\text{or}\\quad x - 2 = 0 \\quad\\text{or}\\quad x - 3 = 0$\n\n**3. Add 1 to both sides of the first equation** — Addition property of equality  \n$x - 1 + 1 = 0 + 1$\n\n**4. Add 2 to both sides of the second equation** — Addition property of equality  \n$x - 2 + 2 = 0 + 2$\n\n**5. Add 3 to both sides of the third equation** — Addition property of equality  \n$x - 3 + 3 = 0 + 3$  \n$x = 1 \\text{ or } x = 2 \\text{ or } x = 3$\n\n**Answer**\n\n```answer\nverified: true\n\\begin{aligned}\nx &= 1 \\\\\nx &= 2 \\\\\nx &= 3\n\\end{aligned}\n```\n\nAnother method is the quadratic formula; it gives the same two solutions."
+   ]
+  ]
+ },
+ {
+  "id": "math-47",
+  "subject": "math",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "hey can u help w this one? tickets are $8 for adults and $5 for kids. 40 tickets sold total for $260. how many adult tickets were sold?"
+   ],
+   [
+    "assistant",
+    "Let **a** be the number of adult tickets and **k** be the number of kid tickets.\n\n$a + k = 40$\n$8a + 5k = 260$\n\nFrom the first equation, we can express $k$ in terms of $a$:\n$k = 40 - a$\n\nNow substitute this into the second equation:\n$8a + 5(40 - a) = 260$\n$8a + 200 - 5a = 260$\n$3a + 200 = 260$\n$3a = 60$\n$a = 20$\n\nSo, **20** adult tickets were sold."
+   ]
+  ]
+ },
+ {
+  "id": "math-59",
+  "subject": "math",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "hi um i need help with this math problem for my son's homework but im not good at this stuff. can u help solve 2cos^2(x) - cos(x) - 1 = 0 for 0 <= x <= 360 degrees"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$2 \\cos^{2}{\\left(x \\right)} - \\cos{\\left(x \\right)} - 1 = 0$  \n$0^\\circ \\le x \\le 360^\\circ$ — domain\n\n**Required**  \n$x$\n\n**Solution**\n\n**Steps**  \n$\\left(\\cos{\\left(x \\right)} - 1\\right) \\left(2 \\cos{\\left(x \\right)} + 1\\right) = 0$ — factor  \n$\\cos{\\left(x \\right)} - 1 = 0 \\Rightarrow \\cos{\\left(x \\right)} = 1 \\Rightarrow x = 0^\\circ,\\;360^\\circ$  \n$2 \\cos{\\left(x \\right)} + 1 = 0 \\Rightarrow \\cos{\\left(x \\right)} = - \\frac{1}{2} \\Rightarrow x = 120^\\circ,\\;240^\\circ$  \n$x = 0^\\circ,\\;120^\\circ,\\;240^\\circ,\\;360^\\circ$ — solutions in the domain\n\n**Answer**\n\n```answer\nverified: true\nx = 0^\\circ,\\;120^\\circ,\\;240^\\circ,\\;360^\\circ\n```"
+   ]
+  ]
+ },
+ {
+  "id": "math-60",
+  "subject": "math",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "i need help w this one lol. so i bought 7 notebooks, $2 each, and paid w a $20 bill. how much change do i get back?"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$n = 7\\,\\mathrm{notebooks}$  \n$p = 2\\,\\mathrm{dollars}$  \n$paid = 20\\,\\mathrm{dollars}$  \nwhere $n$ = number of notebooks purchased, $p$ = price per notebook, $paid$ = amount tendered\n\n**Required**  \n$C$ (change received)\n\n**Solution**\n\n**Total cost formula**  \n$C_{total} = n \\times p$  \n$C = \\text{paid} - C_{total}$ — Change\n\n**Substitution**  \n$C_{total} = 7 \\times 2$  \n$C_{total} = 14\\,\\mathrm{dollars}$  \n$C = 20 - 14$  \n$C = 6\\,\\mathrm{dollars}$\n\n**Answer**\n\n```answer\nverified: false\nC = 6\\,\\mathrm{dollars}\n```\n\nYou get **$6** back in change."
+   ]
+  ]
+ },
+ {
+  "id": "math-74",
+  "subject": "math",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "whats the next number in 2, 6, 18, 54"
+   ],
+   [
+    "assistant",
+    "The next number is **162**.\n\nEach term is multiplied by 3 to get the next:\n*   $2 \\times 3 = 6$\n*   $6 \\times 3 = 18$\n*   $18 \\times 3 = 54$\n*   $54 \\times 3 = 162$"
+   ]
+  ]
+ },
+ {
+  "id": "math-79",
+  "subject": "math",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "hi there, um, my grandson set this up for me on the phone so i could get help with my homework. i think its a math one? can you help me with this one: what is 5 plus 25% of 80? sorry if thats not how you are supposed to ask it. thank you so much"
+   ],
+   [
+    "assistant",
+    "Here is the step-by-step calculation:\n\n**Given**  \n$base = 80$  \n$percent = 25\\,\\%$  \nwhere $base$ = the number to find the percentage of, $percent$ = the portion of the base\n\n**Required**  \n$total$ (final sum)\n\n**Solution**\n\n**Percentage formula**  \n$\\frac{percent}{100} \\times base$\n\n**Substitution**  \n$\\frac{25}{100} \\times 80$  \n$0.25 \\times 80 = 20$  \nbase + result — Addition  \n$5 + 20$\n\n**Answer**\n\n```answer\nverified: false\ntotal = 37\n```"
+   ]
+  ]
+ },
+ {
+  "id": "math-93",
+  "subject": "math",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "Hi there, sorry to bother you! My grandson said I could use this app for my homework, I'm not very good with these things. Could you help me with this one? It says find the mean of 2, 4, 6. I think I remember it's something to do with adding them up but I'm not sure what to do after that. Thank you so much!"
+   ],
+   [
+    "assistant",
+    "No bother at all, happy to help! 😊\n\nTo find the mean, you add the numbers up and then divide by how many numbers there are.\n\n$2 + 4 + 6 = 12$\n\nThen divide by 3 (since there are three numbers):\n\n$12 \\div 3 = 4$\n\nSo the **mean is 4**. 🎉"
+   ]
+  ]
+ },
+ {
+  "id": "math-94",
+  "subject": "math",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "yo so i need help w this one, its for calc. can u help me figure out the slope of the tangent to y = x^3 at x = 1 lol"
+   ],
+   [
+    "assistant",
+    "To find the slope of the tangent line to a curve at a specific point, we need to calculate the derivative of the function and then evaluate it at that $x$-value.\n\n**Given:**\nFunction: $y = x^3$\nPoint of tangency: $x = 1$\n\n**Required:**\nSlope of the tangent line ($m$) at $x = 1$.\n\n**Solution:**\n\nThe slope of the tangent line to a function $f(x)$ at any point is given by its derivative, $f'(x)$. We use the **Power Rule** for differentiation.\n\n**Power Rule formula**\n$\\frac{d}{dx}(x^n) = nx^{n-1}$\n\nApply the rule to $y = x^3$:\nHere, $n = 3$.\n$\\frac{dy}{dx} = 3x^{3-1}$\n$\\frac{dy}{dx} = 3x^2$\n\nNow, substitute $x = 1$ into the derivative to find the specific slope at that point.\n\n**Substitution**\n$m = 3(1)^2$\n$m = 3 \\times 1$\n$m = 3$\n\n**Answer**\n\n```answer\nverified: false\nThe slope of the tangent line to $y = x^3$ at $x = 1$ is 3.\n```"
+   ]
+  ]
+ },
+ {
+  "id": "chemistry-9",
+  "subject": "chemistry",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "ok so how many mg is 0.0150 mol of NaOH? need it for homework lol"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$n = 0.0150\\,\\mathrm{mol}$  \n$M(\\mathrm{NaOH}) = 39.997\\,\\mathrm{g/mol}$  \nwhere $n$ = amount, $M(\\mathrm{NaOH})$ = molar mass\n\n**Required**  \n$m$ (mass)\n\n**Solution**\n\n**Mass–mole relation formula**  \n$m = n M$\n\n**Substitution**  \n$m = (0.0150\\,\\mathrm{mol})(39.997\\,\\mathrm{g/mol})$  \n$m = 0.600\\,\\mathrm{g} = 599.96\\,\\mathrm{mg}$\n\n**Answer**\n\n```answer\nverified: true\nm(\\mathrm{NaOH}) = 599.96\\,\\mathrm{mg}\n```"
+   ]
+  ]
+ },
+ {
+  "id": "chemistry-8",
+  "subject": "chemistry",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "ok so need help with this one how many grams of kclo3 do i need to make 3.2 g of o2 2kclo3 -> 2kcl + 3o2"
+   ],
+   [
+    "assistant",
+    "To find the grams of $\\text{KClO}_3$ needed, we use stoichiometry based on the balanced equation:\n\n$$2\\text{KClO}_3 \\rightarrow 2\\text{KCl} + 3\\text{O}_2$$\n\n**1. Calculate Molar Masses**\n*   **$\\text{O}_2$**: $2 \\times 16.00 = 32.00 \\text{ g/mol}$\n*   **$\\text{KClO}_3$**: $39.10 (\\text{K}) + 35.45 (\\text{Cl}) + 3 \\times 16.00 (\\text{O}) = 122.55 \\text{ g/mol}$\n\n**2. Convert Grams of $\\text{O}_2$ to Moles**\n$$ \\text{Moles of } \\text{O}_2 = \\frac{3.2 \\text{ g}}{32.00 \\text{ g/mol}} = 0.10 \\text{ mol} $$\n\n**3. Use Mole Ratio to Find Moles of $\\text{KClO}_3$**\nFrom the equation, 2 moles of $\\text{KClO}_3$ produce 3 moles of $\\text{O}_2$.\n$$ \\text{Moles of } \\text{KClO}_3 = 0.10 \\text{ mol } \\text{O}_2 \\times \\frac{2 \\text{ mol } \\text{KClO}_3}{3 \\text{ mol } \\text{O}_2} = \\frac{0.20}{3} \\approx 0.0667 \\text{ mol} $$\n\n**4. Convert Moles of $\\text{KClO}_3$ to Grams**\n$$ \\text{Mass of } \\text{KClO}_3 = 0.0667 \\text{ mol} \\times 122.55 \\text{ g/mol} \\approx 8.17 \\text{ g} $$\n\nYou need approximately **8.2 grams** of $\\text{KClO}_3$."
+   ]
+  ]
+ },
+ {
+  "id": "chemistry-12",
+  "subject": "chemistry",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "can u help w this chem hw what is the partial pressure of O2 if its mole fraction is 0.25 and the total pressure is 4.0 atm"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$χ_{i} = 0.25$  \n$P_{total} = 4.0\\,\\mathrm{atm}$  \nwhere $χ_{i}$ = mole fraction\n\n**Required**  \nPartial pressure\n\n**Solution**\n\n**Mole fraction formula**  \n$P_{i} = χ_{i} P_{total}$\n\n**Substitution**  \n$P_{i} = (0.25)(4.0)$  \n$P_{i} = 1.0\\,\\mathrm{atm}$\n\n**Answer**\n\n```answer\nverified: true\nP_{i} = 1\\,\\mathrm{atm}\n```"
+   ]
+  ]
+ },
+ {
+  "id": "chemistry-24",
+  "subject": "chemistry",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "hey can u help w this chem hw how many molecules r in 10.0 g of CO2"
+   ],
+   [
+    "assistant",
+    "To find the number of molecules in **10.0 g** of carbon dioxide (CO₂), we first determine its molar mass and then use Avogadro's number.\n\n1️⃣ Calculate the molar mass of CO₂\n* Carbon (C): $12.01\\text{ g/mol}$\n* Oxygen (O): $16.00\\text{ g/mol} \\times 2 = 32.00\\text{ g/mol}$\n* Total Molar Mass: $12.01 + 32.00 = 44.01\\text{ g/mol}$\n\n2️⃣ Convert grams to moles\n$$\\text{Moles of CO}_2 = \\frac{10.0\\text{ g}}{44.01\\text{ g/mol}} \\approx 0.2272\\text{ mol}$$\n\n3️⃣ Convert moles to molecules\nUsing Avogadro's number ($6.022 \\times 10^{23}\\text{ molecules/mol}$):\n$$\\text{Molecules} = 0.2272\\text{ mol} \\times 6.022 \\times 10^{23}\\text{ molecules/mol}$$\n$$\\text{Molecules} \\approx 1.368 \\times 10^{23}$$\n\nSince the original value (10.0 g) has **3 significant figures**, the final answer should be rounded accordingly.\n\nThere are approximately **$1.37 \\times 10^{23}$ molecules** of CO₂ in 10.0 g.\n\n```smiles\nCO2 · CO₂ · 44.01 g/mol\nO=C=O\n```\n```molecule3d\n\n     RDKit          3D\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\n   -1.4050    0.0037    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n   -0.0000   -0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.4050   -0.0037    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  2  0\n  2  3  2  0\nM  END\nCO2\n```\n"
+   ]
+  ]
+ },
+ {
+  "id": "chemistry-29",
+  "subject": "chemistry",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "ok so the q is how many moles of O2 react w 3.0 mol of CH4 in CH4 + 2O2 -> CO2 + 2H2O?? idk how to start lol"
+   ],
+   [
+    "assistant",
+    "**Given**  \nBalanced equation: CH₄ + 2 O₂ → CO₂ + 2 H₂O  \n$n(\\mathrm{CH₄}) = 3.0\\,\\mathrm{mol}$  \nwhere $n(\\mathrm{CH₄})$ = amount\n\n**Required**  \nAmount of O₂\n\n**Solution**\n\n**Mass–mole–particle stoichiometry formula**  \n$n(\\mathrm{O₂}) = n(\\mathrm{CH₄}) \\times (2 / 1)$\n\n**Substitution**  \n$n(\\mathrm{CH₄}) = 3.000\\,\\mathrm{mol}$  \n$n(\\mathrm{O₂}) = 3.000\\,\\mathrm{mol} \\times (2 / 1) = 6.000\\,\\mathrm{mol}$\n\n**Answer**\n\n```answer\nverified: true\nn(\\mathrm{O₂}) = 6\\,\\mathrm{mol}\n```\n\n```chem_scene\n{\"kind\": \"stoich\", \"title\": \"Stoichiometry chain\", \"steps\": [{\"label\": \"n(CH₄)\", \"value\": \"3.000 mol\"}, {\"label\": \"n(O₂)\", \"value\": \"3.000 mol × (2 / 1) = 6.000 mol\"}, {\"label\": \"n(O₂)\", \"value\": \"6.0 mol\"}]}\n```"
+   ]
+  ]
+ },
+ {
+  "id": "chemistry-31",
+  "subject": "chemistry",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "hi um i need help with this chem homework. whats the ph of 1.0x10^-3 M HNO3"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$\\mathrm{HNO₃} = 1.0 \\times 10^{-3}\\,\\mathrm{mol/L}$\n\n**Required**  \n$\\mathrm{pH}$\n\n**Solution**\n\n**Strong monoprotic acid formula**  \n$[\\mathrm{H⁺}] = c$\n\n**Substitution**  \n$[\\mathrm{H⁺}] = 1.0 \\times 10^{-3}\\,\\mathrm{mol/L}$  \n$\\mathrm{pH} = -\\log_{10} (1.0 \\times 10^{-3})$  \n$\\mathrm{pH} = 3.00$\n\n**Answer**\n\n```answer\nverified: true\n\\mathrm{pH} = 3.00\n```"
+   ]
+  ]
+ },
+ {
+  "id": "chemistry-35",
+  "subject": "chemistry",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "ok so my chem hw asks: calculate [H+] for a solution with a pH of 4.75 lol. pretty sure its just 10^-4.75 but my calc is being weird?? can u help"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$\\mathrm{pH} = 4.75$\n\n**Required**  \n$[\\mathrm{H⁺}]$\n\n**Solution**\n\n**Inverse pH relation formula**  \n$[\\mathrm{H⁺}] = 10^{-\\mathrm{pH}}$\n\n**Substitution**  \n$[\\mathrm{H⁺}] = 10^{-4.75}$  \n$[\\mathrm{H⁺}] = 1.778 \\times 10^{-5}\\,\\mathrm{mol/L}$\n\n**Answer**\n\n```answer\nverified: true\n[\\mathrm{H⁺}] = 1.8 \\times 10^{-5}\\,\\mathrm{mol/L}\n```"
+   ]
+  ]
+ },
+ {
+  "id": "chemistry-37",
+  "subject": "chemistry",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "ok so my chem hw is asking: whats the pH after mixing 25.0 mL of 0.100 M HCl with 15.0 mL of 0.100 M NaOH?? idk where to start lol"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$c_{a} = 0.100\\,\\mathrm{mol/L}$  \n$V_{a} = 0.025\\,\\mathrm{L}$  \n$c_{b} = 0.100\\,\\mathrm{mol/L}$  \n$V_{b} = 0.015\\,\\mathrm{L}$  \nwhere $c_{a}$ = acid concentration, $c_{b}$ = base concentration\n\n**Required**  \n$\\mathrm{pH}$\n\n**Solution**\n\n**Strong acid–strong base titration formula**  \n$[\\mathrm{H⁺}] = (n(\\mathrm{H⁺}) - n(\\mathrm{OH⁻})) / (V_{a} + V_{b})$\n\n**Substitution**  \n$n(\\mathrm{H⁺}) = c_{a} V_{a}$  \n$n(\\mathrm{H⁺}) = (0.100)(0.025)$  \n$n(\\mathrm{H⁺}) = 0.00250\\,\\mathrm{mol}$  \n$n(\\mathrm{OH⁻}) = c_{b} V_{b}$  \n$n(\\mathrm{OH⁻}) = (0.100)(0.015)$  \n$n(\\mathrm{OH⁻}) = 0.00150\\,\\mathrm{mol}$  \n$V = V_{a} + V_{b}$  \n$V = 0.025 + 0.015$  \n$V = 0.040000\\,\\mathrm{L}$  \n$[\\mathrm{H⁺}] = (n(\\mathrm{H⁺}) - n(\\mathrm{OH⁻})) / V = 0.0250\\,\\mathrm{mol/L}$  \nWith water's own ions, [H⁺] = (c + √(c² + 4Kw)) / 2 = 0.025000 mol/L, where c = 0.0250 mol/L of acid left over  \n$\\mathrm{pH} = -\\log_{10} (0.025000)$  \n$\\mathrm{pH} = 1.60206$\n\n**Answer**\n\n```answer\nverified: true\n\\mathrm{pH} = 1.602\n```\n\n```chem_scene\n{\"kind\": \"titration\", \"title\": \"Titration\", \"region\": \"before equivalence\", \"anchors\": [{\"label\": \"start\", \"ph\": \"1.000\", \"volume\": \"0 L\"}, {\"label\": \"equivalence\", \"ph\": \"7.000\", \"volume\": \"0.0250 L\"}, {\"label\": \"solved\", \"detail\": \"before equivalence: [H⁺] = 0.025000\", \"value\": \"1.602\"}]}\n```"
+   ]
+  ]
+ },
+ {
+  "id": "chemistry-51",
+  "subject": "chemistry",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "ok so whats the molar mass of H2O2 like the question is what is the molar mass of H2O2 lol"
+   ],
+   [
+    "assistant",
+    "**Given**  \nFormula = H₂O₂\n\n**Required**  \n$M$ (molar mass)\n\n**Solution**\n\n**Molar mass from atomic masses formula**  \nM = Σ(nᵢ × atomic massᵢ)\n\n**Substitution**  \n$M = 2(1.008) + 2(15.999)$  \n$M = 34.014\\,\\mathrm{g/mol}$\n\n**Answer**\n\n```answer\nverified: true\nM(\\mathrm{H₂O₂}) = 34.01\\,\\mathrm{g/mol}\n```\n\n```smiles\nH2O2 · H₂O₂ · 34.01 g/mol\nOO\n```\n```molecule3d\n\n     RDKit          3D\n\n  4  3  0  0  0  0  0  0  0  0999 V2000\n    0.6696   -0.2625   -0.2639 O   0  0  0  0  0  0  0  0  0  0  0  0\n   -0.5773   -0.0531    0.4542 O   0  0  0  0  0  0  0  0  0  0  0  0\n    1.0823    0.5903   -0.0291 H   0  0  0  0  0  0  0  0  0  0  0  0\n   -1.1746   -0.2747   -0.2853 H   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0\n  1  3  1  0\n  2  4  1  0\nM  END\nH2O2\n```\n"
+   ]
+  ]
+ },
+ {
+  "id": "chemistry-54",
+  "subject": "chemistry",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "ok so my chem hw asks how many grams of AgCl precipitate when 50.0 mL of 0.100 M AgNO3 reacts with excess NaCl. can u help me figure it out? idk where to start lol"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$V_{AgNO3} = 50.0\\,\\mathrm{mL} = 0.0500\\,\\mathrm{L}$  \n$M_{AgNO3} = 0.100\\,\\mathrm{M} = 0.100\\,\\mathrm{mol/L}$  \nwhere $V_{AgNO3}$ = volume of silver nitrate solution, $M_{AgNO3}$ = molarity of silver nitrate\n\n**Required**  \n$mass_{AgCl}$ (mass of silver chloride precipitate in grams)\n\n**Solution**\n\n**Stoichiometry formula**  \n$AgNO_3(aq)$ + $NaCl(aq) \\rightarrow AgCl(s) + NaNO_3(aq)$  \n$n_{AgNO3} = M \\times V$\n\n**Substitution**  \n$n_{AgNO3} = 0.100\\,\\mathrm{mol/L} \\times 0.0500\\,\\mathrm{L}$  \n$n_{AgNO3} = 0.00500\\,\\mathrm{mol}$  \n$n_{AgCl} = 0.00500\\,\\mathrm{mol}$  \n$mass_{AgCl} = 0.00500\\,\\mathrm{mol} \\times 143.32\\,\\mathrm{g/mol}$\n\nThe reaction ratio between AgNO₃ and AgCl is 1:1, so moles of AgCl formed equal moles of AgNO₃ reacted. To find the mass, multiply the moles of AgCl by its molar mass. The molar mass of AgCl is approximately 143.32 g/mol (Ag: 107.87, Cl: 35.45).\n\n**Answer**\n\n```answer\nverified: false\nmass_{AgCl} = 0.717\\,\\mathrm{g}\n```"
+   ]
+  ]
+ },
+ {
+  "id": "chemistry-59",
+  "subject": "chemistry",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "percent ionization of 0.10 M acetic acid, ka = 1.8 x 10^-5. how do i do this"
+   ],
+   [
+    "assistant",
+    "To find the percent ionization of 0.10 M acetic acid, we determine how much of the acid breaks apart into ions using its $K_a$ value, then compare that amount to the starting concentration.\n\n**Given**  \n$C_0 = 0.10\\,\\mathrm{M}$  \n$K_a = 1.8 \\times 10^{-5}$  \nwhere $C_0$ = initial concentration of acetic acid, $K_a$ = acid dissociation constant\n\n**Required**  \n$\\alpha$ (percent ionization)\n\n**Solution**\n\n**Acid Dissociation Equilibrium formula**  \n$CH_3COOH \\rightleftharpoons H^+ + CH_3COO^-$  \n$[CH_3COOH] = 0.10 - x$  \n$[H^+] = x$  \n$[CH_3COO^-] = x$  \n$K_a = \\frac{[H^+][CH_3COO^-]}{[CH_3COOH]}$ — Ka Expression\n\n**Substitution**  \n$1.8 \\times 10^{-5} = \\frac{x \\times x}{0.10 - x}$  \n$1.8 \\times 10^{-5} \\approx \\frac{x^2}{0.10}$  \n$x^2 = 1.8 \\times 10^{-6}$  \n$x = \\sqrt{1.8 \\times 10^{-6}}$  \n$x = 1.34 \\times 10^{-3}\\,\\mathrm{M}$  \n$\\% \\text{ ionization} = \\frac{x}{C_0} \\times 100$ — Percent Ionization  \n$\\% \\text{ ionization} = \\frac{1.34 \\times 10^{-3}}{0.10} \\times 100$\n\nSet up an ICE (Initial, Change, Equilibrium) table where x is the amount of acid that dissociates. Because $K_a$ is very small compared to 0.10, we assume x is negligible relative to 0.10, so 0.10 - x $\\approx 0.10$. Check assumption: $(1.34 \\times 10^{-3}) / 0.10 = 1.34$%, which is less than 5%, so the approximation is valid.\n\n**Answer**\n\n```answer\nverified: false\n\\alpha = 1.34\\,\\%\n```\n\nHere is the breakdown of the steps:\n\n1.  **Write the Equilibrium Equation**: Acetic acid ($CH_3COOH$) dissociates into hydrogen ions ($H^+$) and acetate ions ($CH_3COO^-$).\n2.  **Set up the Expression**: The equilibrium constant expression is $K_a = \\frac{[H^+][CH_3COO^-]}{[CH_3COOH]}$.\n3.  **Use the Approximation**: Since $K_a$ is small ($10^{-5}$), the amount of acid that actually breaks apart ($x$) is very small compared to the initial concentration ($0.10$). Therefore, $0.10 - x \\approx 0.10$. This simplifies the math to $x^2 = K_a \\times C_0$.\n4.  **Solve for $x$**: $x$ represents the concentration of ionized acid ($[H^+]$).\n5.  **Calculate Percentage**: Divide the ionized amount ($x$) by the original concentration ($0.10$) and multiply by 100.\n\n```smiles\nacetic acid · C₂H₄O₂ · 60.05 g/mol\nCC(=O)O\n```\n```molecule3d\n\n     RDKit          3D\n\n  8  7  0  0  0  0  0  0  0  0999 V2000\n   -0.9465   -0.1049    0.1460 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.4572    0.2920   -0.1714 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.8209    1.3508   -0.6531 O   0  0  0  0  0  0  0  0  0  0  0  0\n    1.3450   -"
+   ]
+  ]
+ },
+ {
+  "id": "chemistry-60",
+  "subject": "chemistry",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "hey can u help w this chem q. whats the ph of 0.0025 M HCl"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$\\mathrm{HCl} = 0.0025\\,\\mathrm{mol/L}$\n\n**Required**  \n$\\mathrm{pH}$\n\n**Solution**\n\n**Strong monoprotic acid formula**  \n$[\\mathrm{H⁺}] = c$\n\n**Substitution**  \n$[\\mathrm{H⁺}] = 0.0025\\,\\mathrm{mol/L}$  \n$\\mathrm{pH} = -\\log_{10} (0.0025)$  \n$\\mathrm{pH} = 2.6021$\n\n**Answer**\n\n```answer\nverified: true\n\\mathrm{pH} = 2.60\n```"
+   ]
+  ]
+ },
+ {
+  "id": "chemistry-69",
+  "subject": "chemistry",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "ok so need help w chem hw. how many grams of oxygen are in 10 g of H2O? keep all the numbers and units same as the original"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$m(\\mathrm{H₂O}) = 10\\,\\mathrm{g}$  \natoms of O in H₂O = 1  \n$A(\\mathrm{O}) = 15.999\\,\\mathrm{g/mol}$  \n$M(\\mathrm{H₂O}) = 18.015\\,\\mathrm{g/mol}$  \nwhere $m(\\mathrm{H₂O})$ = mass, $M(\\mathrm{H₂O})$ = molar mass\n\n**Required**  \nMass of the element\n\n**Solution**\n\n**Mass of an element in a sample formula**  \n$m(\\mathrm{X}) = m \\times n A(\\mathrm{X}) / M$\n\n**Substitution**  \n$m(\\mathrm{O}) = (10\\,\\mathrm{g})(1)(15.999\\,\\mathrm{g/mol}) / 18.015\\,\\mathrm{g/mol}$  \n$m(\\mathrm{O}) = 8.881\\,\\mathrm{g}$\n\n**Answer**\n\n```answer\nverified: true\nm(\\mathrm{O}) = 8.88\\,\\mathrm{g}\n```"
+   ]
+  ]
+ },
+ {
+  "id": "chemistry-79",
+  "subject": "chemistry",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "Hi there, sorry to bother you! My granddaughter set me up with this app and I'm still figuring it out. I've got a chemistry worksheet and I'm stuck on this one: how many H atoms are in 3.0 mol of NH3?"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$n(\\mathrm{NH₃}) = 3.0\\,\\mathrm{mol}$  \nH atoms per NH₃ = 3  \nwhere $n(\\mathrm{NH₃})$ = amount\n\n**Required**  \n$N$ (number of atoms of the element)\n\n**Solution**\n\n**Avogadro relation formula**  \nN(X) = n × (X atoms per formula unit) × Nₐ\n\n**Substitution**  \nN(H) = (3.0 mol) × (3 H atoms per NH₃) × (6.0221 × 10²³ mol⁻¹)  \n$N(\\mathrm{H}) = 5.420 \\times 10^{24}\\,\\mathrm{atoms}$\n\n**Answer**\n\n```answer\nverified: true\nN(\\mathrm{H}) = 5.42 \\times 10^{24}\\,\\mathrm{atoms}\n```"
+   ]
+  ]
+ },
+ {
+  "id": "chemistry-85",
+  "subject": "chemistry",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "Hi there, sorry to bother you. My grandson said this app can help with homework and I'm not very good with these things. Could you help me with this one? It says the pOH is 3.2, and I need to find the pH. Thank you so much!"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$\\mathrm{pOH} = 3.2$  \npKw = 14 at 25 °C\n\n**Required**  \n$\\mathrm{pH}$\n\n**Solution**\n\n**Water ion-product relation formula**  \n$\\mathrm{pH} + \\mathrm{pOH} = 14$\n\n**Substitution**  \n$\\mathrm{pH} = 14 - 3.2$  \n$\\mathrm{pH} = 10.8$\n\n**Answer**\n\n```answer\nverified: true\n\\mathrm{pH} = 10.8\n```"
+   ]
+  ]
+ },
+ {
+  "id": "chemistry-90",
+  "subject": "chemistry",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "ok so like what is the mole fraction of ethanol in a solution of 46 g ethanol and 54 g water"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$m(\\mathrm{C₂H₅OH}) = 46\\,\\mathrm{g}$  \n$M(\\mathrm{C₂H₅OH}) = 46.069\\,\\mathrm{g/mol}$  \n$m(\\mathrm{H₂O}) = 54\\,\\mathrm{g}$  \n$M(\\mathrm{H₂O}) = 18.015\\,\\mathrm{g/mol}$  \nwhere $m(\\mathrm{C₂H₅OH})$, $m(\\mathrm{H₂O})$ = masses; $M(\\mathrm{C₂H₅OH})$, $M(\\mathrm{H₂O})$ = molar masses\n\n**Required**  \n$χ$ (mole fraction)\n\n**Solution**\n\n**Mole fraction formula**  \n$χA = nA / (nA + nB)$  \n$n = m / M$\n\n**Substitution**  \n$χ(\\mathrm{C₂H₅OH}) = (46\\,\\mathrm{g} / 46.069\\,\\mathrm{g/mol}) / [(46\\,\\mathrm{g} / 46.069\\,\\mathrm{g/mol}) + (54\\,\\mathrm{g} / 18.015\\,\\mathrm{g/mol})]$  \n$χ(\\mathrm{C₂H₅OH}) = 0.2499$\n\n**Answer**\n\n```answer\nverified: true\nχ(\\mathrm{C₂H₅OH}) = 0.25\n```"
+   ]
+  ]
+ },
+ {
+  "id": "chemistry-88",
+  "subject": "chemistry",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "ok so basically: what is the mass of 6.022 x 10^23 molecules of water?? like keep the 6.022 x 10^23 part exact lol, my teacher is picky about that"
+   ],
+   [
+    "assistant",
+    "The mass is **18.02 grams**.\n\nHere is the step-by-step breakdown:\n\n1.  **Identify the mole concept**: The number $6.022 \\times 10^{23}$ is Avogadro's number, which defines exactly **one mole** of a substance. So, you are calculating the mass of one mole of water (the molar mass).\n2.  **Determine the chemical formula**: Water is $\\text{H}_2\\text{O}$.\n3.  **Find the atomic masses**:\n    *   Hydrogen ($\\text{H}$): approximately $1.008 \\text{ g/mol}$\n    *   Oxygen ($\\text{O}$): approximately $15.999 \\text{ g/mol}$\n4.  **Calculate the total molar mass**:\n    $$ (2 \\times 1.008) + 15.999 = 2.016 + 15.999 = 18.015 \\text{ g/mol} $$\n\nRounding to two decimal places (which is standard for most chemistry classes unless specified otherwise), the mass is **18.02 g**. If your teacher requires strict significant figures based on the atomic weights provided in your textbook, it might be **18.015 g**, but **18.02 g** is the most common accepted value."
+   ]
+  ]
+ },
+ {
+  "id": "chemistry-95",
+  "subject": "chemistry",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "ok so like what is the molar mass of CuSO4.5H2O lol"
+   ],
+   [
+    "assistant",
+    "**Given**  \nFormula = CuSO₄·5H₂O\n\n**Required**  \n$M$ (molar mass)\n\n**Solution**\n\n**Molar mass from atomic masses formula**  \nM = Σ(nᵢ × atomic massᵢ)\n\n**Substitution**  \n$M = 1(63.546) + 1(32.06) + 9(15.999) + 10(1.008)$  \n$M = 249.677\\,\\mathrm{g/mol}$\n\n**Answer**\n\n```answer\nverified: true\nnotation: chemistry\nM(CuSO₄·5H₂O) = 249.68 g/mol\n```"
+   ]
+  ]
+ },
+ {
+  "id": "physics-6",
+  "subject": "physics",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "ok so this is for physics lol. a 0.5 kg ball on a 1 m string going around in a vertical circle at a constant speed of 8 m/s. need to find the tension at the bottom and at the top. idk where to even start tbh"
+   ],
+   [
+    "assistant",
+    "**Given**\n$m = 0.5\\ \\text{kg}$\n$r = 1\\ \\text{m}$\n$v = 8\\ \\text{m/s}$\n$g = 9.81\\ \\text{m/s}^2$\n\n**Required**\nTension at the bottom of the circle.\nTension at the top of the circle.\n\n**Solution**\n\n**(a) Tension at the bottom**\n\n**Circular motion in a vertical circle formula**\n\n$T = m\\left(\\frac{v^2}{r} + g\\right)$\n\n**Substitution**\n\n$T = 0.5\\,\\mathrm{kg} \\times \\left(\\frac{(8\\,\\mathrm{m/s})^{2}}{1\\,\\mathrm{m}} + 9.81\\,\\mathrm{m/s²}\\right)$\n\n$T = 0.5\\,\\mathrm{kg} \\times \\left(\\frac{64\\,\\mathrm{m²/s²}}{1\\,\\mathrm{m}} + 9.81\\,\\mathrm{m/s²}\\right)$\n\n$T = 0.5\\,\\mathrm{kg} \\times (64\\,\\mathrm{m/s²} + 9.81\\,\\mathrm{m/s²})$\n\n$T = 0.5\\,\\mathrm{kg} \\times 73.81\\,\\mathrm{m/s²}$\n\n$T = 36.905\\,\\mathrm{N}$\n\n**Answer (a)**\n\n```answer\nverified: true\n36.91\\,\\mathrm{N}\n```\n\n---\n\n**(b) Tension at the top**\n\n**Circular motion in a vertical circle formula**\n\n$T = m\\left(\\frac{v^2}{r} - g\\right)$\n\n**Substitution**\n\n$T = 0.5\\,\\mathrm{kg} \\times \\left(\\frac{(8\\,\\mathrm{m/s})^{2}}{1\\,\\mathrm{m}} - 9.81\\,\\mathrm{m/s²}\\right)$\n\n$T = 0.5\\,\\mathrm{kg} \\times \\left(\\frac{64\\,\\mathrm{m²/s²}}{1\\,\\mathrm{m}} - 9.81\\,\\mathrm{m/s²}\\right)$\n\n$T = 0.5\\,\\mathrm{kg} \\times (64\\,\\mathrm{m/s²} - 9.81\\,\\mathrm{m/s²})$\n\n$T = 0.5\\,\\mathrm{kg} \\times 54.19\\,\\mathrm{m/s²}$\n\n$T = 27.095\\,\\mathrm{N}$\n\n**Answer (b)**\n\n```answer\nverified: true\n27.10\\,\\mathrm{N}\n```"
+   ]
+  ]
+ },
+ {
+  "id": "physics-13",
+  "subject": "physics",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "hey can u help w this physics q lol. ball dropped from 20 m, whats the speed after 1.5 s? need to show work too"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$g = 9.81\\,\\mathrm{m/s²}$  \n$h_0 = 20\\,\\mathrm{m}$  \n$v_0 = 0\\,\\mathrm{m/s}$  \n$t = 1.5\\,\\mathrm{s}$  \nwhere $g$ = acceleration due to gravity, $h_0$ = starting height, $v_0$ = initial speed, $t$ = time\n\n**Required**  \n$v$ (speed)\n\n**Solution**\n\n**Constant acceleration formula**  \n$v = v_0 + g \\times t$\n\n**Substitution**  \n$v = 0\\,\\mathrm{m/s} + 9.81\\,\\mathrm{m/s²} \\times 1.5\\,\\mathrm{s}$  \n$v = 0\\,\\mathrm{m/s} + 14.715\\,\\mathrm{m/s}$  \n$v = 14.715\\,\\mathrm{m/s}$\n\n**Answer**\n\n```answer\nverified: true\n14.72\\,\\mathrm{m/s}\n```\n\n```graph\n{\"type\":\"trajectory\",\"expr\":\"v(t) = |0 - 9.81*t|\",\"variable\":\"t\",\"x_min\":0.0,\"x_max\":1.5,\"domain_explicit\":false,\"x\":null,\"y_min\":null,\"y_max\":null,\"a\":null,\"b\":null,\"c\":null,\"comparator\":null,\"title\":\"Speed vs. Time\",\"points\":[[0.0,0.0],[0.0152,0.1486],[0.0303,0.2973],[0.0455,0.4459],[0.0606,0.5945],[0.0758,0.7432],[0.0909,0.8918],[0.1061,1.0405],[0.1212,1.1891],[0.1364,1.3377],[0.1515,1.4864],[0.1667,1.635],[0.1818,1.7836],[0.197,1.9323],[0.2121,2.0809],[0.2273,2.2295],[0.2424,2.3782],[0.2576,2.5268],[0.2727,2.6755],[0.2879,2.8241],[0.303,2.9727],[0.3182,3.1214],[0.3333,3.27],[0.3485,3.4186],[0.3636,3.5673],[0.3788,3.7159],[0.3939,3.8645],[0.4091,4.0132],[0.4242,4.1618],[0.4394,4.3105],[0.4545,4.4591],[0.4697,4.6077],[0.4848,4.7564],[0.5,4.905],[0.5152,5.0536],[0.5303,5.2023],[0.5455,5.3509],[0.5606,5.4995],[0.5758,5.6482],[0.5909,5.7968],[0.6061,5.9455],[0.6212,6.0941],[0.6364,6.2427],[0.6515,6.3914],[0.6667,6.54],[0.6818,6.6886],[0.697,6.8373],[0.7121,6.9859],[0.7273,7.1345],[0.7424,7.2832],[0.7576,7.4318],[0.7727,7.5805],[0.7879,7.7291],[0.803,7.8777],[0.8182,8.0264],[0.8333,8.175],[0.8485,8.3236],[0.8636,8.4723],[0.8788,8.6209],[0.8939,8.7695],[0.9091,8.9182],[0.9242,9.0668],[0.9394,9.2155],[0.9545,9.3641],[0.9697,9.5127],[0.9848,9.6614],[1.0,9.81],[1.0152,9.9586],[1.0303,10.1073],[1.0455,10.2559],[1.0606,10.4045],[1.0758,10.5532],[1.0909,10.7018],[1.1061,10.8505],[1.1212,10.9991],[1.1364,11.1477],[1.1515,11.2964],[1.1667,11.445],[1.1818,11.5936],[1.197,11.7423],[1.2121,11.8909],[1.2273,12.0395],[1.2424,12.1882],[1.2576,12.3368],[1.2727,12.4855],[1.2879,12.6341],[1.303,12.7827],[1.3182,12.9314],[1.3333,13.08],[1.3485,13.2286],[1.3636,13.3773],[1.3788,13.5259],[1.3939,13.6745],[1.4091,13.8232],[1.4242,13.9718],[1.4394,14.1205],[1.4545,14.2691],[1.4697,14.4177],[1.4848,14.5664],[1.5,14.715]],\"segments\":[],\"holes\":[],\"expr2\":null,\"variable2\":null,\"points2\":null,\"segments2\":null,\"holes2\":null,\"label\":null,\"label2"
+   ]
+  ]
+ },
+ {
+  "id": "physics-14",
+  "subject": "physics",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "hey so quick q for my kid's physics hw. a ball gets thrown straight up at 20 m/s. how high does it go and how long till it comes back down?"
+   ],
+   [
+    "assistant",
+    "**Given**\n$v_0 = 20\\ \\text{m/s}$\n$g = 9.81\\ \\text{m/s}^2$\n\n**Required**\nMaximum height and total time to return to the starting point.\n\n**Solution**\n\n**(a) Maximum height**\n\n**Constant acceleration formula**\n\n$h_{\\max} = \\frac{v_0^2}{2g}$\n\n**Substitution**\n\n$h_{\\max} = \\frac{(20\\,\\mathrm{m/s})^{2}}{2 \\times 9.81\\,\\mathrm{m/s²}}$\n\n$h_{\\max} = \\frac{400\\,\\mathrm{m²/s²}}{19.62\\,\\mathrm{m/s²}}$\n\n$h_{\\max} = 20.3874\\,\\mathrm{m}$\n\n**Answer (a)**\n\n```answer\nverified: true\n20.39\\,\\mathrm{m}\n```\n\n---\n\n**(b) Total time**\n\n**Constant acceleration formula**\n\n$t = \\frac{2 v_0}{g}$\n\n**Substitution**\n\n$t = \\frac{2 \\times 20\\,\\mathrm{m/s}}{9.81\\,\\mathrm{m/s²}}$\n\n$t = \\frac{40\\,\\mathrm{m/s}}{9.81\\,\\mathrm{m/s²}}$\n\n$t = 4.07747\\,\\mathrm{s}$\n\n**Answer (b)**\n\n```answer\nverified: true\n4.08\\,\\mathrm{s}\n```\n\n```simulation\n{\"type\":\"projectile_motion\",\"title\":\"Thrown Upward\",\"bodies\":[{\"label\":null,\"radius\":0.815260123325664,\"path\":[[0.0,0.815260123325664],[0.0,2.1740269955351037],[0.0,3.485939837668356],[0.0,4.750998649725421],[0.0,5.969203431706298],[0.0,7.140554183610986],[0.0,8.265050905439491],[0.0,9.342693597191804],[0.0,10.37348225886793],[0.0,11.35741689046787],[0.0,12.29449749199162],[0.0,13.184724063439187],[0.0,14.028096604810564],[0.0,14.824615116105752],[0.0,15.574279597324754],[0.0,16.277090048467567],[0.0,16.93304646953419],[0.0,17.54214886052463],[0.0,18.10439722143888],[0.0,18.619791552276943],[0.0,19.088331853038817],[0.0,19.510018123724507],[0.0,19.88485036433401],[0.0,20.212828574867324],[0.0,20.49395275532445],[0.0,20.72822290570538],[0.0,20.91563902601014],[0.0,21.056201116238697],[0.0,21.149909176391073],[0.0,21.196763206467264],[0.0,21.196763206467264],[0.0,21.149909176391077],[0.0,21.056201116238697],[0.0,20.915639026010137],[0.0,20.728222905705387],[0.0,20.49395275532445],[0.0,20.21282857486732],[0.0,19.884850364334007],[0.0,19.510018123724507],[0.0,19.088331853038824],[0.0,18.619791552276943],[0.0,18.104397221438887],[0.0,17.542148860524627],[0.0,16.933046469534197],[0.0,16.277090048467564],[0.0,15.574279597324754],[0.0,14.824615116105754],[0.0,14.028096604810557],[0.0,13.184724063439184],[0.0,12.29449749199162],[0.0,11.35741689046786],[0.0,10.37348225886793],[0.0,9.342693597191811],[0.0,8.265050905439487],[0.0,7.140554183610994],[0.0,5.969203431706297],[0.0,4.7509986497254095],[0.0,3.485939837668375],[0.0,2.1740269955351073],[0.0,0.815260123325664]],\"role\":\"primary\"}],\"x_min\":-6.11445092494248,\"x_max\":9.17167638741372,\"y_min\":-1.630520246651328,\"y_max\":"
+   ]
+  ]
+ },
+ {
+  "id": "physics-16",
+  "subject": "physics",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "hey can u help w this physics hw. car is going 30 m/s after accelerating at 4 m/s^2 for 5 s what was its starting speed"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$v_f = 30\\,\\mathrm{m/s}$  \n$a = 4\\,\\mathrm{m/s²}$  \n$t = 5\\,\\mathrm{s}$  \nwhere $v_f$ = final velocity, $a$ = acceleration, $t$ = time\n\n**Required**  \n$v_i$ (initial velocity)\n\n**Solution**\n\n**Constant acceleration formula**  \n$v_f = v_i + at$  \nSolve for $v_i$  \n$v_i = v_f - a t$\n\n**Substitution**  \n$v_i = 30\\,\\mathrm{m/s} - 4\\,\\mathrm{m/s²} \\times 5\\,\\mathrm{s}$  \n$v_i = 30\\,\\mathrm{m/s} - 20\\,\\mathrm{m/s}$  \n$v_i = 10\\,\\mathrm{m/s}$\n\n**Answer**\n\n```answer\nverified: true\n10\\,\\mathrm{m/s}\n```"
+   ]
+  ]
+ },
+ {
+  "id": "physics-18",
+  "subject": "physics",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "ok so a bike accelerates at 2 m/s^2 for 3 s and ends at 12 m/s what was its starting speed"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$a = 2\\,\\mathrm{m/s²}$  \n$t = 3\\,\\mathrm{s}$  \n$v_f = 12\\,\\mathrm{m/s}$  \nwhere $a$ = acceleration, $t$ = time, $v_f$ = final velocity\n\n**Required**  \n$v_i$ (initial velocity)\n\n**Solution**\n\n**Constant acceleration formula**  \n$v_f = v_i + at$  \nSolve for $v_i$  \n$v_i = v_f - a t$\n\n**Substitution**  \n$v_i = 12\\,\\mathrm{m/s} - 2\\,\\mathrm{m/s²} \\times 3\\,\\mathrm{s}$  \n$v_i = 12\\,\\mathrm{m/s} - 6\\,\\mathrm{m/s}$  \n$v_i = 6\\,\\mathrm{m/s}$\n\n**Answer**\n\n```answer\nverified: true\n6\\,\\mathrm{m/s}\n```"
+   ]
+  ]
+ },
+ {
+  "id": "physics-34",
+  "subject": "physics",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "yo so like a car is going 10 m/s and then it speeds up at 4 m/s^2 for 5 s. how far does it go?? 🙃"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$v_i = 10\\,\\mathrm{m/s}$  \n$a = 4\\,\\mathrm{m/s²}$  \n$t = 5\\,\\mathrm{s}$  \nwhere $v_i$ = initial speed, $a$ = acceleration, $t$ = time\n\n**Required**  \n$s$ (distance traveled)\n\n**Solution**\n\n**Constant acceleration formula**  \n$s = v_i t + \\frac{1}{2} a t^2$\n\n**Substitution**  \n$s = 10(5) + \\frac{1}{2}(4)(5^2)$  \n$s = 50 + \\frac{1}{2}(4)(25)$  \n$s = 50 + 50$  \n$s = 100\\,\\mathrm{m}$\n\n**Answer**\n\n```answer\nverified: false\n100\\,\\mathrm{m}\n```\n\nThe car travels **100 meters** during that 5-second interval."
+   ]
+  ]
+ },
+ {
+  "id": "physics-40",
+  "subject": "physics",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "Ugh ok so this is my homework and i'm on a break lol. gas at constant volume gets heated from 300 K to 600 K, pressure ends at 200 kPa. what was the initial pressure?"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$T_1 = 300\\,\\mathrm{K}$  \n$T_2 = 600\\,\\mathrm{K}$  \n$P_2 = 200\\,\\mathrm{kPa} = 200 \\times 1000\\,\\mathrm{Pa} = 2 \\times 10^{5}\\,\\mathrm{Pa}$  \nwhere $T_1$ = initial temperature, $T_2$ = final temperature, $P_2$ = final pressure\n\n**Required**  \n$P_1$ (initial pressure)\n\n**Solution**\n\n**Gay-Lussac's law**  \n$\\frac{P_1}{T_1} = \\frac{P_2}{T_2}$  \nSolve for $P_1$  \n$P_1 = \\frac{P_2 T_1}{T_2}$  \nAssumes a fixed amount of ideal gas, absolute temperatures.\n\n**Substitution**  \n$P_1 = \\frac{2 \\times 10^{5}\\,\\mathrm{Pa} \\times 300\\,\\mathrm{K}}{600\\,\\mathrm{K}}$  \n$P_1 = \\frac{6 \\times 10^{7}\\,\\mathrm{K·Pa}}{600\\,\\mathrm{K}}$  \n$P_1 = 1 \\times 10^{5}\\,\\mathrm{Pa} = 100\\,\\mathrm{kPa}$\n\n**Answer**\n\n```answer\nverified: true\n100\\,\\mathrm{kPa}\n```"
+   ]
+  ]
+ },
+ {
+  "id": "physics-42",
+  "subject": "physics",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "ok so my chem hw is kinda dumb lol. at constant temp a gas is at 100 kPa and gets compressed from 6 L down to 2 L. whats the final pressure?"
+   ],
+   [
+    "assistant",
+    "The final pressure is **500 kPa**.\n\nSince the temperature is constant, you use Boyle's Law ($P_1V_1 = P_2V_2$). You know the initial pressure ($100\\text{ kPa}$) and volume ($6\\text{ L}$), and the final volume is $2\\text{ L}$. \n\n$$P_2 = \\frac{P_1 V_1}{V_2}$$\n$$P_2 = \\frac{100 \\times 6}{2}$$\n$$P_2 = 300\\text{ kPa}$$\n\nWait, let me double-check that math. $100 \\times 6 = 600$. $600 / 2 = 300$. \n\nThe final pressure is **300 kPa**."
+   ]
+  ]
+ },
+ {
+  "id": "physics-44",
+  "subject": "physics",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "hey can u help w this? \"after braking starts, a car going 20 m/s slows down at 4 m/s^2 for 3 s. how far does it travel?\""
+   ],
+   [
+    "assistant",
+    "**Given**\n\n$v_i = 20\\ \\text{m/s}$\n\n$a = -4\\ \\text{m/s}^2$\n\n$t = 3\\ \\text{s}$\n\n**Required**\n\nDistance traveled after braking starts.\n\n**Solution**\n\n**Constant acceleration formula**\n\n$s = v_i t + \\tfrac{1}{2}at^2$\n\n**Substitution**\n\n$s = 20 \\times 3 + 0.5 \\times (-4) \\times 3^{2}$\n\n$s = 60 + (-2) \\times 9$\n\n$s = 60 + (-18)$\n\n$s = 42\\,\\mathrm{m}$\n\n**Answer**\n\n$42\\,\\mathrm{m}$\n\n```graph\n{\"type\":\"trajectory\",\"expr\":\"s(t) = integral(abs(20+-4*t),t)\",\"variable\":\"t\",\"x_min\":0.0,\"x_max\":3.0,\"domain_explicit\":false,\"x\":null,\"y_min\":null,\"y_max\":null,\"a\":null,\"b\":null,\"c\":null,\"comparator\":null,\"title\":\"Distance vs. Time\",\"points\":[[0.0,0.0],[0.05084745762711865,1.0117782246480895],[0.1016949152542373,2.0132145935076124],[0.15254237288135594,3.0043091065785696],[0.2033898305084746,3.9850617638609593],[0.2542372881355932,4.955472565354783],[0.3050847457627119,5.915541511060041],[0.35593220338983056,6.865268600976731],[0.4067796610169492,7.804653835104855],[0.4576271186440678,8.733697213444414],[0.5084745762711864,9.652398735995403],[0.5593220338983051,10.56075840275783],[0.6101694915254238,11.458776213731687],[0.6610169491525424,12.346452168916977],[0.7118644067796611,13.223786268313704],[0.7627118644067797,14.090778511921863],[0.8135593220338984,14.947428899741453],[0.864406779661017,15.79373743177248],[0.9152542372881356,16.629704108014938],[0.9661016949152543,17.45532892846883],[1.0169491525423728,18.270611893134156],[1.0677966101694916,19.075553002010917],[1.1186440677966103,19.870152255099114],[1.1694915254237288,20.654409652398733],[1.2203389830508475,21.4283251939098],[1.2711864406779663,22.19189887963229],[1.3220338983050848,22.945130709566218],[1.3728813559322035,23.688020683711578],[1.4237288135593222,24.420568802068374],[1.4745762711864407,25.142775064636602],[1.5254237288135595,25.854639471416263],[1.576271186440678,26.556162022407356],[1.6271186440677967,27.24734271760988],[1.6779661016949154,27.928181557023848],[1.728813559322034,28.59867854064924],[1.7796610169491527,29.25883366848607],[1.8305084745762712,29.908646940534332],[1.88135593220339,30.548118356794028],[1.9322033898305087,31.177247917265156],[1.9830508474576272,31.796035621947713],[2.0338983050847457,32.40448147084171],[2.0847457627118646,33.00258546394714],[2.135593220338983,33.590347601264],[2.1864406779661016,34.167767882792305],[2.2372881355932206,34.73484630853204],[2.288135593220339,35.2915828784832],[2.3389830508474576,35.837977592645785],[2.3898305084745766,36.37403045101982],[2.44067"
+   ]
+  ]
+ },
+ {
+  "id": "physics-74",
+  "subject": "physics",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "ok so like an object weighs 50 N on earth. whats its mass on the moon? 🤔"
+   ],
+   [
+    "assistant",
+    "The mass is **5.1 kg** 🌕\n\nMass is an intrinsic property of an object, meaning it does not change based on location. While the object's weight (the force of gravity acting on it) decreases on the Moon because the gravitational pull is weaker, the amount of matter in the object remains exactly the same as it is on Earth.\n\nTo find this value, we use the standard acceleration due to gravity on Earth ($g \\approx 9.8\\ \\text{m/s}^2$):\n\n$$m = \\frac{W}{g}$$\n$$m = \\frac{50\\ \\text{N}}{9.8\\ \\text{m/s}^2}$$\n$$m \\approx 5.1\\ \\text{kg}$$"
+   ]
+  ]
+ },
+ {
+  "id": "physics-76",
+  "subject": "physics",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "hey can u help w this physics q. ball thrown straight up at 20 m/s. how long does it take to first reach a height of 15 m?"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$v_i = 20\\,\\mathrm{m/s}$  \n$s = 15\\,\\mathrm{m}$  \n$a = -9.8\\,\\mathrm{m/s²}$  \nwhere $v_i$ = initial velocity (upward), $s$ = displacement (height), $a$ = acceleration due to gravity\n\n**Required**  \n$t$ (time to reach height)\n\n**Solution**\n\n**Constant acceleration formula**  \n$s = v_i t + \\frac{1}{2} a t^2$\n\n**Substitution**  \n$15 = 20t + \\frac{1}{2}(-9.8)t^2$  \n$15 = 20t - 4.9t^2$  \n$4.9t^2 - 20t + 15 = 0$  \nSolve for $t$  \n$t = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$  \n$t = \\frac{20 \\pm \\sqrt{(-20)^2 - 4(4.9)(15)}}{2(4.9)}$  \n$t = \\frac{20 \\pm \\sqrt{400 - 294}}{9.8}$  \n$t = \\frac{20 \\pm \\sqrt{106}}{9.8}$  \n$t = \\frac{20 \\pm 10.3}{9.8}$  \n$t_1 = \\frac{20 - 10.3}{9.8}$  \n$t_1 = \\frac{9.7}{9.8}$\n\ntwo solutions exist; the smaller is the first time it passes 15m.\n\n**Answer**\n\n```answer\nverified: false\n0.99\\,\\mathrm{s}\n```\n\nThe ball reaches **15 meters** for the first time after about **0.99 seconds**."
+   ]
+  ]
+ },
+ {
+  "id": "physics-81",
+  "subject": "physics",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "ok so the question is: a wave has a frequency of 500 mHz and a wavelength of 2 m. what is its speed?? 🤔"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$f = 500\\,\\mathrm{mHz} = 500 \\times 0.001\\,\\mathrm{Hz} = 0.5\\,\\mathrm{Hz}$  \n$\\lambda = 2\\,\\mathrm{m}$  \nwhere $f$ = frequency, $\\lambda$ = wavelength\n\n**Required**  \n$v$ (speed)\n\n**Solution**\n\n**Wave equation**  \n$v = f\\lambda$\n\n**Substitution**  \n$v = 0.5\\,\\mathrm{Hz} \\times 2\\,\\mathrm{m}$  \n$v = 1\\,\\mathrm{m/s}$\n\n**Answer**\n\n```answer\nverified: true\n1\\,\\mathrm{m/s}\n```\n\n```simulation\n{\"type\":\"wave\",\"title\":\"Wave\",\"bodies\":[],\"x_min\":0.0,\"x_max\":6.0,\"y_min\":-0.95,\"y_max\":0.95,\"arrows\":[],\"centre\":null,\"ground\":false,\"incline_deg\":null,\"vectors\":[{\"anchor\":[0.5,0.725],\"dx\":2.0,\"dy\":0.0,\"label\":\"\\u03bb = 2 m\",\"role\":\"measure\"}],\"beam\":null,\"pivot\":null,\"alt\":\"A wave of wavelength 2 m and frequency 0.5 Hz travelling at 1 m/s.\",\"title_key\":\"wave\",\"wave\":{\"x\":[0.0,0.0833,0.1667,0.25,0.3333,0.4167,0.5,0.5833,0.6667,0.75,0.8333,0.9167,1.0,1.0833,1.1667,1.25,1.3333,1.4167,1.5,1.5833,1.6667,1.75,1.8333,1.9167,2.0,2.0833,2.1667,2.25,2.3333,2.4167,2.5,2.5833,2.6667,2.75,2.8333,2.9167,3.0,3.0833,3.1667,3.25,3.3333,3.4167,3.5,3.5833,3.6667,3.75,3.8333,3.9167,4.0,4.0833,4.1667,4.25,4.3333,4.4167,4.5,4.5833,4.6667,4.75,4.8333,4.9167,5.0,5.0833,5.1667,5.25,5.3333,5.4167,5.5,5.5833,5.6667,5.75,5.8333,5.9167,6.0],\"frames\":[[0.0,0.12936,0.25005,0.35355,0.43299,0.48298,0.5,0.48298,0.43299,0.35355,0.25005,0.12936,0.0,-0.12936,-0.25005,-0.35355,-0.43299,-0.48298,-0.5,-0.48298,-0.43299,-0.35355,-0.25005,-0.12936,0.0,0.12936,0.25005,0.35355,0.43299,0.48298,0.5,0.48298,0.43299,0.35355,0.25005,0.12936,0.0,-0.12936,-0.25005,-0.35355,-0.43299,-0.48298,-0.5,-0.48298,-0.43299,-0.35355,-0.25005,-0.12936,0.0,0.12936,0.25005,0.35355,0.43299,0.48298,0.5,0.48298,0.43299,0.35355,0.25005,0.12936,0.0,-0.12936,-0.25005,-0.35355,-0.43299,-0.48298,-0.5,-0.48298,-0.43299,-0.35355,-0.25005,-0.12936,0.0],[-0.19134,-0.06532,0.06532,0.19134,0.30434,0.39671,0.46194,0.49572,0.49572,0.46194,0.39671,0.30434,0.19134,0.06532,-0.06532,-0.19134,-0.30434,-0.39671,-0.46194,-0.49572,-0.49572,-0.46194,-0.39671,-0.30434,-0.19134,-0.06532,0.06532,0.19134,0.30434,0.39671,0.46194,0.49572,0.49572,0.46194,0.39671,0.30434,0.19134,0.06532,-0.06532,-0.19134,-0.30434,-0.39671,-0.46194,-0.49572,-0.49572,-0.46194,-0.39671,-0.30434,-0.19134,-0.06532,0.06532,0.19134,0.30434,0.39671,0.46194,0.49572,0.49572,0.46194,0.39671,0.30434,0.19134,0.06532,-0.06532,-0.19134,-0.30434,-0.39671,-0.46194,-0.49572,-0.49572,-0.46194,-0.39671,-0.30434,-0.19134],[-0.35355,-0.25005,-0.12936,0.0,0.12936,0.25005,0.35355,0.43299,0.48298"
+   ]
+  ]
+ },
+ {
+  "id": "physics-91",
+  "subject": "physics",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "ok so i got this homework q. 9 V battery in a loop w/ resistors 100 Ω, 200 Ω and 1.2 kΩ. whats the current in the loop?"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$V = 9\\,\\mathrm{V}$  \n$R_1 = 100\\,\\Omega$  \n$R_2 = 200\\,\\Omega$  \n$R_3 = 1200\\,\\Omega$  \nwhere $V$ = voltage; $R_1$, $R_2$, $R_3$ = resistances\n\n**Required**  \n$I$ (current)\n\n**Solution**\n\n**Kirchhoff's loop rule**  \n$\\sum \\Delta V = 0$  \nSolve for $I$  \n$I = \\frac{V}{\\sum R}$  \nAssumes one battery and one series loop.\n\n**Substitution**  \n$I = \\frac{9}{1500}$  \n$I = 0.006\\,\\mathrm{A}$\n\n**Answer**\n\n```answer\nverified: true\n0.006\\,\\mathrm{A}\n```"
+   ]
+  ]
+ },
+ {
+  "id": "physics-96",
+  "subject": "physics",
+  "label": "draw",
+  "prompt": "can u show me a picture",
+  "history": [
+   [
+    "user",
+    "Hi there, sorry, I'm not very good with these gadgets. My grandson set this up for me but I'm still figuring it out. I have this homework question from my electronics night class, and I'd like to know the answer. Here it is: a 4.7 kΩ resistor is connected across a 9 V battery. What current flows through it? Thank you so much for your help."
+   ],
+   [
+    "assistant",
+    "**Given**  \n$V = 9\\,\\mathrm{V}$  \n$R = 4700\\,\\Omega$  \nwhere $V$ = voltage, $R$ = resistance\n\n**Required**  \n$I$ (current)\n\n**Solution**\n\n**Ohm's law**  \n$V = IR$  \nSolve for $I$  \n$I = \\frac{V}{R}$\n\n**Substitution**  \n$I = \\frac{9\\,\\mathrm{V}}{4700\\,\\Omega}$  \n$I = 0.00191489\\,\\mathrm{A}$\n\n**Answer**\n\n```answer\nverified: true\n0.00191\\,\\mathrm{A}\n```\n\n```simulation\n{\"type\":\"circuit\",\"title\":\"Circuit\",\"bodies\":[],\"x_min\":0.0,\"x_max\":10.0,\"y_min\":0.0,\"y_max\":10.0,\"arrows\":[],\"centre\":null,\"ground\":false,\"incline_deg\":null,\"vectors\":[],\"beam\":null,\"pivot\":null,\"alt\":\"A 9 V battery across 4.7 k\\u03a9 drives 0.00191 A.\",\"title_key\":\"circuit\",\"circuit\":{\"source\":{\"kind\":\"battery\",\"label\":\"9 V\"},\"load\":{\"part\":\"resistor\",\"label\":\"R = 4.7 k\\u03a9\"},\"current\":\"I = 0.00191 A\"}}\n```"
+   ]
+  ]
+ },
+ {
+  "id": "math-17-look-1",
+  "subject": "math",
+  "label": "none",
+  "prompt": "can u show me the steps again",
+  "history": [
+   [
+    "user",
+    "ok so need help w this one lol. evaluate the integral from -1 to 1 of x^2 dx. like what do i even do w this"
+   ],
+   [
+    "assistant",
+    "The value of the integral is **2/3**.\n\nHere is the step-by-step evaluation:\n\n**Given**\nEvaluate $\\int_{-1}^{1} x^2 \\, dx$\n\n**Required**\nFind the definite integral value\n\n**Solution**\nPower rule for integration formula:\n$\\int x^n \\, dx = \\frac{x^{n+1}}{n+1}$\n\nApply the rule to $x^2$:\n$\\int x^2 \\, dx = \\frac{x^3}{3}$\n\n**Substitution**\nEvaluate from $-1$ to $1$:\n$\\left[ \\frac{x^3}{3} \\right]_{-1}^{1}$\n\nUpper limit ($1$):\n$\\frac{1^3}{3} = \\frac{1}{3}$\n\nLower limit ($-1$):\n$\\frac{(-1)^3}{3} = -\\frac{1}{3}$\n\nCalculate the difference:\n$\\frac{1}{3} - \\left( -\\frac{1}{3} \\right) = \\frac{1}{3} + \\frac{1}{3}$  \n$\\frac{1}{3} - \\left( -\\frac{1}{3} \\right) = \\frac{2}{3}$\n\n**Answer**\n\n```answer\nverified: true\n\\frac{2}{3}\n```"
+   ]
+  ]
+ },
+ {
+  "id": "math-26-look-1",
+  "subject": "math",
+  "label": "none",
+  "prompt": "show me how u got that",
+  "history": [
+   [
+    "user",
+    "hi can u help me with this math problem? i need to solve |x + 2| = 5 for my homework. i dont really get the bars thing. thank u"
+   ],
+   [
+    "assistant",
+    "The bars are absolute value signs, which mean the distance from zero. $|x + 2| = 5$ means the expression inside is either **5** or **-5**.\n\n### Lesson 1: The bars thing\n\n### Given\n\n$\\left|{x + 2}\\right| = 5$\n\n### Solution\n\nTo solve, split the equation into two cases: one where the inside is positive and one where it is negative.\n\n$x + 2 = 5 \\quad\\text{or}\\quad x + 2 = -5$\n\nSubtract 2 from both sides for each case to isolate $x$:\n\n$x = 5 - 2$\n$x = 3$\n\n$x = -5 - 2$\n$x = -7$\n\nBoth solutions are valid because the distance of both 3 and -7 from -2 is exactly 5.\n\n**Answer**\n\n```answer\nverified: true\nx = -7 \\text{ or } x = 3\n```\n\n### Your turn\n\n```quiz\n{\"label\": \"Exercise 1\", \"question\": \"What are the solutions to the equation |x - 4| = 7?\", \"code\": \"\", \"options\": [\"x = 3 or x = -11\", \"x = 11 or x = -3\", \"x = 11 or x = 3\", \"x = -11 or x = -3\"], \"answer\": 1, \"explanation\": \"Split into two cases: x - 4 = 7 gives x = 11, and x - 4 = -7 gives x = -3.\"}\n```"
+   ]
+  ]
+ },
+ {
+  "id": "math-42-look-1",
+  "subject": "math",
+  "label": "none",
+  "prompt": "can u explain it simpler",
+  "history": [
+   [
+    "user",
+    "solve x^3 - 6x^2 + 11x - 6 = 0 pls"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$x^{3} - 6 x^{2} + 11 x - 6 = 0$\n\n**Solution**\n\n**1. Factor the left side** — Factoring  \n$\\left(x - 1\\right) \\left(x - 2\\right) \\left(x - 3\\right) = 0$\n\n**2. Set each factor equal to zero** — Zero product property: $ab = 0 \\Rightarrow a = 0$ or $b = 0$  \n$x - 1 = 0 \\quad\\text{or}\\quad x - 2 = 0 \\quad\\text{or}\\quad x - 3 = 0$\n\n**3. Add 1 to both sides of the first equation** — Addition property of equality  \n$x - 1 + 1 = 0 + 1$\n\n**4. Add 2 to both sides of the second equation** — Addition property of equality  \n$x - 2 + 2 = 0 + 2$\n\n**5. Add 3 to both sides of the third equation** — Addition property of equality  \n$x - 3 + 3 = 0 + 3$  \n$x = 1 \\text{ or } x = 2 \\text{ or } x = 3$\n\n**Answer**\n\n```answer\nverified: true\n\\begin{aligned}\nx &= 1 \\\\\nx &= 2 \\\\\nx &= 3\n\\end{aligned}\n```\n\nAnother method is the quadratic formula; it gives the same two solutions."
+   ]
+  ]
+ },
+ {
+  "id": "math-60-look-1",
+  "subject": "math",
+  "label": "none",
+  "prompt": "ok thanks!!",
+  "history": [
+   [
+    "user",
+    "i need help w this one lol. so i bought 7 notebooks, $2 each, and paid w a $20 bill. how much change do i get back?"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$n = 7\\,\\mathrm{notebooks}$  \n$p = 2\\,\\mathrm{dollars}$  \n$paid = 20\\,\\mathrm{dollars}$  \nwhere $n$ = number of notebooks purchased, $p$ = price per notebook, $paid$ = amount tendered\n\n**Required**  \n$C$ (change received)\n\n**Solution**\n\n**Total cost formula**  \n$C_{total} = n \\times p$  \n$C = \\text{paid} - C_{total}$ — Change\n\n**Substitution**  \n$C_{total} = 7 \\times 2$  \n$C_{total} = 14\\,\\mathrm{dollars}$  \n$C = 20 - 14$  \n$C = 6\\,\\mathrm{dollars}$\n\n**Answer**\n\n```answer\nverified: false\nC = 6\\,\\mathrm{dollars}\n```\n\nYou get **$6** back in change."
+   ]
+  ]
+ },
+ {
+  "id": "math-94-look-1",
+  "subject": "math",
+  "label": "none",
+  "prompt": "show me ur working pls",
+  "history": [
+   [
+    "user",
+    "yo so i need help w this one, its for calc. can u help me figure out the slope of the tangent to y = x^3 at x = 1 lol"
+   ],
+   [
+    "assistant",
+    "To find the slope of the tangent line to a curve at a specific point, we need to calculate the derivative of the function and then evaluate it at that $x$-value.\n\n**Given:**\nFunction: $y = x^3$\nPoint of tangency: $x = 1$\n\n**Required:**\nSlope of the tangent line ($m$) at $x = 1$.\n\n**Solution:**\n\nThe slope of the tangent line to a function $f(x)$ at any point is given by its derivative, $f'(x)$. We use the **Power Rule** for differentiation.\n\n**Power Rule formula**\n$\\frac{d}{dx}(x^n) = nx^{n-1}$\n\nApply the rule to $y = x^3$:\nHere, $n = 3$.\n$\\frac{dy}{dx} = 3x^{3-1}$\n$\\frac{dy}{dx} = 3x^2$\n\nNow, substitute $x = 1$ into the derivative to find the specific slope at that point.\n\n**Substitution**\n$m = 3(1)^2$\n$m = 3 \\times 1$\n$m = 3$\n\n**Answer**\n\n```answer\nverified: false\nThe slope of the tangent line to $y = x^3$ at $x = 1$ is 3.\n```"
+   ]
+  ]
+ },
+ {
+  "id": "math-32-look-1",
+  "subject": "math",
+  "label": "none",
+  "prompt": "can u show me another one like this to practice",
+  "history": [
+   [
+    "user",
+    "hey can u help w this, its for my trig hw. what is tan 45 degrees"
+   ],
+   [
+    "assistant",
+    "```answer\nverified: true\n1\n```\n\n```arithmetic\n{\"type\":\"unit_circle\",\"degrees\":45,\"radians\":\"\\\\frac{\\\\pi}{4}\",\"cosine\":\"\\\\frac{\\\\sqrt{2}}{2}\",\"sine\":\"\\\\frac{\\\\sqrt{2}}{2}\",\"tangent\":\"1\",\"plot_x\":0.707107,\"plot_y\":0.707107,\"answer\":\"1\",\"speech\":\"45 degrees is the point with cosine \\\\frac{\\\\sqrt{2}}{2} and sine \\\\frac{\\\\sqrt{2}}{2} on the unit circle.\"}\n```"
+   ]
+  ]
+ },
+ {
+  "id": "chemistry-9-look-1",
+  "subject": "chemistry",
+  "label": "none",
+  "prompt": "show me how u got the mg",
+  "history": [
+   [
+    "user",
+    "ok so how many mg is 0.0150 mol of NaOH? need it for homework lol"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$n = 0.0150\\,\\mathrm{mol}$  \n$M(\\mathrm{NaOH}) = 39.997\\,\\mathrm{g/mol}$  \nwhere $n$ = amount, $M(\\mathrm{NaOH})$ = molar mass\n\n**Required**  \n$m$ (mass)\n\n**Solution**\n\n**Mass–mole relation formula**  \n$m = n M$\n\n**Substitution**  \n$m = (0.0150\\,\\mathrm{mol})(39.997\\,\\mathrm{g/mol})$  \n$m = 0.600\\,\\mathrm{g} = 599.96\\,\\mathrm{mg}$\n\n**Answer**\n\n```answer\nverified: true\nm(\\mathrm{NaOH}) = 599.96\\,\\mathrm{mg}\n```"
+   ]
+  ]
+ },
+ {
+  "id": "chemistry-24-look-1",
+  "subject": "chemistry",
+  "label": "none",
+  "prompt": "wait why do u multiply by avogadro",
+  "history": [
+   [
+    "user",
+    "hey can u help w this chem hw how many molecules r in 10.0 g of CO2"
+   ],
+   [
+    "assistant",
+    "To find the number of molecules in **10.0 g** of carbon dioxide (CO₂), we first determine its molar mass and then use Avogadro's number.\n\n1️⃣ Calculate the molar mass of CO₂\n* Carbon (C): $12.01\\text{ g/mol}$\n* Oxygen (O): $16.00\\text{ g/mol} \\times 2 = 32.00\\text{ g/mol}$\n* Total Molar Mass: $12.01 + 32.00 = 44.01\\text{ g/mol}$\n\n2️⃣ Convert grams to moles\n$$\\text{Moles of CO}_2 = \\frac{10.0\\text{ g}}{44.01\\text{ g/mol}} \\approx 0.2272\\text{ mol}$$\n\n3️⃣ Convert moles to molecules\nUsing Avogadro's number ($6.022 \\times 10^{23}\\text{ molecules/mol}$):\n$$\\text{Molecules} = 0.2272\\text{ mol} \\times 6.022 \\times 10^{23}\\text{ molecules/mol}$$\n$$\\text{Molecules} \\approx 1.368 \\times 10^{23}$$\n\nSince the original value (10.0 g) has **3 significant figures**, the final answer should be rounded accordingly.\n\nThere are approximately **$1.37 \\times 10^{23}$ molecules** of CO₂ in 10.0 g.\n\n```smiles\nCO2 · CO₂ · 44.01 g/mol\nO=C=O\n```\n```molecule3d\n\n     RDKit          3D\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\n   -1.4050    0.0037    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n   -0.0000   -0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.4050   -0.0037    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  2  0\n  2  3  2  0\nM  END\nCO2\n```\n"
+   ]
+  ]
+ },
+ {
+  "id": "chemistry-51-look-1",
+  "subject": "chemistry",
+  "label": "none",
+  "prompt": "can u show me the formula again",
+  "history": [
+   [
+    "user",
+    "ok so whats the molar mass of H2O2 like the question is what is the molar mass of H2O2 lol"
+   ],
+   [
+    "assistant",
+    "**Given**  \nFormula = H₂O₂\n\n**Required**  \n$M$ (molar mass)\n\n**Solution**\n\n**Molar mass from atomic masses formula**  \nM = Σ(nᵢ × atomic massᵢ)\n\n**Substitution**  \n$M = 2(1.008) + 2(15.999)$  \n$M = 34.014\\,\\mathrm{g/mol}$\n\n**Answer**\n\n```answer\nverified: true\nM(\\mathrm{H₂O₂}) = 34.01\\,\\mathrm{g/mol}\n```\n\n```smiles\nH2O2 · H₂O₂ · 34.01 g/mol\nOO\n```\n```molecule3d\n\n     RDKit          3D\n\n  4  3  0  0  0  0  0  0  0  0999 V2000\n    0.6696   -0.2625   -0.2639 O   0  0  0  0  0  0  0  0  0  0  0  0\n   -0.5773   -0.0531    0.4542 O   0  0  0  0  0  0  0  0  0  0  0  0\n    1.0823    0.5903   -0.0291 H   0  0  0  0  0  0  0  0  0  0  0  0\n   -1.1746   -0.2747   -0.2853 H   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0\n  1  3  1  0\n  2  4  1  0\nM  END\nH2O2\n```\n"
+   ]
+  ]
+ },
+ {
+  "id": "chemistry-31-look-1",
+  "subject": "chemistry",
+  "label": "none",
+  "prompt": "thanks that helps",
+  "history": [
+   [
+    "user",
+    "hi um i need help with this chem homework. whats the ph of 1.0x10^-3 M HNO3"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$\\mathrm{HNO₃} = 1.0 \\times 10^{-3}\\,\\mathrm{mol/L}$\n\n**Required**  \n$\\mathrm{pH}$\n\n**Solution**\n\n**Strong monoprotic acid formula**  \n$[\\mathrm{H⁺}] = c$\n\n**Substitution**  \n$[\\mathrm{H⁺}] = 1.0 \\times 10^{-3}\\,\\mathrm{mol/L}$  \n$\\mathrm{pH} = -\\log_{10} (1.0 \\times 10^{-3})$  \n$\\mathrm{pH} = 3.00$\n\n**Answer**\n\n```answer\nverified: true\n\\mathrm{pH} = 3.00\n```"
+   ]
+  ]
+ },
+ {
+  "id": "chemistry-8-look-1",
+  "subject": "chemistry",
+  "label": "none",
+  "prompt": "can u show me how to check it",
+  "history": [
+   [
+    "user",
+    "ok so need help with this one how many grams of kclo3 do i need to make 3.2 g of o2 2kclo3 -> 2kcl + 3o2"
+   ],
+   [
+    "assistant",
+    "To find the grams of $\\text{KClO}_3$ needed, we use stoichiometry based on the balanced equation:\n\n$$2\\text{KClO}_3 \\rightarrow 2\\text{KCl} + 3\\text{O}_2$$\n\n**1. Calculate Molar Masses**\n*   **$\\text{O}_2$**: $2 \\times 16.00 = 32.00 \\text{ g/mol}$\n*   **$\\text{KClO}_3$**: $39.10 (\\text{K}) + 35.45 (\\text{Cl}) + 3 \\times 16.00 (\\text{O}) = 122.55 \\text{ g/mol}$\n\n**2. Convert Grams of $\\text{O}_2$ to Moles**\n$$ \\text{Moles of } \\text{O}_2 = \\frac{3.2 \\text{ g}}{32.00 \\text{ g/mol}} = 0.10 \\text{ mol} $$\n\n**3. Use Mole Ratio to Find Moles of $\\text{KClO}_3$**\nFrom the equation, 2 moles of $\\text{KClO}_3$ produce 3 moles of $\\text{O}_2$.\n$$ \\text{Moles of } \\text{KClO}_3 = 0.10 \\text{ mol } \\text{O}_2 \\times \\frac{2 \\text{ mol } \\text{KClO}_3}{3 \\text{ mol } \\text{O}_2} = \\frac{0.20}{3} \\approx 0.0667 \\text{ mol} $$\n\n**4. Convert Moles of $\\text{KClO}_3$ to Grams**\n$$ \\text{Mass of } \\text{KClO}_3 = 0.0667 \\text{ mol} \\times 122.55 \\text{ g/mol} \\approx 8.17 \\text{ g} $$\n\nYou need approximately **8.2 grams** of $\\text{KClO}_3$."
+   ]
+  ]
+ },
+ {
+  "id": "physics-14-look-1",
+  "subject": "physics",
+  "label": "none",
+  "prompt": "show me the steps",
+  "history": [
+   [
+    "user",
+    "hey so quick q for my kid's physics hw. a ball gets thrown straight up at 20 m/s. how high does it go and how long till it comes back down?"
+   ],
+   [
+    "assistant",
+    "**Given**\n$v_0 = 20\\ \\text{m/s}$\n$g = 9.81\\ \\text{m/s}^2$\n\n**Required**\nMaximum height and total time to return to the starting point.\n\n**Solution**\n\n**(a) Maximum height**\n\n**Constant acceleration formula**\n\n$h_{\\max} = \\frac{v_0^2}{2g}$\n\n**Substitution**\n\n$h_{\\max} = \\frac{(20\\,\\mathrm{m/s})^{2}}{2 \\times 9.81\\,\\mathrm{m/s²}}$\n\n$h_{\\max} = \\frac{400\\,\\mathrm{m²/s²}}{19.62\\,\\mathrm{m/s²}}$\n\n$h_{\\max} = 20.3874\\,\\mathrm{m}$\n\n**Answer (a)**\n\n```answer\nverified: true\n20.39\\,\\mathrm{m}\n```\n\n---\n\n**(b) Total time**\n\n**Constant acceleration formula**\n\n$t = \\frac{2 v_0}{g}$\n\n**Substitution**\n\n$t = \\frac{2 \\times 20\\,\\mathrm{m/s}}{9.81\\,\\mathrm{m/s²}}$\n\n$t = \\frac{40\\,\\mathrm{m/s}}{9.81\\,\\mathrm{m/s²}}$\n\n$t = 4.07747\\,\\mathrm{s}$\n\n**Answer (b)**\n\n```answer\nverified: true\n4.08\\,\\mathrm{s}\n```\n\n```simulation\n{\"type\":\"projectile_motion\",\"title\":\"Thrown Upward\",\"bodies\":[{\"label\":null,\"radius\":0.815260123325664,\"path\":[[0.0,0.815260123325664],[0.0,2.1740269955351037],[0.0,3.485939837668356],[0.0,4.750998649725421],[0.0,5.969203431706298],[0.0,7.140554183610986],[0.0,8.265050905439491],[0.0,9.342693597191804],[0.0,10.37348225886793],[0.0,11.35741689046787],[0.0,12.29449749199162],[0.0,13.184724063439187],[0.0,14.028096604810564],[0.0,14.824615116105752],[0.0,15.574279597324754],[0.0,16.277090048467567],[0.0,16.93304646953419],[0.0,17.54214886052463],[0.0,18.10439722143888],[0.0,18.619791552276943],[0.0,19.088331853038817],[0.0,19.510018123724507],[0.0,19.88485036433401],[0.0,20.212828574867324],[0.0,20.49395275532445],[0.0,20.72822290570538],[0.0,20.91563902601014],[0.0,21.056201116238697],[0.0,21.149909176391073],[0.0,21.196763206467264],[0.0,21.196763206467264],[0.0,21.149909176391077],[0.0,21.056201116238697],[0.0,20.915639026010137],[0.0,20.728222905705387],[0.0,20.49395275532445],[0.0,20.21282857486732],[0.0,19.884850364334007],[0.0,19.510018123724507],[0.0,19.088331853038824],[0.0,18.619791552276943],[0.0,18.104397221438887],[0.0,17.542148860524627],[0.0,16.933046469534197],[0.0,16.277090048467564],[0.0,15.574279597324754],[0.0,14.824615116105754],[0.0,14.028096604810557],[0.0,13.184724063439184],[0.0,12.29449749199162],[0.0,11.35741689046786],[0.0,10.37348225886793],[0.0,9.342693597191811],[0.0,8.265050905439487],[0.0,7.140554183610994],[0.0,5.969203431706297],[0.0,4.7509986497254095],[0.0,3.485939837668375],[0.0,2.1740269955351073],[0.0,0.815260123325664]],\"role\":\"primary\"}],\"x_min\":-6.11445092494248,\"x_max\":9.17167638741372,\"y_min\":-1.630520246651328,\"y_max\":"
+   ]
+  ]
+ },
+ {
+  "id": "physics-91-look-1",
+  "subject": "physics",
+  "label": "none",
+  "prompt": "can u explain it like im 10",
+  "history": [
+   [
+    "user",
+    "ok so i got this homework q. 9 V battery in a loop w/ resistors 100 Ω, 200 Ω and 1.2 kΩ. whats the current in the loop?"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$V = 9\\,\\mathrm{V}$  \n$R_1 = 100\\,\\Omega$  \n$R_2 = 200\\,\\Omega$  \n$R_3 = 1200\\,\\Omega$  \nwhere $V$ = voltage; $R_1$, $R_2$, $R_3$ = resistances\n\n**Required**  \n$I$ (current)\n\n**Solution**\n\n**Kirchhoff's loop rule**  \n$\\sum \\Delta V = 0$  \nSolve for $I$  \n$I = \\frac{V}{\\sum R}$  \nAssumes one battery and one series loop.\n\n**Substitution**  \n$I = \\frac{9}{1500}$  \n$I = 0.006\\,\\mathrm{A}$\n\n**Answer**\n\n```answer\nverified: true\n0.006\\,\\mathrm{A}\n```"
+   ]
+  ]
+ },
+ {
+  "id": "physics-34-look-1",
+  "subject": "physics",
+  "label": "none",
+  "prompt": "what if it was 6 m/s^2",
+  "history": [
+   [
+    "user",
+    "yo so like a car is going 10 m/s and then it speeds up at 4 m/s^2 for 5 s. how far does it go?? 🙃"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$v_i = 10\\,\\mathrm{m/s}$  \n$a = 4\\,\\mathrm{m/s²}$  \n$t = 5\\,\\mathrm{s}$  \nwhere $v_i$ = initial speed, $a$ = acceleration, $t$ = time\n\n**Required**  \n$s$ (distance traveled)\n\n**Solution**\n\n**Constant acceleration formula**  \n$s = v_i t + \\frac{1}{2} a t^2$\n\n**Substitution**  \n$s = 10(5) + \\frac{1}{2}(4)(5^2)$  \n$s = 50 + \\frac{1}{2}(4)(25)$  \n$s = 50 + 50$  \n$s = 100\\,\\mathrm{m}$\n\n**Answer**\n\n```answer\nverified: false\n100\\,\\mathrm{m}\n```\n\nThe car travels **100 meters** during that 5-second interval."
+   ]
+  ]
+ },
+ {
+  "id": "physics-6-look-1",
+  "subject": "physics",
+  "label": "none",
+  "prompt": "ok cool",
+  "history": [
+   [
+    "user",
+    "ok so this is for physics lol. a 0.5 kg ball on a 1 m string going around in a vertical circle at a constant speed of 8 m/s. need to find the tension at the bottom and at the top. idk where to even start tbh"
+   ],
+   [
+    "assistant",
+    "**Given**\n$m = 0.5\\ \\text{kg}$\n$r = 1\\ \\text{m}$\n$v = 8\\ \\text{m/s}$\n$g = 9.81\\ \\text{m/s}^2$\n\n**Required**\nTension at the bottom of the circle.\nTension at the top of the circle.\n\n**Solution**\n\n**(a) Tension at the bottom**\n\n**Circular motion in a vertical circle formula**\n\n$T = m\\left(\\frac{v^2}{r} + g\\right)$\n\n**Substitution**\n\n$T = 0.5\\,\\mathrm{kg} \\times \\left(\\frac{(8\\,\\mathrm{m/s})^{2}}{1\\,\\mathrm{m}} + 9.81\\,\\mathrm{m/s²}\\right)$\n\n$T = 0.5\\,\\mathrm{kg} \\times \\left(\\frac{64\\,\\mathrm{m²/s²}}{1\\,\\mathrm{m}} + 9.81\\,\\mathrm{m/s²}\\right)$\n\n$T = 0.5\\,\\mathrm{kg} \\times (64\\,\\mathrm{m/s²} + 9.81\\,\\mathrm{m/s²})$\n\n$T = 0.5\\,\\mathrm{kg} \\times 73.81\\,\\mathrm{m/s²}$\n\n$T = 36.905\\,\\mathrm{N}$\n\n**Answer (a)**\n\n```answer\nverified: true\n36.91\\,\\mathrm{N}\n```\n\n---\n\n**(b) Tension at the top**\n\n**Circular motion in a vertical circle formula**\n\n$T = m\\left(\\frac{v^2}{r} - g\\right)$\n\n**Substitution**\n\n$T = 0.5\\,\\mathrm{kg} \\times \\left(\\frac{(8\\,\\mathrm{m/s})^{2}}{1\\,\\mathrm{m}} - 9.81\\,\\mathrm{m/s²}\\right)$\n\n$T = 0.5\\,\\mathrm{kg} \\times \\left(\\frac{64\\,\\mathrm{m²/s²}}{1\\,\\mathrm{m}} - 9.81\\,\\mathrm{m/s²}\\right)$\n\n$T = 0.5\\,\\mathrm{kg} \\times (64\\,\\mathrm{m/s²} - 9.81\\,\\mathrm{m/s²})$\n\n$T = 0.5\\,\\mathrm{kg} \\times 54.19\\,\\mathrm{m/s²}$\n\n$T = 27.095\\,\\mathrm{N}$\n\n**Answer (b)**\n\n```answer\nverified: true\n27.10\\,\\mathrm{N}\n```"
+   ]
+  ]
+ },
+ {
+  "id": "physics-16-look-1",
+  "subject": "physics",
+  "label": "none",
+  "prompt": "show me where the formula comes from",
+  "history": [
+   [
+    "user",
+    "hey can u help w this physics hw. car is going 30 m/s after accelerating at 4 m/s^2 for 5 s what was its starting speed"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$v_f = 30\\,\\mathrm{m/s}$  \n$a = 4\\,\\mathrm{m/s²}$  \n$t = 5\\,\\mathrm{s}$  \nwhere $v_f$ = final velocity, $a$ = acceleration, $t$ = time\n\n**Required**  \n$v_i$ (initial velocity)\n\n**Solution**\n\n**Constant acceleration formula**  \n$v_f = v_i + at$  \nSolve for $v_i$  \n$v_i = v_f - a t$\n\n**Substitution**  \n$v_i = 30\\,\\mathrm{m/s} - 4\\,\\mathrm{m/s²} \\times 5\\,\\mathrm{s}$  \n$v_i = 30\\,\\mathrm{m/s} - 20\\,\\mathrm{m/s}$  \n$v_i = 10\\,\\mathrm{m/s}$\n\n**Answer**\n\n```answer\nverified: true\n10\\,\\mathrm{m/s}\n```"
+   ]
+  ]
+ },
+ {
+  "id": "math-94-ask-pic",
+  "subject": "math",
+  "label": "draw",
+  "prompt": "pic pls",
+  "history": [
+   [
+    "user",
+    "yo so i need help w this one, its for calc. can u help me figure out the slope of the tangent to y = x^3 at x = 1 lol"
+   ],
+   [
+    "assistant",
+    "To find the slope of the tangent line to a curve at a specific point, we need to calculate the derivative of the function and then evaluate it at that $x$-value.\n\n**Given:**\nFunction: $y = x^3$\nPoint of tangency: $x = 1$\n\n**Required:**\nSlope of the tangent line ($m$) at $x = 1$.\n\n**Solution:**\n\nThe slope of the tangent line to a function $f(x)$ at any point is given by its derivative, $f'(x)$. We use the **Power Rule** for differentiation.\n\n**Power Rule formula**\n$\\frac{d}{dx}(x^n) = nx^{n-1}$\n\nApply the rule to $y = x^3$:\nHere, $n = 3$.\n$\\frac{dy}{dx} = 3x^{3-1}$\n$\\frac{dy}{dx} = 3x^2$\n\nNow, substitute $x = 1$ into the derivative to find the specific slope at that point.\n\n**Substitution**\n$m = 3(1)^2$\n$m = 3 \\times 1$\n$m = 3$\n\n**Answer**\n\n```answer\nverified: false\nThe slope of the tangent line to $y = x^3$ at $x = 1$ is 3.\n```"
+   ]
+  ]
+ },
+ {
+  "id": "physics-16-ask-can",
+  "subject": "physics",
+  "label": "draw",
+  "prompt": "can i see what it looks like",
+  "history": [
+   [
+    "user",
+    "hey can u help w this physics hw. car is going 30 m/s after accelerating at 4 m/s^2 for 5 s what was its starting speed"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$v_f = 30\\,\\mathrm{m/s}$  \n$a = 4\\,\\mathrm{m/s²}$  \n$t = 5\\,\\mathrm{s}$  \nwhere $v_f$ = final velocity, $a$ = acceleration, $t$ = time\n\n**Required**  \n$v_i$ (initial velocity)\n\n**Solution**\n\n**Constant acceleration formula**  \n$v_f = v_i + at$  \nSolve for $v_i$  \n$v_i = v_f - a t$\n\n**Substitution**  \n$v_i = 30\\,\\mathrm{m/s} - 4\\,\\mathrm{m/s²} \\times 5\\,\\mathrm{s}$  \n$v_i = 30\\,\\mathrm{m/s} - 20\\,\\mathrm{m/s}$  \n$v_i = 10\\,\\mathrm{m/s}$\n\n**Answer**\n\n```answer\nverified: true\n10\\,\\mathrm{m/s}\n```"
+   ]
+  ]
+ },
+ {
+  "id": "chemistry-59-ask-draw",
+  "subject": "chemistry",
+  "label": "draw",
+  "prompt": "draw it for me",
+  "history": [
+   [
+    "user",
+    "percent ionization of 0.10 M acetic acid, ka = 1.8 x 10^-5. how do i do this"
+   ],
+   [
+    "assistant",
+    "To find the percent ionization of 0.10 M acetic acid, we determine how much of the acid breaks apart into ions using its $K_a$ value, then compare that amount to the starting concentration.\n\n**Given**  \n$C_0 = 0.10\\,\\mathrm{M}$  \n$K_a = 1.8 \\times 10^{-5}$  \nwhere $C_0$ = initial concentration of acetic acid, $K_a$ = acid dissociation constant\n\n**Required**  \n$\\alpha$ (percent ionization)\n\n**Solution**\n\n**Acid Dissociation Equilibrium formula**  \n$CH_3COOH \\rightleftharpoons H^+ + CH_3COO^-$  \n$[CH_3COOH] = 0.10 - x$  \n$[H^+] = x$  \n$[CH_3COO^-] = x$  \n$K_a = \\frac{[H^+][CH_3COO^-]}{[CH_3COOH]}$ — Ka Expression\n\n**Substitution**  \n$1.8 \\times 10^{-5} = \\frac{x \\times x}{0.10 - x}$  \n$1.8 \\times 10^{-5} \\approx \\frac{x^2}{0.10}$  \n$x^2 = 1.8 \\times 10^{-6}$  \n$x = \\sqrt{1.8 \\times 10^{-6}}$  \n$x = 1.34 \\times 10^{-3}\\,\\mathrm{M}$  \n$\\% \\text{ ionization} = \\frac{x}{C_0} \\times 100$ — Percent Ionization  \n$\\% \\text{ ionization} = \\frac{1.34 \\times 10^{-3}}{0.10} \\times 100$\n\nSet up an ICE (Initial, Change, Equilibrium) table where x is the amount of acid that dissociates. Because $K_a$ is very small compared to 0.10, we assume x is negligible relative to 0.10, so 0.10 - x $\\approx 0.10$. Check assumption: $(1.34 \\times 10^{-3}) / 0.10 = 1.34$%, which is less than 5%, so the approximation is valid.\n\n**Answer**\n\n```answer\nverified: false\n\\alpha = 1.34\\,\\%\n```\n\nHere is the breakdown of the steps:\n\n1.  **Write the Equilibrium Equation**: Acetic acid ($CH_3COOH$) dissociates into hydrogen ions ($H^+$) and acetate ions ($CH_3COO^-$).\n2.  **Set up the Expression**: The equilibrium constant expression is $K_a = \\frac{[H^+][CH_3COO^-]}{[CH_3COOH]}$.\n3.  **Use the Approximation**: Since $K_a$ is small ($10^{-5}$), the amount of acid that actually breaks apart ($x$) is very small compared to the initial concentration ($0.10$). Therefore, $0.10 - x \\approx 0.10$. This simplifies the math to $x^2 = K_a \\times C_0$.\n4.  **Solve for $x$**: $x$ represents the concentration of ionized acid ($[H^+]$).\n5.  **Calculate Percentage**: Divide the ionized amount ($x$) by the original concentration ($0.10$) and multiply by 100.\n\n```smiles\nacetic acid · C₂H₄O₂ · 60.05 g/mol\nCC(=O)O\n```\n```molecule3d\n\n     RDKit          3D\n\n  8  7  0  0  0  0  0  0  0  0999 V2000\n   -0.9465   -0.1049    0.1460 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.4572    0.2920   -0.1714 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.8209    1.3508   -0.6531 O   0  0  0  0  0  0  0  0  0  0  0  0\n    1.3450   -"
+   ]
+  ]
+ },
+ {
+  "id": "physics-91-ask-show",
+  "subject": "physics",
+  "label": "draw",
+  "prompt": "show me a diagram",
+  "history": [
+   [
+    "user",
+    "ok so i got this homework q. 9 V battery in a loop w/ resistors 100 Ω, 200 Ω and 1.2 kΩ. whats the current in the loop?"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$V = 9\\,\\mathrm{V}$  \n$R_1 = 100\\,\\Omega$  \n$R_2 = 200\\,\\Omega$  \n$R_3 = 1200\\,\\Omega$  \nwhere $V$ = voltage; $R_1$, $R_2$, $R_3$ = resistances\n\n**Required**  \n$I$ (current)\n\n**Solution**\n\n**Kirchhoff's loop rule**  \n$\\sum \\Delta V = 0$  \nSolve for $I$  \n$I = \\frac{V}{\\sum R}$  \nAssumes one battery and one series loop.\n\n**Substitution**  \n$I = \\frac{9}{1500}$  \n$I = 0.006\\,\\mathrm{A}$\n\n**Answer**\n\n```answer\nverified: true\n0.006\\,\\mathrm{A}\n```"
+   ]
+  ]
+ },
+ {
+  "id": "math-26-ask-can",
+  "subject": "math",
+  "label": "draw",
+  "prompt": "can u make a visual of this",
+  "history": [
+   [
+    "user",
+    "hi can u help me with this math problem? i need to solve |x + 2| = 5 for my homework. i dont really get the bars thing. thank u"
+   ],
+   [
+    "assistant",
+    "The bars are absolute value signs, which mean the distance from zero. $|x + 2| = 5$ means the expression inside is either **5** or **-5**.\n\n### Lesson 1: The bars thing\n\n### Given\n\n$\\left|{x + 2}\\right| = 5$\n\n### Solution\n\nTo solve, split the equation into two cases: one where the inside is positive and one where it is negative.\n\n$x + 2 = 5 \\quad\\text{or}\\quad x + 2 = -5$\n\nSubtract 2 from both sides for each case to isolate $x$:\n\n$x = 5 - 2$\n$x = 3$\n\n$x = -5 - 2$\n$x = -7$\n\nBoth solutions are valid because the distance of both 3 and -7 from -2 is exactly 5.\n\n**Answer**\n\n```answer\nverified: true\nx = -7 \\text{ or } x = 3\n```\n\n### Your turn\n\n```quiz\n{\"label\": \"Exercise 1\", \"question\": \"What are the solutions to the equation |x - 4| = 7?\", \"code\": \"\", \"options\": [\"x = 3 or x = -11\", \"x = 11 or x = -3\", \"x = 11 or x = 3\", \"x = -11 or x = -3\"], \"answer\": 1, \"explanation\": \"Split into two cases: x - 4 = 7 gives x = 11, and x - 4 = -7 gives x = -3.\"}\n```"
+   ]
+  ]
+ },
+ {
+  "id": "chemistry-69-ask-what",
+  "subject": "chemistry",
+  "label": "draw",
+  "prompt": "what does it look like",
+  "history": [
+   [
+    "user",
+    "ok so need help w chem hw. how many grams of oxygen are in 10 g of H2O? keep all the numbers and units same as the original"
+   ],
+   [
+    "assistant",
+    "**Given**  \n$m(\\mathrm{H₂O}) = 10\\,\\mathrm{g}$  \natoms of O in H₂O = 1  \n$A(\\mathrm{O}) = 15.999\\,\\mathrm{g/mol}$  \n$M(\\mathrm{H₂O}) = 18.015\\,\\mathrm{g/mol}$  \nwhere $m(\\mathrm{H₂O})$ = mass, $M(\\mathrm{H₂O})$ = molar mass\n\n**Required**  \nMass of the element\n\n**Solution**\n\n**Mass of an element in a sample formula**  \n$m(\\mathrm{X}) = m \\times n A(\\mathrm{X}) / M$\n\n**Substitution**  \n$m(\\mathrm{O}) = (10\\,\\mathrm{g})(1)(15.999\\,\\mathrm{g/mol}) / 18.015\\,\\mathrm{g/mol}$  \n$m(\\mathrm{O}) = 8.881\\,\\mathrm{g}$\n\n**Answer**\n\n```answer\nverified: true\nm(\\mathrm{O}) = 8.88\\,\\mathrm{g}\n```"
+   ]
+  ]
+ }
+]

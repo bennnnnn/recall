@@ -67,10 +67,13 @@ def resolve_subject_followup(
     referent: str | None = None,
     continued: str | None = None,
     figures: bool = False,
+    asked: bool = False,
 ) -> SubjectFollowup:
     """``referent``: the earlier problem a model read as the "it" of "draw it" or "show it"
     (``chat.referent_read``). A curve or a shape is drawn by maths, a scene by physics; a
     maths follow-up of the line's own (the working of the solve before it) comes first.
+    ``asked``: the turn's read says the line asks to see that problem, whatever its words
+    ("can u show me a picture", ``figure_turn.read_shows_it``).
     ``figures``: the server's figure read draws what a line asks to see of a shape
     (``chat.figure_turn``), so the shape's problem is not solved again for its picture.
     ``continued``: the problem a model read "3" or "the area" as continuing, whole."""
@@ -85,7 +88,7 @@ def resolve_subject_followup(
         # "Show me that" after a solve is its working, as before: before any drawing.
         return SubjectFollowup(math=math)
     if referent is not None:
-        shown = _shown(content, history, referent, figures=figures)
+        shown = _shown(content, history, referent, figures=figures, asked=asked)
         if shown.found:
             return shown
     if continued is not None and not blocks_math_followup(continued):
@@ -178,18 +181,27 @@ def _singular(word: str) -> str:
 
 
 def _shown(
-    content: str, history: Sequence[Any], referent: str, *, figures: bool = False
+    content: str,
+    history: Sequence[Any],
+    referent: str,
+    *,
+    figures: bool = False,
+    asked: bool = False,
 ) -> SubjectFollowup:
     """What the subject of the earlier problem a line asks to see draws it as. With the
     figure read on, a shape is its figure, never its problem solved again: "Draw it" after
     a rectangle's area and then its diagonal repeated the area's card and drew the area's
     rectangle beside the figure (live, 2026-11-20). A curve is still maths' graph."""
     if not blocks_math_followup(referent):
-        drawn = subject_adapter("math").followups.shown_problem(content, history, referent)
+        drawn = subject_adapter("math").followups.shown_problem(
+            content, history, referent, asked=asked
+        )
         if drawn is not None and not (figures and not drawn.startswith(_GRAPH)):
             return SubjectFollowup(math=drawn)
     return SubjectFollowup(
-        physics=subject_adapter("physics").followups.shown_problem(content, history, referent)
+        physics=subject_adapter("physics").followups.shown_problem(
+            content, history, referent, asked=asked
+        )
     )
 
 

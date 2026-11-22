@@ -55,6 +55,9 @@ def test_draw_it_is_the_physics_problem_read_as_it_again_for_its_scene() -> None
     assert shown_physics_problem("draw it", None) is None
     assert shown_physics_problem("draw it", "What's the capital of France?") is None
     assert shown_physics_problem("explain it", _LAUNCH) is None
+    # The turn's read says it asks to see it, in words no rule knows (QA round, 2026-11-22).
+    assert shown_physics_problem("can u show me a picture", _LAUNCH, asked=True) == _LAUNCH
+    assert shown_physics_problem("can u show me a picture", _LAUNCH) is None
 
 
 def test_one_changed_given_is_replaced_and_resolved() -> None:

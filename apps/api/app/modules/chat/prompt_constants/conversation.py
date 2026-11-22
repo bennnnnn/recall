@@ -18,6 +18,8 @@
 Patterns read text passed through ``collapse_ws`` (one space) and lowercased.
 """
 
+from app.services.picture_copy import PICTURE_PLACEMENT_RULE
+
 # Its name, on every chat and live talk turn. Live talk (2026-11-02): told "his name is
 # ChatGPT", the voice answered "You can call me ChatGPT or Recall, either is fine."
 # The reply about itself instead of the answer, live on 2026-11-03: "This is a
@@ -208,6 +210,37 @@ FOLLOW_NOTES = {
     ),
 }
 
+
+# Beside a message the turn's read says asks to see what the conversation is about ("can u
+# show me a picture" after a homework answer). Told nothing, the reply's model asked "Sure!
+# What would you like to see?", said it cannot make images, worked the problem again, or
+# wrote "here's a picture of a cute puppy" over no picture (QA round, 2026-11-22). The app
+# draws the problem's picture itself, from its own values, when it can: the reply says in
+# words what that picture shows, which stands whether or not one is drawn.
+SHOW_IT_NOTE = (
+    "They ask to see a picture of what this conversation is about: the problem your last "
+    "replies worked on, nothing new. The app draws that picture itself, from the problem's "
+    "own values, when it can. In one or two plain sentences, describe the thing itself the "
+    "way such a picture shows it (the curve and the area under it, the ball going up and "
+    "coming back down, the circuit's battery and resistors, the molecule's atoms and "
+    'bonds), never the picture ("a picture would show", "this picture shows"), and nothing '
+    "else: no working, no answer again, no heading. Never ask what they would like to see, "
+    f"and never say you cannot show, draw or make pictures. {PICTURE_PLACEMENT_RULE}"
+)
+# Beside it, when the subject's rules above ask the reply to describe its picture: a free
+# model told "nothing else" wrote no ```draw block for a series circuit the rules name.
+SHOW_IT_DRAW_NOTE = (
+    "Then end your reply with the ```draw block the rules above describe for this "
+    "problem's situation, when they name it, with the values the earlier problem states."
+)
+# The same, when the turn's solve drew that picture already.
+SHOWN_IT_NOTE = (
+    "They ask to see a picture of what this conversation is about: the problem your last "
+    "replies worked on. The app's picture of it, drawn from the checked answer, is shown "
+    "with your reply. In one or two plain sentences, describe the thing itself the way the "
+    'picture shows it, never the picture ("this picture shows"), and nothing else: no '
+    f"working, no answer again, no heading. {PICTURE_PLACEMENT_RULE}"
+)
 
 # Above the chat's rolling summary: it is part of the conversation, so "what did we talk
 # about today" and "what laptop do I have" answer from it, not only from the window.

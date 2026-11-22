@@ -195,3 +195,19 @@ def test_draw_it_of_a_shape_is_its_figure_when_the_figure_read_draws() -> None:
     assert resolve_subject_followup("show it", curve, "sin(x)", None, True) == SubjectFollowup(
         math="graph sin(x)"
     )
+
+
+def test_a_line_the_read_says_asks_to_see_it_is_shown_whatever_its_words() -> None:
+    """ "can u show me a picture" names nothing the words know: a ball thrown up was never
+    drawn after it (QA round, 2026-11-22). Asked by the turn's read, the scene and the curve
+    are drawn; asked by neither, the line is answered as before."""
+    line = "can u show me a picture"
+    projectile = _history(_PROJECTILE)
+    assert resolve_subject_followup(line, projectile, _PROJECTILE[0]) == SubjectFollowup()
+    assert resolve_subject_followup(
+        line, projectile, _PROJECTILE[0], None, False, True
+    ) == SubjectFollowup(physics=_PROJECTILE[0])
+    curve = _history(_CURVE)
+    assert resolve_subject_followup(line, curve, "sin(x)", None, False, True) == SubjectFollowup(
+        math="graph sin(x)"
+    )

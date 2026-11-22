@@ -288,7 +288,7 @@ async def test_draw_it_reads_the_problem_and_its_follow_ups_not_the_older_chat(
     The referent read names the rectangle; the figure reads it and the follow-up since."""
     from app.modules.chat import referent_read
 
-    async def named(*_: Any) -> referent_read.Referent:
+    async def named(*_: Any, **__: Any) -> referent_read.Referent:
         return referent_read.Referent(_RECTANGLE)
 
     monkeypatch.setattr(referent_read, "referent_for_turn", named)
@@ -485,13 +485,73 @@ async def test_a_chemistry_question_asking_for_nothing_gets_its_compound_s_struc
     assert stand_in.modes == [False] and "chemistry" in subjects
 
 
-async def test_a_chemistry_request_to_see_a_molecule_is_left_to_its_solve(
-    figure: _Figure,
+async def test_a_chemistry_request_to_see_a_molecule_its_solve_drew_reads_none() -> None:
+    ctx = _ctx(
+        "Draw caffeine.",
+        live_read=_read(subject="chemistry", picture="molecule"),
+        verified_subject=_chemistry_solve("CN1C=NC2=C1C(=O)N(C(=O)N2C)C"),
+    )
+    assert figure_turn.start_figure(_settings(), ctx) is None
+
+
+_KCLO3 = "how many grams of kclo3 do i need to make 3.2 g of o2"
+
+
+async def test_a_request_to_see_a_molecule_no_solve_drew_is_drawn_asked(
+    figure: _Figure, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    ctx = _ctx("Draw caffeine.", live_read=_read(subject="chemistry", picture="molecule"))
+    """ "can u show me a picture" after a mass of KClO3: no solve draws on the follow-up, so
+    chemistry's figure draws the compound the chat is about, asked (QA round, 2026-11-22:
+    "I couldn't draw this molecule." on 15 of 18 such requests)."""
+    from app.modules.chat import referent_read
+
+    async def named(*_: Any, **__: Any) -> referent_read.Referent:
+        return referent_read.Referent(_KCLO3)
+
+    monkeypatch.setattr(referent_read, "referent_for_turn", named)
+    line = "can u show me a picture"
+    ctx = _ctx(
+        line,
+        live_read=_read(subject="chemistry", picture="molecule", follow="draw"),
+        recent_messages=_chat(_KCLO3, line),
+    )
     ctx.figure = figure_turn.start_figure(_settings(), ctx)
-    assert await figure_turn.attach_figure(_state(ctx, "Here.")) == "Here."
-    assert figure.modes == []
+    text = await figure_turn.attach_figure(_state(ctx, "It shows K+ and the chlorate ion."))
+    assert text.endswith(_FENCE + "\n")
+    assert figure.asked == [(line, [_KCLO3])] and figure.modes == [True]
+
+
+@pytest.mark.parametrize(
+    ("fields", "shows"),
+    [
+        ({"subject": "physics", "picture": "diagram", "follow": "draw"}, True),
+        ({"subject": "maths", "picture": "none", "follow": "draw"}, True),
+        ({"subject": "chemistry", "picture": "photo", "follow": "draw"}, False),
+        ({"subject": "everyday", "picture": "image", "follow": "draw"}, False),
+        ({"subject": "physics", "picture": "none", "follow": "explain"}, False),
+    ],
+)
+async def test_the_read_alone_says_a_line_asks_to_see_what_the_chat_is_about(
+    fields: dict[str, str], shows: bool
+) -> None:
+    from app.core import readings
+
+    readings.begin_turn()
+    decision = TurnDecision.model_validate({"live": False, "think": False, **fields})
+    read = asyncio.ensure_future(_answered(decision))
+    readings.keep_for_turn(figure_turn.LIVE_READ, read)
+    assert await figure_turn.read_shows_it(_settings()) is shows
+
+
+async def test_no_read_says_no_line_asks_to_see_it() -> None:
+    from app.core import readings
+
+    readings.begin_turn()
+    assert await figure_turn.read_shows_it(_settings()) is False
+
+
+async def _answered(decision: TurnDecision) -> TurnDecision:
+    return decision
 
 
 def _chemistry_solve(smiles: str = "") -> Any:
@@ -571,6 +631,34 @@ def test_a_picture_names_something_by_a_label_or_a_lettered_point() -> None:
     # A triangle's vertices kept unlettered name nothing (a review, 2026-11-21).
     hidden = _BARE_CIRCLE.replace('"name":"_0"', '"name":"A"')
     assert not figure_turn._names_anything(hidden)
+
+
+@pytest.mark.parametrize(("fence", "kept"), [(_BARE_RECTANGLE, False), (_LABELLED_RECTANGLE, True)])
+async def test_a_picture_of_the_chat_s_problem_that_names_nothing_is_left_out(
+    monkeypatch: pytest.MonkeyPatch, fence: str, kept: bool
+) -> None:
+    """ "can u show me a picture" after 7 notebooks at $2 each got a bare rectangle (QA
+    round, 2026-11-22): asked by the read alone, a figure must name something of it."""
+    from app.modules.chat import referent_read
+
+    async def named(*_: Any, **__: Any) -> referent_read.Referent:
+        return referent_read.Referent(_NOTEBOOKS)
+
+    stand_in = _Figure(fence)
+    monkeypatch.setattr(figure_turn, "_figure", lambda *_: stand_in)
+    monkeypatch.setattr(referent_read, "referent_for_turn", named)
+    line = "can u show me a picture"
+    ctx = _ctx(
+        line,
+        live_read=_read(subject="maths", picture="diagram", follow="draw"),
+        recent_messages=_chat(_NOTEBOOKS, line),
+    )
+    ctx.figure = figure_turn.start_figure(_settings(), ctx)
+    text = await figure_turn.attach_figure(_state(ctx, "Seven notebooks at $2 each."))
+    assert (fence in text) is kept
+
+
+_NOTEBOOKS = "i bought 7 notebooks, $2 each, and paid w a $20 bill. how much change?"
 
 
 def test_a_named_problem_four_messages_back_keeps_its_follow_ups() -> None:

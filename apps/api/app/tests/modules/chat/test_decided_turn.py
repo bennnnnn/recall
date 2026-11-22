@@ -27,7 +27,12 @@ from app.modules.chat.model_routing.decided import (
     math_backups,
 )
 from app.modules.chat.model_routing.thinking import thinking_level
-from app.modules.chat.prompt_constants.conversation import FOLLOW_NOTES
+from app.modules.chat.prompt_constants.conversation import (
+    FOLLOW_NOTES,
+    SHOW_IT_DRAW_NOTE,
+    SHOW_IT_NOTE,
+    SHOWN_IT_NOTE,
+)
 from app.modules.chat.prompt_constants.lesson_flow import LESSON_ASIDE_NOTE, lesson_next_contract
 from app.modules.chat.prompt_constants.practice import QUIZ_WHICH_NOTE
 from app.modules.chat.prompt_constants.privacy import ADVICE_PERSONALIZE_HINT
@@ -36,6 +41,7 @@ from app.modules.chat.turn_prep.context import StreamContext
 from app.modules.chat.turn_trace import begin_turn_trace
 from app.modules.chat.worked_render import WorkedLayout
 from app.modules.chat.worked_turn import with_worked_contract
+from app.services.picture_copy import DRAWN_PICTURE_NOTE
 from app.services.solving import VerifiedSolveBlock
 from app.tests.fakes import isolated_settings
 
@@ -639,6 +645,46 @@ async def test_a_turn_that_reads_its_reply_its_own_way_gets_no_follow_note(
     ctx = _follow_turn("variables", _follow_read("answer"), **fields)
     await decide_from_the_read(ctx, _SETTINGS)
     assert not any(m["content"] in FOLLOW_NOTES.values() for m in ctx.prompt_messages)
+
+
+_DESCRIBED = f"{SHOW_IT_NOTE} {SHOW_IT_DRAW_NOTE}"
+
+
+@pytest.mark.parametrize(
+    ("picture", "fields", "note"),
+    [
+        # Physics' rules ask the reply to describe its scene: the note says to write it.
+        ("diagram", {}, _DESCRIBED),
+        # A solve worked the problem again for its picture: the request still gets its note,
+        # never the working again ("Small correction: using g = 9.81 …", QA 2026-11-22).
+        (
+            "diagram",
+            {"verified_subject": VerifiedSolveBlock(text="x = 6", subject="math")},
+            _DESCRIBED,
+        ),
+        ("molecule", {}, SHOW_IT_NOTE),
+        # A photo of it is no picture the app draws.
+        ("photo", {}, None),
+    ],
+)
+@pytest.mark.asyncio
+async def test_a_request_to_see_the_problem_is_told_the_app_draws_it(
+    picture: str, fields: dict[str, Any], note: str | None
+) -> None:
+    """ "can u show me a picture" after a homework answer was asked back "Sure! What would
+    you like to see?" or told the model cannot make images (QA round, 2026-11-22)."""
+    read = TurnDecision.model_validate(
+        {"live": False, "subject": "physics", "think": False, "follow": "draw", "picture": picture}
+    )
+    ctx = _follow_turn("can u show me a picture", read, **fields)
+    await decide_from_the_read(ctx, _SETTINGS)
+    notes = [
+        m["content"]
+        for m in ctx.prompt_messages
+        if str(m["content"]).startswith((SHOW_IT_NOTE, SHOWN_IT_NOTE))
+    ]
+    assert notes == ([note] if note else [])
+    assert DRAWN_PICTURE_NOTE not in [m["content"] for m in ctx.prompt_messages]
 
 
 _SEVEN_X = "Translate the algebraic expression 7x in different word phrases."

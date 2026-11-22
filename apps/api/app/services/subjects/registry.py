@@ -151,11 +151,12 @@ class SubjectFollowups(Protocol):
         ...
 
     def shown_problem(
-        self, line: str, recent: Sequence[Any], referent: str | None = None
+        self, line: str, recent: Sequence[Any], referent: str | None = None, *, asked: bool = False
     ) -> str | None:
         """The problem whose card draws what the line asks to see, read in the pool.
         ``referent``: the earlier message a model read as the "it" the line asks to see
-        (``chat.referent_read``), when the turn read one."""
+        (``chat.referent_read``), when the turn read one. ``asked``: the turn's read says
+        the line asks to see it, whatever its words ("can u show me a picture")."""
         ...
 
     def changed_problem(

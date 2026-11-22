@@ -78,6 +78,43 @@ async def test_a_line_that_asks_to_see_nothing_is_not_read(line: str) -> None:
     model.assert_not_awaited()
 
 
+_BALL_CHAT = [
+    ("user", "a ball is thrown straight up at 20 m/s. how high does it go?"),
+    ("assistant", "It rises **20.4 m**."),
+]
+
+
+@pytest.mark.asyncio
+async def test_a_line_the_turn_read_says_asks_to_see_it_is_read_whatever_its_words() -> None:
+    """ "can u show me a picture" names nothing the words know: asked by the turn's read
+    (``figure_turn.read_shows_it``), the model still reads what "it" is (QA, 2026-11-22)."""
+    model = AsyncMock(return_value=ReferentPick(message=1))
+    rows = _rows(_BALL_CHAT)
+    with patch.object(referent_read, "pick_referent", model):
+        assert await read_referent(Settings(), "can u show me a picture", rows) is None
+        model.assert_not_awaited()
+        referent = await read_referent(Settings(), "can u show me a picture", rows, asked=True)
+    assert referent == Referent(_BALL_CHAT[0][1])
+
+
+@pytest.mark.asyncio
+async def test_a_turn_asked_on_its_words_first_reads_again_when_the_read_asks() -> None:
+    """The photo intercept asks on the words alone, before the prep asks with the turn's
+    read: its "no read" is no answer the prep's ask is held to."""
+    from app.core import readings
+
+    readings.begin_turn()
+    model = AsyncMock(return_value=ReferentPick(message=1))
+    rows = _rows(_BALL_CHAT)
+    line = "can u show me a picture"
+    with patch.object(referent_read, "pick_referent", model):
+        assert await referent_read.referent_for_turn(Settings(), line, rows) is None
+        asked = await referent_read.referent_for_turn(Settings(), line, rows, asked=True)
+        again = await referent_read.referent_for_turn(Settings(), line, rows)
+    assert asked == again == Referent(_BALL_CHAT[0][1])
+    model.assert_awaited_once()
+
+
 @pytest.mark.asyncio
 async def test_a_read_off_or_with_no_earlier_line_asks_no_model() -> None:
     model = AsyncMock(return_value=ReferentPick(message=1))

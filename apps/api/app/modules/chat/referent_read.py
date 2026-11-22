@@ -175,22 +175,30 @@ _KEPT = "referent"
 
 
 async def referent_for_turn(
-    settings: Settings, line: str, recent: Sequence[Any]
+    settings: Settings, line: str, recent: Sequence[Any], *, asked: bool = False
 ) -> Referent | None:
-    """``read_referent`` once a turn: a later ask in the same turn gets the same read."""
+    """``read_referent`` once a turn: a later ask in the same turn gets the same read. One
+    asked with ``asked`` reads it even when the first ask, on the words alone, did not."""
+    wants = asked or asks_for_a_referent(line)
     kept = kept_for_turn(_KEPT)
-    if isinstance(kept, tuple) and kept[0] == line:
-        referent: Referent | None = kept[1]
+    if isinstance(kept, tuple) and kept[0] == line and (kept[1] or not wants):
+        referent: Referent | None = kept[2]
         return referent
-    referent = await read_referent(settings, line, recent)
-    keep_for_turn(_KEPT, (line, referent))
+    referent = await read_referent(settings, line, recent, asked=asked)
+    keep_for_turn(_KEPT, (line, wants, referent))
     return referent
 
 
-async def read_referent(settings: Settings, line: str, recent: Sequence[Any]) -> Referent | None:
+async def read_referent(
+    settings: Settings, line: str, recent: Sequence[Any], *, asked: bool = False
+) -> Referent | None:
     """The earlier problem ``line`` asks to see, read by a model; None when there is no read
-    (the line asks for none, the read is off, mocked, failed or too slow)."""
-    if not settings.referent_read_enabled or not asks_for_a_referent(line):
+    (the line asks for none, the read is off, mocked, failed or too slow). ``asked``: the
+    turn's read says the line asks to see what the chat is about (``figure_turn.
+    read_shows_it``), whatever its words: "can u show me a picture" after a ball thrown up
+    named nothing the words know, and no picture of the ball was drawn (QA round,
+    2026-11-22)."""
+    if not settings.referent_read_enabled or not (asked or asks_for_a_referent(line)):
         return None
     exchanges = chat_before(recent, line)
     conversation, numbered = _conversation(exchanges)

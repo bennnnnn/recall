@@ -14,10 +14,15 @@ from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.core.readings import read_off_loop
-from app.modules.chat.figure_turn import will_draw
+from app.modules.chat.figure_turn import read_shows_it, will_draw
 from app.modules.chat.posed_read import posed_for_turn
 from app.modules.chat.prompt_builder import SubjectFetch, fetch_subject, inject_subject_block
-from app.modules.chat.referent_read import Referent, continuation_for_turn, referent_for_turn
+from app.modules.chat.referent_read import (
+    Referent,
+    asks_for_a_referent,
+    continuation_for_turn,
+    referent_for_turn,
+)
 from app.modules.chat.turn_prep.followups import (
     SubjectFollowup,
     resolve_posed_followup,
@@ -369,7 +374,12 @@ async def _turn_followup(
     # What "it" is: the turn's read, kept since the photo intercept asked it. And the
     # problem "3" or "the area" continues, which a model reads too.
     recent = reads_window(request)
-    referent = await referent_for_turn(settings, request.content, recent)
+    # Whether the line asks to see what the chat is about, by the turn's read, when its
+    # words do not say so: only after a reply, which "it" could be in.
+    asked = (
+        bool(recent) and not asks_for_a_referent(request.content) and await read_shows_it(settings)
+    )
+    referent = await referent_for_turn(settings, request.content, recent, asked=asked)
     continued = await continuation_for_turn(settings, request.content, recent)
     timeout = settings.subject_read_timeout_seconds
     # A shape the line asks to see is the figure's only when the figure will be drawn.
@@ -381,6 +391,7 @@ async def _turn_followup(
         referent.problem if referent is not None else None,
         continued,
         figures,
+        asked,
         timeout=timeout,
     )
     if followup is not None and followup.found:

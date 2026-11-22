@@ -45,7 +45,9 @@ _LABEL_KEYS = frozenset({"label", "labels"})
 # The most messages of one problem the figure reads: the problem and its follow-ups.
 _TOPIC = 6
 # The subject whose figure a read's subject gets. A chemistry question that asks to see a
-# molecule gets it from its solve; one that asks for nothing gets its compound's structure.
+# molecule gets it from its solve, else (a follow-up: "can u show me a picture" after a mass
+# of KClO3) its compound's structure; one that asks for nothing gets that structure too,
+# when it helps teach the question.
 _FIGURES: dict[str, SubjectName] = {"maths": "math", "chemistry": "chemistry"}
 _Wanted = tuple[SubjectName, Literal["asked", "teach"]]
 
@@ -96,6 +98,38 @@ async def will_draw(settings: Settings) -> bool:
     return _figure_wanted(read) is not None
 
 
+# What the read calls a request to see what the chat is about, whatever its words.
+_SHOWS_IT = "draw"
+# A picture the read names that the app does not draw: a photo or a painting.
+_NOT_DRAWN = frozenset({"photo", "image"})
+
+
+def shows_it(decision: TurnDecision | None) -> bool:
+    """The read says the message asks to see what the conversation is about (follow
+    ``draw``), and no photo or painting of it."""
+    return (
+        decision is not None and decision.follow == _SHOWS_IT and decision.picture not in _NOT_DRAWN
+    )
+
+
+async def read_shows_it(settings: Settings) -> bool:
+    """Whether the turn's read, waited on for at most its usual wait, says the message asks
+    to see what the conversation is about: the one decider, beside the words, of a request
+    to see "it". "can u show me a picture" after a homework answer named nothing the words
+    know ("draw it", "show it"), so the earlier problem was never read, solved or drawn: 6
+    of 45 such requests drew anything (QA round, 2026-11-22). No read, a late one or an
+    empty one: no."""
+    from app.core.readings import kept_for_turn
+
+    read = kept_for_turn(LIVE_READ)
+    if not isinstance(read, asyncio.Task):
+        return False
+    await asyncio.wait([read], timeout=settings.live_read_wait_seconds)
+    if not read.done() or read.cancelled() or read.exception() is not None:
+        return False
+    return shows_it(read.result())
+
+
 def start_figure(settings: Settings, ctx: StreamContext) -> asyncio.Task[str | None] | None:
     """The picture's task, when the turn has a read to wait for and no picture of its own.
 
@@ -117,15 +151,18 @@ def start_figure(settings: Settings, ctx: StreamContext) -> asyncio.Task[str | N
 
 def _figure_wanted(read: asyncio.Task[TurnDecision | None]) -> _Wanted | None:
     """The subject whose figure the turn gets, and how: "asked", a maths question asking
-    to see a graph or a diagram; "teach", a maths or chemistry question asking to see
-    nothing, which gets a figure only if one helps teach it."""
+    to see a graph or a diagram, or a chemistry one asking to see a molecule; "teach", a
+    maths or chemistry question asking to see nothing, which gets a figure only if one
+    helps teach it."""
     if not read.done() or read.cancelled() or read.exception() is not None:
         return None
     decision = read.result()
     subject = _FIGURES.get(decision.subject or "") if decision is not None else None
     if decision is None or subject is None:
         return None
-    if read_asks_for_a_picture(decision):
+    if read_asks_for_a_picture(decision) or (
+        subject == "chemistry" and decision.picture == "molecule"
+    ):
         return subject, "asked"
     return (subject, "teach") if decision.picture in _UNASKED else None
 
@@ -157,8 +194,11 @@ async def _draw(
     topic = await _topic(settings, read, line, recent)
     fence = await figure.draw(line, topic, settings, asked=wanted[1] == "asked")
     # A picture no one asked for teaches only what it names: "What is the formula for the
-    # area of a circle?" got a bare circle, nothing on it (live, 2026-11-21).
-    if fence and wanted[1] != "asked" and _kind(fence) == "geometry" and not _names_anything(fence):
+    # area of a circle?" got a bare circle, nothing on it (live, 2026-11-21). Nor does one of
+    # the problem the chat worked on: "can u show me a picture" after 7 notebooks at $2 each
+    # got a bare rectangle (QA round, 2026-11-22).
+    must_name = wanted[1] != "asked" or shows_it(read.result())
+    if fence and must_name and names_nothing(fence):
         logger.info("figure left out: it names nothing")
         return None
     logger.info(
@@ -196,8 +236,8 @@ async def _topic(
     if decision is not None and decision.follow == "none":
         return []
     problem: str | None = None
-    if asks_for_a_referent(line):
-        referent = await referent_for_turn(settings, line, recent)
+    if shows_it(decision) or asks_for_a_referent(line):
+        referent = await referent_for_turn(settings, line, recent, asked=shows_it(decision))
         problem = referent.problem if referent is not None else None
     elif adds_to_problem(line):
         problem = await continuation_for_turn(settings, line, recent)
@@ -250,6 +290,12 @@ def _spec(fence: str) -> Any:
 def _shows_a_value(fence: str) -> bool:
     """Whether a picture labels any number: a side's "8 cm", an angle's "35°"."""
     return any(_DIGIT.search(label) for label in _labels(_spec(fence)))
+
+
+def names_nothing(fence: str) -> bool:
+    """A figure that labels and letters nothing: no picture of a problem it was not asked
+    for in its own words (a bare circle, a bare rectangle)."""
+    return _kind(fence) == "geometry" and not _names_anything(fence)
 
 
 def _names_anything(fence: str) -> bool:

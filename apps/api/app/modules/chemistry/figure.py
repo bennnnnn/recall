@@ -53,6 +53,26 @@ _PROMPT = (
 )
 
 
+# A message that asks to see a picture of what the chemistry question is about ("can u show
+# me a picture" after the mass of KClO3 needed): its one compound is drawn, a salt as its
+# ions and water as H-O-H, never a compound the question does not name (QA round,
+# 2026-11-22: "I couldn't draw this molecule." on 15 of 18 such requests).
+_ASKED_PROMPT = (
+    "The user asks to see a picture of what this chemistry question is about. Name the one "
+    "compound the question is about, so its structure can be drawn: a molecule, an acid, a "
+    'salt or water. Copy the words the user writes for it, exactly ("acetic acid", '
+    '"kclo3", "NaOH"), never a name or formula of your own.\n'
+    'Give "" when the question names no compound, only an element or an atom, or several '
+    "compounds none of which it is mainly about (a reaction between them).\n"
+    'Examples: "how many grams of kclo3 do i need to make 3.2 g of o2?" -> {"name": '
+    '"kclo3"}; "what is the pH of 0.01 M HCl?" -> {"name": "HCl"}; "how many molecules are '
+    'in 10 g of CO2?" -> {"name": "CO2"}; "Balance Fe + O2 -> Fe2O3" -> {"name": ""}.\n'
+    'Return JSON: {"name": "..."}'
+)
+# The most ions a salt's picture shows: CuSO4·5H2O is its ions and five waters.
+_MAX_PARTS = 8
+
+
 class CompoundRead(BaseModel):
     name: str = Field(default="", max_length=80)
 
@@ -74,8 +94,11 @@ def written_by_user(name: str, texts: Sequence[str]) -> bool:
     return any(pattern.search(collapse_ws(text).casefold()) for text in texts)
 
 
-async def read_compound(settings: Settings, question: str, earlier: Sequence[str]) -> str | None:
-    """The compound the question is about, as the user wrote it, or None."""
+async def read_compound(
+    settings: Settings, question: str, earlier: Sequence[str], *, asked: bool = False
+) -> str | None:
+    """The compound the question is about, as the user wrote it, or None. ``asked``: the
+    message asks to see a picture of it."""
     from app.core.redis import get_redis_client
     from app.gateways.structured_completion import complete_structured
     from app.services import quota as quota_service
@@ -87,7 +110,7 @@ async def read_compound(settings: Settings, question: str, earlier: Sequence[str
             settings=settings,
             model_alias=ROUTING.compound_read,
             messages=[
-                {"role": "system", "content": _PROMPT},
+                {"role": "system", "content": _ASKED_PROMPT if asked else _PROMPT},
                 {"role": "user", "content": _message(question, earlier)},
             ],
             schema=CompoundRead,
@@ -103,19 +126,42 @@ async def read_compound(settings: Settings, question: str, earlier: Sequence[str
     return name or None
 
 
-def structure_fence(smiles: str, name: str) -> str | None:
+def structure_fence(smiles: str, name: str, asked: bool = False) -> str | None:
     """The ```smiles fence of one valid molecule, captioned with its name; None for a salt,
-    a mixture, a lone atom or a structure RDKit cannot read. Runs in the SymPy pool."""
+    a mixture, a lone atom or a structure RDKit cannot read. Runs in the SymPy pool.
+
+    ``asked``: the message asks to see it, so a salt is drawn as its ions (potassium
+    chlorate as K+ and ClO3-), and a molecule of one atom besides its hydrogens with them
+    (water as H-O-H, never a bare "O"); a lone atom or ion is still none."""
     from rdkit import Chem
 
     from app.modules.chemistry.smiles import drawing_smiles
 
-    if not smiles or "." in smiles:
+    if not smiles or ("." in smiles and not asked):
         return None
     molecule = Chem.MolFromSmiles(smiles)
-    if molecule is None or molecule.GetNumHeavyAtoms() < _MIN_HEAVY_ATOMS:
+    if molecule is None:
         return None
-    return f"```smiles\n{name}\n{drawing_smiles(smiles)}\n```"
+    if not asked:
+        if molecule.GetNumHeavyAtoms() < _MIN_HEAVY_ATOMS:
+            return None
+        return f"```smiles\n{name}\n{drawing_smiles(smiles)}\n```"
+    pieces = smiles.split(".")
+    if len(pieces) > _MAX_PARTS or Chem.AddHs(molecule).GetNumAtoms() < _MIN_HEAVY_ATOMS:
+        return None
+    shown: list[str] = []
+    for piece in pieces:
+        part = Chem.MolFromSmiles(piece)
+        if part is None:
+            return None
+        if part.GetNumHeavyAtoms() < _MIN_HEAVY_ATOMS:
+            shown.append(Chem.MolToSmiles(Chem.AddHs(part)))
+        elif any(atom.GetIsAromatic() for atom in part.GetAtoms()):
+            shown.append(drawing_smiles(piece))
+        else:
+            # As PubChem writes it: RDKit's own spelling of chlorate is Cl2+ with three O-.
+            shown.append(piece)
+    return f"```smiles\n{name}\n{'.'.join(shown)}\n```"
 
 
 async def pubchem_structure(name: str) -> str | None:
@@ -137,23 +183,42 @@ async def pubchem_structure(name: str) -> str | None:
     return compound.isomeric_smiles or compound.smiles
 
 
-async def draw_structure(question: str, earlier: Sequence[str], settings: Settings) -> str | None:
-    """The fence of the structure that helps teach the question, or None."""
+def salt_name(written: str) -> str | None:
+    """The school name of a salt the user wrote as its formula, in any case ("kclo3" is
+    potassium chlorate): PubChem knows salts by name, not by formula."""
+    from app.modules.chemistry.lowercase_formulas import lowercase_substance
+    from app.modules.chemistry.nomenclature import salt_from_formula
+
+    formula = written.strip()
+    salt = salt_from_formula(formula)
+    if salt is None and formula.islower():
+        reading = lowercase_substance(formula)
+        salt = salt_from_formula(reading) if reading else None
+    return salt.name if salt is not None else None
+
+
+async def draw_structure(
+    question: str, earlier: Sequence[str], settings: Settings, *, asked: bool = False
+) -> str | None:
+    """The fence of the structure that helps teach the question, or, ``asked``, of the
+    compound the message asks to see a picture of; None."""
     from app.core import sympy_executor
 
-    if not (settings.chemistry_enabled and settings.teaching_figures_enabled):
+    if not settings.chemistry_enabled or not (asked or settings.teaching_figures_enabled):
         return None
     if not question.strip():
         return None
-    name = await read_compound(settings, question, earlier)
+    name = await read_compound(settings, question, earlier, asked=asked)
     if name is None or not written_by_user(name, [question, *earlier]):
         return None
     smiles = await pubchem_structure(name)
+    if smiles is None and asked and (named := salt_name(name)) is not None:
+        name, smiles = named, await pubchem_structure(named)
     if smiles is None:
         return None
     try:
         return await sympy_executor.run_sympy(
-            structure_fence, smiles, name, timeout=settings.stem_solve_timeout_seconds
+            structure_fence, smiles, name, asked, timeout=settings.stem_solve_timeout_seconds
         )
     except Exception as exc:  # A failed check draws nothing; the reply stands.
         logger.info("structure not drawn (%s)", type(exc).__name__)

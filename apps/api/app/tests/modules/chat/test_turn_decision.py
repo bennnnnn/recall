@@ -232,6 +232,28 @@ def test_the_effort_comes_from_think_and_hard(think: bool, hard: bool, effort: s
     assert read.effort == effort
 
 
+@pytest.mark.parametrize(
+    ("subject", "follow", "picture"),
+    [
+        # "can u show me a picture" after 7 notebooks at $2 each: the problem's, never painted.
+        ("maths", "draw", "diagram"),
+        ("physics", "draw", "diagram"),
+        ("chemistry", "draw", "diagram"),
+        # "make it blue" after a painting, and a painting asked beside a problem, stay paintings.
+        ("everyday", "draw", "image"),
+        ("physics", "none", "image"),
+        ("maths", "change", "image"),
+    ],
+)
+def test_a_request_to_see_a_problem_is_never_a_painting(
+    subject: str, follow: str, picture: str
+) -> None:
+    read = TurnDecision.model_validate(
+        {"live": False, "subject": subject, "follow": follow, "picture": "image"}
+    )
+    assert read.picture == picture
+
+
 def test_a_read_with_no_think_has_no_effort() -> None:
     """The word rules decide the level then (``decided_turn``)."""
     assert TurnDecision(live=False).effort is None
@@ -341,6 +363,52 @@ async def test_a_live_decision_takes_its_query_from_the_text_read(
     with patch(_STRUCTURED, ask):
         read = await turn_decision.read_decision(_SETTINGS, "who won the world cup", earlier=[])
     assert read is not None and read.searches and read.query == "World Cup winner"
+
+
+_EARLIER = [("user", "7 notebooks at $2 each, paid with $20: the change?"), ("assistant", "$6")]
+
+
+@pytest.mark.parametrize(
+    ("decider", "text", "picture"),
+    [
+        # Read "everyday" and a painting, the problem's picture is the text read's to say.
+        ({"subject": "everyday", "picture": "image"}, ("maths", "diagram"), ("maths", "diagram")),
+        (
+            {"subject": "chemistry", "picture": "none"},
+            ("chemistry", "molecule"),
+            ("chemistry", "molecule"),
+        ),
+        # The text read names no school problem: the Decider's read stands.
+        ({"subject": "everyday", "picture": "image"}, ("everyday", "image"), ("everyday", "image")),
+        # The Decider names the problem's picture: nothing else is asked.
+        (
+            {"subject": "physics", "picture": "diagram"},
+            ("everyday", "image"),
+            ("physics", "diagram"),
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_a_request_to_see_the_problem_asks_the_text_read_when_the_decider_is_unsure(
+    monkeypatch: pytest.MonkeyPatch,
+    decider: dict[str, str],
+    text: tuple[str, str],
+    picture: tuple[str, str],
+) -> None:
+    """ "can u show me a picture" after a homework answer: the Decider read 36 of 45 as the
+    problem's picture, the text read 45 of 45 (QA round, 2026-11-22); told so itself, the
+    Decider searched more turns that need none."""
+    fields = _fields(follow="draw", **decider)
+    monkeypatch.setattr(decider_read, "decide_turn", AsyncMock(return_value=fields))
+    said = TurnDecision.model_validate(
+        {"live": False, "subject": text[0], "picture": text[1], "follow": "draw"}
+    )
+    with patch(_STRUCTURED, AsyncMock(return_value=said)):
+        read = await turn_decision.read_decision(
+            _SETTINGS, "can u show me a picture", earlier=_EARLIER
+        )
+    assert read is not None and (read.subject, read.picture) == picture
+    assert read.searches is False
 
 
 @pytest.mark.parametrize(

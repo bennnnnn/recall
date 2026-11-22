@@ -47,6 +47,7 @@ from app.modules.billing.entitlements import has_strong_everyday_model
 from app.modules.chat.decider_read import NO_ANSWER, OTHER_ANSWER, READ_SUBJECTS
 from app.modules.chat.drawing_turn import ask_for_a_drawing
 from app.modules.chat.drawn_picture import app_draws, solve_draws
+from app.modules.chat.figure_turn import shows_it
 from app.modules.chat.follow_up_read import note_the_follow_up
 from app.modules.chat.json_output import is_json_request
 from app.modules.chat.lesson_again import lesson_again
@@ -55,7 +56,12 @@ from app.modules.chat.model_routing.thinking import (
     resumes_a_cut_off_reply,
     thinks_through_parts,
 )
-from app.modules.chat.prompt_constants.conversation import FOLLOW_NOTES
+from app.modules.chat.prompt_constants.conversation import (
+    FOLLOW_NOTES,
+    SHOW_IT_DRAW_NOTE,
+    SHOW_IT_NOTE,
+    SHOWN_IT_NOTE,
+)
 from app.modules.chat.prompt_constants.lesson_flow import LESSON_ASIDE_NOTE, lesson_next_contract
 from app.modules.chat.prompt_constants.list_reference import OPTION_PICK_MARK
 from app.modules.chat.prompt_constants.practice import QUIZ_WHICH_NOTE, quiz_verdict_note
@@ -162,7 +168,8 @@ def _leave_the_picture(ctx: StreamContext, settings: Settings, read: TurnDecisio
     ctx.prompt_messages = with_problem_pictures(
         ctx.prompt_messages, plan_of(ctx.user_message_content or "", settings)
     )
-    if not solve_draws(ctx.verified_subject, read.picture):
+    # A request to see what the conversation is about has its own note (``_follow_note``).
+    if not solve_draws(ctx.verified_subject, read.picture) or shows_it(read):
         return
     note_prompt_rule("drawn_picture")
     ctx.prompt_messages = inject_before_last_user(ctx.prompt_messages, DRAWN_PICTURE_NOTE)
@@ -451,9 +458,16 @@ def _follow_note(ctx: StreamContext, read: TurnDecision) -> None:
     own way (``message_notes``); numbers a server path worked are the reply's to present, and
     a calculation the subject readers gave the ```worked contract is laid out by it."""
     note = FOLLOW_NOTES.get(read.follow or "")
-    if note is None or ctx.after_card:
+    if shows_it(read):
+        # A request to see the problem: the same note whether or not a solve worked it again
+        # for its picture ("can u show me a picture" after a ball thrown up).
+        drawn = solve_draws(ctx.verified_subject, read.picture)
+        note = SHOWN_IT_NOTE if drawn else SHOW_IT_NOTE
+        if not drawn and ctx.drawing is not None:
+            note = f"{note} {SHOW_IT_DRAW_NOTE}"
+    elif _worked(ctx) or ctx.worked is not None:
         return
-    if _worked(ctx) or ctx.worked is not None:
+    if note is None or ctx.after_card:
         return
     if active_lesson_step(ctx.recent_messages) or outline_awaits_pick(ctx.recent_messages):
         return
