@@ -93,3 +93,19 @@ async def test_a_whole_store_block_is_not_cut_to_the_slim_budget(fake_redis):
         )
     assert len(blocks.memory_block) > 1000
     assert all(row.text in blocks.memory_block for row in rows)
+
+
+async def test_the_ambient_read_has_a_switch():
+    mode = classify_turn_mode([], "what car do i have")
+    plan = await _context_plan(
+        SimpleNamespace(id=uuid4(), memory_enabled=True),
+        uuid4(),
+        Settings(memory_ambient_read_enabled=False),
+        query_text="what car do i have",
+        minimal_personal_context=mode.minimal_personal,
+        lightweight=mode.lightweight,
+        rich_context=mode.rich_context,
+        advice_memory=mode.advice_memory,
+        probe_attachment_rag=False,
+    )
+    assert not plan.load_memory

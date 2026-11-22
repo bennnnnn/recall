@@ -2815,8 +2815,9 @@ CASES: tuple[Case, ...] = (
         "personal-general-no-memory",
         "personal",
         "what is the capital of France",
-        Expect(memory=False),
-        "Paris. No saved memory is read for a general question.",
+        Expect(memory=True, memory_scope="ambient"),
+        "Paris. Memory is read with no search (ambient: a small store whole, of a large one the "
+        "profile page), and the reply uses none of it.",
     ),
     Case(
         "personal-where-live",

@@ -226,7 +226,12 @@ async def _context_plan(
     # (live QA, 2026-11-22). It reads with no query embed (the "ambient" scope): a small
     # store whole, from the cache, and the reply's model decides what bears on the question.
     gated = personal_context or work_memory or recalls_past
-    ambient = not gated and not lightweight and not is_homework(query_text or "")
+    ambient = (
+        settings.memory_ambient_read_enabled
+        and not gated
+        and not lightweight
+        and not is_homework(query_text or "")
+    )
     scope = "work" if work_memory else memory_scope_for(query_text)
     return _ContextPlan(
         slim=minimal_personal_context or lightweight or not rich_context,

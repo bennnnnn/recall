@@ -11,6 +11,10 @@ class MemorySettings(BaseModel):
     # on every turn that reads memory, so a question needs no word or vector in common with
     # the fact it needs (``selection.select_whole_store``). 0 turns it off.
     memory_whole_store_max_facts: int = 15
+    # A turn no word rule reads as personal (not a greeting or homework) still reads memory
+    # with no query embed: a small store whole, of a large one the profile page
+    # (``prompt_builder._context_plan``, the "ambient" scope). Off: such a turn reads none.
+    memory_ambient_read_enabled: bool = True
     memory_active_fact_cap: int = 150
     # A new fact this close (cosine) to an active one says the same thing in other words
     # and replaces it. Measured 2026-11-20: true paraphrases scored 0.89-0.91, distinct

@@ -122,5 +122,5 @@ async def test_the_extraction_prompt_asks_for_one_fact_an_op(monkeypatch):
     await memory_llm.revise_memory_facts(
         Settings(mock_llm_enabled=False), "User: i work as a nurse and my son is 7"
     )
-    system = captured["messages"][0]["content"]  # type: ignore[index]
+    system = captured["messages"][0]["content"]
     assert memory_llm.ONE_FACT_RULE in system
