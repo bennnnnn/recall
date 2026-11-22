@@ -21,6 +21,7 @@ import re
 from collections.abc import Iterator, Sequence
 from typing import TYPE_CHECKING, Any, Literal
 
+from app.core.aio import settled_result
 from app.core.config import Settings
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.turn_decision import TurnDecision
@@ -119,9 +120,7 @@ def _figure_wanted(read: asyncio.Task[TurnDecision | None]) -> _Wanted | None:
     """The subject whose figure the turn gets, and how: "asked", a maths question asking
     to see a graph or a diagram; "teach", a maths or chemistry question asking to see
     nothing, which gets a figure only if one helps teach it."""
-    if not read.done() or read.cancelled() or read.exception() is not None:
-        return None
-    decision = read.result()
+    decision = settled_result(read)
     subject = _FIGURES.get(decision.subject or "") if decision is not None else None
     if decision is None or subject is None:
         return None
