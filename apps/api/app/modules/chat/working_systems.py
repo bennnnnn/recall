@@ -17,7 +17,12 @@ import re
 from collections import Counter
 from dataclasses import dataclass
 
-from app.modules.chat.tex_arithmetic import evaluate, math_statements, plain_arithmetic
+from app.modules.chat.tex_arithmetic import (
+    evaluate,
+    is_unit_word,
+    math_statements,
+    plain_arithmetic,
+)
 
 # An unknown: one letter, with a subscript ("I_1", "T_{2}", "x").
 _UNKNOWN = re.compile(r"(?<![\\A-Za-z])([A-Za-z])(?:_\{?([A-Za-z0-9]{1,3})\}?)?(?![A-Za-z{])")
@@ -25,7 +30,7 @@ _TOLERANCE = 0.005
 # A value's unit: \\mathrm or \\text, or a bare symbol after a space ("15/13 A"); "2k" is a
 # product, never 2 in kelvins (review, #2520).
 _TRAILING_UNIT = re.compile(
-    r"(?:(?:\s|\\[,;! ])*\\(?:mathrm|text)\s*\{[^{}]*\}|(?:\s|\\[,;! ])+[A-Za-zΩ]{1,3})\s*$"
+    r"(?:(?:\s|\\[,;! ])*\\(?:mathrm|text)\s*\{[^{}]*\}|(?:\s|\\[,;! ])+(?P<bare>[A-Za-zΩ]{1,3}))\s*$"
 )
 _UNIT_MARK = re.compile(r"\\[,;! ]|\\(?:mathrm|text|operatorname)\b|[Ω°]")
 
@@ -55,7 +60,7 @@ def unheld_equations(reply: str) -> list[UnheldEquation]:
         left, right = (side.strip() for side in segment.split("="))
         unknown_left = _UNKNOWN.fullmatch(left)
         # A value may end in its unit ("I_1 = \\frac{15}{13} A", "7.2\\,\\mathrm{V}").
-        bare = _TRAILING_UNIT.sub("", right)
+        bare = _without_unit(right)
         value = evaluate(plain) if (plain := plain_arithmetic(bare)) is not None else None
         if unknown_left is not None and value is not None:
             key = unknown_left.group(1) + (
@@ -126,6 +131,15 @@ _DECIMALS = re.compile(r"\d\.(\d+)")
 def _places(value: str) -> int:
     """The most decimal places a written value shows: 0 for an exact one (15/13, 3)."""
     return max((len(found) for found in _DECIMALS.findall(value)), default=0)
+
+
+def _without_unit(right: str) -> str:
+    """``right`` without the unit it ends in. A bare letter is a unit only when it is one's
+    symbol ("15/13 A"): in "x = 7 - 2 y" the y is an unknown, and x is no 5 (review, #2520)."""
+    found = _TRAILING_UNIT.search(right)
+    if found is None or (found["bare"] is not None and not is_unit_word(found["bare"])):
+        return right
+    return right[: found.start()]
 
 
 _UNIT_WORD = re.compile(r"\\(?:mathrm|text)\s*\{([^{}]*)\}")

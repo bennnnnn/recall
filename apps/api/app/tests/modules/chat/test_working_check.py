@@ -451,3 +451,9 @@ def test_a_mixed_number_is_never_read_as_a_product() -> None:
     assert working_note("**Steps**\n\n$1\\frac{1}{2} \\times 4 = 6$") is None
     reply = "That is $1\\frac{1}{2}$ (approximately 1.5)."
     assert corrected_approximations(reply) == reply
+
+
+def test_a_spaced_unknown_is_no_unit() -> None:
+    """Review (#2520): "x = 7 - 2 y" read y as a unit, so x was 5 and the system "broke"."""
+    reply = "**Steps**\n\n$x + y = 5$\n$x - y = 1$\n$x = 7 - 2 y$\n$y = 2$\n$x = 3$"
+    assert working_note(reply) is None
