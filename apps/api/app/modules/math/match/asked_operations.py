@@ -97,6 +97,11 @@ _SOLVE_ASKED = re.compile(
     r"\bsolv(?:e|ing)\b|\bsolutions?\b|(?<!square )(?<!cube )\broots?\b|\bzeros?\s+of\b",
     re.IGNORECASE,
 )
+# A solve said not to be asked, just before its word: "factor it (don't find the roots yet)".
+_NOT_ASKED = re.compile(
+    r"\b(?:don'?t|do\s+not|not|never|no\s+need\s+to|without|before)\b(?:\s+\w+){0,3}\s*$",
+    re.IGNORECASE,
+)
 # Of those, the extreme values themselves: where the function turns is a step to them.
 _EXTREME_VALUES = re.compile(
     r"\b(?:maxim(?:um|a)|minim(?:um|a)|extrem(?:um|a|e\s+values?)"
@@ -259,7 +264,11 @@ def rewrite_names_a_method(text: str) -> bool:
     2026-11-22). "Factor x^2 - 5x + 6" asks the rewrite; "factor x^2 - 5x + 6 = 0 to solve
     it" and "solve by factoring" ask the roots."""
     text = text[:_MAX_TEXT]
-    return _SOLVE_ASKED.search(text) is not None and has_equation(text)
+    asked = any(
+        _NOT_ASKED.search(text[max(0, match.start() - 30) : match.start()]) is None
+        for match in _SOLVE_ASKED.finditer(text)
+    )
+    return asked and has_equation(text)
 
 
 def asks_rate_of_change(text: str) -> bool:

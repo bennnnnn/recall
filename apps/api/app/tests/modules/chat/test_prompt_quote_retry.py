@@ -24,6 +24,16 @@ _ANSWER = "$3 \\times 10^4 + 2 \\times 10^3 = 32000$"
     ("reply", "quotes"),
     [
         (_NOTES, True),
+        # A short quotation before it takes both its marks (review, #2536).
+        (
+            'Wait, "x"? The system instructions say: "Worked calculation: this question asks '
+            'for a value and no server check stands behind it."',
+            True,
+        ),
+        (
+            'Wait, "x"? The system instructions say: "Worked calculation: this question asks for a value',
+            True,
+        ),
         (
             'Double check emoji rules: "plenty, the user likes them." I must use one per heading.',
             False,

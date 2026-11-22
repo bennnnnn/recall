@@ -161,8 +161,12 @@ def _asked_lines(ctx: Any) -> list[str]:
     return [getattr(ctx, "user_message_content", None) or "", *earlier[-_RECENT_USER_MESSAGES:]]
 
 
-# A quotation: its opening mark and what follows on the line (a cut-off reply never closed it).
-_QUOTED = re.compile(r"[\"\u201c]([^\"\u201d\n]{20,})")
+# A quotation: between its marks, or from an opening mark to the line's end (a cut-off reply
+# never closed it). A short quotation takes both its marks, so its closing one never opens
+# the next (review, #2536).
+_QUOTED = re.compile(
+    r"\"([^\"\n]*)\"|\u201c([^\u201d\n]*)\u201d|[\"\u201c]([^\"\u201d\n]*)$", re.MULTILINE
+)
 _QUOTE_WORDS = re.compile(r"[a-z']+")
 # Words in a row a quotation shares with the rules: on 9,487 live replies, none quoted six
 # of the rules' words in a row but the two that sent the model's notes as the reply.
@@ -188,7 +192,8 @@ def quotes_the_prompt(text: str) -> bool:
     prose = _SPANS_NOT_PROSE.sub(" ", map_fence_blocks(text, lambda _fence, _body: "\n"))
     runs = _rule_runs()
     for quote in _QUOTED.finditer(prose):
-        words = _QUOTE_WORDS.findall(quote.group(1).lower())
+        said = next(group for group in quote.groups() if group is not None)
+        words = _QUOTE_WORDS.findall(said.lower())
         if any(
             " ".join(words[at : at + _QUOTE_RUN]) in runs
             for at in range(len(words) - _QUOTE_RUN + 1)

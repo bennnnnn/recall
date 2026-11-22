@@ -37,6 +37,14 @@ _DISCRIMINANT = "**Substitution**  \n$D = 2^2 - 4(3)(1)$  \n$D = 4 - 12$"
             "D = -8",
             "Since -8 is negative, the equation has no real roots.",
         ),
+        # A unit on the card, not said again in the closing line's own unit.
+        (
+            "$a = 1200\\,\\text{m}$  \n$b = 300\\,\\text{m}$  \n$\\text{d} = 1200 + 300$",
+            "d = 1,600\\,\\text{m}",
+            "So they walked 1,600 m in all.",
+            "d = 1,500\\,\\text{m}",
+            "So they walked 1,500 m in all.",
+        ),
         # A bare expression, a card with no symbol, its decimals kept.
         ("$\\text{x} = 1.5$, $\\text{y} = 2.25$\n\n$1.5 + 2.25$", "3.85", "", "3.75", ""),
     ],
@@ -119,3 +127,13 @@ def test_a_wrong_value_the_working_also_wrote_leaves_the_closing_line() -> None:
     assert note is None
     assert "total = 25" in text
     assert "So the total is 20." not in text and "Hope that helps!" in text
+
+
+def test_only_the_closing_lines_after_the_card_say_it_again() -> None:
+    """A fence or a table row after the card holds its own numbers (review, #2536)."""
+    working = "$a = 1$  \n$x = 1 + 1$"
+    after = 'So x is 3.\n\n| step | 3 |\n|---|---|\n\n```graph\n{"x": 3}\n```\n\nStep 3 done.'
+    text, note = held_cards(_reply(working, "x = 3", after))
+    assert note is None
+    assert "x = 2\n```" in text and "So x is 2." in text
+    assert "| step | 3 |" in text and '{"x": 3}' in text and "Step 3 done." in text

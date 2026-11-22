@@ -170,12 +170,18 @@ def card_slips(text: str, question: str = "") -> list[CardSlip]:
     return found
 
 
-def _repeats(number: str) -> re.Pattern[str]:
-    """The card's wrong number written again in prose or maths, never inside another."""
-    digits = re.escape(number.lstrip("-−"))
-    sign = "[-−]" if number.startswith(("-", "−")) else ""
+# The number a card writes, as written: "-7", "1,200", "3.85" (its unit after it left off).
+_WRITTEN_NUMBER = re.compile(r"[-−]?\d{1,3}(?:,\d{3})+(?:\.\d+)?|[-−]?\d+(?:\.\d+)?")
+
+
+def _repeats(numbers: set[str]) -> re.Pattern[str]:
+    """The card's wrong number written again in prose or maths, in any of its ``numbers``
+    spellings ("1200", "1,200"), never inside another number."""
+    spellings = sorted(numbers, key=len, reverse=True)
+    sign = "[-−]" if spellings[0].startswith(("-", "−")) else ""
     lead = r"(?<![\d.,])" if sign else r"(?<![\d.,\-−])"
-    return re.compile(rf"{lead}{sign}{digits}(?![\d]|[.,]\d)")
+    digits = "|".join(re.escape(number.lstrip("-−")) for number in spellings)
+    return re.compile(rf"{lead}{sign}(?:{digits})(?![\d]|[.,]\d)")
 
 
 def held_cards(text: str, question: str = "") -> tuple[str, str | None]:
@@ -184,20 +190,44 @@ def held_cards(text: str, question: str = "") -> tuple[str, str | None]:
     unknown (the module docstring)."""
     note: str | None = None
     for found in reversed(card_slips(text, question)):
-        right = shown_like(found.value, found.shown)
         if not found.held:
+            right = shown_like(found.value, found.shown)
             note = note or f"Check the answer: ${found.expression} = {right}$, not ${found.shown}$."
             continue
+        # The number alone, as the card wrote it: its unit stays, and is the prose's own.
+        written = _WRITTEN_NUMBER.match(found.shown)
+        number = written.group(0) if written else found.shown
+        said = shown_like(found.value, number)
         body = text[found.body_start : found.body_end]
         at = body.rfind(found.shown)
-        body = body[:at] + right + body[at + len(found.shown) :]
-        wrong = _repeats(plain_arithmetic(found.shown) or found.shown)
-        tail = text[found.body_end :]
-        if wrong.search(text[: found.body_start]) is None:
-            tail = wrong.sub(right, tail)
-        else:
-            # The wrong value is also one the working wrote (a given, a step): which of the
-            # tail's mentions is the card's is unknown, so the lines saying it go.
-            tail = "\n".join(line for line in tail.split("\n") if not wrong.search(line))
-        text = text[: found.body_start] + body + tail
+        body = body[:at] + said + body[at + len(number) :]
+        wrong = _repeats({number, plain_arithmetic(number) or number})
+        closing = _closing_end(text, found.body_end)
+        earlier = wrong.search(text[: found.body_start]) is not None
+        tail = _said_again(text[found.body_end : closing], wrong, said, dropped=earlier)
+        text = text[: found.body_start] + body + tail + text[closing:]
     return text, note
+
+
+def _closing_end(text: str, after: int) -> int:
+    """Where the closing lines after a card end: the next fence (a picture, a table's code,
+    another card), or the reply's end."""
+    later = [fence.start for fence in iter_fences(text) if fence.start >= after]
+    return min(later, default=len(text))
+
+
+# A line that is no sentence of the closing summary: a table row, a heading, a quote.
+_NOT_PROSE = ("|", "#", ">")
+
+
+def _said_again(closing: str, wrong: re.Pattern[str], said: str, *, dropped: bool) -> str:
+    """The closing lines with the card's wrong value said as the right one. When the working
+    also wrote that value (a given, a step), which mention is the card's is unknown, so the
+    lines saying it go. A table row, a heading or a quote is left as written (review, #2536)."""
+    lines: list[str] = []
+    for line in closing.split("\n"):
+        if line.lstrip().startswith(_NOT_PROSE) or not wrong.search(line):
+            lines.append(line)
+        elif not dropped:
+            lines.append(wrong.sub(said, line))
+    return "\n".join(lines)

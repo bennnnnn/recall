@@ -298,6 +298,12 @@ def test_a_tool_call_on_the_users_problem_stays_checked(
             True,
         ),
         ("Factor 2x^2 - 3x - 5", {"action": "factor", "expr": "2*x**2 - 3*x - 5"}, True),
+        # A solve said not to be asked leaves the rewrite the ask (review, #2536).
+        (
+            "Given f(x) = x^2 - 5x + 6, factor it (don't find the roots yet)",
+            {"action": "factor", "expr": "x**2 - 5*x + 6"},
+            True,
+        ),
     ],
 )
 def test_a_model_computation_with_no_reading_answers_what_is_asked(
