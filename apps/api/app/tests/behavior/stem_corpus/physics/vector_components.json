@@ -1,0 +1,237 @@
+[
+ {
+  "id": "vc-owner",
+  "area": "vectors",
+  "prompt": "Draw simple vector diagrams and resolve them into two\ncomponents.\na) 60 N at an angle of 30° from the horizontal.\nb) 45 m/s at an angle of 80° from the horizontal.\nc) 1900 km at an angle of 40° from the vertical.",
+  "expect": "answer",
+  "answer": [
+   51.9615,
+   "N"
+  ],
+  "parts": [
+   [
+    51.9615,
+    "N"
+   ],
+   [
+    30.0,
+    "N"
+   ],
+   [
+    7.8142,
+    "m/s"
+   ],
+   [
+    44.3163,
+    "m/s"
+   ],
+   [
+    1221.2965,
+    "km"
+   ],
+   [
+    1455.4844,
+    "km"
+   ]
+  ],
+  "visual": "vector_sum",
+  "note": "owner's chat 2026-11-20: nothing solved or drawn (the parts read together, and only a force resolved). 60cos30, 60sin30; 45cos80, 45sin80; from the vertical 1900sin40 across, 1900cos40 up"
+ },
+ {
+  "id": "vc-velocity",
+  "area": "vectors",
+  "prompt": "Resolve 45 m/s at an angle of 80° from the horizontal into two components.",
+  "expect": "answer",
+  "answer": [
+   7.8142,
+   "m/s"
+  ],
+  "parts": [
+   [
+    7.8142,
+    "m/s"
+   ],
+   [
+    44.3163,
+    "m/s"
+   ]
+  ],
+  "visual": "vector_sum",
+  "note": "45cos80, 45sin80"
+ },
+ {
+  "id": "vc-vertical",
+  "area": "vectors",
+  "prompt": "Resolve 1900 km at an angle of 40° from the vertical into two components.",
+  "expect": "answer",
+  "answer": [
+   1221.2965,
+   "km"
+  ],
+  "parts": [
+   [
+    1221.2965,
+    "km"
+   ],
+   [
+    1455.4844,
+    "km"
+   ]
+  ],
+  "visual": "vector_sum",
+  "note": "from the vertical: 1900sin40 across, 1900cos40 up"
+ },
+ {
+  "id": "vc-plane",
+  "area": "vectors",
+  "prompt": "A plane flies at 250 km/h, 30° north of east. Find the components of its velocity.",
+  "expect": "answer",
+  "answer": [
+   216.5064,
+   "km/h"
+  ],
+  "parts": [
+   [
+    216.5064,
+    "km/h"
+   ],
+   [
+    125.0,
+    "km/h"
+   ]
+  ],
+  "visual": "vector_sum",
+  "note": "a bearing from east: 250cos30 east, 250sin30 north; the plane is an aircraft",
+  "signed": true
+ },
+ {
+  "id": "vc-hiker",
+  "area": "vectors",
+  "prompt": "A hiker walks 5 km 40° west of north. Find the components of the displacement.",
+  "expect": "answer",
+  "answer": [
+   -3.2139,
+   "km"
+  ],
+  "parts": [
+   [
+    -3.2139,
+    "km"
+   ],
+   [
+    3.8302,
+    "km"
+   ]
+  ],
+  "visual": "vector_sum",
+  "note": "from north: 5sin40 west (negative), 5cos40 north",
+  "signed": true
+ },
+ {
+  "id": "vc-accel",
+  "area": "vectors",
+  "prompt": "Resolve an acceleration of 3 m/s^2 at 20° below the horizontal into components.",
+  "expect": "answer",
+  "answer": [
+   2.8191,
+   "m/s^2"
+  ],
+  "parts": [
+   [
+    2.8191,
+    "m/s^2"
+   ],
+   [
+    -1.0261,
+    "m/s^2"
+   ]
+  ],
+  "visual": "vector_sum",
+  "note": "3cos20 across, 3sin20 down (negative)",
+  "signed": true
+ },
+ {
+  "id": "vc-momentum",
+  "area": "vectors",
+  "prompt": "Find the horizontal and vertical components of a momentum of 12 kg m/s at 60° to the horizontal.",
+  "expect": "answer",
+  "answer": [
+   6.0,
+   "kg m/s"
+  ],
+  "parts": [
+   [
+    6.0,
+    "kg m/s"
+   ],
+   [
+    10.3923,
+    "kg m/s"
+   ]
+  ],
+  "visual": "vector_sum",
+  "note": "12cos60, 12sin60"
+ },
+ {
+  "id": "vc-force",
+  "area": "vectors",
+  "prompt": "A rope pulls a sled with a force of 80 N at 35° above the horizontal. Resolve the force into horizontal and vertical components.",
+  "expect": "answer",
+  "answer": [
+   65.5322,
+   "N"
+  ],
+  "parts": [
+   [
+    65.5322,
+    "N"
+   ],
+   [
+    45.8861,
+    "N"
+   ]
+  ],
+  "visual": "vector_sum",
+  "note": "80cos35, 80sin35"
+ },
+ {
+  "id": "vc-opposite-west",
+  "area": "vectors",
+  "prompt": "A plane flies at 250 km/h, 30° north of east. Find the westward component of its velocity.",
+  "expect": "answer",
+  "answer": [
+   216.5064,
+   "km/h"
+  ],
+  "signed": true,
+  "visual": "vector_sum",
+  "note": "review 2026-11-21: the westward component is -250cos30 = -216.5 km/h west, which the sweep reads east-positive as +216.5; a card of 217 km/h west (or east, as though east were asked) has the wrong sign"
+ },
+ {
+  "id": "vc-opposite-north",
+  "area": "vectors",
+  "prompt": "A ship sails 25 km on a bearing of 240°. Find the northward component.",
+  "expect": "answer",
+  "answer": [
+   -12.5,
+   "km"
+  ],
+  "signed": true,
+  "visual": "vector_sum",
+  "note": "review 2026-11-21: 240° points south of west, so its northward component is -25cos60 = -12.5 km"
+ },
+ {
+  "id": "vc-vertical-obtuse",
+  "area": "vectors",
+  "prompt": "A force of 50 N acts at 130° from the vertical. Find its horizontal and vertical components.",
+  "expect": "decline",
+  "note": "review 2026-11-21: past 90° from the vertical with no side named, the vector may lie left or right; no card"
+ },
+ {
+  "id": "vc-bearing-past-turn",
+  "area": "vectors",
+  "prompt": "A ship sails 25 km on a bearing of 400°. Find its east and north components.",
+  "expect": "decline",
+  "note": "review 2026-11-21: a bearing runs 0° to 360°"
+ }
+]

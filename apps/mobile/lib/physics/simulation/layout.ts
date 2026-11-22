@@ -1,3 +1,4 @@
+import { layoutAxes, type AxesLayout } from "@/lib/physics/simulation/axes";
 import { type LabelBox, type Segment } from "@/lib/physics/simulation/labels";
 import { sceneFrames } from "@/lib/physics/simulation/layoutFrames";
 import {
@@ -57,6 +58,8 @@ export type SceneLayout = {
   restLines: Segment[];
   /** Where each body's faint strobe copies sit; empty for a body that never moves. */
   strobes: ScreenPoint[][];
+  /** A vector diagram's x and y axes, when the server set them. */
+  axes?: AxesLayout;
 };
 
 /**
@@ -82,8 +85,12 @@ export function layoutSimulationScene(
   const { derived, derivedLines } = layoutDerivedArrows(scene);
   const { tethers, restLines, tetherLines, pulley } = layoutTethers(scene);
   const { angleShapes, arcLines } = layoutAngles(scene);
-  const lines = { vectorLines, derivedLines, tetherLines, restLines, arcLines };
+  const axes = layoutAxes(spec.axes, transform, width, height, measureText, fontSize);
+  const axisLines = axes ? [axes.x.line, axes.y.line] : [];
+  const lines = { vectorLines, derivedLines, tetherLines, restLines, arcLines, axisLines };
   const { fixed, solids, planet } = labelObstacles(scene, pulley);
+  // The axes' names are where the server's axes end: other labels keep clear of them.
+  if (axes) for (const boxes of fixed) boxes.push(axes.x.label.box, axes.y.label.box);
   const bodyLabels = layoutBodyLabels(scene, lines, derived, fixed);
   const plans = planVectorLabels(scene, shafts);
   const wanted = [
@@ -121,5 +128,6 @@ export function layoutSimulationScene(
     pulley,
     restLines,
     strobes,
+    ...(axes ? { axes } : {}),
   };
 }

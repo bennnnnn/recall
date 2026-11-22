@@ -1,6 +1,7 @@
 /** The scene's fixed parts on screen: strings and their supports, the pulley's rope, angle arcs. */
 import { bodyEdgeDistance } from "@/lib/physics/simulation/arrows";
 import { LABEL_GAP, type LabelBox, type Segment } from "@/lib/physics/simulation/labels";
+import { type SimulationAngle, type SimulationVector } from "@/lib/physics/simulation/spec";
 import { type ScreenPoint } from "@/lib/physics/simulation/viewport";
 
 /** A short hatched bar: the fixed point a string hangs from. */
@@ -166,11 +167,71 @@ export function angleLabelBox(
   labelWidth: number,
   fontSize: number,
 ): LabelBox {
-  const mid = ((startDeg + angleSweep(startDeg, endDeg) / 2) * Math.PI) / 180;
+  return angleLabelBoxToward(
+    vertex,
+    startDeg + angleSweep(startDeg, endDeg) / 2,
+    radius,
+    labelWidth,
+    fontSize,
+  );
+}
+
+/** How far past an arc's edge its label may sit when the angle is too thin to hold it. */
+const BEYOND_EDGE_DEG = 22;
+
+/**
+ * Where else an angle's label may go: just outside its arc, past either edge. A steep
+ * 80° beside a short side has no room inside its wedge, and nudged out it landed across
+ * the next side, reading as that side's label (owner, 2026-11-20).
+ */
+export function angleLabelBoxesBeyond(
+  vertex: ScreenPoint,
+  startDeg: number,
+  endDeg: number,
+  radius: number,
+  labelWidth: number,
+  fontSize: number,
+): LabelBox[] {
+  const sense = angleSweep(startDeg, endDeg) >= 0 ? 1 : -1;
+  return [endDeg + sense * BEYOND_EDGE_DEG, startDeg - sense * BEYOND_EDGE_DEG].map((deg) =>
+    angleLabelBoxToward(vertex, deg, radius, labelWidth, fontSize),
+  );
+}
+
+/** A label box just past an arc of `radius`, in the direction `deg` from its vertex. */
+function angleLabelBoxToward(
+  vertex: ScreenPoint,
+  deg: number,
+  radius: number,
+  labelWidth: number,
+  fontSize: number,
+): LabelBox {
+  const mid = (deg * Math.PI) / 180;
   const ux = Math.cos(mid);
   const uy = -Math.sin(mid);
   const reach = LABEL_GAP + (Math.abs(ux) * labelWidth) / 2 + (Math.abs(uy) * fontSize) / 2;
   const cx = vertex.px + ux * (radius + reach);
   const cy = vertex.py + uy * (radius + reach);
   return { x: cx - labelWidth / 2, y: cy - fontSize / 2, width: labelWidth, height: fontSize };
+}
+
+/** An arc edge within this many degrees of an arrow runs along it. */
+const ARC_EDGE_TOLERANCE_DEG = 1;
+
+/**
+ * Whether an angle's arc sits on an arrow: the arrow's tail is the arc's vertex
+ * (within a thousandth of the scene's `span`) and one of the arc's edges runs along
+ * it. A riding arrow's anchor is an offset from its body, not a point in the
+ * scene, so no arc sits on it. The stages (when an arc shows) and the layout (how
+ * far an arc may reach) both ask this, so they agree on which arrows an arc measures.
+ */
+export function arcSitsOn(angle: SimulationAngle, vector: SimulationVector, span: number): boolean {
+  if (vector.body !== undefined) return false;
+  const near = span * 1e-3;
+  if (Math.abs(vector.anchor.x - angle.vertex.x) > near) return false;
+  if (Math.abs(vector.anchor.y - angle.vertex.y) > near) return false;
+  const heading = (Math.atan2(vector.dy, vector.dx) * 180) / Math.PI;
+  return [angle.startDeg, angle.endDeg].some(
+    (edge) => Math.abs(((((edge - heading) % 360) + 540) % 360) - 180) <= ARC_EDGE_TOLERANCE_DEG,
+  );
 }

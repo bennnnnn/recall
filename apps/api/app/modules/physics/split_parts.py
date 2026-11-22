@@ -113,11 +113,23 @@ def changes_the_situation(ask: str) -> bool:
     return _RELATIVE.search(ask) is not None
 
 
-def _own_values(asks: list[str]) -> bool:
-    """Every part states its own values, of the same kinds ("the earth, where g = 10
-    m/s²", "the moon, where g = 1.6 m/s²"), so no part needs another's."""
+def _own_values(asks: list[str], givens: str = "") -> bool:
+    """Every part states its own values, so no part needs another's: values of the same kinds
+    ("the earth, where g = 10 m/s²", "the moon, where g = 1.6 m/s²"), or of any kinds under a
+    stem that states none ("Resolve each into two components. a) 60 N at 30° … b) 45 m/s at
+    80° …": read with the others, the second part was the first part's 60 N, 2026-11-20)."""
     kinds = [frozenset(unit.lower() for unit in _VALUE_UNIT.findall(ask)) for ask in asks]
-    return all(kinds) and len(set(kinds)) == 1
+    if not all(kinds):
+        return False
+    if len(set(kinds)) == 1:
+        return True
+    # Items under one instruction: the stem states no values and the parts ask nothing, each
+    # only a setup ("a) 60 N at 30° from the horizontal."). A part that asks ("What is its
+    # speed after 2 s, taking g = 10 m/s²?") may hold a value a later one needs, so such
+    # parts are read together (review, 2026-11-20).
+    return (
+        bool(givens) and _VALUE_UNIT.search(givens) is None and not any(_asks(ask) for ask in asks)
+    )
 
 
 def _solved(text: str, settings: Settings) -> VerifiedPhysicsBlock | None:
@@ -191,7 +203,7 @@ def solve_in_parts(text: str, settings: Settings) -> VerifiedPhysicsBlock | None
         return None
     if any(changes_the_situation(ask) for ask in parts.asks):
         return None
-    own = _own_values(parts.asks)
+    own = _own_values(parts.asks, parts.givens)
     blocks: list[VerifiedPhysicsBlock] = []
     workings: list[PhysicsPartWorking] = []
     for number, ask in enumerate(parts.asks):
@@ -286,8 +298,9 @@ def joined_parts(
     ]
     for letter, block in zip("abcdefgh", blocks, strict=False):
         lines.extend([f"Part ({letter}):", block.text])
-    pictures = next((spec for spec in map(_pictures, blocks) if spec), [])
-    # Each part keeps its own pictures, so finalize places them right after its card.
+    # Each part's own pictures, in the parts' order: a diagram per part asked for one. Each
+    # part keeps them too, so finalize places them right after its card.
+    pictures = [spec for block in blocks for spec in _pictures(block)]
     workings = [
         replace(working, pictures=tuple(_pictures(block)))
         for working, block in zip(workings, blocks, strict=False)

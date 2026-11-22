@@ -25,6 +25,7 @@ import {
   angleArrowHead,
   angleRadius,
   angleSweep,
+  arcSitsOn,
   onPulleyRim,
   pulleyRope,
   supportGeometry,
@@ -85,7 +86,8 @@ export type DerivedArrow = {
 };
 
 /** An angle before its label is placed. */
-export type AngleShape = Omit<AngleLayout, "label">;
+/** An angle's layout before its label is placed; `cramped` when its arc shrank to fit a short side. */
+export type AngleShape = Omit<AngleLayout, "label"> & { cramped: boolean };
 
 /** Every line a label might sit on, at each frame. */
 export type SceneLines = {
@@ -94,6 +96,8 @@ export type SceneLines = {
   tetherLines: (Segment | null)[][];
   restLines: Segment[];
   arcLines: Segment[][];
+  /** A vector diagram's x and y axes; labels keep off them as off any line. */
+  axisLines?: Segment[];
 };
 
 function unit(dx: number, dy: number): { ux: number; uy: number } {
@@ -271,6 +275,28 @@ export function layoutTethers(scene: SceneFrames): {
   return { tethers, restLines, tetherLines, pulley };
 }
 
+/** The smallest arc an angle keeps, in px, however short the sides around it. */
+const ANGLE_MIN_FITTED_RADIUS = 10;
+/** How much of the shorter side an arc may reach along. */
+const ANGLE_SIDE_SHARE = 0.45;
+
+/**
+ * The screen length of the shortest stated arrow the angle sits on: one whose tail is the
+ * arc's vertex and which runs along one of its edges. The arc stays inside it, so an 80°
+ * angle on a 7.81 m/s side does not run past that side into the next one.
+ */
+function shortestEdge(scene: SceneFrames, angle: SimulationAngle): number | null {
+  const { spec, transform } = scene;
+  const span = Math.max(spec.xMax - spec.xMin, spec.yMax - spec.yMin);
+  let shortest: number | null = null;
+  for (const vector of spec.vectors) {
+    if (!arcSitsOn(angle, vector, span)) continue;
+    const length = Math.hypot(vector.dx, vector.dy) * transform.scale;
+    shortest = shortest === null ? length : Math.min(shortest, length);
+  }
+  return shortest;
+}
+
 export function layoutAngles(scene: SceneFrames): {
   angleShapes: AngleShape[];
   arcLines: Segment[][];
@@ -278,7 +304,12 @@ export function layoutAngles(scene: SceneFrames): {
   const { spec, transform } = scene;
   const angleShapes = spec.angles.map((angle) => {
     const vertex = worldToScreen(angle.vertex.x, angle.vertex.y, transform);
-    const radius = angleRadius(angle.startDeg, angle.endDeg);
+    const edge = shortestEdge(scene, angle);
+    const wanted = angleRadius(angle.startDeg, angle.endDeg);
+    const radius =
+      edge === null
+        ? wanted
+        : Math.min(wanted, Math.max(ANGLE_MIN_FITTED_RADIUS, edge * ANGLE_SIDE_SHARE));
     let arc = angleArcPoints(vertex, angle.startDeg, angle.endDeg, radius);
     let head: AngleLayout["head"] = null;
     if (angle.arrow) {
@@ -291,7 +322,7 @@ export function layoutAngles(scene: SceneFrames): {
         arc = angleArcPoints(vertex, angle.startDeg, angle.startDeg + sweep - short, radius);
       }
     }
-    return { angle, vertex, radius, arc, head };
+    return { angle, vertex, radius, arc, head, cramped: radius < wanted };
   });
   const arcLines = angleShapes.map(({ arc, head }) => [
     ...polylineSegments(arc),
@@ -306,7 +337,7 @@ export function linesAt(
   frame: number,
   skip: { vector?: number; derived?: number; angle?: number },
 ): Segment[] {
-  const { vectorLines, derivedLines, tetherLines, restLines, arcLines } = sceneLines;
+  const { vectorLines, derivedLines, tetherLines, restLines, arcLines, axisLines } = sceneLines;
   const lines: Segment[] = [];
   vectorLines.forEach((frames, i) => {
     const line = frames[frame];
@@ -320,7 +351,7 @@ export function linesAt(
     const line = frames[frame];
     if (line) lines.push(line);
   }
-  lines.push(...restLines);
+  lines.push(...restLines, ...(axisLines ?? []));
   arcLines.forEach((segments, i) => {
     if (i !== skip.angle) lines.push(...segments);
   });
