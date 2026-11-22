@@ -13,8 +13,8 @@ from app.modules.money.catalog import Product
 from app.modules.money.numbers import day_text, money_text, percent_text
 from app.modules.money.periods import FREQUENCIES, rate_words
 from app.modules.money.rates import MarketRate
-from app.modules.money.read import MoneyRequest, sized
-from app.modules.money.solve import Worked, rate_name
+from app.modules.money.read import MoneyRequest
+from app.modules.money.solve import Worked, missing, rate_name
 from app.modules.money.standing import term_name
 from app.services.workout import WORKOUT_PROMPT_RULE
 
@@ -75,10 +75,10 @@ MONEY_RATE_MISSING = (
     "The user gave no interest rate and no current average was found. Ask one short "
     "question for the rate their lender or card quoted; do not guess one."
 )
-# A request a model read from the chat with nothing to size it (``read_check``).
+# A request read from the chat missing more than its rate (``read_check``).
 MONEY_AMOUNT_MISSING = (
-    "The app works the numbers from the amount, which the user has not given yet. Do not "
-    "choose an amount or compute a payment or a total yourself: ask for it in one short "
+    "The app works the numbers from the {what}, which the user has not given yet. Do not "
+    "choose a value or compute a payment or a total yourself: ask for it in one short "
     "question, and say the app will work the figures and add a calculator card."
 )
 # "Can I afford a $1 million home?": the price beside what the income borrows.
@@ -144,7 +144,7 @@ def money_block(
     if request.rates_only:
         return "\n".join((head, _rates_line(request, average)))
     if worked is None:
-        return "\n".join((head, MONEY_RATE_MISSING if sized(request) else MONEY_AMOUNT_MISSING))
+        return "\n".join((head, _missing_line(request)))
     lines = [head]
     if request.changed:
         lines.append(MONEY_FOLLOW_UP.format(changes="; ".join(_changes(request, worked))))
@@ -177,6 +177,17 @@ def money_block(
         )
     lines.append(MONEY_WORKED_RULES if worked_problem else MONEY_REPLY_RULES)
     return "\n".join(lines)
+
+
+def _missing_line(request: MoneyRequest) -> str:
+    """What the block asks for when nothing was worked: the rate, when it is all that is
+    missing, else the other inputs the user has not given ("yearly gross income")."""
+    rate = rate_name(request.product)
+    others = [name for name in missing(request) if name != rate]
+    if not others:
+        return MONEY_RATE_MISSING
+    what = " and ".join(_INPUT_WORDS.get(name, name) for name in others)
+    return MONEY_AMOUNT_MISSING.format(what=what)
 
 
 def _changes(request: MoneyRequest, worked: Worked) -> list[str]:

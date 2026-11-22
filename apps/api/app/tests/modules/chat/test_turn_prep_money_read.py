@@ -197,7 +197,8 @@ async def test_no_amount_yet_asks_for_it_and_works_nothing(
     _setup(monkeypatch, MoneyReading(calculate=True, product="loan", values=values), "money")
     turn = await _run(line, fake_redis)
     assert turn is not None and turn.worked is None
-    assert MONEY_AMOUNT_MISSING in turn.block
+    assert MONEY_AMOUNT_MISSING.format(what="amount") in turn.block
+    assert turn.lookup is None  # nothing to work: no search is spent on today's average
     assert await service.finish_money_reply(turn, "How much?", Settings()) == "How much?"
 
 

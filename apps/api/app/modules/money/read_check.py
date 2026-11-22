@@ -145,14 +145,15 @@ def _request(
             values["apr"] = stated.get("apr", stated.get("rate", 0.0))
     elif found.family == "afford":
         income = _income(stated)
+        # A home's price of 0 is no price ("0 debt" holds a 0 too).
+        price = stated["price"] if stated.get("price", 0) > 0 else None
         if income is None:
-            return _unsized(found, stated, used, chat)
+            return _unsized(found, stated, used, chat, price)
         values["income"] = income
         if "debts" in stated:
             if stated["debts"] < 0:
                 return None
             values["debts"] = stated["debts"]
-        price = stated.get("price")
     else:
         for name in ("start", "deposit"):
             if name in stated:
@@ -179,10 +180,18 @@ def _request(
     )
 
 
-def _unsized(found: Product, stated: dict[str, float], used: bool, chat: Chat) -> MoneyRequest:
-    """A request with nothing to size it yet: the block asks for the amount, no card."""
+def _unsized(
+    found: Product,
+    stated: dict[str, float],
+    used: bool,
+    chat: Chat,
+    price: float | None = None,
+) -> MoneyRequest:
+    """A request with nothing to size it yet: the block asks for what is missing (the
+    amount, or for what an income affords the income), no card."""
     values: dict[str, float] = {name: stated[name] for name in ("rate", "apr") if name in stated}
-    return MoneyRequest(found, values, _currency(chat), variant=_variant(found, used, chat))
+    variant = _variant(found, used, chat)
+    return MoneyRequest(found, values, _currency(chat), variant=variant, price=price)
 
 
 def _income(stated: dict[str, float]) -> float | None:
@@ -197,7 +206,8 @@ def _income(stated: dict[str, float]) -> float | None:
 
 def _loan_amount(stated: dict[str, float]) -> tuple[float, float | None, float | None] | None:
     """The sum borrowed, the price and the sum down: the loan named, else the price less
-    the money put down. A share down that is no part of the price works none."""
+    the money put down (0% down is the whole price). A share down that is no part of the
+    price works none."""
     if "amount" in stated:
         amount = stated["amount"]
         return (amount, None, None) if amount > 0 else None
@@ -207,7 +217,7 @@ def _loan_amount(stated: dict[str, float]) -> tuple[float, float | None, float |
     down = stated.get("down")
     if down is None and "down_percent" in stated:
         share = stated["down_percent"]
-        if not 0 < share < 100:
+        if not 0 <= share < 100:
             return None
         down = round(price * share / 100, 2)
     if down is None:

@@ -125,7 +125,7 @@ class StatedValue(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     name: ValueName
-    value: float
+    value: float = Field(allow_inf_nan=False)
     quote: str = Field(max_length=120)
     said_by: Literal["user", "assistant"] = Field(default="user", alias="from")
 

@@ -44,6 +44,18 @@ def rate_name(product: Product) -> str:
     return "apr" if product.family == "card_payoff" else "rate"
 
 
+def missing(request: MoneyRequest) -> tuple[str, ...]:
+    """The inputs neither the request nor the product's defaults give, in catalog order:
+    the rate is filled from today's average when one is found; any other leaves nothing to
+    work (a card payoff with no monthly payment, a loan read from the chat with no amount)."""
+    product = request.product
+    return tuple(
+        item.name
+        for item in product.inputs
+        if item.name not in request.values and item.name not in product.defaults
+    )
+
+
 def work(request: MoneyRequest, average: float | None) -> Worked | None:
     """The request worked through, or None when an input is still missing."""
     product = request.product

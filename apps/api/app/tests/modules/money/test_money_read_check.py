@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 from typing import Any
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from pydantic import ValidationError
 
-from app.modules.money.model_read import MoneyReading, StatedValue, chat_lines
+from app.core.config import Settings
+from app.modules.money.block import MONEY_AMOUNT_MISSING, money_block
+from app.modules.money.model_read import MoneyReading, StatedValue, chat_lines, read_money_chat
 from app.modules.money.read import sized
 from app.modules.money.read_check import Chat, checked_request
+from app.modules.money.solve import missing
 
 _CHAT = Chat(
     user_lines=[
@@ -198,3 +203,46 @@ def test_an_income_never_sizes_a_loan() -> None:
 
 def test_a_reading_with_no_value_is_left_to_the_reply() -> None:
     assert checked_request(_reading("afford"), _AFFORD) is None
+
+
+@pytest.mark.parametrize("gate", [AsyncMock(return_value=True), AsyncMock(side_effect=OSError)])
+async def test_no_money_read_past_the_spend_cap_or_in_an_outage(gate: AsyncMock) -> None:
+    with (
+        patch("app.core.redis.get_redis_client", MagicMock()),
+        patch("app.services.quota.global_spend_exceeded", gate),
+        patch("app.gateways.structured_completion.complete_structured", AsyncMock()) as call,
+    ):
+        assert await read_money_chat(Settings(), [], "72 months") is None
+    call.assert_not_awaited()
+
+
+def test_a_value_that_is_no_number_is_no_reading() -> None:
+    with pytest.raises(ValidationError):
+        StatedValue.model_validate({"name": "price", "value": float("inf"), "quote": "40k"})
+
+
+def test_nothing_down_borrows_the_whole_price() -> None:
+    chat = Chat(user_lines=["a car for 40k, 0% down"], replies=[])
+    reading = _reading("car", ("price", 40000, "40k"), ("down_percent", 0, "0% down"))
+    request = checked_request(reading, chat)
+    assert request is not None and request.values["amount"] == 40000
+
+
+def test_what_is_missing_is_what_the_block_asks_for() -> None:
+    card = Chat(user_lines=["I owe $6,000 on my card", "APR is 24%"], replies=[])
+    reading = _reading("card", ("balance", 6000, "$6,000"), ("apr", 24, "24%"))
+    request = checked_request(reading, card)
+    assert request is not None and missing(request) == ("payment",)
+    block = money_block(request, None, None)
+    assert MONEY_AMOUNT_MISSING.format(what="monthly payment") in block
+    # What an income affords, with a home's price and no income: the income is asked for,
+    # and a price of 0 ("0 debt") is no price.
+    home = Chat(user_lines=["Can I afford a $1 million home?"], replies=[])
+    afford = checked_request(_reading("afford", ("price", 1e6, "$1 million home")), home)
+    assert afford is not None and afford.price == 1e6
+    assert MONEY_AMOUNT_MISSING.format(what="yearly gross income") in money_block(
+        afford, None, None
+    )
+    zero = Chat(user_lines=["0 debt, 200k a year"], replies=[])
+    reading = _reading("afford", ("income", 200000, "200k a year"), ("price", 0, "0 debt"))
+    assert checked_request(reading, zero).price is None  # type: ignore[union-attr]

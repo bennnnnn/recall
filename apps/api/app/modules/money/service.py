@@ -40,9 +40,9 @@ from app.modules.money.model_read import read_money_chat
 from app.modules.money.note import market_note, reading_note
 from app.modules.money.purchase import purchase_request
 from app.modules.money.rates import MarketRate, current_average
-from app.modules.money.read import MoneyRequest, read_money_request, sized
+from app.modules.money.read import MoneyRequest, read_money_request
 from app.modules.money.read_check import Chat, checked_request
-from app.modules.money.solve import Worked, rate_name, work
+from app.modules.money.solve import Worked, missing, rate_name, work
 from app.modules.money.standing import COMMON_TERMS, about_the_loan, figures
 from app.modules.money.worked_problem import lays_out_working
 
@@ -159,21 +159,23 @@ async def _prepared(
         term = product.defaults.get("years", product.defaults.get("months"))
     lookup = stand_in = None
     country = country_for(request.currency, location)
-    if product.rate_lookup(request.variant) is not None:
+    # A request missing more than its rate works nothing: no search is spent on it.
+    workable = request.rates_only or set(missing(request)) <= {rate_name(product)}
+    if workable and product.rate_lookup(request.variant) is not None:
         lookup = create_background_task(
             current_average(
                 product, term, country, settings, redis, user=user, variant=request.variant
             ),
             name="money_average",
         )
-    if product.variant(request.variant) is not None and product.lookup is not None:
+    if workable and product.variant(request.variant) is not None and product.lookup is not None:
         stand_in = create_background_task(
             current_average(product, term, country, settings, redis, user=user),
             name="money_average_stand_in",
         )
     average = None
     needs_rate = request.rates_only or rate_name(product) not in request.values
-    if lookup is not None and needs_rate and sized(request):
+    if lookup is not None and needs_rate:
         average = await _average(request, lookup, stand_in, _PROMPT_WAIT_SECONDS)
     worked = None if request.rates_only else work(request, average.value if average else None)
     shown = card_values(last_reply).get(rate_name(product)) if request.changed else None

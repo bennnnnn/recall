@@ -349,7 +349,7 @@ request with values but nothing to size it (no amount yet) gets a block that ask
 works nothing; a reading with no value at all is left to the reply. The turn's read is
 waited on here at most `live_read_wait_seconds`, as the reply waits on it anyway; small talk
 is never waited on. `tests/behavior/money_eval.py` measures the path on
-`money_corpus.json` (52 lines: the owner's chat, loans, cards and savings told over several
+`money_corpus.json` (51 lines: the owner's chat, loans, cards and savings told over several
 lines, what an income affords, and look-alikes that must get no card).
 
 ## Today's rates
