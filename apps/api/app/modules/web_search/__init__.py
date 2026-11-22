@@ -26,6 +26,7 @@ if TYPE_CHECKING:
         strip_sources_from_text,
     )
     from app.modules.web_search.geo_intent import (
+        LOCATION_ASK_OPENING,
         format_location_not_set_answer,
         is_ambiguous_local_places_query,
         is_distance_query,
@@ -57,6 +58,7 @@ _EXPORTS = {
     "asks_about_a_place": "homework",
     "drop_source_credits": "source_credits",
     "format_location_not_set_answer": "geo_intent",
+    "LOCATION_ASK_OPENING": "geo_intent",
     "format_search_block": "formatting",
     "format_search_empty_block": "formatting",
     "format_sources_fence": "formatting",
@@ -79,6 +81,7 @@ __all__ = [
     "GEO_ACTIVE_LOCATION_HINT",
     "GEO_DISTANCE_HINT",
     "LOCAL_PLACES_FORMAT_HINT",
+    "LOCATION_ASK_OPENING",
     "WEB_SEARCH_HINT",
     "SearchSource",
     "TurnTavilyBudget",

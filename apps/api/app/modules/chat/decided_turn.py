@@ -48,6 +48,7 @@ from app.modules.chat.decider_read import NO_ANSWER, OTHER_ANSWER, READ_SUBJECTS
 from app.modules.chat.drawing_turn import ask_for_a_drawing
 from app.modules.chat.drawn_picture import app_draws, solve_draws
 from app.modules.chat.follow_up_read import note_the_follow_up
+from app.modules.chat.instant_by_read import TALKED_THROUGH
 from app.modules.chat.json_output import is_json_request
 from app.modules.chat.lesson_again import lesson_again
 from app.modules.chat.model_routing.decided import decided_lane, decided_level, math_backups
@@ -143,9 +144,19 @@ async def decide_from_the_read(ctx: StreamContext, settings: Settings) -> None:
         return
     if _replies_to_the_card(ctx, read):
         _without_worked_layout(ctx)
+    elif read.follow in TALKED_THROUGH:
+        _talked_through(ctx)
     else:
         _worked_layout(ctx, settings, read)
     _follow_note(ctx, read)
+
+
+def _talked_through(ctx: StreamContext) -> None:
+    """ "explain it simpler pls", "wait how", "go on": the last answer talked through, never the
+    same calculation laid out again. In 100 casual maths turns (2026-11-22) a follow-up asking
+    for a simpler explanation got the worked layout of the problem before it, 96% the same
+    reply. No ```worked contract; the instant reply went before (``instant_by_read``)."""
+    _without_worked_layout(ctx)
 
 
 def _leave_the_picture(ctx: StreamContext, settings: Settings, read: TurnDecision | None) -> None:
@@ -453,7 +464,9 @@ def _follow_note(ctx: StreamContext, read: TurnDecision) -> None:
     note = FOLLOW_NOTES.get(read.follow or "")
     if note is None or ctx.after_card:
         return
-    if _worked(ctx) or ctx.worked is not None:
+    # Numbers a server path worked are the reply's to present, unless the message asks them
+    # explained: then the note says how (``TALKED_THROUGH``).
+    if (_worked(ctx) or ctx.worked is not None) and read.follow not in TALKED_THROUGH:
         return
     if active_lesson_step(ctx.recent_messages) or outline_awaits_pick(ctx.recent_messages):
         return

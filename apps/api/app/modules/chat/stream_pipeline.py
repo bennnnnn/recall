@@ -25,6 +25,7 @@ from app.modules.chat.drawing_turn import write_for_a_picture
 from app.modules.chat.finalize_passes import enrich_final_content
 from app.modules.chat.finalize_registry import mark_pending_finalize, register_pending_finalize
 from app.modules.chat.follow_up_read import followed_for_questions
+from app.modules.chat.instant_by_read import instant_reply_by_read
 from app.modules.chat.late_photo import follow_late_photo
 from app.modules.chat.post_turn import enqueue_post_turn_jobs
 from app.modules.chat.prompt_inject import conversation_turns
@@ -237,6 +238,7 @@ async def _produce_reply(
     # what its card draws none of, give way to the model's reply around the same card.
     await write_the_rest(ctx, settings)
     await write_for_a_picture(ctx, settings)
+    await instant_reply_by_read(ctx, settings)
     if ctx.instant_reply:
         async for token in run_instant_reply_path(ctx, should_cancel=should_cancel, accum=accum):
             yield token
