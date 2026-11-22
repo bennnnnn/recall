@@ -4,7 +4,13 @@ from __future__ import annotations
 
 import pytest
 
-from app.modules.chat.working_check import is_worked_solution, working_note, wrong_steps
+from app.modules.chat.working_check import (
+    corrected_approximations,
+    is_worked_solution,
+    working_note,
+    wrong_steps,
+)
+from app.modules.chat.working_systems import unheld_equations
 
 
 @pytest.mark.parametrize(
@@ -174,3 +180,295 @@ def test_a_slip_on_a_rounded_result_is_still_one(reply: str) -> None:
 )
 def test_a_carried_value_stays_with_its_own_result(reply: str) -> None:
     assert wrong_steps(reply)
+
+
+# Live, 2026-11-21: hard geometry replies whose working slipped where the old check could
+# not see (a root, a function of degrees, a name worked out on two lines, an exact form).
+@pytest.mark.parametrize(
+    ("reply", "left", "value"),
+    [
+        (
+            "**Substitution**\n$L = \\frac{1}{21} \\sqrt{(6)(14)(28)(48)}$\n"
+            "$L = \\frac{1}{21} \\sqrt{279552}$\n$L = \\frac{1}{21} \\times 528.915$",
+            "\\frac{1}{21} \\sqrt{(6)(14)(28)(48)}",
+            16.0,
+        ),
+        (
+            "$\\text{Area}(ABC) = \\sqrt{11375}$\n$\\text{Area}(ABC) = 25\\sqrt{73}\\ \\text{cm}^2$",
+            "\\sqrt{11375}",
+            106.6536,
+        ),
+        ("$a = 10 \\sin 30° \\times 2 = 12$", "10 \\sin 30° \\times 2", 10.0),
+        ("$A = \\pi (6)^2 = 112$", "\\pi (6)^2", 113.0973),
+    ],
+)
+def test_a_slip_through_a_root_a_sine_or_a_name_s_next_line_is_found(
+    reply: str, left: str, value: float
+) -> None:
+    steps = wrong_steps(reply)
+    assert steps and steps[0].left == left and steps[0].value == pytest.approx(value, rel=1e-4)
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "$x = \\frac{4 + 2}{2}$\n$x = 3$\n$x = \\frac{4 - 2}{2}$\n$x = 1$",
+        "$x = 1$\n$x = 3$",
+        # Two statements in one line, then each alone (live, 2026-11-21: "√36 = 6, not 10").
+        "$l_{maj} = 2(10) = 20, l_{min} = 2(6) = 12$\n$l_{maj} = 20$\n$l_{min} = 12$",
+        # Two roots as expressions on consecutive lines (review, #2520).
+        "$x = \\frac{4 + 2}{2}$\n$x = \\frac{4 - 2}{2}$",
+        "$x = \\frac{-b \\pm \\sqrt{16}}{2}$\n$x = \\frac{6 + 4}{2}$",
+        "$m_b = \\frac{1}{2}\\sqrt{592}$\n$m_b = \\frac{1}{2}\\sqrt{16 \\times 37}$\n$m_b = 2\\sqrt{37}$",
+        "$h = 40 \\tan 35° = 28.01$ m",
+        "$A = 36\\pi$\n$A \\approx 113.10$",
+        "$R = \\frac{17 \\times 25 \\times 28}{4 \\times 210} = \\frac{85}{6}$",
+        # A unit converted, and a constant substituted (physics, live 2026-11-21).
+        "$7.35981 \\times 10^{-20}\\,\\mathrm{J} = 0.459363\\,\\mathrm{eV}$",
+        "$d = 0.98\\,\\mathrm{c} \\times 11.056\\,\\mathrm{\\mu s} = 0.98 \\times 299,792,458\\,"
+        "\\mathrm{m/s} \\times 11.056 \\times 10^{-6}\\,\\mathrm{s}$",
+    ],
+)
+def test_working_that_adds_up_is_never_flagged(reply: str) -> None:
+    assert wrong_steps(reply) == []
+
+
+@pytest.mark.parametrize(
+    ("reply", "fixed"),
+    [
+        (
+            "is **$\\frac{\\sqrt{65}}{8}\\ \\text{cm}$** (approximately **0.999 cm**).",
+            "is **$\\frac{\\sqrt{65}}{8}\\ \\text{cm}$** (approximately **1.008 cm**).",
+        ),
+        (
+            "**$2(\\sqrt{10} + \\sqrt{13} + \\sqrt{17})$ units** (approximately **19.13 units**)",
+            "**$2(\\sqrt{10} + \\sqrt{13} + \\sqrt{17})$ units** (approximately **21.78 units**)",
+        ),
+        (
+            "**$2\\sqrt{37}\\ \\text{cm}$** (approx. $12.16\\ \\text{cm}$)",
+            "**$2\\sqrt{37}\\ \\text{cm}$** (approx. $12.17\\ \\text{cm}$)",
+        ),
+    ],
+)
+def test_a_decimal_given_for_an_exact_value_is_written_right(reply: str, fixed: str) -> None:
+    assert corrected_approximations(reply) == fixed
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "**$2\\sqrt{30}$ cm** (approx. **10.95 cm**)",
+        "$84 - 16\\pi$ cm² (approximately $33.73$ cm²)",
+        "$x = 7.32$ (approximately 7.3)",
+        "```text\n$\\sqrt{2}$ (approximately 9.9)\n```",
+    ],
+)
+def test_a_right_decimal_or_one_of_a_rounded_value_stays(reply: str) -> None:
+    assert corrected_approximations(reply) == reply
+
+
+_KIRCHHOFF = (
+    "**Substitution**\n$10 - 2I_1 - 6(I_1 + I_2) = 0$\n$8I_1 + 6I_2 = 10$\n"
+    "$6 - 4I_2 - 6(I_1 + I_2) = 0$\n$6I_1 + 10I_2 = 6$\n"
+    "$I_1 = \\frac{15}{13} A$\n$I_2 = \\frac{1}{13} A$\n**Answer**\n"
+)
+
+
+def test_values_that_do_not_satisfy_the_reply_s_own_equations_are_named() -> None:
+    """Live (2026-11-21): two batteries in parallel, the equations right and the values
+    15/13 A and 1/13 A satisfying neither (they are 1.45 A and -0.27 A)."""
+    unheld = unheld_equations(_KIRCHHOFF)
+    assert unheld and unheld[0].values == pytest.approx({"I_1": 15 / 13, "I_2": 1 / 13})
+    note = working_note(_KIRCHHOFF)
+    assert note is not None and "do not satisfy" in note and "I_1 = 1.15" in note
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # The same system, solved right.
+        "$8I_1 + 6I_2 = 10$\n$6I_1 + 10I_2 = 6$\n$I_1 = \\frac{16}{11}$\n$I_2 = -\\frac{3}{11}$",
+        # A formula with units, and a value given in its unit.
+        "$V_1 = 7.2\\,\\mathrm{V}$\n$V = 12$\n$V_1 + V_2 = V$\n$V_2 = 4.8\\,\\mathrm{V}$",
+        # Values in different units (live, 2026-11-21: r in m, h in km).
+        "$r = R_E + h$\n$r = 6770000\\,\\mathrm{m}$\n$R_E = 6370000\\,\\mathrm{m}$\n"
+        "$h = 400\\,\\mathrm{km}$",
+        # One unknown: a plain step, not a system.
+        "$2x + 3 = 7$\n$x = 2$",
+        # A name given two values (two roots) is no single value to hold.
+        "$x + y = 5$\n$x = 1$\n$x = 3$\n$y = 4$",
+    ],
+)
+def test_values_that_hold_or_cannot_be_held_say_nothing(reply: str) -> None:
+    assert unheld_equations(reply) == []
+
+
+def test_a_decimal_in_another_unit_is_a_conversion_never_corrected() -> None:
+    """Review (#2520): "√2/2 m (approximately 70.7 cm)" converts; 0.71 cm would be wrong."""
+    reply = "**Answer**\n\nThe side is $\\frac{\\sqrt{2}}{2}\\ \\text{m}$ (approximately 70.7 cm)."
+    assert corrected_approximations(reply) == reply
+    hours = "It takes $\\frac{1}{3}\\ \\text{hr}$ (approximately 20 min)."
+    assert corrected_approximations(hours) == hours
+    # The same unit both sides is still held: √65/8 cm is 1.008 cm.
+    same = "The radius is $\\frac{\\sqrt{65}}{8}$ cm (approximately 0.999 cm)."
+    assert "1.008 cm" in corrected_approximations(same)
+
+
+def test_values_in_code_are_no_values_of_the_working() -> None:
+    """Review (#2520): a code fence or inline code naming an unknown is not the reply's value."""
+    reply = (
+        "$x + y = 5$ and $x - y = 1$, so $x = 3$ and $y = 2$.\n\n"
+        "```python\n# $x = 99$\n```\n\nIn code, `$y = 7$`."
+    )
+    assert unheld_equations(reply) == []
+
+
+def test_two_values_on_one_line_are_both_read() -> None:
+    """Review (#2520): "$I_1 = 15/13, I_2 = 1/13$" gives both unknowns their values."""
+    reply = (
+        "$8I_1 + 6I_2 = 10$ and $6I_1 + 10I_2 = 6$, so $I_1 = \\frac{15}{13}, I_2 = \\frac{1}{13}$."
+    )
+    unheld = unheld_equations(reply)
+    assert unheld and set(unheld[0].values) == {"I_1", "I_2"}
+
+
+def test_a_slip_between_exact_values_is_noted_to_two_places() -> None:
+    """Review (#2520): an exact right side has no places of its own; never "= 0"."""
+    note = working_note("**Solution**\n\n$\\frac{\\sqrt{3}}{4} = \\frac{\\sqrt{3}}{2}$")
+    assert note is not None and "= 0.43" in note
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # Words between: the decimal is another value's.
+        "**Answer**\n\nUsing $\\sqrt{3}$, the height is approximately 8.66.",
+        # Powers of ten, a percent, degrees, a long unit word: no decimal of the exact value.
+        "So $\\frac{1}{6000}$ (approximately $1.67 \\times 10^{-4}$).",
+        "That is $\\frac{1}{12}$ (approximately 8%).",
+        "The angle is $\\frac{\\pi}{6}\\ \\text{rad}$ (approximately 30°).",
+        "It takes $\\frac{1}{3}\\ \\text{hr}$ (approximately 20 minutes).",
+        # A function is no unit: ln 2 is 0.693.
+        "**Answer**\n\nThe value is $\\operatorname{ln}(2)$ (approximately 0.693).",
+    ],
+)
+def test_a_decimal_that_is_not_the_exact_value_s_own_is_left_alone(reply: str) -> None:
+    """Review (#2520): each of these was rewritten to a wrong number."""
+    assert corrected_approximations(reply) == reply
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # Another case of the same name, its value reached on the line before.
+        "**Substitution**\n\nFor the first resistor, $P = 2^2 \\times 5 = 20\\ \\text{W}$.\n"
+        "For the second resistor, $P = 3^2 \\times 5 = 45\\ \\text{W}$.",
+        # A rounded value carried to the next line.
+        "**Substitution**\n\n$t = \\frac{3.5}{9.8} = 0.36\\ \\text{s}$\n$d = 2 \\times 0.36$\n"
+        "$d = 0.71\\ \\text{m}$",
+        # A conversion between units of one measure.
+        "**Steps**\n\n$\\pi\\ \\text{rad} = 180\\ \\text{deg}$",
+        "**Steps**\n\n$\\theta = \\frac{\\pi}{3}\\ \\text{rad} = 60\\ \\text{deg}$",
+        "**Steps**\n\n$E = 3 \\times 1.602 \\times 10^{-19}\\,\\mathrm{J} = 3\\,\\mathrm{eV}$",
+        # A function, not a unit.
+        "**Steps**\n\n$2\\operatorname{ln}(3) \\approx 2.20$",
+        # "2k" is a product: x and y are not 2 and 3.
+        "**Steps**\n\nLet $x = 2k$ and $y = 3k$. Substitute into $x + y = 15$: $5k = 15$, so "
+        "$k = 3$. Then $x = 2(3) = 6$ and $y = 3(3) = 9$.",
+        # A point not on a line is no system.
+        "**Given**\n\nLine $2x + 3y = 7$, point $x = 1, y = 4$.\n\n**Steps**\n\nParallel line "
+        "$2x + 3y = c$ gives $c = 2(1) + 3(4) = 14$.\n\n**Answer**\n\n$2x + 3y = 14$",
+        # Solutions rounded to two places: 22/29 and -25/29.
+        "**Steps**\n\n$7x + 5y = 1$\n$3x - 2y = 4$\n$x = 0.76, y = -0.86$",
+    ],
+)
+def test_working_that_holds_gets_no_note(reply: str) -> None:
+    """Review (#2520): each of these was noted as a slip."""
+    assert working_note(reply) is None
+
+
+def test_a_system_the_values_break_is_still_noted() -> None:
+    """The live case (two batteries in parallel) still gets its note."""
+    reply = (
+        "**Steps**\n\n$8I_1 + 6I_2 = 10$\n$6I_1 + 10I_2 = 6$\n"
+        "$I_1 = \\frac{15}{13}\\ A, I_2 = \\frac{1}{13}\\ A$"
+    )
+    assert working_note(reply) is not None
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # Two roots, two circles and two parts reusing a name are other values (review, #2520).
+        "**Steps**\n\n$x = \\frac{4+2}{2}$\n$x = \\frac{4-2}{2}$",
+        "**Steps**\n\n$x = \\sqrt{9}$\n$x = \\sqrt{4}$",
+        "**Steps**\n\n$A = \\pi (3)^2$\n$A = \\pi (5)^2$",
+        "**(a)**\n\n$A = 3 \\times 4$\n\n**(b)**\n\n$A = 5 \\times 6$",
+        "**(a)**\n\n$A = \\frac{1}{2} \\cdot 6 \\cdot 4$\n\n**(b)**\n\n$A = 5 \\times 5$",
+    ],
+)
+def test_a_name_reused_for_another_value_is_no_slip(reply: str) -> None:
+    assert working_note(reply) is None
+
+
+def test_a_decimal_with_a_thousands_comma_is_never_rewritten() -> None:
+    """Review (#2520): "1,224.74" was read as 1 and became "1225,224.74"."""
+    reply = "So $\\sqrt{1500000}$ (approximately 1,224.74)."
+    assert corrected_approximations(reply) == reply
+
+
+@pytest.mark.parametrize(
+    "reply", ["$\\pi \\approx \\frac{22}{7}$", "$\\sqrt{2} \\approx \\frac{7}{5}$"]
+)
+def test_an_exact_form_said_to_be_near_is_no_slip(reply: str) -> None:
+    """Review (#2520): "pi ≈ 22/7" was held to 1e-6 and noted."""
+    assert working_note("**Steps**\n\n" + reply) is None
+
+
+@pytest.mark.parametrize(
+    "reply",
+    ["$\\frac{5000}{3} = 1670$", "$\\sqrt{2000000} \\approx 1410$", "$\\frac{7200}{3} = 2400$"],
+)
+def test_a_whole_number_rounded_to_its_tens_is_no_slip(reply: str) -> None:
+    """Review (#2520): 1670 is 1666.67 to three figures."""
+    assert working_note("**Steps**\n\n" + reply) is None
+    assert corrected_approximations("So $\\frac{5000}{3}$ (approximately 1670).") == (
+        "So $\\frac{5000}{3}$ (approximately 1670)."
+    )
+
+
+@pytest.mark.parametrize("exact", ["2^{10}", "1000\\sqrt{2}"])
+def test_a_coarse_approximation_is_left_as_said(exact: str) -> None:
+    """Review (#2520): "2^10 ≈ 1000" and "1000√2 ≈ 1400" round on purpose."""
+    shown = "1000" if exact == "2^{10}" else "1400"
+    reply = f"So ${exact}$ (approximately {shown})."
+    assert corrected_approximations(reply) == reply
+    assert working_note(f"**Steps**\n\n${exact} \\approx {shown}$") is None
+
+
+def test_a_mixed_number_is_never_read_as_a_product() -> None:
+    """Review (#2520): "1\\frac{1}{2}" was read as 1 * 1/2."""
+    assert working_note("**Steps**\n\n$1\\frac{1}{2} \\times 4 = 6$") is None
+    reply = "That is $1\\frac{1}{2}$ (approximately 1.5)."
+    assert corrected_approximations(reply) == reply
+
+
+def test_a_spaced_unknown_is_no_unit() -> None:
+    """Review (#2520): "x = 7 - 2 y" read y as a unit, so x was 5 and the system "broke"."""
+    reply = "**Steps**\n\n$x + y = 5$\n$x - y = 1$\n$x = 7 - 2 y$\n$y = 2$\n$x = 3$"
+    assert working_note(reply) is None
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "So $\\pi$ (approximately 22/7).",
+        "So $\\frac{6}{8}$ (approximately 3/4).",
+        "The odds are $\\frac{3}{1}$ (approximately 3:1).",
+        "It takes $\\sqrt{6}$ hours (approximately 2-3 hours).",
+        "It takes $\\sqrt{6}$ hours (approximately 2 to 3 hours).",
+    ],
+)
+def test_a_fraction_ratio_or_range_is_never_rewritten(reply: str) -> None:
+    """Review (#2520): "approximately 22/7" read 22 and became "3/7"."""
+    assert corrected_approximations(reply) == reply
