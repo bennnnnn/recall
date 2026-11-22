@@ -111,6 +111,9 @@ class StreamContext:
     # repeat: SymPy ran out of time on its problem; its photo lookup found none.
     solve_timed_out: bool = False
     photo_missed: bool = False
+    # The words could ask for a painted picture and the turn's read did not say so: the
+    # tool loop offers no picture either (``drawn_picture.read_asks``).
+    picture_declined: bool = False
     # One verified solve for the subject that owns this turn.
     verified_subject: VerifiedSolveBlock | None = None
     # A subject solver ran and declined. The reply gets one note, not a card.

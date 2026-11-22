@@ -17,7 +17,7 @@ from app.modules.images.lookup_intent import (
     names_a_drawing,
 )
 from app.tests.fakes import make_user
-from app.tests.modules.chat.chat_test_support import turn_deps
+from app.tests.modules.chat.chat_test_support import offline_deps, picture_read, turn_deps
 
 
 def _awaited(mock: AsyncMock) -> Any:
@@ -152,7 +152,7 @@ def _found(asst_id) -> AsyncMock:
 @pytest.mark.asyncio
 async def test_show_me_her_image_searches_the_person_from_the_chat() -> None:
     """The screenshot: "Show me her image" after a chat about Jeanne Calment."""
-    from app.modules.chat.turn_intercepts import try_image_lookup_for_turn
+    from app.modules.chat.turn_intercepts import intercept_new_turn
 
     user = MagicMock()
     user.id = uuid4()
@@ -163,15 +163,16 @@ async def test_show_me_her_image_searches_the_person_from_the_chat() -> None:
         image_search={"search_and_attach_for_chat": search_and_attach},
         references={"resolve_reference": resolve},
     )
-    handled = await try_image_lookup_for_turn(
+    handled = await intercept_new_turn(
         deps,
         Settings(image_search_enabled=True),
         user=user,
         chat_id=uuid4(),
         content="Show me her image",
         outcome=TurnOutcome(),
-        create_user_message=True,
         recent_messages=list(_CALMENT_ROWS),
+        prior_count=len(_CALMENT_ROWS),
+        read=picture_read("photo"),
     )
 
     assert handled is True
@@ -184,7 +185,7 @@ async def test_show_me_her_image_searches_the_person_from_the_chat() -> None:
 
 @pytest.mark.asyncio
 async def test_unclear_reference_falls_through_to_the_model() -> None:
-    from app.modules.chat.turn_intercepts import try_image_lookup_for_turn
+    from app.modules.chat.turn_intercepts import intercept_new_turn
 
     user = MagicMock()
     user.id = uuid4()
@@ -194,15 +195,16 @@ async def test_unclear_reference_falls_through_to_the_model() -> None:
         image_search={"search_and_attach_for_chat": search_and_attach},
         references={"resolve_reference": AsyncMock(return_value=None)},
     )
-    handled = await try_image_lookup_for_turn(
+    handled = await intercept_new_turn(
         deps,
         Settings(image_search_enabled=True),
         user=user,
         chat_id=uuid4(),
         content="show me her image",
         outcome=TurnOutcome(),
-        create_user_message=True,
         recent_messages=[],
+        prior_count=0,
+        read=picture_read("photo"),
     )
 
     assert handled is False
@@ -211,8 +213,9 @@ async def test_unclear_reference_falls_through_to_the_model() -> None:
 
 @pytest.mark.asyncio
 async def test_after_a_generated_picture_it_is_left_to_the_editor() -> None:
-    """ "show it at night" after a generated cat edits the cat; no stock photo of "it"."""
-    from app.modules.chat.turn_intercepts import try_image_lookup_for_turn
+    """ "show it at night" after a generated cat changes the cat; no stock photo of "it",
+    even when the read calls it a photo."""
+    from app.modules.chat.turn_intercepts import intercept_new_turn
 
     user = MagicMock()
     user.id = uuid4()
@@ -232,15 +235,16 @@ async def test_after_a_generated_picture_it_is_left_to_the_editor() -> None:
         image_search={"search_and_attach_for_chat": search_and_attach},
         references={"resolve_reference": resolve},
     )
-    handled = await try_image_lookup_for_turn(
+    handled = await intercept_new_turn(
         deps,
         Settings(image_search_enabled=True),
         user=user,
         chat_id=uuid4(),
         content="Show it at night",
         outcome=TurnOutcome(),
-        create_user_message=True,
         recent_messages=rows,
+        prior_count=len(rows),
+        read=picture_read("photo"),
     )
 
     assert handled is False
@@ -250,7 +254,7 @@ async def test_after_a_generated_picture_it_is_left_to_the_editor() -> None:
 
 @pytest.mark.asyncio
 async def test_a_named_subject_needs_no_resolver() -> None:
-    from app.modules.chat.turn_intercepts import try_image_lookup_for_turn
+    from app.modules.chat.turn_intercepts import intercept_new_turn
 
     user = MagicMock()
     user.id = uuid4()
@@ -261,14 +265,16 @@ async def test_a_named_subject_needs_no_resolver() -> None:
         image_search={"search_and_attach_for_chat": search_and_attach},
         references={"resolve_reference": resolve},
     )
-    handled = await try_image_lookup_for_turn(
+    handled = await intercept_new_turn(
         deps,
         Settings(image_search_enabled=True),
         user=user,
         chat_id=uuid4(),
         content="can you show me a picture of Jeanne Calment",
         outcome=TurnOutcome(),
-        create_user_message=True,
+        recent_messages=[],
+        prior_count=0,
+        read=picture_read("photo"),
     )
 
     assert handled is True
@@ -278,7 +284,8 @@ async def test_a_named_subject_needs_no_resolver() -> None:
 
 @pytest.mark.asyncio
 async def test_regenerating_a_reference_lookup_reads_history_without_the_old_photo() -> None:
-    from app.modules.chat.turn_intercepts import try_image_lookup_for_turn
+    from app.modules.chat.turn_intercepts import intercept_regenerate
+    from app.modules.chat.turn_prep import RegenerateBackup
 
     user = MagicMock()
     user.id = uuid4()
@@ -300,15 +307,17 @@ async def test_regenerating_a_reference_lookup_reads_history_without_the_old_pho
         references={"resolve_reference": resolve},
         image_search={"search_and_attach_for_chat": search_and_attach},
     )
-    handled = await try_image_lookup_for_turn(
+    handled = await intercept_regenerate(
         deps,
         Settings(image_search_enabled=True),
         user=user,
         chat_id=uuid4(),
         content="Show me her image",
+        backup=RegenerateBackup(
+            content=old_photo.content, model="image-search-model", message_id=old_photo.id
+        ),
         outcome=TurnOutcome(),
-        create_user_message=False,
-        replace_assistant_id=old_photo.id,
+        read=picture_read("photo"),
     )
 
     assert handled is True
@@ -350,6 +359,7 @@ async def test_a_stop_held_for_the_users_row_cuts_off_a_photo_or_picture(kind: s
         outcome=outcome,
         recent_messages=[],
         prior_count=0,
+        read=picture_read("photo" if kind == "photo" else "image"),
     )
 
     assert handled is True
@@ -385,10 +395,11 @@ async def test_a_photo_or_picture_on_the_chat_path_says_so_before_it_runs(
     ) -> None:
         order.append(f"{phase}: {detail}")
 
-    deps = turn_deps(
+    deps = offline_deps(
         image_search={"search_and_attach_for_chat": work},
         image_generation={"generate_for_chat": work, "image_reference_ids": lambda _c: []},
         plan={"can_use": MagicMock(return_value=True)},
+        messages={"get_by_id": AsyncMock(return_value=None)},
     )
     settings = Settings(image_search_enabled=kind == "photo")
     turn: dict[str, Any] = {
@@ -397,15 +408,28 @@ async def test_a_photo_or_picture_on_the_chat_path_says_so_before_it_runs(
         "content": content,
         "outcome": TurnOutcome(),
     }
+    read = picture_read("photo" if kind == "photo" else "image")
     if regenerate:
         model = "image-search-model" if kind == "photo" else "image-gen-model"
         backup = RegenerateBackup(content="[Image]", model=model, message_id=uuid4())
         handled = await intercept_regenerate(
-            deps, settings, **turn, backup=backup, on_status=on_status
+            deps,
+            settings,
+            **turn,
+            backup=backup,
+            on_status=on_status,
+            read=read,
+            recent_messages=[],
         )
     else:
         handled = await intercept_new_turn(
-            deps, settings, **turn, recent_messages=[], prior_count=0, on_status=on_status
+            deps,
+            settings,
+            **turn,
+            recent_messages=[],
+            prior_count=0,
+            on_status=on_status,
+            read=read,
         )
 
     assert handled is True
@@ -434,7 +458,12 @@ _TWO_THINGS_ROWS = [
 
 
 async def _new_turn(
-    rows: list[SimpleNamespace], content: str, resolved: str | None, *, pro: bool = True
+    rows: list[SimpleNamespace],
+    content: str,
+    resolved: str | None,
+    *,
+    pro: bool = True,
+    picture: str = "photo",
 ) -> tuple[bool, AsyncMock, AsyncMock, set[str]]:
     from app.modules.chat.turn_intercepts import intercept_new_turn
 
@@ -455,6 +484,7 @@ async def _new_turn(
         recent_messages=list(rows),
         prior_count=len(rows),
         misses=misses,
+        read=picture_read(picture),
     )
     return handled, resolve, search_and_attach, misses
 
@@ -518,10 +548,12 @@ _SHOW_LINES = (
 def test_the_composer_sends_every_show_line_to_the_chat_turn(content: str) -> None:
     """The composer reads a send before the chat turn exists: a picture it draws is the
     picture the chat turn would draw. Every line chemistry claims is a photo lookup or a plain
-    send there, so it reaches the chat turn and its intercept."""
-    from app.modules.images.intent import composer_image_intent
+    send there, so it reaches the chat turn and its intercept: the read names a molecule,
+    no picture to paint."""
+    from app.modules.images.intent import composer_candidates, decided_intent
 
-    assert composer_image_intent(content, list(_MOLECULE_ROWS)).request is None
+    candidates = composer_candidates(content, list(_MOLECULE_ROWS))
+    assert decided_intent(candidates, None).request is None
 
 
 @pytest.mark.parametrize("content", ["draw both", "draw both of them", "draw them", "sketch them"])

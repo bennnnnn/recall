@@ -1,10 +1,12 @@
-"""The contract for ``POST /images/intent``: the one reader of composer image intent.
+"""The contract for ``POST /images/intent``: what the composer does with a send.
 
 The phone reads no image intent; before a send that might be a picture it asks
-this endpoint, which answers with the chat turn's own reading (``images.intent``)
-of the text and the chat's recent turns. ``docs/fixtures/image_intent_cases.json``
-is the server's case list: ``phrases``, ``threads`` and ``revision_contexts`` pin
-the word rules, and ``composer`` pins the verdict the endpoint returns.
+this endpoint. The words find what the send could ask of images (``images.intent``),
+and the turn's read, the model that reads every chat turn, says whether it asks for a
+photo, a picture or neither (``chat.picture_ask``). ``docs/fixtures/image_intent_cases.json``
+is the server's case list: ``phrases``, ``threads`` and ``revision_contexts`` pin what the
+words find, and ``composer`` pins the verdict the endpoint returns once the read answers
+(each case's ``read``).
 """
 
 from __future__ import annotations
@@ -26,11 +28,8 @@ from app.core.deps import get_current_user, get_settings_dep
 from app.main import create_app
 from app.models.orm import User
 from app.modules.images.gen_intent import extract_image_gen_prompt
-from app.modules.images.gen_intent_thread import (
-    extract_image_revision_prompt,
-    image_gen_revision_context,
-)
-from app.modules.images.intent import image_gen_request, reads_thread
+from app.modules.images.gen_intent_thread import image_gen_revision_context
+from app.modules.images.intent import image_gen_request
 from app.modules.images.lookup_intent import extract_image_lookup_query
 
 FIXTURE = Path(__file__).resolve().parents[6] / "docs" / "fixtures" / "image_intent_cases.json"
@@ -62,6 +61,7 @@ def _client(
     messages: list[dict[str, Any]] | None = None,
     owned: bool = True,
     settings: Settings | None = None,
+    read: str | None = "image",
 ) -> Iterator[tuple[TestClient, AsyncMock, AsyncMock]]:
     """A signed-in client whose chat holds ``messages``; ``owned=False`` is someone else's."""
     app = create_app()
@@ -72,8 +72,15 @@ def _client(
     with (
         patch("app.modules.images.intent.chat_history.get_chat", get_chat),
         patch("app.modules.images.intent.chat_history.recent_messages", list_recent),
+        patch(_LABELS, AsyncMock(return_value={})),
+        patch(_READ, AsyncMock(return_value=read)),
     ):
         yield TestClient(app), get_chat, list_recent
+
+
+# The turn's read, as the endpoint asks it; and the pictures' labels, read from the database.
+_READ = "app.modules.chat.picture_ask.read_picture_ask"
+_LABELS = "app.modules.chat.picture_ask.picture_labels"
 
 
 def _verdict(
@@ -82,8 +89,13 @@ def _verdict(
     *,
     attached: bool = False,
     settings: Settings | None = None,
+    read: str | None = "image",
 ) -> dict[str, Any]:
-    with _client(_user(), messages=messages, settings=settings) as (client, _get_chat, _recent):
+    with _client(_user(), messages=messages, settings=settings, read=read) as (
+        client,
+        _get_chat,
+        _recent,
+    ):
         response = client.post(
             "/images/intent",
             headers={"Authorization": "Bearer tok"},
@@ -101,14 +113,12 @@ def test_intent_contract_phrase(case: dict[str, Any]) -> None:
     text = case["text"]
     assert extract_image_gen_prompt(text) == case["generate"]
     assert extract_image_lookup_query(text) == case["lookup"]
-    assert (
-        extract_image_revision_prompt(
-            text,
-            last_assistant_is_image_only=True,
-            previous_subject=PREVIOUS_SUBJECT,
-        )
-        == case["revise"]
+    # After a generated picture, the change it would make to it: the read says whether it does.
+    after = _rows(
+        [{"role": "user", "content": f"Generate image: {PREVIOUS_SUBJECT}"}, AFTER_PICTURE[1]]
     )
+    request = image_gen_request(text, after)
+    assert (request.prompt if request is not None and request.revision else None) == case["revise"]
 
 
 @pytest.mark.parametrize("case", CASES["threads"], ids=_id)
@@ -126,27 +136,15 @@ def test_intent_contract_revision_context(case: dict[str, Any]) -> None:
     )
 
 
-@pytest.mark.parametrize(
-    "case",
-    [*CASES["threads"], *({"text": c["text"], "priors": []} for c in CASES["phrases"])],
-    ids=_id,
-)
-def test_reads_thread_only_skips_history_that_cannot_change_the_answer(
-    case: dict[str, Any],
-) -> None:
-    """The chat turn reads no history when ``reads_thread`` says so; the answer is the same."""
-    text = case["text"]
-    rows = _rows([{"role": "user", "content": prior} for prior in case["priors"]] + AFTER_PICTURE)
-    if not reads_thread(text):
-        assert image_gen_request(text, rows) == image_gen_request(text, [])
-
-
 # ── The endpoint ───────────────────────────────────────────────────────────
 
 
 @pytest.mark.parametrize("case", CASES["composer"], ids=_id)
 def test_intent_contract_composer(case: dict[str, Any]) -> None:
-    verdict = _verdict(case["text"], THREADS[case["thread"]], attached=case.get("attached", False))
+    read = None if case.get("read") in (None, "none") else case["read"]
+    verdict = _verdict(
+        case["text"], THREADS[case["thread"]], attached=case.get("attached", False), read=read
+    )
     assert verdict == {
         "subject": case.get("subject"),
         "lookup_query": case.get("lookup"),
@@ -254,14 +252,71 @@ def test_intent_reads_a_draft_chat_as_an_empty_thread() -> None:
 
 
 def test_intent_looks_a_photo_up_before_it_edits_the_last_picture() -> None:
-    """After a picture, "send me a photo of X" still wants a real photo, not an edit."""
+    """After a picture, "send me a photo of X" still wants a real photo, not an edit: the
+    read says so, and the lookup words say what to search for."""
     text = "send me a photo of the eiffel tower"
     rows = _rows(AFTER_PICTURE)
     edit = image_gen_request(text, rows)
     assert edit is not None and edit.revision  # the edit reading alone would draw it
-    verdict = _verdict(text, AFTER_PICTURE)
+    verdict = _verdict(text, AFTER_PICTURE, read="photo")
     assert verdict["lookup_query"] == "eiffel tower"
     assert verdict["generate_prompt"] is None
+
+
+# The owner's chat (2026-11-22): after one painted picture, each of these got another.
+OWNER_LINES = [
+    "No you displayed an image",
+    "You keep generating an image",
+    "What?🤔 did i ask about an image?",
+    "Man this is so bad",
+]
+
+
+@pytest.mark.parametrize("text", OWNER_LINES)
+@pytest.mark.parametrize("read", ["none", None])
+def test_intent_paints_nothing_the_read_does_not_ask_for(text: str, read: str | None) -> None:
+    """Words that could change the last picture are asked of the read; a read that says
+    none, or gives no answer in time, draws nothing."""
+    with _client(_user(), messages=AFTER_PICTURE, read=read) as (client, _get_chat, _recent):
+        response = client.post(
+            "/images/intent",
+            headers={"Authorization": "Bearer tok"},
+            json={"text": text, "chat_id": str(uuid4())},
+        )
+    assert response.status_code == 200
+    assert response.json()["generate_prompt"] is None
+    assert response.json()["lookup_query"] is None
+
+
+def test_intent_draws_only_when_the_read_answers() -> None:
+    """ "draw me a cat" with the read late is a chat send: a missed picture is better than
+    one nobody asked for."""
+    assert _verdict("draw me a cat", read=None)["generate_prompt"] is None
+    assert _verdict("draw me a cat", read="image")["generate_prompt"] == "cat"
+
+
+def test_intent_asks_the_read_only_about_a_send_that_could_be_a_picture() -> None:
+    """A plain message never waits for the read; one that could ask for a picture is read
+    with the chat's turns. After a picture any short line could change it, so it is read."""
+    with _client(_user(), messages=AFTER_PICTURE) as (client, _get_chat, _recent):
+        with patch(_READ, AsyncMock(return_value=None)) as read:
+            client.post(
+                "/images/intent",
+                headers={"Authorization": "Bearer tok"},
+                json={"text": "what is the capital of France?"},
+            )
+            read.assert_not_awaited()
+            client.post(
+                "/images/intent",
+                headers={"Authorization": "Bearer tok"},
+                json={"text": "now at night", "chat_id": str(uuid4())},
+            )
+    read.assert_awaited_once()
+    assert read.await_args is not None
+    assert read.await_args.args[1] == "now at night"
+    assert [row.content for row in read.await_args.args[2]] == [
+        row["content"] for row in AFTER_PICTURE
+    ]
 
 
 @pytest.mark.parametrize(
@@ -292,7 +347,7 @@ def test_intent_is_limited_per_user_and_reads_nothing_past_the_limit() -> None:
     with (
         _client(_user()) as (client, _get_chat, _recent),
         patch(
-            "app.modules.images.intent.composer_image_intent", MagicMock(return_value=nothing)
+            "app.modules.images.intent.composer_candidates", MagicMock(return_value=nothing)
         ) as read,
     ):
         responses = [

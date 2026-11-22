@@ -104,6 +104,7 @@ class _LoopGate:
             skip_tools=tool_loop.spent_tools(
                 solve_timed_out=getattr(ctx, "solve_timed_out", False) is True,
                 photo_missed=getattr(ctx, "photo_missed", False) is True,
+                picture_declined=getattr(ctx, "picture_declined", False) is True,
             ),
         )
 
