@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING, Any
 
 from app.models.orm import User
 from app.modules.chat.markdown_regions import map_prose_outside_fences
+from app.modules.turn_reading.conversation import is_social_opener
 
 if TYPE_CHECKING:
     from app.modules.chat.finalize_passes import FinalizeState
@@ -61,8 +62,11 @@ def _patterns(name: str) -> tuple[re.Pattern[str], ...]:
         re.compile(rf"(?P<g>{greet}),[ \t]+{n}(?=[ \t]*[,.!?\u2014\u2013])"),
         # "Hey bini!": the greeting then the name, no comma (that is "Hi Bini," a draft's).
         re.compile(rf"(?P<g>{greet})[ \t]+{n}(?=[.!?])"),
-        # "Great question, bini!": closing its sentence.
-        re.compile(rf"(?<=\S),[ \t]+{n}(?=[.!?](?:\*\*)?(?:\s|$))"),
+        # "Great question, bini!": closing its sentence; "Night, Sam 🌙", "Got it, Sam 👍" and
+        # "Anytime, Sam" close theirs with an emoji or nothing.
+        re.compile(
+            rf"(?<=\S),[ \t]+{n}(?=[.!?](?:\*\*)?(?:\s|$)|[ \t]*$|[ \t]+[^\w\s*,;:'\"(\[-])"
+        ),
         # "That's a lot to take in, Bini, and …": between commas after a lowercase word.
         # "I told my sister, Bini, and Carl" names a list: kept.
         re.compile(
@@ -137,11 +141,30 @@ def first_name(user: User | None) -> str | None:
 
 
 def spare_name_pass(state: FinalizeState) -> str:
-    """The finalize pass: no name in a reply when one of the last two used it."""
+    """The finalize pass: no name in a reply when one of the last two used it, nor in a few
+    words answering a few words."""
     name = first_name(state.ctx.user)
     asked = state.ctx.user_message_content or ""
     if state.server_text or name is None or _ABOUT_THE_NAME.search(asked) or name in asked:
         return state.text
-    if not named_lately(name, state.ctx.recent_messages or []):
+    if not named_lately(name, state.ctx.recent_messages or []) and not _a_short_exchange(
+        asked, state.text
+    ):
         return state.text
     return without_name(state.text, name)
+
+
+# "ok" answered "Got it, Sam 👍", "thanks" "Anytime, Sam!", "night" "Night, Sam 🌙": in 100
+# texted chats (2026-11-21) a few words back named the user in most of them. A friend says
+# "anytime 😊"; a greeting may still answer with the name ("Hey Sam!").
+_SHORT_MESSAGE_WORDS = 4
+_SHORT_REPLY_WORDS = 30
+
+
+def _a_short_exchange(asked: str, reply: str) -> bool:
+    """A few words answered in a few words, the message no greeting."""
+    return (
+        len(asked.split()) <= _SHORT_MESSAGE_WORDS
+        and len(reply.split()) <= _SHORT_REPLY_WORDS
+        and not is_social_opener(asked)
+    )

@@ -600,9 +600,10 @@ def test_the_reply_just_before_the_message_is_read_further() -> None:
         SimpleNamespace(role="user", content="y" * 1000),
         SimpleNamespace(role="assistant", content="x" * 2000),
     ]
+    # Its start, and its end, where a question or an offer is (2026-11-21).
     assert turn_decision.earlier_turns(recent) == [
         ("user", "y" * 400),
-        ("assistant", "x" * 1500),
+        ("assistant", "x" * 1100 + " … " + "x" * 400),
     ]
 
 
@@ -643,8 +644,8 @@ def test_the_read_sees_the_practice_card_a_long_reply_ends_on() -> None:
 def test_a_reply_the_read_cannot_parse_is_quoted_by_its_start() -> None:
     deep = "Long lesson. " * 40 + "```quiz\n" + "[" * 100_000 + "]" * 100_000 + "\n```"
     [(_, quoted)] = turn_decision.earlier_turns([SimpleNamespace(role="assistant", content=deep)])
-    # The reply just before the message is read to 1,500 characters.
-    assert quoted == deep[:1500]
+    # The reply just before the message is read to 1,500 characters, its start and its end.
+    assert quoted.startswith(deep[:1100]) and len(quoted) <= 1500 + len(" … ")
 
 
 def test_the_read_sees_what_a_card_reply_offers_after_its_card() -> None:
@@ -657,3 +658,17 @@ def test_the_read_sees_what_a_card_reply_offers_after_its_card() -> None:
     assert quoted.startswith(reply[:400])
     assert quoted.endswith("Want to try a harder one, or ions?")
     assert "[practice card:" not in quoted  # its card is in view already
+
+
+def test_the_read_sees_the_end_of_a_long_last_reply() -> None:
+    """A "yes" answers the offer at the reply's end, past 1500 characters ("…Want me to turn
+    this into an evening routine?"); the read saw only the start (2026-11-21)."""
+    offer = "Want me to turn this into an evening routine?"
+    reply = "Sleep runs on a body clock. " * 80 + offer
+    recent = [
+        SimpleNamespace(role="user", content="how do i sleep better"),
+        SimpleNamespace(role="assistant", content=reply),
+    ]
+    quoted = turn_decision.earlier_turns(recent)[-1][1]
+    assert quoted.startswith("Sleep runs on a body clock.") and quoted.endswith(offer)
+    assert len(quoted) <= 1500 + 3

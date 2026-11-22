@@ -59,6 +59,7 @@ from app.modules.chat.prompt_constants.conversation import FOLLOW_NOTES
 from app.modules.chat.prompt_constants.lesson_flow import LESSON_ASIDE_NOTE, lesson_next_contract
 from app.modules.chat.prompt_constants.list_reference import OPTION_PICK_MARK
 from app.modules.chat.prompt_constants.practice import QUIZ_WHICH_NOTE, quiz_verdict_note
+from app.modules.chat.prompt_format import without_confirmation_hints
 from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.prompt_sections import with_problem_pictures
 from app.modules.chat.quiz_cards import PracticeCard, last_reply_cards, option_letter
@@ -383,7 +384,7 @@ def _replies_to_the_card(ctx: StreamContext, read: TurnDecision) -> bool:
     a new problem asked after the card stands alone, and keeps its layout."""
     return (
         read.answers is False
-        and read.follow == "answer"
+        and read.follow in ("answer", "pick")
         and bool(last_reply_cards(_answered_window(ctx)))
     )
 
@@ -439,6 +440,10 @@ def _without_worked_layout(ctx: StreamContext) -> None:
     note_prompt_rule("read.not_worked")
 
 
+# The kinds that reply to the last reply's question or offer, which their note names.
+_ANSWERS_THE_REPLY = frozenset({"accept", "decline", "pick", "answer"})
+
+
 def _follow_note(ctx: StreamContext, read: TurnDecision) -> None:
     """The read's word on how the message leans on the conversation, beside it, in every
     subject: "and b?" was read as a change in physics and told nothing (2026-11-18). A
@@ -458,8 +463,12 @@ def _follow_note(ctx: StreamContext, read: TurnDecision) -> None:
     # color is green" on 2 of 3 (2026-11-15), a word rule having read food in it. Named the
     # question it answers, it was the cat guess on 5 of 5, the recommendation hint kept for
     # an answer that does ask for one ("Italian" to "What cuisine?").
-    if read.follow == "answer" and (question := _answered_question(ctx, messages)) is not None:
+    if read.follow in _ANSWERS_THE_REPLY and (question := _answered_question(ctx, messages)):
         note = f'{note} The question it answers: "{question}"'
+    if read.follow != "accept":
+        # The word rules' yes ("Carry out that offer now") is the read's to say: "pls" after
+        # a reply that offered nothing asks for more, and the rule had it redo the last one.
+        messages = without_confirmation_hints(messages)
     ctx.prompt_messages = inject_before_last_user(messages, note)
 
 

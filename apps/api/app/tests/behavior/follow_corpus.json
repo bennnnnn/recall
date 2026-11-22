@@ -1,0 +1,1597 @@
+[
+ {
+  "id": "accept-01",
+  "follow": "accept",
+  "prompt": "yes",
+  "history": [
+   [
+    "user",
+    "how do i start running"
+   ],
+   [
+    "assistant",
+    "Start with run-walk intervals three times a week. Want me to make you a simple 4-week plan?"
+   ]
+  ]
+ },
+ {
+  "id": "accept-02",
+  "follow": "accept",
+  "prompt": "yep",
+  "history": [
+   [
+    "user",
+    "help me plan a weekend in lisbon"
+   ],
+   [
+    "assistant",
+    "Day one: Alfama and the castle; day two: Belém and LX Factory. Should I add places to eat for each day?"
+   ]
+  ]
+ },
+ {
+  "id": "accept-03",
+  "follow": "accept",
+  "prompt": "yap",
+  "history": [
+   [
+    "user",
+    "how do i make cold brew"
+   ],
+   [
+    "assistant",
+    "Coarse grind, 1:4 with cold water, 12–18 hours in the fridge, then strain. Want the ratio for a bigger batch too?"
+   ]
+  ]
+ },
+ {
+  "id": "accept-04",
+  "follow": "accept",
+  "prompt": "go",
+  "history": [
+   [
+    "user",
+    "explain bitcoin simply"
+   ],
+   [
+    "assistant",
+    "Bitcoin is digital money kept on a shared public ledger instead of at a bank. Want me to explain how mining works next?"
+   ]
+  ]
+ },
+ {
+  "id": "accept-05",
+  "follow": "accept",
+  "prompt": "pls",
+  "history": [
+   [
+    "user",
+    "how do i talk to my boss about a raise"
+   ],
+   [
+    "assistant",
+    "Bring numbers: what you delivered and what the market pays. Want me to write the opening lines you could say?"
+   ]
+  ]
+ },
+ {
+  "id": "accept-06",
+  "follow": "accept",
+  "prompt": "yes please",
+  "history": [
+   [
+    "user",
+    "whats a healthy breakfast"
+   ],
+   [
+    "assistant",
+    "Oats with fruit and nuts, eggs on wholegrain toast, or Greek yogurt with berries. Want a week of breakfasts so you don't have to think about it?"
+   ]
+  ]
+ },
+ {
+  "id": "accept-07",
+  "follow": "accept",
+  "prompt": "do it",
+  "history": [
+   [
+    "user",
+    "i want to learn guitar"
+   ],
+   [
+    "assistant",
+    "The first three chords to learn are E minor, G and C. Should I put together a 15-minute daily practice routine?"
+   ]
+  ]
+ },
+ {
+  "id": "accept-08",
+  "follow": "accept",
+  "prompt": "sure",
+  "history": [
+   [
+    "user",
+    "how do i get better sleep"
+   ],
+   [
+    "assistant",
+    "Here is the full picture. Sleep runs on a body clock that responds to light, so morning sunlight sets the day and dim evenings help melatonin rise. Caffeine has a half-life of about five to six hours, which means an afternoon coffee is still partly in your system at bedtime. Alcohol can make you drowsy but fragments the second half of the night, so the sleep you do get is lighter. A cool, dark and quiet room helps most people; around 18 °C is a common target. Screens matter less for the light than for the stimulation: an exciting show or a stressful email keeps the mind busy. A short wind-down routine of the same few steps each night tells your brain that sleep is coming. If you can't sleep after twenty minutes, getting up and doing something calm in dim light beats lying there frustrated. Naps are fine if they are short, under thirty minutes, and not late in the afternoon. Exercise helps sleep, but a hard workout right before bed can keep some people wired. Consistency is the biggest lever: the same wake-up time every day, weekends included, anchors everything else. Sleep runs on a body clock that responds to light, so morning sunlight sets the day and dim evenings help melatonin rise. Caffeine has a half-life of about five to six hours, which means an afternoon coffee is still partly in your system at bedtime. Alcohol can make you drowsy but fragments the second half of the night, so the sleep you do get is lighter. A cool, dark and quiet room helps most people; around 18 °C is a common target. Screens matter less for the light than for the stimulation: an exciting show or a stressful email keeps the mind busy. A short wind-down routine of the same few steps each night tells your brain that sleep is coming. If you can't sleep after twenty minutes, getting up and doing something calm in dim light beats lying there frustrated. Naps are fine if they are short, under thirty minutes, and not late in the afternoon. Exercise helps sleep, but a hard workout right before bed can keep some people wired. Consistency is the biggest lever: the same wake-up time every day, weekends included, anchors everything else.\n\n…the same wake-up time every day anchors everything else. Want me to turn this into a simple evening routine you can follow?"
+   ]
+  ]
+ },
+ {
+  "id": "accept-09",
+  "follow": "accept",
+  "prompt": "ya",
+  "history": [
+   [
+    "user",
+    "how to save money on groceries"
+   ],
+   [
+    "assistant",
+    "Plan meals, shop with a list, and buy store brands. Want me to make a shopping list for a cheap week of meals?"
+   ]
+  ]
+ },
+ {
+  "id": "accept-10",
+  "follow": "accept",
+  "prompt": "go ahead",
+  "history": [
+   [
+    "user",
+    "what should i get my mom"
+   ],
+   [
+    "assistant",
+    "A photo book, a nice dinner out, or a class you take together. Want me to find a few gift ideas under $50?"
+   ]
+  ]
+ },
+ {
+  "id": "accept-11",
+  "follow": "accept",
+  "prompt": "ok sure",
+  "history": [
+   [
+    "user",
+    "how do i improve my handwriting"
+   ],
+   [
+    "assistant",
+    "Slow down, hold the pen lighter, and practise the basic strokes. Should I give you a 5-minute daily drill?"
+   ]
+  ]
+ },
+ {
+  "id": "accept-12",
+  "follow": "accept",
+  "prompt": "yes",
+  "history": [
+   [
+    "user",
+    "how do i get better sleep"
+   ],
+   [
+    "assistant",
+    "Here is the full picture. Sleep runs on a body clock that responds to light, so morning sunlight sets the day and dim evenings help melatonin rise. Caffeine has a half-life of about five to six hours, which means an afternoon coffee is still partly in your system at bedtime. Alcohol can make you drowsy but fragments the second half of the night, so the sleep you do get is lighter. A cool, dark and quiet room helps most people; around 18 °C is a common target. Screens matter less for the light than for the stimulation: an exciting show or a stressful email keeps the mind busy. A short wind-down routine of the same few steps each night tells your brain that sleep is coming. If you can't sleep after twenty minutes, getting up and doing something calm in dim light beats lying there frustrated. Naps are fine if they are short, under thirty minutes, and not late in the afternoon. Exercise helps sleep, but a hard workout right before bed can keep some people wired. Consistency is the biggest lever: the same wake-up time every day, weekends included, anchors everything else. Sleep runs on a body clock that responds to light, so morning sunlight sets the day and dim evenings help melatonin rise. Caffeine has a half-life of about five to six hours, which means an afternoon coffee is still partly in your system at bedtime. Alcohol can make you drowsy but fragments the second half of the night, so the sleep you do get is lighter. A cool, dark and quiet room helps most people; around 18 °C is a common target. Screens matter less for the light than for the stimulation: an exciting show or a stressful email keeps the mind busy. A short wind-down routine of the same few steps each night tells your brain that sleep is coming. If you can't sleep after twenty minutes, getting up and doing something calm in dim light beats lying there frustrated. Naps are fine if they are short, under thirty minutes, and not late in the afternoon. Exercise helps sleep, but a hard workout right before bed can keep some people wired. Consistency is the biggest lever: the same wake-up time every day, weekends included, anchors everything else.\n\n…consistency is the biggest lever. Would you like a version of this for shift work?"
+   ]
+  ]
+ },
+ {
+  "id": "decline-01",
+  "follow": "decline",
+  "prompt": "nah",
+  "history": [
+   [
+    "user",
+    "how do i start running"
+   ],
+   [
+    "assistant",
+    "Run-walk intervals three times a week is the easiest start. Want me to make you a 4-week plan?"
+   ]
+  ]
+ },
+ {
+  "id": "decline-02",
+  "follow": "decline",
+  "prompt": "no thanks",
+  "history": [
+   [
+    "user",
+    "whats a good dinner idea"
+   ],
+   [
+    "assistant",
+    "Try a sheet-pan chicken with vegetables, 30 minutes and one tray. Want the full recipe?"
+   ]
+  ]
+ },
+ {
+  "id": "decline-03",
+  "follow": "decline",
+  "prompt": "nope",
+  "history": [
+   [
+    "user",
+    "how do i fix a slow laptop"
+   ],
+   [
+    "assistant",
+    "Uninstall what you don't use and check startup apps. Should I walk you through checking for malware too?"
+   ]
+  ]
+ },
+ {
+  "id": "decline-04",
+  "follow": "decline",
+  "prompt": "im good",
+  "history": [
+   [
+    "user",
+    "recommend a podcast"
+   ],
+   [
+    "assistant",
+    "Try Hidden Brain for psychology or Conan O'Brien Needs a Friend for laughs. Want more in either style?"
+   ]
+  ]
+ },
+ {
+  "id": "decline-05",
+  "follow": "decline",
+  "prompt": "nah im good",
+  "history": [
+   [
+    "user",
+    "i want to read more"
+   ],
+   [
+    "assistant",
+    "Great goal! Want some recommendations based on what you like?"
+   ]
+  ]
+ },
+ {
+  "id": "decline-06",
+  "follow": "decline",
+  "prompt": "not now",
+  "history": [
+   [
+    "user",
+    "explain black holes"
+   ],
+   [
+    "assistant",
+    "A black hole is where gravity is so strong that not even light escapes. Want to hear what happens if you fall into one?"
+   ]
+  ]
+ },
+ {
+  "id": "decline-07",
+  "follow": "decline",
+  "prompt": "no",
+  "history": [
+   [
+    "user",
+    "how do i get better sleep"
+   ],
+   [
+    "assistant",
+    "Here is the full picture. Sleep runs on a body clock that responds to light, so morning sunlight sets the day and dim evenings help melatonin rise. Caffeine has a half-life of about five to six hours, which means an afternoon coffee is still partly in your system at bedtime. Alcohol can make you drowsy but fragments the second half of the night, so the sleep you do get is lighter. A cool, dark and quiet room helps most people; around 18 °C is a common target. Screens matter less for the light than for the stimulation: an exciting show or a stressful email keeps the mind busy. A short wind-down routine of the same few steps each night tells your brain that sleep is coming. If you can't sleep after twenty minutes, getting up and doing something calm in dim light beats lying there frustrated. Naps are fine if they are short, under thirty minutes, and not late in the afternoon. Exercise helps sleep, but a hard workout right before bed can keep some people wired. Consistency is the biggest lever: the same wake-up time every day, weekends included, anchors everything else. Sleep runs on a body clock that responds to light, so morning sunlight sets the day and dim evenings help melatonin rise. Caffeine has a half-life of about five to six hours, which means an afternoon coffee is still partly in your system at bedtime. Alcohol can make you drowsy but fragments the second half of the night, so the sleep you do get is lighter. A cool, dark and quiet room helps most people; around 18 °C is a common target. Screens matter less for the light than for the stimulation: an exciting show or a stressful email keeps the mind busy. A short wind-down routine of the same few steps each night tells your brain that sleep is coming. If you can't sleep after twenty minutes, getting up and doing something calm in dim light beats lying there frustrated. Naps are fine if they are short, under thirty minutes, and not late in the afternoon. Exercise helps sleep, but a hard workout right before bed can keep some people wired. Consistency is the biggest lever: the same wake-up time every day, weekends included, anchors everything else.\n\n…the same wake-up time every day anchors everything else. Do you want me to make you a bedtime checklist?"
+   ]
+  ]
+ },
+ {
+  "id": "decline-08",
+  "follow": "decline",
+  "prompt": "maybe later",
+  "history": [
+   [
+    "user",
+    "how do i start investing"
+   ],
+   [
+    "assistant",
+    "Index funds are the simplest start: low fees, broad market. Want me to explain how to open an account?"
+   ]
+  ]
+ },
+ {
+  "id": "pick-01",
+  "follow": "pick",
+  "prompt": "the 2nd",
+  "history": [
+   [
+    "user",
+    "whats a good dinner idea"
+   ],
+   [
+    "assistant",
+    "1. Shrimp pasta (20 min)\n2. Taco bar night\n3. Lentil soup\nWhich one sounds good?"
+   ]
+  ]
+ },
+ {
+  "id": "pick-02",
+  "follow": "pick",
+  "prompt": "first one",
+  "history": [
+   [
+    "user",
+    "recommend a movie"
+   ],
+   [
+    "assistant",
+    "Funny: The Grand Budapest Hotel. Tense: Se7en. Sweet: Paddington 2. Which mood are you in?"
+   ]
+  ]
+ },
+ {
+  "id": "pick-03",
+  "follow": "pick",
+  "prompt": "pasta",
+  "history": [
+   [
+    "user",
+    "i have chicken rice and broccoli what can i make"
+   ],
+   [
+    "assistant",
+    "You could do a chicken fried rice, a broccoli chicken pasta, or a simple stir-fry. Which do you fancy?"
+   ]
+  ]
+ },
+ {
+  "id": "pick-04",
+  "follow": "pick",
+  "prompt": "both",
+  "history": [
+   [
+    "user",
+    "what should i watch"
+   ],
+   [
+    "assistant",
+    "Want a comedy or a thriller tonight?"
+   ]
+  ]
+ },
+ {
+  "id": "pick-05",
+  "follow": "pick",
+  "prompt": "funny",
+  "history": [
+   [
+    "user",
+    "recommend a podcast"
+   ],
+   [
+    "assistant",
+    "Want it funny, true crime, or science?"
+   ]
+  ]
+ },
+ {
+  "id": "pick-06",
+  "follow": "pick",
+  "prompt": "the last one",
+  "history": [
+   [
+    "user",
+    "what hobbies could i try"
+   ],
+   [
+    "assistant",
+    "1. Sketching\n2. Running\n3. Baking bread\nAny of these grab you?"
+   ]
+  ]
+ },
+ {
+  "id": "pick-07",
+  "follow": "pick",
+  "prompt": "b",
+  "history": [
+   [
+    "user",
+    "teach me something cool"
+   ],
+   [
+    "assistant",
+    "Which should we explore? A) how magnets work B) why the sky is blue C) how vaccines work"
+   ]
+  ]
+ },
+ {
+  "id": "pick-08",
+  "follow": "pick",
+  "prompt": "newer",
+  "history": [
+   [
+    "user",
+    "recommend a movie"
+   ],
+   [
+    "assistant",
+    "Here are a few classics: Casablanca, Jaws, Back to the Future. Do you prefer something older or newer?"
+   ]
+  ]
+ },
+ {
+  "id": "pick-09",
+  "follow": "pick",
+  "prompt": "the thriller",
+  "history": [
+   [
+    "user",
+    "what should i watch on netflix"
+   ],
+   [
+    "assistant",
+    "Black Doves is a spy thriller, Nobody Wants This a romcom, and Adolescence a drama. Which one?"
+   ]
+  ]
+ },
+ {
+  "id": "answer-01",
+  "follow": "answer",
+  "prompt": "2 kids",
+  "history": [
+   [
+    "user",
+    "what to cook for a party"
+   ],
+   [
+    "assistant",
+    "Happy to plan it! How many people are coming, and any kids?"
+   ]
+  ]
+ },
+ {
+  "id": "answer-02",
+  "follow": "answer",
+  "prompt": "vegetarian",
+  "history": [
+   [
+    "user",
+    "whats a good dinner idea"
+   ],
+   [
+    "assistant",
+    "Do you eat meat, or are you vegetarian?"
+   ]
+  ],
+  "also": [
+   "pick"
+  ]
+ },
+ {
+  "id": "answer-03",
+  "follow": "answer",
+  "prompt": "about 50 bucks",
+  "history": [
+   [
+    "user",
+    "gift idea for my friend who likes hiking"
+   ],
+   [
+    "assistant",
+    "How much do you want to spend?"
+   ]
+  ]
+ },
+ {
+  "id": "answer-04",
+  "follow": "answer",
+  "prompt": "my mom",
+  "history": [
+   [
+    "user",
+    "can you help me write a birthday message"
+   ],
+   [
+    "assistant",
+    "Sure — who is it for, and what tone do you want?"
+   ]
+  ]
+ },
+ {
+  "id": "answer-05",
+  "follow": "answer",
+  "prompt": "beginner",
+  "history": [
+   [
+    "user",
+    "i want to learn guitar"
+   ],
+   [
+    "assistant",
+    "Are you a complete beginner, or do you already know a few chords?"
+   ]
+  ],
+  "also": [
+   "pick"
+  ]
+ },
+ {
+  "id": "answer-06",
+  "follow": "answer",
+  "prompt": "30 mins",
+  "history": [
+   [
+    "user",
+    "give me a workout for home"
+   ],
+   [
+    "assistant",
+    "How much time do you have for a workout?"
+   ]
+  ]
+ },
+ {
+  "id": "answer-07",
+  "follow": "answer",
+  "prompt": "work mostly",
+  "history": [
+   [
+    "user",
+    "i feel stressed"
+   ],
+   [
+    "assistant",
+    "I'm sorry you're feeling this way. What's been making you feel stressed?"
+   ]
+  ]
+ },
+ {
+  "id": "answer-08",
+  "follow": "answer",
+  "prompt": "london",
+  "history": [
+   [
+    "user",
+    "help me plan a trip"
+   ],
+   [
+    "assistant",
+    "Where are you thinking of going?"
+   ]
+  ]
+ },
+ {
+  "id": "more-01",
+  "follow": "more",
+  "prompt": "more",
+  "history": [
+   [
+    "user",
+    "tell me a fun fact"
+   ],
+   [
+    "assistant",
+    "Octopuses have three hearts and blue blood."
+   ]
+  ]
+ },
+ {
+  "id": "more-02",
+  "follow": "more",
+  "prompt": "go on",
+  "history": [
+   [
+    "user",
+    "how do vaccines work"
+   ],
+   [
+    "assistant",
+    "A vaccine shows your immune system a harmless piece of a germ, so it learns to recognise it. Your body then keeps memory cells that respond fast if the real germ shows up."
+   ]
+  ]
+ },
+ {
+  "id": "more-03",
+  "follow": "more",
+  "prompt": "keep going",
+  "history": [
+   [
+    "user",
+    "tell me about the roman empire"
+   ],
+   [
+    "assistant",
+    "Rome grew from a small city into an empire that ruled the Mediterranean for centuries, starting as a kingdom, then a republic, then an empire under Augustus in 27 BC."
+   ]
+  ]
+ },
+ {
+  "id": "more-04",
+  "follow": "more",
+  "prompt": "and?",
+  "history": [
+   [
+    "user",
+    "how does wifi work"
+   ],
+   [
+    "assistant",
+    "Your router turns internet data into radio waves, and your phone turns them back into data."
+   ]
+  ]
+ },
+ {
+  "id": "more-05",
+  "follow": "more",
+  "prompt": "tell me more",
+  "history": [
+   [
+    "user",
+    "how do i care for a succulent"
+   ],
+   [
+    "assistant",
+    "Bright light, water only when the soil is fully dry, and a pot with drainage holes."
+   ]
+  ]
+ },
+ {
+  "id": "more-06",
+  "follow": "more",
+  "prompt": "what else",
+  "history": [
+   [
+    "user",
+    "how to make my room cozy"
+   ],
+   [
+    "assistant",
+    "Warm lamps instead of the ceiling light, a soft throw, and a plant or two."
+   ]
+  ]
+ },
+ {
+  "id": "more-07",
+  "follow": "more",
+  "prompt": "pls",
+  "history": [
+   [
+    "user",
+    "how do i start running"
+   ],
+   [
+    "assistant",
+    "Run-walk intervals three times a week: 1 minute jogging, 2 minutes walking, 8 rounds."
+   ]
+  ]
+ },
+ {
+  "id": "more-08",
+  "follow": "more",
+  "prompt": "more pls",
+  "history": [
+   [
+    "user",
+    "how do i get better sleep"
+   ],
+   [
+    "assistant",
+    "Here is the full picture. Sleep runs on a body clock that responds to light, so morning sunlight sets the day and dim evenings help melatonin rise. Caffeine has a half-life of about five to six hours, which means an afternoon coffee is still partly in your system at bedtime. Alcohol can make you drowsy but fragments the second half of the night, so the sleep you do get is lighter. A cool, dark and quiet room helps most people; around 18 °C is a common target. Screens matter less for the light than for the stimulation: an exciting show or a stressful email keeps the mind busy. A short wind-down routine of the same few steps each night tells your brain that sleep is coming. If you can't sleep after twenty minutes, getting up and doing something calm in dim light beats lying there frustrated. Naps are fine if they are short, under thirty minutes, and not late in the afternoon. Exercise helps sleep, but a hard workout right before bed can keep some people wired. Consistency is the biggest lever: the same wake-up time every day, weekends included, anchors everything else. Sleep runs on a body clock that responds to light, so morning sunlight sets the day and dim evenings help melatonin rise. Caffeine has a half-life of about five to six hours, which means an afternoon coffee is still partly in your system at bedtime. Alcohol can make you drowsy but fragments the second half of the night, so the sleep you do get is lighter. A cool, dark and quiet room helps most people; around 18 °C is a common target. Screens matter less for the light than for the stimulation: an exciting show or a stressful email keeps the mind busy. A short wind-down routine of the same few steps each night tells your brain that sleep is coming. If you can't sleep after twenty minutes, getting up and doing something calm in dim light beats lying there frustrated. Naps are fine if they are short, under thirty minutes, and not late in the afternoon. Exercise helps sleep, but a hard workout right before bed can keep some people wired. Consistency is the biggest lever: the same wake-up time every day, weekends included, anchors everything else.\n\n…the same wake-up time every day, weekends included, anchors everything else."
+   ]
+  ]
+ },
+ {
+  "id": "explain-01",
+  "follow": "explain",
+  "prompt": "why",
+  "history": [
+   [
+    "user",
+    "how can i be more productive"
+   ],
+   [
+    "assistant",
+    "Do your most important task first thing in the morning."
+   ]
+  ]
+ },
+ {
+  "id": "explain-02",
+  "follow": "explain",
+  "prompt": "wdym",
+  "history": [
+   [
+    "user",
+    "how do i get better sleep"
+   ],
+   [
+    "assistant",
+    "Anchor your circadian rhythm with consistent light exposure."
+   ]
+  ]
+ },
+ {
+  "id": "explain-03",
+  "follow": "explain",
+  "prompt": "how?",
+  "history": [
+   [
+    "user",
+    "explain ai like im 10"
+   ],
+   [
+    "assistant",
+    "AI learns patterns from lots of examples and uses math to guess the best answer."
+   ]
+  ]
+ },
+ {
+  "id": "explain-04",
+  "follow": "explain",
+  "prompt": "huh",
+  "history": [
+   [
+    "user",
+    "how does the stock market work"
+   ],
+   [
+    "assistant",
+    "Prices move as investors update expectations about future cash flows."
+   ]
+  ]
+ },
+ {
+  "id": "explain-05",
+  "follow": "explain",
+  "prompt": "why tho",
+  "history": [
+   [
+    "user",
+    "whats the capital of australia"
+   ],
+   [
+    "assistant",
+    "The capital is Canberra, not Sydney."
+   ]
+  ]
+ },
+ {
+  "id": "explain-06",
+  "follow": "explain",
+  "prompt": "what does that mean",
+  "history": [
+   [
+    "user",
+    "is coffee bad for you"
+   ],
+   [
+    "assistant",
+    "Caffeine has a half-life of about five hours."
+   ]
+  ]
+ },
+ {
+  "id": "explain-07",
+  "follow": "explain",
+  "prompt": "simpler pls",
+  "history": [
+   [
+    "user",
+    "explain black holes"
+   ],
+   [
+    "assistant",
+    "A black hole is a region where spacetime curvature becomes so extreme that the escape velocity exceeds the speed of light."
+   ]
+  ]
+ },
+ {
+  "id": "explain-08",
+  "follow": "explain",
+  "prompt": "eli5",
+  "history": [
+   [
+    "user",
+    "explain bitcoin simply"
+   ],
+   [
+    "assistant",
+    "Bitcoin is a decentralized ledger secured by proof-of-work consensus."
+   ]
+  ]
+ },
+ {
+  "id": "react-01",
+  "follow": "react",
+  "prompt": "ok",
+  "history": [
+   [
+    "user",
+    "what happened in the french revolution"
+   ],
+   [
+    "assistant",
+    "In 1789 France's monarchy fell; the Revolution ended feudal privileges and spread ideas of equality across Europe."
+   ]
+  ]
+ },
+ {
+  "id": "react-02",
+  "follow": "react",
+  "prompt": "cool",
+  "history": [
+   [
+    "user",
+    "tell me about the roman empire"
+   ],
+   [
+    "assistant",
+    "The Western Empire fell in 476, while the Eastern Empire lasted until 1453."
+   ]
+  ]
+ },
+ {
+  "id": "react-03",
+  "follow": "react",
+  "prompt": "lol",
+  "history": [
+   [
+    "user",
+    "tell me a joke"
+   ],
+   [
+    "assistant",
+    "Why did the scarecrow win an award? Because he was outstanding in his field. 😄"
+   ]
+  ]
+ },
+ {
+  "id": "react-04",
+  "follow": "react",
+  "prompt": "nice",
+  "history": [
+   [
+    "user",
+    "give me a workout for home"
+   ],
+   [
+    "assistant",
+    "Squats, push-ups, lunges and planks: 3 rounds, 30 seconds rest."
+   ]
+  ]
+ },
+ {
+  "id": "react-05",
+  "follow": "react",
+  "prompt": "thanks",
+  "history": [
+   [
+    "user",
+    "how long should i boil an egg"
+   ],
+   [
+    "assistant",
+    "8–10 minutes for hard-boiled, then straight into cold water."
+   ]
+  ]
+ },
+ {
+  "id": "react-06",
+  "follow": "react",
+  "prompt": "wow",
+  "history": [
+   [
+    "user",
+    "whats something interesting about octopuses"
+   ],
+   [
+    "assistant",
+    "Octopuses have three hearts and their blood is blue."
+   ]
+  ]
+ },
+ {
+  "id": "react-07",
+  "follow": "react",
+  "prompt": "ok thanks",
+  "history": [
+   [
+    "user",
+    "how do i fix a slow laptop"
+   ],
+   [
+    "assistant",
+    "Uninstall what you don't use, turn off startup apps, and consider an SSD."
+   ]
+  ]
+ },
+ {
+  "id": "react-08",
+  "follow": "react",
+  "prompt": "lol ok",
+  "history": [
+   [
+    "user",
+    "i cant focus on studying"
+   ],
+   [
+    "assistant",
+    "Honestly at 2 AM, sleep might help more than another hour of staring at notes."
+   ]
+  ]
+ },
+ {
+  "id": "react-09",
+  "follow": "react",
+  "prompt": "haha",
+  "history": [
+   [
+    "user",
+    "tell me a joke"
+   ],
+   [
+    "assistant",
+    "I told my wife she was drawing her eyebrows too high. She looked surprised."
+   ]
+  ]
+ },
+ {
+  "id": "react-10",
+  "follow": "react",
+  "prompt": "nah im good",
+  "history": [
+   [
+    "user",
+    "why is the sky blue"
+   ],
+   [
+    "assistant",
+    "Sunlight scatters off air molecules, and blue light scatters the most, so the sky looks blue."
+   ]
+  ],
+  "also": [
+   "decline"
+  ]
+ },
+ {
+  "id": "react-11",
+  "follow": "react",
+  "prompt": "got it",
+  "history": [
+   [
+    "user",
+    "how long should i boil an egg"
+   ],
+   [
+    "assistant",
+    "8–10 minutes for hard-boiled."
+   ]
+  ]
+ },
+ {
+  "id": "react-12",
+  "follow": "react",
+  "prompt": "ugh",
+  "history": [
+   [
+    "user",
+    "how do i make my resume better"
+   ],
+   [
+    "assistant",
+    "Recruiters spend about 7 seconds on a first look, so the top third has to do the work."
+   ]
+  ]
+ },
+ {
+  "id": "none-01",
+  "follow": "none",
+  "prompt": "whats the weather in paris",
+  "history": [
+   [
+    "user",
+    "tell me a joke"
+   ],
+   [
+    "assistant",
+    "Why did the scarecrow win an award? Because he was outstanding in his field."
+   ]
+  ]
+ },
+ {
+  "id": "none-02",
+  "follow": "none",
+  "prompt": "how tall is everest",
+  "history": [
+   [
+    "user",
+    "whats the capital of australia"
+   ],
+   [
+    "assistant",
+    "Canberra is the capital of Australia."
+   ]
+  ]
+ },
+ {
+  "id": "none-03",
+  "follow": "none",
+  "prompt": "write me a poem about cats",
+  "history": [
+   [
+    "user",
+    "how do i make cold brew"
+   ],
+   [
+    "assistant",
+    "Coarse grind, 1:4 with cold water, 12–18 hours, then strain."
+   ]
+  ]
+ },
+ {
+  "id": "none-04",
+  "follow": "none",
+  "prompt": "whats a good name for a bakery",
+  "history": [
+   [
+    "user",
+    "recommend a movie"
+   ],
+   [
+    "assistant",
+    "Try Paddington 2 — warm, funny and clever."
+   ]
+  ]
+ },
+ {
+  "id": "none-05",
+  "follow": "none",
+  "prompt": "how do i stop biting my nails",
+  "history": [
+   [
+    "user",
+    "how do plants make food"
+   ],
+   [
+    "assistant",
+    "Plants use sunlight, water and CO2 to make glucose and oxygen."
+   ]
+  ]
+ },
+ {
+  "id": "none-06",
+  "follow": "none",
+  "prompt": "tips for a job interview",
+  "history": [
+   [
+    "user",
+    "tell me a fun fact"
+   ],
+   [
+    "assistant",
+    "Honey never spoils: edible honey has been found in ancient tombs."
+   ]
+  ]
+ },
+ {
+  "id": "hold-accept-01",
+  "follow": "accept",
+  "prompt": "yeh",
+  "history": [
+   [
+    "user",
+    "how do i start running"
+   ],
+   [
+    "assistant",
+    "Run-walk intervals are the easiest start. Want a 4-week plan?"
+   ]
+  ],
+  "holdout": true
+ },
+ {
+  "id": "hold-accept-02",
+  "follow": "accept",
+  "prompt": "aight",
+  "history": [
+   [
+    "user",
+    "how do i make pancakes"
+   ],
+   [
+    "assistant",
+    "Flour, milk, egg, a pinch of salt. Want my fluffy version with buttermilk?"
+   ]
+  ],
+  "holdout": true
+ },
+ {
+  "id": "hold-accept-03",
+  "follow": "accept",
+  "prompt": "sounds good",
+  "history": [
+   [
+    "user",
+    "plan me a road trip in california"
+   ],
+   [
+    "assistant",
+    "PCH from SF to LA over 5 days works well. Shall I map out each day?"
+   ]
+  ],
+  "holdout": true
+ },
+ {
+  "id": "hold-accept-04",
+  "follow": "accept",
+  "prompt": "lets do it",
+  "history": [
+   [
+    "user",
+    "i want to get into photography"
+   ],
+   [
+    "assistant",
+    "Start with your phone and one theme a week. Want a 7-day photo challenge?"
+   ]
+  ],
+  "holdout": true
+ },
+ {
+  "id": "hold-accept-05",
+  "follow": "accept",
+  "prompt": "for sure",
+  "history": [
+   [
+    "user",
+    "how do i keep my plants alive"
+   ],
+   [
+    "assistant",
+    "Most houseplants die from overwatering. Want a simple watering schedule?"
+   ]
+  ],
+  "holdout": true
+ },
+ {
+  "id": "hold-accept-06",
+  "follow": "accept",
+  "prompt": "on it?",
+  "history": [
+   [
+    "user",
+    "what should i do this evening"
+   ],
+   [
+    "assistant",
+    "A walk, a new recipe, or a movie night. Want me to plan a cozy evening for you?"
+   ]
+  ],
+  "holdout": true,
+  "also": [
+   "accept"
+  ]
+ },
+ {
+  "id": "hold-decline-01",
+  "follow": "decline",
+  "prompt": "nope not really",
+  "history": [
+   [
+    "user",
+    "recommend an anime"
+   ],
+   [
+    "assistant",
+    "Try Frieren or Spy x Family. Want more like either?"
+   ]
+  ],
+  "holdout": true
+ },
+ {
+  "id": "hold-decline-02",
+  "follow": "decline",
+  "prompt": "id rather not",
+  "history": [
+   [
+    "user",
+    "how do i start investing"
+   ],
+   [
+    "assistant",
+    "Index funds are simplest. Want me to walk you through opening a brokerage account?"
+   ]
+  ],
+  "holdout": true
+ },
+ {
+  "id": "hold-decline-03",
+  "follow": "decline",
+  "prompt": "skip",
+  "history": [
+   [
+    "user",
+    "teach me something cool"
+   ],
+   [
+    "assistant",
+    "Ready for a quick quiz on what you just learned?"
+   ]
+  ],
+  "holdout": true
+ },
+ {
+  "id": "hold-decline-04",
+  "follow": "decline",
+  "prompt": "nah all good",
+  "history": [
+   [
+    "user",
+    "how to get rid of fruit flies"
+   ],
+   [
+    "assistant",
+    "A vinegar trap with a drop of dish soap works fast. Want tips to stop them coming back?"
+   ]
+  ],
+  "holdout": true
+ },
+ {
+  "id": "hold-pick-01",
+  "follow": "pick",
+  "prompt": "number 3",
+  "history": [
+   [
+    "user",
+    "whats a fun game to play with friends"
+   ],
+   [
+    "assistant",
+    "1. Codenames\n2. Mafia\n3. Spyfall\nWhich sounds fun?"
+   ]
+  ],
+  "holdout": true
+ },
+ {
+  "id": "hold-pick-02",
+  "follow": "pick",
+  "prompt": "the spicy one",
+  "history": [
+   [
+    "user",
+    "whats a quick lunch"
+   ],
+   [
+    "assistant",
+    "A chickpea wrap, a spicy noodle bowl, or a caprese toastie. Which?"
+   ]
+  ],
+  "holdout": true
+ },
+ {
+  "id": "hold-pick-03",
+  "follow": "pick",
+  "prompt": "option a",
+  "history": [
+   [
+    "user",
+    "teach me something cool"
+   ],
+   [
+    "assistant",
+    "Pick one: A) how GPS works B) why cats purr"
+   ]
+  ],
+  "holdout": true
+ },
+ {
+  "id": "hold-pick-04",
+  "follow": "pick",
+  "prompt": "netflix",
+  "history": [
+   [
+    "user",
+    "what should i watch"
+   ],
+   [
+    "assistant",
+    "Are you on Netflix or Disney+?"
+   ]
+  ],
+  "holdout": true,
+  "also": [
+   "answer"
+  ]
+ },
+ {
+  "id": "hold-answer-01",
+  "follow": "answer",
+  "prompt": "17",
+  "history": [
+   [
+    "user",
+    "whats a good first car"
+   ],
+   [
+    "assistant",
+    "How old are you, and what's your budget?"
+   ]
+  ],
+  "holdout": true
+ },
+ {
+  "id": "hold-answer-02",
+  "follow": "answer",
+  "prompt": "my sister",
+  "history": [
+   [
+    "user",
+    "help me write a thank you note"
+   ],
+   [
+    "assistant",
+    "Who is it for?"
+   ]
+  ],
+  "holdout": true
+ },
+ {
+  "id": "hold-answer-03",
+  "follow": "answer",
+  "prompt": "like 200",
+  "history": [
+   [
+    "user",
+    "gift for a coworker"
+   ],
+   [
+    "assistant",
+    "What's your budget?"
+   ]
+  ],
+  "holdout": true
+ },
+ {
+  "id": "hold-answer-04",
+  "follow": "answer",
+  "prompt": "sydney",
+  "history": [
+   [
+    "user",
+    "whats the best time to visit"
+   ],
+   [
+    "assistant",
+    "Where are you planning to go?"
+   ]
+  ],
+  "holdout": true
+ },
+ {
+  "id": "hold-more-01",
+  "follow": "more",
+  "prompt": "continue",
+  "history": [
+   [
+    "user",
+    "explain black holes"
+   ],
+   [
+    "assistant",
+    "A black hole forms when a massive star collapses under its own gravity."
+   ]
+  ],
+  "holdout": true
+ },
+ {
+  "id": "hold-more-02",
+  "follow": "more",
+  "prompt": "keep em coming",
+  "history": [
+   [
+    "user",
+    "tell me a fun fact"
+   ],
+   [
+    "assistant",
+    "Bananas are berries, but strawberries aren't."
+   ]
+  ],
+  "holdout": true,
+  "also": [
+   "change"
+  ]
+ },
+ {
+  "id": "hold-more-03",
+  "follow": "more",
+  "prompt": "anything else?",
+  "history": [
+   [
+    "user",
+    "tips for a job interview"
+   ],
+   [
+    "assistant",
+    "Research the company and prepare two stories about your wins."
+   ]
+  ],
+  "holdout": true
+ },
+ {
+  "id": "hold-explain-01",
+  "follow": "explain",
+  "prompt": "elaborate",
+  "history": [
+   [
+    "user",
+    "what is stoicism"
+   ],
+   [
+    "assistant",
+    "Stoicism teaches you to focus on what you can control."
+   ]
+  ],
+  "holdout": true
+ },
+ {
+  "id": "hold-explain-02",
+  "follow": "explain",
+  "prompt": "meaning?",
+  "history": [
+   [
+    "user",
+    "how does wifi work"
+   ],
+   [
+    "assistant",
+    "Wifi uses 2.4 and 5 GHz bands with OFDM modulation."
+   ]
+  ],
+  "holdout": true
+ },
+ {
+  "id": "hold-explain-03",
+  "follow": "explain",
+  "prompt": "how come",
+  "history": [
+   [
+    "user",
+    "is it ok to drink water before bed"
+   ],
+   [
+    "assistant",
+    "A big glass right before bed can disrupt sleep."
+   ]
+  ],
+  "holdout": true
+ },
+ {
+  "id": "hold-explain-04",
+  "follow": "explain",
+  "prompt": "say that again simpler",
+  "history": [
+   [
+    "user",
+    "explain how credit scores work"
+   ],
+   [
+    "assistant",
+    "Your FICO score weights payment history at 35% and utilization at 30%."
+   ]
+  ],
+  "holdout": true
+ },
+ {
+  "id": "hold-react-01",
+  "follow": "react",
+  "prompt": "k",
+  "history": [
+   [
+    "user",
+    "how long should i boil an egg"
+   ],
+   [
+    "assistant",
+    "8–10 minutes for hard-boiled."
+   ]
+  ],
+  "holdout": true
+ },
+ {
+  "id": "hold-react-02",
+  "follow": "react",
+  "prompt": "neat",
+  "history": [
+   [
+    "user",
+    "tell me about space"
+   ],
+   [
+    "assistant",
+    "There are more stars in the universe than grains of sand on Earth."
+   ]
+  ],
+  "holdout": true
+ },
+ {
+  "id": "hold-react-03",
+  "follow": "react",
+  "prompt": "thx",
+  "history": [
+   [
+    "user",
+    "how do i make cold brew"
+   ],
+   [
+    "assistant",
+    "Coarse grind, 1:4 with cold water, 12–18 hours."
+   ]
+  ],
+  "holdout": true
+ },
+ {
+  "id": "hold-react-04",
+  "follow": "react",
+  "prompt": "omg",
+  "history": [
+   [
+    "user",
+    "whats something interesting about octopuses"
+   ],
+   [
+    "assistant",
+    "Octopuses can taste with their arms."
+   ]
+  ],
+  "holdout": true
+ },
+ {
+  "id": "hold-react-05",
+  "follow": "react",
+  "prompt": "makes sense",
+  "history": [
+   [
+    "user",
+    "why is the sky blue"
+   ],
+   [
+    "assistant",
+    "Blue light scatters the most, so the sky looks blue."
+   ]
+  ],
+  "holdout": true
+ },
+ {
+  "id": "hold-react-06",
+  "follow": "react",
+  "prompt": "fair",
+  "history": [
+   [
+    "user",
+    "should i learn python or javascript"
+   ],
+   [
+    "assistant",
+    "Python first if you're unsure; JavaScript when you build websites."
+   ]
+  ],
+  "holdout": true
+ },
+ {
+  "id": "hold-react-07",
+  "follow": "react",
+  "prompt": "tysm",
+  "history": [
+   [
+    "user",
+    "help me write a birthday message"
+   ],
+   [
+    "assistant",
+    "Happy birthday, Mom! Thank you for everything you do. I love you."
+   ]
+  ],
+  "holdout": true
+ }
+]

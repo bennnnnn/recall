@@ -573,9 +573,16 @@ def _follow_turn(content: str, read: TurnDecision, **fields: Any) -> StreamConte
         ("answer", "everyday", FOLLOW_NOTES["answer"]),
         ("change", "everyday", FOLLOW_NOTES["change"]),
         ("answer", "code", FOLLOW_NOTES["answer"]),
-        # A new question, or more on the last answer: nothing to say.
+        # A new question: nothing to say.
         ("none", "everyday", None),
-        ("explain", "everyday", None),
+        # A texted reply to the last one, each kind its own (owner, 2026-11-21): "wdym" was
+        # told nothing and asked back what "what do you mean" meant.
+        ("explain", "everyday", FOLLOW_NOTES["explain"]),
+        ("more", "everyday", FOLLOW_NOTES["more"]),
+        ("accept", "everyday", FOLLOW_NOTES["accept"]),
+        ("decline", "everyday", FOLLOW_NOTES["decline"]),
+        ("pick", "everyday", FOLLOW_NOTES["pick"]),
+        ("react", "everyday", FOLLOW_NOTES["react"]),
         # Every subject: "and b?" was read as a change in physics and told nothing
         # (2026-11-18). A calculation laid out or worked by a server path gets none (below).
         ("change", "maths", FOLLOW_NOTES["change"]),
@@ -1097,3 +1104,24 @@ async def test_a_word_lesson_is_followed_by_more_words() -> None:
         await decide_from_the_read(ctx, _SETTINGS)
         expected = lesson_next_contract(1, words=words)
         assert any(m["content"] == expected for m in ctx.prompt_messages)
+
+
+@pytest.mark.parametrize(("follow", "kept"), [("accept", True), ("react", False), ("more", False)])
+@pytest.mark.asyncio
+async def test_the_word_rules_yes_stays_only_where_the_read_hears_one(
+    follow: str, kept: bool
+) -> None:
+    """"pls" after a reply that offered nothing asks for more: told "Carry out that offer now"
+    by the word rules, the reply redid its last answer (100 texted chats, 2026-11-21)."""
+    from app.modules.chat.prompt_constants import CONFIRM_FOLLOW_THROUGH_HINT
+
+    begin_turn_trace("new")
+    ctx = _follow_turn("pls", _follow_read(follow, "everyday"))
+    ctx.prompt_messages = [
+        {"role": "system", "content": f"Rules.\n\n{CONFIRM_FOLLOW_THROUGH_HINT}\n\nMore rules."},
+        *ctx.prompt_messages,
+    ]
+    await decide_from_the_read(ctx, _SETTINGS)
+    system = " ".join(m["content"] for m in ctx.prompt_messages if m["role"] == "system")
+    assert (CONFIRM_FOLLOW_THROUGH_HINT in system) is kept
+    assert "Rules." in system and "More rules." in system

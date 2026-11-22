@@ -133,17 +133,31 @@ QUESTIONS: dict[str, dict[str, Any]] = {
     },
     "follow": {
         "type": "choice",
-        "instructions": "How does the last message relate to the earlier turns?",
+        "instructions": (
+            "What does the last message do with the assistant's last reply? People text "
+            "short, so read it against that reply's end, where its question or offer is."
+        ),
         "criteria": {
             "none": "it stands alone: a new question or request, or there are no earlier turns",
             "solve": "work out a problem an earlier message stated or the assistant posed "
             "(do it, solve it, what's the answer)",
-            "explain": "more on the last answer (step by step, why?, explain it simply)",
+            "explain": "asks what the last answer meant or why (why?, how?, wdym, huh, "
+            "simpler, step by step)",
+            "more": "asks for more of the last answer or to keep going (more, go on, and?, "
+            "what else, pls when nothing was offered)",
             "change": "the earlier problem or work changed or asked something else (what if, "
             "the second derivative, make it shorter, in a table, another one)",
             "draw": "show what the conversation is about (draw it, graph it)",
-            "answer": "a reply to the assistant's question or offer: a value it asked for, a "
-            "choice, yes or no, accepting an offer, a quiz answer",
+            "accept": "yes to something the last reply offered or proposed to do (yes, yap, "
+            "sure, go, pls, do it)",
+            "decline": "no to the last reply's offer or question (nah, no thanks, im good, "
+            "not now)",
+            "pick": "chooses one of the options or items the last reply listed or asked "
+            "between (the 2nd, pasta, both, b)",
+            "answer": "gives a value or detail the last reply asked for (a number, a name, a "
+            "place, how many), a quiz answer, or their own answer to check",
+            "react": "a reaction, not a request, to a reply that asked and offered nothing "
+            "(ok, cool, lol, thanks, wow, nah im good)",
         },
     },
     # "Top 5 in Ethiopia" after a search for the world's top universities read 0.14, its "Yes"
