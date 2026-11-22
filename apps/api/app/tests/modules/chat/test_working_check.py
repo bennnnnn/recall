@@ -326,8 +326,7 @@ def test_values_in_code_are_no_values_of_the_working() -> None:
 def test_two_values_on_one_line_are_both_read() -> None:
     """Review (#2520): "$I_1 = 15/13, I_2 = 1/13$" gives both unknowns their values."""
     reply = (
-        "$8I_1 + 6I_2 = 10$ and $6I_1 + 10I_2 = 6$, so "
-        "$I_1 = \\frac{15}{13}, I_2 = \\frac{1}{13}$."
+        "$8I_1 + 6I_2 = 10$ and $6I_1 + 10I_2 = 6$, so $I_1 = \\frac{15}{13}, I_2 = \\frac{1}{13}$."
     )
     unheld = unheld_equations(reply)
     assert unheld and set(unheld[0].values) == {"I_1", "I_2"}
