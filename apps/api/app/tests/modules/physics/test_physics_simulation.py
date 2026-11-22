@@ -756,12 +756,23 @@ def test_the_resolved_components_form_a_right_triangle_with_their_force() -> Non
     """Tip of the horizontal component is where the vertical one starts, so the
     three arrows close — which is what resolving *means*."""
     scene = _scene(RESOLVE_Q)
-    horizontal, vertical, original = scene.vectors
+    original, horizontal, vertical = scene.vectors
 
     assert vertical.anchor[0] == pytest.approx(horizontal.dx)
     assert vertical.anchor[1] == pytest.approx(0.0)
     assert original.dx == pytest.approx(horizontal.dx)
     assert original.dy == pytest.approx(vertical.dy)
+
+
+def test_a_resolved_vector_is_drawn_then_across_then_up() -> None:
+    """The owner's ask (2026-11-20): the vector first, then one side, then the other, so the
+    reader watches it split; the phone walks these stages and picks none of its own."""
+    scene = _scene(RESOLVE_Q)
+    assert [vector.stage for vector in scene.vectors] == [0, 1, 2]
+    assert [vector.role for vector in scene.vectors] == ["force", "result", "result"]
+    # Its angle is a given of the vector: shown with it.
+    assert [angle.stage for angle in scene.angles] == [0]
+    assert scene.title_key == "components"
 
 
 def test_a_still_figure_needs_no_bodies() -> None:
@@ -934,3 +945,44 @@ def test_a_pendulum_is_never_drawn_as_a_spring() -> None:
 
     (scene,) = solve_physics(swinging).simulation_specs
     assert scene.type == "pendulum"
+
+
+def test_a_resolved_angle_is_marked_from_the_axis_it_was_measured_from() -> None:
+    """Review, 2026-11-20: 120° from the x-axis was drawn from 180° and labelled 60°."""
+    scene = _scene("Resolve 25 m/s at 120° from the positive x-axis into components.")
+    (arc,) = scene.angles
+    assert (arc.start_deg, round(arc.end_deg), arc.label) == (0.0, 120, "120°")
+    bearing = _scene("A ship sails 25 km on a bearing of 120°. Find the east and north components.")
+    (arc,) = bearing.angles
+    assert (arc.start_deg, round(arc.end_deg), arc.label) == (90.0, -30, "120°")
+
+
+def test_an_angle_from_the_vertical_sits_between_the_vector_and_the_vertical_side() -> None:
+    """Owner, 2026-11-20: the 40° from the vertical hung beside no line, the vertical side
+    drawn at the far end. Measured from the vertical, the vertical side rises from the tail
+    first and the horizontal one runs from its top to the tip."""
+    scene = _scene("Resolve 1900 km at an angle of 40° from the vertical into two components.")
+    original, vertical, horizontal = scene.vectors
+    assert (vertical.anchor, vertical.dx, vertical.stage) == ([0.0, 0.0], 0.0, 1)
+    assert horizontal.anchor == [0.0, pytest.approx(vertical.dy)] and horizontal.stage == 2
+    assert horizontal.dx == pytest.approx(original.dx)
+    (arc,) = scene.angles
+    assert arc.start_deg == 90.0
+
+
+def test_a_resolved_vector_stands_on_axes_through_its_tail() -> None:
+    """Owner, 2026-11-20: "doesn't it need the x and y axis?" The axes cross at the tail and
+    reach past the triangle; a bearing's are named E and N."""
+    scene = _scene("Resolve 45 m/s at an angle of 80° from the horizontal into two components.")
+    assert scene.axes is not None
+    assert scene.axes.origin == [0.0, 0.0]
+    assert scene.axes.x[0] < 0.0 < scene.axes.x[1] and scene.axes.y[0] < 0.0 < scene.axes.y[1]
+    assert (scene.axes.x_label, scene.axes.y_label) == ("x", "y")
+    hiker = _scene("A hiker walks 5 km 40° west of north. Find the components of the displacement.")
+    assert hiker.axes is not None and (hiker.axes.x_label, hiker.axes.y_label) == ("E", "N")
+    # A west component reaches the negative side: the x-axis runs past it.
+    assert hiker.axes.x[0] < min(v.anchor[0] + v.dx for v in hiker.vectors)
+
+
+def test_a_scene_without_axes_leaves_them_out_of_its_fence() -> None:
+    assert "axes" not in _scene(RESULTANT_Q).model_dump()

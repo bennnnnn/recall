@@ -1,7 +1,7 @@
 /** The scene's test markers, one per drawn part, and the switch that renders them. */
 import { StyleSheet, View } from "react-native";
 
-import type { SceneLayout, SimulationSpec } from "@/lib/physics/simulation";
+import type { SceneLayout, SceneStages, SimulationSpec } from "@/lib/physics/simulation";
 
 /**
  * The invisible geometry markers exist for component tests, which cannot see
@@ -18,6 +18,7 @@ export function SceneMarkers({
   pivot,
   spring,
   reduceMotion,
+  stages,
 }: {
   spec: SimulationSpec;
   layout: SceneLayout;
@@ -27,6 +28,8 @@ export function SceneMarkers({
   pivot: boolean;
   spring: boolean;
   reduceMotion: boolean;
+  /** A scene built in stages: a marker for it, and each vector's turn. */
+  stages: SceneStages | null;
 }) {
   const marker = (testID: string, key?: string) => (
     <View key={key ?? testID} testID={testID} style={markerStyle} />
@@ -45,6 +48,7 @@ export function SceneMarkers({
       {centre ? marker("simulation-centre") : null}
       {spring ? marker("simulation-spring") : null}
       {reduceMotion ? marker("simulation-static") : null}
+      {stages ? marker(`simulation-stages-${stages.count}`) : null}
       {layout.pulley ? marker("simulation-pulley") : null}
       {layout.planet ? marker("simulation-planet") : null}
       {layout.tethers.map((tether, index) => (
@@ -85,18 +89,25 @@ export function SceneMarkers({
           ))}
         </View>
       ))}
-      {layout.vectors.map((vector, index) => (
-        <View
-          key={`vector-marker-${index}`}
-          testID={`simulation-vector-${vector.vector.role}`}
-          style={markerStyle}
-        >
-          {vector.label ? <View testID="simulation-vector-label" style={markerStyle} /> : null}
-          {vector.body !== null ? marker("simulation-vector-attached") : null}
-        </View>
-      ))}
+      <VectorMarkers layout={layout} stages={stages} />
     </View>
   );
+}
+
+/** One marker per stated vector: its role, its label, the body it rides on and its turn. */
+function VectorMarkers({ layout, stages }: { layout: SceneLayout; stages: SceneStages | null }) {
+  const marker = (testID: string) => <View testID={testID} style={markerStyle} />;
+  return layout.vectors.map((vector, index) => (
+    <View
+      key={`vector-marker-${index}`}
+      testID={`simulation-vector-${vector.vector.role}`}
+      style={markerStyle}
+    >
+      {vector.label ? marker("simulation-vector-label") : null}
+      {vector.body !== null ? marker("simulation-vector-attached") : null}
+      {stages ? marker(`simulation-vector-turn-${stages.vectors[index]}`) : null}
+    </View>
+  ));
 }
 
 const markerStyle = {

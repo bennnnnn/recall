@@ -47,6 +47,12 @@ export type SimulationVector = {
    * position, every frame: the tension on an Atwood mass goes where it goes.
    */
   body?: number;
+  /**
+   * When the arrow is drawn in a scene built step by step (0–5): every arrow
+   * of the lowest stage grows first, then the next (`stages.ts`). Left out,
+   * the arrow is drawn with the rest at once, or with stage 0 in a staged scene.
+   */
+  stage?: number;
 };
 
 export type SimulationVectorRole = "force" | "result" | "measure" | "motion";
@@ -83,6 +89,12 @@ export type SimulationAngle = {
   label?: string;
   arrow: boolean;
   role: "given" | "result";
+  /**
+   * In a scene built in stages (0–5): the arc and its label show once that
+   * stage's arrows are drawn. Left out, the arc shows with the arrows it runs
+   * along (`stages.ts`).
+   */
+  stage?: number;
 };
 
 /** A static rectangle: the table a ball rolls off, a cliff, a tank of water. */
@@ -109,6 +121,7 @@ export const SCENE_TITLE_KEYS = [
   "height",
   "atwood",
   "forces",
+  "components",
   "spring",
   "pendulum",
   "circuit",
@@ -154,4 +167,18 @@ export type SimulationSpec = {
   /** One sentence a screen reader says for the picture, instead of the generated one. */
   alt?: string;
   titleKey?: SceneTitleKey;
+  /** The x and y axes a vector diagram stands on, as the server set them. */
+  axes?: SimulationAxes;
+};
+
+/**
+ * Two thin lines through `origin`, each from its low end to its high end, an arrowhead
+ * and its name ("x", "y"; "E", "N" for a bearing) at the high end. World coords.
+ */
+export type SimulationAxes = {
+  origin: { x: number; y: number };
+  x: [number, number];
+  y: [number, number];
+  xLabel: string;
+  yLabel: string;
 };

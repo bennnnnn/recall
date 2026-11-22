@@ -185,6 +185,40 @@ def test_a_part_stating_another_value_gets_no_card() -> None:
     assert not parts_conflict(reply, [r"11.5\,\mathrm{m}", r"3.62\,\mathrm{s}"])
 
 
+def test_a_stem_with_no_values_reads_each_lettered_vector_alone() -> None:
+    """The owner's chat (2026-11-20): one instruction, three vectors of different kinds. Read
+    with the parts before it, (b) was (a)'s 60 N again, so nothing was solved or drawn."""
+    question = (
+        "Draw simple vector diagrams and resolve them into two\ncomponents.\n"
+        "a) 60 N at an angle of 30° from the horizontal.\n"
+        "b) 45 m/s at an angle of 80° from the horizontal.\n"
+        "c) 1900 km at an angle of 40° from the vertical."
+    )
+    outcome, block = solve_physics_request(question, _SETTINGS, None)
+    assert outcome == "verified" and block is not None
+    assert [part.display_answer.split(r"\,")[0] for part in block.physics_parts] == [
+        "52",
+        "7.81",
+        "1221",
+    ]
+    scenes = [spec for spec in block.canonical_fences if spec.get("type") == "vector_sum"]
+    # A diagram for every part, each drawn vector first, then across, then up.
+    assert [scene["title_key"] for scene in scenes] == ["components"] * 3
+    for scene in scenes:
+        assert [vector["stage"] for vector in scene["vectors"]] == [0, 1, 2]
+
+
+def test_asking_parts_under_a_numberless_stem_are_not_read_alone() -> None:
+    """Gemini review: read alone, (b) lost (a)'s g = 10 m/s² and was solved with 9.81."""
+    question = (
+        "A stone falls freely from rest. a) What is its speed after 2 s, taking g = 10 m/s^2? "
+        "b) How far does it fall in 2 s?"
+    )
+    _, block = solve_physics_request(question, _SETTINGS, None)
+    answers = [] if block is None else [part.display_answer for part in block.physics_parts]
+    assert not any(answer.startswith("19.6") for answer in answers)
+
+
 _CRANE = (
     "A crane lifts a 450 kg concrete to the top of a 50 m building in 5 s. Assuming "
     "g = 10 m/s^2, calculate: a) The potential energy of the concrete. b) The power "

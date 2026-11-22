@@ -122,4 +122,24 @@ describe("usePlayback", () => {
     expect(hook.result.current.isPlaying).toBe(false);
     expect(hook.result.current.progress.value).toBe(0);
   });
+
+  it("rests a figure that builds itself finished under Reduce Motion, and replays it from the top", async () => {
+    mockSetting.mockReturnValue(true);
+    const hook = await renderHook(() => usePlayback({ ...BASE, restAtEnd: true }));
+    expect(hook.result.current.isPlaying).toBe(false);
+    expect(hook.result.current.progress.value).toBe(1);
+
+    jest.mocked(withTiming).mockClear();
+    await act(() => hook.result.current.play());
+    expect(hook.result.current.isPlaying).toBe(true);
+    // From the start, at the full pass's pace.
+    expect(jest.mocked(withTiming).mock.calls.at(-1)?.[1]).toMatchObject({ duration: 4000 });
+  });
+
+  it("keeps a built figure empty while the setting is unknown, rather than flash it finished", async () => {
+    mockSetting.mockReturnValue(null);
+    const hook = await renderHook(() => usePlayback({ ...BASE, restAtEnd: true }));
+    expect(hook.result.current.progress.value).toBe(0);
+    expect(hook.result.current.isPlaying).toBe(false);
+  });
 });

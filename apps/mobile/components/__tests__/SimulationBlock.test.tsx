@@ -15,6 +15,7 @@ import { fireEvent, render } from "@testing-library/react-native";
 import { Dimensions, StyleSheet } from "react-native";
 
 import { simulationPlaceholderHeight } from "@/components/rich/simulationPlaceholder";
+import { RESOLVED } from "@/lib/__tests__/fixtures/stagedScenes";
 import { SimulationBlock } from "@/components/rich/SimulationBlock";
 import { Space } from "@/lib/space";
 
@@ -461,6 +462,14 @@ describe("LazySimulationBlock placeholder", () => {
     const lever = await render(<SimulationBlock content={LEVER} />);
     const leverCanvas = lever.getByTestId("simulation-canvas").props.style.height;
     expect(simulationPlaceholderHeight(LEVER, screenWidth)).toBe(Space.xs * 2 + title + leverCanvas);
+
+    // A still scene built in stages carries the play button too (review, 2026-11-20).
+    const staged = JSON.stringify(RESOLVED);
+    const resolved = await render(<SimulationBlock content={staged} />);
+    const resolvedCanvas = resolved.getByTestId("simulation-canvas").props.style.height;
+    expect(simulationPlaceholderHeight(staged, screenWidth)).toBe(
+      Space.xs * 2 + title + resolvedCanvas + Space.xxs + Space.minTouch,
+    );
   });
 });
 
