@@ -103,6 +103,9 @@ if TYPE_CHECKING:
     from app.modules.todos.read_check import (
         check_reading as check_reading,
     )
+    from app.modules.todos.reminder_fence_parse import (
+        explicitly_declines_reminder_creation as explicitly_declines_reminder_creation,
+    )
     from app.modules.todos.reminder_fences import (
         materialize_reminder_fences as materialize_reminder_fences,
     )
@@ -124,6 +127,9 @@ if TYPE_CHECKING:
     from app.modules.todos.spoken_add import (
         is_reminder_request as is_reminder_request,
     )
+    from app.modules.todos.spoken_clauses import (
+        asked_when as asked_when,
+    )
     from app.modules.todos.spoken_when import (
         is_only_a_when as is_only_a_when,
     )
@@ -143,6 +149,11 @@ _EXPORTS = {
     "without_denials": ("reply_denials", "without_denials"),
     "without_reminder_denials": ("reply_denials", "without_reminder_denials"),
     "without_claims": ("reply_claims", "without_claims"),
+    "explicitly_declines_reminder_creation": (
+        "reminder_fence_parse",
+        "explicitly_declines_reminder_creation",
+    ),
+    "asked_when": ("spoken_clauses", "asked_when"),
     "without_when_questions": ("reply_claims", "without_when_questions"),
     "ASK_WHEN": ("read_check", "ASK_WHEN"),
     "ReminderReading": ("model_read", "ReminderReading"),

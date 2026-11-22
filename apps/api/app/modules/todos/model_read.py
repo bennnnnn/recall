@@ -137,7 +137,9 @@ class ReminderReading(BaseModel):
     @field_validator("in_minutes", "before_minutes", mode="before")
     @classmethod
     def _minutes(cls, value: Any) -> int | None:
-        """An odd count (0, "", a word) is no value, not a failed read."""
+        """An odd count (0, "", a word, true) is no value, not a failed read."""
+        if isinstance(value, bool):
+            return None
         try:
             minutes = int(value)
         except (TypeError, ValueError):

@@ -26,7 +26,7 @@ _JUST_DONE_RE = re.compile(
 # (live QA, 2026-11-22: "Did it actually save somewhere?" offered to mark a reminder done).
 _ASKS_IF_IT_DID_RE = re.compile(
     r"^did it(?:\s+(?:actually|really|even|ever|just))?\s+(?:save|work|go|get|set|show|stick"
-    r"|happen|send|ping|remind)\b|\?"
+    r"|happen|send|ping|remind)\b|^did it\b[^.!]*\?"
 )
 _PRONOUNS = frozenset({"it", "this", "that"})
 _FILLERS = frozenset({"for", "to", "at", "on", "the", "a", "an"})

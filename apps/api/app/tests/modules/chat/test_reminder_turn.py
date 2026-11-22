@@ -348,6 +348,32 @@ async def test_the_deciders_yes_is_its_sure_one(odds: float, asks: bool) -> None
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("spend", ["capped", "down"])
+async def test_past_the_spend_cap_or_in_an_outage_nothing_is_read(spend: str) -> None:
+    """Neither the Decider nor the request's read is called: the word rules read the turn."""
+    from datetime import datetime as real_datetime
+
+    from app.modules.todos.model_read import read_reminder_chat
+
+    gate = AsyncMock(return_value=True) if spend == "capped" else AsyncMock(side_effect=OSError)
+    decide = AsyncMock()
+    complete = AsyncMock()
+    with (
+        patch("app.services.quota.global_spend_exceeded", gate),
+        patch("app.gateways.decider_gateway.decide", decide),
+        patch("app.gateways.structured_completion.complete_structured", complete),
+    ):
+        settings = Settings(openrouter_api_key="k")
+        assert not await reminder_turn.asks_for_a_reminder(settings, "remind me tmrw at 5", [])
+        read = await read_reminder_chat(
+            settings, [], "remind me tmrw at 5", now=real_datetime.now()
+        )
+        assert read is None
+    decide.assert_not_awaited()
+    complete.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_a_failed_decider_call_is_no() -> None:
     with patch("app.gateways.decider_gateway.decide", AsyncMock(side_effect=RuntimeError)):
         assert not await reminder_turn.asks_for_a_reminder(Settings(), "remind me", [])
@@ -371,3 +397,67 @@ def test_honest_never_says_the_app_cannot_make_one() -> None:
     assert "tool" not in honest(
         "Got it! I'll remind you at 5. I don't have a reminder tool though."
     )
+
+
+@pytest.mark.asyncio
+async def test_a_card_of_several_reminders_from_the_word_rules_stays() -> None:
+    """The read writes one request down: it never replaces a card of two (review of #2535)."""
+    line = "remind me to call mom at 5pm and to pay rent on friday at 9am"
+    text = await _finish(line, "Sure!", [], _read(task="call mom", task_quote="call mom",
+                                                  time="5pm", time_quote="at 5pm"))  # fmt: skip
+    assert len(_items(text)) == 2
+
+
+@pytest.mark.asyncio
+async def test_dont_set_a_reminder_outranks_the_read() -> None:
+    reply = "Good plan — calling her at 5 tomorrow sounds right."
+    text = await _finish(
+        "I will call mom tomorrow at 5pm, do not set a reminder", reply, [],
+        _read(task="call mom", task_quote="call mom", day="tomorrow", day_quote="tomorrow",
+              time="5pm", time_quote="5pm"),
+    )  # fmt: skip
+    assert "reminder_proposal" not in text
+
+
+@pytest.mark.asyncio
+async def test_a_question_about_something_else_is_not_asking_when() -> None:
+    """ "Are you flying or driving?" before "remind me to call grandma": when is asked."""
+    history = [
+        ("user", "I am visiting Chicago next month"),
+        ("assistant", "Nice! Flying or driving?"),
+    ]
+    text = await _finish(
+        "remind me to call grandma", "Sure!", history,
+        _read(task="call grandma", task_quote="call grandma"),
+    )  # fmt: skip
+    assert "reminder_proposal" not in text and text.endswith("?")
+
+
+@pytest.mark.asyncio
+async def test_a_regenerate_leaves_out_the_reply_it_redoes() -> None:
+    from app.modules.chat.turn_prep.context import RegenerateBackup
+
+    ctx = _ctx("remind me to call mom", [], None)
+    old = SimpleNamespace(id=uuid4(), role="assistant", content="When should I remind you?")
+    ctx.recent_messages = [
+        SimpleNamespace(id=uuid4(), role="user", content="remind me to call mom"),
+        old,
+    ]
+    ctx.regenerate_backup = RegenerateBackup(content=old.content, model=None, message_id=old.id)
+    assert reminder_turn.conversation(ctx) == []
+
+
+@pytest.mark.asyncio
+async def test_did_it_save_about_a_reminder_no_card_was_offered_for_gets_its_card() -> None:
+    """An earlier tapped card is another reminder's: "did it save?" is about the bio test."""
+    history = [
+        ("user", "remind me to call mom tomorrow at 5pm"),
+        ("assistant", _card("Call mom", _MON_5PM, saved=True)),
+        ("user", "remind me abt my bio test tmrw at 5?"),
+        ("assistant", "Done — I'll remind you tomorrow at 5"),
+    ]
+    reading = ReminderReading.model_validate(
+        {"request": "status", "task": "my bio test", "task_quote": "my bio test", **_TMRW_5}
+    )
+    text = await _finish("did it save?", "Yes, it's saved!", history, ReminderRead(reading=reading))
+    assert text.startswith(NOT_SAVED_YET) and "bio" in _items(text)[0]["title"].lower()

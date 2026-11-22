@@ -229,6 +229,9 @@ def test_every_spend_gate_is_listed() -> None:
         "modules/chat/referent_read.py",
         # Follow-up questions: none (take_related_prompts_event logs the failure).
         "modules/chat/related_prompts.py",
+        # Whether the message asks for a reminder: no past the cap or in an outage, the word
+        # rules read the turn. modules/chat/test_reminder_turn.py.
+        "modules/chat/reminder_turn.py",
         # Skips the tool loop: the turn was admitted. modules/chat/test_post_turn_spend.py.
         "modules/chat/stream_paths.py",
         # The turn's read answers None past the cap: modules/chat/test_turn_decision.py.
@@ -248,5 +251,8 @@ def test_every_spend_gate_is_listed() -> None:
         # A physics setup: no read past the cap (a prototype). services/test_formal_solve.py.
         "modules/physics/formal_read.py",
         "modules/speech/gates.py",  # dictation, read aloud, live talk's session and saves
+        # A reminder request's read: none past the cap or in an outage, the word rules' card or
+        # reply stands. modules/chat/test_reminder_turn.py.
+        "modules/todos/model_read.py",
         "services/scan_read.py",  # photo scans, every subject
     ]

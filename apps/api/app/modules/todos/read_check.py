@@ -63,6 +63,11 @@ _NOT_TASK_WORDS = frozenset(
     "in to of me set make sure don't dont forget ping".split()
 )
 _PRONOUN_TASK = re.compile(r"\b(?:it|that|this|them|those|these)\b", re.I)
+_NAMES_A_DAY = re.compile(
+    r"\d|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b|\b(?:mon|tue|wed|thu|fri"
+    r"|sat|sun)[a-z]*\b|\b(?:first|second|third|fourth|fifth|tenth|twentieth|thirtieth)\b",
+    re.I,
+)
 # A date the model wrote: a year at most ahead.
 _MAX_DAYS_AHEAD = 366
 
@@ -176,7 +181,9 @@ def _when(reading: ReminderReading, user_lines: Sequence[str], today: date) -> _
     # of "make it 7 instead" is the old card's time, not the new one (the day's words give
     # the clock only when the clock has none of its own, "tmrw at 5pm").
     found.day = find_when(day_text).day if day_text else None
-    if found.day is None and day_text:
+    if found.day is None and day_text and _NAMES_A_DAY.search(day_text):
+        # Only words that name one day ("the 23rd", "dec 3"): "next week" or "this weekend"
+        # leaves the day to the user, who is asked.
         found.day = _model_date(reading, today)
     spoken = find_when(time_text) if time_text else find_when(day_text)
     if spoken.hour is None and spoken.bare is None and time_text and _part_hour(day_text):
@@ -195,8 +202,16 @@ def _when(reading: ReminderReading, user_lines: Sequence[str], today: date) -> _
     return found
 
 
-def _half(reading: ReminderReading, user_lines: Sequence[str]) -> int | None:
-    """12 or 0 when the user's words say which half a bare hour is in; None otherwise."""
+def _half(
+    reading: ReminderReading, user_lines: Sequence[str], repeat_words: str = ""
+) -> int | None:
+    """12 or 0 when the user's words say which half a bare hour is in; None otherwise. The
+    reading's own half wins when its quote says that half ("7 in the morning, not night")."""
+    said = _quoted(reading.half_quote, user_lines)
+    if reading.half == "pm" and _PM_WORDS.search(said):
+        return 12
+    if reading.half == "am" and _AM_WORDS.search(said):
+        return 0
     words = " ".join(
         _quoted(quote, user_lines)
         for quote in (
@@ -205,7 +220,8 @@ def _half(reading: ReminderReading, user_lines: Sequence[str]) -> int | None:
             reading.day_quote,
             reading.repeat_quote,
         )
-    ).strip()
+    )
+    words = f"{words} {repeat_words}".strip()
     if not words:
         return None
     if _PM_WORDS.search(words):
@@ -215,14 +231,27 @@ def _half(reading: ReminderReading, user_lines: Sequence[str]) -> int | None:
     return None
 
 
-def _repeat(reading: ReminderReading, user_lines: Sequence[str]) -> RecurrenceRule | None:
-    """The repeat the user's words say: its own quote, or the when's ("at 9 every night")."""
+def _repeat(
+    reading: ReminderReading, user_lines: Sequence[str]
+) -> tuple[RecurrenceRule | None, str]:
+    """The repeat the user's words say, and those words: its own quote, or the when's ("at 9
+    every night")."""
     for quote in (reading.repeat_quote, reading.time_quote, reading.day_quote):
         words = _quoted(quote, user_lines)
         found = find_repeat(words) if words else None
         if found is not None:
-            return cast(RecurrenceRule, found[0])
-    return None
+            return cast(RecurrenceRule, found[0]), words[found[1][0] : found[1][1]]
+    if not reading.repeat:
+        return None, ""
+    # The read says a repeat was asked but quoted none: the line that says when, read whole.
+    for quote in (reading.time_quote, reading.day_quote, reading.task_quote):
+        said = _plain(quote)
+        line = next((line for line in user_lines if said and said in _plain(line)), None)
+        words = fix_typos(line) if line else ""
+        found = find_repeat(words) if words else None
+        if found is not None:
+            return cast(RecurrenceRule, found[0]), words[found[1][0] : found[1][1]]
+    return None, ""
 
 
 def _when_from_an_older_line(reading: ReminderReading, user_lines: Sequence[str]) -> bool:
@@ -230,6 +259,11 @@ def _when_from_an_older_line(reading: ReminderReading, user_lines: Sequence[str]
     if not user_lines:
         return False
     latest = user_lines[-1]
+    task = _plain(reading.task_quote)
+    if task:
+        # "to take 2 pills" answering "What should I remind you about?": the task's 2 and
+        # "friday's flight" say no new when.
+        latest = _plain(latest).replace(task, " ")
     said = find_when(fix_typos(latest))
     if not (said.spans or _CLOCK_DIGITS.search(latest)):
         return False
@@ -267,7 +301,7 @@ def check_reading(
         # quoted the 6pm is not taken; the word rules' re-time stands).
         return None
     when = _when(reading, user_lines, local.date())
-    repeat = _repeat(reading, user_lines)
+    repeat, repeat_words = _repeat(reading, user_lines)
     if when.after is not None and when.day is None and when.hour is None and when.bare is None:
         return CheckedRequest(adds=(SpokenAdd(title, None, None, None, None, when.after),))
     if when.day is None and when.hour is None and when.bare is None:
@@ -275,7 +309,7 @@ def check_reading(
             return CheckedRequest(ask=ASK_WHEN)
         when.day = "tomorrow" if repeat is None else "today"
         when.hour = _DAY_ALONE_HOUR
-    half = _half(reading, user_lines)
+    half = _half(reading, user_lines, repeat_words)
     if when.bare is not None and half is not None:
         when.hour, when.minute, when.bare = when.bare[0] % 12 + half, when.bare[1], None
     if when.hour is None and when.bare is None:
@@ -318,8 +352,12 @@ def _timed(
     before_text = _quoted(reading.before_quote, user_lines)
     before = _minutes_in(before_text) if before_text else None
     if before is not None:
-        due -= timedelta(minutes=before)
-        add = replace(add, day=f"{due.month:02d}-{due.day:02d}", hour=due.hour, minute=due.minute)
+        shifted = due - timedelta(minutes=before)
+        # Same day: its name stays ("every friday" keeps Friday); a lead time into the day
+        # before names that date, which a repeat goes on from.
+        day = add.day if shifted.date() == due.date() else f"{shifted.month:02d}-{shifted.day:02d}"
+        add = replace(add, day=day, hour=shifted.hour, minute=shifted.minute)
+        due = shifted
     if add.repeat is None and due_is_past(due, user_timezone=user_timezone, now=now):
         return CheckedRequest(ask=PASSED)
     return CheckedRequest(adds=(add,))

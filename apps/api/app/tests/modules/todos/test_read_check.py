@@ -361,3 +361,70 @@ def test_tonight_settles_a_bare_hour_said_apart_from_it() -> None:
         now=NOW,
     )  # fmt: skip
     assert checked is not None and _due(checked.adds[0]) == "Sun 2026-11-22 20:00"
+
+
+def test_a_vague_day_is_asked_not_dated_by_the_model() -> None:
+    checked = check_reading(
+        _read(task="renew my passport", task_quote="renew my passport", day="next week",
+              date="2026-11-23", day_quote="next week"),
+        ["remind me to renew my passport next week"],
+        user_timezone=ZONE,
+        now=NOW,
+    )  # fmt: skip
+    assert checked is not None and checked.ask == ASK_WHEN
+
+
+def test_a_task_answer_with_a_number_keeps_the_earlier_when() -> None:
+    """ "to take 2 pills" answering "What should I remind you about?" says no new time."""
+    checked = check_reading(
+        _read(task="take 2 pills", task_quote="take 2 pills", day="tomorrow",
+              day_quote="tomorrow", time="5", time_quote="at 5"),
+        ["remind me tomorrow at 5", "to take 2 pills"],
+        user_timezone=ZONE,
+        now=NOW,
+        asked_before=True,
+    )  # fmt: skip
+    assert checked is not None and _due(checked.adds[0]) == "Mon 2026-11-23 17:00"
+
+
+def test_the_readings_own_half_wins_over_a_negated_one() -> None:
+    checked = check_reading(
+        _read(task="run", task_quote="run", day="tomorrow", day_quote="tomorrow", time="7",
+              time_quote="at 7", half="am", half_quote="in the morning, not night"),
+        ["remind me to run tomorrow at 7 in the morning, not night"],
+        user_timezone=ZONE,
+        now=NOW,
+    )  # fmt: skip
+    assert checked is not None and _due(checked.adds[0]) == "Mon 2026-11-23 07:00"
+
+
+def test_a_lead_time_on_a_weekly_reminder_keeps_its_weekday() -> None:
+    checked = check_reading(
+        _read(task="standup prep", task_quote="standup prep", day="friday", day_quote="friday",
+              time="3pm", time_quote="my 3pm", repeat="weekly", repeat_quote="every friday",
+              before_minutes=15, before_quote="15 minutes before"),
+        ["remind me 15 minutes before my 3pm standup prep every friday"],
+        user_timezone=ZONE,
+        now=NOW,
+    )  # fmt: skip
+    assert checked is not None
+    (add,) = checked.adds
+    assert add.day == "friday" and (add.hour, add.minute) == (14, 45) and add.repeat == "weekly"
+
+
+def test_a_true_or_false_is_no_count_of_minutes() -> None:
+    reading = ReminderReading.model_validate({"request": "add", "in_minutes": True})
+    assert reading.in_minutes is None
+
+
+def test_a_repeat_the_read_named_without_a_quote_is_read_from_the_users_line() -> None:
+    checked = check_reading(
+        _read(task="take my meds", task_quote="take my meds", time="9", time_quote="at 9",
+              repeat="daily"),
+        ["set a reminder for me to take my meds at 9 every night"],
+        user_timezone=ZONE,
+        now=NOW,
+    )  # fmt: skip
+    assert checked is not None
+    (add,) = checked.adds
+    assert add.repeat == "daily" and _due(add) == "Sun 2026-11-22 21:00"

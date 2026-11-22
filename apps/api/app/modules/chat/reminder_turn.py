@@ -22,6 +22,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
@@ -41,6 +42,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _CARD = "reminder_proposal"
+_QUESTION = re.compile(r"[^.!?\n]*\?")
+_ABOUT_A_REMINDER = re.compile(
+    r"\bremind|\breminder|\b(?:a\.?m\.?|am) or\b|\bwhat time\b|\bwhich day\b", re.IGNORECASE
+)
 # The chat the read and the checks see: the last messages before this one.
 _WINDOW = 8
 # Each earlier message the Decider sees, as the turn's read quotes it.
@@ -80,14 +85,20 @@ async def asks_for_a_reminder(
 ) -> bool:
     """The Decider's yes to ``REMINDER_QUESTION`` on the message; False on any failure (the
     word rules alone read the turn)."""
+    from app.core.redis import get_redis_client
     from app.gateways.decider_gateway import decide
     from app.gateways.llm_spend import meter_reported_cost
     from app.models import model_catalog
     from app.models.routing_lanes import ROUTING
     from app.modules.chat.decider_read import REMINDER_AT, REMINDER_QUESTION
     from app.modules.chat.turn_decision import decision_messages
+    from app.services import quota as quota_service
 
     try:
+        # Past the day's spend cap, or with it unreadable, nothing is asked: the word rules
+        # read the turn, as they do with no read at all.
+        if await quota_service.global_spend_exceeded(get_redis_client(), settings):
+            return False
         model = model_catalog.get(ROUTING.decider).model.removeprefix("openrouter/")
         state = decision_messages(line, [(r, t[:_EARLIER_CHARS]) for r, t in earlier[-4:]])
         reply = await decide(
@@ -118,10 +129,14 @@ def own_words(ctx: StreamContext) -> str:
 def conversation(ctx: StreamContext) -> list[tuple[str, str]]:
     """The chat before the turn's message, oldest first, as (role, text); the window may
     end with the message itself (a pending row, or a regenerate's)."""
+    backup = getattr(ctx, "regenerate_backup", None)
+    redone = backup.message_id if backup is not None else None
     rows = [
         (role, content)
         for message in ctx.recent_messages or []
-        if (role := getattr(message, "role", None)) in {"user", "assistant"}
+        # On a regenerate the reply being redone is still saved: it is not the chat before.
+        if (redone is None or getattr(message, "id", None) != redone)
+        and (role := getattr(message, "role", None)) in {"user", "assistant"}
         and isinstance(content := getattr(message, "content", None), str)
         and content.strip()
     ]
@@ -217,10 +232,27 @@ def _last_card(earlier: list[tuple[str, str]]) -> dict[str, Any] | None:
     return None
 
 
+_TASK_WORD = re.compile(r"[^\W\d_]{3,}")
+
+
+def _same_task(card: dict[str, Any], checked: Any) -> bool:
+    """The card's items share a word with the request the read wrote down."""
+    said = {w.casefold()[:4] for add in checked.adds for w in _TASK_WORD.findall(add.title)}
+    items = card.get("items") or []
+    titles = " ".join(str(item.get("title", "")) for item in items if isinstance(item, dict))
+    return bool(said & {w.casefold()[:4] for w in _TASK_WORD.findall(titles)})
+
+
 def _asked_before(earlier: list[tuple[str, str]]) -> bool:
-    """The last reply ended on a question: the details it asked for are being given now."""
+    """The last reply ended on a question about the reminder ("When should I remind you?",
+    "What should I remind you about?", "5 am or 5 pm?"): its details are being given now.
+    "Are you flying or driving?" asked about something else."""
     last = next((text for role, text in reversed(earlier) if role == "assistant"), "")
-    return "?" in without_fences(last, " ").rstrip()[-_ASKED_NEAR_END:]
+    tail = without_fences(last, " ").rstrip()[-_ASKED_NEAR_END:]
+    questions = " ".join(_QUESTION.findall(tail))
+    return bool(questions) and (
+        todos_service.asked_when(tail) or _ABOUT_A_REMINDER.search(questions) is not None
+    )
 
 
 async def finish_with_the_read(
@@ -249,13 +281,17 @@ async def finish_with_the_read(
     checked = todos_service.check_reading(
         reading, lines, user_timezone=zone, asked_before=_asked_before(earlier)
     )
+    if todos_service.explicitly_declines_reminder_creation(own_words(ctx)):
+        # "Don't set a reminder": the user's restraint outranks any read.
+        return text
     actions = _card_actions(text)
     if reading is not None and reading.request == "status":
         # "Did it save?" changes nothing: a card the word rules made for it ("did it" read
         # as done) is not offered.
         return await _status(deps, redis, ctx, earlier, _without_card(text), checked, zone)
-    if actions - {"add"}:
-        # A change to a saved reminder (done, moved, deleted) is the word rules' card.
+    if actions - {"add"} or _card_items(text) > 1:
+        # A change to a saved reminder (done, moved, deleted) is the word rules' card, and so
+        # are several reminders in one message: the read writes one request down.
         return text
     if checked is not None and checked.adds:
         # The read's request outranks an add the word rules read another way ("an hour
@@ -268,6 +304,17 @@ async def finish_with_the_read(
     if checked is not None and checked.ask:
         return _with_question(text, checked.ask)
     return honest(text)
+
+
+def _card_items(text: str) -> int:
+    """How many items the reply's cards hold."""
+    count = 0
+    for _start, _end, body in iter_closed_fences(text, _CARD):
+        try:
+            count += len(json.loads(body).get("items", []))
+        except (json.JSONDecodeError, AttributeError, TypeError):
+            continue
+    return count
 
 
 def _card_actions(text: str) -> set[str]:
@@ -300,6 +347,9 @@ async def _status(
     """ "Did it save?": a tapped card is saved, an untapped one is not yet, and a request no
     card was offered for gets one now."""
     card = _last_card(earlier)
+    if card is not None and checked is not None and checked.adds and not _same_task(card, checked):
+        # The card is an earlier reminder's: this one was claimed with no card of its own.
+        card = None
     if card is not None and card.get("status") == "saved":
         return text
     if card is not None:

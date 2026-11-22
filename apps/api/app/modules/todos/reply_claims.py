@@ -219,9 +219,17 @@ def split_sentences(line: str) -> list[str]:
 # reply's "Tomorrow at 5 is set ✅", "I've got you covered for tomorrow at 5" or "noted"
 # claims the reminder the message asked for (live QA, 2026-11-22).
 _ABOUT = "\x00about"
+# Said done of the reminder itself: a pronoun ("it's saved") or its time ("Tomorrow at 5 is
+# set"). "The meeting is set for Friday" says what the user said of their own plans, and stays.
+_WHEN_WORD = (
+    r"(?:today|tonight|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|noon"
+    r"|morning|afternoon|evening|\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)?)"
+)
 _ABOUT_CLAIM_RE = re.compile(
-    r"\b(?:is|are|was|'s)\s+(?:all\s+|now\s+)?(?:set|saved|scheduled|added|booked|noted)\b"
-    r"(?!\s+(?:to|in|by)\b)|\bgot (?:you|it) covered\b|\bgot it noted\b|\bi(?:'ve| have)"
+    rf"(?:^(?:{_ACK}[,!.]?\s+)?(?:it|that|this|everything|all of it|they|both)"
+    rf"|^(?:{_ACK}[,!.]?\s+)?[^,;:]{{0,30}}?\b{_WHEN_WORD})"
+    r"(?:'s|'re|\s+(?:is|are|was|has been|have been))\s+(?:all\s+|now\s+)?(?:set|saved"
+    r"|scheduled|added|booked|noted)\b(?!\s+(?:to|in|by)\b)|\bgot (?:you|it) covered\b|\bgot it noted\b|\bi(?:'ve| have)"
     r" got (?:it|that|this)\b|\b(?:it|that)(?:'ll| will) (?:ping|remind|notify|alert) you\b"
     r"|\b(?:i|we)(?:'ll| will)\s+(?:set|add|save|schedule|put)\s+(?:it|that|this|one|them)\b"
     r"|^(?:changed|switched|moved|updated|set|added|saved|scheduled)\s+(?:it|that|this|to|for)\b"

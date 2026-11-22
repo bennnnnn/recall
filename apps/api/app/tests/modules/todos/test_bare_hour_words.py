@@ -98,3 +98,10 @@ def test_a_lead_time_is_not_read_as_the_title_and_the_events_clock(line: str) ->
 def test_abt_reads_as_about() -> None:
     add = parse_spoken_add("remind me abt my bio test tmrw at 5?")
     assert add is not None and add.title == "my bio test" and add.day == "tomorrow"
+
+
+def test_a_question_after_saying_it_is_done_still_marks_it() -> None:
+    change = parse_spoken_reminder_change(
+        "done ✅ just talked to her, what's next?", user_timezone=ZONE
+    )
+    assert change is not None and change.action == "complete"
