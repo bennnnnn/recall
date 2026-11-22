@@ -170,6 +170,7 @@ def part_working(block: VerifiedPhysicsBlock, ask: str, givens: str) -> PhysicsP
         answer=block.canonical_answer or block.display_answer,
         display_answer=block.display_answer,
         answer_values=block.answer_values,
+        answer_units=block.answer_units,
     )
 
 
@@ -320,4 +321,5 @@ def joined_parts(
         physics_substitutions=tuple(row for working in workings for row in working.substitutions),
         physics_parts=tuple(workings),
         answer_values=tuple(value for working in workings for value in working.answer_values),
+        answer_units=tuple(unit for working in workings for unit in working.answer_units),
     )

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+from dataclasses import dataclass
 from typing import Any
 
 from app.core.config import Settings
@@ -104,14 +105,24 @@ async def read_physics_setup(
         return None
 
 
-async def formal_answer(question: str, settings: Settings) -> FormalAnswer | None:
-    """The server's answers to the question, worked out from the model's setup, and the
-    checks its values break; None with no read or a setup the server refuses. A part whose
-    setup answer is not the server's is left out: that reading is not to be trusted."""
+@dataclass(frozen=True)
+class FormalReading:
+    """The model's setup of a question and the server's solve of it (``FormalResult`` JSON,
+    solved or refused), both kept: the second reading a verified answer is held to
+    (``physics.cross_check``) as well as the answer a reply is held to (``formal_answer``)."""
+
+    setup: FormalProblem
+    result: dict[str, Any]
+
+
+async def formal_reading(
+    question: str, settings: Settings, *, model_alias: str | None = None
+) -> FormalReading | None:
+    """The question written down by the model and solved by the server; None with no read."""
     from app.core.sympy_executor import run_sympy
     from app.services.formal.solve import solve_formal
 
-    setup = await read_physics_setup(settings, question)
+    setup = await read_physics_setup(settings, question, model_alias=model_alias)
     if setup is None:
         return None
     try:
@@ -121,10 +132,18 @@ async def formal_answer(question: str, settings: Settings) -> FormalAnswer | Non
             question,
             timeout=settings.stem_solve_timeout_seconds,
         )
-    except Exception as exc:  # the pool timed out or failed: no answer, the reply stands
+    except Exception as exc:  # the pool timed out or failed: the setup alone is the reading
         logger.info("physics setup not solved (%s)", type(exc).__name__)
-        return None
-    return answer_of(json.loads(raw))
+        return FormalReading(setup, {"solved": False, "reason": "not solved"})
+    return FormalReading(setup, json.loads(raw))
+
+
+async def formal_answer(question: str, settings: Settings) -> FormalAnswer | None:
+    """The server's answers to the question, worked out from the model's setup, and the
+    checks its values break; None with no read or a setup the server refuses. A part whose
+    setup answer is not the server's is left out: that reading is not to be trusted."""
+    reading = await formal_reading(question, settings)
+    return None if reading is None else answer_of(reading.result)
 
 
 def answer_of(result: dict[str, Any]) -> FormalAnswer | None:
