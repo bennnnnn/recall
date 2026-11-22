@@ -44,6 +44,7 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from app.modules.chat.drawing_turn import ReplyDrawing
+    from app.modules.chat.ordinary_prompt import OrdinaryPrompt
     from app.modules.chat.turn_decision import TurnDecision
     from app.modules.images.answer_photo import AnswerPhoto
     from app.modules.images.reply_picture import ReplyPicture
@@ -140,6 +141,9 @@ class StreamContext:
     # The turn's read says the answer is about nothing worth seeing: the photo hints are
     # gone from the prompt and no photo is looked up (``decided_turn``).
     no_answer_photo: bool = False
+    # The shorter rules message the read takes when it calls the message everyday chat
+    # (``ordinary_prompt``); None when the turn's words ask for a shape of their own.
+    ordinary_prompt: OrdinaryPrompt | None = None
     # What the reply shows above its text, linked to it when it saves: that photo, or
     # the picture a multi-part message asked for (``reply_picture``).
     answer_photo_ids: list[UUID] = field(default_factory=list)
@@ -255,6 +259,7 @@ def stream_context_from_bundle(
         recalled_count=bundle.stats.recalled,
         memory_hints=list(bundle.stats.memory_hints),
         context_summarized=bundle.stats.context_summarized,
+        ordinary_prompt=bundle.stats.ordinary,
         instant_reply=bundle.instant_reply,
         local_places=bundle.local_places,
         skip_memory_jobs=skip_memory_jobs,

@@ -156,6 +156,8 @@ class PromptTurn:
     asked_practice: tuple[str, ...] = ()  # what the chat's practice cards already asked
     # How many of the chat's first messages ``summary`` stands for.
     summarized: int = 0
+    # Rendered for ordinary chat (``ordinary_prompt``): the turn's shorter rules message.
+    ordinary: bool = False
 
     @property
     def query(self) -> str:
@@ -226,6 +228,27 @@ def _style_hints(turn: PromptTurn) -> list[str]:
         prior_messages=exchange_pairs(turn.exchange),
         multi=turn.multi,
         resuming=resumes_course(query, turn.memory_block),
+        ordinary=turn.ordinary,
+    )
+
+
+def may_be_ordinary(turn: PromptTurn) -> bool:
+    """The turn may take ordinary chat's rules when its read calls it everyday chat: not
+    small talk (already short), not a subject's follow-up, several requests, a file or photo
+    of its own, or a question about the user or what they said before, whose privacy and
+    memory rules it keeps whole."""
+    query = turn.query
+    return bool(
+        turn.settings.ordinary_prompt_enabled
+        and query
+        and not turn.lightweight
+        and turn.followup is None
+        and not turn.multi
+        and not turn.holds_attachment
+        and not turn.recalls_shared_past
+        and not turn.minimal_personal_context
+        and not is_profile_fact_question(query)
+        and not is_profile_recall_pushback(query)
     )
 
 

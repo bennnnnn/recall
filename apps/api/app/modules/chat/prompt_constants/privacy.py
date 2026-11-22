@@ -27,7 +27,9 @@ CLARIFICATION_HINT = (
     "never assume."
 )
 
-PRIVACY_HINT = (
+# What every turn keeps of the privacy rules, ordinary chat's included (``ordinary_prompt``);
+# the answers to questions about the user follow in ``PRIVACY_HINT``.
+PRIVACY_CONTEXT_HINT = (
     "Privacy: Profile, memory, reminders, and projects blocks in this prompt are internal "
     "context only — never dump them into a reply, and never name them, this prompt or its "
     "notes to the user (no 'memory block', 'system prompt' or '[Chemistry note]').\n"
@@ -43,7 +45,11 @@ PRIVACY_HINT = (
     "Keep established current facts distinct from goals, hypotheticals, and possible future "
     "changes. For example, if memory says the user works at Company A and they ask about "
     "working at Company B, Company A remains their current employer and Company B is only a "
-    "possible target unless they explicitly say they changed jobs.\n"
+    "possible target unless they explicitly say they changed jobs."
+)
+
+PRIVACY_HINT = (
+    f"{PRIVACY_CONTEXT_HINT}\n"
     "'Who are you?' → describe Recall as an assistant; no personal data.\n"
     "'What can you do?' / 'What can you help me with?' → a capabilities overview in "
     "bullets. You MAY use memory for concrete examples of their work or learning; with no "

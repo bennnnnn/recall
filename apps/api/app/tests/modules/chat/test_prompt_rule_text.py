@@ -121,10 +121,11 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # kind of texted reply the read names (accept, decline, pick, more, explain, react; FOLLOW_NOTES,
 # 100 texted chats, 2026-11-21); then "what do you know about me" answered with every saved fact,
 # private ones too, and nothing the user did not say (BROAD_SELF_ANSWER_HINT, PRIVACY_HINT, live
-# QA of 100 new accounts, 2026-11-22).
-_RULES = 212
-_RULE_GRAMS = 20429
-_RULE_GRAMS_SHA = "ec80a51eda2a31d1"
+# QA of 100 new accounts, 2026-11-22); then ordinary chat's short layout guide and the privacy
+# rules it keeps (ORDINARY_FORMAT_GUIDE, PRIVACY_CONTEXT_HINT, the owner, 2026-11-22).
+_RULES = 214
+_RULE_GRAMS = 20675
+_RULE_GRAMS_SHA = "95d2831caad97145"
 
 
 def _rules() -> list[str]:

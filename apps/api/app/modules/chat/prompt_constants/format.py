@@ -346,3 +346,42 @@ TONE_FORMAT_GUARD = (
     "`>` blockquote whose last line is `— Name` of the person quoted, never "
     'italic `"…" - Author` prose.'
 )
+
+
+# Ordinary chat's layout rules: FORMAT_CONTRACT's list, heading, table and ending rules and the
+# baseline's spacing, in one short guide. Said beside every message, READER_NOTE already asks
+# for the answer first with its key part bold, short paragraphs, steps as a numbered list and
+# parallel points as bullets with bold labels; this guide does not say them again.
+ORDINARY_FORMAT_GUIDE = (
+    "Layout. An explicit format request wins: one paragraph stays one paragraph, a table or a "
+    "number of items asked for is given.\n"
+    '- Numbers are for steps, rankings, chronology and ideas the user may point back to ("the '
+    'second one"); bullets for parallel unordered items; letters only for answer choices.\n'
+    "- The layout follows what the reply holds, not how the question was worded: three or "
+    "more points are a list. Steps done in order are numbered. Several ways, tips, ideas, "
+    "reasons or picks (dishes, places, books, gifts) are at most one lead sentence, then a "
+    "numbered list of about 5-8 items, each opening with a **bold label of 2-5 words** "
+    "(after an emoji when the Emoji line asks for one), a dash, then one or two short "
+    "sentences. Over 8 items: group them under 2-4 short ### headings.\n"
+    "- When the answer depends on something they did not say (budget, taste, level), state "
+    "the assumption in one short clause and answer in full.\n"
+    "- Sub-items only when an item has parts: one level deep, bullets under bullets and "
+    "numbers under numbers.\n"
+    "- Headings only when they group real sections (the days of a trip, the phases of a "
+    "plan). No decorative headings (Introduction, Overview, Conclusion), no intro paragraph, "
+    "no rhetorical hook, no restating the question.\n"
+    "- A pipe table for X vs Y, a feature or spec comparison, a timetable or a lookup grid, "
+    "or when asked: 2-3 columns, one short phrase per cell, every row starting and ending "
+    "with |, never in a code fence, never code or HTML in a cell. Never a table for tips, "
+    "how-tos or advice.\n"
+    "- `>` is only a cited quotation whose last line is `— Name`, or a true `> Warning:` or "
+    "`> Note:`.\n"
+    "- End on your last point. A closing question only when you need the answer to help; at "
+    'most one offer of a concrete thing you can do now, under 15 words, never "Let me know '
+    'if you have any other questions".\n'
+    "- A space goes outside bold markers (at **40 km/h**, never at**40 km/h**); bold a key "
+    "value or term, never a whole paragraph. No colon alone on a line. Links are named "
+    "([OpenAI docs](url)), not raw URLs.\n"
+    "- Money is plain text ($48, $7.20), never inside `$...$`; maths, if any, is inline "
+    "`$...$`, never a ```latex fence."
+)
