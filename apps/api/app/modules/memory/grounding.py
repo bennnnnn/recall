@@ -163,6 +163,27 @@ def grounded_source(
     ).line
 
 
+# A word this short left over between two quotes is a joiner ("so", "and", "lol").
+_JOINER_CHARS = 3
+
+
+def joins_quotes(outer: str | None, inner: Sequence[str | None]) -> bool:
+    """Whether ``outer`` is two or more of the ``inner`` quotes and nothing that states more.
+
+    "i work as a nurse and my son is 7" joins "i work as a nurse" and "my son is 7": the
+    fact quoted with it says those two again, as one row. A quote with a third claim
+    left over ("... and i live in Denver") joins nothing: that claim stands on it alone.
+    """
+    rest = _fold(outer or "")
+    parts = {_fold(quote).strip(" \"'.,!?;:") for quote in inner if quote}
+    held = [part for part in parts if part and part != rest.strip(" \"'.,!?;:") and part in rest]
+    if len(held) < 2:
+        return False
+    for part in sorted(held, key=len, reverse=True):
+        rest = rest.replace(part, " ")
+    return all(len(word) <= _JOINER_CHARS or word in _FILLER for word in _WORD.findall(rest))
+
+
 def line_saying(text: str, lines: Sequence[SourceLine]) -> SourceLine | None:
     """The line that holds ``text`` word for word (a fact the server read itself)."""
     return quoted_line(text, lines)

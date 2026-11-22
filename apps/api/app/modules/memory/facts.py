@@ -54,6 +54,8 @@ SECTION_LABELS = {
 _IDENTITY_NAME_LIMIT = 1
 _IDENTITY_PREF_LIMIT = 4
 _LOW_CONFIDENCE = 0.6
+# How a private fact is marked in the block; the saved-memory preamble says what it means.
+PRIVATE_NOTE = "private"
 _NEVER = datetime.min.replace(tzinfo=UTC)
 
 
@@ -148,8 +150,18 @@ def said_at(memory: Any) -> datetime:
     return said if said.tzinfo is not None else said.replace(tzinfo=UTC)
 
 
+def is_private_memory(memory: Any) -> bool:
+    """A fact about the user's health, money, legal matters, love life or beliefs: its
+    ``sensitivity`` (the memory model's label), or its words when it has none."""
+    sensitivity = getattr(memory, "sensitivity", None)
+    if isinstance(sensitivity, str) and sensitivity and sensitivity != "normal":
+        return True
+    return is_sensitive_memory_text(str(getattr(memory, "text", "") or ""))
+
+
 def _fact_line(memory: Any) -> str:
-    """ "- User works at Stripe (said 2026-05)": when it was said, and if it is unsure."""
+    """ "- User works at Stripe (said 2026-05)": when it was said, if it is unsure, and if
+    it is private (``PRIVATE_NOTE``: the reply uses it only where it bears)."""
     notes: list[str] = []
     said = getattr(memory, "last_confirmed_at", None) or getattr(memory, "created_at", None)
     if isinstance(said, datetime):
@@ -157,6 +169,8 @@ def _fact_line(memory: Any) -> str:
     confidence = getattr(memory, "confidence", None)
     if isinstance(confidence, int | float | Decimal) and float(confidence) < _LOW_CONFIDENCE:
         notes.append("unconfirmed")
+    if is_private_memory(memory):
+        notes.append(PRIVATE_NOTE)
     text = str(memory.text).strip()
     return f"- {text} ({', '.join(notes)})" if notes else f"- {text}"
 

@@ -50,6 +50,7 @@ from app.modules.chat.drawing_turn import ask_for_a_drawing
 from app.modules.chat.drawn_picture import app_draws, solve_draws
 from app.modules.chat.figure_turn import shows_it
 from app.modules.chat.follow_up_read import note_the_follow_up
+from app.modules.chat.instant_by_read import TALKED_THROUGH
 from app.modules.chat.json_output import is_json_request
 from app.modules.chat.lesson_again import lesson_again
 from app.modules.chat.model_routing.decided import decided_lane, decided_level, math_backups
@@ -156,9 +157,19 @@ async def decide_from_the_read(ctx: StreamContext, settings: Settings) -> None:
     # A request to see the problem works nothing out: its note asks for no working (review).
     if _replies_to_the_card(ctx, read) or shows_it(read):
         _without_worked_layout(ctx)
+    elif read.follow in TALKED_THROUGH:
+        _talked_through(ctx)
     else:
         _worked_layout(ctx, settings, read)
     _follow_note(ctx, read)
+
+
+def _talked_through(ctx: StreamContext) -> None:
+    """ "explain it simpler pls", "wait how", "go on": the last answer talked through, never the
+    same calculation laid out again. In 100 casual maths turns (2026-11-22) a follow-up asking
+    for a simpler explanation got the worked layout of the problem before it, 96% the same
+    reply. No ```worked contract; the instant reply went before (``instant_by_read``)."""
+    _without_worked_layout(ctx)
 
 
 def _settle_the_photo(ctx: StreamContext, read: TurnDecision | None) -> None:
@@ -496,7 +507,9 @@ def _follow_note(ctx: StreamContext, read: TurnDecision) -> None:
         # A solve worked it again for its picture: its card comes with the reply (review).
         if _worked(ctx):
             note = f"{note} {SHOW_IT_CARD_NOTE}"
-    elif _worked(ctx) or ctx.worked is not None:
+    # Numbers a server path worked are the reply's to present, unless the message asks them
+    # explained: then the note says how (``TALKED_THROUGH``).
+    elif (_worked(ctx) or ctx.worked is not None) and read.follow not in TALKED_THROUGH:
         return
     if note is None or ctx.after_card:
         return
