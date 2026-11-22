@@ -56,7 +56,7 @@ from app.modules.todos.spoken_change import (
     names_reminders,
     parse_spoken_reminder_change,
 )
-from app.modules.todos.spoken_clauses import answered_when, parse_spoken_adds
+from app.modules.todos.spoken_clauses import answered_when, parse_spoken_adds, says_a_bare_hour
 from app.services.draft_fences import has_draft
 
 logger = logging.getLogger(__name__)
@@ -319,8 +319,12 @@ async def _match_spoken_add(turn: _Turn, spans: _Spans) -> tuple[str, int] | Non
         return None
     if len(adds) > 1:
         # Two reminders in one message: the model's own fences, when it wrote
-        # them, decide; otherwise each clause is saved with its own time.
-        return None if spans else await _save_spoken_adds(turn, spans, adds)
+        # them, decide; otherwise each clause is saved with its own time. An hour said
+        # with no am or pm is the rule's, so its clause's time is, fence or not ("tomorrow
+        # at 5 and … friday at 9": the fences' hours are never read, ``_bare_hour_remind``).
+        if spans and not says_a_bare_hour(turn.user_text):
+            return None
+        return await _save_spoken_adds(turn, spans, adds)
     stated = adds[0]
     if (
         not spans

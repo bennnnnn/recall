@@ -15,8 +15,13 @@ each with a quote. Nothing in it is saved as written:
   8 PM); a clock with no day is the next one.
 
 What is left missing is asked once: the task, or when, when nothing says it. A question the
-last reply already asked is never asked again: an answer that still says no when is taken as
-tomorrow at 9 AM, which the card shows for the user to confirm or change.
+last reply already asked is never asked again: an answer to "When should I remind you?" that
+still says no when is taken as tomorrow at 9 AM, which the card shows for the user to confirm
+or change. Only a question of when does that: a task given after "What should I remind you
+about?" is still asked when, and a day that names no one day ("next week") is asked which.
+
+A clock the user gave in another place's time ("2pm EST") is that place's: the read names its
+zone with the user's words for it, and the server moves the time onto the user's own clock.
 """
 
 from __future__ import annotations
@@ -24,8 +29,9 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, tzinfo
 from typing import cast
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from app.modules.todos.bare_hour import settle_bare
 from app.modules.todos.model_read import ReminderReading
@@ -37,6 +43,7 @@ from app.services.text_normalize import straighten_apostrophes
 
 ASK_TASK = "What should I remind you about?"
 ASK_WHEN = "When should I remind you?"
+ASK_DAY = "Which day should I remind you?"
 PASSED = "That time already passed. When should I remind you?"
 
 # The hour a part of the day stands for when no clock was said, and a day alone.
@@ -73,6 +80,19 @@ _MAX_DAYS_AHEAD = 366
 
 
 @dataclass(frozen=True)
+class Asked:
+    """What the last reply asked of this reminder near its end: anything about it
+    (``reminder``), when or which half of the day (``when``), which day (``day``)."""
+
+    reminder: bool = False
+    when: bool = False
+    day: bool = False
+
+
+NOTHING_ASKED = Asked()
+
+
+@dataclass(frozen=True)
 class CheckedRequest:
     """What the server makes of the reading: the card's adds, or the one question to ask."""
 
@@ -93,6 +113,14 @@ def grounded(quote: str, user_lines: Sequence[str]) -> bool:
 
 def _stem(word: str) -> str:
     return word.casefold()[:4]
+
+
+def same_task(title: str, other: str) -> bool:
+    """Two wordings of one task: they share two of its words (one, for a one-word task),
+    "call mom" and "Call mom tonight"; "call grandma" is another."""
+    words = {_stem(w) for w in _WORD.findall(title) if w.casefold() not in _NOT_TASK_WORDS}
+    theirs = {_stem(w) for w in _WORD.findall(other) if w.casefold() not in _NOT_TASK_WORDS}
+    return bool(words) and len(words & theirs) >= min(2, len(words), len(theirs) or 1)
 
 
 def task_title(reading: ReminderReading, user_lines: Sequence[str]) -> str | None:
@@ -254,11 +282,20 @@ def _repeat(
     return None, ""
 
 
-def _when_from_an_older_line(reading: ReminderReading, user_lines: Sequence[str]) -> bool:
-    """The last message says when, and the reading's clock or day is quoted from another."""
+def _when_from_an_older_line(
+    reading: ReminderReading, user_lines: Sequence[str], asked: Asked
+) -> bool:
+    """The last message says when, and the reading's clock or day is quoted from another.
+    An answer to the reminder's question is no new when: "pm, after my 4pm lab" after "5 am
+    or 5 pm?" gives the half, "call mom, she is visiting for 3 days" after "What should I
+    remind you about?" the task, each quoted from it, and the earlier when stands."""
     if not user_lines:
         return False
     latest = user_lines[-1]
+    if asked.reminder and any(
+        grounded(quote, [latest]) for quote in (reading.task_quote, reading.half_quote)
+    ):
+        return False
     task = _plain(reading.task_quote)
     if task:
         # "to take 2 pills" answering "What should I remind you about?": the task's 2 and
@@ -282,11 +319,11 @@ def check_reading(
     *,
     user_timezone: str | None,
     now: datetime | None = None,
-    asked_before: bool = False,
+    asked: Asked = NOTHING_ASKED,
 ) -> CheckedRequest | None:
     """The card the reading makes once every value is the user's, or the one question left;
     None for no request. ``user_lines``: the user's messages in the chat, this one included.
-    ``asked_before``: the last reply asked for this reminder's details already."""
+    ``asked``: what the last reply already asked of this reminder."""
     if reading is None or reading.request == "none":
         return None
     from app.services import time_context as time_context_service
@@ -295,8 +332,8 @@ def check_reading(
     local = now.astimezone(tz) if now is not None else datetime.now(tz)
     title = task_title(reading, user_lines)
     if title is None:
-        return None if asked_before else CheckedRequest(ask=ASK_TASK)
-    if _when_from_an_older_line(reading, user_lines):
+        return None if asked.reminder else CheckedRequest(ask=ASK_TASK)
+    if _when_from_an_older_line(reading, user_lines, asked):
         # "make it 7 instead" after "at 6pm": the latest when is the request's (a read that
         # quoted the 6pm is not taken; the word rules' re-time stands).
         return None
@@ -305,7 +342,10 @@ def check_reading(
     if when.after is not None and when.day is None and when.hour is None and when.bare is None:
         return CheckedRequest(adds=(SpokenAdd(title, None, None, None, None, when.after),))
     if when.day is None and when.hour is None and when.bare is None:
-        if not asked_before and repeat is None:
+        if repeat is None and _quoted(reading.day_quote, user_lines):
+            # "next week": a day was said, but no one day; which is asked, once.
+            return None if asked.day else CheckedRequest(ask=ASK_DAY)
+        if not asked.when and repeat is None:
             return CheckedRequest(ask=ASK_WHEN)
         when.day = "tomorrow" if repeat is None else "today"
         when.hour = _DAY_ALONE_HOUR
@@ -322,10 +362,43 @@ def check_reading(
         minute=when.minute if when.hour is not None else None,
         bare=when.bare,
     )
-    add = settle_bare(add, user_timezone=user_timezone, now=local)
+    zone = _named_zone(reading, user_lines, tz)
+    settle_zone = zone.key if zone is not None else user_timezone
+    here = local.astimezone(zone) if zone is not None else local
+    add = settle_bare(add, user_timezone=settle_zone, now=here)
     if add.day is None and add.hour is not None:
-        add = _next_clock(add, user_timezone, local)
+        add = _next_clock(add, settle_zone, here)
+    if zone is not None:
+        add = _onto_own_clock(add, zone.key, tz, here)
     return _timed(add, reading, user_lines, user_timezone, local)
+
+
+def _named_zone(
+    reading: ReminderReading, user_lines: Sequence[str], own: tzinfo
+) -> ZoneInfo | None:
+    """The zone of another place the user gave the clock in ("2pm EST"): the read's name for
+    it, a real zone, its quote the user's words; None for their own clock."""
+    name = reading.zone.strip()
+    if not name or not _quoted(reading.zone_quote, user_lines):
+        return None
+    try:
+        zone = ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError):
+        return None
+    if isinstance(own, ZoneInfo) and own.key == zone.key:
+        return None
+    return zone
+
+
+def _onto_own_clock(add: SpokenAdd, zone: str, own: tzinfo, there: datetime) -> SpokenAdd:
+    """The add timed in ``zone`` at its instant, as the user's own date and clock."""
+    if add.hour is None:
+        return add
+    due = due_for_add(add, user_timezone=zone, now=there)
+    if due is None:
+        return add
+    mine = due.astimezone(own)
+    return replace(add, day=f"{mine.month:02d}-{mine.day:02d}", hour=mine.hour, minute=mine.minute)
 
 
 def _next_clock(add: SpokenAdd, user_timezone: str | None, now: datetime) -> SpokenAdd:

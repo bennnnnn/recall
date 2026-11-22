@@ -17,11 +17,14 @@ import pytest
 from app.modules.todos.bare_hour import settle_hour
 from app.modules.todos.model_read import ReminderReading, chat_lines
 from app.modules.todos.read_check import (
+    ASK_DAY,
     ASK_TASK,
     ASK_WHEN,
     PASSED,
+    Asked,
     check_reading,
     grounded,
+    same_task,
 )
 from app.modules.todos.spoken_add import SpokenAdd, due_for_add
 
@@ -134,7 +137,11 @@ _TRANSCRIPTS = [
 @pytest.mark.parametrize(("earlier", "last", "fields"), _TRANSCRIPTS)
 def test_each_transcript_comes_to_one_card_tomorrow_afternoon(earlier, last, fields) -> None:
     checked = check_reading(
-        _read(**fields), [*earlier, last], user_timezone=ZONE, now=NOW, asked_before=bool(earlier)
+        _read(**fields),
+        [*earlier, last],
+        user_timezone=ZONE,
+        now=NOW,
+        asked=Asked(reminder=bool(earlier), when=bool(earlier)),
     )
     assert checked is not None and checked.ask is None
     (add,) = checked.adds
@@ -263,13 +270,13 @@ def test_a_question_already_asked_is_never_asked_again() -> None:
     reading = _read(task="call mom", task_quote="call mom")
     asked = check_reading(
         reading, ["remind me to call mom", "idk whenever"], user_timezone=ZONE, now=NOW,
-        asked_before=True,
+        asked=Asked(reminder=True, when=True),
     )  # fmt: skip
     assert asked is not None and asked.ask is None
     assert _due(asked.adds[0]) == "Mon 2026-11-23 09:00"
     missing = check_reading(
         _read(task="", task_quote=""), ["remind me tomorrow at 5", "hmm"], user_timezone=ZONE,
-        now=NOW, asked_before=True,
+        now=NOW, asked=Asked(reminder=True),
     )  # fmt: skip
     assert missing is None
 
@@ -371,7 +378,147 @@ def test_a_vague_day_is_asked_not_dated_by_the_model() -> None:
         user_timezone=ZONE,
         now=NOW,
     )  # fmt: skip
-    assert checked is not None and checked.ask == ASK_WHEN
+    assert checked is not None and checked.ask == ASK_DAY
+
+
+def test_a_vague_day_answering_when_is_asked_which_never_dated_tomorrow() -> None:
+    """ "next week" after "When should I remind you?" is not tomorrow at 9 AM (Gemini, PR
+    #2535): which day is asked, and once it was, nothing is invented."""
+    reading = _read(task="call mom", task_quote="call mom", day="next week",
+                    day_quote="next week")  # fmt: skip
+    lines = ["remind me to call mom", "next week"]
+    checked = check_reading(
+        reading, lines, user_timezone=ZONE, now=NOW, asked=Asked(reminder=True, when=True)
+    )
+    assert checked is not None and checked.ask == ASK_DAY and not checked.adds
+    again = Asked(reminder=True, when=True, day=True)
+    assert check_reading(reading, lines, user_timezone=ZONE, now=NOW, asked=again) is None
+
+
+def test_a_task_given_after_the_task_was_asked_is_still_asked_when() -> None:
+    """ "What should I remind you about?" -> "to call grandma": no when was ever said, so
+    when is asked, never tomorrow at 9 AM (Gemini, PR #2535)."""
+    checked = check_reading(
+        _read(task="call grandma", task_quote="to call grandma"),
+        ["can you set a reminder?", "to call grandma"],
+        user_timezone=ZONE,
+        now=NOW,
+        asked=Asked(reminder=True),
+    )
+    assert checked is not None and checked.ask == ASK_WHEN and not checked.adds
+
+
+def test_an_untimed_repeat_starts_at_nine_by_the_owners_rule() -> None:
+    """A repeat with no clock is 9 AM, as a day with no clock is (owner, 2026-11-22)."""
+    checked = check_reading(
+        _read(task="drink water", task_quote="drink water", repeat="daily",
+              repeat_quote="every day"),
+        ["remind me every day to drink water"],
+        user_timezone=ZONE,
+        now=NOW,
+    )  # fmt: skip
+    assert checked is not None
+    (add,) = checked.adds
+    assert add.repeat == "daily" and add.hour == 9
+
+
+@pytest.mark.parametrize(
+    ("earlier", "last", "fields", "asked"),
+    [
+        (
+            ["hey can u remind me to move my car tmrw at 5"],
+            "pm, after my 4pm lab",
+            {"task": "move my car", "task_quote": "move my car", "day": "tmrw",
+             "day_quote": "tmrw", "time": "5", "time_quote": "at 5", "half": "pm",
+             "half_quote": "pm"},
+            Asked(reminder=True, when=True),
+        ),
+        (
+            ["remind me tomorrow at 5"],
+            "call mom, she is visiting for 3 days",
+            {"task": "call mom", "task_quote": "call mom", "day": "tomorrow",
+             "day_quote": "tomorrow", "time": "5", "time_quote": "at 5"},
+            Asked(reminder=True),
+        ),
+    ],
+)  # fmt: skip
+def test_an_answer_with_an_unrelated_number_keeps_the_earlier_when(
+    earlier, last, fields, asked
+) -> None:
+    """The 4 of "my 4pm lab" and the 3 of "3 days" are no new time for the reminder: the
+    line answers the reminder's question (Gemini, PR #2535)."""
+    checked = check_reading(
+        _read(**fields), [*earlier, last], user_timezone=ZONE, now=NOW, asked=asked
+    )
+    assert checked is not None and checked.ask is None
+    assert _due(checked.adds[0]) == "Mon 2026-11-23 17:00"
+
+
+def test_a_new_clock_after_a_card_still_overrules_the_old_one() -> None:
+    """No question was asked: "make it 7 instead" is a re-time, and a reading that quoted
+    the old 6pm is not taken."""
+    checked = check_reading(
+        _read(task="call mom", task_quote="call mom", time="6pm", time_quote="at 6pm"),
+        ["remind me to call mom at 6pm", "make it 7 instead"],
+        user_timezone=ZONE,
+        now=NOW,
+        asked=Asked(),
+    )
+    assert checked is None
+
+
+@pytest.mark.parametrize(
+    ("fields", "due"),
+    [
+        # 2 PM in New York is 11 AM in Los Angeles.
+        ({"zone": "America/New_York", "zone_quote": "EST"}, "Mon 2026-11-23 11:00"),
+        # A zone not in the user's words, or no zone at all, is their own clock.
+        ({"zone": "America/New_York", "zone_quote": "eastern"}, "Mon 2026-11-23 14:00"),
+        ({"zone": "Mars/Olympus", "zone_quote": "EST"}, "Mon 2026-11-23 14:00"),
+        ({"zone": ZONE, "zone_quote": "EST"}, "Mon 2026-11-23 14:00"),
+        ({}, "Mon 2026-11-23 14:00"),
+    ],
+)
+def test_a_clock_in_another_zone_is_moved_onto_the_users_own(fields, due) -> None:
+    """ "tomorrow at 2pm EST" for a user in Los Angeles is 11 AM theirs (Gemini, PR #2535)."""
+    checked = check_reading(
+        _read(task="join the webinar", task_quote="join the webinar", day="tomorrow",
+              day_quote="tomorrow", time="2pm", time_quote="at 2pm EST", **fields),
+        ["Remind me tomorrow at 2pm EST to join the webinar"],
+        user_timezone=ZONE,
+        now=NOW,
+    )  # fmt: skip
+    assert checked is not None and checked.ask is None
+    assert _due(checked.adds[0]) == due
+
+
+def test_a_clock_in_another_zone_lands_on_the_users_own_day() -> None:
+    """9 AM on Tuesday in Tokyo is 4 PM on Monday in Los Angeles."""
+    checked = check_reading(
+        _read(task="call the office", task_quote="call the office", day="tuesday",
+              day_quote="tuesday", time="9am", time_quote="9am",
+              zone="Asia/Tokyo", zone_quote="Tokyo time"),
+        ["remind me to call the office tuesday 9am Tokyo time"],
+        user_timezone=ZONE,
+        now=NOW,
+    )  # fmt: skip
+    assert checked is not None
+    assert _due(checked.adds[0]) == "Mon 2026-11-23 16:00"
+
+
+@pytest.mark.parametrize(
+    ("title", "other", "same"),
+    [
+        ("call mom", "Call mom", True),
+        ("call my mom", "Call mom tonight", True),
+        ("dentist", "Dentist appointment", True),
+        ("call my sister Margaret about the quilting group", "Call Margaret", True),
+        ("call grandma", "Call mom", False),
+        ("pay rent", "Call mom", False),
+    ],
+)
+def test_two_wordings_of_one_task(title: str, other: str, same: bool) -> None:
+    assert same_task(title, other) is same
 
 
 def test_a_task_answer_with_a_number_keeps_the_earlier_when() -> None:
@@ -382,7 +529,7 @@ def test_a_task_answer_with_a_number_keeps_the_earlier_when() -> None:
         ["remind me tomorrow at 5", "to take 2 pills"],
         user_timezone=ZONE,
         now=NOW,
-        asked_before=True,
+        asked=Asked(reminder=True),
     )  # fmt: skip
     assert checked is not None and _due(checked.adds[0]) == "Mon 2026-11-23 17:00"
 

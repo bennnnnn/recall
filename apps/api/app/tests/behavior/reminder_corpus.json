@@ -1154,5 +1154,107 @@
   "reply": "You asked me to remind you to call mom tomorrow at 5 PM.",
   "expect": "none",
   "kind": "status"
+ },
+ {
+  "id": "g-task-then-no-when",
+  "history": [
+   [
+    "user",
+    "can you set a reminder?"
+   ],
+   [
+    "assistant",
+    "Sure. What should I remind you about?"
+   ]
+  ],
+  "prompt": "to call grandma",
+  "reply": "Got it, I'll remind you to call grandma.",
+  "expect": "ask"
+ },
+ {
+  "id": "g-next-week-after-when",
+  "history": [
+   [
+    "user",
+    "remind me to call mom"
+   ],
+   [
+    "assistant",
+    "When should I remind you?"
+   ]
+  ],
+  "prompt": "next week",
+  "reply": "Okay, I'll remind you next week to call mom.",
+  "expect": "ask"
+ },
+ {
+  "id": "g-half-with-other-clock",
+  "history": [
+   [
+    "user",
+    "hey can u remind me to move my car tmrw at 5"
+   ],
+   [
+    "assistant",
+    "Do you mean 5 am or 5 pm tomorrow?"
+   ]
+  ],
+  "prompt": "pm, after my 4pm lab",
+  "reply": "Got it, tomorrow at 5 PM.",
+  "expect": "card",
+  "due": [
+   "2026-11-23T17:00"
+  ],
+  "title": [
+   "car"
+  ]
+ },
+ {
+  "id": "g-task-with-a-count",
+  "history": [
+   [
+    "user",
+    "remind me tomorrow at 5"
+   ],
+   [
+    "assistant",
+    "What should I remind you about?"
+   ]
+  ],
+  "prompt": "call mom, she is visiting for 3 days",
+  "reply": "Got it, I'll remind you tomorrow at 5 to call mom.",
+  "expect": "card",
+  "due": [
+   "2026-11-23T17:00"
+  ],
+  "title": [
+   "mom"
+  ]
+ },
+ {
+  "id": "g-another-zone",
+  "history": [],
+  "prompt": "Remind me tomorrow at 2pm EST to join the webinar",
+  "reply": "Sure, I'll remind you tomorrow at 11:00 AM your time.",
+  "expect": "card",
+  "due": [
+   "2026-11-23T11:00"
+  ],
+  "title": [
+   "webinar"
+  ]
+ },
+ {
+  "id": "g-two-bare-hours",
+  "history": [],
+  "prompt": "remind me to call mom tomorrow at 5 and to pay rent on friday at 9",
+  "reply": "Sure!\n\n```reminder\n{\"title\": \"Call mom\", \"due_at\": \"2026-11-23T05:00:00-08:00\"}\n```\n\n```reminder\n{\"title\": \"Pay rent\", \"due_at\": \"2026-11-27T21:00:00-08:00\"}\n```",
+  "expect": "card",
+  "due": [
+   "2026-11-23T17:00"
+  ],
+  "title": [
+   "mom"
+  ]
  }
 ]

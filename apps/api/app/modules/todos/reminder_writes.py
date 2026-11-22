@@ -265,3 +265,30 @@ async def mutate_one(state: ReminderWrites, draft: ReminderFence) -> tuple[str, 
         user_timezone=state.user_timezone,
         ok=ok,
     ), ok
+
+
+async def saved_reminder_line(
+    session: AsyncSession, *, user_id: UUID, titles: list[str], user_timezone: str | None
+) -> str | None:
+    """ "Did my reminder to call mom save?" answered from the saved rows: the open, dated
+    reminder for one of ``titles``, wherever it was saved (a card tapped long ago, the To-do
+    screen, another chat), still ahead or repeating, as "Yes, it's saved: **Call mom**,
+    Monday, Nov 23, 5:00 PM."; None when none is."""
+    from app.modules.todos.read_check import same_task
+
+    rows = await todos_repo.list_for_user(session, user_id, limit=_ACTION_RELOAD_LIMIT)
+    now = datetime.now(UTC)
+    for item in rows:
+        content = (item.content or "").strip()
+        if item.checked or item.due_at is None or not content:
+            continue
+        due = item.due_at if item.due_at.tzinfo else item.due_at.replace(tzinfo=UTC)
+        if due < now and not item.recurrence_rule:
+            # Last month's "call mom" is not the reminder asked about.
+            continue
+        if any(same_task(title, content) for title in titles if title.strip()):
+            when = format_schedule_when(
+                item.due_at, user_timezone, item.recurrence_rule, has_time=has_time(item)
+            )
+            return f"Yes, it's saved: **{content}**, {when}."
+    return None

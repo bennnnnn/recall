@@ -56,6 +56,15 @@ def reminder_clauses(text: str | None) -> list[str]:
     return [piece.strip(" ,;") for piece in pieces if piece.strip(" ,;.!?")]
 
 
+def says_a_bare_hour(user_text: str | None) -> bool:
+    """One of the message's reminders gives an hour with no am or pm ("tomorrow at 5"): its
+    half is the rule's (``bare_hour``), never a fence's."""
+    return any(
+        (add := parse_spoken_add(clause)) is not None and add.bare is not None
+        for clause in reminder_clauses(user_text)
+    )
+
+
 def parse_spoken_adds(user_text: str | None, *, user_timezone: str | None) -> list[SpokenAdd]:
     """Each add the message states, with the day a clock alone means filled in."""
     clauses = reminder_clauses(user_text)
@@ -175,7 +184,11 @@ def _split_adds(clauses: list[str]) -> list[SpokenAdd] | None:
     if len(clauses) < 2:
         return None
     adds = [parse_spoken_add(clause) for clause in clauses]
-    if any(add is None or (add.day is None and add.hour is None) for add in adds):
+    # An hour said with no am or pm ("and to pay rent at 9") is a clock of its own: the rule
+    # settles it once the clause has its day (``_with_day``).
+    if any(
+        add is None or (add.day is None and add.hour is None and add.bare is None) for add in adds
+    ):
         return None
     return [add for add in adds if add is not None]
 
@@ -188,7 +201,8 @@ def _with_days(
     said: str | None = None
     for clause, add in zip(clauses, adds, strict=True):
         own = add.day
-        if own is None and add.repeat is None and add.hour is not None and said:
+        clocked = add.hour is not None or add.bare is not None
+        if own is None and add.repeat is None and clocked and said:
             add = replace(add, day=said)
         resolved.append(_with_day(add, clause, user_timezone))
         said = own or said

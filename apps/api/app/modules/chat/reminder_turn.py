@@ -38,6 +38,7 @@ from app.services.subject_scan import without_photo_reading
 
 if TYPE_CHECKING:
     from app.modules.chat.turn_prep.context import StreamContext
+    from app.modules.todos import Asked
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,11 @@ _QUESTION = re.compile(r"[^.!?\n]*\?")
 _ABOUT_A_REMINDER = re.compile(
     r"\bremind|\breminder|\b(?:a\.?m\.?|am) or\b|\bwhat time\b|\bwhich day\b", re.IGNORECASE
 )
+# Of those questions, the ones that ask when (or which half of the day), and which day.
+_ASKS_WHEN = re.compile(
+    r"\b(?:when|what time|which day|what day)\b|\b(?:a\.?m\.?|am) or\b", re.IGNORECASE
+)
+_ASKS_DAY = re.compile(r"\b(?:which|what) day\b", re.IGNORECASE)
 # The chat the read and the checks see: the last messages before this one.
 _WINDOW = 8
 # Each earlier message the Decider sees, as the turn's read quotes it.
@@ -243,15 +249,21 @@ def _same_task(card: dict[str, Any], checked: Any) -> bool:
     return bool(said & {w.casefold()[:4] for w in _TASK_WORD.findall(titles)})
 
 
-def _asked_before(earlier: list[tuple[str, str]]) -> bool:
-    """The last reply ended on a question about the reminder ("When should I remind you?",
-    "What should I remind you about?", "5 am or 5 pm?"): its details are being given now.
-    "Are you flying or driving?" asked about something else."""
+def _asked(earlier: list[tuple[str, str]]) -> Asked:
+    """What the last reply's closing question asked of the reminder ("When should I remind
+    you?", "What should I remind you about?", "5 am or 5 pm?"): its details are being given
+    now. "Are you flying or driving?" asked about something else. Only a question of when
+    lets an answer with no when be dated by the server (``read_check``)."""
     last = next((text for role, text in reversed(earlier) if role == "assistant"), "")
     tail = without_fences(last, " ").rstrip()[-_ASKED_NEAR_END:]
     questions = " ".join(_QUESTION.findall(tail))
-    return bool(questions) and (
+    about = bool(questions) and (
         todos_service.asked_when(tail) or _ABOUT_A_REMINDER.search(questions) is not None
+    )
+    return todos_service.Asked(
+        reminder=about,
+        when=about and _ASKS_WHEN.search(questions) is not None,
+        day=about and _ASKS_DAY.search(questions) is not None,
     )
 
 
@@ -278,9 +290,7 @@ async def finish_with_the_read(
     earlier = conversation(ctx)
     lines = [content for role, content in earlier if role == "user"] + [own_words(ctx)]
     zone = ctx.user_timezone or (ctx.user.timezone if ctx.user else None)
-    checked = todos_service.check_reading(
-        reading, lines, user_timezone=zone, asked_before=_asked_before(earlier)
-    )
+    checked = todos_service.check_reading(reading, lines, user_timezone=zone, asked=_asked(earlier))
     if todos_service.explicitly_declines_reminder_creation(own_words(ctx)):
         # "Don't set a reminder": the user's restraint outranks any read.
         return text
@@ -288,7 +298,9 @@ async def finish_with_the_read(
     if reading is not None and reading.request == "status":
         # "Did it save?" changes nothing: a card the word rules made for it ("did it" read
         # as done) is not offered.
-        return await _status(deps, redis, ctx, earlier, _without_card(text), checked, zone)
+        return await _status(
+            deps, redis, ctx, earlier, _without_card(text), (reading, checked), zone
+        )
     if actions - {"add"} or _card_items(text) > 1:
         # A change to a saved reminder (done, moved, deleted) is the word rules' card, and so
         # are several reminders in one message: the read writes one request down.
@@ -341,11 +353,13 @@ async def _status(
     ctx: StreamContext,
     earlier: list[tuple[str, str]],
     text: str,
-    checked: Any,
+    read: tuple[Any, Any],
     zone: str | None,
 ) -> str:
-    """ "Did it save?": a tapped card is saved, an untapped one is not yet, and a request no
-    card was offered for gets one now."""
+    """ "Did it save?": a tapped card is saved, an untapped one is not yet, one saved where
+    the chat does not show it (long ago, the To-do screen) is read from the rows, and a
+    request no card was offered for gets one now. ``read``: the reading and its check."""
+    reading, checked = read
     card = _last_card(earlier)
     if card is not None and checked is not None and checked.adds and not _same_task(card, checked):
         # The card is an earlier reminder's: this one was claimed with no card of its own.
@@ -357,6 +371,10 @@ async def _status(
         if body.strip() == text.strip():
             return text
         return f"{body}\n\n{NOT_SAVED_YET}".strip()
+    titles = [add.title for add in checked.adds] if checked is not None else []
+    saved = await _saved(deps, ctx, [*titles, reading.task], zone)
+    if saved is not None:
+        return saved
     if checked is not None and checked.adds:
         offered = await _card(deps, redis, ctx, "", checked.adds, zone)
         if offered is not None:
@@ -365,6 +383,24 @@ async def _status(
     # the one thing missing is asked ("Just a vibe thing, I don't have a reminder tool").
     question = checked.ask if checked is not None and checked.ask else NOTHING_ASKED
     return f"{NOTHING_SAVED_YET} {question}"
+
+
+async def _saved(
+    deps: ChatTurnDeps, ctx: StreamContext, titles: list[str], zone: str | None
+) -> str | None:
+    """The saved reminder for the task asked about, as the app's line; None when none is,
+    or the rows cannot be read."""
+    if not any(title.strip() for title in titles):
+        return None
+    try:
+        async with deps.session_factory() as session:
+            line: str | None = await todos_service.saved_reminder_line(
+                session, user_id=ctx.user_id, titles=titles, user_timezone=zone
+            )
+    except Exception:
+        logger.exception("Reading saved reminders for a status question failed")
+        return None
+    return line
 
 
 async def _card(

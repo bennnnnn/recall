@@ -98,6 +98,9 @@ if TYPE_CHECKING:
         ASK_WHEN as ASK_WHEN,
     )
     from app.modules.todos.read_check import (
+        Asked as Asked,
+    )
+    from app.modules.todos.read_check import (
         CheckedRequest as CheckedRequest,
     )
     from app.modules.todos.read_check import (
@@ -111,6 +114,9 @@ if TYPE_CHECKING:
     )
     from app.modules.todos.reminder_fences import (
         offer_adds as offer_adds,
+    )
+    from app.modules.todos.reminder_writes import (
+        saved_reminder_line as saved_reminder_line,
     )
     from app.modules.todos.reply_claims import (
         without_claims as without_claims,
@@ -158,7 +164,9 @@ _EXPORTS = {
     "ASK_WHEN": ("read_check", "ASK_WHEN"),
     "ReminderReading": ("model_read", "ReminderReading"),
     "read_reminder_chat": ("model_read", "read_reminder_chat"),
+    "Asked": ("read_check", "Asked"),
     "CheckedRequest": ("read_check", "CheckedRequest"),
+    "saved_reminder_line": ("reminder_writes", "saved_reminder_line"),
     "check_reading": ("read_check", "check_reading"),
     "offer_adds": ("reminder_fences", "offer_adds"),
     "query_implies_todos": ("classification", "query_implies_todos"),

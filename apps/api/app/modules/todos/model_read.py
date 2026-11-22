@@ -66,13 +66,16 @@ PROMPT = (
     "before_quote\n"
     "- repeat: daily, weekdays, weekly or monthly when they asked for a repeat; "
     "repeat_quote\n"
+    "- zone: only when the time they gave is another place's clock (2pm EST, 9am London "
+    "time, 15:00 UTC), that place's IANA time zone (America/New_York, Europe/London, UTC); "
+    "zone_quote: the words that name it (EST)\n"
     "\n"
     'Example: "User: can u remind me to grab an umbrella tmrw at 5?" "Assistant: When '
     'should I remind you?" "User (last): tmrw at 5 lol" -> {{"request": "add", "task": '
     '"grab an umbrella", "task_quote": "grab an umbrella", "day": "tmrw", "date": '
     '"2026-11-23", "day_quote": "tmrw", "time": "5", "time_quote": "at 5", "half": "", '
     '"half_quote": "", "in_minutes": null, "in_quote": "", "before_minutes": null, '
-    '"before_quote": "", "repeat": "", "repeat_quote": ""}}'
+    '"before_quote": "", "repeat": "", "repeat_quote": "", "zone": "", "zone_quote": ""}}'
 )
 
 
@@ -100,6 +103,8 @@ class ReminderReading(BaseModel):
     before_quote: str = Field(default="", max_length=120)
     repeat: Repeat = ""
     repeat_quote: str = Field(default="", max_length=120)
+    zone: str = Field(default="", max_length=60)
+    zone_quote: str = Field(default="", max_length=60)
 
     @field_validator("request", mode="before")
     @classmethod
@@ -128,6 +133,8 @@ class ReminderReading(BaseModel):
         "in_quote",
         "before_quote",
         "repeat_quote",
+        "zone",
+        "zone_quote",
         mode="before",
     )
     @classmethod

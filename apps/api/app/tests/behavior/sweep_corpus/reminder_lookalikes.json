@@ -1734,5 +1734,53 @@
     "history": [],
     "reply": "नया टाइटल: **धूप वाला 2BHK, मेट्रो के पास**",
     "expect": "answer"
+  },
+  {
+    "id": "rl-two-bare-hours-fences",
+    "area": "todo",
+    "prompt": "remind me to call mom tomorrow at 5 and to pay rent on friday at 9",
+    "history": [],
+    "reply": "Sure!\n\n```reminder\n{\"title\": \"Call mom\", \"due_at\": \"2026-10-15T05:00:00+03:00\"}\n```\n\n```reminder\n{\"title\": \"Pay rent\", \"due_at\": \"2026-10-16T21:00:00+03:00\"}\n```",
+    "expect": "save"
+  },
+  {
+    "id": "rl-two-bare-hours-no-day",
+    "area": "todo",
+    "prompt": "remind me to call mom at 5 and to pay rent at 9",
+    "history": [],
+    "reply": "Sure, I'll set both.",
+    "expect": "save"
+  },
+  {
+    "id": "rl-two-bare-hours-one-day",
+    "area": "todo",
+    "prompt": "remind me to water the plants tomorrow at 7 and to feed the cat at 8",
+    "history": [],
+    "reply": "Got it!",
+    "expect": "save"
+  },
+  {
+    "id": "rl-bare-hours-power",
+    "area": "lookalike",
+    "prompt": "remind me what 5 and to the power of 9 means in math",
+    "history": [],
+    "reply": "5 to the power of 9 means 5 multiplied by itself 9 times: 5^9 = 1,953,125.",
+    "expect": "answer"
+  },
+  {
+    "id": "rl-bare-hours-story",
+    "area": "lookalike",
+    "prompt": "this reminds me of when we'd call mom at 5 and to pay rent at 9 we walked to the bank",
+    "history": [],
+    "reply": "That sounds like a sweet routine — those small rituals stick with you.",
+    "expect": "answer"
+  },
+  {
+    "id": "rl-bare-hours-schedule",
+    "area": "lookalike",
+    "prompt": "my shift starts at 5 and to be honest I'm off at 9, is that a long day?",
+    "history": [],
+    "reply": "A 5 to 9 shift is 16 hours if it's 5 AM to 9 PM — that's a very long day. If it's 5 PM to 9 PM it's just 4 hours.",
+    "expect": "answer"
   }
 ]

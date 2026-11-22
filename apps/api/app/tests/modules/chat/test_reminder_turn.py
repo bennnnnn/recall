@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from dataclasses import replace
 from datetime import UTC, datetime
 from types import SimpleNamespace
@@ -95,16 +95,41 @@ def _turn(ctx: StreamContext) -> Iterator[None]:
         yield
 
 
-async def _finish(line: str, reply: str, history: list[tuple[str, str]], read: Any) -> str:
+async def _finish(
+    line: str,
+    reply: str,
+    history: list[tuple[str, str]],
+    read: Any,
+    *,
+    saved: list[Any] | None = None,
+) -> str:
+    """The reply as the reminder pass leaves it; ``saved``: the user's rows, in place of the
+    sweep's six."""
     ctx = _ctx(line, history, read)
     deps = replace(
         default_deps(),
         session_factory=sweep._session,
         users=SimpleNamespace(get_by_id=AsyncMock(return_value=ctx.user)),
     )
-    with _turn(ctx):
+    with ExitStack() as stack:
+        stack.enter_context(_turn(ctx))
+        if saved is not None:
+            stack.enter_context(
+                patch(
+                    "app.modules.todos.repository.list_for_user",
+                    AsyncMock(return_value=saved),
+                )
+            )
         text: str = await apply_reminder_pass(deps, AsyncMock(), Settings(), ctx, reply, None)
     return text
+
+
+def _row(title: str, due: datetime, **fields: Any) -> SimpleNamespace:
+    """A reminder the user saved: in the To-do screen, or by a card tapped long ago."""
+    row = {"id": uuid4(), "content": title, "topic": "Reminders", "due_at": due,
+           "due_has_time": True, "recurrence_rule": None, "checked": False, "chat_id": None,
+           "sort_order": 0, "source": "manual"}  # fmt: skip
+    return SimpleNamespace(**{**row, **fields})
 
 
 def _items(text: str) -> list[dict[str, Any]]:
@@ -461,3 +486,78 @@ async def test_did_it_save_about_a_reminder_no_card_was_offered_for_gets_its_car
     )
     text = await _finish("did it save?", "Yes, it's saved!", history, ReminderRead(reading=reading))
     assert text.startswith(NOT_SAVED_YET) and "bio" in _items(text)[0]["title"].lower()
+
+
+_STATUS_CALL_MOM = ReminderReading.model_validate(
+    {"request": "status", "task": "call mom", "task_quote": "call mom", "day": "tomorrow",
+     "day_quote": "tomorrow", "time": "5pm", "time_quote": "5pm"}
+)  # fmt: skip
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reading", [_STATUS_CALL_MOM, ReminderReading.model_validate(
+    {"request": "status", "task": "call mom", "task_quote": "call mom"})])  # fmt: skip
+async def test_did_it_save_about_one_saved_outside_the_chat_says_it_is(reading) -> None:
+    """Saved in the To-do screen (or by a card tapped 30 messages ago): the chat shows no
+    card, and the answer is the saved row, never "No reminder is saved yet" (Gemini, PR
+    #2535)."""
+    rows = [_row("Call mom", datetime(2026, 11, 24, 1, 0, tzinfo=UTC))]
+    text = await _finish(
+        "did my reminder to call mom tomorrow at 5pm save?", "I'm not sure, let me check.",
+        [], ReminderRead(reading=reading), saved=rows,
+    )  # fmt: skip
+    assert text.startswith("Yes, it's saved: **Call mom**, Monday, Nov 23, 5:00 PM")
+    assert "reminder_proposal" not in text and reminder_turn.NOTHING_SAVED_YET not in text
+
+
+@pytest.mark.asyncio
+async def test_did_it_save_about_another_task_or_a_done_one_is_not_that_row() -> None:
+    """A saved "Call grandma", a checked "Call mom" and last month's are not the reminder
+    asked about: its card is offered now."""
+    rows = [
+        _row("Call grandma", datetime(2026, 11, 24, 1, 0, tzinfo=UTC)),
+        _row("Call mom", datetime(2026, 11, 24, 1, 0, tzinfo=UTC), checked=True),
+        _row("Call mom", datetime(2026, 10, 20, 1, 0, tzinfo=UTC)),
+    ]
+    text = await _finish(
+        "did my reminder to call mom tomorrow at 5pm save?", "Yes!", [],
+        ReminderRead(reading=_STATUS_CALL_MOM), saved=rows,
+    )  # fmt: skip
+    assert text.startswith(NOT_SAVED_YET)
+    (item,) = _items(text)
+    assert item["due_at"] == _MON_5PM
+
+
+@pytest.mark.asyncio
+async def test_two_bare_hour_reminders_with_fences_each_get_their_item() -> None:
+    """ "tomorrow at 5 and … on friday at 9": the model's two fences carry hours the rule
+    never reads, and each clause's own time is the card's (Gemini, PR #2535)."""
+    reply = (
+        'Sure!\n\n```reminder\n{"title": "Call mom", "due_at": '
+        '"2026-11-23T05:00:00-08:00"}\n```\n\n```reminder\n{"title": "Pay rent", '
+        '"due_at": "2026-11-27T21:00:00-08:00"}\n```'
+    )
+    line = "remind me to call mom tomorrow at 5 and to pay rent on friday at 9"
+    text = await _finish(line, reply, [], _read(task="call mom", task_quote="call mom",
+                                                **_TMRW_5))  # fmt: skip
+    items = _items(text)
+    assert [item["title"].lower() for item in items] == ["call mom", "pay rent"]
+    # 5 PM Monday and 9 AM Friday in Los Angeles.
+    assert [item["due_at"] for item in items] == ["2026-11-24T01:00:00Z", "2026-11-27T17:00:00Z"]
+
+
+@pytest.mark.asyncio
+async def test_a_clock_in_another_zone_is_the_cards_on_the_users_own_clock() -> None:
+    """ "tomorrow at 2pm EST" for a user in Los Angeles: the card is 11 AM theirs."""
+    reply = (
+        'Sure!\n\n```reminder\n{"title": "Join the webinar", "due_at": '
+        '"2026-11-23T11:00:00-08:00"}\n```'
+    )
+    text = await _finish(
+        "Remind me tomorrow at 2pm EST to join the webinar", reply, [],
+        _read(task="join the webinar", task_quote="join the webinar", day="tomorrow",
+              day_quote="tomorrow", time="2pm", time_quote="at 2pm EST",
+              zone="America/New_York", zone_quote="EST"),
+    )  # fmt: skip
+    (item,) = _items(text)
+    assert item["due_at"] == "2026-11-23T19:00:00Z"
