@@ -163,3 +163,14 @@ def test_a_card_that_is_no_plain_number_is_only_named(
     assert text == reply
     if note is not None:
         assert said == note
+
+
+def test_a_heading_with_maths_above_the_card_is_no_working() -> None:
+    """ "**Answer for $D$**" sits between the working and the card (review, #2536)."""
+    reply = (
+        "$D = 2^2 - 4(3)(1)$  \n$D = 4 - 12$\n\n**Answer for $D$**\n\n"
+        "```answer\nverified: false\nD = −7\n```\n\nSince −7 is negative, there are no real roots."
+    )
+    text, note = held_cards(reply)
+    assert note is None
+    assert "D = -8" in text and "Since -8 is negative" in text

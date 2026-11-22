@@ -192,6 +192,8 @@ def quotes_the_prompt(text: str) -> bool:
     instructions say: "Worked calculation: this question asks for a value …"', live,
     2026-11-22, the reply opening on a wrong 42,000)."""
     prose = _SPANS_NOT_PROSE.sub(" ", map_fence_blocks(text, lambda _fence, _body: "\n"))
+    # A curly apostrophe is the rules' straight one: user's stays one word (review, #2536).
+    prose = straighten_apostrophes(prose)
     runs = _rule_runs()
     for quote in _QUOTED.finditer(prose):
         said = next(group for group in quote.groups() if group is not None)

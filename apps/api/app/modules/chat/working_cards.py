@@ -89,6 +89,14 @@ def _card_value(body: str) -> tuple[str, str, bool] | None:
     return symbol, number, bool(relations) and relations[0] != "="
 
 
+def _without_closing_headings(above: str) -> str:
+    """``above`` without the blank lines and bold headings at its end."""
+    kept = above.split("\n")
+    while kept and (not kept[-1].strip() or _BOLD_LINE.fullmatch(kept[-1].strip())):
+        kept.pop()
+    return "\n".join(kept)
+
+
 def _only_headings(between: str) -> bool:
     """Nothing but blank lines and bold headings between the working and the card."""
     return all(
@@ -143,12 +151,14 @@ def card_slips(text: str, question: str = "") -> list[CardSlip]:
         if not fence.closed or fence.lang not in ANSWER_FENCE_LANGS:
             continue
         card = _card_value(text[fence.body_start : fence.body_end])
-        lines = list(INLINE_MATH.finditer(above))
+        # The headings right above the card ("**Answer for $D$**") are no working (review,
+        # #2536): the working's last line is the last maths above them.
+        lines = list(INLINE_MATH.finditer(_without_closing_headings(above)))
         if card is None or not lines or not _only_headings(above[lines[-1].end() :]):
             continue
         if not _own_line(above, lines[-1].start()):
             continue
-        statements = list(math_statements(above))
+        statements = list(math_statements(_without_closing_headings(above)))
         if not statements:
             continue
         parts = RELATION.split(statements[-1])
@@ -210,7 +220,8 @@ def _repeats(numbers: set[str]) -> re.Pattern[str]:
     spellings ("1200", "1,200"), never inside another number."""
     spellings = sorted(numbers, key=len, reverse=True)
     sign = "[-−]" if any(number.startswith(("-", "−")) for number in spellings) else ""
-    lead = r"(?<![\d.,])" if sign else r"(?<![\d.,\-−])"
+    # A minus after a number, a bracket or a letter takes away ("4-7"); it is no sign.
+    lead = r"(?<![\w.,)])" if sign else r"(?<![\d.,\-−])"
     digits = "|".join(re.escape(number.lstrip("-−")) for number in spellings)
     return re.compile(rf"{lead}{sign}(?:{digits})(?![\d]|[.,]\d)")
 
