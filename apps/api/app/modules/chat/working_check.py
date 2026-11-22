@@ -89,6 +89,10 @@ def _unit_kinds(tex: str) -> dict[str, frozenset[str]]:
     return {kind: frozenset(units) for kind, units in found.items()}
 
 
+# A whole number with this many figures before its zeros reads as rounded to them.
+_ROUNDED_FIGURES = 3
+
+
 def _shown_number(plain: str) -> tuple[float, float] | None:
     """A written result and half its last place: ``14.8`` → (14.8, 0.05)."""
     match = _SHOWN.fullmatch(plain)
@@ -97,8 +101,15 @@ def _shown_number(plain: str) -> tuple[float, float] | None:
     power = int(match.group("power") or 0)
     if abs(power) > MAX_EXPONENT:
         return None
+    mantissa = match.group("mantissa")
     places = len(match.group("decimals") or "")
-    value = float(match.group("mantissa")) * 10.0**power
+    digits = mantissa.lstrip("-").rstrip("0")
+    if not places and len(digits) >= _ROUNDED_FIGURES:
+        # A large whole number's trailing zeros are its rounding: 1670 is 1666.67 to three
+        # figures, its last place the tens (review, #2520). A short one is held as written:
+        # "120 * 0.3 = 40" is a slip for 36.
+        places = -(len(mantissa.lstrip("-")) - len(digits))
+    value = float(mantissa) * 10.0**power
     return value, 0.5 * 10.0 ** (power - places)
 
 

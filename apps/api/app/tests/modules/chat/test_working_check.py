@@ -423,3 +423,15 @@ def test_a_decimal_with_a_thousands_comma_is_never_rewritten() -> None:
 def test_an_exact_form_said_to_be_near_is_no_slip(reply: str) -> None:
     """Review (#2520): "pi ≈ 22/7" was held to 1e-6 and noted."""
     assert working_note("**Steps**\n\n" + reply) is None
+
+
+@pytest.mark.parametrize(
+    "reply",
+    ["$\\frac{5000}{3} = 1670$", "$\\sqrt{2000000} \\approx 1410$", "$\\frac{7200}{3} = 2400$"],
+)
+def test_a_whole_number_rounded_to_its_tens_is_no_slip(reply: str) -> None:
+    """Review (#2520): 1670 is 1666.67 to three figures."""
+    assert working_note("**Steps**\n\n" + reply) is None
+    assert corrected_approximations("So $\\frac{5000}{3}$ (approximately 1670).") == (
+        "So $\\frac{5000}{3}$ (approximately 1670)."
+    )
