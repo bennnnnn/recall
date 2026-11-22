@@ -41,6 +41,7 @@ from app.modules.chat.turn_prep.followups import read_prompt_inputs, role_conten
 from app.modules.conversation import history_rag as chat_history_rag_service
 from app.modules.memory.switch import memory_switch_on
 from app.modules.turn_reading.plan import TurnPlan
+from app.modules.turn_reading.turn import is_homework
 from app.services import time_context as time_context_service
 from app.services.solving import VerifiedSolveBlock
 from app.services.subjects.dispatch import (
@@ -220,9 +221,16 @@ async def _context_plan(
     recalls_past = recalls_shared_past(query_text)
     # Memory off means no personal recall at all: no saved facts, no earlier chats.
     memory_on = memory_switch_on(user)
+    # Any other turn but a greeting or homework reads memory too: "what job do I do again"
+    # named nothing the word rules above know, and the reply said it had no job saved
+    # (live QA, 2026-11-22). It reads with no query embed (the "ambient" scope): a small
+    # store whole, from the cache, and the reply's model decides what bears on the question.
+    gated = personal_context or work_memory or recalls_past
+    ambient = not gated and not lightweight and not is_homework(query_text or "")
+    scope = "work" if work_memory else memory_scope_for(query_text)
     return _ContextPlan(
         slim=minimal_personal_context or lightweight or not rich_context,
-        load_memory=memory_on and (personal_context or work_memory or recalls_past),
+        load_memory=memory_on and (gated or ambient),
         recalls_shared_past=recalls_past,
         # Earlier chats before the reply only when the message refers back to one, or to all
         # they said ("what do you know about me"); any other turn reads saved memory, and its
@@ -236,7 +244,7 @@ async def _context_plan(
             and query_text
             and query_text.strip()
         ),
-        memory_scope="work" if work_memory else memory_scope_for(query_text),
+        memory_scope="ambient" if ambient and scope == "query" else scope,
     )
 
 

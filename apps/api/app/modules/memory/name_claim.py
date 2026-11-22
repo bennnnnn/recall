@@ -31,13 +31,16 @@ _BEFORE_MARKERS = (
     " is the users name",
     " is the user name",
 )
-_BARE_IDENTITY = ("the user is ", "user is ")
+# "User is Bebe." with nothing after the word: the whole sentence names the user.
+_BARE_IDENTITY_RE = re.compile(r"\buser is ([^\W\d_][\w'-]*)[\s.,;:!]*$", re.IGNORECASE)
 
 # How the user says who they are, and how they ask to be called.
 _IDENTITY_PREFIXES = (
     "my name is ",
     "my name's ",
     "i'm ",
+    # Typed without the apostrophe: "im Sam", "im vegetarian".
+    "im ",
     "i am ",
 )
 _CHOSEN_PREFIXES = (
@@ -153,36 +156,29 @@ def _names_before(haystack: str, marker: str) -> list[str]:
         start = index + len(marker)
 
 
-def _bare_identity(folded: str) -> list[str]:
-    """'The user is Bebe' is a name. 'The user is a teacher' is not."""
-    found: list[str] = []
-    for marker in _BARE_IDENTITY:
-        start = 0
-        while True:
-            index = folded.find(marker, start)
-            if index < 0:
-                break
-            if marker == "user is " and folded[max(0, index - 4) : index] == "the ":
-                start = index + len(marker)
-                continue
-            name, end = _token_at(folded, index + len(marker))
-            if name == "named":
-                start = index + len(marker)
-                continue
-            rest = folded[end:].strip(" .,;:!")
-            if _keep(name) and not rest:
-                found.append(name)
-            start = index + len(marker)
-    return found
+def _bare_identity(text: str) -> list[str]:
+    """'The user is Bebe' is a name. 'The user is a teacher' is not, and neither is 'User
+    is vegetarian': a name in a fact the model wrote starts in upper case, and a word in
+    lower case is what the user is (vegetarian, retired, pregnant). The user said "im
+    vegetarian" and the fact was dropped as an unclaimed name (live QA, 2026-11-22)."""
+    match = _BARE_IDENTITY_RE.search(text.translate(_APOSTROPHES))
+    if match is None:
+        return []
+    word = match.group(1).strip("-'")
+    name = _fold(word)
+    if not word or word[0].islower() or name == "named" or not _keep(name):
+        return []
+    return [name]
 
 
-def _identity_names(folded: str) -> list[str]:
+def _identity_names(text: str) -> list[str]:
+    folded = _fold(text)
     names: list[str] = []
     for marker in _IDENTITY_MARKERS:
         names.extend(_names_after(folded, marker))
     for marker in _BEFORE_MARKERS:
         names.extend(_names_before(folded, marker))
-    names.extend(_bare_identity(folded))
+    names.extend(_bare_identity(text))
     return names
 
 
@@ -195,7 +191,7 @@ def assigned_user_names(text: str) -> list[str]:
     folded = _fold(text)
     if "user" not in folded:
         return []
-    names = _identity_names(folded)
+    names = _identity_names(text)
     for marker in _NICKNAME_MARKERS:
         names.extend(_names_after(folded, marker))
     if names:

@@ -836,6 +836,11 @@ async def test_build_prompt_includes_memory_and_fits_length_to_the_message():
             "app.modules.memory.retrieval.load_relevant_memories",
             AsyncMock(return_value=[AsyncMock(type="preference", text="likes Python")]),
         ),
+        # A store this small is read whole (``selection.select_whole_store``).
+        patch(
+            "app.modules.memory.repository.list_for_user",
+            AsyncMock(return_value=[AsyncMock(type="preference", text="likes Python")]),
+        ),
         patch.object(
             messages_repository,
             "list_recent",
@@ -895,6 +900,11 @@ async def test_build_prompt_recalled_count_counts_section_headers():
     with (
         patch(
             "app.modules.memory.retrieval.load_relevant_memories",
+            AsyncMock(return_value=[AsyncMock(type="profile", text="Lives in Addis")]),
+        ),
+        # A store this small is read whole (``selection.select_whole_store``).
+        patch(
+            "app.modules.memory.repository.list_for_user",
             AsyncMock(return_value=[AsyncMock(type="profile", text="Lives in Addis")]),
         ),
         patch.object(messages_repository, "list_recent", return_value=[]),
@@ -1308,7 +1318,8 @@ async def test_build_prompt_lightweight_hi_skips_memory_and_integrations():
 
 @pytest.mark.asyncio
 async def test_build_prompt_casual_chitchat_loads_memory_without_integrations():
-    """A social slim turn keeps custom instructions and skips memory search."""
+    """A slim chit-chat turn keeps custom instructions and reads memory with no search (the
+    ambient scope: a small store whole), never the schedule."""
     user = MagicMock()
     user.name = "Dev User"
     user.email = "dev@example.com"
@@ -1347,12 +1358,13 @@ async def test_build_prompt_casual_chitchat_loads_memory_without_integrations():
         )
 
     recent_mock.assert_awaited()
-    memory_mock.assert_not_awaited()
+    memory_mock.assert_awaited_once()
+    assert memory_mock.await_args.kwargs["scope"] == "ambient"
     todos_mock.assert_not_awaited()
     system = system_prompt(messages)
     assert "Dev" in system
     assert LIGHTWEIGHT_REPLY_HINT not in system
-    assert "Prefers warm but concise replies" not in system
+    assert "Prefers warm but concise replies" in system
     assert "TODOS SHOULD NOT LOAD" not in system
     assert "Fluffy" in system
     assert "[BEGIN USER PREFERENCES]" in system

@@ -805,18 +805,29 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Quality controls** — confidence threshold, de-duplication / pair-merge (newer fact
   wins), score-and-pack packing (never mid-fact prefix cut), identity core (the name and reply
   preferences). An add matches by exact text only.
-- ✅ **Prompt injection** — identity core always; remaining facts packed by cosine + importance +
-  recency until `memory_inject_max_chars` (1500). Similarity bar stays `memory_min_similarity`
-  (0.35); a fact with no vector needs a word in common with the question. Scopes
-  (`get_memory_block(scope=…)`): by query; with the profile page (career, "what's my job?");
-  everything ("what do you know about me"); **work** (programming and "my app / my backend"
-  turns: the tech-stack page and what the user builds, no query embed). An embed timeout
+- ✅ **Prompt injection** — a store of up to `memory_whole_store_max_facts` (15) facts that fits
+  `memory_inject_max_chars` (1500) is **read whole** on every scope but work, cached per memory
+  generation, no query embed: a question needs no word or vector in common with the fact it
+  needs ("any gift ideas for my family?" gets the son and the sister's wedding, live QA
+  2026-11-22), and the reply's model decides what bears on it. A larger store: identity core
+  always; remaining facts packed by cosine + importance + recency until
+  `memory_inject_max_chars`. Similarity bar `memory_min_similarity` (0.28, measured by
+  `app/tests/behavior/memory_recall_eval.py --large`); a fact with no vector needs a word in
+  common with the question. Scopes (`get_memory_block(scope=…)`): by query; with the profile
+  page (career, "what's my job?"); everything ("what do you know about me", private facts
+  included); **work** (programming and "my app / my backend" turns: the tech-stack page and
+  what the user builds, no query embed); **ambient** (any other turn but a greeting or
+  homework, "what job do i do again": a small store whole, of a large one the profile page,
+  no query embed). An embed timeout
   injects the identity core plus word matches, uncached, and warms the key the turn read.
   Each fact line carries "(said YYYY-MM)" and "unconfirmed" under 0.6 confidence. A failed
   read is reported (`MemoryLoadReport`), never cached, and the reply says memory couldn't
   load instead of "I don't have that saved"; memory off / saving paused / no earlier chat
-  found each get one line on the turns they bear on (`modules/chat/prompt_memory.py`). Health / legal / finance / relationship stay **stripped on casual turns** (stored
-  `sensitivity` first, regex defense-in-depth) and inject only when the ask is in-domain.
+  found each get one line on the turns they bear on (`modules/chat/prompt_memory.py`). A
+  health / legal / finance / relationship fact is marked **private** on its line, and the
+  saved-memory preamble says it is used only where the question bears on it. A store read
+  whole carries it; a larger store's query block still strips it on casual turns (stored
+  `sensitivity` first, regex defense-in-depth) and injects it only when the ask is in-domain.
   Life-domain advice ("what should I eat", "I need dinner", "plan a workout")
   injects **memory only**. Ordinary need/plan phrasing
   counts, not just "recommend" / "what should I".

@@ -74,9 +74,13 @@ async def test_a_programming_turn_reads_the_work_scope(text):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("text", ["what is the capital of France", "tell me a joke"])
-async def test_a_general_question_reads_no_memory(text):
+async def test_a_general_question_reads_memory_without_a_search(text):
+    """The ambient scope: a small store whole, of a large one the profile document, and
+    no query embed or past-chat search on the first token (live QA, 2026-11-22: "what
+    job do i do again" read no memory at all)."""
     plan = await _plan(text)
-    assert plan.load_memory is False
+    assert plan.load_memory is True
+    assert plan.memory_scope == "ambient"
     assert plan.history_rag is False
 
 
@@ -356,7 +360,8 @@ async def test_asking_what_was_said_earlier_searches_the_chat(text, recalls):
     plan = await _plan(text)
     assert plan.recalls_shared_past is recalls
     assert plan.history_rag is recalls
-    assert plan.load_memory is recalls
+    # Saved memory is read either way; only a recall searches past chats.
+    assert plan.load_memory is True
 
 
 def test_the_saved_memory_block_says_it_may_be_stale():

@@ -21,9 +21,13 @@ from app.modules.memory.switch import memory_switch_on
 RECALL_TOOL = "recall_chats"
 
 # The tool results the model reads when there is nothing to show.
+# "Any gift ideas for my family?" searched, found no chat, and the reply said "I couldn't
+# find earlier chat details about your family" over a saved son and a sister's wedding
+# (live QA, 2026-11-22): the saved facts still answer.
 _NOTHING_FOUND = (
-    "No earlier chat matches this. Say you couldn't find it in your past chats; do not "
-    "fill in what was said from memory."
+    "No earlier chat matches this. Answer from the saved facts and this chat when they "
+    "cover it, without saying you searched. Only when neither does, say you couldn't find "
+    "it in your past chats; never make up what was said."
 )
 _MEMORY_OFF = "Memory is off, so earlier chats are not searched. Say so; do not guess."
 
@@ -42,7 +46,9 @@ class RecallChatsAdapter:
             'you cannot see here ("what did I ask you earlier", "the plan we made", '
             '"what was my question before"). Do not call it for general knowledge or for '
             "anything said in this chat, its start included: this chat's summary holds what "
-            "came before the messages you see, and the search never reads this chat. The "
+            "came before the messages you see, and the search never reads this chat. Nor "
+            "for what the saved facts in this prompt already say about the user (their "
+            "family, pets, job, diet): answer from those. The "
             "query names the topic in the user's words "
             "(\"lens question\", \"trip to Rome budget\"), never 'it' or 'that'."
         )

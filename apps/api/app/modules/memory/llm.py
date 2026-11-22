@@ -56,7 +56,7 @@ _OP_FIELDS = (
     'side-projects|notes|area:<slug>", '
     '"topic_title": "new area name, else omit", "topic_summary": "new area line, else omit", '
     '"type": "profile|preference|project|fact|focus", '
-    '"text": "one sentence in third person", '
+    '"text": "one fact, one sentence in third person", '
 )
 # The fields a model may leave out come last: one left out before "confidence" took it
 # along (the memory model dropped it on most ops).
@@ -71,7 +71,8 @@ _OP_SHAPE = '{"ops": [{' + _OP_FIELDS + _OP_TAIL + "}]}"
 _EXTRACT_OP_SHAPE = (
     '{"conversation": "real_life|story", "ops": [{'
     + _OP_FIELDS
-    + '"quote": "the user\'s words that state it, copied exactly from one User line", '
+    + '"quote": "the user\'s words that state this one fact and nothing else, copied exactly '
+    'from one User line", '
     '"stated_as": "own_life|story|question|request|someone_else", ' + _OP_TAIL + "}]}"
 )
 
@@ -129,6 +130,17 @@ STATED_RULES = (
     "or add nothing."
 )
 
+# One fact a row: "hey so i work as a nurse and my son is 7" was saved as "User works as a
+# nurse and has a 7-year-old son" in about a third of casual two-fact lines (live QA,
+# 2026-11-22), so a later move or new job replaced both facts, and recall listed one.
+ONE_FACT_RULE = (
+    "- Each op is ONE fact with its own quote. A line that states two things is two ops: "
+    "'im a teacher and my daughter plays violin' is 'User is a teacher' (quote 'im a "
+    "teacher') and 'User's daughter plays the violin' (quote 'my daughter plays violin'). "
+    "Never join two facts "
+    "in one op with 'and' or 'who', and never write a paragraph of ideas."
+)
+
 # "Reply in Spanish from now on" was saved as a preference and answered an English app in
 # Spanish (2026-10-24): a setting's choice is the setting's.
 SETTING_PREFERENCE_RULE = (
@@ -162,13 +174,17 @@ INSTRUCT_SETTING_RULE = (
     "rest of the instruction as usual."
 )
 
+# "My son is 7" and "my sister Hana is getting married in June" came back relationship, so
+# "what do u know about me" and "gift ideas for my family?" left them out (live QA,
+# 2026-11-22), and an account that keeps no private facts never saved them.
 _SENSITIVITY_RULES = (
     "- sensitivity says what the fact reveals about the user's private life. "
     "normal: name, job, employer, school, city, home country, languages, "
     "projects, tools, interests, schedule, and reply preferences. "
     "health: their physical or mental health. finance: their income, debts, "
     "or accounts. legal: their own legal matters. relationship: their romantic "
-    "life or partner. identity: gender identity, immigration status, or "
+    "life or partner; their family is normal (children, parents, siblings, a sister's "
+    "wedding), and so are their pets. identity: gender identity, immigration status, or "
     "disability. highly_sensitive: race or ethnicity, religion, politics, "
     "sexual orientation, and sex life.\n"
     "- Label the user's life, not the subject of their work: building a dating "
@@ -284,7 +300,7 @@ async def revise_memory_facts(
                 "'When teaching me, explain one concept at a time and give me an exercise "
                 "before moving on' is 'User wants lessons one concept at a time, with a short "
                 "exercise before moving on.'\n"
-                "- Each op is ONE fact — never a paragraph of unrelated ideas.\n"
+                f"{ONE_FACT_RULE}\n"
                 "- Return ONLY ops for facts that changed or are new this turn.\n"
                 "- On conflicting facts (e.g. moved cities), op=supersede with match_text "
                 "of the old fact and text of the new one, in the same slot. Two current "

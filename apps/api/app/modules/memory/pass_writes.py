@@ -28,7 +28,7 @@ from app.modules.memory.fact_quality import (
 )
 from app.modules.memory.facts import should_skip_sensitive_persist
 from app.modules.memory.forget_match import names_nothing, phrase_names_fact
-from app.modules.memory.grounding import SourceLine, grounded_source, quoted_line
+from app.modules.memory.grounding import SourceLine, grounded_source, joins_quotes, quoted_line
 from app.modules.memory.name_claim import is_unclaimed_user_name
 from app.modules.memory.ops import EXPLICIT_IMPORTANCE, MODEL_IMPORTANCE_MAX, normalize_memory_text
 from app.modules.memory.schemas import MemoryFactOp, MemoryFactUpdateResult
@@ -106,6 +106,7 @@ def compose_writes(
     held to one of them (``grounding``). ``earlier`` is the exchange before ``lines``: a
     lone "forget that" drops what the line before it asked to remember.
     """
+    ops, joined = without_joined_facts(ops)
     writes, skipped = writes_from_ops(
         ops,
         chat_id=chat_id,
@@ -118,6 +119,7 @@ def compose_writes(
         sources=sources,
         english=snapshot.english,
     )
+    skipped += joined
     writes, owned = _without_learning_lines(writes)
     skipped += owned
     if not asks.remember:
@@ -151,6 +153,22 @@ def compose_writes(
     if from_history:
         return _filling_gaps(writes, snapshot), skipped
     return writes + _stale_fact_deletes(snapshot, writes), skipped
+
+
+_TEXT_OPS = frozenset({"add", "update", "supersede"})
+
+
+def without_joined_facts(ops: list[MemoryFactOp]) -> tuple[list[MemoryFactOp], int]:
+    """The ops without one that writes facts other ops of the pass already write, joined.
+
+    The model wrote "User is vegetarian", "User has a dog named Biscuit" and "User is
+    vegetarian and has a dog named Biscuit" from one line: the joined fact is quoted with
+    the two others' quotes and nothing more (``grounding.joins_quotes``), so it says them
+    again in one row, and a later answer to one of them would replace both.
+    """
+    quotes = [op.quote for op in ops if op.op in _TEXT_OPS]
+    kept = [op for op in ops if op.op not in _TEXT_OPS or not joins_quotes(op.quote, quotes)]
+    return kept, len(ops) - len(kept)
 
 
 def is_story(result: MemoryFactUpdateResult) -> bool:

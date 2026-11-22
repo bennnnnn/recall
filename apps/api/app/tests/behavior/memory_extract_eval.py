@@ -14,6 +14,14 @@ small-talk skip, the model call, ``compose_writes``) and reads the facts it woul
   appears in it, any case). Recall is the share matched.
 - ``optional``: sets a saved fact may match without counting either way.
 - Every other saved fact is a false one. Precision is right facts over saved facts.
+- A saved fact that matches two ``expect`` sets is merged ("User is a nurse and has a
+  7-year-old son"): memory keeps one fact a row, so a later answer to one of them (a move,
+  a new job) cannot take the other with it. "On its own row" counts the expected facts a
+  fact matching no other set holds. Two saved facts that match one set are duplicates.
+- A fact the model labels private (any sensitivity but normal) is saved with " [private]"
+  after it; ``normal`` lists the sets a fact must not be labelled private for (family
+  and pets are not the user's love life). An account that keeps no private facts drops
+  a private one, and the prompt marks it.
 
 ``--extra`` adds cases of the same shape from a file kept outside the repo (a user's own
 chats are not committed).
@@ -31,6 +39,7 @@ from typing import Any
 
 CORPUS = Path(__file__).with_name("memory_extract_corpus.json")
 _CONCURRENCY = 6
+PRIVATE_MARK = " [private]"
 
 
 @dataclass
@@ -41,6 +50,7 @@ class Case:
     existing: list[dict[str, str]] = field(default_factory=list)
     expect: list[list[str]] = field(default_factory=list)
     optional: list[list[str]] = field(default_factory=list)
+    normal: list[list[str]] = field(default_factory=list)
 
 
 @dataclass
@@ -49,23 +59,34 @@ class Score:
     right: int = 0
     expected: int = 0
     found: int = 0
+    alone: int = 0
     false_facts: list[tuple[str, str]] = field(default_factory=list)
     missed: list[tuple[str, list[str]]] = field(default_factory=list)
+    merged: list[tuple[str, str]] = field(default_factory=list)
+    duplicates: list[tuple[str, list[str]]] = field(default_factory=list)
+    mislabelled: list[tuple[str, str]] = field(default_factory=list)
 
     def add(self, other: Score) -> None:
         self.saved += other.saved
         self.right += other.right
         self.expected += other.expected
         self.found += other.found
+        self.alone += other.alone
         self.false_facts.extend(other.false_facts)
         self.missed.extend(other.missed)
+        self.merged.extend(other.merged)
+        self.duplicates.extend(other.duplicates)
+        self.mislabelled.extend(other.mislabelled)
 
     def line(self, label: str) -> str:
         precision = self.right / self.saved if self.saved else 1.0
         recall = self.found / self.expected if self.expected else 1.0
         return (
             f"{label}: precision {precision:.0%} ({self.right}/{self.saved} saved facts right), "
-            f"recall {recall:.0%} ({self.found}/{self.expected} expected facts saved)"
+            f"recall {recall:.0%} ({self.found}/{self.expected} expected facts saved), "
+            f"on its own row {self.alone}/{self.expected}, "
+            f"{len(self.merged)} merged, {len(self.duplicates)} duplicates, "
+            f"{len(self.mislabelled)} labelled private wrongly"
         )
 
 
@@ -83,6 +104,7 @@ def _load(path: Path) -> list[Case]:
                 existing=item.get("existing", []),
                 expect=item.get("expect", []),
                 optional=item.get("optional", []),
+                normal=item.get("normal", []),
             )
         )
     return cases
@@ -100,11 +122,21 @@ def score_case(case: Case, saved: list[str]) -> Score:
             score.right += 1
         else:
             score.false_facts.append((case.id, text))
+    for text in saved:
+        if sum(_matches(text, words) for words in case.expect) > 1:
+            score.merged.append((case.id, text))
+        if text.endswith(PRIVATE_MARK) and any(_matches(text, words) for words in case.normal):
+            score.mislabelled.append((case.id, text))
     for words in case.expect:
-        if any(_matches(text, words) for text in saved):
+        holding = [text for text in saved if _matches(text, words)]
+        if any(sum(_matches(text, other) for other in case.expect) == 1 for text in holding):
+            score.alone += 1
+        if holding:
             score.found += 1
         else:
             score.missed.append((case.id, words))
+        if len(holding) > 1:
+            score.duplicates.append((case.id, words))
     return score
 
 
@@ -151,7 +183,11 @@ async def saved_facts(settings: Any, case: Case) -> list[str]:
         sources=extract_backlog.source_lines([(uuid.uuid4(), text) for text in case.lines]),
         earlier=earlier,
     )
-    return [write.text for write in writes if write.op in {"add", "update", "supersede"}]
+    return [
+        write.text + ("" if (write.sensitivity or "normal") == "normal" else PRIVATE_MARK)
+        for write in writes
+        if write.op in {"add", "update", "supersede"}
+    ]
 
 
 async def _run(cases: list[Case], settings: Any) -> dict[str, list[str]]:
@@ -175,6 +211,12 @@ def _report(label: str, cases: list[Case], runs: list[dict[str, list[str]]], sho
             print(f"  false  {case_id}: {text}")
         for case_id, words in total.missed:
             print(f"  missed {case_id}: {' '.join(words)}")
+        for case_id, text in total.merged:
+            print(f"  merged {case_id}: {text}")
+        for case_id, words in total.duplicates:
+            print(f"  duplicate {case_id}: {' '.join(words)}")
+        for case_id, text in total.mislabelled:
+            print(f"  private {case_id}: {text}")
 
 
 async def main() -> None:

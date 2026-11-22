@@ -39,7 +39,7 @@ def _user() -> MagicMock:
 async def test_memory_block_write_racing_a_memory_write_is_never_served(fake_redis):
     user = _user()
     session = fake_session()
-    settings = Settings(memory_cache_ttl=300)
+    settings = Settings(memory_whole_store_max_facts=0, memory_cache_ttl=300)
     loads = 0
 
     async def load(*_args, **_kwargs):
@@ -64,8 +64,12 @@ async def test_memory_block_cache_hit_under_the_same_generation(fake_redis):
     user = _user()
     load = AsyncMock(return_value=[_memory("Likes hiking")])
     with patch("app.modules.memory.retrieval.load_relevant_memories", load):
-        first = await get_memory_block(fake_session(), user, Settings())
-        second = await get_memory_block(fake_session(), user, Settings())
+        first = await get_memory_block(
+            fake_session(), user, Settings(memory_whole_store_max_facts=0)
+        )
+        second = await get_memory_block(
+            fake_session(), user, Settings(memory_whole_store_max_facts=0)
+        )
 
     assert second == first
     load.assert_awaited_once()

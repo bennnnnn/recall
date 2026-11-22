@@ -35,8 +35,14 @@ logger = logging.getLogger(__name__)
 MemoryLoadStatus = Literal["ok", "partial", "unavailable"]
 # "query": facts near this question (the default). "profile": those plus the profile
 # document, for "what's my job?" and career asks. "self": everything, for "what do
-# you know about me". "work": the stack and what the user builds.
-MemoryScope = Literal["query", "profile", "self", "work"]
+# you know about me". "work": the stack and what the user builds. "ambient": a turn that
+# names nothing personal ("what job do I do again"), which reads no query embed on its
+# first token: a small store whole, of a large one who the user is (the profile
+# document). Every scope but "work" reads a small store whole
+# (``selection.select_whole_store``).
+MemoryScope = Literal["query", "profile", "self", "work", "ambient"]
+# The cached whole-store block of a store too large to read whole.
+_TOO_LARGE = "\x00too-large"
 _STATUS_RANK: dict[MemoryLoadStatus, int] = {"ok": 0, "partial": 1, "unavailable": 2}
 
 
@@ -46,6 +52,9 @@ class MemoryLoadReport:
     the query embed was unavailable. ``unavailable``: the read failed."""
 
     status: MemoryLoadStatus = "ok"
+    # Every fact the user has is in the block (``selection.select_whole_store``): no later
+    # budget cuts it.
+    whole_store: bool = False
 
     def degrade(self, status: MemoryLoadStatus) -> None:
         if _STATUS_RANK[status] > _STATUS_RANK[self.status]:
@@ -277,6 +286,25 @@ async def _scoped_block(
                 rows, settings, profile_name=user.name
             ),
         )
+    whole = await _whole_store_block(session, user, settings, report=report)
+    if whole is not None:
+        report.whole_store = report.status != "unavailable"
+        return whole
+    if scope == "ambient":
+        return await _cached_block(
+            session,
+            user,
+            settings,
+            suffix="p",
+            exclude_sensitive=exclude_sensitive,
+            report=report,
+            select=lambda rows: selection.select_profile_memories(
+                rows, settings, profile_name=user.name
+            ),
+        )
+    # "What do you know about me" lists what the user told, private facts too: they are
+    # theirs, and they asked (live QA, 2026-11-22: the peanut allergy was left out).
+    exclude_sensitive = exclude_sensitive and scope != "self"
     if scope == "self" or not (query_text and settings.semantic_memory_enabled):
         return await _cached_block(
             session,
@@ -296,6 +324,51 @@ async def _scoped_block(
         with_profile=scope == "profile",
         report=report,
     )
+
+
+async def _whole_store_block(
+    session: AsyncSession,
+    user: User,
+    settings: Settings,
+    *,
+    report: MemoryLoadReport,
+) -> str | None:
+    """The block of every fact when the store is small enough to read whole, else None.
+
+    Cached under the memory generation like the other blocks, "too large" included, so a
+    large store costs one cache read before its query read.
+    """
+    redis = get_redis_client()
+    cache_key = f"{cache.memory_block_key(user.id)}:all"
+    generation: str | None = None
+    try:
+        cached, generation = await cache.read_block_cache(redis, user.id, cache_key)
+        if cached is not None:
+            return None if cached == _TOO_LARGE else cached
+    except Exception:
+        logger.info("Memory whole-store cache read failed", exc_info=True)
+    from app.modules.memory import repository as memories_repo
+
+    try:
+        rows = await memories_repo.list_for_user(session, user.id)
+    except Exception:
+        logger.warning("Memory retrieval failed for user_id=%s", user.id, exc_info=True)
+        report.degrade("unavailable")
+        return ""
+    whole = selection.select_whole_store(rows, settings, profile_name=user.name)
+    block = (
+        _TOO_LARGE
+        if whole is None
+        else selection.format_memory_block(whole, max_chars=settings.memory_inject_max_chars)
+    )
+    if generation is not None:
+        try:
+            await cache.write_block_cache(
+                redis, cache_key, generation, block, settings.memory_cache_ttl
+            )
+        except Exception:
+            logger.info("Memory whole-store cache write failed", exc_info=True)
+    return None if whole is None else _log_inject(user.id, block)
 
 
 async def _query_block(

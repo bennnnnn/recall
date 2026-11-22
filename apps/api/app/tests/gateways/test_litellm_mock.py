@@ -79,7 +79,7 @@ async def test_revise_memory_facts_prompt_user_stated_only():
     system = captured["messages"][0]["content"]
     assert memory_llm.STATED_RULES in system
     assert "assistant's inferences, suggestions, or restatements" in system
-    assert "Each op is ONE fact" in system
+    assert memory_llm.ONE_FACT_RULE in system
     assert "explicitly asks to remember a fact" in system
     assert "explicitly asks to forget a fact" in system
     assert "Rewrite the full section when updating" not in system

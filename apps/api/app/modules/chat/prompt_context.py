@@ -218,8 +218,12 @@ async def _slim_memory_blocks(reads: _ContextReads, chat: Chat | None) -> _Promp
         reads.memory_block(),
         reads.history_rag_embed(),
     )
+    # "What do you know about me" lists every fact, and a store read whole stays whole: the
+    # block's own budget, not the slim one.
+    whole = reads.memory_scope == "self" or reads.memory_report.whole_store
+    capped = memory_block if whole else _cap_slim_memory_block(memory_block)
     return _PromptContextBlocks(
-        memory_block=_cap_slim_memory_block(memory_block),
+        memory_block=capped,
         todos_section=None,
         recent_all=recent_all,
         attachment_rag_block="",

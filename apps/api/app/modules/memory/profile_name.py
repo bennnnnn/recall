@@ -17,12 +17,15 @@ from __future__ import annotations
 
 import re
 
-from app.modules.memory.facts import SECTION_LABELS
+from app.modules.memory.facts import PRIVATE_NOTE, SECTION_LABELS
 from app.modules.memory.user_name import names_another_person
 
 _PROFILE_HEADING = f"## {SECTION_LABELS['profile']}"
-# The notes ``facts._fact_line`` adds after a fact: "(said 2026-10)", "(unconfirmed)".
-_LINE_NOTES = re.compile(r" \((?:said \d{4}-\d{2})?(?:, )?(?:unconfirmed)?\)$")
+# The notes ``facts._fact_line`` adds after a fact: "(said 2026-10)", "(unconfirmed)",
+# "(said 2026-11, private)".
+_LINE_NOTES = re.compile(
+    rf" \((?:said \d{{4}}-\d{{2}})?(?:, )?(?:unconfirmed)?(?:, )?(?:{PRIVATE_NOTE})?\)$"
+)
 
 
 def without_conflicting_names(block: str, profile_name: str | None) -> str:

@@ -63,6 +63,33 @@ def select_memories_for_prompt(
     return [*core, *rest][: settings.memory_inject_limit]
 
 
+def select_whole_store(
+    memories: list[Memory],
+    settings: Settings,
+    *,
+    profile_name: str | None = None,
+) -> list[Memory] | None:
+    """Every fact the user has, when they all fit one block; None when they don't.
+
+    A store this small is read whole on every turn that reads memory, so a question
+    shares no word with the fact it needs: "any gift ideas for my family?" gets the
+    sister's June wedding, "what should I cook tonight" the peanut allergy, and "what job
+    do I do again" the job (live QA, 2026-11-22: a new user's three facts, a similarity
+    gate, and none of them reached the reply). The reply's model decides what bears on
+    the question (``prompt_safety`` saved-memory preamble); a fact marked private is used
+    only when it does (``facts.render_memory_block``). Sensitive facts are in it: they were
+    saved because the user allowed it, and the mark says when they apply.
+    """
+    eligible = [memory for memory in memories if _eligible_memory(memory, settings)]
+    most = min(settings.memory_whole_store_max_facts, settings.memory_inject_limit)
+    if most <= 0 or len(eligible) > most:
+        return None
+    ordered = select_memories_for_prompt(eligible, settings, profile_name=profile_name)
+    if len(render_memory_block(ordered)) > settings.memory_inject_max_chars > 0:
+        return None
+    return ordered
+
+
 def format_memory_block(memories: list[Memory], *, max_chars: int = 0) -> str:
     packed = pack_memories(memories, max_chars=max_chars)
     return render_memory_block(packed)
@@ -131,6 +158,18 @@ def select_memories_lexical(
     matched.sort(key=lambda entry: (entry[0], entry[1]), reverse=True)
     merged = always + [memory for _, _, memory in matched]
     return _with_diet_facts(merged, eligible, query_text)[: settings.memory_inject_limit]
+
+
+def select_profile_memories(
+    memories: list[Memory], settings: Settings, *, profile_name: str | None = None
+) -> list[Memory]:
+    """Who the user is, with no question to rank by: the identity core and the profile
+    document (job, home, school, languages). What a turn that names nothing personal reads
+    of a store too large to read whole, without a query embed on its first token."""
+    eligible = [memory for memory in memories if _eligible_memory(memory, settings)]
+    return _always_in(eligible, with_profile=True, profile_name=profile_name)[
+        : settings.memory_inject_limit
+    ]
 
 
 def select_work_memories(

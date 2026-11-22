@@ -59,7 +59,7 @@ def _legacy_memory_block_key(user_id: UUID) -> str:
     return f"memblock:{user_id}"
 
 
-_BLOCK_SUFFIXES = ("", ":x", ":w", ":wx")
+_BLOCK_SUFFIXES = ("", ":x", ":w", ":wx", ":p", ":px", ":all")
 
 
 def memory_generation_key(user_id: UUID) -> str:
