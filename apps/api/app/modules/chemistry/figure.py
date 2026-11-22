@@ -149,7 +149,12 @@ def structure_fence(smiles: str, name: str, asked: bool = False) -> str | None:
             return None
         return f"```smiles\n{name}\n{drawing_smiles(smiles)}\n```"
     pieces = smiles.split(".")
-    if len(pieces) > _MAX_PARTS or Chem.AddHs(molecule).GetNumAtoms() < _MIN_HEAVY_ATOMS:
+    # An element's own molecule (H2) has no atom besides hydrogen: never drawn (review).
+    if (
+        len(pieces) > _MAX_PARTS
+        or molecule.GetNumHeavyAtoms() < 1
+        or Chem.AddHs(molecule).GetNumAtoms() < _MIN_HEAVY_ATOMS
+    ):
         return None
     shown: list[str] = []
     for piece in pieces:

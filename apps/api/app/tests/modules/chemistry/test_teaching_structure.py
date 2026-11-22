@@ -122,7 +122,7 @@ def test_a_compound_asked_to_see_is_drawn_salt_or_small(smiles: str, shown: str)
     assert figure.structure_fence(smiles, "it", True) == f"```smiles\nit\n{shown}\n```"
 
 
-@pytest.mark.parametrize("smiles", ["[He]", "[Na+]", "C1CC", ".".join(["O"] * 9)])
+@pytest.mark.parametrize("smiles", ["[He]", "[Na+]", "[H][H]", "C1CC", ".".join(["O"] * 9)])
 def test_a_lone_atom_a_bad_structure_or_a_crowd_is_never_drawn(smiles: str) -> None:
     assert figure.structure_fence(smiles, "it", True) is None
 
