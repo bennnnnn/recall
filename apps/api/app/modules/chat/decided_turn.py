@@ -70,6 +70,7 @@ from app.modules.chat.prompt_format import without_confirmation_hints
 from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.prompt_sections import with_problem_pictures
 from app.modules.chat.quiz_cards import PracticeCard, last_reply_cards, option_letter
+from app.modules.chat.referent_read import asks_for_a_referent
 from app.modules.chat.turn_decision import TurnDecision, turn_decision_result
 from app.modules.chat.turn_prep.reading import plan_of
 from app.modules.chat.turn_trace import note_decision, note_prompt_rule, note_route
@@ -203,7 +204,11 @@ def _picture_at_stake(ctx: StreamContext, settings: Settings) -> bool:
     review: unwaited, a verified solve's prompt asked for a photo finalize then dropped)."""
     if ctx.instant_reply is not None:
         return False
-    return bool(plan_of(ctx.user_message_content or "", settings).of_kind("image", "photo"))
+    line = ctx.user_message_content or ""
+    # "a picture of it": the read says whether it is the problem's, and its note (review).
+    if asks_for_a_referent(line):
+        return True
+    return bool(plan_of(line, settings).of_kind("image", "photo"))
 
 
 def _answered_window(ctx: StreamContext) -> list[Any]:

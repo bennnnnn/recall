@@ -332,7 +332,12 @@ async def augment_after_prompt(
     if timing is not None:
         timing.mark_phase("augment_done")
         timing.mark_prompt_ready()
-    if instant_reply is None:
+    # A problem worked again because the read alone says the line asks to see it ("can u
+    # show me a picture") is the model's to present around its picture, told so beside the
+    # line (``SHOWN_IT_NOTE``): a solver's own reply would be its working again, the scene
+    # it answers "draw it" with being for the words alone (review, 2026-11-22).
+    shown_by_read = referent is not None and not asks_for_a_referent(request.content)
+    if instant_reply is None and not (shown_by_read and followup.found):
         instant_reply = await augmented.direct_reply(request, followup, settings)
     subject = augmented.subject or followup.subject
     # A question with no answer as written is answered by the note that says why.
