@@ -336,3 +336,61 @@ def test_a_slip_between_exact_values_is_noted_to_two_places() -> None:
     """Review (#2520): an exact right side has no places of its own; never "= 0"."""
     note = working_note("**Solution**\n\n$\\frac{\\sqrt{3}}{4} = \\frac{\\sqrt{3}}{2}$")
     assert note is not None and "= 0.43" in note
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # Words between: the decimal is another value's.
+        "**Answer**\n\nUsing $\\sqrt{3}$, the height is approximately 8.66.",
+        # Powers of ten, a percent, degrees, a long unit word: no decimal of the exact value.
+        "So $\\frac{1}{6000}$ (approximately $1.67 \\times 10^{-4}$).",
+        "That is $\\frac{1}{12}$ (approximately 8%).",
+        "The angle is $\\frac{\\pi}{6}\\ \\text{rad}$ (approximately 30°).",
+        "It takes $\\frac{1}{3}\\ \\text{hr}$ (approximately 20 minutes).",
+        # A function is no unit: ln 2 is 0.693.
+        "**Answer**\n\nThe value is $\\operatorname{ln}(2)$ (approximately 0.693).",
+    ],
+)
+def test_a_decimal_that_is_not_the_exact_value_s_own_is_left_alone(reply: str) -> None:
+    """Review (#2520): each of these was rewritten to a wrong number."""
+    assert corrected_approximations(reply) == reply
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # Another case of the same name, its value reached on the line before.
+        "**Substitution**\n\nFor the first resistor, $P = 2^2 \\times 5 = 20\\ \\text{W}$.\n"
+        "For the second resistor, $P = 3^2 \\times 5 = 45\\ \\text{W}$.",
+        # A rounded value carried to the next line.
+        "**Substitution**\n\n$t = \\frac{3.5}{9.8} = 0.36\\ \\text{s}$\n$d = 2 \\times 0.36$\n"
+        "$d = 0.71\\ \\text{m}$",
+        # A conversion between units of one measure.
+        "**Steps**\n\n$\\pi\\ \\text{rad} = 180\\ \\text{deg}$",
+        "**Steps**\n\n$\\theta = \\frac{\\pi}{3}\\ \\text{rad} = 60\\ \\text{deg}$",
+        "**Steps**\n\n$E = 3 \\times 1.602 \\times 10^{-19}\\,\\mathrm{J} = 3\\,\\mathrm{eV}$",
+        # A function, not a unit.
+        "**Steps**\n\n$2\\operatorname{ln}(3) \\approx 2.20$",
+        # "2k" is a product: x and y are not 2 and 3.
+        "**Steps**\n\nLet $x = 2k$ and $y = 3k$. Substitute into $x + y = 15$: $5k = 15$, so "
+        "$k = 3$. Then $x = 2(3) = 6$ and $y = 3(3) = 9$.",
+        # A point not on a line is no system.
+        "**Given**\n\nLine $2x + 3y = 7$, point $x = 1, y = 4$.\n\n**Steps**\n\nParallel line "
+        "$2x + 3y = c$ gives $c = 2(1) + 3(4) = 14$.\n\n**Answer**\n\n$2x + 3y = 14$",
+        # Solutions rounded to two places: 22/29 and -25/29.
+        "**Steps**\n\n$7x + 5y = 1$\n$3x - 2y = 4$\n$x = 0.76, y = -0.86$",
+    ],
+)
+def test_working_that_holds_gets_no_note(reply: str) -> None:
+    """Review (#2520): each of these was noted as a slip."""
+    assert working_note(reply) is None
+
+
+def test_a_system_the_values_break_is_still_noted() -> None:
+    """The live case (two batteries in parallel) still gets its note."""
+    reply = (
+        "**Steps**\n\n$8I_1 + 6I_2 = 10$\n$6I_1 + 10I_2 = 6$\n"
+        "$I_1 = \\frac{15}{13}\\ A, I_2 = \\frac{1}{13}\\ A$"
+    )
+    assert working_note(reply) is not None

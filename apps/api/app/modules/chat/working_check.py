@@ -25,6 +25,7 @@ from app.modules.chat.tex_arithmetic import (
     MAX_EXPONENT,
     UNIT_GROUP,
     evaluate,
+    is_unit_word,
     math_statements,
     plain_arithmetic,
 )
@@ -56,9 +57,36 @@ class WrongStep:
 
 
 def _converts_unit(left_tex: str, right_tex: str) -> bool:
-    """The result is in a prefixed unit the working never wrote."""
+    """The result is in a prefixed unit the working never wrote, or in another unit of a
+    measure the working wrote in: "π rad = 180°", "4.8e-19 J = 3 eV" (review, #2520)."""
     left_units = set(_PREFIXED_UNIT.findall(left_tex))
-    return any(unit not in left_units for unit in _PREFIXED_UNIT.findall(right_tex))
+    if any(unit not in left_units for unit in _PREFIXED_UNIT.findall(right_tex)):
+        return True
+    left_kinds, right_kinds = _unit_kinds(left_tex), _unit_kinds(right_tex)
+    return any(
+        kind in left_kinds and left_kinds[kind] != units for kind, units in right_kinds.items()
+    )
+
+
+# Units of one measure a working converts between, by the measure.
+_KINDS: dict[str, frozenset[str]] = {
+    "angle": frozenset({"rad", "deg", "°", "\\circ", "degrees", "radians"}),
+    "energy": frozenset({"J", "kJ", "MJ", "GJ", "eV", "keV", "MeV", "cal", "kcal", "Wh", "kWh"}),
+    "time": frozenset({"s", "ms", "min", "hr", "h", "minutes", "hours", "seconds"}),
+    "length": frozenset({"m", "cm", "mm", "km", "nm", "ft", "in", "mi"}),
+}
+_UNIT_TOKEN = re.compile(r"\\(?:text|mathrm)\s*\{([^{}]*)\}|(°|\\circ)")
+
+
+def _unit_kinds(tex: str) -> dict[str, frozenset[str]]:
+    """The units a side writes, by the measure each is of."""
+    found: dict[str, set[str]] = {}
+    for match in _UNIT_TOKEN.finditer(tex):
+        unit = (match.group(1) or match.group(2) or "").strip()
+        for kind, units in _KINDS.items():
+            if unit in units:
+                found.setdefault(kind, set()).add(unit)
+    return {kind: frozenset(units) for kind, units in found.items()}
 
 
 def _shown_number(plain: str) -> tuple[float, float] | None:
@@ -176,7 +204,7 @@ def wrong_steps(reply: str) -> list[WrongStep]:
             step = _slip(left_tex, right_tex, left, right, relations[index] != "=", rounded)
             if step is not None:
                 found.append(step)
-        before = _chain(parts, relations, before, found)
+        before = _chain(parts, relations, before, found, rounded)
     return found
 
 
@@ -257,6 +285,7 @@ def _chain(
     relations: list[str],
     before: tuple[str, str, str] | None,
     found: list[WrongStep],
+    rounded: dict[str, float],
 ) -> tuple[str, str, str] | None:
     """The same name worked out on two lines in a row must keep its value: "L = √(6·14·28·48)/21"
     then "L = √279552/21" (live, 2026-11-21: the chord came out 25.19 cm, not 16). Only a line
@@ -264,12 +293,19 @@ def _chain(
     name = parts[0].strip()
     if len(parts) < 2 or not name or plain_arithmetic(name) is not None:
         return None
-    if before is not None and before[0] == name and not _branches(before[1], parts[1].strip()):
+    # A line that reached its value ("P = 2^2 * 5 = 20") is done: the same name next is
+    # another case ("P = 3^2 * 5 = 45"), never the same value carried on (review, #2520).
+    if (
+        before is not None
+        and before[0] == name
+        and before[1] == before[2]
+        and not _branches(before[1], parts[1].strip())
+    ):
         first_tex = parts[1].strip()
         first = plain_arithmetic(first_tex)
         earlier = plain_arithmetic(before[1])
         if first is not None and earlier is not None:
-            step = _slip(before[1], first_tex, earlier, first, relations[0] != "=", {})
+            step = _slip(before[1], first_tex, earlier, first, relations[0] != "=", rounded)
             if step is not None:
                 found.append(step)
     worked = [part.strip() for part in parts[1:] if plain_arithmetic(part.strip()) is not None]
@@ -365,7 +401,7 @@ def corrected_approximations(reply: str) -> str:
         plain = plain_arithmetic(exact_tex)
         if plain is None or _DECIMAL.search(plain) is not None:
             return match.group(0)
-        if _another_unit(match):
+        if _another_unit(match) or not _units_only(match.group("gap")):
             return match.group(0)
         value = evaluate(plain)
         shown = _shown_number(match.group("number"))
@@ -379,22 +415,40 @@ def corrected_approximations(reply: str) -> str:
     return _outside_fences(reply, lambda text: _APPROXIMATED.sub(fix, text))
 
 
-# The unit written right after an approximated number: "70.7 cm", "$10.95$ \\text{cm}".
+# What follows an approximated number: a unit ("70.7 cm", "$10.95$ \\text{cm}"), or a mark that
+# makes it another number than its digits ("1.67 \\times 10^{-4}", "8%", "30°").
 _UNIT_AFTER = re.compile(
     r"[ \t$]*(?:\\[,; ][ \t]*)?"
-    r"(?:\\(?:text|mathrm)\s*\{\s*([^{}\s]{1,12})\s*\}|([A-Za-zµμΩ°]{1,5})\b)"
+    r"(?:\\(?:text|mathrm)\s*\{\s*([^{}\s]{1,12})\s*\}|([A-Za-zµμΩ]+)|(\\times|\u00d7|\*\s*10\b|e[-+]?\d|"
+    r"\\?%|°|\^|\\circ|\\deg))"
 )
 _WORD = re.compile(r"[A-Za-zµμΩ°]+")
 
 
 def _another_unit(match: re.Match[str]) -> bool:
-    """The decimal is given in a unit the exact value is not written in: "√2/2 m (approximately
-    70.7 cm)" converts, it does not misstate (review, #2520)."""
+    """The decimal is not the exact value's own, written to places: given in a unit the exact
+    value is not written in ("√2/2 m (approximately 70.7 cm)", "1/3 hr (approximately 20
+    minutes)"), or in powers of ten, a percent or degrees (review, #2520)."""
     after = _UNIT_AFTER.match(match.string, match.end())
-    unit = (after.group(1) or after.group(2)) if after else None
-    if unit is None:
+    if after is None:
         return False
-    return unit not in _WORD.findall(match.group("exact") + match.group("gap"))
+    if after.group(3) is not None:
+        return True
+    unit = after.group(1) or after.group(2)
+    return unit is not None and unit not in _WORD.findall(match.group("exact") + match.group("gap"))
+
+
+def _units_only(gap: str) -> bool:
+    """Between the exact value and its decimal only a unit and marks: "$√65/8$ cm (approx.",
+    never words ("$√3$, the height is approximately 8.66" names another value)."""
+    return all(
+        is_unit_word(word) or word.lower() in _GAP_WORDS
+        for word in re.findall(r"[A-Za-zµμΩ]+", gap)
+    )
+
+
+# Words a unitless or an area's value is written with: "19.13 units", "8 square cm".
+_GAP_WORDS = frozenset({"units", "unit", "square", "sq", "cubic"})
 
 
 def _outside_fences(text: str, change: Callable[[str], str]) -> str:

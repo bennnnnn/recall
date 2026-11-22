@@ -79,9 +79,9 @@ _TRIG_DEGREES = re.compile(
     r"\\(sin|cos|tan)\s*\(?\s*(-?\d+(?:\.\d+)?)\s*(?:°|\^\s*\{?\s*\\circ\s*\}?)\s*\)?"
 )
 _FUNCTIONS = r"sqrt|pi|sind|cosd|tand"
-UNIT_GROUP = re.compile(
-    r"\\(?:text|mathrm|textrm|rm|operatorname)\s*\{[^{}]*\}(?:\s*\^\s*(?:\{[^{}]*\}|-?\d))?"
-)
+# A unit written out: never \\operatorname, which names a function (\\operatorname{ln}(2) is
+# ln 2, not 2; review, #2520).
+UNIT_GROUP = re.compile(r"\\(?:text|mathrm|textrm|rm)\s*\{[^{}]*\}(?:\s*\^\s*(?:\{[^{}]*\}|-?\d))?")
 _FRAC = re.compile(r"\\[dt]?frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}")
 _SQRT = re.compile(r"\\sqrt\s*\{([^{}]*)\}")
 _POWER = re.compile(r"\^\s*\{([^{}]*)\}")
@@ -127,6 +127,17 @@ def plain_arithmetic(tex: str) -> str | None:
         rf"(?<=[\d)])(?=\(|{_FUNCTIONS})|(?<=\))(?=\d)|(?<=pi)(?=[\d(]|{_FUNCTIONS})", "*", text
     )
     return text
+
+
+# The SI symbols of one or two letters, beside the longer unit words.
+_SI_SYMBOLS = frozenset(
+    {"m", "s", "g", "A", "V", "W", "J", "N", "K", "L", "C", "F", "T", "h", "Pa", "Hz", "Ω"}
+)
+
+
+def is_unit_word(word: str) -> bool:
+    """``word`` is a unit's symbol or short name ("cm", "kJ", "m", "Ω")."""
+    return word in _UNIT_WORDS or word in _SI_SYMBOLS
 
 
 def _is_unit(text_group: str) -> bool:

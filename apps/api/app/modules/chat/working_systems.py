@@ -13,8 +13,8 @@ different values (a name reused for another part).
 
 from __future__ import annotations
 
-import math
 import re
+from collections import Counter
 from dataclasses import dataclass
 
 from app.modules.chat.tex_arithmetic import evaluate, math_statements, plain_arithmetic
@@ -22,8 +22,10 @@ from app.modules.chat.tex_arithmetic import evaluate, math_statements, plain_ari
 # An unknown: one letter, with a subscript ("I_1", "T_{2}", "x").
 _UNKNOWN = re.compile(r"(?<![\\A-Za-z])([A-Za-z])(?:_\{?([A-Za-z0-9]{1,3})\}?)?(?![A-Za-z{])")
 _TOLERANCE = 0.005
+# A value's unit: \\mathrm or \\text, or a bare symbol after a space ("15/13 A"); "2k" is a
+# product, never 2 in kelvins (review, #2520).
 _TRAILING_UNIT = re.compile(
-    r"(?:\s|\\[,;! ])*(?:\\(?:mathrm|text)\s*\{[^{}]*\}|[A-Za-zΩ]{1,3})\s*$"
+    r"(?:(?:\s|\\[,;! ])*\\(?:mathrm|text)\s*\{[^{}]*\}|(?:\s|\\[,;! ])+[A-Za-zΩ]{1,3})\s*$"
 )
 _UNIT_MARK = re.compile(r"\\[,;! ]|\\(?:mathrm|text|operatorname)\b|[Ω°]")
 
@@ -39,11 +41,15 @@ class UnheldEquation:
 def unheld_equations(reply: str) -> list[UnheldEquation]:
     """Each equation in two or more unknowns that the values the reply gives them break."""
 
-    equations: list[tuple[str, str, str, list[str]]] = []
+    equations: list[tuple[str, str, str, list[str], int]] = []
     values: dict[str, set[float]] = {}
     # Each value's unit as written: 6770000 m and 400 km are no terms of one sum.
     units: dict[str, set[str]] = {}
-    for segment in math_statements(reply):
+    # Each value's decimal places as written: 0.76 may be 22/29 to two (review, #2520).
+    places: dict[str, int] = {}
+    # Where each value is first given: a system's values are its solution, written after it.
+    first_given: dict[str, int] = {}
+    for at, segment in enumerate(math_statements(reply)):
         if segment.count("=") != 1 or "\\approx" in segment:
             continue
         left, right = (side.strip() for side in segment.split("="))
@@ -57,28 +63,69 @@ def unheld_equations(reply: str) -> list[UnheldEquation]:
             )
             values.setdefault(key, set()).add(round(value, 9))
             units.setdefault(key, set()).add(_unit_of(right, bare))
+            places[key] = max(places.get(key, 0), _places(bare))
+            first_given.setdefault(key, at)
             continue
         # An equation with a unit or a word in it is a formula, not a system to hold.
         if _UNIT_MARK.search(segment):
             continue
         found = _template(left, right)
         if found is not None:
-            equations.append((segment, *found))
+            equations.append((segment, *found, at))
+    # A system is two or more equations in the same unknowns, written before the values that
+    # solve it: a point given beside a line ("2x + 3y = 7", x = 1, y = 4) solves nothing.
+    equations = [
+        found
+        for found in equations
+        if all(found[4] < first_given.get(name, -1) for name in found[3])
+    ]
+    systems = Counter(frozenset(found[3]) for found in equations)
     out: list[UnheldEquation] = []
-    for segment, left, right, unknowns in equations:
-        if len(set(unknowns)) < 2 or any(len(values.get(name, ())) != 1 for name in unknowns):
+    for segment, left, right, unknowns, _at in equations:
+        if len(set(unknowns)) < 2 or systems[frozenset(unknowns)] < 2:
+            continue
+        if any(len(values.get(name, ())) != 1 for name in unknowns):
             continue
         if len({unit for name in unknowns for unit in units.get(name, set())}) > 1:
             continue
         given = {name: next(iter(values[name])) for name in unknowns}
-        held_left = evaluate(_put(left, given))
-        held_right = evaluate(_put(right, given))
-        if held_left is None or held_right is None:
-            continue
-        scale = max(abs(held_left), abs(held_right), 1.0)
-        if not math.isclose(held_left, held_right, rel_tol=_TOLERANCE, abs_tol=_TOLERANCE * scale):
+        if not _holds(left, right, given, places):
             out.append(UnheldEquation(segment, given))
     return out
+
+
+def _holds(left: str, right: str, given: dict[str, float], places: dict[str, int]) -> bool:
+    """``left = right`` with ``given`` put in, within what the values' own rounding moves it:
+    each value up to half its last place, times how much the equation moves with it."""
+    off = _difference(left, right, given)
+    if off is None:
+        return True
+    slack = 0.0
+    for name, value in given.items():
+        if places.get(name, 0) <= 0:
+            continue
+        moved = _difference(left, right, {**given, name: value + 0.5 * 10.0 ** -places[name]})
+        if moved is None:
+            return True
+        slack += abs(moved - off)
+    held_left = evaluate(_put(left, given)) or 0.0
+    held_right = evaluate(_put(right, given)) or 0.0
+    scale = max(abs(held_left), abs(held_right), 1.0)
+    return abs(off) <= slack * (1 + 1e-9) + _TOLERANCE * scale
+
+
+def _difference(left: str, right: str, given: dict[str, float]) -> float | None:
+    """``left - right`` with ``given`` put in, or None when a side cannot be worked out."""
+    held_left, held_right = evaluate(_put(left, given)), evaluate(_put(right, given))
+    return None if held_left is None or held_right is None else held_left - held_right
+
+
+_DECIMALS = re.compile(r"\d\.(\d+)")
+
+
+def _places(value: str) -> int:
+    """The most decimal places a written value shows: 0 for an exact one (15/13, 3)."""
+    return max((len(found) for found in _DECIMALS.findall(value)), default=0)
 
 
 _UNIT_WORD = re.compile(r"\\(?:mathrm|text)\s*\{([^{}]*)\}")
