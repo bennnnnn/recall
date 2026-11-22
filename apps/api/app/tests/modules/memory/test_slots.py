@@ -364,3 +364,64 @@ def test_a_new_nickname_beside_the_saved_name_is_held_by_the_nickname():
     fact = "User's name is Bini; also goes by Bee."
     line = "Just call me Bee from now on"
     assert _ground(fact, line, line, "name").line is not None
+
+
+@pytest.mark.parametrize(
+    ("fact", "said", "asked", "kept"),
+    [
+        ("User is 34 years old", "34", "Happy to tailor it. How old are you?", True),
+        ("User is married", "married", "Are you married, or single?", True),
+        ("User is Muslim", "Muslim", "What religion do you follow, if any?", True),
+        (
+            "User identifies as female",
+            "With female",
+            "Would you like a male or a female voice?",
+            False,
+        ),
+        ("User is 34 years old", "34", "How many slices should I plan for?", False),
+        # A long line is no short answer: it must speak in the first person.
+        (
+            "User is 34 years old",
+            "34 but that is not the point here really",
+            "How old are you?",
+            False,
+        ),
+    ],
+)
+def test_a_short_answer_to_their_own_question_is_said_about_themselves(fact, said, asked, kept):
+    """Review: a bare "34" to "How old are you?" was saved before the first-person check."""
+    grounding = ground_fact(
+        quote=said,
+        fact=fact,
+        stated_as="own_life",
+        lines=[SourceLine(text=said, message_id=uuid4(), asked=asked)],
+        explicit_remember=False,
+    )
+    assert (grounding.line is not None) is kept
+
+
+def test_a_pass_reads_the_question_its_first_line_answers():
+    lines = "User: 34"
+    writes, _ = compose_writes(
+        _snapshot(),
+        lines,
+        Asks.of(lines),
+        [
+            MemoryFactOp.model_validate(
+                {
+                    "op": "add",
+                    "confidence": 0.9,
+                    "stated_as": "own_life",
+                    "slot": "age",
+                    "text": "User is 34 years old",
+                    "quote": "34",
+                }
+            )
+        ],
+        chat_id=uuid4(),
+        from_history=False,
+        min_confidence=0.5,
+        sources=_lines("34"),
+        earlier="User: plan my week\nAssistant: Happy to tailor it. How old are you?",
+    )
+    assert [(w.text, w.slot) for w in writes] == [("User is 34 years old", "age")]

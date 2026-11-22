@@ -29,7 +29,7 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from app.modules.memory.name_claim import assigned_user_names
-from app.modules.memory.slots import frame_words, sensitive_slots
+from app.modules.memory.slots import asked_about_themselves, frame_words, sensitive_slots
 from app.modules.memory.user_name import user_name_given
 from app.services.text_normalize import straighten_apostrophes
 
@@ -62,6 +62,9 @@ class SourceLine:
 
     text: str
     message_id: UUID | None = None
+    # The assistant's message just before it, when the pass read one: what a short answer
+    # answers ("34" to "How old are you?").
+    asked: str = ""
 
 
 def _fold(text: str) -> str:
@@ -208,14 +211,28 @@ def ground_fact(
         return Grounding(None, "its quote does not say it")
     if not quote_gives_answer(quote or "", fact, slot=slot, english=english):
         return Grounding(None, "its quote does not give the answer")
+    sensitive = sensitive_slots(fact, slot)
     # "Remember: married, two kids" is the user's own word about themselves.
     if (
-        not explicit_remember
-        and sensitive_slots(fact, slot)
+        sensitive
+        and not explicit_remember
         and not said_of_themselves(line.text, english=english)
+        and not answers_their_question(line, sensitive)
     ):
         return Grounding(None, "not said by the user about themselves")
     return Grounding(line, "stated")
+
+
+# A line this short answers the question before it ("34", "married", "Muslim").
+_SHORT_ANSWER_WORDS = 4
+
+
+def answers_their_question(line: SourceLine, slots: frozenset[str]) -> bool:
+    """A short line answering the assistant's own question about the user: "34" to "How old
+    are you?". "With female" to "a male or a female voice?" answers no question about them."""
+    return len(line.text.split()) <= _SHORT_ANSWER_WORDS and asked_about_themselves(
+        slots, line.asked
+    )
 
 
 def grounded_source(

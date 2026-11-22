@@ -117,6 +117,6 @@
     {"id": "slot-car-not-home", "lines": ["ugh fine. 2014 honda civic, front wheel drive"], "context": [["assistant", "What car do you drive?"]], "existing": [{"type": "profile", "topic": "profile", "text": "User's name is Bini", "slot": "name"}], "optional": [["civic"]]},
     {"id": "slot-exam-not-home", "lines": ["i have a thermo exam tmrw and im kinda cooked, explain entropy?"], "existing": [{"type": "profile", "topic": "profile", "text": "User's name is Bini", "slot": "name"}]},
     {"id": "slot-woman-self", "lines": ["I'm a 29-year-old woman, what's a healthy resting heart rate for me?"], "existing": [{"type": "profile", "topic": "profile", "text": "User's name is Bini", "slot": "name"}], "expect": [["29"]], "optional": [["woman"], ["female"]], "slots": [["age", "29"], ["gender", "woman"], ["gender", "female"]]},
-    {"id": "slot-age-bare-answer", "context": [["assistant", "Happy to tailor it. How old are you, if you don't mind me asking?"]], "lines": ["34"], "existing": [{"type": "profile", "topic": "profile", "text": "User's name is Bini", "slot": "name"}], "optional": [["34"]], "slots": [["age", "34"]]}
+    {"id": "slot-age-bare-answer", "context": [["assistant", "Happy to tailor it. How old are you, if you don't mind me asking?"]], "lines": ["34"], "existing": [{"type": "profile", "topic": "profile", "text": "User's name is Bini", "slot": "name"}], "slots": [["age", "34"]], "expect": [["34"]]}
   ]
 }

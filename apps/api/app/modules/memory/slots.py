@@ -160,6 +160,32 @@ _FAVORITE_FRAME = frozenset("favorite favourite favorites favourites fav fave fa
 # guess from a name is none of them (``grounding``).
 SENSITIVE_SLOTS = frozenset(("gender", "age", "religion", "relationship_status"))
 
+# How the assistant asks the user one of those questions, in English: a bare "34" answers
+# "How old are you?"; "female" answers no "Would you like a male or a female voice?".
+_ASKED: dict[str, re.Pattern[str]] = {
+    "age": re.compile(
+        r"\b(?:how old are you|your age|what age are you|are you (?:over|under) \d+)\b",
+        re.IGNORECASE,
+    ),
+    "gender": re.compile(
+        r"\b(?:your gender|your pronouns|(?:what )?do you identify as"
+        r"|are you (?:a )?(?:man|woman|male|female|non-?binary))\b",
+        re.IGNORECASE,
+    ),
+    "religion": re.compile(
+        r"\b(?:your (?:religion|faith)|what religion|are you (?:religious|spiritual|"
+        r"christian|muslim|jewish|hindu|buddhist|catholic|orthodox|atheist|agnostic)"
+        r"|do you (?:practi[cs]e|follow) (?:a |any )?(?:religion|faith))\b",
+        re.IGNORECASE,
+    ),
+    "relationship_status": re.compile(
+        r"\b(?:are you (?:married|single|dating|engaged|divorced|seeing (?:someone|anyone)"
+        r"|in a relationship)|your (?:relationship|partner|wife|husband|girlfriend|boyfriend"
+        r"|spouse)|do you have a (?:partner|wife|husband|girlfriend|boyfriend|spouse))\b",
+        re.IGNORECASE,
+    ),
+}
+
 
 def _thing_words(slot: str) -> list[str]:
     return [part for part in slot.removeprefix(_FAVORITE).split("_") if part]
@@ -224,3 +250,8 @@ def sensitive_slots(fact: str, slot: str | None) -> frozenset[str]:
     if slot in SENSITIVE_SLOTS:
         found.add(slot)
     return frozenset(found)
+
+
+def asked_about_themselves(slots: frozenset[str], question: str) -> bool:
+    """Whether the assistant's ``question`` asked the user every one of these questions."""
+    return bool(slots) and all(name in _ASKED and _ASKED[name].search(question) for name in slots)

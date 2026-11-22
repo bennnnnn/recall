@@ -9,6 +9,9 @@ and slot); one that fails is muted, which Settings → Memory can undo. Nothing 
     python -m app.modules.memory.recheck --email someone@example.com          # dry run
     python -m app.modules.memory.recheck --email someone@example.com --apply
 
+Both read each fact's saved slot, so the database needs migration 0131_memory_slot
+(``alembic upgrade head``) first, the dry run included.
+
 A lesson line (the lesson job's) and a fact with no source chat (written by hand, or its
 chat deleted) are kept as they are: there is nothing to read them against. Among the facts
 kept, an older answer in the same slot and an older fact a newer one says again in other
@@ -21,7 +24,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 from uuid import UUID
 
@@ -254,10 +257,26 @@ async def _evidence(
     if nearby:
         others = "\n".join(f"User: {content}" for _, content in nearby)
         transcript += f"\n\nThe user's lines when these facts were first saved:\n{others}"
-    lines = source_lines(
-        [(message_id, content) for message_id, role, content in rows if role == "user"] + nearby
-    )
-    return _Evidence(transcript=transcript, lines=list(lines))
+    lines = [
+        *_answering_lines(rows),
+        *source_lines(nearby),
+    ]
+    return _Evidence(transcript=transcript, lines=lines)
+
+
+def _answering_lines(rows: Sequence[tuple[UUID, str, str]]) -> list[SourceLine]:
+    """The chat's user lines, each with the assistant message just before it."""
+    lines: list[SourceLine] = []
+    asked = ""
+    for message_id, role, content in rows:
+        if role == "assistant":
+            asked = content
+        elif role == "user":
+            lines.extend(
+                replace(line, asked=asked) for line in source_lines([(message_id, content)])
+            )
+            asked = ""
+    return lines
 
 
 async def _lines_around(
