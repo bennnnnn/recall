@@ -246,9 +246,10 @@ def test_a_read_that_names_none_clears_no_earlier_line(
         ("draw it", False, False),
     ],
 )
+@pytest.mark.parametrize("photo", [False, True])
 @pytest.mark.asyncio
 async def test_only_a_line_with_no_problem_of_its_own_waits_for_the_read(
-    line: str, small_talk: bool, waits: bool
+    line: str, small_talk: bool, waits: bool, photo: bool
 ) -> None:
     from uuid import uuid4
 
@@ -264,7 +265,9 @@ async def test_only_a_line_with_no_problem_of_its_own_waits_for_the_read(
         client_location=None,
         client_latitude=None,
         client_longitude=None,
+        has_image_attachment=photo,
     )
+    waits = waits and not photo
     asked = AsyncMock(return_value=True)
     with patch.object(augment, "read_shows_it", asked):
         said = await augment._asks_to_see_by_read(

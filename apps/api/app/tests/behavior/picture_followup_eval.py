@@ -55,13 +55,14 @@ from uuid import uuid4
 
 from pydantic import BaseModel
 
+from app.modules.chat.owed_picture import APP_PICTURES
+
 CORPUS = Path(__file__).with_name("picture_followup_corpus.json")
 _CONCURRENCY = 4
 # A product model, through the gateway (Golden Rule 2).
 _JUDGE = "smart-chat"
-_PICTURES = frozenset(
-    {"graph", "geometry", "simulation", "chart", "smiles", "molecule3d", "chemistry", "vega"}
-)
+# The app's pictures, as owed_picture knows them (one source).
+_PICTURES = APP_PICTURES
 _FENCE = re.compile(r"```(\w[\w-]*)\n(.*?)```", re.DOTALL)
 
 _RUBRIC = (

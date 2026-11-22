@@ -215,3 +215,19 @@ async def test_a_request_to_see_the_problem_leads_with_the_line() -> None:
     ctx = _ctx("can u show me a picture", read)
     text = held_to_the_ask("A ball rises 20.4 m, then falls back.", ctx, "en")
     assert text == "I couldn't draw this diagram.\n\nA ball rises 20.4 m, then falls back.\n"
+
+
+@pytest.mark.parametrize(
+    ("subject", "line"),
+    [("chemistry", "I couldn't draw this molecule."), ("maths", "I couldn't draw this diagram.")],
+)
+async def test_a_request_to_see_the_problem_naming_no_picture_is_still_owed(
+    subject: str, line: str
+) -> None:
+    """Read as asking to see the chat's problem with no picture named (review): its note
+    forbids saying none was drawn, so the line says it."""
+    read = TurnDecision.model_validate(
+        {"live": False, "subject": subject, "picture": "none", "follow": "draw"}
+    )
+    text = held_to_the_ask("It is 17 split into groups of 5.", _ctx("pic pls", read), "en")
+    assert text.startswith(line)

@@ -298,6 +298,8 @@ async def augment_after_prompt(
         settings,
         prompt_messages,
         small_talk=mode.lightweight or mode.lightweight_reason == "answers_offer",
+        # A reply the server already has (the time in Tokyo, a money card) shows no problem.
+        answered=instant_reply is not None or money is not None,
     )
     if followup.asked is not None:
         # "Do it" after a posed problem: the turn is the problem, as if typed, and read so,
@@ -374,6 +376,7 @@ async def _turn_followup(
     prompt_messages: list[dict[str, str]],
     *,
     small_talk: bool,
+    answered: bool = False,
 ) -> tuple[SubjectFollowup, Referent | None]:
     """The earlier problem the line follows up, and what "it" is in "draw it"."""
     # What "it" is: the turn's read, kept since the photo intercept asked it. And the
@@ -381,7 +384,7 @@ async def _turn_followup(
     recent = reads_window(request)
     # Whether the line asks to see what the chat is about, by the turn's read, when its
     # words do not say so: only after a reply, which "it" could be in.
-    asked = await _asks_to_see_by_read(request, settings, recent, small_talk=small_talk)
+    asked = await _asks_to_see_by_read(request, settings, recent, small_talk=small_talk or answered)
     referent = await referent_for_turn(settings, request.content, recent, asked=asked)
     continued = await continuation_for_turn(settings, request.content, recent)
     timeout = settings.subject_read_timeout_seconds
@@ -425,10 +428,13 @@ async def _asks_to_see_by_read(
 ) -> bool:
     """Whether the turn's read says the line asks to see the problem the chat is about,
     when its words do not say so. Only a line with no problem of its own after a reply
-    waits for the read ("can u show me a picture"): small talk, and a question a subject
-    reads alone ("solve 2x + 5 = 17"), go on at once (review: every later turn of a chat
-    waited for it before its solve)."""
-    if not recent or small_talk or asks_for_a_referent(request.content):
+    waits for the read ("can u show me a picture"): small talk, a reply the server has
+    already (an instant reply, a money card), a photo, and a question a subject reads alone
+    ("solve 2x + 5 = 17") go on at once (review: every later turn of a chat waited for it
+    before its solve)."""
+    if not recent or small_talk or request.has_image_attachment:
+        return False
+    if asks_for_a_referent(request.content):  # the words ask: the referent read runs on them
         return False
     own = subject_of(
         request.content,

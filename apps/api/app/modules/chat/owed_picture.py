@@ -116,6 +116,9 @@ def owed_kind(decision: TurnDecision | None, ctx: StreamContext) -> Kind | None:
     the message's words (``drawing_turn``)."""
     if decision is None:
         return "diagram" if ctx.drawing is not None and ctx.drawing.asked == "words" else None
+    if shows_it(decision) and decision.picture not in DRAWN_PICTURES:
+        # Asked to see the chat's problem, its picture named none: still owed (review).
+        return "molecule" if decision.subject == "chemistry" else "diagram"
     if decision.subject not in READ_SUBJECTS or decision.picture not in DRAWN_PICTURES:
         return None
     picture = decision.picture
