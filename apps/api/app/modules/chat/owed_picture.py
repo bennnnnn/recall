@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Literal
 
 from app.modules.chat.decider_read import READ_SUBJECTS
 from app.modules.chat.drawn_picture import DRAWN_PICTURES, answered_read
+from app.modules.chat.figure_turn import shows_it
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.reply_language import line_language
 from app.modules.chat.turn_decision import TurnDecision
@@ -193,6 +194,11 @@ def held_to_the_ask(text: str, ctx: StreamContext, language: str) -> str:
     kind = owed_kind(decision, ctx) or ("diagram" if emptied else None)
     if kind is None or shows_a_picture(out):
         return out
+    # A request to see the chat's problem was answered in words what its picture shows:
+    # said first, the line leads into them; after them it read as taking them back ("A
+    # ball rises 20.4 m … I couldn't draw this diagram.", QA round 2026-11-22).
+    if shows_it(decision) and out.strip():
+        return f"{not_drawn_line(kind, language)}\n\n{out.strip()}\n"
     return with_the_line(out, not_drawn_line(kind, language))
 
 

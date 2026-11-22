@@ -204,3 +204,14 @@ async def test_a_photo_asked_for_keeps_its_words_without_its_flowchart() -> None
         "Pedals turn the chain."
     )
     assert held_to_the_ask(_FLOWCHART, ctx, "en") == "I couldn't draw this diagram.\n"
+
+
+async def test_a_request_to_see_the_problem_leads_with_the_line() -> None:
+    """ "A ball rises 20.4 m … I couldn't draw this diagram." read as taking the words back
+    (QA round, 2026-11-22): asked to see the chat's problem, the line comes first."""
+    read = TurnDecision.model_validate(
+        {"live": False, "subject": "physics", "picture": "diagram", "follow": "draw"}
+    )
+    ctx = _ctx("can u show me a picture", read)
+    text = held_to_the_ask("A ball rises 20.4 m, then falls back.", ctx, "en")
+    assert text == "I couldn't draw this diagram.\n\nA ball rises 20.4 m, then falls back.\n"

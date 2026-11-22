@@ -123,8 +123,8 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # problem the chat worked on (SHOW_IT_NOTE, SHOW_IT_DRAW_NOTE, SHOW_IT_CARD_NOTE, SHOWN_IT_NOTE; QA round,
 # 2026-11-22).
 _RULES = 215
-_RULE_GRAMS = 20502
-_RULE_GRAMS_SHA = "1cd98d5025faca7e"
+_RULE_GRAMS = 20519
+_RULE_GRAMS_SHA = "bfd51e288eaec8d4"
 
 
 def _rules() -> list[str]:

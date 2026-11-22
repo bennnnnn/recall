@@ -27,11 +27,13 @@ calls each ``draw`` reply one of:
 
 A ``none`` turn is ``ok`` with no picture, photo or painting, else ``picture``.
 
-Measured 2026-11-22 (free plan, one run each): the 45 QA requests went from 3 drawn, 3 said
-in words and 39 bad to 21 drawn, 20 in words and 4 bad; six other wordings ("pic pls", "draw
-it for me", "what does it look like") from 2 drawn and 4 bad to 4 drawn and 2 in words; the
-16 look-alikes kept 13 to 14 with no picture either way (a teaching structure on a
-chemistry follow-up comes and goes run to run).
+Measured 2026-11-22 (free plan, one run each). Judged by Claude Haiku over OpenRouter at
+first: the 45 QA requests went from 3 drawn, 3 in words and 39 bad to 21-23 drawn, 16-20 in
+words and 4-6 bad. Judged by ``smart-chat`` through the gateway, as now (a stricter judge:
+a description above "I couldn't draw this diagram." is often "bad"): from 3 / 1 / 41 to
+18 / 12 / 15. Six other wordings ("pic pls", "draw it for me", "what does it look like"):
+2 drawn and 4 bad before, 4 drawn and 2 in words after. The 16 look-alikes kept 13-15 with
+no picture either way (a teaching structure on a chemistry follow-up comes and goes).
 """
 
 from __future__ import annotations
@@ -47,21 +49,20 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, Literal
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
-import httpx
+from pydantic import BaseModel
 
 CORPUS = Path(__file__).with_name("picture_followup_corpus.json")
 _CONCURRENCY = 4
-_JUDGE = "anthropic/claude-haiku-5.5"
+# A product model, through the gateway (Golden Rule 2).
+_JUDGE = "smart-chat"
 _PICTURES = frozenset(
     {"graph", "geometry", "simulation", "chart", "smiles", "molecule3d", "chemistry", "vega"}
 )
 _FENCE = re.compile(r"```(\w[\w-]*)\n(.*?)```", re.DOTALL)
-_VERDICT = re.compile(r'"verdict"\s*:\s*"(drew|words|bad)"')
-_WHY = re.compile(r'"why"\s*:\s*"([^"]*)')
 
 _RUBRIC = (
     "A student asked a homework question, got an answer, then asked to see a picture. You "
@@ -306,7 +307,15 @@ async def run_turn(settings: Any, row: dict[str, Any]) -> tuple[str, str]:
     return saved, ""
 
 
-async def judge(client: httpx.AsyncClient, row: dict[str, Any], reply: str) -> dict[str, str]:
+class Verdict(BaseModel):
+    verdict: Literal["drew", "words", "bad"]
+    why: str = ""
+
+
+async def judge(settings: Any, row: dict[str, Any], reply: str) -> dict[str, str]:
+    """The judge's call on one reply, by a product model through the gateway."""
+    from app.gateways.structured_completion import complete_structured
+
     question, answer = row["history"][0][1], row["history"][1][1]
     content = (
         f"Question: {question[:800]}\n\nAnswer: {shown_to_judge(answer)[:1500]}\n\n"
@@ -314,35 +323,32 @@ async def judge(client: httpx.AsyncClient, row: dict[str, Any], reply: str) -> d
     )
     for _attempt in range(3):
         try:
-            response = await client.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                json={
-                    "model": _JUDGE,
-                    "messages": [
-                        {"role": "system", "content": _RUBRIC},
-                        {"role": "user", "content": content},
-                    ],
-                    # The judge thinks first: a short budget cut its answer off.
-                    "max_tokens": 2000,
-                    "temperature": 0,
-                },
+            said = await complete_structured(
+                settings=settings,
+                model_alias=_JUDGE,
+                messages=[
+                    {"role": "system", "content": _RUBRIC},
+                    {"role": "user", "content": content},
+                ],
+                schema=Verdict,
+                # The judge may think first: a short budget cut its answer off.
+                max_tokens=2000,
+                timeout_seconds=60,
+                allow_fallback=False,
             )
-            said = response.json()["choices"][0]["message"].get("content") or ""
-        except (httpx.HTTPError, KeyError, ValueError):
-            await asyncio.sleep(2)
-            continue
-        verdict = _VERDICT.search(said)
-        if verdict is not None:
-            why = _WHY.search(said)
-            return {"verdict": verdict.group(1), "why": why.group(1) if why else ""}
+        except Exception:  # A judge call that fails is asked again, never the run.
+            said = None
+        if said is not None:
+            return {"verdict": said.verdict, "why": said.why}
+        await asyncio.sleep(2)
     return {"verdict": "bad", "why": "no verdict"}
 
 
-async def measure(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def eval_settings() -> Any:
+    """Production's features, the key from the environment, no database or web search."""
     from app.core.config import Settings
-    from app.tests.fakes import redis_mock
 
-    settings = Settings(  # type: ignore[call-arg]
+    return Settings(  # type: ignore[call-arg]
         _env_file=None,
         mock_llm_enabled=False,
         openrouter_api_key=os.environ["OPENROUTER_API_KEY"],
@@ -357,56 +363,65 @@ async def measure(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         stem_solve_timeout_seconds=30.0,
         subject_read_timeout_seconds=30.0,
     )
+
+
+async def _never_capped(*_args: Any, **_kwargs: Any) -> bool:
+    return False
+
+
+async def measure(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     from app.core.sympy_executor import warm_sympy_pool
     from app.modules.math.sympy_warmup import warm_math_worker
+    from app.tests.fakes import redis_mock
 
+    settings = eval_settings()
     await warm_sympy_pool(warm_math_worker)
     gate = asyncio.Semaphore(_CONCURRENCY)
-    headers = {"Authorization": f"Bearer {os.environ['OPENROUTER_API_KEY']}"}
     results: list[dict[str, Any]] = []
 
-    async def never_capped(*_args: Any, **_kwargs: Any) -> bool:
-        return False
+    async def one(row: dict[str, Any]) -> None:
+        async with gate:
+            try:
+                reply, made = await run_turn(settings, row)
+            except Exception as exc:  # A turn that fails is reported, never the run.
+                reply, made = f"(turn failed: {type(exc).__name__}: {exc})", "failed"
+            shown = pictures_in(reply)
+            if row["label"] == "none":
+                verdict = {"verdict": "picture" if shown or made else "ok", "why": ""}
+            elif made:
+                verdict = {"verdict": "bad", "why": f"a {made} in its place"}
+            else:
+                verdict = await judge(settings, row, reply)
+            results.append({**row, "reply": reply, "made": made, "shown": shown, **verdict})
 
-    async with httpx.AsyncClient(timeout=60, headers=headers) as client:
-
-        async def one(row: dict[str, Any]) -> None:
-            async with gate:
-                try:
-                    reply, made = await run_turn(settings, row)
-                except Exception as exc:  # A turn that fails is reported, never the run.
-                    reply, made = f"(turn failed: {type(exc).__name__}: {exc})", "failed"
-                shown = pictures_in(reply)
-                if row["label"] == "none":
-                    verdict = {"verdict": "picture" if shown or made else "ok", "why": ""}
-                elif made:
-                    verdict = {"verdict": "bad", "why": f"a {made} in its place"}
-                else:
-                    verdict = await judge(client, row, reply)
-                results.append({**row, "reply": reply, "made": made, "shown": shown, **verdict})
-
-        redis = redis_mock(get=None)
-        with (
-            patch("app.services.quota.global_spend_exceeded", never_capped),
-            patch("app.core.redis.get_redis_client", lambda: redis),
-            _stubbed(settings),
-        ):
-            await asyncio.gather(*(one(row) for row in rows))
+    redis = redis_mock(get=None)
+    with (
+        patch("app.services.quota.global_spend_exceeded", _never_capped),
+        patch("app.core.redis.get_redis_client", lambda: redis),
+        _stubbed(settings),
+    ):
+        await asyncio.gather(*(one(row) for row in rows))
     return sorted(results, key=lambda r: r["id"])
 
 
 async def rejudge(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """The replies a run saved, judged again (the judge's rubric or budget changed)."""
-    headers = {"Authorization": f"Bearer {os.environ['OPENROUTER_API_KEY']}"}
+    from app.tests.fakes import redis_mock
+
+    settings = eval_settings()
     gate = asyncio.Semaphore(_CONCURRENCY)
-    async with httpx.AsyncClient(timeout=60, headers=headers) as client:
 
-        async def one(row: dict[str, Any]) -> None:
-            if row["label"] != "draw" or row["made"]:
-                return
-            async with gate:
-                row.update(await judge(client, row, row["reply"]))
+    async def one(row: dict[str, Any]) -> None:
+        if row["label"] != "draw" or row["made"]:
+            return
+        async with gate:
+            row.update(await judge(settings, row, row["reply"]))
 
+    redis = redis_mock(get=None)
+    with (
+        patch("app.services.quota.global_spend_exceeded", _never_capped),
+        patch("app.core.redis.get_redis_client", lambda: redis),
+    ):
         await asyncio.gather(*(one(row) for row in results))
     return results
 

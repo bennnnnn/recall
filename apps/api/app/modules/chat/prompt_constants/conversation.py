@@ -223,8 +223,9 @@ SHOW_IT_NOTE = (
     "own values, when it can. In one or two plain sentences, describe the thing itself the "
     "way such a picture shows it (the curve and the area under it, the ball going up and "
     "coming back down, the circuit's battery and resistors, the molecule's atoms and "
-    'bonds), never the picture ("a picture would show", "this picture shows"), and nothing '
-    "else: no working, no answer again, no heading. Never ask what they would like to see, "
+    'bonds), never the picture ("a picture would show", "this picture shows"), and never '
+    "a scene the problem does not draw (a beaker, a lab, a balance), and nothing else: no "
+    "working, no answer again, no heading. Never ask what they would like to see, "
     f"and never say you cannot show, draw or make pictures. {PICTURE_PLACEMENT_RULE}"
 )
 # Beside it, when the subject's rules above ask the reply to describe its picture: a free
