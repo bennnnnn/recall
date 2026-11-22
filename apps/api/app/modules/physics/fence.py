@@ -23,6 +23,7 @@ from app.modules.physics.sketches import without_model_drawings
 from app.services.answer_check import asks_without_answering, correction_line, stated_verdict
 from app.services.answer_fence import ANSWER_FENCE_LANGS, land_answer_card
 from app.services.asked_value import asked_verdict
+from app.services.closing_summary import closing_summary, with_closing_summary
 from app.services.md_fence_scan import (
     block_end,
     close_unclosed_fences,
@@ -127,6 +128,8 @@ def validate_physics_fences(
     ``user_text`` is the request: a flowchart it asked for survives the picture.
     """
     had_visual_fence = _has_picture_fence(content)
+    # The model's card goes, and the sentence it closed on would be read as the answer: kept.
+    summary = closing_summary(content)
     cleaned = own_line_part_answers(_without_model_result_fences(content))
     if verified is None:
         if had_visual_fence and not cleaned:
@@ -168,8 +171,9 @@ def validate_physics_fences(
         conflict = correct and (
             held == "conflict" or (held is None and stated_verdict(read, answer) == "conflict")
         )
-        cleaned = land_answer_card(
-            cleaned, answer, above=correction_line(answer) if conflict else None
+        cleaned = with_closing_summary(
+            land_answer_card(cleaned, answer, above=correction_line(answer) if conflict else None),
+            summary,
         )
     extras = _scene_fences(verified)
     own = [scene_fence(spec) for part in verified.physics_parts for spec in part.pictures]
