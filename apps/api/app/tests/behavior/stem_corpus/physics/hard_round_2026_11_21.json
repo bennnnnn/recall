@@ -1,0 +1,88 @@
+[
+ {
+  "id": "hr-banked-no-friction",
+  "area": "hard round",
+  "prompt": "A road curve of radius 120 m is banked at 15°. At what speed can a car take the curve with no friction needed?",
+  "expect": "answer",
+  "answers": [
+   [
+    17.760343164756634,
+    "m/s"
+   ]
+  ],
+  "note": "live 2026-11-21 (P8): the working ended on the card's 3 figures (v = 17.8) and the card read 17.80 for 17.76; a root after a degree sign was past reading"
+ },
+ {
+  "id": "hr-doppler-both-ways",
+  "area": "hard round",
+  "prompt": "An ambulance siren emits 700 Hz. The ambulance moves at 30 m/s and the speed of sound is 343 m/s. What frequency does a stationary listener hear as it approaches, and as it moves away?",
+  "expect": "answer",
+  "answers": [
+   [
+    767.0926517571885,
+    "Hz"
+   ]
+  ],
+  "note": "live 2026-11-21 (P30): the approach's verified card was the whole instant reply and 644 Hz receding was dropped; live, the read counts two asks and the model writes the rest around the card (chat.asks_turn). Offline (no read) the word rules decide, as here"
+ },
+ {
+  "id": "hr-grating-angle-and-order",
+  "area": "hard round",
+  "prompt": "Light of wavelength 550 nm falls on a diffraction grating with 600 lines per mm. Find the angle of the first-order maximum and the highest order that can be seen.",
+  "expect": "answer",
+  "answers": [
+   [
+    19.26877549148377,
+    "degree"
+   ]
+  ],
+  "note": "live 2026-11-21 (P37): the angle alone, the highest order (3) dropped; live, the read counts two asks (chat.asks_turn)"
+ },
+ {
+  "id": "hr-top-contradicts-launch",
+  "area": "hard round",
+  "prompt": "A ball thrown straight up at 10 m/s reaches a maximum height of 20 m. How long does it take to reach the top?",
+  "expect": "decline",
+  "note": "live 2026-11-21 (P59): 'maximum height of 20 m' was bound as a launch height and t = v0/g verified; 10 m/s rises 5.10 m, so the values contradict each other and the reply says so (stated_peak)"
+ },
+ {
+  "id": "hr-top-contradicts-launch-flight",
+  "area": "hard round",
+  "prompt": "A ball thrown straight up at 10 m/s reaches a maximum height of 20 m. How long is it in the air?",
+  "expect": "decline",
+  "note": "look-alike of P59: was read as a fall from a 20 m ledge"
+ },
+ {
+  "id": "hr-top-agrees-with-launch",
+  "area": "hard round",
+  "prompt": "A ball is thrown straight up at 20 m/s and reaches a maximum height of 20.4 m. How long does it take to reach the top?",
+  "expect": "answer",
+  "answers": [
+   [
+    2.038735983690112,
+    "s"
+   ]
+  ],
+  "note": "the values agree (20²/2g = 20.4 m): the stated top is read out as a check and the launch answers"
+ },
+ {
+  "id": "hr-projectile-top-contradicts",
+  "area": "hard round",
+  "prompt": "A ball is kicked at 20 m/s at 35 degrees and reaches a maximum height of 16 m. Find its range.",
+  "expect": "decline",
+  "note": "20 m/s at 35° rises 6.71 m, not 16 m"
+ },
+ {
+  "id": "hr-height-on-the-way-up",
+  "area": "hard round",
+  "prompt": "A ball is thrown straight up at 10 m/s from a height of 20 m. How long does it take to reach the top?",
+  "expect": "answer",
+  "answers": [
+   [
+    1.019367991845056,
+    "s"
+   ]
+  ],
+  "note": "look-alike: a launch height is a launch height, no top is stated"
+ }
+]

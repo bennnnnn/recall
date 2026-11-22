@@ -312,8 +312,9 @@ class SubjectFigure(Protocol):
         """``fence`` shows what the reply's own pictures do not."""
         ...
 
-    def without_substitutes(self, text: str) -> str:
-        """``text`` without the model's own picture of the figure drawn in characters."""
+    def without_substitutes(self, text: str, fence: str) -> str:
+        """``text`` without the pictures ``fence`` stands in for: the model's own picture of
+        it drawn in characters, and a solve's plain picture of the same shape."""
         ...
 
     def contract_for(self, question: str, asked: bool, *, graph: bool = False) -> str:
@@ -428,6 +429,16 @@ class SubjectAdapter(Protocol):
         has_image_attachment: bool,
         verified_request_text: str | None,
     ) -> str | None: ...
+
+    def answers_part(
+        self, verified: VerifiedSolveBlock, asked: int
+    ) -> tuple[VerifiedSolveBlock, str] | None:
+        """The message asks for ``asked`` separate results (the turn's read counts them, four
+        standing for four or more): when ``verified`` answers fewer, the block as answering
+        part of the question and the prompt rule its reply answers the rest by, the model then
+        writing around the same card (``chat.asks_turn``). None when it answers them all, or
+        the subject's instant reply already answers whole questions only."""
+        ...
 
 
 class MoneyPeer(Protocol):

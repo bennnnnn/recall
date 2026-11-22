@@ -21,7 +21,10 @@ WORKED_BLOCK_CONTRACT = (
     "block. A graph, chart or diagram it asks for comes after the block. "
     'Inside the block, one record per line, its fields split by " | ", maths in LaTeX '
     "without $, units as plain text (m/s, km/h, kg, °C), one symbol for each quantity in "
-    "every record, and words in the language of your reply:\n"
+    "every record (a letter, with a subscript when it needs one: A, r, h_1, never a word "
+    "such as area or radius), and words in the language of your reply. A maths field "
+    "holds maths alone: no label before it (Simplify:, Check:), no words after it (where "
+    "…, always true), never a $; a remark is a `say` record of its own:\n"
     "language: the code of the language you write this reply in (en, es, fr, pt, ru, tr, am "
     "or hi), the first record: every word of the block is in it, and the app writes the "
     "layout's headings in it\n"
@@ -32,17 +35,17 @@ WORKED_BLOCK_CONTRACT = (
     "reads Average speed formula; a name that says what it is stays as it is: Ohm's law, "
     "Integrating factor method) | the formula\n"
     "solve_for: symbol | the formula rearranged for it\n"
-    "step: an equation | the move that reached it (for an equation solved one move at a "
-    "time, with no formula)\n"
+    "step: an equation | the move that reached it, the equation first (for an equation "
+    "solved one move at a time, with no formula)\n"
     "substitution: the values put into the formula, one state per line, the last one the "
     "value with its unit, never rounded; a value an earlier part found goes into a later "
     "part unrounded\n"
     "say: a sentence in words, never a formula: what a part asked in words says (what "
     "numbers mean, why something happens), or a remark the working needs; its maths only "
     "between $ and $\n"
-    "answer: symbol | value | unit | a direction or a label of a few words (east), only "
-    "if the answer needs one; an explanation or a comparison goes in one sentence after the "
-    "block, never in the answer. Each value has its own answer record; a vector answers "
+    "answer: symbol | value | unit | a direction (east), only if the answer needs one; "
+    "never what the value is (length, area, exact value): Required says that, and an "
+    "explanation or a comparison goes in one sentence after the block, never in the answer. Each value has its own answer record; a vector answers "
     "with its components (`answer: \\vec{v} | -16\\hat{i} + 20\\hat{j} | m/s`) or with its "
     "size and direction (`answer: v | 25.6 | m/s | 51.3° north of west`). Its value is the working's last one as it stands, never "
     "rounded: the app rounds every card. A part asked as yes or no (Does it…? Is it…?) answers with the conclusion in "
@@ -52,7 +55,10 @@ WORKED_BLOCK_CONTRACT = (
     "(`answer: | Its speed rises by $5$ m/s every second | |`); every other part still has "
     "its own answer record\n"
     "A question in parts, or two questions in one message (each a part, also when they "
-    "use one formula), has a `part` record for each part. Write every given first, all "
+    "use one formula), has a `part` record for each part: the question's own parts, with "
+    "its letters, never more. One question asking one thing, even several values of it "
+    "(all three sides, both legs), has no `part` record; one asking several things in "
+    "words (its area, then its inradius) has a part for each. Write every given first, all "
     "of them before anything else, each as `given:` whichever parts use it (a given is "
     "data, not a part); only a symbol two parts give different values has each value "
     "with its part's letter, `given (a): d | 100 | m | distance` and `given (b): d | 300 "
@@ -73,6 +79,29 @@ WORKED_BLOCK_CONTRACT = (
     "answer: v | 3.33 | m/s\n"
     "```"
 )
+
+# Said beside the contract when the question letters its parts (``worked_turn``): asked
+# "a) The altitude. b) The lengths of both legs. c) The area", the model gave each leg a
+# part of its own and the layout lettered four parts (a) to (d); asked "a) center b) radius c)
+# tangent d) area", it wrote no part records and the tangent's working went under (b)
+# (hard geometry round, 2026-11-21).
+WORKED_PARTS_NOTE = "This question is in lettered parts"
+
+
+def worked_parts_note(parts: tuple[str, ...]) -> str:
+    """The note naming the question's parts, each by its letter and its own words."""
+    listed = "; ".join(
+        f"({chr(ord('a') + index)}) {' '.join(words.split()).rstrip(' .;')}"
+        for index, words in enumerate(parts)
+    )
+    return (
+        f"{WORKED_PARTS_NOTE}: {listed}. Write exactly {len(parts)} `part` records, one for "
+        "each, with its letter, in this order (`part: a | what (a) finds`), after every "
+        "given and every `required`. Under each part go its own formula, substitution and "
+        "answer records only, nothing another part finds; a part asking for two values "
+        "(both legs, BD and DC) has an answer record for each under that one part."
+    )
+
 
 # Live (2026-11-02): "My answers: 1) 1 mol 2) 110 g 3) 4.5 x 10^23 molecules 4) 2 mol. Did I
 # get them right?" got the worked contract, and the model opened "I can't see the answers you

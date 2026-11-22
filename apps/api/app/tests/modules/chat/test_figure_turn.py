@@ -105,10 +105,10 @@ class _Figure:
 
         return adds_to(text, fence)
 
-    def without_substitutes(self, text: str) -> str:
+    def without_substitutes(self, text: str, fence: str) -> str:
         from app.modules.math.figure.substitutes import without_substitutes
 
-        return without_substitutes(text)
+        return without_substitutes(text, fence)
 
 
 @pytest.fixture
@@ -327,8 +327,9 @@ def test_a_short_earlier_line_is_not_taken_for_the_problem_s_start() -> None:
     assert figure_turn.topic_lines(["hello"], "A square of side 3") == ["A square of side 3"]
 
 
-async def test_a_solid_joins_the_plane_part_a_solve_drew(figure: _Figure) -> None:
-    """The textbook's prism (b27): the solve drew the base triangle; the prism joins it."""
+async def test_a_solid_takes_the_place_of_the_plane_part_a_solve_drew(figure: _Figure) -> None:
+    """The textbook's prism (b27): the solve drew the base triangle; the prism, the turn's one
+    picture, takes its place."""
     figure.fence = _FENCE  # a cube
     base = {"type": "triangle_sides", "a": 6, "b": 8, "c": 10}
     verified = VerifiedMathBlock(text="", canonical_fence=base)
@@ -337,14 +338,40 @@ async def test_a_solid_joins_the_plane_part_a_solve_drew(figure: _Figure) -> Non
     assert ctx.figure is not None
     reply = '**Answer**\n\n```geometry\n{"type":"triangle_sides","a":6,"b":8,"c":10}\n```'
     text = await figure_turn.attach_figure(_state(ctx, reply))
-    assert text.count("```geometry") == 2 and text.endswith(_FENCE + "\n")
+    assert text.count("```geometry") == 1 and text.endswith(_FENCE + "\n")
 
 
-async def test_a_plane_figure_does_not_repeat_the_solve_s_shape(figure: _Figure) -> None:
-    figure.fence = _FENCE.replace('"cube"', '"parallelogram"')
+# A solve's plain shape beside the figure of the same question: a bare circle beside the
+# chord's figure (Q2, Q3, Q5), a triangle labelled with its worked angles and area (Q7, Q21).
+_SOLVER_SHAPES = (
+    '```geometry\n{"type":"circle","radius":10.0,"unit":"cm","labels":{"area":"314.16 cm²"}}\n```',
+    '```geometry\n{"type":"triangle_sides","a":13.0,"b":14.0,"c":15.0,"show_angle":true,'
+    '"labels":{"angle_a":"53.1°","area":"84 cm²"}}\n```',
+    '```geometry\n{"type":"parallelogram","base":6,"height":4,"side":5}\n```',
+)
+
+
+@pytest.mark.parametrize("shape", _SOLVER_SHAPES)
+async def test_the_figure_takes_the_place_of_the_solve_s_plain_shape(
+    figure: _Figure, shape: str
+) -> None:
+    """One geometry picture a turn: the figure, which labels only the question's values."""
+    figure.fence = _FENCE.replace('"cube"', '"circle_chord"')
     ctx = _ctx(live_read=_read(subject="maths", picture="diagram"))
     ctx.figure = figure_turn.start_figure(_settings(), ctx)
-    reply = 'Here.\n\n```geometry\n{"type":"parallelogram","base":6,"height":4,"side":5}\n```'
+    reply = f"**Answer**\n\n```answer\nx = 1\n```\n\n{shape}\n"
+    text = await figure_turn.attach_figure(_state(ctx, reply))
+    assert shape not in text
+    assert text.count("```geometry") == 1 and text.endswith(figure.fence + "\n")
+    assert "```answer\nx = 1\n```" in text
+
+
+async def test_a_graph_leaves_the_solve_s_shape(figure: _Figure) -> None:
+    """Only a geometry figure stands for a shape; a number line does not replace it."""
+    figure.fence = '```graph\n{"type":"number_line","points":[1]}\n```'
+    ctx = _ctx(live_read=_read(subject="maths", picture="diagram"))
+    ctx.figure = figure_turn.start_figure(_settings(), ctx)
+    reply = f"Here.\n\n{_SOLVER_SHAPES[0]}"
     assert await figure_turn.attach_figure(_state(ctx, reply)) == reply
 
 

@@ -57,8 +57,15 @@ def one_value_each(answer: Answer) -> list[Answer]:
     ]
 
 
+_DEGREES = frozenset({"°", "deg", "degree", "degrees", "\\circ", "^\\circ"})
+
+
 def writes_its_unit(tex: str, unit: str) -> bool:
-    """The value writes its unit itself ("(-16\\hat{i})\\ \\mathrm{m/s}"): never twice."""
+    """The value writes its unit itself ("(-16\\hat{i})\\ \\mathrm{m/s}"): never twice. An
+    angle that writes its degree sign ("150°", "30^\\circ") has its unit: "150°^\\circ"
+    drew two (2026-11-21)."""
+    if unit.strip().lower() in _DEGREES and ("°" in tex or "\\circ" in tex):
+        return True
     upright = unit_tex(unit).removeprefix("\\,")
     return bool(upright) and upright in tex
 

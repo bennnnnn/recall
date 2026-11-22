@@ -43,8 +43,14 @@ def solve_mass_defect(intent: ChemistryIntent) -> ChemistryResult:
         raise SolveServiceError("mass defect needs a nuclide and its nuclear mass in u")
     symbol, mass_number, protons = nuclide.symbol, nuclide.mass_number, nuclide.protons
     neutrons = mass_number - protons
-    defect = protons * PROTON_U + neutrons * NEUTRON_U - mass
-    energy = defect * MEV_PER_U
+    # The constants the question states are the ones its answer uses.
+    proton_u = intent.params.get("proton_mass", PROTON_U)
+    neutron_u = intent.params.get("neutron_mass", NEUTRON_U)
+    mev_per_u = intent.params.get("mev_per_u", MEV_PER_U)
+    defect = protons * proton_u + neutrons * neutron_u - mass
+    if defect <= 0:
+        raise SolveServiceError("a bound nucleus weighs less than its nucleons")
+    energy = defect * mev_per_u
     per_nucleon = energy / mass_number
     shown = "\n".join(
         (
@@ -63,9 +69,9 @@ def solve_mass_defect(intent: ChemistryIntent) -> ChemistryResult:
         "Mass defect, binding energy, and binding energy per nucleon",
         *stated("mass_defect"),
         (
-            f"Δm = {protons}({inp(PROTON_U)}) + {neutrons}({inp(NEUTRON_U)}) − {inp(mass)} "
+            f"Δm = {protons}({inp(proton_u)}) + {neutrons}({inp(neutron_u)}) − {inp(mass)} "
             f"= {num(defect)} u",
-            f"E = Δm × {inp(MEV_PER_U)} = {num(defect)} × {inp(MEV_PER_U)} = {num(energy)} MeV",
+            f"E = Δm × {inp(mev_per_u)} = {num(defect)} × {inp(mev_per_u)} = {num(energy)} MeV",
             f"E/A = {num(energy)} / {mass_number} = {num(per_nucleon)} MeV/nucleon",
         ),
         shown,

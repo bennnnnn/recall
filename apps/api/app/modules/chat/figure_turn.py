@@ -333,7 +333,7 @@ async def attach_figure(state: FinalizeState) -> str:
     if not figure.adds_to(_without(reply, drawn), fence):
         logger.info("figure left out: the reply already shows it")
         return state.text
-    text = figure.without_substitutes(reply).rstrip()
+    text = figure.without_substitutes(reply, fence).rstrip()
     text = f"{text}\n\n{fence}\n" if text else f"{fence}\n"
     # Committed, so a later pass that falls back keeps the picture.
     state.committed = fallback_text(text, server_text=state.server_text)

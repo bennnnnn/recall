@@ -62,6 +62,78 @@ Symbol = Annotated[
     AfterValidator(_drawn),
 ]
 Short = Annotated[str, StringConstraints(strip_whitespace=True, max_length=40)]
+
+# Unit fields that name no unit: a model wrote "(unitless)", "coord" or "label" where the
+# value has none, and the card drew it as one, "25\,\mathrm{(unitless)}" (2026-11-21).
+_NO_UNIT = frozenset(
+    {
+        "unitless",
+        "dimensionless",
+        "none",
+        "no unit",
+        "n/a",
+        "na",
+        "-",
+        "—",
+        "label",
+        "coord",
+        "coords",
+        "coordinates",
+        "number",
+        "count",
+        "ratio",
+        "pure number",
+        "integer",
+    }
+)
+
+
+# Words a unit is written in: "square units", "km per hour", "cubic metres".
+_UNIT_WORDS = frozenset(
+    {
+        "units",
+        "unit",
+        "per",
+        "square",
+        "cubic",
+        "hour",
+        "hours",
+        "second",
+        "seconds",
+        "minute",
+        "minutes",
+        "degrees",
+        "degree",
+        "metres",
+        "meters",
+        "litres",
+        "liters",
+        "years",
+        "days",
+    }
+)
+
+
+def _real_unit(unit: str) -> str:
+    """The unit field's unit: none for words that name no unit; a product's dot as the dot a
+    unit is written with ("kg\\cdot m^2" drew "kg \\times m^2"); and no words after it
+    that say what the value is ("cm^2 lateral surface area" drew them in the card, 2026-11-21)."""
+    bare = unit.strip().strip("()[]").strip()
+    if bare.lower() in _NO_UNIT:
+        return ""
+    unit = re.sub(r"\s*\\cdot\s*|\s*\*\s*", "·", unit)
+    first, _, rest = unit.strip().partition(" ")
+    words = rest.split()
+    if words and all(
+        word.isalpha() and len(word) >= 4 and word.lower() not in _UNIT_WORDS for word in words
+    ):
+        return first
+    return unit
+
+
+Unit = Annotated[
+    str, StringConstraints(strip_whitespace=True, max_length=40), AfterValidator(_real_unit)
+]
 # A symbol a record may leave out ("answer: | 12 | m"), drawn as maths when it is there.
 OptionalSymbol = Annotated[
     str, StringConstraints(strip_whitespace=True, max_length=40), AfterValidator(_drawn)
@@ -110,7 +182,7 @@ class Given(_Record):
     # Empty for a quantity the question gives as a letter ("a rod of mass M"): it is listed
     # by what it is, never dropped (``worked_render._as_its_letter``).
     value: OptionalTex = ""
-    unit: Short = ""
+    unit: Unit = ""
     meaning: Words = ""
     # The value in the unit the formula uses, when that differs (``2400\,\mathrm{s}``).
     converted: OptionalTex = ""
@@ -142,7 +214,7 @@ class Step(_Record):
 class Answer(_Record):
     symbol: OptionalSymbol = ""
     value: Tex
-    unit: Short = ""
+    unit: Unit = ""
     note: Words = ""
 
 
@@ -159,6 +231,10 @@ class Part(_Record):
     formula: Formula | None = None
     working: tuple[Step, ...] = ()
     answers: tuple[Answer, ...] = ()
+    # Further stages of this part's working, each with its own formula, laid out under the
+    # part's one heading before its one answer: parts the question asks as one
+    # (``worked_asks``: "b) both legs", worked one leg at a time).
+    then: tuple[Part, ...] = ()
 
 
 class WorkedSolution(_Record):
@@ -173,6 +249,8 @@ class WorkedSolution(_Record):
         """A question in parts: a ``part`` record gave a part its letter."""
         return self.in_parts or any(part.letter for part in self.parts)
 
+
+Part.model_rebuild()
 
 RecordModel = Given | Required | Formula | Step | Answer | PartLabel
 
@@ -266,8 +344,58 @@ def _split(text: str, count: int) -> list[str]:
     return [value.strip() if value.strip(" \t|") else "" for value in pieces]
 
 
+# A part's label a model wrote before a symbol: "a) s", "(b) A", "c. R".
+_LABEL_BEFORE = re.compile(r"^\(?[a-h][).]\s+(?=\S)")
+# A field that is one symbol, never a formula: "r", "V_{cyl}", "eq".
+_LONE_SYMBOL = re.compile(r"^[A-Za-z\\][\w\\{}^']{0,15}$")
+# A unit after the value, as its own field: "l = 20 | cm".
+_UNIT_FIELD = re.compile(r"^[A-Za-zµ°Ω%][A-Za-zµ°Ω%/^0-9²³·]{0,9}$")
+_RELATION = re.compile(r"=|\\(?:approx|le|ge|lt|gt|neq)\b|[<>≤≥≈≠]")
+
+
+def _one_state(rest: str) -> str:
+    """A ``substitution`` record's one line of maths, when the model wrote it in fields: the
+    symbol it finds before it ("r | \\sqrt{36} = 6", the record's own symbol read as the
+    line's left side) or its unit after it ("l = 20 | cm"). Read as written, the bar and both
+    fields were drawn in one formula (live, 2026-11-21)."""
+    pieces = [piece.strip() for piece in _split(rest, 3)]
+    if len(pieces) < 2 or not all(pieces):
+        return rest
+    unit = ""
+    if len(pieces) >= 2 and _UNIT_FIELD.match(pieces[-1]) and _RELATION.search(pieces[-2]):
+        unit, pieces = pieces[-1], pieces[:-1]
+    symbol = ""
+    if len(pieces) == 2 and _LONE_SYMBOL.match(pieces[0]) and not _RELATION.search(pieces[0]):
+        symbol, pieces = pieces[0], pieces[1:]
+    if len(pieces) != 1:
+        return rest
+    line = pieces[0]
+    # The symbol is the line's left side when the line works out a value of its own
+    # ("\\sqrt{36} = 6"), never when it already names what it sets ("h=4, k=-3").
+    left = line.split("=", 1)[0]
+    if symbol and not re.search(r"(?<!\\)\b[A-Za-z]", re.sub(r"\\[A-Za-z]+", " ", left)):
+        line = f"{symbol} = {line}"
+    return f"{line}\\,\\mathrm{{{unit}}}" if unit else line
+
+
+def _step_fields(fields: dict[str, str]) -> dict[str, str]:
+    """A ``step`` written the other way round, its symbol first and its equation as the move
+    ("step: w | 80 = 2l + 2w"): the equation is the line, and the symbol says nothing more.
+    Read as written, the symbol was the line and the equation its note in words."""
+    tex, move = fields.get("tex", ""), fields.get("move", "")
+    if (
+        _LONE_SYMBOL.match(tex)
+        and _RELATION.search(move)
+        and len(re.findall(r"[A-Za-z]{3,}", re.sub(r"\\[A-Za-z]+(?:\{[^{}]*\})?", " ", move))) < 2
+    ):
+        return {**fields, "tex": _unwrapped(move), "move": ""}
+    return fields
+
+
 def _fields(key: str, rest: str) -> dict[str, str]:
     names = _FIELDS[key]
+    if key == "substitution":
+        rest = _one_state(rest)
     values = _split(rest, len(names))
     if key in _SYMBOL_AND_VALUE and "=" in values[0]:
         symbol, _, value = values[0].partition("=")
@@ -280,11 +408,14 @@ def _fields(key: str, rest: str) -> dict[str, str]:
         values = ["", values[0]]  # the formula alone, no name
     # A sentence keeps its own ``$…$``: "$P$ is the power … $V$" is no one formula.
     tex_fields = _TEX_FIELDS if key != "say" else frozenset()
-    return {
+    fields = {
         name: _unwrapped(value) if name in tex_fields else value
         for name, value in zip(names, values, strict=False)
         if value
     }
+    if key in ("required", "answer") and "symbol" in fields:
+        fields["symbol"] = _LABEL_BEFORE.sub("", fields["symbol"])
+    return _step_fields(fields) if key == "step" else fields
 
 
 _MODELS: dict[str, type[Given | Required | Formula | Answer | PartLabel]] = {

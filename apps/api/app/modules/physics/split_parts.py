@@ -157,6 +157,7 @@ def part_working(block: VerifiedPhysicsBlock, ask: str, givens: str) -> PhysicsP
         substitutions=block.physics_substitutions,
         answer=block.canonical_answer or block.display_answer,
         display_answer=block.display_answer,
+        answer_values=block.answer_values,
     )
 
 
@@ -286,6 +287,11 @@ def joined_parts(
     for letter, block in zip("abcdefgh", blocks, strict=False):
         lines.extend([f"Part ({letter}):", block.text])
     pictures = next((spec for spec in map(_pictures, blocks) if spec), [])
+    # Each part keeps its own pictures, so finalize places them right after its card.
+    workings = [
+        replace(working, pictures=tuple(_pictures(block)))
+        for working, block in zip(workings, blocks, strict=False)
+    ]
     card = r";\quad ".join(working.display_answer for working in workings)
     first = blocks[0]
     return replace(
@@ -300,4 +306,5 @@ def joined_parts(
         physics_formulas=tuple(row for working in workings for row in working.formulas),
         physics_substitutions=tuple(row for working in workings for row in working.substitutions),
         physics_parts=tuple(workings),
+        answer_values=tuple(value for working in workings for value in working.answer_values),
     )

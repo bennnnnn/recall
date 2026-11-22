@@ -29,7 +29,8 @@ from app.services.md_fence_scan import (
     iter_fences,
     strip_closed_fences,
 )
-from app.services.part_answer_cards import land_part_answer_cards, own_line_part_answers
+from app.services.part.answer_cards import land_part_answer_cards, own_line_part_answers
+from app.services.part.place import place_after_part
 from app.services.solving import VerifiedPhysicsBlock
 from app.services.subject_scan import scanner_camera_subject
 from app.services.workout import as_formula_heading
@@ -91,12 +92,14 @@ def scene_reply(verified: VerifiedPhysicsBlock) -> str | None:
 
 def solver_cards(verified: VerifiedPhysicsBlock) -> tuple[str, ...]:
     """The fences physics writes for the block: its answer card (each part's, for a
-    solve in parts) and its pictures."""
+    solve in parts) and its pictures, each part's own included."""
     answers = [part.display_answer for part in verified.physics_parts]
     if len(answers) < 2:
         answers = [(verified.display_answer or verified.canonical_answer or "").strip()]
     cards = [f"```answer\n{answer}\n```" for answer in answers if answer]
-    return (*cards, *_scene_fences(verified))
+    # A part's own picture is the solver's too: kept, never dropped as a stranger (#2521).
+    parts = [scene_fence(spec) for part in verified.physics_parts for spec in part.pictures]
+    return (*cards, *dict.fromkeys([*_scene_fences(verified), *parts]))
 
 
 # The unknown a law is solved for heads its formula, its subscript part of it: "h_{max}",
@@ -169,9 +172,31 @@ def validate_physics_fences(
             cleaned, answer, above=correction_line(answer) if conflict else None
         )
     extras = _scene_fences(verified)
-    if not extras:
+    own = [scene_fence(spec) for part in verified.physics_parts for spec in part.pictures]
+    if not extras and not own:
         return cleaned
-    return _with_pictures(without_model_drawings(cleaned, user_text), extras)
+    text, placed = _part_pictures(without_model_drawings(cleaned, user_text), verified)
+    rest = [fence for fence in dict.fromkeys([*extras, *own]) if fence not in placed]
+    return _with_pictures(text, rest)
+
+
+def _part_pictures(text: str, verified: VerifiedPhysicsBlock) -> tuple[str, list[str]]:
+    """A question in parts: each picture of one part right after that part's card, never every
+    part's picture together at the end (owner, 2026-11-21); and the pictures so placed. A
+    picture several parts share (one projectile for its time, height and range) stays under
+    them all."""
+    if len(verified.physics_parts) < 2:
+        return text, []
+    owners: dict[str, list[str]] = {}
+    for letter, part in zip("abcdefgh", verified.physics_parts, strict=False):
+        for spec in part.pictures:
+            owners.setdefault(scene_fence(spec), []).append(letter)
+    placed: list[str] = []
+    for fence, letters in owners.items():
+        moved = place_after_part(text, letters[0], fence) if len(letters) == 1 else None
+        if moved is not None:
+            text, placed = moved, [*placed, fence]
+    return text, placed
 
 
 _SENTENCES = re.compile(r"(?<=[.?!])\s+")
