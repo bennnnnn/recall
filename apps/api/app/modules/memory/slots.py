@@ -107,8 +107,7 @@ _ASKS: dict[str, tuple[re.Pattern[str], ...]] = {
         # "User is a nurse", "User is an accountant at Deloitte": the job named outright, the
         # whole first clause ("User is a nurse and is 30", not "User is a fan of jazz").
         re.compile(
-            r"^\s*(?:the )?user is an? [\w-]+(?: [\w-]+){0,3}(?: at [^,;]+?)?"
-            r"\s*(?:\.?\s*$|,| and )",
+            r"^(?:the )?user is an? [\w-]+(?: [\w-]+){0,3}(?: at [^,;]+)?(?:\.?$|,| and )",
             re.IGNORECASE,
         ),
     ),

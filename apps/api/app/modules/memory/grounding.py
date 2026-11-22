@@ -115,12 +115,12 @@ def _same_word(left: str, right: str) -> bool:
     return len(left) >= _STEM and len(right) >= _STEM and left[:_STEM] == right[:_STEM]
 
 
+def _content(words: list[str]) -> list[str]:
+    return [word for word in words if word not in _FILLER and (len(word) > 1 or word.isdigit())]
+
+
 def _claim(fact: str) -> list[str]:
-    return [
-        word
-        for word in _words(_PARENTHETICAL.sub(" ", fact))
-        if word not in _FILLER and (len(word) > 1 or word.isdigit())
-    ]
+    return _content(_words(_PARENTHETICAL.sub(" ", fact)))
 
 
 def quote_holds_fact(quote: str, fact: str, *, english: bool = True) -> bool:
@@ -137,25 +137,25 @@ def quote_holds_fact(quote: str, fact: str, *, english: bool = True) -> bool:
 def quote_gives_answer(
     quote: str, fact: str, *, slot: str | None = None, english: bool = True
 ) -> bool:
-    """False when a comparable quote shares only the question's words with the fact.
+    """False when a comparable quote says nothing past the question's words.
 
-    "my name" holds "name" of "User's name is Binne" and no name; "Toronto" gives "User
-    lives in Toronto" its answer. A fact with nothing past its question ("User is a
-    student") is held by ``quote_holds_fact`` alone.
+    "my name" states no name for "User's name is Binne"; "I live in NYC" says more than
+    "live", so the model's "User lives in New York City" stands. A fact that names the
+    user is held by the name itself: names are not paraphrased, and "User's name is Bini;
+    User is a 29-year-old woman" from "I'm a 29-year-old woman" names no one.
     """
     quote_words = _words(quote)
-    frame = frame_words(fact, slot)
-    if not frame or not _comparable(quote_words, english=english):
+    if not _comparable(quote_words, english=english):
         return True
     name = user_name_given(fact)
     if name is not None:
-        # The name is the answer: "User's name is Bini; User is a 29-year-old woman" from
-        # "I'm a 29-year-old woman" names no one.
         return any(_same_word(part, said) for part in _words(name) for said in quote_words)
-    answer = [word for word in _claim(fact) if word not in frame]
-    if not answer:
+    frame = frame_words(fact, slot)
+    # "User is a student": the question's word is the whole answer.
+    if not frame or all(word in frame for word in _claim(fact)):
         return True
-    return any(_same_word(word, said) for word in answer for said in quote_words)
+    said = _content(quote_words)
+    return any(not any(_same_word(word, asked) for asked in frame) for word in said)
 
 
 # How a line speaks in the first person. English only, as ``_comparable`` reads only then.
@@ -204,7 +204,12 @@ def ground_fact(
         return Grounding(None, "its quote does not say it")
     if not quote_gives_answer(quote or "", fact, slot=slot, english=english):
         return Grounding(None, "its quote does not give the answer")
-    if sensitive_slots(fact, slot) and not said_of_themselves(line.text, english=english):
+    # "Remember: married, two kids" is the user's own word about themselves.
+    if (
+        not explicit_remember
+        and sensitive_slots(fact, slot)
+        and not said_of_themselves(line.text, english=english)
+    ):
         return Grounding(None, "not said by the user about themselves")
     return Grounding(line, "stated")
 

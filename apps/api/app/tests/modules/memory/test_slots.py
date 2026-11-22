@@ -338,3 +338,22 @@ def test_a_fact_that_names_the_user_is_held_by_the_name_itself():
     fact = "User's name is Bini; User is a 29-year-old woman"
     line = "I'm a 29-year-old woman, what's a healthy resting heart rate for me?"
     assert _ground(fact, "I'm a 29-year-old woman", line, "name").line is None
+
+
+def test_a_quote_that_says_more_than_the_question_keeps_the_models_expansion():
+    """Review: "I live in NYC" says more than "live"; the model's expansion stands."""
+    fact = "User lives in New York City"
+    assert _ground(fact, "I live in NYC", "I live in NYC", "home").line is not None
+    assert _ground(fact, "I live", "I live", "home").line is None
+
+
+def test_remember_stands_for_the_first_person_on_its_line():
+    grounding = ground_fact(
+        quote="married, two kids",
+        fact="User is married with two kids",
+        stated_as="own_life",
+        lines=_lines("Please remember: married, two kids"),
+        explicit_remember=True,
+        slot="relationship_status",
+    )
+    assert grounding.line is not None

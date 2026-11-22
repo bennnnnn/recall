@@ -208,13 +208,14 @@ def without_older_answers(verdicts: list[Verdict]) -> list[Verdict]:
     """Of the kept facts in one slot, the newest stays; the older ones are muted."""
     newest: dict[str, Verdict] = {}
     for verdict in verdicts:
-        if verdict.keep and verdict.slot:
+        # Only facts read again: an unread one's slot was never checked.
+        if verdict.keep and verdict.read and verdict.slot:
             held = newest.get(verdict.slot)
             if held is None or verdict.fact.confirmed_at > held.fact.confirmed_at:
                 newest[verdict.slot] = verdict
     return [
         Verdict(verdict.fact, keep=False, reason=f"older answer for {verdict.slot}")
-        if verdict.keep and verdict.slot and newest[verdict.slot] is not verdict
+        if verdict.keep and verdict.read and verdict.slot and newest[verdict.slot] is not verdict
         else verdict
         for verdict in verdicts
     ]
