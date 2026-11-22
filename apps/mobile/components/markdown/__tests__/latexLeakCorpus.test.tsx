@@ -144,6 +144,10 @@ const VARIANTS: Record<string, string> = {
   "price times price": "$2 \\times $3 = $6",
   "price bold label": "**Total:** $80 \\times 7 = $560",
   "escaped prices in maths": "$\\$80 \\times 7 = \\$560$",
+  // A loan reply (the owner's chat, 2026-11-22): a bold price inside maths drew "{\\773}$".
+  "bold price in maths": "$M \\approx \\textbf{\\$773}$ per month",
+  "bold price in a loan reply":
+    "I can't give an exact payment yet, because it depends on the loan terms, which you haven't shared. Here's how it's worked out.\n\nThe payment uses the standard loan formula:\n\n$M = P \\times \\frac{r(1+r)^n}{(1+r)^n - 1}$\n\nWhere $P$ is the loan amount, $r$ is the monthly interest rate (annual rate ÷ 12), and $n$ is the number of months.\n\nFor example, on a **$40,000 loan at 6% APR over 60 months**:\n\n$r = \\frac{0.06}{12}$  \n$r = 0.005$\n\n$M = 40000 \\times \\frac{0.005(1.005)^{60}}{(1.005)^{60} - 1}$\n\n$M \\approx \\textbf{\\$773}$ per month\n\nYour actual figure will change with the down payment, the interest rate, and the loan length. If you tell me those three numbers, I'll calculate your exact payment.",
   // Rich cards draw their own text: each must draw its maths too.
   "steps":
     "```steps\n1. Add 9: $x^2+6x+9 = 16$\n2. Take the root: **$x + 3 = \\pm 4$**\n3. So $x = \\frac{1}{2}$ or `x = -7`\n```",

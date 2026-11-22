@@ -53,6 +53,8 @@ _WORK_AT = 0.5
 _GOES_ON_AT = 0.5
 # Going on with a reply cut off before its end: the yes of a plain yes or no.
 _RESUMES_AT = 0.5
+# A photo above the answer (``PHOTO_QUESTION``): picked on the photo-need corpus.
+SEEN_AT = 0.65
 # How long the turn's read waits for the work question's call once its own is in: both
 # start together and answer in about 0.33 s. The cards' call is waited for as long as the
 # read's own budget allows (and the reply waits no longer than ``live_read_wait_seconds``
@@ -176,7 +178,9 @@ QUESTIONS: dict[str, dict[str, Any]] = {
             "holds an office now, prices, weather, schedules, opening hours, places near the "
             f"user? {LIVE_IN_CONTEXT} "
             "Not advice, how-to, settled knowledge, maths, writing, the user's own life or "
-            "chats, getting to a place already named, or work on the conversation itself."
+            "chats, getting to a place already named, or work on the conversation itself; nor "
+            "what changed or was invented over years or decades (the last 80 years, since the "
+            "1990s), settled history even when the span reaches today."
         ),
     },
     "asked": {
@@ -209,6 +213,28 @@ WORK_QUESTION: dict[str, dict[str, Any]] = {
         ),
     },
 }
+
+
+# Whether the answer is about one real thing worth a photo above it (``images.answer_photo``),
+# asked in a call of its own beside the turn's, as the work question is. A word rule offered
+# the photo: "What is ur name" read "ur name" as the thing asked about, and the reply opened
+# with a photo above "My name is Recall" (the owner's chat, 2026-11-22). Measured on
+# ``photo_need_corpus.json`` (``tests/behavior/photo_need_eval.py``).
+PHOTO_QUESTION: Mapping[str, dict[str, Any]] = MappingProxyType(
+    {
+        "seen": {
+            "type": "noul",
+            "instructions": (
+                "Is the answer to the user's last message mainly about one real thing people "
+                "would want to see a photo of: a place or landmark, a building, an animal or "
+                "plant, a named person, a food or dish, a product or vehicle, an artwork? Not "
+                "the assistant itself, the user or their own life, small talk, advice or "
+                "how-to, health, a word, an idea, a feeling, a process or concept from "
+                "science, history or economics, maths, code, or writing a message."
+            ),
+        }
+    }
+)
 
 
 # How many separate results the message asks for, asked in a call of its own beside the
@@ -420,6 +446,8 @@ def decision_fields(answers: dict[str, Any], *, has_earlier: bool) -> dict[str, 
         "unplaced": _yes(get("unplaced", "noul"), _UNPLACED_AT),
         "goes_on": _yes(get("goes_on", "noul"), _GOES_ON_AT),
         "resumes": _yes(get("resumes", "noul"), _RESUMES_AT),
+        # None (unasked or late): the word rules offer the photo.
+        "seen": _yes(get("seen", "noul"), SEEN_AT),
     }
 
 
@@ -430,11 +458,13 @@ async def decide_turn(
     has_earlier: bool,
     seconds: float,
     ask_work: bool = False,
+    ask_photo: bool = False,
     lesson: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any] | None:
     """The Decider's read of ``state`` (the message, its earlier turns quoted), or None. With
-    ``ask_work`` the work and the asks questions, and with ``lesson`` the questions about the
-    last reply's cards (``lesson_questions``), go in calls of their own begun beside it: the
+    ``ask_work`` the work and the asks questions, with ``ask_photo`` the photo question, and
+    with ``lesson`` the questions about the last reply's cards (``lesson_questions``), go in
+    calls of their own begun beside it: the
     Decider weighs one call's questions together. Each ends when the read does, whatever ends it (an answer,
     a failure, the reply's wait, a Stop)."""
     from app.gateways.decider_gateway import decide
@@ -451,6 +481,7 @@ async def decide_turn(
             (WORK_QUESTION if ask_work else None, _WORK_GRACE_SECONDS),
             # Only a message with a number in it gets a verified result to fall short of.
             (ASKS_QUESTION if ask_work else None, _WORK_GRACE_SECONDS),
+            (PHOTO_QUESTION if ask_photo else None, _WORK_GRACE_SECONDS),
             (lesson or None, None),
         )
         for questions, grace in calls:
