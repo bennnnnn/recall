@@ -7,9 +7,10 @@ the difference was the format contract, the calculation layout and the draft, pr
 clarification rules every turn carried, chat about dinner included.
 
 The prompt is built before the read is in (``prompt_builder``). A turn whose words ask for
-no shape of their own (no draft, code, lesson, chart, subject or several requests;
-``prompt_format.allows_ordinary``) also gets its second system message rendered the ordinary
-way (``PromptTurn.ordinary``), held beside the prompt. When the read says the message is
+no shape of their own (no draft, code, lesson, chart, subject, reminder, setting or several
+requests, nothing about the user: ``prompt_sections.may_be_ordinary``, ``prompt_format._plain``)
+also gets its second system message rendered the ordinary way (``PromptTurn.ordinary``), held
+beside the prompt. When the read says the message is
 everyday chat, with no result to work out, no picture to draw and no hard reasoning
 (``is_ordinary``), ``decided_turn`` puts it in place of the full one before anything else
 changes the prompt. With no read in time, or any other answer, the full prompt stands.
