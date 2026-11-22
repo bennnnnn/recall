@@ -36,6 +36,12 @@ def test_normalize_display_name(raw: str | None, expected: str | None):
         ("jean-luc o'neil", "Jean-Luc O'Neil"),
         ("o\u2019brien", "O\u2019Brien"),
         ("ñandú pérez", "Ñandú Pérez"),
+        # An accent typed as its own mark belongs to the letter before it.
+        ("pe\u0301rez", "Pe\u0301rez"),
+        ("n\u0303andu\u0301", "N\u0303andu\u0301"),
+        ("\u043c\u0430\u0438\u0306\u044f", "\u041c\u0430\u0438\u0306\u044f"),
+        ("mary_ann", "Mary_Ann"),
+        ("bini2", "Bini2"),
         # A capital the user typed keeps the name as written.
         ("McDonald", "McDonald"),
         ("de Silva", "de Silva"),

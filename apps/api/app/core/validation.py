@@ -102,10 +102,6 @@ def normalize_display_name(raw: str | None) -> str | None:
     return proper_name(name)
 
 
-# The first letter of each part of a name: after a space, a hyphen or an apostrophe.
-_NAME_PART_START = re.compile(r"(?<![^\W_])[^\W\d_]")
-
-
 def proper_name(name: str) -> str:
     """A name typed all in lowercase, with a capital at the start of each part ("bini" is
     Bini, "jean-luc o'neil" is Jean-Luc O'Neil); any capital the user typed keeps the name as
@@ -116,7 +112,17 @@ def proper_name(name: str) -> str:
     before (migration ``0133_proper_case_names``)."""
     if name != name.lower() or name == name.upper():
         return name
-    return _NAME_PART_START.sub(lambda letter: letter.group(0).upper(), name)
+    out: list[str] = []
+    # A part starts after anything but a letter or a digit; an accent mark belongs to the
+    # letter before it ("pe\u0301rez", typed decomposed, is Pérez, never PéRez: review, #2538).
+    in_part = False
+    for char in name:
+        if unicodedata.category(char).startswith("M"):
+            out.append(char)
+            continue
+        out.append(char.upper() if char.isalpha() and not in_part else char)
+        in_part = char.isalnum()
+    return "".join(out)
 
 
 _AVATAR_PATH_PREFIX = "/attachments/"
