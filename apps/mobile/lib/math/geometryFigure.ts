@@ -490,6 +490,17 @@ function angleLabels(
   return label;
 }
 
+/** Every line the figure draws, as straight strokes: what no label may touch. */
+export function layoutStrokes(layout: FigureLayout): Stroke[] {
+  return [
+    ...layout.lines.map((line): Stroke => [line.from, line.to]),
+    ...layout.marks,
+    ...layout.arcs.flatMap((arc) => strokesOf(arc.points)),
+    ...layout.angleArcs.flatMap(strokesOf),
+    ...layout.dots.map((dot): Stroke => [dot, dot]),
+  ];
+}
+
 function centroid(points: Px[]): Px {
   return {
     x: points.reduce((sum, p) => sum + p.x, 0) / points.length,
@@ -555,14 +566,7 @@ function build(spec: FigureSpec, width: number, pads: Pads): FigureLayout {
       away.x === 0 && away.y === 0 ? { x: -0.7, y: -0.7 } : away;
     options.push(placesRound(p, direction, NAME_GAP, point.name));
   }
-  const strokes: Stroke[] = [
-    ...layout.lines.map((line): Stroke => [line.from, line.to]),
-    ...layout.marks,
-    ...layout.arcs.flatMap((arc) => strokesOf(arc.points)),
-    ...layout.angleArcs.flatMap(strokesOf),
-    ...layout.dots.map((dot): Stroke => [dot, dot]),
-  ];
-  layout.labels = placeLabels(options, strokes);
+  layout.labels = placeLabels(options, layoutStrokes(layout));
   return layout;
 }
 

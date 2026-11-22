@@ -6,10 +6,12 @@ import {
   LABEL_DESCENT,
   labelStart,
   labelTouches,
-  strokesOf,
-  type Stroke,
 } from "@/lib/math/figurePlacement";
-import { figureLayout, parseFigure } from "@/lib/math/geometryFigure";
+import {
+  figureLayout,
+  layoutStrokes,
+  parseFigure,
+} from "@/lib/math/geometryFigure";
 
 type Case = { id: string; figure: Record<string, unknown> };
 
@@ -20,13 +22,7 @@ function clashes(raw: Record<string, unknown>, width: number): string[] {
   const spec = parseFigure(raw);
   if (!spec) return ["not read"];
   const layout = figureLayout(spec, width);
-  const strokes: Stroke[] = [
-    ...layout.lines.map((line): Stroke => [line.from, line.to]),
-    ...layout.marks,
-    ...layout.arcs.flatMap((arc) => strokesOf(arc.points)),
-    ...layout.angleArcs.flatMap(strokesOf),
-    ...layout.dots.map((dot): Stroke => [dot, dot]),
-  ];
+  const strokes = layoutStrokes(layout);
   return layout.labels.flatMap((label, i) => {
     const count = labelTouches(label, strokes, layout.labels.slice(0, i));
     const start = labelStart(label);
