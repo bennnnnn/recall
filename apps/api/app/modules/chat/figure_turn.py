@@ -22,6 +22,7 @@ from collections.abc import Iterator, Sequence
 from typing import TYPE_CHECKING, Any, Literal
 
 from app.core.config import Settings
+from app.modules.chat.decider_read import READ_SUBJECTS
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.turn_decision import TurnDecision
 from app.services.solving import SubjectName
@@ -105,10 +106,15 @@ _NOT_DRAWN = frozenset({"photo", "image"})
 
 
 def shows_it(decision: TurnDecision | None) -> bool:
-    """The read says the message asks to see what the conversation is about (follow
-    ``draw``), and no photo or painting of it."""
+    """The read says the message asks to see the maths, physics or chemistry problem the
+    conversation is about (follow ``draw``), and no photo or painting of it. An everyday
+    "draw it" (a flowchart of a plan, a painting of a story) is no problem's picture, which
+    no subject draws (review, 2026-11-22)."""
     return (
-        decision is not None and decision.follow == _SHOWS_IT and decision.picture not in _NOT_DRAWN
+        decision is not None
+        and decision.follow == _SHOWS_IT
+        and decision.subject in READ_SUBJECTS
+        and decision.picture not in _NOT_DRAWN
     )
 
 

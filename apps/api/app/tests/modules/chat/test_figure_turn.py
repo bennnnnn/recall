@@ -528,6 +528,8 @@ async def test_a_request_to_see_a_molecule_no_solve_drew_is_drawn_asked(
         ({"subject": "maths", "picture": "none", "follow": "draw"}, True),
         ({"subject": "chemistry", "picture": "photo", "follow": "draw"}, False),
         ({"subject": "everyday", "picture": "image", "follow": "draw"}, False),
+        # An everyday "draw it" (a plan's flowchart) is no problem's picture (review).
+        ({"subject": "everyday", "picture": "diagram", "follow": "draw"}, False),
         ({"subject": "physics", "picture": "none", "follow": "explain"}, False),
     ],
 )
