@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Literal
 
-from app.modules.math.match.asked_operations import asks_rate_of_change
+from app.modules.math.match.asked_operations import asks_rate_of_change, rewrite_names_a_method
 from app.modules.math.match.derivative_order import asked_derivative_order, higher_leibniz
 from app.modules.math.schemas import MathIntent, declined_reading
 from app.modules.math.solve.calculus import MAX_DERIVATIVE_ORDER
@@ -272,6 +272,24 @@ def _derivative_point(raw: str, cleaned: str) -> tuple[str, str | None]:
     return raw, point_value(prime_at.group(1)) if prime_at is not None else None
 
 
+def _rewritten_equation(cleaned: str, raw: str) -> str | None:
+    """What a factor or expand of an equation rewrites: the polynomial of ``poly = 0``, else
+    ``raw``. None when the equation is no rewrite's: one of a worked paste's several, or one
+    the message asks solved, the rewrite naming how (``rewrite_names_a_method``: "solve
+    2x^2 - 3x - 5 = 0 ... use quadratic formula or factor?" had its factorisation as the
+    checked card, live 2026-11-22)."""
+    if rewrite_names_a_method(cleaned):
+        return None
+    from app.modules.math import solve as math_solve
+
+    pairs = math_solve.try_extract_equations_from_text(cleaned)
+    if len(pairs) >= 2:
+        return None
+    if pairs and pairs[0][1].strip() in {"0", "0.0"}:
+        return pairs[0][0]
+    return raw
+
+
 def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
     from app.modules.math import match as mtm
 
@@ -335,13 +353,10 @@ def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
     if calc_op == "simplify" and "=" in raw:
         return None
     if calc_op in {"factor", "expand"} and "=" in raw:
-        from app.modules.math import solve as math_solve
-
-        pairs = math_solve.try_extract_equations_from_text(cleaned)
-        if len(pairs) >= 2:
+        rewritten = _rewritten_equation(cleaned, raw)
+        if rewritten is None:
             return None
-        if pairs and pairs[0][1].strip() in {"0", "0.0"}:
-            raw = pairs[0][0]
+        raw = rewritten
     integral_lower: str | None = leading_bounds[1] if leading_bounds is not None else None
     integral_upper: str | None = leading_bounds[2] if leading_bounds is not None else None
     if calc_op == "integrate":

@@ -1,0 +1,15 @@
+[
+  {"id": "mn1", "area": "method named", "prompt": "solve 2x²-3x-5=0 pls. i dont get how to do it, my teacher said use quadratic formula or factor? which one is easier for this one", "expect": "answer", "check": ["nums", ["5/2", "-1"]], "note": "the card was the factorisation (x + 1)(2x - 5), not the roots (live, 2026-11-22)"},
+  {"id": "mn2", "area": "method named", "prompt": "solve x^2-5x+6=0, should I factor it?", "expect": "answer", "check": ["nums", ["2", "3"]]},
+  {"id": "mn3", "area": "method named", "prompt": "solve by factoring x^2-5x+6=0", "expect": "answer", "check": ["nums", ["2", "3"]]},
+  {"id": "mn4", "area": "method named", "prompt": "can you factor x^2 - 5x + 6 = 0 to solve it", "expect": "answer", "check": ["nums", ["2", "3"]]},
+  {"id": "mn5", "area": "method named", "prompt": "solve x^2 + 5x + 6 = 0 by factorising", "expect": "answer", "check": ["nums", ["-2", "-3"]]},
+  {"id": "mn6", "area": "method named", "prompt": "find the roots of x^2 - 7x + 12 = 0, can I factor it or do I need the formula?", "expect": "answer", "check": ["nums", ["3", "4"]]},
+  {"id": "mn7", "area": "method named", "prompt": "solve (x+2)(x-3)=0, do I expand it first?", "expect": "answer", "check": ["nums", ["-2", "3"]]},
+  {"id": "mn8", "area": "method named", "prompt": "solve 3x^2 - 12 = 0. is it easier to factor or to use square roots?", "expect": "answer", "check": ["nums", ["-2", "2"]]},
+  {"id": "mn9", "area": "method named", "prompt": "solve x^2 - 9 = 0 using factoring", "expect": "answer", "check": ["nums", ["-3", "3"]]},
+  {"id": "mn10", "area": "rewrite asked", "prompt": "factor x^2 - 5x + 6", "expect": "answer", "check": ["expr", "(x-2)*(x-3)"]},
+  {"id": "mn11", "area": "rewrite asked", "prompt": "factorise 2x^2 - 3x - 5", "expect": "answer", "check": ["expr", "(x+1)*(2*x-5)"]},
+  {"id": "mn12", "area": "rewrite asked", "prompt": "expand (x+2)(x-3)", "expect": "answer", "check": ["expr", "x**2-x-6"]},
+  {"id": "mn13", "area": "rewrite asked", "prompt": "can you factor x^2 + 7x + 12 for me", "expect": "answer", "check": ["expr", "(x+3)*(x+4)"]}
+]

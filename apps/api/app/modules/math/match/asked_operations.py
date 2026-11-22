@@ -33,6 +33,7 @@ from app.modules.math.schemas import MathIntent
 from app.modules.turn_reading.derivative_notation import LEIBNIZ, asks_at_a_point
 from app.services.glyphs import fold_operator_glyphs, fold_primes
 from app.services.script_runs import fold_superscript_runs
+from app.services.text_match import has_equation
 
 _MAX_TEXT = 2000
 # A sentence asks when it asks (``ASKS``) or names the operation to do.
@@ -90,6 +91,12 @@ _FEATURES = re.compile(
     re.IGNORECASE,
 )
 _REWRITE_WORDS = frozenset({"simplify", "factor", "expand"})
+# A solve asked by name: "solve", "the solutions", "its roots", "the zeros of"; never a
+# square or cube root to simplify.
+_SOLVE_ASKED = re.compile(
+    r"\bsolv(?:e|ing)\b|\bsolutions?\b|(?<!square )(?<!cube )\broots?\b|\bzeros?\s+of\b",
+    re.IGNORECASE,
+)
 # Of those, the extreme values themselves: where the function turns is a step to them.
 _EXTREME_VALUES = re.compile(
     r"\b(?:maxim(?:um|a)|minim(?:um|a)|extrem(?:um|a|e\s+values?)"
@@ -245,6 +252,16 @@ def _derivatives(text: str) -> tuple[frozenset[int | None], bool]:
     return frozenset(orders), combined
 
 
+def rewrite_names_a_method(text: str) -> bool:
+    """A rewrite word in a message that asks to solve an equation says how to solve it, not
+    what to answer: "solve 2x^2 - 3x - 5 = 0 ... use quadratic formula or factor?" had the
+    factorisation (x + 1)(2x - 5) as its checked card, not x = 5/2 or x = -1 (live,
+    2026-11-22). "Factor x^2 - 5x + 6" asks the rewrite; "factor x^2 - 5x + 6 = 0 to solve
+    it" and "solve by factoring" ask the roots."""
+    text = text[:_MAX_TEXT]
+    return _SOLVE_ASKED.search(text) is not None and has_equation(text)
+
+
 def asks_rate_of_change(text: str) -> bool:
     """``text`` asks the rate of change of one letter with respect to another."""
     return any(
@@ -282,7 +299,7 @@ def asked_operations(text: str) -> AskedOperations:
         both_extremes=bool(_MAXIMUM.search(asked) and _MINIMUM.search(asked)),
         location=_LOCATION.search(asked) is not None,
         features=len({m.lastgroup for m in _FEATURES.finditer(asked)}),
-        rewrite=bool(words & _REWRITE_WORDS),
+        rewrite=bool(words & _REWRITE_WORDS) and not rewrite_names_a_method(text),
         derivative_given=_DERIVATIVE_GIVEN.search(fold_primes(text[:_MAX_TEXT])) is not None,
     )
 
