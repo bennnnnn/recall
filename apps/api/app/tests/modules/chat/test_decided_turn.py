@@ -1125,3 +1125,16 @@ async def test_the_word_rules_yes_stays_only_where_the_read_hears_one(
     system = " ".join(m["content"] for m in ctx.prompt_messages if m["role"] == "system")
     assert (CONFIRM_FOLLOW_THROUGH_HINT in system) is kept
     assert "Rules." in system and "More rules." in system
+
+
+@pytest.mark.parametrize("follow", ["explain", "more"])
+@pytest.mark.asyncio
+async def test_a_follow_up_asking_it_explained_is_talked_through_not_laid_out(follow: str) -> None:
+    """QA (2026-11-22): "explain it simpler pls" after a circumference got the same worked
+    layout again, 96% the same reply. The model explains it; no ```worked block, no instant
+    reply."""
+    layout = WorkedLayout(law_heading=False)
+    ctx = _follow_turn("explain it simpler pls", _follow_read(follow, "maths"), worked=layout)
+    await decide_from_the_read(ctx, _SETTINGS)
+    assert ctx.worked is None
+    assert FOLLOW_NOTES[follow] in [m["content"] for m in ctx.prompt_messages]

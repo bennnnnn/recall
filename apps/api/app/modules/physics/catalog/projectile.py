@@ -2,25 +2,10 @@
 
 from __future__ import annotations
 
-from app.modules.physics.extractors.launch_direction import launched_downward
+from app.modules.physics.extractors.launch_direction import LEVEL_LAUNCH, launched_downward
 from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
 from app.services.law_binding.words import angle_to
 
-# A launch "horizontally" from a height states the angle (0°) without a number,
-# and so does anything that rolls, slides or drives off an edge.
-_LEVEL_LAUNCH = (
-    "horizontally",
-    "rolls off",
-    "rolled off",
-    "rolling off",
-    "slides off",
-    "slid off",
-    "sliding off",
-    "runs off",
-    "ran off",
-    "drives off",
-    "drove off",
-)
 # The binder adds this cue when the question states an angle (``binding.named_laws``): a
 # launch at 30° is a projectile's, wherever it starts from.
 AT_AN_ANGLE = "at an angle"
@@ -58,7 +43,8 @@ _LAUNCH = (
         "angle",
         r"\theta",
         dimensionless=True,
-        implied=tuple((phrase, 0.0) for phrase in _LEVEL_LAUNCH),
+        # A level launch ("horizontally", "sideways", rolling off an edge) states 0°.
+        implied=tuple((phrase, 0.0) for phrase in LEVEL_LAUNCH),
         # Its sign is the launch's, read over the whole launch sentence by the reader the
         # extractor uses: "thrown down at 15 m/s at 30°" is -30°.
         negated=launched_downward,
@@ -119,7 +105,7 @@ def _horizontal(
         asks=asks,
         result=(result,),
         inputs=inputs,
-        cues=(*_LEVEL_LAUNCH, AT_AN_ANGLE),
+        cues=(*LEVEL_LAUNCH, AT_AN_ANGLE),
         excludes=_NOT_A_FREE_FLIGHT,
         nonnegative=True,
         requires=_FLIES,
@@ -206,7 +192,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             asks=("impact speed", "speed", "how fast", "velocity"),
             result=("meter / second",),
             inputs=(_FROM_A_HEIGHT,),
-            cues=(*_LEVEL_LAUNCH, AT_AN_ANGLE),
+            cues=(*LEVEL_LAUNCH, AT_AN_ANGLE),
             excludes=(*_NOT_A_FREE_FLIGHT, *_ON_THE_WAY),
             nonnegative=True,
             requires=_FLIES,
@@ -259,7 +245,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             ),
             result=("meter / second",),
             inputs=(frozenset({"d", "g", "h0"}),),
-            cues=_LEVEL_LAUNCH,
+            cues=LEVEL_LAUNCH,
             # The speed at the ground is another speed.
             excludes=("hit", "impact", "just before", "when it lands", "strikes"),
             nonnegative=True,

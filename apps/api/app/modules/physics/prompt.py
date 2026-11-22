@@ -21,7 +21,7 @@ from app.services.workout import PHYSICS_WORKOUT_PARTS_PROMPT, SELF_CHECK_PROMPT
 logger = logging.getLogger(__name__)
 
 
-def _unverified_physics_note() -> str:
+def unverified_physics_note() -> str:
     return (
         "Physics note: a physics request was detected, but no complete verified "
         "solver result is available. Do not claim verification or drop units. "
@@ -52,7 +52,7 @@ def _sign_check_note(reason: str) -> str:
     """The question's law, filled with its values as signed, gives a result no such quantity
     takes. Its signs may only mark directions, so the reply checks them before it answers."""
     return (
-        f"{_unverified_physics_note()}\n\nPhysics sign check: {reason} Check the signs the "
+        f"{unverified_physics_note()}\n\nPhysics sign check: {reason} Check the signs the "
         "question states before you answer. When they make it impossible as written (a force "
         "said to point against the acceleration it gives), say so plainly and work out no "
         "result. When they only mark directions (a braking force given as a size beside a "
@@ -224,20 +224,20 @@ async def build_physics_augmentation(
         logger.warning(
             "physics read and solve timed out after %ss", settings.stem_solve_timeout_seconds
         )
-        return _unverified_physics_note(), None, True, False
+        return unverified_physics_note(), None, True, False
     except Exception:
         logger.warning("physics read and solve failed", exc_info=True)
-        return _unverified_physics_note(), None, True, False
+        return unverified_physics_note(), None, True, False
     if outcome == "skip":
         return None, None, False, False
     if no_answer is not None:
         return no_answer.note, None, True, no_answer.stated
     if outcome == "note":
-        return _unverified_physics_note(), None, False, False
+        return unverified_physics_note(), None, False, False
     if outcome == "picture" and block is not None:
         return block.text, block, False, False
     if block is None:
-        return _unverified_physics_note(), None, True, False
+        return unverified_physics_note(), None, True, False
     policy = (
         f"{PHYSICS_REPLY_POLICY}\n\n{PHYSICS_PARTIAL_POLICY}"
         if block.partial

@@ -1,0 +1,4644 @@
+[
+ {
+  "id": "qa-braking-initial-speed",
+  "prompt": "a car is slowing down at 3 m/s^2 for 4 s and at the end it is going 8 m/s. How fast was it going before it started braking?",
+  "answer": [
+   20.0,
+   "m/s"
+  ],
+  "source": "qa-braking-initial-speed",
+  "style": "live QA",
+  "original": ""
+ },
+ {
+  "id": "qa-kicked-sideways-vertical-velocity",
+  "prompt": "a ball gets kicked sideways at 15 m/s off a 30 m cliff, whats its vertical velocity after 2 s?",
+  "answer": [
+   19.62,
+   "m/s"
+  ],
+  "source": "qa-kicked-sideways-vertical-velocity",
+  "style": "live QA",
+  "original": ""
+ },
+ {
+  "id": "qa-thrown-sideways-speed",
+  "prompt": "a ball gets thrown sideways at 10 m/s off a 20 m high cliff. whats its speed after 1 s?",
+  "answer": [
+   14.01,
+   "m/s"
+  ],
+  "source": "qa-thrown-sideways-speed",
+  "style": "live QA",
+  "original": ""
+ },
+ {
+  "id": "p17-negative-x-final-velocity-casual",
+  "source": "p17-negative-x-final-velocity",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A 2.0 kg cart moving in the positive x direction at 3.0 m/s collides with a 1.0 kg cart moving in the negative x direction at 3.0 m/s, and they stick together. What is their final velocity?",
+  "prompt": "ok so a 2.0 kg cart is moving in the positive x direction at 3.0 m/s and it hits a 1.0 kg cart moving in the negative x direction at 3.0 m/s and they stick together after. what is their final velocity",
+  "answer": [
+   1.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "r5-meet-01-casual",
+  "source": "r5-meet-01",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "Two trains are 2.1 km apart heading toward each other on parallel tracks at 72 km/h and 54 km/h. how long until they meet?",
+  "prompt": "hey so i got this problem for hw lol. two trains are like 2.1 km apart and they're coming at each other on tracks next to each other. one goes 72 km/h and the other goes 54 km/h. how long till they meet??",
+  "answer": [
+   60.0,
+   "s"
+  ]
+ },
+ {
+  "id": "fric-10-casual",
+  "source": "fric-10",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A car's tires have a coefficient of friction of 0.7 with the road. What is the maximum deceleration?",
+  "prompt": "ok so my hw question says a car's tires have a coefficient of friction of 0.7 with the road. what is the maximum deceleration?? i'm so lost lol, is this like just friction times gravity or what, pls help",
+  "answer": [
+   6.867,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "mom-02-casual",
+  "source": "mom-02",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A 2 kg cart moving at 3 m/s hits a stationary 1 kg cart and they stick together. What is their speed after the collision?",
+  "prompt": "hey pls help, hw q: a 2 kg cart moving at 3 m/s hits a stationary 1 kg cart and they stick together. what is their speed after the collision? u know how to do this?",
+  "answer": [
+   2.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "h-fall-02-casual",
+  "source": "h-fall-02",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A ball is thrown straight up at 25 m/s. Find the time to reach the top.",
+  "prompt": "ok so my physics hw is killing me lol. a ball gets thrown straight up at 25 m/s, and i need to figure out how long it takes to reach the top. any idea how to set that up?",
+  "answer": [
+   2.54842,
+   "s"
+  ]
+ },
+ {
+  "id": "g8-159-casual",
+  "source": "g8-159",
+  "style": "a parent helping with homework, plain words",
+  "original": "What is the pressure at a depth of 0.76 m in mercury of density 1.36 × 10^4 kg/m³? Take g = 10 m/s².",
+  "prompt": "hey, quick one for my homework: what's the pressure at a depth of 0.76 m in mercury? mercury's density is 1.36 × 10^4 kg/m³, and use g = 10 m/s²",
+  "answer": [
+   103360.0,
+   "Pa"
+  ]
+ },
+ {
+  "id": "au-rv3-neglect-internal-series-casual",
+  "source": "au-rv3-neglect-internal-series",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "Neglecting internal resistance 4 Ω and 8 Ω resistors are in series with a 12 V battery. What is the current?",
+  "prompt": "ok so neglecting internal resistance 4 Ω and 8 Ω resistors are in series with a 12 V battery. what is the current",
+  "answer": [
+   1.0,
+   "A"
+  ]
+ },
+ {
+  "id": "h-fric-03-casual",
+  "source": "h-fric-03",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A 8 kg crate rests on a ramp at 25°. What friction force holds it still?",
+  "prompt": "hey so i got this problem for hw. theres an 8 kg crate just sitting on a ramp that's tilted at 25°. what friction force is keeping it from sliding down?",
+  "answer": [
+   33.1671,
+   "N"
+  ]
+ },
+ {
+  "id": "g8-062-casual",
+  "source": "g8-062",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "What current flows when a 10 Ω resistor is connected to a 2V supply?",
+  "prompt": "ok so this physics hw is confusing me lol. what current flows when a 10 Ω resistor is connected to a 2V supply? i keep getting lost on the formula part, sorry if its dumb",
+  "answer": [
+   0.2,
+   "A"
+  ]
+ },
+ {
+  "id": "heat-03-casual",
+  "source": "heat-03",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "How much energy is needed to melt 0.5 kg of ice at 0°C? The latent heat of fusion is 334 kJ/kg.",
+  "prompt": "hey pls help, how much energy u need to melt 0.5 kg of ice at 0°C? latent heat of fusion is 334 kJ/kg",
+  "answer": [
+   167000.0,
+   "J"
+  ]
+ },
+ {
+  "id": "rm12b-093-casual",
+  "source": "rm12b-093",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "Light travels from air into glass at an angle of incidence of 60°. The refractive index of the glass is 1.5. What is the angle of refraction?",
+  "prompt": "ok so light goes from air into glass, angle of incidence is 60°, and the glass has refractive index 1.5. what's the angle of refraction tho?",
+  "answer": [
+   35.26,
+   "deg"
+  ]
+ },
+ {
+  "id": "rp-cnt-15-casual",
+  "source": "rp-cnt-15",
+  "style": "a parent helping with homework, plain words",
+  "original": "Two 1000 W irons are used for 2 hours. Find the energy in kWh.",
+  "prompt": "hey can u help me w this one? two 1000 W irons used for 2 hours, what's the energy in kWh?",
+  "answer": [
+   4.0,
+   "kWh"
+  ]
+ },
+ {
+  "id": "g7-102-casual",
+  "source": "g7-102",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "How far away is a train if you see the steam from its nozzle 4.5 seconds before you hear its sound? (Take speed of sound as 331 m/sec)",
+  "prompt": "ok so how far away is a train if you see the steam from its nozzle 4.5 seconds before you hear its sound? (take speed of sound as 331 m/sec)",
+  "answer": [
+   1489.5,
+   "m"
+  ]
+ },
+ {
+  "id": "g7-021-casual",
+  "source": "g7-021",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "Convert 20 m/s to km/hr.",
+  "prompt": "hey can u help me with this? how do i change 20 m/s into km/hr",
+  "answer": [
+   72.0,
+   "km/h"
+  ]
+ },
+ {
+  "id": "pc-field-from-force-casual",
+  "source": "pc-field-from-force",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A charge of 2.0 pC experiences a force of 6.0 nN in an electric field. What is the electric field strength?",
+  "prompt": "ok so i have this physics hw and im lost lol. a charge of 2.0 pC feels a force of 6.0 nN in an electric field. what's the electric field strength?? also sorry if this is super basic, i'm so confused",
+  "answer": [
+   3000.0,
+   "N/C"
+  ]
+ },
+ {
+  "id": "rp-cir-18-casual",
+  "source": "rp-cir-18",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A cell of emf 12 V and internal resistance 2 Ω is connected to the 2 Ω resistor. Find the current.",
+  "prompt": "yo pls help, hw q: a cell of emf 12 V and internal resistance 2 Ω is connected to the 2 Ω resistor. find the current",
+  "answer": [
+   3.0,
+   "A"
+  ]
+ },
+ {
+  "id": "d10-casual",
+  "source": "d10",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A muon travels at 0.98c. if its lifetime at rest is 2.2 µs, what's its lifetime measured in the lab?",
+  "prompt": "ok so my physics hw is kinda wild lol. there's this muon zooming along at 0.98c, and its lifetime when it's just sitting still is 2.2 µs. what's its lifetime measured in the lab tho?? 😅",
+  "answer": [
+   1.10554e-05,
+   "s"
+  ]
+ },
+ {
+  "id": "cw-e07-casual",
+  "source": "cw-e07",
+  "style": "a parent helping with homework, plain words",
+  "original": "A 60 kg sprinter runs up stairs 4.5 m high in 3.2 s. What is her power output?",
+  "prompt": "hey can u help me with this one? a 60 kg sprinter runs up stairs 4.5 m high in 3.2 s. what's her power output?",
+  "answer": [
+   827.719,
+   "W"
+  ]
+ },
+ {
+  "id": "a13-tsunami-casual",
+  "source": "a13-tsunami",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A tsunami has a wavelength of 200 km and a period of 15 minutes. How fast does it travel?",
+  "prompt": "ok so a tsunami has a wavelength of 200 km and a period of 15 minutes. how fast does it travel",
+  "answer": [
+   222.222222,
+   "m/s"
+  ]
+ },
+ {
+  "id": "rm12b-103-casual",
+  "source": "rm12b-103",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "Light is refracted at 30° on entering a liquid at an angle of incidence of 45°. Refractive index of the liquid?",
+  "prompt": "hey so light goes into some liquid and bends. it hits at 45° and comes out bent to 30°. what's the refractive index of the liquid?",
+  "answer": [
+   1.414,
+   ""
+  ]
+ },
+ {
+  "id": "k03-casual",
+  "source": "k03",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A cyclist going 36 km/h brakes uniformly and stops in 25 m. find the deceleration",
+  "prompt": "ok so i'm totally lost on this one lol. a cyclist is going 36 km/h and brakes uniformly and stops in 25 m. can someone help me find the deceleration?? my teacher said to use kinematics but idk which formula to start with. (sorry, i know this is probably easy)",
+  "answer": [
+   2.0,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "arl-07-casual",
+  "source": "arl-07",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "42 kJ of heat is added to 1 kg of water at 20 °C. By how much does the temperature rise?",
+  "prompt": "hey pls help, need to solve this asap: 42 kJ of heat is added to 1 kg of water at 20 °C. by how much does the temp rise? thx",
+  "answer": [
+   10.0334,
+   "K"
+  ]
+ },
+ {
+  "id": "q04-casual",
+  "source": "q04",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A ball is thrown at 15 m/s at 45° from the top of a 10 m cliff. what's its maximum height above the ground?",
+  "prompt": "ok so this physics problem is kinda confusing lol. a ball gets thrown at 45° from the top of a 10 m cliff, and it starts going 15 m/s. what's its max height above the ground? keep every number and unit the same, just need the max height",
+  "answer": [
+   15.7339,
+   "m"
+  ]
+ },
+ {
+  "id": "pG1-casual",
+  "source": "pG1",
+  "style": "a parent helping with homework, plain words",
+  "original": "A 5 kg hoop rolls without slipping at 2 m/s. what's its total kinetic energy?",
+  "prompt": "hey can u help me w this physics q? a 5 kg hoop rolls without slipping at 2 m/s. what's its total kinetic energy?",
+  "answer": [
+   20.0,
+   "J"
+  ]
+ },
+ {
+  "id": "g7-045-casual",
+  "source": "g7-045",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "How much external force is required to accelerate a 1500 kg car at the rate of 6m/s2?",
+  "prompt": "ugh so how much external force do u need to accelerate a 1500 kg car at 6m/s2",
+  "answer": [
+   9000.0,
+   "N"
+  ]
+ },
+ {
+  "id": "a13-shm-max-acceleration-casual",
+  "source": "a13-shm-max-acceleration",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A mass on a spring oscillates with an amplitude of 0.1 m and a period of 2 s. What is its maximum acceleration?",
+  "prompt": "hey so my physics hw says a mass on a spring bounces back and forth with a height of 0.1 m and it takes 2 s to do one full bounce. what's the most it speeds up or slows down at its fastest?",
+  "answer": [
+   0.98696,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "cw-p05-casual",
+  "source": "cw-p05",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A 10 g bullet moving at 400 m/s embeds in a 2 kg block at rest. Find their velocity.",
+  "prompt": "ok so i have this physics hw and i'm totally lost lol. a 10 g bullet moving at 400 m/s embeds in a 2 kg block at rest. can u help me find their velocity after? idk if i should use momentum or something. also sorry if this is dumb",
+  "answer": [
+   1.99005,
+   "m/s"
+  ]
+ },
+ {
+  "id": "ar-23-casual",
+  "source": "ar-23",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A gas is heated at constant pressure from 300 K to 400 K and ends with a volume of 6 L. What was its initial volume?",
+  "prompt": "hey pls help w this hw q: a gas is heated at constant pressure from 300 K to 400 K and ends w a volume of 6 L. what was its initial volume?",
+  "answer": [
+   4.5,
+   "L"
+  ]
+ },
+ {
+  "id": "g8-164-casual",
+  "source": "g8-164",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A car's velocity changes from 5 m/s to 25 m/s in 10 s. Calculate the average acceleration.",
+  "prompt": "ok so this car's speed goes from 25 m/s up to... wait no, it starts at 5 m/s and ends at 25 m/s, and that whole change happens over 10 s. can u help me figure out the average acceleration?",
+  "answer": [
+   2.0,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "rp-cir-03-casual",
+  "source": "rp-cir-03",
+  "style": "a parent helping with homework, plain words",
+  "original": "In a parallel circuit, a 10 Ω resistor and a resistor of 10 Ω are connected to a 10 V supply. Find the total current.",
+  "prompt": "hey, quick homework q: in a parallel circuit there's a 10 Ω resistor and another resistor that's also 10 Ω, hooked up to a 10 V supply. what's the total current?",
+  "answer": [
+   2.0,
+   "A"
+  ]
+ },
+ {
+  "id": "rm12-moon-fall-time-casual",
+  "source": "rm12-moon-fall-time",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "An astronaut on the Moon drops a hammer from 1.2 m. How long does it take to fall?",
+  "prompt": "ok so an astronaut on the moon drops a hammer from 1.2 m. how long does it take to fall",
+  "answer": [
+   1.21716,
+   "s"
+  ]
+ },
+ {
+  "id": "h-elec-08-casual",
+  "source": "h-elec-08",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "What is the resistance of a bulb that draws 0.25 A from a 6 V battery?",
+  "prompt": "hey so a bulb pulls 0.25 A from a 6 V battery, what's the bulb's resistance?",
+  "answer": [
+   24.0,
+   "ohm"
+  ]
+ },
+ {
+  "id": "au-pe-after-casual",
+  "source": "au-pe-after",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A 5 kg mass is dropped from a height of 20 m. What is its potential energy after 1 s?",
+  "prompt": "ok so i'm totally lost on this physics hw lol. a 5 kg mass is dropped from a height of 20 m, and what i need to find is its potential energy after 1 s?? like does the 1 s part even matter for PE? anyway ty if anyone can help",
+  "answer": [
+   740.41,
+   "J"
+  ]
+ },
+ {
+  "id": "r5-claim-06-casual",
+  "source": "r5-claim-06",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A ball is dropped from 20 m. My friend says it hits at 19.8 m/s. How fast does it actually hit?",
+  "prompt": "hey pls help, a ball is dropped from 20 m. my friend says it hits at 19.8 m/s. how fast does it actually hit? u think he's right?",
+  "answer": [
+   19.809089,
+   "m/s"
+  ]
+ },
+ {
+  "id": "d04-casual",
+  "source": "d04",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "Iodine-131 has a half life of 8 days. How much of a 50 mg sample is left after 20 days?",
+  "prompt": "ok so my chem homework is kinda weird. iodine-131 has a half life of 8 days, and I have a 50 mg sample. how much of it is still left after 20 days?? lol",
+  "answer": [
+   8.83883,
+   "mg"
+  ]
+ },
+ {
+  "id": "g7-020-casual",
+  "source": "g7-020",
+  "style": "a parent helping with homework, plain words",
+  "original": "A bus is moving in a straight line at a speed of 25m/s. What time does the bus take to cover 5km?",
+  "prompt": "hey, quick homework q: a bus is going in a straight line at 25m/s. how long does it take the bus to cover 5km?",
+  "answer": [
+   200.0,
+   "s"
+  ]
+ },
+ {
+  "id": "rm12b-066-casual",
+  "source": "rm12b-066",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "Two springs of 200 N/m and 300 N/m are connected in series. What is the effective spring constant?",
+  "prompt": "ok so two springs 200 N/m and 300 N/m connected in series, what's the effective spring constant?? i'm so tired lol",
+  "answer": [
+   120.0,
+   "N/m"
+  ]
+ },
+ {
+  "id": "a13-decay-25-remains-casual",
+  "source": "a13-decay-25-remains",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A sample has a half-life of 10 years. How long until 25% remains?",
+  "prompt": "hey so this sample has a half life of 10 years, how long till only 25% is left?",
+  "answer": [
+   20.0,
+   "year"
+  ]
+ },
+ {
+  "id": "g8-173-casual",
+  "source": "g8-173",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A car's velocity changes from 15 m/s east to 20 m/s north in 5 s. What is its acceleration?",
+  "prompt": "ok so my physics hw says a car's velocity changes from 15 m/s east to 20 m/s north in 5 s. what is its acceleration?? i'm so lost lol, is it just 20 minus 15 over 5 or is the direction messing it up? sorry if this is dumb",
+  "answer": [
+   5.0,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "rm12b-109-casual",
+  "source": "rm12b-109",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "Light in air strikes glass of refractive index 1.5 at 40° to the surface. What is the angle of refraction?",
+  "prompt": "hey pls help w this physics q: light in air hits glass w refractive index 1.5 at 40° to the surface. wat's the angle of refraction? u know snell's law right? thx",
+  "answer": [
+   30.7,
+   "deg"
+  ]
+ },
+ {
+  "id": "g7-157-casual",
+  "source": "g7-157",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A car starts from rest and accelerates at 2 m/s2 for 5 s. What is its average speed?",
+  "prompt": "ok so this car is just sitting there at rest, then it speeds up at 2 m/s2 for 5 s. what's its average speed? lol help",
+  "answer": [
+   5.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "r5-003-casual",
+  "source": "r5-003",
+  "style": "a parent helping with homework, plain words",
+  "original": "2 kg of water at 20 °C absorbs 336 kJ of heat. Find its final temperature.",
+  "prompt": "hey can u help w this one? 2 kg of water at 20 °C absorbs 336 kJ of heat. what's its final temperature",
+  "answer": [
+   60.1,
+   "degC"
+  ]
+ },
+ {
+  "id": "rm12b-159-casual",
+  "source": "rm12b-159",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A 15 kg bag is lifted onto a shelf. What is its weight?",
+  "prompt": "ugh ok so a 15 kg bag gets lifted onto a shelf what is its weight",
+  "answer": [
+   147.15,
+   "N"
+  ]
+ },
+ {
+  "id": "l19-casual",
+  "source": "l19",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "Draw a circuit where a 2 Ω resistor is in series with three 6 Ω resistors in parallel, connected to a 16 V battery, and find the current",
+  "prompt": "hey can u help w this hw?? need to draw a circuit where a 2 Ω resistor is hooked up in a line with three 6 Ω resistors that are all side by side, plugged into a 16 V battery. then figure out how much current flows. idk where to start lol",
+  "answer": [
+   4.0,
+   "A"
+  ]
+ },
+ {
+  "id": "g7-06-casual",
+  "source": "g7-06",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A 500 N car is pulled up a 20 m plank to a flat 5 m above the ground by an effort of 150 N parallel to the plank. Calculate the output work.",
+  "prompt": "ok so my physics hw says a 500 N car is pulled up a 20 m plank to a flat 5 m above the ground by an effort of 150 N parallel to the plank. wait what even is 'output work' here?? do i just do 500 x 5 or is it something with the 20 m and 150 N too?? ugh lol. can someone help me calculate it",
+  "answer": [
+   2500.0,
+   "J"
+  ]
+ },
+ {
+  "id": "au-rv4-inductor-initially-later-casual",
+  "source": "au-rv4-inductor-initially-later",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "The current in a 2 H inductor is 1 A initially and 4 A 0.1 s later. What is the induced emf?",
+  "prompt": "hey u got a sec? 2 H inductor, current is 1 A at start and 4 A 0.1 s later. wat's the induced emf pls",
+  "answer": [
+   60.0,
+   "V"
+  ]
+ },
+ {
+  "id": "h-fluid-02-casual",
+  "source": "h-fluid-02",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A 60 kg woman stands on high heels with a total area of 0.0002 m^2. What pressure does she exert?",
+  "prompt": "ok so my homework is about a woman who weighs 60 kg and she's standing on high heels, and the total area of the heels touching the floor is 0.0002 m^2. what pressure does she put on the floor?",
+  "answer": [
+   2943000.0,
+   "Pa"
+  ]
+ },
+ {
+  "id": "rm12b-071-casual",
+  "source": "rm12b-071",
+  "style": "a parent helping with homework, plain words",
+  "original": "A swimmer's resultant speed is 2.5 m/s straight across a river whose current flows at 1.5 m/s at right angles. What is the swimmer's speed in still water?",
+  "prompt": "hey, can u help me with this one? a swimmer ends up moving at 2.5 m/s straight across a river, and the current pushes at 1.5 m/s at right angles to that. what's the swimmer's speed in still water?",
+  "answer": [
+   2.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "rm12b-147-casual",
+  "source": "rm12b-147",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A 2 kg block slides from rest down a frictionless slope 5 m high. What is its speed at the bottom?",
+  "prompt": "ok so a 2 kg block slides from rest down a frictionless slope 5 m high. what is its speed at the bottom",
+  "answer": [
+   9.9,
+   "m/s"
+  ]
+ },
+ {
+  "id": "au-spring-N-per-cm-casual",
+  "source": "au-spring-N-per-cm",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A spring with spring constant 50 N/cm is stretched 3 cm. What force does it exert?",
+  "prompt": "hey so i have this problem. a spring that's 50 N/cm stiff gets stretched out 3 cm, how hard is it pulling back on stuff?",
+  "answer": [
+   150.0,
+   "N"
+  ]
+ },
+ {
+  "id": "g7-071-casual",
+  "source": "g7-071",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A bucket full of water weighs 3 kg and a water well is 10 m deep. A girl draws water from the well. It takes the girl 2 minutes to draw a bucket full of water from the well.\nWhat is the power of the girl? (take g= 10 m/s2)",
+  "prompt": "ok so i'm so lost on this physics hw lol. a bucket full of water weighs 3 kg and a water well is 10 m deep. a girl draws water from the well and it takes her 2 minutes to draw a bucket full of water from the well. what is the power of the girl? (take g= 10 m/s2) pls help, my brain is fried rn",
+  "answer": [
+   2.5,
+   "W"
+  ]
+ },
+ {
+  "id": "r5-grav-02-casual",
+  "source": "r5-grav-02",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "What is the gravitational field strength 1000 km above the surface of the Moon?",
+  "prompt": "hey pls help, what's the gravitational field strength 1000 km above the moon's surface? thx",
+  "answer": [
+   0.653949,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "au-rv5-must-not-ignore-casual",
+  "source": "au-rv5-must-not-ignore",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A battery of emf 12 V and internal resistance 0.5 Ω drives a 5.5 Ω resistor. You must not, however, ignore the 0.5 Ω internal resistance. What current flows?",
+  "prompt": "ok so my physics homework is weird lol. there's a battery with emf 12 V and internal resistance 0.5 Ω, and it's driving a 5.5 Ω resistor. the teacher said we can't ignore the 0.5 Ω internal resistance, so how much current flows?",
+  "answer": [
+   2.0,
+   "A"
+  ]
+ },
+ {
+  "id": "g8-155-casual",
+  "source": "g8-155",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "What is the pressure at a depth of 0.76 m in mercury of density 1.36 × 104 kg/m3? Take g = 10 m/s2.",
+  "prompt": "ok so the question is what is the pressure at a depth of 0.76 m in mercury of density 1.36 × 104 kg/m3? take g = 10 m/s2",
+  "answer": [
+   103360.0,
+   "Pa"
+  ]
+ },
+ {
+  "id": "p17-weight-g-after-casual",
+  "source": "p17-weight-g-after",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "Taking 10 m/s² as g, what is the weight of a 5 kg bag?",
+  "prompt": "ok so taking 10 m/s² as g, what is the weight of a 5 kg bag",
+  "answer": [
+   50.0,
+   "N"
+  ]
+ },
+ {
+  "id": "g8-050-casual",
+  "source": "g8-050",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "Suppose a scientist was able to construct a barometer with a liquid being twice denser than mercury, then how high would the liquid raise at standard pressure?",
+  "prompt": "hey so my physics hw asks: if a scientist made a barometer with a liquid that's twice as dense as mercury, how high would the liquid go at standard pressure? idk how to start this one lol",
+  "answer": [
+   38.0,
+   "cm"
+  ]
+ },
+ {
+  "id": "lang-en-ohm-casual",
+  "source": "lang-en-ohm",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "What voltage drives 2 A through a 15 Ω resistor?",
+  "prompt": "ok so im so confused lol. what voltage do i need to push 2 A through a 15 Ω resistor?? my teacher just skipped this part, sorry if its obvious",
+  "answer": [
+   30.0,
+   "V"
+  ]
+ },
+ {
+  "id": "r13c-air-not-included-casual",
+  "source": "r13c-air-not-included",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A ball is dropped from 45 m. Air resistance is not included. How long does it take to fall?",
+  "prompt": "yo pls help, ball dropped from 45 m, no air resistance. how long does it take to fall?",
+  "answer": [
+   3.028913,
+   "s"
+  ]
+ },
+ {
+  "id": "r5-114-casual",
+  "source": "r5-114",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "The car is now at 20 m/s after accelerating at 2 m/s^2 for 5 s. How far did it travel?",
+  "prompt": "ok so this one's about a car. it's going 20 m/s now after speeding up at 2 m/s^2 for 5 s. how far did it travel?? i'm so confused lol",
+  "answer": [
+   75.0,
+   "m"
+  ]
+ },
+ {
+  "id": "lc05-casual",
+  "source": "lc05",
+  "style": "a parent helping with homework, plain words",
+  "original": "Three resistors, each 4 Ω, are connected in parallel. Find the equivalent resistance.",
+  "prompt": "hey can u help me with this one? three resistors, each 4 Ω, all connected in parallel. what's the equivalent resistance?",
+  "answer": [
+   1.33333,
+   "ohm"
+  ]
+ },
+ {
+  "id": "g8-010-casual",
+  "source": "g8-010",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A cylinder graduated in cm3 has water up to 30 cm3. When an irregularly-shaped piece of metal is placed in the cylinder the water level rises to 50 cm3. If the mass of the metal is 150 g, what is the density of the solid metal?",
+  "prompt": "ok so a graduated cylinder in cm3 has water up to 30 cm3. when an irregular piece of metal goes in the water level rises to 50 cm3. if the mass of the metal is 150 g what's the density of the solid metal",
+  "answer": [
+   7.5,
+   "g/cm^3"
+  ]
+ },
+ {
+  "id": "r5-116-casual",
+  "source": "r5-116",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "The mass of the satellite is 500 kg and it orbits a planet of mass 6e24 kg at a radius of 7000 km. Find the orbital speed.",
+  "prompt": "yo can u help w this physics hw? sat is 500 kg and it goes around a planet that's 6e24 kg, orbit radius is 7000 km. how fast is it going? like what's the orbital speed",
+  "answer": [
+   7564.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "au-rv3-ignore-internal-parallel-casual",
+  "source": "au-rv3-ignore-internal-parallel",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "Ignoring internal resistance a 6 Ω and a 3 Ω resistor are connected in parallel to a 12 V battery. What current does the battery supply?",
+  "prompt": "ugh ok so i'm so lost on this physics hw lol. ignoring internal resistance, a 6 Ω and a 3 Ω resistor are hooked up in parallel to a 12 V battery. what current does the battery supply?? sorry i'm kinda bad at this",
+  "answer": [
+   6.0,
+   "A"
+  ]
+ },
+ {
+  "id": "g8-170-casual",
+  "source": "g8-170",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A spring with spring constant 200 N/m is stretched by 0.1 m. What is the average force needed to stretch it?",
+  "prompt": "hey pls help, spring w/ spring constant 200 N/m stretched by 0.1 m. what's the avg force needed to stretch it? thx",
+  "answer": [
+   10.0,
+   "N"
+  ]
+ },
+ {
+  "id": "r5-076-casual",
+  "source": "r5-076",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A man stands on a planet of mass 3e24 kg and radius 4e6 m. Find the acceleration due to gravity.",
+  "prompt": "ok so my physics hw is kinda weird. there's this man standing on a planet with mass 3e24 kg and radius 4e6 m. can u help me find the acceleration due to gravity there? thx",
+  "answer": [
+   12.5,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "r13-asked-percent-remains-casual",
+  "source": "r13-asked-percent-remains",
+  "style": "a parent helping with homework, plain words",
+  "original": "After 3 half-lives, what percentage of a sample remains?",
+  "prompt": "hey, quick q for my homework: after 3 half-lives, what percentage of the sample is left?",
+  "answer": [
+   12.5,
+   "%"
+  ]
+ },
+ {
+  "id": "g7-096-casual",
+  "source": "g7-096",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "The speed of sound in air is about 331 m/sec at 0°C. The speed of sound increases by 0.6 m/sec for every degree Celsius increase in temperature. What is the speed of sound in air at 20 °C?",
+  "prompt": "ok so the speed of sound in air is about 331 m/sec at 0°C and it goes up by 0.6 m/sec for every degree celsius the temp goes up. what's the speed of sound in air at 20 °C",
+  "answer": [
+   343.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "lc12-casual",
+  "source": "lc12",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "Two 500 mΩ resistors are connected in series. Find the total resistance.",
+  "prompt": "hey so i got this one for hw: two 500 mΩ things hooked up one after the other in a line. what's the total resistance?",
+  "answer": [
+   1.0,
+   "ohm"
+  ]
+ },
+ {
+  "id": "r5-015-casual",
+  "source": "r5-015",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A 2 kg rock sits on the surface of the Moon. What is its weight?",
+  "prompt": "ok so this is for my physics hw and i'm totally lost lol. a 2 kg rock is sitting on the surface of the moon, what is its weight?? i always mix up mass and weight so pls be nice haha",
+  "answer": [
+   3.24,
+   "N"
+  ]
+ },
+ {
+  "id": "mod-01-casual",
+  "source": "mod-01",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "What is the energy of a photon with a wavelength of 500 nm?",
+  "prompt": "hey pls help, whats the energy of a photon w a wavelength of 500 nm? hw q lol",
+  "answer": [
+   3.97295e-19,
+   "J"
+  ]
+ },
+ {
+  "id": "fric-11-casual",
+  "source": "fric-11",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "what is the component of gravity along a 40 degree slope for a 3 kg mass",
+  "prompt": "ok so i'm stuck on this one, a 3 kg mass sitting on a 40 degree slope. what's the component of gravity along the slope?",
+  "answer": [
+   18.9172,
+   "N"
+  ]
+ },
+ {
+  "id": "heat-06-casual",
+  "source": "heat-06",
+  "style": "a parent helping with homework, plain words",
+  "original": "A gas at 300 K and 2 atm is heated to 450 K at constant volume. What is its new pressure?",
+  "prompt": "hey can u help me with this one? a gas is at 300 K and 2 atm, then it gets heated up to 450 K while the volume stays the same. what's the new pressure?",
+  "answer": [
+   3.0,
+   "atm"
+  ]
+ },
+ {
+  "id": "h-heat-01-casual",
+  "source": "h-heat-01",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "How much energy does it take to heat 3 kg of water from 15 °C to 100 °C?",
+  "prompt": "ok so how much energy does it take to heat 3 kg of water from 15 °C to 100 °C",
+  "answer": [
+   1067430.0,
+   "J"
+  ]
+ },
+ {
+  "id": "p08-casual",
+  "source": "p08",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A tennis racket exerts an average force of 240 N on a 58 g ball for 5 ms. what's the change in the ball's speed?",
+  "prompt": "hey so my homework has this tennis thing. a racket hits a 58 g ball with like 240 N for 5 ms, and the racket pushes on it the whole time. how much does the ball's speed change? idk how to start lol",
+  "answer": [
+   20.6897,
+   "m/s"
+  ]
+ },
+ {
+  "id": "g7-080-casual",
+  "source": "g7-080",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A machine raises a load to 2m, when the effort is moved by 8m. What is the velocity ratio of the machine?",
+  "prompt": "ok so this one's about a machine, idk what i'm doing lol. it raises a load to 2m and the effort moves 8m. what's the velocity ratio?? (sorry, i'm kinda lost on this one)",
+  "answer": [
+   4.0,
+   ""
+  ]
+ },
+ {
+  "id": "r5-061-casual",
+  "source": "r5-061",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A car travelling 20 m/s takes 5 s to stop. How far does it travel?",
+  "prompt": "hey pls help, car going 20 m/s takes 5 s to stop. how far does it travel? thx",
+  "answer": [
+   50.0,
+   "m"
+  ]
+ },
+ {
+  "id": "kin-11-casual",
+  "source": "kin-11",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A car traveling at 15 m/s accelerates at 2 m/s^2 for 5 s. How far does it travel in that time?",
+  "prompt": "ok so this car is going 15 m/s and speeds up at 2 m/s^2 for 5 s... how far does it go in that time?",
+  "answer": [
+   100.0,
+   "m"
+  ]
+ },
+ {
+  "id": "h-heat-range-06-casual",
+  "source": "h-heat-range-06",
+  "style": "a parent helping with homework, plain words",
+  "original": "How much heat warms 400 g of water between 25 and 75 degrees Celsius?",
+  "prompt": "hey can u help me w this one? how much heat does it take to warm 400 g of water from 25 to 75 degrees Celsius",
+  "answer": [
+   83720.0,
+   "J"
+  ]
+ },
+ {
+  "id": "ar-07-casual",
+  "source": "ar-07",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A truck accelerates at 2 m/s^2 for 6 s and is now doing 20 m/s. What was its initial speed?",
+  "prompt": "ok so a truck accelerates at 2 m/s^2 for 6 s and is now doing 20 m/s. what was its initial speed",
+  "answer": [
+   8.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "au-rv3-inductor-up-to-casual",
+  "source": "au-rv3-inductor-up-to",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A 2 H inductor's current goes from 1 A up to 4 A in 0.1 s. What is the induced emf?",
+  "prompt": "yo quick hw q, so theres this coil thing with 2 H, and the current goes from 1 A up to 4 A in 0.1 s. whats the voltage it creates? like the induced emf?",
+  "answer": [
+   60.0,
+   "V"
+  ]
+ },
+ {
+  "id": "opt-09-casual",
+  "source": "opt-09",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A converging lens has a focal length of 8 cm. An object is 12 cm away. How far is the image from the lens?",
+  "prompt": "ok so im so confused lol. my physics hw says a converging lens has a focal length of 8 cm and an object is 12 cm away. how far is the image from the lens?? my brain is fried, can someone help me figure out the image distance",
+  "answer": [
+   24.0,
+   "cm"
+  ]
+ },
+ {
+  "id": "au-rv-g-ms-power-casual",
+  "source": "au-rv-g-ms-power",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A pendulum of length 1 m swings where g = 1.6 ms^-2. What is its period?",
+  "prompt": "hey pls help, need the period of a pendulum, length 1 m, swinging where g = 1.6 ms^-2. what's the period? thx",
+  "answer": [
+   4.9673,
+   "s"
+  ]
+ },
+ {
+  "id": "torq-04-casual",
+  "source": "torq-04",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A 500 N weight is placed 0.4 m from a lever's pivot. What force is needed 2 m from the pivot on the other side to balance it?",
+  "prompt": "ok so this is my physics hw lol. theres a 500 N weight sitting 0.4 m from the pivot of a lever, and i need to figure out what force i'd need to push with 2 m from the pivot on the other side to balance it. any idea how to set that up?",
+  "answer": [
+   100.0,
+   "N"
+  ]
+ },
+ {
+  "id": "en-05-casual",
+  "source": "en-05",
+  "style": "a parent helping with homework, plain words",
+  "original": "A force of 80 N pulls a sled 10 m at an angle of 30° to the horizontal. How much work is done?",
+  "prompt": "hey, quick one for physics: a 80 N force pulls a sled 10 m, at 30° to the horizontal. how much work does that take?",
+  "answer": [
+   692.82,
+   "J"
+  ]
+ },
+ {
+  "id": "wave-04-casual",
+  "source": "wave-04",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A wave has a period of 0.02 s. What is its frequency?",
+  "prompt": "ok so a wave has a period of 0.02 s what is its frequency",
+  "answer": [
+   50.0,
+   "Hz"
+  ]
+ },
+ {
+  "id": "g8-064-casual",
+  "source": "g8-064",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A resistor is marked with the colours green, blue and yellow. What is its resistance?",
+  "prompt": "hey so my homework has a resistor with the colours green, blue and yellow on it. what's its resistance??",
+  "answer": [
+   560000.0,
+   "ohm"
+  ]
+ },
+ {
+  "id": "a13-decay-75-left-casual",
+  "source": "a13-decay-75-left",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A sample has a half-life of 10 years. How long until 75% of the sample is left?",
+  "prompt": "ok so i have this physics hw and i'm kinda lost lol. a sample has a half-life of 10 years. how long until 75% of the sample is left?? my brain is fried rn, any help would be amazing",
+  "answer": [
+   4.150375,
+   "year"
+  ]
+ },
+ {
+  "id": "au-rv3-inductor-down-to-casual",
+  "source": "au-rv3-inductor-down-to",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A 2 H inductor's current falls from 4 A down to 1 A in 0.1 s. What is the induced emf?",
+  "prompt": "hey pls help, 2 H inductor, current drops from 4 A to 1 A in 0.1 s. wat's the induced emf? u know the formula?",
+  "answer": [
+   60.0,
+   "V"
+  ]
+ },
+ {
+  "id": "pK1-casual",
+  "source": "pK1",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "how much energy does it take to turn 1 kg of ice at 0°C into water at 50°C",
+  "prompt": "ok so my homework is kinda annoying lol. it asks how much energy it takes to turn 1 kg of ice at 0°C into water at 50°C. like melting it and then heating the water up, right? anyone know how to set that up?",
+  "answer": [
+   543300.0,
+   "J"
+  ]
+ },
+ {
+  "id": "ask-fall-03-casual",
+  "source": "ask-fall-03",
+  "style": "a parent helping with homework, plain words",
+  "original": "a ball dropped from 20 m. time to hit the ground",
+  "prompt": "hey, quick homework q: a ball gets dropped from 20 m. how long does it take to hit the ground?",
+  "answer": [
+   2.01928,
+   "s"
+  ]
+ },
+ {
+  "id": "g7-022-casual",
+  "source": "g7-022",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "Convert 60 km/hr to m/s.",
+  "prompt": "ugh can u help me w this one convert 60 km/hr to m/s",
+  "answer": [
+   16.6666666667,
+   "m/s"
+  ]
+ },
+ {
+  "id": "t06-casual",
+  "source": "t06",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A sealed container of gas at 220 kPa and 15 °C is heated to 45 °C. what's the new pressure?",
+  "prompt": "hey so i have this hw q. theres a sealed container of gas at 220 kPa and 15 °C and they heat it up to 45 °C. whats the new pressure??",
+  "answer": [
+   242.905,
+   "kPa"
+  ]
+ },
+ {
+  "id": "au-roll-sphere-casual",
+  "source": "au-roll-sphere",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A solid sphere rolls without slipping from rest down a slope of height 2 m. What is its speed at the bottom?",
+  "prompt": "ok so i'm totally lost on this physics hw lol. a solid sphere rolls without slipping from rest down a slope of height 2 m. what's its speed at the bottom?? (sorry my brain is fried rn)",
+  "answer": [
+   5.2942,
+   "m/s"
+  ]
+ },
+ {
+  "id": "rv11-isothermal-compressed-casual",
+  "source": "rv11-isothermal-compressed",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "2 mol of an ideal gas at 300 K is compressed isothermally from 10 L. 3000 J of work is done on the gas. What is the final volume?",
+  "prompt": "hey pls help, hw q: 2 mol of ideal gas at 300 K gets compressed isothermally from 10 L. 3000 J of work is done on the gas. what's the final volume? thx",
+  "answer": [
+   5.48,
+   "L"
+  ]
+ },
+ {
+  "id": "re-hill-01-casual",
+  "source": "re-hill-01",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A ball is thrown at 20 m/s at 30° from the top of a 45 m hill. How far from the base does it land?",
+  "prompt": "ok so my physics hw is kinda wild lol. theres this ball that gets thrown at 30° at 20 m/s, and it starts from the top of a 45 m hill. how far from the base does it end up landing?? i keep messing up the setup, can someone help",
+  "answer": [
+   73.00962461051631,
+   "m"
+  ]
+ },
+ {
+  "id": "rm12-wire-force-casual",
+  "source": "rm12-wire-force",
+  "style": "a parent helping with homework, plain words",
+  "original": "A wire 20 cm long carries a current of 2 A in a magnetic field of 0.01 T at right angles. What force acts on it?",
+  "prompt": "hey, quick homework one: a wire that's 20 cm long carries a current of 2 A, and it's sitting in a magnetic field of 0.01 T at right angles to it. what force acts on the wire?",
+  "answer": [
+   0.004,
+   "N"
+  ]
+ },
+ {
+  "id": "rm12b-079-casual",
+  "source": "rm12b-079",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "Two lenses in contact together have a power of 5 D. One lens has a power of 3 D. What is the power of the other?",
+  "prompt": "ok so two lenses in contact have a power of 5 D. one lens has a power of 3 D. what is the power of the other",
+  "answer": [
+   2.0,
+   "D"
+  ]
+ },
+ {
+  "id": "se-04-casual",
+  "source": "se-04",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A 12 N force stretches a spring whose constant is 240 N/m. What is the extension in cm?",
+  "prompt": "hey so i've got this hw q and idk how to start. there's a 12 N pull on a spring that's 240 N/m stiff. how much does it stretch in cm?",
+  "answer": [
+   0.05,
+   "m"
+  ]
+ },
+ {
+  "id": "r5-069-casual",
+  "source": "r5-069",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A gas at 6 L and 300 K is cooled at constant pressure to 4 L. Find its new temperature.",
+  "prompt": "ok so im stuck on this chem hw lol. a gas is at 6 L and 300 K and then its cooled at constant pressure down to 4 L. what's the new temperature?? my teacher said to use a gas law but idk which one 😭 (sorry if this is dumb)",
+  "answer": [
+   200.0,
+   "K"
+  ]
+ },
+ {
+  "id": "r5-circle-01-casual",
+  "source": "r5-circle-01",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A merry-go-round turns once every 6 s. A child sits 2.5 m from the centre. what is the child's speed?",
+  "prompt": "yo pls help, merry-go-round turns once every 6 s. kid sits 2.5 m from the centre. what is the kid's speed??",
+  "answer": [
+   2.617994,
+   "m/s"
+  ]
+ },
+ {
+  "id": "g7-105-casual",
+  "source": "g7-105",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A current of 90 milliAmpere (mA) flows for 150 s. What amount of charge are transferred during this time?",
+  "prompt": "ok so this one's about current and charge. like there's a current of 90 milliAmpere (mA) flowing for 150 s, and the question is what amount of charge gets transferred during that time? kinda stuck on what to do with the units lol",
+  "answer": [
+   13.5,
+   "C"
+  ]
+ },
+ {
+  "id": "mod-03-casual",
+  "source": "mod-03",
+  "style": "a parent helping with homework, plain words",
+  "original": "A radioactive sample has a half-life of 8 days. What fraction remains after 24 days?",
+  "prompt": "hey so this one's about a radioactive sample with a half-life of 8 days. what fraction is left after 24 days?",
+  "answer": [
+   0.125,
+   ""
+  ]
+ },
+ {
+  "id": "g7-16-casual",
+  "source": "g7-16",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A wheel and axle has a wheel of radius 40 cm and an axle of diameter 10 cm. An effort of 150 N raises a load of 1000 N. What is its efficiency?",
+  "prompt": "ok so a wheel and axle has a wheel of radius 40 cm and an axle of diameter 10 cm. an effort of 150 N raises a load of 1000 N. what is its efficiency",
+  "answer": [
+   83.333,
+   "%"
+  ]
+ },
+ {
+  "id": "g7-011-casual",
+  "source": "g7-011",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "Abel and Zehara want to sit at the two ends of a SEE-SAW having equal distances from the pivot. Zehara is 37 kg, and Abel is 29 kg. What additional mass (m x ) should Abel carry in order to balance the SEE-SAW.",
+  "prompt": "hey so me and my friend Zehara wanna sit on opposite ends of a seesaw, same distance from the middle. she's 37 kg and i'm 29 kg. how much extra weight (m x) would i need to carry to balance it out?",
+  "answer": [
+   8.0,
+   "kg"
+  ]
+ },
+ {
+  "id": "rm12b-095-casual",
+  "source": "rm12b-095",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A light ray is incident at 45° on a glass slab and is refracted at 28°. What is the refractive index of the glass?",
+  "prompt": "ugh ok so my physics hw says a light ray hits a glass slab at 45° and gets refracted at 28°. what's the refractive index of the glass?? i'm so lost lol, i keep mixing up which angle goes where. sorry if this is dumb",
+  "answer": [
+   1.506,
+   ""
+  ]
+ },
+ {
+  "id": "proj-04-casual",
+  "source": "proj-04",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A ball is launched at 15 m/s at 45 degrees. How long is it in the air?",
+  "prompt": "yo pls help, ball launched at 15 m/s at 45 degrees. how long is it in the air? u think u can explain how to do it?",
+  "answer": [
+   2.16241,
+   "s"
+  ]
+ },
+ {
+  "id": "r5-093-casual",
+  "source": "r5-093",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A spacecraft leaves Earth and goes into orbit around the Moon at a radius of 2000 km. Find its orbital speed.",
+  "prompt": "ok so my hw question is kinda like this: a spacecraft leaves earth and goes into orbit around the moon at a radius of 2000 km. can u help me figure out its orbital speed??",
+  "answer": [
+   1565.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "g8-006-casual",
+  "source": "g8-006",
+  "style": "a parent helping with homework, plain words",
+  "original": "Find the base area of a glass. If its base is circular with a diameter of 4 cm. (take π = 3.14)",
+  "prompt": "hey can u help me with this one? it says find the base area of a glass. if its base is circular with a diameter of 4 cm. (take π = 3.14)",
+  "answer": [
+   12.56,
+   "cm^2"
+  ]
+ },
+ {
+  "id": "h-mod-03-casual",
+  "source": "h-mod-03",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A sample has a half-life of 3 hours. What fraction is left after 9 hours?",
+  "prompt": "ok so a sample has a half life of 3 hours. what fraction is left after 9 hours",
+  "answer": [
+   0.125,
+   ""
+  ]
+ },
+ {
+  "id": "cw-s01-casual",
+  "source": "cw-s01",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A 0.25 kg mass oscillates on a spring with k = 40 N/m. What is the period?",
+  "prompt": "hey so i got this hw q: a 0.25 kg thing is bouncing on a spring that's 40 N/m stiff. how long does one full bounce cycle take? like what's the period",
+  "answer": [
+   0.496729,
+   "s"
+  ]
+ },
+ {
+  "id": "o07-casual",
+  "source": "o07",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "In a double slit experiment the slits are 0.2 mm apart and the screen is 1.5 m away. With 600 nm light, what's the fringe spacing?",
+  "prompt": "ok so i'm stuck on this physics hw lol. double slit thing, the slits are 0.2 mm apart and the screen is 1.5 m away, with 600 nm light. what's the fringe spacing?? my brain is fried rn, sorry if this is obvious",
+  "answer": [
+   0.0045,
+   "m"
+  ]
+ },
+ {
+  "id": "p11-density-seawater-casual",
+  "source": "p11-density-seawater",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "The density of seawater is 1025 kg/m³. What is the mass of 2 m³ of seawater?",
+  "prompt": "hey u know the density of seawater is 1025 kg/m³? pls help, whats the mass of 2 m³ of seawater",
+  "answer": [
+   2050.0,
+   "kg"
+  ]
+ },
+ {
+  "id": "pA1-casual",
+  "source": "pA1",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "a ball is thrown straight down at 10 m/s from a 50 m cliff. how long to reach the ground",
+  "prompt": "ok so my physics hw is killing me lol. a ball gets thrown straight down at 10 m/s off a cliff that's 50 m tall. how long does it take to hit the ground??",
+  "answer": [
+   2.33217,
+   "s"
+  ]
+ },
+ {
+  "id": "r5-phase-03-casual",
+  "source": "r5-phase-03",
+  "style": "a parent helping with homework, plain words",
+  "original": "How much heat is needed to warm 2 kg of water from 20 °C to 80 °C?",
+  "prompt": "hey can u help me with this one? how much heat is needed to warm 2 kg of water from 20 °C to 80 °C",
+  "answer": [
+   502320.0,
+   "J"
+  ]
+ },
+ {
+  "id": "r5-phase-02-casual",
+  "source": "r5-phase-02",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "How much heat to melt 500 g of ice at 0 °C and then warm the water to 30 °C?",
+  "prompt": "ok so how much heat does it take to melt 500 g of ice at 0 °C and then warm that water up to 30 °C",
+  "answer": [
+   229790.0,
+   "J"
+  ]
+ },
+ {
+  "id": "h-mag-01-casual",
+  "source": "h-mag-01",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "An electron moves at 3 x 10^6 m/s at right angles to a 0.1 T magnetic field. What force acts on it?",
+  "prompt": "hey so i have this physics hw q. an electron is zooming along at 3 x 10^6 m/s and it's moving at right angles to a 0.1 T magnetic field. what force is acting on it?",
+  "answer": [
+   4.806e-14,
+   "N"
+  ]
+ },
+ {
+  "id": "l18-casual",
+  "source": "l18",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A 4 ohm resistor is in series with a parallel pair of 6 ohm and 3 ohm resistors across a 12 V battery. Find the current.",
+  "prompt": "ok so i'm totally lost on this physics hw lol. a 4 ohm resistor is in series with a parallel pair of 6 ohm and 3 ohm resistors across a 12 V battery. can someone help me find the current?? sorry if this is basic, i'm kinda cooked rn",
+  "answer": [
+   2.0,
+   "A"
+  ]
+ },
+ {
+  "id": "g8-063-casual",
+  "source": "g8-063",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "When a 200Ω resistance is joined to a mains supply the current is 1.15A. What is the mains voltage?",
+  "prompt": "yo pls help, hw q: 200Ω resistor joined to mains, current is 1.15A. what's the mains voltage?",
+  "answer": [
+   230.0,
+   "V"
+  ]
+ },
+ {
+  "id": "p09-casual",
+  "source": "p09",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "an astronaut of mass 90 kg throws a 3 kg wrench at 6 m/s. what's his recoil speed",
+  "prompt": "ok so this one's about an astronaut, 90 kg, who throws a 3 kg wrench at 6 m/s. what's his recoil speed tho",
+  "answer": [
+   0.2,
+   "m/s"
+  ]
+ },
+ {
+  "id": "rp-cir-08-casual",
+  "source": "rp-cir-08",
+  "style": "a parent helping with homework, plain words",
+  "original": "A 5 Ω resistor is connected in series with another 5 Ω resistor and a 10 Ω resistor. Find the total resistance.",
+  "prompt": "hey, quick one for my kid's homework: a 5 Ω resistor is in series with another 5 Ω resistor and a 10 Ω resistor. what's the total resistance?",
+  "answer": [
+   20.0,
+   "ohm"
+  ]
+ },
+ {
+  "id": "n09-casual",
+  "source": "n09",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A block on a ramp just starts to slide when the ramp is tilted to 22 degrees. what is the coefficient of static friction?",
+  "prompt": "ok so a block on a ramp just starts to slide when the ramp is tilted to 22 degrees. what is the coefficient of static friction",
+  "answer": [
+   0.404026,
+   ""
+  ]
+ },
+ {
+  "id": "cw-o09-casual",
+  "source": "cw-o09",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "What is the power of a lens with a focal length of 5 cm?",
+  "prompt": "hey so i got this physics hw q and idk how to start. whats the power of a lens if its focal length is 5 cm? like what do i even calculate lol",
+  "answer": [
+   20.0,
+   "D"
+  ]
+ },
+ {
+  "id": "arl-10-casual",
+  "source": "arl-10",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A gas expands from 2 L to 3 L at constant pressure, ending at 450 K. What was its initial temperature?",
+  "prompt": "ok so my chem hw says a gas expands from 2 L to 3 L at constant pressure and ends at 450 K. what was its starting temp?? i'm so lost lol, is this charles's law or something? (sorry if that's obvious lol)",
+  "answer": [
+   300.0,
+   "K"
+  ]
+ },
+ {
+  "id": "au-rv2-inductor-falls-from-to-casual",
+  "source": "au-rv2-inductor-falls-from-to",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A 2 H inductor carries a current that falls from 3 A to 500 mA in 0.1 s. What is the induced emf?",
+  "prompt": "yo can u help w this? 2 H inductor, current drops from 3 A to 500 mA in 0.1 s. wat's the induced emf? pls",
+  "answer": [
+   50.0,
+   "V"
+  ]
+ },
+ {
+  "id": "au-rv4-owner-with-value-casual",
+  "source": "au-rv4-owner-with-value",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "Ignoring the 12 V battery's 0.5 Ω internal resistance, what current does it drive through a 4 Ω resistor?",
+  "prompt": "ok so my teacher gave us this one lol. there's a 12 V battery and a 4 Ω resistor, and we're supposed to ignore the battery's 0.5 Ω internal resistance. what current does it drive through the 4 Ω resistor?",
+  "answer": [
+   3.0,
+   "A"
+  ]
+ },
+ {
+  "id": "pl-vcirc-top-casual",
+  "source": "pl-vcirc-top",
+  "style": "a parent helping with homework, plain words",
+  "original": "A 3 kg object moves in a vertical circle of radius 1 m at 5 m/s. Find the tension at the top.",
+  "prompt": "hey can you help me with this physics one? it says a 3 kg object moves in a vertical circle of radius 1 m at 5 m/s. find the tension at the top",
+  "answer": [
+   45.57,
+   "N"
+  ]
+ },
+ {
+  "id": "au-first-reach-casual",
+  "source": "au-first-reach",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A ball is thrown straight up at 20 m/s. How long does it take to first reach a height of 15 m?",
+  "prompt": "ok so a ball is thrown straight up at 20 m/s. how long does it take to first reach a height of 15 m",
+  "answer": [
+   0.99072,
+   "s"
+  ]
+ },
+ {
+  "id": "r5-side-03-casual",
+  "source": "r5-side-03",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "How long does a ball take to fall 20 m on Earth? Compare with Jupiter.",
+  "prompt": "yo how long does a ball take to drop 20 m on earth?? and compare it w jupiter",
+  "answer": [
+   2.019275,
+   "s"
+  ]
+ },
+ {
+  "id": "elec-14-casual",
+  "source": "elec-14",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "how much current does a 1500 watt microwave use on a 120 volt outlet",
+  "prompt": "ok so im so confused lol. my hw asks how much current does a 1500 watt microwave use on a 120 volt outlet. like what do i even do with those numbers?? (sorry my brain is fried rn)",
+  "answer": [
+   12.5,
+   "A"
+  ]
+ },
+ {
+  "id": "r5-012-casual",
+  "source": "r5-012",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A 1200 kg satellite orbits a planet of mass 6.4e23 kg with a period of 2 hours. Find the radius of its orbit.",
+  "prompt": "hey pls help, hw q: a 1200 kg satellite orbits a planet of mass 6.4e23 kg w a period of 2 hours. find the radius of its orbit. thx u",
+  "answer": [
+   3830000.0,
+   "m"
+  ]
+ },
+ {
+  "id": "rm12b-052-casual",
+  "source": "rm12b-052",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "On the Moon, a rock is dropped from 1.6 m. How long does it take to fall?",
+  "prompt": "ok so my physics homework is kinda weird. a rock gets dropped from 1.6 m on the moon, and i need to figure out how long it takes to hit the ground. any idea how to start?",
+  "answer": [
+   1.405,
+   "s"
+  ]
+ },
+ {
+  "id": "rv11-inverted-image-object-casual",
+  "source": "rv11-inverted-image-object",
+  "style": "a parent helping with homework, plain words",
+  "original": "A lens forms an inverted image 4 cm tall with a magnification of -2. How tall is the object?",
+  "prompt": "hey can u help me with this one? a lens makes an inverted image that's 4 cm tall and the magnification is -2. how tall is the object?",
+  "answer": [
+   2.0,
+   "cm"
+  ]
+ },
+ {
+  "id": "rs-angle-with-the-vertical-asked-casual",
+  "source": "rs-angle-with-the-vertical-asked",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A ball is thrown horizontally at 10 m/s from a 20 m high cliff. Find its speed when it lands, and the angle it makes with the vertical.",
+  "prompt": "ok so a ball gets thrown horizontally at 10 m/s off a 20 m high cliff. find its speed when it lands and the angle it makes with the vertical",
+  "answer": [
+   22.1901,
+   "m/s"
+  ]
+ },
+ {
+  "id": "mom-09-casual",
+  "source": "mom-09",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A 3 kg ball moving at 4 m/s makes an elastic head-on collision with a stationary 3 kg ball. What is the speed of the second ball afterwards?",
+  "prompt": "hey so i got this physics hw q and idk how to start. theres a 3 kg ball rolling at 4 m/s and it smacks straight into a 3 kg ball that's just sitting there not moving. its a bouncy hit where no energy gets lost. how fast is the second ball going after the hit??",
+  "answer": [
+   4.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "r5-087-casual",
+  "source": "r5-087",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A satellite orbits Mars at a radius of 4000 km. Find its orbital speed.",
+  "prompt": "ugh ok so im stuck on this physics hw lol. a satellite orbits mars at a radius of 4000 km. can u help me find its orbital speed?? idk where to start",
+  "answer": [
+   3272.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "g8-084-casual",
+  "source": "g8-084",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "What is the angle between incident ray and reflected ray if the angle of incidence is 40o?",
+  "prompt": "hey pls help me w this physics q lol. whats the angle between incident ray and reflected ray if the angle of incidence is 40o? need it asap",
+  "answer": [
+   80.0,
+   "deg"
+  ]
+ },
+ {
+  "id": "d07-casual",
+  "source": "d07",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "what's the energy of a 1.2 µm infrared photon in eV",
+  "prompt": "ok so my hw asks: what's the energy of a 1.2 µm infrared photon in eV? lol I'm kinda lost on this one, can you help",
+  "answer": [
+   1.0332,
+   "eV"
+  ]
+ },
+ {
+  "id": "m07-casual",
+  "source": "m07",
+  "style": "a parent helping with homework, plain words",
+  "original": "a coil of 200 turns, area 0.01 m^2, is in a field that drops from 0.5 T to 0 in 0.1 s. average induced emf?",
+  "prompt": "hey, quick homework q: a coil with 200 turns and area 0.01 m^2 sits in a field that drops from 0.5 T to 0 in 0.1 s. what's the average induced emf?",
+  "answer": [
+   10.0,
+   "V"
+  ]
+ },
+ {
+  "id": "p17-head-on-signed-axes-casual",
+  "source": "p17-head-on-signed-axes",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A 3.00 kg object moving in the +x direction at 4.00 m/s collides head-on and sticks together with a 1.00 kg object moving in the −x direction at 2.00 m/s. How much kinetic energy is lost in the collision?",
+  "prompt": "ok so a 3.00 kg object moving in the +x direction at 4.00 m/s hits head on and sticks together with a 1.00 kg object moving in the −x direction at 2.00 m/s. how much kinetic energy is lost in the collision",
+  "answer": [
+   13.5,
+   "J"
+  ]
+ },
+ {
+  "id": "g8-015-casual",
+  "source": "g8-015",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "Compute the following operation in scientific notation.\n3.9 × 10-2m − 2.3 × 10-3m",
+  "prompt": "hey can u help me with this hw q? its like, what's 3.9 × 10-2m minus 2.3 × 10-3m, and it wants the answer in scientific notation. thx",
+  "answer": [
+   0.0367,
+   "m"
+  ]
+ },
+ {
+  "id": "r5-007-casual",
+  "source": "r5-007",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A 1000 kg probe falls toward Mars from far away. Find the escape velocity of Mars.",
+  "prompt": "ok so i'm stuck on this physics hw lol. a 1000 kg probe falls toward mars from far away. find the escape velocity of mars?? i don't even know if the 1000 kg matters or if it's a trick, sorry, my brain is fried rn",
+  "answer": [
+   5027.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "r5-down-08-casual",
+  "source": "r5-down-08",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A ball is thrown straight up at 20 m/s. How long is it in the air?",
+  "prompt": "hey pls help, ball thrown straight up at 20 m/s. how long is it in the air? thx u",
+  "answer": [
+   4.077472,
+   "s"
+  ]
+ },
+ {
+  "id": "p17-engine-accelerates-payload-casual",
+  "source": "p17-engine-accelerates-payload",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A rocket engine accelerates a 2.0 kg payload upward at 15 m/s² to a height of 40 m. How much potential energy does the payload gain?",
+  "prompt": "ok so my physics hw is killing me lol. there's this rocket engine that accelerates a 2.0 kg payload upward at 15 m/s² and it gets up to a height of 40 m. how much potential energy does the payload gain?? pls help",
+  "answer": [
+   784.8,
+   "J"
+  ]
+ },
+ {
+  "id": "m02-casual",
+  "source": "m02",
+  "style": "a parent helping with homework, plain words",
+  "original": "a proton travels at 3e6 m/s perpendicular to a 0.5 T field. radius of its circular path?",
+  "prompt": "hey, quick homework q: a proton moves at 3e6 m/s, perpendicular to a 0.5 T magnetic field. what's the radius of its circular path?",
+  "answer": [
+   0.0626381,
+   "m"
+  ]
+ },
+ {
+  "id": "k06-casual",
+  "source": "k06",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A ball is thrown straight down at 8 m/s from the top of a 40 m building. how long does it take to hit the ground?",
+  "prompt": "ok so a ball is thrown straight down at 8 m/s from the top of a 40 m building. how long does it take to hit the ground",
+  "answer": [
+   2.15435,
+   "s"
+  ]
+ },
+ {
+  "id": "au-halts-casual",
+  "source": "au-halts",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A train moving at 25 m/s halts after 10 s. How far does it travel while stopping?",
+  "prompt": "hey so a train is going 25 m/s and it takes 10 s to come to a full stop. how far does it roll before it stops??",
+  "answer": [
+   125.0,
+   "m"
+  ]
+ },
+ {
+  "id": "fall-01-casual",
+  "source": "fall-01",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "If I drop a rock off a 20 m cliff, how long until it hits the bottom?",
+  "prompt": "ok so my physics hw says if i drop a rock off a 20 m cliff how long till it hits the bottom?? i'm kinda lost on this one lol, any help? (sorry if this is obvious)",
+  "answer": [
+   2.01928,
+   "s"
+  ]
+ },
+ {
+  "id": "r5-net-07-casual",
+  "source": "r5-net-07",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "Three 6 Ω resistors in series are connected to a 9 V battery. what current flows?",
+  "prompt": "ok so i have this physics hw and i'm kinda stuck lol. three 6 Ω resistors are in series and hooked up to a 9 V battery. what current flows?",
+  "answer": [
+   0.5,
+   "A"
+  ]
+ },
+ {
+  "id": "t12-casual",
+  "source": "t12",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "a refrigerator removes 300 J of heat from inside while using 100 J of work. coefficient of performance?",
+  "prompt": "ok so my physics homework is killing me lol. a fridge pulls 300 J of heat out from inside and uses 100 J of work to do it. what's the coefficient of performance??",
+  "answer": [
+   3.0,
+   ""
+  ]
+ },
+ {
+  "id": "p17-at-rest-then-westward-casual",
+  "source": "p17-at-rest-then-westward",
+  "style": "a parent helping with homework, plain words",
+  "original": "A 1.0 kg cart at rest collides with a westward-moving 2.0 kg cart at 3.0 m/s and they stick together. What is their final speed?",
+  "prompt": "hey can u help me w this physics one? a 1.0 kg cart is sitting at rest and gets hit by a 2.0 kg cart moving west at 3.0 m/s, and they stick together after. what's their final speed?",
+  "answer": [
+   2.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "cw-e03-casual",
+  "source": "cw-e03",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "What is the kinetic energy of a 1200 kg car moving at 72 km/h?",
+  "prompt": "hey can u help w this physics q lol so whats the kinetic energy of a 1200 kg car moving at 72 km/h",
+  "answer": [
+   240000.0,
+   "J"
+  ]
+ },
+ {
+  "id": "au-kick-x-casual",
+  "source": "au-kick-x",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A ball is kicked at 20 m/s at 30° above the horizontal. How far has it travelled horizontally after 1 s?",
+  "prompt": "yo so i kicked a ball at 20 m/s, angled 30° up from the ground. how far does it go sideways after 1 s?",
+  "answer": [
+   17.321,
+   "m"
+  ]
+ },
+ {
+  "id": "r02-casual",
+  "source": "r02",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A wheel with moment of inertia 2.5 kg·m² has a net torque of 10 N·m applied. what is its angular acceleration?",
+  "prompt": "ok so i'm stuck on this physics hw lol. a wheel with moment of inertia 2.5 kg·m² has a net torque of 10 N·m applied. what is its angular acceleration?? i think it's something with τ = Iα but i always mix up which one goes where, sorry if this is dumb",
+  "answer": [
+   4.0,
+   "rad/s^2"
+  ]
+ },
+ {
+  "id": "vc-opposite-north-casual",
+  "source": "vc-opposite-north",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A ship sails 25 km on a bearing of 240°. Find the northward component.",
+  "prompt": "hey pls help w this, ship sails 25 km on a bearing of 240°. wat's the northward component? thx",
+  "answer": [
+   -12.5,
+   "km"
+  ]
+ },
+ {
+  "id": "h-en-02-casual",
+  "source": "h-en-02",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "How much potential energy does a 500 kg elevator gain rising 20 m?",
+  "prompt": "ok so i have this physics hw and im kinda stuck lol. a 500 kg elevator goes up 20 m, how much potential energy does it gain?? can someone help",
+  "answer": [
+   98100.0,
+   "J"
+  ]
+ },
+ {
+  "id": "g8-004-casual",
+  "source": "g8-004",
+  "style": "a parent helping with homework, plain words",
+  "original": "What is the surface area of a table, if the length is 120 cm and its width is 80 cm?",
+  "prompt": "hey can u help me with this one? what's the surface area of a table if the length is 120 cm and the width is 80 cm",
+  "answer": [
+   9600.0,
+   "cm^2"
+  ]
+ },
+ {
+  "id": "rv11-tex-coulomb-denominator-casual",
+  "source": "rv11-tex-coulomb-denominator",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "Two point charges of \\(2\\,\\mu\\text{C}\\) and \\(3\\,\\mu\\text{C}\\) are \\(0.3\\,\\text{m}\\) apart. What is the electrostatic force between them? (Use \\(F = \\frac{1}{4\\pi\\varepsilon_0}\\frac{q_1q_2}{r^2}\\).)",
+  "prompt": "hey so i got this physics hw and i'm kinda stuck. we have two little charged things, one has 2 μC and the other has 3 μC, and they're 0.3 m apart. how much force is there between them? i think we use F = 1/(4πε0) × q1q2/r² but idk if i'm setting it up right",
+  "answer": [
+   0.599,
+   "N"
+  ]
+ },
+ {
+  "id": "n01-casual",
+  "source": "n01",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "a 12 kg block slides down a 30 deg incline, coefficient of kinetic friction 0.25. accelaration?",
+  "prompt": "hey so i got this problem, theres a 12 kg block sliding down a 30 deg ramp and the friction coefficient is 0.25. what's the acceleration? idk how to start lol",
+  "answer": [
+   2.78107,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "g8-074-casual",
+  "source": "g8-074",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A transformer is being designed to have a 600-volt output with a 120-volt input. If there are to be 800 turns of wire in the input coil, how many turns must there be in the output coil?",
+  "prompt": "ok so i'm so lost on this transformer hw lol. it says a transformer is being designed to have a 600-volt output with a 120-volt input, and there are supposed to be 800 turns of wire in the input coil. how many turns does the output coil need?? i think it has something to do with the ratio but idk which way it goes 😅",
+  "answer": [
+   4000.0,
+   ""
+  ]
+ },
+ {
+  "id": "grav-04-casual",
+  "source": "grav-04",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "Find the orbital speed of a satellite 400 km above Earth's surface.",
+  "prompt": "hey pls help, need orbital speed of a satellite 400 km above Earth's surface. thx",
+  "answer": [
+   7672.32,
+   "m/s"
+  ]
+ },
+ {
+  "id": "au-rv4-loop-bridged-casual",
+  "source": "au-rv4-loop-bridged",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "In a loop, a 9 V battery drives a 3 Ω resistor and a 6 Ω resistor. The 6 Ω resistor is bridged by a 12 Ω resistor. What is the current from the battery?",
+  "prompt": "ok so my hw is about a loop with a 9 V battery. it drives a 3 Ω resistor and a 6 Ω resistor, and the 6 Ω one has a 12 Ω resistor bridged across it. what's the current from the battery?? lol",
+  "answer": [
+   1.2857,
+   "A"
+  ]
+ },
+ {
+  "id": "force-09-casual",
+  "source": "force-09",
+  "style": "a parent helping with homework, plain words",
+  "original": "An elevator of mass 800 kg accelerates upward at 2 m/s^2. What is the tension in the cable?",
+  "prompt": "hey, quick homework q: an elevator that's 800 kg accelerates upward at 2 m/s^2. what's the tension in the cable?",
+  "answer": [
+   9448.0,
+   "N"
+  ]
+ },
+ {
+  "id": "r5-077-casual",
+  "source": "r5-077",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A planet has a mass of 6e24 kg. A 1000 kg satellite orbits it at a radius of 8000 km. Find the orbital speed.",
+  "prompt": "ok so a planet has a mass of 6e24 kg and theres a 1000 kg satellite orbiting it at a radius of 8000 km. find the orbital speed",
+  "answer": [
+   7075.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "g8-051-casual",
+  "source": "g8-051",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A cylindrical container is filled with oil to a depth of 32 cm. if the pressure exerted at the base of the container is known to be 2560pa then, how much is the density of the oil?",
+  "prompt": "hey so my physics hw is killing me lol. there's this cylinder thing filled with oil up to 32 cm deep, and the push on the bottom of it is 2560 Pa. what's the oil's density??",
+  "answer": [
+   815.494393476,
+   "kg/m^3"
+  ]
+ },
+ {
+  "id": "en-17-casual",
+  "source": "en-17",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A 2 kg cart moving at 3 m/s compresses a spring of constant 200 N/m. What is the maximum compression?",
+  "prompt": "ok so this physics hw is confusing me lol. a 2 kg cart moving at 3 m/s hits a spring with a spring constant of 200 N/m. like what's the max compression?? idk where to start, any hints? (sorry my brain is fried rn)",
+  "answer": [
+   0.3,
+   "m"
+  ]
+ },
+ {
+  "id": "k05-casual",
+  "source": "k05",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "a boat heads straight across a river at 4 m/s while the current flows at 3 m/s. what is the boat's resultant speed relative to the bank?",
+  "prompt": "yo pls help, boat goes straight across a river at 4 m/s and the current is 3 m/s. whats the boats resultant speed relative to the bank?",
+  "answer": [
+   5.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "rm12b-130-casual",
+  "source": "rm12b-130",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "Yellow light of wavelength 589 nm enters glass with n = 1.306. Wavelength in glass?",
+  "prompt": "ok so my physics hw says yellow light, wavelength 589 nm, goes into glass where n = 1.306. what's the wavelength once it's inside the glass? lol I'm so confused",
+  "answer": [
+   451.0,
+   "nm"
+  ]
+ },
+ {
+  "id": "ar-15-casual",
+  "source": "ar-15",
+  "style": "a parent helping with homework, plain words",
+  "original": "A car starts at 10 m/s and accelerates at 4 m/s^2 for 5 s. What is its final speed?",
+  "prompt": "hey so this one's about a car. it starts at 10 m/s and speeds up at 4 m/s^2 for 5 s. what's its final speed?",
+  "answer": [
+   30.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "rp-opt-31-casual",
+  "source": "rp-opt-31",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "An object is 30 cm from a lens of focal length 20 cm. Find the image distance. Is the image real or virtual?",
+  "prompt": "ok so theres this physics q. an object is 30 cm from a lens w focal length 20 cm. find the image distance. is the image real or virtual",
+  "answer": [
+   60.0,
+   "cm"
+  ]
+ },
+ {
+  "id": "g7-079-casual",
+  "source": "g7-079",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A load of 360N is moved by applying an effort of 60N to a machine, What is the mechanical advantage of the machine?",
+  "prompt": "hey so theres this problem where u have a load of 360N and u move it by pushing with 60N on some machine. whats the mechanical advantage of the machine?? thx",
+  "answer": [
+   6.0,
+   ""
+  ]
+ },
+ {
+  "id": "rm12-lift-normal-force-mass-casual",
+  "source": "rm12-lift-normal-force-mass",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "An elevator accelerates upward at 2 m/s² and the normal force on a passenger is 708.6 N. What is the passenger's mass?",
+  "prompt": "ok so i'm stuck on this physics hw lol. an elevator accelerates upward at 2 m/s² and the normal force on a passenger is 708.6 N. what's the passenger's mass?? ugh my brain is fried, thanks in advance (sorry if this is obvious lol)",
+  "answer": [
+   60.0,
+   "kg"
+  ]
+ },
+ {
+  "id": "r5-route-04-casual",
+  "source": "r5-route-04",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A ball is kicked at 40° above the ground with speed 20m/s. how far does it go?",
+  "prompt": "hey u kno how to do this? ball kicked at 40° above the ground w speed 20m/s. how far does it go? pls help asap",
+  "answer": [
+   40.15526,
+   "m"
+  ]
+ },
+ {
+  "id": "rm12b-115-casual",
+  "source": "rm12b-115",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A transformer has 400 turns on the primary and 100 on the secondary. The secondary voltage is 12 V. What is the voltage across the primary?",
+  "prompt": "ok so my physics homework is driving me nuts lol. we've got a transformer with 100 turns on the secondary and 400 on the primary, right? and the secondary voltage is 12 V. so what's the voltage across the primary? help pls",
+  "answer": [
+   48.0,
+   "V"
+  ]
+ },
+ {
+  "id": "au-spring-N-per-mm-casual",
+  "source": "au-spring-N-per-mm",
+  "style": "a parent helping with homework, plain words",
+  "original": "A spring with k = 3 N/mm is stretched 2 cm. What force does it exert?",
+  "prompt": "hey can u help me w this one? a spring with k = 3 N/mm gets stretched 2 cm. what force does it exert?",
+  "answer": [
+   60.0,
+   "N"
+  ]
+ },
+ {
+  "id": "en-15-casual",
+  "source": "en-15",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A spring with k = 400 N/m is compressed 0.1 m. How much elastic potential energy is stored?",
+  "prompt": "ok so a spring w k = 400 N/m gets compressed 0.1 m. how much elastic potential energy is stored",
+  "answer": [
+   2.0,
+   "J"
+  ]
+ },
+ {
+  "id": "g7-029-casual",
+  "source": "g7-029",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "Suppose an object is moving at a constant speed of 2m/s in straight line. What distance does it travel in 5 seconds?",
+  "prompt": "hey so theres this thing moving at a steady 2m/s in a straight line, how far does it go in 5 seconds??",
+  "answer": [
+   10.0,
+   "m"
+  ]
+ },
+ {
+  "id": "cw-c02-casual",
+  "source": "cw-c02",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "What is the acceleration due to gravity at a height of 300 km above Earth's surface?",
+  "prompt": "hey u know the acceleration due to gravity at 300 km above earth's surface? pls help, due soon",
+  "answer": [
+   8.95661,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "kin-02-casual",
+  "source": "kin-02",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A bus accelerates from rest at 1.5 m/s² for 12 s. What is its final speed?",
+  "prompt": "hey pls help, bus starts from rest and accelerates at 1.5 m/s² for 12 s. what's its final speed? u know this one?",
+  "answer": [
+   18.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "wave-09-casual",
+  "source": "wave-09",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "An ambulance siren at 700 Hz approaches you at 25 m/s. What frequency do you hear? Use 343 m/s for sound.",
+  "prompt": "ok so my physics hw is driving me nuts lol. there's an ambulance siren at 700 Hz coming toward me at 25 m/s, and i need to figure out what frequency i actually hear. they said to use 343 m/s for the speed of sound. can someone help me?",
+  "answer": [
+   755.031,
+   "Hz"
+  ]
+ },
+ {
+  "id": "au-rv2-loop-voltmeter-mohm-casual",
+  "source": "au-rv2-loop-voltmeter-mohm",
+  "style": "a parent helping with homework, plain words",
+  "original": "In a loop, a 6 V cell drives current through a 1 kΩ resistor and a 2 kΩ resistor. A voltmeter of resistance 20 MΩ measures the voltage across the 2 kΩ resistor. What is the current in the loop?",
+  "prompt": "hey, quick homework q: there's a 6 V cell pushing current through a 1 kΩ resistor and a 2 kΩ resistor in a loop. a voltmeter with 20 MΩ resistance is measuring the voltage across the 2 kΩ resistor. what's the current in the loop?",
+  "answer": [
+   0.002,
+   "A"
+  ]
+ },
+ {
+  "id": "mom-06-casual",
+  "source": "mom-06",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A force of 500 N acts on a ball for 0.02 s. What impulse does it give?",
+  "prompt": "ok so a force of 500 N acts on a ball for 0.02 s what impulse does it give",
+  "answer": [
+   10.0,
+   "N*s"
+  ]
+ },
+ {
+  "id": "e04-casual",
+  "source": "e04",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A 750 W motor is 80% efficient. how long does it take to lift a 200 kg load through 6 m?",
+  "prompt": "yo can u help w this one? got a motor thats 750 W and its 80% efficient. how long does it take to lift a 200 kg load up 6 m?",
+  "answer": [
+   19.62,
+   "s"
+  ]
+ },
+ {
+  "id": "au-rv-ohm-kohm-casual",
+  "source": "au-rv-ohm-kohm",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A 4.7 kΩ resistor is connected across a 9 V battery. What current flows through it?",
+  "prompt": "ok so im stuck on this one lol. a 4.7 kΩ resistor is hooked across a 9 V battery, what current flows through it?? my teacher said use ohm's law but i keep getting confused about which number goes where. sorry if this is obvious",
+  "answer": [
+   0.0019149,
+   "A"
+  ]
+ },
+ {
+  "id": "au-rv-capacitor-energy-kv-casual",
+  "source": "au-rv-capacitor-energy-kv",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A 10 µF capacitor is charged to 2 kV. How much energy does it store?",
+  "prompt": "hey pls help, a 10 µF capacitor is charged to 2 kV. how much energy does it store? u know how to do this?",
+  "answer": [
+   20.0,
+   "J"
+  ]
+ },
+ {
+  "id": "o08-casual",
+  "source": "o08",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A diffraction grating has 500 lines per mm. Light of 550 nm. At what angle is the first-order maximum?",
+  "prompt": "ok so my physics hw is about a diffraction grating, it has 550 nm light shining on it and the grating has 500 lines per mm. the question is what angle the first-order maximum shows up at. lol help",
+  "answer": [
+   15.962,
+   "deg"
+  ]
+ },
+ {
+  "id": "arl-02-casual",
+  "source": "arl-02",
+  "style": "a parent helping with homework, plain words",
+  "original": "After braking begins, a car moving at 20 m/s decelerates at 4 m/s^2 for 3 s. How far does it travel?",
+  "prompt": "hey so my kid has this physics problem: after braking starts, a car going 20 m/s slows down at 4 m/s^2 for 3 s. how far does it travel?",
+  "answer": [
+   42.0,
+   "m"
+  ]
+ },
+ {
+  "id": "q07-casual",
+  "source": "q07",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A 0.2 kg ball hits a wall at 15 m/s and bounces back at 10 m/s. contact time 0.05 s. average force on the ball?",
+  "prompt": "ugh ok so a 0.2 kg ball hits a wall at 15 m/s and bounces back at 10 m/s. contact time is 0.05 s. what's the average force on the ball",
+  "answer": [
+   100.0,
+   "N"
+  ]
+ },
+ {
+  "id": "fall-reach-02-casual",
+  "source": "fall-reach-02",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A stone falls from the top of a cliff 45 m high. How long does it take to reach the bottom?",
+  "prompt": "hey so a rock falls off a cliff that's 45 m tall, how long does it take to hit the bottom?",
+  "answer": [
+   3.02891,
+   "s"
+  ]
+ },
+ {
+  "id": "au-ke-after-casual",
+  "source": "au-ke-after",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A 2 kg ball is thrown up at 10 m/s. What is its kinetic energy after 0.5 s?",
+  "prompt": "ok so this physics hw is confusing me lol. a 2 kg ball is thrown up at 10 m/s. what is its kinetic energy after 0.5 s?? do i just plug in the numbers or is there a trick? (sorry my brain is fried rn)",
+  "answer": [
+   25.959,
+   "J"
+  ]
+ },
+ {
+  "id": "pA3-casual",
+  "source": "pA3",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A stone is thrown vertically downward at 5 m/s from a 30 m tower. how long until it hits the ground?",
+  "prompt": "hey pls help, stone thrown vertically downward at 5 m/s from a 30 m tower. how long till it hits the ground? u know the formula?",
+  "answer": [
+   2.01539,
+   "s"
+  ]
+ },
+ {
+  "id": "l21-casual",
+  "source": "l21",
+  "style": "a parent helping with homework, plain words",
+  "original": "R1=10Ω, R2=20Ω in parallel. Find the total resistance.",
+  "prompt": "hey so my kid's got this one: R1=10Ω and R2=20Ω are in parallel, what's the total resistance?",
+  "answer": [
+   6.66667,
+   "ohm"
+  ]
+ },
+ {
+  "id": "fluid-01-casual",
+  "source": "fluid-01",
+  "style": "a parent helping with homework, plain words",
+  "original": "What is the water pressure at a depth of 10 m in a lake (ignore air pressure)?",
+  "prompt": "hey can u help me with this one? what's the water pressure at a depth of 10 m in a lake? ignore air pressure",
+  "answer": [
+   98100.0,
+   "Pa"
+  ]
+ },
+ {
+  "id": "kin-06-casual",
+  "source": "kin-06",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "how long does it take to drive 240 km at 80 km/h",
+  "prompt": "how long does it take to drive 240 km at 80 km/h",
+  "answer": [
+   3.0,
+   "h"
+  ]
+ },
+ {
+  "id": "r4-01-casual",
+  "source": "r4-01",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A car travels at a constant speed of 50 km/h for 100 km. It then speeds up to 100 km/h and is driven another 100 km. What is the car's average speed for the 200 km trip?",
+  "prompt": "hey so i have this problem. a car goes 50 km/h for 100 km, then it speeds up to 100 km/h and goes another 100 km. whats the car's average speed for the whole 200 km trip??",
+  "answer": [
+   66.6667,
+   "km/h"
+  ]
+ },
+ {
+  "id": "g7-032-casual",
+  "source": "g7-032",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A car started from rest and accelerated uniformly and reached a speed of 20m/s after 5 s. What is the acceleration of the car?",
+  "prompt": "hey um so i have this physics hw and i'm kinda lost lol. a car started from rest and accelerated uniformly and reached a speed of 20m/s after 5 s. what is the acceleration of the car?? i think its something with v=u+at but idk if i'm even using it right",
+  "answer": [
+   4.0,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "r5-lap-01-casual",
+  "source": "r5-lap-01",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "a runner does one full lap of a 400 m track in 80 s. what is her average velocity?",
+  "prompt": "yo quick q pls. runner does one full lap of a 400 m track in 80 s. what's her average velocity? 😅",
+  "answer": [
+   0.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "mod-02-casual",
+  "source": "mod-02",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "What is the energy of a photon of frequency 6 x 10^14 Hz?",
+  "prompt": "ok so i'm stuck on this one for physics: what's the energy of a photon with frequency 6 x 10^14 Hz?",
+  "answer": [
+   3.9756e-19,
+   "J"
+  ]
+ },
+ {
+  "id": "h-kin-07-casual",
+  "source": "h-kin-07",
+  "style": "a parent helping with homework, plain words",
+  "original": "A car moving at 20 m/s accelerates at 1.5 m/s^2 for 10 s. What is its final speed?",
+  "prompt": "hey can you help me with this one? a car is going 20 m/s and speeds up at 1.5 m/s^2 for 10 s. what's its final speed?",
+  "answer": [
+   35.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "ar-28-casual",
+  "source": "ar-28",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "At constant temperature a gas at 100 kPa is compressed from 6 L to 2 L. What is the final pressure?",
+  "prompt": "ok so at constant temp a gas at 100 kPa gets compressed from 6 L to 2 L. what's the final pressure",
+  "answer": [
+   300.0,
+   "kPa"
+  ]
+ },
+ {
+  "id": "p17-negative-x-into-stationary-casual",
+  "source": "p17-negative-x-into-stationary",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A 2.0 kg cart moving in the −x direction at 3.0 m/s collides with a stationary 1.0 kg cart and they stick together. What is their final velocity?",
+  "prompt": "hey so my physics hw has a 2.0 kg cart rolling in the -x direction at 3.0 m/s and it smacks into a 1.0 kg cart that's just sitting there not moving, and then they get stuck together after. what's their speed afterward?",
+  "answer": [
+   -2.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "arl-03-casual",
+  "source": "arl-03",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "After braking begins, a car moving at 20 m/s decelerates at 4 m/s^2 for 3 s. What is its final speed?",
+  "prompt": "ok so my physics hw says after braking begins a car moving at 20 m/s decelerates at 4 m/s^2 for 3 s. what's its final speed?? i keep getting confused lol, is it just v = u + at? sorry if that's dumb",
+  "answer": [
+   8.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "au-roll-hoop-casual",
+  "source": "au-roll-hoop",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A hoop rolls without slipping from rest down a hill 3 m high. How fast is it moving at the bottom?",
+  "prompt": "hey pls help w this hw q: a hoop rolls w/o slipping from rest down a hill 3 m high. how fast is it moving at the bottom? thx",
+  "answer": [
+   5.4249,
+   "m/s"
+  ]
+ },
+ {
+  "id": "au-brakes-stay-stopped-casual",
+  "source": "au-brakes-stay-stopped",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A car travelling at 20 m/s decelerates at 4 m/s². What is its velocity after 6 s?",
+  "prompt": "ok so this car is going 20 m/s and it slams the brakes at 4 m/s² lol. what's its velocity after 6 s?",
+  "answer": [
+   0.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "r5-044-casual",
+  "source": "r5-044",
+  "style": "a parent helping with homework, plain words",
+  "original": "A car accelerates at 2 m/s^2 for 5 s. It is now going 30 m/s. What was its initial speed?",
+  "prompt": "hey so this one's about a car. it speeds up at 2 m/s^2 for 5 s and then it's going 30 m/s. what was its starting speed? keep the numbers and units exactly like that",
+  "answer": [
+   20.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "r13c-failed-to-casual",
+  "source": "r13c-failed-to",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "What fraction of the sample has failed to decay after 2 half-lives?",
+  "prompt": "yo can u help w this one. what fraction of the sample has failed to decay after 2 half-lives",
+  "answer": [
+   0.25,
+   ""
+  ]
+ },
+ {
+  "id": "rm12-transformer-output-input-casual",
+  "source": "rm12-transformer-output-input",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A transformer has 500 primary turns and 100 secondary turns and gives an output voltage of 24 V. What is the input voltage?",
+  "prompt": "hey so i got this hw q about a transformer. it has 500 primary turns and 100 secondary turns and the output voltage is 24 V. what's the input voltage?",
+  "answer": [
+   120.0,
+   "V"
+  ]
+ },
+ {
+  "id": "c05-casual",
+  "source": "c05",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "a 300 g stone on a string is whirled in a vertical circle of radius 0.9 m. at the bottom it moves at 5 m/s. tension at the bottom?",
+  "prompt": "ok so i have this physics hw and im totally lost lol. theres a 300 g stone on a string being whirled in a vertical circle with radius 0.9 m. at the bottom it's moving at 5 m/s. what's the tension at the bottom?? pls help, i don't get where to even start",
+  "answer": [
+   11.2763,
+   "N"
+  ]
+ },
+ {
+  "id": "g7-160-casual",
+  "source": "g7-160",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A body accelerates uniformly from rest at 2m/s2 for 5 seconds. Calculate its final velocity.",
+  "prompt": "hey pls help, qn: a body accelerates uniformly from rest at 2m/s2 for 5 seconds. calc its final velocity? u know how to do this??",
+  "answer": [
+   10.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "p17-east-hits-at-rest-casual",
+  "source": "p17-east-hits-at-rest",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A 2 kg cart moving 3 m/s east hits a 1 kg cart at rest and they stick together. What is their final velocity?",
+  "prompt": "ok so my physics hw is kinda weird. there's a 2 kg cart rolling east at 3 m/s and it smacks into a 1 kg cart that's just sitting there at rest, and they stick together after. what's their final velocity??",
+  "answer": [
+   2.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "pA5-casual",
+  "source": "pA5",
+  "style": "a parent helping with homework, plain words",
+  "original": "A ball is thrown straight down at 8 m/s from the top of a 40 m building. how fast is it going when it hits the ground?",
+  "prompt": "hey so this one's about a ball thrown straight down at 8 m/s from the top of a 40 m building. how fast is it going when it hits the ground?",
+  "answer": [
+   29.1342,
+   "m/s"
+  ]
+ },
+ {
+  "id": "rp-cnt-14-casual",
+  "source": "rp-cnt-14",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "4 bulbs of 60 W each are used for 5 hours. Find the energy consumed in kWh.",
+  "prompt": "ok so 4 bulbs of 60 W each are used for 5 hours. find the energy consumed in kWh",
+  "answer": [
+   1.2,
+   "kWh"
+  ]
+ },
+ {
+  "id": "p11-tex-density-mass-casual",
+  "source": "p11-tex-density-mass",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A liquid has a density of \\(2.5\\ \\mathrm{g/mL}\\). What is the mass of \\(40\\ \\mathrm{mL}\\) of it?",
+  "prompt": "hey so this liquid is 2.5 g/mL, right? if I have 40 mL of it, how many grams does it weigh?",
+  "answer": [
+   100.0,
+   "g"
+  ]
+ },
+ {
+  "id": "r3-05-casual",
+  "source": "r3-05",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A 70 kg astronaut pushes off a 30 kg satellite. If the first moves at 0.3 m/s, how fast does the second move?",
+  "prompt": "ok so i'm stuck on this physics hw lol. a 70 kg astronaut pushes off a 30 kg satellite, and if the astronaut moves at 0.3 m/s, how fast does the satellite move?? i think it has something to do with momentum but idk. sorry this is probably easy",
+  "answer": [
+   0.7,
+   "m/s"
+  ]
+ },
+ {
+  "id": "pJ3-casual",
+  "source": "pJ3",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "Three 6 Ω resistors in series are connected to a 9 V battery. what current flows?",
+  "prompt": "ok so i have this physics hw and i'm kinda stuck lol. there are three 6 Ω resistors in series, hooked up to a 9 V battery. what current flows?",
+  "answer": [
+   0.5,
+   "A"
+  ]
+ },
+ {
+  "id": "r06-casual",
+  "source": "r06",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "35 N force applied 40 cm from a bolt at 70 degrees to the wrench. torque?",
+  "prompt": "hey so my physics hw is killing me lol. we've got a 35 N force pushing on a wrench, applied 40 cm from the bolt, at 70 degrees to the wrench. what's the torque?",
+  "answer": [
+   13.1557,
+   "N*m"
+  ]
+ },
+ {
+  "id": "g8-043-casual",
+  "source": "g8-043",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "To find the value of atmospheric pressure in the SI unit, we use p = ρgh where g = 10m/s2, ρ =1.36 104 kg/m3, (the density of mercury) and h = 0.76 m. What is the atmospheric pressure?",
+  "prompt": "ok so to find atmospheric pressure in si units we use p = ρgh where g = 10m/s2, ρ = 1.36 104 kg/m3 (the density of mercury) and h = 0.76 m. what is the atmospheric pressure",
+  "answer": [
+   103360.0,
+   "Pa"
+  ]
+ },
+ {
+  "id": "rp-cir-06-casual",
+  "source": "rp-cir-06",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A bulb of resistance 4 Ω is connected in series with a heater of resistance 4 Ω across 16 V. Find the current.",
+  "prompt": "ok so a bulb of resistance 4 Ω is connected in series with a heater of resistance 4 Ω across 16 V. find the current",
+  "answer": [
+   2.0,
+   "A"
+  ]
+ },
+ {
+  "id": "r5-105-casual",
+  "source": "r5-105",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "An astronaut of mass 80 kg stands on a planet of mass 3e24 kg and radius 4e6 m. Find the gravitational field strength at the surface.",
+  "prompt": "hey so i have this physics hw and im kinda stuck. theres an astronaut that weighs 80 kg standing on a planet that has a mass of 3e24 kg and a radius of 4e6 m. what's the gravity strength right on the surface? thx",
+  "answer": [
+   12.5,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "f07-casual",
+  "source": "f07",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "What is the gauge pressure in psi at a depth of 10 m in fresh water?",
+  "prompt": "ok so im stuck on this physics hw lol. what is the gauge pressure in psi at a depth of 10 m in fresh water?? my brain is fried rn, sorry if this is obvious",
+  "answer": [
+   14.2282,
+   "psi"
+  ]
+ },
+ {
+  "id": "r5-table-02-casual",
+  "source": "r5-table-02",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A 4 kg block on a smooth table is connected over a pulley to a hanging 1 kg mass. what's the tension in the string?",
+  "prompt": "hey pls help, 4 kg block on a smooth table connected over a pulley to a hanging 1 kg mass. what's the tension in the string? u know how to do this?",
+  "answer": [
+   7.848,
+   "N"
+  ]
+ },
+ {
+  "id": "wave-07-casual",
+  "source": "wave-07",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A water wave travels 12 m in 4 s and its wavelength is 1.5 m. What is the frequency?",
+  "prompt": "ok so this wave goes 12 m in 4 s, and the wavelength is 1.5 m. what's the frequency??",
+  "answer": [
+   2.0,
+   "Hz"
+  ]
+ },
+ {
+  "id": "rm12b-075-casual",
+  "source": "rm12b-075",
+  "style": "a parent helping with homework, plain words",
+  "original": "A 3 Ω and a 6 Ω resistor are connected in series. What is the total resistance?",
+  "prompt": "hey can u help me with this one? so we have a 3 Ω resistor and a 6 Ω resistor hooked up in series. what's the total resistance?",
+  "answer": [
+   9.0,
+   "ohm"
+  ]
+ },
+ {
+  "id": "rm12-velocity-forward-casual",
+  "source": "rm12-velocity-forward",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A spaceship moving at 0.6c relative to Earth fires a probe forward at 0.8c relative to the ship. What is the probe's speed relative to Earth?",
+  "prompt": "ok so a spaceship is moving at 0.6c relative to earth and it fires a probe forward at 0.8c relative to the ship. what is the probe's speed relative to earth",
+  "answer": [
+   283587500.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "e03-casual",
+  "source": "e03",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "How much work must the brakes do to stop a 1200 kg car moving at 72 km/h?",
+  "prompt": "hey so my physics hw is asking how much work the brakes have to do to stop a 1200 kg car going 72 km/h?? like how much energy do they need to soak up to bring it to a stop lol",
+  "answer": [
+   240000.0,
+   "J"
+  ]
+ },
+ {
+  "id": "r5-016-casual",
+  "source": "r5-016",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A 2000 kg space station orbits a star of mass 2e30 kg at radius 1e11 m. Find its orbital speed.",
+  "prompt": "ok so my hw says a 2000 kg space station orbits a star of mass 2e30 kg at radius 1e11 m. find its orbital speed?? i keep getting confused about whether the station's own mass matters lol. anyway can someone help me set it up",
+  "answer": [
+   36536.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "r13-heat-water-by-casual",
+  "source": "r13-heat-water-by",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "The temperature of 3 kg of water decreases by 10 °C. c = 4200 J/kg°C. How much heat is released?",
+  "prompt": "hey pls help, 3 kg of water cools down by 10 °C. c = 4200 J/kg°C. how much heat is released? u know how to do this?",
+  "answer": [
+   -126000.0,
+   "J"
+  ]
+ },
+ {
+  "id": "au-rv4-rated-not-an-end-casual",
+  "source": "au-rv4-rated-not-an-end",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A 2 H inductor carries 1 A, a good deal less than its rated 4 A. The current is switched off in 0.1 s. What emf is induced?",
+  "prompt": "ok so this hw question is kinda weird lol. a 4 A inductor is rated for 4 A but only carries 1 A, way less than that. then the current gets switched off in 0.1 s. what emf is induced? i'm so confused about the 2 H part, is that the inductance?",
+  "answer": [
+   20.0,
+   "V"
+  ]
+ },
+ {
+  "id": "rm12b-039-casual",
+  "source": "rm12b-039",
+  "style": "a parent helping with homework, plain words",
+  "original": "On Mars, a ball is dropped from 10 m. How long does it take to fall?",
+  "prompt": "hey can u help me with this one? on mars a ball gets dropped from 10 m, how long does it take to fall?",
+  "answer": [
+   2.32,
+   "s"
+  ]
+ },
+ {
+  "id": "l07-casual",
+  "source": "l07",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A 100 µF capacitor is charged through a 2 kΩ resistor from a 9 V battery. what is the voltage across the capacitor after 0.3 s?",
+  "prompt": "ok so a 100 µF capacitor is charged through a 2 kΩ resistor from a 9 V battery. what is the voltage across the capacitor after 0.3 s",
+  "answer": [
+   6.99183,
+   "V"
+  ]
+ },
+ {
+  "id": "g7-161-casual",
+  "source": "g7-161",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A force of 2 × 10^3 N acts on an area of 4 m2. What is the pressure?",
+  "prompt": "hey can u help w this? theres a push of 2 × 10^3 N on a surface that's 4 m2. how much pressure is that?",
+  "answer": [
+   500.0,
+   "Pa"
+  ]
+ },
+ {
+  "id": "rm12b-005-casual",
+  "source": "rm12b-005",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A rock weighs 19.62 N. What is its mass?",
+  "prompt": "ok so this physics hw is confusing me lol. a rock weighs 19.62 N, what is its mass?? i think i need to use weight = mass x gravity but idk which gravity number to use. sorry if this is dumb",
+  "answer": [
+   2.0,
+   "kg"
+  ]
+ },
+ {
+  "id": "rm12-rolling-sphere-speed-casual",
+  "source": "rm12-rolling-sphere-speed",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A solid sphere of mass 2 kg rolls without slipping with a total kinetic energy of 70 J. What is its speed?",
+  "prompt": "hey pls help. solid sphere, mass 2 kg, rolls w/o slipping, total KE 70 J. what's its speed?",
+  "answer": [
+   7.07107,
+   "m/s"
+  ]
+ },
+ {
+  "id": "r5-shm-04-casual",
+  "source": "r5-shm-04",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "mass 0.4 kg on spring 160 N/m, amplitude 3 cm. maximum velocity?",
+  "prompt": "ok so i've got this physics hw and i'm kinda stuck. there's a 0.4 kg mass on a spring with spring constant 160 N/m, and it's oscillating with an amplitude of 3 cm. what's the maximum velocity it reaches?",
+  "answer": [
+   0.6,
+   "m/s"
+  ]
+ },
+ {
+  "id": "fall-05-casual",
+  "source": "fall-05",
+  "style": "a parent helping with homework, plain words",
+  "original": "A ball is thrown vertically upward at 12 m/s. How long is it in the air before it returns to the thrower's hand?",
+  "prompt": "hey, quick homework q: a ball gets thrown straight up at 12 m/s. how long is it in the air before it gets back to the thrower's hand?",
+  "answer": [
+   2.44648,
+   "s"
+  ]
+ },
+ {
+  "id": "rp-cir-33-casual",
+  "source": "rp-cir-33",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "In a series circuit, a 12 V battery is connected to a 6 Ω resistor. Find the current through the 6 Ω resistor.",
+  "prompt": "ok so in a series circuit theres a 12 V battery hooked up to a 6 Ω resistor. what's the current through the 6 Ω resistor",
+  "answer": [
+   2.0,
+   "A"
+  ]
+ },
+ {
+  "id": "g7-163-casual",
+  "source": "g7-163",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A car moving at 20 m/s east slows down to 10 m/s east in 5 s. What is its acceleration?",
+  "prompt": "hey so my physics hw says a car going 20 m/s east slows down to 10 m/s east in 5 s. how do i figure out how fast it's slowing down, like the acceleration? thx",
+  "answer": [
+   2.0,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "r13-asked-fraction-decayed-casual",
+  "source": "r13-asked-fraction-decayed",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "What fraction of a sample has decayed after 3 half-lives?",
+  "prompt": "ok so this is for chem hw and i'm kinda lost lol. quick q: what fraction of a sample has decayed after 3 half-lives? like how much is gone at that point?? thx",
+  "answer": [
+   0.875,
+   ""
+  ]
+ },
+ {
+  "id": "ask-fall-02-casual",
+  "source": "ask-fall-02",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "a rock falls from a 15 m cliff. velocity just before it hits the ground",
+  "prompt": "yo pls help, rock falls off a 15 m cliff, what's the velocity just before it hits the ground?",
+  "answer": [
+   -17.1552,
+   "m/s"
+  ]
+ },
+ {
+  "id": "a13-shm-spring-period-casual",
+  "source": "a13-shm-spring-period",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A mass on a spring oscillates with an amplitude of 0.1 m and a period of 2 s. What is its maximum speed?",
+  "prompt": "ok so my physics hw is killing me lol. there's a mass on a spring, it bounces back and forth with an amplitude of 0.1 m and a period of 2 s. what's its max speed?? any help appreciated",
+  "answer": [
+   0.314159,
+   "m/s"
+  ]
+ },
+ {
+  "id": "r5-down-05-casual",
+  "source": "r5-down-05",
+  "style": "a parent helping with homework, plain words",
+  "original": "A ball is thrown straight down at 8 m/s from the top of a 40 m building. how fast is it going when it hits the ground?",
+  "prompt": "hey, ok so this one: a ball gets thrown straight down at 8 m/s from the top of a 40 m building. how fast is it going when it hits the ground?",
+  "answer": [
+   29.134172,
+   "m/s"
+  ]
+ },
+ {
+  "id": "r13b-telescope-eyepiece-casual",
+  "source": "r13b-telescope-eyepiece",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A Galilean telescope eyepiece is a concave lens of focal length 5 cm. An object is 20 cm from it. Where is the image?",
+  "prompt": "ugh ok so a galilean telescope eyepiece is a concave lens w focal length 5 cm. an object is 20 cm from it. where is the image",
+  "answer": [
+   4.0,
+   "cm"
+  ]
+ },
+ {
+  "id": "pC3-casual",
+  "source": "pC3",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "Two cyclists start 18 km apart and ride toward each other at 12 km/h and 15 km/h. how long before they meet?",
+  "prompt": "ok so two bikers start 18 km apart and they're riding toward each other, one going 12 km/h and the other 15 km/h. how long till they meet up??",
+  "answer": [
+   0.666667,
+   "h"
+  ]
+ },
+ {
+  "id": "r5-068-casual",
+  "source": "r5-068",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A gas at 300 K occupies 3 L at constant pressure. It is heated until its volume is 6 L. Find the final temperature.",
+  "prompt": "ok so i'm stuck on this physics hw lol. a gas is at 300 K and takes up 3 L at constant pressure. then it gets heated till the volume is 6 L. what's the final temperature?? my brain is fried rn",
+  "answer": [
+   600.0,
+   "K"
+  ]
+ },
+ {
+  "id": "r3-03-casual",
+  "source": "r3-03",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A 5 kg box is pushed with 30 N to the left and 10 N to the right. What is its acceleration?",
+  "prompt": "hey u know a 5 kg box, pushed 30 N left and 10 N right, what's its acceleration? pls help",
+  "answer": [
+   4.0,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "rm12b-027-casual",
+  "source": "rm12b-027",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A 60 kg person stands on a scale in an elevator. The elevator is accelerating upward at 2 m/s² but its speed is downward. What does the scale read?",
+  "prompt": "ok so my physics hw is driving me nuts lol. there's this 60 kg person standing on a scale in an elevator, and the elevator is accelerating upward at 2 m/s² but its speed is downward?? like how does that even work. anyway what does the scale read",
+  "answer": [
+   708.6,
+   "N"
+  ]
+ },
+ {
+  "id": "n08-casual",
+  "source": "n08",
+  "style": "a parent helping with homework, plain words",
+  "original": "A 2000 kg truck tows an 800 kg car with a rope and they accelerate at 1.5 m/s^2. Ignoring friction, what's the tension in the tow rope?",
+  "prompt": "hey, quick q on this physics hw: a 2000 kg truck is towing an 800 kg car with a rope, and they accelerate at 1.5 m/s^2. ignoring friction, what's the tension in the tow rope?",
+  "answer": [
+   1200.0,
+   "N"
+  ]
+ },
+ {
+  "id": "g8-052-casual",
+  "source": "g8-052",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "How much heat is required to raise the temperature of 500g of iron from 50 °C to 250 °C? ( c = 480J/kg °C)",
+  "prompt": "ok so how much heat is needed to raise the temp of 500g of iron from 50 °C to 250 °C? c = 480J/kg °C",
+  "answer": [
+   48000.0,
+   "J"
+  ]
+ },
+ {
+  "id": "r5-side-01-casual",
+  "source": "r5-side-01",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A ball is dropped from 20 m. How fast does it hit the ground? Would it be different on Mars?",
+  "prompt": "hey so a ball gets dropped from like 20 m up, how fast is it going when it hits the ground?? and would it be different if this was on mars",
+  "answer": [
+   19.809089,
+   "m/s"
+  ]
+ },
+ {
+  "id": "r13-quarter-remains-casual",
+  "source": "r13-quarter-remains",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A sample has a half-life of 10 years. How long until 1/4 of it remains?",
+  "prompt": "ok so this problem says a sample has a half-life of 10 years... how long until 1/4 of it remains?? i keep getting confused w the halving part lol, can u help me figure out what to do",
+  "answer": [
+   20.0,
+   "year"
+  ]
+ },
+ {
+  "id": "g8-072-casual",
+  "source": "g8-072",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "Two lamps are connected in series with three ammeters A1, A2 and A3. If A3 read 0.2A, what do the other two ammeters read?",
+  "prompt": "hey pls help, 2 lamps in series w/ 3 ammeters A1, A2 and A3. if A3 reads 0.2A, what do A1 and A2 read?",
+  "answer": [
+   0.2,
+   "A"
+  ]
+ },
+ {
+  "id": "rm12-lens-total-other-casual",
+  "source": "rm12-lens-total-other",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "Two thin lenses in contact have a total power of 3 D. One of them has a power of 2 D. What is the power of the other?",
+  "prompt": "ok so my physics hw is about two thin lenses touching each other, right? their total power is 3 D, and one of them is 2 D. what's the power of the other one??",
+  "answer": [
+   1.0,
+   "D"
+  ]
+ },
+ {
+  "id": "p11-work-distance-question-first-casual",
+  "source": "p11-work-distance-question-first",
+  "style": "a parent helping with homework, plain words",
+  "original": "How far does a box move if 150 J of work is done on it by a 30 N push?",
+  "prompt": "hey can u help w this one? how far does a box move if 150 J of work is done on it by a 30 N push?",
+  "answer": [
+   5.0,
+   "m"
+  ]
+ },
+ {
+  "id": "rm12b-028-casual",
+  "source": "rm12b-028",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A lift travelling upward accelerates downward at 2 m/s². What is the apparent weight of a 60 kg passenger?",
+  "prompt": "ok so a lift going upward is accelerating downward at 2 m/s² and i need the apparent weight of a 60 kg passenger?? why does this make my brain hurt rn",
+  "answer": [
+   468.6,
+   "N"
+  ]
+ },
+ {
+  "id": "heat-08-casual",
+  "source": "heat-08",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "How many moles of an ideal gas occupy 0.05 m^3 at 300 K and 1.0 x 10^5 Pa?",
+  "prompt": "hey can u help me w this one?? how many moles of gas fit in 0.05 m^3 if its at 300 K and 1.0 x 10^5 Pa, like assuming it acts like an ideal gas",
+  "answer": [
+   2.00465,
+   "mol"
+  ]
+ },
+ {
+  "id": "n05-casual",
+  "source": "n05",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "a 70 kg man stands on bathroom scales in a lift accelerating downward at 1.2 m/s^2. what do the scales read in N?",
+  "prompt": "ok so i'm so lost on this physics hw lol. a 70 kg man stands on bathroom scales in a lift accelerating downward at 1.2 m/s^2. what do the scales read in N?? i'm not even sure if the answer should be bigger or smaller than his normal weight 😅",
+  "answer": [
+   602.7,
+   "N"
+  ]
+ },
+ {
+  "id": "r5-070-casual",
+  "source": "r5-070",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A gas at constant volume ends at 4 atm and 600 K. It started at 300 K. Find its initial pressure.",
+  "prompt": "hey pls help, gas at constant volume ends at 4 atm and 600 K. started at 300 K. wat was its initial pressure?",
+  "answer": [
+   2.0,
+   "atm"
+  ]
+ },
+ {
+  "id": "r5-090-casual",
+  "source": "r5-090",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A satellite orbits the Sun at a radius of 1.5e11 m. Find its orbital speed.",
+  "prompt": "ok so my physics hw is like: a satellite orbits the Sun at a radius of 1.5e11 m. find its orbital speed. kinda confused where to start lol",
+  "answer": [
+   29745.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "t08-casual",
+  "source": "t08",
+  "style": "a parent helping with homework, plain words",
+  "original": "how much energy does it take to heat 1.5 kg of water from 68°F to 212°F",
+  "prompt": "hey, quick homework question for you. how much energy does it take to heat 1.5 kg of water from 68°F to 212°F?",
+  "answer": [
+   502320.0,
+   "J"
+  ]
+ },
+ {
+  "id": "rp-cir-25-casual",
+  "source": "rp-cir-25",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A 6 Ω resistor is connected in parallel with an identical resistor across 12 V. Find the total current.",
+  "prompt": "ok so a 6 Ω resistor is connected in parallel with an identical resistor across 12 V. find the total current",
+  "answer": [
+   4.0,
+   "A"
+  ]
+ },
+ {
+  "id": "elec-07-casual",
+  "source": "elec-07",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A kettle draws 10 A from a 230 V supply. What is its power?",
+  "prompt": "hey so my kettle pulls 10 A from a 230 V plug, how much power is it using? idk what the formula is lol",
+  "answer": [
+   2300.0,
+   "W"
+  ]
+ },
+ {
+  "id": "p17-chase-closes-a-gap-casual",
+  "source": "p17-chase-closes-a-gap",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A car at 30 m/s is chasing a truck doing 20 m/s that is 100 m ahead. How long does it take to catch up?",
+  "prompt": "ok so i'm stuck on this physics hw lol. a car is going 30 m/s and it's chasing a truck that's doing 20 m/s, and the truck is 100 m ahead. how long does it take the car to catch up?? my brain is fried, any tips?",
+  "answer": [
+   10.0,
+   "s"
+  ]
+ },
+ {
+  "id": "r5-067-casual",
+  "source": "r5-067",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A gas at 2 atm occupies 4 L. Its pressure is raised to 4 atm at constant temperature. Find the new volume.",
+  "prompt": "hey pls help. gas at 2 atm occupies 4 L, pressure raised to 4 atm at constant temp. what's the new volume? thx",
+  "answer": [
+   2.0,
+   "L"
+  ]
+ },
+ {
+  "id": "au-rv-network-kv-casual",
+  "source": "au-rv-network-kv",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A 2 Ω resistor is in series with a parallel combination of 3 Ω and 6 Ω. A 1.2 kV supply is connected. What current flows?",
+  "prompt": "ok so my hw is about a circuit. theres a 2 Ω resistor in series with a parallel combo of 3 Ω and 6 Ω, and its hooked up to a 1.2 kV supply. what current flows?? 😅",
+  "answer": [
+   300.0,
+   "A"
+  ]
+ },
+ {
+  "id": "w08-casual",
+  "source": "w08",
+  "style": "a parent helping with homework, plain words",
+  "original": "speed of sound in air at 30 °C?",
+  "prompt": "hey can u help me with this one? whats the speed of sound in air at 30 °C",
+  "answer": [
+   349.019,
+   "m/s"
+  ]
+ },
+ {
+  "id": "au-rv-spring-nm-power-casual",
+  "source": "au-rv-spring-nm-power",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A spring with k = 200 Nm^-1 is stretched 0.1 m. What force does it exert?",
+  "prompt": "ok so a spring with k = 200 Nm^-1 is stretched 0.1 m. what force does it exert",
+  "answer": [
+   20.0,
+   "N"
+  ]
+ },
+ {
+  "id": "r5-050-casual",
+  "source": "r5-050",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A car at a speed of 12 m/s accelerates uniformly at 2 m/s^2 over a distance of 64 m. Find its final speed.",
+  "prompt": "hey so my car is going 12 m/s and it speeds up steadily at 2 m/s^2 for 64 m. what speed does it end up at? idk how to start this one lol",
+  "answer": [
+   20.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "rs-level-field-casual",
+  "source": "rs-level-field",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A ball is kicked at 20 m/s at 30 degrees above the horizontal and lands on a level field. How far does it go?",
+  "prompt": "ok so my physics hw says a ball gets kicked at 20 m/s at 30 degrees above the horizontal and lands on a level field. how far does it go?? i'm so lost lol",
+  "answer": [
+   35.3119,
+   "m"
+  ]
+ },
+ {
+  "id": "l17-casual",
+  "source": "l17",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "Sketch a circuit where a 24 V supply drives three 8 Ω resistors in series, then work out the current",
+  "prompt": "hey pls help, sketch a circuit where a 24 V supply drives three 8 Ω resistors in series, then work out the current",
+  "answer": [
+   1.0,
+   "A"
+  ]
+ },
+ {
+  "id": "se-05-casual",
+  "source": "se-05",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "How far does a spring of stiffness 50 N/m stretch when a 4 N force pulls it?",
+  "prompt": "ok so my physics hw is kinda weird lol. it's about a spring with stiffness 50 N/m, and they pull on it with a 4 N force. the question is how far does the spring stretch? like how far does it stretch when that 4 N force pulls it",
+  "answer": [
+   0.08,
+   "m"
+  ]
+ },
+ {
+  "id": "g8-165-casual",
+  "source": "g8-165",
+  "style": "a parent helping with homework, plain words",
+  "original": "A charge of 120 C passes a point in 1 minute. Find the average current.",
+  "prompt": "hey can u help me with this one? a charge of 120 C passes a point in 1 minute. what's the average current?",
+  "answer": [
+   2.0,
+   "A"
+  ]
+ },
+ {
+  "id": "au-rv5-moon-set-aside-casual",
+  "source": "au-rv5-moon-set-aside",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "Ignoring the Moon's 1.6 m/s², a ball is dropped from 20 m on Earth. How long does it take to land?",
+  "prompt": "ok so ignoring the moon's 1.6 m/s² a ball gets dropped from 20 m on earth. how long does it take to land",
+  "answer": [
+   2.0193,
+   "s"
+  ]
+ },
+ {
+  "id": "h-force-07-casual",
+  "source": "h-force-07",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A net force of 50 N acts on a 10 kg trolley starting from rest for 4 s. How fast is it going?",
+  "prompt": "hey so i got this problem: a net force of 50 N pushes a 10 kg trolley that starts from rest and keeps going for 4 s. how fast is it moving at the end?",
+  "answer": [
+   20.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "heat-04-casual",
+  "source": "heat-04",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A 3 kg block of aluminium (c = 900 J/kg·K) absorbs 54 kJ. What is its temperature rise?",
+  "prompt": "ok so i'm totally lost on this one lol. a 3 kg block of aluminium (c = 900 J/kg·K) absorbs 54 kJ. what's its temperature rise?? is it just plugging stuff in or am i missing something",
+  "answer": [
+   20.0,
+   "K"
+  ]
+ },
+ {
+  "id": "mom-04-casual",
+  "source": "mom-04",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A 50 g bullet is fired from a 4 kg rifle at 400 m/s. What is the recoil speed of the rifle?",
+  "prompt": "hey pls help w this physics q: a 50 g bullet is fired from a 4 kg rifle at 400 m/s. what is the recoil speed of the rifle? thx",
+  "answer": [
+   5.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "h-opt-04-casual",
+  "source": "h-opt-04",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A lens has a power of 2.5 dioptres. What is its focal length?",
+  "prompt": "ok so my physics hw says a lens has a power of 2.5 dioptres, and i need to figure out what its focal length is. can u help me work it out?",
+  "answer": [
+   0.4,
+   "m"
+  ]
+ },
+ {
+  "id": "p17-skier-drops-accelerates-casual",
+  "source": "p17-skier-drops-accelerates",
+  "style": "a parent helping with homework, plain words",
+  "original": "A 60 kg skier drops into the run and accelerates at 3.00 m/s² down the slope. What is her potential energy loss after descending 20 m?",
+  "prompt": "hey can u help me with this physics one? a 60 kg skier drops into the run and accelerates at 3.00 m/s² down the slope. what's her potential energy loss after she descends 20 m?",
+  "answer": [
+   11772.0,
+   "J"
+  ]
+ },
+ {
+  "id": "m01-casual",
+  "source": "m01",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "An electron moves at 5 × 10^6 m/s at 30° to a 0.2 T magnetic field. what's the magnetic force on it?",
+  "prompt": "ok so an electron moves at 5 × 10^6 m/s at 30° to a 0.2 T magnetic field. what's the magnetic force on it?",
+  "answer": [
+   8.01088e-14,
+   "N"
+  ]
+ },
+ {
+  "id": "r13-asked-percent-time-casual",
+  "source": "r13-asked-percent-time",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A sample has a half-life of 10 years. What percentage has decayed after 20 years?",
+  "prompt": "hey so my physics hw is asking about this sample that has a half life of 10 years. like what percent of it has decayed by the time 20 years have gone by? confused lol",
+  "answer": [
+   75.0,
+   "%"
+  ]
+ },
+ {
+  "id": "w09-casual",
+  "source": "w09",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A wave on a rope has frequency 4 Hz and wavelength 75 cm. how long does it take to travel 9 m?",
+  "prompt": "ok so my physics hw says a wave on a rope has frequency 4 Hz and wavelength 75 cm. how long does it take to travel 9 m?? i keep getting confused by the units lol, do i need to convert the 75 cm to meters first? also sorry this is probably easy, i'm so lost rn",
+  "answer": [
+   3.0,
+   "s"
+  ]
+ },
+ {
+  "id": "au-rv4-possessive-inductor-casual",
+  "source": "au-rv4-possessive-inductor",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "Ignoring the 2 H inductor's resistance, what emf is induced when its current rises from 1 A to 4 A in 0.1 s?",
+  "prompt": "yo pls help w this physics q: ignoring the 2 H inductor's resistance, what emf is induced when its current rises from 1 A to 4 A in 0.1 s?",
+  "answer": [
+   60.0,
+   "V"
+  ]
+ },
+ {
+  "id": "p11-net-force-kilonewtons-casual",
+  "source": "p11-net-force-kilonewtons",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A net force of 2 kilonewtons acts on a 500 kg car. Find its acceleration.",
+  "prompt": "ok so my physics hw is like, a net force of 2 kilonewtons acts on a 500 kg car, and i gotta find its acceleration?? lol i keep messing up the units, can someone help",
+  "answer": [
+   4.0,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "force-07-casual",
+  "source": "force-07",
+  "style": "a parent helping with homework, plain words",
+  "original": "A 10 kg box is pulled with 50 N to the right and 20 N to the left. What is its acceleration?",
+  "prompt": "hey can u help me with this physics one? a 10 kg box is getting pulled with 50 N to the right and 20 N to the left. what's its acceleration?",
+  "answer": [
+   3.0,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "rp-cir-38-casual",
+  "source": "rp-cir-38",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A cell of emf 8 V and internal resistance 1 Ω drives a current of 2 A in a series circuit. Find the terminal voltage.",
+  "prompt": "ok so a cell of emf 8 V and internal resistance 1 Ω is driving a current of 2 A in a series circuit. what's the terminal voltage? im so tired lol",
+  "answer": [
+   6.0,
+   "V"
+  ]
+ },
+ {
+  "id": "rm12b-157-casual",
+  "source": "rm12b-157",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A crane lifts a 200 kg crate. What is its weight?",
+  "prompt": "hey so there's a crane lifting a 200 kg crate lol, what's the crate's weight tho? like how heavy is it",
+  "answer": [
+   1962.0,
+   "N"
+  ]
+ },
+ {
+  "id": "e07-casual",
+  "source": "e07",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "a 60kg sprinter runs up a flight of stairs 4.5 m high in 3.2 s. whats her power output",
+  "prompt": "ok so this physics hw is killing me lol. a 60kg sprinter runs up a flight of stairs 4.5 m high in 3.2 s. whats her power output?? i think its work divided by time but idk how to get the work part. sorry im so lost",
+  "answer": [
+   827.719,
+   "W"
+  ]
+ },
+ {
+  "id": "en-04-casual",
+  "source": "en-04",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "How much work is done pushing a box 5 m with a force of 40 N?",
+  "prompt": "hey pls help, how much work is done pushing a box 5 m w a force of 40 N? thx",
+  "answer": [
+   200.0,
+   "J"
+  ]
+ },
+ {
+  "id": "en-11-casual",
+  "source": "en-11",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A car's kinetic energy is 250 kJ and its mass is 1250 kg. How fast is it going?",
+  "prompt": "ok so my physics hw is driving me nuts lol. a car has 250 kJ of kinetic energy and it weighs 1250 kg. how fast is it going?? idk where to even start",
+  "answer": [
+   20.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "p11-density-gold-casual",
+  "source": "p11-density-gold",
+  "style": "a parent helping with homework, plain words",
+  "original": "A gold bar has a volume of 50 cm³ and a density of 19.3 g/cm³. Find its mass.",
+  "prompt": "hey, need help with this one for homework: a gold bar has a volume of 50 cm³ and a density of 19.3 g/cm³. what's its mass?",
+  "answer": [
+   965.0,
+   "g"
+  ]
+ },
+ {
+  "id": "g10-04-casual",
+  "source": "g10-04",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A doctor has prescribed a corrective lens of power +1.5 D. Find the focal length of the lens. Is the prescribed lens diverging or converging?",
+  "prompt": "ok so a doctor prescribed a corrective lens of power +1.5 D. find the focal length of the lens. is the prescribed lens diverging or converging",
+  "answer": [
+   0.667,
+   "m"
+  ]
+ },
+ {
+  "id": "h-estat-02-casual",
+  "source": "h-estat-02",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "What is the electric field 3 cm from a 2 µC point charge?",
+  "prompt": "hey how strong is the electric field 3 cm away from a 2 µC point charge? trying to get this homework done lol",
+  "answer": [
+   19973300.0,
+   "N/C"
+  ]
+ },
+ {
+  "id": "rp-cir-13-casual",
+  "source": "rp-cir-13",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A cell of emf 12 V and internal resistance 2 Ω is connected to a 2 Ω resistor. Find the current.",
+  "prompt": "ok so i'm stuck on this physics hw lol. a cell with emf 12 V and internal resistance 2 Ω is connected to a 2 Ω resistor. can u help me find the current?? my brain is fried rn",
+  "answer": [
+   3.0,
+   "A"
+  ]
+ },
+ {
+  "id": "force-10-casual",
+  "source": "force-10",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "Two masses of 3 kg and 5 kg hang over a frictionless pulley. What is the acceleration of the system?",
+  "prompt": "hey pls help, two masses 3 kg and 5 kg hang over a frictionless pulley. whats the acceleration of the system? thx",
+  "answer": [
+   2.4525,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "rm12-friction-acceleration-casual",
+  "source": "rm12-friction-acceleration",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A 60 N force pulls a 20 kg box across a floor where the coefficient of friction is 0.2. What is the acceleration?",
+  "prompt": "ok so my teacher gave us this problem and i'm kinda stuck. there's a box that's 20 kg and somebody pulls it with a 60 N force, but the floor is rough, coefficient of friction is 0.2. what's the acceleration of the box?? can someone help me figure it out lol",
+  "answer": [
+   1.038,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "wave-01-casual",
+  "source": "wave-01",
+  "style": "a parent helping with homework, plain words",
+  "original": "A wave has a frequency of 50 Hz and a wavelength of 4 m. What is its speed?",
+  "prompt": "hey can u help me w this physics q? a wave has a frequency of 50 Hz and a wavelength of 4 m. what's its speed?",
+  "answer": [
+   200.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "fall-13-casual",
+  "source": "fall-13",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A rocket is launched straight up at 50 m/s. What is its maximum height?",
+  "prompt": "ok so a rocket gets launched straight up at 50 m/s. what's its max height",
+  "answer": [
+   127.421,
+   "m"
+  ]
+ },
+ {
+  "id": "kin-07-casual",
+  "source": "kin-07",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "I walked 3 km in 45 minutes. What was my average speed in km/h?",
+  "prompt": "hey so i walked 3 km in 45 min. what was my avg speed in km/h? idk how to do this one lol",
+  "answer": [
+   4.0,
+   "km/h"
+  ]
+ },
+ {
+  "id": "l13-casual",
+  "source": "l13",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A phone battery is rated 4000 mAh at 3.7 V. how much energy does it store in joules?",
+  "prompt": "ok so i'm stuck on this physics hw lol. a phone battery is rated 4000 mAh at 3.7 V. how much energy does it store in joules?? i keep getting confused between mAh and the volts part, any tips? thx",
+  "answer": [
+   53280.0,
+   "J"
+  ]
+ },
+ {
+  "id": "rm12b-081-casual",
+  "source": "rm12b-081",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "Two lenses in contact act as a single lens of power 5 D. One has a power of 3 D. Find the power of the other lens.",
+  "prompt": "ok so my physics hw is driving me nuts lol. two lenses touching each other act like one single lens with power 5 D, and one of them has a power of 3 D. what's the power of the other lens??",
+  "answer": [
+   2.0,
+   "D"
+  ]
+ },
+ {
+  "id": "rp-cnt-01-casual",
+  "source": "rp-cnt-01",
+  "style": "a parent helping with homework, plain words",
+  "original": "Two 100 W electric bulbs are used for 5 hours. Find the energy consumed in kWh.",
+  "prompt": "hey, can u help me with this one? two 100 W bulbs are used for 5 hours. how many kWh of energy do they use?",
+  "answer": [
+   1.0,
+   "kWh"
+  ]
+ },
+ {
+  "id": "g7-088-casual",
+  "source": "g7-088",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "In a single movable pulley the tension on the rope is equal to the effort of 50N, and the two ropes support a load of 100 N. What is the mechanical advantage?",
+  "prompt": "ok so the homework question is in a single movable pulley the tension on the rope is equal to the effort of 50N and the two ropes support a load of 100 N. what is the mechanical advantage",
+  "answer": [
+   2.0,
+   ""
+  ]
+ },
+ {
+  "id": "pl-vcirc-side-casual",
+  "source": "pl-vcirc-side",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A 3 kg object moves in a vertical circle of radius 1 m at 5 m/s. Find the tension in the rope when it is level with the centre.",
+  "prompt": "hey so i got this physics hw, a 3 kg thing is swinging in a circle that's like 1 m radius going 5 m/s, on a rope. what's the rope pulling with (tension) when it's level with the middle? idk how to start lol",
+  "answer": [
+   75.0,
+   "N"
+  ]
+ },
+ {
+  "id": "rm12b-065-casual",
+  "source": "rm12b-065",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "Two capacitors in parallel have an overall capacitance of 10 μF; one of them is 4 μF. Find the capacitance of the other one.",
+  "prompt": "ok so i'm stuck on this one for physics lol. two capacitors in parallel have an overall capacitance of 10 μF, and one of them is 4 μF. what's the capacitance of the other one?? i think it's something with adding but idk if it's just subtracting or what. sorry my brain is fried",
+  "answer": [
+   6e-06,
+   "F"
+  ]
+ },
+ {
+  "id": "au-rv4-inductor-next-sentence-casual",
+  "source": "au-rv4-inductor-next-sentence",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A 2 H inductor carries 1 A. Its current is raised to 4 A in 0.1 s. What is the induced emf?",
+  "prompt": "yo, got a hw q: a 2 H inductor carries 1 A. its current is raised to 4 A in 0.1 s. wat's the induced emf? pls help",
+  "answer": [
+   60.0,
+   "V"
+  ]
+ },
+ {
+  "id": "cw-l02-casual",
+  "source": "cw-l02",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A battery of emf 12 V and internal resistance 0.5 Ω drives a 5.5 Ω load. Find the current.",
+  "prompt": "ok so my physics homework is about a battery, its emf is 12 V and its internal resistance is 0.5 Ω, and it's pushing current through a 5.5 Ω load. how much current is flowing?",
+  "answer": [
+   2.0,
+   "A"
+  ]
+ },
+ {
+  "id": "h-mod-01-casual",
+  "source": "h-mod-01",
+  "style": "a parent helping with homework, plain words",
+  "original": "What is the energy of a photon of wavelength 700 nm?",
+  "prompt": "hey can u help me w this one? what's the energy of a photon with a wavelength of 700 nm",
+  "answer": [
+   2.83782e-19,
+   "J"
+  ]
+ },
+ {
+  "id": "au-friction-work-casual",
+  "source": "au-friction-work",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A 4 kg box slides from rest down a ramp 5 m high, and friction does 100 J of work against it. What is its speed at the bottom?",
+  "prompt": "ugh ok so a 4 kg box slides from rest down a ramp 5 m high and friction does 100 J of work against it. what's its speed at the bottom",
+  "answer": [
+   6.9354,
+   "m/s"
+  ]
+ },
+ {
+  "id": "f05-casual",
+  "source": "f05",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "Water leaks out of a small hole 3 m below the water surface in a big tank. how fast does it come out?",
+  "prompt": "hey so theres this tank of water, and a tiny hole is 3 m below the top of the water. how fast does the water shoot out of that hole?",
+  "answer": [
+   7.67203,
+   "m/s"
+  ]
+ },
+ {
+  "id": "au-rv5-list-disregarding-casual",
+  "source": "au-rv5-list-disregarding",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "Disregarding the 2 Ω, 4 Ω resistors' temperature, what is their total resistance in series?",
+  "prompt": "ugh ok so i'm lost on this one lol. the question says disregarding the 2 Ω, 4 Ω resistors' temperature, what is their total resistance in series?? like do i just add 2 Ω and 4 Ω together or am i missing something? sorry my brain is fried rn",
+  "answer": [
+   6.0,
+   "ohm"
+  ]
+ },
+ {
+  "id": "fall-06-casual",
+  "source": "fall-06",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "An apple falls from a tree and lands 0.8 s later. How high was the apple?",
+  "prompt": "hey pls help, apple falls from a tree n lands 0.8 s later. how high was the apple? u know how to do this?",
+  "answer": [
+   3.1392,
+   "m"
+  ]
+ },
+ {
+  "id": "d01-casual",
+  "source": "d01",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "Light of wavelength 250 nm shines on a metal with a work function of 4.2 eV. what is the max KE of the ejected electrons in eV?",
+  "prompt": "ok so hw q: light w/ wavelength 250 nm hits a metal with a work function of 4.2 eV. what's the max KE of the ejected electrons in eV? lol i'm so confused rn",
+  "answer": [
+   0.759368,
+   "eV"
+  ]
+ },
+ {
+  "id": "g7-072-casual",
+  "source": "g7-072",
+  "style": "a parent helping with homework, plain words",
+  "original": "A force of 200 N is exerted horizontally on a box of mass 18 kg to displace it through a distance of 6 m. How much work is done?",
+  "prompt": "hey can u help me with this one? a force of 200 N is pushed horizontally on a box that's 18 kg and it moves 6 m. how much work is done?",
+  "answer": [
+   1200.0,
+   "J"
+  ]
+ },
+ {
+  "id": "l11-casual",
+  "source": "l11",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "energy stored in a 2200 µF capacitor charged to 16V?",
+  "prompt": "hey can u help w this one. energy stored in a 2200 µF capacitor charged to 16V?",
+  "answer": [
+   0.2816,
+   "J"
+  ]
+ },
+ {
+  "id": "h-fall-01-casual",
+  "source": "h-fall-01",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A pebble is dropped off a 78 m bridge. How long until it splashes into the river?",
+  "prompt": "hey so i got this problem, a pebble gets dropped off a 78 m bridge, how long till it hits the river and splashes? idk how to start lol",
+  "answer": [
+   3.98775,
+   "s"
+  ]
+ },
+ {
+  "id": "l14-casual",
+  "source": "l14",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "Draw a circuit with a 9V battery and two 3 ohm resistors in parallel and find the total current",
+  "prompt": "ok so i have this homework and im kinda lost lol. can u help me draw a circuit with a 9V battery and two 3 ohm resistors in parallel? and then find the total current?? my teacher said something about adding up currents but idk where to start. thx",
+  "answer": [
+   6.0,
+   "A"
+  ]
+ },
+ {
+  "id": "r5-043-casual",
+  "source": "r5-043",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A car accelerates at 2 m/s^2 for 3 s and is now travelling at 15 m/s. How far did it go?",
+  "prompt": "hey pls help, car accelerates at 2 m/s^2 for 3 s and ends up going 15 m/s. how far did it go? u got this?",
+  "answer": [
+   36.0,
+   "m"
+  ]
+ },
+ {
+  "id": "r5-roll-03-casual",
+  "source": "r5-roll-03",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A solid cylinder of mass 4 kg rolls along the floor at 6 m/s without slipping. What's its total kinetic energy?",
+  "prompt": "ok so my physics hw is killing me lol. there's this solid cylinder, 4 kg, just rolling along the floor at 6 m/s without slipping. what's its total kinetic energy?",
+  "answer": [
+   108.0,
+   "J"
+  ]
+ },
+ {
+  "id": "p17-rover-acceleration-casual",
+  "source": "p17-rover-acceleration",
+  "style": "a parent helping with homework, plain words",
+  "original": "A 300 kg rover on Mars has an acceleration of 1.5 m/s². What net force acts on it?",
+  "prompt": "hey, quick homework q: a 300 kg rover on mars is accelerating at 1.5 m/s². what's the net force on it?",
+  "answer": [
+   450.0,
+   "N"
+  ]
+ },
+ {
+  "id": "p17-caught-again-casual",
+  "source": "p17-caught-again",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A ball is thrown straight up at 12 m/s. How long is it in the air before she catches it again?",
+  "prompt": "ok so a ball is thrown straight up at 12 m/s. how long is it in the air before she catches it again",
+  "answer": [
+   2.45,
+   "s"
+  ]
+ },
+ {
+  "id": "g7-024-casual",
+  "source": "g7-024",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A car moves at a speed of 20m/s for 120 seconds due East. What is the displacement of the car?",
+  "prompt": "ok so a car is going 20m/s for 120 seconds heading due East. how far did it actually end up from where it started? like what's the displacement lol",
+  "answer": [
+   2400.0,
+   "m"
+  ]
+ },
+ {
+  "id": "au-rv4-faraday-regions-casual",
+  "source": "au-rv4-faraday-regions",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A coil of 200 turns and area 0.01 m^2 is carried from a 0.2 T region to a 0.7 T region in 0.1 s. What is the induced emf?",
+  "prompt": "ugh ok so i'm stuck on this physics hw lol. a coil with 200 turns and area 0.01 m^2 gets moved from a 0.2 T region to a 0.7 T region in 0.1 s. what's the induced emf?? idk where to even start, sorry",
+  "answer": [
+   10.0,
+   "V"
+  ]
+ },
+ {
+  "id": "r13-concave-lens-m-casual",
+  "source": "r13-concave-lens-m",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "An object is placed 30 cm from a concave lens of focal length 15 cm. What is the magnification?",
+  "prompt": "hey pls help, u/ 30 cm from a concave lens w/ focal length 15 cm. what's the magnification?",
+  "answer": [
+   0.333333,
+   ""
+  ]
+ },
+ {
+  "id": "au-rv5-fuse-rated-to-casual",
+  "source": "au-rv5-fuse-rated-to",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A 2 H inductor carries 2 A, which goes through a fuse rated to 5 A. The current is switched off in 0.1 s. What emf is induced?",
+  "prompt": "ok so my physics hw is driving me nuts lol. we've got a 2 H inductor carrying 2 A, and there's a fuse in the circuit rated to 5 A. then the current gets switched off in 0.1 s. what emf gets induced?",
+  "answer": [
+   40.0,
+   "V"
+  ]
+ },
+ {
+  "id": "e01-casual",
+  "source": "e01",
+  "style": "a parent helping with homework, plain words",
+  "original": "a 65 kg skier starts from rest at the top of a slope with a 40 m vertical drop. no friction. how fast at the bottom in km/h",
+  "prompt": "hey, quick homework q: a 65 kg skier starts from rest at the top of a slope with a 40 m vertical drop. no friction. how fast are they going at the bottom in km/h?",
+  "answer": [
+   100.851,
+   "km/h"
+  ]
+ },
+ {
+  "id": "p11-tex-display-casual",
+  "source": "p11-tex-display",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "\\[ m = 2.0\\,\\mathrm{kg},\\quad v = 3.0\\,\\mathrm{m/s} \\] Find the kinetic energy.",
+  "prompt": "ok so i have this one question m = 2.0 kg, v = 3.0 m/s and it asks find the kinetic energy. kinda lost rn can u help",
+  "answer": [
+   9.0,
+   "J"
+  ]
+ },
+ {
+  "id": "ar-18-casual",
+  "source": "ar-18",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A car moving at 20 m/s accelerates at 2 m/s^2 for 5 s. What is its speed?",
+  "prompt": "hey so a car is going 20 m/s and then speeds up at 2 m/s^2 for 5 s. how fast is it going at the end?",
+  "answer": [
+   30.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "rm12b-132-casual",
+  "source": "rm12b-132",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "Light of wavelength 589 nm in air enters water of refractive index 1.33. What is its wavelength in water?",
+  "prompt": "ugh i'm so confused on this physics hw lol. so light with wavelength 589 nm in air goes into water, refractive index 1.33. what's its wavelength in the water?? (sorry if that's obvious, my brain is fried)",
+  "answer": [
+   442.0,
+   "nm"
+  ]
+ },
+ {
+  "id": "g7-070-casual",
+  "source": "g7-070",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "What is the power of an electric “mitad” which transfers 2 kJ of electric energy in one second?",
+  "prompt": "ok so my physics hw is asking: what is the power of an electric \"mitad\" that transfers 2 kJ of electric energy in one second?? like what's the power of it lol. can someone help",
+  "answer": [
+   2000.0,
+   "W"
+  ]
+ },
+ {
+  "id": "s01-casual",
+  "source": "s01",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A 250 g mass hangs on a spring with k = 40 N/m. What is the period of oscillation?",
+  "prompt": "ok so this is my physics hw lol. theres a 250 g mass hanging on a spring with k = 40 N/m, and the question wants to know what the period of oscillation is. any idea how to set that up?",
+  "answer": [
+   0.496729,
+   "s"
+  ]
+ },
+ {
+  "id": "units-typed-05-casual",
+  "source": "units-typed-05",
+  "style": "a parent helping with homework, plain words",
+  "original": "A force of 600 N acts on an area of 3 m2. Find the pressure.",
+  "prompt": "hey can u help me with this one? a force of 600 N acts on an area of 3 m2. what's the pressure?",
+  "answer": [
+   200.0,
+   "Pa"
+  ]
+ },
+ {
+  "id": "grav-01-casual",
+  "source": "grav-01",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "What is the gravitational force between two 1000 kg masses 2 m apart?",
+  "prompt": "ok so what's the gravitational force between two 1000 kg masses that are 2 m apart? hw is due tmrw and i'm so lost",
+  "answer": [
+   1.6685e-05,
+   "N"
+  ]
+ },
+ {
+  "id": "rm12-photon-energy-casual",
+  "source": "rm12-photon-energy",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A hydrogen atom emits a photon of wavelength 656 nm. What is the energy of the photon?",
+  "prompt": "hey so a hydrogen atom gives off a little light packet thing with a wavelength of 656 nm. how much energy does that light packet have?",
+  "answer": [
+   3.02812e-19,
+   "J"
+  ]
+ },
+ {
+  "id": "cm-06-casual",
+  "source": "cm-06",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A 500 kg satellite orbits 400 km above the Earth. What is its orbital speed?",
+  "prompt": "ok so i have this physics hw and im kinda lost lol. a 500 kg satellite orbits 400 km above the earth. what is its orbital speed?? im so confused what formula even to use, can someone help",
+  "answer": [
+   7672.32,
+   "m/s"
+  ]
+ },
+ {
+  "id": "cw-p01-casual",
+  "source": "cw-p01",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A 2 kg ball moving at 6 m/s makes an elastic head-on collision with a stationary 4 kg ball. What is the speed of the second ball afterwards?",
+  "prompt": "yo can u help w this physics hw pls? 2 kg ball moving at 6 m/s hits a stationary 4 kg ball, elastic head-on collision. what's the speed of the second ball after?",
+  "answer": [
+   4.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "fric-05-casual",
+  "source": "fric-05",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A 5 kg block slides down a 25 degree frictionless ramp. What is its acceleration?",
+  "prompt": "ok so this physics hw is kinda annoying lol. theres a 5 kg block sliding down a 25 degree frictionless ramp. what is its acceleration??",
+  "answer": [
+   4.14589,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "q05-casual",
+  "source": "q05",
+  "style": "a parent helping with homework, plain words",
+  "original": "A roller coaster car is moving at 5 m/s at the top of a 30 m high hill. ignoring friction, how fast is it at the bottom?",
+  "prompt": "hey, quick homework q: a roller coaster car is going 5 m/s at the top of a 30 m high hill. ignoring friction, how fast is it at the bottom?",
+  "answer": [
+   24.771,
+   "m/s"
+  ]
+ },
+ {
+  "id": "r5-083-casual",
+  "source": "r5-083",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A satellite is in orbit around Mars at a radius of 4000 km. Mars is smaller than Earth. Find the orbital speed.",
+  "prompt": "ok so a satellite is orbiting mars at a radius of 4000 km. mars is smaller than earth. find the orbital speed",
+  "answer": [
+   3272.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "l04-casual",
+  "source": "l04",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "how many kWh does a 60 W bulb use if it's left on for a whole week?",
+  "prompt": "hey so like how much energy in kWh does a 60 W bulb use if it just stays on the whole week",
+  "answer": [
+   10.08,
+   "kWh"
+  ]
+ },
+ {
+  "id": "p17-rear-end-same-way-casual",
+  "source": "p17-rear-end-same-way",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A 1500 kg truck moving at 20 m/s hits the back of a 1000 kg car moving at 10 m/s and they stick together. What is their final speed?",
+  "prompt": "ok so i have this physics hw and i'm so lost lol. a 1500 kg truck going 20 m/s hits the back of a 1000 kg car that's going 10 m/s and they stick together after. what's their final speed?? idk where to even start",
+  "answer": [
+   16.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "kin-03-casual",
+  "source": "kin-03",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A bus accelerates from rest at 1.5 m/s^2 for 12 s. How far does it go?",
+  "prompt": "hey pls help, bus accelerates from rest at 1.5 m/s^2 for 12 s. how far does it go? u got it?",
+  "answer": [
+   108.0,
+   "m"
+  ]
+ },
+ {
+  "id": "g7-056-casual",
+  "source": "g7-056",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A 75 N horizontal force is sufficient to move a 150 N box on a level road at a uniform speed. What is the coefficient of friction between the box and the road?",
+  "prompt": "ok so my physics hw question is like: a 75 N horizontal force is enough to move a 150 N box on a level road at a uniform speed. what's the coefficient of friction between the box and the road?? the 75 N and 150 N are both in newtons lol",
+  "answer": [
+   0.5,
+   ""
+  ]
+ },
+ {
+  "id": "g8-007-casual",
+  "source": "g8-007",
+  "style": "a parent helping with homework, plain words",
+  "original": "How many cm3 are there in 0.8m3?",
+  "prompt": "hey can u help me with this one? how many cm3 are there in 0.8m3?",
+  "answer": [
+   800000.0,
+   "cm^3"
+  ]
+ },
+ {
+  "id": "g7-162-casual",
+  "source": "g7-162",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "Calculate the power of a pump that can lift 300 liters of water through a vertical height of 12 m in 8 sec. Take 1 liter of water = 1 kg of water.",
+  "prompt": "ugh can u help me w this physics q. calculate the power of a pump that can lift 300 liters of water through a vertical height of 12 m in 8 sec. take 1 liter of water = 1 kg of water",
+  "answer": [
+   4414.5,
+   "W"
+  ]
+ },
+ {
+  "id": "opt-04-casual",
+  "source": "opt-04",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "An object is 30 cm from a converging lens of focal length 10 cm. Where is the image?",
+  "prompt": "hey so theres this lens thing, my thing is 30 cm away from a lens that has a focal length of 10 cm. where does the picture end up?",
+  "answer": [
+   15.0,
+   "cm"
+  ]
+ },
+ {
+  "id": "p11-tex-work-distance-casual",
+  "source": "p11-tex-work-distance",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "An engine does \\(400 \\text{ J}\\) of work pushing a cart with a constant force of \\(80 \\text{ N}\\). How far did the cart move?",
+  "prompt": "ok so my physics hw says an engine does 400 J of work pushing a cart with a constant force of 80 N, and it wants to know how far the cart moved?? i'm so confused lol. is it just work divided by force or something? sorry if that's dumb, i'm so lost rn",
+  "answer": [
+   5.0,
+   "m"
+  ]
+ },
+ {
+  "id": "r3-09-casual",
+  "source": "r3-09",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A ticket costs $12 and the train travels at 30 m/s for 600 s. How far does it go?",
+  "prompt": "hey pls help w this hw q: a ticket costs $12 and the train travels at 30 m/s for 600 s. how far does it go?",
+  "answer": [
+   18000.0,
+   "m"
+  ]
+ },
+ {
+  "id": "g8-175-casual",
+  "source": "g8-175",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "Given 1 liter of water = 1 kg, calculate the power of a pump that lifts 300 liters of water 12 m in 8 s.",
+  "prompt": "ok so my physics hw is killing me lol. the question says 1 liter of water = 1 kg, and we need the power of a pump that lifts 300 liters of water 12 m in 8 s. can someone help me figure out how to do it??",
+  "answer": [
+   4414.5,
+   "W"
+  ]
+ },
+ {
+  "id": "au-throw-decelerates-casual",
+  "source": "au-throw-decelerates",
+  "style": "a parent helping with homework, plain words",
+  "original": "A ball is thrown up at 20 m/s and decelerates at 9.8 m/s² under gravity. Find its velocity after 3 s.",
+  "prompt": "hey, can you help me with this physics one? a ball is thrown up at 20 m/s and decelerates at 9.8 m/s² under gravity. what's its velocity after 3 s?",
+  "answer": [
+   -9.4,
+   "m/s"
+  ]
+ },
+ {
+  "id": "a13-decompose-75-gone-casual",
+  "source": "a13-decompose-75-gone",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "How long for 75% of a first-order reactant to decompose? The half-life is 12 min.",
+  "prompt": "ok so how long does it take for 75% of a first order reactant to decompose if the half life is 12 min",
+  "answer": [
+   24.0,
+   "min"
+  ]
+ },
+ {
+  "id": "force-12-casual",
+  "source": "force-12",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A 4 kg mass hangs from a rope. What is the tension in the rope?",
+  "prompt": "hey so theres a 4 kg mass hanging from a rope, what's the tension in the rope?",
+  "answer": [
+   39.24,
+   "N"
+  ]
+ },
+ {
+  "id": "q24-casual",
+  "source": "q24",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A 1000 kg car goes over the top of a hump of radius 20 m at 10 m/s. what is the normal force on the car?",
+  "prompt": "ok so im stuck on this physics hw lol. a 1000 kg car goes over the top of a hump of radius 20 m at 10 m/s. what is the normal force on the car?? the hump thing is confusing me, do i just use mg or is there more to it? (sorry my brain is fried rn)",
+  "answer": [
+   4810.0,
+   "N"
+  ]
+ },
+ {
+  "id": "rm12b-128-casual",
+  "source": "rm12b-128",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "Red light of wavelength 700 nm in air passes into glass of refractive index 1.4. What is its wavelength in the glass?",
+  "prompt": "hey pls help, red light 700 nm in air goes into glass w refractive index 1.4. wat is its wavelength in the glass?",
+  "answer": [
+   500.0,
+   "nm"
+  ]
+ },
+ {
+  "id": "g8-041-casual",
+  "source": "g8-041",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "What should be the area of the large piston of a hydraulic press, if it is to lift a load of 20,000N when a force of 200N is applied on the small piston of area 1cm2?",
+  "prompt": "ok so my physics homework is driving me nuts lol. the question is: a hydraulic press has a small piston with area 1cm2, and you push on it with a force of 200N. the big piston needs to lift a load of 20,000N. what should the area of the large piston be?? i keep mixing up which area goes on top in the ratio, can someone help",
+  "answer": [
+   100.0,
+   "cm^2"
+  ]
+ },
+ {
+  "id": "rm12b-090-casual",
+  "source": "rm12b-090",
+  "style": "a parent helping with homework, plain words",
+  "original": "A ray of light in air hits water at 40° to the normal and refracts at 28.9°. What is the refractive index of water?",
+  "prompt": "hey, quick one for my homework: a light ray in air hits water at 40° to the normal and refracts at 28.9°. what's the refractive index of water?",
+  "answer": [
+   1.33,
+   ""
+  ]
+ },
+ {
+  "id": "kin-16-casual",
+  "source": "kin-16",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A car moving at 25 m/s slams on the brakes and decelerates at 5 m/s^2. What is the stopping distance?",
+  "prompt": "ok so a car going 25 m/s slams on the brakes and decelerates at 5 m/s^2. what's the stopping distance",
+  "answer": [
+   62.5,
+   "m"
+  ]
+ },
+ {
+  "id": "kin-01-casual",
+  "source": "kin-01",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "a car goes from 0 to 24 m/s in 6 seconds. what is its acceleration?",
+  "prompt": "hey so a car goes from 0 to 24 m/s in 6 seconds. how fast is it speeding up?",
+  "answer": [
+   4.0,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "fall-reach-01-casual",
+  "source": "fall-reach-01",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A ball is dropped from a height of 20 m. How long does it take to reach the ground?",
+  "prompt": "hey ok so im kinda lost on this one lol. a ball is dropped from a height of 20 m, how long does it take to reach the ground?? my teacher said use the kinematics stuff but i forgot what to plug in. pls help",
+  "answer": [
+   2.01928,
+   "s"
+  ]
+ },
+ {
+  "id": "mag-01-casual",
+  "source": "mag-01",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A wire 0.5 m long carries 4 A at right angles to a 0.2 T magnetic field. What is the force on it?",
+  "prompt": "hey pls help, wire 0.5 m long carries 4 A at right angles to a 0.2 T magnetic field. wat is the force on it? thx",
+  "answer": [
+   0.4,
+   "N"
+  ]
+ },
+ {
+  "id": "r3-10-casual",
+  "source": "r3-10",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "Two identical 4 nC charges are 2 cm apart. What is the force between them?",
+  "prompt": "ok so this physics hw is kinda annoying lol. two identical 4 nC charges sitting 2 cm apart, and I need to find the force between them. like what's the force?",
+  "answer": [
+   0.000359502,
+   "N"
+  ]
+ },
+ {
+  "id": "g7-047-casual",
+  "source": "g7-047",
+  "style": "a parent helping with homework, plain words",
+  "original": "How much does a 100 kg body weight on the surface of the moon whose acceleration due to gravity is equal to 1.63 m/s2?",
+  "prompt": "hey can u help me w this one? how much does a 100 kg body weigh on the surface of the moon where gravity is 1.63 m/s2",
+  "answer": [
+   163.0,
+   "N"
+  ]
+ },
+ {
+  "id": "g7-019-casual",
+  "source": "g7-019",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "Tirunesh Dibaba covers a distance of 5000m in 14.5 minutes. Calculate the average speed of Tirunesh in m/s.",
+  "prompt": "ok so tirunesh dibaba runs 5000m in 14.5 minutes. can u help me calculate her average speed in m/s",
+  "answer": [
+   5.7471264368,
+   "m/s"
+  ]
+ },
+ {
+  "id": "k10-casual",
+  "source": "k10",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A car accelerates at 2.5 m/s² from 18 km/h to 72 km/h. how far does it travel while accelerating?",
+  "prompt": "hey so my car speeds up at 2.5 m/s² going from 18 km/h to 72 km/h. how far does it go while it's speeding up?",
+  "answer": [
+   75.0,
+   "m"
+  ]
+ },
+ {
+  "id": "g7-067-casual",
+  "source": "g7-067",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A ball of mass 0.25kg is kicked with a speed of 80m/s. What is its kinetic energy?",
+  "prompt": "ok so my physics hw says a ball of mass 0.25kg is kicked with a speed of 80m/s and i need to find its kinetic energy?? i keep mixing up the formula lol, can someone help me figure out what to do here",
+  "answer": [
+   800.0,
+   "J"
+  ]
+ },
+ {
+  "id": "g8-023-casual",
+  "source": "g8-023",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A car moved 2.4 km due east for 120 second. What is its average velocity?",
+  "prompt": "hey u there? hw q: a car moved 2.4 km due east for 120 second. wat is its average velocity? pls help",
+  "answer": [
+   20.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "p07-casual",
+  "source": "p07",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A 0.5 kg puck moving east at 4 m/s collides with a 0.3 kg puck moving west at 2 m/s. they stick together. final velocity?",
+  "prompt": "ok so this is my physics hw lol. theres a 0.5 kg puck going east at 4 m/s and it smacks into a 0.3 kg puck going west at 2 m/s, and they stick together after. what's their final velocity?",
+  "answer": [
+   1.75,
+   "m/s"
+  ]
+ },
+ {
+  "id": "rm12b-150-casual",
+  "source": "rm12b-150",
+  "style": "a parent helping with homework, plain words",
+  "original": "A solid ball rolls from rest without slipping down a slope of vertical height 0.6 m. What is its speed at the bottom?",
+  "prompt": "hey, quick homework q: a solid ball rolls from rest without slipping down a slope with a vertical height of 0.6 m. what's its speed at the bottom?",
+  "answer": [
+   2.9,
+   "m/s"
+  ]
+ },
+ {
+  "id": "h-fluid-01-casual",
+  "source": "h-fluid-01",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "What is the pressure at the bottom of a 3 m deep swimming pool due to the water?",
+  "prompt": "ok so what is the pressure at the bottom of a 3 m deep swimming pool because of the water",
+  "answer": [
+   29430.0,
+   "Pa"
+  ]
+ },
+ {
+  "id": "g8-086-casual",
+  "source": "g8-086",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "The radius of curvature (R) of a concave mirror is 30cm. what is the focal length of this mirror?",
+  "prompt": "hey so my physics hw says a concave mirror has a radius of curvature of 30cm. how far is the focal length of this mirror??",
+  "answer": [
+   15.0,
+   "cm"
+  ]
+ },
+ {
+  "id": "fall-07-casual",
+  "source": "fall-07",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A stone is dropped down a well and hits the water after 2.2 s. How deep is the well (ignore the sound delay)?",
+  "prompt": "ok so this is for physics and i'm kinda lost lol. a stone is dropped down a well and hits the water after 2.2 s. how deep is the well? (ignore the sound delay, my teacher said to skip that part) thx",
+  "answer": [
+   23.7402,
+   "m"
+  ]
+ },
+ {
+  "id": "re-wall-01-casual",
+  "source": "re-wall-01",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A ball is kicked at 20 m/s at 30 degrees toward a wall 30 m away. How high is it when it reaches the wall?",
+  "prompt": "hey pls help w this physics q: ball kicked at 20 m/s at 30 degrees toward a wall 30 m away. how high is it when it reaches the wall? thx",
+  "answer": [
+   2.6055080756887694,
+   "m"
+  ]
+ },
+ {
+  "id": "mom-07-casual",
+  "source": "mom-07",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A 0.2 kg ball's velocity changes from 0 to 25 m/s in 0.01 s when kicked. What is the average force?",
+  "prompt": "ok so this ball that weighs 0.2 kg is sitting there at 0 m/s and then somebody kicks it and it's going 25 m/s after just 0.01 s. what's the average force on it?",
+  "answer": [
+   500.0,
+   "N"
+  ]
+ },
+ {
+  "id": "a13-runner-casual",
+  "source": "a13-runner",
+  "style": "a parent helping with homework, plain words",
+  "original": "A runner moves 0.1 m in 2 s. What is her speed?",
+  "prompt": "hey, quick homework q: a runner moves 0.1 m in 2 s. what's her speed?",
+  "answer": [
+   0.05,
+   "m/s"
+  ]
+ },
+ {
+  "id": "h-wave-01-casual",
+  "source": "h-wave-01",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A sound wave has a frequency of 256 Hz and travels at 340 m/s. What is its wavelength?",
+  "prompt": "ok so a sound wave has a frequency of 256 Hz and travels at 340 m/s. what is its wavelength",
+  "answer": [
+   1.32812,
+   "m"
+  ]
+ },
+ {
+  "id": "rm12b-098-casual",
+  "source": "rm12b-098",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A ray of light strikes a glass surface at 30° to the surface. The refracted ray makes 20° with the normal. What is the refractive index of the glass?",
+  "prompt": "hey so a light ray hits a glass surface at 30° to the surface, and the bent ray ends up making 20° with the normal. what's the refractive index of the glass??",
+  "answer": [
+   2.53,
+   ""
+  ]
+ },
+ {
+  "id": "r13-crests-apart-casual",
+  "source": "r13-crests-apart",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "Ocean waves have a period of 4 s and the crests are 20 m apart. What is the wave speed?",
+  "prompt": "ok so my homework says ocean waves have a period of 4 s and the crests are 20 m apart. what is the wave speed?? i'm so lost lol, is it just 20 divided by 4 or something? ugh physics",
+  "answer": [
+   5.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "l08-casual",
+  "source": "l08",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "What's the resistance of a copper wire 2 m long with a cross-sectional area of 1 mm^2? (resistivity 1.68 × 10^-8 Ω m)",
+  "prompt": "hey pls help, whats the resistance of a copper wire 2 m long w/ cross-sectional area 1 mm^2? (resistivity 1.68 × 10^-8 Ω m) thx",
+  "answer": [
+   0.0336,
+   "ohm"
+  ]
+ },
+ {
+  "id": "t05-casual",
+  "source": "t05",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "a heat engine takes in 2000 J of heat and does 600 J of work per cycle. efficiency?",
+  "prompt": "ok so my physics hw is killing me lol. a heat engine takes in 2000 J of heat and does 600 J of work per cycle. what's the efficiency?? thx",
+  "answer": [
+   30.0,
+   "%"
+  ]
+ },
+ {
+  "id": "rm12b-118-casual",
+  "source": "rm12b-118",
+  "style": "a parent helping with homework, plain words",
+  "original": "A transformer with 1000 primary turns and 50 secondary turns runs from a 240 V supply. Find the output voltage.",
+  "prompt": "hey so this transformer has 1000 primary turns and 50 secondary turns, and it's running off a 240 V supply. what's the output voltage?",
+  "answer": [
+   12.0,
+   "V"
+  ]
+ },
+ {
+  "id": "n04-casual",
+  "source": "n04",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A 5 kg block on a frictionless horizontal table is attached by a string over a pulley to a 2 kg mass hanging over the edge. find the acceleration",
+  "prompt": "ok so theres a 5 kg block on a frictionless horizontal table, attached by a string over a pulley to a 2 kg mass hanging off the edge. find the acceleration lol",
+  "answer": [
+   2.80286,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "k01-casual",
+  "source": "k01",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "a train starts from rest and acclerates at 0.8 m/s^2 for 25 s, then travels at constant speed for 1 min. whats the total distance?",
+  "prompt": "ok so a train starts from rest and speeds up at 0.8 m/s^2 for 25 s, then it keeps going at a steady speed for 1 min. what's the total distance it goes?",
+  "answer": [
+   1450.0,
+   "m"
+  ]
+ },
+ {
+  "id": "r5-side-02-casual",
+  "source": "r5-side-02",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A ball is thrown at 20 m/s at 30 degrees from a 10 m cliff. How far from the base does it land? Ignore air resistance, and also tell me how this changes on the Moon.",
+  "prompt": "ok so this physics hw is killing me lol. a ball gets thrown at 20 m/s at 30 degrees from a 10 m cliff, how far from the base does it land? ignore air resistance. also how does this change on the moon?? sorry I'm so lost",
+  "answer": [
+   48.042714,
+   "m"
+  ]
+ },
+ {
+  "id": "au-rv2-loop-voltmeter-parallel-casual",
+  "source": "au-rv2-loop-voltmeter-parallel",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "In a loop, a 9 V battery drives current through a 10 Ω resistor and a 20 Ω resistor. A voltmeter of resistance 10 kΩ is connected in parallel with the 20 Ω resistor. What is the current in the loop?",
+  "prompt": "yo pls help, hw q: in a loop, a 9 V battery drives current thru a 10 Ω resistor and a 20 Ω resistor. a voltmeter of resistance 10 kΩ is connected in parallel w the 20 Ω resistor. what is the current in the loop?",
+  "answer": [
+   0.30036,
+   "A"
+  ]
+ },
+ {
+  "id": "rv11-bat-opposing-force-casual",
+  "source": "rv11-bat-opposing-force",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A 2 kg ball moving at 5 m/s is hit by a bat with an average force of 40 N for 0.1 s in the opposite direction. What is its final speed?",
+  "prompt": "ok so this physics hw is kinda wild. there's a 2 kg ball moving at 5 m/s, and then a bat hits it with an average force of 40 N for 0.1 s, going the opposite direction. what's its final speed after that?",
+  "answer": [
+   3.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "g8-036-casual",
+  "source": "g8-036",
+  "style": "a parent helping with homework, plain words",
+  "original": "A rectangular block of mass 50 kg has sides 1m × 2m × 5m. What is the minimum pressure its weight can exert on a table? Take g = 10 m/s2.",
+  "prompt": "hey can u help w this physics q? a rectangular block, mass 50 kg, sides 1m × 2m × 5m. what's the minimum pressure its weight can exert on a table? use g = 10 m/s2",
+  "answer": [
+   50.0,
+   "Pa"
+  ]
+ },
+ {
+  "id": "rm12-travelling-in-air-snell-casual",
+  "source": "rm12-travelling-in-air-snell",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "Light travelling in air strikes a glass block of refractive index 1.5 at 30° to the normal. What is the angle of refraction?",
+  "prompt": "ok so light travelling in air hits a glass block with refractive index 1.5 at 30° to the normal. what is the angle of refraction",
+  "answer": [
+   19.4712,
+   "deg"
+  ]
+ },
+ {
+  "id": "osc-01-casual",
+  "source": "osc-01",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A spring stretches 0.05 m when a 2 kg mass hangs from it. What is the spring constant?",
+  "prompt": "hey so my homework says a spring stretches 0.05 m when a 2 kg weight hangs off it. what's the stiffness of the spring? like how do i figure that out",
+  "answer": [
+   392.4,
+   "N/m"
+  ]
+ },
+ {
+  "id": "r5-045-casual",
+  "source": "r5-045",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A car accelerates at 2 m/s^2 for 5 s. It is then moving at 30 m/s. How far did it travel?",
+  "prompt": "ok so im so lost on this one lol. a car accelerates at 2 m/s^2 for 5 s and then its moving at 30 m/s. how far did it travel?? my teacher said to use a kinematics equation but idk which one 😭",
+  "answer": [
+   125.0,
+   "m"
+  ]
+ },
+ {
+  "id": "r5-phase-01-casual",
+  "source": "r5-phase-01",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "How much heat is needed to warm 250 g of water from 20 °C to 100 °C and then boil it all away?",
+  "prompt": "yo pls help, hw q: how much heat is needed to warm 250 g of water from 20 °C to 100 °C and then boil it all away? thx",
+  "answer": [
+   648720.0,
+   "J"
+  ]
+ },
+ {
+  "id": "l16-casual",
+  "source": "l16",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "Draw a circuit with a 6 V battery and two 2 ohm resistors in series and calculate the current",
+  "prompt": "ok so my teacher wants me to draw a circuit with a 6 V battery and two 2 ohm resistors in series, and then calculate the current. no clue where to start lol, can anyone help",
+  "answer": [
+   1.5,
+   "A"
+  ]
+ },
+ {
+  "id": "h-fric-04-casual",
+  "source": "h-fric-04",
+  "style": "a parent helping with homework, plain words",
+  "original": "A curling stone slides at 3 m/s on ice with a coefficient of friction of 0.02. How far does it go before stopping?",
+  "prompt": "hey so the homework question is: a curling stone slides at 3 m/s on ice with a coefficient of friction of 0.02. how far does it go before stopping?",
+  "answer": [
+   22.9358,
+   "m"
+  ]
+ },
+ {
+  "id": "rp-cir-07-casual",
+  "source": "rp-cir-07",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A resistor of 8 Ω is connected in series with a resistor of 8 Ω. Find the total resistance.",
+  "prompt": "ok so a resistor of 8 Ω is connected in series with a resistor of 8 Ω. find the total resistance",
+  "answer": [
+   16.0,
+   "ohm"
+  ]
+ },
+ {
+  "id": "rm12b-026-casual",
+  "source": "rm12b-026",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A wave has a frequency of 50 Hz. How many waves pass a point in 1 minute?",
+  "prompt": "yo so a wave has like 50 Hz, how many waves go past a spot in 1 minute?",
+  "answer": [
+   3000.0,
+   ""
+  ]
+ },
+ {
+  "id": "rm12-capacitors-series-other-casual",
+  "source": "rm12-capacitors-series-other",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "Two capacitors in series have an equivalent capacitance of 3 μF. One is 4 μF. What is the other capacitance?",
+  "prompt": "ok so i'm totally lost on this one lol. two capacitors in series have an equivalent capacitance of 3 μF, and one of them is 4 μF. what's the other capacitance?? (sorry my brain is fried rn)",
+  "answer": [
+   1.2e-05,
+   "F"
+  ]
+ },
+ {
+  "id": "pL5-casual",
+  "source": "pL5",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "a train travels at 120 kph for 2.5 hours. how far does it go?",
+  "prompt": "hey pls help, train goes 120 kph for 2.5 hours, how far does it go? u got it?",
+  "answer": [
+   300.0,
+   "km"
+  ]
+ },
+ {
+  "id": "p17-mars-gravity-named-casual",
+  "source": "p17-mars-gravity-named",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "On Mars, where the acceleration due to gravity is 3.7 m/s², a probe falls 10 m from rest. How fast is it moving when it lands?",
+  "prompt": "ok so my physics hw is kinda weird. imagine a probe on Mars, where gravity pulls at 3.7 m/s². it gets dropped from rest and falls 10 m. how fast is it going when it lands?? lol",
+  "answer": [
+   8.6,
+   "m/s"
+  ]
+ },
+ {
+  "id": "estat-01-casual",
+  "source": "estat-01",
+  "style": "a parent helping with homework, plain words",
+  "original": "Two charges of 2 µC and 3 µC are 0.1 m apart. What is the force between them?",
+  "prompt": "hey, quick one from my kid's homework: two charges, 2 µC and 3 µC, sit 0.1 m apart. what's the force between them?",
+  "answer": [
+   5.3928,
+   "N"
+  ]
+ },
+ {
+  "id": "r5-claim-01-casual",
+  "source": "r5-claim-01",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A 2 kg ball is dropped from 20 m. I got 19.8 m/s for its impact speed. Am I right?",
+  "prompt": "ok so a 2 kg ball is dropped from 20 m. i got 19.8 m/s for its impact speed. am i right",
+  "answer": [
+   19.809089,
+   "m/s"
+  ]
+ },
+ {
+  "id": "g8-014-casual",
+  "source": "g8-014",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "Compute the following operation in scientific notation.\n2.7 × 102N ÷ 3.6 × 10-4m2",
+  "prompt": "hey can u help me with this hw q? its asking me to divide 2.7 × 102N by 3.6 × 10-4m2 and give the answer in scientific notation. just need to know how to set it up, thx",
+  "answer": [
+   750000.0,
+   "Pa"
+  ]
+ },
+ {
+  "id": "fric-01-casual",
+  "source": "fric-01",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A 10 kg box sits on a floor with coefficient of kinetic friction 0.3. What is the friction force when it slides?",
+  "prompt": "ok so this physics hw is confusing me lol. a 10 kg box is sitting on a floor, coefficient of kinetic friction is 0.3. what's the friction force when it slides?? idk where to start, is it just 0.3 times the mass or do i need something else 😅",
+  "answer": [
+   29.43,
+   "N"
+  ]
+ },
+ {
+  "id": "kin-10-casual",
+  "source": "kin-10",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "A car traveling at 15 m/s accelerates at 2 m/s^2 for 5 s. What is its final velocity?",
+  "prompt": "hey pls help. car going 15 m/s accelerates at 2 m/s^2 for 5 s. wat is its final velocity?",
+  "answer": [
+   25.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "rm12-slow-particle-ke-casual",
+  "source": "rm12-slow-particle-ke",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A particle of mass 9.11 × 10⁻³¹ kg moves at 2.0 × 10⁵ m/s. What is its kinetic energy?",
+  "prompt": "ok so my physics hw is kinda wild. there's this particle, mass 9.11 × 10⁻³¹ kg, and it's zooming along at 2.0 × 10⁵ m/s. what's its kinetic energy?? lol help",
+  "answer": [
+   1.822e-20,
+   "J"
+  ]
+ },
+ {
+  "id": "mc-coulomb-casual",
+  "source": "mc-coulomb",
+  "style": "a parent helping with homework, plain words",
+  "original": "Two charges of 5.0 mC and 2.0 mC are 3.0 m apart. Find the force between them. (k = 9.0 × 10⁹ N m²/C²)",
+  "prompt": "hey can you help me with this one? two charges, 5.0 mC and 2.0 mC, are 3.0 m apart. what's the force between them? use k = 9.0 × 10⁹ N m²/C²",
+  "answer": [
+   10000.0,
+   "N"
+  ]
+ },
+ {
+  "id": "r5-057-casual",
+  "source": "r5-057",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "A car is now travelling at 15 m/s. It accelerates at 2 m/s^2 for 3 s. How far does it go?",
+  "prompt": "ok so a car is going 15 m/s rn and it accelerates at 2 m/s^2 for 3 s. how far does it go",
+  "answer": [
+   54.0,
+   "m"
+  ]
+ },
+ {
+  "id": "g8-009-casual",
+  "source": "g8-009",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A small swimming pool is 600 cm long, 300 cm wide and 200 cm deep. What is the volume of the water contained in the pool in cubic meters (m3)?",
+  "prompt": "hey so my hw asks: a small pool is 600 cm long, 300 cm wide and 200 cm deep. how many cubic meters (m3) of water fit in it?? i think i need to change the cm to m first but idk how lol",
+  "answer": [
+   36.0,
+   "m^3"
+  ]
+ },
+ {
+  "id": "g7-12-casual",
+  "source": "g7-12",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A screw jack has a pitch of 5 mm and a handle 35 cm long. An effort of 50 N lifts a load of 9000 N. What is its efficiency?",
+  "prompt": "ok so my physics homework is killing me lol. a screw jack has a pitch of 5 mm and a handle 35 cm long. an effort of 50 N lifts a load of 9000 N. what's its efficiency?? i keep getting confused about which formula to use, sorry",
+  "answer": [
+   40.926,
+   "%"
+  ]
+ },
+ {
+  "id": "g8-034-casual",
+  "source": "g8-034",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "What force is required to produce a pressure of 20,000 N/m2 when the surface area is 2 m2?",
+  "prompt": "hey pls help, need to find the force for a pressure of 20,000 N/m2 when surface area is 2 m2. what force do u need to get that? thx",
+  "answer": [
+   40000.0,
+   "N"
+  ]
+ },
+ {
+  "id": "cm-07-casual",
+  "source": "cm-07",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "A 70 kg astronaut stands on the surface of Mars. What is the gravitational acceleration there?",
+  "prompt": "ok so my science hw is weird. there's a 70 kg astronaut standing on the surface of Mars and i need to figure out what the gravitational acceleration is there. like what's g on Mars for them??",
+  "answer": [
+   3.72775,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "ask-fall-07-casual",
+  "source": "ask-fall-07",
+  "style": "a parent helping with homework, plain words",
+  "original": "a 2 kg ball dropped from 20 m. kinetic energy just before impact",
+  "prompt": "hey can u help w this one? its a 2 kg ball dropped from 20 m. what's the kinetic energy just before it hits the ground",
+  "answer": [
+   392.4,
+   "J"
+  ]
+ },
+ {
+  "id": "r5-005-casual",
+  "source": "r5-005",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "3 kg of water is heated from 10 °C by supplying 504000 J. Find the new temperature.",
+  "prompt": "ok so 3 kg of water is heated from 10 °C by supplying 504000 J. find the new temperature",
+  "answer": [
+   50.1,
+   "degC"
+  ]
+ },
+ {
+  "id": "rm12b-032-casual",
+  "source": "rm12b-032",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "A force of 30 N acts on a 5 kg block. The coefficient of friction between block and floor is 0.4. Find the acceleration.",
+  "prompt": "hey so i got this physics hw. a push of 30 N hits a 5 kg block and the friction between the block and the floor is 0.4. how fast is it speeding up? like what's the acceleration",
+  "answer": [
+   2.076,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "p11-work-force-casual",
+  "source": "p11-work-force",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "A machine does 2000 J of work moving a crate 8 m. What force did it apply?",
+  "prompt": "ok so this is for my physics hw and i'm totally lost lol. a machine does 2000 J of work moving a crate 8 m. what force did it apply?? (sorry my brain is fried, also is it just work divided by distance or do i need something else)",
+  "answer": [
+   250.0,
+   "N"
+  ]
+ },
+ {
+  "id": "opt-01-casual",
+  "source": "opt-01",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "Light goes from air into glass (n = 1.5) at an angle of incidence of 40°. What is the angle of refraction?",
+  "prompt": "hey pls help. light goes from air into glass (n = 1.5) at 40° incidence. wat's the angle of refraction? thx",
+  "answer": [
+   25.374,
+   "deg"
+  ]
+ },
+ {
+  "id": "rp-cnt-09-casual",
+  "source": "rp-cnt-09",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "Two 2 kW electric heaters run for 3 hours. How much energy do they use in kWh?",
+  "prompt": "ok so my homework is about these heaters. there are two of them, each one is 2 kW, and they run for 3 hours. how many kWh of energy do they use?",
+  "answer": [
+   12.0,
+   "kWh"
+  ]
+ },
+ {
+  "id": "rm12b-076-casual",
+  "source": "rm12b-076",
+  "style": "a parent helping with homework, plain words",
+  "original": "A 4 μF and a 6 μF capacitor are in series. What is their total capacitance?",
+  "prompt": "hey can u help me with this one? so we have a 4 μF capacitor and a 6 μF capacitor hooked up in series. what's their total capacitance?",
+  "answer": [
+   2.4e-06,
+   "F"
+  ]
+ },
+ {
+  "id": "rm12b-041-casual",
+  "source": "rm12b-041",
+  "style": "a tired student texting late at night, all lowercase, no punctuation",
+  "original": "On the Moon, a hammer is dropped from 1.6 m. How long does it take to fall?",
+  "prompt": "ok so on the moon a hammer gets dropped from 1.6 m, how long does it take to fall??",
+  "answer": [
+   1.405,
+   "s"
+  ]
+ },
+ {
+  "id": "g8-016-casual",
+  "source": "g8-016",
+  "style": "a student who uses everyday words instead of physics words",
+  "original": "Write 15,000,000,000 kg in the scientific notation",
+  "prompt": "hey can u help me with this one? like how do i write 15,000,000,000 kg in scientific notation",
+  "answer": [
+   15000000000.0,
+   "kg"
+  ]
+ },
+ {
+  "id": "force-03-casual",
+  "source": "force-03",
+  "style": "a confused student asking for help, with a short aside",
+  "original": "What is the weight of a 70 kg person on Earth?",
+  "prompt": "ok so i have this homework q and i'm kinda lost lol. it says what is the weight of a 70 kg person on earth?? like do they want the kg or the actual weight in newtons?? sorry if thats dumb",
+  "answer": [
+   686.7,
+   "N"
+  ]
+ },
+ {
+  "id": "g7-104-casual",
+  "source": "g7-104",
+  "style": "a student in a hurry, very short, abbreviations like u and pls",
+  "original": "How much charge flows through a conductor if a current of 1.5A flows for 2 minutes?",
+  "prompt": "hey pls help, how much charge flows thru a conductor if a current of 1.5A flows for 2 minutes? idk where to start",
+  "answer": [
+   180.0,
+   "C"
+  ]
+ },
+ {
+  "id": "r5-unit-02-casual",
+  "source": "r5-unit-02",
+  "style": "a student telling it as a little story, values in a different order",
+  "original": "air at 15 psi and 2 L is compressed to 0.5 L at constant temperature. new pressure?",
+  "prompt": "ok so i have this chem hw and im kinda stuck lol. we've got air at 15 psi taking up 2 L, and then it gets squished down to 0.5 L while the temperature stays the same. whats the new pressure??",
+  "answer": [
+   60.0,
+   "psi"
+  ]
+ },
+ {
+  "id": "pl-momentum-conditions-casual",
+  "source": "pl-momentum-conditions",
+  "style": "a parent helping with homework, plain words",
+  "original": "Find the momentum of a 3 kg ball moving at 4 m/s on a frictionless surface and in a straight line.",
+  "prompt": "hey can u help me with this physics one? find the momentum of a 3 kg ball moving at 4 m/s on a frictionless surface, in a straight line",
+  "answer": [
+   12.0,
+   "kg*m/s"
+  ]
+ }
+]

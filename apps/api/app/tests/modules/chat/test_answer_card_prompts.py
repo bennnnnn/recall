@@ -18,7 +18,7 @@ from __future__ import annotations
 from app.modules.math.fence import append_unverified_math_note
 from app.modules.math.reply_policy import MATH_SOLVER_HINT
 from app.modules.math.tools.prompt import _unverified_math_note
-from app.modules.physics.prompt import _unverified_physics_note
+from app.modules.physics.prompt import unverified_physics_note
 from app.modules.physics.reply_policy import PHYSICS_REPLY_POLICY
 
 
@@ -37,4 +37,4 @@ def test_physics_policy_asks_for_the_result_once_on_the_answer_line() -> None:
     assert "do not repeat the result" not in policy
     assert "state the result once, on the answer line" in policy
     assert "never end on the heading" in policy
-    assert "Compute the result and write it under Answer." in _unverified_physics_note()
+    assert "Compute the result and write it under Answer." in unverified_physics_note()

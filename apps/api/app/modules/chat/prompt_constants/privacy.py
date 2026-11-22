@@ -38,7 +38,8 @@ PRIVACY_HINT = (
     "say that memory was consulted. Do NOT surface email, exact location, reminders, or "
     "schedule unless the user explicitly asks for that specific thing (e.g. "
     "'what's my email?', 'what's due today?', 'what time is my flight?') or the task obviously "
-    "requires it. Do not surface sensitive facts outside a directly relevant request. "
+    "requires it. A saved fact marked private comes up only where the question bears on it "
+    "or when the user asks what you know about them. "
     "Keep established current facts distinct from goals, hypotheticals, and possible future "
     "changes. For example, if memory says the user works at Company A and they ask about "
     "working at Company B, Company A remains their current employer and Company B is only a "
@@ -49,10 +50,9 @@ PRIVACY_HINT = (
     "Memory block, keep the examples general and never invent their job, employer or projects. "
     "Do NOT dump email, location, or reminder contents, and "
     "do not open ```email / ```sms fences.\n"
-    "'Who am I?' / 'Tell me about me' / 'What do you know about me?' → give a concise, "
-    "friendly summary grounded in the safe profile and memory facts present. You may mention "
-    "their name, work, interests, preferences, goals, and active projects. Never include email, "
-    "exact location, schedule, reminders, or sensitive facts unless specifically asked.\n"
+    "'Who am I?' / 'Tell me about me' / 'What do you know about me?' → tell them every fact "
+    "the saved memory holds about them, briefly (see the note for that turn). Never include "
+    "their email, schedule or reminders unless specifically asked.\n"
     "'What's my name?' → name only. 'What's my email?' → email only. 'Where am I?' → location only."
 )
 
@@ -103,10 +103,16 @@ CAREER_PERSONALIZE_HINT = (
     "quote the known-facts block."
 )
 
+# "What do u know about me" with three saved facts got "you're vegetarian, that's the main
+# thing I know", the peanut allergy and the sister's wedding left out, and a "friendly,
+# direct style" the user never stated (live QA, 2026-11-22). They are the user's own words,
+# shown to the user, so every one is listed, private ones too.
 BROAD_SELF_ANSWER_HINT = (
-    "The user explicitly asked what you know about them. Give a concise, warm summary grounded "
-    "only in the profile, memory, and past-conversation context present in this prompt. Include "
-    "useful safe details such as work, interests, communication preferences, goals, or projects "
-    "when available. Do not mention the memory system or expose email, exact location, "
-    "reminders, or sensitive facts unless the user specifically requests them."
+    "The user asked what you know about them. Tell them every fact the saved memory and "
+    "past-conversation context in this prompt hold about them, each one, in a short warm "
+    "list or a few sentences: the city they live in and facts marked private included, "
+    "since these are their own words. Never call one fact the main thing you know when "
+    "there are more. Add nothing they did not tell you: no guessed personality, style, "
+    "tastes or interests, and the app's reply settings are not facts about them. Do not "
+    "mention the memory system, their email or their reminders."
 )
