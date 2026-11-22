@@ -89,9 +89,14 @@ async def test_prompt_includes_messages_between_summary_and_recent_window():
         row.id = uuid4()
         row.created_at = datetime(2026, 1, 1, tzinfo=UTC)
         window.append(row)
-    gap_row = MagicMock(role="user", content="the blue couch is the one")
-    gap_row.id = uuid4()
-    gap_row.created_at = datetime(2025, 12, 1, tzinfo=UTC)
+    # Messages 70-79: after the summary's edge, before the loaded window.
+    older = []
+    for index in range(10):
+        content = "the blue couch is the one" if index == 0 else f"older-{index}"
+        row = MagicMock(role="user", content=content)
+        row.id = uuid4()
+        row.created_at = datetime(2025, 12, 1, tzinfo=UTC)
+        older.append(row)
 
     class _Session:
         async def __aenter__(self):
@@ -109,7 +114,7 @@ async def test_prompt_includes_messages_between_summary_and_recent_window():
         ),
         patch(
             "app.modules.conversation.messages_repository.list_before",
-            AsyncMock(return_value=[gap_row]),
+            AsyncMock(return_value=older),
         ) as list_before,
         patch("app.modules.memory.retrieval.get_memory_block", AsyncMock(return_value="")),
         patch("app.modules.todos.build_todos_system_section", AsyncMock(return_value=None)),

@@ -11,12 +11,7 @@ from app.core.db import SessionLocal
 from app.core.redis import get_redis_client
 from app.core.redis_lock import acquire_lock, release_lock
 from app.models.orm import Chat
-from app.modules.chat.context_window import (
-    cap_summary,
-    compute_history_split,
-    should_run_compression,
-    trim_message_for_summary,
-)
+from app.modules.chat.context_window import FoldRule, cap_summary, trim_message_for_summary
 from app.modules.chat.prompt_window import strip_prompt_owned_fences
 from app.modules.chat.summarize import summarize_conversation
 from app.modules.conversation import history as conversation_history
@@ -130,36 +125,33 @@ async def _load_chat(session: AsyncSession, chat_id: UUID, user_id: UUID | None)
 
 
 async def _pending_fold(settings: Settings, chat_id: UUID, user_id: UUID | None) -> _Fold | None:
-    """The messages that have aged out of the window and are not yet summarized, if enough."""
+    """The oldest unsummarized messages, once they pass the fold trigger (``FoldRule``)."""
     async with SessionLocal() as session:
         chat = await _load_chat(session, chat_id, user_id)
         if chat is None:
             return None
         total = await conversation_history.message_count(session, chat_id)
-        recent_all = await conversation_history.recent_messages(
+        already = chat.summary_message_count or 0
+        waiting = total - already
+        if waiting <= 0:
+            return None
+        loaded = await conversation_history.recent_messages(
             session,
             chat_id,
-            limit=settings.recent_message_window,
+            limit=min(waiting, settings.history_max_messages),
         )
-        split = compute_history_split(
-            total,
-            recent_all,
-            settings.context_token_budget,
-            settings.recent_message_window,
-        )
-        already = chat.summary_message_count or 0
-        if not should_run_compression(
-            split,
-            already,
-            settings.history_summary_batch,
-            urgent_min_pending=settings.history_summary_urgent_pending,
-        ):
+        fold = FoldRule.of(settings).to_fold(loaded, unseen=waiting - len(loaded))
+        if fold <= 0:
             return None
+        # A backlog (a chat older than the rule, a job that failed) folds a window's worth
+        # a run, oldest first, so the summary model never reads hundreds of messages at once.
+        fold = min(fold, settings.history_max_messages)
+        summarized_count = already + fold
         slice_messages = await conversation_history.messages_page(
             session,
             chat_id,
             offset=already,
-            limit=split.summarized_count - already,
+            limit=fold,
         )
         if not slice_messages:
             return None
@@ -174,7 +166,7 @@ async def _pending_fold(settings: Settings, chat_id: UUID, user_id: UUID | None)
             }
             for message in slice_messages
         ]
-        return _Fold(chat.summary, transcript, already, split.summarized_count)
+        return _Fold(chat.summary, transcript, already, summarized_count)
 
 
 async def _save_summary(chat_id: UUID, user_id: UUID | None, fold: _Fold, summary: str) -> None:

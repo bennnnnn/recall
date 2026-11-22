@@ -88,6 +88,9 @@ class StreamContext:
     recalled_count: int = 0
     memory_hints: list[str] = field(default_factory=list)
     context_summarized: int = 0
+    # Messages and tokens after the summary's edge as the prompt carried them, this turn's
+    # line included; None when the prompt slid (``PromptWindow.history_size``).
+    history_size: tuple[int, int] | None = None
     instant_reply: str | None = None
     search_sources: list[WebSearchHit] = field(default_factory=list)
     local_places: bool = False
@@ -255,6 +258,7 @@ def stream_context_from_bundle(
         recalled_count=bundle.stats.recalled,
         memory_hints=list(bundle.stats.memory_hints),
         context_summarized=bundle.stats.context_summarized,
+        history_size=bundle.stats.history_size,
         instant_reply=bundle.instant_reply,
         local_places=bundle.local_places,
         skip_memory_jobs=skip_memory_jobs,

@@ -173,6 +173,8 @@ class PromptStats:
     memory_hints: list[str] = field(default_factory=list)
     # Older messages the chat summary stands in for.
     context_summarized: int = 0
+    # Messages and tokens after the summary's edge (``PromptWindow.history_size``).
+    history_size: tuple[int, int] | None = None
 
 
 @dataclass(frozen=True)
@@ -439,6 +441,8 @@ async def build_prompt_messages(
         current_user_message_id=current_user_message_id,
         prior_count=prior_count if recent_messages is not None else None,
     )
+    if stats is not None:
+        stats.history_size = window.history_size
     followup = await _read_prompt_inputs(settings, query_text, window, turn_plan)
     turn = PromptTurn(
         user=user,

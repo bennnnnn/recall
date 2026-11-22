@@ -42,6 +42,12 @@ class LlmSettings(BaseModel):
     # models that cache only a marked prefix (catalog cache_breakpoints: Claude). Off
     # sends it unmarked; providers that reuse a repeated prefix on their own still do.
     prompt_cache_breakpoints_enabled: bool = True
+    # Also mark the end of the history (the last reply before the turn's line), so a Claude
+    # prompt's history is cached between folds. Off until ``context_cache_eval logs`` shows
+    # Claude turns reading it: OpenRouter may lift the context system message after the
+    # history into the system prompt, ahead of the mark, and then each mark is a cache write
+    # (1.25x) never read.
+    prompt_cache_history_breakpoint_enabled: bool = False
     # Provider embedding-input char cap (embedding_gateway.embed_text). Was a
     # bare `text[:8000]` inline in the gateway; every other tunable in this
     # codebase lives in Settings, so don't reintroduce an inline magic number

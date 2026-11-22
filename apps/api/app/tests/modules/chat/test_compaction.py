@@ -86,18 +86,16 @@ async def test_compress_summarizes_when_over_window_cap():
             AsyncMock(return_value="SUMMARY"),
         ),
     ):
-        await compaction.compress_chat_history(
-            Settings(recent_message_window=40, context_token_budget=6000, history_summary_batch=10),
-            uuid4(),
-        )
+        await compaction.compress_chat_history(_OVER_WINDOW, uuid4())
     assert chat.summary == "SUMMARY"
-    assert chat.summary_message_count == 20  # total(60) - keep(40)
+    # 60 unsummarized pass the 30-message trigger: the newest 40 (the target) stay.
+    assert chat.summary_message_count == 20
     session.commit.assert_awaited()
     redis.eval.assert_awaited_once()  # lock released after a real run too
 
 
 @pytest.mark.asyncio
-async def test_compress_runs_under_token_pressure_before_full_batch():
+async def test_compress_folds_past_the_token_trigger():
     session = AsyncMock()
     chat = MagicMock()
     chat.summary = None
@@ -127,18 +125,15 @@ async def test_compress_runs_under_token_pressure_before_full_batch():
         ),
     ):
         await compaction.compress_chat_history(
-            Settings(
-                recent_message_window=40,
-                context_token_budget=250,
-                history_summary_batch=10,
-                history_summary_urgent_pending=3,
-            ),
+            # 11 rows of ~111 tokens pass 1000: the newest 2 fit the 250-token target.
+            Settings(history_fold_trigger_tokens=1000, history_fold_target_tokens=250),
             uuid4(),
         )
     summarize.assert_awaited_once()
     list_range.assert_awaited_once()
+    assert list_range.await_args.kwargs["limit"] == 9
     assert chat.summary == "PARTIAL"
-    assert chat.summary_message_count > 0
+    assert chat.summary_message_count == 9
     session.commit.assert_awaited()
 
 
@@ -162,8 +157,9 @@ def _over_window_patches(session, summarize, history=None):
     )
 
 
+# A chat of 60 unsummarized messages (40 loaded) is past this rule's 30-message trigger.
 _OVER_WINDOW = Settings(
-    recent_message_window=40, context_token_budget=6000, history_summary_batch=10
+    history_max_messages=40, history_fold_trigger_messages=30, history_fold_target_messages=40
 )
 
 
@@ -332,6 +328,59 @@ async def test_summary_generations_keep_undecided_redis():
     assert generations == []
 
 
+@pytest.mark.asyncio
+async def test_compress_folds_nothing_between_folds():
+    """Under the trigger the summary's edge holds still, though messages wait outside
+    it: that edge is where every turn's history starts, the prefix a cache serves."""
+    session = AsyncMock()
+    chat = MagicMock()
+    chat.summary = "Facts: …"
+    chat.summary_message_count = 30
+    session.get = AsyncMock(return_value=chat)
+    summarize = AsyncMock()
+    with ExitStack() as stack:
+        for p in _over_window_patches(session, summarize):
+            stack.enter_context(p)
+        # 60 - 30 = 30 unsummarized: not past the 30-message trigger.
+        await compaction.compress_chat_history(_OVER_WINDOW, uuid4())
+    summarize.assert_not_awaited()
+    assert chat.summary_message_count == 30
+
+
+@pytest.mark.asyncio
+async def test_a_backlog_folds_a_window_at_a_time():
+    """A chat with hundreds of unsummarized messages (written before the rule, or after a
+    failed job) folds its oldest ``history_max_messages`` a run, never all at once."""
+    session = AsyncMock()
+    chat = MagicMock()
+    chat.summary = None
+    chat.summary_message_count = 0
+    session.get = AsyncMock(return_value=chat)
+    with (
+        patch("app.modules.chat.compaction.get_redis_client", return_value=_fake_redis()),
+        patch("app.modules.chat.compaction.SessionLocal", FakeSessionCM(session)),
+        patch(
+            "app.modules.conversation.messages_repository.count_for_chat",
+            AsyncMock(return_value=500),
+        ),
+        patch(
+            "app.modules.conversation.messages_repository.list_recent",
+            AsyncMock(return_value=[_msg() for _ in range(40)]),
+        ),
+        patch(
+            "app.modules.conversation.messages_repository.list_range",
+            AsyncMock(return_value=[_msg("a")] * 40),
+        ) as list_range,
+        patch(
+            "app.modules.chat.compaction.summarize_conversation",
+            AsyncMock(return_value="SUMMARY"),
+        ),
+    ):
+        await compaction.compress_chat_history(_OVER_WINDOW, uuid4())
+    assert list_range.await_args.kwargs["limit"] == 40
+    assert chat.summary_message_count == 40
+
+
 def _rows(count: int) -> list[SimpleNamespace]:
     """A chat whose replies are long: the user's short lines, each answered at length."""
     return [
@@ -369,3 +418,116 @@ async def test_the_prompt_gap_never_repeats_what_the_summary_folded(summarized, 
 
     assert [m.id for m in window.recent] == [m.id for m in rows[4:]] + [current.id]
     assert [rows.index(m) for m in window.gap] == gap
+
+
+def _short_rows(count: int) -> list[SimpleNamespace]:
+    return [
+        SimpleNamespace(
+            id=uuid4(),
+            role="user" if index % 2 == 0 else "assistant",
+            content=f"line {index}",
+            created_at=index,
+        )
+        for index in range(count)
+    ]
+
+
+async def _window(rows, current, chat, settings=None, *, prior_count=None, omit=None):
+    from app.modules.chat.prompt_window import load_prompt_window
+
+    return await load_prompt_window(
+        chat.id,
+        chat,
+        [*rows, current],
+        settings or Settings(),
+        query_text=current.content,
+        omit_message_ids=omit,
+        current_user_message_id=current.id,
+        prior_count=len(rows) if prior_count is None else prior_count,
+    )
+
+
+@pytest.mark.asyncio
+async def test_the_history_starts_at_the_summarys_edge_while_it_fits():
+    """Every message after the edge goes whole, and none the summary holds: the history
+    then starts where the last turn's did, the prefix a provider caches."""
+    rows = _short_rows(12)
+    current = SimpleNamespace(id=uuid4(), role="user", content="and then?", created_at=99)
+    chat = Chat(id=uuid4(), user_id=uuid4(), summary="Facts: …", summary_message_count=4)
+
+    window = await _window(rows, current, chat)
+
+    assert [m.id for m in window.recent] == [m.id for m in rows[4:]] + [current.id]
+    assert window.gap == []
+    assert window.anchored
+    from app.modules.chat.context_window import total_tokens
+
+    assert window.history_size == (9, total_tokens(window.recent))
+
+
+@pytest.mark.asyncio
+async def test_the_history_reads_the_unsummarized_rows_older_than_the_loaded_window():
+    """The turn loads the readers' 20 rows; the prompt reads the ones before them, back to
+    the summary's edge, in its own short session."""
+    chat_rows = _short_rows(50)
+    loaded = chat_rows[-20:]
+    current = SimpleNamespace(id=uuid4(), role="user", content="and then?", created_at=99)
+    chat = Chat(id=uuid4(), user_id=uuid4(), summary="Facts: …", summary_message_count=10)
+    before = AsyncMock(return_value=chat_rows[10:30])
+
+    with (
+        patch("app.modules.chat.prompt_context.SessionLocal", FakeSessionCM(AsyncMock())),
+        patch("app.modules.conversation.history.messages_before", before),
+    ):
+        window = await _window(loaded, current, chat, prior_count=50)
+
+    assert before.await_args.kwargs == {"limit": 20}
+    assert before.await_args.args[2] is loaded[0]
+    assert [m.id for m in window.recent] == [m.id for m in chat_rows[10:]] + [current.id]
+    assert window.anchored
+
+
+@pytest.mark.asyncio
+async def test_past_the_message_cap_the_history_slides():
+    chat_rows = _short_rows(50)
+    current = SimpleNamespace(id=uuid4(), role="user", content="and then?", created_at=99)
+    chat = Chat(id=uuid4(), user_id=uuid4(), summary=None, summary_message_count=0)
+    # Only the gap loader reads older rows: its newest ten before the window.
+    before = AsyncMock(return_value=chat_rows[20:30])
+
+    with (
+        patch("app.modules.chat.prompt_context.SessionLocal", FakeSessionCM(AsyncMock())),
+        patch("app.modules.conversation.history.messages_before", before),
+    ):
+        window = await _window(
+            chat_rows[-20:], current, chat, Settings(history_max_messages=30), prior_count=50
+        )
+
+    assert before.await_args.kwargs == {"limit": 10}
+    assert not window.anchored
+    assert window.history_size is None
+    assert [m.id for m in window.recent] == [m.id for m in chat_rows[-19:]] + [current.id]
+    # The row the current line pushed out of the loaded twenty, and nine before it.
+    assert [m.id for m in window.gap] == [m.id for m in chat_rows[21:31]]
+
+
+@pytest.mark.asyncio
+async def test_a_regenerated_reply_stays_out_of_the_anchored_history():
+    rows = _short_rows(6)
+    current = rows[-2]
+    chat = Chat(id=uuid4(), user_id=uuid4(), summary=None, summary_message_count=0)
+    from app.modules.chat.prompt_window import load_prompt_window
+
+    window = await load_prompt_window(
+        chat.id,
+        chat,
+        rows,
+        Settings(),
+        query_text=current.content,
+        omit_message_ids={rows[-1].id},
+        current_user_message_id=None,
+        prior_count=len(rows),
+    )
+
+    assert [m.id for m in window.recent] == [m.id for m in rows[:-1]]
+    assert window.anchored

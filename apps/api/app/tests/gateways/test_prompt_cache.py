@@ -64,6 +64,52 @@ def test_no_mark_without_a_stable_message_before_the_turns(messages: list[dict[s
     assert with_cache_breakpoint(messages, model_catalog.get("free-chat")) is messages
 
 
+_HISTORY = [
+    {"role": "system", "content": "Stable instructions"},
+    {"role": "system", "content": "This kind of turn's rules"},
+    {"role": "user", "content": "first question"},
+    {"role": "assistant", "content": "first answer"},
+    {"role": "user", "content": "second question"},
+    {"role": "assistant", "content": "second answer"},
+    {"role": "system", "content": "Current local time: 9:00 AM"},
+    {"role": "user", "content": "third question"},
+]
+
+
+def test_the_history_mark_goes_on_the_last_reply_before_the_turns_line() -> None:
+    """The next turn repeats every message up to that reply until the chat's next fold."""
+    marked = with_cache_breakpoint(_HISTORY, model_catalog.get("free-chat"), history=True)
+    assert marked[0]["content"][0]["cache_control"] == EPHEMERAL
+    assert marked[5] == {
+        "role": "assistant",
+        "content": [{"type": "text", "text": "second answer", "cache_control": EPHEMERAL}],
+    }
+    unmarked = [i for i in range(len(marked)) if i not in (0, 5)]
+    assert [marked[i] for i in unmarked] == [_HISTORY[i] for i in unmarked]
+
+
+def test_the_history_mark_is_off_unless_asked() -> None:
+    marked = with_cache_breakpoint(_HISTORY, model_catalog.get("free-chat"))
+    assert marked[1:] == _HISTORY[1:]
+    assert Settings().prompt_cache_history_breakpoint_enabled is False
+
+
+@pytest.mark.parametrize(
+    "messages",
+    [
+        # A first turn: no reply yet.
+        _PROMPT,
+        # A prompt that does not end with the turn's line.
+        _HISTORY[:-1],
+    ],
+)
+def test_no_history_mark_without_a_reply_before_the_turns_line(
+    messages: list[dict[str, Any]],
+) -> None:
+    marked = with_cache_breakpoint(messages, model_catalog.get("free-chat"), history=True)
+    assert all(not isinstance(m["content"], list) for m in marked[1:])
+
+
 def test_litellm_forwards_the_mark_to_openrouter_for_claude() -> None:
     route = model_catalog.get("free-chat")
     body = OpenrouterConfig().transform_request(
