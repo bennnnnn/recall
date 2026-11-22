@@ -11,7 +11,7 @@ import pytest
 from app.modules.chat.worked_render import WorkedLayout, render_worked
 from app.modules.chat.worked_solution import assemble, read_record
 from app.services.answer_fence import land_answer_card
-from app.services.part_answer_cards import land_part_answer_cards
+from app.services.part.answer_cards import land_part_answer_cards
 from app.services.remark_after_answer import split_tail
 
 

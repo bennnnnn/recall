@@ -110,6 +110,7 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "text_plots",
         "solve_markers",
         "chemistry_enrich",
+        "pictures_by_part",
         "settings_card",
         "money_card",
         "request_sections",

@@ -6,8 +6,10 @@ subject's own hints come from that subject's public file (``prompt_subjects``).
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from typing import Any
 
 from app.modules.chat.answer_photo_offer import (
     NO_PHOTO_SUBJECTS,
@@ -480,3 +482,22 @@ def _style_format_hints(
         resuming=resuming,
     )
     return render_rules(HINT_RULES, turn, table="hints")
+
+
+def without_confirmation_hints(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The prompt without the word rules' yes hints: the turn's read says the message is no
+    yes to an offer (``chat.decided_turn``)."""
+    hints = (CONFIRM_FOLLOW_THROUGH_HINT, CONFIRMED_HINT)
+    out: list[dict[str, Any]] = []
+    for message in messages:
+        content = message.get("content")
+        if (
+            message.get("role") == "system"
+            and isinstance(content, str)
+            and any(hint in content for hint in hints)
+        ):
+            for hint in hints:
+                content = content.replace(hint, "")
+            message = {**message, "content": re.sub(r"\n{3,}", "\n\n", content).strip()}
+        out.append(message)
+    return out

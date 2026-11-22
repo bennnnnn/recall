@@ -161,6 +161,39 @@ CONFIRMED_HINT = (
 # takes what it leaves out from the conversation already in the system prompt: a small model
 # follows the note nearest the message. With these notes it answered both on 5 of 5.
 FOLLOW_NOTES = {
+    # A texted reply to the last one ("yap", "nah", "the 2nd", "wdym", "lol ok"), each kind told
+    # what a person would do with it (owner, 2026-11-21: "it must react very well like a
+    # human"). In 100 such chats (2026-11-21) one note for all of them, the "answer" below,
+    # went to "lol ok" and "nah im good" too, and the reply carried on an offer never made.
+    "accept": (
+        "They said yes to what your last reply offered or proposed. Do it now, opening on it: "
+        'no "Great!" or "Sure!" before it, and never say that they agreed. What your last '
+        "reply already gave is done: never write it again."
+    ),
+    "decline": (
+        "They said no, or no thanks. Take it lightly in a few words, the way a friend would "
+        "(\"No worries 👍\"): don't offer anything again, don't repeat what you already said, "
+        "and never name something they turned down that your last reply did not offer."
+    ),
+    "pick": (
+        "They chose one of the options your last reply gave: go on with that one now, without "
+        "asking which they meant."
+    ),
+    "more": (
+        "They want more of what you were saying. Go on with what your replies have not "
+        "covered yet: new points, examples or detail, never what you already said, and no "
+        "recap."
+    ),
+    "explain": (
+        "They ask what you meant or why. Say the point of your last reply again, shorter, "
+        "plainer and in other words, with an example if it helps. Don't repeat it as you "
+        "wrote it, don't ask what they mean, and never quote their message back."
+    ),
+    "react": (
+        "This is a reaction, not a request. Answer the way a friend texts back: a few words, "
+        "warm, an emoji at most. No new information, no summary, no question or offer, and "
+        "don't use their name."
+    ),
     "answer": (
         "This message answers what your last reply asked or offered. Take it as that answer: "
         "a word that matches one of your options picks it, a yes accepts your offer or picks "

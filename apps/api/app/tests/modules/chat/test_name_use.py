@@ -109,3 +109,36 @@ def test_a_reply_about_the_name_keeps_it(asked: str, kept: bool) -> None:
     state = SimpleNamespace(server_text=False, ctx=ctx, text="Bini, of course!")
     out = spare_name_pass(state)  # type: ignore[arg-type]
     assert out == ("Bini, of course!" if kept else "Of course!")
+
+
+@pytest.mark.parametrize(
+    ("asked", "reply", "out"),
+    [
+        # A few words back to a few words: no name (100 texted chats, 2026-11-21).
+        ("ok", "Got it, Sam 👍", "Got it 👍"),
+        ("thanks", "You're welcome, Sam!", "You're welcome!"),
+        ("night", "Night, Sam 🌙", "Night 🌙"),
+        ("thanks", "Anytime, Sam", "Anytime"),
+        ("cool", "Glad you liked it, Sam", "Glad you liked it"),
+        # A greeting may answer with it, and a list names them (review, #2526).
+        ("hi", "Hey Sam!", "Hey Sam!"),
+        ("whos coming", "Just Anna, Sam", "Just Anna, Sam"),
+        ("whos coming", "Anna, Sam & Max", "Anna, Sam & Max"),
+        # Code is data: a fence's line keeps its name.
+        ("csv example?", "```csv\nid, Sam\n```", "```csv\nid, Sam\n```"),
+        # A long reply keeps the rule of the last two replies.
+        (
+            "ok",
+            "Great, Sam. " + "Here is the whole plan for the week, day by day. " * 6,
+            "Great, Sam. " + "Here is the whole plan for the week, day by day. " * 6,
+        ),
+    ],
+)
+def test_a_short_reply_to_a_short_message_names_no_one(asked: str, reply: str, out: str) -> None:
+    from app.modules.chat.name_use import spare_name_pass
+
+    ctx = SimpleNamespace(
+        user=SimpleNamespace(name="Sam"), user_message_content=asked, recent_messages=[]
+    )
+    state = SimpleNamespace(server_text=False, ctx=ctx, text=reply)
+    assert spare_name_pass(state) == out  # type: ignore[arg-type]

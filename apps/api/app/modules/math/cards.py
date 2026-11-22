@@ -15,7 +15,7 @@ from app.modules.math.fence import (
     spec_fence_kind,
 )
 from app.services.md_fence_scan import iter_fences
-from app.services.part_fences import RESULT_FENCE_LANGS
+from app.services.part.fences import RESULT_FENCE_LANGS
 from app.services.solving import VerifiedMathBlock
 
 # A teaching spec is drawn in an ```arithmetic fence, as the check draws it.

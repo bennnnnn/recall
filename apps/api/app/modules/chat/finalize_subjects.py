@@ -38,8 +38,8 @@ from app.services.answer_fence import (
     strip_forged_verified_markers,
 )
 from app.services.md_fence_scan import map_closed_fences
-from app.services.part_answer_cards import land_part_answer_cards
-from app.services.part_fences import keep_part_fences
+from app.services.part.answer_cards import land_part_answer_cards
+from app.services.part.fences import keep_part_fences
 from app.services.solving import VerifiedPhysicsBlock, strip_verified_solve_markers
 from app.services.structure_captions import STRUCTURE_LANGS, without_structure_captions
 from app.services.subjects.registry import (

@@ -51,6 +51,16 @@ def labelled_part_texts(text: str) -> tuple[str, tuple[str, ...]]:
     return text[: starts[0]].strip(), parts
 
 
+def labelled_parts_by_label(text: str) -> dict[str, str]:
+    """Each labelled part's own words by its label ("a": "Sketch y = x^2 ..."); empty unless
+    ``text`` has two distinct labels or more, each used once."""
+    _stem, parts = labelled_part_texts(text)
+    if not parts:
+        return {}
+    labels = [match.group(1).lower() for match in _PART_LABEL.finditer(text)]
+    return dict(zip(labels, parts, strict=True))
+
+
 def part_named(text: str, label: str) -> str | None:
     """The words of ``text``'s part labelled ``label`` ("b", "(ii)"), or None when it has no
     such part (or no labelled parts)."""

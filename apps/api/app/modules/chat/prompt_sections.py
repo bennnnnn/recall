@@ -107,7 +107,6 @@ from app.modules.turn_reading.profile_ask import (
     is_profile_fact_question,
     is_profile_recall_pushback,
 )
-from app.modules.turn_reading.routing import is_short_confirmation
 from app.modules.turn_reading.teaching import (
     is_learning_plan_request,
     is_standing_preference,
@@ -208,11 +207,11 @@ def _style_hints(turn: PromptTurn) -> list[str]:
     lesson = active_lesson_step(turn.exchange)
     outline_pick = not lesson and outline_awaits_pick(turn.exchange)
     after_gap = bool(lesson) and lesson_after_gap(turn.exchange)
-    # Greetings ("good morning!", "how are you?") and pasted fragments are compact.
-    # "ok" / "next" after a lesson asks for the next lesson, not a casual reply.
+    # Greetings ("good morning!", "how are you?") and pasted fragments are compact. A yes is
+    # not: it asks for what the last reply offered, a recipe or a plan in its own shape, and
+    # the turn's read says how short a reply it wants (``FOLLOW_NOTES``).
     compact = not (lesson or outline_pick) and bool(
-        query
-        and (is_bare_writing_line(query) or is_short_confirmation(query) or is_social_opener(query))
+        query and (is_bare_writing_line(query) or is_social_opener(query))
     )
     return _style_format_hints(
         query_text=turn.query_text,
