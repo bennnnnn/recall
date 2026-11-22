@@ -38,6 +38,7 @@ from app.services.answer_fence import (
     UNCHECKED_ANSWER_MARKER,
     answer_fence_value,
 )
+from app.services.closing_summary import is_one_line_summary
 from app.services.law_binding.units import dimension_of
 from app.services.md_fence_scan import iter_fences, line_fences
 from app.services.workout import REQUIRED_PATTERN
@@ -319,7 +320,13 @@ def drop_restated_tail(text: str, question: str = "") -> str:
     shown = _card_numbers(head)
     known = _words(head) | _words(question)
     pieces = _tail_pieces(tail)
-    keep = [not (prose and _restates(piece, shown, known)) for piece, prose in pieces]
+    # A one-line summary closing the reply stays, whatever it repeats (owner, 2026-11-22).
+    last_prose = next((at for at in range(len(pieces) - 1, -1, -1) if pieces[at][1]), None)
+    keep = [
+        not (prose and _restates(piece, shown, known))
+        or (at == last_prose and is_one_line_summary(piece))
+        for at, (piece, prose) in enumerate(pieces)
+    ]
     if all(keep):
         return text
     return "\n\n".join([head, *_kept(pieces, keep)]) + ("\n" if text.endswith("\n") else "")
@@ -345,23 +352,6 @@ def _kept(pieces: list[tuple[str, bool]], keep: list[bool]) -> list[str]:
     return out
 
 
-# A one-line closing summary after the cards, which stays: a sentence or two, short.
-_SUMMARY_MOST_WORDS = 40
-# A piece that opens with a part's label, a heading or a list item is no summary.
-_LABELLED = re.compile(r"^\s*(?:\*\*\s*)?\(?[a-h][).]|^\s*(?:#|[-*+]\s|\d+[.)]\s)")
-
-
-def _one_line_summary(piece: str) -> bool:
-    text = piece.strip()
-    return (
-        "\n" not in text
-        and "$$" not in text
-        and len(text.split()) <= _SUMMARY_MOST_WORDS
-        and len(_SENTENCE_END.findall(text)) <= 2
-        and not _LABELLED.match(text)
-    )
-
-
 def _plain_numbers(text: str) -> set[str]:
     """Every number ``text`` writes, each on its own (a fraction's two as two)."""
     return {number.replace(",", "") for number in _NUMBER.findall(text)}
@@ -382,11 +372,11 @@ def drop_recap_tail(text: str, question: str = "") -> str:
     head, tail = text[: cards[-1].end].rstrip(), text[cards[-1].end :]
     pieces = _tail_pieces(tail)
     prose = [piece for piece, is_prose in pieces if is_prose]
-    if not prose or (len(prose) == 1 and _one_line_summary(prose[0])):
+    if not prose or (len(prose) == 1 and is_one_line_summary(prose[0])):
         return text
     said = set().union(*(_plain_numbers(piece) for piece in prose))
     if said - (_plain_numbers(head) | _plain_numbers(question)):
         return text
-    summary = prose[-1] if _one_line_summary(prose[-1]) else None
+    summary = prose[-1] if is_one_line_summary(prose[-1]) else None
     keep = [not is_prose or piece is summary for piece, is_prose in pieces]
     return "\n\n".join([head, *_kept(pieces, keep)]) + ("\n" if text.endswith("\n") else "")

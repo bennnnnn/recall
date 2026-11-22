@@ -122,9 +122,9 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # 100 texted chats, 2026-11-21); then the notes beside a request to see the picture of the
 # problem the chat worked on (SHOW_IT_NOTE, SHOW_IT_DRAW_NOTE, SHOW_IT_CARD_NOTE, SHOWN_IT_NOTE; QA round,
 # 2026-11-22).
-_RULES = 215
-_RULE_GRAMS = 20519
-_RULE_GRAMS_SHA = "bfd51e288eaec8d4"
+_RULES = 216
+_RULE_GRAMS = 20597
+_RULE_GRAMS_SHA = "f6a47d2ebc7d2e86"
 
 
 def _rules() -> list[str]:

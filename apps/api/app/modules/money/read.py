@@ -175,6 +175,9 @@ class MoneyRequest:
     # Times a year the rate is charged as the user said it: "2% a month" is 12, and
     # ``values`` holds the yearly 24%.
     rate_per: int = 1
+    # Inputs an earlier reply proposed, which the user asked it to choose or went on with
+    # (``read_check``): said as the reply's, never as the user's.
+    proposed: tuple[str, ...] = ()
 
 
 def bare_year(text: str) -> bool:
@@ -409,6 +412,11 @@ def read_sum(text: str) -> tuple[float, str] | None:
     return number, _currency(text)
 
 
+def named_currency(text: str) -> str:
+    """The ISO code of the currency ``text`` names by a symbol or a word; "" for none."""
+    return _currency(text)
+
+
 def _currency(text: str) -> str:
     symbol = re.search(r"[$€£¥₹₦]", text)
     if symbol is not None:
@@ -418,11 +426,22 @@ def _currency(text: str) -> str:
     return ""
 
 
+def sized(request: MoneyRequest) -> bool:
+    """The request has what sizes it (a loan's amount, a card's balance, a saving's start or
+    deposit); one a model read without it asks for it (``read_check``)."""
+    return request.rates_only or any(
+        name in request.values for name in _principal_names(request.product)
+    )
+
+
 def _principal_names(product: Product) -> tuple[str, ...]:
     """The inputs that size the problem: without one there is nothing to work."""
-    return {"loan": ("amount",), "card_payoff": ("balance",), "savings": ("start", "deposit")}[
-        product.family
-    ]
+    return {
+        "loan": ("amount",),
+        "card_payoff": ("balance",),
+        "savings": ("start", "deposit"),
+        "afford": ("income",),
+    }[product.family]
 
 
 def _values(
