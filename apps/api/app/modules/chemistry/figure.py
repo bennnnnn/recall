@@ -90,7 +90,9 @@ def written_by_user(name: str, texts: Sequence[str]) -> bool:
     wanted = collapse_ws(name).casefold()
     if not wanted:
         return False
-    pattern = re.compile(rf"(?<![\w-]){re.escape(wanted)}(?![\w-])")
+    # A hydrate's parts are no compound of their own: "CuSO4" is not written in
+    # "CuSO4·5H2O" (review), though "NaOH." ending a sentence is.
+    pattern = re.compile(rf"(?<![\w·•-])(?<!\d\.){re.escape(wanted)}(?![\w·•-]|\.\d)")
     return any(pattern.search(collapse_ws(text).casefold()) for text in texts)
 
 

@@ -58,6 +58,7 @@ from app.modules.chat.model_routing.thinking import (
 )
 from app.modules.chat.prompt_constants.conversation import (
     FOLLOW_NOTES,
+    SHOW_IT_CARD_NOTE,
     SHOW_IT_DRAW_NOTE,
     SHOW_IT_NOTE,
     SHOWN_IT_NOTE,
@@ -466,6 +467,9 @@ def _follow_note(ctx: StreamContext, read: TurnDecision) -> None:
         note = SHOWN_IT_NOTE if drawn else SHOW_IT_NOTE
         if not drawn and ctx.drawing is not None:
             note = f"{note} {SHOW_IT_DRAW_NOTE}"
+        # A solve worked it again for its picture: its card comes with the reply (review).
+        if _worked(ctx):
+            note = f"{note} {SHOW_IT_CARD_NOTE}"
     elif _worked(ctx) or ctx.worked is not None:
         return
     if note is None or ctx.after_card:

@@ -120,11 +120,11 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # and Italian home-chip and capability phrases gone (the owner, 2026-11-20); then a note for each
 # kind of texted reply the read names (accept, decline, pick, more, explain, react; FOLLOW_NOTES,
 # 100 texted chats, 2026-11-21); then the notes beside a request to see the picture of the
-# problem the chat worked on (SHOW_IT_NOTE, SHOW_IT_DRAW_NOTE, SHOWN_IT_NOTE; QA round,
+# problem the chat worked on (SHOW_IT_NOTE, SHOW_IT_DRAW_NOTE, SHOW_IT_CARD_NOTE, SHOWN_IT_NOTE; QA round,
 # 2026-11-22).
-_RULES = 214
-_RULE_GRAMS = 20490
-_RULE_GRAMS_SHA = "48449030b08125ae"
+_RULES = 215
+_RULE_GRAMS = 20502
+_RULE_GRAMS_SHA = "1cd98d5025faca7e"
 
 
 def _rules() -> list[str]:

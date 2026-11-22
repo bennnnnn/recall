@@ -234,6 +234,11 @@ SHOW_IT_DRAW_NOTE = (
     "problem's situation, when they name it, with the values the earlier problem states: "
     "opened with ```draw whatever its kind, never ```motion, ```circuit or ```scene."
 )
+# Beside it, when a solve worked the problem again: its checked card is the app's to add.
+SHOW_IT_CARD_NOTE = (
+    "The app adds the checked answer's card under your reply: never write the answer or "
+    "its card yourself."
+)
 # The same, when the turn's solve drew that picture already.
 SHOWN_IT_NOTE = (
     "They ask to see a picture of what this conversation is about: the problem your last "

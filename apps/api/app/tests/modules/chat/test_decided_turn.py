@@ -29,6 +29,7 @@ from app.modules.chat.model_routing.decided import (
 from app.modules.chat.model_routing.thinking import thinking_level
 from app.modules.chat.prompt_constants.conversation import (
     FOLLOW_NOTES,
+    SHOW_IT_CARD_NOTE,
     SHOW_IT_DRAW_NOTE,
     SHOW_IT_NOTE,
     SHOWN_IT_NOTE,
@@ -660,7 +661,7 @@ _DESCRIBED = f"{SHOW_IT_NOTE} {SHOW_IT_DRAW_NOTE}"
         (
             "diagram",
             {"verified_subject": VerifiedSolveBlock(text="x = 6", subject="math")},
-            _DESCRIBED,
+            f"{_DESCRIBED} {SHOW_IT_CARD_NOTE}",
         ),
         ("molecule", {}, SHOW_IT_NOTE),
         # A photo of it is no picture the app draws.

@@ -34,6 +34,10 @@ async def _in_process(fn: Any, *args: Any, **_kwargs: Any) -> Any:
         ("caffeine", ["How much coffee is too much?"], False),
         ("glucose", ["now its molar mass", "Tell me about glucose."], True),
         ("", ["Tell me about glucose."], False),
+        # A hydrate's half is no compound the user wrote (review); a sentence's end is no part.
+        ("CuSO4", ["what is the molar mass of CuSO4·5H2O"], False),
+        ("CuSO4", ["the molar mass of CuSO4.5H2O"], False),
+        ("NaOH", ["how many mg is 0.0150 mol of NaOH."], True),
     ],
 )
 def test_the_name_must_be_the_user_s_own(name: str, texts: list[str], written: bool) -> None:
