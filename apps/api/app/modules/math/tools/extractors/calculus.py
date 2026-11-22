@@ -272,14 +272,19 @@ def _derivative_point(raw: str, cleaned: str) -> tuple[str, str | None]:
     return raw, point_value(prime_at.group(1)) if prime_at is not None else None
 
 
+def _solved_not_rewritten(calc_op: str, raw: str, cleaned: str) -> bool:
+    """An equation to solve, not a rewrite: one simplified, or one the message asks solved
+    beside a rewrite word that names how (``rewrite_names_a_method``: "solve 2x^2 - 3x - 5 =
+    0 ... use quadratic formula or factor?" had its factorisation as the checked card, live
+    2026-11-22; "solve x^2 - 5x + 6 = 0, should I factor x^2 - 5x + 6?" too)."""
+    if calc_op == "simplify" and "=" in raw:
+        return True
+    return calc_op in {"simplify", "factor", "expand"} and rewrite_names_a_method(cleaned)
+
+
 def _rewritten_equation(cleaned: str, raw: str) -> str | None:
     """What a factor or expand of an equation rewrites: the polynomial of ``poly = 0``, else
-    ``raw``. None when the equation is no rewrite's: one of a worked paste's several, or one
-    the message asks solved, the rewrite naming how (``rewrite_names_a_method``: "solve
-    2x^2 - 3x - 5 = 0 ... use quadratic formula or factor?" had its factorisation as the
-    checked card, live 2026-11-22)."""
-    if rewrite_names_a_method(cleaned):
-        return None
+    ``raw``. None when the equation is one of a worked paste's several."""
     from app.modules.math import solve as math_solve
 
     pairs = math_solve.try_extract_equations_from_text(cleaned)
@@ -350,7 +355,7 @@ def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
     # through so the algebra extractor can solve it. Explicit factor/expand
     # of a single ``poly=0`` stays calculus; a worked multi-equation paste
     # (`Factor it:` then 2x-1=0) must not steal the quadratic.
-    if calc_op == "simplify" and "=" in raw:
+    if _solved_not_rewritten(calc_op, raw, cleaned):
         return None
     if calc_op in {"factor", "expand"} and "=" in raw:
         rewritten = _rewritten_equation(cleaned, raw)

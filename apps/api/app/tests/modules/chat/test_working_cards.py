@@ -73,6 +73,8 @@ def test_the_card_takes_the_value_its_working_makes(
         ("$x = 3 + 4 = 7$", "x = 9"),
         # A unit the working did not use.
         ("$d = 7000 + 200\\,\\text{m}$", "d = 7.2\\,\\text{km}"),
+        # A sentence that goes on to work more out (review, #2536).
+        ("Divide $100$ by $2 + 3$", "share = 20"),
         # Words between the line and the card work more out.
         ("$\\text{total} = 5 + 20$, then add the 12 extra ones.", "total = 37"),
     ],
@@ -137,3 +139,27 @@ def test_only_the_closing_lines_after_the_card_say_it_again() -> None:
     assert note is None
     assert "x = 2\n```" in text and "So x is 2." in text
     assert "| step | 3 |" in text and '{"x": 3}' in text and "Step 3 done." in text
+
+
+@pytest.mark.parametrize(
+    ("working", "card", "note"),
+    [
+        # A card in powers of ten, a fraction or a multiple of pi is named, never rewritten
+        # from its leading digits (review, #2536).
+        (
+            "$a = 2$  \n$b = 3$  \n$E = 2 \\times 10^3 + 3 \\times 10^3$",
+            "E = 6 \\times 10^3",
+            "Check the answer: $2 \\times 10^3 + 3 \\times 10^3 = 5 \\times 10^{3}$, not "
+            "$6 \\times 10^3$.",
+        ),
+        ("$a = 5$  \n$b = 1$  \n$x = (5 + 1)/2$", "x = 7/2", None),
+    ],
+)
+def test_a_card_that_is_no_plain_number_is_only_named(
+    working: str, card: str, note: str | None
+) -> None:
+    reply = _reply(working, card)
+    text, said = held_cards(reply)
+    assert text == reply
+    if note is not None:
+        assert said == note

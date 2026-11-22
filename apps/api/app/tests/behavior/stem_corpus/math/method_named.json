@@ -11,5 +11,7 @@
   {"id": "mn10", "area": "rewrite asked", "prompt": "factor x^2 - 5x + 6", "expect": "answer", "check": ["expr", "(x-2)*(x-3)"]},
   {"id": "mn11", "area": "rewrite asked", "prompt": "factorise 2x^2 - 3x - 5", "expect": "answer", "check": ["expr", "(x+1)*(2*x-5)"]},
   {"id": "mn12", "area": "rewrite asked", "prompt": "expand (x+2)(x-3)", "expect": "answer", "check": ["expr", "x**2-x-6"]},
-  {"id": "mn13", "area": "rewrite asked", "prompt": "can you factor x^2 + 7x + 12 for me", "expect": "answer", "check": ["expr", "(x+3)*(x+4)"]}
+  {"id": "mn13", "area": "rewrite asked", "prompt": "can you factor x^2 + 7x + 12 for me", "expect": "answer", "check": ["expr", "(x+3)*(x+4)"]},
+  {"id": "mn14", "area": "method named", "prompt": "solve x^2 - 9 = 0 by factoring x^2 - 9", "expect": "answer", "check": ["nums", ["-3", "3"]], "note": "taking 'by factoring' out glued its object to the equation: x^2 - 9 = 0 x^2 - 9 carded x = 0 (review, #2536)"},
+  {"id": "mn15", "area": "method named", "prompt": "solve x^2 - 5x + 6 = 0, should I factor x^2 - 5x + 6?", "expect": "answer", "check": ["nums", ["2", "3"]]}
 ]

@@ -28,7 +28,14 @@ import math
 import re
 from dataclasses import dataclass
 
-from app.modules.chat.tex_arithmetic import INLINE_MATH, evaluate, math_statements, plain_arithmetic
+from app.modules.chat.tex_arithmetic import (
+    INLINE_MATH,
+    UNIT_GROUP,
+    evaluate,
+    is_unit_word,
+    math_statements,
+    plain_arithmetic,
+)
 from app.modules.chat.working_check import (
     NAME,
     OPERATOR,
@@ -139,6 +146,8 @@ def card_slips(text: str, question: str = "") -> list[CardSlip]:
         lines = list(INLINE_MATH.finditer(above))
         if card is None or not lines or not _only_headings(above[lines[-1].end() :]):
             continue
+        if not _own_line(above, lines[-1].start()):
+            continue
         statements = list(math_statements(above))
         if not statements:
             continue
@@ -161,6 +170,7 @@ def card_slips(text: str, question: str = "") -> list[CardSlip]:
         earlier = f"{question}\n{text[: start + lines[-1].start()]}"
         held = (
             fence.start == last_card
+            and _plain_number(shown_tex) is not None
             and not wrong_steps(text)
             and _held(statements, expression_tex, value, earlier, name or _name(symbol))
         )
@@ -172,6 +182,27 @@ def card_slips(text: str, question: str = "") -> list[CardSlip]:
 
 # The number a card writes, as written: "-7", "1,200", "3.85" (its unit after it left off).
 _WRITTEN_NUMBER = re.compile(r"[-−]?\d{1,3}(?:,\d{3})+(?:\.\d+)?|[-−]?\d+(?:\.\d+)?")
+# A list marker or a space: what may stand before the working's last line on its line.
+_LINE_LEAD = re.compile(r"[ \t]*(?:(?:[-*+]|\d{1,3}[.)])[ \t]+)?")
+_SPACING = re.compile(r"\\[,;: !]|\s")
+
+
+def _own_line(above: str, at: int) -> bool:
+    """The working's last maths stands on a line of its own: "Divide $100$ by $2 + 3$" is a
+    sentence that goes on to work more out (review, #2536)."""
+    lead = above[above.rfind("\n", 0, at) + 1 : at]
+    return _LINE_LEAD.fullmatch(lead) is not None
+
+
+def _plain_number(shown: str) -> str | None:
+    """The card's value when it is one plain number, a unit after it or none; never one in
+    powers of ten, a fraction or a multiple of pi, whose leading digits are no value
+    ("6 \\times 10^3", "7/2", "8\\pi": review, #2536)."""
+    written = _WRITTEN_NUMBER.match(shown)
+    if written is None:
+        return None
+    rest = _SPACING.sub("", UNIT_GROUP.sub("", shown[written.end() :]))
+    return written.group(0) if not rest or (rest.isalpha() and is_unit_word(rest)) else None
 
 
 def _repeats(numbers: set[str]) -> re.Pattern[str]:
@@ -195,8 +226,7 @@ def held_cards(text: str, question: str = "") -> tuple[str, str | None]:
             note = note or f"Check the answer: ${found.expression} = {right}$, not ${found.shown}$."
             continue
         # The number alone, as the card wrote it: its unit stays, and is the prose's own.
-        written = _WRITTEN_NUMBER.match(found.shown)
-        number = written.group(0) if written else found.shown
+        number = _plain_number(found.shown) or found.shown
         said = shown_like(found.value, number)
         body = text[found.body_start : found.body_end]
         at = body.rfind(found.shown)

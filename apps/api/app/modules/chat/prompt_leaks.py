@@ -133,6 +133,8 @@ def drop_prompt_lines(text: str) -> str:
 
 
 def _leaking_line(line: str, rules: AbstractSet[str]) -> bool:
+    if quotes_the_prompt(line):
+        return True
     lead = _LEAD.match(line.lstrip(" \t>#|"))
     body = line.lstrip(" \t>#|")[lead.end() if lead else 0 :]
     for sentence in _SENTENCE_BREAK.split(body):
@@ -308,6 +310,10 @@ def _without_leaks(line: str, prompt: AbstractSet[str] | None = None) -> str | N
     """The line without its leaking sentences; None when none of it is left."""
     if line.startswith(_SKIPPED_STARTS) or line.lstrip().startswith(("|", "#", ">")):
         return line
+    if quotes_the_prompt(line):
+        # A quotation of the rules runs across its sentences: split, no piece of it may read
+        # as one, so the line goes whole (review, #2536).
+        return None
     lead_match = _LEAD.match(line)
     lead = lead_match.group(0) if lead_match else ""
     body = line[len(lead) :]

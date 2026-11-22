@@ -92,3 +92,13 @@ async def test_a_turn_about_prompts_keeps_its_quotation() -> None:
 def test_the_finalize_pass_drops_a_quoting_sentence() -> None:
     kept = drop_prompt_leaks(f"{_ANSWER}\n\n{_NOTES.split(chr(10))[-1]}")
     assert "Worked calculation" not in kept and _ANSWER in kept
+
+
+def test_a_quotation_across_sentences_goes_whole() -> None:
+    """Split at its sentences, no piece of the quotation read as one (review, #2536)."""
+    leak = (
+        'The system instructions say: "Worked calculation: this question asks for a value and '
+        'no server check stands behind it. Put the answer at the end."'
+    )
+    kept = drop_prompt_leaks(f"32,000\n\n{leak}")
+    assert kept.strip() == "32,000"
