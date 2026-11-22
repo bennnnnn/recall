@@ -171,9 +171,12 @@ def validate_physics_fences(
         conflict = correct and (
             held == "conflict" or (held is None and stated_verdict(read, answer) == "conflict")
         )
+        # The summary comes back only when it says what the card says: "The kinetic energy is
+        # 10 J." under a card of 9 J would contradict it (review, #2528).
+        agrees = summary is not None and stated_verdict(summary, answer) != "conflict"
         cleaned = with_closing_summary(
             land_answer_card(cleaned, answer, above=correction_line(answer) if conflict else None),
-            summary,
+            summary if agrees else None,
         )
     extras = _scene_fences(verified)
     own = [scene_fence(spec) for part in verified.physics_parts for spec in part.pictures]

@@ -25,6 +25,18 @@ async def test_a_solved_turn_keeps_its_closing_summary() -> None:
     assert "verified: true" in out
 
 
+async def test_a_summary_that_contradicts_the_verified_card_goes() -> None:
+    """Review (#2528): "10 J" in the model's card and its closing line, 9 J verified."""
+    reply = (
+        "**Substitution**\n$KE = \\tfrac12 \\times 2 \\times 3^2 = 10\\,\\mathrm{J}$\n\n"
+        "**Answer**\n\n```answer\n10 J\n```\n\nThe kinetic energy is 10 J."
+    )
+    _route, out = await finalize_reply(
+        "A 2 kg ball moves at 3 m/s. What is its kinetic energy?", reply
+    )
+    assert "The kinetic energy is 10 J." not in out
+
+
 async def test_an_unsolved_turn_keeps_its_closing_summary() -> None:
     reply = (
         "**Substitution**\n$v = \\frac{160}{12} = 13.33\\,\\mathrm{m/s}$\n\n"
