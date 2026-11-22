@@ -33,7 +33,7 @@ from app.modules.chat.worked_units import (
     declared_units,
     units_upright,
 )
-from app.services.latex_groups import map_groups
+from app.services.latex_groups import group_end, map_groups
 from app.services.times_sign import with_times
 from app.services.workout import formula_heading
 
@@ -75,19 +75,6 @@ _GREEK["\u00b5"] = "mu"
 _UPRIGHT_OPEN = re.compile(r"\\(?:mathrm|textrm|text|operatorname|mbox)\s*\{")
 
 
-def _group_end(text: str, opening: int) -> int:
-    """Where the brace group opened at ``opening`` ends (past its ``}``), or the text's end."""
-    depth = 0
-    for at in range(opening, len(text)):
-        if text[at] == "{":
-            depth += 1
-        elif text[at] == "}":
-            depth -= 1
-            if depth == 0:
-                return at + 1
-    return len(text)
-
-
 def greek_as_commands(tex: str) -> str:
     """``ρ = \\frac{m}{V}`` → ``\\rho = \\frac{m}{V}``: each Greek letter in maths as its
     command, a unit's letters (``\\mathrm{μC}``) left as written."""
@@ -98,7 +85,7 @@ def greek_as_commands(tex: str) -> str:
     while at < len(tex):
         upright = _UPRIGHT_OPEN.match(tex, at)
         if upright is not None:
-            end = _group_end(tex, upright.end() - 1)
+            end = group_end(tex, upright.end() - 1)
             out.append(tex[at:end])
             at = end
             continue

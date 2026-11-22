@@ -54,7 +54,8 @@ _DEGREE = re.compile(r"\^\s*(?:\{\s*)?(?:\\(?:circ|textdegree|degree)(?![A-Za-z]
 _TEXT_GROUP = re.compile(r"\\(?:text|textrm|mathrm|operatorname|mbox)\s*\{([^{}]*)\}")
 _SPACING = re.compile(r"\\(?:quad|qquad|[,;: ])")
 _COMMAND = re.compile(r"\\([A-Za-z]+)(?![A-Za-z])")
-_MATH_SPAN = re.compile(r"\$([^$\n]+)\$")
+# An inline maths span, "$x^2$" (the other follow-up rules read it too).
+MATH_SPAN = re.compile(r"\$([^$\n]+)\$")
 # An inline code span, kept whole (its backticks included) when the question is split on it.
 _CODE_SPAN = re.compile(r"(`+[^`\n]*`+)")
 # What only maths can draw: a script, a group, or a command with no character of its own.
@@ -86,5 +87,5 @@ def plain_follow_up(question: str) -> str:
 
     pieces = _CODE_SPAN.split(question)
     # The split keeps each code span at an odd index; only the prose around them holds maths.
-    plain = (piece if at % 2 else _MATH_SPAN.sub(span, piece) for at, piece in enumerate(pieces))
+    plain = (piece if at % 2 else MATH_SPAN.sub(span, piece) for at, piece in enumerate(pieces))
     return re.sub(r"[ \t]{2,}", " ", "".join(plain))
