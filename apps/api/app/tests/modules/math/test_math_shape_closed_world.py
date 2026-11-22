@@ -182,6 +182,13 @@ def test_a_rounded_card_reads_as_its_value() -> None:
         ("**Answer**\n$A = 50\\text{ cm}^2$", r"A = 50\ \mathrm{cm}^{2}", False),
         ("**Answer**\nThe angle is $30°$, opposite $5\\text{ cm}$", r"\approx 30°", False),
         ("**Answer**\n$T = 25°C$", r"\approx 30°", False),  # a temperature is no angle
+        # Working after the Given section's blank line is the reply's own (review, #2523).
+        (
+            "**Given**\nr = 10 cm\n\nIts angles are $53.1°$, $59.5°$ and $67.4°$.\n\n"
+            "**Answer**\n$l = 12\\text{ cm}$",
+            _ANGLES_CARD,
+            False,
+        ),
     ],
 )
 def test_an_answer_of_another_kind_of_measure(reply: str, card: str, another_kind: bool) -> None:

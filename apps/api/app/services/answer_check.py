@@ -607,6 +607,9 @@ def _outside_inputs(prose: str) -> str:
             skipping = heading[0] in _INPUT_TITLES or names_a_formula(heading[0])
             if not skipping and heading[1]:
                 kept.append(heading[1])
+        elif skipping and not line.strip():
+            # A section's lines end at the blank line after them, as in answer_sections.
+            skipping = False
         elif not skipping:
             kept.append(line)
     return "\n".join(kept)
