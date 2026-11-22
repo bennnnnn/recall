@@ -55,8 +55,10 @@ from app.gateways import (
 from app.gateways.mcp import registry as mcp_registry
 from app.gateways.mock_llm import mock_image_bytes
 from app.models.orm import Attachment, Chat, Memory, Message, TodoItem, User
+from app.modules.chat import turn_decision
 from app.services.mcp import setup_mcp_adapters
 from app.services.quota import tokens as quota_tokens
+from app.tests.modules.chat.chat_test_support import picture_reads
 from app.tests.modules.chat.turn_ledger import (
     APP_DIR,
     Counts,
@@ -442,6 +444,17 @@ async def harness(
     from app.modules.account import lifecycle
 
     # A provider key turns mock mode off: each call goes to the counted fakes.
+    # The turn's read is the only thing that paints or looks a photo up: these two ask.
+    monkeypatch.setattr(
+        turn_decision,
+        "start_turn_decision",
+        picture_reads(
+            {
+                "Show me a photo of the Eiffel Tower": "photo",
+                "Draw a picture of a cat wearing a hat": "image",
+            }
+        ),
+    )
     monkeypatch.setenv("MOCK_LLM_ENABLED", "false")
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     monkeypatch.setenv("TAVILY_API_KEY", "test-key")

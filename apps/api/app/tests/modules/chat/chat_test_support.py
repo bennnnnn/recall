@@ -63,6 +63,18 @@ def picture_read(picture: str, subject: str = "everyday") -> "asyncio.Future[Tur
     return read
 
 
+def picture_reads(pictures: dict[str, str]) -> Any:
+    """A stand-in for ``turn_decision.start_turn_decision`` for whole turns: a read already
+    in, saying the picture each message asks for (``pictures``, by its text); no read for
+    any other, as with the read off in tests."""
+
+    def start(_settings: Any, text: str, **_kwargs: Any) -> Any:
+        picture = pictures.get(text.strip())
+        return picture_read(picture) if picture is not None else None
+
+    return start
+
+
 def turn_deps(**fields: Any) -> ChatTurnDeps:
     """``default_deps()`` with fields swapped for fakes.
 

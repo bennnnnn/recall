@@ -34,6 +34,7 @@ from app.modules.chat import (
     finalize_registry,
     stream_entry,
     title_event,
+    turn_decision,
     turn_load,
     turn_settle,
     ws_api,
@@ -41,6 +42,7 @@ from app.modules.chat import (
 from app.modules.chat import stream_pipeline as pipeline
 from app.repositories import usage as usage_repo
 from app.services.quota import get_daily_usage, utc_today
+from app.tests.modules.chat.chat_test_support import picture_reads
 
 _REPLY = [f"w{i}" for i in range(12)]
 
@@ -397,6 +399,12 @@ async def test_ws_photo_lookup_on_the_chat_path_puts_up_its_label(
 
     # The lookup finds no photo it can use: the model answers in words after it.
     monkeypatch.setattr(image_search, "_fetch_candidates", AsyncMock(return_value=[]))
+    # The turn's read asks for a photo: the only thing that looks one up.
+    monkeypatch.setattr(
+        turn_decision,
+        "start_turn_decision",
+        picture_reads({"Show me a photo of the Eiffel Tower": "photo"}),
+    )
     sock = await chat.socket()
     sock.put(_message("Show me a photo of the Eiffel Tower"))
     await sock.until("done")
