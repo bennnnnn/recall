@@ -425,8 +425,9 @@ def test_one_part_keeps_its_one_unlettered_line_however_it_was_asked() -> None:
 
 
 def test_the_finished_reply_letters_what_is_asked_and_states_each_answer_once() -> None:
-    # Live 2026-11-02: one `required` for both parts, and a closing sentence repeating
-    # both answers under their cards.
+    # Live 2026-11-02: one `required` for both parts. The closing sentence gathering both
+    # answers under their cards stays: a one-line summary is wanted (owner, 2026-11-12,
+    # confirmed 2026-11-22).
     block = CONTRACT.replace(f"{_ASKED}\n", "required: v | average speed\n")
     reply = (
         f"{_laid_out(block)}\n\nThe car's speed is **20 m/s**, and the train's speed is **30 m/s**."
@@ -447,7 +448,8 @@ def test_the_finished_reply_letters_what_is_asked_and_states_each_answer_once() 
     text = check_working(cast(FinalizeState, state))
     assert _LETTERED in text
     assert text.count("```answer") == 2
-    assert text.rstrip().endswith("```") and "The car's speed" not in text
+    assert text.rstrip().endswith("the train's speed is **30 m/s**.")
+    assert text.count("The car's speed") == 1
 
 
 def test_the_scanned_lever_lays_every_part_out_alike() -> None:
