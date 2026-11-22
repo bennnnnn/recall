@@ -231,7 +231,8 @@ class _ReplyRound:
     require: str | None = None
     meta: dict[str, str] = field(default_factory=dict)
     calls: list[dict[str, Any]] = field(default_factory=list)
-    # This call asks again a reply that quoted the prompt: it is not asked a third time.
+    # This call, or one before it, asked again a reply that quoted the prompt: no call of
+    # this reply is asked again for a quotation once more.
     again: bool = False
 
 
@@ -263,18 +264,22 @@ async def _asked_again(
     *,
     should_cancel: Callable[[], bool] | None,
     on_status: StreamStatusFn | None,
-) -> _ReplyRound | None:
+) -> tuple[_ReplyRound, list[dict[str, Any]]] | None:
     """The call to make in place of the one just written, its text taken back: "I can't
     check live scores" with no tool offered (``_denial_retry``), or a reply that quotes the
     prompt's own rules, the model's notes to itself sent as its answer
     (``prompt_leaks.quotes_the_prompt``; live, 2026-11-22: a wrong "**42,000**" over
-    'The system instructions say: "Worked calculation: …"'), asked once more as it was."""
+    'The system instructions say: "Worked calculation: …"'), asked once more as it was.
+    With it, the retry tools left: a denial is asked again once; a quoting reply's retry may
+    still deny and be asked again (review, #2536), and is itself asked again no more."""
     written, shown_from = round_from
     if retry_tools and await live_denial.asks_again(
         settings, ctx, reply_round.calls, accum, written, should_cancel
     ):
         accum.retract(written, shown_from)
-        return await _denial_retry(ctx, retry_tools, on_status)
+        denial = await _denial_retry(ctx, retry_tools, on_status)
+        denial.again = reply_round.again
+        return denial, []
     if reply_round.again or reply_round.calls or accum.was_cancelled:
         return None
     if not reply_quotes_the_prompt("".join(accum.parts[written:]), ctx):
@@ -283,9 +288,10 @@ async def _asked_again(
     accum.retract(written, shown_from)
     if on_status is not None:
         await on_status("retract")
-    return _ReplyRound(
+    retry = _ReplyRound(
         tools=list(reply_round.tools), lead="\n\n", require=reply_round.require, again=True
     )
+    return retry, retry_tools
 
 
 async def run_llm_token_stream(
@@ -343,7 +349,7 @@ async def run_llm_token_stream(
             if again is not None:
                 # A held "!" or "[" was the old round's, never drawn: the new round starts clean.
                 scaffold = ReplyFilter(accum, ctx.worked)
-                reply_round, retry_tools = again, []
+                reply_round, retry_tools = again
                 continue
             # Only a call that carried tools leads to another: one search a turn.
             if not (reply_round.tools and reply_round.calls) or accum.was_cancelled:

@@ -13,5 +13,7 @@
   {"id": "mn12", "area": "rewrite asked", "prompt": "expand (x+2)(x-3)", "expect": "answer", "check": ["expr", "x**2-x-6"]},
   {"id": "mn13", "area": "rewrite asked", "prompt": "can you factor x^2 + 7x + 12 for me", "expect": "answer", "check": ["expr", "(x+3)*(x+4)"]},
   {"id": "mn14", "area": "method named", "prompt": "solve x^2 - 9 = 0 by factoring x^2 - 9", "expect": "answer", "check": ["nums", ["-3", "3"]], "note": "taking 'by factoring' out glued its object to the equation: x^2 - 9 = 0 x^2 - 9 carded x = 0 (review, #2536)"},
-  {"id": "mn15", "area": "method named", "prompt": "solve x^2 - 5x + 6 = 0, should I factor x^2 - 5x + 6?", "expect": "answer", "check": ["nums", ["2", "3"]]}
+  {"id": "mn15", "area": "method named", "prompt": "solve x^2 - 5x + 6 = 0, should I factor x^2 - 5x + 6?", "expect": "answer", "check": ["nums", ["2", "3"]]},
+  {"id": "mn16", "area": "method named", "prompt": "I don't know how to solve 2x^2-3x-5=0, should I use the quadratic formula or factor?", "expect": "answer", "check": ["nums", ["5/2", "-1"]], "note": "a negation of knowing, not of the solve (review, #2536)", "gap": "declines: the sentence around the equation is not read as maths yet (main carded the factorisation)"},
+  {"id": "mn17", "area": "rewrite asked", "prompt": "Factor x^2 - 5x + 6 = 0 without solving it", "expect": "answer", "check": ["expr", "(x-2)*(x-3)"]}
 ]

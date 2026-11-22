@@ -148,6 +148,8 @@ async def test_a_question_no_reading_answers_gets_no_card(text: str) -> None:
             "5/2",
         ),
         ("can you factor x^2 - 5x + 6 = 0 to solve it", "3"),
+        ("solve x^2 - 9 = 0 by factoring x^2 - 9", "-3"),
+        ("solve x^2 - 5x + 6 = 0, should I factor x^2 - 5x + 6?", "3"),
         ("solve x^2-5x+6=0 by factoring", "3"),
         ("solve (x+2)(x-3)=0, do I expand it first?", "3"),
         # A rewrite asked with no equation stays the rewrite.
@@ -160,6 +162,16 @@ async def test_the_card_asked_stays(text: str, answer: str) -> None:
     assert card is not None, text
     values = pieces(card)
     assert values and close(values[-1], parse_expr(answer, local_dict=_NAMES)), card
+
+
+@pytest.mark.asyncio
+async def test_not_knowing_how_to_solve_is_no_rewrite_asked() -> None:
+    """ "I don't know how" negates no solve: main carded the factorisation (review, #2536). The
+    sentence is not read as maths yet (``mn16``'s gap): no card, and never the rewrite."""
+    card = await _card(
+        "I don't know how to solve 2x^2-3x-5=0, should I use the quadratic formula or factor?"
+    )
+    assert card is None or "left" not in card
 
 
 @pytest.mark.parametrize(
@@ -299,6 +311,11 @@ def test_a_tool_call_on_the_users_problem_stays_checked(
         ),
         ("Factor 2x^2 - 3x - 5", {"action": "factor", "expr": "2*x**2 - 3*x - 5"}, True),
         # A solve said not to be asked leaves the rewrite the ask (review, #2536).
+        (
+            "Given f(x) = x^2 - 5x + 6, factor f(x) (don't solve it; we'll find the solutions later)",
+            {"action": "factor", "expr": "x**2 - 5*x + 6"},
+            True,
+        ),
         (
             "Given f(x) = x^2 - 5x + 6, factor it (don't find the roots yet)",
             {"action": "factor", "expr": "x**2 - 5*x + 6"},

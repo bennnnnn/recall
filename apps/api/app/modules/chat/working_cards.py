@@ -209,7 +209,7 @@ def _repeats(numbers: set[str]) -> re.Pattern[str]:
     """The card's wrong number written again in prose or maths, in any of its ``numbers``
     spellings ("1200", "1,200"), never inside another number."""
     spellings = sorted(numbers, key=len, reverse=True)
-    sign = "[-−]" if spellings[0].startswith(("-", "−")) else ""
+    sign = "[-−]" if any(number.startswith(("-", "−")) for number in spellings) else ""
     lead = r"(?<![\d.,])" if sign else r"(?<![\d.,\-−])"
     digits = "|".join(re.escape(number.lstrip("-−")) for number in spellings)
     return re.compile(rf"{lead}{sign}(?:{digits})(?![\d]|[.,]\d)")

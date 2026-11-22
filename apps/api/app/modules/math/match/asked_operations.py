@@ -97,9 +97,11 @@ _SOLVE_ASKED = re.compile(
     r"\bsolv(?:e|ing)\b|\bsolutions?\b|(?<!square )(?<!cube )\broots?\b|\bzeros?\s+of\b",
     re.IGNORECASE,
 )
-# A solve said not to be asked, just before its word: "factor it (don't find the roots yet)".
+# A solve the message says not to do, the command right before its word: "don't solve it",
+# "without solving", "no need to find the roots". "I don't know how to solve" still asks.
 _NOT_ASKED = re.compile(
-    r"\b(?:don'?t|do\s+not|not|never|no\s+need\s+to|without|before)\b(?:\s+\w+){0,3}\s*$",
+    r"\b(?:don'?t|do\s+not|never|no\s+need\s+to|without|not)\s+(?:(?:yet|bother\s+to|try\s+to)\s+)?"
+    r"(?:(?:find|finding|give|giving|work\s+out)\s+(?:the\s+|its\s+|any\s+)?)?$",
     re.IGNORECASE,
 )
 # Of those, the extreme values themselves: where the function turns is a step to them.
@@ -264,11 +266,13 @@ def rewrite_names_a_method(text: str) -> bool:
     2026-11-22). "Factor x^2 - 5x + 6" asks the rewrite; "factor x^2 - 5x + 6 = 0 to solve
     it" and "solve by factoring" ask the roots."""
     text = text[:_MAX_TEXT]
-    asked = any(
-        _NOT_ASKED.search(text[max(0, match.start() - 30) : match.start()]) is None
-        for match in _SOLVE_ASKED.finditer(text)
+    solves = list(_SOLVE_ASKED.finditer(text))
+    # A solve said not to be done anywhere ("factor it without solving it; we'll find the
+    # solutions later") leaves the rewrite the ask (review, #2536).
+    told_not = any(
+        _NOT_ASKED.search(text[max(0, match.start() - 40) : match.start()]) for match in solves
     )
-    return asked and has_equation(text)
+    return bool(solves) and not told_not and has_equation(text)
 
 
 def asks_rate_of_change(text: str) -> bool:

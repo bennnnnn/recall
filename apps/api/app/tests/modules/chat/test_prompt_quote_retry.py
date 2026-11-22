@@ -4,13 +4,28 @@ answer: it is taken back and asked once more (live, 2026-11-22: a wrong "**42,00
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from app.modules.chat.prompt_leaks import drop_prompt_leaks, quotes_the_prompt
 from app.modules.chat.stream_accum import StreamAccum
-from app.tests.modules.chat.test_reply_search_tool import _context, _model, _reply
+from app.tests.modules.chat.test_reply_search_tool import (
+    _ANSWER as _SEARCHED,
+)
+from app.tests.modules.chat.test_reply_search_tool import (
+    _DENIAL,
+    _HIT,
+    _SEARCH_CALL,
+    _context,
+    _model,
+    _reply,
+    _retry_context,
+    denial_check,  # noqa: F401 - the fixture, by name
+    web_search_tool,  # noqa: F401 - the fixture, by name
+)
 
 _NOTES = (
     "**42,000**\n\nLet me re-read the prompt's request for a worked block if it asks for a "
@@ -102,3 +117,21 @@ def test_a_quotation_across_sentences_goes_whole() -> None:
     )
     kept = drop_prompt_leaks(f"32,000\n\n{leak}")
     assert kept.strip() == "32,000"
+
+
+@pytest.mark.asyncio
+async def test_a_retried_reply_that_denies_live_facts_is_still_asked_again(
+    web_search_tool: dict[str, Any],  # noqa: F811 - the fixture
+    denial_check: AsyncMock,  # noqa: F811 - the fixture
+) -> None:
+    """The quotation's retry keeps the denial's own retry (review, #2536)."""
+    ctx = _retry_context(tool=web_search_tool)
+    await asyncio.sleep(0)
+    llm, seen = _model(([_NOTES], []), ([_DENIAL], []), ([], [_SEARCH_CALL]), ([_SEARCHED], []))
+    accum = StreamAccum()
+    with patch(
+        "app.modules.web_search.tool.run_cached_search", AsyncMock(return_value=([_HIT], ["q"]))
+    ):
+        await _reply(ctx, llm, accum=accum)
+    assert accum.reply_text() == _SEARCHED
+    assert len(seen) == 4
