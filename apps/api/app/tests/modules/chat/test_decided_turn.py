@@ -1111,7 +1111,7 @@ async def test_a_word_lesson_is_followed_by_more_words() -> None:
 async def test_the_word_rules_yes_stays_only_where_the_read_hears_one(
     follow: str, kept: bool
 ) -> None:
-    """"pls" after a reply that offered nothing asks for more: told "Carry out that offer now"
+    """ "pls" after a reply that offered nothing asks for more: told "Carry out that offer now"
     by the word rules, the reply redid its last answer (100 texted chats, 2026-11-21)."""
     from app.modules.chat.prompt_constants import CONFIRM_FOLLOW_THROUGH_HINT
 

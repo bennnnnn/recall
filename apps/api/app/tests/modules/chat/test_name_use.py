@@ -118,8 +118,12 @@ def test_a_reply_about_the_name_keeps_it(asked: str, kept: bool) -> None:
         ("ok", "Got it, Sam 👍", "Got it 👍"),
         ("thanks", "You're welcome, Sam!", "You're welcome!"),
         ("night", "Night, Sam 🌙", "Night 🌙"),
-        # A greeting may answer with it.
+        ("thanks", "Anytime, Sam", "Anytime"),
+        ("cool", "Glad you liked it, Sam", "Glad you liked it"),
+        # A greeting may answer with it, and a list names them (review, #2526).
         ("hi", "Hey Sam!", "Hey Sam!"),
+        ("whos coming", "Just Anna, Sam", "Just Anna, Sam"),
+        ("whos coming", "Anna, Sam & Max", "Anna, Sam & Max"),
         # A long reply keeps the rule of the last two replies.
         (
             "ok",

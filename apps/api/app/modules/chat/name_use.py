@@ -62,11 +62,8 @@ def _patterns(name: str) -> tuple[re.Pattern[str], ...]:
         re.compile(rf"(?P<g>{greet}),[ \t]+{n}(?=[ \t]*[,.!?\u2014\u2013])"),
         # "Hey bini!": the greeting then the name, no comma (that is "Hi Bini," a draft's).
         re.compile(rf"(?P<g>{greet})[ \t]+{n}(?=[.!?])"),
-        # "Great question, bini!": closing its sentence; "Night, Sam 🌙", "Got it, Sam 👍" and
-        # "Anytime, Sam" close theirs with an emoji or nothing.
-        re.compile(
-            rf"(?<=\S),[ \t]+{n}(?=[.!?](?:\*\*)?(?:\s|$)|[ \t]*$|[ \t]+[^\w\s*,;:'\"(\[-])"
-        ),
+        # "Great question, bini!": closing its sentence.
+        re.compile(rf"(?<=\S),[ \t]+{n}(?=[.!?](?:\*\*)?(?:\s|$))"),
         # "That's a lot to take in, Bini, and …": between commas after a lowercase word.
         # "I told my sister, Bini, and Carl" names a list: kept.
         re.compile(
@@ -106,9 +103,25 @@ def _outside_code(text: str, change: Callable[[str], str]) -> str:
     return "".join([*parts, change(text[last:])])
 
 
-def without_name(text: str, name: str) -> str:
-    """``text`` with ``name`` gone from where it addresses the reader."""
+def _short_closing(name: str) -> re.Pattern[str]:
+    """In a few words back: the name closing a sentence with an emoji or nothing after it,
+    after a lowercase word or the sentence's first ("Got it, Sam 👍", "Night, Sam 🌙",
+    "Anytime, Sam"). A name after a capital stays: "Just Anna, Sam" names two people
+    (review, #2526)."""
+    n = rf"(?:{_spellings(name)})\b"
+    return re.compile(
+        rf"(?P<w>(?:^|(?<=[.!?][ \t]))[A-Z][\w']*|\b[a-z][\w']*),[ \t]+{n}"
+        rf"(?=[ \t]*$|[ \t]+[^\w\s*,;:'\"(\[&+-])",
+        re.MULTILINE,
+    )
+
+
+def without_name(text: str, name: str, *, short: bool = False) -> str:
+    """``text`` with ``name`` gone from where it addresses the reader; ``short``: a few words
+    answering a few words, where it closes a sentence with no stop too."""
     opening, after_greeting, greeting, closing, inside = _patterns(name)
+    if short:
+        text = _short_closing(name).sub(r"\g<w>", text)
     text = opening.sub(lambda m: f"{m['lead']}{m['next'].upper()}", text, count=1)
 
     def line_without(line: str) -> str:
@@ -147,11 +160,10 @@ def spare_name_pass(state: FinalizeState) -> str:
     asked = state.ctx.user_message_content or ""
     if state.server_text or name is None or _ABOUT_THE_NAME.search(asked) or name in asked:
         return state.text
-    if not named_lately(name, state.ctx.recent_messages or []) and not _a_short_exchange(
-        asked, state.text
-    ):
+    short = _a_short_exchange(asked, state.text)
+    if not short and not named_lately(name, state.ctx.recent_messages or []):
         return state.text
-    return without_name(state.text, name)
+    return without_name(state.text, name, short=short)
 
 
 # "ok" answered "Got it, Sam 👍", "thanks" "Anytime, Sam!", "night" "Night, Sam 🌙": in 100
