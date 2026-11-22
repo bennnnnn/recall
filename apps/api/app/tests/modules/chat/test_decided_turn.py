@@ -684,6 +684,24 @@ async def test_a_request_to_see_the_problem_is_told_the_app_draws_it(
         if str(m["content"]).startswith((SHOW_IT_NOTE, SHOWN_IT_NOTE))
     ]
     assert notes == ([note] if note else [])
+
+
+@pytest.mark.asyncio
+async def test_a_request_to_see_the_problem_in_a_lesson_is_told_too() -> None:
+    """A homework reply under a lesson heading took every follow note away (review)."""
+    read = TurnDecision.model_validate(
+        {
+            "live": False,
+            "subject": "chemistry",
+            "think": False,
+            "follow": "draw",
+            "picture": "molecule",
+        }
+    )
+    lesson = [SimpleNamespace(role="assistant", content=_LESSON)]
+    ctx = _follow_turn("can u show me a picture", read, recent_messages=lesson)
+    await decide_from_the_read(ctx, _SETTINGS)
+    assert any(m["content"] == SHOW_IT_NOTE for m in ctx.prompt_messages)
     assert DRAWN_PICTURE_NOTE not in [m["content"] for m in ctx.prompt_messages]
 
 

@@ -160,9 +160,12 @@ def _figure_wanted(read: asyncio.Task[TurnDecision | None]) -> _Wanted | None:
     subject = _FIGURES.get(decision.subject or "") if decision is not None else None
     if decision is None or subject is None:
         return None
-    if read_asks_for_a_picture(decision) or (
-        subject == "chemistry" and decision.picture == "molecule"
-    ):
+    # A request to see the chemistry problem the chat worked on is asked, whatever picture
+    # the read names of it: its picture is its compound. A maths one that names none stays
+    # the teaching figure's, which draws nothing for a remainder (review, 2026-11-22: asked,
+    # "17 mod 5" got a rectangle).
+    chemistry = subject == "chemistry" and (decision.picture == "molecule" or shows_it(decision))
+    if read_asks_for_a_picture(decision) or chemistry:
         return subject, "asked"
     return (subject, "teach") if decision.picture in _UNASKED else None
 

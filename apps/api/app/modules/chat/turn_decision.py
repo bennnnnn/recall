@@ -285,7 +285,8 @@ class TurnDecision(BaseModel):
         "can u show me a picture" after 7 notebooks at $2 each, read as an image to paint,
         was answered "Sure — here's a picture of a cute puppy" (QA round, 2026-11-22)."""
         if self.follow == "draw" and self.subject in _STEM and self.picture == "image":
-            self.picture = "diagram"
+            # A chemistry problem's picture is its compound, the figure chemistry draws.
+            self.picture = "molecule" if self.subject == "chemistry" else "diagram"
         return self
 
     @model_validator(mode="after")
@@ -451,7 +452,9 @@ async def _join(
         return _followed(await text_read, earlier)
     if not (decided["live"] or decided["asked"]):
         decision = TurnDecision(**decided)
-        if not _unsure_whose_picture(decision):
+        # Asked of the Decider's own answer: the read's validators turn its painting into
+        # the problem's diagram, which the text read may name better.
+        if not _unsure_whose_picture(decided):
             return decision
         return _the_problem_s_picture(decision, await _within(settings, text_read, started))
     # The search query is text the Decider cannot write: the text read's, begun beside it.
@@ -467,16 +470,22 @@ async def _join(
     return TurnDecision(**decided, query=read.query if read is not None else "")
 
 
-def _unsure_whose_picture(read: TurnDecision) -> bool:
+def _unsure_whose_picture(decided: dict[str, Any]) -> bool:
     """The Decider says the message asks to see what the conversation is about, but names
-    no school subject, or no picture the app draws of it (a photo, a painting, none). "can u show me a picture" after 7
+    no school subject, or no picture the app draws of it (a photo, a painting, none), or
+    a chemistry problem's picture that is no molecule. "can u show me a picture" after 7
     notebooks at $2 each read "everyday" and a painting, after a sequence and a ticket
     problem too: 36 of the 45 picture requests of a QA round (2026-11-22) were read as a
     school problem's picture, against 45 of 45 by the text read, whose instructions say so
     (``picture_followup_eval``). Told the same in its own questions, the Decider searched
     more turns that need no search (``search_need_eval``: 0.9% to 2.4-3.7%), so it is left
     as it is and the text read, begun beside it, is asked about these alone."""
-    return read.follow == "draw" and (read.subject not in _STEM or read.picture not in _DRAWN)
+    subject, picture = decided.get("subject"), decided.get("picture")
+    if decided.get("follow") != "draw":
+        return False
+    if subject == "chemistry":
+        return picture != "molecule"
+    return subject not in _STEM or picture not in _DRAWN
 
 
 async def _within(

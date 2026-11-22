@@ -238,7 +238,8 @@ def test_the_effort_comes_from_think_and_hard(think: bool, hard: bool, effort: s
         # "can u show me a picture" after 7 notebooks at $2 each: the problem's, never painted.
         ("maths", "draw", "diagram"),
         ("physics", "draw", "diagram"),
-        ("chemistry", "draw", "diagram"),
+        # A chemistry problem's picture is its compound.
+        ("chemistry", "draw", "molecule"),
         # "make it blue" after a painting, and a painting asked beside a problem, stay paintings.
         ("everyday", "draw", "image"),
         ("physics", "none", "image"),
@@ -378,6 +379,10 @@ _EARLIER = [("user", "7 notebooks at $2 each, paid with $20: the change?"), ("as
             ("chemistry", "molecule"),
             ("chemistry", "molecule"),
         ),
+        # A school subject's painting is asked of the text read too, before it is the
+        # problem's diagram (review): a maths curve's picture is its graph.
+        ({"subject": "maths", "picture": "image"}, ("maths", "graph"), ("maths", "graph")),
+        ({"subject": "maths", "picture": "image"}, ("everyday", "image"), ("maths", "diagram")),
         # The text read names no school problem: the Decider's read stands.
         ({"subject": "everyday", "picture": "image"}, ("everyday", "image"), ("everyday", "image")),
         # The Decider names the problem's picture: nothing else is asked.

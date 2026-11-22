@@ -469,7 +469,12 @@ def _follow_note(ctx: StreamContext, read: TurnDecision) -> None:
         return
     if note is None or ctx.after_card:
         return
-    if active_lesson_step(ctx.recent_messages) or outline_awaits_pick(ctx.recent_messages):
+    # A request to see the problem is told the app draws it in a lesson too (a quiz answer
+    # was graded already, ``_grades_the_card``).
+    in_a_lesson = active_lesson_step(ctx.recent_messages) or outline_awaits_pick(
+        ctx.recent_messages
+    )
+    if in_a_lesson and not shows_it(read):
         return
     note_prompt_rule(f"read.follow_{read.follow}")
     messages = ctx.prompt_messages

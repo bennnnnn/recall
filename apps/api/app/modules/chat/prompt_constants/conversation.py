@@ -231,7 +231,8 @@ SHOW_IT_NOTE = (
 # model told "nothing else" wrote no ```draw block for a series circuit the rules name.
 SHOW_IT_DRAW_NOTE = (
     "Then end your reply with the ```draw block the rules above describe for this "
-    "problem's situation, when they name it, with the values the earlier problem states."
+    "problem's situation, when they name it, with the values the earlier problem states: "
+    "opened with ```draw whatever its kind, never ```motion, ```circuit or ```scene."
 )
 # The same, when the turn's solve drew that picture already.
 SHOWN_IT_NOTE = (
