@@ -239,6 +239,12 @@ def test_cut_cone_that_cannot_hold_draws_nothing(question: str, reading: dict[st
             _solid("cone", ("height", 24, ""), ("radius", 12, "")),
             "cone",
         ),
+        # "small" is the cone's size, not a cone cut off (review, #2522).
+        (
+            "A small cone has radius 3 cm and height 4 cm. Find its slant height.",
+            _solid("cone", ("radius", 3, "cut"), ("height", 4, "cut")),
+            "cone",
+        ),
         (
             "A bucket is a frustum of a cone with top radius 15 cm, bottom radius 10 cm and "
             "slant height 13 cm. Find its depth and capacity.",

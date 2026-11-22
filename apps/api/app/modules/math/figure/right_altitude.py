@@ -47,8 +47,13 @@ _STEPS = 2000
 _TOLERANCE = 1e-4
 # Under the hypotenuse, this far against it: where its whole length is labelled.
 _BELOW = 0.12
-# "height" alone is a leg ("base 6, height 8 and hypotenuse 10"): only the altitude words.
-_WORDS = re.compile(r"\b(?:altitude|perpendicular)\b")
+# "height" alone is a leg ("base 6, height 8 and hypotenuse 10"), and so is "perpendicular"
+# ("base 6 cm, perpendicular 8 cm, hypotenuse 10 cm"): only an altitude, or a perpendicular
+# drawn to the hypotenuse or from the right angle (review, #2522).
+_WORDS = re.compile(
+    r"\baltitude\b|\bperpendicular\s+(?:is\s+)?(?:drawn\s+)?(?:from|to|onto|on)\s+the\s+"
+    r"(?:hypotenuse|right\s+angle|vertex)\b"
+)
 _HYPOTENUSE = re.compile(r"\bhypotenuse\b")
 
 

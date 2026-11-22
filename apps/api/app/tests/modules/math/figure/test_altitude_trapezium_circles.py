@@ -359,3 +359,14 @@ def test_common_chord_right_angle_stays_on_the_centres_line(
     mark = next(m for m in spec.angles if m.right)
     assert at(spec, mark.at) == pytest.approx((foot, 0))
     _chord_mark_on_drawn_line(spec)
+
+
+def test_a_perpendicular_named_as_a_leg_is_no_altitude() -> None:
+    """Review (#2522): "perpendicular" is the textbook word for a leg; the triangle is drawn
+    as one right triangle, never refused as an altitude figure."""
+    question = (
+        "In a right triangle the base is 6 cm, the perpendicular 8 cm and the hypotenuse 10 cm."
+    )
+    reading = _reading("polygon", "right_triangle", ("base", 6), ("leg", 8), ("hypotenuse", 10))
+    spec = draw(question, reading)
+    assert spec is None or sum(mark.right for mark in spec.angles) == 1

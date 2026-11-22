@@ -36,6 +36,8 @@ WHOLE, CUT, FRUSTUM = "whole_cone", "cut_cone", "frustum"
 _ROLES = frozenset({WHOLE, CUT, FRUSTUM})
 _SHAPES = frozenset({"frustum", "cone_frustum", "truncated_cone", "cone"})
 _CUT_WORDS = re.compile(r"\b(?:small\w*|remov\w*|cut[- ]off|little|tiny|top|upper)\b")
+# Words that cut a cone in two, beside the size words of the part cut off.
+_CUT_ACTION = re.compile(r"\b(?:cut|sliced|chopped|parallel|frustum|remov\w*|truncat\w*)\b")
 _WHOLE_WORDS = re.compile(r"\b(?:original|larg\w*|big\w*|whole|full|complete|entire|initial)\b")
 _NOUN = re.compile(r"\b(?:frust\w*|cones?)\b")
 _FRUSTUM_OF = re.compile(r"\bfrust\w* of (?:a|the) (?:right )?(?:circular )?$")
@@ -153,7 +155,13 @@ def roles_as_said(request: FigureRequest, texts: Sequence[str]) -> FigureRequest
     words = " ".join(texts).lower()
     places = _placed(words, request.measures)
     roles = [_role(_written_at(words, f), m) for m, f in zip(request.measures, places, strict=True)]
-    cut_said = CUT in roles if request.shape == "cone" else bool({WHOLE, CUT} & set(roles))
+    # A cone is cut in two only when the words say so, or name both cones: "a small cone of
+    # radius 3 cm" is one cone, "small" its size (review, #2522).
+    cut_said = (
+        CUT in roles and (WHOLE in roles or _CUT_ACTION.search(words) is not None)
+        if request.shape == "cone"
+        else bool({WHOLE, CUT} & set(roles))
+    )
     if not cut_said:
         return request
     roles = [
