@@ -64,7 +64,6 @@ from app.modules.chat.finalize_parts import (
 from app.modules.chat.finalize_reminders import apply_reminder_pass, drop_cut_reminder_fence
 from app.modules.chat.finalize_subjects import (
     CHEMISTRY_ENRICH,
-    append_unverified_notes,
     check_math_fences,
     check_working,
     draw_formula_charts,
@@ -79,6 +78,7 @@ from app.modules.chat.finalize_subjects import (
     strip_solve_markers,
     strip_text_plots,
     subject_fences,
+    tidy_and_drop_unverified_notes,
     uncaptioned,
 )
 from app.modules.chat.finalize_text import (
@@ -312,7 +312,7 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         )
     ),
     FinalizePass("server_answer_cards", mark_server_cards, kind=TEXT),
-    FinalizePass("unverified_notes", append_unverified_notes, kind=TEXT),
+    FinalizePass("unverified_notes", tidy_and_drop_unverified_notes, kind=TEXT),
     FinalizePass("working_check", check_working, kind=TEXT),
     # Once the working's own Answer has become its card: a lead above the working that
     # guesses or repeats that card goes (a model's "**x = 3**" over its steps). The

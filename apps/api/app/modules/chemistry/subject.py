@@ -135,10 +135,10 @@ class ChemistryFence:
 
         return solver_cards(verified)
 
-    def unverified_note(self, text: str) -> str:
-        from app.modules.chemistry.context import append_unverified_chemistry_note
+    def drop_unverified_note(self, text: str) -> str:
+        from app.modules.chemistry.context import drop_unverified_chemistry_note
 
-        return append_unverified_chemistry_note(text)
+        return drop_unverified_chemistry_note(text)
 
     def draws(self, text: str, settings: Settings) -> bool:
         lowered = text.lower()

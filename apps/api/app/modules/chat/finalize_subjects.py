@@ -280,15 +280,16 @@ def uncheck_cards(text: str) -> str:
     return text
 
 
-def append_unverified_notes(state: FinalizeState) -> str:
-    """Every reply, checked or not, gets the maths note when it needs one: the
-    check mark is the only signal. A declined solve of another subject gets that
-    subject's own (chemistry's; physics states its note in the prompt)."""
-    text = subject_adapter("math").fence.unverified_note(state.text)
+def tidy_and_drop_unverified_notes(state: FinalizeState) -> str:
+    """Every reply, checked or not, loses a couldn't-verify note and is tidied (maths'
+    step: straight apostrophes, one blank line at most, stripped ends): the check mark is
+    the only signal. A declined solve of another subject drops that subject's own note
+    too (chemistry's; physics states its note in the prompt)."""
+    text = subject_adapter("math").fence.drop_unverified_note(state.text)
     ctx = state.ctx
     declined = adapter_named(ctx.unverified_subject)
     if ctx.solver_unverified is True and declined is not None and declined.name != "math":
-        text = declined.fence.unverified_note(text)
+        text = declined.fence.drop_unverified_note(text)
     return text
 
 

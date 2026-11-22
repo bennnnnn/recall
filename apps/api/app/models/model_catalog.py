@@ -403,7 +403,8 @@ CATALOG: tuple[ChatModel, ...] = (
         provider="openai",
         api_key_field="openai_api_key",
         selectable=False,
-        description="Legacy alias for OpenAI read-aloud.",
+        # The phone still offers it as the fast read-aloud choice (``ttsPreference.ts``).
+        description="OpenAI read-aloud; the same model as speech-tts-model.",
     ),
     ChatModel(
         id="live-talk-model",
