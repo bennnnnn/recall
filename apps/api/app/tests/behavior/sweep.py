@@ -185,7 +185,9 @@ LOOKALIKE_HINTS = {
     "places lookalike": "local_places",
 }
 # "Fix my code", "is my answer right?", "oh my god": a "my" that names nothing of the
-# user's life (an idiom, or the text the message hands over) reads no personal memory.
+# user's life (an idiom, or the text the message hands over) is not read as a personal turn.
+# The ambient read every non-greeting turn makes (a small store whole, no search, no
+# personal hints; ``prompt_builder._context_plan``) is not a personal reading of it.
 NOT_PERSONAL_AREAS = {"possessive lookalike"}
 # A loan, card or savings ask, or a what-if that changes the one before it ("what if i only
 # do 3 years instead"): the server works its numbers, so the turn carries the money block.
@@ -632,7 +634,15 @@ def _judge_expect(outcome: Outcome, expect: str) -> list[str]:
             problems.append("searched the web")
         if entry.area in NOT_MATH_AREAS and (route.subject == "math" or route.solved):
             problems.append(f"read as maths (solved={route.solved})")
-        if entry.area in NOT_PERSONAL_AREAS and route.memory and route.memory_scope != "work":
+        if (
+            entry.area in NOT_PERSONAL_AREAS
+            and route.memory
+            and route.memory_scope
+            not in (
+                "work",
+                "ambient",
+            )
+        ):
             problems.append(f"read personal memory ({route.memory_scope})")
         unwanted = LOOKALIKE_HINTS.get(entry.area)
         if unwanted and unwanted in route.hints:

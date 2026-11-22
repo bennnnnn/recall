@@ -804,7 +804,9 @@ async def test_get_memory_block_warms_semantic_cache_via_tracked_background_task
     user.id = uuid4()
     user.memory_enabled = True
     session = fake_session()
-    settings = Settings(semantic_memory_enabled=True, memory_query_cache_ttl=120)
+    settings = Settings(
+        memory_whole_store_max_facts=0, semantic_memory_enabled=True, memory_query_cache_ttl=120
+    )
 
     fake_task = MagicMock()
 
@@ -843,7 +845,9 @@ async def test_get_memory_block_live_embed_on_cache_miss(fake_redis):
     user.id = uuid4()
     user.memory_enabled = True
     session = fake_session()
-    settings = Settings(semantic_memory_enabled=True, memory_query_cache_ttl=120)
+    settings = Settings(
+        memory_whole_store_max_facts=0, semantic_memory_enabled=True, memory_query_cache_ttl=120
+    )
     query_vec = [0.1, 0.2, 0.3]
 
     with (
@@ -874,7 +878,9 @@ async def test_get_memory_block_query_cache(fake_redis):
     user.id = uuid4()
     user.memory_enabled = True
     session = fake_session()
-    settings = Settings(semantic_memory_enabled=True, memory_query_cache_ttl=120)
+    settings = Settings(
+        memory_whole_store_max_facts=0, semantic_memory_enabled=True, memory_query_cache_ttl=120
+    )
 
     with (
         patch(
@@ -903,7 +909,9 @@ async def test_invalidate_memory_block_bumps_generation_and_clears_block_keys(fa
     user.id = uuid4()
     user.memory_enabled = True
     session = fake_session()
-    settings = Settings(semantic_memory_enabled=True, memory_query_cache_ttl=120)
+    settings = Settings(
+        memory_whole_store_max_facts=0, semantic_memory_enabled=True, memory_query_cache_ttl=120
+    )
 
     load_mock = AsyncMock(return_value=[_memory("fact", "Likes hiking", 0.9)])
     with (
@@ -938,7 +946,9 @@ async def test_invalidate_memory_block_makes_query_cache_unreachable(fake_redis)
     user.id = uuid4()
     user.memory_enabled = True
     session = fake_session()
-    settings = Settings(semantic_memory_enabled=True, memory_query_cache_ttl=120)
+    settings = Settings(
+        memory_whole_store_max_facts=0, semantic_memory_enabled=True, memory_query_cache_ttl=120
+    )
 
     load_mock = AsyncMock(return_value=[_memory("fact", "Likes hiking", 0.9)])
     with (
@@ -976,7 +986,9 @@ async def test_warm_semantic_cache_write_racing_invalidation_is_never_served(fak
     user.id = user_id
     user.memory_enabled = True
     session = fake_session()
-    settings = Settings(semantic_memory_enabled=True, memory_query_cache_ttl=120)
+    settings = Settings(
+        memory_whole_store_max_facts=0, semantic_memory_enabled=True, memory_query_cache_ttl=120
+    )
 
     stale_memories = [_memory("fact", "Stale — computed before invalidation", 0.9)]
     fresh_memories = [_memory("fact", "Fresh — computed after invalidation", 0.9)]
@@ -1036,7 +1048,7 @@ async def test_memory_reenable_loads_fresh_after_invalidation(fake_redis):
     user.id = uuid4()
     user.memory_enabled = True
     session = fake_session()
-    settings = Settings(memory_cache_ttl=120)
+    settings = Settings(memory_whole_store_max_facts=0, memory_cache_ttl=120)
 
     load_mock = AsyncMock(
         side_effect=[
@@ -1232,14 +1244,17 @@ def _store() -> list:
 
 @pytest.mark.asyncio
 async def test_embed_timeout_injects_only_identity_core(fake_redis):
-    """M6: no query vector means the name, reply preferences and facts that share a
-    word with the question, never the whole store; the block is not cached."""
+    """M6: in a store too large to read whole, no query vector means the name, reply
+    preferences and facts that share a word with the question, never the whole store; the
+    block is not cached."""
     from app.modules.memory import MemoryLoadReport, get_memory_block
 
     user = AsyncMock()
     user.id = uuid4()
     user.memory_enabled = True
-    settings = Settings(semantic_memory_enabled=True, memory_min_confidence=0.0)
+    settings = Settings(
+        memory_whole_store_max_facts=0, semantic_memory_enabled=True, memory_min_confidence=0.0
+    )
     report = MemoryLoadReport()
     warm = MagicMock(side_effect=_closing_background_task)
 
