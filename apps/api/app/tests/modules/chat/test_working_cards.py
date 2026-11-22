@@ -174,3 +174,10 @@ def test_a_heading_with_maths_above_the_card_is_no_working() -> None:
     text, note = held_cards(reply)
     assert note is None
     assert "D = -8" in text and "Since -8 is negative" in text
+
+
+def test_a_card_value_in_its_own_maths_is_read() -> None:
+    """ "D = $-7$" on the card (review, #2536)."""
+    reply = _reply("$D = 2^2 - 4(3)(1)$  \n$D = 4 - 12$", "D = $-7$")
+    text, note = held_cards(reply)
+    assert note is None and "D = $-8$" in text

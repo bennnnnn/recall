@@ -39,6 +39,12 @@ _ANSWER = "$3 \\times 10^4 + 2 \\times 10^3 = 32000$"
     ("reply", "quotes"),
     [
         (_NOTES, True),
+        # A quotation opened curly and closed straight (review, #2536).
+        (
+            'Wait, \u201cx"? The system instructions say: "Worked calculation: this question '
+            'asks for a value and no server check stands behind it."',
+            True,
+        ),
         # A curly apostrophe or quotation mark is the rules' own (review, #2536).
         (_NOTES.replace('"', "\u201c", 1).replace("prompt's", "prompt\u2019s"), True),
         # A short quotation before it takes both its marks (review, #2536).

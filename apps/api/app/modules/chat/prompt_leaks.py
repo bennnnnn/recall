@@ -170,6 +170,8 @@ _QUOTED = re.compile(
     r"\"([^\"\n]*)\"|\u201c([^\u201d\n]*)\u201d|[\"\u201c]([^\"\u201d\n]*)$", re.MULTILINE
 )
 _QUOTE_WORDS = re.compile(r"[a-z']+")
+# A model may open a quotation curly and close it straight: every mark is read as one.
+_STRAIGHT_QUOTES = str.maketrans({"\u201c": '"', "\u201d": '"'})
 # Words in a row a quotation shares with the rules: on 9,487 live replies, none quoted six
 # of the rules' words in a row but the two that sent the model's notes as the reply.
 _QUOTE_RUN = 6
@@ -193,7 +195,7 @@ def quotes_the_prompt(text: str) -> bool:
     2026-11-22, the reply opening on a wrong 42,000)."""
     prose = _SPANS_NOT_PROSE.sub(" ", map_fence_blocks(text, lambda _fence, _body: "\n"))
     # A curly apostrophe is the rules' straight one: user's stays one word (review, #2536).
-    prose = straighten_apostrophes(prose)
+    prose = straighten_apostrophes(prose).translate(_STRAIGHT_QUOTES)
     runs = _rule_runs()
     for quote in _QUOTED.finditer(prose):
         said = next(group for group in quote.groups() if group is not None)

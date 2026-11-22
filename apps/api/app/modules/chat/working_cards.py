@@ -54,7 +54,8 @@ from app.services.md_fence_scan import iter_fences
 # A line that is a bold heading alone: "**Answer**", "**Answer (b)**".
 _BOLD_LINE = re.compile(r"\*\*[^*\n]+\*\*")
 _UPRIGHT = re.compile(r"\\(?:text|mathrm|operatorname|textrm)\s*\{([^{}]*)\}")
-_NUMBER = re.compile(r"\d+(?:\.\d+)?")
+# A number whole, its thousands commas with it: "1,200" is one number, not 1 and 200.
+_NUMBER = re.compile(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?")
 
 
 @dataclass(frozen=True)
@@ -85,7 +86,7 @@ def _card_value(body: str) -> tuple[str, str, bool] | None:
     parts, relations = RELATION.split(value), RELATION.findall(value)
     if len(parts) > 2:
         return None
-    symbol, number = (parts[0].strip(), parts[1].strip()) if relations else ("", value)
+    symbol, number = (parts[0].strip(" *$"), parts[1].strip(" *$")) if relations else ("", value)
     return symbol, number, bool(relations) and relations[0] != "="
 
 
