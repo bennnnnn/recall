@@ -173,7 +173,8 @@ def _figure_wanted(read: asyncio.Task[TurnDecision | None]) -> _Wanted | None:
     # the read names of it: its picture is its compound. A maths one that names none stays
     # the teaching figure's, which draws nothing for a remainder (review, 2026-11-22: asked,
     # "17 mod 5" got a rectangle).
-    chemistry = subject == "chemistry" and (decision.picture == "molecule" or shows_it(decision))
+    # A fresh "draw ethanol" is its solve's; the figure draws it on a follow-up (review).
+    chemistry = subject == "chemistry" and shows_it(decision)
     if read_asks_for_a_picture(decision) or chemistry:
         return subject, "asked"
     return (subject, "teach") if decision.picture in _UNASKED else None

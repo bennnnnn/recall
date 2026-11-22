@@ -484,7 +484,8 @@ def _follow_note(ctx: StreamContext, read: TurnDecision) -> None:
     in_a_lesson = active_lesson_step(ctx.recent_messages) or outline_awaits_pick(
         ctx.recent_messages
     )
-    if in_a_lesson and not shows_it(read):
+    # One that goes on to the next lesson gets that lesson's contract alone (review).
+    if in_a_lesson and (not shows_it(read) or read.goes_on):
         return
     note_prompt_rule(f"read.follow_{read.follow}")
     messages = ctx.prompt_messages

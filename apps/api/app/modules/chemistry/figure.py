@@ -211,7 +211,9 @@ async def draw_structure(
     compound the message asks to see a picture of; None."""
     from app.core import sympy_executor
 
-    if not settings.chemistry_enabled or not (asked or settings.teaching_figures_enabled):
+    if not (settings.chemistry_enabled and settings.figure_read_enabled):
+        return None
+    if not (asked or settings.teaching_figures_enabled):
         return None
     if not question.strip():
         return None
