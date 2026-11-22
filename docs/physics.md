@@ -314,6 +314,14 @@ flowchart LR
      guards and for readers without math.
    - `display_answer`: LaTeX with upright units (`3.97 \times 10^{-19}\,\mathrm{J}`), for
      the answer card.
+
+   **Cross-check** (`cross_check.py`, `physics_cross_check_enabled`). On a chat turn the
+   block's values (`answer_values`, `answer_units`) are held to a second reading of the
+   question: a model writes it down as maths and the server solves it
+   (docs/FORMAL_READER.md). A reading that contradicts them drops the block, and the turn
+   is the model's own, unchecked; one that agrees, or none within `formal_wait_seconds`,
+   keeps it. Casual wording the readers misbind ("slowing down at 3 m/s^2" as +3, "ends up
+   going 15 m/s" as the start) no longer reaches a checked card.
 7. **Respond** (`direct.py`). A complete verified request returns Given / Required / Formula /
    Substitution / Answer without waiting for the model. The law's heading holds its base
    form, then a rearrangement for the unknown as a step: `Solve for $t$`, then

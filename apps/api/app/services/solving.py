@@ -165,6 +165,8 @@ class PhysicsPartWorking:
     # The card's values as the solve reached them, unrounded, in its units: the working
     # ends on them, and only the card rounds (``physics.working_steps``).
     answer_values: tuple[float, ...] = ()
+    # Each value's unit, as the solve wrote it ("m/s"): what a second reading is held to.
+    answer_units: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -180,6 +182,7 @@ class VerifiedPhysicsBlock(VerifiedSolveBlock):
     physics_parts: tuple[PhysicsPartWorking, ...] = ()
     # The card's values as the solve reached them, unrounded, in its units (``PhysicsPartWorking``).
     answer_values: tuple[float, ...] = ()
+    answer_units: tuple[str, ...] = ()
     symbolic_request: SymbolicPhysicsRequest | None = None
     # The question asks for more than this result answers: the model answers the rest.
     partial: bool = False

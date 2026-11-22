@@ -104,7 +104,7 @@ answer disagreed with the server's: that is why finalize requires them to agree.
 
 - **When:** a physics turn (the turn's read says physics) that no solver answered and the
   server did not write itself (`ctx.verified_subject` and `ctx.instant_reply` both None).
-  A turn a solver answered never asks.
+  A turn a solver answered is read too, before its answer is checked: below.
 - **Beside the reply:** the setup read (`physics_setup` lane, smart-chat) and the solve
   start with the reply (`chat/formal_turn.py`); the reply streams as before.
 - **What the setup writes** besides its givens and equations: `asked`, one entry per part
@@ -148,6 +148,64 @@ answer 16. Three fixes came out of them, each for every question of its kind:
 
 Rerun on the translated and reworded sets afterwards (365 questions, setup by smart-chat):
 299 answers used, all right; 112 of the 120 translated questions answered.
+
+## Every checked answer held to a second reading (`physics_cross_check_enabled`, on)
+
+The live QA round of 2026-11-22 rephrased textbook questions the way students type them and
+found three checked answers wrong out of 100: the catalog readers bind values by unit and
+keyword, so "slowing down at 3 m/s^2 for 4 s, at the end it is going 8 m/s" bound +3 m/s²
+and started at −4 m/s, and "kicked sideways at 15 m/s off a 30 m cliff, its vertical
+velocity after 2 s?" was a fall in one line (v = 2s/t − u = 15 m/s for 19.6). The solver
+then certified the wrong reading. A solver value is never stamped over a reading that
+contradicts it (owner, 2026-11-18), so every checked physics answer is now held to this
+reader's reading of the same question (`modules/physics/cross_check.py`):
+
+- **When:** a physics turn a solver answered with numbers (`PhysicsSubject.solve`), before
+  the reply is written. The setup read starts once the solve verifies (the solve takes
+  milliseconds) and the turn waits at most `formal_wait_seconds` (2 s) for it. A part
+  of a question in parts is solved and read beside the others (`subjects/dispatch.py`).
+- **The comparison:** for each value the reading asks, the server's value for it (across
+  its constants' band) and the setup's own answer; the solver's values are paired with them
+  by kind (pint), in any unit of the kind, by size (a sign is a direction), within 2%. The
+  smaller side must be covered by the larger: a card may show more than was asked (both
+  balls' speeds after a collision), a partial solve less than the reading asks.
+- **Agree:** the check stands, the reply as before. **Disagree** (a value that matches none
+  of its kind, or a reading that asks only for other kinds): the solver's block is dropped
+  and the turn is an ordinary unverified physics turn, the model's own reply with the
+  unverified note, held at finalize to the formal answer like any other (above). Never the
+  solver's value checked.
+- **No reading** (late, failed, the spend cap, a setup that asks no value, units neither side
+  reads): the check stands, as it did before. Measured, every such case was right (3 to 4 of
+  about 280 checked answers a run, all late reads); dropping them too cost those checks and
+  removed no wrong one. With the reading model down, the solvers are as they were before.
+
+Measured (`app/tests/behavior/cross_check_eval.py`, 2026-11-22): 419 physics corpus
+questions with one numeric answer reworded casually by Claude Haiku 5.5 (every number kept,
+`formal_corpus/physics_casual.json`) and the QA round's three, solved offline as the turn
+does, read by smart-chat:
+
+| | Checked right | Checked wrong | Unchecked |
+|---|---|---|---|
+| main (no cross-check) | 274 | 7 | 141 |
+| main + the two reader fixes below | 275 | 4 | 143 |
+| with the cross-check | 269 | 0 | 153 |
+
+- The reading's wait (eval, six at once): median 0.71 s, p90 1.19 s; 1% of reads came after
+  2 s, and their checks stood. That wait is the cost on every checked physics turn, before
+  its first word.
+- Checks lost on answers that were right: 6 of 275 (2%), each a misreading by the setup
+  model (a collision's signs, a refraction angle measured from the surface, a car that
+  stops before the time asked). A second setup model (Claude Haiku 5.5) as a tie-breaker
+  recovered none of them and read slower, so there is one reader.
+- Every wrong checked answer the reworded set holds was caught: the two above, a spring's
+  average force read as its final one, a ball on Earth "ignoring the moon's 1.6 m/s²" timed
+  with the moon's, and "accelerates at 2 m/s^2 for 3 s and ends up going 15 m/s" read with
+  15 m/s as the start.
+
+The two misreadings of the QA round are also fixed in the reader, each for its kind: slowing
+or braking "at" a rate, in any tense, signs the rate (`catalog/suvat.py`), and the words for
+a level launch are one set (`extractors/launch_direction.LEVEL_LAUNCH`, "sideways" added) for
+the projectile laws, which read its 0°, and the one-line laws, which decline it.
 
 ## One model reader
 

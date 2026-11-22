@@ -10,6 +10,27 @@ from __future__ import annotations
 
 import re
 
+# A launch the words make level: its angle is 0° with no number, and its path is a fall
+# beside a sideways motion, never one line. "Horizontally", "sideways", and anything that
+# rolls, slides, runs or drives off an edge. One set for the projectile laws, which read the
+# 0°, and the one-line laws, which decline: the two lists differed, and "kicked sideways at
+# 15 m/s off a 30 m cliff" was v = 2s/t - u = 15 m/s, verified, for 19.6 m/s (live QA,
+# 2026-11-22).
+LEVEL_LAUNCH = (
+    "horizontally",
+    "sideways",
+    "rolls off",
+    "rolled off",
+    "rolling off",
+    "slides off",
+    "slid off",
+    "sliding off",
+    "runs off",
+    "ran off",
+    "drives off",
+    "drove off",
+)
+
 # A launch verb's own direction: "thrown down at an angle of 30°", "projected downward at
 # 15 m/s", "thrown upward". Never another clause's word: "gravity acts downward" says
 # nothing of the throw.

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.modules.physics.extractors.launch_direction import LEVEL_LAUNCH
 from app.services.law_binding.spec import (
     Binding,
     FormulaSpec,
@@ -50,14 +51,13 @@ _FINAL = (
     "then going",
     "is then",
 )
+# Slowing at a rate, in any tense: "decelerates", "slowing down at", "braked at". The rate
+# is a size and the slowing its sign: "slowing down at 3 m/s^2 for 4 s, at the end 8 m/s"
+# bound +3 and started at -4 m/s, verified, for 20 (live QA, 2026-11-22).
 _SLOWING = (
     "decelerat",
     "retard",
-    "slows down at",
-    "slows at",
-    "slowing at",
-    "brakes at",
-    "braking at",
+    r"re:\b(?:slow(?:s|ed|ing)?(?:\s+down)?|brak(?:e|es|ed|ing))\s+at\b",
 )
 
 # Two moving bodies: their two speeds are not one body's u and v. Two trains
@@ -93,8 +93,7 @@ _TWO_STAGES = ("then brakes", "then decelerates", "then slows", "then accelerate
 # A launch sideways falls as it goes: its path is not one line, and a cliff's height is no
 # displacement along its speed. "Thrown horizontally at 10 m/s from a 20 m cliff: its speed
 # after 1 s?" was v = 2s/t - u = 30 m/s for 14.0 (audit 2026-11-07).
-_SIDEWAYS = ("horizontally", "rolls off", "rolled off", "slides off", "runs off", "drives off")
-_NOT_ONE_LINE = (*TWO_BODIES, *_TWO_STAGES, *_SIDEWAYS)
+_NOT_ONE_LINE = (*TWO_BODIES, *_TWO_STAGES, *LEVEL_LAUNCH)
 
 _U = var("u", "u", _SPEED, words=_INITIAL, implied=(("from rest", 0.0),))
 _V = var(

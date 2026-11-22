@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from app.modules.chat.prompt_constants.solving import VERIFIED_SOLVE_SAFETY_HINT
 from app.modules.math.reply_policy import MATH_SOLVER_HINT
-from app.modules.physics.prompt import _unverified_physics_note
+from app.modules.physics.prompt import unverified_physics_note
 from app.modules.physics.reply_policy import (
     PHYSICS_INTENT_HINT,
     PHYSICS_REPLY_POLICY,
@@ -34,8 +34,8 @@ def test_physics_prompt_cannot_claim_an_unverified_result() -> None:
     assert "do not recompute" in lower
 
 
-def test_unverified_physics_note_must_finish_the_answer() -> None:
-    note = _unverified_physics_note()
+def testunverified_physics_note_must_finish_the_answer() -> None:
+    note = unverified_physics_note()
     assert "finish under Answer" in note
     assert "Never end on the Answer heading" in note
     assert "solve only one fragment" not in note

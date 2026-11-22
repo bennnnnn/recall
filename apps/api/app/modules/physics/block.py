@@ -130,6 +130,7 @@ def _part_workings(result: PhysicsResult) -> tuple[PhysicsPartWorking, ...]:
             answer=render_quantity(replace(part.quantity, symbol="")),
             display_answer=render_quantity_latex(replace(part.quantity, symbol="")),
             answer_values=(part.quantity.value,),
+            answer_units=(part.quantity.unit,),
         )
         for part in result.parts
     )
@@ -168,6 +169,14 @@ NATIVE_VISUAL_RULE = (
     "it answers a request to draw or show the problem, which needs no words or section of "
     f"its own. {PICTURE_PLACEMENT_RULE}"
 )
+
+
+def _values_and_units(result: PhysicsResult) -> tuple[tuple[float, ...], tuple[str, ...]]:
+    """The card's values as the solve reached them, and each one's unit."""
+    return (
+        tuple(item.value for item in result.quantities),
+        tuple(item.unit for item in result.quantities),
+    )
 
 
 def _build_physics_block(
@@ -232,7 +241,7 @@ def _build_physics_block(
     answer, card = result.answer_value, result.answer_latex
     # The model sees the same rows the direct reply formats. The combined
     # solver chain stays on result.answer for internal checks.
-    values = tuple(item.value for item in result.quantities)
+    values, units = _values_and_units(result)
     verified_lines = _verified_lines(intent, result, card, law, values)
     parts = _part_workings(result)
     lines.extend(verified_lines)
@@ -257,43 +266,30 @@ def _build_physics_block(
             physics_substitutions=result.substitutions,
             physics_parts=parts,
             answer_values=values,
+            answer_units=units,
         )
 
-    if result.graph_specs:
-        # A graph *is* the answer in visual form, so it leads and the turn may
-        # take the direct path exactly as it always could.
-        block = VerifiedPhysicsBlock(
-            text="\n".join(lines),
-            subject="physics",
-            canonical_fence=specs[0],
-            canonical_answer=answer,
-            display_answer=card,
-            physics_intent=intent.model_copy(deep=True),
-            physics_working=structured_working,
-            physics_formulas=result.formulas,
-            physics_substitutions=result.substitutions,
-            physics_parts=parts,
-            answer_values=values,
-        )
-    else:
-        # A scene attached to a scalar answer is decoration, not a second
-        # answer. Keep the answer fence primary; the physics direct guard
-        # separately requires the solver-owned working before it can format a
-        # complete response, so the picture never grants directness by itself.
-        block = VerifiedPhysicsBlock(
-            text="\n".join(lines),
-            subject="physics",
-            canonical_fence={"type": "answer", "content": card},
-            canonical_answer=answer,
-            display_answer=card,
-            allow_direct=False,
-            physics_intent=intent.model_copy(deep=True),
-            physics_working=structured_working,
-            physics_formulas=result.formulas,
-            physics_substitutions=result.substitutions,
-            physics_parts=parts,
-            answer_values=values,
-        )
+    # A graph *is* the answer in visual form, so it leads and the turn may take the direct
+    # path exactly as it always could. A scene attached to a scalar answer is decoration,
+    # not a second answer: the answer fence stays primary, and the physics direct guard
+    # separately requires the solver-owned working before it can format a complete
+    # response, so the picture never grants directness by itself.
+    graph = bool(result.graph_specs)
+    block = VerifiedPhysicsBlock(
+        text="\n".join(lines),
+        subject="physics",
+        canonical_fence=specs[0] if graph else {"type": "answer", "content": card},
+        canonical_answer=answer,
+        display_answer=card,
+        allow_direct=graph,
+        physics_intent=intent.model_copy(deep=True),
+        physics_working=structured_working,
+        physics_formulas=result.formulas,
+        physics_substitutions=result.substitutions,
+        physics_parts=parts,
+        answer_values=values,
+        answer_units=units,
+    )
 
     # Extras only. Every reader of `canonical_fences` already prepends
     # `canonical_fence`, so repeating it here would mean a caller that clears

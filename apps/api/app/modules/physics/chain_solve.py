@@ -197,4 +197,5 @@ def _with_steps_before(
         answer=working.answer,
         display_answer=working.display_answer,
         answer_values=working.answer_values,
+        answer_units=working.answer_units,
     )
