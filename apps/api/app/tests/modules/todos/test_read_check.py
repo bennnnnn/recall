@@ -24,9 +24,9 @@ from app.modules.todos.read_check import (
     Asked,
     check_reading,
     grounded,
-    same_task,
 )
 from app.modules.todos.spoken_add import SpokenAdd, due_for_add
+from app.modules.todos.task_words import same_task
 
 ZONE = "America/Los_Angeles"
 # Sunday 22 November 2026, 10:00 in Los Angeles.

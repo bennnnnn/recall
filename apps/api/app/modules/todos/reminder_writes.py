@@ -21,6 +21,7 @@ from app.modules.todos.due_day import has_time
 from app.modules.todos.recurrence import snap_first_due
 from app.modules.todos.reminder_fence_parse import ReminderFence
 from app.modules.todos.schemas import RecurrenceRule, TodoActionItem
+from app.modules.todos.task_words import same_task
 from app.services import time_context as time_context_service
 
 logger = logging.getLogger(__name__)
@@ -274,8 +275,6 @@ async def saved_reminder_line(
     reminder for one of ``titles``, wherever it was saved (a card tapped long ago, the To-do
     screen, another chat), still ahead or repeating, as "Yes, it's saved: **Call mom**,
     Monday, Nov 23, 5:00 PM."; None when none is."""
-    from app.modules.todos.read_check import same_task
-
     rows = await todos_repo.list_for_user(session, user_id, limit=_ACTION_RELOAD_LIMIT)
     now = datetime.now(UTC)
     for item in rows:

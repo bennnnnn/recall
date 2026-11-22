@@ -39,6 +39,7 @@ from app.modules.todos.recurrence import RecurrenceRule
 from app.modules.todos.schemas import TODO_TEXT_MAX_CHARS
 from app.modules.todos.spoken_add import SpokenAdd, due_for_add, due_is_past, fix_typos
 from app.modules.todos.spoken_when import find_repeat, find_when
+from app.modules.todos.task_words import NOT_TASK_WORDS, WORD, stem
 from app.services.text_normalize import straighten_apostrophes
 
 ASK_TASK = "What should I remind you about?"
@@ -63,12 +64,6 @@ _PM_WORDS = re.compile(
 _AM_WORDS = re.compile(r"\b(?:a\.?m\.?|morning|breakfast|before work|before school)\b", re.I)
 _CLOCK_DIGITS = re.compile(r"(?<!\d)(\d{1,2})(?::([0-5]\d))?(?!\d)")
 _BEFORE_WORDS = re.compile(r"\b(?:before|earlier|ahead|early|prior)\b.*$", re.I)
-_WORD = re.compile(r"[^\W\d_]{3,}")
-_NOT_TASK_WORDS = frozenset(
-    "the and for with about remind reminder reminders please can you could would tomorrow "
-    "today tonight tmrw this that then them they she her his him my our your its it's at on "
-    "in to of me set make sure don't dont forget ping".split()
-)
 _PRONOUN_TASK = re.compile(r"\b(?:it|that|this|them|those|these)\b", re.I)
 _NAMES_A_DAY = re.compile(
     r"\d|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b|\b(?:mon|tue|wed|thu|fri"
@@ -111,30 +106,18 @@ def grounded(quote: str, user_lines: Sequence[str]) -> bool:
     return bool(said) and any(said in _plain(line) for line in user_lines)
 
 
-def _stem(word: str) -> str:
-    return word.casefold()[:4]
-
-
-def same_task(title: str, other: str) -> bool:
-    """Two wordings of one task: they share two of its words (one, for a one-word task),
-    "call mom" and "Call mom tonight"; "call grandma" is another."""
-    words = {_stem(w) for w in _WORD.findall(title) if w.casefold() not in _NOT_TASK_WORDS}
-    theirs = {_stem(w) for w in _WORD.findall(other) if w.casefold() not in _NOT_TASK_WORDS}
-    return bool(words) and len(words & theirs) >= min(2, len(words), len(theirs) or 1)
-
-
 def task_title(reading: ReminderReading, user_lines: Sequence[str]) -> str | None:
     """The card's title: the model's task when its quote is the user's and its words are
     theirs (one word of its own at most, "Call" or "Study"); None otherwise."""
     task = " ".join(reading.task.split())
     if not task or not grounded(reading.task_quote, user_lines):
         return None
-    said = {_stem(word) for line in user_lines for word in _WORD.findall(line)}
-    words = [w for w in _WORD.findall(task) if w.casefold() not in _NOT_TASK_WORDS]
+    said = {stem(word) for line in user_lines for word in WORD.findall(line)}
+    words = [w for w in WORD.findall(task) if w.casefold() not in NOT_TASK_WORDS]
     if not words or (_PRONOUN_TASK.search(task) and len(words) <= 2):
         # "Write it down": what "it" is was said elsewhere, and the card would not say it.
         return None
-    own = sum(1 for word in words if _stem(word) in said)
+    own = sum(1 for word in words if stem(word) in said)
     if own == 0 or len(words) - own > max(1, len(words) // 3):
         return None
     return (task[:1].upper() + task[1:])[:TODO_TEXT_MAX_CHARS]
