@@ -319,22 +319,30 @@ def drop_restated_tail(text: str, question: str = "") -> str:
     shown = _card_numbers(head)
     known = _words(head) | _words(question)
     pieces = _tail_pieces(tail)
-    kept = [piece for piece, prose in pieces if not (prose and _restates(piece, shown, known))]
-    if len(kept) == len(pieces):
+    keep = [not (prose and _restates(piece, shown, known)) for piece, prose in pieces]
+    if all(keep):
         return text
-    return "\n\n".join([head, *_without_bare_heading(kept)]) + ("\n" if text.endswith("\n") else "")
+    return "\n\n".join([head, *_kept(pieces, keep)]) + ("\n" if text.endswith("\n") else "")
 
 
 # A heading on its own line: "**Answer**", "**Summary:**", "### Final answer".
 _BARE_HEADING = re.compile(r"#{1,4}[ \t]\S[^\n]*|\*\*[^*\n]+\*\*:?")
 
 
-def _without_bare_heading(kept: list[str]) -> list[str]:
-    """``kept`` without a heading left last with nothing under it: the lines it headed went,
-    and "**Answer**" stood alone at the reply's end (a reply in parts, 2026-11-22)."""
-    while kept and _BARE_HEADING.fullmatch(kept[-1].strip()):
-        kept = kept[:-1]
-    return kept
+def _kept(pieces: list[tuple[str, bool]], keep: list[bool]) -> list[str]:
+    """The pieces kept, without a heading every piece after it went from: the lines it
+    headed went, and "**Answer**" stood alone at the reply's end (a reply in parts,
+    2026-11-22). A bold line that is itself kept ("**Roots: 1 and 3**") is no such heading
+    (review, #2527)."""
+    out: list[str] = []
+    for at, (piece, _prose) in enumerate(pieces):
+        if not keep[at]:
+            continue
+        after = keep[at + 1 :]
+        if after and not any(after) and _BARE_HEADING.fullmatch(piece.strip()):
+            continue
+        out.append(piece)
+    return out
 
 
 # A one-line closing summary after the cards, which stays: a sentence or two, short.
@@ -380,5 +388,5 @@ def drop_recap_tail(text: str, question: str = "") -> str:
     if said - (_plain_numbers(head) | _plain_numbers(question)):
         return text
     summary = prose[-1] if _one_line_summary(prose[-1]) else None
-    kept = [piece for piece, is_prose in pieces if not is_prose or piece is summary]
-    return "\n\n".join([head, *_without_bare_heading(kept)]) + ("\n" if text.endswith("\n") else "")
+    keep = [not is_prose or piece is summary for piece, is_prose in pieces]
+    return "\n\n".join([head, *_kept(pieces, keep)]) + ("\n" if text.endswith("\n") else "")

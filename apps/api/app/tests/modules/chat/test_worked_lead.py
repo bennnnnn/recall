@@ -331,3 +331,13 @@ def test_a_heading_whose_lines_went_goes_with_them() -> None:
     # A heading with something of its own under it stays.
     kept = f"{_CAR_AND_TRAIN}\n\n**Answer**\n\nThe train is faster by 10 m/s.\n"
     assert drop_restated_tail(kept, _CAR_AND_TRAIN_ASKED) == kept
+
+
+def test_a_bold_summary_kept_after_a_recap_is_no_heading() -> None:
+    """Review (#2527): "**Roots: 1 and 3**" after a recap is the summary itself, kept."""
+    from app.modules.chat.worked_lead import drop_recap_tail
+
+    recap = "The car went 100 m in 5 s, so its speed is 20 m/s; the train 300 m in 10 s, 30 m/s."
+    summary = "**Car 20 m/s, train 30 m/s**"
+    text = f"{_CAR_AND_TRAIN}\n\n{recap}\n\n{summary}\n"
+    assert drop_recap_tail(text, _CAR_AND_TRAIN_ASKED).rstrip().endswith(summary)
