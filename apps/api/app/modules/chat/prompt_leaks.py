@@ -24,11 +24,11 @@ import logging
 import re
 from collections.abc import Set as AbstractSet
 from functools import cache
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from app.modules.chat.narration import without_narration
 from app.modules.chat.prompt_rule_text import prompt_rule_text
-from app.services.md_fence_scan import line_fences
+from app.services.md_fence_scan import line_fences, map_fence_blocks
 from app.services.text_normalize import straighten_apostrophes
 
 if TYPE_CHECKING:
@@ -148,13 +148,58 @@ def _rule_grams() -> frozenset[str]:
 
 
 def _recent_user_lines(state: FinalizeState) -> list[str]:
+    return _asked_lines(state.ctx)
+
+
+def _asked_lines(ctx: Any) -> list[str]:
     """The message and the user's messages just before it."""
     earlier = [
         content
-        for message in getattr(state.ctx, "prompt_messages", None) or []
+        for message in getattr(ctx, "prompt_messages", None) or []
         if message.get("role") == "user" and isinstance(content := message.get("content"), str)
     ]
-    return [state.ctx.user_message_content or "", *earlier[-_RECENT_USER_MESSAGES:]]
+    return [getattr(ctx, "user_message_content", None) or "", *earlier[-_RECENT_USER_MESSAGES:]]
+
+
+# A quotation: its opening mark and what follows on the line (a cut-off reply never closed it).
+_QUOTED = re.compile(r"[\"\u201c]([^\"\u201d\n]{20,})")
+_QUOTE_WORDS = re.compile(r"[a-z']+")
+# Words in a row a quotation shares with the rules: on 9,487 live replies, none quoted six
+# of the rules' words in a row but the two that sent the model's notes as the reply.
+_QUOTE_RUN = 6
+_SPANS_NOT_PROSE = re.compile(r"`[^`\n]*`|\$[^$\n]*\$")
+
+
+@cache
+def _rule_runs() -> frozenset[str]:
+    words = _QUOTE_WORDS.findall(prompt_rule_text().lower())
+    return frozenset(
+        " ".join(words[at : at + _QUOTE_RUN]) for at in range(len(words) - _QUOTE_RUN + 1)
+    )
+
+
+def quotes_the_prompt(text: str) -> bool:
+    """``text`` quotes Recall's own rules: a quotation in its prose (never in code or maths)
+    that runs six of the rules' words in a row. A reply that says them as its own words
+    follows them (an example reply the rules give, the quadratic formula); one that quotes
+    them is the model reasoning about its instructions, sent as the answer ('The system
+    instructions say: "Worked calculation: this question asks for a value …"', live,
+    2026-11-22, the reply opening on a wrong 42,000)."""
+    prose = _SPANS_NOT_PROSE.sub(" ", map_fence_blocks(text, lambda _fence, _body: "\n"))
+    runs = _rule_runs()
+    for quote in _QUOTED.finditer(prose):
+        words = _QUOTE_WORDS.findall(quote.group(1).lower())
+        if any(
+            " ".join(words[at : at + _QUOTE_RUN]) in runs
+            for at in range(len(words) - _QUOTE_RUN + 1)
+        ):
+            return True
+    return False
+
+
+def reply_quotes_the_prompt(reply: str, ctx: Any) -> bool:
+    """A reply that quotes the prompt's rules, on a turn that never asked about them."""
+    return quotes_the_prompt(reply) and not _asked_about(tuple(_asked_lines(ctx)))
 
 
 def _grams(text: str, size: int) -> set[str]:
@@ -182,7 +227,10 @@ def drop_prompt_leaks(
         line and _ASKED_ABOUT_STYLE.search(line) for line in asked
     )
     text = _without_self_label(text)
-    if not text or not (_PROMPT_LABEL.search(text) or _PROMPT_PART.search(text) or prompt or style):
+    quoted = quotes_the_prompt(text)
+    if not text or not (
+        _PROMPT_LABEL.search(text) or _PROMPT_PART.search(text) or prompt or style or quoted
+    ):
         return text
     if _asked_about(asked):
         return text
@@ -281,7 +329,7 @@ def _without_leaks(line: str, prompt: AbstractSet[str] | None = None) -> str | N
 
 
 def _leaks(prose: str) -> bool:
-    if _PROMPT_LABEL.search(prose):
+    if _PROMPT_LABEL.search(prose) or quotes_the_prompt(prose):
         return True
     if _STYLE_RULE.search(prose) and _FIRST_PERSON.search(prose):
         return True

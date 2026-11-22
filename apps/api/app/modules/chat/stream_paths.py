@@ -26,6 +26,7 @@ from app.modules.chat import tool_loop
 from app.modules.chat.control_tokens import until_control_run
 from app.modules.chat.prompt_constants.grounding import DENIAL_RETRY_NOTE
 from app.modules.chat.prompt_inject import inject_before_last_user
+from app.modules.chat.prompt_leaks import reply_quotes_the_prompt
 from app.modules.chat.stream_accum import StreamAccum
 from app.modules.chat.stream_events import clear_task_cancellation
 from app.modules.chat.stream_health import ReplyHealth, probe_gate
@@ -230,6 +231,8 @@ class _ReplyRound:
     require: str | None = None
     meta: dict[str, str] = field(default_factory=dict)
     calls: list[dict[str, Any]] = field(default_factory=list)
+    # This call asks again a reply that quoted the prompt: it is not asked a third time.
+    again: bool = False
 
 
 async def _denial_retry(
@@ -248,6 +251,41 @@ async def _denial_retry(
     read = reply_calls.answered_read(ctx)
     forced = read is not None and read.nearly_live
     return _ReplyRound(tools=tools, lead="\n\n", require=reply_calls.REPLY_TOOL if forced else None)
+
+
+async def _asked_again(
+    settings: Settings,
+    ctx: StreamContext,
+    reply_round: _ReplyRound,
+    accum: StreamAccum,
+    round_from: tuple[int, int],
+    retry_tools: list[dict[str, Any]],
+    *,
+    should_cancel: Callable[[], bool] | None,
+    on_status: StreamStatusFn | None,
+) -> _ReplyRound | None:
+    """The call to make in place of the one just written, its text taken back: "I can't
+    check live scores" with no tool offered (``_denial_retry``), or a reply that quotes the
+    prompt's own rules, the model's notes to itself sent as its answer
+    (``prompt_leaks.quotes_the_prompt``; live, 2026-11-22: a wrong "**42,000**" over
+    'The system instructions say: "Worked calculation: …"'), asked once more as it was."""
+    written, shown_from = round_from
+    if retry_tools and await live_denial.asks_again(
+        settings, ctx, reply_round.calls, accum, written, should_cancel
+    ):
+        accum.retract(written, shown_from)
+        return await _denial_retry(ctx, retry_tools, on_status)
+    if reply_round.again or reply_round.calls or accum.was_cancelled:
+        return None
+    if not reply_quotes_the_prompt("".join(accum.parts[written:]), ctx):
+        return None
+    logger.warning("reply quoted the prompt; asking again", extra={"model": ctx.model})
+    accum.retract(written, shown_from)
+    if on_status is not None:
+        await on_status("retract")
+    return _ReplyRound(
+        tools=list(reply_round.tools), lead="\n\n", require=reply_round.require, again=True
+    )
 
 
 async def run_llm_token_stream(
@@ -297,14 +335,15 @@ async def run_llm_token_stream(
                     yield visible
             if resolved := reply_round.meta.get("model_alias"):
                 ctx.model = resolved
-            # "I can't check live scores" with no tool offered: ask again (``_denial_retry``).
-            if retry_tools and await live_denial.asks_again(
-                settings, ctx, reply_round.calls, accum, written, should_cancel
-            ):
-                accum.retract(written, shown_from)
-                # A held "!" or "[" was the denial's, never drawn: the new round starts clean.
+            # A denial with no tool offered, or the model's notes quoting the prompt: again.
+            again = await _asked_again(
+                settings, ctx, reply_round, accum, (written, shown_from), retry_tools,
+                should_cancel=should_cancel, on_status=on_status,
+            )  # fmt: skip
+            if again is not None:
+                # A held "!" or "[" was the old round's, never drawn: the new round starts clean.
                 scaffold = ReplyFilter(accum, ctx.worked)
-                reply_round, retry_tools = await _denial_retry(ctx, retry_tools, on_status), []
+                reply_round, retry_tools = again, []
                 continue
             # Only a call that carried tools leads to another: one search a turn.
             if not (reply_round.tools and reply_round.calls) or accum.was_cancelled:
