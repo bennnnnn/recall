@@ -355,5 +355,20 @@ class ChemistrySubject:
             user_text=user_text,
         )
 
+    def answers_part(
+        self, verified: VerifiedSolveBlock, asked: int
+    ) -> tuple[VerifiedSolveBlock, str] | None:
+        from app.modules.chemistry.block import VerifiedChemistry
+        from app.services.question_parts import ONE_PART_NOTE
+
+        if not isinstance(verified, VerifiedChemistry):
+            return None
+        # A result answers a line per quantity (``Δm``, ``E``, ``E/A``): as its own direct
+        # reply's check counts them (``atom_particles.asks_more_particles``).
+        answered = len([line for line in verified.result.answer.splitlines() if line.strip()])
+        if asked <= max(answered, 1):
+            return None
+        return verified, ONE_PART_NOTE
+
 
 CHEMISTRY_SUBJECT = ChemistrySubject()

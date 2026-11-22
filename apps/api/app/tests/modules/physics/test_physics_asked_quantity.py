@@ -92,6 +92,15 @@ def test_a_part_answer_on_its_heading_line_moves_under_it() -> None:
     )
 
 
+def test_a_part_answer_after_a_heading_with_no_colon_moves_under_it_too() -> None:
+    """Live (2026-11-21): "**Answer (a)** $8.7\\,\\mathrm{A}$" kept its value, so no part card
+    landed and one joined card said every part again at three figures."""
+    text = "**Answer (a)** $8.7\\,\\mathrm{A}$\n\n**Answer (b)** $26.5\\,\\Omega$"
+    assert own_line_part_answers(text) == (
+        "**Answer (a)**\n\n$8.7\\,\\mathrm{A}$\n\n**Answer (b)**\n\n$26.5\\,\\Omega$"
+    )
+
+
 async def test_each_part_is_carded_once_when_its_value_shares_the_heading_line() -> None:
     question = (
         "a ball is thrown straight up at 20 m/s. how high does it go and how long till it "

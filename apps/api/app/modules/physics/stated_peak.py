@@ -1,0 +1,132 @@
+"""A motion's top stated as a fact about it: its result, never where it starts.
+
+"A ball thrown straight up at 10 m/s reaches a maximum height of 20 m. How long does it take
+to reach the top?" (live round, 2026-11-21): the launch-height reader took "height of 20 m"
+for a starting height, verified t = v₀/g = 1.02 s, and drew the ball thrown from a 20 m
+ledge. The 20 m is what the throw reaches, and at 10 m/s nothing reaches it: thrown up at
+10 m/s a ball rises v₀²/2g = 5.10 m. So:
+
+- a stated top is never a launch height (``without_stated_peaks`` hides it from that
+  reader);
+- the top the question's own values give is checked against the one it states
+  (``peak_conflict``): values that contradict each other have no answer as written, and
+  the reply says so instead of a verified card for one reading of them.
+
+Only a top said to be one is read ("maximum height", "max height", "peak height",
+"greatest height", "highest point"): "how long to reach a height of 20 m" asks for a
+position on the way, which no top has to equal.
+"""
+
+from __future__ import annotations
+
+import re
+
+from app.modules.physics.extractors.unit_patterns import (
+    LENGTH_UNIT_PATTERN,
+    NUMBER,
+    VELOCITY_UNIT_PATTERN,
+)
+
+# "a maximum height of 20 m", "max height = 20 m", "its highest point is 20 m above the
+# ground", "a peak height of 5.1 m". The value follows within a few joining words.
+_STATED_PEAK = re.compile(
+    r"\b(?:(?:maximum|max\.?|peak|greatest)\s+(?:height|altitude)|highest\s+point)\s*"
+    r"(?:(?:of|is|was|will\s+be|=|:|at|reached|reaches)\s*){0,2}"
+    rf"(?P<value>{NUMBER})\s*(?P<unit>{LENGTH_UNIT_PATTERN})\b(?![/^])",
+    re.IGNORECASE,
+)
+# The words that state the top, read out with it: "and reaches a maximum height of 20 m".
+# Read back word by word from the top's phrase, never by a pattern searched from every place.
+_STATING_WORDS = frozenset(
+    {
+        *("and", "which", "that", "it", "then", "just", "finally", "to", "up"),
+        *("reach", "reaches", "reached", "rises", "rose", "attains", "attained", "climbs"),
+        *("goes", "went", "has", "had", "with", "a", "an", "its", "the"),
+    }
+)
+_STATING_REACH = 8
+# A launch speed stated: "at 10 m/s", "with 15 km/h".
+_LAUNCH_SPEED = re.compile(
+    rf"(?<![\w.])(?:{NUMBER})\s*(?:{VELOCITY_UNIT_PATTERN})(?![\w/])", re.IGNORECASE
+)
+# A launch whose speed alone decides its top: thrown straight up ("thrown up", "vertically
+# upward"), or at an angle the question gives ("at 30°", "at an angle of 40 degrees").
+# "Kicked at 20 m/s" or "launched at an angle" with none given leaves the top a given.
+_UPWARD = re.compile(
+    r"\b(?:straight|vertically|directly)\s+up(?:wards?)?\b|\bvertically\b"
+    r"|\b(?:thrown|tossed|launched|fired|shot|projected|kicked|hit|throws|tosses|fires)"
+    r"\s+up(?:wards?)?\b",
+    re.IGNORECASE,
+)
+_SLANT = re.compile(r"\bangle\b|\bhorizontal(?:ly)?\b", re.IGNORECASE)
+_GIVEN_ANGLE = re.compile(rf"(?:{NUMBER})\s*(?:°|\^\s*\\circ|degrees?\b|deg\b)", re.IGNORECASE)
+
+
+# A slope's angle, or an angle to the vertical, is no launch elevation (review, #2525).
+_NOT_ELEVATION = re.compile(
+    r"\b(?:slope|incline|inclined|ramp|hill|hillside|bank|vertical)\b", re.IGNORECASE
+)
+# What a stated top is measured from, read out with it: "20.4 m above the ground".
+_TOP_FROM = re.compile(
+    r"\s+(?:above|over)\s+(?:the\s+|its\s+)?(?:ground|floor|launch(?:\s+point)?|start(?:ing"
+    r"\s+point)?|hand|point\s+of\s+release|release\s+point)\b",
+    re.IGNORECASE,
+)
+
+
+def launch_decides_peak(text: str) -> bool:
+    """The question's launch alone decides its top: a speed, and either straight up or a
+    stated angle. Then a top it also states is a check of its values, never a given
+    (review, #2525: "kicked at 20 m/s and reaches a maximum height of 10 m" needs the 10 m)."""
+    if _LAUNCH_SPEED.search(text) is None or _NOT_ELEVATION.search(text) is not None:
+        return False
+    if _GIVEN_ANGLE.search(text) is not None:
+        return True
+    return _UPWARD.search(text) is not None and _SLANT.search(text) is None
+
+
+def stated_peaks(text: str) -> list[re.Match[str]]:
+    """Each top the text states, value and unit."""
+    return list(_STATED_PEAK.finditer(text))
+
+
+def without_stated_peaks(text: str) -> str:
+    """``text`` with each stated top's value blanked, same length: a launch height's reader
+    never reads it."""
+    for match in reversed(stated_peaks(text)):
+        start, end = match.start("value"), match.end("unit")
+        text = text[:start] + " " * (end - start) + text[end:]
+    return text
+
+
+def without_redundant_peaks(text: str) -> str:
+    """``text`` with each top it states read out, when its launch decides the top
+    (``launch_decides_peak``): the stated one is then a check of the values
+    (``peak_conflict``) and no reader takes it for a given. Otherwise the top may be what
+    the question gives ("reaches a maximum height of 20 m: how fast was it thrown?")."""
+    peaks = stated_peaks(text)
+    if not peaks or not launch_decides_peak(text):
+        return text
+    for match in reversed(peaks):
+        start = _stating_start(text, match.start())
+        end = match.end()
+        if (measured := _TOP_FROM.match(text, end)) is not None:
+            end = measured.end()
+        text = text[:start].rstrip(" ,") + text[end:]
+    return text
+
+
+def _stating_start(text: str, end: int) -> int:
+    """Where the words stating the top begin: back from ``end`` over the stating words."""
+    start = end
+    for _ in range(_STATING_REACH):
+        at = start
+        while at > 0 and text[at - 1] in " ,":
+            at -= 1
+        word_end = at
+        while at > 0 and text[at - 1].isalpha():
+            at -= 1
+        if at == word_end or text[at:word_end].lower() not in _STATING_WORDS:
+            break
+        start = at
+    return start

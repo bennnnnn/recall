@@ -196,4 +196,5 @@ def _with_steps_before(
         substitutions=rows + working.substitutions,
         answer=working.answer,
         display_answer=working.display_answer,
+        answer_values=working.answer_values,
     )

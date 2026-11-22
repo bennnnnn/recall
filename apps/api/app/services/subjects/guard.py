@@ -481,3 +481,11 @@ class GuardedSubject:
                 verified_request_text=verified_request_text,
             ),
         )
+
+    def answers_part(
+        self, verified: VerifiedSolveBlock, asked: int
+    ) -> tuple[VerifiedSolveBlock, str] | None:
+        # Answers whole: the instant reply stands.
+        return neutral_on_error(
+            self.name, "answers_part", None, lambda: self._inner.answers_part(verified, asked)
+        )

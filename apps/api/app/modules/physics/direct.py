@@ -207,7 +207,12 @@ def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
     find_symbol = result_symbol or formulas[0].split(" = ", 1)[0]
     law_rows = [*formula_rows(intent, formulas, find_symbol), *steps.formula]
     answer = verified.display_answer or verified.canonical_answer
-    worked = carried_to_answer(substitutions, answer, working_units(intent, formulas, answer))
+    worked = carried_to_answer(
+        substitutions,
+        answer,
+        working_units(intent, formulas, answer),
+        verified.answer_values,
+    )
     spec = formula_spec(intent.physics_op or "")
     if spec is not None:
         law_rows.extend(
@@ -290,6 +295,7 @@ def _format_parts(
                         part.substitutions,
                         part.display_answer,
                         working_units(intent, part.formulas, part.display_answer, part.op),
+                        part.answer_values,
                     )
                 ),
                 formula_heading=law_heading(spec.law_name) if spec is not None else "",
