@@ -435,3 +435,12 @@ def test_a_whole_number_rounded_to_its_tens_is_no_slip(reply: str) -> None:
     assert corrected_approximations("So $\\frac{5000}{3}$ (approximately 1670).") == (
         "So $\\frac{5000}{3}$ (approximately 1670)."
     )
+
+
+@pytest.mark.parametrize("exact", ["2^{10}", "1000\\sqrt{2}"])
+def test_a_coarse_approximation_is_left_as_said(exact: str) -> None:
+    """Review (#2520): "2^10 ≈ 1000" and "1000√2 ≈ 1400" round on purpose."""
+    shown = "1000" if exact == "2^{10}" else "1400"
+    reply = f"So ${exact}$ (approximately {shown})."
+    assert corrected_approximations(reply) == reply
+    assert working_note(f"**Steps**\n\n${exact} \\approx {shown}$") is None

@@ -93,8 +93,9 @@ def _unit_kinds(tex: str) -> dict[str, frozenset[str]]:
 _ROUNDED_FIGURES = 3
 
 
-def _shown_number(plain: str) -> tuple[float, float] | None:
-    """A written result and half its last place: ``14.8`` → (14.8, 0.05)."""
+def _shown_number(plain: str, *, coarse: bool = False) -> tuple[float, float] | None:
+    """A written result and half its last place: ``14.8`` → (14.8, 0.05). ``coarse``: said
+    to be near ("≈ 1000" for 2^10), so any whole number's zeros are its rounding."""
     match = _SHOWN.fullmatch(plain)
     if match is None:
         return None
@@ -104,7 +105,7 @@ def _shown_number(plain: str) -> tuple[float, float] | None:
     mantissa = match.group("mantissa")
     places = len(match.group("decimals") or "")
     digits = mantissa.lstrip("-").rstrip("0")
-    if not places and len(digits) >= _ROUNDED_FIGURES:
+    if not places and digits and (coarse or len(digits) >= _ROUNDED_FIGURES):
         # A large whole number's trailing zeros are its rounding: 1670 is 1666.67 to three
         # figures, its last place the tens (review, #2520). A short one is held as written:
         # "120 * 0.3 = 40" is a slip for 36.
@@ -239,7 +240,7 @@ def _slip(
     value = evaluate(left)
     if value is None:
         return None
-    shown = _shown_number(right)
+    shown = _shown_number(right, coarse=approximate)
     # Arithmetic only: "7200 m = 7.2 km" restates a value in another unit.
     if shown is not None and _converts_unit(left_tex, right_tex):
         return None
@@ -431,7 +432,7 @@ def corrected_approximations(reply: str) -> str:
         if _another_unit(match) or not _units_only(match.group("gap")):
             return match.group(0)
         value = evaluate(plain)
-        shown = _shown_number(match.group("number"))
+        shown = _shown_number(match.group("number"), coarse=True)
         if value is None or shown is None or not _is_off(value, shown[0], shown[1]):
             return match.group(0)
         start = match.start("number") - match.start()
