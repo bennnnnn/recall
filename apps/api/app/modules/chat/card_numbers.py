@@ -223,18 +223,24 @@ def _unrounded_each(numbers: list[Number], above: str) -> list[Number | None]:
     """Each card number's value as the working above reached it, unrounded, or None.
 
     One number: the working's last line (``_unrounded``). Several ("2.34 s; 6.71 m; 38.3
-    m"): each the nearest line above that reached it, each line once. A card of three
+    m"): each the nearest line above that reached it, in the card's order, each line once. A card of three
     values padded 38.3 to 38.30 where its working had reached 38.3157 (2026-11-21)."""
     if len(numbers) == 1:
         return [_unrounded(numbers[0], above)]
     lines = [value for line in _INLINE_MATHS.findall(above) if (value := _line_value(line))]
-    found: list[Number | None] = []
-    for number in numbers:
+    # The card's last number takes the lowest line that reached it, and each number before
+    # it a line above that one: card and working run in one order, so two values rounding
+    # alike (H 23.22 and R 23.16, both 23.2) never swap (review, #2525).
+    found: list[Number | None] = [None] * len(numbers)
+    below = len(lines)
+    for index in range(len(numbers) - 1, -1, -1):
+        number = numbers[index]
         match = next(
-            (at for at in range(len(lines) - 1, -1, -1) if _rounding_of(number, lines[at])),
-            None,
+            (at for at in range(below - 1, -1, -1) if _rounding_of(number, lines[at])), None
         )
-        found.append(None if match is None else _signed_as(number, lines.pop(match)))
+        if match is not None:
+            found[index] = _signed_as(number, lines[match])
+            below = match
     return found
 
 

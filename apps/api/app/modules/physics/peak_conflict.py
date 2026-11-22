@@ -17,7 +17,7 @@ from app.modules.physics.extract import extract_physics_intent
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solver import solve_physics
 from app.modules.physics.solvers.si import to_si
-from app.modules.physics.stated_peak import stated_peaks
+from app.modules.physics.stated_peak import launch_decides_peak, stated_peaks
 from app.services.solving import SolveServiceError
 
 # A stated top and the one the values give agree within this: g read as 9.8 or 10 m/s², a
@@ -39,7 +39,7 @@ def stated_peak_conflict(text: str) -> str | None:
     launch gives: "thrown up at 10 m/s, it rises 5.10 m, not the 20 m stated". None when it
     states no top, its values give none to check, or the two agree."""
     peaks = stated_peaks(text)
-    if not peaks:
+    if not peaks or not launch_decides_peak(text):
         return None
     intent = extract_physics_intent(text)
     if intent is None or intent.kind not in _PEAK_OPS:
@@ -57,16 +57,27 @@ def stated_peak_conflict(text: str) -> str | None:
             continue
         if any(math.isclose(stated, top, rel_tol=_AGREE) for top in tops):
             continue
-        return _reason(intent, reached, peak.group(0).strip(), stated)
+        return _reason(intent, reached, start, peak.group(0).strip(), stated)
     return None
 
 
 def _peak_of(intent: PhysicsIntent, op: str) -> float | None:
-    """The top the intent's launch reaches, in metres, by its own law; None when that law
-    cannot be solved from what was read."""
+    """How far the intent's launch rises above where it starts, in metres, by its own law;
+    None when that law cannot be solved from what was read. With the start height left in,
+    the law gave the top above the ground and the caller added it again (review, #2525)."""
     try:
+        # The rise above the launch: the start height is added by the caller, once.
+        params = {k: v for k, v in (intent.physics_params or {}).items() if k != "h0"}
+        units = {k: v for k, v in (intent.physics_units or {}).items() if k != "h0"}
         peak = intent.model_copy(
-            update={"physics_op": op, "requested_ops": [], "asked": (), "asked_unit": None}
+            update={
+                "physics_op": op,
+                "requested_ops": [],
+                "asked": (),
+                "asked_unit": None,
+                "physics_params": params,
+                "physics_units": units,
+            }
         )
         result = solve_physics(PhysicsIntent.model_validate(peak.model_dump()))
     except (SolveServiceError, ValueError):
@@ -75,12 +86,20 @@ def _peak_of(intent: PhysicsIntent, op: str) -> float | None:
     return None if quantity is None else _metres(quantity.value, quantity.unit)
 
 
-def _reason(intent: PhysicsIntent, reached: float, stated_text: str, stated: float) -> str:
-    params = intent.physics_params or {}
-    speed = params.get("v0")
-    launch = f"launched at {plain_number(speed)} m/s" if speed else "launched as it states"
+def _reason(
+    intent: PhysicsIntent, reached: float, start: float, stated_text: str, stated: float
+) -> str:
+    speed = (intent.physics_params or {}).get("v0")
+    unit = (intent.physics_units or {}).get("v0") or "m/s"
+    launch = f"launched at {plain_number(speed)} {unit}" if speed else "launched as it states"
+    rise = f"to {plain_number(reached)} m"
+    if start > 0:
+        rise = (
+            f"{plain_number(reached)} m above its start, to {plain_number(reached + start)} m "
+            "above the ground"
+        )
     return (
-        f"Its values contradict each other: {launch}, a body rises to "
-        f"{plain_number(reached)} m, so it cannot reach the {plain_number(stated)} m it "
+        f"Its values contradict each other: {launch}, a body rises {rise}, so it cannot "
+        f"reach the {plain_number(stated)} m it "
         f'states ("{stated_text}"). Name the two values, and ask which one they meant.'
     )

@@ -49,6 +49,28 @@ _STATING_REACH = 8
 _LAUNCH_SPEED = re.compile(
     rf"(?<![\w.])(?:{NUMBER})\s*(?:{VELOCITY_UNIT_PATTERN})(?![\w/])", re.IGNORECASE
 )
+# A launch whose speed alone decides its top: thrown straight up ("thrown up", "vertically
+# upward"), or at an angle the question gives ("at 30°", "at an angle of 40 degrees").
+# "Kicked at 20 m/s" or "launched at an angle" with none given leaves the top a given.
+_UPWARD = re.compile(
+    r"\b(?:straight|vertically|directly)\s+up(?:wards?)?\b|\bvertically\b"
+    r"|\b(?:thrown|tossed|launched|fired|shot|projected|kicked|hit|throws|tosses|fires)"
+    r"\s+up(?:wards?)?\b",
+    re.IGNORECASE,
+)
+_SLANT = re.compile(r"\bangle\b|\bhorizontal(?:ly)?\b", re.IGNORECASE)
+_GIVEN_ANGLE = re.compile(rf"(?:{NUMBER})\s*(?:°|\^\s*\\circ|degrees?\b|deg\b)", re.IGNORECASE)
+
+
+def launch_decides_peak(text: str) -> bool:
+    """The question's launch alone decides its top: a speed, and either straight up or a
+    stated angle. Then a top it also states is a check of its values, never a given
+    (review, #2525: "kicked at 20 m/s and reaches a maximum height of 10 m" needs the 10 m)."""
+    if _LAUNCH_SPEED.search(text) is None:
+        return False
+    if _GIVEN_ANGLE.search(text) is not None:
+        return True
+    return _UPWARD.search(text) is not None and _SLANT.search(text) is None
 
 
 def stated_peaks(text: str) -> list[re.Match[str]]:
@@ -66,12 +88,12 @@ def without_stated_peaks(text: str) -> str:
 
 
 def without_redundant_peaks(text: str) -> str:
-    """``text`` with each top it states read out, when it states the launch speed too: the
-    launch decides the top, so the stated one is a check of the values (``peak_conflict``)
-    and no reader takes it for a given. Without a launch speed the top may be what the
-    question gives ("reaches a maximum height of 20 m: how fast was it thrown?")."""
+    """``text`` with each top it states read out, when its launch decides the top
+    (``launch_decides_peak``): the stated one is then a check of the values
+    (``peak_conflict``) and no reader takes it for a given. Otherwise the top may be what
+    the question gives ("reaches a maximum height of 20 m: how fast was it thrown?")."""
     peaks = stated_peaks(text)
-    if not peaks or _LAUNCH_SPEED.search(text) is None:
+    if not peaks or not launch_decides_peak(text):
         return text
     for match in reversed(peaks):
         start = _stating_start(text, match.start())

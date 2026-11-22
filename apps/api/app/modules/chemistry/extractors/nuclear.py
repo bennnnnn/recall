@@ -41,29 +41,51 @@ _PARTICLE_MASS = (
 _MEV_PER_U = rf"\b1\s*u\s*(?:=|is|equals)\s*({_N})\s*MeV\b"
 
 
-def _named_nuclide(text: str) -> str | None:
-    """The nuclide a question names, as ``He-4``: written as one, or by name and number."""
-    nuclide = re.search(rf"\b({_NUCLIDE})\b", text)
-    if nuclide is not None:
-        return nuclide.group(1)
+# A particle's mass is no nucleus's: "a proton has a mass of 1.007276 u" sits beside it.
+_PARTICLE = re.compile(r"\b(?:protons?|neutrons?|electrons?)\b", re.IGNORECASE)
+# A nucleus's mass in u is within one of its mass number (He-4 4.0015, U-238 238.0003).
+_MASS_NUMBER_SLACK = 1.0
+
+
+def _named_nuclides(text: str) -> list[str]:
+    """Each nuclide a question names, as ``He-4``, once: written as one, or by name and
+    number."""
     from app.modules.chemistry.species_facts import ELEMENT_NAMES
 
+    found = [match.group(1) for match in re.finditer(rf"\b({_NUCLIDE})\b", text)]
     for named in _NAMED_NUCLIDE.finditer(text):
         symbol = ELEMENT_NAMES.get(named.group("name").lower())
         if symbol is not None:
-            return f"{symbol}-{named.group('mass')}"
+            found.append(f"{symbol}-{named.group('mass')}")
+    return list(dict.fromkeys(_as_symbol_first(nuclide) for nuclide in found))
+
+
+def _as_symbol_first(nuclide: str) -> str:
+    """``4He`` as ``He-4``, so one nuclide written two ways counts once."""
+    written = re.fullmatch(r"(\d+)([A-Z][a-z]?)", nuclide)
+    return f"{written.group(2)}-{written.group(1)}" if written else nuclide
+
+
+def _nuclear_mass(text: str) -> float | None:
+    """The nucleus's mass the question states, never a proton's or a neutron's that a
+    pattern reaches across to (review, #2525)."""
+    for pattern in _NUCLEAR_MASS:
+        for match in re.finditer(pattern, text, re.IGNORECASE):
+            if _PARTICLE.search(match.group(0)) is None:
+                return float(match.group(1))
     return None
 
 
 def _extract_mass_defect(text: str) -> ChemistryIntent | None:
     if not re.search(r"\b(?:mass defect|binding energy)\b", text, re.IGNORECASE):
         return None
-    nuclide = _named_nuclide(text)
-    mass = next(
-        (found for pattern in _NUCLEAR_MASS if (found := _search(pattern, text)) is not None),
-        None,
-    )
-    if nuclide is None or mass is None:
+    # Two nuclides is a reaction, whose mass defect is no one nucleus's (review, #2525).
+    nuclides = _named_nuclides(text)
+    mass = _nuclear_mass(text)
+    if len(nuclides) != 1 or mass is None:
+        return None
+    nuclide = nuclides[0]
+    if abs(mass - int(nuclide.rsplit("-", 1)[1])) >= _MASS_NUMBER_SLACK:
         return None
     params = {"nuclear_mass": mass}
     units = {"nuclear_mass": "u"}

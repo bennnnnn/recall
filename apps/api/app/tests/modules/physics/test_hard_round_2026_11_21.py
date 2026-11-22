@@ -201,6 +201,12 @@ def test_a_row_past_reading_closes_on_the_unrounded_value() -> None:
             r"2.34\,\mathrm{s};\quad 6.71\,\mathrm{m};\quad 38.3\,\mathrm{m}",
             r"2.34\,\mathrm{s};\quad 6.71\,\mathrm{m};\quad 38.32\,\mathrm{m}",
         ),
+        # Two values that round alike keep the card's order (review, #2525: H 23.22, R 23.16).
+        (
+            "$H = 23.2249\\,\\mathrm{m}$\n$R = 23.1625\\,\\mathrm{m}$",
+            r"23.2\,\mathrm{m};\quad 23.2\,\mathrm{m}",
+            r"23.22\,\mathrm{m};\quad 23.16\,\mathrm{m}",
+        ),
         # P2: two values.
         (
             "$t = 4.03855\\,\\mathrm{s}$\n$R = 60.5783\\,\\mathrm{m}$",
@@ -238,3 +244,61 @@ def test_a_result_answering_fewer_asks_than_read_is_partial(question: str, asked
 
 def test_a_result_answering_every_ask_is_whole() -> None:
     assert PHYSICS_SUBJECT.answers_part(_verified(P8), 1) is None
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        # The speed alone leaves the top open: it is a given here, never read out.
+        "A 0.5 kg ball is kicked at 20 m/s and reaches a maximum height of 10 m. "
+        "Find its kinetic energy at the maximum height.",
+        "A projectile is launched upward at an angle with a speed of 25 m/s and reaches a "
+        "maximum height of 15 m. How long does it take to hit the ground?",
+    ],
+)
+def test_a_top_the_launch_leaves_open_is_a_given_never_a_contradiction(question: str) -> None:
+    """Review (#2525): read out, the 10 m left KE = ½mv² = 100 J verified (it is 50.95 J)."""
+    assert without_redundant_peaks(question) == question
+    assert stated_peak_conflict(question) is None
+    outcome, block = solve_physics_request(question, _SETTINGS, None)
+    assert outcome != "verified" or block is None or "100" not in block.display_answer
+
+
+def test_a_stated_top_is_measured_once_from_the_ground_or_the_start() -> None:
+    """Review (#2525): with h0 in its law the top came above the ground and h0 was added
+    again, so 45.1 m passed for a 10 m/s throw from 20 m (its top is 25.1 m)."""
+    question = (
+        "A ball is thrown straight up at 10 m/s from a height of 20 m and reaches a maximum "
+        "height of 45.1 m. How long does it take to hit the ground?"
+    )
+    reason = stated_peak_conflict(question)
+    assert reason is not None and "25.1 m" in reason
+    agreeing = question.replace("45.1 m", "25.1 m")
+    assert stated_peak_conflict(agreeing) is None
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        # A proton's mass beside the nucleus is no nucleus's mass.
+        "In a helium-4 nucleus, a proton has a mass of 1.007276 u and a neutron has a mass "
+        "of 1.008665 u. Its nuclear mass is 4.001506 u. Find the mass defect and binding energy.",
+    ],
+)
+def test_the_nuclear_mass_is_the_nucleus_s_own(question: str) -> None:
+    """Review (#2525): the proton's 1.007276 u was read as He-4's mass."""
+    from app.modules.chemistry.extractors.nuclear import _extract_mass_defect
+
+    intent = _extract_mass_defect(question)
+    assert intent is not None and intent.params["nuclear_mass"] == 4.001506
+
+
+def test_a_reaction_s_mass_defect_is_no_one_nucleus_s() -> None:
+    """Review (#2525): Li-6 named and He-4's mass read gave Δm = 2.046 u."""
+    from app.modules.chemistry.extractors.nuclear import _extract_mass_defect
+
+    question = (
+        "In a nuclear reaction, Li-6 forms a helium-4 nucleus of mass 4.001506 u and H-2. "
+        "Find the mass defect."
+    )
+    assert _extract_mass_defect(question) is None
