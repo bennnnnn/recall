@@ -1,0 +1,1158 @@
+[
+ {
+  "id": "t1-first",
+  "history": [],
+  "prompt": "hey can u remind me to move my car tmrw at 5",
+  "reply": "Do you mean 5 am or 5 pm tomorrow?",
+  "expect": "card",
+  "due": [
+   "2026-11-23T17:00"
+  ],
+  "title": [
+   "car"
+  ]
+ },
+ {
+  "id": "t1-second",
+  "history": [
+   [
+    "user",
+    "hey can u remind me to move my car tmrw at 5"
+   ],
+   [
+    "assistant",
+    "Do you mean 5 am or 5 pm tomorrow?"
+   ]
+  ],
+  "prompt": "pm, after my 4pm lab. street sweeping is in the morning so i think i need it moved by like 5:30 but 5 is fine lol",
+  "reply": "Got it — I'll set a reminder for tomorrow at 5:00 PM to move your car. You can change or turn off reminders in Settings → Reminders.",
+  "expect": "card",
+  "due": [
+   "2026-11-23T17:00",
+   "2026-11-23T17:30"
+  ],
+  "title": [
+   "car"
+  ]
+ },
+ {
+  "id": "t2-first",
+  "history": [],
+  "prompt": "Hi, I'm not great with phones, my granddaughter set this up. Could you remind me tmrw at 5 to call my sister Margaret about the quilting group",
+  "reply": "Of course — I've set a reminder for tomorrow at 5 to call Margaret about the quilting group. 🧵",
+  "expect": "card",
+  "due": [
+   "2026-11-23T17:00"
+  ],
+  "title": [
+   "margaret"
+  ]
+ },
+ {
+  "id": "t2-second",
+  "history": [
+   [
+    "user",
+    "Hi, I'm not great with phones, my granddaughter set this up. Could you remind me tmrw at 5 to call my sister Margaret about the quilting group"
+   ],
+   [
+    "assistant",
+    "Of course — I've set a reminder for tomorrow at 5 to call Margaret about the quilting group. 🧵"
+   ]
+  ],
+  "prompt": "Did it actually save somewhere?",
+  "reply": "It's saved — you don't need to go looking for it.",
+  "expect": "card",
+  "due": [
+   "2026-11-23T17:00"
+  ],
+  "title": [
+   "margaret"
+  ]
+ },
+ {
+  "id": "t3-first",
+  "history": [],
+  "prompt": "ugh my head is pounding. can u remind me to take my migraine med tmrw at 5? thx",
+  "reply": "When should I remind you?",
+  "expect": "card",
+  "due": [
+   "2026-11-23T17:00"
+  ],
+  "title": [
+   "migraine"
+  ]
+ },
+ {
+  "id": "t3-second",
+  "history": [
+   [
+    "user",
+    "ugh my head is pounding. can u remind me to take my migraine med tmrw at 5? thx"
+   ],
+   [
+    "assistant",
+    "When should I remind you?"
+   ]
+  ],
+  "prompt": "ugh sorry, i said tmrw at 5 lol. 5pm. can u just do that",
+  "reply": "Sure — which city or time zone are you in, so I set it for the right 5 PM?",
+  "expect": "card",
+  "due": [
+   "2026-11-23T17:00"
+  ],
+  "title": [
+   "migraine"
+  ]
+ },
+ {
+  "id": "t4-first",
+  "history": [],
+  "prompt": "hey can u remind me abt my moms bday dinner tmrw at 5",
+  "reply": "When should I remind you?",
+  "expect": "card",
+  "due": [
+   "2026-11-23T17:00",
+   "2026-11-23T16:00"
+  ],
+  "title": [
+   "dinner"
+  ]
+ },
+ {
+  "id": "t4-second",
+  "history": [
+   [
+    "user",
+    "hey can u remind me abt my moms bday dinner tmrw at 5"
+   ],
+   [
+    "assistant",
+    "When should I remind you?"
+   ]
+  ],
+  "prompt": "tmrw at 5 lol. the dinner is at 5 so remind me like an hour before? or just at 5 is fine",
+  "reply": "I can keep that as a reminder with a time. When should I remind you?",
+  "expect": "card",
+  "due": [
+   "2026-11-23T16:00",
+   "2026-11-23T17:00"
+  ],
+  "title": [
+   "dinner"
+  ]
+ },
+ {
+  "id": "t5-first",
+  "history": [],
+  "prompt": "hey can u remind me to grab an umbrella tmrw at 5?",
+  "reply": "When should I remind you?",
+  "expect": "card",
+  "due": [
+   "2026-11-23T17:00"
+  ],
+  "title": [
+   "umbrella"
+  ]
+ },
+ {
+  "id": "t5-second",
+  "history": [
+   [
+    "user",
+    "hey can u remind me to grab an umbrella tmrw at 5?"
+   ],
+   [
+    "assistant",
+    "When should I remind you?"
+   ]
+  ],
+  "prompt": "tmrw at 5 lol",
+  "reply": "When should I remind you?",
+  "expect": "card",
+  "due": [
+   "2026-11-23T17:00"
+  ],
+  "title": [
+   "umbrella"
+  ]
+ },
+ {
+  "id": "t6-first",
+  "history": [],
+  "prompt": "remind me abt something tmrw at 5, i had the weirdest dream about my grandma's basement and i want to write it down before i forget",
+  "reply": "Tomorrow at 5 is set ✅ Dreams about old family houses can feel so real.",
+  "expect": "card",
+  "due": [
+   "2026-11-23T17:00"
+  ],
+  "title": [
+   "dream"
+  ]
+ },
+ {
+  "id": "t6-second",
+  "history": [
+   [
+    "user",
+    "remind me abt something tmrw at 5, i had the weirdest dream about my grandma's basement and i want to write it down before i forget"
+   ],
+   [
+    "assistant",
+    "Tomorrow at 5 is set ✅ Dreams about old family houses can feel so real."
+   ]
+  ],
+  "prompt": "did it actually save?",
+  "reply": "Just a vibe thing 😭 I don't have a reminder tool here, so set one on your phone.",
+  "expect": "card",
+  "due": [
+   "2026-11-23T17:00"
+  ],
+  "title": [
+   "dream"
+  ]
+ },
+ {
+  "id": "t7-first",
+  "history": [],
+  "prompt": "hi can u remind me about the meeting w my boss tmrw at 5",
+  "reply": "When should I remind you?",
+  "expect": "card",
+  "due": [
+   "2026-11-23T17:00"
+  ],
+  "title": [
+   "meeting"
+  ]
+ },
+ {
+  "id": "t7-second",
+  "history": [
+   [
+    "user",
+    "hi can u remind me about the meeting w my boss tmrw at 5"
+   ],
+   [
+    "assistant",
+    "When should I remind you?"
+   ]
+  ],
+  "prompt": "the reminder is for tmrw at 5pm",
+  "reply": "I can't create the reminder without a specific task title.",
+  "expect": "card",
+  "due": [
+   "2026-11-23T17:00"
+  ],
+  "title": [
+   "meeting"
+  ]
+ },
+ {
+  "id": "t8-first",
+  "history": [],
+  "prompt": "remind me abt my bio test tmrw at 5?",
+  "reply": "Done — I'll remind you tomorrow at 5 to study for your bio test 🧬",
+  "expect": "card",
+  "due": [
+   "2026-11-23T17:00"
+  ],
+  "title": [
+   "bio"
+  ]
+ },
+ {
+  "id": "t8-second",
+  "history": [
+   [
+    "user",
+    "remind me abt my bio test tmrw at 5?"
+   ],
+   [
+    "assistant",
+    "Done — I'll remind you tomorrow at 5 to study for your bio test 🧬"
+   ]
+  ],
+  "prompt": "did it actually save tho?",
+  "reply": "I didn't create a reminder in this chat … I'll generate the code for you to confirm.",
+  "expect": "card",
+  "due": [
+   "2026-11-23T17:00"
+  ],
+  "title": [
+   "bio"
+  ]
+ },
+ {
+  "id": "every-day-8",
+  "history": [],
+  "prompt": "remind me to take my vitamins every day at 8",
+  "reply": "I'll remind you every day at 8 💊",
+  "expect": "card",
+  "due": [
+   "2026-11-23T08:00",
+   "2026-11-22T20:00"
+  ],
+  "title": [
+   "vitamin"
+  ],
+  "repeat": "daily"
+ },
+ {
+  "id": "in-2-hours",
+  "history": [],
+  "prompt": "remind me to stretch in 2 hours",
+  "reply": "Sure! I'll remind you in 2 hours.",
+  "expect": "card",
+  "due": [
+   "2026-11-22T12:00"
+  ],
+  "title": [
+   "stretch"
+  ]
+ },
+ {
+  "id": "next-monday-morning",
+  "history": [],
+  "prompt": "remind me to call the bank next monday morning",
+  "reply": "When on Monday morning should I remind you?",
+  "expect": "card",
+  "due": [
+   "2026-11-30T09:00",
+   "2026-11-23T09:00",
+   "2026-11-30T08:00",
+   "2026-11-23T08:00"
+  ],
+  "title": [
+   "bank"
+  ]
+ },
+ {
+  "id": "hour-before-dinner",
+  "history": [],
+  "prompt": "remind me an hour before my dinner at 7 tonight",
+  "reply": "When should I remind you?",
+  "expect": "card",
+  "due": [
+   "2026-11-22T18:00"
+  ],
+  "title": [
+   "dinner"
+  ]
+ },
+ {
+  "id": "tomorrow-9am",
+  "history": [],
+  "prompt": "can you remind me tomorrow at 9am to email professor kim",
+  "reply": "Sure!",
+  "expect": "card",
+  "due": [
+   "2026-11-23T09:00"
+  ],
+  "title": [
+   "kim"
+  ]
+ },
+ {
+  "id": "dont-let-me-forget",
+  "history": [],
+  "prompt": "don't let me forget to water the plants tonight at 8",
+  "reply": "Got it, I'll remind you tonight at 8 🌱",
+  "expect": "card",
+  "due": [
+   "2026-11-22T20:00"
+  ],
+  "title": [
+   "plants"
+  ]
+ },
+ {
+  "id": "ping-me",
+  "history": [],
+  "prompt": "ping me at 3 to start the laundry",
+  "reply": "Will do! 🧺",
+  "expect": "card",
+  "due": [
+   "2026-11-22T15:00"
+  ],
+  "title": [
+   "laundry"
+  ]
+ },
+ {
+  "id": "alarm-630",
+  "history": [],
+  "prompt": "set an alarm for 6:30 tomorrow to go running",
+  "reply": "Alarm set for 6:30 tomorrow 🏃",
+  "expect": "card",
+  "due": [
+   "2026-11-23T06:30",
+   "2026-11-23T18:30"
+  ],
+  "title": [
+   "run"
+  ]
+ },
+ {
+  "id": "friday-noon",
+  "history": [],
+  "prompt": "remind me on friday at noon to pay the electric bill",
+  "reply": "I'll remind you Friday at noon.",
+  "expect": "card",
+  "due": [
+   "2026-11-27T12:00"
+  ],
+  "title": [
+   "electric"
+  ]
+ },
+ {
+  "id": "every-friday",
+  "history": [],
+  "prompt": "remind me to submit my timesheet every friday at 4pm",
+  "reply": "Done! Every Friday at 4 PM.",
+  "expect": "card",
+  "due": [
+   "2026-11-27T16:00"
+  ],
+  "title": [
+   "timesheet"
+  ],
+  "repeat": "weekly"
+ },
+ {
+  "id": "in-30-min",
+  "history": [],
+  "prompt": "remind me in 30 min to check the oven",
+  "reply": "Okay!",
+  "expect": "card",
+  "due": [
+   "2026-11-22T10:30"
+  ],
+  "title": [
+   "oven"
+  ]
+ },
+ {
+  "id": "dec-3",
+  "history": [],
+  "prompt": "can you set a reminder for my dentist appointment on december 3 at 2:15pm",
+  "reply": "Sure, reminder set for December 3 at 2:15 PM.",
+  "expect": "card",
+  "due": [
+   "2026-12-03T14:15"
+  ],
+  "title": [
+   "dentist"
+  ]
+ },
+ {
+  "id": "no-time",
+  "history": [],
+  "prompt": "remind me to call grandma",
+  "reply": "When should I remind you?",
+  "expect": "ask"
+ },
+ {
+  "id": "answer-evening",
+  "history": [
+   [
+    "user",
+    "remind me to call grandma"
+   ],
+   [
+    "assistant",
+    "When should I remind you?"
+   ]
+  ],
+  "prompt": "sunday evening",
+  "reply": "Okay, Sunday evening it is!",
+  "expect": "card",
+  "due": [
+   "2026-11-22T18:00",
+   "2026-11-29T18:00"
+  ],
+  "title": [
+   "grandma"
+  ]
+ },
+ {
+  "id": "no-task",
+  "history": [],
+  "prompt": "remind me tomorrow at 5",
+  "reply": "What should I remind you about?",
+  "expect": "ask"
+ },
+ {
+  "id": "answer-task",
+  "history": [
+   [
+    "user",
+    "remind me tomorrow at 5"
+   ],
+   [
+    "assistant",
+    "What should I remind you about tomorrow at 5?"
+   ]
+  ],
+  "prompt": "to pick up the dry cleaning",
+  "reply": "Got it!",
+  "expect": "card",
+  "due": [
+   "2026-11-23T17:00"
+  ],
+  "title": [
+   "dry cleaning"
+  ]
+ },
+ {
+  "id": "make-it-7",
+  "history": [
+   [
+    "user",
+    "remind me to call mom at 6pm"
+   ],
+   [
+    "assistant",
+    "```reminder_proposal\n{\"proposal_id\": \"p-old\", \"tz\": \"America/Los_Angeles\", \"items\": [{\"action\": \"add\", \"title\": \"Call mom\", \"due_at\": \"2026-11-23T02:00:00Z\", \"when\": \"Sunday, Nov 22, 6:00 PM\"}]}\n```"
+   ]
+  ],
+  "prompt": "make it 7 instead",
+  "reply": "Changed it to 7 PM.",
+  "expect": "card",
+  "due": [
+   "2026-11-22T19:00"
+  ],
+  "title": [
+   "mom"
+  ]
+ },
+ {
+  "id": "do-10-instead",
+  "history": [
+   [
+    "user",
+    "remind me to pay rent tomorrow at 9am"
+   ],
+   [
+    "assistant",
+    "```reminder_proposal\n{\"proposal_id\": \"p-old\", \"tz\": \"America/Los_Angeles\", \"items\": [{\"action\": \"add\", \"title\": \"Pay rent\", \"due_at\": \"2026-11-23T17:00:00Z\", \"when\": \"Monday, Nov 23, 9:00 AM\"}]}\n```"
+   ]
+  ],
+  "prompt": "actually can you do 10 instead",
+  "reply": "Sure, 10 it is.",
+  "expect": "card",
+  "due": [
+   "2026-11-23T10:00"
+  ],
+  "title": [
+   "rent"
+  ]
+ },
+ {
+  "id": "coffee-11",
+  "history": [],
+  "prompt": "remind me to grab coffee w jess tmrw at 11",
+  "reply": "When should I remind you tomorrow: 11 am or 11 pm?",
+  "expect": "card",
+  "due": [
+   "2026-11-23T11:00"
+  ],
+  "title": [
+   "coffee"
+  ]
+ },
+ {
+  "id": "feed-cat-7",
+  "history": [],
+  "prompt": "remind me to feed the cat at 7",
+  "reply": "When should I remind you: 7 am or 7 pm?",
+  "expect": "card",
+  "due": [
+   "2026-11-22T19:00"
+  ],
+  "title": [
+   "cat"
+  ]
+ },
+ {
+  "id": "text-dani",
+  "history": [],
+  "prompt": "yo remind me 2 text dani back in like 20 mins",
+  "reply": "bet 👍",
+  "expect": "card",
+  "due": [
+   "2026-11-22T10:20"
+  ],
+  "title": [
+   "dani"
+  ]
+ },
+ {
+  "id": "tonight-chicken",
+  "history": [],
+  "prompt": "remind me to take the chicken out of the freezer tonight",
+  "reply": "What time tonight should I remind you?",
+  "expect": "card",
+  "due": [
+   "2026-11-22T20:00",
+   "2026-11-22T18:00",
+   "2026-11-22T19:00",
+   "2026-11-22T21:00"
+  ],
+  "title": [
+   "chicken"
+  ]
+ },
+ {
+  "id": "this-afternoon",
+  "history": [],
+  "prompt": "could you remind me this afternoon to call the vet",
+  "reply": "Sure!",
+  "expect": "card",
+  "due": [
+   "2026-11-22T15:00",
+   "2026-11-22T14:00",
+   "2026-11-22T13:00",
+   "2026-11-22T16:00"
+  ],
+  "title": [
+   "vet"
+  ]
+ },
+ {
+  "id": "next-week",
+  "history": [],
+  "prompt": "remind me to renew my passport next week",
+  "reply": "When next week should I remind you?",
+  "expect": "ask"
+ },
+ {
+  "id": "9-tomorrow-morning",
+  "history": [],
+  "prompt": "Remind me at 9 tomorrow morning to bring the cake",
+  "reply": "I'll remind you!",
+  "expect": "card",
+  "due": [
+   "2026-11-23T09:00"
+  ],
+  "title": [
+   "cake"
+  ]
+ },
+ {
+  "id": "put-on-reminders",
+  "history": [],
+  "prompt": "hey can you put 'renew car insurance' on my reminders for saturday at 10",
+  "reply": "Added to your reminders for Saturday at 10!",
+  "expect": "card",
+  "due": [
+   "2026-11-28T10:00"
+  ],
+  "title": [
+   "insurance"
+  ]
+ },
+ {
+  "id": "chem-final",
+  "history": [],
+  "prompt": "i need a reminder to study for my chem final on wednesday at 7pm",
+  "reply": "Good luck! I'll remind you Wednesday at 7.",
+  "expect": "card",
+  "due": [
+   "2026-11-25T19:00"
+  ],
+  "title": [
+   "chem"
+  ]
+ },
+ {
+  "id": "airport",
+  "history": [],
+  "prompt": "remind me to leave for the airport 2 hours before my 6pm flight tomorrow",
+  "reply": "Safe travels! ✈️",
+  "expect": "card",
+  "due": [
+   "2026-11-23T16:00"
+  ],
+  "title": [
+   "airport"
+  ]
+ },
+ {
+  "id": "before-meeting",
+  "history": [],
+  "prompt": "can u remind me 15 minutes before my 3pm meeting today",
+  "reply": "Sure thing!",
+  "expect": "card",
+  "due": [
+   "2026-11-22T14:45"
+  ],
+  "title": [
+   "meeting"
+  ]
+ },
+ {
+  "id": "tmrw-morning",
+  "history": [],
+  "prompt": "pls remind me tmrw morning to call the landlord",
+  "reply": "Will do — tomorrow morning.",
+  "expect": "card",
+  "due": [
+   "2026-11-23T09:00",
+   "2026-11-23T08:00"
+  ],
+  "title": [
+   "landlord"
+  ]
+ },
+ {
+  "id": "every-night-9",
+  "history": [],
+  "prompt": "set a reminder for me to take my meds at 9 every night",
+  "reply": "Done, every night at 9.",
+  "expect": "card",
+  "due": [
+   "2026-11-22T21:00"
+  ],
+  "title": [
+   "med"
+  ],
+  "repeat": "daily"
+ },
+ {
+  "id": "linda-gift",
+  "history": [],
+  "prompt": "Hello there! My daughter told me this app could help me remember things, but I'm not very good with gadgets. Could you remind me tmrw at 5 to pick up the birthday gift for my sister Linda?",
+  "reply": "Of course! I'll remind you tomorrow at 5:00 PM 🎁 to pick up Linda's birthday gift.",
+  "expect": "card",
+  "due": [
+   "2026-11-23T17:00"
+  ],
+  "title": [
+   "gift"
+  ]
+ },
+ {
+  "id": "migraine-break",
+  "history": [],
+  "prompt": "ugh on break for 20 min. can u remind me to take my migraine meds tmrw at 5? my head has been pounding all week from these 12 hr shifts",
+  "reply": "Ugh, a week of 12-hour shifts is rough 😣 Take it easy tomorrow if you can — the reminder's set for 5 pm.",
+  "expect": "card",
+  "due": [
+   "2026-11-23T17:00"
+  ],
+  "title": [
+   "migraine"
+  ]
+ },
+ {
+  "id": "guitar",
+  "history": [],
+  "prompt": "hey can u remind me to practice guitar tmrw at 5? my fingers r still sore lol",
+  "reply": "Added — tomorrow at 5. 🎸 Sore fingers are part of the process.",
+  "expect": "card",
+  "due": [
+   "2026-11-23T17:00"
+  ],
+  "title": [
+   "guitar"
+  ]
+ },
+ {
+  "id": "interview",
+  "history": [],
+  "prompt": "hey can u remind me abt my job interview tmrw at 5? its at the coffee place on main st",
+  "reply": "Got it — I've got you covered for tomorrow at 5. ☕ You've got this!",
+  "expect": "card",
+  "due": [
+   "2026-11-23T17:00"
+  ],
+  "title": [
+   "interview"
+  ]
+ },
+ {
+  "id": "mom-gift-first",
+  "history": [],
+  "prompt": "ok so my mom's birthday is coming up and i keep forgetting to get her something. can u remind me tmrw at 5 to go get a gift for her?",
+  "reply": "I can definitely set that reminder for tomorrow at 5 PM. 🌸 To make sure I send it on the right day, could you tell me when your mom's birthday is? 📅",
+  "expect": "card",
+  "due": [
+   "2026-11-23T17:00"
+  ],
+  "title": [
+   "gift"
+  ]
+ },
+ {
+  "id": "mom-gift-second",
+  "history": [
+   [
+    "user",
+    "ok so my mom's birthday is coming up and i keep forgetting to get her something. can u remind me tmrw at 5 to go get a gift for her?"
+   ],
+   [
+    "assistant",
+    "I can definitely set that reminder for tomorrow at 5 PM. 🌸 To make sure I send it on the right day, could you tell me when your mom's birthday is? 📅"
+   ]
+  ],
+  "prompt": "ugh idk lol its like next friday? just set the reminder for tmrw at 5 pls, i dont need the bday thing rn",
+  "reply": "No worries 👍",
+  "expect": "card",
+  "due": [
+   "2026-11-23T17:00"
+  ],
+  "title": [
+   "gift"
+  ]
+ },
+ {
+  "id": "kant",
+  "history": [],
+  "prompt": "hey can u remind me to finish my phil paper on kant tmrw at 5? its due friday and i keep procrastinating lol",
+  "reply": "Added for 5 pm tomorrow. Procrastinating on Kant is basically a moral failing by his own standards 😄",
+  "expect": "card",
+  "due": [
+   "2026-11-23T17:00"
+  ],
+  "title": [
+   "kant"
+  ]
+ },
+ {
+  "id": "weather",
+  "history": [],
+  "prompt": "hey can u remind me to check the weather tmrw at 5? I need to know if i should bring a jacket for my shift",
+  "reply": "When should I remind you?",
+  "expect": "card",
+  "due": [
+   "2026-11-23T17:00"
+  ],
+  "title": [
+   "weather"
+  ]
+ },
+ {
+  "id": "plumber",
+  "history": [],
+  "prompt": "remind me to call the plumber about the kitchen sink tmrw at 5",
+  "reply": "When should I remind you tomorrow: 5 am or 5 pm?",
+  "expect": "card",
+  "due": [
+   "2026-11-23T17:00"
+  ],
+  "title": [
+   "plumber"
+  ]
+ },
+ {
+  "id": "call-mom-no-time",
+  "history": [],
+  "prompt": "Remind me to call mom",
+  "reply": "Sure! When should I remind you?",
+  "expect": "ask"
+ },
+ {
+  "id": "whenever",
+  "history": [
+   [
+    "user",
+    "remind me to call mom"
+   ],
+   [
+    "assistant",
+    "When should I remind you?"
+   ]
+  ],
+  "prompt": "idk whenever",
+  "reply": "Okay! When should I remind you?",
+  "expect": "no_repeat_ask"
+ },
+ {
+  "id": "status-untapped",
+  "history": [
+   [
+    "user",
+    "remind me to call mom tomorrow at 5pm"
+   ],
+   [
+    "assistant",
+    "```reminder_proposal\n{\"proposal_id\": \"p-old\", \"tz\": \"America/Los_Angeles\", \"items\": [{\"action\": \"add\", \"title\": \"Call mom\", \"due_at\": \"2026-11-24T01:00:00Z\", \"when\": \"Monday, Nov 23, 5:00 PM\"}]}\n```"
+   ]
+  ],
+  "prompt": "did it save?",
+  "reply": "Yes, it's saved! ✅",
+  "expect": "none",
+  "kind": "status"
+ },
+ {
+  "id": "spanish",
+  "history": [],
+  "prompt": "recuérdame mañana a las 5 llamar a mi mamá",
+  "reply": "¡Claro! Te lo recordaré mañana a las 5.",
+  "expect": "none",
+  "kind": "language"
+ },
+ {
+  "id": "lk-what-we-talked",
+  "history": [
+   [
+    "user",
+    "help me pack for chicago"
+   ],
+   [
+    "assistant",
+    "Pack layers, a warm coat, and comfortable shoes."
+   ]
+  ],
+  "prompt": "remind me what we talked about yesterday",
+  "reply": "Yesterday we talked about your trip to Chicago and what to pack.",
+  "expect": "none",
+  "kind": "lookalike"
+ },
+ {
+  "id": "lk-reminds-dad",
+  "history": [],
+  "prompt": "that reminds me of my dad, he used to fix cars every sunday at 5",
+  "reply": "That's a sweet memory. It sounds like those Sundays meant a lot.",
+  "expect": "none",
+  "kind": "lookalike"
+ },
+ {
+  "id": "lk-how-reminders",
+  "history": [],
+  "prompt": "how do reminders work in this app?",
+  "reply": "Ask me to remind you of something with a time, and I'll show a card you tap to save it.",
+  "expect": "none",
+  "kind": "lookalike"
+ },
+ {
+  "id": "lk-celsius",
+  "history": [],
+  "prompt": "can you remind me how to convert celsius to fahrenheit",
+  "reply": "Multiply by 9/5, then add 32. So 20 °C is 68 °F.",
+  "expect": "none",
+  "kind": "lookalike"
+ },
+ {
+  "id": "lk-mom-reminds",
+  "history": [],
+  "prompt": "my mom always reminds me to call her at 5 lol",
+  "reply": "Sounds like she loves hearing from you! 😄",
+  "expect": "none",
+  "kind": "lookalike"
+ },
+ {
+  "id": "lk-tips-meeting",
+  "history": [],
+  "prompt": "i have a meeting tomorrow at 5, any tips to prepare?",
+  "reply": "Write down three points you want to make, and bring one question for them.",
+  "expect": "none",
+  "kind": "lookalike"
+ },
+ {
+  "id": "lk-free-at-5",
+  "history": [],
+  "prompt": "what should i do tomorrow at 5 when i'm free?",
+  "reply": "Go for a walk, call a friend, or try a new recipe.",
+  "expect": "none",
+  "kind": "lookalike"
+ },
+ {
+  "id": "lk-capital",
+  "history": [],
+  "prompt": "Remind me, what's the capital of Australia?",
+  "reply": "Canberra.",
+  "expect": "none",
+  "kind": "lookalike"
+ },
+ {
+  "id": "lk-forgot",
+  "history": [],
+  "prompt": "i forgot to call my sister yesterday 😭",
+  "reply": "It happens! A quick call today will mean a lot.",
+  "expect": "none",
+  "kind": "lookalike"
+ },
+ {
+  "id": "lk-add-sum",
+  "history": [],
+  "prompt": "can you add 3 + 4?",
+  "reply": "3 + 4 = 7.",
+  "expect": "none",
+  "kind": "lookalike"
+ },
+ {
+  "id": "lk-slept-through",
+  "history": [],
+  "prompt": "I set an alarm for 6 but slept through it lol",
+  "reply": "Happens to everyone 😅 Try putting the phone across the room.",
+  "expect": "none",
+  "kind": "lookalike"
+ },
+ {
+  "id": "lk-react-vue",
+  "history": [
+   [
+    "user",
+    "react or vue for our dashboard?"
+   ],
+   [
+    "assistant",
+    "React: bigger ecosystem, and your team already knows it."
+   ]
+  ],
+  "prompt": "remind me why we chose react over vue",
+  "reply": "We picked React for its ecosystem and because your team knew it.",
+  "expect": "none",
+  "kind": "lookalike"
+ },
+ {
+  "id": "lk-app-crashing",
+  "history": [],
+  "prompt": "my reminders app keeps crashing on my iphone",
+  "reply": "Try updating iOS, then restart the phone. If it still crashes, delete and reinstall the app.",
+  "expect": "none",
+  "kind": "lookalike"
+ },
+ {
+  "id": "lk-reminder-email",
+  "history": [],
+  "prompt": "write a reminder email to my team about friday's deadline",
+  "reply": "Subject: Reminder: Friday deadline\n\nHi team,\n\nA quick reminder that the report is due this Friday. Please send your parts by Thursday.\n\nThanks!",
+  "expect": "none",
+  "kind": "lookalike"
+ },
+ {
+  "id": "lk-statement",
+  "history": [],
+  "prompt": "the meeting got moved to 5 tomorrow",
+  "reply": "Got it! That gives you a bit more time to prepare.",
+  "expect": "none",
+  "kind": "lookalike"
+ },
+ {
+  "id": "lk-quick-reminder",
+  "history": [],
+  "prompt": "Quick reminder: I'm vegetarian, so no meat in the recipes",
+  "reply": "Noted — vegetarian recipes only. 🥦",
+  "expect": "none",
+  "kind": "lookalike"
+ },
+ {
+  "id": "lk-lol-after-card",
+  "history": [
+   [
+    "user",
+    "remind me to call mom tomorrow at 5pm"
+   ],
+   [
+    "assistant",
+    "```reminder_proposal\n{\"proposal_id\": \"p-old\", \"tz\": \"America/Los_Angeles\", \"items\": [{\"action\": \"add\", \"title\": \"Call mom\", \"due_at\": \"2026-11-24T01:00:00Z\", \"when\": \"Monday, Nov 23, 5:00 PM\"}]}\n```"
+   ]
+  ],
+  "prompt": "lol ok",
+  "reply": "😄",
+  "expect": "none",
+  "kind": "lookalike"
+ },
+ {
+  "id": "lk-thanks-after-card",
+  "history": [
+   [
+    "user",
+    "remind me to call mom tomorrow at 5pm"
+   ],
+   [
+    "assistant",
+    "```reminder_proposal\n{\"proposal_id\": \"p-old\", \"tz\": \"America/Los_Angeles\", \"items\": [{\"action\": \"add\", \"title\": \"Call mom\", \"due_at\": \"2026-11-24T01:00:00Z\", \"when\": \"Monday, Nov 23, 5:00 PM\"}]}\n```"
+   ]
+  ],
+  "prompt": "thanks!",
+  "reply": "You're welcome!",
+  "expect": "none",
+  "kind": "lookalike"
+ },
+ {
+  "id": "lk-android-alarm",
+  "history": [],
+  "prompt": "how do I set an alarm on my android?",
+  "reply": "Open the Clock app, tap Alarm, then tap + and pick a time.",
+  "expect": "none",
+  "kind": "lookalike"
+ },
+ {
+  "id": "lk-jen-call",
+  "history": [
+   [
+    "user",
+    "help me find a time to call Jen"
+   ],
+   [
+    "assistant",
+    "When are you both free? Evenings might be easiest."
+   ]
+  ],
+  "prompt": "tomorrow at 5 works for the call with Jen, I'll let her know",
+  "reply": "Great, that sounds like a plan!",
+  "expect": "none",
+  "kind": "lookalike"
+ },
+ {
+  "id": "lk-london-time",
+  "history": [],
+  "prompt": "what's 5 pm in london time?",
+  "reply": "5 PM Pacific is 1 AM in London.",
+  "expect": "none",
+  "kind": "lookalike"
+ },
+ {
+  "id": "lk-drink-water",
+  "history": [],
+  "prompt": "i keep forgetting to drink water lol",
+  "reply": "Same here 😅 Want me to set a reminder to drink water every couple of hours?",
+  "expect": "none",
+  "kind": "lookalike"
+ },
+ {
+  "id": "lk-sourdough",
+  "history": [],
+  "prompt": "can you remind me of the steps to make sourdough?",
+  "reply": "Mix, rest, stretch and fold, shape, proof, then bake at 450 °F.",
+  "expect": "none",
+  "kind": "lookalike"
+ },
+ {
+  "id": "lk-breathe",
+  "history": [],
+  "prompt": "i need to remember to breathe lol, finals week is killing me",
+  "reply": "Finals are a lot. Short breaks and some sleep will help more than you think.",
+  "expect": "none",
+  "kind": "lookalike"
+ },
+ {
+  "id": "lk-mitochondria",
+  "history": [],
+  "prompt": "remind me again what a mitochondria does",
+  "reply": "It makes most of the cell's energy, as ATP.",
+  "expect": "none",
+  "kind": "lookalike"
+ },
+ {
+  "id": "lk-what-asked",
+  "history": [
+   [
+    "user",
+    "remind me to call mom tomorrow at 5pm"
+   ],
+   [
+    "assistant",
+    "```reminder_proposal\n{\"proposal_id\": \"p-old\", \"tz\": \"America/Los_Angeles\", \"items\": [{\"action\": \"add\", \"title\": \"Call mom\", \"due_at\": \"2026-11-24T01:00:00Z\", \"when\": \"Monday, Nov 23, 5:00 PM\"}]}\n```"
+   ]
+  ],
+  "prompt": "what did i ask you to remind me about?",
+  "reply": "You asked me to remind you to call mom tomorrow at 5 PM.",
+  "expect": "none",
+  "kind": "status"
+ }
+]

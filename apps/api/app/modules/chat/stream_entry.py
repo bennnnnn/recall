@@ -30,6 +30,7 @@ from app.modules.chat.figure_turn import LIVE_READ, start_figure, stop_figure
 from app.modules.chat.formal_turn import start_formal, stop_formal
 from app.modules.chat.model_routing.thinking import thinking_level
 from app.modules.chat.posed_read import start_posed_read, stop_posed_read
+from app.modules.chat.reminder_turn import start_reminder_read, stop_reminder_read
 from app.modules.chat.stream_pipeline import stream_and_finalize
 from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn
 from app.modules.chat.turn_decision import TurnDecision
@@ -114,6 +115,7 @@ def _attach_reads(
     ctx.figure = start_figure(settings, ctx)
     ctx.chart = start_chart(settings, ctx)
     ctx.formal = start_formal(settings, ctx)
+    ctx.reminder_read = start_reminder_read(settings, ctx)
 
 
 def _stop_pictures(ctx: StreamContext) -> None:
@@ -124,6 +126,7 @@ def _stop_pictures(ctx: StreamContext) -> None:
     stop_figure(ctx)
     stop_chart(ctx)
     stop_formal(ctx)
+    stop_reminder_read(ctx)
 
 
 async def _end_new_turn(ctx: StreamContext, chat_id: UUID) -> None:

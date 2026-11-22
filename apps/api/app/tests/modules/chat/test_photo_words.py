@@ -17,7 +17,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from app.core.config import Settings
-from app.modules.chat.finalize_reminders import own_words
+from app.modules.chat.reminder_turn import own_words
 from app.modules.chat.turn_prep.context import StreamContext
 from app.modules.chat.turn_prep.instant import resolve_instant_reply
 from app.modules.chat.turn_prep.request import TurnRequest

@@ -99,3 +99,26 @@ def without_denials(text: str) -> str:
         # A line that was only the denial goes, and so does its list marker.
     body = re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip()
     return body or text
+
+
+# Above the app's own card, any "I can't … reminder" is false: "I can't create the reminder
+# without a specific task title" stood over the card that made it (live QA, 2026-11-22).
+_ANY_DENIAL = re.compile(
+    r"[^.!?\n]*\bi\s*(?:can't|cannot|can not|don't have|do not have|am unable|'m unable)\b"
+    r"[^.!?\n]*\b(?:reminders?|remind)\b[^.!?\n]*[.!?]?",
+    re.IGNORECASE,
+)
+
+
+def without_reminder_denials(text: str) -> str:
+    """The reply without a sentence that says a reminder can't be made, whatever follows it:
+    the card under the reply makes it."""
+    kept: list[str] = []
+    for line, fence in zip(text.split("\n"), line_fences(text), strict=True):
+        if fence is not None:
+            kept.append(line)
+            continue
+        cleaned = _ANY_DENIAL.sub("", straighten_apostrophes(line)).strip()
+        if cleaned or not line.strip():
+            kept.append(cleaned if cleaned != straighten_apostrophes(line).strip() else line)
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip()

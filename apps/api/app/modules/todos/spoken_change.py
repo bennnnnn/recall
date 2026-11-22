@@ -22,6 +22,12 @@ _BULK = frozenset(
 _JUST_DONE_RE = re.compile(
     r"(?:done|did it|all done|finished it|completed it)(?!\s+with\b)(?:\s|$|[!.,])"
 )
+# "Did it actually save?", "did it work tho": a question about the reminder, not "I did it"
+# (live QA, 2026-11-22: "Did it actually save somewhere?" offered to mark a reminder done).
+_ASKS_IF_IT_DID_RE = re.compile(
+    r"^did it(?:\s+(?:actually|really|even|ever|just))?\s+(?:save|work|go|get|set|show|stick"
+    r"|happen|send|ping|remind)\b|\?"
+)
 _PRONOUNS = frozenset({"it", "this", "that"})
 _FILLERS = frozenset({"for", "to", "at", "on", "the", "a", "an"})
 _DONE_TAILS = (" as completed", " as complete", " as done", " completed", " complete", " done")
@@ -118,7 +124,7 @@ def _parse_change(
         return None
     lowered = text.lower()
     # "Done ✅ just talked to her", "did it": the reminder that was just discussed.
-    if _JUST_DONE_RE.match(lowered):
+    if _JUST_DONE_RE.match(lowered) and not _ASKS_IF_IT_DID_RE.search(lowered):
         return SpokenReminderChange(action="complete", title_hint="", use_latest=True)
     if lowered.startswith("remove ") and _rest(text, "remove ").lower().startswith("the date"):
         return None

@@ -211,6 +211,36 @@ WORK_QUESTION: dict[str, dict[str, Any]] = {
 }
 
 
+# Whether the message asks for a reminder, asked in a call of its own beside the reply
+# (``chat.reminder_turn``), never in the turn's read: only finalize needs the answer, so the
+# reply never waits for it. Word rules decided it, and 16 of 30 plain reminder requests in a
+# live QA round (2026-11-22) got no card: "tmrw at 5" was asked when again and again, and six
+# replies said the reminder was set with nothing saved. A yes has a model write the request
+# down for the server to check (``todos.model_read``); ``tests/behavior/reminder_eval.py``
+# measures both.
+REMINDER_QUESTION: Mapping[str, dict[str, Any]] = MappingProxyType(
+    {
+        "reminder": {
+            "type": "noul",
+            "instructions": (
+                "Does the user's last message ask the app to remind them of something (remind "
+                "me, set a reminder or an alarm, ping me, don't let me forget), give the task, "
+                "day or time of a reminder the conversation is setting up (any time is fine "
+                "counts), change the time of one the assistant just offered (make it 6), or ask "
+                "whether one they asked for was set or saved? Not asking to be told or taught "
+                "something (remind me what we said, remind me how), a memory (that reminds me "
+                "of), how reminders or alarms work, a plan or event with no reminder asked, or a "
+                "reaction or thanks."
+            ),
+        }
+    }
+)
+# On ``reminder_corpus.json`` (86 turns, two reads each) every request and answer read 0.989 or
+# more and every look-alike 0.86 or less ("the meeting got moved to 5 tomorrow", a statement):
+# the yes is the Decider's sure one. The model's read is a second gate (``request``: none).
+REMINDER_AT = 0.9
+
+
 # How many separate results the message asks for, asked in a call of its own beside the
 # turn's, as the work question is: a verified result answering fewer is no whole reply
 # (``chat.asks_turn``). "What frequency does a stationary listener hear as it approaches,

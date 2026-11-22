@@ -357,11 +357,23 @@ def _without_code(text: str) -> str:
     return _INLINE_CODE_RE.sub(" ", without_fences(text, " "))
 
 
+# "Hello there! … Could you remind me tmrw at 5 to …": a reminder asked for past the
+# message's start, where the add grammar does not read it (live QA, 2026-11-22: "Of course!
+# I'll remind you tomorrow at 5:00 PM" stood with nothing saved).
+_ASKS_A_REMINDER_RE = re.compile(
+    r"\bremind\s+me\b(?!\s+(?:how|what|why|who|of|about\s+what)\b)|\bset\s+(?:me\s+)?a\s+reminder\b"
+    r"|\bdon'?t\s+let\s+me\s+forget\b",
+    re.IGNORECASE,
+)
+
+
 def _asked_to_change_or_add(user_text: str | None) -> bool:
     if not user_text or adds_content(user_text):
         return False
     if ADD_REQUEST_RE.search(user_text):
         return True
+    if _ASKS_A_REMINDER_RE.search(straighten(user_text)):
+        return not explicitly_declines_reminder_creation(user_text)
     if FILLER_RE.sub("", user_text.strip().lower()).startswith(_CHANGE_LEADS):
         return True
     return parse_spoken_reminder_change(user_text) is not None

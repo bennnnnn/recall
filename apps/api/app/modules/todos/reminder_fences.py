@@ -39,11 +39,13 @@ from app.modules.todos.reply_check import (
     reply_when_nothing_saved,
 )
 from app.modules.todos.reply_claims import without_claims, without_when_questions
+from app.modules.todos.reply_denials import without_reminder_denials
 from app.modules.todos.spoken_add import (
     SpokenAdd,
     chat_add_needs_a_stated_time,
     due_for_add,
     due_is_past,
+    is_reminder_request,
     parse_spoken_add,
     passed_time_reply,
     relative_due,
@@ -120,9 +122,48 @@ async def materialize_reminder_fences(
         user_timezone=user_timezone,
     )
     kept = [line for line in text.split("\n") if not proposals.is_card_line(line, writes)]
-    # Nothing is saved until the tap: "Done! I've set a reminder" would be false.
-    body = without_claims("\n".join(kept), [write.title for write in writes])
+    # Nothing is saved until the tap: "Done! I've set a reminder" would be false, and so is
+    # "Got it, I'll set that for tomorrow at 6:00 PM" above the card.
+    body = without_claims("\n".join(kept), [write.title for write in writes], about=True)
     return (f"{body}\n\n{card}" if body else card), 0
+
+
+async def offer_adds(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+    chat_id: UUID,
+    reply: str,
+    adds: Sequence[SpokenAdd],
+    user_timezone: str | None,
+    redis: Redis,
+) -> str | None:
+    """The reply with a card for ``adds``, the request the server read from the chat
+    (``read_check``); None when no card came of them. The reply keeps what it answered
+    besides, without its fences, its claims and its questions of when."""
+    turn = _Turn(
+        session=session,
+        user_id=user_id,
+        chat_id=chat_id,
+        assistant_text=proposals.strip_cards(reply),
+        user_timezone=user_timezone,
+        user_text=None,
+        prior_assistant=None,
+        prior_user=None,
+    )
+    spans = find_reminder_fences(turn.assistant_text)
+    with write_log.recording() as writes:
+        text, _applied = await _save_spoken_adds(turn, spans, list(adds))
+    if not writes:
+        return None
+    card = await proposals.propose(
+        redis, user_id=user_id, chat_id=chat_id, writes=writes, user_timezone=user_timezone
+    )
+    kept = [line for line in text.split("\n") if not proposals.is_card_line(line, writes)]
+    titles = [write.title for write in writes]
+    body = without_when_questions(without_claims("\n".join(kept), titles, about=True))
+    body = without_reminder_denials(body)
+    return f"{body}\n\n{card}" if body else card
 
 
 @dataclass(frozen=True)
@@ -450,8 +491,27 @@ def _user_remind(turn: _Turn) -> ReminderFence | None:
     if stated is not None:
         return stated
     after = relative_due(turn.user_text, user_timezone=turn.user_timezone)
-    add = parse_spoken_add(turn.user_text) if after is not None else None
+    if after is None:
+        return _bare_hour_remind(turn)
+    add = parse_spoken_add(turn.user_text)
     return None if add is None else ReminderFence(action="add", title=add.title, due_at=after)
+
+
+def _bare_hour_remind(turn: _Turn) -> ReminderFence | None:
+    """ "Remind me to move my car tmrw at 5": 5 PM by the rule (``bare_hour``), never asked.
+    The model's fence for it is not read: its hour may be either half of the day."""
+    if not is_reminder_request(turn.user_text):
+        return None
+    adds = parse_spoken_adds(turn.user_text, user_timezone=turn.user_timezone)
+    first = parse_spoken_add(turn.user_text)
+    if len(adds) != 1 or first is None or first.bare is None or adds[0].hour is None:
+        return None
+    due = _upcoming_due(adds[0], turn.user_timezone)
+    if due is None:
+        return None
+    fence = ReminderFence(action="add", title=adds[0].title, due_at=due)
+    fence.repeat = adds[0].repeat
+    return fence
 
 
 def _render(text: str, spans: _Spans, in_place: list[str], result_lines: list[str]) -> str:

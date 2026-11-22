@@ -16,28 +16,18 @@ from redis.asyncio import Redis
 from app.core.config import Settings
 from app.modules import todos as todos_service
 from app.modules.chat.remember_reply import without_remember_turn_claims
+from app.modules.chat.reminder_turn import finish_with_the_read, own_words
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
 from app.services.md_fence_scan import iter_fences, last_fence
 from app.services.prompt_safety import said_by_user
-from app.services.subject_scan import without_photo_reading
 
 logger = logging.getLogger(__name__)
 
 _REMINDER_FENCE_LANG = "reminder"
 _ASK_WHEN = "When should I remind you?"
 _TAG_CLOSER = re.compile(r"^[ \t]*</reminder>[ \t]*$\n?", re.MULTILINE)
-
-
-def own_words(ctx: StreamContext) -> str:
-    """What the user typed or said this turn, as their row keeps it: no attachment excerpt,
-    and none of the text read off their photo, which is its content, never a request
-    (audit SCAN-03, 2026-11-13). Maths' ``Solve:`` line is the prompt's alone."""
-    stored, content = ctx.stored_user_message, ctx.user_message_content or ""
-    if isinstance(stored, str) and stored != content:
-        return said_by_user(stored)
-    return without_photo_reading(content)
 
 
 def drop_cut_reminder_fence(text: str) -> str:
@@ -80,6 +70,9 @@ async def apply_reminder_pass(
     try:
         given = text
         text, created = await _materialize(deps, redis, settings, ctx, text)
+        # The read says the message asks for a reminder: the server's reading of the chat
+        # makes its card, or asks the one thing missing (``reminder_turn``).
+        text = await finish_with_the_read(deps, redis, settings, ctx, given=given, text=text)
         text = without_remember_turn_claims(message, ctx.user, text)
         # "I can't set reminders from here" is false: the card above, or the next one.
         text = todos_service.without_denials(text)

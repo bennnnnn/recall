@@ -159,7 +159,7 @@
   "area": "todo",
   "prompt": "remind me to plate the dinner at 7",
   "reply": "What time — 7 PM?",
-  "expect": "ask_time"
+  "expect": "save"
  },
  {
   "id": "rg-028",

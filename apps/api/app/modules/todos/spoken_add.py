@@ -98,6 +98,7 @@ _TYPOS = {
     "remaind": "remind",
     "remid": "remind",
     "rmind": "remind",
+    "abt": "about",
     # Amharic "tomorrow" and "today" in an otherwise English line.
     "\u1290\u1308": "tomorrow",
     "\u12db\u122c": "today",
@@ -157,6 +158,14 @@ _LIST_PHRASE_RE = re.compile(
 )
 
 
+# A reminder set a while before an event: "an hour before my dinner", "15 minutes before".
+_LEAD_TIME_RE = re.compile(
+    r"(?:^|\s)(?:like\s+|about\s+)?(?:an?|one|two|three|half an|\d{1,3})\s+(?:min(?:ute)?s?|hours?|hrs?"
+    r"|days?)\s+(?:before|ahead of|prior to|earlier than)\b",
+    re.IGNORECASE,
+)
+
+
 @dataclass(frozen=True)
 class SpokenAdd:
     title: str
@@ -166,7 +175,7 @@ class SpokenAdd:
     minute: int | None
     # "in 3 minutes": the reminder is due that long after the message.
     after_minutes: int | None = None
-    # "at 6" with no am or pm (``SpokenWhen.bare``): asked which, never guessed.
+    # "at 6" with no am or pm (``SpokenWhen.bare``): settled by ``bare_hour``'s rule.
     bare: tuple[int, int] | None = None
 
 
@@ -232,6 +241,10 @@ def parse_spoken_add(user_text: str | None) -> SpokenAdd | None:
         repeat = cast(RecurrenceRule, found_repeat[0])
         spans.append(found_repeat[1])
     title = _title_of(without_spans(body, spans))
+    if _LEAD_TIME_RE.search(title):
+        # "An hour before my dinner at 7": the 7 is the dinner's, not the reminder's (the
+        # turn's read works the lead time out, ``read_check``).
+        return None
     # "Add that I'll be late" or "add a line …" adds to something, not a
     # task, "remind me how to …" asks to be taught, and "add lunch to my
     # calendar" is a calendar event.
@@ -410,6 +423,11 @@ def passed_time_reply() -> str:
 
 def _now(tz: TzInfo) -> datetime:
     return datetime.now(tz)
+
+
+def fix_typos(text: str) -> str:
+    """The text with the spellings the reader knows put right ("tmrw" is "tomorrow")."""
+    return _fix_typos(text)
 
 
 def _fix_typos(text: str) -> str:

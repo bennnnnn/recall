@@ -11,7 +11,8 @@ from __future__ import annotations
 
 import re
 
-FILLER_WORDS = r"(?:wait|ok|okay|actually|oh|no|nah|sorry|hmm)"
+# "hey can u remind me to move my car" saved "hey move my car" (live QA, 2026-11-22).
+FILLER_WORDS = r"(?:wait|ok|okay|actually|oh|no|nah|sorry|hmm|hey|hi|hello|yo|um|uh|ugh)"
 _JOINING_WORDS = r"(?:also|and|plus|then|so|btw)"
 _ONLY_FILLER_RE = re.compile(
     rf"\s*(?:(?:{FILLER_WORDS}|{_JOINING_WORDS})\b[,!.]*\s*)+", re.IGNORECASE

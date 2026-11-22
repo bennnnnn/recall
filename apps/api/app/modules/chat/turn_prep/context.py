@@ -151,6 +151,9 @@ class StreamContext:
     chart: asyncio.Task[str | None] | None = None
     drawing: ReplyDrawing | None = None
     formal: asyncio.Task[Any] | None = None
+    # A reminder the read says the message asks for, written down beside the reply
+    # (``chat.reminder_turn.PendingRead``): finalize offers its card.
+    reminder_read: Any = None
     # A retry's tools after a denial of live data (``tool_loop.live_denial``, settled reads).
     denial_retry_tools: list[dict[str, Any]] = field(default_factory=list)
     # The last reply asked with a clarify card: this reply may not ask again.

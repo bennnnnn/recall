@@ -134,7 +134,7 @@ _BARE_CLAIM_RE = re.compile(
     r"|reminder (?:set|added|saved|created|scheduled))"
 )
 # "Sure!" on its own above the card says nothing.
-_ACK_ONLY_RE = re.compile(rf"{_ACK}|got it|you got it|will do|sounds good")
+_ACK_ONLY_RE = re.compile(rf"{_ACK}|got it|you got it|will do|sounds good|yes|yeah|yep|yup")
 _SENTENCE_RE = re.compile(r"(?<=[.!?])\s+(?=[^a-z])")
 # A claim that ends a sentence: "Water boils at 100 °C, and I've set a reminder…".
 _CLAUSE_RE = re.compile(
@@ -158,14 +158,18 @@ def without_claim_lines(lines: list[str]) -> list[str]:
     ]
 
 
-def without_claims(text: str, titles: Iterable[str] = ()) -> str:
+def without_claims(text: str, titles: Iterable[str] = (), *, about: bool = False) -> str:
     """The reply without sentences that say a reminder change already happened.
 
     ``titles`` are the card's items: "I've marked call mom as done" names one.
+    ``about``: the turn is about a reminder (the read says the message asks for one), so a
+    bare "It's saved" or "Done" claims one with no reminder word beside it.
     Code is left alone. A reply left with only "Sure!" says nothing beside the
     app's own line or card, so it goes too.
     """
     named = tuple(title.strip().lower() for title in titles if len(title.strip()) >= 3)
+    if about:
+        named = (*named, _ABOUT)
     kept: list[str] = []
     for line, fence in zip(text.split("\n"), line_fences(text), strict=True):
         cleaned = line if fence is not None else _line_without_claims(line, named)
@@ -175,8 +179,11 @@ def without_claims(text: str, titles: Iterable[str] = ()) -> str:
     return "" if _ACK_ONLY_RE.fullmatch(_plain(body)) else body
 
 
-# "When should I remind you?", "What time works?": a question the card already answers.
-_ASKS_WHEN_RE = re.compile(r"\b(?:when|what time|which day)\b", re.IGNORECASE)
+# "When should I remind you?", "What time works?", "Do you mean 5 am or 5 pm?", "Which time
+# zone are you in?": a question the card already answers (the phone sends the zone).
+_ASKS_WHEN_RE = re.compile(
+    r"\b(?:when|what time|which day|time ?zone|which city|a\.?m\.? or|am or)\b", re.IGNORECASE
+)
 
 
 def without_when_questions(text: str) -> str:
@@ -208,6 +215,19 @@ def split_sentences(line: str) -> list[str]:
     return _SENTENCE_RE.split(line)
 
 
+# Stands in the titles for a turn about a reminder: every claim has its context, and a
+# reply's "Tomorrow at 5 is set ✅", "I've got you covered for tomorrow at 5" or "noted"
+# claims the reminder the message asked for (live QA, 2026-11-22).
+_ABOUT = "\x00about"
+_ABOUT_CLAIM_RE = re.compile(
+    r"\b(?:is|are|was|'s)\s+(?:all\s+|now\s+)?(?:set|saved|scheduled|added|booked|noted)\b"
+    r"(?!\s+(?:to|in|by)\b)|\bgot (?:you|it) covered\b|\bgot it noted\b|\bi(?:'ve| have)"
+    r" got (?:it|that|this)\b|\b(?:it|that)(?:'ll| will) (?:ping|remind|notify|alert) you\b"
+    r"|\b(?:i|we)(?:'ll| will)\s+(?:set|add|save|schedule|put)\s+(?:it|that|this|one|them)\b"
+    r"|^(?:changed|switched|moved|updated|set|added|saved|scheduled)\s+(?:it|that|this|to|for)\b"
+)
+
+
 def is_claim(sentence: str, titles: Iterable[str] = ()) -> bool:
     """One sentence that says a reminder change happened (see the module doc)."""
     plain = _plain(sentence)
@@ -215,9 +235,16 @@ def is_claim(sentence: str, titles: Iterable[str] = ()) -> bool:
         return False
     if _BARE_CLAIM_RE.fullmatch(plain) or COLON_CLAIM_RE.match(plain) or _CLAIM_RE.search(plain):
         return True
+    titles = tuple(titles)
+    if _ABOUT in titles and _ABOUT_CLAIM_RE.search(plain):
+        return True
     if not (_CONTEXT_CLAIM_RE.search(plain) or PROSE_CLAIM_RE.search(plain)):
         return False
-    return bool(_CONTEXT_RE.search(plain)) or any(title in plain for title in titles)
+    return (
+        bool(_CONTEXT_RE.search(plain))
+        or _ABOUT in titles
+        or any(title in plain for title in titles)
+    )
 
 
 def _line_without_claims(line: str, titles: tuple[str, ...]) -> str | None:

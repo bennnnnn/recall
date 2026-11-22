@@ -22,6 +22,17 @@ class ChatContextSettings(BaseModel):
     # A reminder change from chat is a card the user taps to save (or mark
     # done, move, delete). Off: chat writes to-dos as soon as it reads them.
     todo_prompt_limit: int = 48
+    # A turn the read says asks for a reminder (``decider_read.REMINDER_QUESTION``) that the
+    # word rules made no card for has a model write the request down beside the reply; the
+    # server holds each value to the user's words, works the time out in their zone and
+    # offers the card (``todos.model_read``, ``todos.read_check``). Finalize waits for it at
+    # most ``reminder_read_wait_seconds`` past the reply.
+    reminder_read_enabled: bool = True
+    reminder_read_timeout_seconds: float = 6.0
+    reminder_read_wait_seconds: float = 3.0
+    # The Decider's yes or no is in about a third of a second, long before a reply ends; past
+    # this wait, finalize goes on without it, so no turn waits on a late one.
+    reminder_decide_wait_seconds: float = 0.5
 
     # History compression — keep recent turns verbatim within a token budget,
     # summarise everything older. At 6000 a chat building an HTML page kept only its

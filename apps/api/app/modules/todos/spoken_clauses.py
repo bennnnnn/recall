@@ -17,6 +17,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.todos.bare_hour import settle_bare
 from app.modules.todos.spoken_add import (
     SpokenAdd,
     day_for_a_bare_clock,
@@ -160,11 +161,13 @@ async def answered_when(
     answered = parse_spoken_add(request)
     if answered is None or answered.title.casefold() != pending.title.casefold():
         return None
+    if answered.day is None and pending.day is not None:
+        answered = replace(answered, day=pending.day)
+    # "tmrw at 5 lol" after "When should I remind you?": 5 PM by the rule, never asked again.
+    answered = _with_day(answered, request, user_timezone)
     if answered.hour is None and answered.after_minutes is None:
         return None
-    if answered.day is None and pending.day is not None:
-        return replace(answered, day=pending.day)
-    return _with_day(answered, request, user_timezone)
+    return answered
 
 
 def _split_adds(clauses: list[str]) -> list[SpokenAdd] | None:
@@ -193,7 +196,12 @@ def _with_days(
 
 
 def _with_day(add: SpokenAdd, request: str | None, user_timezone: str | None) -> SpokenAdd:
-    """ "At 9pm every night" starts tonight; "at 7pm" alone is the next 7pm."""
+    """ "At 9pm every night" starts tonight; "at 7pm" alone is the next 7pm. An hour with no
+    am or pm is settled by the rule (``bare_hour``) in a message that opens by asking for a
+    reminder: "remind me … tomorrow at 5" is 5 PM. One that only quotes such a request
+    ("translate: remind me to call you at 6") is the turn's read's to judge."""
+    if add.bare is not None and is_reminder_request(request):
+        add = settle_bare(add, user_timezone=user_timezone)
     if add.day is None and add.repeat and add.hour is not None:
         return replace(add, day="today")
     return day_for_a_bare_clock(add, request, user_timezone=user_timezone)

@@ -64,6 +64,12 @@ if TYPE_CHECKING:
     from app.modules.todos.due_reminders import (
         reminder_page_key as reminder_page_key,
     )
+    from app.modules.todos.model_read import (
+        ReminderReading as ReminderReading,
+    )
+    from app.modules.todos.model_read import (
+        read_reminder_chat as read_reminder_chat,
+    )
     from app.modules.todos.occurrences import (
         TodoEmailSnapshot as TodoEmailSnapshot,
     )
@@ -88,11 +94,32 @@ if TYPE_CHECKING:
     from app.modules.todos.proposals import (
         reminder_cards_as_text as reminder_cards_as_text,
     )
+    from app.modules.todos.read_check import (
+        ASK_WHEN as ASK_WHEN,
+    )
+    from app.modules.todos.read_check import (
+        CheckedRequest as CheckedRequest,
+    )
+    from app.modules.todos.read_check import (
+        check_reading as check_reading,
+    )
     from app.modules.todos.reminder_fences import (
         materialize_reminder_fences as materialize_reminder_fences,
     )
+    from app.modules.todos.reminder_fences import (
+        offer_adds as offer_adds,
+    )
+    from app.modules.todos.reply_claims import (
+        without_claims as without_claims,
+    )
+    from app.modules.todos.reply_claims import (
+        without_when_questions as without_when_questions,
+    )
     from app.modules.todos.reply_denials import (
         without_denials as without_denials,
+    )
+    from app.modules.todos.reply_denials import (
+        without_reminder_denials as without_reminder_denials,
     )
     from app.modules.todos.spoken_add import (
         is_reminder_request as is_reminder_request,
@@ -114,6 +141,15 @@ _EXPORTS = {
     "materialize_reminder_fences": ("reminder_fences", "materialize_reminder_fences"),
     "reminder_cards_as_text": ("proposals", "reminder_cards_as_text"),
     "without_denials": ("reply_denials", "without_denials"),
+    "without_reminder_denials": ("reply_denials", "without_reminder_denials"),
+    "without_claims": ("reply_claims", "without_claims"),
+    "without_when_questions": ("reply_claims", "without_when_questions"),
+    "ASK_WHEN": ("read_check", "ASK_WHEN"),
+    "ReminderReading": ("model_read", "ReminderReading"),
+    "read_reminder_chat": ("model_read", "read_reminder_chat"),
+    "CheckedRequest": ("read_check", "CheckedRequest"),
+    "check_reading": ("read_check", "check_reading"),
+    "offer_adds": ("reminder_fences", "offer_adds"),
     "query_implies_todos": ("classification", "query_implies_todos"),
     "is_reminder_request": ("spoken_add", "is_reminder_request"),
     "is_only_a_when": ("spoken_when", "is_only_a_when"),
