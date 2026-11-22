@@ -72,8 +72,8 @@ def test_text_without_a_picture_is_kept_as_it_is() -> None:
 
 
 def test_the_reply_s_prompt_reads_each_picture_in_words() -> None:
-    window = PromptWindow(recent=list(CHAT), gap=[], exchange=list(CHAT))
-    messages = history_messages(window, math_followup=False, pictures=LABELS)
+    window = PromptWindow(recent=list(CHAT), gap=[], exchange=list(CHAT), pictures=LABELS)
+    messages = history_messages(window, math_followup=False)
     replies = [m["content"] for m in messages if m["role"] == "assistant"]
     assert "a cat wearing a hat" in replies[0] and "[Image:" not in replies[0]
     assert '"Eiffel Tower"' in replies[1]

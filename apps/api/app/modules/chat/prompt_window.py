@@ -8,7 +8,7 @@ Omitted rows (a regenerated reply) are dropped by id.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
 
@@ -43,6 +43,8 @@ class PromptWindow:
     gap: list[Any]
     # The completed exchange before this turn: ``recent`` without the current user row.
     exchange: list[Any]
+    # What each picture the replies showed was, read beside the turn (``shown_pictures``).
+    pictures: ShownPictures = field(default_factory=dict)
 
     @property
     def message_ids(self) -> set[UUID]:
@@ -93,7 +95,8 @@ async def load_prompt_window(
         omit_message_ids=omit_message_ids,
         current_user_message_id=current_user_message_id,
     )
-    return PromptWindow(recent=recent, gap=gap, exchange=exchange)
+    pictures = await shown_pictures.labels_for_turn()
+    return PromptWindow(recent=recent, gap=gap, exchange=exchange, pictures=pictures)
 
 
 def _completed_exchange(
@@ -156,9 +159,7 @@ def strip_prompt_owned_fences(content: str) -> str:
     return out
 
 
-def history_messages(
-    window: PromptWindow, *, math_followup: bool, pictures: ShownPictures | None = None
-) -> list[dict[str, str]]:
+def history_messages(window: PromptWindow, *, math_followup: bool) -> list[dict[str, str]]:
     """The window as chat messages: gap rows trimmed, prompt-owned fences out of replies,
     and each picture a reply showed said in words (``shown_pictures``)."""
     gap_ids = {m.id for m in window.gap}
@@ -180,7 +181,7 @@ def history_messages(
             )
             model = getattr(msg, "model", None)
             content = shown_pictures.as_text(
-                content, model=model if isinstance(model, str) else None, pictures=pictures or {}
+                content, model=model if isinstance(model, str) else None, pictures=window.pictures
             )
         messages.append({"role": msg.role, "content": content})
     return messages

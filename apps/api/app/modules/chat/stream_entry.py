@@ -168,7 +168,7 @@ def _turn_settings(
     settings = profile_service.settings_for_user(settings, user)
     start_posed_read(settings, content, recent)
     # What each picture shown so far was, for the read and the prompt (``shown_pictures``).
-    pictures = shown_pictures.start_labels(getattr(user, "id", None), recent)
+    pictures = shown_pictures.start_labels(user.id, recent)
     read = turn_decision.start_turn_decision(settings, content, recent=recent, pictures=pictures)
     # The prep asks it whether this turn's figure will be drawn (``figure_turn.will_draw``).
     keep_for_turn(LIVE_READ, read)
@@ -317,6 +317,33 @@ def _start_picture(
     )
 
 
+async def _regenerate_intercepted(
+    deps: ChatTurnDeps,
+    settings: Settings,
+    turn: RegenerateTurn,
+    chat_id: UUID,
+    outcome: TurnOutcome | None,
+    *,
+    misses: set[str],
+    status: StreamStatusFn | None,
+    read: asyncio.Task[TurnDecision | None] | None,
+) -> bool:
+    """A photo or a picture answered again, read with the chat before the line."""
+    return await intercept_regenerate(
+        deps,
+        settings,
+        user=turn.user,
+        chat_id=chat_id,
+        content=turn.content,
+        backup=turn.backup,
+        outcome=outcome,
+        misses=misses,
+        on_status=status,
+        read=read,
+        recent_messages=turn.before_line,
+    )
+
+
 @traced_turn("regenerate")
 async def stream_regenerate_response(
     deps: ChatTurnDeps,
@@ -347,18 +374,8 @@ async def stream_regenerate_response(
             outcome.mark_user_message_saved()  # The message answered again just loaded.
         settings, live_read = _turn_settings(settings, turn.user, turn.content, turn.before_line)
         misses: set[str] = set()
-        if await intercept_regenerate(
-            deps,
-            settings,
-            user=turn.user,
-            chat_id=chat_id,
-            content=turn.content,
-            backup=turn.backup,
-            outcome=outcome,
-            misses=misses,
-            on_status=status,
-            read=live_read,
-            recent_messages=turn.before_line,
+        if await _regenerate_intercepted(
+            deps, settings, turn, chat_id, outcome, misses=misses, status=status, read=live_read
         ):
             return
         current_image_ids, model = _regenerate_images(turn, settings, model_alias)
