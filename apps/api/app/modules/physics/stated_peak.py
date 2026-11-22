@@ -62,11 +62,23 @@ _SLANT = re.compile(r"\bangle\b|\bhorizontal(?:ly)?\b", re.IGNORECASE)
 _GIVEN_ANGLE = re.compile(rf"(?:{NUMBER})\s*(?:°|\^\s*\\circ|degrees?\b|deg\b)", re.IGNORECASE)
 
 
+# A slope's angle, or an angle to the vertical, is no launch elevation (review, #2525).
+_NOT_ELEVATION = re.compile(
+    r"\b(?:slope|incline|inclined|ramp|hill|hillside|bank|vertical)\b", re.IGNORECASE
+)
+# What a stated top is measured from, read out with it: "20.4 m above the ground".
+_TOP_FROM = re.compile(
+    r"\s+(?:above|over)\s+(?:the\s+|its\s+)?(?:ground|floor|launch(?:\s+point)?|start(?:ing"
+    r"\s+point)?|hand|point\s+of\s+release|release\s+point)\b",
+    re.IGNORECASE,
+)
+
+
 def launch_decides_peak(text: str) -> bool:
     """The question's launch alone decides its top: a speed, and either straight up or a
     stated angle. Then a top it also states is a check of its values, never a given
     (review, #2525: "kicked at 20 m/s and reaches a maximum height of 10 m" needs the 10 m)."""
-    if _LAUNCH_SPEED.search(text) is None:
+    if _LAUNCH_SPEED.search(text) is None or _NOT_ELEVATION.search(text) is not None:
         return False
     if _GIVEN_ANGLE.search(text) is not None:
         return True
@@ -97,7 +109,10 @@ def without_redundant_peaks(text: str) -> str:
         return text
     for match in reversed(peaks):
         start = _stating_start(text, match.start())
-        text = text[:start].rstrip(" ,") + text[match.end() :]
+        end = match.end()
+        if (measured := _TOP_FROM.match(text, end)) is not None:
+            end = measured.end()
+        text = text[:start].rstrip(" ,") + text[end:]
     return text
 
 

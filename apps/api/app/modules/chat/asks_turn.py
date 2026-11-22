@@ -44,8 +44,12 @@ _JOINS = re.compile(r"[,;:]|\b(?:and|also|both|each|then|plus|as\s+well\s+as|or)
 
 def _may_ask_more(text: str) -> bool:
     """The message's asking sentences may ask for more than one thing: two of them, or one
-    that joins something to its ask. Only then is the read worth waiting for."""
+    that joins something to its ask. Only then is the read worth waiting for. A message
+    none of whose sentences these words read as asking ("Calcula su aceleración y la
+    distancia") is in words they do not know: the read decides it (review, #2525)."""
     asking = [s.group() for s in _SENTENCE.finditer(text) if _ASKING.search(s.group())]
+    if not asking:
+        return True
     return len(asking) > 1 or any(_JOINS.search(sentence) for sentence in asking)
 
 
@@ -58,7 +62,8 @@ async def write_the_rest(ctx: StreamContext, settings: Settings) -> None:
         return
     text = ctx.user_message_content or ""
     task = ctx.live_read
-    if task is None or task.cancelled() or not _may_ask_more(text):
+    # A read already in is always used; only waiting for one is gated on the words.
+    if task is None or task.cancelled() or (not task.done() and not _may_ask_more(text)):
         return
     if not task.done():
         await asyncio.wait([task], timeout=settings.live_read_wait_seconds)

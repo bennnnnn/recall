@@ -302,3 +302,34 @@ def test_a_reaction_s_mass_defect_is_no_one_nucleus_s() -> None:
         "Find the mass defect."
     )
     assert _extract_mass_defect(question) is None
+
+
+def test_a_slope_s_angle_leaves_the_stated_top_a_given() -> None:
+    """Review (#2525): 10° is the slope's, no launch elevation; the 12 m stays."""
+    question = (
+        "A ball is kicked at 20 m/s up a 10° slope and reaches a maximum height of 12 m. "
+        "Find the time of flight."
+    )
+    assert without_redundant_peaks(question) == question
+    assert stated_peak_conflict(question) is None
+
+
+def test_a_stated_top_is_read_out_with_what_it_is_measured_from() -> None:
+    """Review (#2525): "above the ground" was left dangling after the top was read out."""
+    question = (
+        "A ball is thrown straight up at 20 m/s and reaches a maximum height of 20.4 m above "
+        "the ground. Find the time to the top."
+    )
+    out = without_redundant_peaks(question)
+    assert "20.4" not in out and "above the ground" not in out
+
+
+def test_an_atom_s_mass_is_no_nuclear_mass() -> None:
+    """Review (#2525): He-4's atomic 4.002603 u (electrons in it) read as its nucleus's."""
+    from app.modules.chemistry.extractors.nuclear import _extract_mass_defect
+
+    question = (
+        "In nuclear chemistry, helium-4 has an atomic mass of 4.002603 u. Find its mass "
+        "defect and binding energy."
+    )
+    assert _extract_mass_defect(question) is None

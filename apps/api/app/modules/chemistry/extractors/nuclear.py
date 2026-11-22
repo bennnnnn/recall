@@ -42,7 +42,11 @@ _MEV_PER_U = rf"\b1\s*u\s*(?:=|is|equals)\s*({_N})\s*MeV\b"
 
 
 # A particle's mass is no nucleus's: "a proton has a mass of 1.007276 u" sits beside it.
-_PARTICLE = re.compile(r"\b(?:protons?|neutrons?|electrons?)\b", re.IGNORECASE)
+# An atom's mass is no nucleus's either: it holds the electrons' (4.002603 u for He-4's atom,
+# 4.001506 u for its nucleus), about 1 MeV of binding energy (review, #2525).
+_PARTICLE = re.compile(
+    r"\b(?:protons?|neutrons?|electrons?|atomic|isotopic|atoms?)\b", re.IGNORECASE
+)
 # A nucleus's mass in u is within one of its mass number (He-4 4.0015, U-238 238.0003).
 _MASS_NUMBER_SLACK = 1.0
 

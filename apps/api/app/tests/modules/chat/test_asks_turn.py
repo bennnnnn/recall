@@ -117,6 +117,8 @@ async def test_a_single_ask_never_waits_for_the_read() -> None:
             False,
         ),
         ("Find the speed. Then find the time.", True),
+        # Words these rules do not know: the read decides (review, #2525).
+        ("Un coche acelera de 0 a 20 m/s en 4 s. Calcula su aceleración y la distancia.", True),
     ],
 )
 def test_only_an_ask_that_joins_more_waits(text: str, may: bool) -> None:
@@ -138,3 +140,14 @@ def test_the_reads_count_is_its_choice(choice: str, count: int | None) -> None:
     fields = decision_fields(answers, has_earlier=False)
     assert fields is not None and fields["asks"] == count
     assert TurnDecision(**fields).asks == count
+
+
+async def test_a_read_already_in_is_used_whatever_the_words() -> None:
+    """Review (#2525): a finished read never waits, so the words' gate does not apply to it."""
+    read = _read(2, delay=0.0)
+    await asyncio.sleep(0.01)
+    assert read.done()
+    ctx = _turn(P8, read)
+    await write_the_rest(ctx, _settings())
+    # P8's words ask one thing; the read in hand counts two, and it decides.
+    assert ctx.instant_reply is None
