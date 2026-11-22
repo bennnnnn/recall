@@ -120,13 +120,15 @@ def without_name(text: str, name: str, *, short: bool = False) -> str:
     """``text`` with ``name`` gone from where it addresses the reader; ``short``: a few words
     answering a few words, where it closes a sentence with no stop too."""
     opening, after_greeting, greeting, closing, inside = _patterns(name)
-    if short:
-        text = _short_closing(name).sub(r"\g<w>", text)
+    short_closing = _short_closing(name) if short else None
     text = opening.sub(lambda m: f"{m['lead']}{m['next'].upper()}", text, count=1)
 
     def line_without(line: str) -> str:
         if _KEPT_LINE.match(line):
             return line
+        if short_closing is not None:
+            # Inside prose only: a fence's "id, Sam" is data (review, #2526).
+            line = short_closing.sub(r"\g<w>", line)
         line = greeting.sub(r"\g<g>", after_greeting.sub(r"\g<g>", line))
         return inside.sub(r"\g<w>,", closing.sub("", line))
 

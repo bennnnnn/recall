@@ -124,6 +124,8 @@ def test_a_reply_about_the_name_keeps_it(asked: str, kept: bool) -> None:
         ("hi", "Hey Sam!", "Hey Sam!"),
         ("whos coming", "Just Anna, Sam", "Just Anna, Sam"),
         ("whos coming", "Anna, Sam & Max", "Anna, Sam & Max"),
+        # Code is data: a fence's line keeps its name.
+        ("csv example?", "```csv\nid, Sam\n```", "```csv\nid, Sam\n```"),
         # A long reply keeps the rule of the last two replies.
         (
             "ok",
