@@ -261,7 +261,7 @@ def test_a_top_the_launch_leaves_open_is_a_given_never_a_contradiction(question:
     assert without_redundant_peaks(question) == question
     assert stated_peak_conflict(question) is None
     outcome, block = solve_physics_request(question, _SETTINGS, None)
-    assert outcome != "verified" or block is None or "100" not in block.display_answer
+    assert outcome != "verified" or block is None or "100" not in (block.display_answer or "")
 
 
 def test_a_stated_top_is_measured_once_from_the_ground_or_the_start() -> None:
