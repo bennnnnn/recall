@@ -156,7 +156,9 @@ async def render(case: Case) -> tuple[list[dict[str, str]], dict[str, object]]:
             **kwargs,
         )
     # Recorded as ``out``: the stats the prompt filled in (none but a summary here).
-    return messages, {name: value for name, value in asdict(stats).items() if value}
+    # As the fixture's JSON holds them: a pair (``history_size``) is a list there.
+    stats_out = {name: value for name, value in asdict(stats).items() if value}
+    return messages, json.loads(json.dumps(stats_out))
 
 
 def prompt_copy() -> dict[str, str]:

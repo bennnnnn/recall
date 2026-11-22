@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Collection
+from collections.abc import Awaitable, Callable, Collection
 from dataclasses import dataclass, field
 from functools import cached_property
 from typing import TYPE_CHECKING, Any
@@ -328,6 +328,17 @@ def _persisted_messages(window: list[Any], current_user_message_id: UUID | None)
     ]
 
 
+# The ``limit`` messages of a chat just before one of its rows, oldest first.
+OlderRows = Callable[[UUID, Any, int], Awaitable[list[Any]]]
+
+
+async def _messages_before(chat_id: UUID, oldest: Any, limit: int) -> list[Any]:
+    async with SessionLocal() as session:
+        return list(
+            await conversation_history.messages_before(session, chat_id, oldest, limit=limit)
+        )
+
+
 async def load_anchored_history(
     chat_id: UUID,
     chat: Chat | None,
@@ -339,6 +350,7 @@ async def load_anchored_history(
     current_user_message_id: UUID | None,
     prior_count: int | None,
     omit_message_ids: Collection[UUID] | None = None,
+    read_older: OlderRows | None = None,
 ) -> list[Any] | None:
     """Every message after the summary's edge, oldest first, when all of them fit the
     budget; None when they do not (the prompt then slides, ``load_prompt_window``).
@@ -346,14 +358,21 @@ async def load_anchored_history(
     ``window`` is the chat's newest rows as the turn read them (at most ``loaded_limit``),
     the current line last even before it is saved. Older unsummarized rows are read here.
     The history then starts at the same message until the next fold, so the prompt's
-    prefix repeats the last turn's (``context_window.FoldRule``).
+    prefix repeats the last turn's (``context_window.FoldRule``). ``read_older`` reads those
+    rows (``_messages_before``: its own short session).
     """
     summarized = (chat.summary_message_count or 0) if chat is not None and chat.summary else 0
+    if not isinstance(summarized, int):
+        return None
     persisted = _persisted_messages(window, current_user_message_id)
+    # Older rows are read from the oldest loaded one; without its time there is no reading.
+    readable = bool(persisted) and getattr(persisted[0], "created_at", None) is not None
     if prior_count is not None:
         first = prior_count - len(persisted)
     elif len(persisted) < loaded_limit:
         first = 0
+    elif not readable:
+        return None
     else:
         async with SessionLocal() as session:
             first = await conversation_history.message_count(session, chat_id) - len(persisted)
@@ -366,13 +385,9 @@ async def load_anchored_history(
         return None
     older: list[Any] = []
     if missing:
-        oldest = persisted[0] if persisted else None
-        if oldest is None or getattr(oldest, "created_at", None) is None:
+        if not readable:
             return None
-        async with SessionLocal() as session:
-            older = await conversation_history.messages_before(
-                session, chat_id, oldest, limit=missing
-            )
+        older = await (read_older or _messages_before)(chat_id, persisted[0], missing)
         if len(older) != missing:
             return None
     rows = [*older, *kept]
