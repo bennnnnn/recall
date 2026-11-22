@@ -153,10 +153,15 @@ def quote_gives_answer(
         return True
     name = user_name_given(fact)
     if name is not None:
-        # Any name it gives: "User's name is Bini; also goes by Bee" from "call me Bee"
-        # keeps the saved name beside the new one.
-        names = [*_words(name), *assigned_user_names(fact)]
-        return any(_same_word(part, said) for part in names for said in quote_words)
+        # Any one name it gives, said whole: "User's name is Bini; also goes by Bee" from
+        # "call me Bee" keeps the saved name beside the new one, but "User's name is Bini
+        # Smith" from "my brother Smith" names no one the user said (review, #2539).
+        names = [name, *assigned_user_names(fact)]
+        return any(
+            all(any(_same_word(part, said) for said in quote_words) for part in parts)
+            for parts in (_words(candidate) for candidate in names)
+            if parts
+        )
     frame = frame_words(fact, slot)
     # "User is a student": the question's word is the whole answer.
     if not frame or all(word in frame for word in _claim(fact)):

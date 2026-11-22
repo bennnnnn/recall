@@ -112,11 +112,25 @@ def test_a_quote_with_the_question_and_no_answer_states_nothing(slot):
 
 
 @pytest.mark.parametrize(
+    ("fact", "quote", "line"),
+    [
+        ("User's name is Bini Smith", "my brother Smith", "my brother Smith is visiting"),
+        ("User's name is Bini Smith", "Smith", "Smith"),
+    ],
+)
+def test_a_name_only_partly_said_names_no_one(fact, quote, line):
+    """Every word of one name the fact gives is in the quote (review, #2539)."""
+    assert _ground(fact, quote, line, "name").line is None
+
+
+@pytest.mark.parametrize(
     ("fact", "quote", "line", "slot"),
     [
         ("User's name is Sara", "My name is Sara", "My name is Sara, by the way", "name"),
         ("User goes by Alex", "Call me Alex", "Call me Alex from now on", "name"),
         ("User's name is Biniam", "Biniam", "Biniam", "name"),
+        ("User's name is Bini Smith", "I'm Bini Smith", "hey, I'm Bini Smith", "name"),
+        ("User's name is Bini; also goes by Bee", "call me Bee", "just call me Bee", "name"),
         ("User's name is Sara", "ስሜ ሳራ ነው", "ስሜ ሳራ ነው", "name"),
         ("User lives in Toronto", "Toronto", "Toronto", "home"),
         ("User is in 10th grade", "grade 10", "I'm in grade 10 this year", "school"),
