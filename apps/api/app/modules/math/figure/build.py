@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from collections.abc import Callable, Sequence
 
 from pydantic import ValidationError
 
@@ -19,13 +20,18 @@ from app.modules.math.figure import (
     circles,
     composite,
     coordinate,
+    cut_cones,
     frustums,
     heights,
+    inscribed_solids,
     lines,
     nets,
     plane,
+    quads,
+    right_altitude,
     solids,
     stacked_solids,
+    two_circles,
 )
 from app.modules.math.figure.angle_terms import term_labels, terms_written
 from app.modules.math.figure.grounding import grounded, own_texts, with_unit, written_pairs
@@ -55,10 +61,13 @@ def _figure(request: FigureRequest) -> FigureSpec | None:
 
 def _solid(request: FigureRequest) -> FigureSpec | None:
     shape = request.shape
+    if inscribed_solids.holds_sphere(request):
+        return inscribed_solids.build_inscribed(request)
     if request.attached:
         return stacked_solids.build_stacked(request)
     if shape in frustums.FRUSTUMS:
-        return frustums.build_frustum(request)
+        cut = cut_cones.is_cut(request)
+        return cut_cones.build_cut_cone(request) if cut else frustums.build_frustum(request)
     if shape in frustums.PYRAMID_FRUSTUMS:
         return frustums.build_pyramid_frustum(request)
     if shape in frustums.TETRAHEDRA:
@@ -83,6 +92,9 @@ _NAMED = {
 }
 
 
+_BALL = re.compile(r"\bballs?\b")
+
+
 def _the_questions_shape(request: FigureRequest, texts: list[str]) -> bool:
     """The reading's shape is the one the question names, where it is: not a default in
     its place. A polygon whose corners the question gives as coordinates is drawn there or
@@ -94,7 +106,9 @@ def _the_questions_shape(request: FigureRequest, texts: list[str]) -> bool:
     if request.kind == "solid" and not revolves_into(request.shape, texts):
         return False  # x = √y about the y-axis is no cylinder (u5-083)
     if request.kind == "solid" and request.shape in _NAMED:
-        return names_shape(texts, _NAMED[request.shape])
+        # A ball one of two named parts is: "a ball fits inside a cylinder" read either way.
+        named = names_shape(texts, _NAMED[request.shape])
+        return named or (bool(request.attached) and _a_ball(request.shape, texts))
     if request.kind == "polygon":
         return len({pair for text in own_texts(texts) for pair in written_pairs(text)}) < 3
     return True
@@ -108,20 +122,44 @@ def _names_attached(request: FigureRequest, texts: list[str]) -> bool:
         attached = request.attached
         return attached not in composite.ATTACHED or composite.names_part(texts, attached)
     solid = request.attached.removeprefix("two_").removesuffix("s")
-    return (
-        solid in _NAMED
-        and names_shape(texts, _NAMED[solid])
-        and any(solid[:5] in text.lower() for text in texts)
+    return solid in _NAMED and (
+        _a_ball(solid, texts)
+        or (names_shape(texts, _NAMED[solid]) and any(solid[:5] in text.lower() for text in texts))
     )
+
+
+def _a_ball(solid: str, texts: list[str]) -> bool:
+    """A sphere the question calls a ball: "a ball fits inside a cylinder" names both parts
+    of a solid made of two, though no word of it is "sphere" (review, #2522)."""
+    words = " ".join(texts).lower()
+    return solid == "sphere" and _BALL.search(words) is not None and "hemispher" not in words
+
+
+# The readings held to words that always leave one standing: a right triangle's altitude
+# onto its hypotenuse, an isosceles trapezium read as any, a sphere inside a solid, which
+# cone of a cut one a value is of, whether two circles touch.
+_SAID: tuple[Callable[[FigureRequest, Sequence[str]], FigureRequest | None], ...] = (
+    right_altitude.as_said,
+    quads.trapezium_as_said,
+    inscribed_solids.as_said,
+    cut_cones.roles_as_said,
+    two_circles.as_said,
+)
 
 
 def _as_said(request: FigureRequest, texts: list[str]) -> FigureRequest | None:
     """The reading held to the question's words where a builder alone cannot tell: the side
-    a shape made of two stands on, the side a scene's two points are on, what a solid made
-    of two gives a height of."""
+    a shape made of two stands on, the side a scene's two points are on, those of ``_SAID``,
+    what a solid made of two gives a height of."""
     said = composite.side_as_said(request, texts)
     said = None if said is None else heights.as_said(said, texts)
-    return None if said is None else stacked_solids.heights_as_said(said, texts)
+    if said is None:
+        return None
+    for read in _SAID:
+        said = read(said, texts)
+        if said is None:
+            return None
+    return stacked_solids.heights_as_said(said, texts)
 
 
 def _plane_fence(request: FigureRequest, texts: list[str]) -> str | None:
