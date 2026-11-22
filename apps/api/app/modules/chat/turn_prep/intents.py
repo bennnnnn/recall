@@ -66,6 +66,12 @@ _WORKS_ON_PROBLEM = re.compile(
 )
 
 
+def asks_a_reminder(text: str) -> bool:
+    """The request asks for a reminder or an alarm (``part_kind``'s "reminder")."""
+    body = request_body(text)
+    return is_reminder_request(body) or _ALARM.match(body) is not None
+
+
 def part_kind(text: str, *, chemistry_enabled: bool = True) -> PartKind:
     """Which existing path owns this request, read with that path's own rules."""
     body = request_body(text)
@@ -76,7 +82,7 @@ def part_kind(text: str, *, chemistry_enabled: bool = True) -> PartKind:
     stem = stem_subject_claims(body, chemistry_enabled=chemistry_enabled)
     if not stem and extract_image_gen_prompt(body):
         return "image"
-    if is_reminder_request(body) or _ALARM.match(body):
+    if asks_a_reminder(body):
         return "reminder"
     if stem or detect_subject(body, chemistry_enabled=chemistry_enabled) is not None:
         return "solve"

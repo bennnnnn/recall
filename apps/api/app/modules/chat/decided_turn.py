@@ -167,7 +167,7 @@ def _take_the_ordinary_prompt(ctx: StreamContext, read: TurnDecision | None) -> 
         return
     if _worked(ctx) or ctx.worked is not None or ctx.solver_unverified or ctx.instant_reply:
         return
-    if ctx.thinking == "escalate" or _shows_a_picture(ctx):
+    if ctx.regenerate_backup is not None or ctx.thinking == "escalate" or _shows_a_picture(ctx):
         return
     compact = ordinary.apply(ctx.prompt_messages)
     if compact is None:

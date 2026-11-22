@@ -85,8 +85,9 @@ from app.modules.chat.prompt_profile import (
 )
 from app.modules.chat.prompt_rules import PromptRule
 from app.modules.chat.prompt_subjects import SUBJECT_HINTS
+from app.modules.chat.turn_prep.clauses import request_body
+from app.modules.chat.turn_prep.intents import asks_a_reminder
 from app.modules.chat.turn_prep.saved_place import profile_place
-from app.modules.todos import is_reminder_request
 from app.modules.turn_reading.capabilities import is_capabilities_question, names_a_setting
 from app.modules.turn_reading.conversation import greeting_run, is_correction, is_social_opener
 from app.modules.turn_reading.length import (
@@ -249,7 +250,7 @@ def may_be_ordinary(turn: PromptTurn) -> bool:
         return False
     # A reminder or a setting is its own path's, as the plan reads it (``intents.part_kind``);
     # a picture, a photo or a problem is the read's to name.
-    if is_reminder_request(query) or extract_settings_changes(query):
+    if asks_a_reminder(query) or extract_settings_changes(request_body(query)):
         return False
     return not (
         is_profile_fact_question(query)

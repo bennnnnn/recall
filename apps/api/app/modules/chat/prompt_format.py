@@ -68,7 +68,11 @@ from app.modules.chat.prompt_constants.clarify import ranking_layout
 from app.modules.chat.prompt_constants.conversation import CONFIRMED_HINT
 from app.modules.chat.prompt_constants.format import ORDINARY_FORMAT_GUIDE
 from app.modules.chat.prompt_constants.lesson_flow import lesson_turn_hint
-from app.modules.chat.prompt_constants.privacy import PRIVACY_CONTEXT_HINT
+from app.modules.chat.prompt_constants.privacy import (
+    NO_INVENTED_FACTS_RULE,
+    NO_SENDING_RULE,
+    PRIVACY_CONTEXT_HINT,
+)
 from app.modules.chat.prompt_constants.visuals import (
     IMAGE_GEN_HONESTY_HINT,
     IMAGE_GEN_UNAVAILABLE_HINT,
@@ -369,7 +373,11 @@ HINT_RULES: tuple[PromptRule[StyleTurn], ...] = (
     ),
     # Ordinary chat drafts nothing and asks nothing about the user (``_plain``): what every
     # turn keeps of the privacy rules.
-    PromptRule(lambda t: t.ordinary, _hints(PRIVACY_CONTEXT_HINT), name="ordinary_privacy"),
+    PromptRule(
+        lambda t: t.ordinary,
+        _hints(NO_INVENTED_FACTS_RULE, NO_SENDING_RULE, PRIVACY_CONTEXT_HINT),
+        name="ordinary_privacy",
+    ),
     PromptRule(_may_ask_with_card, _hints(CLARIFY_CARD_HINT), name="clarify_card"),
     # A proofread is a writing request too; it only has no draft fence.
     PromptRule(

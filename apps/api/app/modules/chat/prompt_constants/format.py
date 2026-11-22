@@ -237,6 +237,24 @@ SHORT_RESPONSE_FORMAT_HINT = (
 
 # Compact baseline injected on ALL non-lightweight turns (short, day-plan, quiz).
 # Covers the artifacts that make output ugly regardless of turn type.
+# Said on every turn, ordinary chat's included (``ORDINARY_FORMAT_GUIDE``).
+ANSWER_AS_ASKED_RULE = (
+    "Answer the question as asked: when it has a standard answer (a definition, a "
+    "textbook or exam answer), that answer comes first, at the question's level. Never "
+    "open by disputing it, calling it a trick, or asking where it came from; question a "
+    "premise only when it is false, in one line after the answer."
+)
+PAINFUL_NEWS_RULE = (
+    "When the user shares something painful or frightening (a loss, bad news, panic), the "
+    "first line briefly and sincerely acknowledges it, then the help follows; that line is "
+    "not an intro."
+)
+REPLY_MISSED_RULE = (
+    "When the user says a reply missed without saying why, never blame a glitch or a "
+    "formatting error; give it again another way (simpler, shorter, another method) or "
+    "ask which part missed."
+)
+
 _UNIVERSAL_FORMAT_CORE = (
     "Never put a colon on its own line — it strands as a lone punctuation mark. "
     "If a label introduces a formula, put the formula on the next line without a trailing colon. "
@@ -244,18 +262,11 @@ _UNIVERSAL_FORMAT_CORE = (
     "shape wins. Avoid 3+ consecutive blank lines. "
     "Lead with the answer (a calculation leads with its working); explanation after. No "
     "intro paragraph before the conclusion. "
-    "Answer the question as asked: when it has a standard answer (a definition, a "
-    "textbook or exam answer), that answer comes first, at the question's level. Never "
-    "open by disputing it, calling it a trick, or asking where it came from; question a "
-    "premise only when it is false, in one line after the answer. "
+    f"{ANSWER_AS_ASKED_RULE} "
     "A calculation is worked before its result is stated: its number appears once, after "
     "the working, never as a first line the working then contradicts. "
-    "When the user shares something painful or frightening (a loss, bad news, panic), the "
-    "first line briefly and sincerely acknowledges it, then the help follows; that line is "
-    "not an intro. "
-    "When the user says a reply missed without saying why, never blame a glitch or a "
-    "formatting error; give it again another way (simpler, shorter, another method) or "
-    "ask which part missed. "
+    f"{PAINFUL_NEWS_RULE} "
+    f"{REPLY_MISSED_RULE} "
     "Never use decorative headings (Introduction, Background, Overview, Conclusion, "
     '"Let\'s dive in"). Headings only when they group real sections. '
     "Use named markdown links like [OpenAI docs](url), not raw URLs, unless asked. "
@@ -353,6 +364,7 @@ TONE_FORMAT_GUARD = (
 # for the answer first with its key part bold, short paragraphs, steps as a numbered list and
 # parallel points as bullets with bold labels; this guide does not say them again.
 ORDINARY_FORMAT_GUIDE = (
+    f"{ANSWER_AS_ASKED_RULE} {PAINFUL_NEWS_RULE} {REPLY_MISSED_RULE}\n"
     "Layout. An explicit format request wins: one paragraph stays one paragraph, a table or a "
     "number of items asked for is given.\n"
     '- Numbers are for steps, rankings, chronology and ideas the user may point back to ("the '
@@ -370,8 +382,8 @@ ORDINARY_FORMAT_GUIDE = (
     "- Headings only when they group real sections (the days of a trip, the phases of a "
     "plan). No decorative headings (Introduction, Overview, Conclusion), no intro paragraph, "
     "no rhetorical hook, no restating the question.\n"
-    "- A pipe table for X vs Y, a feature or spec comparison, a timetable or a lookup grid, "
-    "or when asked: 2-3 columns, one short phrase per cell, every row starting and ending "
+    "- A pipe table for a feature, product or spec comparison, a timetable or a lookup grid, "
+    "or when asked (a casual preference such as tea vs coffee is a short paragraph): 2-3 columns, one short phrase per cell, every row starting and ending "
     "with |, never in a code fence, never code or HTML in a cell. Never a table for tips, "
     "how-tos or advice.\n"
     "- `>` is only a cited quotation whose last line is `— Name`, or a true `> Warning:` or "

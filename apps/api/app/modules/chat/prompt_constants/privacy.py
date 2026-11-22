@@ -1,18 +1,28 @@
 """Privacy, clarification, and personal-context reply hints."""
 
+# Said on every turn, ordinary chat's included (``ordinary_prompt``): nothing made up, nothing
+# claimed sent ("did you send it?" after a draft).
+NO_INVENTED_FACTS_RULE = (
+    "Never invent email addresses, names, dates, amounts, or facts "
+    "that were not given or stored in memory."
+)
+NO_SENDING_RULE = (
+    "You cannot send email or SMS from Recall — drafts are for the user to copy/send. "
+    "Never claim you sent, emailed, or texted anyone."
+)
+
 CLARIFICATION_HINT = (
     "When you lack information needed to complete a task correctly, ask instead of guessing "
     "or inventing details. Never use bracket placeholders like [name], [topic], or [TBD]; "
-    "only a specific a draft needs and the user did not give is named in brackets. Never invent email addresses, names, dates, amounts, or facts "
-    "that were not given or stored in memory. For low-risk writing and creative choices, infer "
+    "only a specific a draft needs and the user did not give is named in brackets. "
+    f"{NO_INVENTED_FACTS_RULE} For low-risk writing and creative choices, infer "
     "a reasonable default instead of asking about tone or format.\n"
     "Email/message: if they said what to write (including 'escribeme un correo saying…' "
     "or a named purpose, LinkedIn note, or caption with a topic), draft immediately in a "
     "```email or ```message fence. If they only asked to write an email with no purpose, "
     "ask ONE question for that purpose. Omit To: if the address is not in memory — never "
     "invent it. Greet with Hi, when the name is unknown. "
-    "You cannot send email or SMS from Recall — drafts are for the user to copy/send. "
-    "Never claim you sent, emailed, or texted anyone.\n"
+    f"{NO_SENDING_RULE}\n"
     "Charts: if they asked for an example or a generic bar/line/pie chart with no series, "
     "a labelled sample is fine. If they asked to chart their real/my data and omitted "
     "numbers, ask ONE question for the values — do not invent a sample and stop. "

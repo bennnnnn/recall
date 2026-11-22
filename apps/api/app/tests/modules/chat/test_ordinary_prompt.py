@@ -22,11 +22,20 @@ from app.modules.chat.prompt_constants import (
     PRIVACY_HINT,
     UNIVERSAL_FORMAT_BASELINE,
 )
-from app.modules.chat.prompt_constants.format import ORDINARY_FORMAT_GUIDE
-from app.modules.chat.prompt_constants.privacy import PRIVACY_CONTEXT_HINT
+from app.modules.chat.prompt_constants.format import (
+    ANSWER_AS_ASKED_RULE,
+    ORDINARY_FORMAT_GUIDE,
+    PAINFUL_NEWS_RULE,
+    REPLY_MISSED_RULE,
+)
+from app.modules.chat.prompt_constants.privacy import (
+    NO_INVENTED_FACTS_RULE,
+    NO_SENDING_RULE,
+    PRIVACY_CONTEXT_HINT,
+)
 from app.modules.chat.prompt_format import _style_format_hints
 from app.modules.chat.turn_decision import TurnDecision
-from app.modules.chat.turn_prep.context import StreamContext
+from app.modules.chat.turn_prep.context import RegenerateBackup, StreamContext
 from app.modules.chat.turn_trace import begin_turn_trace
 from app.tests.fakes import isolated_settings
 from app.tests.modules.chat.test_prompt_golden import _CASES, _DEFAULTS, render, resolve
@@ -64,12 +73,13 @@ def _hints(text: str, *, ordinary: bool) -> list[str]:
 )
 def test_a_plain_turn_gets_the_short_guide_and_keeps_its_own_rules(text: str) -> None:
     full, ordinary = _hints(text, ordinary=False), _hints(text, ordinary=True)
-    assert ORDINARY_FORMAT_GUIDE in ordinary and PRIVACY_CONTEXT_HINT in ordinary
+    added = {ORDINARY_FORMAT_GUIDE, NO_INVENTED_FACTS_RULE, NO_SENDING_RULE, PRIVACY_CONTEXT_HINT}
+    assert added <= set(ordinary)
     assert not any(hint in ordinary for hint in _FULL_ONLY)
     # What the turn's words asked for stays: its layout, the tap card, the photo.
     dropped = {*_FULL_ONLY, FORMAT_CONTRACT}
     assert [hint for hint in full if hint not in dropped] == [
-        hint for hint in ordinary if hint not in {ORDINARY_FORMAT_GUIDE, PRIVACY_CONTEXT_HINT}
+        hint for hint in ordinary if hint not in added
     ]
     assert sum(map(len, ordinary)) < sum(map(len, full)) / 2
 
@@ -188,12 +198,33 @@ async def test_no_read_or_another_answer_keeps_the_full_rules(read: TurnDecision
     assert ctx.prompt_messages[1]["content"] == "full rules"
 
 
+@pytest.mark.parametrize("escalate", [True, False])
 @pytest.mark.asyncio
-async def test_a_regenerate_keeps_the_full_rules() -> None:
+async def test_a_regenerate_or_a_dispute_keeps_the_full_rules(escalate: bool) -> None:
     ctx = _ctx(_read())
-    ctx.thinking = "escalate"
+    if escalate:
+        ctx.thinking = "escalate"
+    else:
+        ctx.regenerate_backup = RegenerateBackup(content="old", model=None, message_id=uuid4())
     await decide_from_the_read(ctx, _SETTINGS)
     assert ctx.prompt_messages[1]["content"] == "full rules"
+
+
+@pytest.mark.parametrize(
+    "rule",
+    [
+        ANSWER_AS_ASKED_RULE,
+        PAINFUL_NEWS_RULE,
+        REPLY_MISSED_RULE,
+        NO_INVENTED_FACTS_RULE,
+        NO_SENDING_RULE,
+    ],
+)
+def test_the_rules_every_turn_needs_stay_in_ordinary_chat(rule: str) -> None:
+    """ "my dog died last night", "did you send it?": the full pack's rules for any turn."""
+    assert any(
+        rule in hint for hint in _hints("my dog died last night, what do I do now", ordinary=True)
+    )
 
 
 def _golden(case_id: str) -> dict[str, Any]:
@@ -229,6 +260,8 @@ async def test_a_question_about_the_user_or_several_requests_has_none(case_id: s
     [
         ("how do I ask for a raise at my job?", True),
         ("remind me to call mom tomorrow at 5pm", False),
+        ("set an alarm for 7", False),
+        ("can you remind me to stretch at 3pm", False),
         ("what's my email?", False),
         ("switch to dark mode", False),
     ],
