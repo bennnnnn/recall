@@ -109,32 +109,46 @@ def place_after_part(text: str, key: str, picture: str) -> str | None:
 
 
 # Pictures the server draws under a reply.
-_PICTURE_LANGS = frozenset({"geometry", "graph", "simulation", "chart", "molecule3d", "smiles"})
+# A molecule's numbers are its atoms' coordinates and counts, no value a part states: its
+# picture stays where chemistry put it (review, #2521).
+_PICTURE_LANGS = frozenset({"geometry", "graph", "simulation", "chart"})
 _NUMBER = re.compile(r"-?\d+(?:\.\d+)?")
 # A sampled path (a trajectory's points, a curve's samples) is no value the question states.
 _SAMPLES = 4
 
 
-def _picture_numbers(node: object) -> list[float]:
-    """The values a picture states: its numbers and the numbers in its labels, never a path."""
+def _picture_numbers(node: object, *, written: bool = False) -> list[float]:
+    """The values a picture states: its numbers and the numbers in its labels, never a path.
+    ``written``: only the numbers in its words (a label, a formula), never one it computed."""
     if isinstance(node, bool):
         return []
     if isinstance(node, int | float):
-        return [float(node)]
+        return [] if written else [float(node)]
     if isinstance(node, str):
         return [float(number) for number in _NUMBER.findall(node)]
     if isinstance(node, dict):
-        return [value for child in node.values() for value in _picture_numbers(child)]
+        return [v for child in node.values() for v in _picture_numbers(child, written=written)]
     if isinstance(node, list) and len(node) <= _SAMPLES:
-        return [value for child in node for value in _picture_numbers(child)]
+        return [v for child in node for v in _picture_numbers(child, written=written)]
     return []
 
 
 def _part_of_picture(body: str, parts: dict[str, str]) -> str | None:
-    """The one lettered part of the question whose own numbers the picture states the most."""
+    """The one lettered part of the question whose own numbers the picture states the most:
+    by the words it writes first ("y = x^3 - 3x"), and only when they decide nothing by every
+    number in it. A graph's computed turning point (1, -2) is no value of another part
+    (review, #2521)."""
     try:
-        stated = _picture_numbers(json.loads(body))
-    except ValueError:
+        spec = json.loads(body)
+        written = _part_holding(_picture_numbers(spec, written=True), parts)
+        return written if written is not None else _part_holding(_picture_numbers(spec), parts)
+    except (ValueError, OverflowError):
+        return None
+
+
+def _part_holding(stated: list[float], parts: dict[str, str]) -> str | None:
+    """The one part whose own numbers are the most of ``stated``."""
+    if not stated:
         return None
     holding = {
         label: sum(
@@ -166,6 +180,9 @@ def pictures_follow_parts(text: str, parts: dict[str, str]) -> str:
             if not fence.closed or fence.lang not in _PICTURE_LANGS or picture in done:
                 continue
             done.add(picture)
+            # Right under a part's card it was placed there, by the part it draws.
+            if _under_a_card(text, fence.start, parts):
+                continue
             key = _part_of_picture(text[fence.body_start : fence.body_end], parts)
             # Already inside its own part: where it would go is where it is.
             if key is None or _section_holds(text, key, fence.start):
@@ -186,3 +203,22 @@ def _section_holds(text: str, key: str, at: int) -> bool:
     if start < 0:
         start = _first(_answer_heading(key), text, fences)
     return start >= 0 and start <= at < _section_end(text, key, start, fences)
+
+
+def _under_a_card(text: str, at: int, parts: dict[str, str]) -> bool:
+    """The picture at ``at`` follows a part's answer card, with only other pictures between:
+    the drawing pass put it there by its own part, and no number moves it (review, #2521)."""
+    fences = list(iter_fences(text))
+    for label in parts:
+        key = part_key(label)
+        heading = _first(_answer_heading(key), text, fences) if key is not None else -1
+        end = _after_card(text, heading, fences) if heading >= 0 else None
+        if end is None or end > at:
+            continue
+        between = [fence for fence in fences if end <= fence.start and fence.end <= at]
+        gap = text[end:at]
+        for fence in reversed(between):
+            gap = gap[: fence.start - end] + gap[fence.end - end :]
+        if not gap.strip():
+            return True
+    return False

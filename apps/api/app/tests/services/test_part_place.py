@@ -120,3 +120,33 @@ def test_two_pictures_at_the_end_each_go_to_their_own_part() -> None:
     assert out.index("x = \\pm 3") < out.index("x^2 - 9") < out.index("**(b) Intercept**")
     # (b)'s picture is inside (b)'s own section already (it runs to the reply's end).
     assert out.index("**(b) Intercept**") < out.index("5x + 7")
+
+
+def test_a_picture_goes_by_the_words_it_writes_not_the_numbers_it_computed() -> None:
+    """Review (#2521): (b)'s graph of x^3 - 3x has turning points (1, -2) and (-1, 2), and
+    (a)'s question holds 1 and 2: by its numbers it went under (a)."""
+    parts = {"a": "Sketch y = x^2 - 4x + 1.", "b": "Sketch y = x^3 - 3x."}
+    graph_b = '```graph\n{"type":"plot","label":"y = x^3 - 3x","extrema":[[1,-2],[-1,2]]}\n```'
+    reply = "**(a) First**\n\n$y = 1$\n\n**(b) Second**\n\n$y = 2$\n\nDone.\n\n" + graph_b
+    out = pictures_follow_parts(reply, parts)
+    assert out.index("**(b) Second**") < out.index("x^3 - 3x")
+
+
+def test_a_picture_right_under_a_part_s_card_stays_there() -> None:
+    """Review (#2521): the drawing pass placed it by its own part; no number moves it."""
+    parts = {"a": "Find the area for a side of 3.", "b": "Find the area for a side of 4."}
+    picture = '```geometry\n{"type":"square","side":3}\n```'
+    reply = (
+        "**(a) Area**\n\n**Answer (a)**\n\n```answer\nA = 9\n```\n\n"
+        "**(b) Area**\n\n**Answer (b)**\n\n```answer\nA = 16\n```\n\n" + picture
+    )
+    # Under (b)'s card: by its numbers it is (a)'s, but it was put there.
+    assert pictures_follow_parts(reply, parts) == reply
+
+
+def test_a_number_too_large_for_a_float_places_nothing() -> None:
+    """Review (#2521): a 400-digit number in a picture raised OverflowError."""
+    parts = {"a": "Find x for 3.", "b": "Find y for 4."}
+    picture = '```chart\n{"type":"bar","id":' + "9" * 400 + "}\n```"
+    reply = "**(a) X**\n\n$x = 3$\n\n**(b) Y**\n\n$y = 4$\n\n" + picture
+    assert pictures_follow_parts(reply, parts) == reply

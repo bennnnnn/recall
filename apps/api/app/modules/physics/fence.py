@@ -92,12 +92,14 @@ def scene_reply(verified: VerifiedPhysicsBlock) -> str | None:
 
 def solver_cards(verified: VerifiedPhysicsBlock) -> tuple[str, ...]:
     """The fences physics writes for the block: its answer card (each part's, for a
-    solve in parts) and its pictures."""
+    solve in parts) and its pictures, each part's own included."""
     answers = [part.display_answer for part in verified.physics_parts]
     if len(answers) < 2:
         answers = [(verified.display_answer or verified.canonical_answer or "").strip()]
     cards = [f"```answer\n{answer}\n```" for answer in answers if answer]
-    return (*cards, *_scene_fences(verified))
+    # A part's own picture is the solver's too: kept, never dropped as a stranger (#2521).
+    parts = [scene_fence(spec) for part in verified.physics_parts for spec in part.pictures]
+    return (*cards, *dict.fromkeys([*_scene_fences(verified), *parts]))
 
 
 # The unknown a law is solved for heads its formula, its subscript part of it: "h_{max}",

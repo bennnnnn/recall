@@ -239,3 +239,13 @@ def test_a_picture_both_parts_share_stays_under_them_all() -> None:
     out = validate_physics_fences(_CRANE_REPLY, verified=block, user_text=_CRANE)
     assert out.count('"title":"lift"') == 1
     assert out.index('"title":"lift"') > out.index("The concrete gains")
+
+
+def test_each_part_s_own_picture_is_one_of_the_solver_s_cards() -> None:
+    """Review (#2521): ``solver_cards`` read only the joined block's pictures, so the parts'
+    check dropped part (b)'s own picture as a stranger."""
+    from app.modules.physics.fence import scene_fence, solver_cards
+
+    power = {"type": "plot", "title": "power"}
+    block = _with_pictures(({"type": "plot", "title": "energy"},), (power,))
+    assert scene_fence(power) in solver_cards(block)
