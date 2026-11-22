@@ -205,9 +205,12 @@ def held_to_the_ask(text: str, ctx: StreamContext, language: str) -> str:
     # A request to see the chat's problem was answered in words what its picture shows:
     # said first, the line leads into them; after them it read as taking them back ("A
     # ball rises 20.4 m … I couldn't draw this diagram.", QA round 2026-11-22).
+    note = not_drawn_line(kind, language)
     if shows_it(decision) and out.strip():
-        return f"{not_drawn_line(kind, language)}\n\n{out.strip()}\n"
-    return with_the_line(out, not_drawn_line(kind, language))
+        # Still in place of a lead that presents the missing picture (review).
+        placed = in_place_of_the_lead(out, note)
+        return placed if placed is not None else f"{note}\n\n{out.strip()}\n"
+    return with_the_line(out, note)
 
 
 def _leads_into(following: str) -> bool:
@@ -220,6 +223,15 @@ def with_the_line(text: str, note: str) -> str:
     """``text`` with ``note`` in place of the paragraph that presented the picture not drawn
     (a picture pass took the fence it led into, and its "Here is the graph:" would say one is
     shown just above the line saying none is), else after the text (review)."""
+    placed = in_place_of_the_lead(text, note)
+    if placed is not None:
+        return placed
+    return f"{text.rstrip()}\n\n{note}\n" if text.strip() else f"{note}\n"
+
+
+def in_place_of_the_lead(text: str, note: str) -> str | None:
+    """``text`` with ``note`` in place of a paragraph presenting a picture that is no longer
+    there ("Here is the diagram of the circuit:"); None when no paragraph does."""
     parts = re.split(r"(\n[ \t]*\n)", text.strip())
     for at in range(0, len(parts), 2):
         lead = parts[at].strip()
@@ -230,7 +242,7 @@ def with_the_line(text: str, note: str) -> str:
         if len(lead) < _SHORT and presents and not _leads_into(following):
             parts[at] = note
             return "".join(parts).strip() + "\n"
-    return f"{text.rstrip()}\n\n{note}\n" if text.strip() else f"{note}\n"
+    return None
 
 
 async def settle_owed_picture(state: FinalizeState) -> str:

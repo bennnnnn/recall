@@ -40,6 +40,7 @@ from app.models.routing_lanes import ROUTING
 from app.modules.chat import shown_pictures
 from app.modules.chat.decider_read import NEAR_LIVE_AT, RESUME_QUESTION, lesson_questions
 from app.modules.chat.model_routing.thinking import follows_a_cut_off_reply
+from app.modules.chat.picture_read import asked_of_the_text_read, raw_turns, unsure_whose_picture
 from app.modules.chat.quiz_cards import (
     block_end_of_cards,
     last_reply_cards,
@@ -71,8 +72,6 @@ _BACKUP_MIN_SECONDS = 0.8
 Subject = Literal["everyday", "maths", "physics", "chemistry", "money", "code"]
 # The school subjects, whose pictures the app draws itself (``decider_read.READ_SUBJECTS``).
 _STEM = frozenset({"maths", "physics", "chemistry"})
-# The pictures the app draws itself (``drawn_picture.DRAWN_PICTURES``).
-_DRAWN = frozenset({"graph", "diagram", "molecule"})
 Effort = Literal["none", "low", "high"]
 Picture = Literal["none", "graph", "diagram", "molecule", "photo", "image"]
 # How the message leans on the last reply. A texted reply is most of a chat ("yap", "nah",
@@ -386,8 +385,11 @@ async def read_decision(
     earlier: list[tuple[str, str]],
     model_alias: str | None = None,
     lesson: dict[str, dict[str, Any]] | None = None,
+    raw: list[tuple[str, str]] | None = None,
 ) -> TurnDecision | None:
-    """How to handle the message; None: no read. ``model_alias`` is for measurement."""
+    """How to handle the message; None: no read. ``model_alias`` is for measurement.
+    ``raw``: the chat's last messages as stored, uncut, whose problem a draw follow-up may
+    show (``picture_read``); ``earlier`` when not given."""
     question = text.strip()
     if not question:
         return None
@@ -430,6 +432,7 @@ async def read_decision(
             ask_work=ask_work,
             ask_photo=settings.image_search_enabled,
             lesson=lesson,
+            raw=earlier if raw is None else raw,
         )
     finally:
         # Whatever ends the read (an answer that needs no query, the reply's wait running
@@ -446,6 +449,7 @@ async def _join(
     ask_work: bool = False,
     ask_photo: bool = False,
     lesson: dict[str, dict[str, Any]] | None = None,
+    raw: list[tuple[str, str]] | None = None,
 ) -> TurnDecision | None:
     """The Decider's read, with the text read's query when it calls the turn live or asked;
     the text read's own when the Decider gives none."""
@@ -468,9 +472,10 @@ async def _join(
         decision = TurnDecision(**decided)
         # Asked of the Decider's own answer: the read's validators turn its painting into
         # the problem's diagram, which the text read may name better.
-        if not _unsure_whose_picture(decided):
+        if not unsure_whose_picture(decided):
             return decision
-        return await _asked_of_the_text_read(settings, decision, text_read, earlier, started)
+        chat = earlier if raw is None else raw
+        return await asked_of_the_text_read(settings, decision, text_read, chat, started)
     # The search query is text the Decider cannot write: the text read's, begun beside it.
     # It waits no longer than the reply waits for the read, which starts later, so a slow
     # query never costs the Decider's subject and effort: the read comes back without it
@@ -482,82 +487,6 @@ async def _join(
     except TimeoutError:
         read = None
     return TurnDecision(**decided, query=read.query if read is not None else "")
-
-
-def _unsure_whose_picture(decided: dict[str, Any]) -> bool:
-    """The Decider says the message asks to see what the conversation is about, but names
-    no school subject, or no picture the app draws of it (a photo, a painting, none), or
-    a chemistry problem's picture that is no molecule. "can u show me a picture" after 7
-    notebooks at $2 each read "everyday" and a painting, after a sequence and a ticket
-    problem too: 36 of the 45 picture requests of a QA round (2026-11-22) were read as a
-    school problem's picture, against 45 of 45 by the text read, whose instructions say so
-    (``picture_followup_eval``). Told the same in its own questions, the Decider searched
-    more turns that need no search (``search_need_eval``: 0.9% to 2.4-3.7%), so it is left
-    as it is and the text read, begun beside it, is asked about these alone."""
-    subject, picture = decided.get("subject"), decided.get("picture")
-    if decided.get("follow") != "draw":
-        return False
-    if subject == "chemistry":
-        return picture != "molecule"
-    return subject not in _STEM or picture not in _DRAWN
-
-
-async def _asked_of_the_text_read(
-    settings: Settings,
-    decision: TurnDecision,
-    text_read: asyncio.Task[TurnDecision | None],
-    earlier: list[tuple[str, str]],
-    started: float,
-) -> TurnDecision:
-    """The text read's subject and picture for a draw follow-up the Decider is unsure of,
-    in a chat that holds a school problem. The two are waited on together: a chat with
-    none returns the Decider's read as soon as the pool says so (review)."""
-    problem = asyncio.ensure_future(_after_a_problem(settings, earlier))
-    text = asyncio.ensure_future(_within(settings, text_read, started))
-    try:
-        if not await problem:
-            return decision
-        return _the_problem_s_picture(decision, await text)
-    finally:
-        # A read stopped while it waits leaves neither running (review).
-        problem.cancel()
-        text.cancel()
-
-
-async def _after_a_problem(settings: Settings, earlier: list[tuple[str, str]]) -> bool:
-    """The chat before the message holds a school problem: an everyday "show me a picture
-    of it" (the Colosseum's photo, "make it blue") waits for no text read (review)."""
-    from app.modules.chat.school_problem import chat_holds_a_school_problem
-
-    lines = [content for role, content in earlier if role == "user"]
-    replies = [content for role, content in earlier if role == "assistant"]
-    return await chat_holds_a_school_problem(settings, lines, replies)
-
-
-async def _within(
-    settings: Settings, text_read: asyncio.Task[TurnDecision | None], started: float
-) -> TurnDecision | None:
-    """The text read, within the read's own budget (p50 1.1 s, p95 1.7 s). Capped at the
-    reply's shorter wait (review, 2026-11-22), the eval's bad replies went from 5 to 11 of
-    45: the Decider's "everyday" stood, and the reply asked "Sure — what do you want a
-    picture of?". The prep waits as long for a line that may ask to see the problem
-    (``figure_turn.read_shows_it``), so neither gives up on it first."""
-    left = settings.live_read_timeout_seconds - (time.monotonic() - started)
-    try:
-        read = await asyncio.wait_for(text_read, max(0.0, left))
-    except TimeoutError:
-        return None
-    return read
-
-
-def _the_problem_s_picture(read: TurnDecision, text: TurnDecision | None) -> TurnDecision:
-    """The Decider's read with the text read's subject and picture, when the text read
-    says the message asks to see a school problem's picture; else the Decider's alone."""
-    if text is None or text.follow != "draw" or text.subject not in _STEM:
-        return read
-    return TurnDecision.model_validate(
-        {**read.model_dump(), "subject": text.subject, "picture": text.picture}
-    )
 
 
 async def _unsteady_readers(redis: Any, settings: Settings) -> frozenset[str]:
@@ -646,7 +575,11 @@ def start_turn_decision(
     async def read() -> TurnDecision | None:
         labels = await shown_pictures.settled_labels(pictures)
         return await read_decision(
-            settings, text, earlier=earlier_turns(recent, labels), lesson=lesson
+            settings,
+            text,
+            earlier=earlier_turns(recent, labels),
+            lesson=lesson,
+            raw=raw_turns(recent),
         )
 
     return asyncio.create_task(read())

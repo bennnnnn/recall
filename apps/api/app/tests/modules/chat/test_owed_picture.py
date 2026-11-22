@@ -241,3 +241,14 @@ async def test_a_flowchart_stands_in_for_the_chat_s_problem_named_no_picture() -
     )
     text = held_to_the_ask(f"{_FLOWCHART}\n\n17 is three fives and 2.", _ctx("pic pls", read), "en")
     assert "```mermaid" not in text and text.startswith("I couldn't draw this diagram.")
+
+
+async def test_a_request_to_see_the_problem_loses_the_lead_to_its_missing_picture() -> None:
+    """ "Here is the diagram of the circuit:" stayed under "I couldn't draw this diagram."
+    (review): the line takes the lead's place."""
+    read = TurnDecision.model_validate(
+        {"live": False, "subject": "physics", "picture": "diagram", "follow": "draw"}
+    )
+    reply = "Here is the diagram of the circuit:\n\nCurrent flows clockwise."
+    text = held_to_the_ask(reply, _ctx("show me a diagram", read), "en")
+    assert text == "I couldn't draw this diagram.\n\nCurrent flows clockwise.\n"

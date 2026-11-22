@@ -96,7 +96,7 @@ async def will_draw(settings: Settings) -> bool:
     if not settings.figure_read_enabled or not isinstance(read, asyncio.Task):
         return False
     await asyncio.wait([read], timeout=settings.live_read_wait_seconds)
-    return _figure_wanted(read) is not None
+    return _figure_wanted(read, teaching=settings.teaching_figures_enabled) is not None
 
 
 # What the read calls a request to see what the chat is about, whatever its words.
@@ -158,11 +158,14 @@ def start_figure(settings: Settings, ctx: StreamContext) -> asyncio.Task[str | N
     return asyncio.create_task(_draw(settings, ctx.live_read, line, recent, solved_by))
 
 
-def _figure_wanted(read: asyncio.Task[TurnDecision | None]) -> _Wanted | None:
+def _figure_wanted(
+    read: asyncio.Task[TurnDecision | None], *, teaching: bool = True
+) -> _Wanted | None:
     """The subject whose figure the turn gets, and how: "asked", a maths question asking
     to see a graph or a diagram, or a chemistry one asking to see a molecule; "teach", a
     maths or chemistry question asking to see nothing, which gets a figure only if one
-    helps teach it."""
+    helps teach it, and only with ``teaching`` (``teaching_figures_enabled``): off, a
+    maths shape left to the figure was drawn by no one (review)."""
     if not read.done() or read.cancelled() or read.exception() is not None:
         return None
     decision = read.result()
@@ -177,7 +180,7 @@ def _figure_wanted(read: asyncio.Task[TurnDecision | None]) -> _Wanted | None:
     chemistry = subject == "chemistry" and shows_it(decision)
     if read_asks_for_a_picture(decision) or chemistry:
         return subject, "asked"
-    return (subject, "teach") if decision.picture in _UNASKED else None
+    return (subject, "teach") if teaching and decision.picture in _UNASKED else None
 
 
 def read_asks_for_a_picture(decision: TurnDecision, *, described: bool = False) -> bool:
@@ -199,7 +202,7 @@ async def _draw(
 ) -> str | None:
     # Waited on, never awaited: the reply may cancel the read when it stops waiting for it.
     await asyncio.wait([read])
-    wanted = _figure_wanted(read)
+    wanted = _figure_wanted(read, teaching=settings.teaching_figures_enabled)
     figure = _figure(wanted[0]) if wanted is not None else None
     # A solved turn gets only its own subject's figure, never another's over its solve.
     if wanted is None or figure is None or solved_by not in (None, wanted[0]):
@@ -359,7 +362,8 @@ async def attach_figure(state: FinalizeState) -> str:
     task = ctx.figure
     if task is None:
         return state.text
-    wanted = _figure_wanted(ctx.live_read) if ctx.live_read is not None else None
+    read, teaching = ctx.live_read, state.settings.teaching_figures_enabled
+    wanted = _figure_wanted(read, teaching=teaching) if read is not None else None
     # No read, or one that has not said the message is a maths or chemistry question (or
     # said it is not): an everyday reply waits for nothing (it waited 1.75 s).
     figure = _figure(wanted[0]) if wanted is not None else None

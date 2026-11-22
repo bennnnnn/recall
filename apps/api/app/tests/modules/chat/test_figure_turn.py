@@ -711,3 +711,17 @@ async def test_the_prep_leaves_a_shape_to_the_figure_only_when_the_read_wants_on
     readings.keep_for_turn(figure_turn.LIVE_READ, task)
     assert not await figure_turn.will_draw(settings)
     task.cancel()
+
+
+async def test_no_teaching_figure_is_wanted_with_teaching_figures_off() -> None:
+    """Off, a shape the prep left to the figure was drawn by no one (review)."""
+    from app.core import readings
+
+    readings.begin_turn()
+    decision = TurnDecision.model_validate(
+        {"live": False, "think": False, "subject": "maths", "picture": "none", "follow": "draw"}
+    )
+    read = asyncio.ensure_future(_answered(decision))
+    readings.keep_for_turn(figure_turn.LIVE_READ, read)
+    assert await figure_turn.will_draw(_settings())
+    assert not await figure_turn.will_draw(_settings(teaching_figures_enabled=False))

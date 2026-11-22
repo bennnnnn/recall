@@ -91,8 +91,8 @@ def written_by_user(name: str, texts: Sequence[str]) -> bool:
     if not wanted:
         return False
     # A hydrate's parts are no compound of their own: "CuSO4" is not written in
-    # "CuSO4·5H2O" (review), though "NaOH." ending a sentence is.
-    pattern = re.compile(rf"(?<![\w·•-])(?<!\d\.){re.escape(wanted)}(?![\w·•-]|\.\d)")
+    # "CuSO4·5H2O" or "CuSO4.H2O" (review), though "NaOH." ending a sentence is.
+    pattern = re.compile(rf"(?<![\w·•-])(?<!\w\.){re.escape(wanted)}(?![\w·•-]|\.\w)")
     return any(pattern.search(collapse_ws(text).casefold()) for text in texts)
 
 

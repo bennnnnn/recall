@@ -37,6 +37,8 @@ async def _in_process(fn: Any, *args: Any, **_kwargs: Any) -> Any:
         # A hydrate's half is no compound the user wrote (review); a sentence's end is no part.
         ("CuSO4", ["what is the molar mass of CuSO4·5H2O"], False),
         ("CuSO4", ["the molar mass of CuSO4.5H2O"], False),
+        ("CuSO4", ["the molar mass of CuSO4.H2O"], False),
+        ("H2O", ["what is HCl.H2O"], False),
         ("NaOH", ["how many mg is 0.0150 mol of NaOH."], True),
     ],
 )
