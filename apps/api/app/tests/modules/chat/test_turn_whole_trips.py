@@ -97,6 +97,10 @@ _NEXT_FOLDS = ("memory", "compress", "message_index")
 # The memory job reads the chat before its unread lines (one SELECT,
 # ``extract_backlog._chat_before``): what a one-word answer replies to, and whether the
 # lines go on with a story (the owner's memory, 2026-11-20).
+# A turn that names nothing personal (not a greeting or homework) reads memory too, the
+# "ambient" scope: the store's whole-store block, cached under the memory generation (two
+# Redis reads), and on a cold cache one SELECT of the facts ("what job do I do again" named
+# no word the rules know, live QA 2026-11-22, ``prompt_builder._context_plan``).
 CEILINGS: dict[str, Ceiling] = {
     "greeting": Ceiling(
         Counts(sql=5, checkouts=3, transactions=3, redis=21, models=1),
@@ -104,17 +108,17 @@ CEILINGS: dict[str, Ceiling] = {
         _FIRST,
     ),
     "question": Ceiling(
-        Counts(sql=5, checkouts=3, transactions=3, redis=25, models=2),
+        Counts(sql=6, checkouts=4, transactions=4, redis=27, models=2),
         Counts(sql=13, checkouts=4, transactions=4, redis=22, models=2, embeds=1),
         _FIRST,
     ),
     "follow-up, short chat": Ceiling(
-        Counts(sql=5, checkouts=3, transactions=3, redis=27, models=3),
+        Counts(sql=5, checkouts=3, transactions=3, redis=28, models=3),
         Counts(sql=12, checkouts=3, transactions=3, redis=16, models=1, embeds=1),
         _NEXT,
     ),
     "follow-up, long chat": Ceiling(
-        Counts(sql=8, checkouts=5, transactions=5, redis=29, models=3),
+        Counts(sql=8, checkouts=5, transactions=5, redis=30, models=3),
         Counts(sql=18, checkouts=5, transactions=5, redis=23, models=2, embeds=1),
         _NEXT_FOLDS,
     ),
@@ -128,7 +132,7 @@ CEILINGS: dict[str, Ceiling] = {
     # and answers from its results in another. A searched reply also gets one claim check (a
     # model call and its spend write) before it saves, so a claim no source made is cut.
     "web search": Ceiling(
-        Counts(sql=5, checkouts=3, transactions=3, redis=35, models=4, searches=2),
+        Counts(sql=5, checkouts=3, transactions=3, redis=36, models=4, searches=2),
         Counts(sql=13, checkouts=4, transactions=4, redis=22, models=2, embeds=1),
         _FIRST,
     ),
@@ -138,7 +142,7 @@ CEILINGS: dict[str, Ceiling] = {
         _FIRST,
     ),
     "photo lookup": Ceiling(
-        Counts(sql=6, checkouts=4, transactions=4, redis=28, models=2, searches=1),
+        Counts(sql=6, checkouts=4, transactions=4, redis=29, models=2, searches=1),
         Counts(sql=13, checkouts=4, transactions=4, redis=22, models=2, embeds=1),
         _FIRST,
     ),
@@ -153,7 +157,7 @@ CEILINGS: dict[str, Ceiling] = {
         ("attachment_index", *_FIRST),
     ),
     "regenerate": Ceiling(
-        Counts(sql=10, checkouts=3, transactions=3, redis=30, models=3),
+        Counts(sql=10, checkouts=3, transactions=3, redis=31, models=3),
         Counts(sql=15, checkouts=4, transactions=4, redis=21, models=1, embeds=1),
         _NEXT_FOLDS,
     ),

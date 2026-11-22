@@ -71,9 +71,11 @@ CEILINGS: dict[str, tuple[str, Ceiling]] = {
     # A greeting reads the chat's recent window like any message: one that skipped it
     # was greeted afresh after a "hi", since its prompt never saw the first one.
     "greeting": ("hi", Ceiling(sql=2, checkouts=2, transactions=2, redis=16)),
+    # A question reads memory too (the "ambient" scope): on a cold cache, one SELECT of the
+    # facts; after it, the cached block (``prompt_builder._context_plan``).
     "question": (
         "What's the capital of France?",
-        Ceiling(sql=2, checkouts=2, transactions=2, redis=16),
+        Ceiling(sql=3, checkouts=3, transactions=3, redis=16),
     ),
     "reminder": (
         "Remind me to call mom tomorrow at 5pm",
@@ -98,9 +100,11 @@ FIRST_OF_THE_DAY = ("hi", Ceiling(sql=3, checkouts=3, transactions=3, redis=17))
 # cache, current by the generation its frame's token check read; after a change made
 # on another machine, the generation moved and the row is read again.
 WS_TURNS: dict[str, tuple[str, Ceiling]] = {
+    # The first also reads the facts once for the ambient memory read; the next finds them
+    # cached.
     "first on the socket": (
         "What's the capital of France?",
-        Ceiling(sql=3, checkouts=3, transactions=3, redis=15),
+        Ceiling(sql=4, checkouts=4, transactions=4, redis=15),
     ),
     "next": ("And of Spain?", Ceiling(sql=2, checkouts=2, transactions=2, redis=15)),
     "after a change elsewhere": (
