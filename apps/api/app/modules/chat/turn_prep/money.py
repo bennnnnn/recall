@@ -10,15 +10,17 @@ one too.
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import replace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from redis.asyncio import Redis
 
 from app.core.aio import gather_or_cancel
 from app.core.config import Settings
-from app.core.readings import kept_reading
+from app.core.readings import kept_for_turn, kept_reading
 from app.modules import todos as todos_service
+from app.modules.chat.figure_turn import LIVE_READ
 from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.turn_prep.instant import settings_card
 from app.modules.chat.turn_prep.intents import plan_turn
@@ -74,6 +76,17 @@ async def money_turn(
         not plan.multi and _a_science_problem(request.content, request, settings)
     ):
         return None
+    if not plan.multi and await _read_says_money(settings, identity):
+        turn = await MONEY.prepare_read(
+            request.content,
+            settings,
+            redis,
+            user=identity.user,
+            location=identity.geo.user_location,
+            conversation=_conversation(recent, request.content),
+        )
+        if turn is not None:
+            return turn
     return await MONEY.prepare_standing(
         request.content,
         settings,
@@ -83,6 +96,38 @@ async def money_turn(
         earlier=earlier,
         last_reply=last_reply,
     )
+
+
+async def _read_says_money(settings: Settings, identity: TurnIdentity) -> bool:
+    """The turn's read (``chat.turn_decision``), waited on for at most its usual wait, says
+    the message is about the user's money. The reply waits on the same read before its
+    call, so a turn no word rule read as money waits no longer than it did; small talk,
+    which the reply does not wait for, is never waited on here."""
+    if not settings.money_read_enabled:
+        return False
+    read = kept_for_turn(LIVE_READ)
+    if not isinstance(read, asyncio.Task) or identity.mode.lightweight:
+        return False
+    await asyncio.wait([read], timeout=settings.live_read_wait_seconds)
+    if not read.done() or read.cancelled() or read.exception() is not None:
+        return False
+    decision = read.result()
+    return getattr(decision, "subject", None) == "money"
+
+
+def _conversation(recent: list[Any], line: str) -> list[tuple[str, str]]:
+    """The chat before ``line``, oldest first, as (role, text): a regenerate's window ends
+    with the line itself, which is not its own earlier message."""
+    rows = [
+        (role, content)
+        for message in recent
+        if (role := getattr(message, "role", None)) in {"user", "assistant"}
+        and isinstance(content := getattr(message, "content", None), str)
+        and content.strip()
+    ]
+    if rows and rows[-1][0] == "user" and " ".join(rows[-1][1].split()) == " ".join(line.split()):
+        rows.pop()
+    return rows
 
 
 def _a_science_problem(text: str, request: TurnRequest, settings: Settings) -> bool:

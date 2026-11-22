@@ -1,0 +1,1591 @@
+[
+ {
+  "id": "owner-01",
+  "prompt": "Is 3 per hour a good salary ?",
+  "history": [],
+  "expect": "none"
+ },
+ {
+  "id": "owner-02",
+  "prompt": "Is it a good idea tp buy a car for 40k?",
+  "history": [
+   [
+    "user",
+    "Is 3 per hour a good salary ?"
+   ],
+   [
+    "assistant",
+    "$3 an hour is very low in most countries; in the US the federal minimum is $7.25."
+   ]
+  ],
+  "expect": "none"
+ },
+ {
+  "id": "owner-03",
+  "prompt": "My monthly is 20k",
+  "history": [
+   [
+    "user",
+    "Is 3 per hour a good salary ?"
+   ],
+   [
+    "assistant",
+    "$3 an hour is very low in most countries; in the US the federal minimum is $7.25."
+   ],
+   [
+    "user",
+    "Is it a good idea tp buy a car for 40k?"
+   ],
+   [
+    "assistant",
+    "It can be, if the payment fits your budget. What is your monthly income?"
+   ]
+  ],
+  "expect": "none"
+ },
+ {
+  "id": "owner-04",
+  "prompt": "What would be my exact monthly payment ?",
+  "history": [
+   [
+    "user",
+    "Is 3 per hour a good salary ?"
+   ],
+   [
+    "assistant",
+    "$3 an hour is very low in most countries; in the US the federal minimum is $7.25."
+   ],
+   [
+    "user",
+    "Is it a good idea tp buy a car for 40k?"
+   ],
+   [
+    "assistant",
+    "It can be, if the payment fits your budget. What is your monthly income?"
+   ],
+   [
+    "user",
+    "My monthly is 20k"
+   ],
+   [
+    "assistant",
+    "On $20,000 a month a $40,000 car is comfortably affordable."
+   ]
+  ],
+  "expect": "request",
+  "values": {
+   "amount": 40000,
+   "rate": null,
+   "months": null
+  },
+  "products": [
+   "car"
+  ]
+ },
+ {
+  "id": "owner-05",
+  "prompt": "The interest is 6",
+  "history": [
+   [
+    "user",
+    "Is 3 per hour a good salary ?"
+   ],
+   [
+    "assistant",
+    "$3 an hour is very low in most countries; in the US the federal minimum is $7.25."
+   ],
+   [
+    "user",
+    "Is it a good idea tp buy a car for 40k?"
+   ],
+   [
+    "assistant",
+    "It can be, if the payment fits your budget. What is your monthly income?"
+   ],
+   [
+    "user",
+    "My monthly is 20k"
+   ],
+   [
+    "assistant",
+    "On $20,000 a month a $40,000 car is comfortably affordable."
+   ],
+   [
+    "user",
+    "What would be my exact monthly payment ?"
+   ],
+   [
+    "assistant",
+    "Assuming 6% over 60 months, M = P r(1+r)^n/((1+r)^n-1), so M ≈ $773 a month."
+   ]
+  ],
+  "expect": "request",
+  "values": {
+   "amount": 40000,
+   "rate": 6
+  },
+  "products": [
+   "car"
+  ]
+ },
+ {
+  "id": "owner-06",
+  "prompt": "Down payment is 20 percent",
+  "history": [
+   [
+    "user",
+    "Is 3 per hour a good salary ?"
+   ],
+   [
+    "assistant",
+    "$3 an hour is very low in most countries; in the US the federal minimum is $7.25."
+   ],
+   [
+    "user",
+    "Is it a good idea tp buy a car for 40k?"
+   ],
+   [
+    "assistant",
+    "It can be, if the payment fits your budget. What is your monthly income?"
+   ],
+   [
+    "user",
+    "My monthly is 20k"
+   ],
+   [
+    "assistant",
+    "On $20,000 a month a $40,000 car is comfortably affordable."
+   ],
+   [
+    "user",
+    "What would be my exact monthly payment ?"
+   ],
+   [
+    "assistant",
+    "Assuming 6% over 60 months, M = P r(1+r)^n/((1+r)^n-1), so M ≈ $773 a month."
+   ],
+   [
+    "user",
+    "The interest is 6"
+   ],
+   [
+    "assistant",
+    "At 6% for 60 months that is about $773 a month."
+   ]
+  ],
+  "expect": "request",
+  "values": {
+   "amount": 32000,
+   "rate": 6
+  },
+  "products": [
+   "car"
+  ]
+ },
+ {
+  "id": "owner-07",
+  "prompt": "72 months",
+  "history": [
+   [
+    "user",
+    "Is 3 per hour a good salary ?"
+   ],
+   [
+    "assistant",
+    "$3 an hour is very low in most countries; in the US the federal minimum is $7.25."
+   ],
+   [
+    "user",
+    "Is it a good idea tp buy a car for 40k?"
+   ],
+   [
+    "assistant",
+    "It can be, if the payment fits your budget. What is your monthly income?"
+   ],
+   [
+    "user",
+    "My monthly is 20k"
+   ],
+   [
+    "assistant",
+    "On $20,000 a month a $40,000 car is comfortably affordable."
+   ],
+   [
+    "user",
+    "What would be my exact monthly payment ?"
+   ],
+   [
+    "assistant",
+    "Assuming 6% over 60 months, M = P r(1+r)^n/((1+r)^n-1), so M ≈ $773 a month."
+   ],
+   [
+    "user",
+    "The interest is 6"
+   ],
+   [
+    "assistant",
+    "At 6% for 60 months that is about $773 a month."
+   ],
+   [
+    "user",
+    "Down payment is 20 percent"
+   ],
+   [
+    "assistant",
+    "With $8,000 down you borrow $32,000: about $619 a month over 60 months."
+   ]
+  ],
+  "expect": "request",
+  "values": {
+   "amount": 32000,
+   "rate": 6,
+   "months": 72
+  },
+  "products": [
+   "car"
+  ]
+ },
+ {
+  "id": "owner-12",
+  "prompt": "But u didn't use the built in calculator",
+  "history": [
+   [
+    "user",
+    "Is 3 per hour a good salary ?"
+   ],
+   [
+    "assistant",
+    "$3 an hour is very low in most countries; in the US the federal minimum is $7.25."
+   ],
+   [
+    "user",
+    "Is it a good idea tp buy a car for 40k?"
+   ],
+   [
+    "assistant",
+    "It can be, if the payment fits your budget. What is your monthly income?"
+   ],
+   [
+    "user",
+    "My monthly is 20k"
+   ],
+   [
+    "assistant",
+    "On $20,000 a month a $40,000 car is comfortably affordable."
+   ],
+   [
+    "user",
+    "What would be my exact monthly payment ?"
+   ],
+   [
+    "assistant",
+    "Assuming 6% over 60 months, M = P r(1+r)^n/((1+r)^n-1), so M ≈ $773 a month."
+   ],
+   [
+    "user",
+    "The interest is 6"
+   ],
+   [
+    "assistant",
+    "At 6% for 60 months that is about $773 a month."
+   ],
+   [
+    "user",
+    "Down payment is 20 percent"
+   ],
+   [
+    "assistant",
+    "With $8,000 down you borrow $32,000: about $619 a month over 60 months."
+   ],
+   [
+    "user",
+    "72 months"
+   ],
+   [
+    "assistant",
+    "Over 72 months it is about $542 a month."
+   ],
+   [
+    "user",
+    "Calculate the mortgage i can aford"
+   ],
+   [
+    "assistant",
+    "Sure. What is your yearly income, and do you have other debts?"
+   ],
+   [
+    "user",
+    "0 debt, 200k a year"
+   ],
+   [
+    "assistant",
+    "With $200,000 a year and no debt, you could afford roughly a $750,000 home."
+   ],
+   [
+    "user",
+    "Why are u not using the calculator"
+   ],
+   [
+    "assistant",
+    "I did the arithmetic by hand."
+   ],
+   [
+    "user",
+    "U come up with the loan amount. Rate is 6, term is 36 months"
+   ],
+   [
+    "assistant",
+    "Let's take a loan of $150,000: at 6% over 36 months that is $4,563 a month."
+   ]
+  ],
+  "expect": "request",
+  "values": {
+   "amount": 150000,
+   "rate": 6,
+   "years": 3
+  },
+  "products": [
+   "loan"
+  ]
+ },
+ {
+  "id": "owner-08",
+  "prompt": "Calculate the mortgage i can aford",
+  "history": [
+   [
+    "user",
+    "Is 3 per hour a good salary ?"
+   ],
+   [
+    "assistant",
+    "$3 an hour is very low in most countries; in the US the federal minimum is $7.25."
+   ],
+   [
+    "user",
+    "Is it a good idea tp buy a car for 40k?"
+   ],
+   [
+    "assistant",
+    "It can be, if the payment fits your budget. What is your monthly income?"
+   ],
+   [
+    "user",
+    "My monthly is 20k"
+   ],
+   [
+    "assistant",
+    "On $20,000 a month a $40,000 car is comfortably affordable."
+   ],
+   [
+    "user",
+    "What would be my exact monthly payment ?"
+   ],
+   [
+    "assistant",
+    "Assuming 6% over 60 months, M = P r(1+r)^n/((1+r)^n-1), so M ≈ $773 a month."
+   ],
+   [
+    "user",
+    "The interest is 6"
+   ],
+   [
+    "assistant",
+    "At 6% for 60 months that is about $773 a month."
+   ],
+   [
+    "user",
+    "Down payment is 20 percent"
+   ],
+   [
+    "assistant",
+    "With $8,000 down you borrow $32,000: about $619 a month over 60 months."
+   ],
+   [
+    "user",
+    "72 months"
+   ],
+   [
+    "assistant",
+    "Over 72 months it is about $542 a month."
+   ]
+  ],
+  "expect": "request",
+  "values": {
+   "income": 240000
+  },
+  "products": [
+   "afford"
+  ],
+  "or_ask": true,
+  "or_none": true
+ },
+ {
+  "id": "owner-09",
+  "prompt": "0 debt, 200k a year",
+  "history": [
+   [
+    "user",
+    "Is 3 per hour a good salary ?"
+   ],
+   [
+    "assistant",
+    "$3 an hour is very low in most countries; in the US the federal minimum is $7.25."
+   ],
+   [
+    "user",
+    "Is it a good idea tp buy a car for 40k?"
+   ],
+   [
+    "assistant",
+    "It can be, if the payment fits your budget. What is your monthly income?"
+   ],
+   [
+    "user",
+    "My monthly is 20k"
+   ],
+   [
+    "assistant",
+    "On $20,000 a month a $40,000 car is comfortably affordable."
+   ],
+   [
+    "user",
+    "What would be my exact monthly payment ?"
+   ],
+   [
+    "assistant",
+    "Assuming 6% over 60 months, M = P r(1+r)^n/((1+r)^n-1), so M ≈ $773 a month."
+   ],
+   [
+    "user",
+    "The interest is 6"
+   ],
+   [
+    "assistant",
+    "At 6% for 60 months that is about $773 a month."
+   ],
+   [
+    "user",
+    "Down payment is 20 percent"
+   ],
+   [
+    "assistant",
+    "With $8,000 down you borrow $32,000: about $619 a month over 60 months."
+   ],
+   [
+    "user",
+    "72 months"
+   ],
+   [
+    "assistant",
+    "Over 72 months it is about $542 a month."
+   ],
+   [
+    "user",
+    "Calculate the mortgage i can aford"
+   ],
+   [
+    "assistant",
+    "Sure. What is your yearly income, and do you have other debts?"
+   ]
+  ],
+  "expect": "request",
+  "values": {
+   "income": 200000,
+   "debts": 0
+  },
+  "products": [
+   "afford"
+  ]
+ },
+ {
+  "id": "owner-10",
+  "prompt": "Why are u not using the calculator",
+  "history": [
+   [
+    "user",
+    "Is 3 per hour a good salary ?"
+   ],
+   [
+    "assistant",
+    "$3 an hour is very low in most countries; in the US the federal minimum is $7.25."
+   ],
+   [
+    "user",
+    "Is it a good idea tp buy a car for 40k?"
+   ],
+   [
+    "assistant",
+    "It can be, if the payment fits your budget. What is your monthly income?"
+   ],
+   [
+    "user",
+    "My monthly is 20k"
+   ],
+   [
+    "assistant",
+    "On $20,000 a month a $40,000 car is comfortably affordable."
+   ],
+   [
+    "user",
+    "What would be my exact monthly payment ?"
+   ],
+   [
+    "assistant",
+    "Assuming 6% over 60 months, M = P r(1+r)^n/((1+r)^n-1), so M ≈ $773 a month."
+   ],
+   [
+    "user",
+    "The interest is 6"
+   ],
+   [
+    "assistant",
+    "At 6% for 60 months that is about $773 a month."
+   ],
+   [
+    "user",
+    "Down payment is 20 percent"
+   ],
+   [
+    "assistant",
+    "With $8,000 down you borrow $32,000: about $619 a month over 60 months."
+   ],
+   [
+    "user",
+    "72 months"
+   ],
+   [
+    "assistant",
+    "Over 72 months it is about $542 a month."
+   ],
+   [
+    "user",
+    "Calculate the mortgage i can aford"
+   ],
+   [
+    "assistant",
+    "Sure. What is your yearly income, and do you have other debts?"
+   ],
+   [
+    "user",
+    "0 debt, 200k a year"
+   ],
+   [
+    "assistant",
+    "With $200,000 a year and no debt, you could afford roughly a $750,000 home."
+   ]
+  ],
+  "expect": "request",
+  "values": {
+   "income": 200000
+  },
+  "products": [
+   "afford"
+  ]
+ },
+ {
+  "id": "owner-11",
+  "prompt": "U come up with the loan amount. Rate is 6, term is 36 months",
+  "history": [
+   [
+    "user",
+    "Is 3 per hour a good salary ?"
+   ],
+   [
+    "assistant",
+    "$3 an hour is very low in most countries; in the US the federal minimum is $7.25."
+   ],
+   [
+    "user",
+    "Is it a good idea tp buy a car for 40k?"
+   ],
+   [
+    "assistant",
+    "It can be, if the payment fits your budget. What is your monthly income?"
+   ],
+   [
+    "user",
+    "My monthly is 20k"
+   ],
+   [
+    "assistant",
+    "On $20,000 a month a $40,000 car is comfortably affordable."
+   ],
+   [
+    "user",
+    "What would be my exact monthly payment ?"
+   ],
+   [
+    "assistant",
+    "Assuming 6% over 60 months, M = P r(1+r)^n/((1+r)^n-1), so M ≈ $773 a month."
+   ],
+   [
+    "user",
+    "The interest is 6"
+   ],
+   [
+    "assistant",
+    "At 6% for 60 months that is about $773 a month."
+   ],
+   [
+    "user",
+    "Down payment is 20 percent"
+   ],
+   [
+    "assistant",
+    "With $8,000 down you borrow $32,000: about $619 a month over 60 months."
+   ],
+   [
+    "user",
+    "72 months"
+   ],
+   [
+    "assistant",
+    "Over 72 months it is about $542 a month."
+   ],
+   [
+    "user",
+    "Calculate the mortgage i can aford"
+   ],
+   [
+    "assistant",
+    "Sure. What is your yearly income, and do you have other debts?"
+   ],
+   [
+    "user",
+    "0 debt, 200k a year"
+   ],
+   [
+    "assistant",
+    "With $200,000 a year and no debt, you could afford roughly a $750,000 home."
+   ],
+   [
+    "user",
+    "Why are u not using the calculator"
+   ],
+   [
+    "assistant",
+    "I did the arithmetic by hand."
+   ]
+  ],
+  "expect": "request",
+  "values": {
+   "income": 200000,
+   "rate": 6,
+   "years": 3
+  },
+  "products": [
+   "afford"
+  ],
+  "or_ask": true
+ },
+ {
+  "id": "owner-12",
+  "prompt": "But u didn't use the built in calculator",
+  "history": [
+   [
+    "user",
+    "Is 3 per hour a good salary ?"
+   ],
+   [
+    "assistant",
+    "$3 an hour is very low in most countries; in the US the federal minimum is $7.25."
+   ],
+   [
+    "user",
+    "Is it a good idea tp buy a car for 40k?"
+   ],
+   [
+    "assistant",
+    "It can be, if the payment fits your budget. What is your monthly income?"
+   ],
+   [
+    "user",
+    "My monthly is 20k"
+   ],
+   [
+    "assistant",
+    "On $20,000 a month a $40,000 car is comfortably affordable."
+   ],
+   [
+    "user",
+    "What would be my exact monthly payment ?"
+   ],
+   [
+    "assistant",
+    "Assuming 6% over 60 months, M = P r(1+r)^n/((1+r)^n-1), so M ≈ $773 a month."
+   ],
+   [
+    "user",
+    "The interest is 6"
+   ],
+   [
+    "assistant",
+    "At 6% for 60 months that is about $773 a month."
+   ],
+   [
+    "user",
+    "Down payment is 20 percent"
+   ],
+   [
+    "assistant",
+    "With $8,000 down you borrow $32,000: about $619 a month over 60 months."
+   ],
+   [
+    "user",
+    "72 months"
+   ],
+   [
+    "assistant",
+    "Over 72 months it is about $542 a month."
+   ],
+   [
+    "user",
+    "Calculate the mortgage i can aford"
+   ],
+   [
+    "assistant",
+    "Sure. What is your yearly income, and do you have other debts?"
+   ],
+   [
+    "user",
+    "0 debt, 200k a year"
+   ],
+   [
+    "assistant",
+    "With $200,000 a year and no debt, you could afford roughly a $750,000 home."
+   ],
+   [
+    "user",
+    "Why are u not using the calculator"
+   ],
+   [
+    "assistant",
+    "I did the arithmetic by hand."
+   ],
+   [
+    "user",
+    "U come up with the loan amount. Rate is 6, term is 36 months"
+   ],
+   [
+    "assistant",
+    "Let's take a loan of $150,000: at 6% over 36 months that is $4,563 a month."
+   ]
+  ],
+  "expect": "request",
+  "values": {
+   "amount": 150000,
+   "rate": 6,
+   "years": 3
+  },
+  "products": [
+   "loan"
+  ]
+ },
+ {
+  "id": "owner-13",
+  "prompt": "What is the monthly payment for $750k?",
+  "history": [
+   [
+    "user",
+    "Is 3 per hour a good salary ?"
+   ],
+   [
+    "assistant",
+    "$3 an hour is very low in most countries; in the US the federal minimum is $7.25."
+   ],
+   [
+    "user",
+    "Is it a good idea tp buy a car for 40k?"
+   ],
+   [
+    "assistant",
+    "It can be, if the payment fits your budget. What is your monthly income?"
+   ],
+   [
+    "user",
+    "My monthly is 20k"
+   ],
+   [
+    "assistant",
+    "On $20,000 a month a $40,000 car is comfortably affordable."
+   ],
+   [
+    "user",
+    "What would be my exact monthly payment ?"
+   ],
+   [
+    "assistant",
+    "Assuming 6% over 60 months, M = P r(1+r)^n/((1+r)^n-1), so M ≈ $773 a month."
+   ],
+   [
+    "user",
+    "The interest is 6"
+   ],
+   [
+    "assistant",
+    "At 6% for 60 months that is about $773 a month."
+   ],
+   [
+    "user",
+    "Down payment is 20 percent"
+   ],
+   [
+    "assistant",
+    "With $8,000 down you borrow $32,000: about $619 a month over 60 months."
+   ],
+   [
+    "user",
+    "72 months"
+   ],
+   [
+    "assistant",
+    "Over 72 months it is about $542 a month."
+   ],
+   [
+    "user",
+    "Calculate the mortgage i can aford"
+   ],
+   [
+    "assistant",
+    "Sure. What is your yearly income, and do you have other debts?"
+   ],
+   [
+    "user",
+    "0 debt, 200k a year"
+   ],
+   [
+    "assistant",
+    "With $200,000 a year and no debt, you could afford roughly a $750,000 home."
+   ],
+   [
+    "user",
+    "Why are u not using the calculator"
+   ],
+   [
+    "assistant",
+    "I did the arithmetic by hand."
+   ],
+   [
+    "user",
+    "U come up with the loan amount. Rate is 6, term is 36 months"
+   ],
+   [
+    "assistant",
+    "Let's take a loan of $150,000: at 6% over 36 months that is $4,563 a month."
+   ],
+   [
+    "user",
+    "But u didn't use the built in calculator"
+   ],
+   [
+    "assistant",
+    "Corrected: $4,550.63 a month."
+   ]
+  ],
+  "expect": "request",
+  "values": {
+   "amount": 750000
+  },
+  "products": [
+   "mortgage",
+   "loan"
+  ]
+ },
+ {
+  "id": "owner-14",
+  "prompt": "Can I afford a $1 million home?",
+  "history": [
+   [
+    "user",
+    "Is 3 per hour a good salary ?"
+   ],
+   [
+    "assistant",
+    "$3 an hour is very low in most countries; in the US the federal minimum is $7.25."
+   ],
+   [
+    "user",
+    "Is it a good idea tp buy a car for 40k?"
+   ],
+   [
+    "assistant",
+    "It can be, if the payment fits your budget. What is your monthly income?"
+   ],
+   [
+    "user",
+    "My monthly is 20k"
+   ],
+   [
+    "assistant",
+    "On $20,000 a month a $40,000 car is comfortably affordable."
+   ],
+   [
+    "user",
+    "What would be my exact monthly payment ?"
+   ],
+   [
+    "assistant",
+    "Assuming 6% over 60 months, M = P r(1+r)^n/((1+r)^n-1), so M ≈ $773 a month."
+   ],
+   [
+    "user",
+    "The interest is 6"
+   ],
+   [
+    "assistant",
+    "At 6% for 60 months that is about $773 a month."
+   ],
+   [
+    "user",
+    "Down payment is 20 percent"
+   ],
+   [
+    "assistant",
+    "With $8,000 down you borrow $32,000: about $619 a month over 60 months."
+   ],
+   [
+    "user",
+    "72 months"
+   ],
+   [
+    "assistant",
+    "Over 72 months it is about $542 a month."
+   ],
+   [
+    "user",
+    "Calculate the mortgage i can aford"
+   ],
+   [
+    "assistant",
+    "Sure. What is your yearly income, and do you have other debts?"
+   ],
+   [
+    "user",
+    "0 debt, 200k a year"
+   ],
+   [
+    "assistant",
+    "With $200,000 a year and no debt, you could afford roughly a $750,000 home."
+   ],
+   [
+    "user",
+    "Why are u not using the calculator"
+   ],
+   [
+    "assistant",
+    "I did the arithmetic by hand."
+   ],
+   [
+    "user",
+    "U come up with the loan amount. Rate is 6, term is 36 months"
+   ],
+   [
+    "assistant",
+    "Let's take a loan of $150,000: at 6% over 36 months that is $4,563 a month."
+   ],
+   [
+    "user",
+    "But u didn't use the built in calculator"
+   ],
+   [
+    "assistant",
+    "Corrected: $4,550.63 a month."
+   ],
+   [
+    "user",
+    "What is the monthly payment for $750k?"
+   ],
+   [
+    "assistant",
+    "At 6% over 30 years, (1.005)^360 ≈ 7.764961, so about $4,497 a month."
+   ]
+  ],
+  "expect": "request",
+  "values": {
+   "income": 200000
+  },
+  "products": [
+   "afford"
+  ]
+ },
+ {
+  "id": "car-01",
+  "prompt": "they said 7.5% for 5 years",
+  "history": [
+   [
+    "user",
+    "thinking of getting a used truck, around 28k"
+   ],
+   [
+    "assistant",
+    "Nice. Do you know the rate the dealer offers?"
+   ]
+  ],
+  "expect": "request",
+  "values": {
+   "amount": 28000,
+   "rate": 7.5,
+   "months": 60
+  },
+  "products": [
+   "car"
+  ]
+ },
+ {
+  "id": "car-02",
+  "prompt": "5k down, what's the payment at 6.9% over 48 months?",
+  "history": [
+   [
+    "user",
+    "I'm buying a car for $35,000"
+   ],
+   [
+    "assistant",
+    "Great. Will you put money down?"
+   ]
+  ],
+  "expect": "request",
+  "values": {
+   "amount": 30000,
+   "rate": 6.9,
+   "months": 48
+  },
+  "products": [
+   "car"
+  ]
+ },
+ {
+  "id": "car-03",
+  "prompt": "and over 3 years?",
+  "history": [
+   [
+    "user",
+    "car loan of 18k at 5%"
+   ],
+   [
+    "assistant",
+    "Over 60 months that is $339.68 a month."
+   ]
+  ],
+  "expect": "request",
+  "values": {
+   "amount": 18000,
+   "rate": 5,
+   "months": 36
+  },
+  "products": [
+   "car"
+  ]
+ },
+ {
+  "id": "car-04",
+  "prompt": "60 months. how much monthly",
+  "history": [
+   [
+    "user",
+    "want a 25k car"
+   ],
+   [
+    "assistant",
+    "What rate and term are you looking at?"
+   ],
+   [
+    "user",
+    "rate is 4.9"
+   ],
+   [
+    "assistant",
+    "And the term?"
+   ]
+  ],
+  "expect": "request",
+  "values": {
+   "amount": 25000,
+   "rate": 4.9,
+   "months": 60
+  },
+  "products": [
+   "car"
+  ]
+ },
+ {
+  "id": "car-05",
+  "prompt": "which one holds value better",
+  "history": [
+   [
+    "user",
+    "should i buy a new or used car?"
+   ],
+   [
+    "assistant",
+    "Used is cheaper up front; new has a warranty and lower rates."
+   ]
+  ],
+  "expect": "none"
+ },
+ {
+  "id": "home-01",
+  "prompt": "20% down, rate around 6.5, 30 years. monthly?",
+  "history": [
+   [
+    "user",
+    "we found a house for 450k"
+   ],
+   [
+    "assistant",
+    "Congrats! How much will you put down?"
+   ]
+  ],
+  "expect": "request",
+  "values": {
+   "amount": 360000,
+   "rate": 6.5,
+   "years": 30
+  },
+  "products": [
+   "mortgage"
+  ]
+ },
+ {
+  "id": "home-02",
+  "prompt": "what if we put 60k down",
+  "history": [
+   [
+    "user",
+    "mortgage on 300k at 6.25% for 30 years"
+   ],
+   [
+    "assistant",
+    "That is $1,847.15 a month."
+   ]
+  ],
+  "expect": "request",
+  "values": {
+   "amount": 240000,
+   "rate": 6.25,
+   "years": 30
+  },
+  "products": [
+   "mortgage"
+  ]
+ },
+ {
+  "id": "home-03",
+  "prompt": "the bank said 6.1, 15 year term",
+  "history": [
+   [
+    "user",
+    "looking at a condo for 280000"
+   ],
+   [
+    "assistant",
+    "What rate were you quoted?"
+   ]
+  ],
+  "expect": "request",
+  "values": {
+   "amount": 280000,
+   "rate": 6.1,
+   "years": 15
+  },
+  "products": [
+   "mortgage"
+  ]
+ },
+ {
+  "id": "home-04",
+  "prompt": "how much would i pay a month on a 500k house?",
+  "history": [],
+  "expect": "request",
+  "values": {
+   "amount": 500000,
+   "rate": null
+  },
+  "products": [
+   "mortgage"
+  ]
+ },
+ {
+  "id": "home-05",
+  "prompt": "what about if i stay 10 years",
+  "history": [
+   [
+    "user",
+    "is it better to rent or buy in Austin?"
+   ],
+   [
+    "assistant",
+    "It depends on how long you stay and prices there."
+   ]
+  ],
+  "expect": "none"
+ },
+ {
+  "id": "home-06",
+  "prompt": "it's 420k",
+  "history": [
+   [
+    "user",
+    "what's my payment on a mortgage at 6%?"
+   ],
+   [
+    "assistant",
+    "How much are you borrowing?"
+   ]
+  ],
+  "expect": "request",
+  "values": {
+   "amount": 420000,
+   "rate": 6
+  },
+  "products": [
+   "mortgage"
+  ]
+ },
+ {
+  "id": "home-07",
+  "prompt": "is refinancing worth it?",
+  "history": [
+   [
+    "user",
+    "I have a 30 year mortgage of 250k at 7%"
+   ],
+   [
+    "assistant",
+    "That is $1,663.26 a month."
+   ]
+  ],
+  "expect": "none"
+ },
+ {
+  "id": "loan-01",
+  "prompt": "12% over 3 years, what's the monthly?",
+  "history": [
+   [
+    "user",
+    "I need to borrow 10k for a wedding"
+   ],
+   [
+    "assistant",
+    "A personal loan could cover it. Do you know the rate?"
+   ]
+  ],
+  "expect": "request",
+  "values": {
+   "amount": 10000,
+   "rate": 12,
+   "months": 36
+  },
+  "products": [
+   "personal",
+   "loan"
+  ]
+ },
+ {
+  "id": "loan-02",
+  "prompt": "5.5 percent, 10 years",
+  "history": [
+   [
+    "user",
+    "student loans total 32000"
+   ],
+   [
+    "assistant",
+    "What is the rate?"
+   ]
+  ],
+  "expect": "request",
+  "values": {
+   "amount": 32000,
+   "rate": 5.5,
+   "years": 10
+  },
+  "products": [
+   "student"
+  ]
+ },
+ {
+  "id": "card-01",
+  "prompt": "apr is 24, i pay 200 a month. how long to pay it off?",
+  "history": [
+   [
+    "user",
+    "I owe 6000 on my credit card"
+   ],
+   [
+    "assistant",
+    "What is the APR and what do you pay each month?"
+   ]
+  ],
+  "expect": "request",
+  "values": {
+   "balance": 6000,
+   "apr": 24,
+   "payment": 200
+  },
+  "products": [
+   "card"
+  ]
+ },
+ {
+  "id": "card-02",
+  "prompt": "150",
+  "history": [
+   [
+    "user",
+    "credit card balance 3,500 at 19.9% APR"
+   ],
+   [
+    "assistant",
+    "How much can you pay each month?"
+   ]
+  ],
+  "expect": "request",
+  "values": {
+   "balance": 3500,
+   "apr": 19.9,
+   "payment": 150
+  },
+  "products": [
+   "card"
+  ]
+ },
+ {
+  "id": "card-03",
+  "prompt": "how do i raise mine",
+  "history": [
+   [
+    "user",
+    "what is a good credit score?"
+   ],
+   [
+    "assistant",
+    "Above 700 is good; above 800 is excellent."
+   ]
+  ],
+  "expect": "none"
+ },
+ {
+  "id": "card-04",
+  "prompt": "is a 25% APR on a credit card normal?",
+  "history": [],
+  "expect": "none"
+ },
+ {
+  "id": "save-01",
+  "prompt": "500 a month at 4.5% for 5 years, how much will I have?",
+  "history": [
+   [
+    "user",
+    "I want to save for a house"
+   ],
+   [
+    "assistant",
+    "How much can you put away each month?"
+   ]
+  ],
+  "expect": "request",
+  "values": {
+   "deposit": 500,
+   "rate": 4.5,
+   "years": 5
+  },
+  "products": [
+   "savings"
+  ]
+ },
+ {
+  "id": "save-02",
+  "prompt": "in a high yield account at 4%. what will it be in 10 years?",
+  "history": [
+   [
+    "user",
+    "I have 10k saved"
+   ],
+   [
+    "assistant",
+    "Nice start. Where is it kept?"
+   ]
+  ],
+  "expect": "request",
+  "values": {
+   "start": 10000,
+   "rate": 4,
+   "years": 10
+  },
+  "products": [
+   "savings"
+  ]
+ },
+ {
+  "id": "save-03",
+  "prompt": "7% for 30 years",
+  "history": [
+   [
+    "user",
+    "if I invest 300 a month"
+   ],
+   [
+    "assistant",
+    "At what return, and for how long?"
+   ]
+  ],
+  "expect": "request",
+  "values": {
+   "deposit": 300,
+   "rate": 7,
+   "years": 30
+  },
+  "products": [
+   "investing",
+   "savings"
+  ]
+ },
+ {
+  "id": "save-04",
+  "prompt": "how much should I save each month?",
+  "history": [],
+  "expect": "none"
+ },
+ {
+  "id": "afford-01",
+  "prompt": "I earn 90k a year and pay 400 a month on my car, how much house can I afford?",
+  "history": [],
+  "expect": "request",
+  "values": {
+   "income": 90000,
+   "debts": 400
+  },
+  "products": [
+   "afford"
+  ]
+ },
+ {
+  "id": "afford-02",
+  "prompt": "what mortgage could i get at 6.5%?",
+  "history": [
+   [
+    "user",
+    "my take home is 5k a month"
+   ],
+   [
+    "assistant",
+    "Nice. What would you like to plan?"
+   ]
+  ],
+  "expect": "request",
+  "values": {
+   "income": 60000,
+   "rate": 6.5
+  },
+  "products": [
+   "afford"
+  ]
+ },
+ {
+  "id": "afford-03",
+  "prompt": "how much mortgage can I afford?",
+  "history": [],
+  "expect": "ask",
+  "or_none": true
+ },
+ {
+  "id": "like-01",
+  "prompt": "Is 3 per hour a good salary ?",
+  "history": [],
+  "expect": "none"
+ },
+ {
+  "id": "like-02",
+  "prompt": "my rent is 2k a month, is that a lot for nyc?",
+  "history": [],
+  "expect": "none"
+ },
+ {
+  "id": "like-03",
+  "prompt": "split a 120 dollar dinner bill 3 ways with 18% tip",
+  "history": [],
+  "expect": "none"
+ },
+ {
+  "id": "like-04",
+  "prompt": "a car accelerates from rest at 3 m/s2 for 10 s, how far does it go?",
+  "history": [],
+  "expect": "none"
+ },
+ {
+  "id": "like-05",
+  "prompt": "how does compound interest work?",
+  "history": [],
+  "expect": "none"
+ },
+ {
+  "id": "like-06",
+  "prompt": "I just paid off my car loan!",
+  "history": [],
+  "expect": "none"
+ },
+ {
+  "id": "like-07",
+  "prompt": "how much should I spend on rent?",
+  "history": [
+   [
+    "user",
+    "I make 85k a year"
+   ],
+   [
+    "assistant",
+    "That's above the US median."
+   ]
+  ],
+  "expect": "none"
+ },
+ {
+  "id": "like-08",
+  "prompt": "what is 15% of 80?",
+  "history": [],
+  "expect": "none"
+ },
+ {
+  "id": "like-09",
+  "prompt": "help me make a budget on a 4000 monthly income",
+  "history": [],
+  "expect": "none"
+ },
+ {
+  "id": "like-10",
+  "prompt": "thanks! can you remind me to pay it on the 1st?",
+  "history": [
+   [
+    "user",
+    "car loan 20k at 6% for 60 months"
+   ],
+   [
+    "assistant",
+    "That is $386.66 a month."
+   ]
+  ],
+  "expect": "none"
+ },
+ {
+  "id": "like-11",
+  "prompt": "should I pay off debt or invest first?",
+  "history": [],
+  "expect": "none"
+ },
+ {
+  "id": "like-12",
+  "prompt": "cool, what car brands are most reliable?",
+  "history": [
+   [
+    "user",
+    "what's the payment on a 20k car loan at 6%"
+   ],
+   [
+    "assistant",
+    "Over 60 months that is $386.66 a month."
+   ]
+  ],
+  "expect": "none"
+ }
+]

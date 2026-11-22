@@ -36,10 +36,12 @@ from app.modules.money.follow_up import (
     standing_request,
     switches_product,
 )
+from app.modules.money.model_read import read_money_chat
 from app.modules.money.note import market_note, reading_note
 from app.modules.money.purchase import purchase_request
 from app.modules.money.rates import MarketRate, current_average
-from app.modules.money.read import MoneyRequest, read_money_request
+from app.modules.money.read import MoneyRequest, read_money_request, sized
+from app.modules.money.read_check import Chat, checked_request
 from app.modules.money.solve import Worked, rate_name, work
 from app.modules.money.standing import COMMON_TERMS, about_the_loan, figures
 from app.modules.money.worked_problem import lays_out_working
@@ -100,6 +102,54 @@ async def prepare_money_turn(
     )
     if request is None:
         return None
+    return await _prepared(
+        request, text, settings, redis, user=user, location=location, last_reply=last_reply
+    )
+
+
+async def prepare_read_turn(
+    text: str,
+    settings: Settings,
+    redis: Redis | None,
+    *,
+    user: User | None,
+    location: str | None,
+    conversation: Sequence[tuple[str, str]],
+) -> MoneyTurn | None:
+    """The money turn the chat's request makes, read by a model (``model_read``) and held
+    to the chat's words (``read_check``): for a turn the read calls money that no word rule
+    read. ``conversation`` is the chat before ``text``, oldest first, as (role, text)."""
+    if not (settings.money_enabled and settings.money_read_enabled):
+        return None
+    chat = list(conversation)
+    reading = await read_money_chat(settings, chat, text)
+    if reading is None:
+        return None
+    lines = Chat(
+        user_lines=[line for role, line in chat if role == "user"] + [text],
+        # A reply's proposal is the last reply's: an older one was another request's.
+        replies=[line for role, line in chat if role == "assistant"][-1:],
+    )
+    request = checked_request(reading, lines)
+    if request is None:
+        return None
+    last_reply = next((line for role, line in reversed(chat) if role == "assistant"), "")
+    return await _prepared(
+        request, text, settings, redis, user=user, location=location, last_reply=last_reply
+    )
+
+
+async def _prepared(
+    request: MoneyRequest,
+    text: str,
+    settings: Settings,
+    redis: Redis | None,
+    *,
+    user: User | None,
+    location: str | None,
+    last_reply: str,
+) -> MoneyTurn:
+    """The turn for ``request``: today's average started, the numbers worked, the block."""
     # The card and the prompt use one currency: the one named, else the user's place's.
     request = replace(request, currency=currency_for(request.currency, location))
     product = request.product
@@ -122,7 +172,8 @@ async def prepare_money_turn(
             name="money_average_stand_in",
         )
     average = None
-    if lookup is not None and (request.rates_only or rate_name(product) not in request.values):
+    needs_rate = request.rates_only or rate_name(product) not in request.values
+    if lookup is not None and needs_rate and sized(request):
         average = await _average(request, lookup, stand_in, _PROMPT_WAIT_SECONDS)
     worked = None if request.rates_only else work(request, average.value if average else None)
     shown = card_values(last_reply).get(rate_name(product)) if request.changed else None

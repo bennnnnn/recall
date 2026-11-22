@@ -20,6 +20,7 @@ as a slider moves by **evaluating** the formula the server sent; it never solves
 | Whether a reading is one the product is worked at (term on its slider, two payments, a rate it is quoted at, "borrowed" from a lender at a rate, a stated payment, one loan named, the level shape: no first payment timed otherwise, no balloon) | `apps/api/app/modules/money/fits.py` |
 | A what-if that changes the chat's last request ("what if i only do 3 years instead") | `apps/api/app/modules/money/follow_up.py`, its grammar `change_line.py` |
 | A loan told over two lines ("I am planning to buy a car", then "20k with 6 percent") | `apps/api/app/modules/money/purchase.py`; what each loan buys, `Product.goods` |
+| A request told over many lines, or in words no rule reads, on a turn the read calls money | `apps/api/app/modules/money/model_read.py` (the model's reading), `read_check.py` (each value held to the chat); chat side `modules/chat/turn_prep/money.py` |
 | The card's currency and the country a rate search names | `apps/api/app/modules/money/currencies.py` |
 | Numbers for the asked values, the prompt block and the note | `apps/api/app/modules/money/solve.py`, `block.py`, `note.py` |
 | Today's average rate: one web search, one checked structured read, cached | `apps/api/app/modules/money/rates.py` |
@@ -112,6 +113,14 @@ no used-car average and got no numbers at all, where the new-car average had wor
   2026-10-31, "compounded quarterly" was worked monthly).
 - **Investing** (invest, investing, investment, retirement): the same inputs and results as
   savings, with no average looked up: a market's return has no bank average to judge it by.
+- **What an income can afford** (`afford`): yearly gross income, monthly payments on other
+  debts (0 unless said), annual rate, years → the most monthly payment for the home and the
+  most the income can borrow, by the common 28/36 rule lenders use as a guide: the home's
+  payment at most 28% of the gross monthly income, every debt's payments with it at most 36%
+  (`Product.basis`, said in the block, with what it leaves out: tax, insurance, the down
+  payment). Its rate is today's mortgage average when none is given. No word names it: only
+  the model's reading of the chat does ("what mortgage can I afford?", "can I afford a $1
+  million home?", whose price the block sets beside the result).
 
 **One value per slot.** A request is worked only from what it says once, read whole: one
 sum for each input, one rate, one term, one money down, one compounding. Two rates or two
@@ -313,6 +322,36 @@ interest where 20k at 6% over 36 months is $1,904). Both lines are read by a pos
   goes to the model: whether the 20k was the price or the loan was never said.
 - A what-if after the loan ("what if 3 years instead") changes it like any other request.
 
+## A request told over many lines, read by a model
+
+The owner's chat (2026-11-22): "Is it a good idea to buy a car for 40k?", "My monthly is
+20k", "What would be my exact monthly payment ?", "The interest is 6", "Down payment is 20
+percent", "72 months", then a mortgage the same way. No word rule read any line (each holds
+one value, or none, and "The interest is 6" has no percent), so every turn was `money: None`
+and the reply's model did the sums: $542 for 72 months where the loan costs $530.33, and a
+"correction" of $4,563.29 to a wrong $4,550.63.
+
+A turn no word rule reads, whose read (`chat.turn_decision`) says it is about the user's
+money (`subject` money), now has a model write the chat's request down (`model_read`,
+`ROUTING.money_read`, `money_read_enabled`, waited on at most `money_read_timeout_seconds`):
+whether the last message asks for a figure (advice, "is 3 per hour a good salary?", "should
+I buy new or used?", is not), the product, and each value the request uses as it stands now,
+the latest when the user changed it, with the words that state it. The server holds every
+value to the chat (`read_check`): its quote is in one of the user's lines and holds that
+number ("40k", "$1 million", "The interest is 6", "72 months"); an income said by the month
+is no year's. Only an amount the last reply proposed, which the user asked it to choose ("U come
+up with the loan amount"), may be quoted from a reply; it is said as the reply's in the block.
+A rate or a term only a reply assumed is dropped, and the default or today's average stands
+in, said as assumed. A value that fails, two values for one slot, a rate above the product's
+plausible range or a share down outside 0 to 100% works nothing: the reply's model answers.
+A loan's term off its product's slider (a "mortgage" over 36 months) is the plain loan's. A
+request with values but nothing to size it (no amount yet) gets a block that asks for it and
+works nothing; a reading with no value at all is left to the reply. The turn's read is
+waited on here at most `live_read_wait_seconds`, as the reply waits on it anyway; small talk
+is never waited on. `tests/behavior/money_eval.py` measures the path on
+`money_corpus.json` (52 lines: the owner's chat, loans, cards and savings told over several
+lines, what an income affords, and look-alikes that must get no card).
+
 ## Today's rates
 
 `rates.py` looks up today's average with one web search through the web-search module's own
@@ -372,6 +411,7 @@ The server appends it after the reply; the model never writes one. JSON, one obj
 }
 ```
 
+- `product` is the product's family: `loan`, `card_payoff`, `savings` or `afford`.
 - `format` is a closed list: `money`, `percent`, `years`, `months`, `number`.
 - Each readout's `tree` is over the control names only. A value that is not finite (a card
   payment that never pays off) shows the readout's `never_key` text, or a dash.
@@ -395,9 +435,9 @@ the raw key. Keys the phone has (a server test, `test_money_label_keys.py`, hold
 
 | Use | Keys |
 |-----|------|
-| `title_key` | `money.title.mortgage`, `money.title.car`, `money.title.personal`, `money.title.student`, `money.title.loan`, `money.title.card`, `money.title.savings`, `money.title.investing` |
-| control `label_key` | `money.amount`, `money.rate` (a rate said by a shorter period: `money.yearly_rate`), `money.term_years`, `money.term_months`, `money.balance`, `money.apr`, `money.payment`, `money.start`, `money.deposit` |
-| readout `label_key` | `money.monthly_payment` (a loan paid otherwise: `money.quarterly_payment`, `money.semiannual_payment`, `money.yearly_payment`, `money.weekly_payment`), `money.total_interest`, `money.total_paid`, `money.months_to_payoff`, `money.final_balance`, `money.total_deposited`, `money.interest_earned` |
+| `title_key` | `money.title.mortgage`, `money.title.car`, `money.title.personal`, `money.title.student`, `money.title.loan`, `money.title.card`, `money.title.savings`, `money.title.investing`, `money.title.afford` |
+| control `label_key` | `money.amount`, `money.rate` (a rate said by a shorter period: `money.yearly_rate`), `money.term_years`, `money.term_months`, `money.balance`, `money.apr`, `money.payment`, `money.start`, `money.deposit`, `money.income`, `money.debts` |
+| readout `label_key` | `money.monthly_payment` (a loan paid otherwise: `money.quarterly_payment`, `money.semiannual_payment`, `money.yearly_payment`, `money.weekly_payment`), `money.total_interest`, `money.total_paid`, `money.months_to_payoff`, `money.final_balance`, `money.total_deposited`, `money.interest_earned`, `money.most_loan`, `money.most_payment` |
 | readout `never_key` | `money.never` ("Never at this payment") |
 | marker `label_key` | `money.average` ("Avg {{value}} · {{date}}"); with no `as_of` the phone uses `money.average_undated` |
 

@@ -23,7 +23,7 @@ from typing import Literal
 from app.modules.money.periods import FREQUENCIES
 
 Format = Literal["money", "percent", "years", "months", "number"]
-Family = Literal["loan", "card_payoff", "savings"]
+Family = Literal["loan", "card_payoff", "savings", "afford"]
 
 
 @dataclass(frozen=True)
@@ -149,6 +149,9 @@ class Product:
     # Quoted by the year only: a rate said by a shorter period ("1.9% a month") is no rate
     # the reader can trust for it (``fits.said_by_period``).
     yearly_only: bool = False
+    # The rule the outputs follow, said in the block so the reply names it (a lender's
+    # guideline, not a law): "the common 28/36 rule".
+    basis: str = ""
 
     def input(self, name: str) -> Input | None:
         return next((item for item in self.inputs if item.name == name), None)
@@ -266,6 +269,22 @@ _SAVINGS_OUTPUTS = (
     Output("interest", "money.interest_earned", "money", f"{_SAVED} - start - deposit*years*12"),
 )
 
+# What an income may borrow by the common 28/36 rule: the home's payment at most 28% of the
+# gross monthly income, and every debt's payments with it at most 36%. The most it may pay
+# is the smaller room, never below 0; the most it may borrow is that payment's loan.
+_HOUSING = "(income*0.28/12)"
+_ALL_DEBTS = "(income*0.36/12 - debts)"
+_ROOM = f"({_HOUSING} if {_HOUSING} < {_ALL_DEBTS} else {_ALL_DEBTS})"
+_MOST_PAYMENT = f"({_ROOM} if {_ROOM} > 0 else 0)"
+_MONTH_RATE = "(rate/1200)"
+_MOST_LOAN = (
+    f"({_MOST_PAYMENT}*(1 - (1 + {_MONTH_RATE})**(-(years*12)))/{_MONTH_RATE}"
+    f" if rate > 0 else {_MOST_PAYMENT}*years*12)"
+)
+_INCOME = Input("income", "money.income", "money", Span("scale", 0.25, 3.0, base=100_000))
+_DEBTS = Input("debts", "money.debts", "money", Span("scale", 0.0, 3.0, base=500, ceiling=100_000))
+_MORTGAGE_LOOKUP = RateLookup("{term}-year fixed mortgage rate", (1.0, 15.0), 21, (15, 30))
+
 _USED_WORDS = (  # "certified pre-owned" is read by "pre-owned"
     "used", "pre-owned", "preowned", "pre owned", "second-hand", "secondhand", "second hand",
 )  # fmt: skip
@@ -281,7 +300,7 @@ PRODUCTS: tuple[Product, ...] = (
         settings={"payments": 12},
         yearly_only=True,
         defaults={"years": 30},
-        lookup=RateLookup("{term}-year fixed mortgage rate", (1.0, 15.0), 21, (15, 30)),
+        lookup=_MORTGAGE_LOOKUP,
         goods=("house", "home", "condo"),
     ),
     Product(
@@ -383,6 +402,29 @@ PRODUCTS: tuple[Product, ...] = (
             ),
         ),
         settings={"per_year": 12},
+    ),
+    # How big a mortgage an income allows ("what mortgage can I afford", "can I afford a $1
+    # million home?"). Read only by the model's reading of the chat (``model_read``): no
+    # word names it, so no word rule reads it.
+    Product(
+        key="afford",
+        family="afford",
+        title_key="money.title.afford",
+        words=(),
+        inputs=(_INCOME, _DEBTS, _RATE, _years(1, 40)),
+        outputs=(
+            Output("most_loan", "money.most_loan", "money", _MOST_LOAN, primary=True),
+            Output("most_payment", "money.most_payment", "money", _MOST_PAYMENT),
+        ),
+        defaults={"debts": 0, "years": 30},
+        lookup=_MORTGAGE_LOOKUP,
+        yearly_only=True,
+        basis=(
+            "These follow the common 28/36 rule lenders use as a guide: the home's monthly "
+            "payment at most 28% of the gross monthly income, and all debt payments with it "
+            "at most 36%. They leave out property tax, insurance and the down payment; say "
+            "so in a few words."
+        ),
     ),
     # Money put into a market, not a bank. "If I invest $200 a month at 7%" was a savings
     # account, and its note said "7% is not a realistic savings account interest rate

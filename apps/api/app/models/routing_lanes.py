@@ -83,6 +83,9 @@ class RoutingLanes:
     # to see it (``chemistry.figure``): a name only, held to the user's words, its structure
     # PubChem's. JSON mode, fast: the reply waits for it at most two seconds.
     compound_read: str
+    # The chat's money request written down when no word rule read it (``money.model_read``):
+    # the prompt waits on it, so a fast JSON-mode model; every value is held to the chat.
+    money_read: str
     # How to handle a message (``chat.turn_decision``): live facts, subject, effort, picture
     # and follow-up. The reply waits on it, so the fastest JSON-mode model (Qwen3.7 Flash
     # read 8 of 8 search questions right in about 0.7s; GPT-6 Luna took over 2s).
@@ -130,6 +133,7 @@ ROUTING = RoutingLanes(
     chart_read="gpt-6-luna",
     physics_setup="smart-chat",
     compound_read="gpt-6-luna",
+    money_read="gpt-6-luna",
     live_read="title-model",
     live_read_backup="free-chat",
     decider="decider-model",

@@ -13,7 +13,7 @@ from app.modules.money.catalog import Product
 from app.modules.money.numbers import day_text, money_text, percent_text
 from app.modules.money.periods import FREQUENCIES, rate_words
 from app.modules.money.rates import MarketRate
-from app.modules.money.read import MoneyRequest
+from app.modules.money.read import MoneyRequest, sized
 from app.modules.money.solve import Worked, rate_name
 from app.modules.money.standing import term_name
 from app.services.workout import WORKOUT_PROMPT_RULE
@@ -75,6 +75,17 @@ MONEY_RATE_MISSING = (
     "The user gave no interest rate and no current average was found. Ask one short "
     "question for the rate their lender or card quoted; do not guess one."
 )
+# A request a model read from the chat with nothing to size it (``read_check``).
+MONEY_AMOUNT_MISSING = (
+    "The app works the numbers from the amount, which the user has not given yet. Do not "
+    "choose an amount or compute a payment or a total yourself: ask for it in one short "
+    "question, and say the app will work the figures and add a calculator card."
+)
+# "Can I afford a $1 million home?": the price beside what the income borrows.
+MONEY_PRICE_ASKED = (
+    "The home asked about costs {price}: compare it with the most the income can borrow, "
+    "plus any down payment the user has."
+)
 MONEY_RATES_FOUND = (
     "Answer with this rate, its date and its source link, in one or two lines; do not "
     "state any other rate as current."
@@ -95,6 +106,8 @@ _INPUT_WORDS = {
     "payment": "monthly payment",
     "start": "starting amount",
     "deposit": "monthly deposit",
+    "income": "yearly gross income",
+    "debts": "monthly payments on other debts",
 }
 # How often savings compound (``per_year``), in the reply's words.
 _COMPOUNDING_WORDS = {
@@ -112,6 +125,8 @@ _OUTPUT_WORDS = {
     "months": "months to pay off",
     "balance": "final balance",
     "deposited": "total deposited",
+    "most_loan": "the most the income can borrow",
+    "most_payment": "the most monthly payment for the home",
 }
 
 
@@ -129,7 +144,7 @@ def money_block(
     if request.rates_only:
         return "\n".join((head, _rates_line(request, average)))
     if worked is None:
-        return "\n".join((head, MONEY_RATE_MISSING))
+        return "\n".join((head, MONEY_RATE_MISSING if sized(request) else MONEY_AMOUNT_MISSING))
     lines = [head]
     if request.changed:
         lines.append(MONEY_FOLLOW_UP.format(changes="; ".join(_changes(request, worked))))
@@ -138,8 +153,17 @@ def money_block(
         lines.append(MONEY_GUESSED.format(what=what, price=money_text(request.price)))
     if request.currency:
         lines.append(f"Currency: {request.currency}.")
-    lines.append("Inputs: " + "; ".join(_inputs(product, worked)) + ".")
+    if request.price is not None and request.down is not None and not request.changed:
+        lines.append(
+            f"Price {money_text(request.price)}; down payment {money_text(request.down)}; "
+            f"so the amount borrowed is {money_text(worked.values['amount'])}."
+        )
+    lines.append("Inputs: " + "; ".join(_inputs(product, worked, request.proposed)) + ".")
     lines.append("Results: " + "; ".join(_outputs(product, worked)) + ".")
+    if product.basis:
+        lines.append(product.basis)
+    if product.family == "afford" and request.price is not None:
+        lines.append(MONEY_PRICE_ASKED.format(price=money_text(request.price)))
     stand_in = _stand_in(request, average)
     assumed_rate = rate_name(product) in worked.assumed
     if stand_in and assumed_rate:
@@ -199,13 +223,15 @@ def _value_text(name: str, value: float, product: Product) -> str:
     return money_text(value)
 
 
-def _inputs(product: Product, worked: Worked) -> list[str]:
+def _inputs(product: Product, worked: Worked, proposed: tuple[str, ...] = ()) -> list[str]:
     parts = []
     for item in product.inputs:
         value = _value_text(item.name, worked.values[item.name], product)
         text = f"{_INPUT_WORDS.get(item.name, item.name)} {value}"
         if item.name in worked.assumed:
             text += " (assumed: the user did not say)"
+        elif item.name in proposed:
+            text += " (proposed in an earlier reply: the user did not say)"
         elif item.name == rate_name(product) and worked.rate_per != 1:
             # "2% a month" is worked as 24% a year; the reply says both.
             said = rate_words(worked.values[item.name], worked.rate_per)
