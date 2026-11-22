@@ -13,6 +13,7 @@ import ast
 import math
 import re
 from collections.abc import Callable, Iterator
+from typing import Any, Literal, overload
 
 from app.services.glyphs import fold_operator_glyphs
 from app.services.md_fence_scan import map_fence_blocks
@@ -218,9 +219,21 @@ _CALLS: dict[str, Callable[[float], float]] = {
 }
 
 
-def math_statements(reply: str) -> Iterator[str]:
+@overload
+def math_statements(reply: str) -> Iterator[str]: ...
+@overload
+def math_statements(reply: str, *, with_breaks: Literal[True]) -> Iterator[tuple[str, bool]]: ...
+def math_statements(reply: str, *, with_breaks: bool = False) -> Iterator[Any]:
     """Each statement of the reply's inline maths, in reading order: never one in a code fence
-    or inline code, and a line of two ("I_1 = 2, I_2 = 3") read as two."""
+    or inline code, and a line of two ("I_1 = 2, I_2 = 3") read as two. ``with_breaks``: each
+    with whether it follows the one before directly, only space between them."""
     prose = _INLINE_CODE.sub(" ", map_fence_blocks(reply, lambda _fence, _body: "\n"))
+    end: int | None = None
     for match in INLINE_MATH.finditer(prose):
-        yield from _STATEMENTS.split(match.group(1))
+        follows = end is not None and not prose[end : match.start()].strip()
+        end = match.end()
+        for index, statement in enumerate(_STATEMENTS.split(match.group(1))):
+            if with_breaks:
+                yield statement, follows or index > 0
+            else:
+                yield statement

@@ -394,3 +394,24 @@ def test_a_system_the_values_break_is_still_noted() -> None:
         "$I_1 = \\frac{15}{13}\\ A, I_2 = \\frac{1}{13}\\ A$"
     )
     assert working_note(reply) is not None
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # Two roots, two circles and two parts reusing a name are other values (review, #2520).
+        "**Steps**\n\n$x = \\frac{4+2}{2}$\n$x = \\frac{4-2}{2}$",
+        "**Steps**\n\n$x = \\sqrt{9}$\n$x = \\sqrt{4}$",
+        "**Steps**\n\n$A = \\pi (3)^2$\n$A = \\pi (5)^2$",
+        "**(a)**\n\n$A = 3 \\times 4$\n\n**(b)**\n\n$A = 5 \\times 6$",
+        "**(a)**\n\n$A = \\frac{1}{2} \\cdot 6 \\cdot 4$\n\n**(b)**\n\n$A = 5 \\times 5$",
+    ],
+)
+def test_a_name_reused_for_another_value_is_no_slip(reply: str) -> None:
+    assert working_note(reply) is None
+
+
+def test_a_decimal_with_a_thousands_comma_is_never_rewritten() -> None:
+    """Review (#2520): "1,224.74" was read as 1 and became "1225,224.74"."""
+    reply = "So $\\sqrt{1500000}$ (approximately 1,224.74)."
+    assert corrected_approximations(reply) == reply

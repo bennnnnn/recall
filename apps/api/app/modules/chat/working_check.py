@@ -188,7 +188,11 @@ def wrong_steps(reply: str) -> list[WrongStep]:
     last = ""
     # The line before: the name it worked out and its last expression ("L", "√(6·14·28·48)/21").
     before: tuple[str, str, str] | None = None
-    for segment in math_statements(reply):
+    for segment, follows in math_statements(reply, with_breaks=True):
+        if not follows:
+            # Words between two lines ("**(b)**", "For the second resistor,") start another
+            # case: a name reused there is another value (review, #2520).
+            before = None
         parts = _RELATION.split(segment)
         relations = _RELATION.findall(segment)
         if len(parts) > 1 and not parts[0].strip():
@@ -304,7 +308,7 @@ def _chain(
         first_tex = parts[1].strip()
         first = plain_arithmetic(first_tex)
         earlier = plain_arithmetic(before[1])
-        if first is not None and earlier is not None:
+        if first is not None and earlier is not None and _restates(earlier, first):
             step = _slip(before[1], first_tex, earlier, first, relations[0] != "=", rounded)
             if step is not None:
                 found.append(step)
@@ -313,6 +317,16 @@ def _chain(
         part for part in worked if _OPERATOR.search((plain_arithmetic(part) or "").lstrip("-+"))
     ]
     return (name, exprs[-1], worked[-1]) if exprs else None
+
+
+_NUMBER_TOKEN = re.compile(r"\d+(?:\.\d+)?")
+
+
+def _restates(earlier: str, later: str) -> bool:
+    """``later`` is ``earlier`` in another form, not another value in the same form: two roots
+    or two circles written alike ("(4+2)/2" then "(4-2)/2", "pi(3)^2" then "pi(5)^2") differ
+    only in their numbers (review, #2520)."""
+    return _NUMBER_TOKEN.sub("#", earlier) != _NUMBER_TOKEN.sub("#", later)
 
 
 def _shown_like(value: float, shown: str) -> str:
@@ -416,11 +430,11 @@ def corrected_approximations(reply: str) -> str:
 
 
 # What follows an approximated number: a unit ("70.7 cm", "$10.95$ \\text{cm}"), or a mark that
-# makes it another number than its digits ("1.67 \\times 10^{-4}", "8%", "30°").
+# makes it another number than its digits ("1.67 \\times 10^{-4}", "8%", "30°", "1,224.74").
 _UNIT_AFTER = re.compile(
     r"[ \t$]*(?:\\[,; ][ \t]*)?"
     r"(?:\\(?:text|mathrm)\s*\{\s*([^{}\s]{1,12})\s*\}|([A-Za-zµμΩ]+)|(\\times|\u00d7|\*\s*10\b|e[-+]?\d|"
-    r"\\?%|°|\^|\\circ|\\deg))"
+    r"\\?%|°|\^|\\circ|\\deg|,\d))"
 )
 _WORD = re.compile(r"[A-Za-zµμΩ°]+")
 
