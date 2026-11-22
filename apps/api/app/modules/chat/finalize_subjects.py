@@ -18,6 +18,7 @@ from app.core import sympy_executor
 from app.modules.chat.simulation_fences import drop_open_fences, strip_model_drawn_fences
 from app.modules.chat.verification_claims import strip_verification_claims
 from app.modules.chat.worked_lead import drop_recap_tail, drop_restated_tail
+from app.modules.chat.working_cards import held_cards
 from app.modules.chat.working_check import (
     corrected_approximations,
     is_worked_solution,
@@ -308,6 +309,10 @@ def check_working(state: FinalizeState) -> str:
         note = working_note(text)
         # A reply in parts gets a card under each part's Answer heading.
         text = land_part_answer_cards(text) or land_answer_card(text, None)
+        # The card is the working's last step: an expression left unworked and a card that
+        # is not its value (``working_cards``).
+        text, card_note = held_cards(text, ctx.user_message_content or "")
+        note = note or card_note
         text = drop_restated_tail(text, ctx.user_message_content or "")
         if getattr(ctx, "worked", None) is not None:
             # The working said again after the cards goes (``worked_lead.drop_recap_tail``).

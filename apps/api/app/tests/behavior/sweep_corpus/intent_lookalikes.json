@@ -731,7 +731,8 @@
   "prompt": "show me a snow leopard",
   "history": [],
   "reply": "Here's a snow leopard 🐆 — the thick, smoky-gray coat with dark rosettes and that long, bushy tail (which it wraps around itself for warmth) help it survive high in the mountains of Central and South Asia, usually between 3,000 and 4,500 m.",
-  "expect": "photo"
+  "expect": "photo",
+  "read": ["everyday", "photo"]
  },
  {
   "id": "hi-075",
@@ -739,7 +740,8 @@
   "prompt": "what does a pangolin look like",
   "history": [],
   "reply": "Here's a pangolin — it's covered in overlapping **keratin scales** (the same material as your fingernails), so it looks like a walking pinecone. It has a small pointed head, no teeth, and a very long sticky tongue for eating ants and termites. When threatened, it rolls into a tight ball.\n\nPangolins are among the most trafficked mammals in the world, and all eight species are protected.",
-  "expect": "photo"
+  "expect": "photo",
+  "read": ["everyday", "photo"]
  },
  {
   "id": "hi-076",
@@ -747,7 +749,8 @@
   "prompt": "send me a photo of Lalibela churches",
   "history": [],
   "reply": "Here are the rock-hewn churches of **Lalibela** — carved straight down into solid volcanic rock in the 12th–13th centuries under King Lalibela. The cross-shaped **Bete Giyorgis** (Church of St. George) is the most famous of the 11 churches, which together are a UNESCO World Heritage Site.",
-  "expect": "photo"
+  "expect": "photo",
+  "read": ["everyday", "photo"]
  },
  {
   "id": "hi-077",
@@ -755,7 +758,8 @@
   "prompt": "pics of the simien mountains pls",
   "history": [],
   "reply": "Here are the **Simien Mountains** in northern Ethiopia — dramatic cliffs, deep valleys, and high plateaus. They're home to gelada monkeys, Walia ibex, and Ethiopian wolves, and to **Ras Dashen**, Ethiopia's highest peak at about 4,550 m.",
-  "expect": "image_gen"
+  "expect": "image_gen",
+  "read": ["everyday", "image"]
  },
  {
   "id": "hi-078",
@@ -763,7 +767,8 @@
   "prompt": "what does a gelada look like 🐒",
   "history": [],
   "reply": "Here's a gelada — sometimes called the \"bleeding-heart monkey\" because of the bright red, hourglass-shaped patch of bare skin on its chest. It has long brown fur, and adult males grow a thick, lion-like mane. Geladas live only in the Ethiopian highlands and are the only primates that feed mainly on grass.",
-  "expect": "photo"
+  "expect": "photo",
+  "read": ["everyday", "photo"]
  },
  {
   "id": "hi-079",
@@ -771,7 +776,8 @@
   "prompt": "draw me a lion wearing a crown",
   "history": [],
   "reply": "Here's your lion wearing a crown 🦁👑 — a regal golden lion with a full mane and a jeweled gold crown. Want a different style, like cartoon or oil painting?",
-  "expect": "image_gen"
+  "expect": "image_gen",
+  "read": ["everyday", "image"]
  },
  {
   "id": "hi-080",
@@ -779,7 +785,8 @@
   "prompt": "generate an image of a futuristic Addis",
   "history": [],
   "reply": "Here's a futuristic Addis Ababa 🌆 — glass towers rising around Meskel Square, an elevated light-rail line weaving between them, green rooftop gardens, and Entoto in the background under an evening sky.",
-  "expect": "image_gen"
+  "expect": "image_gen",
+  "read": ["everyday", "image"]
  },
  {
   "id": "hi-081",
@@ -787,7 +794,8 @@
   "prompt": "make a watercolor picture of a cat astronaut floating over the moon",
   "history": [],
   "reply": "Here's your watercolor cat astronaut 🐱🚀 — a ginger cat in a little white spacesuit, drifting above a soft gray moon with a wash of deep blue and violet stars behind it.",
-  "expect": "image_gen"
+  "expect": "image_gen",
+  "read": ["everyday", "image"]
  },
  {
   "id": "hi-082",
@@ -795,7 +803,8 @@
   "prompt": "create an anime style illustration of an ethiopian coffee ceremony",
   "history": [],
   "reply": "Here's an anime-style Ethiopian coffee ceremony ☕ — a woman in a white habesha kemis pouring from a jebena into small cups, with frankincense smoke curling up, fresh grass on the floor, and family gathered around in warm afternoon light.",
-  "expect": "image_gen"
+  "expect": "image_gen",
+  "read": ["everyday", "image"]
  },
  {
   "id": "hi-083",
@@ -942,7 +951,8 @@
   "prompt": "generate an image of an old oak tree in autumn, watercolor",
   "history": [],
   "reply": "Here's your watercolor of an old oak tree in autumn.",
-  "expect": "image_gen"
+  "expect": "image_gen",
+  "read": ["everyday", "image"]
  },
  {
   "id": "hi-101",
@@ -950,7 +960,8 @@
   "prompt": "draw a treasure map for my kid's pirate party",
   "history": [],
   "reply": "Here's your treasure map for the pirate party.",
-  "expect": "image_gen"
+  "expect": "image_gen",
+  "read": ["everyday", "image"]
  },
  {
   "id": "hi-102",
@@ -966,14 +977,16 @@
   "prompt": "draw a winding mountain road with sharp curves at sunset",
   "history": [],
   "reply": "Here's your winding mountain road at sunset.",
-  "expect": "image_gen"
+  "expect": "image_gen",
+  "read": ["everyday", "image"]
  },
  {
   "id": "hi-104",
   "area": "image",
   "prompt": "can you draw me a cute cartoon skeleton for my notes",
   "reply": "Here is a friendly skeleton you can sketch into your notes.",
-  "expect": "image_gen"
+  "expect": "image_gen",
+  "read": ["everyday", "image"]
  },
  {
   "id": "hi-105",
@@ -988,7 +1001,8 @@
   "prompt": "Generate an image of a robot arm holding a test tube, cartoon style",
   "history": [],
   "reply": "Here's your cartoon robot arm holding a test tube.",
-  "expect": "image_gen"
+  "expect": "image_gen",
+  "read": ["everyday", "image"]
  },
  {
   "id": "hi-107",
@@ -996,7 +1010,8 @@
   "prompt": "draw me a dog with a todo list on its back",
   "history": [],
   "reply": "Here's a dog carrying a little to-do list on its back.",
-  "expect": "image_gen"
+  "expect": "image_gen",
+  "read": ["everyday", "image"]
  },
  {
   "id": "hi-108",

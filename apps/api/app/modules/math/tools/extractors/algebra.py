@@ -370,6 +370,24 @@ def _extract_system_intent(cleaned: str) -> MathIntent | None:
     )
 
 
+def _written(side: str, text: str) -> bool:
+    return "".join(side.split()) in "".join(text.split())
+
+
+def _unchanged_equations(cleaned: str, probe: str) -> list[tuple[str, str]]:
+    """The equations of ``probe``, the message with its wrappers taken off, when each is
+    written in the message itself; else the message's own. Taking "by factoring" out of
+    "solve x^2 - 9 = 0 by factoring x^2 - 9" glued the method's object to the equation:
+    x^2 - 9 = 0 x^2 - 9 had the checked card x = 0 (review, #2536)."""
+    pairs = math_solve.try_extract_equations_from_text(probe)
+    if probe == cleaned or all(
+        _written(lhs, cleaned) and _written(rhs, cleaned) for lhs, rhs in pairs
+    ):
+        return pairs
+    own = math_solve.try_extract_equations_from_text(cleaned)
+    return [pair for pair in own if _written(pair[0], cleaned) and _written(pair[1], cleaned)]
+
+
 def _extract_equation_intent(cleaned: str) -> MathIntent | None:
     from app.modules.math.response_intent import (
         MathMethod,
@@ -398,7 +416,7 @@ def _extract_equation_intent(cleaned: str) -> MathIntent | None:
     probe = strip_lesson_prefixes(cleaned)
     if _has_unclaimed_plot_verb(probe):
         return None
-    eq_pairs = math_solve.try_extract_equations_from_text(probe)
+    eq_pairs = _unchanged_equations(cleaned, probe)
     if not eq_pairs:
         return None
     # Let-binding + "what is x+2" is arithmetic after substitute, not solve x=5.

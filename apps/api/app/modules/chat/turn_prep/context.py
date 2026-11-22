@@ -111,6 +111,9 @@ class StreamContext:
     # repeat: SymPy ran out of time on its problem; its photo lookup found none.
     solve_timed_out: bool = False
     photo_missed: bool = False
+    # The words could ask for a painted picture and the turn's read did not say so: the
+    # tool loop offers no picture either (``drawn_picture.read_asks``).
+    picture_declined: bool = False
     # One verified solve for the subject that owns this turn.
     verified_subject: VerifiedSolveBlock | None = None
     # A subject solver ran and declined. The reply gets one note, not a card.
@@ -134,6 +137,9 @@ class StreamContext:
     # A real photo above an answer about something worth seeing: the search
     # starts when the reply's ```photo fence closes; finalize links the ids.
     answer_photo: AnswerPhoto | None = None
+    # The turn's read says the answer is about nothing worth seeing: the photo hints are
+    # gone from the prompt and no photo is looked up (``decided_turn``).
+    no_answer_photo: bool = False
     # What the reply shows above its text, linked to it when it saves: that photo, or
     # the picture a multi-part message asked for (``reply_picture``).
     answer_photo_ids: list[UUID] = field(default_factory=list)

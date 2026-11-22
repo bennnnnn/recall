@@ -211,6 +211,14 @@
   {"id": "ctx-settled-11", "area": "follow-up in context", "live": false, "prompt": "Yes", "history": [["user", "my sister's name is Hana"], ["assistant", "Got it, your sister is Hana. Want me to remember that?"]]},
   {"id": "ctx-settled-12", "area": "follow-up in context", "live": false, "prompt": "Yes", "history": [["user", "I need to call my mom tonight"], ["assistant", "Want me to set a reminder for 7 pm to call your mom?"]]},
   {"id": "ctx-settled-13", "area": "follow-up in context", "live": false, "prompt": "and my sister?", "history": [["user", "when is my brother's birthday?"], ["assistant", "Your brother Dawit's birthday is **March 3**, from what you told me last month."]]},
-  {"id": "ctx-settled-14", "area": "follow-up in context", "live": false, "prompt": "yes please", "history": [["user", "I'm vegetarian btw"], ["assistant", "Noted! Want me to remember that you're vegetarian for recipe ideas?"]]}
+  {"id": "ctx-settled-14", "area": "follow-up in context", "live": false, "prompt": "yes please", "history": [["user", "I'm vegetarian btw"], ["assistant", "Noted! Want me to remember that you're vegetarian for recipe ideas?"]]},
+  {"id": "span-01", "area": "spans of time", "live": false, "prompt": "What is new when i was in jail. What new tech is out with in the last 80 years of my lost life", "history": [["user", "I got in jail when i was 20 now i turned 77."], ["assistant", "That's a huge amount of time to have lost, and it sounds like you've been carrying this for a very long time.\n\nAre you still in jail now, or have you been released?"]]},
+  {"id": "span-02", "area": "spans of time", "live": false, "prompt": "How has technology changed since the 1950s?"},
+  {"id": "span-03", "area": "spans of time", "live": false, "prompt": "What were the biggest inventions of the last 100 years?"},
+  {"id": "span-04", "area": "spans of time", "live": false, "prompt": "How have phones changed over the past 30 years?"},
+  {"id": "span-05", "area": "spans of time", "live": false, "prompt": "I was away from the world for 40 years. What changed in daily life?"},
+  {"id": "span-06", "area": "spans of time", "live": true, "prompt": "What new phones came out this month?"},
+  {"id": "span-07", "area": "spans of time", "live": true, "prompt": "What tech news is there this week?"},
+  {"id": "span-08", "area": "spans of time", "live": true, "prompt": "I've been offline for a year. What happened in the news?"}
  ]
 }

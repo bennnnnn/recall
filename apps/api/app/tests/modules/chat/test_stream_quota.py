@@ -77,10 +77,8 @@ async def test_stream_chat_response_refunds_pre_reserved_on_image_gen():
 
     with (
         _turn_load(),
-        patch(
-            "app.modules.chat.turn_intercepts.try_image_gen_for_turn",
-            AsyncMock(return_value=True),
-        ),
+        # The read asked for the picture and it was drawn: the turn ends with no reply.
+        patch("app.modules.chat.stream_entry.intercept_new_turn", AsyncMock(return_value=True)),
     ):
         tokens = [
             t

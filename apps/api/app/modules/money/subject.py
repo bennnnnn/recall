@@ -72,6 +72,22 @@ class MoneyPeer:
             last_reply=last_reply,
         )
 
+    async def prepare_read(
+        self,
+        text: str,
+        settings: Settings,
+        redis: Redis | None,
+        *,
+        user: User | None,
+        location: str | None,
+        conversation: Sequence[tuple[str, str]],
+    ) -> MoneyTurn | None:
+        from app.modules.money.service import prepare_read_turn
+
+        return await prepare_read_turn(
+            text, settings, redis, user=user, location=location, conversation=conversation
+        )
+
     async def finish(self, turn: MoneyTurn, text: str, settings: Settings, *, english: bool) -> str:
         from app.modules.money.service import finish_money_reply
 

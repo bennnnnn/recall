@@ -44,6 +44,7 @@ from typing import TYPE_CHECKING, Any
 from app.core.config import Settings
 from app.modules.billing import plan as plan_service
 from app.modules.billing.entitlements import has_strong_everyday_model
+from app.modules.chat.answer_photo_offer import offers_photo_in, without_answer_photo_hints
 from app.modules.chat.decider_read import NO_ANSWER, OTHER_ANSWER, READ_SUBJECTS
 from app.modules.chat.drawing_turn import ask_for_a_drawing
 from app.modules.chat.drawn_picture import app_draws, solve_draws
@@ -55,7 +56,7 @@ from app.modules.chat.model_routing.thinking import (
     resumes_a_cut_off_reply,
     thinks_through_parts,
 )
-from app.modules.chat.prompt_constants.conversation import FOLLOW_NOTES
+from app.modules.chat.prompt_constants.conversation import FOLLOW_NOTES, draft_change_note
 from app.modules.chat.prompt_constants.lesson_flow import LESSON_ASIDE_NOTE, lesson_next_contract
 from app.modules.chat.prompt_constants.list_reference import OPTION_PICK_MARK
 from app.modules.chat.prompt_constants.practice import QUIZ_WHICH_NOTE, quiz_verdict_note
@@ -78,6 +79,7 @@ from app.modules.turn_reading.lesson_flow import (
     outline_awaits_pick,
 )
 from app.modules.turn_reading.school_question import is_school_exercise
+from app.services.draft_fences import draft_langs
 from app.services.md_fence_scan import line_fences
 from app.services.picture_copy import DRAWN_PICTURE_NOTE
 
@@ -117,6 +119,7 @@ async def decide_from_the_read(ctx: StreamContext, settings: Settings) -> None:
     # One wait for the read, shared by Auto's lane and a picture's contract.
     deadline = asyncio.get_running_loop().time() + settings.live_read_wait_seconds
     read = await _the_read(ctx, settings)
+    _settle_the_photo(ctx, read)
     # A maths picture the message asks to see: the reply describes it (``drawing_turn``).
     await ask_for_a_drawing(ctx, settings, read, deadline)
     _leave_the_picture(ctx, settings, read)
@@ -146,6 +149,17 @@ async def decide_from_the_read(ctx: StreamContext, settings: Settings) -> None:
     else:
         _worked_layout(ctx, settings, read)
     _follow_note(ctx, read)
+
+
+def _settle_the_photo(ctx: StreamContext, read: TurnDecision | None) -> None:
+    """The word rules offered a photo above the answer; the read says whether the answer is
+    about one real thing worth seeing. Unseen ("What is ur name", "is coffee bad for you"):
+    the hints go and no photo is looked up. No answer from the read: the rules stand."""
+    if read is None or read.seen is not False or not offers_photo_in(ctx.prompt_messages):
+        return
+    note_prompt_rule("read.no_photo")
+    ctx.no_answer_photo = True
+    ctx.prompt_messages = without_answer_photo_hints(ctx.prompt_messages, ctx.user_message_content)
 
 
 def _leave_the_picture(ctx: StreamContext, settings: Settings, read: TurnDecision | None) -> None:
@@ -183,6 +197,7 @@ async def _the_read(ctx: StreamContext, settings: Settings) -> TurnDecision | No
         or _layout_at_stake(ctx)
         or _reads_the_cards(ctx)
         or _picture_at_stake(ctx, settings)
+        or _photo_at_stake(ctx)
     ):
         return None
     return await turn_decision_result(task, settings)
@@ -195,6 +210,11 @@ def _picture_at_stake(ctx: StreamContext, settings: Settings) -> bool:
     if ctx.instant_reply is not None:
         return False
     return bool(plan_of(ctx.user_message_content or "", settings).of_kind("image", "photo"))
+
+
+def _photo_at_stake(ctx: StreamContext) -> bool:
+    """The word rules offered a photo above the answer: the read decides whether it shows."""
+    return ctx.instant_reply is None and offers_photo_in(ctx.prompt_messages)
 
 
 def _answered_window(ctx: StreamContext) -> list[Any]:
@@ -459,6 +479,9 @@ def _follow_note(ctx: StreamContext, read: TurnDecision) -> None:
         return
     note_prompt_rule(f"read.follow_{read.follow}")
     messages = ctx.prompt_messages
+    if read.follow == "change" and (fence := _last_reply_draft(ctx)):
+        # "In Amharic" after a draft: that draft again in Amharic, never a refusal.
+        note = draft_change_note(fence)
     # "To eat", a guess at "Why do cats purr?", got Oakland restaurants "since your favorite
     # color is green" on 2 of 3 (2026-11-15), a word rule having read food in it. Named the
     # question it answers, it was the cat guess on 5 of 5, the recommendation hint kept for
@@ -470,6 +493,15 @@ def _follow_note(ctx: StreamContext, read: TurnDecision) -> None:
         # a reply that offered nothing asks for more, and the rule had it redo the last one.
         messages = without_confirmation_hints(messages)
     ctx.prompt_messages = inject_before_last_user(messages, note)
+
+
+def _last_reply_draft(ctx: StreamContext) -> str | None:
+    """The fence of the last draft in the reply before the message, when it holds one."""
+    for message in reversed(_answered_window(ctx)):
+        if getattr(message, "role", None) == "assistant":
+            fences = draft_langs(getattr(message, "content", None))
+            return fences[-1] if fences else None
+    return None
 
 
 def _answered_question(ctx: StreamContext, messages: list[dict[str, Any]]) -> str | None:

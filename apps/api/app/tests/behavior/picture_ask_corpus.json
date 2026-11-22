@@ -1,0 +1,1033 @@
+[
+ {
+  "id": "owner-what-image",
+  "label": "none",
+  "kind": "complaint",
+  "prompt": "What image is that?",
+  "history": [
+   [
+    "user",
+    "hi"
+   ],
+   [
+    "assistant",
+    "Hi! How can I help you today?"
+   ],
+   [
+    "user",
+    "What is ur name"
+   ],
+   [
+    "assistant",
+    "[answer-photo: Recall AI assistant]\nI'm Recall, your personal AI assistant. What can I do for you?"
+   ]
+  ]
+ },
+ {
+  "id": "owner-displayed",
+  "label": "none",
+  "kind": "complaint",
+  "prompt": "No you displayed an image",
+  "history": [
+   [
+    "user",
+    "hi"
+   ],
+   [
+    "assistant",
+    "Hi! How can I help you today?"
+   ],
+   [
+    "user",
+    "What is ur name"
+   ],
+   [
+    "assistant",
+    "[answer-photo: Recall AI assistant]\nI'm Recall, your personal AI assistant. What can I do for you?"
+   ],
+   [
+    "user",
+    "What image is that?"
+   ],
+   [
+    "assistant",
+    "I can't see any image in this chat. Could you share it again?"
+   ]
+  ]
+ },
+ {
+  "id": "owner-keep",
+  "label": "none",
+  "kind": "complaint",
+  "prompt": "You keep generating an image",
+  "history": [
+   [
+    "user",
+    "hi"
+   ],
+   [
+    "assistant",
+    "Hi! How can I help you today?"
+   ],
+   [
+    "user",
+    "What is ur name"
+   ],
+   [
+    "assistant",
+    "[answer-photo: Recall AI assistant]\nI'm Recall, your personal AI assistant. What can I do for you?"
+   ],
+   [
+    "user",
+    "What image is that?"
+   ],
+   [
+    "assistant",
+    "I can't see any image in this chat. Could you share it again?"
+   ],
+   [
+    "user",
+    "No you displayed an image"
+   ],
+   [
+    "assistant",
+    "[generated: the provided image, No you displayed an image]"
+   ]
+  ]
+ },
+ {
+  "id": "owner-did-i-ask",
+  "label": "none",
+  "kind": "complaint",
+  "prompt": "What?🤔 did i ask about an image?",
+  "history": [
+   [
+    "user",
+    "hi"
+   ],
+   [
+    "assistant",
+    "Hi! How can I help you today?"
+   ],
+   [
+    "user",
+    "What is ur name"
+   ],
+   [
+    "assistant",
+    "[answer-photo: Recall AI assistant]\nI'm Recall, your personal AI assistant. What can I do for you?"
+   ],
+   [
+    "user",
+    "What image is that?"
+   ],
+   [
+    "assistant",
+    "I can't see any image in this chat. Could you share it again?"
+   ],
+   [
+    "user",
+    "No you displayed an image"
+   ],
+   [
+    "assistant",
+    "[generated: the provided image, No you displayed an image]"
+   ],
+   [
+    "user",
+    "You keep generating an image"
+   ],
+   [
+    "assistant",
+    "[generated: the provided image, You keep generating an image]"
+   ]
+  ]
+ },
+ {
+  "id": "owner-so-bad",
+  "label": "none",
+  "kind": "complaint",
+  "prompt": "Man this is so bad",
+  "history": [
+   [
+    "user",
+    "hi"
+   ],
+   [
+    "assistant",
+    "Hi! How can I help you today?"
+   ],
+   [
+    "user",
+    "What is ur name"
+   ],
+   [
+    "assistant",
+    "[answer-photo: Recall AI assistant]\nI'm Recall, your personal AI assistant. What can I do for you?"
+   ],
+   [
+    "user",
+    "What image is that?"
+   ],
+   [
+    "assistant",
+    "I can't see any image in this chat. Could you share it again?"
+   ],
+   [
+    "user",
+    "No you displayed an image"
+   ],
+   [
+    "assistant",
+    "[generated: the provided image, No you displayed an image]"
+   ],
+   [
+    "user",
+    "You keep generating an image"
+   ],
+   [
+    "assistant",
+    "[generated: the provided image, You keep generating an image]"
+   ],
+   [
+    "user",
+    "What?🤔 did i ask about an image?"
+   ],
+   [
+    "assistant",
+    "[generated: the provided image, What? did i ask about an image]"
+   ]
+  ]
+ },
+ {
+  "id": "why-doing",
+  "label": "none",
+  "kind": "complaint",
+  "prompt": "why are you doing this",
+  "history": [
+   [
+    "user",
+    "hi"
+   ],
+   [
+    "assistant",
+    "Hi! How can I help you today?"
+   ],
+   [
+    "user",
+    "What is ur name"
+   ],
+   [
+    "assistant",
+    "[answer-photo: Recall AI assistant]\nI'm Recall, your personal AI assistant. What can I do for you?"
+   ],
+   [
+    "user",
+    "What image is that?"
+   ],
+   [
+    "assistant",
+    "I can't see any image in this chat. Could you share it again?"
+   ],
+   [
+    "user",
+    "No you displayed an image"
+   ],
+   [
+    "assistant",
+    "[generated: the provided image, No you displayed an image]"
+   ],
+   [
+    "user",
+    "You keep generating an image"
+   ],
+   [
+    "assistant",
+    "[generated: the provided image, You keep generating an image]"
+   ]
+  ]
+ },
+ {
+  "id": "like-it",
+  "label": "none",
+  "kind": "complaint",
+  "prompt": "I like that image",
+  "history": [
+   [
+    "user",
+    "draw me a cat wearing a hat"
+   ],
+   [
+    "assistant",
+    "[generated: a cat wearing a hat]"
+   ]
+  ]
+ },
+ {
+  "id": "why-photo",
+  "label": "none",
+  "kind": "complaint",
+  "prompt": "why did you send a photo",
+  "history": [
+   [
+    "user",
+    "hi"
+   ],
+   [
+    "assistant",
+    "Hi! How can I help you today?"
+   ],
+   [
+    "user",
+    "What is ur name"
+   ],
+   [
+    "assistant",
+    "[answer-photo: Recall AI assistant]\nI'm Recall, your personal AI assistant. What can I do for you?"
+   ]
+  ]
+ },
+ {
+  "id": "stop-pictures",
+  "label": "none",
+  "kind": "complaint",
+  "prompt": "stop sending pictures",
+  "history": [
+   [
+    "user",
+    "draw me a cat wearing a hat"
+   ],
+   [
+    "assistant",
+    "[generated: a cat wearing a hat]"
+   ]
+  ]
+ },
+ {
+  "id": "what-of",
+  "label": "none",
+  "kind": "complaint",
+  "prompt": "what is this picture of?",
+  "history": [
+   [
+    "user",
+    "draw me a cat wearing a hat"
+   ],
+   [
+    "assistant",
+    "[generated: a cat wearing a hat]"
+   ]
+  ]
+ },
+ {
+  "id": "looks-terrible",
+  "label": "none",
+  "kind": "complaint",
+  "prompt": "that looks terrible lol",
+  "history": [
+   [
+    "user",
+    "draw me a cat wearing a hat"
+   ],
+   [
+    "assistant",
+    "[generated: a cat wearing a hat]"
+   ]
+  ]
+ },
+ {
+  "id": "thanks",
+  "label": "none",
+  "kind": "complaint",
+  "prompt": "thanks!",
+  "history": [
+   [
+    "user",
+    "draw me a cat wearing a hat"
+   ],
+   [
+    "assistant",
+    "[generated: a cat wearing a hat]"
+   ]
+  ]
+ },
+ {
+  "id": "not-asked",
+  "label": "none",
+  "kind": "complaint",
+  "prompt": "that's not what I asked for",
+  "history": [
+   [
+    "user",
+    "hi"
+   ],
+   [
+    "assistant",
+    "Hi! How can I help you today?"
+   ],
+   [
+    "user",
+    "What is ur name"
+   ],
+   [
+    "assistant",
+    "[answer-photo: Recall AI assistant]\nI'm Recall, your personal AI assistant. What can I do for you?"
+   ],
+   [
+    "user",
+    "What image is that?"
+   ],
+   [
+    "assistant",
+    "I can't see any image in this chat. Could you share it again?"
+   ],
+   [
+    "user",
+    "No you displayed an image"
+   ],
+   [
+    "assistant",
+    "[generated: the provided image, No you displayed an image]"
+   ]
+  ]
+ },
+ {
+  "id": "where-from",
+  "label": "none",
+  "kind": "complaint",
+  "prompt": "where did that image come from?",
+  "history": [
+   [
+    "user",
+    "hi"
+   ],
+   [
+    "assistant",
+    "Hi! How can I help you today?"
+   ],
+   [
+    "user",
+    "What is ur name"
+   ],
+   [
+    "assistant",
+    "[answer-photo: Recall AI assistant]\nI'm Recall, your personal AI assistant. What can I do for you?"
+   ],
+   [
+    "user",
+    "What image is that?"
+   ],
+   [
+    "assistant",
+    "I can't see any image in this chat. Could you share it again?"
+   ],
+   [
+    "user",
+    "No you displayed an image"
+   ],
+   [
+    "assistant",
+    "[generated: the provided image, No you displayed an image]"
+   ]
+  ]
+ },
+ {
+  "id": "cant-see",
+  "label": "none",
+  "kind": "complaint",
+  "prompt": "I can't see the image",
+  "history": [
+   [
+    "user",
+    "draw me a cat wearing a hat"
+   ],
+   [
+    "assistant",
+    "[generated: a cat wearing a hat]"
+   ]
+  ]
+ },
+ {
+  "id": "who-in-photo",
+  "label": "none",
+  "kind": "complaint",
+  "prompt": "who designed it?",
+  "history": [
+   [
+    "user",
+    "show me a photo of the Eiffel Tower"
+   ],
+   [
+    "assistant",
+    "[photo: the Eiffel Tower]"
+   ]
+  ]
+ },
+ {
+  "id": "is-ai",
+  "label": "none",
+  "kind": "complaint",
+  "prompt": "is that picture AI generated?",
+  "history": [
+   [
+    "user",
+    "draw me a cat wearing a hat"
+   ],
+   [
+    "assistant",
+    "[generated: a cat wearing a hat]"
+   ]
+  ]
+ },
+ {
+  "id": "cute",
+  "label": "none",
+  "kind": "complaint",
+  "prompt": "so cute 😍",
+  "history": [
+   [
+    "user",
+    "draw me a cat wearing a hat"
+   ],
+   [
+    "assistant",
+    "[generated: a cat wearing a hat]"
+   ]
+  ]
+ },
+ {
+  "id": "budget",
+  "label": "none",
+  "kind": "lookalike",
+  "prompt": "draw up a budget for me",
+  "history": []
+ },
+ {
+  "id": "picture-this",
+  "label": "none",
+  "kind": "lookalike",
+  "prompt": "picture this: I'm at the beach and the sun is setting, what should I write in my journal?",
+  "history": []
+ },
+ {
+  "id": "cook-rice",
+  "label": "none",
+  "kind": "lookalike",
+  "prompt": "show me how to cook rice",
+  "history": []
+ },
+ {
+  "id": "photoshop-line",
+  "label": "none",
+  "kind": "lookalike",
+  "prompt": "how do I draw a straight line in photoshop",
+  "history": []
+ },
+ {
+  "id": "camera",
+  "label": "none",
+  "kind": "lookalike",
+  "prompt": "what's the best camera for portraits",
+  "history": []
+ },
+ {
+  "id": "compression",
+  "label": "none",
+  "kind": "lookalike",
+  "prompt": "can you explain how image compression works",
+  "history": []
+ },
+ {
+  "id": "took-photo",
+  "label": "none",
+  "kind": "lookalike",
+  "prompt": "I took a photo of my dog yesterday and she looked so happy",
+  "history": []
+ },
+ {
+  "id": "workout",
+  "label": "none",
+  "kind": "lookalike",
+  "prompt": "make me a workout plan",
+  "history": []
+ },
+ {
+  "id": "grocery",
+  "label": "none",
+  "kind": "lookalike",
+  "prompt": "create a grocery list for tacos",
+  "history": []
+ },
+ {
+  "id": "profile-light",
+  "label": "none",
+  "kind": "lookalike",
+  "prompt": "my profile picture looks bad, how do I fix the lighting",
+  "history": []
+ },
+ {
+  "id": "sunset-words",
+  "label": "none",
+  "kind": "lookalike",
+  "prompt": "describe a sunset in words",
+  "history": []
+ },
+ {
+  "id": "draw-conclusion",
+  "label": "none",
+  "kind": "lookalike",
+  "prompt": "draw a conclusion from these results: sales up 10%, costs up 20%",
+  "history": []
+ },
+ {
+  "id": "poker-draw",
+  "label": "none",
+  "kind": "lookalike",
+  "prompt": "what does a draw mean in poker",
+  "history": []
+ },
+ {
+  "id": "router-steps",
+  "label": "none",
+  "kind": "lookalike",
+  "prompt": "show me the steps to reset my router",
+  "history": []
+ },
+ {
+  "id": "cat-names",
+  "label": "none",
+  "kind": "lookalike",
+  "prompt": "Generate a list of names for a cat",
+  "history": []
+ },
+ {
+  "id": "vintage",
+  "label": "none",
+  "kind": "lookalike",
+  "prompt": "how do I make my photos look vintage",
+  "history": []
+ },
+ {
+  "id": "big-picture",
+  "label": "none",
+  "kind": "lookalike",
+  "prompt": "what's the big picture here?",
+  "history": [
+   [
+    "user",
+    "paint a lighthouse at dawn"
+   ],
+   [
+    "assistant",
+    "[generated: a lighthouse at dawn]"
+   ]
+  ]
+ },
+ {
+  "id": "draw-blood",
+  "label": "none",
+  "kind": "lookalike",
+  "prompt": "does it hurt when they draw blood",
+  "history": []
+ },
+ {
+  "id": "draw-cat-hat",
+  "label": "image",
+  "kind": "request",
+  "prompt": "draw me a cat wearing a hat",
+  "history": []
+ },
+ {
+  "id": "sunset",
+  "label": "image",
+  "kind": "request",
+  "prompt": "generate an image of a sunset over mountains",
+  "history": []
+ },
+ {
+  "id": "cat-space",
+  "label": "image",
+  "kind": "request",
+  "prompt": "show me a picture of a cat in space",
+  "history": []
+ },
+ {
+  "id": "watercolor",
+  "label": "image",
+  "kind": "request",
+  "prompt": "paint a watercolor of a lighthouse at dawn",
+  "history": []
+ },
+ {
+  "id": "logo",
+  "label": "image",
+  "kind": "request",
+  "prompt": "can you make a logo for my bakery called Sweet Crumbs",
+  "history": []
+ },
+ {
+  "id": "poster",
+  "label": "image",
+  "kind": "request",
+  "prompt": "create a poster for a summer jazz festival",
+  "history": []
+ },
+ {
+  "id": "dragon-book",
+  "label": "image",
+  "kind": "request",
+  "prompt": "draw a dragon reading a book",
+  "history": []
+ },
+ {
+  "id": "robot-surf",
+  "label": "image",
+  "kind": "request",
+  "prompt": "make me a picture of a robot surfing",
+  "history": []
+ },
+ {
+  "id": "mouton",
+  "label": "image",
+  "kind": "request",
+  "prompt": "Dessine-moi un mouton",
+  "history": []
+ },
+ {
+  "id": "dragon-es",
+  "label": "image",
+  "kind": "request",
+  "prompt": "¿Me dibujas un dragón?",
+  "history": []
+ },
+ {
+  "id": "cabin",
+  "label": "image",
+  "kind": "request",
+  "prompt": "sketch a cozy cabin in the snow",
+  "history": []
+ },
+ {
+  "id": "fox-anime",
+  "label": "image",
+  "kind": "request",
+  "prompt": "I want an image of a fox in a forest, anime style",
+  "history": []
+ },
+ {
+  "id": "neon-city",
+  "label": "image",
+  "kind": "request",
+  "prompt": "generate a wallpaper of a neon city at night",
+  "history": []
+ },
+ {
+  "id": "kite",
+  "label": "image",
+  "kind": "request",
+  "prompt": "create an illustration of a girl flying a kite",
+  "history": []
+ },
+ {
+  "id": "amharic-cat",
+  "label": "image",
+  "kind": "request",
+  "prompt": "ድመት ሳልልኝ",
+  "history": []
+ },
+ {
+  "id": "dog-then-image",
+  "label": "image",
+  "kind": "request",
+  "prompt": "Image",
+  "history": [
+   [
+    "user",
+    "Dog"
+   ],
+   [
+    "assistant",
+    "Dogs are loyal companions! Anything you'd like to know about them?"
+   ]
+  ]
+ },
+ {
+  "id": "do-it",
+  "label": "image",
+  "kind": "request",
+  "prompt": "do it",
+  "history": [
+   [
+    "user",
+    "I want a picture of a cat astronaut"
+   ],
+   [
+    "assistant",
+    "Fun idea! Want me to draw a cat astronaut floating near the moon?"
+   ]
+  ]
+ },
+ {
+  "id": "make-blue",
+  "label": "image",
+  "kind": "revision",
+  "prompt": "make it blue",
+  "history": [
+   [
+    "user",
+    "draw me a cat wearing a hat"
+   ],
+   [
+    "assistant",
+    "[generated: a cat wearing a hat]"
+   ]
+  ]
+ },
+ {
+  "id": "now-night",
+  "label": "image",
+  "kind": "revision",
+  "prompt": "now at night",
+  "history": [
+   [
+    "user",
+    "paint a lighthouse at dawn"
+   ],
+   [
+    "assistant",
+    "[generated: a lighthouse at dawn]"
+   ]
+  ]
+ },
+ {
+  "id": "add-rainbow",
+  "label": "image",
+  "kind": "revision",
+  "prompt": "add a rainbow",
+  "history": [
+   [
+    "user",
+    "paint a lighthouse at dawn"
+   ],
+   [
+    "assistant",
+    "[generated: a lighthouse at dawn]"
+   ]
+  ]
+ },
+ {
+  "id": "cat-orange",
+  "label": "image",
+  "kind": "revision",
+  "prompt": "make the cat orange instead",
+  "history": [
+   [
+    "user",
+    "draw me a cat wearing a hat"
+   ],
+   [
+    "assistant",
+    "[generated: a cat wearing a hat]"
+   ]
+  ]
+ },
+ {
+  "id": "more-realistic",
+  "label": "image",
+  "kind": "revision",
+  "prompt": "can you make it more realistic?",
+  "history": [
+   [
+    "user",
+    "draw me a cat wearing a hat"
+   ],
+   [
+    "assistant",
+    "[generated: a cat wearing a hat]"
+   ]
+  ]
+ },
+ {
+  "id": "winter",
+  "label": "image",
+  "kind": "revision",
+  "prompt": "again but in winter",
+  "history": [
+   [
+    "user",
+    "paint a lighthouse at dawn"
+   ],
+   [
+    "assistant",
+    "[generated: a lighthouse at dawn]"
+   ]
+  ]
+ },
+ {
+  "id": "another-one",
+  "label": "image",
+  "kind": "revision",
+  "prompt": "do another one",
+  "history": [
+   [
+    "user",
+    "draw me a cat wearing a hat"
+   ],
+   [
+    "assistant",
+    "[generated: a cat wearing a hat]"
+   ]
+  ]
+ },
+ {
+  "id": "bigger-hat",
+  "label": "image",
+  "kind": "revision",
+  "prompt": "give him a bigger hat",
+  "history": [
+   [
+    "user",
+    "draw me a cat wearing a hat"
+   ],
+   [
+    "assistant",
+    "[generated: a cat wearing a hat]"
+   ]
+  ]
+ },
+ {
+  "id": "eiffel",
+  "label": "photo",
+  "kind": "photo",
+  "prompt": "show me a photo of the Eiffel Tower",
+  "history": []
+ },
+ {
+  "id": "capybara",
+  "label": "photo",
+  "kind": "photo",
+  "prompt": "what does a capybara look like",
+  "history": []
+ },
+ {
+  "id": "einstein",
+  "label": "photo",
+  "kind": "photo",
+  "prompt": "show me a picture of Albert Einstein",
+  "history": []
+ },
+ {
+  "id": "eiffel-bare",
+  "label": "photo",
+  "kind": "photo",
+  "prompt": "show me the eiffel tower",
+  "history": []
+ },
+ {
+  "id": "taj",
+  "label": "photo",
+  "kind": "photo",
+  "prompt": "can I see the Taj Mahal",
+  "history": []
+ },
+ {
+  "id": "blobfish",
+  "label": "photo",
+  "kind": "photo",
+  "prompt": "what does a blobfish look like?",
+  "history": []
+ },
+ {
+  "id": "map-kenya",
+  "label": "photo",
+  "kind": "photo",
+  "prompt": "show me a map of kenya",
+  "history": []
+ },
+ {
+  "id": "tesla",
+  "label": "photo",
+  "kind": "photo",
+  "prompt": "show me the new tesla model",
+  "history": []
+ },
+ {
+  "id": "great-wall",
+  "label": "photo",
+  "kind": "photo",
+  "prompt": "pictures of the Great Wall of China",
+  "history": []
+ },
+ {
+  "id": "her-photo",
+  "label": "photo",
+  "kind": "photo",
+  "prompt": "show me her photo",
+  "history": [
+   [
+    "user",
+    "who discovered radium?"
+   ],
+   [
+    "assistant",
+    "Marie Curie and Pierre Curie discovered radium in 1898."
+   ]
+  ]
+ },
+ {
+  "id": "eiffel-night",
+  "label": "photo",
+  "kind": "photo",
+  "prompt": "show me it at night",
+  "history": [
+   [
+    "user",
+    "show me a photo of the Eiffel Tower"
+   ],
+   [
+    "assistant",
+    "[photo: the Eiffel Tower]"
+   ]
+  ]
+ },
+ {
+  "id": "attached-bw",
+  "label": "image",
+  "kind": "attached",
+  "prompt": "make it black and white",
+  "history": [],
+  "attached": true
+ },
+ {
+  "id": "attached-bg",
+  "label": "image",
+  "kind": "attached",
+  "prompt": "remove the background",
+  "history": [],
+  "attached": true
+ },
+ {
+  "id": "attached-whats",
+  "label": "none",
+  "kind": "attached",
+  "prompt": "what's in this photo?",
+  "history": [],
+  "attached": true
+ },
+ {
+  "id": "attached-table",
+  "label": "none",
+  "kind": "attached",
+  "prompt": "turn this into a table",
+  "history": [],
+  "attached": true
+ },
+ {
+  "id": "attached-caption",
+  "label": "none",
+  "kind": "attached",
+  "prompt": "make a caption for this photo",
+  "history": [],
+  "attached": true
+ }
+]

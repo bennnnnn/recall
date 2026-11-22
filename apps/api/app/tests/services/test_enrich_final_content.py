@@ -664,6 +664,32 @@ async def test_unverified_working_names_its_first_slip(
     assert ("Check this step:" in persisted) is noted
 
 
+@pytest.mark.asyncio
+async def test_unverified_card_takes_its_working_value(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The working ended on "D = 4 - 12" and the card said -7, the closing line with it
+    (live, 2026-11-22): both say -8 once saved."""
+    monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
+    ctx = _ctx()
+    ctx.solver_unverified = True
+    reply = (
+        "**Substitution**\n$D = 2^2 - 4(3)(1)$\n$D = 4 - 12$\n\n**Answer**\n\n"
+        "```answer\nverified: false\nD = -7\n```\n\nSince -7 is negative, there are no real roots."
+    )
+    persisted = await enrich_final_content(
+        _deps(),
+        MagicMock(),
+        Settings(chemistry_enabled=False),
+        ctx,
+        assistant_text=reply,
+        usage={"input": 1, "output": 2},
+        outcome=TurnOutcome(),
+        was_cancelled=False,
+        should_cancel=None,
+    )
+    assert "-7" not in persisted
+    assert "D = -8" in persisted and "Since -8 is negative" in persisted
+
+
 # --- ES-03: a failed text pass never throws away a side effect that already happened ---------
 
 _DENTIST_ASK = "add dentist tomorrow at 3pm to my reminders"

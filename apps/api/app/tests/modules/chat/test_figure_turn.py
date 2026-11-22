@@ -448,23 +448,23 @@ async def test_a_question_no_figure_helps_keeps_its_reply(figure: _Figure) -> No
 
 
 async def test_a_subject_turn_is_painted_or_photographed_only_when_its_read_asks() -> None:
-    """The photo and painted-picture intercepts ask the read (``drawn_picture.read_lets_it``):
-    a maths or physics turn gets a painting or a photo only when the read asks for exactly
-    that; "Draw the velocity-time graph" read as physics' graph is the app's to draw (PR #2486
-    review), and "show me an animation of this motion" is no photo search (Grade 8 round)."""
-    from app.modules.chat.drawn_picture import read_lets_it
+    """The photo and painted-picture intercepts ask the read (``drawn_picture.read_picture``):
+    any turn gets a painting or a photo only when the read asks for exactly that; "Draw the
+    velocity-time graph" read as physics' graph is the app's to draw (PR #2486 review), "show
+    me an animation of this motion" is no photo search (Grade 8 round), and a read that asks
+    for nothing, or has no answer, gets neither (owner's chat, 2026-11-22)."""
+    from app.modules.chat.drawn_picture import read_picture
 
     def read(**fields: str) -> asyncio.Task[TurnDecision | None]:
         return cast("asyncio.Task[TurnDecision | None]", _read(**fields))
 
-    assert not await read_lets_it(read(subject="maths", picture="diagram"), "image")
-    assert not await read_lets_it(read(subject="physics", picture="graph"), "image")
-    assert not await read_lets_it(read(subject="physics", picture="diagram"), "photo")
-    assert await read_lets_it(read(subject="physics", picture="image"), "image")
-    assert await read_lets_it(read(subject="chemistry", picture="photo"), "photo")
-    assert await read_lets_it(read(subject="everyday", picture="photo"), "photo")
-    assert await read_lets_it(read(subject="everyday", picture="none"), "photo")
-    assert await read_lets_it(None, "photo")
+    assert await read_picture(read(subject="maths", picture="diagram")) is None
+    assert await read_picture(read(subject="physics", picture="graph")) is None
+    assert await read_picture(read(subject="physics", picture="image")) == "image"
+    assert await read_picture(read(subject="chemistry", picture="photo")) == "photo"
+    assert await read_picture(read(subject="everyday", picture="photo")) == "photo"
+    assert await read_picture(read(subject="everyday", picture="none")) is None
+    assert await read_picture(None) is None
 
 
 async def test_a_chemistry_question_asking_for_nothing_gets_its_compound_s_structure(
