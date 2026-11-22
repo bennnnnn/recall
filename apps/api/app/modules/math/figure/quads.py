@@ -10,6 +10,8 @@ along the bottom.
 from __future__ import annotations
 
 import math
+import re
+from collections.abc import Sequence
 
 from app.modules.math.figure.drawing import Drawing, Point, angle_label, length_label, polar
 from app.modules.math.figure.request import FigureRequest
@@ -364,8 +366,12 @@ def build_trapezium(request: FigureRequest) -> FigureSpec | None:
         values.angles.setdefault(0, values.unnamed_angles[0])
     if top is not None and bottom is not None and abs(top - bottom) < 1e-9:
         return None  # equal parallel sides make a parallelogram, not a trapezium
-    isosceles = request.shape.startswith("isosceles")
-    legs = [v for role, v in values.unnamed if role in {"leg", "side"}]
+    # Its equal sides are its legs: a trapezium with equal non-parallel sides is isosceles,
+    # whatever the read calls it (2026-11-21: "equal_side" 5 drew nothing).
+    isosceles = request.shape.startswith("isosceles") or bool(request.given("equal_side"))
+    legs = [v for role, v in values.unnamed if role in {"leg", "side", "equal_side"}]
+    if isosceles and len(legs) == 2 and abs(legs[0] - legs[1]) < 1e-9:
+        legs = legs[:1]  # the equal legs, stated as a pair: one value
     if len(legs) > (1 if isosceles else 2) or (len(legs) == 2 and 1 in values.sides):
         return None
     for index, leg in zip((3, 1), legs, strict=False):
@@ -392,6 +398,21 @@ def build_trapezium(request: FigureRequest) -> FigureSpec | None:
         drawing.line(names[3], foot, values.label(values.height), dashed=True)
         drawing.angle(foot, names[1], names[3], right=True)
     return drawing.spec()
+
+
+_TRAPEZIA = frozenset({"trapezium", "trapezoid"})
+_ISOSCELES = re.compile(r"\bisosceles\s+trapez")
+
+
+def trapezium_as_said(request: FigureRequest, texts: Sequence[str]) -> FigureRequest:
+    """A trapezium the question calls isosceles is drawn so, its legs equal, whatever the
+    read named it: one leg read and the other drawn free made a lopsided picture of an
+    isosceles one (2026-11-21)."""
+    if request.kind != "polygon" or request.shape not in _TRAPEZIA:
+        return request
+    if not _ISOSCELES.search(" ".join(texts).lower()):
+        return request
+    return request.model_copy(update={"shape": f"isosceles_{request.shape}"})
 
 
 def build_kite(request: FigureRequest) -> FigureSpec | None:
