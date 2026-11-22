@@ -38,6 +38,7 @@ from app.modules.chat.figure_turn import (
 )
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.prompt_inject import inject_before_last_user
+from app.modules.chat.referent_read import kept_referent
 from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.turn_trace import note_prompt_rule
 from app.modules.turn_reading.turn import current_turn_reading
@@ -510,8 +511,9 @@ async def attach_drawing(state: FinalizeState) -> str:
     # 2026-11-22).
     if parted is None and shows_it(_read_in(ctx)):
         # Held to the problem shown, never an older line's numbers (review): the one a
-        # follow-up resolved, else the user's last message before the line.
-        shown = [line, ctx.followup_problem or (texts[1] if len(texts) > 1 else "")]
+        # follow-up resolved or the referent read named, else the user's last message.
+        problem = ctx.followup_problem or kept_referent(line)
+        shown = [line, problem or (texts[1] if len(texts) > 1 else "")]
         fences = [fence for fence in fences if not names_nothing(fence, shown)]
     if not fences:
         return text

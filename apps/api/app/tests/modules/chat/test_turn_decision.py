@@ -405,6 +405,7 @@ async def test_a_request_to_see_the_problem_asks_the_text_read_when_the_decider_
     Decider searched more turns that need none."""
     fields = _fields(follow="draw", **decider)
     monkeypatch.setattr(decider_read, "decide_turn", AsyncMock(return_value=fields))
+    monkeypatch.setattr(turn_decision, "_after_a_problem", AsyncMock(return_value=True))
     said = TurnDecision.model_validate(
         {"live": False, "subject": text[0], "picture": text[1], "follow": "draw"}
     )
@@ -745,3 +746,24 @@ def test_the_read_sees_the_end_of_a_long_last_reply() -> None:
     quoted = turn_decision.earlier_turns(recent)[-1][1]
     assert quoted.startswith("Sleep runs on a body clock.") and quoted.endswith(offer)
     assert len(quoted) <= 1500 + 3
+
+
+@pytest.mark.asyncio
+async def test_an_everyday_picture_follow_up_asks_no_text_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ "show me a picture of it" after the Colosseum: no school problem before it, so the
+    Decider's photo stands and nothing waits for the text read (review)."""
+    fields = _fields(follow="draw", subject="everyday", picture="photo")
+    monkeypatch.setattr(decider_read, "decide_turn", AsyncMock(return_value=fields))
+    monkeypatch.setattr(turn_decision, "_after_a_problem", AsyncMock(return_value=False))
+    said = TurnDecision.model_validate(
+        {"live": False, "subject": "maths", "picture": "diagram", "follow": "draw"}
+    )
+    with patch(_STRUCTURED, AsyncMock(return_value=said)):
+        read = await turn_decision.read_decision(
+            _SETTINGS,
+            "show me a picture of it",
+            earlier=[("user", "Tell me about the Colosseum"), ("assistant", "A Roman arena.")],
+        )
+    assert read is not None and (read.subject, read.picture) == ("everyday", "photo")

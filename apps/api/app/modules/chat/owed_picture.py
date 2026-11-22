@@ -105,7 +105,12 @@ def mermaid_stands_in(decision: TurnDecision | None, line: str) -> bool:
     architecture, a process, a dependency graph) stays the model's to draw as one, and a
     message that names a flowchart, a flow or tree diagram, a mind map or another such
     diagram keeps it whatever its subject."""
-    if decision is None or decision.picture in (None, "none") or is_mermaid_question(line):
+    if decision is None or is_mermaid_question(line):
+        return False
+    # Asked to see the chat's problem, whatever picture the read names (review).
+    if shows_it(decision):
+        return True
+    if decision.picture in (None, "none"):
         return False
     return decision.subject in READ_SUBJECTS or decision.picture in ("photo", "image")
 

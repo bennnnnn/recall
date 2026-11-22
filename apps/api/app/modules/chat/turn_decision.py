@@ -454,7 +454,7 @@ async def _join(
         decision = TurnDecision(**decided)
         # Asked of the Decider's own answer: the read's validators turn its painting into
         # the problem's diagram, which the text read may name better.
-        if not _unsure_whose_picture(decided):
+        if not _unsure_whose_picture(decided) or not await _after_a_problem(settings, earlier):
             return decision
         return _the_problem_s_picture(decision, await _within(settings, text_read, started))
     # The search query is text the Decider cannot write: the text read's, begun beside it.
@@ -486,6 +486,15 @@ def _unsure_whose_picture(decided: dict[str, Any]) -> bool:
     if subject == "chemistry":
         return picture != "molecule"
     return subject not in _STEM or picture not in _DRAWN
+
+
+async def _after_a_problem(settings: Settings, earlier: list[tuple[str, str]]) -> bool:
+    """The chat before the message holds a school problem: an everyday "show me a picture
+    of it" (the Colosseum's photo, "make it blue") waits for no text read (review)."""
+    from app.modules.chat.school_problem import chat_holds_a_school_problem
+
+    lines = [content for role, content in earlier if role == "user"]
+    return await chat_holds_a_school_problem(settings, lines)
 
 
 async def _within(

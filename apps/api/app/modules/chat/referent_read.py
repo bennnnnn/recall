@@ -189,6 +189,14 @@ async def referent_for_turn(
     return referent
 
 
+def kept_referent(line: str) -> str | None:
+    """The problem this turn's referent read named for ``line``, if it ran; nothing read."""
+    kept = kept_for_turn(_KEPT)
+    if isinstance(kept, tuple) and kept[0] == line and isinstance(kept[2], Referent):
+        return kept[2].problem
+    return None
+
+
 async def read_referent(
     settings: Settings, line: str, recent: Sequence[Any], *, asked: bool = False
 ) -> Referent | None:

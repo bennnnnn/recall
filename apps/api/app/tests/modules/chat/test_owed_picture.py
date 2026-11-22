@@ -231,3 +231,13 @@ async def test_a_request_to_see_the_problem_naming_no_picture_is_still_owed(
     )
     text = held_to_the_ask("It is 17 split into groups of 5.", _ctx("pic pls", read), "en")
     assert text.startswith(line)
+
+
+async def test_a_flowchart_stands_in_for_the_chat_s_problem_named_no_picture() -> None:
+    """Asked to see "17 mod 5" with no picture named, a flowchart is no picture of it
+    (review)."""
+    read = TurnDecision.model_validate(
+        {"live": False, "subject": "maths", "picture": "none", "follow": "draw"}
+    )
+    text = held_to_the_ask(f"{_FLOWCHART}\n\n17 is three fives and 2.", _ctx("pic pls", read), "en")
+    assert "```mermaid" not in text and text.startswith("I couldn't draw this diagram.")

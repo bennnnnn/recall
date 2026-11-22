@@ -14,7 +14,7 @@ from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.core.readings import read_off_loop
-from app.modules.chat.figure_turn import read_shows_it, will_draw
+from app.modules.chat.figure_turn import earlier_user_lines, read_shows_it, will_draw
 from app.modules.chat.posed_read import posed_for_turn
 from app.modules.chat.prompt_builder import SubjectFetch, fetch_subject, inject_subject_block
 from app.modules.chat.referent_read import (
@@ -23,6 +23,7 @@ from app.modules.chat.referent_read import (
     continuation_for_turn,
     referent_for_turn,
 )
+from app.modules.chat.school_problem import chat_holds_a_school_problem
 from app.modules.chat.turn_prep.followups import (
     SubjectFollowup,
     resolve_posed_followup,
@@ -428,7 +429,7 @@ async def _asks_to_see_by_read(
 ) -> bool:
     """Whether the turn's read says the line asks to see the problem the chat is about,
     when its words do not say so. Only a line with no problem of its own after a reply
-    waits for the read ("can u show me a picture"): small talk, a reply the server has
+    in a chat that holds a school problem waits for the read ("can u show me a picture"): small talk, a reply the server has
     already (an instant reply, a money card), a photo, and a question a subject reads alone
     ("solve 2x + 5 = 17") go on at once (review: every later turn of a chat waited for it
     before its solve)."""
@@ -441,7 +442,10 @@ async def _asks_to_see_by_read(
         has_image_attachment=request.has_image_attachment,
         chemistry_enabled=settings.chemistry_enabled,
     )
-    return own is None and await read_shows_it(settings)
+    if own is not None:
+        return False
+    earlier = earlier_user_lines(recent, request.content)
+    return await chat_holds_a_school_problem(settings, earlier) and await read_shows_it(settings)
 
 
 def reads_window(request: TurnRequest) -> list[Any]:
