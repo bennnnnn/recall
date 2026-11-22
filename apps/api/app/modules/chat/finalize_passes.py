@@ -318,7 +318,9 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     # working's last line, worked to its value, stays above the card, as a textbook's does.
     FinalizePass(
         "worked_lead",
-        lambda s: drop_guessed_lead(s.text),
+        lambda s: drop_guessed_lead(
+            s.text, laid_out=getattr(getattr(s, "ctx", None), "worked", None) is not None
+        ),
         kind=TEXT,
         after=frozenset({"working_check"}),
     ),

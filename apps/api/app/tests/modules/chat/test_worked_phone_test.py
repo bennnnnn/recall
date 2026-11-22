@@ -254,8 +254,12 @@ def test_a_value_with_a_digit_keeps_its_row(given: str, row: str, named: str) ->
 @pytest.mark.parametrize(
     ("given", "row"),
     [
-        ("m | 1.5e-3 | kg | mass", "$m = 1.5e-3\\,\\mathrm{kg}$"),
-        ("N_A | 6.022E23 | mol^{-1} | Avogadro constant", "$N_A = 6.022E23\\,\\mathrm{mol⁻¹}$"),
+        # Written as maths writes a power of ten (2026-11-21).
+        ("m | 1.5e-3 | kg | mass", "$m = 1.5 \\times 10^{-3}\\,\\mathrm{kg}$"),
+        (
+            "N_A | 6.022E23 | mol^{-1} | Avogadro constant",
+            "$N_A = 6.022 \\times 10^{23}\\,\\mathrm{mol⁻¹}$",
+        ),
     ],
 )
 def test_a_calculators_power_of_ten_keeps_its_unit(given: str, row: str) -> None:

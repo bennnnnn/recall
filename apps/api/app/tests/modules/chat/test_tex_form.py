@@ -11,12 +11,15 @@ from app.modules.chat.tex_form import well_formed
 @pytest.mark.parametrize(
     ("tex", "shown"),
     [
-        ("v_A_{vec}, v_B_{vec}", "{v_A}_{vec}, {v_B}_{vec}"),
+        # A second subscript is more of the first: one subscript naming both (2026-11-21).
+        ("v_A_{vec}, v_B_{vec}", "v_{A,vec}, v_{B,vec}"),
+        ("r_{frustum}_{top}", "r_{frustum,top}"),
+        ("V_{small}_{cone}_{volume}", "V_{small,cone,volume}"),
         ("x^2^3", "{x^2}^3"),
         ("x_a^b_c", "{x_a^b}_c"),
         # Inside a group as well (Claude on #2509).
-        (r"\frac{v_A_{vec}}{2}", r"\frac{{v_A}_{vec}}{2}"),
-        (r"\sqrt{x_1_2}", r"\sqrt{{x_1}_2}"),
+        (r"\frac{v_A_{vec}}{2}", r"\frac{v_{A,vec}}{2}"),
+        (r"\sqrt{x_1_2}", r"\sqrt{x_{1,2}}"),
         ("e^{x^2^3}", "e^{{x^2}^3}"),
         (r"(-16\hat{i} + 0\hat{j})\ \mathrm{m/s", r"(-16\hat{i} + 0\hat{j})\ \mathrm{m/s}"),
         (r"\frac{1}{2", r"\frac{1}{2}"),
