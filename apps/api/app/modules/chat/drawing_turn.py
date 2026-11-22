@@ -509,7 +509,7 @@ async def attach_drawing(state: FinalizeState) -> str:
     # show me a picture" after 40 tickets at $8 and $5 got a bare rectangle (QA round,
     # 2026-11-22).
     if parted is None and shows_it(_read_in(ctx)):
-        fences = [fence for fence in fences if not names_nothing(fence)]
+        fences = [fence for fence in fences if not names_nothing(fence, texts)]
     if not fences:
         return text
     drawing.fences = list(fences)

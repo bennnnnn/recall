@@ -635,16 +635,28 @@ def test_a_picture_names_something_by_a_label_or_a_lettered_point() -> None:
     assert not figure_turn._names_anything(hidden)
 
 
-@pytest.mark.parametrize(("fence", "kept"), [(_BARE_RECTANGLE, False), (_LABELLED_RECTANGLE, True)])
+_CIRCLE_AREA = "What is the formula for the area of a circle?"
+
+
+@pytest.mark.parametrize(
+    ("fence", "problem", "kept"),
+    [
+        (_BARE_RECTANGLE, "i bought 7 notebooks, $2 each, and paid w a $20 bill", False),
+        (_LABELLED_RECTANGLE, "i bought 7 notebooks, $2 each, and paid w a $20 bill", True),
+        # A problem that states no number: its bare shape is its picture (review).
+        (_BARE_CIRCLE, _CIRCLE_AREA, True),
+    ],
+)
 async def test_a_picture_of_the_chat_s_problem_that_names_nothing_is_left_out(
-    monkeypatch: pytest.MonkeyPatch, fence: str, kept: bool
+    monkeypatch: pytest.MonkeyPatch, fence: str, problem: str, kept: bool
 ) -> None:
     """ "can u show me a picture" after 7 notebooks at $2 each got a bare rectangle (QA
-    round, 2026-11-22): asked by the read alone, a figure must name something of it."""
+    round, 2026-11-22): asked by the read alone, a figure of a problem that states numbers
+    must name something of it."""
     from app.modules.chat import referent_read
 
     async def named(*_: Any, **__: Any) -> referent_read.Referent:
-        return referent_read.Referent(_NOTEBOOKS)
+        return referent_read.Referent(problem)
 
     stand_in = _Figure(fence)
     monkeypatch.setattr(figure_turn, "_figure", lambda *_: stand_in)
@@ -653,14 +665,11 @@ async def test_a_picture_of_the_chat_s_problem_that_names_nothing_is_left_out(
     ctx = _ctx(
         line,
         live_read=_read(subject="maths", picture="diagram", follow="draw"),
-        recent_messages=_chat(_NOTEBOOKS, line),
+        recent_messages=_chat(problem, line),
     )
     ctx.figure = figure_turn.start_figure(_settings(), ctx)
-    text = await figure_turn.attach_figure(_state(ctx, "Seven notebooks at $2 each."))
+    text = await figure_turn.attach_figure(_state(ctx, "It is about that problem."))
     assert (fence in text) is kept
-
-
-_NOTEBOOKS = "i bought 7 notebooks, $2 each, and paid w a $20 bill. how much change?"
 
 
 def test_a_named_problem_four_messages_back_keeps_its_follow_ups() -> None:

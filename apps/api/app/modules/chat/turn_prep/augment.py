@@ -376,9 +376,7 @@ async def _turn_followup(
     recent = reads_window(request)
     # Whether the line asks to see what the chat is about, by the turn's read, when its
     # words do not say so: only after a reply, which "it" could be in.
-    asked = (
-        bool(recent) and not asks_for_a_referent(request.content) and await read_shows_it(settings)
-    )
+    asked = await _asks_to_see_by_read(request, settings, recent, small_talk=small_talk)
     referent = await referent_for_turn(settings, request.content, recent, asked=asked)
     continued = await continuation_for_turn(settings, request.content, recent)
     timeout = settings.subject_read_timeout_seconds
@@ -415,6 +413,24 @@ async def _turn_followup(
                 timeout=timeout,
             )
     return followup or SubjectFollowup(), referent
+
+
+async def _asks_to_see_by_read(
+    request: TurnRequest, settings: Settings, recent: list[Any], *, small_talk: bool
+) -> bool:
+    """Whether the turn's read says the line asks to see the problem the chat is about,
+    when its words do not say so. Only a line with no problem of its own after a reply
+    waits for the read ("can u show me a picture"): small talk, and a question a subject
+    reads alone ("solve 2x + 5 = 17"), go on at once (review: every later turn of a chat
+    waited for it before its solve)."""
+    if not recent or small_talk or asks_for_a_referent(request.content):
+        return False
+    own = subject_of(
+        request.content,
+        has_image_attachment=request.has_image_attachment,
+        chemistry_enabled=settings.chemistry_enabled,
+    )
+    return own is None and await read_shows_it(settings)
 
 
 def reads_window(request: TurnRequest) -> list[Any]:

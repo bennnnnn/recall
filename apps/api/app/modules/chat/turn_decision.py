@@ -491,9 +491,11 @@ def _unsure_whose_picture(decided: dict[str, Any]) -> bool:
 async def _within(
     settings: Settings, text_read: asyncio.Task[TurnDecision | None], started: float
 ) -> TurnDecision | None:
-    """The text read, within the read's own budget: a picture's turn waits on the read
-    that long (``drawn_picture.read_picture``), and at the reply's shorter wait the text
-    read was in on 40 of the 51 (p50 1.1 s)."""
+    """The text read, within the read's own budget (p50 1.1 s, p95 1.7 s). Capped at the
+    reply's shorter wait (review, 2026-11-22), the eval's bad replies went from 5 to 11 of
+    45: the Decider's "everyday" stood, and the reply asked "Sure — what do you want a
+    picture of?". The prep waits as long for a line that may ask to see the problem
+    (``figure_turn.read_shows_it``), so neither gives up on it first."""
     left = settings.live_read_timeout_seconds - (time.monotonic() - started)
     try:
         read = await asyncio.wait_for(text_read, max(0.0, left))

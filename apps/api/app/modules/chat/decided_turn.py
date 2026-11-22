@@ -147,7 +147,8 @@ async def decide_from_the_read(ctx: StreamContext, settings: Settings) -> None:
     _goes_on_with_the_lesson(ctx, read, answered, unplaced=unplaced)
     if _grades_the_card(ctx, answered, unplaced=unplaced):
         return
-    if _replies_to_the_card(ctx, read):
+    # A request to see the problem works nothing out: its note asks for no working (review).
+    if _replies_to_the_card(ctx, read) or shows_it(read):
         _without_worked_layout(ctx)
     else:
         _worked_layout(ctx, settings, read)

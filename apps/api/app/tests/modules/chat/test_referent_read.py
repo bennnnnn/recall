@@ -233,3 +233,41 @@ def test_a_read_that_names_none_clears_no_earlier_line(
         client_longitude=None,
     )
     assert _prior_user_lines(request, prompt, referent) == lines
+
+
+@pytest.mark.parametrize(
+    ("line", "small_talk", "waits"),
+    [
+        ("can u show me a picture", False, True),
+        # A question a subject reads alone, and small talk, never wait for the read (review).
+        ("solve 2x + 5 = 17", False, False),
+        ("thanks!", True, False),
+        # The words ask already: the referent read runs on them.
+        ("draw it", False, False),
+    ],
+)
+@pytest.mark.asyncio
+async def test_only_a_line_with_no_problem_of_its_own_waits_for_the_read(
+    line: str, small_talk: bool, waits: bool
+) -> None:
+    from uuid import uuid4
+
+    from app.modules.chat.turn_prep import augment
+    from app.modules.chat.turn_prep.request import TurnRequest
+
+    request = TurnRequest(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        content=line,
+        model="free-chat",
+        client_timezone=None,
+        client_location=None,
+        client_latitude=None,
+        client_longitude=None,
+    )
+    asked = AsyncMock(return_value=True)
+    with patch.object(augment, "read_shows_it", asked):
+        said = await augment._asks_to_see_by_read(
+            request, Settings(), _rows(_BALL_CHAT), small_talk=small_talk
+        )
+    assert said is waits and asked.await_count == int(waits)

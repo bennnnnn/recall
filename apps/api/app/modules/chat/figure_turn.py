@@ -119,7 +119,7 @@ def shows_it(decision: TurnDecision | None) -> bool:
 
 
 async def read_shows_it(settings: Settings) -> bool:
-    """Whether the turn's read, waited on for at most its usual wait, says the message asks
+    """Whether the turn's read, waited on for at most its own budget, says the message asks
     to see what the conversation is about: the one decider, beside the words, of a request
     to see "it". "can u show me a picture" after a homework answer named nothing the words
     know ("draw it", "show it"), so the earlier problem was never read, solved or drawn: 6
@@ -130,7 +130,10 @@ async def read_shows_it(settings: Settings) -> bool:
     read = kept_for_turn(LIVE_READ)
     if not isinstance(read, asyncio.Task):
         return False
-    await asyncio.wait([read], timeout=settings.live_read_wait_seconds)
+    # The read's own budget: a draw follow-up the Decider is unsure of waits that long for
+    # the text read (``turn_decision._within``). Only a line with no problem of its own
+    # after a reply asks (``augment._asks_to_see_by_read``).
+    await asyncio.wait([read], timeout=settings.live_read_timeout_seconds)
     if not read.done() or read.cancelled() or read.exception() is not None:
         return False
     return shows_it(read.result())
@@ -206,8 +209,9 @@ async def _draw(
     # area of a circle?" got a bare circle, nothing on it (live, 2026-11-21). Nor does one of
     # the problem the chat worked on: "can u show me a picture" after 7 notebooks at $2 each
     # got a bare rectangle (QA round, 2026-11-22).
-    must_name = wanted[1] != "asked" or shows_it(read.result())
-    if fence and must_name and names_nothing(fence):
+    unasked = wanted[1] != "asked"
+    held_to = None if unasked else [line, *topic]
+    if fence and (unasked or shows_it(read.result())) and names_nothing(fence, held_to):
         logger.info("figure left out: it names nothing")
         return None
     logger.info(
@@ -301,10 +305,13 @@ def _shows_a_value(fence: str) -> bool:
     return any(_DIGIT.search(label) for label in _labels(_spec(fence)))
 
 
-def names_nothing(fence: str) -> bool:
-    """A figure that labels and letters nothing: no picture of a problem it was not asked
-    for in its own words (a bare circle, a bare rectangle)."""
-    return _kind(fence) == "geometry" and not _names_anything(fence)
+def names_nothing(fence: str, texts: Sequence[str] | None = None) -> bool:
+    """A figure that labels and letters nothing (a bare circle, a bare rectangle); given
+    the problem's ``texts``, only when they state a number it could have shown: a bare
+    circle is the picture of "the area of a circle", never of 7 notebooks at $2 each."""
+    if _kind(fence) != "geometry" or _names_anything(fence):
+        return False
+    return texts is None or any(_DIGIT.search(text) for text in texts)
 
 
 def _names_anything(fence: str) -> bool:
