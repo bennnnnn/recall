@@ -321,3 +321,13 @@ def test_prose_saying_the_cards_value_again_is_still_flagged() -> None:
         + _card("15\\,\\mathrm{km/h}")
     )
     assert any(signal.code == "duplicate_answer" for signal in _collect_format_signals(text))
+
+
+def test_a_heading_whose_lines_went_goes_with_them() -> None:
+    """A reply in parts (2026-11-22): its closing "**Answer**" summary was a restatement and
+    went, and the bare heading was left last."""
+    text = f"{_CAR_AND_TRAIN}\n\n**Answer**\n\nThe car's speed is **20 m/s**, and the train's speed is **30 m/s**.\n"
+    assert drop_restated_tail(text, _CAR_AND_TRAIN_ASKED) == f"{_CAR_AND_TRAIN}\n"
+    # A heading with something of its own under it stays.
+    kept = f"{_CAR_AND_TRAIN}\n\n**Answer**\n\nThe train is faster by 10 m/s.\n"
+    assert drop_restated_tail(kept, _CAR_AND_TRAIN_ASKED) == kept

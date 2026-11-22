@@ -322,7 +322,19 @@ def drop_restated_tail(text: str, question: str = "") -> str:
     kept = [piece for piece, prose in pieces if not (prose and _restates(piece, shown, known))]
     if len(kept) == len(pieces):
         return text
-    return "\n\n".join([head, *kept]) + ("\n" if text.endswith("\n") else "")
+    return "\n\n".join([head, *_without_bare_heading(kept)]) + ("\n" if text.endswith("\n") else "")
+
+
+# A heading on its own line: "**Answer**", "**Summary:**", "### Final answer".
+_BARE_HEADING = re.compile(r"#{1,4}[ \t]\S[^\n]*|\*\*[^*\n]+\*\*:?")
+
+
+def _without_bare_heading(kept: list[str]) -> list[str]:
+    """``kept`` without a heading left last with nothing under it: the lines it headed went,
+    and "**Answer**" stood alone at the reply's end (a reply in parts, 2026-11-22)."""
+    while kept and _BARE_HEADING.fullmatch(kept[-1].strip()):
+        kept = kept[:-1]
+    return kept
 
 
 # A one-line closing summary after the cards, which stays: a sentence or two, short.
@@ -369,4 +381,4 @@ def drop_recap_tail(text: str, question: str = "") -> str:
         return text
     summary = prose[-1] if _one_line_summary(prose[-1]) else None
     kept = [piece for piece, is_prose in pieces if not is_prose or piece is summary]
-    return "\n\n".join([head, *kept]) + ("\n" if text.endswith("\n") else "")
+    return "\n\n".join([head, *_without_bare_heading(kept)]) + ("\n" if text.endswith("\n") else "")
