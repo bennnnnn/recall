@@ -88,6 +88,13 @@ def _asks(setup: FormalProblem, *server: dict[str, Any]) -> list[cc.ReadAsk]:
         ([(3.0, "s")], _asks(_setup(_ask(3, "s", part="a"), _ask(5, "s", part="b"))), "agree"),
         # The reading asks another quantity: it read another question.
         ([(20.0, "J")], _asks(_setup(_ask(4, "s"))), "disagree"),
+        # A temperature change in kelvin is the same change in °C; an absolute one still reads.
+        ([(10.0, "K")], _asks(_setup(_ask(10, "degC"))), "agree"),
+        ([(318.15, "K")], _asks(_setup(_ask(45, "degC"))), "agree"),
+        ([(12.0, "K")], _asks(_setup(_ask(10, "degC"))), "disagree"),
+        # An angle is no ratio, though pint reads both as plain numbers.
+        ([(30.0, "°")], _asks(_setup(_ask(1.5, ""))), "disagree"),
+        ([(30.0, "°")], _asks(_setup(_ask(0.5236, "rad"))), "agree"),
         # Nothing to hold it to: no value asked, or units neither side reads.
         ([(20.0, "J")], [], "unread"),
         ([(20.0, "J")], _asks(_setup(_ask(None, "J"))), "unread"),

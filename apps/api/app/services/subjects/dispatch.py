@@ -16,7 +16,6 @@ from typing import TYPE_CHECKING, Any
 
 from redis.asyncio import Redis
 
-from app.core.aio import gather_or_cancel
 from app.core.config import Settings
 from app.core.readings import read_off_loop, reading
 from app.core.sympy_executor import run_sympy
@@ -171,10 +170,8 @@ async def _paired_direct_reply(
     if len(parts) != 2:
         return None
     replies: list[str] = []
-    pieces = await gather_or_cancel(
-        *(build_subject_augmentation(part, settings, pair=False, redis=redis) for part in parts)
-    )
-    for piece, part in zip(pieces, parts, strict=True):
+    for part in parts:
+        piece = await build_subject_augmentation(part, settings, pair=False, redis=redis)
         reply = await read_direct_reply(piece.verified, part, settings)
         if reply is None:
             return None
@@ -193,10 +190,9 @@ async def _solve_parts(
     whole: Callable[[], Awaitable[SubjectAugmentation]],
 ) -> SubjectAugmentation:
     """Each question solved on its own (``build_subject_augmentation``'s ``parts``)."""
-    # At once: a part's solve may wait on a second reading of it (``physics.cross_check``).
-    pieces = await gather_or_cancel(
-        *(build_subject_augmentation(part, settings, pair=False, redis=redis) for part in parts)
-    )
+    pieces = [
+        await build_subject_augmentation(part, settings, pair=False, redis=redis) for part in parts
+    ]
     if answer_all:
         replies = [
             await read_direct_reply(piece.verified, part, settings)

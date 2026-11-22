@@ -30,6 +30,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
+import re
 import time
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -90,14 +91,28 @@ def reading_asks(setup: Any, result: dict[str, Any]) -> list[ReadAsk]:
     return asks
 
 
+# An angle is its own kind, though pint reads it as a plain number: 30° is no ratio.
+_ANGLE = re.compile(r"deg(?!ree_?[cf]|[cf])|°(?!\s*[cf])|\brad", re.IGNORECASE)
+# A temperature unit, which may be a change ("10 K" warmer is "10 °C" warmer) or a reading.
+_TEMPERATURE = {"degC": "delta_degC", "°C": "delta_degC", "degF": "delta_degF", "°F": "delta_degF"}
+
+
 def _kind(unit: str) -> Any | None:
     from app.services.formal.maths import as_quantity
 
     try:
-        return as_quantity(1.0, unit).dimensionality
+        kind = as_quantity(1.0, unit).dimensionality
     except Exception as exc:  # pint: a unit it cannot read has no kind to compare by
         logger.info("physics cross-check: a unit not read (%s)", type(exc).__name__)
         return None
+    return ("angle", str(kind)) if _ANGLE.search(unit) else kind
+
+
+def _readings_of(unit: str, target: str) -> list[tuple[str, str]]:
+    """The ways to read ``unit`` in ``target``: as it is, and for a temperature also as a
+    change (a 10 K rise is a 10 °C rise, though 10 K is no 10 °C reading)."""
+    change = (_TEMPERATURE.get(unit, unit), _TEMPERATURE.get(target, target))
+    return [(unit, target)] + ([change] if change != (unit, target) else [])
 
 
 def _in_unit(value: float, unit: str, target: str) -> float | None:
@@ -114,16 +129,17 @@ def _equals(answer: tuple[float, str], ask: ReadAsk) -> bool:
     """The solver's value is one the reading gives for the ask, by size."""
     value, unit = answer
     size = abs(value)
-    for low_read, high_read in ask.values:
-        low, high = _in_unit(low_read, ask.unit, unit), _in_unit(high_read, ask.unit, unit)
-        if low is None or high is None:
-            continue
-        bottom, top = sorted((abs(low), abs(high)))
-        if min(low, high) < 0 < max(low, high):  # a band across zero holds every smaller size
-            bottom = 0.0
-        slack = AGREEMENT * max(size, top) + 1e-12
-        if bottom - slack <= size <= top + slack:
-            return True
+    for source, goal in _readings_of(ask.unit, unit):
+        for low_read, high_read in ask.values:
+            low, high = _in_unit(low_read, source, goal), _in_unit(high_read, source, goal)
+            if low is None or high is None:
+                continue
+            bottom, top = sorted((abs(low), abs(high)))
+            if min(low, high) < 0 < max(low, high):  # a band across zero holds smaller sizes
+                bottom = 0.0
+            slack = AGREEMENT * max(size, top) + 1e-12
+            if bottom - slack <= size <= top + slack:
+                return True
     return False
 
 

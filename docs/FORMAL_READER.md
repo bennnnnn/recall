@@ -162,11 +162,13 @@ reader's reading of the same question (`modules/physics/cross_check.py`):
 
 - **When:** a physics turn a solver answered with numbers (`PhysicsSubject.solve`), before
   the reply is written. The setup read starts once the solve verifies (the solve takes
-  milliseconds) and the turn waits at most `formal_wait_seconds` (2 s) for it. A part
-  of a question in parts is solved and read beside the others (`subjects/dispatch.py`).
+  milliseconds) and the turn waits at most `formal_wait_seconds` (2 s) for it. Each
+  separate question of a message is read on its own, one after another, as it is solved
+  (the SymPy pool runs one solve per user at a time).
 - **The comparison:** for each value the reading asks, the server's value for it (across
   its constants' band) and the setup's own answer; the solver's values are paired with them
-  by kind (pint), in any unit of the kind, by size (a sign is a direction), within 2%. The
+  by kind (pint; an angle is its own kind), in any unit of the kind (a temperature also as a
+  change: a 10 K rise is a 10 °C rise), by size (a sign is a direction), within 2%. The
   smaller side must be covered by the larger: a card may show more than was asked (both
   balls' speeds after a collision), a partial solve less than the reading asks.
 - **Agree:** the check stands, the reply as before. **Disagree** (a value that matches none
