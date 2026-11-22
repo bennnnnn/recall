@@ -93,11 +93,15 @@ async def test_create_and_update_capitalize_a_lowercase_name(fake_session):
     )
     assert fake_session.add.call_args.args[0].name == "Bini"
 
-    session = AsyncMock(spec=AsyncSession)
-    user = MagicMock()
-    await update(session, user, name="mary ann")
+    from app.models.orm import User
+
+    # A session with no sync_session: the row is written as it is, uncommitted.
+    unbound = AsyncMock(spec=AsyncSession)
+    del unbound.sync_session
+    user = User(email="x@example.com", name="Ada")
+    await update(unbound, user, commit=False, name="mary ann")
     assert user.name == "Mary Ann"
-    await update(session, user, name="McKenzie")
+    await update(unbound, user, commit=False, name="McKenzie")
     assert user.name == "McKenzie"
     assert created is not None
 
