@@ -18,7 +18,9 @@ in English ("Dibújame un gato. Why is the me at the end?"). No rule told those 
 from a real second request, so no other-language message is cut into a picture and a
 request at all.
 
-Every line is checked here, at the reader. The behavior sweep runs every tenth line of each
+Since 2026-11-22 the turn's read decides a picture: the words only offer a line to it, and
+a line the read does not call a picture request is never painted. Every line is checked
+here, at the reader. The behavior sweep runs every tenth line of each
 group through the whole turn (``sweep_corpus/picture_languages.json``), so a rule elsewhere
 that hijacks one of these shapes shows up there without repeating 2,400 full turns in CI.
 """
@@ -31,7 +33,7 @@ from pathlib import Path
 import pytest
 
 from app.modules.chat.turn_prep.intents import plan_turn
-from app.modules.images.intent import composer_image_intent
+from app.modules.images.intent import composer_candidates, decided_intent
 
 _GROUPS: dict[str, list[str]] = json.loads(
     Path(__file__).with_name("language_misfires.json").read_text(encoding="utf-8")
@@ -55,9 +57,13 @@ def test_the_sweep_runs_every_group_through_the_whole_turn() -> None:
     "group", [pytest.param(name, id=f"group{n}") for n, name in enumerate(_GROUPS)]
 )
 def test_no_picture(group: str) -> None:
+    """None is painted unless the turn's read asks for a picture (``decided_intent``): a
+    line whose words name one is only offered to the read. The plan still reads no picture
+    part in any of them."""
     drawn = [
         text
         for text in _GROUPS[group]
-        if composer_image_intent(text, []).request is not None or plan_turn(text).of_kind("image")
+        if decided_intent(composer_candidates(text, []), None).request is not None
+        or plan_turn(text).of_kind("image")
     ]
     assert drawn == []

@@ -48,14 +48,7 @@ def _photo_turn(resources: SimpleNamespace) -> Iterator[None]:
         patch("app.modules.chat.stream_entry.turn_resources", turn_resources),
         patch("app.modules.chat.turn_load.seed_usage_from_db", AsyncMock()),
         patch("app.modules.chat.turn_load.wait_for_pending_finalize", AsyncMock()),
-        patch(
-            "app.modules.chat.turn_intercepts.try_image_lookup_for_turn",
-            AsyncMock(return_value=True),
-        ),
-        patch(
-            "app.modules.chat.turn_intercepts.try_image_gen_for_turn",
-            AsyncMock(return_value=False),
-        ),
+        patch("app.modules.chat.stream_entry.intercept_new_turn", AsyncMock(return_value=True)),
     ):
         yield
 

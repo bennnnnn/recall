@@ -18,7 +18,7 @@ import pytest
 
 from app.modules.images.gen_intent import extract_image_gen_prompt
 from app.modules.images.gen_intent_drawable import DESCRIBE, GLUE, NOUNS, names_drawable
-from app.modules.images.intent import composer_image_intent
+from app.modules.images.intent import composer_candidates
 from app.tests.modules.images.test_gen_intent_languages import read_in
 
 _PICTURES: dict[str, list[str]] = json.loads(
@@ -29,7 +29,7 @@ PICTURES = [(lang, text) for lang, texts in _PICTURES.items() for text in texts]
 
 @pytest.mark.parametrize(("lang", "text"), PICTURES)
 def test_an_everyday_picture_still_draws(lang: str, text: str) -> None:
-    assert composer_image_intent(text, []).request is not None
+    assert composer_candidates(text, []).request is not None
     assert read_in(text)[:1] == [lang]
 
 
@@ -100,7 +100,7 @@ def test_a_subject_of_listed_words_draws(text: str, subject: str) -> None:
 )
 def test_a_subject_with_an_unlisted_noun_is_answered(text: str) -> None:
     assert extract_image_gen_prompt(text) is None
-    assert composer_image_intent(text, []).request is None
+    assert composer_candidates(text, []).request is None
 
 
 @pytest.mark.parametrize(
@@ -134,7 +134,7 @@ def test_a_subject_with_an_unlisted_noun_is_answered(text: str) -> None:
 )
 def test_a_listed_noun_with_an_unlisted_word_is_answered(text: str) -> None:
     assert extract_image_gen_prompt(text) is None
-    assert composer_image_intent(text, []).request is None
+    assert composer_candidates(text, []).request is None
 
 
 @pytest.mark.parametrize(
@@ -152,7 +152,7 @@ def test_a_listed_noun_with_an_unlisted_word_is_answered(text: str) -> None:
 def test_a_second_request_after_the_picture_is_answered(text: str) -> None:
     """The second request is not swallowed into the picture's subject: the line is answered."""
     assert extract_image_gen_prompt(text) is None
-    assert composer_image_intent(text, []).request is None
+    assert composer_candidates(text, []).request is None
 
 
 @pytest.mark.parametrize(

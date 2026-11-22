@@ -17,6 +17,7 @@ from app.core.config import Settings
 from app.models.orm import User
 from app.modules.chat.turn_intercepts import reply_picture_prompt, start_reply_picture
 from app.modules.chat.turn_prep.intents import plan_turn
+from app.tests.modules.chat.chat_test_support import picture_read
 from app.tests.modules.images.test_gen_intent_languages import DRAWN
 
 # The picture, then "… and also explain what a black hole is"; and the picture asked second.
@@ -41,7 +42,9 @@ OTHER_LANGUAGES = [
 ]
 
 
-def _reply_picture(text: str) -> object:
+async def _reply_picture(text: str) -> object:
+    """The picture beside the reply, with a read asking for one (the only thing that paints)."""
+
     class _Plan:
         @staticmethod
         def can_use(*_args: object) -> bool:
@@ -56,21 +59,24 @@ def _reply_picture(text: str) -> object:
         user=User(id=uuid4(), plan="pro", locale="es"),
         chat_id=uuid4(),
         content=text,
+        read=picture_read("image"),
     )
 
 
-def test_an_english_picture_and_a_question_plan_as_two_parts() -> None:
+@pytest.mark.asyncio
+async def test_an_english_picture_and_a_question_plan_as_two_parts() -> None:
     text = "Draw a cat with a hat and also explain what a black hole is"
     assert [part.kind for part in plan_turn(text).parts] == ["image", "ask"]
     assert reply_picture_prompt(text, Settings()) == "cat with a hat"
-    assert _reply_picture(text) is not None
+    assert await _reply_picture(text) is not None
 
 
 @pytest.mark.parametrize("text", OTHER_LANGUAGES)
-def test_another_language_picture_beside_a_request_is_one_answer(text: str) -> None:
+@pytest.mark.asyncio
+async def test_another_language_picture_beside_a_request_is_one_answer(text: str) -> None:
     assert not plan_turn(text).of_kind("image")
     assert reply_picture_prompt(text, Settings()) is None
-    assert _reply_picture(text) is None
+    assert await _reply_picture(text) is None
 
 
 @pytest.mark.parametrize(

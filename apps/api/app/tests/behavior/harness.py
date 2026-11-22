@@ -36,7 +36,7 @@ from app.modules import web_search as web_search_service
 from app.modules.billing import can_use
 from app.modules.chat import posed_read, prompt_memory, referent_read
 from app.modules.chat import prompt_constants as pc
-from app.modules.chat.drawn_picture import read_lets
+from app.modules.chat.drawn_picture import app_draws, read_asks
 from app.modules.chat.finalize_passes import enrich_final_content
 from app.modules.chat.json_output import JSON_OUTPUT_HINT
 from app.modules.chat.model_routing import choice as model_choice
@@ -78,7 +78,7 @@ from app.modules.chat.turn_prep.reading import read_turn_message, subject_of
 from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.chat.turn_trace import TurnTrace, begin_turn_trace
 from app.modules.images.gen_intent import stem_subject_claims
-from app.modules.images.intent import image_gen_request
+from app.modules.images.intent import PictureCandidates, image_gen_request
 from app.modules.images.lookup_intent import dated_lookup_query, extract_image_lookup_query
 from app.modules.math.figure.request import FigureRequest
 from app.modules.math.reply_policy import GRAPH_NO_SUBSTITUTE_CLAUSE
@@ -448,24 +448,26 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
     drawn = await subject_shows_it(
         settings, text, rows, referent.problem if referent is not None else None
     )
-    found = extract_image_lookup_query(text) if settings.image_search_enabled else None
-    # The turn's read decides a subject turn's picture (``drawn_picture.read_lets``); a case
-    # with a figure reading is one the read calls a maths picture.
+    # The words find what the message could ask of images; the turn's read decides which,
+    # if either (``drawn_picture.read_asks``). A case asking for one names its read.
     decision = read_of(case)
-    photo = (
-        dated_lookup_query(found, datetime.now(UTC).year)
-        if found and not drawn and read_lets(decision, "photo")
-        else ""
+    can_paint = (
+        settings.image_generation_enabled
+        and can_use(user, "image_generation", settings)
+        and not stem_subject_claims(text, chemistry_enabled=settings.chemistry_enabled)
     )
+    candidates = PictureCandidates(
+        lookup_query=extract_image_lookup_query(text) if settings.image_search_enabled else None,
+        # Read with the thread, as the turn's intercept reads it ("Image" after "Dog").
+        request=image_gen_request(text, rows, revisions=bool(rows)) if can_paint else None,
+    )
+    found = candidates.photo() if read_asks(decision, "photo") else None
+    photo = dated_lookup_query(found, datetime.now(UTC).year) if found and not drawn else ""
     image_gen = bool(
         not photo
         and not drawn
-        and read_lets(decision, "image")
-        and settings.image_generation_enabled
-        and can_use(user, "image_generation", settings)
-        # Read with the thread, as the turn's intercept reads it ("Image" after "Dog").
-        and image_gen_request(text, rows, revisions=bool(rows)) is not None
-        and not stem_subject_claims(text, chemistry_enabled=settings.chemistry_enabled)
+        and read_asks(decision, "image")
+        and candidates.picture() is not None
     )
 
     searched: list[Any] = []
@@ -594,6 +596,8 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         picture=bool(
             not photo
             and not image_gen
+            and read_asks(decision, "image")
+            and not app_draws(decision, verified)
             and reply_picture_prompt(text, settings)
             and settings.image_generation_enabled
             and can_use(user, "image_generation", settings)

@@ -20,6 +20,12 @@ from app.tests.behavior.latex_check import drawn_commands, latex_problems
         ("Then \\frac{1}{2} in prose", ["TeX outside maths: \\frac"]),
         ("The area is 25 m^{2}.", ["TeX outside maths: ^{"]),
         ("$C = \\$0.15\\mathrm{/kWh}$ and $\\$2$", []),
+        # A sum of money in a bold group: the phone drew "M ≈ {\\773}$" (2026-11-22).
+        (
+            "$M \\approx \\textbf{\\$773}$ per month",
+            ["a sum of money in a group: \\textbf{\\$773}"],
+        ),
+        ("$M \\approx$ **$773** per month", []),
         ("$\\nosuchcommand{x}$", ["the phone draws no \\nosuchcommand"]),
         # A word group's text is drawn as written: a brace after an escaped underscore,
         # or one that opens nothing, is source (2026-11-12); a script or a command is not.

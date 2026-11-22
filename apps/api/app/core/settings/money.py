@@ -11,3 +11,9 @@ class MoneySettings(BaseModel):
     money_rate_cache_seconds: int = 43_200
     # A rate below the average divided by this, or above it times this, "is not realistic".
     money_unrealistic_ratio: float = 2.0
+    # A turn the read calls money (``chat.turn_decision``: subject money) that no word rule
+    # read has a model write the chat's request down, each value held to the chat's words
+    # (``money.model_read``, ``money.read_check``); the server works the numbers.
+    money_read_enabled: bool = True
+    # The prompt waits this long for that read at most.
+    money_read_timeout_seconds: float = 3.0

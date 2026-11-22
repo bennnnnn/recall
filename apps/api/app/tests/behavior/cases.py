@@ -1062,6 +1062,7 @@ CASES: tuple[Case, ...] = (
         Expect(photo="Eiffel Tower"),
         "A real photo of the Eiffel Tower: the maths before names no other thing.",
         history=(("user", "sin(x)"), ("assistant", "The sine function.")),
+        read=("everyday", "photo"),
     ),
     Case(
         "photo-landmark",
@@ -1069,6 +1070,7 @@ CASES: tuple[Case, ...] = (
         "show me the eiffel tower",
         Expect(photo="eiffel tower"),
         "A real photo of the Eiffel Tower.",
+        read=("everyday", "photo"),
     ),
     Case(
         "photo-animal",
@@ -1076,6 +1078,7 @@ CASES: tuple[Case, ...] = (
         "what does a capybara look like",
         Expect(photo="capybara"),
         "A real photo of a capybara.",
+        read=("everyday", "photo"),
     ),
     Case(
         "photo-person",
@@ -1083,6 +1086,7 @@ CASES: tuple[Case, ...] = (
         "show me a picture of Albert Einstein",
         Expect(photo="Albert Einstein"),
         "A real photo of Albert Einstein.",
+        read=("everyday", "photo"),
     ),
     Case(
         "photo-new-product",
@@ -1090,6 +1094,7 @@ CASES: tuple[Case, ...] = (
         "show me the new tesla model",
         Expect(photo_not=("new",)),
         "A photo of the newest Tesla model: the search asks for this year's, not 'new'.",
+        read=("everyday", "photo"),
     ),
     Case(
         "map-where-is",
@@ -1152,6 +1157,10 @@ CASES: tuple[Case, ...] = (
         "show me a map of kenya",
         Expect(photo="map of kenya"),
         "A map of Kenya.",
+        # The read decides a photo (owner, 2026-11-22), and its picture question calls a map
+        # none: until it calls a map to look at a photo, none is looked up.
+        read=("everyday", "none"),
+        gap="the turn's read calls a map none, so no photo of the map is looked up",
     ),
     Case(
         "image-gen",
@@ -1160,6 +1169,7 @@ CASES: tuple[Case, ...] = (
         Expect(image_gen=True, photo=NO_PHOTO),
         "A generated picture (Pro).",
         pro=True,
+        read=("everyday", "image"),
     ),
     Case(
         "image-gen-free",
@@ -1167,6 +1177,7 @@ CASES: tuple[Case, ...] = (
         "generate an image of a sunset over mountains",
         Expect(image_gen=True, photo=NO_PHOTO),
         "On the free plan too: a generated picture, within the free daily images.",
+        read=("everyday", "image"),
     ),
     Case(
         "image-gen-es",
@@ -1184,6 +1195,7 @@ CASES: tuple[Case, ...] = (
         Expect(image_gen=True, photo=NO_PHOTO),
         'A generated picture, as for "draw a cat" in English.',
         pro=True,
+        read=("everyday", "image"),
     ),
     Case(
         "image-gen-de",
@@ -1237,6 +1249,7 @@ CASES: tuple[Case, ...] = (
         Expect(image_gen=True, photo=NO_PHOTO),
         'A generated picture, as for "draw a cat" in English.',
         pro=True,
+        read=("everyday", "image"),
     ),
     Case(
         "image-gen-draw-me-es",
@@ -1245,6 +1258,7 @@ CASES: tuple[Case, ...] = (
         Expect(image_gen=True, photo=NO_PHOTO),
         "A generated picture: a draw verb addressed with 'me', as 'draw me a dragon'.",
         pro=True,
+        read=("everyday", "image"),
     ),
     Case(
         "image-gen-draw-me-hi",
@@ -1253,6 +1267,7 @@ CASES: tuple[Case, ...] = (
         Expect(image_gen=True, photo=NO_PHOTO),
         "A generated picture: a draw verb addressed with 'me', as 'draw me a dragon'.",
         pro=True,
+        read=("everyday", "image"),
     ),
     Case(
         "image-gen-create-tr",
@@ -1261,6 +1276,7 @@ CASES: tuple[Case, ...] = (
         Expect(image_gen=True, photo=NO_PHOTO),
         "A generated picture: a draw verb addressed with 'me', as 'draw me a dragon'.",
         pro=True,
+        read=("everyday", "image"),
     ),
     Case(
         "image-gen-lookalike-teaching-es",
@@ -1301,6 +1317,7 @@ CASES: tuple[Case, ...] = (
         Expect(image_gen=True, photo=NO_PHOTO),
         "A robot picture, as on main: 'tell me its name' is about the picture.",
         pro=True,
+        read=("everyday", "image"),
     ),
     Case(
         "image-gen-draw-me-same-topic-en",
@@ -1310,6 +1327,7 @@ CASES: tuple[Case, ...] = (
         "A dog picture of the whole line, as on main: the plan keeps one request when "
         "both halves are about dogs (round 6).",
         pro=True,
+        read=("everyday", "image"),
     ),
     Case(
         "image-gen-not-listed-es",
@@ -1360,6 +1378,7 @@ CASES: tuple[Case, ...] = (
         "A black cat on a beach: every word is a listed noun, descriptor or function word "
         "(round 7).",
         pro=True,
+        read=("everyday", "image"),
     ),
     Case(
         "image-gen-squirrel-ru",
@@ -2522,6 +2541,7 @@ CASES: tuple[Case, ...] = (
         "The cat picture above a short black-hole explanation, or one line saying why "
         "the picture could not be drawn.",
         pro=True,
+        read=("everyday", "image"),
     ),
     Case(
         "multi-draw-me-and-explain",
@@ -2531,6 +2551,7 @@ CASES: tuple[Case, ...] = (
         "The cat above a short black-hole explanation; the whole line was drawn as one "
         "picture of 'cat and also explain black holes' before.",
         pro=True,
+        read=("everyday", "image"),
     ),
     Case(
         "multi-draw-me-and-suggest",
@@ -2540,6 +2561,7 @@ CASES: tuple[Case, ...] = (
         "The dog above a few name ideas; the whole line was drawn as one picture of 'dog "
         "and suggest names' before, though the plan cut it (round 7).",
         pro=True,
+        read=("everyday", "image"),
     ),
     Case(
         "multi-explain-and-draw-es",
