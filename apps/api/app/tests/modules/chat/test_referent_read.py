@@ -313,3 +313,14 @@ def test_a_ball_thrown_up_is_a_school_problem_and_a_greeting_is_not() -> None:
 
     assert holds_a_school_problem([_BALL_CHAT[0][1]])
     assert not holds_a_school_problem(["hey how are you", "Tell me about the Colosseum"])
+
+
+@pytest.mark.asyncio
+async def test_a_reply_s_answer_card_says_the_chat_worked_a_problem() -> None:
+    """ "7 notebooks at $2 each" reads as no subject's question; its reply's checked card
+    says it was one (review)."""
+    from app.modules.chat.school_problem import answers_a_problem, chat_holds_a_school_problem
+
+    card = "Change is $6.\n\n```answer\nverified: true\n6\n```"
+    assert answers_a_problem(card) and not answers_a_problem("The Colosseum is in Rome.")
+    assert await chat_holds_a_school_problem(Settings(), ["i bought 7 notebooks"], [card])

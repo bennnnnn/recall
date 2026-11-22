@@ -31,7 +31,8 @@ Measured 2026-11-22 (free plan, one run each). Judged by Claude Haiku over OpenR
 first: the 45 QA requests went from 3 drawn, 3 in words and 39 bad to 21-23 drawn, 16-20 in
 words and 4-6 bad. Judged by ``smart-chat`` through the gateway, as now (a stricter judge:
 a description above "I couldn't draw this diagram." is often "bad"): from 3 / 1 / 41 to
-18 / 12 / 15. Six other wordings ("pic pls", "draw it for me", "what does it look like"):
+18-21 drawn, 8-12 in words, 13-15 bad (3 maths follow-ups whose problem no subject reader
+reads, a sequence and a mean among them, still get a painting). Six other wordings ("pic pls", "draw it for me", "what does it look like"):
 2 drawn and 4 bad before, 4 drawn and 2 in words after. The 16 look-alikes kept 13-15 with
 no picture either way (a teaching structure on a chemistry follow-up comes and goes).
 """

@@ -12,8 +12,21 @@ import logging
 from collections.abc import Sequence
 
 from app.core.config import Settings
+from app.services.md_fence_scan import iter_fences
 
 logger = logging.getLogger(__name__)
+
+# The cards the app writes for a problem it worked or drew: a checked answer, a worked
+# layout, a curve, a figure, a scene, a molecule.
+_PROBLEM_CARDS = frozenset(
+    {"answer", "worked", "graph", "geometry", "simulation", "smiles", "molecule3d", "chemistry"}
+)
+
+
+def answers_a_problem(reply: str) -> bool:
+    """The app's reply carries a card of a problem it worked or drew: "7 notebooks at $2
+    each" reads as no subject's question, but its reply's answer card says it was one."""
+    return any(fence.lang in _PROBLEM_CARDS for fence in iter_fences(reply))
 
 
 def holds_a_school_problem(lines: Sequence[str]) -> bool:
@@ -24,11 +37,16 @@ def holds_a_school_problem(lines: Sequence[str]) -> bool:
     return any(subject_of(line) is not None for line in lines if line.strip())
 
 
-async def chat_holds_a_school_problem(settings: Settings, lines: Sequence[str]) -> bool:
-    """``holds_a_school_problem`` in the pool; no when the pool gave up (the turn's own
-    readings stand: this is no reading of the turn's message)."""
+async def chat_holds_a_school_problem(
+    settings: Settings, lines: Sequence[str], replies: Sequence[str] = ()
+) -> bool:
+    """A reply of ``replies`` answers a problem, or ``holds_a_school_problem`` of the user's
+    ``lines`` in the pool; no when the pool gave up (the turn's own readings stand: this is
+    no reading of the turn's message)."""
     from app.core.sympy_executor import run_sympy
 
+    if any(answers_a_problem(reply) for reply in replies):
+        return True
     if not any(line.strip() for line in lines):
         return False
     try:

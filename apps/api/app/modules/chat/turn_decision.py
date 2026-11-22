@@ -454,9 +454,9 @@ async def _join(
         decision = TurnDecision(**decided)
         # Asked of the Decider's own answer: the read's validators turn its painting into
         # the problem's diagram, which the text read may name better.
-        if not _unsure_whose_picture(decided) or not await _after_a_problem(settings, earlier):
+        if not _unsure_whose_picture(decided):
             return decision
-        return _the_problem_s_picture(decision, await _within(settings, text_read, started))
+        return await _asked_of_the_text_read(settings, decision, text_read, earlier, started)
     # The search query is text the Decider cannot write: the text read's, begun beside it.
     # It waits no longer than the reply waits for the read, which starts later, so a slow
     # query never costs the Decider's subject and effort: the read comes back without it
@@ -488,13 +488,34 @@ def _unsure_whose_picture(decided: dict[str, Any]) -> bool:
     return subject not in _STEM or picture not in _DRAWN
 
 
+async def _asked_of_the_text_read(
+    settings: Settings,
+    decision: TurnDecision,
+    text_read: asyncio.Task[TurnDecision | None],
+    earlier: list[tuple[str, str]],
+    started: float,
+) -> TurnDecision:
+    """The text read's subject and picture for a draw follow-up the Decider is unsure of,
+    in a chat that holds a school problem. The two are waited on together: a chat with
+    none returns the Decider's read as soon as the pool says so (review)."""
+    problem = asyncio.ensure_future(_after_a_problem(settings, earlier))
+    text = asyncio.ensure_future(_within(settings, text_read, started))
+    try:
+        if not await problem:
+            return decision
+        return _the_problem_s_picture(decision, await text)
+    finally:
+        text.cancel()
+
+
 async def _after_a_problem(settings: Settings, earlier: list[tuple[str, str]]) -> bool:
     """The chat before the message holds a school problem: an everyday "show me a picture
     of it" (the Colosseum's photo, "make it blue") waits for no text read (review)."""
     from app.modules.chat.school_problem import chat_holds_a_school_problem
 
     lines = [content for role, content in earlier if role == "user"]
-    return await chat_holds_a_school_problem(settings, lines)
+    replies = [content for role, content in earlier if role == "assistant"]
+    return await chat_holds_a_school_problem(settings, lines, replies)
 
 
 async def _within(

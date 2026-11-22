@@ -424,6 +424,10 @@ async def _turn_followup(
     return followup or SubjectFollowup(), referent
 
 
+# The replies whose cards say the chat worked a problem: the last few exchanges.
+_REPLIES_READ = 6
+
+
 async def _asks_to_see_by_read(
     request: TurnRequest, settings: Settings, recent: list[Any], *, small_talk: bool
 ) -> bool:
@@ -445,7 +449,14 @@ async def _asks_to_see_by_read(
     if own is not None:
         return False
     earlier = earlier_user_lines(recent, request.content)
-    return await chat_holds_a_school_problem(settings, earlier) and await read_shows_it(settings)
+    replies = [
+        content
+        for row in recent[-_REPLIES_READ:]
+        if getattr(row, "role", None) == "assistant"
+        and isinstance(content := getattr(row, "content", None), str)
+    ]
+    held = await chat_holds_a_school_problem(settings, earlier, replies)
+    return held and await read_shows_it(settings)
 
 
 def reads_window(request: TurnRequest) -> list[Any]:
