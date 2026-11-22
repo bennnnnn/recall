@@ -8,10 +8,16 @@ server's, no IO:
   no line to stand on, and that line's message becomes the fact's source;
 - the fact shares a word with the quote where the two can be compared, so "Lawer" (a
   typo of "lawyer?") never becomes "User is a lawyer";
+- the quote gives the fact's answer, not only its question: "my name" shares "name" with
+  "User's name is Binne" and states no name (``slots.frame_words``);
+- a gender, age, religion or relationship is said by the user about themselves, in a line
+  that speaks in the first person: "With female", picking a voice, is no gender;
 - only what the user stated about their own life is kept, unless they asked to remember it.
 
 The owner's memory held "User is a lawyer", a 97-year-old wife, a job at Uber and a salary
-from one provocative story, and "User is male (7M)" (2026-11-20).
+from one provocative story, and "User is male (7M)" (2026-11-20); then "User's name is
+Binne" from "Why did you write my name in lower case" and "User identifies as female" from
+"With female" (2026-11-21).
 """
 
 from __future__ import annotations
@@ -22,6 +28,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from uuid import UUID
 
+from app.modules.memory.slots import frame_words, sensitive_slots
+from app.modules.memory.user_name import user_name_given
 from app.services.text_normalize import straighten_apostrophes
 
 # How a fact was said (``schemas.MemoryFactOp.stated_as``): only this one is kept.
@@ -94,10 +102,25 @@ def _comparable(quote_words: list[str], *, english: bool) -> bool:
     return english or len(quote_words) == 1 or any(word in _FILLER for word in quote_words)
 
 
+_DIGITS = re.compile(r"\d+")
+
+
 def _same_word(left: str, right: str) -> bool:
     if left == right:
         return True
+    left_digits, right_digits = _DIGITS.findall(left), _DIGITS.findall(right)
+    if left_digits and right_digits:
+        # A number is the same number however it is written: "10th" and "10".
+        return left_digits == right_digits
     return len(left) >= _STEM and len(right) >= _STEM and left[:_STEM] == right[:_STEM]
+
+
+def _claim(fact: str) -> list[str]:
+    return [
+        word
+        for word in _words(_PARENTHETICAL.sub(" ", fact))
+        if word not in _FILLER and (len(word) > 1 or word.isdigit())
+    ]
 
 
 def quote_holds_fact(quote: str, fact: str, *, english: bool = True) -> bool:
@@ -105,14 +128,49 @@ def quote_holds_fact(quote: str, fact: str, *, english: bool = True) -> bool:
     quote_words = _words(quote)
     if not _comparable(quote_words, english=english):
         return True
-    claim = [
-        word
-        for word in _words(_PARENTHETICAL.sub(" ", fact))
-        if word not in _FILLER and (len(word) > 1 or word.isdigit())
-    ]
+    claim = _claim(fact)
     if not claim:
         return True
     return any(_same_word(word, said) for word in claim for said in quote_words)
+
+
+def quote_gives_answer(
+    quote: str, fact: str, *, slot: str | None = None, english: bool = True
+) -> bool:
+    """False when a comparable quote shares only the question's words with the fact.
+
+    "my name" holds "name" of "User's name is Binne" and no name; "Toronto" gives "User
+    lives in Toronto" its answer. A fact with nothing past its question ("User is a
+    student") is held by ``quote_holds_fact`` alone.
+    """
+    quote_words = _words(quote)
+    frame = frame_words(fact, slot)
+    if not frame or not _comparable(quote_words, english=english):
+        return True
+    name = user_name_given(fact)
+    if name is not None:
+        # The name is the answer: "User's name is Bini; User is a 29-year-old woman" from
+        # "I'm a 29-year-old woman" names no one.
+        return any(_same_word(part, said) for part in _words(name) for said in quote_words)
+    answer = [word for word in _claim(fact) if word not in frame]
+    if not answer:
+        return True
+    return any(_same_word(word, said) for word in answer for said in quote_words)
+
+
+# How a line speaks in the first person. English only, as ``_comparable`` reads only then.
+_FIRST_PERSON = frozenset("i im ive id me my mine myself we our ours us".split())
+
+
+def said_of_themselves(line: str, *, english: bool = True) -> bool:
+    """Whether a comparable line speaks about its writer: "I'm a woman", "my husband".
+
+    A line in another language or script is the model's to read.
+    """
+    words = _words(line)
+    if not _comparable(words, english=english):
+        return True
+    return any(word in _FIRST_PERSON for word in words)
 
 
 @dataclass(frozen=True)
@@ -131,8 +189,12 @@ def ground_fact(
     lines: Sequence[SourceLine],
     explicit_remember: bool,
     english: bool = True,
+    slot: str | None = None,
 ) -> Grounding:
-    """Whether ``fact`` is the user's own word about their life, and on which line."""
+    """Whether ``fact`` is the user's own word about their life, and on which line.
+
+    ``slot`` is the question the fact answers (``slots.answered_slot``), if any.
+    """
     if stated_as != OWN_LIFE and not explicit_remember:
         return Grounding(None, f"said as {stated_as or 'nothing the model named'}")
     line = quoted_line(quote, lines)
@@ -140,6 +202,10 @@ def ground_fact(
         return Grounding(None, "its quote is in none of the user's lines")
     if not quote_holds_fact(quote or "", fact, english=english):
         return Grounding(None, "its quote does not say it")
+    if not quote_gives_answer(quote or "", fact, slot=slot, english=english):
+        return Grounding(None, "its quote does not give the answer")
+    if sensitive_slots(fact, slot) and not said_of_themselves(line.text, english=english):
+        return Grounding(None, "not said by the user about themselves")
     return Grounding(line, "stated")
 
 
@@ -151,6 +217,7 @@ def grounded_source(
     lines: Sequence[SourceLine],
     explicit_remember: bool,
     english: bool = True,
+    slot: str | None = None,
 ) -> SourceLine | None:
     """The user line that states ``fact`` about the user, or None to drop the fact."""
     return ground_fact(
@@ -160,6 +227,7 @@ def grounded_source(
         lines=lines,
         explicit_remember=explicit_remember,
         english=english,
+        slot=slot,
     ).line
 
 
