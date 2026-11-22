@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.part.place import part_key, pictures_follow_parts, place_after_part
+from app.services.part.place import (
+    part_key,
+    pictures_follow_parts,
+    pictures_under_cards,
+    place_after_part,
+)
 
 _PIC = '```graph\n{"type":"plot"}\n```'
 
@@ -150,3 +155,29 @@ def test_a_number_too_large_for_a_float_places_nothing() -> None:
     picture = '```chart\n{"type":"bar","id":' + "9" * 400 + "}\n```"
     reply = "**(a) X**\n\n$x = 3$\n\n**(b) Y**\n\n$y = 4$\n\n" + picture
     assert pictures_follow_parts(reply, parts) == reply
+
+
+_PIC_B = '```graph\n{"type":"line"}\n```'
+
+
+def test_a_picture_placed_before_the_cards_follows_its_part_s_card_once_landed() -> None:
+    """Placed by its part before working_check carded the answers, (b)'s picture sat after
+    the closing summary; once (b) has its card the picture goes right under it (#2521)."""
+    text = f"{_LAID_OUT}\n\n{_PIC_B}\n"
+    out = pictures_under_cards(text, [("b", _PIC_B)])
+    assert out.count(_PIC_B) == 1
+    assert out.index("A = 48\n```") < out.index(_PIC_B) < out.index("The height is 3 cm")
+    # Already under its card: nothing moves.
+    assert pictures_under_cards(out, [("b", _PIC_B)]) == out
+
+
+def test_a_part_s_pictures_follow_its_card_in_their_order() -> None:
+    text = f"{_LAID_OUT}\n\n{_PIC}\n\n{_PIC_B}\n"
+    out = pictures_under_cards(text, [("b", _PIC), ("b", _PIC_B)])
+    card = out.index("A = 48\n```")
+    assert card < out.index(_PIC) < out.index(_PIC_B) < out.index("The height is 3 cm")
+
+
+def test_a_part_with_no_card_keeps_its_picture_where_it_was() -> None:
+    text = "**(a) Height**\n\n$h = 3$\n\nIt is 3 cm.\n\n" + _PIC + "\n\n**(b) Area**\n\n$A = 48$"
+    assert pictures_under_cards(text, [("a", _PIC)]) == text

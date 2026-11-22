@@ -104,6 +104,9 @@ class ReplyDrawing:
     descriptions: list[str] = field(default_factory=list)
     # The pictures drawn from them: one of each kind, a figure and a graph.
     fences: list[str] = field(default_factory=list)
+    # Each picture placed by the part its description names, as (part, picture): placed
+    # before the cards land, it follows its part's card once there is one (``by_part``).
+    placed: list[tuple[str, str]] = field(default_factory=list)
 
     @property
     def drawn(self) -> bool:
@@ -458,10 +461,11 @@ async def _by_part(
             continue
         fences.append(fence)
         placed = place_after_part(text, key, fence) if key is not None else None
-        if placed is None:
+        if key is None or placed is None:
             under.append(fence)
         else:
             text = placed
+            drawing.placed.append((key, fence))
     text = text.rstrip()
     if under:
         text = "\n\n".join([text, *under]) if text else "\n\n".join(under)

@@ -108,6 +108,28 @@ def place_after_part(text: str, key: str, picture: str) -> str | None:
     return f"{before}{middle}\n{after}" if after.strip() else f"{before}{middle}"
 
 
+def pictures_under_cards(text: str, placed: list[tuple[str, str]]) -> str:
+    """Each picture placed by its part (``placed``: part, picture), right after that part's
+    answer card once the card is there, the part's pictures in their order. Placed before the
+    cards landed, a picture sat at its part's end, after a sentence or a closing summary that
+    followed the answer (review, #2521). A part with no card keeps its pictures where they are."""
+    for key in dict.fromkeys(key for key, _ in placed):
+        pictures = [picture.strip() for part, picture in placed if part == key]
+        fences = list(iter_fences(text))
+        heading = _first(_answer_heading(key), text, fences)
+        end = _after_card(text, heading, fences) if heading >= 0 else None
+        shown = [fence for fence in fences if text[fence.start : fence.end].strip() in pictures]
+        together = "\n\n".join(dict.fromkeys(text[f.start : f.end].strip() for f in shown))
+        if end is None or not shown or text[end:].lstrip("\n").startswith(together):
+            continue
+        rest = text
+        for fence in reversed(shown):
+            before, after = rest[: fence.start].rstrip(), rest[fence.end :].lstrip()
+            rest = f"{before}\n\n{after}" if after else before
+        text = place_after_part(rest, key, together) or text
+    return text
+
+
 # Pictures the server draws under a reply.
 # A molecule's numbers are its atoms' coordinates and counts, no value a part states: its
 # picture stays where chemistry put it (review, #2521).
