@@ -101,7 +101,8 @@
    ]
   ],
   "visual": "vector_sum",
-  "note": "a bearing from east: 250cos30 east, 250sin30 north; the plane is an aircraft"
+  "note": "a bearing from east: 250cos30 east, 250sin30 north; the plane is an aircraft",
+  "signed": true
  },
  {
   "id": "vc-hiker",
@@ -123,7 +124,8 @@
    ]
   ],
   "visual": "vector_sum",
-  "note": "from north: 5sin40 west (negative), 5cos40 north"
+  "note": "from north: 5sin40 west (negative), 5cos40 north",
+  "signed": true
  },
  {
   "id": "vc-accel",
@@ -145,7 +147,8 @@
    ]
   ],
   "visual": "vector_sum",
-  "note": "3cos20 across, 3sin20 down (negative)"
+  "note": "3cos20 across, 3sin20 down (negative)",
+  "signed": true
  },
  {
   "id": "vc-momentum",
@@ -190,5 +193,45 @@
   ],
   "visual": "vector_sum",
   "note": "80cos35, 80sin35"
+ },
+ {
+  "id": "vc-opposite-west",
+  "area": "vectors",
+  "prompt": "A plane flies at 250 km/h, 30° north of east. Find the westward component of its velocity.",
+  "expect": "answer",
+  "answer": [
+   216.5064,
+   "km/h"
+  ],
+  "signed": true,
+  "visual": "vector_sum",
+  "note": "review 2026-11-21: the westward component is -250cos30 = -216.5 km/h west, which the sweep reads east-positive as +216.5; a card of 217 km/h west (or east, as though east were asked) has the wrong sign"
+ },
+ {
+  "id": "vc-opposite-north",
+  "area": "vectors",
+  "prompt": "A ship sails 25 km on a bearing of 240°. Find the northward component.",
+  "expect": "answer",
+  "answer": [
+   -12.5,
+   "km"
+  ],
+  "signed": true,
+  "visual": "vector_sum",
+  "note": "review 2026-11-21: 240° points south of west, so its northward component is -25cos60 = -12.5 km"
+ },
+ {
+  "id": "vc-vertical-obtuse",
+  "area": "vectors",
+  "prompt": "A force of 50 N acts at 130° from the vertical. Find its horizontal and vertical components.",
+  "expect": "decline",
+  "note": "review 2026-11-21: past 90° from the vertical with no side named, the vector may lie left or right; no card"
+ },
+ {
+  "id": "vc-bearing-past-turn",
+  "area": "vectors",
+  "prompt": "A ship sails 25 km on a bearing of 400°. Find its east and north components.",
+  "expect": "decline",
+  "note": "review 2026-11-21: a bearing runs 0° to 360°"
  }
 ]

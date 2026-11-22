@@ -25,6 +25,7 @@ import {
   angleArrowHead,
   angleRadius,
   angleSweep,
+  arcSitsOn,
   onPulleyRim,
   pulleyRope,
   supportGeometry,
@@ -286,17 +287,10 @@ const ANGLE_SIDE_SHARE = 0.45;
  */
 function shortestEdge(scene: SceneFrames, angle: SimulationAngle): number | null {
   const { spec, transform } = scene;
-  const near = Math.max(spec.xMax - spec.xMin, spec.yMax - spec.yMin) * 1e-3;
+  const span = Math.max(spec.xMax - spec.xMin, spec.yMax - spec.yMin);
   let shortest: number | null = null;
   for (const vector of spec.vectors) {
-    if (vector.body !== undefined) continue;
-    if (Math.abs(vector.anchor.x - angle.vertex.x) > near) continue;
-    if (Math.abs(vector.anchor.y - angle.vertex.y) > near) continue;
-    const heading = (Math.atan2(vector.dy, vector.dx) * 180) / Math.PI;
-    const along = [angle.startDeg, angle.endDeg].some(
-      (edge) => Math.abs(((((edge - heading) % 360) + 540) % 360) - 180) <= 1,
-    );
-    if (!along) continue;
+    if (!arcSitsOn(angle, vector, span)) continue;
     const length = Math.hypot(vector.dx, vector.dy) * transform.scale;
     shortest = shortest === null ? length : Math.min(shortest, length);
   }

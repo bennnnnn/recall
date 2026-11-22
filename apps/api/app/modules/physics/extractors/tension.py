@@ -221,22 +221,20 @@ _UNREAD_SIDE_RE = re.compile(
     r"|[-\u2212]\s*[xy][- ]?axis",
     re.IGNORECASE,
 )
-_COMPASS_RE = re.compile(r"\b(?:north|south|east|west)\b", re.IGNORECASE)
-# Components asked by their compass names: "the north and east components", "its eastward
-# component".
-_COMPASS_ASK_RE = re.compile(
-    r"\b(?:north|south|east|west)(?:ward)?(?:\s+(?:and|or)\s+(?:north|south|east|west)(?:ward)?)?"
-    r"[- ]components?\b",
-    re.IGNORECASE,
-)
+_COMPASS_RE = re.compile(r"\b(?:north|south|east|west)(?:wards?)?\b", re.IGNORECASE)
 # A bearing: "30° north of east" is measured from east; "40° east of north" from north.
 _BEARING_RE = re.compile(
     r"\b(north|south|east|west)\s+of\s+(north|south|east|west)\b", re.IGNORECASE
 )
-# A three-figure bearing, clockwise from north: "on a bearing of 040°", "bearing 120°".
+# A three-figure bearing, clockwise from north: "on a bearing of 040°", "bearing 120°". A
+# compass bearing is written in degrees or as three figures; "a bearing of 30 N" or "a 40 mm
+# bearing" is a machine's, never an angle (review, 2026-11-21).
 _NUMBER_BEARING_RE = re.compile(
-    rf"\bbearing\s+(?:of\s+)?({DECIMAL})\s*{DEGREE_WORD}?", re.IGNORECASE
+    r"\bbearing\s+(?:of\s+)?"
+    rf"(?=\d{{3}}(?![\d.,])|{DECIMAL}\s*{DEGREE_WORD}(?![A-Za-z]))({DECIMAL})",
+    re.IGNORECASE,
 )
+_BEARING_WORD_RE = re.compile(r"\bbearings?\b", re.IGNORECASE)
 # Any value with a unit. A resolving question states one, the vector's size, besides its angle.
 _STATED_VALUE_RE = re.compile(r"(?<![\w.])\d[\d.,]*\s*([A-Za-zµμΩ°][\w/^²³*·]*)")
 # Angles, counts and the English words Pint also reads as units ("in 3 steps", "at 1 point").
@@ -283,6 +281,52 @@ def _stated_values(cleaned: str) -> int:
     )
 
 
+def _sides(
+    cleaned: str,
+    angle: re.Match[str],
+    degrees: float,
+    bearing: re.Match[str] | None,
+    numbered: bool,
+) -> dict[str, float] | None:
+    """The axis the angle is measured from and each component's sign, or None when the
+    question does not say them in a way this reads."""
+    if numbered:
+        # Clockwise from north: the sine is east, the cosine north, each signed by itself.
+        return {"from_vertical": 1.0, "x_sign": 1.0, "y_sign": 1.0, "compass": 1.0}
+    if bearing is not None:
+        toward, base = bearing.group(1).lower(), bearing.group(2).lower()
+        sides = {toward, base}
+        # "30° north of east" turns less than a right angle from its base; "120° west of north"
+        # is no quadrant bearing.
+        if sides in ({"north", "south"}, {"east", "west"}) or not 0 < degrees < 90:
+            return None
+        return {
+            "compass": 1.0,
+            "from_vertical": 1.0 if base in ("north", "south") else 0.0,
+            "x_sign": -1.0 if "west" in sides else 1.0,
+            "y_sign": -1.0 if "south" in sides else 1.0,
+        }
+    if _COMPASS_RE.search(cleaned):
+        # A compass side not written as a bearing ("10 m/s west at 30° to the shoreline") is
+        # not read, and a vector given against x and y has no east or north to answer by
+        # ("the north and east components" of 25 m/s at 30° to the horizontal).
+        return None
+    vertical = _AFTER_ANGLE_VERTICAL_RE.match(cleaned, angle.end()) is not None
+    if not vertical and _VERTICAL_REFERENCE_RE.search(cleaned):
+        return None
+    below = _BELOW_RE.search(cleaned) is not None
+    # Past a right angle from the vertical, or below the horizontal, the vector could lie on
+    # either side: 130° from the vertical names no side (review, 2026-11-21). Only an angle
+    # from the horizontal turns on, anticlockwise from the positive x-axis.
+    if (vertical or below) and degrees > 90:
+        return None
+    return {
+        "from_vertical": 1.0 if vertical else 0.0,
+        "x_sign": 1.0,
+        "y_sign": -1.0 if below else 1.0,
+    }
+
+
 def _resolve_intent(cleaned: str) -> PhysicsIntent | None:
     """One vector of any kind split into horizontal and vertical components, its angle from
     the horizontal, the vertical or a compass bearing, each component signed by its side.
@@ -300,7 +344,11 @@ def _resolve_intent(cleaned: str) -> PhysicsIntent | None:
     if size is None or _stated_values(cleaned) != 1:
         return None
     # "on a bearing of 30° north of east" is a quadrant bearing, not 030°.
-    numbered = None if _BEARING_RE.search(cleaned) else _NUMBER_BEARING_RE.search(cleaned)
+    bearing = _BEARING_RE.search(cleaned)
+    numbered = None if bearing else _NUMBER_BEARING_RE.search(cleaned)
+    if numbered is None and bearing is None and _BEARING_WORD_RE.search(cleaned):
+        # "bearing" with no compass angle is a machine's part, or a bearing not read.
+        return None
     angle = INCLINE_ANGLE_RE.search(cleaned) if numbered is None else numbered
     if angle is None:
         return None
@@ -308,39 +356,22 @@ def _resolve_intent(cleaned: str) -> PhysicsIntent | None:
     unit = re.sub(r"/s2$", "/s^2", unit)
     name = next(param for pattern, param in _VECTOR_PARAMS if pattern.fullmatch(unit))
     params = {name: float(size.group(1)), "angle": float(angle.group(1))}
-    # A negative size or angle is a reading this does not make ("-30°"): declined.
-    if params[name] <= 0 or params["angle"] < 0:
+    # A negative size or angle is a reading this does not make ("-30°"), and an angle past a
+    # whole turn ("a bearing of 400°") no question means: declined.
+    if params[name] <= 0 or not 0 <= params["angle"] <= 360:
         return None
-    bearing = _BEARING_RE.search(cleaned)
-    if numbered is not None:
-        # Clockwise from north: the sine is east, the cosine north, each signed by itself.
-        params.update(from_vertical=1.0, x_sign=1.0, y_sign=1.0, compass=1.0)
-    elif bearing is not None:
-        toward, base = bearing.group(1).lower(), bearing.group(2).lower()
-        sides = {toward, base}
-        # "30° north of east" turns less than a right angle from its base; "120° west of north"
-        # is no quadrant bearing.
-        if sides in ({"north", "south"}, {"east", "west"}) or not 0 < params["angle"] < 90:
-            return None
-        params["compass"] = 1.0
-        params["from_vertical"] = 1.0 if base in ("north", "south") else 0.0
-        params["x_sign"] = -1.0 if "west" in sides else 1.0
-        params["y_sign"] = -1.0 if "south" in sides else 1.0
-    elif _COMPASS_RE.search(_COMPASS_ASK_RE.sub(" ", cleaned)):
-        # A compass side not written as a bearing ("10 m/s west at 30° to the shoreline") is
-        # not read; the components asked by name ("the north and east components") are no
-        # side of the vector (review, 2026-11-20).
+    sides = _sides(cleaned, angle, params["angle"], bearing, numbered is not None)
+    if sides is None:
         return None
-    else:
-        vertical = _AFTER_ANGLE_VERTICAL_RE.match(cleaned, angle.end()) is not None
-        if not vertical and _VERTICAL_REFERENCE_RE.search(cleaned):
-            return None
-        params["from_vertical"] = 1.0 if vertical else 0.0
-        params["x_sign"] = 1.0
-        params["y_sign"] = -1.0 if _BELOW_RE.search(cleaned) else 1.0
+    params.update(sides)
     asked = {match.group(1).lower()[0] for match in _ONE_COMPONENT_RE.finditer(cleaned)}
     if len(asked) == 1 and not re.search(r"\bcomponents\b", cleaned, re.IGNORECASE):
-        params["only"] = 1.0 if asked <= {"h", "x", "e", "w"} else 2.0
+        (letter,) = asked
+        params["only"] = 1.0 if letter in "hxew" else 2.0
+        if letter in "ensw":
+            # The direction asked, which may be the vector's other side: "the westward
+            # component" of a plane flying north of east is negative (review, 2026-11-21).
+            params["toward"] = 1.0 if letter in "en" else -1.0
     return PhysicsIntent(
         kind="force",
         physics_op="resolve_vector",

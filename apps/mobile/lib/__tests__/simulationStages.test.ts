@@ -13,6 +13,7 @@ import {
   type SimulationSpec,
 } from "@/lib/physics/simulation";
 import { RESOLVED } from "@/lib/__tests__/fixtures/stagedScenes";
+import { arcSitsOn } from "@/lib/physics/simulation/parts";
 
 function parse(spec: object): SimulationSpec | null {
   return parseSimulationSpec(JSON.stringify(spec));
@@ -144,6 +145,20 @@ describe("sceneStages", () => {
       angles: [{ vertex: [5, 5], start_deg: 90, end_deg: 120, role: "given" }],
     });
     expect(sceneStages(scene)?.angles).toEqual([null]);
+  });
+
+  it("asks the one arc check the layout asks: tail at the vertex, an edge along the arrow", () => {
+    const scene = mustParse(RESOLVED);
+    const span = Math.max(scene.xMax - scene.xMin, scene.yMax - scene.yMin);
+    const [angle] = scene.angles;
+    const [given, across] = scene.vectors;
+    expect(arcSitsOn(angle, given, span)).toBe(true);
+    expect(arcSitsOn(angle, across, span)).toBe(true);
+    // Away from the vertex, along no edge, or riding a body, an arrow has no arc on it.
+    const moved = { ...given, anchor: { x: given.anchor.x + 1, y: given.anchor.y } };
+    expect(arcSitsOn(angle, moved, span)).toBe(false);
+    expect(arcSitsOn({ ...angle, startDeg: 150, endDeg: 170 }, given, span)).toBe(false);
+    expect(arcSitsOn(angle, { ...given, body: 0 }, span)).toBe(false);
   });
 
   it("never stages a scene with a moving body: its clock is the motion", () => {

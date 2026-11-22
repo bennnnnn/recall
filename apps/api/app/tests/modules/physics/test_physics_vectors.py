@@ -15,6 +15,8 @@ asserted in a PR description.
 from __future__ import annotations
 
 import math
+import re
+from typing import Any
 
 import pytest
 
@@ -277,6 +279,10 @@ def test_a_large_vector_s_working_has_no_calculator_notation() -> None:
         "Resolve 20 N·m at 30° from the horizontal into two components.",
         # A compass side on the vector itself, not a bearing (Gemini review).
         "A boat travels 10 m/s west at 30° to the shoreline. Find the north and east components.",
+        # A compass component of a vector given against x and y names no east (review,
+        # 2026-11-21).
+        "A force of 60 N acts at 30° above the horizontal. Find the eastward component.",
+        "A force of 25 N acts at 30° above the horizontal. Find the north and east components.",
     ],
 )
 def test_a_component_along_a_slope_is_not_resolved_across_and_up(text: str) -> None:
@@ -448,19 +454,197 @@ def test_missing_geometry_is_refused_not_assumed(text: str) -> None:
 def test_a_bearing_is_worked_as_sizes_along_its_directions() -> None:
     """Gemini review: the working ended "s_y = -12.5 km south", a double negative beside a
     card naming the side. A bearing is worked from its acute angle to the north-south line,
-    each component a size along the way it points."""
-    intent = extract_physics_intent(
-        "A ship sails 25 km on a bearing of 240°. Find the east and north components."
+    each component a size along the way it points; the reduction from 240° to that angle is
+    its own row (review, 2026-11-21)."""
+    block = _block("A ship sails 25 km on a bearing of 240°. Find the east and north components.")
+    assert block.physics_formulas == (
+        r"\phi = \theta - 180^\circ",
+        r"s_{W} = s\sin\phi",
+        r"s_{S} = s\cos\phi",
     )
-    assert intent is not None
+    assert block.physics_substitutions == (
+        r"\phi = 240^\circ - 180^\circ = 60^\circ",
+        r"s_{W} = 25\sin(60^\circ)",
+        r"s_{S} = 25\cos(60^\circ)",
+    )
+    assert block.canonical_answer == "21.7 km west and 12.5 km south"
+    assert "-" not in (block.physics_working or "").split("Verified substitution:")[-1].replace(
+        "240^\\circ - 180", ""
+    )
+
+
+def _block(text: str) -> Any:
+    intent = extract_physics_intent(text)
+    assert intent is not None and intent.physics_op == "resolve_vector"
     block = build_verified_physics_block(intent, _settings())
     assert block is not None
-    assert block.physics_substitutions == (r"s_{W} = 25\sin(60^\circ)", r"s_{S} = 25\cos(60^\circ)")
-    assert block.canonical_answer == "21.7 km west and 12.5 km south"
-    assert "-" not in (block.physics_working or "").split("Verified substitution:")[-1]
+    return block
 
 
-def test_a_vector_along_an_axis_has_a_zero_component_not_float_noise() -> None:
+_DEGREES = re.compile(r"(\d+(?:\.\d+)?)\^\\circ")
+
+
+@pytest.mark.parametrize(
+    "text,formulas,substitutions",
+    [
+        # From east, the stated 30° is used as stated: the cosine is east, the sine north.
+        (
+            "A plane flies at 250 km/h, 30° north of east. Find the components of its velocity.",
+            (r"v_{E} = v\cos\theta", r"v_{N} = v\sin\theta"),
+            (r"v_{E} = 250\cos(30^\circ)", r"v_{N} = 250\sin(30^\circ)"),
+        ),
+        # From north, the sine is across and the cosine along it.
+        (
+            "A hiker walks 5 km 40° west of north. Find the components of the displacement.",
+            (r"s_{W} = s\sin\theta", r"s_{N} = s\cos\theta"),
+            (r"s_{W} = 5\sin(40^\circ)", r"s_{N} = 5\cos(40^\circ)"),
+        ),
+        # A bearing up to 90° is already the angle from north: no reduction.
+        (
+            "A plane flies 300 km/h on a bearing of 40°. Find the north and east components.",
+            (r"v_{E} = v\sin\theta", r"v_{N} = v\cos\theta"),
+            (r"v_{E} = 300\sin(40^\circ)", r"v_{N} = 300\cos(40^\circ)"),
+        ),
+        (
+            "A ship sails 25 km on a bearing of 120°. Find the east and north components.",
+            (r"\phi = 180^\circ - \theta", r"s_{E} = s\sin\phi", r"s_{S} = s\cos\phi"),
+            (
+                r"\phi = 180^\circ - 120^\circ = 60^\circ",
+                r"s_{E} = 25\sin(60^\circ)",
+                r"s_{S} = 25\cos(60^\circ)",
+            ),
+        ),
+        (
+            "A ship sails 25 km on a bearing of 300°. Find the east and north components.",
+            (r"\phi = 360^\circ - \theta", r"s_{W} = s\sin\phi", r"s_{N} = s\cos\phi"),
+            (
+                r"\phi = 360^\circ - 300^\circ = 60^\circ",
+                r"s_{W} = 25\sin(60^\circ)",
+                r"s_{N} = 25\cos(60^\circ)",
+            ),
+        ),
+    ],
+)
+def test_a_compass_working_uses_the_stated_angle_and_its_reference(
+    text: str, formulas: tuple[str, ...], substitutions: tuple[str, ...]
+) -> None:
+    """Review, 2026-11-21: "30° north of east" was worked as v sin φ with 60°, a φ and a
+    number no line gave. Every angle a substitution uses is the one stated, or one a row
+    above it works out."""
+    block = _block(text)
+    assert block.physics_formulas == formulas
+    assert block.physics_substitutions == substitutions
+    stated = {float(value) for value in re.findall(r"(\d+(?:\.\d+)?)\s*°", text)}
+    known = set(stated) | {180.0, 360.0}
+    for row in block.physics_substitutions:
+        found = [float(value) for value in _DEGREES.findall(row)]
+        if row.startswith("\\phi"):
+            *used, worked = found
+            assert set(used) <= known, row
+            known.add(worked)
+        else:
+            assert set(found) <= known, row
+
+
+@pytest.mark.parametrize(
+    "text,answer",
+    [
+        # Asked the other way from the side the component points: its negative, the sign kept
+        # beside the direction asked, never the size on the vector's own side (review,
+        # 2026-11-21).
+        (
+            "A plane flies at 250 km/h, 30° north of east. Find the westward component of its "
+            "velocity.",
+            "-217 km/h west",
+        ),
+        (
+            "A plane flies at 250 km/h, 30° north of east. Find the southward component of its "
+            "velocity.",
+            "-125 km/h south",
+        ),
+        (
+            "A ship sails 25 km on a bearing of 240°. Find the northward component.",
+            "-12.5 km north",
+        ),
+        (
+            "A hiker walks 5 km 40° west of north. Find the eastward component of the "
+            "displacement.",
+            "-3.21 km east",
+        ),
+        # Asked the way it points: its size.
+        (
+            "A plane flies at 250 km/h, 30° north of east. Find the eastward component of its "
+            "velocity.",
+            "217 km/h east",
+        ),
+        ("A ship sails 25 km on a bearing of 240°. Find the southward component.", "12.5 km south"),
+    ],
+)
+def test_a_component_asked_against_its_side_keeps_its_sign(text: str, answer: str) -> None:
+    block = _block(text)
+    assert block.canonical_answer == answer
+    if answer.startswith("-"):
+        (formula,) = block.physics_formulas
+        assert "= -" in formula and "= -" in block.physics_substitutions[-1]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # A bearing runs from 0° to 360° (review, 2026-11-21).
+        "A ship sails 25 km on a bearing of 400°. Find its east and north components.",
+        "A ship sails 25 km on a bearing of 361°. Find its components.",
+        # A machine's bearing is no compass angle.
+        "A wheel bearing of 30 N at 40° to the horizontal. Resolve the force into components.",
+        "A force of 30 N at 40° to the horizontal acts on a bearing. Resolve the force into "
+        "components.",
+        # Past a right angle from the vertical, or below the horizontal, the vector may lie on
+        # either side: no side is named.
+        "A force of 50 N acts at 130° from the vertical. Find its components.",
+        "A force of 50 N acts at 130° from the positive y-axis. Find its components.",
+        "A force of 50 N acts at 130° below the horizontal. Find its components.",
+    ],
+)
+def test_an_angle_this_does_not_read_is_declined(text: str) -> None:
+    intent = extract_physics_intent(text)
+    assert intent is None or intent.physics_op != "resolve_vector"
+
+
+def test_a_bearing_of_a_whole_turn_is_north() -> None:
+    assert _block(
+        "A ship sails 25 km on a bearing of 360°. Find its components."
+    ).canonical_answer == ("0 km west and 25 km north")
+
+
+@pytest.mark.parametrize(
+    "text,answer",
+    [
+        (
+            "Resolve 60 N at 90° from the horizontal into components.",
+            "0 N horizontally and 60 N vertically",
+        ),
+        (
+            "Resolve 60 N at 0° from the vertical into components.",
+            "0 N horizontally and 60 N vertically",
+        ),
+        (
+            "A ship sails 25 km on a bearing of 090°. Find its components.",
+            "25 km east and 0 km north",
+        ),
+        (
+            "A ship sails 25 km on a bearing of 180°. Find its components.",
+            "0 km east and 25 km south",
+        ),
+        (
+            "A ship sails 25 km on a bearing of 270°. Find its components.",
+            "25 km west and 0 km south",
+        ),
+    ],
+)
+def test_a_vector_along_an_axis_has_a_zero_component_not_float_noise(
+    text: str, answer: str
+) -> None:
     """Claude review: 60 N at 90° printed 3.67 x 10^-15 N across."""
-    answer = _verified_answer("Resolve 60 N at 90° from the horizontal into components.")
-    assert answer is not None and "10^" not in answer and "×" not in answer
+    block = _block(text)
+    assert block.canonical_answer == answer
+    assert "10^" not in (block.physics_working or "")

@@ -5,12 +5,9 @@
  * its vertical one. Nothing here decides an arrow; it only says when each of
  * the server's arrows is drawn, and how much of it.
  */
+import { arcSitsOn } from "@/lib/physics/simulation/parts";
 import { simulationIsAnimated } from "@/lib/physics/simulation/paths";
-import {
-  type SimulationAngle,
-  type SimulationSpec,
-  type SimulationVector,
-} from "@/lib/physics/simulation/spec";
+import { type SimulationSpec, type SimulationVector } from "@/lib/physics/simulation/spec";
 
 /** How long one stage's arrows take to grow from anchor to tip, in ms. */
 const STAGE_GROW_MS = 700;
@@ -19,8 +16,6 @@ const STAGE_PAUSE_MS = 300;
 
 /** How far through its slot a stage's arrows are fully grown. */
 const GROW_SHARE = STAGE_GROW_MS / (STAGE_GROW_MS + STAGE_PAUSE_MS);
-/** An arc edge within this many degrees of an arrow runs along it. */
-const EDGE_TOLERANCE_DEG = 1;
 
 export type SceneStages = {
   /** How many stages play, one after another. */
@@ -54,7 +49,7 @@ export function sceneStages(spec: SimulationSpec): SceneStages | null {
   const angles = spec.angles.map((angle) => {
     if (angle.stage !== undefined) return used.indexOf(angle.stage);
     const turns = spec.vectors.flatMap((vector, index) =>
-      measures(angle, vector, span) ? [vectors[index]] : [],
+      arcSitsOn(angle, vector, span) ? [vectors[index]] : [],
     );
     return turns.length > 0 ? Math.max(...turns) : null;
   });
@@ -64,20 +59,6 @@ export function sceneStages(spec: SimulationSpec): SceneStages | null {
 /** One pass of every stage, in ms. */
 export function stagedDuration(count: number): number {
   return Math.max(1, count) * (STAGE_GROW_MS + STAGE_PAUSE_MS);
-}
-
-/** Whether an arc's vertex is the arrow's tail and one of its edges runs along it. */
-function measures(angle: SimulationAngle, vector: SimulationVector, span: number): boolean {
-  // A riding arrow's anchor is an offset from its body, not a point in the scene.
-  if (vector.body !== undefined) return false;
-  const near = span * 1e-3;
-  if (Math.abs(vector.anchor.x - angle.vertex.x) > near) return false;
-  if (Math.abs(vector.anchor.y - angle.vertex.y) > near) return false;
-  const heading = (Math.atan2(vector.dy, vector.dx) * 180) / Math.PI;
-  return [angle.startDeg, angle.endDeg].some((edge) => {
-    const apart = Math.abs((((edge - heading) % 360) + 540) % 360 - 180);
-    return apart <= EDGE_TOLERANCE_DEG;
-  });
 }
 
 function clamp01(value: number): number {

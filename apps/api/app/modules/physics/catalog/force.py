@@ -139,6 +139,8 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("compass", "compass", dimensionless=True, visible=False),
             # One component asked ("the vertical component"): 1 across, 2 up; else both.
             var("only", "only", dimensionless=True, visible=False),
+            # The compass direction that one is asked along: 1 east or north, -1 west or south.
+            var("toward", "toward", dimensionless=True, visible=False),
         ),
     ),
     formula(

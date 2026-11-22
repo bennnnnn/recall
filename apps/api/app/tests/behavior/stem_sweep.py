@@ -202,7 +202,7 @@ def answer_card(reply: str) -> str:
 
 
 # The side a card's value is on, written after its unit (a resolved vector's components).
-_SIDE_AFTER_UNIT = re.compile(r"\s+(?:horizontally|vertically|east|west|north|south)$")
+_SIDE_AFTER_UNIT = re.compile(r"\s+(horizontally|vertically|east|west|north|south)$")
 
 
 def card_values(reply: str) -> list[tuple[float, str, str]]:
@@ -227,8 +227,14 @@ def card_values(reply: str) -> list[tuple[float, str, str]]:
                 # "0.4 (40%)": the bracket restates the value; "J/(kg·K)" keeps its own.
                 unit = "" if rest.startswith("(") else re.split(r"\s\(|,", rest)[0].strip()
                 # "65.5 N horizontally": a component's side follows its unit (``detail``).
+                # East and north are the positive directions, so "3.21 km west" is -3.21 km
+                # east and "-217 km/h west" is 217 km/h east: a signed entry holds the sign.
+                side = _SIDE_AFTER_UNIT.search(unit)
                 unit = _SIDE_AFTER_UNIT.sub("", unit)
-                found.append((float(shown + (f"e{power}" if power else "")), unit, shown))
+                value = float(shown + (f"e{power}" if power else ""))
+                if side is not None and side.group(1) in ("west", "south"):
+                    value = -value
+                found.append((value, unit, shown))
     return found
 
 
