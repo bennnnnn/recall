@@ -505,6 +505,8 @@ async def _asked_of_the_text_read(
             return decision
         return _the_problem_s_picture(decision, await text)
     finally:
+        # A read stopped while it waits leaves neither running (review).
+        problem.cancel()
         text.cancel()
 
 
