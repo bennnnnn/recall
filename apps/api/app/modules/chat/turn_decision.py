@@ -30,7 +30,7 @@ import asyncio
 import logging
 import time
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -52,6 +52,8 @@ _MAX_INPUT_CHARS = 1200
 # Each earlier message the read sees, and how many: the last two exchanges.
 _EARLIER_CHARS = 400
 _LAST_REPLY_CHARS = 1500  # "Where is the golf": the course was past 400 (2026-11-15).
+# Of those, the last reply's end, where its question or offer is.
+_END_CHARS = 400
 _EARLIER_MESSAGES = 4
 # A reply's practice card the cut leaves out, quoted after it: its question and options, then
 # what the reply says after it.
@@ -66,7 +68,25 @@ _BACKUP_MIN_SECONDS = 0.8
 Subject = Literal["everyday", "maths", "physics", "chemistry", "money", "code"]
 Effort = Literal["none", "low", "high"]
 Picture = Literal["none", "graph", "diagram", "molecule", "photo", "image"]
-Follow = Literal["none", "solve", "explain", "change", "draw", "answer"]
+# How the message leans on the last reply. A texted reply is most of a chat ("yap", "nah",
+# "the 2nd", "wdym", "lol ok"; owner, 2026-11-21), and one "answer" for all of them told
+# the reply to go on with an offer it never made: "nah im good" after the sky's colour got
+# "Glad to hear it", and "lol ok" a reply about the words "lol ok". Each kind has its note
+# (``FOLLOW_NOTES``); ``tests/behavior/follow_eval.py`` measures the read on them.
+Follow = Literal[
+    "none",
+    "solve",
+    "explain",
+    "more",
+    "change",
+    "draw",
+    "accept",
+    "decline",
+    "pick",
+    "answer",
+    "react",
+]
+FOLLOWS: tuple[str, ...] = get_args(Follow)
 
 _SYSTEM = (
     "Today is {today}. Read the user's last message and say how an assistant app should "
@@ -133,20 +153,31 @@ _SYSTEM = (
     "animal or person; image: an imagined picture to paint (a scene, an animal doing "
     'something, a logo, a poster). A map is none. "Draw it" shows what the conversation '
     "is about: a circuit is a diagram, a compound a molecule, a curve a graph.\n\n"
-    "follow is how the message relates to the earlier turns; with no earlier turns it is "
-    "none:\n"
+    "follow is what the message does with the assistant's last reply; people text short "
+    '("yap", "nah", "the 2nd", "wdym"), so read it against that reply\'s end, where '
+    "its question or offer is; with no earlier turns it is none:\n"
     "- none: it stands alone, a new question or request\n"
     "- solve: work out a problem an earlier message stated, also one the assistant posed "
     '("do it", "solve it", "what\'s the answer")\n'
-    '- explain: more on the last answer ("step by step", "why?", "explain it simply")\n'
+    '- explain: asks what the last answer meant or why ("why?", "how?", "wdym", "huh", '
+    '"simpler", "step by step")\n'
+    '- more: asks for more of the last answer or to keep going ("more", "go on", "and?", '
+    '"what else", "pls" when nothing was offered)\n'
     "- change: the earlier problem or work with something changed or something else asked "
     'of it ("what if it was 30 m/s?", "now the second derivative", "and the slowest?", '
     '"make it shorter", "in a table", "another one")\n'
     '- draw: show what the conversation is about ("draw it", "graph it", "show me it '
     'moving")\n'
-    "- answer: a reply to the assistant's question or offer: a value or detail it asked "
-    'for, a choice, yes or no, accepting an offer ("do it" after "want me to make a '
-    "plan?\"), a quiz answer, or the user's own answer to check\n\n"
+    '- accept: yes to something the last reply offered or proposed to do ("yes", "yap", '
+    '"sure", "go", "pls", "do it")\n'
+    "- decline: no to the last reply's offer or question, or a no thanks with nothing "
+    'offered ("nah", "no thanks", "nah im good", "not now")\n'
+    "- pick: chooses one of the options or items the last reply listed or asked between "
+    '("the 2nd", "pasta", "both", "b")\n'
+    "- answer: gives a value or detail the last reply asked for (a number, a name, a "
+    "place, how many), a quiz answer, or the user's own answer to check\n"
+    "- react: a reaction, not a request, to a reply that asked and offered nothing "
+    '("ok", "cool", "lol", "thanks", "wow", "makes sense")\n\n'
     "Reply with JSON only, eight keys in this order: asked is true when the user's last "
     "message asks you to search the web or look up something about the world (a fact, a "
     "person, a place, a thing), google it or check online, whatever the topic; a search of "
@@ -221,7 +252,7 @@ class TurnDecision(BaseModel):
     @field_validator("follow", mode="before")
     @classmethod
     def _follow(cls, value: Any) -> str | None:
-        return _known(value, ("none", "solve", "explain", "change", "draw", "answer"))
+        return _known(value, FOLLOWS)
 
     @property
     def searches(self) -> bool:
@@ -274,7 +305,9 @@ def _quoted(role: str, content: str, last: bool = False) -> str:
         logger.info("practice cards not quoted (%s)", type(exc).__name__)
         return head
     if not found:
-        return head
+        # The last reply's end too: its question or offer is there, and a "yes" or "the 2nd"
+        # answers it ("…Want me to turn this into an evening routine?", past 1500 characters).
+        return f"{content[: limit - _END_CHARS]} … {content[-_END_CHARS:]}" if last else head
     cut = [card for card in found if card.question not in head]
     cards = " | ".join(f"{card.question} {_lettered(card.options)}".strip() for card in cut)
     quoted = f"{head} … [practice card: {cards[:_CARD_CHARS]}]" if cards else head
