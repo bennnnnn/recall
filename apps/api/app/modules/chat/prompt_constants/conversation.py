@@ -171,9 +171,9 @@ FOLLOW_NOTES = {
         "reply already gave is done: never write it again."
     ),
     "decline": (
-        "They said no to what your last reply offered or asked. Take it lightly in a few "
-        "words, the way a friend would: don't offer it again, don't repeat what you already "
-        "said, and don't make a new offer."
+        "They said no, or no thanks. Take it lightly in a few words, the way a friend would "
+        "(\"No worries 👍\"): don't offer anything again, don't repeat what you already said, "
+        "and never name something they turned down that your last reply did not offer."
     ),
     "pick": (
         "They chose one of the options your last reply gave: go on with that one now, without "
