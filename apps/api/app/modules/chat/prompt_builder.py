@@ -315,10 +315,10 @@ async def _history_rag_block(
 
 
 def _assemble(
-    turn: PromptTurn, window: PromptWindow, *, math_followup: bool
+    turn: PromptTurn, window: PromptWindow, *, math_followup: bool, stats: PromptStats | None
 ) -> list[dict[str, str]]:
     """The two system messages, the history, then the turn's context and the contracts
-    kept beside the user turn."""
+    kept beside the user turn; ``stats`` gets the rules message for ordinary chat."""
     # A subject's reply policy stated twice keeps its copy closest to the user turn.
     stable, rules, context, nearby = last_policy_parts(
         render_rules(STABLE_SECTIONS, turn, table="stable"),
@@ -326,6 +326,8 @@ def _assemble(
         render_rules(CONTEXT_SECTIONS, turn, table="context"),
         render_rules(NEARBY_CONTRACTS, turn, table="nearby"),
     )
+    if stats is not None:
+        stats.ordinary = _ordinary_prompt(turn, "\n\n".join(rules))
     messages = [
         *({"role": "system", "content": "\n\n".join(parts)} for parts in (stable, rules)),
         *history_messages(window, math_followup=math_followup),
@@ -491,8 +493,4 @@ async def build_prompt_messages(
         asked_practice=asked_practice,
         summarized=_fill_stats(stats, blocks.recalled, blocks.memory_hints, blocks.chat),
     )
-    messages = _assemble(turn, window, math_followup=followup == "math")
-    if stats is not None:
-        # The second system message is the turn's rules (``_assemble``).
-        stats.ordinary = _ordinary_prompt(turn, messages[1]["content"])
-    return messages
+    return _assemble(turn, window, math_followup=followup == "math", stats=stats)

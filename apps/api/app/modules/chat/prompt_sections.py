@@ -23,6 +23,7 @@ from typing import Any
 
 from app.core.config import Settings
 from app.models.orm import User
+from app.modules.account.settings_intent import extract_settings_changes
 from app.modules.chat import response_tone as response_tone_service
 from app.modules.chat.clarify_turn import clarify_reply_hint
 from app.modules.chat.continuation_subject import exchange_pairs, is_resume_request
@@ -85,6 +86,7 @@ from app.modules.chat.prompt_profile import (
 from app.modules.chat.prompt_rules import PromptRule
 from app.modules.chat.prompt_subjects import SUBJECT_HINTS
 from app.modules.chat.turn_prep.saved_place import profile_place
+from app.modules.todos import is_reminder_request
 from app.modules.turn_reading.capabilities import is_capabilities_question, names_a_setting
 from app.modules.turn_reading.conversation import greeting_run, is_correction, is_social_opener
 from app.modules.turn_reading.length import (
@@ -233,22 +235,26 @@ def _style_hints(turn: PromptTurn) -> list[str]:
 
 
 def may_be_ordinary(turn: PromptTurn) -> bool:
-    """The turn may take ordinary chat's rules when its read calls it everyday chat: not
-    small talk (already short), not a subject's follow-up, several requests, a file or photo
-    of its own, or a question about the user or what they said before, whose privacy and
-    memory rules it keeps whole."""
+    """The turn may take ordinary chat's rules when its read calls it everyday chat: a
+    question to answer, not small talk (already short), a reminder, a setting, a picture, a
+    subject's follow-up, several requests or a file or photo of its own, and not about the
+    user, their email or what they said before, whose privacy and memory rules it keeps
+    whole."""
     query = turn.query
-    return bool(
-        turn.settings.ordinary_prompt_enabled
-        and query
-        and not turn.lightweight
-        and turn.followup is None
-        and not turn.multi
-        and not turn.holds_attachment
-        and not turn.recalls_shared_past
-        and not turn.minimal_personal_context
-        and not is_profile_fact_question(query)
-        and not is_profile_recall_pushback(query)
+    if not (turn.settings.ordinary_prompt_enabled and query) or turn.lightweight:
+        return False
+    if turn.followup is not None or turn.multi or turn.holds_attachment:
+        return False
+    if turn.recalls_shared_past or turn.minimal_personal_context:
+        return False
+    # A reminder or a setting is its own path's, as the plan reads it (``intents.part_kind``);
+    # a picture, a photo or a problem is the read's to name.
+    if is_reminder_request(query) or extract_settings_changes(query):
+        return False
+    return not (
+        is_profile_fact_question(query)
+        or is_profile_recall_pushback(query)
+        or should_include_profile_email(query)
     )
 
 

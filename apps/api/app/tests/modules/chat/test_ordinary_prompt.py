@@ -222,3 +222,22 @@ async def test_the_switch_off_builds_no_ordinary_rules() -> None:
 async def test_a_question_about_the_user_or_several_requests_has_none(case_id: str) -> None:
     _messages, out = await render(resolve(_golden(case_id), _DEFAULTS))
     assert "ordinary" not in out
+
+
+@pytest.mark.parametrize(
+    ("query", "ordinary"),
+    [
+        ("how do I ask for a raise at my job?", True),
+        ("remind me to call mom tomorrow at 5pm", False),
+        ("what's my email?", False),
+        ("switch to dark mode", False),
+    ],
+)
+@pytest.mark.asyncio
+async def test_a_reminder_a_setting_or_the_users_email_keeps_the_full_rules(
+    query: str, ordinary: bool
+) -> None:
+    case = _golden("branch:steps-career")
+    asked = {**case, "kwargs": {**case.get("kwargs", {}), "query_text": query}}
+    _messages, out = await render(resolve(asked, _DEFAULTS))
+    assert ("ordinary" in out) is ordinary
