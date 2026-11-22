@@ -220,3 +220,77 @@ def test_a_card_from_words_the_reply_contradicts_is_left_unchecked(
 
 def test_the_segment_reply_states_another_value() -> None:
     assert stated_verdict(_SEGMENT_REPLY, _CIRCLE_CARD) == "conflict"
+
+
+# --- Review of #2523 ---------------------------------------------------------------------
+
+_ANGLES_REPLY = (
+    "**Answer**\nThe angles are approximately $53.1°$, $59.5°$, and $67.4°$.\n\n"
+    "```answer\n\\approx 53.1°, \\approx 59.5°, \\approx 67.4°\n```"
+)
+
+
+@pytest.mark.parametrize(
+    ("reply", "card", "verdict"),
+    [
+        # The exact repro: a list read to its first value held the reply to one of three.
+        (_ANGLES_REPLY, _ANGLES_CARD, "same"),
+        ("**Answer**\nThe roots are 2 and 3.", "2 or 3", "same"),
+        ("**Answer**\nThe angles are $53.1°$, $59.5°$ and $70°$.", _ANGLES_CARD, "conflict"),
+        ("**Answer**\n53.1°, 59.5°, 67.4°", _ANGLES_CARD, "same"),
+        # A list read stops at the first item that is no value.
+        ("**Answer**\nThe area is 50 cm², the side 10 cm.", r"50\ \mathrm{cm}^{2}", "same"),
+    ],
+)
+def test_a_listed_answer_states_every_value(reply: str, card: str, verdict: str) -> None:
+    assert stated_verdict(reply, card) == verdict
+
+
+@pytest.mark.parametrize(
+    ("reply", "card", "another_kind"),
+    [
+        # "in" is the preposition here, not inches.
+        ("**Answer**\nThe largest angle is 120 in degrees.", r"\approx 120°", False),
+        ("**Answer**\nIt measures 120 in the diagram.", r"\approx 120°", False),
+        # Inches as a unit are still a length.
+        ("**Answer**\nThe side is 12 in.", r"\approx 120°", True),
+        ("**Answer**\nThe side is $12\\text{ in}$", r"\approx 120°", True),
+        # Square, cubic and spelled-out units are areas, volumes and lengths.
+        (
+            "**Answer**\nThe volume of the 5 cm cube is 125 cubic cm.",
+            r"125\ \mathrm{cm}^{3}",
+            False,
+        ),
+        ("**Answer**\nThe area is 25 square metres.", r"25\ \mathrm{m}^{2}", False),
+        ("**Answer**\nThe floor is 120 sq ft.", r"120\ \mathrm{ft}^{2}", False),
+        ("**Answer**\nThe area is 25 square metres.", r"\approx 30°", True),
+        ("**Answer**\nThe side is 12 centimetres.", r"\approx 30°", True),
+        ("**Answer**\nThe volume is 125 cubic cm.", r"5\ \mathrm{cm}", True),
+    ],
+)
+def test_a_measure_kind_reads_its_unit_words(reply: str, card: str, another_kind: bool) -> None:
+    assert answer_of_another_kind(reply, card) is another_kind
+
+
+def test_a_reply_that_states_the_card_value_is_never_another_kind() -> None:
+    """Its number matched the card ("same"): no demotion, whatever else the Answer measures."""
+    card = r"\theta \approx 30°"
+    reply = "**Answer**\n$\\theta = 30$, the angle opposite the $5\\text{ cm}$ side."
+    assert stated_verdict(reply, card) == "same"
+    assert answer_of_another_kind(reply, card)
+    verified = VerifiedMathBlock(text="unused", canonical_answer=card, read_from_words=True)
+    assert contradicted_reading(reply, verified, card) is None
+
+
+@pytest.mark.parametrize(
+    ("question", "kind"),
+    [
+        ("What is a circle's area if its radius is 5 cm?", "circle"),
+        ("Find a circle’s circumference with radius 3 cm.", "circle"),
+        ("A triangle's sides are 3 cm, 4 cm and 5 cm. Find its area.", "triangle_sides"),
+    ],
+)
+def test_a_possessive_names_the_shape(question: str, kind: str) -> None:
+    intent = extract_math_intent(question)
+    assert intent is not None
+    assert intent.kind == kind

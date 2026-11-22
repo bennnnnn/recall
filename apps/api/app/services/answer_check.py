@@ -306,17 +306,37 @@ def has_question(prose: str) -> bool:
 
 
 def _segments_after(sentence: str, pattern: re.Pattern[str]) -> list[str]:
-    """Text after each match up to the next connective or separator."""
+    """Text after each match up to the next connective or the sentence's end."""
     out: list[str] = []
     for match in pattern.finditer(sentence):
         rest = sentence[match.end() :]
         stop = _CONNECTIVE.search(rest)
         if stop is not None:
             rest = rest[: stop.start()]
-        rest = VALUE_SEPARATORS.split(rest, maxsplit=1)[0]
         rest = re.split(r"[.!?](?=\s|$)", rest, maxsplit=1)[0]
         out.append(rest)
     return out
+
+
+# The joins of a list of values: "53.1°, 59.5°, and 67.4°", "2 or 3"; 1,500 is one value.
+_LIST_JOIN = re.compile(r"\s*,(?!\d{3}(?!\d))\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+")
+
+
+def _listed_values(segment: str) -> list[Number]:
+    """The value a statement sets and each value it goes on to list ("The angles are 53.1°,
+    59.5°, and 67.4°"), up to the first item that is no value or ends the value ("2 cm for
+    the base"). A list read only to its first item held a correct three-angle Answer to
+    one of the card's three (review, #2523)."""
+    values: list[Number] = []
+    for item in _LIST_JOIN.split(segment):
+        piece, *after = VALUE_SEPARATORS.split(item, maxsplit=1)
+        read = read_value(piece)
+        if not read:
+            break
+        values.extend(read)
+        if after:
+            break
+    return values
 
 
 def _label_values(sentence: str, label: str) -> list[Number]:
@@ -355,12 +375,20 @@ def _label_comparable(sentence: str) -> str:
     return re.sub(r"[{}_\\]", " ", sentence)
 
 
-def _connective_values(text: str) -> list[Number]:
+def _connective_values(text: str) -> list[list[Number]]:
+    """The values each connective in ``text`` sets, one list per statement, in order."""
+    groups = [_listed_values(segment) for segment in _segments_after(text, _CONNECTIVE)]
+    return [group for group in groups if group]
+
+
+def _whole_list(line: str) -> list[Number]:
+    """A line that is one value or a list of values ("53.1°, 59.5°, 67.4°"), else empty."""
     values: list[Number] = []
-    for segment in _segments_after(text, _CONNECTIVE):
-        read = read_value(segment)
-        if read:
-            values.extend(read)
+    for item in _LIST_JOIN.split(line):
+        read = read_value(item)
+        if not read:
+            return []
+        values.extend(read)
     return values
 
 
@@ -369,14 +397,12 @@ def _first_bare_value(region: str) -> list[Number]:
         stripped = line.strip(" \t*_-•")
         if not stripped:
             continue
-        read = read_value(stripped)
-        if read:
-            return read
+        listed = _whole_list(stripped)
+        if listed:
+            return listed
         # "R = 20.4 m" on the Answer line: the value after its last equals sign.
         if "=" in stripped:
-            read = read_value(stripped.rsplit("=", 1)[-1])
-            if read:
-                return read
+            return read_value(stripped.rsplit("=", 1)[-1]) or []
         return []
     return []
 
@@ -443,7 +469,7 @@ def _stated_values(prose: str, verified: VerifiedValue) -> tuple[list[Number], l
                 return final, every
         connective = _connective_values(region.split("\n\n")[0])
         if connective:
-            return connective[-1:], connective
+            return connective[-1], [number for group in connective for number in group]
         bare = _first_bare_value(region)
         if bare:
             return bare, bare
@@ -457,9 +483,9 @@ def _stated_values(prose: str, verified: VerifiedValue) -> tuple[list[Number], l
     if region is not None:
         return [], []  # an Answer heading that states nothing: nothing to compare
     for sentence in reversed(sentences(body)):
-        values = _connective_values(sentence)
-        if values:
-            return values[-1:], values
+        groups = _connective_values(sentence)
+        if groups:
+            return groups[-1], [number for group in groups for number in group]
     result = _result_statement(body, verified)
     return (result, result) if result else ([], [])
 
@@ -577,11 +603,29 @@ def stated_verdict(prose: str, answer_body: str) -> Verdict:
     return "conflict"
 
 
-# What a value measures, by its unit: an angle, a length, an area or a volume.
-_LENGTHS = r"(?:mm|cm|km|m|in|ft|yd|units?)"
+# What a value measures, by its unit: an angle, a length, an area or a volume. A length unit
+# by its symbol or spelled out ("centimetres", "feet"); "in" is inches only where it ends the
+# value ("12 in.", "12 in", "5 in^2", "3 in by 4 in"), never the preposition ("120 in degrees").
+_LENGTH_WORDS = r"(?:milli|centi|kilo)?met(?:er|re)s?|inch(?:es)?|feet|foot|yards?|miles?|units?"
+_INCHES = r"in(?=\.|\s*(?:[,;:)!?^\n]|$)|\s+(?:and|or|by|x)\b)"
+# The symbols keep their case (0.5 M is a molarity); the words take any.
+_LENGTHS = rf"(?:(?i:{_LENGTH_WORDS})|mm|cm|km|m|ft|yd|mi)(?![A-Za-z/])|{_INCHES}"
 _MEASURED = re.compile(
-    rf"(?<![\w.])\d+(?:\.\d+)?\s*(?:(?P<angle>°|degrees?\b)|(?P<unit>{_LENGTHS})\b(?:\^(?P<power>[23]))?)"
+    rf"(?<![\w.])\d+(?:\.\d+)?\s*(?:(?P<angle>°|(?i:degrees?)\b)|"
+    rf"(?:(?P<square>(?i:square|sq)\.?)|(?P<cubic>(?i:cubic|cu)\.?))?\s*(?P<unit>{_LENGTHS})"
+    rf"(?:\s*\^(?P<power>[23])|\s+(?P<named>(?i:squared|cubed))\b)?)"
 )
+
+
+def _measure_kind(match: re.Match[str]) -> str:
+    """A length, or an area or a volume by its power: "cm^2", "square metres", "cubic cm",
+    "ft squared". A volume read as a length ("125 cubic cm") faced a card of cm³ as a measure
+    of another kind (review, #2523)."""
+    if match["square"] or match["power"] == "2" or (match["named"] or "").lower() == "squared":
+        return "area"
+    if match["cubic"] or match["power"] == "3" or (match["named"] or "").lower() == "cubed":
+        return "volume"
+    return "length"
 
 
 def _kinds(text: str) -> set[str]:
@@ -590,7 +634,7 @@ def _kinds(text: str) -> set[str]:
     found: set[str] = set()
     for match in _MEASURED.finditer(cleaned):
         if match["unit"]:
-            found.add({"2": "area", "3": "volume"}.get(match["power"] or "", "length"))
+            found.add(_measure_kind(match))
         elif cleaned[match.end() : match.end() + 1] not in {"C", "F"}:
             found.add("angle")
     return found

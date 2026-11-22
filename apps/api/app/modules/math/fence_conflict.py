@@ -70,8 +70,10 @@ def contradicted_reading(
     )
     # A card no plain value (a ratio) may still face an Answer that is an expression in letters.
     letters = verdict == "unknown" and _letters_for_a_number(worked, answer_body)
-    # An Answer that measures another kind of thing (a length under a card of angles).
-    other = verdict != "conflict" and answer_of_another_kind(worked, answer_body)
+    # An Answer that measures another kind of thing (a length under a card of angles), asked
+    # only where no stated value was compared to the card: a reply whose value matched it
+    # ("same", "rounded") is never demoted, and a "conflict" is demoted already.
+    other = verdict in {"absent", "unknown"} and answer_of_another_kind(worked, answer_body)
     if verdict != "conflict" and not letters and not other:
         return None
     text = normalize_owned_fences(reply, ANSWER_FENCE_LANGS)

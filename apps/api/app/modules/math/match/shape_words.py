@@ -139,6 +139,10 @@ _VERTICES = re.compile(
 )
 
 
+# "a circle's area", "the triangle's sides": the noun without its possessive.
+_POSSESSIVE = re.compile(r"['\u2019]s$")
+
+
 def _words_of(intent: MathIntent) -> frozenset[str]:
     if intent.kind == "solid":
         solid = _SOLIDS.get(intent.solid_shape or "")
@@ -179,7 +183,7 @@ def unread_words(text: str, own: frozenset[str]) -> list[str]:
     vertices = set(next(iter(names))) if len(names) == 1 else set()
     unread: list[str] = []
     for match in _WORD.finditer(text):
-        raw = re.sub(r"['\u2019]s$", "", match.group())
+        raw = _POSSESSIVE.sub("", match.group())
         word = raw.lower()
         if word in _GLUE or word in _UNITS or word in own or word.removesuffix("s") in own:
             continue
@@ -208,7 +212,8 @@ def shape_call_answers(kind: str, text: str) -> bool:
 def _named(text: str, nouns: frozenset[str]) -> bool:
     """``text`` names the shape by one of its ``nouns`` (in the singular or the plural), not
     as a unit ("square centimetres")."""
-    said = {word.lower().removesuffix("s") for word in _WORD.findall(_UNIT_POWER.sub(" ", text))}
+    words = _WORD.findall(_UNIT_POWER.sub(" ", text))
+    said = {_POSSESSIVE.sub("", word).lower().removesuffix("s") for word in words}
     return not nouns.isdisjoint(said)
 
 
