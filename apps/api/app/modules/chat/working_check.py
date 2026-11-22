@@ -41,8 +41,8 @@ _SHOWN = re.compile(
 # A result in a prefixed unit the working did not use (7200 m = 7.2 km, 4.52e6 J = 4.5 MJ)
 # is a conversion, not arithmetic to check.
 _PREFIXED_UNIT = re.compile(r"\\(?:text|mathrm)\s*\{\s*([kMGmµμnpc][A-Za-z]+)")
-_OPERATOR = re.compile(r"[-+*/]|sqrt|pi|sind|cosd|tand")
-_RELATION = re.compile(r"\\approx|≈|=")
+OPERATOR = re.compile(r"[-+*/]|sqrt|pi|sind|cosd|tand")
+RELATION = re.compile(r"\\approx|≈|=")
 # Models round as they go: a step within 1% of its value is not called a slip.
 _RELATIVE_SLACK = 0.01
 
@@ -154,7 +154,7 @@ def _is_wrong(value: float, shown: float, rounding: float, approximate: bool) ->
 
 
 # A name a step solves for or a given names: t, v_1, t_{\text{flight}}, \mu, \theta_1.
-_NAME = re.compile(r"(?:\\[A-Za-z]+|[A-Za-z])(?:_\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}|_\w)?")
+NAME = re.compile(r"(?:\\[A-Za-z]+|[A-Za-z])(?:_\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}|_\w)?")
 
 
 def _note_rounded(
@@ -173,7 +173,7 @@ def _note_rounded(
     exact: float | None = None
     if left is not None:
         exact = evaluate(_exact_side(left, rounded))
-    elif _NAME.fullmatch(name := left_tex.replace(" ", "")):
+    elif NAME.fullmatch(name := left_tex.replace(" ", "")):
         if shown is None:
             if (value := evaluate(_exact_side(right, rounded))) is not None:
                 worked[name] = value
@@ -205,8 +205,8 @@ def wrong_steps(reply: str) -> list[WrongStep]:
             # Words between two lines ("**(b)**", "For the second resistor,") start another
             # case: a name reused there is another value (review, #2520).
             before = None
-        parts = _RELATION.split(segment)
-        relations = _RELATION.findall(segment)
+        parts = RELATION.split(segment)
+        relations = RELATION.findall(segment)
         if len(parts) > 1 and not parts[0].strip():
             # "$= 0.36$" goes on from the line before.
             parts[0] = last
@@ -217,14 +217,14 @@ def wrong_steps(reply: str) -> list[WrongStep]:
             _note_rounded(left_tex, left, right, rounded, worked)
             if left is None or right is None or left == right:
                 continue
-            step = _slip(left_tex, right_tex, left, right, relations[index] != "=", rounded)
+            step = slip(left_tex, right_tex, left, right, relations[index] != "=", rounded)
             if step is not None:
                 found.append(step)
         before = _chain(parts, relations, before, found, rounded)
     return found
 
 
-def _slip(
+def slip(
     left_tex: str,
     right_tex: str,
     left: str,
@@ -235,7 +235,7 @@ def _slip(
     """``left = right`` when it does not hold: a worked side (an operation or a function) and
     what it is said to equal, a written result or another exact form (√11375 = 25√73)."""
     # A number in powers of ten is one number: "7.36 * 10^-20 J = 0.459 eV" converts a unit.
-    if _OPERATOR.search(_SCIENTIFIC_PLAIN.sub("1", left).lstrip("-+")) is None:
+    if OPERATOR.search(_SCIENTIFIC_PLAIN.sub("1", left).lstrip("-+")) is None:
         return None
     value = evaluate(left)
     if value is None:
@@ -323,12 +323,12 @@ def _chain(
         first = plain_arithmetic(first_tex)
         earlier = plain_arithmetic(before[1])
         if first is not None and earlier is not None and _restates(earlier, first):
-            step = _slip(before[1], first_tex, earlier, first, relations[0] != "=", rounded)
+            step = slip(before[1], first_tex, earlier, first, relations[0] != "=", rounded)
             if step is not None:
                 found.append(step)
     worked = [part.strip() for part in parts[1:] if plain_arithmetic(part.strip()) is not None]
     exprs = [
-        part for part in worked if _OPERATOR.search((plain_arithmetic(part) or "").lstrip("-+"))
+        part for part in worked if OPERATOR.search((plain_arithmetic(part) or "").lstrip("-+"))
     ]
     return (name, exprs[-1], worked[-1]) if exprs else None
 
@@ -343,7 +343,7 @@ def _restates(earlier: str, later: str) -> bool:
     return _NUMBER_TOKEN.sub("#", earlier) != _NUMBER_TOKEN.sub("#", later)
 
 
-def _shown_like(value: float, shown: str) -> str:
+def shown_like(value: float, shown: str) -> str:
     """``value`` written the way ``shown`` was: same places, or the same power of ten."""
     plain = plain_arithmetic(shown) or ""
     match = _SHOWN.fullmatch(plain)
@@ -396,14 +396,14 @@ def working_note(reply: str) -> str | None:
         if not unheld:
             return None
         values = ", ".join(
-            f"{name} = {_shown_like(value, '0.00')}" for name, value in unheld[0].values.items()
+            f"{name} = {shown_like(value, '0.00')}" for name, value in unheld[0].values.items()
         )
         return (
             f"Check these values: ${values}$ do not satisfy ${unheld[0].equation}$. "
             "The answer depends on them."
         )
     step = steps[0]
-    right = _shown_like(step.value, step.shown)
+    right = shown_like(step.value, step.shown)
     return (
         f"Check this step: ${step.left} = {right}$, not ${step.shown}$. "
         "The lines after it depend on it."
@@ -425,7 +425,7 @@ def corrected_approximations(reply: str) -> str:
     is held, never a side that carries a rounded decimal itself."""
 
     def fix(match: re.Match[str]) -> str:
-        exact_tex = _RELATION.split(match.group("exact"))[-1].strip()
+        exact_tex = RELATION.split(match.group("exact"))[-1].strip()
         plain = plain_arithmetic(exact_tex)
         if plain is None or _DECIMAL.search(plain) is not None:
             return match.group(0)
@@ -438,7 +438,7 @@ def corrected_approximations(reply: str) -> str:
         start = match.start("number") - match.start()
         end = match.end("number") - match.start()
         whole = match.group(0)
-        return whole[:start] + _shown_like(value, match.group("number")) + whole[end:]
+        return whole[:start] + shown_like(value, match.group("number")) + whole[end:]
 
     return _outside_fences(reply, lambda text: _APPROXIMATED.sub(fix, text))
 

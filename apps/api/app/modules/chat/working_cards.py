@@ -1,0 +1,203 @@
+# ruff: noqa: RUF001 -- a card's minus is read as either sign a reply writes.
+"""An unchecked answer card held to the working's last line above it.
+
+A model that ends its working on an expression it never works out ("$\\text{total} = 5 +
+20$", "$D = 4 - 12$") does that last sum in its head, and sometimes misses it: the card
+said ``total = 37`` and ``D = -7`` (live, 2026-11-22), with the closing line repeating the
+card's number. The working check (``working_check.wrong_steps``) reads only the
+equalities the working writes, so that last step, from the expression to the card, was
+never read.
+
+The card is that step: its value must be the expression's. When it is not, and the
+expression is the working's own (each of its numbers written in the question or earlier in
+the reply, or the line restating the line before it with the same value), the card takes the expression's
+value, written to the card's own places (the working ends unrounded, the card rounds
+once), and every repeat of the wrong value after the card follows it, so the card and the
+closing summary never disagree. When the expression is not held by the working, which of
+the two slipped is unknown: the reply keeps both and a note names the step.
+
+Only a card no solver checked, holding one value, is read; only when nothing but
+headings stands between the working's last line and the card; and only when the line
+names what the card does (or nothing). A whole card next to a fractional value (4 buses
+for 3.75) is a count rounded as the question needs, never a slip.
+"""
+
+from __future__ import annotations
+
+import math
+import re
+from dataclasses import dataclass
+
+from app.modules.chat.tex_arithmetic import INLINE_MATH, evaluate, math_statements, plain_arithmetic
+from app.modules.chat.working_check import (
+    NAME,
+    OPERATOR,
+    RELATION,
+    shown_like,
+    slip,
+    wrong_steps,
+)
+from app.services.answer_fence import (
+    ANSWER_FENCE_LANGS,
+    VERIFIED_ANSWER_MARKER,
+    answer_header_and_value,
+)
+from app.services.md_fence_scan import iter_fences
+
+# A line that is a bold heading alone: "**Answer**", "**Answer (b)**".
+_BOLD_LINE = re.compile(r"\*\*[^*\n]+\*\*")
+_UPRIGHT = re.compile(r"\\(?:text|mathrm|operatorname|textrm)\s*\{([^{}]*)\}")
+_NUMBER = re.compile(r"\d+(?:\.\d+)?")
+
+
+@dataclass(frozen=True)
+class CardSlip:
+    """The card at ``body_start:body_end`` shows ``shown`` where its working makes ``value``."""
+
+    body_start: int
+    body_end: int
+    expression: str
+    shown: str
+    value: float
+    # The expression is the working's own, and the card is the reply's last: the text after
+    # it is the closing summary, not another part's working.
+    held: bool
+
+
+def _name(tex: str) -> str:
+    """A name as written, its upright wrapper and spaces off: ``\\text{total}`` is total."""
+    return re.sub(r"[\s{}]", "", _UPRIGHT.sub(r"\1", tex))
+
+
+def _card_value(body: str) -> tuple[str, str, bool] | None:
+    """An unchecked card's symbol (or ""), its one value's TeX, and whether it says "≈"."""
+    headers, value = answer_header_and_value(body)
+    if not value or "\n" in value or VERIFIED_ANSWER_MARKER in headers:
+        return None
+    value = value.strip("*$ ")
+    parts, relations = RELATION.split(value), RELATION.findall(value)
+    if len(parts) > 2:
+        return None
+    symbol, number = (parts[0].strip(), parts[1].strip()) if relations else ("", value)
+    return symbol, number, bool(relations) and relations[0] != "="
+
+
+def _only_headings(between: str) -> bool:
+    """Nothing but blank lines and bold headings between the working and the card."""
+    return all(
+        not line.strip() or _BOLD_LINE.fullmatch(line.strip()) for line in between.split("\n")
+    )
+
+
+def _held(statements: list[str], expression: str, value: float, earlier: str, name: str) -> bool:
+    """The expression is the working's own: the line before it worked the same name to the
+    same value ("D = 2^2 - 4(3)(1)" then "D = 4 - 12"), or each of its numbers is written
+    earlier in the reply ("part = 20" before "5 + 20")."""
+    if len(statements) >= 2 and name:
+        before = RELATION.split(statements[-2])
+        last = plain_arithmetic(before[-1].strip())
+        same = evaluate(last) if last is not None else None
+        if (
+            len(before) > 1
+            and _name(before[0]) == name
+            and same is not None
+            and math.isclose(same, value, rel_tol=1e-9, abs_tol=1e-12)
+        ):
+            return True
+    written = set(_NUMBER.findall(earlier))
+    return all(number in written for number in _NUMBER.findall(expression))
+
+
+def _counted(value: float, shown: str) -> bool:
+    """A whole card beside a fractional value: a count rounded up or down as asked."""
+    plain = plain_arithmetic(shown)
+    number = evaluate(plain) if plain is not None else None
+    return (
+        number is not None
+        and number == int(number)
+        and number in (math.floor(value), math.ceil(value))
+        and value != int(value)
+    )
+
+
+def card_slips(text: str, question: str = "") -> list[CardSlip]:
+    """Each unchecked card whose one value is not the working's last expression's; a
+    number of the ``question`` is one the working holds."""
+    found: list[CardSlip] = []
+    previous = 0
+    fences = list(iter_fences(text))
+    last_card = max(
+        (fence.start for fence in fences if fence.closed and fence.lang in ANSWER_FENCE_LANGS),
+        default=-1,
+    )
+    for fence in fences:
+        above, start = text[previous : fence.start], previous
+        previous = fence.end
+        if not fence.closed or fence.lang not in ANSWER_FENCE_LANGS:
+            continue
+        card = _card_value(text[fence.body_start : fence.body_end])
+        lines = list(INLINE_MATH.finditer(above))
+        if card is None or not lines or not _only_headings(above[lines[-1].end() :]):
+            continue
+        statements = list(math_statements(above))
+        if not statements:
+            continue
+        parts = RELATION.split(statements[-1])
+        expression_tex = parts[-1].strip()
+        expression = plain_arithmetic(expression_tex)
+        if expression is None or OPERATOR.search(expression.lstrip("-+")) is None:
+            continue
+        name = _name(parts[0]) if len(parts) > 1 else ""
+        symbol, shown_tex, approximate = card
+        if name and _name(symbol) != name and not (not symbol and NAME.fullmatch(name)):
+            continue
+        shown = plain_arithmetic(shown_tex)
+        value = evaluate(expression)
+        if shown is None or value is None or _counted(value, shown_tex):
+            continue
+        step = slip(expression_tex, shown_tex, expression, shown, approximate, {})
+        if step is None:
+            continue
+        earlier = f"{question}\n{text[: start + lines[-1].start()]}"
+        held = (
+            fence.start == last_card
+            and not wrong_steps(text)
+            and _held(statements, expression_tex, value, earlier, name or _name(symbol))
+        )
+        found.append(
+            CardSlip(fence.body_start, fence.body_end, expression_tex, shown_tex, value, held)
+        )
+    return found
+
+
+def _repeats(number: str) -> re.Pattern[str]:
+    """The card's wrong number written again in prose or maths, never inside another."""
+    digits = re.escape(number.lstrip("-−"))
+    sign = "[-−]" if number.startswith(("-", "−")) else ""
+    lead = r"(?<![\d.,])" if sign else r"(?<![\d.,\-−])"
+    return re.compile(rf"{lead}{sign}{digits}(?![\d]|[.,]\d)")
+
+
+def held_cards(text: str, question: str = "") -> tuple[str, str | None]:
+    """``text`` with each card its own working contradicts set to the working's value, and
+    the wrong value said again after it set the same; a note for a slip whose side is
+    unknown (the module docstring)."""
+    note: str | None = None
+    for found in reversed(card_slips(text, question)):
+        right = shown_like(found.value, found.shown)
+        if not found.held:
+            note = note or f"Check the answer: ${found.expression} = {right}$, not ${found.shown}$."
+            continue
+        body = text[found.body_start : found.body_end]
+        at = body.rfind(found.shown)
+        body = body[:at] + right + body[at + len(found.shown) :]
+        wrong = _repeats(plain_arithmetic(found.shown) or found.shown)
+        tail = text[found.body_end :]
+        if wrong.search(text[: found.body_start]) is None:
+            tail = wrong.sub(right, tail)
+        else:
+            # The wrong value is also one the working wrote (a given, a step): which of the
+            # tail's mentions is the card's is unknown, so the lines saying it go.
+            tail = "\n".join(line for line in tail.split("\n") if not wrong.search(line))
+        text = text[: found.body_start] + body + tail
+    return text, note
