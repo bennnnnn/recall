@@ -28,6 +28,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from uuid import UUID
 
+from app.modules.memory.name_claim import assigned_user_names
 from app.modules.memory.slots import frame_words, sensitive_slots
 from app.modules.memory.user_name import user_name_given
 from app.services.text_normalize import straighten_apostrophes
@@ -149,7 +150,10 @@ def quote_gives_answer(
         return True
     name = user_name_given(fact)
     if name is not None:
-        return any(_same_word(part, said) for part in _words(name) for said in quote_words)
+        # Any name it gives: "User's name is Bini; also goes by Bee" from "call me Bee"
+        # keeps the saved name beside the new one.
+        names = [*_words(name), *assigned_user_names(fact)]
+        return any(_same_word(part, said) for part in names for said in quote_words)
     frame = frame_words(fact, slot)
     # "User is a student": the question's word is the whole answer.
     if not frame or all(word in frame for word in _claim(fact)):

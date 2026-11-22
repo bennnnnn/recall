@@ -357,3 +357,10 @@ def test_remember_stands_for_the_first_person_on_its_line():
         slot="relationship_status",
     )
     assert grounding.line is not None
+
+
+def test_a_new_nickname_beside_the_saved_name_is_held_by_the_nickname():
+    """Live eval: "call me Bee" on an account whose memory names them Bini."""
+    fact = "User's name is Bini; also goes by Bee."
+    line = "Just call me Bee from now on"
+    assert _ground(fact, line, line, "name").line is not None
